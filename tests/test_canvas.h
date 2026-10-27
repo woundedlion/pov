@@ -1140,6 +1140,73 @@ inline void test_clip_setters() {
   HS_EXPECT_EQ(fx.clip().margin, 3);
 }
 
+/** @brief Exact clip keys distinguish every field, including wide layouts. */
+inline void test_clip_content_key_is_exact() {
+  static_assert(sizeof(ClipRegion::Key<288, 144>) == sizeof(uint64_t));
+  static_assert(sizeof(ClipRegion::Key<576, 288>) == 2 * sizeof(uint64_t));
+  const ClipRegion BASE{.y_start = 2,
+                        .y_end = 10,
+                        .x_start = 5,
+                        .x_end = 96,
+                        .margin = 1,
+                        .w = 96,
+                        .h = 20};
+  constexpr std::array<int ClipRegion::*, 7> FIELDS{
+      &ClipRegion::y_start, &ClipRegion::y_end,  &ClipRegion::x_start,
+      &ClipRegion::x_end,   &ClipRegion::margin, &ClipRegion::w,
+      &ClipRegion::h};
+  HS_EXPECT_FALSE(BASE.content_key() == ClipRegion::Key<>{});
+  for (const auto FIELD : FIELDS) {
+    ClipRegion changed = BASE;
+    ++(changed.*FIELD);
+    HS_EXPECT_FALSE(BASE.content_key() == changed.content_key());
+    HS_EXPECT_EQ(BASE.content_key(), ClipRegion(BASE).content_key());
+  }
+  constexpr ClipRegion WIDE{.y_start = 2,
+                            .y_end = 280,
+                            .x_start = 5,
+                            .x_end = 576,
+                            .margin = 1,
+                            .w = 576,
+                            .h = 288};
+  constexpr auto WIDE_KEY = WIDE.content_key<576, 288>();
+  static_assert(WIDE_KEY.words[1] != 0);
+  HS_EXPECT_NE(WIDE_KEY.words[1], uint64_t{0});
+  for (const auto FIELD : FIELDS) {
+    ClipRegion changed = WIDE;
+    --(changed.*FIELD);
+    HS_EXPECT_FALSE((WIDE_KEY == changed.content_key<576, 288>()));
+  }
+  ClipRegion wide = WIDE;
+  wide.h = 32;
+  HS_EXPECT_FALSE((WIDE_KEY == wide.content_key<576, 288>()));
+}
+
+/** @brief Clip mutations refresh cached keys and restoring content restores its key. */
+inline void test_canvas_clip_key_tracks_mutators() {
+  TestEffect effect(96, 20);
+  const auto INITIAL = effect.clip_key();
+  HS_EXPECT_EQ(INITIAL, effect.clip().content_key());
+  effect.set_clip(2, 10, 5, 96);
+  const auto CLIPPED = effect.clip_key();
+  HS_EXPECT_FALSE(CLIPPED == INITIAL);
+  HS_EXPECT_EQ(CLIPPED, effect.clip().content_key());
+  effect.set_clip_x(7, 96);
+  HS_EXPECT_FALSE(effect.clip_key() == CLIPPED);
+  HS_EXPECT_EQ(effect.clip_key(), effect.clip().content_key());
+  effect.set_clip_x(5, 96);
+  HS_EXPECT_EQ(effect.clip_key(), CLIPPED);
+  effect.set_margin(3);
+  HS_EXPECT_FALSE(effect.clip_key() == CLIPPED);
+  HS_EXPECT_EQ(effect.clip_key(), effect.clip().content_key());
+  effect.set_margin(1);
+  HS_EXPECT_EQ(effect.clip_key(), CLIPPED);
+  effect.set_clip(0, 20, 0, 96);
+  HS_EXPECT_EQ(effect.clip_key(), INITIAL);
+  Canvas canvas(effect);
+  HS_EXPECT_EQ(canvas.clip_key(), INITIAL);
+}
+
 /** @brief Cached Canvas render bounds match ClipRegion containment. */
 inline void test_canvas_cached_render_clip_matches_region() {
   constexpr int W = 8;
@@ -1348,6 +1415,8 @@ inline int run_canvas_tests() {
   HS_RUN(test_paramlist_fills_to_capacity);
   HS_RUN(test_paramlist_schema_generation);
   HS_RUN(test_clip_setters);
+  HS_RUN(test_clip_content_key_is_exact);
+  HS_RUN(test_canvas_clip_key_tracks_mutators);
   HS_RUN(test_canvas_cached_render_clip_matches_region);
   HS_RUN(test_effect_config_margin);
   HS_RUN(test_pipeline_ref_routes_screen_coordinate_overloads);

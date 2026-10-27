@@ -74,8 +74,7 @@ public:
    * @p motion is ignored.
    */
   HS_FLASH_MEMBER void prepare(const Canvas &canvas, float motion) {
-    clip_stamp = canvas.clip();
-    prepared = true;
+    clip_stamp = canvas.clip_key();
     timed = !Spacetime::flat_surface();
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
@@ -167,7 +166,7 @@ public:
   HS_HOT_FLASH_MEMBER void
   plot(Sink &sink, Canvas &canvas, const math::Vector &end, Start &&start,
        Shade &&shade, const math::Vector &middle_offset) const {
-    HS_CHECK(prepared && clip_stamp == canvas.clip(),
+    HS_CHECK(clip_stamp == canvas.clip_key(),
              "point route not prepared for this clip");
     const math::Vector offset = CURVED ? middle_offset : math::Vector{};
     if (!reaches_clip(end))
@@ -542,8 +541,8 @@ private:
   }
 
 private:
-  ClipRegion clip_stamp;    ///< Clip captured by prepare().
-  bool prepared = false;    ///< Whether prepare() has run.
+  ClipRegion::Key<>
+      clip_stamp{};         ///< Clip captured by prepare(); zero if absent.
   float north_limit = 1.0f; ///< Northernmost splat latitude in the render rows.
   float south_limit =
       -1.0f; ///< Southernmost splat latitude in the render rows.

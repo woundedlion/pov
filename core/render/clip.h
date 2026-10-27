@@ -4,6 +4,9 @@
  */
 #pragma once
 
+#include <array>
+#include <bit>
+#include <cstdint>
 #include "core/platform/constants.h" // MAX_W/MAX_H
 #include "core/platform/platform.h"  // HS_AUDIT_CHECK
 
@@ -60,6 +63,54 @@ struct ClipRegion {
    * @return True when every field matches.
    */
   bool operator==(const ClipRegion &) const = default;
+
+  /** @brief Exact packed identity of a bounded clip region.
+   * @tparam MAX_WIDTH,MAX_HEIGHT Largest supported dimensions. */
+  template <int MAX_WIDTH = MAX_W, int MAX_HEIGHT = MAX_H> struct Key {
+    static_assert(MAX_WIDTH > 0 && MAX_HEIGHT > 0);
+    /// Bits covering an inclusive horizontal coordinate bound.
+    static constexpr unsigned COLUMN_BITS = std::bit_width(unsigned(MAX_WIDTH));
+    /// Bits covering an inclusive vertical coordinate bound.
+    static constexpr unsigned ROW_BITS = std::bit_width(unsigned(MAX_HEIGHT));
+    /// Storage words covering all clip fields.
+    static constexpr unsigned WORDS =
+        (4 * COLUMN_BITS + 3 * ROW_BITS + 63) / 64;
+    std::array<uint64_t, WORDS> words{}; ///< Packed fields; zero is unprepared.
+    /** @param other Key to compare.
+     * @return Whether every clip field matches. */
+    HS_HOT_INLINE constexpr bool operator==(const Key &other) const {
+      for (unsigned i = 0; i < WORDS; ++i)
+        if (words[i] != other.words[i])
+          return false;
+      return true;
+    }
+  };
+
+  /** @brief Packs all fields of a validated clip without collisions.
+   * @tparam MAX_WIDTH,MAX_HEIGHT Upper bounds on the clip dimensions.
+   * @return Exact content key. */
+  template <int MAX_WIDTH = MAX_W, int MAX_HEIGHT = MAX_H>
+  HS_FLASH_INLINE constexpr Key<MAX_WIDTH, MAX_HEIGHT> content_key() const {
+    using KeyType = Key<MAX_WIDTH, MAX_HEIGHT>;
+    KeyType key;
+    unsigned offset = 0;
+    auto append = [&](unsigned value, unsigned bits) HS_HOT_INLINE {
+      const unsigned WORD = offset / 64;
+      const unsigned SHIFT = offset % 64;
+      key.words[WORD] |= uint64_t(value) << SHIFT;
+      if (SHIFT + bits > 64)
+        key.words[WORD + 1] |= uint64_t(value) >> (64 - SHIFT);
+      offset += bits;
+    };
+    append(unsigned(y_start), KeyType::ROW_BITS);
+    append(unsigned(y_end), KeyType::ROW_BITS);
+    append(unsigned(x_start), KeyType::COLUMN_BITS);
+    append(unsigned(x_end), KeyType::COLUMN_BITS);
+    append(unsigned(margin), KeyType::COLUMN_BITS);
+    append(unsigned(w), KeyType::COLUMN_BITS);
+    append(unsigned(h), KeyType::ROW_BITS);
+    return key;
+  }
 
   /**
    * @brief Render-region top edge: display top expanded up by `margin`, floored at 0.

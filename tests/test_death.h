@@ -1309,7 +1309,7 @@ inline const Case *all_cases(int &n) {
            "(vertices <= slots) worldline frame exceeds bound capacity"},
           {"point_route_without_prepare", case_point_route_without_prepare,
            "core/render/plot/point_route.h",
-           "(prepared && clip_stamp == canvas.clip()) point route not prepared "
+           "(clip_stamp == canvas.clip_key()) point route not prepared "
            "for this clip"},
           {"plateau_boundary_full_timeline",
            case_plateau_boundary_full_timeline, "core/animation/segue.h",

@@ -156,6 +156,11 @@ public:
    */
   [[nodiscard]] const ClipRegion &clip() const { return clip_region; }
 
+  /** @return Exact cached identity of the current clip. */
+  [[nodiscard]] HS_HOT_INLINE ClipRegion::Key<> clip_key() const {
+    return render_clip_key;
+  }
+
   /**
    * @brief Driver sets display bounds (which segment this Teensy owns).
    * @param y0 Inclusive start row of the owned segment.
@@ -401,12 +406,15 @@ private:
   const int required_margin; /**< Minimum pipeline tap coverage. */
   ClipRegion clip_region; /**< Segment clip region (display + render margin). */
   ClipRegion::XClip render_x_clip{};
+  ClipRegion::Key<> render_clip_key{}; ///< Exact cached clip content.
   int render_y_start = 0;
   int render_y_end = 0;
   Spacetime::TimeWindow time_window{}; /**< Open TimeWindow, if any. */
   bool canvas_active = false; /**< A Canvas is currently drawing a frame. */
 
-  void update_render_clip() {
+  /** @brief Refreshes the clip identity and cached render bounds. */
+  HS_HOT_FLASH_MEMBER void update_render_clip() {
+    render_clip_key = clip_region.content_key();
     render_x_clip = clip_region.x_clip();
     render_y_start = clip_region.render_y_start();
     render_y_end = clip_region.render_y_end();
@@ -556,6 +564,11 @@ public:
    */
   [[nodiscard]] inline const ClipRegion &clip() const {
     return effect.clip_region;
+  }
+
+  /** @return Exact cached identity of this frame's clip. */
+  [[nodiscard]] HS_HOT_INLINE inline ClipRegion::Key<> clip_key() const {
+    return effect.render_clip_key;
   }
 
   /**
