@@ -93,6 +93,8 @@ public:
         HS_PROFILE(rsh_ring_plot);
         draw_ring(canvas, ring);
       }
+      ring.previous_age = ring.age;
+      ring.has_history = true;
       ++ring.age;
     }
   }
@@ -126,7 +128,9 @@ private:
      *        spawn.
      */
     BakedPaletteStorage palette;
-    int age = 0; /**< Frames elapsed since (re)spawn. */
+    int age = 0;              /**< Frames elapsed since (re)spawn. */
+    int previous_age = 0;     /**< Age at the retained draw endpoint. */
+    bool has_history = false; /**< This slot has a retained draw endpoint. */
     int life =
         0; /**< Total visible frames; the slot is free once age >= life. */
 
@@ -183,6 +187,7 @@ private:
         ring.life =
             static_cast<int>(hs::rand_f() * Ring::LIFE_SPAN + Ring::LIFE_MIN);
         ring.age = 0;
+        ring.has_history = false;
         ring.palette.rebake(dot_keyed(make_palette()));
         return;
       }
@@ -201,12 +206,33 @@ private:
     math::Basis basis = math::make_basis(math::Quaternion(), ring.normal);
     // v is unit, so dot(X, v) is v.x; the palette is baked in this cos domain
     // (dot_keyed).
-    auto fragment_shader = [&](const math::Vector &v, Fragment &f) {
-      f.color = ring.palette.get(dot_key(v.x));
-      f.color.alpha *= opacity * params.alpha;
+    const float start_age = ring.has_history && ring.age + 1 < ring.life
+                                ? float(ring.previous_age)
+                                : float(ring.age);
+    auto age_at = [&](float t) {
+      return start_age + (float(ring.age) - start_age) * t;
     };
-    Plot::Ring::draw<W, H>(filters, canvas, basis, ring.radius_at(),
-                           fragment_shader);
+    auto fragment_shader = [&](const math::Vector &v, Fragment &f, float t) {
+      f.color = ring.palette.get(dot_key(v.x));
+      const float fade =
+          t == 1.0f ? opacity
+                    : hs::clamp((age_at(t) + 1.0f) / Ring::FADE_IN_FRAMES, 0.0f,
+                                1.0f);
+      f.color.alpha *= fade * params.alpha;
+    };
+    auto vertex = [&](size_t i, float t) {
+      const float radius =
+          Ring::RADIUS_MAX *
+          hs::clamp((age_at(t) + 1.0f) / ring.life, 0.0f, 1.0f);
+      const float polar = radius * (math::PI_F * 0.5f);
+      return Plot::ring_vertex<W>(basis, polar, i);
+    };
+    Plot::GeometryCallback geometry{
+        vertex, Spacetime::PathBound::rotation((float(ring.age) - start_age) *
+                                               math::PI_F / ring.life)};
+    Plot::Ring::draw_timed<W, H>(
+        filters, canvas, basis, ring.radius_at(), fragment_shader, geometry,
+        Ring::RADIUS_MAX * (start_age + 1.0f) / ring.life);
   }
 
   static constexpr size_t MAX_RINGS = 16; /**< Fixed pool of ring slots. */

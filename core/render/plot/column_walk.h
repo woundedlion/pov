@@ -876,7 +876,13 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
                 (frame.bases[1].total_dist - frame.bases[0].total_dist) * t;
         pieces = frame.pieces[0] + (frame.pieces[1] - frame.pieces[0]) * t;
         if (local_lattice) {
-          sampler = EdgeWorldsheet::basis(a, b, total);
+          if constexpr (Cfg.column_edge_lengths) {
+            sampler = EdgeWorldsheet::arc(EdgeWorldsheet::normalize(a),
+                                          EdgeWorldsheet::normalize(b));
+            total = sampler.total_dist;
+          } else {
+            sampler = EdgeWorldsheet::basis(a, b, total);
+          }
           a = sampler.v1;
           unit = true;
         }
@@ -918,8 +924,14 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
         }
         if (radians != 0.0f || local_lattice) {
           const float inverse_length = length > 1e-7f ? 1.0f / length : 0.0f;
-          const float column_cosine = math::TrigLUT<W, H>::cos_theta(owner);
-          const float column_sine = math::TrigLUT<W, H>::sin_theta[owner];
+          const int meridian =
+              Cfg.column_edge_lengths ? owner % (W / 2) : owner;
+          const float arm =
+              Cfg.column_edge_lengths && owner >= W / 2 ? -1.0f : 1.0f;
+          const float column_cosine =
+              arm * math::TrigLUT<W, H>::cos_theta(meridian);
+          const float column_sine =
+              arm * math::TrigLUT<W, H>::sin_theta[meridian];
           const int arc_direction =
               local_lattice ? (a.x * b.z - a.z * b.x >= 0.0f ? 1 : -1)
                             : direction;

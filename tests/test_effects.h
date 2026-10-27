@@ -1020,6 +1020,7 @@ inline float seam_vertex_tolerance(LateFn &&late, EarlyFn &&early,
 #include "tests/effects/dreamballs_cases.h"
 #include "tests/effects/mesh_feedback.h"
 #include "tests/effects/numeric_invariants.h"
+#include "tests/effects/rings_temporal.h"
 #include "tests/effects/effect_whitebox.h"
 #include "tests/effects/galaxies_tests.h"
 #include "tests/effects/displacement_field.h"
@@ -1335,7 +1336,13 @@ inline int run_effects_tests() {
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
   const char *islamic_only = std::getenv("HS_ISLAMICSTARS_ONLY");
   const char *mesh_only = std::getenv("HS_MESH_CAPTURE_ONLY");
+  const char *rings_only = std::getenv("HS_RING_TEMPORAL_ONLY");
 #pragma clang diagnostic pop
+  if (rings_only && std::atoi(rings_only) != 0) {
+    HS_RUN(run_case, RingShowerWhiteBox::check_temporal_rings);
+    HS_RUN(run_case, ThrustersWhiteBox::check_temporal_rings);
+    return fixture.result();
+  }
   if (mesh_only && std::atoi(mesh_only) == 3) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -1368,6 +1375,8 @@ inline int run_effects_tests() {
   }
 
   HS_RUN(run_case, test_hopf_temporal_trail_oracle);
+  HS_RUN(run_case, RingShowerWhiteBox::check_temporal_rings);
+  HS_RUN(run_case, ThrustersWhiteBox::check_temporal_rings);
   HS_RUN(run_case, test_dreamballs_temporal_source_oracle);
   HS_RUN(run_case, test_dreamballs_column_work_is_bounded);
   HS_RUN(run_case, DreamBallsWhiteBox::check_endpoint_error_bound);

@@ -338,6 +338,9 @@ struct ThrustersWhiteBox {
   using FX = Thrusters<DEFAULT_W, DEFAULT_H>;
   using Slot = typename FX::ThrusterContext;
 
+  /** @brief Checks the column-time main ring and spawned rings. */
+  static void check_temporal_rings();
+
   /**
    * @brief Verifies warp_decay peaks at 0.7 at t=0 and relaxes to exactly 0 at t=1.
    */
@@ -449,6 +452,9 @@ private:
 
 /** @brief White-box accessor for RingShower's radius easing endpoints. */
 struct RingShowerWhiteBox {
+  /** @brief Checks growth, fade, first draws and recycled slots at column time. */
+  static void check_temporal_rings();
+
   /**
    * @brief Verifies radius_at hits RADIUS_MAX on the final frame and is non-zero
    *        on the first.

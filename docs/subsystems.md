@@ -233,6 +233,9 @@ in `Spacetime::Worldlines`, selected through `Spacetime::PathBound`, and an
 optional `Spacetime::PoseTable` supplies world rotation. Tiny steady edges
 use `Plot::PointRoute`; the remaining polyline edges enter the column walk
 as one `Plot::EdgeBatch`. Their still selection uses the ordinary shape draw.
+Deforming rings opt into `Plot::RasterConfig::column_edge_lengths`: the same
+walker derives their edge lengths from each column's vertices and uses signed
+first-arm meridians for both arms.
 
 #### Turning planar contours
 

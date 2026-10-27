@@ -152,6 +152,8 @@ struct RasterConfig {
   RasterSamplingPolicy sampling_policy = RasterSamplingPolicy::DEFAULT;
   /** Compile the column-time geometry walk. */
   bool timed = false;
+  /** Recompute deforming edge lengths at each column's time. */
+  bool column_edge_lengths = false;
 };
 
 /** @brief Open or closed polyline, with seam registers only on a closed loop. */

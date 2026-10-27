@@ -423,6 +423,22 @@ struct RingFrame {
   float cos_theta;   ///< Ring offset along the pole axis.
 };
 
+/** @brief Evaluates a circular vertex with exact half-turn tangent symmetry.
+ * @tparam W Material angle grid size.
+ * @param basis Ring basis.
+ * @param polar Colatitude in radians.
+ * @param index Material vertex index in [0, W).
+ * @return Unit ring direction. */
+template <int W>
+HS_HOT_INLINE math::Vector ring_vertex(const math::Basis &basis, float polar,
+                                       size_t index) {
+  const float angle = float(index % (W / 2)) * (2.0f * math::PI_F / W);
+  auto tangent = basis.u * cosf(angle) + basis.w * sinf(angle);
+  if (index >= W / 2)
+    tangent = -tangent;
+  return (basis.v * cosf(polar) + tangent * sinf(polar)).normalized();
+}
+
 /** @brief Draws a closed polyline whose vertices turn along endpoint arcs.
  * @tparam W,H Canvas dimensions.
  * @tparam PipelineT,ShaderT Pipeline and fragment shader types.
@@ -432,6 +448,7 @@ struct RingFrame {
  * @param shader Fragment shader, optionally reading time.
  * @param poses Optional column-time world poses.
  * @param spin Bound on the world rotation over the frame, radians.
+ * @param stride Material-grid stride, dividing W/2.
  * @details Vertex indices run from zero through W-1. Geometry path bounds
  * select chords or circular interpolants; captures use arena storage. */
 template <int W, int H, typename PipelineT, typename ShaderT>
@@ -439,34 +456,38 @@ HS_HOT_FLASH_MEMBER void
 draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
                   const GeometryCallback &geometry, ShaderT shader,
                   const Spacetime::PoseTable *poses = nullptr,
-                  float spin = 0.0f) {
+                  float spin = 0.0f, int stride = 1) {
   ScratchScope storage(scratch_arena_b);
+  const size_t count = W / stride;
   Spacetime::Worldlines<> motion;
-  motion.bind(scratch_arena_b, W);
-  auto *vertices = scratch_arena_b.allocate_n<math::Vector>(W);
-  auto *edges = scratch_arena_b.allocate_n<MeshEdge>(W);
-  motion.begin_frame(W, false);
-  for (size_t i = 0; i < W; ++i) {
+  motion.bind(scratch_arena_b, count);
+  auto *vertices = scratch_arena_b.allocate_n<math::Vector>(count);
+  auto *edges = scratch_arena_b.allocate_n<MeshEdge>(count);
+  float motion_bound = sqrtf(geometry.path.second);
+  motion.begin_frame(count, false);
+  for (size_t i = 0; i < count; ++i) {
     Spacetime::count_geometry<
         &Spacetime::GeometryCounters::endpoint_evaluations>();
-    motion.capture_end(i, geometry.evaluate(i, 0.0f));
+    motion.capture_end(i, geometry.evaluate(i * stride, 0.0f));
   }
-  motion.begin_frame(W, true);
-  for (size_t i = 0; i < W; ++i) {
+  motion.begin_frame(count, true);
+  for (size_t i = 0; i < count; ++i) {
     Spacetime::count_geometry<
         &Spacetime::GeometryCounters::endpoint_evaluations>();
-    vertices[i] = geometry.evaluate(i, 1.0f);
+    vertices[i] = geometry.evaluate(i * stride, 1.0f);
     motion.capture_end(i, vertices[i]);
-    motion.choose(
-        i, geometry.vertex_path ? geometry.vertex_path(i) : geometry.path, 0.0f,
-        true);
-    edges[i] = {static_cast<uint16_t>(i), static_cast<uint16_t>((i + 1) % W)};
+    const auto bound =
+        geometry.vertex_path ? geometry.vertex_path(i * stride) : geometry.path;
+    motion_bound = fmaxf(motion_bound, sqrtf(bound.second));
+    motion.choose(i, bound, 0.0f, true);
+    edges[i] = {static_cast<uint16_t>(i),
+                static_cast<uint16_t>((i + 1) % count)};
   }
   PointRoute<W, H> route;
-  route.prepare(canvas, sqrtf(geometry.path.second) + spin);
+  route.prepare(canvas, motion_bound + spin);
   size_t edge_count = 0;
-  for (size_t i = 0; i < W; ++i) {
-    const size_t next = (i + 1) % W;
+  for (size_t i = 0; i < count; ++i) {
+    const size_t next = (i + 1) % count;
     const auto world = [&](size_t vertex, float t) HS_HOT_INLINE {
       const auto p = motion.worldline(vertex).at(t).normalized();
       return poses ? poses->rotate(p, t) : p;
@@ -474,17 +495,26 @@ draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
     const math::Vector starts[2] = {world(i, 0.0f), world(next, 0.0f)};
     const math::Vector ends[2] = {world(i, 1.0f), world(next, 1.0f)};
     GeodesicEdgeSampler arcs[2];
-    if (EdgeWorldsheet::steady_lattice<W, H>(starts, ends, 1, arcs) == 1) {
+    if (EdgeWorldsheet::steady_lattice<W, H>(starts, ends, 1, arcs) == 1 &&
+        EdgeWorldsheet::pieces_of<W, H>(arcs[0]) <= 0.5f &&
+        EdgeWorldsheet::pieces_of<W, H>(arcs[1]) <= 0.5f) {
+      const auto path = motion.worldline(i);
+      const auto local_middle = path.at(0.5f);
+      const auto middle =
+          (poses ? poses->rotate(local_middle, 0.5f) : local_middle)
+              .normalized();
       route.plot(
           pipeline, canvas, ends[0], [&]() HS_HOT_INLINE { return starts[0]; },
           [&](float t) HS_HOT_INLINE {
             Fragment f;
-            f.pos = world(i, t);
-            f.v0 = float(i) / W;
-            f.v2 = float(i);
+            const auto local = path.at(t);
+            f.pos = (poses ? poses->rotate(local, t) : local).normalized();
+            f.v0 = float(i * stride) / W;
+            f.v2 = float(i * stride);
             Spacetime::shade_at_time(shader, t, f.pos, f);
             return f.color;
-          });
+          },
+          middle - (starts[0] + ends[0]) * 0.5f);
     } else {
       edges[edge_count++] = edges[i];
     }
@@ -493,17 +523,18 @@ draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
   Fragments points;
   points.bind(scratch_arena_a, 2);
   auto prepare = [](Fragments &out, const math::Vector &a,
-                    const math::Vector &b, size_t index, float length) {
-    out.clear();
-    Fragment first, last;
-    first.pos = a;
-    last.pos = b;
-    last.v0 = 1.0f;
-    first.v2 = last.v2 = float(index);
-    last.v1 = length;
-    out.push_back(first);
-    out.push_back(last);
-  };
+                    const math::Vector &b, size_t index, float length)
+                     HS_HOT_INLINE {
+                       out.clear();
+                       Fragment first, last;
+                       first.pos = a;
+                       last.pos = b;
+                       last.v0 = 1.0f;
+                       first.v2 = last.v2 = float(index);
+                       last.v1 = length;
+                       out.push_back(first);
+                       out.push_back(last);
+                     };
   PipelineRef erased = [&]() HS_HOT_INLINE {
     if constexpr (pipeline_direct_raster_path<PipelineT>())
       return PipelineRef(pipeline, canvas, Spacetime::Timed{});
@@ -514,15 +545,15 @@ draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
   auto timed_shader = [&](const math::Vector &p, Fragment &f, float t)
                           HS_HOT_INLINE {
                             const auto &edge = edges[static_cast<size_t>(f.v2)];
-                            f.v2 = float(edge.u) + f.v0;
+                            f.v2 = (float(edge.u) + f.v0) * stride;
                             f.v0 = f.v2 / W;
                             Spacetime::shade_at_time(shader, t, p, f);
                           };
   const EdgeBatch batch{edge_count, prepare, vertices, motion,
                         edges,      true,    true};
-  rasterize_column_edges<W, H, {.timed = true}>(
-      erased, canvas, points, TimedShaderFn(timed_shader), batch, poses, spin,
-      false, spin);
+  rasterize_column_edges<W, H, {.timed = true, .column_edge_lengths = true}>(
+      erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
+      motion_bound + spin, false, spin);
 }
 
 /**
@@ -547,6 +578,24 @@ inline RingFrame ring_frame(const math::Basis &basis, float radius) {
  *  v2: Index
  */
 struct Ring {
+  /** @brief Material-grid stride resolving the largest frame circumference.
+   * @tparam W Canvas width.
+   * @param start_radius,end_radius Frame endpoint radii, in hemisphere units.
+   * @return A stride dividing the half-turn grid. */
+  template <int W>
+  static int timed_stride(float start_radius, float end_radius) {
+    const float lo = fminf(start_radius, end_radius);
+    const float hi = fmaxf(start_radius, end_radius);
+    const float sine = lo <= 1.0f && hi >= 1.0f
+                           ? 1.0f
+                           : fmaxf(sinf(lo * (math::PI_F * 0.5f)),
+                                   sinf(hi * (math::PI_F * 0.5f)));
+    int stride = ring_lut_stride<W>(sine);
+    while ((W / 2) % stride != 0)
+      --stride;
+    return stride;
+  }
+
   /** @brief Draws a ring from endpoint vertex motion at column time.
    * @tparam W,H Canvas dimensions.
    * @tparam PipelineT,ShaderT Pipeline and shader types.
@@ -555,19 +604,22 @@ struct Ring {
    * @param basis Frame-end ring basis.
    * @param radius Frame-end radius.
    * @param shader Fragment shader, optionally reading time.
-   * @param geometry Circular vertex paths, indexed on the W-angle grid. */
+   * @param geometry Circular vertex paths, indexed on the W-angle grid.
+   * @param start_radius Frame-start radius. */
   template <int W, int H, typename PipelineT, typename ShaderT>
   HS_HOT_FLASH_MEMBER static void
   draw_timed(PipelineT &pipeline, Canvas &canvas, const math::Basis &basis,
-             float radius, ShaderT shader, const GeometryCallback &geometry) {
+             float radius, ShaderT shader, const GeometryCallback &geometry,
+             float start_radius) {
     if (Spacetime::flat_surface()) {
-      auto still = [&](const math::Vector &p, Fragment &f) {
+      auto still = [&](const math::Vector &p, Fragment &f) HS_HOT_INLINE {
         Spacetime::shade_at_time(shader, 1.0f, p, f);
       };
       draw<W, H>(pipeline, canvas, basis, radius, still);
       return;
     }
-    draw_ring_columns<W, H>(pipeline, canvas, geometry, shader);
+    draw_ring_columns<W, H>(pipeline, canvas, geometry, shader, nullptr, 0.0f,
+                            timed_stride<W>(start_radius, radius));
   }
 
   /**
@@ -871,7 +923,7 @@ struct DistortedRing {
              const GeometryCallback &geometry,
              const Spacetime::PoseTable *poses, float spin) {
     if (Spacetime::flat_surface()) {
-      auto still = [&](const math::Vector &p, Fragment &f) {
+      auto still = [&](const math::Vector &p, Fragment &f) HS_HOT_INLINE {
         Spacetime::shade_at_time(shader, 1.0f, p, f);
       };
       draw<W, H>(pipeline, canvas, basis, radius, shift_fn, still);

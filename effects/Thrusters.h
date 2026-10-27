@@ -112,6 +112,8 @@ public:
         float opacity =
             1.0f - math::ease_out_expo(hs::clamp(progress, 0.0f, 1.0f));
         draw_thruster(canvas, ctx, ctx.radius_at(), opacity);
+        ctx.previous_age = ctx.age;
+        ctx.has_history = true;
         ++ctx.age;
       }
     }
@@ -131,7 +133,9 @@ private:
     static constexpr int RADIUS_GROW_FRAMES = 8;
     static constexpr float RADIUS_MAX = 0.3f; /**< Peak ring radius. */
 
-    int age = 0;                     /**< Frames elapsed since (re)spawn. */
+    int age = 0;              /**< Frames elapsed since (re)spawn. */
+    int previous_age = 0;     /**< Age at the preceding draw. */
+    bool has_history = false; /**< A preceding draw exists for this spawn. */
     math::Orientation<> orientation; /**< Orientation snapshot at spawn time. */
     math::Vector point;              /**< Thrust point on the unit sphere. */
 
@@ -144,6 +148,7 @@ private:
       orientation = o;
       point = p;
       age = 0;
+      has_history = false;
     }
 
     /**
@@ -198,6 +203,7 @@ private:
     const int frame = t_global;
 
     warp_phase = hs::rand_f() * 2 * math::PI_F;
+    warp_reset = true;
 
     auto r_fn = [phase, amp, frame](float t) {
       return ring_fn(t, phase, amp, frame);
@@ -267,13 +273,42 @@ private:
       return;
     HS_PROFILE(th_thruster_draw);
     math::Basis basis = math::make_basis(ctx.orientation.get(), ctx.point);
-    auto fragment_shader = [this, opacity](const math::Vector &, Fragment &f) {
+    const float start_age =
+        ctx.has_history && ctx.age + 1 < ThrusterContext::LIFE
+            ? float(ctx.previous_age)
+            : float(ctx.age);
+    auto age_at = [&](float t) {
+      return start_age + (float(ctx.age) - start_age) * t;
+    };
+    auto fragment_shader = [&, this](const math::Vector &, Fragment &f,
+                                     float t) {
+      const float fade =
+          t == 1.0f
+              ? opacity
+              : 1.0f - math::ease_out_expo(hs::clamp(
+                           age_at(t) / ThrusterContext::LIFE, 0.0f, 1.0f));
       f.color = Color4(CRGB(255, 255, 255));
       // Opacity scales both color and alpha, so the lifetime fade is quadratic.
-      f.color.color = f.color.color * opacity;
-      f.color.alpha = opacity * params.alpha;
+      f.color.color = f.color.color * fade;
+      f.color.alpha = fade * params.alpha;
     };
-    Plot::Ring::draw<W, H>(filters, c, basis, radius, fragment_shader);
+    auto vertex = [&](size_t i, float t) {
+      const float r =
+          ThrusterContext::RADIUS_MAX *
+          hs::clamp((age_at(t) + 1.0f) / ThrusterContext::RADIUS_GROW_FRAMES,
+                    0.0f, 1.0f);
+      const float polar = r * (math::PI_F * 0.5f);
+      return Plot::ring_vertex<W>(basis, polar, i);
+    };
+    const float start_radius =
+        ThrusterContext::RADIUS_MAX *
+        hs::clamp((start_age + 1.0f) / ThrusterContext::RADIUS_GROW_FRAMES,
+                  0.0f, 1.0f);
+    Plot::GeometryCallback geometry{
+        vertex, Spacetime::PathBound::rotation(fabsf(radius - start_radius) *
+                                               (math::PI_F * 0.5f))};
+    Plot::Ring::draw_timed<W, H>(filters, c, basis, radius, fragment_shader,
+                                 geometry, start_radius);
   }
 
   /**
@@ -282,6 +317,17 @@ private:
    * @param opacity Fade factor in [0, 1]; multiplied by the global alpha param.
    */
   void draw_ring(Canvas &c, float opacity) {
+    const RingEndpoint current{orientation.get(), amplitude, warp_phase,
+                               t_global};
+    RingEndpoint start = has_ring_history ? previous_ring : current;
+    if (warp_reset) {
+      start.amplitude = current.amplitude;
+      start.phase = current.phase;
+      start.frame = current.frame;
+    }
+    previous_ring = current;
+    has_ring_history = true;
+    warp_reset = false;
     // Master alpha below one slider LSB: skip rasterizing. The warp and spin still
     // advance in draw_frame(), so the ring reappears in place when alpha rises.
     if (params.alpha < MIN_VISIBLE_ALPHA)
@@ -299,11 +345,57 @@ private:
     const float phase = warp_phase;
     const float amp = amplitude;
     const int frame = t_global;
-    Plot::DistortedRing::draw<W, H>(
-        filters, c, basis, params.radius,
-        [phase, amp, frame](float t) { return ring_fn(t, phase, amp, frame); },
-        fragment_shader);
+    auto shift = [phase, amp, frame](float t) {
+      return ring_fn(t, phase, amp, frame);
+    };
+    if (Spacetime::flat_surface()) {
+      Plot::DistortedRing::draw<W, H>(filters, c, basis, params.radius, shift,
+                                      fragment_shader);
+      return;
+    }
+    ScratchScope pose_storage(scratch_arena_b);
+    math::Orientation<2> drawn_pose(start.pose);
+    drawn_pose.push(current.pose);
+    Spacetime::PoseTable poses;
+    poses.bind(scratch_arena_b, W);
+    poses.build(drawn_pose);
+    const math::Basis local_basis =
+        math::make_basis(math::Quaternion(), ring_vec);
+    const auto local_frame = Plot::ring_frame(local_basis, params.radius);
+    auto vertex = [&](size_t i, float t) {
+      const float coordinate = float(i % (W / 2)) / W;
+      auto distortion = [&](float) {
+        if (t == 0.0f)
+          return ring_fn(coordinate, start.phase, start.amplitude, start.frame);
+        if (t == 1.0f)
+          return shift(coordinate);
+        const float first =
+            ring_fn(coordinate, start.phase, start.amplitude, start.frame);
+        return first + (shift(coordinate) - first) * t;
+      };
+      return Plot::ring_vertex<W>(local_frame.basis,
+                                  local_frame.theta_eq + distortion(0.0f), i);
+    };
+    Plot::GeometryCallback geometry{
+        vertex, Spacetime::PathBound::rotation(fabsf(start.amplitude) +
+                                               fabsf(current.amplitude))};
+    const float spin = Spacetime::rotation_chord_bound(
+        math::RotationMatrix(start.pose), math::RotationMatrix(current.pose));
+    Plot::DistortedRing::draw_timed<W, H>(filters, c, basis, params.radius,
+                                          shift, fragment_shader, geometry,
+                                          &poses, spin);
   }
+
+  /** @brief State sampled by the main ring's sprite draw. */
+  struct RingEndpoint {
+    math::Quaternion pose;  /**< Drawn world orientation. */
+    float amplitude = 0.0f; /**< Drawn warp amplitude. */
+    float phase = 0.0f;     /**< Drawn spatial phase, radians. */
+    int frame = 0;          /**< Drawn modulation frame. */
+  };
+  RingEndpoint previous_ring;    /**< Last sprite draw's endpoint. */
+  bool has_ring_history = false; /**< The sprite has drawn an endpoint. */
+  bool warp_reset = false; /**< A fire changed the warp since the last draw. */
 
   BakedPaletteStorage palette; /**< Ring-shading LUT, keyed by dot(X, v). */
 
