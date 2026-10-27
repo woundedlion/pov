@@ -465,7 +465,7 @@ Four great-circle rings tumble continuously under energetic random-walk rotation
 
 ### RingShower
 
-Rings bloom at random orientations and grow their radius from zero, fading in over the first few frames and then holding (no fade-out), colored by a generative mirrored analogous palette — a continuous shower of expanding rings drawn with `Plot::Ring`. Each ring's radius, fade, and lifetime are pure functions of its age driven directly from a recyclable slot rather than a per-ring `Sprite`.
+Rings bloom at random orientations and grow their radius from zero, fading in over the first few frames and then holding (no fade-out), colored by a generative mirrored analogous palette — a continuous shower of expanding rings drawn with `Plot::Ring`. Each ring's radius, fade, and lifetime are pure functions of its age driven directly from a recyclable slot rather than a per-ring `Sprite`. Each column draws a ring at its age interpolated to that column's time; a slot reused for a new ring starts from the current endpoint, and an expiring ring holds its last frame.
 
 **Parameters**: Alpha
 
@@ -539,7 +539,7 @@ A vertical strand of points — spaced across the complete sphere, including hid
 
 ### Thrusters
 
-A central distorted ring (`Plot::DistortedRing`) warps and spins; periodic random "fires" kick it onto a new axis and bloom a pair of opposed thrust rings (`Plot::Ring`) that expand from a sub-pixel seed and fade out.
+A central distorted ring (`Plot::DistortedRing`) warps and spins; periodic random "fires" kick it onto a new axis and bloom a pair of opposed thrust rings (`Plot::Ring`) that expand from a sub-pixel seed and fade out. The central ring draws each column at the pose and warp interpolated from the frame it last drew; a fire resets the warp, so that frame draws its current endpoint. Thrust rings keep the pose captured at their spawn and read growth and fade from their age at each column's time; a new spawn draws at the current endpoint.
 
 **Parameters**: Radius, Alpha
 
