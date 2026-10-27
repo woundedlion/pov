@@ -2449,8 +2449,6 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/render/pullback/operators/model.h", 1},
     {"core/render/pullback/operators.h", 1},
     {"core/render/scan/mesh.h", 5},
-    // Empty radius: positive padding follows from the footprint and motion checks.
-    {"core/render/scan/radial_surface_candidate_mask.h", 1},
     {"core/render/scan/raster.h", 1},
     {"core/render/scan/shader.h", 2},
     {"core/render/scan/shapes.h", 7},

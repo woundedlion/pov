@@ -94,7 +94,6 @@ public:
     if (derivative_motion > 0)
       derivative_motion += 64 * FLT_EPSILON * (1 + derivative_motion);
     extent2 = (RADIUS + padding) * (RADIUS + padding);
-    HS_CHECK(extent2 > 0, "RadialSurfaceCandidateMask: empty radius");
     radial_scale = RADIAL_BINS / extent2;
     angular_scale = ANGULAR_BINS * (surface.edge_count() / 2) / math::TWO_PI_F;
     inverse_step = 1 / fmaxf(2 * padding, RADIUS / RADIAL_BINS);
