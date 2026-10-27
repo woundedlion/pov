@@ -9,6 +9,7 @@
 
 #include <array>
 #include <bit>
+#include <cfloat>
 #include <vector>
 #include <cmath>
 #include "core/render/scan/radial_surface.h"
@@ -98,6 +99,28 @@ inline double reference_hit(ReferencePoint p,
       return double(i) + earliest;
   }
   return -1;
+}
+
+/** @brief Largest disagreement between two queries about one root's fraction.
+ * @param hit Query result carrying the edge normal and predicate slope.
+ * @param p Chart point.
+ * @return Zero in IEEE builds, where every query evaluates the edge predicate
+ * with the same operations. Under fast-math, four ulps of the predicate's
+ * largest term |p|·|normal| over its interval slope: reassociation perturbs
+ * the predicate by ulps of that term per call site, and the root moves by the
+ * perturbation over the slope. */
+inline float root_rounding_tolerance(const Surface::Hit &hit,
+                                     Surface::Point p) {
+#if defined(HS_TEST_FAST_MATH)
+  const float TERM =
+      sqrtf(p.x * p.x + p.y * p.y) *
+      sqrtf(hit.normal.x * hit.normal.x + hit.normal.y * hit.normal.y);
+  return TERM > 0.0f ? 4.0f * FLT_EPSILON * TERM / fabsf(hit.derivative) : 0.0f;
+#else
+  (void)hit;
+  (void)p;
+  return 0.0f;
+#endif
 }
 
 /** @brief A tip sweep covers points outside both endpoint stars. */
@@ -199,11 +222,12 @@ inline void test_radial_surface_matches_all_edges() {
             reference_hit({P.x, P.y}, {knots, N + 1}, 7, .382f);
         Surface::Stats stats;
         const auto hit = surface.sample<true>(P, THETA, 0, &stats);
+        const float ROOT_TOLERANCE = root_rounding_tolerance(hit, P);
         const auto unskipped = surface.sample<false, false>(P, THETA);
         const auto parameter_only =
             surface.sample<false, true, false>(P, THETA);
         HS_EXPECT_EQ(parameter_only.interval, hit.interval);
-        HS_EXPECT_EQ(parameter_only.fraction, hit.fraction);
+        HS_EXPECT_NEAR(parameter_only.fraction, hit.fraction, ROOT_TOLERANCE);
         HS_EXPECT_EQ(parameter_only.edge, hit.edge);
         Surface::Stats bounded_stats;
         const auto bounded =
@@ -217,7 +241,7 @@ inline void test_radial_surface_matches_all_edges() {
         HS_EXPECT_EQ(hit.found(), EXPECTED >= 0);
         HS_EXPECT_EQ(hit.found(), bounded.found());
         HS_EXPECT_EQ(hit.interval, unskipped.interval);
-        HS_EXPECT_EQ(hit.fraction, unskipped.fraction);
+        HS_EXPECT_NEAR(hit.fraction, unskipped.fraction, ROOT_TOLERANCE);
         HS_EXPECT_LE(stats.intervals, uint32_t(N));
         HS_EXPECT_LE(stats.roots, 1u);
         if (hit.found() && EXPECTED >= 0) {
@@ -226,7 +250,8 @@ inline void test_radial_surface_matches_all_edges() {
           worst = std::max(worst, ERROR);
           HS_EXPECT_LE(ERROR, 2e-3f);
           HS_EXPECT_EQ(hit.interval, bounded.interval);
-          HS_EXPECT_NEAR(hit.fraction, bounded.fraction, 1e-6);
+          HS_EXPECT_NEAR(hit.fraction, bounded.fraction,
+                         std::max(1e-6f, ROOT_TOLERANCE));
         }
       }
     }

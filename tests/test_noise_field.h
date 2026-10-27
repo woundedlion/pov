@@ -149,10 +149,18 @@ inline void test_noise_field_ridged_channel_pairs() {
                                            -0.0796125233f};
   constexpr std::array<float, 3> SIMPLEX = {0.00326943118f, 0.439077944f,
                                             0.439079434f};
+#if defined(HS_TEST_FAST_MATH)
+  // Fast-math reorders the lattice arithmetic; third-octave ridged
+  // coordinates reach ~505, where one float ulp is 3e-5. The channels stay
+  // more than 0.07 apart.
+  constexpr float RIDGED_TOLERANCE = 1e-4f;
+#else
+  constexpr float RIDGED_TOLERANCE = 2e-6f;
+#endif
   for (size_t channel = 0; channel < 3; ++channel) {
     HS_EXPECT_NEAR(math::sample_noise_vector_channel(
                        noise, math::NoiseBasis::RIDGED3, q, channel),
-                   RIDGED[channel], 2e-6f);
+                   RIDGED[channel], RIDGED_TOLERANCE);
     HS_EXPECT_NEAR(math::sample_noise_vector_channel(
                        noise, math::NoiseBasis::SIMPLEX, q, channel),
                    SIMPLEX[channel], 2e-6f);

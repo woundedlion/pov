@@ -203,7 +203,14 @@ inline void surface_mask_case(OracleEffect &effect, const char *name,
           compare_buffers(images[0].pixels, images[1].pixels);
       std::printf("SURFACE_MASK_DIFF %s timed=%d board=%d pixels=%zu\n", name,
                   int(timed), int(board), difference.different_pixels);
+#if defined(HS_TEST_FAST_MATH)
+      // Pixels with no candidate intervals take the point query, whose root
+      // fast-math rounds apart from the integrator's by ulps of the fraction.
+      HS_EXPECT_EQ(difference.coverage_mismatches, size_t{0});
+      HS_EXPECT_LE(difference.max_absolute_error, 1u);
+#else
       HS_EXPECT_EQ(difference.different_pixels, size_t{0});
+#endif
     }
 }
 
