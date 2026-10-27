@@ -227,6 +227,23 @@ clip. `Plot::EdgeBatch` shares captured vertex data across edges.
 ordinary mesh raster. Other timed plotted configurations retain their
 existing raster dispatch.
 
+#### Turning planar contours
+
+`Plot::PlanarChords` strokes closed polylines that are straight in an
+azimuthal-equidistant chart. Its timed `draw_closed` draws a contour turning
+rigidly over the frame. It takes the frame-end vertices, the rotations from the
+frame end to the frame start and to mid-frame, and a bound on the contour's
+angular speed. `prepare` first records the frame's motion bound. Screen anchors
+along each edge carry quadratic motion through the frame start, middle and end.
+Coherent chord samples solve their column crossing directly; other chords emit
+each column they reach at that column's time. An anchor interval takes a
+display pole's chart instead when it lies within `POLE_PIECE_ROWS` of a pole,
+or when its motion would bend more than `POLAR_TIME_ERROR_PX` row pitches over
+the frame at its latitude. There `Plot::PolarWalk` (`polar_walk.h`) fits each
+anchor's chart position as a `Plot::PolarAnchor`, a quadratic through the three
+captures. It then intersects each chart-straight piece with the diameter that
+is each crossed column's meridian, at that column's time.
+
 #### Moving mesh faces
 
 `Scan::deform_mesh` prepares a face scan from the effect's motion plan,
@@ -363,6 +380,44 @@ its whole clip.
 `Spacetime::simulate_in_slabs` advances the substeps that end each slab's
 share of the frame, then shades under its window. The flat selection runs
 all substeps before one frame-wide shade.
+
+#### Pixel feedback
+
+`Filter::Pixel::Feedback` reads the previous frame's buffer, in which every
+column was lit at its own time. With column-time sampling,
+`Filter::Pixel::FeedbackColumnTime`
+([feedback_column_time.h](../core/render/filter/feedback_column_time.h)) gives
+the frames between a target pixel and the source it reads, `1 + t(x) - t(s)`,
+blending the lit times of a read between columns as its taps are blended.
+
+- **Within an arm:** a Style warp displacing D columns per frame reads the
+  source lit `HALF / (HALF + D)` frames earlier (`elapsed_scale`, at most 2).
+- **Past the arm's forward cut:** it reads the other arm, lit a frame before
+  that.
+- **Behind the backward cut:** no stored frame holds the content, so the read
+  slides from the cut column lit last to the arm's first column.
+
+Lattice offsets carry the elapsed scale of their displacement, and the stored
+column offset is clamped to half a turn before its 16-bit store. Cells whose
+sources stay within their arm fade by the cell's elapsed time through
+`Filter::Pixel::FeedbackFadeTable`, and the rest resolve per pixel. The flat
+selection reads every source one frame back.
+
+#### Verification
+
+Native tests compare a timed draw, column by column, with the same geometry
+frozen at that column's surface time
+([temporal_oracle.h](../tests/temporal_oracle.h)), and a draw passes when both
+of these hold:
+
+- **Per column:** the summed luminance error is no larger than the error the
+  frozen frame shows when its geometry is displaced 0.2 row along its meridian.
+- **Whole frame:** the summed error is at most one twentieth of the endpoint
+  render's error against the same frozen references.
+
+Anti-alias taps reuse their sample's position except across arm cuts, or where
+the error bound needs each tap column's own position. Frame-end parity hashes
+pin the still selection.
 
 ### Spherical ray rendering
 
