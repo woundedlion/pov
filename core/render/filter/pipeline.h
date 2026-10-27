@@ -668,6 +668,9 @@ template <int W, int H> struct Pipeline<W, H> {
    * @return Null: the identity has no poses. */
   const Spacetime::PoseTable *pose_table(const Canvas &) { return nullptr; }
 
+  /** @brief Terminates timed source-history recording. */
+  void record_world_sample(Canvas &, const math::Vector &, float, float) {}
+
   /** @brief Number of terminal spatial copies.
    * @return One. */
   int copy_count() const { return 1; }
@@ -1254,6 +1257,25 @@ public:
     return bound;
   }
 
+  /** @brief Records a timed sample before projection and anti-aliasing.
+   * @param cv Frame context.
+   * @param v Source-space sample.
+   * @param age Incoming sample age.
+   * @param t Frame fraction. */
+  HS_HOT_INLINE void record_world_sample(Canvas &cv, const math::Vector &v,
+                                         float age, float t) {
+    if constexpr (!Head::is_2d) {
+      if constexpr (requires { Head::record_world_sample(v, age); })
+        Head::record_world_sample(v, age);
+      if constexpr (Next::any_3d_history) {
+        if constexpr (requires { Head::at_time(cv, v, t); })
+          next.record_world_sample(cv, Head::at_time(cv, v, t), age, t);
+        else
+          next.record_world_sample(cv, v, age, t);
+      }
+    }
+  }
+
   /** @brief Number of spatial copies in the remaining stages.
    * @return Product of stage copy counts. */
   int copy_count() const {
@@ -1266,12 +1288,18 @@ public:
   /** @brief Selects a fixed copy in each world replication stage.
    * @param copy Flattened copy index. */
   void select_copy(int copy) {
-    if constexpr (requires { Head::select_copy(copy); }) {
+    if constexpr (requires {
+                    Head::select_copy(copy);
+                    Head::copy_count();
+                  }) {
       const int count = Head::copy_count();
       Head::select_copy(copy % count);
       next.select_copy(copy / count);
-    } else
+    } else {
+      if constexpr (requires { Head::select_copy(copy); })
+        Head::select_copy(copy);
       next.select_copy(copy);
+    }
   }
 
   /** @brief Culls endpoint geometry against a motion-padded predicate.

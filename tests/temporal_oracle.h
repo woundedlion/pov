@@ -9,6 +9,8 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <optional>
+#include <type_traits>
 #include <vector>
 
 namespace hs_test {
@@ -89,9 +91,12 @@ inline bool temporal_frame_error_within_budget(float error,
 /** @brief Compares columns and whole-frame error with frozen geometry.
  * @param render Timed or frozen render callback.
  * @param name Diagnostic label.
- * @param share Fraction of the twentieth-error frame limit allowed. */
+ * @param share Fraction of the twentieth-error frame limit allowed.
+ * @param bidirectional Uses each column's larger error under positive and
+ * negative uniform 0.2-pixel displacements. */
 template <int W, int H, typename Render>
-void seam_compare_render(Render render, const char *name, float share = 1.0f) {
+void seam_compare_render(Render render, const char *name, float share = 1.0f,
+                         bool bidirectional = false) {
   const auto actual = render(true, 1.0f, 0.0f);
   const auto endpoint = render(false, 1.0f, 0.0f);
   float total = 0.0f, endpoint_total = 0.0f, displaced_total = 0.0f;
@@ -101,14 +106,21 @@ void seam_compare_render(Render render, const char *name, float share = 1.0f) {
     const float fraction = Spacetime::SamplingSurface<W>::time(column);
     const auto frozen = render(false, fraction, 0.0f);
     const auto shifted = render(false, fraction, 0.2f);
+    std::optional<std::remove_cvref_t<decltype(shifted)>> opposite;
+    if (bidirectional)
+      opposite.emplace(render(false, fraction, -0.2f));
     for (int x : {column, column + W / 2}) {
       float error = 0.0f, endpoint_error = 0.0f, displaced_error = 0.0f;
+      float opposite_error = 0.0f;
       for (int y = 0; y < H; ++y) {
         const size_t index = y * W + x;
         error += fabsf(actual[index] - frozen[index]);
         endpoint_error += fabsf(endpoint[index] - frozen[index]);
         displaced_error += fabsf(shifted[index] - frozen[index]);
+        if (opposite)
+          opposite_error += fabsf((*opposite)[index] - frozen[index]);
       }
+      displaced_error = std::max(displaced_error, opposite_error);
       total += error;
       endpoint_total += endpoint_error;
       displaced_total += displaced_error;

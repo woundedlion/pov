@@ -363,6 +363,8 @@ class PipelineRef {
      *  unless the first screen stage anti-aliases. */
     void (*column_plot)(void *, Canvas &, math::PixelCoords, int, const Pixel &,
                         float, float, float);
+    /** @brief Records an unprojected timed sample in source history. */
+    void (*record)(void *, Canvas &, const math::Vector &, float, float);
     bool rigid;             ///< World stages can run at controls.
     bool dense_screen_safe; ///< Screen stages retain a one-pixel footprint.
     /** @brief Returns the angular world-stage motion bound. */
@@ -527,6 +529,20 @@ class PipelineRef {
     static_cast<T *>(pipeline)->plot_column_at(cv, p, column, c, age, alpha, t);
   }
 
+  /** @brief Records a timed sample before its screen taps.
+   * @tparam T Concrete pipeline.
+   * @param pipeline Borrowed pipeline.
+   * @param cv Frame context.
+   * @param v Source point.
+   * @param age Incoming sample age.
+   * @param t Frame fraction. */
+  template <typename T>
+  HS_HOT_FLASH_MEMBER static void
+  record_sample_entry(void *pipeline, Canvas &cv, const math::Vector &v,
+                      float age, float t) {
+    static_cast<T *>(pipeline)->record_world_sample(cv, v, age, t);
+  }
+
   /** @brief Applies an erased pipeline's timed cull chain.
    * @tparam T Concrete pipeline type.
    * @param pipeline Borrowed pipeline.
@@ -563,6 +579,12 @@ class PipelineRef {
             return column_plot_entry<T>;
           else
             return static_cast<decltype(&column_plot_entry<T>)>(nullptr);
+        }(),
+        []() HS_HOT_INLINE {
+          if constexpr (requires { requires T::any_3d_history; })
+            return record_sample_entry<T>;
+          else
+            return static_cast<decltype(&record_sample_entry<T>)>(nullptr);
         }(),
         []() HS_HOT_INLINE {
           if constexpr (requires { T::rigid_world_stages; })
@@ -617,6 +639,24 @@ public:
     if (timed_entries)
       timed_entries->select(ctx, copy);
   }
+  /** @brief Records one source sample before projected taps.
+   * @param cv Frame context.
+   * @param v Source position.
+   * @param age Incoming sample age.
+   * @param t Frame fraction.
+   * @param column Owned tap column, or -1 for a complete splat.
+   * @param x Projected sample column. */
+  HS_HOT_INLINE void record_world_sample(Canvas &cv, const math::Vector &v,
+                                         float age, float t, int column = -1,
+                                         float x = 0.0f) const {
+    if (timed_entries && timed_entries->record) {
+      const int first = static_cast<int>(x);
+      if (column < 0 ||
+          column == (first < cv.width() ? first : first - cv.width()))
+        timed_entries->record(ctx, cv, v, age, t);
+    }
+  }
+
   /** @brief Whether world transformations can run at controls.
    * @return True for a fully rigid, history-free world chain. */
   bool rigid_world_stages() const {

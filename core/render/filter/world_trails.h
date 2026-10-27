@@ -85,6 +85,7 @@ public:
 #endif
     items = arena.allocate_n<Item>(Capacity);
     count = 0;
+    recorded_samples = 0;
 #ifndef NDEBUG
     stamp.record(arena);
 #endif
@@ -112,13 +113,34 @@ public:
            "World::Trails: a negative age narrows ttl past the uint8_t range");
     pass(v, color, age, alpha);
 
-    // round, not truncate (ttl is an integer byte)
-    int ttl = lifetime - static_cast<int>(age + 0.5f);
-    if (ttl > 0) {
-      HS_CHECK(items, "World::Trails::plot: storage missing");
-      check_storage_alive();
-      push_back(encode(v, static_cast<uint8_t>(ttl)));
-    }
+    record(v, age);
+  }
+
+  /** @brief Selects which fan-out copy may seed the source history.
+   * @param copy Flattened spatial copy index. */
+  void select_copy(int copy) { selected_copy = copy; }
+
+  /** @brief Records the first timed copy before its projected taps are emitted.
+   * @param v Source-space sample.
+   * @param age Incoming sample age in frames. */
+  void record_world_sample(const math::Vector &v, float age) {
+    if (selected_copy == 0)
+      record(v, age);
+  }
+
+  /** @brief Passes one selected copy and records its source once.
+   * @param cv Frame context.
+   * @param v Source point.
+   * @param color,age,alpha Shading registers.
+   * @param t Frame fraction.
+   * @param pass Downstream continuation. */
+  template <typename PassFnT>
+  void plot_at(Canvas &cv, const math::Vector &v, const ::Pixel &color,
+               float age, float alpha, float t, PassFnT &&pass) {
+    (void)cv;
+    (void)t;
+    pass(v, color, age, alpha);
+    record_world_sample(v, age);
   }
 
   /**
@@ -133,6 +155,19 @@ public:
    */
   template <typename PassFnT>
   void flush(const WorldTrailFn &trailFn, float alpha, PassFnT &&pass) {
+    flush_per_copy(trailFn, alpha, 1,
+                   [&](const math::Vector &v, const ::Pixel &color, float age,
+                       float opacity, int) { pass(v, color, age, opacity); });
+  }
+
+  /** @brief Emits each buffered sample once per copy, then ages it once.
+   * @param trailFn Source-space trail color callback.
+   * @param alpha Global opacity.
+   * @param copies Number of spatial copies.
+   * @param pass Continuation taking source point, registers and copy index. */
+  template <typename PassFnT>
+  void flush_per_copy(const WorldTrailFn &trailFn, float alpha, int copies,
+                      PassFnT &&pass) {
     HS_CHECK(items, "World::Trails::flush: storage missing");
     check_storage_alive();
     for (size_t i = 0; i < count; ++i) {
@@ -147,7 +182,8 @@ public:
         int age = lifetime - static_cast<int>(item.ttl);
         if (age < 0)
           age = 0;
-        pass(v, c.color, static_cast<float>(age), c.alpha * alpha);
+        for (int copy = 0; copy < copies; ++copy)
+          pass(v, c.color, static_cast<float>(age), c.alpha * alpha, copy);
       }
     }
 
@@ -170,7 +206,25 @@ public:
    */
   size_t size() const { return count; }
 
+  /** @brief Source samples submitted since storage initialization.
+   * @return Monotonic count modulo the uint32 range, including expired samples and replacements. */
+  uint32_t records() const { return recorded_samples; }
+
 private:
+  /** @brief Seeds a source sample with rounded incoming age.
+   * @param v Source point.
+   * @param age Incoming age in frames. */
+  void record(const math::Vector &v, float age) {
+    // round, not truncate (ttl is an integer byte)
+    ++recorded_samples;
+    int ttl = lifetime - static_cast<int>(age + 0.5f);
+    if (ttl > 0) {
+      HS_CHECK(items, "World::Trails::plot: storage missing");
+      check_storage_alive();
+      push_back(encode(v, static_cast<uint8_t>(ttl)));
+    }
+  }
+
   /**
    * @brief Trail alpha at or below which flush() emits nothing for a buffered
    * point.
@@ -181,6 +235,9 @@ private:
 
   Item *items = nullptr; /**< Flat storage (arena-owned). */
   size_t count = 0;      /**< Live item count. */
+  uint32_t recorded_samples =
+      0; /**< Source submissions, including expired seeds and replacements. */
+  int selected_copy = 0; /**< Spatial copy allowed to record when zero. */
   int lifetime;          /**< Per-frame fade divisor in frames. */
 #ifndef NDEBUG
   ArenaBlockStamp stamp; /**< Arena state when items was allocated. */

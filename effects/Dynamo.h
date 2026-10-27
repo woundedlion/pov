@@ -19,6 +19,7 @@
 namespace hs_test {
 namespace effects_tests {
 struct DynamoWhiteBox;
+struct DynamoTemporalOracle;
 } // namespace effects_tests
 } // namespace hs_test
 
@@ -135,14 +136,19 @@ public:
     // 1), so the trail fades along the palette.
     {
       HS_PROFILE(dy_filter_flush);
-      filters.flush(
-          canvas,
-          [this](const math::Vector &v, float t) { return color(v, t); }, 1.0f);
+      if (Spacetime::flat_surface())
+        filters.flush(
+            canvas,
+            [this](const math::Vector &v, float t) { return color(v, t); },
+            1.0f);
+      else
+        flush_timed(canvas);
     }
   }
 
 private:
   friend struct ::hs_test::effects_tests::DynamoWhiteBox;
+  friend struct ::hs_test::effects_tests::DynamoTemporalOracle;
 
   /**
    * @brief One point on the strand: grid position (x,y) and per-step velocity.
@@ -302,13 +308,19 @@ private:
    *          half-alpha line back to its predecessor.
    */
   void draw_nodes(Canvas &canvas, float age) {
+    if (!Spacetime::flat_surface()) {
+      draw_nodes_timed(canvas, age);
+      return;
+    }
+    auto &trails =
+        filters.template get<Filter::World::Trails<TRAIL_CAPACITY>>();
+    const uint32_t before = trails.records();
     for (size_t i = 0; i < NUM_NODES; ++i) {
       if (i == 0) {
         auto from = math::pixel_to_vector<W, H>(static_cast<float>(nodes[i].x),
                                                 nodes[i].y);
         Color4 c = color(from, 0);
         c.alpha *= 0.5f;
-        ++emitted_points;
         filters.plot(canvas, from, c.color, age, c.alpha);
       } else {
         auto from = math::pixel_to_vector<W, H>(
@@ -318,7 +330,6 @@ private:
         auto fragment_shader = [this](const math::Vector &v, Fragment &f) {
           f.color = color(v, 0);
           f.color.alpha *= 0.5f;
-          ++emitted_points;
         };
         Fragment f_from;
         f_from.pos = from;
@@ -329,6 +340,97 @@ private:
         Plot::Line::draw<W, H>(filters, canvas, f_from, f_to, fragment_shader);
       }
     }
+    emitted_points += trails.records() - before;
+  }
+
+  /** @brief Source positions consumed by the column walk. */
+  struct StrandMesh {
+    std::span<const math::Vector> vertices; ///< Source strand endpoints.
+  };
+
+  /** @brief Draws live strands once per selected copy at column time.
+   * @param canvas Destination frame.
+   * @param age Emission's incoming trail age. */
+  HS_HOT_FLASH_MEMBER void draw_nodes_timed(Canvas &canvas, float age) {
+    ScratchScope storage_a(scratch_arena_a);
+    ScratchScope storage_b(scratch_arena_b);
+    auto *vertices = scratch_arena_a.allocate_n<math::Vector>(NUM_NODES);
+    ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_a, NUM_NODES - 1);
+    for (size_t i = 0; i < NUM_NODES; ++i) {
+      vertices[i] = math::pixel_to_vector<W, H>(static_cast<float>(nodes[i].x),
+                                                nodes[i].y);
+      if (i > 0)
+        edges.push_back(
+            {static_cast<uint16_t>(i - 1), static_cast<uint16_t>(i)});
+    }
+    Spacetime::PoseTable copy_poses;
+    copy_poses.bind(scratch_arena_b, W);
+    auto &trails =
+        filters.template get<Filter::World::Trails<TRAIL_CAPACITY>>();
+    const uint32_t before = trails.records();
+    const float sweep = filters.sweep_arc();
+    Plot::PointRoute<W, H> point;
+    point.prepare(canvas, sweep);
+    auto shader = [this](const math::Vector &v, Fragment &f, float)
+                      HS_HOT_INLINE {
+                        f.color = color(v, 0.0f);
+                        f.color.alpha *= 0.5f;
+                      };
+    Plot::GeometryCallback geometry;
+    geometry.rigid_lattice = true;
+    for (int copy = 0; copy < STRAND_COPIES; ++copy) {
+      filters.select_copy(copy);
+      const math::Quaternion rotation = math::make_rotation(
+          math::Y_AXIS,
+          math::TWO_PI_F * static_cast<float>(copy) / STRAND_COPIES);
+      math::Quaternion history[math::Orientation<>::CAPACITY];
+      for (int i = 0; i < orientation.length(); ++i)
+        history[i] = orientation.get(i) * rotation;
+      copy_poses.build(history, orientation.length());
+      Plot::Mesh::draw_column_edges<W, H>(
+          filters, canvas, StrandMesh{{vertices, NUM_NODES}}, edges, shader,
+          geometry, 0.0f, &copy_poses, sweep, copy, age);
+      const auto v = math::normalized_or(vertices[0], math::Y_AXIS);
+      const auto end = copy_poses.rotate(v, 1.0f);
+      const auto start = copy_poses.rotate(v, 0.0f);
+      const auto middle = copy_poses.rotate(v, 0.5f);
+      point.plot(
+          filters.next.next.next, canvas, end,
+          [&]() HS_HOT_INLINE { return start; },
+          [&]() HS_HOT_INLINE {
+            Color4 c = color(v, 0.0f);
+            c.alpha *= 0.5f;
+            return c;
+          },
+          middle - (start + end) * 0.5f);
+      trails.record_world_sample(v, age);
+    }
+    emitted_points += trails.records() - before;
+  }
+
+  /** @brief Replays each source sample through its selected copy's motion.
+   * @param canvas Destination frame. */
+  HS_HOT_FLASH_MEMBER void flush_timed(Canvas &canvas) {
+    Plot::PointRoute<W, H> route;
+    route.prepare(canvas, filters.sweep_arc());
+    auto trail = [this](const math::Vector &v, float t)
+                     HS_HOT_INLINE { return color(v, t); };
+    filters.template get<Filter::World::Trails<TRAIL_CAPACITY>>()
+        .flush_per_copy(
+            WorldTrailFn(trail), 1.0f, STRAND_COPIES,
+            [&](const math::Vector &source, const Pixel &pixel, float,
+                float alpha, int copy) HS_HOT_INLINE {
+              filters.select_copy(copy);
+              const auto v = math::normalized_or(source, math::Y_AXIS);
+              const auto start = filters.next.world_at(canvas, v, 0.0f);
+              const auto end = filters.next.world_at(canvas, v, 1.0f);
+              const auto middle = filters.next.world_at(canvas, v, 0.5f);
+              route.plot(
+                  filters.next.next.next, canvas, end,
+                  [&]() HS_HOT_INLINE { return start; },
+                  [&]() HS_HOT_INLINE { return Color4(pixel, alpha); },
+                  middle - (start + end) * 0.5f);
+            });
   }
 
   /**

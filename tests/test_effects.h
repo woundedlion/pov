@@ -1021,6 +1021,7 @@ inline float seam_vertex_tolerance(LateFn &&late, EarlyFn &&early,
 #include "tests/effects/mesh_feedback.h"
 #include "tests/effects/numeric_invariants.h"
 #include "tests/effects/rings_temporal.h"
+#include "tests/effects/dynamo_temporal.h"
 #include "tests/effects/effect_whitebox.h"
 #include "tests/effects/galaxies_tests.h"
 #include "tests/effects/displacement_field.h"
@@ -1338,6 +1339,7 @@ inline int run_effects_tests() {
   const char *islamic_only = std::getenv("HS_ISLAMICSTARS_ONLY");
   const char *mesh_only = std::getenv("HS_MESH_CAPTURE_ONLY");
   const char *rings_only = std::getenv("HS_RING_TEMPORAL_ONLY");
+  const char *dynamo_only = std::getenv("HS_DYNAMO_ONLY");
 #pragma clang diagnostic pop
   if (rings_only && std::atoi(rings_only) != 0) {
     HS_RUN(run_case, RingShowerWhiteBox::check_temporal_rings);
@@ -1346,6 +1348,15 @@ inline int run_effects_tests() {
   }
   if (mobius_only && std::atoi(mobius_only) != 0) {
     HS_RUN(MobiusRingsWhiteBox::check_column_time_oracle);
+    return fixture.result();
+  }
+  if (dynamo_only && std::atoi(dynamo_only) != 0) {
+    HS_RUN(run_case, test_dynamo_column_time_oracle);
+    HS_RUN(run_case, test_dynamo_column_time_first_frame_and_reset);
+    if (std::atoi(dynamo_only) == 1) {
+      HS_RUN(run_case, test_dynamo_emitted_points_counts_ring_seeds);
+      HS_RUN(run_case, test_dynamo_trail_ceiling_bounds_the_ring);
+    }
     return fixture.result();
   }
   if (mesh_only && std::atoi(mesh_only) == 3) {
@@ -1504,6 +1515,8 @@ inline int run_effects_tests() {
   HS_RUN(ThrustersWhiteBox::check_fifo_evicts_the_oldest_pair);
   HS_RUN(ThrustersWhiteBox::check_expired_slots_retire_by_pair);
   HS_RUN(RingShowerWhiteBox::check_radius_endpoints);
+  HS_RUN(run_case, test_dynamo_column_time_oracle);
+  HS_RUN(run_case, test_dynamo_column_time_first_frame_and_reset);
   HS_RUN(DynamoWhiteBox::check_gap_reduction_uses_shortest_path);
   HS_RUN(DynamoWhiteBox::check_overlapping_wipes_stay_in_range);
   HS_RUN(DynamoWhiteBox::check_wipe_band_colors);

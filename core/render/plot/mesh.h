@@ -641,14 +641,17 @@ struct Mesh {
    * @param geometry Vertex evaluator and path bound.
    * @param callback_bound Maximum callback displacement in radians.
    * @param prepared_poses Shared column-time poses for a screen sink.
-   * @param prepared_sweep Rotation bound of the shared poses, radians. */
+   * @param prepared_sweep Rotation bound of the shared poses, radians.
+   * @param copy Spatial copy whose source history is recorded.
+   * @param age Incoming age shared by the batch samples. */
   template <int W, int H, typename MeshT, typename PipelineT, typename ShaderT>
   HS_HOT_FLASH_MEMBER static void
   draw_column_edges(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
                     const ArenaVector<Edge> &edges, ShaderT shader,
                     const GeometryCallback &geometry, float callback_bound,
                     const Spacetime::PoseTable *prepared_poses = nullptr,
-                    float prepared_sweep = 0.0f) {
+                    float prepared_sweep = 0.0f, int copy = 0,
+                    float age = 0.0f) {
     static_assert(PipelineT::column_taps_ready,
                   "the column walk splats end columns through an "
                   "anti-aliasing first screen stage");
@@ -677,15 +680,20 @@ struct Mesh {
       else
         return PipelineRef(pipeline, Spacetime::Timed{});
     }();
-    erased.select_copy(0);
+    erased.select_copy(copy);
     auto timed_shader = [&](const math::Vector &position, Fragment &fragment,
                             float t) HS_HOT_INLINE {
       Spacetime::shade_at_time(shader, t, position, fragment);
     };
-    const EdgeBatch batch{edges.size(),           &prepare_timed_edge,
-                          mesh.vertices.data(),   motion,
-                          edges.data(),           geometry.chained,
-                          geometry.rigid_lattice, geometry.uniform_color};
+    const EdgeBatch batch{edges.size(),
+                          &prepare_timed_edge,
+                          mesh.vertices.data(),
+                          motion,
+                          edges.data(),
+                          geometry.chained,
+                          geometry.rigid_lattice,
+                          geometry.uniform_color,
+                          age};
     const float raster_sweep =
         prepared_poses ? prepared_sweep : erased.sweep_arc();
     rasterize_column_edges<W, H, {.timed = true}>(

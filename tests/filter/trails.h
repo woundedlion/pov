@@ -532,3 +532,51 @@ inline void test_mixed_domain_flush_drains_both_buffers() {
   HS_EXPECT_EQ(world_emits, 0);
   HS_EXPECT_EQ(screen_emits, 0);
 }
+
+/** @brief Timed fan-out records its source once and ages each replay once. */
+inline void test_world_trails_timed_fanout_records_first_copy() {
+  constexpr int W = 96, H = 20, CAPACITY = 16;
+  hs_test::reset_globals();
+  hs_test::StubEffect effect(W, H);
+  math::Orientation<> orientation;
+  Pipeline<W, H, Filter::World::Trails<CAPACITY>, Filter::World::Replicate<W>,
+           Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
+      pipeline(Filter::World::Trails<CAPACITY>(4),
+               Filter::World::Replicate<W>(3),
+               Filter::World::Orient(orientation),
+               Filter::Screen::AntiAlias<W, H>());
+  pipeline.init_storage(persistent_arena);
+  Canvas canvas(effect);
+  const auto source = math::Vector(0.3f, 0.4f, 0.5f).normalized();
+  for (int copy = 0; copy < pipeline.copy_count(); ++copy) {
+    pipeline.select_copy(copy);
+    pipeline.plot_at(canvas, source, Pixel(100, 200, 300), 0.0f, 0.5f, 0.25f);
+  }
+  auto &trails = pipeline.get<Filter::World::Trails<CAPACITY>>();
+  HS_EXPECT_EQ(trails.size(), size_t{1});
+  HS_EXPECT_EQ(trails.records(), uint32_t{1});
+  auto color = [](const math::Vector &, float) {
+    return Color4(Pixel(100, 200, 300), 1.0f);
+  };
+  for (int frame = 0; frame < 4; ++frame) {
+    int emitted = 0;
+    trails.flush_per_copy(
+        WorldTrailFn(color), 1.0f, 3,
+        [&](const math::Vector &v, const Pixel &, float age, float, int copy) {
+          HS_EXPECT_VEC(v, source, 4e-5f);
+          HS_EXPECT_EQ(age, static_cast<float>(frame));
+          HS_EXPECT_EQ(copy, emitted++);
+        });
+    HS_EXPECT_EQ(emitted, 3);
+    HS_EXPECT_EQ(trails.size(), frame < 3 ? size_t{1} : size_t{0});
+  }
+  pipeline.select_copy(0);
+  for (int i = 0; i < CAPACITY + 3; ++i)
+    pipeline.plot_at(canvas, source, Pixel{}, 0.0f, 0.0f, 0.25f);
+  HS_EXPECT_EQ(trails.size(), size_t{CAPACITY});
+  HS_EXPECT_EQ(trails.records(), uint32_t{CAPACITY + 4});
+  trails.set_lifetime(1);
+  const uint32_t submitted = trails.records();
+  pipeline.plot_at(canvas, source, Pixel{}, 0.75f, 0.0f, 0.25f);
+  HS_EXPECT_EQ(trails.records(), submitted + 1);
+}

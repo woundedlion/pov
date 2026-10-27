@@ -190,6 +190,7 @@ inline int run_filter_tests() {
   HS_RUN(test_feedback_warp_cache_keys_column_time);
   HS_RUN(test_feedback_column_time_oracle);
 
+  HS_RUN(test_world_trails_timed_fanout_records_first_copy);
   HS_RUN(test_world_trails_int16_quantization_roundtrip);
   HS_RUN(test_world_trails_clamps_out_of_range);
   HS_RUN(test_world_trails_capacity_evicts_one_slot);

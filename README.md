@@ -1502,6 +1502,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── conway_morph/      Sections included by test_conway_morph.h
 │   ├── death/             Sections included by test_death.h
 │   ├── effects/           Sections included by test_effects.h
+│   │   ├── dynamo_temporal.h Live and replayed column-time strand oracles
 │   │   └── rings_temporal.h Frozen-column oracles for growing and warped rings
 │   ├── filter/            Sections included by test_filter.h
 │   │   └── temporal_copies.h Selected-copy timed transform parity
