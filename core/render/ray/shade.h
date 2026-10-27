@@ -63,13 +63,15 @@ struct Appearance {
    * @param layers Front-to-back composite to add to.
    * @param t Ray distance.
    * @param coverage Layer coverage in [0, 1].
+   * @param brightness Surface color multiplier; leaves opacity unchanged.
    */
   __attribute__((always_inline)) void composite(LayerComposite &layers, float t,
-                                                float coverage) const {
+                                                float coverage,
+                                                float brightness = 1.0f) const {
     const float nearness = 1 - t * inv_far;
     float rgb[3];
-    palette->get_color_unit_scaled(nearness, gain * (.45f + .55f * nearness),
-                                   rgb);
+    palette->get_color_unit_scaled(
+        nearness, gain * (.45f + .55f * nearness) * brightness, rgb);
     layers.add(rgb, coverage * opacity(t));
   }
 };

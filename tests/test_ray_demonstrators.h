@@ -931,14 +931,13 @@ inline void test_wide_shell_footprint_gathers_neighbor_rows() {
   const auto found =
       shell_neighborhood(prepared.camera, VIEW, 1, .32f, prepared.footprint);
   HS_EXPECT_EQ(found.size(), size_t{10});
-  auto shaded = found;
-  for (auto &hit : shaded)
-    hit.coverage *= .25f;
-  const auto expected = composite_shells(shaded, shaded.size(),
-                                         prepared.appearance, prepared.limits);
+  LayerComposite expected;
+  for (const auto &hit : found)
+    expected.add(prepared.appearance.color(hit.t) * .1f,
+                 hit.coverage * prepared.appearance.opacity(hit.t));
   const auto traced = SDF::LatticeTrace::shade<false>(VIEW, prepared);
   HS_EXPECT_EQ(traced.status, Raycast::TraceStatus::RANGE_COMPLETE);
-  HS_EXPECT_LE(max_channel_gap(traced.color, expected.first), 2);
+  HS_EXPECT_LE(max_channel_gap(traced.color, expected.premultiplied()), 2);
   HS_EXPECT_EQ(SDF::detail::reference::shade_periodic_shells(
                    prepared.periodic_shells, prepared.camera, VIEW,
                    prepared.limits, prepared.appearance)
@@ -1060,27 +1059,26 @@ inline void test_wide_shell_march_matches_neighborhood() {
   }
 }
 
-/** @brief Shell alpha follows the analytic sphere chord in each march path. */
-inline void test_shell_alpha_incidence() {
+/** @brief Sphere shading darkens color without weakening occlusion. */
+inline void test_shell_shading_preserves_opacity() {
   alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
       buffer;
   Arena arena(buffer.data(), buffer.size());
   BakedPaletteStorage palette;
   palette.bake(arena, ConstantPalette{});
-  const Raycast::Appearance APPEARANCE{1, 0, 100, &palette.view()};
+  const Raycast::Appearance APPEARANCE{0, 0, 100, &palette.view()};
   for (const auto domain : {Raycast::SamplingDomain::SPATIAL_3D,
                             Raycast::SamplingDomain::SLICE_4D}) {
     for (const float OFFSET : {0.0f, .09f, .12f, .144f}) {
       Raycast::PreparedCamera camera;
       camera.domain = domain;
-      camera.center = {{-.5f, OFFSET, 0, 0}};
+      camera.center = domain == Raycast::SamplingDomain::SPATIAL_3D
+                          ? math::Vec4{{-.5f, OFFSET, 0, 0}}
+                          : math::Vec4{{-.5f, 0, 0, OFFSET}};
       camera.interval = {0, 1};
       const float HALF_CHORD = sqrtf(.15f * .15f - OFFSET * OFFSET);
-      const float ALPHA = .25f + .75f * HALF_CHORD / .15f;
-      LayerComposite expected;
-      APPEARANCE.composite(expected, .5f - HALF_CHORD, ALPHA);
-      APPEARANCE.composite(expected, .5f + HALF_CHORD, ALPHA);
-      const Pixel EXPECTED = expected.premultiplied();
+      const float BRIGHTNESS = 1 - .9f * OFFSET * OFFSET / (.15f * .15f);
+      const Pixel EXPECTED = APPEARANCE.color(.5f - HALF_CHORD) * BRIGHTNESS;
       const auto prepared = SDF::prepare_periodic_shells(camera, 1, .15f, {});
       SDF::ShellLayerStorage storage;
       const auto narrow =
@@ -1095,11 +1093,14 @@ inline void test_shell_alpha_incidence() {
                     prepared, camera, math::X_AXIS, {}, APPEARANCE, storage)
               : SDF::trace_periodic_shells_march<4, true, true>(
                     prepared, camera, math::X_AXIS, {}, APPEARANCE, storage);
+      HS_EXPECT_EQ(narrow.status, Raycast::TraceStatus::SATURATED);
+      HS_EXPECT_EQ(wide.status, Raycast::TraceStatus::SATURATED);
       HS_EXPECT_LE(max_channel_gap(narrow.color, EXPECTED), 2);
       HS_EXPECT_LE(max_channel_gap(wide.color, EXPECTED), 2);
       if (domain == Raycast::SamplingDomain::SPATIAL_3D) {
         const auto owner = SDF::trace_periodic_shells_3d<true>(
             prepared, camera, math::X_AXIS, {}, APPEARANCE);
+        HS_EXPECT_EQ(owner.status, Raycast::TraceStatus::SATURATED);
         HS_EXPECT_LE(max_channel_gap(owner.color, EXPECTED), 2);
       }
     }
@@ -1111,7 +1112,7 @@ inline int run_ray_demonstrator_tests() {
   HS_RUN(test_appearance_palette_interval);
   HS_RUN(test_octet_crossing_coverage_against_ray_line_distance);
   HS_RUN(test_periodic_shell_roots_and_slices);
-  HS_RUN(test_shell_alpha_incidence);
+  HS_RUN(test_shell_shading_preserves_opacity);
   HS_RUN(test_periodic_shell_traversal_budgets);
   HS_RUN(test_prepared_shells_match_sphere_roots);
   HS_RUN(test_shell_layer_march_matches_cell_traversal);

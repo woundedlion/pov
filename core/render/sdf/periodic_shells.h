@@ -129,8 +129,9 @@ struct ShellLayerStorage {
   static constexpr int CAPACITY = 16; ///< Maximum pending layers.
   /** @brief One shell layer awaiting compositing. */
   struct Layer {
-    float t;        ///< Ray distance of the layer.
-    float coverage; ///< Coverage of the layer.
+    float t;                 ///< Ray distance of the layer.
+    float coverage;          ///< Coverage of the layer.
+    float brightness = 1.0f; ///< Surface color multiplier.
   };
   std::array<Layer, CAPACITY> pending; ///< One ray's layers to composite.
 
@@ -141,12 +142,14 @@ struct ShellLayerStorage {
    * @param cutoff Distance from which layers are dropped.
    * @param t Ray distance of the layer.
    * @param coverage Coverage of the layer.
+   * @param brightness Surface color multiplier.
    */
-  void retain(int &count, float &cutoff, float t, float coverage) {
+  void retain(int &count, float &cutoff, float t, float coverage,
+              float brightness = 1.0f) {
     if (t >= cutoff)
       return;
     if (count < CAPACITY) {
-      pending[count++] = {t, coverage};
+      pending[count++] = {t, coverage, brightness};
       return;
     }
     int last = 0;
@@ -155,7 +158,7 @@ struct ShellLayerStorage {
         last = slot;
     cutoff = fmaxf(t, pending[last].t);
     if (t < pending[last].t)
-      pending[last] = {t, coverage};
+      pending[last] = {t, coverage, brightness};
   }
 };
 
@@ -168,7 +171,7 @@ struct ShellLayerStorage {
  * own cell, so a crossing whose ray-to-center clearance exceeds the widest
  * contribution is rejected before any root solve. Matches
  * shade_periodic_shells_dimension<3>, with the step budget counting layers.
- * @tparam SHADED Modulates shell alpha by the sphere chord's incidence.
+ * @tparam SHADED Darkens shell color by the squared sphere-chord incidence.
  * @param prepared Frame shell constants.
  * @param camera Prepared camera embedding.
  * @param direction Unit view direction.
@@ -226,14 +229,14 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
   ShellSample result;
   LayerComposite composite;
   int layers = 0;
-  const auto emit = [&](float t,
-                        float coverage) __attribute__((always_inline)) {
+  const auto emit = [&](float t, float coverage,
+                        float brightness) __attribute__((always_inline)) {
     if (layers >= limits.max_candidates || layers >= limits.max_layers) {
       result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
       return false;
     }
     ++layers;
-    appearance.composite(composite, t, coverage);
+    appearance.composite(composite, t, coverage, brightness);
     if (composite.saturated()) {
       result.status = Raycast::TraceStatus::SATURATED;
       return false;
@@ -255,9 +258,8 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
       const float DISCRIMINANT = B * B - A * C;
       if (DISCRIMINANT >= 0) {
         const float ROOT = sqrtf(DISCRIMINANT);
-        const float SHADE =
-            SHADED ? .25f + .75f * fminf(ROOT * (2 * HALF_INVERSE_RADIUS), 1.0f)
-                   : 1.0f;
+        const float INCIDENCE = fminf(ROOT * (2 * HALF_INVERSE_RADIUS), 1.0f);
+        const float SHADE = SHADED ? .1f + .9f * INCIDENCE * INCIDENCE : 1.0f;
         const float TIMES[2] = {CROSSING + (-B - ROOT) * INVERSE_A,
                                 CROSSING + (-B + ROOT) * INVERSE_A};
         const float DEPTH = DISCRIMINANT * HALF_INVERSE_RADIUS;
@@ -268,7 +270,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
           const float WIDTH = prepared.footprint.at(T);
           const float COVERAGE =
               WIDTH > 0 ? hs::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f) : 1.0f;
-          if (!emit(T, COVERAGE * SHADE)) {
+          if (!emit(T, COVERAGE, SHADE)) {
             result.color = composite.premultiplied();
             return result;
           }
@@ -280,7 +282,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
         if (T >= NEAR && T <= FAR && SQUARED > 0 && WIDTH > 0) {
           const float COVERAGE =
               hs::clamp(.5f - (sqrtf(SQUARED) - RADIUS) / WIDTH, 0.0f, 1.0f);
-          if (COVERAGE > 0 && !emit(T, COVERAGE * (SHADED ? .25f : 1.0f))) {
+          if (COVERAGE > 0 && !emit(T, COVERAGE, SHADED ? .1f : 1.0f)) {
             result.color = composite.premultiplied();
             return result;
           }
@@ -303,7 +305,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
  *        ambient ray's dominant axis.
  * @tparam DIMENSIONS 3 for a spatial camera, 4 for a slice.
  * @tparam WIDE Whether filtered spheres may reach past half a cell.
- * @tparam SHADED Modulates shell alpha by the sphere chord's incidence.
+ * @tparam SHADED Darkens shell color by the squared sphere-chord incidence.
  * @details Without WIDE, requires PreparedPeriodicShells::march: candidates
  * are the ray's layer crossing's rounded lattice point and its neighbors one
  * step to either side within reach, composited in distance order per layer,
@@ -423,87 +425,81 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
     const float REACH2 = REACH * REACH;
     const float SPREAD = REACH * STEP;
     int count = held;
-    const auto candidate =
-        [&](const std::array<float, OTHERS> &e) __attribute__((always_inline)) {
-          float offset2 = 0, along = 0;
-          for (int n = 0; n < OTHERS; ++n) {
-            offset2 += e[n] * e[n];
-            along += e[n] * d[n];
+    const auto candidate = [&](const std::array<float, OTHERS>
+                                   &e) __attribute__((always_inline)) {
+      float offset2 = 0, along = 0;
+      for (int n = 0; n < OTHERS; ++n) {
+        offset2 += e[n] * e[n];
+        along += e[n] * d[n];
+      }
+      if (!(offset2 - along * along < REACH2))
+        return;
+      const float CROSSING = tau * CELL;
+      const float B = along * CELL;
+      const float C = offset2 * CELL * CELL - prepared.radius_squared;
+      const float DISCRIMINANT = B * B - A * C;
+      float gradient[DIMENSIONS];
+      gradient[k] = 0;
+      for (int n = 0; n < OTHERS; ++n)
+        gradient[other[n]] = e[n] * CELL;
+      const auto at = [&](float u, float (&point)[DIMENSIONS])
+                          __attribute__((always_inline)) {
+                            for (int axis = 0; axis < DIMENSIONS; ++axis)
+                              point[axis] = gradient[axis] + u * D[axis];
+                          };
+      if (DISCRIMINANT >= 0) {
+        const float ROOT = sqrtf(DISCRIMINANT);
+        const float INCIDENCE = fminf(ROOT * INVERSE_RADIUS, 1.0f);
+        const float SHADE = SHADED ? .1f + .9f * INCIDENCE * INCIDENCE : 1.0f;
+        const float TIMES[2] = {CROSSING + (-B - ROOT) * INVERSE_A,
+                                CROSSING + (-B + ROOT) * INVERSE_A};
+        for (int root = 0; root < 2; ++root) {
+          const float T = TIMES[root];
+          if (T < NEAR || T > FAR || (root == 1 && T == TIMES[0]))
+            continue;
+          const float WIDTH = prepared.footprint.at(T);
+          float coverage = 1.0f;
+          if (WIDTH > 0) {
+            float point[DIMENSIONS];
+            at(T - CROSSING, point);
+            const float LENGTH2 = projected_length2(point);
+            const float INVERSE_LENGTH =
+                LENGTH2 > 1e-20f && Raycast::finite(LENGTH2)
+                    ? 1 / sqrtf(LENGTH2)
+                    : 0;
+            const float DEPTH = .5f * DISCRIMINANT * INVERSE_A * INVERSE_LENGTH;
+            coverage = hs::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f);
           }
-          if (!(offset2 - along * along < REACH2))
-            return;
-          const float CROSSING = tau * CELL;
-          const float B = along * CELL;
-          const float C = offset2 * CELL * CELL - prepared.radius_squared;
-          const float DISCRIMINANT = B * B - A * C;
-          float gradient[DIMENSIONS];
-          gradient[k] = 0;
-          for (int n = 0; n < OTHERS; ++n)
-            gradient[other[n]] = e[n] * CELL;
-          const auto at = [&](float u, float (&point)[DIMENSIONS])
-                              __attribute__((always_inline)) {
-                                for (int axis = 0; axis < DIMENSIONS; ++axis)
-                                  point[axis] = gradient[axis] + u * D[axis];
-                              };
-          if (DISCRIMINANT >= 0) {
-            const float ROOT = sqrtf(DISCRIMINANT);
-            const float SHADE =
-                SHADED ? .25f + .75f * fminf(ROOT * INVERSE_RADIUS, 1.0f)
-                       : 1.0f;
-            const float TIMES[2] = {CROSSING + (-B - ROOT) * INVERSE_A,
-                                    CROSSING + (-B + ROOT) * INVERSE_A};
-            for (int root = 0; root < 2; ++root) {
-              const float T = TIMES[root];
-              if (T < NEAR || T > FAR || (root == 1 && T == TIMES[0]))
-                continue;
-              const float WIDTH = prepared.footprint.at(T);
-              float coverage = 1.0f;
-              if (WIDTH > 0) {
-                float point[DIMENSIONS];
-                at(T - CROSSING, point);
-                const float LENGTH2 = projected_length2(point);
-                const float INVERSE_LENGTH =
-                    LENGTH2 > 1e-20f && Raycast::finite(LENGTH2)
-                        ? 1 / sqrtf(LENGTH2)
-                        : 0;
-                const float DEPTH =
-                    .5f * DISCRIMINANT * INVERSE_A * INVERSE_LENGTH;
-                coverage = hs::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f);
-              }
-              if constexpr (WIDE)
-                storage.retain(count, cutoff, T, coverage * SHADE);
-              else
-                pending[count++] = {T, coverage * SHADE};
-            }
-          } else if (FILTERED) {
-            const float U = -B * INVERSE_A;
-            const float T = CROSSING + U;
-            const float SQUARED =
-                C + prepared.radius_squared - B * B * INVERSE_A;
-            const float WIDTH = prepared.footprint.at(T);
-            if (T >= NEAR && T <= FAR && SQUARED > 0 && WIDTH > 0) {
-              const float LENGTH = sqrtf(SQUARED);
-              float distance = LENGTH - RADIUS;
-              if constexpr (DIMENSIONS == 4) {
-                float point[DIMENSIONS];
-                at(U, point);
-                const float PROJECTED2 = projected_length2(point);
-                distance = PROJECTED2 > 0
-                               ? distance * LENGTH / sqrtf(PROJECTED2)
-                               : INFINITY;
-              }
-              const float COVERAGE =
-                  hs::clamp(.5f - distance / WIDTH, 0.0f, 1.0f) *
-                  (SHADED ? .25f : 1.0f);
-              if (COVERAGE > 0) {
-                if constexpr (WIDE)
-                  storage.retain(count, cutoff, T, COVERAGE);
-                else
-                  pending[count++] = {T, COVERAGE};
-              }
-            }
+          if constexpr (WIDE)
+            storage.retain(count, cutoff, T, coverage, SHADE);
+          else
+            pending[count++] = {T, coverage, SHADE};
+        }
+      } else if (FILTERED) {
+        const float U = -B * INVERSE_A;
+        const float T = CROSSING + U;
+        const float SQUARED = C + prepared.radius_squared - B * B * INVERSE_A;
+        const float WIDTH = prepared.footprint.at(T);
+        if (T >= NEAR && T <= FAR && SQUARED > 0 && WIDTH > 0) {
+          const float LENGTH = sqrtf(SQUARED);
+          float distance = LENGTH - RADIUS;
+          if constexpr (DIMENSIONS == 4) {
+            float point[DIMENSIONS];
+            at(U, point);
+            const float PROJECTED2 = projected_length2(point);
+            distance = PROJECTED2 > 0 ? distance * LENGTH / sqrtf(PROJECTED2)
+                                      : INFINITY;
           }
-        };
+          const float COVERAGE = hs::clamp(.5f - distance / WIDTH, 0.0f, 1.0f);
+          if (COVERAGE > 0) {
+            if constexpr (WIDE)
+              storage.retain(count, cutoff, T, COVERAGE, SHADED ? .1f : 1.0f);
+            else
+              pending[count++] = {T, COVERAGE, SHADED ? .1f : 1.0f};
+          }
+        }
+      }
+    };
     if constexpr (WIDE) {
       // Every lattice point of the layer within SPREAD on each coordinate.
       std::array<float, OTHERS> e, first;
@@ -565,8 +561,8 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
         return result;
       }
       ++layers;
-      appearance.composite(composite, pending[layer].t,
-                           pending[layer].coverage);
+      appearance.composite(composite, pending[layer].t, pending[layer].coverage,
+                           pending[layer].brightness);
       if (composite.saturated()) {
         result.status = Raycast::TraceStatus::SATURATED;
         result.color = composite.premultiplied();
