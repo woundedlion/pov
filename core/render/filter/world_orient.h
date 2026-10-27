@@ -218,8 +218,9 @@ public:
    * @param forward Sampling-pose visitor.
    * @return True if a visitor accepts a pose. */
   template <typename FwdFn>
-  bool sampling_edge(const math::Vector &a, const math::Vector &b,
-                     const math::Basis *pb, FwdFn &&forward) const {
+  HS_HOT_FLASH_MEMBER bool
+  sampling_edge(const math::Vector &a, const math::Vector &b,
+                const math::Basis *pb, FwdFn &&forward) const {
     for (int i = 0; i < orientation.length(); ++i)
       if (forward_rotated_edge(a, b, pb, orientation.get(i), forward))
         return true;

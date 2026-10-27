@@ -16,9 +16,9 @@
  * @param a,b Transformed endpoint geometry.
  * @return Whether the edge reaches the region. */
 template <int W, int H>
-HS_O3_FN HS_NOINLINE_NOCLONE bool
-geodesic_reaches_region(const CullRegion &region, const math::Vector &a,
-                        const math::Vector &b) {
+HS_HOT_FLASH_MEMBER bool geodesic_reaches_region(const CullRegion &region,
+                                                 const math::Vector &a,
+                                                 const math::Vector &b) {
   const auto span = make_geodesic_edge_span(a, b);
   float lo, hi;
   geodesic_row_span_rows<H>(y_to_screen_row<H>(a.y), y_to_screen_row<H>(b.y), a,
@@ -232,7 +232,7 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
       return 0.0f;
   }();
   auto pred = [&](const math::Vector &ea, const math::Vector &eb,
-                  const math::Basis *bp) {
+                  const math::Basis *bp) HS_FLASH_INLINE {
     if (motion > 0.0f) {
       const CullRegion region(cr, xc, motion);
       if (!bp)
