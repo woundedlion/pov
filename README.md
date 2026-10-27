@@ -1503,11 +1503,51 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── conway_morph/      Sections included by test_conway_morph.h
 │   ├── death/             Sections included by test_death.h
 │   ├── effects/           Sections included by test_effects.h
+│   │   ├── ash_cloud.h Ash cloud cases
+│   │   ├── case_runners.h External effect case entry points
+│   │   ├── comets_cases.h Comets cases cases
+│   │   ├── dynamo_cases.h Dynamo cases cases
+│   │   ├── fishbowl_cases.h Fishbowl cases cases
+│   │   ├── fishbowl_oracle.h Fishbowl oracle cases
+│   │   ├── fixture.h Shared engine-only effect rendering and seam fixtures
+│   │   ├── gnomonic_stars.h Gnomonic stars cases
+│   │   ├── hopf.h Hopf cases
+│   │   ├── lens_cases.h Glitch lens numeric invariants
+│   │   ├── mesh_capture_cases.h Mesh effect capture and profile cases
+│   │   ├── mobius_rings.h Mobius rings cases
+│   │   ├── petal_flow.h Petal flow cases
+│   │   ├── petal_flow_oracle.h Petal flow oracle cases
+│   │   ├── raymarch_cases.h Raymarch cases cases
+│   │   ├── ring_spin.h Ring spin cases
+│   │   ├── ring_whitebox.h RingShower and Thrusters white-box accessors
+│   │   ├── roster_cases.h Cross-effect preset navigation and full-frame contracts
 │   │   ├── dynamo_temporal.h Live and replayed column-time strand oracles
 │   │   └── rings_temporal.h Frozen-column oracles for growing and warped rings
 │   ├── filter/            Sections included by test_filter.h
 │   │   └── temporal_copies.h Selected-copy timed transform parity
 │   ├── test_plot_parity.h Spacetime, frame-end and segment render fingerprints
+│   ├── run_effect_cases_ash_cloud.cpp Ash cloud case wrappers and focused runner
+│   ├── run_effect_cases_comets.cpp Comets case wrappers and focused runner
+│   ├── run_effect_cases_displacement_field.cpp Displacement field case wrappers and focused runner
+│   ├── run_effect_cases_dreamballs.cpp Dreamballs case wrappers and focused runner
+│   ├── run_effect_cases_dynamo.cpp Dynamo case wrappers and focused runner
+│   ├── run_effect_cases_fishbowl.cpp Fishbowl case wrappers and focused runner
+│   ├── run_effect_cases_galaxies.cpp Galaxies case wrappers and focused runner
+│   ├── run_effect_cases_gnomonic_stars.cpp Gnomonic stars case wrappers and focused runner
+│   ├── run_effect_cases_hopf.cpp Hopf case wrappers and focused runner
+│   ├── run_effect_cases_mesh_effect.cpp Mesh effect case wrappers and focused runner
+│   ├── run_effect_cases_mesh_feedback.cpp Mesh feedback case wrappers and focused runner
+│   ├── run_effect_cases_mobiusrings.cpp Mobiusrings case wrappers and focused runner
+│   ├── run_effect_cases_petal_flow.cpp Petal flow case wrappers and focused runner
+│   ├── run_effect_cases_raymarch.cpp Raymarch case wrappers and focused runner
+│   ├── run_effect_cases_reaction_diffusion_bz.cpp Reaction diffusion bz case wrappers and focused runner
+│   ├── run_effect_cases_reaction_diffusion_gs.cpp Reaction diffusion gs case wrappers and focused runner
+│   ├── run_effect_cases_ring_spin.cpp Ring spin case wrappers and focused runner
+│   ├── run_effect_cases_rings.cpp Rings case wrappers and focused runner
+│   ├── run_effect_cases_roster.cpp Roster case wrappers and focused runner
+│   ├── run_effect_cases_shapeshifter_cases.cpp Shapeshifter cases case wrappers and focused runner
+│   ├── run_effect_cases_spherical_harmonics.cpp Spherical harmonics case wrappers and focused runner
+│   ├── run_effect_cases_voronoi.cpp Voronoi case wrappers and focused runner
 │   ├── run_render_goldens.cpp  Node-hosted WASM render regression runner
 │   ├── temporal_oracle.h  Shared per-column frozen-reference comparisons
 │   ├── plot_scan/         Sections included by test_plot_scan.h

@@ -24,7 +24,7 @@
 #include "tests/fd_capture_util.h"
 #include "tests/mindsplatter_whitebox.h"
 #include "tests/pixel_test_util.h"
-#include "tests/test_effects.h"
+#include "tests/effects/fixture.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

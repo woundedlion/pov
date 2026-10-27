@@ -2314,55 +2314,6 @@ inline void test_gs_slab_noise_keeps_the_previous_bake() {
   HS_EXPECT_FALSE(WhiteBox::noise_history(gs));
 }
 
-/**
- * @brief Slab bands match the full frame after a simulation warm-up.
- * @tparam FX Reaction-diffusion effect type.
- * @param warmup Frames to advance before capturing comparisons.
- */
-template <typename FX>
-inline void expect_slab_bands_match_full_frame(int warmup) {
-  constexpr int W = SMALL_W, H = SMALL_H, FRAMES = 3;
-  auto render = [warmup](int x0, int x1) {
-    reset_effect_globals();
-    pin_frame_clock(0);
-    FX fx;
-    fx.init();
-    fx.set_clip(0, H, x0, x1);
-    std::vector<Pixel> out;
-    for (int f = 0; f < warmup + FRAMES; ++f) {
-      pin_frame_clock(f);
-      fx.draw_frame();
-      fx.advance_display();
-      if (f < warmup)
-        continue;
-      for (int y = 0; y < H; ++y)
-        for (int x = x0; x < x1; ++x)
-          out.push_back(fx.get_pixel(x, y));
-    }
-    hs::clear_mock_time();
-    return out;
-  };
-  const std::vector<Pixel> full = render(0, W);
-  size_t lit = 0;
-  for (const Pixel &p : full)
-    lit += !is_black(p);
-  HS_EXPECT_GT(lit, static_cast<size_t>(0));
-  const std::array<std::array<int, 2>, 4> bands{
-      {{0, 30}, {20, 60}, {44, 52}, {70, W}}};
-  for (const auto &[x0, x1] : bands) {
-    HS_CONTEXT("band", x0, x1);
-    const std::vector<Pixel> band = render(x0, x1);
-    size_t next = 0;
-    int mismatches = 0;
-    for (int f = 0; f < FRAMES; ++f)
-      for (int y = 0; y < H; ++y)
-        for (int x = x0; x < x1; ++x)
-          mismatches +=
-              band[next++] != full[(static_cast<size_t>(f) * H + y) * W + x];
-    HS_EXPECT_EQ(mismatches, 0);
-  }
-}
-
 /** @brief GS slab bands match full-canvas frames. */
 inline void test_gs_segmented_slabs_match_full_frame() {
   expect_slab_bands_match_full_frame<GSWhiteBox::GS>(40);

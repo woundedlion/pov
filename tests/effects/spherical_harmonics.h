@@ -5,10 +5,6 @@
  * SphericalHarmonics white-box tests.
  */
 
-inline constexpr std::array<int, 24> SH_PRESET_MODES{
-    6,  1,  2,  3,  4,  5,  7,  8,  9,  10, 11, 12,
-    13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24};
-
 /**
  * @brief White-box accessor for SphericalHarmonics' morph chain and shader inputs.
  * @details Befriended in effects/SphericalHarmonics.h.

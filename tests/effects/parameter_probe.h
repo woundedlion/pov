@@ -2,6 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 
 /** @brief Chooses a distant writable value for a parameter lint. */
 inline float parameter_probe_target(const ParamDef &def, float current) {

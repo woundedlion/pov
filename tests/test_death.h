@@ -30,6 +30,7 @@
 #include "death_guard_sites.h" // generated HS_CHECK census
 #include "tests/test_fixture.h"
 #include "tests/test_pullback.h"
+#include "tests/effects/fixture.h"
 #include "tests/test_effects.h"
 #include "tests/test_shapeshifter_oracle.h"
 #include "tests/test_harness.h"
