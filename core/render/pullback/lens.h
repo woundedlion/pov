@@ -28,8 +28,9 @@ static_assert(field_ids_unique<NoLensParams>());
 static_assert(field_defaults_in_range<NoLensParams>());
 /** @brief Lens parameters for the Mobius map (Pullback::Lens::Mobius). */
 struct MobiusLensParams {
-  /// Message for coefficients that fail nondegenerate().
-  static constexpr const char *DEGENERATE_WARNING =
+  /// Message for coefficients that fail nondegenerate(); one object, so its
+  /// address identifies the refusal in every translation unit.
+  static constexpr char DEGENERATE_WARNING[] =
       "Mobius coefficients must have |ad - bc| >= 0.001.";
   static constexpr float COEFFICIENT_LIMIT = 4.0f;  ///< Max abs re/im part.
   static constexpr float MOBIUS_MIN_DET_SQ = 1e-6f; ///< Minimum |ad - bc|^2.

@@ -801,8 +801,9 @@ private:
     sampler frequency, stays finite. */
 inline constexpr float MAX_PLANE_BOUND = 0x1p48f;
 
-/** User-facing message for a chain `plane_bound_overflow` rejects. */
-inline constexpr const char *PLANE_GROWTH_WARNING =
+/** User-facing message for a chain `plane_bound_overflow` rejects; one
+    object, so its address identifies the refusal in every translation unit. */
+inline constexpr char PLANE_GROWTH_WARNING[] =
     "Combined plane warps can overflow: move affine scales toward 1, or lower "
     "affine shear or polar radial scale";
 
