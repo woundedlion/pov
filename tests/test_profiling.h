@@ -711,6 +711,46 @@ inline void test_pc_sample_gate_nests() {
   HS_EXPECT_EQ(static_cast<unsigned>(hs::pc_sample_gate()), 0u);
 }
 
+/** @brief Sampled intervals exclude scope setup and retain child nesting. */
+inline void test_sampled_cycle_scope_bounds_and_nesting() {
+  hs::CycleCounter outer("sampled_outer");
+  hs::CycleCounter sampled("sampled");
+  hs::CycleCounter child("sampled_child");
+  hs::CycleCounter after("sampled_after");
+  hs::CycleCounter unrecorded("sampled_unrecorded");
+  {
+    hs::CycleScope enclosing(outer);
+    {
+      hs::SampledCycleScope scope(sampled);
+      HS_EXPECT_EQ(sampled.count, 0u);
+      HS_EXPECT_EQ(sampled.cycles, 0u);
+      {
+        hs::CycleScope nested(child);
+      }
+      HS_EXPECT_TRUE(child.parent == &sampled);
+      scope.record(0xfffffff0u, 0x30u);
+      scope.record(100u, 700u);
+      HS_EXPECT_EQ(sampled.cycles, 664u);
+      HS_EXPECT_EQ(sampled.count, 2u);
+    }
+    HS_EXPECT_TRUE(sampled.parent == &outer);
+    HS_EXPECT_EQ(sampled.cycles, 664u);
+    HS_EXPECT_EQ(sampled.count, 2u);
+    {
+      hs::SampledCycleScope scope(unrecorded);
+    }
+    HS_EXPECT_EQ(unrecorded.count, 0u);
+    HS_EXPECT_EQ(unrecorded.cycles, 0u);
+    {
+      hs::CycleScope sibling(after);
+    }
+    HS_EXPECT_TRUE(after.parent == &outer);
+  }
+  HS_EXPECT_EQ(outer.count, 1u);
+  HS_EXPECT_EQ(child.count, 1u);
+  HS_EXPECT_EQ(after.count, 1u);
+}
+
 /**
  * @brief Runs the profiling test cases.
  * @return The module's failure count.
@@ -718,6 +758,7 @@ inline void test_pc_sample_gate_nests() {
 inline int run_profiling_tests() {
   hs_test::ModuleFixture fixture("profiling");
 
+  HS_RUN(test_sampled_cycle_scope_bounds_and_nesting);
   HS_RUN(test_u64_dec_boundaries);
   HS_RUN(test_u64_dec_powers_of_ten);
   HS_RUN(test_find_suffix);

@@ -147,6 +147,23 @@ private:
   static inline CycleCounter *active =
       nullptr; /**< Currently active counter (for nesting). */
   friend struct CycleScope;
+  friend struct SampledCycleScope;
+
+  CycleCounter *enter_scope() {
+    CycleCounter *previous = active;
+    if (previous != this) {
+      if (!parented) {
+        if (!in_parent_chain(previous, this)) {
+          parented = true;
+          parent = previous;
+        }
+      } else if (parent != previous) {
+        mixed_parent = true;
+      }
+    }
+    active = this;
+    return previous;
+  }
 
   /**
    * @brief Whether @p node is reachable by following @p from's parent chain.
@@ -224,20 +241,7 @@ struct CycleScope {
    * @param c Counter that receives the elapsed cycles.
    */
   explicit CycleScope(CycleCounter &c) : counter(c), start(HS_OS_CYCLES()) {
-    prev_active = CycleCounter::active;
-    // No latch on recursion or when it would close a parent cycle; retried on
-    // the next entry.
-    if (prev_active != &counter) {
-      if (!counter.parented) {
-        if (!CycleCounter::in_parent_chain(prev_active, &counter)) {
-          counter.parented = true;
-          counter.parent = prev_active;
-        }
-      } else if (counter.parent != prev_active) {
-        counter.mixed_parent = true;
-      }
-    }
-    CycleCounter::active = &counter;
+    prev_active = counter.enter_scope();
   }
   /**
    * @brief Adds the elapsed cycles to the counter and restores the previous one.
@@ -258,6 +262,28 @@ struct CycleScope {
    * @return Never returns; deleted.
    */
   CycleScope &operator=(const CycleScope &) = delete;
+};
+
+/** @brief Nests a counter whose intervals use caller-supplied cycle samples. */
+struct SampledCycleScope {
+  CycleCounter &counter;     /**< Counter receiving sampled intervals. */
+  CycleCounter *prev_active; /**< Counter restored on scope exit. */
+
+  explicit SampledCycleScope(CycleCounter &c)
+      : counter(c), prev_active(c.enter_scope()) {}
+  ~SampledCycleScope() { CycleCounter::active = prev_active; }
+
+  /**
+   * @brief Adds one sampled interval and increments the invocation count.
+   * @pre The interval spans less than one 32-bit cycle-counter wrap.
+   */
+  void record(uint32_t begin, uint32_t end) {
+    counter.cycles += static_cast<uint32_t>(end - begin);
+    ++counter.count;
+  }
+
+  SampledCycleScope(const SampledCycleScope &) = delete;
+  SampledCycleScope &operator=(const SampledCycleScope &) = delete;
 };
 
 /**

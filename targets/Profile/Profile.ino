@@ -189,40 +189,48 @@ public:
 
   void draw_frame() override {
     const uint64_t bw0 = buffer_wait ? buffer_wait->cycles : 0;
-    const unsigned long t0 = micros();
+    static hs::CycleCounter frame_counter("frame");
+    unsigned long dt;
 #ifdef HS_MINDSPLATTER_REPLAY
     const Pixel *pixels = nullptr;
 #endif
     {
-      HS_PROFILE(frame);
+      hs::SampledCycleScope frame_scope(frame_counter);
+      const unsigned long t0 = micros();
+      const uint32_t c0 = HS_OS_CYCLES();
+      {
 #ifdef HS_MINDSPLATTER_REPLAY
 #ifdef HS_MINDSPLATTER_REPLAY_AB
-      Canvas canvas(*this);
-      replay_clip = canvas.clip();
-      ReplayWhiteBox::draw_particles_replay_reference(*this, canvas);
-      const size_t reference_count = mindsplatter_replay::capture_frame<W>(
-          canvas.data(), replay_clip, replay_reference_pixels,
-          std::size(replay_reference_pixels));
-      mindsplatter_replay::clear_frame(canvas, replay_clip);
-      ReplayWhiteBox::draw_particles_candidate(*this, canvas);
-      pixels = canvas.data();
-      replay_stats = mindsplatter_replay::compare_frame_reference<W>(
-          pixels, replay_clip, replay_reference_pixels, reference_count);
+        Canvas canvas(*this);
+        replay_clip = canvas.clip();
+        ReplayWhiteBox::draw_particles_replay_reference(*this, canvas);
+        const size_t reference_count = mindsplatter_replay::capture_frame<W>(
+            canvas.data(), replay_clip, replay_reference_pixels,
+            std::size(replay_reference_pixels));
+        mindsplatter_replay::clear_frame(canvas, replay_clip);
+        ReplayWhiteBox::draw_particles_candidate(*this, canvas);
+        pixels = canvas.data();
+        replay_stats = mindsplatter_replay::compare_frame_reference<W>(
+            pixels, replay_clip, replay_reference_pixels, reference_count);
 #else
-      ReplayWhiteBox::draw_particles_inspect(
-          *this, [&](Canvas &canvas, const ClipRegion &clip) {
-            pixels = &canvas(0, 0);
-            replay_clip = clip;
-          });
+        ReplayWhiteBox::draw_particles_inspect(
+            *this, [&](Canvas &canvas, const ClipRegion &clip) {
+              pixels = &canvas(0, 0);
+              replay_clip = clip;
+            });
 #endif
 #else
 #ifdef HS_PROFILE_PC
-      hs::PcSampleGate render_gate(true);
+        hs::PcSampleGate render_gate(true);
 #endif
-      HS_PROFILE_TARGET<W, H>::draw_frame();
+        HS_PROFILE_TARGET<W, H>::draw_frame();
 #endif
+      }
+      const unsigned long t1 = micros();
+      const uint32_t c1 = HS_OS_CYCLES();
+      frame_scope.record(c0, c1);
+      dt = t1 - t0;
     }
-    const unsigned long dt = micros() - t0;
 #ifdef HS_MINDSPLATTER_REPLAY
 #ifndef HS_MINDSPLATTER_REPLAY_AB
     replay_stats = mindsplatter_replay::compare_frame<W>(

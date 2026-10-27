@@ -1215,6 +1215,12 @@ of another length needs another image. Each flag set builds in its own
 directory under `.pio/flags/`, so alternating flag sets rebuild incrementally;
 `HS_PIO_JOBS` sets `pio run -j`.
 
+The profile harness records frame wall time from `micros()` and root cycles
+from paired DWT samples taken in the same order at both frame boundaries.
+Counter registration and nesting setup occur before the samples; aggregation
+occurs afterward. The wall clock remains independent of the cycle total, and
+`tools/parse_profile.py` retains its 5 ppm cycle/wall validation threshold.
+
 When `ccache` is on `PATH`, `tools/pio_ccache.py` runs every firmware compile
 through it, so a new worktree or flag-set directory reuses the objects any
 checkout compiled from the same sources and flags. Cross-checkout hits need
