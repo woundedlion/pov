@@ -315,9 +315,9 @@ inline constexpr float HANKIN_PARALLEL_GATE_HI_SQ = 0.30f;
  * @param target_arena Arena backing @p out_mesh's vertex and face vectors.
  * @param angle Contact angle in radians; domain [0, pi/2]. At ~0 the star points
  *   collapse onto their corners (flat tiling); larger angles form sharper star
- *   points. The construction is pi-periodic. Negative angles, equivalently
- *   (pi/2, pi) modulo pi, tilt the contact planes away from the corner and
- *   place star points outside their face.
+ *   points. The construction is pi-periodic. Angles in (pi/2, pi) modulo pi
+ *   tilt the contact planes away from the corner and place star points outside
+ *   their face.
  * @details A corner whose contact planes are near-parallel has no nearby
  *   intersection; its star point falls back to the edge-midpoint mean instead
  *   of being flung across the sphere (see STAR_FAR_RATIO_SQ).
