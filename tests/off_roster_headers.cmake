@@ -19,6 +19,9 @@ set(HS_OFF_ROSTER_HEADER_NAMES
   "test_h_offset_renorm.h"
   "test_harness.h"
   "test_pole_wrap.h"
+  "test_radial_surface.h"
+  "test_radial_surface_mask.h"
+  "test_shapeshifter_surface.h"
   "temporal_oracle.h"
   "vec_test_util.h"
   "volume_reference.h")
