@@ -1334,6 +1334,7 @@ inline int run_effects_tests() {
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  const char *mobius_only = std::getenv("HS_MOBIUSRINGS_ONLY");
   const char *islamic_only = std::getenv("HS_ISLAMICSTARS_ONLY");
   const char *mesh_only = std::getenv("HS_MESH_CAPTURE_ONLY");
   const char *rings_only = std::getenv("HS_RING_TEMPORAL_ONLY");
@@ -1341,6 +1342,10 @@ inline int run_effects_tests() {
   if (rings_only && std::atoi(rings_only) != 0) {
     HS_RUN(run_case, RingShowerWhiteBox::check_temporal_rings);
     HS_RUN(run_case, ThrustersWhiteBox::check_temporal_rings);
+    return fixture.result();
+  }
+  if (mobius_only && std::atoi(mobius_only) != 0) {
+    HS_RUN(MobiusRingsWhiteBox::check_column_time_oracle);
     return fixture.result();
   }
   if (mesh_only && std::atoi(mesh_only) == 3) {
@@ -1545,6 +1550,7 @@ inline int run_effects_tests() {
   HS_RUN(run_case, test_displacement_field_alternate_groups_match_windows);
   HS_RUN(run_case, test_glitch_lens_unit_norm);
   HS_RUN(run_case, test_mobius_rings_conformal_and_counter_rotation);
+  HS_RUN(MobiusRingsWhiteBox::check_column_time_oracle);
   HS_RUN(run_islamicstars_cases);
 
   // FULL tier only (HS_EFFECTS_FULL=1).

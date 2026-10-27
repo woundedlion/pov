@@ -71,7 +71,8 @@ public:
    *          out-of-phase sine mutations driving the ring/line counts.
    */
   HS_COLD_MEMBER void init() override {
-    ArenaSplit{SCRATCH_A_BYTES, 0}.configure();
+    ArenaSplit{SCRATCH_A_BYTES, SCRATCH_B_BYTES}.configure();
+    history.reset();
 
     mobius_gen.init_storage(persistent_arena);
     filters.init_storage(persistent_arena);
@@ -135,6 +136,19 @@ public:
     filters.template get<SouthHole>().set_origin(
         math::normalized_or(math::rotate(s_trans, q), math::Vector(1, 0, 0)));
 
+    const Endpoint end{mobius_gen.active_params(0),
+                       q,
+                       phase,
+                       params.alpha,
+                       params.num_rings,
+                       params.num_lines};
+    const Endpoint start = history.start(end);
+    history.capture(end);
+    if (!Spacetime::flat_surface()) {
+      draw_timed_grid(canvas, start, end);
+      return;
+    }
+
     {
       HS_PROFILE(mr_draw_grid);
       {
@@ -159,13 +173,16 @@ private:
                                        Plot::rasterize_scratch_a_bytes<W>(),
                 "scratch arena A must fit a curve's fragment buffer and "
                 "rasterize's sub-step cache at once");
+  /// Vertex captures and column-time pole origins.
+  static constexpr size_t SCRATCH_B_BYTES = 24 * 1024;
   using MobiusEntity = typename MobiusWarpCircularTransformer<1>::Entity;
   static constexpr size_t FOOTPRINT_BYTES =
       sizeof(MobiusEntity) + alignof(MobiusEntity) + sizeof(int) +
       alignof(int) + Filter::World::Orient::storage_bytes(W) +
       BakedPalette::required_arena_bytes();
   static_assert(
-      FOOTPRINT_BYTES <= ArenaSplit{SCRATCH_A_BYTES, 0}.device_persistent(),
+      FOOTPRINT_BYTES <=
+          ArenaSplit{SCRATCH_A_BYTES, SCRATCH_B_BYTES}.device_persistent(),
       "MobiusRings persistent footprint exceeds its device partition");
 
   static constexpr float CONFORMAL_LOG_MIN = -2.5f;
@@ -349,6 +366,209 @@ private:
             f_val.color = c;
           };
         });
+  }
+
+  /** @brief Retained warp, counter-rotation and colour endpoint. */
+  struct Endpoint {
+    math::MobiusParams warp;   ///< Plane transformation coefficients.
+    math::Quaternion rotation; ///< Counter-rotation.
+    float phase = 0.0f;        ///< Palette scroll in turns.
+    float alpha = 0.0f;        ///< Overall opacity.
+    float rings = 0.0f;        ///< Latitude count.
+    float lines = 0.0f;        ///< Longitude count.
+  };
+  Spacetime::Retained<Endpoint> history; ///< Previous animation endpoint.
+
+  /** @brief Blends the coefficients of two plane transformations.
+   * @param a,b Frame endpoints.
+   * @param t Frame fraction.
+   * @return Coefficients at t. */
+  static math::MobiusParams warp_at(const Endpoint &a, const Endpoint &b,
+                                    float t) {
+    return {a.warp.a + (b.warp.a - a.warp.a) * math::Complex(t, 0),
+            a.warp.b + (b.warp.b - a.warp.b) * math::Complex(t, 0),
+            a.warp.c + (b.warp.c - a.warp.c) * math::Complex(t, 0),
+            a.warp.d + (b.warp.d - a.warp.d) * math::Complex(t, 0)};
+  }
+
+  /** @brief Draws the warped grid through column-time vertex captures.
+   * @param canvas Destination frame.
+   * @param start,end Retained animation endpoints. */
+  HS_HOT_FLASH_MEMBER void
+  draw_timed_grid(Canvas &canvas, const Endpoint &start, const Endpoint &end) {
+    ScratchScope frame_scope(scratch_arena_b);
+    auto *north = scratch_arena_b.allocate_n<math::Vector>(W / 2 + 1);
+    auto *south = scratch_arena_b.allocate_n<math::Vector>(W / 2 + 1);
+    const Spacetime::TemporalRotation rotation(start.rotation, end.rotation);
+    for (int c = 0; c <= W / 2; ++c) {
+      const float t = static_cast<float>(c) / (W / 2);
+      const auto warp = warp_at(start, end, t);
+      const auto q = rotation.sample(t);
+      north[c] = math::normalized_or(
+          math::rotate(math::mobius_transform(math::Y_AXIS, warp), q),
+          math::X_AXIS);
+      south[c] = math::normalized_or(
+          math::rotate(math::mobius_transform(-math::Y_AXIS, warp), q),
+          math::X_AXIS);
+    }
+    const auto difference = end.warp.b - start.warp.b;
+    const float shift =
+        sqrtf(difference.re * difference.re + difference.im * difference.im);
+    const float reach = fmaxf(
+        sqrtf(start.warp.b.re * start.warp.b.re +
+              start.warp.b.im * start.warp.b.im),
+        sqrtf(end.warp.b.re * end.warp.b.re + end.warp.b.im * end.warp.b.im));
+    const float turn =
+        2.0f * acosf(hs::clamp(fabsf(math::dot(start.rotation, end.rotation)),
+                               0.0f, 1.0f));
+    const auto warp_path =
+        Spacetime::PathBound::warped_great_circle(0, shift, reach);
+    const float speed = turn + 2.0f * shift;
+    const Spacetime::PathBound bound{warp_path.second + turn * turn +
+                                         4.0f * turn * shift,
+                                     warp_path.third + speed * speed * speed +
+                                         3.0f * turn * warp_path.second};
+    const float displacement = turn + 2.0f * shift;
+    const float phase_delta = std::remainder(end.phase - start.phase, 1.0f);
+    auto &sink = filters.next.next;
+    for (int axis = 0; axis < 2; ++axis) {
+      const float first_num = axis == 0 ? start.rings : start.lines;
+      const float num = axis == 0 ? end.rings : end.lines;
+      const int count = static_cast<int>(ceilf(fmaxf(first_num, num)));
+      for (int i = 0; i < count; ++i) {
+        const bool had_curve = i < ceilf(first_num);
+        const bool has_curve = i < ceilf(num);
+        float first_index = static_cast<float>(i) / fmaxf(first_num, 1e-6f);
+        float last_index = static_cast<float>(i) / fmaxf(num, 1e-6f);
+        float first = axis == 0 ? math::wrap(first_index + start.phase, 1.0f)
+                                : first_index;
+        float last =
+            axis == 0 ? math::wrap(last_index + end.phase, 1.0f) : last_index;
+        if (!had_curve) {
+          first = last;
+          first_index = last_index;
+        }
+        if (!has_curve) {
+          last = first;
+          last_index = first_index;
+        }
+        const bool wraps = axis == 0 && fabsf(last - first) > 0.5f;
+        if (wraps)
+          last = first + std::remainder(last - first, 1.0f);
+        const float initial = first, final = last;
+        for (int part = 0; part < (wraps ? 2 : 1); ++part) {
+          ScratchScope curve_scope(scratch_arena_a);
+          const float offset = part == 0         ? 0.0f
+                               : final > initial ? -1.0f
+                                                 : 1.0f;
+          first = initial + offset;
+          last = final + offset;
+          const float source_rate =
+              (last - first) *
+              (axis == 0 ? CONFORMAL_LOG_MAX - CONFORMAL_LOG_MIN : math::PI_F);
+          const auto source_path = Spacetime::PathBound::warped_great_circle(
+              source_rate, shift, reach);
+          const float rate =
+              turn + fabsf(source_rate) * (2.0f + reach * reach) + 2.0f * shift;
+          const Spacetime::PathBound curve_bound{
+              bound.second + 2.0f * source_path.second,
+              bound.third + 4.0f * source_path.third + rate * rate * rate};
+          const float curve_displacement =
+              displacement + fabsf(source_rate) * (2.0f + reach * reach);
+          auto ring_basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
+          if (axis == 0 && CONFORMAL_LOG_MIN + last * (CONFORMAL_LOG_MAX -
+                                                       CONFORMAL_LOG_MIN) <
+                               0.0f)
+            ring_basis.u = -ring_basis.u;
+          auto evaluate = [&](size_t vertex, float t) HS_HOT_INLINE {
+            const float coordinate = first + (last - first) * t;
+            const float theta = (static_cast<float>(vertex) * 2.0f + 1.0f) *
+                                math::PI_F / CURVE_SIDES;
+            math::Vector source;
+            if (axis == 0) {
+              const float radius =
+                  2.0f * atanf(expf(-CONFORMAL_LOG_MIN -
+                                    coordinate * (CONFORMAL_LOG_MAX -
+                                                  CONFORMAL_LOG_MIN)));
+              source =
+                  ring_basis.v * cosf(radius) +
+                  (ring_basis.u * cosf(theta) + ring_basis.w * sinf(theta)) *
+                      sinf(radius);
+            } else {
+              const float angle = coordinate * math::PI_F;
+              const math::Vector normal(cosf(angle), 0.0f, -sinf(angle));
+              source = math::cross(normal, math::Y_AXIS) * cosf(theta) +
+                       math::Y_AXIS * sinf(theta);
+            }
+            return math::normalized_or(
+                math::rotate(math::mobius_transform(source.normalized(),
+                                                    warp_at(start, end, t)),
+                             rotation.sample(t)),
+                math::X_AXIS);
+          };
+          struct View {
+            std::span<const math::Vector> vertices;
+          };
+          auto *vertices =
+              scratch_arena_a.allocate_n<math::Vector>(CURVE_SIDES);
+          ArenaVector<Plot::Mesh::Edge> edges;
+          edges.bind(scratch_arena_a, CURVE_SIDES);
+          for (int k = 0; k < CURVE_SIDES; ++k) {
+            vertices[k] = evaluate(k, 1.0f);
+            edges.push_back({static_cast<uint16_t>(k),
+                             static_cast<uint16_t>((k + 1) % CURVE_SIDES)});
+          }
+          const float opacity =
+              hs::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
+          const float first_opacity =
+              hs::clamp(first_num - static_cast<float>(i), 0.0f, 1.0f);
+          auto shader = [&](const math::Vector &v, Fragment &f,
+                            float t) HS_HOT_INLINE {
+            const float source_coordinate = first + (last - first) * t;
+            if (axis == 0 &&
+                (source_coordinate < 0.0f || source_coordinate >= 1.0f)) {
+              f.color.alpha = 0.0f;
+              return;
+            }
+            const float phase = start.phase + phase_delta * t;
+            const float coordinate =
+                axis == 0 ? hs::lerp(first_index, last_index, t)
+                          : conformal_coord(
+                                math::fast_sinf(((f.v2 + f.v0) / CURVE_SIDES +
+                                                 0.5f / CURVE_SIDES) *
+                                                2.0f * math::PI_F),
+                                phase);
+            f.color = baked_palette.get(coordinate);
+            f.color.alpha *= hs::lerp(first_opacity, opacity, t) *
+                             hs::lerp(start.alpha, end.alpha, t);
+            const int column =
+                std::clamp(static_cast<int>(t * (W / 2) + 0.5f), 0, W / 2);
+            auto north_hole = filters.template get<NorthHole>();
+            auto south_hole = filters.template get<SouthHole>();
+            north_hole.set_origin(north[column]);
+            south_hole.set_origin(south[column]);
+            float alpha = 0.0f;
+            north_hole.plot(
+                v, f.color.color, f.age, f.color.alpha,
+                [&](const math::Vector &p, const Pixel &color, float age,
+                    float a) HS_HOT_INLINE {
+                  south_hole.plot(
+                      p, color, age, a,
+                      [&](const math::Vector &, const Pixel &, float, float a2)
+                          HS_HOT_INLINE { alpha = a2; });
+                });
+            f.color.alpha = alpha;
+          };
+          auto geometry = Plot::GeometryCallback::exact(evaluate);
+          geometry.path = curve_bound;
+          geometry.chained = true;
+          geometry.rigid_lattice = true;
+          Plot::Mesh::draw_column_edges<W, H>(
+              sink, canvas, View{{vertices, CURVE_SIDES}}, edges, shader,
+              geometry, curve_displacement);
+        }
+      }
+    }
   }
 
   static constexpr int WIPE_FRAMES =
