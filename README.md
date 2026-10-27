@@ -492,7 +492,7 @@ The tables below list the library surface, which is deliberately wider than the 
 
 | Filter | Effect |
 |---|---|
-| `World::Orient` | Rotates incoming 3D points from an `Orientation`; its `Spacetime::PoseTable` provides shared surface-time poses to the column walk. Direct timed point plotting uses the orientation history to emit each arm crossing; the flat selection uses the current pose. |
+| `World::Orient` | Rotates incoming 3D points from an `Orientation`; its `Spacetime::PoseTable` provides shared surface-time poses to the column walk. Timed draws evaluate each sample at its column's time; ordinary plots and the flat selection use the current pose. Edge culls test the end pose padded by `sweep_arc()`. |
 | `World::Trails<Capacity>` | Stores world-space points in an arena-allocated flat buffer with a TTL countdown. On `flush()`, re-draws aged points through a `WorldTrailFn` color function. Trail items are quantized (int16 xyz + uint8 TTL); at capacity, the last occupied slot is replaced. Decay compacts slots without preserving age order. |
 | `World::Replicate<W>` | Clones geometry N times around the Y-axis by re-plotting each point rotated by `2π/N`. |
 | `World::VertexReplicate<N>` | Replicates geometry onto the N vertices of a solid by precomputing rotation quaternions from vertex[0] to each other vertex. |

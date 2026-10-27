@@ -139,7 +139,7 @@ Visualizes the real spherical harmonics Yˡₘ(θ, φ) as a colored scalar field
 
 ### MobiusRings
 
-A latitude-longitude grid that undergoes live Möbius transformation animation via `MobiusWarpCircularTransformer`.
+A latitude-longitude grid that undergoes live Möbius transformation animation via `MobiusWarpCircularTransformer`. Each column draws the grid with the warp, counter-rotation, pole holes and colour interpolated to that column's time.
 
 **Parameters**: Rings, Lines, Alpha
 
@@ -527,7 +527,7 @@ Six spiral galaxies, one on each vertex of an octahedron, built on `Animation::P
 
 ### Dynamo
 
-A vertical strand of points — spaced across the complete sphere, including hidden cap nodes — drifts horizontally around the sphere, each row dragging the next under a gap constraint so the chain wavers like a wind-blown curtain. The strand leaves motion trails, is replicated three times around the sphere, periodically reverses direction, and tumbles under random-axis rotations, while periodic color wipes sweep freshly generated analogous palettes across it.
+A vertical strand of points — spaced across the complete sphere, including hidden cap nodes — drifts horizontally around the sphere, each row dragging the next under a gap constraint so the chain wavers like a wind-blown curtain. The strand leaves motion trails, is replicated three times around the sphere, periodically reverses direction, and tumbles under random-axis rotations, while periodic color wipes sweep freshly generated analogous palettes across it. Trails record one copy of the strand; each of the three copies and its replayed trail is drawn at its own rotation and each column's time.
 
 **Parameters**: Speed, Gap, Trail Len, Trail Cap, Wipe Dur
 
