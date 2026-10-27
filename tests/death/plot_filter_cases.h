@@ -1078,3 +1078,114 @@ inline void case_scan_solid_with_column_time() {
   Scan::ColumnBasisScope scope(canvas, time);
   Scan::rasterize_solid<W, H>(pipeline, canvas, shape, color);
 }
+
+/** @brief Radial surface family shared by the radial surface death cases. */
+using DeathRadialSurface = Scan::RadialSurface<4, 8>;
+
+/** @brief Traps on a radial surface with more sides than its capacity. */
+inline void case_radial_surface_side_capacity() {
+  ScratchScope scope(scratch_arena_a);
+  DeathRadialSurface surface;
+  surface.bind(scratch_arena_a, opaque(9), 0.1f, 1);
+}
+
+/** @brief Traps on a radial surface with no sweep intervals. */
+inline void case_radial_surface_interval_capacity() {
+  ScratchScope scope(scratch_arena_a);
+  DeathRadialSurface surface;
+  surface.bind(scratch_arena_a, 4, 0.1f, opaque(0));
+}
+
+/** @brief Traps on an inner ratio past the convex limit cos(pi/sides). */
+inline void case_radial_surface_inner_ratio() {
+  ScratchScope scope(scratch_arena_a);
+  DeathRadialSurface surface;
+  surface.bind(scratch_arena_a, 4, opaque(0.9f), 1);
+}
+
+/** @brief Traps on a replacement sweep whose knot count mismatches. */
+inline void case_radial_surface_knot_count() {
+  ScratchScope scope(scratch_arena_a);
+  DeathRadialSurface surface;
+  surface.bind(scratch_arena_a, 4, 0.1f, 1);
+  const DeathRadialSurface::Knot KNOTS[3] = {{1, 0, 0}, {1, 0, 0}, {1, 0, 0}};
+  surface.set_knots({KNOTS, size_t(opaque(3))});
+}
+
+/** @brief Traps on a zero multiplier after the first knot. */
+inline void case_radial_surface_noninitial_zero_multiplier() {
+  ScratchScope scope(scratch_arena_a);
+  DeathRadialSurface surface;
+  const DeathRadialSurface::Knot KNOTS[2] = {{1, 0, 0}, {opaque(0.0f), 0, 0}};
+  surface.prepare(scratch_arena_a, 4, 0.1f, KNOTS);
+}
+
+/** @brief Traps on adjacent knot phases a full edge sector apart. */
+inline void case_radial_surface_interval_crosses_sectors() {
+  ScratchScope scope(scratch_arena_a);
+  DeathRadialSurface surface;
+  const float PHASE = opaque(math::PI_F / 4);
+  const DeathRadialSurface::Knot KNOTS[2] = {{1, 0, 0},
+                                             {cosf(PHASE), sinf(PHASE), PHASE}};
+  surface.prepare(scratch_arena_a, 4, 0.1f, KNOTS);
+}
+
+/**
+ * @brief Traps when the descending root's denominator rounds to zero.
+ * @details A fast-growing, rotating spiky star sweeps over a point just
+ *          outside its first edge. There the predicate rises before it falls,
+ *          so its start value vanishes against the squared slope and the
+ *          rounded discriminant root equals the slope. The scan walks the
+ *          point outward one ulp at a time from inside the start star; the
+ *          first point the scan places outside must trap.
+ */
+inline void case_radial_surface_descending_root_denominator() {
+  ScratchScope scope(scratch_arena_a);
+  DeathRadialSurface surface;
+  const float PHASE = opaque(-0.3f);
+  const DeathRadialSurface::Knot KNOTS[2] = {
+      {1, 0, 0}, {30 * cosf(PHASE), 30 * sinf(PHASE), PHASE}};
+  surface.prepare(scratch_arena_a, 4, 0.01f, KNOTS);
+  const auto VERTEX = surface.vertex(0);
+  const auto EDGE = surface.edge(0);
+  DeathRadialSurface::Point p{VERTEX.x + 0.5f * EDGE.x,
+                              VERTEX.y + 0.5f * EDGE.y};
+  for (int i = 0; i < 64; ++i)
+    p.x = nextafterf(p.x, 0.0f);
+  for (int i = 0; i < 256; ++i) {
+    (void)surface.sample<false, false, false>(p, atan2f(p.y, p.x));
+    p.x = nextafterf(p.x, 2.0f);
+  }
+}
+
+/** @brief Traps when an unbound candidate mask is prepared. */
+inline void case_radial_surface_mask_unbound() {
+  ScratchScope scope(scratch_arena_a);
+  DeathRadialSurface surface;
+  const DeathRadialSurface::Knot KNOTS[2] = {{1, 0, 0}, {1, 0, 0}};
+  surface.prepare(scratch_arena_a, 4, 0.1f, KNOTS);
+  Scan::RadialSurfaceCandidateMask<> mask;
+  (void)mask.prepare(surface, 0.0f);
+}
+
+/** @brief Traps on a candidate mask with a negative footprint radius. */
+inline void case_radial_surface_mask_negative_footprint() {
+  ScratchScope scope(scratch_arena_a);
+  DeathRadialSurface surface;
+  const DeathRadialSurface::Knot KNOTS[2] = {{1, 0, 0}, {1, 0, 0}};
+  surface.prepare(scratch_arena_a, 4, 0.1f, KNOTS);
+  Scan::RadialSurfaceCandidateMask<> mask;
+  mask.bind(scratch_arena_a);
+  (void)mask.prepare(surface, opaque(-0.01f));
+}
+
+/** @brief Traps on a candidate mask with a negative complex motion bound. */
+inline void case_radial_surface_mask_negative_motion() {
+  ScratchScope scope(scratch_arena_a);
+  DeathRadialSurface surface;
+  const DeathRadialSurface::Knot KNOTS[2] = {{1, 0, 0}, {1, 0, 0}};
+  surface.prepare(scratch_arena_a, 4, 0.1f, KNOTS);
+  Scan::RadialSurfaceCandidateMask<> mask;
+  mask.bind(scratch_arena_a);
+  (void)mask.prepare(surface, 0.0f, opaque(-0.01f));
+}

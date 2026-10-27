@@ -58,6 +58,8 @@
 #include "core/render/plot.h"
 #include "core/render/pullback/interpreter.h"
 #include "core/render/scan.h"
+#include "core/render/scan/radial_surface.h"
+#include "core/render/scan/radial_surface_candidate_mask.h"
 #include "core/render/sdf.h"
 #include "core/render/sdf/volume.h"
 #include "core/mesh/solids.h"
@@ -1288,6 +1290,48 @@ inline const Case *all_cases(int &n) {
            "core/render/scan/raster.h",
            "(!canvas.column_basis()) rasterize_solid does not support a "
            "column-time basis"},
+          {"radial_surface_side_capacity", case_radial_surface_side_capacity,
+           "core/render/scan/radial_surface.h",
+           "(sides >= 2 && sides <= MAX_SIDES) RadialSurface: side capacity"},
+          {"radial_surface_interval_capacity",
+           case_radial_surface_interval_capacity,
+           "core/render/scan/radial_surface.h",
+           "(intervals >= 1 && intervals <= MAX_INTERVALS) RadialSurface: "
+           "interval capacity"},
+          {"radial_surface_inner_ratio", case_radial_surface_inner_ratio,
+           "core/render/scan/radial_surface.h",
+           "(ratio > 0.0f && ratio <= cosf(math::PI_F / sides)) RadialSurface: "
+           "inner radius ratio"},
+          {"radial_surface_knot_count", case_radial_surface_knot_count,
+           "core/render/scan/radial_surface.h",
+           "(source.size() == size_t(num_intervals + 1)) RadialSurface: knot "
+           "count"},
+          {"radial_surface_noninitial_zero_multiplier",
+           case_radial_surface_noninitial_zero_multiplier,
+           "core/render/scan/radial_surface.h",
+           "(i == 0 || norms[i] > 0.0f) RadialSurface: noninitial zero "
+           "multiplier"},
+          {"radial_surface_interval_crosses_sectors",
+           case_radial_surface_interval_crosses_sectors,
+           "core/render/scan/radial_surface.h",
+           "(fabsf(knots[i].phase - knots[i - 1].phase) < sector) "
+           "RadialSurface: interval crosses multiple sectors"},
+          {"radial_surface_descending_root_denominator",
+           case_radial_surface_descending_root_denominator,
+           "core/render/scan/radial_surface.h",
+           "(DENOMINATOR > 0.0f) RadialSurface: descending root denominator"},
+          {"radial_surface_mask_unbound", case_radial_surface_mask_unbound,
+           "core/render/scan/radial_surface_candidate_mask.h",
+           "(rows != nullptr) RadialSurfaceCandidateMask: unbound mask"},
+          {"radial_surface_mask_negative_footprint",
+           case_radial_surface_mask_negative_footprint,
+           "core/render/scan/radial_surface_candidate_mask.h",
+           "(footprint_radius >= 0) RadialSurfaceCandidateMask: negative "
+           "footprint"},
+          {"radial_surface_mask_negative_motion",
+           case_radial_surface_mask_negative_motion,
+           "core/render/scan/radial_surface_candidate_mask.h",
+           "(complex_motion >= 0) RadialSurfaceCandidateMask: negative motion"},
           {"scan_mesh_visibility_dimensions",
            case_scan_mesh_visibility_dimensions, "core/render/scan/mesh.h",
            "((!pass.visible_faces && !pass.visible_vertices) || "
@@ -2405,6 +2449,8 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/render/pullback/operators/model.h", 1},
     {"core/render/pullback/operators.h", 1},
     {"core/render/scan/mesh.h", 5},
+    // Empty radius: positive padding follows from the footprint and motion checks.
+    {"core/render/scan/radial_surface_candidate_mask.h", 1},
     {"core/render/scan/raster.h", 1},
     {"core/render/scan/shader.h", 2},
     {"core/render/scan/shapes.h", 7},
