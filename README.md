@@ -1494,6 +1494,7 @@ files define line-ending policy and working-artifact exclusions.
 │   └── toolchain-native-clang.cmake  Native Clang toolchain behind the tests preset
 ├── platformio.ini              Teensy envs: the two shipping images plus the compile/profiling profiles
 ├── tests/                      Unit tests (CMake subdirectory)
+│   ├── engine_libraries.cmake Shared native engine objects by compatible compile context
 │   ├── animation/         Sections included by test_animation.h
 │   ├── canvas/            Sections included by test_canvas.h
 │   ├── color/             Sections included by test_color.h
