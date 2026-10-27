@@ -220,10 +220,17 @@ combines the endpoint worldlines with the world's pose there, intersects
 the resulting geodesic with that column's meridian, and emits its samples
 through the filter chain. `Plot::EdgeWorldsheet` caches geodesic bases at
 lattice times; `Plot::SweptEdgeCull` rejects edges whose swept bounds miss the
-clip. `Plot::EdgeBatch` shares captured vertex data across edges.
+clip before their geodesic bases and sampling pitch are built. Longitude
+half-planes are tested before the height bound. `Plot::EdgeBatch` shares
+captured vertex data across edges. History-free walks whose taps need no
+position extrapolation also bound samples by the physical northern AA cap.
+Two-point hulls specialize at their flash callers. Signed row bounds skip
+normalization only when the padded pairwise dot products stay positive.
 `Plot::Mesh::draw_timed` routes table-compatible world stages through
 `draw_columns` and `rasterize_column_edges`, with an optional
-`Plot::GeometryCallback` for vertex motion. The still selection uses the
+`Plot::GeometryCallback` for vertex motion. Pipelines with source history use
+`rasterize_recording_column_edges`; other pipelines compile out recording.
+The still selection uses the
 ordinary mesh raster. Other timed plotted configurations retain their
 existing raster dispatch.
 

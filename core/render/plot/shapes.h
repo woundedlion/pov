@@ -551,9 +551,15 @@ draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
                           };
   const EdgeBatch batch{edge_count, prepare, vertices, motion,
                         edges,      true,    true};
-  rasterize_column_edges<W, H, {.timed = true, .column_edge_lengths = true}>(
-      erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
-      motion_bound + spin, false, spin);
+  if constexpr (requires { requires PipelineT::any_3d_history; })
+    rasterize_recording_column_edges<
+        W, H, {.timed = true, .column_edge_lengths = true}>(
+        erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
+        motion_bound + spin, false, spin);
+  else
+    rasterize_column_edges<W, H, {.timed = true, .column_edge_lengths = true}>(
+        erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
+        motion_bound + spin, false, spin);
 }
 
 /**

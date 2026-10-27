@@ -692,6 +692,7 @@ inline void test_dreamballs_column_work_is_bounded() {
       const auto &counts = Spacetime::geometry_counters;
       HS_EXPECT_GT(energy, 1.0f);
       HS_EXPECT_GT(counts.column_samples, 0u);
+      HS_EXPECT_EQ(counts.column_history_visits, 0u);
       HS_EXPECT_LT(counts.column_generated_samples, 4000u);
       HS_EXPECT_LT(counts.column_boundary_samples * 8, counts.column_samples);
     }

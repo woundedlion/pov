@@ -42,6 +42,13 @@ struct GeometryCallback {
 
 HS_O3_BEGIN
 
+#if HS_ENABLE_TEST_HOOKS
+/** @brief Spacing checks using the directional certificate. */
+inline uint32_t g_column_lattice_checks = 0;
+/** @brief Spacing checks settled by the directional certificate. */
+inline uint32_t g_column_lattice_certificates = 0;
+#endif
+
 /** @brief Angular bound between a meridian crossing's arc fraction and the
  * column walk sampler's parameter, radians. */
 inline constexpr float COLUMN_ARC_PARAMETER_PAD = 1e-5f;
@@ -166,6 +173,14 @@ template <int W> struct SweptEdgeCull {
                                 float(canvas.clip().y_start - 2))));
   }
 
+  /** @brief Highest direction that can light a physical row without tap motion.
+   * @param row_phi Polar angle of the row immediately above the display.
+   * @return Unit-sphere height including projection error. */
+  HS_HOT_FLASH_MEMBER static float physical_top(float row_phi) {
+    return cosf(fmaxf(
+        0.0f, row_phi - 2.0f * static_cast<float>(math::FAST_ACOS_MAX_ERROR)));
+  }
+
   /** @brief Lowest unit-sphere y a canvas's column walk emits.
    * @tparam H Display height.
    * @param canvas Frame whose clip rows bound the walk.
@@ -192,9 +207,11 @@ template <int W> struct SweptEdgeCull {
    * @param count Number of points.
    * @param pad Bound on a drawn sample's distance from that hull.
    * @return True when no drawn sample can be emitted. */
-  HS_HOT_FLASH_MEMBER bool rejects(const math::Vector *points, int count,
-                                   float pad) const {
-    return rejects_hull(points, count, pad);
+  HS_HOT_INLINE bool rejects(const math::Vector *points, int count,
+                             float pad) const {
+    if (count == 2)
+      return rejects_hull(points, 2, pad);
+    return rejects_variable(points, count, pad);
   }
 
   /** @brief Tests whether every arc an edge sweeps over the frame stays
@@ -208,6 +225,16 @@ template <int W> struct SweptEdgeCull {
   }
 
 private:
+  /** @brief Tests a variable-size padded hull against the swept clip.
+   * @param points Unit captures.
+   * @param count Number of captures.
+   * @param pad Distance from the normalized hull.
+   * @return Whether the padded hull misses the clip. */
+  HS_HOT_FLASH_MEMBER bool rejects_variable(const math::Vector *points,
+                                            int count, float pad) const {
+    return rejects_hull(points, count, pad);
+  }
+
   /** @brief rejects() for any count, inlined so a fixed count unrolls.
    * @param points Positions whose padded hull holds every drawn sample.
    * @param count Number of points.
@@ -215,15 +242,32 @@ private:
    * @return True when no drawn sample can be emitted. */
   HS_HOT_INLINE bool rejects_hull(const math::Vector *points, int count,
                                   float pad) const {
-    float low, high;
-    if (Spacetime::swept_heights(points, count, pad, low, high) &&
-        (high < bottom || low > top))
+    if (mode == 1 && (Spacetime::swept_beyond(points, count, pad, -first) ||
+                      Spacetime::swept_beyond(points, count, pad, -second)))
       return true;
-    if (mode == 1)
-      return Spacetime::swept_beyond(points, count, pad, -first) ||
-             Spacetime::swept_beyond(points, count, pad, -second);
-    return mode == 2 && Spacetime::swept_beyond(points, count, pad, first) &&
-           Spacetime::swept_beyond(points, count, pad, second);
+    if (mode == 2 && Spacetime::swept_beyond(points, count, pad, first) &&
+        Spacetime::swept_beyond(points, count, pad, second))
+      return true;
+    float highest = points[0].y, lowest = points[0].y;
+    for (int i = 0; i < count; ++i) {
+      if (points[i].y >= bottom && points[i].y <= top)
+        return false;
+      highest = fmaxf(highest, points[i].y);
+      lowest = fminf(lowest, points[i].y);
+    }
+    highest += pad;
+    lowest -= pad;
+    if ((highest <= 0.0f && highest < bottom) ||
+        (lowest >= 0.0f && lowest > top)) {
+      float least = 1.0f;
+      for (int i = 0; i < count; ++i)
+        for (int j = i + 1; j < count; ++j)
+          least = fminf(least, math::dot(points[i], points[j]));
+      return least > 2.0f * pad;
+    }
+    float low, high;
+    return Spacetime::swept_heights(points, count, pad, low, high) &&
+           (high < bottom || low > top);
   }
 };
 
@@ -379,12 +423,17 @@ struct EdgeWorldsheet {
 
   /** @brief Whether midpoint spacing exceeds the bilinear sample footprint.
    * @tparam W,H Display dimensions.
+   * @tparam CERTIFIED Use a sufficient bound before the full spacing checks.
    * @param basis Orthonormal geodesic basis.
    * @param pieces Edge length in midpoint screen steps.
    * @return Whether the arc needs column-local sampling. */
-  template <int W, int H>
+  template <int W, int H, bool CERTIFIED = true>
   HS_HOT_INLINE static bool
   needs_local_lattice(const GeodesicEdgeSampler &basis, float pieces) {
+#if HS_ENABLE_TEST_HOOKS
+    if constexpr (CERTIFIED)
+      ++g_column_lattice_checks;
+#endif
     const float base_step = math::RADIANS_PER_COLUMN<W>;
     constexpr float SUPPORT = 2.0f;
     constexpr float KX = W / (2.0f * math::PI_F);
@@ -403,6 +452,28 @@ struct EdgeWorldsheet {
       return false;
     const float cross_y =
         basis.v1.x * basis.v_perp.z - basis.v1.z * basis.v_perp.x;
+    if constexpr (CERTIFIED) {
+      constexpr float ROUNDING_PAD = 8e-6f;
+      constexpr float RSQRT_MIN = 0.9988f;
+      const float safe_sin2 = fmaxf(1e-7f, sin2 - ROUNDING_PAD);
+      const float row_slack =
+          fmaxf(0.0f, basis.v1.y * basis.v1.y +
+                          basis.v_perp.y * basis.v_perp.y - 1.0f) +
+          ROUNDING_PAD;
+      const float safe_cross = fabsf(cross_y) + ROUNDING_PAD;
+      const float sin4 = safe_sin2 * safe_sin2;
+      const float upper_speed = fmaxf(
+          KX * KX * safe_cross * safe_cross +
+              ky * ky * (safe_sin2 + row_slack) * safe_sin2,
+          (SCREEN_STEP_PX * SCREEN_STEP_PX / (base_step * base_step)) * sin4);
+      if (basis.total_dist * basis.total_dist * upper_speed <=
+          SUPPORT * SUPPORT * count * count * sin4 * RSQRT_MIN * RSQRT_MIN) {
+#if HS_ENABLE_TEST_HOOKS
+        ++g_column_lattice_certificates;
+#endif
+        return false;
+      }
+    }
     float step = fminf(screen_step<W, H>(basis.v1, basis.v_perp, base_step),
                        screen_step<W, H>(end.pos, end.tan, base_step));
     if (turning) {
@@ -416,6 +487,17 @@ struct EdgeWorldsheet {
                                                       base_step));
     }
     return basis.total_dist * SCREEN_STEP_PX > SUPPORT * count * step;
+  }
+
+  /** @brief Tests the edge's swept hull against a row interval.
+   * @tparam W Display width.
+   * @param top,bottom Highest and lowest emitted unit-sphere heights.
+   * @return Whether the padded hull can reach the rows. */
+  template <int W>
+  HS_HOT_FLASH_MEMBER bool reaches_rows(float top, float bottom) const {
+    const SweptEdgeCull<W> cull({}, top, bottom);
+    return !cull.rejects({bases[0].v1, bases[1].v1, ends[0], ends[1]},
+                         deviation + 1e-4f);
   }
 
   /** @brief Evaluates a path held as polynomial coefficients.
@@ -436,6 +518,8 @@ struct EdgeWorldsheet {
    * @param spin Rotation bound of the poses over the frame, radians.
    * @param source Whether to keep the source paths.
    * @param measure_pitch Whether to measure the frame-end sampling pitch.
+   * @param cull Optional swept clip gate before geodesic setup.
+   * @return Whether the edge reaches the gate and its bases were prepared.
    * @details Each path is the parabola through its start, middle and end:
    * the middle capture for Spacetime::Interpolant::QUADRATIC, the arc's middle
    * for Spacetime::Interpolant::ARC, and the chord's for
@@ -447,10 +531,10 @@ struct EdgeWorldsheet {
    * of the second-derivative bound spin (spin + 2 travel), travel bounding
    * the path's speed by its chord plus 4 d; captures add their rounding. */
   template <int W, int H>
-  HS_HOT_FLASH_MEMBER void
+  HS_HOT_FLASH_MEMBER bool
   prepare(const Spacetime::Worldlines<> &motion, uint16_t from, uint16_t to,
           const Spacetime::PoseTable *table, float spin, bool source,
-          bool measure_pitch = true) {
+          bool measure_pitch = true, const SweptEdgeCull<W> *cull = nullptr) {
     poses = table && !table->stationary() ? table : nullptr;
     const bool fixed = table && !poses;
     const math::RotationMatrix pose =
@@ -493,17 +577,22 @@ struct EdgeWorldsheet {
       world[0][k] = normalize(start);
       world[1][k] = normalize(end);
     }
+    constexpr float CAPTURE_ROUNDING = 3e-5f;
+    deviation = sqrtf(bend) + CAPTURE_ROUNDING;
+    if (poses)
+      deviation +=
+          0.125f * spin * (spin + 2.0f * (sqrtf(travel) + 4.0f * deviation));
+    if (cull &&
+        cull->rejects({world[0][0], world[1][0], world[0][1], world[1][1]},
+                      deviation + 1e-4f))
+      return false;
     for (int k = 0; k < 2; ++k) {
       const math::Vector &a = world[k][0], &b = world[k][1];
       bases[k] = arc(a, b);
       ends[k] = b;
       pieces[k] = measure_pitch ? pieces_of<W, H>(bases[k]) : 0.0f;
     }
-    constexpr float CAPTURE_ROUNDING = 3e-5f;
-    deviation = sqrtf(bend) + CAPTURE_ROUNDING;
-    if (poses)
-      deviation +=
-          0.125f * spin * (spin + 2.0f * (sqrtf(travel) + 4.0f * deviation));
+    return true;
   }
 
   /** @brief Evaluates both endpoints at a column's time.
@@ -829,11 +918,12 @@ HS_HOT_FLASH_MEMBER void splat_owned_taps(const ColumnWalk<W> &state,
  * pole, each with its own column tests.
  * @tparam LOCAL Resolve the continuous lattice pitch from each column's arc.
  * @tparam UNIFORM_COLOR Reuse the prepared edge color.
+ * @tparam RECORD_WORLD Record samples in source history.
  * @param state The edge's walk.
  * @details A turning arc walks every planned column; otherwise each pass stops
  * where its lit run ends. */
 template <int W, int H, RasterConfig Cfg, bool SPLIT, bool LOCAL = false,
-          bool UNIFORM_COLOR = false>
+          bool UNIFORM_COLOR = false, bool RECORD_WORLD = false>
 HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
   auto &[pipeline, canvas, points, shader, frame, segments, segment_count, band,
          direction, radians, single_time, velocity, source_positions, chained,
@@ -1091,8 +1181,12 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           }
           Spacetime::count_geometry<
               &Spacetime::GeometryCounters::column_samples>();
-          pipeline.record_world_sample(canvas, f.pos, f.age, t,
-                                       local_lattice ? owner : -1, p.x);
+          if constexpr (RECORD_WORLD) {
+            Spacetime::count_geometry<
+                &Spacetime::GeometryCounters::column_history_visits>();
+            pipeline.record_world_sample(canvas, f.pos, f.age, t,
+                                         local_lattice ? owner : -1, p.x);
+          }
           if (local_lattice) {
             pipeline.plot_column_at(canvas, p, owner, f.color.color, f.age,
                                     f.color.alpha, t);
@@ -1135,35 +1229,40 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
 /** @brief walk_edge_columns() for split arcs, out of line.
  * @tparam W,H Canvas dimensions.
  * @tparam Cfg Register interpolation configuration.
+ * @tparam RECORD_WORLD Record samples in source history.
  * @param state The edge's walk. */
-template <int W, int H, RasterConfig Cfg>
+template <int W, int H, RasterConfig Cfg, bool RECORD_WORLD = false>
 HS_HOT_FLASH_MEMBER void walk_split_edge_columns(const ColumnWalk<W> &state) {
-  walk_edge_columns<W, H, Cfg, true>(state);
+  walk_edge_columns<W, H, Cfg, true, false, false, RECORD_WORLD>(state);
 }
 
 /** @brief Walks an edge with local column-time cadence.
  * @tparam W,H Canvas dimensions.
  * @tparam Cfg Register interpolation configuration.
+ * @tparam RECORD_WORLD Record samples in source history.
  * @param state Prepared column walk. */
-template <int W, int H, RasterConfig Cfg>
+template <int W, int H, RasterConfig Cfg, bool RECORD_WORLD = false>
 HS_HOT_FLASH_MEMBER void walk_local_edge_columns(const ColumnWalk<W> &state) {
-  walk_edge_columns<W, H, Cfg, false, true>(state);
+  walk_edge_columns<W, H, Cfg, false, true, false, RECORD_WORLD>(state);
 }
 
 /** @brief Walks an edge with its prepared uniform color.
  * @tparam W,H Canvas dimensions.
  * @tparam Cfg Register interpolation configuration.
  * @tparam SPLIT,LOCAL Edge split and lattice policies.
+ * @tparam RECORD_WORLD Record samples in source history.
  * @param state Prepared column walk. */
-template <int W, int H, RasterConfig Cfg, bool SPLIT, bool LOCAL>
+template <int W, int H, RasterConfig Cfg, bool SPLIT, bool LOCAL,
+          bool RECORD_WORLD = false>
 __attribute__((aligned(32))) HS_HOT_FLASH_MEMBER void
 walk_uniform_edge_columns(const ColumnWalk<W> &state) {
-  walk_edge_columns<W, H, Cfg, SPLIT, LOCAL, true>(state);
+  walk_edge_columns<W, H, Cfg, SPLIT, LOCAL, true, RECORD_WORLD>(state);
 }
 
 /** @brief Rasterizes mesh edges one destination column at a time.
  * @tparam W,H Canvas dimensions.
  * @tparam Cfg Register interpolation configuration.
+ * @tparam RECORD_WORLD Record samples in source history.
  * @param pipeline Destination pipeline; its world stages are @p poses.
  * @param canvas Frame context.
  * @param points The walk's two endpoint fragments, written by
@@ -1192,12 +1291,13 @@ walk_uniform_edge_columns(const ColumnWalk<W> &state) {
  * with bounded midpoint spacing walks the lattice once. An
  * edge whose plan cannot bound it, such as one that can pass near a pole, is
  * walked as the two sides of its closest approach to the pole, out of line. */
-template <int W, int H, RasterConfig Cfg>
-FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE void
-rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
-                       TimedShaderFn shader, const EdgeBatch &batch,
-                       const Spacetime::PoseTable *poses, float radians,
-                       bool source_positions, float spin) {
+template <int W, int H, RasterConfig Cfg, bool RECORD_WORLD>
+HS_HOT_INLINE void
+rasterize_column_edges_impl(PipelineRef &pipeline, Canvas &canvas,
+                            Fragments &points, TimedShaderFn shader,
+                            const EdgeBatch &batch,
+                            const Spacetime::PoseTable *poses, float radians,
+                            bool source_positions, float spin) {
   const float half_sine = sinf(0.5f * math::RADIANS_PER_COLUMN<W>);
   const float half_cosine = cosf(0.5f * math::RADIANS_PER_COLUMN<W>);
   const float full_sine = sinf(math::RADIANS_PER_COLUMN<W>);
@@ -1207,6 +1307,13 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
     math::TrigLUT<W, H>::init();
   const float top_y = SweptEdgeCull<W>::template top_of<H>(canvas);
   const float bottom_y = SweptEdgeCull<W>::template bottom_of<H>(canvas);
+  const float physical_top_y = [&]() HS_HOT_INLINE {
+    if constexpr (!RECORD_WORLD)
+      return SweptEdgeCull<W>::physical_top(
+          math::DisplayGeometry<H>::row_to_phi(-1.0f));
+    else
+      return top_y;
+  }();
   Spacetime::count_geometry<&Spacetime::GeometryCounters::column_draw_setups>();
   const SweptEdgeCull<W> cull(canvas.render_x_clip(), top_y, bottom_y);
   const auto &band = canvas.render_x_clip();
@@ -1215,11 +1322,8 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
   auto &frame = *scratch_arena_a.make<EdgeWorldsheet>();
   for (size_t edge = 0; edge < batch.count; ++edge) {
     const MeshEdge &pair = batch.pairs[edge];
-    frame.prepare<W, H>(batch.motion, pair.u, pair.v, poses, spin,
-                        source_positions, !batch.rigid_lattice);
-    if (cull.rejects({frame.bases[0].v1, frame.bases[1].v1, frame.ends[0],
-                      frame.ends[1]},
-                     frame.deviation + 1e-4f)) {
+    if (!frame.prepare<W, H>(batch.motion, pair.u, pair.v, poses, spin,
+                             source_positions, !batch.rigid_lattice, &cull)) {
       Spacetime::count_geometry<
           &Spacetime::GeometryCounters::column_edges_culled>();
       continue;
@@ -1264,6 +1368,18 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
                       COLUMN_SINGLE_TAP_ERROR * (W / 2);
       }
     }
+    float walk_top_y = top_y;
+    if constexpr (!RECORD_WORLD) {
+      if (local_lattice || single_time) {
+        walk_top_y = fminf(top_y, physical_top_y);
+        if (walk_top_y < top_y &&
+            !frame.reaches_rows<W>(walk_top_y, bottom_y)) {
+          Spacetime::count_geometry<
+              &Spacetime::GeometryCounters::column_edges_culled>();
+          continue;
+        }
+      }
+    }
     Spacetime::count_geometry<
         &Spacetime::GeometryCounters::column_edges_prepared>();
     batch.prepare(points, batch.vertices[pair.u], batch.vertices[pair.v], edge,
@@ -1302,24 +1418,66 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
         local_lattice ||
             (split && !(sense(frame.bases[0]) * sense(frame.bases[1]) >
                         4.0f * frame.deviation * frame.deviation)),
-        top_y,
+        walk_top_y,
         bottom_y,
         local_lattice ? full_sine : half_sine,
         local_lattice ? full_cosine : half_cosine};
     if (batch.uniform_color) {
       if (local_lattice)
-        walk_uniform_edge_columns<W, H, Cfg, false, true>(walk);
+        walk_uniform_edge_columns<W, H, Cfg, false, true, RECORD_WORLD>(walk);
       else if (split)
-        walk_uniform_edge_columns<W, H, Cfg, true, false>(walk);
+        walk_uniform_edge_columns<W, H, Cfg, true, false, RECORD_WORLD>(walk);
       else
-        walk_uniform_edge_columns<W, H, Cfg, false, false>(walk);
+        walk_uniform_edge_columns<W, H, Cfg, false, false, RECORD_WORLD>(walk);
     } else if (local_lattice)
-      walk_local_edge_columns<W, H, Cfg>(walk);
+      walk_local_edge_columns<W, H, Cfg, RECORD_WORLD>(walk);
     else if (split)
-      walk_split_edge_columns<W, H, Cfg>(walk);
+      walk_split_edge_columns<W, H, Cfg, RECORD_WORLD>(walk);
     else
-      walk_edge_columns<W, H, Cfg, false>(walk);
+      walk_edge_columns<W, H, Cfg, false, false, false, RECORD_WORLD>(walk);
   }
+}
+
+/** @brief Walks edges without source-history recording.
+ * @tparam W,H Canvas dimensions.
+ * @tparam Cfg Register interpolation configuration.
+ * @param pipeline,canvas,points Destination and endpoint registers.
+ * @param shader Source shader.
+ * @param batch Captured source edges.
+ * @param poses World poses by column time.
+ * @param radians Maximum world displacement.
+ * @param source_positions Whether shaders read source positions.
+ * @param spin World rotation bound. */
+template <int W, int H, RasterConfig Cfg>
+FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE void
+rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
+                       TimedShaderFn shader, const EdgeBatch &batch,
+                       const Spacetime::PoseTable *poses, float radians,
+                       bool source_positions, float spin) {
+  rasterize_column_edges_impl<W, H, Cfg, false>(pipeline, canvas, points,
+                                                shader, batch, poses, radians,
+                                                source_positions, spin);
+}
+
+/** @brief Walks edges while recording source history.
+ * @tparam W,H Canvas dimensions.
+ * @tparam Cfg Register interpolation configuration.
+ * @param pipeline,canvas,points Destination and endpoint registers.
+ * @param shader Source shader.
+ * @param batch Captured source edges.
+ * @param poses World poses by column time.
+ * @param radians Maximum world displacement.
+ * @param source_positions Whether shaders read source positions.
+ * @param spin World rotation bound. */
+template <int W, int H, RasterConfig Cfg>
+HS_HOT_FLASH_MEMBER void rasterize_recording_column_edges(
+    PipelineRef &pipeline, Canvas &canvas, Fragments &points,
+    TimedShaderFn shader, const EdgeBatch &batch,
+    const Spacetime::PoseTable *poses, float radians, bool source_positions,
+    float spin) {
+  rasterize_column_edges_impl<W, H, Cfg, true>(pipeline, canvas, points, shader,
+                                               batch, poses, radians,
+                                               source_positions, spin);
 }
 
 HS_O3_END

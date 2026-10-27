@@ -270,8 +270,8 @@ inline bool history_edge_lights_clip(const ClipRegion &clip,
                                      const math::Vector &a,
                                      const math::Vector &b) {
   constexpr double PI_VALUE = 3.14159265358979323846;
-  for (int time = 0; time <= 24; ++time) {
-    const auto pose = history.get(static_cast<float>(time) / 24.0f);
+  for (int time = 0; time <= 144; ++time) {
+    const auto pose = history.get(static_cast<float>(time) / 144.0f);
     for (int sample = 0; sample <= 32; ++sample) {
       const float s = static_cast<float>(sample) / 32.0f;
       const auto v = math::rotate((a * (1.0f - s) + b * s).normalized(), pose);
@@ -343,10 +343,15 @@ inline void test_oriented_cull_keeps_visible_history_edges() {
         pipeline, canvas.clip(), canvas.clip().x_clip(), from, to, nullptr);
     const bool sliced = Plot::edge_visible_in_clip<288, 144>(
         slices, canvas.clip(), canvas.clip().x_clip(), from, to, nullptr);
+    PipelineRef erased_history(pipeline);
+    const bool ERASED_VISIBLE = Plot::edge_visible_in_clip<288, 144>(
+        erased_history, canvas.clip(), canvas.clip().x_clip(), from, to,
+        nullptr);
     if (oracle) {
       ++visible;
       HS_EXPECT_TRUE(got);
       HS_EXPECT_TRUE(sliced);
+      HS_EXPECT_TRUE(ERASED_VISIBLE);
     }
     rejected += !got;
   }

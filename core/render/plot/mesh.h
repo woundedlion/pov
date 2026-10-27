@@ -696,9 +696,16 @@ struct Mesh {
                           age};
     const float raster_sweep =
         prepared_poses ? prepared_sweep : erased.sweep_arc();
-    rasterize_column_edges<W, H, {.timed = true}>(
-        erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
-        callback_bound + raster_sweep, geometry.source_positions, raster_sweep);
+    if constexpr (requires { requires PipelineT::any_3d_history; })
+      rasterize_recording_column_edges<W, H, {.timed = true}>(
+          erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
+          callback_bound + raster_sweep, geometry.source_positions,
+          raster_sweep);
+    else
+      rasterize_column_edges<W, H, {.timed = true}>(
+          erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
+          callback_bound + raster_sweep, geometry.source_positions,
+          raster_sweep);
   }
 
   /**

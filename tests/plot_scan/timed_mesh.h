@@ -604,6 +604,9 @@ inline void test_column_walk_terminal_on_shrinking_edge() {
  * reach the draw's band. */
 inline void test_column_edge_cull_is_conservative() {
   constexpr int W = 288, H = 144;
+  ScratchScope scope(scratch_arena_a);
+  Spacetime::Worldlines<> motion;
+  motion.bind(scratch_arena_a, 2);
   uint32_t rejected = 0, checked = 0;
   hs::random().seed(20261021u);
   for (const auto band :
@@ -637,6 +640,25 @@ inline void test_column_edge_cull_is_conservative() {
         const auto b_axis = hs_test::rand_unit();
         const float b_angle = hs::rand_f(0.0f, radians);
         const auto b1 = math::rotate(b, math::make_rotation(b_axis, b_angle));
+        if (trial % 100 == 0) {
+          motion.begin_frame(2, false);
+          motion.capture_end(0, a);
+          motion.capture_end(1, b);
+          motion.begin_frame(2, true);
+          motion.capture_end(0, a1);
+          motion.capture_end(1, b1);
+          Plot::EdgeWorldsheet reference, gated;
+          reference.prepare<W, H>(motion, 0, 1, nullptr, 0.0f, false);
+          const bool HIDDEN =
+              cull.rejects({reference.bases[0].v1, reference.bases[1].v1,
+                            reference.ends[0], reference.ends[1]},
+                           reference.deviation + 1e-4f);
+          Plot::g_geodesic_edge_span_builds = 0;
+          const bool PREPARED = gated.prepare<W, H>(motion, 0, 1, nullptr, 0.0f,
+                                                    false, true, &cull);
+          HS_EXPECT_EQ(PREPARED, !HIDDEN);
+          HS_EXPECT_EQ(Plot::g_geodesic_edge_span_builds, HIDDEN ? 0u : 2u);
+        }
         const bool rejects = cull.rejects({a, a1, b, b1}, 1e-4f);
         rejected += rejects;
         bool reaches = false;
@@ -669,6 +691,13 @@ inline void test_column_edge_cull_is_conservative() {
 /** @brief A canvas's column cull keeps every padded polyline, or the padded
  *         cap around it, that can reach the walk's rows and band. */
 inline void test_column_edge_cull_keeps_padded_point_sets() {
+  const Plot::SweptEdgeCull<288> NORTHERN_ROWS({}, 1.0f, 0.25f);
+  const math::Vector ANTIPODAL[] = {math::X_AXIS, -math::X_AXIS};
+  HS_EXPECT_FALSE(NORTHERN_ROWS.rejects(ANTIPODAL, 2, 0.0f));
+  const math::Vector SOUTHERN[] = {
+      math::Vector(1.0f, -1.0f, 0.0f).normalized(),
+      math::Vector(1.0f, -1.0f, 0.1f).normalized()};
+  HS_EXPECT_TRUE(NORTHERN_ROWS.rejects(SOUTHERN, 2, 0.0f));
   const auto poles = []<int HEIGHT>() {
     constexpr int WIDTH = 288;
     hs_test::StubEffect effect(WIDTH, HEIGHT);
@@ -759,6 +788,110 @@ inline void test_column_edge_cull_keeps_padded_point_sets() {
   HS_EXPECT_GT(rejected, 1000u);
   HS_EXPECT_GT(cap_rejected, 1000u);
   HS_EXPECT_GT(reachable, 2800u);
+}
+
+/** @brief Physical northern AA support keeps visible points and swept arcs. */
+inline void test_column_physical_north_cap() {
+  constexpr int W = 288, H = 144;
+  constexpr math::LatitudeGeometry GEOMETRY(H, 0.02f * math::PI_F,
+                                            0.98f * math::PI_F);
+  const float TOP =
+      Plot::SweptEdgeCull<W>::physical_top(GEOMETRY.row_to_phi(-1.0f));
+  const auto point = [&](float row, float longitude) {
+    const float phi = GEOMETRY.row_to_phi(row);
+    return math::Vector(sinf(phi) * cosf(longitude), cosf(phi),
+                        sinf(phi) * sinf(longitude));
+  };
+  const auto reaches = [&](const math::Vector &a, const math::Vector &b,
+                           const math::Vector &a1, const math::Vector &b1) {
+    Plot::EdgeWorldsheet frame{};
+    frame.bases[0].v1 = a;
+    frame.bases[1].v1 = a1;
+    frame.ends[0] = b;
+    frame.ends[1] = b1;
+    return frame.reaches_rows<W>(TOP, -1.0f);
+  };
+  for (const float row : {-0.5f, -2.5f}) {
+    const auto a = point(row, 0.0f);
+    const auto b = point(row, 0.02f);
+    const auto taps = Filter::Screen::splat_taps<W, H>(
+        40.25f, GEOMETRY.phi_to_row(math::fast_acos(a.y)));
+    const bool visible = taps.y0_physical || taps.y1_physical;
+    HS_CONTEXT("physical row tenths", int(row * 10.0f));
+    HS_EXPECT_EQ(visible, row == -0.5f);
+    HS_EXPECT_EQ(reaches(a, a, a, a), visible);
+    HS_EXPECT_EQ(reaches(a, b, a, b), visible);
+  }
+  uint32_t visible = 0, rejected = 0;
+  for (int history = 0; history < 160; ++history) {
+    const float row = -2.7f + 0.03f * float(history);
+    const auto a = point(row, 0.0f);
+    const auto b = point(row + 0.1f, 0.04f);
+    const auto a1 = point(row + 0.2f, 0.03f);
+    const auto b1 = point(row - 0.1f, 0.07f);
+    const bool kept = reaches(a, b, a1, b1);
+    rejected += !kept;
+    for (int time = 0; time <= 8; ++time) {
+      const float t = float(time) / 8.0f;
+      const auto start = math::nlerp_unit(a, a1, t);
+      const auto end = math::nlerp_unit(b, b1, t);
+      for (int sample = 0; sample <= 16; ++sample) {
+        const auto p = math::slerp(start, end, float(sample) / 16.0f);
+        const float y = GEOMETRY.phi_to_row(math::fast_acos(p.y));
+        const auto taps = Filter::Screen::splat_taps<W, H>(40.25f, y);
+        if (taps.y0_physical || taps.y1_physical) {
+          ++visible;
+          HS_CONTEXT("physical cap history", history);
+          HS_EXPECT(kept, "a swept arc with physical AA support is kept");
+        }
+      }
+    }
+  }
+  HS_EXPECT_GT(visible, 10000u);
+  HS_EXPECT_GT(rejected, 20u);
+}
+
+/** @brief Directional spacing certificates preserve the full predicate. */
+inline void test_column_directional_spacing_certificate() {
+  constexpr int W = 288, H = 144;
+  using Frame = Plot::EdgeWorldsheet;
+  hs::random().seed(20261027u);
+  Plot::g_column_lattice_checks = Plot::g_column_lattice_certificates = 0;
+  for (int trial = 0; trial < 6000; ++trial) {
+    const auto a = hs_test::rand_unit();
+    const auto axis = math::cross(a, hs_test::rand_unit()).normalized();
+    const float scale[] = {0.00001f, 0.002f, 0.02f, 0.2f, 1.0f, 2.8f};
+    const float length = scale[trial % 6] * hs::rand_f(0.75f, 1.1f);
+    const auto b = math::rotate(a, math::make_rotation(axis, length));
+    const auto basis = Frame::arc(a, b);
+    const float pieces = Frame::pieces_of<W, H>(basis);
+    for (float factor : {0.25f, 0.5f, 0.9999f, 1.0f, 1.0001f, 2.0f, 4.0f}) {
+      HS_CONTEXT("spacing trial", trial);
+      HS_EXPECT_EQ(
+          (Frame::needs_local_lattice<W, H>(basis, pieces * factor)),
+          (Frame::needs_local_lattice<W, H, false>(basis, pieces * factor)));
+    }
+    int low = 1, high = 65536;
+    while (low < high) {
+      const int middle = (low + high) / 2;
+      if (Frame::needs_local_lattice<W, H, false>(basis, float(middle)))
+        low = middle + 1;
+      else
+        high = middle;
+    }
+    for (int count : {std::max(1, low - 1), low, low + 1})
+      for (float rounding : {-0.4999f, 0.0f, 0.4999f}) {
+        const float near = float(count) + rounding;
+        HS_CONTEXT("critical spacing trial", trial);
+        HS_EXPECT_EQ((Frame::needs_local_lattice<W, H>(basis, near)),
+                     (Frame::needs_local_lattice<W, H, false>(basis, near)));
+      }
+  }
+  std::printf("  [directional spacing] certificates %u / %u\n",
+              Plot::g_column_lattice_certificates,
+              Plot::g_column_lattice_checks);
+  HS_EXPECT_GT(Plot::g_column_lattice_certificates, 100u);
+  HS_EXPECT_GT(Plot::g_column_lattice_checks, 10000u);
 }
 
 /** @brief An edge's steady lattice is its walk lattice when the count holds

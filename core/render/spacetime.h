@@ -54,6 +54,8 @@ struct GeometryCounters {
       0; /**< Columns evaluating their edge's endpoint paths. */
   uint32_t column_shader_calls =
       0; /**< Source shaders for emitted column samples. */
+  uint32_t column_history_visits =
+      0; /**< Samples entering the source-history route. */
   uint32_t column_boundary_samples =
       0; /**< Additional arm-boundary evaluations. */
   uint32_t column_single_samples = 0; /**< Samples emitted through full AA. */

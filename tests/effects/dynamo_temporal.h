@@ -210,6 +210,7 @@ inline void test_dynamo_column_time_oracle() {
   DynamoTemporalOracle::render<288, 144>(true, 1.0f, 0.0f, 0.0f, 0.018f, false,
                                          false, true);
   const auto &work = Spacetime::geometry_counters;
+  HS_EXPECT_GT(work.column_history_visits, 0u);
   std::printf("  [Dynamo forced clip] callback evaluations=%u samples=%u "
               "edge_setups=%u culled=%u\n",
               work.endpoint_evaluations + work.midpoint_evaluations,
