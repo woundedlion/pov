@@ -10,7 +10,6 @@
 #include "tests/test_memory.h"
 #include "tests/test_spatial.h"
 #include "tests/test_static_circular_buffer.h"
-#include "tests/test_color.h"
 #include "tests/test_palettes.h"
 #include "tests/test_easing_waves.h"
 #include "tests/test_interpolate.h"
@@ -21,7 +20,6 @@
 #include "tests/test_noise_field.h"
 #include "tests/test_projections.h"
 #include "tests/test_animation.h"
-#include "tests/test_param_marshal.h"
 #include "tests/test_wasm_predicates.h"
 #include "tests/test_led.h"
 #include "tests/test_presets.h"
@@ -35,7 +33,6 @@ HS_FORWARD_MODULE(concepts_tests, run_concepts_tests)
 HS_FORWARD_MODULE(memory_tests, run_memory_tests)
 HS_FORWARD_MODULE(spatial_tests, run_spatial_tests)
 HS_FORWARD_MODULE(scb_tests, run_static_circular_buffer_tests)
-HS_FORWARD_MODULE(color_tests, run_color_tests)
 HS_FORWARD_MODULE(palettes_tests, run_palettes_tests)
 HS_FORWARD_MODULE(easing_waves_tests, run_easing_waves_tests)
 HS_FORWARD_MODULE(interpolate_tests, run_interpolate_tests)
@@ -46,7 +43,6 @@ HS_FORWARD_MODULE(noise_tests, run_noise_tests)
 HS_FORWARD_MODULE(noise_field_tests, run_noise_field_tests)
 HS_FORWARD_MODULE(projections_tests, run_projections_tests)
 HS_FORWARD_MODULE(animation_tests, run_animation_tests)
-HS_FORWARD_MODULE(param_marshal_tests, run_param_marshal_tests)
 HS_FORWARD_MODULE(wasm_predicates_tests, run_wasm_predicates_tests)
 HS_FORWARD_MODULE(led_tests, run_led_tests)
 HS_FORWARD_MODULE(presets_tests, run_presets_tests)

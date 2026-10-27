@@ -100,18 +100,8 @@ function(_hs_warnings target)
   target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
 endfunction()
 
-set(_hs_test_group_sources
-  ${CMAKE_CURRENT_SOURCE_DIR}/run_foundation_tests.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/run_geometry_tests.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/run_render_tests.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/run_effects_tests.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/run_hardware_tests.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/run_death_tests.cpp
-)
-
 add_executable(run_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp
-  ${_hs_test_group_sources}
   ${HS_ENGINE_SOURCES})
 
 # HS_SCAN_METRICS compiles in the per-pixel g_scan_metrics counters
@@ -262,6 +252,8 @@ endif()
 _hs_sanitize(run_tests)
 _hs_sanitize(case_context_check)
 
+include(${CMAKE_CURRENT_SOURCE_DIR}/test_targets.cmake)
+
 add_executable(render_goldens EXCLUDE_FROM_ALL
   ${CMAKE_CURRENT_SOURCE_DIR}/run_render_goldens.cpp
   ${HS_ENGINE_SOURCES})
@@ -351,12 +343,14 @@ _hs_warnings(mindsplatter_replay)
 _hs_sanitize(mindsplatter_replay)
 add_test(NAME unit_mindsplatter_replay COMMAND mindsplatter_replay)
 
-# Opt-in Clang source-based coverage for run_tests. The instrumentation changes
+# Opt-in Clang source-based coverage for the shared native suite. Instrumentation changes
 # codegen. Needs clang_rt.profile, which the Windows emsdk clang does not ship.
 option(HS_COVERAGE "Instrument run_tests for llvm-cov source-based coverage" OFF)
 if(HS_COVERAGE)
-  target_compile_options(run_tests PRIVATE -fprofile-instr-generate -fcoverage-mapping)
-  target_link_options(run_tests PRIVATE -fprofile-instr-generate)
+  foreach(_target IN LISTS _hs_module_targets _hs_case_targets)
+    target_compile_options(${_target} PRIVATE -fprofile-instr-generate -fcoverage-mapping)
+    target_link_options(${_target} PRIVATE -fprofile-instr-generate)
+  endforeach()
 endif()
 
 enable_testing()
@@ -883,3 +877,14 @@ foreach(_hs_test IN LISTS _hs_registered_tests)
     set_tests_properties(${_hs_test} PROPERTIES TIMEOUT ${_hs_test_timeout})
   endif()
 endforeach()
+
+# Link startup into every native executable, including helper tools.
+foreach(_hs_target IN LISTS _hs_dir_targets)
+  get_target_property(_hs_target_type ${_hs_target} TYPE)
+  if(_hs_target_type STREQUAL "EXECUTABLE")
+    target_link_libraries(${_hs_target} PRIVATE hs_test_process)
+  endif()
+endforeach()
+
+include(${CMAKE_CURRENT_SOURCE_DIR}/engine_libraries.cmake)
+hs_share_test_engines()

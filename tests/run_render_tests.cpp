@@ -9,11 +9,8 @@
 #include "tests/test_ray_demonstrators.h"
 #include "tests/test_sdf_patterns.h"
 #include "tests/test_ray_events.h"
-#include "tests/test_hyper_lattice.h"
 #include "tests/test_pullback.h"
-#include "tests/test_shader_chain.h"
 #include "tests/test_filter.h"
-#include "tests/test_plot_parity.h"
 #include "tests/test_plot_scan.h"
 #include "tests/test_canvas.h"
 #include "tests/test_scan.h"
@@ -25,11 +22,8 @@ HS_FORWARD_MODULE(ray_tests, run_ray_tests)
 HS_FORWARD_MODULE(ray_demonstrator_tests, run_ray_demonstrator_tests)
 HS_FORWARD_MODULE(sdf_pattern_tests, run_sdf_pattern_tests)
 HS_FORWARD_MODULE(ray_event_tests, run_ray_event_tests)
-HS_FORWARD_MODULE(hyper_lattice_tests, run_hyper_lattice_tests)
 HS_FORWARD_MODULE(pullback_tests, run_pullback_tests)
-HS_FORWARD_MODULE(shader_chain_tests, run_shader_chain_tests)
 HS_FORWARD_MODULE(filter_tests, run_filter_tests)
-HS_FORWARD_MODULE(plot_parity_tests, run_plot_parity_tests)
 HS_FORWARD_MODULE(plot_scan_tests, run_plot_scan_tests)
 HS_FORWARD_MODULE(canvas_tests, run_canvas_tests)
 HS_FORWARD_MODULE(scan_tests, run_scan_tests)

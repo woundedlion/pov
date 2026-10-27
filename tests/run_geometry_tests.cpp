@@ -7,12 +7,7 @@
 
 #include "tests/test_sdf.h"
 #include "tests/test_conway.h"
-#include "tests/test_conway_morph.h"
-#include "tests/test_conway_continuity.h"
 #include "tests/test_partition_seam.h"
-#include "tests/test_conway_soak.h"
-#include "tests/test_opchain_probe.h"
-#include "tests/test_opchain_arena_survey.h"
 #include "tests/test_hankin.h"
 #include "tests/test_geometry.h"
 #include "tests/test_spherical_field.h"
@@ -25,12 +20,7 @@ namespace hs_test::module_runners {
 
 HS_FORWARD_MODULE(sdf_tests, run_sdf_tests)
 HS_FORWARD_MODULE(conway_tests, run_conway_tests)
-HS_FORWARD_MODULE(conway_morph_tests, run_conway_morph_tests)
-HS_FORWARD_MODULE(conway_continuity_tests, run_conway_continuity_tests)
 HS_FORWARD_MODULE(partition_seam_tests, run_partition_seam_tests)
-HS_FORWARD_MODULE(conway_soak_tests, run_conway_soak_tests)
-HS_FORWARD_MODULE(opchain_probe_tests, run_opchain_probe_tests)
-HS_FORWARD_MODULE(opchain_arena_survey_tests, run_opchain_arena_survey_tests)
 HS_FORWARD_MODULE(hankin_tests, run_hankin_tests)
 HS_FORWARD_MODULE(geometry_tests, run_geometry_tests)
 HS_FORWARD_MODULE(spherical_field_tests, run_spherical_field_tests)

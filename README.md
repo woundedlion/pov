@@ -1088,11 +1088,39 @@ The unit suite is a native (non-WASM) Clang build with asserts enabled, also dri
 
 ```bash
 cmake --preset tests          # configure (cmake/toolchain-native-clang.cmake)
-cmake --build --preset tests  # build the run_tests executable
+cmake --build --preset tests  # build all native test runners and helper tools
 cmake --build --preset tests --target excluded_targets
 ctest --preset tests          # run the suite at the short default window
 just test                     # the same suite at CI's deeper window
 ```
+
+For an effect iteration, build its dependency-local runner and select the module:
+
+```bash
+cmake --build --preset tests --target test_shapeshifter -j4
+build/tests/tests/test_shapeshifter shapeshifter_oracle
+# Or configure, build and run with one cross-platform recipe:
+just test-target shapeshifter shapeshifter_oracle
+just test-target dreamballs effects
+just test-target hopf effects
+just test-target mindsplatter mindsplatter
+just test-target dynamo effects
+just test-target mobiusrings effects
+```
+
+On Windows, the executables have an `.exe` suffix. With no module arguments, a local runner executes all its own tests; `--list` shows its modules. The per-effect white-box runners expose their portion of the existing `effects` module, including its `HS_EFFECTS_FULL` tier. The umbrella's module names, case order, summaries and exit codes remain unchanged.
+
+| Target | Tests |
+| --- | --- |
+| `test_engine` | Foundation, geometry, render core and hardware; no effect headers |
+| `test_all_effects` | Roster sweeps, effect factory and parameter marshaling, composed effects, parity hashes and death cases |
+| `test_shapeshifter` | ShapeShifter oracle, tiles and effect cases |
+| `test_mindsplatter` | MindSplatter cases and oracles |
+| `test_dreamballs`, `test_hopf`, `test_dynamo`, `test_mobiusrings` | Each effect's white-box cases and temporal oracles |
+| Other `test_<family>` targets | Effect cases split by dependency; Conway/Hankin/Islamic mesh cases share a family |
+| `run_tests` | Complete compatibility umbrella used by existing CTest and CI entry points |
+
+The umbrella and local runners link the same compiled case objects. `tests/test_main.cpp` supplies the module CLI and CI depth checks, and `tests/process_setup.cpp` suppresses Windows error dialogs in every native executable. `tests/engine_libraries.cmake` shares engine objects across compatible compile contexts; separate objects retain helper tools' different ABI, scan metrics, display/offset, math and sanitizer settings. The build's engine_compile_contexts.txt report records those variants. Coverage instruments the shared case and engine objects as well as the umbrella.
 
 The per-effect smoke and determinism window is `HS_SMOKE_FRAMES`. Its local default is short enough that no preset transition arms, so the pause, slot-reuse and FIFO-expiry paths never execute; `just test` and every CI leg raise it, and `run_tests` refuses a shallower window when `CI` is set. Case lists invoke `HS_RUN(test_case)` or `HS_RUN(test_case, arguments...)` so failure context retains the case name inside lambdas and shared helpers.
 
@@ -1105,7 +1133,7 @@ Unit coverage spans the math, geometry and memory core, color, easing and waves,
 - **Hardware-layer tests** for the Phantasm multi-board sync core (`hardware/pov_sync.h`, [frame-sync test plan](https://github.com/woundedlion/pov/blob/master/docs/specs/phantasm_frame_sync_spec.md#12-test-plan-host-testable-where-possible)), the HD107S SPI wire format and color correction, and the POV driver tiling proofs (each LED write covers the canvas exactly once).
 - **WASM marshaling tests** that keep the JS definition and value streams index-aligned and validate ParamHost schema hooks, integer endpoints, described and typed fields, and authored snapshot ranges.
 
-`tests/run_tests.cpp` is the driver. Adding a `tests/test_<module>.h` takes three edits, each pinned by its own CTest case:
+`tests/run_tests.cpp` owns the complete module roster; `tests/test_targets.cmake` selects the dependency-local runners. Adding a `tests/test_<module>.h` takes three edits, each pinned by its own CTest case:
 
 1. `#include` the header in the appropriate grouped runner under `tests/` and add its forwarding entry point in `hs_test::module_runners`. The `unit_module_includes` test balances the compiled groups' module includes against the dispatcher roster and requires every header outside the non-module list to be included by name.
 2. Add an `X(name, entry_point, effects_tier)` row to `HS_TEST_MODULE_LIST`, the X-macro that expands into `MODULES[]`. Set `effects_tier` true for a module that reads `effects_full_suite()`, false otherwise. `end_module()` rejects a module that runs no assertions, while the `unit_case_calls` CTest scans column-0 void/bool/int/size_t `test_*(` / `check_*` / `case_*` / `verify_*` / `expect_*` free-function definition and the `run_*_cases` drivers and named cross-file sweep drivers (`smoke_one`, `determinism_one`, `clip_clear_parity_one`) in the `tests/*.h` and `tests/*.hpp` headers and requires it to be reachable from its module's `run_*_tests()` — through a call chain or a file-scope reference such as a dispatch table — and requires each such case to reach an `HS_EXPECT*` or `static_assert`, directly or through helpers; `case_*` definitions in `test_death.h` remain subject to reachability but are exempt from assertion reach because the death harness verifies their traps at runtime; off-roster helpers and the named cross-file sweep drivers resolve against the shared corpus instead. An indented member case, such as a WhiteBox `check_*` static, is outside the scan and is reached only by its hand-written call. There are no measured assertion floors or exact case-count pins to update when a test changes.
@@ -1494,6 +1522,18 @@ files define line-ending policy and working-artifact exclusions.
 │   └── toolchain-native-clang.cmake  Native Clang toolchain behind the tests preset
 ├── platformio.ini              Teensy envs: the two shipping images plus the compile/profiling profiles
 ├── tests/                      Unit tests (CMake subdirectory)
+│   ├── module_registry.h Native module registry and death-harness hook contract
+│   ├── process_setup.cpp Shared native error-dialog suppression
+│   ├── test_main.cpp Shared native module CLI, CI levers and exit policy
+│   ├── test_targets.cmake Dependency-local module objects and executable registries
+│   ├── run_color_tests.cpp Color tests with palette recipe dependencies
+│   ├── run_conway_effect_tests.cpp Conway effect integration cases for Hankin and Islamic meshes
+│   ├── run_hyper_lattice_tests.cpp HyperLattice effect tests
+│   ├── run_mindsplatter_tests.cpp MindSplatter effect cases and oracles
+│   ├── run_plot_parity_tests.cpp All-effects render fingerprint tests
+│   ├── run_registry_tests.cpp Roster, composed effects and marshaling tests
+│   ├── run_shader_chain_tests.cpp ShaderChain and AlienCore cases
+│   ├── run_shapeshifter_tests.cpp ShapeShifter oracle and tile modules
 │   ├── engine_libraries.cmake Shared native engine objects by compatible compile context
 │   ├── animation/         Sections included by test_animation.h
 │   ├── canvas/            Sections included by test_canvas.h
@@ -1505,9 +1545,9 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── effects/           Sections included by test_effects.h
 │   │   ├── ash_cloud.h Ash cloud cases
 │   │   ├── case_runners.h External effect case entry points
-│   │   ├── comets_cases.h Comets cases cases
-│   │   ├── dynamo_cases.h Dynamo cases cases
-│   │   ├── fishbowl_cases.h Fishbowl cases cases
+│   │   ├── comets_cases.h Comets cases
+│   │   ├── dynamo_cases.h Dynamo cases
+│   │   ├── fishbowl_cases.h Fishbowl cases
 │   │   ├── fishbowl_oracle.h Fishbowl oracle cases
 │   │   ├── fixture.h Shared engine-only effect rendering and seam fixtures
 │   │   ├── gnomonic_stars.h Gnomonic stars cases
@@ -1517,7 +1557,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── mobius_rings.h Mobius rings cases
 │   │   ├── petal_flow.h Petal flow cases
 │   │   ├── petal_flow_oracle.h Petal flow oracle cases
-│   │   ├── raymarch_cases.h Raymarch cases cases
+│   │   ├── raymarch_cases.h Raymarch cases
 │   │   ├── ring_spin.h Ring spin cases
 │   │   ├── ring_whitebox.h RingShower and Thrusters white-box accessors
 │   │   ├── roster_cases.h Cross-effect preset navigation and full-frame contracts
@@ -1545,7 +1585,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── run_effect_cases_ring_spin.cpp Ring spin case wrappers and focused runner
 │   ├── run_effect_cases_rings.cpp Rings case wrappers and focused runner
 │   ├── run_effect_cases_roster.cpp Roster case wrappers and focused runner
-│   ├── run_effect_cases_shapeshifter_cases.cpp Shapeshifter cases case wrappers and focused runner
+│   ├── run_effect_cases_shapeshifter_cases.cpp ShapeShifter case wrappers and focused runner
 │   ├── run_effect_cases_spherical_harmonics.cpp Spherical harmonics case wrappers and focused runner
 │   ├── run_effect_cases_voronoi.cpp Voronoi case wrappers and focused runner
 │   ├── run_render_goldens.cpp  Node-hosted WASM render regression runner

@@ -124,4 +124,33 @@ foreach(_return IN ITEMS "const int &" "bool &" "Foo *" "std::pair<A, B> ")
 endforeach()
 file(WRITE "${WORK}/tests/test_alpha.h" "\n${_helper_calls}\ninline void declared_helper();\n#define CASE_DISPATCH unused_helper\n")
 check_gate("${CALL_GATE}" TRUE "all 1 case definitions")
+# Split case wrappers must remain reachable from the umbrella entry point.
+hs_gate_workspace("${CALL_GATE}")
+file(MAKE_DIRECTORY "${WORK}/tests/effects")
+file(WRITE "${WORK}/tests/effects/guards.h" "inline void test_guard() {\n  HS_EXPECT_TRUE(true);\n}\n")
+set(_effects [=[#include "tests/effects/guards.h"
+inline int run_effects_tests() {
+  run_effect_case_guard();
+  return 0;
+}
+]=])
+file(WRITE "${WORK}/tests/test_effects.h" "${_effects}")
+file(WRITE "${WORK}/tests/run_effect_cases_alpha.cpp" [=[void run_effect_case_guard() {
+  test_guard();
+}
+namespace hs_test::module_runners {
+int run_alpha_tests() {
+  run_effect_case_guard();
+  return 0;
+}
+}
+]=])
+check_gate("${CALL_GATE}" TRUE "all 1 case definitions")
+string(REPLACE "  run_effect_case_guard();\n" "" _disconnected "${_effects}")
+file(WRITE "${WORK}/tests/test_effects.h" "${_disconnected}")
+check_gate("${CALL_GATE}" FALSE "test case defined but never reached")
+file(WRITE "${WORK}/tests/test_effects.h" "${_effects}")
+file(WRITE "${WORK}/tests/effects/guards.h" "inline void test_guard() {\n}\n")
+check_gate("${CALL_GATE}" FALSE "test cases reach no assertion")
+
 message(STATUS "test section controls passed")

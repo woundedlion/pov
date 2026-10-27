@@ -411,7 +411,7 @@ jobs:
 
   code-coverage:
     name: Native unit tests (Clang) / coverage
-    # HS_COVERAGE instruments run_tests only; coverage uses the QUICK tier.
+    # HS_COVERAGE instruments the umbrella and its shared objects; coverage uses the QUICK tier.
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
