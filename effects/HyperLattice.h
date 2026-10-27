@@ -1170,11 +1170,12 @@ private:
       } else {
         const auto result = [&]() __attribute__((always_inline)) {
           if constexpr (PATH == TracePath::SINGLE_SHELLS)
-            return SDF::trace_periodic_shells_3d(
+            return SDF::trace_periodic_shells_3d<true>(
                 frame.periodic_shells, frame.camera, view, frame.limits,
                 frame.appearance);
           else if constexpr (PATH == TracePath::MARCHED_SHELLS)
-            return SDF::trace_periodic_shells_march<SLICE_4D ? 4 : 3>(
+            return SDF::trace_periodic_shells_march<SLICE_4D ? 4 : 3, false,
+                                                    true>(
                 frame.periodic_shells, frame.camera, view, frame.limits,
                 frame.appearance, *frame.shell_layers);
           else

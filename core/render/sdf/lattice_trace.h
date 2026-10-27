@@ -182,15 +182,15 @@ HS_HOT_FLASH_MEMBER Sample shade_shells(const math::Vector &direction,
   const auto &shells = prepared.periodic_shells;
   SDF::ShellSample sample;
   if (!SLICE_4D && shells.single_owner)
-    sample =
-        SDF::trace_periodic_shells_3d(shells, prepared.camera, direction,
-                                      prepared.limits, prepared.appearance);
+    sample = SDF::trace_periodic_shells_3d<true>(shells, prepared.camera,
+                                                 direction, prepared.limits,
+                                                 prepared.appearance);
   else if (shells.march)
-    sample = SDF::trace_periodic_shells_march<DIMENSIONS>(
+    sample = SDF::trace_periodic_shells_march<DIMENSIONS, false, true>(
         shells, prepared.camera, direction, prepared.limits,
         prepared.appearance, *prepared.shell_layers);
   else
-    sample = SDF::trace_periodic_shells_march<DIMENSIONS, true>(
+    sample = SDF::trace_periodic_shells_march<DIMENSIONS, true, true>(
         shells, prepared.camera, direction, prepared.limits,
         prepared.appearance, *prepared.shell_layers);
   return {sample.color, sample.status};

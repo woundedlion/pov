@@ -168,6 +168,7 @@ struct ShellLayerStorage {
  * own cell, so a crossing whose ray-to-center clearance exceeds the widest
  * contribution is rejected before any root solve. Matches
  * shade_periodic_shells_dimension<3>, with the step budget counting layers.
+ * @tparam SHADED Modulates shell alpha by the sphere chord's incidence.
  * @param prepared Frame shell constants.
  * @param camera Prepared camera embedding.
  * @param direction Unit view direction.
@@ -175,6 +176,7 @@ struct ShellLayerStorage {
  * @param appearance Depth appearance applied to each layer.
  * @return The premultiplied composite.
  */
+template <bool SHADED = false>
 __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
     const PreparedPeriodicShells &prepared,
     const Raycast::PreparedCamera &camera, const math::Vector &direction,
@@ -253,6 +255,9 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
       const float DISCRIMINANT = B * B - A * C;
       if (DISCRIMINANT >= 0) {
         const float ROOT = sqrtf(DISCRIMINANT);
+        const float SHADE =
+            SHADED ? .25f + .75f * fminf(ROOT * (2 * HALF_INVERSE_RADIUS), 1.0f)
+                   : 1.0f;
         const float TIMES[2] = {CROSSING + (-B - ROOT) * INVERSE_A,
                                 CROSSING + (-B + ROOT) * INVERSE_A};
         const float DEPTH = DISCRIMINANT * HALF_INVERSE_RADIUS;
@@ -263,7 +268,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
           const float WIDTH = prepared.footprint.at(T);
           const float COVERAGE =
               WIDTH > 0 ? hs::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f) : 1.0f;
-          if (!emit(T, COVERAGE)) {
+          if (!emit(T, COVERAGE * SHADE)) {
             result.color = composite.premultiplied();
             return result;
           }
@@ -275,7 +280,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
         if (T >= NEAR && T <= FAR && SQUARED > 0 && WIDTH > 0) {
           const float COVERAGE =
               hs::clamp(.5f - (sqrtf(SQUARED) - RADIUS) / WIDTH, 0.0f, 1.0f);
-          if (COVERAGE > 0 && !emit(T, COVERAGE)) {
+          if (COVERAGE > 0 && !emit(T, COVERAGE * (SHADED ? .25f : 1.0f))) {
             result.color = composite.premultiplied();
             return result;
           }
@@ -298,6 +303,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
  *        ambient ray's dominant axis.
  * @tparam DIMENSIONS 3 for a spatial camera, 4 for a slice.
  * @tparam WIDE Whether filtered spheres may reach past half a cell.
+ * @tparam SHADED Modulates shell alpha by the sphere chord's incidence.
  * @details Without WIDE, requires PreparedPeriodicShells::march: candidates
  * are the ray's layer crossing's rounded lattice point and its neighbors one
  * step to either side within reach, composited in distance order per layer,
@@ -317,7 +323,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
  * @param storage Per-ray layer sort scratch.
  * @return The premultiplied composite.
  */
-template <int DIMENSIONS, bool WIDE = false>
+template <int DIMENSIONS, bool WIDE = false, bool SHADED = false>
 __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
     const PreparedPeriodicShells &prepared,
     const Raycast::PreparedCamera &camera, const math::Vector &direction,
@@ -384,6 +390,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
   const float REACH_STEP = HALF_RATE * STEP;
   const float RADIUS = prepared.geometry.shell_radius * CELL;
   const bool FILTERED = prepared.footprint.angular_radius > 0;
+  const float INVERSE_RADIUS = SHADED ? 1 / RADIUS : 0.0f;
 
   ShellSample result;
   LayerComposite composite;
@@ -440,6 +447,9 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
                               };
           if (DISCRIMINANT >= 0) {
             const float ROOT = sqrtf(DISCRIMINANT);
+            const float SHADE =
+                SHADED ? .25f + .75f * fminf(ROOT * INVERSE_RADIUS, 1.0f)
+                       : 1.0f;
             const float TIMES[2] = {CROSSING + (-B - ROOT) * INVERSE_A,
                                     CROSSING + (-B + ROOT) * INVERSE_A};
             for (int root = 0; root < 2; ++root) {
@@ -461,9 +471,9 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
                 coverage = hs::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f);
               }
               if constexpr (WIDE)
-                storage.retain(count, cutoff, T, coverage);
+                storage.retain(count, cutoff, T, coverage * SHADE);
               else
-                pending[count++] = {T, coverage};
+                pending[count++] = {T, coverage * SHADE};
             }
           } else if (FILTERED) {
             const float U = -B * INVERSE_A;
@@ -483,7 +493,8 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
                                : INFINITY;
               }
               const float COVERAGE =
-                  hs::clamp(.5f - distance / WIDTH, 0.0f, 1.0f);
+                  hs::clamp(.5f - distance / WIDTH, 0.0f, 1.0f) *
+                  (SHADED ? .25f : 1.0f);
               if (COVERAGE > 0) {
                 if constexpr (WIDE)
                   storage.retain(count, cutoff, T, COVERAGE);
