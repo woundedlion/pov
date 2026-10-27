@@ -962,6 +962,71 @@ inline void test_radial_surface_terminal_background() {
   }
 }
 
+/** @brief Hidden terminal edges preserve an earlier interior sheet in every sector. */
+inline void test_radial_surface_hidden_terminal() {
+  ScratchScope scope(scratch_arena_a);
+  const std::array KNOTS{
+      Surface::Knot{0.0f, 0.0f, 0.702642024f},
+      Surface::Knot{0.0773696452f, 0.0533590987f, 0.603755772f},
+      Surface::Knot{0.16544956f, 0.08921583f, 0.494539082f},
+      Surface::Knot{0.262169778f, 0.103760779f, 0.376860648f},
+      Surface::Knot{0.36399886f, 0.0940049887f, 0.252734095f},
+      Surface::Knot{0.466302335f, 0.0582537539f, 0.124283135f},
+      Surface::Knot{0.562593699f, -0.00354114221f, -0.00629431009f},
+      Surface::Knot{0.639346004f, -0.0879887938f, -0.13676405f},
+      Surface::Knot{0.694773316f, -0.188470274f, -0.26489377f},
+      Surface::Knot{0.729767799f, -0.298688233f, -0.388491005f},
+      Surface::Knot{0.746142507f, -0.412906766f, -0.50544107f},
+      Surface::Knot{0.746860683f, -0.526166737f, -0.613743007f},
+      Surface::Knot{0.735907078f, -0.634510756f, -0.71154356f},
+      Surface::Knot{0.717983186f, -0.735087991f, -0.797169447f},
+      Surface::Knot{0.69813484f, -0.826099873f, -0.869155407f},
+      Surface::Knot{0.681399107f, -0.906594098f, -0.926270008f},
+      Surface::Knot{0.672504127f, -0.976152003f, -0.967535794f},
+      Surface::Knot{0.675642073f, -1.0345192f, -0.992246747f},
+      Surface::Knot{0.694290698f, -1.08124602f, -0.999980152f},
+      Surface::Knot{0.731068313f, -1.11537838f, -0.990603626f},
+      Surface::Knot{0.787583947f, -1.13525689f, -0.964277625f},
+      Surface::Knot{0.864274681f, -1.1384474f, -0.921452403f},
+      Surface::Knot{0.96023047f, -1.12183678f, -0.862861037f},
+      Surface::Knot{1.07304466f, -1.08189654f, -0.789505839f},
+      Surface::Knot{1.19873369f, -1.01510525f, -0.702641964f}};
+  Surface surface;
+  surface.prepare(scratch_arena_a, 7, Plot::STAR_INNER_RATIO, KNOTS);
+  Scan::RadialSurfaceEdgeAA<Surface> aa;
+  for (int sector = 0; sector < 7; ++sector) {
+    const float ANGLE = sector * math::TWO_PI_F / 7;
+    auto rotate = [&](Surface::Point p) {
+      return Surface::Point{p.x * cosf(ANGLE) - p.y * sinf(ANGLE),
+                            p.x * sinf(ANGLE) + p.y * cosf(ANGLE)};
+    };
+    const auto P = rotate({.220684409f, -.662453413f});
+    const auto DX = rotate({.00910583977f, .0197949838f});
+    const auto DY = rotate({-.021678308f, .00790116936f});
+    double reference = 0;
+    for (int y = 0; y < 16; ++y)
+      for (int x = 0; x < 16; ++x) {
+        const double U = (x + .5) / 16 - .5, V = (y + .5) / 16 - .5;
+        const double HIT = reference_hit(
+            {P.x + U * DX.x + V * DY.x, P.y + U * DX.y + V * DY.y}, KNOTS, 7,
+            Plot::STAR_INNER_RATIO);
+        HS_EXPECT_GT(HIT, 8.0);
+        HS_EXPECT_LT(HIT, 10.0);
+        reference += 1 - HIT / 24;
+      }
+    reference /= 256;
+    const auto COLOR =
+        aa.sample(surface, P, DX, DY, Scan::radial_atan2(P.y, P.x), 7,
+                  [](const Surface::Hit &hit) {
+                    const float C = 1 - (hit.interval + hit.fraction) / 24;
+                    return Scan::SurfaceColor{C, C, C};
+                  });
+    std::printf("  hidden terminal sector=%d aa=%g reference=%g\n", sector,
+                COLOR.r, reference);
+    HS_EXPECT_NEAR(COLOR.r, reference, .005);
+  }
+}
+
 /** @brief Runs the generic point and edge-coverage oracles. */
 inline void run_radial_surface_checks() {
   HS_RUN(test_radial_surface_tip_sweep);
@@ -975,5 +1040,6 @@ inline void run_radial_surface_checks() {
   HS_RUN(test_radial_surface_fixture_edge_trace);
   HS_RUN(test_radial_surface_edge_pair_corner);
   HS_RUN(test_radial_surface_terminal_background);
+  HS_RUN(test_radial_surface_hidden_terminal);
 }
 } // namespace hs_test::radial_surface_tests

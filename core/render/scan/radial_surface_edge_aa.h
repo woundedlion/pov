@@ -112,6 +112,7 @@ public:
       center_front &= detector.second_c >= 0;
     }
     SurfaceColor front, back;
+    int back_interval = hit.interval;
     uint32_t extra_intervals = 0;
     if (!center_front && detector.tip && surface.strictly_increasing_radius()) {
       typename Surface::Hit birth_hit;
@@ -155,6 +156,7 @@ public:
       if (center_front) {
         front = color;
         back = outside;
+        back_interval = outside_hit.interval;
       } else {
         front = outside;
         back = color;
@@ -163,7 +165,8 @@ public:
         extra_intervals = outside_work.intervals;
     }
     float back_weight = 1 - front_weight;
-    if (detector.terminal_back) {
+    if (detector.terminal_back &&
+        (back_interval < 0 || back_interval + 1 == surface.interval_count())) {
       typename Surface::Hit terminal_hit;
       terminal_hit.interval = surface.interval_count() - 1;
       terminal_hit.fraction = 1;
