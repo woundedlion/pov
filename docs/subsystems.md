@@ -227,6 +227,13 @@ clip. `Plot::EdgeBatch` shares captured vertex data across edges.
 ordinary mesh raster. Other timed plotted configurations retain their
 existing raster dispatch.
 
+`Plot::Ring::draw_timed` and `Plot::DistortedRing::draw_timed` share
+`draw_ring_columns`. Their circular vertex paths take two endpoint captures
+in `Spacetime::Worldlines`, selected through `Spacetime::PathBound`, and an
+optional `Spacetime::PoseTable` supplies world rotation. Tiny steady edges
+use `Plot::PointRoute`; the remaining polyline edges enter the column walk
+as one `Plot::EdgeBatch`. Their still selection uses the ordinary shape draw.
+
 #### Turning planar contours
 
 `Plot::PlanarChords` strokes closed polylines that are straight in an

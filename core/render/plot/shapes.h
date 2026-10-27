@@ -17,6 +17,7 @@
 #include "core/engine/concepts.h"
 #include "core/memory.h"
 #include "core/render/plot/raster.h"
+#include "core/render/plot/point_route.h"
 
 /**
  * @file shapes.h
@@ -422,6 +423,108 @@ struct RingFrame {
   float cos_theta;   ///< Ring offset along the pole axis.
 };
 
+/** @brief Draws a closed polyline whose vertices turn along endpoint arcs.
+ * @tparam W,H Canvas dimensions.
+ * @tparam PipelineT,ShaderT Pipeline and fragment shader types.
+ * @param pipeline Screen pipeline.
+ * @param canvas Destination canvas.
+ * @param geometry Vertex evaluator at the two frame endpoints.
+ * @param shader Fragment shader, optionally reading time.
+ * @param poses Optional column-time world poses.
+ * @param spin Bound on the world rotation over the frame, radians.
+ * @details Vertex indices run from zero through W-1. Geometry path bounds
+ * select chords or circular interpolants; captures use arena storage. */
+template <int W, int H, typename PipelineT, typename ShaderT>
+HS_HOT_FLASH_MEMBER void
+draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
+                  const GeometryCallback &geometry, ShaderT shader,
+                  const Spacetime::PoseTable *poses = nullptr,
+                  float spin = 0.0f) {
+  ScratchScope storage(scratch_arena_b);
+  Spacetime::Worldlines<> motion;
+  motion.bind(scratch_arena_b, W);
+  auto *vertices = scratch_arena_b.allocate_n<math::Vector>(W);
+  auto *edges = scratch_arena_b.allocate_n<MeshEdge>(W);
+  motion.begin_frame(W, false);
+  for (size_t i = 0; i < W; ++i) {
+    Spacetime::count_geometry<
+        &Spacetime::GeometryCounters::endpoint_evaluations>();
+    motion.capture_end(i, geometry.evaluate(i, 0.0f));
+  }
+  motion.begin_frame(W, true);
+  for (size_t i = 0; i < W; ++i) {
+    Spacetime::count_geometry<
+        &Spacetime::GeometryCounters::endpoint_evaluations>();
+    vertices[i] = geometry.evaluate(i, 1.0f);
+    motion.capture_end(i, vertices[i]);
+    motion.choose(
+        i, geometry.vertex_path ? geometry.vertex_path(i) : geometry.path, 0.0f,
+        true);
+    edges[i] = {static_cast<uint16_t>(i), static_cast<uint16_t>((i + 1) % W)};
+  }
+  PointRoute<W, H> route;
+  route.prepare(canvas, sqrtf(geometry.path.second) + spin);
+  size_t edge_count = 0;
+  for (size_t i = 0; i < W; ++i) {
+    const size_t next = (i + 1) % W;
+    const auto world = [&](size_t vertex, float t) HS_HOT_INLINE {
+      const auto p = motion.worldline(vertex).at(t).normalized();
+      return poses ? poses->rotate(p, t) : p;
+    };
+    const math::Vector starts[2] = {world(i, 0.0f), world(next, 0.0f)};
+    const math::Vector ends[2] = {world(i, 1.0f), world(next, 1.0f)};
+    GeodesicEdgeSampler arcs[2];
+    if (EdgeWorldsheet::steady_lattice<W, H>(starts, ends, 1, arcs) == 1) {
+      route.plot(
+          pipeline, canvas, ends[0], [&]() HS_HOT_INLINE { return starts[0]; },
+          [&](float t) HS_HOT_INLINE {
+            Fragment f;
+            f.pos = world(i, t);
+            f.v0 = float(i) / W;
+            f.v2 = float(i);
+            Spacetime::shade_at_time(shader, t, f.pos, f);
+            return f.color;
+          });
+    } else {
+      edges[edge_count++] = edges[i];
+    }
+  }
+  ScratchScope registers(scratch_arena_a);
+  Fragments points;
+  points.bind(scratch_arena_a, 2);
+  auto prepare = [](Fragments &out, const math::Vector &a,
+                    const math::Vector &b, size_t index, float length) {
+    out.clear();
+    Fragment first, last;
+    first.pos = a;
+    last.pos = b;
+    last.v0 = 1.0f;
+    first.v2 = last.v2 = float(index);
+    last.v1 = length;
+    out.push_back(first);
+    out.push_back(last);
+  };
+  PipelineRef erased = [&]() HS_HOT_INLINE {
+    if constexpr (pipeline_direct_raster_path<PipelineT>())
+      return PipelineRef(pipeline, canvas, Spacetime::Timed{});
+    else
+      return PipelineRef(pipeline, Spacetime::Timed{});
+  }();
+  erased.select_copy(0);
+  auto timed_shader = [&](const math::Vector &p, Fragment &f, float t)
+                          HS_HOT_INLINE {
+                            const auto &edge = edges[static_cast<size_t>(f.v2)];
+                            f.v2 = float(edge.u) + f.v0;
+                            f.v0 = f.v2 / W;
+                            Spacetime::shade_at_time(shader, t, p, f);
+                          };
+  const EdgeBatch batch{edge_count, prepare, vertices, motion,
+                        edges,      true,    true};
+  rasterize_column_edges<W, H, {.timed = true}>(
+      erased, canvas, points, TimedShaderFn(timed_shader), batch, poses, spin,
+      false, spin);
+}
+
 /**
  * @brief Resolves the frame of a radius-(0-2) ring drawn on `basis`.
  * @param basis Orientation basis.
@@ -444,6 +547,29 @@ inline RingFrame ring_frame(const math::Basis &basis, float radius) {
  *  v2: Index
  */
 struct Ring {
+  /** @brief Draws a ring from endpoint vertex motion at column time.
+   * @tparam W,H Canvas dimensions.
+   * @tparam PipelineT,ShaderT Pipeline and shader types.
+   * @param pipeline Screen pipeline.
+   * @param canvas Destination canvas.
+   * @param basis Frame-end ring basis.
+   * @param radius Frame-end radius.
+   * @param shader Fragment shader, optionally reading time.
+   * @param geometry Circular vertex paths, indexed on the W-angle grid. */
+  template <int W, int H, typename PipelineT, typename ShaderT>
+  HS_HOT_FLASH_MEMBER static void
+  draw_timed(PipelineT &pipeline, Canvas &canvas, const math::Basis &basis,
+             float radius, ShaderT shader, const GeometryCallback &geometry) {
+    if (Spacetime::flat_surface()) {
+      auto still = [&](const math::Vector &p, Fragment &f) {
+        Spacetime::shade_at_time(shader, 1.0f, p, f);
+      };
+      draw<W, H>(pipeline, canvas, basis, radius, still);
+      return;
+    }
+    draw_ring_columns<W, H>(pipeline, canvas, geometry, shader);
+  }
+
   /**
    * @brief Samples a closed ring at `num_samples` evenly-spaced angles.
    * @param points Output fragment list; num_samples+1 fragments are appended.
@@ -726,6 +852,34 @@ template <typename Projection> struct Polygon {
  *  v2: Index
  */
 struct DistortedRing {
+  /** @brief Draws a warped ring from circular vertex paths and world poses.
+   * @tparam W,H Canvas dimensions.
+   * @tparam PipelineT,ShaderT Pipeline and shader types.
+   * @param pipeline Screen pipeline.
+   * @param canvas Destination canvas.
+   * @param basis Frame-end world basis for the still draw.
+   * @param radius Ring radius.
+   * @param shift_fn Frame-end radial distortion for the still draw.
+   * @param shader Fragment shader, optionally reading time.
+   * @param geometry Source vertex endpoint evaluator.
+   * @param poses Column-time world poses.
+   * @param spin Bound on the poses' rotation over the frame, radians. */
+  template <int W, int H, typename PipelineT, typename ShaderT>
+  HS_HOT_FLASH_MEMBER static void
+  draw_timed(PipelineT &pipeline, Canvas &canvas, const math::Basis &basis,
+             float radius, ScalarFn shift_fn, ShaderT shader,
+             const GeometryCallback &geometry,
+             const Spacetime::PoseTable *poses, float spin) {
+    if (Spacetime::flat_surface()) {
+      auto still = [&](const math::Vector &p, Fragment &f) {
+        Spacetime::shade_at_time(shader, 1.0f, p, f);
+      };
+      draw<W, H>(pipeline, canvas, basis, radius, shift_fn, still);
+      return;
+    }
+    draw_ring_columns<W, H>(pipeline, canvas, geometry, shader, poses, spin);
+  }
+
   /**
    * @brief Calculates a single point on a distorted ring.
    * @param shift_fn Radial distortion sampled at angle/(2π).
