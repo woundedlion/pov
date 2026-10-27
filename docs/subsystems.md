@@ -200,6 +200,8 @@ the world stage's frame motion for culling.
 #### Points and plotted edges
 
 `Plot::PointRoute` prepares a clip gate widened by the point motion bound.
+Preparation retains the render clip's exact content key; plotting checks it
+against the key cached by `Effect` when clip bounds or margins change.
 Its `plot` takes a world-space end, a lazy start callable, and a shader. The
 start and shading are evaluated only for points that can reach the clip.
 A projected chord gives a screen crossing through
@@ -226,12 +228,15 @@ captured vertex data across edges. History-free walks whose taps need no
 position extrapolation also bound samples by the physical northern AA cap.
 Two-point hulls specialize at their flash callers. Signed row bounds skip
 normalization only when the padded pairwise dot products stay positive.
+A directional spacing bound certifies edges whose midpoint lattice stays
+within the sample footprint; other edges retain the detailed spacing check
+and use column-local sampling where needed.
 `Plot::Mesh::draw_timed` routes table-compatible world stages through
 `draw_columns` and `rasterize_column_edges`, with an optional
 `Plot::GeometryCallback` for vertex motion. Pipelines with source history use
 `rasterize_recording_column_edges`; other pipelines compile out recording.
-The still selection uses the
-ordinary mesh raster. Other timed plotted configurations retain their
+The still selection uses the ordinary mesh raster. Other timed plotted
+configurations retain their
 existing raster dispatch.
 
 `Plot::Ring::draw_timed` and `Plot::DistortedRing::draw_timed` share
