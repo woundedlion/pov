@@ -24,6 +24,8 @@
 
 #include "effects/ShapeShifter.h"
 #include "tests/pixel_test_util.h"
+#include "tests/test_radial_surface.h"
+#include "tests/test_radial_surface_mask.h"
 #include "tests/temporal_oracle.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -80,6 +82,7 @@ struct OracleState {
   OracleEffect::AlphaFalloff alpha_falloff =
       OracleEffect::AlphaFalloff::TOWARD_EQUATOR;
   OracleEffect::RadiusSpacing spacing = OracleEffect::RadiusSpacing::UNIFORM;
+  size_t preset_index = 0;
   int count = 7;
   int sides = 5;
   float phase = 0.0f;
@@ -141,6 +144,8 @@ struct ShapeShifterWhiteBox {
   }
 
   static void configure(OracleEffect &effect, const OracleState &state) {
+    if (effect.getPresetIndex() != state.preset_index)
+      effect.profile_select_preset(state.preset_index);
     effect.alpha = state.alpha;
     effect.params.shape = state.shape;
     effect.params.count = static_cast<float>(state.count);
@@ -342,6 +347,24 @@ struct ShapeShifterWhiteBox {
     effect.twist_step = step;
   }
 
+  static void replay_step(OracleEffect &e, Canvas &canvas) {
+    e.timeline.step(canvas);
+    e.step_choreography();
+    e.advance_phase();
+  }
+  static float phase(const OracleEffect &e) { return e.phase; }
+  static float twist_step(const OracleEffect &e) { return e.twist_step; }
+  static void surface_kernel(OracleEffect &e, Canvas &canvas, bool timed,
+                             Scan::SurfaceAreaStats *stats = nullptr,
+                             float displacement = 0, bool mask = true) {
+    e.prepare_count(288);
+    if (mask)
+      e.template draw_surface_all<true, true>(canvas, e.selected_palette(),
+                                              timed, stats, displacement);
+    else
+      e.template draw_surface_all<true, false>(canvas, e.selected_palette(),
+                                               timed, stats, displacement);
+  }
   static int preset_frames() { return OracleEffect::PRESET_FRAMES; }
   static int preset_dwell_frames() { return OracleEffect::PRESET_DWELL_FRAMES; }
   static int preset_segue_frames() { return OracleEffect::DEPARTURE.frames; }
@@ -751,9 +774,10 @@ inline void test_high_count_uniform_star_stays_within_visual_budget() {
   }
 }
 
-/** @brief Screen balanced star preset stays within visual budget. */
-inline void test_screen_balanced_star_preset_stays_within_visual_budget() {
+/** @brief Screen-balanced star strokes stay within their visual budget. */
+inline void test_screen_balanced_star_stroke_stays_within_visual_budget() {
   OracleState state;
+  state.preset_index = 1;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
   state.function = OracleEffect::PhaseFunction::SINE;
   state.alpha_falloff = OracleEffect::AlphaFalloff::TOWARD_EQUATOR;
@@ -769,9 +793,10 @@ inline void test_screen_balanced_star_preset_stays_within_visual_budget() {
       MAX_MEAN_ABSOLUTE_ERROR, MAX_ROOT_MEAN_SQUARED_ERROR, MAX_CHANNEL_ERROR);
 }
 
-/** @brief The frozen temporal stroke route preserves the authored P1 look. */
-inline void test_timed_star_stays_within_visual_budget() {
+/** @brief Frozen temporal star strokes preserve the still stroke look. */
+inline void test_timed_dense_star_stroke_stays_within_visual_budget() {
   OracleState state;
+  state.preset_index = 1;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
   state.function = OracleEffect::PhaseFunction::SINE;
   state.alpha_falloff = OracleEffect::AlphaFalloff::TOWARD_EQUATOR;
@@ -792,7 +817,7 @@ inline void test_timed_star_stays_within_visual_budget() {
       std::fabs(double(frame_energy(comparison.candidate)) - double(energy)) /
       double(energy);
   std::printf(
-      "  frozen temporal P1 look: MAE=%.3f RMSE=%.3f energy_drift=%.6f reference=%f candidate=%f\n",
+      "  frozen temporal star stroke look: MAE=%.3f RMSE=%.3f energy_drift=%.6f reference=%f candidate=%f\n",
       comparison.error.mean_absolute_error(),
       comparison.error.root_mean_squared_error(), drift, double(energy),
       double(frame_energy(comparison.candidate)));
@@ -809,9 +834,10 @@ inline void test_timed_star_stays_within_visual_budget() {
   const auto pole_reference = row_energy(comparison.reference, 0);
   const auto pole_candidate = row_energy(comparison.candidate, 0);
   HS_EXPECT_GE(pole_candidate * 10, pole_reference * 9);
-  std::printf("  frozen P1 row-zero energy: reference=%llu candidate=%llu\n",
-              static_cast<unsigned long long>(pole_reference),
-              static_cast<unsigned long long>(pole_candidate));
+  std::printf(
+      "  frozen star stroke row-zero energy: reference=%llu candidate=%llu\n",
+      static_cast<unsigned long long>(pole_reference),
+      static_cast<unsigned long long>(pole_candidate));
 }
 
 /** @brief High count uniform star covers north pole. */
@@ -881,6 +907,7 @@ inline void test_high_count_planar_star_caps_cover_chart_centers() {
         std::pair{288, OracleEffect::RadiusSpacing::SCREEN_BALANCED}}) {
     for (const math::Quaternion &orientation : orientations) {
       OracleState state;
+      state.preset_index = 1;
       state.shape = OracleEffect::ShapeType::PLANAR_STAR;
       state.function = OracleEffect::PhaseFunction::SINE;
       state.spacing = spacing;
@@ -1308,7 +1335,7 @@ inline void test_timed_contours_match_frozen_columns() {
 /** @brief Shipping presets match their frozen columns at the authored speed. */
 inline void test_timed_presets_match_frozen_columns() {
   for (size_t i = 0; i < ShapeShifterWhiteBox::PRESET_COUNT; ++i) {
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::column_time_preset(i), i != 0);
+    HS_EXPECT_TRUE(ShapeShifterWhiteBox::column_time_preset(i));
     if (i == 0)
       continue;
 
@@ -1395,6 +1422,7 @@ inline void test_timed_flower_clip_culls_anchor_intervals() {
       clipped_counts.chord_capture_solves, clipped_counts.point_capture_solves,
       clipped_counts.chord_fast_samples + clipped_counts.chord_screen_samples +
           clipped_counts.chord_point_samples);
+  state.preset_index = 1;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
   state.count = 288;
   state.sides = 7;
@@ -1404,15 +1432,15 @@ inline void test_timed_flower_clip_culls_anchor_intervals() {
   HS_EXPECT_EQ(star_counts.chord_point_samples, 0u);
   HS_EXPECT_GT(star_counts.polar_column_samples, 0u);
   std::printf(
-      "  polar visits/captures: flower=%u/%u full=%u/%u P1=%u/%u\n",
+      "  polar visits/captures: flower=%u/%u full=%u/%u star=%u/%u\n",
       clipped_counts.polar_column_visits, clipped_counts.polar_geometry_samples,
       full_counts.polar_column_visits, full_counts.polar_geometry_samples,
       star_counts.polar_column_visits, star_counts.polar_geometry_samples);
-  std::printf("  polar geometry captures: flower=%u full=%u P1=%u\n",
+  std::printf("  polar geometry captures: flower=%u full=%u star=%u\n",
               clipped_counts.polar_geometry_samples,
               full_counts.polar_geometry_samples,
               star_counts.polar_geometry_samples);
-  std::printf("  polar clip samples: flower=%u full=%u P1=%u\n",
+  std::printf("  polar clip samples: flower=%u full=%u star=%u\n",
               clipped_counts.polar_column_samples,
               full_counts.polar_column_samples,
               star_counts.polar_column_samples);
@@ -1513,9 +1541,76 @@ inline void test_polar_walk_matches_rotated_chart() {
   std::printf("  polar exact intersection max error: %.6f px\n", worst);
 }
 
+inline void write_shapeshifter_preset_hashes() {
+  for (bool temporal : {false, true})
+    for (size_t preset = 0; preset < ShapeShifterWhiteBox::PRESET_COUNT;
+         ++preset) {
+      reset_globals();
+      hs::seed_effect_stream(hs::effect_seed_key<OracleEffect>("ShapeShifter"));
+      hs::set_mock_time(0, 0);
+      uint64_t hash = 14695981039346656037ull;
+      {
+        OracleEffect effect;
+        effect.init();
+        effect.profile_select_preset(preset);
+        effect.set_clip(0, 72, 0, 144);
+        const ScopedTemporalSampling sampling(temporal);
+        for (int frame = 0; frame < 8; ++frame) {
+          hs::set_mock_time(frame * 62500ul / 1000, frame * 62500ul);
+          effect.draw_frame();
+          effect.advance_display();
+          for (int y = 0; y < 72; ++y)
+            for (int x = 0; x < 144; ++x) {
+              const auto p = effect.get_pixel(x, y);
+              for (const uint16_t channel : {p.r, p.g, p.b})
+                for (int shift : {0, 8}) {
+                  hash ^= (channel >> shift) & 255;
+                  hash *= 1099511628211ull;
+                }
+            }
+        }
+      }
+      Timeline().clear();
+      HS_EXPECT_NE(hash, uint64_t{0});
+      std::printf(
+          "SHAPESHIFTER_PRESET_HASH preset=%zu temporal=%d frames=8 hash=0x%016llx\n",
+          preset + 1, int(temporal), static_cast<unsigned long long>(hash));
+    }
+  hs::clear_mock_time();
+}
+
+#include "tests/test_shapeshifter_surface.h"
+
 /** @brief Runs shapeshifter oracle tests. */
 inline int run_shapeshifter_oracle_tests() {
   ModuleFixture fixture("shapeshifter_oracle");
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  if (std::getenv("HS_SHAPESHIFTER_SURFACE_CENSUS")) {
+    test_surface_natural_census();
+    return fixture.result();
+  }
+  if (std::getenv("HS_SHAPESHIFTER_PRESET_HASHES")) {
+    write_shapeshifter_preset_hashes();
+    return fixture.result();
+  }
+#pragma clang diagnostic pop
+  if (shapeshifter_image_prefix()) {
+    test_surface_images();
+    return fixture.result();
+  }
+  HS_RUN(radial_surface_tests::run_radial_surface_checks);
+  HS_RUN(radial_surface_mask_tests::test_radial_surface_mask);
+  HS_RUN(test_surface_seams);
+  HS_RUN(test_surface_clips);
+  HS_RUN(test_surface_mask_parity);
+  HS_RUN(test_surface_preset_dispatch);
+  HS_RUN(test_surface_max_amplitude);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  if (std::getenv("HS_SHAPESHIFTER_SURFACE_ONLY"))
+    return fixture.result();
+#pragma clang diagnostic pop
   HS_RUN(test_chart_edge_rotation_radius);
   HS_RUN(test_polar_walk_matches_rotated_chart);
   HS_RUN(test_timed_contours_match_frozen_columns);
@@ -1529,8 +1624,8 @@ inline int run_shapeshifter_oracle_tests() {
   HS_RUN(test_screen_balanced_spacing_is_opt_in_for_every_shape);
   HS_RUN(test_star_options_and_shipping_presets_are_planar);
   HS_RUN(test_high_count_uniform_star_stays_within_visual_budget);
-  HS_RUN(test_screen_balanced_star_preset_stays_within_visual_budget);
-  HS_RUN(test_timed_star_stays_within_visual_budget);
+  HS_RUN(test_screen_balanced_star_stroke_stays_within_visual_budget);
+  HS_RUN(test_timed_dense_star_stroke_stays_within_visual_budget);
   HS_RUN(test_high_count_uniform_star_covers_north_pole);
   HS_RUN(test_high_count_planar_star_caps_cover_chart_centers);
   HS_RUN(test_high_count_spherical_star_contours_reach_display_north);

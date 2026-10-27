@@ -180,7 +180,45 @@ whose Boolean selects the complementary timed mode. The sampling selection
 does not advance animation: effects still step their mutable state once per
 frame and retain the endpoints needed to evaluate intermediate times.
 
-#### Motion, worldlines and poses
+#### Continuous radial surfaces
+
+`Scan::RadialSurface` is an opt-in, arena-backed first-arrival query for a family
+of similar alternating-radius planar stars. Callers supply complex scale knots
+(radius times rotation) with unwrapped phases. Linear interpolation of each
+complex multiplier defines the surface between knots. Adjacent phases must
+span less than one edge sector; an interval query splits at its sector event
+and solves a linear or quadratic containment equation in closed form. Queries
+visit intervals in increasing order and stop at the first hit. Conservative
+radial blocks skip intervals whose swept shapes cannot reach the query.
+
+`draw_radial_surface` shades paired azimuthal hemisphere charts through the
+common column-time shader walk and `ColumnBasisTable`. The effect supplies the
+family and palette at each column's sampling time. `RadialSurfaceEdgeAA` applies
+straight-line box-filter coverage at tip traces, knot-edge minima, and terminal
+boundaries. Smooth interiors use a center sample. At a paired tip it multiplies
+two half-plane coverages; overlapping sheets use the nearest local boundary,
+so this is a bounded local area approximation rather than a full partition of
+the pixel. The complete interval continuation has a fixed worst-case bound.
+`RadialSurfaceCandidateMask` stores conservative source-interval bits in a
+64 by 32 squared-radius/periodic-angle grid. A zero cell takes the point-only
+route; set bits restrict the AA observer to relevant intervals. The mask
+includes hidden candidates and new candidates that can appear during its
+reuse window. Callers provide bounds on complex multiplier displacement and,
+when radii are fixed, adjacent phase-difference motion. Those bounds expand
+both the spatial coverage and the candidate derivative tests. ShapeShifter
+reuses each hemisphere mask for at most eight column steps, while rebuilding
+the actual surface knots at every column time. Arm cuts cannot extend a
+mask's time window. No neighboring-pixel jump heuristic is used.
+
+All reusable tables come from scratch arenas; the kernel is emitted in flash.
+
+ShapeShifter opts into this route for its authored dense planar-star P1. It
+uses 24 intervals per hemisphere per radian of amplitude, bounded by 240, and
+keeps its other presets on their existing contour paths. Its scratch arenas
+are 32 KiB each, including the maximum-amplitude 240-interval family and two
+8 KiB candidate grids within the existing global arena budget.
+
+### Motion, worldlines and poses
 
 A moving point traces a worldline; an edge joins two endpoint worldlines into
 a worldsheet. `Spacetime::Worldline` evaluates a chord, a quadratic through a

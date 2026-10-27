@@ -1110,6 +1110,11 @@ just test-target dynamo effects
 just test-target mobiusrings effects
 ```
 
+The native suite defaults to latitude profile 0. Configure with
+`cmake --preset tests -DHS_NATIVE_DISPLAY_PROFILE=1` to exercise the physical
+latitude profile; restore `0` for the default suite.
+
+
 On Windows, the executables have an `.exe` suffix. With no module arguments, a local runner executes all its own tests; `--list` shows its modules. The per-effect white-box runners expose their portion of the existing `effects` module, including its `HS_EFFECTS_FULL` tier. The umbrella's module names, case order, summaries and exit codes remain unchanged.
 
 | Target | Tests |
@@ -1383,6 +1388,13 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── scan/                   Per-family scan headers (raster, shapes, mesh,
 │   │   │                            shader, volume, column_basis)
 │   │   ├── scan/mesh_capture.cpp    Per-face column-time capture of deforming meshes
+│   │   ├── scan/radial_surface.h  Bounded first-arrival star-family queries
+│   │   ├── scan/radial_surface_boundary.h  Canonical first-arrival boundary candidates
+│   │   ├── scan/radial_surface_candidate_mask.h  Candidate interval groups per chart cell
+│   │   ├── scan/radial_surface_edge_aa.h  Local edge area coverage
+│   │   ├── scan/radial_surface_math.h  Chart argument approximation
+│   │   ├── scan/radial_surface_renderer.h  Column-time hemisphere surface shader
+│   │   ├── scan/radial_surface_types.h  Surface colors and optional work counters
 │   │   ├── plot.h                  Curve rasterizer: umbrella over plot/
 │   │   ├── plot/                   Per-family plot headers (cull, raster, shapes,
 │   │   │                            mesh, particles, chords)
@@ -1604,6 +1616,9 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── pov_sync/          Sections included by test_pov_sync.h
 │   ├── ray_events/        Sections included by test_ray_events.h
 │   ├── scan/              Sections included by test_scan.h
+│   ├── test_shapeshifter_surface.h  Continuous-surface seams and image parity
+│   ├── test_radial_surface.h  Independent swept-edge and coverage oracles
+│   ├── test_radial_surface_mask.h  Static and temporal candidate-mask coverage
 │   ├── sdf/               Sections included by test_sdf.h
 │   ├── shader_chain/      Sections included by test_shader_chain.h
 │   ├── mindsplatter_whitebox.h  White-box MindSplatter accessor shared by its tests and the replay tools

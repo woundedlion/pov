@@ -821,6 +821,11 @@ target_compile_options(sdf_periodic_benchmark PRIVATE -O3 -ffast-math -fno-finit
 _hs_warnings(sdf_periodic_benchmark)
 
 # Apply the native display profile to compiled targets in this directory.
+set(HS_NATIVE_DISPLAY_PROFILE 0 CACHE STRING "Native test latitude profile (0 or 1)")
+set_property(CACHE HS_NATIVE_DISPLAY_PROFILE PROPERTY STRINGS 0 1)
+if(NOT HS_NATIVE_DISPLAY_PROFILE MATCHES "^[01]$")
+  message(FATAL_ERROR "HS_NATIVE_DISPLAY_PROFILE must be 0 or 1")
+endif()
 get_property(_hs_dir_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 set(_hs_excluded)
 foreach(_hs_target IN LISTS _hs_dir_targets)
@@ -828,7 +833,7 @@ foreach(_hs_target IN LISTS _hs_dir_targets)
   if(NOT _hs_target_type STREQUAL "UTILITY"
       AND NOT _hs_target_type STREQUAL "INTERFACE_LIBRARY"
       AND NOT _hs_target STREQUAL "display_geometry_check")
-    target_compile_definitions(${_hs_target} PRIVATE HS_DISPLAY_PROFILE=0)
+    target_compile_definitions(${_hs_target} PRIVATE HS_DISPLAY_PROFILE=${HS_NATIVE_DISPLAY_PROFILE})
   endif()
 endforeach()
 

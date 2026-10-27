@@ -14,6 +14,8 @@
 #include "core/animation/orientation.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
+#include "core/render/scan/radial_surface_renderer.h"
+#include "core/render/scan/radial_surface_candidate_mask.h"
 
 namespace hs_test {
 namespace shapeshifter_oracle_tests {
@@ -132,6 +134,7 @@ public:
 
   /** @brief Registers the GUI sliders and starts the preset choreography. */
   HS_COLD_MEMBER void init() override {
+    ArenaSplit{SURFACE_SCRATCH_A_BYTES, SURFACE_SCRATCH_B_BYTES}.configure();
     params.count = std::min(params.count, static_cast<float>(DRAW_LIMIT));
     register_param("Alpha", &alpha, ALPHA_MIN, ALPHA_MAX);
     mark_global("Alpha");
@@ -594,6 +597,14 @@ private:
     }
     const PhaseFunction function = selected_function();
     prepare_waveform(function, count);
+    if (this->getPresetIndex() == 0 && shape == ShapeType::PLANAR_STAR &&
+        count == std::min(288, DRAW_LIMIT) && sides == 7 &&
+        params.function == PhaseFunction::SINE &&
+        params.spacing == RadiusSpacing::SCREEN_BALANCED) {
+      draw_surface_all(canvas, palette,
+                       column_time && !Spacetime::flat_surface());
+      return;
+    }
     if (column_time && !Spacetime::flat_surface()) {
       draw_timed_all(canvas, count, sides, shape, palette);
       if (planar_star) {
@@ -648,6 +659,166 @@ private:
       Scan::ColumnBasisScope column_scope(canvas, column_basis);
       draw_planar_star_pole_caps(canvas, basis, count, sides, palette);
     }
+  }
+
+  /** @brief Draws the continuous radial star family at each column time. */
+  template <bool COUNT = false, bool MASK = true>
+  HS_HOT_FLASH_MEMBER void
+  draw_surface_all(Canvas &canvas, const BakedPalette &palette, bool timed,
+                   Scan::SurfaceAreaStats *stats = nullptr,
+                   float row_displacement = 0) {
+    const int INTERVALS =
+        std::clamp(int(ceilf(fabsf(params.amplitude) * 24)), 24, 240);
+    ScratchScope scope_a(scratch_arena_a), scope_b(scratch_arena_b);
+    const auto columns = timed ? Scan::prepare_column_basis<W, H>(
+                                     scratch_arena_a, orientation, true)
+                               : Scan::ColumnBasis{};
+    const auto basis = math::make_basis(orientation.get(), math::X_AXIS);
+    Surface near, far;
+    near.bind(scratch_arena_a, int(params.sides), Plot::STAR_INNER_RATIO,
+              INTERVALS);
+    far.bind(scratch_arena_a, int(params.sides), Plot::STAR_INNER_RATIO,
+             INTERVALS);
+    Scan::RadialSurfaceEdgeAA<Surface> integrator;
+    Scan::RadialSurfaceCandidateMask<> near_mask, far_mask;
+    if constexpr (MASK) {
+      near_mask.bind(scratch_arena_b);
+      far_mask.bind(scratch_arena_b);
+    }
+    const float FOOTPRINT =
+        .25f * math::PI_F *
+            sqrtf(math::RADIANS_PER_COLUMN<W> * math::RADIANS_PER_COLUMN<W> +
+                  math::RADIANS_PER_ROW<H> * math::RADIANS_PER_ROW<H>) +
+        1e-5f;
+    auto *knots =
+        scratch_arena_b.allocate_n<typename Surface::Knot>(INTERVALS + 1);
+    auto *radii = scratch_arena_b.allocate_n<float>(INTERVALS + 1);
+    auto *sines = scratch_arena_b.allocate_n<float>(INTERVALS + 1);
+    auto *cosines = scratch_arena_b.allocate_n<float>(INTERVALS + 1);
+    auto *colors =
+        scratch_arena_b.allocate_n<Scan::SurfaceColor>(INTERVALS + 1);
+    auto *first = scratch_arena_b.allocate_n<uint16_t>(257);
+    const float opacity = alpha * preset_opacity;
+    for (int i = 0; i <= INTERVALS; ++i) {
+      const float q = .5f * i / INTERVALS;
+      radii[i] = math::PI_F * screen_balanced_radius_t(q);
+      sines[i] = sinf(math::TWO_PI_F * q);
+      cosines[i] = cosf(math::TWO_PI_F * q);
+      const auto color = palette.get(1 - q);
+      colors[i] = {color.color.r * color.alpha * opacity,
+                   color.color.g * color.alpha * opacity,
+                   color.color.b * color.alpha * opacity};
+    }
+    int index = 0;
+    for (int i = 0; i <= 256; ++i) {
+      const float radius = i * (.5f * math::PI_F / 256);
+      while (index < INTERVALS - 1 && radii[index + 1] < radius)
+        ++index;
+      first[i] = uint16_t(index);
+    }
+    float sine = 0, cosine = 1, current_time = 1;
+    float near_mask_time = -2, far_mask_time = -2;
+    constexpr float MASK_TIME_RANGE = 16.0f / W;
+    const float PHASE_MOTION =
+        timed ? fabsf(params.amplitude * math::TWO_PI_F * twist_step) *
+                    MASK_TIME_RANGE
+              : 0;
+    const float COMPLEX_MOTION = .5f * math::PI_F * PHASE_MOTION;
+    const float RELATIVE_PHASE_MOTION = PHASE_MOTION * math::PI_F / INTERVALS;
+    auto prepare = [&](int column) HS_HOT_INLINE {
+      const float time =
+          timed ? Spacetime::SamplingSurface<W>::time(column) : 1;
+      current_time = time;
+      const float angle = math::TWO_PI_F * (phase - twist_step * (1 - time));
+      sine = sinf(angle);
+      cosine = cosf(angle);
+    };
+    auto ensure = [&](int side) HS_HOT_FLASH_MEMBER {
+      HS_PROFILE(ss_surface_knots);
+      for (int i = 0; i <= INTERVALS; ++i) {
+        const float wave = side ? sine * cosines[i] - cosine * sines[i]
+                                : sine * cosines[i] + cosine * sines[i];
+        const float turn =
+            (side && !params.opposite ? -1 : 1) * params.amplitude * wave;
+        float angle = turn - floorf(turn / math::TWO_PI_F) * math::TWO_PI_F;
+        const float sign = angle > math::PI_F ? -1.0f : 1.0f;
+        if (angle > math::PI_F)
+          angle -= math::PI_F;
+        float turn_sine, turn_cosine;
+        math::poly_sincosf_0_pi(angle, turn_sine, turn_cosine);
+        knots[i] = {radii[i] * turn_cosine * sign, radii[i] * turn_sine * sign,
+                    turn};
+      }
+      (side ? far : near)
+          .set_knots(
+              std::span<const typename Surface::Knot>(knots, INTERVALS + 1));
+      if constexpr (MASK) {
+        float &mask_time = side ? far_mask_time : near_mask_time;
+        if (fabsf(current_time - mask_time) > MASK_TIME_RANGE) {
+          HS_PROFILE(ss_surface_mask);
+          const auto work = (side ? far_mask : near_mask)
+                                .prepare(side ? far : near, FOOTPRINT,
+                                         COMPLEX_MOTION, RELATIVE_PHASE_MOTION);
+          mask_time = current_time;
+          if constexpr (COUNT)
+            if (stats) {
+              ++stats->mask_prepares;
+              stats->mask_candidates += work.candidates;
+              stats->mask_pieces += work.pieces;
+              stats->mask_row_writes += work.row_writes;
+            }
+          (void)work;
+        }
+      }
+    };
+    auto lower_bound = [&](float radius) HS_HOT_INLINE {
+      return int(first[std::min(256, int(radius * (512 / math::PI_F)))]);
+    };
+    auto area = [&](const Surface &surface, auto p, auto dx, auto dy,
+                    float theta, int first, auto &shade, auto *stats,
+                    float radius, float extent) HS_HOT_INLINE {
+      uint32_t candidate_bits = UINT32_MAX;
+      int candidate_shift = 0;
+      if constexpr (MASK) {
+        if constexpr (COUNT)
+          if (stats)
+            ++stats->mask_queries;
+        const auto &mask = &surface == &near ? near_mask : far_mask;
+        candidate_bits = mask.interval_bits(radius, theta);
+        candidate_shift = mask.interval_shift();
+        if (!candidate_bits) {
+          typename Surface::Stats work;
+          const auto hit = surface.template sample<COUNT, true, false>(
+              p, theta, lower_bound(radius), COUNT ? &work : nullptr);
+          if constexpr (COUNT)
+            if (stats) {
+              ++stats->pixels;
+              stats->intervals += work.intervals;
+              stats->point_intervals += work.intervals;
+              stats->max_intervals =
+                  std::max(stats->max_intervals, int(work.intervals));
+              stats->max_point_intervals =
+                  std::max(stats->max_point_intervals, int(work.intervals));
+            }
+          return hit.found() ? shade(hit) : Scan::SurfaceColor{};
+        }
+        if constexpr (COUNT)
+          if (stats)
+            ++stats->mask_hits;
+      }
+      return integrator.template sample<COUNT>(surface, p, dx, dy, theta, first,
+                                               shade, stats, radius, extent,
+                                               candidate_bits, candidate_shift);
+    };
+    auto shade = [&](const typename Surface::Hit &hit) HS_HOT_INLINE {
+      const auto a = colors[hit.interval], b = colors[hit.interval + 1];
+      const float t = hit.fraction;
+      return Scan::SurfaceColor{a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t,
+                                a.b + (b.b - a.b) * t};
+    };
+    Scan::draw_radial_surface<W, H>(canvas, near, far, area, basis, columns,
+                                    prepare, ensure, lower_bound, shade, stats,
+                                    row_displacement);
   }
 
   /** @brief Most anchor intervals a flower or planar polygon edge takes. */
@@ -1149,7 +1320,7 @@ private:
   static constexpr size_t PRESET_COUNT = 9;
   /** @brief Per-preset column-time sampling policy. */
   static constexpr std::array<bool, PRESET_COUNT> COLUMN_TIME_PRESETS = {
-      false, true, true, true, true, true, true, true, true};
+      true, true, true, true, true, true, true, true, true};
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
       {{ShapeType::PLANAR_STAR, 288.0f, 7.745f, PhaseFunction::SINE, 1.0f,
         0.016f, false, AlphaFalloff::TOWARD_EQUATOR,
@@ -1240,6 +1411,19 @@ private:
           2 * alignof(Fragment));
   static_assert(SCRATCH_A_PEAK_BYTES <= DEFAULT_SCRATCH_A_SIZE,
                 "ShapeShifter nested contour buffers exceed scratch_a");
+  static constexpr size_t SURFACE_SCRATCH_A_BYTES = 32 * 1024;
+  static constexpr size_t SURFACE_SCRATCH_B_BYTES = 32 * 1024;
+  static constexpr int SURFACE_MAX_INTERVALS = 240;
+  using Surface = Scan::RadialSurface<SURFACE_MAX_INTERVALS, 16>;
+  static_assert(2 * Surface::storage_bytes(7, SURFACE_MAX_INTERVALS) +
+                    W * sizeof(math::Vector) + 32 <=
+                SURFACE_SCRATCH_A_BYTES);
+  static_assert(2 * 64 * 32 * sizeof(uint32_t) +
+                    (SURFACE_MAX_INTERVALS + 1) *
+                        (sizeof(typename Surface::Knot) + 3 * sizeof(float) +
+                         sizeof(Scan::SurfaceColor)) +
+                    257 * sizeof(uint16_t) + 32 <=
+                SURFACE_SCRATCH_B_BYTES);
   static constexpr size_t FOOTPRINT_BYTES =
       MAX_SHAPES * (4 * sizeof(float) + sizeof(uint16_t) +
                     sizeof(Plot::Star<Plot::PlanarProjection>::RadiusTrig)) +
@@ -1247,8 +1431,10 @@ private:
       Plot::PlanarChords<W, H>::storage_bytes(STAR_VERTICES) +
       Plot::PlanarBandSplit<W, H>::storage_bytes(FLOWER_MAX_POINTS) +
       Filter::World::Orient::storage_bytes(W);
-  static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
-                "ShapeShifter persistent footprint exceeds the default "
+  static_assert(FOOTPRINT_BYTES <=
+                    ArenaSplit{SURFACE_SCRATCH_A_BYTES, SURFACE_SCRATCH_B_BYTES}
+                        .device_persistent(),
+                "ShapeShifter persistent footprint exceeds its surface "
                 "partition; retune MAX_SHAPES or carve arenas");
 
 public:

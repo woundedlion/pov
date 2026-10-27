@@ -209,7 +209,7 @@ private:
     const float SIN_THETA = math::TrigLUT<W, H>::sin_theta[x];
     for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
       const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
-      const auto COLOR = [&]() {
+      const auto COLOR = [&]() HS_HOT_INLINE {
         if constexpr (std::is_invocable_v<ShaderFn &, float, float>)
           return shader(SIN_PHI, math::TrigLUT<W, H>::cos_phi[y]);
         else {
@@ -269,14 +269,15 @@ public:
       math::TrigLUT<W, H>::init();
     const auto &clip = canvas.clip();
     check_lut_domain<W, H>(clip);
-    walk_clip_column_times<W>(clip.x_clip(), [&](int c, bool near, bool far) {
-      auto &&state = prepare_time(c);
-      for (int arm = 0; arm < 2; ++arm)
-        if (arm ? far : near) {
-          const int x = c + arm * (W / 2);
-          shade_column<W, H>(canvas, x, prepare(state, x));
-        }
-    });
+    walk_clip_column_times<W>(
+        clip.x_clip(), [&](int c, bool near, bool far) HS_HOT_INLINE {
+          auto &&state = prepare_time(c);
+          for (int arm = 0; arm < 2; ++arm)
+            if (arm ? far : near) {
+              const int x = c + arm * (W / 2);
+              shade_column<W, H>(canvas, x, prepare(state, x));
+            }
+        });
   }
 
   /**
@@ -719,7 +720,8 @@ public:
       }
     };
 
-    walk_clip_column_times<W>(cr.x_clip(), [&](int c, bool near, bool far) {
+    walk_clip_column_times<W>(cr.x_clip(), [&](int c, bool near,
+                                               bool far) HS_HOT_INLINE {
       auto &&state = prepare_time(c);
       for (int arm = 0; arm < 2; ++arm) {
         if (!(arm ? far : near))
