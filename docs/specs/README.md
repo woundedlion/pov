@@ -2,12 +2,6 @@
 
 Every spec carries its own status banner; the lines below repeat it.
 
-## Browser contracts
-
-| Document | Status and scope |
-|---|---|
-| [browser_contract_spec.md](browser_contract_spec.md) | IMPLEMENTED. Engine-owned emitted declarations, numeric contracts and compiled segment geometry. |
-
 ## Phantasm hardware
 
 | Document | Status and scope |
@@ -17,12 +11,3 @@ Every spec carries its own status banner; the lines below repeat it.
 
 Related indexes: [on-device effect profiles](../profiles/README.md) and the
 ledgers under [`docs/ledgers/`](../ledgers).
-
-## Engine contracts
-
-| Document | Status and scope |
-|---|---|
-| [effect_identity.md](effect_identity.md) | IMPLEMENTED; canonical machine IDs, display/browser aliases and immutable RNG keys. |
-| [pullback_temporal_sampling.md](pullback_temporal_sampling.md) | IMPLEMENTED; column-time sampling for compatible composed pullback effects. |
-| [remaining_temporal_seams.md](remaining_temporal_seams.md) | PROPOSED; remaining effect coverage, shared temporal adapters and renderer-specific follow-up work. |
-| [effect_temporal_coverage_inventory.md](effect_temporal_coverage_inventory.md) | AUDITED; all 43 authored effects plus optional ShaderChain, including forward, particle, simulation and feedback coverage gaps. |

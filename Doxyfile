@@ -12,7 +12,6 @@ USE_MDFILE_AS_MAINPAGE = README.md
 # Tests are omitted from the API reference on purpose.
 INPUT                  = README.md patterns/README.md core effects workbench hardware targets \
                          docs/ledgers/device_host_divergence_ledger.md \
-                         docs/specs/effect_identity.md \
                          tools/pc_sampler.h tools/profile_isr_window.h \
                          tools/phantasm.ld
 FILE_PATTERNS          = *.h *.cpp *.ino *.ld

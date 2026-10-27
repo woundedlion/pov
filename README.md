@@ -683,7 +683,7 @@ With `{.persist = true}`, `Canvas` copies the previous frame's buffer into the n
 
 ### 6.4 Registration
 
-`HS_EFFECT_LIST` in `targets/effects.h` generates the constexpr registration array used by the WASM factory (`control/registry.h`). Each entry carries resolution-specific fill functions and a typed `hs::EffectIdentity` from `core/platform/effect_identity.h`. Canonical machine IDs are kebab-case `std::string_view` values; class/browser names and original IDs remain accepted aliases. Compile-time checks reject collisions across that shared lookup namespace. Immutable RNG keys preserve the original stream independently of the canonical ID. See the [effect identity contract](https://github.com/woundedlion/pov/blob/master/docs/specs/effect_identity.md). Effect headers need no registration initializer. The Phantasm firmware plays its own subset, `HS_PHANTASM_EFFECT_LIST` in `targets/Phantasm/phantasm_playlist.h`.
+`HS_EFFECT_LIST` in `targets/effects.h` generates the constexpr registration array used by the WASM factory (`control/registry.h`). Each entry carries resolution-specific fill functions and a typed `hs::EffectIdentity` from `core/platform/effect_identity.h`. Canonical machine IDs are kebab-case `std::string_view` values; class/browser names and original IDs remain accepted aliases. Compile-time checks reject collisions across that shared lookup namespace. Immutable RNG keys preserve the original stream independently of the canonical ID. Effect headers need no registration initializer. The Phantasm firmware plays its own subset, `HS_PHANTASM_EFFECT_LIST` in `targets/Phantasm/phantasm_playlist.h`.
 
 ### 6.5 Adding an Effect
 
