@@ -233,9 +233,13 @@ inline void test_radial_surface_matches_all_edges() {
   }
   std::printf("  radial surface worst knot-coordinate error %.9f\n", worst);
   std::printf("  radial blocks: checks=%llu skipped=%llu fine=%llu\n",
-              coarse_checks, skipped, fine_visits);
+              static_cast<unsigned long long>(coarse_checks),
+              static_cast<unsigned long long>(skipped),
+              static_cast<unsigned long long>(fine_visits));
   std::printf("  radius-bounded blocks: checks=%llu skipped=%llu fine=%llu\n",
-              bounded_checks, bounded_skipped, bounded_fine);
+              static_cast<unsigned long long>(bounded_checks),
+              static_cast<unsigned long long>(bounded_skipped),
+              static_cast<unsigned long long>(bounded_fine));
   HS_EXPECT_GT(skipped, 0u);
 }
 

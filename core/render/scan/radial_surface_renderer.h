@@ -64,6 +64,7 @@ radial_chart_footprint(math::Vector p, math::Vector dx, math::Vector dy) {
  * @tparam Surface Prepared similar-polygon family.
  * @tparam Area Pixel coverage integrator.
  * @tparam Prepare Per-column-time family preparation callable.
+ * @tparam Ensure Lazy family preparation callable.
  * @tparam LowerBound Conservative radial interval lookup callable.
  * @tparam Shade First-arrival color callable.
  * @param canvas Destination.
@@ -72,9 +73,11 @@ radial_chart_footprint(math::Vector p, math::Vector dx, math::Vector dy) {
  * @param basis Frame-end chart basis.
  * @param columns Exact column-time pullback, or empty for a frozen frame.
  * @param prepare Prepares both families for an absolute first-arm column.
+ * @param ensure Prepares the near or far family before its first query in a column.
  * @param lower_bound Maps footprint radius to its first possible interval.
  * @param shade Maps a hit to a linear color.
  * @param stats Optional coverage census.
+ * @param row_displacement Vertical scan offset, rows.
  */
 template <int W, int H, class Surface, class Area, class Prepare, class Ensure,
           class LowerBound, class Shade>

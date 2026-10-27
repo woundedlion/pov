@@ -179,10 +179,16 @@ inline void surface_mask_case(OracleEffect &effect, const char *name,
         if (mask) {
           std::printf(
               "SURFACE_MASK %s timed=%d board=%d pixels=%llu hits=%llu edges=%llu intervals=%llu max=%d prepares=%llu candidates=%llu pieces=%llu writes=%llu\n",
-              name, int(timed), int(board), stats.pixels, stats.mask_hits,
-              stats.edge_pixels, stats.intervals, stats.max_intervals,
-              stats.mask_prepares, stats.mask_candidates, stats.mask_pieces,
-              stats.mask_row_writes);
+              name, int(timed), int(board),
+              static_cast<unsigned long long>(stats.pixels),
+              static_cast<unsigned long long>(stats.mask_hits),
+              static_cast<unsigned long long>(stats.edge_pixels),
+              static_cast<unsigned long long>(stats.intervals),
+              stats.max_intervals,
+              static_cast<unsigned long long>(stats.mask_prepares),
+              static_cast<unsigned long long>(stats.mask_candidates),
+              static_cast<unsigned long long>(stats.mask_pieces),
+              static_cast<unsigned long long>(stats.mask_row_writes));
           HS_EXPECT_GT(stats.mask_hits, 0ull);
           HS_EXPECT_LT(stats.mask_hits, stats.pixels);
           HS_EXPECT_GT(stats.edge_pixels, 0ull);
@@ -293,14 +299,20 @@ inline void test_surface_natural_census() {
         ++samples;
         HS_EXPECT_GE(stats.pixels, uint64_t{144 * 72});
         HS_EXPECT_GT(stats.mask_prepares, uint64_t{0});
-        std::printf(
-            "SURFACE_CENSUS frame=%d pixels=%llu hits=%llu edges=%llu "
-            "point=%llu outside=%llu intervals=%llu max=%d maxpoint=%d "
-            "prepares=%llu candidates=%llu pieces=%llu writes=%llu\n",
-            frame, stats.pixels, stats.mask_hits, stats.edge_pixels,
-            stats.point_intervals, stats.outside_intervals, stats.intervals,
-            stats.max_intervals, stats.max_point_intervals, stats.mask_prepares,
-            stats.mask_candidates, stats.mask_pieces, stats.mask_row_writes);
+        std::printf("SURFACE_CENSUS frame=%d pixels=%llu hits=%llu edges=%llu "
+                    "point=%llu outside=%llu intervals=%llu max=%d maxpoint=%d "
+                    "prepares=%llu candidates=%llu pieces=%llu writes=%llu\n",
+                    frame, static_cast<unsigned long long>(stats.pixels),
+                    static_cast<unsigned long long>(stats.mask_hits),
+                    static_cast<unsigned long long>(stats.edge_pixels),
+                    static_cast<unsigned long long>(stats.point_intervals),
+                    static_cast<unsigned long long>(stats.outside_intervals),
+                    static_cast<unsigned long long>(stats.intervals),
+                    stats.max_intervals, stats.max_point_intervals,
+                    static_cast<unsigned long long>(stats.mask_prepares),
+                    static_cast<unsigned long long>(stats.mask_candidates),
+                    static_cast<unsigned long long>(stats.mask_pieces),
+                    static_cast<unsigned long long>(stats.mask_row_writes));
       }
     }
   }
