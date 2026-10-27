@@ -269,12 +269,16 @@ struct SampledCycleScope {
   CycleCounter &counter;     /**< Counter receiving sampled intervals. */
   CycleCounter *prev_active; /**< Counter restored on scope exit. */
 
+  /** @brief Activates a sampled counter for this scope.
+   * @param c Counter receiving sampled intervals. */
   explicit SampledCycleScope(CycleCounter &c)
       : counter(c), prev_active(c.enter_scope()) {}
   ~SampledCycleScope() { CycleCounter::active = prev_active; }
 
   /**
    * @brief Adds one sampled interval and increments the invocation count.
+   * @param begin Cycle count at the interval start.
+   * @param end Cycle count at the interval end.
    * @pre The interval spans less than one 32-bit cycle-counter wrap.
    */
   void record(uint32_t begin, uint32_t end) {

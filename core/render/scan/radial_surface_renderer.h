@@ -17,9 +17,12 @@
 namespace Scan {
 /** @brief A planar chart's local pixel footprint. */
 template <class Point> struct RadialChartFootprint {
-  Point p, dx, dy;
-  float radius, extent;
-  bool far;
+  Point p;      ///< Chart position.
+  Point dx;     ///< Chart derivative per pixel column.
+  Point dy;     ///< Chart derivative per pixel row.
+  float radius; ///< Distance from the chart pole.
+  float extent; ///< Enclosing footprint radius.
+  bool far;     ///< Whether the point uses the far chart.
 };
 
 /** @brief Projects a tangent footprint into paired azimuthal charts.

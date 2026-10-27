@@ -41,7 +41,9 @@ public:
 
   /** @brief Unit-profile edge constants. */
   struct EdgeMetrics {
-    float dot, squared_length, determinant;
+    float dot;            ///< dot(A, E) for edge start A and edge vector E.
+    float squared_length; ///< |E|^2.
+    float determinant;    ///< cross(A, E).
   };
 
   /** @brief First boundary sheet reached by a chart point. */
@@ -75,6 +77,7 @@ public:
     float angular_extent; ///< Upper bound on the disk's argument variation.
   };
 
+  /** @brief Intervals per certified skip block. */
   static constexpr int BLOCK_INTERVALS = BLOCK_SIZE;
   /** @brief Empty scan observer, removed at compile time. */
   struct NoObserver {};

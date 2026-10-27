@@ -16,6 +16,7 @@ namespace Scan {
  * @tparam Surface Bounded similar-polygon radial surface. */
 template <class Surface> class RadialSurfaceEdgeAA {
 public:
+  /** @brief Planar chart point. */
   using Point = typename Surface::Point;
 
   /** @brief Area of a unit square on the positive side of a line.

@@ -19,12 +19,14 @@ class RadialSurfaceBoundaryCandidates {
 public:
   /** @brief Planar candidate-curve coordinate. */
   struct Point {
-    float x, y;
+    float x; ///< Horizontal chart coordinate.
+    float y; ///< Vertical chart coordinate.
   };
 
   /** @brief One unreplicated candidate first-arrival segment. */
   struct Candidate {
-    Point a, b;                ///< Segment endpoints.
+    Point a;                   ///< First segment endpoint.
+    Point b;                   ///< Second segment endpoint.
     float start_angle = 0;     ///< Optional unwrapped first argument.
     float finish_angle = 0;    ///< Optional unwrapped second argument.
     bool angles_known = false; ///< Whether endpoint arguments are supplied.

@@ -35,7 +35,9 @@ public:
     uint32_t row_writes = 0; ///< Candidate-cell updates.
   };
 
+  /** @brief Mask cells per hemisphere. */
   static constexpr size_t STORAGE_COUNT = RADIAL_BINS * ANGULAR_BINS;
+  /** @brief Bytes of mask cells per hemisphere. */
   static constexpr size_t STORAGE_BYTES = sizeof(Storage) * STORAGE_COUNT;
 
   /** @brief Allocates reusable mask rows.
