@@ -233,8 +233,6 @@ inline void test_world_hole_angular_reference() {
 /**
  * @brief Verifies Orient rotates by the bound Orientation, and a single-frame
  *        (stationary) orientation emits one tap with age left untouched.
- * @details A lone snapshot is the newest sub-position (t = 1), so the (1 - t)
- *          age offset is zero.
  */
 inline void test_world_orient_rotates_and_keeps_static_age() {
   math::Quaternion q =
@@ -254,14 +252,11 @@ inline void test_world_orient_rotates_and_keeps_static_age() {
   HS_EXPECT_NEAR(got.v.x, expected.x, 1e-4f);
   HS_EXPECT_NEAR(got.v.y, expected.y, 1e-4f);
   HS_EXPECT_NEAR(got.v.z, expected.z, 1e-4f);
-  HS_EXPECT_NEAR(got.age, 5.0f, 1e-4f); // age + (1 - t), t = 1 (age-neutral)
+  HS_EXPECT_NEAR(got.age, 5.0f, 1e-4f);
 }
 
 /**
- * @brief Verifies Orient's clip-cull re-emits the edge under every history
- *        pose plot() can capture between, short-circuits on the first hit,
- *        rotates a planar basis alongside the endpoints, and keeps an edge the
- *        bound orientation carries into the band.
+ * @brief Orient forwards one endpoint pose and its planar basis.
  */
 inline void test_world_orient_cull_edge_mirrors_plot() {
   static_assert(Filter::has_cull_edge<Filter::World::Orient>);
@@ -281,9 +276,9 @@ inline void test_world_orient_cull_edge_mirrors_plot() {
         return false;
       });
   HS_EXPECT_FALSE(hit);
-  HS_EXPECT_EQ(n, 3);
-  for (int i = 0; i < 3; ++i) {
-    math::Vector expected = math::rotate(math::X_AXIS, ori.get(i));
+  HS_EXPECT_EQ(n, 1);
+  for (int i = 0; i < 1; ++i) {
+    math::Vector expected = math::rotate(math::X_AXIS, ori.get());
     HS_EXPECT_NEAR(seen[i].x, expected.x, 1e-4f);
     HS_EXPECT_NEAR(seen[i].y, expected.y, 1e-4f);
     HS_EXPECT_NEAR(seen[i].z, expected.z, 1e-4f);
@@ -311,9 +306,9 @@ inline void test_world_orient_cull_edge_mirrors_plot() {
         ++n;
         return false;
       });
-  HS_EXPECT_EQ(n, 3);
-  for (int i = 0; i < 3; ++i) {
-    math::Vector expected = math::rotate(math::Y_AXIS, ori.get(i));
+  HS_EXPECT_EQ(n, 1);
+  for (int i = 0; i < 1; ++i) {
+    math::Vector expected = math::rotate(math::Y_AXIS, ori.get());
     HS_EXPECT_NEAR(normals[i].x, expected.x, 1e-4f);
     HS_EXPECT_NEAR(normals[i].y, expected.y, 1e-4f);
     HS_EXPECT_NEAR(normals[i].z, expected.z, 1e-4f);

@@ -430,6 +430,17 @@ public:
     return pipeline().could_intersect_clip(a, b, planar_basis,
                                            std::forward<Pred>(pred));
   }
+
+  /** @brief Visits world poses used to space the still raster's samples.
+   * @param a,b Source position and tangent.
+   * @param pb Optional source basis.
+   * @param pred Sampling-pose visitor.
+   * @return The visitor's combined verdict. */
+  template <typename Pred>
+  bool sampling_edge(const math::Vector &a, const math::Vector &b,
+                     const math::Basis *pb, Pred &&pred) const {
+    return pipeline().sampling_edge(a, b, pb, std::forward<Pred>(pred));
+  }
 };
 
 /**
@@ -772,6 +783,17 @@ public:
                             const math::Basis *planar_basis,
                             Pred &&pred) const {
     return pred(a, b, planar_basis);
+  }
+
+  /** @brief Terminates still-raster sampling-pose traversal.
+   * @param a,b Source position and tangent.
+   * @param pb Optional source basis.
+   * @param pred Sampling-pose visitor.
+   * @return The visitor's verdict. */
+  template <typename Pred>
+  bool sampling_edge(const math::Vector &a, const math::Vector &b,
+                     const math::Basis *pb, Pred &&pred) const {
+    return pred(a, b, pb);
   }
 };
 HS_O3_END
@@ -1417,6 +1439,28 @@ public:
       return true;
     else
       return forward(a, b, planar_basis);
+  }
+
+  /** @brief Visits world poses used to space the still raster's samples.
+   * @param a,b Source position and tangent.
+   * @param pb Optional source basis.
+   * @param pred Sampling-pose visitor.
+   * @return The visitor's combined verdict. */
+  template <typename Pred>
+  bool sampling_edge(const math::Vector &a, const math::Vector &b,
+                     const math::Basis *pb, Pred &&pred) const {
+    auto forward = [&](const math::Vector &fa, const math::Vector &fb,
+                       const math::Basis *fpb) {
+      return next.sampling_edge(fa, fb, fpb, pred);
+    };
+    if constexpr (requires { Head::sampling_edge(a, b, pb, forward); })
+      return Head::sampling_edge(a, b, pb, forward);
+    else if constexpr (Filter::has_cull_edge<Head>)
+      return Head::cull_edge(a, b, pb, forward);
+    else if constexpr (!Head::world_transform_is_identity)
+      return true;
+    else
+      return forward(a, b, pb);
   }
 
   static_assert(!Head::is_terminal || Head::terminal_replaces,

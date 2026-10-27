@@ -326,6 +326,22 @@ inline bool pipeline_could_intersect_clip(PipelineT &pipeline,
   }
 }
 
+/** @brief Visits the poses used to space a still raster's samples.
+ * @param pipeline Rendering pipeline.
+ * @param a,b Source position and tangent.
+ * @param pb Optional source basis.
+ * @param pred Sampling-pose visitor.
+ * @return The visitor's combined verdict. */
+template <typename PipelineT, typename Pred>
+inline bool pipeline_sampling_edge(PipelineT &pipeline, const math::Vector &a,
+                                   const math::Vector &b, const math::Basis *pb,
+                                   Pred &&pred) {
+  if constexpr (requires { pipeline.sampling_edge(a, b, pb, pred); })
+    return pipeline.sampling_edge(a, b, pb, pred);
+  else
+    return pipeline_could_intersect_clip(pipeline, a, b, pb, pred);
+}
+
 /**
  * @brief Non-owning, type-erased handle to a rasterizer pipeline.
  * @details Forwards 2D screen-space and 3D world-space plot() calls to the
@@ -344,6 +360,10 @@ class PipelineRef {
                  float);
   bool (*cull)(void *, const math::Vector &, const math::Vector &,
                const math::Basis *, CullEdgePredRef);
+  bool (*sampling)(void *, const math::Vector &, const math::Vector &,
+                   const math::Basis *,
+                   CullEdgePredRef); ///< Still sampling poses.
+  float (*motion_bound)(void *);     ///< Angular world-stage motion bound.
   /** @brief Shared entries used only by geometry-callback draws. */
   struct TimedEntries {
     /** @brief Evaluates world stages without projection. */
@@ -367,8 +387,6 @@ class PipelineRef {
     void (*record)(void *, Canvas &, const math::Vector &, float, float);
     bool rigid;             ///< World stages can run at controls.
     bool dense_screen_safe; ///< Screen stages retain a one-pixel footprint.
-    /** @brief Returns the angular world-stage motion bound. */
-    float (*bound)(void *);
     /** @brief Returns the spatial copy count. */
     int (*copies)(void *);
     /** @brief Selects one spatial copy. */
@@ -405,6 +423,13 @@ class PipelineRef {
       static_cast<T *>(pipeline)->plot(cv, v, c, age, alpha);
     };
     cull = still_cull_entry<T>;
+    sampling = sampling_entry<T>;
+    motion_bound = [](void *pipeline) HS_HOT_INLINE {
+      if constexpr (requires(T &p) { p.sweep_arc(); })
+        return static_cast<T *>(pipeline)->sweep_arc();
+      else
+        return 0.0f;
+    };
   }
 
   /** @brief Applies an erased pipeline's ordinary edge cull.
@@ -420,6 +445,23 @@ class PipelineRef {
                    const math::Basis *pb, CullEdgePredRef pred) {
     return pipeline_could_intersect_clip(*static_cast<T *>(pipeline), a, b, pb,
                                          pred);
+  }
+
+  /** @brief Visits still-raster sampling poses without testing visibility.
+   * @tparam T Concrete pipeline type.
+   * @param pipeline Borrowed pipeline.
+   * @param a,b Source position and tangent.
+   * @param pb Optional source basis.
+   * @param pred Sampling-pose visitor.
+   * @return The visitor's combined verdict. */
+  template <typename T>
+  HS_HOT_FLASH_MEMBER static bool
+  sampling_entry(void *pipeline, const math::Vector &a, const math::Vector &b,
+                 const math::Basis *pb, CullEdgePredRef pred) {
+    if constexpr (requires(T &p) { p.sampling_edge(a, b, pb, pred); })
+      return static_cast<T *>(pipeline)->sampling_edge(a, b, pb, pred);
+    else
+      return still_cull_entry<T>(pipeline, a, b, pb, pred);
   }
 
   /** @brief Evaluates an erased pipeline's world stages.
@@ -604,12 +646,6 @@ class PipelineRef {
             return false;
         }(),
         [](void *pipeline) HS_HOT_INLINE {
-          if constexpr (requires(T &p) { p.sweep_arc(); })
-            return static_cast<T *>(pipeline)->sweep_arc();
-          else
-            return 0.0f;
-        },
-        [](void *pipeline) HS_HOT_INLINE {
           if constexpr (requires(T &p) { p.copy_count(); })
             return static_cast<T *>(pipeline)->copy_count();
           else
@@ -623,11 +659,9 @@ class PipelineRef {
   }
 
 public:
-  /** @brief Moving-stage angular bound of a timed pipeline.
-   * @return Bound in radians, or zero for an untimed ref. */
-  float sweep_arc() const {
-    return timed_entries ? timed_entries->bound(ctx) : 0.0f;
-  }
+  /** @brief Moving-stage angular bound of the pipeline.
+   * @return Bound in radians. */
+  float sweep_arc() const { return motion_bound(ctx); }
   /** @brief Number of independently walked spatial copies.
    * @return Copy count, or one for an untimed ref. */
   int copy_count() const {
@@ -850,6 +884,16 @@ public:
   bool could_intersect_clip(const math::Vector &a, const math::Vector &b,
                             const math::Basis *pb, CullEdgePredRef pred) const {
     return cull(ctx, a, b, pb, pred);
+  }
+
+  /** @brief Visits the poses used to space a still raster's samples.
+   * @param a,b Source position and tangent.
+   * @param pb Optional source basis.
+   * @param pred Sampling-pose visitor.
+   * @return The visitor's combined verdict. */
+  bool sampling_edge(const math::Vector &a, const math::Vector &b,
+                     const math::Basis *pb, CullEdgePredRef pred) const {
+    return sampling(ctx, a, b, pb, pred);
   }
 };
 

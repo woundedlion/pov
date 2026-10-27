@@ -57,7 +57,7 @@ public:
    * @brief Selects an orientation by axis projection and re-emits the point.
    * @param v World-space point to rotate.
    * @param color Source color, forwarded unchanged.
-   * @param age Incoming age (frames); offset by `1 - u` at capture fraction u.
+   * @param age Incoming age (frames), forwarded unchanged.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
    * @tparam PassFnT Downstream callback type.
    * @param pass Downstream 3D callback.
@@ -81,8 +81,7 @@ public:
     if (idx >= count)
       idx = count - 1;
 
-    emit_oriented_point(orientations[idx], v, color, age, alpha,
-                        std::forward<PassFnT>(pass));
+    pass(math::rotate(v, orientations[idx].get()), color, age, alpha);
   }
 
   /**
@@ -92,7 +91,7 @@ public:
    * @param a,b Edge endpoints in world space (pre-rotation).
    * @param pb Optional planar basis, rotated alongside the endpoints.
    * @param forward Tail-of-pipeline cull continuation.
-   * @return True if any candidate slice's history pose could intersect the band.
+   * @return True if any candidate's end pose reaches the padded band.
    * @details The endpoints may fall in different slices, so every candidate is
    *          tested.
    */
@@ -102,12 +101,37 @@ public:
     if (!enabled || orientations.empty())
       return forward(a, b, pb);
     for (const math::Orientation<> &o : orientations) {
-      bool hit = false;
-      for (int i = 0; i < o.length() && !hit; ++i)
-        hit = forward_rotated_edge(a, b, pb, o.get(i), forward);
-      if (hit)
+      if (cull_oriented_edge(o, a, b, pb, forward))
         return true;
     }
+    return false;
+  }
+
+  /** @brief Largest frame rotation among candidate slices.
+   * @return Angular motion padding, radians; zero when disabled. */
+  HS_HOT_FLASH_MEMBER float sweep_arc() const {
+    if (!enabled)
+      return 0.0f;
+    float bound = 0.0f;
+    for (const auto &orientation : orientations)
+      bound = fmaxf(bound, orientation_sweep_arc(orientation));
+    return bound;
+  }
+
+  /** @brief Visits historical poses for still-raster sample spacing.
+   * @param a,b Source position and tangent.
+   * @param pb Optional source basis.
+   * @param forward Sampling-pose visitor.
+   * @return True if a visitor accepts a pose. */
+  template <typename FwdFn>
+  bool sampling_edge(const math::Vector &a, const math::Vector &b,
+                     const math::Basis *pb, FwdFn &&forward) const {
+    if (!enabled || orientations.empty())
+      return forward(a, b, pb);
+    for (const auto &orientation : orientations)
+      for (int i = 0; i < orientation.length(); ++i)
+        if (forward_rotated_edge(a, b, pb, orientation.get(i), forward))
+          return true;
     return false;
   }
 

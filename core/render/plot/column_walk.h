@@ -115,7 +115,7 @@ struct EdgeBatch {
   bool chained = false;       /**< Edges leave their end vertex unplotted. */
   bool rigid_lattice = false; ///< Resolve lattice and AA support per column.
   bool uniform_color = false; ///< Shader writes only one color per edge.
-  float age = 0.0f;           ///< Incoming age of every sample in the batch.
+  float age = 0.0f; ///< Age offset added to the prepared endpoint registers.
 };
 
 /** @brief Rejects edges whose swept arcs miss a draw's rows and columns.
@@ -1268,7 +1268,8 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
         &Spacetime::GeometryCounters::column_edges_prepared>();
     batch.prepare(points, batch.vertices[pair.u], batch.vertices[pair.v], edge,
                   frame.bases[1].total_dist);
-    points[0].age = points[1].age = batch.age;
+    points[0].age += batch.age;
+    points[1].age += batch.age;
     if (batch.uniform_color) {
       const math::Vector saved = points[0].pos;
       points[0].pos = source_positions ? EdgeWorldsheet::normalize(saved)

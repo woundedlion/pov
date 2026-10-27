@@ -134,7 +134,7 @@ screen_step_from_axes(const SamplePT &sample, const ScreenStepAxes &axes) {
 
 /**
  * @brief Collects each world-stage copy's up axis by sending the identity basis
- * through the pipeline's cull chain.
+ * through the pipeline's still-sampling poses.
  * @param pipeline Pipeline whose world stages are walked.
  * @return The per-copy axes; `overflow` marks a table usable() rejects,
  *         `nonrigid` one that yields the pole-floor step.
@@ -143,7 +143,7 @@ template <typename PipelineT>
 HS_HOT_FLASH_MEMBER ScreenStepAxes screen_step_axes(PipelineT &pipeline) {
   ScreenStepAxes axes;
   const math::Basis identity{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
-  axes.nonrigid = pipeline_could_intersect_clip(
+  axes.nonrigid = pipeline_sampling_edge(
       pipeline, math::X_AXIS, math::Y_AXIS, &identity,
       [&](const math::Vector &, const math::Vector &, const math::Basis *rb) {
         if (!rb || axes.count == ScreenStepAxes::CAPACITY) {
@@ -188,8 +188,8 @@ pipeline_screen_step(PipelineT &pipeline, const SamplePT &sample,
 #endif
     if (axes && axes->usable())
       return screen_step_from_axes<W, H>(sample, *axes);
-  // Rigid cull stages rotate both vectors; false visits every tween copy.
-  const bool nonrigid = pipeline_could_intersect_clip(
+  // False visits every still-sampling pose.
+  const bool nonrigid = pipeline_sampling_edge(
       pipeline, sample.pos, sample.tan, nullptr,
       [&](const math::Vector &pos, const math::Vector &tan, const math::Basis *)
           HS_HOT_FLASH_MEMBER {
@@ -225,8 +225,28 @@ static inline bool
 edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
                      const ClipRegion::XClip &xc, const math::Vector &a,
                      const math::Vector &b, const math::Basis *pb) {
+  const float motion = [&]() HS_HOT_INLINE {
+    if constexpr (requires { pipeline.sweep_arc(); })
+      return pipeline.sweep_arc();
+    else
+      return 0.0f;
+  }();
   auto pred = [&](const math::Vector &ea, const math::Vector &eb,
                   const math::Basis *bp) {
+    if (motion > 0.0f) {
+      const CullRegion region(cr, xc, motion);
+      if (!bp)
+        return geodesic_reaches_region<W, H>(region, ea, eb);
+      const PlanarEdgeSpan span = make_planar_edge_span(ea, eb, *bp);
+      float lo, hi;
+      planar_row_span<H>(ea, eb, span, lo, hi);
+      if (!region.could_intersect_rows<H>(lo, hi))
+        return false;
+      int start, length;
+      return !xc.active || !planar_col_span<W>(ea, *bp, span, start, length) ||
+             region.arc_reaches_columns<W>(
+                 start, length, region.column_pad_rows<W, H>(lo, hi));
+    }
     if (bp == nullptr) {
       // Geodesic: both span bounds share one edge setup (angle, arc pole).
       const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);

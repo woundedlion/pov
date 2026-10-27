@@ -133,8 +133,6 @@ inline int run_filter_tests() {
   HS_RUN(test_world_hole_radius_limits);
   HS_RUN(test_world_hole_angular_reference);
   HS_RUN(test_world_orient_rotates_and_keeps_static_age);
-  HS_RUN(test_world_orient_emits_at_capture_time);
-  HS_RUN(test_world_orient_slice_multistep_capture);
   HS_RUN(test_world_orient_explicit_time);
   HS_RUN(test_world_orient_follows_history_at_column_times);
   HS_RUN(test_world_orient_sample_cache);
@@ -143,12 +141,9 @@ inline int run_filter_tests() {
   HS_RUN(test_temporal_orientation_bound_is_conservative);
   HS_RUN(test_timed_boundary_tap_ownership);
   HS_RUN(test_timed_cull_region);
+  HS_RUN(test_oriented_cull_keeps_visible_history_edges);
   HS_RUN(test_timed_replicate_selected_copy);
   HS_RUN(test_timed_vertex_replicate_selected_copy);
-  HS_RUN(test_temporal_capture_matches_exhaustive_oracle);
-  HS_RUN(test_temporal_capture_column_matches_composed_time);
-  HS_RUN(test_temporal_capture_tilted_axis_within_half_column);
-  HS_RUN(test_temporal_capture_unsolvable_motion_falls_back_to_endpoint);
   HS_RUN(test_sweep_slabs_tile_the_half_turn);
   HS_RUN(test_world_orient_cull_edge_mirrors_plot);
   HS_RUN(test_world_orient_slice_selects_by_projection);

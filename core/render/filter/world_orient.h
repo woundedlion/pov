@@ -44,36 +44,42 @@ forward_rotated_edge(const math::Vector &a, const math::Vector &b,
   return forward(math::rotate(a, q), math::rotate(b, q), nullptr);
 }
 
-/** @brief Emits a rotated point at each arm pass or at its current flat pose.
+/** @brief Forwards the end pose to a motion-padded edge predicate.
  * @param orientation Frame orientation history.
- * @param v World point.
- * @param color Source color.
- * @param age Age register, increased by the remaining capture fraction.
- * @param alpha Source opacity.
- * @param pass Downstream world continuation. */
-template <typename PassFnT>
-HS_HOT_INLINE inline void
-emit_oriented_point(const math::Orientation<> &orientation,
-                    const math::Vector &v, const ::Pixel &color, float age,
-                    float alpha, PassFnT &&pass) {
-  if (orientation.length() == 1 || Spacetime::flat_surface()) {
-    pass(math::rotate(v, orientation.get()), color, age, alpha);
-    return;
+ * @param a,b Source edge endpoints.
+ * @param pb Optional source planar basis.
+ * @param forward Predicate padded by the history's sweep arc.
+ * @return The endpoint edge's visibility verdict. */
+template <typename FwdFn>
+HS_HOT_INLINE inline bool
+cull_oriented_edge(const math::Orientation<> &orientation,
+                   const math::Vector &a, const math::Vector &b,
+                   const math::Basis *pb, FwdFn &&forward) {
+  return forward_rotated_edge(a, b, pb, orientation.get(), forward);
+}
+
+/** @brief Angular bound on a frame orientation path.
+ * @param orientation Frame orientation history.
+ * @return Sum of sub-frame angles, radians; zero on a flat surface. */
+HS_HOT_FLASH_MEMBER inline float
+orientation_sweep_arc(const math::Orientation<> &orientation) {
+  if (Spacetime::flat_surface())
+    return 0.0f;
+  constexpr float ARC_ERROR_PAD = 1.02e-4f;
+  float bound = 0.0f;
+  for (int i = 1; i < orientation.length(); ++i) {
+    const float cosine =
+        fabsf(math::dot(orientation.get(i - 1), orientation.get(i)));
+    if (cosine < 1.0f)
+      bound += 2.0f * math::fast_acos(cosine) + ARC_ERROR_PAD;
   }
-  const Spacetime::Captures captures = Spacetime::capture(orientation, v);
-  for (int i = 0; i < captures.count; ++i) {
-    const float u = captures.fraction[i];
-    pass(math::rotate(v, orientation.get(u)), color, age + (1.0f - u), alpha);
-  }
+  return bound;
 }
 
 /**
  * @brief Rotates 3D points based on a dynamic Orientation.
- * @details The orientation's history spans one frame, from the previous end
- * pose to the current pose. With temporal sampling enabled, each point is
- * emitted once per arm pass, at the pose of the frame fraction `u` whose
- * sweep column contains it, with `age` offset by `1 - u`; see
- * `Spacetime::capture`. Otherwise it is emitted once at the current pose.
+ * @details Explicit-time draws read the frame's pose table. Ordinary plots
+ * rotate once at the current endpoint and preserve the age register.
  */
 class Orient : public Is3D {
 public:
@@ -91,17 +97,7 @@ public:
   /** @brief Angular bound on the orientation's frame path.
    * @return Sum of sub-frame rotation angles, in radians. */
   HS_HOT_FLASH_MEMBER float sweep_arc() const {
-    if (Spacetime::flat_surface())
-      return 0.0f;
-    float bound = 0.0f;
-    for (int i = 1; i < orientation.length(); ++i) {
-      const auto &a = orientation.get(i - 1);
-      const auto &b = orientation.get(i);
-      const float cosine = fabsf(math::dot(a, b));
-      if (cosine < 1.0f)
-        bound += 2.0f * math::fast_acos(cosine) + ARC_ERROR_PAD;
-    }
-    return bound;
+    return orientation_sweep_arc(orientation);
   }
 
   /** @brief Forwards an edge at its endpoint pose for a padded cull.
@@ -113,7 +109,7 @@ public:
   template <typename FwdFn>
   bool cull_edge_timed(const math::Vector &a, const math::Vector &b,
                        const math::Basis *pb, FwdFn &&forward) const {
-    return forward_rotated_edge(a, b, pb, orientation.get(), forward);
+    return cull_oriented_edge(orientation, a, b, pb, forward);
   }
 
   /**
@@ -187,10 +183,10 @@ public:
   }
 
   /**
-   * @brief Rotates the point and emits it at each arm pass in the frame.
+   * @brief Rotates the point once at the current endpoint.
    * @param v World-space point to rotate.
    * @param color Source color, forwarded unchanged.
-   * @param age Incoming age (frames); offset by `1 - u` at capture fraction u.
+   * @param age Incoming age (frames), forwarded unchanged.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
    * @tparam PassFnT Downstream callback type.
    * @param pass Downstream 3D callback.
@@ -198,34 +194,39 @@ public:
   template <typename PassFnT>
   void plot(const math::Vector &v, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
-    emit_oriented_point(orientation, v, color, age, alpha,
-                        std::forward<PassFnT>(pass));
+    pass(math::rotate(v, orientation.get()), color, age, alpha);
   }
 
   /**
-   * @brief Re-emits a clip-cull edge under the rotation(s) applied at plot time.
+   * @brief Forwards the end-pose edge to a motion-padded predicate.
    * @tparam FwdFn Downstream cull continuation
    *         `bool(const Vector&, const Vector&, const Basis*)`.
    * @param a,b Edge endpoints in world space (pre-rotation).
    * @param pb Optional planar basis, rotated alongside the endpoints.
-   * @param forward Tail-of-pipeline cull continuation.
-   * @return True if the edge under any history pose could intersect the clip
-   *         band.
-   * @details Visits every history pose, including the previous end pose, so
-   *          the cull spans the whole interval plot() can capture in.
+   * @param forward Tail-of-pipeline cull continuation padded by sweep_arc().
+   * @return The endpoint edge's visibility verdict.
    */
   template <typename FwdFn>
   bool cull_edge(const math::Vector &a, const math::Vector &b,
                  const math::Basis *pb, FwdFn &&forward) const {
-    bool hit = false;
-    for (int i = 0; i < orientation.length() && !hit; ++i)
-      hit = forward_rotated_edge(a, b, pb, orientation.get(i), forward);
-    return hit;
+    return cull_oriented_edge(orientation, a, b, pb, forward);
+  }
+
+  /** @brief Visits historical poses for still-raster sample spacing.
+   * @param a,b Source position and tangent.
+   * @param pb Optional source basis.
+   * @param forward Sampling-pose visitor.
+   * @return True if a visitor accepts a pose. */
+  template <typename FwdFn>
+  bool sampling_edge(const math::Vector &a, const math::Vector &b,
+                     const math::Basis *pb, FwdFn &&forward) const {
+    for (int i = 0; i < orientation.length(); ++i)
+      if (forward_rotated_edge(a, b, pb, orientation.get(i), forward))
+        return true;
+    return false;
   }
 
 private:
-  /** @brief Radian padding for twice the fast-acos approximation error. */
-  static constexpr float ARC_ERROR_PAD = 1.02e-4f;
   const math::Orientation<>
       &orientation; /**< Live orientation source driving the rotation. */
   Spacetime::PoseTable poses; ///< Per-frame poses over arena entries.

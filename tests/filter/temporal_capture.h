@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// Capture-time plotting — arm-pass solving against an exact column-time oracle
+// Explicit-time plotting and conservative orientation culling
 // ============================================================================
 
 /**
@@ -20,233 +20,6 @@ inline math::Orientation<> spin_history(float start, float half_turns,
     history.push(math::make_rotation(
         math::Y_AXIS, start + half_turns * math::PI_F * i / steps));
   return history;
-}
-
-/**
- * @brief A point rotated by each frame of an orientation history.
- * @param history Orientation history.
- * @param v Unrotated point.
- */
-inline std::vector<math::Vector>
-history_nodes(const math::Orientation<> &history, const math::Vector &v) {
-  std::vector<math::Vector> nodes;
-  for (int i = 0; i < history.length(); ++i)
-    nodes.push_back(math::rotate(v, history.get(i)));
-  return nodes;
-}
-
-/**
- * @brief Captures sorted by fraction.
- * @param got Captures to sort.
- */
-inline Spacetime::Captures sorted(Spacetime::Captures got) {
-  if (got.count == 2 && got.fraction[1] < got.fraction[0])
-    std::swap(got.fraction[0], got.fraction[1]);
-  return got;
-}
-
-/**
- * @brief Arm passes of a moving point found by exhaustive search with exact
- *        `atan2`, independent of `Spacetime::capture`.
- * @param position The point at frame fraction u.
- * @return Fractions u in [0, 1) at which `(theta(u) / pi - u)` crosses an
- *         integer.
- */
-template <typename PositionFn>
-std::vector<float> oracle_captures(PositionFn &&position) {
-  constexpr int N = 20000;
-  auto offset = [&](float u) {
-    const math::Vector p = position(u);
-    return std::atan2(p.z, p.x) / math::PI_F - u;
-  };
-  std::vector<float> found;
-  float prev = offset(0.0f);
-  if (std::fabs(prev - std::round(prev)) < 1e-6f)
-    found.push_back(0.0f);
-  for (int i = 1; i <= N; ++i) {
-    const float u = static_cast<float>(i) / N;
-    const float cur = offset(u);
-    const float jump = cur - prev;
-    const float unwrapped = prev + std::remainder(jump, 2.0f);
-    if (std::floor(prev) != std::floor(unwrapped) && u < 1.0f) {
-      const float lo = static_cast<float>(i - 1) / N;
-      found.push_back(0.5f * (lo + u));
-    }
-    prev = cur;
-  }
-  return found;
-}
-
-/**
- * @brief Capture fractions agree with the exhaustive oracle across motion with
- *        and against the sweep, both arm boundaries, and zero and two passes.
- */
-inline void test_temporal_capture_matches_exhaustive_oracle() {
-  int zero = 0, two = 0, cases = 0;
-  for (float drift :
-       {-0.6f, -0.3f, -0.05f, -0.004f, 0.004f, 0.05f, 0.3f, 0.6f}) {
-    for (int k = 0; k < 64; ++k) {
-      const float start = 2.0f * math::PI_F * k / 64 + 0.013f;
-      const math::Orientation<> history = spin_history(start, drift, 3);
-      const math::Vector v(0.8f, 0.6f, 0.0f);
-      auto position = [&](float u) { return math::rotate(v, history.get(u)); };
-      const Spacetime::Captures got =
-          sorted(Spacetime::capture(history_nodes(history, v)));
-      const std::vector<float> want = oracle_captures(position);
-      ++cases;
-      zero += want.empty();
-      two += want.size() == 2;
-      HS_EXPECT_EQ(got.count, static_cast<int>(want.size()));
-      for (int i = 0; i < std::min<int>(got.count, want.size()); ++i)
-        HS_EXPECT_NEAR(got.fraction[i], want[i], 0.5f / 144);
-    }
-  }
-  HS_EXPECT_GT(zero, 0);
-  HS_EXPECT_GT(two, 0);
-  HS_EXPECT_GT(cases - zero - two, 0);
-}
-
-/**
- * @brief Under tilted-axis rotation, linear azimuth between history frames
- *        places each pass within half a column of the exhaustive oracle.
- */
-inline void test_temporal_capture_tilted_axis_within_half_column() {
-  constexpr int W = 288;
-  hs::random().seed(0x7E3B);
-  int checked = 0, boundary = 0;
-  float worst = 0.0f;
-  for (int trial = 0; trial < 400; ++trial) {
-    const math::Vector axis = rand_unit();
-    const float frame_angle = hs::rand_f(-12.0f, 12.0f) * 2.0f * math::PI_F / W;
-    const math::Quaternion start =
-        math::make_rotation(rand_unit(), hs::rand_f(0.0f, 6.0f));
-    math::Orientation<> history(start);
-    for (int i = 1; i <= 3; ++i)
-      history.push(math::make_rotation(axis, frame_angle * i / 3) * start);
-    const math::Vector v = rand_unit();
-    if (std::fabs(math::rotate(v, start).y) > 0.9f)
-      continue;
-    auto position = [&](float u) { return math::rotate(v, history.get(u)); };
-    const Spacetime::Captures got =
-        sorted(Spacetime::capture(history_nodes(history, v)));
-    const std::vector<float> want = oracle_captures(position);
-    if (got.count != static_cast<int>(want.size())) {
-      // A pass this close to a frame boundary may land on either side of it.
-      float edge = 1.0f;
-      for (float u : want)
-        edge = std::min({edge, u, 1.0f - u});
-      for (int i = 0; i < got.count; ++i)
-        edge = std::min({edge, got.fraction[i], 1.0f - got.fraction[i]});
-      HS_EXPECT_LT(edge * (W / 2), 0.5f);
-      ++boundary;
-      continue;
-    }
-    for (int i = 0; i < got.count; ++i) {
-      worst = std::max(worst, std::fabs(got.fraction[i] - want[i]) * (W / 2));
-      ++checked;
-    }
-  }
-  HS_EXPECT_GT(checked, 200);
-  HS_EXPECT_LT(boundary, 10);
-  HS_EXPECT_LT(worst, 0.5f);
-}
-
-/**
- * @brief A captured point lands on a column whose composed-path sweep time
- *        shows the point at that same column.
- */
-inline void test_temporal_capture_column_matches_composed_time() {
-  constexpr int W = 288;
-  int checked = 0;
-  for (float drift : {-0.2f, 0.02f, 0.2f}) {
-    for (int k = 0; k < 48; ++k) {
-      const math::Orientation<> history =
-          spin_history(2.0f * math::PI_F * k / 48, drift, 3);
-      const math::Vector v(0.6f, -0.8f, 0.0f);
-      auto position = [&](float u) { return math::rotate(v, history.get(u)); };
-      const Spacetime::Captures got =
-          Spacetime::capture(history_nodes(history, v));
-      for (int i = 0; i < got.count; ++i) {
-        const int x = math::fast_wrap(
-            static_cast<int>(std::round(
-                math::vector_to_theta<W>(position(got.fraction[i])))),
-            W);
-        const math::Vector field =
-            position(Spacetime::SamplingSurface<W>::time(x));
-        const float field_x = math::vector_to_theta<W>(field);
-        float gap = std::fabs(field_x - x);
-        gap = std::min(gap, W - gap);
-        HS_EXPECT_LE(gap, 1.0f);
-        ++checked;
-      }
-    }
-  }
-  HS_EXPECT_GT(checked, 100);
-}
-
-/**
- * @brief Point on the equator at an azimuth given in half-turns.
- * @param s Azimuth in half-turns.
- */
-inline math::Vector at_half_turns(float s) {
-  return {std::cos(s * math::PI_F), 0.0f, std::sin(s * math::PI_F)};
-}
-
-/**
- * @brief A rise in arm-relative position between history frames, or a fall of
- *        two or more, is emitted once at the current endpoint.
- */
-inline void test_temporal_capture_unsolvable_motion_falls_back_to_endpoint() {
-  const std::array<math::Vector, 3> rising{
-      at_half_turns(0.1f), at_half_turns(0.2f), at_half_turns(0.9f)};
-  const std::array<math::Vector, 5> falling{
-      at_half_turns(0.1f), at_half_turns(-0.4f), at_half_turns(-0.9f),
-      at_half_turns(0.6f), at_half_turns(0.1f)};
-  const std::array<math::Vector, 3> solvable{
-      at_half_turns(0.4f), at_half_turns(0.35f), at_half_turns(0.3f)};
-  for (const Spacetime::Captures got :
-       {Spacetime::capture(rising), Spacetime::capture(falling)}) {
-    HS_EXPECT_EQ(got.count, 1);
-    HS_EXPECT_NEAR(got.fraction[0], 1.0f, 0.0f);
-  }
-  const Spacetime::Captures got = Spacetime::capture(solvable);
-  HS_EXPECT_EQ(got.count, 1);
-  HS_EXPECT_NEAR(got.fraction[0], 0.4f / 0.55f * 0.5f, 2e-3f);
-}
-
-/**
- * @brief Orient emits each arm pass at the history pose of its fraction, with
- *        age offset by the remaining frame, and only the current pose with
- *        temporal sampling disabled.
- */
-inline void test_world_orient_emits_at_capture_time() {
-  const math::Orientation<> history = spin_history(-0.5f, -0.08f, 3);
-  const math::Vector v(0.0f, 0.0f, 1.0f);
-  const Spacetime::Captures want =
-      Spacetime::capture(history_nodes(history, v));
-  HS_EXPECT_EQ(want.count, 1);
-  Filter::World::Orient orient(history);
-  std::vector<Tap3D> taps;
-  auto record = [&](const math::Vector &p, const Pixel &c, float age,
-                    float alpha) { taps.push_back({p, c, age, alpha}); };
-  orient.plot(v, Pixel(1, 2, 3), 4.0f, 0.5f, record);
-  HS_EXPECT_EQ(taps.size(), 1u);
-  HS_EXPECT_LT(want.fraction[0], 0.99f);
-  const math::Vector at = math::rotate(v, history.get(want.fraction[0]));
-  HS_EXPECT_NEAR(taps[0].age, 4.0f + 1.0f - want.fraction[0], 1e-5f);
-  HS_EXPECT_NEAR(taps[0].v.x, at.x, 1e-6f);
-  HS_EXPECT_NEAR(taps[0].v.z, at.z, 1e-6f);
-  HS_EXPECT_NEAR(taps[0].alpha, 0.5f, 0.0f);
-
-  Spacetime::set_flat_surface(true);
-  taps.clear();
-  orient.plot(v, Pixel(1, 2, 3), 4.0f, 0.5f, record);
-  Spacetime::set_flat_surface(false);
-  HS_EXPECT_EQ(taps.size(), 1u);
-  const math::Vector end = math::rotate(v, history.get());
-  HS_EXPECT_NEAR(taps[0].age, 4.0f, 0.0f);
-  HS_EXPECT_NEAR(taps[0].v.x, end.x, 1e-6f);
-  HS_EXPECT_NEAR(taps[0].v.z, end.z, 1e-6f);
 }
 
 /**
@@ -287,53 +60,6 @@ inline void test_sweep_slabs_tile_the_half_turn() {
       HS_EXPECT_EQ(next, half);
     }
   }
-}
-
-/** @brief Slice history emits arm captures and retains the previous cull pose. */
-inline void test_world_orient_slice_multistep_capture() {
-  const math::Orientation<> history = spin_history(-0.5f, -0.08f, 3);
-  Filter::World::OrientSlice slice(
-      std::span<const math::Orientation<>>(&history, 1), math::Y_AXIS);
-  const math::Vector v(0.0f, 0.0f, 1.0f);
-  const auto want =
-      oracle_captures([&](float u) { return math::rotate(v, history.get(u)); });
-  HS_EXPECT_SIZE_OR_RETURN(want, 1);
-  std::vector<Tap3D> taps;
-  auto record = [&](const math::Vector &p, const Pixel &c, float age,
-                    float alpha) { taps.push_back({p, c, age, alpha}); };
-  Spacetime::set_flat_surface(false);
-  slice.plot(v, Pixel(1, 2, 3), 4.0f, 0.5f, record);
-  HS_EXPECT_SIZE_OR_RETURN(taps, want.size());
-  const math::Vector at = math::rotate(v, history.get(want[0]));
-  HS_EXPECT_NEAR(taps[0].age, 5.0f - want[0], 0.5f / 144);
-  HS_EXPECT_NEAR(taps[0].v.x, at.x, 1e-3f);
-  HS_EXPECT_NEAR(taps[0].v.z, at.z, 1e-3f);
-  HS_EXPECT_EQ(taps[0].alpha, 0.5f);
-
-  Spacetime::set_flat_surface(true);
-  taps.clear();
-  slice.plot(v, Pixel(1, 2, 3), 4.0f, 0.5f, record);
-  Spacetime::set_flat_surface(false);
-  HS_EXPECT_SIZE_OR_RETURN(taps, 1);
-  const math::Vector end = math::rotate(v, history.get());
-  HS_EXPECT_EQ(taps[0].age, 4.0f);
-  HS_EXPECT_NEAR(taps[0].v.x, end.x, 1e-6f);
-  HS_EXPECT_NEAR(taps[0].v.z, end.z, 1e-6f);
-
-  const math::Vector start = math::rotate(v, history.get(0));
-  HS_EXPECT_TRUE(slice.cull_edge(
-      v, v, nullptr,
-      [&](const math::Vector &a, const math::Vector &, const math::Basis *) {
-        return math::dot(a, start) > 0.999999f;
-      }));
-  int poses = 0;
-  slice.cull_edge(
-      v, v, nullptr,
-      [&](const math::Vector &, const math::Vector &, const math::Basis *) {
-        ++poses;
-        return false;
-      });
-  HS_EXPECT_EQ(poses, history.length());
 }
 
 /**
@@ -532,6 +258,100 @@ inline void test_timed_cull_region() {
   const float expected = ref.sweep_arc() * (288.0f / (2.0f * math::PI_F)) /
                          (1.0f - ref.sweep_arc());
   HS_EXPECT_NEAR(swept.column_pad<288>(1.0f), expected, 1e-6f);
+}
+
+/** @brief Whether a sampled history edge lights the exact clip.
+ * @param clip Exact raster clip.
+ * @param history Frame rotation history.
+ * @param a,b Source edge endpoints.
+ * @return True when any independently projected sample has a visible tap. */
+inline bool history_edge_lights_clip(const ClipRegion &clip,
+                                     const math::Orientation<> &history,
+                                     const math::Vector &a,
+                                     const math::Vector &b) {
+  constexpr double PI_VALUE = 3.14159265358979323846;
+  for (int time = 0; time <= 24; ++time) {
+    const auto pose = history.get(static_cast<float>(time) / 24.0f);
+    for (int sample = 0; sample <= 32; ++sample) {
+      const float s = static_cast<float>(sample) / 32.0f;
+      const auto v = math::rotate((a * (1.0f - s) + b * s).normalized(), pose);
+      const double norm =
+          std::sqrt(double(v.x) * v.x + double(v.y) * v.y + double(v.z) * v.z);
+      double azimuth = std::atan2(double(v.z), double(v.x));
+      if (azimuth < 0.0)
+        azimuth += 2.0 * PI_VALUE;
+      const double column = azimuth * 288.0 / (2.0 * PI_VALUE);
+      const float row = math::phi_to_y<144>(
+          static_cast<float>(std::acos(std::clamp(v.y / norm, -1.0, 1.0))));
+      const int x = static_cast<int>(std::floor(column));
+      const int y = static_cast<int>(std::floor(row));
+      for (int dx : {0, 1})
+        for (int dy : {0, 1})
+          if (clip.contains_y(y + dy) && !clip.x_clip().clipped((x + dx) % 288))
+            return true;
+    }
+  }
+  return false;
+}
+
+/** @brief End-pose padding keeps an edge visible earlier in its history. */
+inline void test_oriented_cull_keeps_visible_history_edges() {
+  StubEffect effect(288, 144);
+  effect.set_margin(0);
+  effect.set_clip(64, 72, 64, 80);
+  Canvas canvas(effect);
+  const auto entering = spin_history(0.0f, 0.2f, 3);
+  Pipeline<288, 144, Filter::World::Orient> explicit_case{
+      Filter::World::Orient(entering)};
+  const auto a = math::pixel_to_vector<288, 144>(67.0f, 69.0f);
+  const auto b = math::pixel_to_vector<288, 144>(69.0f, 73.0f);
+  HS_EXPECT_TRUE(history_edge_lights_clip(canvas.clip(), entering, a, b));
+  const Plot::CullRegion endpoint(canvas.clip());
+  HS_EXPECT_FALSE((Plot::geodesic_reaches_region<288, 144>(
+      endpoint, math::rotate(a, entering.get()),
+      math::rotate(b, entering.get()))));
+  HS_EXPECT_TRUE((Plot::edge_visible_in_clip<288, 144>(
+      explicit_case, canvas.clip(), canvas.clip().x_clip(), a, b, nullptr)));
+  PipelineRef erased(explicit_case);
+  HS_EXPECT_TRUE((Plot::edge_visible_in_clip<288, 144>(
+      erased, canvas.clip(), canvas.clip().x_clip(), a, b, nullptr)));
+  const std::array<math::Orientation<>, 2> candidates{
+      math::Orientation<>(math::make_rotation(math::Y_AXIS, 2.0f)), entering};
+  Pipeline<288, 144, Filter::World::OrientSlice> explicit_slices{
+      Filter::World::OrientSlice(candidates, math::Y_AXIS)};
+  HS_EXPECT_NEAR(explicit_slices.sweep_arc(), explicit_case.sweep_arc(), 1e-6f);
+  HS_EXPECT_TRUE((Plot::edge_visible_in_clip<288, 144>(
+      explicit_slices, canvas.clip(), canvas.clip().x_clip(), a, b, nullptr)));
+
+  hs::random().seed(0xC011B0u);
+  int visible = 0, rejected = 0;
+  for (int trial = 0; trial < 160; ++trial) {
+    math::Orientation<> history;
+    for (int step = 1; step <= 3; ++step)
+      history.push(math::make_rotation(rand_unit(), hs::rand_f(-0.3f, 0.3f)) *
+                   history.get());
+    const auto from = rand_unit();
+    const auto to = (from + rand_unit() * 0.3f).normalized();
+    Pipeline<288, 144, Filter::World::Orient> pipeline{
+        Filter::World::Orient(history)};
+    Pipeline<288, 144, Filter::World::OrientSlice> slices{
+        Filter::World::OrientSlice(
+            std::span<const math::Orientation<>>(&history, 1), math::Y_AXIS)};
+    const bool oracle =
+        history_edge_lights_clip(canvas.clip(), history, from, to);
+    const bool got = Plot::edge_visible_in_clip<288, 144>(
+        pipeline, canvas.clip(), canvas.clip().x_clip(), from, to, nullptr);
+    const bool sliced = Plot::edge_visible_in_clip<288, 144>(
+        slices, canvas.clip(), canvas.clip().x_clip(), from, to, nullptr);
+    if (oracle) {
+      ++visible;
+      HS_EXPECT_TRUE(got);
+      HS_EXPECT_TRUE(sliced);
+    }
+    rejected += !got;
+  }
+  HS_EXPECT_GT(visible, 0);
+  HS_EXPECT_GT(rejected, 0);
 }
 
 /** @brief Cached explicit poses invalidate on fraction, input, frame and collapse. */
