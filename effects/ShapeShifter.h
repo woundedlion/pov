@@ -757,8 +757,9 @@ private:
         if (fabsf(current_time - mask_time) > MASK_TIME_RANGE) {
           HS_PROFILE(ss_surface_mask);
           const auto work = (side ? far_mask : near_mask)
-                                .prepare(side ? far : near, FOOTPRINT,
-                                         COMPLEX_MOTION, RELATIVE_PHASE_MOTION);
+                                .template prepare<COUNT>(
+                                    side ? far : near, FOOTPRINT,
+                                    COMPLEX_MOTION, RELATIVE_PHASE_MOTION);
           mask_time = current_time;
           if constexpr (COUNT)
             if (stats) {

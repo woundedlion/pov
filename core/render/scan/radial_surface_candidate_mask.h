@@ -45,6 +45,7 @@ public:
   }
 
   /** @brief Marks every possible jump within the supplied pixel radius.
+   * @tparam COUNT Enables preparation work counters.
    * @tparam Surface Prepared regular alternating-radius polygon family.
    * @param surface Similarity knots and unit geometry.
    * @param footprint_radius Maximum chart distance from center to pixel.
@@ -54,7 +55,7 @@ public:
    * @return Bounded preparation work counts.
    * @details False cells certify that no family boundary candidate reaches
    * the footprint. Hidden boundaries remain marked. */
-  template <class Surface>
+  template <bool COUNT = true, class Surface>
   HS_HOT_FLASH_MEMBER Stats prepare(const Surface &surface,
                                     float footprint_radius,
                                     float complex_motion = 0,
@@ -99,7 +100,8 @@ public:
     Boundaries::visit_candidates_detailed(
         surface,
         [&](const auto &candidate) HS_HOT_FLASH_MEMBER {
-          ++stats.candidates;
+          if constexpr (COUNT)
+            ++stats.candidates;
           source_bit = uint32_t(1)
                        << (candidate.origin_interval >> group_shift);
           const Point A{candidate.a.x, candidate.a.y};
@@ -112,8 +114,8 @@ public:
               TIP ? 1
                   : std::clamp(int(LENGTH * inverse_step) + 1, 1, MAX_PIECES);
           if (PIECES == 1) {
-            mark(A, B, stats, candidate.angles_known || TIP,
-                 candidate.start_angle, candidate.finish_angle);
+            mark<COUNT>(A, B, stats, candidate.angles_known || TIP,
+                        candidate.start_angle, candidate.finish_angle);
           } else {
             Point previous = A;
             const float INV = 1.0f / PIECES;
@@ -121,7 +123,7 @@ public:
               const float T = i * INV;
               const Point NEXT{i == PIECES ? B.x : A.x + T * D.x,
                                i == PIECES ? B.y : A.y + T * D.y};
-              mark(previous, NEXT, stats, false, 0, 0);
+              mark<COUNT>(previous, NEXT, stats, false, 0, 0);
               previous = NEXT;
             }
           }
@@ -173,9 +175,11 @@ private:
     return (a <= 0 && b >= 0) || (b <= 0 && a >= 0) ? 0
                                                     : fminf(fabsf(a), fabsf(b));
   }
+  template <bool COUNT>
   HS_HOT_INLINE void mark(Point a, Point b, Stats &stats, bool angles_known,
                           float start_angle, float finish_angle) {
-    ++stats.pieces;
+    if constexpr (COUNT)
+      ++stats.pieces;
     const Point D{b.x - a.x, b.y - a.y};
     const float LENGTH2 = square(D);
     const float T =
@@ -207,10 +211,10 @@ private:
       const float PAD = padding / (LOWER - padding) + 8 * FLT_EPSILON;
       const int FIRST = floor_int((fminf(first, last) - PAD) * angular_scale);
       const int LAST = floor_int((fmaxf(first, last) + PAD) * angular_scale);
-      const int COUNT = LAST - FIRST + 1;
-      if (COUNT < ANGULAR_BINS) {
+      const int BIT_COUNT = LAST - FIRST + 1;
+      if (BIT_COUNT < ANGULAR_BINS) {
         const int SHIFT = wrap(FIRST);
-        const Bits RANGE = (Bits(1) << COUNT) - 1;
+        const Bits RANGE = (Bits(1) << BIT_COUNT) - 1;
         bits =
             SHIFT == 0
                 ? RANGE
@@ -225,7 +229,8 @@ private:
                               : __builtin_ctzll(uint64_t(pending));
         rows[row * ANGULAR_BINS + ANGLE] |= source_bit;
         pending &= pending - 1;
-        ++stats.row_writes;
+        if constexpr (COUNT)
+          ++stats.row_writes;
       }
     }
   }
