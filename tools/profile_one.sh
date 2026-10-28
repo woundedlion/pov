@@ -396,6 +396,7 @@ prepare_retry() {
   [ -z "$PREBUILT" ] || return 0
   rm -rf "$(hs_fw_build_dir)/${ENV:?}"
   RETRY_CACHE=$(mktemp -d "${TMPDIR:-/tmp}/hs-profile-cache.XXXXXX")
+  export CCACHE_DISABLE=1
   export PLATFORMIO_BUILD_CACHE_DIR="$RETRY_CACHE"
   FW_REBUILD=1
 }

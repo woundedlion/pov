@@ -438,6 +438,7 @@ class ProfileConfigVerification(unittest.TestCase):
                 'test -e .pio/build_cache/sentinel\n'
                 'test "$PLATFORMIO_BUILD_CACHE_DIR" != .pio/build_cache\n'
                 'test -d "$PLATFORMIO_BUILD_CACHE_DIR"\n'
+                'test "$CCACHE_DISABLE" = 1\n'
                 f"{shlex.quote(sys.executable)} -c "
                 "'import os,sys; sys.exit(os.path.samefile(sys.argv[1], sys.argv[2]))' "
                 '"$PLATFORMIO_BUILD_CACHE_DIR" .pio/build_cache\n'
