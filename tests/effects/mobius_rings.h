@@ -250,14 +250,17 @@ struct MobiusRingsWhiteBox {
     for (int y = clip.y0; y < clip.y1; ++y)
       for (int x = clip.x0; x < clip.x1; ++x)
         HS_EXPECT_NEAR(full[y * 288 + x], clipped[y * 288 + x], 1e-5f);
-    for (int reset = 0; reset < 2; ++reset) {
-      const auto first = render<96, 20>(true, 1.0f, 0.0f, 1.0f, false, true);
-      const auto frozen = render<96, 20>(false, 0.0f, 0.0f, 1.0f, false, true);
-      float error = 0;
-      for (size_t i = 0; i < first.size(); ++i)
-        error += fabsf(first[i] - frozen[i]);
-      HS_EXPECT_LE(error, 0.02f);
+    const auto first = render<96, 20>(true, 1.0f, 0.0f, 1.0f, false, true);
+    const auto frozen = render<96, 20>(false, 0.0f, 0.0f, 1.0f, false, true);
+    float error = 0;
+    int lit = 0;
+    for (size_t i = 0; i < first.size(); ++i) {
+      error += fabsf(first[i] - frozen[i]);
+      lit += first[i] > 0.0f;
     }
+    std::printf("  MobiusRings first frame lit=%d\n", lit);
+    HS_EXPECT_GT(lit, 350);
+    HS_EXPECT_LE(error, 0.02f);
   }
   static float conformal_coord(float z, float phase) {
     return MR::conformal_coord(z, phase);

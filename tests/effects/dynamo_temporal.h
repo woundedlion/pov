@@ -72,11 +72,13 @@ struct DynamoTemporalOracle {
    * @param replay Selects stored samples instead of live edges.
    * @param fresh Holds the frame at its endpoint, as on initialization or reset.
    * @param clipped Forces a segment clip for the reference comparison.
+   * @param reset Draws a moving frame before resetting orientation history.
    * @return Linear framebuffer luminance. */
   template <int W, int H>
-  static std::vector<float>
-  render(bool timed, float fraction, float displacement, float start,
-         float spin, bool replay, bool fresh = false, bool clipped = false) {
+  static std::vector<float> render(bool timed, float fraction,
+                                   float displacement, float start, float spin,
+                                   bool replay, bool fresh = false,
+                                   bool clipped = false, bool reset = false) {
     reset_effect_globals();
     Dynamo<W, H> effect;
     effect.init();
@@ -100,6 +102,16 @@ struct DynamoTemporalOracle {
           math::wrap(int(start + 8.0f * sinf(float(i) * 0.13f)), W);
       effect.nodes[i].y =
           H * (0.25f + 0.5f * float(i) / float(effect.NUM_NODES - 1));
+    }
+    if (reset) {
+      effect.orientation.set(opening);
+      effect.orientation.push(math::make_rotation(axis, -0.2f) * opening);
+      {
+        Canvas canvas(effect);
+        effect.draw_nodes_timed(canvas, 0.0f);
+      }
+      effect.advance_display();
+      effect.orientation.set(finish);
     }
     {
       Canvas canvas(effect);
@@ -218,18 +230,34 @@ inline void test_dynamo_column_time_oracle() {
               work.column_edges_culled);
 }
 
-/** @brief Initialization and reset hold the strand at the current endpoint. */
+/** @brief Initialization and orientation reset hold the strand at the current endpoint. */
 inline void test_dynamo_column_time_first_frame_and_reset() {
   for (bool replay : {false, true}) {
     const auto expected = DynamoTemporalOracle::render<96, 20>(
         false, 0.0f, 0.0f, 0.0f, 0.018f, replay, true);
-    for (int reset = 0; reset < 2; ++reset) {
-      const auto actual = DynamoTemporalOracle::render<96, 20>(
-          true, 0.0f, 0.0f, 0.0f, 0.018f, replay, true);
-      float error = 0.0f;
-      for (size_t i = 0; i < actual.size(); ++i)
-        error += fabsf(actual[i] - expected[i]);
-      HS_EXPECT_LT(error, 0.01f);
+    const auto actual = DynamoTemporalOracle::render<96, 20>(
+        true, 0.0f, 0.0f, 0.0f, 0.018f, replay, true);
+    float error = 0.0f;
+    int lit = 0;
+    for (size_t i = 0; i < actual.size(); ++i) {
+      error += fabsf(actual[i] - expected[i]);
+      lit += actual[i] > 0.0f;
     }
+    std::printf("  Dynamo first frame replay=%d lit=%d\n", int(replay), lit);
+    HS_EXPECT_GT(lit, 60);
+    HS_EXPECT_LT(error, 0.01f);
   }
+  const auto expected = DynamoTemporalOracle::render<96, 20>(
+      false, 0.0f, 0.0f, 0.0f, 0.018f, false, true);
+  const auto actual = DynamoTemporalOracle::render<96, 20>(
+      true, 0.0f, 0.0f, 0.0f, 0.018f, false, true, false, true);
+  float error = 0.0f;
+  int lit = 0;
+  for (size_t i = 0; i < actual.size(); ++i) {
+    error += fabsf(actual[i] - expected[i]);
+    lit += actual[i] > 0.0f;
+  }
+  std::printf("  Dynamo orientation reset lit=%d error=%g\n", lit, error);
+  HS_EXPECT_GT(lit, 60);
+  HS_EXPECT_LT(error, 0.01f);
 }
