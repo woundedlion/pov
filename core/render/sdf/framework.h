@@ -17,15 +17,22 @@
 namespace SDF {
 
 /**
- * @brief Footprint coverage of a signed field value.
+ * @brief Footprint coverage of a signed field value or interior depth.
+ * @tparam POSITIVE_INSIDE Whether positive values lie inside the surface.
  * @param width Footprint width in world units; nonpositive is a hard step.
- * @param field Signed field value in world units.
+ * @param field Signed value in world units; negative inside by default.
  * @return Coverage in [0, 1].
  */
+template <bool POSITIVE_INSIDE = false>
 __attribute__((always_inline)) inline float footprint_coverage(float width,
                                                                float field) {
-  return width > 0.0f ? hs::clamp(0.5f - field / width, 0.0f, 1.0f)
-                      : (field <= 0.0f ? 1.0f : 0.0f);
+  constexpr float MIDPOINT = 0.5f;
+  if (width > 0.0f) {
+    const float RATIO = field / width;
+    return hs::clamp(POSITIVE_INSIDE ? MIDPOINT + RATIO : MIDPOINT - RATIO,
+                     0.0f, 1.0f);
+  }
+  return (POSITIVE_INSIDE ? field >= 0.0f : field <= 0.0f) ? 1.0f : 0.0f;
 }
 
 /** @brief One family of parallel planes. */

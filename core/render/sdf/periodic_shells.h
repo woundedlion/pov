@@ -9,6 +9,7 @@
 
 #include "core/render/ray/camera.h"
 #include "core/render/ray/shade.h"
+#include "core/render/sdf/framework.h"
 
 namespace SDF {
 
@@ -269,7 +270,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
             continue;
           const float WIDTH = prepared.footprint.at(T);
           const float COVERAGE =
-              WIDTH > 0 ? hs::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f) : 1.0f;
+              WIDTH > 0 ? footprint_coverage<true>(WIDTH, DEPTH) : 1.0f;
           if (!emit(T, COVERAGE, SHADE)) {
             result.color = composite.premultiplied();
             return result;
@@ -281,7 +282,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
         const float WIDTH = prepared.footprint.at(T);
         if (T >= NEAR && T <= FAR && SQUARED > 0 && WIDTH > 0) {
           const float COVERAGE =
-              hs::clamp(.5f - (sqrtf(SQUARED) - RADIUS) / WIDTH, 0.0f, 1.0f);
+              footprint_coverage(WIDTH, sqrtf(SQUARED) - RADIUS);
           if (COVERAGE > 0 && !emit(T, COVERAGE, SHADED ? .1f : 1.0f)) {
             result.color = composite.premultiplied();
             return result;
@@ -468,7 +469,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
                     ? 1 / sqrtf(LENGTH2)
                     : 0;
             const float DEPTH = .5f * DISCRIMINANT * INVERSE_A * INVERSE_LENGTH;
-            coverage = hs::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f);
+            coverage = footprint_coverage<true>(WIDTH, DEPTH);
           }
           if constexpr (WIDE)
             storage.retain(count, cutoff, T, coverage, SHADE);
@@ -490,7 +491,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
             distance = PROJECTED2 > 0 ? distance * LENGTH / sqrtf(PROJECTED2)
                                       : INFINITY;
           }
-          const float COVERAGE = hs::clamp(.5f - distance / WIDTH, 0.0f, 1.0f);
+          const float COVERAGE = footprint_coverage(WIDTH, distance);
           if (COVERAGE > 0) {
             if constexpr (WIDE)
               storage.retain(count, cutoff, T, COVERAGE, SHADED ? .1f : 1.0f);
@@ -683,7 +684,7 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
                            ? distance * LENGTH / sqrtf(projected_squared)
                            : INFINITY;
           }
-          filtered_coverage = hs::clamp(.5f - distance / WIDTH, 0.0f, 1.0f);
+          filtered_coverage = footprint_coverage(WIDTH, distance);
           if (filtered_coverage > 0)
             roots = {T, T, true};
         }
@@ -728,7 +729,7 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
           const float INCIDENCE = b + T * a;
           const float DEPTH = .25f * (roots.far - roots.near) *
                               fabsf(INCIDENCE) * INVERSE_LENGTH;
-          hit.coverage = hs::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f);
+          hit.coverage = footprint_coverage<true>(WIDTH, DEPTH);
         }
         result.trace.contribution = hit;
         appearance.composite(composite, T, hit.coverage);
