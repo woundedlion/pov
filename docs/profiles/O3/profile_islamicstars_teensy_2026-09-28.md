@@ -197,7 +197,6 @@ No matched WASM/native timing is used; this is the live device result.
 
 `targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=IslamicStars`,
 `HS_PROFILE_WINDOW=16`; the explicit `profile_o3` Reproduce command runs locked build/flash/capture.
-Use the Setup reproduction command for this complete cycle and its flags.
 
 ## Global -O3 vs selective -O3
 

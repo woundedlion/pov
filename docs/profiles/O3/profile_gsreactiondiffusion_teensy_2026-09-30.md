@@ -124,7 +124,7 @@ Native quality/state evidence in the historical campaign predates the added shad
 
 ## Harness
 
-`targets/Profile/Profile.ino`: `HS_PROFILE_TARGET=GSReactionDiffusion`, `HS_PROFILE_WINDOW=32`, `HS_PROFILE_EPOCH_REVS=1200`. the explicit `profile_o3` Reproduce command is the basic shortcut; use the Setup command for this duration and epoch under the shared-device lock.
+`targets/Profile/Profile.ino`: `HS_PROFILE_TARGET=GSReactionDiffusion`, `HS_PROFILE_WINDOW=32`, `HS_PROFILE_EPOCH_REVS=1200`; the Setup Reproduce command builds, flashes and captures this duration and epoch under the shared-device lock.
 
 ## Global -O3 vs selective -O3
 
