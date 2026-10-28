@@ -49,7 +49,7 @@ Exactness cross-check: frames 2257–2272 root cycles divided by 600 match measu
 
 Setup frame 1 is excluded. Each pass has 2447 matched frame numbers. Mean render is 19.730 ms baseline / 19.767 ms candidate (+0.19%); peak render is **54.825 / 54.821 ms**, both at frame 2303. Both have **0/2447 (0.00%)** spilled frames.
 
-One display window is 62.5 ms at 480 RPM; one quadrant is 72×144 = 10368 pixels. Every preset holds 16 fps. The `canvas_buffer_wait` scope waits for the next display flip. This one-pass comparison shows unchanged whole-effect cadence and no measurable whole-effect speedup. The integer Circle pole-cap path is a small part of ShapeShifter's mixed workload.
+One display window is 62.5 ms at 480 RPM; one quadrant is 144×72 = 10368 pixels. Every preset holds 16 fps. The `canvas_buffer_wait` scope waits for the next display flip. This one-pass comparison shows unchanged whole-effect cadence and no measurable whole-effect speedup. The integer Circle pole-cap path is a small part of ShapeShifter's mixed workload.
 
 ## Phase-by-phase readout
 
