@@ -260,29 +260,28 @@ inline void test_world_orient_rotates_and_keeps_static_age() {
  */
 inline void test_world_orient_cull_edge_mirrors_plot() {
   static_assert(Filter::has_cull_edge<Filter::World::Orient>);
-  math::Orientation<> ori; // identity, 1 frame
+  math::Orientation<> ori;
   ori.push(math::make_rotation(math::Y_AXIS, math::PI_F / 4));
-  ori.push(math::make_rotation(math::Y_AXIS, math::PI_F / 2)); // now 3 frames
+  // The newest pose differs from the oldest retained pose.
+  ori.push(math::make_rotation(math::Y_AXIS, math::PI_F / 2));
   const Filter::World::Orient orient(ori);
 
-  math::Vector seen[3];
+  math::Vector seen;
   int n = 0;
   bool hit = orient.cull_edge(
       math::X_AXIS, math::X_AXIS, nullptr,
       [&](const math::Vector &a, const math::Vector &, const math::Basis *) {
-        if (n < 3)
-          seen[n] = a;
+        if (n == 0)
+          seen = a;
         ++n;
         return false;
       });
   HS_EXPECT_FALSE(hit);
   HS_EXPECT_EQ(n, 1);
-  for (int i = 0; i < 1; ++i) {
-    math::Vector expected = math::rotate(math::X_AXIS, ori.get());
-    HS_EXPECT_NEAR(seen[i].x, expected.x, 1e-4f);
-    HS_EXPECT_NEAR(seen[i].y, expected.y, 1e-4f);
-    HS_EXPECT_NEAR(seen[i].z, expected.z, 1e-4f);
-  }
+  const math::Vector expected = math::rotate(math::X_AXIS, ori.get());
+  HS_EXPECT_NEAR(seen.x, expected.x, 1e-4f);
+  HS_EXPECT_NEAR(seen.y, expected.y, 1e-4f);
+  HS_EXPECT_NEAR(seen.z, expected.z, 1e-4f);
 
   n = 0;
   hit = orient.cull_edge(
@@ -296,23 +295,22 @@ inline void test_world_orient_cull_edge_mirrors_plot() {
 
   // A planar edge rotates its basis alongside the endpoints.
   const math::Basis pb{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
-  math::Vector normals[3];
+  math::Vector normal;
   n = 0;
   orient.cull_edge(
       math::X_AXIS, math::X_AXIS, &pb,
       [&](const math::Vector &, const math::Vector &, const math::Basis *bp) {
-        if (bp && n < 3)
-          normals[n] = bp->v;
+        HS_EXPECT_TRUE(bp != nullptr);
+        if (bp && n == 0)
+          normal = bp->v;
         ++n;
         return false;
       });
   HS_EXPECT_EQ(n, 1);
-  for (int i = 0; i < 1; ++i) {
-    math::Vector expected = math::rotate(math::Y_AXIS, ori.get());
-    HS_EXPECT_NEAR(normals[i].x, expected.x, 1e-4f);
-    HS_EXPECT_NEAR(normals[i].y, expected.y, 1e-4f);
-    HS_EXPECT_NEAR(normals[i].z, expected.z, 1e-4f);
-  }
+  const math::Vector expected_normal = math::rotate(math::Y_AXIS, ori.get());
+  HS_EXPECT_NEAR(normal.x, expected_normal.x, 1e-4f);
+  HS_EXPECT_NEAR(normal.y, expected_normal.y, 1e-4f);
+  HS_EXPECT_NEAR(normal.z, expected_normal.z, 1e-4f);
 
   // An edge that sits outside a polar band until the orientation rotates it in:
   // the band predicate rejects the source endpoints, plot() lands the point
