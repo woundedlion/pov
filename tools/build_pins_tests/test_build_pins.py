@@ -22,6 +22,20 @@ from git_test_env import git_run  # noqa: E402
 import build_pins as bp  # noqa: E402
 
 
+def cmake_jobs_missing_checks(workflow):
+    jobs = re.split(r"(?m)^  ([a-z][a-z0-9-]*):\s*$", workflow)
+    missing = []
+    for name, body in zip(jobs[1::2], jobs[2::2]):
+        commands = "\n".join(line for line in body.splitlines()
+                             if not line.lstrip().startswith("#"))
+        needs_cmake = re.search(r"\bcmake\b|\bctest\b", commands) or any(
+            "run_python_tests.py" in line and "--suite" not in line
+            for line in commands.splitlines())
+        if needs_cmake and "--check-tool cmake" not in commands:
+            missing.append(name)
+    return missing
+
+
 class AuthorityPresence(unittest.TestCase):
     def test_missing_spelling_in_one_authority_is_rejected(self):
         for check, relative, original, replacement in (
@@ -400,11 +414,27 @@ class CheckTool(unittest.TestCase):
         self.assertEqual(self._check("cmake", f"cmake version {pin}\n")[0], 0)
         self.assertEqual(self._check("cmake", "cmake version 0.0.0\n")[0], 1)
         workflow = (bp.ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        self.assertEqual(cmake_jobs_missing_checks(workflow), [])
         installs = workflow.split("- name: Install pinned CMake")[1:]
         self.assertTrue(installs)
         for install in installs:
             self.assertIn("python tools/build_pins.py --check-tool cmake",
                           install.split("\n      -", 1)[0])
+
+    def test_cmake_job_guard_requires_each_tool_check(self):
+        for command in ("cmake --preset tests", "ctest --preset tests",
+                        "python tools/run_python_tests.py"):
+            with self.subTest(command=command):
+                fixture = ("jobs:\n  fixture:\n    steps:\n"
+                           f"      - run: {command}\n"
+                           "      - run: python tools/build_pins.py --check-tool cmake\n")
+                self.assertEqual(cmake_jobs_missing_checks(fixture), [])
+                self.assertEqual(cmake_jobs_missing_checks(fixture.replace(
+                    "      - run: python tools/build_pins.py --check-tool cmake\n", "")),
+                    ["fixture"])
+        self.assertEqual(cmake_jobs_missing_checks(
+            "jobs:\n  subset:\n    steps:\n"
+            "      - run: python tools/run_python_tests.py --suite tools/profile_tests\n"), [])
 
     def test_emsdk_checks_the_active_compiler_version(self):
         pin = bp.PINS["emsdk"]

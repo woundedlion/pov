@@ -1034,7 +1034,7 @@ jobs:
         id: pins
         run: python tools/build_pins.py --github-output
 
-      - name: Install CMake for cache-key integration tests
+      - name: Install pinned CMake
         run: |
           pip install --require-hashes -r requirements/cmake.txt
           python tools/build_pins.py --check-tool cmake
@@ -1290,6 +1290,10 @@ jobs:
           python-version: '3.12'
       - name: Install Python test dependencies
         run: pip install --require-hashes -r requirements/numpy.txt -r requirements/ruff.txt -r requirements/shellcheck.txt
+      - name: Install pinned CMake
+        run: |
+          pip install --require-hashes -r requirements/cmake.txt
+          python tools/build_pins.py --check-tool cmake
       - name: Run all Python suites
         run: python tools/run_python_tests.py
       - name: Check routed candidate status and provenance
