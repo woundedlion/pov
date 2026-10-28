@@ -429,11 +429,7 @@ transform_selected_in_place(MeshState &mesh, const uint8_t *bits,
 template <typename... Transformers>
 inline void transform_in_place(MeshState &mesh,
                                const Transformers &...transformers) {
-  for (size_t i = 0; i < mesh.vertices.size(); ++i) {
-    math::Vector v = mesh.vertices[i];
-    (..., (v = transformers(v)));
-    mesh.vertices[i] = v;
-  }
+  transform_selected_in_place(mesh, nullptr, transformers...);
 }
 
 // COMPOSITION POLARITY / Conway operator contracts
