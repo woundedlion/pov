@@ -103,5 +103,3 @@ inline void test_ringspin_trail_hugs_its_great_circles() {
   fx.advance_display();
   HS_EXPECT_EQ((count_lit_region<DEFAULT_W, DEFAULT_H>(fx)), size_t{0});
 }
-
-// PetalFlow spawn-gap, hue-cursor and ring-pool bounds on every frame.
