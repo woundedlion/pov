@@ -1486,7 +1486,6 @@ inline void test_timed_flower_clip_culls_anchor_intervals() {
   const auto clipped_counts = Spacetime::geometry_counters;
   HS_EXPECT_GT(clipped_counts.chord_fast_samples, 0u);
   HS_EXPECT_GT(clipped_counts.chord_intervals_culled, 0u);
-  HS_EXPECT_EQ(clipped_counts.chord_point_samples, 0u);
   HS_EXPECT_GT(clipped_counts.polar_column_samples, 0u);
   HS_EXPECT_LT(clipped_counts.polar_column_samples,
                full_counts.polar_column_samples);
@@ -1494,17 +1493,15 @@ inline void test_timed_flower_clip_culls_anchor_intervals() {
     for (int x = 0; x < 144; ++x)
       HS_EXPECT_NEAR(clipped[y * ORACLE_W + x], full[y * ORACLE_W + x], 1e-5f);
   std::printf(
-      "  flower clip: intervals=%u culled=%u coherent=%u screen=%u points=%u projections=%u column_samples=%u; full projections=%u\n",
+      "  flower clip: intervals=%u culled=%u coherent=%u screen=%u projections=%u column_samples=%u; full projections=%u\n",
       clipped_counts.chord_intervals, clipped_counts.chord_intervals_culled,
       clipped_counts.chord_fast_samples, clipped_counts.chord_screen_samples,
-      clipped_counts.chord_point_samples,
       clipped_counts.point_piece_evaluations, clipped_counts.column_samples,
       full_counts.point_piece_evaluations);
   std::printf(
       "  flower solves: anchors=%u point_pieces=%u candidates=%u\n",
       clipped_counts.chord_capture_solves, clipped_counts.point_capture_solves,
-      clipped_counts.chord_fast_samples + clipped_counts.chord_screen_samples +
-          clipped_counts.chord_point_samples);
+      clipped_counts.chord_fast_samples + clipped_counts.chord_screen_samples);
   state.preset_index = 1;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
   state.count = 288;
@@ -1512,7 +1509,6 @@ inline void test_timed_flower_clip_culls_anchor_intervals() {
   state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
   render_timed_contours(state, 0.016f, true, 1.0f, 0.0f);
   const auto star_counts = Spacetime::geometry_counters;
-  HS_EXPECT_EQ(star_counts.chord_point_samples, 0u);
   HS_EXPECT_GT(star_counts.polar_column_samples, 0u);
   std::printf(
       "  polar visits/captures: flower=%u/%u full=%u/%u star=%u/%u\n",
@@ -1528,10 +1524,9 @@ inline void test_timed_flower_clip_culls_anchor_intervals() {
               full_counts.polar_column_samples,
               star_counts.polar_column_samples);
   std::printf("  dense star clip: intervals=%u culled=%u coherent=%u screen=%u "
-              "points=%u projections=%u column_samples=%u\n",
+              "projections=%u column_samples=%u\n",
               star_counts.chord_intervals, star_counts.chord_intervals_culled,
               star_counts.chord_fast_samples, star_counts.chord_screen_samples,
-              star_counts.chord_point_samples,
               star_counts.point_piece_evaluations, star_counts.column_samples);
 }
 

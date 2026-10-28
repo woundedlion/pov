@@ -46,8 +46,6 @@ struct GeometryCounters {
   uint32_t polar_geometry_samples =
       0;                             /**< Shared polar-run segment captures. */
   uint32_t polar_column_samples = 0; /**< Polar chart coverage samples. */
-  uint32_t chord_point_samples =
-      0; /**< Chart samples sent to the point route. */
   uint32_t point_piece_evaluations =
       0; /**< Point trajectory knots projected. */
   uint32_t column_path_evaluations =
