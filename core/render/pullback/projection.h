@@ -63,7 +63,9 @@ static_assert(field_defaults_in_range<ProjectionParams>());
     overlays both halves. */
 enum class GnomonicHemisphere : uint8_t { FOLDED, FRONT, BACK };
 
-/** @brief `ProjectionProvenance::flags` bit set by folded projections. */
+/** @brief `ProjectionProvenance::flags` value set on every folded sinusoidal sample.
+ * @details Flags are kernel-specific; test traits against
+ * projections::ProjectionTrait::FOLDED to identify folded projections. */
 inline constexpr uint8_t FOLDED_FLAG = 1U << 0;
 /** Render-space divisor floor that caps gnomonic coordinates near 1000. */
 inline constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
