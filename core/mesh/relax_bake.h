@@ -48,14 +48,23 @@ inline constexpr float RELAX_SOURCE_BIAS = 0.7361977398f;
 inline constexpr float RELAX_SOURCE_MIN_MARGIN = 1.0e-5f;
 
 /**
+ * @brief Maps a relax source coordinate to the unsigned identity grid.
+ * @param coordinate Vertex coordinate.
+ * @return Biased grid position.
+ */
+inline float relax_source_grid(float coordinate) {
+  const float magnitude =
+      (coordinate < 0.0f ? -coordinate : coordinate) * RELAX_SOURCE_SCALE;
+  return magnitude + RELAX_SOURCE_BIAS;
+}
+
+/**
  * @brief Quantizes one relax source coordinate onto its identity grid.
  * @param coordinate Vertex coordinate.
  * @return Sign-symmetric fixed-point grid value.
  */
 inline int32_t relax_source_coordinate(float coordinate) {
-  const float magnitude =
-      (coordinate < 0.0f ? -coordinate : coordinate) * RELAX_SOURCE_SCALE;
-  const int32_t quantized = static_cast<int32_t>(magnitude + RELAX_SOURCE_BIAS);
+  const int32_t quantized = static_cast<int32_t>(relax_source_grid(coordinate));
   return coordinate < 0.0f ? -quantized : quantized;
 }
 
@@ -133,9 +142,7 @@ inline uint32_t relax_source_hash(const PolyMesh &mesh) {
 inline float relax_source_quantization_margin(const PolyMesh &mesh) {
   float minimum = 1.0f;
   auto measure = [&](float coordinate) {
-    const float magnitude =
-        (coordinate < 0.0f ? -coordinate : coordinate) * RELAX_SOURCE_SCALE;
-    const float biased = magnitude + RELAX_SOURCE_BIAS;
+    const float biased = relax_source_grid(coordinate);
     const float fraction = biased - static_cast<int32_t>(biased);
     const float grid_distance =
         (fraction < 1.0f - fraction ? fraction : 1.0f - fraction) /
