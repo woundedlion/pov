@@ -85,14 +85,10 @@ target_compile_definitions(hs_test_whitebox INTERFACE
 
 add_library(hs_test_support INTERFACE)
 target_link_libraries(hs_test_support INTERFACE hs_host_storage)
+include(${HS_ROOT}/cmake/test_capabilities.cmake)
 target_compile_definitions(hs_test_support INTERFACE
-  HS_ENABLE_EFFECT_REGISTRY=1
-  HS_ENABLE_PARAM_GUI_BRIDGE=1
-  HS_ENABLE_TEST_HOOKS=1
-  HS_ENABLE_TEST_ORACLES=1
-  HS_ENABLE_CHAIN_INTERPRETER=1
-  HS_ENABLE_STRUCTURAL_AUDITS=1
-  HS_ENABLE_EFFECT_CONTROL_API=1)
+  ${HS_TEST_CAPABILITY_DEFINITIONS}
+  HS_ENABLE_STRUCTURAL_AUDITS=1)
 
 # Host diagnostics and warning flags; per-target optimization and math flags
 # remain local.

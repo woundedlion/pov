@@ -1537,6 +1537,7 @@ files define line-ending policy and working-artifact exclusions.
 ├── cmake/
 │   ├── prune_mirrored_patterns.cmake     Removes obsolete engine-owned shader documents during install
 │   ├── chain_capture_fixtures.cmake Typed fixture header generation for capture producers
+│   ├── test_capabilities.cmake Shared feature capabilities for test and capture targets
 │   ├── prune_mirrored_screenshots.cmake  Removes obsolete engine-owned gallery PNGs during install
 │   ├── wasm_cache_key.cmake     Keys the binary URL by its content hash after linking
 │   └── toolchain-native-clang.cmake  Native Clang toolchain behind the tests preset
