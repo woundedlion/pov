@@ -831,6 +831,17 @@ inline float turned_azimuth(const math::Vector &from, const math::Vector &to) {
   return atan2f(s, c);
 }
 
+/** @brief Re-centred azimuth, including a polar starting axis.
+ * @param alpha Starting azimuth, radians.
+ * @param from Starting axis.
+ * @param to New axis.
+ * @return Azimuth of the new axis, radians. */
+inline float moved_azimuth(float alpha, const math::Vector &from,
+                           const math::Vector &to) {
+  return from.x == 0.0f && from.z == 0.0f ? atan2f(to.z, to.x)
+                                          : alpha + turned_azimuth(from, to);
+}
+
 /**
  * @brief Re-centres a bounding cap on another axis and grows it by an arc.
  * @param cap Cap covering the shape about @p from.
@@ -851,7 +862,7 @@ inline CapBounds moved_cap(const CapBounds &cap, float radius,
   CapBounds out;
   out.ny = axis.y;
   out.r_val = sqrtf(axis.x * axis.x + axis.z * axis.z);
-  out.alpha_angle = cap.alpha_angle + turned_azimuth(from, axis);
+  out.alpha_angle = moved_azimuth(cap.alpha_angle, from, axis);
   const float center_phi =
       math::fast_acos(std::max(-1.0f, std::min(1.0f, axis.y)));
   const float margin = radius + BOUNDS_MARGIN_WIDE + arc;

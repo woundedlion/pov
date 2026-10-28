@@ -176,7 +176,7 @@ struct Ring {
     out.ny = axis.y;
     out.center_phi = math::fast_acos(std::max(-1.0f, std::min(1.0f, axis.y)));
     out.r_val = sqrtf(axis.x * axis.x + axis.z * axis.z);
-    out.alpha_angle = alpha_angle + turned_azimuth(normal, axis);
+    out.alpha_angle = moved_azimuth(alpha_angle, normal, axis);
     return out;
   }
 

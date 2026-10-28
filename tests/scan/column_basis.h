@@ -791,6 +791,21 @@ template <int W, int H> inline void check_swept_cap_clip() {
 
 /** @brief Swept cap culling keeps every clip a swept star or disc lights. */
 inline void test_swept_cap_clip_keeps_lit_clips() {
+  constexpr int W = 288, H = 144;
+  const auto check = [](const auto &shape) {
+    const auto proxy =
+        shape.moved(math::Vector(0.0f, cosf(0.5f), sinf(0.5f)), 0.0f);
+    bool covered = false;
+    for (int y = 0; y < H; ++y)
+      proxy.template get_horizontal_intervals<W, H>(y, [&](float lo, float hi) {
+        covered |= lo <= W / 4.0f && hi >= W / 4.0f;
+      });
+    HS_EXPECT_TRUE(covered);
+  };
+  const auto basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
+  check(SDF::Ring(basis, 0.2f, 0.03f));
+  const auto star_basis = math::get_antipode(basis, 0.2f);
+  check(SDF::Star(star_basis.first, star_basis.second, 5, 0.0f));
   check_swept_cap_clip<96, 20>();
   check_swept_cap_clip<96, 48>();
   check_swept_cap_clip<288, 144>();
