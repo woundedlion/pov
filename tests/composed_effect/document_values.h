@@ -815,7 +815,7 @@ inline void check_document_values(const char *name) {
                     }) {
         if (slot->role == SlotRole::WARP && field_id == "lattice-period") {
           HS_EXPECT_NEAR(static_cast<float>(value.number),
-                         1.0f / preset_params_or_initial<FX>(index)
+                         1.0f / preset_params<FX>(index)
                                     .template get<"source">()
                                     .lattice_cell_scale,
                          1e-6f);
@@ -835,7 +835,7 @@ inline void check_document_values(const char *name) {
               values->find(slot.label + ".spin-speed") != nullptr;
       HS_EXPECT_TRUE(camera_spin_present);
     }
-    const Params expected = preset_params_or_initial<FX>(index);
+    const Params expected = preset_params<FX>(index);
     if constexpr (requires {
                     built.template get<"source">().lattice_cell_scale;
                   }) {

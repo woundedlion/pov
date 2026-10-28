@@ -78,8 +78,8 @@ template <typename FX> void verify_export(size_t preset) {
   reset_globals();
   FX effect;
   effect.init();
-  ComposedFrameWhiteBox::set_params(
-      effect, effects_tests::preset_params_or_initial<FX>(preset));
+  ComposedFrameWhiteBox::set_params(effect,
+                                    effects_tests::preset_params<FX>(preset));
   for (int frame = 0; frame < 3; ++frame)
     ComposedFrameWhiteBox::advance(effect);
   const auto own = ComposedFrameWhiteBox::frame(effect);

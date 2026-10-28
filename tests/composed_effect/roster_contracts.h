@@ -30,7 +30,7 @@ inline void test_mobius_automatic_departures_retain_lens() {
     const math::MobiusParams live{1.0f, 0.2f, 0.1f, 0.3f,
                                   0.2f, 0.1f, 0.9f, -0.1f};
     effect->params.template get<"lens">().mobius = live;
-    const auto target = preset_params_or_initial<MobiusFrameProbe>(1);
+    const auto target = preset_params<MobiusFrameProbe>(1);
     auto &transition = effect->transition;
     transition.from = effect->params;
     transition.to = target;

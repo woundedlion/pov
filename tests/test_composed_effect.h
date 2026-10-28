@@ -52,7 +52,7 @@ static_assert(
                                     Pullback::ResourceKind::WARP>,
         CollidingWarpNames>());
 
-using effects_tests::preset_params_or_initial;
+using effects_tests::preset_params;
 using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;
@@ -494,12 +494,12 @@ inline void check_preset_choreography(const char *name) {
     HS_EXPECT_FALSE(FX::PRESET_IDS[index].empty());
     for (size_t earlier = 0; earlier < index; ++earlier)
       HS_EXPECT_TRUE(FX::PRESET_IDS[index] != FX::PRESET_IDS[earlier]);
-    HS_EXPECT_TRUE(FX::valid_params(preset_params_or_initial<FX>(index)));
+    HS_EXPECT_TRUE(FX::valid_params(preset_params<FX>(index)));
 
     HS_EXPECT_TRUE(effect.selectPreset(index));
     HS_EXPECT_EQ(effect.getPresetIndex(), index);
     verify_params_equal(effect.serialize_parameters().params,
-                        preset_params_or_initial<FX>(index));
+                        preset_params<FX>(index));
   }
   HS_EXPECT_FALSE(effect.selectPreset(FX::PRESET_IDS.size()));
 }
@@ -521,8 +521,8 @@ inline void check_preset_interpolation(const char *name) {
   for (size_t from = 0; from < FX::PRESET_IDS.size(); ++from) {
     for (size_t to = 0; to < FX::PRESET_IDS.size(); ++to) {
       HS_CONTEXT("preset pair", static_cast<int>(from), static_cast<int>(to));
-      const Params a = preset_params_or_initial<FX>(from);
-      Params b = preset_params_or_initial<FX>(to);
+      const Params a = preset_params<FX>(from);
+      Params b = preset_params<FX>(to);
       if constexpr (FX::PRESET_IDS.size() == 1) {
         b.template get<"color">().opacity_low =
             a.template get<"color">().opacity_low == 0.0f ? 1.0f : 0.0f;

@@ -386,8 +386,7 @@ inline void reset_effect_globals() { hs_test::reset_globals(); }
  * @param index Preset index.
  * @return The resolved row's parameters.
  */
-template <typename E>
-typename E::Params preset_params_or_initial(size_t index) {
+template <typename E> typename E::Params preset_params(size_t index) {
   return E::test_preset_params(index);
 }
 
