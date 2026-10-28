@@ -113,4 +113,4 @@ Preparation over the complete post-startup windows averages 3671.752 us/f versus
 the reproduce command builds, flashes and captures using the real segmented driver.
 Raw log mtime (America/Los_Angeles): **2026-10-01 09:51**.
 
-Global -O3 versus selective -O3: mean render 34.600 versus 35.274 ms/f (ratio 1.019× for these samples). The O3 image adds +15,264 B FLASH code and +8,672 B ITCM. Live frame counts differ; compare spill fractions and peaks alongside these means.
+Global -O3 versus selective -O3: mean render 34.600 versus 35.274 ms/f (ratio 1.019× for these samples). The O3 image adds +15,264 B FLASH code and +8,672 B ITCM. Compare spill fractions and peaks alongside these means.

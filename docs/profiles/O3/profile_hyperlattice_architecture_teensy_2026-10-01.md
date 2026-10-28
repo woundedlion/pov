@@ -142,4 +142,4 @@ Host or WASM timings are not substituted for device measurements.
 the reproduce command builds, flashes and captures using the real segmented driver.
 Raw log mtime (America/Los_Angeles): **2026-10-01 09:26**.
 
-Global -O3 versus selective -O3: mean render 25.296 versus 25.652 ms/f (ratio 1.014× for these samples). The O3 image adds +9,616 B FLASH code and +4,912 B ITCM. Live frame counts differ; compare spill fractions and peaks alongside these means.
+Global -O3 versus selective -O3: mean render 25.296 versus 25.652 ms/f (ratio 1.014× for these samples). The O3 image adds +9,616 B FLASH code and +4,912 B ITCM. Compare spill fractions and peaks alongside these means.
