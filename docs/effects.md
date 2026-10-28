@@ -730,7 +730,7 @@ envelope. Deactivation dims the controls without removing their stored values.
 The exact fields and ranges come from the selected operator instances.
 
 **Hue Shift Mode** selects the colorizer's hue source. Noise samples the
-sphere direction carried through the chain. Total Warp Displacement uses the
+sphere direction carried through the chain. **Path Length** uses the
 shared accumulated path length, to which selected displacement and warp
 operators contribute. Opposing warps contribute both traveled distances rather
 than canceling as a net offset. Hue controls belong to the colorizer instance.
