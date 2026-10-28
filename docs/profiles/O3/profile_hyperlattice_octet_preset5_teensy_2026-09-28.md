@@ -2,7 +2,7 @@
 
 This is experimental-octet-wide-flight, preset 5 (internal index 4), held with continuous camera and palette motion. This newly added preset supplements the existing Octet views. The 4D preset is unchanged.
 
-[Shipping report](../shipping/profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) and [global-O3 report](../O3/profile_hyperlattice_octet_preset5_teensy_2026-09-28.md).
+Current [shipping report](../shipping/profile_hyperlattice_octet_preset5_teensy_2026-09-28.md). The matching pre-Tier shipping capture survives in its "Before" column.
 
 ## Setup
 

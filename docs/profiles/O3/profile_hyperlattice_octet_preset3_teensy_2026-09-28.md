@@ -1,8 +1,8 @@
 # HyperLattice on-device profile — preset 3 (2026-09-28, global-O3)
 
-This is experimental-octet-flight, preset 3 (internal index 2), held with continuous camera and palette motion. It supersedes the 3D settings in the optimization snapshot (supporting artifact removed); that snapshot remains historical evidence for its optimization comparisons. This pair was captured before the wide-flight preset was added; source provenance identifies each image. The 4D preset is unchanged.
+This is experimental-octet-flight, preset 3 (internal index 2), held with continuous camera and palette motion. It supersedes the 3D settings in the optimization snapshot (supporting artifact removed); that snapshot remains historical evidence for its optimization comparisons. This capture predates the wide-flight preset; source provenance identifies each image. The 4D preset is unchanged.
 
-[Shipping report](../shipping/profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) and [global-O3 report](../O3/profile_hyperlattice_octet_preset3_teensy_2026-09-28.md).
+Current [shipping report](../shipping/profile_hyperlattice_octet_preset3_teensy_2026-09-28.md). The matching pre-Tier shipping capture survives in its "Before" column.
 
 ## Setup
 
