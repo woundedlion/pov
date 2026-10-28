@@ -104,7 +104,7 @@ The previous shipping 3D settings measured 81.407 ms mean and 87.013 ms peak. Ch
 
 ## Harness
 
-The existing targets/Profile/Profile.ino harness runs HyperLattice with HS_PROFILE_WINDOW=16. Native unit_hyper_lattice passes with 67094 assertions, including continuous motion for all three Octet presets. Firmware builds, memory gates, and both capture validators pass.
+The existing targets/Profile/Profile.ino harness runs HyperLattice with HS_PROFILE_WINDOW=16. Firmware builds, memory gates, and both capture validators pass.
 
 ```sh
 export HS_PROFILE_TREE="$PWD" HS_TEENSY_PORT=COM4
