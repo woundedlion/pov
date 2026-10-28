@@ -70,6 +70,9 @@ class ParseDump(unittest.TestCase):
                 bins={k: v for k, v in BINS.items() if k != 0x20000100},
                 counters=COUNTERS.replace("recorded=430", "recorded=420")),
             "fields": dump_lines(counters=COUNTERS + " extra=1"),
+            "malformed": dump_lines(header=HEADER + " elapsed_ms"),
+            "malformed pc profile fields": dump_lines(
+                header=HEADER.replace("elapsed_ms=1000", "elapsed_ms=bad")),
             "unsupported pc profile version": dump_lines(
                 header=HEADER.replace("version=1", "version=2")),
         }

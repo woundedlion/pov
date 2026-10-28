@@ -91,10 +91,14 @@ def region_of(address):
 
 def parse_fields(text, keys):
     """Parse `k=v` integer fields, requiring exactly @p keys."""
-    fields = dict(item.split("=", 1) for item in text.split())
+    try:
+        fields = dict(item.split("=", 1) for item in text.split())
+        values = {k: int(v) for k, v in fields.items()}
+    except ValueError as error:
+        raise DumpError(f"malformed pc profile fields {text!r}") from error
     if set(fields) != set(keys):
         raise DumpError(f"pc profile fields {sorted(fields)} != {sorted(keys)}")
-    return {k: int(v) for k, v in fields.items()}
+    return values
 
 
 def parse_dump(lines):
