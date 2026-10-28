@@ -107,6 +107,7 @@ inline void test_segment_tiles_reconstruct_full_frame() {
   expect_mosaic_matches(state, candidate_renderer(), QUADRANTS);
 
   // Dense screen-balanced contours at both poles, with pole-run splitting off.
+  state.preset_index = 1;
   state.count = 288;
   state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
   state.phase = 0.249f;
@@ -152,6 +153,7 @@ inline void test_star_azimuthal_cull_spans_narrow_columns() {
 inline void test_split_pole_runs_tiles_within_energy_budget() {
   ScopedPoleRunSplit scope(true);
   OracleState state;
+  state.preset_index = 1;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
   state.count = 288;
   state.sides = 7;
