@@ -117,7 +117,8 @@ These fixed-preset captures retain the original oscillating camera path.
 The earlier Octet measurements (supporting artifact removed)
 record 3D shipping peak 103.733 ms (548/548 spills) before that correction.
 The 4D capture remains historical: 549.828 ms peak, 120/120 spills,
-captured 2026-09-27 at 22:18; no 4D global-O3 capture.
+captured 2026-09-27 at 22:18, with no global-O3 twin. Later 4D global-O3
+results appear in the [Octet optimization supplement](#octet-optimization-supplement).
 
 Cubic Wide Flight (supporting artifact removed)
 has a separate fixed-preset shipping check: peak 50.804 ms, 0/616 spills,
