@@ -637,7 +637,9 @@ affine square in the chart, centred at `p` with column and row derivatives
 1. Runs the centre point query.
 2. Walks intervals from the footprint's lower bound and records the candidate
    boundaries clipped to the footprint, keeping the nearest. Its trace point
-   and birth stay within that clipped segment. The walk ends
+   and birth stay within that clipped segment. A strict cross-product
+   certificate skips clipping when the projected point is already contained;
+   uncertain points retain the full clipping path. The walk ends
    once a star at or beyond the centre hit contains the whole footprint,
    because nothing later can show.
 3. Returns the centre colour when every intersecting candidate starts after a

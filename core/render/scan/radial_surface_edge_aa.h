@@ -40,7 +40,7 @@ public:
   /** @brief Area of a unit square on the positive side of a line.
    * @param a,b,c Coefficients of a*x+b*y+c >= 0.
    * @return Exact straight-line coverage, apart from floating rounding. */
-  static HS_HOT_INLINE float coverage(float a, float b, float c) {
+  static HS_HOT_FLASH_MEMBER float coverage(float a, float b, float c) {
     const float A = fabsf(a), B = fabsf(b), H = .5f * (A + B);
     if (c >= H)
       return 1;
@@ -158,7 +158,7 @@ public:
           std::clamp(int(detector.birth), 0, surface.interval_count() - 1);
       birth_hit.fraction =
           std::clamp(detector.birth - birth_hit.interval, 0.0f, 1.0f);
-      front = shade(birth_hit);
+      front = shade_edge(shade, birth_hit);
       back = color;
     } else {
       Point other;
@@ -175,7 +175,7 @@ public:
       const auto outside_hit = query(other, radial_atan2(other.y, other.x),
                                      std::max(0, first - 1), outside_work);
       const SurfaceColor outside =
-          outside_hit.found() ? shade(outside_hit) : SurfaceColor{};
+          outside_hit.found() ? shade_edge(shade, outside_hit) : SurfaceColor{};
       if (center_front) {
         front = color;
         back = outside;
@@ -191,23 +191,28 @@ public:
     if (detector.terminal_back &&
         (back_interval < 0 || back_interval + 1 == surface.interval_count())) {
       typename Surface::Stats terminal_work, background_work;
-      Point inside = detector.side(detector.second_boundary,
-                                   .01f * copysignf(1.0f, detector.second_a),
-                                   .01f * copysignf(1.0f, detector.second_b));
-      detector.corner(-.01f, .01f, inside);
-      const auto terminal_hit = query(inside, radial_atan2(inside.y, inside.x),
-                                      std::max(0, first - 1), terminal_work);
-      Point outside = detector.side(detector.second_boundary,
-                                    -.01f * copysignf(1.0f, detector.second_a),
-                                    -.01f * copysignf(1.0f, detector.second_b));
-      detector.corner(-.01f, -.01f, outside);
+      Point outside;
+      if (!detector.corner(-.01f, -.01f, outside))
+        outside = detector.side(detector.second_boundary,
+                                -.01f * copysignf(1.0f, detector.second_a),
+                                -.01f * copysignf(1.0f, detector.second_b));
       const auto background_hit =
           query(outside, radial_atan2(outside.y, outside.x),
                 std::max(0, first - 1), background_work);
-      if (terminal_hit.found() && !background_hit.found()) {
-        back = shade(terminal_hit);
-        back_weight *=
-            coverage(detector.second_a, detector.second_b, detector.second_c);
+      if (!background_hit.found()) {
+        Point inside;
+        if (!detector.corner(-.01f, .01f, inside))
+          inside = detector.side(detector.second_boundary,
+                                 .01f * copysignf(1.0f, detector.second_a),
+                                 .01f * copysignf(1.0f, detector.second_b));
+        const auto terminal_hit =
+            query(inside, radial_atan2(inside.y, inside.x),
+                  std::max(0, first - 1), terminal_work);
+        if (terminal_hit.found()) {
+          back = shade_edge(shade, terminal_hit);
+          back_weight *=
+              coverage(detector.second_a, detector.second_b, detector.second_c);
+        }
       }
       if constexpr (COUNT)
         extra_intervals += terminal_work.intervals + background_work.intervals;
@@ -240,6 +245,16 @@ public:
   }
 
 private:
+  /** @brief Shades one first arrival on an edge sample.
+   * @tparam Shade First-arrival color callable.
+   * @param shade First-arrival shader.
+   * @param hit Contained edge first arrival.
+   * @return Linear edge color. */
+  template <class Shade>
+  static HS_HOT_FLASH_MEMBER SurfaceColor
+  shade_edge(Shade &shade, const typename Surface::Hit &hit) {
+    return shade(hit);
+  }
   struct Detector;
   /** @brief Certifies all intersecting candidates behind one complete star.
    * @param surface Prepared radial family.
@@ -342,11 +357,25 @@ private:
       v = std::clamp(v, -.5f, .5f);
       return {p.x + u * dx.x + v * dy.x, p.y + u * dx.y + v * dy.y};
     }
+    /** @brief Certifies a point strictly inside the affine footprint.
+     * @param q Chart point.
+     * @param determinant Nonzero footprint determinant.
+     * @return Whether cross-product bounds certify containment. */
+    HS_HOT_INLINE bool contains(Point q, float determinant) const {
+      const Point OFFSET{q.x - p.x, q.y - p.y};
+      const float X = fabsf(dx.x) + fabsf(dx.y);
+      const float Y = fabsf(dy.x) + fabsf(dy.y);
+      const float ERROR =
+          16 * FLT_EPSILON *
+          (X * Y + (fabsf(OFFSET.x) + fabsf(OFFSET.y)) * fmaxf(X, Y));
+      const float HALF = .5f * fabsf(determinant) - ERROR;
+      return fabsf(cross(OFFSET, dy)) < HALF && fabsf(cross(dx, OFFSET)) < HALF;
+    }
     /** @brief Offsets a boundary point within the affine footprint.
      * @param q Boundary point.
      * @param u,v Pixel-coordinate offset.
      * @return Contained side sample. */
-    HS_HOT_INLINE Point side(Point q, float u, float v) const {
+    HS_HOT_FLASH_MEMBER Point side(Point q, float u, float v) const {
       const Point offset{q.x - p.x, q.y - p.y};
       const float DET = cross(dx, dy);
       if (DET == 0) {
@@ -370,8 +399,8 @@ private:
      * @param first_side,second_side Signed offsets in pixel coordinates.
      * @param result Contained sample when the lines meet inside the footprint.
      * @return Whether the line intersection lies in the footprint. */
-    HS_HOT_INLINE bool corner(float first_side, float second_side,
-                              Point &result) const {
+    HS_HOT_FLASH_MEMBER bool corner(float first_side, float second_side,
+                                    Point &result) const {
       const float DET = a * second_b - b * second_a;
       if (DET == 0)
         return false;
@@ -445,7 +474,10 @@ private:
         if (fabsf(dot(Q, AXIS)) > HALF)
           return;
         entry = leave = T;
-      } else {
+      } else if (!contains(
+                     {A.x + std::clamp(PROJECTION / LENGTH, 0.0f, 1.0f) * E.x,
+                      A.y + std::clamp(PROJECTION / LENGTH, 0.0f, 1.0f) * E.y},
+                     DET)) {
         const float SIGN = copysignf(1.0f, DET);
         const float HALF = .5f * fabsf(DET);
         const float U = -SIGN * cross(OFFSET, dy),
@@ -510,7 +542,7 @@ private:
       best_distance = distance;
       found = true;
     }
-    HS_HOT_INLINE void endpoint(const Surface &surface, int index) {
+    HS_HOT_FLASH_MEMBER void endpoint(const Surface &surface, int index) {
       if (!active(index))
         return;
       const auto &k = surface.knot(index);
@@ -560,7 +592,7 @@ private:
       value = cross(p, multiply(C, surface.edge(wrap(sector, 2 * sides)))) -
               h0 * dot(C, C);
     }
-    HS_HOT_INLINE bool covered(const Surface &surface, int i) const {
+    HS_HOT_FLASH_MEMBER bool covered(const Surface &surface, int i) const {
       int sector;
       float value;
       center_predicate(surface, i, sector, value);
