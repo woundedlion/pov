@@ -52,7 +52,7 @@ enum FaceKind : uint8_t {
                ///< swept one column pair at a time.
 };
 
-/// Square pixels of step a polar face's single placement may show before
+/// Column pixels squared of step a polar face's single placement may show before
 /// it sweeps: the pixels the placement strays times the pixels the face
 /// reaches from the polar axis.
 constexpr float SWEEP_STEP_AREA = 20.0f;
@@ -102,7 +102,7 @@ HS_HOT_FLASH_MEMBER FaceKind polar_kind(const SweptMesh &d, size_t face,
     }
     motion = fmaxf(motion, vertex_motion);
   }
-  // Radians to pixels: a column's arc, which is also a row's.
+  // Radians to column-arc pixels; rows are coarser on short displays.
   const float pixel = d.canvas.width() / math::TWO_PI_F;
   const float stray = motion * fminf(span, 0.5f) * pixel;
   return stray * sqrtf(axial) * pixel > SWEEP_STEP_AREA ? SWEPT_FACE
