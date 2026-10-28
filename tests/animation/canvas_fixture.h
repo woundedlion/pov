@@ -6,10 +6,8 @@
 // ============================================================================
 // Stand-in Canvas reference
 // ----------------------------------------------------------------------------
-// One genuine Canvas over a tiny Effect, shared across tests. The animations
-// under test take a Canvas& but never dereference it. No test may construct a
-// second Canvas on this shared effect: the fixture Canvas is live for the
-// whole module, so a second constructor traps on `canvas_active`.
+// The shared Effect and Canvas stay live for the whole module. No test in
+// this module may construct another Effect or Canvas.
 // ============================================================================
 
 /**
