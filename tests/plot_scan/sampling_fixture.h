@@ -58,14 +58,6 @@ inline math::Vector disk_point(const math::Basis &basis, float colat,
   return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
 }
 
-/** @brief Unit-sphere point at a colatitude from +Y and a longitude from +X. */
-inline math::Vector sphere_point(float colatitude, float longitude) {
-  const float radial = sinf(colatitude);
-  return math::Vector(radial * cosf(longitude), cosf(colatitude),
-                      radial * sinf(longitude))
-      .normalized();
-}
-
 /**
  * @brief Steps a random walk along a random great circle through @p from.
  * @param from Current unit position.

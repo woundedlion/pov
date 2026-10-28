@@ -643,8 +643,8 @@ inline void test_rasterize_balanced_high_alpha_saturates() {
   Fragments points;
   points.bind(plot_arena(), 2);
   Fragment a, b;
-  a.pos = sphere_point(0.35f, -0.5f);
-  b.pos = sphere_point(0.35f, 0.5f);
+  a.pos = math::Vector::from_spherical(-0.5f, 0.35f);
+  b.pos = math::Vector::from_spherical(0.5f, 0.35f);
   points.push_back(a);
   points.push_back(b);
 
@@ -897,13 +897,17 @@ inline void test_rasterize_single_pass_geodesic_endpoints_and_omit_end() {
 inline void test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free() {
   constexpr int W = 128, H = 64;
   const std::array<std::pair<math::Vector, math::Vector>, 6> arcs = {{
-      {math::Vector(0, 1, 0), sphere_point(0.9f, 1.1f)},
-      {sphere_point(math::PI_F - 0.8f, -0.7f), math::Vector(0, -1, 0)},
-      {sphere_point(0.45f, 0.0f), sphere_point(0.45f, math::PI_F)},
-      {sphere_point(1.2f, math::PI_F - 0.12f),
-       sphere_point(1.3f, -math::PI_F + 0.14f)},
-      {sphere_point(0.35f, -1.0f), sphere_point(math::PI_F - 0.4f, 2.05f)},
-      {sphere_point(1.0f, 0.25f), sphere_point(2.1f, math::PI_F - 0.25f)},
+      {math::Vector(0, 1, 0), math::Vector::from_spherical(1.1f, 0.9f)},
+      {math::Vector::from_spherical(-0.7f, math::PI_F - 0.8f),
+       math::Vector(0, -1, 0)},
+      {math::Vector::from_spherical(0.0f, 0.45f),
+       math::Vector::from_spherical(math::PI_F, 0.45f)},
+      {math::Vector::from_spherical(math::PI_F - 0.12f, 1.2f),
+       math::Vector::from_spherical(-math::PI_F + 0.14f, 1.3f)},
+      {math::Vector::from_spherical(-1.0f, 0.35f),
+       math::Vector::from_spherical(2.05f, math::PI_F - 0.4f)},
+      {math::Vector::from_spherical(0.25f, 1.0f),
+       math::Vector::from_spherical(math::PI_F - 0.25f, 2.1f)},
   }};
 
   for (const auto &[start, end] : arcs) {
