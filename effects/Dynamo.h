@@ -578,8 +578,9 @@ private:
    */
   float speed_accumulator = 0.0f;
 
-  uint32_t emitted_points = 0; /**< Points plotted this frame. */
-  /** @brief Points one strand emission plotted, measured last frame. */
+  /** @brief Trail source samples recorded this frame (Trails::records() delta). */
+  uint32_t emitted_points = 0;
+  /** @brief Trail source samples one strand emission recorded, measured last frame. */
   uint32_t points_per_emission = 0;
 
   /** @brief Palettes-full log latch; cleared when a wipe lands. */
