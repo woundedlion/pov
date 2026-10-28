@@ -92,9 +92,8 @@ static int check_ci_levers(bool effects_invocation) {
   }
   for (const char *name :
        {"HS_RING_TEMPORAL_SCENARIO", "HS_SHAPESHIFTER_SURFACE_CENSUS",
-        "HS_SURFACE_LOBE_DIAGNOSTICS", "HS_SURFACE_DARK_DIAGNOSTICS",
-        "HS_SHAPESHIFTER_PRESET_HASHES", "HS_SHAPESHIFTER_IMAGES",
-        "HS_SHAPESHIFTER_SURFACE_ONLY"}) {
+        "HS_SURFACE_LOBE_DIAGNOSTICS", "HS_SHAPESHIFTER_PRESET_HASHES",
+        "HS_SHAPESHIFTER_IMAGES", "HS_SHAPESHIFTER_SURFACE_ONLY"}) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     const char *value = std::getenv(name);
