@@ -1244,9 +1244,11 @@ inline void test_displacement_field_single_pass_reference() {
       capture_frame<W, H>(effect, images[mode]);
     }
     std::array<int, 4> worst[2]{};
+    int lit = 0;
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
         const size_t index = static_cast<size_t>(y) * W + x;
+        lit += !is_black(images[0][index]);
         auto difference = [&](int a, int b) {
           const Pixel &p = images[a][index], &q = images[b][index];
           return max_channel_gap(p, q);
@@ -1264,6 +1266,7 @@ inline void test_displacement_field_single_pass_reference() {
         }
       }
     }
+    HS_EXPECT_GT(lit, 1000);
     for (int region = 0; region < 4; ++region) {
       HS_EXPECT_LE(worst[0][region], worst[1][region]);
       std::printf("  [reference region %d] window=%.5f single=%.5f steps\n",
@@ -1354,7 +1357,7 @@ inline void test_displacement_field_boundary_stencil() {
   constexpr int W = SMALL_W, H = SMALL_H, FRAMES = 80;
   std::vector<Pixel> primary;
   primary.reserve(FRAMES * W * H);
-  int worst = 0;
+  int worst = 0, lit = 0;
   for (int mode = 0; mode < 2; ++mode) {
     reset_effect_globals();
     hs::random().seed(1337u);
@@ -1372,9 +1375,10 @@ inline void test_displacement_field_boundary_stencil() {
       for (int y = 0; y < H; ++y)
         for (int x = 0; x < W; ++x) {
           const Pixel pixel = effect.get_pixel(x, y);
-          if (mode == 0)
+          if (mode == 0) {
             primary.push_back(pixel);
-          else {
+            lit += !is_black(pixel);
+          } else {
             const Pixel &other = primary[index++];
             worst = std::max<int>(worst, max_channel_gap(pixel, other));
           }
@@ -1382,7 +1386,9 @@ inline void test_displacement_field_boundary_stencil() {
     }
   }
   HS_EXPECT_LE(worst, 1);
-  std::printf("  [boundary stencil] worst=%d channel units\n", worst);
+  HS_EXPECT_GT(lit, 1000);
+  std::printf("  [boundary stencil] worst=%d channel units lit=%d\n", worst,
+              lit);
   hs::clear_mock_time();
 }
 
