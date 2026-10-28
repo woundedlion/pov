@@ -217,23 +217,44 @@ inline double medial_total_solid_angle(const PolyMesh &m) {
   return total;
 }
 
-/** @brief Smallest face area, summed from its planar triangle fan. */
+/** @brief Smallest face area from its Newell vector. */
 inline double medial_min_face_area(const PolyMesh &m) {
   double mn = 1e9;
   size_t off = 0;
   for (size_t f = 0; f < m.face_counts.size(); ++f) {
     const int n = m.face_counts[f];
-    const math::Vector c = face_centroid_unit(m, off, n);
-    double area = 0.0;
-    for (int k = 0; k < n; ++k) {
-      const math::Vector a = m.vertices[m.faces[off + k]];
-      const math::Vector b = m.vertices[m.faces[off + (k + 1) % n]];
-      area += 0.5 * math::cross(a - c, b - c).length();
-    }
+    const double area = face_area_vector(m, off, n).length();
     mn = std::min(mn, area);
     off += n;
   }
   return mn;
+}
+
+/** @brief Collapsed spherical chords have zero face area. */
+inline void test_medial_face_area_rejects_collapsed_faces() {
+  ScratchScope scope(scratch_arena_a);
+  PolyMesh mesh;
+  mesh.vertices.bind(scratch_arena_a, 3);
+  mesh.faces.bind(scratch_arena_a, 4);
+  mesh.face_counts.bind(scratch_arena_a, 1);
+  mesh.vertices.push_back({0, 0, 1});
+  mesh.vertices.push_back({0.3f, 0, sqrtf(0.91f)});
+  mesh.vertices.push_back({0, 0.3f, sqrtf(0.91f)});
+  for (uint16_t index : {0, 1, 2})
+    mesh.faces.push_back(index);
+  mesh.face_counts.push_back(3);
+  const auto expected = math::cross(mesh.vertices[1] - mesh.vertices[0],
+                                    mesh.vertices[2] - mesh.vertices[0])
+                            .length() *
+                        0.5f;
+  HS_EXPECT_GT(expected, 0.04f);
+  HS_EXPECT_NEAR(medial_min_face_area(mesh), expected, 1e-7);
+  mesh.faces[1] = 0;
+  mesh.faces[2] = 1;
+  HS_EXPECT_NEAR(medial_min_face_area(mesh), 0.0, 1e-8);
+  mesh.faces.push_back(1);
+  mesh.face_counts[0] = 4;
+  HS_EXPECT_NEAR(medial_min_face_area(mesh), 0.0, 1e-8);
 }
 
 /**
