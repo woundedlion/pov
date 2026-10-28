@@ -1683,6 +1683,7 @@ inline int run_shapeshifter_oracle_tests() {
   }
   HS_RUN(radial_surface_tests::run_radial_surface_checks);
   HS_RUN(radial_surface_mask_tests::test_radial_surface_mask);
+  HS_RUN(radial_surface_mask_tests::test_radial_surface_area);
   HS_RUN(test_surface_seams);
   HS_RUN(test_surface_clips);
   HS_RUN(test_surface_mask_parity);

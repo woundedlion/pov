@@ -12,6 +12,7 @@
 #include "core/render/scan/radial_surface_types.h"
 #include "core/render/scan/radial_surface.h"
 #include "core/render/scan/radial_surface_edge_aa.h"
+#include "core/render/scan/radial_surface_candidate_mask.h"
 #include "core/render/scan/shader.h"
 
 namespace Scan {
@@ -105,6 +106,84 @@ HS_HOT_INLINE RadialChartFootprint<Point>
 radial_chart_footprint(math::Vector p, math::Vector dx, math::Vector dy) {
   return radial_chart_footprint(radial_chart_point<Point>(p), dx, dy);
 }
+
+/** @brief Routes certified interior pixels to point sampling and candidates to edge AA.
+ * @tparam Surface Prepared similar-polygon radial family.
+ * @tparam COUNT Enables optional work counters.
+ * @tparam MASK Enables hemisphere candidate-mask routing.
+ * @tparam Mask Conservative polar candidate-mask type.
+ * @details Referenced families and masks must outlive the integrator. Masks must
+ * cover the current families and pixel footprints when MASK is enabled. */
+template <class Surface, bool COUNT = false, bool MASK = true,
+          class Mask = RadialSurfaceCandidateMask<>>
+class RadialSurfaceArea {
+  RadialSurfaceEdgeAA<Surface> integrator; ///< Reusable edge-AA workspace.
+  const Surface &near;                     ///< Near hemisphere identity.
+  const Mask &near_mask;                   ///< Near hemisphere candidates.
+  const Mask &far_mask;                    ///< Far hemisphere candidates.
+
+public:
+  /** @brief Binds the hemisphere identity and candidate masks.
+   * @param near Near hemisphere family.
+   * @param near_mask,far_mask Hemisphere candidate masks; unused when MASK is false. */
+  HS_HOT_INLINE RadialSurfaceArea(const Surface &near, const Mask &near_mask,
+                                  const Mask &far_mask)
+      : near(near), near_mask(near_mask), far_mask(far_mask) {}
+
+  /** @brief Integrates one chart pixel with a deferred affine footprint.
+   * @tparam Footprint Callable returning chart derivatives and extent.
+   * @tparam LowerBound Conservative radial interval lookup callable.
+   * @tparam Shade First-arrival color callable.
+   * @param surface Prepared near or far hemisphere family.
+   * @param p Chart center.
+   * @param theta Center argument, radians.
+   * @param radius Center distance from the chart pole, radians.
+   * @param footprint Builds the footprint only for edge-AA queries.
+   * @param radial_first Maps chart radius to its first possible interval.
+   * @param shade Maps a surface hit to linear color.
+   * @param stats Optional coverage census.
+   * @return Point color or area-weighted edge color. */
+  template <class Footprint, class LowerBound, class Shade>
+  HS_O3_FN HS_HOT_INLINE SurfaceColor
+  operator()(const Surface &surface, typename Surface::Point p, float theta,
+             float radius, Footprint &footprint, LowerBound &radial_first,
+             Shade &shade, SurfaceAreaStats *stats) const {
+    uint32_t candidate_bits = UINT32_MAX;
+    int candidate_shift = 0;
+    if constexpr (MASK) {
+      if constexpr (COUNT)
+        if (stats)
+          ++stats->mask_queries;
+      const auto &mask = &surface == &near ? near_mask : far_mask;
+      candidate_bits = mask.interval_bits(radius, theta);
+      candidate_shift = mask.interval_shift();
+      if (!candidate_bits) {
+        typename Surface::Stats work;
+        const auto hit = surface.template sample<COUNT, true, false>(
+            p, theta, radial_first(radius), COUNT ? &work : nullptr);
+        if constexpr (COUNT)
+          if (stats) {
+            ++stats->pixels;
+            stats->intervals += work.intervals;
+            stats->point_intervals += work.intervals;
+            stats->max_intervals =
+                std::max(stats->max_intervals, int(work.intervals));
+            stats->max_point_intervals =
+                std::max(stats->max_point_intervals, int(work.intervals));
+          }
+        return hit.found() ? shade(hit) : SurfaceColor{};
+      }
+      if constexpr (COUNT)
+        if (stats)
+          ++stats->mask_hits;
+    }
+    const auto query = footprint();
+    const int first = radial_first(fmaxf(0, radius - query.extent));
+    return integrator.template sample<COUNT>(
+        surface, p, query.dx, query.dy, theta, first, shade, stats, radius,
+        query.extent, candidate_bits, candidate_shift, radial_first(radius));
+  }
+};
 
 /** @brief Draws two hemisphere charts using the common column-time scan.
  * @tparam W,H Canvas dimensions.

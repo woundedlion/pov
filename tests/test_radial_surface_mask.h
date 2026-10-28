@@ -12,6 +12,7 @@
 #include "core/render/scan/radial_surface.h"
 #include "core/render/scan/radial_surface_candidate_mask.h"
 #include "core/render/scan/radial_surface_edge_aa.h"
+#include "core/render/scan/radial_surface_renderer.h"
 #include "tests/test_harness.h"
 
 namespace hs_test::radial_surface_mask_tests {
@@ -236,6 +237,109 @@ inline void test_radial_surface_mask_degenerate_motion() {
   });
   HS_EXPECT_GT(probes, 0u);
   HS_EXPECT_EQ(misses, 0u);
+}
+
+/** @brief Mask routing defers footprints and preserves point and edge-AA results. */
+inline void test_radial_surface_area() {
+  using Surface = Scan::RadialSurface<4, 7>;
+  using Mask = Scan::RadialSurfaceCandidateMask<64, 16>;
+  ScratchScope scope(scratch_arena_a);
+  const std::array NEAR_KNOTS{Surface::Knot{0, 0, 0}, Surface::Knot{.2f, 0, 0},
+                              Surface::Knot{.5f, .1f, .2f},
+                              Surface::Knot{.6f, .3f, .5f},
+                              Surface::Knot{.8f, .1f, .1f}};
+  const std::array FAR_KNOTS{Surface::Knot{0, 0, 0}, Surface::Knot{.1f, 0, 0},
+                             Surface::Knot{.3f, -.1f, -.3f},
+                             Surface::Knot{.5f, -.2f, -.4f},
+                             Surface::Knot{.6f, 0, 0}};
+  Surface near, far;
+  near.prepare(scratch_arena_a, 7, .382f, NEAR_KNOTS);
+  far.prepare(scratch_arena_a, 7, .382f, FAR_KNOTS);
+  Mask near_mask, far_mask;
+  near_mask.bind(scratch_arena_a);
+  far_mask.bind(scratch_arena_a);
+  near_mask.prepare(near, .02f);
+  far_mask.prepare(far, .02f);
+  Scan::RadialSurfaceArea<Surface, true, true, Mask> area(near, near_mask,
+                                                          far_mask);
+  Scan::RadialSurfaceArea<Surface, false, false, Mask> unmasked(near, near_mask,
+                                                                far_mask);
+  Scan::RadialSurfaceEdgeAA<Surface> aa;
+  auto lower_bound = [](float) { return 0; };
+  auto shade = [](const Surface::Hit &hit) {
+    const float Q = hit.interval + hit.fraction;
+    return Scan::SurfaceColor{Q, Q * 2, Q * 3};
+  };
+  uint32_t points = 0, edges = 0, hemispheres = 0;
+  for (const auto *surface : {&near, &far}) {
+    const auto &mask = surface == &near ? near_mask : far_mask;
+    for (int r = 1; r <= 100; ++r)
+      for (int a = 0; a < 16; ++a) {
+        const float R = r * .01f, THETA = a * math::TWO_PI_F / 112;
+        const Surface::Point P{R * cosf(THETA), R * sinf(THETA)};
+        auto footprint = [&] {
+          return Scan::radial_chart_footprint<Surface::Point>(
+              {sinf(R) * cosf(THETA), cosf(R), sinf(R) * sinf(THETA)},
+              {.01f, 0, 0}, {0, 0, .01f});
+        };
+        const uint32_t BITS = mask.interval_bits(R, THETA);
+        const auto BEFORE = Scan::RadialChartWork::footprints;
+        Scan::SurfaceAreaStats stats;
+        const auto actual =
+            area(*surface, P, THETA, R, footprint, lower_bound, shade, &stats);
+        HS_EXPECT_EQ(Scan::RadialChartWork::footprints, BEFORE + (BITS != 0));
+        HS_EXPECT_EQ(stats.mask_queries, 1u);
+        HS_EXPECT_EQ(stats.mask_hits, uint64_t(BITS != 0));
+        Scan::SurfaceColor expected;
+        if (!BITS) {
+          ++points;
+          Surface::Stats work;
+          const auto hit =
+              surface->sample<true, true, false>(P, THETA, 0, &work);
+          expected = hit.found() ? shade(hit) : Scan::SurfaceColor{};
+          HS_EXPECT_EQ(stats.pixels, 1u);
+          HS_EXPECT_EQ(stats.intervals, work.intervals);
+          HS_EXPECT_EQ(stats.point_intervals, work.intervals);
+          HS_EXPECT_EQ(stats.max_intervals, int(work.intervals));
+          HS_EXPECT_EQ(stats.max_point_intervals, int(work.intervals));
+          HS_EXPECT_EQ(stats.fragments, 0u);
+        } else {
+          ++edges;
+          const auto query = footprint();
+          Scan::SurfaceAreaStats reference;
+          expected = aa.sample<true>(*surface, P, query.dx, query.dy, THETA, 0,
+                                     shade, &reference, R, query.extent, BITS,
+                                     mask.interval_shift(), 0);
+          HS_EXPECT_EQ(stats.intervals, reference.intervals);
+          HS_EXPECT_EQ(stats.point_intervals, reference.point_intervals);
+          HS_EXPECT_EQ(stats.outside_intervals, reference.outside_intervals);
+          HS_EXPECT_EQ(stats.fragments, reference.fragments);
+          HS_EXPECT_EQ(stats.edge_pixels, reference.edge_pixels);
+          HS_EXPECT_EQ(stats.hidden_pixels, reference.hidden_pixels);
+        }
+        HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual.r),
+                     std::bit_cast<uint32_t>(expected.r));
+        HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual.g),
+                     std::bit_cast<uint32_t>(expected.g));
+        HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual.b),
+                     std::bit_cast<uint32_t>(expected.b));
+        const auto UNMASKED_BEFORE = Scan::RadialChartWork::footprints;
+        const auto all = unmasked(*surface, P, THETA, R, footprint, lower_bound,
+                                  shade, nullptr);
+        HS_EXPECT_EQ(Scan::RadialChartWork::footprints, UNMASKED_BEFORE + 1);
+        const auto query = footprint();
+        const auto reference =
+            aa.sample<false>(*surface, P, query.dx, query.dy, THETA, 0, shade,
+                             nullptr, R, query.extent, UINT32_MAX, 0, 0);
+        HS_EXPECT_EQ(std::bit_cast<uint32_t>(all.r),
+                     std::bit_cast<uint32_t>(reference.r));
+      }
+    ++hemispheres;
+    HS_EXPECT_GT(points, 0u);
+    HS_EXPECT_GT(edges, 0u);
+    points = edges = 0;
+  }
+  HS_EXPECT_EQ(hemispheres, 2u);
 }
 
 /** @brief Compares conservative masks at two arena sizes. */

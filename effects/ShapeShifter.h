@@ -678,7 +678,6 @@ private:
               INTERVALS);
     far.bind(scratch_arena_a, int(params.sides), Plot::STAR_INNER_RATIO,
              INTERVALS);
-    Scan::RadialSurfaceEdgeAA<Surface> integrator;
     Scan::RadialSurfaceCandidateMask<> near_mask, far_mask;
     if constexpr (MASK) {
       near_mask.bind(scratch_arena_b);
@@ -774,44 +773,8 @@ private:
     auto lower_bound = [&](float radius) HS_HOT_INLINE {
       return int(first[std::min(256, int(radius * (512 / math::PI_F)))]);
     };
-    auto area = [&](const Surface &surface, auto p, float theta, float radius,
-                    auto &footprint, auto &radial_first, auto &shade,
-                    auto *stats) HS_HOT_INLINE {
-      uint32_t candidate_bits = UINT32_MAX;
-      int candidate_shift = 0;
-      if constexpr (MASK) {
-        if constexpr (COUNT)
-          if (stats)
-            ++stats->mask_queries;
-        const auto &mask = &surface == &near ? near_mask : far_mask;
-        candidate_bits = mask.interval_bits(radius, theta);
-        candidate_shift = mask.interval_shift();
-        if (!candidate_bits) {
-          typename Surface::Stats work;
-          const auto hit = surface.template sample<COUNT, true, false>(
-              p, theta, radial_first(radius), COUNT ? &work : nullptr);
-          if constexpr (COUNT)
-            if (stats) {
-              ++stats->pixels;
-              stats->intervals += work.intervals;
-              stats->point_intervals += work.intervals;
-              stats->max_intervals =
-                  std::max(stats->max_intervals, int(work.intervals));
-              stats->max_point_intervals =
-                  std::max(stats->max_point_intervals, int(work.intervals));
-            }
-          return hit.found() ? shade(hit) : Scan::SurfaceColor{};
-        }
-        if constexpr (COUNT)
-          if (stats)
-            ++stats->mask_hits;
-      }
-      const auto query = footprint();
-      const int first = radial_first(fmaxf(0, radius - query.extent));
-      return integrator.template sample<COUNT>(
-          surface, p, query.dx, query.dy, theta, first, shade, stats, radius,
-          query.extent, candidate_bits, candidate_shift, radial_first(radius));
-    };
+    Scan::RadialSurfaceArea<Surface, COUNT, MASK> area(near, near_mask,
+                                                       far_mask);
     auto shade = [&](const typename Surface::Hit &hit) HS_HOT_INLINE {
       const auto a = colors[hit.interval], b = colors[hit.interval + 1];
       const float t = hit.fraction;

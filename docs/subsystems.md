@@ -695,9 +695,11 @@ from `prepare_column_basis`, or empty for a frozen frame. The caller supplies:
 - **`lower_bound(radius)`**: the first interval that could contain a point at
   that chart radius. It must never skip an interval holding an earlier hit.
 - **`area(surface, p, theta, radius, footprint, lower_bound, shade, stats)`**:
-  the per-pixel integrator. `footprint()` builds the affine footprint on
-  demand. A typical integrator checks the mask, then calls either
-  `surface.sample` or `RadialSurfaceEdgeAA::sample`.
+  the standard `Scan::RadialSurfaceArea<Surface, COUNT, MASK>` integrator
+  checks the hemisphere candidate mask and calls `surface.sample` for zero
+  cells without building a footprint. Marked cells build `footprint()` and
+  call `RadialSurfaceEdgeAA::sample` with the candidate bits. `MASK=false`
+  sends every pixel through edge AA; `COUNT` enables the coverage census.
 - **`shade(hit)`**: maps a first arrival to a linear `SurfaceColor` on the
   16-bit channel scale. The renderer clamps that colour and writes it as a
   pixel.
