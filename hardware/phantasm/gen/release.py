@@ -25,16 +25,8 @@ TABLES = {"fp-lib-table", "sym-lib-table"}
 CANDIDATE = Path(__file__).resolve().parents[1] / "1.2" / "routed"
 
 GENERATOR_STACKUP = sexp.parse("(stackup " + " ".join(pcb.STACKUP) + ")")[0]
-GENERATOR_COPPER_STACKUP = tuple(
-    (str(layer[1]), Decimal(str(sexp.val(layer, "thickness")[0])))
-    for layer in F(GENERATOR_STACKUP, "layer")
-    if sexp.val(layer, "type") == ["copper"]
-)
-GENERATOR_DIELECTRICS = [[str(layer[1]), str(sexp.val(layer, "type")[0]),
-                         str(sexp.val(layer, "thickness")[0]),
-                         str(sexp.val(layer, "material")[0])]
-                        for layer in F(GENERATOR_STACKUP, "layer")
-                        if sexp.val(layer, "type") in (["core"], ["prepreg"])]
+GENERATOR_COPPER_STACKUP = board_metadata.copper_stackup(GENERATOR_STACKUP)
+GENERATOR_DIELECTRICS = board_metadata.dielectric_stackup(GENERATOR_STACKUP)
 GENERATOR_COPPER_FINISH = str(sexp.val(GENERATOR_STACKUP, "copper_finish")[0])
 
 
@@ -91,11 +83,7 @@ def fabrication_options(project, revision):
             raise ValueError("rev 1.2 requires the 1.6 mm four-layer generator copper stackup")
     board = fab.read_board(project / f"{PROJECT}.kicad_pcb")
     stackup = F(F(board, "setup")[0], "stackup")[0]
-    dielectrics = [[str(layer[1]), str(sexp.val(layer, "type")[0]),
-                    str(sexp.val(layer, "thickness")[0]),
-                    str(sexp.val(layer, "material")[0])]
-                   for layer in F(stackup, "layer")
-                   if sexp.val(layer, "type") in (["core"], ["prepreg"])]
+    dielectrics = board_metadata.dielectric_stackup(stackup)
     if revision == "1.2":
         if dielectrics != GENERATOR_DIELECTRICS:
             raise ValueError("rev 1.2 requires the generator FR4 dielectric stackup")

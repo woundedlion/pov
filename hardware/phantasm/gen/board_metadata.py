@@ -164,6 +164,27 @@ def _outline_bounds(root):
     return width, height
 
 
+def copper_stackup(stackup):
+    layers = []
+    for layer in F(stackup, "layer"):
+        if _one_value(layer, "type") == "copper":
+            if len(layer) < 2 or isinstance(layer[1], list):
+                raise MetadataError("stackup copper layer has no name")
+            layers.append((
+                str(layer[1]),
+                _decimal(_one_value(layer, "thickness"), "copper thickness"),
+            ))
+    return tuple(layers)
+
+
+def dielectric_stackup(stackup):
+    return [[str(layer[1]), str(sexp.val(layer, "type")[0]),
+             str((sexp.val(layer, "thickness") or [None])[0]),
+             str((sexp.val(layer, "material") or [None])[0])]
+            for layer in F(stackup, "layer")
+            if sexp.val(layer, "type") in (["core"], ["prepreg"])]
+
+
 def parse_board(text):
     try:
         root = sexp.parse_one(text)
@@ -186,16 +207,8 @@ def parse_board(text):
 
     setup = _one_child(root, "setup")
     stackup = _one_child(setup, "stackup")
-    copper_stackup = []
-    for layer in F(stackup, "layer"):
-        if _one_value(layer, "type") == "copper":
-            if len(layer) < 2 or isinstance(layer[1], list):
-                raise MetadataError("stackup copper layer has no name")
-            copper_stackup.append((
-                str(layer[1]),
-                _decimal(_one_value(layer, "thickness"), "copper thickness"),
-            ))
-    if tuple(name for name, _ in copper_stackup) != copper_layers:
+    copper = copper_stackup(stackup)
+    if tuple(name for name, _ in copper) != copper_layers:
         raise MetadataError("declared copper layers do not match the stackup")
 
     footprint_counts = Counter({"F.Cu": 0, "B.Cu": 0})
@@ -238,7 +251,7 @@ def parse_board(text):
         rule_area_layers=tuple((layer, rule_area_counts[layer])
                                for layer in copper_layers if rule_area_counts[layer]),
         copper_layers=copper_layers,
-        copper_stackup=tuple(copper_stackup),
+        copper_stackup=copper,
         copper_finish=_one_value(stackup, "copper_finish"),
     )
 
