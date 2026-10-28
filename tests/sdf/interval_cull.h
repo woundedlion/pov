@@ -1019,8 +1019,8 @@ inline void test_face_latitude_pad_reduces_fringe_drops() {
  * @param pole_y +1 for the north pole, -1 for the south pole.
  * @return Count of pixels the scan expects painted.
  * @details The apex projects onto a polygon vertex, so the face classifies as
- *   PoleHit::BOUNDARY. The expectation covers the AA fringe, whose azimuth
- *   reach grows as the rows approach the apex.
+ *   PoleHit::BOUNDARY. The expectation checks coverage above twice Scan::MIN_ALPHA,
+ *   including the AA fringe approaching the apex.
  */
 template <int W, int H>
 inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
@@ -1075,10 +1075,8 @@ inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
         HS_EXPECT_TRUE(!lit);
         continue;
       }
-      // Dead band around Scan::MIN_ALPHA: an alpha that rounds the shade to
-      // black is neither required nor forbidden.
       const float alpha = Scan::solid_coverage(d, pixel_width);
-      if (alpha > 0.05f) {
+      if (alpha > 2.0f * Scan::MIN_ALPHA) {
         ++painted;
         HS_EXPECT_TRUE(lit);
       }
