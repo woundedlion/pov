@@ -441,6 +441,14 @@ add_test(NAME unit_header_sections COMMAND ${CMAKE_COMMAND}
     -DINCLUDE_GATE=${CMAKE_CURRENT_SOURCE_DIR}/check_includes.cmake
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_header_sections_selftest.cmake)
 
+add_test(NAME unit_effect_case_parity COMMAND ${CMAKE_COMMAND}
+    -DTESTS_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_effect_case_parity.cmake)
+add_test(NAME unit_effect_case_parity_controls COMMAND ${CMAKE_COMMAND}
+    -DGATE=${CMAKE_CURRENT_SOURCE_DIR}/check_effect_case_parity.cmake
+    -DWORK=${CMAKE_CURRENT_BINARY_DIR}/effect_case_parity_fixture
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_effect_case_parity_selftest.cmake)
+
 # Check reachability and assertion reach for column-0 void/bool/int/size_t
 # cases in tests/*.h and tests/*.hpp, including run_*_cases drivers. Death
 # case_* definitions in test_death.h need reachability but not assertion reach.
