@@ -100,6 +100,21 @@ static int check_ci_levers(bool effects_invocation) {
     ++missing;
   }
   if (effects_invocation) {
+    for (const char *name :
+         {"HS_RING_TEMPORAL_ONLY", "HS_MOBIUSRINGS_ONLY", "HS_DYNAMO_ONLY",
+          "HS_ISLAMICSTARS_ONLY", "HS_MESH_CAPTURE_ONLY"}) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+      const char *value = std::getenv(name);
+#pragma clang diagnostic pop
+      if (value && value[0] != '\0') {
+        std::fprintf(stderr,
+                     "run_tests: CI=on but %s narrows the run because "
+                     "it is set\n",
+                     name);
+        ++missing;
+      }
+    }
     const bool tier_declared = effects_full && effects_full[0] != '\0';
     const bool policy_declared =
         require_effects_full && require_effects_full[0] != '\0';

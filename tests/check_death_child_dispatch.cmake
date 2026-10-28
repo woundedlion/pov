@@ -33,3 +33,11 @@ expect_dispatch(2 "invalid death-child invocation" ARGS death)
 expect_dispatch(2 "unknown module" ENV HS_DEATH_CHILD= ARGS __unknown_module__)
 expect_dispatch(1 "HS_EFFECTS_FULL and HS_REQUIRE_EFFECTS_FULL" ENV HS_DEATH_CHILD=)
 expect_dispatch(1 "HS_EFFECTS_FULL and HS_REQUIRE_EFFECTS_FULL" ENV HS_DEATH_CHILD= ARGS effects)
+
+foreach(lever IN ITEMS HS_RING_TEMPORAL_ONLY HS_MOBIUSRINGS_ONLY HS_DYNAMO_ONLY
+                       HS_ISLAMICSTARS_ONLY HS_MESH_CAPTURE_ONLY)
+  expect_dispatch(0 "" ENV "${lever}=1")
+  expect_dispatch(1 "${lever} narrows the run because it is set"
+    ENV HS_DEATH_CHILD= HS_EFFECTS_FULL=1 HS_REQUIRE_EFFECTS_FULL=1 "${lever}=1"
+    ARGS effects)
+endforeach()
