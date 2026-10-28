@@ -1688,31 +1688,14 @@ private:
 
       // The orbit's own source vertex: the dual face's centroid lies in that
       // vertex's cell, so the nearest seed vertex is it.
-      const math::Vector v = nearest_vertex(tr.seed, c);
+      const math::Vector v = tr.seed.vertices[nearest_point(
+          c, tr.seed.vertices.data(), tr.seed.vertices.size())];
       const uint16_t best_face = nearest_orbit_vertex(arrival, off, n, v);
       HS_CHECK(best_face < handoff.prev_faces,
                "OpLeg: dual face index outside the departed face list");
       from[f] = handoff.prev_face_palette[best_face];
       off += n;
     }
-  }
-
-  /**
-   * @brief The vertex of @p mesh with the largest dot product against unit
-   * direction @p c; the first wins a tie.
-   */
-  __attribute__((always_inline)) static math::Vector
-  nearest_vertex(const PolyMesh &mesh, const math::Vector &c) {
-    math::Vector v = mesh.vertices[0];
-    float best_dot = -2.0f;
-    for (size_t i = 0; i < mesh.vertices.size(); ++i) {
-      const float d = math::dot(mesh.vertices[i], c);
-      if (d > best_dot) {
-        best_dot = d;
-        v = mesh.vertices[i];
-      }
-    }
-    return v;
   }
 
   /**
