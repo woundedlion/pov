@@ -286,6 +286,7 @@ inline int run_effects_tests() {
   run_effect_case_mobius_rings_conformal_and_counter_rotation();
   run_effect_case_mobius_rings_white_box_check_column_time_oracle();
   run_effect_case_islamicstars_cases();
+  run_effect_case_ash_cloud_value_cutout_gates_the_frame();
 
   // FULL tier only (HS_EFFECTS_FULL=1).
   if (effects_full_suite()) {
@@ -306,7 +307,6 @@ inline int run_effects_tests() {
     run_effect_case_meshfeedback_flush_precedes_mesh_draw();
     run_effect_case_meshfeedback_preset_rotation_syncs_noise();
     run_effect_case_comets_manual_preset_restarts_path();
-    run_effect_case_ash_cloud_value_cutout_gates_the_frame();
     run_effect_case_dynamo_trail_ceiling_bounds_the_ring();
     run_effect_case_raymarch_unit_bounds_contains_twisted_tube();
     run_effect_case_petalflow_spawn_gap_bounded();
