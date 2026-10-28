@@ -705,6 +705,13 @@ from `prepare_column_basis`, or empty for a frozen frame. The caller supplies:
 Surfaces and masks allocate from caller arenas. `RadialSurface::storage_bytes`
 gives the bound for a family, and the kernel is emitted in flash.
 
+The Phantasm linker groups the radial query, edge AA, candidate-mask preparation
+and ShapeShifter surface column walk into a contiguous flash block before the
+generic hot sections. Its start has a fixed offset within a 16 KiB cache way.
+Name patterns select the input sections; a linker assertion
+bounds the block to the 32 KiB instruction cache. Other effects' hot code follows
+this block.
+
 **ShapeShifter P1.** ShapeShifter routes its authored dense planar-star preset
 through this kernel and keeps every other preset on its contour paths. The
 route applies only at P1's exact parameters: 288 contours of a 7-tip sine

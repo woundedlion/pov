@@ -58,6 +58,29 @@ SECTIONS
 		/* Effect spawn-time setup: init()/setup_presets(). */
 		*(.text._ZN*4initEv)
 		*(.text._ZN*13setup_presetsEv)
+		/* Radial-surface pixels and hemisphere preparation share one cache window. */
+		. = ABSOLUTE(ALIGN(ABSOLUTE(.) - 0x2800, 16384) + 0x2800);
+		hs_radial_surface_hot_start = .;
+		ASSERT((ABSOLUTE(hs_radial_surface_hot_start) & 0x3fff) == 0x2800,
+		       "radial surface hot code has an invalid cache-way phase");
+		*(.text.hot._ZNK4Scan13RadialSurface*6sample*)
+		*(.text.hot._ZN4Scan19RadialSurfaceEdgeAA*11hidden_only*)
+		*(.text.hot._ZN4Scan19RadialSurfaceEdgeAA*8Detector*)
+		*(.text.hot._ZNK4Scan19RadialSurfaceEdgeAA*6sample*)
+		*(.text.hot._ZN4Scan6Shader17draw_column_times*12ShapeShifter*16draw_surface_all*)
+		. = ALIGN(256);
+		*(.text.hot._ZN4Scan19draw_radial_surface*12ShapeShifter*16draw_surface_all*)
+		*(.text.hot._ZN12ShapeShifter*16draw_surface_all*)
+		*(.text.hot._ZZN12ShapeShifter*16draw_surface_all*)
+		*(.text.unlikely._ZN4Scan13RadialSurface*9set_knots*)
+		*(SORT_BY_NAME(.text.hot._ZN*4Scan13RadialSurface*))
+		*(SORT_BY_NAME(.text.hot._ZN*4Scan19RadialSurfaceEdgeAA*))
+		*(SORT_BY_NAME(.text.hot._ZN*4Scan26RadialSurfaceCandidateMask*))
+		*(SORT_BY_NAME(.text.hot._ZZN4Scan26RadialSurfaceCandidateMask*))
+		*(SORT_BY_NAME(.text.hot._ZN4Scan31RadialSurfaceBoundaryCandidates*))
+		hs_radial_surface_hot_end = .;
+		ASSERT(hs_radial_surface_hot_end - hs_radial_surface_hot_start <= 32768,
+		       "radial surface hot code exceeds the 32 KiB instruction cache");
 		/* HS_COLD_MEMBER (attribute cold) sections. */
 		*(.text.unlikely*)
 		/* Selectively optimized hot leaves intentionally executed from cache. */

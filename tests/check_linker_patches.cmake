@@ -85,6 +85,48 @@ else()
     endif()
   endforeach()
 
+  set(_radial_routes
+    "*(.text.hot._ZNK4Scan13RadialSurface*6sample*)"
+    "*(.text.hot._ZN4Scan19RadialSurfaceEdgeAA*11hidden_only*)"
+    "*(.text.hot._ZN4Scan19RadialSurfaceEdgeAA*8Detector*)"
+    "*(.text.hot._ZNK4Scan19RadialSurfaceEdgeAA*6sample*)"
+    "*(.text.hot._ZN4Scan6Shader17draw_column_times*12ShapeShifter*16draw_surface_all*)"
+    "*(.text.hot._ZN4Scan19draw_radial_surface*12ShapeShifter*16draw_surface_all*)"
+    "*(.text.hot._ZN12ShapeShifter*16draw_surface_all*)"
+    "*(.text.hot._ZZN12ShapeShifter*16draw_surface_all*)"
+    "*(.text.unlikely._ZN4Scan13RadialSurface*9set_knots*)"
+    "*(SORT_BY_NAME(.text.hot._ZN*4Scan13RadialSurface*))"
+    "*(SORT_BY_NAME(.text.hot._ZN*4Scan19RadialSurfaceEdgeAA*))"
+    "*(SORT_BY_NAME(.text.hot._ZN*4Scan26RadialSurfaceCandidateMask*))"
+    "*(SORT_BY_NAME(.text.hot._ZZN4Scan26RadialSurfaceCandidateMask*))"
+    "*(SORT_BY_NAME(.text.hot._ZN4Scan31RadialSurfaceBoundaryCandidates*))")
+  string(FIND "${_script}" ". = ABSOLUTE(ALIGN(ABSOLUTE(.) - 0x2800, 16384) + 0x2800);" _radial_phase)
+  if(_radial_phase LESS _code_at)
+    list(APPEND _missing "radial surface cache window has no fixed cache-way phase")
+  endif()
+  string(FIND "${_script}" "hs_radial_surface_hot_start = .;" _radial_start)
+  string(FIND "${_script}" "hs_radial_surface_hot_end = .;" _radial_end)
+  string(FIND "${_script}" "*(.text.hot._ZN4Scan6Shader17draw_column_times*12ShapeShifter*16draw_surface_all*)" _radial_walk)
+  string(FIND "${_script}" ". = ALIGN(256);" _radial_walk_end)
+  if(NOT _radial_walk LESS _radial_walk_end OR NOT _radial_walk_end LESS _radial_end)
+    list(APPEND _missing "radial surface column walk has no aligned end")
+  endif()
+  string(FIND "${_script}" "*(.text.unlikely*)" _cold_at)
+  string(FIND "${_script}" "*(.text.hot*)" _hot_at)
+  if(_radial_start LESS _code_at OR NOT _radial_start LESS _radial_end
+      OR NOT _radial_end LESS _cold_at OR NOT _radial_end LESS _hot_at)
+    list(APPEND _missing "radial surface cache window must precede generic cold and hot routes")
+  endif()
+  foreach(_spec IN LISTS _radial_routes)
+    string(FIND "${_script}" "${_spec}" _spec_at)
+    if(NOT _spec_at GREATER _radial_start OR NOT _spec_at LESS _radial_end)
+      list(APPEND _missing "${_spec} is outside the radial surface cache window")
+    endif()
+  endforeach()
+  if(NOT _script MATCHES "ASSERT\\(hs_radial_surface_hot_end - hs_radial_surface_hot_start <= 32768,")
+    list(APPEND _missing "radial surface cache window has no 32 KiB bound")
+  endif()
+
   # Const rodata leaves DTCM.
   set(_rodata "*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.rodata*)))")
   string(FIND "${_script}" "${_rodata}" _rodata_at)
