@@ -423,7 +423,7 @@ public:
     const PolyMesh *arrival_topology =
         nullptr; /**< Fixed connectivity of a packed arrival endpoint. */
     const math::Snorm3 *arrival_point =
-        nullptr; /**< Packed arrival vertices for a later bridge handoff. */
+        nullptr;               /**< Packed arrival endpoint vertices. */
     size_t arrival_points = 0; /**< Length of arrival_point. */
     const CompiledHankin *hankin =
         nullptr; /**< Baked arrival topology (HANKIN_SWEEP legs only, null
