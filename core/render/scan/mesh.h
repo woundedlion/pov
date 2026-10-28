@@ -2182,10 +2182,7 @@ private:
           (previous->ex * previous->ex + previous->ey * previous->ey) *
           (e.ex * e.ex + e.ey * e.ey);
       previous = &e;
-      if (turn * turn > SDF::TURN_EPS_SQ * scale) {
-        pos |= turn > 0.0f;
-        neg |= turn < 0.0f;
-      }
+      SDF::scan_polygon_turn(turn, scale, pos, neg);
       if (e.ey != 0.0f) {
         flips += dir * e.ey < 0.0f;
         dir = e.ey;

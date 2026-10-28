@@ -90,6 +90,23 @@ inline constexpr float COLLAPSED_AREA_RATIO = 1e-5f;
  *  when |sin| between successive edge directions exceeds 1e-6. */
 inline constexpr float TURN_EPS_SQ = 1e-12f;
 
+/**
+ * @brief Records a significant signed turn between polygon edges.
+ * @param turn Signed cross product of successive edges.
+ * @param scale Product of their squared lengths.
+ * @param pos Whether a positive turn has been observed.
+ * @param neg Whether a negative turn has been observed.
+ */
+__attribute__((always_inline)) inline void
+scan_polygon_turn(float turn, float scale, bool &pos, bool &neg) {
+  if (turn * turn > TURN_EPS_SQ * scale) {
+    if (turn > 0)
+      pos = true;
+    else
+      neg = true;
+  }
+}
+
 /** AA fringe pad in radians applied to a face's azimuth intervals: one pixel
  *  of falloff reach (in the plane units distance() reports, slightly wider
  *  than angular) plus the fast_atan2 slop in the vertex thetas the intervals

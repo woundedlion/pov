@@ -222,12 +222,7 @@ build_half_planes(FaceScratchBuffer &scratch, float area2) {
     float scale = l1 * edge_lengths_sq[i];
     e1 = &e2;
     l1 = edge_lengths_sq[i];
-    if (cr * cr > TURN_EPS_SQ * scale) {
-      if (cr > 0)
-        pos = true;
-      else
-        neg = true;
-    }
+    scan_polygon_turn(cr, scale, pos, neg);
     if (e2.y != 0.0f) {
       flips += dir * e2.y < 0.0f;
       dir = e2.y;

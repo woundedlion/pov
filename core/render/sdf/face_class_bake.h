@@ -56,12 +56,7 @@ inline bool polygon_is_concave(const float *xy, int count) {
     float e2x = xy[2 * i2] - xy[2 * i1], e2y = xy[2 * i2 + 1] - xy[2 * i1 + 1];
     float cr = e1x * e2y - e1y * e2x;
     float scale = (e1x * e1x + e1y * e1y) * (e2x * e2x + e2y * e2y);
-    if (cr * cr > SDF::TURN_EPS_SQ * scale) {
-      if (cr > 0)
-        pos = true;
-      else
-        neg = true;
-    }
+    SDF::scan_polygon_turn(cr, scale, pos, neg);
   }
   return pos && neg;
 }
