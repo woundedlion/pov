@@ -58,15 +58,16 @@ HS_HOT_INLINE inline bool swept_heights(const math::Vector *points, int count,
 }
 
 /**
- * @brief Whether a frame's swept primitive stays on the far side of a plane
- *        through the centre.
+ * @brief Whether a frame's swept primitive stays on the side a plane's normal
+ *        points to, for a plane through the centre.
  * @param points Unit captures of the primitive's vertices at the frame's
  *        start and end.
  * @param count Number of captures.
  * @param pad As swept_heights().
  * @param normal Plane normal.
- * @return True when every capture lies beyond `pad / |normal|` on the side
- *         @p normal points to, so every swept direction lies on that side.
+ * @return True when every capture lies more than @p pad from the plane on the
+ *         side @p normal points to (@p normal need not be unit), so every swept
+ *         direction lies on that side.
  * @details The half-space is convex and holds the origin on its boundary, so
  * it holds the captures' normalized convex hull with them.
  */
