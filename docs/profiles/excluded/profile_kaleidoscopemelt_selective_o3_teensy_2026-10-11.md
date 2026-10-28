@@ -1,6 +1,6 @@
 # KaleidoscopeMelt on-device profile — Teensy 4.0, segmented mode (2026-10-11, **selective -O3**)
 
-Point-in-time snapshot (regenerate with `just profile KaleidoscopeMelt`).
+Point-in-time snapshot (regenerate with the Reproduce command below).
 Raw capture: `build/prof/kaleidoscopemelt_ship.log`, captured on COM3 at
 2026-10-11 11:38 America/Los_Angeles. First report for this effect.
 
@@ -158,6 +158,6 @@ this capture supplies the device numbers without inferring host performance.
 ## Harness
 
 `targets/Profile/Profile.ino` + `HS_PROFILE_TARGET=KaleidoscopeMelt`,
-`HS_PROFILE_WINDOW=32`; `just profile KaleidoscopeMelt` builds, flashes and
+`HS_PROFILE_WINDOW=32`; `just profile KaleidoscopeMelt 70` builds, flashes and
 captures through the shared-device lock. Set `HS_PROFILE_TREE` explicitly when
 profiling a worktree. The report's 70-second capture stays within one epoch.

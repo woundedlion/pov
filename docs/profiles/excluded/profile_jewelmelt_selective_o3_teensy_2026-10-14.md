@@ -1,6 +1,6 @@
 # JewelMelt on-device profile — Teensy 4.0, segmented mode (2026-10-14, **selective -O3**)
 
-Point-in-time snapshot (regenerate with `just profile JewelMelt`).
+Point-in-time snapshot (regenerate with the Reproduce command below).
 Raw capture: `build/prof/jewelmelt_ship.log`, captured 2026-10-14 20:16 PDT on COM4.
 Replaces `profile_jewelmelt_teensy_2026-10-08.md`.
 
@@ -104,4 +104,4 @@ README cells: peak 🟢 46.35, spilled 🟢 0/1087 (0.00%).
 
 ## Harness
 
-`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=JewelMelt`, `HS_PROFILE_WINDOW=32`; `just profile JewelMelt` builds, flashes and captures under the shared device lock.
+`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=JewelMelt`, `HS_PROFILE_WINDOW=32`; `just profile JewelMelt 70` builds, flashes and captures under the shared device lock.

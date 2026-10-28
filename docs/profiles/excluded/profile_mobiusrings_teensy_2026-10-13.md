@@ -1,6 +1,6 @@
 # MobiusRings on-device profile — Teensy 4.0, segmented mode (2026-10-13, **selective -O3**)
 
-Point-in-time snapshot (regenerate with `just profile MobiusRings`).
+Point-in-time snapshot (regenerate with the Reproduce command below).
 Raw captures and ELF/source provenance: `C:/work/temp/review1013-ab-*.log`.
 This is the first archived MobiusRings segmented profile. MobiusRings remains
 excluded from the Phantasm playlist as a low-resolution-only effect.
