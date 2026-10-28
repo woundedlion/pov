@@ -574,6 +574,22 @@ private:
   }
 
   /**
+   * @brief Remaining fraction ahead of the dissolve frontier.
+   * @param i Node id.
+   * @param phase Dissolve progress in [0, 1].
+   * @return Fraction of the node's departure from rest to retain.
+   */
+  __attribute__((always_inline)) float dissolve_keep(int i, float phase) const {
+    const float h =
+        math::hash01(static_cast<uint32_t>(i), transition.dissolve_seed);
+    if (h < phase)
+      return 0.0f;
+    if (h < phase + DISSOLVE_FADE_FRACTION)
+      return (h - phase) * (1.0f / DISSOLVE_FADE_FRACTION);
+    return 1.0f;
+  }
+
+  /**
    * @brief Fades nodes approaching the dissolve frontier, then holds them at
    * rest.
    * @param phase Dissolve progress in [0, 1]; the cleared fraction.
@@ -581,15 +597,11 @@ private:
    * DISSOLVE_FADE_FRACTION of the window. The swept set is re-cleared every
    * frame because B is autocatalytic and otherwise refills from its neighbors.
    */
+
   void convert_below(float phase) {
     for (int i = 0; i < RD_N; i++) {
-      float h =
-          math::hash01(static_cast<uint32_t>(i), transition.dissolve_seed);
-      if (h < phase) {
-        state.A[i] = 65535;
-        state.B[i] = 0;
-      } else if (h < phase + DISSOLVE_FADE_FRACTION) {
-        float keep = (h - phase) * (1.0f / DISSOLVE_FADE_FRACTION);
+      const float keep = dissolve_keep(i, phase);
+      if (keep < 1.0f) {
         state.A[i] = static_cast<uint16_t>(
             65535.0f - (65535.0f - state.A[i]) * keep + 0.5f);
         state.B[i] =
@@ -607,15 +619,10 @@ private:
    */
   __attribute__((always_inline)) uint16_t dissolved_b(int i, float phase,
                                                       uint16_t b) const {
-    const float h =
-        math::hash01(static_cast<uint32_t>(i), transition.dissolve_seed);
-    if (h < phase)
-      return 0;
-    if (h < phase + DISSOLVE_FADE_FRACTION) {
-      const float keep = (h - phase) * (1.0f / DISSOLVE_FADE_FRACTION);
-      return static_cast<uint16_t>(static_cast<float>(b) * keep + 0.5f);
-    }
-    return b;
+    const float keep = dissolve_keep(i, phase);
+    return keep < 1.0f
+               ? static_cast<uint16_t>(static_cast<float>(b) * keep + 0.5f)
+               : b;
   }
 
   /**
