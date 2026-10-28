@@ -172,8 +172,8 @@ inline void test_mesh_palette_bank_shuffle_is_permutation() {
 /**
  * @brief Pins upper-byte color samples across the procedural roster.
  * @details Captured by printing this loop's hashes under the native clang
- * toolchain (cmake/toolchain-native-clang.cmake). Re-derive the roster and
- * per-palette hashes the same way after an intentional palette retune.
+ * toolchain (cmake/toolchain-native-clang.cmake). Re-derive the per-palette
+ * hashes the same way after an intentional palette retune.
  */
 inline void test_named_procedural_palette_roster() {
   const Palette *palettes[] = {
