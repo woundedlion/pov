@@ -201,11 +201,15 @@ so this is a bounded local area approximation rather than a full partition of
 the pixel. The complete interval continuation has a fixed worst-case bound.
 `RadialSurfaceCandidateMask` stores conservative source-interval bits in a
 64 by 32 squared-radius/periodic-angle grid. A zero cell takes the point-only
-route; set bits restrict the AA observer to relevant intervals. The mask
+route before constructing pixel-footprint derivatives. Both routes use the
+same unobserved center scan; set bits restrict a separate candidate walk to
+relevant intervals. Each marked radial row clips the candidate's parameter
+range before bounding its angles. The mask
 includes hidden candidates and new candidates that can appear during its
 reuse window. Callers provide bounds on complex multiplier displacement and,
 when radii are fixed, adjacent phase-difference motion. Those bounds expand
-both the spatial coverage and the candidate derivative tests. ShapeShifter
+both the spatial coverage and the candidate derivative tests, using local
+knot radii for fixed-radius motion bounds. ShapeShifter
 reuses each hemisphere mask for at most eight column steps, while rebuilding
 the actual surface knots at every column time. Arm cuts cannot extend a
 mask's time window. No neighboring-pixel jump heuristic is used.

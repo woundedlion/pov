@@ -79,20 +79,25 @@ public:
     const float RADIUS = sqrtf(radius2);
     padding = footprint_radius + complex_motion +
               64 * FLT_EPSILON * (1 + RADIUS + complex_motion);
-    float derivative_motion = 0;
+    float derivative_motion = 0, relative_derivative_motion = 0;
     for (int edge = 0; edge < 2; ++edge) {
       const auto &m = surface.edge_metrics(edge);
       const float K = fmaxf(fabsf(m.dot), fabsf(m.dot + m.squared_length));
-      const float ERROR =
-          adjacent_phase_motion >= 0
-              ? radius2 * adjacent_phase_motion * (K + m.determinant)
-              : (2 * RADIUS * complex_motion +
-                 complex_motion * complex_motion) *
-                    (K + 2 * m.determinant);
-      derivative_motion = fmaxf(derivative_motion, ERROR);
+      const float ERROR = adjacent_phase_motion >= 0
+                              ? adjacent_phase_motion * (K + m.determinant)
+                              : (2 * RADIUS * complex_motion +
+                                 complex_motion * complex_motion) *
+                                    (K + 2 * m.determinant);
+      if (adjacent_phase_motion >= 0)
+        relative_derivative_motion = fmaxf(relative_derivative_motion, ERROR);
+      else
+        derivative_motion = fmaxf(derivative_motion, ERROR);
     }
     if (derivative_motion > 0)
       derivative_motion += 64 * FLT_EPSILON * (1 + derivative_motion);
+    if (relative_derivative_motion > 0)
+      relative_derivative_motion +=
+          64 * FLT_EPSILON * (1 + relative_derivative_motion);
     extent2 = (RADIUS + padding) * (RADIUS + padding);
     radial_scale = RADIAL_BINS / extent2;
     angular_scale = ANGULAR_BINS * (surface.edge_count() / 2) / math::TWO_PI_F;
@@ -129,7 +134,7 @@ public:
             }
           }
         },
-        derivative_motion);
+        derivative_motion, relative_derivative_motion);
     return stats;
   }
 
@@ -172,10 +177,6 @@ private:
     return REMAINDER < 0 ? REMAINDER + ANGULAR_BINS : REMAINDER;
   }
   static HS_HOT_INLINE float square(Point p) { return p.x * p.x + p.y * p.y; }
-  static HS_HOT_INLINE float coordinate_lower(float a, float b) {
-    return (a <= 0 && b >= 0) || (b <= 0 && a >= 0) ? 0
-                                                    : fminf(fabsf(a), fabsf(b));
-  }
   template <bool COUNT>
   HS_HOT_INLINE void mark(Point a, Point b, Stats &stats, bool angles_known,
                           float start_angle, float finish_angle) {
@@ -188,41 +189,64 @@ private:
                     : 0;
     const Point NEAREST{a.x + T * D.x, a.y + T * D.y};
     const float MIN2 = square(NEAREST), MAX2 = fmaxf(square(a), square(b));
-    const float UPPER = fmaxf(fabsf(a.x) + fabsf(a.y), fabsf(b.x) + fabsf(b.y));
+    const float UPPER = sqrtf(MAX2);
     const float PAD2 = 2 * UPPER * padding + padding * padding;
     const int FIRST_ROW =
         std::clamp(floor_int((MIN2 - PAD2) * radial_scale), 0, RADIAL_BINS - 1);
     const int LAST_ROW =
         std::clamp(floor_int((MAX2 + PAD2) * radial_scale), 0, RADIAL_BINS - 1);
     constexpr Bits ALL = ~Bits(0) >> (sizeof(Bits) * 8 - ANGULAR_BINS);
-    Bits bits = ALL;
-    const float LOWER =
-        fmaxf(coordinate_lower(a.x, b.x), coordinate_lower(a.y, b.y));
-    if (LOWER > padding) {
-      float first = start_angle, last = finish_angle;
-      if (!angles_known) {
-        first = radial_atan2(a.y, a.x);
-        float delta = radial_atan2(b.y, b.x) - first;
-        if (delta > math::PI_F)
-          delta -= math::TWO_PI_F;
-        if (delta < -math::PI_F)
-          delta += math::TWO_PI_F;
-        last = first + delta;
-      }
-      const float PAD = padding / (LOWER - padding) + 8 * FLT_EPSILON;
-      const int FIRST = floor_int((fminf(first, last) - PAD) * angular_scale);
-      const int LAST = floor_int((fmaxf(first, last) + PAD) * angular_scale);
-      const int BIT_COUNT = LAST - FIRST + 1;
-      if (BIT_COUNT < ANGULAR_BINS) {
-        const int SHIFT = wrap(FIRST);
-        const Bits RANGE = (Bits(1) << BIT_COUNT) - 1;
-        bits =
-            SHIFT == 0
-                ? RANGE
-                : ((RANGE << SHIFT) | (RANGE >> (ANGULAR_BINS - SHIFT))) & ALL;
-      }
+    float first = start_angle, last = finish_angle;
+    const float PADDING2 = padding * padding;
+    const bool BOUNDED =
+        MIN2 > PADDING2 + 32 * FLT_EPSILON * fmaxf(MIN2, PADDING2);
+    if (BOUNDED && !angles_known) {
+      first = radial_atan2(a.y, a.x);
+      float delta = radial_atan2(b.y, b.x) - first;
+      if (delta > math::PI_F)
+        delta -= math::TWO_PI_F;
+      if (delta < -math::PI_F)
+        delta += math::TWO_PI_F;
+      last = first + delta;
     }
+    const float PAD =
+        BOUNDED ? padding / sqrtf(MIN2 - padding * padding) + 8 * FLT_EPSILON
+                : 0;
+    const float RADIAL_DELTA = square(b) - square(a);
+    const float ANGULAR_RATE =
+        MAX2 > 0 ? fabsf(a.x * D.y - a.y * D.x) / MAX2 : 0;
     for (int row = FIRST_ROW; row <= LAST_ROW; ++row) {
+      Bits bits = ALL;
+      if (BOUNDED) {
+        float low = 0, high = 1;
+        const float LOWER_NORM = row / radial_scale - PAD2 - square(a);
+        const float UPPER_NORM =
+            (row + 1) / radial_scale + PAD2 + .25f * LENGTH2 - square(a);
+        if (RADIAL_DELTA > 0) {
+          low = fmaxf(low, LOWER_NORM / RADIAL_DELTA);
+          high = fminf(high, UPPER_NORM / RADIAL_DELTA);
+        } else if (RADIAL_DELTA < 0) {
+          low = fmaxf(low, UPPER_NORM / RADIAL_DELTA);
+          high = fminf(high, LOWER_NORM / RADIAL_DELTA);
+        }
+        if (low > high)
+          continue;
+        const float BEGIN = first <= last ? first + ANGULAR_RATE * low
+                                          : last + ANGULAR_RATE * (1 - high);
+        const float END = first <= last ? last - ANGULAR_RATE * (1 - high)
+                                        : first - ANGULAR_RATE * low;
+        const int FIRST = floor_int((BEGIN - PAD) * angular_scale);
+        const int LAST = floor_int((END + PAD) * angular_scale);
+        const int BIT_COUNT = LAST - FIRST + 1;
+        if (BIT_COUNT < ANGULAR_BINS) {
+          const int SHIFT = wrap(FIRST);
+          const Bits RANGE = (Bits(1) << BIT_COUNT) - 1;
+          bits = SHIFT == 0
+                     ? RANGE
+                     : ((RANGE << SHIFT) | (RANGE >> (ANGULAR_BINS - SHIFT))) &
+                           ALL;
+        }
+      }
       Bits pending = bits;
       while (pending) {
         const int ANGLE = sizeof(Bits) <= 4

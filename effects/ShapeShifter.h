@@ -775,9 +775,9 @@ private:
     auto lower_bound = [&](float radius) HS_HOT_INLINE {
       return int(first[std::min(256, int(radius * (512 / math::PI_F)))]);
     };
-    auto area = [&](const Surface &surface, auto p, auto dx, auto dy,
-                    float theta, int first, auto &shade, auto *stats,
-                    float radius, float extent) HS_HOT_INLINE {
+    auto area = [&](const Surface &surface, auto p, float theta, float radius,
+                    auto &footprint, auto &radial_first, auto &shade,
+                    auto *stats) HS_HOT_INLINE {
       uint32_t candidate_bits = UINT32_MAX;
       int candidate_shift = 0;
       if constexpr (MASK) {
@@ -790,7 +790,7 @@ private:
         if (!candidate_bits) {
           typename Surface::Stats work;
           const auto hit = surface.template sample<COUNT, true, false>(
-              p, theta, lower_bound(radius), COUNT ? &work : nullptr);
+              p, theta, radial_first(radius), COUNT ? &work : nullptr);
           if constexpr (COUNT)
             if (stats) {
               ++stats->pixels;
@@ -807,9 +807,11 @@ private:
           if (stats)
             ++stats->mask_hits;
       }
-      return integrator.template sample<COUNT>(surface, p, dx, dy, theta, first,
-                                               shade, stats, radius, extent,
-                                               candidate_bits, candidate_shift);
+      const auto query = footprint();
+      const int first = radial_first(fmaxf(0, radius - query.extent));
+      return integrator.template sample<COUNT>(
+          surface, p, query.dx, query.dy, theta, first, shade, stats, radius,
+          query.extent, candidate_bits, candidate_shift, radial_first(radius));
     };
     auto shade = [&](const typename Surface::Hit &hit) HS_HOT_INLINE {
       const auto a = colors[hit.interval], b = colors[hit.interval + 1];
@@ -1419,7 +1421,7 @@ private:
   static_assert(2 * Surface::storage_bytes(7, SURFACE_MAX_INTERVALS) +
                     W * sizeof(math::Vector) + 32 <=
                 SURFACE_SCRATCH_A_BYTES);
-  static_assert(2 * 64 * 32 * sizeof(uint32_t) +
+  static_assert(2 * Scan::RadialSurfaceCandidateMask<>::STORAGE_BYTES +
                     (SURFACE_MAX_INTERVALS + 1) *
                         (sizeof(typename Surface::Knot) + 3 * sizeof(float) +
                          sizeof(Scan::SurfaceColor)) +

@@ -43,19 +43,22 @@ public:
    * @param surface Similarity knots and unit-star geometry.
    * @param visit Consumer for each unsplit candidate segment.
    * @param derivative_motion Uniform bound on containment derivative changes.
+   * @param relative_derivative_motion Additional bound per local squared radius.
    * @details At most 3*N+2 candidates are emitted for N radial intervals.
    * Rotate segments by integer star periods to cover the full chart. */
   template <class Surface, class Visitor>
   static HS_HOT_FLASH_MEMBER void
   visit_candidates_detailed(const Surface &surface, Visitor &&visit,
-                            float derivative_motion = 0) {
+                            float derivative_motion = 0,
+                            float relative_derivative_motion = 0) {
     const int COUNT = surface.interval_count();
     const float PERIOD = math::TWO_PI_F / (surface.edge_count() / 2);
     for (int i = 0; i < COUNT; ++i) {
       const auto &a = surface.knot(i), &b = surface.knot(i + 1);
       const Point C{a.real, a.imag}, D{b.real - a.real, b.imag - a.imag};
       const float LENGTH2 = D.x * D.x + D.y * D.y;
-      if (LENGTH2 == 0.0f && derivative_motion == 0.0f)
+      if (LENGTH2 == 0.0f && derivative_motion == 0.0f &&
+          relative_derivative_motion == 0.0f)
         continue;
       const auto first = surface.edge(0);
       const float H = first.y;
@@ -67,10 +70,12 @@ public:
       const float SLOPE = -H * LENGTH2;
       const Point L{SPIN * before.x - H * RADIAL, SLOPE};
       const Point R{SPIN * after.x - H * RADIAL, SLOPE};
+      const float LOCAL_RADIUS2 = fmaxf(a.real * a.real + a.imag * a.imag,
+                                        b.real * b.real + b.imag * b.imag);
       const float TOLERANCE =
           64.0f * FLT_EPSILON *
               (fabsf(L.x) + fabsf(L.y) + fabsf(R.x) + fabsf(R.y) + 1e-8f) +
-          derivative_motion;
+          derivative_motion + relative_derivative_motion * LOCAL_RADIUS2;
       float low = 0.0f, high = 1.0f;
       if (!clip_parameter(L.x - TOLERANCE, L.y, low, high) ||
           !clip_parameter(-R.x - TOLERANCE, -R.y, low, high))
@@ -98,9 +103,12 @@ public:
           const float VALUE =
               SPIN * (A.x * E.x + A.y * E.y) - H * (C.x * D.x + C.y * D.y);
           const float SLOPE = SPIN * (E.x * E.x + E.y * E.y);
+          const float LOCAL_RADIUS2 =
+              fmaxf(k.real * k.real + k.imag * k.imag,
+                    prior.real * prior.real + prior.imag * prior.imag);
           const float TOLERANCE =
               64 * FLT_EPSILON * (fabsf(VALUE) + fabsf(SLOPE) + 1e-8f) +
-              derivative_motion;
+              derivative_motion + relative_derivative_motion * LOCAL_RADIUS2;
           if (!clip_parameter(VALUE - TOLERANCE, SLOPE, low, high))
             continue;
         }
@@ -138,10 +146,14 @@ public:
                       LEFT_SPIN * SHAPE.y};
         const Point R{RIGHT_SPIN * SHAPE.x - H * RIGHT_RADIAL,
                       RIGHT_SPIN * SHAPE.y};
+        const float LOCAL_RADIUS2 = fmaxf(
+            C.x * C.x + C.y * C.y,
+            fmaxf(previous.real * previous.real + previous.imag * previous.imag,
+                  next.real * next.real + next.imag * next.imag));
         const float TOLERANCE =
             64.0f * FLT_EPSILON *
                 (fabsf(L.x) + fabsf(L.y) + fabsf(R.x) + fabsf(R.y) + 1e-8f) +
-            derivative_motion;
+            derivative_motion + relative_derivative_motion * LOCAL_RADIUS2;
         float low = 0.0f, high = 1.0f;
         if (!clip_parameter(L.x - TOLERANCE, L.y, low, high) ||
             !clip_parameter(-R.x - TOLERANCE, -R.y, low, high))

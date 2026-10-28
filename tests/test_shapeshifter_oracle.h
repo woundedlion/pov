@@ -425,8 +425,10 @@ struct ShapeShifterWhiteBox {
                                 A.g + (B.g - A.g) * hit.fraction,
                                 A.b + (B.b - A.b) * hit.fraction};
     };
-    auto area = [&](const Surface &surface, auto p, auto dx, auto dy, float,
-                    int, auto &, auto *, float, float) {
+    auto area = [&](const Surface &surface, auto p, float, float,
+                    auto &footprint, auto &, auto &, auto *) {
+      const auto query = footprint();
+      const auto dx = query.dx, dy = query.dy;
       Scan::SurfaceColor color;
       for (int y = 0; y < SAMPLES; ++y)
         for (int x = 0; x < SAMPLES; ++x) {

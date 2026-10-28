@@ -49,44 +49,47 @@ public:
    * @param candidate_bits Conservative candidate groups, or all bits to disable.
    * @param candidate_shift Shift mapping source intervals, including the terminal
    * endpoint, to bit indices below 32. Ignored when candidate_bits is all bits.
+   * @param point_first Optional center-only first radial interval.
    * @return Pixel color with straight-line area coverage. */
   template <bool COUNT = true, class Shade>
-  HS_HOT_INLINE SurfaceColor
+  HS_HOT_FLASH_MEMBER SurfaceColor
   sample(const Surface &surface, Point p, Point dx, Point dy, float theta,
          int first, Shade &&shade, SurfaceAreaStats *stats = nullptr,
          float prepared_radius = -1, float prepared_extent = -1,
-         uint32_t candidate_bits = UINT32_MAX, int candidate_shift = 0) const {
-    Detector detector(surface, p, dx, dy, theta, prepared_radius,
-                      prepared_extent, candidate_bits, candidate_shift);
+         uint32_t candidate_bits = UINT32_MAX, int candidate_shift = 0,
+         int point_first = -1) const {
     typename Surface::Stats work;
     const auto hit = [&]() HS_HOT_INLINE {
+      const int FIRST = point_first >= 0 ? point_first : first;
       if constexpr (COUNT)
         if (stats)
-          return surface.template sample<true, true, false>(p, theta, first,
-                                                            &work, &detector);
-      return surface.template sample<false, true, false>(p, theta, first,
-                                                         nullptr, &detector);
+          return surface.template sample<true, true, false>(p, theta, FIRST,
+                                                            &work);
+      return surface.template sample<false, true, false>(p, theta, FIRST);
     }();
+    Detector detector(surface, p, dx, dy, theta, prepared_radius,
+                      prepared_extent, candidate_bits, candidate_shift);
     uint32_t tail = 0;
-    if (hit.found()) {
-      for (int i = std::max(hit.interval, detector.last + 1);
-           i < surface.interval_count(); ++i) {
-        if (!detector.any_from(i) || detector.covered(surface, i))
-          break;
-        if (!detector.active(i)) {
-          detector.last = i;
+    for (int i = first; i < surface.interval_count(); ++i) {
+      if (!detector.any_from(i))
+        break;
+      if (hit.found() &&
+          (i > hit.interval || (i == hit.interval && hit.fraction == 0)) &&
+          detector.covered(surface, i))
+        break;
+      if (!detector.active(i)) {
+        detector.last = i;
+        continue;
+      }
+      if (i % Surface::BLOCK_INTERVALS == 0) {
+        const int NEXT = surface.skip_outside(detector.query, i);
+        if (NEXT != i) {
+          i = NEXT - 1;
           continue;
         }
-        if (i % Surface::BLOCK_INTERVALS == 0) {
-          const int NEXT = surface.skip_outside(detector.query, i);
-          if (NEXT != i) {
-            i = NEXT - 1;
-            continue;
-          }
-        }
-        detector.interval(surface, i);
-        ++tail;
       }
+      detector.interval(surface, i);
+      ++tail;
     }
     if (!hit.found() || detector.last + 1 == surface.interval_count())
       detector.endpoint(surface, surface.interval_count());

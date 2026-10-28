@@ -167,11 +167,14 @@ inline void surface_mask_case(OracleEffect &effect, const char *name,
       OracleFrame images[2];
       for (bool mask : {false, true}) {
         Scan::SurfaceAreaStats stats;
+        Scan::RadialChartWork::footprints = 0;
         {
           Canvas canvas(effect);
           ShapeShifterWhiteBox::surface_kernel(effect, canvas, timed, &stats, 0,
                                                mask);
         }
+        HS_EXPECT_EQ(Scan::RadialChartWork::footprints,
+                     mask ? stats.mask_hits : stats.pixels);
         effect.advance_display();
         for (int y = 0; y < 144; ++y)
           for (int x = 0; x < 288; ++x)

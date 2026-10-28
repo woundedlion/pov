@@ -15,6 +15,12 @@
 #include "core/render/scan/shader.h"
 
 namespace Scan {
+#if HS_ENABLE_TEST_HOOKS
+/** @brief Deferred chart-work census. */
+struct RadialChartWork {
+  static inline uint64_t footprints = 0; ///< Constructed affine footprints.
+};
+#endif
 /** @brief A planar chart's local pixel footprint. */
 template <class Point> struct RadialChartFootprint {
   Point p;      ///< Chart position.
@@ -25,27 +31,54 @@ template <class Point> struct RadialChartFootprint {
   bool far;     ///< Whether the point uses the far chart.
 };
 
-/** @brief Projects a tangent footprint into paired azimuthal charts.
+/** @brief A chart center with reusable projection factors.
+ * @tparam Point Planar chart point type. */
+template <class Point> struct RadialChartPoint {
+  Point p;             ///< Chart position.
+  math::Vector sphere; ///< Hemisphere-local unit direction.
+  float radius;        ///< Distance from the chart pole.
+  float sine;          ///< Sine of the pole distance.
+  float scale;         ///< Tangential chart scale.
+  bool far;            ///< Whether the point uses the far chart.
+};
+
+/** @brief Projects a unit direction into paired azimuthal charts.
  * @tparam Point Chart point type.
  * @param p Unit direction in {u,v,w} coordinates.
- * @param dx,dy Spherical pixel derivatives in the same coordinates.
- * @return Local chart footprint and hemisphere.
- */
+ * @return Chart center and hemisphere. */
 template <class Point>
-HS_HOT_INLINE RadialChartFootprint<Point>
-radial_chart_footprint(math::Vector p, math::Vector dx, math::Vector dy) {
+HS_HOT_INLINE RadialChartPoint<Point> radial_chart_point(math::Vector p) {
   const bool far = p.y < 0;
   if (far) {
     p.x = -p.x;
     p.y = -p.y;
+  }
+  const float sine = sqrtf(p.x * p.x + p.z * p.z);
+  const float radius = radial_atan2(sine, p.y);
+  const float scale = sine > 1e-5f ? radius / sine : 1;
+  return {{p.x * scale, p.z * scale}, p, radius, sine, scale, far};
+}
+
+/** @brief Projects tangent derivatives at a prepared chart center.
+ * @tparam Point Chart point type.
+ * @param center Prepared chart projection.
+ * @param dx,dy Spherical pixel derivatives in {u,v,w} coordinates.
+ * @return Local chart footprint and hemisphere. */
+template <class Point>
+HS_HOT_INLINE RadialChartFootprint<Point>
+radial_chart_footprint(const RadialChartPoint<Point> &center, math::Vector dx,
+                       math::Vector dy) {
+#if HS_ENABLE_TEST_HOOKS
+  ++RadialChartWork::footprints;
+#endif
+  if (center.far) {
     dx.x = -dx.x;
     dx.y = -dx.y;
     dy.x = -dy.x;
     dy.y = -dy.y;
   }
-  const float sine = sqrtf(p.x * p.x + p.z * p.z);
-  const float radius = radial_atan2(sine, p.y);
-  const float scale = sine > 1e-5f ? radius / sine : 1;
+  const auto p = center.sphere;
+  const float sine = center.sine, radius = center.radius, scale = center.scale;
   const float derivative =
       sine > 1e-3f ? (radius * p.y - sine) / (sine * sine * sine) : -1.0f / 3;
   auto project_derivative = [&](math::Vector d) HS_HOT_INLINE {
@@ -53,19 +86,30 @@ radial_chart_footprint(math::Vector p, math::Vector dx, math::Vector dy) {
                  scale * d.z + p.z * d.y * derivative};
   };
   const Point cx = project_derivative(dx), cy = project_derivative(dy);
-  return {{p.x * scale, p.z * scale},
+  return {center.p,
           cx,
           cy,
           radius,
           .5f * (sqrtf(cx.x * cx.x + cx.y * cx.y) +
                  sqrtf(cy.x * cy.x + cy.y * cy.y)),
-          far};
+          center.far};
+}
+
+/** @brief Projects a tangent footprint into paired azimuthal charts.
+ * @tparam Point Chart point type.
+ * @param p Unit direction in {u,v,w} coordinates.
+ * @param dx,dy Spherical pixel derivatives in the same coordinates.
+ * @return Local chart footprint and hemisphere. */
+template <class Point>
+HS_HOT_INLINE RadialChartFootprint<Point>
+radial_chart_footprint(math::Vector p, math::Vector dx, math::Vector dy) {
+  return radial_chart_footprint(radial_chart_point<Point>(p), dx, dy);
 }
 
 /** @brief Draws two hemisphere charts using the common column-time scan.
  * @tparam W,H Canvas dimensions.
  * @tparam Surface Prepared similar-polygon family.
- * @tparam Area Pixel coverage integrator.
+ * @tparam Area Pixel integrator receiving a deferred footprint callable.
  * @tparam Prepare Per-column-time family preparation callable.
  * @tparam Ensure Lazy family preparation callable.
  * @tparam LowerBound Conservative radial interval lookup callable.
@@ -125,22 +169,22 @@ HS_HOT_FLASH_MEMBER void draw_radial_surface(
           cosine = cosine * displacement_cosine - sine * displacement_sine;
           sine = shifted_sine;
           const auto p = r * sine + v * cosine;
-          const auto dx = t * (sine * math::TWO_PI_F / W);
-          const auto dy = (r * cosine - v * sine) * math::RADIANS_PER_ROW<H>;
-          const auto footprint = radial_chart_footprint<Point>(p, dx, dy);
-          bool &ready = footprint.far ? far_ready : near_ready;
+          const auto center = radial_chart_point<Point>(p);
+          bool &ready = center.far ? far_ready : near_ready;
           if (!ready) {
-            ensure(footprint.far);
+            ensure(center.far);
             ready = true;
           }
-          const auto &surface = footprint.far ? far : near;
-          const float theta = radial_atan2(footprint.p.y, footprint.p.x);
-          const int first =
-              lower_bound(fmaxf(0, footprint.radius - footprint.extent));
-          SurfaceColor result;
-          result =
-              area(surface, footprint.p, footprint.dx, footprint.dy, theta,
-                   first, shade, stats, footprint.radius, footprint.extent);
+          const auto &surface = center.far ? far : near;
+          const float theta = radial_atan2(center.p.y, center.p.x);
+          auto footprint = [&]() HS_HOT_INLINE {
+            const auto dx = t * (sine * math::TWO_PI_F / W);
+            const auto dy = (r * cosine - v * sine) * math::RADIANS_PER_ROW<H>;
+            return radial_chart_footprint(center, dx, dy);
+          };
+          const SurfaceColor result =
+              area(surface, center.p, theta, center.radius, footprint,
+                   lower_bound, shade, stats);
           return Pixel(uint16_t(hs::clamp(result.r, 0.0f, 65535.0f)),
                        uint16_t(hs::clamp(result.g, 0.0f, 65535.0f)),
                        uint16_t(hs::clamp(result.b, 0.0f, 65535.0f)));
