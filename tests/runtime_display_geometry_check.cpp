@@ -119,6 +119,8 @@ template <int W, int H> void check_geometry(float north, float south) {
 } // namespace
 
 int main() {
+  if (!hs_test::require_ci_smoke_frames())
+    return 1;
   hs_test::ModuleFixture fixture("runtime display geometry");
   check_geometry<96, 48>(0.0f, math::PI_F);
   for (const auto endpoints :

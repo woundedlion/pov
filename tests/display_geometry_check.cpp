@@ -149,6 +149,8 @@ void test_feedback_endpoint_rings() {
 } // namespace
 
 int main() {
+  if (!hs_test::require_ci_smoke_frames())
+    return 1;
   hs_test::ModuleFixture fixture("physical display geometry");
   test_coordinates();
   test_pole_crossing();
