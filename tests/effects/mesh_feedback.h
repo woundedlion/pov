@@ -301,15 +301,13 @@ inline void test_meshfeedback_mesh_rebuild_reuses_storage() {
 
 /** @brief Production MeshFeedback source matches the per-column frozen mesh. */
 inline void test_meshfeedback_temporal_source_oracle() {
-  const bool enabled = !Spacetime::flat_surface();
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling temporal_sampling(true);
   auto render = [](bool timed, float fraction, float displacement) {
     return MeshFeedbackWhiteBox::render_temporal_source(timed, fraction,
                                                         displacement);
   };
   hs_test::seam_compare_render<DEFAULT_W, DEFAULT_H>(render,
                                                      "MeshFeedback source");
-  Spacetime::set_flat_surface(!enabled);
 }
 
 /** @brief A still orientation draws the source through the column walk as

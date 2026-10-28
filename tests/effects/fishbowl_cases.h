@@ -257,7 +257,7 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
 inline void test_fishbowl_scratch_estimate_covers_peak() {
   using WB = FishbowlWhiteBox;
   using EffectType = WB::EffectType;
-  const bool enabled = !Spacetime::flat_surface();
+  const ScopedTemporalSampling temporal_sampling(!Spacetime::flat_surface());
   for (const bool timed : {false, true}) {
     reset_effect_globals();
     Spacetime::set_flat_surface(!timed);
@@ -280,5 +280,4 @@ inline void test_fishbowl_scratch_estimate_covers_peak() {
     HS_EXPECT_GT(worst_vertices, (size_t)EffectType::TRAIL_LENGTH);
     HS_EXPECT_LE(worst_vertices, (size_t)EffectType::MAX_FRAGMENTS);
   }
-  Spacetime::set_flat_surface(!enabled);
 }

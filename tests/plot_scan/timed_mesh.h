@@ -12,7 +12,7 @@ struct TimedMeshFixture {
 /** @brief Polar arcs cover their independently intersected meridians. */
 inline void test_column_polar_arc_coverage() {
   constexpr int W = 288, H = 144;
-  const bool flat = Spacetime::flat_surface();
+  const ScopedTemporalSampling temporal_sampling(!Spacetime::flat_surface());
   using Vec = std::array<double, 3>;
   const auto cross = [](const Vec &a, const Vec &b) -> Vec {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2],
@@ -88,7 +88,6 @@ inline void test_column_polar_arc_coverage() {
         HS_EXPECT_GT(checked, 32);
         HS_EXPECT_EQ(missing, 0);
       }
-  Spacetime::set_flat_surface(flat);
 }
 
 /** @brief The hoisted trail gate retains edges whose motion reaches the clip. */
@@ -440,8 +439,7 @@ inline void test_column_walk_chained_ring_plots_vertices_once() {
  *         color shaded at that column's time, on both sides of the seam. */
 inline void test_column_walk_seam_taps_shade_at_their_times() {
   constexpr int W = 288, H = 144;
-  const bool enabled = !Spacetime::flat_surface();
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling temporal_sampling(true);
   const auto shade = [](float time) { return 10000.0f + 20000.0f * time; };
   for (float seam : {0.0f, W / 2.0f}) {
     HS_CONTEXT("seam", static_cast<int>(seam));
@@ -480,7 +478,6 @@ inline void test_column_walk_seam_taps_shade_at_their_times() {
     }
     HS_EXPECT_GE(checked, 4);
   }
-  Spacetime::set_flat_surface(!enabled);
 }
 
 /** @brief Refined basis normalization stays unit across its input range. */
@@ -513,8 +510,7 @@ inline void test_column_basis_crossing_orientation() {
 /** @brief Edges crossing an arm boundary keep each pass's columns covered. */
 inline void test_column_walk_arm_boundary_coverage() {
   constexpr int W = 288, H = 144;
-  const bool enabled = !Spacetime::flat_surface();
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling temporal_sampling(true);
   for (float motion : {-3.0f, 3.0f}) {
     const float radians = motion * math::RADIANS_PER_COLUMN<W>;
     auto render = [&](bool timed, float fraction, float displacement) {
@@ -559,14 +555,12 @@ inline void test_column_walk_arm_boundary_coverage() {
                                                    ? "arm boundary trailing"
                                                    : "arm boundary leading");
   }
-  Spacetime::set_flat_surface(!enabled);
 }
 
 /** @brief Shrinking edges keep their terminal sample in the column walk. */
 inline void test_column_walk_terminal_on_shrinking_edge() {
   constexpr int W = 288, H = 144;
-  const bool enabled = !Spacetime::flat_surface();
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling temporal_sampling(true);
   for (int start = 0; start < 16; ++start) {
     hs_test::StubEffect effect(W, H);
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
@@ -597,7 +591,6 @@ inline void test_column_walk_terminal_on_shrinking_edge() {
     HS_CONTEXT("shrinking edge start", start);
     HS_EXPECT_EQ(ends, 1u);
   }
-  Spacetime::set_flat_surface(!enabled);
 }
 
 /** @brief The swept edge cull never rejects an edge whose arcs over the frame

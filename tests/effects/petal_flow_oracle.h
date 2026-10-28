@@ -7,8 +7,7 @@
 
 /** @brief Production PetalFlow travel, twist, orientation and fade match frozen columns. */
 inline void test_petalflow_temporal_source_oracle() {
-  const bool enabled = !Spacetime::flat_surface();
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling temporal_sampling(true);
   for (float rho : {0.0f, 1.25f, 2.75f}) {
     auto render = [rho](bool timed, float fraction, float displacement) {
       return PetalFlowWhiteBox::render_temporal_ring(timed, fraction,
@@ -19,5 +18,4 @@ inline void test_petalflow_temporal_source_oracle() {
                     ? "PetalFlow equator"
                     : (rho == 1.25f ? "PetalFlow dense" : "PetalFlow fade"));
   }
-  Spacetime::set_flat_surface(!enabled);
 }

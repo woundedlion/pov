@@ -216,8 +216,7 @@ inline void test_hopf_trail_trim_keeps_a_segment() {
 
 /** @brief Hopf orientation, births and retiring-tail shading match frozen columns. */
 inline void test_hopf_temporal_trail_oracle() {
-  const bool enabled = !Spacetime::flat_surface();
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling temporal_sampling(true);
   for (float start : {-15.0f, 125.0f}) {
     auto render = [start](bool timed, float fraction, float displacement) {
       return HopfWhiteBox::render_temporal_trail(timed, fraction, displacement,
@@ -225,5 +224,4 @@ inline void test_hopf_temporal_trail_oracle() {
     };
     hs_test::seam_compare_render<DEFAULT_W, DEFAULT_H>(render, "Hopf trail");
   }
-  Spacetime::set_flat_surface(!enabled);
 }

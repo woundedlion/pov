@@ -810,8 +810,7 @@ inline void test_mindsplatter_emit_phase_wrapped() {
  *         frozen columns: steady short edges as points, longer ones through
  *         the column walk. */
 inline void test_mindsplatter_temporal_trail_oracle() {
-  const bool enabled = !Spacetime::flat_surface();
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling temporal_sampling(true);
   using WB = hs_test::effects_tests::MindSplatterWhiteBox;
   for (const float spacing : {1.0f, 6.0f}) {
     HS_CONTEXT("spacing", static_cast<int>(spacing));
@@ -835,7 +834,6 @@ inline void test_mindsplatter_temporal_trail_oracle() {
             "MindSplatter trails");
       }
   }
-  Spacetime::set_flat_surface(!enabled);
 }
 
 /**

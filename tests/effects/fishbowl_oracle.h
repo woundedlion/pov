@@ -7,8 +7,7 @@
 
 /** @brief Warped Fishbowl endpoints, births and palette match frozen columns. */
 inline void test_fishbowl_temporal_trail_oracle() {
-  const bool enabled = !Spacetime::flat_surface();
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling temporal_sampling(true);
   for (bool full : {false, true}) {
     auto render = [full](bool timed, float fraction, float displacement) {
       return FishbowlWhiteBox::render_temporal_trail(timed, fraction,
@@ -17,5 +16,4 @@ inline void test_fishbowl_temporal_trail_oracle() {
     hs_test::seam_compare_render<DEFAULT_W, DEFAULT_H>(render,
                                                        "Fishbowl trail");
   }
-  Spacetime::set_flat_surface(!enabled);
 }

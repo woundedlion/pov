@@ -244,8 +244,7 @@ struct RingTemporalOracle {
 
 inline void RingShowerWhiteBox::check_temporal_rings() {
   using FX = RingShower<DEFAULT_W, DEFAULT_H>;
-  const bool flat = Spacetime::flat_surface();
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling temporal_sampling(true);
   {
     reset_effect_globals();
     FX effect;
@@ -336,12 +335,10 @@ inline void RingShowerWhiteBox::check_temporal_rings() {
                     scenario, direction);
       RingTemporalOracle::compare(render, name, scenario == 0 || scenario >= 4);
     }
-  Spacetime::set_flat_surface(flat);
 }
 
 inline void ThrustersWhiteBox::check_temporal_rings() {
-  const bool flat = Spacetime::flat_surface();
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling temporal_sampling(true);
   for (bool main : {false, true}) {
     reset_effect_globals();
     FX effect;
@@ -498,5 +495,4 @@ inline void ThrustersWhiteBox::check_temporal_rings() {
                     scenario, direction);
       RingTemporalOracle::compare(render, name, scenario != 1 && scenario != 5);
     }
-  Spacetime::set_flat_surface(flat);
 }

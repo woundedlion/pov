@@ -428,8 +428,7 @@ inline void test_temporal_column_arithmetic_matches_remainder() {
 
 /** @brief Approximate orientation motion bounds remain conservative and preserve exact stillness. */
 inline void test_temporal_orientation_bound_is_conservative() {
-  const bool enabled = !Spacetime::flat_surface();
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling temporal_sampling(true);
   for (int index = 0; index <= 1024; ++index)
     for (float sign : {-1.0f, 1.0f}) {
       const float cosine = float(index) / 1024;
@@ -455,5 +454,4 @@ inline void test_temporal_orientation_bound_is_conservative() {
   Filter::World::Orient orient(history);
   Spacetime::set_flat_surface(true);
   HS_EXPECT_NEAR(orient.sweep_arc(), 0.0f, 0.0f);
-  Spacetime::set_flat_surface(!enabled);
 }

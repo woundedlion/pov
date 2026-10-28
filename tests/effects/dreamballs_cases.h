@@ -654,8 +654,7 @@ inline constexpr float FAST_SPIN = 0.12f;
  * columns within half of the frame error limit, and within the full limit
  * under a fast spin. */
 inline void test_dreamballs_temporal_source_oracle() {
-  const bool enabled = !Spacetime::flat_surface();
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling temporal_sampling(true);
   for (int scene = 0; scene < 4; ++scene) {
     const bool woven = scene == 1 || scene == 3, newborn = scene == 2;
     const float spin = scene == 3 ? FAST_SPIN : 0.012f;
@@ -672,13 +671,11 @@ inline void test_dreamballs_temporal_source_oracle() {
                    : "DreamBalls original",
         scene == 3 ? 1.0f : 0.5f);
   }
-  Spacetime::set_flat_surface(!enabled);
 }
 
 /** @brief Mesh capture stays bounded, including stationary preset first frames. */
 inline void test_dreamballs_column_work_is_bounded() {
-  const bool enabled = !Spacetime::flat_surface();
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling temporal_sampling(true);
   for (bool woven : {false, true})
     for (bool stationary : {false, true}) {
       Spacetime::geometry_counters = {};
@@ -723,7 +720,6 @@ inline void test_dreamballs_column_work_is_bounded() {
         HS_EXPECT_GT(counts.column_crossings, 0u);
     }
   }
-  Spacetime::set_flat_surface(!enabled);
 }
 
 /** @brief DreamBalls clears pose continuity at manual cuts and sprite replacement. */
