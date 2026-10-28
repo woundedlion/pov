@@ -678,6 +678,7 @@ inline void test_pc_sampler_dump_format() {
   s.note_service(100);
   s.note_service(260);
   s.note_service(90);
+  s.note_service(50);
   std::vector<std::string> lines;
   s.dump([&](const char *line) { lines.emplace_back(line); }, 1234);
   HS_EXPECT_SIZE_OR_RETURN(lines, 6u);
@@ -686,7 +687,7 @@ inline void test_pc_sampler_dump_format() {
                   "defer_counts=48 counts_per_us=24 elapsed_ms=1234");
   HS_EXPECT_STREQ(lines[1].c_str(),
                   "pc profile: ticks=4 idle=1 deferred=0 missed=0 handler=0 "
-                  "recorded=3 dropped=0 bins=2 service_avg=112 "
+                  "recorded=3 dropped=0 bins=2 service_avg=125 "
                   "service_max=260");
   HS_EXPECT_STREQ(lines[2].c_str(),
                   "pc profile latency: 1 1 1 1 0 0 0 0 0 0 0 0");
