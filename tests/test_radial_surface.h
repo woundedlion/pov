@@ -962,7 +962,7 @@ inline void test_radial_surface_terminal_background() {
   }
 }
 
-/** @brief Hidden terminal edges preserve an earlier interior sheet in every sector. */
+/** @brief Whole-footprint occlusion takes the point path while wider pixels retain AA. */
 inline void test_radial_surface_hidden_terminal() {
   ScratchScope scope(scratch_arena_a);
   const std::array KNOTS{
@@ -1015,12 +1015,29 @@ inline void test_radial_surface_hidden_terminal() {
         reference += 1 - HIT / 24;
       }
     reference /= 256;
-    const auto COLOR =
-        aa.sample(surface, P, DX, DY, Scan::radial_atan2(P.y, P.x), 7,
-                  [](const Surface::Hit &hit) {
-                    const float C = 1 - (hit.interval + hit.fraction) / 24;
-                    return Scan::SurfaceColor{C, C, C};
-                  });
+    auto shade = [](const Surface::Hit &hit) {
+      const float C = 1 - (hit.interval + hit.fraction) / 24;
+      return Scan::SurfaceColor{C, C, C};
+    };
+    Scan::SurfaceAreaStats stats;
+    int calls = 0;
+    const float THETA = Scan::radial_atan2(P.y, P.x);
+    const auto POINT = shade(surface.sample<false, true, false>(P, THETA, 7));
+    const auto COLOR = aa.sample(
+        surface, P, DX, DY, THETA, 7,
+        [&](const Surface::Hit &hit) {
+          ++calls;
+          return shade(hit);
+        },
+        &stats);
+    HS_EXPECT_EQ(stats.edge_pixels, uint64_t{0});
+    HS_EXPECT_EQ(stats.outside_intervals, uint64_t{0});
+    HS_EXPECT_EQ(calls, 1);
+    HS_EXPECT_EQ(COLOR.r, POINT.r);
+    Scan::SurfaceAreaStats wide_stats;
+    aa.sample(surface, P, {2 * DX.x, 2 * DX.y}, {2 * DY.x, 2 * DY.y}, THETA, 7,
+              shade, &wide_stats);
+    HS_EXPECT_EQ(wide_stats.edge_pixels, uint64_t{1});
     std::printf("  hidden terminal sector=%d aa=%g reference=%g\n", sector,
                 COLOR.r, reference);
     HS_EXPECT_NEAR(COLOR.r, reference, .005);

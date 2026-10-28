@@ -104,6 +104,12 @@ public:
       }
     if (!detector.found)
       return color;
+    if (hidden_only(surface, detector, hit)) {
+      if constexpr (COUNT)
+        if (stats)
+          ++stats->hidden_pixels;
+      return color;
+    }
     float front_weight = coverage(detector.a, detector.b, detector.c);
     bool center_front = detector.c >= 0;
     if (detector.paired && !detector.terminal_back) {
@@ -191,6 +197,31 @@ public:
   }
 
 private:
+  struct Detector;
+  /** @brief Certifies all intersecting candidates behind one complete star.
+   * @param surface Prepared radial family.
+   * @param detector Intersecting candidates and affine footprint.
+   * @param hit Center first arrival.
+   * @return True only when a covering star precedes every candidate. */
+  static HS_HOT_FLASH_MEMBER bool
+  hidden_only(const Surface &surface, const Detector &detector,
+              const typename Surface::Hit &hit) {
+    if (!hit.found() || detector.first_candidate <= hit.interval + hit.fraction)
+      return false;
+    const int LAST =
+        std::min(int(detector.first_candidate), surface.interval_count() - 1);
+    for (int i = hit.interval; i <= LAST; ++i) {
+      auto candidate = hit;
+      candidate.interval = i;
+      if (i != hit.interval)
+        candidate.fraction = 0;
+      const float WITNESS = detector.witness(surface, candidate);
+      if (WITNESS >= 0 && WITNESS <= detector.first_candidate)
+        return true;
+    }
+    return false;
+  }
+
   static HS_HOT_INLINE float cross(Point a, Point b) {
     return a.x * b.y - a.y * b.x;
   }
@@ -229,6 +260,8 @@ private:
          terminal_back = false;
     int last = -1, sides, cached_knot = -1, cached_sector = 0;
     float cached_value = 0;
+    float first_candidate =
+        INFINITY; ///< Lower bound on intersecting candidate births.
     uint32_t candidate_bits;
     int candidate_shift;
     HS_HOT_INLINE Detector(const Surface &surface, Point point, Point x,
@@ -309,6 +342,9 @@ private:
             !clip(-V - HALF, -DV, entry, leave))
           return;
       }
+      const float EARLIEST = fminf(first_birth, last_birth);
+      const float ORDER_GUARD = 64 * FLT_EPSILON * (1 + fabsf(EARLIEST));
+      first_candidate = fminf(first_candidate, EARLIEST - ORDER_GUARD);
       float distance;
       if (PROJECTION <= 0)
         distance = dot(OFFSET, OFFSET);
@@ -409,38 +445,44 @@ private:
               h0 * dot(C, C);
     }
     HS_HOT_INLINE bool covered(const Surface &surface, int i) const {
-      const auto &k = surface.knot(i);
       int sector;
       float value;
       center_predicate(surface, i, sector, value);
-      if (value >= 0)
-        return false;
-      const Point C{k.real, k.imag};
-      const float CONSTANT = h0 * dot(C, C);
-      auto inside_edge = [&](int edge_sector, float predicate) HS_HOT_INLINE {
-        const Point EDGE =
-            multiply(C, surface.edge(wrap(edge_sector, 2 * sides)));
-        const float SUPPORT =
-            .5f * (fabsf(cross(dx, EDGE)) + fabsf(cross(dy, EDGE)));
-        const float GUARD =
-            32 * FLT_EPSILON * (1 + fabsf(predicate) + SUPPORT + CONSTANT);
-        return predicate + SUPPORT < -GUARD;
-      };
-      if (!inside_edge(sector, value))
-        return false;
-      int low = floor_int((theta - angular - k.phase) * inverse_sector);
-      int high = floor_int((theta + angular - k.phase) * inverse_sector);
-      if (high - low >= 2 * sides)
-        high = low + 2 * sides - 1;
-      for (int other = low; other <= high; ++other) {
-        if (other == sector)
-          continue;
-        const Point EDGE = multiply(C, surface.edge(wrap(other, 2 * sides)));
-        if (!inside_edge(other, cross(p, EDGE) - CONSTANT))
-          return false;
-      }
-      return true;
+      return surface.contains_footprint(query, dx, dy, surface.knot(i), sector,
+                                        value);
     }
+    /** @brief Finds a whole-footprint witness at an endpoint or outer-tip event.
+     * @param surface Prepared radial family.
+     * @param hit Earliest allowed parameter in the tested interval.
+     * @return Witness parameter, or -1 when containment is uncertified. */
+    HS_HOT_INLINE float witness(const Surface &surface,
+                                const typename Surface::Hit &hit) const {
+      if (!hit.found())
+        return -1;
+      const int I = hit.interval;
+      if (covered(surface, I + 1))
+        return float(I + 1);
+      const auto &ka = surface.knot(I), &kb = surface.knot(I + 1);
+      const int START = floor_int((theta - ka.phase) * inverse_sector);
+      const int END = floor_int((theta - kb.phase) * inverse_sector);
+      if (START == END)
+        return -1;
+      const int CORNER = std::max(START, END);
+      if (CORNER & 1)
+        return -1;
+      const Point V = surface.vertex(wrap(CORNER, 2 * sides));
+      const Point C{ka.real, ka.imag}, D{kb.real - ka.real, kb.imag - ka.imag};
+      const float DENOMINATOR = cross(p, multiply(D, V));
+      if (DENOMINATOR == 0)
+        return -1;
+      const float T = -cross(p, multiply(C, V)) / DENOMINATOR;
+      if (T < hit.fraction || T > 1)
+        return -1;
+      const typename Surface::Knot K{C.x + T * D.x, C.y + T * D.y,
+                                     theta - CORNER / inverse_sector};
+      return surface.contains_footprint(query, dx, dy, K) ? I + T : -1;
+    }
+
     HS_HOT_INLINE void interval(const Surface &surface, int i) {
       int start, end;
       float first, last_value;

@@ -294,33 +294,68 @@ public:
    * @param dx,dy Full pixel-coordinate derivatives.
    * @param theta Argument of the footprint center.
    * @param knot_index Star knot to test.
-   * @return True only when the footprint lies in one edge sector and its star. */
+   * @return True only when all touched sectors certify containment. */
   HS_HOT_INLINE bool contains_footprint_at_knot(Point p, Point dx, Point dy,
                                                 float theta,
                                                 int knot_index) const {
     if (knot_index < 0 || knot_index > num_intervals || norms[knot_index] == 0)
       return false;
-    const Knot &C = knots[knot_index];
-    const int INDEX = wrap(sector_index(theta - C.phase));
-    const Point EDGE = multiply(C, edges[INDEX]);
-    auto support = [&](Point edge) HS_HOT_INLINE {
-      return .5f * (fabsf(cross(dx, edge)) + fabsf(cross(dy, edge)));
+    const float EXTENT = .5f * (sqrtf(dx.x * dx.x + dx.y * dx.y) +
+                                sqrtf(dy.x * dy.x + dy.y * dy.y)) +
+                         1e-6f;
+    const auto QUERY = query_bounds(p, theta, EXTENT);
+    return contains_footprint(QUERY, dx, dy, knots[knot_index]);
+  }
+
+  /** @brief Certifies an affine footprint inside a similarity star.
+   * @param query Conservative spatial and angular footprint bounds.
+   * @param dx,dy Full pixel-coordinate derivatives.
+   * @param c Similarity multiplier and its unwrapped argument.
+   * @return True only if every touched edge half-plane contains the footprint. */
+  HS_HOT_INLINE bool contains_footprint(const QueryBounds &query, Point dx,
+                                        Point dy, const Knot &c) const {
+    const int CENTER = sector_index(query.theta - c.phase);
+    const Point EDGE = multiply(c, edges[wrap(CENTER)]);
+    const float VALUE = cross(query.point, EDGE) -
+                        determinant * (c.real * c.real + c.imag * c.imag);
+    return contains_footprint(query, dx, dy, c, CENTER, VALUE);
+  }
+
+  /** @brief Certifies containment using a cached center edge predicate.
+   * @param query Conservative footprint bounds.
+   * @param dx,dy Full pixel-coordinate derivatives.
+   * @param c Star similarity multiplier.
+   * @param center Center angular sector.
+   * @param value Center containment predicate in that sector.
+   * @return True only when all touched sectors certify containment. */
+  HS_HOT_INLINE bool contains_footprint(const QueryBounds &query, Point dx,
+                                        Point dy, const Knot &c, int center,
+                                        float value) const {
+    if (value >= 0)
+      return false;
+    const Point C{c.real, c.imag};
+    const float CONSTANT = determinant * (C.x * C.x + C.y * C.y);
+    auto inside = [&](int index, float predicate) HS_HOT_INLINE {
+      const Point EDGE = multiply(C, edges[wrap(index)]);
+      const float SUPPORT =
+          .5f * (fabsf(cross(dx, EDGE)) + fabsf(cross(dy, EDGE)));
+      const float GUARD =
+          32 * FLT_EPSILON * (1 + fabsf(predicate) + SUPPORT + CONSTANT);
+      return predicate + SUPPORT < -GUARD;
     };
-    const float CLEARANCE =
-        cross(p, EDGE) - determinant * norms[knot_index] + support(EDGE);
-    if (CLEARANCE >= 0)
+    if (!inside(center, value))
       return false;
-    const float PX = fabsf(p.x) + .5f * (fabsf(dx.x) + fabsf(dy.x));
-    const float PY = fabsf(p.y) + .5f * (fabsf(dx.y) + fabsf(dy.y));
-    const float GUARD = 32.0f * FLT_EPSILON *
-                        ((fabsf(C.real) + fabsf(C.imag)) * (PX + PY) +
-                         determinant * norms[knot_index] + FLT_MIN);
-    if (CLEARANCE > -GUARD)
-      return false;
-    const Point A = multiply(C, vertices[INDEX]);
-    const Point B =
-        multiply(C, vertices[INDEX + 1 == num_edges ? 0 : INDEX + 1]);
-    return cross(A, p) - support(A) > GUARD && cross(p, B) - support(B) > GUARD;
+    const int LOW_SECTOR =
+        sector_index(query.theta - query.angular_extent - c.phase);
+    const int HIGH_SECTOR =
+        std::min(sector_index(query.theta + query.angular_extent - c.phase),
+                 LOW_SECTOR + num_edges - 1);
+    for (int i = LOW_SECTOR; i <= HIGH_SECTOR; ++i)
+      if (i != center &&
+          !inside(i,
+                  cross(query.point, multiply(C, edges[wrap(i)])) - CONSTANT))
+        return false;
+    return true;
   }
 
   /** @brief Finds the first visible boundary sheet in a bounded radial scan.

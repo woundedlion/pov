@@ -199,6 +199,28 @@ inline void surface_mask_case(OracleEffect &effect, const char *name,
                                  (board ? "-board.ppm" : "-full.ppm"));
         }
       }
+      if (write_images && !board) {
+        {
+          Canvas canvas(effect);
+          ShapeShifterWhiteBox::surface_full_area(effect, canvas, timed);
+        }
+        effect.advance_display();
+        OracleFrame reference;
+        for (int y = 0; y < 144; ++y)
+          for (int x = 0; x < 288; ++x)
+            reference.pixels.push_back(effect.get_pixel(x, y));
+        write_oracle_ppm(reference, std::string(shapeshifter_image_prefix()) +
+                                        "/" + name +
+                                        (timed ? "-timed" : "-frozen") +
+                                        "-full-reference.ppm");
+        for (int i = 0; i < 2; ++i) {
+          {
+            Canvas canvas(effect);
+            ShapeShifterWhiteBox::surface_kernel(effect, canvas, timed);
+          }
+          effect.advance_display();
+        }
+      }
       const auto difference =
           compare_buffers(images[0].pixels, images[1].pixels);
       std::printf("SURFACE_MASK_DIFF %s timed=%d board=%d pixels=%zu\n", name,
@@ -290,8 +312,7 @@ inline void test_surface_natural_census() {
     effect.set_clip(0, 72, 0, 144);
     for (int frame = 1; frame <= 471; ++frame) {
       hs::set_mock_time((frame - 1) * 62500ul / 1000, (frame - 1) * 62500ul);
-      const bool selected =
-          (frame - 1) % 16 == 0 || frame == 89 || frame == 410 || frame == 471;
+      const bool selected = true;
       Scan::SurfaceAreaStats stats;
       {
         Canvas canvas(effect);
@@ -306,26 +327,103 @@ inline void test_surface_natural_census() {
         ++samples;
         HS_EXPECT_GE(stats.pixels, uint64_t{144 * 72});
         HS_EXPECT_GT(stats.mask_prepares, uint64_t{0});
-        std::printf("SURFACE_CENSUS frame=%d pixels=%llu hits=%llu edges=%llu "
-                    "point=%llu outside=%llu intervals=%llu max=%d maxpoint=%d "
-                    "prepares=%llu candidates=%llu pieces=%llu writes=%llu\n",
-                    frame, static_cast<unsigned long long>(stats.pixels),
-                    static_cast<unsigned long long>(stats.mask_hits),
-                    static_cast<unsigned long long>(stats.edge_pixels),
-                    static_cast<unsigned long long>(stats.point_intervals),
-                    static_cast<unsigned long long>(stats.outside_intervals),
-                    static_cast<unsigned long long>(stats.intervals),
-                    stats.max_intervals, stats.max_point_intervals,
-                    static_cast<unsigned long long>(stats.mask_prepares),
-                    static_cast<unsigned long long>(stats.mask_candidates),
-                    static_cast<unsigned long long>(stats.mask_pieces),
-                    static_cast<unsigned long long>(stats.mask_row_writes));
+        std::printf(
+            "SURFACE_CENSUS frame=%d pixels=%llu hits=%llu edges=%llu "
+            "hidden=%llu point=%llu outside=%llu intervals=%llu max=%d maxpoint=%d "
+            "prepares=%llu candidates=%llu pieces=%llu writes=%llu\n",
+            frame, static_cast<unsigned long long>(stats.pixels),
+            static_cast<unsigned long long>(stats.mask_hits),
+            static_cast<unsigned long long>(stats.edge_pixels),
+            static_cast<unsigned long long>(stats.hidden_pixels),
+            static_cast<unsigned long long>(stats.point_intervals),
+            static_cast<unsigned long long>(stats.outside_intervals),
+            static_cast<unsigned long long>(stats.intervals),
+            stats.max_intervals, stats.max_point_intervals,
+            static_cast<unsigned long long>(stats.mask_prepares),
+            static_cast<unsigned long long>(stats.mask_candidates),
+            static_cast<unsigned long long>(stats.mask_pieces),
+            static_cast<unsigned long long>(stats.mask_row_writes));
       }
     }
   }
   Timeline().clear();
   hs::clear_mock_time();
-  HS_EXPECT_EQ(samples, 33);
+  HS_EXPECT_EQ(samples, 471);
+}
+
+/** @brief Locates isolated dark pixels throughout the natural P1 visit. */
+inline void test_surface_lobe_outliers() {
+  size_t outliers = 0;
+  reset_globals();
+  hs::seed_effect_stream(hs::effect_seed_key<OracleEffect>("ShapeShifter"));
+  hs::set_mock_time(0, 0);
+  {
+    OracleEffect effect;
+    effect.init();
+    for (int frame = 1; frame <= 471; ++frame) {
+      hs::set_mock_time((frame - 1) * 62500ul / 1000, (frame - 1) * 62500ul);
+      {
+        Canvas canvas(effect);
+        ShapeShifterWhiteBox::replay_step(effect, canvas);
+      }
+      effect.advance_display();
+      for (bool timed : {false, true}) {
+        OracleFrame full;
+        for (int tile = -1; tile < 4; ++tile) {
+          const int x0 = tile < 0 ? 0 : (tile % 2) * 144;
+          const int y0 = tile < 0 ? 0 : (tile / 2) * 72;
+          const int x1 = tile < 0 ? 288 : x0 + 144;
+          const int y1 = tile < 0 ? 144 : y0 + 72;
+          effect.set_clip(y0, y1, x0, x1);
+          {
+            Canvas canvas(effect);
+            ShapeShifterWhiteBox::surface_kernel(effect, canvas, timed);
+          }
+          effect.advance_display();
+          OracleFrame image;
+          for (int y = 0; y < 144; ++y)
+            for (int x = 0; x < 288; ++x)
+              image.pixels.push_back(effect.get_pixel(x, y));
+          if (tile < 0)
+            full = image;
+          else {
+            size_t different = 0;
+            for (int y = y0; y < y1; ++y)
+              for (int x = x0; x < x1; ++x) {
+                const auto a = image.pixels[y * 288 + x];
+                const auto b = full.pixels[y * 288 + x];
+                different += a.r != b.r || a.g != b.g || a.b != b.b;
+              }
+            HS_EXPECT_EQ(different, size_t{0});
+          }
+          auto energy = [&](int x, int y) {
+            const auto p = image.pixels[y * 288 + x];
+            return float(p.r) + p.g + p.b;
+          };
+          for (int y = y0 + 1; y < y1 - 1; ++y)
+            for (int x = x0 + 1; x < x1 - 1; ++x) {
+              const float center = energy(x, y);
+              const float low = std::min({energy(x - 1, y), energy(x + 1, y),
+                                          energy(x, y - 1), energy(x, y + 1)});
+              const float high = std::max({energy(x - 1, y), energy(x + 1, y),
+                                           energy(x, y - 1), energy(x, y + 1)});
+              if (low > 2000 && center < .5f * low && high < 1.5f * low) {
+                ++outliers;
+                std::printf(
+                    "LOBE frame=%d timed=%d tile=%d x=%d y=%d center=%g low=%g high=%g\n",
+                    frame, int(timed), tile, x, y, center, low, high);
+              }
+            }
+        }
+      }
+      if (frame % 16 == 0)
+        std::printf("LOBE_PROGRESS %d\n", frame);
+    }
+  }
+  Timeline().clear();
+  hs::clear_mock_time();
+  HS_EXPECT_EQ(outliers, size_t{0});
+  std::printf("LOBE_OUTLIERS %zu\n", outliers);
 }
 
 /** @brief The maximum authored amplitude fits the production arena partition. */

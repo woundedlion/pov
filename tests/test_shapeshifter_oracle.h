@@ -365,6 +365,90 @@ struct ShapeShifterWhiteBox {
       e.template draw_surface_all<true, false>(canvas, e.selected_palette(),
                                                timed, stats, displacement);
   }
+  /** @brief Renders the matched N24 family with a 32 by 32 area quadrature.
+   * @param e Prepared effect pose and palette.
+   * @param canvas Destination.
+   * @param timed Uses each column's authored time. */
+  static void surface_full_area(OracleEffect &e, Canvas &canvas, bool timed) {
+    using Surface = OracleEffect::Surface;
+    constexpr int N = 24;
+    constexpr int SAMPLES = 32;
+    e.prepare_count(288);
+    const auto &palette = e.selected_palette();
+    ScratchScope scope_a(scratch_arena_a), scope_b(scratch_arena_b);
+    const auto columns = timed ? Scan::prepare_column_basis<288, 144>(
+                                     scratch_arena_a, e.orientation, true)
+                               : Scan::ColumnBasis{};
+    const auto basis = math::make_basis(e.orientation.get(), math::X_AXIS);
+    Surface near, far;
+    near.bind(scratch_arena_a, 7, Plot::STAR_INNER_RATIO, N);
+    far.bind(scratch_arena_a, 7, Plot::STAR_INNER_RATIO, N);
+    auto *knots = scratch_arena_b.allocate_n<Surface::Knot>(N + 1);
+    auto *colors = scratch_arena_b.allocate_n<Scan::SurfaceColor>(N + 1);
+    for (int i = 0; i <= N; ++i) {
+      const auto COLOR = palette.get(1 - .5f * i / N);
+      const float OPACITY = COLOR.alpha * e.alpha * e.preset_opacity;
+      colors[i] = {COLOR.color.r * OPACITY, COLOR.color.g * OPACITY,
+                   COLOR.color.b * OPACITY};
+    }
+    float sine = 0, cosine = 1;
+    auto prepare = [&](int column) {
+      const float TIME =
+          timed ? Spacetime::SamplingSurface<288>::time(column) : 1;
+      const float ANGLE =
+          math::TWO_PI_F * (e.phase - e.twist_step * (1 - TIME));
+      sine = sinf(ANGLE);
+      cosine = cosf(ANGLE);
+    };
+    auto ensure = [&](int side) {
+      for (int i = 0; i <= N; ++i) {
+        const float Q = .5f * i / N;
+        const float RADIUS = math::PI_F * e.screen_balanced_radius_t(Q);
+        const float S = sinf(math::TWO_PI_F * Q), C = cosf(math::TWO_PI_F * Q);
+        const float WAVE = side ? sine * C - cosine * S : sine * C + cosine * S;
+        const float TURN =
+            (side && !e.params.opposite ? -1 : 1) * e.params.amplitude * WAVE;
+        float angle = TURN - floorf(TURN / math::TWO_PI_F) * math::TWO_PI_F;
+        const float SIGN = angle > math::PI_F ? -1.0f : 1.0f;
+        if (angle > math::PI_F)
+          angle -= math::PI_F;
+        float turn_sine, turn_cosine;
+        math::poly_sincosf_0_pi(angle, turn_sine, turn_cosine);
+        knots[i] = {RADIUS * turn_cosine * SIGN, RADIUS * turn_sine * SIGN,
+                    TURN};
+      }
+      (side ? far : near).set_knots({knots, N + 1});
+    };
+    auto shade = [&](const Surface::Hit &hit) {
+      const auto A = colors[hit.interval], B = colors[hit.interval + 1];
+      return Scan::SurfaceColor{A.r + (B.r - A.r) * hit.fraction,
+                                A.g + (B.g - A.g) * hit.fraction,
+                                A.b + (B.b - A.b) * hit.fraction};
+    };
+    auto area = [&](const Surface &surface, auto p, auto dx, auto dy, float,
+                    int, auto &, auto *, float, float) {
+      Scan::SurfaceColor color;
+      for (int y = 0; y < SAMPLES; ++y)
+        for (int x = 0; x < SAMPLES; ++x) {
+          const float U = (x + .5f) / SAMPLES - .5f,
+                      V = (y + .5f) / SAMPLES - .5f;
+          const Surface::Point Q{p.x + U * dx.x + V * dy.x,
+                                 p.y + U * dx.y + V * dy.y};
+          const auto HIT = surface.sample<false, true, false>(
+              Q, Scan::radial_atan2(Q.y, Q.x));
+          if (HIT.found()) {
+            const auto C = shade(HIT);
+            color.r += C.r / (SAMPLES * SAMPLES);
+            color.g += C.g / (SAMPLES * SAMPLES);
+            color.b += C.b / (SAMPLES * SAMPLES);
+          }
+        }
+      return color;
+    };
+    auto lower_bound = [](float) { return 0; };
+    Scan::draw_radial_surface<288, 144>(canvas, near, far, area, basis, columns,
+                                        prepare, ensure, lower_bound, shade);
+  }
   static int preset_frames() { return OracleEffect::PRESET_FRAMES; }
   static int preset_dwell_frames() { return OracleEffect::PRESET_DWELL_FRAMES; }
   static int preset_segue_frames() { return OracleEffect::DEPARTURE.frames; }
@@ -1588,6 +1672,10 @@ inline int run_shapeshifter_oracle_tests() {
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
   if (std::getenv("HS_SHAPESHIFTER_SURFACE_CENSUS")) {
     test_surface_natural_census();
+    return fixture.result();
+  }
+  if (std::getenv("HS_SURFACE_LOBE_DIAGNOSTICS")) {
+    test_surface_lobe_outliers();
     return fixture.result();
   }
   if (std::getenv("HS_SHAPESHIFTER_PRESET_HASHES")) {
