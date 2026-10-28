@@ -587,6 +587,7 @@ private:
 
   // init() takes the palette cycler's generated arena, the external ParamDef
   // array, one State and qualified parameter names from the persistent arena.
+  // A temporal effect's first draw_frame() clones one palette bake.
   static constexpr size_t FOOTPRINT_BYTES =
       PaletteCycler::generated_arena_bytes() +
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(State) + alignof(State) +
