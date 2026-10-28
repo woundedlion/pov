@@ -134,8 +134,8 @@ historical source snapshots and do not describe current shipping performance.
 
 Historical captures: [2026-09-27 shipping](shipping/profile_hyperlattice_octet_teensy_2026-09-27.md),
 [2026-09-27 global-O3](O3/profile_hyperlattice_octet_teensy_2026-09-27.md),
-[2026-09-28 global-O3 preset 3](O3/profile_hyperlattice_octet_preset3_teensy_2026-09-28.md),
-and [2026-09-28 global-O3 preset 5](O3/profile_hyperlattice_octet_preset5_teensy_2026-09-28.md).
+[2026-09-28 global-O3 (index 2 at capture time)](O3/profile_hyperlattice_octet_preset3_teensy_2026-09-28.md),
+and [2026-09-28 global-O3 (index 4 at capture time)](O3/profile_hyperlattice_octet_preset5_teensy_2026-09-28.md).
 
 | Preset | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---:|---:|---:|---:|---:|---:|---|

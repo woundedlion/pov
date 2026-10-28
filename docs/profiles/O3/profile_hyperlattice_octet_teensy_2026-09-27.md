@@ -11,7 +11,7 @@ Point-in-time snapshot of the opt-in Octet 3D and 4D presets. These historical f
 | Hardware | Teensy 4.0, 600 MHz, COM4; same board throughout, live flywheel and DMA ISRs |
 | Image | profile_o3; global -O3 -ffast-math reference |
 | Driver | POVSegmented<288,4,480>, segment 0 master |
-| Effect | HyperLattice 288×144, experimental-octet-flight (preset 2) and experimental-octet-4d-slice (preset 3) |
+| Effect | HyperLattice 288×144, experimental-octet-flight (index 2 at capture time) and experimental-octet-4d-slice (index 3 at capture time) |
 | Method | Separate held-preset captures; 16-frame windows; 70 seconds for 3D, 45 seconds for 4D. Setup frame 1 and its scope window are excluded. Camera and palette motion remain active. No epoch crossing or preset cycle is claimed. |
 | Reproduce | HS_PROFILE_TREE=checkout HS_TEENSY_PORT=COM4 bash tools/profile_one.sh HyperLattice profile_o3 seconds 16 "-DHS_ENABLE_HYPERLATTICE_EXPERIMENTS=1 -DHS_PROFILE_PRESET=preset" |
 

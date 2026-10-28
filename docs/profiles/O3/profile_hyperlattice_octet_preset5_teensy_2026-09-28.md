@@ -1,6 +1,6 @@
-# HyperLattice on-device profile — preset 5 (2026-09-28, global-O3)
+# HyperLattice on-device profile — index 4 at capture time (2026-09-28, global-O3)
 
-This is experimental-octet-wide-flight, preset 5 (internal index 4), held with continuous camera and palette motion. This newly added preset supplements the existing Octet views. The 4D preset is unchanged.
+This is experimental-octet-wide-flight, index 4 at capture time, held with continuous camera and palette motion. This newly added preset supplements the existing Octet views. The 4D preset is unchanged.
 
 Current [shipping report](../shipping/profile_hyperlattice_octet_preset5_teensy_2026-09-28.md). The matching pre-Tier shipping capture survives in its "Before" column.
 
