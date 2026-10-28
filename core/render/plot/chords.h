@@ -273,7 +273,8 @@ public:
    *  pole split. */
   static constexpr float POLE_GUARD_ROWS = 3.0f;
   /** @brief Rows from a pole within which an anchor interval of a pole edge
-   *  goes to the rasterizer; the rest of the edge keeps the chord walk. */
+   *  goes to the still path's rasterizer or the timed path's polar chart walk;
+   *  the rest of the edge keeps the chord walk. */
   static constexpr float POLE_PIECE_ROWS = 11.0f;
   /** @brief Chart pieces a pole run is split into against the clip band. */
   static constexpr int POLE_RUN_PIECES = 8;
@@ -553,9 +554,10 @@ public:
    * alternating_radii is set; the interval cap can widen that spacing.
    * @param alternating_radii Adjacent edges reverse the radial anchor profile.
    * @param middle Rotation from frame end to mid-frame.
-   * @param reference_chords Use TARGET_STEP screen spacing and adaptive
-   * balanced pole runs; otherwise use BALANCED_SCREEN_STEP_PX spacing and
-   * adaptive arc-table sampling.
+   * @param reference_chords Match the still chord walk: TARGET_STEP spacing,
+   * unit density and balanced opacity; otherwise match the adaptive arc-table
+   * rasterizer: BALANCED_SCREEN_STEP_PX spacing, arc-table density and linear
+   * opacity below the default step.
    * @param contour_speed Bound on angular speed over the contour, radians per frame.
    * @details Edges share the first edge's radial profile, reversed on alternating
    * edges. Screen anchors carry quadratic motion between frame start, middle
