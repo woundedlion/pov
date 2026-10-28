@@ -558,13 +558,13 @@ HS_COLD static PolyMesh kis(const PolyMesh &mesh, Arena &target,
   for (size_t fi = 0; fi < F; ++fi) {
     int count = face_counts[fi];
     HS_CHECK(count >= 3, "kis: degenerate face (< 3 sides)");
-    math::Vector centroid(0, 0, 0);
     for (int k = 0; k < count; ++k) {
       HS_CHECK(static_cast<size_t>(faces[offset + k]) < V,
                "kis: face vertex index out of range");
-      centroid = centroid + mesh.vertices[faces[offset + k]];
     }
-    centroid = centroid / static_cast<float>(count);
+    const math::Vector centroid =
+        face_vertex_sum(mesh.vertices.data(), faces, offset, count) /
+        static_cast<float>(count);
 
     out_mesh.vertices.push_back(
         math::normalized_or(centroid, mesh.vertices[faces[offset]]));
