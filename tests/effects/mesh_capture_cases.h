@@ -146,10 +146,11 @@ inline void replay_islamicstars_profile(size_t preset, float trans_speed,
                  ParamSetResult::APPLIED);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *audit_path = std::getenv("HS_FACE_AUDIT_PIX");
+  const char *audit_path = report ? std::getenv("HS_FACE_AUDIT_PIX") : nullptr;
   Scan::face_audit_reference =
-      std::getenv("HS_FACE_AUDIT_REFERENCE") != nullptr;
-  const char *image_path = std::getenv("HS_FACE_AUDIT_IMAGES");
+      report && std::getenv("HS_FACE_AUDIT_REFERENCE") != nullptr;
+  const char *image_path =
+      report ? std::getenv("HS_FACE_AUDIT_IMAGES") : nullptr;
   FILE *images = image_path ? std::fopen(image_path, "wb") : nullptr;
   FILE *audit = audit_path ? std::fopen(audit_path, "wb") : nullptr;
 #pragma clang diagnostic pop
