@@ -135,6 +135,8 @@ void operator delete[](void *p, std::align_val_t,
 }
 
 int main() {
+  if (!hs_test::require_ci_smoke_frames())
+    return 1;
   hs_test::ModuleFixture fixture("frame_heap (no operator new while drawing)");
   {
     CountAllocations count;

@@ -32,6 +32,8 @@ template <template <int, int> class E> void render_offset_effect() {
 
 int main() {
 #ifdef HS_OFFSET_FULL_RESOLUTION
+  if (!hs_test::require_ci_smoke_frames())
+    return 1;
   hs_test::ModuleFixture fixture("offset3 full-resolution roster");
   render_offset_effect<Comets>();
   render_offset_effect<RingSpin>();
