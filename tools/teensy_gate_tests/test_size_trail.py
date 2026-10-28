@@ -586,6 +586,18 @@ class TrailStorage(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].subject, "one two three")
 
+    def test_append_restores_the_current_header(self):
+        for header in ("#sha\tdate\tenv\titcm\tsubject",
+                       "#" + "\t".join(["sha", "date", "env", *reversed(tst.REGIONS),
+                                         "subject"])):
+            with self.subTest(header=header):
+                self.path.write_text(header + "\n", encoding="utf-8")
+                expected = _row("a" * 40, "phantasm", itcm=17, bss=23)
+                tst.append_rows(self.path, [expected])
+                self.assertEqual(tst.read_trail(self.path), [expected])
+                self.assertEqual(self.path.read_text(encoding="utf-8").splitlines()[1],
+                                 tst._HEADER)
+
     def test_malformed_rows_are_skipped(self):
         tst.append_rows(self.path, [_row("d" * 40, "phantasm", itcm=1)])
         with self.path.open("a", encoding="utf-8", newline="\n") as fh:
@@ -614,6 +626,16 @@ class TrailStorage(unittest.TestCase):
 
 
 class RegressionClassifier(unittest.TestCase):
+    def test_new_regions_have_no_delta_until_they_have_a_predecessor(self):
+        rows = [tst.TrailRow("a", "2026-08-01", "phantasm", {"itcm": 100}, "s"),
+                tst.TrailRow("b", "2026-08-02", "phantasm", {"itcm": 110, "bss": 50}, "s"),
+                tst.TrailRow("c", "2026-08-03", "phantasm", {"dma": 90}, "s")]
+        deltas = tst.compute_deltas(rows)
+        self.assertEqual(deltas[1].changes, {"itcm": 10})
+        self.assertTrue(deltas[2].first)
+        self.assertEqual([(r.region, r.delta) for r in tst.find_regressions(rows)],
+                         [("itcm", 10)])
+
     def test_deltas_compare_within_an_environment(self):
         rows = [_row("1" * 40, "phantasm", itcm=100),
                 _row("1" * 40, "holosphere", itcm=900),

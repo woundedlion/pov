@@ -206,9 +206,10 @@ def read_trail(path: str | Path) -> list[TrailRow]:
 def append_rows(path: str | Path, rows: list[TrailRow]) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    new = not p.exists() or p.stat().st_size == 0
+    headers = ([line for line in p.read_text(encoding="utf-8").splitlines()
+                if line.startswith("#")] if p.exists() else [])
     with p.open("a", encoding="utf-8", newline="\n") as fh:
-        if new:
+        if not headers or headers[-1] != _HEADER:
             fh.write(_HEADER + "\n")
         for row in rows:
             fh.write(row.to_tsv() + "\n")
@@ -253,8 +254,9 @@ def compute_deltas(rows: list[TrailRow]) -> list[Delta]:
     out: list[Delta] = []
     for row in rows:
         prev = previous.get(row.env)
-        changes = ({r: row.sizes.get(r, 0) - prev.sizes.get(r, 0)
-                    for r in REGIONS} if prev else {})
+        changes = ({r: row.sizes[r] - prev.sizes[r]
+                    for r in REGIONS if r in row.sizes and r in prev.sizes}
+                   if prev else {})
         out.append(Delta(row=row, changes=changes))
         previous[row.env] = row
     return out
