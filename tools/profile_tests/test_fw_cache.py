@@ -210,10 +210,13 @@ class CacheStore(FirmwareCacheFixture):
         self.assertEqual(len(self.entries()), 1)
 
     def test_prune_keeps_the_newest_entries(self):
+        stored_entries = []
         for text in ("two", "three", "four"):
             self.commit_source(text)
-            self.assertEqual(self.build_and_store(HS_FW_CACHE_KEEP="2").returncode, 0)
-        self.assertEqual(len(self.entries()), 2)
+            stored = self.build_and_store(HS_FW_CACHE_KEEP="2")
+            self.assertEqual(stored.returncode, 0, stored.stdout + stored.stderr)
+            stored_entries.append(Path(stored.stdout.strip()).name)
+        self.assertEqual(set(self.entries()), set(stored_entries[-2:]))
         self.assertEqual(self.fw("hs_fw_cache_lookup profile").returncode, 0)
 
     def test_build_reuses_a_stored_image_without_platformio(self):
