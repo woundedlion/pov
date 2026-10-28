@@ -159,8 +159,8 @@ template <int W, int H> struct PolarWalk {
           const float pitch_scale = fminf(1.0f, SCREEN_STEP_PX * physical_rate /
                                                     (screen_rate * min_pitch));
           emit(sqrtf(x * x + y * y), float(column),
-               gain * (SCREEN_STEP_PX / step) * screen_rate * coverage *
-                   pitch_scale);
+               fminf(1.0f, gain * (SCREEN_STEP_PX / step) * screen_rate *
+                               coverage * pitch_scale));
         }
         continue;
       }
@@ -193,9 +193,7 @@ template <int W, int H> struct PolarWalk {
         const float inverse = 1.0f / samples;
         const float ratio = fminf(step, length * inverse) / SCREEN_STEP_PX;
         const float alpha =
-            density * (!balanced && ratio < 1.0f
-                           ? color.alpha * ratio
-                           : balanced_sample_alpha(color.alpha, ratio));
+            stroke_sample_alpha(color.alpha, ratio, density, balanced);
         const int begin = std::max(0, static_cast<int>(ceilf(lo * samples)));
         const int end =
             std::min(samples - 1, static_cast<int>(floorf(hi * samples)));
@@ -225,7 +223,9 @@ template <int W, int H> struct PolarWalk {
       const float rmax = fmaxf(rlo, rhi);
       const float distance2 =
           fmaxf(0.0f, from.x * from.x + from.y * from.y - foot * foot * norm);
-      float radial_step = step, radial_phase = 0.0f, alpha = gain * step;
+      float radial_step = step, radial_phase = 0.0f,
+            alpha = stroke_sample_alpha(color.alpha, step / SCREEN_STEP_PX,
+                                        density, balanced);
       const float first_radius = radius_at(0.0f);
       const float last_radius = radius_at(1.0f);
       if ((foot <= 0.0f || foot >= 1.0f) &&
@@ -242,9 +242,7 @@ template <int W, int H> struct PolarWalk {
         radial_step = fabsf(dr) * inverse;
         radial_phase = first_radius;
         const float ratio = fminf(step, length * inverse) / SCREEN_STEP_PX;
-        alpha = density * (!balanced && ratio < 1.0f
-                               ? color.alpha * ratio
-                               : balanced_sample_alpha(color.alpha, ratio));
+        alpha = stroke_sample_alpha(color.alpha, ratio, density, balanced);
       }
       for (int row =
                static_cast<int>(ceilf((rmin - radial_phase) / radial_step));

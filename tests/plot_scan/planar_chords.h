@@ -15,6 +15,41 @@ struct PlanarShapeCase {
   float phase;
 };
 
+/** @brief Stroke density cannot make polar samples exceed opaque coverage. */
+inline void test_polar_stroke_alpha_is_bounded() {
+  constexpr int W = 144, H = 72;
+  HS_EXPECT_NEAR(Plot::stroke_sample_alpha(0.4f, 0.5f, 1.5f, false), 0.3f,
+                 1e-6f);
+  HS_EXPECT_EQ(Plot::stroke_sample_alpha(0.8f, 1.0f, 2.0f, true), 1.0f);
+  struct Capture {
+    int samples = 0;
+    void plot_column_at(Canvas &, math::PixelCoords, int, Pixel, float,
+                        float alpha, float) {
+      ++samples;
+      HS_EXPECT_GT(alpha, 0.0f);
+      HS_EXPECT_LE(alpha, 1.0f);
+    }
+  };
+  hs_test::StubEffect effect(W, H);
+  math::TrigLUT<W, H>::init();
+  Canvas canvas(effect);
+  initialize_parity_frame<W, H>(canvas);
+  for (bool balanced : {false, true}) {
+    for (const auto &edge :
+         {std::array{math::PixelCoords{8, -2}, math::PixelCoords{8, 2}},
+          std::array{math::PixelCoords{2, 0}, math::PixelCoords{12, 1}},
+          std::array{math::PixelCoords{-8, 1}, math::PixelCoords{8, 1}}}) {
+      Capture sink;
+      const auto a = Plot::PolarAnchor::capture(edge[0], edge[0], edge[0]);
+      const auto b = Plot::PolarAnchor::capture(edge[1], edge[1], edge[1]);
+      Plot::PolarWalk<W, H>::draw(sink, canvas, a, b, true,
+                                  Color4(Pixel(65535, 65535, 65535), 0.8f),
+                                  Plot::SCREEN_STEP_PX, balanced, 100.0f);
+      HS_EXPECT_GT(sink.samples, 0);
+    }
+  }
+}
+
 /**
  * @brief Strokes @p star into @p fx, through PlanarChords or, for the
  *        reference, a balanced Plot::rasterize of the same closed polyline.

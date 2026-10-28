@@ -267,6 +267,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_rasterize_step_budget_backstop_finishes_segment);
   HS_RUN(test_rasterize_default_sampling_policy_parity);
   HS_RUN(test_rasterize_balanced_sampling_scope);
+  HS_RUN(test_polar_stroke_alpha_is_bounded);
   HS_RUN(test_rasterize_balanced_sampling_density_and_alpha);
   HS_RUN(test_rasterize_balanced_pole_guard);
   HS_RUN(test_rasterize_balanced_geodesic_density_and_alpha);

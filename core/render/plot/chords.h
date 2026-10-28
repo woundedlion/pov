@@ -647,10 +647,8 @@ public:
                             const math::PixelCoords &to_mid, float density,
                             float curve_bend) __attribute__((always_inline)) {
       auto sample_alpha = [&](float ratio) HS_HOT_INLINE {
-        const float alpha = !reference_chords && ratio < 1.0f
-                                ? color.alpha * ratio
-                                : balanced_sample_alpha(color.alpha, ratio);
-        return fminf(1.0f, density * alpha);
+        return stroke_sample_alpha(color.alpha, ratio, density,
+                                   reference_chords);
       };
       const math::PixelCoords from_curve{
           2.0f * (from0.x + from1.x - 2.0f * from_mid.x),

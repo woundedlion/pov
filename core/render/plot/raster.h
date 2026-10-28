@@ -81,6 +81,22 @@ static inline float balanced_sample_alpha(float alpha, float step_ratio) {
   return fminf(1.0f, alpha * gain);
 }
 
+/**
+ * @brief Density-scaled stroke coverage at a chosen sample spacing.
+ * @param alpha Coverage at the default spacing.
+ * @param step_ratio Sample spacing over the default spacing.
+ * @param density Reference samples per unit lattice length.
+ * @param balanced Apply balanced gain to short sample spacings.
+ * @return Coverage clamped to 1.
+ */
+static inline float stroke_sample_alpha(float alpha, float step_ratio,
+                                        float density, bool balanced) {
+  const float coverage = !balanced && step_ratio < 1.0f
+                             ? alpha * step_ratio
+                             : balanced_sample_alpha(alpha, step_ratio);
+  return fminf(1.0f, density * coverage);
+}
+
 #if HS_ENABLE_TEST_HOOKS
 /** @brief Single-pass planar samples taken with position and tangent. */
 inline uint32_t g_planar_full_samples = 0;
