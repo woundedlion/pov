@@ -1735,7 +1735,7 @@ files define line-ending policy and working-artifact exclusions.
 ├── .clangd                     Checkout-local native compilation database for editor diagnostics
 ├── .clang-format               LLVM-derived C++ style; CI enforces it with clang-format 22
 ├── ruff.toml                   Python lint rules (defect classes only, no formatter) — the ci.yml lint job
-├── eslint.config.mjs           JavaScript lint rules for scripts/*.mjs (recommended set) — the same job
+├── eslint.config.mjs           JavaScript lint rules for every tracked JS file (recommended set plus counted-assertion checks) — the same job
 ├── .githooks/                  Staged pre-commit checks, post-commit size capture, and a reference-transaction guard keeping master fast-forward-only
 ├── .github/dependabot.yml      Grouped dependency updates for GitHub Actions, npm, and pip
 ├── .github/workflows/          ci.yml (native, WASM, format, Teensy, provenance), docs.yml (Doxygen → Pages), notify-daydream.yml (engine-ready event)
