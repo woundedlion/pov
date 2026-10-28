@@ -315,38 +315,33 @@ inline void test_surface_natural_census() {
     effect.set_clip(0, 72, 0, 144);
     for (int frame = 1; frame <= 471; ++frame) {
       hs::set_mock_time((frame - 1) * 62500ul / 1000, (frame - 1) * 62500ul);
-      const bool selected = true;
       Scan::SurfaceAreaStats stats;
       {
         Canvas canvas(effect);
         ShapeShifterWhiteBox::replay_step(effect, canvas);
-        if (selected) {
-          HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{0});
-          ShapeShifterWhiteBox::surface_kernel(effect, canvas, true, &stats);
-        }
+        HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{0});
+        ShapeShifterWhiteBox::surface_kernel(effect, canvas, true, &stats);
       }
       effect.advance_display();
-      if (selected) {
-        ++samples;
-        HS_EXPECT_GE(stats.pixels, uint64_t{144 * 72});
-        HS_EXPECT_GT(stats.mask_prepares, uint64_t{0});
-        std::printf(
-            "SURFACE_CENSUS frame=%d pixels=%llu hits=%llu edges=%llu "
-            "hidden=%llu point=%llu outside=%llu intervals=%llu max=%d maxpoint=%d "
-            "prepares=%llu candidates=%llu pieces=%llu writes=%llu\n",
-            frame, static_cast<unsigned long long>(stats.pixels),
-            static_cast<unsigned long long>(stats.mask_hits),
-            static_cast<unsigned long long>(stats.edge_pixels),
-            static_cast<unsigned long long>(stats.hidden_pixels),
-            static_cast<unsigned long long>(stats.point_intervals),
-            static_cast<unsigned long long>(stats.outside_intervals),
-            static_cast<unsigned long long>(stats.intervals),
-            stats.max_intervals, stats.max_point_intervals,
-            static_cast<unsigned long long>(stats.mask_prepares),
-            static_cast<unsigned long long>(stats.mask_candidates),
-            static_cast<unsigned long long>(stats.mask_pieces),
-            static_cast<unsigned long long>(stats.mask_row_writes));
-      }
+      ++samples;
+      HS_EXPECT_GE(stats.pixels, uint64_t{144 * 72});
+      HS_EXPECT_GT(stats.mask_prepares, uint64_t{0});
+      std::printf(
+          "SURFACE_CENSUS frame=%d pixels=%llu hits=%llu edges=%llu "
+          "hidden=%llu point=%llu outside=%llu intervals=%llu max=%d maxpoint=%d "
+          "prepares=%llu candidates=%llu pieces=%llu writes=%llu\n",
+          frame, static_cast<unsigned long long>(stats.pixels),
+          static_cast<unsigned long long>(stats.mask_hits),
+          static_cast<unsigned long long>(stats.edge_pixels),
+          static_cast<unsigned long long>(stats.hidden_pixels),
+          static_cast<unsigned long long>(stats.point_intervals),
+          static_cast<unsigned long long>(stats.outside_intervals),
+          static_cast<unsigned long long>(stats.intervals), stats.max_intervals,
+          stats.max_point_intervals,
+          static_cast<unsigned long long>(stats.mask_prepares),
+          static_cast<unsigned long long>(stats.mask_candidates),
+          static_cast<unsigned long long>(stats.mask_pieces),
+          static_cast<unsigned long long>(stats.mask_row_writes));
     }
   }
   Timeline().clear();
