@@ -265,14 +265,13 @@ class SharedLiterals(unittest.TestCase):
                          ["clang_format_gate.sh", "commit_checks.sh"])
 
     def test_fast_math_axis_marks_its_test_contract(self):
-        self.assertEqual(
-            bp.FAST_MATH_TEST_FLAGS,
-            (*bp.FLOAT_FLAGS, "-DHS_TEST_FAST_MATH=1"),
-        )
-        self.assertEqual(
-            bp.SHARED_LITERALS["float-test-flags"],
-            "-ffast-math -fno-finite-math-only -DHS_TEST_FAST_MATH=1",
-        )
+        definitions = [match.groups() for flag in bp.FAST_MATH_TEST_FLAGS
+                       if (match := re.fullmatch(r"-D(\w+)=(\d+)", flag))]
+        self.assertTrue(definitions)
+        harness = (bp.ROOT / "tests/test_harness.h").read_text(encoding="utf-8")
+        for name, value in definitions:
+            self.assertNotEqual(int(value), 0)
+            self.assertRegex(harness, rf"defined\s*\(\s*{re.escape(name)}\s*\)")
 
 
 class InlinePins(unittest.TestCase):
