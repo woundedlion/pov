@@ -23,7 +23,7 @@ namespace Scan {
  * @tparam BLOCK_SIZE Intervals grouped by each conservative rejection bound. */
 template <int MAX_INTERVALS, int MAX_SIDES, int BLOCK_SIZE = 2>
 class RadialSurface {
-  static_assert(MAX_INTERVALS > 0 && MAX_SIDES >= 2 && BLOCK_SIZE > 0);
+  static_assert(MAX_INTERVALS > 0 && MAX_SIDES >= 3 && BLOCK_SIZE > 0);
 
 public:
   /** @brief A vector in the planar chart. */
@@ -95,12 +95,12 @@ public:
 
   /** @brief Allocates reusable sweep storage and prepares the unit star.
    * @param arena Storage owner.
-   * @param sides Number of outer tips.
+   * @param sides Number of outer tips, at least 3.
    * @param ratio Inner-to-outer vertex radius ratio, in (0,cos(pi/sides)].
    * @param intervals Number of sweep intervals. */
   HS_FLASH_MEMBER void bind(Arena &arena, int sides, float ratio,
                             int intervals) {
-    HS_CHECK(sides >= 2 && sides <= MAX_SIDES, "RadialSurface: side capacity");
+    HS_CHECK(sides >= 3 && sides <= MAX_SIDES, "RadialSurface: side capacity");
     HS_CHECK(intervals >= 1 && intervals <= MAX_INTERVALS,
              "RadialSurface: interval capacity");
     HS_CHECK(ratio > 0.0f && ratio <= cosf(math::PI_F / sides),

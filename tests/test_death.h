@@ -1292,7 +1292,7 @@ inline const Case *all_cases(int &n) {
            "column-time basis"},
           {"radial_surface_side_capacity", case_radial_surface_side_capacity,
            "core/render/scan/radial_surface.h",
-           "(sides >= 2 && sides <= MAX_SIDES) RadialSurface: side capacity"},
+           "(sides >= 3 && sides <= MAX_SIDES) RadialSurface: side capacity"},
           {"radial_surface_interval_capacity",
            case_radial_surface_interval_capacity,
            "core/render/scan/radial_surface.h",
