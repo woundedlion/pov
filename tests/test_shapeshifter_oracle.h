@@ -1418,10 +1418,7 @@ inline void test_timed_contours_match_frozen_columns() {
 
 /** @brief Shipping presets match their frozen columns at the authored speed. */
 inline void test_timed_presets_match_frozen_columns() {
-  for (size_t i = 0; i < ShapeShifterWhiteBox::PRESET_COUNT; ++i) {
-    if (i == 0)
-      continue;
-
+  for (size_t i = 1; i < ShapeShifterWhiteBox::PRESET_COUNT; ++i) {
     const auto &preset = ShapeShifterWhiteBox::preset_params(i);
     OracleState state;
     state.shape = preset.shape;

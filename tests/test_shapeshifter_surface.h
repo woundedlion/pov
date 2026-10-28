@@ -313,14 +313,36 @@ inline void test_surface_images() { surface_mask_cases(true); }
 /** @brief P1 dispatch reaches the continuous surface renderer. */
 inline void test_surface_preset_dispatch() {
   auto state = surface_state();
-  state.phase = 0.37f;
-  state.orientation = math::make_rotation(math::X_AXIS, .27f);
+  const auto pose = surface_replay_pose(true, 77);
+  const auto moving = [pose](OracleEffect &effect) {
+    auto &orientation = ShapeShifterWhiteBox::orientation(effect);
+    orientation.set(pose.start);
+    orientation.push(pose.end);
+    ShapeShifterWhiteBox::set_twist(effect, pose.phase, pose.step);
+  };
   const auto comparison = compare_renders(
-      state, candidate_renderer(), [](OracleEffect &effect, Canvas &canvas) {
-        ShapeShifterWhiteBox::surface_kernel(effect, canvas, false);
+      state,
+      [moving](OracleEffect &effect, Canvas &canvas) {
+        moving(effect);
+        const ScopedTemporalSampling sampling(true);
+        ShapeShifterWhiteBox::render_candidate(effect, canvas);
+      },
+      [moving](OracleEffect &effect, Canvas &canvas) {
+        moving(effect);
+        const ScopedTemporalSampling sampling(true);
+        ShapeShifterWhiteBox::surface_kernel(effect, canvas, true);
       });
   HS_EXPECT_EQ(comparison.error.different_pixels, size_t{0});
   HS_EXPECT_GT(frame_energy(comparison.candidate), uint64_t{0});
+  const auto frozen =
+      capture_frame(state, [moving](OracleEffect &effect, Canvas &canvas) {
+        moving(effect);
+        const ScopedTemporalSampling sampling(true);
+        ShapeShifterWhiteBox::surface_kernel(effect, canvas, false);
+      });
+  HS_EXPECT_GT(compare_buffers(comparison.candidate.pixels, frozen.pixels)
+                   .different_pixels,
+               size_t{0});
 }
 
 /** @brief Samples board work throughout the complete natural P1 visit. */
