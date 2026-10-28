@@ -5,7 +5,6 @@
 #pragma once
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 #include "core/math/3dmath.h"
 #include "core/math/pixel_mapping.h"
 #include "core/math/spherical_field.h"
@@ -150,43 +149,11 @@ template <int W, int H> struct FeedbackCapPlane {
   polar_lane(const CapCell &cell, int x, float cap_angle, bool north,
              bool midpoint, float fx) {
     const CapPoint p = cap_lane(cell, x, cap_angle, midpoint, fx);
-    const AtanTerms a = atan_terms(p.v, p.u);
-    return {atan_fold(a.numerator / a.denominator, a) *
-                (W / (2.0f * math::PI_F)),
+    return {math::precise_atan2(p.v, p.u) * (W / (2.0f * math::PI_F)),
             cap_row(p, north)};
   }
 
 private:
-  /** @brief One arctangent's ratio terms and the octant folds it needs. */
-  struct AtanTerms {
-    float numerator;
-    float denominator;
-    bool steep;
-    bool negative_x;
-    bool negative_y;
-  };
-
-  static __attribute__((always_inline)) AtanTerms atan_terms(float y, float x) {
-    uint32_t y_bits, x_bits;
-    std::memcpy(&y_bits, &y, sizeof(y_bits));
-    std::memcpy(&x_bits, &x, sizeof(x_bits));
-    // Sign-cleared bit patterns order like the magnitudes.
-    const bool steep = (y_bits & 0x7fffffffu) > (x_bits & 0x7fffffffu);
-    const float abs_y = fabsf(y), abs_x = fabsf(x);
-    return {steep ? abs_x : abs_y, fmaxf(steep ? abs_y : abs_x, 1e-6f), steep,
-            (x_bits >> 31) != 0, (y_bits >> 31) != 0};
-  }
-
-  static __attribute__((always_inline)) float atan_fold(float ratio,
-                                                        const AtanTerms &t) {
-    float angle = math::atan_unit(ratio);
-    if (t.steep)
-      angle = 1.57079633f - angle;
-    if (t.negative_x)
-      angle = 3.14159265f - angle;
-    return t.negative_y ? -angle : angle;
-  }
-
   /**
    * @brief A polar lane's target in the cap plane: its own column at the
    *        row's cap angle plus the cell's offset at @p fx.
