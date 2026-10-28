@@ -83,7 +83,9 @@ protected:
       RECONCILE_LEG_FRAMES; /**< Reconcile leg length. */
   /** @brief Build stage entered when a scheduled leg completes. */
   enum class BuildContinuation : uint8_t {
-    FINISH,            /**< Completes the build and hands off the sprite. */
+    /** Finishes the lowered step: adopts its endpoint, then starts the next leg
+     * or completes the build and hands off the sprite. */
+    FINISH,
     DUAL_MEDIAL,       /**< Starts the dual bridge medial leg. */
     DUAL_UNTRUNCATE,   /**< Starts the dual bridge untruncate leg. */
     DUAL_DONE,         /**< Completes the dual bridge. */
