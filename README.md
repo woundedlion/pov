@@ -1609,7 +1609,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── run_effect_cases_shapeshifter_cases.cpp ShapeShifter case wrappers and focused runner
 │   ├── run_effect_cases_spherical_harmonics.cpp Spherical harmonics case wrappers and focused runner
 │   ├── run_effect_cases_voronoi.cpp Voronoi case wrappers and focused runner
-│   ├── run_render_goldens.cpp  Node-hosted WASM render regression runner
+│   ├── run_render_goldens.cpp  Render regression runner, built native (render_goldens) and as Node-hosted WASM (render_goldens_wasm)
 │   ├── temporal_oracle.h  Shared per-column frozen-reference comparisons
 │   ├── plot_scan/         Sections included by test_plot_scan.h
 │   │   ├── temporal_seam.h Projected-entry world bypass and tap timing
