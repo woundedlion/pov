@@ -107,8 +107,7 @@ inline void advance_walk(SpatialWalkState &state, float wander,
       state.position, state.direction, state.angular_velocity, state.walk_noise,
       WALK_OPTIONS, state.walk_time);
   state.wander =
-      (math::scaled_rotation_delta(delta.rotation, wander) * state.wander)
-          .normalized();
+      math::absorb_rotation_delta(delta.rotation, wander, state.wander);
   state.spin_phase = fmodf(state.spin_phase + spin_rate, math::TWO_PI_F);
 }
 

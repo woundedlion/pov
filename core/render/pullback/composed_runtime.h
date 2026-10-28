@@ -747,12 +747,9 @@ private:
       const math::Quaternion projection_delta =
           projection * this->projection_walk_previous.conjugate();
       this->projection_walk_previous = projection;
-      this->projection_wander =
-          (math::scaled_rotation_delta(
-               projection_delta.normalized(),
-               params.template get<"projection">().wander) *
-           this->projection_wander)
-              .normalized();
+      this->projection_wander = math::absorb_rotation_delta(
+          projection_delta.normalized(),
+          params.template get<"projection">().wander, this->projection_wander);
       this->projection_conjugate =
           (math::make_rotation(math::Y_AXIS, this->projection_spin) *
            this->base_orientation * this->projection_wander)
@@ -762,11 +759,9 @@ private:
     const math::Quaternion outer_delta =
         outer * outer_walk_previous.conjugate();
     outer_walk_previous = outer;
-    outer_wander = (math::scaled_rotation_delta(
-                        outer_delta.normalized(),
-                        params.template get<"projection">().camera_wander) *
-                    outer_wander)
-                       .normalized();
+    outer_wander = math::absorb_rotation_delta(
+        outer_delta.normalized(),
+        params.template get<"projection">().camera_wander, outer_wander);
     if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
       outer_conjugate =
           (math::make_rotation(math::Y_AXIS, camera_spin) * outer_wander)

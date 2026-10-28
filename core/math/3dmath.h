@@ -1693,6 +1693,16 @@ scaled_rotation_delta(const Quaternion &delta, float amount) {
   return slerp(Quaternion(), delta, amount);
 }
 
+/** @brief Accumulates a fraction of a unit rotation delta.
+ * @param delta Unit rotation delta.
+ * @param amount Fraction of the rotation to absorb.
+ * @param accumulated Rotation accumulated before this delta.
+ * @return Normalized rotation after absorbing the scaled delta. */
+inline Quaternion absorb_rotation_delta(const Quaternion &delta, float amount,
+                                        const Quaternion &accumulated) {
+  return (scaled_rotation_delta(delta, amount) * accumulated).normalized();
+}
+
 /** @brief Reduces a bounded displacement with nearest-even period ties.
  * @param value Displacement with an integer-representable period quotient.
  * @param period Positive period.
