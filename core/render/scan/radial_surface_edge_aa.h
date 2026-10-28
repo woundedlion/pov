@@ -487,22 +487,16 @@ private:
     }
 
     HS_HOT_INLINE void interval(const Surface &surface, int i) {
-      int start, end;
-      float first, last_value;
-      center_predicate(surface, i, start, first);
-      center_predicate(surface, i + 1, end, last_value);
-      interval(surface, i, start, first, end, last_value);
-    }
-    HS_HOT_INLINE
-    void interval(const Surface &surface, int i, int start_sector,
-                  float start_value, int end_sector, float end_value) {
+      int start_sector, end_sector;
+      float start_value, end_value;
+      center_predicate(surface, i, start_sector, start_value);
+      center_predicate(surface, i + 1, end_sector, end_value);
       last = i;
       cached_knot = i + 1;
       cached_sector = end_sector;
       cached_value = end_value;
       if (!active(i))
         return;
-      (void)start_sector;
       const auto &ka = surface.knot(i), &kb = surface.knot(i + 1);
       const Point C{ka.real, ka.imag}, D{kb.real - ka.real, kb.imag - ka.imag};
       if (i == 0)
