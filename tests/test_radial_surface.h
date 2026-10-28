@@ -473,14 +473,14 @@ inline void test_radial_surface_edge_aa() {
               static_cast<unsigned long long>(stats.clips));
 }
 
-/** @brief Census of first-arrival-visible knot envelopes over a full phase. */
+/** @brief First-arrival knot envelopes retain their visible extent over a full phase. */
 inline void test_radial_surface_fold_visibility() {
   ScratchScope scope(scratch_arena_a);
   constexpr int N = 64;
   Surface surface;
   surface.bind(scratch_arena_a, 7, .382f, N);
   auto *knots = scratch_arena_a.allocate_n<Surface::Knot>(N + 1);
-  uint32_t segments = 0, visible = 0, monotone_fail = 0;
+  uint32_t segments = 0, visible = 0;
   float longest = 0, max_gap = 0;
   for (int phase = 0; phase < 64; ++phase) {
     for (int i = 0; i <= N; ++i) {
@@ -490,11 +490,6 @@ inline void test_radial_surface_fold_visibility() {
                           : acosf(1.1278247916f * (1 - U));
       const float P = sinf(math::PI_F * U + phase * math::TWO_PI_F / 64);
       knots[i] = {R * cosf(P), R * sinf(P), P};
-      if (i) {
-        const float dx = knots[i].real - knots[i - 1].real,
-                    dy = knots[i].imag - knots[i - 1].imag;
-        monotone_fail += knots[i - 1].real * dx + knots[i - 1].imag * dy < 0;
-      }
     }
     surface.set_knots({knots, N + 1});
     HS_EXPECT_TRUE(surface.strictly_increasing_radius());
@@ -529,10 +524,17 @@ inline void test_radial_surface_fold_visibility() {
           }
         });
   }
-  HS_EXPECT_EQ(monotone_fail, 0u);
+  HS_EXPECT_GE(segments, 900u);
+  HS_EXPECT_LE(segments, 960u);
+  HS_EXPECT_GE(visible, 580u);
+  HS_EXPECT_LE(visible, 630u);
+  HS_EXPECT_GE(longest, 0.50f);
+  HS_EXPECT_LE(longest, 0.55f);
+  HS_EXPECT_GE(max_gap, 0.69f);
+  HS_EXPECT_LE(max_gap, 0.74f);
   std::printf(
-      "  radial fold visibility: segments=%u visible=%u longest=%g radial_gap=%g monotone_fail=%u\n",
-      segments, visible, longest, max_gap, monotone_fail);
+      "  radial fold visibility: segments=%u visible=%u longest=%g radial_gap=%g\n",
+      segments, visible, longest, max_gap);
 }
 
 /** @brief Edge shading matches the area reference at a partially covered pixel. */
