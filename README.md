@@ -446,7 +446,7 @@ Forward paths — Scan, Plot and `Scan::Volume` — deliver every covered pixel 
 ```cpp
 Pipeline<W, H,
     Filter::World::Trails<MAX_ITEMS>,   // 3D world-space trail decay
-    Filter::World::Orient,              // capture-time quaternion rotation
+    Filter::World::Orient,              // orientation rotation (column-time on timed draws)
     Filter::Screen::AntiAlias<W, H>     // quintic-eased 2×2 splat AA
 > filters;
 ```
@@ -454,7 +454,7 @@ Pipeline<W, H,
 ```
 filters.plot(canvas, world_position, color, age, alpha)
     → World::Trails: store for later decay, pass through
-    → World::Orient: rotate by the pose at each arm pass, adjust age
+    → World::Orient: rotate by the current pose, age unchanged
     → first screen stage: vector_to_pixel
     → Screen::AntiAlias: distribute to 4 nearest pixels
     → Pipeline<W,H> (base): canvas(x,y) = blend(color, alpha)
