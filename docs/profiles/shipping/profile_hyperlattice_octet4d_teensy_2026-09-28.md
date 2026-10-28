@@ -1,7 +1,7 @@
 # HyperLattice on-device profile — Octet 4D slice (index 3 at capture time) — Teensy 4.0, segmented mode (2026-09-28, **selective -O3**)
 
-Point-in-time snapshot after Tiers 1 and 2 of the Octet 58 ms spec (`29305dfe2`, `f130ee632`, `1bb522211`).
-Raw capture: `build/prof/octet58/preset3_ship.com3.log`. Supersedes the 4D rows of [the 2026-09-27 octet report](profile_hyperlattice_octet_teensy_2026-09-27.md), which stays as the pre-optimization record the optimization ledger cites. Captured on COM3 (identical board) from a worktree at the same commit.
+Point-in-time snapshot after the first two Octet traversal optimization tiers (`29305dfe2`, `f130ee632`, `1bb522211`; design spec supporting artifact removed).
+Raw capture: `build/prof/octet58/preset3_ship.com3.log`. Supersedes the 4D rows of [the 2026-09-27 octet report](profile_hyperlattice_octet_teensy_2026-09-27.md), which stays as the pre-optimization record the optimization ledger (supporting artifact removed) cites. Captured on COM3 (identical board) from a worktree at the same commit.
 
 ## Setup
 
@@ -26,7 +26,9 @@ Frames after startup: mean render **137.407 ms**, peak **143.318 ms**, spilled *
 
 A display window is 62.5 ms; the shader evaluates the 144×72 quadrant plus its one-pixel margin, 146×73 = 10,658 samples. `canvas_buffer_wait` is the round-up idle to the next display flip.
 
-| | Before (spec §1) | Now |
+The Before column uses the 4D capture in [the 2026-09-27 octet report](profile_hyperlattice_octet_teensy_2026-09-27.md).
+
+| | Before (pre-Tier-1 capture) | Now |
 |---|--:|--:|
 | Render mean / peak | 177.308 / 188.387 ms | 137.407 / 143.318 ms |
 | Shader cycles/sample (worst window) | 9,865 | 7,727 |
@@ -63,7 +65,7 @@ frame                  187.455 ms 112.473 Mcyc 100.0%
   canvas_buffer_wait    41.564 ms  24.939 Mcyc  22.2%
 ```
 
-10.08 candidates, 9.25 misses and 0.84 layers per ray (spec §4.1 model with ownership: 10.06 candidates; 14.11 before). Ownership removed the candidates the model predicted, but per-candidate cost did not fall to the modelled twenty or so instructions per class: each loop iteration costs about 535 cycles, and per-ray setup outside the loop (ownership for 12 classes and the 4D projection) about 2,170 cycles, 27% of the shader.
+10.08 candidates, 9.25 misses and 0.84 layers per ray (host traversal model (supporting artifact removed) with ownership: 10.06 candidates; 14.11 before). Ownership removed the candidates the model predicted, but per-candidate cost did not fall to the modelled twenty or so instructions per class: each loop iteration costs about 535 cycles, and per-ray setup outside the loop (ownership for 12 classes and the 4D projection) about 2,170 cycles, 27% of the shader.
 
 ### Per-pixel figures
 

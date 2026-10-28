@@ -1,6 +1,6 @@
 # HyperLattice on-device profile — Octet wide (index 4 at capture time) — Teensy 4.0, segmented mode (2026-09-28, **selective -O3**)
 
-Point-in-time snapshot after Tiers 1 and 2 of the Octet 58 ms spec (`29305dfe2`, `f130ee632`, `1bb522211`).
+Point-in-time snapshot after the first two Octet traversal optimization tiers (`29305dfe2`, `f130ee632`, `1bb522211`; design spec supporting artifact removed).
 Raw capture: `build/prof/octet58/preset4_ship.com4.log`. Replaces the 00:22 capture of the same name (pre-Tier-1 code). An orphaned run of the same batch took this capture from the main checkout; its provenance (source `1bb522211`, COM4, `Profile preset: 4/6`) was checked.
 
 ## Setup
@@ -26,7 +26,7 @@ Frames after startup: mean render **41.686 ms**, peak **45.242 ms**, spilled **0
 
 A display window is 62.5 ms; the shader evaluates the 144×72 quadrant plus its one-pixel margin, 146×73 = 10,658 samples. `canvas_buffer_wait` is the round-up idle to the next display flip.
 
-| | Before (spec §1) | Now |
+| | Before (pre-Tier-1 capture) | Now |
 |---|--:|--:|
 | Render mean / peak | 73.299 / 76.425 ms | 41.686 / 45.242 ms |
 | Shader cycles/sample (worst window) | 4,015 | 2,368 |

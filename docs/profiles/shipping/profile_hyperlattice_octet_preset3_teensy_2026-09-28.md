@@ -1,6 +1,6 @@
 # HyperLattice on-device profile — Octet 3D (index 2 at capture time) — Teensy 4.0, segmented mode (2026-09-28, **selective -O3**)
 
-Point-in-time snapshot after Tiers 1 and 2 of the Octet 58 ms spec (`29305dfe2`, `f130ee632`, `1bb522211`).
+Point-in-time snapshot after the first two Octet traversal optimization tiers (`29305dfe2`, `f130ee632`, `1bb522211`; design spec supporting artifact removed).
 Raw capture: `build/prof/octet58/preset2_ship.log`. Replaces the 00:17 capture of the same name (pre-Tier-1 code, `b60fe925b`).
 
 ## Setup
@@ -26,7 +26,7 @@ Frames after startup: mean render **39.120 ms**, peak **45.688 ms**, spilled **0
 
 A display window is 62.5 ms; the shader evaluates the 144×72 quadrant plus its one-pixel margin, 146×73 = 10,658 samples. `canvas_buffer_wait` is the round-up idle to the next display flip.
 
-| | Before (spec §1) | Now |
+| | Before (pre-Tier-1 capture) | Now |
 |---|--:|--:|
 | Render mean / peak | 69.841 / 76.566 ms | 39.120 / 45.688 ms |
 | Shader cycles/sample (worst window) | 3,819 | 2,183 |
@@ -63,7 +63,7 @@ frame                   62.507 ms  37.504 Mcyc 100.0%
   canvas_buffer_wait    16.148 ms   9.689 Mcyc  25.8%
 ```
 
-5.68 candidates, 4.75 misses and 0.92 layers per ray (spec §2.1 model: 5.78 / 4.86 / 0.92). `hl_event_step` counts 6.68 loop iterations per ray; one per ray is the loop exit. Per-ray setup outside the loop is about 810 cycles, and each loop iteration about 250 cycles (deep image, scope overhead included).
+5.68 candidates, 4.75 misses and 0.92 layers per ray (host traversal model (supporting artifact removed): 5.78 / 4.86 / 0.92). `hl_event_step` counts 6.68 loop iterations per ray; one per ray is the loop exit. Per-ray setup outside the loop is about 810 cycles, and each loop iteration about 250 cycles (deep image, scope overhead included).
 
 ### Per-pixel figures
 
