@@ -17,6 +17,7 @@ The engine subsystem reference for the [Holosphere README](https://github.com/wo
   - [CSG Operations](#csg-operations-sdfh)
   - [Scan Rasterization Primitives](#scan-rasterization-primitives-scanh)
   - [Near-Pole Azimuthal LOD](#near-pole-azimuthal-lod)
+  - [Continuous Radial Surfaces](#continuous-radial-surfaces)
 - [The Curve Rasterizer](#the-curve-rasterizer-ploth)
   - [Sampling Policy](#sampling-policy)
   - [Plot Primitives](#plot-primitives)
@@ -180,47 +181,8 @@ whose Boolean selects the complementary timed mode. The sampling selection
 does not advance animation: effects still step their mutable state once per
 frame and retain the endpoints needed to evaluate intermediate times.
 
-#### Continuous radial surfaces
-
-`Scan::RadialSurface` is an opt-in, arena-backed first-arrival query for a family
-of similar alternating-radius planar stars. Callers supply complex scale knots
-(radius times rotation) with unwrapped phases. Linear interpolation of each
-complex multiplier defines the surface between knots. Adjacent phases must
-span less than one edge sector; an interval query splits at its sector event
-and solves a linear or quadratic containment equation in closed form. Queries
-visit intervals in increasing order and stop at the first hit. Conservative
-radial blocks skip intervals whose swept shapes cannot reach the query.
-
-`draw_radial_surface` shades paired azimuthal hemisphere charts through the
-common column-time shader walk and `ColumnBasisTable`. The effect supplies the
-family and palette at each column's sampling time. `RadialSurfaceEdgeAA` applies
-straight-line box-filter coverage at tip traces, knot-edge minima, and terminal
-boundaries. Smooth interiors use a center sample. At a paired tip it multiplies
-two half-plane coverages; overlapping sheets use the nearest local boundary,
-so this is a bounded local area approximation rather than a full partition of
-the pixel. The complete interval continuation has a fixed worst-case bound.
-`RadialSurfaceCandidateMask` stores conservative source-interval bits in a
-64 by 32 squared-radius/periodic-angle grid. A zero cell takes the point-only
-route before constructing pixel-footprint derivatives. Both routes use the
-same unobserved center scan; set bits restrict a separate candidate walk to
-relevant intervals. Each marked radial row clips the candidate's parameter
-range before bounding its angles. The mask
-includes hidden candidates and new candidates that can appear during its
-reuse window. Callers provide bounds on complex multiplier displacement and,
-when radii are fixed, adjacent phase-difference motion. Those bounds expand
-both the spatial coverage and the candidate derivative tests, using local
-knot radii for fixed-radius motion bounds. ShapeShifter
-reuses each hemisphere mask for at most eight column steps, while rebuilding
-the actual surface knots at every column time. Arm cuts cannot extend a
-mask's time window. No neighboring-pixel jump heuristic is used.
-
-All reusable tables come from scratch arenas; the kernel is emitted in flash.
-
-ShapeShifter opts into this route for its authored dense planar-star P1. It
-uses 24 intervals per hemisphere per radian of amplitude, bounded by 240, and
-keeps its other presets on their existing contour paths. Its scratch arenas
-are 32 KiB each, including the maximum-amplitude 240-interval family and two
-8 KiB candidate grids within the existing global arena budget.
+[Continuous radial surfaces](#continuous-radial-surfaces) evaluate their
+star family at each column's sampling time through the same column walk.
 
 ### Motion, worldlines and poses
 
@@ -608,6 +570,159 @@ A row at colatitude φ has horizontal pixel pitch that scales with `sin(φ)`; it
 `pole_lod_aggressiveness` is a hardware-calibrated knob, not a derived constant: the true masking width depends on the display aspect, LED angular size and per-column exposure. Smaller values reduce the run; 0 makes every offer one column and the walk bit-identical to an undecimated one. It defaults to 0 (`HS_POLE_LOD_DEFAULT`). Firmware compiles it in as a `constexpr` with no setter — at the default, the decimation branches fold away entirely — while host and WASM builds keep it mutable so it can be tuned live ([README §7.2](../README.md#72-the-wasm-bridge) `setPoleLod`).
 
 The knob reaches the walk, not every primitive. `Scan::RingGroup` and `Scan::DistortedRingStack` replace the per-ring walk with one fused scan over the group's union band and shade every column of it, so raising the knob leaves them undecimated. Their equivalence to rasterizing the members one by one is stated at aggressiveness 0 for exactly that reason.
+
+### Continuous Radial Surfaces
+
+`core/render/scan/radial_surface*.h` renders a continuous family of nested
+planar stars as a single surface. Drawing a dense stack of contours one by one
+approaches this surface as the spacing shrinks; the radial surface evaluates
+the limit directly, so its cost scales with pixels and sweep intervals, not
+with contour count.
+
+**Model.** One unit star is scaled and rotated by a complex multiplier
+`c(s) = r(s)·e^{iφ(s)}` along a sweep parameter `s`. Each chart point shows
+its *first arrival*: the smallest `s` whose star contains it. The query
+returns that arrival as an interval and fraction, and the caller maps it to a
+colour. When colour varies continuously with `s`, the interior is a smooth
+gradient that a centre sample reproduces exactly. Colour jumps only where
+first arrival jumps:
+
+- **Terminal boundaries**: the outline of the last star, and of the first.
+- **Tip traces**: the path of an outer tip that sweeps sideways into space no
+  earlier star reached. Points on either side arrive at very different `s`,
+  which shows as a fold where a twisting family overlaps itself.
+- **Knot-edge minima**: segments of a knot's star where the piecewise-linear
+  sweep changes direction, so first arrival has a local minimum along the
+  edge.
+
+**Supported family.** `RadialSurface<MAX_INTERVALS, MAX_SIDES>::bind` takes:
+
+- 2 to `MAX_SIDES` outer tips;
+- an inner-to-outer vertex ratio in `(0, cos(π/sides)]`, where the upper limit
+  is the regular `sides`-gon;
+- an interval count up to `MAX_INTERVALS`.
+
+`set_knots` then supplies `intervals + 1` knots, each a multiplier and its
+unwrapped argument. Only the first knot may be zero, and adjacent arguments
+must differ by less than one edge sector, `π/sides`. Between knots the
+multiplier is linear in the complex plane. Any radius and rotation profile
+within these limits is accepted.
+
+The family is restricted to this shape because the closed-form query depends
+on three properties:
+
+- Every star is a similarity of the unit star, so each edge's inside test is
+  a fixed quadratic in `c` and therefore in the interval fraction.
+- One shared edge constant serves every edge, because the star is regular.
+- Each edge owns an equal angular sector, so the edge facing a point is one
+  multiply.
+
+Irregular, morphing or curved profiles need a different kernel.
+
+**Point query.** `RadialSurface::sample(p, theta, first_interval)` tests the
+facing edge `e` with `cross(p, c·e) − h·|c|² ≤ 0`, where `h` is the unit
+star's edge constant. With `c` linear in the interval fraction `t`, that test
+is quadratic in `t`. The facing edge changes at most once per interval, when a
+corner crosses the point's argument; the query solves for that event linearly
+and splits the interval there. Each piece has a closed-form descending root, so
+there is no iteration. Intervals are visited outward from the caller's lower
+bound and the walk stops at the first hit. Blocks of `BLOCK_INTERVALS` whose
+swept disk and angular range cannot reach the point are skipped. The walk is
+bounded by `MAX_INTERVALS`.
+
+**Edge area coverage.** `RadialSurfaceEdgeAA::sample` takes the pixel as an
+affine square in the chart, centred at `p` with column and row derivatives
+`dx` and `dy`. For each pixel it:
+
+1. Runs the centre point query.
+2. Walks intervals from the footprint's lower bound and records the candidate
+   boundaries that intersect the footprint, keeping the nearest. The walk ends
+   once a star at or beyond the centre hit contains the whole footprint,
+   because nothing later can show.
+3. Returns the centre colour when every intersecting candidate starts after a
+   star that already covers the footprint. Such boundaries are hidden.
+4. Otherwise treats the nearest boundary as a straight line, computes the
+   exact area of the pixel square on each side, and blends the centre colour
+   with the colour across the line. A second point query just past the
+   boundary supplies that colour; a tip on a strictly growing family uses the
+   tip's own arrival instead. Where two compatible boundaries meet at a tip,
+   their coverages multiply. A last-star outline lying behind another boundary
+   is blended with the terminal colour.
+
+Each pixel resolves at most one jump, against a straight-line boundary. Where
+more sheets overlap within one pixel the result is a bounded local
+approximation, not a full partition of the pixel. Every pixel costs at least
+one point query; an AA pixel adds the boundary walk and one more query.
+
+**Candidate mask.** Most pixels are nowhere near a jump, but finding that out
+through the full AA path means building the footprint and walking the
+boundaries. `RadialSurfaceCandidateMask<64, 32>` answers it from a table:
+
+- **Layout.** Each hemisphere gets 64 rows in squared chart radius by 32
+  angular cells. The cells span one tip period, `2π/sides`, and repeat around
+  the circle. That is 8 KiB per hemisphere.
+- **Contents.** Each cell holds 32 bits of source-interval groups, where a
+  group is the interval index shifted right by `interval_shift()`.
+- **Preparation.** `prepare(surface, footprint_radius, complex_motion,
+  adjacent_phase_motion)` enumerates every candidate boundary in one period
+  through `RadialSurfaceBoundaryCandidates`, pads it by the footprint radius
+  and the motion bounds, and marks the cells it can reach.
+- **Motion bounds.** `complex_motion` bounds how far any multiplier moves
+  during the mask's lifetime. A family with fixed radii may also pass
+  `adjacent_phase_motion`, the drift of adjacent knot phase differences, for a
+  tighter bound.
+- **Hidden boundaries stay marked.** The mask records geometry only;
+  visibility is decided by the AA step.
+
+`interval_bits(radius, theta)` returns zero when no boundary can reach the
+pixel for as long as the mask is valid. Such a pixel takes the point query
+alone, without constructing a footprint. Nonzero bits restrict the AA walk to
+the marked groups.
+
+**Drawing on the sphere.** `draw_radial_surface<W, H>(canvas, near, far, area,
+basis, columns, prepare, ensure, lower_bound, shade)` splits the sphere at
+the equator into two azimuthal-equidistant charts. They are centred on
+`basis.v` (`near`) and `-basis.v` (`far`), so chart radius is angle from the
+pole in radians and a family reaching `π/2` fills its hemisphere. Pixels are
+visited by `Shader::draw_column_times`. `columns` is the per-column pullback
+from `prepare_column_basis`, or empty for a frozen frame. The caller supplies:
+
+- **`prepare(column)`**: called once per sweep time, to evaluate
+  time-dependent state.
+- **`ensure(far)`**: called before the first query in a hemisphere at that
+  time, to rebuild that family's knots and to refresh its mask when the mask
+  has expired.
+- **`lower_bound(radius)`**: the first interval that could contain a point at
+  that chart radius. It must never skip an interval holding an earlier hit.
+- **`area(surface, p, theta, radius, footprint, lower_bound, shade, stats)`**:
+  the per-pixel integrator. `footprint()` builds the affine footprint on
+  demand. A typical integrator checks the mask, then calls either
+  `surface.sample` or `RadialSurfaceEdgeAA::sample`.
+- **`shade(hit)`**: maps a first arrival to a linear `SurfaceColor` on the
+  16-bit channel scale. The renderer clamps that colour and writes it as a
+  pixel.
+
+Surfaces and masks allocate from caller arenas. `RadialSurface::storage_bytes`
+gives the bound for a family, and the kernel is emitted in flash.
+
+**ShapeShifter P1.** ShapeShifter routes its authored dense planar-star preset
+through this kernel and keeps every other preset on its contour paths. The
+route applies only at P1's exact parameters: 288 contours of a 7-tip sine
+sweep with screen-balanced spacing. Each hemisphere family has 24 intervals
+per radian of amplitude, capped at 240. Its radii follow the screen-balanced
+spacing out to the equator and its rotation is the travelling sine twist. Its
+colour runs from the palette's end at the pole to the palette's midpoint at
+the equator. Knots are rebuilt for each hemisphere
+at every column time. A hemisphere's mask is rebuilt once the column time has
+moved more than eight column steps, and never across an arm cut. Both
+families, both masks and the per-interval tables fit in two 32 KiB scratch
+arenas.
+
+`tests/test_radial_surface.h` checks the query and coverage against
+independent swept-edge oracles, `tests/test_radial_surface_mask.h` checks that
+static and moving masks cover every boundary, and
+`tests/test_shapeshifter_surface.h` pins P1's column-time seams and image
+parity.
 
 ## The Curve Rasterizer (`plot.h`)
 
