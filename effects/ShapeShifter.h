@@ -171,7 +171,7 @@ public:
     step_choreography();
     advance_phase();
     plot_filters.prepare(canvas);
-    draw_all(canvas, COLUMN_TIME_PRESETS[this->getPresetIndex()]);
+    draw_all(canvas);
   }
 
 #if HS_ENABLE_EFFECT_CONTROL_API && defined(HS_PROFILE_SHAPESHIFTER_COUNT)
@@ -577,7 +577,7 @@ private:
    * @brief Draws the selected number of midpoint-sampled contours.
    * @param canvas Target canvas.
    */
-  void draw_all(Canvas &canvas, bool column_time = true) {
+  void draw_all(Canvas &canvas) {
     HS_PROFILE(ss_draw_all);
     const int count = hs::clamp(static_cast<int>(params.count), 1, DRAW_LIMIT);
     if (count != prepared_count || params.spacing != prepared_spacing)
@@ -601,11 +601,10 @@ private:
         count == std::min(288, DRAW_LIMIT) && sides == 7 &&
         params.function == PhaseFunction::SINE &&
         params.spacing == RadiusSpacing::SCREEN_BALANCED) {
-      draw_surface_all(canvas, palette,
-                       column_time && !Spacetime::flat_surface());
+      draw_surface_all(canvas, palette, !Spacetime::flat_surface());
       return;
     }
-    if (column_time && !Spacetime::flat_surface()) {
+    if (!Spacetime::flat_surface()) {
       draw_timed_all(canvas, count, sides, shape, palette);
       if (planar_star) {
         ScratchScope column_guard(scratch_arena_a);
@@ -1321,9 +1320,6 @@ private:
   }
 
   static constexpr size_t PRESET_COUNT = 9;
-  /** @brief Per-preset column-time sampling policy. */
-  static constexpr std::array<bool, PRESET_COUNT> COLUMN_TIME_PRESETS = {
-      true, true, true, true, true, true, true, true, true};
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
       {{ShapeType::PLANAR_STAR, 288.0f, 7.745f, PhaseFunction::SINE, 1.0f,
         0.016f, false, AlphaFalloff::TOWARD_EQUATOR,

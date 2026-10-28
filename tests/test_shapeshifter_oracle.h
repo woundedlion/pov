@@ -131,10 +131,6 @@ static inline void write_oracle_ppm(const OracleFrame &frame,
 /** @brief Test-only access to ShapeShifter's pinned state and shipping renderer. */
 struct ShapeShifterWhiteBox {
   static constexpr size_t PRESET_COUNT = OracleEffect::PRESETS.size();
-  /** @brief Sampling policy of an authored preset. */
-  static bool column_time_preset(size_t index) {
-    return OracleEffect::COLUMN_TIME_PRESETS[index];
-  }
 
   static_assert(PRESET_COUNT >= 2,
                 "the preset transition test steps from preset 0 to 1");
@@ -1421,7 +1417,6 @@ inline void test_timed_contours_match_frozen_columns() {
 /** @brief Shipping presets match their frozen columns at the authored speed. */
 inline void test_timed_presets_match_frozen_columns() {
   for (size_t i = 0; i < ShapeShifterWhiteBox::PRESET_COUNT; ++i) {
-    HS_EXPECT_TRUE(ShapeShifterWhiteBox::column_time_preset(i));
     if (i == 0)
       continue;
 
