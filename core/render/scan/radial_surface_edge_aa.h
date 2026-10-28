@@ -7,6 +7,7 @@
 /** @file radial_surface_edge_aa.h
  * @brief Two-color area coverage at radial first-arrival discontinuities. */
 
+#include <type_traits>
 #include "core/render/scan/radial_surface_math.h"
 #include "core/render/scan/radial_surface_types.h"
 
@@ -18,6 +19,23 @@ template <class Surface> class RadialSurfaceEdgeAA {
 public:
   /** @brief Planar chart point. */
   using Point = typename Surface::Point;
+#if HS_ENABLE_TEST_HOOKS
+  /** @brief An AA result and its exact first-arrival shader. */
+  struct Observation {
+    const Surface &surface; ///< Prepared family.
+    Point p;                ///< Footprint centre.
+    Point dx;               ///< Column derivative.
+    Point dy;               ///< Row derivative.
+    SurfaceColor color;     ///< Blended output.
+    int path;               ///< Tip/corner/offset bits and terminal flag.
+    void *shader;           ///< Shader object for this sample.
+    SurfaceColor (*shade)(void *,
+                          const typename Surface::Hit &); ///< Shader adapter.
+  };
+  static inline void (*observer)(const Observation &, void *) =
+      nullptr;                                 ///< Test-only result visitor.
+  static inline void *observer_data = nullptr; ///< Visitor context.
+#endif
 
   /** @brief Area of a unit square on the positive side of a line.
    * @param a,b,c Coefficients of a*x+b*y+c >= 0.
@@ -58,15 +76,17 @@ public:
          float prepared_radius = -1, float prepared_extent = -1,
          uint32_t candidate_bits = UINT32_MAX, int candidate_shift = 0,
          int point_first = -1) const {
-    typename Surface::Stats work;
-    const auto hit = [&]() HS_HOT_INLINE {
-      const int FIRST = point_first >= 0 ? point_first : first;
+    auto query = [&](Point q, float angle, int lower,
+                     typename Surface::Stats &work) HS_HOT_INLINE {
       if constexpr (COUNT)
         if (stats)
-          return surface.template sample<true, true, false>(p, theta, FIRST,
+          return surface.template sample<true, true, false>(q, angle, lower,
                                                             &work);
-      return surface.template sample<false, true, false>(p, theta, FIRST);
-    }();
+      return surface.template sample<false, true, false>(q, angle, lower);
+    };
+    typename Surface::Stats work;
+    const auto hit =
+        query(p, theta, point_first >= 0 ? point_first : first, work);
     Detector detector(surface, p, dx, dy, theta, prepared_radius,
                       prepared_extent, candidate_bits, candidate_shift);
     uint32_t tail = 0;
@@ -120,6 +140,15 @@ public:
           coverage(detector.second_a, detector.second_b, detector.second_c);
       center_front &= detector.second_c >= 0;
     }
+#if HS_ENABLE_TEST_HOOKS
+    int sample_path =
+        (!center_front && detector.tip && surface.strictly_increasing_radius())
+            ? 1
+        : (detector.paired && !detector.terminal_back && !center_front) ? 2
+                                                                        : 4;
+    if (detector.terminal_back)
+      sample_path |= 8;
+#endif
     SurfaceColor front, back;
     int back_interval = hit.interval;
     uint32_t extra_intervals = 0;
@@ -134,32 +163,17 @@ public:
     } else {
       Point other;
       if (detector.paired && !detector.terminal_back && !center_front) {
-        const float DET =
-            detector.a * detector.second_b - detector.b * detector.second_a;
-        const float C1 =
-            detector.c - .01f * (fabsf(detector.a) + fabsf(detector.b));
-        const float C2 = detector.second_c - .01f * (fabsf(detector.second_a) +
-                                                     fabsf(detector.second_b));
-        const float U = (detector.b * C2 - detector.second_b * C1) / DET;
-        const float V = (detector.second_a * C1 - detector.a * C2) / DET;
-        other = {p.x + U * dx.x + V * dy.x, p.y + U * dx.y + V * dy.y};
+        if (!detector.corner(.01f, .01f, other))
+          other = p;
       } else {
         const float U = copysignf(1.0f, detector.a),
                     V = copysignf(1.0f, detector.b);
         const float ALONG = center_front ? -.01f : .01f;
-        other = {detector.boundary.x + ALONG * (U * dx.x + V * dy.x),
-                 detector.boundary.y + ALONG * (U * dx.y + V * dy.y)};
+        other = detector.side(detector.boundary, ALONG * U, ALONG * V);
       }
       typename Surface::Stats outside_work;
-      const auto outside_hit = [&]() HS_HOT_INLINE {
-        if constexpr (COUNT)
-          if (stats)
-            return surface.template sample<true, true, false>(
-                other, radial_atan2(other.y, other.x), std::max(0, first - 1),
-                &outside_work);
-        return surface.template sample<false, true, false>(
-            other, radial_atan2(other.y, other.x), std::max(0, first - 1));
-      }();
+      const auto outside_hit = query(other, radial_atan2(other.y, other.x),
+                                     std::max(0, first - 1), outside_work);
       const SurfaceColor outside =
           outside_hit.found() ? shade(outside_hit) : SurfaceColor{};
       if (center_front) {
@@ -171,17 +185,32 @@ public:
         back = color;
       }
       if constexpr (COUNT)
-        extra_intervals = outside_work.intervals;
+        extra_intervals += outside_work.intervals;
     }
     float back_weight = 1 - front_weight;
     if (detector.terminal_back &&
         (back_interval < 0 || back_interval + 1 == surface.interval_count())) {
-      typename Surface::Hit terminal_hit;
-      terminal_hit.interval = surface.interval_count() - 1;
-      terminal_hit.fraction = 1;
-      back = shade(terminal_hit);
-      back_weight *=
-          coverage(detector.second_a, detector.second_b, detector.second_c);
+      typename Surface::Stats terminal_work, background_work;
+      Point inside = detector.side(detector.second_boundary,
+                                   .01f * copysignf(1.0f, detector.second_a),
+                                   .01f * copysignf(1.0f, detector.second_b));
+      detector.corner(-.01f, .01f, inside);
+      const auto terminal_hit = query(inside, radial_atan2(inside.y, inside.x),
+                                      std::max(0, first - 1), terminal_work);
+      Point outside = detector.side(detector.second_boundary,
+                                    -.01f * copysignf(1.0f, detector.second_a),
+                                    -.01f * copysignf(1.0f, detector.second_b));
+      detector.corner(-.01f, -.01f, outside);
+      const auto background_hit =
+          query(outside, radial_atan2(outside.y, outside.x),
+                std::max(0, first - 1), background_work);
+      if (terminal_hit.found() && !background_hit.found()) {
+        back = shade(terminal_hit);
+        back_weight *=
+            coverage(detector.second_a, detector.second_b, detector.second_c);
+      }
+      if constexpr (COUNT)
+        extra_intervals += terminal_work.intervals + background_work.intervals;
     }
     if constexpr (COUNT)
       if (stats) {
@@ -194,9 +223,20 @@ public:
         stats->max_parts = 2;
         stats->clips += detector.paired;
       }
-    return {front.r * front_weight + back.r * back_weight,
-            front.g * front_weight + back.g * back_weight,
-            front.b * front_weight + back.b * back_weight};
+    const SurfaceColor result{front.r * front_weight + back.r * back_weight,
+                              front.g * front_weight + back.g * back_weight,
+                              front.b * front_weight + back.b * back_weight};
+#if HS_ENABLE_TEST_HOOKS
+    if (observer) {
+      auto adapter = [](void *shader, const typename Surface::Hit &hit) {
+        return (*static_cast<std::remove_reference_t<Shade> *>(shader))(hit);
+      };
+      observer({surface, p, dx, dy, result, sample_path,
+                const_cast<void *>(static_cast<const void *>(&shade)), adapter},
+               observer_data);
+    }
+#endif
+    return result;
   }
 
 private:
@@ -253,7 +293,7 @@ private:
     return low <= high;
   }
   struct Detector {
-    Point p, dx, dy, shape0, shape1, boundary{};
+    Point p, dx, dy, shape0, shape1, boundary{}, second_boundary{};
     typename Surface::QueryBounds query;
     float theta, extent, angular, period, inverse_sector, h0, h1, radius,
         edge_reach;
@@ -294,6 +334,64 @@ private:
       edge_reach = extent * surface.unit_edge_length();
       query = {p, theta, radius, extent, angular};
     }
+    /** @brief Maps contained pixel coordinates to the affine chart.
+     * @param u,v Pixel coordinates.
+     * @return Point in the pixel footprint. */
+    HS_HOT_INLINE Point point(float u, float v) const {
+      u = std::clamp(u, -.5f, .5f);
+      v = std::clamp(v, -.5f, .5f);
+      return {p.x + u * dx.x + v * dy.x, p.y + u * dx.y + v * dy.y};
+    }
+    /** @brief Offsets a boundary point within the affine footprint.
+     * @param q Boundary point.
+     * @param u,v Pixel-coordinate offset.
+     * @return Contained side sample. */
+    HS_HOT_INLINE Point side(Point q, float u, float v) const {
+      const Point offset{q.x - p.x, q.y - p.y};
+      const float DET = cross(dx, dy);
+      if (DET == 0) {
+        const Point E = dot(dx, dx) > dot(dy, dy) ? dx : dy;
+        const float LENGTH = dot(E, E);
+        if (LENGTH == 0)
+          return p;
+        const float X = dot(dx, E), Y = dot(dy, E);
+        const float H = .5f * (fabsf(X) + fabsf(Y));
+        const float T =
+            std::clamp(dot(offset, E) + u * X + v * Y, -H, H) / LENGTH;
+        return {p.x + T * E.x, p.y + T * E.y};
+      }
+      const float U = cross(offset, dy) / DET + u;
+      const float V = cross(dx, offset) / DET + v;
+      if (fabsf(U) <= .5f && fabsf(V) <= .5f)
+        return {q.x + u * dx.x + v * dy.x, q.y + u * dx.y + v * dy.y};
+      return point(U, V);
+    }
+    /** @brief Samples prescribed sides of two intersecting footprint lines.
+     * @param first_side,second_side Signed offsets in pixel coordinates.
+     * @param result Contained sample when the lines meet inside the footprint.
+     * @return Whether the line intersection lies in the footprint. */
+    HS_HOT_INLINE bool corner(float first_side, float second_side,
+                              Point &result) const {
+      const float DET = a * second_b - b * second_a;
+      if (DET == 0)
+        return false;
+      const float U0 = (b * second_c - second_b * c) / DET;
+      const float V0 = (second_a * c - a * second_c) / DET;
+      if (fabsf(U0) > .5f || fabsf(V0) > .5f)
+        return false;
+      const float C1 = c - first_side * (fabsf(a) + fabsf(b));
+      const float C2 =
+          second_c - second_side * (fabsf(second_a) + fabsf(second_b));
+      const float DU = (b * C2 - second_b * C1) / DET - U0;
+      const float DV = (second_a * C1 - a * C2) / DET - V0;
+      float along = 1;
+      if (DU != 0)
+        along = fminf(along, (.5f - copysignf(1.0f, DU) * U0) / fabsf(DU));
+      if (DV != 0)
+        along = fminf(along, (.5f - copysignf(1.0f, DV) * V0) / fabsf(DV));
+      result = point(U0 + along * DU, V0 + along * DV);
+      return true;
+    }
     HS_HOT_INLINE bool active(int index) const {
       return candidate_bits == UINT32_MAX ||
              ((candidate_bits >> (index >> candidate_shift)) & 1u) != 0;
@@ -332,13 +430,27 @@ private:
       const float ALONG = .5f * (fabsf(dot(E, dx)) + fabsf(dot(E, dy)));
       if (PROJECTION + ALONG < 0 || PROJECTION - ALONG > LENGTH)
         return;
-      if (PROJECTION - ALONG < 0 || PROJECTION + ALONG > LENGTH) {
-        const float DET = cross(dx, dy), SIGN = copysignf(1.0f, DET);
+      float entry = 0, leave = 1;
+      const float DET = cross(dx, dy);
+      if (DET == 0) {
+        const Point AXIS = dot(dx, dx) > dot(dy, dy) ? dx : dy;
+        const float DENOMINATOR = cross(E, AXIS);
+        if (DENOMINATOR == 0)
+          return;
+        const float T = cross(OFFSET, AXIS) / DENOMINATOR;
+        if (T < 0 || T > 1)
+          return;
+        const Point Q{T * E.x - OFFSET.x, T * E.y - OFFSET.y};
+        const float HALF = .5f * (fabsf(dot(dx, AXIS)) + fabsf(dot(dy, AXIS)));
+        if (fabsf(dot(Q, AXIS)) > HALF)
+          return;
+        entry = leave = T;
+      } else {
+        const float SIGN = copysignf(1.0f, DET);
         const float HALF = .5f * fabsf(DET);
         const float U = -SIGN * cross(OFFSET, dy),
                     V = -SIGN * cross(dx, OFFSET);
         const float DU = SIGN * cross(E, dy), DV = SIGN * cross(dx, E);
-        float entry = 0, leave = 1;
         if (!clip(U - HALF, DU, entry, leave) ||
             !clip(-U - HALF, -DU, entry, leave) ||
             !clip(V - HALF, DV, entry, leave) ||
@@ -356,11 +468,12 @@ private:
         distance = dot(Q, Q);
       } else
         distance = LC * LC / LENGTH;
-      const float T = std::clamp(PROJECTION / LENGTH, 0.0f, 1.0f);
+      const float T = std::clamp(PROJECTION / LENGTH, entry, leave);
       const float NEW_A = front_sign * LA, NEW_B = front_sign * LB,
                   NEW_C = front_sign * LC;
       const float NEW_BIRTH = first_birth + T * (last_birth - first_birth);
       if (is_terminal && found && NEW_BIRTH > birth + .75f) {
+        second_boundary = {A.x + T * E.x, A.y + T * E.y};
         second_a = NEW_A;
         second_b = NEW_B;
         second_c = NEW_C;

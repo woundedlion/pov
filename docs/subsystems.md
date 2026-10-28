@@ -597,7 +597,7 @@ first arrival jumps:
 
 **Supported family.** `RadialSurface<MAX_INTERVALS, MAX_SIDES>::bind` takes:
 
-- 2 to `MAX_SIDES` outer tips;
+- 3 to `MAX_SIDES` outer tips;
 - an inner-to-outer vertex ratio in `(0, cos(π/sides)]`, where the upper limit
   is the regular `sides`-gon;
 - an interval count up to `MAX_INTERVALS`.
@@ -636,7 +636,8 @@ affine square in the chart, centred at `p` with column and row derivatives
 
 1. Runs the centre point query.
 2. Walks intervals from the footprint's lower bound and records the candidate
-   boundaries that intersect the footprint, keeping the nearest. The walk ends
+   boundaries clipped to the footprint, keeping the nearest. Its trace point
+   and birth stay within that clipped segment. The walk ends
    once a star at or beyond the centre hit contains the whole footprint,
    because nothing later can show.
 3. Returns the centre colour when every intersecting candidate starts after a
@@ -644,10 +645,15 @@ affine square in the chart, centred at `p` with column and row derivatives
 4. Otherwise treats the nearest boundary as a straight line, computes the
    exact area of the pixel square on each side, and blends the centre colour
    with the colour across the line. A second point query just past the
-   boundary supplies that colour; a tip on a strictly growing family uses the
-   tip's own arrival instead. Where two compatible boundaries meet at a tip,
-   their coverages multiply. A last-star outline lying behind another boundary
-   is blended with the terminal colour.
+   boundary supplies that colour. Samples stay within the affine footprint,
+   including a line footprint at a display pole. A tip on a strictly growing
+   family uses the clipped tip's own arrival: earlier stars have smaller outer
+   radii and cannot cover that point. Where two compatible boundaries meet at
+   a tip, their coverages multiply and their front sample lies inside both
+   half-planes. A last-star outline behind another boundary queries its inside
+   and outside on that boundary's back side. Its colour and background coverage
+   are used only when those contained queries find a sheet and background,
+   respectively.
 
 Each pixel resolves at most one jump, against a straight-line boundary. Where
 more sheets overlap within one pixel the result is a bounded local

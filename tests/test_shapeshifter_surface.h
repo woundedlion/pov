@@ -216,6 +216,26 @@ inline void surface_mask_case(OracleEffect &effect, const char *name,
                                         "/" + name +
                                         (timed ? "-timed" : "-frozen") +
                                         "-full-reference.ppm");
+        for (bool board : {false, true}) {
+          uint64_t absolute = 0;
+          int maximum = 0;
+          const int width = board ? 144 : 288, height = board ? 72 : 144;
+          for (int y = 0; y < height; ++y)
+            for (int x = 0; x < width; ++x) {
+              const auto a = images[1].pixels[y * 288 + x];
+              const auto b = reference.pixels[y * 288 + x];
+              const uint16_t A[3]{a.r, a.g, a.b}, B[3]{b.r, b.g, b.b};
+              for (int c = 0; c < 3; ++c) {
+                const int error = std::abs(int(linear_to_srgb8(A[c])) -
+                                           int(linear_to_srgb8(B[c])));
+                absolute += error;
+                maximum = std::max(maximum, error);
+              }
+            }
+          std::printf("AREA pose=%s timed=%d board=%d mae=%.12f max=%d\n", name,
+                      int(timed), int(board),
+                      double(absolute) / (width * height * 3), maximum);
+        }
         for (int i = 0; i < 2; ++i) {
           {
             Canvas canvas(effect);
@@ -422,6 +442,131 @@ inline void test_surface_lobe_outliers() {
   hs::clear_mock_time();
   HS_EXPECT_EQ(outliers, size_t{0});
   std::printf("LOBE_OUTLIERS %zu\n", outliers);
+}
+
+/** @brief Accumulates dense bounds for production AA results. */
+struct SurfaceFootprintAudit {
+  using Surface = ShapeShifterWhiteBox::Surface; ///< Production family.
+  using AA = Scan::RadialSurfaceEdgeAA<Surface>; ///< Production integrator.
+  size_t count = 0;                              ///< Out-of-range pixels.
+  size_t samples = 0;                            ///< Observed AA pixels.
+  size_t paths[16]{};                            ///< Out-of-range color paths.
+  int frame = 0;                                 ///< Natural frame.
+  std::ofstream *records = nullptr;              ///< Optional records.
+
+  /** @brief Compares an actual production pixel with dense first arrivals.
+   * @param sample Prepared family, shader and output.
+   * @param data Frame accumulator. */
+  static void inspect(const AA::Observation &sample, void *data) {
+    auto &audit = *static_cast<SurfaceFootprintAudit *>(data);
+    ++audit.samples;
+    const auto &surface = sample.surface;
+    const auto p = sample.p, dx = sample.dx, dy = sample.dy;
+    auto energy = [](Scan::SurfaceColor c) { return c.r + c.g + c.b; };
+    const float actual = energy(sample.color);
+    float minimum = INFINITY;
+    auto scan = [&](int samples) {
+      for (int v = 0; v <= samples; ++v)
+        for (int u = 0; u <= samples; ++u) {
+          const float U = float(u) / samples - .5f,
+                      V = float(v) / samples - .5f;
+          const Surface::Point q{p.x + U * dx.x + V * dy.x,
+                                 p.y + U * dx.y + V * dy.y};
+          const auto hit = surface.sample<false, true, false>(
+              q, Scan::radial_atan2(q.y, q.x));
+          minimum = std::min(
+              minimum,
+              hit.found() ? energy(sample.shade(sample.shader, hit)) : 0.0f);
+        }
+    };
+    scan(8);
+    if (actual + 3 < minimum)
+      scan(16);
+    if (actual + 3 < minimum)
+      scan(64);
+    if (actual + 3 < minimum) {
+      ++audit.count;
+      ++audit.paths[sample.path];
+      if (audit.records && *audit.records)
+        *audit.records << audit.frame << ',' << sample.path << ',' << actual
+                       << ',' << minimum << ',' << minimum - actual << ','
+                       << p.x << ',' << p.y << '\n';
+    }
+  }
+};
+
+/** @brief Checks production AA across the full natural P1 visit. */
+inline void test_surface_footprint_darkening() {
+  reset_globals();
+  hs::seed_effect_stream(hs::effect_seed_key<OracleEffect>("ShapeShifter"));
+  hs::set_mock_time(0, 0);
+  size_t total = 0;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  const char *directory = std::getenv("HS_SURFACE_DARK_IMAGES");
+  const char *limit = std::getenv("HS_SURFACE_DARK_FRAMES");
+#pragma clang diagnostic pop
+  const int frames = limit ? std::atoi(limit) : 471;
+  std::ofstream records, images;
+  if (directory) {
+    records.open(std::string(directory) + "/pixels.csv");
+    records << "frame,path,energy,minimum,deficit,p_x,p_y\n";
+    images.open(std::string(directory) + "/frames.rgb16", std::ios::binary);
+  }
+  {
+    OracleEffect effect;
+    effect.init();
+    for (int frame = 1; frame <= frames; ++frame) {
+      effect.set_clip(0, 72, 0, 144);
+      hs::set_mock_time((frame - 1) * 62500ul / 1000, (frame - 1) * 62500ul);
+      {
+        Canvas canvas(effect);
+        ShapeShifterWhiteBox::replay_step(effect, canvas);
+      }
+      effect.advance_display();
+      if (frame == 273) {
+        const auto a = ShapeShifterWhiteBox::orientation(effect).get(0.0f);
+        const auto b = ShapeShifterWhiteBox::orientation(effect).get();
+        std::printf(
+            "DARK_POSE frame=273 start={%.9g,%.9g,%.9g,%.9g} end={%.9g,%.9g,%.9g,%.9g} phase=%.9g step=%.9g\n",
+            a.r, a.v.x, a.v.y, a.v.z, b.r, b.v.x, b.v.y, b.v.z,
+            ShapeShifterWhiteBox::phase(effect),
+            ShapeShifterWhiteBox::twist_step(effect));
+      }
+      HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{0});
+      effect.set_clip(0, 144, 0, 288);
+      SurfaceFootprintAudit audit;
+      audit.frame = frame;
+      audit.records = &records;
+      SurfaceFootprintAudit::AA::observer = &SurfaceFootprintAudit::inspect;
+      SurfaceFootprintAudit::AA::observer_data = &audit;
+      {
+        Canvas canvas(effect);
+        ShapeShifterWhiteBox::surface_kernel(effect, canvas, true);
+      }
+      HS_EXPECT_GT(audit.samples, size_t{0});
+      SurfaceFootprintAudit::AA::observer = nullptr;
+      SurfaceFootprintAudit::AA::observer_data = nullptr;
+      effect.advance_display();
+      if (images)
+        for (int y = 0; y < 144; ++y)
+          for (int x = 0; x < 288; ++x) {
+            const auto pixel = effect.get_pixel(x, y);
+            for (uint16_t c : {pixel.r, pixel.g, pixel.b})
+              images.write(reinterpret_cast<const char *>(&c), sizeof(c));
+          }
+      std::printf(
+          "DARK_FRAME %d %zu tip=%zu corner=%zu offset=%zu terminal=%zu\n",
+          frame, audit.count, audit.paths[1], audit.paths[2], audit.paths[4],
+          audit.paths[9] + audit.paths[10] + audit.paths[12]);
+      std::fflush(stdout);
+      total += audit.count;
+    }
+  }
+  Timeline().clear();
+  hs::clear_mock_time();
+  std::printf("DARK_TOTAL %zu frames=%d\n", total, frames);
+  HS_EXPECT_EQ(total, size_t{0});
 }
 
 /** @brief The maximum authored amplitude fits the production arena partition. */

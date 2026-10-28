@@ -130,6 +130,8 @@ static inline void write_oracle_ppm(const OracleFrame &frame,
 
 /** @brief Test-only access to ShapeShifter's pinned state and shipping renderer. */
 struct ShapeShifterWhiteBox {
+  /** @brief Kernel family used by footprint oracles. */
+  using Surface = OracleEffect::Surface;
   static constexpr size_t PRESET_COUNT = OracleEffect::PRESETS.size();
 
   static_assert(PRESET_COUNT >= 2,
@@ -1666,6 +1668,10 @@ inline int run_shapeshifter_oracle_tests() {
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
   if (std::getenv("HS_SHAPESHIFTER_SURFACE_CENSUS")) {
     test_surface_natural_census();
+    return fixture.result();
+  }
+  if (std::getenv("HS_SURFACE_DARK_DIAGNOSTICS")) {
+    HS_RUN(test_surface_footprint_darkening);
     return fixture.result();
   }
   if (std::getenv("HS_SURFACE_LOBE_DIAGNOSTICS")) {

@@ -1048,6 +1048,65 @@ inline void test_radial_surface_hidden_terminal() {
   }
 }
 
+/** @brief AA colors stay within the footprint's first-arrival range. */
+inline void test_radial_surface_footprint_colours() {
+  ScratchScope scope(scratch_arena_a);
+  const std::array KNOTS{
+      Surface::Knot{0.0f, 0.0f, 0.770516276f},
+      Surface::Knot{0.0730376616f, 0.0591502786f, 0.680724382f},
+      Surface::Knot{0.157304168f, 0.102900043f, 0.579285026f},
+      Surface::Knot{0.251646489f, 0.127174452f, 0.467933953f},
+      Surface::Knot{0.35333246f, 0.128406689f, 0.348576486f},
+      Surface::Knot{0.458264321f, 0.104044087f, 0.22325477f},
+      Surface::Knot{0.560115099f, 0.0528703257f, 0.0941130817f},
+      Surface::Knot{0.644939125f, -0.0236403141f, -0.0366389155f},
+      Surface::Knot{0.70989567f, -0.119494982f, -0.16676411f},
+      Surface::Knot{0.754685581f, -0.228528902f, -0.294035733f},
+      Surface::Knot{0.779946387f, -0.344825029f, -0.416276395f},
+      Surface::Knot{0.787609756f, -0.462950408f, -0.531394541f},
+      Surface::Knot{0.780875385f, -0.578270555f, -0.637420356f},
+      Surface::Knot{0.763959527f, -0.687182665f, -0.732539713f},
+      Surface::Knot{0.741728902f, -0.787192047f, -0.815124989f},
+      Surface::Knot{0.719308317f, -0.876819968f, -0.883763433f},
+      Surface::Knot{0.701726139f, -0.955361187f, -0.937280357f},
+      Surface::Knot{0.693628013f, -1.02254701f, -0.974760115f},
+      Surface::Knot{0.699061275f, -1.0781678f, -0.995561481f},
+      Surface::Knot{0.721308768f, -1.12171459f, -0.999328554f},
+      Surface::Knot{0.762743473f, -1.15209341f, -0.985996842f},
+      Surface::Knot{0.824676335f, -1.16745102f, -0.955794394f},
+      Surface::Knot{0.907189548f, -1.16514707f, -0.90923804f},
+      Surface::Knot{1.00896096f, -1.14189422f, -0.847124398f},
+      Surface::Knot{1.12712681f, -1.09406877f, -0.770516217f},
+  };
+  Surface surface;
+  surface.prepare(scratch_arena_a, 7, Plot::STAR_INNER_RATIO, KNOTS);
+  Scan::RadialSurfaceEdgeAA<Surface> aa;
+  const Surface::Point P{-.700527012f, -.636006296f};
+  const Surface::Point DX{.00336223631f, .00599108543f};
+  const Surface::Point DY{-.0201944206f, .0136090377f};
+  auto shade = [](const Surface::Hit &hit) {
+    const float C = 1 - (hit.interval + hit.fraction) / 24;
+    return Scan::SurfaceColor{C, C, C};
+  };
+  double minimum = 1;
+  for (int y = 0; y <= 64; ++y)
+    for (int x = 0; x <= 64; ++x) {
+      const double U = x / 64.0 - .5, V = y / 64.0 - .5;
+      const double hit =
+          reference_hit({P.x + U * DX.x + V * DY.x, P.y + U * DX.y + V * DY.y},
+                        KNOTS, 7, Plot::STAR_INNER_RATIO);
+      HS_EXPECT_GT(hit, 0.0);
+      minimum = std::min(minimum, 1 - hit / 24);
+    }
+  Scan::SurfaceAreaStats stats;
+  const auto result = aa.sample(surface, P, DX, DY,
+                                Scan::radial_atan2(P.y, P.x), 0, shade, &stats);
+  HS_EXPECT_EQ(stats.edge_pixels, uint64_t{1});
+  HS_EXPECT_GE(result.r, minimum - .00001);
+  std::printf("  footprint first-arrival range: aa=%.9f minimum=%.9f\n",
+              result.r, minimum);
+}
+
 /** @brief Runs the generic point and edge-coverage oracles. */
 inline void run_radial_surface_checks() {
   HS_RUN(test_radial_surface_tip_sweep);
@@ -1062,5 +1121,6 @@ inline void run_radial_surface_checks() {
   HS_RUN(test_radial_surface_edge_pair_corner);
   HS_RUN(test_radial_surface_terminal_background);
   HS_RUN(test_radial_surface_hidden_terminal);
+  HS_RUN(test_radial_surface_footprint_colours);
 }
 } // namespace hs_test::radial_surface_tests
