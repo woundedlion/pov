@@ -189,7 +189,7 @@ struct WarpProvider {
   }
   /** @brief The warp's phase clock.
    *  @param frame Current frame.
-   *  @return Phase in [0, 1). */
+   *  @return Phase modulo 1; column-time samples may lie outside [0, 1). */
   __attribute__((always_inline)) static float phase(const FrameState &frame) {
     return frame.resources.template get<Key>().phase;
   }
@@ -248,9 +248,10 @@ struct SurfaceProvider {
   params(const FrameState &frame) {
     return frame.params.template get<Key>();
   }
-  /** @brief The surface's normalized phase.
+  /** @brief The surface's phase.
    *  @param frame Current frame.
-   *  @return Ripple: the cycle in [0, 1); others: the phase clock. */
+   *  @return Ripple: the cycle in [0, 1); others: phase modulo 1,
+   *  with column-time samples possibly outside [0, 1). */
   __attribute__((always_inline)) static float phase(const FrameState &frame) {
     using SurfaceParams = Family;
     if constexpr (std::is_same_v<SurfaceParams, PeriodicRippleParams>)
@@ -328,7 +329,8 @@ struct SourceProvider {
   }
   /** @brief Noise time coordinate.
    *  @param frame Current frame.
-   *  @return The source clock's `noise_time`, in [0, 1). */
+   *  @return The source clock's `noise_time` modulo 1; column-time samples
+   *  may lie outside [0, 1). */
   __attribute__((always_inline)) static float
   noise_time(const FrameState &frame) {
     return frame.resources.template get<Key>().noise_time;

@@ -264,29 +264,33 @@ struct ParameterSet<ResourceList<Resources...>>
 
 /** @brief Per-frame clocks of one resource; empty for unclocked kinds. */
 template <typename Family, ResourceKind Kind> struct ClockState {};
-/** @brief Source pattern clocks. */
+/** @brief Source pattern clocks.
+ * @details Values are equivalent modulo their periods; column-time samples
+ * may lie outside the canonical ranges. */
 template <typename Family> struct ClockState<Family, ResourceKind::SOURCE> {
-  float primary = 0.0f; ///< Primary phase, radians, wrapped into (-2pi, 2pi).
-  float secondary =
-      0.0f;           ///< Secondary phase, radians, wrapped into (-2pi, 2pi).
-  float angle = 0.0f; ///< Pattern rotation, radians, wrapped into (-2pi, 2pi).
-  float noise_time = 0.0f; ///< Noise time coordinate, wrapped to [0, 1).
+  float primary = 0.0f;    ///< Primary phase, radians modulo 2pi.
+  float secondary = 0.0f;  ///< Secondary phase, radians modulo 2pi.
+  float angle = 0.0f;      ///< Pattern rotation, radians modulo 2pi.
+  float noise_time = 0.0f; ///< Noise time coordinate modulo 1.
 };
 /** @brief Extra rotation clock of a warp family; empty by default. */
 template <typename Family> struct RotationClock {};
-/** @brief The affine warp's accumulated rotation. */
+/** @brief The affine warp's accumulated rotation.
+ * @details Column-time samples may lie outside [0, 2pi). */
 template <> struct RotationClock<Warp::AffineParams> {
-  float rotation = 0.0f; ///< Frame rotation, radians in [0, 2pi).
+  float rotation = 0.0f; ///< Frame rotation, radians modulo 2pi.
 };
-/** @brief Warp phase clock. */
+/** @brief Warp phase clock.
+ * @details Column-time samples may lie outside [0, 1). */
 template <typename Family>
 struct ClockState<Family, ResourceKind::WARP> : RotationClock<Family> {
-  float phase = 0.0f; ///< Warp phase, wrapped to [0, 1).
+  float phase = 0.0f; ///< Warp phase modulo 1.
 };
-/** @brief Surface phase clock. */
+/** @brief Surface phase clock.
+ * @details Values are equivalent modulo their periods; non-ripple column-time
+ * samples may lie outside [0, 1). */
 template <typename Family> struct ClockState<Family, ResourceKind::SURFACE> {
-  float phase = 0.0f; ///< Phase in [0, 1); ripple frame count in
-                      ///< [0, period).
+  float phase = 0.0f; ///< Phase modulo 1; ripple frame count in [0, period).
 };
 /** @brief Phase of the animation generating a Mobius lens's b. */
 template <> struct ClockState<Lens::MobiusLensParams, ResourceKind::LENS> {
