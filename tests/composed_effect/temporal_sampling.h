@@ -260,19 +260,23 @@ inline void test_temporal_clock_sampling() {
   }
 }
 
-/** @brief Affine scale follows the periodic warp cycle. */
+/** @brief Affine scales and shear follow the periodic warp cycle. */
 inline void test_temporal_affine_cycle() {
   HS_CONTEXT("temporal affine cycle");
   for (float phase : {0.0f, 0.25f, 0.5f, 0.99f, 1.01f}) {
     Pullback::AffineParams warp;
-    warp.translation_x = 2.0f;
-    warp.translation_y = -3.0f;
-    for (float scale : {1.0f, 0.7f, 1.8f}) {
-      warp.scale_x = scale;
+    for (const auto &params :
+         {std::array{1.0f, 1.0f, 0.0f}, std::array{0.7f, 1.8f, 0.4f},
+          std::array{1.8f, 0.7f, -0.6f}}) {
+      warp.scale_x = params[0];
+      warp.scale_y = params[1];
+      warp.shear = params[2];
       const auto actual = Pullback::Warp::prepare(warp, phase, 0.3f, 1.2f);
       const float CYCLE = cosf(math::TWO_PI_F * math::wrap_t(phase));
-      HS_EXPECT_NEAR(actual.transform.affine.scale_x, powf(scale, CYCLE), 0.0f);
-      HS_EXPECT_NEAR(actual.transform.affine.scale_y, powf(1.0f, CYCLE), 0.0f);
+      HS_EXPECT_NEAR(actual.transform.affine.scale_x, powf(warp.scale_x, CYCLE),
+                     0.0f);
+      HS_EXPECT_NEAR(actual.transform.affine.scale_y, powf(warp.scale_y, CYCLE),
+                     0.0f);
       HS_EXPECT_NEAR(actual.transform.affine.shear, warp.shear * CYCLE, 0.0f);
     }
   }
