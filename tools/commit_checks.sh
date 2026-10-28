@@ -29,6 +29,8 @@ usage() {
   exit 2
 }
 
+cd "$(git rev-parse --show-toplevel)"
+
 case $# in
   0) ;;
   1)
@@ -39,7 +41,6 @@ case $# in
     esac
     LABEL=commit-checks
     SUBJECT="range $1"
-    cd "$(git rev-parse --show-toplevel)"
     if ! base="$(git rev-parse --verify --quiet "${1%%..*}^{commit}")" ||
        ! tip="$(git rev-parse --verify --quiet "${1#*..}^{commit}")"; then
       echo "[$LABEL] cannot resolve $1 to two commits."
