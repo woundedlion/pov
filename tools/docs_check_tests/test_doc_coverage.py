@@ -208,6 +208,30 @@ class TestFirmwareInputs(unittest.TestCase):
             self.assertEqual(html.unescape(preformatted[1]), source)
 
 
+class TestRunDoxygen(unittest.TestCase):
+    def test_overlay_overrides_base_settings_and_returns_warnings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Doxyfile").write_text(
+                "EXTRACT_ALL = YES\nINPUT = core \\\n effects\n",
+                encoding="utf-8")
+            for paths in ([], ["core/a.h"]):
+                with self.subTest(paths=paths):
+                    def run(*args, **kwargs):
+                        config = kwargs["input"]
+                        self.assertEqual(cov.doxyfile_setting(config, "EXTRACT_ALL"), ["NO"])
+                        self.assertEqual(cov.doxyfile_setting(config, "WARN_IF_UNDOCUMENTED"),
+                                         ["YES"])
+                        self.assertEqual(cov.doxyfile_setting(config, "INPUT"),
+                                         paths or ["core", "effects"])
+                        log, = cov.doxyfile_setting(config, "WARN_LOGFILE")
+                        Path(log).write_text("sentinel warning\n", encoding="utf-8")
+                    with mock.patch.object(cov.subprocess, "run", side_effect=run) as runner:
+                        self.assertEqual(cov.run_doxygen("doxygen", root, paths),
+                                         "sentinel warning\n")
+                    runner.assert_called_once()
+
+
 class TestMain(unittest.TestCase):
     def test_empty_selection_refuses_before_doxygen(self):
         with mock.patch.object(cov, "source_files", return_value=[]), \
