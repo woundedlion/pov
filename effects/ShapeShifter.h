@@ -82,8 +82,9 @@ struct ShapeShifterParams {
  * @brief Draws phase-modulated concentric shapes across the sphere.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Concentric Plot primitives use the selected Spacing law and sample a selectable
- * waveform at successive radii, producing an animated radial twist. Presets
+ * @details The default P1 renders a continuous radial surface. Other presets
+ * draw concentric Plot primitives using the selected Spacing law and sample a
+ * selectable waveform at successive radii, producing an animated radial twist. Presets
  * cycle through a Segue::Preset::Fade choreography: the whole effect fades
  * through zero opacity and the parameters snap inside the dark frame.
  */
@@ -575,7 +576,7 @@ private:
   }
 
   /**
-   * @brief Draws the selected number of midpoint-sampled contours.
+   * @brief Draws the default P1 surface or the selected midpoint-sampled contours.
    * @param canvas Target canvas.
    */
   void draw_all(Canvas &canvas) {
