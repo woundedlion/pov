@@ -266,11 +266,18 @@ sys.exit(0 if lock.update_claim(sys.argv[2], "break", "stale") else 1)
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True)
         peers = []
+        wrapper = self.root / "guard_wrapper.py"
+        wrapper.write_text(
+            "import runpy, sys\n"
+            'print("guarding", file=sys.stderr, flush=True)\n'
+            f"runpy.run_path({str(LOCK_GUARD)!r}, run_name='__main__')\n",
+            encoding="utf-8")
         try:
             self.assertEqual(retire.stdout.readline().strip(), "checked")
             for name in ("B", "C"):
                 recovery = '_hs_break_lock "$D" stale || :; ' if name == "B" else ""
-                body = (f'. "{LOCK_SH}"; D="{self.d}"; echo started; '
+                body = (f'. "{LOCK_SH}"; _HS_LOCK_HELPER={shlex.quote(wrapper.as_posix())}; '
+                        f'D="{self.d}"; echo started; '
                         f'{recovery}_hs_try_claim "$D" COM3 {name} test 60; '
                         'rc=$?; echo "CLAIM=$rc"; exit "$rc"')
                 peer = subprocess.Popen(
@@ -278,6 +285,8 @@ sys.exit(0 if lock.update_claim(sys.argv[2], "break", "stale") else 1)
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 peers.append(peer)
                 self.assertEqual(peer.stdout.readline().strip(), "started")
+            for peer in peers:
+                self.assertEqual(peer.stderr.readline().strip(), "guarding")
             time.sleep(0.2)
             self.assertEqual((self.d / "info").read_text(), "token=stale\n")
             self.assertTrue(all(peer.poll() is None for peer in peers))
