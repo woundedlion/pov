@@ -675,19 +675,6 @@ inline void test_face_convex_rejection_cutoff() {
 // ============================================================================
 
 /**
- * @brief Rotates a vector about a unit axis by an angle (Rodrigues).
- * @param v Vector to rotate.
- * @param k Unit rotation axis.
- * @param theta Rotation angle (radians).
- * @return The rotated vector.
- */
-inline math::Vector rotate_about(const math::Vector &v, const math::Vector &k,
-                                 float theta) {
-  float c = cosf(theta), s = sinf(theta);
-  return v * c + math::cross(k, v) * s + k * (math::dot(k, v) * (1.0f - c));
-}
-
-/**
  * @brief Bakes a canonical LUT from one concave star face and sweeps a
  *        transformed congruent copy against the exact oracle.
  * @param lut_total Accumulates the number of samples served by the LUT path.
@@ -745,7 +732,8 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   const math::Vector rot_axis = math::Vector(0.3f, -0.8f, 0.52f).normalized();
   for (int j = 0; j < n_verts; ++j) {
     int src = reflected ? (n_verts - j) % n_verts : (j + cyc) % n_verts;
-    math::Vector v = rotate_about(orig[src], rot_axis, rot_angle);
+    math::Vector v =
+        math::rotate(orig[src], math::make_rotation(rot_axis, rot_angle));
     if (reflected)
       v.x = -v.x;
     verts[j] = v;
