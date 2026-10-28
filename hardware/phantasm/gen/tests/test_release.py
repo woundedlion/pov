@@ -1,5 +1,6 @@
 """Candidate provenance and fabrication release contracts."""
 
+from decimal import Decimal
 import contextlib
 import io
 import json
@@ -264,6 +265,17 @@ class ReleaseTests(unittest.TestCase):
                         str(project / "phantasm.kicad_pcb")],
                        check=True, capture_output=True, text=True)
         self.assertEqual(release.fabrication_options(project, "1.2"), before)
+
+    def test_generator_fabrication_options_match_vendor_stack(self):
+        self.assertEqual(release.pcb.BOARD_THICKNESS_MM, 1.6)
+        self.assertEqual(release.GENERATOR_COPPER_FINISH, "ENIG")
+        self.assertEqual(release.GENERATOR_COPPER_STACKUP,
+                         (("F.Cu", Decimal("0.035")), ("In1.Cu", Decimal("0.0152")),
+                          ("In2.Cu", Decimal("0.0152")), ("B.Cu", Decimal("0.035"))))
+        self.assertEqual(release.GENERATOR_DIELECTRICS,
+                         [["dielectric 1", "prepreg", "0.2104", "FR4"],
+                          ["dielectric 2", "core", "1.065", "FR4"],
+                          ["dielectric 3", "prepreg", "0.2104", "FR4"]])
 
     def test_valid_finish_and_stackup_fixture(self):
         source = release.CANDIDATE.parent

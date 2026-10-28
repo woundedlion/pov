@@ -89,7 +89,8 @@ GROUND_NET = "GND"
 GROUND_PLANE_LAYERS = ("In1.Cu", "In2.Cu")
 LAYER_NAMES = {"In1.Cu": "GND", "In2.Cu": "Ground"}
 
-# Rev 1.2: JLC04161H-7628, 1.6 mm, 1 oz outer / 0.5 oz inner copper, ENIG.
+# JLC04161H-7628, 1.6 mm, 1 oz outer / 0.5 oz inner copper, ENIG.
+BOARD_THICKNESS_MM = 1.6
 STACKUP = (
     '(layer "F.SilkS" (type "Top Silk Screen"))',
     '(layer "F.Paste" (type "Top Solder Paste"))',
@@ -1006,7 +1007,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     lines.append("\t(title_block")
     lines.append(f'\t\t(rev {sexp.quote(selected)})')
     lines.append("\t)")
-    lines.append("\t(general (thickness 1.6) (legacy_teardrops no))")
+    lines.append(f"\t(general (thickness {BOARD_THICKNESS_MM}) (legacy_teardrops no))")
     lines.append('\t(paper "A2")')
     lines.append("\t(layers")
     for n, nm, ty in COPPER_LAYERS + TECHNICAL_LAYERS:

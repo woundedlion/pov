@@ -24,6 +24,19 @@ SOURCE_SUFFIXES = {".kicad_pcb", ".kicad_pro", ".kicad_sch", ".kicad_sym",
 TABLES = {"fp-lib-table", "sym-lib-table"}
 CANDIDATE = Path(__file__).resolve().parents[1] / "1.2" / "routed"
 
+GENERATOR_STACKUP = sexp.parse("(stackup " + " ".join(pcb.STACKUP) + ")")[0]
+GENERATOR_COPPER_STACKUP = tuple(
+    (str(layer[1]), Decimal(str(sexp.val(layer, "thickness")[0])))
+    for layer in F(GENERATOR_STACKUP, "layer")
+    if sexp.val(layer, "type") == ["copper"]
+)
+GENERATOR_DIELECTRICS = [[str(layer[1]), str(sexp.val(layer, "type")[0]),
+                         str(sexp.val(layer, "thickness")[0]),
+                         str(sexp.val(layer, "material")[0])]
+                        for layer in F(GENERATOR_STACKUP, "layer")
+                        if sexp.val(layer, "type") in (["core"], ["prepreg"])]
+GENERATOR_COPPER_FINISH = str(sexp.val(GENERATOR_STACKUP, "copper_finish")[0])
+
 
 def sources(project):
     required = {f"{PROJECT}{suffix}" for suffix in
@@ -71,11 +84,10 @@ def project_context(project, output, revision):
 def fabrication_options(project, revision):
     metadata = board_metadata.load_board(project / f"{PROJECT}.kicad_pcb")
     if revision == "1.2":
-        if metadata.copper_finish != "ENIG":
-            raise ValueError(f"copper finish is {metadata.copper_finish!r}; rev 1.2 requires ENIG")
-        expected = (("F.Cu", Decimal("0.035")), ("In1.Cu", Decimal("0.0152")),
-                    ("In2.Cu", Decimal("0.0152")), ("B.Cu", Decimal("0.035")))
-        if metadata.thickness_mm != Decimal("1.6") or metadata.copper_stackup != expected:
+        if metadata.copper_finish != GENERATOR_COPPER_FINISH:
+            raise ValueError(f"copper finish is {metadata.copper_finish!r}; rev 1.2 requires {GENERATOR_COPPER_FINISH}")
+        if (metadata.thickness_mm != Decimal(str(pcb.BOARD_THICKNESS_MM)) or
+                metadata.copper_stackup != GENERATOR_COPPER_STACKUP):
             raise ValueError("rev 1.2 requires the 1.6 mm four-layer generator copper stackup")
     board = fab.read_board(project / f"{PROJECT}.kicad_pcb")
     stackup = F(F(board, "setup")[0], "stackup")[0]
@@ -85,9 +97,7 @@ def fabrication_options(project, revision):
                    for layer in F(stackup, "layer")
                    if sexp.val(layer, "type") in (["core"], ["prepreg"])]
     if revision == "1.2":
-        if dielectrics != [["dielectric 1", "prepreg", "0.2104", "FR4"],
-                           ["dielectric 2", "core", "1.065", "FR4"],
-                           ["dielectric 3", "prepreg", "0.2104", "FR4"]]:
+        if dielectrics != GENERATOR_DIELECTRICS:
             raise ValueError("rev 1.2 requires the generator FR4 dielectric stackup")
         resolved_net_name = net_name_resolver(board)
         ground_layers = {layer for zone in F(board, "zone")
