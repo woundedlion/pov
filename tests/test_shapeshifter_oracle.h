@@ -1644,10 +1644,7 @@ inline void write_shapeshifter_preset_hashes() {
             for (int x = 0; x < 144; ++x) {
               const auto p = effect.get_pixel(x, y);
               for (const uint16_t channel : {p.r, p.g, p.b})
-                for (int shift : {0, 8}) {
-                  hash ^= (channel >> shift) & 255;
-                  hash *= 1099511628211ull;
-                }
+                hash = hs_test::fnv1a64_channel(hash, channel);
             }
         }
       }
