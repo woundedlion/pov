@@ -904,12 +904,7 @@ inline void test_sim_drops_and_missed_epoch() {
 
   // Board 3 loses its wire for the entire EPOCH train; two consecutive index
   // beacons correct it (§6.3.2, §6.3.4).
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        return content(s.boards[0].board).rev_in_effect >=
-               s.cfg.revs_per_effect - 1;
-      },
-      double(cfg.revs_per_effect) + 4));
+  HS_EXPECT_TRUE(to_pre_train(sim, cfg));
   sim.boards[3].drop_from = sim.g;
   sim.boards[3].drop_to = sim.g + 7 * rev; // covers B..B+K and the repeats
   HS_EXPECT_TRUE(sim.run_until(
@@ -1127,12 +1122,7 @@ inline void test_sim_rev_resync() {
 
   // The next epoch commits in lockstep even though board 3 ALSO misses the
   // primary copy, taking the repeat path that depends on j-inference.
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        return content(s.boards[0].board).rev_in_effect >=
-               s.cfg.revs_per_effect - 1;
-      },
-      double(cfg.revs_per_effect) + 4));
+  HS_EXPECT_TRUE(to_pre_train(sim, cfg));
   sim.boards[3].drop_from = sim.g + rev - 4 * COL;
   sim.boards[3].drop_to = sim.g + rev + rev / 4;
   HS_EXPECT_TRUE(sim.run_until(
