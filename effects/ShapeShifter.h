@@ -122,6 +122,7 @@ public:
   static constexpr int MAX_SHAPES = 288; ///< Contour storage capacity.
   /** @brief Rendered contours and Count slider are capped at two per row. */
   static constexpr int DRAW_LIMIT = std::min(MAX_SHAPES, 2 * H);
+  static constexpr int SURFACE_SIDES = 7; ///< Continuous star lobe count.
   /** @brief Contour count from which star edges switch to screen-step-balanced
    *  sampling: the dense planar-star path, and the balanced policy for
    *  spherical stars. */
@@ -597,10 +598,7 @@ private:
     }
     const PhaseFunction function = selected_function();
     prepare_waveform(function, count);
-    if (this->getPresetIndex() == 0 && shape == ShapeType::PLANAR_STAR &&
-        count == std::min(288, DRAW_LIMIT) && sides == 7 &&
-        params.function == PhaseFunction::SINE &&
-        params.spacing == RadiusSpacing::SCREEN_BALANCED) {
+    if (this->getPresetIndex() == 0 && surface_params(params)) {
       draw_surface_all(canvas, palette, !Spacetime::flat_surface());
       return;
     }
@@ -1283,6 +1281,19 @@ private:
   }
 
   static constexpr size_t PRESET_COUNT = 9;
+  /** @brief Whether clamped parameters select the continuous star surface.
+   * @param candidate Rendering parameters.
+   * @return True for the surface geometry and sampling policy. */
+  static constexpr bool surface_params(const Params &candidate) {
+    return candidate.shape == ShapeType::PLANAR_STAR &&
+           hs::clamp(static_cast<int>(candidate.count), 1, DRAW_LIMIT) ==
+               std::min(MAX_SHAPES, DRAW_LIMIT) &&
+           hs::clamp(static_cast<int>(candidate.sides),
+                     static_cast<int>(SIDES_MIN),
+                     static_cast<int>(SIDES_MAX)) == SURFACE_SIDES &&
+           candidate.function == PhaseFunction::SINE &&
+           candidate.spacing == RadiusSpacing::SCREEN_BALANCED;
+  }
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
       {{ShapeType::PLANAR_STAR, 288.0f, 7.745f, PhaseFunction::SINE, 1.0f,
         0.016f, false, AlphaFalloff::TOWARD_EQUATOR,
@@ -1316,6 +1327,7 @@ private:
         true, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM},
        DEPARTURE},
   }};
+  static_assert(surface_params(PRESETS[0].params));
 
   /** @brief Authored bounds; Count is clamped to the canvas-specific DRAW_LIMIT. */
   static constexpr bool preset_in_ranges(const Params &preset) {
@@ -1377,7 +1389,8 @@ private:
   static constexpr size_t SURFACE_SCRATCH_B_BYTES = 32 * 1024;
   static constexpr int SURFACE_MAX_INTERVALS = 240;
   using Surface = Scan::RadialSurface<SURFACE_MAX_INTERVALS, 16>;
-  static_assert(2 * Surface::storage_bytes(7, SURFACE_MAX_INTERVALS) +
+  static_assert(2 * Surface::storage_bytes(SURFACE_SIDES,
+                                           SURFACE_MAX_INTERVALS) +
                     W * sizeof(math::Vector) + 32 <=
                 SURFACE_SCRATCH_A_BYTES);
   static_assert(2 * Scan::RadialSurfaceCandidateMask<>::STORAGE_BYTES +
