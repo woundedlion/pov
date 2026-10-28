@@ -394,7 +394,8 @@ inline PB::PlaneSample run_to_plane(In::ChainProgram &program,
 
 /** Erased-vs-bound parity of the prepared entry @p index: on @p input_of
     each swept view, the erased op and @p BoundStage yield identical
-    @p OutCarrier values, at least one of them live. */
+    @p OutCarrier values, at least one of them live except under the MINIMUMS
+    value set (see `expect_live_sweep`). */
 template <typename BoundStage, typename OutCarrier, typename Mirror,
           typename InputFn>
 void expect_op_parity(In::ChainProgram &program, const In::FrameContext &ctx,
