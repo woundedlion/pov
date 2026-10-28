@@ -215,20 +215,40 @@ class UploadPackageError(ValueError):
     """An exported fab artifact would not reach the JLC upload zip."""
 
 
-def zip_members(names):
-    """Sorted upload-zip members; every ZIP_MEMBERS file present, no others.
+def board_zip_members(board):
+    """Upload members using the board's custom Gerber layer names."""
+    expected = set(ZIP_MEMBERS)
+    for table in F(board, "layers"):
+        for layer in table[1:]:
+            if not isinstance(layer, list) or len(layer) < 4:
+                continue
+            standard, custom = layer[1], layer[3]
+            standard = {"F.SilkS": "F.Silkscreen", "B.SilkS": "B.Silkscreen"}.get(
+                standard, standard)
+            prefix = "phantasm-" + standard.replace(".", "_") + "."
+            for name in ZIP_MEMBERS:
+                if name.startswith(prefix):
+                    expected.remove(name)
+                    expected.add("phantasm-" + custom.replace(".", "_")
+                                 + os.path.splitext(name)[1])
+    return expected
+
+
+def zip_members(names, expected=None):
+    """Sorted upload-zip members; every expected file present, no others.
 
     The names bind every GERBER_LAYERS export plus both plated and unplated drill
     files.
     """
-    members = sorted(n for n in names if n in ZIP_MEMBERS)
+    expected = ZIP_MEMBERS if expected is None else expected
+    members = sorted(n for n in names if n in expected)
     dropped = sorted(set(names) - set(members) - ZIP_EXCLUDED)
     if dropped:
         raise UploadPackageError(
             "exported fab artifacts the JLC upload zip would drop: "
             + ", ".join(dropped)
             + " - add the name to ZIP_MEMBERS or ZIP_EXCLUDED.")
-    absent = sorted(ZIP_MEMBERS - set(members))
+    absent = sorted(expected - set(members))
     if absent:
         raise UploadPackageError(
             "the export produced no fab artifact for: " + ", ".join(absent)
@@ -287,7 +307,16 @@ def verify_package(directory, baseline):
             f"no fab package to verify: {directory}; run fab.py first")
     manifest_path = os.path.join(directory, SUMS_FILE)
     recorded = read_manifest(manifest_path)
-    covered = ZIP_MEMBERS | set(ASSEMBLY_MEMBERS) | {ARCHIVE}
+    expected = set(ZIP_MEMBERS)
+    for name in ZIP_MEMBERS:
+        extension = os.path.splitext(name)[1]
+        if extension not in {".drl", ".gbrjob"}:
+            aliases = [entry for entry in recorded
+                       if os.path.splitext(entry)[1] == extension]
+            if len(aliases) == 1:
+                expected.remove(name)
+                expected.add(aliases[0])
+    covered = expected | set(ASSEMBLY_MEMBERS) | {ARCHIVE}
 
     diagnostics = []
     if unknown := sorted(set(os.listdir(directory)) - covered - {SUMS_FILE}):
@@ -1522,7 +1551,7 @@ def fabricate(revision="1.1", validate_only=False, refill_zones=True):
             sys.exit(str(exc))
 
         try:
-            zip_members(os.listdir(staged))
+            zip_members(os.listdir(staged), board_zip_members(board))
         except UploadPackageError as exc:
             sys.exit(str(exc))
 
@@ -1560,7 +1589,7 @@ def fabricate(revision="1.1", validate_only=False, refill_zones=True):
         print("[9/9] JLC upload zip")
         zpath = os.path.join(staged, ARCHIVE)
         try:
-            members = zip_members(os.listdir(staged))
+            members = zip_members(os.listdir(staged), board_zip_members(board))
         except UploadPackageError as exc:
             sys.exit(str(exc))
         write_upload_zip(staged, members, zpath)

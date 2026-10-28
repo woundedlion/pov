@@ -1101,6 +1101,18 @@ class ZipMembershipTests(unittest.TestCase):
         self.assertEqual(fab.zip_members(self.EXPORTED + tuple(fab.ZIP_EXCLUDED)),
                          sorted(self.EXPORTED))
 
+    def test_custom_layer_names_are_required_upload_members(self):
+        board = sexp.parse_one('(kicad_pcb (layers (4 "In1.Cu" power "GND") '
+                               '(6 "In2.Cu" power "Ground") '
+                               '(0 "F.Cu" signal "Top.Copper")))')
+        expected = (fab.ZIP_MEMBERS - {"phantasm-In1_Cu.g1", "phantasm-In2_Cu.g2",
+                                       "phantasm-F_Cu.gtl"}
+                    | {"phantasm-GND.g1", "phantasm-Ground.g2", "phantasm-Top_Copper.gtl"})
+        self.assertEqual(fab.board_zip_members(board), expected)
+        self.assertEqual(fab.zip_members(expected, fab.board_zip_members(board)), sorted(expected))
+        with self.assertRaises(fab.UploadPackageError):
+            fab.zip_members(self.EXPORTED, fab.board_zip_members(board))
+
     def test_an_extension_outside_the_allowlist_is_rejected(self):
         with self.assertRaisesRegex(
                 fab.UploadPackageError, "phantasm-User_2.gm2"):
@@ -1554,6 +1566,17 @@ class PackageVerificationTests(unittest.TestCase):
         self.assertEqual(fab.verify_package(str(directory), str(baseline)),
                          len(fab.ZIP_MEMBERS)
                          + len(fab.ASSEMBLY_MEMBERS) + 1)
+
+    def test_accepts_custom_layer_names_recorded_in_the_manifest(self):
+        directory, _ = self.package()
+        for old, new in (("phantasm-In1_Cu.g1", "phantasm-GND.g1"),
+                         ("phantasm-In2_Cu.g2", "phantasm-Ground.g2")):
+            (directory / old).rename(directory / new)
+        members = sorted(set(os.listdir(directory)) - fab.ZIP_EXCLUDED)
+        (directory / fab.SUMS_FILE).write_text(
+            fab.package_manifest(str(directory), members, fab.ARCHIVE), encoding="utf-8")
+        self.assertEqual(fab.verify_package(str(directory), None),
+                         len(members) + len(fab.ASSEMBLY_MEMBERS) + 1)
 
     def test_rejects_an_edited_artifact(self):
         directory, baseline = self.package()
