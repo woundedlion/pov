@@ -1319,7 +1319,7 @@ jobs:
           key: pio-teensy-${{ hashFiles('platformio.ini') }}
           restore-keys: pio-teensy-
       - name: Cache build objects
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .pio/build_cache
           key: pio-objs-${{ hashFiles('platformio.ini') }}-${{ github.sha }}
@@ -1336,6 +1336,12 @@ jobs:
           find .pio/build_cache -mindepth 2 -type f -printf '%T@ %s %p\n' | sort -rn |
             awk -v cap=$((400 * 1024 * 1024)) '{ total += $2 } total > cap { print $3 }' |
             xargs -r rm -f
+      - name: Save build objects
+        if: github.ref == 'refs/heads/master'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .pio/build_cache
+          key: pio-objs-${{ hashFiles('platformio.ini') }}-${{ github.sha }}
       - name: Upload firmware artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
