@@ -165,11 +165,7 @@ inline void test_dynamo_trail_ceiling_bounds_the_ring() {
 }
 
 /**
- * @brief Pins what Dynamo's emitted_points counter actually measures.
- * @details draw_nodes() bumps it from the strand's fragment shader, so the
- *          trail-ring ceiling holds only while the rasterizer shades exactly
- *          once per point it hands the pipeline. With nothing aging out, the
- *          ring's growth across a frame must equal emitted_points.
+ * @brief Ring growth equals the frame's summed trail-records delta when nothing ages out.
  */
 inline void test_dynamo_emitted_points_counts_ring_seeds() {
   using WB = DynamoWhiteBox;
