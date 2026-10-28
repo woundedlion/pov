@@ -439,7 +439,7 @@ HS_HOT_INLINE math::Vector ring_vertex(const math::Basis &basis, float polar,
   return (basis.v * cosf(polar) + tangent * sinf(polar)).normalized();
 }
 
-/** @brief Draws a closed polyline whose vertices turn along endpoint arcs.
+/** @brief Draws a closed polyline with constant-rate great-circle vertex paths.
  * @tparam W,H Canvas dimensions.
  * @tparam PipelineT,ShaderT Pipeline and fragment shader types.
  * @param pipeline Screen pipeline.
@@ -449,8 +449,9 @@ HS_HOT_INLINE math::Vector ring_vertex(const math::Basis &basis, float polar,
  * @param poses Optional column-time world poses.
  * @param spin Bound on the world rotation over the frame, radians.
  * @param stride Material-grid stride, dividing W/2.
- * @details Vertex indices run from zero through W-1. Geometry path bounds
- * select chords or circular interpolants; captures use arena storage. */
+ * @details Vertex indices run from zero through W-1. Each vertex follows the
+ * great-circle arc between its captures at constant rate; captures use arena
+ * storage. */
 template <int W, int H, typename PipelineT, typename ShaderT>
 HS_HOT_FLASH_MEMBER void
 draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
@@ -610,7 +611,7 @@ struct Ring {
    * @param basis Frame-end ring basis.
    * @param radius Frame-end radius.
    * @param shader Fragment shader, optionally reading time.
-   * @param geometry Circular vertex paths, indexed on the W-angle grid.
+   * @param geometry Constant-rate great-circle vertex paths on the W-angle grid.
    * @param start_radius Frame-start radius. */
   template <int W, int H, typename PipelineT, typename ShaderT>
   HS_HOT_FLASH_MEMBER static void
@@ -910,7 +911,8 @@ template <typename Projection> struct Polygon {
  *  v2: Index
  */
 struct DistortedRing {
-  /** @brief Draws a warped ring from circular vertex paths and world poses.
+  /** @brief Draws a warped ring from constant-rate great-circle vertex paths
+   * and world poses.
    * @tparam W,H Canvas dimensions.
    * @tparam PipelineT,ShaderT Pipeline and shader types.
    * @param pipeline Screen pipeline.
