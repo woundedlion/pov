@@ -1089,13 +1089,12 @@ inline void test_polygon_is_concave() {
 }
 
 /**
- * @brief Cross-pins MeshOps::polygon_is_concave against the rasterizer's own
- *        turn test over one registry mesh.
+ * @brief Cross-pins `MeshOps::polygon_is_concave` against prepared-face
+ *        concavity over one registry mesh.
  * @param islamic_idx Index into the islamic registry.
- * @details The predicate and Face::build_half_planes carry separate copies of
- *          the same relative-turn scan. Runs the predicate over each face's own
- *          per-frame projection and pins it against the verdict Face reached
- *          from the same vertices.
+ * @details `SDF::scan_polygon_turn` supplies the shared relative-turn test.
+ *          Compares the predicate with the `SDF::PreparedFace` verdict for
+ *          matching projected vertices.
  */
 inline void check_face_concavity_agrees(size_t islamic_idx) {
   configure_arenas_default();

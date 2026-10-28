@@ -44,8 +44,8 @@ inline constexpr float MIN_CLASS_HIT_SHARE = 0.4f;
  * @brief Tests a centered 2D polygon for concavity.
  * @param xy Polygon vertices, x/y pairs.
  * @param count Vertex count.
- * @return True when successive-edge turns have mixed signs, using the same
- *         relative-turn epsilon as Face::build_half_planes.
+ * @return True when successive-edge turns have mixed signs according to
+ *         `SDF::scan_polygon_turn`.
  */
 inline bool polygon_is_concave(const float *xy, int count) {
   bool pos = false, neg = false;
