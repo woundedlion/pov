@@ -108,9 +108,8 @@ scan_polygon_turn(float turn, float scale, bool &pos, bool &neg) {
 }
 
 /** AA fringe pad in radians applied to a face's azimuth intervals: one pixel
- *  of falloff reach (in the plane units distance() reports, slightly wider
- *  than angular) plus the fast_atan2 slop in the vertex thetas the intervals
- *  derive from.
+ *  of falloff reach plus a quarter pixel of slack. Vertex thetas err by at most
+ *  PreparedFace::AZIMUTH_ERROR.
  *  @param w Canvas width in columns.
  *  @return Half-width pad added to each end of an azimuth interval. */
 constexpr float face_azimuth_pad(int w) {
