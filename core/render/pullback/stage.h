@@ -538,16 +538,13 @@ struct Project
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
 
-    math::Vector local;
+    const math::Vector local =
+        math::rotate(input.dir, ProjectionPolicyT::frame_conjugate(frame));
     ProjectionResult result;
     if constexpr (Detail::PolicyPrepares<ProjectionPolicyT,
                                          typename Binding::FrameState>) {
-      local =
-          math::rotate(input.dir, ProjectionPolicyT::frame_conjugate(frame));
       result = ProjectionPolicyT::project(local, frame, prepared);
     } else {
-      local =
-          math::rotate(input.dir, ProjectionPolicyT::frame_conjugate(frame));
       result = ProjectionPolicyT::project(local, frame);
     }
     const PlaneSample output = Kernel::project(input, local, result);
