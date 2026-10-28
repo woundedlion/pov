@@ -64,8 +64,8 @@ static_assert(std::is_same_v<
  * @details A null `topology_id` marks an operator no Spec or parameter family
  * selects, so none of its topology values are reachable either. Otherwise
  * `reachable` lists values emitted by a shipped specialization through a
- * policy pin or Spec choice. A Spec selecting another value extends its row
- * and updates the unreachable-count pin.
+ * policy pin, Spec choice or authored preset. Selecting another value extends
+ * its row and updates the unreachable-count pin.
  */
 struct DerivationReach {
   const char *operator_id;
@@ -95,8 +95,8 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     // ProjectionKind names the folded gnomonic alone.
     {"project.gnomonic.v2", "hemisphere", {{"folded"}}},
     {"project.stereographic.v2", "frame", {{"identity", "spin-wander"}}},
-    {"project.folded-sinusoidal.v2", "frame", {{"identity", "spin-wander"}}},
-    {"project.equirectangular.v2", "frame", {{"identity", "spin-wander"}}},
+    {"project.folded-sinusoidal.v2", "frame", {{"spin-wander"}}},
+    {"project.equirectangular.v2", "frame", {{"spin-wander"}}},
     {"project.gnomonic.v2", "frame", {{"identity", "spin-wander"}}},
     // The displacement policies pin the basis and the integrator.
     {"sphere.displace.curl.v2", "basis", {{"simplex"}}},
@@ -105,9 +105,8 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sphere.displace.direct.v2", "basis", {{"simplex"}}},
     {"sphere.lens.kaleidoscope.v2",
      "symmetry",
-     {{"azimuthal", "tetrahedral", "octahedral", "dodecahedral",
-       "triangular-prism", "square-prism", "pentagonal-prism",
-       "hexagonal-prism", "octagonal-prism"}}},
+     {{"azimuthal", "octahedral", "dodecahedral", "pentagonal-prism",
+       "hexagonal-prism"}}},
     // WarpPolicyFor pins the flat envelope, the simplex basis, the linear
     // polar chart and its first harmonic.
     {"warp.wave-shear.v2", "envelope", {{"flat"}}},
@@ -122,32 +121,24 @@ constexpr DerivationReach DERIVATION_REACH[] = {
      "coverage-mode",
      {{"weight", "weight-squared", "edge-fade"}}},
     {"sample.twin-wave.v3", "weight-mode", {{"projection"}}},
-    {"sample.twin-wave.v3",
-     "coverage-mode",
-     {{"weight", "weight-squared", "edge-fade"}}},
+    {"sample.twin-wave.v3", "coverage-mode", {{"weight-squared"}}},
     {"sample.spiral.v2", "weight-mode", {{"projection"}}},
-    {"sample.spiral.v2",
-     "coverage-mode",
-     {{"weight", "weight-squared", "edge-fade"}}},
-    {"sample.projected-noise.v2", "weight-mode", {{"projection"}}},
-    {"sample.projected-noise.v2",
-     "coverage-mode",
-     {{"weight", "weight-squared", "edge-fade"}}},
-    {"sample.projected-noise.v2", "basis", {{"simplex"}}},
-    {"sample.spherical-noise.v3", "basis", {{"simplex"}}},
+    {"sample.spiral.v2", "coverage-mode", {{"weight-squared"}}},
+    {"sample.projected-noise.v2", "weight-mode", {}},
+    {"sample.projected-noise.v2", "coverage-mode", {}},
+    {"sample.projected-noise.v2", "basis", {}},
+    {"sample.spherical-noise.v3", "basis", {}},
     {"sample.lattice.v2", "weight-mode", {{"projection"}}},
-    {"sample.lattice.v2",
-     "coverage-mode",
-     {{"weight", "weight-squared", "edge-fade"}}},
+    {"sample.lattice.v2", "coverage-mode", {{"weight", "weight-squared"}}},
     {"colorize.generated-palette.v3",
      "palette-mode",
      {{"triadic", "complementary", "analogous"}}},
     {"colorize.generated-palette.v3",
      "palette-mapping",
-     {{"cup", "bell", "linear", "reverse"}}},
+     {{"cup", "bell", "linear"}}},
     {"colorize.generated-palette.v3",
      "hue-shift-mode",
-     {{"none", "noise", "path-length"}}},
+     {{"noise", "path-length"}}},
     // Shipped Specs select only the none and cup brightness envelopes.
     {"colorize.generated-palette.v3", "brightness-envelope", {{"none", "cup"}}},
 };
@@ -252,5 +243,5 @@ inline void test_composed_derivation_reach() {
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 38u);
   HS_EXPECT_EQ(unreachable_operators, 12u);
   HS_EXPECT_EQ(catalog_values, 152u);
-  HS_EXPECT_EQ(unreachable_values, 91u);
+  HS_EXPECT_EQ(unreachable_values, 110u);
 }
