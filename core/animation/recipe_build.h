@@ -129,6 +129,26 @@ protected:
     }
   }
 
+  /** @brief Whether a lowered span has a DUAL/KIS pair at an index.
+   * @param chain Lowered primitive steps.
+   * @param k Lowered step index.
+   * @return True when step k is DUAL and step k + 1 is KIS. */
+  __attribute__((always_inline)) static constexpr bool
+  dt_pair_in(std::span<const Solids::OpStep> chain, size_t k) {
+    return k + 1 < chain.size() && chain[k].op == Solids::Op::DUAL &&
+           chain[k + 1].op == Solids::Op::KIS;
+  }
+
+  /** @brief Whether a lowered span has a standalone KIS at an index.
+   * @param chain Lowered primitive steps.
+   * @param k Lowered step index.
+   * @return True when step k is KIS and step k - 1 is not DUAL. */
+  __attribute__((always_inline)) static constexpr bool
+  standalone_kis_in(std::span<const Solids::OpStep> chain, size_t k) {
+    return chain[k].op == Solids::Op::KIS &&
+           !(k > 0 && chain[k - 1].op == Solids::Op::DUAL);
+  }
+
   /**
    * @brief Whether a lowered DUAL step pairs with a trailing KIS (needle = kd =
    *        dt): the pair builds as the smooth dt macro over both steps.
@@ -136,9 +156,7 @@ protected:
    * @return True when step k is DUAL and step k + 1 is KIS.
    */
   HS_COLD_MEMBER bool dt_pair_at(size_t k) const {
-    return k + 1 < build_step_count &&
-           build_step_chain[k].op == Solids::Op::DUAL &&
-           build_step_chain[k + 1].op == Solids::Op::KIS;
+    return dt_pair_in({build_step_chain, build_step_count}, k);
   }
 
   /**
@@ -148,8 +166,7 @@ protected:
    * @return True when step k is KIS and step k - 1 is not DUAL.
    */
   HS_COLD_MEMBER bool standalone_kis_at(size_t k) const {
-    return build_step_chain[k].op == Solids::Op::KIS &&
-           !(k > 0 && build_step_chain[k - 1].op == Solids::Op::DUAL);
+    return standalone_kis_in({build_step_chain, build_step_count}, k);
   }
 
   /**
@@ -213,13 +230,11 @@ protected:
         std::max(1, static_cast<int>(leg_frames(Solids::Op::DUAL) / sp));
     for (size_t k = 0; k < chain.size(); ++k) {
       const auto op = chain[k].op;
-      if (op == Solids::Op::DUAL && k + 1 < chain.size() &&
-          chain[k + 1].op == Solids::Op::KIS) {
+      if (dt_pair_in(chain, k)) {
         timing.legs[k] = BRIDGE;
         timing.total += timing.sweep + BRIDGE + timing.reconcile;
         ++k;
-      } else if (op == Solids::Op::KIS &&
-                 !(k > 0 && chain[k - 1].op == Solids::Op::DUAL)) {
+      } else if (standalone_kis_in(chain, k)) {
         timing.legs[k] = BRIDGE;
         timing.total += BRIDGE + timing.sweep + BRIDGE + timing.reconcile;
       } else {
