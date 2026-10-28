@@ -46,7 +46,7 @@ inline float max_component_delta(const math::Vector &a, const math::Vector &b) {
 }
 
 /**
- * @brief Angle between two near-parallel vectors, below angle_between's floor.
+ * @brief Angle between non-zero vectors, accurate through the full angular range.
  * @param a First vector (non-zero).
  * @param b Second vector (non-zero).
  * @return The angle in radians.

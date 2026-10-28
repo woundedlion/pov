@@ -23,12 +23,9 @@ inline math::Vector az_unproject_exact(float Px, float Py,
 
 /**
  * @brief Great-circle angle between two unit vectors, accurate for tiny angles.
- * @details atan2(|p x q|, p.q) stays well-conditioned near 0 where acos is
- *          flat; fast_acos (via angle_between) collapses sub-milliradian steps
- *          to zero.
  */
 inline float az_arc_exact(const math::Vector &p, const math::Vector &q) {
-  return std::atan2(math::cross(p, q).length(), math::dot(p, q));
+  return static_cast<float>(hs_test::small_angle_between(p, q));
 }
 
 /**

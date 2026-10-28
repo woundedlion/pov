@@ -19,6 +19,7 @@
 #include "tests/volume_reference.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/vec_test_util.h"
 
 #include <cfloat>
 #include <cstring>

@@ -1903,21 +1903,13 @@ inline void test_vertex_arc_and_reach_flags() {
   const double ROUNDING_ARC = std::acos(1 - COSINE_ROUNDING);
   const double PIXELS_PER_RADIAN = 288 / (2 * std::acos(-1.0));
   HS_EXPECT_LT(ROUNDING_ARC * PIXELS_PER_RADIAN, Scan::HELD_VERTEX_PIXELS);
-  auto reference = [](const math::Vector &a, const math::Vector &b) {
-    const double x = double(a.y) * b.z - double(a.z) * b.y;
-    const double y = double(a.z) * b.x - double(a.x) * b.z;
-    const double z = double(a.x) * b.y - double(a.y) * b.x;
-    const double dot =
-        double(a.x) * b.x + double(a.y) * b.y + double(a.z) * b.z;
-    return std::atan2(std::sqrt(x * x + y * y + z * z), dot);
-  };
   for (const float scale : {1.0f, 1.5f, 0.65f, 0.35f}) {
     for (const float angle :
          {0.0f, 0.01f, 0.3f, 0.9f, 1.0f, 1.2f, 2.0f, 3.0f}) {
       HS_CONTEXT("angle", angle);
       const math::Vector a(2 * scale, 0, 0),
           b(scale * cosf(angle), scale * sinf(angle), 0);
-      const double ANGLE = reference(a, b);
+      const double ANGLE = hs_test::small_angle_between(a, b);
       const float arc = Scan::vertex_arc(a, b);
       HS_EXPECT_GE(arc, ANGLE - 1e-6);
       const double UPPER =
@@ -1930,7 +1922,8 @@ inline void test_vertex_arc_and_reach_flags() {
   math::Vector still_current[4];
   for (int i = 0; i < 4; ++i) {
     still_current[i] = still_previous[i] * 0.5f;
-    HS_EXPECT_EQ(reference(still_previous[i], still_current[i]), 0.0);
+    HS_EXPECT_EQ(
+        hs_test::small_angle_between(still_previous[i], still_current[i]), 0.0);
     HS_EXPECT_LT(Scan::vertex_arc(still_previous[i], still_current[i]) *
                      PIXELS_PER_RADIAN,
                  Scan::HELD_VERTEX_PIXELS);

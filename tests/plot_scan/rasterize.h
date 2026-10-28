@@ -263,30 +263,17 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
       Plot::make_planar_edge_sampler(a.pos, b.pos, basis);
   float rendered = 0.0f;
   double independent_rendered = 0.0;
-  const auto independent_angle = [](const math::Vector &u,
-                                    const math::Vector &v) {
-    const double uv = static_cast<double>(u.x) * v.x +
-                      static_cast<double>(u.y) * v.y +
-                      static_cast<double>(u.z) * v.z;
-    const double uu = static_cast<double>(u.x) * u.x +
-                      static_cast<double>(u.y) * u.y +
-                      static_cast<double>(u.z) * u.z;
-    const double vv = static_cast<double>(v.x) * v.x +
-                      static_cast<double>(v.y) * v.y +
-                      static_cast<double>(v.z) * v.z;
-    return std::acos(std::clamp(uv / std::sqrt(uu * vv), -1.0, 1.0));
-  };
   math::Vector previous = sampler.unproject(0.0f);
   const math::Vector mapped_start = previous;
   for (int i = 1; i <= 32; ++i) {
     const math::Vector current =
         sampler.unproject(static_cast<float>(i) / 32.0f);
     rendered += math::angle_between(previous, current);
-    independent_rendered += independent_angle(previous, current);
+    independent_rendered += hs_test::small_angle_between(previous, current);
     previous = current;
   }
-  const double bow =
-      independent_rendered - independent_angle(mapped_start, previous);
+  const double bow = independent_rendered -
+                     hs_test::small_angle_between(mapped_start, previous);
   HS_EXPECT_GT(bow, 1e-3);
   HS_EXPECT_LT(bow, 5e-3);
   HS_EXPECT_NEAR(planar, rendered, 2e-3f);
