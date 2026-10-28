@@ -339,6 +339,8 @@ private:
 
   /** @brief Sweep windows a swept draw splits the half-turn into. */
   static constexpr int SWEEP_WINDOWS = 2;
+  static_assert(SWEEP_WINDOWS == 2,
+                "the alternate cache holds one other-window value per knot");
   static_assert(W % (2 * SWEEP_WINDOWS) == 0,
                 "DisplacementField: sweep windows must tile the half-turn");
 
