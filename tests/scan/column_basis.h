@@ -770,14 +770,14 @@ template <int W, int H> inline void check_swept_cap_clip() {
           for (int x = 0; x < W; ++x)
             reaches |= !xc.clipped(x) &&
                        !is_black(lit[static_cast<size_t>(y) * W + x]);
-        const bool meets =
-            Plot::cap_may_touch_clip<W, H>(cr, axis, radius, time.sweep_arc);
+        const bool meets = Plot::swept_cap_may_touch_clip<W, H>(
+            cr, axis, radius, time.sweep_arc);
         const auto cap =
             Plot::make_swept_cap_clip<W, H>(cr, radius, time.sweep_arc);
         HS_EXPECT_EQ(meets, Plot::cap_may_touch_clip<H>(cap, axis));
         const auto center = Plot::make_cap_center(cr, axis);
-        HS_EXPECT_EQ(meets, (Plot::cap_may_touch_clip<W, H>(cr, center, radius,
-                                                            time.sweep_arc)));
+        HS_EXPECT_EQ(meets, (Plot::swept_cap_may_touch_clip<W, H>(
+                                cr, center, radius, time.sweep_arc)));
         if (reaches)
           HS_EXPECT_TRUE(meets);
         ruled_out += !meets;

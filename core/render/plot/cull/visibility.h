@@ -723,9 +723,9 @@ HS_NOINLINE_NOCLONE bool cap_may_touch_clip(const SweptCapClip &cap,
  * @return False only when the swept cap misses the clip.
  */
 template <int W, int H, typename Center>
-HS_FLASH_INLINE inline bool cap_may_touch_clip(const ClipRegion &cr,
-                                               const Center &center,
-                                               float half_angle, float sweep) {
+HS_FLASH_INLINE inline bool
+swept_cap_may_touch_clip(const ClipRegion &cr, const Center &center,
+                         float half_angle, float sweep) {
   const auto cap = make_swept_cap_clip<W, H>(cr, half_angle, sweep);
   return cap_may_touch_clip<H>(cr, center, cap.reach, cap.sin_reach);
 }
