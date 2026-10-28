@@ -7,25 +7,6 @@
 // Scan::rasterize_face vs scan_region, seams, pole LOD, region clip arc
 // ============================================================================
 
-/** @brief Builds a bounded regular or alternating-radius face ring. */
-static inline void build_pole_face_ring(const math::Basis &basis,
-                                        math::Vector (&vertices)[8],
-                                        uint16_t (&indices)[8], int sides,
-                                        float rho, float rho_inner,
-                                        float phase) {
-  HS_CHECK(sides > 0 && sides <= 8, "face ring sides %d exceed capacity",
-           sides);
-  for (int i = 0; i < sides; ++i) {
-    const float angle = math::TWO_PI_F * i / sides + phase;
-    const float radius = i % 2 ? rho_inner : rho;
-    vertices[i] =
-        (basis.v * cosf(radius) +
-         (basis.u * cosf(angle) + basis.w * sinf(angle)) * sinf(radius))
-            .normalized();
-    indices[i] = static_cast<uint16_t>(i);
-  }
-}
-
 /**
  * @brief Verifies rasterize_face walks the pixels scan_region walks.
  * @details The same SDF::PreparedFace drawn through Scan::rasterize and
@@ -45,7 +26,7 @@ inline void test_face_rasterize_matches_scan_region() {
     math::Basis basis = math::make_basis(math::Quaternion(), axis);
     math::Vector verts[8];
     uint16_t idx[8];
-    build_pole_face_ring(basis, verts, idx, sides, rho, rho, phase);
+    build_regular_face(basis, sides, rho, 0.0f, verts, idx, phase);
     std::span<const math::Vector> vspan(verts, sides);
     std::span<const uint16_t> ispan(idx, sides);
     const Color4 color(Pixel(60000, 20000, 40000), 0.75f);
@@ -356,7 +337,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
     math::Basis basis = math::make_basis(math::Quaternion(), axis);
     math::Vector verts[8];
     uint16_t idx[8];
-    build_pole_face_ring(basis, verts, idx, sides, rho, rho, phase);
+    build_regular_face(basis, sides, rho, 0.0f, verts, idx, phase);
     hs_test::StubEffect fx(W, H);
     Pipeline<W, H> pipe;
     {
@@ -595,8 +576,8 @@ inline void test_pole_lod_concave_face_matches_undecimated() {
         math::Quaternion(), math::Vector(fc.tilt, 1.0f, 0.0f).normalized());
     math::Vector vertices[8];
     uint16_t indices[8];
-    build_pole_face_ring(basis, vertices, indices, 8, fc.rho, fc.rho_inner,
-                         fc.phase);
+    build_regular_face(basis, 4, fc.rho, fc.rho_inner, vertices, indices,
+                       fc.phase);
     auto draw = [&](float lod) {
       Render::pole_lod_aggressiveness = lod;
       hs_test::StubEffect fx(W, H);
