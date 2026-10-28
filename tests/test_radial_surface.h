@@ -1048,7 +1048,7 @@ inline void test_radial_surface_hidden_terminal() {
   }
 }
 
-/** @brief AA colors stay within the footprint's first-arrival range. */
+/** @brief AA colors do not fall below the footprint's first-arrival minimum. */
 inline void test_radial_surface_footprint_colours() {
   ScratchScope scope(scratch_arena_a);
   const std::array KNOTS{
