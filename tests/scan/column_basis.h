@@ -155,7 +155,8 @@ inline int expect_factored_tolerance(const char *label,
   return lit;
 }
 
-/** @brief A frame rotating 0.35 rad about a tilted axis. */
+/** @brief A frame rotating @p angle about a tilted axis.
+ * @param angle Rotation angle in radians. */
 inline BasisMotion tilted_motion(float angle = 0.35f) {
   const math::Quaternion previous =
       math::make_rotation(math::Vector(0.3f, 0.8f, -0.5f).normalized(), 0.7f);
