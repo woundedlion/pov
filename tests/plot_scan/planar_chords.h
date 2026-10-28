@@ -15,6 +15,35 @@ struct PlanarShapeCase {
   float phase;
 };
 
+/** @brief A near-pole segment wraps its negative column window. */
+inline void test_polar_stroke_wraps_negative_column_window() {
+  constexpr int W = 144, H = 72;
+  struct Capture {
+    bool reached_last = false;
+    void plot_column_at(Canvas &, math::PixelCoords, int column, Pixel, float,
+                        float, float) {
+      HS_EXPECT_GE(column, 0);
+      HS_EXPECT_LT(column, W);
+      reached_last |= column == W - 1;
+    }
+  } sink;
+  hs_test::StubEffect effect(W, H);
+  math::TrigLUT<W, H>::init();
+  Canvas canvas(effect);
+  initialize_parity_frame<W, H>(canvas);
+  for (const auto &edge : {std::array{math::PixelCoords{-8.0f, -0.01f},
+                                      math::PixelCoords{8.0f, 0.3f}},
+                           std::array{math::PixelCoords{-8.0f, -0.3f},
+                                      math::PixelCoords{8.0f, 0.01f}}}) {
+    const auto a = Plot::PolarAnchor::capture(edge[0], edge[0], edge[0]);
+    const auto b = Plot::PolarAnchor::capture(edge[1], edge[1], edge[1]);
+    Plot::PolarWalk<W, H>::draw(sink, canvas, a, b, true,
+                                Color4(Pixel(65535, 65535, 65535), 0.8f),
+                                Plot::SCREEN_STEP_PX);
+  }
+  HS_EXPECT_TRUE(sink.reached_last);
+}
+
 /** @brief Stroke density cannot make polar samples exceed opaque coverage. */
 inline void test_polar_stroke_alpha_is_bounded() {
   constexpr int W = 144, H = 72;

@@ -268,13 +268,13 @@ template <int W, int H> struct PolarWalk {
 private:
   /** @brief Column range of a moving segment. */
   struct ColumnWindow {
-    int first; ///< First unwrapped column.
+    int first; ///< First column, wrapped into the display width.
     int count; ///< Number of columns.
   };
 
   /** @brief Bounds the columns reached by the endpoints' quadratic hulls.
    * @param a,b Captured segment endpoints.
-   * @return Unwrapped column range. */
+   * @return Wrapped start column and number of columns. */
   HS_FLASH_MEMBER static ColumnWindow column_window(const PolarAnchor &a,
                                                     const PolarAnchor &b) {
     const float origin = math::precise_atan2(a.end.y, a.end.x);
@@ -301,7 +301,7 @@ private:
             : std::min(W, static_cast<int>(
                               ceilf(high / math::RADIANS_PER_COLUMN<W>)) +
                               2 - first);
-    return {first, count};
+    return {math::wrap(first, W), count};
   }
 };
 
