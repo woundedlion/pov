@@ -1282,7 +1282,7 @@ inline void test_column_capture_reads_vertex_paths() {
 }
 
 /** @brief Each arm pass's walk starts no later than its first lit column and
- * gives up no earlier, with little slack, and passes nothing lights get no
+ * gives up no earlier, with little slack, and most passes nothing lights get no
  * walk. */
 inline void test_column_plan_covers_lit_columns() {
   constexpr int W = 288, PASS = W / 2;
@@ -1376,9 +1376,10 @@ inline void test_column_plan_covers_lit_columns() {
     }
   }
   const float mean = slack / float(std::max(slack_count, 1u));
-  std::printf("  [column plan] lit passes %u (bounded %u), empty %u skipped "
-              "%u, mean leading slack %.2f\n",
-              lit_passes, slack_count, empty_passes, skipped, mean);
+  std::printf(
+      "  [column plan] lit passes %u (with deadline %u), empty %u skipped "
+      "%u, mean leading slack %.2f\n",
+      lit_passes, slack_count, empty_passes, skipped, mean);
   HS_EXPECT_GT(trimmed, 100u);
   HS_EXPECT_GT(lit_passes, 2000u);
   HS_EXPECT_GT(slack_count, lit_passes * 3 / 4);
