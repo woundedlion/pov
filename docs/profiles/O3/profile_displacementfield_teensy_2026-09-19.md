@@ -45,7 +45,7 @@ The matched comparison excludes the entire startup window and pairs identical fr
 
 ## Phase-by-phase readout
 
-Counter columns are time/frame, cycles/frame, percent of root frame, calls/frame, and ?s/call for leaves.
+Counter columns are time/frame, cycles/frame, percent of root frame, calls/frame, and µs/call for leaves.
 
 The initial noise field fades in for 150 frames, holds for 600, then fades out for 150. The following ball-spawning phase lasts 900 frames before draining. This 1088-frame capture covers the initial noise phase and early balls only; it does not establish the maximum over the complete ball phase.
 
