@@ -346,28 +346,6 @@ private:
   friend struct ::hs_test::pov_sync_tests::SyncBoardTestAccess;
 
   /**
-   * @brief Mailbox access (test-only).
-   * @pre Interrupts must be disabled while accessing the returned mailbox.
-   * @return Reference to the edge mailbox.
-   */
-  EdgeMailbox &mailbox() { return edge_mailbox; }
-  /**
-   * @brief Burst-terminating gap.
-   * @return Quiet time that terminates a burst, in cycles.
-   */
-  uint32_t gap_timeout_cycles() const { return cached_gap_timeout_cycles; }
-  /**
-   * @brief Burst-duration ceiling.
-   * @return Duration past which an unterminated burst is claimed, in cycles.
-   */
-  uint32_t max_burst_cycles() const { return cached_max_burst_cycles; }
-  /**
-   * @brief Glitch-filter window.
-   * @return Minimum accepted edge spacing, in cycles.
-   */
-  uint32_t glitch_filter_cycles() const { return cached_glitch_filter_cycles; }
-
-  /**
    * @brief Mutable flywheel access (test-only).
    * @return Mutable reference to the flywheel.
    * @warning Valid only before the ISRs are attached: the flywheel is ISR-owned
