@@ -13,15 +13,6 @@
 
 using hs_test::test_suite;
 
-/** @brief Selects the effects depth tier from the process environment. */
-static bool effects_full_suite() {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *value = std::getenv("HS_EFFECTS_FULL");
-#pragma clang diagnostic pop
-  return value && std::atoi(value) != 0;
-}
-
 /**
  * @brief Prints the roster's module names, one indented per line.
  * @param out Destination stream (e.g. stdout for --list, stderr on error).
@@ -126,7 +117,8 @@ static int check_ci_levers(bool effects_invocation) {
           "explicit value — the effects tier would be chosen by omission. Set "
           "both in the workflow step's env.\n");
       ++missing;
-    } else if (std::atoi(require_effects_full) > 0 && !effects_full_suite()) {
+    } else if (std::atoi(require_effects_full) > 0 &&
+               !hs_test::effects_full_suite()) {
       std::fprintf(
           stderr,
           "run_tests: CI=on and HS_REQUIRE_EFFECTS_FULL is on, but "

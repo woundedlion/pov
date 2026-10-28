@@ -97,6 +97,21 @@ inline int smoke_frames() {
   return DEFAULT_SMOKE_FRAMES;
 }
 
+/**
+ * @brief Selects the effects test depth tier from the environment.
+ * @return true for the FULL suite (the production-resolution roster passes
+ * and the white-box cases in the FULL block), false for the QUICK tier.
+ * @details HS_EFFECTS_FULL=1 selects the FULL tier; QUICK is the default.
+ */
+inline bool effects_full_suite() {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  if (const char *e = std::getenv("HS_EFFECTS_FULL"))
+#pragma clang diagnostic pop
+    return std::atoi(e) != 0;
+  return false;
+}
+
 /** @brief Reports whether the CI environment variable is set and non-empty. */
 inline bool runs_in_ci() {
 #pragma clang diagnostic push

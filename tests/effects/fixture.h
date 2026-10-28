@@ -58,20 +58,7 @@ constexpr int DEFAULT_H = 144;
  */
 using hs_test::smoke_frames;
 
-/**
- * @brief Selects the effects test depth tier from the environment.
- * @return true for the FULL suite (the production-resolution roster passes
- * and the white-box cases in the FULL block), false for the QUICK tier.
- * @details HS_EFFECTS_FULL=1 selects the FULL tier; QUICK is the default.
- */
-inline bool effects_full_suite() {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  if (const char *e = std::getenv("HS_EFFECTS_FULL"))
-#pragma clang diagnostic pop
-    return std::atoi(e) != 0;
-  return false;
-}
+using hs_test::effects_full_suite;
 
 inline void lint_dead_sliders(Effect &effect, const char *name);
 
