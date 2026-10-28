@@ -419,6 +419,29 @@ private:
   }
 
   /**
+   * @brief Caches one ball's bounds in the ring frame.
+   * @param b Ball index.
+   * @param basis Ring frame.
+   * @param centre Ball bound centre.
+   * @param reach Angular bound radius.
+   * @param radius Ball radius.
+   */
+  HS_HOT_INLINE void cache_ball_frame(int b, const math::Basis &basis,
+                                      const math::Vector &centre, float reach,
+                                      float radius) {
+    const float cv = math::dot(basis.v, centre);
+    ball_colat[b] = math::fast_acos(hs::clamp(cv, -1.0f, 1.0f));
+    ball_reach[b] = reach;
+    ball_scale[b] = 2.0f / radius;
+    const float cu = math::dot(basis.u, centre);
+    const float cw = math::dot(basis.w, centre);
+    ball_cv[b] = cv;
+    ball_rho[b] = sqrtf(cu * cu + cw * cw);
+    const float a0 = atan2f(cw, cu);
+    ball_azimuth[b] = a0 < 0.0f ? a0 + 2.0f * math::PI_F : a0;
+  }
+
+  /**
    * @brief Bakes every ring over the active ball pool, then rasterizes the
    * stack in one fused scan.
    * @param canvas Render target for the ring fragments.
@@ -456,16 +479,7 @@ private:
     for (int b = 0; b < n_balls; ++b) {
       const auto &sp = balls.active_params(b);
       ball_params[b] = &sp;
-      const float cv = math::dot(basis.v, sp.center);
-      ball_colat[b] = math::fast_acos(hs::clamp(cv, -1.0f, 1.0f));
-      ball_reach[b] = sp.field_bound();
-      ball_scale[b] = 2.0f / sp.radius;
-      const float cu = math::dot(basis.u, sp.center);
-      const float cw = math::dot(basis.w, sp.center);
-      ball_cv[b] = cv;
-      ball_rho[b] = sqrtf(cu * cu + cw * cw);
-      const float a0 = atan2f(cw, cu);
-      ball_azimuth[b] = a0 < 0.0f ? a0 + 2.0f * math::PI_F : a0;
+      cache_ball_frame(b, basis, sp.center, sp.field_bound(), sp.radius);
     }
     draw_pass<false>(canvas, basis, column_basis, opacity, n_balls, nullptr);
   }
@@ -569,16 +583,7 @@ private:
       const float cover = reach + 0.5f * sqrtf(math::dot(chord, chord)) + 1e-4f;
       path.cos_cover = cosf(fminf(cover, math::PI_F));
       const math::Vector mid = (path.from + path.to).normalized();
-      const float cv = math::dot(basis.v, mid);
-      ball_colat[b] = math::fast_acos(hs::clamp(cv, -1.0f, 1.0f));
-      ball_reach[b] = cover;
-      ball_scale[b] = 2.0f / sp.radius;
-      const float cu = math::dot(basis.u, mid);
-      const float cw = math::dot(basis.w, mid);
-      ball_cv[b] = cv;
-      ball_rho[b] = sqrtf(cu * cu + cw * cw);
-      const float a0 = atan2f(cw, cu);
-      ball_azimuth[b] = a0 < 0.0f ? a0 + 2.0f * math::PI_F : a0;
+      cache_ball_frame(b, basis, mid, cover, sp.radius);
     }
     ScratchScope cache_guard(scratch_arena_b);
     SweepCache cache{
