@@ -14,13 +14,6 @@ namespace hs_test::effects_tests {
 
 #include "tests/effects/comets_cases.h"
 
-/** @brief Runs a seeded effect case.
- * @param test Case entry point. */
-static void run_case(auto test) {
-  hs::random().seed(1337u);
-  test();
-}
-
 void run_effect_case_comets_white_box_check_paths_close() {
   HS_RUN(CometsWhiteBox::check_paths_close);
 }

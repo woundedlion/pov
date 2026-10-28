@@ -272,10 +272,6 @@ inline void test_islamicstars_motion_fits_scratch() {
 
 /** @brief Runs the focused IslamicStars white-box cases. */
 inline void run_islamicstars_cases() {
-  const auto run_case = [](auto test) {
-    hs::random().seed(1337u);
-    test();
-  };
   HS_RUN(run_case, test_islamicstars_seed_sprite_fade_in);
   HS_RUN(run_case, test_islamicstars_opacity_shades_at_column_time);
   HS_RUN(run_case, test_islamicstars_ripple_motion_is_seam_free);

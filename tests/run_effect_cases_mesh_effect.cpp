@@ -17,13 +17,6 @@ namespace hs_test::effects_tests {
 #include "tests/effects/islamic_stars.h"
 #include "tests/effects/mesh_capture_cases.h"
 
-/** @brief Runs a seeded effect case.
- * @param test Case entry point. */
-static void run_case(auto test) {
-  hs::random().seed(1337u);
-  test();
-}
-
 void run_effect_case_hankinsolids_handoff_history() {
   HS_RUN(run_case, test_hankinsolids_handoff_history);
 }

@@ -16,13 +16,6 @@ namespace hs_test::effects_tests {
 #include "tests/effects/column_time_parity.h"
 #include "tests/effects/lens_cases.h"
 
-/** @brief Runs a seeded effect case.
- * @param test Case entry point. */
-static void run_case(auto test) {
-  hs::random().seed(1337u);
-  test();
-}
-
 void run_effect_case_parameter_probe_targets() {
   HS_RUN(run_case, test_parameter_probe_targets);
 }

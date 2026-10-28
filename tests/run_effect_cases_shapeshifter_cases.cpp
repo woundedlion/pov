@@ -14,13 +14,6 @@ namespace hs_test::effects_tests {
 
 #include "tests/effects/shape_shifter.h"
 
-/** @brief Runs a seeded effect case.
- * @param test Case entry point. */
-static void run_case(auto test) {
-  hs::random().seed(1337u);
-  test();
-}
-
 void run_effect_case_shapeshifter_preset_defaults() {
   HS_RUN(run_case, test_shapeshifter_preset_defaults);
 }

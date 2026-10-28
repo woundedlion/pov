@@ -201,6 +201,9 @@ struct StubEffect : public Effect {
   void draw_frame() override {}
 };
 
+/** @brief Seed for the canonical process-global test stream. */
+inline constexpr uint32_t FIXTURE_SEED = 1337u;
+
 /**
  * @brief Resets the canonical process-global state to a known baseline.
  * @details No Timeline may be live at the call site.
@@ -208,7 +211,7 @@ struct StubEffect : public Effect {
 inline void reset_globals() {
   configure_arenas_default();
   Timeline().clear();
-  hs::random().seed(1337u);
+  hs::random().seed(FIXTURE_SEED);
   hs::clear_mock_time();
 #if defined(__EMSCRIPTEN__) || HS_ENABLE_TEST_HOOKS
   Spacetime::set_flat_surface(false);

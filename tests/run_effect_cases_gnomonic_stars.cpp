@@ -14,13 +14,6 @@ namespace hs_test::effects_tests {
 
 #include "tests/effects/gnomonic_stars.h"
 
-/** @brief Runs a seeded effect case.
- * @param test Case entry point. */
-static void run_case(auto test) {
-  hs::random().seed(1337u);
-  test();
-}
-
 void run_effect_case_gnomonicstars_radius_px_covers_both_axes() {
   HS_RUN(run_case, test_gnomonicstars_radius_px_covers_both_axes);
 }

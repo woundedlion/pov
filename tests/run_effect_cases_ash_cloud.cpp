@@ -14,13 +14,6 @@ namespace hs_test::effects_tests {
 
 #include "tests/effects/ash_cloud.h"
 
-/** @brief Runs a seeded effect case.
- * @param test Case entry point. */
-static void run_case(auto test) {
-  hs::random().seed(1337u);
-  test();
-}
-
 void run_effect_case_ash_cloud_value_cutout_gates_the_frame() {
   HS_RUN(run_case, test_ash_cloud_value_cutout_gates_the_frame);
 }

@@ -15,13 +15,6 @@ namespace hs_test::effects_tests {
 #include "tests/effects/fishbowl_cases.h"
 #include "tests/effects/fishbowl_oracle.h"
 
-/** @brief Runs a seeded effect case.
- * @param test Case entry point. */
-static void run_case(auto test) {
-  hs::random().seed(1337u);
-  test();
-}
-
 void run_effect_case_fishbowl_preset_and_fire_duty_cycle() {
   HS_RUN(run_case, test_fishbowl_preset_and_fire_duty_cycle);
 }

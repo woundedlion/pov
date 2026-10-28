@@ -16,13 +16,6 @@ namespace hs_test::effects_tests {
 #include "tests/effects/ring_whitebox.h"
 #include "tests/effects/rings_temporal.h"
 
-/** @brief Runs a seeded effect case.
- * @param test Case entry point. */
-static void run_case(auto test) {
-  hs::random().seed(1337u);
-  test();
-}
-
 void run_effect_case_ring_shower_white_box_check_temporal_rings() {
   HS_RUN(run_case, RingShowerWhiteBox::check_temporal_rings);
 }

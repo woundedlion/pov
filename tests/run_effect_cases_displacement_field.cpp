@@ -14,13 +14,6 @@ namespace hs_test::effects_tests {
 
 #include "tests/effects/displacement_field.h"
 
-/** @brief Runs a seeded effect case.
- * @param test Case entry point. */
-static void run_case(auto test) {
-  hs::random().seed(1337u);
-  test();
-}
-
 void run_effect_case_displacement_field_retained_history_resets() {
   HS_RUN(run_case, test_displacement_field_retained_history_resets);
 }

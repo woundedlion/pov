@@ -38,6 +38,13 @@
 namespace hs_test {
 namespace effects_tests {
 
+/** @brief Runs an effect case from the fixture random stream.
+ * @param test Case entry point. */
+inline void run_case(auto test) {
+  hs::random().seed(FIXTURE_SEED);
+  test();
+}
+
 /** @brief Authored SphericalHarmonics preset mode indices. */
 inline constexpr std::array<int, 24> SH_PRESET_MODES{
     6,  1,  2,  3,  4,  5,  7,  8,  9,  10, 11, 12,

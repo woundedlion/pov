@@ -14,13 +14,6 @@ namespace hs_test::effects_tests {
 
 #include "tests/effects/spherical_harmonics.h"
 
-/** @brief Runs a seeded effect case.
- * @param test Case entry point. */
-static void run_case(auto test) {
-  hs::random().seed(1337u);
-  test();
-}
-
 void run_effect_case_sh_preset_mode_mapping() {
   HS_RUN(run_case, test_sh_preset_mode_mapping);
 }
