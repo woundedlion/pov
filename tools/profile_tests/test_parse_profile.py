@@ -598,9 +598,24 @@ class MindSplatterInstrumentationLines(unittest.TestCase):
 
     def test_commands_accept_instrumented_capture(self):
         windows = self._parse()
-        with contextlib.redirect_stdout(io.StringIO()):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
             self.assertEqual(pp.cmd_msp_counts(windows), 0)
             self.assertEqual(pp.cmd_msp_stalls(windows), 0)
+        rows = [line.split() for line in output.getvalue().splitlines()]
+        self.assertIn(["frames=4", "windows=1"], rows)
+        self.assertIn(["resident", "400", "100.00"], rows)
+        self.assertIn(["exact_fallback", "8", "2.00"], rows)
+        self.assertIn(["history_vertex", "20", "100.0", "10.00", "5.00", "0.10"], rows)
+        self.assertIn(["aa_weights", "100", "40.0", "3.00", "0.50", "0.01"], rows)
+
+    def test_commands_reject_capture_without_instrumentation(self):
+        self.LOG = "\n".join(line for line in self.LOG.splitlines()
+                             if not line.startswith("msp "))
+        windows = self._parse()
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(pp.cmd_msp_counts(windows), 2)
+            self.assertEqual(pp.cmd_msp_stalls(windows), 2)
 
 
 class ValidateRequiresData(unittest.TestCase):
