@@ -87,7 +87,7 @@ __attribute__((noinline)) Effect *construct_effect() {
   return concrete;
 }
 
-// One effect through the smoke_one(test_effects.h) sequence.
+// One effect through the `smoke_one` sequence (`tests/effects/fixture.h`).
 template <typename EffectT> __attribute__((noinline)) void run_effect() {
   hs_test::reset_globals();
   hs_test::pin_frame_clock(0);
