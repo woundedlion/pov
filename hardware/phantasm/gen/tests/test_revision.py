@@ -30,6 +30,8 @@ def silk_revisions(board):
     for node in root:
         if not isinstance(node, list) or not node or node[0] != "gr_text":
             continue
+        if (sexp.val(node, "layer") or [None])[0] != "B.SilkS":
+            continue
         match = SILK.match(str(node[1]))
         if match:
             found.append(match.group(1))
