@@ -88,6 +88,21 @@ class ReferenceTransactionHook(unittest.TestCase):
         self.assertEqual(self.rev(MASTER), self.two)
         self.assertEqual(self.log_text(), "")
 
+    def test_pack_refs_prunes_loose_master(self):
+        self.git("pack-refs", "--all")
+        packed = (self.repo / ".git" / "packed-refs").read_text(encoding="utf-8")
+        self.assertIn(f"{self.one} {MASTER}\n", packed)
+        self.assertFalse((self.repo / ".git" / MASTER).exists())
+        self.assertEqual(self.rev(MASTER), self.one)
+        self.assertEqual(self.log_text(), "")
+
+    def test_deletion_of_packed_master_is_refused(self):
+        self.git("pack-refs", "--all")
+        done = self.git("update-ref", "-d", MASTER, check=False)
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("REFUSED deletion", done.stderr)
+        self.assertEqual(self.rev(MASTER), self.one)
+
     def test_rewind_of_master_is_refused(self):
         done = self.git("update-ref", MASTER, self.base, check=False)
         self.assertNotEqual(done.returncode, 0)
