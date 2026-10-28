@@ -37,6 +37,72 @@ public:
         0; ///< Source interval, or knot index for knot boundaries.
   };
 
+  /** @brief Intersects an interval with a linear nonpositive half-line.
+   * @param value,slope Coefficients of value+slope*u <= 0.
+   * @param low,high Parameter interval to restrict.
+   * @return Whether any parameter remains. */
+  static HS_HOT_INLINE bool clip_parameter(float value, float slope, float &low,
+                                           float &high) {
+    if (slope > 0.0f)
+      high = fminf(high, -value / slope);
+    else if (slope < 0.0f)
+      low = fmaxf(low, -value / slope);
+    else if (value > 0.0f)
+      return false;
+    return low <= high;
+  }
+
+  /** @brief Restricts the outer-tip first-arrival range.
+   * @param spin,radial Similarity motion determinant and radial product.
+   * @param length2 Squared similarity step length.
+   * @param h Unit edge determinant.
+   * @param before_x,after_x Adjacent unit edge horizontal components.
+   * @param slack Additional containment derivative tolerance.
+   * @param low,high Parameter interval to restrict.
+   * @return Whether any candidate range remains. */
+  static HS_HOT_INLINE bool tip_range(float spin, float radial, float length2,
+                                      float h, float before_x, float after_x,
+                                      float slack, float &low, float &high) {
+    return paired_range({spin * before_x - h * radial, -h * length2},
+                        {spin * after_x - h * radial, -h * length2}, slack, low,
+                        high);
+  }
+
+  /** @brief Restricts a knot-edge first-arrival minimum.
+   * @param left_spin,left_radial Incoming similarity motion products.
+   * @param right_spin,right_radial Outgoing similarity motion products.
+   * @param shape_x,shape_y Unit edge vertex product and squared edge length.
+   * @param h Unit edge determinant.
+   * @param slack Additional containment derivative tolerance.
+   * @param low,high Edge interval to restrict.
+   * @return Whether any candidate range remains. */
+  static HS_HOT_INLINE bool knot_range(float left_spin, float left_radial,
+                                       float right_spin, float right_radial,
+                                       float shape_x, float shape_y, float h,
+                                       float slack, float &low, float &high) {
+    return paired_range(
+        {left_spin * shape_x - h * left_radial, left_spin * shape_y},
+        {right_spin * shape_x - h * right_radial, right_spin * shape_y}, slack,
+        low, high);
+  }
+
+  /** @brief Restricts a terminal edge's first-arrival range.
+   * @param spin,radial Incoming similarity motion products.
+   * @param shape_x,shape_y Unit edge vertex product and squared edge length.
+   * @param h Unit edge determinant.
+   * @param slack Additional containment derivative tolerance.
+   * @param low,high Edge interval to restrict.
+   * @return Whether any candidate range remains. */
+  static HS_HOT_INLINE bool endpoint_range(float spin, float radial,
+                                           float shape_x, float shape_y,
+                                           float h, float slack, float &low,
+                                           float &high) {
+    const float VALUE = spin * shape_x - h * radial, SLOPE = spin * shape_y;
+    const float TOLERANCE =
+        64 * FLT_EPSILON * (fabsf(VALUE) + fabsf(SLOPE) + 1e-8f) + slack;
+    return clip_parameter(VALUE - TOLERANCE, SLOPE, low, high);
+  }
+
   /** @brief Visits first-arrival candidates in one repeated star period.
    * @tparam Surface Prepared similar-star surface type.
    * @tparam Visitor Callable receiving a Candidate.
@@ -67,18 +133,13 @@ public:
       const auto after = surface.edge(POSITIVE ? surface.edge_count() - 1 : 0);
       const float SPIN = cross(C, D);
       const float RADIAL = C.x * D.x + C.y * D.y;
-      const float SLOPE = -H * LENGTH2;
-      const Point L{SPIN * before.x - H * RADIAL, SLOPE};
-      const Point R{SPIN * after.x - H * RADIAL, SLOPE};
       const float LOCAL_RADIUS2 = fmaxf(a.real * a.real + a.imag * a.imag,
                                         b.real * b.real + b.imag * b.imag);
-      const float TOLERANCE =
-          64.0f * FLT_EPSILON *
-              (fabsf(L.x) + fabsf(L.y) + fabsf(R.x) + fabsf(R.y) + 1e-8f) +
-          derivative_motion + relative_derivative_motion * LOCAL_RADIUS2;
       float low = 0.0f, high = 1.0f;
-      if (!clip_parameter(L.x - TOLERANCE, L.y, low, high) ||
-          !clip_parameter(-R.x - TOLERANCE, -R.y, low, high))
+      if (!tip_range(SPIN, RADIAL, LENGTH2, H, before.x, after.x,
+                     derivative_motion +
+                         relative_derivative_motion * LOCAL_RADIUS2,
+                     low, high))
         continue;
       visit(Candidate{{C.x + low * D.x, C.y + low * D.y},
                       {C.x + high * D.x, C.y + high * D.y},
@@ -100,16 +161,14 @@ public:
           const Point C{k.real, k.imag},
               D{k.real - prior.real, k.imag - prior.imag};
           const float SPIN = cross(C, D), H = cross(A, E);
-          const float VALUE =
-              SPIN * (A.x * E.x + A.y * E.y) - H * (C.x * D.x + C.y * D.y);
-          const float SLOPE = SPIN * (E.x * E.x + E.y * E.y);
           const float LOCAL_RADIUS2 =
               fmaxf(k.real * k.real + k.imag * k.imag,
                     prior.real * prior.real + prior.imag * prior.imag);
-          const float TOLERANCE =
-              64 * FLT_EPSILON * (fabsf(VALUE) + fabsf(SLOPE) + 1e-8f) +
-              derivative_motion + relative_derivative_motion * LOCAL_RADIUS2;
-          if (!clip_parameter(VALUE - TOLERANCE, SLOPE, low, high))
+          if (!endpoint_range(SPIN, C.x * D.x + C.y * D.y,
+                              A.x * E.x + A.y * E.y, E.x * E.x + E.y * E.y, H,
+                              derivative_motion +
+                                  relative_derivative_motion * LOCAL_RADIUS2,
+                              low, high))
             continue;
         }
         visit(Candidate{
@@ -142,21 +201,16 @@ public:
       for (int edge = 0; edge < 2; ++edge) {
         const float H = edge == 0 ? H0 : H1;
         const Point SHAPE = edge == 0 ? SHAPE0 : SHAPE1;
-        const Point L{LEFT_SPIN * SHAPE.x - H * LEFT_RADIAL,
-                      LEFT_SPIN * SHAPE.y};
-        const Point R{RIGHT_SPIN * SHAPE.x - H * RIGHT_RADIAL,
-                      RIGHT_SPIN * SHAPE.y};
         const float LOCAL_RADIUS2 = fmaxf(
             C.x * C.x + C.y * C.y,
             fmaxf(previous.real * previous.real + previous.imag * previous.imag,
                   next.real * next.real + next.imag * next.imag));
-        const float TOLERANCE =
-            64.0f * FLT_EPSILON *
-                (fabsf(L.x) + fabsf(L.y) + fabsf(R.x) + fabsf(R.y) + 1e-8f) +
-            derivative_motion + relative_derivative_motion * LOCAL_RADIUS2;
         float low = 0.0f, high = 1.0f;
-        if (!clip_parameter(L.x - TOLERANCE, L.y, low, high) ||
-            !clip_parameter(-R.x - TOLERANCE, -R.y, low, high))
+        if (!knot_range(LEFT_SPIN, LEFT_RADIAL, RIGHT_SPIN, RIGHT_RADIAL,
+                        SHAPE.x, SHAPE.y, H,
+                        derivative_motion +
+                            relative_derivative_motion * LOCAL_RADIUS2,
+                        low, high))
           continue;
         const auto unit_a = surface.vertex(edge), unit_e = surface.edge(edge);
         const Point A{unit_a.x, unit_a.y}, E{unit_e.x, unit_e.y};
@@ -175,6 +229,22 @@ public:
   }
 
 private:
+  /** @brief Restricts a range between incoming and outgoing half-lines.
+   * @param left,right Incoming and outgoing derivative coefficients.
+   * @param slack Additional containment derivative tolerance.
+   * @param low,high Parameter interval to restrict.
+   * @return Whether any candidate range remains. */
+  static HS_HOT_INLINE bool paired_range(Point left, Point right, float slack,
+                                         float &low, float &high) {
+    const float TOLERANCE = 64 * FLT_EPSILON *
+                                (fabsf(left.x) + fabsf(left.y) +
+                                 fabsf(right.x) + fabsf(right.y) + 1e-8f) +
+                            slack;
+    return fminf(left.x, left.x + left.y) <= TOLERANCE &&
+           fmaxf(right.x, right.x + right.y) >= -TOLERANCE &&
+           clip_parameter(left.x - TOLERANCE, left.y, low, high) &&
+           clip_parameter(-right.x - TOLERANCE, -right.y, low, high);
+  }
   /** @param a,b Chart vectors.
    * @return Signed determinant. */
   static HS_HOT_INLINE float cross(Point a, Point b) {
@@ -192,20 +262,6 @@ private:
   template <class Knot>
   static HS_HOT_INLINE Point transform(const Knot &c, Point p) {
     return multiply({c.real, c.imag}, p);
-  }
-  /** @brief Intersects an interval with a linear nonpositive half-line.
-   * @param value,slope Coefficients of value+slope*u <= 0.
-   * @param low,high Parameter interval to restrict.
-   * @return Whether any parameter remains. */
-  static HS_HOT_INLINE bool clip_parameter(float value, float slope, float &low,
-                                           float &high) {
-    if (slope > 0.0f)
-      high = fminf(high, -value / slope);
-    else if (slope < 0.0f)
-      low = fmaxf(low, -value / slope);
-    else if (value > 0.0f)
-      return false;
-    return low <= high;
   }
 };
 

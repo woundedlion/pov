@@ -8,6 +8,7 @@
  * @brief Two-color area coverage at radial first-arrival discontinuities. */
 
 #include <type_traits>
+#include "core/render/scan/radial_surface_boundary.h"
 #include "core/render/scan/radial_surface_math.h"
 #include "core/render/scan/radial_surface_types.h"
 
@@ -297,16 +298,6 @@ private:
     const int R = x % count;
     return R < 0 ? R + count : R;
   }
-  static HS_HOT_INLINE bool clip(float value, float slope, float &low,
-                                 float &high) {
-    if (slope > 0)
-      high = fminf(high, -value / slope);
-    else if (slope < 0)
-      low = fmaxf(low, -value / slope);
-    else if (value > 0)
-      return false;
-    return low <= high;
-  }
   struct Detector {
     Point p, dx, dy, shape0, shape1, boundary{}, second_boundary{};
     typename Surface::QueryBounds query;
@@ -483,10 +474,14 @@ private:
         const float U = -SIGN * cross(OFFSET, dy),
                     V = -SIGN * cross(dx, OFFSET);
         const float DU = SIGN * cross(E, dy), DV = SIGN * cross(dx, E);
-        if (!clip(U - HALF, DU, entry, leave) ||
-            !clip(-U - HALF, -DU, entry, leave) ||
-            !clip(V - HALF, DV, entry, leave) ||
-            !clip(-V - HALF, -DV, entry, leave))
+        if (!RadialSurfaceBoundaryCandidates::clip_parameter(U - HALF, DU,
+                                                             entry, leave) ||
+            !RadialSurfaceBoundaryCandidates::clip_parameter(-U - HALF, -DU,
+                                                             entry, leave) ||
+            !RadialSurfaceBoundaryCandidates::clip_parameter(V - HALF, DV,
+                                                             entry, leave) ||
+            !RadialSurfaceBoundaryCandidates::clip_parameter(-V - HALF, -DV,
+                                                             entry, leave))
           return;
       }
       const float EARLIEST = fminf(first_birth, last_birth);
@@ -561,11 +556,8 @@ private:
           const Point SHAPE = (I & 1) ? shape1 : shape0;
           const float H = (I & 1) ? h1 : h0;
           const float SPIN = cross(C, D);
-          const float VALUE = SPIN * SHAPE.x - H * dot(C, D),
-                      SLOPE = SPIN * SHAPE.y;
-          const float TOL =
-              64 * FLT_EPSILON * (fabsf(VALUE) + fabsf(SLOPE) + 1e-8f);
-          if (!clip(VALUE - TOL, SLOPE, low, high))
+          if (!RadialSurfaceBoundaryCandidates::endpoint_range(
+                  SPIN, dot(C, D), SHAPE.x, SHAPE.y, H, 0.0f, low, high))
             continue;
         }
         const Point A = multiply(C, surface.vertex(I)),
@@ -669,15 +661,10 @@ private:
           const float LENGTH = dot(D, D);
           const auto BEFORE = surface.edge(SPIN >= 0 ? 0 : 2 * sides - 1),
                      AFTER = surface.edge(SPIN >= 0 ? 2 * sides - 1 : 0);
-          const Point L{SPIN * BEFORE.x - h0 * RADIAL, -h0 * LENGTH};
-          const Point R{SPIN * AFTER.x - h0 * RADIAL, -h0 * LENGTH};
-          const float TOL =
-              64 * FLT_EPSILON *
-              (fabsf(L.x) + fabsf(L.y) + fabsf(R.x) + fabsf(R.y) + 1e-8f);
           float low = 0, high = 1;
-          if (fminf(L.x, L.x + L.y) <= TOL && fmaxf(R.x, R.x + R.y) >= -TOL &&
-              clip(L.x - TOL, L.y, low, high) &&
-              clip(-R.x - TOL, -R.y, low, high)) {
+          if (RadialSurfaceBoundaryCandidates::tip_range(SPIN, RADIAL, LENGTH,
+                                                         h0, BEFORE.x, AFTER.x,
+                                                         0.0f, low, high)) {
             const Point A{C.x + low * D.x, C.y + low * D.y},
                 B{C.x + high * D.x, C.y + high * D.y};
             for (; corner <= HIGH_SECTOR; corner += 2) {
@@ -702,16 +689,9 @@ private:
         const int INDEX = wrap(sector, 2 * sides), edge = INDEX & 1;
         const Point SHAPE = edge == 0 ? shape0 : shape1;
         const float H = edge == 0 ? h0 : h1;
-        const Point L{LS * SHAPE.x - H * LR, LS * SHAPE.y};
-        const Point R{SPIN * SHAPE.x - H * RADIAL, SPIN * SHAPE.y};
-        const float TOL =
-            64 * FLT_EPSILON *
-            (fabsf(L.x) + fabsf(L.y) + fabsf(R.x) + fabsf(R.y) + 1e-8f);
-        if (fminf(L.x, L.x + L.y) > TOL || fmaxf(R.x, R.x + R.y) < -TOL)
-          continue;
         float low = 0, high = 1;
-        if (!clip(L.x - TOL, L.y, low, high) ||
-            !clip(-R.x - TOL, -R.y, low, high))
+        if (!RadialSurfaceBoundaryCandidates::knot_range(
+                LS, LR, SPIN, RADIAL, SHAPE.x, SHAPE.y, H, 0.0f, low, high))
           continue;
         const Point A = multiply(C, surface.vertex(INDEX)),
                     E = multiply(C, surface.edge(INDEX));
