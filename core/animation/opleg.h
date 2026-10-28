@@ -411,6 +411,15 @@ public:
                  ? from_palette[f]
                  : to_palette[MeshPaletteBank::slot_of(topology[f])];
     }
+    /**
+     * @brief Copies the arrived palette ids for a prefix of swept faces.
+     * @param out Destination with room for n ids.
+     * @param n Number of swept faces to copy, at most faces.
+     */
+    void copy_landed_palettes(uint8_t *out, size_t n) const {
+      for (size_t f = 0; f < n; ++f)
+        out[f] = landed_palette(f);
+    }
     const PolyMesh *arrival_topology =
         nullptr; /**< Fixed connectivity of a packed arrival endpoint. */
     const math::Snorm3 *arrival_point =

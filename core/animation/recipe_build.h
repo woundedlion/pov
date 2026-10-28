@@ -590,8 +590,7 @@ protected:
       cen = scratch.allocate_n<math::Vector>(nf);
       MeshOps::face_centroids_into(departed, cen);
     }
-    for (size_t f = 0; f < nf; ++f)
-      pal[f] = build_landing->landed_palette(f);
+    build_landing->copy_landed_palettes(pal, nf);
     return {.bank = &host().palette_bank.bank,
             .prev_face_palette = pal,
             .prev_faces = nf,
@@ -666,8 +665,7 @@ protected:
     HS_CHECK(medial_faces <= MAX_BUILD_FACES,
              "RecipeBuild: dual bridge ambo exceeds MAX_BUILD_FACES");
     uint8_t *pal = scratch_arena_a.allocate_n<uint8_t>(medial_faces);
-    for (size_t f = 0; f < medial_faces; ++f)
-      pal[f] = build_landing->landed_palette(f);
+    build_landing->copy_landed_palettes(pal, medial_faces);
     Animation::OpLeg::PaletteHandoff handoff{
         .bank = &host().palette_bank.bank,
         .prev_face_palette = pal,
@@ -712,8 +710,7 @@ protected:
                  build_landing->faces >= nf,
              "RecipeBuild: dual bridge landing does not cover ambo(P)");
     uint8_t *pal = scratch_arena_a.allocate_n<uint8_t>(nf);
-    for (size_t f = 0; f < nf; ++f)
-      pal[f] = build_landing->landed_palette(f);
+    build_landing->copy_landed_palettes(pal, nf);
     build_landing = nullptr;
 
     // Compact: keep the seed P for leg 3, drop leg 2.
@@ -779,8 +776,7 @@ protected:
     // same-address re-claim keeps the bytes across compaction.
     uint8_t *carry =
         host().slot_face_palette[1 - host().carousel.front_index()];
-    for (size_t f = 0; f < landed_faces; ++f)
-      carry[f] = build_landing->landed_palette(f);
+    build_landing->copy_landed_palettes(carry, landed_faces);
     build_landing = nullptr;
 
     {
@@ -998,8 +994,8 @@ protected:
     const int front = host().carousel.front_index();
     // Per-face sprite handoff; the compaction's same-address re-claim keeps
     // the array's bytes.
-    for (size_t f = 0; f < landed_faces; ++f)
-      host().slot_face_palette[front][f] = build_landing->landed_palette(f);
+    build_landing->copy_landed_palettes(host().slot_face_palette[front],
+                                        landed_faces);
     build_landing = nullptr;
     build_from_pal = nullptr;
     build_from_faces = 0;
