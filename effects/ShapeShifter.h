@@ -665,8 +665,8 @@ private:
   draw_surface_all(Canvas &canvas, const BakedPalette &palette, bool timed,
                    Scan::SurfaceAreaStats *stats = nullptr,
                    float row_displacement = 0) {
-    const int INTERVALS =
-        std::clamp(int(ceilf(fabsf(params.amplitude) * 24)), 24, 240);
+    const int INTERVALS = std::clamp(int(ceilf(fabsf(params.amplitude) * 24)),
+                                     24, SURFACE_MAX_INTERVALS);
     ScratchScope scope_a(scratch_arena_a), scope_b(scratch_arena_b);
     const auto columns = timed ? Scan::prepare_column_basis<W, H>(
                                      scratch_arena_a, orientation, true)
