@@ -226,3 +226,21 @@ Low-resolution-only (96×20) effects:
 ## Temporal sampling comparison
 
 [GridSpace matched A/B](shipping/profile_gridspace_teensy_2026-10-17.md) preserves the historical same-source temporal-on/off measurements cited by the rendering specification. Current shipping timing is in the canonical report above.
+
+## Palette-pattern recipe qualification
+
+[GridSpace recipe overrides, 2026-10-29](shipping/profile_gridspace_palette_patterns_teensy_2026-10-29.md) under the segmented driver. Complete counter windows include setup; red startup-only rows can meet the separate 250 ms handoff budget. Ordinary GridSpace shipping numbers above are unchanged.
+
+| Recipe | Peak ms | Spilled | Captured local |
+|---|--:|--:|---|
+| Single noise / hue / baked | 🟢 58.221 | 🟢 0/1088 (0.00%) | 2026-10-29 11:42 |
+| Directional sine / opacity / direct | 🟢 46.303 | 🟢 0/1088 (0.00%) | 2026-10-29 11:45 |
+| Smooth grid / lightness lift / direct | 🟢 59.895 | 🟢 0/1088 (0.00%) | 2026-10-29 11:44 |
+| Interference / hue / direct | 🟢 55.702 | 🟢 0/1088 (0.00%) | 2026-10-29 11:49 |
+| Octave noise / lightness lift / direct | 🔴 109.018 | 🔴 352/352 (100.00%) | 2026-10-29 11:47 |
+| Single noise / lightness lift / direct | 🔴 70.284 | 🔴 1/1088 (0.09%) | 2026-10-29 11:51 |
+| Octave noise / lightness lift / baked | 🔴 76.126 | 🔴 271/544 (49.82%) | 2026-10-29 11:55 |
+| Single noise / hue / direct | 🔴 66.274 | 🔴 1/1088 (0.09%) | 2026-10-29 11:58 |
+| Octave noise / hue / baked | 🔴 64.235 | 🔴 1/1088 (0.09%) | 2026-10-29 12:01 |
+| Octave noise / opacity / baked | 🟢 58.521 | 🟢 0/1088 (0.00%) | 2026-10-29 12:03 |
+| Single noise / lightness lift / baked | 🔴 63.194 | 🔴 1/1088 (0.09%) | 2026-10-29 11:59 |
