@@ -139,6 +139,23 @@ target_include_directories(color_header_checks PRIVATE ${HS_ROOT})
 _hs_warnings(color_header_checks)
 add_dependencies(run_tests color_header_checks)
 
+set(_pattern_header_sources)
+file(GLOB _pattern_headers CONFIGURE_DEPENDS "${HS_ROOT}/core/pattern/*.h")
+foreach(_header_path IN LISTS _pattern_headers)
+  get_filename_component(_header "${_header_path}" NAME_WE)
+  set(_source "${CMAKE_CURRENT_BINARY_DIR}/pattern_header_${_header}.cpp")
+  set(_content "#include \"core/pattern/${_header}.h\"\n")
+  if(NOT _header STREQUAL "noise")
+    string(APPEND _content "#ifdef FASTNOISELITE_H\n#error analytic pattern header imports noise generator\n#endif\n")
+  endif()
+  file(CONFIGURE OUTPUT "${_source}" CONTENT "${_content}")
+  list(APPEND _pattern_header_sources "${_source}")
+endforeach()
+add_library(pattern_header_checks OBJECT ${_pattern_header_sources})
+target_include_directories(pattern_header_checks PRIVATE ${HS_ROOT})
+_hs_warnings(pattern_header_checks)
+add_dependencies(run_tests pattern_header_checks)
+
 
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/guard_directories.txt"

@@ -16,6 +16,7 @@
 #include "core/render/pullback/runtime_seeds.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/pattern/fields.h"
 
 namespace hs_test {
 namespace pullback_tests {
@@ -1780,6 +1781,10 @@ inline void test_pullback_temporal_palette() {
 /** @brief Runs pullback tests. */
 inline int run_pullback_tests() {
   ModuleFixture fixture("pullback");
+  HS_RUN(pattern_tests::test_pattern_direction_admission);
+  HS_RUN(pattern_tests::test_pattern_sphere_formulas);
+  HS_RUN(pattern_tests::test_pattern_source_clocks);
+  HS_RUN(pattern_tests::test_pattern_noise_formulas);
   HS_RUN(test_pullback_runtime_seed_contract);
   HS_RUN(test_pullback_carrier_contract);
   HS_RUN(test_pullback_projection_traits);

@@ -8,11 +8,19 @@
  * @brief Passive pattern coordinates, recipes and source state. */
 
 #include <cmath>
+#include <bit>
 #include <cstdint>
 
 #include "core/math/3dmath.h"
 
 namespace Pattern {
+
+/** @brief Tests IEEE-754 finiteness independently of floating-point mode.
+ * @param value Candidate scalar.
+ * @return Whether the scalar has a finite exponent. */
+inline bool finite(float value) {
+  return (std::bit_cast<uint32_t>(value) & 0x7f800000u) != 0x7f800000u;
+}
 
 /** @brief One-dimensional pattern coordinate. */
 struct ScalarCoordinate {
@@ -29,7 +37,7 @@ struct Position3D {
 
 /** @brief Unit direction admitted from a finite, nondegenerate vector. */
 class SphereDirection {
-  math::Vector direction = math::Y_AXIS;
+  math::Vector direction = math::Vector(0.0f, 1.0f, 0.0f);
   explicit SphereDirection(math::Vector direction) : direction(direction) {}
 
 public:
@@ -39,7 +47,7 @@ public:
    * @return Whether its computed squared length is finite and normalizable. */
   static bool valid(const math::Vector &vector) {
     const float squared = math::dot(vector, vector);
-    return std::isfinite(squared) && squared >= math::EPS_NORMALIZE_SQ;
+    return finite(squared) && squared >= math::EPS_NORMALIZE_SQ;
   }
   /** @brief Admits and normalizes a direction.
    * @param vector Candidate direction.
@@ -73,7 +81,7 @@ struct PhaseState {
 };
 /** @brief Parameters of an axial sine. */
 struct SineParams {
-  math::Vector axis = math::Y_AXIS;
+  math::Vector axis = math::Vector(0.0f, 1.0f, 0.0f);
   float frequency = 1.0f;
   float offset = 0.0f;
   float speed = 0.0f;
@@ -85,7 +93,7 @@ struct SineParams {
 };
 /** @brief Parameters of two axial sines sharing one loop phase. */
 struct InterferenceParams : SineParams {
-  math::Vector axis_b = math::X_AXIS;
+  math::Vector axis_b = math::Vector(1.0f, 0.0f, 0.0f);
   float frequency_b = 1.0f;
   float offset_b = 0.0f;
   constexpr bool operator==(const InterferenceParams &other) const {

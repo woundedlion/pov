@@ -17,7 +17,7 @@ namespace Pattern {
  * @param value Raw source sample.
  * @return Sample in [-1, 1]. */
 inline float bounded_scalar(float value) {
-  assert(std::isfinite(value));
+  assert(finite(value));
   return hs::clamp(value, -1.0f, 1.0f);
 }
 

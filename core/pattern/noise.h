@@ -47,9 +47,9 @@ struct SphereNoise {
    * @param params Source controls.
    * @return Whether preparation admits the recipe. */
   static bool valid(const Params &params) {
-    return std::isfinite(params.scale) && params.scale >= 1.0f / 64.0f &&
-           params.scale <= 64.0f && std::isfinite(params.speed) &&
-           std::isfinite(params.contrast) && params.contrast >= 0.0f &&
+    return finite(params.scale) && params.scale >= 1.0f / 64.0f &&
+           params.scale <= 64.0f && finite(params.speed) &&
+           finite(params.contrast) && params.contrast >= 0.0f &&
            params.contrast <= 8.0f && params.basis <= NoiseBasis::RIDGED3 &&
            params.variant <= NoiseVariant::OCTAVE_CONTOUR &&
            (params.variant != NoiseVariant::CONFIGURED_SINGLE ||
@@ -67,7 +67,7 @@ struct SphereNoise {
    * @param params Source controls.
    * @return Wrapped loop phase. */
   static State advance(const State &state, const Params &params) {
-    HS_CHECK(valid(params) && std::isfinite(state.phase_turns),
+    HS_CHECK(valid(params) && finite(state.phase_turns),
              "pattern noise: invalid state");
     return {math::wrap_t(math::wrap_t(state.phase_turns) +
                          math::wrap_t(params.speed))};
@@ -79,7 +79,7 @@ struct SphereNoise {
    * @return Complete immutable sample inputs. */
   static Prepared prepare(const Params &params, const State &state,
                           const FastNoiseLite &noise) {
-    HS_CHECK(valid(params) && std::isfinite(state.phase_turns),
+    HS_CHECK(valid(params) && finite(state.phase_turns),
              "pattern noise: invalid parameters");
     return {noise,        math::noise_sphere_loop_offset(state.phase_turns),
             params.scale, params.contrast,

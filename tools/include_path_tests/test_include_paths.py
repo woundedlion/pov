@@ -59,6 +59,26 @@ class IncludePathsTests(unittest.TestCase):
             (self.root / source).write_text(f'#include "{target}"\n', encoding="utf-8")
             self.assertEqual(include_paths.check_includes(self.root, [source, target]), [])
 
+    def test_pattern_and_modulation_dependency_directions(self):
+        for source, forbidden in include_paths.FORBIDDEN_PREFIXES.items():
+            if not source.startswith(("core/pattern/", "core/color/modulation")):
+                continue
+            origin = source + "fixture.h" if source.endswith("/") else source
+            for prefix in forbidden:
+                target = prefix + "fixture.h" if prefix.endswith("/") else prefix
+                with self.subTest(source=origin, target=target):
+                    for name in (origin, target):
+                        path = self.root / name
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                        path.write_text("#pragma once\n", encoding="utf-8")
+                    files = [origin, target, "core/math/vector.h"]
+                    path = self.root / origin
+                    path.write_text('#include "core/math/vector.h"\n', encoding="utf-8")
+                    self.assertEqual(include_paths.check_includes(self.root, files), [])
+                    path.write_text(f'#include "{target}"\n', encoding="utf-8")
+                    self.assertEqual(include_paths.check_includes(self.root, files), [
+                        f'{origin}:1: forbidden include "{target}" from {source}'])
+
     def test_project_config_obeys_core_dependency_direction(self):
         source = include_paths.CONFIG_HEADER
         target = "effects/sample.h"

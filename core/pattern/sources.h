@@ -8,6 +8,7 @@
  * @brief Shared analytic source kernels and pure preparation. */
 
 #include "core/pattern/field.h"
+#include "core/math/geometry.h"
 
 namespace Pattern {
 
@@ -20,10 +21,9 @@ inline constexpr float GRID_AXIS_TOLERANCE = 1.0e-5f;
  * @param params Axial wave controls.
  * @return Whether preparation can admit the recipe. */
 inline bool valid_sine(const SineParams &params) {
-  return SphereDirection::valid(params.axis) &&
-         std::isfinite(params.frequency) && params.frequency >= 0.0f &&
-         params.frequency <= MAX_AXIAL_FREQUENCY &&
-         std::isfinite(params.offset) && std::isfinite(params.speed);
+  return SphereDirection::valid(params.axis) && finite(params.frequency) &&
+         params.frequency >= 0.0f && params.frequency <= MAX_AXIAL_FREQUENCY &&
+         finite(params.offset) && finite(params.speed);
 }
 
 /** @brief Directional sine with an explicit turn clock. */
@@ -53,7 +53,7 @@ struct DirectionalSine {
    * @param params Source controls; speed is turns per update.
    * @return Wrapped phase. */
   static State advance(const State &state, const Params &params) {
-    HS_CHECK(valid(params) && std::isfinite(state.phase_turns),
+    HS_CHECK(valid(params) && finite(state.phase_turns),
              "pattern sine: invalid state");
     return {math::wrap_t(math::wrap_t(state.phase_turns) +
                          math::wrap_t(params.speed))};
@@ -63,7 +63,7 @@ struct DirectionalSine {
    * @param state Explicit source clock.
    * @return Complete immutable source inputs. */
   static Prepared prepare(const Params &params, const State &state) {
-    HS_CHECK(valid(params) && std::isfinite(state.phase_turns),
+    HS_CHECK(valid(params) && finite(state.phase_turns),
              "pattern sine: invalid parameters");
     return {SphereDirection::from(params.axis).value(), params.frequency,
             math::wrap_t(math::wrap_t(state.phase_turns) +
@@ -110,7 +110,7 @@ struct SphereInterference {
    * @param params Source controls.
    * @return Wrapped phase. */
   static State advance(const State &state, const Params &params) {
-    HS_CHECK(valid(params), "pattern interference: invalid parameters");
+    HS_CHECK(valid(params), "pattern interference: invalid advance parameters");
     return DirectionalSine::advance(state, params);
   }
   /** @brief Prepares both waves with their shared clock.
@@ -118,7 +118,8 @@ struct SphereInterference {
    * @param state Explicit source clock.
    * @return Immutable wave pair. */
   static Prepared prepare(const Params &params, const State &state) {
-    HS_CHECK(valid(params), "pattern interference: invalid parameters");
+    HS_CHECK(valid(params),
+             "pattern interference: invalid preparation parameters");
     return {DirectionalSine::prepare(params, state),
             DirectionalSine::prepare({params.axis_b, params.frequency_b,
                                       params.offset_b, params.speed},
@@ -161,7 +162,7 @@ struct SphereSmoothGrid {
    * @param params Source controls.
    * @return Wrapped phase. */
   static State advance(const State &state, const Params &params) {
-    HS_CHECK(valid(params), "pattern grid: invalid parameters");
+    HS_CHECK(valid(params), "pattern grid: invalid advance parameters");
     return SphereInterference::advance(state, params);
   }
   /** @brief Prepares the admitted orthogonal waves.
@@ -169,7 +170,7 @@ struct SphereSmoothGrid {
    * @param state Explicit source clock.
    * @return Immutable wave pair. */
   static Prepared prepare(const Params &params, const State &state) {
-    HS_CHECK(valid(params), "pattern grid: invalid parameters");
+    HS_CHECK(valid(params), "pattern grid: invalid preparation parameters");
     return SphereInterference::prepare(params, state);
   }
   /** @brief Samples the smooth sine product.
