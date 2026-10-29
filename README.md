@@ -1315,6 +1315,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── spherical.h             Sphere generators, axes, Basis, and parallel transport
 │   │   ├── spherical_field.h       Latitude-ring field layout + bilinear sphere sampling
 │   │   ├── spherical_harmonics.h   Real spherical harmonics in Cartesian form on the unit sphere
+│   │   ├── noise_basis.h           Octave noise formula selection
 │   │   ├── noise_field.h           Shared scalar/vector noise-field sampling kernels
 │   │   ├── projections.h           Bonne / Peirce quincuncial / Airocean / folded sinusoidal / equirectangular sphere → plane kernels (Airocean and Peirce coefficients PROJ-derived, MIT)
 │   │   ├── stereographic.h         Stereographic / gnomonic forward and inverse projection kernels

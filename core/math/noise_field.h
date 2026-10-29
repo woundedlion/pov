@@ -13,6 +13,7 @@
 #include <cassert>
 
 #include "core/math/geometry.h"
+#include "core/math/noise_basis.h"
 #include "core/math/3dmath.h"
 #include "core/vendor/FastNoiseLite.h"
 
@@ -24,16 +25,6 @@ enum class NoiseDomain : uint8_t {
   SPHERE_3D,
   /** A point in a projection's plane. */
   PROJECTED_2D
-};
-
-/** @brief Octave structure of one scalar sample. */
-enum class NoiseBasis : uint8_t {
-  /** One generator sample. */
-  SIMPLEX,
-  /** Three octaves at 1x, 2x, 4x, weighted 1, 1/2, 1/4. */
-  FBM3,
-  /** The same three octaves folded through 1 - |n|. */
-  RIDGED3
 };
 
 /** @brief How a sample's channels are generated. */

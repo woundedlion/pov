@@ -94,9 +94,7 @@ struct SphereNoise {
         coordinate.value(), prepared.scale, prepared.loop_offset);
     if (prepared.variant == NoiseVariant::CONFIGURED_SINGLE)
       return prepared.noise.GetNoiseSingle(q.x, q.y, q.z);
-    return noise_contour(prepared.noise,
-                         static_cast<math::NoiseBasis>(prepared.basis), q,
-                         prepared.contrast);
+    return noise_contour(prepared.noise, prepared.basis, q, prepared.contrast);
   }
 };
 

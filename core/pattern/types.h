@@ -12,6 +12,7 @@
 #include <cstdint>
 
 #include "core/math/3dmath.h"
+#include "core/math/noise_basis.h"
 
 namespace Pattern {
 
@@ -71,7 +72,7 @@ enum class SourceKind : uint8_t {
 /** @brief Explicit sphere evaluation strategy. */
 enum class Evaluation : uint8_t { DIRECT, BAKED_CUBE };
 /** @brief Noise octave formula. */
-enum class NoiseBasis : uint8_t { SIMPLEX, FBM3, RIDGED3 };
+using NoiseBasis = math::NoiseBasis;
 /** @brief Configured generator sampling or explicit octave/contrast sampling. */
 enum class NoiseVariant : uint8_t { CONFIGURED_SINGLE, OCTAVE_CONTOUR };
 /** @brief Source phase in turns, wrapped after each engine update. */
