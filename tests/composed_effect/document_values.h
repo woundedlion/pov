@@ -521,6 +521,8 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
           if (text == field.enum_ids[value]) {
             *static_cast<uint8_t *>(bridge.extra_address(index)) = value;
             built.template get<"color">().modulation = bridge.modulation;
+            HS_EXPECT_TRUE(
+                derivation_value_reachable(slot.operator_id, field_id, text));
             return true;
           }
     }
