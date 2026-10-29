@@ -348,6 +348,24 @@ The setup-inclusive red counts remain visible even when later frames meet the st
 - No full preset cycle is involved: GridSpace has one authored preset and the harness applies one recipe override per capture.
 - Raw logs, envdumps, source-copy manifests, build logs and ELF artifacts are local outputs. Base commit IDs identify ancestry but do not make dirty capture inputs reproducible from a fresh clone.
 
+The final temporal-column storage implementation was recaptured on COM4 using
+host `0448cff3c039f64c8dba5253266e17df065c2083`: configured-single noise,
+DIRECT lightness, unchanged controls and 70 seconds. All 34 complete windows
+validate: startup is 70.385 ms, subsequent render peaks at 59.831 ms, and
+only frame 1 spills (1/1,088 total). Maximum window means are 479.165 us/frame
+for preparation, 2,173.241 us/frame for column preparation (15.092 us/column),
+and 55.278 ms/frame for shader drawing. Pattern and color kernel files are
+byte-identical to the campaign sources.
+
+The final copy manifest is `palette-final-resource-profile-copy.json`, SHA-256
+`e22ba2b2fd5be7a5e32db84fe178317d9e6a6ebc96bdaf269789452e326bd926`.
+The raw `palette-patterns-final-noise-lift-direct.log` SHA-256 is
+`db8082e7f5c1a94bae7a2fb034e7feb6ada0a6a364c98d6634f3767b8dd44602`;
+its profile ELF SHA-256 is
+`5425963364ee6e32d7a1090f052a047c3aec9c77993721ec775ccf96a9abfd4f`.
+This measurement includes the extra retained column context that reduces
+strict-FP WebAssembly stack use; it does not raise either driver deadline.
+
 ## Harness
 
 `targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=GridSpace`, `HS_PROFILE_WINDOW=32`, shipping selective-O3 profile environment. The capture wrapper enforces the shared-board lock and verifies image identity. No hardware was accessed while generating this report.

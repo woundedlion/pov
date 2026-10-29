@@ -1,6 +1,6 @@
 # Pattern sources and palette modulation
 
-**Status: IMPLEMENTING.** Shared sources, mechanics and endpoint bindings are implemented; integrated acceptance checks are in progress.
+**Status: IMPLEMENTED.** Shared sources, independent mechanics, temporal endpoints, codecs and migrated callers are validated on native, WebAssembly and Teensy targets.
 
 ## Problem and scope
 
@@ -20,9 +20,9 @@ with no compatibility wrappers, fallback configuration or parallel implementatio
 
 ## Existing behavior
 
-[The scalar sphere storage](../../core/pattern/sphere_lut.h) combine a
-palette-by-hue color table with a six-face noise table, 24 by 24 signed-byte
-samples per face. Dominant-axis ratios make lookup invariant to positive
+[The scalar sphere storage](../../core/pattern/sphere_lut.h) contains six
+24 by 24 signed-byte faces. The independent
+[hue table](../../core/color/hue_rotation_lut.h) stores palette-by-hue colors. Dominant-axis ratios make lookup invariant to positive
 direction scaling. Baking evaluates normalized directions through the existing
 periodic noise loop.
 
@@ -528,5 +528,185 @@ Acceptance requires:
   production callers/tests no longer import retired modifier headers/types, and
   documentation references move to the replacements when those files are deleted.
 * Native and WASM validation plus firmware memory/timing evidence for the
-  implementation. This proposed-spec change itself needs documentation checks
-  only.
+  implementation.
+
+
+## Implementation qualification (2026-10-29)
+
+The canonical records and pure sources live in `core/pattern`; independent
+mechanics and the generic palette adapter live in `core/color`. Composed effects
+and the workbench share the scheduled source clock, immutable preparation and
+completed-endpoint interpolation. The former noise/shimmer modifier headers are
+removed. The 19 composed effects and their shader documents use canonical recipes.
+
+Snapshot schema 3 stores one modulation recipe per colorizer and a typed,
+versioned source clock. Derived cubes and color tables are rebuilt after restore.
+This guarantees scheduled-state replay; a snapshot does not serialize a partially
+consumed display interval. Composed parameter schema versions each advance once;
+complete layout pins include inactive source records and scalar types.
+
+Initial admission is deliberately bounded: sphere sine, interference and smooth
+grid use direct evaluation through axial frequency 64. Noise admits scales
+1/64 through 64 directly for configured-single simplex with zero contrast;
+configured-single and octave-contour noise admit scales 1/64 through 8 with the
+baked strategy, except octave-contour lightness. Direct octave-contour
+modulation and octave-contour noise/lightness are
+rejected, including disabled recipes. The pure pattern kernels retain their broader reusable source contract.
+
+### Scalar approximation
+
+`pattern_qualification` separates signed-byte quantization from interpolation.
+The qualification matrix uses nine formula/contrast recipes, nine scales from
+1/64 through 8, three seeds, three phases and 4,096 directions, with additional
+20,000-direction configured-single sweeps. Strict and optimized runs pass 43,650
+and 199,125 checks respectively. Maximum measured quantization error is
+0.003937006 (approximately 1/254). Across the full matrix, maximum spatial error
+is 1.88681579 and maximum combined error is 1.88824224. These are empirical
+sampled maxima, not universal bounds over every seed and direction.
+
+At scale 8, the dense configured-single sweep measures maximum combined error
+1.42269; at scales through 0.125 it remains below 0.005. A 24 by 24 cube is a
+coarse field at high spatial frequencies. Callers requiring raw-source fidelity
+must use an admitted direct recipe. Cube layout version 2 uses symmetric face
+coordinates: sampled edge/corner disagreement stays below 2.8e-6 in strict math
+and 1.68e-6 with optimized math, including the scale-64 seam diagnostic.
+
+Run the native `pattern_qualification` target to reproduce the CSV. Source,
+cache, domain and mechanic tests cover strict and optimized configurations.
+A mutation restoring the former asymmetric cube arithmetic fails 30 seam checks.
+
+### Render compatibility
+
+The strict ShaderChain render pin is `8218c82b269c111d`; the recording configuration
+(`-Os -DNDEBUG -ffast-math -fno-finite-math-only`) pins `6a3bf6437900ea91`.
+The strict fingerprint changes only two total red codes and one total blue code
+for the reviewed frame corpus. RGB geometry and alpha contracts remain covered
+independently. The migrated 488-row frozen snapshot corpus preserves non-color
+parameters, palettes, seeds and source clocks.
+
+The fused colorizer uses the spatial hue table whenever hue modulation is active.
+Native and WebAssembly direct-oracle comparisons retain the existing limits:
+PEIRCE maximum channel errors 132 or less against 256 allowed; HUE maximum
+errors 2,820 or less against 3,066 allowed. No oracle tolerance is widened.
+
+
+### Resource ownership
+
+Measured with the pinned ARM GCC 15.2.1 Cortex-M7 hard-float ABI and shipping
+`-Os` flags:
+
+| Resource | Bytes |
+|---|---:|
+| Passive canonical recipe | 152 |
+| Scheduled source clock | 12 |
+| Immutable prepared endpoint | 260 |
+| Owned FastNoiseLite generator within a noise endpoint | 52 |
+| Source variant reservation within an endpoint | 80 |
+| Cache identity / optional cache storage | 152 / 156 |
+| Current direct resources, including endpoint and cache | 424 |
+| Current baked resources, including one byte cube | 3,876 |
+| Hue rotation table / owner with generation counter | 6,144 / 6,148 |
+| One byte cube / optional external float cube shape | 3,456 / 13,824 |
+| Optional external float hue-table shape | 12,288 |
+
+A temporal baked effect owns two cubes (6,912 bytes), two hue tables (12,288
+bytes), two immutable source endpoints and one current cache. Direct effects own
+no cubes; a non-temporal baked effect owns one. Float mirrors are not allocated
+by these composed runtimes. Views and interval copies borrow owned storage.
+Effect transitions destroy the outgoing effect before constructing the incoming
+one, so the maximum is one effect's current and retained resources.
+
+For the GridSpace stage chain at 288 by 144, temporal runtime State sizes are
+1,708 bytes with no modulation, 14,684 direct and 21,588 baked. Their complete
+persistent arena budgets are 6,968 / 20,040 / 26,944 bytes, including palette
+storage, registered controls, retained palette, names and alignment. The matching
+non-temporal State sizes are 480 / 7,052 / 10,504 bytes. Capability storage stays
+allocated while its runtime recipe is disabled. A no-modulation specialization
+retains passive control layout but owns no pattern source, cube or hue resources.
+
+Native 64-bit pointers produce different totals: Prepared is 296 bytes and direct
+and baked resources are 464 / 3,912 bytes. Resource accounting uses actual target
+sizes; these figures do not estimate the call stack. Native arena/stack gates and
+WebAssembly high-water checks independently validate transient storage.
+
+
+Temporal preparation retains one additional column context in the persistent
+arena (396 bytes ARM, 448 bytes native). `FrameInterval::at_into` writes into
+this context without returning another full frame through the scan stack.
+Non-temporal specializations allocate no column context. The strict-FP
+WebAssembly composed-effect stack peak is 1,744 bytes, below the unchanged
+2,048-byte creep gate and 8,192-byte physical stack.
+
+### Device timing and admission
+
+The [recipe qualification report](../profiles/shipping/profile_gridspace_palette_patterns_teensy_2026-10-29.md)
+records eleven captures with exact source manifests, ELF hashes, preparation,
+column and scan scopes, live ISR measurements, and complete-window frame counts.
+They use the shipping selective-O3 image, segmented 288 by 144 rendering at
+480 RPM, amount 0.8, noise scale 8 and analytic frequencies 64.
+
+The driver reserves its existing two-revolution 250 ms commit window for
+construction and the first frame while the display is black. Subsequent frames
+have a 62.5 ms render window. Startup-only spills remain visible in the report;
+they are not counted as steady deadline failures or hidden by averaging.
+Configured-single noise/direct hue and lightness peak at 54.302 and 59.847 ms
+after startup. Octave noise/baked hue and opacity peak at 52.066 and 46.035 ms.
+Direct grid/lightness peaks at 49.339 ms; non-temporal interference/hue peaks at
+32.588 ms. Source and mechanic kernel files remain byte-identical through the
+final frame-storage optimization.
+
+Direct three-octave noise/lightness exceeds the steady deadline in every
+captured frame (352/352 complete-window frames). Baked octave noise/lightness
+still exceeds it in 270/543 post-startup frames. Admission therefore rejects
+direct octave-contour noise and octave-contour noise/lightness under either
+strategy. Disabled recipes undergo the same validation. No memory, stack,
+render-oracle or driver timing budget is raised.
+
+
+A final capture after the retained-column change validates another 1,088 frames
+of direct configured-single noise/lightness: 70.385 ms at startup and 59.831 ms
+thereafter, with no steady spills. The timing report retains both campaign and
+final-image provenance.
+
+
+### Firmware memory
+
+All ten PlatformIO environments pass their existing size/layout gates using
+pinned Python 3.12.13, PlatformIO 6.1.19 and ARM GCC 15.2.1. Project translation
+units additionally compile with `-Werror`; no first-party warnings are emitted.
+This is incremental validation, not a cold compiler-warning census. Unchanged
+vendored framework warnings remain outside the first-party policy.
+
+| Phantasm region | Baseline `7e08beaa2` | Final storage implementation `0448cff3c` | Delta |
+|---|---:|---:|---:|
+| RAM1 code | 161,080 | 164,296 | +3,216 |
+| RAM1 variables | 312,736 | 312,736 | 0 |
+| FLASH data | 853,952 | 861,212 | +7,260 |
+
+The code crosses an ITCM allocation-bank boundary. RAM1 space for locals is
+14,944 bytes, above the unchanged 12,288-byte gate by 2,656 bytes; RAM2 free
+space remains 4,224 bytes. The input tree, final core manifest, ELF identities,
+complete region table and raw build output were retained with the qualification
+artifacts. The final input-tree SHA-256 is
+`716cf11239aaa3bae8122cfbc0db542d723612f226d69400895342884f8cd04a`.
+
+
+### Final validation
+
+* Native default and excluded targets build; all 125 CTests pass on the final
+  implementation. The ShaderChain module passes 5,172,544 assertions.
+* Release and strict-FP WebAssembly smoke tests each pass all 44 effects at
+  both supported resolutions, including snapshot refusal/replay, stack, arena,
+  parameter bindings and generated-document checks.
+* JavaScript tooling passes 252 tests and 1,468 assertions across 16 nonempty
+  files; one optional browser test is skipped.
+* Include-direction, standalone headers, schema-layout mutations, source/cache
+  cases, 498 pinned fail-fast cases and the guard census pass. The full native
+  suite includes frozen-capture determinism and the unchanged render oracles.
+* Assertions-off builds, optimized pattern/color tests, ten firmware environments,
+  twelve segmented-driver captures and final ARM/native resource measurements
+  retain their compiler flags, input hashes and raw evidence.
+
+No compatibility modifier headers remain. GS retains the corrected symmetric
+cube sampling; its reviewed FULL strict and fast render pins are updated, with
+no widened color, gamut, alpha or determinism bounds.
