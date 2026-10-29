@@ -281,17 +281,10 @@ class ChainSnapshotCodec {
       const auto modulation = value["modulation"];
       if (!number(value, "oscillationPhase", state.oscillation_phase) ||
           !object(modulation) || !integer(modulation, "source", source) ||
-          source >
-              static_cast<uint8_t>(Pattern::SourceKind::SPHERE_SMOOTH_GRID) ||
           !integer(modulation, "version", state.modulation.version) ||
-          state.modulation.version != 1 ||
           !number(modulation, "phaseTurns",
                   state.modulation.phase.phase_turns) ||
-          state.modulation.phase.phase_turns < 0.0f ||
-          state.modulation.phase.phase_turns >= 1.0f ||
-          !boolean(modulation, "initialized", state.modulation.initialized) ||
-          (!state.modulation.initialized &&
-           state.modulation.phase.phase_turns != 0.0f))
+          !boolean(modulation, "initialized", state.modulation.initialized))
         return false;
       state.modulation.source = static_cast<Pattern::SourceKind>(source);
       out = state;

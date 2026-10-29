@@ -261,7 +261,8 @@ template <> struct RuntimeStateCodec<Op::ColorClockState> {
         (!value->modulation.initialized &&
          value->modulation.phase.phase_turns != 0.0f) ||
         value->modulation.version != 1 ||
-        static_cast<unsigned>(value->modulation.source) > 3)
+        static_cast<unsigned>(value->modulation.source) >
+            static_cast<unsigned>(Pattern::SourceKind::SPHERE_SMOOTH_GRID))
       return false;
     state.oscillation_phase = value->oscillation_phase;
     state.modulation = value->modulation;
