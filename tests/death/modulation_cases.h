@@ -67,7 +67,7 @@ inline void case_pattern_cube_invalid_direction() {
       math::Vector(opaque(0.0f), 0.0f, 0.0f));
 }
 inline void case_modulation_unknown_kernel() {
-  (void)Pullback::Color::mechanic_kernel(
+  (void)ColorModulation::kernel(
       static_cast<ColorModulation::Mechanic>(opaque(uint8_t{255})));
 }
 inline void case_modulation_control_index_invalid() {

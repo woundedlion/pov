@@ -149,22 +149,30 @@ inline void validate(const Params &params) {
   }
   HS_CHECK(false, "unknown modulation preparation mechanic");
 }
+/** @brief Resolved color mechanic accepting its continuous strength. */
+using Kernel = Color4 (*)(Color4, float, const AmountParams &);
+/** @brief Resolves a selected color mechanic.
+ * @param kind Mechanic selection.
+ * @return Immutable mechanic kernel. */
+inline Kernel kernel(Mechanic kind) {
+  switch (kind) {
+  case Mechanic::HUE_ROTATION:
+    return HueRotation::apply;
+  case Mechanic::POSITIVE_LIGHTNESS_LIFT:
+    return PositiveLightnessLift::apply;
+  case Mechanic::OPACITY:
+    return Opacity::apply;
+  }
+  HS_CHECK(false, "unknown modulation mechanic");
+  return nullptr;
+}
 /** @brief Applies a prepared selected mechanic.
  * @param color Source color.
  * @param scalar Signed pattern sample.
  * @param params Validated mechanic controls.
  * @return Modulated straight-alpha color. */
 inline Color4 apply(Color4 color, float scalar, const Params &params) {
-  switch (params.kind) {
-  case Mechanic::HUE_ROTATION:
-    return HueRotation::apply(color, scalar, {params.amount});
-  case Mechanic::POSITIVE_LIGHTNESS_LIFT:
-    return PositiveLightnessLift::apply(color, scalar, {params.amount});
-  case Mechanic::OPACITY:
-    return Opacity::apply(color, scalar, {params.amount});
-  }
-  HS_CHECK(false, "unknown modulation application mechanic");
-  return color;
+  return kernel(params.kind)(color, scalar, {params.amount});
 }
 /** @brief Composes any palette, typed scalar field, and color mechanic.
  * @tparam PaletteSource Palette exposing Color4 get(float) const.

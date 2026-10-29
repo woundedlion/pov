@@ -463,7 +463,8 @@ inline void test_temporal_owned_resources() {
       0.0f,
       {nullptr, false},
       &b.prepared,
-      config.mechanic};
+      {config.mechanic.amount}};
+  end.apply_mechanic = ColorModulation::kernel(config.mechanic.kind);
   auto start = end;
   start.modulation = &a.prepared;
   FieldSample field{};
@@ -485,7 +486,9 @@ inline void test_temporal_owned_resources() {
     HS_EXPECT_NEAR(RESULT.alpha, hs::lerp(A.alpha, B.alpha, fraction), 1e-6f);
   }
   config.mechanic = {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT, 1.0f};
-  end.mechanic = start.mechanic = config.mechanic;
+  end.mechanic = start.mechanic = {config.mechanic.amount};
+  end.apply_mechanic = start.apply_mechanic =
+      ColorModulation::kernel(config.mechanic.kind);
   const auto BEFORE = Color::apply_generated_palette(field, start);
   const auto AFTER = Color::apply_generated_palette(field, end);
   const Color::TemporalGeneratedPaletteState INTERVAL{end, start, 0.5f,

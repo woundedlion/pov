@@ -290,15 +290,15 @@ struct GeneratedPaletteState {
   float hue_shift_amount;          ///< Path hue rotation in turns.
   HueRotationLutView hue_rotation; ///< Optional path hue table.
   const Modulation::Prepared *modulation =
-      nullptr;                      ///< Immutable source endpoint.
-  ColorModulation::Params mechanic; ///< Shared column mechanic controls.
+      nullptr;                            ///< Immutable source endpoint.
+  ColorModulation::AmountParams mechanic; ///< Shared column mechanic controls.
   BrightnessEnvelope brightness_envelope =
       BrightnessEnvelope::NONE;   ///< Brightness shape.
   float brightness_bottom = 0.0f; ///< Low gain.
   float brightness_top = 1.0f;    ///< High gain.
   float opacity_low = 1.0f;       ///< Alpha gain at value zero.
   float opacity_high = 1.0f;      ///< Alpha gain at value one.
-  Color4 (*apply_mechanic)(Color4, float, const ColorModulation::Params &) =
+  ColorModulation::Kernel apply_mechanic =
       nullptr; ///< Resolved mechanic kernel.
 };
 /** @brief Previous resources and column progress. */
@@ -319,29 +319,6 @@ struct TemporalGeneratedPaletteState {
   uint16_t weight;                ///< Q16 RGB interpolation weight.
   bool same_source = false; ///< Endpoints evaluate the same source inputs.
 };
-/** @brief Resolves the selected color operation outside scan loops.
- * @param kind Mechanic selection.
- * @return The selected immutable mechanic kernel. */
-inline auto mechanic_kernel(ColorModulation::Mechanic kind)
-    -> Color4 (*)(Color4, float, const ColorModulation::Params &) {
-  using namespace ColorModulation;
-  switch (kind) {
-  case Mechanic::HUE_ROTATION:
-    return +[](Color4 c, float v, const Params &p) {
-      return HueRotation::apply(c, v, {p.amount});
-    };
-  case Mechanic::POSITIVE_LIGHTNESS_LIFT:
-    return +[](Color4 c, float v, const Params &p) {
-      return PositiveLightnessLift::apply(c, v, {p.amount});
-    };
-  case Mechanic::OPACITY:
-    return +[](Color4 c, float v, const Params &p) {
-      return Opacity::apply(c, v, {p.amount});
-    };
-  }
-  HS_CHECK(false, "unknown modulation mechanic");
-  return nullptr;
-}
 /** @brief Samples and modulates one endpoint at shared column coordinates.
  * @param sample Renderer field sample.
  * @param state Endpoint palette and shared continuous controls.
@@ -363,16 +340,14 @@ generated_palette_endpoint(const FieldSample &sample,
     const float SCALAR =
         shared_scalar ? *shared_scalar
                       : Modulation::sample(*state.modulation, *direction);
-    if (state.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION &&
+    if (state.apply_mechanic == ColorModulation::HueRotation::apply &&
         state.hue_rotation.active) {
       const float ROTATION = math::wrap_t(state.mechanic.amount * SCALAR);
       if (ROTATION != 0.0f)
         color.color =
             sample_hue_rotation_lut(state.hue_rotation, VALUE, ROTATION);
     } else {
-      color = state.apply_mechanic
-                  ? state.apply_mechanic(color, SCALAR, state.mechanic)
-                  : ColorModulation::apply(color, SCALAR, state.mechanic);
+      color = state.apply_mechanic(color, SCALAR, state.mechanic);
     }
   }
   if (state.hue_mode == HueMode::PATH_LENGTH &&
@@ -538,13 +513,13 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
         State::hue_shift_amount(frame),
         State::hue_rotation(frame),
         State::modulation(frame),
-        State::mechanic(frame),
+        {State::mechanic(frame).amount},
         State::brightness_envelope(frame),
         State::brightness_bottom(frame),
         State::brightness_top(frame),
         State::opacity_low(frame),
         State::opacity_high(frame),
-        mechanic_kernel(State::mechanic(frame).kind)};
+        ColorModulation::kernel(State::mechanic(frame).kind)};
     if constexpr (TEMPORAL) {
       const auto RESOURCES = State::temporal_resources(frame);
       GeneratedPaletteState previous = current;

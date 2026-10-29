@@ -436,13 +436,13 @@ prepare_generated_palette(const FrameContext &ctx,
           params.hue_shift_amount,
           {ctx.hue_rotation_lut, rotation_active},
           ctx.modulation,
-          params.modulation.mechanic,
+          {params.modulation.mechanic.amount},
           static_cast<Color::BrightnessEnvelope>(params.envelope_mode),
           params.brightness_bottom,
           params.brightness_top,
           params.opacity_low,
           params.opacity_high,
-          Color::mechanic_kernel(params.modulation.mechanic.kind)};
+          ColorModulation::kernel(params.modulation.mechanic.kind)};
 }
 
 /** @brief FIELD-to-COLOR crossing with generated-palette clocks and endpoints. */
