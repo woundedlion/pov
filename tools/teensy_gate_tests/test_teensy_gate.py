@@ -25,6 +25,7 @@ TOOLS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(TOOLS))
 
 import teensy_gate as tg          # noqa: E402
+from scons_hook_test_env import FakeEnv, load_hook  # noqa: E402
 
 FIX = Path(__file__).resolve().parent / "fixtures"
 REAL_DIR = FIX / "real"
@@ -55,35 +56,6 @@ def setUpModule():
 
 def _read(name):
     return (FIX / name).read_text(encoding="utf-8")
-
-
-def _load_gate_extra():
-    """Load tools/teensy_gate_extra.py (SCons glue) outside PlatformIO.
-
-    The module runs `Import("env")` and `env.subst(...)` at import time, so it
-    cannot be plain-imported; inject no-op SCons hooks and a stub env, then exec.
-    """
-    class _Env:
-        def __init__(self):
-            self.post_actions = []
-            self.dependencies = []
-
-        def subst(self, s):
-            return str(TOOLS.parent) if s == "$PROJECT_DIR" else s
-
-        def AddPostAction(self, target, action):
-            self.post_actions.append((target, action))
-
-        def Depends(self, target, dependency):
-            self.dependencies.append((target, dependency))
-
-    src = (TOOLS / "teensy_gate_extra.py").read_text(encoding="utf-8")
-    mod = types.ModuleType("teensy_gate_extra")
-    mod.__file__ = str(TOOLS / "teensy_gate_extra.py")
-    mod.__dict__["Import"] = lambda *a, **k: None
-    mod.__dict__["env"] = _Env()
-    exec(compile(src, mod.__file__, "exec"), mod.__dict__)
-    return mod
 
 
 def _eval(env, teensy_size_file, syms_file, secs_file="good_readelf_secs.txt"):
@@ -1329,7 +1301,8 @@ class TestGateExtra(unittest.TestCase):
     """The PlatformIO post-build glue: toolchain discovery + exit(2) guards."""
 
     def setUp(self):
-        self.ge = _load_gate_extra()
+        self.ge = load_hook("teensy_gate_extra.py",
+                            env=FakeEnv(PROJECT_DIR=str(TOOLS.parent)))
 
     def test_gate_runs_after_the_elf_links(self):
         self.assertEqual([t for t, _ in self.ge.env.post_actions],
@@ -1520,10 +1493,7 @@ class TestGateExtra(unittest.TestCase):
 
     def _env(self, package_dir=None):
         """Stub SCons env; `package_dir` adds the PlatformIO platform object."""
-        class _Env(dict):
-            def subst(self, s):
-                return self.get(s.lstrip("$"), s)
-        env = _Env(PIOENV="holosphere", CC="/opt/arm/bin/arm-none-eabi-gcc")
+        env = FakeEnv(PIOENV="holosphere", CC="/opt/arm/bin/arm-none-eabi-gcc")
         if package_dir is not None:
             env.PioPlatform = lambda: types.SimpleNamespace(
                 get_package_dir=lambda name: package_dir)
