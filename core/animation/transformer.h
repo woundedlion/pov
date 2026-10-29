@@ -1005,8 +1005,9 @@ using MobiusWarpTransformer =
  * @tparam CAPACITY Maximum number of concurrent circular Mobius warps.
  * @warning With nonzero scale this never returns to identity:
  * `Animation::MobiusWarpCircular` traces a closed loop at full strength. Use it
- * only in a repeating slot; a non-repeating slot freezes off-identity on its
- * final frame. Use MobiusWarpTransformer for one-shot slots.
+ * only in a repeating slot; a non-repeating slot is released when its cycle
+ * completes, so the warp snaps from full strength back to identity. Use
+ * MobiusWarpTransformer for one-shot slots.
  * @note Spawn through spawn_pinned(): spawn()/spawn_pausable() reject a
  * repeating animation. A zero-scale warp remains the identity.
  */
