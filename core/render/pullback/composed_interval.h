@@ -222,9 +222,6 @@ public:
       continuous = Modulation::same_topology(
           from.params.template get<"color">().modulation,
           to.params.template get<"color">().modulation);
-      if (!continuous)
-        frame.params.template get<"color">().modulation =
-            to.params.template get<"color">().modulation;
     }
     frame.temporal = {from.palette, from.hue_rotation_lut, from.modulation,
                       fraction,     same_palette,          continuous};

@@ -525,12 +525,7 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
       GeneratedPaletteState previous = current;
       previous.palette = RESOURCES.palette;
       previous.hue_rotation.data = RESOURCES.hue_rotation;
-      const bool SAME_TOPOLOGY =
-          current.modulation && RESOURCES.modulation
-              ? Modulation::same_topology(current.modulation->config,
-                                          RESOURCES.modulation->config)
-              : current.modulation == RESOURCES.modulation;
-      previous.modulation = RESOURCES.continuous_modulation && SAME_TOPOLOGY
+      previous.modulation = RESOURCES.continuous_modulation
                                 ? RESOURCES.modulation
                                 : current.modulation;
       const bool SAME_SOURCE =
