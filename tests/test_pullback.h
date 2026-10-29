@@ -1868,6 +1868,7 @@ inline int run_pullback_tests() {
   HS_RUN(pattern_tests::test_pattern_sphere_formulas);
   HS_RUN(pattern_tests::test_pattern_source_clocks);
   HS_RUN(pattern_tests::test_pattern_noise_formulas);
+  HS_RUN(pattern_tests::test_pattern_extracted_source_protocols);
   HS_RUN(test_pullback_runtime_seed_contract);
   HS_RUN(test_pullback_carrier_contract);
   HS_RUN(test_pullback_projection_traits);

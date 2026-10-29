@@ -9,6 +9,7 @@
 
 #include "core/pattern/field.h"
 #include "core/math/geometry.h"
+#include "core/math/projection_patterns.h"
 
 namespace Pattern {
 
@@ -520,5 +521,276 @@ tessellation(const PlanePosition &coordinate, const Params &params,
       distance);
   return 1.0f - 2.0f * edge;
 }
+
+/** @brief Checks a finite source parameter against an admitted interval.
+ * @param value Parameter value.
+ * @param low Inclusive lower bound.
+ * @param high Inclusive upper bound.
+ * @return Whether the parameter is admitted. */
+inline bool parameter_in_range(float value, float low, float high) {
+  return finite(value) && value >= low && value <= high;
+}
+
+/** @brief Validates the extracted source catalogue's passive parameters.
+ * @tparam Params Extracted source parameter record.
+ * @param params Source controls.
+ * @return Whether all declared controls are admitted. */
+template <class Params> bool valid_source_params(const Params &params) {
+  bool valid = true;
+  if constexpr (requires { params.pattern_freq; })
+    valid &= parameter_in_range(params.pattern_freq, 0.01f, 64.0f);
+  if constexpr (requires { params.speed; })
+    valid &= parameter_in_range(params.speed, -0.5f, 0.5f);
+  if constexpr (requires { params.secondary_rate; })
+    valid &= parameter_in_range(params.secondary_rate, 0.0f, 2.0f);
+  if constexpr (requires { params.angle_rate; })
+    valid &= parameter_in_range(params.angle_rate, -0.05f, 0.05f);
+  if constexpr (requires { params.complexity; })
+    valid &= parameter_in_range(params.complexity, 0.0f, 3.0f) &&
+             parameter_in_range(params.pattern_mix, 0.0f, 1.0f);
+  if constexpr (requires { params.lattice_cell_scale; })
+    valid &=
+        parameter_in_range(params.lattice_cell_scale, 1.0f / 64.0f, 8.0f) &&
+        parameter_in_range(params.lattice_shape_blend, 0.0f, 1.0f) &&
+        parameter_in_range(params.lattice_softness, 1.0f / 1024.0f, 1.0f) &&
+        parameter_in_range(params.lattice_radius, 1.0f / 64.0f, 0.49f);
+  if constexpr (requires { params.julia_mix; })
+    valid &= parameter_in_range(params.scale, 1.0f / 64.0f, 8.0f) &&
+             parameter_in_range(params.iterations, 2.0f, 16.0f) &&
+             parameter_in_range(params.julia_mix, 0.0f, 1.0f) &&
+             parameter_in_range(params.julia_re, -1.5f, 1.5f) &&
+             parameter_in_range(params.julia_im, -1.5f, 1.5f) &&
+             parameter_in_range(params.contours, 0.0f, 16.0f);
+  if constexpr (requires { params.cell_scale; })
+    valid &= parameter_in_range(params.cell_scale, 1.0f / 64.0f, 8.0f) &&
+             parameter_in_range(params.line_thickness, 1.0f / 1024.0f, 0.25f) &&
+             parameter_in_range(params.line_softness, 1.0f / 1024.0f, 0.25f);
+  if constexpr (requires { params.ring_count; })
+    valid &= parameter_in_range(params.ring_count, 1.0f, 32.0f) &&
+             parameter_in_range(params.ring_thickness, 1.0f / 512.0f, 0.5f) &&
+             parameter_in_range(params.ring_softness, 1.0f / 1024.0f, 0.25f) &&
+             parameter_in_range(params.spin_rate, -0.05f, 0.05f) &&
+             parameter_in_range(params.wander, 0.0f, 1.0f);
+  return valid;
+}
+
+/** @brief Pure radian-clock protocol shared by extracted analytic sources.
+ * @tparam Parameters The source's passive parameter record. */
+template <class Parameters> struct RadianSource {
+  using Coordinate =
+      PlanePosition;         ///< Plane coordinate supplied by the consumer.
+  using Params = Parameters; ///< Canonical passive source parameters.
+  using State = RadianState; ///< Primary, secondary and angle clocks.
+  /** @brief Complete immutable controls and frame-constant phase math. */
+  struct Prepared {
+    Params params;         ///< Owned source controls.
+    PreparedSource phases; ///< Prepared source clocks and rotation.
+  };
+  /** @brief Validates source controls.
+   * @param params Source controls.
+   * @return Whether preparation admits the controls. */
+  static bool valid(const Params &params) {
+    return valid_source_params(params);
+  }
+  /** @brief Initializes source-specific radian clocks.
+   * @param params Source controls.
+   * @return Zero phases. */
+  static State init_state(const Params &params) {
+    (void)params;
+    return {};
+  }
+  /** @brief Advances the declared clocks with their original rate coupling.
+   * @param state Previous clocks.
+   * @param params Source controls.
+   * @return Wrapped next clocks. */
+  static State advance(const State &state, const Params &params) {
+    HS_CHECK(valid(params) && valid_state(state),
+             "pattern radian source: invalid advance inputs");
+    State next = state;
+    advance_clocks(params, next.primary, next.secondary, next.angle);
+    return next;
+  }
+  /** @brief Owns controls and resolves frame-constant rotation math.
+   * @param params Source controls.
+   * @param state Explicit source clocks.
+   * @return Immutable source inputs. */
+  static Prepared prepare(const Params &params, const State &state) {
+    HS_CHECK(valid(params) && valid_state(state),
+             "pattern radian source: invalid preparation inputs");
+    return {params,
+            Pattern::prepare(state.primary, state.secondary, state.angle)};
+  }
+  /** @brief Checks finite bounded radian clocks.
+   * @param state Source clocks.
+   * @return Whether each clock is within its declared period. */
+  static bool valid_state(const State &state) {
+    return parameter_in_range(state.primary, -math::TWO_PI_F, math::TWO_PI_F) &&
+           parameter_in_range(state.secondary, -math::TWO_PI_F,
+                              math::TWO_PI_F) &&
+           parameter_in_range(state.angle, -math::TWO_PI_F, math::TWO_PI_F);
+  }
+};
+
+/** @brief Pure plane source policy for the rings kernel. */
+struct PlaneRings : RadianSource<RingsSourceParams> {
+  /** @brief Evaluates the prepared source at a consumer-supplied plane point.
+   * @param coordinate Plane coordinate.
+   * @param prepared Immutable controls and clocks.
+   * @return Signed field value. */
+  static float sample(const Coordinate &coordinate, const Prepared &prepared) {
+    return rings(PlanePosition{projections::stereo_pattern_args(
+                     coordinate.value, prepared.params.pattern_freq)},
+                 prepared.phases);
+  }
+};
+
+/** @brief Pure plane source policy for the spiral kernel. */
+struct PlaneSpiral : RadianSource<SpiralSourceParams> {
+  /** @brief Evaluates the prepared source at a consumer-supplied plane point.
+   * @param coordinate Plane coordinate.
+   * @param prepared Immutable controls and clocks.
+   * @return Signed field value. */
+  static float sample(const Coordinate &coordinate, const Prepared &prepared) {
+    return spiral(PlanePosition{projections::stereo_pattern_args(
+                      coordinate.value, prepared.params.pattern_freq)},
+                  prepared.phases);
+  }
+};
+
+/** @brief Pure plane source policy for the twin_wave kernel. */
+struct PlaneInterference : RadianSource<TwinWaveSourceParams> {
+  /** @brief Evaluates the prepared source at a consumer-supplied plane point.
+   * @param coordinate Plane coordinate.
+   * @param prepared Immutable controls and clocks.
+   * @return Signed field value. */
+  static float sample(const Coordinate &coordinate, const Prepared &prepared) {
+    return twin_wave(PlanePosition{projections::stereo_pattern_args(
+                         coordinate.value, prepared.params.pattern_freq)},
+                     prepared.phases);
+  }
+};
+
+/** @brief Pure plane source policy for the grid kernel. */
+struct PlaneCoupledGrid : RadianSource<GridSourceParams> {
+  /** @brief Evaluates the prepared source at a consumer-supplied plane point.
+   * @param coordinate Plane coordinate.
+   * @param prepared Immutable controls and clocks.
+   * @return Signed field value. */
+  static float sample(const Coordinate &coordinate, const Prepared &prepared) {
+    return grid(PlanePosition{projections::stereo_pattern_args(
+                    coordinate.value, prepared.params.pattern_freq)},
+                prepared.params, prepared.phases);
+  }
+};
+
+/** @brief Pure quadratic escape-fractal policy. */
+struct PlaneEscapeFractal : RadianSource<FractalSourceParams> {
+  /** @brief Immutable controls and resolved fractal math. */
+  struct Prepared {
+    Params params;          ///< Owned fractal controls.
+    PreparedFractal phases; ///< Rotation, seed and iteration count.
+  };
+  /** @brief Prepares the fractal seed and iteration count.
+   * @param params Source controls.
+   * @param state Explicit source clocks.
+   * @return Immutable source inputs. */
+  static Prepared prepare(const Params &params, const State &state) {
+    const auto BASE = RadianSource<Params>::prepare(params, state);
+    return {params, prepare_fractal(params, BASE.phases)};
+  }
+  /** @brief Evaluates the canonical escape contour.
+   * @param coordinate Plane position.
+   * @param prepared Immutable source inputs.
+   * @return Signed field sample. */
+  static float sample(const Coordinate &coordinate, const Prepared &prepared) {
+    return escape_fractal(coordinate, prepared.params, prepared.phases);
+  }
+};
+
+/** @brief Pure periodic polygon edge policy.
+ * @tparam Kind Cell tessellation. */
+template <TessellationKind Kind>
+struct PlaneTessellation : RadianSource<TessellationSourceParams> {
+  static_assert(Kind <= TessellationKind::HEXAGONAL);
+  /** @brief Evaluates the canonical tessellation distance contour.
+   * @param coordinate Plane position.
+   * @param prepared Immutable source inputs.
+   * @return Signed edge field. */
+  static float sample(const Coordinate &coordinate, const Prepared &prepared) {
+    return tessellation(coordinate, prepared.params, Kind, prepared.phases);
+  }
+};
+
+/** @brief Pure primitive lattice policy with empty passive state. */
+struct PlanePrimitiveLattice {
+  using Coordinate = PlanePosition;   ///< Consumer-supplied plane coordinate.
+  using Params = LatticeSourceParams; ///< Canonical lattice controls.
+  using State = EmptyState;           ///< Stationary source state.
+  using Prepared = Params;            ///< Complete immutable source inputs.
+  /** @brief Checks lattice controls.
+   * @param params Source controls.
+   * @return Whether the controls are admitted. */
+  static bool valid(const Params &params) {
+    return valid_source_params(params);
+  }
+  /** @brief Initializes empty source state.
+   * @param params Source controls.
+   * @return Empty state. */
+  static State init_state(const Params &params) {
+    (void)params;
+    return {};
+  }
+  /** @brief Preserves empty source state.
+   * @param state Previous state.
+   * @param params Source controls.
+   * @return Empty state. */
+  static State advance(const State &state, const Params &params) {
+    (void)params;
+    return state;
+  }
+  /** @brief Owns admitted lattice controls.
+   * @param params Source controls.
+   * @param state Empty source state.
+   * @return Immutable source inputs. */
+  static Prepared prepare(const Params &params, const State &state) {
+    (void)state;
+    HS_CHECK(valid(params), "pattern lattice: invalid parameters");
+    return params;
+  }
+  /** @brief Evaluates the canonical primitive lattice.
+   * @param coordinate Plane position.
+   * @param prepared Immutable lattice controls.
+   * @return Signed primitive field. */
+  static float sample(const Coordinate &coordinate, const Prepared &prepared) {
+    return primitive_lattice(coordinate, prepared);
+  }
+};
+
+/** @brief Pure sphere-ring policy with a consumer-supplied axis. */
+struct SphereRings : RadianSource<SphericalRingsSourceParams> {
+  using Coordinate = SphereDirection; ///< Admitted sphere direction.
+  /** @brief Complete immutable ring controls, axis and phase. */
+  struct Prepared {
+    Params params;                ///< Owned ring controls.
+    PreparedSphericalRings rings; ///< Admitted axis and radian phase.
+  };
+  /** @brief Resolves the axis supplied by the consumer's spatial walk.
+   * @param params Source controls.
+   * @param state Explicit source clocks.
+   * @param axis Consumer-supplied band axis.
+   * @return Complete immutable ring inputs. */
+  static Prepared prepare(const Params &params, const State &state,
+                          const SphereDirection &axis) {
+    const auto BASE = RadianSource<Params>::prepare(params, state);
+    return {params, {axis.value(), BASE.phases.primary}};
+  }
+  /** @brief Evaluates the canonical latitude-band contour.
+   * @param coordinate Admitted direction.
+   * @param prepared Immutable ring inputs.
+   * @return Signed band field. */
+  static float sample(const Coordinate &coordinate, const Prepared &prepared) {
+    return spherical_rings(coordinate, prepared.params, prepared.rings);
+  }
+};
 
 } // namespace Pattern

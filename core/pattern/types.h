@@ -79,6 +79,17 @@ struct PhaseState {
   float phase_turns = 0.0f;
   constexpr bool operator==(const PhaseState &) const = default;
 };
+/** @brief Source clocks in radians, each wrapped at two pi. */
+struct RadianState {
+  float primary = 0.0f;   ///< Primary source phase.
+  float secondary = 0.0f; ///< Rate-coupled secondary phase.
+  float angle = 0.0f;     ///< Independent source rotation.
+  constexpr bool operator==(const RadianState &) const = default;
+};
+/** @brief Empty passive state of a stationary source. */
+struct EmptyState {
+  constexpr bool operator==(const EmptyState &) const = default;
+};
 /** @brief Parameters of an axial sine. */
 struct SineParams {
   math::Vector axis = math::Vector(0.0f, 1.0f, 0.0f);

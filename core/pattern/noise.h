@@ -100,4 +100,70 @@ struct SphereNoise {
   }
 };
 
+/** @brief Pure projected-plane octave noise with a turn-valued loop clock. */
+struct PlaneNoise {
+  using Coordinate = PlanePosition; ///< Consumer-supplied plane coordinate.
+  using Params = NoiseSourceParams; ///< Canonical contour controls.
+  using State = PhaseState;         ///< Noise loop phase in turns.
+  /** @brief Complete immutable generator, loop point and shaping inputs. */
+  struct Prepared {
+    FastNoiseLite noise;      ///< Owned configured generator.
+    math::Vector loop_offset; ///< Prepared projected loop point.
+    Params params;            ///< Spatial scale, contrast and loop rate.
+    math::NoiseBasis basis;   ///< Explicit octave formula.
+  };
+  /** @brief Checks the contour controls.
+   * @param params Source controls.
+   * @return Whether the controls are admitted. */
+  static bool valid(const Params &params) {
+    return finite(params.noise_scale) && params.noise_scale >= 1.0f / 64.0f &&
+           params.noise_scale <= 64.0f && finite(params.noise_contrast) &&
+           params.noise_contrast >= 0.0f && params.noise_contrast <= 8.0f &&
+           finite(params.noise_time_rate) &&
+           fabsf(params.noise_time_rate) <= 1.0f / 64.0f;
+  }
+  /** @brief Initializes the noise-loop phase.
+   * @param params Source controls.
+   * @return Zero phase in turns. */
+  static State init_state(const Params &params) {
+    (void)params;
+    return {};
+  }
+  /** @brief Advances the loop by the source's declared turn rate.
+   * @param state Previous loop phase.
+   * @param params Source controls.
+   * @return Wrapped next phase. */
+  static State advance(const State &state, const Params &params) {
+    HS_CHECK(valid(params) && finite(state.phase_turns),
+             "pattern plane noise: invalid advance inputs");
+    return {math::wrap_t(state.phase_turns + params.noise_time_rate)};
+  }
+  /** @brief Copies the generator and resolves projected loop construction.
+   * @param params Source controls.
+   * @param state Explicit noise phase.
+   * @param generator Configured generator retained by value.
+   * @param basis Explicit octave formula.
+   * @return Complete immutable source inputs. */
+  static Prepared prepare(const Params &params, const State &state,
+                          const FastNoiseLite &generator,
+                          math::NoiseBasis basis) {
+    HS_CHECK(valid(params) && finite(state.phase_turns) &&
+                 basis <= math::NoiseBasis::RIDGED3,
+             "pattern plane noise: invalid preparation inputs");
+    return {generator, math::noise_projected_loop_offset(state.phase_turns),
+            params, basis};
+  }
+  /** @brief Evaluates the canonical octave contour.
+   * @param coordinate Plane position.
+   * @param prepared Immutable generator and controls.
+   * @return Signed contour sample. */
+  static float sample(const Coordinate &coordinate, const Prepared &prepared) {
+    return noise_contour(prepared.noise, prepared.basis,
+                         math::noise_projected_coordinate(
+                             coordinate.value, prepared.params.noise_scale,
+                             prepared.loop_offset),
+                         prepared.params.noise_contrast);
+  }
+};
+
 } // namespace Pattern

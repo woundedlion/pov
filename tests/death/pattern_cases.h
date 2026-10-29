@@ -56,3 +56,34 @@ inline void case_pattern_noise_invalid_prepare() {
   params.scale = 0.0f;
   (void)Pattern::SphereNoise::prepare(params, {}, GENERATOR);
 }
+inline void case_pattern_radian_invalid_advance() {
+  Pattern::PlaneRings::Params params;
+  (void)Pattern::PlaneRings::advance({}, params);
+  params.speed = std::numeric_limits<float>::infinity();
+  (void)Pattern::PlaneRings::advance({}, params);
+}
+inline void case_pattern_radian_invalid_prepare() {
+  Pattern::PlaneRings::Params params;
+  (void)Pattern::PlaneRings::prepare(params, {});
+  (void)Pattern::PlaneRings::prepare(params, {0.0f, 0.0f, 100.0f});
+}
+inline void case_pattern_lattice_invalid_prepare() {
+  Pattern::PlanePrimitiveLattice::Params params;
+  (void)Pattern::PlanePrimitiveLattice::prepare(params, {});
+  params.lattice_radius = -1.0f;
+  (void)Pattern::PlanePrimitiveLattice::prepare(params, {});
+}
+inline void case_pattern_plane_noise_invalid_advance() {
+  Pattern::PlaneNoise::Params params;
+  (void)Pattern::PlaneNoise::advance({}, params);
+  (void)Pattern::PlaneNoise::advance({std::numeric_limits<float>::infinity()},
+                                     params);
+}
+inline void case_pattern_plane_noise_invalid_prepare() {
+  Pattern::PlaneNoise::Params params;
+  const FastNoiseLite GENERATOR;
+  (void)Pattern::PlaneNoise::prepare(params, {}, GENERATOR,
+                                     math::NoiseBasis::SIMPLEX);
+  (void)Pattern::PlaneNoise::prepare(params, {}, GENERATOR,
+                                     static_cast<math::NoiseBasis>(3));
+}

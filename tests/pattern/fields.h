@@ -147,4 +147,70 @@ inline void test_pattern_noise_formulas() {
   HS_EXPECT_TRUE(!SphereNoise::valid(params));
 }
 
+/** @brief Extracted sources expose pure clocks and immutable prepared controls. */
+inline void test_pattern_extracted_source_protocols() {
+  using namespace Pattern;
+  PlaneInterference::Params waves;
+  waves.speed = -0.2f;
+  waves.secondary_rate = 1.5f;
+  waves.angle_rate = 0.03f;
+  const auto ZERO = PlaneInterference::init_state(waves);
+  const auto NEXT = PlaneInterference::advance(ZERO, waves);
+  HS_EXPECT_EQ(ZERO.primary, 0.0f);
+  HS_EXPECT_EQ(NEXT.primary, -0.2f);
+  HS_EXPECT_EQ(NEXT.secondary, -0.3f);
+  HS_EXPECT_EQ(NEXT.angle, 0.03f);
+  const PlanePosition POINT{{0.6f, 0.25f}};
+  const auto PREPARED = PlaneInterference::prepare(waves, NEXT);
+  const float ROTATED =
+      POINT.value.re * std::cos(0.03f) + POINT.value.im * std::sin(0.03f);
+  HS_EXPECT_NEAR(PlaneInterference::sample(POINT, PREPARED),
+                 0.5f * (std::sin(0.4f) + std::sin(ROTATED - 0.3f)), 0.0018f);
+  const float RETAINED = PlaneInterference::sample(POINT, PREPARED);
+  waves.pattern_freq = 13.0f;
+  HS_EXPECT_EQ(PlaneInterference::sample(POINT, PREPARED), RETAINED);
+  PlaneRings::Params rings_params;
+  HS_EXPECT_NEAR(
+      PlaneRings::sample(POINT,
+                         PlaneRings::prepare(rings_params, {0.2f, 0.0f, 0.0f})),
+      std::sin(0.45f), 0.0018f);
+  PlaneSpiral::Params spiral_params;
+  HS_EXPECT_NEAR(PlaneSpiral::sample(
+                     {{0.5f, 0.0f}},
+                     PlaneSpiral::prepare(spiral_params, {0.2f, 0.0f, 0.1f})),
+                 0.0f, 0.0018f);
+  PlaneCoupledGrid::Params grid_params;
+  grid_params.pattern_mix = 1.0f;
+  HS_EXPECT_NEAR(PlaneCoupledGrid::sample(
+                     POINT, PlaneCoupledGrid::prepare(grid_params, {})),
+                 std::sin(0.6f) * std::cos(0.25f), 0.0035f);
+  static_assert(std::is_empty_v<PlanePrimitiveLattice::State>);
+  PlanePrimitiveLattice::Params lattice;
+  const auto EMPTY = PlanePrimitiveLattice::advance(
+      PlanePrimitiveLattice::init_state(lattice), lattice);
+  HS_EXPECT_EQ(PlanePrimitiveLattice::sample(
+                   {{}}, PlanePrimitiveLattice::prepare(lattice, EMPTY)),
+               1.0f);
+  HS_EXPECT_EQ(
+      PlaneEscapeFractal::sample({{}}, PlaneEscapeFractal::prepare({}, {})),
+      1.0f);
+  using Square = PlaneTessellation<TessellationKind::SQUARE>;
+  HS_EXPECT_EQ(Square::sample({{}}, Square::prepare({}, {})), -1.0f);
+  const auto AXIS = SphereDirection::from(math::Y_AXIS);
+  const auto DIRECTION = SphereDirection::from(math::X_AXIS);
+  HS_EXPECT_EQ(
+      SphereRings::sample(DIRECTION, SphereRings::prepare({}, {}, AXIS)), 1.0f);
+  const FastNoiseLite GENERATOR;
+  PlaneNoise::Params noise;
+  noise.noise_time_rate = -0.01f;
+  const auto CLOCK = PlaneNoise::advance(PlaneNoise::init_state(noise), noise);
+  HS_EXPECT_EQ(CLOCK.phase_turns, 0.99f);
+  const auto NOISE =
+      PlaneNoise::prepare(noise, CLOCK, GENERATOR, math::NoiseBasis::FBM3);
+  const auto Q = math::noise_projected_coordinate(
+      POINT.value, noise.noise_scale, CLOCK.phase_turns);
+  HS_EXPECT_EQ(PlaneNoise::sample(POINT, NOISE),
+               noise_contour(GENERATOR, math::NoiseBasis::FBM3, Q, 0.0f));
+}
+
 } // namespace hs_test::pattern_tests
