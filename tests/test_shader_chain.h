@@ -90,6 +90,12 @@ inline void test_shader_chain_modulation_bake_cache() {
   color.modulation.mechanic.kind = ColorModulation::Mechanic::OPACITY;
   WB::frame_context(effect);
   baked(false);
+  const Pixel PALETTE = WB::palette_color(effect, .37f);
+  color.palette_chroma = .1f;
+  WB::advance_without_render(effect);
+  WB::frame_context(effect);
+  baked(false);
+  HS_EXPECT_NE(WB::palette_color(effect, .37f), PALETTE);
   color.modulation.noise.scale = 3;
   WB::frame_context(effect);
   baked(true);
