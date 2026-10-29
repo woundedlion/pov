@@ -905,12 +905,6 @@ inline void test_timed_dense_star_stroke_stays_within_visual_budget() {
       comparison.error.mean_absolute_error(),
       comparison.error.root_mean_squared_error(), drift, double(energy),
       double(frame_energy(comparison.candidate)));
-  if (const char *prefix = shapeshifter_image_prefix()) {
-    write_oracle_ppm(comparison.reference,
-                     std::string(prefix) + "-reference.ppm");
-    write_oracle_ppm(comparison.candidate,
-                     std::string(prefix) + "-temporal-frozen.ppm");
-  }
   HS_EXPECT_LT(comparison.error.mean_absolute_error(), MAX_MEAN_ABSOLUTE_ERROR);
   HS_EXPECT_LT(comparison.error.root_mean_squared_error(),
                MAX_ROOT_MEAN_SQUARED_ERROR);
@@ -1460,12 +1454,6 @@ inline void test_timed_presets_match_frozen_columns() {
     HS_EXPECT_LT(look.error.root_mean_squared_error(),
                  MAX_ROOT_MEAN_SQUARED_ERROR);
     HS_EXPECT_LT(look.error.max_absolute_error, MAX_CHANNEL_ERROR);
-    if (const char *prefix = shapeshifter_image_prefix()) {
-      const std::string path =
-          std::string(prefix) + "-p" + std::to_string(i + 1);
-      write_oracle_ppm(look.reference, path + "-still.ppm");
-      write_oracle_ppm(look.candidate, path + "-timed.ppm");
-    }
   }
 }
 
