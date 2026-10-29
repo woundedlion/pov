@@ -138,7 +138,21 @@ constexpr DerivationReach DERIVATION_REACH[] = {
      {{"cup", "bell", "linear"}}},
     {"colorize.generated-palette.v3",
      "hue-shift-mode",
-     {{"noise", "path-length"}}},
+     {{"none", "path-length"}}},
+    {"colorize.generated-palette.v3",
+     "modulation-enabled",
+     {{"disabled", "enabled"}}},
+    {"colorize.generated-palette.v3", "modulation-source", {{"noise"}}},
+    {"colorize.generated-palette.v3",
+     "modulation-evaluation",
+     {{"baked-cube"}}},
+    {"colorize.generated-palette.v3",
+     "modulation-mechanic",
+     {{"hue-rotation"}}},
+    {"colorize.generated-palette.v3", "pattern-noise-basis", {{"simplex"}}},
+    {"colorize.generated-palette.v3",
+     "pattern-noise-variant",
+     {{"configured-single"}}},
     // Shipped Specs select only the none and cup brightness envelopes.
     {"colorize.generated-palette.v3", "brightness-envelope", {{"none", "cup"}}},
 };
@@ -242,6 +256,6 @@ inline void test_composed_derivation_reach() {
 
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 38u);
   HS_EXPECT_EQ(unreachable_operators, 12u);
-  HS_EXPECT_EQ(catalog_values, 152u);
-  HS_EXPECT_EQ(unreachable_values, 110u);
+  HS_EXPECT_EQ(catalog_values, 167u);
+  HS_EXPECT_EQ(unreachable_values, 118u);
 }

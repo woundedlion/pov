@@ -52,8 +52,8 @@ inline void test_kaleidoscope_melt_identity_and_controls() {
       "Mapping Frequency",       "Mapping Phase",
       "Phase Oscillation Depth", "Phase Oscillation Speed",
       "Opacity at Value 0",      "Opacity at Value 1",
-      "Hue Shift Amount",        "Hue Noise Scale",
-      "Hue Noise Speed",
+      "Modulation Amount",       "Pattern Scale",
+      "Pattern Speed",
   };
   HS_EXPECT_EQ(effect.getParameters().size(), std::size(CONTROL_NAMES));
   HS_EXPECT_EQ(effect.getParameters().capacity(), WB::PARAM_CAPACITY);

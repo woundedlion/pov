@@ -7,7 +7,7 @@
 struct UnknownCoverage {};
 struct MetadataSpec : Pullback::Spec {
 #ifdef HS_METADATA_REDUNDANT_SCALAR
-  static constexpr auto HUE = Pullback::HueMode::NOISE;
+  static constexpr auto HUE = Pullback::HueMode::NONE;
 #endif
   template <typename B>
   using Pipeline = Pullback::Pipeline<
@@ -42,7 +42,7 @@ struct MetadataSpec : Pullback::Spec {
 #ifdef HS_METADATA_UNTRACKED_HUE
                                   Pullback::HueMode::PATH_LENGTH,
 #else
-                                  Pullback::HueMode::NOISE,
+                                  Pullback::HueMode::NONE,
 #endif
                                   Pullback::Color::BrightnessEnvelope::BELL>>>>;
 };
@@ -60,7 +60,7 @@ static_assert(Metadata::SURFACE_PLACEMENT ==
               Pullback::SurfacePlacement::AFTER_LENS);
 static_assert(std::is_same_v<Metadata::LensPolicy, Pullback::Lens::Glitch>);
 #ifndef HS_METADATA_UNTRACKED_HUE
-static_assert(Metadata::HUE == Pullback::HueMode::NOISE);
+static_assert(Metadata::HUE == Pullback::HueMode::NONE);
 #endif
 static_assert(Metadata::BRIGHTNESS ==
               Pullback::Color::BrightnessEnvelope::BELL);

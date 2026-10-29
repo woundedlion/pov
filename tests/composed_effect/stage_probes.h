@@ -7,6 +7,65 @@
 // Stage and choreography probes on hand-built composed specs
 // ============================================================================
 
+/** @brief Direct analytic modulation on the GridSpace stage pipeline. */
+struct AnalyticModulationSpec : GridSpaceSpec {
+  static constexpr Pattern::Evaluation MODULATION_EVALUATION =
+      Pattern::Evaluation::DIRECT;
+};
+
+/** @brief Composed source-control registration fixture. */
+struct AnalyticModulationProbe
+    : Pullback::ComposedEffect<SMALL_W, SMALL_H, AnalyticModulationProbe,
+                               AnalyticModulationSpec> {
+  using Base =
+      Pullback::ComposedEffect<SMALL_W, SMALL_H, AnalyticModulationProbe,
+                               AnalyticModulationSpec>;
+  static constexpr std::array<std::string_view, 1> PRESET_IDS{"analytic"};
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr Params initial_params() {
+    Params params{};
+    auto &config = params.template get<"color">().modulation;
+    config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+    config.evaluation = Pattern::Evaluation::DIRECT;
+    config.sine.frequency = 0.125f;
+    config.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
+    return params;
+  }
+  static consteval auto choreography_hooks() {
+    return Base::choreography_hooks()
+        .template extend<
+            AnalyticModulationProbe,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &AnalyticModulationProbe::initial_params>>();
+  }
+};
+
+/** @brief Analytic frequency and speed sliders write the selected source. */
+inline void test_composed_analytic_modulation_sliders() {
+  reset_effect_globals();
+  AnalyticModulationProbe effect;
+  effect.init();
+  HS_EXPECT_TRUE(effect.getParameters().find("Pattern Scale") == nullptr);
+  const auto DIRECTION = Pattern::SphereDirection::from(math::Y_AXIS);
+  const auto before = effect.frame_for_test();
+  const float BEFORE =
+      Pullback::Modulation::sample(*before.modulation, DIRECTION);
+  HS_EXPECT_NEAR(BEFORE, 0.70710678f, 0.002f);
+  HS_EXPECT_TRUE(effect.updateParameter("Pattern Frequency", 0.25f) ==
+                 ParamSetResult::APPLIED);
+  const auto after = effect.frame_for_test();
+  const float AFTER =
+      Pullback::Modulation::sample(*after.modulation, DIRECTION);
+  HS_EXPECT_NEAR(AFTER, 1.0f, 1e-5f);
+  HS_EXPECT_GT(AFTER - BEFORE, 0.25f);
+  HS_EXPECT_TRUE(effect.updateParameter("Pattern Speed", -0.125f) ==
+                 ParamSetResult::APPLIED);
+  ComposedFrameWhiteBox::advance(effect);
+  const auto advanced = effect.frame_for_test();
+  HS_EXPECT_NEAR(advanced.modulation->state.phase.phase_turns, 0.875f, 0.0f);
+}
+
 template <bool Animated> struct RippleProbeSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = Animated;
   template <typename B>

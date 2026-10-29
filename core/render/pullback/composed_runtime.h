@@ -716,10 +716,33 @@ private:
       auto &config = params.template get<"color">().modulation;
       register_animated_param("Modulation Amount", &config.mechanic.amount,
                               -4.0f, 4.0f);
-      register_animated_param("Pattern Scale", &config.noise.scale,
-                              1.0f / 64.0f, 8.0f);
-      register_animated_param("Pattern Speed", &config.noise.speed, -0.001f,
-                              0.001f);
+      switch (config.source) {
+      case Pattern::SourceKind::NOISE:
+        register_animated_param("Pattern Scale", &config.noise.scale,
+                                1.0f / 64.0f, 8.0f);
+        register_animated_param("Pattern Speed", &config.noise.speed, -0.001f,
+                                0.001f);
+        break;
+      case Pattern::SourceKind::DIRECTIONAL_SINE:
+        register_animated_param("Pattern Frequency", &config.sine.frequency,
+                                0.0f, Pattern::MAX_AXIAL_FREQUENCY);
+        register_animated_param("Pattern Speed", &config.sine.speed, -1.0f,
+                                1.0f);
+        break;
+      case Pattern::SourceKind::SPHERE_INTERFERENCE:
+        register_animated_param("Pattern Frequency",
+                                &config.interference.frequency, 0.0f,
+                                Pattern::MAX_AXIAL_FREQUENCY);
+        register_animated_param("Pattern Speed", &config.interference.speed,
+                                -1.0f, 1.0f);
+        break;
+      case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
+        register_animated_param("Pattern Frequency", &config.grid.frequency,
+                                0.0f, Pattern::MAX_AXIAL_FREQUENCY);
+        register_animated_param("Pattern Speed", &config.grid.speed, -1.0f,
+                                1.0f);
+        break;
+      }
     }
   }
 
