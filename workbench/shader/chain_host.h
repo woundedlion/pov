@@ -155,7 +155,9 @@ public:
         out.modulation.push_back({op.instance, params.modulation});
       }
       for (uint16_t field = 0; field < op.op->schema_count; ++field) {
-        if (modulated && modulation_field(field))
+        if (modulated &&
+            Pullback::Interp::Op::GeneratedPaletteParams::temporal_hold_field(
+                field))
           continue;
         const auto &info = op.op->schema[field];
         const void *address = op.op->runtime.param_address(
@@ -224,7 +226,8 @@ public:
                   continue;
                 if (std::string_view(op.op->operator_id) ==
                         Op::ColorizeGeneratedPaletteV3::ID &&
-                    modulation_field(field))
+                    Pullback::Interp::Op::GeneratedPaletteParams::
+                        temporal_hold_field(field))
                   return false;
                 if (!field_in_schema(info, write.value))
                   return false;
@@ -423,11 +426,6 @@ private:
       return value >= 0.0f && value < info.enum_count &&
              std::floor(value) == value;
     return value >= info.min && value <= info.max;
-  }
-
-  static constexpr bool modulation_field(uint16_t field) {
-    using Params = Pullback::Interp::Op::GeneratedPaletteParams;
-    return field >= Params::FIELDS.size() + Params::TOPOLOGY.size();
   }
 
   HS_COLD_MEMBER uint8_t *allocate_chain_block() {

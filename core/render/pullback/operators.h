@@ -346,6 +346,13 @@ struct GeneratedPaletteParams : Color::ColorControls {
           a.modulation.mechanic.amount, b.modulation.mechanic.amount, t);
   }
 
+  /** @brief Identifies modulation fields excluded from interval eligibility.
+   * @param field Parameter schema index.
+   * @return Whether the field belongs to modulation. */
+  static constexpr bool temporal_hold_field(uint16_t field) {
+    return field >= FIELDS.size() + TOPOLOGY.size();
+  }
+
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<GeneratedPaletteParams>{
           "palette-mode", &GeneratedPaletteParams::palette_mode,
@@ -504,7 +511,7 @@ struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
    * @param field Parameter field index.
    * @return Whether the field may change without snapping the column interval. */
   static constexpr bool temporal_hold_field(uint16_t field) {
-    return field >= Params::FIELDS.size() + Params::TOPOLOGY.size();
+    return Params::temporal_hold_field(field);
   }
 };
 
