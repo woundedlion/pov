@@ -43,7 +43,7 @@ enum class CodeEmission : uint8_t {
 enum class ApproximationOracleId : uint8_t {
   NONE,                       ///< Exact; no oracle.
   PEIRCE_FAST_SQUARE,         ///< Fast square-layout Peirce projection.
-  HUE_ROTATION_AND_NOISE_LUTS ///< LUT hue rotation and hue noise.
+  HUE_ROTATION_AND_NOISE_LUTS ///< LUT hue rotation and sphere modulation.
 };
 
 /** @brief Quantity an approximation metric bounds. */

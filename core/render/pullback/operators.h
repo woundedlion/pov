@@ -333,7 +333,7 @@ inline Spacetime::ClockInterval temporal_interval(const ColorClockState &from,
 }
 
 /**
- * @brief Samples the mapping oscillation clock; the hue-noise bake input stays current between consecutive frames.
+ * @brief Samples the mapping oscillation clock at a frame fraction.
  * @tparam Params Operator param block; unused.
  * @param out Copy of the current state; receives the samples.
  * @param interval Prepared mapping clock.
