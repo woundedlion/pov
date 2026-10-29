@@ -125,16 +125,25 @@ struct GeneratedPaletteParams : Color::ColorControls {
   /// Pattern source values.
   static constexpr const char *SOURCE_IDS[] = {
       "noise", "directional-sine", "sphere-interference", "sphere-smooth-grid"};
+  static_assert(std::size(SOURCE_IDS) ==
+                static_cast<size_t>(Pattern::SourceKind::SPHERE_SMOOTH_GRID) +
+                    1);
   /// Pattern evaluation values.
   static constexpr const char *EVALUATION_IDS[] = {"direct", "baked-cube"};
+  static_assert(std::size(EVALUATION_IDS) ==
+                static_cast<size_t>(Pattern::Evaluation::BAKED_CUBE) + 1);
   /// Color mechanic values.
   static constexpr const char *MECHANIC_IDS[] = {
       "hue-rotation", "positive-lightness-lift", "opacity"};
+  static_assert(std::size(MECHANIC_IDS) ==
+                static_cast<size_t>(ColorModulation::Mechanic::OPACITY) + 1);
   /// Noise octave formula values.
-  static constexpr const char *BASIS_IDS[] = {"simplex", "fbm3", "ridged3"};
+  static constexpr auto &BASIS_IDS = NOISE_BASIS_IDS;
   /// Noise sampling policy values.
   static constexpr const char *VARIANT_IDS[] = {"configured-single",
                                                 "octave-contour"};
+  static_assert(std::size(VARIANT_IDS) ==
+                static_cast<size_t>(Pattern::NoiseVariant::OCTAVE_CONTOUR) + 1);
   /// Modulation parameter schema appended to the palette controls.
   static constexpr auto EXTRA_SCHEMA = [] {
     std::array<ParamFieldInfo, 38> out{};
@@ -193,18 +202,54 @@ struct GeneratedPaletteParams : Color::ColorControls {
       out[i].def = 1.0f;
     for (size_t i : {size_t{7}, size_t{13}, size_t{19}, size_t{24}, size_t{30}})
       out[i].min = 0.0f;
-    out[32] = {
-        "modulation-enabled", nullptr, 0, 0, 0, FieldCurve::SNAP, true, 2, 1,
-        ENABLED_IDS,          nullptr, 0};
-    out[33] = {
-        "modulation-source", nullptr, 0, 0, 0, FieldCurve::SNAP, true, 4, 0,
-        SOURCE_IDS,          nullptr, 0};
-    out[34] = {
-        "modulation-evaluation", nullptr, 0, 0, 0, FieldCurve::SNAP, true, 2, 1,
-        EVALUATION_IDS,          nullptr, 0};
-    out[35] = {
-        "modulation-mechanic", nullptr, 0, 0, 0, FieldCurve::SNAP, true, 3, 0,
-        MECHANIC_IDS,          nullptr, 0};
+    out[32] = {"modulation-enabled",
+               nullptr,
+               0,
+               0,
+               0,
+               FieldCurve::SNAP,
+               true,
+               std::size(ENABLED_IDS),
+               1,
+               ENABLED_IDS,
+               nullptr,
+               0};
+    out[33] = {"modulation-source",
+               nullptr,
+               0,
+               0,
+               0,
+               FieldCurve::SNAP,
+               true,
+               std::size(SOURCE_IDS),
+               0,
+               SOURCE_IDS,
+               nullptr,
+               0};
+    out[34] = {"modulation-evaluation",
+               nullptr,
+               0,
+               0,
+               0,
+               FieldCurve::SNAP,
+               true,
+               std::size(EVALUATION_IDS),
+               1,
+               EVALUATION_IDS,
+               nullptr,
+               0};
+    out[35] = {"modulation-mechanic",
+               nullptr,
+               0,
+               0,
+               0,
+               FieldCurve::SNAP,
+               true,
+               std::size(MECHANIC_IDS),
+               0,
+               MECHANIC_IDS,
+               nullptr,
+               0};
     out[36] = {"pattern-noise-basis",
                nullptr,
                0,
@@ -212,7 +257,7 @@ struct GeneratedPaletteParams : Color::ColorControls {
                0,
                FieldCurve::SNAP,
                true,
-               3,
+               std::size(BASIS_IDS),
                0,
                BASIS_IDS,
                nullptr,
@@ -224,7 +269,7 @@ struct GeneratedPaletteParams : Color::ColorControls {
                0,
                FieldCurve::SNAP,
                true,
-               2,
+               std::size(VARIANT_IDS),
                0,
                VARIANT_IDS,
                nullptr,

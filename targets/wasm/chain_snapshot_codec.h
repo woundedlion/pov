@@ -185,9 +185,9 @@ class ChainSnapshotCodec {
   static bool recipe(const Val &value, ColorModulation::Config &config) {
     uint8_t source, evaluation, basis, variant, mechanic;
     if (!object(value) || !boolean(value, "enabled", config.enabled) ||
-        !integer(value, "source", source) || source > 3 ||
+        !integer(value, "source", source) ||
         !integer(value, "version", config.version) || config.version != 1 ||
-        !integer(value, "evaluation", evaluation) || evaluation > 1 ||
+        !integer(value, "evaluation", evaluation) ||
         !integer(value, "seed", config.seed))
       return false;
     const auto noise = value["noise"];
@@ -195,12 +195,12 @@ class ChainSnapshotCodec {
     if (!object(noise) || !number(noise, "scale", config.noise.scale) ||
         !number(noise, "speed", config.noise.speed) ||
         !number(noise, "contrast", config.noise.contrast) ||
-        !integer(noise, "basis", basis) || basis > 2 ||
-        !integer(noise, "variant", variant) || variant > 1 ||
+        !integer(noise, "basis", basis) ||
+        !integer(noise, "variant", variant) ||
         !sine(value["sine"], config.sine) ||
         !interference(value["interference"], config.interference) ||
         !interference(value["grid"], config.grid) || !object(operation) ||
-        !integer(operation, "kind", mechanic) || mechanic > 2 ||
+        !integer(operation, "kind", mechanic) ||
         !number(operation, "amount", config.mechanic.amount))
       return false;
     config.source = static_cast<Pattern::SourceKind>(source);
