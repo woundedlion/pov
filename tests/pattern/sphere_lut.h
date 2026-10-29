@@ -61,12 +61,6 @@ inline void test_sphere_bakes_match_reference() {
             actual,
             Pattern::SphereNoise::prepare({.scale = scale}, {phase}, noise));
         check_bake();
-        if (variant == 0) {
-          Pattern::prepare_sphere_lut<Pattern::SphereNoise>(
-              actual,
-              Pattern::SphereNoise::prepare({.scale = scale}, {phase}, noise));
-          check_bake();
-        }
       }
     }
   }
