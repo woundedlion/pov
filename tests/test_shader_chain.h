@@ -568,6 +568,54 @@ inline void test_shader_chain_snapshot_refusals() {
                ChainSnapshotRestoreResult::APPLIED);
 }
 
+/** @brief Snapshot recipes and typed clocks retain matching source identities. */
+inline void test_shader_chain_modulation_snapshot_identity() {
+  using WB = ShaderChainWhiteBox;
+  reset_globals();
+  WB::FX effect;
+  effect.init();
+  auto &controls = WB::color_params(effect);
+  controls.modulation.noise.speed = .125f;
+  WB::advance_without_render(effect);
+  const ChainSnapshot saved = effect.snapshot();
+  const auto clock =
+      [](const ChainSnapshot &snapshot) -> const In::ColorClockSnapshot & {
+    for (const auto &runtime : *snapshot.runtime)
+      if (const auto *value =
+              std::get_if<In::ColorClockSnapshot>(&runtime.state))
+        return *value;
+    HS_CHECK(false, "missing test color clock");
+    return std::get<In::ColorClockSnapshot>(snapshot.runtime->back().state);
+  };
+  HS_EXPECT_EQ(clock(saved).modulation.phase.phase_turns, .125f);
+  auto mismatched = saved;
+  for (auto &runtime : *mismatched.runtime)
+    if (auto *value = std::get_if<In::ColorClockSnapshot>(&runtime.state))
+      value->modulation.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+  HS_EXPECT_EQ(effect.restore_snapshot(mismatched),
+               ChainSnapshotRestoreResult::INVALID_VALUE);
+  HS_EXPECT_EQ(effect.restore_snapshot(saved),
+               ChainSnapshotRestoreResult::APPLIED);
+  auto uninitialized = saved;
+  for (auto &runtime : *uninitialized.runtime)
+    if (auto *value = std::get_if<In::ColorClockSnapshot>(&runtime.state))
+      value->modulation.initialized = false;
+  HS_EXPECT_EQ(effect.restore_snapshot(uninitialized),
+               ChainSnapshotRestoreResult::INVALID_VALUE);
+  HS_EXPECT_EQ(effect.restore_snapshot(saved),
+               ChainSnapshotRestoreResult::APPLIED);
+  auto &changed = WB::color_params(effect).modulation;
+  changed.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+  changed.evaluation = Pattern::Evaluation::DIRECT;
+  const ChainSnapshot switched = effect.snapshot();
+  HS_EXPECT_EQ(clock(switched).modulation.source,
+               Pattern::SourceKind::DIRECTIONAL_SINE);
+  HS_EXPECT_EQ(clock(switched).modulation.phase.phase_turns, 0.0f);
+  HS_EXPECT_TRUE(clock(switched).modulation.initialized);
+  HS_EXPECT_EQ(effect.restore_snapshot(switched),
+               ChainSnapshotRestoreResult::APPLIED);
+}
+
 inline int run_shader_chain_tests() {
   ModuleFixture fixture("shader_chain");
   HS_RUN(test_shader_chain_table_integrity);
@@ -648,6 +696,7 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_status_names);
   HS_RUN(test_shader_chain_snapshot_roundtrip);
   HS_RUN(test_shader_chain_snapshot_refusals);
+  HS_RUN(test_shader_chain_modulation_snapshot_identity);
   return fixture.result();
 }
 

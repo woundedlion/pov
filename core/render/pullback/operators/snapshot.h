@@ -258,6 +258,8 @@ template <> struct RuntimeStateCodec<Op::ColorClockState> {
     const auto *value = std::get_if<ColorClockSnapshot>(&snapshot);
     if (value == nullptr || !Detail::snapshot_phase(value->oscillation_phase) ||
         !Detail::snapshot_phase(value->modulation.phase.phase_turns) ||
+        (!value->modulation.initialized &&
+         value->modulation.phase.phase_turns != 0.0f) ||
         value->modulation.version != 1 ||
         static_cast<unsigned>(value->modulation.source) > 3)
       return false;

@@ -167,6 +167,13 @@ public:
         out.parameters.push_back({program.param_name(index, field), value});
       }
       auto state = op.op->runtime.capture_state(program.state_block(index));
+      if (modulated) {
+        auto &clock = std::get<Pullback::Interp::ColorClockSnapshot>(state);
+        const auto &params = *reinterpret_cast<
+            const Pullback::Interp::Op::GeneratedPaletteParams *>(
+            program.param_block(index));
+        Pullback::Modulation::synchronize(clock.modulation, params.modulation);
+      }
       if (!std::holds_alternative<std::monostate>(state))
         out.runtime->push_back({op.instance, std::move(state)});
     }
@@ -283,6 +290,17 @@ public:
             if (selected == nullptr ||
                 !op.op->runtime.restore_state(state, selected->state))
               return false;
+            if (std::string_view(op.op->operator_id) ==
+                Op::ColorizeGeneratedPaletteV3::ID) {
+              const auto &config =
+                  static_cast<const Op::GeneratedPaletteParams *>(params)
+                      ->modulation;
+              const auto &clock =
+                  static_cast<const Op::ColorClockState *>(state)->modulation;
+              if (clock.source != config.source ||
+                  clock.version != config.version)
+                return false;
+            }
             ++runtime_count;
           }
           return modulation_count == snapshot.modulation.size() &&

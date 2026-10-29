@@ -289,7 +289,9 @@ class ChainSnapshotCodec {
                   state.modulation.phase.phase_turns) ||
           state.modulation.phase.phase_turns < 0.0f ||
           state.modulation.phase.phase_turns >= 1.0f ||
-          !boolean(modulation, "initialized", state.modulation.initialized))
+          !boolean(modulation, "initialized", state.modulation.initialized) ||
+          (!state.modulation.initialized &&
+           state.modulation.phase.phase_turns != 0.0f))
         return false;
       state.modulation.source = static_cast<Pattern::SourceKind>(source);
       out = state;
