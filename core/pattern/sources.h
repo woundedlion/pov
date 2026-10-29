@@ -57,7 +57,7 @@ struct DirectionalSine {
     HS_CHECK(valid(params) && finite(state.phase_turns),
              "pattern sine: invalid state");
     return {math::wrap_t(math::wrap_t(state.phase_turns) +
-                         math::wrap_t(params.speed))};
+                         std::fmod(params.speed, 1.0f))};
   }
   /** @brief Resolves unit axis and wrapped phase.
    * @param params Source controls.
@@ -68,7 +68,7 @@ struct DirectionalSine {
              "pattern sine: invalid parameters");
     return {SphereDirection::from(params.axis).value(), params.frequency,
             math::wrap_t(math::wrap_t(state.phase_turns) +
-                         math::wrap_t(params.offset))};
+                         std::fmod(params.offset, 1.0f))};
   }
   /** @brief Evaluates an axial wave with a range-reduced argument.
    * @param coordinate Admitted unit direction.

@@ -103,6 +103,30 @@ inline void test_pattern_source_clocks() {
   for (int i = 0; i < 8; ++i)
     state = DirectionalSine::advance(state, sine);
   HS_EXPECT_EQ(state.phase_turns, 0.0f);
+  for (float speed : {-1.0417e-6f, -1.0e-7f, -1.5e-4f, 1.0417e-6f}) {
+    sine.speed = speed;
+    NoiseParams noise;
+    noise.speed = speed;
+    InterferenceParams interference;
+    interference.speed = speed;
+    GridParams sphere_grid;
+    sphere_grid.speed = speed;
+    PhaseState clock{0.375f};
+    float expected = clock.phase_turns;
+    for (int frame = 0; frame < 128; ++frame) {
+      expected = static_cast<float>(static_cast<double>(expected) + speed);
+      HS_EXPECT_EQ(SphereNoise::advance(clock, noise).phase_turns, expected);
+      HS_EXPECT_EQ(SphereInterference::advance(clock, interference).phase_turns,
+                   expected);
+      HS_EXPECT_EQ(SphereSmoothGrid::advance(clock, sphere_grid).phase_turns,
+                   expected);
+      clock = DirectionalSine::advance(clock, sine);
+      HS_EXPECT_EQ(clock.phase_turns, expected);
+    }
+    sine.offset = speed;
+    HS_EXPECT_EQ(DirectionalSine::prepare(sine, {0.375f}).phase_turns,
+                 static_cast<float>(0.375 + speed));
+  }
   GridSourceParams grid;
   grid.speed = -0.2f;
   grid.secondary_rate = 1.25f;

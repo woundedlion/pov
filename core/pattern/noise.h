@@ -70,7 +70,7 @@ struct SphereNoise {
     HS_CHECK(valid(params) && finite(state.phase_turns),
              "pattern noise: invalid state");
     return {math::wrap_t(math::wrap_t(state.phase_turns) +
-                         math::wrap_t(params.speed))};
+                         std::fmod(params.speed, 1.0f))};
   }
   /** @brief Copies the configured generator and resolves the loop offset.
    * @param params Source controls.
