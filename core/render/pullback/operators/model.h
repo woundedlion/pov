@@ -560,6 +560,20 @@ template <typename Model> struct ErasedAdapter {
         *std::launder(reinterpret_cast<const Prepared *>(prepared)))};
   }
 
+  /** @brief Constructs a completed temporal output from prepared endpoints.
+   * @param in Input carrier.
+   * @param out Raw output storage.
+   * @param current Current prepared block.
+   * @param previous Retained prepared block.
+   * @param fraction Current endpoint interpolation weight. */
+  static void run_temporal(const void *in, void *out, const uint8_t *current,
+                           const uint8_t *previous, float fraction) {
+    ::new (out) Output{Model::run_temporal(
+        *std::launder(static_cast<const Input *>(in)),
+        *std::launder(reinterpret_cast<const Prepared *>(current)),
+        *std::launder(reinterpret_cast<const Prepared *>(previous)), fraction)};
+  }
+
   /**
    * @brief Writes the param block between two endpoints along each field's
    *        transition curve.
@@ -707,15 +721,7 @@ template <typename Model> constexpr auto model_run_temporal() {
   using Kernel =
       void (*)(const void *, void *, const uint8_t *, const uint8_t *, float);
   if constexpr (requires { Model::run_temporal; })
-    return static_cast<Kernel>(+[](const void *in, void *out,
-                                   const uint8_t *current,
-                                   const uint8_t *previous, float fraction) {
-      ::new (out) typename Model::Output(Model::run_temporal(
-          *static_cast<const typename Model::Input *>(in),
-          *reinterpret_cast<const typename Model::Prepared *>(current),
-          *reinterpret_cast<const typename Model::Prepared *>(previous),
-          fraction));
-    });
+    return static_cast<Kernel>(&ErasedAdapter<Model>::run_temporal);
   else
     return static_cast<Kernel>(nullptr);
 }
