@@ -74,8 +74,8 @@ HS_FLASH_INLINE Frame sample_frame_reference(const Frame &from, const Frame &to,
               : end;
     }
   });
-  frame.temporal = {from.palette, from.hue_rotation_lut,    from.modulation,
-                    fraction,     from.hue_rotation_linear, from.palette_alpha};
+  frame.temporal = {from.palette, from.hue_rotation_lut, from.modulation,
+                    fraction};
   return frame;
 }
 

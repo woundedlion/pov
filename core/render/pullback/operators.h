@@ -397,7 +397,6 @@ prepare_generated_palette(const FrameContext &ctx,
           params.brightness_top,
           params.opacity_low,
           params.opacity_high,
-          palette->constant_alpha().value_or(-1.0f),
           Color::mechanic_kernel(params.modulation.mechanic.kind)};
 }
 

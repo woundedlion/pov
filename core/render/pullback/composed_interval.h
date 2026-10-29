@@ -226,14 +226,8 @@ public:
         frame.params.template get<"color">().modulation =
             to.params.template get<"color">().modulation;
     }
-    frame.temporal = {from.palette,
-                      from.hue_rotation_lut,
-                      from.modulation,
-                      fraction,
-                      from.hue_rotation_linear,
-                      from.palette_alpha,
-                      same_palette,
-                      continuous};
+    frame.temporal = {from.palette, from.hue_rotation_lut, from.modulation,
+                      fraction,     same_palette,          continuous};
   }
 };
 
@@ -280,7 +274,6 @@ struct FrameHistory<Frame, Hue, true, FloatHue, Baked> {
       palette.rebake_copy(*frame.palette);
     previous = frame;
     previous.palette = &palette.view();
-    previous.hue_rotation_linear = nullptr;
     if constexpr (Hue != Pullback::Color::HueMode::NONE || FloatHue) {
       std::copy_n(frame.hue_rotation_lut, hue_rotation.size(),
                   hue_rotation.data());
@@ -298,12 +291,8 @@ struct FrameHistory<Frame, Hue, true, FloatHue, Baked> {
         previous.modulation = &modulation;
       }
     }
-    previous.temporal = {previous.palette,
-                         previous.hue_rotation_lut,
-                         previous.modulation,
-                         1.0f,
-                         previous.hue_rotation_linear,
-                         previous.palette_alpha};
+    previous.temporal = {previous.palette, previous.hue_rotation_lut,
+                         previous.modulation, 1.0f};
     initialized = true;
   }
 };

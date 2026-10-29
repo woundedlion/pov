@@ -286,7 +286,6 @@ struct GeneratedPaletteState {
   float brightness_top = 1.0f;    ///< High gain.
   float opacity_low = 1.0f;       ///< Alpha gain at value zero.
   float opacity_high = 1.0f;      ///< Alpha gain at value one.
-  float palette_alpha = -1.0f;    ///< Constant palette alpha or sentinel.
   Color4 (*apply_mechanic)(Color4, float, const ColorModulation::Params &) =
       nullptr; ///< Resolved mechanic kernel.
 };
@@ -295,11 +294,8 @@ struct TemporalPaletteResources {
   const BakedPalette *palette = nullptr; ///< Retained palette.
   const Pixel *hue_rotation = nullptr;   ///< Retained path hue table.
   const Modulation::Prepared *modulation =
-      nullptr;           ///< Retained source endpoint.
-  float fraction = 1.0f; ///< Current endpoint weight.
-  const math::Vector *hue_rotation_linear =
-      nullptr;                       ///< Optional float path hue table.
-  float palette_alpha = -1.0f;       ///< Previous constant alpha or sentinel.
+      nullptr;                       ///< Retained source endpoint.
+  float fraction = 1.0f;             ///< Current endpoint weight.
   bool same_palette = false;         ///< Equal endpoint palette resources.
   bool continuous_modulation = true; ///< Modulation topology matches.
 };
@@ -536,20 +532,12 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
         State::brightness_top(frame),
         State::opacity_low(frame),
         State::opacity_high(frame),
-        [&]() {
-          if constexpr (requires { State::palette_alpha(frame); })
-            return State::palette_alpha(frame);
-          else
-            return -1.0f;
-        }(),
         mechanic_kernel(State::mechanic(frame).kind)};
     if constexpr (TEMPORAL) {
       const auto RESOURCES = State::temporal_resources(frame);
       GeneratedPaletteState previous = current;
       previous.palette = RESOURCES.palette;
       previous.hue_rotation.data = RESOURCES.hue_rotation;
-      previous.hue_rotation.linear_data = RESOURCES.hue_rotation_linear;
-      previous.palette_alpha = RESOURCES.palette_alpha;
       const bool SAME_TOPOLOGY =
           current.modulation && RESOURCES.modulation
               ? Modulation::same_topology(current.modulation->config,

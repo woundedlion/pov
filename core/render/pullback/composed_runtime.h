@@ -880,11 +880,8 @@ private:
     frame.modulation = modulation_data();
     frame.params = params;
     frame.resources = {};
-    frame.hue_rotation_linear = nullptr;
     frame.palette_mapping = palette_mapping;
     frame.palette_oscillation_phase = palette_oscillation_phase;
-    frame.palette_alpha =
-        palette_cycler.palette().constant_alpha().value_or(-1.0f);
     params.visit([&]<typename Resource>(const auto &) {
       auto &resource = frame.resources.template get<Resource::KEY>();
       static_cast<ComposedDetail::ResourceClock<Resource> &>(resource) =
@@ -899,9 +896,8 @@ private:
             frame.params.template get<Resource::KEY>(), resource);
     });
     if constexpr (TEMPORAL_SAMPLING)
-      frame.temporal = {
-          frame.palette, frame.hue_rotation_lut,    frame.modulation,
-          1.0f,          frame.hue_rotation_linear, frame.palette_alpha};
+      frame.temporal = {frame.palette, frame.hue_rotation_lut, frame.modulation,
+                        1.0f};
   }
 
   HS_COLD_MEMBER void update_palette_chroma() {
