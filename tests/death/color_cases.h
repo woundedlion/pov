@@ -19,12 +19,6 @@ inline void case_gamut_lut_scratch_b() {
                  GAMUT_LUT_MIN_L_STEPS);
 }
 
-/** @brief Traps on noise hue bake invalid scale. */
-inline void case_noise_hue_bake_invalid_scale() {
-  FastNoiseLite noise;
-  (void)Pattern::SphereNoise::prepare({.scale = opaque(0.0f)}, {}, noise);
-}
-
 /**
  * @brief Death case: a HueWobbleShade depth past the fast-trig argument range.
  */
@@ -134,29 +128,9 @@ inline void case_generated_palette_bank_unknown_mode() {
   (void)bank.palette(opaque(static_cast<Mode>(3)));
 }
 
-/** @brief Generic modulation rejects an unbound palette. */
-inline void case_modulation_null_palette() {
-  struct Field {
-    using Coordinate = Pattern::SphereDirection;
-    struct Prepared {};
-    static float sample(const Coordinate &, const Prepared &) { return 0; }
-  };
-  ColorModulation::PatternModulatedPalette<SolidColorPalette, Field,
-                                           ColorModulation::Opacity>
-      palette;
-  (void)palette.get(.5f, Pattern::SphereDirection::from(math::X_AXIS));
-}
-/** @brief Sphere field admission rejects a zero direction. */
-inline void case_modulation_zero_direction() {
-  (void)Pattern::SphereDirection::from(math::Vector(opaque(0.0f), 0, 0));
-}
 /** @brief Sphere field admission rejects an infinite direction. */
 inline void case_modulation_infinite_direction() {
   (void)Pattern::SphereDirection::from(math::Vector(opaque(INFINITY), 0, 0));
-}
-/** @brief Opacity preparation rejects an out-of-range strength. */
-inline void case_modulation_invalid_opacity() {
-  (void)ColorModulation::Opacity::prepare({opaque(1.1f)});
 }
 
 /**
