@@ -21,14 +21,14 @@ struct AmountParams {
  * @param params Rotation strength.
  * @return Validated controls. */
 inline AmountParams prepare_hue(const AmountParams &params) {
-  HS_CHECK(std::isfinite(params.amount), "HueRotation amount must be finite");
+  HS_CHECK(Pattern::finite(params.amount), "HueRotation amount must be finite");
   return params;
 }
 /** @brief Validates a unit-range mechanic amount.
  * @param params Mechanic strength.
  * @return Validated controls. */
 inline AmountParams prepare_unit(const AmountParams &params) {
-  HS_CHECK(std::isfinite(params.amount) && params.amount >= 0.0f &&
+  HS_CHECK(Pattern::finite(params.amount) && params.amount >= 0.0f &&
                params.amount <= 1.0f,
            "modulation amount must be finite and in [0, 1]");
   return params;
@@ -119,7 +119,7 @@ struct Opacity {
  * @param params Mechanic controls.
  * @return Whether the kind and amount are admitted. */
 inline bool valid(const Params &params) {
-  if (!std::isfinite(params.amount))
+  if (!Pattern::finite(params.amount))
     return false;
   switch (params.kind) {
   case Mechanic::HUE_ROTATION:
@@ -161,8 +161,6 @@ inline Color4 apply(Color4 color, float scalar, const Params &params) {
   HS_CHECK(false, "unknown modulation mechanic");
   return color;
 }
-} // namespace ColorModulation
-
 /** @brief Composes any palette, typed scalar field, and color mechanic.
  * @tparam PaletteSource Palette exposing Color4 get(float) const.
  * @tparam Field Immutable typed scalar field.
@@ -186,3 +184,5 @@ struct PatternModulatedPalette {
     return Mechanic::apply(color, Field::sample(coordinate, field), mechanic);
   }
 };
+
+} // namespace ColorModulation

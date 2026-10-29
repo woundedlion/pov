@@ -14,6 +14,8 @@
 namespace Pattern {
 /** @brief View over a baked cube-map sphere scalar field (values in [-1, 1]). */
 struct SphereLutView {
+  static constexpr uint16_t LAYOUT_VERSION =
+      1; ///< Cube layout and quantization version.
   static constexpr int FACE_COUNT = 6;  ///< Cube faces.
   static constexpr int FACE_STEPS = 24; ///< Samples per face edge.
   static constexpr int FACE_SIZE = FACE_STEPS * FACE_STEPS; ///< Per face.
@@ -230,8 +232,8 @@ template <class Source> struct BakedSphereField {
  * @tparam Identity Equality-comparable record of every prepared source input. */
 template <class Identity> struct SphereBakeCache {
   static constexpr uint16_t LAYOUT_VERSION =
-      1;               ///< Cube layout and quantization version.
-  Identity identity{}; ///< Complete source identity.
+      SphereLutView::LAYOUT_VERSION; ///< Cube layout and quantization version.
+  Identity identity{};               ///< Complete source identity.
   const int8_t *destination = nullptr; ///< Storage associated with this bake.
   uint16_t layout_version = 0; ///< Baked layout version; zero when invalid.
   /** @brief Invalidates retained derived storage. */

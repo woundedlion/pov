@@ -141,7 +141,8 @@ inline void case_modulation_null_palette() {
     struct Prepared {};
     static float sample(const Coordinate &, const Prepared &) { return 0; }
   };
-  PatternModulatedPalette<SolidColorPalette, Field, ColorModulation::Opacity>
+  ColorModulation::PatternModulatedPalette<SolidColorPalette, Field,
+                                           ColorModulation::Opacity>
       palette;
   (void)palette.get(.5f, Pattern::SphereDirection::from(math::X_AXIS));
 }

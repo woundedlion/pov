@@ -64,13 +64,14 @@ inline void test_pattern_modulated_palette() {
   };
   SolidColorPalette source(Color4(Pixel(1234, 5678, 9012), .4f));
   int calls = 0;
-  PatternModulatedPalette<SolidColorPalette, Field, Mechanic> custom{
-      &source, {&calls}, {}};
+  ColorModulation::PatternModulatedPalette<SolidColorPalette, Field, Mechanic>
+      custom{&source, {&calls}, {}};
   auto result = custom.get(.21f, {.25f});
   HS_EXPECT_EQ(result.color, source.get(.21f).color);
   HS_EXPECT_EQ(result.alpha, .1f);
   HS_EXPECT_EQ(calls, 1);
-  PatternModulatedPalette<SolidColorPalette, Field, ColorModulation::Opacity>
+  ColorModulation::PatternModulatedPalette<SolidColorPalette, Field,
+                                           ColorModulation::Opacity>
       mask{&source, {&calls}, {0}};
   result = mask.get(.213f, {-1});
   HS_EXPECT_EQ(result.color, source.get(.213f).color);
