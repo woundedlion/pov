@@ -236,7 +236,7 @@ struct OperatorRuntime {
   /** Colors one input from two immutable endpoint resources. */
   void (*run_temporal)(const void *in, void *out, const uint8_t *current,
                        const uint8_t *previous, float fraction) = nullptr;
-  /** Whether a schema field holds current topology within an interval. */
+  /** Whether a schema field may change without snapping the column interval. */
   bool (*temporal_hold_field)(uint16_t field) = nullptr;
 };
 
@@ -295,7 +295,7 @@ namespace Detail {
 /**
  * @brief Builds the registered schema of @p Model.
  * @tparam Model The operator model.
- * @return Family FIELDS entries, then TOPOLOGY entries.
+ * @return Family FIELDS entries, then TOPOLOGY entries, then EXTRA_SCHEMA entries.
  */
 template <typename Model> consteval auto make_schema() {
   using Params = typename Model::Params;
@@ -418,7 +418,7 @@ consteval bool defaults_in_range(const std::array<ParamFieldInfo, N> &schema) {
   return true;
 }
 
-/** @brief The registered schema of @p Model: family fields, then topology. */
+/** @brief The registered schema of @p Model: family fields, topology, then extra fields. */
 template <typename Model>
 inline constexpr auto SCHEMA = Detail::make_schema<Model>();
 

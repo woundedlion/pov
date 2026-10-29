@@ -36,6 +36,11 @@ namespace Interp {
  * - `Params` — trivially copyable family block with default member values;
  *   its `FIELDS` (`Field<Params>` array) lists the float fields and the
  *   optional `TOPOLOGY` (`TopologyField<Params>` array) its structural enum8s.
+ * - `EXTRA_SCHEMA`, `extra_address`, `sample_extra`: optional Params hooks for
+ *   additional schema fields, erased addresses and parameter interpolation.
+ * - `run_temporal`: optional endpoint-resource color interpolation.
+ * - `temporal_hold_field`: optional fields that may change without snapping
+ *   the column interval; parameter sampling still applies.
  * - `State` — default-constructible instance state; usually inherited from
  *   ValueStateModel, PhaseClockModel or StatelessModel.
  * - `Prepared` — trivially destructible per-frame block built by `prepare`.

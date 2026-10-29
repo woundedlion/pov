@@ -281,7 +281,7 @@ struct GeneratedPaletteParams : Color::ColorControls {
     HS_CHECK(false, "invalid modulation field index");
     return nullptr;
   }
-  /** @brief Interpolates continuous mechanic controls only across equal kinds.
+  /** @brief Interpolates mechanic controls only across matching recipe topology.
    * @param out Interpolated parameters.
    * @param a Previous parameters.
    * @param b Current parameters.
@@ -416,7 +416,7 @@ struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
   }
   /// Interpolation contract for source and mechanic controls.
   static constexpr const char *ADMISSIBILITY_CONVEXITY =
-      "Source controls hold endpoint recipes; mechanic strength interpolates within one kind.";
+      "Source controls hold endpoint recipes; mechanic strength interpolates within matching recipe topology.";
   static constexpr bool APPROXIMATE = true;
   static constexpr ApproximationOracleId ORACLE =
       ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
@@ -452,7 +452,7 @@ struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
   }
   /** @brief Holds modulation topology at its current endpoint.
    * @param field Parameter field index.
-   * @return Whether the field uses the current endpoint value. */
+   * @return Whether the field may change without snapping the column interval. */
   static constexpr bool temporal_hold_field(uint16_t field) {
     return field >= Params::FIELDS.size() + Params::TOPOLOGY.size();
   }

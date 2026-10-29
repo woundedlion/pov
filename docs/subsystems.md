@@ -370,8 +370,11 @@ the current endpoint. `ShaderChain` keeps the previous `FrameContext` in a
 `FrameHistory` whose palettes and hue tables point at owned copies, and
 blends the colorize operator's colours from both endpoints' resources at the
 column's interpolated controls. The first frame, a recompile or snapshot
-restore, and a change of any topology or snapping field draw the current
-endpoint in every column.
+restore, and changes to topology or snapping fields draw the current
+endpoint in every column, except fields admitted by the operator's
+`temporal_hold_field` policy. Modulation recipe changes keep blending endpoint
+colours with the current modulation recipe; matching recipe topology allows
+mechanic amount interpolation.
 
 Manual shaders reuse the same facility, from
 [field.h](../core/render/spacetime/field.h), over their
