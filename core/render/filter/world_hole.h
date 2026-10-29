@@ -73,7 +73,6 @@ public:
     }
     float c = math::dot(v, origin);
     float m1 = math::dot(v, v);
-    HS_CHECK(m1 >= math::EPS_LEN_SQ, "Hole::plot: degenerate vector");
     float norm_sq = m1;
     float threshold_sq = cos_radius * cos_radius * norm_sq;
     bool outside = cos_radius >= 0.0f ? c <= 0.0f || c * c <= threshold_sq
