@@ -707,6 +707,7 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_state_restore_values);
   HS_RUN(test_shader_chain_table_behavior);
   HS_RUN(test_shader_chain_schema_and_field_ids);
+  HS_RUN(test_shader_chain_schema_defaults_match_params);
   HS_RUN(test_shader_chain_instance_id_wellformed);
   HS_RUN(test_shader_chain_slot_and_hash_contract);
   HS_RUN(test_shader_chain_catalog_golden);

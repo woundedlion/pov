@@ -844,3 +844,31 @@ inline void test_shader_chain_parity_rotate_project() {
         plane_identical);
   });
 }
+
+/** @brief Erased parameter defaults match every registered schema field. */
+inline void test_shader_chain_schema_defaults_match_params() {
+  for (const auto &op : In::OPERATOR_TABLE) {
+    HS_CONTEXT(op.operator_id);
+    std::vector<std::max_align_t> storage(
+        (op.runtime.param.size + sizeof(std::max_align_t) - 1) /
+        sizeof(std::max_align_t));
+    op.runtime.construct_params(storage.data());
+    const auto BEGIN = reinterpret_cast<uintptr_t>(storage.data());
+    const auto END = BEGIN + op.runtime.param.size;
+    for (uint16_t index = 0; index < op.schema_count; ++index) {
+      const auto &field = op.schema[index];
+      HS_CONTEXT(field.id);
+      const auto *address = op.runtime.param_address(storage.data(), index);
+      const auto VALUE = reinterpret_cast<uintptr_t>(address);
+      const size_t BYTES = field.enum_count ? sizeof(uint8_t) : sizeof(float);
+      HS_EXPECT_TRUE(VALUE >= BEGIN && VALUE <= END && BYTES <= END - VALUE);
+      if (VALUE < BEGIN || VALUE > END || BYTES > END - VALUE)
+        continue;
+      if (field.enum_count)
+        HS_EXPECT_EQ(*static_cast<const uint8_t *>(address), field.enum_def);
+      else
+        HS_EXPECT_TRUE(
+            float_identical(*static_cast<const float *>(address), field.def));
+    }
+  }
+}
