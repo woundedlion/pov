@@ -17,7 +17,7 @@ struct MirrorFrame {
   float oscillation_phase = 0.0f;
   const BakedPalette *palette = nullptr;
   const Pixel *hue_rotation_lut = nullptr;
-  const int8_t *hue_noise_lut = nullptr;
+  const PB::Modulation::Prepared *modulation = nullptr;
 };
 
 struct MirrorBinding {
@@ -93,11 +93,15 @@ struct MirrorColor {
     return frame.color.hue_shift_amount;
   }
   static PB::Color::HueRotationLutView hue_rotation(const MirrorFrame &frame) {
-    return {frame.hue_rotation_lut, frame.color.hue_shift_amount != 0.0f};
+    return {frame.hue_rotation_lut,
+            frame.color.hue_shift_amount != 0.0f ||
+                frame.color.modulation.mechanic.amount != 0.0f};
   }
-  static PB::Color::HueNoiseLutView hue_noise(const MirrorFrame &frame) {
-    return {frame.hue_noise_lut, HueV == PB::Color::HueMode::NOISE &&
-                                     frame.color.hue_shift_amount != 0.0f};
+  static const PB::Modulation::Prepared *modulation(const MirrorFrame &frame) {
+    return frame.modulation;
+  }
+  static ColorModulation::Params mechanic(const MirrorFrame &frame) {
+    return frame.color.modulation.mechanic;
   }
   static PB::Color::BrightnessEnvelope
   brightness_envelope(const MirrorFrame &) {
@@ -153,7 +157,7 @@ inline MirrorFrame mirror_from(In::ChainProgram &program,
   frame.oscillation_phase = clock.oscillation_phase;
   frame.palette = ctx.palettes[frame.color.palette_mode];
   frame.hue_rotation_lut = ctx.hue_rotation_lut;
-  frame.hue_noise_lut = ctx.hue_noise_lut;
+  frame.modulation = ctx.modulation;
   return frame;
 }
 

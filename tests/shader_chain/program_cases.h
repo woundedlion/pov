@@ -98,6 +98,14 @@ inline void test_shader_chain_state_restore_values() {
         *static_cast<float *>(op.runtime.param_address(params.data(), index)) =
             field.min + 0.37f * (field.max - field.min);
     }
+    if (std::string_view(op.operator_id) == "colorize.generated-palette.v3") {
+      static_cast<In::Op::GeneratedPaletteParams *>(
+          static_cast<void *>(params.data()))
+          ->modulation.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
+      static_cast<In::Op::GeneratedPaletteParams *>(
+          static_cast<void *>(params.data()))
+          ->modulation.evaluation = Pattern::Evaluation::DIRECT;
+    }
     const auto *param_bytes = reinterpret_cast<const uint8_t *>(params.data());
     auto advanced = blocks(op.runtime.state.size);
     auto fresh = blocks(op.runtime.state.size);
@@ -269,7 +277,9 @@ inline void test_shader_chain_schema_and_field_ids() {
     return;
   const In::OperatorDescriptor &colorize = *colorize_found;
   constexpr size_t COLOR_FIELDS = PB::Color::ColorParams::FIELDS.size();
-  HS_EXPECT_SIZE_OR_RETURN(colorize.schema_span(), COLOR_FIELDS + 4);
+  HS_EXPECT_SIZE_OR_RETURN(
+      colorize.schema_span(),
+      COLOR_FIELDS + 4 + In::Op::GeneratedPaletteParams::EXTRA_SCHEMA.size());
   HS_EXPECT_TRUE(std::string_view(colorize.schema[COLOR_FIELDS].id) ==
                  "palette-mode");
   HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS].enum_count, 3);
@@ -278,11 +288,10 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS + 1].enum_count, 4);
   HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS + 1].enum_def, 2);
   const In::ParamFieldInfo &hue = colorize.schema[COLOR_FIELDS + 2];
-  HS_EXPECT_EQ(hue.enum_count, 3);
+  HS_EXPECT_EQ(hue.enum_count, 2);
   HS_EXPECT_TRUE(std::string_view(hue.enum_ids[0]) == "none");
-  HS_EXPECT_TRUE(std::string_view(hue.enum_ids[1]) == "noise");
-  HS_EXPECT_TRUE(std::string_view(hue.enum_ids[2]) == "path-length");
-  HS_EXPECT_EQ(hue.enum_def, static_cast<uint8_t>(PB::Color::HueMode::NOISE));
+  HS_EXPECT_TRUE(std::string_view(hue.enum_ids[1]) == "path-length");
+  HS_EXPECT_EQ(hue.enum_def, static_cast<uint8_t>(PB::Color::HueMode::NONE));
   HS_EXPECT_TRUE(std::string_view(colorize.schema[COLOR_FIELDS + 3].id) ==
                  "brightness-envelope");
   HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS + 3].enum_count, 5);

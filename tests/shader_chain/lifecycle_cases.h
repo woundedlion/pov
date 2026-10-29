@@ -137,9 +137,10 @@ inline void test_shader_chain_refusal_shape() {
   HS_EXPECT_EQ(source.secondary, source_before.secondary);
   HS_EXPECT_EQ(source.angle, source_before.angle);
   const auto &color = state_as<In::Op::ColorClockState>(program, 3);
-  HS_EXPECT_EQ(color.hue_noise_seed, color_before.hue_noise_seed);
+  HS_EXPECT_EQ(color.modulation, color_before.modulation);
   HS_EXPECT_EQ(color.oscillation_phase, color_before.oscillation_phase);
-  HS_EXPECT_EQ(color.hue_noise_phase, color_before.hue_noise_phase);
+  HS_EXPECT_EQ(color.modulation.phase.phase_turns,
+               color_before.modulation.phase.phase_turns);
   program.clear();
 }
 

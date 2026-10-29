@@ -60,80 +60,225 @@ static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::MIDPOINT4) == 4);
 #include "tests/shader_chain/field_ops.h"
 #include "tests/shader_chain/sample_ops.h"
 #include "tests/shader_chain/effect_cases.h"
-/** @brief The hue tables are bound only on the modes that read them, and the
-    hue-noise bake is skipped while both of its inputs hold still. */
-inline void test_shader_chain_hue_lut_bake_cache() {
+/** @brief Spatial cache ignores palette/mechanic changes and tracks source inputs. */
+inline void test_shader_chain_modulation_bake_cache() {
   using WB = ShaderChainWhiteBox;
-  using HueShiftMode = In::Op::HueShiftMode;
-  // Outside the quantizer's [-127, 127] range.
-  constexpr int8_t POISON = -128;
-  constexpr size_t LAST = PB::Color::HueNoiseLutView::SIZE - 1;
   reset_globals();
   WB::FX effect;
   effect.init();
-  In::Op::GeneratedPaletteParams &color = WB::color_params(effect);
-  int8_t *lut = WB::hue_noise_lut(effect);
-  const auto poison = [lut] {
+  auto &color = WB::color_params(effect);
+  color.modulation.mechanic.amount = .5f;
+  auto ctx = WB::frame_context(effect);
+  HS_EXPECT_TRUE(ctx.modulation != nullptr);
+  HS_EXPECT_TRUE(ctx.modulation->cube.active);
+  auto *lut = WB::pattern_lut(effect);
+  constexpr int8_t POISON = -128;
+  const auto poison = [&] {
     lut[0] = POISON;
-    lut[LAST] = POISON;
+    lut[Pattern::SphereLutView::SIZE - 1] = POISON;
   };
-  const auto expect_baked = [lut](bool baked) {
-    HS_EXPECT_EQ(lut[0] != POISON, baked);
-    HS_EXPECT_EQ(lut[LAST] != POISON, baked);
+  const auto baked = [&](bool expected) {
+    HS_EXPECT_EQ(lut[0] != POISON, expected);
+    HS_EXPECT_EQ(lut[Pattern::SphereLutView::SIZE - 1] != POISON, expected);
   };
-
-  // Amount 0 disables both tables whatever the mode asks for.
-  color.hue_mode = static_cast<uint8_t>(HueShiftMode::NOISE);
-  color.hue_shift_amount = 0.0f;
   poison();
-  In::FrameContext ctx = WB::frame_context(effect);
-  HS_EXPECT_TRUE(ctx.hue_rotation_lut == nullptr);
-  HS_EXPECT_TRUE(ctx.hue_noise_lut == nullptr);
-  expect_baked(false);
-
-  // NONE reads neither table, so a leftover amount buys no bake.
-  color.hue_mode = static_cast<uint8_t>(HueShiftMode::NONE);
-  color.hue_shift_amount = 0.5f;
+  WB::frame_context(effect);
+  baked(false);
+  color.modulation.mechanic.amount = .25f;
+  WB::frame_context(effect);
+  baked(false);
+  color.modulation.mechanic.kind = ColorModulation::Mechanic::OPACITY;
+  WB::frame_context(effect);
+  baked(false);
+  color.modulation.noise.scale = 3;
+  WB::frame_context(effect);
+  baked(true);
   poison();
-  ctx = WB::frame_context(effect);
-  HS_EXPECT_TRUE(ctx.hue_rotation_lut == nullptr);
-  HS_EXPECT_TRUE(ctx.hue_noise_lut == nullptr);
-  expect_baked(false);
-
-  // PATH_LENGTH reads the rotation table only.
-  color.hue_mode = static_cast<uint8_t>(HueShiftMode::PATH_LENGTH);
+  ++color.modulation.seed;
+  WB::frame_context(effect);
+  baked(true);
   poison();
-  ctx = WB::frame_context(effect);
-  HS_EXPECT_TRUE(ctx.hue_rotation_lut != nullptr);
-  HS_EXPECT_TRUE(ctx.hue_noise_lut == nullptr);
-  expect_baked(false);
-
-  // NOISE binds and bakes both.
-  color.hue_mode = static_cast<uint8_t>(HueShiftMode::NOISE);
-  color.hue_noise_scale = 1.5f;
-  ctx = WB::frame_context(effect);
-  HS_EXPECT_TRUE(ctx.hue_rotation_lut != nullptr);
-  HS_EXPECT_TRUE(ctx.hue_noise_lut != nullptr);
-  expect_baked(true);
-
-  // Held inputs skip the bake.
-  poison();
-  ctx = WB::frame_context(effect);
-  expect_baked(false);
-
-  // A scale change re-bakes the whole table.
-  color.hue_noise_scale = 3.0f;
-  ctx = WB::frame_context(effect);
-  expect_baked(true);
-
-  // So does the loop phase moving under a held scale.
-  poison();
-  color.hue_noise_speed = 0.001f;
-  const float held = WB::color_clocks(effect).hue_noise_phase;
+  color.modulation.noise.speed = .001f;
+  const float previous = WB::color_clocks(effect).modulation.phase.phase_turns;
   WB::program(effect).advance();
-  HS_EXPECT_NE(WB::color_clocks(effect).hue_noise_phase, held);
+  HS_EXPECT_NE(WB::color_clocks(effect).modulation.phase.phase_turns, previous);
+  WB::frame_context(effect);
+  baked(true);
+  poison();
+  color.modulation.mechanic.amount = 0;
   ctx = WB::frame_context(effect);
-  expect_baked(true);
+  baked(false);
+  HS_EXPECT_TRUE(ctx.hue_rotation_lut == nullptr);
+}
+
+/** @brief Source clocks retain same-source identity and reset on recipe changes. */
+inline void test_shader_chain_modulation_clock_lifecycle() {
+  namespace Mod = PB::Modulation;
+  ColorModulation::Config config;
+  config.enabled = false;
+  config.noise.speed = -.125f;
+  auto state = Mod::init(config);
+  Mod::advance(state, config);
+  HS_EXPECT_EQ(state.phase.phase_turns, .875f);
+  config.mechanic.kind = ColorModulation::Mechanic::OPACITY;
+  Mod::synchronize(state, config);
+  HS_EXPECT_EQ(state.phase.phase_turns, .875f);
+  config.evaluation = Pattern::Evaluation::DIRECT;
+  config.noise.scale = 3;
+  Mod::synchronize(state, config);
+  HS_EXPECT_EQ(state.phase.phase_turns, .875f);
+  config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+  config.sine.speed = .25f;
+  Mod::synchronize(state, config);
+  HS_EXPECT_EQ(state.phase.phase_turns, 0.0f);
+  Mod::advance(state, config);
+  HS_EXPECT_EQ(state.phase.phase_turns, .25f);
+  config.sine.frequency = -1;
+  HS_EXPECT_FALSE(Mod::valid(config));
+  config.sine.frequency = 1;
+  config.version = 2;
+  HS_EXPECT_FALSE(Mod::valid(config));
+  config.version = 1;
+  config.source = static_cast<Pattern::SourceKind>(99);
+  HS_EXPECT_FALSE(Mod::valid(config));
+}
+/** @brief Every source and mechanic compose through the operator's color binding. */
+inline void test_shader_chain_modulation_combinations() {
+  using Kind = ColorModulation::Mechanic;
+  auto fixture = std::make_unique<ProgramFixture>();
+  auto &program = fixture->program;
+  HS_EXPECT_EQ(program.compile(DEFAULT_CHAIN).code, In::ChainStatus::OK);
+  auto &params = param_as<In::Op::GeneratedPaletteParams>(program, 3);
+  const PB::FieldSample SAMPLE{.37f, .6f, math::Vector(.2f, .7f, .4f), 0};
+  const auto COORDINATE = Pattern::SphereDirection::from(SAMPLE.sphere);
+  for (auto source :
+       {Pattern::SourceKind::NOISE, Pattern::SourceKind::DIRECTIONAL_SINE,
+        Pattern::SourceKind::SPHERE_INTERFERENCE,
+        Pattern::SourceKind::SPHERE_SMOOTH_GRID})
+    for (auto kind :
+         {Kind::HUE_ROTATION, Kind::POSITIVE_LIGHTNESS_LIFT, Kind::OPACITY}) {
+      params.modulation = {};
+      params.modulation.source = source;
+      params.modulation.evaluation = Pattern::Evaluation::DIRECT;
+      params.modulation.mechanic = {kind, .7f};
+      params.modulation.sine.offset = .13f;
+      params.modulation.interference.offset = .13f;
+      params.modulation.grid.offset = .13f;
+      PB::Modulation::Resources<> resources;
+      const auto clock = PB::Modulation::init(params.modulation);
+      auto ctx = shared_resources().context();
+      ctx.modulation = &resources.prepare(params.modulation, clock);
+      ctx.hue_rotation_lut = nullptr;
+      program.prepare(ctx);
+      const Color4 ACTUAL = run_entry<Color4>(program, ctx, 3, SAMPLE);
+      const float scalar = PB::Modulation::sample(*ctx.modulation, COORDINATE);
+      Color4 expected = ctx.palettes[0]->get(SAMPLE.value);
+      expected =
+          ColorModulation::apply(expected, scalar, params.modulation.mechanic);
+      expected.alpha *= SAMPLE.coverage;
+      HS_EXPECT_EQ(ACTUAL.color, expected.color);
+      HS_EXPECT_EQ(ACTUAL.alpha, expected.alpha);
+      if (kind == Kind::OPACITY)
+        HS_EXPECT_EQ(ACTUAL.color, ctx.palettes[0]->get(SAMPLE.value).color);
+    }
+}
+
+inline int modulation_probe_calls = 0;
+/** @brief Workbench columns blend completed alpha and hold current topology at zero. */
+inline void test_shader_chain_modulation_temporal_endpoints() {
+  using Kind = ColorModulation::Mechanic;
+  for (int topology = 0; topology < 5; ++topology) {
+    constexpr size_t BLOCKS =
+        (In::CHAIN_ARENA_BYTES + sizeof(std::max_align_t) - 1) /
+        sizeof(std::max_align_t);
+    std::vector<std::max_align_t> history(BLOCKS), column(BLOCKS);
+    auto fixture = std::make_unique<ProgramFixture>();
+    auto &program = fixture->program;
+    program.bind_temporal_storage(reinterpret_cast<uint8_t *>(history.data()),
+                                  reinterpret_cast<uint8_t *>(column.data()));
+    HS_EXPECT_EQ(program.compile(DEFAULT_CHAIN).code, In::ChainStatus::OK);
+    auto &params = param_as<In::Op::GeneratedPaletteParams>(program, 3);
+    params.modulation.evaluation = Pattern::Evaluation::DIRECT;
+    params.modulation.mechanic = {Kind::OPACITY, .2f};
+    PB::Modulation::Prepared previous;
+    previous.config = params.modulation;
+    previous.state.phase.phase_turns = .25f;
+    previous.evaluate = +[](const PB::Modulation::Prepared &p,
+                            const Pattern::SphereDirection &) {
+      ++modulation_probe_calls;
+      return 2 * p.state.phase.phase_turns - 1;
+    };
+    auto previous_ctx = shared_resources().context();
+    previous_ctx.modulation = &previous;
+    previous_ctx.hue_rotation_lut = nullptr;
+    previous_ctx.palettes[0] = previous_ctx.palettes[1];
+    program.prepare(previous_ctx);
+    program.capture_history();
+    params.modulation.mechanic.amount = .8f;
+    switch (topology) {
+    case 1:
+      params.modulation.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+      break;
+    case 2:
+      params.modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
+      break;
+    case 3:
+      params.modulation.mechanic.kind = Kind::HUE_ROTATION;
+      break;
+    case 4:
+      params.modulation.enabled = false;
+      break;
+    }
+    auto current = previous;
+    current.config = params.modulation;
+    current.state.phase.phase_turns = .75f;
+    auto ctx = shared_resources().context();
+    ctx.modulation = &current;
+    ctx.hue_rotation_lut = nullptr;
+    HS_EXPECT_TRUE(program.history_continuous());
+    for (float fraction : {0.0f, .375f, 1.0f}) {
+      program.prepare_column(ctx, previous_ctx, fraction);
+      const auto &prepared =
+          *reinterpret_cast<const PB::Color::GeneratedPaletteState *>(
+              program.prepared_block(3));
+      const float amount = topology == 0 ? hs::lerp(.2f, .8f, fraction) : .8f;
+      HS_EXPECT_EQ(prepared.mechanic.amount, amount);
+      const math::Vector VIEW = math::Vector(.3f, .7f, .2f).normalized();
+      const auto sphere = run_entry<PB::SphereSample>(
+          program, ctx, 0, PB::SphereSample{VIEW, 0});
+      const auto plane = run_entry<PB::PlaneSample>(program, ctx, 1, sphere);
+      const auto field = run_entry<PB::FieldSample>(program, ctx, 2, plane);
+      modulation_probe_calls = 0;
+      const Color4 actual =
+          program.evaluate_column(VIEW, ctx, previous_ctx, fraction);
+      if (topology == 4)
+        HS_EXPECT_EQ(modulation_probe_calls, 0);
+      Color4 before = previous_ctx.palettes[0]->get(field.value),
+             after = ctx.palettes[0]->get(field.value);
+      if (topology == 3) {
+        before = hue_rotate_lut_gamut(before, .5f * amount);
+        after = hue_rotate_lut_gamut(after, .5f * amount);
+      } else if (topology != 4) {
+        before.alpha *= hs::lerp(1.0f, topology == 0 ? .25f : .75f, amount);
+        after.alpha *= hs::lerp(1.0f, .75f, amount);
+      }
+      before.alpha *= field.coverage;
+      after.alpha *= field.coverage;
+      const auto weight = frac_to_q16(fraction);
+      HS_EXPECT_EQ(actual.color, before.color.lerp16(after.color, weight));
+      HS_EXPECT_EQ(actual.alpha, hs::lerp(before.alpha, after.alpha, fraction));
+    }
+    if (topology == 0) {
+      previous = current;
+      previous_ctx.modulation = &previous;
+      program.prepare(ctx);
+      program.capture_history();
+      program.prepare_column(ctx, previous_ctx, .375f);
+      modulation_probe_calls = 0;
+      (void)program.evaluate_column(math::Y_AXIS, ctx, previous_ctx, .375f);
+      HS_EXPECT_EQ(modulation_probe_calls, 1);
+    }
+  }
 }
 
 // The wire spellings are the JS contract.
@@ -201,11 +346,11 @@ inline void test_shader_chain_snapshot_roundtrip() {
     param_as<In::Op::RotateChainParams>(program, 0).spin_rate = 0.001f;
     param_as<In::Op::GridSampleParams>(program, 4).speed = 0.02f;
     auto &color = WB::color_params(effect);
-    color.hue_shift_amount = 0.7f;
-    color.hue_noise_scale = 1.7f;
+    color.modulation.mechanic.amount = 0.7f;
+    color.modulation.noise.scale = 1.7f;
     color.palette_chroma = 0.43f;
     color.phase_oscillation_speed = 0.004f;
-    color.hue_noise_speed = -0.0007f;
+    color.modulation.noise.speed = -0.0007f;
     for (int frame = 0; frame < 713; ++frame)
       WB::advance_without_render(effect);
     effect.setAnimationsPaused(true);
@@ -389,7 +534,7 @@ inline void test_shader_chain_snapshot_refusals() {
   candidate = saved;
   for (auto &runtime : *candidate.runtime)
     if (auto *clock = std::get_if<In::ColorClockSnapshot>(&runtime.state))
-      clock->hue_noise_phase = 1.0f;
+      clock->modulation.phase.phase_turns = 1.0f;
   refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
   In::Op::NoisePhaseState noise_state;
   HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::NoisePhaseState>::restore(
@@ -490,7 +635,10 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_effect_rebind_generation);
   HS_RUN(test_shader_chain_effect_refusal_keeps_schema);
   HS_RUN(test_shader_chain_pause_semantics);
-  HS_RUN(test_shader_chain_hue_lut_bake_cache);
+  HS_RUN(test_shader_chain_modulation_bake_cache);
+  HS_RUN(test_shader_chain_modulation_clock_lifecycle);
+  HS_RUN(test_shader_chain_modulation_combinations);
+  HS_RUN(test_shader_chain_modulation_temporal_endpoints);
   HS_RUN(test_shader_chain_status_names);
   HS_RUN(test_shader_chain_snapshot_roundtrip);
   HS_RUN(test_shader_chain_snapshot_refusals);

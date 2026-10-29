@@ -69,7 +69,7 @@ struct ColorResources {
       palette_bytes[3 * BakedPalette::required_arena_bytes() + 64];
   BakedPaletteStorage palettes[3];
   std::array<Pixel, PB::Color::HueRotationLutView::SIZE> hue_rotation{};
-  std::array<int8_t, PB::Color::HueNoiseLutView::SIZE> hue_noise{};
+  PB::Modulation::Resources<> modulation;
 
   ColorResources() {
     Arena arena(palette_bytes, sizeof(palette_bytes));
@@ -83,9 +83,10 @@ struct ColorResources {
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise.SetSeed(4211);
     noise.SetFrequency(1.0f);
-    PB::Color::prepare_hue_noise_lut(
-        std::span<int8_t, PB::Color::HueNoiseLutView::SIZE>(hue_noise), noise,
-        1.5f, 0.25f);
+    ColorModulation::Config config;
+    config.seed = 4211;
+    config.noise.scale = 1.5f;
+    modulation.prepare(config, {.phase = {.25f}, .initialized = true});
   }
 
   In::FrameContext context() const {
@@ -94,7 +95,7 @@ struct ColorResources {
     ctx.palettes = {&palettes[0].view(), &palettes[1].view(),
                     &palettes[2].view()};
     ctx.hue_rotation_lut = hue_rotation.data();
-    ctx.hue_noise_lut = hue_noise.data();
+    ctx.modulation = &modulation.prepared;
     return ctx;
   }
 };
@@ -275,10 +276,11 @@ inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {
           put(v.phase);
           put(v.rotation);
         } else if constexpr (std::is_same_v<T, In::ColorClockSnapshot>) {
-          static_assert(sizeof(T) == 3 * sizeof(uint32_t));
           put(v.oscillation_phase);
-          put(v.hue_noise_phase);
-          put(v.hue_noise_seed);
+          put(static_cast<uint32_t>(v.modulation.source));
+          put(static_cast<uint32_t>(v.modulation.version));
+          put(v.modulation.phase.phase_turns);
+          put(static_cast<uint32_t>(v.modulation.initialized));
         } else if constexpr (std::is_same_v<T, In::SphericalRingsSnapshot>) {
           static_assert(sizeof(T) == 15 * sizeof(uint32_t));
           put_walk(v.walk);

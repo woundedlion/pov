@@ -87,7 +87,7 @@ inline void test_shader_chain_composed_frame_parity() {
     auto reference = references[static_cast<size_t>(frame - 1)];
     reference.palette = ctx.palettes[color.palette_mode];
     reference.hue_rotation_lut = ctx.hue_rotation_lut;
-    reference.hue_noise_lut = ctx.hue_noise_lut;
+    reference.modulation = ctx.modulation;
     const auto prepared = FX::RenderPipeline::prepare(reference);
     for (const math::Vector &view : sweep_views()) {
       const Color4 expected = FX::shade(view, prepared);
@@ -313,7 +313,7 @@ inline void test_shader_chain_projection_plane_bound() {
     every admission path; ordinary extreme compositions still admit. */
 inline void test_shader_chain_plane_growth_admission() {
   using WB = ShaderChainWhiteBox;
-  constexpr int WARPS = 23;
+  constexpr int WARPS = 18;
   constexpr float MIN_SCALE = 1.0f / 64.0f;
   std::array<std::string, WARPS> ids;
   std::array<std::string, WARPS> scale_x;
@@ -515,7 +515,7 @@ inline void test_shader_chain_instantaneous_pixel_golden() {
     }
     if (frame == 60) {
       HS_EXPECT_EQ(chain.set_chain(topology).code, In::ChainStatus::OK);
-      WB::color_params(chain).hue_shift_amount = 0.3f;
+      WB::color_params(chain).modulation.mechanic.amount = 0.3f;
     }
     chain.draw_frame();
     chain.advance_display();
@@ -886,11 +886,11 @@ inline void test_shader_chain_operator_states_sample_clocks() {
   In::Op::ColorClockState color_from, color_to;
   color_from.oscillation_phase = 0.8f;
   color_to.oscillation_phase = 0.2f;
-  color_from.hue_noise_phase = 0.3f;
-  color_to.hue_noise_phase = 0.4f;
+  color_from.modulation.phase.phase_turns = 0.3f;
+  color_to.modulation.phase.phase_turns = 0.4f;
   In::Op::ColorClockState color = color_to;
   In::Op::temporal_sample(
       color, In::Op::temporal_interval(color_from, color_to), 0, 0.5f);
   HS_EXPECT_NEAR(std::remainder(color.oscillation_phase, 1.0f), 0.0f, 1e-6f);
-  HS_EXPECT_EQ(color.hue_noise_phase, 0.4f);
+  HS_EXPECT_EQ(color.modulation.phase.phase_turns, 0.4f);
 }

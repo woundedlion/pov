@@ -641,7 +641,7 @@ inline void run_sample_variant(In::ChainProgram &program,
   auto &params = param_as<In::Op::GridSampleParams>(program, 2);
   params.weight_mode = static_cast<uint8_t>(weight);
   params.coverage_mode = static_cast<uint8_t>(coverage);
-  constexpr auto HUE = PB::Color::HueMode::NOISE;
+  constexpr auto HUE = PB::Color::HueMode::NONE;
   constexpr auto ENV = PB::Color::BrightnessEnvelope::NONE;
   if (weight == In::Op::WeightMode::NONE) {
     switch (coverage) {
@@ -732,6 +732,7 @@ void run_colorize_variant(In::ChainProgram &program,
   HS_CONTEXT("hue / envelope", int(HueV), int(EnvelopeV));
   auto &params = param_as<In::Op::GeneratedPaletteParams>(program, 3);
   params.hue_mode = static_cast<uint8_t>(HueV);
+  params.modulation.enabled = HueV != In::Op::HueShiftMode::PATH_LENGTH;
   params.envelope_mode = static_cast<uint8_t>(EnvelopeV);
   for (uint8_t palette_mode = 0; palette_mode < 3; ++palette_mode) {
     params.palette_mode = palette_mode;
@@ -765,8 +766,7 @@ inline void test_shader_chain_parity_colorize_variants() {
     const In::FrameContext ctx = shared_resources().context();
     run_colorize_envelopes<In::Op::HueShiftMode::NONE>(program, ctx,
                                                        COLORIZE_ENVELOPES);
-    run_colorize_envelopes<In::Op::HueShiftMode::NOISE>(program, ctx,
-                                                        COLORIZE_ENVELOPES);
+
     run_colorize_envelopes<In::Op::HueShiftMode::PATH_LENGTH>(
         program, ctx, COLORIZE_ENVELOPES);
   });
