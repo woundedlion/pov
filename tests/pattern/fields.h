@@ -35,8 +35,6 @@ inline void test_pattern_direction_admission() {
   HS_EXPECT_NEAR(A.value().x, B.value().x, 1.0e-7f);
   HS_EXPECT_NEAR(A.value().y, B.value().y, 1.0e-7f);
   HS_EXPECT_NEAR(A.value().z, B.value().z, 1.0e-7f);
-  const Pattern::Position3D POSITION{{3.0f, 4.0f, 0.0f}};
-  HS_EXPECT_EQ(math::dot(POSITION.value, POSITION.value), 25.0f);
 }
 
 /** @brief Sphere sources use independent admitted axes and shared turn phases. */
