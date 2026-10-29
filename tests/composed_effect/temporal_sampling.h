@@ -538,6 +538,28 @@ inline void test_temporal_owned_resources() {
   HS_EXPECT_TRUE(!Modulation::valid(config));
 
   config = {};
+  config.evaluation = Pattern::Evaluation::DIRECT;
+  config.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
+  for (auto mechanic : {ColorModulation::Mechanic::HUE_ROTATION,
+                        ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT,
+                        ColorModulation::Mechanic::OPACITY}) {
+    config.mechanic.kind = mechanic;
+    HS_EXPECT_FALSE(Modulation::valid(config));
+    config.enabled = false;
+    HS_EXPECT_FALSE(Modulation::valid(config));
+    config.enabled = true;
+  }
+  config.evaluation = Pattern::Evaluation::BAKED_CUBE;
+  HS_EXPECT_TRUE(Modulation::valid(config));
+  config.noise.variant = Pattern::NoiseVariant::CONFIGURED_SINGLE;
+  config.mechanic.kind = ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT;
+  config.evaluation = Pattern::Evaluation::DIRECT;
+  HS_EXPECT_FALSE(Modulation::valid(config));
+  config.enabled = false;
+  HS_EXPECT_FALSE(Modulation::valid(config));
+  config.evaluation = Pattern::Evaluation::BAKED_CUBE;
+  HS_EXPECT_TRUE(Modulation::valid(config));
+  config = {};
   config.enabled = true;
   config.mechanic.amount = 0.4f;
   Modulation::Resources<> cube;

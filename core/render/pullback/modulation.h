@@ -38,6 +38,12 @@ inline bool valid(const Config &config) {
       (config.source != Pattern::SourceKind::NOISE ||
        config.noise.scale > 8.0f))
     return false;
+  if (config.evaluation == Pattern::Evaluation::DIRECT &&
+      config.source == Pattern::SourceKind::NOISE &&
+      (config.noise.variant != Pattern::NoiseVariant::CONFIGURED_SINGLE ||
+       config.mechanic.kind ==
+           ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT))
+    return false;
   switch (config.source) {
   case Pattern::SourceKind::NOISE:
     return Pattern::SphereNoise::valid(config.noise);

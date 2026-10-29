@@ -104,7 +104,10 @@ inline void test_shader_chain_state_restore_values() {
           ->modulation.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
       static_cast<In::Op::GeneratedPaletteParams *>(
           static_cast<void *>(params.data()))
-          ->modulation.evaluation = Pattern::Evaluation::DIRECT;
+          ->modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
+      static_cast<In::Op::GeneratedPaletteParams *>(
+          static_cast<void *>(params.data()))
+          ->modulation.noise.scale = 4.0f;
     }
     const auto *param_bytes = reinterpret_cast<const uint8_t *>(params.data());
     auto advanced = blocks(op.runtime.state.size);
