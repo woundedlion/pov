@@ -4,48 +4,75 @@
 
 ## Problem and scope
 
-The spatial palette noise modifier already has the coordinates needed for
-analytic patterns. It samples a scalar field over sphere directions and uses
-that scalar to rotate palette hue. Generalize both the field source and the
-operation applied to color, independently.
+Generalize the existing spatial palette noise modifier into independent pattern
+sources and color operations, using its existing sphere coordinates.
 
 The abstraction has two axes: **pattern source** and **modulation mechanic**.
 Noise plus hue rotation is the existing noise modifier; noise plus positive
 lightness lift is shimmer. Grid plus opacity uses the same protocol.
 Keep ordinary palette lookup, `get(float)`, unchanged.
 
-The first implementation delivers one generic modulation slot with noise,
-directional sine, interference and smooth grid sources, and hue rotation,
-positive lightness lift and opacity mechanics, for composed pullback effects
-and the shader workbench. It does not add a modifier graph, user-entered
-expressions, projected coordinate domains, palette-coordinate displacement or
-multiple-mechanic ordering. Existing wrapper consumers remain compatible;
-migrating every effect is unnecessary.
+First delivery provides one slot: noise/sine/interference/grid sources and
+hue/lightness/opacity mechanics, for composed pullback and the workbench.
+Graphs, expression parsing, additional modulation coordinate bindings, remapping and
+multiple-mechanic ordering are deferred. Migrate existing callers directly,
+with no compatibility wrappers, fallback configuration or parallel implementation.
 
 ## Existing behavior
 
-[The spatial palette utilities](../../core/color/noise_hue_palette.h) own two
-different approximations: a palette-coordinate by hue-rotation color table,
-and a six-face spatial noise table. The latter contains 24 by 24 signed-byte
-samples per face. Its sampler uses dominant-axis ratios, so a direction need
-not have unit length. Positive scaling leaves its mathematical lookup
-coordinates unchanged. The bake evaluates noise at normalized face directions,
-scaled and translated around the existing periodic noise loop.
+[The current spatial utilities](../../core/color/noise_hue_palette.h) combine a
+palette-by-hue color table with a six-face noise table, 24 by 24 signed-byte
+samples per face. Dominant-axis ratios make lookup invariant to positive
+direction scaling. Baking evaluates normalized directions through the existing
+periodic noise loop.
 
 [The pullback colorizer](../../core/render/pullback/color.h) samples this field
-at `FieldSample::sphere`. This is already spatial input, distinct from the
-one-dimensional coordinate modifiers in
-[palette composition](../../core/color/composition.h).
+at `FieldSample::sphere`; the needed spatial input already exists.
 
 [The carrier contract](../../core/render/pullback/contract.h) defines the frame:
 PLANE sampling retains the projection-frame direction; SPHERE sampling retains
 the camera-frame direction. Plane endomorphisms do not rewrite the sphere point.
 Inherit these semantics without another transform; this is not universal world space.
 
-[Shimmer](../../core/color/noise_shimmer_palette.h) already shares the spatial
-table but consumes only positive noise lobes to lift OKLab lightness toward
-white, preserving alpha. This is a special case of the generic source/mechanic
-pair, not a separate permanent shimmer subsystem.
+[Shimmer](../../core/color/noise_shimmer_palette.h) shares the table and lifts
+OKLab lightness over positive lobes, preserving alpha: another source/mechanic pair.
+
+## Shared sources with pullback
+
+Build one canonical pattern library for both pullback rendering and modulation,
+not a second catalogue. Extract reusable signed kernels, passive parameter records,
+prepared math and source-specific phase math from
+[pullback sources](../../core/render/pullback/source.h): planar rings, spiral,
+interference, coupled grid, sphere rings, noise and other reusable raw kernels.
+Reuse lower-level lattice/SDF kernels where appropriate without relocating those
+subsystems. Keep genuinely different algorithms explicit: PlaneCoupledGrid and
+SphereSmoothGrid are different domain-specific sources, not duplicate names for
+one promised pattern.
+
+Likewise shared noise must express basis/octave selection, contrast shaping and
+loop construction as source parameters or meaningful algorithm variants. Current
+pullback noise applies octave/contrast logic; palette noise samples one configured
+generator value. Preserve those formulas explicitly in the common source library,
+not consumer-specific copies or silent substitutions; mechanics do not select them.
+
+Core sources know typed coordinates and pure values, not renderer carriers,
+bindings or controls. Pullback retains provider/state adapters, coordinate
+admission, Field metadata, projection transforms, weighting, coverage, conversion
+to [0, 1], and carrier provenance/path length. Its Source policies and Sample
+operators are real renderer bindings, not compatibility wrappers. Both those
+policies and operator implementations call the shared kernels directly; remove
+old copied free functions and forwarding aliases. UI descriptors wrap/visit each
+source's single parameter record rather than duplicate its fields.
+
+**A source does not inherently need a projection.** A planar source needs a
+chosen mapping only when its consumer starts with sphere coordinates. Pullback
+already supplies plane coordinates; sphere sources take directions directly.
+Projection stays in the renderer's coordinate pipeline, not the shared kernel.
+The library supports PlanePosition and SphereDirection now for existing consumers.
+The initial modulation binding still supplies only SphereDirection: FieldSample
+does not retain warped plane coordinates. Supporting a planar modulation source
+later needs an explicit coordinate binding, not a silent plane/sphere conversion
+or universal context bag.
 
 ## Scalar and typed coordinate contracts
 
@@ -68,13 +95,12 @@ Unify the protocol across domains, not palettes into dimensional variants:
 | SphereDirection | A unit direction represented by Vector3; radius is discarded. The sphere is intrinsically two-dimensional. |
 
 A field exposes its Coordinate type, shared with its source. The wrapper accepts
-that type; mechanics remain domain-agnostic. Do not pass a universal context bag,
-force every domain into Vector3, or switch coordinate domains per pixel. Ordinary
-palettes still map a scalar lookup coordinate to color. The palette-coordinate
-by hue-rotation LUT is internal acceleration, not a user-facing 2D palette.
+that type; mechanics remain domain-agnostic. Avoid a universal context bag,
+Vector3 for every domain, or per-pixel domain switching. The palette-by-hue LUT
+is internal acceleration, not a user-facing 2D palette.
 
-Initial delivery supplies the sphere specialization; other renderer plumbing
-and presets are deferred. The generic boundary admits vectors whose computed
+ScalarCoordinate and Position3D bindings remain future work. For SphereDirection,
+the boundary admits vectors whose computed
 float squared length is finite and at least `math::EPS_NORMALIZE_SQ` (currently
 1e-12), matching [Vector normalization](../../core/math/3dmath.h). Explicitly
 check finiteness before normalization; the existing lower-bound check alone
@@ -83,19 +109,15 @@ Construct the unit SphereDirection tag only at this validated boundary.
 
 Normalize once per sample and share that coordinate across retained endpoints.
 Cube baking supplies unit directions; cube lookup may elide normalization using
-scale-invariant ratios. The legacy raw cube path keeps its existing precondition
-of finite direction with positive float squared length; the generic boundary
-is deliberately narrower. Test scale invariance only while both vectors remain
+scale-invariant ratios after admission. Migrate raw-vector callers to this
+validated boundary. Test scale invariance only while both vectors remain
 admitted. Neither path interprets direction length as radius or normalizes
 Position3D; `FieldSample` gains no unit-length requirement.
 
-Prepare validates finite parameters and admitted axes.
-Custom sources must satisfy the output contract; debug assertions diagnose
-nonfinite output, and the shared scalar boundary clamps finite numerical
-overshoot. Clamping is not a way to conceal an incorrectly normalized custom
-pattern. Sampling performs no allocation, random-state advancement, mutation,
-I/O or clock reads. All time and seed inputs are explicit prepared values.
-Custom sample cost must be bounded; unbounded iteration is outside the protocol.
+Prepare validates parameters and axes. Debug assertions diagnose nonfinite
+custom output; the scalar boundary clamps finite numerical overshoot, not
+incorrect source normalization. Sampling is immutable and bounded, with no
+allocation, random-state advancement, I/O or clock reads. Time and seed are explicit.
 
 ## Generic protocol and initial patterns
 
@@ -104,17 +126,16 @@ in [pullback sources](../../core/render/pullback/source.h). The following types
 are schematic, not existing declarations:
 
 ```cpp
-struct PatternClock {
-  float phase_turns;
-};
-
 struct SphereDirection; // Constructed by the validated domain adapter.
 
 struct DirectionalSine {
   using Coordinate = SphereDirection;
-  struct Params { math::Vector axis; float frequency; float offset_turns; };
+  using Params = SineParams;
+  using State = SineState;
   struct Prepared { math::Vector axis; float frequency; float phase_turns; };
-  static Prepared prepare(const Params&, PatternClock);
+  static State init_state(const Params&);
+  static State advance(const State&, const Params&);
+  static Prepared prepare(const Params&, const State&);
   static float sample(const Coordinate&, const Prepared&);
 };
 
@@ -122,7 +143,7 @@ template<class Pattern> struct DirectSphereField;
 template<class Pattern> struct BakedSphereField;
 
 struct Opacity {
-  struct Params { float amount; };
+  using Params = OpacityParams;
   struct Prepared { float amount; };
   static Prepared prepare(const Params&);
   static Color4 apply(Color4 color, float scalar, const Prepared&);
@@ -137,41 +158,44 @@ struct PatternModulatedPalette {
 };
 ```
 
+Each source declares bounded passive State, possibly empty, and pure initialization,
+advance and prepare operations; stateless operations may be no-ops. SineState has
+one phase in turns. Existing multi-phase sources retain primary/secondary/angle
+state with their declared radian periods, noise retains its loop phase, and other
+inputs remain explicit. Preparation may take additional declared pure-value inputs,
+such as a renderer-supplied sphere-ring axis; it never takes renderer resources.
+Camera, spatial walks, projection and provider machinery stay renderer-owned.
+
 The field adapter exposes prepare/sample, wrapping either direct evaluation or
 cube storage. The mechanic exposes prepare/apply and returns a valid straight-alpha
 `Color4`. The generic wrapper samples its base palette, samples the field, then
 applies the mechanic. HueRotation and PositiveLightnessLift follow the same
 mechanic protocol as Opacity. Nonzero hue/color LUT fusion is a qualified
-approximation of this reference, not bitwise equivalence. New generic accelerated
+approximation of this reference, not bitwise equivalence. Accelerated
 routes must still honor the exact identity rules below.
-PatternHuePalette and PatternShimmerPalette are not primary abstractions.
 
-Provide four initial source policies:
+The modulation binding initially admits these four sphere sources alongside
+the existing planar/sphere catalogue extracted for pullback:
 
 | Source | Definition and controls |
 |---|---|
 | Noise | Adapter around the current configured noise generator, spatial scale and sphere-loop construction. Seed and generator configuration belong to source identity. |
 | Directional sine | `sin(2*pi*(frequency*dot(axis,direction) + phase + offset))`; unit axis, nonnegative frequency and offset in turns. Frequency is cycles per unit axial coordinate, so the sphere spans twice that many cycles along the axis. |
-| Two-wave interference | Half the sum of two directional sines, with separate axes, frequencies and offsets. Both use the same loop phase; the fixed half gain bounds the result without dynamic normalization. |
-| Smooth grid | Product of two directional sines over orthogonal unit axes, with independent frequencies and offsets and a shared loop phase. Validate axis orthogonality. The product remains in [-1, 1]. This is a smooth grid over sphere directions, not a planar projection or a precomputed opacity mask. |
+| Sphere interference | Half the sum of two directional sines, with separate axes, frequencies and offsets. Both use the same loop phase; the fixed half gain bounds the result without dynamic normalization. |
+| SphereSmoothGrid | Product of two directional sines over orthogonal unit axes, with independent frequencies and offsets and a shared loop phase. Validate axis orthogonality. The product remains in [-1, 1]; this is not the existing planar coupled-grid algorithm. |
 
-Phase is in turns and speed is turns per engine update, matching current
-palette noise timing. Advance it once per update, wrap to [0, 1), and preserve
-negative-speed behavior. Do not substitute wall-clock seconds. The analytic
-sources return to the same field after one phase turn. Source preparation
-hoists frame-constant work outside scanning. Admission qualifies upper frequency
+New sphere sine/interference/grid phases use turns per engine update, including
+negative speeds, and repeat after one turn. Existing source clocks keep their
+own units, periods and rate coupling; do not force them into one float clock.
+Prepare hoists frame-constant work. Admission qualifies upper frequency
 and argument bounds compatible with the chosen trigonometry and the project's
 fast-trig limits. Fold phase and keep arguments within that range; this proposal
 does not invent a universal cutoff or promise detail free of spatial aliasing.
 
-An effect may supply any custom C++ policy satisfying this protocol. Compile-time
-instantiation provides extensibility; this is not an expression interpreter or
-an unrestricted runtime callback registry. Built-ins may have a small tagged
-selector, resolved during preparation into specialized sampling paths. Custom
-sources need a stable recipe identifier and serializable parameter schema to
-participate in workbench replay; a function pointer is not a snapshot recipe.
-Custom mechanics follow the same bounded, immutable discipline and require
-their own stable replay recipe and schema.
+Custom C++ sources and mechanics follow these bounded, immutable protocols.
+Compile-time extension needs a stable recipe ID and serializable parameter
+schema for replay. Built-in selection resolves during preparation; callback
+pointers are not recipes.
 
 ## Mechanics and valid combinations
 
@@ -179,7 +203,7 @@ their own stable replay recipe and schema.
 |---|---|---|---|
 | Noise | Existing noise hue modifier | Existing shimmer | Organic alpha mask |
 | Directional sine | Hue bands | Lightness bands | Smooth alpha bands |
-| Smooth grid | Hue grid | Lightness grid | Grid alpha mask |
+| SphereSmoothGrid | Hue grid | Lightness grid | Grid alpha mask |
 
 These combinations, and interference with any mechanic, are structurally valid.
 Admit each recipe only after qualifying its resources, approximation error and
@@ -196,18 +220,17 @@ Opacity resolves `u = (scalar + 1) / 2`, then
 `gain = lerp(1, u, amount)` for amount in [0, 1]. It returns unchanged RGB and
 `alpha = input_alpha * gain`. Scalar zero is a half mask at full amount, not
 identity. At full amount, scalar -1 removes alpha and scalar +1 preserves it.
-For the generic reference and new generic accelerated routes, **amount zero is
+For reference and accelerated routes, **amount zero is
 exact Color4 identity for every mechanic**. A zero resolved hue rotation,
 including zero after periodic wrapping, returns the exact base palette sample;
 bypass the hue/color LUT. Positive lightness lift also returns its exact input
 when lift is zero. These identities apply before downstream brightness/coverage.
 No mechanic changes the source range or asks for a target-specific value.
 
-Legacy active LUT routes may resample palette color even at zero hue shift,
-because their palette axis is quantized. Compatibility adapters preserve that
-existing resampling, rounding and output as a legacy numeric profile within
-the common generic engine, rather than claiming exact identity or creating a
-second engine. New explicit descriptors use the new generic identity contract.
+Existing active LUT routes can resample palette color even at zero hue shift
+because their palette axis is quantized. Remove that behavior in the canonical
+implementation: zero resolved rotation samples the base palette exactly. Review
+resulting render changes and update goldens intentionally.
 
 Zero amount may skip field evaluation and preparing unused mechanic/color
 resources, while source clocks continue. Keep any still-needed retained endpoint
@@ -217,60 +240,51 @@ The colorizer order is palette sampling, mechanic application, existing RGB
 brightness envelope, then alpha multiplication by coverage and value opacity.
 The result remains straight alpha. Final premultiplication stays in
 [the scan shader](../../core/render/scan/shader.h), after the chain; opacity
-must not multiply RGB early. Legacy noise hue remains an adapter into these
-internals, retaining its specialized kernels and existing ordering.
+must not multiply RGB early. Qualified optimized kernels implement this same
+contract; they do not become independent noise-hue or shimmer engines.
 
 ## Direct and baked sphere evaluation
 
-For the initial SphereDirection specialization, evaluation strategy is explicit
-in the effect or workbench recipe. Normalization here applies only to sphere
-directions; a future Position3D implementation must preserve radius.
+SphereDirection recipes explicitly select evaluation strategy. Only sphere
+directions normalize; future Position3D fields preserve radius.
 
-* **Direct:** normalize the input and evaluate the prepared source per sample.
-  This preserves narrow or high-frequency features subject to scan resolution
-  and floating-point math, and incurs per-sample arithmetic.
+* **Direct:** evaluate the prepared source at the admitted unit direction.
+  Detail remains limited by scan resolution and floating-point math.
 * **Baked cube:** evaluate the source into the existing six-face layout, clamp
   and round to signed bytes with the existing quantization, then bilinearly
-  sample it. The cube table becomes reusable scalar storage. Preserve old
-  noise names as compatibility aliases or wrappers during extraction.
+  sample it. The cube table becomes reusable scalar storage independent of color.
 
-There is no automatic strategy switch based on frequency, load or source kind.
-The same recipe must select the same path on native, WASM and firmware. The
-legacy noise path remains baked. New analytic presets initially choose direct
-evaluation; baked analytic recipes are opt-in and need an error qualification.
+Do not switch strategy automatically with frequency or load. Recipes select the
+same path across native/WASM/firmware: migrated noise initially baked, analytic
+sources initially direct. Baked analytic recipes require error qualification.
 
 Cube storage cannot reproduce arbitrary frequencies or sharp boundaries.
 Quantization contributes at most 1/254 scalar error at a bake point; spatial
-interpolation error depends on the source and is additional. Each baked recipe
-declares an admitted parameter range and measured approximation bounds. Reject
-unqualified baked configurations rather than quietly blurring them or switching
-paths. Reuse cube face conventions and duplicated edge evaluation so new
-sources do not introduce seams.
+interpolation adds source-dependent error. Each baked recipe declares admitted
+parameter ranges and measured bounds; reject unqualified configurations. Preserve
+cube face conventions and duplicated edge evaluation to avoid seams.
 
 ## Ownership, cache invalidation and replay
 
-Prepared state and tables are owned by the effect/runtime arena; views borrow
-them through the draw and any retained interval. Direct endpoint state must
-contain its complete immutable source inputs, including any generator handle
-whose resource stays immutable through that interval. Own/copy direct generator
-configuration, or borrow an explicitly immutable retained generator; a lifetime-valid
-pointer to a subsequently mutated generator is insufficient. Never retain a pointer into
-mutable live controls or overwrite the previous table before its final read.
+The effect/runtime arena owns prepared state and tables; views borrow through
+the draw and retained interval. Direct endpoints own/copy complete source inputs
+or borrow immutable retained generators. A live pointer to a mutated generator
+is insufficient. Do not retain mutable controls or overwrite a still-read table.
 
 The current noise cache keys scale and phase under a documented precondition
-that its generator configuration and destination remain unchanged. Preserve
-that optimized legacy contract. A general field cache additionally keys source
+that its generator configuration and destination remain unchanged. Replace it
+with one complete field cache identity covering source
 kind/recipe version, all source parameters, seed and generator configuration,
-phase, and bake layout/version. A configuration generation may replace the
+source state/prepared inputs, and bake layout/version. A configuration generation may replace the
 configuration portion only if every mutation increments it. Reset cache validity
 on ownership changes and restore. Mechanic kind, amount and other mechanic
 controls, and palette changes, do not invalidate the spatial table. Any
 mechanic/color cache has a separate identity: palette changes invalidate the
 hue-rotation color table; spatial pattern changes do not.
 
-Snapshots store the enabled state, source recipe/parameters, evaluation strategy,
-seed where applicable, generic loop phase, independent mechanic kind/parameters
-and retained dormant legacy phase. Derived tables and pointers are not serialized.
+Snapshots store enabled state, source recipe/parameters, evaluation strategy,
+seed where applicable, typed/versioned source state, and mechanic kind/parameters.
+Derived tables and pointers are not serialized.
 Restore invalidates derived state and rebuilds needed resources deterministically
 before first use; invalid or unavailable recipes fail explicitly. Exact continuation of
 a partially drawn interval also needs the previous endpoint recipe/resources
@@ -288,14 +302,11 @@ Update the independent owners and codecs together:
 
 ## Temporal behavior and topology
 
-Preserve the existing noise interpolation semantics. The colorizer reads the
-previous and current spatial tables at the same column direction, using the
-column's shared interpolated palette mapping and hue amount, samples each
-endpoint's hue-rotation/palette resources, then interpolates endpoint RGB.
-Alpha follows the existing temporal alpha path. It does **not** interpolate
-the scalar first and hue-rotate once, nor evaluate independent complete old and
-new color-control sets. Preserve existing endpoint selection, Q16 weights,
-rounding and stationary-resource fast paths for legacy noise.
+For modulation use endpoint-color interpolation, not scalar-first blending.
+Pullback may retain its existing source-phase interpolation policy: consumer
+temporal policies can differ while identical prepared source inputs produce
+identical raw samples. Review color numeric changes instead of retaining a
+parallel engine.
 
 For a new pattern interval with entirely unchanged modulation topology,
 retain the two prepared source states or two baked tables. Evaluate each at
@@ -309,18 +320,17 @@ avoids double interpolation and aligns direct and baked resource semantics.
 Do not interpolate the scalar first and apply the mechanic once. In particular,
 equal base palette alpha does not imply equal modulated alpha: the common-alpha
 fast path must be disabled for opacity unless equality is proven after modulation.
-Preserve legacy noise alpha fast paths where their alpha-preserving premise holds.
-Existing specialized noise kernels retain their current float/rounding order;
-algebraic rearrangement of those kernels is not assumed bit-identical.
+Alpha-preserving mechanics may use an equality fast path where that premise is
+proven. Pin interpolation weights and rounding with tests; do not assume
+algebraic rearrangements are bit-identical.
 
-A source kind/custom recipe version, evaluation strategy, mechanic kind,
-enabled state, effective descriptor ownership/presence or numeric-profile change
-is a topology change, even when other selectors match. Hold the **entire current
-effective modulation**: ownership, numeric profile, source parameters and
-clock-selected state/resources, mechanic typed parameters/state and enabled
-state, including fraction zero. This applies to both descriptor insertion and
-removal. Continuous mechanic controls interpolate only when the entire topology
-is unchanged, even if the mechanic kind alone matches. For example, sine-to-grid with opacity amount
+A source kind/custom recipe version, evaluation strategy, mechanic kind or
+enabled-state change is a topology change. Hold the **entire current modulation**:
+source parameters and current prepared state/resources (initialized on a source
+kind/version switch), mechanic typed parameters/state
+and enabled state, including fraction zero. Continuous mechanic controls interpolate
+only when the entire topology is unchanged, even if the mechanic kind alone matches.
+For example, sine-to-grid with opacity amount
 0.2-to-0.8 uses the current grid and amount 0.8 throughout the switch interval.
 Hue turns are never interpolated as opacity amount.
 Apply that mechanic to both palette endpoints and interpolate their modulated
@@ -331,73 +341,133 @@ The fraction-zero result uses the previous palette with the held current
 modulation, including its alpha effect; it need not equal the previous fully
 modulated frame. Never reinterpret an old source's or mechanic's resources
 under the new type.
-Intervals wholly within legacy ownership retain existing noise topology behavior;
-transitions across descriptor ownership follow the current-effective-owner policy above.
+Disabling therefore holds identity across that interval; enabling holds the new
+prepared modulation.
 
-## Compatibility and delivery
+## Canonical configuration and migration
 
-Use an independent modulation descriptor with source selector/parameters,
+Use one modulation configuration containing source selector/parameters,
 evaluation strategy, mechanic selector/parameters and enabled flag (default true).
-Keep `HueMode::NONE = 0`, `NOISE = 1`, `PATH_LENGTH = 2` and its displacement alias.
-Resolve slot ownership before preparing resources:
+It is the sole representation. Disabled modulation is identity. Validate recipe
+and parameters regardless of enabled state or amount.
 
-| Explicit descriptor | Legacy hue mode | Effective behavior |
-|---|---|---|
-| Absent | NONE | Existing no-modulation behavior. |
-| Absent | NOISE | Derive noise plus hue rotation with the legacy numeric profile. |
-| Absent | PATH_LENGTH | Existing independent path-length hue behavior. |
-| Present | NONE or NOISE | Descriptor solely owns the slot; legacy noise controls are dormant. |
-| Present | PATH_LENGTH | Reject the configuration. |
+Each configured source instance has one state owner: the renderer stores and
+schedules it using the source's pure initialization/advance operations. Advance
+once per update even when modulation amount is zero or enabled is false. Changing
+mechanic, strategy or same-source parameters retains State; new rates apply on
+the next advance. Source kind/version changes initialize that source's State,
+never reinterpret the old type. Snapshot restore restores typed state. Disabled
+modulation may skip samples/bakes; reenable rebuilds needed resources from current
+state. Palette-mapping clocks remain separate; no dormant source state is kept.
 
-A disabled explicit descriptor is identity; it never falls back to legacy NOISE.
-Validate recipe and parameters regardless of enabled state or amount. Dormant
-legacy controls cannot stack, drive generic resources or advance their clock.
-Keep legacy IDs, defaults, seed setup, noise loop and optimized bake unchanged.
-Encode old descriptor-absent data in its unchanged legacy shape. Encode an
-explicit descriptor once; any preserved legacy fields are explicitly inactive,
-not a second effective representation. Preserve color-clock-v1 meaning and add
-versioned generic state. Append new IDs and update gates, metadata and controls.
+Keep the existing PATH_LENGTH hue feature explicitly configured in the renderer,
+outside this spatial slot. Reject a configuration enabling both that path and
+generic modulation. Remove old noise-mode ownership machinery; do not invent a
+path-length pattern or duplicate hue API to retain it.
 
-An explicit descriptor's generic phase starts at zero on creation, stays
-normalized to [0, 1), and is retained across source, strategy and mechanic changes.
-With that descriptor present, advance once per engine update at its source speed even while
-amount is zero or enabled is false. Source changes use the new speed thereafter,
-without resetting phase. Disabled modulation may skip sampling/bakes; reenable
-uses the current phase and restores valid resources before use. Restore a
-snapshot's phase rather than reinitializing it.
+Migrate all noise-hue and shimmer callers, includes, controls, snapshots and
+tests directly. Noise plus HueRotation and noise plus PositiveLightnessLift
+are configurations of the generic implementation, not named compatibility
+wrappers. Remove old palette headers after their final callers migrate and update
+documentation references to the replacement modules.
+Reuse existing noise-loop, generator and gamut math; review intentional render
+changes from exact zero identity and unified rounding. Bump snapshot/preset
+schema versions where needed and reject unsupported old versions explicitly;
+do not emulate old wire shapes or maintain dual representations.
 
-Freeze the legacy hue-noise phase while a descriptor is present. Removing it
-resumes the retained legacy phase if the old mode is NOISE; never advance both
-clocks. Palette-mapping oscillation clocks remain separate and unaffected.
+Source and mechanic selectors have independent stable identifiers in the new
+schema. Custom policies are compiled in and replayed through registered recipes,
+never persisted callback pointers. Existing one-dimensional NoiseWarpModifier
+and RippleModifier remain prelookup remaps outside this Color4 mechanic contract.
 
-The existing modifiers must fall out of the generic implementation. Schematically:
+## Code organization
 
-```cpp
-template<class PaletteSource>
-using NoiseHueImplementation = PatternModulatedPalette<
-    PaletteSource, BakedSphereField<Noise>, HueRotation<LegacyNoiseNumerics>>;
-template<class PaletteSource>
-using NoiseShimmerImplementation = PatternModulatedPalette<
-    PaletteSource, BakedSphereField<Noise>, PositiveLightnessLift>;
+Use ten cohesive header-only units. Templates and small kernels match the
+repository's existing style; no per-platform backend copies or source/mechanic
+pair files are needed. New APIs live in dedicated pattern/modulation namespaces,
+not new global Noise, Grid or Opacity names.
+
+Proposed layout; these files are not created by this spec:
+
+```text
+core/pattern/
+  types.h                 Typed coordinates, source Params/State records/IDs
+                          with explicit units and evaluation selector.
+  field.h                 Source/field contracts and direct evaluation adapter.
+  sources.h               Shared analytic kernels/preparation/phase math,
+                          including existing planar and sphere sources.
+  noise.h                 Noise policy; isolated FastNoiseLite dependency.
+  sphere_lut.h            Scalar cube geometry, views, sampling, generic baking
+                          and cache support; no noise-generator dependency.
+core/color/
+  modulation_types.h      Mechanic parameter records/IDs and canonical config;
+                          imports passive pattern types, no samplers/UI/Color4.
+  modulation.h            Three mechanics and generic palette composition.
+  hue_rotation_lut.h      Palette-by-hue color table and qualified color fusion.
+core/render/pullback/
+  modulation.h            Built-in binding, parameter metadata/registration,
+                          validation, scheduling and owned source state/resources.
+  modulation_temporal.h   Retention/equality and completed-endpoint color kernels.
+tests/pattern/
+  fields.h                Typed-domain admission and direct source cases.
+  sphere_lut.h            Generic bake, seams, sampling and invalidation cases.
+tests/color/modulation.h  Mechanics/composition, identity and color-LUT cases.
 ```
 
-NoiseHuePalette and NoiseShimmerPalette preserve their public names and bind/LUT
-APIs as wrappers around these specializations. Their existing table arguments
-bind the generic baked field view. Consolidate implementation, retaining
-specialized fast paths, rather than maintaining duplicate independent engines.
-Preset names need no migration. Existing one-dimensional NoiseWarpModifier and
-RippleModifier remap the coordinate before palette lookup; they are not Color4
-mechanics and need no forced merger. A scalar-domain pattern may later drive
-the same hue/lightness/opacity mechanics through the generic protocol.
+Source policies alias pattern records; mechanics alias color records. The
+canonical config assembles them without implementation imports or duplicate
+definitions. Codecs use this passive schema; UI metadata and serialization
+implementations stay separate.
 
-Source and mechanic selectors have independent stable identifiers; custom
-policies are compiled in and selected through registered serializable recipes,
-never persisted callback pointers.
+Dependencies flow integration -> color/pattern -> math/support. Pattern code
+never imports color/render/controls/UI; analytic users never import FastNoiseLite.
+Generic color composition and mechanics import no concrete sources, samplers,
+cube storage or registry. Passive record imports are allowed, but mechanic apply
+consumes only Color4, scalar and its own parameters. Composition templates the
+supplied Field/Mechanic. Color fusion and scalar storage remain separate.
 
-Implement in stages: extract reusable scalar storage behind compatibility
-entry points; add the generic source/mechanic protocol and all three mechanics;
-then wire metadata, snapshots and workbench support. Exercise noise, sine,
-interference and grid through that slot. No effect preset migration is required.
+The renderer binding joins admitted built-ins and resolves dispatch before hot
+loops. Shared helpers accept config/prepared views; they never import the
+higher-level colorizer, composed runtime or workbench host. Entrypoints call
+helpers, not vice versa. Ownership stays in arenas. Add no global registry state,
+singleton or all-built-in umbrella facade.
+
+Extract the current
+[noise-hue header](../../core/color/noise_hue_palette.h) by responsibility:
+cube view/geometry/sampler and generic bake/cache go to sphere storage; generator
+evaluation goes to the noise policy; palette-by-hue tables and sampling go to the
+color LUT; composition goes to the generic color module. Move
+[shimmer's lightness operation](../../core/color/noise_shimmer_palette.h) into
+the positive-lightness mechanic. Migrate callers and remove both original headers;
+do not leave forwarding headers, aliases or duplicated numeric paths.
+
+The colorizer/composed runtime and workbench host use shared validation, clocks
+and preparation. Existing snapshot/operator codecs carry canonical state; WASM
+JSON and TypeScript definitions stay in their target files referenced above.
+Schema and binding changes land together.
+
+Migrate [composed source bindings](../../core/render/pullback/composed_policies.h),
+[providers](../../core/render/pullback/composed_providers.h) and
+[sample operators](../../core/render/pullback/operators/sample.h) to the shared
+source library. The existing source header retains renderer bindings and field
+metadata, not another kernel catalogue. Do not move camera walks, projections,
+lenses or provider factories into the pattern module.
+
+Place new source/domain/cube cases in the proposed pattern tests and mechanic
+cases in the proposed color test. Register them through the existing native
+module/CMake harness. Extend
+[composed-effect temporal tests](../../tests/composed_effect/temporal_sampling.h)
+and [shader-chain lifecycle tests](../../tests/shader_chain/lifecycle_cases.h)
+for integration; retain migrated coverage from
+[existing palette cases](../../tests/color/palette_layer.h).
+
+Adding a source changes its pattern records/kernels, integration registration and
+tests, not mechanics. Adding a mechanic changes its color records/implementation,
+registration and tests, not source kernels. Extend
+[include-direction checks](../../tools/include_paths.py) and
+[their fixtures](../../tools/include_path_tests/test_include_paths.py) for these
+new boundaries; the current broad layer gate does not enforce them. Add standalone
+header compilation proving analytic, schema and generic composition independence.
 
 ## Budgets and acceptance
 
@@ -424,39 +494,42 @@ evaluations per changed key and none for an unchanged key. Scan allocation is fo
 
 Acceptance requires:
 
-* Unchanged legacy noise table bytes and existing render goldens across seeds,
-  positive/negative speeds, zero amount/shift and temporal paths, including legacy
-  active-LUT resampling. Separately assert exact generic Color4 identity at zero
-  amount and resolved hue rotation; qualified nonzero approximations need bounds.
-* Independent known-value tests for sine, interference and grid, output bounds,
-  periodic phase, direction-scale invariance within admission, rejected below-floor
-  or nonfinite squared lengths, and invalid axes.
+* Migrated noise/shimmer caller coverage across seeds, positive/negative speeds,
+  zero amount/shift and temporal paths. Assert exact Color4 identity at zero
+  amount and resolved hue rotation, qualify nonzero approximation error, and
+  review intentional render-golden changes instead of preserving old LUT numerics.
+* Source known-value, bounds/periodicity, admitted scale-invariance and rejected
+  invalid-axis, below-floor or nonfinite squared-length tests.
 * Cross-axis tests using one source with all mechanics and one mechanic with
-  different sources. Generic zero amount and mechanic-specific scalar-zero rules
-  hold; legacy numeric profiles preserve existing output. Verify shimmer behavior.
-* Compile-time domain checks rejecting mismatched coordinate types and implicit
-  Position3D-to-SphereDirection conversion. Future volumetric fields must not
-  normalize away radius; these checks require no additional renderer plumbing.
+  different sources. Zero amount and mechanic-specific scalar-zero rules hold;
+  verify positive-lightness gamut and alpha behavior.
+* Compile-time rejection of mismatched domains and implicit Position3D-to-direction
+  conversion; volumetric radius survives. No extra renderer plumbing is needed.
 * Asymmetric orientation cases proving projection-frame versus camera-frame
   provenance, and cube edge/corner seam tests from both adjacent faces.
-* Direct-versus-baked error measurements across each admitted baked range,
-  separating quantization from spatial error; no blanket arbitrary-pattern
-  equivalence claim.
+* Direct-versus-baked error qualification over admitted ranges, separating
+  quantization and spatial error.
 * Temporal tests whose expected endpoint RGB differs from scalar-first blending,
   including changed phase/scale, stationary resources and topology holds.
   Test source changes with same-kind amount changes, mechanic/strategy changes,
   enabled transitions and their fraction-zero current-state holds.
-  Insert and remove descriptors with matching Noise/Baked/Hue selectors but
-  different phases; include scalar zero to prove the current numeric profile
-  governs fraction zero, preserving either legacy resampling or generic identity.
   Verify opacity's modulated alpha at both endpoints and interior fractions,
   including equal base alphas but unequal masks; scan premultiplies exactly once.
 * Cache tests for every key component, palette-only and mechanic-only changes,
   with no spatial rebake when only the mechanic changes; snapshot replay
-  after cache reset, old snapshot compatibility, and unknown-recipe rejection.
-* Mixed descriptor/legacy decode, precedence, disabling/reenabling and removal
-  tests; no fallback or dual clock advance, phase continuity through source
-  switches, snapshot phase restoration and validation of disabled recipes.
+  after cache reset, and unknown-recipe/unsupported-version rejection.
+* Source-state lifecycle tests: one scheduled owner, source-specific units/rate
+  coupling, empty-state sources, disabled advancement, retention on same-source
+  parameter/mechanic/strategy changes, initialization on kind/version switches,
+  typed snapshot replay, and rejection of invalid disabled recipes or concurrent
+  PATH_LENGTH and generic modulation.
+* Raw-sample parity between pullback and modulation adapters given identical
+  pattern/coordinate/parameters/prepared state, before LUT approximation.
+  Preserve crossing value conversion, weighting, coverage, provenance and path
+  semantics with independent renderer tests.
+* Include-direction fixtures, standalone header checks and migrated caller builds;
+  production callers/tests no longer import retired modifier headers/types, and
+  documentation references move to the replacements when those files are deleted.
 * Native and WASM validation plus firmware memory/timing evidence for the
   implementation. This proposed-spec change itself needs documentation checks
   only.
