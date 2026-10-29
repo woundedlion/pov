@@ -328,7 +328,7 @@ Color4 exact_colorize(const Pullback::FieldSample &sample,
     const auto direction = Pattern::SphereDirection::from(sample.sphere);
     const float scalar =
         Pattern::bounded_scalar(exact_pattern(*state.modulation, direction));
-    color = ColorModulation::apply(color, scalar, state.mechanic);
+    color = state.apply_mechanic(color, scalar, state.mechanic);
   }
   if (state.hue_mode == Color::HueMode::PATH_LENGTH)
     color = ColorModulation::HueRotation::apply(color, sample.path_length,
