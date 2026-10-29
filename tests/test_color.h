@@ -268,6 +268,7 @@ inline int run_color_tests() {
   HS_RUN(test_palette_wrappers);
   HS_RUN(test_palette_shade_coord_policy);
   HS_RUN(test_color_modulation_mechanics);
+  HS_RUN(test_color_modulation_amount_domains);
   HS_RUN(test_pattern_modulated_palette);
   HS_RUN(test_sphere_lut_seamless_across_faces);
   HS_RUN(test_sphere_lut_all_edges);

@@ -138,3 +138,24 @@ inline void test_hue_rotation_lut_clamps_out_of_range_value() {
     HS_EXPECT_EQ(sample_hue_rotation_lut(view, 0.0f, amount),
                  Pixel(65535, 0, 0));
 }
+
+/** @brief Mechanic admission pins finite hue and unit-strength boundaries. */
+inline void test_color_modulation_amount_domains() {
+  using namespace ColorModulation;
+  for (auto kind : {Mechanic::HUE_ROTATION, Mechanic::POSITIVE_LIGHTNESS_LIFT,
+                    Mechanic::OPACITY}) {
+    HS_EXPECT_TRUE(valid({kind, 0.0f}));
+    HS_EXPECT_TRUE(valid({kind, 1.0f}));
+    HS_EXPECT_FALSE(valid({kind, std::numeric_limits<float>::quiet_NaN()}));
+    HS_EXPECT_FALSE(valid({kind, INFINITY}));
+    HS_EXPECT_FALSE(valid({kind, -INFINITY}));
+    if (kind == Mechanic::HUE_ROTATION) {
+      HS_EXPECT_TRUE(valid({kind, -std::numeric_limits<float>::max()}));
+      HS_EXPECT_TRUE(valid({kind, std::numeric_limits<float>::max()}));
+    } else {
+      HS_EXPECT_FALSE(valid({kind, std::nextafter(0.0f, -1.0f)}));
+      HS_EXPECT_FALSE(valid({kind, std::nextafter(1.0f, 2.0f)}));
+    }
+  }
+  HS_EXPECT_FALSE(valid({static_cast<Mechanic>(255), 0.0f}));
+}
