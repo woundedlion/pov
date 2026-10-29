@@ -378,8 +378,9 @@ template <typename State> struct SphericalRings : PrepareFromState<State> {
   __attribute__((always_inline)) static float sample(const SphereSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
-    return Pattern::spherical_rings(Pattern::SphereDirection::from(input.dir),
-                                    State::params(frame), prepared);
+    return Pattern::spherical_rings(
+        Pattern::SphereDirection::from_unit(input.dir), State::params(frame),
+        prepared);
   }
 };
 

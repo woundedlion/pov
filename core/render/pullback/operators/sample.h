@@ -409,7 +409,7 @@ struct SampleSphericalRings : ValueStateModel<SphericalRingsState> {
   static FieldSample run(const SphereSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
     const float raw = Pattern::spherical_rings(
-        Pattern::SphereDirection::from(input.dir),
+        Pattern::SphereDirection::from_unit(input.dir),
         static_cast<const Source::SphericalRingsSourceParams &>(params),
         prepared);
     return Kernel::sample(input, raw);

@@ -405,7 +405,7 @@ apply_generated_palette(const FieldSample &sample,
                         const GeneratedPaletteState &state) {
   if (state.modulation && state.modulation->config.enabled &&
       state.mechanic.amount != 0.0f) {
-    const auto DIRECTION = Pattern::SphereDirection::from(sample.sphere);
+    const auto DIRECTION = Pattern::SphereDirection::admit(sample.sphere);
     return generated_palette_endpoint(sample, state, &DIRECTION);
   }
   return generated_palette_endpoint(sample, state, nullptr);
@@ -441,7 +441,7 @@ HS_HOT_FLASH_MEMBER inline Color4 apply_temporal_generated_palette(
                                           prepared.weight);
   };
   if (ACTIVE) {
-    const auto DIRECTION = Pattern::SphereDirection::from(sample.sphere);
+    const auto DIRECTION = Pattern::SphereDirection::admit(sample.sphere);
     return endpoint(&DIRECTION);
   }
   return endpoint(nullptr);

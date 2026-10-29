@@ -57,6 +57,26 @@ public:
     HS_CHECK(valid(vector), "pattern: invalid sphere direction");
     return SphereDirection(vector.normalized());
   }
+  /** @brief Admits a unit vector without normalization.
+   * @param vector Unit direction.
+   * @return Direction with unchanged components. */
+  static SphereDirection from_unit(const math::Vector &vector) {
+    assert(valid(vector));
+    assert(std::fabs(math::dot(vector, vector) - 1.0f) <=
+           math::EPS_UNIT_VEC_SQ);
+    return SphereDirection(vector);
+  }
+  /** @brief Normalizes an admitted finite, nondegenerate vector.
+   * @param vector Normalizable direction.
+   * @return Unit direction. */
+  static SphereDirection admit(const math::Vector &vector) {
+    assert(valid(vector));
+    const float M2 =
+        vector.x * vector.x + vector.y * vector.y + vector.z * vector.z;
+    const float M = sqrtf(M2);
+    return SphereDirection(
+        math::Vector(vector.x / M, vector.y / M, vector.z / M));
+  }
   /** @brief Reads the admitted unit direction.
    * @return Unit vector. */
   const math::Vector &value() const { return direction; }
