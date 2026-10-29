@@ -409,11 +409,7 @@ struct ValueProvider {
  */
 template <HueMode HueV>
 inline bool hue_rotation_active(const ColorParams &color) {
-  return (HueV == HueMode::PATH_LENGTH && color.hue_shift_amount != 0.0f) ||
-         (color.modulation.enabled &&
-          color.modulation.mechanic.kind ==
-              ColorModulation::Mechanic::HUE_ROTATION &&
-          color.modulation.mechanic.amount != 0.0f);
+  return Color::hue_rotation_active(HueV, color);
 }
 
 /**

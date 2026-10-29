@@ -369,14 +369,8 @@ prepare_generated_palette(const FrameContext &ctx,
                static_cast<uint8_t>(EnvelopeMode::DESCENDING),
            "colorize.generated-palette: invalid brightness envelope");
   const Color::HueMode mode = static_cast<HueShiftMode>(params.hue_mode);
-  const bool spatial_hue = params.modulation.enabled &&
-                           params.modulation.mechanic.kind ==
-                               ColorModulation::Mechanic::HUE_ROTATION &&
-                           params.modulation.mechanic.amount != 0.0f;
-  const bool path_hue =
-      mode == Color::HueMode::PATH_LENGTH && params.hue_shift_amount != 0.0f;
-  const bool rotation_active =
-      (spatial_hue || path_hue) && ctx.hue_rotation_lut != nullptr;
+  const bool rotation_active = Color::hue_rotation_active(mode, params) &&
+                               ctx.hue_rotation_lut != nullptr;
   const BakedPalette *palette = ctx.palettes[params.palette_mode];
   HS_CHECK(palette != nullptr,
            "colorize.generated-palette: frame context carries no palette");

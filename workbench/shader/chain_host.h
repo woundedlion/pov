@@ -531,7 +531,7 @@ private:
   struct ColorizeTap {
     int index = -1;
     const float *palette_chroma = nullptr;
-    const float *hue_shift_amount = nullptr;
+    const Pullback::Color::ColorControls *controls = nullptr;
     const ColorModulation::Config *modulation = nullptr;
     const uint8_t *palette_mode = nullptr;
     const uint8_t *hue_mode = nullptr;
@@ -541,7 +541,7 @@ private:
   static ColorizeTap make_colorize_tap(int index, const Params *params) {
     return {index,
             &params->palette_chroma,
-            &params->hue_shift_amount,
+            params,
             &params->modulation,
             &params->palette_mode,
             &params->hue_mode};
@@ -737,15 +737,9 @@ private:
             program.state_block(static_cast<size_t>(tap.index)));
     ctx.modulation =
         &resources->modulation.prepare(*tap.modulation, clocks.modulation);
-    const bool spatial_hue = tap.modulation->enabled &&
-                             tap.modulation->mechanic.amount != 0.0f &&
-                             tap.modulation->mechanic.kind ==
-                                 ColorModulation::Mechanic::HUE_ROTATION;
-    const bool path_hue =
-        *tap.hue_mode == static_cast<uint8_t>(
-                             Pullback::Interp::Op::HueShiftMode::PATH_LENGTH) &&
-        *tap.hue_shift_amount != 0.0f;
-    if (spatial_hue || path_hue) {
+    if (Pullback::Color::hue_rotation_active(
+            static_cast<Pullback::Color::HueMode>(*tap.hue_mode),
+            *tap.controls)) {
       const size_t palette_index =
           *tap.palette_mode < ctx.palettes.size() ? *tap.palette_mode : 0;
       prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE>(

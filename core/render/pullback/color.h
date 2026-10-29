@@ -268,6 +268,18 @@ brightness_envelope_gain(float value, BrightnessEnvelope envelope, float bottom,
   return hs::lerp(bottom, top, shape);
 }
 
+/** @brief Tests whether palette hue rotation is active.
+ * @param mode Path hue selection.
+ * @param controls Palette and modulation controls.
+ * @return Whether a nonzero path or spatial hue rotation is enabled. */
+inline bool hue_rotation_active(HueMode mode, const ColorControls &controls) {
+  return (mode == HueMode::PATH_LENGTH && controls.hue_shift_amount != 0.0f) ||
+         (controls.modulation.enabled &&
+          controls.modulation.mechanic.kind ==
+              ColorModulation::Mechanic::HUE_ROTATION &&
+          controls.modulation.mechanic.amount != 0.0f);
+}
+
 /** @brief Per-frame state of the generated-palette colorizer. */
 struct GeneratedPaletteState {
   PaletteMappingWeights mapping;   ///< Mapping weights.
