@@ -1134,60 +1134,68 @@ inline void test_pullback_concrete_catalog() {
   constexpr Params coupled{0.0f, 0.0f, 1.0f, 0.0f, 0.1f, 0.25f};
   const math::Complex origin;
   const math::Complex off(0.6f, 0.25f); // radius 0.65, azimuth atan2(0.25, 0.6)
-  HS_EXPECT_EQ(Pullback::Source::twin_wave(origin, prepared), 0.0f);
-  HS_EXPECT_EQ(Pullback::Source::twin_wave(origin, shifted),
+  HS_EXPECT_EQ(Pattern::twin_wave(Pattern::PlanePosition{origin}, prepared),
+               0.0f);
+  HS_EXPECT_EQ(Pattern::twin_wave(Pattern::PlanePosition{origin}, shifted),
                0.5f * (math::fast_sinf(0.7f) + math::fast_sinf(0.3f)));
-  HS_EXPECT_NEAR(Pullback::Source::twin_wave(off, turned),
+  HS_EXPECT_NEAR(Pattern::twin_wave(Pattern::PlanePosition{off}, turned),
                  0.5f * (math::fast_sinf(0.6f) + math::fast_sinf(0.25f)),
                  2e-3f);
-  HS_EXPECT_EQ(Pullback::Source::rings(origin, prepared), 0.0f);
-  HS_EXPECT_NEAR(Pullback::Source::rings(off, shifted), math::fast_sinf(-0.05f),
-                 2e-3f);
-  HS_EXPECT_NEAR(Pullback::Source::spiral(origin, prepared), 1.0f, 2e-3f);
-  HS_EXPECT_NEAR(Pullback::Source::spiral(off, shifted),
+  HS_EXPECT_EQ(Pattern::rings(Pattern::PlanePosition{origin}, prepared), 0.0f);
+  HS_EXPECT_NEAR(Pattern::rings(Pattern::PlanePosition{off}, shifted),
+                 math::fast_sinf(-0.05f), 2e-3f);
+  HS_EXPECT_NEAR(Pattern::spiral(Pattern::PlanePosition{origin}, prepared),
+                 1.0f, 2e-3f);
+  HS_EXPECT_NEAR(Pattern::spiral(Pattern::PlanePosition{off}, shifted),
                  math::fast_sinf(-0.05f - 3.0f * math::fast_atan2(0.25f, 0.6f)),
                  2e-3f);
-  HS_EXPECT_EQ(Pullback::Source::grid(origin, params, prepared), 0.0f);
-  HS_EXPECT_NEAR(Pullback::Source::grid(origin, coupled, shifted),
-                 math::fast_sinf(0.7f) * math::fast_cosf(-0.3f), 2e-3f);
-  HS_EXPECT_EQ(Pullback::Source::primitive_lattice(origin, params), 1.0f);
+  HS_EXPECT_EQ(Pattern::grid(Pattern::PlanePosition{origin}, params, prepared),
+               0.0f);
+  HS_EXPECT_NEAR(
+      Pattern::grid(Pattern::PlanePosition{origin}, coupled, shifted),
+      math::fast_sinf(0.7f) * math::fast_cosf(-0.3f), 2e-3f);
+  HS_EXPECT_EQ(
+      Pattern::primitive_lattice(Pattern::PlanePosition{origin}, params), 1.0f);
   // Cell coordinate (0.2, 0.1) sits inside the softness band, so the edge ramp
   // resolves between its saturated ends.
-  HS_EXPECT_NEAR(
-      Pullback::Source::primitive_lattice(math::Complex(0.2f, 0.1f), params),
-      0.38671f, 2e-3f);
+  HS_EXPECT_NEAR(Pattern::primitive_lattice(
+                     Pattern::PlanePosition{math::Complex(0.2f, 0.1f)}, params),
+                 0.38671f, 2e-3f);
 
   const Pullback::Source::SphericalRingsSourceParams ring_params;
-  const Pullback::Source::PreparedSphericalRings ring_frame{math::Y_AXIS, 0.0f};
+  const Pattern::PreparedSphericalRings ring_frame{math::Y_AXIS, 0.0f};
   HS_EXPECT_EQ(
-      Pullback::Source::spherical_rings(math::X_AXIS, ring_params, ring_frame),
+      Pattern::spherical_rings(Pattern::SphereDirection::from(math::X_AXIS),
+                               ring_params, ring_frame),
       1.0f);
   const math::Vector between_rings(0.9659258f, 0.2588190f, 0.0f);
   HS_EXPECT_EQ(
-      Pullback::Source::spherical_rings(between_rings, ring_params, ring_frame),
+      Pattern::spherical_rings(Pattern::SphereDirection::from(between_rings),
+                               ring_params, ring_frame),
       -1.0f);
 
   const Pullback::Source::FractalSourceParams fractal_params;
-  const auto fractal_frame =
-      Pullback::Source::prepare_fractal(fractal_params, prepared);
-  HS_EXPECT_EQ(
-      Pullback::Source::escape_fractal(origin, fractal_params, fractal_frame),
-      1.0f);
+  const auto fractal_frame = Pattern::prepare_fractal(fractal_params, prepared);
+  HS_EXPECT_EQ(Pattern::escape_fractal(Pattern::PlanePosition{origin},
+                                       fractal_params, fractal_frame),
+               1.0f);
   // c = 0.6 escapes at loop index 3 of 8 (orbit 0.4219), i.e. 1.6875 cycles
   // at the default 4 contours.
-  HS_EXPECT_NEAR(Pullback::Source::escape_fractal(
-                     math::Complex(1.2f, 0.0f), fractal_params, fractal_frame),
-                 -0.38298f, 5e-3f);
+  HS_EXPECT_NEAR(
+      Pattern::escape_fractal(Pattern::PlanePosition{math::Complex(1.2f, 0.0f)},
+                              fractal_params, fractal_frame),
+      -0.38298f, 5e-3f);
 
   const Pullback::Source::TessellationSourceParams tessellation_params;
-  HS_EXPECT_EQ(Pullback::Source::tessellation(
-                   math::Complex(0.5f, 0.0f), tessellation_params,
-                   Pullback::Source::TessellationKind::SQUARE, prepared),
-               1.0f);
-  HS_EXPECT_EQ(Pullback::Source::tessellation(
-                   origin, tessellation_params,
-                   Pullback::Source::TessellationKind::SQUARE, prepared),
-               -1.0f);
+  HS_EXPECT_EQ(
+      Pattern::tessellation(Pattern::PlanePosition{math::Complex(0.5f, 0.0f)},
+                            tessellation_params,
+                            Pattern::TessellationKind::SQUARE, prepared),
+      1.0f);
+  HS_EXPECT_EQ(
+      Pattern::tessellation(Pattern::PlanePosition{origin}, tessellation_params,
+                            Pattern::TessellationKind::SQUARE, prepared),
+      -1.0f);
 
   const math::Vector axis = Pullback::Lens::Glitch::apply(
       math::Vector(0.0f, 1.0f, 0.0f), TestFrame{});
@@ -1528,7 +1536,7 @@ inline void test_pullback_hexagonal_edges() {
       for (float angle : {0.0f, 0.37f}) {
         TessellationSourceParams params;
         params.cell_scale = scale;
-        PreparedSource prepared{};
+        Pattern::PreparedSource prepared{};
         prepared.angle_cos = std::cos(angle);
         prepared.angle_sin = std::sin(angle);
         auto sample = [&](const math::Complex &point) {
@@ -1537,8 +1545,9 @@ inline void test_pullback_hexagonal_edges() {
           const math::Complex input(
               (X * prepared.angle_cos - Y * prepared.angle_sin) / scale,
               (X * prepared.angle_sin + Y * prepared.angle_cos) / scale);
-          return tessellation(input, params, TessellationKind::HEXAGONAL,
-                              prepared);
+          return Pattern::tessellation(Pattern::PlanePosition{input}, params,
+                                       Pattern::TessellationKind::HEXAGONAL,
+                                       prepared);
         };
         HS_EXPECT_EQ(sample(math::Complex(0.0f, 0.0f)), -1.0f);
         for (int edge = 0; edge < 6; ++edge) {

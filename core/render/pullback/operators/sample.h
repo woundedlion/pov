@@ -220,16 +220,17 @@ finish_sample(const PlaneSample &input, float raw, const Params &params,
 struct SourceClockModel : ValueStateModel<SourceClockState> {
   template <typename Params>
   static void advance(State &state, const Params &params) {
-    Source::advance_clocks(params, state.primary, state.secondary, state.angle);
+    Pattern::advance_clocks(params, state.primary, state.secondary,
+                            state.angle);
   }
 
-  using Prepared = Source::PreparedSource;
+  using Prepared = Pattern::PreparedSource;
 
   template <typename Params>
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     check_sample_topology(params.weight_mode, params.coverage_mode);
-    return Source::prepare(state.primary, state.secondary, state.angle);
+    return Pattern::prepare(state.primary, state.secondary, state.angle);
   }
 };
 
@@ -272,8 +273,9 @@ struct SampleGridV3 : SourceClockModel {
 
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
-    const float raw = Source::grid(
-        projections::stereo_pattern_args(input.coords, params.pattern_freq),
+    const float raw = Pattern::grid(
+        Pattern::PlanePosition{projections::stereo_pattern_args(
+            input.coords, params.pattern_freq)},
         static_cast<const Source::GridSourceParams &>(params), prepared);
     return finish_sample(input, raw, params, ctx);
   }
@@ -301,8 +303,9 @@ struct SampleTwinWaveV3 : SourceClockModel {
 
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
-    const float raw = Source::twin_wave(
-        projections::stereo_pattern_args(input.coords, params.pattern_freq),
+    const float raw = Pattern::twin_wave(
+        Pattern::PlanePosition{projections::stereo_pattern_args(
+            input.coords, params.pattern_freq)},
         prepared);
     return finish_sample(input, raw, params, ctx);
   }
@@ -332,9 +335,10 @@ struct SampleRings : SourceClockModel {
 
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
-    const float raw = Source::rings(
-        projections::stereo_pattern_args(input.coords, params.pattern_freq),
-        prepared);
+    const float raw =
+        Pattern::rings(Pattern::PlanePosition{projections::stereo_pattern_args(
+                           input.coords, params.pattern_freq)},
+                       prepared);
     return finish_sample(input, raw, params, ctx);
   }
 };
@@ -386,7 +390,7 @@ struct SampleSphericalRings : ValueStateModel<SphericalRingsState> {
   using Input = SphereSample;
   using Output = FieldSample;
   using Params = SphericalRingsSampleParams;
-  using Prepared = Source::PreparedSphericalRings;
+  using Prepared = Pattern::PreparedSphericalRings;
 
   static void init(State &state, InstanceId id) {
     init_walk(state.walk, static_cast<int32_t>(id.stable_hash));
@@ -404,8 +408,8 @@ struct SampleSphericalRings : ValueStateModel<SphericalRingsState> {
   }
   static FieldSample run(const SphereSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
-    const float raw = Source::spherical_rings(
-        input.dir,
+    const float raw = Pattern::spherical_rings(
+        Pattern::SphereDirection::from(input.dir),
         static_cast<const Source::SphericalRingsSourceParams &>(params),
         prepared);
     return Kernel::sample(input, raw);
@@ -433,9 +437,10 @@ struct SampleSpiral : SourceClockModel {
 
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
-    const float raw = Source::spiral(
-        projections::stereo_pattern_args(input.coords, params.pattern_freq),
-        prepared);
+    const float raw =
+        Pattern::spiral(Pattern::PlanePosition{projections::stereo_pattern_args(
+                            input.coords, params.pattern_freq)},
+                        prepared);
     return finish_sample(input, raw, params, ctx);
   }
 };
@@ -467,8 +472,9 @@ struct SampleLattice : StatelessModel {
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &) {
-    const float raw = Source::primitive_lattice(
-        input.coords, static_cast<const Source::LatticeSourceParams &>(params));
+    const float raw = Pattern::primitive_lattice(
+        Pattern::PlanePosition{input.coords},
+        static_cast<const Source::LatticeSourceParams &>(params));
     return finish_sample(input, raw, params, ctx);
   }
 };
@@ -491,28 +497,28 @@ struct SampleFractal : SourceClockModel {
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = FractalSampleParams;
-  using Prepared = Source::PreparedFractal;
+  using Prepared = Pattern::PreparedFractal;
 
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {
-    return Source::prepare_fractal(
+    return Pattern::prepare_fractal(
         params, SourceClockModel::prepare(ctx, params, state));
   }
 
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
-    const float raw = Source::escape_fractal(
-        input.coords, static_cast<const Source::FractalSourceParams &>(params),
-        prepared);
+    const float raw = Pattern::escape_fractal(
+        Pattern::PlanePosition{input.coords},
+        static_cast<const Source::FractalSourceParams &>(params), prepared);
     return finish_sample(input, raw, params, ctx);
   }
 };
 
-/** @brief Kind topology values, in Source::TessellationKind order. */
+/** @brief Kind topology values, in Pattern::TessellationKind order. */
 inline constexpr const char *TESSELLATION_KIND_IDS[] = {"triangular", "square",
                                                         "hexagonal"};
 static_assert(std::size(TESSELLATION_KIND_IDS) ==
-              static_cast<size_t>(Source::TessellationKind::HEXAGONAL) + 1);
+              static_cast<size_t>(Pattern::TessellationKind::HEXAGONAL) + 1);
 
 /** @brief Parameter family of sample.tessellation.v2. */
 struct TessellationSampleParams : Source::TessellationSourceParams {
@@ -522,8 +528,8 @@ struct TessellationSampleParams : Source::TessellationSourceParams {
   uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
   /** ProjectionCoverageMode topology value. */
   uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
-  /** Source::TessellationKind topology value. */
-  uint8_t kind = static_cast<uint8_t>(Source::TessellationKind::TRIANGULAR);
+  /** Pattern::TessellationKind topology value. */
+  uint8_t kind = static_cast<uint8_t>(Pattern::TessellationKind::TRIANGULAR);
 
   static constexpr auto FIELDS = concat_fields<TessellationSampleParams>(
       Source::TessellationSourceParams::FIELDS,
@@ -532,7 +538,7 @@ struct TessellationSampleParams : Source::TessellationSourceParams {
       sample_crossing_topology<TessellationSampleParams>(
           TopologyField<TessellationSampleParams>{
               "kind", &TessellationSampleParams::kind, TESSELLATION_KIND_IDS,
-              static_cast<uint8_t>(Source::TessellationKind::TRIANGULAR)});
+              static_cast<uint8_t>(Pattern::TessellationKind::TRIANGULAR)});
 };
 static_assert(field_ids_unique<TessellationSampleParams>());
 static_assert(field_defaults_in_range<TessellationSampleParams>());
@@ -550,16 +556,16 @@ struct SampleTessellation : SourceClockModel {
                           const State &state) {
     const Prepared prepared = SourceClockModel::prepare(ctx, params, state);
     HS_CHECK(params.kind <=
-                 static_cast<uint8_t>(Source::TessellationKind::HEXAGONAL),
+                 static_cast<uint8_t>(Pattern::TessellationKind::HEXAGONAL),
              "sample.tessellation: invalid kind");
     return prepared;
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
-    const float raw = Source::tessellation(
-        input.coords,
+    const float raw = Pattern::tessellation(
+        Pattern::PlanePosition{input.coords},
         static_cast<const Source::TessellationSourceParams &>(params),
-        static_cast<Source::TessellationKind>(params.kind), prepared);
+        static_cast<Pattern::TessellationKind>(params.kind), prepared);
     return finish_sample(input, raw, params, ctx);
   }
 };
@@ -629,7 +635,7 @@ struct SampleProjectedNoise : PhaseClockModel<NoisePhaseState> {
                          const Params &params, const Prepared &prepared) {
     if (!noise_plane_in_domain(input.coords))
       return finish_sample(input, 0.0f, params, ctx);
-    const float raw = Source::noise_contour(
+    const float raw = Pattern::noise_contour(
         *prepared.noise, static_cast<math::NoiseBasis>(params.basis),
         math::noise_projected_coordinate(input.coords, params.noise_scale,
                                          prepared.loop_offset),
@@ -655,7 +661,7 @@ struct SampleSphericalNoise : PhaseClockModel<NoisePhaseState> {
   }
   static FieldSample run(const SphereSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
-    const float raw = Source::noise_contour(
+    const float raw = Pattern::noise_contour(
         *prepared.noise, static_cast<math::NoiseBasis>(params.basis),
         math::noise_sphere_coordinate(input.dir, params.noise_scale,
                                       prepared.loop_offset),

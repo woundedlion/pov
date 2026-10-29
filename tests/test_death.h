@@ -1928,7 +1928,7 @@ inline const Case *all_cases(int &n) {
            case_pullback_operator_invalid_tessellation_kind,
            "core/render/pullback/operators/sample.h",
            "(params.kind <= "
-           "static_cast<uint8_t>(Source::TessellationKind::HEXAGONAL)) "
+           "static_cast<uint8_t>(Pattern::TessellationKind::HEXAGONAL)) "
            "sample.tessellation: invalid kind"},
           {"pullback_operator_invalid_kaleidoscope_symmetry",
            case_pullback_operator_invalid_kaleidoscope_symmetry,

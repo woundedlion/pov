@@ -1293,6 +1293,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── control/                An effect's control surface (registry, params +
 │   │                            apply_if_changed, ParamHost/PresetHost, presets,
 │   │                            choreography, transition)
+│   ├── pattern/                Typed scalar sources, pure preparation and sphere fields
 │   ├── containers/             Reusable fixed-capacity containers
 │   │   ├── static_circular_buffer.h Fixed-capacity non-allocating circular buffer
 │   │   └── triangular_bitset.h     Upper-triangular unordered-pair bitset

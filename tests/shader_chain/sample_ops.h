@@ -34,8 +34,8 @@ struct SampleMirrorBinding {
 struct ClockedSampleMirror {
   using Binding = SampleMirrorBinding;
   using FrameState = SampleMirrorFrame;
-  static PB::Source::PreparedSource prepare(const FrameState &frame) {
-    return PB::Source::prepare(frame.primary, frame.secondary, frame.angle);
+  static Pattern::PreparedSource prepare(const FrameState &frame) {
+    return Pattern::prepare(frame.primary, frame.secondary, frame.angle);
   }
 };
 
@@ -60,7 +60,7 @@ struct SphericalRingsSampleMirror {
   params(const SampleMirrorFrame &frame) {
     return frame.spherical_rings;
   }
-  static PB::Source::PreparedSphericalRings
+  static Pattern::PreparedSphericalRings
   prepare(const SampleMirrorFrame &frame) {
     return {frame.ring_axis, frame.ring_phase};
   }
@@ -419,8 +419,8 @@ inline void test_shader_chain_noise_operator_domain() {
           input, ctx, sample_params, sample_prepared);
       const auto coordinate = math::noise_projected_coordinate(
           input.coords, sample_params.noise_scale, sample_prepared.loop_offset);
-      const float raw = PB::Source::noise_contour(
-          state.noise, basis, coordinate, sample_params.noise_contrast);
+      const float raw = Pattern::noise_contour(state.noise, basis, coordinate,
+                                               sample_params.noise_contrast);
       const auto expected =
           In::Op::finish_sample(input, raw, sample_params, ctx);
       HS_EXPECT_EQ(sample.value, expected.value);
@@ -576,18 +576,17 @@ inline void test_shader_chain_parity_sample_tessellation() {
       return;
     const In::FrameContext ctx = shared_resources().context();
     auto &params = param_as<In::Op::TessellationSampleParams>(program, 2);
-    params.kind =
-        static_cast<uint8_t>(PB::Source::TessellationKind::TRIANGULAR);
+    params.kind = static_cast<uint8_t>(Pattern::TessellationKind::TRIANGULAR);
     run_sample_op_matrix<PB::Source::Tessellation<
-        TessellationSampleMirror, PB::Source::TessellationKind::TRIANGULAR>>(
+        TessellationSampleMirror, Pattern::TessellationKind::TRIANGULAR>>(
         program, ctx);
-    params.kind = static_cast<uint8_t>(PB::Source::TessellationKind::SQUARE);
+    params.kind = static_cast<uint8_t>(Pattern::TessellationKind::SQUARE);
     run_sample_op_matrix<PB::Source::Tessellation<
-        TessellationSampleMirror, PB::Source::TessellationKind::SQUARE>>(
-        program, ctx);
-    params.kind = static_cast<uint8_t>(PB::Source::TessellationKind::HEXAGONAL);
+        TessellationSampleMirror, Pattern::TessellationKind::SQUARE>>(program,
+                                                                      ctx);
+    params.kind = static_cast<uint8_t>(Pattern::TessellationKind::HEXAGONAL);
     run_sample_op_matrix<PB::Source::Tessellation<
-        TessellationSampleMirror, PB::Source::TessellationKind::HEXAGONAL>>(
+        TessellationSampleMirror, Pattern::TessellationKind::HEXAGONAL>>(
         program, ctx);
   });
 }

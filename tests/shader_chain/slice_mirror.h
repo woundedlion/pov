@@ -50,9 +50,9 @@ struct MirrorSource {
   static const PB::Source::GridSourceParams &params(const MirrorFrame &frame) {
     return frame.sample;
   }
-  static PB::Source::PreparedSource prepare(const MirrorFrame &frame) {
-    return PB::Source::prepare(frame.source_primary, frame.source_secondary,
-                               frame.source_angle);
+  static Pattern::PreparedSource prepare(const MirrorFrame &frame) {
+    return Pattern::prepare(frame.source_primary, frame.source_secondary,
+                            frame.source_angle);
   }
 };
 

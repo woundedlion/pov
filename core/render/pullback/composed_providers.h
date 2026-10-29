@@ -304,14 +304,13 @@ struct SourceProvider {
   }
   /** @brief Prepared pattern state from the source clocks.
    *  @param frame Current frame.
-   *  @return `Pullback::Source::prepare` of the primary, secondary and
+   *  @return `Pattern::prepare` of the primary, secondary and
    *  angle clocks. */
-  __attribute__((always_inline)) static Pullback::Source::PreparedSource
+  __attribute__((always_inline)) static Pattern::PreparedSource
   prepare(const FrameState &frame) {
-    return Pullback::Source::prepare(
-        frame.resources.template get<Key>().primary,
-        frame.resources.template get<Key>().secondary,
-        frame.resources.template get<Key>().angle);
+    return Pattern::prepare(frame.resources.template get<Key>().primary,
+                            frame.resources.template get<Key>().secondary,
+                            frame.resources.template get<Key>().angle);
   }
   /** @brief The source's noise generator.
    *  @param frame Current frame.
