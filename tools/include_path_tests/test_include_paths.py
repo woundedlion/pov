@@ -60,9 +60,27 @@ class IncludePathsTests(unittest.TestCase):
             self.assertEqual(include_paths.check_includes(self.root, [source, target]), [])
 
     def test_pattern_and_modulation_dependency_directions(self):
-        for source, forbidden in include_paths.FORBIDDEN_PREFIXES.items():
-            if not source.startswith(("core/pattern/", "core/color/modulation")):
-                continue
+        rules = {
+            "core/pattern/": ("core/color/", "core/render/", "core/control/", "core/animation/"),
+            "core/pattern/types.h": ("core/pattern/field.h", "core/pattern/sources.h",
+                                     "core/pattern/noise.h", "core/pattern/sphere_lut.h",
+                                     "core/vendor/FastNoiseLite.h", "core/math/noise_field.h"),
+            "core/pattern/field.h": ("core/pattern/sources.h", "core/pattern/noise.h",
+                                     "core/pattern/sphere_lut.h", "core/vendor/FastNoiseLite.h"),
+            "core/pattern/sources.h": ("core/pattern/noise.h", "core/vendor/FastNoiseLite.h",
+                                       "core/math/noise_field.h"),
+            "core/pattern/sphere_lut.h": ("core/pattern/noise.h", "core/pattern/sources.h",
+                                          "core/vendor/FastNoiseLite.h", "core/math/noise_field.h"),
+            "core/color/modulation.h": ("core/pattern/field.h", "core/pattern/sources.h",
+                                        "core/pattern/noise.h", "core/pattern/sphere_lut.h",
+                                        "core/vendor/FastNoiseLite.h", "core/math/noise_field.h",
+                                        "core/render/", "core/control/"),
+            "core/color/modulation_types.h": ("core/pattern/field.h", "core/pattern/sources.h",
+                                              "core/pattern/noise.h", "core/pattern/sphere_lut.h",
+                                              "core/vendor/FastNoiseLite.h", "core/math/noise_field.h",
+                                              "core/render/", "core/control/", "core/color/"),
+        }
+        for source, forbidden in rules.items():
             origin = source + "fixture.h" if source.endswith("/") else source
             for prefix in forbidden:
                 target = prefix + "fixture.h" if prefix.endswith("/") else prefix
