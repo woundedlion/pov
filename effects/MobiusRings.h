@@ -15,6 +15,7 @@
 #include "core/animation/orientation.h"
 #include "effects/common/palette_recipes.h"
 #include "core/engine/engine.h"
+#include <memory>
 
 // Unit-test accessor for the conformal-radius pole branch and the
 // counter-rotation singularity guard.
@@ -397,19 +398,21 @@ private:
   HS_HOT_FLASH_MEMBER void
   draw_timed_grid(Canvas &canvas, const Endpoint &start, const Endpoint &end) {
     ScratchScope frame_scope(scratch_arena_b);
-    auto *north = scratch_arena_b.allocate_n<math::Vector>(W / 2 + 1);
-    auto *south = scratch_arena_b.allocate_n<math::Vector>(W / 2 + 1);
+    auto *north = scratch_arena_b.allocate_n<NorthHole>(W / 2 + 1);
+    auto *south = scratch_arena_b.allocate_n<SouthHole>(W / 2 + 1);
     const Spacetime::TemporalRotation rotation(start.rotation, end.rotation);
     for (int c = 0; c <= W / 2; ++c) {
       const float t = static_cast<float>(c) / (W / 2);
       const auto warp = warp_at(start, end, t);
       const auto q = rotation.sample(t);
-      north[c] = math::normalized_or(
+      std::construct_at(&north[c], filters.template get<NorthHole>());
+      std::construct_at(&south[c], filters.template get<SouthHole>());
+      north[c].set_origin(math::normalized_or(
           math::rotate(math::mobius_transform(math::Y_AXIS, warp), q),
-          math::X_AXIS);
-      south[c] = math::normalized_or(
+          math::X_AXIS));
+      south[c].set_origin(math::normalized_or(
           math::rotate(math::mobius_transform(-math::Y_AXIS, warp), q),
-          math::X_AXIS);
+          math::X_AXIS));
     }
     const auto difference = end.warp.b - start.warp.b;
     const float shift =
@@ -543,10 +546,8 @@ private:
                              hs::lerp(start.alpha, end.alpha, t);
             const int column =
                 std::clamp(static_cast<int>(t * (W / 2) + 0.5f), 0, W / 2);
-            auto north_hole = filters.template get<NorthHole>();
-            auto south_hole = filters.template get<SouthHole>();
-            north_hole.set_origin(north[column]);
-            south_hole.set_origin(south[column]);
+            auto &north_hole = north[column];
+            auto &south_hole = south[column];
             float alpha = 0.0f;
             north_hole.plot(
                 v, f.color.color, f.age, f.color.alpha,
