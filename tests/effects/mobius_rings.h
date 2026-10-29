@@ -180,13 +180,7 @@ struct MobiusRingsWhiteBox {
         }
     }
     fx.advance_display();
-    std::vector<float> result(W * H);
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x) {
-        const auto p = fx.get_pixel(x, y);
-        result[y * W + x] = (p.r + p.g + p.b) / (3.0f * 65535.0f);
-      }
-    return result;
+    return capture_luminance<W, H>(fx);
   }
 
   /** @brief Warps, pole fades and colour follow both arm cuts in both directions. */

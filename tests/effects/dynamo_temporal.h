@@ -176,13 +176,7 @@ struct DynamoTemporalOracle {
       }
     }
     effect.advance_display();
-    std::vector<float> pixels(W * H);
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x) {
-        const auto pixel = effect.get_pixel(x, y);
-        pixels[y * W + x] = (pixel.r + pixel.g + pixel.b) / (3.0f * 65535.0f);
-      }
-    return pixels;
+    return capture_luminance<W, H>(effect);
   }
 
   /** @brief Checks moving copies across both arm cuts at one resolution.

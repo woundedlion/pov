@@ -361,11 +361,7 @@ inline void test_meshfeedback_trails_arm_cut_seam() {
       fx.advance_display();
       if (f < WARM_FRAMES)
         continue;
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x) {
-          const Pixel p = fx.get_pixel(x, y);
-          current[y * W + x] = (p.r + p.g + p.b) / (3.0f * 65535.0f);
-        }
+      current = capture_luminance<W, H>(fx);
       if (f > WARM_FRAMES)
         for (int y = 0; y < H; ++y) {
           if (hs::SphericalFieldLayout<W, H>::latitude_sine(y) < 0.5f)
