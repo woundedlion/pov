@@ -156,6 +156,11 @@ target_include_directories(pattern_header_checks PRIVATE ${HS_ROOT})
 _hs_warnings(pattern_header_checks)
 add_dependencies(run_tests pattern_header_checks)
 
+add_executable(pattern_qualification ${HS_ROOT}/tools/pattern_qualification.cpp)
+target_include_directories(pattern_qualification PRIVATE ${HS_ROOT})
+_hs_warnings(pattern_qualification)
+add_test(NAME unit_pattern_qualification COMMAND pattern_qualification)
+
 
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/guard_directories.txt"

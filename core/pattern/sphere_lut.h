@@ -15,7 +15,7 @@ namespace Pattern {
 /** @brief View over a baked cube-map sphere scalar field (values in [-1, 1]). */
 struct SphereLutView {
   static constexpr uint16_t LAYOUT_VERSION =
-      1; ///< Cube layout and quantization version.
+      2; ///< Cube layout and quantization version.
   static constexpr int FACE_COUNT = 6;  ///< Cube faces.
   static constexpr int FACE_STEPS = 24; ///< Samples per face edge.
   static constexpr int FACE_SIZE = FACE_STEPS * FACE_STEPS; ///< Per face.
@@ -186,6 +186,14 @@ inline SphereLutSample
 prepare_sphere_lut_sample(const SphereDirection &direction) {
   return prepare_sphere_lut_sample(direction.value());
 }
+/** @brief Symmetric face-lattice coordinate for an edge index.
+ * @param index Sample index in [0, FACE_STEPS).
+ * @return Face coordinate in [-1, 1], with exact opposite-index symmetry. */
+inline float sphere_face_grid_coordinate(int index) {
+  constexpr float HALF_STEP = 1.0f / (SphereLutView::FACE_STEPS - 1);
+  return (2 * index - (SphereLutView::FACE_STEPS - 1)) * HALF_STEP;
+}
+
 /** @brief Bakes a typed source into signed-byte cube storage.
  * @tparam Source Sphere pattern source policy.
  * @param output Destination storage.
@@ -194,12 +202,12 @@ template <class Source>
 HS_FLASH_INLINE inline void
 prepare_sphere_lut(std::span<int8_t, SphereLutView::SIZE> output,
                    const typename Source::Prepared &prepared) {
-  constexpr float STEP = 2.0f / (SphereLutView::FACE_STEPS - 1);
   for (int face = 0; face < SphereLutView::FACE_COUNT; ++face)
     for (int y = 0; y < SphereLutView::FACE_STEPS; ++y)
       for (int x = 0; x < SphereLutView::FACE_STEPS; ++x) {
         const SphereDirection D =
-            sphere_face_coordinate(face, -1.0f + STEP * x, -1.0f + STEP * y);
+            sphere_face_coordinate(face, sphere_face_grid_coordinate(x),
+                                   sphere_face_grid_coordinate(y));
         const float SAMPLE = bounded_scalar(Source::sample(D, prepared));
         output[face * SphereLutView::FACE_SIZE + y * SphereLutView::FACE_STEPS +
                x] = static_cast<int8_t>(SAMPLE * 127.0f +

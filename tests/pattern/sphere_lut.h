@@ -38,12 +38,13 @@ inline void test_sphere_bakes_match_reference() {
       for (float phase : {0.0f, 0.25f, 0.625f}) {
         const math::Vector offset = math::noise_sphere_loop_offset(phase);
         constexpr int N = Pattern::SphereLutView::FACE_STEPS;
-        constexpr float STEP = 2.0f / (N - 1);
+        constexpr float HALF_STEP = 1.0f / (N - 1);
         for (int face = 0; face < Pattern::SphereLutView::FACE_COUNT; ++face) {
           for (int y = 0; y < N; ++y) {
             for (int x = 0; x < N; ++x) {
               const math::Vector d = Pattern::sphere_face_direction(
-                  face, -1.0f + STEP * x, -1.0f + STEP * y);
+                  face, (2 * x - (N - 1)) * HALF_STEP,
+                  (2 * y - (N - 1)) * HALF_STEP);
               const math::Vector q = scale * d + offset;
               const float sample =
                   hs::clamp(noise.GetNoiseSingle(q.x, q.y, q.z), -1.0f, 1.0f);
@@ -195,4 +196,180 @@ inline void test_sphere_bake_cache() {
   HS_EXPECT_TRUE(cache.refresh<Pattern::SphereNoise>(b, key, prepared));
   cache.reset();
   HS_EXPECT_TRUE(cache.refresh<Pattern::SphereNoise>(b, key, prepared));
+}
+
+/** @brief Samples a chosen face at the ratios of a shared edge direction. */
+inline float sphere_edge_face_sample(const Pattern::SphereLutView &view,
+                                     int face, const math::Vector &direction) {
+  float u = 0.0f;
+  float v = 0.0f;
+  switch (face) {
+  case 0:
+    u = direction.z;
+    v = direction.y;
+    break;
+  case 1:
+    u = -direction.z;
+    v = direction.y;
+    break;
+  case 2:
+    u = direction.x;
+    v = direction.z;
+    break;
+  case 3:
+    u = direction.x;
+    v = -direction.z;
+    break;
+  case 4:
+    u = direction.x;
+    v = direction.y;
+    break;
+  case 5:
+    u = -direction.x;
+    v = direction.y;
+    break;
+  }
+  return Pattern::sample_sphere_lut_face(view, face, u, v);
+}
+
+/** @brief Opposite-index symmetry keeps every cube edge continuous. */
+inline void test_sphere_lut_all_edges() {
+  using namespace Pattern;
+  for (int index = 0; index < SphereLutView::FACE_STEPS; ++index)
+    HS_EXPECT_EQ(
+        sphere_face_grid_coordinate(index),
+        -sphere_face_grid_coordinate(SphereLutView::FACE_STEPS - 1 - index));
+  std::array<int8_t, SphereLutView::SIZE> table;
+  float maximum = 0.0f;
+  for (int seed : {-719, 1337, 6047})
+    for (float phase : {0.0f, 0.173f, 0.73f}) {
+      FastNoiseLite generator;
+      generator.SetSeed(seed);
+      generator.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+      generator.SetFrequency(1.0f);
+      for (float scale : {3.0f, 64.0f}) {
+        prepare_sphere_lut<SphereNoise>(
+            table, SphereNoise::prepare({.scale = scale}, {phase}, generator));
+        const SphereLutView VIEW{table.data(), true};
+        for (int a : {-1, 1})
+          for (int b : {-1, 1})
+            for (int index = 0; index <= 200; ++index) {
+              const float T = -1.0f + 0.01f * index;
+              const math::Vector XY(a, b, T), XZ(a, T, b), YZ(T, a, b);
+              const float XY_ERROR =
+                  fabsf(sphere_edge_face_sample(VIEW, a > 0 ? 0 : 1, XY) -
+                        sphere_edge_face_sample(VIEW, b > 0 ? 2 : 3, XY));
+              const float XZ_ERROR =
+                  fabsf(sphere_edge_face_sample(VIEW, a > 0 ? 0 : 1, XZ) -
+                        sphere_edge_face_sample(VIEW, b > 0 ? 4 : 5, XZ));
+              const float YZ_ERROR =
+                  fabsf(sphere_edge_face_sample(VIEW, a > 0 ? 2 : 3, YZ) -
+                        sphere_edge_face_sample(VIEW, b > 0 ? 4 : 5, YZ));
+              maximum = std::max({maximum, XY_ERROR, XZ_ERROR, YZ_ERROR});
+              HS_EXPECT_LE(XY_ERROR, 1.0e-5f);
+              HS_EXPECT_LE(XZ_ERROR, 1.0e-5f);
+              HS_EXPECT_LE(YZ_ERROR, 1.0e-5f);
+            }
+      }
+    }
+#if defined(HS_PATTERN_QUALIFICATION_REPORT)
+  std::printf("cube_seam_maximum,%.9g\n", maximum);
+#else
+  (void)maximum;
+#endif
+}
+
+/** @brief Seeded source-only qualification separates quantization and interpolation. */
+inline void test_sphere_noise_bake_qualification() {
+  using namespace Pattern;
+  constexpr int SAMPLE_COUNT = 4096;
+  constexpr float QUANTIZATION_BOUND = 1.0f / 254.0f + 3.0e-6f;
+  const std::array<NoiseParams, 9> RECIPES{{
+      {},
+      {.contrast = 2.0f, .variant = NoiseVariant::OCTAVE_CONTOUR},
+      {.contrast = 8.0f, .variant = NoiseVariant::OCTAVE_CONTOUR},
+      {.basis = NoiseBasis::FBM3, .variant = NoiseVariant::OCTAVE_CONTOUR},
+      {.basis = NoiseBasis::FBM3,
+       .contrast = 2.0f,
+       .variant = NoiseVariant::OCTAVE_CONTOUR},
+      {.basis = NoiseBasis::FBM3,
+       .contrast = 8.0f,
+       .variant = NoiseVariant::OCTAVE_CONTOUR},
+      {.basis = NoiseBasis::RIDGED3, .variant = NoiseVariant::OCTAVE_CONTOUR},
+      {.basis = NoiseBasis::RIDGED3,
+       .contrast = 2.0f,
+       .variant = NoiseVariant::OCTAVE_CONTOUR},
+      {.basis = NoiseBasis::RIDGED3,
+       .contrast = 8.0f,
+       .variant = NoiseVariant::OCTAVE_CONTOUR},
+  }};
+  std::array<int8_t, SphereLutView::SIZE> table;
+  std::array<float, SphereLutView::SIZE> exact;
+#if defined(HS_PATTERN_QUALIFICATION_REPORT)
+  std::printf(
+      "recipe,scale,max_quantization,max_spatial,max_total,mean_total\n");
+#endif
+  for (size_t recipe = 0; recipe < RECIPES.size(); ++recipe)
+    for (float scale :
+         {1.0f / 64.0f, 0.0625f, 0.125f, 0.5f, 1.0f, 2.0f, 3.0f, 5.0f, 8.0f}) {
+      float max_quantization = 0.0f, max_spatial = 0.0f, max_total = 0.0f;
+      double total = 0.0;
+      for (int seed : {-719, 1337, 6047})
+        for (float phase : {0.0f, 0.173f, 0.73f}) {
+          FastNoiseLite generator;
+          generator.SetSeed(seed);
+          generator.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+          generator.SetFrequency(1.0f);
+          auto params = RECIPES[recipe];
+          params.scale = scale;
+          const auto PREPARED =
+              SphereNoise::prepare(params, {phase}, generator);
+          prepare_sphere_lut<SphereNoise>(table, PREPARED);
+          for (int face = 0; face < SphereLutView::FACE_COUNT; ++face)
+            for (int y = 0; y < SphereLutView::FACE_STEPS; ++y)
+              for (int x = 0; x < SphereLutView::FACE_STEPS; ++x) {
+                const int INDEX = face * SphereLutView::FACE_SIZE +
+                                  y * SphereLutView::FACE_STEPS + x;
+                const auto D =
+                    sphere_face_coordinate(face, sphere_face_grid_coordinate(x),
+                                           sphere_face_grid_coordinate(y));
+                const float VALUE = SphereNoise::sample(D, PREPARED);
+                exact[INDEX] = VALUE * 127.0f;
+                max_quantization = std::max(
+                    max_quantization, fabsf(VALUE - table[INDEX] / 127.0f));
+              }
+          const SphereLutView VIEW{table.data(), true};
+          const SphereLutView FLOAT_VIEW{table.data(), true, exact.data()};
+          for (int index = 0; index < SAMPLE_COUNT; ++index) {
+            const float Z = 1.0f - 2.0f * (index + 0.5f) / SAMPLE_COUNT;
+            const float R = sqrtf(1.0f - Z * Z);
+            const float ANGLE =
+                math::TWO_PI_F * math::wrap_t(index * 0.61803398875f);
+            const auto D =
+                SphereDirection::from({R * cosf(ANGLE), R * sinf(ANGLE), Z});
+            const float DIRECT = SphereNoise::sample(D, PREPARED);
+            const float BAKED = sample_sphere_lut(VIEW, D);
+            const float SPATIAL = sample_sphere_lut(FLOAT_VIEW, D);
+            max_quantization =
+                std::max(max_quantization, fabsf(BAKED - SPATIAL));
+            max_spatial = std::max(max_spatial, fabsf(DIRECT - SPATIAL));
+            max_total = std::max(max_total, fabsf(DIRECT - BAKED));
+            total += fabsf(DIRECT - BAKED);
+          }
+        }
+      HS_EXPECT_LE(max_quantization, QUANTIZATION_BOUND);
+      constexpr std::array<float, 9> TOTAL_BOUNDS{
+          1.5f, 1.75f, 1.9f, 1.2f, 1.55f, 1.85f, 1.6f, 1.85f, 1.96f};
+      HS_EXPECT_LE(max_total, TOTAL_BOUNDS[recipe]);
+      if (recipe == 0 && scale <= 0.125f)
+        HS_EXPECT_LE(max_total, 0.005f);
+#if defined(HS_PATTERN_QUALIFICATION_REPORT)
+      std::printf("%zu,%.9g,%.9g,%.9g,%.9g,%.9g\n", recipe, scale,
+                  max_quantization, max_spatial, max_total,
+                  total / (9 * SAMPLE_COUNT));
+#else
+      (void)max_spatial;
+      (void)total;
+#endif
+    }
 }

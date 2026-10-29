@@ -270,6 +270,8 @@ inline int run_color_tests() {
   HS_RUN(test_color_modulation_mechanics);
   HS_RUN(test_pattern_modulated_palette);
   HS_RUN(test_sphere_lut_seamless_across_faces);
+  HS_RUN(test_sphere_lut_all_edges);
+  HS_RUN(test_sphere_noise_bake_qualification);
   HS_RUN(test_sphere_face_linear_table);
   HS_RUN(test_sphere_bake_cache);
   HS_RUN(test_sphere_bakes_match_reference);
