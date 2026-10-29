@@ -173,7 +173,7 @@ inline void test_sprite_scaled_fade_out_dims_penultimate_frame() {
         {.fade_in = {20}, .fade_out = {fade_out}});
     for (int frame = 0; frame < 8; ++frame)
       sprite.step(fake_canvas());
-    HS_EXPECT_EQ(opacity.size(), size_t(8));
+    HS_EXPECT_SIZE_OR_RETURN(opacity, 8);
     HS_EXPECT_NEAR(opacity[6], 0.5f, 1e-6f);
     HS_EXPECT_NEAR(opacity[7], 0.0f, 1e-6f);
   }
@@ -183,7 +183,7 @@ inline void test_sprite_scaled_fade_out_dims_penultimate_frame() {
       {.fade_in = {1}, .fade_out = {100}});
   for (int frame = 0; frame < 3; ++frame)
     sprite.step(fake_canvas());
-  HS_EXPECT_EQ(opacity.size(), size_t(3));
+  HS_EXPECT_SIZE_OR_RETURN(opacity, 3);
   HS_EXPECT_NEAR(opacity[1], 0.5f, 1e-6f);
   HS_EXPECT_NEAR(opacity[2], 0.0f, 1e-6f);
 }
