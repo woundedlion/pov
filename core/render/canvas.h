@@ -34,10 +34,10 @@ struct ColumnBasis;
 
 /**
  * @brief Construction-time flags for an Effect (see the accessors of the same
- *        name). Defaults suit a plain, non-strobing, band-clippable effect.
+ *        name). Defaults enable column strobing for a band-clippable effect.
  */
 struct EffectConfig {
-  bool strobe = false;  /**< POV column strobe (Effect::strobe_columns). */
+  bool strobe = true;   /**< POV column strobe (Effect::strobe_columns). */
   bool persist = false; /**< Copy previous frame forward (persists_pixels). */
   bool full_frame = false; /**< Force full-canvas render (needs_full_frame). */
   bool reads_outside_band =

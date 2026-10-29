@@ -685,36 +685,17 @@ inline void test_palette_mapping_crossfade() {
 
 #include "tests/composed_effect/temporal_sampling.h"
 
-/** @brief Only kaleidoscope composed effects persist displayed columns. */
+/** @brief Every composed effect defaults to blanking displayed columns. */
 inline void test_composed_strobe_roster() {
-  constexpr std::array<std::string_view, 12> KALEIDOSCOPES{
-      "AlienOcean",
-      "AshCloud",
-      "JewelMelt",
-      "KaleidoscopeFlowers",
-      "KaleidoscopeHexBright",
-      "KaleidoscopeHexOil",
-      "KaleidoscopeHexSoft",
-      "KaleidoscopeMandala",
-      "KaleidoscopeMelt",
-      "KaleidoscopePentBright",
-      "KaleidoscopeSmooth",
-      "KaleidoscopeStainedGlass"};
-  size_t persistent_columns = 0;
 #define HS_COMPOSED_STROBE(name, seconds)                                      \
   {                                                                            \
     HS_CONTEXT(#name);                                                         \
     reset_effect_globals();                                                    \
     name<SMALL_W, SMALL_H> effect;                                             \
-    const bool KALEIDOSCOPE =                                                  \
-        std::find(KALEIDOSCOPES.begin(), KALEIDOSCOPES.end(), #name) !=        \
-        KALEIDOSCOPES.end();                                                   \
-    HS_EXPECT_EQ(effect.strobe_columns(), !KALEIDOSCOPE);                      \
-    persistent_columns += !effect.strobe_columns();                            \
+    HS_EXPECT_TRUE(effect.strobe_columns());                                   \
   }
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_STROBE)
 #undef HS_COMPOSED_STROBE
-  HS_EXPECT_EQ(persistent_columns, KALEIDOSCOPES.size());
 }
 
 /** @brief Module entry point for the composed-effect base contract. */

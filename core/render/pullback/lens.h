@@ -145,7 +145,7 @@ template <typename State> struct Mobius : ApproximationDefaults {
 /** @brief Azimuthal kaleidoscope: `lenses::kaleidoscope_lens`. */
 struct Kaleidoscope : ApproximationDefaults {
   /// Whether displayed columns are followed by black.
-  static constexpr bool STROBE_COLUMNS = false;
+  static constexpr bool STROBE_COLUMNS = true;
   /**
    * @brief Applies the lens to a sphere direction.
    * @tparam FrameState Frame state type; unused.

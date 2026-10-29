@@ -5,6 +5,26 @@
 
 // Composed frame parity and ShaderChain effect lifecycle.
 
+/** @brief A kaleidoscope chain keeps column blanking enabled while drawing. */
+inline void test_shader_chain_kaleidoscope_strobe() {
+  reset_globals();
+  ShaderChain<96, 20> effect;
+  effect.init();
+  const In::ChainEntryRequest chain[] = {
+      {"lens", In::Op::LensKaleidoscope::ID},
+      {"project", "project.gnomonic.v2"},
+      {"sample", "sample.grid.v3"},
+      {"colorize", "colorize.generated-palette.v3"},
+  };
+  const auto status = effect.set_chain(chain).code;
+  HS_EXPECT_EQ(status, In::ChainStatus::OK);
+  if (status != In::ChainStatus::OK)
+    return;
+  effect.draw_frame();
+  HS_EXPECT_TRUE(effect.strobe_columns());
+  effect.advance_display();
+}
+
 inline void test_shader_chain_composed_frame_parity() {
   using FX = AlienCore<96, 20>;
   reset_globals();

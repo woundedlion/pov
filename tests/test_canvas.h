@@ -180,11 +180,26 @@ inline void test_construction_dims_and_clear() {
   TestEffect fx(96, 20);
   HS_EXPECT_EQ(fx.width(), 96);
   HS_EXPECT_EQ(fx.height(), 20);
+  HS_EXPECT_TRUE(fx.strobe_columns());
   HS_EXPECT_PIXEL(fx.get_pixel(10, 5), 0, 0, 0);
   HS_EXPECT_TRUE(fx.buffer_free());
   HS_EXPECT_TRUE(fx.clip().is_full());
   HS_EXPECT_EQ(fx.clip().y_end, 20);
   HS_EXPECT_EQ(fx.clip().x_end, 96);
+}
+
+/** @brief Column strobing defaults on and permits an explicit opt-out. */
+inline void test_effect_config_strobe_override() {
+  HS_EXPECT_TRUE(EffectConfig{}.strobe);
+  {
+    TestEffect fx(8, 4, {.strobe = false, .persist = true});
+    HS_EXPECT_FALSE(fx.strobe_columns());
+    HS_EXPECT_TRUE(fx.persists_pixels());
+  }
+  {
+    TestEffect fx(8, 4, {.strobe = true});
+    HS_EXPECT_TRUE(fx.strobe_columns());
+  }
 }
 
 /**
@@ -1373,6 +1388,7 @@ inline int run_canvas_tests() {
   hs_test::ModuleFixture fixture("canvas");
 
   HS_RUN(test_construction_dims_and_clear);
+  HS_RUN(test_effect_config_strobe_override);
   HS_RUN(test_construction_dimension_boundaries);
   HS_RUN(test_output_envelope_endpoints);
   HS_RUN(test_effect_transition_fenced_commit);

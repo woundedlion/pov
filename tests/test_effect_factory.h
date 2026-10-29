@@ -220,13 +220,16 @@ template <int W, int H> inline void drive_factory_lifecycle() {
       continue;
     HS_EXPECT_EQ(effect->width(), W);
     HS_EXPECT_EQ(effect->height(), H);
+    HS_EXPECT_TRUE(effect->strobe_columns());
 
     effect->init();
+    HS_EXPECT_TRUE(effect->strobe_columns());
     HS_EXPECT_EQ(entry.preset_count, effect->getPresetCount());
     bool lit = false;
     for (int f = 0; f < FACTORY_OUTPUT_WINDOW; ++f) {
       pin_frame_clock(f);
       effect->draw_frame();
+      HS_EXPECT_TRUE(effect->strobe_columns());
       // Consume the queued frame, else the next Canvas ctor spin-waits.
       effect->advance_display();
       lit = lit || count_lit_region<W, H>(*effect) > 0;

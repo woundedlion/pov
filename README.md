@@ -675,7 +675,7 @@ The parameter list (`ParamList`) is accessible via `getParameters()`, and `updat
 
 ### 6.3 The `EffectConfig` Flags
 
-An effect passes construction-time settings to its base as `Effect(W, H, {.strobe = ..., .persist = ...})`. `EffectConfig` (`core/render/canvas.h`) holds the bool flags `strobe`, `persist`, `full_frame` and `reads_outside_band`, all defaulting to false, plus the integers `margin` (defaulting to the `ClipRegion` default of 1, not 0) and `required_margin` (defaulting to 0). `set_margin()` may not go below `required_margin`.
+An effect passes construction-time settings to its base as `Effect(W, H, {.strobe = ..., .persist = ...})`. `EffectConfig` (`core/render/canvas.h`) defaults `strobe` to true and the bool flags `persist`, `full_frame` and `reads_outside_band` to false. Its integer `margin` defaults to the `ClipRegion` default of 1, not 0, and `required_margin` defaults to 0. `set_margin()` may not go below `required_margin`.
 
 Clip and margin setters cache an exact key for the resulting render bounds. `Plot::PointRoute` retains that key at preparation and checks it before plotting; changing the clip requires preparing the route again.
 

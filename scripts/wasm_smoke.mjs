@@ -325,10 +325,6 @@ async function main(probe) {
   const darkEffects = new Set();
   const sweptEffects = new Set();
 
-  // Run-wide counter for the per-frame telemetry the simulator reads: a single
-  // effect reporting false is legitimate, an all-false sweep is not.
-  let strobing = 0;
-
   // Enumerated from the module (generated from HS_RESOLUTIONS).
   const RESOLUTIONS = Module.HolosphereEngine.getSupportedResolutions();
   if (!RESOLUTIONS || RESOLUTIONS.length === 0) {
@@ -424,11 +420,8 @@ async function main(probe) {
         }
 
         const strobe = engine.strobeColumns();
-        if (typeof strobe !== 'boolean') {
-          fail(`${name}: strobeColumns() returned ${typeof strobe} "${strobe}", expected a boolean`);
-        } else if (strobe) {
-          strobing++;
-        }
+        if (strobe !== true)
+          fail(`${name}: strobeColumns() returned ${typeof strobe} "${strobe}", expected true`);
 
         let lit = false;
         for (let i = 0; i < px.length; i++) {
@@ -512,11 +505,6 @@ async function main(probe) {
     console.log(`\nall-black: ${darkEffects.size} of ${sweptEffects.size * RESOLUTIONS.length} ` +
       `effect/resolution passes rendered no lit pixel` +
       (darkEffects.size ? ` (${[...darkEffects].sort().join(', ')})` : ''));
-
-    if (strobing === 0) {
-      fail('strobeColumns() reported false for every effect — the whole roster ' +
-        'declares strobe = false, or the binding is dead');
-    }
 
     // ── Embind write seam: setResolution / setClip / setParameter ─────────────
     {
