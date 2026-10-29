@@ -153,4 +153,58 @@ file(WRITE "${WORK}/tests/test_effects.h" "${_effects}")
 file(WRITE "${WORK}/tests/effects/guards.h" "inline void test_guard() {\n}\n")
 check_gate("${CALL_GATE}" FALSE "test cases reach no assertion")
 
+hs_gate_workspace("${CALL_GATE}")
+file(MAKE_DIRECTORY "${WORK}/tests/color" "${WORK}/tests/pattern"
+  "${WORK}/core/color" "${WORK}/core/pattern")
+set(_color [=[#include "tests/color/modulation.h"
+#include "tests/pattern/sphere_lut.h"
+inline int run_color_tests() {
+  test_color_modulation();
+  test_pattern_storage();
+  return 0;
+}
+]=])
+set(_pullback [=[#include "tests/pattern/fields.h"
+inline int run_pullback_tests() {
+  test_pattern_fields();
+  return 0;
+}
+]=])
+file(WRITE "${WORK}/tests/test_color.h" "${_color}")
+file(WRITE "${WORK}/tests/test_pullback.h" "${_pullback}")
+file(WRITE "${WORK}/tests/color/modulation.h"
+  "inline void test_color_modulation() {\n  HS_EXPECT_TRUE(true);\n}\n")
+file(WRITE "${WORK}/tests/pattern/sphere_lut.h"
+  "inline void test_pattern_storage() {\n  HS_EXPECT_TRUE(true);\n}\n")
+file(WRITE "${WORK}/tests/pattern/fields.h"
+  "inline void test_pattern_fields() {\n  HS_EXPECT_TRUE(true);\n}\n")
+file(WRITE "${WORK}/core/color/modulation.h" "#pragma once\n")
+file(WRITE "${WORK}/core/pattern/sphere_lut.h" "#pragma once\n")
+file(WRITE "${WORK}/core/pattern/fields.h" "#pragma once\n")
+file(WRITE "${WORK}/run_tests.cpp" [=[#include "tests/test_color.h"
+#include "tests/test_pullback.h"
+#define HS_TEST_MODULE_LIST(X)
+X("color", run_color_tests, false)
+X("pullback", run_pullback_tests, false)
+#define HS_TEST_MODULE_ENTRY
+]=])
+check_gate("${INCLUDE_GATE}" TRUE "includes match the roster")
+check_gate("${CALL_GATE}" TRUE "all 3 case definitions")
+string(REPLACE "#include \"tests/pattern/fields.h\"\n" "" _missing "${_pullback}")
+file(WRITE "${WORK}/tests/test_pullback.h" "${_missing}")
+check_gate("${INCLUDE_GATE}" FALSE "owner must include its section once")
+file(WRITE "${WORK}/tests/test_pullback.h" "${_pullback}")
+file(APPEND "${WORK}/tests/test_pullback.h" "#include \"tests/pattern/sphere_lut.h\"\n")
+check_gate("${CALL_GATE}" FALSE "section header belongs to another module")
+file(WRITE "${WORK}/tests/test_pullback.h" "${_pullback}")
+file(WRITE "${WORK}/tests/color/unapproved.h" "#pragma once\n")
+file(WRITE "${WORK}/core/color/unapproved.h" "#pragma once\n")
+file(APPEND "${WORK}/tests/test_color.h" "#include \"tests/color/unapproved.h\"\n")
+check_gate("${INCLUDE_GATE}" FALSE "section header shadows an engine include")
+check_gate("${CALL_GATE}" FALSE "section header shadows an engine include")
+file(REMOVE "${WORK}/tests/color/unapproved.h" "${WORK}/core/color/unapproved.h")
+file(WRITE "${WORK}/tests/test_color.h" "${_color}")
+check_gate("${INCLUDE_GATE}" TRUE "includes match the roster")
+check_gate("${CALL_GATE}" TRUE "all 3 case definitions")
+
 message(STATUS "test section controls passed")
