@@ -1360,6 +1360,9 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── srgb_decode_lut.h       Generated split-decode tables behind srgb_decode.h
 │   │   ├── gamut_lut.h             Generated sRGB gamut-boundary chroma table for OKLab clipping
 │   │   ├── generative_palette.h    GenerativePalette + PaletteRecipe compilation
+│   │   ├── hue_rotation_lut.h      Palette-coordinate by hue-rotation acceleration
+│   │   ├── modulation_types.h      Passive source recipes and mechanic controls
+│   │   ├── modulation.h            Generic scalar-field palette composition and color mechanics
 │   │   ├── noise_hue_palette.h     Sphere-noise hue LUTs + reusable NoiseHuePalette wrapper
 │   │   ├── noise_shimmer_palette.h Shared sphere-noise lightness lift palette wrapper
 │   │   ├── palette_cycler.h        PaletteCycler: dwell-and-fade display LUT over a palette sequence
