@@ -132,33 +132,30 @@ struct DreamBallsWhiteBox {
     return capture_luminance<DEFAULT_W, DEFAULT_H>(fx);
   }
 
-  /** @brief Checks orbit and pose interpolation against its angular bound. */
+  /** @brief Checks orbit interpolation against its angular bound. */
   static void check_endpoint_error_bound() {
     float worst_ratio = 0.0f;
     const auto base = math::Vector(0.3f, 0.8f, 0.5f).normalized();
     const auto tangent = math::tangent_axis(base);
     for (float radius : {0.0f, 0.3f, 1.0f})
       for (float orbit : {0.025132741f, 0.12566371f, 0.31415927f})
-        for (float spin : {0.0f, 0.04f, 0.16f})
-          for (int phase = 0; phase < 32; ++phase) {
-            const auto at = [&](float t) {
-              const auto offset = DB::tangent_orbit_offset(
-                  base, tangent, phase * math::PI_F / 16.0f + orbit * t);
-              return math::rotate(
-                  math::normalized_or(base + offset * radius, base),
-                  math::make_rotation(math::Z_AXIS, spin * t));
-            };
-            const auto a = at(0.0f), b = at(1.0f);
-            const float bound = DB::endpoint_error_bound(spin, orbit, radius);
-            for (int step = 1; step < 32; ++step) {
-              const float t = step / 32.0f;
-              const auto delta = at(t) - (a * (1.0f - t) + b * t).normalized();
-              const float error = sqrtf(math::dot(delta, delta));
-              HS_EXPECT_LE(error, bound + 0.000002f);
-              if (bound > 0.0f)
-                worst_ratio = fmaxf(worst_ratio, error / bound);
-            }
+        for (int phase = 0; phase < 32; ++phase) {
+          const auto at = [&](float t) {
+            const auto offset = DB::tangent_orbit_offset(
+                base, tangent, phase * math::PI_F / 16.0f + orbit * t);
+            return math::normalized_or(base + offset * radius, base);
+          };
+          const auto a = at(0.0f), b = at(1.0f);
+          const float bound = DB::endpoint_error_bound(orbit, radius);
+          for (int step = 1; step < 32; ++step) {
+            const float t = step / 32.0f;
+            const auto delta = at(t) - (a * (1.0f - t) + b * t).normalized();
+            const float error = sqrtf(math::dot(delta, delta));
+            HS_EXPECT_LE(error, bound + 0.000002f);
+            if (bound > 0.0f)
+              worst_ratio = fmaxf(worst_ratio, error / bound);
           }
+        }
     std::printf("  [DreamBalls endpoint bound] worst ratio %.6f\n",
                 worst_ratio);
   }

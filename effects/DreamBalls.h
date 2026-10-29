@@ -833,15 +833,11 @@ private:
   }
 
   /** @brief Bounds normalized endpoint interpolation error in radians.
-   * @param spin Pose rotation over the frame.
    * @param orbit Orbit phase change in radians.
    * @param radius Tangent orbit radius.
    * @return Angular chord error bound. */
-  HS_HOT_INLINE static float endpoint_error_bound(float spin, float orbit,
-                                                  float radius) {
-    return (spin * spin + 2.2f * spin * orbit * radius +
-            4.0f * radius * orbit * orbit) *
-           0.25f;
+  HS_HOT_INLINE static float endpoint_error_bound(float orbit, float radius) {
+    return radius * orbit * orbit;
   }
 
   HS_HOT_FLASH_MEMBER void draw_original_scene(Canvas &canvas, const Params &p,
@@ -922,7 +918,7 @@ private:
     opacity_start = continuous ? drawn_opacity : sprite_unseen ? 0.0f : opacity;
     const float orbit = fabsf(orbit_phase - phase_start) * 2.0f * math::PI_F;
     motion_bound = orbit * p.offset_radius;
-    const float chord = endpoint_error_bound(0.0f, orbit, p.offset_radius);
+    const float chord = endpoint_error_bound(orbit, p.offset_radius);
     orbit_path = {8.0f * chord, 8.0f * chord * orbit};
 
     if (p.weave_topology == WeaveTopology::ORIGINAL_WITH_DEFECTS) {
