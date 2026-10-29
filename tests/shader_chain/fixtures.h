@@ -79,10 +79,6 @@ struct ColorResources {
     PB::Color::prepare_hue_rotation_lut(
         std::span<Pixel, PB::Color::HueRotationLutView::SIZE>(hue_rotation),
         palettes[0]);
-    FastNoiseLite noise;
-    noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    noise.SetSeed(4211);
-    noise.SetFrequency(1.0f);
     ColorModulation::Config config;
     config.seed = 4211;
     config.noise.scale = 1.5f;
