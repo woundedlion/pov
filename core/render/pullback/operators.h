@@ -100,8 +100,7 @@ inline constexpr const char *PALETTE_MAPPING_IDS[] = {"cup", "bell", "linear",
 static_assert(std::size(PALETTE_MAPPING_IDS) ==
               static_cast<size_t>(Color::PaletteMapping::REVERSE) + 1);
 /// Wire ids of `HueShiftMode`, by enumerator value.
-inline constexpr const char *HUE_SHIFT_MODE_IDS[] = {"none", "noise",
-                                                     "path-length"};
+inline constexpr const char *HUE_SHIFT_MODE_IDS[] = {"none", "path-length"};
 static_assert(std::size(HUE_SHIFT_MODE_IDS) ==
               static_cast<size_t>(HueShiftMode::PATH_LENGTH) + 1);
 /// Wire ids of `EnvelopeMode`, by enumerator value.
@@ -117,9 +116,176 @@ struct GeneratedPaletteParams : Color::ColorControls {
   /// A `Color::PaletteMapping` value.
   uint8_t mapping_mode = static_cast<uint8_t>(Color::PaletteMapping::LINEAR);
   /// A `HueShiftMode` value.
-  uint8_t hue_mode = static_cast<uint8_t>(HueShiftMode::NOISE);
+  uint8_t hue_mode = static_cast<uint8_t>(HueShiftMode::NONE);
   /// An `EnvelopeMode` value.
   uint8_t envelope_mode = static_cast<uint8_t>(EnvelopeMode::NONE);
+
+  static constexpr const char *ENABLED_IDS[] = {"disabled", "enabled"};
+  static constexpr const char *SOURCE_IDS[] = {
+      "noise", "directional-sine", "sphere-interference", "sphere-smooth-grid"};
+  static constexpr const char *EVALUATION_IDS[] = {"direct", "baked-cube"};
+  static constexpr const char *MECHANIC_IDS[] = {
+      "hue-rotation", "positive-lightness-lift", "opacity"};
+  static constexpr const char *BASIS_IDS[] = {"simplex", "fbm3", "ridged3"};
+  static constexpr const char *VARIANT_IDS[] = {"configured-single",
+                                                "octave-contour"};
+  static constexpr auto EXTRA_SCHEMA = [] {
+    std::array<ParamFieldInfo, 38> out{};
+    const char *ids[] = {"modulation-amount",
+                         "pattern-scale",
+                         "pattern-speed",
+                         "pattern-contrast",
+                         "sine-axis-x",
+                         "sine-axis-y",
+                         "sine-axis-z",
+                         "sine-frequency",
+                         "sine-offset",
+                         "sine-speed",
+                         "interference-axis-x",
+                         "interference-axis-y",
+                         "interference-axis-z",
+                         "interference-frequency",
+                         "interference-offset",
+                         "interference-speed",
+                         "interference-axis-b-x",
+                         "interference-axis-b-y",
+                         "interference-axis-b-z",
+                         "interference-frequency-b",
+                         "interference-offset-b",
+                         "grid-axis-x",
+                         "grid-axis-y",
+                         "grid-axis-z",
+                         "grid-frequency",
+                         "grid-offset",
+                         "grid-speed",
+                         "grid-axis-b-x",
+                         "grid-axis-b-y",
+                         "grid-axis-b-z",
+                         "grid-frequency-b",
+                         "grid-offset-b"};
+    for (size_t i = 0; i < 32; ++i)
+      out[i] = {ids[i], nullptr, -64.0f, 64.0f,   0.0f,    FieldCurve::LERP,
+                false,  0,       0,      nullptr, nullptr, 0};
+    out[0].min = -4.0f;
+    out[0].max = 4.0f;
+    out[1].min = 1.0f / 64.0f;
+    out[1].max = 64.0f;
+    out[1].def = 1.0f;
+    out[3].min = 0.0f;
+    out[3].max = 8.0f;
+    for (size_t i :
+         {size_t{5}, size_t{7}, size_t{11}, size_t{13}, size_t{16}, size_t{19},
+          size_t{22}, size_t{24}, size_t{27}, size_t{30}})
+      out[i].def = 1.0f;
+    for (size_t i : {size_t{7}, size_t{13}, size_t{19}, size_t{24}, size_t{30}})
+      out[i].min = 0.0f;
+    out[32] = {
+        "modulation-enabled", nullptr, 0, 0, 0, FieldCurve::SNAP, true, 2, 1,
+        ENABLED_IDS,          nullptr, 0};
+    out[33] = {
+        "modulation-source", nullptr, 0, 0, 0, FieldCurve::SNAP, true, 4, 0,
+        SOURCE_IDS,          nullptr, 0};
+    out[34] = {
+        "modulation-evaluation", nullptr, 0, 0, 0, FieldCurve::SNAP, true, 2, 1,
+        EVALUATION_IDS,          nullptr, 0};
+    out[35] = {
+        "modulation-mechanic", nullptr, 0, 0, 0, FieldCurve::SNAP, true, 3, 0,
+        MECHANIC_IDS,          nullptr, 0};
+    out[36] = {"pattern-noise-basis",
+               nullptr,
+               0,
+               0,
+               0,
+               FieldCurve::SNAP,
+               true,
+               3,
+               0,
+               BASIS_IDS,
+               nullptr,
+               0};
+    out[37] = {"pattern-noise-variant",
+               nullptr,
+               0,
+               0,
+               0,
+               FieldCurve::SNAP,
+               true,
+               2,
+               0,
+               VARIANT_IDS,
+               nullptr,
+               0};
+    return out;
+  }();
+  /** @brief Mutable canonical control addresses.
+   * @param index Index in the appended schema.
+   * @return Canonical configuration field address. */
+  void *extra_address(size_t index) {
+    auto &c = modulation;
+    float *addresses[] = {&c.mechanic.amount,
+                          &c.noise.scale,
+                          &c.noise.speed,
+                          &c.noise.contrast,
+                          &c.sine.axis.x,
+                          &c.sine.axis.y,
+                          &c.sine.axis.z,
+                          &c.sine.frequency,
+                          &c.sine.offset,
+                          &c.sine.speed,
+                          &c.interference.axis.x,
+                          &c.interference.axis.y,
+                          &c.interference.axis.z,
+                          &c.interference.frequency,
+                          &c.interference.offset,
+                          &c.interference.speed,
+                          &c.interference.axis_b.x,
+                          &c.interference.axis_b.y,
+                          &c.interference.axis_b.z,
+                          &c.interference.frequency_b,
+                          &c.interference.offset_b,
+                          &c.grid.axis.x,
+                          &c.grid.axis.y,
+                          &c.grid.axis.z,
+                          &c.grid.frequency,
+                          &c.grid.offset,
+                          &c.grid.speed,
+                          &c.grid.axis_b.x,
+                          &c.grid.axis_b.y,
+                          &c.grid.axis_b.z,
+                          &c.grid.frequency_b,
+                          &c.grid.offset_b};
+    if (index < std::size(addresses))
+      return addresses[index];
+    switch (index) {
+    case 32:
+      return &c.enabled;
+    case 33:
+      return &c.source;
+    case 34:
+      return &c.evaluation;
+    case 35:
+      return &c.mechanic.kind;
+    case 36:
+      return &c.noise.basis;
+    case 37:
+      return &c.noise.variant;
+    }
+    HS_CHECK(false, "invalid modulation field index");
+    return nullptr;
+  }
+  /** @brief Interpolates continuous mechanic controls only across equal kinds.
+   * @param out Interpolated parameters.
+   * @param a Previous parameters.
+   * @param b Current parameters.
+   * @param t Current weight. */
+  static void sample_extra(GeneratedPaletteParams &out,
+                           const GeneratedPaletteParams &a,
+                           const GeneratedPaletteParams &b, float t) {
+    out.modulation = b.modulation;
+    if (Modulation::same_topology(a.modulation, b.modulation))
+      out.modulation.mechanic.amount = hs::lerp(
+          a.modulation.mechanic.amount, b.modulation.mechanic.amount, t);
+  }
 
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<GeneratedPaletteParams>{
@@ -131,7 +297,7 @@ struct GeneratedPaletteParams : Color::ColorControls {
           static_cast<uint8_t>(Color::PaletteMapping::LINEAR)},
       TopologyField<GeneratedPaletteParams>{
           "hue-shift-mode", &GeneratedPaletteParams::hue_mode,
-          HUE_SHIFT_MODE_IDS, static_cast<uint8_t>(HueShiftMode::NOISE)},
+          HUE_SHIFT_MODE_IDS, static_cast<uint8_t>(HueShiftMode::NONE)},
       TopologyField<GeneratedPaletteParams>{
           "brightness-envelope", &GeneratedPaletteParams::envelope_mode,
           BRIGHTNESS_ENVELOPE_IDS, static_cast<uint8_t>(EnvelopeMode::NONE)},
@@ -145,10 +311,8 @@ static_assert(appended_block_size_matches<GeneratedPaletteParams,
 
 /** @brief Per-frame color phase clocks. */
 struct ColorClockState {
-  int32_t hue_noise_seed = HUE_NOISE_SEED; ///< Seed of the hue-noise field.
-  float oscillation_phase = 0.0f; ///< Mapping-phase oscillation clock, [0, 1).
-  float hue_noise_phase = 0.0f;   /**< Bake input for the engine's hue-noise
-                                     LUT; not read by run(). */
+  float oscillation_phase = 0.0f; ///< Mapping oscillation in turns.
+  Modulation::State modulation;   ///< Selected source state.
 };
 
 /** @brief Prepares the palette mapping clock.
@@ -213,14 +377,15 @@ prepare_generated_palette(const FrameContext &ctx,
           mode,
           params.hue_shift_amount,
           {ctx.hue_rotation_lut, rotation_active},
-          {ctx.hue_noise_lut, mode == Color::HueMode::NOISE &&
-                                  rotation_active &&
-                                  ctx.hue_noise_lut != nullptr},
+          ctx.modulation,
+          params.modulation.mechanic,
           static_cast<Color::BrightnessEnvelope>(params.envelope_mode),
           params.brightness_bottom,
           params.brightness_top,
           params.opacity_low,
-          params.opacity_high};
+          params.opacity_high,
+          palette->constant_alpha().value_or(-1.0f),
+          Color::mechanic_kernel(params.modulation.mechanic.kind)};
 }
 
 /** @brief FIELD-to-COLOR crossing with generated-palette clocks and endpoints. */
@@ -232,6 +397,19 @@ struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
   using Params = GeneratedPaletteParams;
   using Prepared = Color::GeneratedPaletteState;
 
+  /** @brief Validates source and mechanic recipes even when disabled.
+   * @param params Canonical controls.
+   * @return Error message, or null when admitted. */
+  static const char *validate(const Params &params) {
+    return Modulation::valid(params.modulation) &&
+                   !(params.modulation.enabled &&
+                     params.hue_mode ==
+                         static_cast<uint8_t>(HueShiftMode::PATH_LENGTH))
+               ? nullptr
+               : "invalid modulation configuration";
+  }
+  static constexpr const char *ADMISSIBILITY_CONVEXITY =
+      "Source controls hold endpoint recipes; mechanic strength interpolates within one kind.";
   static constexpr bool APPROXIMATE = true;
   static constexpr ApproximationOracleId ORACLE =
       ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
@@ -240,8 +418,7 @@ struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
   static void advance(State &state, const Params &params) {
     state.oscillation_phase =
         math::wrap_t(state.oscillation_phase + params.phase_oscillation_speed);
-    state.hue_noise_phase =
-        math::wrap_t(state.hue_noise_phase + params.hue_noise_speed);
+    Modulation::advance(state.modulation, params.modulation);
   }
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {

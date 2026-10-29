@@ -42,7 +42,6 @@ template <typename Frame> class FrameInterval {
   bool constant_params;
   uint32_t constant_families = 0;
   float oscillation_delta;
-  bool same_noise;
   bool same_palette;
 
 public:
@@ -56,9 +55,6 @@ public:
         constant_params(std::memcmp(&a.params, &b.params, sizeof(Params)) == 0),
         oscillation_delta(Spacetime::ClockInterval::prepare_delta(
             a.palette_oscillation_phase, b.palette_oscillation_phase, 1.0f)),
-        same_noise(a.hue_noise_lut && b.hue_noise_lut &&
-                   std::memcmp(a.hue_noise_lut, b.hue_noise_lut,
-                               Color::HueNoiseLutView::SIZE) == 0),
         same_palette(a.palette && b.palette &&
                      a.palette->same_entries(*b.palette) &&
                      (a.hue_rotation_lut == b.hue_rotation_lut ||
@@ -132,6 +128,13 @@ public:
     if (fraction <= 0.0f) {
       Frame frame = from;
       hold_discrete_lenses(frame, from, to);
+      if (!Modulation::same_topology(
+              from.params.template get<"color">().modulation,
+              to.params.template get<"color">().modulation)) {
+        frame.modulation = to.modulation;
+        frame.params.template get<"color">().modulation =
+            to.params.template get<"color">().modulation;
+      }
       return frame;
     }
     if (fraction >= 1.0f)
@@ -199,15 +202,20 @@ public:
                 : end;
       }
     });
+    const bool CONTINUOUS = Modulation::same_topology(
+        from.params.template get<"color">().modulation,
+        to.params.template get<"color">().modulation);
+    if (!CONTINUOUS)
+      frame.params.template get<"color">().modulation =
+          to.params.template get<"color">().modulation;
     frame.temporal = {from.palette,
                       from.hue_rotation_lut,
-                      from.hue_noise_lut,
+                      from.modulation,
                       fraction,
                       from.hue_rotation_linear,
                       from.palette_alpha,
-                      from.hue_noise_linear,
-                      same_noise,
-                      same_palette};
+                      same_palette,
+                      CONTINUOUS};
     return frame;
   }
 };
@@ -234,19 +242,14 @@ template <typename Frame, Pullback::Color::HueMode Hue, bool FloatHue>
 struct FrameHistory<Frame, Hue, true, FloatHue> {
   Frame previous{}; ///< Previous endpoint with owned color resource views.
   BakedPaletteStorage palette; ///< Retained palette table.
-  std::array<Pixel, Hue != Pullback::Color::HueMode::NONE
+  std::array<Pixel, Hue != Pullback::Color::HueMode::NONE || FloatHue
                         ? Pullback::Color::HueRotationLutView::SIZE
                         : 0>
       hue_rotation; ///< Retained hue-rotation table.
-  std::array<int8_t, Hue == Pullback::Color::HueMode::NOISE
-                         ? Pullback::Color::HueNoiseLutView::SIZE
-                         : 0>
-      hue_noise; ///< Retained hue-noise table.
-  std::array<math::Vector,
-             FloatHue ? Pullback::Color::HueRotationLutView::SIZE : 0>
-      hue_rotation_linear; ///< Retained float hue table.
-  std::array<float, FloatHue ? Pullback::Color::HueNoiseLutView::SIZE : 0>
-      hue_noise_linear;     ///< Retained float noise table.
+  std::array<int8_t, FloatHue ? Pattern::SphereLutView::SIZE : 0>
+      modulation_table{}; ///< Retained scalar table.
+  std::conditional_t<FloatHue, Pullback::Modulation::Prepared, std::monostate>
+      modulation;           ///< Retained immutable source inputs.
   bool initialized = false; ///< Whether a previous endpoint exists.
 
   /** @brief Retains the current endpoint before the next animation step.
@@ -260,31 +263,29 @@ struct FrameHistory<Frame, Hue, true, FloatHue> {
     previous = frame;
     previous.palette = &palette.view();
     previous.hue_rotation_linear = nullptr;
-    previous.hue_noise_linear = nullptr;
-    if constexpr (Hue != Pullback::Color::HueMode::NONE) {
+    if constexpr (Hue != Pullback::Color::HueMode::NONE || FloatHue) {
       std::copy_n(frame.hue_rotation_lut, hue_rotation.size(),
                   hue_rotation.data());
       previous.hue_rotation_lut = hue_rotation.data();
     }
-    if constexpr (Hue == Pullback::Color::HueMode::NOISE) {
-      std::copy_n(frame.hue_noise_lut, hue_noise.size(), hue_noise.data());
-      previous.hue_noise_lut = hue_noise.data();
-    }
     if constexpr (FloatHue) {
-      std::copy_n(frame.hue_rotation_linear, hue_rotation_linear.size(),
-                  hue_rotation_linear.data());
-      previous.hue_rotation_linear = hue_rotation_linear.data();
-      std::copy_n(frame.hue_noise_linear, hue_noise_linear.size(),
-                  hue_noise_linear.data());
-      previous.hue_noise_linear = hue_noise_linear.data();
+      if (frame.modulation) {
+        modulation = *frame.modulation;
+        if (modulation.config.evaluation == Pattern::Evaluation::BAKED_CUBE &&
+            modulation.cube.active) {
+          std::copy_n(modulation.cube.data, modulation_table.size(),
+                      modulation_table.data());
+          modulation.cube.data = modulation_table.data();
+        }
+        previous.modulation = &modulation;
+      }
     }
     previous.temporal = {previous.palette,
                          previous.hue_rotation_lut,
-                         previous.hue_noise_lut,
+                         previous.modulation,
                          1.0f,
                          previous.hue_rotation_linear,
-                         previous.palette_alpha,
-                         previous.hue_noise_linear};
+                         previous.palette_alpha};
     initialized = true;
   }
 };

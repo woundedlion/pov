@@ -54,9 +54,8 @@ template <typename ParamsT> struct FrameState {
   /** Hue-rotation LUT base; current when hue_rotation_active() or the effect
       samples time. */
   const Pixel *hue_rotation_lut;
-  /** Hue-noise LUT base; current under HueMode::NOISE when rotation is active
-      or the effect samples time. */
-  const int8_t *hue_noise_lut;
+  const Modulation::Prepared *modulation =
+      nullptr;    ///< Immutable modulation endpoint.
   ParamsT params; /**< The frame's parameter values, already interpolated if a
                        preset transition is in flight. */
   /** Palette mapping weights, blended across a preset transition. */
@@ -68,7 +67,6 @@ template <typename ParamsT> struct FrameState {
   const math::Vector *hue_rotation_linear =
       nullptr;                 ///< Optional float hue table.
   float palette_alpha = -1.0f; ///< Constant alpha, or -1 when varying.
-  const float *hue_noise_linear = nullptr; ///< Optional float noise table.
 };
 
 /** @brief Column-sampled context with retained color resources. */
@@ -414,14 +412,17 @@ struct ValueProvider {
  */
 template <HueMode HueV>
 inline bool hue_rotation_active(const ColorParams &color) {
-  return HueV != HueMode::NONE && color.hue_shift_amount != 0.0f;
+  return (HueV == HueMode::PATH_LENGTH && color.hue_shift_amount != 0.0f) ||
+         (color.modulation.enabled &&
+          color.modulation.mechanic.kind ==
+              ColorModulation::Mechanic::HUE_ROTATION &&
+          color.modulation.mechanic.amount != 0.0f);
 }
 
 /**
  * @brief Supplies the palette, mapping and hue state to
  *        Pullback::Color::GeneratedPalette.
- * @details Each LUT view carries its own active flag; the noise view also
- * requires HueMode::NOISE.
+ * @details Source resources are immutable endpoint views.
  * @tparam BindingT The effect's Binding.
  * @tparam HueV Hue-rotation source reported to the color stage.
  * @tparam BrightnessV Brightness envelope reported to the color stage.
@@ -511,16 +512,17 @@ struct ColorProvider {
             hue_rotation_active<HueV>(frame.params.template get<"color">()),
             frame.hue_rotation_linear};
   }
-  /** @brief Hue-noise LUT view.
-   *  @param frame Current frame.
-   *  @return `frame.hue_noise_lut`, active only under HueMode::NOISE
-   *  with an active rotation. */
-  __attribute__((always_inline)) static Pullback::Color::HueNoiseLutView
-  hue_noise(const FrameState &frame) {
-    return {frame.hue_noise_lut,
-            HueV == HueMode::NOISE &&
-                hue_rotation_active<HueV>(frame.params.template get<"color">()),
-            frame.hue_noise_linear};
+  /** @brief Immutable source endpoint.
+   * @param frame Current frame.
+   * @return Prepared modulation resources. */
+  static const Modulation::Prepared *modulation(const FrameState &frame) {
+    return frame.modulation;
+  }
+  /** @brief Column-interpolated mechanic controls.
+   * @param frame Current frame.
+   * @return Canonical mechanic controls. */
+  static ColorModulation::Params mechanic(const FrameState &frame) {
+    return frame.params.template get<"color">().modulation.mechanic;
   }
   /** @brief Brightness envelope.
    *  @return `BrightnessV`. */

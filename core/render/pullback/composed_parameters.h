@@ -22,7 +22,14 @@
  */
 template <Pullback::HasFields T>
 inline T interpolate(const T &a, const T &b, float t) {
-  return Pullback::Fields::interpolate(a, b, t);
+  T out = Pullback::Fields::interpolate(a, b, t);
+  if constexpr (requires { out.modulation; }) {
+    out.modulation = b.modulation;
+    if (Modulation::same_topology(a.modulation, b.modulation))
+      out.modulation.mechanic.amount = hs::lerp(
+          a.modulation.mechanic.amount, b.modulation.mechanic.amount, t);
+  }
+  return out;
 }
 
 /**
@@ -151,7 +158,7 @@ sample_lens_phase(const MobiusLensParams &lens, float angle, float magnitude) {
  * @return True when every field and the mapping enumerator are valid.
  */
 inline bool valid(const ColorParams &p) {
-  return Pullback::Fields::valid(p) &&
+  return Pullback::Fields::valid(p) && Modulation::valid(p.modulation) &&
          static_cast<uint8_t>(p.palette_mapping) <=
              static_cast<uint8_t>(Pullback::Color::PaletteMapping::REVERSE);
 }
@@ -183,26 +190,12 @@ template <> struct OptionalHueRotationLut<true> {
   uint32_t hue_rotation_lut_bake = 0;
 };
 
-/** @brief Optional float copies of the hue-rotation and hue-noise tables. */
-template <bool Enabled> struct OptionalLinearHueRotationLut {};
-/** @brief Enabled float hue-table storage. */
-template <> struct OptionalLinearHueRotationLut<true> {
-  /// Exact float copies of the RGB16 entries.
-  std::array<math::Vector, Color::HueRotationLutView::SIZE> hue_rotation_linear;
-  /// Exact float copies of the quantized noise entries.
-  std::array<float, Color::HueNoiseLutView::SIZE> hue_noise_linear;
-};
-
-/** @brief Hue-noise LUT and the inputs it was baked from; empty unless the
-    hue source is the noise field. */
-template <bool Enabled> struct OptionalHueNoiseLut {};
-/** @brief Enabled hue-noise storage. */
-template <> struct OptionalHueNoiseLut<true> {
-  FastNoiseLite color_noise; ///< Hue-noise field the LUT is baked from.
-  /// Cube-face hue-noise samples.
-  std::array<int8_t, Pullback::Color::HueNoiseLutView::SIZE> hue_noise_lut;
-  /// Scale and phase the resident LUT was baked from.
-  Pullback::Color::HueNoiseBakeCache hue_noise_bake;
+/** @brief Optional spatial modulation resources. */
+template <bool Enabled, bool Baked> struct OptionalModulation {};
+/** @brief Enabled spatial modulation resources. */
+template <bool Baked> struct OptionalModulation<true, Baked> {
+  Modulation::Resources<Baked>
+      modulation_resources; ///< Current owned endpoint.
 };
 
 /** @brief Projection-walk noise storage; empty when disabled. */

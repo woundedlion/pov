@@ -57,8 +57,7 @@ public:
   /// Whether the effect samples time across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = SpecT::TEMPORAL_SAMPLING;
   /// Whether hue tables retain exact float copies for interpolation.
-  static constexpr bool FLOAT_HUE_TABLES =
-      TEMPORAL_SAMPLING && Metadata::HUE == HueMode::NOISE;
+  static constexpr bool FLOAT_HUE_TABLES = false;
   static_assert(!TEMPORAL_SAMPLING || (W >= 2 && W % 2 == 0),
                 "Column-time sampling requires an even two-arm canvas width");
   /// Frame context, including retained color resources when sampling time.
@@ -124,8 +123,6 @@ public:
     use_parameter_storage(persistent_arena,
                           persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
-    if constexpr (Metadata::HUE == HueMode::NOISE)
-      Pullback::init_effect_noise(state->color_noise, HUE_NOISE_SEED);
     params.visit([&]<typename Resource>(auto &) {
       if constexpr (ComposedDetail::RESOURCE_NOISE<Resource>) {
         constexpr int32_t SEED = Resource::KIND == ResourceKind::WARP
@@ -190,7 +187,7 @@ public:
     const FrameState current = prepare_frame();
     if constexpr (TEMPORAL_SAMPLING) {
       auto &history = static_cast<Spacetime::FrameHistory<
-          FrameState, Metadata::HUE, TEMPORAL_SAMPLING, FLOAT_HUE_TABLES> &>(
+          FrameState, Metadata::HUE, TEMPORAL_SAMPLING, SpecT::MODULATION> &>(
           *state);
       if (!history.initialized)
         history.capture(current, persistent_arena);
@@ -300,7 +297,8 @@ protected:
   /** Descriptors the arena-backed parameter array holds; every slider an effect
       registers has to fit. */
   static constexpr size_t PARAM_CAPACITY =
-      ComposedDetail::parameter_count<SpecT>(typename Params::ResourceTypes{});
+      ComposedDetail::parameter_count<SpecT>(typename Params::ResourceTypes{}) +
+      (SpecT::MODULATION ? 3 : 0);
 
   using Choreography::anims_paused;
   using Choreography::params;
@@ -574,11 +572,13 @@ public:
 
 private:
   struct State : ProjectionWalkNoise<ANIMATED_PROJECTION>,
-                 OptionalHueRotationLut<Metadata::HUE != HueMode::NONE>,
-                 OptionalLinearHueRotationLut<FLOAT_HUE_TABLES>,
-                 OptionalHueNoiseLut<Metadata::HUE == HueMode::NOISE>,
+                 OptionalHueRotationLut<Metadata::HUE != HueMode::NONE ||
+                                        SpecT::MODULATION>,
+                 OptionalModulation<SpecT::MODULATION,
+                                    SpecT::MODULATION_EVALUATION ==
+                                        Pattern::Evaluation::BAKED_CUBE>,
                  Spacetime::FrameHistory<FrameState, Metadata::HUE,
-                                         TEMPORAL_SAMPLING, FLOAT_HUE_TABLES> {
+                                         TEMPORAL_SAMPLING, SpecT::MODULATION> {
     ComposedDetail::ResourceStorage<ComposedDetail::ResourceNoise,
                                     typename Params::ResourceTypes>
         resources;
@@ -697,8 +697,15 @@ private:
     register_color_field<&ColorParams::opacity_low>("Opacity at Value 0");
     register_color_field<&ColorParams::opacity_high>("Opacity at Value 1");
     register_color_field<&ColorParams::hue_shift_amount>("Hue Shift Amount");
-    register_color_field<&ColorParams::hue_noise_scale>("Hue Noise Scale");
-    register_color_field<&ColorParams::hue_noise_speed>("Hue Noise Speed");
+    if constexpr (SpecT::MODULATION) {
+      auto &config = params.template get<"color">().modulation;
+      register_animated_param("Modulation Amount", &config.mechanic.amount,
+                              -4.0f, 4.0f);
+      register_animated_param("Pattern Scale", &config.noise.scale,
+                              1.0f / 64.0f, 8.0f);
+      register_animated_param("Pattern Speed", &config.noise.speed, -0.001f,
+                              0.001f);
+    }
   }
 
   /**
@@ -710,8 +717,8 @@ private:
     params.visit([&]<typename Resource>(const auto &family) {
       auto &clock = clocks.template get<Resource::KEY>();
       if constexpr (Resource::KIND == ResourceKind::SOURCE) {
-        Source::advance_clocks(family, clock.primary, clock.secondary,
-                               clock.angle);
+        Pattern::advance_clocks(family, clock.primary, clock.secondary,
+                                clock.angle);
         if constexpr (requires { family.noise_time_rate; })
           clock.noise_time =
               math::wrap_t(clock.noise_time + family.noise_time_rate);
@@ -734,9 +741,9 @@ private:
     if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
       camera_spin =
           fmodf(camera_spin + Derived::CAMERA_SPIN_RATE, math::TWO_PI_F);
-    if constexpr (Metadata::HUE == HueMode::NOISE)
-      hue_noise_phase = math::wrap_t(
-          hue_noise_phase + params.template get<"color">().hue_noise_speed);
+    if constexpr (SpecT::MODULATION)
+      Modulation::advance(modulation_state,
+                          params.template get<"color">().modulation);
     palette_oscillation_phase =
         math::wrap_t(palette_oscillation_phase +
                      params.template get<"color">().phase_oscillation_speed);
@@ -773,37 +780,20 @@ private:
 
   /** @brief The hue-rotation LUT base, or null when no hue mode reads one. */
   const Pixel *hue_rotation_lut_data() const {
-    if constexpr (Metadata::HUE != HueMode::NONE)
+    if constexpr (Metadata::HUE != HueMode::NONE || SpecT::MODULATION)
       return state->hue_rotation_lut.data();
     else
       return nullptr;
   }
 
-  /** @brief Optional preconverted hue table.
-   * @return Float RGB entries, or null when disabled. */
-  const math::Vector *hue_rotation_linear_data() const {
-    if constexpr (FLOAT_HUE_TABLES)
-      return static_cast<const OptionalLinearHueRotationLut<true> &>(*state)
-          .hue_rotation_linear.data();
-    else
-      return nullptr;
-  }
-
-  /** @brief Optional preconverted noise table.
-   * @return Quantized noise as floats, or null when disabled. */
-  const float *hue_noise_linear_data() const {
-    if constexpr (FLOAT_HUE_TABLES)
-      return static_cast<const OptionalLinearHueRotationLut<true> &>(*state)
-          .hue_noise_linear.data();
-    else
-      return nullptr;
-  }
-
-  /** @brief The hue-noise LUT base, or null outside HueMode::NOISE. */
-  const int8_t *hue_noise_lut_data() const {
-    if constexpr (Metadata::HUE == HueMode::NOISE)
-      return state->hue_noise_lut.data();
-    else
+  /** @brief Immutable modulation endpoint, or null when unavailable.
+   * @return Prepared endpoint view. */
+  const Modulation::Prepared *modulation_data() {
+    if constexpr (SpecT::MODULATION) {
+      auto &config = params.template get<"color">().modulation;
+      Modulation::synchronize(modulation_state, config);
+      return &state->modulation_resources.prepare(config, modulation_state);
+    } else
       return nullptr;
   }
 
@@ -817,24 +807,7 @@ private:
    */
   HS_COLD_MEMBER FrameState prepare_frame() {
     HS_PROFILE(fx_prepare_frame);
-    if constexpr (Metadata::HUE == HueMode::NOISE) {
-      if (TEMPORAL_SAMPLING ||
-          hue_rotation_active<Metadata::HUE>(params.template get<"color">())) {
-        [[maybe_unused]] const bool REBUILT = state->hue_noise_bake.refresh(
-            state->hue_noise_lut, state->color_noise,
-            params.template get<"color">().hue_noise_scale, hue_noise_phase);
-        if constexpr (FLOAT_HUE_TABLES) {
-          if (REBUILT) {
-            auto &linear =
-                static_cast<OptionalLinearHueRotationLut<true> &>(*state)
-                    .hue_noise_linear;
-            for (size_t index = 0; index < linear.size(); ++index)
-              linear[index] = state->hue_noise_lut[index];
-          }
-        }
-      }
-    }
-    if constexpr (Metadata::HUE != HueMode::NONE)
+    if constexpr (Metadata::HUE != HueMode::NONE || SpecT::MODULATION)
       if ((TEMPORAL_SAMPLING || hue_rotation_active<Metadata::HUE>(
                                     params.template get<"color">())) &&
           state->hue_rotation_lut_bake != palette_cycler.bake_generation()) {
@@ -842,15 +815,6 @@ private:
             std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
                 state->hue_rotation_lut),
             palette_cycler.palette());
-        if constexpr (FLOAT_HUE_TABLES) {
-          auto &linear =
-              static_cast<OptionalLinearHueRotationLut<true> &>(*state)
-                  .hue_rotation_linear;
-          for (size_t index = 0; index < linear.size(); ++index) {
-            const Pixel &RGB = state->hue_rotation_lut[index];
-            linear[index] = math::Vector(RGB.r, RGB.g, RGB.b);
-          }
-        }
         state->hue_rotation_lut_bake = palette_cycler.bake_generation();
       }
     Pullback::FrameState<ParamsT> frame{
@@ -858,15 +822,14 @@ private:
         .outer_conjugate = outer_conjugate,
         .palette = &palette_cycler.palette(),
         .hue_rotation_lut = hue_rotation_lut_data(),
-        .hue_noise_lut = hue_noise_lut_data(),
+        .modulation = modulation_data(),
         .params = params,
         .palette_mapping = palette_mapping,
         .resources = {},
         .palette_oscillation_phase = palette_oscillation_phase,
-        .hue_rotation_linear = hue_rotation_linear_data(),
+        .hue_rotation_linear = nullptr,
         .palette_alpha =
-            palette_cycler.palette().constant_alpha().value_or(-1.0f),
-        .hue_noise_linear = hue_noise_linear_data()};
+            palette_cycler.palette().constant_alpha().value_or(-1.0f)};
     params.visit([&]<typename Resource>(const auto &) {
       auto &resource = frame.resources.template get<Resource::KEY>();
       static_cast<ComposedDetail::ResourceClock<Resource> &>(resource) =
@@ -883,8 +846,8 @@ private:
     if constexpr (TEMPORAL_SAMPLING)
       return FrameState{frame,
                         {frame.palette, frame.hue_rotation_lut,
-                         frame.hue_noise_lut, 1.0f, frame.hue_rotation_linear,
-                         frame.palette_alpha, frame.hue_noise_linear}};
+                         frame.modulation, 1.0f, frame.hue_rotation_linear,
+                         frame.palette_alpha}};
     else
       return frame;
   }
@@ -939,7 +902,7 @@ private:
                                   typename Params::ResourceTypes>
       clocks;
   float camera_spin = 0.0f;
-  float hue_noise_phase = 0.0f;
+  Modulation::State modulation_state;
   float palette_oscillation_phase = 0.0f;
   float palette_chroma = -1.0f;
   uint32_t palette_hue = 0;

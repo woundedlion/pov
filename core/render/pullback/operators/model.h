@@ -120,7 +120,8 @@ struct FrameContext {
   /** Generated palette bakes, indexed by the colorize palette-mode value. */
   std::array<const BakedPalette *, 3> palettes{};
   const Pixel *hue_rotation_lut = nullptr; ///< Hue-rotation lookup table.
-  const int8_t *hue_noise_lut = nullptr;   ///< Hue-noise offset table.
+  const Modulation::Prepared *modulation =
+      nullptr; ///< Immutable source endpoint.
 };
 
 /**
@@ -296,7 +297,13 @@ template <typename Model> consteval auto make_schema() {
   static_assert(topology_defaults_match<Params>());
   constexpr auto TOPOLOGY = topology_of<Params>();
   constexpr size_t FIELD_COUNT = Params::FIELDS.size();
-  std::array<ParamFieldInfo, FIELD_COUNT + TOPOLOGY.size()> out{};
+  constexpr size_t EXTRA_COUNT = [] {
+    if constexpr (requires { Params::EXTRA_SCHEMA; })
+      return Params::EXTRA_SCHEMA.size();
+    else
+      return size_t{0};
+  }();
+  std::array<ParamFieldInfo, FIELD_COUNT + TOPOLOGY.size() + EXTRA_COUNT> out{};
   constexpr Params DEFAULTS{};
   for (size_t index = 0; index < FIELD_COUNT; ++index) {
     const auto &field = Params::FIELDS[index];
@@ -320,6 +327,9 @@ template <typename Model> consteval auto make_schema() {
                        0.0f,     FieldCurve::SNAP, true,    topo.value_count,
                        topo.def, topo.value_ids,   nullptr, 0};
   }
+  if constexpr (EXTRA_COUNT > 0)
+    for (size_t index = 0; index < EXTRA_COUNT; ++index)
+      out[FIELD_COUNT + TOPOLOGY.size() + index] = Params::EXTRA_SCHEMA[index];
   return out;
 }
 
@@ -555,9 +565,12 @@ template <typename Model> struct ErasedAdapter {
    */
   static void sample_params(uint8_t *out, const uint8_t *from,
                             const uint8_t *to, float fraction) {
-    ::new (static_cast<void *>(out)) Params{Pullback::Fields::interpolate(
-        *std::launder(reinterpret_cast<const Params *>(from)),
-        *std::launder(reinterpret_cast<const Params *>(to)), fraction)};
+    const Params &a = *std::launder(reinterpret_cast<const Params *>(from));
+    const Params &b = *std::launder(reinterpret_cast<const Params *>(to));
+    Params value = Pullback::Fields::interpolate(a, b, fraction);
+    if constexpr (requires { Params::sample_extra(value, a, b, fraction); })
+      Params::sample_extra(value, a, b, fraction);
+    ::new (static_cast<void *>(out)) Params{value};
   }
 
   /**
@@ -616,9 +629,12 @@ template <typename Model> struct ErasedAdapter {
       return &(block.*(Params::FIELDS[schema_index].member));
     constexpr auto TOPOLOGY = topology_of<Params>();
     const size_t topo_index = schema_index - FIELD_COUNT;
-    HS_CHECK(topo_index < TOPOLOGY.size(),
-             "operator param_address: schema index out of range");
-    return &(block.*(TOPOLOGY[topo_index].member));
+    if (topo_index < TOPOLOGY.size())
+      return &(block.*(TOPOLOGY[topo_index].member));
+    if constexpr (requires { block.extra_address(size_t{}); })
+      return block.extra_address(topo_index - TOPOLOGY.size());
+    HS_CHECK(false, "operator param_address: schema index out of range");
+    return nullptr;
   }
 };
 

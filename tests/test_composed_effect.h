@@ -328,11 +328,11 @@ inline void check_slider_registration(const char *name) {
       Traits::BRIGHTNESS != Pullback::Color::BrightnessEnvelope::NONE;
   constexpr bool hue_shift = Traits::HUE != Pullback::HueMode::NONE;
   HS_EXPECT_EQ(params.find("Hue Shift Amount") != nullptr, hue_shift);
-  constexpr bool hue_noise = Traits::HUE == Pullback::HueMode::NOISE;
+  constexpr bool hue_noise = FX::Spec::MODULATION;
   HS_EXPECT_EQ(params.find("Brightness Bottom") != nullptr, brightness);
   HS_EXPECT_EQ(params.find("Brightness Top") != nullptr, brightness);
-  HS_EXPECT_EQ(params.find("Hue Noise Scale") != nullptr, hue_noise);
-  HS_EXPECT_EQ(params.find("Hue Noise Speed") != nullptr, hue_noise);
+  HS_EXPECT_EQ(params.find("Pattern Scale") != nullptr, hue_noise);
+  HS_EXPECT_EQ(params.find("Pattern Speed") != nullptr, hue_noise);
 
   // Hand-registered sliders use the same ranges as snapshot validation.
   for (const ColorSliderBinding &binding : COLOR_SLIDER_BINDINGS) {

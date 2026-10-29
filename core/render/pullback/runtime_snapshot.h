@@ -8,6 +8,7 @@
  * @brief Captured operator runtime state and restore codecs. */
 
 #include <variant>
+#include "core/render/pullback/modulation.h"
 #include "core/render/pullback/runtime_seeds.h"
 #include "core/math/3dmath.h"
 #include "core/math/spherical.h"
@@ -52,9 +53,8 @@ struct AffineClockSnapshot {
 };
 /** @brief Captured colour clocks of a generated-palette operator. */
 struct ColorClockSnapshot {
-  float oscillation_phase = 0;             ///< Mapping oscillation, [0, 1).
-  float hue_noise_phase = 0;               ///< Hue-noise loop phase, [0, 1).
-  int32_t hue_noise_seed = HUE_NOISE_SEED; ///< Seed of the hue-noise field.
+  float oscillation_phase = 0;  ///< Mapping oscillation in turns.
+  Modulation::State modulation; ///< Typed source identity and state.
 };
 /** @brief Captured state of the spherical-rings sampler. */
 struct SphericalRingsSnapshot {
@@ -83,7 +83,7 @@ inline const char *runtime_snapshot_kind(const RuntimeSnapshot &snapshot) {
                                    "phase-clock-v1",
                                    "ripple-clock-v1",
                                    "affine-clock-v1",
-                                   "color-clock-v1",
+                                   "color-clock-v2",
                                    "spherical-rings-v2"};
   static_assert(std::size(KINDS) == std::variant_size_v<RuntimeSnapshot>);
   return KINDS[snapshot.index()];

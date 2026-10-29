@@ -1385,6 +1385,8 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │   ├── composed_descriptors.h  Composed-effect static descriptors
 │   │   │   ├── composed_runtime.h      Composed-effect runtime
 │   │   │   ├── composed_interval.h     Retained endpoints and column-time sampling
+│   │   │   ├── modulation.h            Pattern state ownership and prepared sphere binding
+│   │   │   ├── modulation_temporal.h   Endpoint identity and completed straight-alpha blending
 │   │   │   ├── runtime_snapshot.h      Chain runtime snapshot contracts
 │   │   │   ├── operators.h             Chain-operator umbrella and camera/color exit adapters
 │   │   │   └── operators/              Operator model, table, shared state, family adapters, and snapshot codecs

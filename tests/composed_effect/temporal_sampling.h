@@ -74,13 +74,8 @@ HS_FLASH_INLINE Frame sample_frame_reference(const Frame &from, const Frame &to,
               : end;
     }
   });
-  frame.temporal = {from.palette,
-                    from.hue_rotation_lut,
-                    from.hue_noise_lut,
-                    fraction,
-                    from.hue_rotation_linear,
-                    from.palette_alpha,
-                    from.hue_noise_linear};
+  frame.temporal = {from.palette, from.hue_rotation_lut,    from.modulation,
+                    fraction,     from.hue_rotation_linear, from.palette_alpha};
   return frame;
 }
 
@@ -405,7 +400,7 @@ inline void test_temporal_moving_families_interpolate() {
 
 /** @brief Retained color tables survive subsequent bakes. */
 inline void test_temporal_owned_resources() {
-  HS_CONTEXT("temporal owned color resources");
+  HS_CONTEXT("temporal owned modulation resources");
   reset_globals();
   using FX = GridSpace<96, 20>;
   FX effect;
@@ -413,137 +408,100 @@ inline void test_temporal_owned_resources() {
   effect.draw_frame();
   effect.advance_display();
   const auto current = effect.frame_for_test();
-  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NOISE, true, true>
+  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NONE, true, true>
       history;
   history.capture(current, persistent_arena);
   HS_EXPECT_TRUE(history.previous.palette != current.palette);
-  HS_EXPECT_TRUE(history.previous.hue_noise_lut != current.hue_noise_lut);
-  HS_EXPECT_TRUE(history.previous.hue_rotation_lut != current.hue_rotation_lut);
-  HS_EXPECT_TRUE(current.hue_rotation_linear != nullptr);
-  HS_EXPECT_TRUE(history.previous.hue_rotation_linear !=
-                 current.hue_rotation_linear);
+  HS_EXPECT_TRUE(history.previous.modulation != current.modulation);
+  HS_EXPECT_TRUE(history.previous.modulation->cube.data !=
+                 current.modulation->cube.data);
+  const auto TABLE = history.modulation_table;
+  const auto RECIPE = history.modulation.config;
   const Pixel PALETTE = history.previous.palette->get(0.4f).color;
-  const auto NOISE = history.hue_noise;
-  const auto ROTATION = history.hue_rotation;
-  const auto LINEAR = history.hue_rotation_linear;
-  const auto LINEAR_NOISE = history.hue_noise_linear;
-  auto equal_frame = current;
-  equal_frame.hue_noise_lut = NOISE.data();
-  equal_frame.hue_noise_linear = LINEAR_NOISE.data();
-  const Pullback::FrameInterval EQUAL_SAMPLER(history.previous, equal_frame);
-  auto equal_sample = EQUAL_SAMPLER.at(0.5f);
-  HS_EXPECT_TRUE(equal_sample.temporal.same_noise);
-  auto different_noise = NOISE;
-  different_noise[0] ^= 1;
-  auto different_frame = equal_frame;
-  different_frame.hue_noise_lut = different_noise.data();
-  const Pullback::FrameInterval DIFFERENT_SAMPLER(history.previous,
-                                                  different_frame);
-  HS_EXPECT_TRUE(!DIFFERENT_SAMPLER.at(0.5f).temporal.same_noise);
-  different_frame.hue_noise_lut = nullptr;
-  const Pullback::FrameInterval NO_NOISE_SAMPLER(history.previous,
-                                                 different_frame);
-  HS_EXPECT_TRUE(!NO_NOISE_SAMPLER.at(0.5f).temporal.same_noise);
-  using LinearPalette = Pullback::Color::GeneratedPalette<
-      Pullback::ColorProvider<FX::Binding, Pullback::HueMode::NOISE,
-                              Pullback::Color::BrightnessEnvelope::NONE>>;
-  using ShapedPalette = Pullback::Color::GeneratedPalette<
-      Pullback::ColorProvider<FX::Binding, Pullback::HueMode::NOISE,
-                              Pullback::Color::BrightnessEnvelope::CUP>>;
-  const auto verify_reuse = [&]<typename Palette>() {
-    auto prepared = Palette::prepare(equal_sample);
-    HS_EXPECT_TRUE(prepared.same_noise);
-    constexpr bool LINEAR = std::is_same_v<Palette, LinearPalette>;
-    HS_EXPECT_TRUE(prepared.linear_noise == LINEAR);
-    auto separate = prepared;
-    separate.same_noise = false;
-    for (int index = 0; index < 257; ++index) {
-      Pullback::FieldSample field{};
-      field.value = static_cast<float>(index) / 256;
-      field.coverage = 0.75f;
-      field.sphere = math::Vector(sinf(index * 0.731f), cosf(index * 0.471f),
-                                  sinf(index * 0.927f));
-      const Color4 A = Palette::apply(field, equal_sample, prepared);
-      const Color4 B = Palette::apply(field, equal_sample, separate);
-      HS_EXPECT_TRUE(A.color == B.color);
-      HS_EXPECT_NEAR(A.alpha, B.alpha, 0.0f);
-      if (prepared.bounded_noise) {
-        auto rounded = prepared;
-        rounded.bounded_noise = false;
-        const Color4 REFERENCE = Palette::apply(field, equal_sample, rounded);
-        HS_EXPECT_NEAR(A.color.r, REFERENCE.color.r, 2.0f);
-        HS_EXPECT_NEAR(A.color.g, REFERENCE.color.g, 2.0f);
-        HS_EXPECT_NEAR(A.color.b, REFERENCE.color.b, 2.0f);
-        HS_EXPECT_NEAR(A.alpha, REFERENCE.alpha, 0.0f);
-      }
-    }
-  };
-  verify_reuse.template operator()<LinearPalette>();
-  equal_sample.params.template get<"color">().brightness_bottom = 0.4f;
-  equal_sample.params.template get<"color">().brightness_top = 1.3f;
-  HS_EXPECT_TRUE(!ShapedPalette::prepare(equal_sample).bounded_noise);
-  verify_reuse.template operator()<ShapedPalette>();
-  equal_sample.params.template get<"color">().brightness_bottom = 0.345f;
-  equal_sample.params.template get<"color">().brightness_top = 1.0f;
-  HS_EXPECT_TRUE(ShapedPalette::prepare(equal_sample).bounded_noise);
-  verify_reuse.template operator()<ShapedPalette>();
-  equal_sample.hue_rotation_linear = nullptr;
-  equal_sample.hue_noise_linear = nullptr;
-  equal_sample.temporal.hue_rotation_linear = nullptr;
-  equal_sample.temporal.hue_noise_linear = nullptr;
-  verify_reuse.template operator()<LinearPalette>();
-  verify_reuse.template operator()<ShapedPalette>();
-  equal_sample.temporal.fraction = 0.0f;
-  HS_EXPECT_TRUE(!ShapedPalette::prepare(equal_sample).bounded_noise);
-  equal_sample.temporal.fraction = 1.0f;
-  HS_EXPECT_TRUE(!ShapedPalette::prepare(equal_sample).bounded_noise);
-  HS_EXPECT_TRUE(current.hue_noise_linear != nullptr);
-  HS_EXPECT_TRUE(history.previous.hue_noise_linear != current.hue_noise_linear);
-  for (size_t index = 0; index < LINEAR_NOISE.size(); ++index)
-    HS_EXPECT_NEAR(LINEAR_NOISE[index], NOISE[index], 0.0f);
-  HS_EXPECT_NEAR(history.previous.palette_alpha, current.palette_alpha, 0.0f);
-  HS_EXPECT_NEAR(current.palette_alpha, current.palette->get_alpha(0.4f), 0.0f);
-  for (size_t index = 0; index < LINEAR.size(); ++index) {
-    HS_EXPECT_NEAR(LINEAR[index].x, ROTATION[index].r, 0.0f);
-    HS_EXPECT_NEAR(LINEAR[index].y, ROTATION[index].g, 0.0f);
-    HS_EXPECT_NEAR(LINEAR[index].z, ROTATION[index].b, 0.0f);
-  }
-  const Pullback::Color::HueRotationLutView UNCACHED{ROTATION.data(), true};
-  const Pullback::Color::HueRotationLutView CACHED{ROTATION.data(), true,
-                                                   LINEAR.data()};
-  const HueNoiseLutView NOISE_UNCACHED{NOISE.data(), true};
-  const HueNoiseLutView NOISE_CACHED{NOISE.data(), true, LINEAR_NOISE.data()};
-#if defined(HS_TEST_FAST_MATH)
-  // Fast-math reassociates each inlined bilinear lerp independently.
-  constexpr float NOISE_TOLERANCE = 4.0f * FLT_EPSILON;
-#else
-  constexpr float NOISE_TOLERANCE = 0.0f;
-#endif
-  for (int index = 0; index < 4096; ++index) {
-    const HueRotationValueSample VALUE(static_cast<float>(index % 257) / 256);
-    const float HUE = static_cast<float>(index - 2048) / 511;
-    const auto A = sample_hue_rotation_linear(UNCACHED, VALUE, HUE);
-    const auto B = sample_hue_rotation_linear(CACHED, VALUE, HUE);
-    HS_EXPECT_NEAR(A.x, B.x, 0.0f);
-    HS_EXPECT_NEAR(A.y, B.y, 0.0f);
-    HS_EXPECT_NEAR(A.z, B.z, 0.0f);
-    const math::Vector DIRECTION(sinf(index * 0.731f), cosf(index * 0.471f),
-                                 sinf(index * 0.927f));
-    const auto ADDRESS = prepare_hue_noise_sample(DIRECTION);
-    HS_EXPECT_NEAR(ADDRESS.sample(NOISE_UNCACHED), ADDRESS.sample(NOISE_CACHED),
-                   NOISE_TOLERANCE);
-  }
   for (int frame = 0; frame < 4; ++frame) {
     effect.draw_frame();
     effect.advance_display();
   }
+  HS_EXPECT_TRUE(history.modulation_table == TABLE);
+  HS_EXPECT_TRUE(history.modulation.config == RECIPE);
   HS_EXPECT_TRUE(history.previous.palette->get(0.4f).color == PALETTE);
-  HS_EXPECT_TRUE(history.hue_noise == NOISE);
-  HS_EXPECT_TRUE(history.hue_rotation == ROTATION);
-  HS_EXPECT_TRUE(std::memcmp(history.hue_rotation_linear.data(), LINEAR.data(),
-                             sizeof(LINEAR)) == 0);
-  HS_EXPECT_TRUE(std::memcmp(history.hue_noise_linear.data(),
-                             LINEAR_NOISE.data(), sizeof(LINEAR_NOISE)) == 0);
+
+  using namespace Pullback;
+  Modulation::Config config;
+  config.enabled = true;
+  config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+  config.evaluation = Pattern::Evaluation::DIRECT;
+  config.sine.frequency = 0.0f;
+  config.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
+  Modulation::Resources<false> a, b;
+  auto clock = Modulation::init(config);
+  clock.phase.phase_turns = 0.75f;
+  a.prepare(config, clock);
+  clock.phase.phase_turns = 0.25f;
+  b.prepare(config, clock);
+  Color::GeneratedPaletteState end{
+      Color::PaletteMappingWeights::single(Color::PaletteMapping::LINEAR),
+      1.0f,
+      0.0f,
+      current.palette,
+      Color::HueMode::NONE,
+      0.0f,
+      {nullptr, false},
+      &b.prepared,
+      config.mechanic};
+  auto start = end;
+  start.modulation = &a.prepared;
+  FieldSample field{};
+  field.value = 0.4f;
+  field.coverage = 0.6f;
+  field.sphere = math::Vector(0.3f, 0.8f, -0.2f);
+  const Color4 A = Color::apply_generated_palette(field, start);
+  const Color4 B = Color::apply_generated_palette(field, end);
+  HS_EXPECT_NEAR(A.alpha, 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(B.alpha, current.palette->get(0.4f).alpha * field.coverage,
+                 1e-5f);
+  for (float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+    const Color::TemporalGeneratedPaletteState INTERVAL{end, start, fraction,
+                                                        frac_to_q16(fraction)};
+    const Color4 RESULT =
+        Color::apply_temporal_generated_palette(field, INTERVAL);
+    HS_EXPECT_TRUE(RESULT.color ==
+                   A.color.lerp16(B.color, frac_to_q16(fraction)));
+    HS_EXPECT_NEAR(RESULT.alpha, hs::lerp(A.alpha, B.alpha, fraction), 1e-6f);
+  }
+  config.mechanic = {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT, 1.0f};
+  end.mechanic = start.mechanic = config.mechanic;
+  const auto BEFORE = Color::apply_generated_palette(field, start);
+  const auto AFTER = Color::apply_generated_palette(field, end);
+  const Color::TemporalGeneratedPaletteState INTERVAL{end, start, 0.5f,
+                                                      frac_to_q16(0.5f)};
+  const Color4 RESULT =
+      Color::apply_temporal_generated_palette(field, INTERVAL);
+  HS_EXPECT_TRUE(RESULT.color ==
+                 BEFORE.color.lerp16(AFTER.color, frac_to_q16(0.5f)));
+  const auto SCALAR_FIRST = ColorModulation::apply(
+      current.palette->get(field.value), 0.0f, config.mechanic);
+  HS_EXPECT_TRUE(RESULT.color != SCALAR_FIRST.color);
+
+  auto from = current;
+  auto to = current;
+  from.params.template get<"color">().modulation = config;
+  to.params.template get<"color">().modulation = config;
+  to.params.template get<"color">().modulation.source =
+      Pattern::SourceKind::SPHERE_SMOOTH_GRID;
+  from.params.template get<"color">().modulation.mechanic = {
+      ColorModulation::Mechanic::OPACITY, 0.2f};
+  to.params.template get<"color">().modulation.mechanic = {
+      ColorModulation::Mechanic::OPACITY, 0.8f};
+  from.modulation = &a.prepared;
+  to.modulation = &b.prepared;
+  for (float fraction : {0.0f, 0.25f, 0.5f, 1.0f}) {
+    const auto COLUMN = FrameInterval(from, to).at(fraction);
+    HS_EXPECT_TRUE(COLUMN.modulation == to.modulation);
+    HS_EXPECT_NEAR(
+        COLUMN.params.template get<"color">().modulation.mechanic.amount, 0.8f,
+        0.0f);
+  }
 }
 
 /** @brief Factored projection stays within the RGB16 rounding budget. */
@@ -724,7 +682,7 @@ inline void check_temporal_roster_pixels(const char *name) {
   history.capture(initial, persistent_arena);
   HS_EXPECT_TRUE(history.previous.palette != initial.palette);
   if constexpr (FX::Metadata::HUE == Pullback::HueMode::NOISE) {
-    HS_EXPECT_TRUE(history.previous.hue_noise_lut != initial.hue_noise_lut);
+    HS_EXPECT_TRUE(history.previous.modulation != initial.modulation);
     HS_EXPECT_TRUE(history.previous.hue_rotation_lut !=
                    initial.hue_rotation_lut);
   }

@@ -243,8 +243,7 @@ template <> struct RuntimeStateCodec<Op::ColorClockState> {
    * @return A ColorClockSnapshot.
    */
   static RuntimeSnapshot capture(const Op::ColorClockState &state) {
-    return ColorClockSnapshot{state.oscillation_phase, state.hue_noise_phase,
-                              state.hue_noise_seed};
+    return ColorClockSnapshot{state.oscillation_phase, state.modulation};
   }
   /**
    * @brief Restores @p state from a ColorClockSnapshot.
@@ -257,11 +256,12 @@ template <> struct RuntimeStateCodec<Op::ColorClockState> {
                       const RuntimeSnapshot &snapshot) {
     const auto *value = std::get_if<ColorClockSnapshot>(&snapshot);
     if (value == nullptr || !Detail::snapshot_phase(value->oscillation_phase) ||
-        !Detail::snapshot_phase(value->hue_noise_phase))
+        !Detail::snapshot_phase(value->modulation.phase.phase_turns) ||
+        value->modulation.version != 1 ||
+        static_cast<unsigned>(value->modulation.source) > 3)
       return false;
     state.oscillation_phase = value->oscillation_phase;
-    state.hue_noise_phase = value->hue_noise_phase;
-    state.hue_noise_seed = value->hue_noise_seed;
+    state.modulation = value->modulation;
     return true;
   }
 };
