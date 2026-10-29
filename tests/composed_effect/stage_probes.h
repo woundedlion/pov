@@ -62,6 +62,16 @@ inline void test_composed_analytic_modulation_sliders() {
   HS_EXPECT_TRUE(AMOUNT != nullptr);
   HS_EXPECT_NEAR(AMOUNT->min, 0.0f, 0.0f);
   HS_EXPECT_NEAR(AMOUNT->max, 1.0f, 0.0f);
+  const auto *SPEED = effect.getParameters().find("Pattern Speed");
+  HS_EXPECT_TRUE(SPEED != nullptr);
+  if (SPEED != nullptr) {
+    HS_EXPECT_EQ(SPEED->min, -1.0f);
+    HS_EXPECT_EQ(SPEED->max, 1.0f);
+    const auto &field =
+        Pullback::Interp::Op::GeneratedPaletteParams::EXTRA_SCHEMA[9];
+    HS_EXPECT_EQ(SPEED->min, field.min);
+    HS_EXPECT_EQ(SPEED->max, field.max);
+  }
   const auto DIRECTION = Pattern::SphereDirection::from(math::Y_AXIS);
   const auto before = effect.frame_for_test();
   const float BEFORE =

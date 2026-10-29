@@ -75,6 +75,10 @@ enum class Evaluation : uint8_t { DIRECT, BAKED_CUBE };
 using NoiseBasis = math::NoiseBasis;
 /** @brief Configured generator sampling or explicit octave/contrast sampling. */
 enum class NoiseVariant : uint8_t { CONFIGURED_SINGLE, OCTAVE_CONTOUR };
+/** @brief Maximum noise-loop speed exposed by modulation controls, in turns per update. */
+inline constexpr float MAX_NOISE_SPEED = 0.001f;
+/** @brief Maximum analytic speed exposed by modulation controls, in turns per update. */
+inline constexpr float MAX_ANALYTIC_SPEED = 1.0f;
 /** @brief Source phase in turns, wrapped after each engine update. */
 struct PhaseState {
   float phase_turns = 0.0f; ///< Wrapped loop phase in turns.

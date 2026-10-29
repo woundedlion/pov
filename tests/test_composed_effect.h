@@ -336,6 +336,46 @@ inline void check_slider_registration(const char *name) {
   HS_EXPECT_EQ(params.find("Brightness Top") != nullptr, brightness);
   HS_EXPECT_EQ(params.find("Pattern Scale") != nullptr, hue_noise);
   HS_EXPECT_EQ(params.find("Pattern Speed") != nullptr, hue_noise);
+  if constexpr (FX::Spec::MODULATION) {
+    const auto initial = preset_params<FX>(0);
+    const auto &config = initial.template get<"color">().modulation;
+    using Fields = Pullback::Interp::Op::GeneratedPaletteParams;
+    const char *speed_id = nullptr;
+    switch (config.source) {
+    case Pattern::SourceKind::NOISE:
+      speed_id = "pattern-speed";
+      break;
+    case Pattern::SourceKind::DIRECTIONAL_SINE:
+      speed_id = "sine-speed";
+      break;
+    case Pattern::SourceKind::SPHERE_INTERFERENCE:
+      speed_id = "interference-speed";
+      break;
+    case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
+      speed_id = "grid-speed";
+      break;
+    }
+    const ParamDef *speed = params.find("Pattern Speed");
+    HS_EXPECT_TRUE(speed != nullptr);
+    if (speed != nullptr) {
+      const float MAXIMUM =
+          config.source == Pattern::SourceKind::NOISE ? 0.001f : 1.0f;
+      HS_EXPECT_EQ(speed->min, -MAXIMUM);
+      HS_EXPECT_EQ(speed->max, MAXIMUM);
+      for (const auto &field : Fields::EXTRA_SCHEMA)
+        if (std::strcmp(field.id, speed_id) == 0) {
+          HS_EXPECT_EQ(speed->min, field.min);
+          HS_EXPECT_EQ(speed->max, field.max);
+        }
+    }
+    const ParamDef *amount = params.find("Modulation Amount");
+    HS_EXPECT_TRUE(amount != nullptr);
+    if (amount != nullptr) {
+      const bool UNIT = ColorModulation::unit_mechanic(config.mechanic.kind);
+      HS_EXPECT_EQ(amount->min, UNIT ? 0.0f : -4.0f);
+      HS_EXPECT_EQ(amount->max, UNIT ? 1.0f : 4.0f);
+    }
+  }
 
   // Hand-registered sliders use the same ranges as snapshot validation.
   for (const ColorSliderBinding &binding : COLOR_SLIDER_BINDINGS) {

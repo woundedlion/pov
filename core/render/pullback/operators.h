@@ -179,6 +179,12 @@ struct GeneratedPaletteParams : Color::ColorControls {
     out[1].max = 64.0f;
     out[1].def = 1.0f;
     out[1].curve = FieldCurve::LOG_POSITIVE;
+    out[2].min = -Pattern::MAX_NOISE_SPEED;
+    out[2].max = Pattern::MAX_NOISE_SPEED;
+    for (size_t i : {size_t{9}, size_t{15}, size_t{26}}) {
+      out[i].min = -Pattern::MAX_ANALYTIC_SPEED;
+      out[i].max = Pattern::MAX_ANALYTIC_SPEED;
+    }
     out[3].min = 0.0f;
     out[3].max = 8.0f;
     for (size_t i :

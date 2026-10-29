@@ -734,16 +734,18 @@ private:
         register_animated_param("Pattern Scale", &config.noise.scale,
                                 1.0f / 64.0f, 8.0f);
         set_parameter_stage(ParameterStage::COLORIZE);
-        register_animated_param("Pattern Speed", &config.noise.speed, -0.001f,
-                                0.001f);
+        register_animated_param("Pattern Speed", &config.noise.speed,
+                                -Pattern::MAX_NOISE_SPEED,
+                                Pattern::MAX_NOISE_SPEED);
         set_parameter_stage(ParameterStage::COLORIZE);
         break;
       case Pattern::SourceKind::DIRECTIONAL_SINE:
         register_animated_param("Pattern Frequency", &config.sine.frequency,
                                 0.0f, Pattern::MAX_AXIAL_FREQUENCY);
         set_parameter_stage(ParameterStage::COLORIZE);
-        register_animated_param("Pattern Speed", &config.sine.speed, -1.0f,
-                                1.0f);
+        register_animated_param("Pattern Speed", &config.sine.speed,
+                                -Pattern::MAX_ANALYTIC_SPEED,
+                                Pattern::MAX_ANALYTIC_SPEED);
         set_parameter_stage(ParameterStage::COLORIZE);
         break;
       case Pattern::SourceKind::SPHERE_INTERFERENCE:
@@ -752,15 +754,17 @@ private:
                                 Pattern::MAX_AXIAL_FREQUENCY);
         set_parameter_stage(ParameterStage::COLORIZE);
         register_animated_param("Pattern Speed", &config.interference.speed,
-                                -1.0f, 1.0f);
+                                -Pattern::MAX_ANALYTIC_SPEED,
+                                Pattern::MAX_ANALYTIC_SPEED);
         set_parameter_stage(ParameterStage::COLORIZE);
         break;
       case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
         register_animated_param("Pattern Frequency", &config.grid.frequency,
                                 0.0f, Pattern::MAX_AXIAL_FREQUENCY);
         set_parameter_stage(ParameterStage::COLORIZE);
-        register_animated_param("Pattern Speed", &config.grid.speed, -1.0f,
-                                1.0f);
+        register_animated_param("Pattern Speed", &config.grid.speed,
+                                -Pattern::MAX_ANALYTIC_SPEED,
+                                Pattern::MAX_ANALYTIC_SPEED);
         set_parameter_stage(ParameterStage::COLORIZE);
         break;
       }
