@@ -551,12 +551,14 @@ inline void test_temporal_owned_resources() {
   }
   config.evaluation = Pattern::Evaluation::BAKED_CUBE;
   HS_EXPECT_TRUE(Modulation::valid(config));
+  config.mechanic.kind = ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT;
+  HS_EXPECT_FALSE(Modulation::valid(config));
   config.noise.variant = Pattern::NoiseVariant::CONFIGURED_SINGLE;
   config.mechanic.kind = ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT;
   config.evaluation = Pattern::Evaluation::DIRECT;
-  HS_EXPECT_FALSE(Modulation::valid(config));
+  HS_EXPECT_TRUE(Modulation::valid(config));
   config.enabled = false;
-  HS_EXPECT_FALSE(Modulation::valid(config));
+  HS_EXPECT_TRUE(Modulation::valid(config));
   config.evaluation = Pattern::Evaluation::BAKED_CUBE;
   HS_EXPECT_TRUE(Modulation::valid(config));
   config = {};

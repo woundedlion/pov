@@ -40,9 +40,12 @@ inline bool valid(const Config &config) {
     return false;
   if (config.evaluation == Pattern::Evaluation::DIRECT &&
       config.source == Pattern::SourceKind::NOISE &&
-      (config.noise.variant != Pattern::NoiseVariant::CONFIGURED_SINGLE ||
-       config.mechanic.kind ==
-           ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT))
+      config.noise.variant != Pattern::NoiseVariant::CONFIGURED_SINGLE)
+    return false;
+  if (config.source == Pattern::SourceKind::NOISE &&
+      config.noise.variant == Pattern::NoiseVariant::OCTAVE_CONTOUR &&
+      config.mechanic.kind ==
+          ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT)
     return false;
   switch (config.source) {
   case Pattern::SourceKind::NOISE:
