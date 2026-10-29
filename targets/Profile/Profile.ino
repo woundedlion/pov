@@ -154,16 +154,31 @@ public:
     config.evaluation = config.source == Pattern::SourceKind::NOISE
                             ? Pattern::Evaluation::BAKED_CUBE
                             : Pattern::Evaluation::DIRECT;
+#ifdef HS_PROFILE_MODULATION_EVALUATION
+    config.evaluation =
+        static_cast<Pattern::Evaluation>(HS_PROFILE_MODULATION_EVALUATION);
+#endif
     config.mechanic.kind =
         static_cast<ColorModulation::Mechanic>(HS_PROFILE_MODULATION_MECHANIC);
     config.mechanic.amount = 0.8f;
+    config.noise.scale = 8.0f;
     config.noise.speed = 0.001f;
+    config.sine.frequency = 64.0f;
     config.sine.speed = 0.02f;
+    config.interference.frequency = 64.0f;
+    config.interference.frequency_b = 64.0f;
     config.interference.speed = 0.02f;
+    config.grid.frequency = 64.0f;
+    config.grid.frequency_b = 64.0f;
     config.grid.speed = 0.02f;
+#ifdef HS_PROFILE_MODULATION_NOISE_OCTAVES
+    config.noise.basis = Pattern::NoiseBasis::RIDGED3;
+    config.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
+    config.noise.contrast = 8.0f;
+#endif
     HS_CHECK(Pullback::Modulation::valid(config),
              "invalid profile modulation recipe");
-    this->setAnimationsPaused(true);
+    this->setAnimationsPaused(false);
     hs::log(
         "modulation recipe: source=%d mechanic=%d evaluation=%d temporal=%d",
         HS_PROFILE_MODULATION_SOURCE, HS_PROFILE_MODULATION_MECHANIC,

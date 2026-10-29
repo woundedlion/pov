@@ -248,7 +248,7 @@
         },
         "id": "colorize.pattern-scale",
         "interpolation": {
-          "kind": "LINEAR"
+          "kind": "LOG_POSITIVE"
         },
         "storage": "binary32",
         "unit": "ratio"

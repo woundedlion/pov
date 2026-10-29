@@ -671,6 +671,25 @@ async function main(probe) {
         if (bindings.restoreSnapshot(invalid) !== R.INVALID_VALUE
             || JSON.stringify(bindings.getSnapshot()) !== before)
           fail('chain-snapshot: invalid restore disturbed state');
+        for (const mutate of [
+          (snapshot) => { snapshot.modulation[0].recipe.version = 99; },
+          (snapshot) => { snapshot.modulation[0].recipe.source = 99; },
+          (snapshot) => {
+            const clock = snapshot.runtime.find((entry) => entry.kind === 'color-clock-v2');
+            clock.state.modulation.initialized = false;
+            clock.state.modulation.phaseTurns = 0.25;
+          },
+          (snapshot) => {
+            const clock = snapshot.runtime.find((entry) => entry.kind === 'color-clock-v2');
+            clock.state.modulation.source = 1;
+          },
+        ]) {
+          const malformed = structuredClone(saved);
+          mutate(malformed);
+          if (bindings.restoreSnapshot(malformed) !== R.INVALID_VALUE
+              || JSON.stringify(bindings.getSnapshot()) !== before)
+            fail('chain-snapshot: invalid pattern recipe or clock disturbed state');
+        }
         const reentrant = { ...saved, get chain() {
           engine.setEffect('ShaderChain');
           return saved.chain;
