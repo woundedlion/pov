@@ -739,9 +739,21 @@ void run_colorize_variant(In::ChainProgram &program,
     for (uint8_t mapping = 0; mapping < 4; ++mapping) {
       HS_CONTEXT("palette / mapping", palette_mode, mapping);
       params.mapping_mode = mapping;
-      expect_parity<PB::Weight::Projection, PB::ProjectionCoverage::Weight,
-                    HueV, EnvelopeV>(program, ctx);
-      expect_colorize_op_parity<HueV, EnvelopeV>(program, ctx);
+      for (const auto mechanic :
+           {ColorModulation::Mechanic::HUE_ROTATION,
+            ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT,
+            ColorModulation::Mechanic::OPACITY}) {
+        params.modulation.mechanic.kind = mechanic;
+        for (const float amount : {0.0f, 0.3f}) {
+          if (!params.modulation.enabled && amount != 0.0f)
+            continue;
+          HS_CONTEXT("mechanic / amount", int(mechanic), amount);
+          params.modulation.mechanic.amount = amount;
+          expect_parity<PB::Weight::Projection, PB::ProjectionCoverage::Weight,
+                        HueV, EnvelopeV>(program, ctx);
+          expect_colorize_op_parity<HueV, EnvelopeV>(program, ctx);
+        }
+      }
     }
   }
 }

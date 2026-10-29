@@ -94,8 +94,7 @@ struct MirrorColor {
   }
   static PB::Color::HueRotationLutView hue_rotation(const MirrorFrame &frame) {
     return {frame.hue_rotation_lut,
-            frame.color.hue_shift_amount != 0.0f ||
-                frame.color.modulation.mechanic.amount != 0.0f};
+            PB::Color::hue_rotation_active(HueV, frame.color)};
   }
   static const PB::Modulation::Prepared *modulation(const MirrorFrame &frame) {
     return frame.modulation;
