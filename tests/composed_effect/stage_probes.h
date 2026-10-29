@@ -27,7 +27,6 @@ struct AnalyticModulationProbe
     Params params{};
     auto &config = params.template get<"color">().modulation;
     config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
-    config.evaluation = Pattern::Evaluation::DIRECT;
     config.sine.frequency = 0.125f;
     config.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
     return params;
@@ -40,6 +39,18 @@ struct AnalyticModulationProbe
                                  &AnalyticModulationProbe::initial_params>>();
   }
 };
+
+/** @brief Direct modulation parameters reject enabled baked-cube recipes. */
+inline void test_composed_analytic_modulation_admission() {
+  AnalyticModulationProbe::Params params{};
+  auto &config = params.template get<"color">().modulation;
+  HS_EXPECT_TRUE(config.evaluation == Pattern::Evaluation::DIRECT);
+  HS_EXPECT_TRUE(AnalyticModulationProbe::valid_params(params));
+  config.evaluation = Pattern::Evaluation::BAKED_CUBE;
+  HS_EXPECT_FALSE(AnalyticModulationProbe::valid_params(params));
+  config.enabled = false;
+  HS_EXPECT_TRUE(AnalyticModulationProbe::valid_params(params));
+}
 
 /** @brief Analytic frequency and speed sliders write the selected source. */
 inline void test_composed_analytic_modulation_sliders() {

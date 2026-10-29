@@ -276,6 +276,9 @@ public:
    *  @return True when every family is in range. */
   static bool valid_params(const Params &params) {
     return Pullback::valid(params) &&
+           (!params.template get<"color">().modulation.enabled ||
+            params.template get<"color">().modulation.evaluation ==
+                SpecT::MODULATION_EVALUATION) &&
            ((SpecT::MODULATION && Metadata::HUE != HueMode::PATH_LENGTH) ||
             !params.template get<"color">().modulation.enabled);
   }
