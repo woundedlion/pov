@@ -461,6 +461,13 @@ inline void test_shader_chain_snapshot_refusals() {
   HS_EXPECT_NE(saved.palette_bank->cycles[0].frame,
                live.palette_bank->cycles[0].frame);
   HS_EXPECT_FALSE(float_identical(walk_time(saved), walk_time(live)));
+  auto companion = saved;
+  companion.modulation[0].recipe.mechanic.amount = 3.0f;
+  HS_EXPECT_EQ(effect.restore_snapshot(companion),
+               ChainSnapshotRestoreResult::APPLIED);
+  HS_EXPECT_EQ(effect.snapshot().modulation[0].recipe.mechanic.amount, 3.0f);
+  HS_EXPECT_EQ(effect.restore_snapshot(live),
+               ChainSnapshotRestoreResult::APPLIED);
   const auto generation = effect.getParameterSchemaGeneration();
   const auto refused = [&](ChainSnapshot candidate,
                            ChainSnapshotRestoreResult expected) {
@@ -479,6 +486,22 @@ inline void test_shader_chain_snapshot_refusals() {
     HS_EXPECT_TRUE(float_identical(walk_time(after), walk_time(live)));
   };
   auto candidate = saved;
+  candidate.modulation[0].recipe.mechanic.amount = 10.0f;
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  candidate.modulation[0].recipe.noise.speed = 100.0f;
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  candidate.modulation[0].recipe.sine.offset = 1000.0f;
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  candidate.modulation[0].recipe.sine.axis.x = 100.0f;
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  candidate.modulation[0].recipe.noise.variant =
+      static_cast<Pattern::NoiseVariant>(7);
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
   candidate.schema_version = 1;
   refused(candidate, ChainSnapshotRestoreResult::UNSUPPORTED_VERSION);
   candidate = saved;

@@ -226,16 +226,11 @@ public:
                         Op::ColorizeGeneratedPaletteV3::ID &&
                     modulation_field(field))
                   return false;
-                if (write.value < (info.enum_count > 0 ? 0.0f : info.min) ||
-                    write.value > (info.enum_count > 0
-                                       ? static_cast<float>(info.enum_count - 1)
-                                       : info.max))
+                if (!field_in_schema(info, write.value))
                   return false;
                 void *address =
                     op.op->runtime.param_address(base + op.param_offset, field);
                 if (info.enum_count > 0) {
-                  if (std::floor(write.value) != write.value)
-                    return false;
                   *static_cast<uint8_t *>(address) =
                       static_cast<uint8_t>(write.value);
                 } else {
@@ -422,6 +417,14 @@ public:
 #endif
 
 private:
+  static bool field_in_schema(const Pullback::Interp::ParamFieldInfo &info,
+                              float value) {
+    if (info.enum_count > 0)
+      return value >= 0.0f && value < info.enum_count &&
+             std::floor(value) == value;
+    return value >= info.min && value <= info.max;
+  }
+
   static constexpr bool modulation_field(uint16_t field) {
     using Params = Pullback::Interp::Op::GeneratedPaletteParams;
     return field >= Params::FIELDS.size() + Params::TOPOLOGY.size();
@@ -592,6 +595,15 @@ private:
       std::span<const Pullback::Interp::ChainProgram::ChainOp> ops,
       size_t index, void *params) {
     const auto &op = *ops[index].op;
+    for (uint16_t field = 0; field < op.schema_count; ++field) {
+      const auto &info = op.schema[field];
+      const void *address = op.runtime.param_address(params, field);
+      const float value = info.enum_count > 0
+                              ? *static_cast<const uint8_t *>(address)
+                              : *static_cast<const float *>(address);
+      if (!field_in_schema(info, value))
+        return "Parameter is outside its schema range";
+    }
     if (const char *warning = op.runtime.validate(params))
       return warning;
     bool edge_distance_available = false;
