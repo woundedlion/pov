@@ -248,9 +248,8 @@ HS_FLASH_INLINE inline PreparedFractal prepare_fractal(const Params &params,
 
 /** @brief Per-frame axis and phase of the spherical ring source. */
 struct PreparedSphericalRings {
-  math::Vector
-      axis; ///< Unit wave axis. /**< Unit normal of the rings' equatorial plane. */
-  float phase; /**< Angular band offset, in radians. */
+  math::Vector axis; ///< Unit normal of the rings' equatorial plane.
+  float phase;       /**< Angular band offset, in radians. */
 };
 
 /** @brief Wraps this frame's source phases with the rotation's cosine pair.
@@ -769,8 +768,7 @@ struct PlanePrimitiveLattice {
 
 /** @brief Pure sphere-ring policy with a consumer-supplied axis. */
 struct SphereRings : RadianSource<SphericalRingsSourceParams> {
-  using Coordinate =
-      SphereDirection; ///< Admitted unit direction. ///< Admitted sphere direction.
+  using Coordinate = SphereDirection; ///< Admitted unit sphere direction.
   /** @brief Complete immutable ring controls, axis and phase. */
   struct Prepared {
     Params params;                ///< Owned ring controls.
