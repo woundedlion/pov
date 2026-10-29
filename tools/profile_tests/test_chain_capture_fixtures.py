@@ -53,11 +53,57 @@ class ChainCaptureFixtureTests(unittest.TestCase):
         self.assertIn("SpatialWalkSnapshot", output)
         self.assertIn("GeneratedPaletteBank::Snapshot", output)
         self.assertIn('"sample.grid.v3"', output)
+        self.assertIn("ColorModulation::Config", output)
+        self.assertIn("Pullback::Modulation::State", output)
         self.assertNotIn("reinterpret_cast", output)
+
+    def test_corpus_uses_canonical_recipes_and_typed_clocks(self):
+        for record in self.records:
+            snapshot = record["snapshot"]
+            with self.subTest(name=record["name"]):
+                self.assertEqual(snapshot["schemaVersion"], 3)
+                recipe = snapshot["modulation"][0]["recipe"]
+                clock = next(entry for entry in snapshot["runtime"]
+                             if entry["kind"] == "color-clock-v2")
+                self.assertEqual(recipe["seed"], 6047)
+                self.assertEqual(clock["state"]["modulation"]["source"], recipe["source"])
+                self.assertEqual(clock["state"]["modulation"]["version"], recipe["version"])
+                self.assertNotIn("hueNoiseSeed", clock["state"])
+                self.assertNotIn("hueNoisePhase", clock["state"])
+                fields = {entry["name"]: entry["value"] for entry in snapshot["parameters"]}
+                self.assertNotIn("colorize.hue-noise-scale", fields)
+                self.assertNotIn("colorize.hue-noise-speed", fields)
+                path = fields["colorize.hue-shift-mode"] == 1
+                self.assertEqual(recipe["enabled"], not path)
+                if not path:
+                    self.assertEqual(fields["colorize.hue-shift-amount"], 0)
 
     def test_duplicate_case_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "duplicate"):
             generator.generate([self.records[0], self.records[0]])
+
+    def test_frozen_noise_controls_keep_their_authored_values(self):
+        snapshot = self.records[0]["snapshot"]
+        recipe = snapshot["modulation"][0]["recipe"]
+        self.assertEqual(recipe["noise"]["scale"], 0.8300312757492065)
+        self.assertEqual(recipe["noise"]["speed"], 0.00021200001356191933)
+        self.assertEqual(recipe["mechanic"]["amount"], 0.39800000190734863)
+        clock = next(entry for entry in snapshot["runtime"]
+                     if entry["kind"] == "color-clock-v2")
+        self.assertEqual(clock["state"]["modulation"]["phaseTurns"], 0.78100002)
+
+    def test_unknown_pattern_and_retired_runtime_are_rejected(self):
+        self.assertIn("ColorModulation::Config", generator.generate([self.records[0]]))
+        record = copy.deepcopy(self.records[0])
+        record["snapshot"]["modulation"][0]["recipe"]["source"] = 4
+        with self.assertRaisesRegex(ValueError, "invalid Pattern::SourceKind"):
+            generator.generate([record])
+        record = copy.deepcopy(self.records[0])
+        clock = next(entry for entry in record["snapshot"]["runtime"]
+                     if entry["kind"] == "color-clock-v2")
+        clock["kind"] = "color-clock-v1"
+        with self.assertRaisesRegex(ValueError, "unknown capture runtime"):
+            generator.generate([record])
 
     def test_wire_and_metadata_refusals(self):
         for field, value in (
@@ -70,11 +116,11 @@ class ChainCaptureFixtureTests(unittest.TestCase):
             record[field] = value
             with self.subTest(field=field), self.assertRaises(ValueError):
                 generator.generate([record])
-        for version in (0, 1, 3):
+        for version in (0, 1, 2, 4):
             record = copy.deepcopy(self.records[0])
             record["snapshot"]["schemaVersion"] = version
             with self.subTest(version=version), self.assertRaisesRegex(
-                ValueError, "version-two"
+                ValueError, "version-three"
             ):
                 generator.generate([record])
 

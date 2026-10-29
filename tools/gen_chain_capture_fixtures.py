@@ -23,6 +23,53 @@ def string_cpp(value):
     return json.dumps(value, ensure_ascii=True)
 
 
+def vector_cpp(values):
+    return "math::Vector(" + ",".join(map(float_cpp, values)) + ")"
+
+
+def sine_cpp(params):
+    return "Pattern::SineParams{" + ",".join([
+        vector_cpp(params["axis"]), float_cpp(params["frequency"]),
+        float_cpp(params["offset"]), float_cpp(params["speed"]),
+    ]) + "}"
+
+
+def interference_cpp(params):
+    return "Pattern::InterferenceParams{" + ",".join([
+        sine_cpp(params), vector_cpp(params["axisB"]),
+        float_cpp(params["frequencyB"]), float_cpp(params["offsetB"]),
+    ]) + "}"
+
+
+def enum_cpp(typename, value, count):
+    if type(value) is not int or not 0 <= value < count:
+        raise ValueError(f"capture fixture has an invalid {typename}")
+    return f"static_cast<{typename}>({value})"
+
+
+def recipe_cpp(recipe):
+    if recipe["version"] != 1 or type(recipe["enabled"]) is not bool:
+        raise ValueError("capture fixture requires a version-one pattern recipe")
+    noise, mechanic = recipe["noise"], recipe["mechanic"]
+    return "ColorModulation::Config{" + ",".join([
+        str(recipe["enabled"]).lower(),
+        enum_cpp("Pattern::SourceKind", recipe["source"], 4), "1",
+        enum_cpp("Pattern::Evaluation", recipe["evaluation"], 2),
+        "Pattern::NoiseParams{" + ",".join([
+            float_cpp(noise["scale"]), float_cpp(noise["speed"]),
+            enum_cpp("Pattern::NoiseBasis", noise["basis"], 3),
+            float_cpp(noise["contrast"]),
+            enum_cpp("Pattern::NoiseVariant", noise["variant"], 2),
+        ]) + "}", sine_cpp(recipe["sine"]),
+        interference_cpp(recipe["interference"]),
+        "Pattern::GridParams{" + interference_cpp(recipe["grid"]) + "}",
+        str(recipe["seed"]),
+        "ColorModulation::Params{" + enum_cpp(
+            "ColorModulation::Mechanic", mechanic["kind"], 3
+        ) + "," + float_cpp(mechanic["amount"]) + "}",
+    ]) + "}"
+
+
 def walk_cpp(state):
     def vector(values):
         return "math::Vector(" + ",".join(map(float_cpp, values)) + ")"
@@ -52,16 +99,24 @@ def runtime_cpp(entry):
     kind = entry["kind"]
     if kind == "spatial-walk-v2":
         return walk_cpp(state)
+    if kind == "color-clock-v2":
+        modulation = state["modulation"]
+        if modulation["version"] != 1:
+            raise ValueError("capture fixture requires a version-one pattern clock")
+        return "Pullback::Interp::ColorClockSnapshot{" + ",".join([
+            float_cpp(state["oscillationPhase"]),
+            "Pullback::Modulation::State{" + ",".join([
+                enum_cpp("Pattern::SourceKind", modulation["source"], 4), "1",
+                "Pattern::PhaseState{" + float_cpp(modulation["phaseTurns"]) + "}",
+                str(modulation["initialized"]).lower(),
+            ]) + "}",
+        ]) + "}"
     names = {
         "source-clock-v1": ("SourceClockSnapshot", ["primary", "secondary", "angle"]),
         "noise-clock-v1": ("NoiseClockSnapshot", ["phase", "noiseSeed"]),
         "phase-clock-v1": ("PhaseClockSnapshot", ["phase"]),
         "ripple-clock-v1": ("RippleClockSnapshot", ["phase"]),
         "affine-clock-v1": ("AffineClockSnapshot", ["phase", "rotation"]),
-        "color-clock-v1": (
-            "ColorClockSnapshot",
-            ["oscillationPhase", "hueNoisePhase", "hueNoiseSeed"],
-        ),
     }
     if kind == "spherical-rings-v2":
         return (
@@ -71,6 +126,8 @@ def runtime_cpp(entry):
             + float_cpp(state["phase"])
             + "}"
         )
+    if kind not in names:
+        raise ValueError("unknown capture runtime kind")
     typename, fields = names[kind]
     values = [
         str(state[field]) if field.endswith("Seed") else float_cpp(state[field])
@@ -91,6 +148,10 @@ def snapshot_cpp(snapshot):
     runtime = ",".join(
         "{" + string_cpp(entry["instance"]) + "," + runtime_cpp(entry) + "}"
         for entry in snapshot["runtime"]
+    )
+    modulation = ",".join(
+        "{" + string_cpp(entry["instance"]) + "," + recipe_cpp(entry["recipe"]) + "}"
+        for entry in snapshot["modulation"]
     )
     bank = snapshot["paletteBank"]
     cycles = ",".join(
@@ -120,6 +181,8 @@ def snapshot_cpp(snapshot):
         + chain
         + "},{"
         + parameters
+        + "},{"
+        + modulation
         + "},std::vector<ChainSnapshot::Runtime>{"
         + runtime
         + "},"
@@ -154,8 +217,8 @@ def generate(records):
             if type(value) is not int or not 0 < value <= 2147483647:
                 raise ValueError(f"capture fixture {field} is not a positive int32")
         snapshot = record["snapshot"]
-        if snapshot["schemaVersion"] != 2 or not snapshot["chain"]:
-            raise ValueError("capture fixture requires a version-two chain")
+        if snapshot["schemaVersion"] != 3 or not snapshot["chain"]:
+            raise ValueError("capture fixture requires a version-three chain")
         canonical = json.dumps(snapshot, sort_keys=True, separators=(",", ":"))
         if canonical not in snapshot_indices:
             snapshot_indices[canonical] = len(snapshots)

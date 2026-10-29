@@ -81,16 +81,12 @@ struct ShaderChainWhiteBox {
     return effect.program;
   }
   template <int W, int H>
-  static const auto &hue_noise(const ShaderChain<W, H> &effect) {
-    return effect.resources->hue_noise;
-  }
-  template <int W, int H>
   static void oracle_phase(ShaderChain<W, H> &effect, float phase) {
     const_cast<Pullback::Interp::Op::ColorClockState *>(
         static_cast<const Pullback::Interp::Op::ColorClockState *>(
             effect.program.state_block(
                 static_cast<size_t>(effect.colorize.index))))
-        ->hue_noise_phase = phase;
+        ->modulation.phase.phase_turns = math::wrap_t(phase);
   }
 };
 } // namespace hs_test::shader_chain_tests
@@ -300,27 +296,43 @@ bool render_instruction(const Instruction &instruction,
   return true;
 }
 
+float exact_pattern(const Pullback::Modulation::Prepared &prepared,
+                    const Pattern::SphereDirection &direction) {
+  switch (prepared.config.source) {
+  case Pattern::SourceKind::NOISE:
+    return Pattern::SphereNoise::sample(direction,
+                                        std::get<0>(prepared.source));
+  case Pattern::SourceKind::DIRECTIONAL_SINE:
+    return Pattern::DirectionalSine::sample(direction,
+                                            std::get<1>(prepared.source));
+  case Pattern::SourceKind::SPHERE_INTERFERENCE:
+    return Pattern::SphereInterference::sample(direction,
+                                               std::get<2>(prepared.source));
+  case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
+    return Pattern::SphereSmoothGrid::sample(direction,
+                                             std::get<3>(prepared.source));
+  }
+  HS_CHECK(false, "invalid capture pattern source");
+  return 0.0f;
+}
+
 Color4 exact_colorize(const Pullback::FieldSample &sample,
-                      const Pullback::Color::GeneratedPaletteState &state,
-                      const FastNoiseLite &noise, float noise_scale,
-                      float noise_phase) {
+                      const Pullback::Color::GeneratedPaletteState &state) {
   using namespace Pullback;
   const float value = Color::palette_mapping_coordinate(
       sample.value, state.mapping, state.mapping_frequency,
       state.mapping_offset);
   Color4 color = state.palette->get(value);
-  if (state.hue_rotation.active && state.hue_mode == Color::HueMode::NOISE) {
-    const auto q =
-        math::noise_sphere_coordinate(sample.sphere, noise_scale, noise_phase);
-    const float amount =
-        state.hue_shift_amount * noise.GetNoiseSingle(q.x, q.y, q.z);
-    color = hue_rotate_lut_gamut(make_hue_rotate_base(color), amount);
-  } else if (state.hue_rotation.active) {
-    const float amount =
-        math::wrap_t(state.hue_shift_amount * sample.path_length);
-    if (amount != 0.0f)
-      color = hue_rotate_lut_gamut(make_hue_rotate_base(color), amount);
+  if (state.modulation && state.modulation->config.enabled &&
+      state.mechanic.amount != 0.0f) {
+    const auto direction = Pattern::SphereDirection::from(sample.sphere);
+    const float scalar =
+        Pattern::bounded_scalar(exact_pattern(*state.modulation, direction));
+    color = ColorModulation::apply(color, scalar, state.mechanic);
   }
+  if (state.hue_mode == Color::HueMode::PATH_LENGTH)
+    color = ColorModulation::HueRotation::apply(color, sample.path_length,
+                                                {state.hue_shift_amount});
   color.color =
       color.color * Color::brightness_envelope_gain(
                         sample.value, state.brightness_envelope,
@@ -365,14 +377,9 @@ Color4 exact_shade(const ShaderChain<W, H> &effect, const math::Vector &view,
                std::string_view(op.operator_id) ==
                    Op::ColorizeGeneratedPaletteV3::ID) {
       ++substitutions;
-      const auto &p =
-          *reinterpret_cast<const Op::GeneratedPaletteParams *>(params);
-      const auto &clock =
-          *static_cast<const Op::ColorClockState *>(program.state_block(index));
       ::new (output) Color4{exact_colorize(
           *static_cast<const FieldSample *>(input),
-          *reinterpret_cast<const Color::GeneratedPaletteState *>(prepared),
-          WB::hue_noise(effect), p.hue_noise_scale, clock.hue_noise_phase)};
+          *reinterpret_cast<const Color::GeneratedPaletteState *>(prepared))};
     } else {
       op.runtime.run(input, output, ctx, params, prepared);
     }
