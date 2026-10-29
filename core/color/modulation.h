@@ -17,6 +17,19 @@ namespace ColorModulation {
 struct AmountParams {
   float amount = 0.0f; ///< Rotation turns or unit-range strength.
 };
+/** @brief Tests finite unit-range strength.
+ * @param amount Mechanic strength.
+ * @return Whether strength is finite and in [0, 1]. */
+inline bool unit_amount(float amount) {
+  return Pattern::finite(amount) && amount >= 0.0f && amount <= 1.0f;
+}
+/** @brief Tests whether a mechanic requires unit-range strength.
+ * @param mechanic Selected mechanic.
+ * @return Whether strength is restricted to [0, 1]. */
+inline constexpr bool unit_mechanic(Mechanic mechanic) {
+  return mechanic == Mechanic::OPACITY ||
+         mechanic == Mechanic::POSITIVE_LIGHTNESS_LIFT;
+}
 /** @brief Validates a finite signed rotation amount.
  * @param params Rotation strength.
  * @return Validated controls. */
@@ -28,8 +41,7 @@ inline AmountParams prepare_hue(const AmountParams &params) {
  * @param params Mechanic strength.
  * @return Validated controls. */
 inline AmountParams prepare_unit(const AmountParams &params) {
-  HS_CHECK(Pattern::finite(params.amount) && params.amount >= 0.0f &&
-               params.amount <= 1.0f,
+  HS_CHECK(unit_amount(params.amount),
            "modulation amount must be finite and in [0, 1]");
   return params;
 }
@@ -119,16 +131,9 @@ struct Opacity {
  * @param params Mechanic controls.
  * @return Whether the kind and amount are admitted. */
 inline bool valid(const Params &params) {
-  if (!Pattern::finite(params.amount))
-    return false;
-  switch (params.kind) {
-  case Mechanic::HUE_ROTATION:
-    return true;
-  case Mechanic::POSITIVE_LIGHTNESS_LIFT:
-  case Mechanic::OPACITY:
-    return params.amount >= 0.0f && params.amount <= 1.0f;
-  }
-  return false;
+  return unit_mechanic(params.kind) ? unit_amount(params.amount)
+                                    : params.kind == Mechanic::HUE_ROTATION &&
+                                          Pattern::finite(params.amount);
 }
 /** @brief Validates a selected mechanic.
  * @param params Selected mechanic controls. */
