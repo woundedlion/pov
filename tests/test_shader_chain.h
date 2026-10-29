@@ -444,6 +444,8 @@ inline void test_shader_chain_snapshot_refusals() {
   // Candidates derive from a state that differs from the live one in every
   // section, so any section committed before a refusal is observable.
   param_as<In::Op::RotateChainParams>(WB::program(effect), 0).wander = 0.6f;
+  WB::color_params(effect).modulation.mechanic.amount = .75f;
+  WB::color_params(effect).modulation.noise.scale = 2.0f;
   for (int frame = 0; frame < 64; ++frame)
     WB::advance_without_render(effect);
   const auto saved = effect.snapshot();
@@ -468,12 +470,35 @@ inline void test_shader_chain_snapshot_refusals() {
   HS_EXPECT_EQ(effect.snapshot().modulation[0].recipe.mechanic.amount, 3.0f);
   HS_EXPECT_EQ(effect.restore_snapshot(live),
                ChainSnapshotRestoreResult::APPLIED);
+  const auto same_modulation = [](const ChainSnapshot &a,
+                                  const ChainSnapshot &b) {
+    HS_EXPECT_SIZE_OR_RETURN(a.modulation, b.modulation.size());
+    for (size_t index = 0; index < a.modulation.size(); ++index) {
+      HS_EXPECT_EQ(a.modulation[index].instance, b.modulation[index].instance);
+      In::Op::GeneratedPaletteParams left, right;
+      left.modulation = a.modulation[index].recipe;
+      right.modulation = b.modulation[index].recipe;
+      HS_EXPECT_EQ(left.modulation.seed, right.modulation.seed);
+      HS_EXPECT_EQ(left.modulation.version, right.modulation.version);
+      for (size_t field = 0; field < left.EXTRA_SCHEMA.size(); ++field) {
+        if (left.EXTRA_SCHEMA[field].enum_count)
+          HS_EXPECT_EQ(
+              *static_cast<const uint8_t *>(left.extra_address(field)),
+              *static_cast<const uint8_t *>(right.extra_address(field)));
+        else
+          HS_EXPECT_TRUE(float_identical(
+              *static_cast<const float *>(left.extra_address(field)),
+              *static_cast<const float *>(right.extra_address(field))));
+      }
+    }
+  };
   const auto generation = effect.getParameterSchemaGeneration();
   const auto refused = [&](ChainSnapshot candidate,
                            ChainSnapshotRestoreResult expected) {
     HS_EXPECT_EQ(effect.restore_snapshot(candidate), expected);
     HS_EXPECT_EQ(effect.getParameterSchemaGeneration(), generation);
     const auto after = effect.snapshot();
+    same_modulation(after, live);
     HS_EXPECT_SIZE_OR_RETURN(after.parameters, live.parameters.size());
     for (size_t index = 0; index < live.parameters.size(); ++index) {
       HS_EXPECT_TRUE(after.parameters[index].name ==
@@ -485,6 +510,9 @@ inline void test_shader_chain_snapshot_refusals() {
                  live.palette_bank->cycles[0].frame);
     HS_EXPECT_TRUE(float_identical(walk_time(after), walk_time(live)));
   };
+  HS_EXPECT_SIZE_OR_RETURN(saved.modulation, 1u);
+  HS_EXPECT_NE(saved.modulation[0].recipe.mechanic.amount,
+               live.modulation[0].recipe.mechanic.amount);
   auto candidate = saved;
   candidate.modulation[0].recipe.mechanic.amount = 10.0f;
   refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
@@ -500,6 +528,16 @@ inline void test_shader_chain_snapshot_refusals() {
   candidate = saved;
   candidate.modulation[0].recipe.noise.variant =
       static_cast<Pattern::NoiseVariant>(7);
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  candidate.parameters.push_back(
+      {saved.modulation[0].instance + ".modulation-amount", .75f});
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  candidate.modulation.push_back({"unknown", saved.modulation[0].recipe});
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  candidate.modulation.clear();
   refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
   candidate = saved;
   candidate.schema_version = 1;
@@ -622,7 +660,7 @@ inline void test_shader_chain_modulation_snapshot_identity() {
   WB::FX effect;
   effect.init();
   auto &controls = WB::color_params(effect);
-  controls.modulation.noise.speed = .125f;
+  controls.modulation.noise.speed = .000125f;
   WB::advance_without_render(effect);
   const ChainSnapshot saved = effect.snapshot();
   const auto clock =
@@ -634,7 +672,7 @@ inline void test_shader_chain_modulation_snapshot_identity() {
     HS_CHECK(false, "missing test color clock");
     return std::get<In::ColorClockSnapshot>(snapshot.runtime->back().state);
   };
-  HS_EXPECT_EQ(clock(saved).modulation.phase.phase_turns, .125f);
+  HS_EXPECT_EQ(clock(saved).modulation.phase.phase_turns, .000125f);
   auto mismatched = saved;
   for (auto &runtime : *mismatched.runtime)
     if (auto *value = std::get_if<In::ColorClockSnapshot>(&runtime.state))
