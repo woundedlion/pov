@@ -419,7 +419,7 @@ struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
                      params.hue_mode ==
                          static_cast<uint8_t>(HueShiftMode::PATH_LENGTH))
                ? nullptr
-               : "invalid modulation configuration";
+               : Modulation::INVALID_CONFIGURATION;
   }
   /// Interpolation contract for source and mechanic controls.
   static constexpr const char *ADMISSIBILITY_CONVEXITY =

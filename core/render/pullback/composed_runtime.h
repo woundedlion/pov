@@ -286,12 +286,11 @@ public:
   /**
    * @brief Warning text for a slider whose last write was refused.
    * @param name Parameter name.
-   * @return Lens::MobiusLensParams::DEGENERATE_WARNING when `name` is the
-   *         last refused parameter, else null.
+   * @return The family warning for the last refused parameter, else null.
    */
   const char *parameter_warning(const char *name) const override {
     return refused_name != nullptr && std::strcmp(name, refused_name) == 0
-               ? Lens::MobiusLensParams::DEGENERATE_WARNING
+               ? refused_warning
                : nullptr;
   }
 #endif
@@ -317,10 +316,7 @@ protected:
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   /**
-   * @brief Refuses a lens write that would make the lens invalid.
-   * @details Applies the write to a copy of the targeted lens family and
-   * checks it with Pullback::valid(); records the refused name for
-   * parameter_warning().
+   * @brief Refuses a write that would make its parameter family invalid.
    * @param parameter Descriptor being written.
    * @param value Proposed value.
    * @return False when the write is refused.
@@ -340,6 +336,12 @@ protected:
               reinterpret_cast<unsigned char *>(&candidate) + (target - begin);
           this->write_parameter_unchecked(proposed, value);
           admitted = Pullback::valid(candidate);
+          if (!admitted) {
+            if constexpr (Resource::KIND == ResourceKind::COLOR)
+              refused_warning = Modulation::INVALID_CONFIGURATION;
+            else
+              refused_warning = Lens::MobiusLensParams::DEGENERATE_WARNING;
+          }
         }
       }
     });
@@ -353,6 +355,8 @@ protected:
 
   /// Name of the last refused parameter, or null after an admitted write.
   const char *refused_name = nullptr;
+  /// Warning associated with the last refused family write.
+  const char *refused_warning = nullptr;
 #endif
 
   using Choreography::step_choreography;
@@ -719,8 +723,11 @@ private:
     register_color_field<&ColorParams::hue_shift_amount>("Hue Shift Amount");
     if constexpr (SpecT::MODULATION) {
       auto &config = params.template get<"color">().modulation;
+      const bool UNIT_AMOUNT =
+          ColorModulation::unit_mechanic(config.mechanic.kind);
       register_animated_param("Modulation Amount", &config.mechanic.amount,
-                              -4.0f, 4.0f);
+                              UNIT_AMOUNT ? 0.0f : -4.0f,
+                              UNIT_AMOUNT ? 1.0f : 4.0f);
       set_parameter_stage(ParameterStage::COLORIZE);
       switch (config.source) {
       case Pattern::SourceKind::NOISE:

@@ -58,6 +58,10 @@ inline void test_composed_analytic_modulation_sliders() {
   AnalyticModulationProbe effect;
   effect.init();
   HS_EXPECT_TRUE(effect.getParameters().find("Pattern Scale") == nullptr);
+  const auto *AMOUNT = effect.getParameters().find("Modulation Amount");
+  HS_EXPECT_TRUE(AMOUNT != nullptr);
+  HS_EXPECT_NEAR(AMOUNT->min, 0.0f, 0.0f);
+  HS_EXPECT_NEAR(AMOUNT->max, 1.0f, 0.0f);
   const auto DIRECTION = Pattern::SphereDirection::from(math::Y_AXIS);
   const auto before = effect.frame_for_test();
   const float BEFORE =

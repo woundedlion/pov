@@ -18,6 +18,9 @@
  * @brief Sphere modulation validation, scheduling and owned resources. */
 
 namespace Pullback::Modulation {
+/// Warning for a refused modulation recipe.
+inline constexpr const char *INVALID_CONFIGURATION =
+    "invalid modulation configuration";
 using Config = ColorModulation::Config; ///< Canonical passive configuration.
 /** @brief The selected source's versioned clock. */
 struct State {
