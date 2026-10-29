@@ -279,18 +279,9 @@ struct FrameHistory<Frame, Hue, true, Modulation, Baked> {
                   hue_rotation.data());
       previous.hue_rotation_lut = hue_rotation.data();
     }
-    if constexpr (Modulation) {
-      if (frame.modulation) {
-        modulation = *frame.modulation;
-        if (modulation.config.evaluation == Pattern::Evaluation::BAKED_CUBE &&
-            modulation.cube.active) {
-          std::copy_n(modulation.cube.data, modulation_table.size(),
-                      modulation_table.data());
-          modulation.cube.data = modulation_table.data();
-        }
-        previous.modulation = &modulation;
-      }
-    }
+    if constexpr (Modulation)
+      previous.modulation = Pullback::Modulation::retain(
+          frame.modulation, modulation, modulation_table);
     previous.temporal = {previous.palette, previous.hue_rotation_lut,
                          previous.modulation, 1.0f};
     initialized = true;

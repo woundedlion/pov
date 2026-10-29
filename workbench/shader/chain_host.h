@@ -482,17 +482,9 @@ private:
                   resources->previous_hue_rotation.data());
       previous.hue_rotation_lut = resources->previous_hue_rotation.data();
     }
-    if (ctx.modulation != nullptr) {
-      resources->previous_modulation = *ctx.modulation;
-      if (ctx.modulation->cube.active) {
-        std::copy_n(ctx.modulation->cube.data,
-                    resources->previous_pattern.size(),
-                    resources->previous_pattern.data());
-        resources->previous_modulation.cube.data =
-            resources->previous_pattern.data();
-      }
-      previous.modulation = &resources->previous_modulation;
-    }
+    previous.modulation = Pullback::Modulation::retain(
+        ctx.modulation, resources->previous_modulation,
+        resources->previous_pattern);
     resources->context.capture(previous);
   }
 

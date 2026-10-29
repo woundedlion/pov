@@ -619,6 +619,8 @@ A temporal baked effect owns two cubes (6,912 bytes), two hue tables (12,288
 bytes), two immutable source endpoints and one current cache. Direct effects own
 no cubes; a non-temporal baked effect owns one. Float mirrors are not allocated
 by these composed runtimes. Views and interval copies borrow owned storage.
+`Pullback::Modulation::retain` copies immutable endpoints and active byte cubes,
+then rebinds each retained cube view to its owner?s storage.
 Effect transitions destroy the outgoing effect before constructing the incoming
 one, so the maximum is one effect's current and retained resources.
 

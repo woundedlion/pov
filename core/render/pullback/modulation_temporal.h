@@ -6,8 +6,26 @@
 #include "core/render/pullback/modulation.h"
 
 /** @file modulation_temporal.h
- * @brief Immutable modulation endpoint equality and completed-color blending. */
+ * @brief Immutable modulation endpoint retention, equality and completed-color blending. */
 namespace Pullback::Modulation {
+/** @brief Retains an endpoint and rebinds its active cube to owned storage.
+ * @param source Current endpoint, or null.
+ * @param destination Retained endpoint storage.
+ * @param table Retained byte-cube storage.
+ * @return Retained endpoint, or null when the source is absent. */
+inline const Prepared *retain(const Prepared *source, Prepared &destination,
+                              std::span<int8_t> table) {
+  if (source == nullptr)
+    return nullptr;
+  destination = *source;
+  if (destination.cube.active) {
+    assert(table.size() == Pattern::SphereLutView::SIZE);
+    assert(destination.cube.linear_data == nullptr);
+    std::copy_n(destination.cube.data, table.size(), table.data());
+    destination.cube.data = table.data();
+  }
+  return &destination;
+}
 /** @brief Compares all source inputs independently of palette and mechanic.
  * @param a Previous endpoint.
  * @param b Current endpoint.
