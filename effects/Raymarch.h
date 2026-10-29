@@ -455,9 +455,9 @@ private:
   float surface_noise_sample(const SurfaceFrame &surface,
                              const int8_t *before = nullptr,
                              float weight = 1.0f) const {
-    const auto U = Pattern::prepare_sphere_lut_sample(
+    const auto U = Pattern::prepare_sphere_lut_sample_unchecked(
         math::Vector(surface.cos_u, surface.sin_u, surface.cos_v));
-    const auto V = Pattern::prepare_sphere_lut_sample(
+    const auto V = Pattern::prepare_sphere_lut_sample_unchecked(
         math::Vector(surface.cos_v, surface.sin_v, surface.sin_u));
     const Pattern::SphereLutView NOW{palette_state->hue_noise_lut.data(), true};
     const float CURRENT = U.sample(NOW) + V.sample(NOW);
