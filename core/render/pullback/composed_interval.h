@@ -128,12 +128,16 @@ public:
     if (fraction <= 0.0f) {
       Frame frame = from;
       hold_discrete_lenses(frame, from, to);
-      if (!Modulation::same_topology(
-              from.params.template get<"color">().modulation,
-              to.params.template get<"color">().modulation)) {
-        frame.modulation = to.modulation;
-        frame.params.template get<"color">().modulation =
-            to.params.template get<"color">().modulation;
+      if constexpr (requires {
+                      from.params.template get<"color">().modulation;
+                    }) {
+        if (!Modulation::same_topology(
+                from.params.template get<"color">().modulation,
+                to.params.template get<"color">().modulation)) {
+          frame.modulation = to.modulation;
+          frame.params.template get<"color">().modulation =
+              to.params.template get<"color">().modulation;
+        }
       }
       return frame;
     }
@@ -202,12 +206,17 @@ public:
                 : end;
       }
     });
-    const bool CONTINUOUS = Modulation::same_topology(
-        from.params.template get<"color">().modulation,
-        to.params.template get<"color">().modulation);
-    if (!CONTINUOUS)
-      frame.params.template get<"color">().modulation =
-          to.params.template get<"color">().modulation;
+    bool continuous = true;
+    if constexpr (requires {
+                    from.params.template get<"color">().modulation;
+                  }) {
+      continuous = Modulation::same_topology(
+          from.params.template get<"color">().modulation,
+          to.params.template get<"color">().modulation);
+      if (!continuous)
+        frame.params.template get<"color">().modulation =
+            to.params.template get<"color">().modulation;
+    }
     frame.temporal = {from.palette,
                       from.hue_rotation_lut,
                       from.modulation,
@@ -215,7 +224,7 @@ public:
                       from.hue_rotation_linear,
                       from.palette_alpha,
                       same_palette,
-                      CONTINUOUS};
+                      continuous};
     return frame;
   }
 };

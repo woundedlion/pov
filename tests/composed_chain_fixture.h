@@ -118,7 +118,7 @@ template <typename FX> void verify_export(size_t preset) {
   In::FrameContext context;
   context.palettes.fill(own.palette);
   context.hue_rotation_lut = own.hue_rotation_lut;
-  context.hue_noise_lut = own.hue_noise_lut;
+  context.modulation = own.modulation;
   program.prepare(context);
   const auto prepared = FX::RenderPipeline::prepare(own);
   size_t visible = 0;
