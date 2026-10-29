@@ -1022,7 +1022,7 @@ private:
 
   HS_COLD_MEMBER void parameter_written() override {
     Choreography::parameter_written();
-    history.initialized = false;
+    history.reset();
     const auto configuration = configuration_id(params);
     if (selected_configuration != configuration) {
       const float NEAR_FADE = params.near_fade;
@@ -1039,7 +1039,7 @@ private:
   }
   void adopt_params(const Params &target) {
     if (!transition.active)
-      history.initialized = false;
+      history.reset();
     params = target;
     sync_configuration();
   }

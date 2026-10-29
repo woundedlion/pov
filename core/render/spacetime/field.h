@@ -174,17 +174,7 @@ struct FrameHistory {};
  *  immutable resources. */
 template <typename Frame, bool Baked>
   requires(!BorrowsColorResources<Frame>)
-struct FrameHistory<Frame, Pullback::Color::HueMode::NONE, true, false, Baked> {
-  static_assert(std::is_trivially_copyable_v<Frame>);
-  Frame previous{};         ///< Previous endpoint.
-  bool initialized = false; ///< Whether a previous endpoint exists.
-
-  /** @brief Retains the current endpoint before the next animation step.
-   * @param frame Current frame. */
-  void capture(const Frame &frame) {
-    previous = frame;
-    initialized = true;
-  }
-};
+struct FrameHistory<Frame, Pullback::Color::HueMode::NONE, true, false, Baked>
+    : Retained<Frame> {};
 
 } // namespace Spacetime
