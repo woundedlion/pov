@@ -581,7 +581,7 @@ inline RingFrame ring_frame(const math::Basis &basis, float radius) {
  * @brief Ring primitives.
  * Registers:
  *  v0: Angular progress (0.0 -> 1.0)
- *  v1: Arc Length (radians)
+ *  v1: Cumulative arc length (radians), still route only
  *  v2: Index
  */
 struct Ring {
@@ -604,6 +604,7 @@ struct Ring {
   }
 
   /** @brief Draws a ring from endpoint vertex motion at column time.
+   * @details The column-time route sets only v0 and v2.
    * @tparam W,H Canvas dimensions.
    * @tparam PipelineT,ShaderT Pipeline and shader types.
    * @param pipeline Screen pipeline.
@@ -907,12 +908,13 @@ template <typename Projection> struct Polygon {
  * @brief Distorted Ring.
  * Registers:
  *  v0: Angular progress (0.0 -> 1.0)
- *  v1: Arc Length (radians)
+ *  v1: Cumulative arc length (radians), still route only
  *  v2: Index
  */
 struct DistortedRing {
   /** @brief Draws a warped ring from constant-rate great-circle vertex paths
    * and world poses.
+   * @details The column-time route sets only v0 and v2.
    * @tparam W,H Canvas dimensions.
    * @tparam PipelineT,ShaderT Pipeline and shader types.
    * @param pipeline Screen pipeline.
