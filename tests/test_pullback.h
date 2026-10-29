@@ -661,7 +661,7 @@ inline void test_pullback_public_surface() {
   static_assert(!Pullback::StageDescriptor<NonTuplePoliciesStage>);
   static_assert(Pullback::Warp::MAX_POLAR_HARMONIC == 16);
   static_assert(Pullback::Color::HueRotationLutView::SIZE == 1024);
-  static_assert(Pullback::Color::HueNoiseLutView::SIZE == 3456);
+  static_assert(Pattern::SphereLutView::SIZE == 3456);
   HS_EXPECT_TRUE(std::is_empty_v<TestPipeline>);
 }
 
@@ -1607,7 +1607,9 @@ inline void test_pullback_runtime_seed_contract() {
 struct PaletteFrame {
   const BakedPalette *palette = nullptr;
   const Pixel *hue_rotation = nullptr;
-  const int8_t *hue_noise = nullptr;
+  const Pullback::Modulation::Prepared *modulation = nullptr;
+  ColorModulation::Params mechanic{ColorModulation::Mechanic::HUE_ROTATION,
+                                   0.25f};
   Pullback::Color::HueMode hue_mode = Pullback::Color::HueMode::NONE;
   Pullback::Color::TemporalPaletteResources temporal{};
 };
@@ -1638,11 +1640,19 @@ struct PaletteProvider {
   static float hue_shift_amount(const PaletteFrame &) { return 0.25f; }
   static Pullback::Color::HueRotationLutView
   hue_rotation(const PaletteFrame &frame) {
-    return {frame.hue_rotation,
-            frame.hue_mode != Pullback::Color::HueMode::NONE};
+    return {
+        frame.hue_rotation,
+        frame.hue_mode != Pullback::Color::HueMode::NONE ||
+            (frame.modulation && frame.modulation->config.enabled &&
+             frame.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION &&
+             frame.mechanic.amount != 0.0f)};
   }
-  static Pullback::Color::HueNoiseLutView hue_noise(const PaletteFrame &frame) {
-    return {frame.hue_noise, frame.hue_mode == Pullback::Color::HueMode::NOISE};
+  static const Pullback::Modulation::Prepared *
+  modulation(const PaletteFrame &frame) {
+    return frame.modulation;
+  }
+  static ColorModulation::Params mechanic(const PaletteFrame &frame) {
+    return frame.mechanic;
   }
   static Pullback::Color::BrightnessEnvelope
   brightness_envelope(const PaletteFrame &) {
@@ -1717,14 +1727,21 @@ inline void test_pullback_temporal_palette() {
     old_rotation[i] = Pixel(1000 + HUE * 100, 2000, 3000);
     new_rotation[i] = Pixel(9000 + HUE * 100, 6000, 1000);
   }
-  std::array<int8_t, HueNoiseLutView::SIZE> old_noise{};
-  std::array<int8_t, HueNoiseLutView::SIZE> new_noise;
-  new_noise.fill(127);
-  frame.hue_mode = Pullback::Color::HueMode::NOISE;
+  Pullback::Modulation::Resources old_modulation;
+  Pullback::Modulation::Resources new_modulation;
+  ColorModulation::Config config;
+  config.mechanic = frame.mechanic;
+  auto old_clock = Pullback::Modulation::init(config);
+  auto new_clock = old_clock;
+  new_clock.phase.phase_turns = 0.25f;
+  old_modulation.prepare(config, old_clock);
+  new_modulation.prepare(config, new_clock);
+  old_modulation.table.fill(0);
+  new_modulation.table.fill(127);
   frame.hue_rotation = new_rotation.data();
-  frame.hue_noise = new_noise.data();
+  frame.modulation = &new_modulation.prepared;
   frame.temporal.hue_rotation = old_rotation.data();
-  frame.temporal.hue_noise = old_noise.data();
+  frame.temporal.modulation = &old_modulation.prepared;
   for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
     frame.temporal.fraction = fraction;
     const Color4 color =
@@ -1746,16 +1763,16 @@ inline void test_pullback_temporal_palette() {
     old_rotation[i] = Pixel(random(), random(), random());
     new_rotation[i] = Pixel(random(), random(), random());
   }
-  for (size_t i = 0; i < old_noise.size(); ++i) {
-    old_noise[i] = static_cast<int>(random() % 255) - 127;
-    new_noise[i] = static_cast<int>(random() % 255) - 127;
+  for (size_t i = 0; i < old_modulation.table.size(); ++i) {
+    old_modulation.table[i] = static_cast<int>(random() % 255) - 127;
+    new_modulation.table[i] = static_cast<int>(random() % 255) - 127;
   }
   const auto unit = [&]() { return (random() >> 8) * 0x1p-24f; };
   for (int i = 0; i < 4096; ++i) {
     frame.temporal.fraction = unit();
     auto prepared = TimedPipeline::prepare(frame);
-    prepared.current.hue_shift_amount = unit() * 8.0f - 4.0f;
-    prepared.previous.hue_shift_amount = prepared.current.hue_shift_amount;
+    prepared.current.mechanic.amount = unit() * 8.0f - 4.0f;
+    prepared.previous.mechanic.amount = prepared.current.mechanic.amount;
     sample.value = i % 5 == 0 ? 0.0f : i % 5 == 1 ? 1.0f : unit();
     sample.coverage = unit();
     sample.sphere = i % 7 == 0 ? math::Vector(1, 1, 1)
@@ -1776,6 +1793,72 @@ inline void test_pullback_temporal_palette() {
     HS_EXPECT_NEAR(ACTUAL_PIXEL.g, EXPECTED_PIXEL.g, 2.0f);
     HS_EXPECT_NEAR(ACTUAL_PIXEL.b, EXPECTED_PIXEL.b, 2.0f);
   }
+}
+
+/** @brief Opacity interpolates completed endpoint alpha and holds current topology. */
+inline void test_pullback_modulation_temporal_alpha() {
+  using Timed = Pullback::Color::GeneratedPalette<TemporalPaletteProvider>;
+  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> buffer{};
+  Arena arena(buffer.data(), buffer.size());
+  BakedPaletteStorage old_palette;
+  BakedPaletteStorage new_palette;
+  const Pixel RGB(1234, 4567, 8910);
+  old_palette.bake(arena, ConstantPalette{Color4(RGB, 0.2f)});
+  new_palette.bake(arena, ConstantPalette{Color4(RGB, 0.6f)});
+  ColorModulation::Config config;
+  config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+  config.evaluation = Pattern::Evaluation::DIRECT;
+  config.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
+  config.sine.frequency = 0.0f;
+  auto old_clock = Pullback::Modulation::init(config);
+  auto new_clock = old_clock;
+  old_clock.phase.phase_turns = 0.75f;
+  new_clock.phase.phase_turns = 0.25f;
+  Pullback::Modulation::Resources<false> previous;
+  Pullback::Modulation::Resources<false> current;
+  previous.prepare(config, old_clock);
+  current.prepare(config, new_clock);
+  PaletteFrame frame;
+  frame.palette = &new_palette.view();
+  frame.temporal.palette = &old_palette.view();
+  frame.modulation = &current.prepared;
+  frame.temporal.modulation = &previous.prepared;
+  frame.mechanic = config.mechanic;
+  Pullback::FieldSample sample{};
+  sample.value = 0.5f;
+  sample.coverage = 0.5f;
+  sample.sphere = math::Z_AXIS;
+  for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
+    frame.temporal.fraction = fraction;
+    const auto PREPARED = Timed::prepare(frame);
+    const auto COLOR = Timed::apply(sample, frame, PREPARED);
+    HS_EXPECT_EQ(COLOR.color, RGB);
+    HS_EXPECT_NEAR(COLOR.alpha, 0.12f * fraction, 1.0e-7f);
+    if (fraction == 0.25f) {
+      const float SCALAR_FIRST_ALPHA = 0.3f * 0.25f * 0.5f * 0.4f;
+      HS_EXPECT_GT(COLOR.alpha, SCALAR_FIRST_ALPHA + 0.01f);
+    }
+  }
+  frame.palette = &old_palette.view();
+  for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
+    frame.temporal.fraction = fraction;
+    const auto COLOR = Timed::apply(sample, frame, Timed::prepare(frame));
+    HS_EXPECT_EQ(COLOR.color, RGB);
+    HS_EXPECT_NEAR(COLOR.alpha, 0.04f * fraction, 1.0e-7f);
+  }
+  frame.temporal.continuous_modulation = false;
+  frame.mechanic.amount = 0.8f;
+  for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
+    frame.temporal.fraction = fraction;
+    const auto COLOR = Timed::apply(sample, frame, Timed::prepare(frame));
+    HS_EXPECT_EQ(COLOR.color, RGB);
+    HS_EXPECT_NEAR(COLOR.alpha, 0.04f, 1.0e-7f);
+  }
+  frame.mechanic.amount = 0.0f;
+  sample.sphere = {};
+  const auto IDENTITY = Timed::apply(sample, frame, Timed::prepare(frame));
+  HS_EXPECT_EQ(IDENTITY.color, RGB);
+  HS_EXPECT_NEAR(IDENTITY.alpha, 0.04f, 1.0e-7f);
 }
 
 /** @brief Runs pullback tests. */
@@ -1809,6 +1892,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_field_curves);
   HS_RUN(test_pullback_hard_edge_kernels);
   HS_RUN(test_pullback_temporal_palette);
+  HS_RUN(test_pullback_modulation_temporal_alpha);
   return fixture.result();
 }
 
