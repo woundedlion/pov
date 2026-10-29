@@ -401,6 +401,32 @@ inline void test_temporal_moving_families_interpolate() {
                  1e-6f);
   HS_EXPECT_NEAR(MIDPOINT.template get<"color">().modulation.noise.speed, 0.0f,
                  1e-8f);
+
+  for (bool variant_mismatch : {false, true}) {
+    Pullback::Modulation::Config start, end;
+    start.noise.basis = Pattern::NoiseBasis::FBM3;
+    start.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
+    start.noise.contrast = 2.0f;
+    end = start;
+    if (variant_mismatch) {
+      start.noise.basis = end.noise.basis = Pattern::NoiseBasis::SIMPLEX;
+      end.noise.variant = Pattern::NoiseVariant::CONFIGURED_SINGLE;
+      end.noise.contrast = 0.0f;
+    } else {
+      end.noise.basis = Pattern::NoiseBasis::RIDGED3;
+      end.noise.contrast = 6.0f;
+    }
+    HS_EXPECT_TRUE(Pullback::Modulation::valid(start));
+    HS_EXPECT_TRUE(Pullback::Modulation::valid(end));
+    for (float fraction : {.25f, .5f, .75f}) {
+      const auto sampled =
+          Pullback::Modulation::interpolate(start, end, fraction);
+      HS_EXPECT_TRUE(Pullback::Modulation::valid(sampled));
+      HS_EXPECT_EQ(sampled.noise.basis, end.noise.basis);
+      HS_EXPECT_EQ(sampled.noise.variant, end.noise.variant);
+      HS_EXPECT_EQ(sampled.noise.contrast, end.noise.contrast);
+    }
+  }
   const Pullback::FrameInterval SAMPLER(history.previous, moved);
   for (const float fraction : {0.1f, 0.37f, 0.5f, 0.9f}) {
     HS_CONTEXT("fraction", static_cast<double>(fraction));
