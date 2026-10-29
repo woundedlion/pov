@@ -387,6 +387,39 @@ struct EdgeWorldsheet {
   steady_lattice(const math::Vector (&starts)[2], const math::Vector (&ends)[2],
                  int most, GeodesicEdgeSampler (&arcs)[2],
                  const math::RotationMatrix *end_to_start = nullptr) {
+    return steady_lattice_count<W, H>(starts, ends, most, arcs, end_to_start);
+  }
+
+  /** @brief Finds a steady lattice through the ITCM entry.
+   * @tparam W,H Display dimensions.
+   * @param starts,ends Unit endpoints at the frame's start and end.
+   * @param most Largest count of interest.
+   * @param arcs Receive the edge's arcs at the frame's end and start.
+   * @param end_to_start Rigid rotation from frame end to start, when known.
+   * @return The common lattice count at most @p most, or zero. */
+  template <int W, int H>
+  HS_HOT_ITCM_MEMBER static int
+  steady_lattice_resident(const math::Vector (&starts)[2],
+                          const math::Vector (&ends)[2], int most,
+                          GeodesicEdgeSampler (&arcs)[2],
+                          const math::RotationMatrix *end_to_start = nullptr) {
+    return steady_lattice_count<W, H>(starts, ends, most, arcs, end_to_start);
+  }
+
+private:
+  /** @brief Finds the lattice count shared by both frame endpoints.
+   * @tparam W,H Display dimensions.
+   * @param starts,ends Unit endpoints at the frame's start and end.
+   * @param most Largest count of interest.
+   * @param arcs Receive the edge's arcs at the frame's end and start.
+   * @param end_to_start Rigid rotation from frame end to start, when known.
+   * @return The common lattice count at most @p most, or zero. */
+  template <int W, int H>
+  HS_HOT_INLINE static int
+  steady_lattice_count(const math::Vector (&starts)[2],
+                       const math::Vector (&ends)[2], int most,
+                       GeodesicEdgeSampler (&arcs)[2],
+                       const math::RotationMatrix *end_to_start) {
     arcs[1] = arc(ends[0], ends[1]);
     const int count = lattice(pieces_of<W, H>(arcs[1]));
     if (count > most)
@@ -399,6 +432,7 @@ struct EdgeWorldsheet {
     return lattice(pieces_of<W, H>(arcs[0])) == count ? count : 0;
   }
 
+public:
   /** @brief A lattice point of an arc, as the walk places it.
    * @param basis The arc.
    * @param s Arc fraction in (0, 1).
