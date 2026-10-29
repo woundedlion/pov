@@ -1,6 +1,6 @@
 # Pattern sources and palette modulation
 
-**Status: PROPOSED.** Specifies future behavior, not implemented controls.
+**Status: IMPLEMENTING.** Shared sources, mechanics and endpoint bindings are implemented; integrated acceptance checks are in progress.
 
 ## Problem and scope
 
@@ -20,7 +20,7 @@ with no compatibility wrappers, fallback configuration or parallel implementatio
 
 ## Existing behavior
 
-[The current spatial utilities](../../core/color/noise_hue_palette.h) combine a
+[The scalar sphere storage](../../core/pattern/sphere_lut.h) combine a
 palette-by-hue color table with a six-face noise table, 24 by 24 signed-byte
 samples per face. Dominant-axis ratios make lookup invariant to positive
 direction scaling. Baking evaluates normalized directions through the existing
@@ -34,7 +34,7 @@ PLANE sampling retains the projection-frame direction; SPHERE sampling retains
 the camera-frame direction. Plane endomorphisms do not rewrite the sphere point.
 Inherit these semantics without another transform; this is not universal world space.
 
-[Shimmer](../../core/color/noise_shimmer_palette.h) shares the table and lifts
+[Positive lightness lift](../../core/color/modulation.h) shares the table and lifts
 OKLab lightness over positive lobes, preserving alpha: another source/mechanic pair.
 
 ## Shared sources with pullback
@@ -387,7 +387,7 @@ repository's existing style; no per-platform backend copies or source/mechanic
 pair files are needed. New APIs live in dedicated pattern/modulation namespaces,
 not new global Noise, Grid or Opacity names.
 
-Proposed layout; these files are not created by this spec:
+Header layout:
 
 ```text
 core/pattern/
@@ -432,14 +432,11 @@ higher-level colorizer, composed runtime or workbench host. Entrypoints call
 helpers, not vice versa. Ownership stays in arenas. Add no global registry state,
 singleton or all-built-in umbrella facade.
 
-Extract the current
-[noise-hue header](../../core/color/noise_hue_palette.h) by responsibility:
-cube view/geometry/sampler and generic bake/cache go to sphere storage; generator
-evaluation goes to the noise policy; palette-by-hue tables and sampling go to the
-color LUT; composition goes to the generic color module. Move
-[shimmer's lightness operation](../../core/color/noise_shimmer_palette.h) into
-the positive-lightness mechanic. Migrate callers and remove both original headers;
-do not leave forwarding headers, aliases or duplicated numeric paths.
+The scalar cube geometry, sampler and generic bake/cache live in sphere storage;
+configured generator evaluation lives in the noise policy. Palette-by-hue tables
+and sampling live in the color LUT, and generic composition and positive-lightness
+lift live in the color module. The retired combined modifier headers have no
+forwarding headers or aliases.
 
 The colorizer/composed runtime and workbench host use shared validation, clocks
 and preparation. Existing snapshot/operator codecs carry canonical state; WASM

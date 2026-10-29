@@ -19,6 +19,7 @@
 
 /** @brief Stage spec for `KaleidoscopeStainedGlass`. */
 struct KaleidoscopeStainedGlassSpec : Pullback::Spec {
+  static constexpr bool MODULATION = true;
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
@@ -46,7 +47,7 @@ struct KaleidoscopeStainedGlassSpec : Pullback::Spec {
           typename Pullback::CoveragePolicyFor<
               Pullback::ProjectionCoverageMode::WEIGHT_SQUARED, B, void>::Type>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::NOISE,
+          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
                                   Pullback::Color::BrightnessEnvelope::CUP>>>>;
 };
 /// Parameter block derived from `KaleidoscopeStainedGlassSpec`.
@@ -72,9 +73,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "a3268abb09bb4ee782c6a93204773063c226e82dbe9b6d46e72dc6472e555b35";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "55b3c75219d7620250032aae4ba061c7c27c4bf0ab013a72b9c7ef8f7c5defe0";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "0fccbe4ac4eb7acdba557f03c8ddadb4f974cb7400470e5e67951d2e7f2f7713";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "000ea4893635af27cc28f6c01d54156b22f5dc14306e778dfc98f457185b05f2";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "vector-mirror"
@@ -84,7 +85,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
 
   // Hot entry trampoline.
   /**
@@ -109,13 +110,17 @@ public:
     value.template get<"projection">().camera_wander = 1.0f;
     value.template get<"color">().brightness_bottom = 0.345f;
     value.template get<"color">().brightness_top = 1.0f;
-    value.template get<"color">().hue_noise_scale = 1.0f;
-    value.template get<"color">().hue_noise_speed = 0.0f;
-    value.template get<"color">().hue_shift_amount = 0.721f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
+    value.template get<"color">().modulation.mechanic.amount = 0.721f;
+    value.template get<"color">().modulation.enabled = true;
+    value.template get<"color">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
+    value.template get<"color">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
+    value.template get<"color">().modulation.source = Pattern::SourceKind::NOISE;
     value.template get<"color">().palette_chroma = 1.0f;
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::CUP;
+    value.template get<"color">().modulation.noise.scale = 1.0f;
+    value.template get<"color">().modulation.noise.speed = 0.0f;
     value.template get<"color">().phase_oscillation_depth = 0.0f;
     value.template get<"color">().phase_oscillation_speed = 0.0f;
     value.template get<"color">().opacity_high = 1.0f;

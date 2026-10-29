@@ -332,6 +332,9 @@ public:
       uint8_t *const previous_params = history + op.param_offset;
       for (uint16_t field = 0; field < op.op->schema_count; ++field) {
         const ParamFieldInfo &info = op.op->schema[field];
+        if (op.op->runtime.temporal_hold_field != nullptr &&
+            op.op->runtime.temporal_hold_field(field))
+          continue;
         if (info.enum_count == 0 && info.curve != FieldCurve::SNAP)
           continue;
         const size_t bytes = info.enum_count > 0 ? 1 : sizeof(float);
@@ -380,9 +383,15 @@ public:
       runtime.prepare(
           ctx, params, state,
           static_cast<uint8_t *>(block_ptr(active, op.prepared_offset)));
-      if (index + 1 == side.count)
-        runtime.prepare(previous_ctx, params, state,
+      if (index + 1 == side.count) {
+        FrameContext previous_color_ctx = previous_ctx;
+        if (ctx.modulation == nullptr || previous_ctx.modulation == nullptr ||
+            !Modulation::same_topology(ctx.modulation->config,
+                                       previous_ctx.modulation->config))
+          previous_color_ctx.modulation = ctx.modulation;
+        runtime.prepare(previous_color_ctx, params, state,
                         column + op.prepared_offset);
+      }
     }
     column_states_live = true;
     intervals_prepared = true;
@@ -417,6 +426,12 @@ public:
       std::swap(in, out);
     }
     const ChainOp &op = side.ops[last];
+    if (op.op->runtime.run_temporal != nullptr) {
+      op.op->runtime.run_temporal(in, out,
+                                  const_block_ptr(active, op.prepared_offset),
+                                  column + op.prepared_offset, fraction);
+      return *std::launder(reinterpret_cast<const Color4 *>(out));
+    }
     op.op->runtime.run(in, out, ctx, column + op.param_offset,
                        const_block_ptr(active, op.prepared_offset));
     op.op->runtime.run(in, slot_c, previous_ctx, column + op.param_offset,

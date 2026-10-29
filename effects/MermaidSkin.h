@@ -19,6 +19,7 @@
 
 /** @brief Stage spec for `MermaidSkin`. */
 struct MermaidSkinSpec : Pullback::Spec {
+  static constexpr bool MODULATION = true;
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
@@ -43,7 +44,7 @@ struct MermaidSkinSpec : Pullback::Spec {
           typename Pullback::CoveragePolicyFor<
               Pullback::ProjectionCoverageMode::WEIGHT, B, void>::Type>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::NOISE,
+          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
                                   Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 /// Parameter block derived from `MermaidSkinSpec`.
@@ -67,9 +68,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "8596de9b360af501a7c3a83b0d208fddec8a5a92a06af8ef39904ebb76939482";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "1730655d43532cfb30494515eafff832b29c74f4866f1fc055300cd16320c028";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "d5725f6627c6f2e66a8ca9410e7a06a623583c1d5e17b10096d34d676f6f00c1";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "1312977d4e2a1bb0fd528ae78dd580ead71f92228ff933ce97e24b5f0a828914";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "mermaid-skin"
@@ -79,7 +80,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -90,13 +91,17 @@ public:
   static constexpr Params initial_params() {
     Params value;
     value.template get<"projection">().camera_wander = 1.0f;
-    value.template get<"color">().hue_noise_scale = 0.14453939f;
-    value.template get<"color">().hue_noise_speed = -0.0000010416667f;
-    value.template get<"color">().hue_shift_amount = 1.5958333f;
     value.template get<"color">().mapping_frequency = 5.3755207f;
     value.template get<"color">().mapping_phase = 0.0f;
+    value.template get<"color">().modulation.mechanic.amount = 1.5958333f;
+    value.template get<"color">().modulation.enabled = true;
+    value.template get<"color">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
+    value.template get<"color">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
+    value.template get<"color">().modulation.source = Pattern::SourceKind::NOISE;
     value.template get<"color">().palette_chroma = 1.0f;
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::CUP;
+    value.template get<"color">().modulation.noise.scale = 0.14453939f;
+    value.template get<"color">().modulation.noise.speed = -0.0000010416667f;
     value.template get<"color">().phase_oscillation_depth = 0.0f;
     value.template get<"color">().phase_oscillation_speed = 0.0f;
     value.template get<"color">().opacity_high = 0.9661458f;

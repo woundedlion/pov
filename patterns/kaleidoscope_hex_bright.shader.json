@@ -63,53 +63,10 @@
       },
       {
         "classification": "preset",
-        "default": 1,
-        "domain": {
-          "maximum": 8,
-          "minimum": 0.015625
-        },
-        "id": "colorize.hue-noise-scale",
-        "interpolation": {
-          "kind": "LOG_POSITIVE"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": 0,
-        "domain": {
-          "maximum": 0.0010000000474974513,
-          "minimum": -0.0010000000474974513
-        },
-        "id": "colorize.hue-noise-speed",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "turn-per-frame"
-      },
-      {
-        "classification": "preset",
-        "default": 0,
-        "domain": {
-          "maximum": 4,
-          "minimum": -4
-        },
-        "id": "colorize.hue-shift-amount",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": "noise",
+        "default": "none",
         "domain": {
           "values": [
             "none",
-            "noise",
             "path-length"
           ]
         },
@@ -147,6 +104,87 @@
         },
         "storage": "binary32",
         "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 4,
+          "minimum": -4
+        },
+        "id": "colorize.modulation-amount",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "enabled",
+        "domain": {
+          "values": [
+            "disabled",
+            "enabled"
+          ]
+        },
+        "id": "colorize.modulation-enabled",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "baked-cube",
+        "domain": {
+          "values": [
+            "direct",
+            "baked-cube"
+          ]
+        },
+        "id": "colorize.modulation-evaluation",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "hue-rotation",
+        "domain": {
+          "values": [
+            "hue-rotation",
+            "positive-lightness-lift",
+            "opacity"
+          ]
+        },
+        "id": "colorize.modulation-mechanic",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "noise",
+        "domain": {
+          "values": [
+            "noise",
+            "directional-sine",
+            "sphere-interference",
+            "sphere-smooth-grid"
+          ]
+        },
+        "id": "colorize.modulation-source",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
       },
       {
         "classification": "preset",
@@ -196,6 +234,34 @@
         },
         "storage": "enum8",
         "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": 0.015625
+        },
+        "id": "colorize.pattern-scale",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "colorize.pattern-speed",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "turn-per-frame"
       },
       {
         "classification": "preset",
@@ -504,15 +570,19 @@
       "fields": [
         "camera.wander",
         "colorize.brightness-envelope",
-        "colorize.hue-noise-scale",
-        "colorize.hue-noise-speed",
-        "colorize.hue-shift-amount",
         "colorize.hue-shift-mode",
         "colorize.mapping-frequency",
         "colorize.mapping-phase",
+        "colorize.modulation-amount",
+        "colorize.modulation-enabled",
+        "colorize.modulation-evaluation",
+        "colorize.modulation-mechanic",
+        "colorize.modulation-source",
         "colorize.palette-chroma",
         "colorize.palette-mapping",
         "colorize.palette-mode",
+        "colorize.pattern-scale",
+        "colorize.pattern-speed",
         "colorize.phase-oscillation-depth",
         "colorize.phase-oscillation-speed",
         "colorize.value-opacity-high",
@@ -584,15 +654,19 @@
         "values": {
           "camera.wander": 1,
           "colorize.brightness-envelope": "none",
-          "colorize.hue-noise-scale": 1.472156286239624,
-          "colorize.hue-noise-speed": 0.00013800000306218863,
-          "colorize.hue-shift-amount": 0.22599999606609344,
-          "colorize.hue-shift-mode": "noise",
+          "colorize.hue-shift-mode": "none",
           "colorize.mapping-frequency": 1.340999960899353,
           "colorize.mapping-phase": -1,
+          "colorize.modulation-amount": 0.22599999606609344,
+          "colorize.modulation-enabled": "enabled",
+          "colorize.modulation-evaluation": "baked-cube",
+          "colorize.modulation-mechanic": "hue-rotation",
+          "colorize.modulation-source": "noise",
           "colorize.palette-chroma": 1,
           "colorize.palette-mapping": "bell",
           "colorize.palette-mode": "analogous",
+          "colorize.pattern-scale": 1.472156286239624,
+          "colorize.pattern-speed": 0.00013800000306218863,
           "colorize.phase-oscillation-depth": 0,
           "colorize.phase-oscillation-speed": 0,
           "colorize.value-opacity-high": 1,
@@ -621,15 +695,19 @@
         "values": {
           "camera.wander": 1,
           "colorize.brightness-envelope": "none",
-          "colorize.hue-noise-scale": 1.472156286239624,
-          "colorize.hue-noise-speed": 0.00013800000306218863,
-          "colorize.hue-shift-amount": 0.22599999606609344,
-          "colorize.hue-shift-mode": "noise",
+          "colorize.hue-shift-mode": "none",
           "colorize.mapping-frequency": 2,
           "colorize.mapping-phase": -1,
+          "colorize.modulation-amount": 0.22599999606609344,
+          "colorize.modulation-enabled": "enabled",
+          "colorize.modulation-evaluation": "baked-cube",
+          "colorize.modulation-mechanic": "hue-rotation",
+          "colorize.modulation-source": "noise",
           "colorize.palette-chroma": 1,
           "colorize.palette-mapping": "bell",
           "colorize.palette-mode": "analogous",
+          "colorize.pattern-scale": 1.472156286239624,
+          "colorize.pattern-speed": 0.00013800000306218863,
           "colorize.phase-oscillation-depth": 0,
           "colorize.phase-oscillation-speed": 0,
           "colorize.value-opacity-high": 1,

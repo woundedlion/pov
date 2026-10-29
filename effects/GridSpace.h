@@ -19,6 +19,7 @@
 
 /** @brief Pullback stage spec for `GridSpace`. */
 struct GridSpaceSpec : Pullback::Spec {
+  static constexpr bool MODULATION = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   static constexpr bool ANIMATED_PROJECTION = true;
   /// Samples animation continuously across each two-arm half-turn.
@@ -48,7 +49,7 @@ struct GridSpaceSpec : Pullback::Spec {
       Pullback::Stage::Transfer<Pullback::Transfer::IsoContour<
           Pullback::ValueProvider<B, Pullback::IsoValueParams>>>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::NOISE,
+          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
                                   Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 /// Parameter block derived from `GridSpaceSpec`.
@@ -73,9 +74,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "67870f99cc8812d737d30ef890622c30f49f49172af1fd649dcd49821c5d1aca";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "11061adcaadafefa01e18e2a097d1d14f72d18a7baefd4eda547b38185251b21";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "992256905cd236a8dae29bbafc058efee46c7a98751abcf477ad1622ef0dd535";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "ef2654f34b85d56c9c3d15a3a9b0c3c58792ca6d70313082e02434ae1d8a3530";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "affine-contour"
@@ -85,7 +86,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -96,13 +97,17 @@ public:
   static constexpr Params initial_params() {
     Params value;
     value.template get<"projection">().camera_wander = 1.0f;
-    value.template get<"color">().hue_noise_scale = 0.8300313f;
-    value.template get<"color">().hue_noise_speed = 0.00021200001f;
-    value.template get<"color">().hue_shift_amount = 0.398f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
+    value.template get<"color">().modulation.mechanic.amount = 0.398f;
+    value.template get<"color">().modulation.enabled = true;
+    value.template get<"color">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
+    value.template get<"color">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
+    value.template get<"color">().modulation.source = Pattern::SourceKind::NOISE;
     value.template get<"color">().palette_chroma = 0.62f;
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::LINEAR;
+    value.template get<"color">().modulation.noise.scale = 0.8300313f;
+    value.template get<"color">().modulation.noise.speed = 0.00021200001f;
     value.template get<"color">().phase_oscillation_depth = 0.0f;
     value.template get<"color">().phase_oscillation_speed = 0.0f;
     value.template get<"color">().opacity_high = 1.0f;

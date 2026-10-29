@@ -1206,9 +1206,11 @@ StaticPalette<ProceduralPalette, Coords<NoiseWarpModifier>,
 | `PaletteFacade<SP>` | Exposes a compile-time `StaticPalette` composition through the polymorphic `Palette` API, for preset tables and baking |
 | `BakedPalette` | Read-only view of an arena-backed 256-entry color/alpha LUT. |
 | `BakedPaletteStorage` | Owns mutation rights to a palette LUT and rebakes a `Palette` or `StaticPalette` source into it. |
-| `NoiseShimmerPalette<Source>` | Modulates a source palette with its bound noise LUT. |
+| `ColorModulation::PositiveLightnessLift` | Raises OKLab lightness over positive scalar lobes, preserving alpha and exact zero identity. |
 | `LayerComposite` | Composes straight-alpha color layers. |
-| `NoiseHuePalette<Source>` | Applies a sphere-domain noise field as a spatial OKLab hue rotation over any palette source. Its shared hue-rotation and cube-map noise LUT preparation is used by ordinary effects, composed shader effects, and the Shader workbench. Call `hue_shift(direction, amount)` once when a whole primitive shares a noise coordinate, `noise_uv(cos_u, sin_u, cos_v, sin_v)` for a seamless two-axis surface field, or `get(t, direction, amount)` directly per sample. |
+| `PatternModulatedPalette<PaletteSource, Field, Mechanic>` | Composes a palette with an immutable typed scalar field and an independent color operation. Sphere fields use admitted directions and explicit direct or baked-cube evaluation. |
+| `ColorModulation::HueRotation` | Applies signed periodic hue rotation, preserving alpha and exact zero identity. |
+| `ColorModulation::Opacity` | Multiplies straight alpha by a scalar mask while preserving RGB. |
 
 ### Recipe-Compiled Palettes
 

@@ -1363,8 +1363,6 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── hue_rotation_lut.h      Palette-coordinate by hue-rotation acceleration
 │   │   ├── modulation_types.h      Passive source recipes and mechanic controls
 │   │   ├── modulation.h            Generic scalar-field palette composition and color mechanics
-│   │   ├── noise_hue_palette.h     Sphere-noise hue LUTs + reusable NoiseHuePalette wrapper
-│   │   ├── noise_shimmer_palette.h Shared sphere-noise lightness lift palette wrapper
 │   │   ├── palette_cycler.h        PaletteCycler: dwell-and-fade display LUT over a palette sequence
 │   │   └── palettes.h              Named ProceduralPalette instances + shared MeshPaletteBank
 │   ├── render/                 Canvas, rasterizers, and the filter pipeline

@@ -70,9 +70,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "9b0e9fb6b8e1cd9fddc0bfb95847ae484eaec378dd0b987eb51f68d70ceb38da";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "abecc6184f6b972203459321778d29e0da4ce88c9f9912a70614a4756ea81a6a";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "7e92c0d6d6c25c0c35917402fb0d7cfece85c5bcedd06d80712c3df5c7a6fc63";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "a3b2dd1623017d70e33b2b5faf977c4cdbcff3055894ef452a06886b1695f686";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "mirrored-grid"
@@ -82,7 +82,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
   /**
@@ -95,6 +95,7 @@ public:
     value.template get<"color">().hue_shift_amount = 2.048f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
+    value.template get<"color">().modulation.enabled = false;
     value.template get<"color">().palette_chroma = 0.292f;
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::LINEAR;
     value.template get<"color">().phase_oscillation_depth = 0.0f;

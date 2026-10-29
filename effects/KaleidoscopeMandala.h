@@ -19,6 +19,7 @@
 
 /** @brief Stage spec for `KaleidoscopeMandala`. */
 struct KaleidoscopeMandalaSpec : Pullback::Spec {
+  static constexpr bool MODULATION = true;
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
@@ -46,7 +47,7 @@ struct KaleidoscopeMandalaSpec : Pullback::Spec {
           typename Pullback::CoveragePolicyFor<
               Pullback::ProjectionCoverageMode::WEIGHT_SQUARED, B, void>::Type>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::NOISE,
+          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
                                   Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 /// Parameter block derived from `KaleidoscopeMandalaSpec`.
@@ -71,9 +72,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "b37f0b27686b2dea268c8860d63a062e0a2ad59dd694d1d861139b6b5ab8da3e";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "858af6dea0def2c061d47e351238a329b5780277213bea058bd748c9daa20d0e";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "7e10bc72b93c0671877e68f54c36bcb6177b5038f3e12c7af5aebed8c4ef1f56";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "8039a1ce9a45918adbbef0595f28a95098116e4f4f8d569190c630dd27fb9594";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "wave-mirror",
@@ -84,7 +85,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
 
   // Hot entry trampoline.
   /**
@@ -107,13 +108,17 @@ public:
   static constexpr Params initial_params() {
     Params value;
     value.template get<"projection">().camera_wander = 1.0f;
-    value.template get<"color">().hue_noise_scale = 1.0f;
-    value.template get<"color">().hue_noise_speed = 0.0f;
-    value.template get<"color">().hue_shift_amount = 0.721f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
+    value.template get<"color">().modulation.mechanic.amount = 0.721f;
+    value.template get<"color">().modulation.enabled = true;
+    value.template get<"color">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
+    value.template get<"color">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
+    value.template get<"color">().modulation.source = Pattern::SourceKind::NOISE;
     value.template get<"color">().palette_chroma = 1.0f;
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::LINEAR;
+    value.template get<"color">().modulation.noise.scale = 1.0f;
+    value.template get<"color">().modulation.noise.speed = 0.0f;
     value.template get<"color">().phase_oscillation_depth = 0.0f;
     value.template get<"color">().phase_oscillation_speed = 0.0f;
     value.template get<"color">().opacity_high = 1.0f;
@@ -146,9 +151,9 @@ public:
   HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
     Params value = initial_params();
     if (index == 1) {
-      value.template get<"color">().hue_noise_scale = 1.9717969f;
-      value.template get<"color">().hue_shift_amount = 1.0f;
+      value.template get<"color">().modulation.mechanic.amount = 1.0f;
       value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::CUP;
+      value.template get<"color">().modulation.noise.scale = 1.9717969f;
     }
     return {value, Segue::Preset::Lerp{480, math::ease_in_out_sin}};
   }

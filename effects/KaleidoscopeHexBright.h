@@ -19,6 +19,7 @@
 
 /** @brief Stage spec for `KaleidoscopeHexBright`. */
 struct KaleidoscopeHexBrightSpec : Pullback::Spec {
+  static constexpr bool MODULATION = true;
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
@@ -44,7 +45,7 @@ struct KaleidoscopeHexBrightSpec : Pullback::Spec {
           typename Pullback::CoveragePolicyFor<
               Pullback::ProjectionCoverageMode::WEIGHT_SQUARED, B, void>::Type>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::NOISE,
+          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
                                   Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 /// Parameter block derived from `KaleidoscopeHexBrightSpec`.
@@ -70,9 +71,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "75b527c4f90e8e378dcbc78e88f99b52d5d279d9948e48656b4845649ca9f1ab";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "7cf4f89eb13eb3128aed6e19df11ceed273bb0b2b299823335a1401a1376b414";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "a69686e051b4d46949179a00b82e08df04f1b5abd7b5317376da86753670719b";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "f8fa78683903c680011c6d99f372caf35528035251b1a470e68a7ec6839c61c7";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "hex-twin-wave",
@@ -83,7 +84,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -94,13 +95,17 @@ public:
   static constexpr Params initial_params() {
     Params value;
     value.template get<"projection">().camera_wander = 1.0f;
-    value.template get<"color">().hue_noise_scale = 1.4721563f;
-    value.template get<"color">().hue_noise_speed = 0.000138f;
-    value.template get<"color">().hue_shift_amount = 0.226f;
     value.template get<"color">().mapping_frequency = 1.341f;
     value.template get<"color">().mapping_phase = -1.0f;
+    value.template get<"color">().modulation.mechanic.amount = 0.226f;
+    value.template get<"color">().modulation.enabled = true;
+    value.template get<"color">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
+    value.template get<"color">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
+    value.template get<"color">().modulation.source = Pattern::SourceKind::NOISE;
     value.template get<"color">().palette_chroma = 1.0f;
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::BELL;
+    value.template get<"color">().modulation.noise.scale = 1.4721563f;
+    value.template get<"color">().modulation.noise.speed = 0.000138f;
     value.template get<"color">().phase_oscillation_depth = 0.0f;
     value.template get<"color">().phase_oscillation_speed = 0.0f;
     value.template get<"color">().opacity_high = 1.0f;

@@ -89,13 +89,40 @@ export type ChainRuntimeState =
   | {instance: string; kind: 'noise-clock-v1'; state: {phase: number; noiseSeed: number}}
   | {instance: string; kind: 'phase-clock-v1' | 'ripple-clock-v1'; state: {phase: number}}
   | {instance: string; kind: 'affine-clock-v1'; state: {phase: number; rotation: number}}
-  | {instance: string; kind: 'color-clock-v1'; state: {oscillationPhase: number; hueNoisePhase: number; hueNoiseSeed: number}}
+  | {instance: string; kind: 'color-clock-v2'; state: {oscillationPhase: number; modulation: {source: 0 | 1 | 2 | 3; version: 1; phaseTurns: number; initialized: boolean}}}
   | {instance: string; kind: 'spherical-rings-v2'; state: {walk: ChainSpatialWalkState; phase: number}};
+
+export interface PatternSineParams {
+  axis: number[];
+  frequency: number;
+  offset: number;
+  speed: number;
+}
+
+export interface PatternInterferenceParams extends PatternSineParams {
+  axisB: number[];
+  frequencyB: number;
+  offsetB: number;
+}
+
+export interface ModulationRecipe {
+  enabled: boolean;
+  source: 0 | 1 | 2 | 3;
+  version: 1;
+  evaluation: 0 | 1;
+  seed: number;
+  noise: {scale: number; speed: number; contrast: number; basis: 0 | 1 | 2; variant: 0 | 1};
+  sine: PatternSineParams;
+  interference: PatternInterferenceParams;
+  grid: PatternInterferenceParams;
+  mechanic: {kind: 0 | 1 | 2; amount: number};
+}
 
 export interface ChainSnapshot {
   schemaVersion: number;
   chain: Array<{instance: string; operator: string}>;
   parameters: Array<{name: string; value: number}>;
+  modulation: Array<{instance: string; recipe: ModulationRecipe}>;
   runtime?: ChainRuntimeState[];
   paletteBank?: {chroma: number; hues: number[]; cycles: Array<{frame: number; nextSequence: number; fadeActive: boolean; displayDirty: boolean}>};
   animationsPaused: boolean;

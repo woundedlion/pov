@@ -14,6 +14,19 @@ const RENAMES = { 'sample.angle-speed': 'angle_rate', 'sample.drift': 'secondary
   'sample.lattice-shape': 'lattice_shape_blend', 'project.projection-spin-speed': 'spin_rate',
   'project.projection-wander': 'wander', 'colorize.value-opacity-low': 'opacity_low',
   'colorize.value-opacity-high': 'opacity_high' };
+const MODULATION_MEMBERS = {
+  'modulation-amount': 'mechanic.amount',
+  'pattern-scale': 'noise.scale',
+  'pattern-speed': 'noise.speed',
+  'pattern-contrast': 'noise.contrast',
+};
+const MODULATION_ENUMS = {
+  'modulation-source': ['source', 'Pattern::SourceKind'],
+  'modulation-evaluation': ['evaluation', 'Pattern::Evaluation'],
+  'modulation-mechanic': ['mechanic.kind', 'ColorModulation::Mechanic'],
+  'pattern-noise-basis': ['noise.basis', 'Pattern::NoiseBasis'],
+  'pattern-noise-variant': ['noise.variant', 'Pattern::NoiseVariant'],
+};
 const catalog = await loadOperatorCatalog();
 const identities = await loadEffectIdentities();
 
@@ -44,6 +57,17 @@ export function presetAssignments(document, values) {
         throw new Error(`Invalid derived binding: ${id}`);
       continue;
     }
+    if (label === 'colorize' && field === 'modulation-enabled') {
+      if (!['disabled', 'enabled'].includes(value)) throw new Error(`Invalid modulation state: ${value}`);
+      assignments.set('color.modulation.enabled', String(value === 'enabled'));
+      continue;
+    }
+    if (label === 'colorize' && MODULATION_ENUMS[field]) {
+      const [path, type] = MODULATION_ENUMS[field];
+      if (typeof value !== 'string') throw new Error(`Invalid modulation selector: ${id}`);
+      assignments.set(`color.modulation.${path}`, `${type}::${value.replaceAll('-', '_').toUpperCase()}`);
+      continue;
+    }
     if (topology.has(id)) continue;
     if (BAKED_CONSTANT_IDS.has(id)) continue;
     let member;
@@ -51,7 +75,14 @@ export function presetAssignments(document, values) {
     else if (id === 'sample.edge-width') member = 'value.edge_width';
     else if (/^lens\.mobius-[abcd]-(re|im)$/.test(id))
       member = `lens.mobius.${field.split('-').slice(1).join('.')}`;
-    else if (GROUPS[label]) member = `${GROUPS[label]}.${RENAMES[id] ?? field.replaceAll('-', '_')}`;
+    else if (label === 'colorize' && MODULATION_MEMBERS[field])
+      member = `color.modulation.${MODULATION_MEMBERS[field]}`;
+    else if (label === 'colorize' && /^(sine|interference|grid)-/.test(field)) {
+      const [source, ...parts] = field.split('-');
+      let path = parts.join('_');
+      path = path.replace(/^axis_b_([xyz])$/, 'axis_b.$1').replace(/^axis_([xyz])$/, 'axis.$1');
+      member = `color.modulation.${source}.${path}`;
+    } else if (GROUPS[label]) member = `${GROUPS[label]}.${RENAMES[id] ?? field.replaceAll('-', '_')}`;
     else throw new Error(`Unmapped composed parameter: ${id}`);
     if (field === 'palette-mapping') {
       if (!['cup', 'bell', 'linear', 'reverse'].includes(value)) throw new Error(`Invalid mapping: ${value}`);

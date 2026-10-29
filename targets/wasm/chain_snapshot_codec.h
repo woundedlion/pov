@@ -132,6 +132,84 @@ class ChainSnapshotCodec {
            number(value, "angularVelocity", state.angular_velocity) &&
            number(value, "spinPhase", state.spin_phase);
   }
+  static Val sine(const Pattern::SineParams &params) {
+    auto out = Val::object();
+    out.set("axis", vector(params.axis));
+    out.set("frequency", params.frequency);
+    out.set("offset", params.offset);
+    out.set("speed", params.speed);
+    return out;
+  }
+  static bool sine(const Val &value, Pattern::SineParams &params) {
+    return object(value) && vector(value["axis"], params.axis) &&
+           number(value, "frequency", params.frequency) &&
+           number(value, "offset", params.offset) &&
+           number(value, "speed", params.speed);
+  }
+  static Val interference(const Pattern::InterferenceParams &params) {
+    auto out = sine(params);
+    out.set("axisB", vector(params.axis_b));
+    out.set("frequencyB", params.frequency_b);
+    out.set("offsetB", params.offset_b);
+    return out;
+  }
+  static bool interference(const Val &value,
+                           Pattern::InterferenceParams &params) {
+    return sine(value, params) && vector(value["axisB"], params.axis_b) &&
+           number(value, "frequencyB", params.frequency_b) &&
+           number(value, "offsetB", params.offset_b);
+  }
+  static Val recipe(const ColorModulation::Config &config) {
+    auto out = Val::object();
+    out.set("enabled", config.enabled);
+    out.set("source", static_cast<uint8_t>(config.source));
+    out.set("version", config.version);
+    out.set("evaluation", static_cast<uint8_t>(config.evaluation));
+    out.set("seed", config.seed);
+    auto noise = Val::object();
+    noise.set("scale", config.noise.scale);
+    noise.set("speed", config.noise.speed);
+    noise.set("contrast", config.noise.contrast);
+    noise.set("basis", static_cast<uint8_t>(config.noise.basis));
+    noise.set("variant", static_cast<uint8_t>(config.noise.variant));
+    out.set("noise", noise);
+    out.set("sine", sine(config.sine));
+    out.set("interference", interference(config.interference));
+    out.set("grid", interference(config.grid));
+    auto mechanic = Val::object();
+    mechanic.set("kind", static_cast<uint8_t>(config.mechanic.kind));
+    mechanic.set("amount", config.mechanic.amount);
+    out.set("mechanic", mechanic);
+    return out;
+  }
+  static bool recipe(const Val &value, ColorModulation::Config &config) {
+    uint8_t source, evaluation, basis, variant, mechanic;
+    if (!object(value) || !boolean(value, "enabled", config.enabled) ||
+        !integer(value, "source", source) || source > 3 ||
+        !integer(value, "version", config.version) || config.version != 1 ||
+        !integer(value, "evaluation", evaluation) || evaluation > 1 ||
+        !integer(value, "seed", config.seed))
+      return false;
+    const auto noise = value["noise"];
+    const auto operation = value["mechanic"];
+    if (!object(noise) || !number(noise, "scale", config.noise.scale) ||
+        !number(noise, "speed", config.noise.speed) ||
+        !number(noise, "contrast", config.noise.contrast) ||
+        !integer(noise, "basis", basis) || basis > 2 ||
+        !integer(noise, "variant", variant) || variant > 1 ||
+        !sine(value["sine"], config.sine) ||
+        !interference(value["interference"], config.interference) ||
+        !interference(value["grid"], config.grid) || !object(operation) ||
+        !integer(operation, "kind", mechanic) || mechanic > 2 ||
+        !number(operation, "amount", config.mechanic.amount))
+      return false;
+    config.source = static_cast<Pattern::SourceKind>(source);
+    config.evaluation = static_cast<Pattern::Evaluation>(evaluation);
+    config.noise.basis = static_cast<Pattern::NoiseBasis>(basis);
+    config.noise.variant = static_cast<Pattern::NoiseVariant>(variant);
+    config.mechanic.kind = static_cast<ColorModulation::Mechanic>(mechanic);
+    return Pullback::Modulation::valid(config);
+  }
   static Val runtime_state(const Runtime &snapshot) {
     using namespace Pullback::Interp;
     return std::visit(
@@ -152,8 +230,13 @@ class ChainSnapshotCodec {
             out.set("rotation", state.rotation);
           } else if constexpr (std::is_same_v<State, ColorClockSnapshot>) {
             out.set("oscillationPhase", state.oscillation_phase);
-            out.set("hueNoisePhase", state.hue_noise_phase);
-            out.set("hueNoiseSeed", state.hue_noise_seed);
+            auto modulation = Val::object();
+            modulation.set("source",
+                           static_cast<uint8_t>(state.modulation.source));
+            modulation.set("version", state.modulation.version);
+            modulation.set("phaseTurns", state.modulation.phase.phase_turns);
+            modulation.set("initialized", state.modulation.initialized);
+            out.set("modulation", modulation);
           } else if constexpr (std::is_same_v<State, SphericalRingsSnapshot>) {
             out.set("walk", spatial(state.walk));
             out.set("phase", state.phase);
@@ -192,12 +275,23 @@ class ChainSnapshotCodec {
           !number(value, "rotation", state.rotation))
         return false;
       out = state;
-    } else if (kind == "color-clock-v1") {
+    } else if (kind == "color-clock-v2") {
       ColorClockSnapshot state;
+      uint8_t source;
+      const auto modulation = value["modulation"];
       if (!number(value, "oscillationPhase", state.oscillation_phase) ||
-          !number(value, "hueNoisePhase", state.hue_noise_phase) ||
-          !integer(value, "hueNoiseSeed", state.hue_noise_seed))
+          !object(modulation) || !integer(modulation, "source", source) ||
+          source >
+              static_cast<uint8_t>(Pattern::SourceKind::SPHERE_SMOOTH_GRID) ||
+          !integer(modulation, "version", state.modulation.version) ||
+          state.modulation.version != 1 ||
+          !number(modulation, "phaseTurns",
+                  state.modulation.phase.phase_turns) ||
+          state.modulation.phase.phase_turns < 0.0f ||
+          state.modulation.phase.phase_turns >= 1.0f ||
+          !boolean(modulation, "initialized", state.modulation.initialized))
         return false;
+      state.modulation.source = static_cast<Pattern::SourceKind>(source);
       out = state;
     } else if (kind == "spherical-rings-v2") {
       SphericalRingsSnapshot state;
@@ -246,6 +340,14 @@ public:
       parameters.set(index, entry);
     }
     out.set("parameters", parameters);
+    auto modulation = Val::array();
+    for (size_t index = 0; index < snapshot.modulation.size(); ++index) {
+      auto entry = Val::object();
+      entry.set("instance", snapshot.modulation[index].instance);
+      entry.set("recipe", recipe(snapshot.modulation[index].recipe));
+      modulation.set(index, entry);
+    }
+    out.set("modulation", modulation);
     if (snapshot.runtime) {
       auto runtime = Val::array();
       for (size_t index = 0; index < snapshot.runtime->size(); ++index) {
@@ -326,6 +428,19 @@ public:
           !number(parameters[index], "value", entry.value))
         return Result::INVALID_VALUE;
       out.parameters.push_back(std::move(entry));
+    }
+    const auto modulation = input["modulation"];
+    if (!array_type(modulation))
+      return Result::INVALID_VALUE;
+    if (modulation["length"].as<size_t>() > Pullback::Interp::MAX_CHAIN_OPS)
+      return Result::INVALID_LENGTH;
+    for (size_t index = 0; index < modulation["length"].as<size_t>(); ++index) {
+      ChainSnapshot::ModulationRecipe entry;
+      if (!object(modulation[index]) ||
+          !text(modulation[index], "instance", entry.instance) ||
+          !recipe(modulation[index]["recipe"], entry.recipe))
+        return Result::INVALID_VALUE;
+      out.modulation.push_back(std::move(entry));
     }
     const auto runtime = input["runtime"];
     if (!runtime.isUndefined()) {

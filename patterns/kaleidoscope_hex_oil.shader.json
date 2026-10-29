@@ -81,7 +81,6 @@
         "domain": {
           "values": [
             "none",
-            "noise",
             "path-length"
           ]
         },
@@ -119,6 +118,22 @@
         },
         "storage": "binary32",
         "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "disabled",
+        "domain": {
+          "values": [
+            "disabled",
+            "enabled"
+          ]
+        },
+        "id": "colorize.modulation-enabled",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
       },
       {
         "classification": "preset",
@@ -455,6 +470,7 @@
         "colorize.hue-shift-mode",
         "colorize.mapping-frequency",
         "colorize.mapping-phase",
+        "colorize.modulation-enabled",
         "colorize.palette-chroma",
         "colorize.palette-mapping",
         "colorize.palette-mode",
@@ -531,6 +547,7 @@
           "colorize.hue-shift-mode": "path-length",
           "colorize.mapping-frequency": 1,
           "colorize.mapping-phase": 0,
+          "colorize.modulation-enabled": "disabled",
           "colorize.palette-chroma": 0.7799999713897705,
           "colorize.palette-mapping": "cup",
           "colorize.palette-mode": "triadic",
@@ -564,6 +581,7 @@
           "colorize.hue-shift-mode": "path-length",
           "colorize.mapping-frequency": 1.2000000476837158,
           "colorize.mapping-phase": 0,
+          "colorize.modulation-enabled": "disabled",
           "colorize.palette-chroma": 0.7799999713897705,
           "colorize.palette-mapping": "cup",
           "colorize.palette-mode": "triadic",

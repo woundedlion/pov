@@ -69,9 +69,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "d4cec300e807a48008dcd128903c97f00ca36d582a474e94231389f2ffa9a7c7";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "7c905e729fb3dc4f261e4ead30c02ec2a509447d6933a75648909fb1950730af";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "302f86fbdcd6122935cbc7e0c80bcff24f441401e3d44d39ec096e02849fcd18";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "11c244b834a8d9b98743f6ab0da41c12a987c9a2bfe37cdcd2896fcfe1454c3a";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "kaleidoscope-hex-oil",
@@ -82,7 +82,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -96,6 +96,7 @@ public:
     value.template get<"color">().hue_shift_amount = -2.216f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
+    value.template get<"color">().modulation.enabled = false;
     value.template get<"color">().palette_chroma = 0.78f;
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::CUP;
     value.template get<"color">().phase_oscillation_depth = 0.0f;

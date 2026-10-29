@@ -1119,7 +1119,7 @@ test('catalog declarations preserve source and clock speed units', () => {
     ['warp.mirror.v1', 'speed', 'turn-per-frame'],
     ['project.stereographic.v1', 'projection-spin-speed', 'radian-per-frame'],
     ['sphere.rotate.v1', 'spin-speed', 'radian-per-frame'],
-    ['colorize.generated-palette.v3', 'hue-noise-speed', 'turn-per-frame'],
+    ['colorize.generated-palette.v3', 'pattern-speed', 'turn-per-frame'],
   ]) {
     const field = { id, curve: 'lerp', min: -1, max: 1, default: 0 };
     assert.equal(declarationFromCatalogField('stage', field, operator).unit, unit);

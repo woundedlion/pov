@@ -428,6 +428,20 @@ struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
                     const Params &, const Prepared &prepared) {
     return Color::apply_generated_palette(input, prepared);
   }
+  /** @brief Interpolates completed colors using shared direction admission. */
+  static Color4 run_temporal(const FieldSample &input, const Prepared &current,
+                             const Prepared &previous, float fraction) {
+    const bool SAME_SOURCE =
+        current.modulation && previous.modulation &&
+        Modulation::same_field(*current.modulation, *previous.modulation);
+    return Color::apply_temporal_generated_palette(
+        input,
+        {current, previous, fraction, frac_to_q16(fraction), SAME_SOURCE});
+  }
+  /** @brief Holds modulation topology at its current endpoint. */
+  static constexpr bool temporal_hold_field(uint16_t field) {
+    return field >= Params::FIELDS.size() + Params::TOPOLOGY.size();
+  }
 };
 
 } // namespace Op

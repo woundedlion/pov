@@ -80,7 +80,6 @@ public:
                           persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
     resources = persistent_arena.make<Resources>();
-    Pullback::init_effect_noise(resources->hue_noise, Pullback::HUE_NOISE_SEED);
     static_assert(
         Pullback::Interp::CHAIN_ARENA_BYTES % sizeof(std::max_align_t) == 0);
     uint8_t *block_a = allocate_chain_block();
@@ -146,7 +145,18 @@ public:
     for (size_t index = 0; index < ops.size(); ++index) {
       const auto &op = ops[index];
       out.chain.push_back({op.instance, op.op->operator_id});
+      const bool modulated =
+          std::string_view(op.op->operator_id) ==
+          Pullback::Interp::Op::ColorizeGeneratedPaletteV3::ID;
+      if (modulated) {
+        const auto &params = *reinterpret_cast<
+            const Pullback::Interp::Op::GeneratedPaletteParams *>(
+            program.param_block(index));
+        out.modulation.push_back({op.instance, params.modulation});
+      }
       for (uint16_t field = 0; field < op.op->schema_count; ++field) {
+        if (modulated && modulation_field(field))
+          continue;
         const auto &info = op.op->schema[field];
         const void *address = op.op->runtime.param_address(
             const_cast<uint8_t *>(program.param_block(index)), field);
@@ -176,6 +186,7 @@ public:
       return Result::UNSUPPORTED_VERSION;
     if (snapshot.chain.empty() || snapshot.chain.size() > MAX_CHAIN_OPS ||
         snapshot.parameters.size() > MAX_CHAIN_PARAMS ||
+        snapshot.modulation.size() > MAX_CHAIN_OPS ||
         (snapshot.runtime && snapshot.runtime->size() > MAX_CHAIN_OPS))
       return Result::INVALID_LENGTH;
     if (snapshot.palette_bank &&
@@ -204,6 +215,10 @@ public:
                     reinterpret_cast<const char *>(
                         base + op.name_offset + field * PER_PARAM_NAME_BYTES))
                   continue;
+                if (std::string_view(op.op->operator_id) ==
+                        Op::ColorizeGeneratedPaletteV3::ID &&
+                    modulation_field(field))
+                  return false;
                 if (write.value < (info.enum_count > 0 ? 0.0f : info.min) ||
                     write.value > (info.enum_count > 0
                                        ? static_cast<float>(info.enum_count - 1)
@@ -230,9 +245,26 @@ public:
               }) >= 0)
             return false;
           size_t runtime_count = 0;
+          size_t modulation_count = 0;
           for (size_t index = 0; index < ops.size(); ++index) {
             const auto &op = ops[index];
             void *params = base + op.param_offset;
+            if (std::string_view(op.op->operator_id) ==
+                Op::ColorizeGeneratedPaletteV3::ID) {
+              const ChainSnapshot::ModulationRecipe *selected = nullptr;
+              for (const auto &recipe : snapshot.modulation)
+                if (recipe.instance == op.instance) {
+                  if (selected != nullptr)
+                    return false;
+                  selected = &recipe;
+                }
+              if (selected == nullptr ||
+                  !Pullback::Modulation::valid(selected->recipe))
+                return false;
+              static_cast<Op::GeneratedPaletteParams *>(params)->modulation =
+                  selected->recipe;
+              ++modulation_count;
+            }
             if (admission_refusal(ops, index, params))
               return false;
             if (!snapshot.runtime)
@@ -253,7 +285,9 @@ public:
               return false;
             ++runtime_count;
           }
-          return !snapshot.runtime || runtime_count == snapshot.runtime->size();
+          return modulation_count == snapshot.modulation.size() &&
+                 (!snapshot.runtime ||
+                  runtime_count == snapshot.runtime->size());
         },
         false);
     if (refusal.code != ChainStatus::OK)
@@ -268,7 +302,7 @@ public:
     palette.hues.fill(GeneratedPaletteBank::HUE_STEP);
     generated_palettes.restore_snapshot(
         snapshot.palette_bank.value_or(palette));
-    resources->hue_noise_bake = {};
+    resources->modulation.reset();
     setAnimationsPaused(snapshot.animations_paused);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     refused_name = nullptr;
@@ -375,6 +409,11 @@ public:
 #endif
 
 private:
+  static constexpr bool modulation_field(uint16_t field) {
+    using Params = Pullback::Interp::Op::GeneratedPaletteParams;
+    return field >= Params::FIELDS.size() + Params::TOPOLOGY.size();
+  }
+
   HS_COLD_MEMBER uint8_t *allocate_chain_block() {
     return reinterpret_cast<uint8_t *>(
         persistent_arena.allocate_n<std::max_align_t>(
@@ -427,10 +466,16 @@ private:
                   resources->previous_hue_rotation.data());
       previous.hue_rotation_lut = resources->previous_hue_rotation.data();
     }
-    if (ctx.hue_noise_lut != nullptr) {
-      std::copy_n(ctx.hue_noise_lut, resources->previous_hue_noise.size(),
-                  resources->previous_hue_noise.data());
-      previous.hue_noise_lut = resources->previous_hue_noise.data();
+    if (ctx.modulation != nullptr) {
+      resources->previous_modulation = *ctx.modulation;
+      if (ctx.modulation->cube.active) {
+        std::copy_n(ctx.modulation->cube.data,
+                    resources->previous_pattern.size(),
+                    resources->previous_pattern.data());
+        resources->previous_modulation.cube.data =
+            resources->previous_pattern.data();
+      }
+      previous.modulation = &resources->previous_modulation;
     }
     resources->context.capture(previous);
   }
@@ -458,20 +503,15 @@ private:
 
   /** @brief Engine-owned shared resources the FrameContext borrows. */
   struct Resources {
-    int32_t hue_noise_seed = Pullback::HUE_NOISE_SEED;
-    std::array<Pixel, Pullback::Color::HueRotationLutView::SIZE>
-        hue_rotation_lut{};
-    std::array<int8_t, Pullback::Color::HueNoiseLutView::SIZE> hue_noise_lut{};
-    FastNoiseLite hue_noise;
-    Pullback::Color::HueNoiseBakeCache hue_noise_bake;
+    std::array<Pixel, HueRotationLutView::SIZE> hue_rotation_lut{};
+    Pullback::Modulation::Resources<> modulation;
+    Pullback::Modulation::Prepared previous_modulation;
     /** Previous frame context, its colour resources pointing at the copies
         below. */
     Spacetime::FrameHistory<Pullback::Interp::FrameContext> context;
     std::array<BakedPaletteStorage, 3> previous_palettes;
-    std::array<Pixel, Pullback::Color::HueRotationLutView::SIZE>
-        previous_hue_rotation{};
-    std::array<int8_t, Pullback::Color::HueNoiseLutView::SIZE>
-        previous_hue_noise{};
+    std::array<Pixel, HueRotationLutView::SIZE> previous_hue_rotation{};
+    std::array<int8_t, Pattern::SphereLutView::SIZE> previous_pattern{};
   };
 
   /** @brief The committed program's colorize entry, when present. */
@@ -479,7 +519,7 @@ private:
     int index = -1;
     const float *palette_chroma = nullptr;
     const float *hue_shift_amount = nullptr;
-    const float *hue_noise_scale = nullptr;
+    const ColorModulation::Config *modulation = nullptr;
     const uint8_t *palette_mode = nullptr;
     const uint8_t *hue_mode = nullptr;
   };
@@ -489,7 +529,7 @@ private:
     return {index,
             &params->palette_chroma,
             &params->hue_shift_amount,
-            &params->hue_noise_scale,
+            &params->modulation,
             &params->palette_mode,
             &params->hue_mode};
   }
@@ -677,35 +717,29 @@ private:
     ctx.palettes = {&generated_palettes.palette(PaletteMode::TRIADIC),
                     &generated_palettes.palette(PaletteMode::COMPLEMENTARY),
                     &generated_palettes.palette(PaletteMode::ANALOGOUS)};
-    if (tap.hue_shift_amount == nullptr || *tap.hue_shift_amount == 0.0f)
-      return ctx;
-    // The colorize stage reads neither table under HueShiftMode::NONE, so a
-    // leftover amount must not buy a palette resample.
-    const auto hue_mode =
-        static_cast<Pullback::Interp::Op::HueShiftMode>(*tap.hue_mode);
-    if (hue_mode == Pullback::Interp::Op::HueShiftMode::NONE)
-      return ctx;
-    const size_t palette_index =
-        *tap.palette_mode < ctx.palettes.size() ? *tap.palette_mode : 0;
-    Pullback::Color::prepare_hue_rotation_lut(
-        std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
-            resources->hue_rotation_lut),
-        *ctx.palettes[palette_index]);
-    ctx.hue_rotation_lut = resources->hue_rotation_lut.data();
-    if (hue_mode != Pullback::Interp::Op::HueShiftMode::NOISE)
+    if (tap.modulation == nullptr)
       return ctx;
     const auto &clocks =
         *static_cast<const Pullback::Interp::Op::ColorClockState *>(
             program.state_block(static_cast<size_t>(tap.index)));
-    if (resources->hue_noise_seed != clocks.hue_noise_seed) {
-      resources->hue_noise.SetSeed(clocks.hue_noise_seed);
-      resources->hue_noise_seed = clocks.hue_noise_seed;
-      resources->hue_noise_bake = {};
+    ctx.modulation =
+        &resources->modulation.prepare(*tap.modulation, clocks.modulation);
+    const bool spatial_hue = tap.modulation->enabled &&
+                             tap.modulation->mechanic.amount != 0.0f &&
+                             tap.modulation->mechanic.kind ==
+                                 ColorModulation::Mechanic::HUE_ROTATION;
+    const bool path_hue =
+        *tap.hue_mode == static_cast<uint8_t>(
+                             Pullback::Interp::Op::HueShiftMode::PATH_LENGTH) &&
+        *tap.hue_shift_amount != 0.0f;
+    if (spatial_hue || path_hue) {
+      const size_t palette_index =
+          *tap.palette_mode < ctx.palettes.size() ? *tap.palette_mode : 0;
+      prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE>(
+                                   resources->hue_rotation_lut),
+                               *ctx.palettes[palette_index]);
+      ctx.hue_rotation_lut = resources->hue_rotation_lut.data();
     }
-    resources->hue_noise_bake.refresh(
-        resources->hue_noise_lut, resources->hue_noise, *tap.hue_noise_scale,
-        clocks.hue_noise_phase);
-    ctx.hue_noise_lut = resources->hue_noise_lut.data();
     return ctx;
   }
 

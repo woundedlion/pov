@@ -233,6 +233,11 @@ struct OperatorRuntime {
   void (*prepare_interval)(void *out, const void *from,
                            const void *to) = nullptr;
   BlockLayout interval{1, 1}; ///< Retained column clock interval layout.
+  /** Colors one input from two immutable endpoint resources. */
+  void (*run_temporal)(const void *in, void *out, const uint8_t *current,
+                       const uint8_t *previous, float fraction) = nullptr;
+  /** Whether a schema field holds current topology within an interval. */
+  bool (*temporal_hold_field)(uint16_t field) = nullptr;
 };
 
 /**
@@ -695,6 +700,37 @@ template <typename Model> constexpr BlockLayout model_interval_layout() {
   }
 }
 
+/** @brief Optional completed-endpoint color kernel.
+ * @tparam Model Operator model.
+ * @return Erased kernel or null. */
+template <typename Model> constexpr auto model_run_temporal() {
+  using Kernel =
+      void (*)(const void *, void *, const uint8_t *, const uint8_t *, float);
+  if constexpr (requires { Model::run_temporal; })
+    return static_cast<Kernel>(+[](const void *in, void *out,
+                                   const uint8_t *current,
+                                   const uint8_t *previous, float fraction) {
+      ::new (out) typename Model::Output(Model::run_temporal(
+          *static_cast<const typename Model::Input *>(in),
+          *reinterpret_cast<const typename Model::Prepared *>(current),
+          *reinterpret_cast<const typename Model::Prepared *>(previous),
+          fraction));
+    });
+  else
+    return static_cast<Kernel>(nullptr);
+}
+
+/** @brief Optional current-topology field policy.
+ * @tparam Model Operator model.
+ * @return Field policy or null. */
+template <typename Model> constexpr auto model_temporal_hold_field() {
+  using Policy = bool (*)(uint16_t);
+  if constexpr (requires { Model::temporal_hold_field; })
+    return static_cast<Policy>(&Model::temporal_hold_field);
+  else
+    return static_cast<Policy>(nullptr);
+}
+
 /**
  * @brief `Model::APPROXIMATE`, defaulting to false.
  * @tparam Model The operator model.
@@ -892,6 +928,8 @@ constexpr OperatorDescriptor make_operator_descriptor() {
           Detail::model_sample_state<Model>(),
           Detail::model_prepare_interval<Model>(),
           Detail::model_interval_layout<Model>(),
+          Detail::model_run_temporal<Model>(),
+          Detail::model_temporal_hold_field<Model>(),
       },
       Detail::model_approximate<Model>(),
       Detail::model_oracle<Model>(),

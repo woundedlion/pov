@@ -19,6 +19,7 @@
 
 /** @brief Pullback stage spec for `AshCloud`. */
 struct AshCloudSpec : Pullback::Spec {
+  static constexpr bool MODULATION = true;
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
@@ -48,7 +49,7 @@ struct AshCloudSpec : Pullback::Spec {
       Pullback::Stage::ApplyCoverage<Pullback::ValueCoverage::ValueCutout<
           Pullback::ValueProvider<B, Pullback::CutoutValueParams>>>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::NOISE,
+          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
                                   Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 /// Parameter block derived from `AshCloudSpec`.
@@ -73,9 +74,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "0afa6dd8e36bdcf902a3029f5216f95d305d7a1a98a391810eb6e4b5acf9f639";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "291dc66fc64f9aec7bbbf0fd42a765990be0e2e86a8dee7168503ff243ce4c1e";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "8f80ea066def76f491cca7fde4aeebca835e74488dfd504c915f4a7a452027a2";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "436d6f8681a09c7f59cf6e3a72caed87ab9946e147bef18c893e6fb2e5489862";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "ash-cloud"
@@ -87,7 +88,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -98,13 +99,17 @@ public:
   static constexpr Params initial_params() {
     Params value;
     value.template get<"projection">().camera_wander = 1.0f;
-    value.template get<"color">().hue_noise_scale = 2.4029531f;
-    value.template get<"color">().hue_noise_speed = 0.00015f;
-    value.template get<"color">().hue_shift_amount = -3.248f;
     value.template get<"color">().mapping_frequency = 3.666f;
     value.template get<"color">().mapping_phase = 0.598f;
+    value.template get<"color">().modulation.mechanic.amount = -3.248f;
+    value.template get<"color">().modulation.enabled = true;
+    value.template get<"color">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
+    value.template get<"color">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
+    value.template get<"color">().modulation.source = Pattern::SourceKind::NOISE;
     value.template get<"color">().palette_chroma = 0.314f;
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::CUP;
+    value.template get<"color">().modulation.noise.scale = 2.4029531f;
+    value.template get<"color">().modulation.noise.speed = 0.00015f;
     value.template get<"color">().phase_oscillation_depth = 0.856f;
     value.template get<"color">().phase_oscillation_speed = 0.00448f;
     value.template get<"color">().opacity_high = 1.0f;
