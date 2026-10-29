@@ -73,15 +73,23 @@ force every domain into Vector3, or switch coordinate domains per pixel. Ordinar
 palettes still map a scalar lookup coordinate to color. The palette-coordinate
 by hue-rotation LUT is internal acceleration, not a user-facing 2D palette.
 
-Initial delivery supplies the sphere specialization; other types fit the protocol
-but their renderer plumbing and presets are deferred. Its public compatibility
-adapter accepts existing finite, nonzero vectors. Direct evaluation normalizes
-before calling the pattern; cube baking supplies unit directions. Cube lookup
-may elide normalization using its existing scale-invariant ratios, including
-legacy fast paths. Neither interprets length as radius or normalizes Position3D.
-Test scale invariance with float tolerance; `FieldSample` gains no unit requirement.
+Initial delivery supplies the sphere specialization; other renderer plumbing
+and presets are deferred. The generic boundary admits vectors whose computed
+float squared length is finite and at least `math::EPS_NORMALIZE_SQ` (currently
+1e-12), matching [Vector normalization](../../core/math/3dmath.h). Explicitly
+check finiteness before normalization; the existing lower-bound check alone
+does not reject infinity. Apply this admission to directions and source axes.
+Construct the unit SphereDirection tag only at this validated boundary.
 
-Prepare validates finite parameters, normalizes axes and rejects zero axes.
+Normalize once per sample and share that coordinate across retained endpoints.
+Cube baking supplies unit directions; cube lookup may elide normalization using
+scale-invariant ratios. The legacy raw cube path keeps its existing precondition
+of finite direction with positive float squared length; the generic boundary
+is deliberately narrower. Test scale invariance only while both vectors remain
+admitted. Neither path interprets direction length as radius or normalizes
+Position3D; `FieldSample` gains no unit-length requirement.
+
+Prepare validates finite parameters and admitted axes.
 Custom sources must satisfy the output contract; debug assertions diagnose
 nonfinite output, and the shared scalar boundary clamps finite numerical
 overshoot. Clamping is not a way to conceal an incorrectly normalized custom
@@ -100,7 +108,7 @@ struct PatternClock {
   float phase_turns;
 };
 
-struct SphereDirection { math::Vector unit; };
+struct SphereDirection; // Constructed by the validated domain adapter.
 
 struct DirectionalSine {
   using Coordinate = SphereDirection;
@@ -133,8 +141,9 @@ The field adapter exposes prepare/sample, wrapping either direct evaluation or
 cube storage. The mechanic exposes prepare/apply and returns a valid straight-alpha
 `Color4`. The generic wrapper samples its base palette, samples the field, then
 applies the mechanic. HueRotation and PositiveLightnessLift follow the same
-mechanic protocol as Opacity. Specialized palette-coordinate/hue LUT kernels may
-fuse these operations for speed while preserving the observable contract.
+mechanic protocol as Opacity. Nonzero hue/color LUT fusion is a qualified
+approximation of this reference, not bitwise equivalence. New generic accelerated
+routes must still honor the exact identity rules below.
 PatternHuePalette and PatternShimmerPalette are not primary abstractions.
 
 Provide four initial source policies:
@@ -187,8 +196,22 @@ Opacity resolves `u = (scalar + 1) / 2`, then
 `gain = lerp(1, u, amount)` for amount in [0, 1]. It returns unchanged RGB and
 `alpha = input_alpha * gain`. Scalar zero is a half mask at full amount, not
 identity. At full amount, scalar -1 removes alpha and scalar +1 preserves it.
-**Amount zero is identity for every mechanic.** No mechanic changes the source's
-range or asks it to return a target-specific value.
+For the generic reference and new generic accelerated routes, **amount zero is
+exact Color4 identity for every mechanic**. A zero resolved hue rotation,
+including zero after periodic wrapping, returns the exact base palette sample;
+bypass the hue/color LUT. Positive lightness lift also returns its exact input
+when lift is zero. These identities apply before downstream brightness/coverage.
+No mechanic changes the source range or asks for a target-specific value.
+
+Legacy active LUT routes may resample palette color even at zero hue shift,
+because their palette axis is quantized. Compatibility adapters preserve that
+existing resampling, rounding and output as a legacy numeric profile within
+the common generic engine, rather than claiming exact identity or creating a
+second engine. New explicit descriptors use the new generic identity contract.
+
+Zero amount may skip field evaluation and preparing unused mechanic/color
+resources, while source clocks continue. Keep any still-needed retained endpoint
+resources valid. Configuration validation remains mandatory even when skipped.
 
 The colorizer order is palette sampling, mechanic application, existing RGB
 brightness envelope, then alpha multiplication by coverage and value opacity.
@@ -245,11 +268,11 @@ controls, and palette changes, do not invalidate the spatial table. Any
 mechanic/color cache has a separate identity: palette changes invalidate the
 hue-rotation color table; spatial pattern changes do not.
 
-Snapshots store the source recipe, parameters, explicit evaluation strategy,
-seed where applicable, current loop phase, and the independent mechanic kind
-and parameters. Derived tables and pointers are
-not serialized. Restoring rebuilds derived state deterministically before
-scanning; invalid or unavailable recipes fail explicitly. Exact continuation of
+Snapshots store the enabled state, source recipe/parameters, evaluation strategy,
+seed where applicable, generic loop phase, independent mechanic kind/parameters
+and retained dormant legacy phase. Derived tables and pointers are not serialized.
+Restore invalidates derived state and rebuilds needed resources deterministically
+before first use; invalid or unavailable recipes fail explicitly. Exact continuation of
 a partially drawn interval also needs the previous endpoint recipe/resources
 and interval position; restoring one current endpoint alone must not claim
 that guarantee.
@@ -274,7 +297,7 @@ the scalar first and hue-rotate once, nor evaluate independent complete old and
 new color-control sets. Preserve existing endpoint selection, Q16 weights,
 rounding and stationary-resource fast paths for legacy noise.
 
-For a new pattern interval with unchanged source kind, strategy and mechanic,
+For a new pattern interval with entirely unchanged modulation topology,
 retain the two prepared source states or two baked tables. Evaluate each at
 the column direction. Sample each endpoint palette with the shared column
 mapping, apply the mechanic using shared column-interpolated continuous mechanic
@@ -290,12 +313,16 @@ Preserve legacy noise alpha fast paths where their alpha-preserving premise hold
 Existing specialized noise kernels retain their current float/rounding order;
 algebraic rearrangement of those kernels is not assumed bit-identical.
 
-A source kind, evaluation strategy, mechanic kind or custom recipe-version change is
-a topology change, not a numeric parameter blend. For the initial pattern
-implementation, hold the **current** source and mechanic selections and prepared
-states/table through that interval, including its fraction-zero boundary.
-Hold the mechanic's current typed parameters too: hue turns must never be
-interpolated as opacity amount. Same-kind continuous controls interpolate normally.
+A source kind/custom recipe version, evaluation strategy, mechanic kind,
+enabled state, effective descriptor ownership/presence or numeric-profile change
+is a topology change, even when other selectors match. Hold the **entire current
+effective modulation**: ownership, numeric profile, source parameters and
+clock-selected state/resources, mechanic typed parameters/state and enabled
+state, including fraction zero. This applies to both descriptor insertion and
+removal. Continuous mechanic controls interpolate only when the entire topology
+is unchanged, even if the mechanic kind alone matches. For example, sine-to-grid with opacity amount
+0.2-to-0.8 uses the current grid and amount 0.8 throughout the switch interval.
+Hue turns are never interpolated as opacity amount.
 Apply that mechanic to both palette endpoints and interpolate their modulated
 colors after shared downstream controls, as above. The switch may therefore be
 discontinuous; expose and test that policy rather than claiming cross-pattern
@@ -304,31 +331,51 @@ The fraction-zero result uses the previous palette with the held current
 modulation, including its alpha effect; it need not equal the previous fully
 modulated frame. Never reinterpret an old source's or mechanic's resources
 under the new type.
-Do not change legacy noise topology behavior as part of this feature.
+Intervals wholly within legacy ownership retain existing noise topology behavior;
+transitions across descriptor ownership follow the current-effective-owner policy above.
 
 ## Compatibility and delivery
 
-Use an independent modulation descriptor containing source selector/parameters,
-evaluation strategy and mechanic selector/parameters. It is the canonical
-generic representation, not a new non-hue operation hidden in a hue-mode enum.
-Keep `HueMode::NONE = 0`, `NOISE = 1` and `PATH_LENGTH = 2`, including the
-existing displacement alias. Decode old NOISE data as noise plus hue rotation;
-no descriptor means existing behavior. Keep legacy field IDs such as `hue-noise-scale` and
-`hue-noise-speed`, defaults, seed initialization, phase advancement, noise-loop
-construction and optimized noise bake unchanged. PATH_LENGTH remains its
-existing independent hue behavior; initially reject configurations requesting
-it simultaneously with the generic slot. Do not silently stack mechanics or
-reinterpret path length as a new pattern. Preserve decoding and
-encoding of the existing color-clock-v1 snapshot; add versioned pattern state
-instead of altering its meaning. Append new IDs and update activation gates,
-parameter metadata and workbench controls together.
+Use an independent modulation descriptor with source selector/parameters,
+evaluation strategy, mechanic selector/parameters and enabled flag (default true).
+Keep `HueMode::NONE = 0`, `NOISE = 1`, `PATH_LENGTH = 2` and its displacement alias.
+Resolve slot ownership before preparing resources:
+
+| Explicit descriptor | Legacy hue mode | Effective behavior |
+|---|---|---|
+| Absent | NONE | Existing no-modulation behavior. |
+| Absent | NOISE | Derive noise plus hue rotation with the legacy numeric profile. |
+| Absent | PATH_LENGTH | Existing independent path-length hue behavior. |
+| Present | NONE or NOISE | Descriptor solely owns the slot; legacy noise controls are dormant. |
+| Present | PATH_LENGTH | Reject the configuration. |
+
+A disabled explicit descriptor is identity; it never falls back to legacy NOISE.
+Validate recipe and parameters regardless of enabled state or amount. Dormant
+legacy controls cannot stack, drive generic resources or advance their clock.
+Keep legacy IDs, defaults, seed setup, noise loop and optimized bake unchanged.
+Encode old descriptor-absent data in its unchanged legacy shape. Encode an
+explicit descriptor once; any preserved legacy fields are explicitly inactive,
+not a second effective representation. Preserve color-clock-v1 meaning and add
+versioned generic state. Append new IDs and update gates, metadata and controls.
+
+An explicit descriptor's generic phase starts at zero on creation, stays
+normalized to [0, 1), and is retained across source, strategy and mechanic changes.
+With that descriptor present, advance once per engine update at its source speed even while
+amount is zero or enabled is false. Source changes use the new speed thereafter,
+without resetting phase. Disabled modulation may skip sampling/bakes; reenable
+uses the current phase and restores valid resources before use. Restore a
+snapshot's phase rather than reinitializing it.
+
+Freeze the legacy hue-noise phase while a descriptor is present. Removing it
+resumes the retained legacy phase if the old mode is NOISE; never advance both
+clocks. Palette-mapping oscillation clocks remain separate and unaffected.
 
 The existing modifiers must fall out of the generic implementation. Schematically:
 
 ```cpp
 template<class PaletteSource>
 using NoiseHueImplementation = PatternModulatedPalette<
-    PaletteSource, BakedSphereField<Noise>, HueRotation>;
+    PaletteSource, BakedSphereField<Noise>, HueRotation<LegacyNoiseNumerics>>;
 template<class PaletteSource>
 using NoiseShimmerImplementation = PatternModulatedPalette<
     PaletteSource, BakedSphereField<Noise>, PositiveLightnessLift>;
@@ -359,24 +406,34 @@ One current signed-byte cube costs 3,456 bytes; retaining both endpoints costs
 Reuse existing tables for migrated noise users. Direct policies allocate no
 cube, and effects with no pattern allocate no pattern resources. Do not enable
 float mirrors or instantiate every built-in for every effect by default.
+Account separately for hue/color LUTs, optional mirrors, retained prepared source
+and mechanic state, immutable generator configuration, cache metadata and maximum
+simultaneously live endpoint/transition resources; cube bytes are not the total.
 
 Implementation must report incremental RAM1 code, RAM1 variables and FLASH
 data against the baseline, passing the repository's current firmware gates.
-For new direct presets, measure frame preparation and scan/column timing on
-Teensy under the segmented driver; establish an admitted frequency/configuration
-range that stays inside its timing budget. No fixed cycle estimate is claimed
-by this proposal. Baking performs 3,456 source evaluations when its key changes,
-and none when the complete key is unchanged. Scan-time allocation is forbidden.
+Qualify the selected, bounded capability set across representative source by
+mechanic by applicable strategy by temporal-mode combinations on Teensy under
+the segmented driver. Measure preparation and scan/column timing, including both
+endpoints, especially direct PositiveLightnessLift's OKLab/gamut conversions and
+opacity. Admission must stay inside timing budgets; no universal cycle estimate
+or exhaustive Cartesian instantiation is required. Convert domains once and share
+coordinates, avoid duplicate source evaluation for identical endpoints, and skip
+identity work. Resolve dispatch outside hot loops. Baking performs 3,456 source
+evaluations per changed key and none for an unchanged key. Scan allocation is forbidden.
 
 Acceptance requires:
 
 * Unchanged legacy noise table bytes and existing render goldens across seeds,
-  positive/negative speeds, zero amount and temporal paths.
+  positive/negative speeds, zero amount/shift and temporal paths, including legacy
+  active-LUT resampling. Separately assert exact generic Color4 identity at zero
+  amount and resolved hue rotation; qualified nonzero approximations need bounds.
 * Independent known-value tests for sine, interference and grid, output bounds,
-  periodic phase, positive direction-scale invariance and invalid axes.
+  periodic phase, direction-scale invariance within admission, rejected below-floor
+  or nonfinite squared lengths, and invalid axes.
 * Cross-axis tests using one source with all mechanics and one mechanic with
-  different sources. Amount zero is identity throughout; scalar zero follows
-  each mechanic's definition. Verify shimmer's existing lightness/alpha behavior.
+  different sources. Generic zero amount and mechanic-specific scalar-zero rules
+  hold; legacy numeric profiles preserve existing output. Verify shimmer behavior.
 * Compile-time domain checks rejecting mismatched coordinate types and implicit
   Position3D-to-SphereDirection conversion. Future volumetric fields must not
   normalize away radius; these checks require no additional renderer plumbing.
@@ -387,11 +444,19 @@ Acceptance requires:
   equivalence claim.
 * Temporal tests whose expected endpoint RGB differs from scalar-first blending,
   including changed phase/scale, stationary resources and topology holds.
+  Test source changes with same-kind amount changes, mechanic/strategy changes,
+  enabled transitions and their fraction-zero current-state holds.
+  Insert and remove descriptors with matching Noise/Baked/Hue selectors but
+  different phases; include scalar zero to prove the current numeric profile
+  governs fraction zero, preserving either legacy resampling or generic identity.
   Verify opacity's modulated alpha at both endpoints and interior fractions,
   including equal base alphas but unequal masks; scan premultiplies exactly once.
 * Cache tests for every key component, palette-only and mechanic-only changes,
   with no spatial rebake when only the mechanic changes; snapshot replay
   after cache reset, old snapshot compatibility, and unknown-recipe rejection.
+* Mixed descriptor/legacy decode, precedence, disabling/reenabling and removal
+  tests; no fallback or dual clock advance, phase continuity through source
+  switches, snapshot phase restoration and validation of disabled recipes.
 * Native and WASM validation plus firmware memory/timing evidence for the
   implementation. This proposed-spec change itself needs documentation checks
   only.
