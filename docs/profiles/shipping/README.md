@@ -7,7 +7,7 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 
 | Effect | Dominant scope | Peak steady ms | Setup frame 1 ms | Spilled | Captured |
 |---|---|--:|--:|--:|---|
-| [MindSplatter](profile_mindsplatter_teensy_2026-10-23.md) § | `msp_draw_particles` | 🟢 59.437 (8) | 0.379 | 🟢 0/1247 (0.00%) | 2026-10-23 13:40 |
+| [MindSplatter](profile_mindsplatter_teensy_2026-10-29.md) § | `msp_draw_particles` | 🟢 57.914 (8) | 0.416 | 🟢 0/1279 (0.00%) | 2026-10-29 16:23 |
 | [Raymarch](profile_raymarch_teensy_2026-10-23.md) | `rm_shader_draw` | 🟢 57.751 | 103.890 | 🟢 0/447 (0.00%) | 2026-10-23 13:30 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-10-23.md) § | `ss_draw_all` | 🟢 57.537 (9) | 47.865 | 🟢 0/4271 (0.00%) | 2026-10-23 17:21 |
 | [HopfFibration](profile_hopffibration_teensy_2026-10-23.md) | `hf_render_trails` | 🟢 56.256 | 0.696 | 🟢 0/927 (0.00%) | 2026-10-23 13:26 |
@@ -44,10 +44,10 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | [SphericalHarmonics](profile_sphericalharmonics_teensy_2026-10-23.md) § | `sh_rasterize` | 🟢 13.296 (24) | 17.983 | 🟢 0/1503 (0.00%) | 2026-10-23 13:45 |
 | [Voronoi](profile_voronoi_teensy_2026-10-23.md) | `vo_shade` | 🟢 9.242 | 13.222 | 🟢 0/447 (0.00%) | 2026-10-23 13:33 |
 
-Shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, except IslamicStars, re-captured at `771290aa484e3b99b30b049030ab145d61ade1d9`, and HankinSolids and ShapeShifter, re-captured on COM4 at `bda58b65d3fc317f5d6ccbe29888014738a0ee25`. Captures use their Phantasm show-segment budgets except IslamicStars: its matched shipping/O3 pair uses TS4, and the shipping re-capture runs 210 s with 16-frame windows and `HS_PROFILE_EPOCH_REVS=1920` (the normal show segment is 306 s). Capture times are local raw-log mtimes.
+Shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, except IslamicStars, re-captured at `771290aa484e3b99b30b049030ab145d61ade1d9`, and HankinSolids and ShapeShifter, re-captured on COM4 at `bda58b65d3fc317f5d6ccbe29888014738a0ee25`. MindSplatter was re-captured on COM3 and COM4 at measured-code source `e926bfd4878bc13e9f7205d6715837fe9fe06a89`; its row uses the larger COM3 peak over the complete natural 640-revolution/80-second lifetime, including all raw first-epoch rows (setup separate). Captures use their Phantasm show-segment budgets except IslamicStars: its matched shipping/O3 pair uses TS4, and the shipping re-capture runs 210 s with 16-frame windows and `HS_PROFILE_EPOCH_REVS=1920` (the normal show segment is 306 s). Capture times are local raw-log mtimes.
 These captures ran kaleidoscope effects with column strobe off.
 
-Shipping steady figures use frames 2 through the last complete counter window. Setup frame 1 is separate. The measured scope is per-frame render telemetry (`frame` minus buffer wait), under the shipping segment clip.
+MindSplatter steady figures use frames 2–1280 through its first natural handoff. Other shipping steady figures use frames 2 through the last complete counter window. Setup frame 1 is separate. The measured scope is per-frame render telemetry (`frame` minus buffer wait), under the shipping segment clip.
 Each report separately gives trailing raw-frame telemetry, exclusions, preset
 coverage and strict validator diagnostics. Root-cycle/wall mismatches remain
 explicit; logged per-frame render supports cadence measurements without a claim

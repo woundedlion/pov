@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <tuple>
+#include <type_traits>
 #include "core/math/geometry.h"
 #include "core/render/shading.h"
 #include "core/render/clip.h"
@@ -571,9 +572,10 @@ struct Mesh {
   /** @brief Plots a chained edge that keeps a short lattice over the frame as
    *         its lattice points.
    * @tparam W,H Canvas dimensions.
+   * @tparam RESIDENT Selects the ITCM point-route entry.
    * @tparam Sink Screen sink the point route plots through.
-   * @tparam Shade Callable `(float s, float t) -> Color4`: the color at arc
-   *         fraction `s` and frame fraction `t`.
+   * @tparam Shade Callable `(s, time)` or `(s)` returning Color4;
+   *         the two-argument form takes precedence.
    * @param route Point route prepared for the frame's motion.
    * @param sink Prepared sink.
    * @param canvas Destination canvas.
@@ -587,29 +589,45 @@ struct Mesh {
    * over the whole frame, so each is a single sample moving between its
    * places on the edge at the frame's ends. Lattice points before the end
    * vertex are plotted, as a chained walk plots them. */
-  template <int W, int H, typename Sink, typename Shade>
+  template <int W, int H, bool RESIDENT = false, typename Sink, typename Shade>
   HS_HOT_FLASH_MEMBER static bool
   plot_steady_edge(const PointRoute<W, H> &route, Sink &sink, Canvas &canvas,
                    const math::Vector (&starts)[2],
                    const math::Vector (&ends)[2], int most, Shade &&shade,
                    const math::RotationMatrix *end_to_start = nullptr) {
     GeodesicEdgeSampler arcs[2];
-    const int steady = EdgeWorldsheet::steady_lattice<W, H>(starts, ends, most,
-                                                            arcs, end_to_start);
+    const int steady = [&]() HS_HOT_INLINE {
+      if constexpr (RESIDENT)
+        return EdgeWorldsheet::steady_lattice_resident<W, H>(
+            starts, ends, most, arcs, end_to_start);
+      else
+        return EdgeWorldsheet::steady_lattice<W, H>(starts, ends, most, arcs,
+                                                    end_to_start);
+    }();
     if (steady == 0)
       return false;
     for (int k = 0; k < steady; ++k) {
       const float s = static_cast<float>(k) / static_cast<float>(steady);
       const math::Vector end =
           k == 0 ? ends[0] : EdgeWorldsheet::lattice_point(arcs[1], s);
-      route.plot(
-          sink, canvas, end,
-          [&]() HS_HOT_INLINE {
-            return k == 0         ? starts[0]
-                   : end_to_start ? end_to_start->apply(end)
-                                  : EdgeWorldsheet::lattice_point(arcs[0], s);
-          },
-          [&](float t) HS_HOT_INLINE { return shade(s, t); });
+      auto start = [&]() HS_HOT_INLINE {
+        return k == 0         ? starts[0]
+               : end_to_start ? end_to_start->apply(end)
+                              : EdgeWorldsheet::lattice_point(arcs[0], s);
+      };
+      auto plot = [&](auto &color) HS_HOT_INLINE {
+        if constexpr (RESIDENT)
+          route.plot_resident(sink, canvas, end, start, color);
+        else
+          route.plot(sink, canvas, end, start, color);
+      };
+      if constexpr (std::is_invocable_v<Shade &, float, float>) {
+        auto color = [&](float time) HS_HOT_INLINE { return shade(s, time); };
+        plot(color);
+      } else {
+        auto color = [&]() HS_HOT_INLINE { return shade(s); };
+        plot(color);
+      }
     }
     return true;
   }
@@ -729,7 +747,7 @@ struct Mesh {
     template <typename Store, typename Flush>
     HS_HOT_INLINE void append(Edge source, const Store &store,
                               const Flush &flush) {
-      if (count + 2 > Capacity)
+      if (count + (tail_source == source.u ? 1 : 2) > Capacity)
         flush();
       uint16_t head;
       if (tail_source == source.u) {
@@ -779,8 +797,10 @@ struct Mesh {
 
     /** @brief Plots a short steady edge or appends its shared column-walk slots.
      * @tparam W,H Canvas dimensions.
+     * @tparam RESIDENT Selects the ITCM point-route entry.
      * @tparam Sink Point-route pipeline type.
-     * @tparam Shade Callable `(float s, float time) -> Color4`.
+     * @tparam Shade Callable `(s, time)` or `(s)` returning Color4;
+     *         the two-argument form takes precedence.
      * @tparam Store Callable `(size_t slot, size_t source)` filling vertex data.
      * @tparam Flush Callable that draws and empties this chunk.
      * @param route Prepared point route.
@@ -793,16 +813,16 @@ struct Mesh {
      * @param store Vertex data writer.
      * @param flush Chunk draw operation.
      * @param end_to_start Known rigid rotation from frame end to start. */
-    template <int W, int H, typename Sink, typename Shade, typename Store,
-              typename Flush>
+    template <int W, int H, bool RESIDENT = false, typename Sink,
+              typename Shade, typename Store, typename Flush>
     HS_HOT_INLINE void
     plot_edge(const PointRoute<W, H> &route, Sink &sink, Canvas &canvas,
               Edge source, const math::Vector (&starts)[2],
               const math::Vector (&ends)[2], int most, const Shade &shade,
               const Store &store, const Flush &flush,
               const math::RotationMatrix *end_to_start = nullptr) {
-      if (!plot_steady_edge<W, H>(route, sink, canvas, starts, ends, most,
-                                  shade, end_to_start))
+      if (!plot_steady_edge<W, H, RESIDENT>(route, sink, canvas, starts, ends,
+                                            most, shade, end_to_start))
         append(source, store, flush);
     }
 
@@ -822,14 +842,37 @@ struct Mesh {
     HS_HOT_INLINE void flush(PipelineT &pipeline, Canvas &canvas,
                              const Coordinate &coordinate, const Shade &shade,
                              const GeometryCallback &geometry, float bound) {
+      flush<W, H>(
+          pipeline, canvas,
+          [coordinate, shade](size_t head_slot, size_t tail_slot, float s,
+                              float time) HS_HOT_INLINE {
+            const float head = coordinate(head_slot),
+                        tail = coordinate(tail_slot);
+            return shade(head_slot, head + (tail - head) * s, time);
+          },
+          geometry, bound);
+    }
+
+    /** @brief Shades each edge from its endpoint slots and draws the chunk.
+     * @tparam W,H Canvas dimensions.
+     * @tparam PipelineT Column-walk pipeline type.
+     * @tparam Shade Callable `(size_t head, size_t tail, float s, float time) -> Color4`.
+     * @param pipeline Column-walk pipeline.
+     * @param canvas Destination canvas.
+     * @param shade Edge sample color from endpoint slots and interpolation.
+     * @param geometry Vertex motion callback and chain flags.
+     * @param bound Callback motion bound in radians. */
+    template <int W, int H, typename PipelineT, typename Shade>
+    HS_HOT_INLINE void flush(PipelineT &pipeline, Canvas &canvas,
+                             const Shade &shade,
+                             const GeometryCallback &geometry, float bound) {
       if (count == 0)
         return;
-      auto shader = [this, coordinate, shade](const math::Vector &, Fragment &f,
-                                              float time) HS_HOT_FLASH_MEMBER {
-        const Edge &edge = edges[static_cast<size_t>(f.v2)];
-        const float head = coordinate(edge.u), tail = coordinate(edge.v);
-        f.color = shade(edge.u, head + (tail - head) * f.v0, time);
-      };
+      auto shader = [this, shade](const math::Vector &, Fragment &f, float time)
+                        HS_HOT_FLASH_MEMBER {
+                          const Edge &edge = edges[static_cast<size_t>(f.v2)];
+                          f.color = shade(edge.u, edge.v, f.v0, time);
+                        };
       draw_column_edges<W, H>(pipeline, canvas, View{{positions, count}}, edges,
                               shader, geometry, bound);
       count = 0;

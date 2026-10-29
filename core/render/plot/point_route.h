@@ -166,6 +166,36 @@ public:
   HS_HOT_FLASH_MEMBER void
   plot(Sink &sink, Canvas &canvas, const math::Vector &end, Start &&start,
        Shade &&shade, const math::Vector &middle_offset) const {
+    plot_point<Sink, Start, Shade, CURVED>(sink, canvas, end, start, shade,
+                                           middle_offset);
+  }
+
+  /** @brief Plots a straight trajectory through an ITCM-resident entry.
+   * @tparam Sink,Start,Shade Destination, trajectory and shading callables.
+   * @param sink,canvas Destination.
+   * @param end World endpoint.
+   * @param start World frame-start evaluator.
+   * @param shade Sample color evaluator. */
+  template <typename Sink, typename Start, typename Shade>
+  HS_HOT_ITCM_MEMBER void plot_resident(Sink &sink, Canvas &canvas,
+                                        const math::Vector &end, Start &&start,
+                                        Shade &&shade) const {
+    plot_point<Sink, Start, Shade, false>(sink, canvas, end, start, shade, {});
+  }
+
+private:
+  /** @brief Routes a trajectory through the prepared point samples.
+   * @tparam Sink,Start,Shade Destination, trajectory and shading callables.
+   * @tparam CURVED Enables the midpoint departure.
+   * @param sink,canvas Destination.
+   * @param end World endpoint.
+   * @param start World frame-start evaluator.
+   * @param shade Sample color evaluator.
+   * @param middle_offset Mid-frame departure from the endpoint chord. */
+  template <typename Sink, typename Start, typename Shade, bool CURVED>
+  HS_HOT_INLINE void
+  plot_point(Sink &sink, Canvas &canvas, const math::Vector &end, Start &start,
+             Shade &shade, const math::Vector &middle_offset) const {
     HS_CHECK(clip_stamp == canvas.clip_key(),
              "point route not prepared for this clip");
     const math::Vector offset = CURVED ? middle_offset : math::Vector{};
@@ -262,7 +292,6 @@ public:
         });
   }
 
-private:
   /// Largest departure, in pixels, of a projected piece from its line.
   static constexpr float BEND_PIXELS = 0.02f;
 

@@ -137,6 +137,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_point_route_gate_keeps_visible_taps);
   HS_RUN(test_point_route_shades_at_pass_time);
   HS_RUN(test_steady_edge_plots_lattice_points);
+  HS_RUN(test_steady_edge_untimed_shading_reuses_color);
 
   HS_RUN(test_pose_table_follows_history_path);
   HS_RUN(test_pose_table_holds_a_still_history);

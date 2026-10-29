@@ -427,6 +427,69 @@ inline void test_steady_edge_plots_lattice_points() {
   }
 }
 
+/** @brief Untimed steady shading reuses identical colors across passes;
+ *         a dual-signature shader retains the timed overload. */
+inline void test_steady_edge_untimed_shading_reuses_color() {
+  constexpr int W = 288, H = 144;
+  Spacetime::set_flat_surface(false);
+  int once_calls = 0, timed_calls = 0, dual_once = 0, dual_timed = 0, lit = 0;
+  /** @brief Tracks which shading signature the steady route selects. */
+  struct DualShade {
+    int &once;  ///< Untimed calls.
+    int &timed; ///< Timed calls.
+    /** @brief Counts an untimed sample. */
+    Color4 operator()(float) const {
+      ++once;
+      return Color4(Pixel(65535, 32768, 16384), 0.3f);
+    }
+    /** @brief Counts a timed sample. */
+    Color4 operator()(float, float) const {
+      ++timed;
+      return Color4(Pixel(65535, 32768, 16384), 0.3f);
+    }
+  };
+  for (float column : {0.4f, 143.4f}) {
+    const math::Vector ends[2] = {
+        math::pixel_to_vector<W, H>(column, 45.3f),
+        math::pixel_to_vector<W, H>(column + 2.1f, 46.2f)};
+    const auto rotation =
+        math::make_rotation(math::Vector(0.3f, 1.0f, 0.2f).normalized(), 0.02f);
+    const math::Vector starts[2] = {math::rotate(ends[0], rotation),
+                                    math::rotate(ends[1], rotation)};
+    auto render = [&](auto shade) {
+      hs_test::StubEffect effect(W, H);
+      Canvas canvas(effect);
+      std::fill_n(canvas.data(), W * H, Pixel{});
+      Filter::Screen::DirectAntiAliasSink<W, H> sink;
+      sink.prepare(canvas);
+      Plot::PointRoute<W, H> route;
+      route.prepare(canvas, 0.02f);
+      HS_EXPECT_TRUE((Plot::Mesh::plot_steady_edge<W, H>(
+          route, sink, canvas, starts, ends, 16, shade)));
+      return std::vector<Pixel>(canvas.data(), canvas.data() + W * H);
+    };
+    const auto once = render([&](float) {
+      ++once_calls;
+      return Color4(Pixel(65535, 32768, 16384), 0.3f);
+    });
+    const auto timed = render([&](float, float) {
+      ++timed_calls;
+      return Color4(Pixel(65535, 32768, 16384), 0.3f);
+    });
+    const auto dual = render(DualShade{dual_once, dual_timed});
+    for (size_t i = 0; i < once.size(); ++i) {
+      HS_EXPECT_EQ(once[i], timed[i]);
+      HS_EXPECT_EQ(dual[i], timed[i]);
+      lit += once[i].r != 0 || once[i].g != 0 || once[i].b != 0;
+    }
+  }
+  HS_EXPECT_GT(lit, 0);
+  HS_EXPECT_GT(once_calls, 0);
+  HS_EXPECT_LT(once_calls, timed_calls);
+  HS_EXPECT_EQ(dual_once, 0);
+  HS_EXPECT_GT(dual_timed, 0);
+}
+
 /** @brief A curved point entering the render rows survives polar rejection. */
 inline void test_point_route_curved_cap_enters_clip() {
   constexpr int W = 288, H = 144;

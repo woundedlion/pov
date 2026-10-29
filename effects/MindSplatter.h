@@ -259,14 +259,15 @@ private:
 
   /** @brief scratch_a split: one still trail's staging, or a column chunk. */
   static constexpr size_t SCRATCH_BYTES = 16 * 1024;
-  static_assert(
-      COLUMN_CHUNK_VERTICES * (sizeof(math::Vector) + sizeof(TrailVertex) +
-                               sizeof(Plot::Mesh::Edge)) +
-              (TRAIL_LEN + 1) * (sizeof(TrailVertex) +
-                                 3 * sizeof(math::Vector) + sizeof(int)) +
-              8 * alignof(TrailVertex) + Plot::Mesh::column_scratch_a_bytes() <=
-          SCRATCH_BYTES,
-      "MindSplatter column chunk exceeds its scratch_a split");
+  static_assert(COLUMN_CHUNK_VERTICES *
+                            (sizeof(math::Vector) + sizeof(TrailVertex) +
+                             sizeof(Plot::Mesh::Edge)) +
+                        (TRAIL_LEN + 1) *
+                            (sizeof(TrailVertex) + 3 * sizeof(math::Vector)) +
+                        8 * alignof(TrailVertex) +
+                        Plot::Mesh::column_scratch_a_bytes() <=
+                    SCRATCH_BYTES,
+                "MindSplatter column chunk exceeds its scratch_a split");
 
   /** @brief scratch_b split: the column chunk's vertex paths. */
   static constexpr size_t COLUMN_SCRATCH_B_BYTES =
@@ -644,7 +645,7 @@ private:
    * walk draws the rest in chunks. Either shades a sample with its edge
    * ends' interpolated progress and fade.
    */
-  HS_HOT_FLASH_MEMBER void draw_column_trails(Canvas &canvas) {
+  HS_HOT_ITCM_MEMBER void draw_column_trails(Canvas &canvas) {
     const float cos_event_horizon = math::fast_cosf(EVENT_HORIZON);
     const math::Complex previous_warp = warp_history.start(mobius.b);
     const FrameWarp warp{mobius, previous_warp,
@@ -670,25 +671,21 @@ private:
     points_route.prepare(canvas, stretch * cap + 2.0f * shift + spin);
 
     ScratchScope chunk_scope(scratch_arena_a);
-    auto *vertices =
-        scratch_arena_a.allocate_n<math::Vector>(COLUMN_CHUNK_VERTICES);
-    auto *chunk =
-        scratch_arena_a.allocate_n<TrailVertex>(COLUMN_CHUNK_VERTICES);
-    ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_a, COLUMN_CHUNK_VERTICES);
+    Plot::Mesh::ColumnChunk<COLUMN_CHUNK_VERTICES, TrailVertex> chunk(
+        scratch_arena_a);
     constexpr int TRAIL_POINTS = TRAIL_LEN + 1;
     auto *trail = scratch_arena_a.allocate_n<TrailVertex>(TRAIL_POINTS);
     auto *starts = scratch_arena_a.allocate_n<math::Vector>(TRAIL_POINTS);
     auto *warped = scratch_arena_a.allocate_n<math::Vector>(TRAIL_POINTS);
     auto *world = scratch_arena_a.allocate_n<math::Vector>(TRAIL_POINTS);
-    auto *slots = scratch_arena_a.allocate_n<int>(TRAIL_POINTS);
-    size_t count = 0;
     float chunk_motion = 0.0f;
 
-    auto path = [&](size_t i, float t)
-                    HS_HOT_FLASH_MEMBER { return warp.at(chunk[i], t); };
+    auto path = [&](size_t i, float t) HS_HOT_FLASH_MEMBER {
+      return warp.at(chunk.template attribute<0>(i), t);
+    };
     auto vertex_path = [&](size_t i) HS_HOT_FLASH_MEMBER {
-      return Spacetime::PathBound::warped_great_circle(chunk[i].turn, shift,
-                                                       reach);
+      return Spacetime::PathBound::warped_great_circle(
+          chunk.template attribute<0>(i).turn, shift, reach);
     };
     auto shade = [](const TrailVertex &head, const TrailVertex &tail,
                     float s) HS_HOT_INLINE {
@@ -698,9 +695,13 @@ private:
       return Color4(sample_trail_palette(head.palette, 1.0f - progress),
                     fmaxf(0.0f, fminf(fmaxf(0.0f, progress), fade)));
     };
-    auto shader = [&](const math::Vector &, Fragment &f) HS_HOT_FLASH_MEMBER {
-      const Plot::Mesh::Edge &edge = edges[static_cast<size_t>(f.v2)];
-      f.color = shade(chunk[edge.u], chunk[edge.v], f.v0);
+    auto color = [&](size_t head, size_t tail, float s, float) HS_HOT_INLINE {
+      return shade(chunk.template attribute<0>(head),
+                   chunk.template attribute<0>(tail), s);
+    };
+    auto store = [&](size_t slot, size_t source) HS_HOT_INLINE {
+      chunk.position(slot) = warped[source];
+      chunk.template attribute<0>(slot) = trail[source];
     };
     Plot::GeometryCallback geometry;
     geometry.evaluate = path;
@@ -708,14 +709,9 @@ private:
     geometry.source_positions = false;
     geometry.chained = true;
     auto flush = [&]() HS_HOT_INLINE {
-      if (count == 0)
-        return;
-      Plot::Mesh::draw_column_edges<W, H>(timed_filters, canvas,
-                                          TrailMesh{{vertices, count}}, edges,
-                                          shader, geometry, chunk_motion);
-      count = 0;
+      chunk.template flush<W, H>(timed_filters, canvas, color, geometry,
+                                 chunk_motion);
       chunk_motion = 0.0f;
-      edges.clear();
     };
 
     const int active = particle_system.active();
@@ -764,7 +760,6 @@ private:
       const Pixel *palette = MINDSPLATTER_PALETTES[p.color_seed >> 8];
       const float denominator = static_cast<float>(points - 1);
       for (int j = 0; j < points; ++j) {
-        slots[j] = -1;
         if (!(visible & ((1u << j) | (2u << j))))
           continue;
         const float hole =
@@ -783,27 +778,23 @@ private:
         starts[j] = Plot::EdgeWorldsheet::normalize(
             start_pose.apply(warp.at(trail[j], 0.0f)));
       }
-      if (count + static_cast<size_t>(points) > COLUMN_CHUNK_VERTICES)
+      chunk.begin_chain(static_cast<size_t>(points), flush);
+      chunk_motion = fmaxf(chunk_motion, motion);
+      auto flush_edge = [&]() HS_HOT_INLINE {
         flush();
+        chunk_motion = motion;
+      };
       for (int j = points - 1; j > 0; --j) {
         if (!(visible & (1u << j)))
           continue;
-        if (Plot::Mesh::plot_steady_edge<W, H>(
-                points_route, filters, canvas, {starts[j], starts[j - 1]},
-                {world[j], world[j - 1]}, STEADY_POINTS,
-                [&](float s, float)
-                    HS_HOT_INLINE { return shade(trail[j], trail[j - 1], s); }))
-          continue;
-        for (const int k : {j, j - 1})
-          if (slots[k] < 0) {
-            slots[k] = static_cast<int>(count++);
-            vertices[slots[k]] = warped[k];
-            chunk[slots[k]] = trail[k];
-          }
-        edges.push_back({static_cast<uint16_t>(slots[j]),
-                         static_cast<uint16_t>(slots[j - 1])});
+        chunk.template plot_edge<W, H, true>(
+            points_route, filters, canvas,
+            {static_cast<uint16_t>(j), static_cast<uint16_t>(j - 1)},
+            {starts[j], starts[j - 1]}, {world[j], world[j - 1]}, STEADY_POINTS,
+            [&](float s)
+                HS_HOT_INLINE { return shade(trail[j], trail[j - 1], s); },
+            store, flush_edge);
       }
-      chunk_motion = fmaxf(chunk_motion, motion);
     }
     flush();
   }
