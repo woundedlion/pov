@@ -39,7 +39,7 @@ struct ShaderChainWhiteBox {
   static In::FrameContext frame_context(FX &effect) {
     return effect.make_frame_context(effect.colorize);
   }
-  /** The resident hue-noise table; writable so a probe can poison it and see
+  /** The resident baked modulation cube; writable so a probe can poison it and see
       whether the next frame re-baked. */
   static int8_t *pattern_lut(FX &effect) {
     return effect.resources->modulation.table.data();

@@ -1211,7 +1211,7 @@ StaticPalette<ProceduralPalette, Coords<NoiseWarpModifier>,
 | `BakedPaletteStorage` | Owns mutation rights to a palette LUT and rebakes a `Palette` or `StaticPalette` source into it. |
 | `ColorModulation::PositiveLightnessLift` | Raises OKLab lightness over positive scalar lobes, preserving alpha and exact zero identity. |
 | `LayerComposite` | Composes straight-alpha color layers. |
-| `PatternModulatedPalette<PaletteSource, Field, Mechanic>` | Composes a palette with an immutable typed scalar field and an independent color operation. Sphere fields use admitted directions and explicit direct or baked-cube evaluation. |
+| `ColorModulation::PatternModulatedPalette<PaletteSource, Field, Mechanic>` | Composes a palette with an immutable typed scalar field and an independent color operation. Sphere fields use admitted directions and explicit direct or baked-cube evaluation. |
 | `ColorModulation::HueRotation` | Applies signed periodic hue rotation, preserving alpha and exact zero identity. |
 | `ColorModulation::Opacity` | Multiplies straight alpha by a scalar mask while preserving RGB. |
 

@@ -1616,7 +1616,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── run_effect_cases_voronoi.cpp Voronoi case wrappers and focused runner
 │   ├── run_render_goldens.cpp  Render regression runner, built native (render_goldens) and as Node-hosted WASM (render_goldens_wasm)
 │   ├── temporal_oracle.h  Shared per-column frozen-reference comparisons
-│   ├── pattern/           Typed source admission, formulas and clock cases
+│   ├── pattern/           Source and cube cases owned by test_pullback.h and test_color.h
 │   ├── plot_scan/         Sections included by test_plot_scan.h
 │   │   ├── temporal_seam.h Projected-entry world bypass and tap timing
 │   │   └── timed_mesh.h    Timed source-mesh geometry and shader checks
