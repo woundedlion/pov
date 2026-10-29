@@ -87,7 +87,7 @@ inline void test_pattern_sphere_formulas() {
   params.frequency = -1.0f;
   HS_EXPECT_TRUE(!DirectionalSine::valid(params));
   params.frequency = 1.0f;
-  params.axis = {};
+  params.axis = math::Vector(0.0f, 0.0f, 0.0f);
   HS_EXPECT_TRUE(!DirectionalSine::valid(params));
   grid.axis_b = grid.axis;
   HS_EXPECT_TRUE(!SphereSmoothGrid::valid(grid));

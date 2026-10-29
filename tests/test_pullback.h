@@ -1855,7 +1855,7 @@ inline void test_pullback_modulation_temporal_alpha() {
     HS_EXPECT_NEAR(COLOR.alpha, 0.04f, 1.0e-7f);
   }
   frame.mechanic.amount = 0.0f;
-  sample.sphere = {};
+  sample.sphere = math::Vector(0.0f, 0.0f, 0.0f);
   const auto IDENTITY = Timed::apply(sample, frame, Timed::prepare(frame));
   HS_EXPECT_EQ(IDENTITY.color, RGB);
   HS_EXPECT_NEAR(IDENTITY.alpha, 0.04f, 1.0e-7f);

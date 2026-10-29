@@ -10,7 +10,7 @@
 inline void case_pattern_sine_invalid_axis() {
   Pattern::SineParams params;
   (void)Pattern::DirectionalSine::prepare(params, {});
-  params.axis = {};
+  params.axis = math::Vector(0.0f, 0.0f, 0.0f);
   (void)Pattern::DirectionalSine::prepare(params, {});
 }
 inline void case_pattern_sine_invalid_state() {
@@ -22,7 +22,7 @@ inline void case_pattern_sine_invalid_state() {
 inline void case_pattern_interference_invalid_advance() {
   Pattern::InterferenceParams params;
   (void)Pattern::SphereInterference::advance({}, params);
-  params.axis_b = {};
+  params.axis_b = math::Vector(0.0f, 0.0f, 0.0f);
   (void)Pattern::SphereInterference::advance({}, params);
 }
 inline void case_pattern_interference_invalid_prepare() {
