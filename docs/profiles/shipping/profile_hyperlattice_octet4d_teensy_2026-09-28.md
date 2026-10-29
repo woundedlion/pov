@@ -31,7 +31,7 @@ The Before column uses the 4D capture in [the 2026-09-27 octet report](profile_h
 | | Before (pre-Tier-1 capture) | Now |
 |---|--:|--:|
 | Render mean / peak | 177.308 / 188.387 ms | 137.407 / 143.318 ms |
-| Shader cycles/sample (worst window) | 9,865 | 7,727 |
+| Shader cycles/sample (worst window) | 10,091 | 7,727 |
 | Spilled | 231/231 (100%) | 233/233 (100%) |
 
 ## Phase-by-phase readout

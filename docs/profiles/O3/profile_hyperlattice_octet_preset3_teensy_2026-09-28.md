@@ -70,7 +70,7 @@ Wall minimum/mean/maximum is 124.487/124.900/125.142 ms. Shader traversal and co
 
 | Preset | Complete windows | Shader ms/frame | Evaluated samples/frame | Cycles/sample |
 |---|---:|---:|---:|---:|
-| 3: experimental-octet-flight | 33 | 66.257 | 10658 | 3730.0 |
+| 2: experimental-octet-flight | 33 | 66.257 | 10658 | 3730.0 |
 
 The nominal quadrant is 144×72; the shader margin evaluates 146×73 samples. Pixels are written directly, with no filter_blend calls or per-pixel profiling scopes.
 
