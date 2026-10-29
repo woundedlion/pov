@@ -503,6 +503,57 @@ inline void test_temporal_owned_resources() {
         COLUMN.params.template get<"color">().modulation.mechanic.amount, 0.8f,
         0.0f);
   }
+  config = {};
+  config.enabled = false;
+  config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+  config.evaluation = Pattern::Evaluation::DIRECT;
+  config.sine.speed = -0.125f;
+  clock = Modulation::init(config);
+  Modulation::advance(clock, config);
+  HS_EXPECT_NEAR(clock.phase.phase_turns, 0.875f, 0.0f);
+  config.mechanic.kind = ColorModulation::Mechanic::OPACITY;
+  Modulation::synchronize(clock, config);
+  HS_EXPECT_NEAR(clock.phase.phase_turns, 0.875f, 0.0f);
+  config.source = Pattern::SourceKind::SPHERE_SMOOTH_GRID;
+  Modulation::synchronize(clock, config);
+  HS_EXPECT_NEAR(clock.phase.phase_turns, 0.0f, 0.0f);
+  config.grid.axis_b = config.grid.axis;
+  HS_EXPECT_TRUE(!Modulation::valid(config));
+  config.grid.axis_b = math::X_AXIS;
+  config.version = 2;
+  HS_EXPECT_TRUE(!Modulation::valid(config));
+
+  config = {};
+  config.enabled = true;
+  config.mechanic.amount = 0.4f;
+  Modulation::Resources<> cube;
+  clock = Modulation::init(config);
+  cube.prepare(config, clock);
+  HS_EXPECT_EQ(cube.bake_generation, uint32_t{1});
+  const auto SCALAR_TABLE = cube.table;
+  config.mechanic.kind = ColorModulation::Mechanic::OPACITY;
+  config.mechanic.amount = 0.7f;
+  cube.prepare(config, clock);
+  HS_EXPECT_EQ(cube.bake_generation, uint32_t{1});
+  HS_EXPECT_TRUE(cube.table == SCALAR_TABLE);
+  config.sine.offset += 0.25f;
+  cube.prepare(config, clock);
+  HS_EXPECT_EQ(cube.bake_generation, uint32_t{1});
+  ++config.seed;
+  cube.prepare(config, clock);
+  HS_EXPECT_EQ(cube.bake_generation, uint32_t{2});
+  HS_EXPECT_TRUE(cube.table != SCALAR_TABLE);
+  cube.reset();
+  cube.prepare(config, clock);
+  HS_EXPECT_EQ(cube.bake_generation, uint32_t{3});
+  config.evaluation = Pattern::Evaluation::DIRECT;
+  clock.phase.phase_turns = 0.375f;
+  Modulation::synchronize(clock, config);
+  HS_EXPECT_NEAR(clock.phase.phase_turns, 0.375f, 0.0f);
+  const auto DIRECT = cube.prepare(config, clock);
+  HS_EXPECT_TRUE(!DIRECT.cube.active);
+  cube.prepare(config, clock);
+  HS_EXPECT_NEAR(clock.phase.phase_turns, 0.375f, 0.0f);
 }
 
 /** @brief Factored projection stays within the RGB16 rounding budget. */

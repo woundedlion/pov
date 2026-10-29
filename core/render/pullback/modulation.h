@@ -130,7 +130,7 @@ struct Prepared {
 inline float sample(const Prepared &prepared,
                     const Pattern::SphereDirection &direction) {
   HS_CHECK(prepared.evaluate, "modulation endpoint is unprepared");
-  return prepared.evaluate(prepared, direction);
+  return Pattern::bounded_scalar(prepared.evaluate(prepared, direction));
 }
 /** @brief Complete spatial cache identity, independent of mechanic and palette. */
 struct FieldIdentity {
@@ -143,8 +143,35 @@ struct FieldIdentity {
   Pattern::GridParams grid;                 ///< Grid parameters.
   int32_t seed;                             ///< Generator seed.
   Pattern::PhaseState phase;                ///< Source state.
+  uint16_t bake_layout_version =
+      Pattern::SphereLutView::LAYOUT_VERSION; ///< Cube storage version.
   constexpr bool operator==(const FieldIdentity &) const = default;
 };
+/** @brief Builds the selected source identity without dormant parameters.
+ * @param config Endpoint configuration.
+ * @param state Endpoint source state.
+ * @return Complete source and bake identity. */
+inline FieldIdentity field_identity(const Config &config, const State &state) {
+  FieldIdentity identity{
+      config.source, config.version, config.evaluation, {}, {}, {}, {}, 0,
+      state.phase};
+  switch (config.source) {
+  case Pattern::SourceKind::NOISE:
+    identity.noise = config.noise;
+    identity.seed = config.seed;
+    break;
+  case Pattern::SourceKind::DIRECTIONAL_SINE:
+    identity.sine = config.sine;
+    break;
+  case Pattern::SourceKind::SPHERE_INTERFERENCE:
+    identity.interference = config.interference;
+    break;
+  case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
+    identity.grid = config.grid;
+    break;
+  }
+  return identity;
+}
 /** @brief Owned prepared endpoint and optional scalar cube. */
 template <bool Baked = true> struct Resources {
   Prepared prepared; ///< Current prepared source.
@@ -229,10 +256,7 @@ template <bool Baked = true> struct Resources {
         config.evaluation == Pattern::Evaluation::BAKED_CUBE) {
       HS_CHECK(Baked, "modulation owner has no baked cube capacity");
       if constexpr (Baked) {
-        const FieldIdentity IDENTITY{
-            config.source, config.version, config.evaluation,
-            config.noise,  config.sine,    config.interference,
-            config.grid,   config.seed,    selected.phase};
+        const FieldIdentity IDENTITY = field_identity(config, selected);
         if (!key || *key != IDENTITY) {
           Pattern::prepare_sphere_lut<Pattern::SphereNoise>(
               std::span<int8_t, Pattern::SphereLutView::SIZE>(table),

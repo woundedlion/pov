@@ -13,13 +13,7 @@ namespace Pullback::Modulation {
  * @param b Current endpoint.
  * @return Whether both evaluate the same scalar field. */
 inline bool same_field(const Prepared &a, const Prepared &b) {
-  const auto identity = [](const Prepared &value) {
-    const Config &c = value.config;
-    return FieldIdentity{c.source, c.version, c.evaluation,
-                         c.noise,  c.sine,    c.interference,
-                         c.grid,   c.seed,    value.state.phase};
-  };
-  return identity(a) == identity(b);
+  return field_identity(a.config, a.state) == field_identity(b.config, b.state);
 }
 /** @brief Interpolates completed straight-alpha colors with RGB16 rounding.
  * @param a Previous completed endpoint.
