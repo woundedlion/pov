@@ -248,19 +248,19 @@ HS_FLASH_INLINE Frame sample_frame(const Frame &from, const Frame &to,
 }
 
 /** @brief Owned palette and hue tables for the previous frame endpoint. */
-template <typename Frame, Pullback::Color::HueMode Hue, bool FloatHue,
+template <typename Frame, Pullback::Color::HueMode Hue, bool Modulation,
           bool Baked>
   requires BorrowsColorResources<Frame>
-struct FrameHistory<Frame, Hue, true, FloatHue, Baked> {
+struct FrameHistory<Frame, Hue, true, Modulation, Baked> {
   Frame previous{}; ///< Previous endpoint with owned color resource views.
   BakedPaletteStorage palette; ///< Retained palette table.
-  std::array<Pixel, Hue != Pullback::Color::HueMode::NONE || FloatHue
+  std::array<Pixel, Hue != Pullback::Color::HueMode::NONE || Modulation
                         ? Pullback::Color::HueRotationLutView::SIZE
                         : 0>
       hue_rotation; ///< Retained hue-rotation table.
-  std::array<int8_t, FloatHue && Baked ? Pattern::SphereLutView::SIZE : 0>
+  std::array<int8_t, Modulation && Baked ? Pattern::SphereLutView::SIZE : 0>
       modulation_table{}; ///< Retained scalar table.
-  std::conditional_t<FloatHue, Pullback::Modulation::Prepared, std::monostate>
+  std::conditional_t<Modulation, Pullback::Modulation::Prepared, std::monostate>
       modulation;           ///< Retained immutable source inputs.
   bool initialized = false; ///< Whether a previous endpoint exists.
 
@@ -274,12 +274,12 @@ struct FrameHistory<Frame, Hue, true, FloatHue, Baked> {
       palette.rebake_copy(*frame.palette);
     previous = frame;
     previous.palette = &palette.view();
-    if constexpr (Hue != Pullback::Color::HueMode::NONE || FloatHue) {
+    if constexpr (Hue != Pullback::Color::HueMode::NONE || Modulation) {
       std::copy_n(frame.hue_rotation_lut, hue_rotation.size(),
                   hue_rotation.data());
       previous.hue_rotation_lut = hue_rotation.data();
     }
-    if constexpr (FloatHue) {
+    if constexpr (Modulation) {
       if (frame.modulation) {
         modulation = *frame.modulation;
         if (modulation.config.evaluation == Pattern::Evaluation::BAKED_CUBE &&

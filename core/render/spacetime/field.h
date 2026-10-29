@@ -167,7 +167,7 @@ template <typename T> struct Retained {
 /** @brief Optional retained endpoint storage. */
 template <typename Frame,
           Pullback::Color::HueMode Hue = Pullback::Color::HueMode::NONE,
-          bool Enabled = true, bool FloatHue = false, bool Baked = true>
+          bool Enabled = true, bool Modulation = false, bool Baked = true>
 struct FrameHistory {};
 
 /** @brief Retained previous endpoint of a frame that owns or shares
