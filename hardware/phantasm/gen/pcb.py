@@ -25,7 +25,7 @@ import connectivity
 import sexp
 from constraints import (ZONE_DEFAULTS, is_hand_assembled, MAX_BOARD_WIDTH_MM,
                          MIN_SOLDER_MASK_WEB_MM, NEW_LAYOUT_RULES)
-from kicad_common import atomic_write_text
+from kicad_common import atomic_write_text, property_value
 from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
                           export_netlist, kicad_cli, require_writable, rotate_point)
 from parts_rev13 import PARTS as REV13_PARTS
@@ -219,15 +219,9 @@ def schematic_components(path=None):
     for c in root:
         if not (isinstance(c, list) and c and c[0] == "symbol"):
             continue
-        ref = val = fp = None
-        for d in c:
-            if isinstance(d, list) and d and d[0] == "property":
-                if d[1] == "Reference":
-                    ref = d[2]
-                elif d[1] == "Value":
-                    val = d[2]
-                elif d[1] == "Footprint":
-                    fp = d[2]
+        ref = property_value(c, "Reference")
+        val = property_value(c, "Value")
+        fp = property_value(c, "Footprint")
         if not ref or ref.startswith("#"):
             continue
         if ref not in seen:
@@ -707,8 +701,8 @@ def fixed_placements(comps):
 
 def local_routes(footprints):
     """Pre-route the locked receive filter and VIN bypass on front copper."""
-    by_ref = {str(prop[2]): footprint for footprint in footprints
-              for prop in F(footprint, "property") if prop[1] == "Reference"}
+    by_ref = {connectivity.footprint_reference(footprint): footprint
+              for footprint in footprints}
 
     def terminal(ref, number):
         footprint = by_ref[ref]

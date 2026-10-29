@@ -247,8 +247,7 @@ def require_annotated_export(result, sch):
     for symbol in root:
         if not isinstance(symbol, list) or symbol[0] != "symbol":
             continue
-        ref = next((p[2] for p in symbol if isinstance(p, list)
-                    and p[:2] == ["property", "Reference"]), "")
+        ref = property_value(symbol, "Reference", "")
         identity = (ref, tuple(sexp.val(symbol, "unit", [])))
         if not ref or ref.endswith("?") or ref in ("#PWR", "#FLG") or identity in seen:
             sys.exit(f"netlist export failed: unannotated or duplicate symbol {ref!r}")
