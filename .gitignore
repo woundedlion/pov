@@ -61,6 +61,7 @@ docs/PROJECT_ASSESSMENT.md
 # Profile archives contain reports only; capture artifacts stay local.
 /docs/profiles/*
 !/docs/profiles/README.md
+!/docs/profiles/source_revisions.json
 !/docs/profiles/memory/
 !/docs/profiles/shipping/
 !/docs/profiles/O3/

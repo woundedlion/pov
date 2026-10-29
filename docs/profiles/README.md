@@ -8,6 +8,10 @@ display window makes cadence quantize to 16, 8, 5.3 fps, and below.
 
 Shipping reports cover all 36 effects: 36 completed captures.
 
+Recorded capture revisions retain their original IDs. The
+[source revision crosswalk](source_revisions.json) maps them to commits with
+identical source trees after commit metadata cleanup.
+
 The current Profile harness captures ISR counters and their timestamp together
 with interrupts masked. ISR CPU shares use the separately logged `ISR window`
 interval between successive snapshots, including report output between them.

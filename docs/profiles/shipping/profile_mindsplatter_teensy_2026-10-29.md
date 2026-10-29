@@ -6,6 +6,10 @@ The pre-review revision `84d6d90aa6f2b1fbd64d28bdf62b25eec0a804b7` peaks at 78.2
 
 Raw logs, source/ELF/compiler attestations and retained images are under `C:/work/temp/review-20261029/`: `19-original84-natural-COM{3,4}.log` and `19-final-lattice-natural-COM{3,4}.log`, their `.provenance` files and `artifacts/` directories. Both candidate captures reuse the identical immutable profile and shipping ELFs.
 
+The captured candidate revision maps to `03db927e897211d5adc5a14f574e205c86ecc648` with an identical
+source tree; see the [source revision crosswalk](../source_revisions.json).
+The measured revision IDs above remain the IDs recorded by the capture.
+
 ## Setup
 
 | Item | Configuration |
