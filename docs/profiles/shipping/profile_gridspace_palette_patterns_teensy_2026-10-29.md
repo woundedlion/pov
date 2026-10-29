@@ -1,6 +1,6 @@
 # GridSpace on-device profile — Teensy 4.0, segmented mode (2026-10-29, **selective -O3**)
 
-Palette-pattern recipe qualification at upper admitted spatial bounds. These overrides are separate from the [normal GridSpace shipping profile](profile_gridspace_teensy_2026-10-23.md). They do not replace its ranked measurement.
+Palette-pattern recipe qualification at upper spec-admitted bounds (noise scale 8 baked; analytic frequency 64, chain interpreter only). These overrides are separate from the [normal GridSpace shipping profile](profile_gridspace_teensy_2026-10-23.md). They do not replace its ranked measurement.
 
 ## Setup
 
@@ -15,6 +15,8 @@ Palette-pattern recipe qualification at upper admitted spatial bounds. These ove
 | Noise variants | Single: SIMPLEX, contrast 0. Octave: RIDGED3, OCTAVE_CONTOUR, contrast 8 |
 | Animation | `setAnimationsPaused(false)`; temporal runs advance both endpoint fields |
 | Exception | Interference uses a temporary non-temporal Spec override; other runs are temporal |
+
+The modulation selectors bypass effect admission and check only `Modulation::valid`. GridSpace admits baked noise only; direct noise and analytic captures predate that admission policy and do not demonstrate shipping support.
 
 Captures use the locked `tools/profile_one.sh GridSpace profile 70 32` wrapper with `HS_PROFILE_TREE` and a pinned board. Source selectors: noise 0, sine 1, interference 2, grid 3. Mechanics: hue 0, lift 1, opacity 2. Evaluation: direct 0, baked cube 1. Supply `-D HS_PROFILE_MODULATION_SOURCE=N -D HS_PROFILE_MODULATION_MECHANIC=N`; noise defaults to baked and analytic fields to direct. Add `-D HS_PROFILE_MODULATION_EVALUATION=N` to override, and `-D HS_PROFILE_MODULATION_NOISE_OCTAVES` for the octave recipe. The non-temporal interference run additionally changes GridSpace’s Spec before building.
 
@@ -347,6 +349,8 @@ The setup-inclusive red counts remain visible even when later frames meet the st
 - Amount 0.8, upper spatial bounds and moving clocks stress these particular combinations; inactive recipes, zero amounts and static shared fields can have different costs.
 - No full preset cycle is involved: GridSpace has one authored preset and the harness applies one recipe override per capture.
 - Raw logs, envdumps, source-copy manifests, build logs and ELF artifacts are local outputs. Base commit IDs identify ancestry but do not make dirty capture inputs reproducible from a fresh clone.
+
+This direct-lightness recapture also bypassed effect admission and predates the baked-noise-only GridSpace policy; it does not qualify direct noise for shipping.
 
 The final temporal-column storage implementation was recaptured on COM4 using
 host `0448cff3c039f64c8dba5253266e17df065c2083`: configured-single noise,

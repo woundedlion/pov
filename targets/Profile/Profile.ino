@@ -50,6 +50,7 @@
 //   HS_PROFILE_TRANS_SPEED   "Trans Speed" applied after init
 //   HS_PROFILE_PRESET        zero-based fixed preset selected after init
 //   HS_PROFILE_AUTO_RESUME   resume choreography after selecting that preset
+//   Modulation overrides bypass effect admission; only Modulation::valid is checked.
 //   HS_PROFILE_MODULATION_SOURCE selects the source; requires HS_PROFILE_MODULATION_MECHANIC
 //   HS_PROFILE_MODULATION_MECHANIC selects the color mechanic
 //   HS_PROFILE_MODULATION_EVALUATION overrides the source evaluation policy
