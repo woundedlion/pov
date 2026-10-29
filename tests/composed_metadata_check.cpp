@@ -69,4 +69,33 @@ struct MetadataEffect
     : Pullback::ComposedEffect<8, 8, MetadataEffect, MetadataSpec,
                                Control::HookOwnership::INHERITED> {};
 static_assert(sizeof(MetadataEffect) > 0);
+
+struct ModulationBankSpec : MetadataSpec {
+  static constexpr bool MODULATION = true;
+  static constexpr Pattern::Evaluation MODULATION_EVALUATION =
+      Pattern::Evaluation::DIRECT;
+};
+struct ModulationBankEffect
+    : Pullback::ComposedEffect<8, 8, ModulationBankEffect, ModulationBankSpec,
+                               Control::HookOwnership::INHERITED> {
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr auto PRESETS = [] {
+    std::array<PresetEntry<Params>, 2> rows{};
+    auto &config = rows[1].params.template get<"color">().modulation;
+#ifdef HS_METADATA_MODULATION_SOURCE_CHANGE
+    config.source = Pattern::SourceKind::SPHERE_SMOOTH_GRID;
+#endif
+#ifdef HS_METADATA_MODULATION_MECHANIC_CHANGE
+    config.mechanic.kind = ColorModulation::Mechanic::OPACITY;
+#endif
+    config.mechanic.amount = 0.5f;
+    return rows;
+  }();
+};
+
+void check_modulation_bank() {
+  ModulationBankEffect effect;
+  effect.init();
+}
 #endif

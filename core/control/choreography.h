@@ -551,9 +551,10 @@ private:
       return 1;
   }
 
+protected:
   /** @brief The row of the preset at @p index: the `PRESET_ROW` hook with
       `PRESET_IDS`, else the `PRESETS` table, else a single startup preset. */
-  static auto preset_row(size_t index) {
+  static constexpr auto preset_row(size_t index) {
     if constexpr (has_hook<Control::ChoreographyHook::PRESET_ROW>())
       return decltype(Derived::choreography_hooks())::template invoke_static<
           Control::ChoreographyHook::PRESET_ROW>(index);
@@ -567,6 +568,7 @@ private:
     }
   }
 
+private:
   /** @brief Whether every departure fits inside the dwell and the effect takes
       each departure's hook: blend_params for a Lerp, set_preset_opacity for a
       Fade. */
@@ -588,7 +590,7 @@ private:
 
   /** @brief Startup parameters: the `INITIAL_PARAMS` hook when bound,
       else the first preset row's parameters. */
-  static Params initial_params_of() {
+  static constexpr Params initial_params_of() {
     if constexpr (has_hook<Control::ChoreographyHook::INITIAL_PARAMS>())
       return decltype(Derived::choreography_hooks())::template invoke_static<
           Control::ChoreographyHook::INITIAL_PARAMS>();

@@ -8,4 +8,6 @@ check_fixture("declare topology through typed pipeline entries" -DHS_METADATA_RE
 check_fixture("unsupported projection coverage policy" -DHS_METADATA_UNKNOWN_COVERAGE)
 check_fixture("projection stage is required" -DHS_METADATA_MISSING_PROJECT)
 check_fixture("path length hue must match pipeline tracking" -DHS_METADATA_UNTRACKED_HUE)
+check_fixture("composed modulation presets must retain source and mechanic" -DHS_METADATA_MODULATION_SOURCE_CHANGE)
+check_fixture("composed modulation presets must retain source and mechanic" -DHS_METADATA_MODULATION_MECHANIC_CHANGE)
 message(STATUS "composed metadata contracts passed")

@@ -191,6 +191,8 @@ Modulation speed controls share noise limits of +/-0.001 turns per update and
 analytic limits of +/-1 turn per update across workbench schemas and composed
 sliders. Composed unit-mechanic amount sliders use [0, 1]; the workbench amount
 schema remains [-4, 4], with each mechanic's validation enforcing its own domain.
+Composed preset banks retain preset 0's source kind and mechanic kind across
+every row; their registered modulation controls stay bound to those fields.
 Prepare hoists frame-constant work. Admission qualifies upper frequency
 and argument bounds compatible with the chosen trigonometry and the project's
 fast-trig limits. Fold phase and keep arguments within that range; this proposal

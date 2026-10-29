@@ -116,6 +116,9 @@ public:
    * runs last, once the parameters, palette cycler and camera walks are live.
    */
   HS_COLD_MEMBER void init() override {
+    static_assert(
+        modulation_presets_are_supported(),
+        "composed modulation presets must retain source and mechanic");
     this->begin_choreography();
     state = persistent_arena.make<State>();
     use_parameter_storage(persistent_arena,
@@ -588,6 +591,23 @@ public:
   }
 
 private:
+  static consteval bool modulation_presets_are_supported() {
+    if constexpr (SpecT::MODULATION) {
+      const auto initial =
+          Choreography::preset_row(0).params.template get<"color">().modulation;
+      for (size_t index = 1; index < Choreography::authored_preset_count();
+           ++index) {
+        const auto config = Choreography::preset_row(index)
+                                .params.template get<"color">()
+                                .modulation;
+        if (config.source != initial.source ||
+            config.mechanic.kind != initial.mechanic.kind)
+          return false;
+      }
+    }
+    return true;
+  }
+
   struct State
       : ProjectionWalkNoise<ANIMATED_PROJECTION>,
         OptionalHueRotationLut<Metadata::HUE != HueMode::NONE ||
