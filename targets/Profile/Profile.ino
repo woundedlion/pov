@@ -50,6 +50,10 @@
 //   HS_PROFILE_TRANS_SPEED   "Trans Speed" applied after init
 //   HS_PROFILE_PRESET        zero-based fixed preset selected after init
 //   HS_PROFILE_AUTO_RESUME   resume choreography after selecting that preset
+//   HS_PROFILE_MODULATION_SOURCE selects the source; requires HS_PROFILE_MODULATION_MECHANIC
+//   HS_PROFILE_MODULATION_MECHANIC selects the color mechanic
+//   HS_PROFILE_MODULATION_EVALUATION overrides the source evaluation policy
+//   HS_PROFILE_MODULATION_NOISE_OCTAVES selects ridged octave-contour noise
 //   HS_SCAN_METRICS          compiles in the per-pixel hs::g_scan_metrics probe
 //                            counters and adds the "scan totals" window line.
 //                            Every probe pays a non-atomic global increment, so
