@@ -199,8 +199,9 @@ public:
             canvas,
             [&](int c) {
               HS_PROFILE(fx_prepare_column);
-              return RenderPipeline::prepare(
-                  sampler.at(Spacetime::SamplingSurface<W>::time(c)));
+              sampler.at_into(state->column,
+                              Spacetime::SamplingSurface<W>::time(c));
+              return RenderPipeline::prepare(state->column);
             },
             [](const Frame &frame, int x) {
               if constexpr (factored_columns()) {
@@ -595,6 +596,7 @@ private:
         resources;
     FastNoiseLite outer_walk_noise;
     FrameState current{};
+    std::conditional_t<TEMPORAL_SAMPLING, FrameState, std::monostate> column;
     std::conditional_t<TEMPORAL_SAMPLING,
                        std::optional<FrameInterval<FrameState>>, std::monostate>
         interval;

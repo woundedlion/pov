@@ -125,8 +125,17 @@ public:
    * @param fraction Frame progress in [0, 1].
    * @return Interpolated context borrowing the endpoint resources. */
   HS_FLASH_INLINE Frame at(float fraction) const {
+    Frame frame;
+    at_into(frame, fraction);
+    return frame;
+  }
+
+  /** @brief Writes a sampled context into storage separate from the endpoints.
+   * @param frame Receives the context borrowing the endpoint resources.
+   * @param fraction Frame progress in [0, 1]. */
+  HS_FLASH_INLINE void at_into(Frame &frame, float fraction) const {
     if (fraction <= 0.0f) {
-      Frame frame = from;
+      frame = from;
       hold_discrete_lenses(frame, from, to);
       if constexpr (requires {
                       from.params.template get<"color">().modulation;
@@ -139,11 +148,11 @@ public:
               to.params.template get<"color">().modulation;
         }
       }
-      return frame;
+      return;
     }
+    frame = to;
     if (fraction >= 1.0f)
-      return to;
-    Frame frame = to;
+      return;
     frame.projection_conjugate = projection.sample(fraction);
     frame.outer_conjugate = outer.sample(fraction);
     if (constant_params) {
@@ -225,7 +234,6 @@ public:
                       from.palette_alpha,
                       same_palette,
                       continuous};
-    return frame;
   }
 };
 
