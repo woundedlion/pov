@@ -148,7 +148,10 @@ inline void test_sphere_bake_cache() {
   FastNoiseLite noise;
   noise.SetFrequency(1.0f);
   const auto prepared = Pattern::SphereNoise::prepare({}, {}, noise);
+  a.fill(-128);
   HS_EXPECT_TRUE(cache.refresh<Pattern::SphereNoise>(a, key, prepared));
+  for (auto value : a)
+    HS_EXPECT_NE(value, -128);
   a.fill(-128);
   HS_EXPECT_TRUE(!cache.refresh<Pattern::SphereNoise>(a, key, prepared));
   HS_EXPECT_EQ(a.front(), -128);
@@ -171,12 +174,24 @@ inline void test_sphere_bake_cache() {
       ++changed.recipe;
       break;
     }
+    a.fill(-128);
     HS_EXPECT_TRUE(cache.refresh<Pattern::SphereNoise>(a, changed, prepared));
+    for (auto value : a)
+      HS_EXPECT_NE(value, -128);
+    a.fill(-128);
     HS_EXPECT_TRUE(cache.refresh<Pattern::SphereNoise>(a, key, prepared));
+    for (auto value : a)
+      HS_EXPECT_NE(value, -128);
   }
+  b.fill(-128);
   HS_EXPECT_TRUE(cache.refresh<Pattern::SphereNoise>(b, key, prepared));
+  for (auto value : b)
+    HS_EXPECT_NE(value, -128);
   cache.reset();
+  b.fill(-128);
   HS_EXPECT_TRUE(cache.refresh<Pattern::SphereNoise>(b, key, prepared));
+  for (auto value : b)
+    HS_EXPECT_NE(value, -128);
 }
 
 /** @brief Samples a chosen face at the ratios of a shared edge direction. */
