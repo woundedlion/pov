@@ -608,9 +608,9 @@ Measured with the pinned ARM GCC 15.2.1 Cortex-M7 hard-float ABI and shipping
 | Immutable prepared endpoint | 260 |
 | Owned FastNoiseLite generator within a noise endpoint | 52 |
 | Source variant reservation within an endpoint | 80 |
-| Cache identity / optional cache storage | 152 / 156 |
-| Current direct resources, including endpoint and cache | 424 |
-| Current baked resources, including one byte cube | 3,876 |
+| Cache identity / sphere bake cache storage | 152 / 160 |
+| Current direct resources, including endpoint and cache | 428 |
+| Current baked resources, including one byte cube | 3,880 |
 | Hue rotation table / owner with generation counter | 6,144 / 6,148 |
 | One byte cube / optional external float cube shape | 3,456 / 13,824 |
 | Optional external float hue-table shape | 12,288 |
@@ -623,15 +623,15 @@ Effect transitions destroy the outgoing effect before constructing the incoming
 one, so the maximum is one effect's current and retained resources.
 
 For the GridSpace stage chain at 288 by 144, temporal runtime State sizes are
-1,708 bytes with no modulation, 14,684 direct and 21,588 baked. Their complete
-persistent arena budgets are 6,968 / 20,040 / 26,944 bytes, including palette
+1,660 bytes with no modulation, 14,640 direct and 21,544 baked. Their complete
+persistent arena budgets are 6,920 / 19,996 / 26,900 bytes, including palette
 storage, registered controls, retained palette, names and alignment. The matching
-non-temporal State sizes are 480 / 7,052 / 10,504 bytes. Capability storage stays
+non-temporal State sizes are 472 / 7,048 / 10,500 bytes. Capability storage stays
 allocated while its runtime recipe is disabled. A no-modulation specialization
 retains passive control layout but owns no pattern source, cube or hue resources.
 
 Native 64-bit pointers produce different totals: Prepared is 296 bytes and direct
-and baked resources are 464 / 3,912 bytes. Resource accounting uses actual target
+and baked resources are 480 / 3,928 bytes. Resource accounting uses actual target
 sizes; these figures do not estimate the call stack. Native arena/stack gates and
 WebAssembly high-water checks independently validate transient storage.
 

@@ -11,7 +11,6 @@
 #include "core/pattern/sphere_lut.h"
 #include "core/render/pullback/runtime_seeds.h"
 #include <array>
-#include <optional>
 #include <variant>
 
 /** @file modulation.h
@@ -242,11 +241,11 @@ template <bool Baked = true> struct Resources {
   Resources &operator=(const Resources &) = delete;
   Prepared prepared; ///< Current prepared source.
   std::array<int8_t, Baked ? Pattern::SphereLutView::SIZE : 0>
-      table{};                      ///< Scalar cube.
-  std::optional<FieldIdentity> key; ///< Resident cube identity.
-  uint32_t bake_generation = 0;     ///< Number of completed cube bakes.
+      table{};                                   ///< Scalar cube.
+  Pattern::SphereBakeCache<FieldIdentity> cache; ///< Resident cube identity.
+  uint32_t bake_generation = 0; ///< Number of completed cube bakes.
   /** @brief Invalidates derived resources after restore or ownership changes. */
-  void reset() { key.reset(); }
+  void reset() { cache.reset(); }
   /** @brief Prepares immutable inputs and refreshes a changed cube.
    * @param config Current recipe.
    * @param clock Current source state.
@@ -323,13 +322,10 @@ template <bool Baked = true> struct Resources {
       HS_CHECK(Baked, "modulation owner has no baked cube capacity");
       if constexpr (Baked) {
         const FieldIdentity IDENTITY = field_identity(config, selected);
-        if (!key || *key != IDENTITY) {
-          Pattern::prepare_sphere_lut<Pattern::SphereNoise>(
-              std::span<int8_t, Pattern::SphereLutView::SIZE>(table),
-              std::get<0>(prepared.source));
-          key = IDENTITY;
+        if (cache.template refresh<Pattern::SphereNoise>(
+                std::span<int8_t, Pattern::SphereLutView::SIZE>(table),
+                IDENTITY, std::get<0>(prepared.source)))
           ++bake_generation;
-        }
       }
     }
     return prepared;
