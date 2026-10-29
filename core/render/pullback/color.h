@@ -338,6 +338,7 @@ inline auto mechanic_kernel(ColorModulation::Mechanic kind)
  * @param sample Renderer field sample.
  * @param state Endpoint palette and shared continuous controls.
  * @param direction Admitted coordinate, shared by both endpoints.
+ * @param shared_scalar Optional source sample shared by both endpoints.
  * @return Completed straight-alpha endpoint color. */
 inline Color4
 generated_palette_endpoint(const FieldSample &sample,

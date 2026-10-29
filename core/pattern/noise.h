@@ -31,17 +31,17 @@ HS_O3_FN inline float noise_contour(const FastNoiseLite &noise,
 
 /** @brief Sphere noise with explicit formula selection and an owned generator. */
 struct SphereNoise {
-  using Coordinate = SphereDirection;
-  using Params = NoiseParams;
-  using State = PhaseState;
+  using Coordinate = SphereDirection; ///< Admitted unit direction.
+  using Params = NoiseParams;         ///< Noise recipe controls.
+  using State = PhaseState;           ///< Noise loop phase in turns.
   /** @brief Immutable generator and prepared sample controls. */
   struct Prepared {
-    FastNoiseLite noise;
-    math::Vector loop_offset;
-    float scale;
-    float contrast;
-    NoiseBasis basis;
-    NoiseVariant variant;
+    FastNoiseLite noise;      ///< Owned configured generator.
+    math::Vector loop_offset; ///< Prepared noise loop point.
+    float scale;              ///< Noise-space coordinate scale.
+    float contrast;           ///< Nonnegative contour sharpening.
+    NoiseBasis basis;         ///< Octave formula.
+    NoiseVariant variant;     ///< Sampling policy.
   };
   /** @brief Checks the recipe's finite, admitted controls.
    * @param params Source controls.

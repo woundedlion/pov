@@ -24,15 +24,15 @@ inline bool finite(float value) {
 
 /** @brief One-dimensional pattern coordinate. */
 struct ScalarCoordinate {
-  float value;
+  float value; ///< Scalar source coordinate.
 };
 /** @brief Plane point without a projection binding. */
 struct PlanePosition {
-  math::Complex value;
+  math::Complex value; ///< Plane position.
 };
 /** @brief Volumetric point whose radius is retained. */
 struct Position3D {
-  math::Vector value;
+  math::Vector value; ///< Volumetric position.
 };
 
 /** @brief Unit direction admitted from a finite, nondegenerate vector. */
@@ -76,7 +76,7 @@ enum class NoiseBasis : uint8_t { SIMPLEX, FBM3, RIDGED3 };
 enum class NoiseVariant : uint8_t { CONFIGURED_SINGLE, OCTAVE_CONTOUR };
 /** @brief Source phase in turns, wrapped after each engine update. */
 struct PhaseState {
-  float phase_turns = 0.0f;
+  float phase_turns = 0.0f; ///< Wrapped loop phase in turns.
   constexpr bool operator==(const PhaseState &) const = default;
 };
 /** @brief Source clocks in radians, each wrapped at two pi. */
@@ -92,10 +92,13 @@ struct EmptyState {
 };
 /** @brief Parameters of an axial sine. */
 struct SineParams {
-  math::Vector axis = math::Vector(0.0f, 1.0f, 0.0f);
-  float frequency = 1.0f;
-  float offset = 0.0f;
-  float speed = 0.0f;
+  math::Vector axis = math::Vector(0.0f, 1.0f, 0.0f); ///< Wave axis.
+  float frequency = 1.0f; ///< Cycles per unit coordinate.
+  float offset = 0.0f;    ///< Phase offset in turns.
+  float speed = 0.0f;     ///< Phase advance in turns per update.
+  /** @brief Compares the complete wave recipe.
+   * @param other Recipe to compare.
+   * @return Whether every control matches. */
   constexpr bool operator==(const SineParams &other) const {
     return axis.x == other.axis.x && axis.y == other.axis.y &&
            axis.z == other.axis.z && frequency == other.frequency &&
@@ -104,9 +107,12 @@ struct SineParams {
 };
 /** @brief Parameters of two axial sines sharing one loop phase. */
 struct InterferenceParams : SineParams {
-  math::Vector axis_b = math::Vector(1.0f, 0.0f, 0.0f);
-  float frequency_b = 1.0f;
-  float offset_b = 0.0f;
+  math::Vector axis_b = math::Vector(1.0f, 0.0f, 0.0f); ///< Second wave axis.
+  float frequency_b = 1.0f; ///< Second wave cycles per unit coordinate.
+  float offset_b = 0.0f;    ///< Second wave phase offset in turns.
+  /** @brief Compares both wave recipes.
+   * @param other Recipe to compare.
+   * @return Whether every control matches. */
   constexpr bool operator==(const InterferenceParams &other) const {
     return static_cast<const SineParams &>(*this) ==
                static_cast<const SineParams &>(other) &&
@@ -119,11 +125,11 @@ struct InterferenceParams : SineParams {
 struct GridParams : InterferenceParams {};
 /** @brief Parameters of a sphere noise source. */
 struct NoiseParams {
-  float scale = 1.0f;
-  float speed = 0.0f;
-  NoiseBasis basis = NoiseBasis::SIMPLEX;
-  float contrast = 0.0f;
-  NoiseVariant variant = NoiseVariant::CONFIGURED_SINGLE;
+  float scale = 1.0f;                     ///< Noise-space coordinate scale.
+  float speed = 0.0f;                     ///< Loop advance in turns per update.
+  NoiseBasis basis = NoiseBasis::SIMPLEX; ///< Octave formula.
+  float contrast = 0.0f;                  ///< Nonnegative contour sharpening.
+  NoiseVariant variant = NoiseVariant::CONFIGURED_SINGLE; ///< Sampling policy.
   constexpr bool operator==(const NoiseParams &) const = default;
 };
 

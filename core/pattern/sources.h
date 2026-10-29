@@ -29,14 +29,14 @@ inline bool valid_sine(const SineParams &params) {
 
 /** @brief Directional sine with an explicit turn clock. */
 struct DirectionalSine {
-  using Coordinate = SphereDirection;
-  using Params = SineParams;
-  using State = PhaseState;
+  using Coordinate = SphereDirection; ///< Admitted unit direction.
+  using Params = SineParams;          ///< Axial wave controls.
+  using State = PhaseState;           ///< Shared loop phase in turns.
   /** @brief Complete immutable wave inputs. */
   struct Prepared {
-    math::Vector axis;
-    float frequency;
-    float phase_turns;
+    math::Vector axis; ///< Unit wave axis.
+    float frequency;   ///< Cycles per unit coordinate.
+    float phase_turns; ///< Wrapped wave phase in turns.
   };
   /** @brief Checks a source recipe.
    * @param params Source controls.
@@ -84,13 +84,13 @@ struct DirectionalSine {
 
 /** @brief Half-sum of two directional waves sharing one turn clock. */
 struct SphereInterference {
-  using Coordinate = SphereDirection;
-  using Params = InterferenceParams;
-  using State = PhaseState;
+  using Coordinate = SphereDirection; ///< Admitted unit direction.
+  using Params = InterferenceParams;  ///< Paired wave controls.
+  using State = PhaseState;           ///< Shared loop phase in turns.
   /** @brief Complete immutable pair of waves. */
   struct Prepared {
-    DirectionalSine::Prepared a;
-    DirectionalSine::Prepared b;
+    DirectionalSine::Prepared a; ///< First prepared wave.
+    DirectionalSine::Prepared b; ///< Second prepared wave.
   };
   /** @brief Checks both axes and wave controls.
    * @param params Source controls.
@@ -138,10 +138,10 @@ struct SphereInterference {
 
 /** @brief Product of two orthogonal directional waves. */
 struct SphereSmoothGrid {
-  using Coordinate = SphereDirection;
-  using Params = GridParams;
-  using State = PhaseState;
-  using Prepared = SphereInterference::Prepared;
+  using Coordinate = SphereDirection; ///< Admitted unit direction.
+  using Params = GridParams;          ///< Smooth grid controls.
+  using State = PhaseState;           ///< Shared loop phase in turns.
+  using Prepared = SphereInterference::Prepared; ///< Prepared wave pair.
   /** @brief Checks the qualified waves and unit-axis orthogonality.
    * @param params Source controls.
    * @return Whether the grid recipe is admitted. */
@@ -248,8 +248,9 @@ HS_FLASH_INLINE inline PreparedFractal prepare_fractal(const Params &params,
 
 /** @brief Per-frame axis and phase of the spherical ring source. */
 struct PreparedSphericalRings {
-  math::Vector axis; /**< Unit normal of the rings' equatorial plane. */
-  float phase;       /**< Angular band offset, in radians. */
+  math::Vector
+      axis; ///< Unit wave axis. /**< Unit normal of the rings' equatorial plane. */
+  float phase; /**< Angular band offset, in radians. */
 };
 
 /** @brief Wraps this frame's source phases with the rotation's cosine pair.
@@ -266,7 +267,7 @@ HS_FLASH_INLINE inline PreparedSource prepare(float primary, float secondary,
  * @brief Two-wave interference: waves along x and along
  *        the axis at the source angle.
  * @tparam Prepared PreparedSource-shaped per-frame phases.
- * @param input Pattern-space coordinate.
+ * @param coordinate Pattern-space coordinate.
  * @param prepared Per-frame phases and rotation.
  * @return Field value in [-1, 1].
  */
@@ -283,7 +284,7 @@ HS_HOT_FLASH_MEMBER inline float twin_wave(const PlanePosition &coordinate,
 /**
  * @brief Concentric rings about the origin, moving outward with `primary`.
  * @tparam Prepared PreparedSource-shaped per-frame phases.
- * @param input Pattern-space coordinate.
+ * @param coordinate Pattern-space coordinate.
  * @param prepared Per-frame phases.
  * @return Field value in [-1, 1].
  */
@@ -297,7 +298,7 @@ HS_HOT_FLASH_MEMBER inline float rings(const PlanePosition &coordinate,
 /**
  * @brief Latitude bands about the prepared axis.
  * @tparam Params SphericalRingsSourceParams-shaped parameter block.
- * @param input Unit direction.
+ * @param coordinate Unit direction.
  * @param params Band count, thickness and softness.
  * @param prepared Band axis and phase.
  * @return 1 inside a band, -1 outside, ramped across the edge.
@@ -325,7 +326,7 @@ spherical_rings(const SphereDirection &coordinate, const Params &params,
 /**
  * @brief Three-armed Archimedean spiral turned by the source angle.
  * @tparam Prepared PreparedSource-shaped per-frame phases.
- * @param input Pattern-space coordinate.
+ * @param coordinate Pattern-space coordinate.
  * @param prepared Per-frame phase and rotation.
  * @return Field value in [-1, 1].
  */
@@ -343,7 +344,7 @@ HS_HOT_FLASH_MEMBER inline float spiral(const PlanePosition &coordinate,
  * @brief Coupled sine grid in the rotated frame.
  * @tparam Params Parameter block of the source family.
  * @tparam Prepared PreparedSource-shaped per-frame phases.
- * @param input Pattern-space coordinate.
+ * @param coordinate Pattern-space coordinate.
  * @param params Complexity and pattern mix.
  * @param prepared Per-frame phases and rotation.
  * @return Field value in [-1, 1].
@@ -379,7 +380,7 @@ HS_HOT_ITCM_MEMBER inline float grid(const PlanePosition &coordinate,
 /**
  * @brief Repeating cell primitive blended between circle and square.
  * @tparam Params LatticeSourceParams-shaped parameter block.
- * @param input Plane coordinate.
+ * @param coordinate Plane coordinate.
  * @param params Cell scale, shape blend, radius and softness.
  * @return 1 inside the primitive, -1 outside, ramped across the edge.
  */
@@ -406,7 +407,7 @@ primitive_lattice(const PlanePosition &coordinate, const Params &params) {
  * @brief Quadratic escape-time fractal, blended from Mandelbrot to Julia.
  * @tparam Params FractalSourceParams-shaped parameter block.
  * @tparam Prepared PreparedFractal-shaped per-frame state.
- * @param input Plane coordinate.
+ * @param coordinate Plane coordinate.
  * @param params Scale and contour count.
  * @param prepared Rotation, seed, mix and iteration count.
  * @return Cosine contour of the escape orbit; 1 for points that never escape.
@@ -500,7 +501,7 @@ tessellation_distance(float x, float y, TessellationKind kind) {
  * @brief Antialiased edge lines of a periodic polygon tessellation.
  * @tparam Params TessellationSourceParams-shaped parameter block.
  * @tparam Prepared PreparedSource-shaped per-frame phases.
- * @param input Plane coordinate.
+ * @param coordinate Plane coordinate.
  * @param params Cell scale, line thickness and softness.
  * @param kind Cell shape.
  * @param prepared Per-frame rotation.
@@ -768,7 +769,8 @@ struct PlanePrimitiveLattice {
 
 /** @brief Pure sphere-ring policy with a consumer-supplied axis. */
 struct SphereRings : RadianSource<SphericalRingsSourceParams> {
-  using Coordinate = SphereDirection; ///< Admitted sphere direction.
+  using Coordinate =
+      SphereDirection; ///< Admitted unit direction. ///< Admitted sphere direction.
   /** @brief Complete immutable ring controls, axis and phase. */
   struct Prepared {
     Params params;                ///< Owned ring controls.

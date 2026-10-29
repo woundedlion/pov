@@ -24,8 +24,9 @@ inline float bounded_scalar(float value) {
 /** @brief Direct sphere evaluation of a source policy.
  * @tparam Source Immutable source with a sphere coordinate. */
 template <class Source> struct DirectSphereField {
-  using Coordinate = typename Source::Coordinate;
-  using Prepared = typename Source::Prepared;
+  using Coordinate =
+      typename Source::Coordinate;            ///< Admitted sphere coordinate.
+  using Prepared = typename Source::Prepared; ///< Immutable source inputs.
   static_assert(std::is_same_v<Coordinate, SphereDirection>);
   /** @brief Prepares the source from its declared inputs.
    * @param inputs Pure source preparation inputs.

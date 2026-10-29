@@ -120,15 +120,22 @@ struct GeneratedPaletteParams : Color::ColorControls {
   /// An `EnvelopeMode` value.
   uint8_t envelope_mode = static_cast<uint8_t>(EnvelopeMode::NONE);
 
+  /// Modulation enable values.
   static constexpr const char *ENABLED_IDS[] = {"disabled", "enabled"};
+  /// Pattern source values.
   static constexpr const char *SOURCE_IDS[] = {
       "noise", "directional-sine", "sphere-interference", "sphere-smooth-grid"};
+  /// Pattern evaluation values.
   static constexpr const char *EVALUATION_IDS[] = {"direct", "baked-cube"};
+  /// Color mechanic values.
   static constexpr const char *MECHANIC_IDS[] = {
       "hue-rotation", "positive-lightness-lift", "opacity"};
+  /// Noise octave formula values.
   static constexpr const char *BASIS_IDS[] = {"simplex", "fbm3", "ridged3"};
+  /// Noise sampling policy values.
   static constexpr const char *VARIANT_IDS[] = {"configured-single",
                                                 "octave-contour"};
+  /// Modulation parameter schema appended to the palette controls.
   static constexpr auto EXTRA_SCHEMA = [] {
     std::array<ParamFieldInfo, 38> out{};
     const char *ids[] = {"modulation-amount",
@@ -414,6 +421,7 @@ struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
                ? nullptr
                : "invalid modulation configuration";
   }
+  /// Interpolation contract for source and mechanic controls.
   static constexpr const char *ADMISSIBILITY_CONVEXITY =
       "Source controls hold endpoint recipes; mechanic strength interpolates within one kind.";
   static constexpr bool APPROXIMATE = true;
@@ -434,7 +442,12 @@ struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
                     const Params &, const Prepared &prepared) {
     return Color::apply_generated_palette(input, prepared);
   }
-  /** @brief Interpolates completed colors using shared direction admission. */
+  /** @brief Interpolates completed colors using shared direction admission.
+   * @param input Renderer field sample.
+   * @param current Current prepared endpoint.
+   * @param previous Retained prepared endpoint.
+   * @param fraction Current endpoint interpolation weight.
+   * @return Interpolated straight-alpha color. */
   static Color4 run_temporal(const FieldSample &input, const Prepared &current,
                              const Prepared &previous, float fraction) {
     const bool SAME_SOURCE =
@@ -444,7 +457,9 @@ struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
         input,
         {current, previous, fraction, frac_to_q16(fraction), SAME_SOURCE});
   }
-  /** @brief Holds modulation topology at its current endpoint. */
+  /** @brief Holds modulation topology at its current endpoint.
+   * @param field Parameter field index.
+   * @return Whether the field uses the current endpoint value. */
   static constexpr bool temporal_hold_field(uint16_t field) {
     return field >= Params::FIELDS.size() + Params::TOPOLOGY.size();
   }
