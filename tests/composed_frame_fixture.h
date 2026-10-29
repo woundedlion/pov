@@ -30,7 +30,7 @@ struct ComposedFrameWhiteBox {
   }
 
   template <typename FX> static typename FX::FrameState frame(FX &effect) {
-    return effect.prepare_frame();
+    return effect.frame_for_test();
   }
 };
 
