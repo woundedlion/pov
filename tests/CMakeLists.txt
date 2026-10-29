@@ -127,7 +127,7 @@ add_test(NAME unit_dma_led_guards COMMAND dma_led_guard_check)
 
 set(_color_header_sources)
 file(GLOB _color_headers CONFIGURE_DEPENDS "${HS_ROOT}/core/color/*.h")
-list(FILTER _color_headers EXCLUDE REGEX "_luts?\\.h$")
+list(FILTER _color_headers EXCLUDE REGEX "/(color_luts|gamut_lut|srgb_decode_lut)\\.h$")
 foreach(_header_path IN LISTS _color_headers)
   get_filename_component(_header "${_header_path}" NAME_WE)
   set(_source "${CMAKE_CURRENT_BINARY_DIR}/color_header_${_header}.cpp")
