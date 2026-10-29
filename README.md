@@ -426,7 +426,7 @@ Pullback chains reach the screen two ways:
 - **Composed effects.** A shader document under `patterns/` (`*.shader.json`) describes a chain: its ordered operators, parameters and presets; [source ownership](patterns/README.md#generated-and-hand-authored-sources) distinguishes authored studies from generated promotions. A `Pullback::ComposedEffect` wrapper in `effects/` compiles that chain into a typed pipeline, with generated identity and preset sections ([§6.5](#65-adding-an-effect)). These are ordinary firmware effects.
 - **`ShaderChain`.** The workbench's runtime interpreter loads an arbitrary chain from the operator catalog. It is simulator-only and powers the `shader.html` authoring tool ([§7.11](#711-standalone-design-tools-daydreamtools)).
 
-A composed effect's `Spec::Pipeline<B>` is the topology declaration. `Pullback::MetadataFor<Spec>` derives its projection, sampling coverage, value transfer and cutout, lens policy, surface order, path tracking, hue mode and brightness envelope from the typed stages. Slider gates and optional runtime storage use those derived values. `Spec` supplies the authored `HARMONY` and `ANIMATED_PROJECTION` controls; topology fields belong in the pipeline's policy types.
+A composed effect's `Spec::Pipeline<B>` is the topology declaration. `Pullback::MetadataFor<Spec>` derives its projection, sampling coverage, value transfer and cutout, lens policy, surface order, path tracking, hue mode and brightness envelope from the typed stages. Slider gates and optional runtime storage use those derived values. `Spec` supplies the authored `HARMONY`, `ANIMATED_PROJECTION`, `TEMPORAL_SAMPLING`, `FACTORED_COLUMNS`, `MODULATION` and `MODULATION_EVALUATION` controls; topology fields belong in the pipeline's policy types.
 
 The shader-document format and authoring CLI are described in [`patterns/README.md`](https://github.com/woundedlion/pov/blob/master/patterns/README.md).
 
@@ -777,7 +777,7 @@ conversion.
 | `getShaderChainBindings()` | Acquire the loaded chain's authoring capability, or null for a fixed effect. Release it with `delete()` after use. |
 | `ShaderChainBindings.isValid()` → `bool` | Whether the handle still addresses the live chain incarnation. |
 | `ShaderChainBindings.getProgram()` | Read back the ordered chain entries as `[{instance, operator}]`. |
-| `ShaderChainBindings.getSnapshot()` | Capture the complete program, named parameters, typed clocks/noise/walk state, generated palette bank and pause flag. |
+| `ShaderChainBindings.getSnapshot()` | Capture the schema-3 program, named parameters, required per-colorize modulation recipes, typed clocks/noise/walk state, generated palette bank and pause flag. Modulation fields travel in `modulation`, not named parameters; sending them as parameters returns `INVALID_VALUE`. |
 | `ShaderChainBindings.restoreSnapshot(snapshot)` | Restore atomically; a refusal commits no restoration writes. Side effects of caller accessors during payload cloning are not rolled back. Returns `Module.ChainSnapshotRestoreResult`. |
 | `getPixels()` | Return a zero-copy `Uint16Array` view into WASM linear memory, spanning the active resolution's prefix of the fixed backing buffer |
 | `getBufferLength()` → `int` | Length of the pixel buffer (`W × H × 3`) for sizing the view, and the staleness test for a cached one: a `setResolution` moves this length without detaching the outstanding view |

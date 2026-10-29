@@ -155,7 +155,7 @@ The fragment shader receives `pos` set to the closest local-space hit point (in 
 
 ### Composed pullback metadata
 
-`Pullback::Spec` supplies a typed `Pipeline<B>` plus palette harmony and projection animation controls. `Pullback::MetadataFor<Spec>` inspects the normalized semantic leaves, including nested placement groups and optional `void` entries. It derives projection, sampling and field coverage, transfer kind, lens policy, surface placement, path tracking and color modes without binding an executable frame. `ComposedEffect::Metadata` exposes that topology to slider registration and optional storage. Authored scalar topology fields are rejected.
+`Pullback::Spec` supplies a typed `Pipeline<B>` plus the `HARMONY`, `ANIMATED_PROJECTION`, `TEMPORAL_SAMPLING`, `FACTORED_COLUMNS`, `MODULATION` and `MODULATION_EVALUATION` controls. `Pullback::MetadataFor<Spec>` inspects the normalized semantic leaves, including nested placement groups and optional `void` entries. It derives projection, sampling and field coverage, transfer kind, lens policy, surface placement, path tracking and color modes without binding an executable frame. `ComposedEffect::Metadata` exposes that topology to slider registration and optional storage. Authored scalar topology fields are rejected.
 
 ### Space-time rendering
 

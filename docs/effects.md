@@ -636,7 +636,7 @@ shading — planar-source path through the shared Scan::Shader loop
   Canvas
 ```
 
-The core catalog owns the reusable surface, lens, projection, planar-warp, source, material, and generated-color policies. The `Project` crossing rotates into the projection frame, projects, and embeds the projection's provenance and the sample point into the plane carrier. Each `Warp` stage advances the working coordinate and path accumulator, leaving provenance and sample point immutable. The `Sample` crossing consumes the provenance: it weights the raw signed field, ramps it into [0, 1], and folds projected coverage and domain coverage into the field carrier; `Transfer` and `Coverage` stages then reshape value and coverage. The terminal Colorize crossing samples the selected generated harmony, optionally rotates its hue with sphere-space noise or total path length, and returns straight-alpha `Color4`; the scan sink performs the final premultiplication.
+The core catalog owns the reusable surface, lens, projection, planar-warp, source, material, and generated-color policies. The `Project` crossing rotates into the projection frame, projects, and embeds the projection's provenance and the sample point into the plane carrier. Each `Warp` stage advances the working coordinate and path accumulator, leaving provenance and sample point immutable. The `Sample` crossing consumes the provenance: it weights the raw signed field, ramps it into [0, 1], and folds projected coverage and domain coverage into the field carrier; `Transfer` and `Coverage` stages then reshape value and coverage. The terminal Colorize crossing samples the selected generated harmony, optionally shifts its hue by total path length, applies its sphere-space modulation recipe, and returns straight-alpha `Color4`; the scan sink performs the final premultiplication.
 
 Two stages carry approved approximations. Fast square Peirce projection and the hue-rotation LUT each name a host reference oracle, exact non-floating fields, error domains, limits, and a final-framebuffer metric as part of the stage contract. Native tests compare KaleidoscopeMelt and KaleidoscopeSmooth presets with their document-built `ShaderChain` through `tests/composed_chain_fixture.h`. Operator parity lives in `tests/test_shader_chain.h`; `tests/test_effects.h` checks AshCloud's value-cutout endpoints (threshold 0 lights pixels; threshold 1 blanks the frame), and versioned chain snapshots have capture fixtures. Approximation capture tests compare the chain renderer with exact projection and color kernels. Teensy preprocessing excludes the interpreter.
 
@@ -695,7 +695,7 @@ cannot follow a projection: that would move backward in carrier rank.
 | **Sphere source** | Spherical Noise, Spherical Rings | Sphere → Field; source-specific controls; no projection or planar warp |
 | **Value transfer** | Ridge, Iso Contour, Smooth Bands | Field → Field; reshapes the normalized value; iso and band controls belong to their operator |
 | **Coverage** | Value Cutout | Field → Field; cutout threshold and softness; projection-based coverage belongs to planar sources |
-| **Colorize** | Generated Triadic, Complementary, Analogous | Field → Color; palette mapping, phase oscillation, brightness envelope, opacity and optional hue shift |
+| **Colorize** | Generated Triadic, Complementary, Analogous | Field → Color; palette mapping, phase oscillation, brightness envelope, opacity, optional path-length hue shift and a sphere-space modulation recipe |
 
 Planar-warp **Speed** advances its wrapped phase in cycles per frame. The chain
 operator `warp.affine.v3` uses its explicit **Lattice Period** (1/64–100 plane
@@ -729,11 +729,14 @@ their selected hue mode, and brightness endpoints require a brightness
 envelope. Deactivation dims the controls without removing their stored values.
 The exact fields and ranges come from the selected operator instances.
 
-**Hue Shift Mode** selects the colorizer's hue source. Noise samples the
-sphere direction carried through the chain. **Path Length** uses the
-shared accumulated path length, to which selected displacement and warp
+**Hue Shift Mode** selects **None** or **Path Length**. **Path Length** uses
+the shared accumulated path length, to which selected displacement and warp
 operators contribute. Opposing warps contribute both traveled distances rather
 than canceling as a net offset. Hue controls belong to the colorizer instance.
+
+The colorizer's modulation recipe samples the sphere direction carried through
+the chain. It selects a noise, sine, interference or smooth-grid source, an
+evaluation policy and a hue-rotation, opacity or positive-lightness-lift mechanic.
 
 Projection seams use provenance supplied by the projection kernel. **Edge
 Fade** gives both sides of a paired cut the authored fade; glued and periodic
