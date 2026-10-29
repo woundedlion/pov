@@ -44,22 +44,26 @@ inline MobiusLensParams interpolate(const MobiusLensParams &a,
 
 /**
  * @brief Interpolates a whole parameter set, family by family.
+ * @tparam Modulation Whether spatial modulation is available.
+ * @tparam Resources Parameter resources.
  * @param from Parameters at progress 0.
  * @param to Parameters at progress 1.
  * @param progress Progress fraction, already eased by the caller.
  * @return The interpolated parameter set.
  */
-template <typename... Resources>
-inline ComposedDetail::ParameterSet<ComposedDetail::ResourceList<Resources...>>
+template <bool Modulation, typename... Resources>
+inline ComposedDetail::ParameterSet<ComposedDetail::ResourceList<Resources...>,
+                                    Modulation>
 interpolate(const ComposedDetail::ParameterSet<
-                ComposedDetail::ResourceList<Resources...>> &from,
+                ComposedDetail::ResourceList<Resources...>, Modulation> &from,
             const ComposedDetail::ParameterSet<
-                ComposedDetail::ResourceList<Resources...>> &to,
+                ComposedDetail::ResourceList<Resources...>, Modulation> &to,
             float progress) {
-  return {ComposedDetail::ParameterBlock<Resources::KEY,
-                                         typename Resources::Family>{
-      interpolate(from.template get<Resources::KEY>(),
-                  to.template get<Resources::KEY>(), progress)}...};
+  return {
+      ComposedDetail::ParameterBlock<Resources::KEY, typename Resources::Family,
+                                     Modulation>{
+          interpolate(from.template get<Resources::KEY>(),
+                      to.template get<Resources::KEY>(), progress)}...};
 }
 
 /**
@@ -161,13 +165,15 @@ inline bool valid(const ColorParams &p) {
 
 /**
  * @brief Whether every family of a parameter set is in range.
+ * @tparam Modulation Whether spatial modulation is available.
  * @tparam Resources The set's parameter resources.
  * @param params Parameter set to check.
  * @return True only when every declared instance passes.
  */
-template <typename... Resources>
-inline bool valid(const ComposedDetail::ParameterSet<
-                  ComposedDetail::ResourceList<Resources...>> &params) {
+template <bool Modulation, typename... Resources>
+inline bool
+valid(const ComposedDetail::ParameterSet<
+      ComposedDetail::ResourceList<Resources...>, Modulation> &params) {
   bool result = true;
   params.visit([&]<typename Resource>(const auto &family) {
     result = valid(family) && result;

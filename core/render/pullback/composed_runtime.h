@@ -272,7 +272,7 @@ public:
    *  @return True when every family is in range. */
   static bool valid_params(const Params &params) {
     return Pullback::valid(params) &&
-           (Metadata::HUE != HueMode::PATH_LENGTH ||
+           ((SpecT::MODULATION && Metadata::HUE != HueMode::PATH_LENGTH) ||
             !params.template get<"color">().modulation.enabled);
   }
 #if HS_ENABLE_PARAM_GUI_BRIDGE

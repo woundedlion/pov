@@ -177,9 +177,18 @@ struct DiscoveryBinding {
   using Instrumentation = NoInstrumentation; ///< Uninstrumented.
 };
 
-/** @brief One keyed parameter family, as a ParameterSet base. */
-template <ResourceKey Key, typename Family> struct ParameterBlock {
-  Family data{}; ///< The family's parameter values.
+/** @brief One keyed parameter family, as a ParameterSet base.
+ * @tparam Key Resource key.
+ * @tparam Family Parameter record.
+ * @tparam Modulation Default enabled state of an available spatial slot. */
+template <ResourceKey Key, typename Family, bool Modulation = true>
+struct ParameterBlock {
+  Family data = [] {
+    Family value{};
+    if constexpr (requires { value.modulation; })
+      value.modulation.enabled = Modulation;
+    return value;
+  }(); ///< The family's parameter values.
   /** @brief Mutable access.
    *  @return `data`. */
   constexpr Family &resource() { return data; }
@@ -211,11 +220,14 @@ template <> struct FamilyOf<void> {
   using Type = void;
 };
 
-template <typename List> struct ParameterSet;
-/** @brief Keyed parameter storage holding one family per resource. */
-template <typename... Resources>
-struct ParameterSet<ResourceList<Resources...>>
-    : ParameterBlock<Resources::KEY, typename Resources::Family>... {
+template <typename List, bool Modulation = true> struct ParameterSet;
+/** @brief Keyed parameter storage holding one family per resource.
+ * @tparam Modulation Whether the owner provides a spatial modulation slot.
+ * @tparam Resources Parameter resources. */
+template <bool Modulation, typename... Resources>
+struct ParameterSet<ResourceList<Resources...>, Modulation>
+    : ParameterBlock<Resources::KEY, typename Resources::Family,
+                     Modulation>... {
   using ResourceTypes = ResourceList<Resources...>; ///< The stored resources.
   /// The resource keyed `Key`, or void.
   template <ResourceKey Key>
@@ -233,7 +245,8 @@ struct ParameterSet<ResourceList<Resources...>>
   template <ResourceKey Key>
     requires(HAS<Key>)
   constexpr auto &get() {
-    return static_cast<ParameterBlock<Key, Family<Key>> &>(*this).resource();
+    return static_cast<ParameterBlock<Key, Family<Key>, Modulation> &>(*this)
+        .resource();
   }
   /** @brief The family keyed `Key`.
    *  @tparam Key Resource key.
@@ -241,7 +254,8 @@ struct ParameterSet<ResourceList<Resources...>>
   template <ResourceKey Key>
     requires(HAS<Key>)
   constexpr const auto &get() const {
-    return static_cast<const ParameterBlock<Key, Family<Key>> &>(*this)
+    return static_cast<const ParameterBlock<Key, Family<Key>, Modulation> &>(
+               *this)
         .resource();
   }
   /** @brief Calls `visitor.operator()<Resource>(family)` for each resource
@@ -365,6 +379,7 @@ struct ResourceStorage<Storage, ResourceList<Resources...>>
 template <typename Spec>
 using ParamsFor = ComposedDetail::ParameterSet<
     typename ComposedDetail::PipelineResources<typename Spec::template Pipeline<
-        ComposedDetail::DiscoveryBinding>>::Type>;
+        ComposedDetail::DiscoveryBinding>>::Type,
+    Spec::MODULATION>;
 
 } // namespace Pullback

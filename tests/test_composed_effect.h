@@ -199,6 +199,8 @@ inline void verify_family_equal(const Family &actual, const Family &expected) {
     HS_CONTEXT(field.id);
     HS_EXPECT_EQ(bits(actual.*(field.member)), bits(expected.*(field.member)));
   }
+  if constexpr (requires { actual.modulation; })
+    HS_EXPECT_TRUE(actual.modulation == expected.modulation);
 }
 
 /** @brief Bitwise-compares the eight Mobius coefficients. */
@@ -291,6 +293,9 @@ inline void check_slider_registration(const char *name) {
   reset_effect_globals();
   FX effect;
   effect.init();
+  const Params DEFAULTS{};
+  HS_EXPECT_EQ(DEFAULTS.template get<"color">().modulation.enabled,
+               FX::Spec::MODULATION);
   const ParamList &params = effect.getParameters();
 
   // Two sliders sharing a target leave one family member unreachable while the
@@ -419,10 +424,22 @@ inline void check_snapshot_contract(const char *name) {
                captured.params.template get<"color">().palette_mapping) +
            1) %
           MAPPINGS);
+  if constexpr (FX::Spec::MODULATION) {
+    auto &config = moved.params.template get<"color">().modulation;
+    config.mechanic.amount = config.mechanic.amount == 0.0f ? 0.5f : 0.0f;
+    config.noise.scale = config.noise.scale == 1.0f ? 2.0f : 1.0f;
+    config.noise.speed = config.noise.speed == 0.0f ? -0.0001f : 0.0f;
+  }
   HS_EXPECT_TRUE(effect.restore_parameters(moved));
   verify_params_equal(effect.serialize_parameters().params, moved.params);
   HS_EXPECT_TRUE(effect.restore_parameters(captured));
 
+  if constexpr (!FX::Spec::MODULATION) {
+    typename FX::ParameterSnapshot unavailable = captured;
+    unavailable.params.template get<"color">().modulation.enabled = true;
+    HS_EXPECT_FALSE(effect.restore_parameters(unavailable));
+    verify_params_equal(effect.serialize_parameters().params, captured.params);
+  }
   typename FX::ParameterSnapshot bumped = captured;
   bumped.schema_version += 1;
   HS_EXPECT_FALSE(effect.restore_parameters(bumped));
