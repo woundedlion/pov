@@ -71,6 +71,30 @@ inline void test_shader_chain_modulation_bake_cache() {
   auto ctx = WB::frame_context(effect);
   HS_EXPECT_TRUE(ctx.modulation != nullptr);
   HS_EXPECT_TRUE(ctx.modulation->cube.active);
+  WB::program(effect).prepare(ctx);
+  const auto &prepared =
+      *reinterpret_cast<const PB::Color::GeneratedPaletteState *>(
+          WB::program(effect).prepared_block(3));
+  HS_EXPECT_TRUE(prepared.hue_rotation.active);
+  PB::Color::ColorParams composed_color;
+  composed_color.modulation = color.modulation;
+  HS_EXPECT_TRUE(PB::hue_rotation_active<PB::HueMode::NONE>(composed_color));
+  const PB::FieldSample SAMPLE{.373f, .65f, math::X_AXIS, 0};
+  const float ROTATION = math::wrap_t(
+      color.modulation.mechanic.amount *
+      PB::Modulation::sample(*ctx.modulation,
+                             Pattern::SphereDirection::from(SAMPLE.sphere)));
+  HS_EXPECT_NE(ROTATION, 0.0f);
+  HS_EXPECT_EQ(PB::Color::apply_generated_palette(SAMPLE, prepared).color,
+               sample_hue_rotation_lut({ctx.hue_rotation_lut, true},
+                                       SAMPLE.value, ROTATION));
+  auto zero_source = *ctx.modulation;
+  zero_source.evaluate = +[](const PB::Modulation::Prepared &,
+                             const Pattern::SphereDirection &) { return 0.0f; };
+  auto identity = prepared;
+  identity.modulation = &zero_source;
+  HS_EXPECT_EQ(PB::Color::apply_generated_palette(SAMPLE, identity).color,
+               prepared.palette->get(SAMPLE.value).color);
   auto *lut = WB::pattern_lut(effect);
   constexpr int8_t POISON = -128;
   const auto poison = [&] {
