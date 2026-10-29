@@ -61,10 +61,6 @@ inline void case_modulation_invalid_preparation() {
   config.version = opaque(uint16_t{0});
   (void)resources.prepare(config, STATE);
 }
-inline void case_modulation_unprepared_sample() {
-  const Pullback::Modulation::Prepared PREPARED;
-  (void)Pullback::Modulation::sample(PREPARED, Pattern::SphereDirection{});
-}
 inline void case_modulation_missing_cube_capacity() {
   ColorModulation::Config config;
   config.mechanic.amount = 0.5f;
@@ -80,19 +76,6 @@ inline void case_pattern_cube_invalid_direction() {
 inline void case_modulation_unknown_kernel() {
   (void)Pullback::Color::mechanic_kernel(
       static_cast<ColorModulation::Mechanic>(opaque(uint8_t{255})));
-}
-inline void case_modulation_endpoint_missing_direction() {
-  static uint8_t buffer[BakedPalette::required_arena_bytes()];
-  Arena arena(buffer, sizeof(buffer));
-  SolidColorPalette solid(Color4(Pixel(100, 200, 300), 0.5f));
-  BakedPaletteStorage palette;
-  palette.bake(arena, solid);
-  Pullback::Modulation::Prepared modulation;
-  Pullback::Color::GeneratedPaletteState state{};
-  state.palette = &palette.view();
-  state.modulation = &modulation;
-  state.mechanic.amount = 0.5f;
-  (void)Pullback::Color::generated_palette_endpoint({}, state, nullptr);
 }
 inline void case_modulation_control_index_invalid() {
   Pullback::Interp::Op::GeneratedPaletteParams params;

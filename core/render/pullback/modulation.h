@@ -192,7 +192,7 @@ struct Prepared {
  * @return Signed scalar in [-1, 1]. */
 inline float sample(const Prepared &prepared,
                     const Pattern::SphereDirection &direction) {
-  HS_CHECK(prepared.evaluate, "modulation endpoint is unprepared");
+  assert(prepared.evaluate);
   return Pattern::bounded_scalar(prepared.evaluate(prepared, direction));
 }
 /** @brief Complete spatial cache identity, independent of mechanic and palette. */

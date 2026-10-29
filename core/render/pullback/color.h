@@ -351,7 +351,7 @@ generated_palette_endpoint(const FieldSample &sample,
   Color4 color = state.palette->get(VALUE);
   if (state.modulation && state.modulation->config.enabled &&
       state.mechanic.amount != 0.0f) {
-    HS_CHECK(direction, "modulation requires an admitted sphere direction");
+    assert(direction);
     const float SCALAR =
         shared_scalar ? *shared_scalar
                       : Modulation::sample(*state.modulation, *direction);

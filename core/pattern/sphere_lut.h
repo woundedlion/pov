@@ -127,15 +127,13 @@ sample_sphere_lut_face(const SphereLutView &view, int face, float u, float v) {
 }
 
 /**
- * @brief Prepares cube-map scalar coordinates along a nonzero direction.
+ * @brief Prepares cube-map scalar coordinates along an admitted direction.
  * @param direction Finite direction with positive float squared length;
  *          normalization is not required.
  * @return Cube-map coordinates for a bilinear sample.
  */
 HS_O3_FN inline SphereLutSample
-prepare_sphere_lut_sample(const math::Vector &direction) {
-  HS_CHECK(SphereDirection::valid(direction),
-           "sphere lookup requires an admitted direction");
+prepare_sphere_lut_sample_unchecked(const math::Vector &direction) {
   const float ax = fabsf(direction.x);
   const float ay = fabsf(direction.y);
   const float az = fabsf(direction.z);
@@ -162,6 +160,16 @@ prepare_sphere_lut_sample(const math::Vector &direction) {
   return prepare_sphere_lut_face(face, u, v);
 }
 
+/** @brief Admits a raw direction and prepares its cube-map coordinates.
+ * @param direction Finite nondegenerate direction; normalization is not required.
+ * @return Cube-map coordinates for a bilinear sample. */
+HS_O3_FN inline SphereLutSample
+prepare_sphere_lut_sample(const math::Vector &direction) {
+  HS_CHECK(SphereDirection::valid(direction),
+           "sphere lookup requires an admitted direction");
+  return prepare_sphere_lut_sample_unchecked(direction);
+}
+
 /** @brief Samples the cube-map scalar field along a nonzero direction.
  * @param view Prepared scalar cube LUT.
  * @param direction Finite nonzero direction; normalization is not required.
@@ -177,14 +185,14 @@ HS_O3_FN inline float sample_sphere_lut(const SphereLutView &view,
  * @return Interpolated signed scalar. */
 inline float sample_sphere_lut(const SphereLutView &view,
                                const SphereDirection &direction) {
-  return sample_sphere_lut(view, direction.value());
+  return prepare_sphere_lut_sample_unchecked(direction.value()).sample(view);
 }
 /** @brief Prepares shared cube coordinates for an admitted direction.
  * @param direction Admitted unit direction.
  * @return Prepared cube taps. */
 inline SphereLutSample
 prepare_sphere_lut_sample(const SphereDirection &direction) {
-  return prepare_sphere_lut_sample(direction.value());
+  return prepare_sphere_lut_sample_unchecked(direction.value());
 }
 /** @brief Symmetric face-lattice coordinate for an edge index.
  * @param index Sample index in [0, FACE_STEPS).
