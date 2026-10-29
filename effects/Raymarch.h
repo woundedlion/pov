@@ -13,7 +13,9 @@
 #include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "effects/common/palette_recipes.h"
-#include "core/color/noise_hue_palette.h"
+#include "core/color/modulation.h"
+#include "core/pattern/noise.h"
+#include "core/pattern/sphere_lut.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
 #include "core/render/pullback/runtime_seeds.h"
@@ -330,9 +332,6 @@ public:
     prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE>(
                                  palette_state->hue_rotation_lut),
                              baked_palette);
-    noise_palette.bind(&baked_palette.view(),
-                       palette_state->hue_rotation_lut.data(),
-                       palette_state->hue_noise_lut.data());
     refresh_hue_noise();
 
     timeline.add(0,
@@ -416,9 +415,14 @@ private:
   }
 
   HS_FLASH_MEMBER void refresh_hue_noise() {
-    palette_state->hue_noise_bake.refresh(
-        std::span<int8_t, HueNoiseLutView::SIZE>(palette_state->hue_noise_lut),
-        palette_state->noise, params.hue_noise_scale, hue_noise_phase);
+    const math::NoiseFieldSpec KEY{.seed = Pullback::HUE_NOISE_SEED,
+                                   .scale = params.hue_noise_scale,
+                                   .phase = hue_noise_phase};
+    const Pattern::NoiseParams INPUTS{.scale = params.hue_noise_scale};
+    const auto PREPARED = Pattern::SphereNoise::prepare(
+        INPUTS, {hue_noise_phase}, palette_state->noise);
+    palette_state->hue_noise_bake.template refresh<Pattern::SphereNoise>(
+        palette_state->hue_noise_lut, KEY, PREPARED);
   }
 
   /**
@@ -429,9 +433,12 @@ private:
   HS_FLASH_MEMBER void advance_hue_noise() {
     hue_noise_phase = math::wrap_t(hue_noise_phase + params.hue_noise_speed);
     PaletteState &state = *palette_state;
-    hue_noise_moved =
-        !Spacetime::flat_surface() &&
-        !state.hue_noise_bake.holds(params.hue_noise_scale, hue_noise_phase);
+    hue_noise_moved = !Spacetime::flat_surface() &&
+                      !state.hue_noise_bake.holds(
+                          state.hue_noise_lut.data(),
+                          math::NoiseFieldSpec{.seed = Pullback::HUE_NOISE_SEED,
+                                               .scale = params.hue_noise_scale,
+                                               .phase = hue_noise_phase});
     if (hue_noise_moved)
       state.drawn_hue_noise_lut = state.hue_noise_lut;
     refresh_hue_noise();
@@ -444,6 +451,22 @@ private:
     float cos_v;
     float sin_v;
   };
+
+  float surface_noise_sample(const SurfaceFrame &surface,
+                             const int8_t *before = nullptr,
+                             float weight = 1.0f) const {
+    const auto U = Pattern::prepare_sphere_lut_sample(
+        math::Vector(surface.cos_u, surface.sin_u, surface.cos_v));
+    const auto V = Pattern::prepare_sphere_lut_sample(
+        math::Vector(surface.cos_v, surface.sin_v, surface.sin_u));
+    const Pattern::SphereLutView NOW{palette_state->hue_noise_lut.data(), true};
+    const float CURRENT = U.sample(NOW) + V.sample(NOW);
+    if (!before)
+      return .5f * CURRENT;
+    const Pattern::SphereLutView PREVIOUS{before, true};
+    const float PREV = U.sample(PREVIOUS) + V.sample(PREVIOUS);
+    return .5f * (PREV + weight * (CURRENT - PREV));
+  }
 
   HS_O3_FN static SurfaceFrame
   surface_frame(const SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> &torus,
@@ -494,16 +517,13 @@ private:
 
     float surface_noise;
     if constexpr (BLEND_NOISE)
-      surface_noise =
-          noise_palette.noise_uv(surface.cos_u, surface.sin_u, surface.cos_v,
-                                 surface.sin_v, noise_before, noise_weight);
+      surface_noise = surface_noise_sample(surface, noise_before, noise_weight);
     else
-      surface_noise = noise_palette.noise_uv(surface.cos_u, surface.sin_u,
-                                             surface.cos_v, surface.sin_v);
+      surface_noise = surface_noise_sample(surface);
     float palette_t =
         math::wrap_t(0.5f * (surface_noise + 1.0f) + palette_offset);
     float hue_shift = params.hue_shift * surface_noise;
-    Pixel color = params.hue_shift == 0.0f
+    Pixel color = hue_shift - floorf(hue_shift) == 0.0f
                       ? baked_palette.get_color(palette_t)
                       : sample_hue_rotation_lut(
                             {palette_state->hue_rotation_lut.data(), true},
@@ -678,11 +698,11 @@ private:
 
   struct PaletteState {
     std::array<Pixel, HueRotationLutView::SIZE> hue_rotation_lut;
-    std::array<int8_t, HueNoiseLutView::SIZE> hue_noise_lut;
+    std::array<int8_t, Pattern::SphereLutView::SIZE> hue_noise_lut;
     /// The hue-noise table drawn before the latest rebake.
-    std::array<int8_t, HueNoiseLutView::SIZE> drawn_hue_noise_lut;
+    std::array<int8_t, Pattern::SphereLutView::SIZE> drawn_hue_noise_lut;
     FastNoiseLite noise;
-    HueNoiseBakeCache hue_noise_bake;
+    Pattern::SphereBakeCache<math::NoiseFieldSpec> hue_noise_bake;
   };
 
   FastNoiseLite camera_noise;
@@ -705,7 +725,6 @@ private:
   Pipeline<W, H> pipeline; // Empty — camera rotation applied to inputs
   GenerativePalette palette{EffectPaletteRecipes::raymarch()};
   BakedPaletteStorage baked_palette;
-  NoiseHuePalette<BakedPalette> noise_palette;
 
   // init() bakes one palette LUT and allocates the MAX_POINTS VolumeSpin array
   // and PaletteState from the persistent arena. The total must fit the default

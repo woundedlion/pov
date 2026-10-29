@@ -16,7 +16,9 @@
 #include <cmath>
 #include <utility>
 #include "effects/common/palette_recipes.h"
-#include "core/color/noise_shimmer_palette.h"
+#include "core/color/modulation.h"
+#include "core/pattern/noise.h"
+#include "core/pattern/sphere_lut.h"
 #include "core/engine/engine.h"
 #include "effects/common/reaction_diffusion.h"
 
@@ -80,7 +82,7 @@ public:
         NUM_SEED_CLUSTERS *
             (PALETTE_SIZE * sizeof(Pixel) +
              COLOR_VALUE_STEPS * COLOR_NOISE_STEPS * sizeof(FloatRgb)) +
-        2 * alignof(Pixel) + 2 * HueNoiseLutView::SIZE * sizeof(int8_t);
+        2 * alignof(Pixel) + 2 * Pattern::SphereLutView::SIZE * sizeof(int8_t);
     constexpr size_t PERSISTENT_BYTES = 192 * 1024 + 32;
     constexpr size_t PHYSICS_SCRATCH_BYTES =
         2u * RD_N * sizeof(float) + RD_N * sizeof(uint16_t) +
@@ -120,9 +122,9 @@ public:
     shimmer_cache.attach(persistent_arena.allocate_n<FloatRgb>(
         NUM_SEED_CLUSTERS * COLOR_VALUE_STEPS * COLOR_NOISE_STEPS));
     color_noise_lut =
-        persistent_arena.allocate_n<int8_t>(HueNoiseLutView::SIZE);
+        persistent_arena.allocate_n<int8_t>(Pattern::SphereLutView::SIZE);
     previous_noise_lut =
-        persistent_arena.allocate_n<int8_t>(HueNoiseLutView::SIZE);
+        persistent_arena.allocate_n<int8_t>(Pattern::SphereLutView::SIZE);
     color_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     color_noise.SetSeed(6047);
     color_noise.SetFrequency(1.0f);
@@ -421,7 +423,8 @@ private:
     const Color4 SOURCE(palette_color(seed, t), 1.0f);
     const Color4 SHIFTED =
         shift == 0.0f ? SOURCE : hue_rotate_lut_gamut(SOURCE, shift);
-    return NoiseShimmerPalette<SeedPalette>::lift_color(SHIFTED, lightness)
+    return ColorModulation::PositiveLightnessLift::apply(SHIFTED, lightness,
+                                                         {1.0f})
         .color;
   }
 
@@ -527,10 +530,15 @@ private:
   }
 
   HS_FLASH_INLINE void refresh_color_noise() {
-    color_noise_cache.refresh<true>(std::span<int8_t, HueNoiseLutView::SIZE>(
-                                        color_noise_lut, HueNoiseLutView::SIZE),
-                                    color_noise, params.noise_scale,
-                                    color_noise_phase);
+    const math::NoiseFieldSpec KEY{
+        .seed = 6047, .scale = params.noise_scale, .phase = color_noise_phase};
+    const Pattern::NoiseParams INPUTS{.scale = params.noise_scale};
+    const auto PREPARED =
+        Pattern::SphereNoise::prepare(INPUTS, {color_noise_phase}, color_noise);
+    color_noise_cache.refresh<Pattern::SphereNoise>(
+        std::span<int8_t, Pattern::SphereLutView::SIZE>(
+            color_noise_lut, Pattern::SphereLutView::SIZE),
+        KEY, PREPARED);
   }
 
   void advance_color_noise() {
@@ -550,14 +558,15 @@ private:
    * the current scale; otherwise slabs shade the current table alone.
    */
   void retain_color_noise(float previous_phase) {
-    noise_history = color_noise_cache.phase == previous_phase &&
-                    color_noise_cache.scale == params.noise_scale;
+    noise_history = color_noise_cache.identity.phase == previous_phase &&
+                    color_noise_cache.identity.scale == params.noise_scale;
     if (noise_history)
-      std::copy_n(color_noise_lut, HueNoiseLutView::SIZE, previous_noise_lut);
+      std::copy_n(color_noise_lut, Pattern::SphereLutView::SIZE,
+                  previous_noise_lut);
   }
 
   float sample_color_noise(const math::Vector &direction) const {
-    return sample_hue_noise_lut({color_noise_lut, true}, direction);
+    return Pattern::sample_sphere_lut({color_noise_lut, true}, direction);
   }
 
   HS_O3_FN __attribute__((always_inline)) float sample_color_noise(
@@ -565,7 +574,8 @@ private:
     const int FACE = projection.face;
     const float U = FACE < 2 ? -projection.u : projection.u;
     const float V = FACE >= 2 && FACE < 4 ? -projection.v : projection.v;
-    const HueNoiseSample SAMPLE = prepare_hue_noise_face(FACE, U, V);
+    const Pattern::SphereLutSample SAMPLE =
+        Pattern::prepare_sphere_lut_face(FACE, U, V);
     const float NOW = SAMPLE.sample({color_noise_lut, true});
     if (!slab_noise.previous)
       return NOW;
@@ -1671,7 +1681,7 @@ private:
     float weight = 1.0f; ///< Weight of the current table.
   } slab_noise;
   FastNoiseLite color_noise;
-  HueNoiseBakeCache color_noise_cache;
+  Pattern::SphereBakeCache<math::NoiseFieldSpec> color_noise_cache;
   float color_noise_phase = 0.0f;
 
   /**

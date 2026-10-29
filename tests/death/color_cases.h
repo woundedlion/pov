@@ -21,10 +21,8 @@ inline void case_gamut_lut_scratch_b() {
 
 /** @brief Traps on noise hue bake invalid scale. */
 inline void case_noise_hue_bake_invalid_scale() {
-  static std::array<int8_t, HueNoiseLutView::SIZE> output{};
   FastNoiseLite noise;
-  HueNoiseBakeCache cache;
-  (void)cache.refresh(output, noise, opaque(0.0f), 0.0f);
+  (void)Pattern::SphereNoise::prepare({.scale = opaque(0.0f)}, {}, noise);
 }
 
 /**
@@ -136,63 +134,28 @@ inline void case_generated_palette_bank_unknown_mode() {
   (void)bank.palette(opaque(static_cast<Mode>(3)));
 }
 
-/**
- * @brief Death case: NoiseHuePalette requires a non-null palette source.
- */
-inline void case_noise_hue_palette_direct_null_source() {
-  static int8_t noise_lut[1];
-  NoiseHuePalette<SolidColorPalette> palette;
-  palette.bind(opaque<const SolidColorPalette *>(nullptr), noise_lut);
+/** @brief Generic modulation rejects an unbound palette. */
+inline void case_modulation_null_palette() {
+  struct Field {
+    using Coordinate = Pattern::SphereDirection;
+    struct Prepared {};
+    static float sample(const Coordinate &, const Prepared &) { return 0; }
+  };
+  PatternModulatedPalette<SolidColorPalette, Field, ColorModulation::Opacity>
+      palette;
+  (void)palette.get(.5f, Pattern::SphereDirection::from(math::X_AXIS));
 }
-
-/** @brief Traps on noise hue palette direct null noise lut. */
-inline void case_noise_hue_palette_direct_null_noise_lut() {
-  SolidColorPalette source(Color4(Pixel(255, 0, 0), 1.0f));
-  NoiseHuePalette<SolidColorPalette> palette;
-  palette.bind(&source, opaque<const int8_t *>(nullptr));
+/** @brief Sphere field admission rejects a zero direction. */
+inline void case_modulation_zero_direction() {
+  (void)Pattern::SphereDirection::from(opaque(math::Vector(0, 0, 0)));
 }
-
-/** @brief Traps on noise shimmer palette null source. */
-inline void case_noise_shimmer_palette_null_source() {
-  static int8_t noise_lut[1];
-  NoiseShimmerPalette<SolidColorPalette> palette;
-  palette.bind(opaque<const SolidColorPalette *>(nullptr), noise_lut);
+/** @brief Sphere field admission rejects an infinite direction. */
+inline void case_modulation_infinite_direction() {
+  (void)Pattern::SphereDirection::from(opaque(math::Vector(INFINITY, 0, 0)));
 }
-
-/** @brief Traps on noise shimmer palette null noise lut. */
-inline void case_noise_shimmer_palette_null_noise_lut() {
-  SolidColorPalette source(Color4(Pixel(255, 0, 0), 1.0f));
-  NoiseShimmerPalette<SolidColorPalette> palette;
-  palette.bind(&source, opaque<const int8_t *>(nullptr));
-}
-
-/** @brief Traps on noise hue palette null source. */
-inline void case_noise_hue_palette_null_source() {
-  static Pixel hue_rotation_lut[1];
-  static int8_t hue_noise_lut[1];
-  NoiseHuePalette<SolidColorPalette> palette;
-  palette.bind(opaque<const SolidColorPalette *>(nullptr), hue_rotation_lut,
-               hue_noise_lut);
-}
-
-/**
- * @brief Death case: NoiseHuePalette requires a non-null hue-rotation LUT.
- */
-inline void case_noise_hue_palette_null_rotation_lut() {
-  SolidColorPalette source(Color4(Pixel(255, 0, 0), 1.0f));
-  static int8_t hue_noise_lut[1];
-  NoiseHuePalette<SolidColorPalette> palette;
-  palette.bind(&source, opaque<const Pixel *>(nullptr), hue_noise_lut);
-}
-
-/**
- * @brief Death case: NoiseHuePalette requires a non-null hue-noise LUT.
- */
-inline void case_noise_hue_palette_null_noise_lut() {
-  SolidColorPalette source(Color4(Pixel(255, 0, 0), 1.0f));
-  static Pixel hue_rotation_lut[1];
-  NoiseHuePalette<SolidColorPalette> palette;
-  palette.bind(&source, hue_rotation_lut, opaque<const int8_t *>(nullptr));
+/** @brief Opacity preparation rejects an out-of-range strength. */
+inline void case_modulation_invalid_opacity() {
+  (void)ColorModulation::Opacity::prepare({opaque(1.1f)});
 }
 
 /**

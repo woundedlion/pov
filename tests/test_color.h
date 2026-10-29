@@ -19,8 +19,9 @@
 #include "core/color/composition.h"
 #include "effects/common/palette_recipes.h"
 #include "core/color/generative_palette.h"
-#include "core/color/noise_hue_palette.h"
-#include "core/color/noise_shimmer_palette.h"
+#include "core/color/modulation.h"
+#include "core/pattern/noise.h"
+#include "core/pattern/sphere_lut.h"
 #include "core/color/palette_cycler.h"
 #include "core/color/srgb_decode.h"
 #include "core/memory.h"
@@ -39,6 +40,8 @@ namespace color_tests {
 #include "tests/color/generative_palette_cases.h"
 #include "tests/color/palette_cycler_cases.h"
 #include "tests/color/palette_layer.h"
+#include "tests/color/modulation.h"
+#include "tests/pattern/sphere_lut.h"
 
 inline void test_wrap_angle_pi_large_arguments() {
   for (float angle : {25700.0f, -25700.0f, 1000.0f * math::TWO_PI_F + 0.25f}) {
@@ -264,13 +267,12 @@ inline int run_color_tests() {
   HS_RUN(test_static_palette_composition);
   HS_RUN(test_palette_wrappers);
   HS_RUN(test_palette_shade_coord_policy);
-  HS_RUN(test_noise_hue_palette);
-  HS_RUN(test_noise_hue_palette_direct);
-  HS_RUN(test_noise_shimmer_palette);
-  HS_RUN(test_hue_noise_lut_seamless_across_faces);
-  HS_RUN(test_hue_noise_face_linear_table);
-  HS_RUN(test_hue_noise_bake_cache);
-  HS_RUN(test_hue_noise_paired_bakes_match_reference);
+  HS_RUN(test_color_modulation_mechanics);
+  HS_RUN(test_pattern_modulated_palette);
+  HS_RUN(test_sphere_lut_seamless_across_faces);
+  HS_RUN(test_sphere_face_linear_table);
+  HS_RUN(test_sphere_bake_cache);
+  HS_RUN(test_sphere_bakes_match_reference);
 
   // Clamp-before-cast / NaN-saturation checks, shared with the fast-math pass.
   const int before_clamp = hs_test::stats().passed + hs_test::stats().failed;

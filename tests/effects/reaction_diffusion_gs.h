@@ -212,18 +212,21 @@ struct GSWhiteBox {
   }
   static std::vector<int8_t> previous_noise(const GS &gs) {
     return {gs.previous_noise_lut,
-            gs.previous_noise_lut + HueNoiseLutView::SIZE};
+            gs.previous_noise_lut + Pattern::SphereLutView::SIZE};
   }
   static std::vector<int8_t> current_noise(const GS &gs) {
-    return {gs.color_noise_lut, gs.color_noise_lut + HueNoiseLutView::SIZE};
+    return {gs.color_noise_lut,
+            gs.color_noise_lut + Pattern::SphereLutView::SIZE};
   }
   /** @brief The table the noise bake gives at `phase`, from the effect's
    *         noise source and scale. */
   static std::vector<int8_t> bake_noise(const GS &gs, float phase) {
-    std::vector<int8_t> table(HueNoiseLutView::SIZE);
-    prepare_hue_noise_lut<true>(std::span<int8_t, HueNoiseLutView::SIZE>(
-                                    table.data(), HueNoiseLutView::SIZE),
-                                gs.color_noise, gs.params.noise_scale, phase);
+    std::vector<int8_t> table(Pattern::SphereLutView::SIZE);
+    Pattern::prepare_sphere_lut<Pattern::SphereNoise>(
+        std::span<int8_t, Pattern::SphereLutView::SIZE>(
+            table.data(), Pattern::SphereLutView::SIZE),
+        Pattern::SphereNoise::prepare({.scale = gs.params.noise_scale}, {phase},
+                                      gs.color_noise));
     return table;
   }
   /** @brief Replaces the view orientation's frame endpoints. */
@@ -483,14 +486,11 @@ struct GSWhiteBox {
   static Pixel wrapped_palette(const GS &gs, int seed, float t, float shift,
                                float lightness) {
     typename GS::SeedPalette source{gs.palettes + seed * GS::PALETTE_SIZE};
-    NoiseHuePalette<typename GS::SeedPalette> hue(&source, gs.color_noise_lut);
-    struct Shifted {
-      const NoiseHuePalette<typename GS::SeedPalette> &palette;
-      float shift;
-      Color4 get(float value) const { return palette.get(value, shift); }
-    } shifted{hue, shift};
-    NoiseShimmerPalette<Shifted> shimmer(&shifted, gs.color_noise_lut);
-    return shimmer.get(t, lightness).color;
+    const auto SHIFTED =
+        ColorModulation::HueRotation::apply(source.get(t), shift, {1.0f});
+    return ColorModulation::PositiveLightnessLift::apply(SHIFTED, lightness,
+                                                         {1.0f})
+        .color;
   }
   static std::array<float, 4> color_params(const GS &gs) {
     return {gs.params.noise_speed, gs.params.noise_scale, gs.params.hue_shift,
@@ -515,8 +515,10 @@ struct GSWhiteBox {
     return gs.sample_color_noise(direction);
   }
   static bool noise_bake_matches_reference(GS &gs, float scale, float phase) {
-    std::array<int8_t, HueNoiseLutView::SIZE> expected;
-    prepare_hue_noise_lut(expected, gs.color_noise, scale, phase);
+    std::array<int8_t, Pattern::SphereLutView::SIZE> expected;
+    Pattern::prepare_sphere_lut<Pattern::SphereNoise>(
+        expected, Pattern::SphereNoise::prepare({.scale = scale}, {phase},
+                                                gs.color_noise));
     gs.params.noise_scale = scale;
     gs.color_noise_phase = phase;
     gs.refresh_color_noise();
@@ -966,10 +968,10 @@ inline void test_gs_shared_cube_projection() {
   for (float phase : {0.0f, 0.123f, 0.9999f}) {
     GSWhiteBox::set_noise_phase(gs, phase);
     GSWhiteBox::advance_color_noise(gs);
-    for (int face = 0; face < HueNoiseLutView::FACE_COUNT; ++face)
+    for (int face = 0; face < Pattern::SphereLutView::FACE_COUNT; ++face)
       for (float u : {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f})
         for (float v : {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f}) {
-          const auto DIRECTION = hue_noise_face_direction(face, u, v);
+          const auto DIRECTION = Pattern::sphere_face_direction(face, u, v);
           const auto PROJECTION = ReactionGraph::CubemapLUT::project(DIRECTION);
           if (fabsf(u) < 1.0f && fabsf(v) < 1.0f) {
             HS_EXPECT_EQ(PROJECTION.face, face);

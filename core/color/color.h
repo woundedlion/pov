@@ -19,6 +19,5 @@
 #include "core/color/palette_wipe.h"
 #include "core/color/palettes.h"
 #include "core/color/palette_cycler.h"
-#include "core/color/noise_hue_palette.h"
-#include "core/color/noise_shimmer_palette.h"
+#include "core/color/modulation.h"
 #include "core/color/layer_composite.h"
