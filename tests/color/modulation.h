@@ -78,3 +78,22 @@ inline void test_pattern_modulated_palette() {
   HS_EXPECT_EQ(result.alpha, .4f);
   HS_EXPECT_EQ(calls, 1);
 }
+
+inline void test_hue_rotation_lut_clamps_out_of_range_value() {
+  static std::array<Pixel, 3 * HueRotationLutView::SIZE> storage;
+  storage.fill(Pixel(0, 0, 65535));
+  Pixel *const lut = storage.data() + HueRotationLutView::SIZE;
+  for (int hue = 0; hue < HueRotationLutView::HUE_STEPS; ++hue) {
+    lut[hue] = Pixel(65535, 0, 0);
+    lut[(HueRotationLutView::VALUE_STEPS - 1) * HueRotationLutView::HUE_STEPS +
+        hue] = Pixel(0, 65535, 0);
+  }
+
+  const HueRotationLutView view{lut, true};
+  HS_EXPECT_EQ(sample_hue_rotation_lut(view, -0.5f, 0.25f), Pixel(65535, 0, 0));
+  HS_EXPECT_EQ(sample_hue_rotation_lut(view, 1.5f, 0.25f), Pixel(0, 65535, 0));
+  HS_EXPECT_EQ(sample_hue_rotation_lut(view, NAN, 0.25f), Pixel(0, 65535, 0));
+  for (float amount : {-4.75f, -1e-7f, 3.5e8f, -3.5e8f, INFINITY, NAN})
+    HS_EXPECT_EQ(sample_hue_rotation_lut(view, 0.0f, amount),
+                 Pixel(65535, 0, 0));
+}

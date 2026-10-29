@@ -8,7 +8,6 @@
 #define HS_PATTERN_QUALIFICATION_REPORT 1
 #include <array>
 #include <cstring>
-#include "core/color/hue_rotation_lut.h"
 #include "core/pattern/noise.h"
 #include "core/pattern/sphere_lut.h"
 #include "tests/test_harness.h"
