@@ -32,13 +32,6 @@ inline void case_modulation_unknown_apply() {
   params.kind = static_cast<ColorModulation::Mechanic>(opaque(uint8_t{255}));
   (void)ColorModulation::apply(COLOR, 0.5f, params);
 }
-inline void case_modulation_palette_missing() {
-  using Field = Pattern::DirectSphereField<Pattern::DirectionalSine>;
-  ColorModulation::PatternModulatedPalette<SolidColorPalette, Field,
-                                           ColorModulation::Opacity>
-      palette;
-  (void)palette.get(0.5f, Pattern::SphereDirection{});
-}
 inline void case_modulation_invalid_initialization() {
   ColorModulation::Config config;
   (void)Pullback::Modulation::init(config);

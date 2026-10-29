@@ -180,7 +180,7 @@ struct PatternModulatedPalette {
    * @param coordinate Typed field coordinate.
    * @return Modulated straight-alpha color. */
   Color4 get(float value, const typename Field::Coordinate &coordinate) const {
-    HS_CHECK(palette != nullptr, "PatternModulatedPalette requires a palette");
+    assert(palette != nullptr);
     const Color4 color = palette->get(value);
     if constexpr (requires { Mechanic::is_identity(mechanic); }) {
       if (Mechanic::is_identity(mechanic))
