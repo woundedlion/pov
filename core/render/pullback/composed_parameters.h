@@ -23,12 +23,8 @@
 template <Pullback::HasFields T>
 inline T interpolate(const T &a, const T &b, float t) {
   T out = Pullback::Fields::interpolate(a, b, t);
-  if constexpr (requires { out.modulation; }) {
-    out.modulation = b.modulation;
-    if (Modulation::same_topology(a.modulation, b.modulation))
-      out.modulation.mechanic.amount = hs::lerp(
-          a.modulation.mechanic.amount, b.modulation.mechanic.amount, t);
-  }
+  if constexpr (requires { out.modulation; })
+    out.modulation = Modulation::interpolate(a.modulation, b.modulation, t);
   return out;
 }
 

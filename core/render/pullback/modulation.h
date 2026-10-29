@@ -5,6 +5,7 @@
 #pragma once
 
 #include "core/color/modulation.h"
+#include "core/control/fields.h"
 #include "core/pattern/noise.h"
 #include "core/pattern/sources.h"
 #include "core/pattern/sphere_lut.h"
@@ -109,6 +110,56 @@ inline bool same_topology(const Config &a, const Config &b) {
   return a.enabled == b.enabled && a.source == b.source &&
          a.version == b.version && a.evaluation == b.evaluation &&
          a.mechanic.kind == b.mechanic.kind;
+}
+/** @brief Interpolates controls within one recipe topology.
+ * @param a Previous controls.
+ * @param b Current controls.
+ * @param fraction Current weight.
+ * @return Current topology, with continuous selected controls interpolated. */
+inline Config interpolate(const Config &a, const Config &b, float fraction) {
+  if (!same_topology(a, b))
+    return b;
+  if (fraction <= 0.0f)
+    return a;
+  if (fraction >= 1.0f)
+    return b;
+  Config result = b;
+  result.mechanic.amount =
+      hs::lerp(a.mechanic.amount, b.mechanic.amount, fraction);
+  const auto wave = [fraction](const auto &start, const auto &end, auto &out) {
+    out.frequency = hs::lerp(start.frequency, end.frequency, fraction);
+    out.offset = hs::lerp(start.offset, end.offset, fraction);
+    out.speed = hs::lerp(start.speed, end.speed, fraction);
+  };
+  switch (b.source) {
+  case Pattern::SourceKind::NOISE:
+    if (a.noise.basis == b.noise.basis && a.noise.variant == b.noise.variant) {
+      result.noise.scale =
+          Control::apply_curve(Control::FieldCurve::LOG_POSITIVE, a.noise.scale,
+                               b.noise.scale, fraction);
+      result.noise.speed = hs::lerp(a.noise.speed, b.noise.speed, fraction);
+      result.noise.contrast =
+          hs::lerp(a.noise.contrast, b.noise.contrast, fraction);
+    }
+    break;
+  case Pattern::SourceKind::DIRECTIONAL_SINE:
+    wave(a.sine, b.sine, result.sine);
+    break;
+  case Pattern::SourceKind::SPHERE_INTERFERENCE:
+    wave(a.interference, b.interference, result.interference);
+    result.interference.frequency_b = hs::lerp(
+        a.interference.frequency_b, b.interference.frequency_b, fraction);
+    result.interference.offset_b =
+        hs::lerp(a.interference.offset_b, b.interference.offset_b, fraction);
+    break;
+  case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
+    wave(a.grid, b.grid, result.grid);
+    result.grid.frequency_b =
+        hs::lerp(a.grid.frequency_b, b.grid.frequency_b, fraction);
+    result.grid.offset_b = hs::lerp(a.grid.offset_b, b.grid.offset_b, fraction);
+    break;
+  }
+  return result;
 }
 /** @brief Immutable prepared source variant. */
 using Source = std::variant<

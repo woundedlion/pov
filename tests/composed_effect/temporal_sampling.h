@@ -338,6 +338,7 @@ inline void test_temporal_equal_palettes_color_as_current() {
   HS_EXPECT_TRUE(sample.temporal.same_palette);
   sample.params.template get<"color">().hue_shift_amount = 0.3f;
   sample.params.template get<"color">().modulation.enabled = false;
+  sample.modulation = nullptr;
   const auto prepared = PathPalette::prepare(sample);
   HS_EXPECT_NEAR(prepared.fraction, 1.0f, 0.0f);
   auto interpolated = sample;
@@ -387,6 +388,19 @@ inline void test_temporal_moving_families_interpolate() {
   history.capture(current, persistent_arena);
   auto moved = current;
   moved.params.template get<"color">().hue_shift_amount += 0.25f;
+  auto &start_config =
+      history.previous.params.template get<"color">().modulation;
+  auto &end_config = moved.params.template get<"color">().modulation;
+  start_config.noise.scale = 1.0f;
+  start_config.noise.speed = -0.001f;
+  end_config.noise.scale = 4.0f;
+  end_config.noise.speed = 0.001f;
+  const auto MIDPOINT =
+      Pullback::interpolate(history.previous.params, moved.params, 0.5f);
+  HS_EXPECT_NEAR(MIDPOINT.template get<"color">().modulation.noise.scale, 2.0f,
+                 1e-6f);
+  HS_EXPECT_NEAR(MIDPOINT.template get<"color">().modulation.noise.speed, 0.0f,
+                 1e-8f);
   const Pullback::FrameInterval SAMPLER(history.previous, moved);
   for (const float fraction : {0.1f, 0.37f, 0.5f, 0.9f}) {
     HS_CONTEXT("fraction", static_cast<double>(fraction));
