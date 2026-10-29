@@ -287,8 +287,8 @@ struct GeneratedPaletteState {
   float mapping_offset;            ///< Mapping offset in turns.
   const BakedPalette *palette;     ///< Base palette.
   HueMode hue_mode;                ///< Renderer-owned path hue selection.
-  float hue_shift_amount;          ///< Path hue rotation in turns.
-  HueRotationLutView hue_rotation; ///< Optional path hue table.
+  float hue_shift_amount;          ///< Path hue turns per unit of path length.
+  HueRotationLutView hue_rotation; ///< Optional hue-rotation table.
   const Modulation::Prepared *modulation =
       nullptr;                            ///< Immutable source endpoint.
   ColorModulation::AmountParams mechanic; ///< Shared column mechanic controls.
@@ -304,7 +304,7 @@ struct GeneratedPaletteState {
 /** @brief Previous resources and column progress. */
 struct TemporalPaletteResources {
   const BakedPalette *palette = nullptr; ///< Retained palette.
-  const Pixel *hue_rotation = nullptr;   ///< Retained path hue table.
+  const Pixel *hue_rotation = nullptr;   ///< Retained hue-rotation table.
   const Modulation::Prepared *modulation =
       nullptr;                       ///< Retained source endpoint.
   float fraction = 1.0f;             ///< Current endpoint weight.
