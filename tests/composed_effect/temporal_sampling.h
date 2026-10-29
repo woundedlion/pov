@@ -339,6 +339,7 @@ inline void test_temporal_equal_palettes_color_as_current() {
   sample.params.template get<"color">().hue_shift_amount = 0.3f;
   sample.params.template get<"color">().modulation.enabled = false;
   sample.modulation = nullptr;
+  sample.temporal.continuous_modulation = false;
   const auto prepared = PathPalette::prepare(sample);
   HS_EXPECT_NEAR(prepared.fraction, 1.0f, 0.0f);
   auto interpolated = sample;
@@ -446,6 +447,9 @@ inline void test_temporal_owned_resources() {
   using FX = GridSpace<96, 20>;
   FX effect;
   effect.init();
+  auto params = FX::initial_params();
+  params.template get<"color">().modulation.noise.speed = .001f;
+  ComposedFrameWhiteBox::set_params(effect, params);
   effect.draw_frame();
   effect.advance_display();
   const auto current = effect.frame_for_test();
@@ -456,6 +460,18 @@ inline void test_temporal_owned_resources() {
   HS_EXPECT_TRUE(history.previous.modulation != current.modulation);
   HS_EXPECT_TRUE(history.previous.modulation->cube.data !=
                  current.modulation->cube.data);
+  std::array<float, 8> retained_samples{}, live_samples{};
+  const auto direction = [](size_t index) {
+    return Pattern::SphereDirection::from(
+        math::Vector(1.0f, float(index) * .3f - 1.0f, .37f));
+  };
+  for (size_t index = 0; index < retained_samples.size(); ++index) {
+    retained_samples[index] = Pullback::Modulation::sample(
+        *history.previous.modulation, direction(index));
+    live_samples[index] =
+        Pullback::Modulation::sample(*current.modulation, direction(index));
+    HS_EXPECT_EQ(retained_samples[index], live_samples[index]);
+  }
   const auto TABLE = history.modulation_table;
   const auto RECIPE = history.modulation.config;
   const Pixel PALETTE = history.previous.palette->get(0.4f).color;
@@ -463,6 +479,16 @@ inline void test_temporal_owned_resources() {
     effect.draw_frame();
     effect.advance_display();
   }
+  bool live_changed = false;
+  for (size_t index = 0; index < retained_samples.size(); ++index) {
+    HS_EXPECT_EQ(Pullback::Modulation::sample(*history.previous.modulation,
+                                              direction(index)),
+                 retained_samples[index]);
+    live_changed |=
+        Pullback::Modulation::sample(*current.modulation, direction(index)) !=
+        live_samples[index];
+  }
+  HS_EXPECT_TRUE(live_changed);
   HS_EXPECT_TRUE(history.modulation_table == TABLE);
   HS_EXPECT_TRUE(history.modulation.config == RECIPE);
   HS_EXPECT_TRUE(history.previous.palette->get(0.4f).color == PALETTE);
