@@ -142,7 +142,7 @@ inline void validate(const Params &params) {
     (void)prepare_unit({params.amount});
     return;
   }
-  HS_CHECK(false, "unknown modulation mechanic");
+  HS_CHECK(false, "unknown modulation preparation mechanic");
 }
 /** @brief Applies a prepared selected mechanic.
  * @param color Source color.
@@ -158,7 +158,7 @@ inline Color4 apply(Color4 color, float scalar, const Params &params) {
   case Mechanic::OPACITY:
     return Opacity::apply(color, scalar, {params.amount});
   }
-  HS_CHECK(false, "unknown modulation mechanic");
+  HS_CHECK(false, "unknown modulation application mechanic");
   return color;
 }
 /** @brief Composes any palette, typed scalar field, and color mechanic.

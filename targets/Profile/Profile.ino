@@ -140,6 +140,37 @@ template <int W, int H> class ProfiledEffect : public HS_PROFILE_TARGET<W, H> {
 public:
   ProfiledEffect() { capture_isr_stats(); }
 
+#ifdef HS_PROFILE_MODULATION_SOURCE
+  /** @brief Selects a bounded modulation recipe for segmented-driver timing. */
+  void configure_modulation_profile() {
+    static_assert(HS_PROFILE_MODULATION_SOURCE >= 0 &&
+                  HS_PROFILE_MODULATION_SOURCE <= 3);
+    static_assert(HS_PROFILE_MODULATION_MECHANIC >= 0 &&
+                  HS_PROFILE_MODULATION_MECHANIC <= 2);
+    auto &config = this->params.template get<"color">().modulation;
+    config.enabled = true;
+    config.source =
+        static_cast<Pattern::SourceKind>(HS_PROFILE_MODULATION_SOURCE);
+    config.evaluation = config.source == Pattern::SourceKind::NOISE
+                            ? Pattern::Evaluation::BAKED_CUBE
+                            : Pattern::Evaluation::DIRECT;
+    config.mechanic.kind =
+        static_cast<ColorModulation::Mechanic>(HS_PROFILE_MODULATION_MECHANIC);
+    config.mechanic.amount = 0.8f;
+    config.noise.speed = 0.001f;
+    config.sine.speed = 0.02f;
+    config.interference.speed = 0.02f;
+    config.grid.speed = 0.02f;
+    HS_CHECK(Pullback::Modulation::valid(config),
+             "invalid profile modulation recipe");
+    this->setAnimationsPaused(true);
+    hs::log(
+        "modulation recipe: source=%d mechanic=%d evaluation=%d temporal=%d",
+        HS_PROFILE_MODULATION_SOURCE, HS_PROFILE_MODULATION_MECHANIC,
+        static_cast<int>(config.evaluation), this->TEMPORAL_SAMPLING);
+  }
+#endif
+
 #ifdef HS_PROFILE_EFFECT_HEAP_BYTES
   static void *operator new(size_t size, const std::nothrow_t &) noexcept {
     return size <= sizeof(effect_storage) ? effect_storage : nullptr;
@@ -699,6 +730,9 @@ Effect *construct_profiled() {
   HS_CHECK(trans_speed_set == ParamSetResult::APPLIED,
            "HS_PROFILE_TRANS_SPEED target does not accept a \"Trans Speed\" "
            "write");
+#endif
+#ifdef HS_PROFILE_MODULATION_SOURCE
+  e->configure_modulation_profile();
 #endif
   return e;
 }

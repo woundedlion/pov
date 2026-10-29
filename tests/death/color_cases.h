@@ -148,11 +148,11 @@ inline void case_modulation_null_palette() {
 }
 /** @brief Sphere field admission rejects a zero direction. */
 inline void case_modulation_zero_direction() {
-  (void)Pattern::SphereDirection::from(opaque(math::Vector(0, 0, 0)));
+  (void)Pattern::SphereDirection::from(math::Vector(opaque(0.0f), 0, 0));
 }
 /** @brief Sphere field admission rejects an infinite direction. */
 inline void case_modulation_infinite_direction() {
-  (void)Pattern::SphereDirection::from(opaque(math::Vector(INFINITY, 0, 0)));
+  (void)Pattern::SphereDirection::from(math::Vector(opaque(INFINITY), 0, 0));
 }
 /** @brief Opacity preparation rejects an out-of-range strength. */
 inline void case_modulation_invalid_opacity() {
