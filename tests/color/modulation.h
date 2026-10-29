@@ -38,6 +38,47 @@ inline void test_color_modulation_mechanics() {
   const auto lab = linear_rgb_to_oklab_fast(output.r, output.g, output.b);
   HS_EXPECT_NEAR(lab.L, base.L + (1 - base.L) * .4f, .005f);
   HS_EXPECT_EQ(raised.alpha, INPUT.alpha);
+  for (float amount : {-2.25f, -0.37f, 0.17f, 1.31f, 2.63f}) {
+    const auto result = ColorModulation::HueRotation::apply(INPUT, 1, {amount});
+    const auto input = pixel_to_linrgb(INPUT.color);
+    const auto base = linear_rgb_to_oklab(input.r, input.g, input.b);
+    const float ANGLE = amount * 2.0f * math::PI_F;
+    const OKLab EXPECTED{base.L, base.a * cosf(ANGLE) - base.b * sinf(ANGLE),
+                         base.a * sinf(ANGLE) + base.b * cosf(ANGLE)};
+    const auto rgb = pixel_to_linrgb(result.color);
+    const auto lab = linear_rgb_to_oklab(rgb.r, rgb.g, rgb.b);
+    HS_EXPECT_NEAR(lab.L, EXPECTED.L, .002f);
+    HS_EXPECT_NEAR(lab.a, EXPECTED.a, .002f);
+    HS_EXPECT_NEAR(lab.b, EXPECTED.b, .002f);
+    HS_EXPECT_EQ(result.alpha, INPUT.alpha);
+  }
+  for (const Pixel color :
+       {Pixel(65535, 0, 0), Pixel(0, 0, 0), Pixel(65535, 65535, 65535)}) {
+    const Color4 SOURCE(color, .37f);
+    for (float turns : {-3.0f, -1.0f, 1.0f, 4.0f}) {
+      const auto identity =
+          ColorModulation::HueRotation::apply(SOURCE, 1, {turns});
+      HS_EXPECT_EQ(identity.color, SOURCE.color);
+      HS_EXPECT_EQ(identity.alpha, SOURCE.alpha);
+    }
+    const auto raised =
+        ColorModulation::PositiveLightnessLift::apply(SOURCE, .5f, {.8f});
+    const auto rgb = pixel_to_linrgb(SOURCE.color);
+    const auto base = linear_rgb_to_oklab(rgb.r, rgb.g, rgb.b);
+    const auto output = pixel_to_linrgb(raised.color);
+    const auto lab = linear_rgb_to_oklab(output.r, output.g, output.b);
+    HS_EXPECT_NEAR(lab.L, base.L + (1 - base.L) * .4f, .005f);
+    HS_EXPECT_TRUE(linear_rgb_in_gamut(output.r, output.g, output.b));
+    if (color == Pixel(65535, 0, 0))
+      HS_EXPECT_NEAR(
+          wrap_hue_delta(atan2f(lab.b, lab.a) - atan2f(base.b, base.a)), 0,
+          .02f);
+    else {
+      HS_EXPECT_NEAR(lab.a, 0, .001f);
+      HS_EXPECT_NEAR(lab.b, 0, .001f);
+    }
+    HS_EXPECT_EQ(raised.alpha, SOURCE.alpha);
+  }
 }
 struct PatternTestCoordinate {
   float scalar;
