@@ -495,8 +495,7 @@ struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
   static Color4 run_temporal(const FieldSample &input, const Prepared &current,
                              const Prepared &previous, float fraction) {
     const bool SAME_SOURCE =
-        current.modulation && previous.modulation &&
-        Modulation::same_field(*current.modulation, *previous.modulation);
+        current.modulation && current.modulation == previous.modulation;
     return Color::apply_temporal_generated_palette(
         input,
         {current, previous, fraction, frac_to_q16(fraction), SAME_SOURCE});

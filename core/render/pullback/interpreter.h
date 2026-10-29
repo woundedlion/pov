@@ -387,7 +387,8 @@ public:
         FrameContext previous_color_ctx = previous_ctx;
         if (ctx.modulation == nullptr || previous_ctx.modulation == nullptr ||
             !Modulation::same_topology(ctx.modulation->config,
-                                       previous_ctx.modulation->config))
+                                       previous_ctx.modulation->config) ||
+            Modulation::same_field(*ctx.modulation, *previous_ctx.modulation))
           previous_color_ctx.modulation = ctx.modulation;
         runtime.prepare(previous_color_ctx, params, state,
                         column + op.prepared_offset);
