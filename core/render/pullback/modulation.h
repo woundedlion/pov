@@ -225,6 +225,9 @@ inline FieldIdentity field_identity(const Config &config, const State &state) {
 }
 /** @brief Owned prepared endpoint and optional scalar cube. */
 template <bool Baked = true> struct Resources {
+  Resources() = default;
+  Resources(const Resources &) = delete;
+  Resources &operator=(const Resources &) = delete;
   Prepared prepared; ///< Current prepared source.
   std::array<int8_t, Baked ? Pattern::SphereLutView::SIZE : 0>
       table{};                      ///< Scalar cube.
