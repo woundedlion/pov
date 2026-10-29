@@ -182,7 +182,8 @@ public:
       update_palette_chroma();
       palette_cycler.step();
     }
-    const FrameState current = prepare_frame();
+    prepare_frame(state->current);
+    const FrameState &current = state->current;
     if constexpr (TEMPORAL_SAMPLING) {
       auto &history = static_cast<Spacetime::FrameHistory<
           FrameState, Metadata::HUE, TEMPORAL_SAMPLING, SpecT::MODULATION,
@@ -191,7 +192,8 @@ public:
       if (!history.initialized)
         history.capture(current, persistent_arena);
       if (!Spacetime::flat_surface()) {
-        const FrameInterval sampler(history.previous, current);
+        state->interval.emplace(history.previous, current);
+        const auto &sampler = *state->interval;
         HS_PROFILE(fx_shader_draw);
         Scan::Shader::draw_column_times<W, H>(
             canvas,
@@ -214,6 +216,7 @@ public:
         HS_PROFILE(fx_shader_draw);
         draw_static_columns(canvas, frame);
       }
+      state->interval.reset();
       history.capture(current, persistent_arena);
     } else {
       const Frame frame = RenderPipeline::prepare(current);
@@ -291,7 +294,11 @@ public:
 #if HS_ENABLE_TEST_HOOKS
   /** @brief Prepares and returns this draw's frame state.
       @return The prepare_frame() result. */
-  FrameState frame_for_test() { return prepare_frame(); }
+  FrameState frame_for_test() {
+    FrameState frame{};
+    prepare_frame(frame);
+    return frame;
+  }
 #endif
 
 protected:
@@ -587,6 +594,10 @@ private:
                                     typename Params::ResourceTypes>
         resources;
     FastNoiseLite outer_walk_noise;
+    FrameState current{};
+    std::conditional_t<TEMPORAL_SAMPLING,
+                       std::optional<FrameInterval<FrameState>>, std::monostate>
+        interval;
   };
 
   // init() takes the palette cycler's generated arena, the external ParamDef
@@ -803,13 +814,10 @@ private:
 
   /**
    * @brief Bakes the frame's LUTs and snapshots everything the scan reads.
-   * @details Column-time sampling retains valid hue tables even while hue rotation
-   * is inactive. Other effects gate their builds on hue_rotation_active().
-   * Hue noise is rebuilt when its scale or phase moves; hue rotation is rebuilt
-   * when the palette cycler rebakes its display LUT.
-   * @return The frame state for this draw, valid until the next draw_frame().
+   * @details Temporal draws retain palette and source endpoints through the scan.
+   * @param frame Receives this draw's frame state.
    */
-  HS_COLD_MEMBER FrameState prepare_frame() {
+  HS_COLD_MEMBER void prepare_frame(FrameState &frame) {
     HS_PROFILE(fx_prepare_frame);
     if constexpr (Metadata::HUE != HueMode::NONE || SpecT::MODULATION)
       if ((TEMPORAL_SAMPLING || hue_rotation_active<Metadata::HUE>(
@@ -821,19 +829,18 @@ private:
             palette_cycler.palette());
         state->hue_rotation_lut_bake = palette_cycler.bake_generation();
       }
-    Pullback::FrameState<ParamsT> frame{
-        .projection_conjugate = this->frame_conjugate(),
-        .outer_conjugate = outer_conjugate,
-        .palette = &palette_cycler.palette(),
-        .hue_rotation_lut = hue_rotation_lut_data(),
-        .modulation = modulation_data(),
-        .params = params,
-        .palette_mapping = palette_mapping,
-        .resources = {},
-        .palette_oscillation_phase = palette_oscillation_phase,
-        .hue_rotation_linear = nullptr,
-        .palette_alpha =
-            palette_cycler.palette().constant_alpha().value_or(-1.0f)};
+    frame.projection_conjugate = this->frame_conjugate();
+    frame.outer_conjugate = outer_conjugate;
+    frame.palette = &palette_cycler.palette();
+    frame.hue_rotation_lut = hue_rotation_lut_data();
+    frame.modulation = modulation_data();
+    frame.params = params;
+    frame.resources = {};
+    frame.hue_rotation_linear = nullptr;
+    frame.palette_mapping = palette_mapping;
+    frame.palette_oscillation_phase = palette_oscillation_phase;
+    frame.palette_alpha =
+        palette_cycler.palette().constant_alpha().value_or(-1.0f);
     params.visit([&]<typename Resource>(const auto &) {
       auto &resource = frame.resources.template get<Resource::KEY>();
       static_cast<ComposedDetail::ResourceClock<Resource> &>(resource) =
@@ -848,12 +855,9 @@ private:
             frame.params.template get<Resource::KEY>(), resource);
     });
     if constexpr (TEMPORAL_SAMPLING)
-      return FrameState{frame,
-                        {frame.palette, frame.hue_rotation_lut,
-                         frame.modulation, 1.0f, frame.hue_rotation_linear,
-                         frame.palette_alpha}};
-    else
-      return frame;
+      frame.temporal = {
+          frame.palette, frame.hue_rotation_lut,    frame.modulation,
+          1.0f,          frame.hue_rotation_linear, frame.palette_alpha};
   }
 
   HS_COLD_MEMBER void update_palette_chroma() {

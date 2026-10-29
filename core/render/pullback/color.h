@@ -412,9 +412,12 @@ HS_HOT_FLASH_MEMBER inline Color4 apply_temporal_generated_palette(
     return apply_generated_palette(sample, prepared.previous);
   if (prepared.fraction >= 1.0f)
     return apply_generated_palette(sample, prepared.current);
-  const bool ACTIVE = prepared.current.modulation &&
-                      prepared.current.modulation->config.enabled &&
-                      prepared.current.mechanic.amount != 0.0f;
+  const bool ACTIVE = (prepared.current.modulation &&
+                       prepared.current.modulation->config.enabled &&
+                       prepared.current.mechanic.amount != 0.0f) ||
+                      (prepared.previous.modulation &&
+                       prepared.previous.modulation->config.enabled &&
+                       prepared.previous.mechanic.amount != 0.0f);
   const auto endpoint = [&](const Pattern::SphereDirection *direction) {
     const float SCALAR =
         ACTIVE && prepared.same_source
@@ -546,7 +549,12 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
       previous.hue_rotation.data = RESOURCES.hue_rotation;
       previous.hue_rotation.linear_data = RESOURCES.hue_rotation_linear;
       previous.palette_alpha = RESOURCES.palette_alpha;
-      previous.modulation = RESOURCES.continuous_modulation
+      const bool SAME_TOPOLOGY =
+          current.modulation && RESOURCES.modulation
+              ? Modulation::same_topology(current.modulation->config,
+                                          RESOURCES.modulation->config)
+              : current.modulation == RESOURCES.modulation;
+      previous.modulation = RESOURCES.continuous_modulation && SAME_TOPOLOGY
                                 ? RESOURCES.modulation
                                 : current.modulation;
       const bool SAME_SOURCE =
