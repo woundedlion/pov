@@ -49,23 +49,9 @@ struct HopfWhiteBox {
       fx.orientation.set(math::Quaternion());
       fx.orientation.push(end_pose);
     } else {
-      int column = 0;
-      for (int c = 1; c < DEFAULT_W / 2; ++c)
-        if (fabsf(Spacetime::SamplingSurface<DEFAULT_W>::time(c) - fraction) <
-            fabsf(Spacetime::SamplingSurface<DEFAULT_W>::time(column) -
-                  fraction))
-          column = c;
-      const math::Vector meridian = math::pixel_to_vector<DEFAULT_W, DEFAULT_H>(
-          static_cast<float>(column), DEFAULT_H / 2.0f);
-      const math::Vector across =
-          math::cross(math::Y_AXIS, meridian).normalized();
-      fx.orientation.set(
-          math::make_rotation(across,
-                              displacement * math::RADIANS_PER_ROW<DEFAULT_H>) *
-          math::make_rotation(math::Y_AXIS,
-                              displacement *
-                                  math::RADIANS_PER_COLUMN<DEFAULT_W>) *
-          math::slerp(math::Quaternion(), end_pose, fraction));
+      fx.orientation.set(displaced_reference_rotation<DEFAULT_W, DEFAULT_H>(
+                             fraction, displacement, displacement) *
+                         math::slerp(math::Quaternion(), end_pose, fraction));
     }
     {
       Canvas canvas(fx);

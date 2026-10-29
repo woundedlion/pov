@@ -54,6 +54,24 @@ void accumulate_arm_cut_seam_steps(Before before, After after, int neighbours,
   }
 }
 
+/** @brief Builds the displacement rotation of a frozen column reference.
+ * @tparam W Display width.
+ * @tparam H Display height.
+ * @param fraction Frozen reference frame fraction.
+ * @param rows Signed meridian displacement in display rows.
+ * @param columns Signed vertical-axis displacement in display columns.
+ * @return Rotation applying the column shift followed by the row shift. */
+template <int W, int H>
+math::Quaternion displaced_reference_rotation(float fraction, float rows,
+                                              float columns) {
+  const int column = Spacetime::SamplingSurface<W>::column_at(fraction);
+  const auto meridian = math::pixel_to_vector<W, H>(float(column), H / 2.0f);
+  const auto across = math::cross(math::Y_AXIS, meridian).normalized();
+  return math::make_rotation(across, rows * math::RADIANS_PER_ROW<H>) *
+         math::make_rotation(math::Y_AXIS,
+                             columns * math::RADIANS_PER_COLUMN<W>);
+}
+
 /** @brief Displaces a reference vertex along its meridian without projection.
  * @tparam H Display height.
  * @param point Unit world-space vertex.

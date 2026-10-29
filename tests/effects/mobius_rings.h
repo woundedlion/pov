@@ -90,15 +90,10 @@ struct MobiusRingsWhiteBox {
       Canvas canvas(fx);
       fx.draw_timed_grid(canvas, start, end);
     } else {
-      displacement *= 0.70710678118f;
-      int column = int(t * (W / 2) + 0.5f) % (W / 2);
-      const auto meridian =
-          math::pixel_to_vector<W, H>(float(column), H / 2.0f);
-      const auto across = math::cross(math::Y_AXIS, meridian).normalized();
+      constexpr float DIAGONAL = 0.70710678118f;
       fx.orientation.set(
-          math::make_rotation(across, displacement * math::RADIANS_PER_ROW<H>) *
-          math::make_rotation(math::Y_AXIS,
-                              displacement * math::RADIANS_PER_COLUMN<W>) *
+          displaced_reference_rotation<W, H>(t, displacement * DIAGONAL,
+                                             displacement * DIAGONAL) *
           math::slerp(first_pose, last_pose, t));
       const double real =
           double(start.warp.b.re) + t * double(end.warp.b.re - start.warp.b.re);

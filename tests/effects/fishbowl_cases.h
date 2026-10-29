@@ -10,7 +10,7 @@ struct FishbowlWhiteBox {
   /** @brief Renders warped trail history or independently frozen endpoints.
    * @param timed Selects production temporal rendering.
    * @param fraction Frozen reference fraction.
-   * @param displacement Reference row shift.
+   * @param displacement Reference row and column shift.
    * @param full Selects full-history rollover.
    * @return Frame luminance. */
   static std::vector<float> render_temporal_trail(bool timed, float fraction,
@@ -68,18 +68,9 @@ struct FishbowlWhiteBox {
                                                      FX::MAX_FRAGMENTS);
         const float active = full ? FX::TRAIL_LENGTH : 3.0f;
         const float fill = active / FX::TRAIL_LENGTH;
-        const int column =
-            Spacetime::SamplingSurface<DEFAULT_W>::column_at(fraction);
-        const math::Vector meridian =
-            math::pixel_to_vector<DEFAULT_W, DEFAULT_H>(
-                static_cast<float>(column), DEFAULT_H / 2.0f);
-        const math::Quaternion displaced =
-            math::make_rotation(
-                math::cross(math::Y_AXIS, meridian).normalized(),
-                displacement * math::RADIANS_PER_ROW<DEFAULT_H>) *
-            math::make_rotation(math::Y_AXIS,
-                                displacement *
-                                    math::RADIANS_PER_COLUMN<DEFAULT_W>);
+        const auto displaced =
+            displaced_reference_rotation<DEFAULT_W, DEFAULT_H>(
+                fraction, displacement, displacement);
         math::Quaternion previous_q;
         math::Vector previous_pos;
         float previous_t = 0;
