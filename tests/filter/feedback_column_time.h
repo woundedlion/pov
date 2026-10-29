@@ -324,19 +324,10 @@ run_column_time_oracle(const RotatingFeedbackScene<W, H> &scene, int frames,
   };
   double across = 0.0, beside = 0.0;
   for (int y = first_row; y < end_row; ++y)
-    for (int start : {0, HALF}) {
-      const int last = (start + W - 1) % W;
-      across += fabs(luminance(fx.get_pixel(start, y)) -
-                     luminance(previous[y * W + last]));
-      for (int k = 1; k < NEAR_CUT; ++k) {
-        beside += fabs(luminance(fx.get_pixel(start + k, y)) -
-                       luminance(fx.get_pixel(start + k - 1, y))) /
-                  (2 * (NEAR_CUT - 1));
-        beside += fabs(luminance(previous[y * W + last - k]) -
-                       luminance(previous[y * W + last - k + 1])) /
-                  (2 * (NEAR_CUT - 1));
-      }
-    }
+    accumulate_arm_cut_seam_steps<W>(
+        [&](int x) { return luminance(previous[y * W + x]); },
+        [&](int x) { return luminance(fx.get_pixel(x, y)); }, NEAR_CUT - 1,
+        across, beside);
   return {static_cast<float>(bulk / bulk_count),
           static_cast<float>(cut / cut_count),
           static_cast<float>(across / beside)};

@@ -344,7 +344,7 @@ inline void test_meshfeedback_stationary_timed_source() {
  * time, which steps at the cuts.
  */
 inline void test_meshfeedback_trails_arm_cut_seam() {
-  constexpr int W = DEFAULT_W, H = DEFAULT_H, HALF = W / 2;
+  constexpr int W = DEFAULT_W, H = DEFAULT_H;
   constexpr int WARM_FRAMES = 60, FRAMES = 150, BESIDE = 7;
   const ScopedTemporalSampling column_basis(true);
   double across = 0.0, beside = 0.0;
@@ -368,14 +368,9 @@ inline void test_meshfeedback_trails_arm_cut_seam() {
             continue;
           const float *before = &previous[y * W];
           const float *after = &current[y * W];
-          for (int start : {0, HALF}) {
-            const int last = (start + W - 1) % W;
-            across += fabs(after[start] - before[last]);
-            for (int k = 1; k <= BESIDE; ++k)
-              beside += (fabs(before[last - k + 1] - before[last - k]) +
-                         fabs(after[start + k] - after[start + k - 1])) /
-                        (2 * BESIDE);
-          }
+          accumulate_arm_cut_seam_steps<W>(
+              [&](int x) { return double(before[x]); },
+              [&](int x) { return double(after[x]); }, BESIDE, across, beside);
         }
       std::swap(previous, current);
     }

@@ -23,6 +23,7 @@
 #include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/temporal_oracle.h"
 #include <vector>
 
 namespace hs_test {

@@ -32,6 +32,28 @@ std::vector<float> capture_luminance(const E &effect) {
   return luminance;
 }
 
+/** @brief Accumulates arm-cut jumps and their neighbouring column steps.
+ * @tparam W Display width.
+ * @param before Previous-frame row luminance accessor returning double.
+ * @param after Current-frame row luminance accessor returning double.
+ * @param neighbours Number of steps to average on each side of a cut.
+ * @param across Accumulated arm-cut steps.
+ * @param beside Accumulated mean neighbouring steps. */
+template <int W, typename Before, typename After>
+void accumulate_arm_cut_seam_steps(Before before, After after, int neighbours,
+                                   double &across, double &beside) {
+  for (int start : {0, W / 2}) {
+    const int last = (start + W - 1) % W;
+    across += std::fabs(after(start) - before(last));
+    for (int k = 1; k <= neighbours; ++k) {
+      beside +=
+          std::fabs(after(start + k) - after(start + k - 1)) / (2 * neighbours);
+      beside +=
+          std::fabs(before(last - k) - before(last - k + 1)) / (2 * neighbours);
+    }
+  }
+}
+
 /** @brief Displaces a reference vertex along its meridian without projection.
  * @tparam H Display height.
  * @param point Unit world-space vertex.
