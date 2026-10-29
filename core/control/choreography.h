@@ -553,7 +553,9 @@ private:
 
 protected:
   /** @brief The row of the preset at @p index: the `PRESET_ROW` hook with
-      `PRESET_IDS`, else the `PRESETS` table, else a single startup preset. */
+      `PRESET_IDS`, else the `PRESETS` table, else a single startup preset.
+      @param index Preset row index.
+      @return Requested preset row. */
   static constexpr auto preset_row(size_t index) {
     if constexpr (has_hook<Control::ChoreographyHook::PRESET_ROW>())
       return decltype(Derived::choreography_hooks())::template invoke_static<
