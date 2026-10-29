@@ -32,6 +32,22 @@ struct ParameterLayoutHash {
     number(alignof(Member));
     if constexpr (std::is_same_v<Member, float>) {
       text("float32");
+    } else if constexpr (std::is_same_v<Member, bool>) {
+      text("bool");
+    } else if constexpr (std::is_same_v<Member, uint16_t>) {
+      text("uint16");
+    } else if constexpr (std::is_same_v<Member, int32_t>) {
+      text("int32");
+    } else if constexpr (std::is_same_v<Member, Pattern::SourceKind>) {
+      text("pattern-source-enum8");
+    } else if constexpr (std::is_same_v<Member, Pattern::Evaluation>) {
+      text("pattern-evaluation-enum8");
+    } else if constexpr (std::is_same_v<Member, Pattern::NoiseBasis>) {
+      text("noise-basis-enum8");
+    } else if constexpr (std::is_same_v<Member, Pattern::NoiseVariant>) {
+      text("noise-variant-enum8");
+    } else if constexpr (std::is_same_v<Member, ColorModulation::Mechanic>) {
+      text("modulation-mechanic-enum8");
     } else if constexpr (std::is_same_v<Member,
                                         Pullback::Color::PaletteMapping>) {
       text("palette-mapping-enum8");
@@ -40,8 +56,53 @@ struct ParameterLayoutHash {
       number(Member::FIELDS.size());
       for (const auto &field : Member::FIELDS)
         this->member(root, member.*field.member, field.id);
-      if constexpr (std::is_same_v<Member, Pullback::ColorParams>)
+      if constexpr (std::is_same_v<Member, Pullback::ColorParams>) {
         this->member(root, member.palette_mapping, "palette-mapping");
+        this->member(root, member.modulation, "modulation");
+      }
+    } else if constexpr (std::is_same_v<Member, ColorModulation::Config>) {
+      text("modulation-config");
+      this->member(root, member.enabled, "enabled");
+      this->member(root, member.source, "source");
+      this->member(root, member.version, "version");
+      this->member(root, member.evaluation, "evaluation");
+      this->member(root, member.noise, "noise");
+      this->member(root, member.sine, "sine");
+      this->member(root, member.interference, "interference");
+      this->member(root, member.grid, "grid");
+      this->member(root, member.seed, "seed");
+      this->member(root, member.mechanic, "mechanic");
+    } else if constexpr (std::is_same_v<Member, Pattern::NoiseParams>) {
+      text("noise-params");
+      this->member(root, member.scale, "scale");
+      this->member(root, member.speed, "speed");
+      this->member(root, member.basis, "basis");
+      this->member(root, member.contrast, "contrast");
+      this->member(root, member.variant, "variant");
+    } else if constexpr (std::is_same_v<Member, Pattern::SineParams>) {
+      text("sine-params");
+      this->member(root, member.axis, "axis");
+      this->member(root, member.frequency, "frequency");
+      this->member(root, member.offset, "offset");
+      this->member(root, member.speed, "speed");
+    } else if constexpr (std::is_same_v<Member, Pattern::InterferenceParams> ||
+                         std::is_same_v<Member, Pattern::GridParams>) {
+      text(std::is_same_v<Member, Pattern::GridParams> ? "grid-params"
+                                                       : "interference-params");
+      this->member(root, static_cast<const Pattern::SineParams &>(member),
+                   "primary");
+      this->member(root, member.axis_b, "axis-b");
+      this->member(root, member.frequency_b, "frequency-b");
+      this->member(root, member.offset_b, "offset-b");
+    } else if constexpr (std::is_same_v<Member, ColorModulation::Params>) {
+      text("modulation-mechanic-params");
+      this->member(root, member.kind, "kind");
+      this->member(root, member.amount, "amount");
+    } else if constexpr (std::is_same_v<Member, math::Vector>) {
+      text("vector3");
+      this->member(root, member.x, "x");
+      this->member(root, member.y, "y");
+      this->member(root, member.z, "z");
     } else if constexpr (std::is_same_v<Member, Pullback::MobiusLensParams>) {
       this->member(root, member.mobius, "mobius");
     } else if constexpr (std::is_same_v<Member, math::MobiusParams>) {
@@ -71,6 +132,15 @@ struct SchemaFieldsBA {
       Pullback::Field<SchemaFieldsBA>{"b", &SchemaFieldsBA::b, nullptr, 0, 1}};
 };
 
+struct SchemaModulationHeaderAB {
+  bool enabled;
+  Pattern::SourceKind source;
+};
+struct SchemaModulationHeaderBA {
+  Pattern::SourceKind source;
+  bool enabled;
+};
+
 inline void test_parameter_layout_reorder() {
   const SchemaFieldsAB original{};
   const SchemaFieldsBA reordered{};
@@ -79,6 +149,19 @@ inline void test_parameter_layout_reorder() {
   before.member(original, original, "family");
   after.member(reordered, reordered, "family");
   HS_EXPECT_NE(before.value, after.value);
+  const SchemaModulationHeaderAB original_header{};
+  const SchemaModulationHeaderBA reordered_header{};
+  static_assert(sizeof(original_header) == sizeof(reordered_header));
+  ParameterLayoutHash header_before, header_after;
+  header_before.member(original_header, original_header.enabled, "enabled");
+  header_before.member(original_header, original_header.source, "source");
+  header_after.member(reordered_header, reordered_header.enabled, "enabled");
+  header_after.member(reordered_header, reordered_header.source, "source");
+  HS_EXPECT_NE(header_before.value, header_after.value);
+  ParameterLayoutHash boolean_type, enum_type;
+  boolean_type.member(original_header, original_header.enabled, "tag");
+  enum_type.member(reordered_header, reordered_header.source, "tag");
+  HS_EXPECT_NE(boolean_type.value, enum_type.value);
 }
 
 /** @brief Hashes named parameter fields and their offsets in the snapshot. */
@@ -102,25 +185,25 @@ struct ParameterSchemaPin {
 };
 
 constexpr ParameterSchemaPin PARAMETER_SCHEMA_PINS[] = {
-    {"AlienBrain", 2, 116, 2450429636986970733ULL},
-    {"KaleidoscopeHexSoft", 2, 112, 8936720859510048520ULL},
-    {"AlienOcean", 2, 124, 5732924260995353001ULL},
-    {"AlienCore", 2, 124, 5732924260995353001ULL},
-    {"KaleidoscopeMandala", 2, 140, 13066144578015210057ULL},
-    {"GridSpace", 2, 124, 1602663564915579084ULL},
-    {"KaleidoscopeMelt", 1, 100, 6646121068342335885ULL},
-    {"ChromaticLichen", 2, 108, 149313388846503452ULL},
-    {"MermaidSkin", 2, 108, 149313388846503452ULL},
-    {"JewelMelt", 1, 100, 6646121068342335885ULL},
-    {"AshCloud", 2, 108, 6209082325371804633ULL},
-    {"KaleidoscopePentBright", 2, 124, 3683580502139334648ULL},
-    {"KaleidoscopeHexOil", 2, 100, 9129498782342370022ULL},
-    {"KaleidoscopeStainedGlass", 2, 140, 1167435404544472545ULL},
-    {"KaleidoscopeSmooth", 4, 120, 8155564830961471120ULL},
-    {"KaleidoscopeHexBright", 2, 112, 8936720859510048520ULL},
-    {"KaleidoscopeFlowers", 2, 120, 8155564830961471120ULL},
-    {"CosmicEyeball", 2, 124, 5732924260995353001ULL},
-    {"MobiusGrid", 2, 144, 15460173752614586553ULL},
+    {"AlienBrain", 3, 260, 10970901865782576178ULL},
+    {"KaleidoscopeHexSoft", 3, 256, 17905640830166557046ULL},
+    {"AlienOcean", 3, 268, 488309883677394514ULL},
+    {"AlienCore", 3, 268, 488309883677394514ULL},
+    {"KaleidoscopeMandala", 3, 284, 15113534253204804988ULL},
+    {"GridSpace", 3, 268, 7228324936549444903ULL},
+    {"KaleidoscopeMelt", 2, 244, 14007242226001057702ULL},
+    {"ChromaticLichen", 3, 252, 9738589640727657009ULL},
+    {"MermaidSkin", 3, 252, 9738589640727657009ULL},
+    {"JewelMelt", 2, 244, 14007242226001057702ULL},
+    {"AshCloud", 3, 252, 11283470788844466818ULL},
+    {"KaleidoscopePentBright", 3, 268, 8346974636567367169ULL},
+    {"KaleidoscopeHexOil", 3, 244, 11056193341407642387ULL},
+    {"KaleidoscopeStainedGlass", 3, 284, 15372273852295413666ULL},
+    {"KaleidoscopeSmooth", 5, 264, 14420337712696196372ULL},
+    {"KaleidoscopeHexBright", 3, 256, 17905640830166557046ULL},
+    {"KaleidoscopeFlowers", 3, 264, 14420337712696196372ULL},
+    {"CosmicEyeball", 3, 268, 488309883677394514ULL},
+    {"MobiusGrid", 3, 288, 10543493349513914017ULL},
 };
 
 /** @brief Pins one specialization's schema version to its field layout. */
