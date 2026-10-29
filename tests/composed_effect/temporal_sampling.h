@@ -325,7 +325,7 @@ inline void test_temporal_equal_palettes_color_as_current() {
   effect.draw_frame();
   effect.advance_display();
   const auto current = effect.frame_for_test();
-  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NOISE, true, true>
+  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NONE, true, true>
       history;
   history.capture(current, persistent_arena);
   using PathPalette = Pullback::Color::GeneratedPalette<
@@ -337,6 +337,7 @@ inline void test_temporal_equal_palettes_color_as_current() {
                      .temporal.same_palette);
   HS_EXPECT_TRUE(sample.temporal.same_palette);
   sample.params.template get<"color">().hue_shift_amount = 0.3f;
+  sample.params.template get<"color">().modulation.enabled = false;
   const auto prepared = PathPalette::prepare(sample);
   HS_EXPECT_NEAR(prepared.fraction, 1.0f, 0.0f);
   auto interpolated = sample;
@@ -381,7 +382,7 @@ inline void test_temporal_moving_families_interpolate() {
   effect.draw_frame();
   effect.advance_display();
   const auto current = effect.frame_for_test();
-  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NOISE, true, true>
+  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NONE, true, true>
       history;
   history.capture(current, persistent_arena);
   auto moved = current;
@@ -521,7 +522,7 @@ inline void test_gridspace_factored_columns() {
   effect.init();
   effect.draw_frame();
   effect.advance_display();
-  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NOISE, true>
+  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NONE, true, true>
       history;
   int maximum_error = 0;
   uint64_t error_sum = 0;
@@ -573,7 +574,7 @@ inline void test_gridspace_temporal_pixels() {
   effect.init();
   effect.draw_frame();
   effect.advance_display();
-  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NOISE, true>
+  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NONE, true, true>
       history;
   history.capture(effect.frame_for_test(), persistent_arena);
   effect.set_clip(3, 17, 39, 83);
@@ -656,8 +657,9 @@ inline void check_temporal_roster_pixels(const char *name) {
   constexpr int TOLERANCE = FX::Spec::FACTORED_COLUMNS ? 16 : 2;
   FX effect;
   effect.init();
-  Spacetime::FrameHistory<typename FX::FrameState, FX::Metadata::HUE, true,
-                          FX::FLOAT_HUE_TABLES>
+  Spacetime::FrameHistory<
+      typename FX::FrameState, FX::Metadata::HUE, true, FX::Spec::MODULATION,
+      FX::Spec::MODULATION_EVALUATION == Pattern::Evaluation::BAKED_CUBE>
       history;
   const auto view = [](int x, int y) {
     const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
@@ -681,7 +683,7 @@ inline void check_temporal_roster_pixels(const char *name) {
       expect_pixel(effect.get_pixel(x, y), FX::shade(view(x, y), first));
   history.capture(initial, persistent_arena);
   HS_EXPECT_TRUE(history.previous.palette != initial.palette);
-  if constexpr (FX::Metadata::HUE == Pullback::HueMode::NOISE) {
+  if constexpr (FX::Spec::MODULATION) {
     HS_EXPECT_TRUE(history.previous.modulation != initial.modulation);
     HS_EXPECT_TRUE(history.previous.hue_rotation_lut !=
                    initial.hue_rotation_lut);
@@ -792,9 +794,9 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
 /** @brief Composed history type of an effect.
  * @tparam FX Composed effect specialization. */
 template <typename FX>
-using ComposedHistory =
-    Spacetime::FrameHistory<typename FX::FrameState, FX::Metadata::HUE, true,
-                            FX::FLOAT_HUE_TABLES>;
+using ComposedHistory = Spacetime::FrameHistory<
+    typename FX::FrameState, FX::Metadata::HUE, true, FX::Spec::MODULATION,
+    FX::Spec::MODULATION_EVALUATION == Pattern::Evaluation::BAKED_CUBE>;
 
 /** @brief MobiusGrid's lens b at a continuous frame time.
  * @param time Frames since init; draw k spans [k, k + 1].

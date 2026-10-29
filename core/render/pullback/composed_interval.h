@@ -237,16 +237,17 @@ HS_FLASH_INLINE Frame sample_frame(const Frame &from, const Frame &to,
 }
 
 /** @brief Owned palette and hue tables for the previous frame endpoint. */
-template <typename Frame, Pullback::Color::HueMode Hue, bool FloatHue>
+template <typename Frame, Pullback::Color::HueMode Hue, bool FloatHue,
+          bool Baked>
   requires BorrowsColorResources<Frame>
-struct FrameHistory<Frame, Hue, true, FloatHue> {
+struct FrameHistory<Frame, Hue, true, FloatHue, Baked> {
   Frame previous{}; ///< Previous endpoint with owned color resource views.
   BakedPaletteStorage palette; ///< Retained palette table.
   std::array<Pixel, Hue != Pullback::Color::HueMode::NONE || FloatHue
                         ? Pullback::Color::HueRotationLutView::SIZE
                         : 0>
       hue_rotation; ///< Retained hue-rotation table.
-  std::array<int8_t, FloatHue ? Pattern::SphereLutView::SIZE : 0>
+  std::array<int8_t, FloatHue && Baked ? Pattern::SphereLutView::SIZE : 0>
       modulation_table{}; ///< Retained scalar table.
   std::conditional_t<FloatHue, Pullback::Modulation::Prepared, std::monostate>
       modulation;           ///< Retained immutable source inputs.

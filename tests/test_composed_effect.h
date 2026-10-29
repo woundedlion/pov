@@ -98,8 +98,6 @@ struct ColorSliderBinding {
  */
 constexpr ColorSliderBinding COLOR_SLIDER_BINDINGS[] = {
     {"Hue Shift Amount", "hue-shift-amount"},
-    {"Hue Noise Scale", "hue-noise-scale"},
-    {"Hue Noise Speed", "hue-noise-speed"},
     {"Palette Chroma", "palette-chroma"},
     {"Mapping Frequency", "mapping-frequency"},
     {"Mapping Phase", "mapping-phase"},
@@ -368,7 +366,7 @@ inline void check_slider_registration(const char *name) {
       warp_slot_count<FX, typename Params::template Family<"inner_warp">>() +
       (mobius ? std::size(MOBIUS_SLIDERS) : size_t{0}) +
       std::size(UNGATED_COLOR_SLIDERS) + (brightness ? size_t{2} : size_t{0}) +
-      (hue_noise ? size_t{2} : size_t{0}) + (hue_shift ? size_t{1} : size_t{0});
+      (hue_noise ? size_t{3} : size_t{0}) + (hue_shift ? size_t{1} : size_t{0});
   HS_EXPECT_EQ(params.size(), expected);
   HS_EXPECT_EQ(params.size(), params.capacity());
 }

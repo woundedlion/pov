@@ -67,7 +67,11 @@ inline constexpr TopologyGate BRIGHTNESS_ENVELOPE_GATE{
 struct ColorControls {
   float hue_shift_amount = 0.0f; /**< Hue rotation magnitude; 0 disables the
                                       rotation entirely. */
-  ColorModulation::Config modulation; ///< Independent spatial color modulation.
+  ColorModulation::Config modulation = [] {
+    ColorModulation::Config config;
+    config.seed = HUE_NOISE_SEED;
+    return config;
+  }(); ///< Independent spatial color modulation.
   float palette_chroma = 0.62f; /**< Chroma the generated palettes are baked
                                       at. */
   /** Palette repeats across the value range. */
@@ -545,11 +549,16 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
       previous.modulation = RESOURCES.continuous_modulation
                                 ? RESOURCES.modulation
                                 : current.modulation;
-      const float FRACTION = RESOURCES.fraction;
-      return {current, previous, FRACTION, frac_to_q16(FRACTION),
-              current.modulation && previous.modulation &&
-                  Modulation::same_field(*current.modulation,
-                                         *previous.modulation)};
+      const bool SAME_SOURCE =
+          current.modulation && previous.modulation &&
+          Modulation::same_field(*current.modulation, *previous.modulation);
+      const bool IDENTITY = !current.modulation ||
+                            !current.modulation->config.enabled ||
+                            current.mechanic.amount == 0.0f;
+      const float FRACTION = RESOURCES.same_palette && (IDENTITY || SAME_SOURCE)
+                                 ? 1.0f
+                                 : RESOURCES.fraction;
+      return {current, previous, FRACTION, frac_to_q16(FRACTION), SAME_SOURCE};
     } else
       return current;
   }

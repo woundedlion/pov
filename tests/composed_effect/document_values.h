@@ -356,6 +356,17 @@ inline bool assign_field(Family &family, std::string_view id, float value) {
         return true;
       }
   }
+  if constexpr (requires { family.modulation; }) {
+    Pullback::Interp::Op::GeneratedPaletteParams bridge;
+    bridge.modulation = family.modulation;
+    for (size_t index = 0; index < bridge.EXTRA_SCHEMA.size(); ++index)
+      if (id == bridge.EXTRA_SCHEMA[index].id &&
+          !bridge.EXTRA_SCHEMA[index].topology) {
+        *static_cast<float *>(bridge.extra_address(index)) = value;
+        family.modulation = bridge.modulation;
+        return true;
+      }
+  }
   return false;
 }
 
@@ -500,7 +511,20 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     return false;
   const std::string_view text = value.text;
   switch (slot.role) {
-  case SlotRole::COLORIZE:
+  case SlotRole::COLORIZE: {
+    ChainOp::GeneratedPaletteParams bridge;
+    bridge.modulation = built.template get<"color">().modulation;
+    for (size_t index = 0; index < bridge.EXTRA_SCHEMA.size(); ++index) {
+      const auto &field = bridge.EXTRA_SCHEMA[index];
+      if (field_id == field.id && field.topology)
+        for (uint8_t value = 0; value < field.enum_count; ++value)
+          if (text == field.enum_ids[value]) {
+            *static_cast<uint8_t *>(bridge.extra_address(index)) = value;
+            built.template get<"color">().modulation = bridge.modulation;
+            return true;
+          }
+    }
+  }
     if (field_id == "palette-mapping") {
       for (uint8_t index = 0; index < std::size(ChainOp::PALETTE_MAPPING_IDS);
            ++index)
@@ -775,10 +799,6 @@ inline void check_document_values(const char *name) {
             if (field.member == &Family::hue_shift_amount &&
                 TraitsOf<FX>::HUE == Pullback::HueMode::NONE)
               continue;
-            if ((field.member == &Family::hue_noise_scale ||
-                 field.member == &Family::hue_noise_speed) &&
-                TraitsOf<FX>::HUE != Pullback::HueMode::NOISE)
-              continue;
           }
           family.*(field.member) = MISSING;
         }
@@ -787,6 +807,12 @@ inline void check_document_values(const char *name) {
       if constexpr (Pullback::HasFields<typename Resource::Family>)
         poison(family);
     });
+    if constexpr (FX::Spec::MODULATION) {
+      auto &config = built.template get<"color">().modulation;
+      config.mechanic.amount = MISSING;
+      config.noise.scale = MISSING;
+      config.noise.speed = MISSING;
+    }
     built.template get<"color">().palette_mapping =
         static_cast<Pullback::Color::PaletteMapping>(255);
     if constexpr (FX::Params::template HAS<"lens">)

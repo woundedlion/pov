@@ -34,7 +34,8 @@ inline bool valid(const Config &config) {
       static_cast<unsigned>(config.evaluation) > 1)
     return false;
   if (config.evaluation == Pattern::Evaluation::BAKED_CUBE &&
-      config.source != Pattern::SourceKind::NOISE)
+      (config.source != Pattern::SourceKind::NOISE ||
+       config.noise.scale > 8.0f))
     return false;
   switch (config.source) {
   case Pattern::SourceKind::NOISE:
@@ -52,7 +53,7 @@ inline bool valid(const Config &config) {
  * @param config Source recipe.
  * @return Initialized typed source state. */
 inline State init(const Config &config) {
-  HS_CHECK(valid(config), "invalid modulation recipe");
+  HS_CHECK(valid(config), "invalid modulation initialization recipe");
   Pattern::PhaseState phase;
   switch (config.source) {
   case Pattern::SourceKind::NOISE:
@@ -74,7 +75,7 @@ inline State init(const Config &config) {
  * @param state Scheduled source state.
  * @param config Current configuration. */
 inline void synchronize(State &state, const Config &config) {
-  HS_CHECK(valid(config), "invalid modulation recipe");
+  HS_CHECK(valid(config), "invalid modulation synchronization recipe");
   if (!state.initialized || state.source != config.source ||
       state.version != config.version)
     state = init(config);
@@ -158,7 +159,7 @@ template <bool Baked = true> struct Resources {
    * @param clock Current source state.
    * @return Borrowed prepared endpoint. */
   const Prepared &prepare(const Config &config, const State &clock) {
-    HS_CHECK(valid(config), "invalid modulation recipe");
+    HS_CHECK(valid(config), "invalid modulation preparation recipe");
     State selected = clock;
     synchronize(selected, config);
     prepared.config = config;

@@ -167,14 +167,14 @@ template <typename T> struct Retained {
 /** @brief Optional retained endpoint storage. */
 template <typename Frame,
           Pullback::Color::HueMode Hue = Pullback::Color::HueMode::NONE,
-          bool Enabled = true, bool FloatHue = false>
+          bool Enabled = true, bool FloatHue = false, bool Baked = true>
 struct FrameHistory {};
 
 /** @brief Retained previous endpoint of a frame that owns or shares
  *  immutable resources. */
-template <typename Frame>
+template <typename Frame, bool Baked>
   requires(!BorrowsColorResources<Frame>)
-struct FrameHistory<Frame, Pullback::Color::HueMode::NONE, true, false> {
+struct FrameHistory<Frame, Pullback::Color::HueMode::NONE, true, false, Baked> {
   static_assert(std::is_trivially_copyable_v<Frame>);
   Frame previous{};         ///< Previous endpoint.
   bool initialized = false; ///< Whether a previous endpoint exists.

@@ -56,8 +56,6 @@ public:
   using Metadata = MetadataFor<SpecT>; ///< Topology derived from typed stages.
   /// Whether the effect samples time across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = SpecT::TEMPORAL_SAMPLING;
-  /// Whether hue tables retain exact float copies for interpolation.
-  static constexpr bool FLOAT_HUE_TABLES = false;
   static_assert(!TEMPORAL_SAMPLING || (W >= 2 && W % 2 == 0),
                 "Column-time sampling requires an even two-arm canvas width");
   /// Frame context, including retained color resources when sampling time.
@@ -187,7 +185,8 @@ public:
     const FrameState current = prepare_frame();
     if constexpr (TEMPORAL_SAMPLING) {
       auto &history = static_cast<Spacetime::FrameHistory<
-          FrameState, Metadata::HUE, TEMPORAL_SAMPLING, SpecT::MODULATION> &>(
+          FrameState, Metadata::HUE, TEMPORAL_SAMPLING, SpecT::MODULATION,
+          SpecT::MODULATION_EVALUATION == Pattern::Evaluation::BAKED_CUBE> &>(
           *state);
       if (!history.initialized)
         history.capture(current, persistent_arena);
@@ -272,7 +271,9 @@ public:
    *  @param params Parameter set to check.
    *  @return True when every family is in range. */
   static bool valid_params(const Params &params) {
-    return Pullback::valid(params);
+    return Pullback::valid(params) &&
+           (Metadata::HUE != HueMode::PATH_LENGTH ||
+            !params.template get<"color">().modulation.enabled);
   }
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   /**
@@ -317,7 +318,8 @@ protected:
                                 float value) override {
     bool admitted = true;
     params.visit([&]<typename Resource>(const auto &family) {
-      if constexpr (Resource::KIND == ResourceKind::LENS) {
+      if constexpr (Resource::KIND == ResourceKind::LENS ||
+                    Resource::KIND == ResourceKind::COLOR) {
         const uintptr_t begin = reinterpret_cast<uintptr_t>(&family);
         const uintptr_t target = reinterpret_cast<uintptr_t>(parameter.target);
         if (target >= begin && target - begin < sizeof(family)) {
@@ -571,14 +573,16 @@ public:
   }
 
 private:
-  struct State : ProjectionWalkNoise<ANIMATED_PROJECTION>,
-                 OptionalHueRotationLut<Metadata::HUE != HueMode::NONE ||
-                                        SpecT::MODULATION>,
-                 OptionalModulation<SpecT::MODULATION,
-                                    SpecT::MODULATION_EVALUATION ==
-                                        Pattern::Evaluation::BAKED_CUBE>,
-                 Spacetime::FrameHistory<FrameState, Metadata::HUE,
-                                         TEMPORAL_SAMPLING, SpecT::MODULATION> {
+  struct State
+      : ProjectionWalkNoise<ANIMATED_PROJECTION>,
+        OptionalHueRotationLut<Metadata::HUE != HueMode::NONE ||
+                               SpecT::MODULATION>,
+        OptionalModulation<SpecT::MODULATION,
+                           SpecT::MODULATION_EVALUATION ==
+                               Pattern::Evaluation::BAKED_CUBE>,
+        Spacetime::FrameHistory<
+            FrameState, Metadata::HUE, TEMPORAL_SAMPLING, SpecT::MODULATION,
+            SpecT::MODULATION_EVALUATION == Pattern::Evaluation::BAKED_CUBE> {
     ComposedDetail::ResourceStorage<ComposedDetail::ResourceNoise,
                                     typename Params::ResourceTypes>
         resources;
