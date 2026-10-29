@@ -312,8 +312,9 @@ public:
   /**
    * @brief Encodes @p snapshot as a JS object.
    * @param snapshot Snapshot to encode.
-   * @return Object with `schemaVersion`, `animationsPaused`, `chain` and
-   *         `parameters`, plus `runtime` and `paletteBank` when present.
+   * @return Object with `schemaVersion`, `animationsPaused`, `chain`,
+   *         `parameters` and required `modulation`, plus optional `runtime`
+   *         and `paletteBank`.
    */
   static Val encode(const ChainSnapshot &snapshot) {
     auto out = Val::object();
@@ -380,7 +381,8 @@ public:
 
   /**
    * @brief Decodes an untrusted JS payload into @p out.
-   * @details `runtime` and `paletteBank` are optional. The first failure is
+   * @details `modulation` is required; `runtime` and `paletteBank` are optional.
+   * The first failure is
    * returned; `schemaVersion` is checked before every other field. Within
    * each group (`chain`/`parameters`, `hues`/`cycles`) the arrays' types are
    * checked first, then their lengths, then their entries in wire order.
@@ -388,10 +390,11 @@ public:
    * @param input JS payload, expected to be a caller-owned clone.
    * @param out Snapshot to fill.
    * @return `APPLIED` when every field decodes (nothing is applied here);
-   *         `INVALID_VALUE` for a missing or mistyped field;
+   *         `INVALID_VALUE` for a missing or mistyped field, including a
+   *         missing or non-array `modulation`;
    *         `UNSUPPORTED_VERSION` for a `schemaVersion` other than
    *         `ChainSnapshot::SCHEMA_VERSION`; `INVALID_LENGTH` for an over-cap
-   *         `chain`, `parameters` or `runtime` array, or `hues`/`cycles`
+   *         `chain`, `parameters`, `modulation` or `runtime` array, or `hues`/`cycles`
    *         arrays not of length 3.
    */
   static Result decode(const Val &input, ChainSnapshot &out) {
