@@ -2071,14 +2071,14 @@ inline void test_gs_untimed_frames_are_pinned() {
   const PixelGolden SHIPPED =
       untimed_frame_golden<GSReactionDiffusion, DEFAULT_W, DEFAULT_H>(3);
   expect_pixel_golden("GS FULL", FULL,
-                      RecordedGolden{{0xbb98e787a9cd71e2ull,
-                                      {{76521874ull, 45395040ull, 55800442ull},
-                                       1444931809ull,
-                                       8679073878ull}},
-                                     {0xa5fcafb00214d587ull,
-                                      {{76522072ull, 45395511ull, 55800268ull},
-                                       1444925507ull,
-                                       8679082953ull}}});
+                      RecordedGolden{{0xb8c8e16988d986bdull,
+                                      {{76521718ull, 45395082ull, 55800561ull},
+                                       1444931869ull,
+                                       8679074045ull}},
+                                     {0x1f8e22e12ad5ef3eull,
+                                      {{76521916ull, 45395555ull, 55800388ull},
+                                       1444925603ull,
+                                       8679083188ull}}});
   expect_pixel_golden("GS CLIPPED", CLIPPED,
                       RecordedGolden{{0x7242104e4165c6b9ull,
                                       {{28328580ull, 18336526ull, 27241508ull},

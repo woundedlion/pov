@@ -12,6 +12,9 @@
 #include "core/render/sdf/volume.h"
 #include "core/memory.h"
 #include "hardware/pov_segment_map.h"
+#if HS_ENABLE_CHAIN_INTERPRETER
+#include "workbench/shader/chain_host.h"
+#endif
 #include "tests/mesh_test_util.h"
 #include "tests/pixel_test_util.h"
 #include "tests/vec_test_util.h"
@@ -30,6 +33,7 @@
 #include <limits>
 #include <map>
 #include <span>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -74,7 +78,8 @@ inline void lint_dead_sliders(Effect &effect, const char *name);
  * @param effect Effect instance whose automated params are probed.
  * @param name Effect name used in diagnostic output.
  */
-inline void lint_animated_pause(Effect &effect, const char *name);
+template <typename FX>
+inline void lint_animated_pause(FX &effect, const char *name);
 
 /**
  * @brief Drives one effect type through construct -> init -> render -> read-back.
@@ -219,12 +224,14 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
 
 /**
  * @brief Checks paused rendering for advertised animated parameters.
+ * @tparam FX Effect type, including its coordinated parameter API when present.
  * @param effect Effect instance whose automated params are probed.
  * @param name Effect name used in PAUSE LEAK diagnostic output.
  * @details Parameters are audited one at a time over PAUSE_AUDIT_FRAMES in
  *          total.
  */
-inline void lint_animated_pause(Effect &effect, const char *name) {
+template <typename FX>
+inline void lint_animated_pause(FX &effect, const char *name) {
   std::vector<const char *> names;
   std::vector<float> original;
   std::vector<float> target;
@@ -252,9 +259,50 @@ inline void lint_animated_pause(Effect &effect, const char *name) {
   bool leaked = false;
   for (size_t index = 0; index < count; ++index) {
     HS_CONTEXT(names[index]);
-    for (size_t restore = 0; restore < count; ++restore)
-      HS_EXPECT_EQ(effect.updateParameter(names[restore], original[restore]),
-                   ParamSetResult::APPLIED);
+#if HS_ENABLE_CHAIN_INTERPRETER
+    if constexpr (requires {
+                    effect.update_parameters(
+                        std::span<const ShaderChainParameterWrite>{});
+                  }) {
+      std::vector<ShaderChainParameterWrite> restore;
+      for (size_t item = 0; item < count; ++item)
+        restore.push_back({names[item], original[item]});
+      HS_EXPECT_EQ(effect.update_parameters(restore), ParamSetResult::APPLIED);
+      const std::string_view parameter = names[index];
+      const size_t separator = parameter.rfind('.');
+      const std::string prefix(parameter.substr(0, separator + 1));
+      const std::string_view field = parameter.substr(separator + 1);
+      const auto set = [&](const char *companion, float value) {
+        const std::string qualified = prefix + companion;
+        HS_EXPECT_EQ(effect.updateParameter(qualified.c_str(), value),
+                     ParamSetResult::APPLIED);
+      };
+      if (field == "hue-shift-mode")
+        set("modulation-enabled", 0.0f);
+      if (field == "pattern-scale" || field == "modulation-source" ||
+          field == "modulation-evaluation") {
+        set("modulation-mechanic", 0.0f);
+        set("pattern-noise-basis", 0.0f);
+        set("pattern-contrast", 0.0f);
+        set("pattern-noise-variant", 0.0f);
+        if (field != "modulation-evaluation")
+          set("modulation-evaluation", 0.0f);
+      }
+      if (field == "modulation-mechanic")
+        set("modulation-evaluation", 1.0f);
+      if (field == "pattern-contrast" || field == "pattern-noise-basis" ||
+          field == "pattern-noise-variant") {
+        set("modulation-evaluation", 1.0f);
+        if (field != "pattern-noise-variant")
+          set("pattern-noise-variant", 1.0f);
+      }
+    } else
+#endif
+    {
+      for (size_t restore = 0; restore < count; ++restore)
+        HS_EXPECT_EQ(effect.updateParameter(names[restore], original[restore]),
+                     ParamSetResult::APPLIED);
+    }
     effect.setAnimationsPaused(false);
     HS_EXPECT_EQ(effect.updateParameter(names[index], target[index]),
                  ParamSetResult::APPLIED);
