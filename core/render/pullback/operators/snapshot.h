@@ -22,7 +22,7 @@ namespace Detail {
  * @return True when admissible.
  */
 inline bool snapshot_phase(float value) {
-  return std::isfinite(value) && value >= 0.0f && value < 1.0f;
+  return Pattern::finite(value) && value >= 0.0f && value < 1.0f;
 }
 /**
  * @brief Whether @p value is a finite angle with magnitude below 2π.
@@ -30,7 +30,7 @@ inline bool snapshot_phase(float value) {
  * @return True when admissible.
  */
 inline bool snapshot_angle(float value) {
-  return std::isfinite(value) && fabsf(value) < math::TWO_PI_F;
+  return Pattern::finite(value) && fabsf(value) < math::TWO_PI_F;
 }
 /**
  * @brief Whether @p value is a finite unit vector.
@@ -38,8 +38,8 @@ inline bool snapshot_angle(float value) {
  * @return True when admissible.
  */
 inline bool snapshot_unit(const math::Vector &value) {
-  return std::isfinite(value.x) && std::isfinite(value.y) &&
-         std::isfinite(value.z) &&
+  return Pattern::finite(value.x) && Pattern::finite(value.y) &&
+         Pattern::finite(value.z) &&
          fabsf(math::dot(value, value) - 1.0f) < 1e-4f;
 }
 /**
@@ -48,8 +48,8 @@ inline bool snapshot_unit(const math::Vector &value) {
  * @return True when admissible.
  */
 inline bool snapshot_unit(const math::Quaternion &value) {
-  return std::isfinite(value.r) && std::isfinite(value.v.x) &&
-         std::isfinite(value.v.y) && std::isfinite(value.v.z) &&
+  return Pattern::finite(value.r) && Pattern::finite(value.v.x) &&
+         Pattern::finite(value.v.y) && Pattern::finite(value.v.z) &&
          fabsf(math::dot(value, value) - 1.0f) < 1e-4f;
 }
 } // namespace Detail
@@ -81,7 +81,7 @@ template <> struct RuntimeStateCodec<Op::SpatialWalkState> {
         !Detail::snapshot_unit(value->direction) ||
         fabsf(math::dot(value->position, value->direction)) > 1e-3f ||
         !Detail::snapshot_unit(value->wander) ||
-        !std::isfinite(value->angular_velocity) ||
+        !Pattern::finite(value->angular_velocity) ||
         !Detail::snapshot_angle(value->spin_phase))
       return false;
     Op::init_walk(state, value->noise_seed);
@@ -200,7 +200,8 @@ template <> struct RuntimeStateCodec<Op::RipplePhaseState> {
   static bool restore(Op::RipplePhaseState &state,
                       const RuntimeSnapshot &snapshot) {
     const auto *value = std::get_if<RippleClockSnapshot>(&snapshot);
-    if (value == nullptr || !std::isfinite(value->phase) || value->phase < 0.0f)
+    if (value == nullptr || !Pattern::finite(value->phase) ||
+        value->phase < 0.0f)
       return false;
     state.phase = value->phase;
     return true;
