@@ -176,11 +176,16 @@ current canonical captures) and the canonical O3 captures that predate the paire
 
 ## Artifact retention and source reachability
 
-Only memory, shipping and global-O3 reports and their indexes are checked in.
+The shipping, global-O3 and excluded report sets and their indexes, the memory
+snapshot, and the source revision crosswalk are checked in.
 Raw captures, source patches, build logs, ELF/map files and experimental campaign
 artifacts are local outputs; they are no longer retained in this archive.
 The profile wrapper writes these outputs under ignored `build/prof/`.
 Historical hashes identify captures but do not guarantee reproducible source.
+
+The historical landed IDs below resolve to published-branch source trees through
+[source_revisions.json](source_revisions.json), using `published_commit` when
+present and otherwise `current_commit`.
 
 Octet capture tip `1bb522211` is unpublished; landed `35f0348b7` has an
 identical tree. The three Tier commits `29305dfe2`, `f130ee632` and
