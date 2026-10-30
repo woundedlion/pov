@@ -158,13 +158,13 @@ struct NoiseParams {
   constexpr bool operator==(const NoiseParams &) const = default;
 };
 
-/** @brief Passive parameters of the RingsSourceParams source. */
+/** @brief Passive parameters for `PlaneRings`. */
 struct RingsSourceParams {
   float pattern_freq = 1.0f; /**< Radial pattern frequency. */
   float speed = 0.0f;        /**< Phase advance per frame, in radians. */
 };
 
-/** @brief Passive parameters of the GridSourceParams source. */
+/** @brief Passive parameters for `PlaneCoupledGrid`. */
 struct GridSourceParams {
   float pattern_freq = 1.0f; /**< Scale applied to the warped plane
                                    coordinates before the grid is sampled. */
@@ -178,7 +178,7 @@ struct GridSourceParams {
   float angle_rate = 0.0f;     /**< Per-frame advance of the source rotation. */
 };
 
-/** @brief Passive parameters of the TwinWaveSourceParams source. */
+/** @brief Passive parameters for `PlaneInterference`. */
 struct TwinWaveSourceParams {
   float pattern_freq = 1.0f;   /**< Plane-coordinate scale before sampling. */
   float speed = 0.0f;          /**< Per-frame advance of the primary phase. */
@@ -188,14 +188,14 @@ struct TwinWaveSourceParams {
                                 waves. */
 };
 
-/** @brief Passive parameters of the SpiralSourceParams source. */
+/** @brief Passive parameters for `PlaneSpiral`. */
 struct SpiralSourceParams {
   float pattern_freq = 1.0f; /**< Plane-coordinate scale before sampling. */
   float speed = 0.0f;        /**< Per-frame advance of the primary phase. */
   float angle_rate = 0.0f;   /**< Per-frame advance of the spiral rotation. */
 };
 
-/** @brief Passive parameters of the NoiseSourceParams source. */
+/** @brief Passive parameters for `PlaneNoise`. */
 struct NoiseSourceParams {
   float noise_scale = 1.0f;    /**< Spatial scale of the sampled field. */
   float noise_contrast = 0.0f; /**< Contour sharpening applied to the sample. */
@@ -203,7 +203,7 @@ struct NoiseSourceParams {
                                      coordinate. */
 };
 
-/** @brief Passive parameters of the LatticeSourceParams source. */
+/** @brief Passive parameters for the lattice kernel. */
 struct LatticeSourceParams {
   float lattice_cell_scale = 1.0f;  /**< Lattice cells per plane unit. */
   float lattice_shape_blend = 0.0f; /**< Cell primitive, from a circle at 0 to a
@@ -213,7 +213,7 @@ struct LatticeSourceParams {
   float lattice_radius = 0.25f;     /**< Primitive radius in cell units. */
 };
 
-/** @brief Passive parameters of the SphericalRingsSourceParams source. */
+/** @brief Passive parameters for `SphereRings`. */
 struct SphericalRingsSourceParams {
   float ring_count = 6.0f;      /**< Number of bands from pole to pole. */
   float ring_thickness = 0.08f; /**< Band half-width, in radians. */
@@ -223,7 +223,7 @@ struct SphericalRingsSourceParams {
   float wander = 0.0f;          /**< Fraction of the random walk applied. */
 };
 
-/** @brief Passive parameters of the FractalSourceParams source. */
+/** @brief Passive parameters for `PlaneEscapeFractal`. */
 struct FractalSourceParams {
   float scale = 0.5f;      /**< Plane-coordinate scale before iteration. */
   float iterations = 8.0f; /**< Escape iterations in [2,16]. */
@@ -235,7 +235,7 @@ struct FractalSourceParams {
   float angle_rate = 0.0f; /**< Per-frame rotation of the source plane. */
 };
 
-/** @brief Passive parameters of the TessellationSourceParams source. */
+/** @brief Passive parameters for `PlaneTessellation`. */
 struct TessellationSourceParams {
   float cell_scale = 1.0f;      /**< Tessellation cells per plane unit. */
   float line_thickness = 0.04f; /**< Edge half-width in cell units. */
