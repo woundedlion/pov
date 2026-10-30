@@ -42,6 +42,11 @@ struct ComposedFrameWhiteBox {
     return effect.state->current;
   }
 
+  template <typename FX>
+  static const typename FX::Frame *prepared_frame(const FX &effect) {
+    return effect.state->prepared ? &*effect.state->prepared : nullptr;
+  }
+
   template <typename FX> static void advance_palette(FX &effect, int steps) {
     for (int step = 0; step < steps; ++step)
       effect.palette_cycler.step();

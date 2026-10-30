@@ -223,11 +223,15 @@ public:
         HS_PROFILE(fx_shader_draw);
         Scan::Shader::draw_column_times<W, H>(
             canvas,
-            [&](int c) {
+            [&](int c) -> decltype(auto) {
               HS_PROFILE(fx_prepare_column);
               sampler.at_into(state->column,
                               Spacetime::SamplingSurface<W>::time(c));
-              return RenderPipeline::prepare(state->column);
+              if constexpr (SpecT::PERSISTENT_PREPARED_FRAME)
+                return static_cast<const Frame &>(
+                    state->prepared.emplace(state->column));
+              else
+                return RenderPipeline::prepare(state->column);
             },
             [](const Frame &frame, int x) {
               if constexpr (factored_columns()) {
@@ -239,16 +243,12 @@ public:
               }
             });
       } else {
-        const Frame frame = RenderPipeline::prepare(current);
-        HS_PROFILE(fx_shader_draw);
-        draw_static_columns(canvas, frame);
+        draw_current_columns(canvas, current);
       }
       state->interval.reset();
       history.capture(current, persistent_arena);
     } else {
-      const Frame frame = RenderPipeline::prepare(current);
-      HS_PROFILE(fx_shader_draw);
-      draw_static_columns(canvas, frame);
+      draw_current_columns(canvas, current);
     }
   }
 
@@ -294,6 +294,22 @@ public:
                                          [&frame](const math::Vector &view) {
                                            return Derived::shade(view, frame);
                                          });
+    }
+  }
+
+  /** @brief Prepares and shades one fixed context.
+   * @param canvas Destination canvas.
+   * @param current Frame context. */
+  HS_FLASH_MEMBER void draw_current_columns(Canvas &canvas,
+                                            const FrameState &current) {
+    if constexpr (SpecT::PERSISTENT_PREPARED_FRAME) {
+      const Frame &frame = state->prepared.emplace(current);
+      HS_PROFILE(fx_shader_draw);
+      draw_static_columns(canvas, frame);
+    } else {
+      const Frame frame = RenderPipeline::prepare(current);
+      HS_PROFILE(fx_shader_draw);
+      draw_static_columns(canvas, frame);
     }
   }
 
@@ -648,6 +664,9 @@ private:
         resources;
     FastNoiseLite outer_walk_noise;
     FrameState current{};
+    std::conditional_t<SpecT::PERSISTENT_PREPARED_FRAME, std::optional<Frame>,
+                       std::monostate>
+        prepared;
     std::conditional_t<TEMPORAL_SAMPLING, FrameState, std::monostate> column;
     std::conditional_t<TEMPORAL_SAMPLING,
                        std::optional<FrameInterval<FrameState>>, std::monostate>

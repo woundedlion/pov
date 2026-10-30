@@ -91,6 +91,86 @@ HS_FLASH_INLINE Frame sample_frame_reference(const Frame &from, const Frame &to,
   return frame;
 }
 
+template <bool Persistent, bool Temporal>
+struct PreparedFrameProbeSpec : GridSpaceSpec {
+  static constexpr bool PERSISTENT_PREPARED_FRAME = Persistent;
+  static constexpr bool TEMPORAL_SAMPLING = Temporal;
+};
+
+template <bool Persistent, bool Temporal>
+class PreparedFrameProbe
+    : public Pullback::ComposedEffect<
+          SMALL_W, SMALL_H, PreparedFrameProbe<Persistent, Temporal>,
+          PreparedFrameProbeSpec<Persistent, Temporal>> {
+  using Base =
+      Pullback::ComposedEffect<SMALL_W, SMALL_H,
+                               PreparedFrameProbe<Persistent, Temporal>,
+                               PreparedFrameProbeSpec<Persistent, Temporal>>;
+
+public:
+  static constexpr std::string_view EFFECT_ID = "prepared-frame-probe";
+  static constexpr std::array<std::string_view, 1> PRESET_IDS{"probe"};
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr auto initial_params() {
+    return GridSpace<SMALL_W, SMALL_H>::initial_params();
+  }
+  static consteval auto choreography_hooks() {
+    return Base::choreography_hooks()
+        .template extend<
+            PreparedFrameProbe,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &PreparedFrameProbe::initial_params>>();
+  }
+};
+
+template <bool Persistent, bool Temporal>
+inline std::vector<Pixel> prepared_frame_pixels(bool sampling) {
+  reset_effect_globals();
+  const ScopedTemporalSampling mode(sampling);
+  using FX = PreparedFrameProbe<Persistent, Temporal>;
+  FX effect;
+  effect.init();
+  const typename FX::Frame *retained = nullptr;
+  if constexpr (Persistent)
+    HS_EXPECT_TRUE(ComposedFrameWhiteBox::prepared_frame(effect) == nullptr);
+  std::vector<Pixel> pixels;
+  for (int frame = 0; frame < 3; ++frame) {
+    effect.draw_frame();
+    if constexpr (Persistent) {
+      const auto *prepared = ComposedFrameWhiteBox::prepared_frame(effect);
+      HS_EXPECT_TRUE(prepared != nullptr);
+      if (retained)
+        HS_EXPECT_TRUE(prepared == retained);
+      retained = prepared;
+      const typename FX::Frame owned(prepared->ctx);
+      for (const math::Vector &direction :
+           {math::UP, math::Vector(1, 0, 0), math::Vector(0, 0, 1)}) {
+        const Color4 actual = FX::shade(direction, *prepared);
+        const Color4 expected = FX::shade(direction, owned);
+        HS_EXPECT_EQ(actual.color, expected.color);
+        HS_EXPECT_EQ(actual.alpha, expected.alpha);
+      }
+    }
+    for (int y = 0; y < SMALL_H; ++y)
+      for (int x = 0; x < SMALL_W; ++x)
+        pixels.push_back(effect.get_pixel(x, y));
+    effect.advance_display();
+  }
+  return pixels;
+}
+
+inline void test_composed_persistent_prepared_frame() {
+  static_assert(!Pullback::Spec::PERSISTENT_PREPARED_FRAME);
+  static_assert(MillefioriSpec::PERSISTENT_PREPARED_FRAME);
+  for (bool sampling : {false, true}) {
+    HS_EXPECT_TRUE((prepared_frame_pixels<true, true>(sampling) ==
+                    prepared_frame_pixels<false, true>(sampling)));
+    HS_EXPECT_TRUE((prepared_frame_pixels<true, false>(sampling) ==
+                    prepared_frame_pixels<false, false>(sampling)));
+  }
+}
+
 /** @brief Custom shading remains authoritative with column factoring enabled. */
 class TemporalShadeProbe
     : public Pullback::ComposedEffect<96, 20, TemporalShadeProbe,
