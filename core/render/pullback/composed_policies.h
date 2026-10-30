@@ -20,6 +20,8 @@ struct Spec {
   static constexpr bool ANIMATED_PROJECTION = true;
   /// Whether columns sample consecutive frame states across a half-turn.
   static constexpr bool TEMPORAL_SAMPLING = false;
+  /// Samples eligible color-source phases once after palette interpolation.
+  static constexpr bool TEMPORAL_COLOR_PHASE = false;
   /// Factors a supported rotation prefix into column bases.
   static constexpr bool FACTORED_COLUMNS = false;
   /// Bakes endpoint radial transfer curves for burst ripples.

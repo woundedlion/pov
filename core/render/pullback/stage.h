@@ -925,6 +925,12 @@ template <typename ColorPolicyT>
 struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, ColorSample> {
   using Policies = std::tuple<ColorPolicyT>; ///< Policies the stage binds.
   using ColorPolicy = ColorPolicyT;          ///< The color policy.
+  static constexpr bool PHASE_BLEND_BASE = [] {
+    if constexpr (requires { ColorPolicyT::PHASE_BLEND_BASE; })
+      return ColorPolicyT::PHASE_BLEND_BASE;
+    else
+      return false;
+  }(); ///< Whether shared controls admit blending before a phase tail.
 
   /**
    * @brief Whether `ColorPolicyT::apply` is callable under @p Binding.
@@ -1028,6 +1034,35 @@ template <typename ColorPolicyT>
 struct Modulate : Contract<Modulate<ColorPolicyT>, ColorSample, ColorSample> {
   using Policies = std::tuple<ColorPolicyT>; ///< Policies the stage binds.
   using ColorPolicy = ColorPolicyT;          ///< The color policy.
+
+  /** @brief Checks a policy's optional shared-phase state.
+   * @tparam Binding Pipeline binding.
+   * @param prepared Layer state.
+   * @return Whether the column admits shared phase evaluation. */
+  template <typename Binding>
+  static bool phase_ready(
+      const Detail::PolicyPrepared<ColorPolicyT, typename Binding::FrameState>
+          &prepared)
+    requires requires { ColorPolicyT::phase_ready(prepared); }
+  {
+    return ColorPolicyT::phase_ready(prepared);
+  }
+  /** @brief Applies a policy's optional shared-phase operation.
+   * @tparam Binding Pipeline binding.
+   * @param sample Color carrier to update.
+   * @param frame Frame context.
+   * @param prepared Layer state. */
+  template <typename Binding>
+  static void run_phase(
+      ColorSample &sample, const typename Binding::FrameState &frame,
+      const Detail::PolicyPrepared<ColorPolicyT, typename Binding::FrameState>
+          &prepared)
+    requires requires {
+      ColorPolicyT::apply_phase_in_place(sample, frame, prepared);
+    }
+  {
+    ColorPolicyT::apply_phase_in_place(sample, frame, prepared);
+  }
 
   /**
    * @brief Whether `ColorPolicyT::apply` is callable under @p Binding.

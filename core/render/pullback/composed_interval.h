@@ -43,6 +43,7 @@ template <typename Frame> class FrameInterval {
   uint32_t constant_families = 0;
   float oscillation_delta;
   bool same_palette;
+  bool phase_compatible = true;
 
 public:
   /** @brief Prepares parameter identity and periodic clock deltas.
@@ -120,6 +121,12 @@ public:
         delta.generated = lens_phase_continuous(
             a.params.template get<Resource::KEY>(),
             b.params.template get<Resource::KEY>(), start, end);
+      } else if constexpr (Resource::KIND == ResourceKind::MODULATION) {
+        const auto &previous =
+            a.params.template get<Resource::KEY>().modulation;
+        const auto &current = b.params.template get<Resource::KEY>().modulation;
+        phase_compatible =
+            phase_compatible && Modulation::phase_compatible(previous, current);
       }
     });
   }
@@ -271,7 +278,7 @@ public:
     });
     frame.temporal = {from.palette, from.hue_rotation_lut,
                       same_palette && same_sources ? 1.0f : fraction,
-                      same_palette};
+                      same_palette, phase_compatible};
   }
 };
 

@@ -560,19 +560,62 @@ struct ColorProvider {
  * @tparam BindingT Pipeline binding.
  * @tparam Key Modulation instance key.
  * @tparam SourceV Source capability.
- * @tparam EvaluationV Source storage strategy. */
+ * @tparam EvaluationV Source storage strategy.
+ * @tparam PhaseV Whether eligible sources share column-phase evaluation. */
 template <typename BindingT, ResourceKey Key, Pattern::SourceKind SourceV,
-          Pattern::Evaluation EvaluationV = Pattern::Evaluation::BAKED_CUBE>
+          Pattern::Evaluation EvaluationV = Pattern::Evaluation::BAKED_CUBE,
+          bool PhaseV = false>
 struct ModulationProvider {
   using Binding = BindingT;                        ///< Pipeline binding.
   using FrameState = typename Binding::FrameState; ///< Frame context.
+  using Prepared = std::conditional_t<PhaseV, Color::PhaseModulationState,
+                                      Color::ModulationState>; ///< Layer state.
   /** @brief Prepares endpoint views and mechanic controls.
    * @param frame Frame context.
    * @return Immutable layer state. */
-  static Color::ModulationState prepare(const FrameState &frame) {
+  static Prepared prepare(const FrameState &frame) {
     const auto &config = frame.params.template get<Key>().modulation;
     const auto &resource = frame.resources.template get<Key>();
-    return {resource.modulation, resource.previous_modulation, config.source,
-            config.mechanic, config.enabled};
+    const Color::ModulationState BASE{
+        resource.modulation, resource.previous_modulation, config.source,
+        config.mechanic, config.enabled};
+    if constexpr (!PhaseV)
+      return BASE;
+    else {
+      Color::PhaseModulationState result;
+      static_cast<Color::ModulationState &>(result) = BASE;
+      if constexpr (requires { frame.temporal.phase_compatible; }) {
+        if (!frame.temporal.phase_compatible)
+          return result;
+        if (config.source != SourceV || config.evaluation != EvaluationV)
+          return result;
+        if (config.mechanic.kind != ColorModulation::Mechanic::HUE_ROTATION &&
+            config.mechanic.kind !=
+                ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT)
+          return result;
+        if constexpr (SourceV == Pattern::SourceKind::DISPLACEMENT)
+          result.ready = true;
+        else if constexpr (SourceV == Pattern::SourceKind::SPHERE_SMOOTH_GRID &&
+                           EvaluationV == Pattern::Evaluation::DIRECT) {
+          if (!resource.modulation || !resource.previous_modulation)
+            return result;
+          if (!Modulation::phase_compatible(
+                  resource.previous_modulation->config,
+                  resource.modulation->config))
+            return result;
+          const auto &a = std::get<3>(resource.previous_modulation->source);
+          const auto &b = std::get<3>(resource.modulation->source);
+          result.grid = b;
+          result.grid.a.phase_turns =
+              Spacetime::ClockInterval(a.a.phase_turns, b.a.phase_turns, 1.0f)
+                  .sample(frame.temporal.fraction);
+          result.grid.b.phase_turns =
+              Spacetime::ClockInterval(a.b.phase_turns, b.b.phase_turns, 1.0f)
+                  .sample(frame.temporal.fraction);
+          result.ready = true;
+        }
+      }
+      return result;
+    }
   }
 };

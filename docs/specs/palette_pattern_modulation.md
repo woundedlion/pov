@@ -350,6 +350,19 @@ then quantizes once to RGB16. A unit gain preserves the unscaled quantization;
 zero gain returns exact black with the original alpha. Hue-table samples retain
 their existing RGB16 brightness scaling.
 
+`Spec::TEMPORAL_COLOR_PHASE` opts eligible authored modulation providers into a
+different interior color-time model. Blend the base palette RGB and alpha first,
+sample the analytic smooth grid at the shortest interpolated column phase, then
+apply each hue/lift layer once. Displacement layers use the sampled geometric
+path length. All color-tail stages must declare and admit this protocol; an
+unknown stage, unsupported source/mechanic, or changed source recipe keeps the
+complete endpoint-tail model. Literal fractions zero and one remain canonical.
+Grid preparation retains only the normalized axes, frequencies and phases;
+it does not copy the noise-preparation variant into column storage. Millefiori
+enables this model; other authored specs default to the endpoint-tail model.
+Both models compose hue and lift before one final gamut mapping. Alpha is
+unchanged because the admitted shared mechanics preserve it.
+
 A source kind/custom recipe version, evaluation strategy, mechanic kind or
 enabled-state change is a topology change for that layer. Hold that layer
 against its **entire current modulation**:

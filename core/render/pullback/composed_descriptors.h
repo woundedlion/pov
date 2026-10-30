@@ -235,9 +235,9 @@ struct IsModulationStage<Stage::Modulate<P>> : std::true_type {};
 /** @brief Whether a color layer reads accumulated displacement. @tparam T Stage descriptor. */
 template <typename T> struct IsDisplacementStage : std::false_type {};
 template <typename B, ResourceKey Key, Pattern::SourceKind Source,
-          Pattern::Evaluation Evaluation>
+          Pattern::Evaluation Evaluation, bool Phase>
 struct IsDisplacementStage<Stage::Modulate<
-    Color::Modulate<ModulationProvider<B, Key, Source, Evaluation>>>>
+    Color::Modulate<ModulationProvider<B, Key, Source, Evaluation, Phase>>>>
     : std::bool_constant<Source == Pattern::SourceKind::DISPLACEMENT> {};
 
 /** @brief Topology derived from normalized typed pipeline entries.
@@ -421,10 +421,11 @@ struct PolicyResources<ColorProvider<B, Brightness>> {
  * @tparam B Frame binding.
  * @tparam Key Layer key.
  * @tparam Source Source capability.
- * @tparam Evaluation Storage strategy. */
+ * @tparam Evaluation Storage strategy.
+ * @tparam Phase Whether phases are sampled once per column. */
 template <typename B, ResourceKey Key, Pattern::SourceKind Source,
-          Pattern::Evaluation Evaluation>
-struct PolicyResources<ModulationProvider<B, Key, Source, Evaluation>> {
+          Pattern::Evaluation Evaluation, bool Phase>
+struct PolicyResources<ModulationProvider<B, Key, Source, Evaluation, Phase>> {
   using Type = ResourceList<ParameterResource<
       Key, Modulation::Params<Source, Evaluation>, ResourceKind::MODULATION>>;
 };

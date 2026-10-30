@@ -1915,6 +1915,7 @@ struct PaletteFrame {
   ColorModulation::Params mechanic{ColorModulation::Mechanic::HUE_ROTATION,
                                    0.25f};
   Pullback::Color::TemporalPaletteResources temporal{};
+  const Pullback::Color::PhaseModulationState *phase = nullptr;
 };
 struct PaletteBinding {
   using FrameState = PaletteFrame;
@@ -1993,6 +1994,94 @@ using TemporalPalettePlacedPipeline = Pullback::Pipeline<
             Pullback::Color::GeneratedPalette<TemporalPaletteProvider>>,
         Pullback::Stage::Modulate<
             Pullback::Color::Modulate<PaletteLayerProvider>>>>;
+
+struct PhaseLayerProvider {
+  using Binding = PaletteBinding;
+  using FrameState = PaletteFrame;
+  static Pullback::Color::PhaseModulationState
+  prepare(const PaletteFrame &frame) {
+    return *frame.phase;
+  }
+};
+struct CountingPhasePolicy : Pullback::Color::Modulate<PhaseLayerProvider> {
+  using Base = Pullback::Color::Modulate<PhaseLayerProvider>;
+  inline static int phase_calls = 0;
+  inline static int endpoint_calls = 0;
+  static void apply_endpoint_in_place(Pullback::ColorSample &sample,
+                                      const PaletteFrame &frame,
+                                      const Prepared &prepared, bool previous) {
+    ++endpoint_calls;
+    Base::apply_endpoint_in_place(sample, frame, prepared, previous);
+  }
+  static void apply_phase_in_place(Pullback::ColorSample &sample,
+                                   const PaletteFrame &frame,
+                                   const Prepared &prepared) {
+    ++phase_calls;
+    Base::apply_phase_in_place(sample, frame, prepared);
+  }
+};
+
+/** @brief Shared phase tails run once; incomplete or unready tails keep endpoints. */
+inline void test_pullback_phase_tail_dispatch() {
+  using namespace Pullback;
+  using Phase = Pullback::Pipeline<
+      PaletteBinding, PaletteSampleStage,
+      Stage::Colorize<Color::GeneratedPalette<TemporalPaletteProvider>>,
+      Stage::Modulate<CountingPhasePolicy>,
+      Stage::Modulate<CountingPhasePolicy>>;
+  using Fallback = Pullback::Pipeline<
+      PaletteBinding, PaletteSampleStage,
+      Stage::Colorize<Color::GeneratedPalette<TemporalPaletteProvider>>,
+      Stage::Modulate<CountingPhasePolicy>,
+      Stage::Modulate<CountingPhasePolicy>,
+      Stage::Modulate<Color::Modulate<PaletteLayerProvider>>>;
+  using PhaseCore =
+      Detail::PipelineCore<true, PaletteBinding, typename Phase::NodeList>;
+  using FallbackCore =
+      Detail::PipelineCore<true, PaletteBinding, typename Fallback::NodeList>;
+  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> buffer{};
+  Arena arena(buffer.data(), buffer.size());
+  BakedPaletteStorage a, b;
+  a.bake(arena, ConstantPalette{Color4(Pixel(1000, 2000, 3000), 0.2f)});
+  b.bake(arena, ConstantPalette{Color4(Pixel(9000, 6000, 1000), 0.6f)});
+  Color::PhaseModulationState layer;
+  layer.source = Pattern::SourceKind::DISPLACEMENT;
+  layer.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 0.2f};
+  layer.enabled = true;
+  PaletteFrame frame;
+  frame.palette = &b.view();
+  frame.temporal.palette = &a.view();
+  frame.phase = &layer;
+  frame.mechanic.amount = 0.0f;
+  for (bool ready : {false, true})
+    for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
+      layer.ready = ready;
+      frame.temporal.fraction = fraction;
+      CountingPhasePolicy::phase_calls = 0;
+      CountingPhasePolicy::endpoint_calls = 0;
+      const auto prepared = Phase::prepare_stages(frame);
+      const auto SAMPLE = PhaseCore::template run_stage<0>(
+          SphereSample{math::Y_AXIS, 0.7f}, frame, prepared);
+      const bool SHARED = ready && fraction > 0.0f && fraction < 1.0f;
+      HS_EXPECT_EQ(CountingPhasePolicy::phase_calls, SHARED ? 2 : 0);
+      HS_EXPECT_EQ(CountingPhasePolicy::endpoint_calls,
+                   SHARED ? 0 : (fraction > 0.0f && fraction < 1.0f ? 4 : 2));
+      HS_EXPECT_NEAR(SAMPLE.pending_hue, 0.28f, 1e-7f);
+      HS_EXPECT_NEAR(SAMPLE.color.alpha, 0.04f + 0.08f * fraction, 1e-7f);
+      HS_EXPECT_NEAR(SAMPLE.color.color.r, 1000 + 8000 * fraction, 1.0f);
+      CountingPhasePolicy::phase_calls = 0;
+      CountingPhasePolicy::endpoint_calls = 0;
+      const auto OTHER = FallbackCore::template run_stage<0>(
+          SphereSample{math::Y_AXIS, 0.7f}, frame,
+          Fallback::prepare_stages(frame));
+      HS_EXPECT_EQ(CountingPhasePolicy::phase_calls, 0);
+      HS_EXPECT_EQ(CountingPhasePolicy::endpoint_calls,
+                   fraction > 0.0f && fraction < 1.0f ? 4 : 2);
+      HS_EXPECT_EQ(OTHER.color.color, SAMPLE.color.color);
+      HS_EXPECT_EQ(OTHER.color.alpha, SAMPLE.color.alpha);
+      HS_EXPECT_EQ(OTHER.pending_hue, SAMPLE.pending_hue);
+    }
+}
 
 struct CountingPairedPalette
     : Pullback::Color::GeneratedPalette<TemporalPaletteProvider> {
@@ -2476,6 +2565,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_field_curves);
   HS_RUN(test_pullback_hard_edge_kernels);
   HS_RUN(test_pullback_temporal_palette);
+  HS_RUN(test_pullback_phase_tail_dispatch);
   HS_RUN(test_pullback_paired_color_dispatch);
   HS_RUN(test_pullback_paired_palette_controls);
   HS_RUN(test_pullback_modulation_temporal_alpha);

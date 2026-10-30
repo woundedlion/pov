@@ -37,6 +37,7 @@ struct MillefioriSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
   static constexpr bool TEMPORAL_SAMPLING = true;
+  static constexpr bool TEMPORAL_COLOR_PHASE = true;
   static constexpr bool CACHE_FULL_GAMUT_LUT = true;
   static constexpr bool RIPPLE_RADIAL_TABLE = true;
   /** @brief Authored ripple, kaleidoscope and lattice stage chain.
@@ -66,11 +67,11 @@ struct MillefioriSpec : Pullback::Spec {
       Pullback::Stage::Modulate<
           Pullback::Color::Modulate<Pullback::ModulationProvider<
               B, "field", Pattern::SourceKind::SPHERE_SMOOTH_GRID,
-              Pattern::Evaluation::DIRECT>>>,
+              Pattern::Evaluation::DIRECT, TEMPORAL_COLOR_PHASE>>>,
       Pullback::Stage::Modulate<
           Pullback::Color::Modulate<Pullback::ModulationProvider<
               B, "modulate", Pattern::SourceKind::DISPLACEMENT,
-              Pattern::Evaluation::DIRECT>>>>;
+              Pattern::Evaluation::DIRECT, TEMPORAL_COLOR_PHASE>>>>;
 };
 /// Parameter block derived from `MillefioriSpec`.
 using MillefioriParams = Pullback::ParamsFor<MillefioriSpec>;

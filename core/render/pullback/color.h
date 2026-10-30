@@ -267,6 +267,8 @@ struct TemporalPaletteResources {
   const Pixel *hue_rotation = nullptr;   ///< Previous hue table.
   float fraction = 1.0f;                 ///< Current endpoint weight.
   bool same_palette = false; ///< Identical endpoint palette entries.
+  bool phase_compatible =
+      false; ///< Stable modulation recipes across the interval.
 };
 /** @brief Prepared generated-palette endpoint pair. */
 struct TemporalGeneratedPaletteState {
@@ -311,6 +313,28 @@ struct ModulationState {
   ColorModulation::Params mechanic; ///< Color operation and strength.
   bool enabled = false;             ///< Whether this layer contributes.
 };
+
+/** @brief Narrow analytic grid prepared at the column phase. */
+struct PhaseModulationState : ModulationState {
+  Pattern::SphereSmoothGrid::Prepared grid{}; ///< Interpolated axial phases.
+  bool ready = false; ///< Whether one shared color tail is admitted.
+};
+static_assert(sizeof(Pattern::SphereSmoothGrid::Prepared) == 40);
+
+/** @brief Updates deferred perceptual state from one scalar.
+ * @param sample Carrier to update.
+ * @param scalar Source value.
+ * @param mechanic Ordered perceptual operation. */
+inline void apply_perceptual_scalar(ColorSample &sample, float scalar,
+                                    const ColorModulation::Params &mechanic) {
+  if (mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)
+    sample.pending_hue = math::wrap_t(sample.pending_hue +
+                                      math::wrap_t(mechanic.amount * scalar));
+  else {
+    const float LIFT = mechanic.amount * hs::clamp(scalar, 0.0f, 1.0f);
+    sample.pending_lift += (1.0f - sample.pending_lift) * LIFT;
+  }
+}
 /** @brief Applies one ordered modulation layer.
  * @param sample Color and source coordinates, updated in place.
  * @param state Layer controls and endpoint sources.
@@ -368,6 +392,7 @@ inline constexpr std::array<ApproximationMetric, 3> GENERATED_PALETTE_METRICS{{
 /** @brief Generated-palette policy with retained immutable endpoints.
  * @tparam State Palette resource provider. */
 template <typename State> struct GeneratedPalette : ApproximationDefaults {
+  static constexpr bool PHASE_BLEND_BASE = true; ///< Common field controls.
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -503,12 +528,14 @@ template <typename State> struct Modulate : ApproximationDefaults {
       ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;    ///< Reference.
   static constexpr auto METRICS = GENERATED_PALETTE_METRICS; ///< Error bounds.
 
-  using Prepared = ModulationState; ///< Immutable layer endpoints.
+  using Prepared = decltype(State::prepare(
+      std::declval<
+          const typename State::Binding::FrameState &>())); ///< Layer state.
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
       requires(const typename Binding::FrameState &frame) {
-        { State::prepare(frame) } -> std::same_as<ModulationState>;
+        { State::prepare(frame) } -> std::same_as<Prepared>;
       };
   /** @brief Prepares source endpoints and continuous controls.
    * @tparam FrameState Frame context.
@@ -517,6 +544,35 @@ template <typename State> struct Modulate : ApproximationDefaults {
   template <typename FrameState>
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return State::prepare(frame);
+  }
+  /** @brief Whether the prepared layer supports shared phase evaluation.
+   * @param prepared Layer state.
+   * @return Whether this column can use the shared tail. */
+  static bool phase_ready(const Prepared &prepared)
+    requires std::is_same_v<Prepared, PhaseModulationState>
+  {
+    return prepared.ready;
+  }
+  /** @brief Applies the column's interpolated analytic source once.
+   * @tparam FrameState Frame context.
+   * @param sample Carrier to update.
+   * @param frame Frame context.
+   * @param prepared Layer state. */
+  template <typename FrameState>
+  static void apply_phase_in_place(ColorSample &sample, const FrameState &frame,
+                                   const Prepared &prepared)
+    requires std::is_same_v<Prepared, PhaseModulationState>
+  {
+    (void)frame;
+    if (!prepared.enabled || prepared.mechanic.amount == 0.0f)
+      return;
+    const float SCALAR =
+        prepared.source == Pattern::SourceKind::DISPLACEMENT
+            ? sample.field.path_length
+            : Pattern::SphereSmoothGrid::sample(
+                  Pattern::SphereDirection::admit(sample.field.sphere),
+                  prepared.grid);
+    apply_perceptual_scalar(sample, SCALAR, prepared.mechanic);
   }
   /** @brief Modulates one endpoint.
    * @tparam FrameState Frame context.

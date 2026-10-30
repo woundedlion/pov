@@ -146,6 +146,18 @@ inline bool same_topology(const Config &a, const Config &b) {
          a.version == b.version && a.evaluation == b.evaluation &&
          a.mechanic.kind == b.mechanic.kind;
 }
+/** @brief Checks recipes admitted by column-phase color sampling.
+ * @param a Previous recipe.
+ * @param b Current recipe.
+ * @return Whether the spatial recipe is unchanged and analytic. */
+inline bool phase_compatible(const Config &a, const Config &b) {
+  if (!same_topology(a, b))
+    return false;
+  if (b.source == Pattern::SourceKind::DISPLACEMENT)
+    return true;
+  return b.source == Pattern::SourceKind::SPHERE_SMOOTH_GRID &&
+         b.evaluation == Pattern::Evaluation::DIRECT && a.grid == b.grid;
+}
 /** @brief Interpolates controls within one recipe topology.
  * @param a Previous controls.
  * @param b Current controls.

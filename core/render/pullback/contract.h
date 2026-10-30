@@ -675,6 +675,33 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
     using Output = OutputT; ///< Output carrier.
     /// Descriptor's prepared type, or `NoPrepared`.
     using Prepared = Detail::DescriptorPrepared<Derived, BindingT>;
+    static constexpr bool PHASE_BLEND_BASE = [] {
+      if constexpr (requires { Derived::PHASE_BLEND_BASE; })
+        return Derived::PHASE_BLEND_BASE;
+      else
+        return false;
+    }(); ///< Whether endpoint controls can blend before a shared phase tail.
+
+    /** @brief Checks an optional shared-phase descriptor.
+     * @param prepared Descriptor state.
+     * @return Whether this column admits shared evaluation. */
+    static bool phase_ready(const Prepared &prepared)
+      requires requires { Derived::template phase_ready<BindingT>(prepared); }
+    {
+      return Derived::template phase_ready<BindingT>(prepared);
+    }
+    /** @brief Applies an optional shared-phase descriptor.
+     * @param sample Color carrier to update.
+     * @param frame Frame context.
+     * @param prepared Descriptor state. */
+    static void run_phase(ColorSample &sample, const FrameState &frame,
+                          const Prepared &prepared)
+      requires requires {
+        Derived::template run_phase<BindingT>(sample, frame, prepared);
+      }
+    {
+      Derived::template run_phase<BindingT>(sample, frame, prepared);
+    }
 
     static_assert(descriptor_bindable<Derived, BindingT>(),
                   "pullback stage: malformed or foreign provider");
@@ -1473,6 +1500,48 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
       run_color_tail<Index + 1>(sample, ctx, prepared, previous);
   }
 
+  /** @brief Checks whether every remaining stage declares the phase protocol.
+   * @tparam Index First remaining stage.
+   * @return Whether the complete tail supports shared phase evaluation. */
+  template <size_t Index> static constexpr bool phase_tail_supported() {
+    if constexpr (Index == NODE_COUNT)
+      return true;
+    else if constexpr (requires(ColorSample &sample, const FrameState &ctx,
+                                const PreparedTuple &prepared) {
+                         NodeAt<Index>::phase_ready(std::get<Index>(prepared));
+                         NodeAt<Index>::run_phase(sample, ctx,
+                                                  std::get<Index>(prepared));
+                       })
+      return phase_tail_supported<Index + 1>();
+    else
+      return false;
+  }
+  /** @brief Checks the complete color tail's prepared eligibility.
+   * @tparam Index First remaining stage.
+   * @param prepared Prepared stages.
+   * @return Whether every layer admits this column. */
+  template <size_t Index>
+  static bool phase_tail_ready(const PreparedTuple &prepared) {
+    if constexpr (Index == NODE_COUNT)
+      return true;
+    else
+      return NodeAt<Index>::phase_ready(std::get<Index>(prepared)) &&
+             phase_tail_ready<Index + 1>(prepared);
+  }
+  /** @brief Applies each eligible layer once after base interpolation.
+   * @tparam Index First remaining stage.
+   * @param sample Blended base carrier.
+   * @param ctx Column frame context.
+   * @param prepared Prepared stages. */
+  template <size_t Index>
+  static void run_phase_tail(ColorSample &sample, const FrameState &ctx,
+                             const PreparedTuple &prepared) {
+    if constexpr (Index < NODE_COUNT) {
+      NodeAt<Index>::run_phase(sample, ctx, std::get<Index>(prepared));
+      run_phase_tail<Index + 1>(sample, ctx, prepared);
+    }
+  }
+
   /** @brief Runs nodes from @p Index to the last.
    * @tparam Index First node to run.
    * @tparam Input Carrier fed to it.
@@ -1522,6 +1591,17 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
             return finish(endpoint(true), true);
           auto pair =
               CurrentNode::run_pair(input, ctx, std::get<Index>(prepared));
+          if constexpr (requires { CurrentNode::PHASE_BLEND_BASE; }) {
+            if constexpr (CurrentNode::PHASE_BLEND_BASE &&
+                          Index + 1 < NODE_COUNT &&
+                          phase_tail_supported<Index + 1>())
+              if (phase_tail_ready<Index + 1>(prepared)) {
+                ColorSample result =
+                    blend_color_samples(pair.first, pair.second, FRACTION);
+                run_phase_tail<Index + 1>(result, ctx, prepared);
+                return result;
+              }
+          }
           const ColorSample A = finish(pair.first, true);
           const ColorSample B = finish(pair.second, false);
           return blend_color_samples(A, B, FRACTION);
