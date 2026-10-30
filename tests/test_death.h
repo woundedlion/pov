@@ -2397,7 +2397,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/animation/animation.h", 2},
     {"core/animation/carousel.h", 4},
     {"core/animation/motion.h", 5},
-    {"core/animation/opleg.h", 41},
+    {"core/animation/opleg.h", 40},
     {"core/animation/orientation.h", 12},
     {"core/animation/params.h", 9},
     {"core/animation/recipe_build.h", 21},
