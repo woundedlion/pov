@@ -69,7 +69,7 @@ struct PetalFlowWhiteBox {
         };
         Plot::Mesh::draw_columns<DEFAULT_W, DEFAULT_H>(
             fx.filters, canvas,
-            typename PF::RingMesh{{vertices, size_t(PF::NUM_SAMPLES)}},
+            Plot::Mesh::VertexSpan{{vertices, size_t(PF::NUM_SAMPLES)}},
             fx.ring_edges, shader, PF::RING_GEOMETRY, 0.0f);
       }
     }

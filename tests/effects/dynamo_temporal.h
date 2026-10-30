@@ -164,8 +164,8 @@ struct DynamoTemporalOracle {
           if (!replay)
             Plot::Mesh::draw_column_edges<W, H>(
                 sink, canvas,
-                typename Dynamo<W, H>::StrandMesh{{vertices, effect.NUM_NODES}},
-                edges, shader, geometry, 0.0f);
+                Plot::Mesh::VertexSpan{{vertices, effect.NUM_NODES}}, edges,
+                shader, geometry, 0.0f);
           const size_t count = replay ? effect.NUM_NODES : 1;
           for (size_t i = 0; i < count; ++i) {
             const auto point = math::vector_to_pixel<W, H>(vertices[i]);

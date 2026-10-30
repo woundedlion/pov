@@ -343,11 +343,6 @@ private:
     emitted_points += trails.records() - before;
   }
 
-  /** @brief Source positions consumed by the column walk. */
-  struct StrandMesh {
-    std::span<const math::Vector> vertices; ///< Source strand endpoints.
-  };
-
   /** @brief Draws live strands once per selected copy at column time.
    * @param canvas Destination frame.
    * @param age Emission's incoming trail age. */
@@ -388,8 +383,8 @@ private:
         history[i] = orientation.get(i) * rotation;
       copy_poses.build(history, orientation.length());
       Plot::Mesh::draw_column_edges<W, H>(
-          filters, canvas, StrandMesh{{vertices, NUM_NODES}}, edges, shader,
-          geometry, 0.0f, &copy_poses, sweep, copy, age);
+          filters, canvas, Plot::Mesh::VertexSpan{{vertices, NUM_NODES}}, edges,
+          shader, geometry, 0.0f, &copy_poses, sweep, copy, age);
       const auto v = math::normalized_or(vertices[0], math::Y_AXIS);
       const auto end = copy_poses.rotate(v, 1.0f);
       const auto start = copy_poses.rotate(v, 0.0f);

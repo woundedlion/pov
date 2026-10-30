@@ -197,11 +197,6 @@ private:
 
   Timeline timeline; /**< Schedules the orientation rotation and the spawner. */
 
-  /** @brief A ring's frame-end vertices, as Plot::Mesh reads them. */
-  struct RingMesh {
-    std::span<const math::Vector> vertices; /**< Frame-end ring vertices. */
-  };
-
   /** @brief Ring edges: each sample to the next, closing the loop. */
   ArenaVector<Plot::Mesh::Edge> ring_edges;
 
@@ -419,10 +414,10 @@ private:
     geometry.path = Spacetime::PathBound::loxodrome(rho_step, twist_step);
     {
       HS_PROFILE(pf_ring_scan);
-      Plot::Mesh::draw_columns<W, H>(filters, canvas,
-                                     RingMesh{{vertices, size_t(NUM_SAMPLES)}},
-                                     ring_edges, fragment_shader, geometry,
-                                     fabsf(rho_step) + fabsf(twist_step));
+      Plot::Mesh::draw_columns<W, H>(
+          filters, canvas,
+          Plot::Mesh::VertexSpan{{vertices, size_t(NUM_SAMPLES)}}, ring_edges,
+          fragment_shader, geometry, fabsf(rho_step) + fabsf(twist_step));
     }
   }
 

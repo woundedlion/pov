@@ -509,9 +509,6 @@ private:
                              rotation.sample(t)),
                 math::X_AXIS);
           };
-          struct View {
-            std::span<const math::Vector> vertices;
-          };
           auto *vertices =
               scratch_arena_a.allocate_n<math::Vector>(CURVE_SIDES);
           ArenaVector<Plot::Mesh::Edge> edges;
@@ -565,8 +562,8 @@ private:
           geometry.chained = true;
           geometry.rigid_lattice = true;
           Plot::Mesh::draw_column_edges<W, H>(
-              sink, canvas, View{{vertices, CURVE_SIDES}}, edges, shader,
-              geometry, curve_displacement);
+              sink, canvas, Plot::Mesh::VertexSpan{{vertices, CURVE_SIDES}},
+              edges, shader, geometry, curve_displacement);
         }
       }
     }

@@ -252,11 +252,6 @@ private:
     const Pixel *palette; /**< The particle's palette. */
   };
 
-  /** @brief A chunk of trail vertices, as Plot::Mesh reads them. */
-  struct TrailMesh {
-    std::span<const math::Vector> vertices; /**< Frame-end warped vertices. */
-  };
-
   /** @brief scratch_a split: one still trail's staging, or a column chunk. */
   static constexpr size_t SCRATCH_BYTES = 16 * 1024;
   static_assert(COLUMN_CHUNK_VERTICES *

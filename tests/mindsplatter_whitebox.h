@@ -160,7 +160,7 @@ struct MindSplatterWhiteBox {
         geometry.source_positions = false;
         geometry.chained = true;
         Plot::Mesh::draw_column_edges<288, 144>(
-            fx.timed_filters, canvas, typename MS::TrailMesh{{vertices, count}},
+            fx.timed_filters, canvas, Plot::Mesh::VertexSpan{{vertices, count}},
             edges, shader, geometry, 0.0f);
       }
     }

@@ -843,11 +843,6 @@ private:
     }
   };
 
-  /** @brief A chunk of contour vertices, as Plot::Mesh reads them. */
-  struct ContourMesh {
-    std::span<const math::Vector> vertices; /**< Frame-end source vertices. */
-  };
-
   /**
    * @brief Draws the contour stack at its columns' times.
    * @param canvas Target canvas.
@@ -927,8 +922,9 @@ private:
       if (count_vertices == 0)
         return;
       Plot::Mesh::draw_column_edges<W, H>(
-          plot_filters, canvas, ContourMesh{{vertices, count_vertices}}, edges,
-          shader, geometry, chunk_motion, &poses, spin);
+          plot_filters, canvas,
+          Plot::Mesh::VertexSpan{{vertices, count_vertices}}, edges, shader,
+          geometry, chunk_motion, &poses, spin);
       count_vertices = 0;
       count_contours = 0;
       chunk_motion = 0.0f;

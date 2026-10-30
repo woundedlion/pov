@@ -83,9 +83,6 @@ struct RingTemporalOracle {
                            unshifted[(i + 1) % count] -
                                unshifted[(i + count - 1) % count],
                            rows);
-    struct View {
-      std::span<const math::Vector> vertices;
-    };
     Pipeline<DEFAULT_W, DEFAULT_H,
              Filter::Screen::AntiAlias<DEFAULT_W, DEFAULT_H>>
         pipeline;
@@ -117,8 +114,8 @@ struct RingTemporalOracle {
     geometry.chained = true;
     geometry.rigid_lattice = true;
     Plot::Mesh::draw_columns<DEFAULT_W, DEFAULT_H>(
-        pipeline, canvas, View{{points, size_t(count)}}, edges, shader,
-        geometry, 0);
+        pipeline, canvas, Plot::Mesh::VertexSpan{{points, size_t(count)}},
+        edges, shader, geometry, 0);
   }
 
   /** @brief Reads displayed linear luminance.

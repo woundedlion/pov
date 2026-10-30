@@ -39,6 +39,11 @@ inline bool g_rebuild_mesh_cull_span = false;
  *  v2: Edge index
  */
 struct Mesh {
+  /** @brief Vertex positions consumed by mesh drawing. */
+  struct VertexSpan {
+    std::span<const math::Vector> vertices; ///< Source vertex positions.
+  };
+
   /**
    * @brief Max distinct vertices the edge-dedup bitset can track.
    * @details A mesh exceeding this traps while its faces are walked: at render
@@ -734,9 +739,6 @@ struct Mesh {
    */
   template <size_t Capacity, typename... Attributes> class ColumnChunk {
     static_assert(Capacity >= 2 && Capacity <= UINT16_MAX);
-    struct View {
-      std::span<const math::Vector> vertices;
-    };
     math::Vector *positions;
     std::tuple<Attributes *...> attributes;
     ArenaVector<Edge> edges;
@@ -873,8 +875,8 @@ struct Mesh {
                           const Edge &edge = edges[static_cast<size_t>(f.v2)];
                           f.color = shade(edge.u, edge.v, f.v0, time);
                         };
-      draw_column_edges<W, H>(pipeline, canvas, View{{positions, count}}, edges,
-                              shader, geometry, bound);
+      draw_column_edges<W, H>(pipeline, canvas, VertexSpan{{positions, count}},
+                              edges, shader, geometry, bound);
       count = 0;
       tail_source = -1;
       edges.clear();

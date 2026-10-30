@@ -145,9 +145,6 @@ struct MobiusRingsWhiteBox {
                     .normalized();
             edges.push_back({uint16_t(k), uint16_t((k + 1) % FX::CURVE_SIDES)});
           }
-          struct View {
-            std::span<const math::Vector> vertices;
-          };
           auto shader = [&](const math::Vector &v, Fragment &f) {
             const float phase =
                 start.phase + std::remainder(end.phase - start.phase, 1.0f) * t;
@@ -169,9 +166,10 @@ struct MobiusRingsWhiteBox {
           Plot::GeometryCallback geometry;
           geometry.chained = true;
           geometry.rigid_lattice = true;
-          Plot::Mesh::draw_column_edges<W, H>(fx.filters.next.next, canvas,
-                                              View{{vertices, FX::CURVE_SIDES}},
-                                              edges, shader, geometry, 0);
+          Plot::Mesh::draw_column_edges<W, H>(
+              fx.filters.next.next, canvas,
+              Plot::Mesh::VertexSpan{{vertices, FX::CURVE_SIDES}}, edges,
+              shader, geometry, 0);
         }
     }
     fx.advance_display();
