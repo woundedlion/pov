@@ -162,7 +162,11 @@ inline std::vector<Pixel> prepared_frame_pixels(bool sampling) {
 
 inline void test_composed_persistent_prepared_frame() {
   static_assert(!Pullback::Spec::PERSISTENT_PREPARED_FRAME);
+#if defined(__EMSCRIPTEN__)
   static_assert(MillefioriSpec::PERSISTENT_PREPARED_FRAME);
+#else
+  static_assert(!MillefioriSpec::PERSISTENT_PREPARED_FRAME);
+#endif
   for (bool sampling : {false, true}) {
     HS_EXPECT_TRUE((prepared_frame_pixels<true, true>(sampling) ==
                     prepared_frame_pixels<false, true>(sampling)));

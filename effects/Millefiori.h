@@ -41,7 +41,9 @@ struct MillefioriSpec : Pullback::Spec {
   static constexpr bool PALETTE_LAB_CACHE = true;
   static constexpr bool CACHE_FULL_GAMUT_LUT = true;
   static constexpr bool RIPPLE_RADIAL_TABLE = true;
+#if defined(__EMSCRIPTEN__)
   static constexpr bool PERSISTENT_PREPARED_FRAME = true;
+#endif
   /** @brief Authored ripple, kaleidoscope and lattice stage chain.
    * @tparam B Frame binding. */
   template <typename B>
