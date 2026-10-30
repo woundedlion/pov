@@ -135,6 +135,9 @@ inline void test_shader_chain_modulation_bake_cache() {
   WB::frame_context(effect);
   baked(true);
   poison();
+  color.modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
+  ctx = WB::frame_context(effect);
+  HS_EXPECT_TRUE(ctx.hue_rotation_lut != nullptr);
   color.modulation.mechanic.amount = 0;
   ctx = WB::frame_context(effect);
   baked(false);
