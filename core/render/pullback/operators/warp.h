@@ -50,9 +50,10 @@ inline float warp_envelope(uint8_t envelope,
                         static_cast<WarpEnvelope>(envelope));
 }
 
-/** @brief Phase clock of the single-clock warp operators. */
+/** @brief Phase clock of the single-clock warp operators.
+ * @details Column-time samples may lie outside [0, 1). */
 struct WarpPhaseState {
-  float phase = 0.0f; ///< Normalized loop phase in [0, 1).
+  float phase = 0.0f; ///< Loop phase modulo 1.
 };
 
 /** @brief Prepares the clocks between consecutive endpoints.
@@ -91,10 +92,12 @@ static_assert(
     "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<AffineWarpParams>());
 
-/** @brief Phase clock plus the accumulated frame rotation of warp.affine.v3. */
+/** @brief Phase clock plus the accumulated frame rotation of warp.affine.v3.
+ * @details Values are equivalent modulo their periods; column-time samples
+ * may lie outside the canonical ranges. */
 struct AffineClockState {
-  float phase = 0.0f;    ///< Normalized oscillation phase in [0, 1).
-  float rotation = 0.0f; ///< Frame rotation, radians in [0, 2π).
+  float phase = 0.0f;    ///< Oscillation phase modulo 1.
+  float rotation = 0.0f; ///< Frame rotation, radians modulo 2pi.
 };
 
 /** @brief Prepared frame clocks of AffineClockState. */

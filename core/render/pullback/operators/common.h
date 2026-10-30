@@ -75,6 +75,8 @@ inline constexpr Animation::RandomWalkOptions WALK_OPTIONS{};
 /**
  * @brief Instance state of the spin-and-wander operators: an accumulated
  *        orientation plus the noise field that drives its random walk.
+ * @details Spin values are equivalent modulo 2pi; column-time samples may
+ * lie outside the canonical range.
  */
 struct SpatialWalkState {
   FastNoiseLite walk_noise;      ///< Noise field steering the random walk.
@@ -82,7 +84,7 @@ struct SpatialWalkState {
   math::Vector direction;        ///< Walker heading, tangent at `position`.
   math::Quaternion wander;       ///< Accumulated wander orientation.
   float angular_velocity = 0.0f; ///< Walker angular velocity.
-  float spin_phase = 0.0f;       ///< Spin angle, radians, |value| < 2π.
+  float spin_phase = 0.0f;       ///< Spin angle, radians modulo 2pi.
   uint32_t walk_time = 0;        ///< Walk steps taken.
   int32_t noise_seed = 0;        ///< Seed of `walk_noise`.
 };
@@ -147,10 +149,11 @@ HS_FLASH_INLINE void temporal_sample(SpatialWalkState &out,
 }
 
 /** @brief Instance state of the noise-driven operators: the owned field plus
-    the loop phase PhaseClockModel advances. */
+    the loop phase PhaseClockModel advances.
+ * @details Column-time samples may lie outside [0, 1). */
 struct NoisePhaseState {
   FastNoiseLite noise;    ///< Instance-owned noise field.
-  float phase = 0.0f;     ///< Normalized loop phase in [0, 1).
+  float phase = 0.0f;     ///< Loop phase modulo 1.
   int32_t noise_seed = 0; ///< Seed of `noise`.
 };
 

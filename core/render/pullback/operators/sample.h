@@ -24,11 +24,13 @@ namespace Interp {
 
 namespace Op {
 
-/** @brief Per-frame source phase clocks. */
+/** @brief Source phase clocks.
+ * @details Values are equivalent modulo their periods; column-time samples
+ * may lie outside the canonical ranges. */
 struct SourceClockState {
-  float primary = 0.0f;   ///< Primary phase, radians wrapped at 2π.
-  float secondary = 0.0f; ///< Secondary phase, radians wrapped at 2π.
-  float angle = 0.0f;     ///< Rotation angle, radians wrapped at 2π.
+  float primary = 0.0f;   ///< Primary phase, radians modulo 2pi.
+  float secondary = 0.0f; ///< Secondary phase, radians modulo 2pi.
+  float angle = 0.0f;     ///< Rotation angle, radians modulo 2pi.
 };
 
 /** @brief Prepared frame clocks of SourceClockState. */
@@ -346,10 +348,12 @@ struct SampleRings : SourceClockModel {
 /** @brief Parameter family of sample.spherical-rings.v3. */
 using SphericalRingsSampleParams = Source::SphericalRingsSourceParams;
 
-/** @brief Instance state of the animated spherical ring source. */
+/** @brief Instance state of the animated spherical ring source.
+ * @details Band phases are equivalent modulo 2pi; column-time samples may
+ * lie outside the canonical range. */
 struct SphericalRingsState {
   SpatialWalkState walk; ///< Band-axis spin and wander walk.
-  float phase = 0.0f;    ///< Band phase, radians wrapped at 2π.
+  float phase = 0.0f;    ///< Band phase, radians modulo 2pi.
 };
 
 /** @brief Prepared frame clocks of SphericalRingsState. */
