@@ -264,7 +264,7 @@ public:
                   selected = &recipe;
                 }
               if (selected == nullptr ||
-                  !Pullback::Modulation::valid(selected->recipe))
+                  !Pullback::Modulation::admitted(selected->recipe))
                 return false;
               static_cast<Op::GeneratedPaletteParams *>(params)->modulation =
                   selected->recipe;

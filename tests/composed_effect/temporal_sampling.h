@@ -599,15 +599,20 @@ inline void test_temporal_owned_resources() {
                         ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT,
                         ColorModulation::Mechanic::OPACITY}) {
     config.mechanic.kind = mechanic;
-    HS_EXPECT_FALSE(Modulation::valid(config));
+    HS_EXPECT_TRUE(Modulation::valid(config));
+    HS_EXPECT_TRUE(Modulation::admitted(config));
+    HS_EXPECT_FALSE(Modulation::device_qualified(config));
     config.enabled = false;
-    HS_EXPECT_FALSE(Modulation::valid(config));
+    HS_EXPECT_TRUE(Modulation::valid(config));
+    HS_EXPECT_FALSE(Modulation::device_qualified(config));
     config.enabled = true;
   }
   config.evaluation = Pattern::Evaluation::BAKED_CUBE;
   HS_EXPECT_TRUE(Modulation::valid(config));
   config.mechanic.kind = ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT;
-  HS_EXPECT_FALSE(Modulation::valid(config));
+  HS_EXPECT_TRUE(Modulation::valid(config));
+  HS_EXPECT_TRUE(Modulation::admitted(config));
+  HS_EXPECT_FALSE(Modulation::device_qualified(config));
   config.noise.variant = Pattern::NoiseVariant::CONFIGURED_SINGLE;
   config.mechanic.kind = ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT;
   config.evaluation = Pattern::Evaluation::DIRECT;

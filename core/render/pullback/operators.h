@@ -465,7 +465,7 @@ struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
    * @param params Canonical controls.
    * @return Error message, or null when admitted. */
   static const char *validate(const Params &params) {
-    return Modulation::valid(params.modulation) &&
+    return Modulation::admitted(params.modulation) &&
                    !(params.modulation.enabled &&
                      params.hue_mode ==
                          static_cast<uint8_t>(HueShiftMode::PATH_LENGTH))

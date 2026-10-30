@@ -163,7 +163,7 @@ sample_lens_phase(const MobiusLensParams &lens, float angle, float magnitude) {
  * @return True when every field and the mapping enumerator are valid.
  */
 inline bool valid(const ColorParams &p) {
-  return Pullback::Fields::valid(p) && Modulation::valid(p.modulation) &&
+  return Pullback::Fields::valid(p) && Modulation::admitted(p.modulation) &&
          static_cast<uint8_t>(p.palette_mapping) <=
              static_cast<uint8_t>(Pullback::Color::PaletteMapping::REVERSE);
 }

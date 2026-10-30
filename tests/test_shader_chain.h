@@ -188,32 +188,48 @@ inline void test_shader_chain_modulation_combinations() {
        {Pattern::SourceKind::NOISE, Pattern::SourceKind::DIRECTIONAL_SINE,
         Pattern::SourceKind::SPHERE_INTERFERENCE,
         Pattern::SourceKind::SPHERE_SMOOTH_GRID})
-    for (auto kind :
-         {Kind::HUE_ROTATION, Kind::POSITIVE_LIGHTNESS_LIFT, Kind::OPACITY}) {
-      params.modulation = {};
-      params.modulation.source = source;
-      params.modulation.evaluation = Pattern::Evaluation::DIRECT;
-      params.modulation.mechanic = {kind, .7f};
-      params.modulation.sine.offset = .13f;
-      params.modulation.interference.offset = .13f;
-      params.modulation.grid.offset = .13f;
-      PB::Modulation::Resources<> resources;
-      const auto clock = PB::Modulation::init(params.modulation);
-      auto ctx = shared_resources().context();
-      ctx.modulation = &resources.prepare(params.modulation, clock);
-      ctx.hue_rotation_lut = nullptr;
-      program.prepare(ctx);
-      const Color4 ACTUAL = run_entry<Color4>(program, ctx, 3, SAMPLE);
-      const float scalar = PB::Modulation::sample(*ctx.modulation, COORDINATE);
-      Color4 expected = ctx.palettes[0]->get(SAMPLE.value);
-      expected =
-          ColorModulation::apply(expected, scalar, params.modulation.mechanic);
-      expected.alpha *= SAMPLE.coverage;
-      HS_EXPECT_EQ(ACTUAL.color, expected.color);
-      HS_EXPECT_EQ(ACTUAL.alpha, expected.alpha);
-      if (kind == Kind::OPACITY)
-        HS_EXPECT_EQ(ACTUAL.color, ctx.palettes[0]->get(SAMPLE.value).color);
-    }
+    for (auto variant : {Pattern::NoiseVariant::CONFIGURED_SINGLE,
+                         Pattern::NoiseVariant::OCTAVE_CONTOUR})
+      for (auto evaluation :
+           {Pattern::Evaluation::DIRECT, Pattern::Evaluation::BAKED_CUBE})
+        for (auto kind : {Kind::HUE_ROTATION, Kind::POSITIVE_LIGHTNESS_LIFT,
+                          Kind::OPACITY}) {
+          if (source != Pattern::SourceKind::NOISE &&
+              evaluation == Pattern::Evaluation::BAKED_CUBE)
+            continue;
+          params.modulation = {};
+          params.modulation.source = source;
+          params.modulation.evaluation = evaluation;
+          params.modulation.noise.variant = variant;
+          if (variant == Pattern::NoiseVariant::OCTAVE_CONTOUR) {
+            params.modulation.noise.basis = Pattern::NoiseBasis::FBM3;
+            params.modulation.noise.contrast = .75f;
+          }
+          params.modulation.mechanic = {kind, .7f};
+          params.modulation.sine.offset = .13f;
+          params.modulation.interference.offset = .13f;
+          params.modulation.grid.offset = .13f;
+          PB::Modulation::Resources<> resources;
+          const auto clock = PB::Modulation::init(params.modulation);
+          auto ctx = shared_resources().context();
+          ctx.modulation = &resources.prepare(params.modulation, clock);
+          ctx.hue_rotation_lut = nullptr;
+          program.prepare(ctx);
+          const Color4 ACTUAL = run_entry<Color4>(program, ctx, 3, SAMPLE);
+          const float scalar =
+              PB::Modulation::sample(*ctx.modulation, COORDINATE);
+          HS_EXPECT_TRUE(std::isfinite(scalar));
+          HS_EXPECT_TRUE(scalar >= -1 && scalar <= 1);
+          Color4 expected = ctx.palettes[0]->get(SAMPLE.value);
+          expected = ColorModulation::apply(expected, scalar,
+                                            params.modulation.mechanic);
+          expected.alpha *= SAMPLE.coverage;
+          HS_EXPECT_EQ(ACTUAL.color, expected.color);
+          HS_EXPECT_EQ(ACTUAL.alpha, expected.alpha);
+          if (kind == Kind::OPACITY)
+            HS_EXPECT_EQ(ACTUAL.color,
+                         ctx.palettes[0]->get(SAMPLE.value).color);
+        }
 }
 
 inline int modulation_probe_calls = 0;

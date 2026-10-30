@@ -40,15 +40,6 @@ inline bool valid(const Config &config) {
       (config.source != Pattern::SourceKind::NOISE ||
        config.noise.scale > 8.0f))
     return false;
-  if (config.evaluation == Pattern::Evaluation::DIRECT &&
-      config.source == Pattern::SourceKind::NOISE &&
-      config.noise.variant != Pattern::NoiseVariant::CONFIGURED_SINGLE)
-    return false;
-  if (config.source == Pattern::SourceKind::NOISE &&
-      config.noise.variant == Pattern::NoiseVariant::OCTAVE_CONTOUR &&
-      config.mechanic.kind ==
-          ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT)
-    return false;
   switch (config.source) {
   case Pattern::SourceKind::NOISE:
     return Pattern::SphereNoise::valid(config.noise);
@@ -61,11 +52,34 @@ inline bool valid(const Config &config) {
   }
   return false;
 }
+/** @brief Tests the qualified Teensy modulation timing envelope.
+ * @param config Source and mechanic recipe.
+ * @return Whether the recipe is valid and meets the device admission policy. */
+inline bool device_qualified(const Config &config) {
+  if (!valid(config))
+    return false;
+  if (config.source != Pattern::SourceKind::NOISE ||
+      config.noise.variant != Pattern::NoiseVariant::OCTAVE_CONTOUR)
+    return true;
+  return config.evaluation != Pattern::Evaluation::DIRECT &&
+         config.mechanic.kind !=
+             ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT;
+}
+/** @brief Tests semantic validity and the current target's timing policy.
+ * @param config Source and mechanic recipe.
+ * @return Whether the current target admits the recipe. */
+inline bool admitted(const Config &config) {
+#ifdef ARDUINO
+  return device_qualified(config);
+#else
+  return valid(config);
+#endif
+}
 /** @brief Initializes the selected source clock.
  * @param config Source recipe.
  * @return Initialized typed source state. */
 inline State init(const Config &config) {
-  HS_CHECK(valid(config), "invalid modulation initialization recipe");
+  HS_CHECK(admitted(config), "invalid modulation initialization recipe");
   Pattern::PhaseState phase;
   switch (config.source) {
   case Pattern::SourceKind::NOISE:
@@ -87,7 +101,7 @@ inline State init(const Config &config) {
  * @param state Scheduled source state.
  * @param config Current configuration. */
 inline void synchronize(State &state, const Config &config) {
-  HS_CHECK(valid(config), "invalid modulation synchronization recipe");
+  HS_CHECK(admitted(config), "invalid modulation synchronization recipe");
   if (!state.initialized || state.source != config.source ||
       state.version != config.version)
     state = init(config);
@@ -251,7 +265,7 @@ template <bool Baked = true> struct Resources {
    * @param clock Current source state.
    * @return Borrowed prepared endpoint. */
   const Prepared &prepare(const Config &config, const State &clock) {
-    HS_CHECK(valid(config), "invalid modulation preparation recipe");
+    HS_CHECK(admitted(config), "invalid modulation preparation recipe");
     State selected = clock;
     synchronize(selected, config);
     prepared.config = config;

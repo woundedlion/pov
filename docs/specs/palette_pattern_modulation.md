@@ -555,9 +555,13 @@ Initial admission is deliberately bounded: sphere sine, interference and smooth
 grid use direct evaluation through axial frequency 64. Noise admits scales
 1/64 through 64 directly for configured-single simplex with zero contrast;
 configured-single and octave-contour noise admit scales 1/64 through 8 with the
-baked strategy, except octave-contour lightness. Direct octave-contour
-modulation and octave-contour noise/lightness are
-rejected, including disabled recipes. The pure pattern kernels retain their broader reusable source contract.
+baked strategy. Native and WebAssembly evaluation admit every source/mechanic
+combination, including direct octave-contour noise and octave-contour lightness.
+All source samples share the bounded [-1, 1] scalar interface; changing a mechanic
+does not change the source recipe. `Pullback::Modulation::valid` checks semantic
+validity. `Pullback::Modulation::device_qualified` separately checks the measured
+Teensy timing envelope, and `Pullback::Modulation::admitted` applies that additional
+policy on Arduino builds, including disabled recipes.
 
 ### Scalar approximation
 
@@ -667,7 +671,8 @@ Direct three-octave noise/lightness exceeds the steady deadline in every
 captured frame (352/352 complete-window frames). Baked octave noise/lightness
 still exceeds it in 270/543 post-startup frames. Admission therefore rejects
 direct octave-contour noise and octave-contour noise/lightness under either
-strategy. Disabled recipes undergo the same validation. No memory, stack,
+strategy on Teensy. This timing policy does not restrict native or WebAssembly
+authoring. Disabled recipes undergo the same target admission. No memory, stack,
 render-oracle or driver timing budget is raised.
 
 
