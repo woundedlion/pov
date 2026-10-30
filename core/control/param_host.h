@@ -388,60 +388,18 @@ protected:
         target_type = ParamDef::TargetType::BOOL;
       } else {
         using Integer = typename ParamInteger<T>::Type;
-        if constexpr (std::is_enum_v<T>) {
-          HS_CHECK(
-              options != nullptr && option_count > 0,
-              "register_param: enum needs at least one option name=%s count=%d",
-              name, option_count);
-          if (spec.option_values.empty()) {
-            HS_CHECK(
-                static_cast<int64_t>(option_count - 1) <=
-                    static_cast<int64_t>(std::numeric_limits<Integer>::max()),
-                "register_param: options must fit the target enum type name=%s count=%d",
-                name, option_count);
-            HS_CHECK(
-                static_cast<int64_t>(static_cast<float>(option_count - 1)) ==
-                    option_count - 1,
-                "register_param: enum bound must be exactly representable as float name=%s count=%d",
-                name, option_count);
-          }
-        }
-        HS_CHECK(
-            min <= max,
-            "register_param: min must be <= max name=%s min=0x%08lx%08lx max=0x%08lx%08lx",
-            name, hi32(min), lo32(min), hi32(max), lo32(max));
-        const bool range_fits =
-            min >= static_cast<int64_t>(std::numeric_limits<Integer>::min()) &&
-            max <= static_cast<int64_t>(std::numeric_limits<Integer>::max());
-        HS_CHECK(
-            range_fits,
-            "register_param: [min,max] must fit the target integer type name=%s min=0x%08lx%08lx max=0x%08lx%08lx",
-            name, hi32(min), lo32(min), hi32(max), lo32(max));
-        const bool bounds_exact =
-            static_cast<int64_t>(static_cast<float>(min)) == min &&
-            static_cast<int64_t>(static_cast<float>(max)) == max;
-        HS_CHECK(
-            bounds_exact,
-            "register_param: bounds must be exactly representable as float name=%s min=0x%08lx%08lx max=0x%08lx%08lx",
-            name, hi32(min), lo32(min), hi32(max), lo32(max));
-        const int64_t value = static_cast<int64_t>(*ptr);
-        HS_CHECK(
-            value >= min && value <= max,
-            "register_param: default *ptr outside [min,max] name=%s value=0x%08lx%08lx min=0x%08lx%08lx max=0x%08lx%08lx",
-            name, hi32(value), lo32(value), hi32(min), lo32(min), hi32(max),
-            lo32(max));
+        validate_integer_registration(
+            name, min, max, static_cast<int64_t>(*ptr),
+            static_cast<int64_t>(std::numeric_limits<Integer>::min()),
+            static_cast<int64_t>(std::numeric_limits<Integer>::max()),
+            std::is_enum_v<T>, options, option_count,
+            spec.option_values.empty());
         target_type = integer_target_type<Integer>();
       }
     }
     HS_CHECK(spec.valid_option_values(*ptr),
              "register_param: invalid explicit option values name=%s", name);
-    for (int i = 0; i < option_count; ++i) {
-      HS_CHECK(options[i] != nullptr,
-               "register_param: null option label name=%s index=%d", name, i);
-      HS_CHECK(spec.export_options == nullptr ||
-                   spec.export_options[i] != nullptr,
-               "register_param: null export label name=%s index=%d", name, i);
-    }
+    validate_option_labels(name, options, spec.export_options, option_count);
     auto &def = append_parameter(name);
     def.target = ptr;
     def.min = static_cast<float>(min);
@@ -656,6 +614,61 @@ protected:
   }
 
 private:
+  HS_COLD_MEMBER static void validate_integer_registration(
+      const char *name, int64_t min, int64_t max, int64_t value,
+      int64_t target_min, int64_t target_max, bool enum_target,
+      const char *const *options, int option_count, bool dense_options) {
+    if (enum_target) {
+      HS_CHECK(
+          options != nullptr && option_count > 0,
+          "register_param: enum needs at least one option name=%s count=%d",
+          name, option_count);
+      if (dense_options) {
+        HS_CHECK(
+            static_cast<int64_t>(option_count - 1) <= target_max,
+            "register_param: options must fit the target enum type name=%s count=%d",
+            name, option_count);
+        HS_CHECK(
+            static_cast<int64_t>(static_cast<float>(option_count - 1)) ==
+                option_count - 1,
+            "register_param: enum bound must be exactly representable as float name=%s count=%d",
+            name, option_count);
+      }
+    }
+    HS_CHECK(
+        min <= max,
+        "register_param: min must be <= max name=%s min=0x%08lx%08lx max=0x%08lx%08lx",
+        name, hi32(min), lo32(min), hi32(max), lo32(max));
+    const bool range_fits = min >= target_min && max <= target_max;
+    HS_CHECK(
+        range_fits,
+        "register_param: [min,max] must fit the target integer type name=%s min=0x%08lx%08lx max=0x%08lx%08lx",
+        name, hi32(min), lo32(min), hi32(max), lo32(max));
+    const bool bounds_exact =
+        static_cast<int64_t>(static_cast<float>(min)) == min &&
+        static_cast<int64_t>(static_cast<float>(max)) == max;
+    HS_CHECK(
+        bounds_exact,
+        "register_param: bounds must be exactly representable as float name=%s min=0x%08lx%08lx max=0x%08lx%08lx",
+        name, hi32(min), lo32(min), hi32(max), lo32(max));
+    HS_CHECK(
+        value >= min && value <= max,
+        "register_param: default *ptr outside [min,max] name=%s value=0x%08lx%08lx min=0x%08lx%08lx max=0x%08lx%08lx",
+        name, hi32(value), lo32(value), hi32(min), lo32(min), hi32(max),
+        lo32(max));
+  }
+
+  HS_COLD_MEMBER static void
+  validate_option_labels(const char *name, const char *const *options,
+                         const char *const *export_options, int option_count) {
+    for (int i = 0; i < option_count; ++i) {
+      HS_CHECK(options[i] != nullptr,
+               "register_param: null option label name=%s index=%d", name, i);
+      HS_CHECK(export_options == nullptr || export_options[i] != nullptr,
+               "register_param: null export label name=%s index=%d", name, i);
+    }
+  }
+
   static unsigned long hi32(int64_t value) {
     return static_cast<unsigned long>(static_cast<uint64_t>(value) >> 32);
   }

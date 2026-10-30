@@ -1168,7 +1168,7 @@ inline const Case *all_cases(int &n) {
       {"register_enum_param_range", case_register_enum_param_range,
        "core/control/param_host.h",
        "(static_cast<int64_t>(option_count - 1) <= "
-       "static_cast<int64_t>(std::numeric_limits<Integer>::max())) "
+       "target_max) "
        "register_param: options must fit the target enum type"},
       {"register_enum_param_bound_inexact",
        case_register_enum_param_bound_inexact, "core/control/param_host.h",
@@ -1212,7 +1212,7 @@ inline const Case *all_cases(int &n) {
        "(options[i] != nullptr) register_param: null option label"},
       {"param_spec_export_label_null", case_param_spec_export_label_null,
        "core/control/param_host.h",
-       "(spec.export_options == nullptr || spec.export_options[i] != nullptr) "
+       "(export_options == nullptr || export_options[i] != nullptr) "
        "register_param: null export label"},
       {"set_clip_out_of_bounds", case_set_clip_out_of_bounds,
        "core/render/canvas.h",
