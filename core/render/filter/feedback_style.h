@@ -37,8 +37,10 @@ struct Style;
 using SpaceFn = math::Vector (*)(const math::Vector &, const Style &);
 /**
  * @brief Pointer type for a color (fade) transform.
- * @details Receives the pixel, the per-frame fade value, and the Style,
- * returning the faded/shifted pixel. The feedback filter's near-black floor
+ * @details Receives the pixel, the Style's per-frame fade raised to the frames
+ * between the source's and target's lit columns (exactly `Style::fade` with
+ * column time off), and the Style, returning the faded/shifted pixel.
+ * The feedback filter's near-black floor
  * applies only to hue_fade; a custom transform must reach exact black on its
  * own or its residue persists.
  */
