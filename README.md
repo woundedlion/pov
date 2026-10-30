@@ -400,7 +400,7 @@ The entry points trade generality for speed:
 - `draw(canvas, fragment_shader, vertex_shader)` — a vertex shader runs once at the pixel center and the fragment shader once per subsample, so per-pixel work is not repeated.
 - `draw_cached(canvas, shader)` — the same typed draw with its traversal placed in cached flash. Composed effects use it.
 - `draw_grid`, `walk_grid` and `draw_block_coherent` — hand the shader the row's subsample grid or a block classification, for effects that own their sampling (the reaction-diffusion effects and Voronoi).
-- `draw_columns` and `draw_block_columns` — prepare a shader once per column, the second also once per block of the column, for column-time sampling (composed effects, HyperLattice and Voronoi).
+- `draw_columns` — prepare a shader once per column for static factored frames (HyperLattice). `draw_column_times` also prepares state once per sweep time for column-time sampling (composed effects, ShaderChain, SphericalHarmonics and the radial-surface renderer). `draw_block_columns` prepares state once per sweep time and a shader once per block of each column (Voronoi).
 
 `walk_grid`, `walk_object_grid` and `draw_grid` write only the columns an open `TimeWindow` admits: one run of half-turn columns on both arms, inside the clip. `Spacetime::simulate_in_slabs` uses it to shade a simulation one sweep slab at a time between substeps, as BZReactionDiffusion does. `walk_object_grid` shades a turning object in its own space, each column through its `Scan::ObjectBasisTable` frame at its sweep time.
 
