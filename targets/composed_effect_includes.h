@@ -28,4 +28,5 @@
 #include "effects/KaleidoscopeSmooth.h"
 #include "effects/KaleidoscopeStainedGlass.h"
 #include "effects/MermaidSkin.h"
+#include "effects/Millefiori.h"
 #include "effects/MobiusGrid.h"

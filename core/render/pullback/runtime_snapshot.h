@@ -10,6 +10,7 @@
 #include <array>
 #include <variant>
 #include "core/render/pullback/modulation.h"
+#include "core/render/pullback/sphere_animation.h"
 #include "core/render/pullback/runtime_seeds.h"
 #include "core/math/3dmath.h"
 #include "core/math/spherical.h"
@@ -43,18 +44,9 @@ struct PhaseClockSnapshot {
   float phase = 0; ///< Loop phase in [0, 1).
 };
 /** @brief One scheduled wave in a ripple burst. */
-struct RippleWaveSnapshot {
-  float age = 1000.0f; ///< Frames since launch; negative before launch.
-  uint32_t burst = 0;  ///< Burst identity shared by its waves.
-};
+using RippleWaveSnapshot = SphereAnimation::RippleWave;
 /** @brief Captured ripple burst scheduler. */
-struct RippleClockSnapshot {
-  float phase = 0;          ///< Fraction of the interval until the next burst.
-  uint32_t seed = 0;        ///< Instance seed for burst origins.
-  uint32_t burst_count = 0; ///< Bursts launched.
-  uint32_t frames = 0;      ///< Frames advanced.
-  std::array<RippleWaveSnapshot, 16> waves{}; ///< Scheduled ripple waves.
-};
+using RippleClockSnapshot = SphereAnimation::RippleState;
 /** @brief Captured affine warp clock. */
 struct AffineClockSnapshot {
   float phase = 0; ///< Loop phase in [0, 1).

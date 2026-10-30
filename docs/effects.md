@@ -24,6 +24,7 @@ All screenshots below were captured from the [live WebAssembly simulator](https:
   - [AlienCore](#aliencore)
   - [KaleidoscopeMandala](#kaleidoscopemandala)
   - [GridSpace](#gridspace)
+  - [Millefiori](#millefiori)
   - [HyperLattice](#hyperlattice)
   - [KaleidoscopeMelt](#kaleidoscopemelt)
   - [MermaidSkin](#mermaidskin)
@@ -264,6 +265,16 @@ A wave-sheared grid moving across a folded gnomonic dodecahedral kaleidoscope, t
 An affine primitive lattice rendered as soft iso contours through a folded gnomonic projection. The affine frame scrolls the lattice by whole cell windings, so its drift repeats without a visible seam.
 
 **Parameters**: Lattice Cell Scale, Lattice Shape, Lattice Softness, Lattice Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 1 Speed, Affine Rotation Rate, Affine Translation X, Affine Translation Y, Affine Scale X, Affine Scale Y, Affine Shear, Iso Level, Iso Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Millefiori" target="_blank"><img src="screenshots/Millefiori.png" alt="Millefiori" width="280"></a></td>
+<td valign="top">
+
+### Millefiori
+
+Spherical ripple bursts feed dodecahedral and tetrahedral kaleidoscopes, a folded gnomonic projection and a planar vortex over a soft primitive lattice. An analogous palette uses a bell brightness envelope, smooth-grid lightness modulation and displacement-based hue rotation. Its single `affine-contour` preset is promoted from the authored Grid Space copy. Millefiori opens by default in the simulator and plays second in Phantasm for 60 seconds.
 
 </td></tr></table>
 
@@ -650,6 +661,7 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `alien-core` | `AlienCore` | 1 |
 | `kaleidoscope-mandala` | `KaleidoscopeMandala` | 2 |
 | `grid-space` | `GridSpace` | 1 |
+| `millefiori` | `Millefiori` | 1 |
 | `kaleidoscope-melt` | `KaleidoscopeMelt` | 1 |
 | `chromatic-lichen` | `ChromaticLichen` | 1 |
 | `mermaid-skin` | `MermaidSkin` | 1 |
@@ -664,9 +676,9 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `cosmic-eyeball` | `CosmicEyeball` | 1 |
 | `mobius-grid` | `MobiusGrid` | 2 |
 
-These 19 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Single-look effects carry a per-entry show window of 30 or 60 seconds in `HS_PHANTASM_EFFECT_LIST`. Multi-preset effects derive their window from the full preset cycle, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Frame budgets convert to show seconds at the nominal 16 fps; slower rendering can leave a cycle unfinished when its show window ends. Kaleidoscope Melt and Kaleidoscope Smooth run document-built chain comparisons in dedicated white-box equivalence suites.
+These 20 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Millefiori is second in Phantasm for 60 seconds; KaleidoscopePentBright remains available in the simulator and is excluded from Phantasm. Single-look effects carry a per-entry show window of 30 or 60 seconds in `HS_PHANTASM_EFFECT_LIST`. Multi-preset effects derive their window from the full preset cycle, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Frame budgets convert to show seconds at the nominal 16 fps; slower rendering can leave a cycle unfinished when its show window ends. Kaleidoscope Melt and Kaleidoscope Smooth run document-built chain comparisons in dedicated white-box equivalence suites.
 
-The [device profile archive](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md) contains shipping reports for all 36 Phantasm effects: 36 completed selective-O3 captures, including new HankinSolids and ShapeShifter captures after the scratch-arena and uniform flash-walker alignment fixes. It also holds global-O3 reference captures for 35 effects and supplemental variant reports. The shipping sweep reports steady render telemetry (`frame` minus buffer wait) from frame 2 through the last complete counter window under the shipping segment clip; setup frame 1 is separate, and subsequent transitions remain included. GSReactionDiffusion has a steady peak of 48.112 ms with 0/447 spilled frames and a 24.883 ms setup frame; MermaidSkin has a steady peak of 42.073 ms with 0/447 spilled frames and a 70.074 ms setup frame; ChromaticLichen has a steady peak of 40.003 ms with 0/447 spilled frames and a 65.897 ms setup frame; AshCloud has a steady peak of 47.180 ms with 0/927 spilled frames and a 73.108 ms setup frame. The reports identify source, frame scope, trailing exclusions and validator diagnostics. HankinSolids has a steady peak of 31.644 ms, setup frame 1 19.276 ms, and 0/2687 steady spilled frames; ShapeShifter has a steady peak of 57.537 ms, setup frame 1 47.865 ms, and 0/4271 steady spilled frames. GSReactionDiffusion’s global-O3 reference, which predates the October 5 optimization, peaks at 279.686 ms with every frame spilled. AshCloud's global-O3 reference peaks at 79.81 ms with 100% spills. Of the composed effects excluded from the Phantasm image, KaleidoscopeMelt peaks at 46.26 ms, with its 76.53 ms initialization frame recorded separately and excluded from display cadence statistics; JewelMelt peaks at 46.35 ms at softness 0.5, with its full-width initialization draw likewise recorded separately; and KaleidoscopeStainedGlass peaks at 43.00 ms. These measurements apply to the revisions and configurations recorded in those reports. The composed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
+The [device profile archive](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md) contains shipping reports for all 36 Phantasm effects: 36 completed selective-O3 captures, including new HankinSolids and ShapeShifter captures after the scratch-arena and uniform flash-walker alignment fixes. It also holds global-O3 reference captures for 34 effects and supplemental variant reports. The shipping sweep reports steady render telemetry (`frame` minus buffer wait) from frame 2 through the last complete counter window under the shipping segment clip; setup frame 1 is separate, and subsequent transitions remain included. GSReactionDiffusion has a steady peak of 48.112 ms with 0/447 spilled frames and a 24.883 ms setup frame; MermaidSkin has a steady peak of 42.073 ms with 0/447 spilled frames and a 70.074 ms setup frame; ChromaticLichen has a steady peak of 40.003 ms with 0/447 spilled frames and a 65.897 ms setup frame; AshCloud has a steady peak of 47.180 ms with 0/927 spilled frames and a 73.108 ms setup frame. The reports identify source, frame scope, trailing exclusions and validator diagnostics. HankinSolids has a steady peak of 31.644 ms, setup frame 1 19.276 ms, and 0/2687 steady spilled frames; ShapeShifter has a steady peak of 57.537 ms, setup frame 1 47.865 ms, and 0/4271 steady spilled frames. GSReactionDiffusion’s global-O3 reference, which predates the October 5 optimization, peaks at 279.686 ms with every frame spilled. AshCloud's global-O3 reference peaks at 79.81 ms with 100% spills. Of the composed effects excluded from the Phantasm image, KaleidoscopeMelt peaks at 46.26 ms, with its 76.53 ms initialization frame recorded separately and excluded from display cadence statistics; JewelMelt peaks at 46.35 ms at softness 0.5, with its full-width initialization draw likewise recorded separately; and KaleidoscopeStainedGlass peaks at 43.00 ms. These measurements apply to the revisions and configurations recorded in those reports. The composed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
 
 ### Authoring vocabulary
 
@@ -775,7 +787,7 @@ operator and palette clocks keep advancing while its authored-preset pause is
 set.
 
 The simulator interprets admitted chains even when they have no promoted
-firmware match. Firmware exposes the 19 promoted fixed descriptors; a
+firmware match. Firmware exposes the 20 promoted fixed descriptors; a
 catalog choice alone does not promise a Teensy specialization.
 
 The gap is per value, not only per combination. The `ComposedEffect` derivation layer in `composed_effect.h` reaches a strict subset of the shipped operator catalog, so the operators classified as unreachable in `DERIVATION_REACH` and further values of the operators it does reach remain workbench-only: every non-simplex noise basis, the non-Euler curl integrators, the clamp curl tangent limit, the non-flat warp envelopes, the logarithmic polar chart and its harmonics 2–16, the front and back gnomonic hemispheres, the None signal weight, and the Bell, Ascending and Descending brightness envelopes. Opaque coverage is supported by the composed layer although no shipped composed effect selects it. Both Noise Contours are reachable. Value Cutout is reachable and selected by Ash Cloud. `tests/composed_effect/derivation_reach.h` pins that set against the live operator table, so a catalog addition stays classified.

@@ -224,7 +224,10 @@ struct SurfaceProvider {
    *  @return `Pullback::Surface::prepare_direct` for a directed family,
    *  else `Pullback::Surface::prepare`. */
   __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
-    if constexpr (requires { frame.params.template get<Key>().direction; })
+    if constexpr (std::is_same_v<Family, SphereAnimation::BurstRippleParams>)
+      return SphereAnimation::prepare_ripples(
+          params(frame), frame.resources.template get<Key>());
+    else if constexpr (requires { frame.params.template get<Key>().direction; })
       return Pullback::Surface::prepare_direct(
           frame.resources.template get<Key>().phase,
           frame.params.template get<Key>().direction);
@@ -272,6 +275,38 @@ struct SurfaceProvider {
     return TrackPath;
   }
 };
+
+namespace Surface {
+/** @brief Sequential spherical ripple bursts.
+ * @tparam State Surface provider. */
+template <typename State> struct BurstRipple : ApproximationDefaults {
+  using Binding = typename State::Binding;           ///< Frame binding.
+  using FrameState = typename State::FrameState;     ///< Current frame.
+  using Prepared = SphereAnimation::PreparedRipples; ///< Active waves.
+  /** @brief Prepares the active wave kernels.
+   * @param frame Current frame.
+   * @return Active kernels in launch order. */
+  static Prepared prepare(const FrameState &frame) {
+    return State::prepare(frame);
+  }
+  /** @brief Applies every active wave in launch order.
+   * @param input Unit sphere direction.
+   * @param frame Current frame.
+   * @param prepared Active wave kernels.
+   * @return Displaced direction and accumulated path length. */
+  static SurfaceResult apply(const math::Vector &input, const FrameState &frame,
+                             const Prepared &prepared) {
+    SurfaceResult result{input, 0.0f};
+    for (uint8_t i = 0; i < prepared.count; ++i) {
+      const auto step = periodic_ripple(result.sphere, prepared.waves[i],
+                                        State::path_length_required(frame));
+      result.sphere = step.sphere;
+      result.path_length += step.path_length;
+    }
+    return result;
+  }
+};
+} // namespace Surface
 
 /**
  * @brief Supplies the pattern and noise state to the Pullback::Source policies.

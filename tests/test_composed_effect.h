@@ -33,6 +33,10 @@
 #include "tests/test_harness.h"
 #include "tests/vec_test_util.h"
 
+namespace hs_test::composed_chain_tests {
+template <typename FX> void verify_export(size_t preset);
+}
+
 namespace hs_test {
 namespace composed_effect_tests {
 
@@ -199,6 +203,10 @@ inline void verify_family_equal(const Family &actual, const Family &expected) {
   }
   if constexpr (requires { actual.modulation; })
     HS_EXPECT_TRUE(actual.modulation == expected.modulation);
+  if constexpr (requires { actual.burst_size; }) {
+    HS_EXPECT_EQ(actual.burst_size, expected.burst_size);
+    HS_EXPECT_EQ(actual.random_center, expected.random_center);
+  }
 }
 
 /** @brief Bitwise-compares the eight Mobius coefficients. */
@@ -301,6 +309,51 @@ inline void check_slider_registration(const char *name) {
     HS_EXPECT_TRUE(slider->target != nullptr);
     for (const ParamDef *earlier = params.begin(); earlier != slider; ++earlier)
       HS_EXPECT_TRUE(slider->target != earlier->target);
+  }
+
+  if constexpr (std::is_same_v<FX, Millefiori<SMALL_W, SMALL_H>>) {
+    constexpr const char *EXPECTED[] = {"Lattice Cell Scale",
+                                        "Lattice Radius",
+                                        "Lattice Shape",
+                                        "Lattice Softness",
+                                        "Camera Wander",
+                                        "Projection Spin Speed",
+                                        "Projection Wander",
+                                        "Singularity Fade",
+                                        "Planar Warp 1 Speed",
+                                        "Vortex Center X",
+                                        "Vortex Center Y",
+                                        "Vortex Radius",
+                                        "Vortex Turns",
+                                        "Vortex Center Orbit",
+                                        "displace.Ripple Period",
+                                        "displace.Ripple Strength",
+                                        "displace.Ripple Decay",
+                                        "displace.Ripple Thickness",
+                                        "displace.Ripple Center Azimuth",
+                                        "displace.Ripple Center Polar",
+                                        "displace.Burst Rate",
+                                        "Palette Chroma",
+                                        "Palette Mapping",
+                                        "Mapping Frequency",
+                                        "Mapping Phase",
+                                        "Phase Oscillation Depth",
+                                        "Phase Oscillation Speed",
+                                        "Opacity at Value 0",
+                                        "Opacity at Value 1",
+                                        "Brightness Bottom",
+                                        "Brightness Top",
+                                        "field.Modulation Amount",
+                                        "field.Pattern Frequency",
+                                        "field.Pattern Speed",
+                                        "modulate.Modulation Amount"};
+    for (const char *slider : EXPECTED) {
+      HS_CONTEXT(slider);
+      HS_EXPECT_TRUE(params.find(slider) != nullptr);
+    }
+    HS_EXPECT_EQ(params.size(), std::size(EXPECTED));
+    HS_EXPECT_EQ(params.size(), params.capacity());
+    return;
   }
 
   verify_family_sliders<FX, typename Params::template Family<"source">>(params,
@@ -758,9 +811,16 @@ inline void test_composed_strobe_roster() {
 #undef HS_COMPOSED_STROBE
 }
 
+/** @brief Millefiori pixels match its document-built operator chain. */
+inline void test_millefiori_document_pipeline() {
+  composed_chain_tests::verify_export<Millefiori<SMALL_W, SMALL_H>>(0);
+}
+
 /** @brief Module entry point for the composed-effect base contract. */
 inline int run_composed_effect_tests() {
   ModuleFixture fixture("composed_effect");
+  HS_RUN(test_millefiori_document_pipeline);
+  HS_RUN(test_millefiori_ripple_endpoints);
   HS_RUN(test_composed_strobe_roster);
   HS_RUN(test_composed_analytic_modulation_sliders);
   HS_RUN(test_composed_analytic_modulation_admission);

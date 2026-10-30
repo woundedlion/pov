@@ -54,8 +54,13 @@ HS_FLASH_INLINE Frame sample_frame_reference(const Frame &from, const Frame &to,
         clock.rotation = Spacetime::sample_clock(a.rotation, b.rotation,
                                                  fraction, math::TWO_PI_F);
     } else if constexpr (Resource::KIND == Pullback::ResourceKind::SURFACE) {
-      if constexpr (std::is_same_v<typename Resource::Family,
-                                   Pullback::PeriodicRippleParams>)
+      if constexpr (std::is_same_v<
+                        typename Resource::Family,
+                        Pullback::SphereAnimation::BurstRippleParams>) {
+        for (auto &wave : clock.waves)
+          wave.age -= (b.frames - a.frames) * (1.0f - fraction);
+      } else if constexpr (std::is_same_v<typename Resource::Family,
+                                          Pullback::PeriodicRippleParams>)
         clock.phase =
             Spacetime::sample_clock(a.phase, b.phase, fraction, family.period);
       else
@@ -1152,4 +1157,41 @@ inline void test_temporal_stacked_modulation_resources() {
       math::Vector(0.3f, 0.8f, 0.2f).normalized(), AFTER);
   HS_EXPECT_EQ(PIXEL_BEFORE.color, PIXEL_AFTER.color);
   HS_EXPECT_NEAR(PIXEL_BEFORE.alpha, PIXEL_AFTER.alpha, 0.0f);
+}
+
+/** @brief Millefiori retains ripple endpoints and samples wave ages continuously. */
+inline void test_millefiori_ripple_endpoints() {
+  using FX = Millefiori<SMALL_W, SMALL_H>;
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+  ComposedFrameWhiteBox::advance(effect);
+  const auto from = ComposedFrameWhiteBox::frame(effect);
+  const auto &first = from.resources.template get<"displace">();
+  HS_EXPECT_EQ(first.frames, 1u);
+  HS_EXPECT_EQ(first.burst_count, 1u);
+  HS_EXPECT_EQ(first.seed, Pullback::Interp::instance_hash(
+                               "displace", "sphere.displace.ripple.v2"));
+  HS_EXPECT_NEAR(first.waves[0].age, 1.0f, 0.0f);
+  HS_EXPECT_NEAR(first.waves[1].age, -15.0f, 0.0f);
+  ComposedFrameWhiteBox::advance(effect);
+  const auto to = ComposedFrameWhiteBox::frame(effect);
+  const Pullback::FrameInterval interval(from, to);
+  const auto quarter = interval.at(0.25f);
+  HS_EXPECT_NEAR(quarter.resources.template get<"displace">().waves[0].age,
+                 1.25f, 0.0f);
+  for (int frame = 0; frame < 31; ++frame)
+    ComposedFrameWhiteBox::advance(effect);
+  const auto later = ComposedFrameWhiteBox::frame(effect);
+  HS_EXPECT_NEAR(first.waves[0].age, 1.0f, 0.0f);
+  HS_EXPECT_NEAR(later.resources.template get<"displace">().waves[2].age, 1.0f,
+                 0.0f);
+  const auto snapshot = effect.serialize_parameters();
+  auto invalid = snapshot;
+  invalid.params.template get<"displace">().burst_size = 4;
+  HS_EXPECT_FALSE(effect.restore_parameters(invalid));
+  invalid = snapshot;
+  invalid.params.template get<"displace">().random_center = 2;
+  HS_EXPECT_FALSE(effect.restore_parameters(invalid));
+  HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
 }

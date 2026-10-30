@@ -13,6 +13,7 @@
 #include "core/render/pullback/lens.h"
 #include "core/render/pullback/operators/common.h"
 #include "core/render/pullback/surface.h"
+#include "core/render/pullback/sphere_animation.h"
 
 /**
  * @file sphere.h
@@ -223,63 +224,25 @@ struct DisplaceRipple : ValueStateModel<RipplePhaseState> {
   using Input = SphereSample;
   using Output = SphereSample;
   using Params = RippleChainParams;
-  /** @brief Active waves in launch order. */
-  struct Prepared {
-    std::array<Surface::PreparedRipple, 16> waves; ///< Active ripple kernels.
-    uint8_t count = 0;                             ///< Active wave count.
-  };
+  /// Active ripple kernels in launch order.
+  using Prepared = SphereAnimation::PreparedRipples;
 
   static void init(State &state, InstanceId id) { state.seed = id.stable_hash; }
   static void advance(State &state, const Params &params) {
-    ++state.frames;
-    for (auto &wave : state.waves)
-      wave.age = fminf(wave.age + 1.0f, 1000.0f);
-    state.phase += params.burst_rate;
-    const bool first = state.burst_count == 0;
-    if (!first && state.phase < 1.0f)
-      return;
-    if (!first)
-      state.phase -= 1.0f;
-    const float age = first ? 1.0f : state.phase / params.burst_rate;
-    const size_t group = (state.burst_count % 4) * 4;
-    for (uint8_t i = 0; i <= params.burst_size; ++i)
-      state.waves[group + i] = {age - 16.0f * i, state.burst_count};
-    ++state.burst_count;
+    SphereAnimation::advance_ripple(state, params);
   }
-
   /** @brief Deterministic uniform center for a burst.
    * @param seed Instance seed.
    * @param burst Burst identity.
    * @return Unit center direction. */
   static math::Vector center(uint32_t seed, uint32_t burst) {
-    uint32_t hash = seed ^ (burst * 0x9e3779b9U);
-    hash = (hash ^ (hash >> 16)) * 0x7feb352dU;
-    hash = (hash ^ (hash >> 15)) * 0x846ca68bU;
-    hash ^= hash >> 16;
-    const float y = 2.0f * static_cast<float>(hash & 0xffffU) / 65535.0f - 1.0f;
-    const float azimuth =
-        static_cast<float>(hash >> 16) * (math::TWO_PI_F / 65536.0f);
-    const float radius = sqrtf(fmaxf(0.0f, 1.0f - y * y));
-    return {radius * cosf(azimuth), y, radius * sinf(azimuth)};
+    return SphereAnimation::ripple_center(seed, burst);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
-    Prepared result;
-    for (uint32_t lag = 4; lag > 0; --lag) {
-      const uint32_t burst = state.burst_count - lag;
-      for (size_t i = 0; i < 4; ++i) {
-        const auto &wave = state.waves[(burst % 4) * 4 + i];
-        if (wave.age < 0.0f || wave.age >= params.period || wave.burst != burst)
-          continue;
-        auto prepared =
-            Surface::prepare_ripple(params, wave.age / params.period);
-        if (params.random_center)
-          prepared.ripple.center = center(state.seed, burst);
-        result.waves[result.count++] = prepared;
-      }
-    }
-    return result;
+    return SphereAnimation::prepare_ripples(params, state);
   }
+
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &, const Prepared &prepared) {
     auto result = input;

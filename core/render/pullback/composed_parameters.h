@@ -88,6 +88,14 @@ template <Pullback::HasFields T> inline bool valid(const T &value) {
     return Pullback::Fields::valid(value);
 }
 
+/** @brief Validates ripple controls and scheduler topology.
+ * @param value Ripple controls.
+ * @return Whether the numeric and topology fields are admitted. */
+inline bool valid(const SphereAnimation::BurstRippleParams &value) {
+  return Pullback::Fields::valid(value) && value.burst_size <= 3 &&
+         value.random_center <= 1;
+}
+
 /**
  * @brief Whether Mobius coefficients are finite, within
  *        `MobiusLensParams::COEFFICIENT_LIMIT` and nondegenerate.

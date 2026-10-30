@@ -15,6 +15,7 @@
 #include "core/math/noise_field.h"
 #include "core/render/pullback/lens.h"
 #include "core/render/pullback/source.h"
+#include "core/render/pullback/sphere_animation.h"
 #include "core/render/pullback/stage.h"
 #include "core/render/pullback/warp.h"
 
@@ -316,6 +317,10 @@ template <> struct ClockState<Lens::MobiusLensParams, ResourceKind::LENS> {
   float magnitude = 0.0f; ///< Generator magnitude; zero when unanimated.
   bool generated = false; ///< Whether the frame's b is the generator's.
 };
+/** @brief Ripple burst clocks and active wave ages. */
+template <>
+struct ClockState<SphereAnimation::BurstRippleParams, ResourceKind::SURFACE>
+    : SphereAnimation::RippleState {};
 /** @brief Modulation source clock.
  * @tparam Family Authored modulation family. */
 template <typename Family> struct ClockState<Family, ResourceKind::MODULATION> {
@@ -388,9 +393,32 @@ inline constexpr bool RESOURCE_NOISE =
     std::is_same_v<typename Resource::Family, Surface::SurfaceNoiseParams> ||
     std::is_same_v<typename Resource::Family, Surface::DirectSurfaceParams>;
 
-/** @brief Owned noise generator of a noise resource; empty otherwise. */
+/** @brief Persistent ripple scheduler, empty for other families.
+ * @tparam Resource Keyed resource.
+ * @tparam Enabled Whether the resource schedules ripple bursts. */
+template <typename Resource,
+          bool Enabled = std::is_same_v<typename Resource::Family,
+                                        SphereAnimation::BurstRippleParams>>
+struct ResourceRippleScheduler {};
+/** @brief Persistent ripple burst scheduler.
+ * @tparam Resource Ripple resource. */
+template <typename Resource> struct ResourceRippleScheduler<Resource, true> {
+  SphereAnimation::RippleState ripples; ///< Active bursts and clock.
+};
+/** @brief Member clocks, excluding arena-owned burst schedulers.
+ * @tparam Resource Keyed resource.
+ * @tparam Arena Whether the clock is arena-owned. */
+template <typename Resource,
+          bool Arena = std::is_same_v<typename Resource::Family,
+                                      SphereAnimation::BurstRippleParams>>
+struct ResourceRuntimeClock : ResourceClock<Resource> {};
+/** @brief Empty member slot of an arena-owned burst scheduler.
+ * @tparam Resource Ripple resource. */
+template <typename Resource> struct ResourceRuntimeClock<Resource, true> {};
+/** @brief Owned resources, including noise where required. */
 template <typename Resource, bool = RESOURCE_NOISE<Resource>>
-struct ResourceNoise : ResourceModulation<Resource> {};
+struct ResourceNoise : ResourceModulation<Resource>,
+                       ResourceRippleScheduler<Resource> {};
 /** @brief Noise resource: owns its generator. */
 template <typename Resource>
 struct ResourceNoise<Resource, true> : ResourceModulation<Resource> {

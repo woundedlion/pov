@@ -107,13 +107,13 @@ g5_ship)
   run AlienCore profile 30 32
   run KaleidoscopeMandala profile 105 32
   run GridSpace profile 60 32
+  run Millefiori profile 60 32
   run HyperLattice profile 300 16
   run ChromaticLichen profile 30 32
   run MermaidSkin profile 30 32
   run AshCloud profile 60 32
   ;;
 g6_ship)
-  run KaleidoscopePentBright profile 60 32
   run KaleidoscopeHexOil profile 105 16
   run KaleidoscopeSmooth profile 240 16
   run KaleidoscopeHexBright profile 105 32

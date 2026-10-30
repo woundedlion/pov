@@ -49,11 +49,15 @@
  */
 #define HS_CHECK_STRINGIZE(x) HS_CHECK_STRINGIZE_IMPL(x)
 /**
- * @brief Folds a check site into one "file:line: (cond)" string literal.
+ * @brief Source location, with the condition text on host builds.
  * @param cond_str String literal naming the failed condition.
  */
+#ifdef ARDUINO
+#define HS_CHECK_SITE(cond_str) HS_SOURCE_FILE ":" HS_CHECK_STRINGIZE(__LINE__)
+#else
 #define HS_CHECK_SITE(cond_str)                                                \
   HS_SOURCE_FILE ":" HS_CHECK_STRINGIZE(__LINE__) ": (" cond_str ")"
+#endif
 
 /**
  * @brief Optional structural audit that traps when enabled.
@@ -359,7 +363,7 @@ namespace hs {
 
 /**
  * @brief Backing routine for HS_CHECK: logs a located breadcrumb then traps.
- * @param site Failed site as "file:line: (cond)", built by HS_CHECK_SITE.
+ * @param site Source location and host condition text, built by HS_CHECK_SITE.
  * @param fmt printf-style message format; trailing args supply the values.
  * @details Formats into a fixed stack buffer (no heap), so it is safe in an
  *          OOM context; flushes the log before trapping.

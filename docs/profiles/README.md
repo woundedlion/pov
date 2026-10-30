@@ -53,6 +53,7 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 
 | Effect | Dominant scope | Ship peak steady ms | Ship setup frame 1 ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|--:|---|
+| [Millefiori](shipping/profile_millefiori_teensy_2026-10-29.md) ● | `fx_shader_draw` | 🔴 116.378 | 110.264 | — | 🔴 351/351 (100.00%) | — | — | — | ship 2026-10-29 23:40 |
 | [MindSplatter](shipping/profile_mindsplatter_teensy_2026-10-29.md) / [O3](O3/profile_mindsplatter_architecture_teensy_2026-10-01.md) § | `msp_draw_particles` | 🟢 57.914 (8) | 0.416 | 🟢 54.539 (8) | 🟢 0/1279 (0.00%) | 🟢 0/1736 (0.00%) | +21,976 B | +17,200 B | ship 2026-10-29 16:23<br>O3 2026-10-01 09:22 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-10-23.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 57.751 | 103.890 | 🟢 56.04 | 🟢 0/447 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-10-23 13:30<br>O3 2026-09-20 23:07 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-10-23.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 57.537 (9) | 47.865 | 🟢 60.05 (9) | 🟢 0/4271 (0.00%) | 🟢 0/2457 (0.00%) | +29,288 B | +24,496 B | ship 2026-10-23 17:21<br>O3 2026-09-25 07:29 |
@@ -78,7 +79,6 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | [Fishbowl](shipping/profile_fishbowl_teensy_2026-10-23.md) / [O3](O3/profile_fishbowl_teensy_2026-08-26.md) | `fish_build_vertices` | 🟢 31.232 | 1.811 | 🟢 21.29 | 🟢 0/927 (0.00%) | 🟢 0/1088 (0%) | +27,856 B | +26,400 B | ship 2026-10-23 13:20<br>O3 2026-08-26 01:18 |
 | [Comets](shipping/profile_comets_teensy_2026-10-23.md) / [O3](O3/profile_comets_teensy_2026-08-26.md) § | `cm_draw_trail` | 🟢 30.701 (12) | 0.897 | 🟢 28.71 (13) | 🟢 0/1887 (0.00%) | 🟢 0/4128 (0%) | +15,432 B | +12,944 B | ship 2026-10-23 13:47<br>O3 2026-08-26 02:02 |
 | [PetalFlow](shipping/profile_petalflow_teensy_2026-10-23.md) / [O3](O3/profile_petalflow_teensy_2026-08-26.md) | `pf_draw_rings` | 🟢 30.286 | 21.618 | 🟢 10.77 | 🟢 0/447 (0.00%) | 🟢 0/1088 (0%) | +22,272 B | +21,008 B | ship 2026-10-23 13:29<br>O3 2026-08-26 01:32 |
-| [KaleidoscopePentBright](shipping/profile_kaleidoscopepentbright_teensy_2026-10-23.md) / [O3](O3/profile_kaleidoscopepentbright_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 27.973 | 48.788 | 🟢 29.53 | 🟢 0/927 (0.00%) | 🟢 0/1088 (0%) | +14,464 B | +11,712 B | ship 2026-10-23 14:23<br>O3 2026-08-26 02:46 |
 | [MobiusGrid](shipping/profile_mobiusgrid_teensy_2026-10-23.md) / [O3](O3/profile_mobiusgrid_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 27.761 (2) | 42.938 | 🟢 21.44 (3) | 🟢 0/1647 (0.00%) | 🟢 0/2688 (0%) | +13,448 B | +10,560 B | ship 2026-10-23 13:28<br>O3 2026-08-26 01:30 |
 | [AlienBrain](shipping/profile_alienbrain_teensy_2026-10-23.md) / [O3](O3/profile_alienbrain_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 26.745 (4) | 48.180 | 🟢 27.90 (5) | 🟢 0/3807 (0.00%) | 🟢 0/4768 (0%) | +14,560 B | +11,712 B | ship 2026-10-23 14:05<br>O3 2026-08-26 02:24 |
 | [KaleidoscopeHexSoft](shipping/profile_kaleidoscopehexsoft_teensy_2026-10-23.md) / [O3](O3/profile_kaleidoscopehexsoft_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 26.624 | 42.046 | 🟢 24.58 | 🟢 0/927 (0.00%) | 🟢 0/1088 (0%) | +14,496 B | +11,712 B | ship 2026-10-23 14:06<br>O3 2026-08-26 02:26 |
@@ -90,7 +90,7 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | [SphericalHarmonics](shipping/profile_sphericalharmonics_teensy_2026-10-23.md) / [O3](O3/profile_sphericalharmonics_teensy_2026-08-26.md) § | `sh_rasterize` | 🟢 13.296 (24) | 17.983 | 🟢 11.70 (24) | 🟢 0/1503 (0.00%) | 🟢 0/3488 (0%) | +8,016 B | +6,400 B | ship 2026-10-23 13:45<br>O3 2026-08-26 01:57 |
 | [Voronoi](shipping/profile_voronoi_teensy_2026-10-23.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 9.242 | 13.222 | 🟢 7.71 | 🟢 0/447 (0.00%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-10-23 13:33<br>O3 2026-08-26 01:39 |
 
-Shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, except IslamicStars, re-captured at `771290aa484e3b99b30b049030ab145d61ade1d9`, and HankinSolids and ShapeShifter, re-captured on COM4 at `bda58b65d3fc317f5d6ccbe29888014738a0ee25`. MindSplatter was re-captured on COM3 and COM4 at measured-code source `e926bfd4878bc13e9f7205d6715837fe9fe06a89`; its row uses the larger COM3 peak over the complete natural 640-revolution/80-second lifetime, including all raw first-epoch rows (setup separate). Captures use their Phantasm show-segment budgets except IslamicStars: its matched shipping/O3 pair uses TS4, and the shipping re-capture runs 210 s with 16-frame windows and `HS_PROFILE_EPOCH_REVS=1920` (the normal show segment is 306 s). Capture times are local raw-log mtimes.
+Millefiori uses the captured promotion patch over `9183a14385490a310dcdca16c059422d5d6482f1` on COM3. Other shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, except IslamicStars, re-captured at `771290aa484e3b99b30b049030ab145d61ade1d9`, and HankinSolids and ShapeShifter, re-captured on COM4 at `bda58b65d3fc317f5d6ccbe29888014738a0ee25`. MindSplatter was re-captured on COM3 and COM4 at measured-code source `e926bfd4878bc13e9f7205d6715837fe9fe06a89`; its row uses the larger COM3 peak over the complete natural 640-revolution/80-second lifetime, including all raw first-epoch rows (setup separate). Millefiori uses 70 s for its 60 s show entry. The remaining captures use their Phantasm show-segment budgets except IslamicStars: its matched shipping/O3 pair uses TS4, and the shipping re-capture runs 210 s with 16-frame windows and `HS_PROFILE_EPOCH_REVS=1920` (the normal show segment is 306 s). Capture times are local raw-log mtimes.
 These captures ran kaleidoscope effects with column strobe off.
 
 MindSplatter steady figures use frames 2–1280 through its first natural handoff. Other shipping steady figures use frames 2 through the last complete counter window. Setup frame 1 is separate. The measured scope is per-frame render telemetry (`frame` minus buffer wait), under the shipping segment clip.
@@ -104,7 +104,7 @@ of fully validated cycle-counter exactness.
 Show duration covers the authored show segment; a segment can end before its
 last departure wraps. The per-effect report states observed coverage.
 
-● capture updated 2026-10-26.
+● captures updated 2026-10-26 and 2026-10-29.
 
 ## Memory captures
 
@@ -220,7 +220,9 @@ Integer direct-AA validation: [ShapeShifter paired capture](shipping/profile_sha
 
 ## Effects excluded from the Phantasm image
 
-JewelMelt, KaleidoscopeMelt, KaleidoscopeStainedGlass and RingShower remain in the full roster. Their archived captures precede removal from the Phantasm image. ● marks captures taken after the 2026-10-06 re-capture.
+JewelMelt, KaleidoscopeMelt, KaleidoscopePentBright, KaleidoscopeStainedGlass and RingShower remain in the full roster. Their archived captures precede removal from the Phantasm image. ● marks captures taken after the 2026-10-06 re-capture.
+
+KaleidoscopePentBright was removed on 2026-10-29 to make room for Millefiori. Its historical global-O3 pair added 14,464 B FLASH code and 11,712 B ITCM; the source pairs and timestamps remain those of the archived captures.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
@@ -228,6 +230,8 @@ JewelMelt, KaleidoscopeMelt, KaleidoscopeStainedGlass and RingShower remain in t
 | [KaleidoscopeMelt selective o3](excluded/profile_kaleidoscopemelt_selective_o3_teensy_2026-10-11.md) ● | `fx_shader_draw` | 🟢 46.26 | 🟢 0/1087 (0.00%) | 2026-10-11 11:38 |
 | [KaleidoscopeStainedGlass selective o3](excluded/profile_kaleidoscopestainedglass_selective_o3_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 43.00 | 🟢 0/1087 (0.00%) | 2026-10-06 18:50 |
 | [KaleidoscopeStainedGlass global o3](excluded/profile_kaleidoscopestainedglass_global_o3_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 46.99 | 🟢 0/1088 (0%) | 2026-08-26 02:51 |
+| [KaleidoscopePentBright selective o3](excluded/profile_kaleidoscopepentbright_teensy_2026-10-23.md) | `fx_shader_draw` | 🟢 27.973 | 🟢 0/927 (0.00%) | 2026-10-23 14:23 |
+| [KaleidoscopePentBright global o3](excluded/profile_kaleidoscopepentbright_global_o3_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 29.53 | 🟢 0/1088 (0%) | 2026-08-26 02:46 |
 | [RingShower selective o3](excluded/profile_ringshower_selective_o3_teensy_2026-10-06.md) | `rsh_draw_rings` | 🟢 4.32 | 🟢 0/1087 (0.00%) | 2026-10-06 18:20 |
 | [RingShower global o3](excluded/profile_ringshower_global_o3_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 3.86 | 🟢 0/1088 (0%) | 2026-08-26 01:36 |
 

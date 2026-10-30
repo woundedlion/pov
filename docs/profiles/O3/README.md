@@ -1,6 +1,6 @@
 # Global-O3 reference profiles
 
-Ranked captures covering **35 effects** from the Phantasm image.
+Ranked captures covering **34 effects** from the Phantasm image.
 These are single-effect `profile_o3` compiler-reference images built
 with global `-O3 -ffast-math`; they are not a shippable full-roster image.
 
@@ -30,7 +30,6 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 | [HankinSolids](profile_hankinsolids_teensy_2026-09-28.md) § | `hk_timeline_step` | 🟢 32.865 (18) | 🟢 0/4137 (0.00%) | 2026-09-28 16:45 |
 | [KaleidoscopeHexBright](profile_kaleidoscopehexbright_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 32.41 (3) | 🟢 0/2368 (0%) | 2026-08-26 03:14 |
 | [KaleidoscopeSmooth](profile_kaleidoscopesmooth_architecture_teensy_2026-10-01.md) § ● | `fx_shader_draw` | 🟢 30.314 (4) | 🟢 0/4137 (0.00%) | 2026-10-01 11:19 |
-| [KaleidoscopePentBright](profile_kaleidoscopepentbright_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 29.53 | 🟢 0/1088 (0%) | 2026-08-26 02:46 |
 | [Comets](profile_comets_teensy_2026-08-26.md)§ | `cm_draw_trail` | 🟢 28.71 (13) | 🟢 0/4128 (0%) | 2026-08-26 02:02 |
 | [AlienBrain](profile_alienbrain_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 27.90 (5) | 🟢 0/4768 (0%) | 2026-08-26 02:24 |
 | [GnomonicStars](profile_gnomonicstars_teensy_2026-08-26.md) | `gn_draw_stars` | 🟢 26.29 | 🟢 0/1088 (0%) | 2026-08-26 01:22 |

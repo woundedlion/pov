@@ -92,6 +92,23 @@ template <typename FX> void verify_export(size_t preset) {
                                                : own.projection_conjugate)
                          .conjugate();
       state.spin_phase = 0.0f;
+    } else if (id == "sphere.lens.twist.v2") {
+      if constexpr (FX::Params::template HAS<"lens2">)
+        mutable_state<In::Op::SpatialWalkState>(program, index).wander =
+            own.resources.template get<"lens2">().wander;
+    } else if (id == "sphere.displace.ripple.v2") {
+      if constexpr (FX::Params::template HAS<"displace">)
+        static_cast<In::RippleClockSnapshot &>(
+            mutable_state<In::Op::RipplePhaseState>(program, index)) =
+            own.resources.template get<"displace">();
+    } else if (id == "sample.lattice.v2") {
+      auto &clock = mutable_state<In::Op::SourceClockState>(program, index);
+      const auto &resource = own.resources.template get<"source">();
+      clock = {resource.primary, resource.secondary, resource.angle};
+    } else if (id == "warp.vortex.v2") {
+      if constexpr (FX::Params::template HAS<"outer_warp">)
+        mutable_state<In::Op::WarpPhaseState>(program, index).phase =
+            own.resources.template get<"outer_warp">().phase;
     } else if (id == "sphere.displace.curl.v2") {
       if constexpr (!std::is_void_v<
                         typename FX::Params::template Family<"surface">>) {

@@ -64,6 +64,7 @@
   X(BZReactionDiffusion)                                                       \
   X(Fishbowl)                                                                  \
   X(Comets)                                                                    \
+  X(Millefiori)                                                                \
   X(GridSpace)                                                                 \
   X(HyperLattice)                                                              \
   X(AshCloud)                                                                  \
@@ -153,6 +154,7 @@ constexpr int hs_preset_window_seconds() {
   X(AlienOcean, 30)                                                            \
   X(AlienCore, 30)                                                             \
   X(KaleidoscopeMandala, hs_preset_window_seconds<KaleidoscopeMandala>())      \
+  X(Millefiori, 60)                                                            \
   X(GridSpace, 60)                                                             \
   X(KaleidoscopeMelt, 30)                                                      \
   X(ChromaticLichen, 30)                                                       \

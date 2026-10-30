@@ -34,6 +34,8 @@ struct ParameterLayoutHash {
       text("float32");
     } else if constexpr (std::is_same_v<Member, bool>) {
       text("bool");
+    } else if constexpr (std::is_same_v<Member, uint8_t>) {
+      text("uint8");
     } else if constexpr (std::is_same_v<Member, uint16_t>) {
       text("uint16");
     } else if constexpr (std::is_same_v<Member, int32_t>) {
@@ -60,6 +62,10 @@ struct ParameterLayoutHash {
         this->member(root, member.palette_mapping, "palette-mapping");
       if constexpr (requires { member.modulation; })
         this->member(root, member.modulation, "modulation");
+      if constexpr (requires { member.burst_size; }) {
+        this->member(root, member.burst_size, "burst-size");
+        this->member(root, member.random_center, "random-center");
+      }
     } else if constexpr (std::is_same_v<Member, ColorModulation::Config>) {
       text("modulation-config");
       this->member(root, member.enabled, "enabled");
@@ -190,6 +196,7 @@ constexpr ParameterSchemaPin PARAMETER_SCHEMA_PINS[] = {
     {"AlienOcean", 4, 264, 10147967365089435384ULL},
     {"AlienCore", 4, 264, 10147967365089435384ULL},
     {"KaleidoscopeMandala", 4, 280, 13820729389425608030ULL},
+    {"Millefiori", 1, 436, 1470632974023726218ULL},
     {"GridSpace", 4, 264, 11830402334610884471ULL},
     {"KaleidoscopeMelt", 3, 240, 738385364115786086ULL},
     {"ChromaticLichen", 4, 248, 3008862667822062567ULL},

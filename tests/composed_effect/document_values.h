@@ -483,10 +483,15 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
                               number);
       }
       return false;
-    case SlotRole::SURFACE:
-      if constexpr (FX::Params::template HAS<"surface">)
-        return assign_field(built.template get<"surface">(), field_id, number);
-      return false;
+    case SlotRole::SURFACE: {
+      bool assigned = false;
+      built.visit([&]<typename Resource>(auto &family) {
+        if constexpr (Resource::KIND == Pullback::ResourceKind::SURFACE)
+          if (Resource::KEY.view() == slot.label)
+            assigned = assign_field(family, field_id, number);
+      });
+      return assigned;
+    }
     case SlotRole::SAMPLE:
       if (assign_field(built.template get<"source">(), field_id, number))
         return true;
@@ -502,8 +507,15 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
       if constexpr (FX::Params::template HAS<"value">)
         return assign_field(built.template get<"value">(), field_id, number);
       return false;
-    case SlotRole::LENS:
-      return assign_mobius(built, field_id, number);
+    case SlotRole::LENS: {
+      bool assigned = assign_mobius(built, field_id, number);
+      built.visit([&]<typename Resource>(auto &family) {
+        if constexpr (Resource::KIND == Pullback::ResourceKind::LENS)
+          if (Resource::KEY.view() == slot.label)
+            assigned = assign_field(family, field_id, number) || assigned;
+      });
+      return assigned;
+    }
     case SlotRole::COLORIZE:
       return assign_field(built.template get<"color">(), field_id, number);
     case SlotRole::MODULATION: {
@@ -612,13 +624,33 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     return false;
   case SlotRole::LENS:
     if (field_id == "symmetry") {
-      HS_EXPECT_EQ(text, lens_symmetry_id<typename FX::Metadata::LensPolicy>());
+      using Leaves = Pullback::ComposedDetail::PipelineLeaves<
+          typename FX::Spec::template Pipeline<
+              Pullback::ComposedDetail::DiscoveryBinding>>;
+      const bool found = [&]<size_t... I>(std::index_sequence<I...>) {
+        return (
+            ([]<typename Stage>(std::string_view symmetry) {
+              if constexpr (Pullback::ComposedDetail::IsLensStage<Stage>::value)
+                return symmetry ==
+                       lens_symmetry_id<typename Stage::LensPolicy>();
+              return false;
+            }.template
+             operator()<typename Leaves::template StageAt<I>>(text)) ||
+            ...);
+      }(std::make_index_sequence<Leaves::STAGE_COUNT>{});
+      HS_EXPECT_TRUE(found);
       HS_EXPECT_TRUE(
           derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     return false;
   case SlotRole::SURFACE:
+    if (field_id == "burst-size" || field_id == "random-center") {
+      HS_EXPECT_TRUE(
+          derivation_value_reachable(slot.operator_id, field_id, text));
+      return text == (field_id == "burst-size" ? "four" : "on");
+    }
+    [[fallthrough]];
   case SlotRole::WARP:
     if (field_id == "basis" || field_id == "integrator" ||
         field_id == "limit" || field_id == "mode" || field_id == "envelope" ||
@@ -704,7 +736,7 @@ inline void check_document_values(const char *name) {
     }
     if (slot.role == SlotRole::SURFACE)
       surface_at = static_cast<int>(slots.size());
-    if (slot.role == SlotRole::LENS)
+    if (slot.role == SlotRole::LENS && lens_at < 0)
       lens_at = static_cast<int>(slots.size());
     slots.push_back(std::move(slot));
   }

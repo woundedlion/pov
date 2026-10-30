@@ -145,6 +145,7 @@ namespace effect_identities {
     "mermaid-skin")                                                            \
   X(MeshFeedback, "mesh-feedback", "MeshFeedback", "MeshFeedback",             \
     "MeshFeedback")                                                            \
+  X(Millefiori, "millefiori", "Millefiori", "millefiori", "millefiori")        \
   X(MindSplatter, "mind-splatter", "MindSplatter", "MindSplatter",             \
     "MindSplatter")                                                            \
   X(MobiusGrid, "mobius-grid", "MobiusGrid", "mobius-grid", "mobius-grid")     \

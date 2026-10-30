@@ -87,7 +87,6 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sample.fractal.v2", nullptr, {}},
     {"sample.tessellation.v2", nullptr, {}},
     // No WarpPolicyFor specialization carries these warp families.
-    {"warp.vortex.v2", nullptr, {}},
     {"warp.curl-flow.v2", nullptr, {}},
     // TransferKind is NONE or ISO_CONTOUR.
     {"field.transfer.ridge.v2", nullptr, {}},
@@ -103,12 +102,12 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sphere.displace.curl.v2", "integrator", {{"euler"}}},
     {"sphere.displace.curl.v2", "limit", {{"smooth"}}},
     {"sphere.displace.direct.v2", "basis", {{"simplex"}}},
-    {"sphere.displace.ripple.v2", "burst-size", {}},
-    {"sphere.displace.ripple.v2", "random-center", {}},
+    {"sphere.displace.ripple.v2", "burst-size", {{"four"}}},
+    {"sphere.displace.ripple.v2", "random-center", {{"on"}}},
     {"sphere.lens.kaleidoscope.v2",
      "symmetry",
-     {{"azimuthal", "octahedral", "dodecahedral", "pentagonal-prism",
-       "hexagonal-prism"}}},
+     {{"azimuthal", "tetrahedral", "octahedral", "dodecahedral",
+       "pentagonal-prism", "hexagonal-prism"}}},
     // WarpPolicyFor pins the flat envelope, the simplex basis, the linear
     // polar chart and its first harmonic.
     {"warp.wave-shear.v2", "envelope", {{"flat"}}},
@@ -144,13 +143,19 @@ constexpr DerivationReach DERIVATION_REACH[] = {
      "palette-mapping",
      {{"cup", "bell", "linear"}}},
     {"color.modulate.v1", "modulation-enabled", {{"enabled"}}},
-    {"color.modulate.v1", "modulation-source", {{"noise", "displacement"}}},
+    {"color.modulate.v1",
+     "modulation-source",
+     {{"noise", "displacement", "sphere-smooth-grid"}}},
     {"color.modulate.v1", "modulation-evaluation", {{"direct", "baked-cube"}}},
-    {"color.modulate.v1", "modulation-mechanic", {{"hue-rotation"}}},
+    {"color.modulate.v1",
+     "modulation-mechanic",
+     {{"hue-rotation", "positive-lightness-lift"}}},
     {"color.modulate.v1", "pattern-noise-basis", {{"simplex"}}},
     {"color.modulate.v1", "pattern-noise-variant", {{"configured-single"}}},
     // Shipped Specs select only the none and cup brightness envelopes.
-    {"colorize.generated-palette.v4", "brightness-envelope", {{"none", "cup"}}},
+    {"colorize.generated-palette.v4",
+     "brightness-envelope",
+     {{"none", "cup", "bell"}}},
 };
 
 /** @brief The topology enum8 @p topology_id of @p op, or null. */
@@ -251,7 +256,7 @@ inline void test_composed_derivation_reach() {
   }
 
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 39u);
-  HS_EXPECT_EQ(unreachable_operators, 12u);
+  HS_EXPECT_EQ(unreachable_operators, 11u);
   HS_EXPECT_EQ(catalog_values, 244u);
-  HS_EXPECT_EQ(unreachable_values, 195u);
+  HS_EXPECT_EQ(unreachable_values, 189u);
 }

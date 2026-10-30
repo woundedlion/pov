@@ -19,7 +19,8 @@
     "kaleidoscope-hex-bright": "kaleidoscope_hex_bright.shader.json",
     "kaleidoscope-flowers": "kaleidoscope_flowers.shader.json",
     "cosmic-eyeball": "cosmic_eyeball.shader.json",
-    "mobius-grid": "mobius_grid.shader.json"
+    "mobius-grid": "mobius_grid.shader.json",
+    "millefiori": "millefiori.shader.json"
   },
   "product_group": {
     "id": "shader-collection",
@@ -100,6 +101,10 @@
       {
         "effect_id": "mobius-grid",
         "display_name": "Mobius Grid"
+      },
+      {
+        "effect_id": "millefiori",
+        "display_name": "Millefiori"
       }
     ]
   }

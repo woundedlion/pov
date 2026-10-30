@@ -1,5 +1,7 @@
 # KaleidoscopePentBright on-device profile — Teensy 4.0, segmented mode (2026-10-23, **selective -O3**)
 
+Archived device-excluded effect: KaleidoscopePentBright remains available in the simulator and was removed from the Phantasm image on 2026-10-29 to make room for Millefiori. Capture measurements and source provenance below are unchanged.
+
 Point-in-time snapshot; reproduce with the command below.
 Raw capture: `build/prof/kaleidoscopepentbright_ship.log`, captured 2026-10-23 14:23 America/Los_Angeles on COM4.
 Replaces `profile_kaleidoscopepentbright_teensy_2026-10-22.md`.

@@ -9,7 +9,7 @@ import { loadEffectIdentities } from './effect_roster.mjs';
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const SECTIONS = ['identity', 'params'];
 const GROUPS = { sample: 'source', project: 'projection', warp1: 'outer_warp',
-  warp2: 'inner_warp', surface: 'surface', transfer: 'value', cutout: 'value', colorize: 'color' };
+  warp2: 'inner_warp', warp: 'outer_warp', displace: 'displace', surface: 'surface', transfer: 'value', cutout: 'value', colorize: 'color' };
 const RENAMES = { 'sample.angle-speed': 'angle_rate', 'sample.drift': 'secondary_rate',
   'sample.lattice-shape': 'lattice_shape_blend', 'project.projection-spin-speed': 'spin_rate',
   'project.projection-wander': 'wander', 'colorize.value-opacity-low': 'opacity_low',

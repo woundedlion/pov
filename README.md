@@ -117,7 +117,7 @@ Firmware, WebAssembly and native test targets share one engine:
 
 ```text
 C++ codebase
-  effects/ (43 visual algorithms) + workbench/
+  effects/ (44 visual algorithms) + workbench/
               |
   core/                       Rendering engine
     scan / plot / pullback / raycast -> filter pipeline -> Canvas pixel buffer
@@ -223,7 +223,7 @@ Pixel data must be ready before each column interval fires ([§1.3](#13-how-the-
 
 On an unattended board, a corrupted arena can ship garbage to the LEDs with no debugger or serial monitor to expose the cause. So invariant violations *trap at the violation site* instead of being masked by bounded fallbacks.
 
-**How it works.** `HS_CHECK(cond, fmt, ...)` (`platform.h`) takes a mandatory condition and an optional printf-style message saying *what* went wrong — on a headless board that message is the whole post-mortem, so a bare `HS_CHECK(cond)` is the degenerate case. On failure, `hs::check_fail()` formats the message into a fixed stack buffer (no heap, so it is safe from a corrupted-arena or OOM context), logs `HS_CHECK failed: <basename>:<line>: (<cond>) <message>`, **flushes** the log so a release build emits it, and calls `__builtin_trap()`. The device path uses newlib's integer-only `vsniprintf` to keep the float formatter out of ITCM. When the condition holds, the check is a single predicted-not-taken branch. Unlike `assert()` it is **not** stripped by `NDEBUG`; the device build defines `NDEBUG` only to keep newlib's `__assert_func`→`fprintf` (and all of stdio) out of the image.
+**How it works.** `HS_CHECK(cond, fmt, ...)` (`platform.h`) takes a mandatory condition and an optional printf-style message saying *what* went wrong — on a headless board that message is the whole post-mortem, so a bare `HS_CHECK(cond)` is the degenerate case. On failure, `hs::check_fail()` formats the message into a fixed stack buffer (no heap, so it is safe from a corrupted-arena or OOM context), logs `HS_CHECK failed: <basename>:<line> <message>` on the device, adds `(<cond>)` on host builds, **flushes** the log so a release build emits it, and calls `__builtin_trap()`. The device path uses newlib's integer-only `vsniprintf` to keep the float formatter out of ITCM. When the condition holds, the check is a single predicted-not-taken branch. Unlike `assert()` it is **not** stripped by `NDEBUG`; the device build defines `NDEBUG` only to keep newlib's `__assert_func`→`fprintf` (and all of stdio) out of the image.
 
 **Where it goes.** `HS_CHECK` guards seams where a violation is a logic or sizing bug with no valid recovery: container growth, arena OOM, capacity and bounds guards at allocation, registration and configuration sites, and checked accessors that run per control point (such as `StaticCircularBuffer::operator[]`). It stays out of per-pixel loops, which index raw storage directly; hot paths that need a check use a stripped `assert` backed by a trap at the corresponding bind or setup site. The exceptions are guarded math helpers with no bind seam to carry the check — `Vector::normalized()`, `Quaternion::normalized()`, `parallel_transport()`, `angle_between()` and the polyhedral kaleidoscope lenses' unconverged-fold fallthrough — where dropping the check would turn a degenerate input into a silent NaN.
 
@@ -699,7 +699,7 @@ With `{.persist = true}`, `Canvas` copies the previous frame's buffer into the n
 
 Every effect — screenshot, description and parameter list — plus the shader authoring workbench and the legacy roster is documented in [`docs/effects.md`](https://github.com/woundedlion/pov/blob/master/docs/effects.md).
 
-The compile-time roster and tests carry 43 firmware-capable effects. Native and WASM builds add the simulator-only `ShaderChain` interpreter, which opens through its standalone tool rather than the effect sidebar ([§7.5](#75-the-effect-sidebar-sidebarjs)). The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST`) contains 36 effects, including the promoted composed effects; it excludes Dynamo, MobiusRings and Thrusters for their 96×20 display profile and JewelMelt, KaleidoscopeMelt, KaleidoscopeStainedGlass and RingShower by product curation, as recorded by `HS_PHANTASM_EXCLUDED_EFFECTS`. Each entry carries its own on-air duration alongside its name in the 36-entry roster. Current shipping-segment Teensy measurements for all 36 effects, including Galaxies, are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
+The compile-time roster and tests carry 44 firmware-capable effects. Native and WASM builds add the simulator-only `ShaderChain` interpreter, which opens through its standalone tool rather than the effect sidebar ([§7.5](#75-the-effect-sidebar-sidebarjs)). The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST`) contains 36 effects, including the promoted composed effects; it excludes Dynamo, MobiusRings and Thrusters for their 96×20 display profile and JewelMelt, KaleidoscopeMelt, KaleidoscopeStainedGlass, KaleidoscopePentBright and RingShower by product curation, as recorded by `HS_PHANTASM_EXCLUDED_EFFECTS`. Each entry carries its own on-air duration alongside its name in the 36-entry roster. Current shipping-segment Teensy measurements for all 36 effects, including Galaxies, are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
 
 ### 6.7 Fenced Effect Transitions (`control/transition.h`)
 
@@ -1387,6 +1387,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │   ├── modulation.h            Pattern state ownership and prepared sphere binding
 │   │   │   ├── modulation_temporal.h   Endpoint retention, identity and completed straight-alpha blending
 │   │   │   ├── runtime_snapshot.h      Chain runtime snapshot contracts
+│   │   │   ├── sphere_animation.h      Ripple burst scheduling
 │   │   │   ├── operators.h             Chain-operator umbrella and camera/color exit adapters
 │   │   │   └── operators/              Operator model, table, shared state, family adapters, and snapshot codecs
 │   │   ├── scan.h                  Scanline rasterizer: umbrella over scan/
@@ -1462,7 +1463,7 @@ files define line-ending policy and working-artifact exclusions.
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    43 headers covering 43 effects, all firmware — BZReactionDiffusion.h,
+├── effects/                    44 headers covering 44 effects, all firmware — BZReactionDiffusion.h,
 │                                HopfFibration.h, IslamicStars.h, Raymarch.h, … — plus
 │                                common/ for code two or more effects share (the
 │                                reaction-diffusion base reaction_diffusion.h and the

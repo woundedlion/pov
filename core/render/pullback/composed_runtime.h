@@ -124,6 +124,12 @@ public:
                           persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
     this->params.visit([&]<typename Resource>(auto &) {
+      if constexpr (std::is_same_v<typename Resource::Family,
+                                   SphereAnimation::BurstRippleParams>) {
+        state->resources.template get<Resource::KEY>().ripples.seed = fnv1a(
+            "sphere.displace.ripple.v2",
+            fnv1a(std::string_view("\0", 1), fnv1a(Resource::KEY.view())));
+      }
       if constexpr (ComposedDetail::RESOURCE_NOISE<Resource>) {
         constexpr int32_t SEED = Resource::KIND == ResourceKind::WARP
                                      ? Derived::WARP_NOISE_SEED
@@ -763,7 +769,11 @@ private:
               Pattern::advance_noise_phase(clock.noise_time, family);
       } else if constexpr (Resource::KIND == ResourceKind::SURFACE) {
         if constexpr (std::is_same_v<typename Resource::Family,
-                                     PeriodicRippleParams>)
+                                     SphereAnimation::BurstRippleParams>)
+          SphereAnimation::advance_ripple(
+              state->resources.template get<Resource::KEY>().ripples, family);
+        else if constexpr (std::is_same_v<typename Resource::Family,
+                                          PeriodicRippleParams>)
           Surface::advance_ripple_phase(clock.phase, family);
         else
           clock.phase = math::wrap_t(clock.phase + family.speed);
@@ -851,8 +861,13 @@ private:
     frame.palette_oscillation_phase = palette_oscillation_phase;
     this->params.visit([&]<typename Resource>(const auto &) {
       auto &resource = frame.resources.template get<Resource::KEY>();
-      static_cast<ComposedDetail::ResourceClock<Resource> &>(resource) =
-          clocks.template get<Resource::KEY>();
+      if constexpr (std::is_same_v<typename Resource::Family,
+                                   SphereAnimation::BurstRippleParams>)
+        static_cast<SphereAnimation::RippleState &>(resource) =
+            state->resources.template get<Resource::KEY>().ripples;
+      else
+        static_cast<ComposedDetail::ResourceClock<Resource> &>(resource) =
+            clocks.template get<Resource::KEY>();
       if constexpr (ComposedDetail::RESOURCE_NOISE<Resource>)
         resource.noise = &state->resources.template get<Resource::KEY>().noise;
       if constexpr (Resource::KIND == ResourceKind::MODULATION) {
@@ -925,7 +940,7 @@ private:
   math::Quaternion outer_walk_previous;
   math::Quaternion outer_wander;
   math::Quaternion outer_conjugate;
-  ComposedDetail::ResourceStorage<ComposedDetail::ResourceClock,
+  ComposedDetail::ResourceStorage<ComposedDetail::ResourceRuntimeClock,
                                   typename Params::ResourceTypes>
       clocks;
   float camera_spin = 0.0f;

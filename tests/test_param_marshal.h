@@ -211,6 +211,7 @@ inline void check_roster_order_pinned() {
   static const char *const GOLDEN_ROSTER[] = {"BZReactionDiffusion",
                                               "Fishbowl",
                                               "Comets",
+                                              "Millefiori",
                                               "GridSpace",
                                               "HyperLattice",
                                               "AshCloud",

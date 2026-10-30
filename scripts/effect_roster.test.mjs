@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {
   parseEffectRoster, parsePhantasmEffectRoster,
@@ -117,10 +118,17 @@ test('RingShower remains in the full roster and is excluded from Phantasm', asyn
   assert.ok(!(await loadPhantasmEffectRoster()).includes('RingShower'));
 });
 
-test('HopfFibration opens Phantasm followed by one Galaxies entry', async () => {
+test('Millefiori follows HopfFibration for sixty seconds in Phantasm', async () => {
   const phantasm = await loadPhantasmEffectRoster();
-  assert.deepEqual(phantasm.slice(0, 2), ['HopfFibration', 'Galaxies']);
+  assert.deepEqual(phantasm.slice(0, 3), ['HopfFibration', 'Millefiori', 'Galaxies']);
+  const source = await readFile(new URL('../targets/Phantasm/phantasm_playlist.h', import.meta.url), 'utf8');
+  assert.match(source, /X\(Millefiori, 60\)/);
   assert.equal(phantasm.filter(name => name === 'Galaxies').length, 1);
+});
+
+test('PentBright remains available outside the Phantasm image', async () => {
+  assert.ok((await loadEffectRoster()).includes('KaleidoscopePentBright'));
+  assert.ok(!(await loadPhantasmEffectRoster()).includes('KaleidoscopePentBright'));
 });
 
 test('roster parsers ignore block-comment openers inside line comments', () => {

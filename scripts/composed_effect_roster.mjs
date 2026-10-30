@@ -18,5 +18,6 @@ export const SHADER_DOCUMENT_EFFECTS = Object.freeze([
   'kaleidoscope-smooth',
   'kaleidoscope-stained-glass',
   'mermaid-skin',
+  'millefiori',
   'mobius-grid',
 ]);

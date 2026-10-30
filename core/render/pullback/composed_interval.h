@@ -106,7 +106,10 @@ public:
               start.rotation, end.rotation, math::TWO_PI_F);
       } else if constexpr (Resource::KIND == ResourceKind::SURFACE &&
                            !std::is_same_v<typename Resource::Family,
-                                           PeriodicRippleParams>) {
+                                           PeriodicRippleParams> &&
+                           !std::is_same_v<
+                               typename Resource::Family,
+                               SphereAnimation::BurstRippleParams>) {
         delta.phase = Spacetime::ClockInterval::prepare_delta(start.phase,
                                                               end.phase, 1.0f);
       } else if constexpr (std::is_same_v<typename Resource::Family,
@@ -196,7 +199,12 @@ public:
               start.rotation, delta.rotation, fraction);
       } else if constexpr (Resource::KIND == ResourceKind::SURFACE) {
         if constexpr (std::is_same_v<typename Resource::Family,
-                                     PeriodicRippleParams>)
+                                     SphereAnimation::BurstRippleParams>) {
+          const auto &end = to.resources.template get<Resource::KEY>();
+          for (auto &wave : clock.waves)
+            wave.age -= (end.frames - start.frames) * (1.0f - fraction);
+        } else if constexpr (std::is_same_v<typename Resource::Family,
+                                            PeriodicRippleParams>)
           clock.phase = Spacetime::sample_clock(
               start.phase, to.resources.template get<Resource::KEY>().phase,
               fraction, family.period);

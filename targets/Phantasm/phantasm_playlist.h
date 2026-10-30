@@ -24,6 +24,7 @@
  */
 #define HS_PHANTASM_EFFECT_LIST(X)                                             \
   X(HopfFibration, 60)                                                         \
+  X(Millefiori, 60)                                                            \
   X(Galaxies, 60)                                                              \
   X(DreamBalls, hs_preset_window_seconds<DreamBalls>())                        \
   X(KaleidoscopeFlowers, hs_preset_window_seconds<KaleidoscopeFlowers>())      \
@@ -52,7 +53,6 @@
   X(KaleidoscopeHexSoft, 60)                                                   \
   X(MobiusGrid, hs_preset_window_seconds<MobiusGrid>())                        \
   X(PetalFlow, 30)                                                             \
-  X(KaleidoscopePentBright, 60)                                                \
   X(KaleidoscopeHexOil, hs_preset_window_seconds<KaleidoscopeHexOil>())        \
   X(RingSpin, 60)                                                              \
   X(SphericalHarmonics, hs_preset_window_seconds<SphericalHarmonics>())        \
@@ -151,6 +151,7 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
  *          Other exclusions are product curation.
  */
 #define HS_PHANTASM_EXCLUDED_EFFECTS(X)                                        \
+  X(KaleidoscopePentBright)                                                    \
   X(JewelMelt)                                                                 \
   X(KaleidoscopeStainedGlass)                                                  \
   X(KaleidoscopeMelt)                                                          \

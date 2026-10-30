@@ -7,6 +7,7 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 
 | Effect | Dominant scope | Peak steady ms | Setup frame 1 ms | Spilled | Captured |
 |---|---|--:|--:|--:|---|
+| [Millefiori](profile_millefiori_teensy_2026-10-29.md) ● | `fx_shader_draw` | 🔴 116.378 | 110.264 | 🔴 351/351 (100.00%) | 2026-10-29 23:40 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-10-29.md) § | `msp_draw_particles` | 🟢 57.914 (8) | 0.416 | 🟢 0/1279 (0.00%) | 2026-10-29 16:23 |
 | [Raymarch](profile_raymarch_teensy_2026-10-23.md) | `rm_shader_draw` | 🟢 57.751 | 103.890 | 🟢 0/447 (0.00%) | 2026-10-23 13:30 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-10-23.md) § | `ss_draw_all` | 🟢 57.537 (9) | 47.865 | 🟢 0/4271 (0.00%) | 2026-10-23 17:21 |
@@ -32,7 +33,6 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | [Fishbowl](profile_fishbowl_teensy_2026-10-23.md) | `fish_build_vertices` | 🟢 31.232 | 1.811 | 🟢 0/927 (0.00%) | 2026-10-23 13:20 |
 | [Comets](profile_comets_teensy_2026-10-23.md) § | `cm_draw_trail` | 🟢 30.701 (12) | 0.897 | 🟢 0/1887 (0.00%) | 2026-10-23 13:47 |
 | [PetalFlow](profile_petalflow_teensy_2026-10-23.md) | `pf_draw_rings` | 🟢 30.286 | 21.618 | 🟢 0/447 (0.00%) | 2026-10-23 13:29 |
-| [KaleidoscopePentBright](profile_kaleidoscopepentbright_teensy_2026-10-23.md) | `fx_shader_draw` | 🟢 27.973 | 48.788 | 🟢 0/927 (0.00%) | 2026-10-23 14:23 |
 | [MobiusGrid](profile_mobiusgrid_teensy_2026-10-23.md) § | `fx_shader_draw` | 🟢 27.761 (2) | 42.938 | 🟢 0/1647 (0.00%) | 2026-10-23 13:28 |
 | [AlienBrain](profile_alienbrain_teensy_2026-10-23.md) § | `fx_shader_draw` | 🟢 26.745 (4) | 48.180 | 🟢 0/3807 (0.00%) | 2026-10-23 14:05 |
 | [KaleidoscopeHexSoft](profile_kaleidoscopehexsoft_teensy_2026-10-23.md) | `fx_shader_draw` | 🟢 26.624 | 42.046 | 🟢 0/927 (0.00%) | 2026-10-23 14:06 |
@@ -44,7 +44,7 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | [SphericalHarmonics](profile_sphericalharmonics_teensy_2026-10-23.md) § | `sh_rasterize` | 🟢 13.296 (24) | 17.983 | 🟢 0/1503 (0.00%) | 2026-10-23 13:45 |
 | [Voronoi](profile_voronoi_teensy_2026-10-23.md) | `vo_shade` | 🟢 9.242 | 13.222 | 🟢 0/447 (0.00%) | 2026-10-23 13:33 |
 
-Shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, except IslamicStars, re-captured at `771290aa484e3b99b30b049030ab145d61ade1d9`, and HankinSolids and ShapeShifter, re-captured on COM4 at `bda58b65d3fc317f5d6ccbe29888014738a0ee25`. MindSplatter was re-captured on COM3 and COM4 at measured-code source `e926bfd4878bc13e9f7205d6715837fe9fe06a89`; its row uses the larger COM3 peak over the complete natural 640-revolution/80-second lifetime, including all raw first-epoch rows (setup separate). Captures use their Phantasm show-segment budgets except IslamicStars: its matched shipping/O3 pair uses TS4, and the shipping re-capture runs 210 s with 16-frame windows and `HS_PROFILE_EPOCH_REVS=1920` (the normal show segment is 306 s). Capture times are local raw-log mtimes.
+Millefiori uses the captured promotion patch over `9183a14385490a310dcdca16c059422d5d6482f1` on COM3. Other shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, except IslamicStars, re-captured at `771290aa484e3b99b30b049030ab145d61ade1d9`, and HankinSolids and ShapeShifter, re-captured on COM4 at `bda58b65d3fc317f5d6ccbe29888014738a0ee25`. MindSplatter was re-captured on COM3 and COM4 at measured-code source `e926bfd4878bc13e9f7205d6715837fe9fe06a89`; its row uses the larger COM3 peak over the complete natural 640-revolution/80-second lifetime, including all raw first-epoch rows (setup separate). Millefiori uses 70 s for its 60 s show entry. The remaining captures use their Phantasm show-segment budgets except IslamicStars: its matched shipping/O3 pair uses TS4, and the shipping re-capture runs 210 s with 16-frame windows and `HS_PROFILE_EPOCH_REVS=1920` (the normal show segment is 306 s). Capture times are local raw-log mtimes.
 These captures ran kaleidoscope effects with column strobe off.
 
 MindSplatter steady figures use frames 2–1280 through its first natural handoff. Other shipping steady figures use frames 2 through the last complete counter window. Setup frame 1 is separate. The measured scope is per-frame render telemetry (`frame` minus buffer wait), under the shipping segment clip.
@@ -109,7 +109,7 @@ Integer direct-AA validation: [ShapeShifter paired capture](profile_shapeshifter
 
 [GridSpace matched A/B](profile_gridspace_teensy_2026-10-17.md) preserves the historical same-source temporal-on/off measurements cited by the rendering specification. Current shipping timing is in the canonical report above.
 
-● capture updated 2026-10-26.
+● captures updated 2026-10-26 and 2026-10-29.
 
 ## Palette-pattern recipe qualification
 

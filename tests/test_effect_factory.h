@@ -79,6 +79,7 @@ constexpr std::array IDENTITY_GOLDENS{
                    0x1F4DF039F490227BULL},
     IdentityGolden{"MermaidSkin", "mermaid-skin", 0xF49045D62E42DE36ULL},
     IdentityGolden{"MeshFeedback", "MeshFeedback", 0xC445C3A1098582B6ULL},
+    IdentityGolden{"Millefiori", "millefiori", 0x59D4875C6874919FULL},
     IdentityGolden{"MindSplatter", "MindSplatter", 0x206A75CB20AE4025ULL},
     IdentityGolden{"MobiusGrid", "mobius-grid", 0x090E86805292EE94ULL},
     IdentityGolden{"MobiusRings", "MobiusRings", 0xB7C98BEE3FB3F04EULL},
