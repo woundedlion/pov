@@ -51,7 +51,7 @@
  * - `blend_params(progress)`: writes a Lerp's interpolated parameters; the
  *   default interpolates the fields parameter_fields() describes.
  * - `set_preset_opacity(value)`: receives a Fade's opacity; required for Fade.
- * - `adopt_params(target)`: installs new parameters; define it to update state
+ * - `adopt_params(target)`: installs new parameters; bind it to update state
  *   computed from them.
  * - `transition_armed(target)`: called when a Lerp starts.
  * - `finish_blend(target)`: used instead of adopt_params() at the end of a Lerp
@@ -606,8 +606,8 @@ private:
       return Params{};
   }
 
-  /** @brief Parameters for the preset at @p index: `Derived::preset_params()`
-      if defined, else the preset row's. */
+  /** @brief Parameters for the preset at @p index: the bound `PRESET_PARAMS`
+      hook, else the preset row's. */
   Params preset_target(size_t index) {
     if constexpr (has_hook<Control::ChoreographyHook::PRESET_PARAMS>())
       return invoke_hook<Control::ChoreographyHook::PRESET_PARAMS>(index);
