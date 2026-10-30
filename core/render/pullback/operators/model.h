@@ -467,7 +467,8 @@ template <typename Model> struct ErasedAdapter {
    */
   static const char *validate(const void *params) {
     if constexpr (requires(const Params &p) { Model::validate(p); })
-      return Model::validate(*static_cast<const Params *>(params));
+      return Model::validate(
+          *std::launder(static_cast<const Params *>(params)));
     return nullptr;
   }
 
@@ -489,15 +490,17 @@ template <typename Model> struct ErasedAdapter {
    */
   static Status migrate(void *dst, const void *src, InstanceId id) {
     State &clone = *::new (dst) State{};
-    const Status status =
-        Model::migrate(clone, *static_cast<const State *>(src), id);
+    const Status status = Model::migrate(
+        clone, *std::launder(static_cast<const State *>(src)), id);
     if (status != Status::OK)
       clone.~State();
     return status;
   }
 
   /** @brief Destroys a State. @param state Constructed state. */
-  static void destroy(void *state) { static_cast<State *>(state)->~State(); }
+  static void destroy(void *state) {
+    std::launder(static_cast<State *>(state))->~State();
+  }
 
   /**
    * @brief Captures a State through its RuntimeStateCodec.
@@ -506,7 +509,7 @@ template <typename Model> struct ErasedAdapter {
    */
   static RuntimeSnapshot capture_state(const void *state) {
     return RuntimeStateCodec<State>::capture(
-        *static_cast<const State *>(state));
+        *std::launder(static_cast<const State *>(state)));
   }
 
   /**
@@ -516,8 +519,8 @@ template <typename Model> struct ErasedAdapter {
    * @return Whether the snapshot was applied.
    */
   static bool restore_state(void *state, const RuntimeSnapshot &snapshot) {
-    return RuntimeStateCodec<State>::restore(*static_cast<State *>(state),
-                                             snapshot);
+    return RuntimeStateCodec<State>::restore(
+        *std::launder(static_cast<State *>(state)), snapshot);
   }
 
   /**
@@ -631,8 +634,8 @@ template <typename Model> struct ErasedAdapter {
    * @return Bound on the output plane magnitude.
    */
   static float plane_bound(const void *params, float input_bound) {
-    return Model::plane_bound(*static_cast<const Params *>(params),
-                              input_bound);
+    return Model::plane_bound(
+        *std::launder(static_cast<const Params *>(params)), input_bound);
   }
 
   /**
@@ -642,7 +645,7 @@ template <typename Model> struct ErasedAdapter {
    * @return The field's address.
    */
   static void *param_address(void *params, uint16_t schema_index) {
-    Params &block = *static_cast<Params *>(params);
+    Params &block = *std::launder(static_cast<Params *>(params));
     constexpr size_t FIELD_COUNT = Params::FIELDS.size();
     if (schema_index < FIELD_COUNT)
       return &(block.*(Params::FIELDS[schema_index].member));
