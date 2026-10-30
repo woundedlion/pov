@@ -1,6 +1,6 @@
 // Pure validation predicates for the headless WASM smoke test.
 
-import { BAKED_CONSTANT_IDS, engineControlNames, fixedDerivedBinding } from './shader_workbench.mjs';
+import { BAKED_CONSTANT_IDS, documentModulationBinding, engineControlNames, fixedDerivedBinding } from './shader_workbench.mjs';
 export { BAKED_CONSTANT_IDS, bakedTopologyFields, LIVE_TOPOLOGY_FIELD, engineControlNames } from './shader_workbench.mjs';
 
 /** Fraction of a sub-ceiling stack capacity treated as the creep budget. */
@@ -139,9 +139,11 @@ export function paramStreamProblems(defs, values) {
  * @param {{document: string, effect: string, parameterIds: string[], presets?: object[], descriptor?: object}[]} run.documents
  * @param {Map<string, Set<string>>} run.controls Control names per effect id.
  * @param {Set<string>} run.bakedFields From bakedTopologyFields().
+ * @param {Map<string, Map<string, object[]>>} [run.documentBindings] Typed snapshots per effect and preset.
  * @returns {string[]} One message per binding or exemption problem.
  */
-export function promotedBindingProblems({ documents, controls, bakedFields }) {
+export function promotedBindingProblems({ documents, controls, bakedFields,
+  documentBindings = new Map() }) {
   const problems = [];
   const seenConstants = new Set();
   for (const { document, effect, parameterIds, presets = [], descriptor } of documents) {
@@ -153,11 +155,32 @@ export function promotedBindingProblems({ documents, controls, bakedFields }) {
     for (const parameterId of parameterIds) {
       const authored = presets.filter((preset) =>
         Object.hasOwn(preset.values ?? {}, parameterId));
+      const binding = documentModulationBinding(descriptor, parameterId);
+      if (binding) {
+        for (const preset of authored) {
+          const fields = documentBindings.get(effect)?.get(preset.preset_id);
+          const field = fields?.find((candidate) => candidate.resource === binding.resource &&
+            candidate.id === binding.id);
+          const value = preset.values[parameterId];
+          if (!field) {
+            problems.push(`${document}: "${parameterId}" has no typed compiled binding ` +
+              `on resource "${binding.resource}"`);
+          } else if (field.readonly && (typeof field.value === 'number'
+            ? !Number.isFinite(value) || Math.fround(value) !== field.value
+            : value !== field.value)) {
+            problems.push(`${document}: "${parameterId}" changes a readonly ` +
+              `${field.reason} member of preset "${preset.preset_id}"`);
+          }
+        }
+        if (authored.length === 0)
+          problems.push(`${document}: "${parameterId}" has no compiled preset snapshot`);
+        continue;
+      }
       const derived = fixedDerivedBinding(descriptor, parameterId, authored[0]?.values ?? {});
       if (derived) {
         if (authored.length === 0 || authored.some(({ values }) =>
           !fixedDerivedBinding(descriptor, parameterId, values).valid) ||
-            (derived.sourceId !== null && !engineControlNames(derived.sourceId)
+            (derived.sourceId !== null && !engineControlNames(derived.sourceId, descriptor)
               .some((name) => registered.has(name)))) {
           problems.push(`${document}: "${parameterId}" must match the compiled affine ` +
             'period derived from its source parameters');
@@ -169,7 +192,7 @@ export function promotedBindingProblems({ documents, controls, bakedFields }) {
         continue;
       }
       if (bakedFields.has(parameterId.slice(parameterId.indexOf('.') + 1))) continue;
-      const names = engineControlNames(parameterId);
+      const names = engineControlNames(parameterId, descriptor);
       if (names.some((name) => registered.has(name))) continue;
       problems.push(`${document}: "${parameterId}" names no control on "${effect}" ` +
         `(tried ${names.map((name) => `"${name}"`).join(', ')}) — applying the ` +

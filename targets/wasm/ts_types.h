@@ -21,6 +21,7 @@ HS_TS_PAYLOAD(PixelsValue)
 HS_TS_PAYLOAD(ParameterValuesValue)
 HS_TS_PAYLOAD(PresetIdsValue)
 HS_TS_PAYLOAD(DefinitionsValue)
+HS_TS_PAYLOAD(DocumentDefinitionsValue)
 HS_TS_PAYLOAD(ArenaMetricsValue)
 HS_TS_PAYLOAD(SizesValue)
 HS_TS_PAYLOAD(ResolutionsValue)
@@ -57,6 +58,9 @@ inline void bind_ts_types() {
   emscripten::register_type<DefinitionsValue>(
       "DefinitionsValue",
       R"(import("./engine_types.js").ParameterDefinition[])");
+  emscripten::register_type<DocumentDefinitionsValue>(
+      "DocumentDefinitionsValue",
+      R"({resource: string; id: string; value: number | string; readonly: boolean; reason: "active-source" | "inactive-source" | "fixed-topology"}[])");
   emscripten::register_type<ArenaMetricsValue>(
       "ArenaMetricsValue", R"(import("./engine_types.js").ArenaMetrics)");
   emscripten::register_type<SizesValue>("SizesValue",

@@ -23,6 +23,12 @@
 #include <memory>
 
 class Effect;
+#if defined(__EMSCRIPTEN__)
+enum class ParamSetResult;
+namespace ColorModulation {
+struct Config;
+}
+#endif
 
 /** @brief Storage for a concrete effect type identity. */
 template <typename T> struct EffectTypeTag {
@@ -58,6 +64,16 @@ struct FactoryEntry {
   size_t preset_count = 0; /**< Number of authored presets. */
   PresetIdFn preset_id =
       nullptr; /**< Stable ID of a preset by index; null without PRESET_IDS. */
+#if defined(__EMSCRIPTEN__)
+  using ModulationVisitor = void (*)(void *, std::string_view,
+                                     const ColorModulation::Config &);
+  using ModulationEditor = ParamSetResult (*)(void *,
+                                              ColorModulation::Config &);
+  void (*visit_modulations)(const Effect &, void *,
+                            ModulationVisitor) = nullptr;
+  ParamSetResult (*edit_modulation)(Effect &, std::string_view, void *,
+                                    ModulationEditor) = nullptr;
+#endif
 };
 
 // Supported render resolutions; per-resolution registration code expands from
@@ -174,6 +190,28 @@ void fill_registration(FactoryEntry &entry) {
   };
   entry.type_key = effect_type_key<ClassName<W, H>>();
   entry.size = sizeof(ClassName<W, H>);
+#if defined(__EMSCRIPTEN__)
+  using FX = ClassName<W, H>;
+  if constexpr (requires(const FX &effect) {
+                  effect.visit_document_modulations(
+                      [](std::string_view, const ColorModulation::Config &) {});
+                }) {
+    entry.visit_modulations = [](const Effect &effect, void *context,
+                                 FactoryEntry::ModulationVisitor visitor) {
+      static_cast<const FX &>(effect).visit_document_modulations(
+          [&](std::string_view resource, const auto &config) {
+            visitor(context, resource, config);
+          });
+    };
+    entry.edit_modulation = [](Effect &effect, std::string_view resource,
+                               void *context,
+                               FactoryEntry::ModulationEditor editor) {
+      return static_cast<FX &>(effect).edit_document_modulation(
+          resource,
+          [&](auto &candidate) { return editor(context, candidate); });
+    };
+  }
+#endif
   if constexpr (requires { ClassName<W, H>::PRESET_IDS; }) {
     entry.preset_count = ClassName<W, H>::PRESET_IDS.size();
     entry.preset_id = [](size_t index) -> std::string_view {

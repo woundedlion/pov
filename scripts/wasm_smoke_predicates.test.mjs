@@ -253,6 +253,71 @@ test('a warp slot falls back from its slot name to its family name', () => {
     ['Planar Warp 1 Field Angle', 'Warp Field Angle']);
 });
 
+test('ripple and vortex controls resolve by their descriptor operator', () => {
+  const descriptor = {chain: [
+    {label: 'displace', operator: 'sphere.displace.ripple.v2'},
+    {label: 'warp', operator: 'warp.vortex.v2'},
+  ]};
+  assert.deepEqual(engineControlNames('displace.period', descriptor),
+    ['displace.Ripple Period']);
+  assert.deepEqual(engineControlNames('displace.burst-rate', descriptor),
+    ['displace.Burst Rate']);
+  assert.deepEqual(engineControlNames('warp.speed', descriptor), ['Planar Warp 1 Speed']);
+  assert.deepEqual(engineControlNames('warp.center-orbit-radius', descriptor),
+    ['Vortex Center Orbit']);
+  assert.deepEqual(engineControlNames('warp.center-x', descriptor), ['Vortex Center X']);
+  descriptor.chain[1].label = 'warp2';
+  assert.deepEqual(engineControlNames('warp2.speed', descriptor), ['Planar Warp 2 Speed']);
+  descriptor.chain[1].resource_key = 'inner_warp';
+  descriptor.chain[1].label = 'custom';
+  assert.deepEqual(engineControlNames('custom.speed', descriptor), ['Planar Warp 2 Speed']);
+  descriptor.chain.push({label: 'warp1', operator: 'warp.vortex.v2'});
+  assert.deepEqual(engineControlNames('custom.speed', descriptor),
+    ['inner_warp.Planar Warp 2 Speed']);
+  assert.deepEqual(engineControlNames('warp1.radius', descriptor),
+    ['outer_warp.Vortex Radius']);
+});
+
+const modulationBindings = () => bindings({
+  documents: [{document: 'patterns/millefiori.shader.json', effect: 'millefiori',
+    parameterIds: [CONSTANT_ID, 'field.grid-speed', 'field.pattern-speed',
+      'field.modulation-source'],
+    descriptor: {chain: [{label: 'field', operator: 'color.modulate.v1'}]},
+    presets: [{preset_id: 'one', values: {'field.grid-speed': 0.02,
+      'field.pattern-speed': 0.1, 'field.modulation-source': 'sphere-smooth-grid'}}],
+  }],
+  controls: new Map([['millefiori', new Set()]]),
+  documentBindings: new Map([['millefiori', new Map([['one', [
+    {resource: 'field', id: 'grid-speed', value: Math.fround(0.02), readonly: false,
+      reason: 'active-source'},
+    {resource: 'field', id: 'pattern-speed', value: Math.fround(0.1), readonly: true,
+      reason: 'inactive-source'},
+    {resource: 'field', id: 'modulation-source', value: 'sphere-smooth-grid', readonly: true,
+      reason: 'fixed-topology'},
+  ]]])]]),
+});
+
+test('typed compiled bindings preserve dormant float32 values and topology', () => {
+  const run = modulationBindings();
+  assert.deepEqual(promotedBindingProblems(run), []);
+  run.documents[0].presets[0].values['field.pattern-speed'] = 0.2;
+  assert.match(promotedBindingProblems(run)[0], /changes a readonly inactive-source/);
+  run.documents[0].presets[0].values['field.pattern-speed'] = NaN;
+  assert.match(promotedBindingProblems(run)[0], /changes a readonly inactive-source/);
+  run.documents[0].presets[0].values['field.pattern-speed'] = 0.1;
+  run.documents[0].presets[0].values['field.modulation-source'] = 'noise';
+  assert.match(promotedBindingProblems(run)[0], /changes a readonly fixed-topology/);
+});
+
+test('typed bindings never borrow another resource or a GUI alias', () => {
+  const run = modulationBindings();
+  run.documentBindings.get('millefiori').get('one')[0].resource = 'modulate';
+  run.controls.get('millefiori').add('Grid Speed');
+  assert.match(promotedBindingProblems(run)[0], /has no typed compiled binding on resource "field"/);
+  run.documentBindings.clear();
+  assert.equal(promotedBindingProblems(run).length, 3);
+});
+
 test('the baked topology fields are the catalog flag less the live mapping', () => {
   const fields = bakedTopologyFields({
     operators: [{ params: [

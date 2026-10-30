@@ -14,6 +14,7 @@ import {
   compilePatternDocuments,
   loadOperatorCatalog,
 } from './pattern_documents.mjs';
+import { documentModulationBinding } from './shader_workbench.mjs';
 import {
   bakedTopologyFields,
   darknessProblems,
@@ -856,6 +857,7 @@ async function main(probe) {
       const [w, h] = RESOLUTIONS[0];
       const documents = await promotedDocuments();
       const controls = new Map();
+      const documentBindings = new Map();
       if (!resolutionOk(engine.setResolution(w, h))) {
         fail(`promoted-bindings: setResolution(${w}, ${h}) rejected a supported size`);
       } else {
@@ -870,17 +872,81 @@ async function main(probe) {
           }
           controls.set(effect,
             new Set(engine.getParameterDefinitions().map((d) => d.name)));
+          const snapshots = new Map();
+          for (const document of documents.filter((entry) => entry.effect === effect))
+            for (const preset of document.presets) {
+              if (!engine.selectPresetById(preset.preset_id)) {
+                fail(`promoted-bindings: could not select ${effect}/${preset.preset_id}`);
+                continue;
+              }
+              const definitions = engine.getDocumentParameterDefinitions();
+              snapshots.set(preset.preset_id, definitions);
+              const generation = engine.getParamGeneration();
+              for (const [id, value] of Object.entries(preset.values)) {
+                const binding = documentModulationBinding(document.descriptor, id);
+                const field = binding && definitions.find((entry) =>
+                  entry.resource === binding.resource && entry.id === binding.id);
+                if (!field || field.readonly) continue;
+                const result = engine.setDocumentParameter(binding.resource, binding.id, value);
+                const actual = engine.getDocumentParameterDefinitions().find((entry) =>
+                  entry.resource === binding.resource && entry.id === binding.id)?.value;
+                if (result !== Module.ParamSetResult.APPLIED || actual !== Math.fround(value))
+                  fail(`promoted-bindings: ${effect}/${preset.preset_id}/${id} failed typed write/read`);
+              }
+              if (engine.getParamGeneration() !== generation)
+                fail(`promoted-bindings: numeric writes rebound ${effect}'s GUI schema`);
+            }
+          documentBindings.set(effect, snapshots);
         }
       }
       for (const problem of promotedBindingProblems({
         documents,
         controls,
+        documentBindings,
         bakedFields: bakedTopologyFields(EXPECTED_OPERATOR_CATALOG),
       })) {
         fail(`promoted-bindings: ${problem}`);
       }
       console.log(`  promoted-bindings: ${documents.length} documents checked ` +
         `against their compiled effect's controls`);
+
+      engine.setEffect('millefiori');
+      const typed = (resource, id) => engine.getDocumentParameterDefinitions()
+        .find((entry) => entry.resource === resource && entry.id === id);
+      const readNoise = typed('field', 'pattern-speed').value;
+      const readGrid = typed('field', 'grid-speed').value;
+      const results = Module.ParamSetResult;
+      if (engine.setDocumentParameter('field', 'grid-speed', 0.03) !== results.APPLIED ||
+          typed('field', 'grid-speed').value !== Math.fround(0.03) ||
+          typed('field', 'pattern-speed').value !== readNoise)
+        fail('document-parameters: grid-speed wrote the wrong source member');
+      for (const [resource, id] of [['field', 'pattern-speed'],
+        ['field', 'modulation-source'], ['modulate', 'grid-speed']]) {
+        if (engine.setDocumentParameter(resource, id, 0) !== results.READONLY)
+          fail(`document-parameters: ${resource}.${id} accepted a readonly write`);
+      }
+      if (engine.setDocumentParameter('field', 'pattern-speed', readNoise) !== results.READONLY)
+        fail('document-parameters: a readonly no-op write reported success');
+      if (engine.setDocumentParameter('missing', 'grid-speed', 0) !== results.UNKNOWN_PARAM ||
+          engine.setDocumentParameter('field', 'missing', 0) !== results.UNKNOWN_PARAM ||
+          engine.setDocumentParameter('field', 'grid-speed', NaN) !== results.NON_FINITE ||
+          engine.setDocumentParameter('field', 'grid-frequency', -1) !== results.INADMISSIBLE ||
+          typed('field', 'grid-speed').value !== Math.fround(0.03))
+        fail('document-parameters: a refused write changed current state');
+      engine.setDocumentParameter('field', 'grid-speed', readGrid);
+      engine.setEffect('RingShower');
+      if (engine.getDocumentParameterDefinitions().length !== 0 ||
+          engine.setDocumentParameter('field', 'grid-speed', 0) !== results.UNKNOWN_PARAM)
+        fail('document-parameters: effect replacement retained a stale resource');
+      engine.setResolution(288, 144);
+      engine.setEffect('millefiori');
+      if (typed('field', 'grid-speed').value !== readGrid ||
+          engine.setDocumentParameter('field', 'grid-speed', 0.04) !== results.APPLIED ||
+          typed('field', 'grid-speed').value !== Math.fround(0.04))
+        fail('document-parameters: resolution replacement did not bind current state');
+      engine.setResolution(w, h);
+      engine.setAnimationsPaused(false);
+      console.log('  document-parameters: typed active writes, readonly recipes and replacement lifetime OK');
     }
 
     // ── Embind state seam: getParamGeneration / setAnimationsPaused ───────────

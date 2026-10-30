@@ -175,6 +175,86 @@ inline void test_composed_persistent_prepared_frame() {
   }
 }
 
+inline void test_composed_document_modulation_members() {
+  namespace Document = hs_wasm::document_parameters;
+  reset_effect_globals();
+  Millefiori<SMALL_W, SMALL_H> effect;
+  effect.init();
+  const auto read = [&] {
+    ColorModulation::Config config;
+    size_t matches = 0;
+    effect.visit_document_modulations(
+        [&](std::string_view resource, const auto &current) {
+          if (resource == "field") {
+            config = current;
+            ++matches;
+          }
+        });
+    HS_EXPECT_EQ(matches, size_t{1});
+    return config;
+  };
+  const auto initial = read();
+  HS_EXPECT_EQ(initial.source, Pattern::SourceKind::SPHERE_SMOOTH_GRID);
+  const auto write = [&](std::string_view resource, std::string_view id,
+                         float value) {
+    return effect.edit_document_modulation(resource, [&](auto &candidate) {
+      return Document::write(candidate, id, value);
+    });
+  };
+  HS_EXPECT_EQ(write("field", "grid-speed", 0.03f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(read().grid.speed, 0.03f);
+  HS_EXPECT_EQ(read().noise.speed, initial.noise.speed);
+  HS_EXPECT_TRUE(effect.animations_paused());
+  HS_EXPECT_EQ(write("field", "pattern-speed", 0.04f),
+               ParamSetResult::READONLY);
+  HS_EXPECT_EQ(write("field", "modulation-source", 0.0f),
+               ParamSetResult::READONLY);
+  HS_EXPECT_EQ(write("modulate", "grid-speed", 0.04f),
+               ParamSetResult::READONLY);
+  HS_EXPECT_EQ(write("missing", "grid-speed", 0.04f),
+               ParamSetResult::UNKNOWN_PARAM);
+  HS_EXPECT_EQ(write("field", "missing", 0.04f), ParamSetResult::UNKNOWN_PARAM);
+  const auto before = read();
+  HS_EXPECT_EQ(
+      write("field", "grid-speed", std::numeric_limits<float>::quiet_NaN()),
+      ParamSetResult::NON_FINITE);
+  HS_EXPECT_EQ(write("field", "grid-frequency", -1.0f),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_TRUE(read() == before);
+  HS_EXPECT_EQ(effect.edit_document_modulation("field",
+                                               [](auto &candidate) {
+                                                 candidate.source =
+                                                     Pattern::SourceKind::NOISE;
+                                                 return ParamSetResult::APPLIED;
+                                               }),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_TRUE(read() == before);
+
+  auto config = initial;
+  config.grid.axis = math::Vector(1, 0, 0);
+  const auto valid = config;
+  HS_EXPECT_EQ(Document::write(config, "grid-axis-x", 0.0f),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_TRUE(config == valid);
+  for (const auto source :
+       {Pattern::SourceKind::NOISE, Pattern::SourceKind::DIRECTIONAL_SINE,
+        Pattern::SourceKind::SPHERE_INTERFERENCE}) {
+    config = ColorModulation::Config{};
+    config.source = source;
+    config.evaluation = Pattern::Evaluation::DIRECT;
+    const char *id = source == Pattern::SourceKind::NOISE ? "pattern-speed"
+                     : source == Pattern::SourceKind::DIRECTIONAL_SINE
+                         ? "sine-speed"
+                         : "interference-speed";
+    HS_EXPECT_EQ(Document::write(config, id, 0.0005f), ParamSetResult::APPLIED);
+    if (source == Pattern::SourceKind::NOISE)
+      HS_EXPECT_EQ(Document::write(config, id, 0.01f),
+                   ParamSetResult::INADMISSIBLE);
+    HS_EXPECT_EQ(Document::write(config, "grid-speed", 0.01f),
+                 ParamSetResult::READONLY);
+  }
+}
+
 /** @brief Custom shading remains authoritative with column factoring enabled. */
 class TemporalShadeProbe
     : public Pullback::ComposedEffect<96, 20, TemporalShadeProbe,

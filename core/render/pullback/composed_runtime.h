@@ -320,6 +320,47 @@ public:
     return Pullback::valid(params);
   }
 #if HS_ENABLE_PARAM_GUI_BRIDGE
+  /** @brief Visits current typed modulation resources without retaining them.
+   * @tparam Visitor Receives the exact resource key and immutable recipe.
+   * @param visitor Synchronous resource visitor. */
+  template <typename Visitor>
+  void visit_document_modulations(Visitor &&visitor) const {
+    this->params.visit([&]<typename Resource>(const auto &family) {
+      if constexpr (Resource::KIND == ResourceKind::MODULATION)
+        visitor(Resource::KEY.view(), family.modulation);
+    });
+  }
+
+  /** @brief Admits an edit to one current modulation resource.
+   * @tparam Editor Edits a candidate and returns its write result.
+   * @param resource Exact resource key.
+   * @param editor Synchronous candidate editor.
+   * @return The editor's result, or a resource/admission refusal. */
+  template <typename Editor>
+  ParamSetResult edit_document_modulation(std::string_view resource,
+                                          Editor &&editor) {
+    ParamSetResult result = ParamSetResult::UNKNOWN_PARAM;
+    this->params.visit([&]<typename Resource>(auto &family) {
+      if constexpr (Resource::KIND == ResourceKind::MODULATION) {
+        if (Resource::KEY.view() != resource)
+          return;
+        auto candidate = family.modulation;
+        result = editor(candidate);
+        if (result != ParamSetResult::APPLIED)
+          return;
+        if (!Modulation::same_topology(family.modulation, candidate) ||
+            !Modulation::admitted(candidate)) {
+          result = ParamSetResult::INADMISSIBLE;
+          return;
+        }
+        family.modulation = candidate;
+        this->setAnimationsPaused(true);
+        parameter_written();
+      }
+    });
+    return result;
+  }
+
   /**
    * @brief Warning text for a slider whose last write was refused.
    * @param name Parameter name.

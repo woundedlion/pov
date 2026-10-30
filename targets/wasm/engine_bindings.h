@@ -25,6 +25,7 @@
 #include "targets/wasm/effect_factory.h"
 #include "targets/wasm/param_marshal.h"
 #include "targets/wasm/wasm_predicates.h"
+#include "targets/wasm/document_parameters.h"
 #include <algorithm>
 #include <cmath>
 #include <vector>
@@ -511,6 +512,77 @@ public:
       return ParamSetResult::UNKNOWN_PARAM;
     const ParamSetResult result =
         current_effect->updateParameter(name.c_str(), value);
+    binding_state->paused = current_effect->animations_paused();
+    return result;
+  }
+
+  /** @brief Snapshots exact compiled modulation members, including fixed ones.
+   * @return Current resource/field values and write capabilities. */
+  DocumentDefinitionsValue getDocumentParameterDefinitions() const {
+    emscripten::val result = emscripten::val::array();
+    if (!current_effect || !current_factory_entry ||
+        !current_factory_entry->visit_modulations)
+      return result;
+    struct Output {
+      emscripten::val &array;
+      size_t count = 0;
+    } output{result};
+    current_factory_entry->visit_modulations(
+        *current_effect, &output,
+        [](void *context, std::string_view resource, const auto &config) {
+          auto &out = *static_cast<Output *>(context);
+          hs_wasm::document_parameters::Params params;
+          params.modulation = config;
+          const auto &schema =
+              hs_wasm::document_parameters::Params::EXTRA_SCHEMA;
+          for (size_t i = 0; i < schema.size(); ++i) {
+            const auto &field = schema[i];
+            const bool writable =
+                hs_wasm::document_parameters::writable(config, i);
+            emscripten::val entry = emscripten::val::object();
+            entry.set("resource", std::string(resource));
+            entry.set("id", field.id);
+            entry.set("readonly", !writable);
+            entry.set("reason", field.enum_count ? "fixed-topology"
+                                : writable       ? "active-source"
+                                                 : "inactive-source");
+            const void *address = params.extra_address(i);
+            if (field.enum_count) {
+              const auto index = *static_cast<const uint8_t *>(address);
+              HS_CHECK(index < field.enum_count,
+                       "invalid compiled document enum");
+              entry.set("value", field.enum_ids[index]);
+            } else
+              entry.set("value", *static_cast<const float *>(address));
+            out.array.set(out.count++, entry);
+          }
+        });
+    return result;
+  }
+
+  /** @brief Writes one active compiled-document modulation member.
+   * @param resource Exact compiled resource key.
+   * @param id Canonical operator field id.
+   * @param value Requested float32 value.
+   * @return Existing parameter-write outcome; fixed fields are always readonly. */
+  ParamSetResult setDocumentParameter(const std::string &resource,
+                                      const std::string &id, float value) {
+    if (!current_effect)
+      return ParamSetResult::NO_EFFECT;
+    if (!current_factory_entry || !current_factory_entry->edit_modulation ||
+        resource.find('\0') != std::string::npos ||
+        id.find('\0') != std::string::npos)
+      return ParamSetResult::UNKNOWN_PARAM;
+    struct Request {
+      std::string_view id;
+      float value;
+    } request{id, value};
+    const auto result = current_factory_entry->edit_modulation(
+        *current_effect, resource, &request, [](void *context, auto &config) {
+          const auto &request = *static_cast<const Request *>(context);
+          return hs_wasm::document_parameters::write(config, request.id,
+                                                     request.value);
+        });
     binding_state->paused = current_effect->animations_paused();
     return result;
   }
@@ -1088,6 +1160,9 @@ static void bind_engine() {
       .function("getPixels", &HolosphereEngine::getPixels)
       .function("getBufferLength", &HolosphereEngine::getBufferLength)
       .function("setParameter", &HolosphereEngine::setParameter)
+      .function("getDocumentParameterDefinitions",
+                &HolosphereEngine::getDocumentParameterDefinitions)
+      .function("setDocumentParameter", &HolosphereEngine::setDocumentParameter)
       .function("setAnimationsPaused", &HolosphereEngine::setAnimationsPaused)
       .function("getAnimationsPaused", &HolosphereEngine::getAnimationsPaused)
       .function("getPresetCount", &HolosphereEngine::getPresetCount)

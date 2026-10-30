@@ -1534,6 +1534,7 @@ files define line-ending policy and working-artifact exclusions.
 │       ├── arena_metrics.h     Arena metrics report shared by the render and mesh editor bridges
 │       ├── effect_factory.h    Pure per-resolution effect factory + HS_RESOLUTIONS dispatch (host-testable)
 │       ├── param_marshal.h     Pure parameter definition/value marshaling, single ordering source (host-testable)
+│       ├── document_parameters.h Typed compiled modulation fields and source-aware write admission (host-testable)
 │       ├── engine_types.d.ts   Authored JavaScript payload schemas and loader extensions
 │       ├── ts_types.h          Embind JavaScript payload type registrations
 │       ├── segment_geometry.cpp  Pure segment coordinates compiled to standalone JavaScript

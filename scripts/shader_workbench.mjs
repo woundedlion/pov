@@ -1364,14 +1364,32 @@ const titleWords = (value) => value.split('-')
  * off document labels.
  *
  * @param {string} parameterId
+ * @param {object} [descriptor] Validated chain descriptor.
  * @returns {string[]} The candidate control names.
  */
-export function engineControlNames(parameterId) {
+export function engineControlNames(parameterId, descriptor) {
   const dot = parameterId.indexOf('.');
   if (dot < 0) return [titleWords(parameterId)];
   const label = parameterId.slice(0, dot);
   const field = parameterId.slice(dot + 1);
   const words = titleWords(field);
+  const slot = descriptor?.chain?.find((entry) => entry.label === label);
+  if (slot?.operator === 'sphere.displace.ripple.v2') {
+    const name = field === 'burst-rate' ? 'Burst Rate' : `Ripple ${words}`;
+    const resource = slot.resource_key ?? label;
+    const repeated = descriptor.chain.filter((entry) => entry.operator === slot.operator).length > 1;
+    return [resource === 'surface' && !repeated ? name : `${resource}.${name}`];
+  }
+  if (slot?.operator === 'warp.vortex.v2') {
+    const resource = slot.resource_key ?? ({warp: 'outer_warp',
+      warp1: 'outer_warp', warp2: 'inner_warp'}[label] ?? label);
+    const standard = resource === 'outer_warp' || resource === 'inner_warp';
+    const repeated = descriptor.chain.filter((entry) => entry.operator === slot.operator).length > 1;
+    const name = field === 'speed'
+      ? standard ? `Planar Warp ${resource === 'outer_warp' ? 1 : 2} Speed` : 'Planar Warp Speed'
+      : field === 'center-orbit-radius' ? 'Vortex Center Orbit' : `Vortex ${words}`;
+    return [standard && !repeated ? name : `${resource}.${name}`];
+  }
   if (label === 'warp1' || label === 'warp2') {
     const slot = `Planar Warp ${label === 'warp1' ? 1 : 2} ${words}`;
     if (['Rotation Rate', 'Translation X', 'Translation Y', 'Scale X', 'Scale Y', 'Shear']
@@ -1392,6 +1410,20 @@ export function engineControlNames(parameterId) {
   if (label === 'colorize' && field === 'value-opacity-high')
     return ['Opacity at Value 1'];
   return [words];
+}
+
+/** Resolves a modulation field to its exact compiled resource identity.
+ * @param {object} descriptor Validated chain descriptor.
+ * @param {string} parameterId Canonical document parameter id.
+ * @returns {{resource: string, id: string}|null} Typed binding or another family.
+ */
+export function documentModulationBinding(descriptor, parameterId) {
+  const dot = parameterId.indexOf('.');
+  if (dot < 0) return null;
+  const label = parameterId.slice(0, dot);
+  const slot = descriptor?.chain?.find((entry) => entry.label === label);
+  return slot?.operator === 'color.modulate.v1'
+    ? {resource: slot.resource_key ?? label, id: parameterId.slice(dot + 1)} : null;
 }
 
 /** The one topology field a composed effect leaves live, as a dropdown. */
