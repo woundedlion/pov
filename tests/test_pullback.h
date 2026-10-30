@@ -1661,6 +1661,13 @@ struct PaletteLayerProvider {
             Pattern::SourceKind::DIRECTIONAL_SINE, frame.mechanic, true};
   }
 };
+struct PaletteHueLayerProvider : PaletteLayerProvider {
+  static Pullback::Color::ModulationState prepare(const PaletteFrame &frame) {
+    auto result = PaletteLayerProvider::prepare(frame);
+    result.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 0.25f};
+    return result;
+  }
+};
 struct PaletteSampleStage
     : Pullback::Stage::Contract<PaletteSampleStage, Pullback::SphereSample,
                                 Pullback::FieldSample> {
@@ -1760,7 +1767,25 @@ inline void test_pullback_modulation_temporal_alpha() {
   HS_EXPECT_NEAR(COLOR.color.b, EXPECTED.b, 1.0f);
 }
 
-/** @brief Adjacent hues add and nonlinear layers preserve authored order. */
+/** @brief Hue and lightness composition uses one final gamut mapping.
+ * @param base Unmodified straight-alpha color.
+ * @param turns Combined hue turns.
+ * @param lift Combined lift toward white.
+ * @return The transformed color. */
+inline Color4 composed_modulation_reference(Color4 base, float turns,
+                                            float lift) {
+  const LinRGB rgb = pixel_to_linrgb(base.color);
+  OKLab lab = linear_rgb_to_oklab_fast(rgb.r, rgb.g, rgb.b);
+  lab.L += (1.0f - lab.L) * lift;
+  float cosine, sine;
+  hue_sincos(turns, cosine, sine);
+  const OKLab rotated{lab.L, lab.a * cosine - lab.b * sine,
+                      lab.a * sine + lab.b * cosine};
+  return Color4(linrgb_to_pixel(oklab_to_linear_rgb_lut_gamut(rotated)),
+                base.alpha);
+}
+
+/** @brief Hue layers compose across lightness lift without RGB round trips. */
 inline void test_pullback_stacked_modulations() {
   using namespace Pullback;
   const Color4 BASE(Pixel(23000, 17000, 11000), 0.7f);
@@ -1816,17 +1841,15 @@ inline void test_pullback_stacked_modulations() {
   auto actual = Color::apply_modulation(
       Color::apply_modulation(Color::apply_modulation(INPUT, first), lift),
       second);
-  const auto LIFTED =
-      ColorModulation::PositiveLightnessLift::apply(EXPECTED, 1.0f, {0.4f});
-  const auto ORDERED =
-      ColorModulation::HueRotation::apply(LIFTED, 2.5f, {0.1f});
-  HS_EXPECT_EQ(Color::finish(actual).color, ORDERED.color);
-  const auto DIFFERENT = Color::finish(Color::apply_modulation(
+  HS_EXPECT_EQ(actual.color.color, BASE.color);
+  const auto COMPOSED = composed_modulation_reference(BASE, 0.0f, 0.4f);
+  HS_EXPECT_EQ(Color::finish(actual).color, COMPOSED.color);
+  const auto REORDERED = Color::finish(Color::apply_modulation(
       Color::apply_modulation(Color::apply_modulation(INPUT, first), second),
       lift));
-  HS_EXPECT_TRUE(DIFFERENT.color != ORDERED.color);
+  HS_EXPECT_EQ(REORDERED.color, COMPOSED.color);
   actual.brightness_gain = 0.25f;
-  HS_EXPECT_EQ(Color::finish(actual).color, ORDERED.color * 0.25f);
+  HS_EXPECT_EQ(Color::finish(actual).color, COMPOSED.color * 0.25f);
   auto opacity = first;
   opacity.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
   HS_EXPECT_NEAR(Color::finish(Color::apply_modulation(INPUT, opacity)).alpha,
@@ -1834,6 +1857,92 @@ inline void test_pullback_stacked_modulations() {
   HS_EXPECT_EQ(
       Color::finish(Color::apply_modulation(INPUT, lift)).color,
       ColorModulation::PositiveLightnessLift::apply(BASE, 1.0f, {0.4f}).color);
+}
+
+/** @brief Saturated lifted colors rotate before final clipping and opacity. */
+inline void test_pullback_composed_lightness_hue() {
+  using namespace Pullback;
+  const Color::ModulationState HUE_A{
+      nullptr,
+      nullptr,
+      Pattern::SourceKind::DISPLACEMENT,
+      {ColorModulation::Mechanic::HUE_ROTATION, 0.25f},
+      true};
+  auto hue_b = HUE_A;
+  hue_b.mechanic.amount = 0.5f;
+  auto lift_a = HUE_A;
+  lift_a.mechanic = {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT, 0.8f};
+  auto lift_b = lift_a;
+  lift_b.mechanic.amount = 0.5f;
+  auto opacity = HUE_A;
+  opacity.mechanic = {ColorModulation::Mechanic::OPACITY, 0.5f};
+  for (const Pixel BASE : {Pixel(65535, 0, 0), Pixel(0, 65535, 0),
+                           Pixel(0, 0, 65535), Pixel(62000, 61000, 60000)}) {
+    const ColorSample INPUT{Color4(BASE, 0.7f),
+                            {0.5f, 1.0f, math::Y_AXIS, 0.5f}};
+    auto actual = Color::apply_modulation(INPUT, HUE_A);
+    actual = Color::apply_modulation(actual, lift_a);
+    actual = Color::apply_modulation(actual, hue_b);
+    actual = Color::apply_modulation(actual, lift_b);
+    HS_EXPECT_EQ(actual.color.color, BASE);
+    const auto EXPECTED =
+        composed_modulation_reference(INPUT.color, 0.375f, 0.55f);
+    const auto FINISHED = Color::finish(actual);
+    HS_EXPECT_NEAR(FINISHED.color.r, EXPECTED.color.r, 1.0f);
+    HS_EXPECT_NEAR(FINISHED.color.g, EXPECTED.color.g, 1.0f);
+    HS_EXPECT_NEAR(FINISHED.color.b, EXPECTED.color.b, 1.0f);
+    HS_EXPECT_NEAR(FINISHED.alpha, 0.7f, 0.0f);
+    actual = Color::apply_modulation(actual, opacity);
+    actual.brightness_gain = 0.25f;
+    const auto MASKED = Color::finish(actual);
+    HS_EXPECT_EQ(MASKED.color, FINISHED.color * 0.25f);
+    HS_EXPECT_NEAR(MASKED.alpha, 0.6125f, 1e-7f);
+  }
+}
+
+/** @brief Temporal colors complete lift and hue before endpoint blending. */
+inline void test_pullback_temporal_composed_modulations() {
+  using namespace Pullback;
+  using Pipeline = Pullback::Pipeline<
+      PaletteBinding, PaletteSampleStage,
+      Stage::Colorize<Color::GeneratedPalette<TemporalPaletteProvider>>,
+      Stage::Modulate<Color::Modulate<PaletteLayerProvider>>,
+      Stage::Modulate<Color::Modulate<PaletteHueLayerProvider>>>;
+  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> buffer{};
+  Arena arena(buffer.data(), buffer.size());
+  BakedPaletteStorage a, b;
+  const Color4 START(Pixel(65535, 0, 0), 0.2f);
+  const Color4 END(Pixel(0, 0, 65535), 0.6f);
+  a.bake(arena, ConstantPalette{START});
+  b.bake(arena, ConstantPalette{END});
+  Modulation::Config config;
+  config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+  config.evaluation = Pattern::Evaluation::DIRECT;
+  config.sine.frequency = 0.0f;
+  auto clock = Modulation::init(config);
+  Modulation::Resources<false> previous, current;
+  clock.phase.phase_turns = 0.75f;
+  previous.prepare(config, clock);
+  clock.phase.phase_turns = 0.25f;
+  current.prepare(config, clock);
+  PaletteFrame frame;
+  frame.palette = &b.view();
+  frame.temporal.palette = &a.view();
+  frame.modulation = &current.prepared;
+  frame.previous_modulation = &previous.prepared;
+  frame.mechanic = {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT, 0.4f};
+  const auto PREVIOUS = composed_modulation_reference(START, -0.25f, 0.0f);
+  const auto CURRENT = composed_modulation_reference(END, 0.25f, 0.4f);
+  for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
+    frame.temporal.fraction = fraction;
+    const auto COLOR = Pipeline::shade(math::Y_AXIS, Pipeline::prepare(frame));
+    const Pixel EXPECTED =
+        PREVIOUS.color.lerp16(CURRENT.color, frac_to_q16(fraction));
+    HS_EXPECT_NEAR(COLOR.color.r, EXPECTED.r, 1.0f);
+    HS_EXPECT_NEAR(COLOR.color.g, EXPECTED.g, 1.0f);
+    HS_EXPECT_NEAR(COLOR.color.b, EXPECTED.b, 1.0f);
+    HS_EXPECT_NEAR(COLOR.alpha, 0.04f + 0.08f * fraction, 1e-6f);
+  }
 }
 
 /** @brief Runs pullback tests. */
@@ -1870,6 +1979,8 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_temporal_palette);
   HS_RUN(test_pullback_modulation_temporal_alpha);
   HS_RUN(test_pullback_stacked_modulations);
+  HS_RUN(test_pullback_composed_lightness_hue);
+  HS_RUN(test_pullback_temporal_composed_modulations);
   return fixture.result();
 }
 

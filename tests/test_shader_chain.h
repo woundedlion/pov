@@ -281,9 +281,9 @@ inline void test_shader_chain_modulation_temporal_endpoints() {
         program, ctx, 2, projected_input(program, ctx, VIEW));
     const auto endpoint = [&](const BakedPalette &palette, float scalar) {
       Color4 color = palette.get(field.value);
-      color =
-          ColorModulation::PositiveLightnessLift::apply(color, scalar, {.6f});
-      color = ColorModulation::HueRotation::apply(color, scalar, {.2f});
+      HueRotateBase base = make_hue_rotate_base(color);
+      base.lab.L += (1.0f - base.lab.L) * (.6f * std::max(scalar, 0.0f));
+      color = hue_rotate_lut_gamut(base, .2f * scalar);
       color.alpha *= field.coverage;
       return color;
     };

@@ -328,19 +328,14 @@ apply_modulation(ColorSample input, const ModulationState &state,
     scalar = Modulation::sample(
         *source, Pattern::SphereDirection::admit(input.field.sphere));
   }
-  if (state.mechanic.kind ==
-          ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT &&
-      state.mechanic.amount * hs::clamp(scalar, 0.0f, 1.0f) == 0.0f)
-    return input;
   if (state.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)
     input.pending_hue = math::wrap_t(
         input.pending_hue + math::wrap_t(state.mechanic.amount * scalar));
-  else {
-    if (state.mechanic.kind ==
-        ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT) {
-      flush_color_hue(input);
-      input.hue_rotation = nullptr;
-    }
+  else if (state.mechanic.kind ==
+           ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT) {
+    const float LIFT = state.mechanic.amount * hs::clamp(scalar, 0.0f, 1.0f);
+    input.pending_lift += (1.0f - input.pending_lift) * LIFT;
+  } else {
     input.color = ColorModulation::apply(input.color, scalar, state.mechanic);
   }
   return input;

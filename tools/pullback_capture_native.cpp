@@ -353,17 +353,36 @@ exact_modulate(Pullback::ColorSample input,
                 Pattern::SphereDirection::from(input.field.sphere)));
   if (state.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)
     input.pending_hue += state.mechanic.amount * scalar;
-  else {
-    if (state.mechanic.kind ==
-        ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT) {
-      if (scalar <= 0.0f)
-        return input;
-      Pullback::flush_color_hue(input);
-      input.hue_rotation = nullptr;
-    }
+  else if (state.mechanic.kind ==
+           ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT) {
+    const float lift = state.mechanic.amount * std::clamp(scalar, 0.0f, 1.0f);
+    input.pending_lift = 1.0f - (1.0f - input.pending_lift) * (1.0f - lift);
+  } else {
     input.color = ColorModulation::apply(input.color, scalar, state.mechanic);
   }
   return input;
+}
+
+Color4 exact_finish(const Pullback::ColorSample &sample) {
+  Color4 output = sample.color;
+  if (sample.pending_lift == 0.0f && sample.hue_rotation &&
+      sample.pending_hue != 0.0f) {
+    output.color =
+        sample_hue_rotation_lut({sample.hue_rotation, true},
+                                sample.palette_coordinate, sample.pending_hue);
+  } else if (sample.pending_lift != 0.0f || sample.pending_hue != 0.0f) {
+    const LinRGB rgb = pixel_to_linrgb(output.color);
+    OKLab lab = linear_rgb_to_oklab_fast(rgb.r, rgb.g, rgb.b);
+    lab.L += (1.0f - lab.L) * sample.pending_lift;
+    float cosine, sine;
+    hue_sincos(sample.pending_hue, cosine, sine);
+    const OKLab rotated{lab.L, lab.a * cosine - lab.b * sine,
+                        lab.a * sine + lab.b * cosine};
+    output.color = linrgb_to_pixel(oklab_to_linear_rgb_lut_gamut(rotated));
+  }
+  if (sample.brightness_gain != 1.0f)
+    output.color = output.color * sample.brightness_gain;
+  return output;
 }
 
 template <int W, int H>
@@ -415,7 +434,7 @@ Color4 exact_shade(const ShaderChain<W, H> &effect, const math::Vector &view,
     }
     std::swap(input, output);
   }
-  return finish_color_sample(*static_cast<const ColorSample *>(input));
+  return exact_finish(*static_cast<const ColorSample *>(input));
 }
 
 template <int W, int H>

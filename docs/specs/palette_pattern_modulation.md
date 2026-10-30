@@ -249,11 +249,14 @@ Zero amount may skip field evaluation and preparing unused mechanic/color
 resources, while source clocks continue. Keep any still-needed retained endpoint
 resources valid. Configuration validation remains mandatory even when skipped.
 
-The colorizer samples its palette. Ordered Color-to-Color layers apply their
-selected mechanics, followed by the RGB brightness envelope and alpha coverage
-and value opacity. A layer reads the upstream color; its order relative to
-lightness and hue layers is observable. Adjacent hue layers combine in turns
-before one lookup; a lightness layer ends that combination.
+The colorizer samples its palette. Color-to-Color layers accumulate their
+selected mechanics before the final RGB brightness envelope. Hue layers add
+turns across lightness and opacity layers. Positive lightness lifts compose as
+`1 - product(1 - lift)` toward white. At each color endpoint, the combined lift
+and hue rotation apply in OKLab before one final gamut mapping and RGB
+conversion. No intermediate layer clips or quantizes RGB. Hue-only endpoints
+retain the palette hue lookup; zero combined adjustments retain exact base
+color. Opacity changes only alpha and does not interrupt color composition.
 The result remains straight alpha. Final premultiplication stays in
 [the scan shader](../../core/render/scan/shader.h), after the chain; opacity
 must not multiply RGB early. Qualified optimized kernels implement this same
