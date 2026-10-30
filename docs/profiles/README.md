@@ -9,8 +9,13 @@ display window makes cadence quantize to 16, 8, 5.3 fps, and below.
 Shipping reports cover all 36 effects: 36 completed captures.
 
 Recorded capture revisions retain their original IDs. The
-[source revision crosswalk](source_revisions.json) maps them to commits with
-identical source trees after commit metadata cleanup.
+[source revision crosswalk](source_revisions.json) preserves each one-to-one
+metadata rewrite in `current_commit`. For a published-branch source tree, use
+`published_commit` when present, otherwise `current_commit`; these commits have
+identical trees. Targets `013bf2db1b`, `449e8f9c5f` and `75bd9d5f4b`
+resolve only from retained local branches. The additional target `03db927e8972`
+exists only as an unreferenced local object. None has an identical-tree twin on
+the published branch.
 
 The current Profile harness captures ISR counters and their timestamp together
 with interrupts masked. ISR CPU shares use the separately logged `ISR window`
