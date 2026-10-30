@@ -92,7 +92,6 @@
   X(MobiusGrid)                                                                \
   X(MobiusRings)                                                               \
   X(PetalFlow)                                                                 \
-  X(KaleidoscopePentBright)                                                    \
   X(KaleidoscopeHexOil)                                                        \
   X(Raymarch)                                                                  \
   X(RingShower)                                                                \
@@ -161,7 +160,6 @@ constexpr int hs_preset_window_seconds() {
   X(MermaidSkin, 30)                                                           \
   X(JewelMelt, 30)                                                             \
   X(AshCloud, 60)                                                              \
-  X(KaleidoscopePentBright, 60)                                                \
   X(KaleidoscopeHexOil, hs_preset_window_seconds<KaleidoscopeHexOil>())        \
   X(KaleidoscopeStainedGlass, 30)                                              \
   X(KaleidoscopeSmooth, hs_preset_window_seconds<KaleidoscopeSmooth>())        \

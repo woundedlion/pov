@@ -239,7 +239,6 @@ inline void check_roster_order_pinned() {
                                               "MobiusGrid",
                                               "MobiusRings",
                                               "PetalFlow",
-                                              "KaleidoscopePentBright",
                                               "KaleidoscopeHexOil",
                                               "Raymarch",
                                               "RingShower",

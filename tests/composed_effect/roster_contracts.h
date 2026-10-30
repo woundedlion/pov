@@ -128,14 +128,6 @@ inline void test_composed_snapshot_contract() {
 #undef HS_COMPOSED_SNAPSHOT
 }
 
-/** @brief Pins the PentBright initial lattice scale. */
-inline void test_composed_pentbright_lattice_scale() {
-  const auto polar = KaleidoscopePentBright<SMALL_W, SMALL_H>::initial_params();
-  HS_EXPECT_NEAR(polar.template get<"source">().lattice_cell_scale *
-                     math::TWO_PI_F,
-                 5.0f, 1e-6f);
-}
-
 /** @brief Sweeps the preset choreography over every specialization. */
 inline void test_composed_preset_choreography() {
 #define HS_COMPOSED_PRESETS(name, seconds)                                     \

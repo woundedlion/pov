@@ -14,7 +14,6 @@ export const SHADER_DOCUMENT_EFFECTS = Object.freeze([
   'kaleidoscope-hex-soft',
   'kaleidoscope-mandala',
   'kaleidoscope-melt',
-  'kaleidoscope-pent-bright',
   'kaleidoscope-smooth',
   'kaleidoscope-stained-glass',
   'mermaid-skin',

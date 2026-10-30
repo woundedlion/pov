@@ -44,16 +44,16 @@ and a bank-owned easing and positive duration.
 
 ## Generated and hand-authored sources
 
-Twelve of the twenty documents are generated. `node
+Eleven documents are generated. `node
 scripts/generate_promoted_shader_documents.mjs` rewrites `alien_ocean`,
 `grid_space`, `cosmic_eyeball`, `kaleidoscope_flowers`, `kaleidoscope_mandala`,
-`alien_core`, `kaleidoscope_hex_bright`, `kaleidoscope_hex_soft`, `mobius_grid`, `kaleidoscope_pent_bright`,
+`alien_core`, `kaleidoscope_hex_bright`, `kaleidoscope_hex_soft`, `mobius_grid`,
 `alien_brain` and `kaleidoscope_stained_glass` from the effect specs the script holds, so a
 hand edit to those files is lost on the next run — change the spec instead. The specs use current chain IDs and named parameter values.
 
-Eight documents are authored directly in this directory: `ash_cloud`,
+Nine documents are authored directly in this directory: `ash_cloud`,
 `chromatic_lichen`, `mermaid_skin`, `example`, `kaleidoscope_hex_oil`,
-`kaleidoscope_smooth`, `kaleidoscope_melt` and `jewel_melt`. Edit these version 2 documents here.
+`kaleidoscope_smooth`, `kaleidoscope_melt`, `jewel_melt` and `millefiori`. Edit these version 2 documents here.
 
 After editing any document, run `node scripts/generate_composed_presets.mjs`
 to refresh its effect header. Documents use canonical serialization: sorted
@@ -125,7 +125,6 @@ Every document except `example.shader.json` backs a
 | `kaleidoscope_hex_bright` | `KaleidoscopeHexBright` |
 | `kaleidoscope_hex_soft` | `KaleidoscopeHexSoft` |
 | `mobius_grid` | `MobiusGrid` |
-| `kaleidoscope_pent_bright` | `KaleidoscopePentBright` |
 | `kaleidoscope_hex_oil` | `KaleidoscopeHexOil` |
 | `alien_brain` | `AlienBrain` |
 | `kaleidoscope_stained_glass` | `KaleidoscopeStainedGlass` |

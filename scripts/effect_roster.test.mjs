@@ -126,11 +126,6 @@ test('Millefiori follows HopfFibration for sixty seconds in Phantasm', async () 
   assert.equal(phantasm.filter(name => name === 'Galaxies').length, 1);
 });
 
-test('PentBright remains available outside the Phantasm image', async () => {
-  assert.ok((await loadEffectRoster()).includes('KaleidoscopePentBright'));
-  assert.ok(!(await loadPhantasmEffectRoster()).includes('KaleidoscopePentBright'));
-});
-
 test('roster parsers ignore block-comment openers inside line comments', () => {
   const prefix = '// helpers live in effects/*.h\n';
   assert.deepEqual(parseEffectRoster(prefix + rosterOf('X(Alpha)') + '\n/** doc */'), ['Alpha', 'Last']);

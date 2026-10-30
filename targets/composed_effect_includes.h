@@ -24,7 +24,6 @@
 #include "effects/KaleidoscopeHexSoft.h"
 #include "effects/KaleidoscopeMandala.h"
 #include "effects/KaleidoscopeMelt.h"
-#include "effects/KaleidoscopePentBright.h"
 #include "effects/KaleidoscopeSmooth.h"
 #include "effects/KaleidoscopeStainedGlass.h"
 #include "effects/MermaidSkin.h"

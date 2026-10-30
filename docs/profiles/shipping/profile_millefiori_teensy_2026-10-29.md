@@ -21,7 +21,7 @@ Profile image size: `FLASH: code:94992, data:153060, headers:8972, free:1774592`
 
 Full Phantasm image size: `FLASH: code:1029504, data:840996, headers:8540, free:152576` / `RAM1: variables:312736, code:184296, padding:12312, free:14944` / `RAM2: variables:520064, free:4224`. Size/layout gates pass; FLASH total is 1,879,040 B, leaving 20,960 B under the 1,900,000 B budget.
 
-Against the clean base's shipping Phantasm image, RAM1 code changes by **+480 B** (183,816 to 184,296), RAM1 variables by **0 B** (312,736), FLASH data by **−19,804 B** (860,800 to 840,996), and FLASH code by **+4,856 B** (1,024,648 to 1,029,504). These are whole-promotion deltas: Millefiori replaces KaleidoscopePentBright in the device roster, and Arduino-only failure-site strings retain file/line and custom messages while omitting condition text. They do not isolate Millefiori's own size.
+Against the clean base's shipping Phantasm image, RAM1 code changes by **+480 B** (183,816 to 184,296), RAM1 variables by **0 B** (312,736), FLASH data by **−19,804 B** (860,800 to 840,996), and FLASH code by **+4,856 B** (1,024,648 to 1,029,504). These are whole-promotion deltas: Millefiori replaces one effect in the device roster, and Arduino-only failure-site strings retain file/line and custom messages while omitting condition text. They do not isolate Millefiori's own size.
 
 Profile ELF SHA-256: `49d0a91a7a7e8858cc5e6705c9ed2bda8ac38bcdca9e470e9befaf2e809dc9f5`.
 Phantasm ELF SHA-256: `04087e65843c8eb231e9fa2f61327255bd799f572271d2617301dfa4a0f2c78d`.

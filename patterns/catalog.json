@@ -12,7 +12,6 @@
     "mermaid-skin": "mermaid_skin.shader.json",
     "jewel-melt": "jewel_melt.shader.json",
     "ash-cloud": "ash_cloud.shader.json",
-    "kaleidoscope-pent-bright": "kaleidoscope_pent_bright.shader.json",
     "kaleidoscope-hex-oil": "kaleidoscope_hex_oil.shader.json",
     "kaleidoscope-stained-glass": "kaleidoscope_stained_glass.shader.json",
     "kaleidoscope-smooth": "kaleidoscope_smooth.shader.json",
@@ -69,10 +68,6 @@
       {
         "effect_id": "ash-cloud",
         "display_name": "Ash Cloud"
-      },
-      {
-        "effect_id": "kaleidoscope-pent-bright",
-        "display_name": "Kaleidoscope Pent Bright"
       },
       {
         "effect_id": "kaleidoscope-hex-oil",

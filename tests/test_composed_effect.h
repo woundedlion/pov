@@ -853,7 +853,6 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_snapshot_contract);
   HS_RUN(test_parameter_layout_reorder);
   HS_RUN(test_composed_parameter_schema_pins);
-  HS_RUN(test_composed_pentbright_lattice_scale);
   HS_RUN(test_composed_preset_choreography);
   HS_RUN(test_composed_log_positive_curve);
   HS_RUN(test_composed_preset_interpolation);

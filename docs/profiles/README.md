@@ -220,9 +220,7 @@ Integer direct-AA validation: [ShapeShifter paired capture](shipping/profile_sha
 
 ## Effects excluded from the Phantasm image
 
-JewelMelt, KaleidoscopeMelt, KaleidoscopePentBright, KaleidoscopeStainedGlass and RingShower remain in the full roster. Their archived captures precede removal from the Phantasm image. ● marks captures taken after the 2026-10-06 re-capture.
-
-KaleidoscopePentBright was removed on 2026-10-29 to make room for Millefiori. Its historical global-O3 pair added 14,464 B FLASH code and 11,712 B ITCM; the source pairs and timestamps remain those of the archived captures.
+JewelMelt, KaleidoscopeMelt, KaleidoscopeStainedGlass and RingShower remain in the full roster. Their archived captures precede removal from the Phantasm image. ● marks captures taken after the 2026-10-06 re-capture.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
@@ -230,8 +228,6 @@ KaleidoscopePentBright was removed on 2026-10-29 to make room for Millefiori. It
 | [KaleidoscopeMelt selective o3](excluded/profile_kaleidoscopemelt_selective_o3_teensy_2026-10-11.md) ● | `fx_shader_draw` | 🟢 46.26 | 🟢 0/1087 (0.00%) | 2026-10-11 11:38 |
 | [KaleidoscopeStainedGlass selective o3](excluded/profile_kaleidoscopestainedglass_selective_o3_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 43.00 | 🟢 0/1087 (0.00%) | 2026-10-06 18:50 |
 | [KaleidoscopeStainedGlass global o3](excluded/profile_kaleidoscopestainedglass_global_o3_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 46.99 | 🟢 0/1088 (0%) | 2026-08-26 02:51 |
-| [KaleidoscopePentBright selective o3](excluded/profile_kaleidoscopepentbright_teensy_2026-10-23.md) | `fx_shader_draw` | 🟢 27.973 | 🟢 0/927 (0.00%) | 2026-10-23 14:23 |
-| [KaleidoscopePentBright global o3](excluded/profile_kaleidoscopepentbright_global_o3_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 29.53 | 🟢 0/1088 (0%) | 2026-08-26 02:46 |
 | [RingShower selective o3](excluded/profile_ringshower_selective_o3_teensy_2026-10-06.md) | `rsh_draw_rings` | 🟢 4.32 | 🟢 0/1087 (0.00%) | 2026-10-06 18:20 |
 | [RingShower global o3](excluded/profile_ringshower_global_o3_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 3.86 | 🟢 0/1088 (0%) | 2026-08-26 01:36 |
 
