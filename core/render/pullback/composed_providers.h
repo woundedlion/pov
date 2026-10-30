@@ -60,6 +60,8 @@ template <typename ParamsT> struct FrameState {
                                   typename ParamsT::ResourceTypes>
       resources; ///< Per-resource clocks and noise views, keyed by resource.
   float palette_oscillation_phase; /**< Phase of the mapping wobble. */
+  const PaletteLabLut *palette_lab_lut =
+      nullptr; ///< Borrowed interval base cache.
 };
 
 /** @brief Column-sampled context with retained color resources. */
@@ -457,11 +459,21 @@ struct ValueProvider {
  * @details Source resources are immutable endpoint views.
  * @tparam BindingT The effect's Binding.
  * @tparam BrightnessV Brightness envelope reported to the color stage.
+ * @tparam LabCacheV Whether the provider exposes an interval base cache.
  */
-template <typename BindingT, Pullback::Color::BrightnessEnvelope BrightnessV>
+template <typename BindingT, Pullback::Color::BrightnessEnvelope BrightnessV,
+          bool LabCacheV = false>
 struct ColorProvider {
   using Binding = BindingT;                        ///< The effect's Binding.
   using FrameState = typename Binding::FrameState; ///< The effect's frame.
+  /** @brief Borrows the interval's palette base cache.
+   * @param frame Column frame context.
+   * @return Persistent cache, or null for canonical draws. */
+  static const PaletteLabLut *palette_lab_lut(const FrameState &frame)
+    requires LabCacheV
+  {
+    return frame.palette_lab_lut;
+  }
   /** @brief Previous color resources and the column's interpolation fraction.
    *  @param frame Current column context.
    *  @return The retained resources. */

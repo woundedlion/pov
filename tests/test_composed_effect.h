@@ -822,6 +822,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_millefiori_radial_table_interval);
   HS_RUN(test_millefiori_document_pipeline);
   HS_RUN(test_millefiori_column_color_phase);
+  HS_RUN(test_millefiori_palette_lab_lifetime);
   HS_RUN(test_millefiori_ripple_endpoints);
   HS_RUN(test_composed_strobe_roster);
   HS_RUN(test_composed_analytic_modulation_sliders);

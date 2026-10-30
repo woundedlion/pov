@@ -219,9 +219,11 @@ template <typename Policy> struct ColorModesOf {
 };
 /** @brief Generated-palette color modes.
  * @tparam B Declaration binding.
- * @tparam Brightness Brightness envelope. */
-template <typename B, Color::BrightnessEnvelope Brightness>
-struct ColorModesOf<Color::GeneratedPalette<ColorProvider<B, Brightness>>> {
+ * @tparam Brightness Brightness envelope.
+ * @tparam LabCache Whether palette bases use the interval cache. */
+template <typename B, Color::BrightnessEnvelope Brightness, bool LabCache>
+struct ColorModesOf<
+    Color::GeneratedPalette<ColorProvider<B, Brightness, LabCache>>> {
   static constexpr auto BRIGHTNESS = Brightness; ///< Brightness envelope.
 };
 /** @brief Whether a leaf colorizes sampled values. @tparam T Stage descriptor. */
@@ -410,9 +412,10 @@ struct PolicyResources<ValueProvider<B, Family, Key>> {
  * @brief A colour provider declares the "color" family.
  * @tparam B Frame binding.
  * @tparam Brightness Brightness envelope.
+ * @tparam LabCache Whether palette bases use the interval cache.
  */
-template <typename B, Color::BrightnessEnvelope Brightness>
-struct PolicyResources<ColorProvider<B, Brightness>> {
+template <typename B, Color::BrightnessEnvelope Brightness, bool LabCache>
+struct PolicyResources<ColorProvider<B, Brightness, LabCache>> {
   using Type = ResourceList<
       ParameterResource<"color", ColorParams, ResourceKind::COLOR>>;
 };

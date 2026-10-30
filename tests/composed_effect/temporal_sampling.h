@@ -800,7 +800,7 @@ inline void check_temporal_roster_pixels(const char *name) {
 
   effect.draw_frame();
   effect.advance_display();
-  const auto initial = effect.frame_for_test();
+  const auto initial = ComposedFrameWhiteBox::current_frame(effect);
   for (int x : {0, 1, 47, 48, 49, 95}) {
     const auto FIRST = FX::RenderPipeline::prepare(Spacetime::sample_frame(
         initial, initial, static_cast<float>(x % (W / 2)) / (W / 2)));
@@ -822,7 +822,7 @@ inline void check_temporal_roster_pixels(const char *name) {
     Spacetime::set_flat_surface(!enabled);
     effect.draw_frame();
     effect.advance_display();
-    const auto current = effect.frame_for_test();
+    const auto current = ComposedFrameWhiteBox::current_frame(effect);
     const auto instantaneous = FX::RenderPipeline::prepare(current);
     const auto previous = FX::RenderPipeline::prepare(history.previous);
     const auto start = FX::RenderPipeline::prepare(
@@ -1249,6 +1249,70 @@ inline void test_millefiori_column_color_phase() {
     HS_EXPECT_FALSE(COLUMN.temporal.phase_compatible);
     HS_EXPECT_FALSE(Provider::prepare(COLUMN).ready);
   }
+}
+
+/** @brief Palette-base slots preserve the other endpoint and skip changed controls. */
+inline void test_millefiori_palette_lab_lifetime() {
+  using FX = Millefiori<SMALL_W, SMALL_H>;
+  reset_effect_globals();
+  Spacetime::set_flat_surface(false);
+  pin_frame_clock(0);
+  FX effect;
+  effect.init();
+  pin_frame_clock(1);
+  effect.draw_frame();
+  const auto FIRST = ComposedFrameWhiteBox::current_frame(effect);
+  HS_EXPECT_TRUE(FIRST.palette_lab_lut && FIRST.palette_lab_lut->active);
+  const auto FIRST_NODES = FIRST.palette_lab_lut->nodes;
+  const auto FIRST_VIEW = FIRST.palette_lab_lut->view(0.37f);
+  const auto FIRST_LAB = PaletteLabLut::sample(FIRST_VIEW, 0.43f);
+  Pullback::ColorSample carrier{Color4(Pixel(0, 0, 0), 0.37f),
+                                {0.5f, 0.7f, math::Y_AXIS, 2.0f}};
+  carrier.cached_lab = FIRST_LAB;
+  carrier.has_cached_lab = true;
+  const auto FIRST_COLOR = Pullback::finish_color_sample(carrier);
+  effect.advance_display();
+  ComposedFrameWhiteBox::advance_palette(effect,
+                                         GeneratedPaletteBank::FADE_FRAMES / 2);
+  pin_frame_clock(2);
+  effect.draw_frame();
+  const auto SECOND = ComposedFrameWhiteBox::current_frame(effect);
+  HS_EXPECT_TRUE(SECOND.palette_lab_lut != FIRST.palette_lab_lut);
+  HS_EXPECT_EQ(std::memcmp(FIRST_NODES.data(),
+                           FIRST.palette_lab_lut->nodes.data(),
+                           sizeof(FIRST_NODES)),
+               0);
+  const auto SECOND_NODES = SECOND.palette_lab_lut->nodes;
+  HS_EXPECT_TRUE(std::memcmp(FIRST_NODES.data(), SECOND_NODES.data(),
+                             sizeof(FIRST_NODES)) != 0);
+  effect.advance_display();
+  ComposedFrameWhiteBox::advance_palette(effect,
+                                         GeneratedPaletteBank::FADE_FRAMES / 2);
+  pin_frame_clock(3);
+  effect.draw_frame();
+  const auto THIRD = ComposedFrameWhiteBox::current_frame(effect);
+  HS_EXPECT_TRUE(THIRD.palette_lab_lut == FIRST.palette_lab_lut);
+  HS_EXPECT_EQ(std::memcmp(SECOND_NODES.data(),
+                           SECOND.palette_lab_lut->nodes.data(),
+                           sizeof(SECOND_NODES)),
+               0);
+  HS_EXPECT_EQ(Pullback::finish_color_sample(carrier).color, FIRST_COLOR.color);
+  HS_EXPECT_EQ(Pullback::finish_color_sample(carrier).alpha, FIRST_COLOR.alpha);
+  const auto THIRD_NODES = THIRD.palette_lab_lut->nodes;
+  auto params = THIRD.params;
+  params.template get<"color">().palette_chroma += 0.01f;
+  ComposedFrameWhiteBox::set_params(effect, params);
+  effect.advance_display();
+  pin_frame_clock(4);
+  effect.draw_frame();
+  HS_EXPECT_TRUE(ComposedFrameWhiteBox::current_frame(effect).palette_lab_lut ==
+                 nullptr);
+  HS_EXPECT_EQ(std::memcmp(THIRD_NODES.data(),
+                           THIRD.palette_lab_lut->nodes.data(),
+                           sizeof(THIRD_NODES)),
+               0);
+  HS_EXPECT_TRUE(ComposedFrameWhiteBox::frame(effect).palette_lab_lut ==
+                 nullptr);
 }
 
 /** @brief Millefiori retains ripple endpoints and samples wave ages continuously. */

@@ -43,9 +43,10 @@ enum class CodeEmission : uint8_t {
 
 /** @brief Exact reference an approximate policy is measured against. */
 enum class ApproximationOracleId : uint8_t {
-  NONE,                       ///< Exact; no oracle.
-  PEIRCE_FAST_SQUARE,         ///< Fast square-layout Peirce projection.
-  HUE_ROTATION_AND_NOISE_LUTS ///< LUT hue rotation and sphere modulation.
+  NONE,                        ///< Exact; no oracle.
+  PEIRCE_FAST_SQUARE,          ///< Fast square-layout Peirce projection.
+  HUE_ROTATION_AND_NOISE_LUTS, ///< LUT hue rotation and sphere modulation.
+  PALETTE_RGB_BLEND_TO_LAB_LUT ///< RGB-first temporal palette conversion.
 };
 
 /** @brief Quantity an approximation metric bounds. */
@@ -144,6 +145,8 @@ struct ColorSample {
   float pending_hue = 0.0f;        ///< Accumulated hue turns.
   float brightness_gain = 1.0f;    ///< Final RGB gain.
   float pending_lift = 0.0f;       ///< Composed lightness lift toward white.
+  OKLab cached_lab{};              ///< Shared base before hue and lift.
+  bool has_cached_lab = false;     ///< RGB is represented by `cached_lab`.
 };
 
 /** @brief Blends deferred color state before perceptual finalization.
@@ -158,6 +161,7 @@ HS_HOT_ITCM_MEMBER inline ColorSample blend_color_samples(const ColorSample &a,
     return a;
   if (fraction >= 1.0f)
     return b;
+  assert(!a.has_cached_lab && !b.has_cached_lab);
   ColorSample result = b;
   result.color =
       Color4(a.color.color.lerp16(b.color.color, frac_to_q16(fraction)),
@@ -183,10 +187,13 @@ finish_color_sample(const ColorSample &sample) {
   Color4 color = sample.color;
   if (sample.brightness_gain == 0.0f)
     return Color4(Pixel(0, 0, 0), color.alpha);
-  if (sample.pending_lift != 0.0f ||
+  if (sample.has_cached_lab || sample.pending_lift != 0.0f ||
       (sample.pending_hue != 0.0f && !sample.hue_rotation)) {
-    const LinRGB input = pixel_to_linrgb(color.color);
-    OKLab lab = linear_rgb_to_oklab_fast(input.r, input.g, input.b);
+    OKLab lab = sample.cached_lab;
+    if (!sample.has_cached_lab) {
+      const LinRGB input = pixel_to_linrgb(color.color);
+      lab = linear_rgb_to_oklab_fast(input.r, input.g, input.b);
+    }
     lab.L += (1.0f - lab.L) * sample.pending_lift;
     LinRGB output = hue_rotate_lut_gamut_rgb(lab, sample.pending_hue);
     if (sample.brightness_gain != 1.0f) {
@@ -761,6 +768,24 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
     {
       Derived::template run_in_place<BindingT>(sample, frame, prepared,
                                                previous);
+    }
+
+    /** @brief Tries an optional cached shared color base.
+     * @param input Shared input carrier.
+     * @param frame Frame context.
+     * @param prepared Descriptor state.
+     * @param output Receives the cached base on success.
+     * @return Whether the descriptor supplied a shared base. */
+    __attribute__((always_inline)) static bool
+    run_shared_base(const Input &input, const FrameState &frame,
+                    const Prepared &prepared, ColorSample &output)
+      requires requires {
+        Derived::template run_shared_base<BindingT>(input, frame, prepared,
+                                                    output);
+      }
+    {
+      return Derived::template run_shared_base<BindingT>(input, frame, prepared,
+                                                         output);
     }
 
     /** @brief Evaluates retained and current endpoints together.
@@ -1589,19 +1614,31 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                       }) {
           if (FRACTION <= 0.0f)
             return finish(endpoint(true), true);
-          auto pair =
-              CurrentNode::run_pair(input, ctx, std::get<Index>(prepared));
           if constexpr (requires { CurrentNode::PHASE_BLEND_BASE; }) {
             if constexpr (CurrentNode::PHASE_BLEND_BASE &&
                           Index + 1 < NODE_COUNT &&
                           phase_tail_supported<Index + 1>())
               if (phase_tail_ready<Index + 1>(prepared)) {
-                ColorSample result =
-                    blend_color_samples(pair.first, pair.second, FRACTION);
+                ColorSample result;
+                if constexpr (requires {
+                                CurrentNode::run_shared_base(
+                                    input, ctx, std::get<Index>(prepared),
+                                    result);
+                              })
+                  if (CurrentNode::run_shared_base(
+                          input, ctx, std::get<Index>(prepared), result)) {
+                    run_phase_tail<Index + 1>(result, ctx, prepared);
+                    return result;
+                  }
+                const auto PAIR = CurrentNode::run_pair(
+                    input, ctx, std::get<Index>(prepared));
+                result = blend_color_samples(PAIR.first, PAIR.second, FRACTION);
                 run_phase_tail<Index + 1>(result, ctx, prepared);
                 return result;
               }
           }
+          const auto pair =
+              CurrentNode::run_pair(input, ctx, std::get<Index>(prepared));
           const ColorSample A = finish(pair.first, true);
           const ColorSample B = finish(pair.second, false);
           return blend_color_samples(A, B, FRACTION);

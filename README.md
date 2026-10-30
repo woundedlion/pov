@@ -1362,6 +1362,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── gamut_lut.h             Generated sRGB gamut-boundary chroma table for OKLab clipping
 │   │   ├── generative_palette.h    GenerativePalette + PaletteRecipe compilation
 │   │   ├── hue_rotation_lut.h      Palette-coordinate by hue-rotation acceleration
+│   │   ├── palette_lab_lut.h       RGB-first temporal palette bases cached in OKLab
 │   │   ├── modulation_types.h      Passive source recipes and mechanic controls
 │   │   ├── modulation.h            Generic scalar-field palette composition and color mechanics
 │   │   ├── palette_cycler.h        PaletteCycler: dwell-and-fade display LUT over a palette sequence
@@ -1393,14 +1394,14 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── scan.h                  Scanline rasterizer: umbrella over scan/
 │   │   ├── scan/                   Per-family scan headers (raster, shapes, mesh,
 │   │   │                            shader, volume, column_basis)
-│   │   ├── scan/mesh_capture.cpp    Per-face column-time capture of deforming meshes
-│   │   ├── scan/radial_surface.h  Bounded first-arrival star-family queries
-│   │   ├── scan/radial_surface_boundary.h  Canonical first-arrival boundary candidates
-│   │   ├── scan/radial_surface_candidate_mask.h  Candidate interval groups per chart cell
-│   │   ├── scan/radial_surface_edge_aa.h  Local edge area coverage
-│   │   ├── scan/radial_surface_math.h  Chart argument approximation
-│   │   ├── scan/radial_surface_renderer.h  Column-time hemisphere surface shader
-│   │   ├── scan/radial_surface_types.h  Surface colors and optional work counters
+│   │   │   ├── mesh_capture.cpp    Per-face column-time capture of deforming meshes
+│   │   │   ├── radial_surface.h  Bounded first-arrival star-family queries
+│   │   │   ├── radial_surface_boundary.h  Canonical first-arrival boundary candidates
+│   │   │   ├── radial_surface_candidate_mask.h  Candidate interval groups per chart cell
+│   │   │   ├── radial_surface_edge_aa.h  Local edge area coverage
+│   │   │   ├── radial_surface_math.h  Chart argument approximation
+│   │   │   ├── radial_surface_renderer.h  Column-time hemisphere surface shader
+│   │   │   └── radial_surface_types.h  Surface colors and optional work counters
 │   │   ├── plot.h                  Curve rasterizer: umbrella over plot/
 │   │   ├── plot/                   Per-family plot headers (cull, raster, shapes,
 │   │   │                            mesh, particles, chords)

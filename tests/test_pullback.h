@@ -1916,6 +1916,7 @@ struct PaletteFrame {
                                    0.25f};
   Pullback::Color::TemporalPaletteResources temporal{};
   const Pullback::Color::PhaseModulationState *phase = nullptr;
+  const PaletteLabLut *lab = nullptr;
 };
 struct PaletteBinding {
   using FrameState = PaletteFrame;
@@ -1981,6 +1982,122 @@ struct ConstantPalette {
   Color4 color;
   Color4 get(float) const { return color; }
 };
+
+struct VariableAlphaPalette {
+  Color4 get(float value) const {
+    const float INDEX = value * (BakedPalette::LUT_SIZE - 1);
+    return Color4(Pixel(1000, 2000, 3000),
+                  INDEX > 0.5f && INDEX < 1.5f ? 0.5f : 1.0f);
+  }
+};
+
+struct LabRampPalette {
+  Color4 get(float value) const {
+    return Color4(Pixel(static_cast<uint16_t>(value * 50000),
+                        static_cast<uint16_t>(value * value * 30000),
+                        static_cast<uint16_t>((1.0f - value) * 20000)),
+                  1.0f);
+  }
+};
+
+/** @brief Palette Lab nodes convert RGB-first blends and reject varying alpha. */
+inline void test_pullback_palette_lab_nodes() {
+  std::array<uint8_t, 5 * BakedPalette::required_arena_bytes()> buffer{};
+  Arena arena(buffer.data(), buffer.size());
+  BakedPaletteStorage a, b, variable;
+  a.bake(arena, ConstantPalette{Color4(Pixel(0, 0, 0), 1.0f)});
+  b.bake(arena, ConstantPalette{Color4(Pixel(65535, 65535, 65535), 1.0f)});
+  variable.bake(arena, VariableAlphaPalette{});
+  HS_EXPECT_LT(variable.view().get_alpha(1.0f / 255.0f), 1.0f);
+  for (int index = 0; index < PaletteLabLut::VALUES; ++index)
+    HS_EXPECT_EQ(
+        variable.view().get_alpha(float(index) / (PaletteLabLut::VALUES - 1)),
+        1.0f);
+  PaletteLabLut cache;
+  cache.bake(a.view(), b.view());
+  HS_EXPECT_TRUE(cache.active);
+  const auto MID = PaletteLabLut::sample(cache.view(0.5f), 0.37f);
+  HS_EXPECT_NEAR(MID.L, std::cbrt(32768.0 / 65535.0), 3e-5);
+  HS_EXPECT_GT(MID.L, 0.75f);
+  HS_EXPECT_NEAR(MID.a, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(MID.b, 0.0f, 1e-6f);
+  for (int row = 0; row < PaletteLabLut::TIMES; ++row)
+    for (int index = 0; index < PaletteLabLut::VALUES; ++index) {
+      const float FRACTION = float(row) / (PaletteLabLut::TIMES - 1);
+      const float VALUE = float(index) / (PaletteLabLut::VALUES - 1);
+      const Pixel RGB = a.view().get_color(VALUE).lerp16(
+          b.view().get_color(VALUE), frac_to_q16(FRACTION));
+      const auto LINEAR = pixel_to_linrgb(RGB);
+      const auto EXPECTED =
+          linear_rgb_to_oklab_fast(LINEAR.r, LINEAR.g, LINEAR.b);
+      const auto ACTUAL = PaletteLabLut::sample(cache.view(FRACTION), VALUE);
+      HS_EXPECT_NEAR(ACTUAL.L, EXPECTED.L, 1e-7f);
+      HS_EXPECT_NEAR(ACTUAL.a, EXPECTED.a, 1e-7f);
+      HS_EXPECT_NEAR(ACTUAL.b, EXPECTED.b, 1e-7f);
+    }
+  const auto OLD_VIEW = cache.view(0.25f);
+  PaletteLabLut next;
+  next.bake(b.view(), a.view());
+  HS_EXPECT_NEAR(PaletteLabLut::sample(OLD_VIEW, 0.37f).L, MID.L * 0.5f, 1e-7f);
+  BakedPaletteStorage ramp, translucent;
+  ramp.bake(arena, LabRampPalette{});
+  translucent.bake(arena, ConstantPalette{Color4(Pixel(123, 456, 789), 0.6f)});
+  next.bake(ramp.view(), b.view());
+  for (float value : {0.183f, 0.677f}) {
+    const float POSITION = value * 63.0f;
+    const int INDEX = static_cast<int>(POSITION);
+    const float WEIGHT = POSITION - INDEX;
+    const auto node = [&](int index, float fraction) {
+      const float COORDINATE = float(index) / 63.0f;
+      const Pixel RGB =
+          ramp.view()
+              .get_color(COORDINATE)
+              .lerp16(b.view().get_color(COORDINATE), frac_to_q16(fraction));
+      const LinRGB LINEAR = pixel_to_linrgb(RGB);
+      return linear_rgb_to_oklab_fast(LINEAR.r, LINEAR.g, LINEAR.b);
+    };
+    const auto A = node(INDEX, 0.0f), B = node(INDEX + 1, 0.0f);
+    const auto C = node(INDEX, 0.5f), D = node(INDEX + 1, 0.5f);
+    const auto ACTUAL = PaletteLabLut::sample(next.view(0.17f), value);
+    HS_EXPECT_NEAR(
+        ACTUAL.L,
+        hs::lerp(hs::lerp(A.L, B.L, WEIGHT), hs::lerp(C.L, D.L, WEIGHT), 0.34f),
+        1e-7f);
+    HS_EXPECT_NEAR(
+        ACTUAL.a,
+        hs::lerp(hs::lerp(A.a, B.a, WEIGHT), hs::lerp(C.a, D.a, WEIGHT), 0.34f),
+        1e-7f);
+    HS_EXPECT_NEAR(
+        ACTUAL.b,
+        hs::lerp(hs::lerp(A.b, B.b, WEIGHT), hs::lerp(C.b, D.b, WEIGHT), 0.34f),
+        1e-7f);
+  }
+  next.bake(ramp.view(), translucent.view());
+  HS_EXPECT_FALSE(next.active);
+  cache.bake(a.view(), variable.view());
+  HS_EXPECT_FALSE(cache.active);
+  HS_EXPECT_TRUE(cache.view(0.5f).low == nullptr);
+}
+
+/** @brief Cached neutral adjustments materialize their base with exact alpha. */
+inline void test_pullback_cached_lab_finish() {
+  using namespace Pullback;
+  ColorSample sample{Color4(Pixel(0, 0, 0), 0.37f),
+                     {0.5f, 0.7f, math::Y_AXIS, 2.0f}};
+  sample.cached_lab = {0.7f, 0.02f, 0.03f};
+  sample.has_cached_lab = true;
+  const auto EXPECTED =
+      linrgb_to_pixel(oklab_to_linear_rgb_lut_gamut(sample.cached_lab));
+  const auto ACTUAL = finish_color_sample(sample);
+  HS_EXPECT_EQ(ACTUAL.color, EXPECTED);
+  HS_EXPECT_EQ(ACTUAL.alpha, 0.37f);
+  HS_EXPECT_GT(ACTUAL.color.r, 0);
+  sample.brightness_gain = 0.0f;
+  HS_EXPECT_EQ(finish_color_sample(sample).color, Pixel(0, 0, 0));
+  HS_EXPECT_EQ(finish_color_sample(sample).alpha, 0.37f);
+  HS_EXPECT_TRUE(blend_color_samples(sample, sample, 0.0f).has_cached_lab);
+  HS_EXPECT_TRUE(blend_color_samples(sample, sample, 1.0f).has_cached_lab);
+}
 using TemporalPalettePipeline = Pullback::Pipeline<
     PaletteBinding, PaletteSampleStage,
     Pullback::Stage::Colorize<
@@ -2020,6 +2137,129 @@ struct CountingPhasePolicy : Pullback::Color::Modulate<PhaseLayerProvider> {
     Base::apply_phase_in_place(sample, frame, prepared);
   }
 };
+
+struct LabPaletteProvider : TemporalPaletteProvider {
+  static const PaletteLabLut *palette_lab_lut(const PaletteFrame &frame) {
+    return frame.lab;
+  }
+};
+struct CountingLabPalette
+    : Pullback::Color::GeneratedPalette<LabPaletteProvider> {
+  using Base = Pullback::Color::GeneratedPalette<LabPaletteProvider>;
+  using SharedBaseOwner = CountingLabPalette;
+  inline static int shared_calls = 0;
+  inline static int pair_calls = 0;
+  static bool apply_shared_base(const Pullback::FieldSample &input,
+                                const PaletteFrame &frame,
+                                const Prepared &prepared,
+                                Pullback::ColorSample &output) {
+    ++shared_calls;
+    return Base::apply_shared_base(input, frame, prepared, output);
+  }
+  static auto apply_pair(const Pullback::FieldSample &input,
+                         const PaletteFrame &frame, const Prepared &prepared) {
+    ++pair_calls;
+    return Base::apply_pair(input, frame, prepared);
+  }
+};
+
+struct ShiftedLabPalette : CountingLabPalette {
+  static auto apply_pair(const Pullback::FieldSample &input,
+                         const PaletteFrame &frame, const Prepared &prepared) {
+    auto pair = CountingLabPalette::apply_pair(input, frame, prepared);
+    pair.first.color.color.r += 123;
+    pair.second.color.color.r += 123;
+    return pair;
+  }
+};
+
+/** @brief Shared cached bases skip both palette endpoints and preserve alpha. */
+inline void test_pullback_shared_lab_dispatch() {
+  using namespace Pullback;
+  using Pipeline = Pullback::Pipeline<PaletteBinding, PaletteSampleStage,
+                                      Stage::Colorize<CountingLabPalette>,
+                                      Stage::Modulate<CountingPhasePolicy>>;
+  using Core =
+      Detail::PipelineCore<true, PaletteBinding, typename Pipeline::NodeList>;
+  using Custom = Pullback::Pipeline<PaletteBinding, PaletteSampleStage,
+                                    Stage::Colorize<ShiftedLabPalette>,
+                                    Stage::Modulate<CountingPhasePolicy>>;
+  using CustomCore =
+      Detail::PipelineCore<true, PaletteBinding, typename Custom::NodeList>;
+  std::array<uint8_t, 3 * BakedPalette::required_arena_bytes()> buffer{};
+  Arena arena(buffer.data(), buffer.size());
+  BakedPaletteStorage a, b;
+  a.bake(arena, ConstantPalette{Color4(Pixel(1000, 2000, 3000), 1.0f)});
+  b.bake(arena, ConstantPalette{Color4(Pixel(9000, 6000, 1000), 1.0f)});
+  PaletteLabLut cache;
+  cache.bake(a.view(), b.view());
+  Color::PhaseModulationState layer;
+  layer.source = Pattern::SourceKind::DISPLACEMENT;
+  layer.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 0.2f};
+  layer.enabled = true;
+  layer.ready = true;
+  PaletteFrame frame;
+  frame.palette = &b.view();
+  frame.temporal.palette = &a.view();
+  frame.phase = &layer;
+  for (bool ready : {false, true})
+    for (bool active : {false, true})
+      for (float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+        layer.ready = ready;
+        frame.lab = active ? &cache : nullptr;
+        frame.temporal.fraction = fraction;
+        CountingLabPalette::shared_calls = 0;
+        CountingLabPalette::pair_calls = 0;
+        const auto PREPARED = Pipeline::prepare_stages(frame);
+        const auto ACTUAL = Core::template run_stage<0>(
+            SphereSample{math::Y_AXIS, 0.7f}, frame, PREPARED);
+        const bool INTERIOR = fraction > 0.0f && fraction < 1.0f;
+        HS_EXPECT_EQ(ACTUAL.has_cached_lab, active && ready && INTERIOR);
+        HS_EXPECT_EQ(CountingLabPalette::shared_calls,
+                     INTERIOR && ready ? 1 : 0);
+        HS_EXPECT_EQ(CountingLabPalette::pair_calls,
+                     INTERIOR && !(active && ready) ? 1 : 0);
+        const FieldSample FIELD{0.5f, 0.5f, math::Y_AXIS, 0.7f};
+        const auto PAIR = CountingLabPalette::Base::apply_pair(
+            FIELD, frame, std::get<1>(PREPARED));
+        HS_EXPECT_EQ(ACTUAL.color.alpha,
+                     fraction <= 0.0f ? PAIR.first.color.alpha
+                     : fraction >= 1.0f
+                         ? PAIR.second.color.alpha
+                         : hs::lerp(PAIR.first.color.alpha,
+                                    PAIR.second.color.alpha, fraction));
+        HS_EXPECT_NEAR(ACTUAL.pending_hue, 0.14f, 1e-7f);
+        if (!INTERIOR)
+          HS_EXPECT_EQ(ACTUAL.color.color, fraction == 0.0f
+                                               ? PAIR.first.color.color
+                                               : PAIR.second.color.color);
+      }
+  layer.ready = true;
+  frame.lab = &cache;
+  frame.temporal.fraction = 0.5f;
+  CountingLabPalette::shared_calls = 0;
+  CountingLabPalette::pair_calls = 0;
+  const auto CUSTOM = CustomCore::template run_stage<0>(
+      SphereSample{math::Y_AXIS, 0.7f}, frame, Custom::prepare_stages(frame));
+  HS_EXPECT_FALSE(CUSTOM.has_cached_lab);
+  HS_EXPECT_EQ(CountingLabPalette::shared_calls, 0);
+  HS_EXPECT_EQ(CountingLabPalette::pair_calls, 1);
+  HS_EXPECT_EQ(CUSTOM.color.color.r, 5123);
+  BakedPaletteStorage translucent;
+  translucent.bake(arena,
+                   ConstantPalette{Color4(Pixel(4000, 5000, 6000), 0.6f)});
+  cache.bake(a.view(), translucent.view());
+  frame.palette = &translucent.view();
+  const auto PREPARED = Pipeline::prepare_stages(frame);
+  const auto FALLBACK = Core::template run_stage<0>(
+      SphereSample{math::Y_AXIS, 0.7f}, frame, PREPARED);
+  const auto PAIR = CountingLabPalette::Base::apply_pair(
+      FieldSample{0.5f, 0.5f, math::Y_AXIS, 0.7f}, frame,
+      std::get<1>(PREPARED));
+  HS_EXPECT_FALSE(FALLBACK.has_cached_lab);
+  HS_EXPECT_EQ(FALLBACK.color.alpha,
+               hs::lerp(PAIR.first.color.alpha, PAIR.second.color.alpha, 0.5f));
+}
 
 /** @brief Shared phase tails run once; incomplete or unready tails keep endpoints. */
 inline void test_pullback_phase_tail_dispatch() {
@@ -2566,6 +2806,9 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_hard_edge_kernels);
   HS_RUN(test_pullback_temporal_palette);
   HS_RUN(test_pullback_phase_tail_dispatch);
+  HS_RUN(test_pullback_palette_lab_nodes);
+  HS_RUN(test_pullback_cached_lab_finish);
+  HS_RUN(test_pullback_shared_lab_dispatch);
   HS_RUN(test_pullback_paired_color_dispatch);
   HS_RUN(test_pullback_paired_palette_controls);
   HS_RUN(test_pullback_modulation_temporal_alpha);

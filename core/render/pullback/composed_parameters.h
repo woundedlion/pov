@@ -203,6 +203,15 @@ inline bool valid(const ComposedDetail::ParameterSet<
 
 /** @brief Hue-rotation LUT storage; empty when the effect never rotates hue. */
 template <bool Enabled> struct OptionalHueRotationLut {};
+/** @brief Interval base storage, empty unless the spec opts in.
+ * @tparam Enabled Whether the effect owns palette base caches. */
+template <bool Enabled> struct OptionalPaletteLabLut {};
+/** @brief Ping-pong interval bases retained across consecutive frames. */
+template <> struct OptionalPaletteLabLut<true> {
+  std::array<PaletteLabLut, 2>
+      palette_lab_luts;         ///< Previous and current bases.
+  uint8_t palette_lab_slot = 0; ///< Most recently baked base.
+};
 /** @brief Enabled hue-rotation LUT storage. */
 template <> struct OptionalHueRotationLut<true> {
   /// Palette colours by palette coordinate and hue-rotation step.

@@ -38,6 +38,7 @@ struct MillefioriSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = true;
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr bool TEMPORAL_COLOR_PHASE = true;
+  static constexpr bool PALETTE_LAB_CACHE = true;
   static constexpr bool CACHE_FULL_GAMUT_LUT = true;
   static constexpr bool RIPPLE_RADIAL_TABLE = true;
   /** @brief Authored ripple, kaleidoscope and lattice stage chain.
@@ -61,9 +62,9 @@ struct MillefioriSpec : Pullback::Spec {
                                   Pullback::LatticeSourceParams, B>::Type,
                               Pullback::Weight::Projection,
                               Pullback::ProjectionCoverage::Weight>,
-      Pullback::Stage::Colorize<
-          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
-              B, Pullback::Color::BrightnessEnvelope::BELL>>>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, Pullback::Color::BrightnessEnvelope::BELL,
+                                  PALETTE_LAB_CACHE>>>,
       Pullback::Stage::Modulate<
           Pullback::Color::Modulate<Pullback::ModulationProvider<
               B, "field", Pattern::SourceKind::SPHERE_SMOOTH_GRID,

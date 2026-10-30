@@ -32,6 +32,20 @@ struct ComposedFrameWhiteBox {
   template <typename FX> static typename FX::FrameState frame(FX &effect) {
     return effect.frame_for_test();
   }
+
+  /** @brief Reads the retained current frame without preparing it again.
+   * @tparam FX Composed effect type.
+   * @param effect Effect whose last draw is inspected.
+   * @return The current frame snapshot. */
+  template <typename FX>
+  static const typename FX::FrameState &current_frame(const FX &effect) {
+    return effect.state->current;
+  }
+
+  template <typename FX> static void advance_palette(FX &effect, int steps) {
+    for (int step = 0; step < steps; ++step)
+      effect.palette_cycler.step();
+  }
 };
 
 template <typename Effect> struct ComposedWhiteBox {

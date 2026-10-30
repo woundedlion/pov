@@ -363,6 +363,30 @@ enables this model; other authored specs default to the endpoint-tail model.
 Both models compose hue and lift before one final gamut mapping. Alpha is
 unchanged because the admitted shared mechanics preserve it.
 
+`Spec::PALETTE_LAB_CACHE` optionally supplies the eligible shared tail with a
+palette-aware base cache. Each node first blends the previous/current RGB16
+palette samples with the canonical Q16 weight, then converts that RGB to OKLab.
+The cache has 64 palette-coordinate nodes and three time rows (zero, half and
+one); a column prepares its neighboring time rows, and a pixel interpolates
+four Lab nodes. The cached value is copied into the color carrier before the
+same composed hue, lift, gamut mapping and brightness finish.
+
+Two effect-owned buffers preserve consecutive frame views. A frame never bakes
+into the buffer borrowed by its previous endpoint; carriers copy Lab values,
+not time-view pointers. Literal/static draws, changed color-family controls,
+nonopaque palette alpha, and unsupported/custom color tails retain canonical
+RGB sampling. Opaque palette alpha preserves the common coverage and opacity.
+Derived color policies must explicitly own their
+shared-base contract before the stage can bypass their endpoint operations.
+Cached carriers enter after the sole base blend; interior blending of an
+already cached carrier is outside that internal protocol.
+Eligible phase tails adjust deferred state without reading the carrier's RGB.
+
+The `PALETTE_RGB_BLEND_TO_LAB_LUT` oracle compares the cache to RGB-first palette
+sampling, not interpolation of endpoint Lab. Qualification keeps existing hue
+and framebuffer references unchanged and records the new cache's measured
+RGB16 error independently.
+
 A source kind/custom recipe version, evaluation strategy, mechanic kind or
 enabled-state change is a topology change for that layer. Hold that layer
 against its **entire current modulation**:

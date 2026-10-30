@@ -8,6 +8,7 @@
 #include "core/render/pullback/contract.h"
 #include "core/render/pullback/fields.h"
 #include "core/color/hue_rotation_lut.h"
+#include "core/color/palette_lab_lut.h"
 #include "core/render/pullback/modulation_temporal.h"
 
 /**
@@ -275,6 +276,7 @@ struct TemporalGeneratedPaletteState {
   GeneratedPaletteState current;  ///< Current palette.
   GeneratedPaletteState previous; ///< Retained palette.
   float fraction = 1.0f;          ///< Current endpoint weight.
+  PaletteLabTimeView lab{};       ///< Optional interval base cache.
 };
 /** @brief Maps a sampled field into the color carrier.
  * @param sample Sampled field.
@@ -392,7 +394,8 @@ inline constexpr std::array<ApproximationMetric, 3> GENERATED_PALETTE_METRICS{{
 /** @brief Generated-palette policy with retained immutable endpoints.
  * @tparam State Palette resource provider. */
 template <typename State> struct GeneratedPalette : ApproximationDefaults {
-  static constexpr bool PHASE_BLEND_BASE = true; ///< Common field controls.
+  using SharedBaseOwner = GeneratedPalette<State>; ///< Cache-contract owner.
+  static constexpr bool PHASE_BLEND_BASE = true;   ///< Common field controls.
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -418,6 +421,27 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
       requires(const typename State::Binding::FrameState &frame) {
         State::temporal_resources(frame);
       }; ///< Whether previous palettes are retained.
+  static constexpr bool LAB_CACHE =
+      requires(const typename State::Binding::FrameState &frame) {
+        State::palette_lab_lut(frame);
+      }; ///< Whether an RGB-first base cache is available.
+  static constexpr bool APPROXIMATE =
+      LAB_CACHE; ///< Optional base approximation.
+  static constexpr ApproximationOracleId ORACLE =
+      LAB_CACHE ? ApproximationOracleId::PALETTE_RGB_BLEND_TO_LAB_LUT
+                : ApproximationOracleId::NONE; ///< Exact RGB-first reference.
+  static constexpr auto METRICS = [] {
+    if constexpr (LAB_CACHE)
+      return std::array<ApproximationMetric, 3>{
+          {{ApproximationDomain::COLOR_CHANNEL,
+            ApproximationAggregation::MAXIMUM, 7000.0f, "channel code"},
+           {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MEAN,
+            256.0f, "channel code"},
+           {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,
+            4000.0f, "channel code"}}};
+    else
+      return std::array<ApproximationMetric, 0>{};
+  }(); ///< Base-cache qualification bounds.
   using Prepared =
       std::conditional_t<TEMPORAL, TemporalGeneratedPaletteState,
                          GeneratedPaletteState>; ///< Endpoint state.
@@ -445,7 +469,12 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
       auto previous = current;
       previous.palette = resources.palette;
       previous.hue_rotation.data = resources.hue_rotation;
-      return {current, previous, resources.fraction};
+      TemporalGeneratedPaletteState result{current, previous,
+                                           resources.fraction};
+      if constexpr (LAB_CACHE)
+        if (const auto *cache = State::palette_lab_lut(frame))
+          result.lab = cache->view(resources.fraction);
+      return result;
     } else
       return current;
   }
@@ -506,6 +535,43 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
     };
     return {endpoint(prepared.previous), endpoint(state)};
   }
+  /** @brief Tries one cached base without fetching either palette.
+   * @tparam FrameState Frame context.
+   * @param sample Shared field coordinates.
+   * @param frame Frame context.
+   * @param prepared Prepared endpoint controls and cache view.
+   * @param output Receives the cached color carrier.
+   * @return Whether the cache supplied the base. */
+  template <typename FrameState>
+  HS_HOT_FLASH_MEMBER static bool
+  apply_shared_base(const FieldSample &sample, const FrameState &frame,
+                    const Prepared &prepared, ColorSample &output)
+    requires(TEMPORAL && LAB_CACHE)
+  {
+    (void)frame;
+    if (!prepared.lab.low || prepared.fraction <= 0.0f ||
+        prepared.fraction >= 1.0f)
+      return false;
+    const auto &state = prepared.current;
+    const float VALUE = palette_mapping_coordinate(sample.value, state.mapping,
+                                                   state.mapping_frequency,
+                                                   state.mapping_offset);
+    const float OPACITY =
+        sample.coverage *
+        hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+    output = ColorSample{Color4(Pixel(0, 0, 0), OPACITY),
+                         sample,
+                         nullptr,
+                         VALUE,
+                         0.0f,
+                         brightness_envelope_gain(
+                             sample.value, state.brightness_envelope,
+                             state.brightness_bottom, state.brightness_top)};
+    output.cached_lab = PaletteLabLut::sample(prepared.lab, VALUE);
+    output.has_cached_lab = true;
+    return true;
+  }
+
   /** @brief Produces the current color endpoint.
    * @tparam FrameState Frame context.
    * @param sample Field coordinates.

@@ -56,6 +56,9 @@ public:
   using Metadata = MetadataFor<SpecT>; ///< Topology derived from typed stages.
   /// Whether the effect samples time across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = SpecT::TEMPORAL_SAMPLING;
+  static_assert(!SpecT::PALETTE_LAB_CACHE ||
+                    (TEMPORAL_SAMPLING && SpecT::TEMPORAL_COLOR_PHASE),
+                "palette base caches require temporal phase color sampling");
   static_assert(!TEMPORAL_SAMPLING || (W >= 2 && W % 2 == 0),
                 "Column-time sampling requires an even two-arm canvas width");
   /// Frame context, including retained color resources when sampling time.
@@ -204,6 +207,17 @@ public:
       if (!history.initialized)
         history.capture(current, persistent_arena);
       if (!Spacetime::flat_surface()) {
+        if constexpr (SpecT::PALETTE_LAB_CACHE) {
+          if (std::memcmp(&history.previous.params.template get<"color">(),
+                          &current.params.template get<"color">(),
+                          sizeof(current.params.template get<"color">())) ==
+              0) {
+            state->palette_lab_slot ^= 1;
+            auto &cache = state->palette_lab_luts[state->palette_lab_slot];
+            cache.bake(*history.previous.palette, *current.palette);
+            state->current.palette_lab_lut = &cache;
+          }
+        }
         state->interval.emplace(history.previous, current);
         const auto &sampler = *state->interval;
         HS_PROFILE(fx_shader_draw);
@@ -626,6 +640,7 @@ private:
 
   struct State : ProjectionWalkNoise<ANIMATED_PROJECTION>,
                  OptionalHueRotationLut<Metadata::MODULATION>,
+                 OptionalPaletteLabLut<SpecT::PALETTE_LAB_CACHE>,
                  Spacetime::FrameHistory<FrameState, TEMPORAL_SAMPLING,
                                          Metadata::MODULATION> {
     ComposedDetail::ResourceStorage<RuntimeResource,
@@ -874,6 +889,7 @@ private:
     frame.outer_conjugate = outer_conjugate;
     frame.palette = &palette_cycler.palette();
     frame.hue_rotation_lut = hue_rotation_lut_data();
+    frame.palette_lab_lut = nullptr;
     frame.params = params;
     frame.resources = {};
     frame.palette_mapping = palette_mapping;
