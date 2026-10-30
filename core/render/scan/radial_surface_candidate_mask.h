@@ -143,13 +143,7 @@ public:
    * @param theta Chart argument, radians.
    * @return Whether edge AA may be necessary. */
   HS_HOT_INLINE bool near_boundary(float rho, float theta) const {
-    const float R2 = rho * rho;
-    if (R2 >= extent2)
-      return false;
-    const int RADIAL = std::clamp(int(R2 * radial_scale), 0, RADIAL_BINS - 1);
-    const int ANGLE = radial_wrap_index(radial_floor_int(theta * angular_scale),
-                                        ANGULAR_BINS);
-    return rows[RADIAL * ANGULAR_BINS + ANGLE] != 0;
+    return interval_bits(rho, theta) != 0;
   }
 
   /** @brief Returns candidate interval groups for a pixel center.
