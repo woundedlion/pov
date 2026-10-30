@@ -14,6 +14,7 @@
 
 #include "core/render/pullback.h"
 #include "core/render/pullback/runtime_seeds.h"
+#include "core/render/pullback/sphere_animation.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/pattern/fields.h"
@@ -1365,6 +1366,203 @@ inline void test_pullback_periodic_ripple() {
   HS_EXPECT_EQ(wrapped.path_length, start.path_length);
 }
 
+/** @brief Builds one explicitly phased ripple wave.
+ * @param center Unit ripple center.
+ * @param phase Wave crest distance in radians.
+ * @param amplitude Peak displacement in radians.
+ * @return Prepared ripple with refreshed rejection bounds. */
+inline Pullback::Surface::PreparedRipple
+ripple_test_wave(const math::Vector &center, float phase, float amplitude) {
+  Animation::RippleWave wave;
+  wave.center = center;
+  wave.phase = phase;
+  wave.amplitude = amplitude;
+  wave.decay = 0.0f;
+  wave.thickness = 0.7f;
+  wave.sync();
+  return {wave};
+}
+
+/** @brief Applies the individual ripple kernels in their supplied order.
+ * @param view Unit sample direction.
+ * @param prepared Active waves.
+ * @param support_margin Optional closest distance to a wave support boundary.
+ * @return Displaced direction. */
+inline math::Vector ripple_test_sequential(
+    math::Vector view,
+    const Pullback::SphereAnimation::PreparedRipples &prepared,
+    float *support_margin = nullptr) {
+  for (uint8_t i = 0; i < prepared.count; ++i) {
+    const auto &wave = prepared.waves[i].ripple;
+    if (support_margin && wave.amplitude > 0.001f) {
+      const float DISTANCE =
+          acosf(hs::clamp(math::dot(view, wave.center), -1.0f, 1.0f));
+      for (float edge : {wave.phase - 2.0f * wave.half_width(),
+                         wave.phase + 2.0f * wave.half_width()})
+        if (edge > 0.0f && edge < math::PI_F)
+          *support_margin = fminf(*support_margin, fabsf(DISTANCE - edge));
+    }
+    view = Pullback::Surface::periodic_ripple(view, prepared.waves[i], false)
+               .sphere;
+  }
+  return view;
+}
+
+/** @brief Empty ripple batches preserve the direction and zero travel. */
+inline void test_pullback_grouped_ripple_identity() {
+  const Pullback::SphereAnimation::PreparedRipples EMPTY{};
+  const math::Vector VIEW = math::Vector(0.3f, 0.4f, 0.5f).normalized();
+  for (bool track_path : {false, true}) {
+    const auto RESULT =
+        Pullback::SphereAnimation::grouped_ripples(VIEW, EMPTY, track_path);
+    HS_EXPECT_EQ(RESULT.sphere.x, VIEW.x);
+    HS_EXPECT_EQ(RESULT.sphere.y, VIEW.y);
+    HS_EXPECT_EQ(RESULT.sphere.z, VIEW.z);
+    HS_EXPECT_EQ(RESULT.path_length, 0.0f);
+  }
+}
+
+/** @brief A crest rotates outward by its amplitude and reports that arc. */
+inline void test_pullback_grouped_ripple_analytic_crest() {
+  Pullback::SphereAnimation::PreparedRipples prepared{};
+  prepared.count = 1;
+  prepared.waves[0] = ripple_test_wave(math::Y_AXIS, math::PI_F * 0.5f, 0.075f);
+  const math::Vector EXPECTED(cosf(0.075f), -sinf(0.075f), 0.0f);
+  const auto TRACKED =
+      Pullback::SphereAnimation::grouped_ripples(math::X_AXIS, prepared, true);
+  const auto UNTRACKED =
+      Pullback::SphereAnimation::grouped_ripples(math::X_AXIS, prepared, false);
+  HS_EXPECT_NEAR(TRACKED.sphere.x, EXPECTED.x, 1e-6f);
+  HS_EXPECT_NEAR(TRACKED.sphere.y, EXPECTED.y, 1e-6f);
+  HS_EXPECT_NEAR(TRACKED.sphere.z, EXPECTED.z, 1e-6f);
+  HS_EXPECT_NEAR(TRACKED.path_length, 0.075f, 1e-6f);
+  HS_EXPECT_GT(TRACKED.path_length, 0.07f);
+  HS_EXPECT_EQ(UNTRACKED.sphere.x, TRACKED.sphere.x);
+  HS_EXPECT_EQ(UNTRACKED.sphere.y, TRACKED.sphere.y);
+  HS_EXPECT_EQ(UNTRACKED.sphere.z, TRACKED.sphere.z);
+  HS_EXPECT_EQ(UNTRACKED.path_length, 0.0f);
+}
+
+/** @brief Mixed-center batches preserve the launch order of noncommuting waves. */
+inline void test_pullback_grouped_ripple_order() {
+  Pullback::SphereAnimation::PreparedRipples prepared{};
+  prepared.count = 4;
+  prepared.waves[0] = ripple_test_wave(math::Y_AXIS, math::PI_F * 0.5f, 0.13f);
+  prepared.waves[1] = ripple_test_wave(math::Z_AXIS, math::PI_F * 0.5f, 0.11f);
+  prepared.waves[2] = ripple_test_wave(math::Y_AXIS, math::PI_F * 0.5f, 0.09f);
+  prepared.waves[3] = ripple_test_wave(math::Y_AXIS, math::PI_F * 0.5f, 0.07f);
+  const math::Vector EXPECTED = ripple_test_sequential(math::X_AXIS, prepared);
+  const auto RESULT =
+      Pullback::SphereAnimation::grouped_ripples(math::X_AXIS, prepared, true);
+  HS_EXPECT_NEAR(RESULT.sphere.x, EXPECTED.x, 1e-5f);
+  HS_EXPECT_NEAR(RESULT.sphere.y, EXPECTED.y, 1e-5f);
+  HS_EXPECT_NEAR(RESULT.sphere.z, EXPECTED.z, 1e-5f);
+  std::swap(prepared.waves[0], prepared.waves[3]);
+  const math::Vector REVERSED = ripple_test_sequential(math::X_AXIS, prepared);
+  HS_EXPECT_GT((REVERSED - EXPECTED).length(), 1e-4f);
+}
+
+/** @brief Preset-range batches remain finite, unit length and geometrically faithful. */
+inline void test_pullback_grouped_ripple_parameter_grid() {
+  using namespace Pullback::SphereAnimation;
+  float max_error = 0.0f, max_interior_error = 0.0f;
+  unsigned cutoff_exceptions = 0;
+  for (float thickness : {0.7f, 1.4f})
+    for (float decay : {0.0f, 5.0f})
+      for (float period : {30.0f, 143.0f})
+        for (bool random_center : {false, true}) {
+          BurstRippleParams params;
+          params.strength = 0.15f;
+          params.thickness = thickness;
+          params.decay = decay;
+          params.period = period;
+          params.burst_rate = 1.0f / 64.0f;
+          params.random_center = random_center;
+          RippleState state;
+          state.seed = 149502542u;
+          for (int frame = 0; frame < 256; ++frame) {
+            advance_ripple(state, params);
+            const auto PREPARED = prepare_ripples(params, state);
+            for (int i = 0; i < 24; ++i) {
+              const float Y = -1.0f + (2.0f * i + 1.0f) / 24.0f;
+              const float AZIMUTH = i * 2.39996323f;
+              const float RADIUS = sqrtf(1.0f - Y * Y);
+              const math::Vector VIEW(RADIUS * cosf(AZIMUTH), Y,
+                                      RADIUS * sinf(AZIMUTH));
+              const auto RESULT = grouped_ripples(VIEW, PREPARED, true);
+              const auto UNTRACKED = grouped_ripples(VIEW, PREPARED, false);
+              float support_margin = math::PI_F;
+              const auto EXPECTED =
+                  ripple_test_sequential(VIEW, PREPARED, &support_margin);
+              const float ERROR =
+                  std::max({fabsf(RESULT.sphere.x - EXPECTED.x),
+                            fabsf(RESULT.sphere.y - EXPECTED.y),
+                            fabsf(RESULT.sphere.z - EXPECTED.z)});
+              max_error = fmaxf(max_error, ERROR);
+              if (support_margin > 5e-4f) {
+                max_interior_error = fmaxf(max_interior_error, ERROR);
+                HS_EXPECT_LE(ERROR, 1e-4f);
+              } else
+                cutoff_exceptions += ERROR > 1e-4f;
+              HS_EXPECT_TRUE(std::isfinite(RESULT.sphere.x));
+              HS_EXPECT_TRUE(std::isfinite(RESULT.sphere.y));
+              HS_EXPECT_TRUE(std::isfinite(RESULT.sphere.z));
+              HS_EXPECT_TRUE(std::isfinite(RESULT.path_length));
+              HS_EXPECT_GE(RESULT.path_length, 0.0f);
+              HS_EXPECT_NEAR(math::dot(RESULT.sphere, RESULT.sphere), 1.0f,
+                             1e-5f);
+              HS_EXPECT_LE(ERROR, 0.002f);
+              HS_EXPECT_EQ(UNTRACKED.sphere.x, RESULT.sphere.x);
+              HS_EXPECT_EQ(UNTRACKED.sphere.y, RESULT.sphere.y);
+              HS_EXPECT_EQ(UNTRACKED.sphere.z, RESULT.sphere.z);
+              HS_EXPECT_EQ(UNTRACKED.path_length, 0.0f);
+            }
+          }
+        }
+  std::printf("  ripple grid max=%g interior=%g cutoff_exceptions=%u\n",
+              max_error, max_interior_error, cutoff_exceptions);
+}
+
+/** @brief Pole, pole-crossing and large-angle guards preserve sequential geometry. */
+inline void test_pullback_grouped_ripple_guards() {
+  using namespace Pullback::SphereAnimation;
+  PreparedRipples prepared{};
+  prepared.count = 3;
+  prepared.waves[0] = ripple_test_wave(math::Z_AXIS, 0.5f * math::PI_F, 0.07f);
+  prepared.waves[1] = ripple_test_wave(math::Y_AXIS, 0.32310888f, 0.15f);
+  prepared.waves[2] = ripple_test_wave(math::Y_AXIS, 0.5f * math::PI_F, 0.2f);
+  for (const math::Vector &view :
+       {math::Y_AXIS, -math::Y_AXIS, math::X_AXIS, 1.0001f * math::X_AXIS,
+        math::Vector(sinf(0.02f), cosf(0.02f), 0.0f)}) {
+    const auto EXPECTED = ripple_test_sequential(view, prepared);
+    const auto RESULT = grouped_ripples(view, prepared, true);
+    HS_EXPECT_NEAR(RESULT.sphere.x, EXPECTED.x, 1e-5f);
+    HS_EXPECT_NEAR(RESULT.sphere.y, EXPECTED.y, 1e-5f);
+    HS_EXPECT_NEAR(RESULT.sphere.z, EXPECTED.z, 1e-5f);
+    HS_EXPECT_TRUE(std::isfinite(RESULT.path_length));
+  }
+}
+
+/** @brief Tiny-wave travel stays continuous across the radial-basis fallback. */
+inline void test_pullback_grouped_ripple_path_continuity() {
+  using namespace Pullback::SphereAnimation;
+  PreparedRipples prepared{};
+  prepared.count = 1;
+  const float DISTANCE = asinf(0.01f);
+  prepared.waves[0] =
+      ripple_test_wave(math::Y_AXIS, DISTANCE + 0.99f * 0.175f, 0.002f);
+  const float BELOW = DISTANCE - 1e-6f;
+  const float ABOVE = DISTANCE + 1e-6f;
+  const auto A = grouped_ripples(math::Vector(sinf(BELOW), cosf(BELOW), 0.0f),
+                                 prepared, true);
+  const auto B = grouped_ripples(math::Vector(sinf(ABOVE), cosf(ABOVE), 0.0f),
+                                 prepared, true);
+  HS_EXPECT_GT(A.path_length, 1e-5f);
+  HS_EXPECT_GT(B.path_length, 1e-5f);
+  HS_EXPECT_NEAR(A.path_length, B.path_length, 2e-6f);
+  HS_EXPECT_LT((A.sphere - B.sphere).length(), 1e-5f);
+}
+
 struct AddLens : Pullback::ApproximationDefaults {
   static math::Vector apply(const math::Vector &input, const TestFrame &) {
     return math::Vector(input.x + 1.0f, input.y, input.z);
@@ -2010,6 +2208,12 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_displacement_overflow);
   HS_RUN(test_pullback_warp_phase_loop);
   HS_RUN(test_pullback_periodic_ripple);
+  HS_RUN(test_pullback_grouped_ripple_identity);
+  HS_RUN(test_pullback_grouped_ripple_analytic_crest);
+  HS_RUN(test_pullback_grouped_ripple_order);
+  HS_RUN(test_pullback_grouped_ripple_parameter_grid);
+  HS_RUN(test_pullback_grouped_ripple_guards);
+  HS_RUN(test_pullback_grouped_ripple_path_continuity);
   HS_RUN(test_pullback_lens_stack);
   HS_RUN(test_pullback_rank_skip_crossing);
   HS_RUN(test_pullback_field_curves);

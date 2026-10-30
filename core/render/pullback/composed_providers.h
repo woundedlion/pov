@@ -296,14 +296,8 @@ template <typename State> struct BurstRipple : ApproximationDefaults {
    * @return Displaced direction and accumulated path length. */
   static SurfaceResult apply(const math::Vector &input, const FrameState &frame,
                              const Prepared &prepared) {
-    SurfaceResult result{input, 0.0f};
-    for (uint8_t i = 0; i < prepared.count; ++i) {
-      const auto step = periodic_ripple(result.sphere, prepared.waves[i],
-                                        State::path_length_required(frame));
-      result.sphere = step.sphere;
-      result.path_length += step.path_length;
-    }
-    return result;
+    return SphereAnimation::grouped_ripples(input, prepared,
+                                            State::path_length_required(frame));
   }
 };
 } // namespace Surface

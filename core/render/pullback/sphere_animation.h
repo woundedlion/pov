@@ -82,6 +82,86 @@ struct PreparedRipples {
   uint8_t count = 0;                             ///< Active wave count.
 };
 
+/** @brief Applies prepared waves in launch order.
+ * @param input Unit direction.
+ * @param prepared Prepared wave kernels.
+ * @param track_path Whether to accumulate angular travel.
+ * @return Displaced direction and travel. */
+HS_HOT_ITCM_MEMBER inline SurfaceResult
+sequential_ripples(const math::Vector &input, const PreparedRipples &prepared,
+                   bool track_path) {
+  SurfaceResult result{input, 0.0f};
+  for (uint8_t index = 0; index < prepared.count; ++index) {
+    const math::Vector START = result.sphere;
+    result.sphere = ripple_transform(START, prepared.waves[index].ripple);
+    if (track_path) {
+      const math::Vector CROSS = math::cross(START, result.sphere);
+      result.path_length += atan2f(sqrtf(math::dot(CROSS, CROSS)),
+                                   math::dot(START, result.sphere));
+    }
+  }
+  return result;
+}
+
+/** @brief Groups consecutive waves sharing a center into one radial basis.
+ * @param input Unit direction.
+ * @param prepared Prepared wave kernels in launch order.
+ * @param track_path Whether to accumulate angular travel.
+ * @return Displaced direction and travel. */
+HS_HOT_ITCM_MEMBER inline SurfaceResult
+grouped_ripples(const math::Vector &input, const PreparedRipples &prepared,
+                bool track_path) {
+  SurfaceResult result{input, 0.0f};
+  uint8_t index = 0;
+  while (index < prepared.count) {
+    const math::Vector START = result.sphere;
+    const math::Vector CENTER = prepared.waves[index].ripple.center;
+    const float DISTANCE_COS = math::dot(CENTER, START);
+    float distance = math::fast_acos(hs::clamp(DISTANCE_COS, -1.0f, 1.0f));
+    float total_angle = 0.0f;
+    do {
+      const auto &wave = prepared.waves[index++].ripple;
+      const float HALF_WIDTH = wave.half_width();
+      if (wave.amplitude <= 0.001f ||
+          distance < wave.phase - 2.0f * HALF_WIDTH ||
+          distance > wave.phase + 2.0f * HALF_WIDTH)
+        continue;
+      const float T = (distance - wave.phase) / HALF_WIDTH * 2.0f;
+      const float THETA =
+          wave.amplitude * (1.0f - T * T) *
+          math::fast_expf(-0.5f * T * T - wave.decay * distance);
+      if (THETA == 0.0f)
+        continue;
+      distance += THETA;
+      if (!(distance > 0.01f && distance < math::PI_F - 0.01f))
+        return sequential_ripples(input, prepared, track_path);
+      total_angle += THETA;
+      if (track_path)
+        result.path_length += fabsf(THETA);
+    } while (index < prepared.count &&
+             prepared.waves[index].ripple.center.x == CENTER.x &&
+             prepared.waves[index].ripple.center.y == CENTER.y &&
+             prepared.waves[index].ripple.center.z == CENTER.z);
+    if (total_angle != 0.0f) {
+      const math::Vector CROSS = math::cross(CENTER, START);
+      const float CROSS_SQ = math::dot(CROSS, CROSS);
+      if (!(CROSS_SQ >= 1e-4f) ||
+          !(fabsf(math::dot(START, START) - 1.0f) <= 1e-4f))
+        return sequential_ripples(input, prepared, track_path);
+      const math::Vector AXIS = CROSS * (1.0f / sqrtf(CROSS_SQ));
+      if (fabsf(total_angle) <= RIPPLE_SMALL_ANGLE_MAX) {
+        const float H = total_angle * 0.5f, H2 = H * H;
+        const float S = H * (1.0f - H2 * (1.0f / 6.0f));
+        const float C = 1.0f - H2 * (0.5f - H2 * (1.0f / 24.0f));
+        result.sphere = math::rotate(START, math::Quaternion(C, S * AXIS));
+      } else
+        result.sphere =
+            math::rotate(START, math::make_rotation(AXIS, total_angle));
+    }
+  }
+  return result;
+}
+
 /** @brief Prepares the active wave kernels.
  * @tparam Params Ripple controls.
  * @param params Current controls.
