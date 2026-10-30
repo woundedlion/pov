@@ -611,8 +611,10 @@ inline void test_surface_max_amplitude() {
     HS_EXPECT_GT(frame_energy(image), uint64_t{0});
     HS_EXPECT_GT(a, size_t{0});
     HS_EXPECT_GT(b, size_t{0});
-    HS_EXPECT_LE(a, size_t{32 * 1024});
-    HS_EXPECT_LE(b, size_t{32 * 1024});
+    HS_EXPECT_EQ(scratch_arena_a.get_capacity(),
+                 ShapeShifterWhiteBox::SURFACE_SCRATCH_A_BYTES);
+    HS_EXPECT_EQ(scratch_arena_b.get_capacity(),
+                 ShapeShifterWhiteBox::SURFACE_SCRATCH_B_BYTES);
     std::printf("  surface amplitude10 timed=%d scratch_a=%zu scratch_b=%zu\n",
                 int(timed), a, b);
   }

@@ -133,6 +133,10 @@ struct ShapeShifterWhiteBox {
   /** @brief Kernel family used by footprint oracles. */
   using Surface = OracleEffect::Surface;
   static constexpr size_t PRESET_COUNT = OracleEffect::PRESETS.size();
+  static constexpr size_t SURFACE_SCRATCH_A_BYTES =
+      OracleEffect::SURFACE_SCRATCH_A_BYTES;
+  static constexpr size_t SURFACE_SCRATCH_B_BYTES =
+      OracleEffect::SURFACE_SCRATCH_B_BYTES;
 
   static_assert(PRESET_COUNT >= 2,
                 "the preset transition test steps from preset 0 to 1");
