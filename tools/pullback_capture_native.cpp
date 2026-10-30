@@ -323,16 +323,23 @@ Color4 exact_colorize(const Pullback::FieldSample &sample,
       sample.value, state.mapping, state.mapping_frequency,
       state.mapping_offset);
   Color4 color = state.palette->get(value);
-  if (state.modulation && state.modulation->config.enabled &&
-      state.mechanic.amount != 0.0f) {
+  float rotation = state.hue_mode == Color::HueMode::PATH_LENGTH
+                       ? state.hue_shift_amount * sample.path_length
+                       : 0.0f;
+  float scalar = 0.0f;
+  const bool ACTIVE = state.modulation && state.modulation->config.enabled &&
+                      state.mechanic.amount != 0.0f;
+  const bool HUE = state.apply_mechanic == ColorModulation::HueRotation::apply;
+  if (ACTIVE) {
     const auto direction = Pattern::SphereDirection::from(sample.sphere);
-    const float scalar =
+    scalar =
         Pattern::bounded_scalar(exact_pattern(*state.modulation, direction));
-    color = state.apply_mechanic(color, scalar, state.mechanic);
+    if (HUE)
+      rotation += state.mechanic.amount * scalar;
   }
-  if (state.hue_mode == Color::HueMode::PATH_LENGTH)
-    color = ColorModulation::HueRotation::apply(color, sample.path_length,
-                                                {state.hue_shift_amount});
+  color = ColorModulation::HueRotation::apply(color, 1.0f, {rotation});
+  if (ACTIVE && !HUE)
+    color = state.apply_mechanic(color, scalar, state.mechanic);
   color.color =
       color.color * Color::brightness_envelope_gain(
                         sample.value, state.brightness_envelope,

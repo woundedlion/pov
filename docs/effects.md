@@ -733,6 +733,8 @@ The exact fields and ranges come from the selected operator instances.
 the shared accumulated path length, to which selected displacement and warp
 operators contribute. Opposing warps contribute both traveled distances rather
 than canceling as a net offset. Hue controls belong to the colorizer instance.
+Path hue and modulation can be enabled together: their hue rotations add before
+one hue lookup, and lightness or opacity modulation applies after hue rotation.
 
 The colorizer's modulation recipe samples the sphere direction carried through
 the chain. It selects a noise, sine, interference or smooth-grid source, an

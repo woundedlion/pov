@@ -93,8 +93,10 @@ inline void test_composed_analytic_modulation_sliders() {
   HS_EXPECT_NEAR(advanced.modulation->state.phase.phase_turns, 0.875f, 0.0f);
 }
 
-template <bool Animated> struct RippleProbeSpec : Pullback::Spec {
+template <bool Animated, bool Modulated = false>
+struct RippleProbeSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = Animated;
+  static constexpr bool MODULATION = Modulated;
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -114,13 +116,13 @@ template <bool Animated> struct RippleProbeSpec : Pullback::Spec {
                                   Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 
-template <int W, int H, bool AnimatedProjection = false>
-class RippleProbe
-    : public Pullback::ComposedEffect<W, H,
-                                      RippleProbe<W, H, AnimatedProjection>,
-                                      RippleProbeSpec<AnimatedProjection>> {
+template <int W, int H, bool AnimatedProjection = false, bool Modulated = false>
+class RippleProbe : public Pullback::ComposedEffect<
+                        W, H, RippleProbe<W, H, AnimatedProjection, Modulated>,
+                        RippleProbeSpec<AnimatedProjection, Modulated>> {
 public:
-  using Params = Pullback::ParamsFor<RippleProbeSpec<AnimatedProjection>>;
+  using Params =
+      Pullback::ParamsFor<RippleProbeSpec<AnimatedProjection, Modulated>>;
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"ripple"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
@@ -139,14 +141,33 @@ public:
    * @return Type-only hook list. */
   static consteval auto choreography_hooks() {
     return Pullback::ComposedEffect<
-               W, H, RippleProbe<W, H, AnimatedProjection>,
-               RippleProbeSpec<AnimatedProjection>>::choreography_hooks()
+               W, H, RippleProbe<W, H, AnimatedProjection, Modulated>,
+               RippleProbeSpec<AnimatedProjection,
+                               Modulated>>::choreography_hooks()
         .template extend<
             RippleProbe,
             Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
                                  &RippleProbe::initial_params>>();
   }
 };
+
+/** @brief Composed path hue admits each spatial color mechanic. */
+inline void test_composed_path_modulation_admission() {
+  using FX = RippleProbe<SMALL_W, SMALL_H, false, true>;
+  auto params = FX::initial_params();
+  auto &color = params.template get<"color">();
+  color.hue_shift_amount = 0.25f;
+  color.modulation.enabled = true;
+  color.modulation.evaluation = FX::Spec::MODULATION_EVALUATION;
+  for (auto mechanic : {ColorModulation::Mechanic::HUE_ROTATION,
+                        ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT,
+                        ColorModulation::Mechanic::OPACITY}) {
+    color.modulation.mechanic = {mechanic, 0.5f};
+    HS_EXPECT_TRUE(FX::valid_params(params));
+  }
+  color.modulation.mechanic.amount = INFINITY;
+  HS_EXPECT_FALSE(FX::valid_params(params));
+}
 
 /** @brief Iso transfer and edge coverage use independent named value resources. */
 struct KeyedValueSpec : Pullback::Spec {

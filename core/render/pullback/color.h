@@ -334,34 +334,32 @@ generated_palette_endpoint(const FieldSample &sample,
       palette_mapping_coordinate(sample.value, state.mapping,
                                  state.mapping_frequency, state.mapping_offset);
   Color4 color = state.palette->get(VALUE);
-  if (state.modulation && state.modulation->config.enabled &&
-      state.mechanic.amount != 0.0f) {
+  const bool MODULATION_ACTIVE = state.modulation &&
+                                 state.modulation->config.enabled &&
+                                 state.mechanic.amount != 0.0f;
+  const bool HUE_MODULATION =
+      MODULATION_ACTIVE &&
+      state.apply_mechanic == ColorModulation::HueRotation::apply;
+  float scalar = 0.0f;
+  if (MODULATION_ACTIVE) {
     assert(direction);
-    const float SCALAR =
-        shared_scalar ? *shared_scalar
-                      : Modulation::sample(*state.modulation, *direction);
-    if (state.apply_mechanic == ColorModulation::HueRotation::apply &&
-        state.hue_rotation.active) {
-      const float ROTATION = math::wrap_t(state.mechanic.amount * SCALAR);
-      if (ROTATION != 0.0f)
-        color.color =
-            sample_hue_rotation_lut(state.hue_rotation, VALUE, ROTATION);
-    } else {
-      color = state.apply_mechanic(color, SCALAR, state.mechanic);
-    }
+    scalar = shared_scalar ? *shared_scalar
+                           : Modulation::sample(*state.modulation, *direction);
   }
-  if (state.hue_mode == HueMode::PATH_LENGTH &&
-      state.hue_shift_amount != 0.0f) {
-    const float ROTATION =
-        math::wrap_t(state.hue_shift_amount * sample.path_length);
-    if (ROTATION != 0.0f)
-      color.color =
-          state.hue_rotation.active
-              ? sample_hue_rotation_lut(state.hue_rotation, VALUE, ROTATION)
-              : ColorModulation::HueRotation::apply(color, sample.path_length,
-                                                    {state.hue_shift_amount})
-                    .color;
-  }
+  float rotation = 0.0f;
+  if (state.hue_mode == HueMode::PATH_LENGTH && state.hue_shift_amount != 0.0f)
+    rotation = math::wrap_t(state.hue_shift_amount * sample.path_length);
+  if (HUE_MODULATION)
+    rotation =
+        math::wrap_t(rotation + math::wrap_t(state.mechanic.amount * scalar));
+  if (rotation != 0.0f)
+    color.color =
+        state.hue_rotation.active
+            ? sample_hue_rotation_lut(state.hue_rotation, VALUE, rotation)
+            : ColorModulation::HueRotation::apply(color, rotation, {1.0f})
+                  .color;
+  if (MODULATION_ACTIVE && !HUE_MODULATION)
+    color = state.apply_mechanic(color, scalar, state.mechanic);
   const float GAIN =
       brightness_envelope_gain(sample.value, state.brightness_envelope,
                                state.brightness_bottom, state.brightness_top);

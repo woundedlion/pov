@@ -242,8 +242,9 @@ Zero amount may skip field evaluation and preparing unused mechanic/color
 resources, while source clocks continue. Keep any still-needed retained endpoint
 resources valid. Configuration validation remains mandatory even when skipped.
 
-The colorizer order is palette sampling, mechanic application, existing RGB
-brightness envelope, then alpha multiplication by coverage and value opacity.
+The colorizer order is palette sampling, combined path/spatial hue rotation,
+non-hue mechanic application, existing RGB brightness envelope, then alpha
+multiplication by coverage and value opacity.
 The result remains straight alpha. Final premultiplication stays in
 [the scan shader](../../core/render/scan/shader.h), after the chain; opacity
 must not multiply RGB early. Qualified optimized kernels implement this same
@@ -367,9 +368,12 @@ modulation may skip samples/bakes; reenable rebuilds needed resources from curre
 state. Palette-mapping clocks remain separate; no dormant source state is kept.
 
 Keep the existing PATH_LENGTH hue feature explicitly configured in the renderer,
-outside this spatial slot. Reject a configuration enabling both that path and
-generic modulation. Remove old noise-mode ownership machinery; do not invent a
-path-length pattern or duplicate hue API to retain it.
+outside this spatial slot. Path-length and spatial hue rotations add in turns
+before one wrapped hue lookup; a zero combined rotation returns the exact base
+palette sample. Apply lightness or opacity modulation after hue rotation, before
+the brightness envelope and coverage. Both features may be enabled together.
+Remove old noise-mode ownership machinery; do not invent a path-length pattern
+or duplicate hue API to retain it.
 
 Migrate all noise-hue and shimmer callers, includes, controls, snapshots and
 tests directly. Noise plus HueRotation and noise plus PositiveLightnessLift
@@ -524,8 +528,9 @@ Acceptance requires:
 * Source-state lifecycle tests: one scheduled owner, source-specific units/rate
   coupling, empty-state sources, disabled advancement, retention on same-source
   parameter/mechanic/strategy changes, initialization on kind/version switches,
-  typed snapshot replay, and rejection of invalid disabled recipes or concurrent
-  PATH_LENGTH and generic modulation.
+  typed snapshot replay, rejection of invalid disabled recipes, and concurrent
+  PATH_LENGTH and generic modulation, including additive hue cancellation and
+  lightness/opacity composition.
 * Raw-sample parity between pullback and modulation adapters given identical
   pattern/coordinate/parameters/prepared state, before LUT approximation.
   Preserve crossing value conversion, weighting, coverage, provenance and path

@@ -732,7 +732,7 @@ void run_colorize_variant(In::ChainProgram &program,
   HS_CONTEXT("hue / envelope", int(HueV), int(EnvelopeV));
   auto &params = param_as<In::Op::GeneratedPaletteParams>(program, 3);
   params.hue_mode = static_cast<uint8_t>(HueV);
-  params.modulation.enabled = HueV != In::Op::HueShiftMode::PATH_LENGTH;
+  params.modulation.enabled = true;
   params.envelope_mode = static_cast<uint8_t>(EnvelopeV);
   for (uint8_t palette_mode = 0; palette_mode < 3; ++palette_mode) {
     params.palette_mode = palette_mode;
@@ -745,8 +745,6 @@ void run_colorize_variant(In::ChainProgram &program,
             ColorModulation::Mechanic::OPACITY}) {
         params.modulation.mechanic.kind = mechanic;
         for (const float amount : {0.0f, 0.3f}) {
-          if (!params.modulation.enabled && amount != 0.0f)
-            continue;
           HS_CONTEXT("mechanic / amount", int(mechanic), amount);
           params.modulation.mechanic.amount = amount;
           expect_parity<PB::Weight::Projection, PB::ProjectionCoverage::Weight,
@@ -782,4 +780,90 @@ inline void test_shader_chain_parity_colorize_variants() {
     run_colorize_envelopes<In::Op::HueShiftMode::PATH_LENGTH>(
         program, ctx, COLORIZE_ENVELOPES);
   });
+}
+
+/** @brief Path hue adds to spatial hue and precedes lightness and opacity. */
+inline void test_shader_chain_combined_color_modulation() {
+  In::Op::GeneratedPaletteParams params;
+  params.hue_mode = static_cast<uint8_t>(In::Op::HueShiftMode::PATH_LENGTH);
+  params.hue_shift_amount = 0.25f;
+  params.modulation.enabled = true;
+  params.modulation.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+  params.modulation.evaluation = Pattern::Evaluation::DIRECT;
+  PB::Modulation::Resources<> modulation;
+  auto ctx = shared_resources().context();
+  ctx.modulation = &modulation.prepare(params.modulation, {});
+  const PB::FieldSample SAMPLE{0.413f, 0.6f, math::Vector(0, 1, 0), 1.0f};
+  const auto DIRECTION = Pattern::SphereDirection::from(SAMPLE.sphere);
+  const Color4 BASE = ctx.palettes[0]->get(SAMPLE.value);
+  for (bool table : {false, true}) {
+    if (!table)
+      ctx.hue_rotation_lut = nullptr;
+    else
+      ctx.hue_rotation_lut = shared_resources().context().hue_rotation_lut;
+    for (float scalar : {-1.0f, 0.0f, 1.0f}) {
+      for (float amount : {0.0f, 0.125f, -0.25f, 0.75f}) {
+        HS_CONTEXT("table", table);
+        HS_CONTEXT("scalar / eighth turns", int(scalar), int(amount * 8));
+        params.modulation.mechanic = {ColorModulation::Mechanic::HUE_ROTATION,
+                                      amount};
+        HS_EXPECT_TRUE(In::Op::ColorizeGeneratedPaletteV3::validate(params) ==
+                       nullptr);
+        const auto state = In::Op::prepare_generated_palette(ctx, params, {});
+        const float ROTATION = math::wrap_t(0.25f + scalar * amount);
+        Color4 expected = BASE;
+        if (ROTATION != 0.0f)
+          expected.color =
+              table ? sample_hue_rotation_lut(state.hue_rotation, SAMPLE.value,
+                                              ROTATION)
+                    : ColorModulation::HueRotation::apply(BASE, ROTATION, {1})
+                          .color;
+        expected.alpha *= SAMPLE.coverage;
+        const auto actual = PB::Color::generated_palette_endpoint(
+            SAMPLE, state, &DIRECTION, &scalar);
+        HS_EXPECT_TRUE(color4_identical(actual, expected));
+      }
+      for (auto mechanic : {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT,
+                            ColorModulation::Mechanic::OPACITY}) {
+        HS_CONTEXT("table", table);
+        HS_CONTEXT("scalar / mechanic", int(scalar), int(mechanic));
+        params.modulation.mechanic = {mechanic, 0.6f};
+        HS_EXPECT_TRUE(In::Op::ColorizeGeneratedPaletteV3::validate(params) ==
+                       nullptr);
+        const auto state = In::Op::prepare_generated_palette(ctx, params, {});
+        Color4 rotated = BASE;
+        rotated.color =
+            table ? sample_hue_rotation_lut(state.hue_rotation, SAMPLE.value,
+                                            0.25f)
+                  : ColorModulation::HueRotation::apply(BASE, 0.25f, {1}).color;
+        Color4 expected =
+            ColorModulation::apply(rotated, scalar, params.modulation.mechanic);
+        expected.alpha *= SAMPLE.coverage;
+        const auto actual = PB::Color::generated_palette_endpoint(
+            SAMPLE, state, &DIRECTION, &scalar);
+        HS_EXPECT_TRUE(color4_identical(actual, expected));
+      }
+    }
+  }
+}
+
+/** @brief Both edit orders admit concurrent path hue and modulation. */
+inline void test_shader_chain_combined_color_admission() {
+  reset_globals();
+  ShaderChain<96, 20> effect;
+  effect.init();
+  for (bool path_first : {false, true}) {
+    HS_EXPECT_EQ(effect.updateParameter("colorize.modulation-enabled", 0),
+                 ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(effect.updateParameter("colorize.hue-shift-mode", 0),
+                 ParamSetResult::APPLIED);
+    const char *FIRST =
+        path_first ? "colorize.hue-shift-mode" : "colorize.modulation-enabled";
+    const char *SECOND =
+        path_first ? "colorize.modulation-enabled" : "colorize.hue-shift-mode";
+    HS_EXPECT_EQ(effect.updateParameter(FIRST, 1), ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(effect.updateParameter(SECOND, 1), ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(requested_param(effect, "colorize.hue-shift-mode"), 1.0f);
+    HS_EXPECT_EQ(requested_param(effect, "colorize.modulation-enabled"), 1.0f);
+  }
 }

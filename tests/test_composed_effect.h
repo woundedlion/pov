@@ -759,6 +759,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_strobe_roster);
   HS_RUN(test_composed_analytic_modulation_sliders);
   HS_RUN(test_composed_analytic_modulation_admission);
+  HS_RUN(test_composed_path_modulation_admission);
   HS_RUN(test_temporal_clock_sampling);
   HS_RUN(test_temporal_affine_cycle);
   HS_RUN(test_temporal_custom_shade_is_authoritative);

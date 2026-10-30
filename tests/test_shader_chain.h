@@ -765,6 +765,8 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_parity_sample_projected_noise);
   HS_RUN(test_shader_chain_parity_sample_spherical_noise);
   HS_RUN(test_shader_chain_parity_colorize_variants);
+  HS_RUN(test_shader_chain_combined_color_modulation);
+  HS_RUN(test_shader_chain_combined_color_admission);
   HS_RUN(test_shader_chain_refusal_shape);
   HS_RUN(test_shader_chain_refusal_budget_overflows);
   HS_RUN(test_shader_chain_program_lifetime);

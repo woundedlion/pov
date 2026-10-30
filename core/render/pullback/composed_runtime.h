@@ -282,7 +282,7 @@ public:
            (!params.template get<"color">().modulation.enabled ||
             params.template get<"color">().modulation.evaluation ==
                 SpecT::MODULATION_EVALUATION) &&
-           ((SpecT::MODULATION && Metadata::HUE != HueMode::PATH_LENGTH) ||
+           (SpecT::MODULATION ||
             !params.template get<"color">().modulation.enabled);
   }
 #if HS_ENABLE_PARAM_GUI_BRIDGE
