@@ -299,7 +299,9 @@ apply_generated_palette(const FieldSample &sample,
 /** @brief Completes deferred color adjustments.
  * @param sample Color carrier.
  * @return Final straight-alpha color. */
-inline Color4 finish(ColorSample sample) { return finish_color_sample(sample); }
+inline Color4 finish(const ColorSample &sample) {
+  return finish_color_sample(sample);
+}
 
 /** @brief One color modulation's prepared endpoint pair. */
 struct ModulationState {
@@ -315,7 +317,7 @@ struct ModulationState {
  * @param previous Whether to sample the retained endpoint.
  * @return Modulated color carrier. */
 HS_HOT_FLASH_MEMBER inline ColorSample
-apply_modulation(ColorSample input, const ModulationState &state,
+apply_modulation(const ColorSample &input, const ModulationState &state,
                  bool previous = false) {
   if (!state.enabled || state.mechanic.amount == 0.0f)
     return input;
@@ -328,17 +330,18 @@ apply_modulation(ColorSample input, const ModulationState &state,
     scalar = Modulation::sample(
         *source, Pattern::SphereDirection::admit(input.field.sphere));
   }
+  ColorSample output = input;
   if (state.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)
-    input.pending_hue = math::wrap_t(
+    output.pending_hue = math::wrap_t(
         input.pending_hue + math::wrap_t(state.mechanic.amount * scalar));
   else if (state.mechanic.kind ==
            ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT) {
     const float LIFT = state.mechanic.amount * hs::clamp(scalar, 0.0f, 1.0f);
-    input.pending_lift += (1.0f - input.pending_lift) * LIFT;
+    output.pending_lift += (1.0f - input.pending_lift) * LIFT;
   } else {
-    input.color = ColorModulation::apply(input.color, scalar, state.mechanic);
+    output.color = ColorModulation::apply(input.color, scalar, state.mechanic);
   }
-  return input;
+  return output;
 }
 
 /// Qualified generated-palette approximation bounds.

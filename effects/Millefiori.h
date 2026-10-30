@@ -66,6 +66,7 @@ using MillefioriParams = Pullback::ParamsFor<MillefioriSpec>;
 template <int W, int H>
 class Millefiori
     : public Pullback::ComposedEffect<W, H, Millefiori<W, H>, MillefioriSpec> {
+  using Base = Pullback::ComposedEffect<W, H, Millefiori<W, H>, MillefioriSpec>;
 
 public:
   /// Parameter block derived from `MillefioriSpec`.
@@ -179,6 +180,15 @@ public:
   // End generated params.
 
 public:
+  /** @brief Evaluates the composed pixel pipeline from ITCM.
+   * @param view Unit view direction.
+   * @param frame Prepared column state.
+   * @return Straight-alpha pixel color. */
+  HS_HOT_ITCM_MEMBER static Color4 shade(const math::Vector &view,
+                                         const typename Base::Frame &frame) {
+    return Base::RenderPipeline::evaluate(view, frame.ctx, frame.prepared);
+  }
+
   /** @brief Explicit choreography customization bindings.
    * @return Type-only hook list. */
   static consteval auto choreography_hooks() {

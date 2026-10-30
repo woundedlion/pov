@@ -148,24 +148,24 @@ struct ColorSample {
 /** @brief Completes composed perceptual adjustments and final RGB brightness.
  * @param sample Color sample to finish.
  * @return Final straight-alpha color. */
-inline Color4 finish_color_sample(ColorSample sample) {
+HS_HOT_ITCM_MEMBER inline Color4
+finish_color_sample(const ColorSample &sample) {
+  Color4 color = sample.color;
   if (sample.pending_lift != 0.0f) {
-    const LinRGB input = pixel_to_linrgb(sample.color.color);
+    const LinRGB input = pixel_to_linrgb(color.color);
     OKLab lab = linear_rgb_to_oklab_fast(input.r, input.g, input.b);
     lab.L += (1.0f - lab.L) * sample.pending_lift;
-    sample.color =
-        hue_rotate_lut_gamut({lab, sample.color}, sample.pending_hue);
+    color = hue_rotate_lut_gamut({lab, color}, sample.pending_hue);
   } else if (sample.pending_hue != 0.0f) {
-    sample.color.color =
-        sample.hue_rotation
-            ? sample_hue_rotation_lut({sample.hue_rotation, true},
-                                      sample.palette_coordinate,
-                                      sample.pending_hue)
-            : hue_rotate_lut_gamut(sample.color, sample.pending_hue).color;
+    color.color = sample.hue_rotation
+                      ? sample_hue_rotation_lut({sample.hue_rotation, true},
+                                                sample.palette_coordinate,
+                                                sample.pending_hue)
+                      : hue_rotate_lut_gamut(color, sample.pending_hue).color;
   }
   if (sample.brightness_gain != 1.0f)
-    sample.color.color = sample.color.color * sample.brightness_gain;
-  return sample.color;
+    color.color = color.color * sample.brightness_gain;
+  return color;
 }
 
 static_assert(sizeof(SphereSample) == 4 * sizeof(float));
