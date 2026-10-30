@@ -359,7 +359,9 @@ inline void test_oriented_cull_keeps_visible_history_edges() {
   HS_EXPECT_GT(rejected, 0);
 }
 
-/** @brief Cached explicit poses invalidate on fraction, input, frame and collapse. */
+/** @brief The per-frame pose table matches a freshly built filter at every
+ * input and fraction, and rebuilds on a new frame, under flat sampling and
+ * after a collapse. */
 inline void test_world_orient_sample_cache() {
   math::Orientation<> history = spin_history(-0.5f, -0.08f, 3);
   Filter::World::Orient cached(history);
