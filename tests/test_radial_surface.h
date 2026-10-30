@@ -41,6 +41,31 @@ inline ReferencePoint reference_multiply(Surface::Knot c, ReferencePoint v) {
   return {c.real * v.x - c.imag * v.y, c.imag * v.x + c.real * v.y};
 }
 
+/** @brief Computes a midpoint area-quadrature color reference.
+ * @tparam Shade First-arrival shader.
+ * @param surface Prepared radial surface.
+ * @param p Pixel center in chart coordinates.
+ * @param dx,dy Full pixel footprint axes.
+ * @param n Samples along each footprint axis.
+ * @param shade Maps a first arrival to its color.
+ * @return Mean red channel over the footprint. */
+template <typename Shade>
+inline double area_reference(const Surface &surface, Surface::Point p,
+                             Surface::Point dx, Surface::Point dy, int n,
+                             const Shade &shade) {
+  double total = 0;
+  for (int y = 0; y < n; ++y)
+    for (int x = 0; x < n; ++x) {
+      const float U = (x + .5f) / n - .5f, V = (y + .5f) / n - .5f;
+      const Surface::Point Q{p.x + U * dx.x + V * dy.x,
+                             p.y + U * dx.y + V * dy.y};
+      const auto hit = surface.template sample<false, true, false>(
+          Q, Scan::radial_atan2(Q.y, Q.x));
+      total += hit.found() ? shade(hit).r : 0;
+    }
+  return total / (n * n);
+}
+
 /** @brief Finds the first point on any swept edge without angular sectors.
  * @param p Chart point.
  * @param knots Similarity knots, starting at zero scale.
@@ -429,16 +454,8 @@ inline void test_radial_surface_edge_aa() {
       HS_EXPECT_TRUE(std::isfinite(color.r));
       HS_EXPECT_GE(color.r, 0);
       HS_EXPECT_LE(color.r, 1);
-      double reference = 0;
-      for (int sx = 0; sx < 12; ++sx)
-        for (int sy = 0; sy < 12; ++sy) {
-          const Surface::Point Q{P.x + .05f * ((sx + .5f) / 12 - .5f),
-                                 P.y + .05f * ((sy + .5f) / 12 - .5f)};
-          const auto hit = surface.template sample<false, true, false>(
-              Q, Scan::radial_atan2(Q.y, Q.x));
-          reference += hit.found() ? shade(hit).r : 0;
-        }
-      reference /= 144;
+      const double reference =
+          area_reference(surface, P, {.05f, 0}, {0, .05f}, 12, shade);
       const auto center = surface.template sample<false, true, false>(
           P, Scan::radial_atan2(P.y, P.x));
       const double POINT = center.found() ? shade(center).r : 0;
@@ -680,17 +697,7 @@ inline void test_radial_surface_fixture_edge_trace() {
                                 &disabled_stats, RADIUS, EXTENT);
   HS_EXPECT_NEAR(uncounted.r, result.r, 1e-6);
   HS_EXPECT_EQ(disabled_stats.pixels, 0u);
-  double reference = 0;
-  for (int x = 0; x < 32; ++x)
-    for (int y = 0; y < 32; ++y) {
-      const float U = (x + .5f) / 32 - .5f, V = (y + .5f) / 32 - .5f;
-      const Surface::Point Q{P.x + U * DX.x + V * DY.x,
-                             P.y + U * DX.y + V * DY.y};
-      const auto hit = surface.template sample<false, true, false>(
-          Q, Scan::radial_atan2(Q.y, Q.x));
-      reference += hit.found() ? shade(hit).r : 0;
-    }
-  reference /= 1024;
+  const double reference = area_reference(surface, P, DX, DY, 32, shade);
   HS_EXPECT_GT(result.r, 0.0f);
   HS_EXPECT_NEAR(result.r, reference, 0.005);
   std::printf(
@@ -783,18 +790,7 @@ inline void test_radial_surface_terminal_background() {
     Scan::SurfaceAreaStats stats;
     const auto RESULT =
         aa.sample(surface, P, DX, DY, float(-1.42771757), 10, shade, &stats);
-    double reference = 0;
-    for (int y = 0; y < 128; ++y)
-      for (int x = 0; x < 128; ++x) {
-        const float U = (x + .5f) / 128 - .5f, V = (y + .5f) / 128 - .5f;
-        const Surface::Point P_SAMPLE{P.x + U * DX.x + V * DY.x,
-                                      P.y + U * DX.y + V * DY.y};
-        const auto HIT = surface.template sample<false, true, false>(
-            P_SAMPLE, Scan::radial_atan2(P_SAMPLE.y, P_SAMPLE.x));
-        if (HIT.found())
-          reference += shade(HIT).r;
-      }
-    reference /= 16384;
+    const double reference = area_reference(surface, P, DX, DY, 128, shade);
     HS_EXPECT_EQ(stats.clips, 1u);
     HS_EXPECT_LT(fabs(RESULT.r - reference), 0.08);
     std::printf("  terminal overlap 20,34: aa=%g reference=%g\n", RESULT.r,
@@ -865,18 +861,7 @@ inline void test_radial_surface_terminal_background() {
     Scan::SurfaceAreaStats stats;
     const auto RESULT =
         aa.sample(surface, P, DX, DY, float(-1.96934056), 10, shade, &stats);
-    double reference = 0;
-    for (int y = 0; y < 128; ++y)
-      for (int x = 0; x < 128; ++x) {
-        const float U = (x + .5f) / 128 - .5f, V = (y + .5f) / 128 - .5f;
-        const Surface::Point P_SAMPLE{P.x + U * DX.x + V * DY.x,
-                                      P.y + U * DX.y + V * DY.y};
-        const auto HIT = surface.template sample<false, true, false>(
-            P_SAMPLE, Scan::radial_atan2(P_SAMPLE.y, P_SAMPLE.x));
-        if (HIT.found())
-          reference += shade(HIT).r;
-      }
-    reference /= 16384;
+    const double reference = area_reference(surface, P, DX, DY, 128, shade);
     HS_EXPECT_EQ(stats.clips, 1u);
     HS_EXPECT_LT(fabs(RESULT.r - reference), 0.13);
     std::printf("  terminal overlap 53,74: aa=%g reference=%g\n", RESULT.r,
@@ -947,18 +932,7 @@ inline void test_radial_surface_terminal_background() {
     Scan::SurfaceAreaStats stats;
     const auto RESULT =
         aa.sample(surface, P, DX, DY, float(0.691918015), 13, shade, &stats);
-    double reference = 0;
-    for (int y = 0; y < 128; ++y)
-      for (int x = 0; x < 128; ++x) {
-        const float U = (x + .5f) / 128 - .5f, V = (y + .5f) / 128 - .5f;
-        const Surface::Point P_SAMPLE{P.x + U * DX.x + V * DY.x,
-                                      P.y + U * DX.y + V * DY.y};
-        const auto HIT = surface.template sample<false, true, false>(
-            P_SAMPLE, Scan::radial_atan2(P_SAMPLE.y, P_SAMPLE.x));
-        if (HIT.found())
-          reference += shade(HIT).r;
-      }
-    reference /= 16384;
+    const double reference = area_reference(surface, P, DX, DY, 128, shade);
     HS_EXPECT_EQ(stats.clips, 1u);
     HS_EXPECT_LT(fabs(RESULT.r - reference), 0.04);
     std::printf("  terminal overlap 89,88: aa=%g reference=%g\n", RESULT.r,
