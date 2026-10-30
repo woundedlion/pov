@@ -333,7 +333,8 @@ public:
    * @details With temporal sampling, each column samples params, operator
    * state and colour resources between the retained and current endpoints.
    * The first frame, a recompile, and a change of any topology or snapping
-   * field draw the current endpoint in every column.
+   * field draw the current endpoint in every column, except fields the
+   * operator's `temporal_hold_field` policy admits.
    */
   HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);

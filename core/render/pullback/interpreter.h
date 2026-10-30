@@ -313,7 +313,8 @@ public:
    * @brief Whether every column can sample between the retained endpoint and
    *        the committed program.
    * @return False without a retained endpoint for this program, or when a
-   *         topology or snapping field differs between the endpoints.
+   *         topology or snapping field differs between the endpoints, except
+   *         fields the operator's `temporal_hold_field` policy admits.
    */
   bool history_continuous() const {
     if (history == nullptr || history_ops.count == 0)
