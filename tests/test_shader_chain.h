@@ -60,6 +60,7 @@ static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::MIDPOINT4) == 4);
 #include "tests/shader_chain/field_ops.h"
 #include "tests/shader_chain/sample_ops.h"
 #include "tests/shader_chain/effect_cases.h"
+#include "tests/shader_chain/palette_ops.h"
 /** @brief Spatial cache ignores palette/mechanic changes and tracks source inputs. */
 inline void test_shader_chain_modulation_bake_cache() {
   using WB = ShaderChainWhiteBox;
@@ -798,6 +799,8 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_effect_rebind_generation);
   HS_RUN(test_shader_chain_effect_refusal_keeps_schema);
   HS_RUN(test_shader_chain_pause_semantics);
+  HS_RUN(test_shader_chain_palette_selection);
+  HS_RUN(test_shader_chain_authored_palette_history);
   HS_RUN(test_shader_chain_modulation_bake_cache);
   HS_RUN(test_shader_chain_modulation_clock_lifecycle);
   HS_RUN(test_shader_chain_modulation_combinations);

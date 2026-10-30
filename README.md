@@ -1476,7 +1476,8 @@ files define line-ending policy and working-artifact exclusions.
 │                                roster; their HS_ENABLE_* gates #error under ARDUINO — see §6
 │   └── shader/                 ShaderChain effect host and executable typed snapshots
 │       ├── chain_host.h        Effect host for a compiled operator chain: registered as ShaderChain
-│       └── chain_snapshot.h    Owned program, parameter, runtime and palette snapshot
+│       ├── chain_snapshot.h    Owned program, parameter, runtime and palette snapshot
+│       └── palette_selection.h Authored palette-family selection and cached baking
 │
 ├── hardware/                   Hardware drivers
 │   ├── dma_led.h               Non-blocking DMA LED controller for HD107S (Teensy 4.x)

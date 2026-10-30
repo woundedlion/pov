@@ -279,10 +279,11 @@ inline void test_shader_chain_schema_and_field_ids() {
   if (!colorize_found)
     return;
   const In::OperatorDescriptor &colorize = *colorize_found;
-  constexpr size_t COLOR_FIELDS = PB::Color::ColorParams::FIELDS.size();
+  constexpr size_t COLOR_FIELDS = In::Op::GeneratedPaletteParams::FIELDS.size();
   HS_EXPECT_SIZE_OR_RETURN(
       colorize.schema_span(),
-      COLOR_FIELDS + 4 + In::Op::GeneratedPaletteParams::EXTRA_SCHEMA.size());
+      COLOR_FIELDS + In::Op::GeneratedPaletteParams::TOPOLOGY.size() +
+          In::Op::GeneratedPaletteParams::EXTRA_SCHEMA.size());
   HS_EXPECT_TRUE(std::string_view(colorize.schema[COLOR_FIELDS].id) ==
                  "palette-mode");
   HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS].enum_count, 3);

@@ -26,6 +26,7 @@
 #include "core/render/spacetime/field.h"
 #include "core/render/spacetime.h"
 #include "workbench/shader/chain_snapshot.h"
+#include "workbench/shader/palette_selection.h"
 
 namespace hs_test {
 namespace shader_chain_tests {
@@ -517,6 +518,7 @@ private:
         below. */
     Spacetime::FrameHistory<Pullback::Interp::FrameContext> context;
     std::array<BakedPaletteStorage, 3> previous_palettes;
+    ShaderPaletteResources palette_selection;
     std::array<Pixel, HueRotationLutView::SIZE> previous_hue_rotation{};
     std::array<int8_t, Pattern::SphereLutView::SIZE> previous_pattern{};
   };
@@ -529,6 +531,8 @@ private:
     const ColorModulation::Config *modulation = nullptr;
     const uint8_t *palette_mode = nullptr;
     const uint8_t *hue_mode = nullptr;
+    const Pullback::Interp::Op::GeneratedPaletteParams *palette_params =
+        nullptr;
   };
 
   template <typename Params>
@@ -538,7 +542,8 @@ private:
             params,
             &params->modulation,
             &params->palette_mode,
-            &params->hue_mode};
+            &params->hue_mode,
+            params};
   }
 
   HS_COLD_MEMBER ColorizeTap find_colorize_tap() {
@@ -733,6 +738,14 @@ private:
     ctx.palettes = {&generated_palettes.palette(PaletteMode::TRIADIC),
                     &generated_palettes.palette(PaletteMode::COMPLEMENTARY),
                     &generated_palettes.palette(PaletteMode::ANALOGOUS)};
+    if (tap.palette_params != nullptr &&
+        tap.palette_params->palette_type !=
+            static_cast<uint8_t>(
+                Pullback::Interp::Op::PaletteType::CYCLING_GENERATED))
+      ctx.palettes[*tap.palette_mode < ctx.palettes.size() ? *tap.palette_mode
+                                                           : 0] =
+          &resources->palette_selection.prepare(persistent_arena,
+                                                *tap.palette_params);
     if (tap.modulation == nullptr)
       return ctx;
     const auto &clocks =
@@ -780,7 +793,7 @@ private:
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(Resources) +
       alignof(Resources) +
       4 * (Pullback::Interp::CHAIN_ARENA_BYTES + alignof(std::max_align_t)) +
-      3 * BakedPalette::required_arena_bytes() +
+      4 * BakedPalette::required_arena_bytes() +
 #if HS_ENABLE_PARAM_GUI_BRIDGE
       sizeof(ParameterCandidates) + alignof(ParameterCandidates) +
 #endif

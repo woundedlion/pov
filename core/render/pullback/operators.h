@@ -109,8 +109,71 @@ inline constexpr const char *BRIGHTNESS_ENVELOPE_IDS[] = {
 static_assert(std::size(BRIGHTNESS_ENVELOPE_IDS) ==
               static_cast<size_t>(EnvelopeMode::DESCENDING) + 1);
 
+/** @brief Palette source selected by the workbench color stage. */
+enum class PaletteType : uint8_t {
+  CYCLING_GENERATED, ///< Animated legacy harmony bank.
+  GENERATED,         ///< Authored perceptual palette.
+  PROCEDURAL,        ///< Named cosine palette.
+  GRADIENT,          ///< Three-stop perceptual gradient.
+  MUTATING           ///< Interpolated cosine coefficients.
+};
+/// Wire ids of palette source families.
+inline constexpr const char *PALETTE_TYPE_IDS[] = {
+    "cycling-generated", "generated", "procedural", "gradient", "mutating"};
+/// Wire ids of perceptual harmony relationships.
+inline constexpr const char *PALETTE_HARMONY_IDS[] = {
+    "monochromatic",       "analogous", "accented-analogous", "complementary",
+    "split-complementary", "triadic",   "tetradic",           "square"};
+static_assert(std::size(PALETTE_HARMONY_IDS) ==
+              static_cast<size_t>(PaletteHarmony::SQUARE) + 1);
+/// Wire ids of lightness profiles supported by the palette controls.
+inline constexpr const char *PALETTE_LIGHTNESS_CURVE_IDS[] = {
+    "constant", "ascending", "descending", "bell", "cup"};
+/// Wire ids of the named procedural palette roster.
+inline constexpr const char *PALETTE_NAME_IDS[] = {
+    "dark-rainbow", "blood-stream",   "vintage-sunset", "rich-sunset",
+    "undersea",     "late-sunset",    "mango-peel",     "ice-melt",
+    "lemon-lime",   "algae",          "embers",         "fire-glow",
+    "dark-primary", "mauve-fade",     "lavender-lake",  "desert-rose",
+    "bruised-moss", "bruised-banana", "bright-sunrise", "fire-and-ice",
+    "peach-pop",    "tidal-jade",     "blue-lagoon",    "orange-crush",
+    "plum-sunrise", "coral-blue",     "bruised-mango"};
+/// Authored palette source controls, persisted with the color operator.
+struct PaletteSelection {
+  float palette_hue = 0.0f;             ///< Base hue in turns.
+  float palette_spread = 0.07f;         ///< Harmony spread in turns.
+  float palette_lightness = 0.62f;      ///< Lightness midpoint.
+  float palette_lightness_range = 0.0f; ///< Lightness profile range.
+  float palette_mutation = 0.0f;        ///< Coefficient interpolation weight.
+  float gradient_start_r = 1.0f;        ///< First stop red, sRGB.
+  float gradient_start_g = 0.15f;       ///< First stop green, sRGB.
+  float gradient_start_b = 0.0f;        ///< First stop blue, sRGB.
+  float gradient_middle_r = 0.1f;       ///< Middle stop red, sRGB.
+  float gradient_middle_g = 1.0f;       ///< Middle stop green, sRGB.
+  float gradient_middle_b = 0.4f;       ///< Middle stop blue, sRGB.
+  float gradient_end_r = 0.1f;          ///< Last stop red, sRGB.
+  float gradient_end_g = 0.2f;          ///< Last stop green, sRGB.
+  float gradient_end_b = 1.0f;          ///< Last stop blue, sRGB.
+  uint8_t palette_type = 0;             ///< A PaletteType ordinal.
+  /// Perceptual hue relationship.
+  uint8_t palette_harmony = static_cast<uint8_t>(PaletteHarmony::TRIADIC);
+  uint8_t palette_lightness_curve = 0; ///< Lightness axis profile.
+  uint8_t palette_name = 0;            ///< First named cosine palette.
+  uint8_t palette_name_b = 19;         ///< Second named cosine palette.
+  constexpr bool operator==(const PaletteSelection &) const = default;
+};
+/// Activation gate for authored perceptual palette controls.
+inline constexpr TopologyGate GENERATED_PALETTE_GATE{
+    "palette-type", live_values(PaletteType::GENERATED)};
+/// Activation gate for cosine mutation strength.
+inline constexpr TopologyGate MUTATING_PALETTE_GATE{
+    "palette-type", live_values(PaletteType::MUTATING)};
+/// Activation gate for RGB gradient stops.
+inline constexpr TopologyGate GRADIENT_PALETTE_GATE{
+    "palette-type", live_values(PaletteType::GRADIENT)};
+
 /** @brief Parameter family of colorize.generated-palette.v3. */
-struct GeneratedPaletteParams : Color::ColorControls {
+struct GeneratedPaletteParams : Color::ColorControls, PaletteSelection {
   /// A `PaletteMode` value.
   uint8_t palette_mode = static_cast<uint8_t>(PaletteMode::TRIADIC);
   /// A `Color::PaletteMapping` value.
@@ -119,6 +182,68 @@ struct GeneratedPaletteParams : Color::ColorControls {
   uint8_t hue_mode = static_cast<uint8_t>(HueShiftMode::NONE);
   /// An `EnvelopeMode` value.
   uint8_t envelope_mode = static_cast<uint8_t>(EnvelopeMode::NONE);
+
+  static constexpr auto FIELDS = concat_fields<GeneratedPaletteParams>(
+      Color::ColorControls::FIELDS,
+      std::array{
+          Field<GeneratedPaletteParams>{
+              "palette-hue", &GeneratedPaletteParams::palette_hue, nullptr,
+              0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+              GENERATED_PALETTE_GATE},
+          Field<GeneratedPaletteParams>{
+              "palette-spread", &GeneratedPaletteParams::palette_spread,
+              nullptr, 0.0f, 0.25f, FieldCurve::LERP, FieldGate::ALWAYS,
+              GENERATED_PALETTE_GATE},
+          Field<GeneratedPaletteParams>{
+              "palette-lightness", &GeneratedPaletteParams::palette_lightness,
+              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+              GENERATED_PALETTE_GATE},
+          Field<GeneratedPaletteParams>{
+              "palette-lightness-range",
+              &GeneratedPaletteParams::palette_lightness_range, nullptr, 0.0f,
+              1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+              GENERATED_PALETTE_GATE},
+          Field<GeneratedPaletteParams>{
+              "palette-mutation", &GeneratedPaletteParams::palette_mutation,
+              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+              MUTATING_PALETTE_GATE},
+          Field<GeneratedPaletteParams>{
+              "gradient-start-r", &GeneratedPaletteParams::gradient_start_r,
+              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+              GRADIENT_PALETTE_GATE},
+          Field<GeneratedPaletteParams>{
+              "gradient-start-g", &GeneratedPaletteParams::gradient_start_g,
+              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+              GRADIENT_PALETTE_GATE},
+          Field<GeneratedPaletteParams>{
+              "gradient-start-b", &GeneratedPaletteParams::gradient_start_b,
+              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+              GRADIENT_PALETTE_GATE},
+          Field<GeneratedPaletteParams>{
+              "gradient-middle-r", &GeneratedPaletteParams::gradient_middle_r,
+              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+              GRADIENT_PALETTE_GATE},
+          Field<GeneratedPaletteParams>{
+              "gradient-middle-g", &GeneratedPaletteParams::gradient_middle_g,
+              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+              GRADIENT_PALETTE_GATE},
+          Field<GeneratedPaletteParams>{
+              "gradient-middle-b", &GeneratedPaletteParams::gradient_middle_b,
+              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+              GRADIENT_PALETTE_GATE},
+          Field<GeneratedPaletteParams>{
+              "gradient-end-r", &GeneratedPaletteParams::gradient_end_r,
+              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+              GRADIENT_PALETTE_GATE},
+          Field<GeneratedPaletteParams>{
+              "gradient-end-g", &GeneratedPaletteParams::gradient_end_g,
+              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+              GRADIENT_PALETTE_GATE},
+          Field<GeneratedPaletteParams>{
+              "gradient-end-b", &GeneratedPaletteParams::gradient_end_b,
+              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+              GRADIENT_PALETTE_GATE},
+      });
 
   /// Modulation enable values.
   static constexpr const char *ENABLED_IDS[] = {"disabled", "enabled"};
@@ -367,13 +492,26 @@ struct GeneratedPaletteParams : Color::ColorControls {
       TopologyField<GeneratedPaletteParams>{
           "brightness-envelope", &GeneratedPaletteParams::envelope_mode,
           BRIGHTNESS_ENVELOPE_IDS, static_cast<uint8_t>(EnvelopeMode::NONE)},
+      TopologyField<GeneratedPaletteParams>{
+          "palette-type", &GeneratedPaletteParams::palette_type,
+          PALETTE_TYPE_IDS, 0},
+      TopologyField<GeneratedPaletteParams>{
+          "palette-harmony", &GeneratedPaletteParams::palette_harmony,
+          PALETTE_HARMONY_IDS, static_cast<uint8_t>(PaletteHarmony::TRIADIC)},
+      TopologyField<GeneratedPaletteParams>{
+          "palette-lightness-curve",
+          &GeneratedPaletteParams::palette_lightness_curve,
+          PALETTE_LIGHTNESS_CURVE_IDS, 0},
+      TopologyField<GeneratedPaletteParams>{
+          "palette-name", &GeneratedPaletteParams::palette_name,
+          PALETTE_NAME_IDS, 0},
+      TopologyField<GeneratedPaletteParams>{
+          "palette-name-b", &GeneratedPaletteParams::palette_name_b,
+          PALETTE_NAME_IDS, 19},
   };
 };
 static_assert(field_ids_unique<GeneratedPaletteParams>());
 static_assert(field_defaults_in_range<GeneratedPaletteParams>());
-static_assert(appended_block_size_matches<GeneratedPaletteParams,
-                                          Color::ColorControls, 4>(),
-              "appended parameter block must have the expected rounded size");
 
 /** @brief Per-frame color phase clocks. */
 struct ColorClockState {
