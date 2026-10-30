@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 import contextlib
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -140,7 +141,9 @@ class ReleaseTests(unittest.TestCase):
         self.assertNotEqual(record["source_sha256"], record["evaluated_source_sha256"])
         self.assertEqual(record["tools"]["kicad_cli"], "10.0.4")
         self.assertEqual(release.sources(self.project), before)
-        self.assertEqual(len(release.verify(self.destination)), 64)
+        self.assertEqual(
+            release.verify(self.destination),
+            hashlib.sha256((self.destination / "release.json").read_bytes()).hexdigest())
         (self.destination / "output" / "jlc" / "phantasm-BOM.csv").write_text("tampered")
         with self.assertRaisesRegex(ValueError, "contents do not match"):
             release.verify(self.destination)
