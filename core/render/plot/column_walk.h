@@ -279,6 +279,14 @@ struct ColumnSegment {
   int deadline = 0; /**< Columns walked unlit before the walk gives up. */
 };
 
+/** @brief A column's position relative to a modelled longitude arc. */
+struct ColumnArcPosition {
+  /** Wrapped distance from the arc's start in its direction, columns. */
+  float offset;
+  /** Absolute endpoint separation, columns. */
+  float extent;
+};
+
 } // namespace detail
 
 /** @brief One moving edge's endpoint paths and frame-end world bases. */
@@ -663,6 +671,25 @@ public:
     motion[3] = y_to_screen_row<H>(ends[1].y) - y_to_screen_row<H>(ends[0].y);
   }
 
+  /** @brief Locates a column relative to the endpoint tracks' longitude arc.
+   * @tparam W Display width.
+   * @param column Absolute canvas column.
+   * @param time Frame fraction.
+   * @param initial_span Signed frame-start endpoint separation, columns.
+   * @param span_delta Change in signed endpoint separation over the frame, columns.
+   * @return Wrapped directed offset and absolute arc extent, columns. */
+  template <int W>
+  HS_HOT_INLINE detail::ColumnArcPosition
+  arc_column_position(int column, float time, float initial_span,
+                      float span_delta) const {
+    const float arc_start = tracks[0].origin + tracks[0].travel * time;
+    const float signed_extent = initial_span + span_delta * time;
+    float offset = signed_extent < 0.0f ? arc_start - float(column)
+                                        : float(column) - arc_start;
+    offset -= float(W) * floorf(offset * (1.0f / W));
+    return {offset, fabsf(signed_extent)};
+  }
+
   /** @brief Last possible lit column of a pass under bounded endpoint tracks.
    * @tparam W Display width.
    * @param pass,direction Arm pass and walk direction.
@@ -679,13 +706,10 @@ public:
     constexpr float HALF = W / 2.0f;
     const int final_column = pass * PASS + (direction > 0 ? PASS - 1 : 0);
     const float final_time = direction > 0 ? (HALF - 1.0f) / HALF : 0.0f;
-    const float a = tracks[0].origin + tracks[0].travel * final_time;
-    const float width = span + widening * final_time;
-    float into =
-        width < 0.0f ? a - float(final_column) : float(final_column) - a;
-    into -= float(W) * floorf(into * (1.0f / W));
-    if (into > fabsf(width) + tracks[1].guard / tracks[1].rate &&
-        into < float(W) - tracks[0].guard / tracks[0].rate) {
+    const auto position =
+        arc_column_position<W>(final_column, final_time, span, widening);
+    if (position.offset > position.extent + tracks[1].guard / tracks[1].rate &&
+        position.offset < float(W) - tracks[0].guard / tracks[0].rate) {
       if (!std::isfinite(last))
         return start;
       end = std::min(PASS, int(ceilf(last)) + 1);
@@ -751,11 +775,9 @@ public:
       int start = 0, deadline = PASS;
       if (entry[pass] > 0.0f) {
         const float time = direction > 0 ? 0.0f : (HALF - 1.0f) / HALF;
-        const float a = tracks[0].origin + tracks[0].travel * time;
-        const float width = span + widening * time;
-        float into = width < 0.0f ? a - float(first) : float(first) - a;
-        into -= float(W) * floorf(into * (1.0f / W));
-        if (into <= fabsf(width)) {
+        const auto position =
+            arc_column_position<W>(first, time, span, widening);
+        if (position.offset <= position.extent) {
           deadline = 1;
         } else {
           if (!(entry[pass] < HALF))
