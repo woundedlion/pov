@@ -475,6 +475,91 @@ inline void test_ripple_threshold_boundary() {
   HS_EXPECT_EQ(moved(pt(d_min - eps)), 0.0f);
 }
 
+/** @brief Neutral endpoint groups preserve mixed-center spawn order. */
+inline void test_ripple_kernel_endpoint_order() {
+  using namespace RippleKernel;
+  static_assert(std::is_same_v<Animation::RippleWave, Wave>);
+  std::array<Wave, 5> waves;
+  for (size_t index = 0; index < waves.size(); ++index) {
+    auto &wave = waves[index];
+    wave.center = index == 3 ? math::X_AXIS : math::Y_AXIS;
+    wave.amplitude = index == 2 ? 0.0f : 0.07f - 0.006f * index;
+    wave.phase = 0.7f + 0.19f * index;
+    wave.decay = 0.2f;
+    wave.thickness = 1.2f;
+    wave.sync();
+  }
+  std::array<EndpointGroup<Wave>, 5> groups;
+  int count = 0, first = 0;
+  for (const auto &wave : waves)
+    if (wave.amplitude > 0.001f)
+      append_endpoint(groups.data(), count, first, wave);
+  HS_EXPECT_EQ(count, 4);
+  HS_EXPECT_EQ(groups[0].end, 2);
+  HS_EXPECT_EQ(groups[2].end, 3);
+  HS_EXPECT_EQ(groups[3].end, 4);
+  HS_EXPECT_TRUE(groups[0].params == &waves[0]);
+  HS_EXPECT_TRUE(groups[1].params == &waves[1]);
+  HS_EXPECT_TRUE(groups[2].params == &waves[3]);
+  HS_EXPECT_TRUE(groups[3].params == &waves[4]);
+  size_t visited_groups = 0, visited_waves = 0;
+  for (int polar = 1; polar < 20; ++polar)
+    for (int azimuth = 0; azimuth < 23; ++azimuth) {
+      const auto INPUT = math::Vector::from_spherical(
+          azimuth * math::TWO_PI_F / 23, polar * math::PI_F / 20);
+      auto expected = INPUT;
+      for (const auto &wave : waves)
+        expected = ripple_transform(expected, wave);
+      const auto ACTUAL = sequential_groups(
+          INPUT, groups.data(), count, [&] { ++visited_groups; },
+          [&] { ++visited_waves; });
+      HS_EXPECT_TRUE(vec_bits_equal(ACTUAL, expected));
+    }
+  HS_EXPECT_EQ(visited_groups, size_t{19 * 23 * 3});
+  HS_EXPECT_GT(visited_waves, size_t{0});
+  HS_EXPECT_LT(visited_waves, size_t{19 * 23 * 4});
+}
+
+/** @brief Neutral support bands include both cutoffs and form a union. */
+inline void test_ripple_kernel_support_and_transfer() {
+  using namespace RippleKernel;
+  Wave a, b;
+  a.cos_threshold_min = 0.2f;
+  a.cos_threshold_max = -0.3f;
+  b.cos_threshold_min = 0.8f;
+  b.cos_threshold_max = -0.6f;
+  HS_EXPECT_TRUE(contains(a, a.cos_threshold_min));
+  HS_EXPECT_TRUE(contains(a, a.cos_threshold_max));
+  HS_EXPECT_FALSE(contains(a, std::nextafter(a.cos_threshold_min, 1.0f)));
+  HS_EXPECT_FALSE(contains(a, std::nextafter(a.cos_threshold_max, -1.0f)));
+  float near = -1.0f, far = 1.0f;
+  include_support(near, far, a);
+  include_support(near, far, b);
+  HS_EXPECT_EQ(near, 0.8f);
+  HS_EXPECT_EQ(far, -0.6f);
+  a.amplitude = 0.13f;
+  a.decay = 0.4f;
+  HS_EXPECT_NEAR(angle_at_distance(a, 1.25f, 1.25f), 0.13f * std::exp(-0.5f),
+                 2e-6f);
+  a.thickness = 1.0f;
+  HS_EXPECT_EQ(angle_at_distance(a, 1.25f, 1.0f), 0.0f);
+  const std::array<RadialTransfer, 3> PREVIOUS{
+      {{0.1f, 0.2f}, {0.2f, 0.4f}, {0.3f, 0.6f}}};
+  auto current = PREVIOUS;
+  for (auto &node : current) {
+    node.angle += 0.2f;
+    node.path += 0.4f;
+  }
+  RadialTransfer sample;
+  HS_EXPECT_TRUE(sample_transfer(PREVIOUS, current, math::PI_F * 0.25f, 0.25f,
+                                 true, sample));
+  HS_EXPECT_NEAR(sample.angle, 0.2f, 1e-7f);
+  HS_EXPECT_NEAR(sample.path, 0.4f, 1e-7f);
+  current[1].path = -1.0f;
+  HS_EXPECT_FALSE(sample_transfer(PREVIOUS, current, math::PI_F * 0.25f, 0.25f,
+                                  false, sample));
+}
+
 /**
  * @brief Verifies the truncated small-angle quaternion series reproduces the
  *        exact libm rotation it stands in for, and that the two branches meet
@@ -1806,6 +1891,8 @@ inline int run_transformers_tests() {
   HS_RUN(test_ripple_threshold_reject_path);
   HS_RUN(test_ripple_decay_attenuates);
   HS_RUN(test_ripple_threshold_boundary);
+  HS_RUN(test_ripple_kernel_endpoint_order);
+  HS_RUN(test_ripple_kernel_support_and_transfer);
   HS_RUN(test_ripple_small_angle_series_matches_exact);
   HS_RUN(test_ripple_threshold_collapses_past_pi);
   HS_RUN(test_transforms_nonfinite_passes_through_identity);

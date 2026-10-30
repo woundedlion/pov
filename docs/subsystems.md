@@ -935,6 +935,18 @@ void draw_frame() {
 
 ## Geometry Transformers (`transformer.h`)
 
+Spherical ripple geometry lives in `core/math/ripple.h`. `RippleKernel::Wave`
+owns the instantaneous wave and support bounds; `Animation::RippleWave` aliases
+that type. Transformer functions, pullback burst stages and IslamicStars share
+the wavelet and rotation kernels. Schedulers and capture-time interpolation stay
+with their adapters.
+
+Sequential endpoint groups reject a shared cosine band, then recompute distance
+after each wave. Angular groups update radial distance in one basis and fall
+back to sequential evaluation at pole or unit-vector limits. Pullback's optional
+radial tables sample that angular transfer; IslamicStars retains sequential
+endpoint and capture-time evaluation.
+
 Transformers deform the sphere geometry before rendering. The `Transformer<ParamsT, AnimT, TransformFunc, CAPACITY>` class manages a pool of active transform instances, each with its own animated parameters:
 
 ```cpp

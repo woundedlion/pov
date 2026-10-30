@@ -1314,6 +1314,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── pixel_mapping.h         PhiLUT/TrigLUT, pixel ↔ vector mapping, pole_wrap
 │   │   ├── spherical.h             Sphere generators, axes, Basis, and parallel transport
 │   │   ├── spherical_field.h       Latitude-ring field layout + bilinear sphere sampling
+│   │   ├── ripple.h                Shared spherical wavelet, ordered group, and radial-transfer kernels
 │   │   ├── spherical_harmonics.h   Real spherical harmonics in Cartesian form on the unit sphere
 │   │   ├── noise_basis.h           Octave noise formula selection
 │   │   ├── noise_field.h           Shared scalar/vector noise-field sampling kernels

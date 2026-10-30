@@ -894,42 +894,7 @@ private:
 /**
  * @brief A ripple wavelet at one instant: what ripple_transform() reads.
  */
-struct RippleWave {
-  math::Vector center;    /**< Center point of the ripple source. */
-  float amplitude = 0.0f; /**< Current height of the wave. */
-  float phase = 0.0f;     /**< Current phase offset (time). */
-  float decay{5.0};       /**< Spatial decay rate. */
-  float thickness{1.0f};  /**< Thickness of the ripple. */
-
-  /** @brief Cached cos(d_min): the fast-reject band's upper cutoff. */
-  float cos_threshold_min = 1.0f;
-  /** @brief Cached cos(d_max): the fast-reject band's lower cutoff. */
-  float cos_threshold_max = -1.0f;
-
-  /**
-   * @brief Ricker wavelet half-width, floored so the distance normalization
-   * never divides by zero.
-   * @return max(thickness / 2, 0.001).
-   */
-  float half_width() const {
-    float hw = thickness * 0.5f;
-    return hw < 0.001f ? 0.001f : hw;
-  }
-
-  /**
-   * @brief Recomputes the cos(angle) fast-reject bounds for the wavelet's
-   * current phase and thickness, so the renderer can skip points outside the
-   * ring.
-   */
-  void sync() {
-    float hw = half_width();
-    // Clamp into [0,π] so the fast-reject band stays engaged past phase=π.
-    float d_min = hs::clamp(phase - hw * 2.0f, 0.0f, math::PI_F);
-    float d_max = hs::clamp(phase + hw * 2.0f, 0.0f, math::PI_F);
-    cos_threshold_min = cosf(d_min);
-    cos_threshold_max = cosf(d_max);
-  }
-};
+using RippleWave = RippleKernel::Wave;
 
 /**
  * @brief Parameters for a ripple wave effect: its wave and where the wave

@@ -17,6 +17,7 @@
 #include "core/color/generative_palette.h"
 #include "core/color/baked_palette.h"
 #include "core/math/mobius.h"
+#include "core/math/ripple.h"
 #include <algorithm>
 #include <cmath>
 #include <functional>

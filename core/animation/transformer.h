@@ -727,7 +727,7 @@ OrientTransformer(const math::Orientation<CAPACITY> &)
 
 /** @brief Largest ripple rotation the series-form quaternion may take, within
  * which the truncated sin/cos series stay at float rounding. */
-constexpr float RIPPLE_SMALL_ANGLE_MAX = 0.15f;
+constexpr float RIPPLE_SMALL_ANGLE_MAX = RippleKernel::SMALL_ANGLE_MAX;
 
 /**
  * @brief Applies one ripple wavelet at a known angular distance and phase.
@@ -741,28 +741,7 @@ HS_O3_FN HS_HOT_INLINE inline math::Vector
 ripple_transform_at_distance(const math::Vector &v,
                              const Animation::RippleWave &params,
                              float distance, float phase) {
-  float dist_from_peak = distance - phase;
-  float half_width = params.half_width();
-  float t = (dist_from_peak / half_width) * 2.0f;
-  float theta = params.amplitude * (1.0f - t * t) *
-                math::fast_expf(-0.5f * t * t - params.decay * distance);
-
-  math::Vector axis = math::cross(params.center, v);
-  float len_sq = math::dot(axis, axis);
-  if (len_sq > 1e-6f) {
-    axis = axis * (1.0f / sqrtf(len_sq));
-    if (fabsf(theta) <= RIPPLE_SMALL_ANGLE_MAX) {
-      float h = 0.5f * theta;
-      float h2 = h * h;
-      float s = h * (1.0f - h2 * (1.0f / 6.0f));
-      float c = 1.0f - h2 * (0.5f - h2 * (1.0f / 24.0f));
-      return math::rotate(v, math::Quaternion(c, s * axis));
-    }
-    math::Quaternion q = math::make_rotation(axis, theta);
-    return math::rotate(v, q);
-  }
-
-  return v;
+  return RippleKernel::transform_at_distance(v, params, distance, phase);
 }
 
 /**
@@ -773,18 +752,7 @@ ripple_transform_at_distance(const math::Vector &v,
  */
 HS_O3_FN HS_HOT_INLINE inline math::Vector
 ripple_transform(const math::Vector &v, const Animation::RippleWave &params) {
-  // Between ripples the envelope drives amplitude to 0.
-  if (params.amplitude <= 0.001f)
-    return v;
-
-  // Reject outside the [d_min, d_max] angular band; see RippleParams.
-  float cos_d = math::dot(v, params.center);
-  if (cos_d > params.cos_threshold_min || cos_d < params.cos_threshold_max) {
-    return v;
-  }
-
-  float d = math::fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
-  return ripple_transform_at_distance(v, params, d, params.phase);
+  return RippleKernel::transform(v, params);
 }
 
 /**

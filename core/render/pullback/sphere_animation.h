@@ -77,11 +77,7 @@ inline math::Vector ripple_center(uint32_t seed, uint32_t burst) {
 }
 
 /** @brief Net rotation and absolute travel along one radial ray. */
-struct RadialTransfer {
-  float angle = 0.0f; ///< Signed rotation in radians.
-  float path =
-      0.0f; ///< Absolute angular travel; negative marks a pole crossing.
-};
+using RadialTransfer = RippleKernel::RadialTransfer;
 
 /** @brief Endpoint transfer curves for one burst center. */
 struct RadialGroup {
@@ -115,17 +111,12 @@ struct PreparedRipples {
 HS_HOT_ITCM_MEMBER inline SurfaceResult
 sequential_ripples(const math::Vector &input, const PreparedRipples &prepared,
                    bool track_path) {
-  SurfaceResult result{input, 0.0f};
-  for (uint8_t index = 0; index < prepared.count; ++index) {
-    const math::Vector START = result.sphere;
-    result.sphere = ripple_transform(START, prepared.waves[index].ripple);
-    if (track_path) {
-      const math::Vector CROSS = math::cross(START, result.sphere);
-      result.path_length += atan2f(sqrtf(math::dot(CROSS, CROSS)),
-                                   math::dot(START, result.sphere));
-    }
-  }
-  return result;
+  return RippleKernel::sequential<SurfaceResult>(
+      input,
+      [&](uint8_t index) HS_HOT_INLINE -> const RippleKernel::Wave & {
+        return prepared.waves[index].ripple;
+      },
+      prepared.count, track_path);
 }
 
 /** @brief Groups consecutive waves sharing a center into one radial basis.
@@ -136,55 +127,15 @@ sequential_ripples(const math::Vector &input, const PreparedRipples &prepared,
 HS_HOT_ITCM_MEMBER inline SurfaceResult
 grouped_ripples(const math::Vector &input, const PreparedRipples &prepared,
                 bool track_path) {
-  SurfaceResult result{input, 0.0f};
-  uint8_t index = 0;
-  while (index < prepared.count) {
-    const math::Vector START = result.sphere;
-    const math::Vector CENTER = prepared.waves[index].ripple.center;
-    const float DISTANCE_COS = math::dot(CENTER, START);
-    float distance = math::fast_acos(hs::clamp(DISTANCE_COS, -1.0f, 1.0f));
-    float total_angle = 0.0f;
-    do {
-      const auto &wave = prepared.waves[index++].ripple;
-      const float HALF_WIDTH = wave.half_width();
-      if (wave.amplitude <= 0.001f ||
-          distance < wave.phase - 2.0f * HALF_WIDTH ||
-          distance > wave.phase + 2.0f * HALF_WIDTH)
-        continue;
-      const float T = (distance - wave.phase) / HALF_WIDTH * 2.0f;
-      const float THETA =
-          wave.amplitude * (1.0f - T * T) *
-          math::fast_expf(-0.5f * T * T - wave.decay * distance);
-      if (THETA == 0.0f)
-        continue;
-      distance += THETA;
-      if (!(distance > 0.01f && distance < math::PI_F - 0.01f))
+  return RippleKernel::grouped<SurfaceResult>(
+      input,
+      [&](uint8_t index) HS_HOT_INLINE -> const RippleKernel::Wave & {
+        return prepared.waves[index].ripple;
+      },
+      prepared.count, track_path,
+      [&]() HS_HOT_INLINE {
         return sequential_ripples(input, prepared, track_path);
-      total_angle += THETA;
-      if (track_path)
-        result.path_length += fabsf(THETA);
-    } while (index < prepared.count &&
-             prepared.waves[index].ripple.center.x == CENTER.x &&
-             prepared.waves[index].ripple.center.y == CENTER.y &&
-             prepared.waves[index].ripple.center.z == CENTER.z);
-    if (total_angle != 0.0f) {
-      const math::Vector CROSS = math::cross(CENTER, START);
-      const float CROSS_SQ = math::dot(CROSS, CROSS);
-      if (!(CROSS_SQ >= 1e-4f) ||
-          !(fabsf(math::dot(START, START) - 1.0f) <= 1e-4f))
-        return sequential_ripples(input, prepared, track_path);
-      const math::Vector AXIS = CROSS * (1.0f / sqrtf(CROSS_SQ));
-      if (fabsf(total_angle) <= RIPPLE_SMALL_ANGLE_MAX) {
-        const float H = total_angle * 0.5f, H2 = H * H;
-        const float S = H * (1.0f - H2 * (1.0f / 6.0f));
-        const float C = 1.0f - H2 * (0.5f - H2 * (1.0f / 24.0f));
-        result.sphere = math::rotate(START, math::Quaternion(C, S * AXIS));
-      } else
-        result.sphere =
-            math::rotate(START, math::make_rotation(AXIS, total_angle));
-    }
-  }
-  return result;
+      });
 }
 
 /** @brief Evaluates a same-center wave sequence in radial coordinates.
@@ -196,25 +147,12 @@ inline RadialTransfer
 radial_transfer(float distance,
                 const std::array<Surface::PreparedRipple, 4> &waves,
                 uint8_t count) {
-  RadialTransfer result;
-  for (uint8_t i = 0; i < count; ++i) {
-    const auto &wave = waves[i].ripple;
-    const float HALF_WIDTH = wave.half_width();
-    if (wave.amplitude <= 0.001f || distance < wave.phase - 2.0f * HALF_WIDTH ||
-        distance > wave.phase + 2.0f * HALF_WIDTH)
-      continue;
-    const float T = (distance - wave.phase) / HALF_WIDTH * 2.0f;
-    const float THETA = wave.amplitude * (1.0f - T * T) *
-                        math::fast_expf(-0.5f * T * T - wave.decay * distance);
-    if (THETA == 0.0f)
-      continue;
-    distance += THETA;
-    if (!(distance > 0.01f && distance < math::PI_F - 0.01f))
-      return {0.0f, -1.0f};
-    result.angle += THETA;
-    result.path += fabsf(THETA);
-  }
-  return result;
+  return RippleKernel::radial_transfer(
+      distance,
+      [&](uint8_t index) HS_HOT_INLINE -> const RippleKernel::Wave & {
+        return waves[index].ripple;
+      },
+      count);
 }
 
 /** @brief Bakes both temporal endpoints of each burst's radial transfer.
@@ -261,10 +199,8 @@ inline void prepare_radial_tables(const Params &params,
         if (wave.amplitude <= 0.001f)
           continue;
         active = true;
-        group.cos_threshold_min =
-            fmaxf(group.cos_threshold_min, wave.cos_threshold_min);
-        group.cos_threshold_max =
-            fminf(group.cos_threshold_max, wave.cos_threshold_max);
+        RippleKernel::include_support(group.cos_threshold_min,
+                                      group.cos_threshold_max, wave);
       }
     };
     include_support(previous, previous_count);
@@ -306,39 +242,17 @@ radial_ripples(const math::Vector &input, const PreparedRipples &prepared,
       continue;
     const float DISTANCE =
         math::fast_acos(hs::clamp(DISTANCE_COS, -1.0f, 1.0f));
-    const float POSITION = DISTANCE * ((RadialGroup::SAMPLES - 1) / math::PI_F);
-    if (!(POSITION >= 0.0f && POSITION <= RadialGroup::SAMPLES - 1))
+    RadialTransfer transfer;
+    if (!RippleKernel::sample_transfer(group.previous, group.current, DISTANCE,
+                                       fraction, track_path, transfer))
       return grouped_ripples(input, prepared, track_path);
-    const size_t LOW_INDEX =
-        std::min(static_cast<size_t>(POSITION), RadialGroup::SAMPLES - 2);
-    const float WEIGHT = POSITION - LOW_INDEX;
-    const auto &a = group.previous[LOW_INDEX];
-    const auto &b = group.previous[LOW_INDEX + 1];
-    const auto &c = group.current[LOW_INDEX];
-    const auto &d = group.current[LOW_INDEX + 1];
-    if (a.path < 0.0f || b.path < 0.0f || c.path < 0.0f || d.path < 0.0f)
-      return grouped_ripples(input, prepared, track_path);
-    const float ANGLE = hs::lerp(hs::lerp(a.angle, b.angle, WEIGHT),
-                                 hs::lerp(c.angle, d.angle, WEIGHT), fraction);
     if (track_path)
-      result.path_length +=
-          hs::lerp(hs::lerp(a.path, b.path, WEIGHT),
-                   hs::lerp(c.path, d.path, WEIGHT), fraction);
-    if (ANGLE == 0.0f)
+      result.path_length += transfer.path;
+    if (transfer.angle == 0.0f)
       continue;
-    const math::Vector CROSS = math::cross(group.center, START);
-    const float CROSS_SQ = math::dot(CROSS, CROSS);
-    if (!(CROSS_SQ >= 1e-4f) ||
-        !(fabsf(math::dot(START, START) - 1.0f) <= 1e-4f))
+    if (!RippleKernel::rotate_group(START, group.center, transfer.angle,
+                                    result.sphere))
       return grouped_ripples(input, prepared, track_path);
-    const math::Vector AXIS = CROSS * (1.0f / sqrtf(CROSS_SQ));
-    if (fabsf(ANGLE) <= RIPPLE_SMALL_ANGLE_MAX) {
-      const float H = ANGLE * 0.5f, H2 = H * H;
-      const float S = H * (1.0f - H2 * (1.0f / 6.0f));
-      const float C = 1.0f - H2 * (0.5f - H2 * (1.0f / 24.0f));
-      result.sphere = math::rotate(START, math::Quaternion(C, S * AXIS));
-    } else
-      result.sphere = math::rotate(START, math::make_rotation(AXIS, ANGLE));
   }
   return result;
 }

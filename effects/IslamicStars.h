@@ -328,12 +328,7 @@ private:
   }
 
   /** @brief Consecutive endpoint ripples sharing one rejection band. */
-  struct RippleGroup {
-    const Animation::RippleParams *params = nullptr; ///< Wave in spawn order.
-    float near = 0.0f; ///< Upper cosine bound of the group.
-    float far = 0.0f;  ///< Lower cosine bound of the group.
-    int end = 0;       ///< Exclusive end of the group.
-  };
+  using RippleGroup = RippleKernel::EndpointGroup<Animation::RippleParams>;
 
   /** @brief Endpoint ripple chain with shared-center group rejection. */
   struct EndpointRipples {
@@ -342,28 +337,18 @@ private:
 
     /** @brief Applies the endpoint chain in spawn order. */
     HS_O3_FN math::Vector operator()(math::Vector v) const {
-      for (int first = 0; first < count;) {
-        const auto &group = waves[first];
-        const float cosine = math::dot(v, group.params->center);
+      return RippleKernel::sequential_groups(
+          v, waves, count,
+          []() HS_HOT_INLINE {
 #if HS_ENABLE_TEST_HOOKS
-        ++test_endpoint_groups;
+            ++test_endpoint_groups;
 #endif
-        if (cosine <= group.near && cosine >= group.far) {
-          for (int k = first; k < group.end; ++k) {
-            const auto &p = *waves[k].params;
-            const float c = k == first ? cosine : math::dot(v, p.center);
+          },
+          []() HS_HOT_INLINE {
 #if HS_ENABLE_TEST_HOOKS
             ++test_endpoint_bands;
 #endif
-            if (c > p.cos_threshold_min || c < p.cos_threshold_max)
-              continue;
-            v = ripple_transform_at_distance(
-                v, p, math::fast_acos(hs::clamp(c, -1.0f, 1.0f)), p.phase);
-          }
-        }
-        first = group.end;
-      }
-      return v;
+          });
     }
   };
 
@@ -378,22 +363,7 @@ private:
       const auto &p = ripple_gen.active_params(k);
       if (p.amplitude <= 0.001f)
         continue;
-      auto &wave = result.waves[result.count];
-      wave.params = &p;
-      if (result.count == 0 ||
-          p.center.x != result.waves[first].params->center.x ||
-          p.center.y != result.waves[first].params->center.y ||
-          p.center.z != result.waves[first].params->center.z) {
-        first = result.count;
-        wave.near = p.cos_threshold_min;
-        wave.far = p.cos_threshold_max;
-      } else {
-        result.waves[first].near =
-            fmaxf(result.waves[first].near, p.cos_threshold_min);
-        result.waves[first].far =
-            fminf(result.waves[first].far, p.cos_threshold_max);
-      }
-      result.waves[first].end = ++result.count;
+      RippleKernel::append_endpoint(result.waves, result.count, first, p);
     }
     return result;
   }
@@ -675,7 +645,7 @@ private:
       params.amplitude = params.previous_amplitude + amplitude_delta * u;
       if (params.amplitude <= 0.001f)
         return v;
-      return ripple_transform_at_distance(
+      return RippleKernel::transform_at_distance(
           v, params, math::fast_acos(hs::clamp(cosine, -1.0f, 1.0f)),
           params.phase);
     }
