@@ -737,6 +737,7 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_parity_displace_curl);
   HS_RUN(test_shader_chain_parity_displace_direct);
   HS_RUN(test_shader_chain_parity_displace_ripple);
+  HS_RUN(test_shader_chain_ripple_bursts);
   HS_RUN(test_shader_chain_parity_lens_ops);
   HS_RUN(test_shader_chain_lens_controls);
   HS_RUN(test_shader_chain_twist_animation);

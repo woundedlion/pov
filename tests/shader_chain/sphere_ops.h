@@ -114,7 +114,7 @@ inline SphereOpMirrorFrame sphere_op_mirror(In::ChainProgram &program) {
   if (id == In::Op::DisplaceRipple::ID) {
     const auto &state = state_as<In::Op::RipplePhaseState>(program, 1);
     mirror.ripple = param_as<PB::Surface::PeriodicRippleParams>(program, 1);
-    mirror.phase = state.phase;
+    mirror.phase = state.waves[0].age;
   }
   if (id == In::Op::DisplaceCurl::ID)
     mirror.curl = param_as<In::Op::CurlDisplaceParams>(program, 1);
@@ -197,14 +197,77 @@ inline void test_shader_chain_parity_displace_direct() {
 
 inline void test_shader_chain_parity_displace_ripple() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    if (!arm_sphere_op_chain<PB::Surface::PeriodicRippleParams>(
+    if (!arm_sphere_op_chain<In::Op::RippleChainParams>(
             program, In::Op::DisplaceRipple::ID, 4, set))
       return;
+    param_as<In::Op::RippleChainParams>(program, 1).random_center = 0;
     const In::FrameContext ctx = shared_resources().context();
     using Bound = typename PB::Stage::Displace<PB::Surface::PeriodicRipple<
         RippleMirrorProvider>>::template Bind<SphereOpMirrorBinding>;
     expect_sphere_op_parity<Bound>(program, ctx, sphere_op_mirror(program));
   });
+}
+
+/** @brief Ripple bursts retain their stagger, cadence and shared centers. */
+inline void test_shader_chain_ripple_bursts() {
+  using Ripple = In::Op::DisplaceRipple;
+  Ripple::Params params;
+  params.burst_rate = 1.0f / 64.0f;
+  Ripple::State state;
+  Ripple::init(state,
+               {"ripple", Ripple::ID, In::instance_hash("ripple", Ripple::ID)});
+  const auto ctx = shared_resources().context();
+  for (int frame = 0; frame < 17; ++frame)
+    Ripple::advance(state, params);
+  auto prepared = Ripple::prepare(ctx, params, state);
+  HS_EXPECT_EQ(prepared.count, 2);
+  HS_EXPECT_NEAR(prepared.waves[0].ripple.phase, 17.0f / 80.0f * math::PI_F,
+                 1e-6f);
+  HS_EXPECT_NEAR(prepared.waves[1].ripple.phase, 1.0f / 80.0f * math::PI_F,
+                 1e-6f);
+  const auto center = prepared.waves[0].ripple.center;
+  HS_EXPECT_EQ(prepared.waves[1].ripple.center.x, center.x);
+  HS_EXPECT_EQ(prepared.waves[1].ripple.center.y, center.y);
+  HS_EXPECT_EQ(prepared.waves[1].ripple.center.z, center.z);
+  const auto snapshot = In::RuntimeStateCodec<Ripple::State>::capture(state);
+  Ripple::State restored;
+  HS_EXPECT_TRUE(
+      In::RuntimeStateCodec<Ripple::State>::restore(restored, snapshot));
+  for (int frame = 17; frame < 63; ++frame) {
+    Ripple::advance(state, params);
+    Ripple::advance(restored, params);
+  }
+  HS_EXPECT_EQ(state.burst_count, 1U);
+  Ripple::advance(state, params);
+  Ripple::advance(restored, params);
+  HS_EXPECT_EQ(state.burst_count, 2U);
+  HS_EXPECT_TRUE(
+      snapshot_words(In::RuntimeStateCodec<Ripple::State>::capture(state)) ==
+      snapshot_words(In::RuntimeStateCodec<Ripple::State>::capture(restored)));
+  prepared = Ripple::prepare(ctx, params, state);
+  HS_EXPECT_EQ(prepared.count, 5);
+  const auto next_center = prepared.waves[4].ripple.center;
+  HS_EXPECT_TRUE((next_center - center).magnitude() > 0.01f);
+  params.random_center = 0;
+  params.center_azimuth = 0.7f;
+  params.center_polar = 1.2f;
+  prepared = Ripple::prepare(ctx, params, state);
+  const auto manual = math::Vector::from_spherical(0.7f, 1.2f);
+  for (uint8_t i = 0; i < prepared.count; ++i) {
+    HS_EXPECT_EQ(prepared.waves[i].ripple.center.x, manual.x);
+    HS_EXPECT_EQ(prepared.waves[i].ripple.center.y, manual.y);
+    HS_EXPECT_EQ(prepared.waves[i].ripple.center.z, manual.z);
+  }
+  params.burst_rate = 0;
+  for (int frame = 0; frame < 200; ++frame)
+    Ripple::advance(state, params);
+  HS_EXPECT_EQ(state.burst_count, 2U);
+  HS_EXPECT_EQ(Ripple::prepare(ctx, params, state).count, 0);
+  Ripple::State single;
+  params.burst_size = 0;
+  for (int frame = 0; frame < 50; ++frame)
+    Ripple::advance(single, params);
+  HS_EXPECT_EQ(Ripple::prepare(ctx, params, single).count, 1);
 }
 
 template <typename LensPolicy, typename OpParams>

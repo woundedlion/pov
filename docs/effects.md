@@ -700,6 +700,12 @@ cannot follow a projection: that would move backward in carrier rank.
 Twist Lens exposes Twist Rate and Speed. Its origin follows a languid spherical
 random walk; Speed sets its angular travel per frame, and zero holds the origin.
 
+Ripple emits bursts of one to four waves, staggered by 16 frames. Burst Rate
+sets how often a burst starts; zero stops new bursts after the initial burst.
+Ripple Duration sets each wave's expansion time. Random Center selects a new
+shared center for each burst and hides Center Azimuth and Center Polar; turning
+it off uses those manual coordinates.
+
 Planar-warp **Speed** advances its wrapped phase in cycles per frame. The chain
 operator `warp.affine.v3` uses its explicit **Lattice Period** (1/64–100 plane
 units) to scale Translation X/Y, which may be fractional. It neither derives

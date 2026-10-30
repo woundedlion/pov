@@ -87,7 +87,8 @@ export type ChainRuntimeState =
   | {instance: string; kind: 'spatial-walk-v2'; state: ChainSpatialWalkState}
   | {instance: string; kind: 'source-clock-v1'; state: {primary: number; secondary: number; angle: number}}
   | {instance: string; kind: 'noise-clock-v1'; state: {phase: number; noiseSeed: number}}
-  | {instance: string; kind: 'phase-clock-v1' | 'ripple-clock-v1'; state: {phase: number}}
+  | {instance: string; kind: 'phase-clock-v1'; state: {phase: number}}
+  | {instance: string; kind: 'ripple-burst-v1'; state: {phase: number; seed: number; burstCount: number; frames: number; waves: {age: number; burst: number}[]}}
   | {instance: string; kind: 'affine-clock-v1'; state: {phase: number; rotation: number}}
   | {instance: string; kind: 'color-clock-v2'; state: {oscillationPhase: number; modulation: {source: 0 | 1 | 2 | 3; version: 1; phaseTurns: number; initialized: boolean}}}
   | {instance: string; kind: 'spherical-rings-v2'; state: {walk: ChainSpatialWalkState; phase: number}};

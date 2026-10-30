@@ -263,8 +263,16 @@ inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {
           static_assert(sizeof(T) == 2 * sizeof(uint32_t));
           put(v.phase);
           put(v.noise_seed);
-        } else if constexpr (std::is_same_v<T, In::PhaseClockSnapshot> ||
-                             std::is_same_v<T, In::RippleClockSnapshot>) {
+        } else if constexpr (std::is_same_v<T, In::RippleClockSnapshot>) {
+          put(v.phase);
+          put(v.seed);
+          put(v.burst_count);
+          put(v.frames);
+          for (const auto &wave : v.waves) {
+            put(wave.age);
+            put(wave.burst);
+          }
+        } else if constexpr (std::is_same_v<T, In::PhaseClockSnapshot>) {
           static_assert(sizeof(T) == sizeof(uint32_t));
           put(v.phase);
         } else if constexpr (std::is_same_v<T, In::AffineClockSnapshot>) {

@@ -155,61 +155,139 @@ struct DisplaceDirect : PhaseClockModel<NoisePhaseState> {
   }
 };
 
-/** @brief Frame clock of sphere.displace.ripple.v2. */
-struct RipplePhaseState {
-  float phase = 0.0f; ///< Frames into the current period.
-};
+/** @brief Burst controls of sphere.displace.ripple.v2. */
+struct RippleChainParams : Surface::PeriodicRippleParams {
+  float burst_rate = 1.0f / 128.0f; /**< Bursts per frame. */
+  uint8_t burst_size = 3;           /**< Ripples per burst minus one. */
+  uint8_t random_center = 1;        /**< One random center per burst when on. */
 
-/** @brief Ripple endpoints whose period comes from each column's parameters. */
+  static constexpr auto FIELDS = [] {
+    auto fields = concat_fields<RippleChainParams>(
+        Surface::PeriodicRippleParams::FIELDS,
+        std::array{Field<RippleChainParams>{
+            "burst-rate", &RippleChainParams::burst_rate, "Burst Rate", 0.0f,
+            1.0f / 64.0f, FieldCurve::LERP}});
+    fields[0].name = "Ripple Duration";
+    fields[4].topology_gate = {"random-center", live_values(0)};
+    fields[5].topology_gate = {"random-center", live_values(0)};
+    return fields;
+  }();
+  /** Ripple count choices. */
+  static constexpr const char *BURST_SIZES[] = {"one", "two", "three", "four"};
+  /** Random-center toggle values. */
+  static constexpr const char *CENTER_MODES[] = {"off", "on"};
+  static constexpr auto TOPOLOGY = std::array{
+      TopologyField<RippleChainParams>{
+          "burst-size", &RippleChainParams::burst_size, BURST_SIZES, 3},
+      TopologyField<RippleChainParams>{
+          "random-center", &RippleChainParams::random_center, CENTER_MODES, 1},
+  };
+};
+static_assert(field_ids_unique<RippleChainParams>());
+static_assert(field_defaults_in_range<RippleChainParams>());
+
+/** @brief Instance-owned ripple burst scheduler. */
+struct RipplePhaseState : RippleClockSnapshot {};
+
+/** @brief Elapsed time between ripple scheduler endpoints. */
 struct RipplePhaseInterval {
-  float from; ///< Previous phase.
-  float to;   ///< Current phase.
+  uint32_t frames; ///< Frames advanced between endpoints.
 };
 
-/** @brief Retains ripple clock endpoints.
+/** @brief Retains elapsed ripple time.
  * @param from Previous state.
  * @param to Current state.
  * @return Endpoint interval. */
 inline RipplePhaseInterval temporal_interval(const RipplePhaseState &from,
                                              const RipplePhaseState &to) {
-  return {from.phase, to.phase};
+  return {to.frames - from.frames};
 }
 
-/** @brief Samples the ripple clock at the column's period.
+/** @brief Samples wave ages at column time.
  * @tparam Params Operator parameter block.
  * @param out Copy of the current state.
  * @param interval Retained endpoints.
- * @param params Column parameters.
  * @param fraction Frame fraction in [0, 1]. */
 template <typename Params>
 inline void temporal_sample(RipplePhaseState &out,
-                            const RipplePhaseInterval &interval,
-                            const Params &params, float fraction) {
-  out.phase = Spacetime::sample_clock(interval.from, interval.to, fraction,
-                                      params.period);
+                            const RipplePhaseInterval &interval, const Params &,
+                            float fraction) {
+  for (auto &wave : out.waves)
+    wave.age -= interval.frames * (1.0f - fraction);
 }
 
-/** @brief SPHERE endomorphism: a periodically expanding Ricker-wave ripple. */
+/** @brief SPHERE endomorphism: staggered bursts of spherical ripples. */
 struct DisplaceRipple : ValueStateModel<RipplePhaseState> {
   static constexpr const char *ID = "sphere.displace.ripple.v2";
-  static constexpr const char *NAME = "Ripple Displace";
+  static constexpr const char *NAME = "Ripple";
   using Input = SphereSample;
   using Output = SphereSample;
-  using Params = Surface::PeriodicRippleParams;
-  using Prepared = Surface::PreparedRipple;
+  using Params = RippleChainParams;
+  /** @brief Active waves in launch order. */
+  struct Prepared {
+    std::array<Surface::PreparedRipple, 16> waves; ///< Active ripple kernels.
+    uint8_t count = 0;                             ///< Active wave count.
+  };
 
+  static void init(State &state, InstanceId id) { state.seed = id.stable_hash; }
   static void advance(State &state, const Params &params) {
-    Surface::advance_ripple_phase(state.phase, params);
+    ++state.frames;
+    for (auto &wave : state.waves)
+      wave.age = fminf(wave.age + 1.0f, 1000.0f);
+    state.phase += params.burst_rate;
+    const bool first = state.burst_count == 0;
+    if (!first && state.phase < 1.0f)
+      return;
+    if (!first)
+      state.phase -= 1.0f;
+    const float age = first ? 1.0f : state.phase / params.burst_rate;
+    const size_t group = (state.burst_count % 4) * 4;
+    for (uint8_t i = 0; i <= params.burst_size; ++i)
+      state.waves[group + i] = {age - 16.0f * i, state.burst_count};
+    ++state.burst_count;
+  }
+
+  /** @brief Deterministic uniform center for a burst.
+   * @param seed Instance seed.
+   * @param burst Burst identity.
+   * @return Unit center direction. */
+  static math::Vector center(uint32_t seed, uint32_t burst) {
+    uint32_t hash = seed ^ (burst * 0x9e3779b9U);
+    hash = (hash ^ (hash >> 16)) * 0x7feb352dU;
+    hash = (hash ^ (hash >> 15)) * 0x846ca68bU;
+    hash ^= hash >> 16;
+    const float y = 2.0f * static_cast<float>(hash & 0xffffU) / 65535.0f - 1.0f;
+    const float azimuth =
+        static_cast<float>(hash >> 16) * (math::TWO_PI_F / 65536.0f);
+    const float radius = sqrtf(fmaxf(0.0f, 1.0f - y * y));
+    return {radius * cosf(azimuth), y, radius * sinf(azimuth)};
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
-    return Surface::prepare_ripple(params,
-                                   Surface::ripple_cycle(state.phase, params));
+    Prepared result;
+    for (uint32_t lag = 4; lag > 0; --lag) {
+      const uint32_t burst = state.burst_count - lag;
+      for (size_t i = 0; i < 4; ++i) {
+        const auto &wave = state.waves[(burst % 4) * 4 + i];
+        if (wave.age < 0.0f || wave.age >= params.period || wave.burst != burst)
+          continue;
+        auto prepared =
+            Surface::prepare_ripple(params, wave.age / params.period);
+        if (params.random_center)
+          prepared.ripple.center = center(state.seed, burst);
+        result.waves[result.count++] = prepared;
+      }
+    }
+    return result;
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &, const Prepared &prepared) {
-    return Kernel::displace(
-        input, Surface::periodic_ripple(input.dir, prepared, true));
+    auto result = input;
+    for (uint8_t i = 0; i < prepared.count; ++i)
+      result = Kernel::displace(
+          result,
+          Surface::periodic_ripple(result.dir, prepared.waves[i], true));
+    return result;
   }
 };
 

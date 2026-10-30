@@ -7,6 +7,7 @@
 /** @file runtime_snapshot.h
  * @brief Captured operator runtime state and restore codecs. */
 
+#include <array>
 #include <variant>
 #include "core/render/pullback/modulation.h"
 #include "core/render/pullback/runtime_seeds.h"
@@ -41,9 +42,18 @@ struct NoiseClockSnapshot {
 struct PhaseClockSnapshot {
   float phase = 0; ///< Loop phase in [0, 1).
 };
-/** @brief Captured ripple clock. */
+/** @brief One scheduled wave in a ripple burst. */
+struct RippleWaveSnapshot {
+  float age = 1000.0f; ///< Frames since launch; negative before launch.
+  uint32_t burst = 0;  ///< Burst identity shared by its waves.
+};
+/** @brief Captured ripple burst scheduler. */
 struct RippleClockSnapshot {
-  float phase = 0; ///< Frames into the current ripple period, non-negative.
+  float phase = 0;          ///< Fraction of the interval until the next burst.
+  uint32_t seed = 0;        ///< Instance seed for burst origins.
+  uint32_t burst_count = 0; ///< Bursts launched.
+  uint32_t frames = 0;      ///< Frames advanced.
+  std::array<RippleWaveSnapshot, 16> waves{}; ///< Scheduled ripple waves.
 };
 /** @brief Captured affine warp clock. */
 struct AffineClockSnapshot {
@@ -81,7 +91,7 @@ inline const char *runtime_snapshot_kind(const RuntimeSnapshot &snapshot) {
                                    "source-clock-v1",
                                    "noise-clock-v1",
                                    "phase-clock-v1",
-                                   "ripple-clock-v1",
+                                   "ripple-burst-v1",
                                    "affine-clock-v1",
                                    "color-clock-v2",
                                    "spherical-rings-v2"};

@@ -188,7 +188,7 @@ template <> struct RuntimeStateCodec<Op::RipplePhaseState> {
    * @return A RippleClockSnapshot.
    */
   static RuntimeSnapshot capture(const Op::RipplePhaseState &state) {
-    return RippleClockSnapshot{state.phase};
+    return static_cast<const RippleClockSnapshot &>(state);
   }
   /**
    * @brief Restores @p state from a RippleClockSnapshot.
@@ -200,10 +200,12 @@ template <> struct RuntimeStateCodec<Op::RipplePhaseState> {
   static bool restore(Op::RipplePhaseState &state,
                       const RuntimeSnapshot &snapshot) {
     const auto *value = std::get_if<RippleClockSnapshot>(&snapshot);
-    if (value == nullptr || !Pattern::finite(value->phase) ||
-        value->phase < 0.0f)
+    if (value == nullptr || !Detail::snapshot_phase(value->phase))
       return false;
-    state.phase = value->phase;
+    for (const auto &wave : value->waves)
+      if (!Pattern::finite(wave.age) || wave.age < -49.0f || wave.age > 1000.0f)
+        return false;
+    static_cast<RippleClockSnapshot &>(state) = *value;
     return true;
   }
 };

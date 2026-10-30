@@ -228,6 +228,19 @@ class ChainSnapshotCodec {
           } else if constexpr (std::is_same_v<State, AffineClockSnapshot>) {
             out.set("phase", state.phase);
             out.set("rotation", state.rotation);
+          } else if constexpr (std::is_same_v<State, RippleClockSnapshot>) {
+            out.set("phase", state.phase);
+            out.set("seed", state.seed);
+            out.set("burstCount", state.burst_count);
+            out.set("frames", state.frames);
+            auto waves = Val::array();
+            for (const auto &wave : state.waves) {
+              auto entry = Val::object();
+              entry.set("age", wave.age);
+              entry.set("burst", wave.burst);
+              waves.call<void>("push", entry);
+            }
+            out.set("waves", waves);
           } else if constexpr (std::is_same_v<State, ColorClockSnapshot>) {
             out.set("oscillationPhase", state.oscillation_phase);
             auto modulation = Val::object();
@@ -269,6 +282,21 @@ class ChainSnapshotCodec {
           !integer(value, "noiseSeed", state.noise_seed))
         return false;
       out = state;
+    } else if (kind == "ripple-burst-v1") {
+      RippleClockSnapshot state;
+      const auto waves = value["waves"];
+      if (!number(value, "phase", state.phase) ||
+          !integer(value, "seed", state.seed) ||
+          !integer(value, "burstCount", state.burst_count) ||
+          !integer(value, "frames", state.frames) ||
+          !Val::global("Array").call<bool>("isArray", waves) ||
+          waves["length"].as<unsigned>() != state.waves.size())
+        return false;
+      for (unsigned i = 0; i < state.waves.size(); ++i)
+        if (!object(waves[i]) || !number(waves[i], "age", state.waves[i].age) ||
+            !integer(waves[i], "burst", state.waves[i].burst))
+          return false;
+      out = state;
     } else if (kind == "affine-clock-v1") {
       AffineClockSnapshot state;
       if (!number(value, "phase", state.phase) ||
@@ -300,8 +328,6 @@ class ChainSnapshotCodec {
         return false;
       if (kind == "phase-clock-v1")
         out = PhaseClockSnapshot{phase};
-      else if (kind == "ripple-clock-v1")
-        out = RippleClockSnapshot{phase};
       else
         return false;
     }

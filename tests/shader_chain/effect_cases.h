@@ -891,14 +891,15 @@ inline void test_shader_chain_operator_states_sample_clocks() {
       affine, In::Op::temporal_interval(affine_from, affine_to), 0, 0.5f);
   HS_EXPECT_NEAR(std::remainder(affine.phase, 1.0f), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(std::remainder(affine.rotation, TWO_PI), 0.0f, 1e-5f);
-  In::Op::RipplePhaseState ripple_from{29.0f}, ripple_to{0.0f},
-      ripple = ripple_to;
-  PB::Surface::PeriodicRippleParams ripple_params;
-  ripple_params.period = 30.0f;
+  In::Op::RipplePhaseState ripple_from, ripple_to;
+  ripple_to.frames = 1;
+  ripple_to.waves[0].age = 30.0f;
+  auto ripple = ripple_to;
+  In::Op::RippleChainParams ripple_params;
   In::Op::temporal_sample(ripple,
                           In::Op::temporal_interval(ripple_from, ripple_to),
                           ripple_params, 0.5f);
-  HS_EXPECT_NEAR(ripple.phase, 29.5f, 1e-5f);
+  HS_EXPECT_NEAR(ripple.waves[0].age, 29.5f, 1e-5f);
   In::Op::ColorClockState color_from, color_to;
   color_from.oscillation_phase = 0.8f;
   color_to.oscillation_phase = 0.2f;

@@ -103,6 +103,8 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sphere.displace.curl.v2", "integrator", {{"euler"}}},
     {"sphere.displace.curl.v2", "limit", {{"smooth"}}},
     {"sphere.displace.direct.v2", "basis", {{"simplex"}}},
+    {"sphere.displace.ripple.v2", "burst-size", {}},
+    {"sphere.displace.ripple.v2", "random-center", {}},
     {"sphere.lens.kaleidoscope.v2",
      "symmetry",
      {{"azimuthal", "octahedral", "dodecahedral", "pentagonal-prism",
@@ -256,6 +258,6 @@ inline void test_composed_derivation_reach() {
 
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 38u);
   HS_EXPECT_EQ(unreachable_operators, 12u);
-  HS_EXPECT_EQ(catalog_values, 167u);
-  HS_EXPECT_EQ(unreachable_values, 118u);
+  HS_EXPECT_EQ(catalog_values, 173u);
+  HS_EXPECT_EQ(unreachable_values, 124u);
 }
