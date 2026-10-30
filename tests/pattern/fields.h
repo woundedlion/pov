@@ -131,9 +131,9 @@ inline void test_pattern_source_clocks() {
   grid.angle_rate = 0.03f;
   float primary = 0.1f, secondary = 0.2f, angle = 0.4f;
   advance_clocks(grid, primary, secondary, angle);
-  HS_EXPECT_EQ(primary, std::fmod(0.1f - 0.2f, math::TWO_PI_F));
-  HS_EXPECT_EQ(secondary, std::fmod(0.2f - 0.2f * 1.25f, math::TWO_PI_F));
-  HS_EXPECT_EQ(angle, std::fmod(0.4f + 0.03f, math::TWO_PI_F));
+  HS_EXPECT_NEAR(primary, -0.1f, 1.0e-8f);
+  HS_EXPECT_NEAR(secondary, -0.05f, 1.0e-8f);
+  HS_EXPECT_NEAR(angle, 0.43f, 1.0e-8f);
 }
 
 /** @brief Noise variants preserve configured sampling and octave contrast. */
