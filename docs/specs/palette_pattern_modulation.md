@@ -252,10 +252,12 @@ resources valid. Configuration validation remains mandatory even when skipped.
 The colorizer samples its palette. Color-to-Color layers accumulate their
 selected mechanics before the final RGB brightness envelope. Hue layers add
 turns across lightness and opacity layers. Positive lightness lifts compose as
-`1 - product(1 - lift)` toward white. At each color endpoint, the combined lift
-and hue rotation apply in OKLab before one final gamut mapping and RGB
-conversion. No intermediate layer clips or quantizes RGB. Hue-only endpoints
-retain the palette hue lookup; zero combined adjustments retain exact base
+`1 - product(1 - lift)` toward white. Temporal endpoints blend this deferred
+state before the combined lift and hue rotation apply in OKLab, followed by
+one final gamut mapping and RGB conversion per pixel. No intermediate layer
+clips RGB. A palette hue lookup remains valid only when the blended base color,
+palette coordinate and table are unchanged; otherwise finalization uses the
+blended RGB base. Zero combined adjustments retain the exact blended base
 color. Opacity changes only alpha and does not interrupt color composition.
 The result remains straight alpha. Final premultiplication stays in
 [the scan shader](../../core/render/scan/shader.h), after the chain; opacity
@@ -321,22 +323,23 @@ Update the independent owners and codecs together:
 
 ## Temporal behavior and topology
 
-For modulation use endpoint-color interpolation, not scalar-first blending.
-Pullback may retain its existing source-phase interpolation policy: consumer
-temporal policies can differ while identical prepared source inputs produce
-identical raw samples. Review color numeric changes instead of retaining a
-parallel engine.
+Temporal colors blend deferred endpoint state before one perceptual finish.
+Source phase and parameters are not additionally interpolated inside retained
+endpoint evaluations.
 
 For a new pattern interval with entirely unchanged modulation topology,
 retain the two prepared source states or two baked tables. Evaluate each at
 the column direction. Sample each endpoint palette with the shared column
 mapping, apply the mechanic using shared column-interpolated continuous mechanic
-controls, then apply shared RGB brightness and alpha coverage/value opacity to
-each endpoint. Interpolate these completed straight-alpha endpoint colors,
-including **both RGB and alpha**. Do not additionally
-interpolate source phase/parameters inside those endpoint evaluations. This
-avoids double interpolation and aligns direct and baked resource semantics.
-Do not interpolate the scalar first and apply the mechanic once. In particular,
+controls. Accumulate hue turns and lightness lift without converting or clipping
+either endpoint, and apply alpha coverage/value opacity to each endpoint.
+Interpolate the base RGB with Q16 rounding and alpha with the original floating
+fraction. Interpolate accumulated hue along the shortest arc on the unit circle;
+interpolate the resolved lift and final brightness gain linearly. Apply the
+combined hue and lift once to this blended base, gamut-map once, then apply
+the final RGB brightness gain. Fraction zero and one preserve their endpoint
+state exactly. Do not interpolate raw scalars before resolving mechanics: a
+negative lobe must not cancel an endpoint's positive lightness lift. In particular,
 equal base palette alpha does not imply equal modulated alpha: the common-alpha
 fast path must be disabled for opacity unless equality is proven after modulation.
 Alpha-preserving mechanics may use an equality fast path where that premise is
@@ -353,8 +356,8 @@ only when the entire topology is unchanged, even if the mechanic kind alone matc
 For example, sine-to-grid with opacity amount
 0.2-to-0.8 uses the current grid and amount 0.8 throughout the switch interval.
 Hue turns are never interpolated as opacity amount.
-Apply that mechanic to both palette endpoints and interpolate their modulated
-colors after shared downstream controls, as above. The switch may therefore be
+Apply that mechanic to both palette endpoints and interpolate their deferred
+color states before the shared finalization, as above. The switch may therefore be
 discontinuous; expose and test that policy rather than claiming cross-pattern
 morphing. Ordinary unchanged-topology intervals retain exact endpoint behavior.
 The fraction-zero result uses the previous palette with the held current
@@ -364,8 +367,9 @@ under the new type.
 Disabling therefore holds identity across that interval; enabling holds the new
 prepared modulation. Other unchanged-topology layers retain their own endpoints.
 At each temporal fraction, evaluate the complete ordered color suffix at each
-endpoint, then blend the two completed straight-alpha colors. Blending only the
-last color stage would apply upstream nonlinear mechanics to the wrong endpoint.
+endpoint without finalizing it, blend the deferred states, then finalize once.
+Blending only the last color stage would resolve upstream mechanics against
+the wrong endpoint.
 
 ## Canonical configuration and migration
 

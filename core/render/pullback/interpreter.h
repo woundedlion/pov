@@ -421,7 +421,7 @@ public:
    * @param ctx Current frame context.
    * @param previous_ctx Retained frame context.
    * @param fraction Column's frame fraction in [0, 1].
-   * @return Completed color suffixes from both endpoints, blended at @p fraction.
+   * @return Deferred endpoint colors blended before one finalization.
    */
   Color4 evaluate_column(const math::Vector &view, const FrameContext &ctx,
                          const FrameContext &previous_ctx,
@@ -455,12 +455,15 @@ public:
                            prepared);
         std::swap(in, out);
       }
-      return finish_color_sample(
-          *std::launder(reinterpret_cast<const ColorSample *>(in)));
+      return *std::launder(reinterpret_cast<const ColorSample *>(in));
     };
-    const Color4 previous = endpoint(previous_ctx, true);
-    const Color4 current = endpoint(ctx, false);
-    return previous.lerp(current, fraction);
+    if (fraction >= 1.0f)
+      return finish_color_sample(endpoint(ctx, false));
+    const ColorSample previous = endpoint(previous_ctx, true);
+    if (fraction <= 0.0f)
+      return finish_color_sample(previous);
+    return finish_color_sample(
+        blend_color_samples(previous, endpoint(ctx, false), fraction));
   }
 
   /** @brief Drops the retained endpoint and the sampled column states; the

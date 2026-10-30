@@ -227,7 +227,7 @@ inline void test_shader_chain_modulation_combinations() {
   }
 }
 
-/** @brief Temporal columns blend the completed nonlinear color suffix. */
+/** @brief Temporal columns finish one blend of deferred color endpoints. */
 inline void test_shader_chain_modulation_temporal_endpoints() {
   constexpr size_t BLOCKS = In::CHAIN_ARENA_BYTES / sizeof(std::max_align_t);
   std::vector<std::max_align_t> history(BLOCKS), column(BLOCKS);
@@ -279,18 +279,19 @@ inline void test_shader_chain_modulation_temporal_endpoints() {
     const auto VIEW = math::Vector(.3f, .7f, .2f).normalized();
     const auto field = run_entry<PB::FieldSample>(
         program, ctx, 2, projected_input(program, ctx, VIEW));
-    const auto endpoint = [&](const BakedPalette &palette, float scalar) {
-      Color4 color = palette.get(field.value);
-      HueRotateBase base = make_hue_rotate_base(color);
-      base.lab.L += (1.0f - base.lab.L) * (.6f * std::max(scalar, 0.0f));
-      color = hue_rotate_lut_gamut(base, .2f * scalar);
-      color.alpha *= field.coverage;
-      return color;
-    };
-    const auto expected = endpoint(*old_ctx.palettes[0], -.5f)
-                              .lerp(endpoint(*ctx.palettes[0], .5f), fraction);
+    const auto BASE = old_ctx.palettes[0]
+                          ->get(field.value)
+                          .lerp(ctx.palettes[0]->get(field.value), fraction);
+    HueRotateBase base = make_hue_rotate_base(BASE);
+    base.lab.L += (1.0f - base.lab.L) * (.3f * fraction);
+    auto expected =
+        hue_rotate_lut_gamut(base, math::wrap_t(-.1f + .2f * fraction));
+    expected.alpha *= field.coverage;
     const auto actual = program.evaluate_column(VIEW, ctx, old_ctx, fraction);
-    HS_EXPECT_TRUE(color4_identical(actual, expected));
+    HS_EXPECT_NEAR(actual.color.r, expected.color.r, 1.0f);
+    HS_EXPECT_NEAR(actual.color.g, expected.color.g, 1.0f);
+    HS_EXPECT_NEAR(actual.color.b, expected.color.b, 1.0f);
+    HS_EXPECT_NEAR(actual.alpha, expected.alpha, 1e-6f);
   }
 }
 

@@ -1761,7 +1761,8 @@ inline void test_pullback_modulation_temporal_alpha() {
   const auto COLOR = TemporalPalettePipeline::shade(
       math::Y_AXIS, TemporalPalettePipeline::prepare(frame));
   const auto EXPECTED =
-      RGB.lerp16(Pixel(65535, 65535, 65535), frac_to_q16(0.5f));
+      ColorModulation::PositiveLightnessLift::apply(Color4(RGB), 0.5f, {1.0f})
+          .color;
   HS_EXPECT_NEAR(COLOR.color.r, EXPECTED.r, 1.0f);
   HS_EXPECT_NEAR(COLOR.color.g, EXPECTED.g, 1.0f);
   HS_EXPECT_NEAR(COLOR.color.b, EXPECTED.b, 1.0f);
@@ -1897,10 +1898,14 @@ inline void test_pullback_composed_lightness_hue() {
     const auto MASKED = Color::finish(actual);
     HS_EXPECT_EQ(MASKED.color, FINISHED.color * 0.25f);
     HS_EXPECT_NEAR(MASKED.alpha, 0.6125f, 1e-7f);
+    actual.brightness_gain = 0.0f;
+    const auto DARK = Color::finish(actual);
+    HS_EXPECT_EQ(DARK.color, Pixel(0, 0, 0));
+    HS_EXPECT_EQ(DARK.alpha, MASKED.alpha);
   }
 }
 
-/** @brief Temporal colors complete lift and hue before endpoint blending. */
+/** @brief Temporal deferred color state blends before one perceptual finish. */
 inline void test_pullback_temporal_composed_modulations() {
   using namespace Pullback;
   using Pipeline = Pullback::Pipeline<
@@ -1936,13 +1941,46 @@ inline void test_pullback_temporal_composed_modulations() {
   for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
     frame.temporal.fraction = fraction;
     const auto COLOR = Pipeline::shade(math::Y_AXIS, Pipeline::prepare(frame));
-    const Pixel EXPECTED =
-        PREVIOUS.color.lerp16(CURRENT.color, frac_to_q16(fraction));
-    HS_EXPECT_NEAR(COLOR.color.r, EXPECTED.r, 1.0f);
-    HS_EXPECT_NEAR(COLOR.color.g, EXPECTED.g, 1.0f);
-    HS_EXPECT_NEAR(COLOR.color.b, EXPECTED.b, 1.0f);
+    const auto BASE = START.color.lerp16(END.color, frac_to_q16(fraction));
+    const auto EXPECTED = composed_modulation_reference(
+        Color4(BASE), 0.75f - 0.5f * fraction, 0.4f * fraction);
+    HS_EXPECT_NEAR(COLOR.color.r, EXPECTED.color.r, 1.0f);
+    HS_EXPECT_NEAR(COLOR.color.g, EXPECTED.color.g, 1.0f);
+    HS_EXPECT_NEAR(COLOR.color.b, EXPECTED.color.b, 1.0f);
     HS_EXPECT_NEAR(COLOR.alpha, 0.04f + 0.08f * fraction, 1e-6f);
+    if (fraction > 0.0f && fraction < 1.0f) {
+      const auto COMPLETED_BLEND =
+          PREVIOUS.color.lerp16(CURRENT.color, frac_to_q16(fraction));
+      HS_EXPECT_GT(std::abs(int(COLOR.color.r) - int(COMPLETED_BLEND.r)) +
+                       std::abs(int(COLOR.color.g) - int(COMPLETED_BLEND.g)) +
+                       std::abs(int(COLOR.color.b) - int(COMPLETED_BLEND.b)),
+                   1000);
+    }
   }
+}
+
+/** @brief Deferred hues take the short arc and preserve endpoint identities. */
+inline void test_pullback_temporal_deferred_hue_wrap() {
+  using namespace Pullback;
+  ColorSample a{Color4(Pixel(65535, 0, 0), 0.2f), {}};
+  ColorSample b{Color4(Pixel(0, 0, 65535), 0.8f), {}};
+  a.pending_hue = 0.95f;
+  b.pending_hue = 0.05f;
+  a.pending_lift = 0.2f;
+  b.pending_lift = 0.8f;
+  a.brightness_gain = 0.25f;
+  b.brightness_gain = 0.75f;
+  const auto MIXED = blend_color_samples(a, b, 0.5f);
+  HS_EXPECT_NEAR(MIXED.pending_hue, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(MIXED.pending_lift, 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(MIXED.brightness_gain, 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(MIXED.color.alpha, 0.5f, 1e-6f);
+  HS_EXPECT_EQ(MIXED.color.color,
+               a.color.color.lerp16(b.color.color, frac_to_q16(0.5f)));
+  HS_EXPECT_EQ(blend_color_samples(a, b, 0.0f).color.color, a.color.color);
+  HS_EXPECT_EQ(blend_color_samples(a, b, 1.0f).color.color, b.color.color);
+  HS_EXPECT_EQ(blend_color_samples(a, b, 0.0f).pending_hue, a.pending_hue);
+  HS_EXPECT_EQ(blend_color_samples(a, b, 1.0f).pending_hue, b.pending_hue);
 }
 
 /** @brief Runs pullback tests. */
@@ -1981,6 +2019,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_stacked_modulations);
   HS_RUN(test_pullback_composed_lightness_hue);
   HS_RUN(test_pullback_temporal_composed_modulations);
+  HS_RUN(test_pullback_temporal_deferred_hue_wrap);
   return fixture.result();
 }
 

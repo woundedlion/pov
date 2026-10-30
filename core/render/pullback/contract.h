@@ -16,6 +16,7 @@
 #include "core/color/color.h"
 #include "core/color/hue_rotation_lut.h"
 #include "core/math/geometry.h"
+#include "core/math/interpolate.h"
 #include "core/math/projections.h"
 
 /**
@@ -145,12 +146,43 @@ struct ColorSample {
   float pending_lift = 0.0f;       ///< Composed lightness lift toward white.
 };
 
+/** @brief Blends deferred color state before perceptual finalization.
+ * @param a Retained endpoint.
+ * @param b Current endpoint.
+ * @param fraction Current endpoint weight.
+ * @return Interpolated base color, hue turns, lift and brightness. */
+HS_HOT_ITCM_MEMBER inline ColorSample blend_color_samples(const ColorSample &a,
+                                                          const ColorSample &b,
+                                                          float fraction) {
+  if (fraction <= 0.0f)
+    return a;
+  if (fraction >= 1.0f)
+    return b;
+  ColorSample result = b;
+  result.color =
+      Color4(a.color.color.lerp16(b.color.color, frac_to_q16(fraction)),
+             hs::lerp(a.color.alpha, b.color.alpha, fraction));
+  result.pending_hue = a.pending_hue == b.pending_hue
+                           ? a.pending_hue
+                           : interp::shortest_periodic(
+                                 a.pending_hue, b.pending_hue, fraction, 1.0f);
+  result.pending_lift = hs::lerp(a.pending_lift, b.pending_lift, fraction);
+  result.brightness_gain =
+      hs::lerp(a.brightness_gain, b.brightness_gain, fraction);
+  if (a.color.color != b.color.color || a.hue_rotation != b.hue_rotation ||
+      a.palette_coordinate != b.palette_coordinate)
+    result.hue_rotation = nullptr;
+  return result;
+}
+
 /** @brief Completes composed perceptual adjustments and final RGB brightness.
  * @param sample Color sample to finish.
  * @return Final straight-alpha color. */
 HS_HOT_ITCM_MEMBER inline Color4
 finish_color_sample(const ColorSample &sample) {
   Color4 color = sample.color;
+  if (sample.brightness_gain == 0.0f)
+    return Color4(Pixel(0, 0, 0), color.alpha);
   if (sample.pending_lift != 0.0f) {
     const LinRGB input = pixel_to_linrgb(color.color);
     OKLab lab = linear_rgb_to_oklab_fast(input.r, input.g, input.b);
@@ -1383,9 +1415,9 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
    * @param input Carrier fed to node @p Index.
    * @param ctx Per-frame state.
    * @param prepared Per-node prepared state.
-   * @return The last node's `Color4`. */
+   * @return The last node's deferred color sample. */
   template <size_t Index, typename Input>
-  __attribute__((always_inline)) static Color4
+  __attribute__((always_inline)) static ColorSample
   run_stage(const Input &input, const FrameState &ctx,
             const PreparedTuple &prepared, bool previous = false) {
     using CurrentNode = NodeAt<Index>;
@@ -1404,7 +1436,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
     const auto finish = [&](const auto &output,
                             bool retained) __attribute__((always_inline)) {
       if constexpr (Index + 1 == NODE_COUNT)
-        return finish_color_sample(output);
+        return output;
       else
         return run_stage<Index + 1>(output, ctx, prepared, retained);
     };
@@ -1414,12 +1446,11 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                   requires { ctx.temporal.fraction; }) {
       const float FRACTION = ctx.temporal.fraction;
       if (FRACTION < 1.0f) {
-        const Color4 A = finish(endpoint(true), true);
+        const ColorSample A = finish(endpoint(true), true);
         if (FRACTION <= 0.0f)
           return A;
-        const Color4 B = finish(output, false);
-        return Color4(A.color.lerp16(B.color, frac_to_q16(FRACTION)),
-                      hs::lerp(A.alpha, B.alpha, FRACTION));
+        const ColorSample B = finish(output, false);
+        return blend_color_samples(A, B, FRACTION);
       }
     }
     return finish(output, previous);
@@ -1594,7 +1625,8 @@ public:
       result = Policy::project(LOCAL, frame.ctx);
     const PlaneSample PLANE{result.coords, result.provenance, LOCAL, 0.0f};
     Instrumentation::template span<ProfileEvent::PROJECTION>(start);
-    return Core::template run_stage<2>(PLANE, frame.ctx, frame.prepared);
+    return finish_color_sample(
+        Core::template run_stage<2>(PLANE, frame.ctx, frame.prepared));
   }
 
   /** @brief Resolves every stage's prepared state from @p ctx.
@@ -1631,7 +1663,8 @@ public:
   __attribute__((always_inline)) static Color4
   evaluate(const math::Vector &view, const FrameState &ctx,
            const PreparedTuple &prepared) {
-    return Core::template run_stage<0>(SphereSample{view, 0.0f}, ctx, prepared);
+    return finish_color_sample(
+        Core::template run_stage<0>(SphereSample{view, 0.0f}, ctx, prepared));
   }
 
   /** @brief Shades a view direction using a frame returned by prepare().
