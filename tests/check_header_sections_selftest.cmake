@@ -84,6 +84,25 @@ file(WRITE "${WORK}/tests/replay_helpers.h" "\ninline void capture_frame() {\n}\
 check_gate("${CALL_GATE}" FALSE "test cases reach no assertion: test_alpha.h:test_guard")
 file(REMOVE "${WORK}/tests/replay_helpers.h")
 
+set(_forward_declared [=[template <typename T> void verify_helper(T value);
+inline void test_guard() {
+  verify_helper(1);
+}
+inline int run_alpha_tests() {
+  test_guard();
+  return 0;
+}
+]=])
+file(WRITE "${WORK}/tests/test_alpha.h" "\n${_forward_declared}")
+file(WRITE "${WORK}/tests/pixel_helpers.h" "\ntemplate <typename T> void verify_helper(T value) {\n  HS_EXPECT_TRUE(value);\n}\n")
+file(WRITE "${WORK}/tests/off_roster_headers.cmake" "set(HS_OFF_ROSTER_HEADER_NAMES pixel_helpers.h)\n")
+check_gate("${CALL_GATE}" TRUE "all 2 case definitions")
+file(WRITE "${WORK}/tests/pixel_helpers.h" "\ntemplate <typename T> void verify_helper(T value) {\n}\n")
+check_gate("${CALL_GATE}" FALSE "test cases reach no assertion")
+file(WRITE "${WORK}/tests/test_alpha.h" "\n${_cross_header}")
+file(WRITE "${WORK}/tests/pixel_helpers.h" "\n${_asserting_helpers}")
+file(WRITE "${WORK}/tests/off_roster_headers.cmake" "set(HS_OFF_ROSTER_HEADER_NAMES)\n")
+
 set(_overload [=[inline void capture_frame(int value) {
   HS_EXPECT_TRUE(value);
 }
