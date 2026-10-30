@@ -695,7 +695,8 @@ cannot follow a projection: that would move backward in carrier rank.
 | **Sphere source** | Spherical Noise, Spherical Rings | Sphere → Field; source-specific controls; no projection or planar warp |
 | **Value transfer** | Ridge, Iso Contour, Smooth Bands | Field → Field; reshapes the normalized value; iso and band controls belong to their operator |
 | **Coverage** | Value Cutout | Field → Field; cutout threshold and softness; projection-based coverage belongs to planar sources |
-| **Colorize** | Generated Triadic, Complementary, Analogous | Field → Color; palette mapping, phase oscillation, brightness envelope, opacity, optional path-length hue shift and a sphere-space modulation recipe |
+| **Colorize** | Cycling Generated, Generated, Procedural, Gradient, Mutating | Field → Color; palette selection, harmony, chroma, color mapping, brightness envelope and opacity |
+| **Modulations** | Field Modulation, Hue Shift | Color → Color; ordered independent pattern/mechanic stages and path-length hue rotation |
 
 Twist Lens exposes Twist Rate and Speed. Its origin follows a languid spherical
 random walk; Speed sets its angular travel per frame, and zero holds the origin.

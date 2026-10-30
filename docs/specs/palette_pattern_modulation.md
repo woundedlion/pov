@@ -12,11 +12,45 @@ Noise plus hue rotation is the existing noise modifier; noise plus positive
 lightness lift is shimmer. Grid plus opacity uses the same protocol.
 Keep ordinary palette lookup, `get(float)`, unchanged.
 
-First delivery provides one slot: noise/sine/interference/grid sources and
-hue/lightness/opacity mechanics, for composed pullback and the workbench.
-Graphs, expression parsing, additional modulation coordinate bindings, remapping and
-multiple-mechanic ordering are deferred. Migrate existing callers directly,
-with no compatibility wrappers, fallback configuration or parallel implementation.
+Composed pullback provides one spatial slot. The workbench also supports an
+ordered list of independent color modulation stages: noise/sine/interference/grid
+sources with hue/lightness/opacity mechanics, and a path-length hue stage.
+Graphs, expression parsing, additional modulation coordinate bindings and
+remapping remain outside this contract.
+
+## Workbench color and modulation stages
+
+The permanent Color card owns palette selection, palette-family controls,
+color mapping, brightness and value opacity. Palette types include cycling
+generated palettes, recipe-generated palettes, named procedural cosine palettes,
+gradients and mutating procedural palettes. Generated recipes expose the
+supported harmonies and their hue, lightness and chroma controls. Type-specific
+controls are visible only for the selected palette family.
+
+The Modulations container follows Color. Each entry is a real COLOR-to-COLOR
+operator in the serialized chain. Entries can repeat and can be reordered,
+removed or bypassed independently. `modulate.field.v1` owns a pattern recipe,
+evaluation strategy, mechanic and source clock. `modulate.hue-shift.v1` rotates
+hue according to the retained field path length. Hue shift has no separate
+section in the Color card.
+
+The color operators retain the last field sample's sphere direction and path
+length through evaluation. This keeps projection-frame directions for planar
+sources and camera-frame directions for sphere sources. Each modulation applies
+to the preceding stage's straight-alpha output. Source clocks, cached resources,
+history and snapshots belong to the individual stage. Repeated stages never
+share mutable source state.
+
+At column time, the field prefix is evaluated once. The complete Color and
+Modulations tail is evaluated with each retained resource endpoint and shared
+column-interpolated continuous controls. The final straight-alpha colors are
+blended once; intermediate modulation outputs are not blended separately.
+
+Loading an older workbench document expands its embedded spatial modulation
+and path-length hue controls into explicit stages, preserving each preset's
+controls and disabling the embedded copies. Linked runtime snapshots migrate
+with the document's chain and parameters. Composed effects retain their existing
+single-slot colorizer and ordering.
 
 ## Existing behavior
 
@@ -242,7 +276,7 @@ Zero amount may skip field evaluation and preparing unused mechanic/color
 resources, while source clocks continue. Keep any still-needed retained endpoint
 resources valid. Configuration validation remains mandatory even when skipped.
 
-The colorizer order is palette sampling, combined path/spatial hue rotation,
+The composed colorizer order is palette sampling, combined path/spatial hue rotation,
 non-hue mechanic application, existing RGB brightness envelope, then alpha
 multiplication by coverage and value opacity.
 The result remains straight alpha. Final premultiplication stays in
@@ -273,7 +307,7 @@ cube face conventions and duplicated edge evaluation to avoid seams.
 
 ## Ownership, cache invalidation and replay
 
-The effect/runtime arena owns prepared state and tables; views borrow through
+The effect/runtime owns prepared state and tables; views borrow through
 the draw and retained interval. Direct endpoints own/copy complete source inputs
 or borrow immutable retained generators. A live pointer to a mutated generator
 is insufficient. Do not retain mutable controls or overwrite a still-read table.
@@ -367,8 +401,8 @@ never reinterpret the old type. Snapshot restore restores typed state. Disabled
 modulation may skip samples/bakes; reenable rebuilds needed resources from current
 state. Palette-mapping clocks remain separate; no dormant source state is kept.
 
-Keep the existing PATH_LENGTH hue feature explicitly configured in the renderer,
-outside this spatial slot. Path-length and spatial hue rotations add in turns
+Composed effects keep the existing PATH_LENGTH hue feature explicitly configured
+in the renderer, outside their spatial slot. Path-length and spatial hue rotations add in turns
 before one wrapped hue lookup; a zero combined rotation returns the exact base
 palette sample. Apply lightness or opacity modulation after hue rotation, before
 the brightness envelope and coverage. Both features may be enabled together.
