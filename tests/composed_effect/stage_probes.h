@@ -60,8 +60,10 @@ inline void test_composed_analytic_modulation_sliders() {
   HS_EXPECT_TRUE(effect.getParameters().find("Pattern Scale") == nullptr);
   const auto *AMOUNT = effect.getParameters().find("Modulation Amount");
   HS_EXPECT_TRUE(AMOUNT != nullptr);
-  HS_EXPECT_NEAR(AMOUNT->min, 0.0f, 0.0f);
-  HS_EXPECT_NEAR(AMOUNT->max, 1.0f, 0.0f);
+  if (AMOUNT != nullptr) {
+    HS_EXPECT_NEAR(AMOUNT->min, 0.0f, 0.0f);
+    HS_EXPECT_NEAR(AMOUNT->max, 1.0f, 0.0f);
+  }
   const auto *SPEED = effect.getParameters().find("Pattern Speed");
   HS_EXPECT_TRUE(SPEED != nullptr);
   if (SPEED != nullptr) {
