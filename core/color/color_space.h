@@ -1100,22 +1100,29 @@ inline void hue_sincos(float turns, float &cosine, float &sine) {
 }
 
 /**
- * @brief Perceptual (OKLab) hue rotation clipped straight off the gamut LUT.
- * @param base Precomputed base from make_hue_rotate_base().
+ * @brief Rotates OKLab hue and returns gamut-mapped linear RGB.
+ * @param lab Perceptual input color.
  * @param amount Rotation in turns (0..1 = full turn).
- * @return The hue-rotated color, carrying the base alpha.
+ * @return Hue-rotated linear RGB before quantization.
  * @details Uses hue_sincos(), so chroma scales slightly with @p amount; each
  * call rotates a fresh base, so the scaling never compounds.
  */
-inline Color4 hue_rotate_lut_gamut(const HueRotateBase &base, float amount) {
+inline LinRGB hue_rotate_lut_gamut_rgb(OKLab lab, float amount) {
   float cosine, sine;
   hue_sincos(amount, cosine, sine);
-  OKLab lab = base.lab;
   const float rotated_a = lab.a * cosine - lab.b * sine;
   const float rotated_b = lab.a * sine + lab.b * cosine;
   lab = {lab.L, rotated_a, rotated_b};
-  const LinRGB output = oklab_to_linear_rgb_lut_gamut(lab);
-  return Color4(linrgb_to_pixel(output), base.base.alpha);
+  return oklab_to_linear_rgb_lut_gamut(lab);
+}
+
+/** @brief Rotates a perceptual base and quantizes its gamut-mapped RGB.
+ * @param base Precomputed perceptual base and alpha.
+ * @param amount Rotation in turns.
+ * @return Hue-rotated color with the base alpha. */
+inline Color4 hue_rotate_lut_gamut(const HueRotateBase &base, float amount) {
+  return Color4(linrgb_to_pixel(hue_rotate_lut_gamut_rgb(base.lab, amount)),
+                base.base.alpha);
 }
 
 /**

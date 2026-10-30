@@ -345,6 +345,10 @@ fast path must be disabled for opacity unless equality is proven after modulatio
 Alpha-preserving mechanics may use an equality fast path where that premise is
 proven. Pin interpolation weights and rounding with tests; do not assume
 algebraic rearrangements are bit-identical.
+The direct perceptual finish clamps gamut-mapped floating RGB, applies brightness,
+then quantizes once to RGB16. A unit gain preserves the unscaled quantization;
+zero gain returns exact black with the original alpha. Hue-table samples retain
+their existing RGB16 brightness scaling.
 
 A source kind/custom recipe version, evaluation strategy, mechanic kind or
 enabled-state change is a topology change for that layer. Hold that layer

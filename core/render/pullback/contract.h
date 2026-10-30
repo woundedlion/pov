@@ -183,17 +183,22 @@ finish_color_sample(const ColorSample &sample) {
   Color4 color = sample.color;
   if (sample.brightness_gain == 0.0f)
     return Color4(Pixel(0, 0, 0), color.alpha);
-  if (sample.pending_lift != 0.0f) {
+  if (sample.pending_lift != 0.0f ||
+      (sample.pending_hue != 0.0f && !sample.hue_rotation)) {
     const LinRGB input = pixel_to_linrgb(color.color);
     OKLab lab = linear_rgb_to_oklab_fast(input.r, input.g, input.b);
     lab.L += (1.0f - lab.L) * sample.pending_lift;
-    color = hue_rotate_lut_gamut({lab, color}, sample.pending_hue);
+    LinRGB output = hue_rotate_lut_gamut_rgb(lab, sample.pending_hue);
+    if (sample.brightness_gain != 1.0f) {
+      output.r = hs::clamp(output.r, 0.0f, 1.0f) * sample.brightness_gain;
+      output.g = hs::clamp(output.g, 0.0f, 1.0f) * sample.brightness_gain;
+      output.b = hs::clamp(output.b, 0.0f, 1.0f) * sample.brightness_gain;
+    }
+    return Color4(linrgb_to_pixel(output), color.alpha);
   } else if (sample.pending_hue != 0.0f) {
-    color.color = sample.hue_rotation
-                      ? sample_hue_rotation_lut({sample.hue_rotation, true},
-                                                sample.palette_coordinate,
-                                                sample.pending_hue)
-                      : hue_rotate_lut_gamut(color, sample.pending_hue).color;
+    color.color =
+        sample_hue_rotation_lut({sample.hue_rotation, true},
+                                sample.palette_coordinate, sample.pending_hue);
   }
   if (sample.brightness_gain != 1.0f)
     color.color = color.color * sample.brightness_gain;

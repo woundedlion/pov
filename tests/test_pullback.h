@@ -2176,9 +2176,10 @@ inline void test_pullback_modulation_temporal_alpha() {
  * @param base Unmodified straight-alpha color.
  * @param turns Combined hue turns.
  * @param lift Combined lift toward white.
+ * @param gain Final linear RGB gain.
  * @return The transformed color. */
 inline Color4 composed_modulation_reference(Color4 base, float turns,
-                                            float lift) {
+                                            float lift, float gain = 1.0f) {
   const LinRGB rgb = pixel_to_linrgb(base.color);
   OKLab lab = linear_rgb_to_oklab_fast(rgb.r, rgb.g, rgb.b);
   lab.L += (1.0f - lab.L) * lift;
@@ -2186,8 +2187,51 @@ inline Color4 composed_modulation_reference(Color4 base, float turns,
   hue_sincos(turns, cosine, sine);
   const OKLab rotated{lab.L, lab.a * cosine - lab.b * sine,
                       lab.a * sine + lab.b * cosine};
-  return Color4(linrgb_to_pixel(oklab_to_linear_rgb_lut_gamut(rotated)),
-                base.alpha);
+  LinRGB output = oklab_to_linear_rgb_lut_gamut(rotated);
+  if (gain != 1.0f) {
+    output.r = hs::clamp(output.r, 0.0f, 1.0f) * gain;
+    output.g = hs::clamp(output.g, 0.0f, 1.0f) * gain;
+    output.b = hs::clamp(output.b, 0.0f, 1.0f) * gain;
+  }
+  return Color4(linrgb_to_pixel(output), base.alpha);
+}
+
+/** @brief Perceptual finishing applies brightness before RGB16 quantization. */
+inline void test_pullback_finish_brightness_quantization() {
+  using namespace Pullback;
+  size_t fused_differences = 0;
+  for (uint16_t r : {0, 1, 2, 1000, 32768, 65535})
+    for (uint16_t g : {0, 1, 2, 1000, 32768, 65535})
+      for (uint16_t b : {0, 1, 2, 1000, 32768, 65535})
+        for (float hue : {0.0f, 0.17f, 0.75f})
+          for (float lift : {0.0f, 0.25f, 0.9f}) {
+            if (hue == 0.0f && lift == 0.0f)
+              continue;
+            const Color4 BASE(Pixel(r, g, b), 0.37f);
+            const auto LEGACY = composed_modulation_reference(BASE, hue, lift);
+            for (float gain : {-1.0f, 0.0f, 0.001f, 0.25f, 1.0f, 2.0f}) {
+              ColorSample sample{BASE, {0.5f, 0.7f, math::Y_AXIS, 2.0f}};
+              sample.pending_hue = hue;
+              sample.pending_lift = lift;
+              sample.brightness_gain = gain;
+              const auto ACTUAL = finish_color_sample(sample);
+              const auto EXPECTED =
+                  composed_modulation_reference(BASE, hue, lift, gain);
+              HS_EXPECT_EQ(ACTUAL.color, EXPECTED.color);
+              HS_EXPECT_EQ(ACTUAL.alpha, BASE.alpha);
+              const Pixel OLD = LEGACY.color * gain;
+              const int GAP = std::max({std::abs(int(ACTUAL.color.r) - OLD.r),
+                                        std::abs(int(ACTUAL.color.g) - OLD.g),
+                                        std::abs(int(ACTUAL.color.b) - OLD.b)});
+              HS_EXPECT_LE(GAP, gain <= 1.0f ? 1 : 2);
+              if (gain == 0.0f)
+                HS_EXPECT_EQ(ACTUAL.color, Pixel(0, 0, 0));
+              if (gain == 1.0f)
+                HS_EXPECT_EQ(ACTUAL.color, LEGACY.color);
+              fused_differences += ACTUAL.color != OLD;
+            }
+          }
+  HS_EXPECT_GT(fused_differences, size_t{0});
 }
 
 /** @brief Hue layers compose across lightness lift without RGB round trips. */
@@ -2254,7 +2298,10 @@ inline void test_pullback_stacked_modulations() {
       lift));
   HS_EXPECT_EQ(REORDERED.color, COMPOSED.color);
   actual.brightness_gain = 0.25f;
-  HS_EXPECT_EQ(Color::finish(actual).color, COMPOSED.color * 0.25f);
+  const auto DIMMED = Color::finish(actual).color;
+  const auto DIMMED_REFERENCE =
+      composed_modulation_reference(BASE, 0.0f, 0.4f, 0.25f).color;
+  HS_EXPECT_EQ(DIMMED, DIMMED_REFERENCE);
   auto opacity = first;
   opacity.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
   HS_EXPECT_NEAR(Color::finish(Color::apply_modulation(INPUT, opacity)).alpha,
@@ -2300,7 +2347,9 @@ inline void test_pullback_composed_lightness_hue() {
     actual = Color::apply_modulation(actual, opacity);
     actual.brightness_gain = 0.25f;
     const auto MASKED = Color::finish(actual);
-    HS_EXPECT_EQ(MASKED.color, FINISHED.color * 0.25f);
+    HS_EXPECT_EQ(
+        MASKED.color,
+        composed_modulation_reference(INPUT.color, 0.375f, 0.55f, 0.25f).color);
     HS_EXPECT_NEAR(MASKED.alpha, 0.6125f, 1e-7f);
     actual.brightness_gain = 0.0f;
     const auto DARK = Color::finish(actual);
@@ -2433,6 +2482,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_modulation_temporal_alpha);
   HS_RUN(test_pullback_stacked_modulations);
   HS_RUN(test_pullback_composed_lightness_hue);
+  HS_RUN(test_pullback_finish_brightness_quantization);
   HS_RUN(test_pullback_temporal_composed_modulations);
   HS_RUN(test_pullback_temporal_deferred_hue_wrap);
   return fixture.result();
