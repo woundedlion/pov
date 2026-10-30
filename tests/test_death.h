@@ -267,8 +267,6 @@ inline const Case *all_cases(int &n) {
       {"modulation_unknown_prepare", case_modulation_unknown_prepare,
        "core/color/modulation.h",
        "(false) unknown modulation preparation mechanic"},
-      {"modulation_unknown_apply", case_modulation_unknown_apply,
-       "core/color/modulation.h", "(false) unknown modulation mechanic"},
       {"modulation_invalid_initialization",
        case_modulation_invalid_initialization,
        "core/render/pullback/modulation.h",

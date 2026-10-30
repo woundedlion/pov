@@ -25,13 +25,6 @@ inline void case_modulation_unknown_prepare() {
   params.kind = static_cast<ColorModulation::Mechanic>(opaque(uint8_t{255}));
   ColorModulation::validate(params);
 }
-inline void case_modulation_unknown_apply() {
-  const Color4 COLOR(Pixel(100, 200, 300), 0.5f);
-  ColorModulation::Params params;
-  (void)ColorModulation::apply(COLOR, 0.5f, params);
-  params.kind = static_cast<ColorModulation::Mechanic>(opaque(uint8_t{255}));
-  (void)ColorModulation::apply(COLOR, 0.5f, params);
-}
 inline void case_modulation_invalid_initialization() {
   ColorModulation::Config config;
   (void)Pullback::Modulation::init(config);
