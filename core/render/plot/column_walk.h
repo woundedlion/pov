@@ -740,8 +740,7 @@ public:
               const float walk = direction > 0 ? at : HALF - 1.0f - at;
               entry[arm] = fminf(entry[arm], walk - track.guard);
               last[arm] = fmaxf(last[arm], walk + track.guard);
-            },
-            track.guard);
+            });
     int count = 0;
     for (int pass = 0; pass < 2; ++pass) {
       const int first = pass * PASS + (direction > 0 ? 0 : PASS - 1);

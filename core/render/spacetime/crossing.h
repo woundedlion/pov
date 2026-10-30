@@ -249,15 +249,15 @@ HS_HOT_INLINE bool model_track(const math::Vector &from, const math::Vector &to,
  * @param frame_end As crossings().
  * @param emit Receives each pass; the point's true pass lies within
  *        `track.guard` columns of the emitted one.
- * @param reach As crossings(); `track.guard` also emits, at the frame's
- *        ends, every pass the model's error can carry into the frame.
+ * @details Uses `track.guard` as the reach at the frame ends so model
+ * error can carry a pass into the frame.
  */
 template <int W, typename Emit>
 HS_HOT_INLINE void track_crossings(const LongitudeTrack &track, float t0,
                                    float t1, bool frame_start, bool frame_end,
-                                   Emit &&emit, float reach = 1.0f) {
+                                   Emit &&emit) {
   crossings<W>(track.origin, track.origin + track.travel, t0, t1, frame_start,
-               frame_end, std::forward<Emit>(emit), reach);
+               frame_end, std::forward<Emit>(emit), track.guard);
 }
 
 } // namespace Spacetime
