@@ -587,6 +587,8 @@ inline void test_temporal_owned_resources() {
   Modulation::synchronize(clock, config);
   HS_EXPECT_NEAR(clock.phase.phase_turns, 0.0f, 0.0f);
   config.grid.axis_b = config.grid.axis;
+  HS_EXPECT_TRUE(Modulation::valid(config));
+  config.grid.axis_b = math::Vector(0.0f, 0.0f, 0.0f);
   HS_EXPECT_TRUE(!Modulation::valid(config));
   config.grid.axis_b = math::X_AXIS;
   config.version = 2;
