@@ -585,14 +585,15 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
     const float OPACITY =
         sample.coverage *
         hs::lerp(state.opacity_low, state.opacity_high, sample.value);
-    output = ColorSample{Color4(Pixel(0, 0, 0), OPACITY),
-                         sample,
-                         nullptr,
-                         VALUE,
-                         0.0f,
-                         brightness_envelope_gain(
-                             sample.value, state.brightness_envelope,
-                             state.brightness_bottom, state.brightness_top)};
+    output.color = Color4(Pixel(0, 0, 0), OPACITY);
+    output.field = sample;
+    output.hue_rotation = nullptr;
+    output.palette_coordinate = VALUE;
+    output.pending_hue = 0.0f;
+    output.brightness_gain =
+        brightness_envelope_gain(sample.value, state.brightness_envelope,
+                                 state.brightness_bottom, state.brightness_top);
+    output.pending_lift = 0.0f;
     output.cached_lab = PaletteLabLut::sample(prepared.lab, VALUE);
     output.has_cached_lab = true;
     return true;

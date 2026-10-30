@@ -2202,6 +2202,39 @@ inline void test_pullback_shared_lab_dispatch() {
   frame.palette = &b.view();
   frame.temporal.palette = &a.view();
   frame.phase = &layer;
+  frame.lab = &cache;
+  frame.temporal.fraction = 0.37f;
+  const auto DIRECT_PREPARED = CountingLabPalette::Base::prepare(frame);
+  const FieldSample DIRECT_FIELD{0.5f, 0.5f, math::Y_AXIS, 0.7f};
+  ColorSample dirty{Color4(Pixel(123, 456, 789), 0.9f),
+                    {0.1f, 0.2f, math::X_AXIS, 0.3f},
+                    reinterpret_cast<const Pixel *>(&cache),
+                    0.4f,
+                    0.5f,
+                    0.6f,
+                    0.7f,
+                    {0.8f, 0.9f, 1.0f},
+                    false};
+  HS_EXPECT_TRUE(CountingLabPalette::Base::apply_shared_base(
+      DIRECT_FIELD, frame, DIRECT_PREPARED, dirty));
+  HS_EXPECT_EQ(dirty.color.color, Pixel(0, 0, 0));
+  const auto DIRECT_PAIR = CountingLabPalette::Base::apply_pair(
+      DIRECT_FIELD, frame, DIRECT_PREPARED);
+  HS_EXPECT_EQ(dirty.color.alpha, DIRECT_PAIR.first.color.alpha);
+  HS_EXPECT_EQ(dirty.field.value, DIRECT_FIELD.value);
+  HS_EXPECT_EQ(dirty.field.coverage, DIRECT_FIELD.coverage);
+  HS_EXPECT_EQ(dirty.field.sphere, DIRECT_FIELD.sphere);
+  HS_EXPECT_EQ(dirty.field.path_length, DIRECT_FIELD.path_length);
+  HS_EXPECT_TRUE(dirty.hue_rotation == nullptr);
+  HS_EXPECT_EQ(dirty.palette_coordinate, 0.5f);
+  HS_EXPECT_EQ(dirty.pending_hue, 0.0f);
+  HS_EXPECT_EQ(dirty.brightness_gain, 1.0f);
+  HS_EXPECT_EQ(dirty.pending_lift, 0.0f);
+  const auto EXPECTED_LAB = PaletteLabLut::sample(cache.view(0.37f), 0.5f);
+  HS_EXPECT_EQ(dirty.cached_lab.L, EXPECTED_LAB.L);
+  HS_EXPECT_EQ(dirty.cached_lab.a, EXPECTED_LAB.a);
+  HS_EXPECT_EQ(dirty.cached_lab.b, EXPECTED_LAB.b);
+  HS_EXPECT_TRUE(dirty.has_cached_lab);
   for (bool ready : {false, true})
     for (bool active : {false, true})
       for (float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
