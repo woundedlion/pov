@@ -22,11 +22,6 @@ struct Spec {
   static constexpr bool TEMPORAL_SAMPLING = false;
   /// Factors a supported rotation prefix into column bases.
   static constexpr bool FACTORED_COLUMNS = false;
-  /// Whether the effect owns pattern modulation resources.
-  static constexpr bool MODULATION = false;
-  /// Spatial storage strategy admitted by this effect.
-  static constexpr Pattern::Evaluation MODULATION_EVALUATION =
-      Pattern::Evaluation::BAKED_CUBE;
 };
 
 /**

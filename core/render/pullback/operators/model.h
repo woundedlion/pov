@@ -54,7 +54,7 @@ enum class CarrierId : uint8_t {
   FIELD = static_cast<uint8_t>(
       ::Pullback::Detail::FamilyRank<FieldSample, CarrierList>::VALUE),
   COLOR = static_cast<uint8_t>(
-      ::Pullback::Detail::FamilyRank<Color4, CarrierList>::VALUE),
+      ::Pullback::Detail::FamilyRank<ColorSample, CarrierList>::VALUE),
   COUNT = static_cast<uint8_t>(CarrierList::SIZE)
 };
 
@@ -86,7 +86,7 @@ consteval bool carrier_named(std::string_view name) {
 static_assert(carrier_named<SphereSample>("sphere") &&
               carrier_named<PlaneSample>("plane") &&
               carrier_named<FieldSample>("field") &&
-              carrier_named<Color4>("color"));
+              carrier_named<ColorSample>("color"));
 
 /**
  * @brief The (instance_id, operator_id) pair identity of one chain entry.
@@ -120,10 +120,8 @@ struct FrameContext {
   /** Generated palette bakes, indexed by the colorize palette-mode value. */
   std::array<const BakedPalette *, 3> palettes{};
   const Pixel *hue_rotation_lut = nullptr; ///< Hue-rotation lookup table.
-  const Modulation::Prepared *modulation =
-      nullptr; ///< Immutable source endpoint.
-  const FieldSample *color_sample =
-      nullptr; ///< Evaluator-owned field metadata for color endomorphisms.
+  std::span<const Modulation::Endpoint>
+      modulations; ///< Keyed immutable sources.
 };
 
 /**

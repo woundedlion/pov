@@ -94,7 +94,7 @@ inline void test_shader_chain_refusal_shape() {
 
   const In::ChainEntryRequest bad_entry[] = {
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   expect_refusal(program, bad_entry, In::ChainStatus::ENTRY_FAMILY, 0, ctx,
                  baseline);
@@ -112,7 +112,7 @@ inline void test_shader_chain_refusal_shape() {
       {"project", "project.stereographic.v2"},
       {"camera2", "sphere.rotate.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   expect_refusal(program, mismatch, In::ChainStatus::CARRIER_MISMATCH, 2, ctx,
                  baseline);
@@ -137,10 +137,9 @@ inline void test_shader_chain_refusal_shape() {
   HS_EXPECT_EQ(source.secondary, source_before.secondary);
   HS_EXPECT_EQ(source.angle, source_before.angle);
   const auto &color = state_as<In::Op::ColorClockState>(program, 3);
-  HS_EXPECT_EQ(color.modulation, color_before.modulation);
+
   HS_EXPECT_EQ(color.oscillation_phase, color_before.oscillation_phase);
-  HS_EXPECT_EQ(color.modulation.phase.phase_turns,
-               color_before.modulation.phase.phase_turns);
+
   program.clear();
 }
 
@@ -181,7 +180,7 @@ inline void test_shader_chain_refusal_budget_overflows() {
       {"camera2", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   const In::FrameContext ctx = shared_resources().context();
   exact->program.prepare(ctx);
@@ -206,7 +205,7 @@ inline void test_shader_chain_refusal_budget_overflows() {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   const In::ChainRefusal params_overflow = fat->program.compile(fat_chain);
   HS_EXPECT_EQ(static_cast<int>(params_overflow.code),
@@ -240,7 +239,7 @@ inline void test_shader_chain_refusal_budget_overflows() {
       {"filler", "test.exact-fit.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   size_t field_total = 0;
   for (const In::ChainEntryRequest &entry : exact_fit_chain)
@@ -265,7 +264,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   const In::ChainRefusal first = program.compile(chain);
   HS_EXPECT_EQ(static_cast<int>(first.code),
@@ -301,7 +300,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   const int inits_before = CountLifecycle::inits;
   const int migrates_before = CountLifecycle::migrates;
@@ -340,7 +339,7 @@ inline void test_shader_chain_column_states_outlive_evaluation() {
       {"life", "test.lifetime.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   const In::FrameContext ctx = shared_resources().context();
   const auto views = sweep_views();
@@ -396,7 +395,7 @@ inline void test_shader_chain_state_identity_migration() {
       {"b", "test.count-a.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   const auto compile_status1 = program.compile(first).code;
   HS_EXPECT_EQ(compile_status1, In::ChainStatus::OK);
@@ -414,7 +413,7 @@ inline void test_shader_chain_state_identity_migration() {
       {"c", "test.count-a.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   const int destroys_before = CountLifecycle::destroys;
   const auto compile_status2 = program.compile(second).code;
@@ -434,7 +433,7 @@ inline void test_shader_chain_state_identity_migration() {
       {"c", "test.count-a.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   const int migrates_before = CountLifecycle::migrates;
   const auto compile_status3 = program.compile(third).code;
@@ -465,7 +464,7 @@ inline void test_shader_chain_state_continuity_slice() {
       {"camera2", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   const auto compile_status4 = program.compile(edited).code;
   HS_EXPECT_EQ(compile_status4, In::ChainStatus::OK);
@@ -498,7 +497,7 @@ inline void test_shader_chain_operator_state_migration() {
       {"wave", "warp.wave-shear.v2"},
       {"affine", "warp.affine.v3"},
       {"sample", "sample.projected-noise.v2"},
-      {"colorize", "colorize.generated-palette.v3"}};
+      {"colorize", "colorize.generated-palette.v4"}};
   const auto status = program.compile(first).code;
   HS_EXPECT_EQ(static_cast<int>(status), static_cast<int>(In::ChainStatus::OK));
   if (status != In::ChainStatus::OK)
@@ -540,7 +539,7 @@ inline void test_shader_chain_operator_state_migration() {
                sample);
   const In::ChainEntryRequest rings[] = {
       {"rings", "sample.spherical-rings.v3"},
-      {"colorize", "colorize.generated-palette.v3"}};
+      {"colorize", "colorize.generated-palette.v4"}};
   const auto rings_status = program.compile(rings).code;
   HS_EXPECT_EQ(static_cast<int>(rings_status),
                static_cast<int>(In::ChainStatus::OK));
@@ -592,7 +591,7 @@ inline void test_shader_chain_determinism() {
       {"camera2", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   const auto compile_status5 = relabeled->program.compile(renamed).code;
   HS_EXPECT_EQ(compile_status5, In::ChainStatus::OK);
@@ -634,7 +633,7 @@ inline void test_shader_chain_param_names_and_budget() {
   }
   HS_EXPECT_TRUE(std::string_view(program.param_name(0, 0)) == "camera.wander");
   HS_EXPECT_TRUE(std::string_view(program.param_name(3, 0)) ==
-                 "colorize.hue-shift-amount");
+                 "colorize.palette-chroma");
 
   // The committed footprint equals the accounted layout: operator blocks,
   // the per-op overhead, and the fixed per-field name reservation.

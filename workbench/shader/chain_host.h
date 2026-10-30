@@ -40,7 +40,7 @@ inline constexpr Pullback::Interp::ChainEntryRequest
         {"camera", "sphere.rotate.v2"},
         {"project", "project.stereographic.v2"},
         {"sample", "sample.grid.v3"},
-        {"colorize", "colorize.generated-palette.v3"},
+        {"colorize", "colorize.generated-palette.v4"},
 };
 
 /** @brief One named value in an atomic chain parameter update. */
@@ -119,6 +119,7 @@ public:
       refusal_warning = nullptr;
 #endif
       colorize = find_colorize_tap();
+      reconcile_modulation_resources();
       rebind_chain_parameters();
     }
     return refusal;
@@ -146,12 +147,16 @@ public:
     for (size_t index = 0; index < ops.size(); ++index) {
       const auto &op = ops[index];
       out.chain.push_back({op.instance, op.op->operator_id});
-      const auto *modulation = modulation_recipe(
-          *op.op, const_cast<uint8_t *>(program.param_block(index)));
-      if (modulation)
-        out.modulation.push_back({op.instance, *modulation});
+      const bool modulated = std::string_view(op.op->operator_id) ==
+                             Pullback::Interp::Op::ModulateColorV1::ID;
+      if (modulated) {
+        const auto &params =
+            *reinterpret_cast<const Pullback::Interp::Op::ModulationParams *>(
+                program.param_block(index));
+        out.modulation.push_back({op.instance, params.modulation});
+      }
       for (uint16_t field = 0; field < op.op->schema_count; ++field) {
-        if (modulation_recipe_field(*op.op, field))
+        if (modulated)
           continue;
         const auto &info = op.op->schema[field];
         const void *address = op.op->runtime.param_address(
@@ -163,9 +168,13 @@ public:
         out.parameters.push_back({program.param_name(index, field), value});
       }
       auto state = op.op->runtime.capture_state(program.state_block(index));
-      if (modulation) {
-        auto &clock = std::get<Pullback::Interp::ColorClockSnapshot>(state);
-        Pullback::Modulation::synchronize(clock.modulation, *modulation);
+      if (modulated) {
+        auto &clock =
+            std::get<Pullback::Interp::ModulationClockSnapshot>(state);
+        const auto &params =
+            *reinterpret_cast<const Pullback::Interp::Op::ModulationParams *>(
+                program.param_block(index));
+        Pullback::Modulation::synchronize(clock.modulation, params.modulation);
       }
       if (!std::holds_alternative<std::monostate>(state))
         out.runtime->push_back({op.instance, std::move(state)});
@@ -215,7 +224,8 @@ public:
                     reinterpret_cast<const char *>(
                         base + op.name_offset + field * PER_PARAM_NAME_BYTES))
                   continue;
-                if (modulation_recipe_field(*op.op, field))
+                if (std::string_view(op.op->operator_id) ==
+                    Op::ModulateColorV1::ID)
                   return false;
                 if (!field_in_schema(info, write.value))
                   return false;
@@ -242,7 +252,8 @@ public:
           for (size_t index = 0; index < ops.size(); ++index) {
             const auto &op = ops[index];
             void *params = base + op.param_offset;
-            if (auto *modulation = modulation_recipe(*op.op, params)) {
+            if (std::string_view(op.op->operator_id) ==
+                Op::ModulateColorV1::ID) {
               const ChainSnapshot::ModulationRecipe *selected = nullptr;
               for (const auto &recipe : snapshot.modulation)
                 if (recipe.instance == op.instance) {
@@ -253,7 +264,8 @@ public:
               if (selected == nullptr ||
                   !Pullback::Modulation::admitted(selected->recipe))
                 return false;
-              *modulation = selected->recipe;
+              static_cast<Op::ModulationParams *>(params)->modulation =
+                  selected->recipe;
               ++modulation_count;
             }
             if (admission_refusal(ops, index, params))
@@ -274,12 +286,15 @@ public:
             if (selected == nullptr ||
                 !op.op->runtime.restore_state(state, selected->state))
               return false;
-            if (const auto *config = modulation_recipe(*op.op, params)) {
-              const auto restored_clock = op.op->runtime.capture_state(state);
+            if (std::string_view(op.op->operator_id) ==
+                Op::ModulateColorV1::ID) {
+              const auto &config =
+                  static_cast<const Op::ModulationParams *>(params)->modulation;
               const auto &clock =
-                  std::get<ColorClockSnapshot>(restored_clock).modulation;
-              if (clock.source != config->source ||
-                  clock.version != config->version)
+                  static_cast<const Op::ModulationClockState *>(state)
+                      ->modulation;
+              if (clock.source != config.source ||
+                  clock.version != config.version)
                 return false;
             }
             ++runtime_count;
@@ -301,7 +316,10 @@ public:
     palette.hues.fill(GeneratedPaletteBank::HUE_STEP);
     generated_palettes.restore_snapshot(
         snapshot.palette_bank.value_or(palette));
-    resources->modulation.reset();
+    for (auto &layer : resources->layers) {
+      layer.used = false;
+      layer.modulation.reset();
+    }
     setAnimationsPaused(snapshot.animations_paused);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     refused_name = nullptr;
@@ -404,36 +422,6 @@ public:
 #endif
 
 private:
-  /** @brief Finds the canonical recipe of a palette or field stage.
-   * @param op Operator descriptor.
-   * @param params Mutable parameter block.
-   * @return Recipe, or null for another operator. */
-  static ColorModulation::Config *
-  modulation_recipe(const Pullback::Interp::OperatorDescriptor &op,
-                    void *params) {
-    using namespace Pullback::Interp::Op;
-    const std::string_view id = op.operator_id;
-    if (id == ColorizeGeneratedPaletteV3::ID)
-      return &static_cast<GeneratedPaletteParams *>(params)->modulation;
-    if (id == ModulateField::ID)
-      return &static_cast<FieldModulationParams *>(params)->modulation;
-    return nullptr;
-  }
-
-  /** @brief Identifies controls serialized in the canonical recipe.
-   * @param op Operator descriptor.
-   * @param field Schema field index.
-   * @return Whether the field belongs to a separately captured recipe. */
-  static bool
-  modulation_recipe_field(const Pullback::Interp::OperatorDescriptor &op,
-                          uint16_t field) {
-    using namespace Pullback::Interp::Op;
-    const std::string_view id = op.operator_id;
-    return id == ModulateField::ID ||
-           (id == ColorizeGeneratedPaletteV3::ID &&
-            GeneratedPaletteParams::temporal_hold_field(field));
-  }
-
   static bool field_in_schema(const Pullback::Interp::ParamFieldInfo &info,
                               float value) {
     if (info.enum_count > 0)
@@ -494,9 +482,16 @@ private:
                   resources->previous_hue_rotation.data());
       previous.hue_rotation_lut = resources->previous_hue_rotation.data();
     }
-    previous.modulation = Pullback::Modulation::retain(
-        ctx.modulation, resources->previous_modulation,
-        resources->previous_pattern);
+    for (size_t index = 0; index < ctx.modulations.size(); ++index) {
+      const auto &endpoint = ctx.modulations[index];
+      auto &layer = modulation_resources(endpoint.key);
+      resources->previous_endpoints[index] = {
+          endpoint.key,
+          Pullback::Modulation::retain(endpoint.prepared, layer.previous,
+                                       layer.previous_pattern)};
+    }
+    previous.modulations =
+        std::span(resources->previous_endpoints).first(ctx.modulations.size());
     resources->context.capture(previous);
   }
 
@@ -521,52 +516,87 @@ private:
     }
   };
 
+  static constexpr size_t MAX_MODULATION_LAYERS =
+      Pullback::Interp::MAX_CHAIN_PARAMS /
+      Pullback::Interp::Op::ModulationParams::EXTRA_SCHEMA.size();
+
+  struct LayerResources {
+    std::array<char, Pullback::Interp::MAX_INSTANCE_ID + 1> name{};
+    std::string_view key;
+    bool used = false;
+    Pullback::Modulation::Resources<> modulation;
+    Pullback::Modulation::Prepared previous;
+    std::array<int8_t, Pattern::SphereLutView::SIZE> previous_pattern{};
+  };
+
   /** @brief Engine-owned shared resources the FrameContext borrows. */
   struct Resources {
     std::array<Pixel, HueRotationLutView::SIZE> hue_rotation_lut{};
-    Pullback::Modulation::Resources<> modulation;
-    Pullback::Modulation::Prepared previous_modulation;
-    /** Previous frame context, its colour resources pointing at the copies
-        below. */
+    std::array<LayerResources, MAX_MODULATION_LAYERS> layers;
+    std::array<Pullback::Modulation::Endpoint, MAX_MODULATION_LAYERS> endpoints;
+    std::array<Pullback::Modulation::Endpoint, MAX_MODULATION_LAYERS>
+        previous_endpoints;
     Spacetime::FrameHistory<Pullback::Interp::FrameContext> context;
     std::array<BakedPaletteStorage, 3> previous_palettes;
     ShaderPaletteResources palette_selection;
     std::array<Pixel, HueRotationLutView::SIZE> previous_hue_rotation{};
-    std::array<int8_t, Pattern::SphereLutView::SIZE> previous_pattern{};
   };
 
   /** @brief The committed program's colorize entry, when present. */
   struct ColorizeTap {
     int index = -1;
     const float *palette_chroma = nullptr;
-    const Pullback::Color::ColorControls *controls = nullptr;
-    const ColorModulation::Config *modulation = nullptr;
     const uint8_t *palette_mode = nullptr;
-    const uint8_t *hue_mode = nullptr;
     const Pullback::Interp::Op::GeneratedPaletteParams *palette_params =
         nullptr;
   };
 
   template <typename Params>
   static ColorizeTap make_colorize_tap(int index, const Params *params) {
-    return {index,
-            &params->palette_chroma,
-            params,
-            &params->modulation,
-            &params->palette_mode,
-            &params->hue_mode,
-            params};
+    return {index, &params->palette_chroma, &params->palette_mode, params};
+  }
+
+  LayerResources &modulation_resources(std::string_view key) {
+    for (auto &layer : resources->layers)
+      if (layer.used && layer.key == key)
+        return layer;
+    for (auto &layer : resources->layers)
+      if (!layer.used) {
+        layer.used = true;
+        std::copy(key.begin(), key.end(), layer.name.begin());
+        layer.name[key.size()] = '\0';
+        layer.key = std::string_view(layer.name.data(), key.size());
+        layer.modulation.reset();
+        return layer;
+      }
+    HS_CHECK(false, "ShaderChain: modulation resource capacity exceeded");
+    return resources->layers[0];
+  }
+
+  void reconcile_modulation_resources() {
+    for (auto &layer : resources->layers) {
+      bool present = false;
+      for (size_t index = 0; index < program.ops().size(); ++index)
+        if (std::string_view(program.ops()[index].op->operator_id) ==
+                Pullback::Interp::Op::ModulateColorV1::ID &&
+            static_cast<const Pullback::Interp::Op::ModulationClockState *>(
+                program.state_block(index))
+                    ->key == layer.key)
+          present = true;
+      if (!present)
+        layer.used = false;
+    }
   }
 
   HS_COLD_MEMBER ColorizeTap find_colorize_tap() {
     const auto ops = program.ops();
     for (size_t index = ops.size(); index-- > 0;)
       if (std::string_view(ops[index].op->operator_id) ==
-          Pullback::Interp::Op::ColorizeGeneratedPaletteV3::ID)
+          Pullback::Interp::Op::ColorizeGeneratedPaletteV4::ID)
         return make_colorize_tap(
             static_cast<int>(index),
             reinterpret_cast<
-                const Pullback::Interp::Op::ColorizeGeneratedPaletteV3::Params
+                const Pullback::Interp::Op::ColorizeGeneratedPaletteV4::Params
                     *>(program.param_block(index)));
     return {};
   }
@@ -758,16 +788,35 @@ private:
                                                            : 0] =
           &resources->palette_selection.prepare(persistent_arena,
                                                 *tap.palette_params);
-    if (tap.modulation == nullptr)
-      return ctx;
-    const auto &clocks =
-        *static_cast<const Pullback::Interp::Op::ColorClockState *>(
-            program.state_block(static_cast<size_t>(tap.index)));
-    ctx.modulation =
-        &resources->modulation.prepare(*tap.modulation, clocks.modulation);
-    if (Pullback::Color::hue_rotation_active(
-            static_cast<Pullback::Color::HueMode>(*tap.hue_mode),
-            *tap.controls)) {
+    reconcile_modulation_resources();
+    size_t count = 0;
+    bool hue_active = false;
+    const auto ops = program.ops();
+    for (size_t index = 0; index < ops.size(); ++index) {
+      if (std::string_view(ops[index].op->operator_id) !=
+          Pullback::Interp::Op::ModulateColorV1::ID)
+        continue;
+      const auto &params =
+          *reinterpret_cast<const Pullback::Interp::Op::ModulationParams *>(
+              program.param_block(index));
+      auto &clock = *static_cast<Pullback::Interp::Op::ModulationClockState *>(
+          program.state_block(index));
+      Pullback::Modulation::synchronize(clock.modulation, params.modulation);
+      HS_CHECK(count < MAX_MODULATION_LAYERS,
+               "ShaderChain: modulation endpoint capacity exceeded");
+      const Pullback::Modulation::Prepared *prepared = nullptr;
+      if (params.modulation.source != Pattern::SourceKind::DISPLACEMENT)
+        prepared = &modulation_resources(clock.key).modulation.prepare(
+            params.modulation, clock.modulation);
+      resources->endpoints[count++] = {modulation_resources(clock.key).key,
+                                       prepared};
+      hue_active |= params.modulation.enabled &&
+                    params.modulation.mechanic.kind ==
+                        ColorModulation::Mechanic::HUE_ROTATION &&
+                    params.modulation.mechanic.amount != 0.0f;
+    }
+    ctx.modulations = std::span(resources->endpoints).first(count);
+    if (tap.palette_mode != nullptr && hue_active) {
       const size_t palette_index =
           *tap.palette_mode < ctx.palettes.size() ? *tap.palette_mode : 0;
       prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE>(

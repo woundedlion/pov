@@ -219,18 +219,26 @@ template <typename Policy> struct ColorModesOf {
 };
 /** @brief Generated-palette color modes.
  * @tparam B Declaration binding.
- * @tparam Hue Hue rotation mode.
  * @tparam Brightness Brightness envelope. */
-template <typename B, HueMode Hue, Color::BrightnessEnvelope Brightness>
-struct ColorModesOf<
-    Color::GeneratedPalette<ColorProvider<B, Hue, Brightness>>> {
-  static constexpr auto HUE = Hue;               ///< Hue rotation mode.
+template <typename B, Color::BrightnessEnvelope Brightness>
+struct ColorModesOf<Color::GeneratedPalette<ColorProvider<B, Brightness>>> {
   static constexpr auto BRIGHTNESS = Brightness; ///< Brightness envelope.
 };
 /** @brief Whether a leaf colorizes sampled values. @tparam T Stage descriptor. */
 template <typename T> struct IsColorStage : std::false_type {};
 template <typename P>
 struct IsColorStage<Stage::Colorize<P>> : std::true_type {};
+/** @brief Whether a stage modulates an existing color. @tparam T Stage descriptor. */
+template <typename T> struct IsModulationStage : std::false_type {};
+template <typename P>
+struct IsModulationStage<Stage::Modulate<P>> : std::true_type {};
+/** @brief Whether a color layer reads accumulated displacement. @tparam T Stage descriptor. */
+template <typename T> struct IsDisplacementStage : std::false_type {};
+template <typename B, ResourceKey Key, Pattern::SourceKind Source,
+          Pattern::Evaluation Evaluation>
+struct IsDisplacementStage<Stage::Modulate<
+    Color::Modulate<ModulationProvider<B, Key, Source, Evaluation>>>>
+    : std::bool_constant<Source == Pattern::SourceKind::DISPLACEMENT> {};
 
 /** @brief Topology derived from normalized typed pipeline entries.
  * @tparam Pipeline Semantic leaf view. */
@@ -307,9 +315,12 @@ template <typename Pipeline> struct PipelineMetadata {
     else
       return SurfacePlacement::AFTER_LENS;
   }();
+  static constexpr bool DISPLACEMENT =
+      Pipeline::template ANY_STAGE<IsDisplacementStage>; ///< Reads path length.
+  static constexpr bool MODULATION = Pipeline::template ANY_STAGE<
+      IsModulationStage>; ///< Owns modulation layers.
   using ColorModes = ColorModesOf<
-      typename ColorStage::ColorPolicy>;       ///< Typed color selections.
-  static constexpr auto HUE = ColorModes::HUE; ///< Hue rotation mode.
+      typename ColorStage::ColorPolicy>; ///< Typed color selections.
   static constexpr auto BRIGHTNESS =
       ColorModes::BRIGHTNESS; ///< Brightness envelope.
 };
@@ -398,13 +409,24 @@ struct PolicyResources<ValueProvider<B, Family, Key>> {
 /**
  * @brief A colour provider declares the "color" family.
  * @tparam B Frame binding.
- * @tparam Hue Hue rotation mode.
  * @tparam Brightness Brightness envelope.
  */
-template <typename B, HueMode Hue, Color::BrightnessEnvelope Brightness>
-struct PolicyResources<ColorProvider<B, Hue, Brightness>> {
+template <typename B, Color::BrightnessEnvelope Brightness>
+struct PolicyResources<ColorProvider<B, Brightness>> {
   using Type = ResourceList<
       ParameterResource<"color", ColorParams, ResourceKind::COLOR>>;
+};
+
+/** @brief Resource owned by a modulation provider.
+ * @tparam B Frame binding.
+ * @tparam Key Layer key.
+ * @tparam Source Source capability.
+ * @tparam Evaluation Storage strategy. */
+template <typename B, ResourceKey Key, Pattern::SourceKind Source,
+          Pattern::Evaluation Evaluation>
+struct PolicyResources<ModulationProvider<B, Key, Source, Evaluation>> {
+  using Type = ResourceList<ParameterResource<
+      Key, Modulation::Params<Source, Evaluation>, ResourceKind::MODULATION>>;
 };
 
 template <typename Provider, Projection::GnomonicHemisphere Hemisphere>
@@ -464,9 +486,7 @@ template <typename Spec> consteval bool color_gate_open(TopologyGate gate) {
     return true;
   const std::string_view topology = gate.field;
   unsigned value = 0;
-  if (topology == Color::HUE_ROTATION_GATE.field)
-    value = static_cast<unsigned>(MetadataFor<Spec>::HUE);
-  else if (topology == Color::BRIGHTNESS_ENVELOPE_GATE.field)
+  if (topology == Color::BRIGHTNESS_ENVELOPE_GATE.field)
     value = static_cast<unsigned>(MetadataFor<Spec>::BRIGHTNESS);
   else
     color_gate_names_unknown_topology();
@@ -485,6 +505,9 @@ consteval size_t resource_parameter_count() {
   using Family = typename Resource::Family;
   if constexpr (Resource::KIND == ResourceKind::LENS)
     return std::size(MOBIUS_PARAM_NAMES);
+  else if constexpr (Resource::KIND == ResourceKind::MODULATION)
+    return Resource::Family::SOURCE == Pattern::SourceKind::DISPLACEMENT ? 1
+                                                                         : 3;
   else {
     size_t count = Resource::KIND == ResourceKind::WARP ||
                            Resource::KIND == ResourceKind::COLOR
@@ -534,6 +557,8 @@ consteval bool resource_names_overlap() {
                 std::is_same_v<Resource, Other> ||
                 Resource::KIND == ResourceKind::LENS)
     return false;
+  else if constexpr (Resource::KIND == ResourceKind::MODULATION)
+    return true;
   else {
     for (const auto &field : Resource::Family::FIELDS)
       for (const auto &other : Other::Family::FIELDS)
@@ -584,7 +609,18 @@ consteval size_t resource_name_bytes() {
     return 0;
   else {
     constexpr size_t PREFIX = Resource::KEY.view().size() + 2;
-    if constexpr (Resource::KIND == ResourceKind::LENS) {
+    if constexpr (Resource::KIND == ResourceKind::MODULATION) {
+      size_t bytes = PREFIX + std::string_view("Modulation Amount").size();
+      if constexpr (Resource::Family::SOURCE !=
+                    Pattern::SourceKind::DISPLACEMENT)
+        bytes += 2 * PREFIX + std::string_view("Pattern Speed").size() +
+                 std::string_view(Resource::Family::SOURCE ==
+                                          Pattern::SourceKind::NOISE
+                                      ? "Pattern Scale"
+                                      : "Pattern Frequency")
+                     .size();
+      return bytes;
+    } else if constexpr (Resource::KIND == ResourceKind::LENS) {
       size_t bytes = 0;
       for (const char *name : MOBIUS_PARAM_NAMES)
         bytes += PREFIX + std::string_view(name).size();

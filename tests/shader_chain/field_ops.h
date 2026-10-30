@@ -60,7 +60,7 @@ inline bool arm_field_op_chain(In::ChainProgram &program, const char *op_id,
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
       {"op", op_id},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   return arm_chain<In::Op::RotateChainParams, In::Op::ProjectChainParams,
                    In::Op::GridSampleParams, OpParams,

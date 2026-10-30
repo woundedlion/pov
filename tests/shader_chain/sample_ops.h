@@ -148,7 +148,7 @@ inline bool arm_sample_op_chain(In::ChainProgram &program, const char *op_id,
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"source", op_id},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   return arm_chain<In::Op::RotateChainParams, In::Op::ProjectChainParams,
                    OpParams, In::Op::GeneratedPaletteParams>(program, chain,
@@ -162,7 +162,7 @@ inline bool arm_spherical_sample_op_chain(In::ChainProgram &program,
   const In::ChainEntryRequest chain[] = {
       {"camera", "sphere.rotate.v2"},
       {"source", op_id},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   return arm_chain<In::Op::RotateChainParams, OpParams,
                    In::Op::GeneratedPaletteParams>(program, chain, frames, set);
@@ -482,7 +482,7 @@ inline void test_shader_chain_composed_noise_domain() {
       {"affine-e", In::Op::WarpAffineV3::ID},
       {"affine-f", In::Op::WarpAffineV3::ID},
       {"sample", In::Op::SampleProjectedNoise::ID},
-      {"color", In::Op::ColorizeGeneratedPaletteV3::ID},
+      {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
   };
   const auto compile_status1 = program.compile(chain).code;
   HS_EXPECT_EQ(compile_status1, In::ChainStatus::OK);
@@ -514,7 +514,7 @@ inline void test_shader_chain_composed_noise_domain() {
 inline void test_shader_chain_large_finite_path_length() {
   auto fixture = std::make_unique<ProgramFixture>();
   auto &program = fixture->program;
-  std::array<In::ChainEntryRequest, 14> chain{};
+  std::array<In::ChainEntryRequest, 15> chain{};
   std::array<std::string, 11> ids;
   chain[0] = {"project", In::Op::ProjectStereographic::ID};
   for (int index = 0; index < 11; ++index) {
@@ -522,7 +522,8 @@ inline void test_shader_chain_large_finite_path_length() {
     chain[index + 1] = {ids[index], In::Op::WarpAffineV3::ID};
   }
   chain[12] = {"sample", In::Op::SampleGridV3::ID};
-  chain[13] = {"color", In::Op::ColorizeGeneratedPaletteV3::ID};
+  chain[13] = {"color", In::Op::ColorizeGeneratedPaletteV4::ID};
+  chain[14] = {"displacement", In::Op::ModulateColorV1::ID};
   const auto compile_status2 = program.compile(chain).code;
   HS_EXPECT_EQ(compile_status2, In::ChainStatus::OK);
   if (compile_status2 != In::ChainStatus::OK)
@@ -532,9 +533,10 @@ inline void test_shader_chain_large_finite_path_length() {
     params.scale_x = params.scale_y = 1.0f / 64.0f;
     HS_EXPECT_TRUE(PB::Fields::valid(params));
   }
-  auto &color = param_as<In::Op::GeneratedPaletteParams>(program, 13);
-  color.hue_mode = static_cast<uint8_t>(PB::Color::HueMode::PATH_LENGTH);
-  color.hue_shift_amount = 1e-20f;
+  auto &modulation = param_as<In::Op::ModulationParams>(program, 14).modulation;
+  modulation.source = Pattern::SourceKind::DISPLACEMENT;
+  modulation.evaluation = Pattern::Evaluation::DIRECT;
+  modulation.mechanic.amount = 1e-20f;
   auto ctx = shared_resources().context();
   ctx.projection_base = math::Quaternion();
   std::array<Pixel, PB::Color::HueRotationLutView::SIZE> hue;
@@ -560,7 +562,9 @@ inline void test_shader_chain_large_finite_path_length() {
   plane.path_length = static_cast<float>(expected_path);
   const auto expected_field =
       run_entry<PB::FieldSample>(program, ctx, 12, plane);
-  const Color4 expected = run_entry<Color4>(program, ctx, 13, expected_field);
+  const auto base =
+      run_entry<PB::ColorSample>(program, ctx, 13, expected_field);
+  const Color4 expected = run_entry<Color4>(program, ctx, 14, base);
   const Color4 actual = program.evaluate(sphere.dir, ctx);
   HS_EXPECT_GT(expected.color.r, 1000);
   HS_EXPECT_EQ(expected.color.g, 0);
@@ -641,47 +645,45 @@ inline void run_sample_variant(In::ChainProgram &program,
   auto &params = param_as<In::Op::GridSampleParams>(program, 2);
   params.weight_mode = static_cast<uint8_t>(weight);
   params.coverage_mode = static_cast<uint8_t>(coverage);
-  constexpr auto HUE = PB::Color::HueMode::NONE;
   constexpr auto ENV = PB::Color::BrightnessEnvelope::NONE;
   if (weight == In::Op::WeightMode::NONE) {
     switch (coverage) {
     case In::Op::ProjectionCoverageMode::NONE:
-      expect_parity<PB::Weight::None, PB::ProjectionCoverage::None, HUE, ENV>(
+      expect_parity<PB::Weight::None, PB::ProjectionCoverage::None, ENV>(
           program, ctx);
       break;
     case In::Op::ProjectionCoverageMode::WEIGHT:
-      expect_parity<PB::Weight::None, PB::ProjectionCoverage::Weight, HUE, ENV>(
+      expect_parity<PB::Weight::None, PB::ProjectionCoverage::Weight, ENV>(
           program, ctx);
       break;
     case In::Op::ProjectionCoverageMode::WEIGHT_SQUARED:
       expect_parity<PB::Weight::None, PB::ProjectionCoverage::WeightSquared,
-                    HUE, ENV>(program, ctx);
+                    ENV>(program, ctx);
       break;
     case In::Op::ProjectionCoverageMode::EDGE_FADE:
       expect_parity<PB::Weight::None,
-                    PB::ProjectionCoverage::EdgeFade<MirrorValue>, HUE, ENV>(
-          program, ctx);
+                    PB::ProjectionCoverage::EdgeFade<MirrorValue>, ENV>(program,
+                                                                        ctx);
       break;
     }
   } else {
     switch (coverage) {
     case In::Op::ProjectionCoverageMode::NONE:
-      expect_parity<PB::Weight::Projection, PB::ProjectionCoverage::None, HUE,
-                    ENV>(program, ctx);
+      expect_parity<PB::Weight::Projection, PB::ProjectionCoverage::None, ENV>(
+          program, ctx);
       break;
     case In::Op::ProjectionCoverageMode::WEIGHT:
-      expect_parity<PB::Weight::Projection, PB::ProjectionCoverage::Weight, HUE,
+      expect_parity<PB::Weight::Projection, PB::ProjectionCoverage::Weight,
                     ENV>(program, ctx);
       break;
     case In::Op::ProjectionCoverageMode::WEIGHT_SQUARED:
       expect_parity<PB::Weight::Projection,
-                    PB::ProjectionCoverage::WeightSquared, HUE, ENV>(program,
-                                                                     ctx);
+                    PB::ProjectionCoverage::WeightSquared, ENV>(program, ctx);
       break;
     case In::Op::ProjectionCoverageMode::EDGE_FADE:
       expect_parity<PB::Weight::Projection,
-                    PB::ProjectionCoverage::EdgeFade<MirrorValue>, HUE, ENV>(
-          program, ctx);
+                    PB::ProjectionCoverage::EdgeFade<MirrorValue>, ENV>(program,
+                                                                        ctx);
       break;
     }
   }
@@ -705,165 +707,115 @@ inline void test_shader_chain_parity_sample_variants() {
   });
 }
 
-/** Checks entry 3 alone against the bound mirror stage on a sample with a
-    non-zero path length. */
-template <In::Op::HueShiftMode HueV, In::Op::EnvelopeMode EnvelopeV>
-void expect_colorize_op_parity(In::ChainProgram &program,
-                               const In::FrameContext &ctx) {
-  using Bound = PB::Stage::Colorize<PB::Color::GeneratedPalette<
-      MirrorColor<HueV, EnvelopeV>>>::template Bind<MirrorBinding>;
-  using Unrotated = PB::Stage::Colorize<PB::Color::GeneratedPalette<MirrorColor<
-      In::Op::HueShiftMode::NONE, EnvelopeV>>>::template Bind<MirrorBinding>;
-  const PB::FieldSample sample{0.4f, 1.0f, math::Vector(0, 1, 0), 0.37f};
-  const Color4 erased = run_entry<Color4>(program, ctx, 3, sample);
-  const MirrorFrame mirror = mirror_from(program, ctx);
-  HS_EXPECT_TRUE(color4_identical(
-      erased, Bound::run(sample, mirror, Bound::prepare(mirror))));
-  if (HueV == In::Op::HueShiftMode::PATH_LENGTH &&
-      EnvelopeV == In::Op::EnvelopeMode::NONE &&
-      mirror.color.hue_shift_amount != 0.0f)
-    HS_EXPECT_FALSE(color4_identical(
-        erased, Unrotated::run(sample, mirror, Unrotated::prepare(mirror))));
-}
-
-template <In::Op::HueShiftMode HueV, In::Op::EnvelopeMode EnvelopeV>
+/** @brief Palette mapping and envelopes match the typed color stage. */
+template <In::Op::EnvelopeMode EnvelopeV>
 void run_colorize_variant(In::ChainProgram &program,
                           const In::FrameContext &ctx) {
-  HS_CONTEXT("hue / envelope", int(HueV), int(EnvelopeV));
   auto &params = param_as<In::Op::GeneratedPaletteParams>(program, 3);
-  params.hue_mode = static_cast<uint8_t>(HueV);
-  params.modulation.enabled = true;
   params.envelope_mode = static_cast<uint8_t>(EnvelopeV);
   for (uint8_t palette_mode = 0; palette_mode < 3; ++palette_mode) {
     params.palette_mode = palette_mode;
     for (uint8_t mapping = 0; mapping < 4; ++mapping) {
-      HS_CONTEXT("palette / mapping", palette_mode, mapping);
       params.mapping_mode = mapping;
-      for (const auto mechanic :
-           {ColorModulation::Mechanic::HUE_ROTATION,
-            ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT,
-            ColorModulation::Mechanic::OPACITY}) {
-        params.modulation.mechanic.kind = mechanic;
-        for (const float amount : {0.0f, 0.3f}) {
-          HS_CONTEXT("mechanic / amount", int(mechanic), amount);
-          params.modulation.mechanic.amount = amount;
-          expect_parity<PB::Weight::Projection, PB::ProjectionCoverage::Weight,
-                        HueV, EnvelopeV>(program, ctx);
-          expect_colorize_op_parity<HueV, EnvelopeV>(program, ctx);
-        }
-      }
+      expect_parity<PB::Weight::Projection, PB::ProjectionCoverage::Weight,
+                    EnvelopeV>(program, ctx);
+      using Bound = PB::Stage::Colorize<PB::Color::GeneratedPalette<
+          MirrorColor<EnvelopeV>>>::template Bind<MirrorBinding>;
+      const PB::FieldSample SAMPLE{.4f, 1.0f, math::Y_AXIS, .37f};
+      const MirrorFrame mirror = mirror_from(program, ctx);
+      const Color4 expected = PB::finish_color_sample(
+          Bound::run(SAMPLE, mirror, Bound::prepare(mirror)));
+      HS_EXPECT_TRUE(color4_identical(
+          run_entry<Color4>(program, ctx, 3, SAMPLE), expected));
     }
   }
 }
 
-/** Runs one hue mode against every brightness envelope. */
-template <In::Op::HueShiftMode HueV, size_t... Envelopes>
+template <size_t... Envelopes>
 void run_colorize_envelopes(In::ChainProgram &program,
                             const In::FrameContext &ctx,
                             std::index_sequence<Envelopes...>) {
-  (run_colorize_variant<HueV, static_cast<In::Op::EnvelopeMode>(Envelopes)>(
-       program, ctx),
+  (run_colorize_variant<static_cast<In::Op::EnvelopeMode>(Envelopes)>(program,
+                                                                      ctx),
    ...);
 }
-
-inline constexpr auto COLORIZE_ENVELOPES = std::make_index_sequence<
-    static_cast<size_t>(In::Op::EnvelopeMode::DESCENDING) + 1>{};
 
 inline void test_shader_chain_parity_colorize_variants() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     if (!arm_default_chain(program, 4, set))
       return;
-    const In::FrameContext ctx = shared_resources().context();
-    run_colorize_envelopes<In::Op::HueShiftMode::NONE>(program, ctx,
-                                                       COLORIZE_ENVELOPES);
-
-    run_colorize_envelopes<In::Op::HueShiftMode::PATH_LENGTH>(
-        program, ctx, COLORIZE_ENVELOPES);
+    run_colorize_envelopes(
+        program, shared_resources().context(),
+        std::make_index_sequence<
+            static_cast<size_t>(In::Op::EnvelopeMode::DESCENDING) + 1>{});
   });
 }
 
-/** @brief Path hue adds to spatial hue and precedes lightness and opacity. */
+/** @brief Adjacent displacement and spatial hue layers add and cancel. */
 inline void test_shader_chain_combined_color_modulation() {
-  In::Op::GeneratedPaletteParams params;
-  params.hue_mode = static_cast<uint8_t>(In::Op::HueShiftMode::PATH_LENGTH);
-  params.hue_shift_amount = 0.25f;
-  params.modulation.enabled = true;
-  params.modulation.source = Pattern::SourceKind::DIRECTIONAL_SINE;
-  params.modulation.evaluation = Pattern::Evaluation::DIRECT;
-  PB::Modulation::Resources<> modulation;
-  auto ctx = shared_resources().context();
-  ctx.modulation = &modulation.prepare(params.modulation, {});
-  const PB::FieldSample SAMPLE{0.413f, 0.6f, math::Vector(0, 1, 0), 1.0f};
-  const auto DIRECTION = Pattern::SphereDirection::from(SAMPLE.sphere);
-  const Color4 BASE = ctx.palettes[0]->get(SAMPLE.value);
+  const PB::FieldSample FIELD{.413f, .6f, math::Y_AXIS, 2.0f};
   for (bool table : {false, true}) {
+    auto ctx = shared_resources().context();
     if (!table)
       ctx.hue_rotation_lut = nullptr;
-    else
-      ctx.hue_rotation_lut = shared_resources().context().hue_rotation_lut;
+    const auto palette = In::Op::prepare_generated_palette(
+        ctx, In::Op::GeneratedPaletteParams{}, {});
+    const auto base = PB::Color::apply_generated_palette(FIELD, palette);
+    PB::Color::ModulationState path;
+    path.enabled = true;
+    path.source = Pattern::SourceKind::DISPLACEMENT;
+    path.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, .125f};
+    PB::Modulation::Prepared source;
+    source.evaluate = +[](const PB::Modulation::Prepared &p,
+                          const Pattern::SphereDirection &) {
+      return p.state.phase.phase_turns;
+    };
+    PB::Color::ModulationState spatial;
+    spatial.enabled = true;
+    spatial.current = &source;
+    spatial.source = Pattern::SourceKind::NOISE;
     for (float scalar : {-1.0f, 0.0f, 1.0f}) {
-      for (float amount : {0.0f, 0.125f, -0.25f, 0.75f}) {
-        HS_CONTEXT("table", table);
-        HS_CONTEXT("scalar / eighth turns", int(scalar), int(amount * 8));
-        params.modulation.mechanic = {ColorModulation::Mechanic::HUE_ROTATION,
-                                      amount};
-        HS_EXPECT_TRUE(In::Op::ColorizeGeneratedPaletteV3::validate(params) ==
-                       nullptr);
-        const auto state = In::Op::prepare_generated_palette(ctx, params, {});
-        const float ROTATION = math::wrap_t(0.25f + scalar * amount);
-        Color4 expected = BASE;
-        if (ROTATION != 0.0f)
+      source.state.phase.phase_turns = scalar;
+      for (float amount : {0.0f, .125f, -.25f, .75f}) {
+        spatial.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, amount};
+        const auto actual = PB::Color::finish(PB::Color::apply_modulation(
+            PB::Color::apply_modulation(base, path), spatial));
+        const float ROTATION = math::wrap_t(.25f + scalar * amount);
+        Color4 expected = base.color;
+        if (ROTATION != 0)
           expected.color =
-              table ? sample_hue_rotation_lut(state.hue_rotation, SAMPLE.value,
-                                              ROTATION)
-                    : ColorModulation::HueRotation::apply(BASE, ROTATION, {1})
-                          .color;
-        expected.alpha *= SAMPLE.coverage;
-        const auto actual = PB::Color::generated_palette_endpoint(
-            SAMPLE, state, &DIRECTION, &scalar);
-        HS_EXPECT_TRUE(color4_identical(actual, expected));
-      }
-      for (auto mechanic : {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT,
-                            ColorModulation::Mechanic::OPACITY}) {
-        HS_CONTEXT("table", table);
-        HS_CONTEXT("scalar / mechanic", int(scalar), int(mechanic));
-        params.modulation.mechanic = {mechanic, 0.6f};
-        HS_EXPECT_TRUE(In::Op::ColorizeGeneratedPaletteV3::validate(params) ==
-                       nullptr);
-        const auto state = In::Op::prepare_generated_palette(ctx, params, {});
-        Color4 rotated = BASE;
-        rotated.color =
-            table ? sample_hue_rotation_lut(state.hue_rotation, SAMPLE.value,
-                                            0.25f)
-                  : ColorModulation::HueRotation::apply(BASE, 0.25f, {1}).color;
-        Color4 expected =
-            ColorModulation::apply(rotated, scalar, params.modulation.mechanic);
-        expected.alpha *= SAMPLE.coverage;
-        const auto actual = PB::Color::generated_palette_endpoint(
-            SAMPLE, state, &DIRECTION, &scalar);
+              table
+                  ? sample_hue_rotation_lut(palette.hue_rotation, FIELD.value,
+                                            ROTATION)
+                  : ColorModulation::HueRotation::apply(expected, 1, {ROTATION})
+                        .color;
         HS_EXPECT_TRUE(color4_identical(actual, expected));
       }
     }
   }
 }
 
-/** @brief Both edit orders admit concurrent path hue and modulation. */
+/** @brief Displacement is an ordinary independently enabled modulation source. */
 inline void test_shader_chain_combined_color_admission() {
+  using WB = ShaderChainWhiteBox;
   reset_globals();
-  ShaderChain<96, 20> effect;
+  WB::FX effect;
   effect.init();
-  for (bool path_first : {false, true}) {
-    HS_EXPECT_EQ(effect.updateParameter("colorize.modulation-enabled", 0),
-                 ParamSetResult::APPLIED);
-    HS_EXPECT_EQ(effect.updateParameter("colorize.hue-shift-mode", 0),
-                 ParamSetResult::APPLIED);
-    const char *FIRST =
-        path_first ? "colorize.hue-shift-mode" : "colorize.modulation-enabled";
-    const char *SECOND =
-        path_first ? "colorize.modulation-enabled" : "colorize.hue-shift-mode";
-    HS_EXPECT_EQ(effect.updateParameter(FIRST, 1), ParamSetResult::APPLIED);
-    HS_EXPECT_EQ(effect.updateParameter(SECOND, 1), ParamSetResult::APPLIED);
-    HS_EXPECT_EQ(requested_param(effect, "colorize.hue-shift-mode"), 1.0f);
-    HS_EXPECT_EQ(requested_param(effect, "colorize.modulation-enabled"), 1.0f);
+  WB::modulation_params(effect, "displacement");
+  WB::modulation_params(effect, "modulation");
+  HS_EXPECT_EQ(effect.updateParameter("displacement.modulation-evaluation", 0),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("displacement.modulation-source", 4),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("displacement.modulation-amount", .5f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("modulation.modulation-amount", .25f),
+               ParamSetResult::APPLIED);
+  for (const auto *name :
+       {"displacement.modulation-enabled", "modulation.modulation-enabled"}) {
+    HS_EXPECT_EQ(effect.updateParameter(name, 0), ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(effect.updateParameter(name, 1), ParamSetResult::APPLIED);
   }
+  HS_EXPECT_EQ(effect.updateParameter("colorize.hue-shift-mode", 1),
+               ParamSetResult::UNKNOWN_PARAM);
 }

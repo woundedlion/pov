@@ -82,11 +82,13 @@ struct ShaderChainWhiteBox {
   }
   template <int W, int H>
   static void oracle_phase(ShaderChain<W, H> &effect, float phase) {
-    const_cast<Pullback::Interp::Op::ColorClockState *>(
-        static_cast<const Pullback::Interp::Op::ColorClockState *>(
-            effect.program.state_block(
-                static_cast<size_t>(effect.colorize.index))))
-        ->modulation.phase.phase_turns = math::wrap_t(phase);
+    for (size_t index = 0; index < effect.program.ops().size(); ++index)
+      if (std::string_view(effect.program.ops()[index].op->operator_id) ==
+          Pullback::Interp::Op::ModulateColorV1::ID)
+        const_cast<Pullback::Interp::Op::ModulationClockState *>(
+            static_cast<const Pullback::Interp::Op::ModulationClockState *>(
+                effect.program.state_block(index)))
+            ->modulation.phase.phase_turns = math::wrap_t(phase);
   }
 };
 } // namespace hs_test::shader_chain_tests
@@ -311,42 +313,57 @@ float exact_pattern(const Pullback::Modulation::Prepared &prepared,
   case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
     return Pattern::SphereSmoothGrid::sample(direction,
                                              std::get<3>(prepared.source));
+  case Pattern::SourceKind::DISPLACEMENT:
+    break;
   }
   HS_CHECK(false, "invalid capture pattern source");
   return 0.0f;
 }
 
-Color4 exact_colorize(const Pullback::FieldSample &sample,
-                      const Pullback::Color::GeneratedPaletteState &state) {
+Pullback::ColorSample
+exact_colorize(const Pullback::FieldSample &sample,
+               const Pullback::Color::GeneratedPaletteState &state) {
   using namespace Pullback;
   const float value = Color::palette_mapping_coordinate(
       sample.value, state.mapping, state.mapping_frequency,
       state.mapping_offset);
   Color4 color = state.palette->get(value);
-  float rotation = state.hue_mode == Color::HueMode::PATH_LENGTH
-                       ? state.hue_shift_amount * sample.path_length
-                       : 0.0f;
-  float scalar = 0.0f;
-  const bool ACTIVE = state.modulation && state.modulation->config.enabled &&
-                      state.mechanic.amount != 0.0f;
-  const bool HUE = state.apply_mechanic == ColorModulation::HueRotation::apply;
-  if (ACTIVE) {
-    const auto direction = Pattern::SphereDirection::from(sample.sphere);
-    scalar =
-        Pattern::bounded_scalar(exact_pattern(*state.modulation, direction));
-    if (HUE)
-      rotation += state.mechanic.amount * scalar;
-  }
-  color = ColorModulation::HueRotation::apply(color, 1.0f, {rotation});
-  if (ACTIVE && !HUE)
-    color = state.apply_mechanic(color, scalar, state.mechanic);
-  color.color =
-      color.color * Color::brightness_envelope_gain(
-                        sample.value, state.brightness_envelope,
-                        state.brightness_bottom, state.brightness_top);
   color.alpha *= sample.coverage *
                  hs::lerp(state.opacity_low, state.opacity_high, sample.value);
-  return color;
+  return {color,
+          sample,
+          nullptr,
+          value,
+          0.0f,
+          Color::brightness_envelope_gain(
+              sample.value, state.brightness_envelope, state.brightness_bottom,
+              state.brightness_top)};
+}
+
+Pullback::ColorSample
+exact_modulate(Pullback::ColorSample input,
+               const Pullback::Color::ModulationState &state) {
+  if (!state.enabled || state.mechanic.amount == 0.0f)
+    return input;
+  const float scalar =
+      state.source == Pattern::SourceKind::DISPLACEMENT
+          ? input.field.path_length
+          : Pattern::bounded_scalar(exact_pattern(
+                *state.current,
+                Pattern::SphereDirection::from(input.field.sphere)));
+  if (state.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)
+    input.pending_hue += state.mechanic.amount * scalar;
+  else {
+    if (state.mechanic.kind ==
+        ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT) {
+      if (scalar <= 0.0f)
+        return input;
+      Pullback::flush_color_hue(input);
+      input.hue_rotation = nullptr;
+    }
+    input.color = ColorModulation::apply(input.color, scalar, state.mechanic);
+  }
+  return input;
 }
 
 template <int W, int H>
@@ -382,17 +399,23 @@ Color4 exact_shade(const ShaderChain<W, H> &effect, const math::Vector &view,
                                        p.singularity_fade))};
     } else if (oracle == "HUE_ROTATION_AND_NOISE_LUTS" &&
                std::string_view(op.operator_id) ==
-                   Op::ColorizeGeneratedPaletteV3::ID) {
+                   Op::ColorizeGeneratedPaletteV4::ID) {
       ++substitutions;
-      ::new (output) Color4{exact_colorize(
+      ::new (output) ColorSample{exact_colorize(
           *static_cast<const FieldSample *>(input),
           *reinterpret_cast<const Color::GeneratedPaletteState *>(prepared))};
+    } else if (oracle == "HUE_ROTATION_AND_NOISE_LUTS" &&
+               std::string_view(op.operator_id) == Op::ModulateColorV1::ID) {
+      ++substitutions;
+      ::new (output) ColorSample{exact_modulate(
+          *static_cast<const ColorSample *>(input),
+          *reinterpret_cast<const Color::ModulationState *>(prepared))};
     } else {
       op.runtime.run(input, output, ctx, params, prepared);
     }
     std::swap(input, output);
   }
-  return *static_cast<const Color4 *>(input);
+  return finish_color_sample(*static_cast<const ColorSample *>(input));
 }
 
 template <int W, int H>

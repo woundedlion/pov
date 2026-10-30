@@ -44,9 +44,13 @@ struct MobiusGridSpec : Pullback::Spec {
           Pullback::Weight::Projection,
           typename Pullback::CoveragePolicyFor<
               Pullback::ProjectionCoverageMode::WEIGHT_SQUARED, B, void>::Type>,
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::PATH_LENGTH,
-                                  Pullback::Color::BrightnessEnvelope::CUP>>>>;
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::CUP>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "displacement", Pattern::SourceKind::DISPLACEMENT,
+              Pattern::Evaluation::DIRECT>>>>;
 };
 /// Parameter block derived from `MobiusGridSpec`.
 using MobiusGridParams = Pullback::ParamsFor<MobiusGridSpec>;
@@ -74,9 +78,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "917eeabc88576ee32b8f018721af198cc242f963374d141c60e5f6161c41e9cb";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "697ad245d625eefe426de8e8a4dd27029481c1a43934f8d0b47330aed4067c3c";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "2fb41d50589f9b035667f50e3b70e7036438d801d513b82e8171f004db591661";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "40bb4bb42ec7258d03f6781489b55cb60baef2857a5c8935d12ab2146326f6f2";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "mobius-grid",
@@ -87,7 +91,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
   /// Lens Mobius coefficients follow an animation; preset blends keep them.
   static constexpr bool ANIMATED_MOBIUS = true;
 
@@ -102,16 +106,19 @@ public:
     value.template get<"projection">().camera_wander = 1.0f;
     value.template get<"color">().brightness_bottom = 0.0f;
     value.template get<"color">().brightness_top = 1.0f;
-    value.template get<"color">().hue_shift_amount = 0.312f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
-    value.template get<"color">().modulation.enabled = false;
     value.template get<"color">().palette_chroma = 0.398f;
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::LINEAR;
     value.template get<"color">().phase_oscillation_depth = 0.0f;
     value.template get<"color">().phase_oscillation_speed = 0.0f;
     value.template get<"color">().opacity_high = 1.0f;
     value.template get<"color">().opacity_low = 1.0f;
+    value.template get<"displacement">().modulation.mechanic.amount = 0.312f;
+    value.template get<"displacement">().modulation.enabled = true;
+    value.template get<"displacement">().modulation.evaluation = Pattern::Evaluation::DIRECT;
+    value.template get<"displacement">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
+    value.template get<"displacement">().modulation.source = Pattern::SourceKind::DISPLACEMENT;
     value.template get<"lens">().mobius.a.im = 0.304f;
     value.template get<"lens">().mobius.a.re = -1.072f;
     value.template get<"lens">().mobius.b.im = 0.0f;

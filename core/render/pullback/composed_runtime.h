@@ -93,9 +93,8 @@ public:
   static_assert(Metadata::COVERAGE != ProjectionCoverageMode::EDGE_FADE ||
                     Metadata::ProjectStage::EDGE_DISTANCE_AVAILABLE,
                 "edge-fade coverage requires projection edge distance");
-  static_assert(Metadata::PATH_TRACKED ==
-                    (Metadata::HUE == HueMode::PATH_LENGTH),
-                "path length hue must match pipeline tracking");
+  static_assert(!Metadata::DISPLACEMENT || Metadata::PATH_TRACKED,
+                "displacement modulation requires pipeline path tracking");
   /// Prepared per-frame state the pipeline shades from.
   using Frame = typename RenderPipeline::Frame;
 
@@ -124,7 +123,7 @@ public:
     use_parameter_storage(persistent_arena,
                           persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
-    params.visit([&]<typename Resource>(auto &) {
+    this->params.visit([&]<typename Resource>(auto &) {
       if constexpr (ComposedDetail::RESOURCE_NOISE<Resource>) {
         constexpr int32_t SEED = Resource::KIND == ResourceKind::WARP
                                      ? Derived::WARP_NOISE_SEED
@@ -188,10 +187,9 @@ public:
     prepare_frame(state->current);
     const FrameState &current = state->current;
     if constexpr (TEMPORAL_SAMPLING) {
-      auto &history = static_cast<Spacetime::FrameHistory<
-          FrameState, Metadata::HUE, TEMPORAL_SAMPLING, SpecT::MODULATION,
-          SpecT::MODULATION_EVALUATION == Pattern::Evaluation::BAKED_CUBE> &>(
-          *state);
+      auto &history =
+          static_cast<Spacetime::FrameHistory<FrameState, TEMPORAL_SAMPLING,
+                                              Metadata::MODULATION> &>(*state);
       if (!history.initialized)
         history.capture(current, persistent_arena);
       if (!Spacetime::flat_surface()) {
@@ -278,12 +276,7 @@ public:
    *  @param params Parameter set to check.
    *  @return True when every family is in range. */
   static bool valid_params(const Params &params) {
-    return Pullback::valid(params) &&
-           (!params.template get<"color">().modulation.enabled ||
-            params.template get<"color">().modulation.evaluation ==
-                SpecT::MODULATION_EVALUATION) &&
-           (SpecT::MODULATION ||
-            !params.template get<"color">().modulation.enabled);
+    return Pullback::valid(params);
   }
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   /**
@@ -311,8 +304,7 @@ protected:
   /** Descriptors the arena-backed parameter array holds; every slider an effect
       registers has to fit. */
   static constexpr size_t PARAM_CAPACITY =
-      ComposedDetail::parameter_count<SpecT>(typename Params::ResourceTypes{}) +
-      (SpecT::MODULATION ? 3 : 0);
+      ComposedDetail::parameter_count<SpecT>(typename Params::ResourceTypes{});
 
   using Choreography::anims_paused;
   using Choreography::params;
@@ -327,9 +319,10 @@ protected:
   bool parameter_write_admitted(const ParamDef &parameter,
                                 float value) override {
     bool admitted = true;
-    params.visit([&]<typename Resource>(const auto &family) {
+    this->params.visit([&]<typename Resource>(const auto &family) {
       if constexpr (Resource::KIND == ResourceKind::LENS ||
-                    Resource::KIND == ResourceKind::COLOR) {
+                    Resource::KIND == ResourceKind::COLOR ||
+                    Resource::KIND == ResourceKind::MODULATION) {
         const uintptr_t begin = reinterpret_cast<uintptr_t>(&family);
         const uintptr_t target = reinterpret_cast<uintptr_t>(parameter.target);
         if (target >= begin && target - begin < sizeof(family)) {
@@ -340,7 +333,8 @@ protected:
           this->write_parameter_unchecked(proposed, value);
           admitted = Pullback::valid(candidate);
           if (!admitted) {
-            if constexpr (Resource::KIND == ResourceKind::COLOR)
+            if constexpr (Resource::KIND == ResourceKind::COLOR ||
+                          Resource::KIND == ResourceKind::MODULATION)
               refused_warning = Modulation::INVALID_CONFIGURATION;
             else
               refused_warning = Lens::MobiusLensParams::DEGENERATE_WARNING;
@@ -497,7 +491,7 @@ protected:
   HS_COLD_MEMBER void finish_blend(const Params &target)
     requires(requires { Derived::ANIMATED_MOBIUS; } && Derived::ANIMATED_MOBIUS)
   {
-    params.visit([&]<typename Resource>(auto &family) {
+    this->params.visit([&]<typename Resource>(auto &family) {
       if constexpr (Resource::KIND == ResourceKind::LENS) {
         const auto MOBIUS = family.mobius;
         family = target.template get<Resource::KEY>();
@@ -514,7 +508,7 @@ protected:
   HS_COLD_MEMBER void parameter_written() override {
     Choreography::parameter_written();
     palette_mapping = Pullback::Color::PaletteMappingWeights::single(
-        params.template get<"color">().palette_mapping);
+        this->params.template get<"color">().palette_mapping);
   }
 
   /** @brief Captures the palette-mapping endpoints of an arming crossfade.
@@ -537,7 +531,7 @@ protected:
     params = Pullback::interpolate(transition.from, transition.to, progress);
     if constexpr (requires { Derived::ANIMATED_MOBIUS; })
       if constexpr (Derived::ANIMATED_MOBIUS)
-        params.visit([&]<typename Resource>(auto &family) {
+        this->params.visit([&]<typename Resource>(auto &family) {
           if constexpr (Resource::KIND == ResourceKind::LENS)
             family.mobius = before.template get<Resource::KEY>().mobius;
         });
@@ -556,8 +550,8 @@ protected:
   template <ResourceKey Key = "lens">
   HS_COLD_MEMBER void start_mobius_animation(float scale, int duration) {
     if constexpr (Params::template HAS<Key>) {
-      Animation::MobiusWarpCircular warp(params.template get<Key>().mobius,
-                                         scale, duration);
+      Animation::MobiusWarpCircular warp(
+          this->params.template get<Key>().mobius, scale, duration);
       auto &phase = clocks.template get<Key>();
       warp.bind_phase(phase.angle, phase.magnitude);
       timeline.add_pausable(0, std::move(warp), &anims_paused);
@@ -592,32 +586,26 @@ public:
 
 private:
   static consteval bool modulation_presets_are_supported() {
-    if constexpr (SpecT::MODULATION) {
-      const auto initial =
-          Choreography::preset_row(0).params.template get<"color">().modulation;
-      for (size_t index = 1; index < Choreography::authored_preset_count();
-           ++index) {
-        const auto config = Choreography::preset_row(index)
-                                .params.template get<"color">()
-                                .modulation;
-        if (config.source != initial.source ||
-            config.mechanic.kind != initial.mechanic.kind)
-          return false;
-      }
-    }
-    return true;
+    bool supported = true;
+    Choreography::preset_row(0).params.visit([&]<typename Resource>(
+                                                 const auto &family) {
+      if constexpr (Resource::KIND == ResourceKind::MODULATION)
+        for (size_t index = 1; index < Choreography::authored_preset_count();
+             ++index) {
+          const auto config = Choreography::preset_row(index)
+                                  .params.template get<Resource::KEY>()
+                                  .modulation;
+          supported = supported && config.source == family.modulation.source &&
+                      config.mechanic.kind == family.modulation.mechanic.kind;
+        }
+    });
+    return supported;
   }
 
-  struct State
-      : ProjectionWalkNoise<ANIMATED_PROJECTION>,
-        OptionalHueRotationLut<Metadata::HUE != HueMode::NONE ||
-                               SpecT::MODULATION>,
-        OptionalModulation<SpecT::MODULATION,
-                           SpecT::MODULATION_EVALUATION ==
-                               Pattern::Evaluation::BAKED_CUBE>,
-        Spacetime::FrameHistory<
-            FrameState, Metadata::HUE, TEMPORAL_SAMPLING, SpecT::MODULATION,
-            SpecT::MODULATION_EVALUATION == Pattern::Evaluation::BAKED_CUBE> {
+  struct State : ProjectionWalkNoise<ANIMATED_PROJECTION>,
+                 OptionalHueRotationLut<Metadata::MODULATION>,
+                 Spacetime::FrameHistory<FrameState, TEMPORAL_SAMPLING,
+                                         Metadata::MODULATION> {
     ComposedDetail::ResourceStorage<ComposedDetail::ResourceNoise,
                                     typename Params::ResourceTypes>
         resources;
@@ -698,14 +686,15 @@ private:
   HS_COLD_MEMBER void register_color_field(const char *name) {
     constexpr const auto &FIELD = color_descriptor<Member>();
     if constexpr (ComposedDetail::color_gate_open<SpecT>(FIELD.topology_gate)) {
-      register_animated_param(name, &(params.template get<"color">().*Member),
+      register_animated_param(name,
+                              &(this->params.template get<"color">().*Member),
                               FIELD.min, FIELD.max);
       set_parameter_stage(ParameterStage::COLORIZE);
     }
   }
 
   template <ResourceKind Kind> HS_COLD_MEMBER void register_resource_kind() {
-    params.visit([&]<typename Resource>(auto &family) {
+    this->params.visit([&]<typename Resource>(auto &family) {
       if constexpr (Resource::KIND == Kind) {
         if constexpr (Kind == ResourceKind::WARP)
           register_warp_fields<Resource>(family);
@@ -726,7 +715,8 @@ private:
     register_resource_kind<ResourceKind::LENS>();
     register_color_field<&ColorParams::palette_chroma>("Palette Chroma");
     register_animated_param(
-        "Palette Mapping", &params.template get<"color">().palette_mapping,
+        "Palette Mapping",
+        &this->params.template get<"color">().palette_mapping,
         PALETTE_MAPPING_OPTIONS, PALETTE_MAPPING_EXPORT_OPTIONS,
         std::size(PALETTE_MAPPING_OPTIONS));
     set_parameter_stage(ParameterStage::COLORIZE);
@@ -740,54 +730,20 @@ private:
     register_color_field<&ColorParams::brightness_top>("Brightness Top");
     register_color_field<&ColorParams::opacity_low>("Opacity at Value 0");
     register_color_field<&ColorParams::opacity_high>("Opacity at Value 1");
-    register_color_field<&ColorParams::hue_shift_amount>("Hue Shift Amount");
-    if constexpr (SpecT::MODULATION) {
-      auto &config = params.template get<"color">().modulation;
-      const bool UNIT_AMOUNT =
-          ColorModulation::unit_mechanic(config.mechanic.kind);
-      register_animated_param("Modulation Amount", &config.mechanic.amount,
-                              UNIT_AMOUNT ? 0.0f : -4.0f,
-                              UNIT_AMOUNT ? 1.0f : 4.0f);
+    this->params.visit([&]<typename Resource>(auto &family) {
+      if constexpr (Resource::KIND == ResourceKind::MODULATION)
+        register_modulation<Resource>(family.modulation);
+    });
+  }
+
+  template <typename Resource>
+  HS_COLD_MEMBER void register_modulation(ColorModulation::Config &config) {
+    for (const auto &field : Modulation::control_fields(config)) {
+      if (!field.value)
+        continue;
+      register_animated_param(resource_parameter_name<Resource>(field.name),
+                              field.value, field.min, field.max);
       set_parameter_stage(ParameterStage::COLORIZE);
-      switch (config.source) {
-      case Pattern::SourceKind::NOISE:
-        register_animated_param("Pattern Scale", &config.noise.scale,
-                                1.0f / 64.0f, 8.0f);
-        set_parameter_stage(ParameterStage::COLORIZE);
-        register_animated_param("Pattern Speed", &config.noise.speed,
-                                -Pattern::MAX_NOISE_SPEED,
-                                Pattern::MAX_NOISE_SPEED);
-        set_parameter_stage(ParameterStage::COLORIZE);
-        break;
-      case Pattern::SourceKind::DIRECTIONAL_SINE:
-        register_animated_param("Pattern Frequency", &config.sine.frequency,
-                                0.0f, Pattern::MAX_AXIAL_FREQUENCY);
-        set_parameter_stage(ParameterStage::COLORIZE);
-        register_animated_param("Pattern Speed", &config.sine.speed,
-                                -Pattern::MAX_ANALYTIC_SPEED,
-                                Pattern::MAX_ANALYTIC_SPEED);
-        set_parameter_stage(ParameterStage::COLORIZE);
-        break;
-      case Pattern::SourceKind::SPHERE_INTERFERENCE:
-        register_animated_param("Pattern Frequency",
-                                &config.interference.frequency, 0.0f,
-                                Pattern::MAX_AXIAL_FREQUENCY);
-        set_parameter_stage(ParameterStage::COLORIZE);
-        register_animated_param("Pattern Speed", &config.interference.speed,
-                                -Pattern::MAX_ANALYTIC_SPEED,
-                                Pattern::MAX_ANALYTIC_SPEED);
-        set_parameter_stage(ParameterStage::COLORIZE);
-        break;
-      case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
-        register_animated_param("Pattern Frequency", &config.grid.frequency,
-                                0.0f, Pattern::MAX_AXIAL_FREQUENCY);
-        set_parameter_stage(ParameterStage::COLORIZE);
-        register_animated_param("Pattern Speed", &config.grid.speed,
-                                -Pattern::MAX_ANALYTIC_SPEED,
-                                Pattern::MAX_ANALYTIC_SPEED);
-        set_parameter_stage(ParameterStage::COLORIZE);
-        break;
-      }
     }
   }
 
@@ -797,7 +753,7 @@ private:
    * rotations accumulate independently for each affine warp.
    */
   HS_COLD_MEMBER void advance_runtime() {
-    params.visit([&]<typename Resource>(const auto &family) {
+    this->params.visit([&]<typename Resource>(const auto &family) {
       auto &clock = clocks.template get<Resource::KEY>();
       if constexpr (Resource::KIND == ResourceKind::SOURCE) {
         Pattern::advance_clocks(family, clock.primary, clock.secondary,
@@ -811,6 +767,8 @@ private:
           Surface::advance_ripple_phase(clock.phase, family);
         else
           clock.phase = math::wrap_t(clock.phase + family.speed);
+      } else if constexpr (Resource::KIND == ResourceKind::MODULATION) {
+        Modulation::advance(clock.modulation_clock, family.modulation);
       } else if constexpr (Resource::KIND == ResourceKind::WARP) {
         if constexpr (std::is_same_v<typename Resource::Family, AffineParams>)
           Warp::advance_affine_rotation(clock.rotation, family);
@@ -818,18 +776,16 @@ private:
       }
     });
     if constexpr (ANIMATED_PROJECTION)
-      this->projection_spin = fmodf(
-          this->projection_spin + params.template get<"projection">().spin_rate,
-          math::TWO_PI_F);
+      this->projection_spin =
+          fmodf(this->projection_spin +
+                    this->params.template get<"projection">().spin_rate,
+                math::TWO_PI_F);
     if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
       camera_spin =
           fmodf(camera_spin + Derived::CAMERA_SPIN_RATE, math::TWO_PI_F);
-    if constexpr (SpecT::MODULATION)
-      Modulation::advance(modulation_state,
-                          params.template get<"color">().modulation);
-    palette_oscillation_phase =
-        math::wrap_t(palette_oscillation_phase +
-                     params.template get<"color">().phase_oscillation_speed);
+    palette_oscillation_phase = math::wrap_t(
+        palette_oscillation_phase +
+        this->params.template get<"color">().phase_oscillation_speed);
   }
 
   HS_COLD_MEMBER void update_spatial_frames() {
@@ -840,7 +796,8 @@ private:
       this->projection_walk_previous = projection;
       this->projection_wander = math::absorb_rotation_delta(
           projection_delta.normalized(),
-          params.template get<"projection">().wander, this->projection_wander);
+          this->params.template get<"projection">().wander,
+          this->projection_wander);
       this->projection_conjugate =
           (math::make_rotation(math::Y_AXIS, this->projection_spin) *
            this->base_orientation * this->projection_wander)
@@ -852,7 +809,7 @@ private:
     outer_walk_previous = outer;
     outer_wander = math::absorb_rotation_delta(
         outer_delta.normalized(),
-        params.template get<"projection">().camera_wander, outer_wander);
+        this->params.template get<"projection">().camera_wander, outer_wander);
     if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
       outer_conjugate =
           (math::make_rotation(math::Y_AXIS, camera_spin) * outer_wander)
@@ -863,20 +820,9 @@ private:
 
   /** @brief The hue-rotation LUT base, or null when no hue mode reads one. */
   const Pixel *hue_rotation_lut_data() const {
-    if constexpr (Metadata::HUE != HueMode::NONE || SpecT::MODULATION)
+    if constexpr (Metadata::MODULATION)
       return state->hue_rotation_lut.data();
     else
-      return nullptr;
-  }
-
-  /** @brief Immutable modulation endpoint, or null when unavailable.
-   * @return Prepared endpoint view. */
-  const Modulation::Prepared *modulation_data() {
-    if constexpr (SpecT::MODULATION) {
-      auto &config = params.template get<"color">().modulation;
-      Modulation::synchronize(modulation_state, config);
-      return &state->modulation_resources.prepare(config, modulation_state);
-    } else
       return nullptr;
   }
 
@@ -887,10 +833,8 @@ private:
    */
   HS_COLD_MEMBER void prepare_frame(FrameState &frame) {
     HS_PROFILE(fx_prepare_frame);
-    if constexpr (Metadata::HUE != HueMode::NONE || SpecT::MODULATION)
-      if ((TEMPORAL_SAMPLING || hue_rotation_active<Metadata::HUE>(
-                                    params.template get<"color">())) &&
-          state->hue_rotation_lut_bake != palette_cycler.bake_generation()) {
+    if constexpr (Metadata::MODULATION)
+      if (state->hue_rotation_lut_bake != palette_cycler.bake_generation()) {
         Pullback::Color::prepare_hue_rotation_lut(
             std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
                 state->hue_rotation_lut),
@@ -901,17 +845,29 @@ private:
     frame.outer_conjugate = outer_conjugate;
     frame.palette = &palette_cycler.palette();
     frame.hue_rotation_lut = hue_rotation_lut_data();
-    frame.modulation = modulation_data();
     frame.params = params;
     frame.resources = {};
     frame.palette_mapping = palette_mapping;
     frame.palette_oscillation_phase = palette_oscillation_phase;
-    params.visit([&]<typename Resource>(const auto &) {
+    this->params.visit([&]<typename Resource>(const auto &) {
       auto &resource = frame.resources.template get<Resource::KEY>();
       static_cast<ComposedDetail::ResourceClock<Resource> &>(resource) =
           clocks.template get<Resource::KEY>();
       if constexpr (ComposedDetail::RESOURCE_NOISE<Resource>)
         resource.noise = &state->resources.template get<Resource::KEY>().noise;
+      if constexpr (Resource::KIND == ResourceKind::MODULATION) {
+        const auto &config =
+            this->params.template get<Resource::KEY>().modulation;
+        auto &clock = clocks.template get<Resource::KEY>().modulation_clock;
+        Modulation::synchronize(clock, config);
+        resource.modulation_clock = clock;
+        if constexpr (Resource::Family::SOURCE !=
+                      Pattern::SourceKind::DISPLACEMENT)
+          resource.modulation =
+              &state->resources.template get<Resource::KEY>()
+                   .modulation_resources.prepare(config, clock);
+        resource.previous_modulation = resource.modulation;
+      }
       if constexpr (Resource::KIND == ResourceKind::LENS)
         if (!Pullback::valid(frame.params.template get<Resource::KEY>()))
           frame.params.template get<Resource::KEY>().mobius = {};
@@ -920,14 +876,13 @@ private:
             frame.params.template get<Resource::KEY>(), resource);
     });
     if constexpr (TEMPORAL_SAMPLING)
-      frame.temporal = {frame.palette, frame.hue_rotation_lut, frame.modulation,
-                        1.0f};
+      frame.temporal = {frame.palette, frame.hue_rotation_lut, 1.0f};
   }
 
   HS_COLD_MEMBER void update_palette_chroma() {
-    if (palette_chroma == params.template get<"color">().palette_chroma)
+    if (palette_chroma == this->params.template get<"color">().palette_chroma)
       return;
-    palette_chroma = params.template get<"color">().palette_chroma;
+    palette_chroma = this->params.template get<"color">().palette_chroma;
     palette_cycler.set_generated_chroma(palette_chroma);
   }
 
@@ -963,7 +918,7 @@ private:
   State *state = nullptr;
   Pullback::Color::PaletteMappingWeights palette_mapping =
       Pullback::Color::PaletteMappingWeights::single(
-          params.template get<"color">().palette_mapping);
+          this->params.template get<"color">().palette_mapping);
   Pullback::Color::PaletteMappingWeights mapping_from;
   Pullback::Color::PaletteMappingWeights mapping_to;
   math::Orientation<> outer_walk;
@@ -974,7 +929,6 @@ private:
                                   typename Params::ResourceTypes>
       clocks;
   float camera_spin = 0.0f;
-  Modulation::State modulation_state;
   float palette_oscillation_phase = 0.0f;
   float palette_chroma = -1.0f;
   uint32_t palette_hue = 0;

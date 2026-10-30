@@ -121,16 +121,18 @@ struct FieldStage : Pullback::Stage::Contract<FieldStage, Pullback::FieldSample,
 
 struct ColorCrossingStage
     : Pullback::Stage::Contract<ColorCrossingStage, Pullback::FieldSample,
-                                Color4> {
+                                Pullback::ColorSample> {
   using Policies = std::tuple<>;
 
   template <typename Binding>
-  static Color4 run(const Pullback::FieldSample &input, const TestFrame &frame,
-                    const Pullback::NoPrepared &) {
+  static Pullback::ColorSample run(const Pullback::FieldSample &input,
+                                   const TestFrame &frame,
+                                   const Pullback::NoPrepared &) {
     record(frame, 5);
-    return Color4(Pixel(static_cast<uint16_t>(input.path_length),
-                        static_cast<uint16_t>(input.value * 100.0f), 3),
-                  input.coverage);
+    return {Color4(Pixel(static_cast<uint16_t>(input.path_length),
+                         static_cast<uint16_t>(input.value * 100.0f), 3),
+                   input.coverage),
+            {}};
   }
 };
 
@@ -151,12 +153,13 @@ struct NonTuplePoliciesStage {
 struct NotACarrier {};
 
 struct ForeignCarrierStage
-    : Pullback::Stage::Contract<ForeignCarrierStage, NotACarrier, Color4> {
+    : Pullback::Stage::Contract<ForeignCarrierStage, NotACarrier,
+                                Pullback::ColorSample> {
   using Policies = std::tuple<>;
 
   template <typename Binding>
-  static Color4 run(const NotACarrier &, const TestFrame &,
-                    const Pullback::NoPrepared &) {
+  static Pullback::ColorSample run(const NotACarrier &, const TestFrame &,
+                                   const Pullback::NoPrepared &) {
     return {};
   }
 };
@@ -231,13 +234,13 @@ struct MalformedValueState {
 
 struct WrongReturnStage {
   using Input = Pullback::FieldSample;
-  using Output = Color4;
+  using Output = Pullback::ColorSample;
   using Policies = std::tuple<>;
 
   template <typename Binding> struct Bind : Pullback::ApproximationDefaults {
     using Descriptor = WrongReturnStage;
     using Input = Pullback::FieldSample;
-    using Output = Color4;
+    using Output = Pullback::ColorSample;
     using FrameState = typename Binding::FrameState;
     using Prepared = Pullback::NoPrepared;
 
@@ -250,13 +253,13 @@ struct WrongReturnStage {
 
 struct WrongPrepareStage {
   using Input = Pullback::FieldSample;
-  using Output = Color4;
+  using Output = Pullback::ColorSample;
   using Policies = std::tuple<>;
 
   template <typename Binding> struct Bind : Pullback::ApproximationDefaults {
     using Descriptor = WrongPrepareStage;
     using Input = Pullback::FieldSample;
-    using Output = Color4;
+    using Output = Pullback::ColorSample;
     using FrameState = typename Binding::FrameState;
     using Prepared = Pullback::NoPrepared;
 
@@ -273,7 +276,7 @@ struct MalformedApproximatePolicy : Pullback::ApproximationDefaults {
 
 struct MalformedApproximateStage
     : Pullback::Stage::Contract<MalformedApproximateStage,
-                                Pullback::FieldSample, Color4> {
+                                Pullback::FieldSample, Pullback::ColorSample> {
   using Policies = std::tuple<MalformedApproximatePolicy>;
 
   template <typename Binding>
@@ -326,11 +329,11 @@ inline void test_pullback_carrier_contract() {
   static_assert(Pullback::family_of<Pullback::SphereSample> == 0);
   static_assert(Pullback::family_of<Pullback::PlaneSample> == 1);
   static_assert(Pullback::family_of<Pullback::FieldSample> == 2);
-  static_assert(Pullback::family_of<Color4> == 3);
+  static_assert(Pullback::family_of<Pullback::ColorSample> == 3);
   static_assert(Pullback::family_of<NotACarrier> ==
                 Pullback::FOREIGN_FAMILY_RANK);
   static_assert(Pullback::CanonicalCarrier<Pullback::SphereSample>);
-  static_assert(Pullback::CanonicalCarrier<Color4>);
+  static_assert(Pullback::CanonicalCarrier<Pullback::ColorSample>);
   static_assert(!Pullback::CanonicalCarrier<NotACarrier>);
   static_assert(!Pullback::CanonicalCarrier<Pullback::ProjectionResult>);
 
@@ -981,7 +984,8 @@ inline void test_pullback_prepared_stage_policies() {
   using BoundColorize =
       Pullback::Stage::Colorize<PreparedColorPolicy>::Bind<CountingBinding>;
   const auto color_prepared = BoundColorize::prepare(frame);
-  HS_EXPECT_EQ(BoundColorize::run(field, frame, color_prepared).color.r, 11);
+  HS_EXPECT_EQ(BoundColorize::run(field, frame, color_prepared).color.color.r,
+               11);
 }
 
 /** @brief Stage combinators preserve carrier fields and coverage. */
@@ -1375,12 +1379,13 @@ struct ScaleLens : Pullback::ApproximationDefaults {
 
 struct DirectionColorStage
     : Pullback::Stage::Contract<DirectionColorStage, Pullback::SphereSample,
-                                Color4> {
+                                Pullback::ColorSample> {
   using Policies = std::tuple<>;
   template <typename Binding>
-  static Color4 run(const Pullback::SphereSample &input, const TestFrame &,
-                    const Pullback::NoPrepared &) {
-    return Color4(Pixel(static_cast<uint16_t>(input.dir.x), 0, 0), 1.0f);
+  static Pullback::ColorSample run(const Pullback::SphereSample &input,
+                                   const TestFrame &,
+                                   const Pullback::NoPrepared &) {
+    return {Color4(Pixel(static_cast<uint16_t>(input.dir.x), 0, 0), 1.0f), {}};
   }
 };
 
@@ -1397,13 +1402,14 @@ inline void test_pullback_lens_stack() {
 }
 struct SkyGradientStage
     : Pullback::Stage::Contract<SkyGradientStage, Pullback::SphereSample,
-                                Color4> {
+                                Pullback::ColorSample> {
   using Policies = std::tuple<>;
 
   template <typename Binding>
-  static Color4 run(const Pullback::SphereSample &input, const TestFrame &,
-                    const Pullback::NoPrepared &) {
-    return Color4(Pixel(4, 5, 6), input.dir.x);
+  static Pullback::ColorSample run(const Pullback::SphereSample &input,
+                                   const TestFrame &,
+                                   const Pullback::NoPrepared &) {
+    return {Color4(Pixel(4, 5, 6), input.dir.x), {}};
   }
 };
 
@@ -1603,27 +1609,24 @@ inline void test_pullback_runtime_seed_contract() {
   HS_EXPECT_EQ(Pullback::HUE_NOISE_SEED, 6047);
 }
 
-/** @brief Palette resources for colorizer contract tests. */
+/** @brief Palette and modulation endpoints for color-stage tests. */
 struct PaletteFrame {
   const BakedPalette *palette = nullptr;
   const Pixel *hue_rotation = nullptr;
   const Pullback::Modulation::Prepared *modulation = nullptr;
+  const Pullback::Modulation::Prepared *previous_modulation = nullptr;
   ColorModulation::Params mechanic{ColorModulation::Mechanic::HUE_ROTATION,
                                    0.25f};
-  Pullback::Color::HueMode hue_mode = Pullback::Color::HueMode::NONE;
   Pullback::Color::TemporalPaletteResources temporal{};
 };
-
 struct PaletteBinding {
   using FrameState = PaletteFrame;
   using Instrumentation = Pullback::NoInstrumentation;
 };
-
 struct PaletteProvider {
   using Binding = PaletteBinding;
   using FrameState = PaletteFrame;
-  static Pullback::Color::PaletteMappingWeights
-  mapping_weights(const PaletteFrame &) {
+  static auto mapping_weights(const PaletteFrame &) {
     return Pullback::Color::PaletteMappingWeights::single(
         Pullback::Color::PaletteMapping::LINEAR);
   }
@@ -1634,28 +1637,10 @@ struct PaletteProvider {
   static const BakedPalette &palette(const PaletteFrame &frame) {
     return *frame.palette;
   }
-  static Pullback::Color::HueMode hue_mode(const PaletteFrame &frame) {
-    return frame.hue_mode;
+  static HueRotationLutView hue_rotation(const PaletteFrame &frame) {
+    return {frame.hue_rotation, frame.hue_rotation != nullptr};
   }
-  static float hue_shift_amount(const PaletteFrame &) { return 0.25f; }
-  static Pullback::Color::HueRotationLutView
-  hue_rotation(const PaletteFrame &frame) {
-    return {
-        frame.hue_rotation,
-        frame.hue_mode != Pullback::Color::HueMode::NONE ||
-            (frame.modulation && frame.modulation->config.enabled &&
-             frame.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION &&
-             frame.mechanic.amount != 0.0f)};
-  }
-  static const Pullback::Modulation::Prepared *
-  modulation(const PaletteFrame &frame) {
-    return frame.modulation;
-  }
-  static ColorModulation::Params mechanic(const PaletteFrame &frame) {
-    return frame.mechanic;
-  }
-  static Pullback::Color::BrightnessEnvelope
-  brightness_envelope(const PaletteFrame &) {
+  static auto brightness_envelope(const PaletteFrame &) {
     return Pullback::Color::BrightnessEnvelope::NONE;
   }
   static float brightness_bottom(const PaletteFrame &) { return 1.0f; }
@@ -1663,202 +1648,192 @@ struct PaletteProvider {
   static float opacity_low(const PaletteFrame &) { return 0.2f; }
   static float opacity_high(const PaletteFrame &) { return 0.6f; }
 };
-
 struct TemporalPaletteProvider : PaletteProvider {
-  static Pullback::Color::TemporalPaletteResources
-  temporal_resources(const PaletteFrame &frame) {
+  static auto temporal_resources(const PaletteFrame &frame) {
     return frame.temporal;
   }
 };
-
+struct PaletteLayerProvider {
+  using Binding = PaletteBinding;
+  using FrameState = PaletteFrame;
+  static Pullback::Color::ModulationState prepare(const PaletteFrame &frame) {
+    return {frame.modulation, frame.previous_modulation,
+            Pattern::SourceKind::DIRECTIONAL_SINE, frame.mechanic, true};
+  }
+};
+struct PaletteSampleStage
+    : Pullback::Stage::Contract<PaletteSampleStage, Pullback::SphereSample,
+                                Pullback::FieldSample> {
+  using Policies = std::tuple<>;
+  template <typename B>
+  static Pullback::FieldSample run(const Pullback::SphereSample &input,
+                                   const PaletteFrame &,
+                                   const Pullback::NoPrepared &) {
+    return {0.5f, 0.5f, input.dir, input.path_length};
+  }
+};
 struct ConstantPalette {
   Color4 color;
   Color4 get(float) const { return color; }
 };
+using TemporalPalettePipeline = Pullback::Pipeline<
+    PaletteBinding, PaletteSampleStage,
+    Pullback::Stage::Colorize<
+        Pullback::Color::GeneratedPalette<TemporalPaletteProvider>>,
+    Pullback::Stage::Modulate<Pullback::Color::Modulate<PaletteLayerProvider>>>;
+using TemporalPalettePlacedPipeline = Pullback::Pipeline<
+    PaletteBinding, PaletteSampleStage,
+    Pullback::Stage::Placed<
+        Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+        Pullback::Stage::Colorize<
+            Pullback::Color::GeneratedPalette<TemporalPaletteProvider>>,
+        Pullback::Stage::Modulate<
+            Pullback::Color::Modulate<PaletteLayerProvider>>>>;
 
-/** @brief Temporal colorizers interpolate palette resources and preserve endpoints. */
+/** @brief The complete color suffix interpolates immutable palette endpoints. */
 inline void test_pullback_temporal_palette() {
-  using namespace Pullback::Color;
-  using Regular = GeneratedPalette<PaletteProvider>;
-  using TimedPipeline = GeneratedPalette<TemporalPaletteProvider>;
-  static_assert(std::is_same_v<Regular::Prepared, GeneratedPaletteState>);
-  static_assert(!Regular::TEMPORAL && TimedPipeline::TEMPORAL);
-  static_assert(Regular::PROVIDER_VALID<PaletteBinding>);
-  static_assert(TimedPipeline::PROVIDER_VALID<PaletteBinding>);
-  alignas(std::max_align_t)
-      std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()>
-          buffer{};
+  using namespace Pullback;
+  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> buffer{};
   Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage old_palette;
-  BakedPaletteStorage new_palette;
-  old_palette.bake(arena,
-                   ConstantPalette{Color4(Pixel(1000, 2000, 3000), 0.2f)});
-  new_palette.bake(arena,
-                   ConstantPalette{Color4(Pixel(9000, 6000, 1000), 0.6f)});
+  BakedPaletteStorage a, b;
+  a.bake(arena, ConstantPalette{Color4(Pixel(1000, 2000, 3000), 0.2f)});
+  b.bake(arena, ConstantPalette{Color4(Pixel(9000, 6000, 1000), 0.6f)});
   PaletteFrame frame;
-  frame.palette = &new_palette.view();
-  frame.temporal.palette = &old_palette.view();
-  Pullback::FieldSample sample{};
-  sample.value = 0.5f;
-  sample.coverage = 0.5f;
-  sample.sphere = math::Vector(1.0f, 0.0f, 0.0f);
-  const Color4 regular = Regular::apply(sample, frame, Regular::prepare(frame));
-  HS_EXPECT_EQ(regular.color, Pixel(9000, 6000, 1000));
-  HS_EXPECT_NEAR(regular.alpha, 0.12f, 1e-6f);
+  frame.palette = &b.view();
+  frame.temporal.palette = &a.view();
+  frame.mechanic.amount = 0.0f;
   for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
     frame.temporal.fraction = fraction;
-    const Color4 color =
-        TimedPipeline::apply(sample, frame, TimedPipeline::prepare(frame));
-    HS_EXPECT_NEAR(color.color.r, 1000.0f + 8000.0f * fraction, 1.0f);
-    HS_EXPECT_NEAR(color.color.g, 2000.0f + 4000.0f * fraction, 1.0f);
-    HS_EXPECT_NEAR(color.color.b, 3000.0f - 2000.0f * fraction, 1.0f);
-    HS_EXPECT_NEAR(color.alpha, 0.04f + 0.08f * fraction, 1e-6f);
-    if (fraction == 0.0f)
-      HS_EXPECT_EQ(color.color, Pixel(1000, 2000, 3000));
-    if (fraction == 1.0f)
-      HS_EXPECT_EQ(color.color, regular.color);
-  }
-
-  std::array<Pixel, HueRotationLutView::SIZE> old_rotation;
-  std::array<Pixel, HueRotationLutView::SIZE> new_rotation;
-  for (size_t i = 0; i < old_rotation.size(); ++i) {
-    const uint16_t HUE =
-        static_cast<uint16_t>(i % HueRotationLutView::HUE_STEPS);
-    old_rotation[i] = Pixel(1000 + HUE * 100, 2000, 3000);
-    new_rotation[i] = Pixel(9000 + HUE * 100, 6000, 1000);
-  }
-  Pullback::Modulation::Resources old_modulation;
-  Pullback::Modulation::Resources new_modulation;
-  ColorModulation::Config config;
-  config.mechanic = frame.mechanic;
-  auto old_clock = Pullback::Modulation::init(config);
-  auto new_clock = old_clock;
-  new_clock.phase.phase_turns = 0.25f;
-  old_modulation.prepare(config, old_clock);
-  new_modulation.prepare(config, new_clock);
-  old_modulation.table.fill(0);
-  new_modulation.table.fill(127);
-  frame.hue_rotation = new_rotation.data();
-  frame.modulation = &new_modulation.prepared;
-  frame.temporal.hue_rotation = old_rotation.data();
-  frame.temporal.modulation = &old_modulation.prepared;
-  for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
-    frame.temporal.fraction = fraction;
-    const Color4 color =
-        TimedPipeline::apply(sample, frame, TimedPipeline::prepare(frame));
-    HS_EXPECT_NEAR(color.color.r, 1000.0f + 8400.0f * fraction, 1.0f);
-    HS_EXPECT_NEAR(color.color.g, 2000.0f + 4000.0f * fraction, 1.0f);
-    HS_EXPECT_NEAR(color.color.b, 3000.0f - 2000.0f * fraction, 1.0f);
-    HS_EXPECT_NEAR(color.alpha, 0.04f + 0.08f * fraction, 1e-6f);
-  }
-
-  uint32_t seed = 0x517cc1b7;
-  const auto random = [&]() {
-    seed ^= seed << 13;
-    seed ^= seed >> 17;
-    seed ^= seed << 5;
-    return seed;
-  };
-  for (size_t i = 0; i < old_rotation.size(); ++i) {
-    old_rotation[i] = Pixel(random(), random(), random());
-    new_rotation[i] = Pixel(random(), random(), random());
-  }
-  for (size_t i = 0; i < old_modulation.table.size(); ++i) {
-    old_modulation.table[i] = static_cast<int>(random() % 255) - 127;
-    new_modulation.table[i] = static_cast<int>(random() % 255) - 127;
-  }
-  const auto unit = [&]() { return (random() >> 8) * 0x1p-24f; };
-  for (int i = 0; i < 4096; ++i) {
-    frame.temporal.fraction = unit();
-    auto prepared = TimedPipeline::prepare(frame);
-    prepared.current.mechanic.amount = unit() * 8.0f - 4.0f;
-    prepared.previous.mechanic.amount = prepared.current.mechanic.amount;
-    sample.value = i % 5 == 0 ? 0.0f : i % 5 == 1 ? 1.0f : unit();
-    sample.coverage = unit();
-    sample.sphere = i % 7 == 0 ? math::Vector(1, 1, 1)
-                               : math::Vector(unit() * 2 - 1, unit() * 2 - 1,
-                                              unit() * 2 - 1);
-    const Color4 EXPECTED =
-        apply_generated_palette(sample, prepared.previous)
-            .lerp(apply_generated_palette(sample, prepared.current),
-                  prepared.fraction);
-    const Color4 ACTUAL = TimedPipeline::apply(sample, frame, prepared);
-    HS_EXPECT_NEAR(ACTUAL.color.r, EXPECTED.color.r, 2.0f);
-    HS_EXPECT_NEAR(ACTUAL.color.g, EXPECTED.color.g, 2.0f);
-    HS_EXPECT_NEAR(ACTUAL.color.b, EXPECTED.color.b, 2.0f);
-    HS_EXPECT_NEAR(ACTUAL.alpha, EXPECTED.alpha, 2e-7f);
-    const Pixel EXPECTED_PIXEL = EXPECTED.color * EXPECTED.alpha;
-    const Pixel ACTUAL_PIXEL = ACTUAL.color * ACTUAL.alpha;
-    HS_EXPECT_NEAR(ACTUAL_PIXEL.r, EXPECTED_PIXEL.r, 2.0f);
-    HS_EXPECT_NEAR(ACTUAL_PIXEL.g, EXPECTED_PIXEL.g, 2.0f);
-    HS_EXPECT_NEAR(ACTUAL_PIXEL.b, EXPECTED_PIXEL.b, 2.0f);
+    const auto COLOR = TemporalPalettePipeline::shade(
+        math::Y_AXIS, TemporalPalettePipeline::prepare(frame));
+    HS_EXPECT_NEAR(COLOR.color.r, 1000 + 8000 * fraction, 1.0f);
+    HS_EXPECT_NEAR(COLOR.color.g, 2000 + 4000 * fraction, 1.0f);
+    HS_EXPECT_NEAR(COLOR.color.b, 3000 - 2000 * fraction, 1.0f);
+    HS_EXPECT_NEAR(COLOR.alpha, 0.04f + 0.08f * fraction, 1e-6f);
   }
 }
 
-/** @brief Opacity interpolates completed endpoint alpha and holds current topology. */
+/** @brief Opacity modulates each endpoint before final color interpolation. */
 inline void test_pullback_modulation_temporal_alpha() {
-  using Timed = Pullback::Color::GeneratedPalette<TemporalPaletteProvider>;
+  using namespace Pullback;
   std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> buffer{};
   Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage old_palette;
-  BakedPaletteStorage new_palette;
+  BakedPaletteStorage a, b;
   const Pixel RGB(1234, 4567, 8910);
-  old_palette.bake(arena, ConstantPalette{Color4(RGB, 0.2f)});
-  new_palette.bake(arena, ConstantPalette{Color4(RGB, 0.6f)});
-  ColorModulation::Config config;
+  a.bake(arena, ConstantPalette{Color4(RGB, 0.2f)});
+  b.bake(arena, ConstantPalette{Color4(RGB, 0.6f)});
+  Modulation::Config config;
   config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
   config.evaluation = Pattern::Evaluation::DIRECT;
-  config.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
   config.sine.frequency = 0.0f;
-  auto old_clock = Pullback::Modulation::init(config);
-  auto new_clock = old_clock;
-  old_clock.phase.phase_turns = 0.75f;
-  new_clock.phase.phase_turns = 0.25f;
-  Pullback::Modulation::Resources<false> previous;
-  Pullback::Modulation::Resources<false> current;
-  previous.prepare(config, old_clock);
-  current.prepare(config, new_clock);
+  auto clock = Modulation::init(config);
+  Modulation::Resources<false> previous, current;
+  clock.phase.phase_turns = 0.75f;
+  previous.prepare(config, clock);
+  clock.phase.phase_turns = 0.25f;
+  current.prepare(config, clock);
   PaletteFrame frame;
-  frame.palette = &new_palette.view();
-  frame.temporal.palette = &old_palette.view();
+  frame.palette = &b.view();
+  frame.temporal.palette = &a.view();
   frame.modulation = &current.prepared;
-  frame.temporal.modulation = &previous.prepared;
-  frame.mechanic = config.mechanic;
-  Pullback::FieldSample sample{};
-  sample.value = 0.5f;
-  sample.coverage = 0.5f;
-  sample.sphere = math::Z_AXIS;
+  frame.previous_modulation = &previous.prepared;
+  frame.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
   for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
     frame.temporal.fraction = fraction;
-    const auto PREPARED = Timed::prepare(frame);
-    const auto COLOR = Timed::apply(sample, frame, PREPARED);
+    const auto COLOR = TemporalPalettePipeline::shade(
+        math::Y_AXIS, TemporalPalettePipeline::prepare(frame));
     HS_EXPECT_EQ(COLOR.color, RGB);
-    HS_EXPECT_NEAR(COLOR.alpha, 0.12f * fraction, 1.0e-7f);
-    if (fraction == 0.25f) {
-      const float SCALAR_FIRST_ALPHA = 0.3f * 0.25f * 0.5f * 0.4f;
-      HS_EXPECT_GT(COLOR.alpha, SCALAR_FIRST_ALPHA + 0.01f);
-    }
+    HS_EXPECT_NEAR(COLOR.alpha, 0.12f * fraction, 1e-6f);
+    const auto PLACED = TemporalPalettePlacedPipeline::shade(
+        math::Y_AXIS, TemporalPalettePlacedPipeline::prepare(frame));
+    HS_EXPECT_EQ(PLACED.color, COLOR.color);
+    HS_EXPECT_NEAR(PLACED.alpha, COLOR.alpha, 0.0f);
   }
-  frame.palette = &old_palette.view();
-  for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
-    frame.temporal.fraction = fraction;
-    const auto COLOR = Timed::apply(sample, frame, Timed::prepare(frame));
-    HS_EXPECT_EQ(COLOR.color, RGB);
-    HS_EXPECT_NEAR(COLOR.alpha, 0.04f * fraction, 1.0e-7f);
+  frame.mechanic = {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT, 1.0f};
+  frame.temporal.fraction = 0.5f;
+  const auto COLOR = TemporalPalettePipeline::shade(
+      math::Y_AXIS, TemporalPalettePipeline::prepare(frame));
+  const auto EXPECTED =
+      RGB.lerp16(Pixel(65535, 65535, 65535), frac_to_q16(0.5f));
+  HS_EXPECT_NEAR(COLOR.color.r, EXPECTED.r, 1.0f);
+  HS_EXPECT_NEAR(COLOR.color.g, EXPECTED.g, 1.0f);
+  HS_EXPECT_NEAR(COLOR.color.b, EXPECTED.b, 1.0f);
+}
+
+/** @brief Adjacent hues add and nonlinear layers preserve authored order. */
+inline void test_pullback_stacked_modulations() {
+  using namespace Pullback;
+  const Color4 BASE(Pixel(23000, 17000, 11000), 0.7f);
+  const ColorSample INPUT{BASE, {0.4f, 0.6f, math::Y_AXIS, 2.5f}};
+  Color::ModulationState first{nullptr,
+                               nullptr,
+                               Pattern::SourceKind::DISPLACEMENT,
+                               {ColorModulation::Mechanic::HUE_ROTATION, 0.3f},
+                               true};
+  auto second = first;
+  second.mechanic.amount = -0.3f;
+  const auto CANCELLED = Color::finish(
+      Color::apply_modulation(Color::apply_modulation(INPUT, first), second));
+  HS_EXPECT_EQ(CANCELLED.color, BASE.color);
+  HS_EXPECT_NEAR(CANCELLED.alpha, BASE.alpha, 0.0f);
+  std::array<Pixel, HueRotationLutView::SIZE> table;
+  for (size_t index = 0; index < table.size(); ++index)
+    table[index] = Pixel((index % 16) * 1000, 2000, 3000);
+  auto with_table = INPUT;
+  with_table.hue_rotation = table.data();
+  HS_EXPECT_EQ(
+      Color::finish(Color::apply_modulation(
+                        Color::apply_modulation(with_table, first), second))
+          .color,
+      BASE.color);
+  Modulation::Config lift_config;
+  lift_config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+  lift_config.evaluation = Pattern::Evaluation::DIRECT;
+  lift_config.sine.frequency = 0.0f;
+  auto clock = Modulation::init(lift_config);
+  Modulation::Resources<false> lift_source;
+  for (float phase : {0.0f, 0.75f}) {
+    clock.phase.phase_turns = phase;
+    const auto &source = lift_source.prepare(lift_config, clock);
+    const Color::ModulationState IDENTITY_LIFT{
+        &source,
+        &source,
+        Pattern::SourceKind::DIRECTIONAL_SINE,
+        {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT, 1.0f},
+        true};
+    const auto LAYERED = Color::apply_modulation(
+        Color::apply_modulation(Color::apply_modulation(with_table, first),
+                                IDENTITY_LIFT),
+        second);
+    HS_EXPECT_EQ(Color::finish(LAYERED).color, BASE.color);
   }
-  frame.temporal.continuous_modulation = false;
-  frame.mechanic.amount = 0.8f;
-  for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
-    frame.temporal.fraction = fraction;
-    const auto COLOR = Timed::apply(sample, frame, Timed::prepare(frame));
-    HS_EXPECT_EQ(COLOR.color, RGB);
-    HS_EXPECT_NEAR(COLOR.alpha, 0.04f, 1.0e-7f);
-  }
-  frame.mechanic.amount = 0.0f;
-  sample.sphere = math::Vector(0.0f, 0.0f, 0.0f);
-  const auto IDENTITY = Timed::apply(sample, frame, Timed::prepare(frame));
-  HS_EXPECT_EQ(IDENTITY.color, RGB);
-  HS_EXPECT_NEAR(IDENTITY.alpha, 0.04f, 1.0e-7f);
+  const auto ROTATED = Color::finish(Color::apply_modulation(INPUT, first));
+  const auto EXPECTED = ColorModulation::HueRotation::apply(BASE, 2.5f, {0.3f});
+  HS_EXPECT_EQ(ROTATED.color, EXPECTED.color);
+  auto lift = first;
+  lift.mechanic = {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT, 0.4f};
+  second.mechanic.amount = 0.1f;
+  auto actual = Color::apply_modulation(
+      Color::apply_modulation(Color::apply_modulation(INPUT, first), lift),
+      second);
+  const auto LIFTED =
+      ColorModulation::PositiveLightnessLift::apply(EXPECTED, 1.0f, {0.4f});
+  const auto ORDERED =
+      ColorModulation::HueRotation::apply(LIFTED, 2.5f, {0.1f});
+  HS_EXPECT_EQ(Color::finish(actual).color, ORDERED.color);
+  const auto DIFFERENT = Color::finish(Color::apply_modulation(
+      Color::apply_modulation(Color::apply_modulation(INPUT, first), second),
+      lift));
+  HS_EXPECT_TRUE(DIFFERENT.color != ORDERED.color);
+  actual.brightness_gain = 0.25f;
+  HS_EXPECT_EQ(Color::finish(actual).color, ORDERED.color * 0.25f);
+  auto opacity = first;
+  opacity.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
+  HS_EXPECT_NEAR(Color::finish(Color::apply_modulation(INPUT, opacity)).alpha,
+                 BASE.alpha, 0.0f);
+  HS_EXPECT_EQ(
+      Color::finish(Color::apply_modulation(INPUT, lift)).color,
+      ColorModulation::PositiveLightnessLift::apply(BASE, 1.0f, {0.4f}).color);
 }
 
 /** @brief Runs pullback tests. */
@@ -1894,6 +1869,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_hard_edge_kernels);
   HS_RUN(test_pullback_temporal_palette);
   HS_RUN(test_pullback_modulation_temporal_alpha);
+  HS_RUN(test_pullback_stacked_modulations);
   return fixture.result();
 }
 

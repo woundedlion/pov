@@ -371,7 +371,7 @@ A polar primitive lattice folded through a pentagonal-prism kaleidoscope and pro
 
 A rotating spiral folded through a hexagonal-prism kaleidoscope, projected stereographically, and displaced by direct surface noise whose path length drives the hue rotation.
 
-**Parameters**: Pattern Freq, Speed, Source Angle Speed, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Surface Noise Direction, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Hue Shift Amount
+**Parameters**: Pattern Freq, Speed, Source Angle Speed, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Surface Noise Direction, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount
 
 </td></tr></table>
 
@@ -431,7 +431,7 @@ Dodecahedrally folded grids mapped continuously around an equirectangular equato
 
 A high-contrast mirrored stereographic grid folded by the glitch lens. Hue follows total mirror displacement, producing the concentric color structure around the moving field.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Source Angle Speed, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Edge Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Hue Shift Amount
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Source Angle Speed, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Edge Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount
 
 </td></tr></table>
 
@@ -443,7 +443,7 @@ A high-contrast mirrored stereographic grid folded by the glitch lens. Hue follo
 
 A stereographic twin-wave field folded through an inner mirror tile and a live Möbius lens. The lens follows a continuous 160-frame circular warp cycle while a complementary palette tracks displacement through the fold. Its two presets share the same fixed graph.
 
-**Parameters**: Pattern Freq, Speed, Drift, Source Angle Speed, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Mobius A Re, Mobius A Im, Mobius B Re, Mobius B Im, Mobius C Re, Mobius C Im, Mobius D Re, Mobius D Im, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Hue Shift Amount
+**Parameters**: Pattern Freq, Speed, Drift, Source Angle Speed, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Mobius A Re, Mobius A Im, Mobius B Re, Mobius B Im, Mobius C Re, Mobius C Im, Mobius D Re, Mobius D Im, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Modulation Amount
 
 </td></tr></table>
 
@@ -636,7 +636,7 @@ shading — planar-source path through the shared Scan::Shader loop
   Canvas
 ```
 
-The core catalog owns the reusable surface, lens, projection, planar-warp, source, material, and generated-color policies. The `Project` crossing rotates into the projection frame, projects, and embeds the projection's provenance and the sample point into the plane carrier. Each `Warp` stage advances the working coordinate and path accumulator, leaving provenance and sample point immutable. The `Sample` crossing consumes the provenance: it weights the raw signed field, ramps it into [0, 1], and folds projected coverage and domain coverage into the field carrier; `Transfer` and `Coverage` stages then reshape value and coverage. The terminal Colorize crossing samples the selected generated harmony, optionally shifts its hue by total path length, applies its sphere-space modulation recipe, and returns straight-alpha `Color4`; the scan sink performs the final premultiplication.
+The core catalog owns the reusable surface, lens, projection, planar-warp, source, material, and generated-color policies. The `Project` crossing rotates into the projection frame, projects, and embeds the projection's provenance and the sample point into the plane carrier. Each `Warp` stage advances the working coordinate and path accumulator, leaving provenance and sample point immutable. The `Sample` crossing consumes the provenance: it weights the raw signed field, ramps it into [0, 1], and folds projected coverage and domain coverage into the field carrier; `Transfer` and `Coverage` stages then reshape value and coverage. The Colorize crossing samples the selected generated harmony and returns straight-alpha `Color4`. Ordered Modulation stages then apply independently selected sources and color mechanics; the scan sink performs the final premultiplication.
 
 Two stages carry approved approximations. Fast square Peirce projection and the hue-rotation LUT each name a host reference oracle, exact non-floating fields, error domains, limits, and a final-framebuffer metric as part of the stage contract. Native tests compare KaleidoscopeMelt and KaleidoscopeSmooth presets with their document-built `ShaderChain` through `tests/composed_chain_fixture.h`. Operator parity lives in `tests/test_shader_chain.h`; `tests/test_effects.h` checks AshCloud's value-cutout endpoints (threshold 0 lights pixels; threshold 1 blanks the frame), and versioned chain snapshots have capture fixtures. Approximation capture tests compare the chain renderer with exact projection and color kernels. Teensy preprocessing excludes the interpreter.
 
@@ -680,7 +680,7 @@ There is no universal camera parameter or pair of warp slots.
 
 A sphere source crosses directly from Sphere to Field, omitting projection and
 planar warps. For example, `sample.spherical-noise.v3` followed by
-`colorize.generated-palette.v3` is a complete chain. A planar source consumes
+`colorize.generated-palette.v4` is a complete chain. A planar source consumes
 Plane, so it follows a projection and any selected planar warps. Sphere sources
 cannot follow a projection: that would move backward in carrier rank.
 
@@ -695,8 +695,8 @@ cannot follow a projection: that would move backward in carrier rank.
 | **Sphere source** | Spherical Noise, Spherical Rings | Sphere → Field; source-specific controls; no projection or planar warp |
 | **Value transfer** | Ridge, Iso Contour, Smooth Bands | Field → Field; reshapes the normalized value; iso and band controls belong to their operator |
 | **Coverage** | Value Cutout | Field → Field; cutout threshold and softness; projection-based coverage belongs to planar sources |
-| **Colorize** | Cycling Generated, Generated, Procedural, Gradient, Mutating | Field → Color; palette selection, harmony, chroma, color mapping, brightness envelope and opacity |
-| **Modulations** | Field Modulation, Hue Shift | Color → Color; ordered independent pattern/mechanic stages and path-length hue rotation |
+| **Colorize** | Generated Triadic, Complementary, Analogous | Field → Color; palette mapping, phase oscillation, brightness envelope and opacity |
+| **Modulation** | Pattern color modulation | Color → Color; ordered displacement, noise, sine, interference or grid layers affecting hue, lightness or opacity |
 
 Twist Lens exposes Twist Rate and Speed. Its origin follows a languid spherical
 random walk; Speed sets its angular travel per frame, and zero holds the origin.
@@ -734,21 +734,26 @@ declared dependencies; there is no blanket cut-topology exclusion for noise.
 
 Controls use their parameter declarations and catalog `gated_by` conditions.
 For example, projection spin/wander require the spin-wander frame, edge width
-requires edge-fade coverage or an edge-fade warp envelope, hue controls require
-their selected hue mode, and brightness endpoints require a brightness
-envelope. Deactivation dims the controls without removing their stored values.
+requires edge-fade coverage or an edge-fade warp envelope, and brightness
+endpoints require a brightness envelope. Deactivation dims the controls without removing their stored values.
 The exact fields and ranges come from the selected operator instances.
 
-**Hue Shift Mode** selects **None** or **Path Length**. **Path Length** uses
-the shared accumulated path length, to which selected displacement and warp
-operators contribute. Opposing warps contribute both traveled distances rather
-than canceling as a net offset. Hue controls belong to the colorizer instance.
-Path hue and modulation can be enabled together: their hue rotations add before
-one hue lookup, and lightness or opacity modulation applies after hue rotation.
+The color card contains palette mapping, brightness and value opacity. Add
+**Modulation** stages after it to stack color effects. Each layer selects a
+source, an affected color property and an amount; layers run in chain order.
+They can be added, removed, disabled and reordered independently.
 
-The colorizer's modulation recipe samples the sphere direction carried through
-the chain. It selects a noise, sine, interference or smooth-grid source, an
-evaluation policy and a hue-rotation, opacity or positive-lightness-lift mechanic.
+**Displacement** uses accumulated path length supplied by displacement and warp
+operators. Opposing warps contribute both traveled distances rather than canceling
+as a net offset. With **Hue rotation**, amount is turns per unit of traveled
+distance. This replaces the separate Hue Shift Mode control.
+
+Noise, sine, interference and smooth-grid sources sample the sphere direction
+carried through the chain. Each layer chooses hue rotation, opacity or positive
+lightness lift; noise additionally selects direct or baked-cube evaluation.
+Layer clocks continue advancing when disabled or at zero amount. Importing an
+older document preserves both its displacement hue settings and its spatial
+modulation as separate layers.
 
 Projection seams use provenance supplied by the projection kernel. **Edge
 Fade** gives both sides of a paired cut the authored fade; glued and periodic

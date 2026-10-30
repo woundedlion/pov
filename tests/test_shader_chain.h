@@ -59,277 +59,280 @@ static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::MIDPOINT4) == 4);
 #include "tests/shader_chain/projection_ops.h"
 #include "tests/shader_chain/field_ops.h"
 #include "tests/shader_chain/sample_ops.h"
-#include "tests/shader_chain/effect_cases.h"
 #include "tests/shader_chain/palette_ops.h"
-#include "tests/shader_chain/modulation_ops.h"
-/** @brief Spatial cache ignores palette/mechanic changes and tracks source inputs. */
+#include "tests/shader_chain/effect_cases.h"
+/** @brief Layer caches retain independent fields across color-only edits. */
 inline void test_shader_chain_modulation_bake_cache() {
+  static_assert(In::instance_hash("mod-56428", "color.modulate.v1") ==
+                In::instance_hash("mod-207280", "color.modulate.v1"));
   using WB = ShaderChainWhiteBox;
   reset_globals();
   WB::FX effect;
   effect.init();
-  auto &color = WB::color_params(effect);
-  color.modulation.mechanic.amount = .5f;
+  WB::modulation_params(effect, "mod-56428");
+  WB::modulation_params(effect, "mod-207280");
+  auto &first = WB::modulation_params(effect, "mod-56428").modulation;
+  auto &second = WB::modulation_params(effect, "mod-207280").modulation;
+  first.mechanic.amount = .5f;
+  second.mechanic.amount = .25f;
+  ++second.seed;
   auto ctx = WB::frame_context(effect);
-  HS_EXPECT_TRUE(ctx.modulation != nullptr);
-  HS_EXPECT_TRUE(ctx.modulation->cube.active);
-  WB::program(effect).prepare(ctx);
-  const auto &prepared =
-      *reinterpret_cast<const PB::Color::GeneratedPaletteState *>(
-          WB::program(effect).prepared_block(3));
-  HS_EXPECT_TRUE(prepared.hue_rotation.active);
-  PB::Color::ColorParams composed_color;
-  composed_color.modulation = color.modulation;
-  HS_EXPECT_TRUE(PB::hue_rotation_active<PB::HueMode::NONE>(composed_color));
-  const PB::FieldSample SAMPLE{.373f, .65f, math::X_AXIS, 0};
-  const float ROTATION = math::wrap_t(
-      color.modulation.mechanic.amount *
-      PB::Modulation::sample(*ctx.modulation,
-                             Pattern::SphereDirection::from(SAMPLE.sphere)));
-  HS_EXPECT_NE(ROTATION, 0.0f);
-  HS_EXPECT_EQ(PB::Color::apply_generated_palette(SAMPLE, prepared).color,
-               sample_hue_rotation_lut({ctx.hue_rotation_lut, true},
-                                       SAMPLE.value, ROTATION));
-  auto zero_source = *ctx.modulation;
-  zero_source.evaluate = +[](const PB::Modulation::Prepared &,
-                             const Pattern::SphereDirection &) { return 0.0f; };
-  auto identity = prepared;
-  identity.modulation = &zero_source;
-  HS_EXPECT_EQ(PB::Color::apply_generated_palette(SAMPLE, identity).color,
-               prepared.palette->get(SAMPLE.value).color);
-  auto *lut = WB::pattern_lut(effect);
-  constexpr int8_t POISON = -128;
-  const auto poison = [&] {
-    lut[0] = POISON;
-    lut[Pattern::SphereLutView::SIZE - 1] = POISON;
-  };
-  const auto baked = [&](bool expected) {
-    HS_EXPECT_EQ(lut[0] != POISON, expected);
-    HS_EXPECT_EQ(lut[Pattern::SphereLutView::SIZE - 1] != POISON, expected);
-  };
-  poison();
-  WB::frame_context(effect);
-  baked(false);
-  color.modulation.mechanic.amount = .25f;
-  WB::frame_context(effect);
-  baked(false);
-  color.modulation.mechanic.kind = ColorModulation::Mechanic::OPACITY;
-  WB::frame_context(effect);
-  baked(false);
-  const Pixel PALETTE = WB::palette_color(effect, .37f);
-  color.palette_chroma = .1f;
+  HS_EXPECT_EQ(ctx.modulations.size(), 2u);
+  const auto key_a = WB::modulation_clocks(effect, "mod-56428").key;
+  const auto key_b = WB::modulation_clocks(effect, "mod-207280").key;
+  auto &cache_a = WB::layer_resources(effect, key_a);
+  auto &cache_b = WB::layer_resources(effect, key_b);
+  HS_EXPECT_TRUE(&cache_a != &cache_b);
+  HS_EXPECT_TRUE(ctx.modulations[0].prepared != ctx.modulations[1].prepared);
+  const auto A = cache_a.modulation.bake_generation;
+  const auto B = cache_b.modulation.bake_generation;
+  HS_EXPECT_TRUE(cache_a.modulation.prepared.cube.active);
+  HS_EXPECT_TRUE(cache_b.modulation.prepared.cube.active);
+  HS_EXPECT_TRUE(cache_a.modulation.table.data() !=
+                 cache_b.modulation.table.data());
+  first.mechanic.amount = .75f;
+  second.mechanic.kind = ColorModulation::Mechanic::OPACITY;
+  WB::color_params(effect).palette_chroma = .1f;
   WB::advance_without_render(effect);
   WB::frame_context(effect);
-  baked(false);
-  HS_EXPECT_NE(WB::palette_color(effect, .37f), PALETTE);
-  color.modulation.noise.scale = 3;
+  HS_EXPECT_EQ(cache_a.modulation.bake_generation, A);
+  HS_EXPECT_EQ(cache_b.modulation.bake_generation, B);
+  first.noise.scale = 3.0f;
   WB::frame_context(effect);
-  baked(true);
-  poison();
-  ++color.modulation.seed;
+  HS_EXPECT_EQ(cache_a.modulation.bake_generation, A + 1);
+  HS_EXPECT_EQ(cache_b.modulation.bake_generation, B);
+  ++second.seed;
   WB::frame_context(effect);
-  baked(true);
-  poison();
-  color.modulation.noise.speed = .001f;
-  const float previous = WB::color_clocks(effect).modulation.phase.phase_turns;
-  WB::program(effect).advance();
-  HS_EXPECT_NE(WB::color_clocks(effect).modulation.phase.phase_turns, previous);
-  WB::frame_context(effect);
-  baked(true);
-  poison();
-  color.modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
-  ctx = WB::frame_context(effect);
-  HS_EXPECT_TRUE(ctx.hue_rotation_lut != nullptr);
-  color.modulation.mechanic.amount = 0;
-  ctx = WB::frame_context(effect);
-  baked(false);
-  HS_EXPECT_TRUE(ctx.hue_rotation_lut == nullptr);
+  HS_EXPECT_EQ(cache_a.modulation.bake_generation, A + 1);
+  HS_EXPECT_EQ(cache_b.modulation.bake_generation, B + 1);
+  effect.draw_frame();
+  const auto &previous = WB::previous_context(effect);
+  HS_EXPECT_EQ(previous.modulations.size(), 2u);
+  for (size_t index = 0; index < previous.modulations.size(); ++index) {
+    const auto *retained = previous.modulations[index].prepared;
+    HS_EXPECT_TRUE(retained != nullptr && retained->cube.active);
+    HS_EXPECT_TRUE(retained->cube.data !=
+                   ctx.modulations[index].prepared->cube.data);
+  }
+  effect.advance_display();
 }
 
-/** @brief Source clocks retain same-source identity and reset on recipe changes. */
+/** @brief Reorder preserves each layer's phase and disabled clocks advance. */
 inline void test_shader_chain_modulation_clock_lifecycle() {
-  namespace Mod = PB::Modulation;
-  ColorModulation::Config config;
-  config.enabled = false;
-  config.noise.speed = -.125f;
-  auto state = Mod::init(config);
-  Mod::advance(state, config);
-  HS_EXPECT_EQ(state.phase.phase_turns, .875f);
-  config.mechanic.kind = ColorModulation::Mechanic::OPACITY;
-  Mod::synchronize(state, config);
-  HS_EXPECT_EQ(state.phase.phase_turns, .875f);
-  config.evaluation = Pattern::Evaluation::DIRECT;
-  config.noise.scale = 3;
-  Mod::synchronize(state, config);
-  HS_EXPECT_EQ(state.phase.phase_turns, .875f);
-  config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
-  config.sine.speed = .25f;
-  Mod::synchronize(state, config);
-  HS_EXPECT_EQ(state.phase.phase_turns, 0.0f);
-  Mod::advance(state, config);
-  HS_EXPECT_EQ(state.phase.phase_turns, .25f);
-  config.sine.frequency = -1;
-  HS_EXPECT_FALSE(Mod::valid(config));
-  config.sine.frequency = 1;
-  config.version = 2;
-  HS_EXPECT_FALSE(Mod::valid(config));
-  config.version = 1;
-  config.source = static_cast<Pattern::SourceKind>(99);
-  HS_EXPECT_FALSE(Mod::valid(config));
+  using WB = ShaderChainWhiteBox;
+  reset_globals();
+  WB::FX effect;
+  effect.init();
+  WB::modulation_params(effect, "first");
+  WB::modulation_params(effect, "second");
+  auto &first = WB::modulation_params(effect, "first").modulation;
+  auto &second = WB::modulation_params(effect, "second").modulation;
+  first.source = second.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+  first.evaluation = second.evaluation = Pattern::Evaluation::DIRECT;
+  first.sine.speed = .125f;
+  second.sine.speed = .25f;
+  WB::advance_without_render(effect);
+  HS_EXPECT_NEAR(
+      WB::modulation_clocks(effect, "first").modulation.phase.phase_turns,
+      .125f, 0);
+  HS_EXPECT_NEAR(
+      WB::modulation_clocks(effect, "second").modulation.phase.phase_turns,
+      .25f, 0);
+  first.enabled = false;
+  WB::advance_without_render(effect);
+  HS_EXPECT_NEAR(
+      WB::modulation_clocks(effect, "first").modulation.phase.phase_turns, .25f,
+      0);
+  HS_EXPECT_NEAR(
+      WB::modulation_clocks(effect, "second").modulation.phase.phase_turns, .5f,
+      0);
+  const auto saved_a = WB::modulation_params(effect, "first");
+  const auto saved_b = WB::modulation_params(effect, "second");
+  const In::ChainEntryRequest reordered[] = {
+      {"camera", "sphere.rotate.v2"},
+      {"project", "project.stereographic.v2"},
+      {"sample", "sample.grid.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
+      {"second", "color.modulate.v1"},
+      {"first", "color.modulate.v1"}};
+  HS_EXPECT_EQ(effect.set_chain(reordered).code, In::ChainStatus::OK);
+  WB::modulation_params(effect, "first") = saved_a;
+  WB::modulation_params(effect, "second") = saved_b;
+  WB::advance_without_render(effect);
+  HS_EXPECT_NEAR(
+      WB::modulation_clocks(effect, "first").modulation.phase.phase_turns,
+      .375f, 0);
+  HS_EXPECT_NEAR(
+      WB::modulation_clocks(effect, "second").modulation.phase.phase_turns,
+      .75f, 0);
+  effect.setAnimationsPaused(true);
+  auto &paused = WB::modulation_params(effect, "first").modulation;
+  paused.source = Pattern::SourceKind::DISPLACEMENT;
+  WB::frame_context(effect);
+  HS_EXPECT_EQ(WB::modulation_clocks(effect, "first").modulation.source,
+               Pattern::SourceKind::DISPLACEMENT);
+  paused.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+  WB::frame_context(effect);
+  HS_EXPECT_NEAR(
+      WB::modulation_clocks(effect, "first").modulation.phase.phase_turns, 0.0f,
+      0);
 }
-/** @brief Every source and mechanic compose through the operator's color binding. */
+
+/** @brief Source and mechanic combinations use the selected layer's scalar. */
 inline void test_shader_chain_modulation_combinations() {
   using Kind = ColorModulation::Mechanic;
-  auto fixture = std::make_unique<ProgramFixture>();
-  auto &program = fixture->program;
-  HS_EXPECT_EQ(program.compile(DEFAULT_CHAIN).code, In::ChainStatus::OK);
-  auto &params = param_as<In::Op::GeneratedPaletteParams>(program, 3);
-  const PB::FieldSample SAMPLE{.37f, .6f, math::Vector(.2f, .7f, .4f), 0};
-  const auto COORDINATE = Pattern::SphereDirection::from(SAMPLE.sphere);
+  const PB::FieldSample FIELD{.413f, .6f, math::X_AXIS, 4.5f};
+  const auto ctx = shared_resources().context();
+  In::Op::GeneratedPaletteParams params;
+  const auto palette = In::Op::prepare_generated_palette(ctx, params, {});
   for (auto source :
        {Pattern::SourceKind::NOISE, Pattern::SourceKind::DIRECTIONAL_SINE,
         Pattern::SourceKind::SPHERE_INTERFERENCE,
-        Pattern::SourceKind::SPHERE_SMOOTH_GRID})
-    for (auto variant : {Pattern::NoiseVariant::CONFIGURED_SINGLE,
-                         Pattern::NoiseVariant::OCTAVE_CONTOUR})
-      for (auto evaluation :
-           {Pattern::Evaluation::DIRECT, Pattern::Evaluation::BAKED_CUBE})
-        for (auto kind : {Kind::HUE_ROTATION, Kind::POSITIVE_LIGHTNESS_LIFT,
-                          Kind::OPACITY}) {
-          if (source != Pattern::SourceKind::NOISE &&
-              evaluation == Pattern::Evaluation::BAKED_CUBE)
-            continue;
-          params.modulation = {};
-          params.modulation.source = source;
-          params.modulation.evaluation = evaluation;
-          params.modulation.noise.variant = variant;
-          if (variant == Pattern::NoiseVariant::OCTAVE_CONTOUR) {
-            params.modulation.noise.basis = Pattern::NoiseBasis::FBM3;
-            params.modulation.noise.contrast = .75f;
-          }
-          params.modulation.mechanic = {kind, .7f};
-          params.modulation.sine.offset = .13f;
-          params.modulation.interference.offset = .13f;
-          params.modulation.grid.offset = .13f;
-          PB::Modulation::Resources<> resources;
-          const auto clock = PB::Modulation::init(params.modulation);
-          auto ctx = shared_resources().context();
-          ctx.modulation = &resources.prepare(params.modulation, clock);
-          ctx.hue_rotation_lut = nullptr;
-          program.prepare(ctx);
-          const Color4 ACTUAL = run_entry<Color4>(program, ctx, 3, SAMPLE);
-          const float scalar =
-              PB::Modulation::sample(*ctx.modulation, COORDINATE);
-          HS_EXPECT_TRUE(std::isfinite(scalar));
-          HS_EXPECT_TRUE(scalar >= -1 && scalar <= 1);
-          Color4 expected = ctx.palettes[0]->get(SAMPLE.value);
-          expected = ColorModulation::apply(expected, scalar,
-                                            params.modulation.mechanic);
-          expected.alpha *= SAMPLE.coverage;
-          HS_EXPECT_EQ(ACTUAL.color, expected.color);
-          HS_EXPECT_EQ(ACTUAL.alpha, expected.alpha);
-          if (kind == Kind::OPACITY)
-            HS_EXPECT_EQ(ACTUAL.color,
-                         ctx.palettes[0]->get(SAMPLE.value).color);
-        }
-}
-
-inline int modulation_probe_calls = 0;
-/** @brief Workbench columns blend completed alpha and hold current topology at zero. */
-inline void test_shader_chain_modulation_temporal_endpoints() {
-  using Kind = ColorModulation::Mechanic;
-  for (int topology = 0; topology < 5; ++topology) {
-    constexpr size_t BLOCKS =
-        (In::CHAIN_ARENA_BYTES + sizeof(std::max_align_t) - 1) /
-        sizeof(std::max_align_t);
-    std::vector<std::max_align_t> history(BLOCKS), column(BLOCKS);
-    auto fixture = std::make_unique<ProgramFixture>();
-    auto &program = fixture->program;
-    program.bind_temporal_storage(reinterpret_cast<uint8_t *>(history.data()),
-                                  reinterpret_cast<uint8_t *>(column.data()));
-    HS_EXPECT_EQ(program.compile(DEFAULT_CHAIN).code, In::ChainStatus::OK);
-    auto &params = param_as<In::Op::GeneratedPaletteParams>(program, 3);
-    params.modulation.evaluation = Pattern::Evaluation::DIRECT;
-    params.modulation.mechanic = {Kind::OPACITY, .2f};
-    PB::Modulation::Prepared previous;
-    previous.config = params.modulation;
-    previous.state.phase.phase_turns = .25f;
-    previous.evaluate = +[](const PB::Modulation::Prepared &p,
-                            const Pattern::SphereDirection &) {
-      ++modulation_probe_calls;
-      return 2 * p.state.phase.phase_turns - 1;
-    };
-    auto previous_ctx = shared_resources().context();
-    previous_ctx.modulation = &previous;
-    previous_ctx.hue_rotation_lut = nullptr;
-    previous_ctx.palettes[0] = previous_ctx.palettes[1];
-    program.prepare(previous_ctx);
-    program.capture_history();
-    params.modulation.mechanic.amount = .8f;
-    switch (topology) {
-    case 1:
-      params.modulation.source = Pattern::SourceKind::DIRECTIONAL_SINE;
-      break;
-    case 2:
-      params.modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
-      break;
-    case 3:
-      params.modulation.mechanic.kind = Kind::HUE_ROTATION;
-      break;
-    case 4:
-      params.modulation.enabled = false;
-      break;
-    }
-    auto current = previous;
-    current.config = params.modulation;
-    current.state.phase.phase_turns = .75f;
-    auto ctx = shared_resources().context();
-    ctx.modulation = &current;
-    ctx.hue_rotation_lut = nullptr;
-    HS_EXPECT_TRUE(program.history_continuous());
-    for (float fraction : {0.0f, .375f, 1.0f}) {
-      program.prepare_column(ctx, previous_ctx, fraction);
-      const auto &prepared =
-          *reinterpret_cast<const PB::Color::GeneratedPaletteState *>(
-              program.prepared_block(3));
-      const float amount = topology == 0 ? hs::lerp(.2f, .8f, fraction) : .8f;
-      HS_EXPECT_EQ(prepared.mechanic.amount, amount);
-      const math::Vector VIEW = math::Vector(.3f, .7f, .2f).normalized();
-      const auto sphere = run_entry<PB::SphereSample>(
-          program, ctx, 0, PB::SphereSample{VIEW, 0});
-      const auto plane = run_entry<PB::PlaneSample>(program, ctx, 1, sphere);
-      const auto field = run_entry<PB::FieldSample>(program, ctx, 2, plane);
-      modulation_probe_calls = 0;
-      const Color4 actual =
-          program.evaluate_column(VIEW, ctx, previous_ctx, fraction);
-      if (topology == 4)
-        HS_EXPECT_EQ(modulation_probe_calls, 0);
-      Color4 before = previous_ctx.palettes[0]->get(field.value),
-             after = ctx.palettes[0]->get(field.value);
-      if (topology == 3) {
-        before = hue_rotate_lut_gamut(before, .5f * amount);
-        after = hue_rotate_lut_gamut(after, .5f * amount);
-      } else if (topology != 4) {
-        before.alpha *= hs::lerp(1.0f, topology == 0 ? .25f : .75f, amount);
-        after.alpha *= hs::lerp(1.0f, .75f, amount);
-      }
-      before.alpha *= field.coverage;
-      after.alpha *= field.coverage;
-      const auto weight = frac_to_q16(fraction);
-      HS_EXPECT_EQ(actual.color, before.color.lerp16(after.color, weight));
-      HS_EXPECT_EQ(actual.alpha, hs::lerp(before.alpha, after.alpha, fraction));
-    }
-    if (topology == 0) {
-      previous = current;
-      previous_ctx.modulation = &previous;
-      program.prepare(ctx);
-      program.capture_history();
-      program.prepare_column(ctx, previous_ctx, .375f);
-      modulation_probe_calls = 0;
-      (void)program.evaluate_column(math::Y_AXIS, ctx, previous_ctx, .375f);
-      HS_EXPECT_EQ(modulation_probe_calls, 1);
+        Pattern::SourceKind::SPHERE_SMOOTH_GRID,
+        Pattern::SourceKind::DISPLACEMENT}) {
+    PB::Modulation::Prepared spatial;
+    spatial.config.source = source;
+    spatial.evaluate = +[](const PB::Modulation::Prepared &,
+                           const Pattern::SphereDirection &) { return .5f; };
+    for (auto mechanic :
+         {Kind::HUE_ROTATION, Kind::POSITIVE_LIGHTNESS_LIFT, Kind::OPACITY}) {
+      HS_CONTEXT("source / mechanic", int(source), int(mechanic));
+      PB::Color::ModulationState layer;
+      layer.current = &spatial;
+      layer.source = source;
+      layer.mechanic = {mechanic, .4f};
+      layer.enabled = true;
+      auto input = PB::Color::apply_generated_palette(FIELD, palette);
+      Color4 expected = input.color;
+      const float SCALAR =
+          source == Pattern::SourceKind::DISPLACEMENT ? 4.5f : .5f;
+      if (mechanic == Kind::HUE_ROTATION)
+        expected.color = sample_hue_rotation_lut(
+            palette.hue_rotation, FIELD.value, math::wrap_t(.4f * SCALAR));
+      else
+        expected = ColorModulation::apply(expected, SCALAR, layer.mechanic);
+      const auto actual =
+          PB::Color::finish(PB::Color::apply_modulation(input, layer));
+      HS_EXPECT_TRUE(color4_identical(actual, expected));
+      layer.enabled = false;
+      HS_EXPECT_TRUE(color4_identical(
+          PB::Color::finish(PB::Color::apply_modulation(input, layer)),
+          input.color));
+      layer.enabled = true;
+      layer.mechanic.amount = 0;
+      HS_EXPECT_TRUE(color4_identical(
+          PB::Color::finish(PB::Color::apply_modulation(input, layer)),
+          input.color));
     }
   }
+}
+
+/** @brief Temporal columns blend the completed nonlinear color suffix. */
+inline void test_shader_chain_modulation_temporal_endpoints() {
+  constexpr size_t BLOCKS = In::CHAIN_ARENA_BYTES / sizeof(std::max_align_t);
+  std::vector<std::max_align_t> history(BLOCKS), column(BLOCKS);
+  auto fixture = std::make_unique<ProgramFixture>();
+  auto &program = fixture->program;
+  program.bind_temporal_storage(reinterpret_cast<uint8_t *>(history.data()),
+                                reinterpret_cast<uint8_t *>(column.data()));
+  const In::ChainEntryRequest CHAIN[] = {
+      {"camera", "sphere.rotate.v2"},
+      {"project", "project.stereographic.v2"},
+      {"sample", "sample.grid.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
+      {"lift", "color.modulate.v1"},
+      {"hue", "color.modulate.v1"}};
+  HS_EXPECT_EQ(program.compile(CHAIN).code, In::ChainStatus::OK);
+  auto &lift = param_as<In::Op::ModulationParams>(program, 4).modulation;
+  auto &hue = param_as<In::Op::ModulationParams>(program, 5).modulation;
+  lift.evaluation = hue.evaluation = Pattern::Evaluation::DIRECT;
+  lift.mechanic = {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT, .6f};
+  hue.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, .2f};
+  std::array<PB::Modulation::Prepared, 2> previous, current;
+  std::array<PB::Modulation::Endpoint, 2> old_endpoints, new_endpoints;
+  for (size_t index = 0; index < 2; ++index) {
+    auto &old = previous[index];
+    old.config = index == 0 ? lift : hue;
+    old.state.phase.phase_turns = .25f;
+    old.evaluate = +[](const PB::Modulation::Prepared &p,
+                       const Pattern::SphereDirection &) {
+      return 2 * p.state.phase.phase_turns - 1;
+    };
+    current[index] = old;
+    current[index].state.phase.phase_turns = .75f;
+    const auto key =
+        state_as<In::Op::ModulationClockState>(program, index + 4).key;
+    old_endpoints[index] = {key, &old};
+    new_endpoints[index] = {key, &current[index]};
+  }
+  auto old_ctx = shared_resources().context();
+  old_ctx.modulations = old_endpoints;
+  old_ctx.hue_rotation_lut = nullptr;
+  old_ctx.palettes[0] = old_ctx.palettes[1];
+  auto ctx = shared_resources().context();
+  ctx.modulations = new_endpoints;
+  ctx.hue_rotation_lut = nullptr;
+  program.prepare(old_ctx);
+  program.capture_history();
+  for (float fraction : {0.0f, .375f, 1.0f}) {
+    program.prepare_column(ctx, old_ctx, fraction);
+    const auto VIEW = math::Vector(.3f, .7f, .2f).normalized();
+    const auto field = run_entry<PB::FieldSample>(
+        program, ctx, 2, projected_input(program, ctx, VIEW));
+    const auto endpoint = [&](const BakedPalette &palette, float scalar) {
+      Color4 color = palette.get(field.value);
+      color =
+          ColorModulation::PositiveLightnessLift::apply(color, scalar, {.6f});
+      color = ColorModulation::HueRotation::apply(color, scalar, {.2f});
+      color.alpha *= field.coverage;
+      return color;
+    };
+    const auto expected = endpoint(*old_ctx.palettes[0], -.5f)
+                              .lerp(endpoint(*ctx.palettes[0], .5f), fraction);
+    const auto actual = program.evaluate_column(VIEW, ctx, old_ctx, fraction);
+    HS_EXPECT_TRUE(color4_identical(actual, expected));
+  }
+}
+
+/** @brief Each modulation resolves its own endpoint regardless of view order. */
+inline void test_shader_chain_modulation_endpoint_identity() {
+  auto fixture = std::make_unique<ProgramFixture>();
+  auto &program = fixture->program;
+  const In::ChainEntryRequest CHAIN[] = {
+      {"camera", "sphere.rotate.v2"},
+      {"project", "project.stereographic.v2"},
+      {"sample", "sample.grid.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
+      {"first", "color.modulate.v1"},
+      {"second", "color.modulate.v1"}};
+  HS_EXPECT_EQ(program.compile(CHAIN).code, In::ChainStatus::OK);
+  std::array<PB::Modulation::Prepared, 2> prepared;
+  std::array<PB::Modulation::Endpoint, 2> endpoints;
+  for (size_t index = 0; index < 2; ++index) {
+    auto &config =
+        param_as<In::Op::ModulationParams>(program, index + 4).modulation;
+    config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+    config.evaluation = Pattern::Evaluation::DIRECT;
+    config.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
+    prepared[index].config = config;
+    prepared[index].state.phase.phase_turns = index == 0 ? -.5f : .5f;
+    prepared[index].evaluate = +[](const PB::Modulation::Prepared &source,
+                                   const Pattern::SphereDirection &) {
+      return source.state.phase.phase_turns;
+    };
+    const auto key =
+        state_as<In::Op::ModulationClockState>(program, index + 4).key;
+    endpoints[1 - index] = {key, &prepared[index]};
+  }
+  auto context = shared_resources().context();
+  context.modulations = endpoints;
+  program.prepare(context);
+  const auto VIEW = math::Vector(.3f, .7f, .2f).normalized();
+  const auto FIELD = run_entry<PB::FieldSample>(
+      program, context, 2, projected_input(program, context, VIEW));
+  const float EXPECTED = FIELD.coverage * .25f * .75f;
+  HS_EXPECT_GT(EXPECTED, 0.0f);
+  HS_EXPECT_NEAR(program.evaluate(VIEW, context).alpha, EXPECTED, 1e-7f);
 }
 
 // The wire spellings are the JS contract.
@@ -390,18 +393,20 @@ inline void test_shader_chain_snapshot_roundtrip() {
         {"noise", "warp.vector-noise.v2"},
         {"outer", "warp.affine.v3"},
         {"sample", "sample.grid.v3"},
-        {"colorize", "colorize.generated-palette.v3"}};
+        {"colorize", "colorize.generated-palette.v4"},
+        {"modulation", "color.modulate.v1"}};
     HS_EXPECT_EQ(effect.set_chain(topology).code, In::ChainStatus::OK);
     auto &program = WB::program(effect);
     param_as<In::Op::RotateChainParams>(program, 0).wander = 0.8f;
     param_as<In::Op::RotateChainParams>(program, 0).spin_rate = 0.001f;
     param_as<In::Op::GridSampleParams>(program, 4).speed = 0.02f;
+    auto &layer = WB::modulation_params(effect).modulation;
     auto &color = WB::color_params(effect);
-    color.modulation.mechanic.amount = 0.7f;
-    color.modulation.noise.scale = 1.7f;
+    layer.mechanic.amount = 0.7f;
+    layer.noise.scale = 1.7f;
     color.palette_chroma = 0.43f;
     color.phase_oscillation_speed = 0.004f;
-    color.modulation.noise.speed = -0.0007f;
+    layer.noise.speed = -0.0007f;
     for (int frame = 0; frame < 713; ++frame)
       WB::advance_without_render(effect);
     effect.setAnimationsPaused(true);
@@ -461,12 +466,13 @@ inline void test_shader_chain_snapshot_refusals() {
   reset_globals();
   WB::FX effect;
   effect.init();
+  WB::modulation_params(effect);
   const auto live = effect.snapshot();
   // Candidates derive from a state that differs from the live one in every
   // section, so any section committed before a refusal is observable.
   param_as<In::Op::RotateChainParams>(WB::program(effect), 0).wander = 0.6f;
-  WB::color_params(effect).modulation.mechanic.amount = .75f;
-  WB::color_params(effect).modulation.noise.scale = 2.0f;
+  WB::modulation_params(effect).modulation.mechanic.amount = .75f;
+  WB::modulation_params(effect).modulation.noise.scale = 2.0f;
   for (int frame = 0; frame < 64; ++frame)
     WB::advance_without_render(effect);
   const auto saved = effect.snapshot();
@@ -496,7 +502,7 @@ inline void test_shader_chain_snapshot_refusals() {
     HS_EXPECT_SIZE_OR_RETURN(a.modulation, b.modulation.size());
     for (size_t index = 0; index < a.modulation.size(); ++index) {
       HS_EXPECT_EQ(a.modulation[index].instance, b.modulation[index].instance);
-      In::Op::GeneratedPaletteParams left, right;
+      In::Op::ModulationParams left, right;
       left.modulation = a.modulation[index].recipe;
       right.modulation = b.modulation[index].recipe;
       HS_EXPECT_EQ(left.modulation.seed, right.modulation.seed);
@@ -645,7 +651,7 @@ inline void test_shader_chain_snapshot_refusals() {
   refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
   candidate = saved;
   for (auto &runtime : *candidate.runtime)
-    if (auto *clock = std::get_if<In::ColorClockSnapshot>(&runtime.state))
+    if (auto *clock = std::get_if<In::ModulationClockSnapshot>(&runtime.state))
       clock->modulation.phase.phase_turns = 1.0f;
   refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
   In::Op::NoisePhaseState noise_state;
@@ -680,23 +686,24 @@ inline void test_shader_chain_modulation_snapshot_identity() {
   reset_globals();
   WB::FX effect;
   effect.init();
-  auto &controls = WB::color_params(effect);
+  auto &controls = WB::modulation_params(effect);
   controls.modulation.noise.speed = .000125f;
   WB::advance_without_render(effect);
   const ChainSnapshot saved = effect.snapshot();
   const auto clock =
-      [](const ChainSnapshot &snapshot) -> const In::ColorClockSnapshot & {
+      [](const ChainSnapshot &snapshot) -> const In::ModulationClockSnapshot & {
     for (const auto &runtime : *snapshot.runtime)
       if (const auto *value =
-              std::get_if<In::ColorClockSnapshot>(&runtime.state))
+              std::get_if<In::ModulationClockSnapshot>(&runtime.state))
         return *value;
     HS_CHECK(false, "missing test color clock");
-    return std::get<In::ColorClockSnapshot>(snapshot.runtime->back().state);
+    return std::get<In::ModulationClockSnapshot>(
+        snapshot.runtime->back().state);
   };
   HS_EXPECT_EQ(clock(saved).modulation.phase.phase_turns, .000125f);
   auto mismatched = saved;
   for (auto &runtime : *mismatched.runtime)
-    if (auto *value = std::get_if<In::ColorClockSnapshot>(&runtime.state))
+    if (auto *value = std::get_if<In::ModulationClockSnapshot>(&runtime.state))
       value->modulation.source = Pattern::SourceKind::DIRECTIONAL_SINE;
   HS_EXPECT_EQ(effect.restore_snapshot(mismatched),
                ChainSnapshotRestoreResult::INVALID_VALUE);
@@ -704,13 +711,13 @@ inline void test_shader_chain_modulation_snapshot_identity() {
                ChainSnapshotRestoreResult::APPLIED);
   auto uninitialized = saved;
   for (auto &runtime : *uninitialized.runtime)
-    if (auto *value = std::get_if<In::ColorClockSnapshot>(&runtime.state))
+    if (auto *value = std::get_if<In::ModulationClockSnapshot>(&runtime.state))
       value->modulation.initialized = false;
   HS_EXPECT_EQ(effect.restore_snapshot(uninitialized),
                ChainSnapshotRestoreResult::INVALID_VALUE);
   HS_EXPECT_EQ(effect.restore_snapshot(saved),
                ChainSnapshotRestoreResult::APPLIED);
-  auto &changed = WB::color_params(effect).modulation;
+  auto &changed = WB::modulation_params(effect).modulation;
   changed.source = Pattern::SourceKind::DIRECTIONAL_SINE;
   changed.evaluation = Pattern::Evaluation::DIRECT;
   const ChainSnapshot switched = effect.snapshot();
@@ -739,10 +746,8 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_parity_displace_curl);
   HS_RUN(test_shader_chain_parity_displace_direct);
   HS_RUN(test_shader_chain_parity_displace_ripple);
-  HS_RUN(test_shader_chain_ripple_bursts);
   HS_RUN(test_shader_chain_parity_lens_ops);
   HS_RUN(test_shader_chain_lens_controls);
-  HS_RUN(test_shader_chain_twist_animation);
   HS_RUN(test_shader_chain_parity_project_ops);
   HS_RUN(test_shader_chain_peirce_square_dispatch);
   HS_RUN(test_shader_chain_projection_frame_policy);
@@ -800,19 +805,15 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_effect_rebind_generation);
   HS_RUN(test_shader_chain_effect_refusal_keeps_schema);
   HS_RUN(test_shader_chain_pause_semantics);
-  HS_RUN(test_shader_chain_palette_selection);
-  HS_RUN(test_shader_chain_authored_palette_history);
   HS_RUN(test_shader_chain_modulation_bake_cache);
   HS_RUN(test_shader_chain_modulation_clock_lifecycle);
   HS_RUN(test_shader_chain_modulation_combinations);
   HS_RUN(test_shader_chain_modulation_temporal_endpoints);
+  HS_RUN(test_shader_chain_modulation_endpoint_identity);
   HS_RUN(test_shader_chain_status_names);
   HS_RUN(test_shader_chain_snapshot_roundtrip);
   HS_RUN(test_shader_chain_snapshot_refusals);
   HS_RUN(test_shader_chain_modulation_snapshot_identity);
-  HS_RUN(test_shader_chain_modulation_instances);
-  HS_RUN(test_shader_chain_modulation_columns);
-  HS_RUN(test_shader_chain_modulation_stage_snapshots);
   return fixture.result();
 }
 

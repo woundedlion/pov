@@ -70,6 +70,7 @@ struct ColorResources {
   BakedPaletteStorage palettes[3];
   std::array<Pixel, PB::Color::HueRotationLutView::SIZE> hue_rotation{};
   PB::Modulation::Resources<> modulation;
+  std::array<PB::Modulation::Endpoint, 1> endpoints;
 
   ColorResources() {
     Arena arena(palette_bytes, sizeof(palette_bytes));
@@ -83,6 +84,7 @@ struct ColorResources {
     config.seed = 4211;
     config.noise.scale = 1.5f;
     modulation.prepare(config, {.phase = {.25f}, .initialized = true});
+    endpoints[0] = {"modulation", &modulation.prepared};
   }
 
   In::FrameContext context() const {
@@ -91,7 +93,7 @@ struct ColorResources {
     ctx.palettes = {&palettes[0].view(), &palettes[1].view(),
                     &palettes[2].view()};
     ctx.hue_rotation_lut = hue_rotation.data();
-    ctx.modulation = &modulation.prepared;
+    ctx.modulations = endpoints;
     return ctx;
   }
 };
@@ -103,6 +105,14 @@ inline const ColorResources &shared_resources() {
 }
 
 inline constexpr auto &DEFAULT_CHAIN = SHADER_CHAIN_DEFAULT_CHAIN;
+inline constexpr In::ChainEntryRequest MODULATED_CHAIN[] = {
+    {"camera", "sphere.rotate.v2"},
+    {"project", "project.stereographic.v2"},
+    {"sample", "sample.grid.v3"},
+    {"colorize", "colorize.generated-palette.v4"},
+    {"modulation", "color.modulate.v1"},
+};
+
 static_assert(DEFAULT_CHAIN[0].operator_id == "sphere.rotate.v2");
 static_assert(DEFAULT_CHAIN[2].operator_id == "sample.grid.v3");
 
@@ -280,9 +290,9 @@ inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {
           put(v.phase);
           put(v.rotation);
         } else if constexpr (std::is_same_v<T, In::ColorClockSnapshot>) {
-          const auto &[oscillation, modulation] = v;
-          const auto &[source, version, phase, initialized] = modulation;
-          put(oscillation);
+          put(v.oscillation_phase);
+        } else if constexpr (std::is_same_v<T, In::ModulationClockSnapshot>) {
+          const auto &[source, version, phase, initialized] = v.modulation;
           put(static_cast<uint32_t>(source));
           put(static_cast<uint32_t>(version));
           put(phase.phase_turns);
@@ -384,7 +394,11 @@ OutCarrier run_entry(In::ChainProgram &program, const In::FrameContext &ctx,
   program.ops()[index].op->runtime.run(&input, out, ctx,
                                        program.param_block(index),
                                        program.prepared_block(index));
-  return *std::launder(reinterpret_cast<OutCarrier *>(out));
+  if constexpr (std::is_same_v<OutCarrier, Color4>)
+    return PB::finish_color_sample(
+        *std::launder(reinterpret_cast<PB::ColorSample *>(out)));
+  else
+    return *std::launder(reinterpret_cast<OutCarrier *>(out));
 }
 
 /** @brief Runs the prepared erased entries [0, @p count) over @p sphere; entry

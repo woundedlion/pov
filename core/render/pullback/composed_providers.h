@@ -16,7 +16,6 @@ enum class SurfacePlacement : uint8_t { BEFORE_LENS, AFTER_LENS };
 // The stage vocabulary a composed effect names, re-exported from the
 // per-stage headers.
 using Color::ColorParams;
-using Color::HueMode;
 using ValueCoverage::CutoutValueParams;
 using ProjectionCoverage::EdgeValueParams;
 using Lens::MobiusLensParams;
@@ -51,11 +50,8 @@ template <typename ParamsT> struct FrameState {
   /** Conjugate of the outer camera orientation. */
   math::Quaternion outer_conjugate;
   const BakedPalette *palette; /**< The cycler's current bake. */
-  /** Hue-rotation LUT base; current when hue_rotation_active() or the effect
-      samples time. */
+  /** Current palette hue table. */
   const Pixel *hue_rotation_lut;
-  const Modulation::Prepared *modulation =
-      nullptr;    ///< Immutable modulation endpoint.
   ParamsT params; /**< The frame's parameter values, already interpolated if a
                        preset transition is in flight. */
   /** Palette mapping weights, blended across a preset transition. */
@@ -402,26 +398,13 @@ struct ValueProvider {
 };
 
 /**
- * @brief Whether the colorizer samples the hue-rotation LUT this frame.
- * @tparam HueV Hue-rotation source.
- * @param color Colour family.
- * @return True when hue rotation is enabled with a non-zero amount.
- */
-template <HueMode HueV>
-inline bool hue_rotation_active(const ColorParams &color) {
-  return Color::hue_rotation_active(HueV, color);
-}
-
-/**
  * @brief Supplies the palette, mapping and hue state to
  *        Pullback::Color::GeneratedPalette.
  * @details Source resources are immutable endpoint views.
  * @tparam BindingT The effect's Binding.
- * @tparam HueV Hue-rotation source reported to the color stage.
  * @tparam BrightnessV Brightness envelope reported to the color stage.
  */
-template <typename BindingT, HueMode HueV,
-          Pullback::Color::BrightnessEnvelope BrightnessV>
+template <typename BindingT, Pullback::Color::BrightnessEnvelope BrightnessV>
 struct ColorProvider {
   using Binding = BindingT;                        ///< The effect's Binding.
   using FrameState = typename Binding::FrameState; ///< The effect's frame.
@@ -476,38 +459,12 @@ struct ColorProvider {
   palette(const FrameState &frame) {
     return *frame.palette;
   }
-  /** @brief Hue-rotation source.
-   *  @return `HueV`. */
-  __attribute__((always_inline)) static Pullback::Color::HueMode
-  hue_mode(const FrameState &) {
-    return HueV;
-  }
-  /** @brief Hue shift amount.
-   *  @param frame Current frame.
-   *  @return The color family's `hue_shift_amount`. */
-  __attribute__((always_inline)) static float
-  hue_shift_amount(const FrameState &frame) {
-    return frame.params.template get<"color">().hue_shift_amount;
-  }
   /** @brief Hue-rotation LUT view.
    *  @param frame Current frame.
-   *  @return `frame.hue_rotation_lut`, active per hue_rotation_active(). */
+   *  @return The frame's palette hue table. */
   __attribute__((always_inline)) static Pullback::Color::HueRotationLutView
   hue_rotation(const FrameState &frame) {
-    return {frame.hue_rotation_lut,
-            hue_rotation_active<HueV>(frame.params.template get<"color">())};
-  }
-  /** @brief Immutable source endpoint.
-   * @param frame Current frame.
-   * @return Prepared modulation resources. */
-  static const Modulation::Prepared *modulation(const FrameState &frame) {
-    return frame.modulation;
-  }
-  /** @brief Column-interpolated mechanic controls.
-   * @param frame Current frame.
-   * @return Canonical mechanic controls. */
-  static ColorModulation::Params mechanic(const FrameState &frame) {
-    return frame.params.template get<"color">().modulation.mechanic;
+    return {frame.hue_rotation_lut, frame.hue_rotation_lut != nullptr};
   }
   /** @brief Brightness envelope.
    *  @return `BrightnessV`. */
@@ -542,5 +499,26 @@ struct ColorProvider {
   __attribute__((always_inline)) static float
   opacity_high(const FrameState &frame) {
     return frame.params.template get<"color">().opacity_high;
+  }
+};
+
+/** @brief Keyed source provider for an authored color modulation.
+ * @tparam BindingT Pipeline binding.
+ * @tparam Key Modulation instance key.
+ * @tparam SourceV Source capability.
+ * @tparam EvaluationV Source storage strategy. */
+template <typename BindingT, ResourceKey Key, Pattern::SourceKind SourceV,
+          Pattern::Evaluation EvaluationV = Pattern::Evaluation::BAKED_CUBE>
+struct ModulationProvider {
+  using Binding = BindingT;                        ///< Pipeline binding.
+  using FrameState = typename Binding::FrameState; ///< Frame context.
+  /** @brief Prepares endpoint views and mechanic controls.
+   * @param frame Frame context.
+   * @return Immutable layer state. */
+  static Color::ModulationState prepare(const FrameState &frame) {
+    const auto &config = frame.params.template get<Key>().modulation;
+    const auto &resource = frame.resources.template get<Key>();
+    return {resource.modulation, resource.previous_modulation, config.source,
+            config.mechanic, config.enabled};
   }
 };

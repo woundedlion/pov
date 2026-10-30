@@ -1643,6 +1643,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── shader_workbench.mjs    Chain-document validation and canonical identity
 │   ├── shader_workbench_cli.mjs Command-line validator for shader workbench documents
 │   ├── shader_workbench.test.mjs Node contract tests for the shader workbench
+│   ├── modulation_migration.test.mjs Legacy colorizer-to-layer migration contracts
 │   ├── pattern_documents.mjs   Shared patterns/*.shader.json discovery and compilation
 │   ├── generate_promoted_shader_documents.mjs Generates canonical promoted-effect documents
 │   ├── generate_composed_presets.mjs / generate_composed_presets.test.mjs Generates and verifies composed preset values and identities from patterns

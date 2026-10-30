@@ -6,6 +6,7 @@ The unit_chain_capture_fixtures test validates the authored corpus.
 """
 
 import argparse
+import copy
 import json
 import math
 from pathlib import Path
@@ -53,7 +54,7 @@ def recipe_cpp(recipe):
     noise, mechanic = recipe["noise"], recipe["mechanic"]
     return "ColorModulation::Config{" + ",".join([
         str(recipe["enabled"]).lower(),
-        enum_cpp("Pattern::SourceKind", recipe["source"], 4), "1",
+        enum_cpp("Pattern::SourceKind", recipe["source"], 5), "1",
         enum_cpp("Pattern::Evaluation", recipe["evaluation"], 2),
         "Pattern::NoiseParams{" + ",".join([
             float_cpp(noise["scale"]), float_cpp(noise["speed"]),
@@ -99,16 +100,16 @@ def runtime_cpp(entry):
     kind = entry["kind"]
     if kind == "spatial-walk-v2":
         return walk_cpp(state)
-    if kind == "color-clock-v2":
-        modulation = state["modulation"]
-        if modulation["version"] != 1:
+    if kind == "color-clock-v3":
+        return "Pullback::Interp::ColorClockSnapshot{" + float_cpp(state["oscillationPhase"]) + "}"
+    if kind == "modulation-clock-v1":
+        if state["version"] != 1:
             raise ValueError("capture fixture requires a version-one pattern clock")
-        return "Pullback::Interp::ColorClockSnapshot{" + ",".join([
-            float_cpp(state["oscillationPhase"]),
+        return "Pullback::Interp::ModulationClockSnapshot{" + ",".join([
             "Pullback::Modulation::State{" + ",".join([
-                enum_cpp("Pattern::SourceKind", modulation["source"], 4), "1",
-                "Pattern::PhaseState{" + float_cpp(modulation["phaseTurns"]) + "}",
-                str(modulation["initialized"]).lower(),
+                enum_cpp("Pattern::SourceKind", state["source"], 5), "1",
+                "Pattern::PhaseState{" + float_cpp(state["phaseTurns"]) + "}",
+                str(state["initialized"]).lower(),
             ]) + "}",
         ]) + "}"
     names = {
@@ -193,6 +194,67 @@ def snapshot_cpp(snapshot):
     )
 
 
+def migrate_legacy_snapshot(snapshot):
+    if snapshot["schemaVersion"] != 3:
+        return snapshot
+    result = copy.deepcopy(snapshot)
+    result["schemaVersion"] = 4
+    used = {entry["instance"] for entry in result["chain"]}
+
+    def label_for(base):
+        label = base
+        suffix = 2
+        while label in used:
+            label = f"{base}-{suffix}"
+            suffix += 1
+        used.add(label)
+        return label
+
+    chain = []
+    recipes = []
+    for entry in result["chain"]:
+        chain.append(entry)
+        if entry["operator"] != "colorize.generated-palette.v3":
+            continue
+        owner = entry["instance"]
+        displacement, spatial = label_for("displacement"), label_for("modulation")
+        entry["operator"] = "colorize.generated-palette.v4"
+        chain.extend([
+            {"instance": displacement, "operator": "color.modulate.v1"},
+            {"instance": spatial, "operator": "color.modulate.v1"},
+        ])
+        values = {parameter["name"]: parameter["value"] for parameter in result["parameters"]}
+        result["parameters"] = [parameter for parameter in result["parameters"]
+                                if parameter["name"] not in
+                                (owner + ".hue-shift-mode", owner + ".hue-shift-amount")]
+        original = next(recipe["recipe"] for recipe in result["modulation"]
+                        if recipe["instance"] == owner)
+        wave = {"axis": [0, 1, 0], "frequency": 1, "offset": 0, "speed": 0}
+        interference = {**wave, "axisB": [1, 0, 0], "frequencyB": 1, "offsetB": 0}
+        path = {
+            "enabled": values.get(owner + ".hue-shift-mode", 0) == 1,
+            "source": 4, "version": 1, "evaluation": 0, "seed": 6047,
+            "noise": {"scale": 1, "speed": 0, "contrast": 0, "basis": 0, "variant": 0},
+            "sine": wave, "interference": interference, "grid": interference,
+            "mechanic": {"kind": 0, "amount": values.get(owner + ".hue-shift-amount", 0)},
+        }
+        recipes.extend([{"instance": displacement, "recipe": path},
+                        {"instance": spatial, "recipe": original}])
+        clock = next(value for value in result["runtime"] if value["instance"] == owner)
+        if clock["kind"] != "color-clock-v2":
+            raise ValueError("unknown capture runtime kind")
+        old_clock = clock["state"].pop("modulation")
+        clock["kind"] = "color-clock-v3"
+        result["runtime"].extend([
+            {"instance": displacement, "kind": "modulation-clock-v1", "state": {
+                "source": 4, "version": 1, "phaseTurns": 0, "initialized": True}},
+            {"instance": spatial, "kind": "modulation-clock-v1", "state": old_clock},
+        ])
+    result["chain"] = chain
+    result["modulation"] = recipes
+    return result
+
+
 def generate(records):
     snapshots = []
     snapshot_indices = {}
@@ -216,9 +278,9 @@ def generate(records):
             value = record[field]
             if type(value) is not int or not 0 < value <= 2147483647:
                 raise ValueError(f"capture fixture {field} is not a positive int32")
-        snapshot = record["snapshot"]
-        if snapshot["schemaVersion"] != 3 or not snapshot["chain"]:
-            raise ValueError("capture fixture requires a version-three chain")
+        snapshot = migrate_legacy_snapshot(record["snapshot"])
+        if snapshot["schemaVersion"] != 4 or not snapshot["chain"]:
+            raise ValueError("capture fixture requires a version-four chain")
         canonical = json.dumps(snapshot, sort_keys=True, separators=(",", ":"))
         if canonical not in snapshot_indices:
             snapshot_indices[canonical] = len(snapshots)

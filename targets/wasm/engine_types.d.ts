@@ -90,7 +90,8 @@ export type ChainRuntimeState =
   | {instance: string; kind: 'phase-clock-v1'; state: {phase: number}}
   | {instance: string; kind: 'ripple-burst-v1'; state: {phase: number; seed: number; burstCount: number; frames: number; waves: {age: number; burst: number}[]}}
   | {instance: string; kind: 'affine-clock-v1'; state: {phase: number; rotation: number}}
-  | {instance: string; kind: 'color-clock-v2'; state: {oscillationPhase: number; modulation: {source: 0 | 1 | 2 | 3; version: 1; phaseTurns: number; initialized: boolean}}}
+  | {instance: string; kind: 'color-clock-v3'; state: {oscillationPhase: number}}
+  | {instance: string; kind: 'modulation-clock-v1'; state: {source: 0 | 1 | 2 | 3 | 4; version: 1; phaseTurns: number; initialized: boolean}}
   | {instance: string; kind: 'spherical-rings-v2'; state: {walk: ChainSpatialWalkState; phase: number}};
 
 export interface PatternSineParams {
@@ -108,7 +109,7 @@ export interface PatternInterferenceParams extends PatternSineParams {
 
 export interface ModulationRecipe {
   enabled: boolean;
-  source: 0 | 1 | 2 | 3;
+  source: 0 | 1 | 2 | 3 | 4;
   version: 1;
   evaluation: 0 | 1;
   seed: number;

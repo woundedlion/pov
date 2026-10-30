@@ -91,7 +91,7 @@ struct PositiveLightnessLift {
    * @param prepared Validated strength.
    * @return Lifted color with original alpha. */
   static Color4 apply(Color4 color, float scalar, const Prepared &prepared) {
-    const float lift = prepared.amount * fmaxf(0.0f, scalar);
+    const float lift = prepared.amount * hs::clamp(scalar, 0.0f, 1.0f);
     if (lift == 0.0f)
       return color;
     const LinRGB input = pixel_to_linrgb(color.color);
@@ -123,7 +123,8 @@ struct Opacity {
   static Color4 apply(Color4 color, float scalar, const Prepared &prepared) {
     if (prepared.amount == 0.0f)
       return color;
-    color.alpha *= hs::lerp(1.0f, 0.5f * (scalar + 1.0f), prepared.amount);
+    color.alpha *= hs::lerp(1.0f, hs::clamp(0.5f * (scalar + 1.0f), 0.0f, 1.0f),
+                            prepared.amount);
     return color;
   }
 };

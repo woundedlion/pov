@@ -56,10 +56,10 @@ struct ParameterLayoutHash {
       number(Member::FIELDS.size());
       for (const auto &field : Member::FIELDS)
         this->member(root, member.*field.member, field.id);
-      if constexpr (std::is_same_v<Member, Pullback::ColorParams>) {
+      if constexpr (std::is_same_v<Member, Pullback::ColorParams>)
         this->member(root, member.palette_mapping, "palette-mapping");
+      if constexpr (requires { member.modulation; })
         this->member(root, member.modulation, "modulation");
-      }
     } else if constexpr (std::is_same_v<Member, ColorModulation::Config>) {
       text("modulation-config");
       this->member(root, member.enabled, "enabled");
@@ -185,25 +185,26 @@ struct ParameterSchemaPin {
 };
 
 constexpr ParameterSchemaPin PARAMETER_SCHEMA_PINS[] = {
-    {"AlienBrain", 3, 260, 10970901865782576178ULL},
-    {"KaleidoscopeHexSoft", 3, 256, 17905640830166557046ULL},
-    {"AlienOcean", 3, 268, 488309883677394514ULL},
-    {"AlienCore", 3, 268, 488309883677394514ULL},
-    {"KaleidoscopeMandala", 3, 284, 15113534253204804988ULL},
-    {"GridSpace", 3, 268, 7228324936549444903ULL},
-    {"KaleidoscopeMelt", 2, 244, 14007242226001057702ULL},
-    {"ChromaticLichen", 3, 252, 9738589640727657009ULL},
-    {"MermaidSkin", 3, 252, 9738589640727657009ULL},
-    {"JewelMelt", 2, 244, 14007242226001057702ULL},
-    {"AshCloud", 3, 252, 11283470788844466818ULL},
-    {"KaleidoscopePentBright", 3, 268, 8346974636567367169ULL},
-    {"KaleidoscopeHexOil", 3, 244, 11056193341407642387ULL},
-    {"KaleidoscopeStainedGlass", 3, 284, 15372273852295413666ULL},
-    {"KaleidoscopeSmooth", 5, 264, 14420337712696196372ULL},
-    {"KaleidoscopeHexBright", 3, 256, 17905640830166557046ULL},
-    {"KaleidoscopeFlowers", 3, 264, 14420337712696196372ULL},
-    {"CosmicEyeball", 3, 268, 488309883677394514ULL},
-    {"MobiusGrid", 3, 288, 10543493349513914017ULL},
+    {"AlienBrain", 4, 256, 1520615164818923855ULL},
+    {"KaleidoscopeHexSoft", 4, 252, 12248859291337775303ULL},
+    {"AlienOcean", 4, 264, 10147967365089435384ULL},
+    {"AlienCore", 4, 264, 10147967365089435384ULL},
+    {"KaleidoscopeMandala", 4, 280, 13820729389425608030ULL},
+    {"GridSpace", 4, 264, 11830402334610884471ULL},
+    {"KaleidoscopeMelt", 3, 240, 738385364115786086ULL},
+    {"ChromaticLichen", 4, 248, 3008862667822062567ULL},
+    {"MermaidSkin", 4, 248, 3008862667822062567ULL},
+    {"JewelMelt", 3, 240, 738385364115786086ULL},
+    {"AshCloud", 4, 248, 17890345547906854434ULL},
+    {"KaleidoscopePentBright", 4, 264, 1784372494209445601ULL},
+    {"KaleidoscopeHexOil", 4, 240, 8963401164026260972ULL},
+    {"KaleidoscopeStainedGlass", 4, 280, 5435562790506759308ULL},
+    {"KaleidoscopeSmooth", 6, 260, 16824253992083180273ULL},
+    {"KaleidoscopeHexBright", 4, 252, 12248859291337775303ULL},
+    {"KaleidoscopeFlowers", 4, 260, 16824253992083180273ULL},
+    {"CosmicEyeball", 4, 264, 15015288303892513197ULL},
+    {"MobiusGrid", 4, 284, 16410136890467484544ULL},
+
 };
 
 /** @brief Pins one specialization's schema version to its field layout. */

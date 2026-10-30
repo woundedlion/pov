@@ -19,7 +19,6 @@
 
 /** @brief Pullback stage spec for `GridSpace`. */
 struct GridSpaceSpec : Pullback::Spec {
-  static constexpr bool MODULATION = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   static constexpr bool ANIMATED_PROJECTION = true;
   /// Samples animation continuously across each two-arm half-turn.
@@ -48,9 +47,13 @@ struct GridSpaceSpec : Pullback::Spec {
                                   Pullback::IsoValueParams>::Type>,
       Pullback::Stage::Transfer<Pullback::Transfer::IsoContour<
           Pullback::ValueProvider<B, Pullback::IsoValueParams>>>,
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
-                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "modulation", Pattern::SourceKind::NOISE,
+              Pattern::Evaluation::BAKED_CUBE>>>>;
 };
 /// Parameter block derived from `GridSpaceSpec`.
 using GridSpaceParams = Pullback::ParamsFor<GridSpaceSpec>;
@@ -74,9 +77,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "c23989c9eba694cd6b7d97fb95d3c14e3232bfc771f943add1fc8b0cb0afa5d2";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "5838236c430e3b792987b36869eedcbb48c4e1806ff08ece54dd32adba07e46d";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "ef2654f34b85d56c9c3d15a3a9b0c3c58792ca6d70313082e02434ae1d8a3530";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "78274582242e8c26030356ce8fe180accc40e35c3811f51d5f803ed267680496";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "affine-contour"
@@ -86,7 +89,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -99,19 +102,19 @@ public:
     value.template get<"projection">().camera_wander = 1.0f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
-    value.template get<"color">().modulation.mechanic.amount = 0.398f;
-    value.template get<"color">().modulation.enabled = true;
-    value.template get<"color">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
-    value.template get<"color">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
-    value.template get<"color">().modulation.source = Pattern::SourceKind::NOISE;
     value.template get<"color">().palette_chroma = 0.62f;
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::LINEAR;
-    value.template get<"color">().modulation.noise.scale = 0.8300313f;
-    value.template get<"color">().modulation.noise.speed = 0.00021200001f;
     value.template get<"color">().phase_oscillation_depth = 0.0f;
     value.template get<"color">().phase_oscillation_speed = 0.0f;
     value.template get<"color">().opacity_high = 1.0f;
     value.template get<"color">().opacity_low = 1.0f;
+    value.template get<"modulation">().modulation.mechanic.amount = 0.398f;
+    value.template get<"modulation">().modulation.enabled = true;
+    value.template get<"modulation">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
+    value.template get<"modulation">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
+    value.template get<"modulation">().modulation.source = Pattern::SourceKind::NOISE;
+    value.template get<"modulation">().modulation.noise.scale = 0.8300313f;
+    value.template get<"modulation">().modulation.noise.speed = 0.00021200001f;
     value.template get<"projection">().spin_rate = 0.020879198f;
     value.template get<"projection">().wander = 0.0030917525f;
     value.template get<"projection">().singularity_fade = 1.0f;

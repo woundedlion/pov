@@ -20,14 +20,15 @@ inline void case_pullback_mobius_degenerate() {
 /** @brief Death case: the generated-palette operator rejects an unknown
     brightness envelope. */
 inline void case_pullback_operator_invalid_brightness_envelope() {
-  Pullback::Interp::Op::GeneratedPaletteParams params;
+  using Op = Pullback::Interp::Op::ColorizeGeneratedPaletteV4;
+  Op::Params params;
+  Op::State state;
+  BakedPalette palette;
+  Pullback::Interp::FrameContext context;
+  context.palettes.fill(&palette);
+  (void)Op::prepare(context, params, state);
   params.envelope_mode = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::ColorClockState state;
-  Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::ColorizeGeneratedPaletteV3::prepare(context, params,
-                                                                state)
-          .palette != nullptr)
-    std::printf("x");
+  (void)Op::prepare(context, params, state);
 }
 
 /**
@@ -263,42 +264,41 @@ inline void case_pullback_operator_invalid_kaleidoscope_symmetry() {
   Pullback::Interp::Op::LensKaleidoscope::prepare(context, params, state);
 }
 
-/** @brief Death case: the generated-palette operator rejects an unknown hue mode. */
-inline void case_pullback_operator_invalid_hue_mode() {
-  Pullback::Interp::Op::GeneratedPaletteParams params;
-  params.hue_mode = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::ColorClockState state;
-  Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::ColorizeGeneratedPaletteV3::prepare(context, params,
-                                                                state)
-          .palette != nullptr)
-    std::printf("x");
+/** @brief A modulation operator rejects an unknown source. */
+inline void case_pullback_operator_invalid_modulation_source() {
+  Pullback::Interp::Op::ModulationParams params;
+  (void)Pullback::Modulation::init(params.modulation);
+  params.modulation.source =
+      static_cast<Pattern::SourceKind>(opaque<uint8_t>(0xff));
+  (void)Pullback::Modulation::init(params.modulation);
 }
 
 /** @brief Death case: the generated-palette operator rejects an unknown palette
     mode. */
 inline void case_pullback_operator_invalid_palette_mode() {
-  Pullback::Interp::Op::GeneratedPaletteParams params;
+  using Op = Pullback::Interp::Op::ColorizeGeneratedPaletteV4;
+  Op::Params params;
+  Op::State state;
+  BakedPalette palette;
+  Pullback::Interp::FrameContext context;
+  context.palettes.fill(&palette);
+  (void)Op::prepare(context, params, state);
   params.palette_mode = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::ColorClockState state;
-  Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::ColorizeGeneratedPaletteV3::prepare(context, params,
-                                                                state)
-          .palette != nullptr)
-    std::printf("x");
+  (void)Op::prepare(context, params, state);
 }
 
 /** @brief Death case: the generated-palette operator rejects an unknown palette
     mapping. */
 inline void case_pullback_operator_invalid_palette_mapping() {
-  Pullback::Interp::Op::GeneratedPaletteParams params;
+  using Op = Pullback::Interp::Op::ColorizeGeneratedPaletteV4;
+  Op::Params params;
+  Op::State state;
+  BakedPalette palette;
+  Pullback::Interp::FrameContext context;
+  context.palettes.fill(&palette);
+  (void)Op::prepare(context, params, state);
   params.mapping_mode = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::ColorClockState state;
-  Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::ColorizeGeneratedPaletteV3::prepare(context, params,
-                                                                state)
-          .palette != nullptr)
-    std::printf("x");
+  (void)Op::prepare(context, params, state);
 }
 
 /** @brief A field transfer must preserve the normalized value domain. */
@@ -372,7 +372,7 @@ inline void compile_temporal_chain(Pullback::Interp::ChainProgram &program,
   const In::ChainEntryRequest request[] = {
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
-      {"color", "colorize.generated-palette.v3"}};
+      {"color", "colorize.generated-palette.v4"}};
   if (program.compile(request).code != In::ChainStatus::OK)
     std::exit(0);
 }
@@ -451,7 +451,7 @@ inline void case_chain_ready_before_prepare() {
   const In::ChainEntryRequest request[] = {
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
-      {"color", "colorize.generated-palette.v3"}};
+      {"color", "colorize.generated-palette.v4"}};
   const auto result = program.compile(request);
   if (result.code != In::ChainStatus::OK)
     std::exit(0);

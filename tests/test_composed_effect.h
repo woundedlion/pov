@@ -67,7 +67,6 @@ static_assert(!CoverageFixture::Metadata::PATH_TRACKED);
 template <typename FX> struct TraitsOf {
   using Spec = typename FX::Spec;
   static constexpr PaletteHarmony HARMONY = Spec::HARMONY;
-  static constexpr Pullback::HueMode HUE = FX::Metadata::HUE;
   static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
       FX::Metadata::BRIGHTNESS;
   static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
@@ -97,7 +96,6 @@ struct ColorSliderBinding {
  * snapshot validator enforces.
  */
 constexpr ColorSliderBinding COLOR_SLIDER_BINDINGS[] = {
-    {"Hue Shift Amount", "hue-shift-amount"},
     {"Palette Chroma", "palette-chroma"},
     {"Mapping Frequency", "mapping-frequency"},
     {"Mapping Phase", "mapping-phase"},
@@ -293,9 +291,6 @@ inline void check_slider_registration(const char *name) {
   reset_effect_globals();
   FX effect;
   effect.init();
-  const Params DEFAULTS{};
-  HS_EXPECT_EQ(DEFAULTS.template get<"color">().modulation.enabled,
-               FX::Spec::MODULATION);
   const ParamList &params = effect.getParameters();
 
   // Two sliders sharing a target leave one family member unreachable while the
@@ -329,19 +324,22 @@ inline void check_slider_registration(const char *name) {
     HS_EXPECT_EQ(params.find(slider) != nullptr, mobius);
   constexpr bool brightness =
       Traits::BRIGHTNESS != Pullback::Color::BrightnessEnvelope::NONE;
-  constexpr bool hue_shift = Traits::HUE != Pullback::HueMode::NONE;
-  HS_EXPECT_EQ(params.find("Hue Shift Amount") != nullptr, hue_shift);
-  constexpr bool hue_noise = FX::Spec::MODULATION;
+  constexpr bool displacement = Params::template HAS<"displacement">;
+  constexpr bool hue_noise = Params::template HAS<"modulation">;
+  HS_EXPECT_EQ(params.find("Modulation Amount") != nullptr,
+               displacement || hue_noise);
   HS_EXPECT_EQ(params.find("Brightness Bottom") != nullptr, brightness);
   HS_EXPECT_EQ(params.find("Brightness Top") != nullptr, brightness);
   HS_EXPECT_EQ(params.find("Pattern Scale") != nullptr, hue_noise);
   HS_EXPECT_EQ(params.find("Pattern Speed") != nullptr, hue_noise);
-  if constexpr (FX::Spec::MODULATION) {
+  if constexpr (Params::template HAS<"modulation">) {
     const auto initial = preset_params<FX>(0);
-    const auto &config = initial.template get<"color">().modulation;
-    using Fields = Pullback::Interp::Op::GeneratedPaletteParams;
+    const auto &config = initial.template get<"modulation">().modulation;
+    using Fields = Pullback::Interp::Op::ModulationParams;
     const char *speed_id = nullptr;
     switch (config.source) {
+    case Pattern::SourceKind::DISPLACEMENT:
+      break;
     case Pattern::SourceKind::NOISE:
       speed_id = "pattern-speed";
       break;
@@ -411,7 +409,8 @@ inline void check_slider_registration(const char *name) {
       warp_slot_count<FX, typename Params::template Family<"inner_warp">>() +
       (mobius ? std::size(MOBIUS_SLIDERS) : size_t{0}) +
       std::size(UNGATED_COLOR_SLIDERS) + (brightness ? size_t{2} : size_t{0}) +
-      (hue_noise ? size_t{3} : size_t{0}) + (hue_shift ? size_t{1} : size_t{0});
+      (hue_noise ? size_t{3} : size_t{0}) +
+      (displacement ? size_t{1} : size_t{0});
   HS_EXPECT_EQ(params.size(), expected);
   HS_EXPECT_EQ(params.size(), params.capacity());
 }
@@ -464,22 +463,20 @@ inline void check_snapshot_contract(const char *name) {
                captured.params.template get<"color">().palette_mapping) +
            1) %
           MAPPINGS);
-  if constexpr (FX::Spec::MODULATION) {
-    auto &config = moved.params.template get<"color">().modulation;
-    config.mechanic.amount = config.mechanic.amount == 0.0f ? 0.5f : 0.0f;
-    config.noise.scale = config.noise.scale == 1.0f ? 2.0f : 1.0f;
-    config.noise.speed = config.noise.speed == 0.0f ? -0.0001f : 0.0f;
-  }
+  moved.params.visit([&]<typename Resource>(auto &family) {
+    if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {
+      auto &config = family.modulation;
+      config.mechanic.amount = config.mechanic.amount == 0.0f ? 0.5f : 0.0f;
+      if (config.source == Pattern::SourceKind::NOISE) {
+        config.noise.scale = config.noise.scale == 1.0f ? 2.0f : 1.0f;
+        config.noise.speed = config.noise.speed == 0.0f ? -0.0001f : 0.0f;
+      }
+    }
+  });
   HS_EXPECT_TRUE(effect.restore_parameters(moved));
   verify_params_equal(effect.serialize_parameters().params, moved.params);
   HS_EXPECT_TRUE(effect.restore_parameters(captured));
 
-  if constexpr (!FX::Spec::MODULATION) {
-    typename FX::ParameterSnapshot unavailable = captured;
-    unavailable.params.template get<"color">().modulation.enabled = true;
-    HS_EXPECT_FALSE(effect.restore_parameters(unavailable));
-    verify_params_equal(effect.serialize_parameters().params, captured.params);
-  }
   typename FX::ParameterSnapshot bumped = captured;
   bumped.schema_version += 1;
   HS_EXPECT_FALSE(effect.restore_parameters(bumped));
@@ -488,6 +485,14 @@ inline void check_snapshot_contract(const char *name) {
   captured.params.visit([&]<typename Resource>(const auto &) {
     if constexpr (Pullback::HasFields<typename Resource::Family>)
       verify_family_rejection<FX, Resource>(effect, captured);
+    if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {
+      typename FX::ParameterSnapshot invalid = captured;
+      invalid.params.template get<Resource::KEY>().modulation.mechanic.amount =
+          std::numeric_limits<float>::quiet_NaN();
+      HS_EXPECT_FALSE(effect.restore_parameters(invalid));
+      verify_params_equal(effect.serialize_parameters().params,
+                          captured.params);
+    }
   });
 
   typename FX::ParameterSnapshot mapping = captured;
@@ -768,6 +773,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_temporal_equal_palettes_color_as_current);
   HS_RUN(test_temporal_moving_families_interpolate);
   HS_RUN(test_temporal_owned_resources);
+  HS_RUN(test_temporal_stacked_modulation_resources);
   HS_RUN(test_gridspace_temporal_pixels);
   HS_RUN(test_composed_temporal_roster);
   HS_RUN(test_mobius_grid_instantaneous_pixel_golden);

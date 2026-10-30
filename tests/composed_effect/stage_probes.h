@@ -8,9 +8,31 @@
 // ============================================================================
 
 /** @brief Direct analytic modulation on the GridSpace stage pipeline. */
-struct AnalyticModulationSpec : GridSpaceSpec {
-  static constexpr Pattern::Evaluation MODULATION_EVALUATION =
-      Pattern::Evaluation::DIRECT;
+struct AnalyticModulationSpec : Pullback::Spec {
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Placed<
+          Pullback::CodeEmission::INLINE_ONLY,
+          Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+              Pullback::ProjectionKind::GNOMONIC_FOLDED, B>::Type>>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::AffineParams, B, "outer_warp", false>::Type>,
+      Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
+                                  Pullback::LatticeSourceParams, B>::Type,
+                              Pullback::Weight::Projection,
+                              typename Pullback::CoveragePolicyFor<
+                                  Pullback::ProjectionCoverageMode::WEIGHT, B,
+                                  Pullback::IsoValueParams>::Type>,
+      Pullback::Stage::Transfer<Pullback::Transfer::IsoContour<
+          Pullback::ValueProvider<B, Pullback::IsoValueParams>>>,
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "modulation", Pattern::SourceKind::DIRECTIONAL_SINE,
+              Pattern::Evaluation::DIRECT>>>>;
 };
 
 /** @brief Composed source-control registration fixture. */
@@ -25,7 +47,7 @@ struct AnalyticModulationProbe
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr Params initial_params() {
     Params params{};
-    auto &config = params.template get<"color">().modulation;
+    auto &config = params.template get<"modulation">().modulation;
     config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
     config.sine.frequency = 0.125f;
     config.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
@@ -43,13 +65,14 @@ struct AnalyticModulationProbe
 /** @brief Direct modulation parameters reject enabled baked-cube recipes. */
 inline void test_composed_analytic_modulation_admission() {
   AnalyticModulationProbe::Params params{};
-  auto &config = params.template get<"color">().modulation;
+  auto &config = params.template get<"modulation">().modulation;
   HS_EXPECT_TRUE(config.evaluation == Pattern::Evaluation::DIRECT);
+  config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
   HS_EXPECT_TRUE(AnalyticModulationProbe::valid_params(params));
   config.evaluation = Pattern::Evaluation::BAKED_CUBE;
   HS_EXPECT_FALSE(AnalyticModulationProbe::valid_params(params));
   config.enabled = false;
-  HS_EXPECT_TRUE(AnalyticModulationProbe::valid_params(params));
+  HS_EXPECT_FALSE(AnalyticModulationProbe::valid_params(params));
 }
 
 /** @brief Analytic frequency and speed sliders write the selected source. */
@@ -69,34 +92,34 @@ inline void test_composed_analytic_modulation_sliders() {
   if (SPEED != nullptr) {
     HS_EXPECT_EQ(SPEED->min, -1.0f);
     HS_EXPECT_EQ(SPEED->max, 1.0f);
-    const auto &field =
-        Pullback::Interp::Op::GeneratedPaletteParams::EXTRA_SCHEMA[9];
+    const auto &field = Pullback::Interp::Op::ModulationParams::EXTRA_SCHEMA[9];
     HS_EXPECT_EQ(SPEED->min, field.min);
     HS_EXPECT_EQ(SPEED->max, field.max);
   }
   const auto DIRECTION = Pattern::SphereDirection::from(math::Y_AXIS);
   const auto before = effect.frame_for_test();
-  const float BEFORE =
-      Pullback::Modulation::sample(*before.modulation, DIRECTION);
+  const float BEFORE = Pullback::Modulation::sample(
+      *before.resources.template get<"modulation">().modulation, DIRECTION);
   HS_EXPECT_NEAR(BEFORE, 0.70710678f, 0.002f);
   HS_EXPECT_TRUE(effect.updateParameter("Pattern Frequency", 0.25f) ==
                  ParamSetResult::APPLIED);
   const auto after = effect.frame_for_test();
-  const float AFTER =
-      Pullback::Modulation::sample(*after.modulation, DIRECTION);
+  const float AFTER = Pullback::Modulation::sample(
+      *after.resources.template get<"modulation">().modulation, DIRECTION);
   HS_EXPECT_NEAR(AFTER, 1.0f, 1e-5f);
   HS_EXPECT_GT(AFTER - BEFORE, 0.25f);
   HS_EXPECT_TRUE(effect.updateParameter("Pattern Speed", -0.125f) ==
                  ParamSetResult::APPLIED);
   ComposedFrameWhiteBox::advance(effect);
   const auto advanced = effect.frame_for_test();
-  HS_EXPECT_NEAR(advanced.modulation->state.phase.phase_turns, 0.875f, 0.0f);
+  HS_EXPECT_NEAR(advanced.resources.template get<"modulation">()
+                     .modulation->state.phase.phase_turns,
+                 0.875f, 0.0f);
 }
 
 template <bool Animated, bool Modulated = false>
 struct RippleProbeSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = Animated;
-  static constexpr bool MODULATION = Modulated;
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -111,9 +134,18 @@ struct RippleProbeSpec : Pullback::Spec {
                                   Pullback::GridSourceParams, B>::Type,
                               Pullback::Weight::Projection,
                               Pullback::ProjectionCoverage::Weight>,
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::PATH_LENGTH,
-                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "displacement", Pattern::SourceKind::DISPLACEMENT,
+              Pattern::Evaluation::DIRECT>>>,
+      std::conditional_t<Modulated,
+                         Pullback::Stage::Modulate<Pullback::Color::Modulate<
+                             Pullback::ModulationProvider<
+                                 B, "modulation", Pattern::SourceKind::NOISE>>>,
+                         void>>;
 };
 
 template <int W, int H, bool AnimatedProjection = false, bool Modulated = false>
@@ -155,17 +187,16 @@ public:
 inline void test_composed_path_modulation_admission() {
   using FX = RippleProbe<SMALL_W, SMALL_H, false, true>;
   auto params = FX::initial_params();
-  auto &color = params.template get<"color">();
-  color.hue_shift_amount = 0.25f;
-  color.modulation.enabled = true;
-  color.modulation.evaluation = FX::Spec::MODULATION_EVALUATION;
+  params.template get<"displacement">().modulation.mechanic.amount = 0.25f;
+  auto &config = params.template get<"modulation">().modulation;
+  config.enabled = true;
   for (auto mechanic : {ColorModulation::Mechanic::HUE_ROTATION,
                         ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT,
                         ColorModulation::Mechanic::OPACITY}) {
-    color.modulation.mechanic = {mechanic, 0.5f};
+    config.mechanic = {mechanic, 0.5f};
     HS_EXPECT_TRUE(FX::valid_params(params));
   }
-  color.modulation.mechanic.amount = INFINITY;
+  config.mechanic.amount = INFINITY;
   HS_EXPECT_FALSE(FX::valid_params(params));
 }
 
@@ -185,9 +216,9 @@ struct KeyedValueSpec : Pullback::Spec {
                                   B, Pullback::EdgeValueParams, "edge">::Type>,
       Pullback::Stage::Transfer<Pullback::Transfer::IsoContour<
           Pullback::ValueProvider<B, Pullback::IsoValueParams, "contour">>>,
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
-                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 
 struct KeyedValueProbe
@@ -255,9 +286,9 @@ struct AffineNamedSourceSpec : Pullback::Spec {
           B, "affine", Pullback::AffineParams, false, "cells">>>,
       Pullback::Stage::Sample<Pullback::Source::PrimitiveLattice<
           Pullback::SourceProvider<B, Pullback::LatticeSourceParams, "cells">>>,
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
-                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 
 /** @brief Affine warps read their named source resource. */
@@ -301,9 +332,9 @@ struct RepeatedStagesSpec : Pullback::Spec {
           Pullback::WaveShearParams, B, "warp_c", false>::Type>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
           Pullback::GridSourceParams, B>::Type>,
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
-                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 template <int W, int H>
 class RepeatedStagesProbe
@@ -508,9 +539,9 @@ template <typename SourceT> struct NoiseSourceProbeSpec : Pullback::Spec {
       Pullback::Stage::Sample<
           typename Pullback::SourcePolicyFor<SourceT, B>::Type,
           Pullback::Weight::Projection, Pullback::ProjectionCoverage::Weight>,
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
-                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 
 template <int W, int H, typename SourceT>
@@ -877,3 +908,55 @@ inline void test_choreography_lerp_pause_policy() {
   HS_EXPECT_EQ(effect.blend_calls, edited_blends);
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
 }
+
+/** @brief Two independently clocked baked modulation layers. */
+struct StackedModulationSpec : Pullback::Spec {
+  static constexpr bool TEMPORAL_SAMPLING = true;
+  static constexpr bool ANIMATED_PROJECTION = false;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+          Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>,
+      Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
+                                  Pullback::GridSourceParams, B>::Type,
+                              Pullback::Weight::Projection,
+                              Pullback::ProjectionCoverage::Weight>,
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "modulation", Pattern::SourceKind::NOISE>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "second", Pattern::SourceKind::NOISE>>>>;
+};
+/** @brief Exact resource ownership for independently authored color layers. */
+struct StackedModulationProbe
+    : Pullback::ComposedEffect<96, 20, StackedModulationProbe,
+                               StackedModulationSpec> {
+  using Base = Pullback::ComposedEffect<96, 20, StackedModulationProbe,
+                                        StackedModulationSpec>;
+  static constexpr std::array<std::string_view, 1> PRESET_IDS{"stack"};
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr Params initial_params() {
+    Params value;
+    auto &a = value.template get<"modulation">().modulation;
+    auto &b = value.template get<"second">().modulation;
+    a.mechanic.amount = 0.25f;
+    a.noise.speed = 0.001f;
+    b.mechanic = {ColorModulation::Mechanic::OPACITY, 0.8f};
+    b.noise.speed = -0.0005f;
+    b.seed = 811;
+    return value;
+  }
+  static consteval auto choreography_hooks() {
+    return Base::choreography_hooks()
+        .template extend<
+            StackedModulationProbe,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &StackedModulationProbe::initial_params>>();
+  }
+};

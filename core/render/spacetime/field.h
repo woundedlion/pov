@@ -165,16 +165,14 @@ template <typename T> struct Retained {
 };
 
 /** @brief Optional retained endpoint storage. */
-template <typename Frame,
-          Pullback::Color::HueMode Hue = Pullback::Color::HueMode::NONE,
-          bool Enabled = true, bool Modulation = false, bool Baked = true>
+template <typename Frame, bool Enabled = true, bool Hue = false>
 struct FrameHistory {};
 
-/** @brief Retained previous endpoint of a frame that owns or shares
- *  immutable resources. */
-template <typename Frame, bool Baked>
+/** @brief Retained previous endpoint without mutable borrowed resources.
+ * @tparam Frame Frame context.
+ * @tparam Hue Whether palette hue resources exist. */
+template <typename Frame, bool Hue>
   requires(!BorrowsColorResources<Frame>)
-struct FrameHistory<Frame, Pullback::Color::HueMode::NONE, true, false, Baked>
-    : Retained<Frame> {};
+struct FrameHistory<Frame, true, Hue> : Retained<Frame> {};
 
 } // namespace Spacetime

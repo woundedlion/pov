@@ -25,9 +25,9 @@ struct EdgeFadeSpec : Pullback::Spec {
                                   Pullback::ValueProvider<
                                       B, Pullback::EdgeValueParams>>>,
 #endif
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
-                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 struct EdgeFadeEffect
     : Pullback::ComposedEffect<32, 16, EdgeFadeEffect, EdgeFadeSpec> {

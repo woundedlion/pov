@@ -17,7 +17,6 @@ struct MirrorFrame {
   float oscillation_phase = 0.0f;
   const BakedPalette *palette = nullptr;
   const Pixel *hue_rotation_lut = nullptr;
-  const PB::Modulation::Prepared *modulation = nullptr;
 };
 
 struct MirrorBinding {
@@ -64,8 +63,7 @@ struct MirrorValue {
   }
 };
 
-template <PB::Color::HueMode HueV, PB::Color::BrightnessEnvelope BrightV>
-struct MirrorColor {
+template <PB::Color::BrightnessEnvelope BrightV> struct MirrorColor {
   using Binding = MirrorBinding;
   using FrameState = MirrorFrame;
   static PB::Color::PaletteMappingWeights
@@ -88,19 +86,8 @@ struct MirrorColor {
   static const BakedPalette &palette(const MirrorFrame &frame) {
     return *frame.palette;
   }
-  static PB::Color::HueMode hue_mode(const MirrorFrame &) { return HueV; }
-  static float hue_shift_amount(const MirrorFrame &frame) {
-    return frame.color.hue_shift_amount;
-  }
   static PB::Color::HueRotationLutView hue_rotation(const MirrorFrame &frame) {
-    return {frame.hue_rotation_lut,
-            PB::Color::hue_rotation_active(HueV, frame.color)};
-  }
-  static const PB::Modulation::Prepared *modulation(const MirrorFrame &frame) {
-    return frame.modulation;
-  }
-  static ColorModulation::Params mechanic(const MirrorFrame &frame) {
-    return frame.color.modulation.mechanic;
+    return {frame.hue_rotation_lut, frame.hue_rotation_lut != nullptr};
   }
   static PB::Color::BrightnessEnvelope
   brightness_envelope(const MirrorFrame &) {
@@ -120,18 +107,17 @@ struct MirrorColor {
   }
 };
 
-template <typename WeightP, typename CoverageP, PB::Color::HueMode HueV,
+template <typename WeightP, typename CoverageP,
           PB::Color::BrightnessEnvelope BrightV>
 using MirrorPipeline = PB::Pipeline<
     MirrorBinding, PB::Stage::Rotate<MirrorCamera>,
     PB::Stage::Project<PB::Projection::Stereographic<MirrorProjection>>,
     PB::Stage::Sample<PB::Source::Grid<MirrorSource>, WeightP, CoverageP>,
-    PB::Stage::Colorize<
-        PB::Color::GeneratedPalette<MirrorColor<HueV, BrightV>>>>;
+    PB::Stage::Colorize<PB::Color::GeneratedPalette<MirrorColor<BrightV>>>>;
 
 /** Mirror frame populated from the erased program's blocks: providers read
     the same raw state the erased prepare reads. @p color is entry 3's family
-    in the v3 layout. */
+    in the palette layout. */
 inline MirrorFrame mirror_from(In::ChainProgram &program,
                                const In::FrameContext &ctx,
                                const In::Op::GeneratedPaletteParams &color) {
@@ -156,7 +142,6 @@ inline MirrorFrame mirror_from(In::ChainProgram &program,
   frame.oscillation_phase = clock.oscillation_phase;
   frame.palette = ctx.palettes[frame.color.palette_mode];
   frame.hue_rotation_lut = ctx.hue_rotation_lut;
-  frame.modulation = ctx.modulation;
   return frame;
 }
 
@@ -182,11 +167,11 @@ void expect_frame_parity(In::ChainProgram &program, const In::FrameContext &ctx,
   expect_live_sweep(live);
 }
 
-template <typename WeightP, typename CoverageP, PB::Color::HueMode HueV,
+template <typename WeightP, typename CoverageP,
           PB::Color::BrightnessEnvelope BrightV>
 void expect_parity(In::ChainProgram &program, const In::FrameContext &ctx) {
   program.prepare(ctx);
-  expect_frame_parity<MirrorPipeline<WeightP, CoverageP, HueV, BrightV>>(
+  expect_frame_parity<MirrorPipeline<WeightP, CoverageP, BrightV>>(
       program, ctx, mirror_from(program, ctx));
 }
 

@@ -19,7 +19,6 @@
 
 /** @brief Pullback stage spec for `AshCloud`. */
 struct AshCloudSpec : Pullback::Spec {
-  static constexpr bool MODULATION = true;
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
@@ -48,9 +47,13 @@ struct AshCloudSpec : Pullback::Spec {
                                   Pullback::CutoutValueParams>::Type>,
       Pullback::Stage::ApplyCoverage<Pullback::ValueCoverage::ValueCutout<
           Pullback::ValueProvider<B, Pullback::CutoutValueParams>>>,
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
-                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "modulation", Pattern::SourceKind::NOISE,
+              Pattern::Evaluation::BAKED_CUBE>>>>;
 };
 /// Parameter block derived from `AshCloudSpec`.
 using AshCloudParams = Pullback::ParamsFor<AshCloudSpec>;
@@ -74,9 +77,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "e7d04668c0de00f3e895a482d33089a5b1e3fd424dcacf88c93c4a1ac7e24b3a";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "71b5662d12778efb3eda0aeb7bf1c03f9dd4754979ea0c73f564ee02428e0249";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "436d6f8681a09c7f59cf6e3a72caed87ab9946e147bef18c893e6fb2e5489862";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "a4204d3df68bf46772ad169605916e616390375e582eadc80f650cbba4451d7f";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "ash-cloud"
@@ -88,7 +91,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -101,21 +104,21 @@ public:
     value.template get<"projection">().camera_wander = 1.0f;
     value.template get<"color">().mapping_frequency = 3.666f;
     value.template get<"color">().mapping_phase = 0.598f;
-    value.template get<"color">().modulation.mechanic.amount = -3.248f;
-    value.template get<"color">().modulation.enabled = true;
-    value.template get<"color">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
-    value.template get<"color">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
-    value.template get<"color">().modulation.source = Pattern::SourceKind::NOISE;
     value.template get<"color">().palette_chroma = 0.314f;
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::CUP;
-    value.template get<"color">().modulation.noise.scale = 2.4029531f;
-    value.template get<"color">().modulation.noise.speed = 0.00015f;
     value.template get<"color">().phase_oscillation_depth = 0.856f;
     value.template get<"color">().phase_oscillation_speed = 0.00448f;
     value.template get<"color">().opacity_high = 1.0f;
     value.template get<"color">().opacity_low = 1.0f;
     value.template get<"value">().cutout_softness = 0.31635937f;
     value.template get<"value">().cutout_threshold = 0.365f;
+    value.template get<"modulation">().modulation.mechanic.amount = -3.248f;
+    value.template get<"modulation">().modulation.enabled = true;
+    value.template get<"modulation">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
+    value.template get<"modulation">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
+    value.template get<"modulation">().modulation.source = Pattern::SourceKind::NOISE;
+    value.template get<"modulation">().modulation.noise.scale = 2.4029531f;
+    value.template get<"modulation">().modulation.noise.speed = 0.00015f;
     value.template get<"projection">().spin_rate = 0.00175f;
     value.template get<"projection">().wander = 0.009f;
     value.template get<"projection">().singularity_fade = 1.0f;

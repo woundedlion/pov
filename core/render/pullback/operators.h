@@ -82,8 +82,6 @@ enum class PaletteMode : uint8_t {
   COMPLEMENTARY = 1, ///< Complementary-harmony palette.
   ANALOGOUS = 2      ///< Analogous-harmony palette.
 };
-/// Hue-rotation source of the colorize operator.
-using HueShiftMode = Color::HueMode;
 /// Brightness envelope of the colorize operator.
 using EnvelopeMode = Color::BrightnessEnvelope;
 
@@ -99,10 +97,6 @@ inline constexpr const char *PALETTE_MAPPING_IDS[] = {"cup", "bell", "linear",
                                                       "reverse"};
 static_assert(std::size(PALETTE_MAPPING_IDS) ==
               static_cast<size_t>(Color::PaletteMapping::REVERSE) + 1);
-/// Wire ids of `HueShiftMode`, by enumerator value.
-inline constexpr const char *HUE_SHIFT_MODE_IDS[] = {"none", "path-length"};
-static_assert(std::size(HUE_SHIFT_MODE_IDS) ==
-              static_cast<size_t>(HueShiftMode::PATH_LENGTH) + 1);
 /// Wire ids of `EnvelopeMode`, by enumerator value.
 inline constexpr const char *BRIGHTNESS_ENVELOPE_IDS[] = {
     "none", "cup", "bell", "ascending", "descending"};
@@ -160,8 +154,10 @@ struct PaletteSelection {
   uint8_t palette_lightness_curve = 0; ///< Lightness axis profile.
   uint8_t palette_name = 0;            ///< First named cosine palette.
   uint8_t palette_name_b = 19;         ///< Second named cosine palette.
+  std::array<uint8_t, 3> reserved{};   ///< Stable serialized base layout.
   constexpr bool operator==(const PaletteSelection &) const = default;
 };
+static_assert(sizeof(PaletteSelection) == 64);
 /// Activation gate for authored perceptual palette controls.
 inline constexpr TopologyGate GENERATED_PALETTE_GATE{
     "palette-type", live_values(PaletteType::GENERATED)};
@@ -172,17 +168,14 @@ inline constexpr TopologyGate MUTATING_PALETTE_GATE{
 inline constexpr TopologyGate GRADIENT_PALETTE_GATE{
     "palette-type", live_values(PaletteType::GRADIENT)};
 
-/** @brief Parameter family of colorize.generated-palette.v3. */
+/** @brief Palette-only controls of colorize.generated-palette.v4. */
 struct GeneratedPaletteParams : Color::ColorControls, PaletteSelection {
-  /// A `PaletteMode` value.
-  uint8_t palette_mode = static_cast<uint8_t>(PaletteMode::TRIADIC);
-  /// A `Color::PaletteMapping` value.
-  uint8_t mapping_mode = static_cast<uint8_t>(Color::PaletteMapping::LINEAR);
-  /// A `HueShiftMode` value.
-  uint8_t hue_mode = static_cast<uint8_t>(HueShiftMode::NONE);
-  /// An `EnvelopeMode` value.
-  uint8_t envelope_mode = static_cast<uint8_t>(EnvelopeMode::NONE);
-
+  uint8_t palette_mode =
+      static_cast<uint8_t>(PaletteMode::TRIADIC); ///< Palette harmony.
+  uint8_t mapping_mode =
+      static_cast<uint8_t>(Color::PaletteMapping::LINEAR); ///< Mapping curve.
+  uint8_t envelope_mode =
+      static_cast<uint8_t>(EnvelopeMode::NONE); ///< Brightness shape.
   static constexpr auto FIELDS = concat_fields<GeneratedPaletteParams>(
       Color::ColorControls::FIELDS,
       std::array{
@@ -245,14 +238,56 @@ struct GeneratedPaletteParams : Color::ColorControls, PaletteSelection {
               GRADIENT_PALETTE_GATE},
       });
 
+  static constexpr auto TOPOLOGY = std::array{
+      TopologyField<GeneratedPaletteParams>{
+          "palette-mode", &GeneratedPaletteParams::palette_mode,
+          PALETTE_MODE_IDS, 0},
+      TopologyField<GeneratedPaletteParams>{
+          "palette-mapping", &GeneratedPaletteParams::mapping_mode,
+          PALETTE_MAPPING_IDS, 2},
+      TopologyField<GeneratedPaletteParams>{
+          "brightness-envelope", &GeneratedPaletteParams::envelope_mode,
+          BRIGHTNESS_ENVELOPE_IDS, 0},
+      TopologyField<GeneratedPaletteParams>{
+          "palette-type", &GeneratedPaletteParams::palette_type,
+          PALETTE_TYPE_IDS, 0},
+      TopologyField<GeneratedPaletteParams>{
+          "palette-harmony", &GeneratedPaletteParams::palette_harmony,
+          PALETTE_HARMONY_IDS, static_cast<uint8_t>(PaletteHarmony::TRIADIC)},
+      TopologyField<GeneratedPaletteParams>{
+          "palette-lightness-curve",
+          &GeneratedPaletteParams::palette_lightness_curve,
+          PALETTE_LIGHTNESS_CURVE_IDS, 0},
+      TopologyField<GeneratedPaletteParams>{
+          "palette-name", &GeneratedPaletteParams::palette_name,
+          PALETTE_NAME_IDS, 0},
+      TopologyField<GeneratedPaletteParams>{
+          "palette-name-b", &GeneratedPaletteParams::palette_name_b,
+          PALETTE_NAME_IDS, 19},
+  }; ///< Structural controls.
+};
+static_assert(field_ids_unique<GeneratedPaletteParams>());
+static_assert(field_defaults_in_range<GeneratedPaletteParams>());
+
+/** @brief Controls of one color.modulate.v1 operator. */
+struct ModulationParams {
+  ColorModulation::Config modulation = [] {
+    ColorModulation::Config value;
+    value.seed = HUE_NOISE_SEED;
+    return value;
+  }(); ///< Canonical source and mechanic recipe.
+  static constexpr std::array<Field<ModulationParams>, 0>
+      FIELDS{}; ///< Nested recipe controls.
+  static constexpr std::array<TopologyField<ModulationParams>, 0>
+      TOPOLOGY{}; ///< Nested recipe selectors.
   /// Modulation enable values.
   static constexpr const char *ENABLED_IDS[] = {"disabled", "enabled"};
   /// Pattern source values.
   static constexpr const char *SOURCE_IDS[] = {
-      "noise", "directional-sine", "sphere-interference", "sphere-smooth-grid"};
+      "noise", "directional-sine", "sphere-interference", "sphere-smooth-grid",
+      "displacement"};
   static_assert(std::size(SOURCE_IDS) ==
-                static_cast<size_t>(Pattern::SourceKind::SPHERE_SMOOTH_GRID) +
-                    1);
+                static_cast<size_t>(Pattern::SourceKind::DISPLACEMENT) + 1);
   /// Pattern evaluation values.
   static constexpr const char *EVALUATION_IDS[] = {"direct", "baked-cube"};
   static_assert(std::size(EVALUATION_IDS) ==
@@ -462,9 +497,8 @@ struct GeneratedPaletteParams : Color::ColorControls, PaletteSelection {
    * @param a Previous parameters.
    * @param b Current parameters.
    * @param t Current weight. */
-  static void sample_extra(GeneratedPaletteParams &out,
-                           const GeneratedPaletteParams &a,
-                           const GeneratedPaletteParams &b, float t) {
+  static void sample_extra(ModulationParams &out, const ModulationParams &a,
+                           const ModulationParams &b, float t) {
     out.modulation = b.modulation;
     if (Modulation::same_topology(a.modulation, b.modulation))
       out.modulation.mechanic.amount = hs::lerp(
@@ -475,48 +509,15 @@ struct GeneratedPaletteParams : Color::ColorControls, PaletteSelection {
    * @param field Parameter schema index.
    * @return Whether the field belongs to modulation. */
   static constexpr bool temporal_hold_field(uint16_t field) {
-    return field >= FIELDS.size() + TOPOLOGY.size();
+    (void)field;
+    return true;
   }
-
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<GeneratedPaletteParams>{
-          "palette-mode", &GeneratedPaletteParams::palette_mode,
-          PALETTE_MODE_IDS, static_cast<uint8_t>(PaletteMode::TRIADIC)},
-      TopologyField<GeneratedPaletteParams>{
-          "palette-mapping", &GeneratedPaletteParams::mapping_mode,
-          PALETTE_MAPPING_IDS,
-          static_cast<uint8_t>(Color::PaletteMapping::LINEAR)},
-      TopologyField<GeneratedPaletteParams>{
-          "hue-shift-mode", &GeneratedPaletteParams::hue_mode,
-          HUE_SHIFT_MODE_IDS, static_cast<uint8_t>(HueShiftMode::NONE)},
-      TopologyField<GeneratedPaletteParams>{
-          "brightness-envelope", &GeneratedPaletteParams::envelope_mode,
-          BRIGHTNESS_ENVELOPE_IDS, static_cast<uint8_t>(EnvelopeMode::NONE)},
-      TopologyField<GeneratedPaletteParams>{
-          "palette-type", &GeneratedPaletteParams::palette_type,
-          PALETTE_TYPE_IDS, 0},
-      TopologyField<GeneratedPaletteParams>{
-          "palette-harmony", &GeneratedPaletteParams::palette_harmony,
-          PALETTE_HARMONY_IDS, static_cast<uint8_t>(PaletteHarmony::TRIADIC)},
-      TopologyField<GeneratedPaletteParams>{
-          "palette-lightness-curve",
-          &GeneratedPaletteParams::palette_lightness_curve,
-          PALETTE_LIGHTNESS_CURVE_IDS, 0},
-      TopologyField<GeneratedPaletteParams>{
-          "palette-name", &GeneratedPaletteParams::palette_name,
-          PALETTE_NAME_IDS, 0},
-      TopologyField<GeneratedPaletteParams>{
-          "palette-name-b", &GeneratedPaletteParams::palette_name_b,
-          PALETTE_NAME_IDS, 19},
-  };
 };
-static_assert(field_ids_unique<GeneratedPaletteParams>());
-static_assert(field_defaults_in_range<GeneratedPaletteParams>());
+static_assert(field_ids_unique<ModulationParams>());
 
 /** @brief Per-frame color phase clocks. */
 struct ColorClockState {
   float oscillation_phase = 0.0f; ///< Mapping oscillation in turns.
-  Modulation::State modulation;   ///< Selected source state.
 };
 
 /** @brief Prepares the palette mapping clock.
@@ -542,118 +543,122 @@ inline void temporal_sample(ColorClockState &out,
   out.oscillation_phase = interval.sample(fraction);
 }
 
-/**
- * @brief Resolves a generated-palette param block into the per-frame colour
- *        state; mode fields out of range fail an `HS_CHECK`.
- * @param ctx Frame context supplying the palettes and hue LUTs.
- * @param params Operator parameters.
- * @param state Colour clocks.
- * @return The prepared colour state for this frame.
- */
+/** @brief Prepares palette-only immutable state.
+ * @param ctx Palette resources.
+ * @param params Palette controls.
+ * @param state Oscillation clock.
+ * @return Palette endpoint state. */
 inline Color::GeneratedPaletteState
 prepare_generated_palette(const FrameContext &ctx,
                           const GeneratedPaletteParams &params,
                           const ColorClockState &state) {
-  HS_CHECK(params.hue_mode <= static_cast<uint8_t>(HueShiftMode::PATH_LENGTH),
-           "colorize.generated-palette: invalid hue shift mode");
-  HS_CHECK(params.palette_mode < ctx.palettes.size(),
-           "colorize.generated-palette: invalid palette mode");
+  HS_CHECK(params.palette_mode < ctx.palettes.size(), "invalid palette mode");
   HS_CHECK(params.mapping_mode <=
                static_cast<uint8_t>(Color::PaletteMapping::REVERSE),
-           "colorize.generated-palette: invalid palette mapping");
+           "invalid palette mapping");
   HS_CHECK(params.envelope_mode <=
                static_cast<uint8_t>(EnvelopeMode::DESCENDING),
-           "colorize.generated-palette: invalid brightness envelope");
-  const Color::HueMode mode = static_cast<HueShiftMode>(params.hue_mode);
-  const bool rotation_active = Color::hue_rotation_active(mode, params) &&
-                               ctx.hue_rotation_lut != nullptr;
-  const BakedPalette *palette = ctx.palettes[params.palette_mode];
-  HS_CHECK(palette != nullptr,
-           "colorize.generated-palette: frame context carries no palette");
+           "invalid brightness envelope");
+  HS_CHECK(ctx.palettes[params.palette_mode] != nullptr,
+           "missing palette endpoint");
   return {Color::PaletteMappingWeights::single(
               static_cast<Color::PaletteMapping>(params.mapping_mode)),
           params.mapping_frequency,
           Color::oscillated_mapping_offset(params.mapping_phase,
                                            params.phase_oscillation_depth,
                                            state.oscillation_phase),
-          palette,
-          mode,
-          params.hue_shift_amount,
-          {ctx.hue_rotation_lut, rotation_active},
-          ctx.modulation,
-          {params.modulation.mechanic.amount},
-          static_cast<Color::BrightnessEnvelope>(params.envelope_mode),
+          ctx.palettes[params.palette_mode],
+          {ctx.hue_rotation_lut, ctx.hue_rotation_lut != nullptr},
+          static_cast<EnvelopeMode>(params.envelope_mode),
           params.brightness_bottom,
           params.brightness_top,
           params.opacity_low,
-          params.opacity_high,
-          ColorModulation::kernel(params.modulation.mechanic.kind)};
+          params.opacity_high};
 }
 
-/** @brief FIELD-to-COLOR crossing with generated-palette clocks and endpoints. */
-struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
-  static constexpr const char *ID = "colorize.generated-palette.v3";
+/** @brief FIELD-to-COLOR generated-palette crossing. */
+struct ColorizeGeneratedPaletteV4 : ValueStateModel<ColorClockState> {
+  static constexpr const char *ID = "colorize.generated-palette.v4";
   static constexpr const char *NAME = "Generated Palette";
   using Input = FieldSample;
-  using Output = Color4;
+  using Output = ColorSample;
   using Params = GeneratedPaletteParams;
   using Prepared = Color::GeneratedPaletteState;
-
-  /** @brief Validates source and mechanic recipes even when disabled.
-   * @param params Canonical controls.
-   * @return Error message, or null when admitted. */
-  static const char *validate(const Params &params) {
-    return Modulation::admitted(params.modulation)
-               ? nullptr
-               : Modulation::INVALID_CONFIGURATION;
-  }
-  /// Interpolation contract for source and mechanic controls.
-  static constexpr const char *ADMISSIBILITY_CONVEXITY =
-      "Source controls hold endpoint recipes; mechanic strength interpolates within matching recipe topology.";
-  static constexpr bool APPROXIMATE = true;
-  static constexpr ApproximationOracleId ORACLE =
-      ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
-  static constexpr auto METRICS = Color::GENERATED_PALETTE_METRICS;
-
   static void advance(State &state, const Params &params) {
     state.oscillation_phase =
         math::wrap_t(state.oscillation_phase + params.phase_oscillation_speed);
-    Modulation::advance(state.modulation, params.modulation);
   }
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {
     return prepare_generated_palette(ctx, params, state);
   }
-  static Color4 run(const FieldSample &input, const FrameContext &,
-                    const Params &, const Prepared &prepared) {
+  static ColorSample run(const FieldSample &input, const FrameContext &,
+                         const Params &, const Prepared &prepared) {
     return Color::apply_generated_palette(input, prepared);
   }
-  /** @brief Interpolates completed colors using shared direction admission.
-   * @param input Renderer field sample.
-   * @param current Current prepared endpoint.
-   * @param previous Retained prepared endpoint.
-   * @param fraction Current endpoint interpolation weight.
-   * @return Interpolated straight-alpha color. */
-  static Color4 run_temporal(const FieldSample &input, const Prepared &current,
-                             const Prepared &previous, float fraction) {
-    const bool SAME_SOURCE =
-        current.modulation && current.modulation == previous.modulation;
-    return Color::apply_temporal_generated_palette(
-        input,
-        {current, previous, fraction, frac_to_q16(fraction), SAME_SOURCE});
+};
+
+/** @brief Clock and immutable resource key of one modulation node. */
+struct ModulationClockState {
+  std::string_view key;         ///< Exact instance label.
+  Modulation::State modulation; ///< Source clock.
+};
+
+/** @brief COLOR-to-COLOR ordered modulation. */
+struct ModulateColorV1 : ValueStateModel<ModulationClockState> {
+  static constexpr const char *ID = "color.modulate.v1";
+  static constexpr const char *NAME = "Modulation";
+  using Input = ColorSample;
+  using Output = ColorSample;
+  using Params = ModulationParams;
+  using Prepared = Color::ModulationState;
+  static constexpr bool APPROXIMATE = true;
+  static constexpr ApproximationOracleId ORACLE =
+      ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
+  static constexpr auto METRICS = Color::GENERATED_PALETTE_METRICS;
+  static void init(State &state, InstanceId id) { state.key = id.instance; }
+  static Status migrate(State &dst, const State &src, InstanceId id) {
+    dst = src;
+    dst.key = id.instance;
+    return Status::OK;
   }
-  /** @brief Holds modulation topology at its current endpoint.
-   * @param field Parameter field index.
-   * @return Whether the field may change without snapping the column interval. */
+  static void advance(State &state, const Params &params) {
+    Modulation::advance(state.modulation, params.modulation);
+  }
+  static const char *validate(const Params &params) {
+    return Modulation::admitted(params.modulation)
+               ? nullptr
+               : Modulation::INVALID_CONFIGURATION;
+  }
+  static constexpr const char *ADMISSIBILITY_CONVEXITY =
+      "Source recipes hold endpoint topology; mechanic strength interpolates within matching topology.";
   static constexpr bool temporal_hold_field(uint16_t field) {
     return Params::temporal_hold_field(field);
+  }
+  static Prepared prepare(const FrameContext &ctx, const Params &params,
+                          const State &state) {
+    const Modulation::Prepared *source = nullptr;
+    for (const auto &endpoint : ctx.modulations)
+      if (endpoint.key == state.key) {
+        source = endpoint.prepared;
+        break;
+      }
+    HS_CHECK(source ||
+                 params.modulation.source ==
+                     Pattern::SourceKind::DISPLACEMENT ||
+                 !params.modulation.enabled ||
+                 params.modulation.mechanic.amount == 0.0f,
+             "missing modulation source endpoint");
+    return {source, source, params.modulation.source,
+            params.modulation.mechanic, params.modulation.enabled};
+  }
+  static ColorSample run(const ColorSample &input, const FrameContext &,
+                         const Params &, const Prepared &prepared) {
+    return Color::apply_modulation(input, prepared);
   }
 };
 
 } // namespace Op
-
 } // namespace Interp
-
 } // namespace Pullback
-
-#endif // HS_ENABLE_CHAIN_INTERPRETER
+#endif

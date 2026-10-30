@@ -82,7 +82,7 @@ inline bool arm_sphere_op_chain(In::ChainProgram &program, const char *op_id,
       {"op", op_id},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   return arm_chain<In::Op::RotateChainParams, OpParams,
                    In::Op::ProjectChainParams, In::Op::GridSampleParams,

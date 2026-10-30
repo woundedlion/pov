@@ -6,12 +6,14 @@
 
 #include "core/color/modulation.h"
 #include "core/control/fields.h"
+#include "core/render/pullback/fields.h"
 #include "core/pattern/noise.h"
 #include "core/pattern/sources.h"
 #include "core/pattern/sphere_lut.h"
 #include "core/render/pullback/runtime_seeds.h"
 #include <array>
 #include <variant>
+#include <string_view>
 
 /** @file modulation.h
  * @brief Sphere modulation validation, scheduling and owned resources. */
@@ -36,11 +38,15 @@ inline bool valid(const Config &config) {
   if (config.version != 1 || !ColorModulation::valid(config.mechanic) ||
       static_cast<unsigned>(config.evaluation) > 1)
     return false;
+  if (config.source == Pattern::SourceKind::DISPLACEMENT)
+    return true;
   if (config.evaluation == Pattern::Evaluation::BAKED_CUBE &&
       (config.source != Pattern::SourceKind::NOISE ||
        config.noise.scale > 8.0f))
     return false;
   switch (config.source) {
+  case Pattern::SourceKind::DISPLACEMENT:
+    return true;
   case Pattern::SourceKind::NOISE:
     return Pattern::SphereNoise::valid(config.noise);
   case Pattern::SourceKind::DIRECTIONAL_SINE:
@@ -82,6 +88,8 @@ inline State init(const Config &config) {
   HS_CHECK(admitted(config), "invalid modulation initialization recipe");
   Pattern::PhaseState phase;
   switch (config.source) {
+  case Pattern::SourceKind::DISPLACEMENT:
+    break;
   case Pattern::SourceKind::NOISE:
     phase = Pattern::SphereNoise::init_state(config.noise);
     break;
@@ -112,6 +120,8 @@ inline void synchronize(State &state, const Config &config) {
 inline void advance(State &state, const Config &config) {
   synchronize(state, config);
   switch (config.source) {
+  case Pattern::SourceKind::DISPLACEMENT:
+    break;
   case Pattern::SourceKind::NOISE:
     state.phase = Pattern::SphereNoise::advance(state.phase, config.noise);
     break;
@@ -157,6 +167,8 @@ inline Config interpolate(const Config &a, const Config &b, float fraction) {
     out.speed = hs::lerp(start.speed, end.speed, fraction);
   };
   switch (b.source) {
+  case Pattern::SourceKind::DISPLACEMENT:
+    break;
   case Pattern::SourceKind::NOISE:
     if (a.noise.basis == b.noise.basis && a.noise.variant == b.noise.variant) {
       result.noise.scale =
@@ -232,6 +244,8 @@ inline FieldIdentity field_identity(const Config &config, const State &state) {
       config.source, config.version, config.evaluation, {}, {}, {}, {}, 0,
       state.phase};
   switch (config.source) {
+  case Pattern::SourceKind::DISPLACEMENT:
+    break;
   case Pattern::SourceKind::NOISE:
     identity.noise = config.noise;
     identity.seed = config.seed;
@@ -248,6 +262,75 @@ inline FieldIdentity field_identity(const Config &config, const State &state) {
   }
   return identity;
 }
+/** @brief Keyed immutable source prepared for one modulation node. */
+struct Endpoint {
+  std::string_view key;     ///< Exact instance label.
+  const Prepared *prepared; ///< Borrowed spatial source; null for displacement.
+};
+
+/** @brief Source controls of one authored modulation stage.
+ * @tparam SourceV Source capability.
+ * @tparam EvaluationV Spatial evaluation strategy. */
+template <Pattern::SourceKind SourceV, Pattern::Evaluation EvaluationV>
+struct Params {
+  static constexpr auto SOURCE = SourceV;         ///< Source capability.
+  static constexpr auto EVALUATION = EvaluationV; ///< Storage strategy.
+  Config modulation = [] {
+    Config value;
+    value.source = SourceV;
+    value.evaluation = EvaluationV;
+    value.seed = HUE_NOISE_SEED;
+    return value;
+  }(); ///< Canonical source and mechanic recipe.
+  static constexpr std::array<Field<Params>, 0> FIELDS{}; ///< Nested controls.
+};
+
+/** @brief One live authored modulation control. */
+struct ControlField {
+  const char *name = nullptr; ///< Display label.
+  float *value = nullptr;     ///< Live parameter address.
+  float min = 0.0f;           ///< Lower bound.
+  float max = 0.0f;           ///< Upper bound.
+};
+/** @brief Enumerates the amount and selected source controls.
+ * @param config Live source recipe.
+ * @return Control descriptors; null addresses mark unused entries. */
+HS_COLD_MEMBER inline std::array<ControlField, 3>
+control_fields(Config &config) {
+  const bool UNIT = ColorModulation::unit_mechanic(config.mechanic.kind);
+  std::array<ControlField, 3> fields{};
+  fields[0] = {"Modulation Amount", &config.mechanic.amount,
+               UNIT ? 0.0f : -4.0f, UNIT ? 1.0f : 4.0f};
+  switch (config.source) {
+  case Pattern::SourceKind::NOISE:
+    fields[1] = {"Pattern Scale", &config.noise.scale, 1.0f / 64.0f, 8.0f};
+    fields[2] = {"Pattern Speed", &config.noise.speed,
+                 -Pattern::MAX_NOISE_SPEED, Pattern::MAX_NOISE_SPEED};
+    break;
+  case Pattern::SourceKind::DIRECTIONAL_SINE:
+    fields[1] = {"Pattern Frequency", &config.sine.frequency, 0.0f,
+                 Pattern::MAX_AXIAL_FREQUENCY};
+    fields[2] = {"Pattern Speed", &config.sine.speed,
+                 -Pattern::MAX_ANALYTIC_SPEED, Pattern::MAX_ANALYTIC_SPEED};
+    break;
+  case Pattern::SourceKind::SPHERE_INTERFERENCE:
+    fields[1] = {"Pattern Frequency", &config.interference.frequency, 0.0f,
+                 Pattern::MAX_AXIAL_FREQUENCY};
+    fields[2] = {"Pattern Speed", &config.interference.speed,
+                 -Pattern::MAX_ANALYTIC_SPEED, Pattern::MAX_ANALYTIC_SPEED};
+    break;
+  case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
+    fields[1] = {"Pattern Frequency", &config.grid.frequency, 0.0f,
+                 Pattern::MAX_AXIAL_FREQUENCY};
+    fields[2] = {"Pattern Speed", &config.grid.speed,
+                 -Pattern::MAX_ANALYTIC_SPEED, Pattern::MAX_ANALYTIC_SPEED};
+    break;
+  case Pattern::SourceKind::DISPLACEMENT:
+    break;
+  }
+  return fields;
+}
+
 /** @brief Owned prepared endpoint and optional scalar cube. */
 template <bool Baked = true> struct Resources {
   Resources() = default;
@@ -274,6 +357,10 @@ template <bool Baked = true> struct Resources {
                      config.enabled &&
                          config.evaluation == Pattern::Evaluation::BAKED_CUBE};
     switch (config.source) {
+    case Pattern::SourceKind::DISPLACEMENT:
+      prepared.cube.active = false;
+      prepared.evaluate = nullptr;
+      return prepared;
     case Pattern::SourceKind::NOISE: {
       FastNoiseLite noise;
       init_effect_noise(noise, config.seed);
@@ -301,6 +388,8 @@ template <bool Baked = true> struct Resources {
       };
     } else {
       switch (config.source) {
+      case Pattern::SourceKind::DISPLACEMENT:
+        break;
       case Pattern::SourceKind::NOISE:
         prepared.evaluate = [](const Prepared &value,
                                const Pattern::SphereDirection &coordinate) {

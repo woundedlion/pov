@@ -50,6 +50,8 @@ export function floatLiteral(value) {
 export function presetAssignments(document, values) {
   const assignments = new Map();
   const topology = topologyIds(document);
+  const modulations = new Set(document.descriptor.chain.filter(
+    (slot) => slot.operator === 'color.modulate.v1').map((slot) => slot.label));
   for (const [id, value] of Object.entries(values)) {
     const [label, field] = id.split('.');
     if (field === 'lattice-period') {
@@ -57,15 +59,15 @@ export function presetAssignments(document, values) {
         throw new Error(`Invalid derived binding: ${id}`);
       continue;
     }
-    if (label === 'colorize' && field === 'modulation-enabled') {
+    if (modulations.has(label) && field === 'modulation-enabled') {
       if (!['disabled', 'enabled'].includes(value)) throw new Error(`Invalid modulation state: ${value}`);
-      assignments.set('color.modulation.enabled', String(value === 'enabled'));
+      assignments.set(`${label}.modulation.enabled`, String(value === 'enabled'));
       continue;
     }
-    if (label === 'colorize' && MODULATION_ENUMS[field]) {
+    if (modulations.has(label) && MODULATION_ENUMS[field]) {
       const [path, type] = MODULATION_ENUMS[field];
       if (typeof value !== 'string') throw new Error(`Invalid modulation selector: ${id}`);
-      assignments.set(`color.modulation.${path}`, `${type}::${value.replaceAll('-', '_').toUpperCase()}`);
+      assignments.set(`${label}.modulation.${path}`, `${type}::${value.replaceAll('-', '_').toUpperCase()}`);
       continue;
     }
     if (topology.has(id)) continue;
@@ -75,13 +77,13 @@ export function presetAssignments(document, values) {
     else if (id === 'sample.edge-width') member = 'value.edge_width';
     else if (/^lens\.mobius-[abcd]-(re|im)$/.test(id))
       member = `lens.mobius.${field.split('-').slice(1).join('.')}`;
-    else if (label === 'colorize' && MODULATION_MEMBERS[field])
-      member = `color.modulation.${MODULATION_MEMBERS[field]}`;
-    else if (label === 'colorize' && /^(sine|interference|grid)-/.test(field)) {
+    else if (modulations.has(label) && MODULATION_MEMBERS[field])
+      member = `${label}.modulation.${MODULATION_MEMBERS[field]}`;
+    else if (modulations.has(label) && /^(sine|interference|grid)-/.test(field)) {
       const [source, ...parts] = field.split('-');
       let path = parts.join('_');
       path = path.replace(/^axis_b_([xyz])$/, 'axis_b.$1').replace(/^axis_([xyz])$/, 'axis.$1');
-      member = `color.modulation.${source}.${path}`;
+      member = `${label}.modulation.${source}.${path}`;
     } else if (GROUPS[label]) member = `${GROUPS[label]}.${RENAMES[id] ?? field.replaceAll('-', '_')}`;
     else throw new Error(`Unmapped composed parameter: ${id}`);
     if (field === 'palette-mapping') {

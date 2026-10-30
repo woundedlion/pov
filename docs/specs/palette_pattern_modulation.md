@@ -1,6 +1,8 @@
 # Pattern sources and palette modulation
 
-**Status: IMPLEMENTED.** Shared sources, independent mechanics, temporal endpoints, codecs and migrated callers are validated on native, WebAssembly and Teensy targets.
+**Status: IMPLEMENTED.** Shared pattern sources feed independently owned, ordered
+color-modulation stages. The historical qualification section records the earlier
+single-layer implementation; current stack validation accompanies each change.
 
 ## Problem and scope
 
@@ -12,45 +14,11 @@ Noise plus hue rotation is the existing noise modifier; noise plus positive
 lightness lift is shimmer. Grid plus opacity uses the same protocol.
 Keep ordinary palette lookup, `get(float)`, unchanged.
 
-Composed pullback provides one spatial slot. The workbench also supports an
-ordered list of independent color modulation stages: noise/sine/interference/grid
-sources with hue/lightness/opacity mechanics, and a path-length hue stage.
-Graphs, expression parsing, additional modulation coordinate bindings and
-remapping remain outside this contract.
-
-## Workbench color and modulation stages
-
-The permanent Color card owns palette selection, palette-family controls,
-color mapping, brightness and value opacity. Palette types include cycling
-generated palettes, recipe-generated palettes, named procedural cosine palettes,
-gradients and mutating procedural palettes. Generated recipes expose the
-supported harmonies and their hue, lightness and chroma controls. Type-specific
-controls are visible only for the selected palette family.
-
-The Modulations container follows Color. Each entry is a real COLOR-to-COLOR
-operator in the serialized chain. Entries can repeat and can be reordered,
-removed or bypassed independently. `modulate.field.v1` owns a pattern recipe,
-evaluation strategy, mechanic and source clock. `modulate.hue-shift.v1` rotates
-hue according to the retained field path length. Hue shift has no separate
-section in the Color card.
-
-The color operators retain the last field sample's sphere direction and path
-length through evaluation. This keeps projection-frame directions for planar
-sources and camera-frame directions for sphere sources. Each modulation applies
-to the preceding stage's straight-alpha output. Source clocks, cached resources,
-history and snapshots belong to the individual stage. Repeated stages never
-share mutable source state.
-
-At column time, the field prefix is evaluated once. The complete Color and
-Modulations tail is evaluated with each retained resource endpoint and shared
-column-interpolated continuous controls. The final straight-alpha colors are
-blended once; intermediate modulation outputs are not blended separately.
-
-Loading an older workbench document expands its embedded spatial modulation
-and path-length hue controls into explicit stages, preserving each preset's
-controls and disabling the embedded copies. Linked runtime snapshots migrate
-with the document's chain and parameters. Composed effects retain their existing
-single-slot colorizer and ordering.
+A palette colorizer maps Field to Color. Each subsequent modulation maps Color
+to Color, so a chain can contain several ordered layers. Each layer independently
+selects a noise, sine, interference, smooth-grid or displacement source and a
+hue, lightness or opacity mechanic. Graphs, expression parsing, planar modulation
+coordinates and remapping remain outside this contract.
 
 ## Existing behavior
 
@@ -60,8 +28,9 @@ single-slot colorizer and ordering.
 direction scaling. Baking evaluates normalized directions through the existing
 periodic noise loop.
 
-[The pullback colorizer](../../core/render/pullback/color.h) samples this field
-at `FieldSample::sphere`; the needed spatial input already exists.
+[The modulation stage](../../core/render/pullback/color.h) reads the sphere and
+path metadata retained with its incoming color. Sphere sources sample
+`FieldSample::sphere`; displacement reads accumulated path length.
 
 [The carrier contract](../../core/render/pullback/contract.h) defines the frame:
 PLANE sampling retains the projection-frame direction; SPHERE sampling retains
@@ -103,15 +72,17 @@ chosen mapping only when its consumer starts with sphere coordinates. Pullback
 already supplies plane coordinates; sphere sources take directions directly.
 Projection stays in the renderer's coordinate pipeline, not the shared kernel.
 The library supports PlanePosition and SphereDirection now for existing consumers.
-The initial modulation binding still supplies only SphereDirection: FieldSample
-does not retain warped plane coordinates. Supporting a planar modulation source
+Directional modulation binds SphereDirection; displacement binds accumulated
+path length. FieldSample does not retain warped plane coordinates. Supporting a planar modulation source
 later needs an explicit coordinate binding, not a silent plane/sphere conversion
 or universal context bag.
 
 ## Scalar and typed coordinate contracts
 
-A pattern takes its typed coordinate and immutable prepared state and returns
-a finite scalar in [-1, 1]. Pattern output is independent of palette contents
+A spatial pattern takes its typed coordinate and immutable prepared state and
+returns a finite scalar in [-1, 1]. The renderer-bound displacement source
+instead returns finite, nonnegative accumulated path length without unit-range
+clamping. Pattern output is independent of palette contents
 and mechanic. It depends on the palette lookup coordinate only if the caller
 explicitly supplies that coordinate as its ScalarCoordinate. Zero has no universal
 identity meaning: a mechanic determines what it means. The source knows
@@ -150,8 +121,8 @@ Position3D; `FieldSample` gains no unit-length requirement.
 
 Prepare validates parameters and axes. Debug assertions diagnose nonfinite
 custom output; the scalar boundary clamps finite numerical overshoot, not
-incorrect source normalization. Sampling is immutable and bounded, with no
-allocation, random-state advancement, I/O or clock reads. Time and seed are explicit.
+incorrect source normalization. Spatial sampling is immutable and bounded, with no allocation, random-state
+advancement, I/O or clock reads. Time and seed are explicit.
 
 ## Generic protocol and initial patterns
 
@@ -208,8 +179,8 @@ mechanic protocol as Opacity. Nonzero hue/color LUT fusion is a qualified
 approximation of this reference, not bitwise equivalence. Accelerated
 routes must still honor the exact identity rules below.
 
-The modulation binding initially admits these four sphere sources alongside
-the existing planar/sphere catalogue extracted for pullback:
+The modulation binding admits these sphere sources alongside the displacement
+source and the planar/sphere catalogue extracted for pullback:
 
 | Source | Definition and controls |
 |---|---|
@@ -217,6 +188,7 @@ the existing planar/sphere catalogue extracted for pullback:
 | Directional sine | `sin(2*pi*(frequency*dot(axis,direction) + phase + offset))`; unit axis, nonnegative frequency and offset in turns. Frequency is cycles per unit axial coordinate, so the sphere spans twice that many cycles along the axis. |
 | Sphere interference | Half the sum of two directional sines, with separate axes, frequencies and offsets. Both use the same loop phase; the fixed half gain bounds the result without dynamic normalization. |
 | SphereSmoothGrid | Product of two directional sines over independently normalized axes, with independent frequencies and offsets and a shared loop phase. Admit finite, nondegenerate axes at any angle, including parallel axes. The product remains in [-1, 1]; this is not the existing planar coupled-grid algorithm. |
+| Displacement | Direct accumulated path length from the incoming color carrier. No direction normalization, cube, frequency or moving source phase. |
 
 New sphere sine/interference/grid phases use turns per engine update, including
 negative speeds, and repeat after one turn. Existing source clocks keep their
@@ -244,6 +216,7 @@ pointers are not recipes.
 | Noise | Existing noise hue modifier | Existing shimmer | Organic alpha mask |
 | Directional sine | Hue bands | Lightness bands | Smooth alpha bands |
 | SphereSmoothGrid | Hue grid | Lightness grid | Grid alpha mask |
+| Displacement | Hue turns per path-distance unit | Distance-driven lightness lift | Distance-driven alpha mask |
 
 These combinations, and interference with any mechanic, are structurally valid.
 Admit each recipe only after qualifying its resources, approximation error and
@@ -251,12 +224,12 @@ execution cost. Do not create an enum value per source/mechanic pair.
 
 Hue rotation resolves `hue_turns = amount * scalar`, with signed amount in
 turns, periodic hue lookup and existing gamut mapping. It preserves alpha.
-PositiveLightnessLift resolves `lift = amount * max(0, scalar)` for amount in
+PositiveLightnessLift resolves `lift = amount * clamp(scalar, 0, 1)` for amount in
 [0, 1], then moves OKLab lightness toward white with the existing gamut-aware
 chroma reduction. It preserves alpha; negative lobes do not darken. These two
 mechanics leave color unchanged at scalar zero.
 
-Opacity resolves `u = (scalar + 1) / 2`, then
+Opacity resolves `u = clamp((scalar + 1) / 2, 0, 1)`, then
 `gain = lerp(1, u, amount)` for amount in [0, 1]. It returns unchanged RGB and
 `alpha = input_alpha * gain`. Scalar zero is a half mask at full amount, not
 identity. At full amount, scalar -1 removes alpha and scalar +1 preserves it.
@@ -276,9 +249,11 @@ Zero amount may skip field evaluation and preparing unused mechanic/color
 resources, while source clocks continue. Keep any still-needed retained endpoint
 resources valid. Configuration validation remains mandatory even when skipped.
 
-The composed colorizer order is palette sampling, combined path/spatial hue rotation,
-non-hue mechanic application, existing RGB brightness envelope, then alpha
-multiplication by coverage and value opacity.
+The colorizer samples its palette. Ordered Color-to-Color layers apply their
+selected mechanics, followed by the RGB brightness envelope and alpha coverage
+and value opacity. A layer reads the upstream color; its order relative to
+lightness and hue layers is observable. Adjacent hue layers combine in turns
+before one lookup; a lightness layer ends that combination.
 The result remains straight alpha. Final premultiplication stays in
 [the scan shader](../../core/render/scan/shader.h), after the chain; opacity
 must not multiply RGB early. Qualified optimized kernels implement this same
@@ -307,7 +282,7 @@ cube face conventions and duplicated edge evaluation to avoid seams.
 
 ## Ownership, cache invalidation and replay
 
-The effect/runtime owns prepared state and tables; views borrow through
+The effect/runtime arena owns prepared state and tables; views borrow through
 the draw and retained interval. Direct endpoints own/copy complete source inputs
 or borrow immutable retained generators. A live pointer to a mutated generator
 is insufficient. Do not retain mutable controls or overwrite a still-read table.
@@ -366,7 +341,8 @@ proven. Pin interpolation weights and rounding with tests; do not assume
 algebraic rearrangements are bit-identical.
 
 A source kind/custom recipe version, evaluation strategy, mechanic kind or
-enabled-state change is a topology change. Hold the **entire current modulation**:
+enabled-state change is a topology change for that layer. Hold that layer
+against its **entire current modulation**:
 source parameters and current prepared state/resources (initialized on a source
 kind/version switch), mechanic typed parameters/state
 and enabled state, including fraction zero. Continuous mechanic controls interpolate
@@ -383,31 +359,56 @@ modulation, including its alpha effect; it need not equal the previous fully
 modulated frame. Never reinterpret an old source's or mechanic's resources
 under the new type.
 Disabling therefore holds identity across that interval; enabling holds the new
-prepared modulation.
+prepared modulation. Other unchanged-topology layers retain their own endpoints.
+At each temporal fraction, evaluate the complete ordered color suffix at each
+endpoint, then blend the two completed straight-alpha colors. Blending only the
+last color stage would apply upstream nonlinear mechanics to the wrong endpoint.
 
 ## Canonical configuration and migration
 
-Use one modulation configuration containing source selector/parameters,
-evaluation strategy, mechanic selector/parameters and enabled flag (default true).
-It is the sole representation. Disabled modulation is identity. Validate recipe
-and parameters regardless of enabled state or amount.
+Each `color.modulate.v1` node owns one configuration containing source controls,
+evaluation strategy, mechanic controls and enabled state. Disabled modulation is
+identity. Validate recipes regardless of enabled state or amount. The
+`colorize.generated-palette.v4` node owns palette-family selection, its family
+controls, mapping, brightness and value opacity; it has no modulation controls
+or hue-shift mode. Existing cycling-generated, generated, procedural, gradient and mutating
+palette families remain independent of the modulation stack.
 
-Each configured source instance has one state owner: the renderer stores and
-schedules it using the source's pure initialization/advance operations. Advance
-once per update even when modulation amount is zero or enabled is false. Changing
-mechanic, strategy or same-source parameters retains State; new rates apply on
-the next advance. Source kind/version changes initialize that source's State,
-never reinterpret the old type. Snapshot restore restores typed state. Disabled
-modulation may skip samples/bakes; reenable rebuilds needed resources from current
-state. Palette-mapping clocks remain separate; no dormant source state is kept.
+Each layer advances its own source clock once per update, including disabled and
+zero-amount layers. Mechanic, evaluation and same-source parameter edits retain
+that clock; source-kind/version changes initialize the selected source. Restored
+clocks retain typed source identity. Disabled layers may skip sampling and bakes.
 
-Composed effects keep the existing PATH_LENGTH hue feature explicitly configured
-in the renderer, outside their spatial slot. Path-length and spatial hue rotations add in turns
-before one wrapped hue lookup; a zero combined rotation returns the exact base
-palette sample. Apply lightness or opacity modulation after hue rotation, before
-the brightness envelope and coverage. Both features may be enabled together.
-Remove old noise-mode ownership machinery; do not invent a path-length pattern
-or duplicate hue API to retain it.
+The displacement source reads accumulated path length from the field carrier.
+It is direct, has no source clock motion, and preserves distances greater than
+one. Opposing warps contribute both traveled distances. For hue rotation its
+amount is turns per unit of traveled distance. Other mechanics clamp their
+derived unit-range factors, keeping lightness and alpha within their supported
+ranges.
+Sphere patterns retain their bounded [-1, 1] scalar contract.
+
+Shader documents keep document schema 2 and version their operator IDs. Import
+converts a legacy `colorize.generated-palette.v3` node to the palette node,
+followed by a displacement/hue layer and then its spatial modulation layer.
+Both layers remain present when disabled, preserving dormant controls and
+preset changes. Names are `displacement` and `modulation`, with `-2`, `-3` and
+later suffixes when labels collide; original chain labels are reserved first.
+Hue-shift mode becomes the displacement layer's enabled flag and hue-shift amount
+becomes its amount. Existing spatial controls move to the spatial layer.
+Serialization fields and staggered parameter groups follow the renamed controls.
+Fresh documents begin with a palette node and add only requested layers.
+Legacy standalone `modulate.field.v1` nodes become unified modulation nodes with
+the same labels and recipes. Legacy `modulate.hue-shift.v1` nodes become
+displacement/hue nodes in place; their default enabled mode is preserved.
+Standalone-node conversion never inserts another generated pair of layers.
+
+Snapshot schema 4 stores modulation recipes by modulation-node instance.
+Palette clocks use `color-clock-v3`; layer clocks use `modulation-clock-v1`.
+Legacy snapshot migration preserves the spatial recipe, seed and clock while
+initializing the displacement source at phase zero. Derived resources are rebuilt.
+Endpoint lookup uses exact instance labels, including after reorder or state
+migration; a hash collision cannot merge two layers. Each active layer owns its
+prepared source and caches, independently of the palette and other layers.
 
 Migrate all noise-hue and shimmer callers, includes, controls, snapshots and
 tests directly. Noise plus HueRotation and noise plus PositiveLightnessLift
@@ -416,8 +417,9 @@ wrappers. Remove old palette headers after their final callers migrate and updat
 documentation references to the replacement modules.
 Reuse existing noise-loop, generator and gamut math; review intentional render
 changes from exact zero identity and unified rounding. Bump snapshot/preset
-schema versions where needed and reject unsupported old versions explicitly;
-do not emulate old wire shapes or maintain dual representations.
+schema versions where needed. Supported legacy documents and snapshots convert
+explicitly to the current representation; unsupported versions fail without
+changing live state.
 
 Source and mechanic selectors have independent stable identifiers in the new
 schema. Custom policies are compiled in and replayed through registered recipes,
@@ -426,8 +428,7 @@ and RippleModifier remain prelookup remaps outside this Color4 mechanic contract
 
 ## Code organization
 
-Use ten cohesive header-only units. Templates and small kernels match the
-repository's existing style; no per-platform backend copies or source/mechanic
+Templates and small kernels match the repository's existing style; no per-platform backend copies or source/mechanic
 pair files are needed. New APIs live in dedicated pattern/modulation namespaces,
 not new global Noise, Grid or Opacity names.
 
@@ -452,6 +453,8 @@ core/render/pullback/
   modulation.h            Built-in binding, parameter metadata/registration,
                           validation, scheduling and owned source state/resources.
   modulation_temporal.h   Retention/equality and completed-endpoint color kernels.
+  color.h                 Palette crossing, ordered mechanics, deferred hue and finish.
+  operators.h             Independent palette and modulation operator schemas.
 tests/pattern/
   fields.h                Typed-domain admission and direct source cases.
   sphere_lut.h            Generic bake, seams, sampling and invalidation cases.
@@ -507,7 +510,7 @@ tests, not mechanics. Adding a mechanic changes its color records/implementation
 registration and tests, not source kernels. Extend
 [include-direction checks](../../tools/include_paths.py) and
 [their fixtures](../../tools/include_path_tests/test_include_paths.py) for these
-new boundaries; the current broad layer gate does not enforce them. Add standalone
+boundaries. Add standalone
 header compilation proving analytic, schema and generic composition independence.
 
 ## Budgets and acceptance
@@ -520,6 +523,9 @@ float mirrors or instantiate every built-in for every effect by default.
 Account separately for hue/color LUTs, optional mirrors, retained prepared source
 and mechanic state, immutable generator configuration, cache metadata and maximum
 simultaneously live endpoint/transition resources; cube bytes are not the total.
+Each additional layer consumes ordinary chain operator, parameter and arena
+budgets. Direct displacement layers allocate no scalar cube; baked spatial
+layers retain independent cubes. Limits come from the exported catalog.
 
 Implementation must report incremental RAM1 code, RAM1 variables and FLASH
 data against the baseline, passing the repository's current firmware gates.
@@ -563,7 +569,7 @@ Acceptance requires:
   coupling, empty-state sources, disabled advancement, retention on same-source
   parameter/mechanic/strategy changes, initialization on kind/version switches,
   typed snapshot replay, rejection of invalid disabled recipes, and concurrent
-  PATH_LENGTH and generic modulation, including additive hue cancellation and
+  displacement and spatial layers, including hue cancellation and
   lightness/opacity composition.
 * Raw-sample parity between pullback and modulation adapters given identical
   pattern/coordinate/parameters/prepared state, before LUT approximation.
@@ -576,7 +582,11 @@ Acceptance requires:
   implementation.
 
 
-## Implementation qualification (2026-10-29)
+## Historical single-layer qualification (2026-10-29)
+
+The measurements below describe the earlier combined-colorizer implementation.
+They qualify the shared pattern kernels and record its resource baseline; they
+do not establish memory totals or timing limits for an arbitrary modulation stack.
 
 The canonical records and pure sources live in `core/pattern`; independent
 mechanics and the generic palette adapter live in `core/color`. Composed effects
@@ -584,8 +594,9 @@ and the workbench share the scheduled source clock, immutable preparation and
 completed-endpoint interpolation. The former noise/shimmer modifier headers are
 removed. The 19 composed effects and their shader documents use canonical recipes.
 
-Snapshot schema 3 stores one modulation recipe per colorizer and a typed,
-versioned source clock. Derived cubes and color tables are rebuilt after restore.
+The historical snapshot schema 3 stored one modulation recipe per colorizer
+and a typed, versioned source clock. The current format is schema 4, described
+in the migration contract above. Derived cubes and color tables are rebuilt after restore.
 This guarantees scheduled-state replay; a snapshot does not serialize a partially
 consumed display interval. Composed parameter schema versions each advance once;
 complete layout pins include inactive source records and scalar types.
@@ -596,8 +607,8 @@ grid use direct evaluation through axial frequency 64. Noise admits scales
 configured-single and octave-contour noise admit scales 1/64 through 8 with the
 baked strategy. Native and WebAssembly evaluation admit every source/mechanic
 combination, including direct octave-contour noise and octave-contour lightness.
-All source samples share the bounded [-1, 1] scalar interface; changing a mechanic
-does not change the source recipe. `Pullback::Modulation::valid` checks semantic
+The four historical spatial sources share the bounded [-1, 1] scalar interface;
+changing a mechanic does not change the source recipe. `Pullback::Modulation::valid` checks semantic
 validity. `Pullback::Modulation::device_qualified` separately checks the measured
 Teensy timing envelope, and `Pullback::Modulation::admitted` applies that additional
 policy on Arduino builds, including disabled recipes.

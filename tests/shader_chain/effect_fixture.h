@@ -25,6 +25,37 @@ struct ShaderChainWhiteBox {
     return *reinterpret_cast<In::Op::GeneratedPaletteParams *>(
         effect.program.param_block(static_cast<size_t>(effect.colorize.index)));
   }
+  static size_t modulation_index(const FX &effect,
+                                 std::string_view label = "modulation") {
+    for (size_t index = 0; index < effect.program.ops().size(); ++index)
+      if (std::string_view(effect.program.ops()[index].instance) == label)
+        return index;
+    HS_CHECK(false, "missing test modulation node");
+    return 0;
+  }
+  static In::Op::ModulationParams &
+  modulation_params(FX &effect, const char *label = "modulation") {
+    bool present = false;
+    for (const auto &op : effect.program.ops())
+      present |= std::string_view(op.instance) == label;
+    if (!present) {
+      std::vector<In::ChainEntryRequest> chain;
+      for (const auto &op : effect.program.ops())
+        chain.push_back({op.instance, op.op->operator_id});
+      chain.push_back({label, In::Op::ModulateColorV1::ID});
+      HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+    }
+    return *reinterpret_cast<In::Op::ModulationParams *>(
+        effect.program.param_block(modulation_index(effect, label)));
+  }
+  static const In::Op::ModulationClockState &
+  modulation_clocks(const FX &effect, std::string_view label = "modulation") {
+    return *static_cast<const In::Op::ModulationClockState *>(
+        effect.program.state_block(modulation_index(effect, label)));
+  }
+  static auto &layer_resources(FX &effect, std::string_view key) {
+    return effect.modulation_resources(key);
+  }
   /** The committed colorize instance's phase clocks. */
   static const In::Op::ColorClockState &color_clocks(const FX &effect) {
     return *static_cast<const In::Op::ColorClockState *>(
@@ -42,6 +73,7 @@ struct ShaderChainWhiteBox {
   /** The resident baked modulation cube; writable so a probe can poison it and see
       whether the next frame re-baked. */
   static int8_t *pattern_lut(FX &effect) {
-    return effect.resources->modulation.table.data();
+    const auto key = modulation_clocks(effect).key;
+    return effect.modulation_resources(key).modulation.table.data();
   }
 };

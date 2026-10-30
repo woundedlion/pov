@@ -64,66 +64,24 @@ inline void case_modulation_unknown_kernel() {
       static_cast<ColorModulation::Mechanic>(opaque(uint8_t{255})));
 }
 inline void case_modulation_control_index_invalid() {
-  Pullback::Interp::Op::GeneratedPaletteParams params;
+  Pullback::Interp::Op::ModulationParams params;
   (void)params.extra_address(opaque(size_t{38}));
 }
 
-/** @brief Field color stages require retained field metadata in both paths. */
-inline void reject_field_modulation_missing_metadata(bool temporal) {
-  using namespace Pullback::Interp;
-  Op::ModulateField::Params params;
-  params.modulation.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+/** @brief Active spatial modulation requires its instance's prepared endpoint. */
+inline void case_modulation_missing_endpoint() {
+  using Op = Pullback::Interp::Op::ModulateColorV1;
+  Op::Params params;
   params.modulation.evaluation = Pattern::Evaluation::DIRECT;
-  params.modulation.sine.frequency = 0.0f;
-  params.modulation.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
-  Op::ModulateField::State state;
-  Op::ModulateField::init(state, {"field", Op::ModulateField::ID, 1337});
-  Pullback::FieldSample sample{.5f, 1.0f, math::Y_AXIS, 1.0f};
-  FrameContext context;
-  context.color_sample = &sample;
-  const auto prepared = Op::ModulateField::prepare(context, params, state);
-  const Color4 INPUT(Pixel(1000, 2000, 3000), .8f);
-  const auto run = [&] {
-    return temporal ? Op::ModulateField::run_temporal(INPUT, context, prepared,
-                                                      prepared, .5f)
-                    : Op::ModulateField::run(INPUT, context, params, prepared);
-  };
-  const Color4 valid = run();
-  HS_CHECK(valid.color == INPUT.color && valid.alpha == .4f,
-           "valid field metadata companion failed");
-  context.color_sample = opaque<const Pullback::FieldSample *>(nullptr);
-  (void)run();
-}
-
-inline void case_modulation_field_missing_metadata() {
-  reject_field_modulation_missing_metadata(false);
-}
-inline void case_modulation_temporal_field_missing_metadata() {
-  reject_field_modulation_missing_metadata(true);
-}
-inline void case_modulation_hue_invalid_mode() {
-  using namespace Pullback::Interp;
-  Op::ModulateHueShift::Params params;
-  Op::ModulateHueShift::State state;
-  FrameContext context;
-  (void)Op::ModulateHueShift::prepare(context, params, state);
-  params.hue_mode = opaque(uint8_t{255});
-  (void)Op::ModulateHueShift::prepare(context, params, state);
-}
-inline void case_modulation_hue_missing_metadata() {
-  using namespace Pullback::Interp;
-  Op::ModulateHueShift::Params params;
-  params.hue_shift_amount = 1.0f;
-  Op::ModulateHueShift::State state;
-  Pullback::FieldSample sample{.5f, 1.0f, math::Y_AXIS, 1.0f};
-  FrameContext context;
-  context.color_sample = &sample;
-  const auto prepared = Op::ModulateHueShift::prepare(context, params, state);
-  const Color4 INPUT(Pixel(1000, 2000, 3000), .8f);
-  const Color4 valid =
-      Op::ModulateHueShift::run(INPUT, context, params, prepared);
-  HS_CHECK(valid.color == INPUT.color && valid.alpha == INPUT.alpha,
-           "valid hue metadata companion failed");
-  context.color_sample = opaque<const Pullback::FieldSample *>(nullptr);
-  (void)Op::ModulateHueShift::run(INPUT, context, params, prepared);
+  params.modulation.mechanic.amount = 0.5f;
+  Op::State state;
+  state.key = "layer";
+  Pullback::Modulation::Resources<false> resources;
+  const auto &source = resources.prepare(params.modulation, {});
+  const Pullback::Modulation::Endpoint endpoint{state.key, &source};
+  Pullback::Interp::FrameContext context;
+  context.modulations = std::span(&endpoint, 1);
+  (void)Op::prepare(context, params, state);
+  context.modulations = {};
+  (void)Op::prepare(context, params, state);
 }

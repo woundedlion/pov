@@ -192,7 +192,7 @@ inline constexpr auto EXACT_FIT_SCHEMA =
     filler_schema<In::MAX_CHAIN_PARAMS -
                   table_entry("project.stereographic.v2").schema_count -
                   table_entry("sample.grid.v3").schema_count -
-                  table_entry("colorize.generated-palette.v3").schema_count>();
+                  table_entry("colorize.generated-palette.v4").schema_count>();
 
 /** Never run; exercises only the schema-field budget. */
 inline constexpr In::OperatorDescriptor
@@ -211,7 +211,7 @@ inline std::span<const In::OperatorDescriptor> lifetime_table() {
   static constexpr std::array<In::OperatorDescriptor, 4> TABLE{
       table_entry("project.stereographic.v2"),
       table_entry("sample.grid.v3"),
-      table_entry("colorize.generated-palette.v3"),
+      table_entry("colorize.generated-palette.v4"),
       In::make_operator_descriptor<LifetimeModel>(),
   };
   return TABLE;
@@ -222,7 +222,7 @@ inline std::span<const In::OperatorDescriptor> extended_table() {
       table_entry("sphere.rotate.v2"),
       table_entry("project.stereographic.v2"),
       table_entry("sample.grid.v3"),
-      table_entry("colorize.generated-palette.v3"),
+      table_entry("colorize.generated-palette.v4"),
       In::make_operator_descriptor<CountModel<0>>(),
       In::make_operator_descriptor<CountModel<1>>(),
       make_filler_descriptor("test.fat.v2", FAT_SCHEMA),

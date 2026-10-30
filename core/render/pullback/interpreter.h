@@ -31,7 +31,7 @@ inline constexpr size_t MAX_INSTANCE_ID = 48;
 /** Exported capacity of each interpreter arena. */
 inline constexpr size_t CHAIN_ARENA_BYTES = 96 * 1024;
 /** Most schema fields across a whole chain; more refuse `PARAM_OVERFLOW`. */
-inline constexpr size_t MAX_CHAIN_PARAMS = 384;
+inline constexpr size_t MAX_CHAIN_PARAMS = 224;
 /** Fixed per-entry arena cost beyond the cataloged blocks: the instance-id
     copy reservation. */
 inline constexpr size_t PER_OP_OVERHEAD_BYTES = MAX_INSTANCE_ID + 1;
@@ -352,7 +352,8 @@ public:
    * @brief Prepares one column from params and state sampled between the
    *        retained and current endpoints.
    * @param ctx Current frame context.
-   * @param previous_ctx Retained frame context for the previous color tail.
+   * @param previous_ctx Retained frame context; prepares the color suffix's
+   *        second endpoint.
    * @param fraction Column's frame fraction in [0, 1].
    * @details Requires history_continuous(). Overwrites the prepared blocks;
    * prepare() restores the current endpoint. Sampled states stay live until
@@ -385,17 +386,26 @@ public:
           static_cast<uint8_t *>(block_ptr(active, op.prepared_offset)));
       if (op.op->output == CarrierId::COLOR) {
         FrameContext previous_color_ctx = previous_ctx;
-        if (ctx.modulation == nullptr || previous_ctx.modulation == nullptr ||
-            !Modulation::same_topology(ctx.modulation->config,
-                                       previous_ctx.modulation->config) ||
-            Modulation::same_field(*ctx.modulation, *previous_ctx.modulation))
-          previous_color_ctx.modulation = ctx.modulation;
-        const uint8_t *previous_params = runtime.sample_state == nullptr
-                                             ? history + op.param_offset
-                                             : params;
-        const void *previous_state =
-            runtime.sample_state == nullptr ? history + op.state_offset : state;
-        runtime.prepare(previous_color_ctx, previous_params, previous_state,
+        Modulation::Endpoint selected{};
+        if (std::string_view(op.op->operator_id) == Op::ModulateColorV1::ID) {
+          const auto key =
+              static_cast<const Op::ModulationClockState *>(state)->key;
+          const Modulation::Prepared *current = nullptr;
+          const Modulation::Prepared *previous = nullptr;
+          for (const auto &endpoint : ctx.modulations)
+            if (endpoint.key == key)
+              current = endpoint.prepared;
+          for (const auto &endpoint : previous_ctx.modulations)
+            if (endpoint.key == key)
+              previous = endpoint.prepared;
+          if (current == nullptr || previous == nullptr ||
+              !Modulation::same_topology(current->config, previous->config) ||
+              Modulation::same_field(*current, *previous))
+            previous = current;
+          selected = {key, previous};
+          previous_color_ctx.modulations = std::span(&selected, 1);
+        }
+        runtime.prepare(previous_color_ctx, params, state,
                         column + op.prepared_offset);
       }
     }
@@ -411,63 +421,46 @@ public:
    * @param ctx Current frame context.
    * @param previous_ctx Retained frame context.
    * @param fraction Column's frame fraction in [0, 1].
-   * @return Completed color-tail endpoints blended at @p fraction.
+   * @return Completed color suffixes from both endpoints, blended at @p fraction.
    */
   Color4 evaluate_column(const math::Vector &view, const FrameContext &ctx,
                          const FrameContext &previous_ctx,
                          float fraction) const {
     alignas(SLOT_ALIGN) uint8_t slot_a[SLOT_SIZE];
     alignas(SLOT_ALIGN) uint8_t slot_b[SLOT_SIZE];
-    alignas(SLOT_ALIGN) uint8_t slot_c[SLOT_SIZE];
+    alignas(SLOT_ALIGN) uint8_t prefix[SLOT_SIZE];
     void *in = slot_a;
     void *out = slot_b;
     ::new (in) SphereSample{view, 0.0f};
-    FieldSample color_sample{};
-    FrameContext sample_ctx = ctx;
-    sample_ctx.color_sample = &color_sample;
-    FrameContext previous_sample_ctx = previous_ctx;
-    previous_sample_ctx.color_sample = &color_sample;
     const Side &side = sides[active];
-    Color4 current_color, previous_color;
-    bool has_color = false;
-    for (size_t index = 0; index < side.count; ++index) {
-      const ChainOp &op = side.ops[index];
-      const OperatorRuntime &runtime = op.op->runtime;
-      if (op.op->input == CarrierId::FIELD)
-        color_sample = *std::launder(static_cast<const FieldSample *>(in));
-      if (op.op->output != CarrierId::COLOR) {
-        runtime.run(in, out, sample_ctx, column + op.param_offset,
-                    const_block_ptr(active, op.prepared_offset));
-      } else {
-        const uint8_t *current = const_block_ptr(active, op.prepared_offset);
-        const uint8_t *previous = column + op.prepared_offset;
-        if (!has_color && index + 1 == side.count &&
-            runtime.run_temporal != nullptr) {
-          runtime.run_temporal(in, out, sample_ctx, current, previous,
-                               fraction);
-          return *std::launder(reinterpret_cast<const Color4 *>(out));
-        }
-        const void *current_input = has_color ? &current_color : in;
-        const void *previous_input = has_color ? &previous_color : in;
-        if (runtime.run_temporal != nullptr) {
-          runtime.run_temporal(current_input, out, sample_ctx, current,
-                               previous, 1.0f);
-          runtime.run_temporal(previous_input, slot_c, sample_ctx, current,
-                               previous, 0.0f);
-        } else {
-          runtime.run(current_input, out, sample_ctx, column + op.param_offset,
-                      current);
-          runtime.run(previous_input, slot_c, previous_sample_ctx,
-                      column + op.param_offset, previous);
-        }
-        current_color = *std::launder(reinterpret_cast<const Color4 *>(out));
-        previous_color =
-            *std::launder(reinterpret_cast<const Color4 *>(slot_c));
-        has_color = true;
-      }
+    size_t color_begin = 0;
+    while (color_begin < side.count &&
+           side.ops[color_begin].op->output != CarrierId::COLOR) {
+      const ChainOp &op = side.ops[color_begin++];
+      op.op->runtime.run(in, out, ctx, column + op.param_offset,
+                         const_block_ptr(active, op.prepared_offset));
       std::swap(in, out);
     }
-    return previous_color.lerp(current_color, fraction);
+    std::memcpy(prefix, in, SLOT_SIZE);
+    const auto endpoint = [&](const FrameContext &context, bool previous) {
+      in = slot_a;
+      out = slot_b;
+      std::memcpy(in, prefix, SLOT_SIZE);
+      for (size_t index = color_begin; index < side.count; ++index) {
+        const ChainOp &op = side.ops[index];
+        const uint8_t *prepared =
+            previous ? column + op.prepared_offset
+                     : const_block_ptr(active, op.prepared_offset);
+        op.op->runtime.run(in, out, context, column + op.param_offset,
+                           prepared);
+        std::swap(in, out);
+      }
+      return finish_color_sample(
+          *std::launder(reinterpret_cast<const ColorSample *>(in)));
+    };
+    const Color4 previous = endpoint(previous_ctx, true);
+    const Color4 current = endpoint(ctx, false);
+    return previous.lerp(current, fraction);
   }
 
   /** @brief Drops the retained endpoint and the sampled column states; the
@@ -653,20 +646,15 @@ public:
     void *in = slot_a;
     void *out = slot_b;
     ::new (in) SphereSample{view, 0.0f};
-    FieldSample color_sample{};
-    FrameContext sample_ctx = ctx;
-    sample_ctx.color_sample = &color_sample;
     const Side &side = sides[active];
     for (size_t index = 0; index < side.count; ++index) {
       const ChainOp &op = side.ops[index];
-      if (op.op->input == CarrierId::FIELD)
-        color_sample = *std::launder(static_cast<const FieldSample *>(in));
-      op.op->runtime.run(in, out, sample_ctx,
-                         const_block_ptr(active, op.param_offset),
+      op.op->runtime.run(in, out, ctx, const_block_ptr(active, op.param_offset),
                          const_block_ptr(active, op.prepared_offset));
       std::swap(in, out);
     }
-    return *std::launder(reinterpret_cast<const Color4 *>(in));
+    return finish_color_sample(
+        *std::launder(reinterpret_cast<const ColorSample *>(in)));
   }
 
   /** @brief The committed program's entries, in chain order.
@@ -722,6 +710,13 @@ public:
   const void *state_block(size_t index) const {
     HS_CHECK(index < sides[active].count, "ChainProgram::state_block range");
     return const_block_ptr(active, sides[active].ops[index].state_offset);
+  }
+
+  /** @brief Mutable state of a committed entry.
+   * @param index Entry index.
+   * @return The state block in the active arena. */
+  void *state_block(size_t index) {
+    return const_cast<void *>(std::as_const(*this).state_block(index));
   }
 
   /** @brief Prepared block of entry @p index; valid after prepare().

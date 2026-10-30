@@ -46,17 +46,6 @@ enum class BrightnessEnvelope : uint8_t {
   DESCENDING = 4 ///< Falls linearly with the value.
 };
 
-/** @brief What drives the color stage's hue rotation, if anything. */
-enum class HueMode : uint8_t {
-  NONE = 0, /**< No hue rotation; the palette color is used as sampled. */
-  PATH_LENGTH = 1,                /**< Accumulated path length. */
-  WARP_DISPLACEMENT = PATH_LENGTH /**< Alias of PATH_LENGTH. */
-};
-
-/** Activation relations the chain's colorize operators export: the hue and
-    brightness controls are read only under the matching topology value. */
-inline constexpr TopologyGate HUE_ROTATION_GATE{
-    "hue-shift-mode", live_values(HueMode::PATH_LENGTH)};
 /// Gate of the brightness controls: live for every envelope but NONE.
 inline constexpr TopologyGate BRIGHTNESS_ENVELOPE_GATE{
     "brightness-envelope",
@@ -65,13 +54,6 @@ inline constexpr TopologyGate BRIGHTNESS_ENVELOPE_GATE{
 
 /** @brief Continuous palette and hue controls. */
 struct ColorControls {
-  float hue_shift_amount = 0.0f; /**< Hue rotation magnitude; 0 disables the
-                                      rotation entirely. */
-  ColorModulation::Config modulation = [] {
-    ColorModulation::Config config;
-    config.seed = HUE_NOISE_SEED;
-    return config;
-  }(); ///< Independent spatial color modulation.
   float palette_chroma = 0.62f; /**< Chroma the generated palettes are baked
                                       at. */
   /** Palette repeats across the value range. */
@@ -90,9 +72,6 @@ struct ColorControls {
 
   /// Parameter registry: id, member, label, range and curve per field.
   static constexpr auto FIELDS = std::array{
-      Field<ColorControls>{"hue-shift-amount", &ColorControls::hue_shift_amount,
-                           nullptr, -4.0f, 4.0f, FieldCurve::LERP,
-                           FieldGate::ALWAYS, HUE_ROTATION_GATE},
       Field<ColorControls>{"palette-chroma", &ColorControls::palette_chroma,
                            nullptr, 0.0f, 1.0f, FieldCurve::LERP},
       Field<ColorControls>{"mapping-frequency",
@@ -268,156 +247,103 @@ brightness_envelope_gain(float value, BrightnessEnvelope envelope, float bottom,
   return hs::lerp(bottom, top, shape);
 }
 
-/** @brief Tests whether palette hue rotation is active.
- * @param mode Path hue selection.
- * @param controls Palette and modulation controls.
- * @return Whether a nonzero path or spatial hue rotation is enabled. */
-inline bool hue_rotation_active(HueMode mode, const ColorControls &controls) {
-  return (mode == HueMode::PATH_LENGTH && controls.hue_shift_amount != 0.0f) ||
-         (controls.modulation.enabled &&
-          controls.modulation.mechanic.kind ==
-              ColorModulation::Mechanic::HUE_ROTATION &&
-          controls.modulation.mechanic.amount != 0.0f);
-}
-
-/** @brief Per-frame state of the generated-palette colorizer. */
+/** @brief Per-frame generated-palette controls and immutable resources. */
 struct GeneratedPaletteState {
   PaletteMappingWeights mapping;   ///< Mapping weights.
   float mapping_frequency;         ///< Palette repeats.
-  float mapping_offset;            ///< Mapping offset in turns.
+  float mapping_offset;            ///< Mapping phase.
   const BakedPalette *palette;     ///< Base palette.
-  HueMode hue_mode;                ///< Renderer-owned path hue selection.
-  float hue_shift_amount;          ///< Path hue turns per unit of path length.
-  HueRotationLutView hue_rotation; ///< Optional hue-rotation table.
-  const Modulation::Prepared *modulation =
-      nullptr;                            ///< Immutable source endpoint.
-  ColorModulation::AmountParams mechanic; ///< Shared column mechanic controls.
+  HueRotationLutView hue_rotation; ///< Optional base-palette hue table.
   BrightnessEnvelope brightness_envelope =
-      BrightnessEnvelope::NONE;   ///< Brightness shape.
+      BrightnessEnvelope::NONE;   ///< Gain shape.
   float brightness_bottom = 0.0f; ///< Low gain.
   float brightness_top = 1.0f;    ///< High gain.
-  float opacity_low = 1.0f;       ///< Alpha gain at value zero.
-  float opacity_high = 1.0f;      ///< Alpha gain at value one.
-  ColorModulation::Kernel apply_mechanic =
-      nullptr; ///< Resolved mechanic kernel.
+  float opacity_low = 1.0f;       ///< Alpha at value zero.
+  float opacity_high = 1.0f;      ///< Alpha at value one.
 };
-/** @brief Previous resources and column progress. */
+/** @brief Retained palette resources and column progress. */
 struct TemporalPaletteResources {
-  const BakedPalette *palette = nullptr; ///< Retained palette.
-  const Pixel *hue_rotation = nullptr;   ///< Retained hue-rotation table.
-  const Modulation::Prepared *modulation =
-      nullptr;                       ///< Retained source endpoint.
-  float fraction = 1.0f;             ///< Current endpoint weight.
-  bool same_palette = false;         ///< Equal endpoint palette resources.
-  bool continuous_modulation = true; ///< Modulation topology matches.
+  const BakedPalette *palette = nullptr; ///< Previous palette.
+  const Pixel *hue_rotation = nullptr;   ///< Previous hue table.
+  float fraction = 1.0f;                 ///< Current endpoint weight.
+  bool same_palette = false; ///< Identical endpoint palette entries.
 };
-/** @brief Completed-color interpolation endpoints. */
+/** @brief Prepared generated-palette endpoint pair. */
 struct TemporalGeneratedPaletteState {
-  GeneratedPaletteState current;  ///< Current endpoint resources.
-  GeneratedPaletteState previous; ///< Retained endpoint resources.
-  float fraction;                 ///< Current endpoint weight.
-  uint16_t weight;                ///< Q16 RGB interpolation weight.
-  bool same_source = false; ///< Endpoints evaluate the same source inputs.
+  GeneratedPaletteState current;  ///< Current palette.
+  GeneratedPaletteState previous; ///< Retained palette.
+  float fraction = 1.0f;          ///< Current endpoint weight.
 };
-/** @brief Samples and modulates one endpoint at shared column coordinates.
- * @param sample Renderer field sample.
- * @param state Endpoint palette and shared continuous controls.
- * @param direction Admitted coordinate, shared by both endpoints.
- * @param shared_scalar Optional source sample shared by both endpoints.
- * @return Completed straight-alpha endpoint color. */
-inline Color4
-generated_palette_endpoint(const FieldSample &sample,
-                           const GeneratedPaletteState &state,
-                           const Pattern::SphereDirection *direction,
-                           const float *shared_scalar = nullptr) {
+/** @brief Maps a sampled field into the color carrier.
+ * @param sample Sampled field.
+ * @param state Palette controls and resources.
+ * @return Base color with deferred brightness. */
+HS_HOT_FLASH_MEMBER inline ColorSample
+apply_generated_palette(const FieldSample &sample,
+                        const GeneratedPaletteState &state) {
   const float VALUE =
       palette_mapping_coordinate(sample.value, state.mapping,
                                  state.mapping_frequency, state.mapping_offset);
   Color4 color = state.palette->get(VALUE);
-  const bool MODULATION_ACTIVE = state.modulation &&
-                                 state.modulation->config.enabled &&
-                                 state.mechanic.amount != 0.0f;
-  const bool HUE_MODULATION =
-      MODULATION_ACTIVE &&
-      state.apply_mechanic == ColorModulation::HueRotation::apply;
-  float scalar = 0.0f;
-  if (MODULATION_ACTIVE) {
-    assert(direction);
-    scalar = shared_scalar ? *shared_scalar
-                           : Modulation::sample(*state.modulation, *direction);
-  }
-  float rotation = 0.0f;
-  if (state.hue_mode == HueMode::PATH_LENGTH && state.hue_shift_amount != 0.0f)
-    rotation = math::wrap_t(state.hue_shift_amount * sample.path_length);
-  if (HUE_MODULATION)
-    rotation =
-        math::wrap_t(rotation + math::wrap_t(state.mechanic.amount * scalar));
-  if (rotation != 0.0f)
-    color.color =
-        state.hue_rotation.active
-            ? sample_hue_rotation_lut(state.hue_rotation, VALUE, rotation)
-            : ColorModulation::HueRotation::apply(color, rotation, {1.0f})
-                  .color;
-  if (MODULATION_ACTIVE && !HUE_MODULATION)
-    color = state.apply_mechanic(color, scalar, state.mechanic);
-  const float GAIN =
-      brightness_envelope_gain(sample.value, state.brightness_envelope,
-                               state.brightness_bottom, state.brightness_top);
-  if (GAIN != 1.0f)
-    color.color = color.color * GAIN;
   color.alpha *= sample.coverage *
                  hs::lerp(state.opacity_low, state.opacity_high, sample.value);
-  return color;
+  return {color,
+          sample,
+          state.hue_rotation.active ? state.hue_rotation.data : nullptr,
+          VALUE,
+          0.0f,
+          brightness_envelope_gain(sample.value, state.brightness_envelope,
+                                   state.brightness_bottom,
+                                   state.brightness_top)};
 }
-/** @brief Colors a field sample from one immutable source endpoint.
- * @param sample Renderer field sample.
- * @param state Prepared colorizer.
- * @return Completed straight-alpha color. */
-HS_HOT_FLASH_MEMBER inline Color4
-apply_generated_palette(const FieldSample &sample,
-                        const GeneratedPaletteState &state) {
-  if (state.modulation && state.modulation->config.enabled &&
-      state.mechanic.amount != 0.0f) {
-    const auto DIRECTION = Pattern::SphereDirection::admit(sample.sphere);
-    return generated_palette_endpoint(sample, state, &DIRECTION);
-  }
-  return generated_palette_endpoint(sample, state, nullptr);
-}
+/** @brief Completes deferred color adjustments.
+ * @param sample Color carrier.
+ * @return Final straight-alpha color. */
+inline Color4 finish(ColorSample sample) { return finish_color_sample(sample); }
 
-/** @brief Interpolates completed straight-alpha endpoint colors.
- * @param sample Field sample with shared column controls.
- * @param prepared Endpoint resources and interpolation fraction.
- * @return RGB using Q16 rounding and alpha using the original float fraction. */
-HS_HOT_FLASH_MEMBER inline Color4 apply_temporal_generated_palette(
-    const FieldSample &sample, const TemporalGeneratedPaletteState &prepared) {
-  if (prepared.fraction <= 0.0f)
-    return apply_generated_palette(sample, prepared.previous);
-  if (prepared.fraction >= 1.0f)
-    return apply_generated_palette(sample, prepared.current);
-  const bool ACTIVE = (prepared.current.modulation &&
-                       prepared.current.modulation->config.enabled &&
-                       prepared.current.mechanic.amount != 0.0f) ||
-                      (prepared.previous.modulation &&
-                       prepared.previous.modulation->config.enabled &&
-                       prepared.previous.mechanic.amount != 0.0f);
-  const auto endpoint = [&](const Pattern::SphereDirection *direction) {
-    const float SCALAR =
-        ACTIVE && prepared.same_source
-            ? Modulation::sample(*prepared.current.modulation, *direction)
-            : 0.0f;
-    const float *shared = ACTIVE && prepared.same_source ? &SCALAR : nullptr;
-    const Color4 A = generated_palette_endpoint(sample, prepared.previous,
-                                                direction, shared);
-    const Color4 B =
-        generated_palette_endpoint(sample, prepared.current, direction, shared);
-    return Modulation::interpolate_colors(A, B, prepared.fraction,
-                                          prepared.weight);
-  };
-  if (ACTIVE) {
-    const auto DIRECTION = Pattern::SphereDirection::admit(sample.sphere);
-    return endpoint(&DIRECTION);
+/** @brief One color modulation's prepared endpoint pair. */
+struct ModulationState {
+  const Modulation::Prepared *current = nullptr;  ///< Current spatial source.
+  const Modulation::Prepared *previous = nullptr; ///< Retained spatial source.
+  Pattern::SourceKind source = Pattern::SourceKind::NOISE; ///< Scalar source.
+  ColorModulation::Params mechanic; ///< Color operation and strength.
+  bool enabled = false;             ///< Whether this layer contributes.
+};
+/** @brief Applies one ordered modulation layer.
+ * @param input Color and source coordinates.
+ * @param state Layer controls and endpoint sources.
+ * @param previous Whether to sample the retained endpoint.
+ * @return Modulated color carrier. */
+HS_HOT_FLASH_MEMBER inline ColorSample
+apply_modulation(ColorSample input, const ModulationState &state,
+                 bool previous = false) {
+  if (!state.enabled || state.mechanic.amount == 0.0f)
+    return input;
+  float scalar;
+  if (state.source == Pattern::SourceKind::DISPLACEMENT)
+    scalar = input.field.path_length;
+  else {
+    const auto *source = previous ? state.previous : state.current;
+    assert(source);
+    scalar = Modulation::sample(
+        *source, Pattern::SphereDirection::admit(input.field.sphere));
   }
-  return endpoint(nullptr);
+  if (state.mechanic.kind ==
+          ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT &&
+      state.mechanic.amount * hs::clamp(scalar, 0.0f, 1.0f) == 0.0f)
+    return input;
+  if (state.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)
+    input.pending_hue = math::wrap_t(
+        input.pending_hue + math::wrap_t(state.mechanic.amount * scalar));
+  else {
+    if (state.mechanic.kind ==
+        ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT) {
+      flush_color_hue(input);
+      input.hue_rotation = nullptr;
+    }
+    input.color = ColorModulation::apply(input.color, scalar, state.mechanic);
+  }
+  return input;
 }
 
 /// Qualified generated-palette approximation bounds.
@@ -430,29 +356,9 @@ inline constexpr std::array<ApproximationMetric, 3> GENERATED_PALETTE_METRICS{{
      3066.0f, "channel code"},
 }};
 
-/**
- * @brief GeneratedPalette color policy.
- * @tparam State Provider with Binding and FrameState types and
- * mapping_weights(frame), mapping_frequency(frame), mapping_phase(frame),
- * oscillation_depth(frame), oscillation_phase(frame), palette(frame),
- * hue_mode(frame), hue_shift_amount(frame), hue_rotation(frame),
- * modulation(frame), mechanic(frame), brightness_envelope(frame), brightness_bottom(frame),
- * brightness_top(frame), opacity_low(frame), opacity_high(frame)
- * accessors.
- */
+/** @brief Generated-palette policy with retained immutable endpoints.
+ * @tparam State Palette resource provider. */
 template <typename State> struct GeneratedPalette : ApproximationDefaults {
-  static constexpr bool APPROXIMATE = true; ///< Output uses LUT approximations.
-  /// Oracle the approximation is checked against.
-  static constexpr ApproximationOracleId ORACLE =
-      ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
-  /// Approximation bounds; GENERATED_PALETTE_METRICS.
-  static constexpr auto METRICS = GENERATED_PALETTE_METRICS;
-
-  /**
-   * @brief Whether `State` is a provider for `Binding` with every accessor
-   * this policy reads.
-   * @tparam Binding Chain binding to check against.
-   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -465,13 +371,7 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
         { State::oscillation_depth(frame) } -> std::same_as<float>;
         { State::oscillation_phase(frame) } -> std::same_as<float>;
         { State::palette(frame) } -> std::same_as<const BakedPalette &>;
-        { State::hue_mode(frame) } -> std::same_as<HueMode>;
-        { State::hue_shift_amount(frame) } -> std::same_as<float>;
         { State::hue_rotation(frame) } -> std::same_as<HueRotationLutView>;
-        {
-          State::modulation(frame)
-        } -> std::same_as<const Modulation::Prepared *>;
-        { State::mechanic(frame) } -> std::same_as<ColorModulation::Params>;
         {
           State::brightness_envelope(frame)
         } -> std::same_as<BrightnessEnvelope>;
@@ -480,83 +380,124 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
         { State::opacity_low(frame) } -> std::same_as<float>;
         { State::opacity_high(frame) } -> std::same_as<float>;
       };
-
-  /// Whether the provider supplies resources for temporal interpolation.
   static constexpr bool TEMPORAL =
       requires(const typename State::Binding::FrameState &frame) {
-        {
-          State::temporal_resources(frame)
-        } -> std::same_as<TemporalPaletteResources>;
-      };
-  /// Per-frame colorizer state, with temporal endpoints when supplied.
-  using Prepared = std::conditional_t<TEMPORAL, TemporalGeneratedPaletteState,
-                                      GeneratedPaletteState>;
-
-  /**
-   * @brief Reads every accessor once and folds the phase oscillation in.
-   * @tparam FrameState Frame state of the provider's binding.
-   * @param frame Current frame state.
-   * @return This frame's colorizer state.
-   */
+        State::temporal_resources(frame);
+      }; ///< Whether previous palettes are retained.
+  using Prepared =
+      std::conditional_t<TEMPORAL, TemporalGeneratedPaletteState,
+                         GeneratedPaletteState>; ///< Endpoint state.
+  /** @brief Prepares immutable endpoint controls.
+   * @tparam FrameState Frame context.
+   * @param frame Current frame.
+   * @return Prepared palette endpoints. */
   template <typename FrameState>
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    const GeneratedPaletteState current{
+    GeneratedPaletteState current{
         State::mapping_weights(frame),
         State::mapping_frequency(frame),
         oscillated_mapping_offset(State::mapping_phase(frame),
                                   State::oscillation_depth(frame),
                                   State::oscillation_phase(frame)),
         &State::palette(frame),
-        State::hue_mode(frame),
-        State::hue_shift_amount(frame),
         State::hue_rotation(frame),
-        State::modulation(frame),
-        {State::mechanic(frame).amount},
         State::brightness_envelope(frame),
         State::brightness_bottom(frame),
         State::brightness_top(frame),
         State::opacity_low(frame),
-        State::opacity_high(frame),
-        ColorModulation::kernel(State::mechanic(frame).kind)};
+        State::opacity_high(frame)};
     if constexpr (TEMPORAL) {
-      const auto RESOURCES = State::temporal_resources(frame);
-      GeneratedPaletteState previous = current;
-      previous.palette = RESOURCES.palette;
-      previous.hue_rotation.data = RESOURCES.hue_rotation;
-      previous.modulation = RESOURCES.continuous_modulation
-                                ? RESOURCES.modulation
-                                : current.modulation;
-      const bool SAME_SOURCE =
-          current.modulation && previous.modulation &&
-          Modulation::same_field(*current.modulation, *previous.modulation);
-      const bool IDENTITY = !current.modulation ||
-                            !current.modulation->config.enabled ||
-                            current.mechanic.amount == 0.0f;
-      const float FRACTION = RESOURCES.same_palette && (IDENTITY || SAME_SOURCE)
-                                 ? 1.0f
-                                 : RESOURCES.fraction;
-      return {current, previous, FRACTION, frac_to_q16(FRACTION), SAME_SOURCE};
+      const auto resources = State::temporal_resources(frame);
+      auto previous = current;
+      previous.palette = resources.palette;
+      previous.hue_rotation.data = resources.hue_rotation;
+      return {current, previous, resources.fraction};
     } else
       return current;
   }
-
-  /**
-   * @brief Colours one field sample.
-   * @tparam FrameState Frame state of the provider's binding.
-   * @param sample Field sample to colour.
-   * @param prepared This frame's colorizer state.
-   * @return Colour with temporally interpolated resources when supplied.
-   */
+  /** @brief Produces one color endpoint.
+   * @tparam FrameState Frame context.
+   * @param sample Field coordinates.
+   * @param frame Frame context.
+   * @param prepared Prepared endpoints.
+   * @param previous Selects the retained endpoint.
+   * @return Color carrier. */
   template <typename FrameState>
-  HS_O3_FN static Color4 apply(const FieldSample &sample, const FrameState &,
-                               const Prepared &prepared) {
+  static ColorSample apply_endpoint(const FieldSample &sample,
+                                    const FrameState &frame,
+                                    const Prepared &prepared, bool previous) {
+    (void)frame;
     if constexpr (TEMPORAL)
-      return apply_temporal_generated_palette(sample, prepared);
-    else
+      return apply_generated_palette(sample, previous ? prepared.previous
+                                                      : prepared.current);
+    else {
+      (void)previous;
       return apply_generated_palette(sample, prepared);
+    }
+  }
+  /** @brief Produces the current color endpoint.
+   * @tparam FrameState Frame context.
+   * @param sample Field coordinates.
+   * @param frame Frame context.
+   * @param prepared Prepared endpoints.
+   * @return Color carrier. */
+  template <typename FrameState>
+  static ColorSample apply(const FieldSample &sample, const FrameState &frame,
+                           const Prepared &prepared) {
+    return apply_endpoint(sample, frame, prepared, false);
+  }
+};
+
+/** @brief Ordered color modulation policy.
+ * @tparam State Layer resource provider. */
+template <typename State> struct Modulate : ApproximationDefaults {
+  static constexpr bool APPROXIMATE =
+      true; ///< Uses scalar and hue lookup tables.
+  static constexpr ApproximationOracleId ORACLE =
+      ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;    ///< Reference.
+  static constexpr auto METRICS = GENERATED_PALETTE_METRICS; ///< Error bounds.
+
+  using Prepared = ModulationState; ///< Immutable layer endpoints.
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ProviderFor<State, Binding> &&
+      requires(const typename Binding::FrameState &frame) {
+        { State::prepare(frame) } -> std::same_as<ModulationState>;
+      };
+  /** @brief Prepares source endpoints and continuous controls.
+   * @tparam FrameState Frame context.
+   * @param frame Frame context.
+   * @return Layer endpoints. */
+  template <typename FrameState>
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return State::prepare(frame);
+  }
+  /** @brief Modulates one endpoint.
+   * @tparam FrameState Frame context.
+   * @param input Color carrier.
+   * @param frame Frame context.
+   * @param prepared Layer endpoints.
+   * @param previous Selects the retained endpoint.
+   * @return Modulated carrier. */
+  template <typename FrameState>
+  static ColorSample apply_endpoint(const ColorSample &input,
+                                    const FrameState &frame,
+                                    const Prepared &prepared, bool previous) {
+    (void)frame;
+    return apply_modulation(input, prepared, previous);
+  }
+  /** @brief Modulates the current endpoint.
+   * @tparam FrameState Frame context.
+   * @param input Color carrier.
+   * @param frame Frame context.
+   * @param prepared Layer endpoints.
+   * @return Modulated carrier. */
+  template <typename FrameState>
+  static ColorSample apply(const ColorSample &input, const FrameState &frame,
+                           const Prepared &prepared) {
+    return apply_endpoint(input, frame, prepared, false);
   }
 };
 
 } // namespace Color
-
 } // namespace Pullback

@@ -19,7 +19,6 @@
 
 /** @brief Pullback stage spec for `AlienBrain`. */
 struct AlienBrainSpec : Pullback::Spec {
-  static constexpr bool MODULATION = true;
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
@@ -45,9 +44,13 @@ struct AlienBrainSpec : Pullback::Spec {
           Pullback::Weight::Projection,
           typename Pullback::CoveragePolicyFor<
               Pullback::ProjectionCoverageMode::WEIGHT_SQUARED, B, void>::Type>,
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
-                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "modulation", Pattern::SourceKind::NOISE,
+              Pattern::Evaluation::BAKED_CUBE>>>>;
 };
 /// Parameter block derived from `AlienBrainSpec`.
 using AlienBrainParams = Pullback::ParamsFor<AlienBrainSpec>;
@@ -71,9 +74,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "216d73e3f26adcf02663732bad60fff35c58a607bebbc17fe764101aee2e903d";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "356b9b4fc4fdef691b38f4c91bd069b4e6495c17bee66f386532e96b753c1eca";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "0618468699e004f29fd4d046b70d852e13f278ddc928705ac1aee62ffae5dfd4";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "a6c5563d36de26f0020449dfe4ffea806e3b5c4da7a17bf3c830db3d85626f39";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
       "alien-brain",
@@ -86,7 +89,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
 
   // Hot entry trampoline.
   /**
@@ -110,19 +113,19 @@ public:
     value.template get<"projection">().camera_wander = 0.8f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
-    value.template get<"color">().modulation.mechanic.amount = 0.292f;
-    value.template get<"color">().modulation.enabled = true;
-    value.template get<"color">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
-    value.template get<"color">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
-    value.template get<"color">().modulation.source = Pattern::SourceKind::NOISE;
     value.template get<"color">().palette_chroma = 0.788f;
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::CUP;
-    value.template get<"color">().modulation.noise.scale = 0.6304219f;
-    value.template get<"color">().modulation.noise.speed = 0.0f;
     value.template get<"color">().phase_oscillation_depth = 0.0f;
     value.template get<"color">().phase_oscillation_speed = 0.0f;
     value.template get<"color">().opacity_high = 1.0f;
     value.template get<"color">().opacity_low = 1.0f;
+    value.template get<"modulation">().modulation.mechanic.amount = 0.292f;
+    value.template get<"modulation">().modulation.enabled = true;
+    value.template get<"modulation">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
+    value.template get<"modulation">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
+    value.template get<"modulation">().modulation.source = Pattern::SourceKind::NOISE;
+    value.template get<"modulation">().modulation.noise.scale = 0.6304219f;
+    value.template get<"modulation">().modulation.noise.speed = 0.0f;
     value.template get<"projection">().spin_rate = 0.0f;
     value.template get<"projection">().wander = 0.0f;
     value.template get<"projection">().singularity_fade = 1.0f;

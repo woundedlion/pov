@@ -32,11 +32,15 @@ inline void test_kaleidoscope_melt_identity_and_controls() {
                 WB::Params::template HAS<"color">);
   static_assert(!WB::Params::template HAS<"lens"> &&
                 !WB::Params::template HAS<"inner_warp">);
-  static_assert(sizeof(WB::Params) ==
-                sizeof(Pullback::ProjectionParams) +
-                    sizeof(Pullback::SurfaceNoiseParams) +
-                    sizeof(Pullback::LatticeSourceParams) +
-                    sizeof(Pullback::ColorParams));
+  static_assert(
+      sizeof(WB::Params) ==
+      sizeof(Pullback::ProjectionParams) +
+          sizeof(Pullback::SurfaceNoiseParams) +
+          sizeof(Pullback::LatticeSourceParams) +
+          sizeof(Pullback::ColorParams) +
+          sizeof(
+              Pullback::Modulation::Params<Pattern::SourceKind::NOISE,
+                                           Pattern::Evaluation::BAKED_CUBE>));
 
   reset_effect_globals();
   FX effect;

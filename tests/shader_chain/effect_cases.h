@@ -14,7 +14,7 @@ inline void test_shader_chain_kaleidoscope_strobe() {
       {"lens", In::Op::LensKaleidoscope::ID},
       {"project", "project.gnomonic.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   const auto status = effect.set_chain(chain).code;
   HS_EXPECT_EQ(status, In::ChainStatus::OK);
@@ -51,7 +51,7 @@ inline void test_shader_chain_composed_frame_parity() {
       {"project", "project.gnomonic.v2"},
       {"warp", "warp.mirror-tile.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   const auto compile_status1 = chain.set_chain(topology).code;
   HS_EXPECT_EQ(compile_status1, In::ChainStatus::OK);
@@ -87,7 +87,6 @@ inline void test_shader_chain_composed_frame_parity() {
     auto reference = references[static_cast<size_t>(frame - 1)];
     reference.palette = ctx.palettes[color.palette_mode];
     reference.hue_rotation_lut = ctx.hue_rotation_lut;
-    reference.modulation = ctx.modulation;
     const auto prepared = FX::RenderPipeline::prepare(reference);
     for (const math::Vector &view : sweep_views()) {
       const Color4 expected = FX::shade(view, prepared);
@@ -141,33 +140,35 @@ inline void test_shader_chain_parameter_admission() {
   reset_globals();
   ShaderChain<96, 20> effect;
   effect.init();
+  ShaderChainWhiteBox::modulation_params(effect);
   const In::ChainEntryRequest chain[] = {
       {"lens", "sphere.lens.mobius.v2"},
       {"project", "project.stereographic.v2"},
       {"warp", "warp.curl-flow.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   const auto compile_status2 = effect.set_chain(chain).code;
   HS_EXPECT_EQ(compile_status2, In::ChainStatus::OK);
   if (compile_status2 != In::ChainStatus::OK)
     return;
-  HS_EXPECT_EQ(effect.updateParameter("colorize.modulation-evaluation", 0.0f),
+  ShaderChainWhiteBox::modulation_params(effect);
+  HS_EXPECT_EQ(effect.updateParameter("modulation.modulation-evaluation", 0.0f),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(effect.updateParameter("colorize.modulation-source", 3.0f),
+  HS_EXPECT_EQ(effect.updateParameter("modulation.modulation-source", 3.0f),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(effect.updateParameter("colorize.grid-axis-x", 0.5f),
+  HS_EXPECT_EQ(effect.updateParameter("modulation.grid-axis-x", 0.5f),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(requested_param(effect, "colorize.grid-axis-x"), 0.5f);
-  HS_EXPECT_TRUE(effect.parameter_warning("colorize.grid-axis-x") == nullptr);
-  HS_EXPECT_EQ(effect.updateParameter("colorize.grid-axis-x", 1.0f),
+  HS_EXPECT_EQ(requested_param(effect, "modulation.grid-axis-x"), 0.5f);
+  HS_EXPECT_TRUE(effect.parameter_warning("modulation.grid-axis-x") == nullptr);
+  HS_EXPECT_EQ(effect.updateParameter("modulation.grid-axis-x", 1.0f),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(effect.updateParameter("colorize.grid-axis-y", 0.0f),
+  HS_EXPECT_EQ(effect.updateParameter("modulation.grid-axis-y", 0.0f),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(requested_param(effect, "colorize.grid-axis-y"), 0.0f);
-  HS_EXPECT_EQ(effect.updateParameter("colorize.grid-axis-x", 0.0f),
+  HS_EXPECT_EQ(requested_param(effect, "modulation.grid-axis-y"), 0.0f);
+  HS_EXPECT_EQ(effect.updateParameter("modulation.grid-axis-x", 0.0f),
                ParamSetResult::INADMISSIBLE);
-  HS_EXPECT_EQ(requested_param(effect, "colorize.grid-axis-x"), 1.0f);
+  HS_EXPECT_EQ(requested_param(effect, "modulation.grid-axis-x"), 1.0f);
   const ParamDef *strength_param = effect.getParameters().find("warp.strength");
   HS_EXPECT_TRUE(strength_param != nullptr);
   if (!strength_param)
@@ -250,7 +251,7 @@ inline void test_shader_chain_edge_distance_admission() {
       {"project", "project.folded-sinusoidal.v2"},
       {"warp", "warp.wave-shear.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
   HS_EXPECT_EQ(effect.updateParameter("sample.coverage-mode", 3),
@@ -302,7 +303,7 @@ inline void test_shader_chain_projection_plane_bound() {
     const In::ChainEntryRequest chain[] = {
         {"project", op.operator_id},
         {"sample", In::Op::SampleGridV3::ID},
-        {"color", In::Op::ColorizeGeneratedPaletteV3::ID},
+        {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
     };
     const auto compile_status4 = program.compile(chain).code;
     HS_EXPECT_EQ(compile_status4, In::ChainStatus::OK);
@@ -343,7 +344,7 @@ inline void test_shader_chain_plane_growth_admission() {
     chain[index + 1] = {ids[index], In::Op::WarpAffineV3::ID};
   }
   chain[WARPS + 1] = {"sample", In::Op::SampleGridV3::ID};
-  chain[WARPS + 2] = {"colorize", In::Op::ColorizeGeneratedPaletteV3::ID};
+  chain[WARPS + 2] = {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID};
 
   reset_globals();
   WB::FX effect;
@@ -406,7 +407,7 @@ inline void test_shader_chain_plane_growth_admission() {
       {"warp", "warp.affine.v3"},
       {"polar", "warp.polar-chart.v2"},
       {"sample", "sample.lattice.v2"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   HS_EXPECT_EQ(effect.set_chain(ordinary).code, In::ChainStatus::OK);
   const ShaderChainParameterWrite extreme[] = {
@@ -429,7 +430,7 @@ inline void test_shader_chain_effect_rebind_generation() {
       {"camera2", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   const In::ChainRefusal committed = effect.set_chain(edited);
   HS_EXPECT_EQ(static_cast<int>(committed.code),
@@ -514,7 +515,8 @@ inline void test_shader_chain_instantaneous_pixel_golden() {
       {"project", "project.gnomonic.v2"},
       {"warp", "warp.mirror-tile.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
+      {"modulation", "color.modulate.v1"},
   };
   PixelGolden golden;
   for (int frame = 0; frame < 100; ++frame) {
@@ -531,7 +533,7 @@ inline void test_shader_chain_instantaneous_pixel_golden() {
     }
     if (frame == 60) {
       HS_EXPECT_EQ(chain.set_chain(topology).code, In::ChainStatus::OK);
-      WB::color_params(chain).modulation.mechanic.amount = 0.3f;
+      WB::modulation_params(chain).modulation.mechanic.amount = 0.3f;
     }
     chain.draw_frame();
     chain.advance_display();
@@ -857,7 +859,8 @@ inline void test_shader_chain_operator_states_sample_clocks() {
     HS_EXPECT_TRUE(op.runtime.sample_params != nullptr);
     HS_EXPECT_TRUE(op.runtime.state.size == sizeof(In::EmptyState) ||
                    op.runtime.sample_state != nullptr ||
-                   op.runtime.run_temporal != nullptr);
+                   std::string_view(op.operator_id) ==
+                       In::Op::ModulateColorV1::ID);
   }
   const float TWO_PI = math::TWO_PI_F;
   In::Op::SpatialWalkState walk_from, walk_to, walk;
@@ -903,11 +906,11 @@ inline void test_shader_chain_operator_states_sample_clocks() {
   In::Op::ColorClockState color_from, color_to;
   color_from.oscillation_phase = 0.8f;
   color_to.oscillation_phase = 0.2f;
-  color_from.modulation.phase.phase_turns = 0.3f;
-  color_to.modulation.phase.phase_turns = 0.4f;
   In::Op::ColorClockState color = color_to;
   In::Op::temporal_sample(
       color, In::Op::temporal_interval(color_from, color_to), 0, 0.5f);
   HS_EXPECT_NEAR(std::remainder(color.oscillation_phase, 1.0f), 0.0f, 1e-6f);
-  HS_EXPECT_EQ(color.modulation.phase.phase_turns, 0.4f);
+  In::Op::ModulationClockState modulation;
+  modulation.modulation.phase.phase_turns = .4f;
+  HS_EXPECT_EQ(modulation.modulation.phase.phase_turns, .4f);
 }

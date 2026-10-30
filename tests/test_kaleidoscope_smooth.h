@@ -32,10 +32,13 @@ inline void test_kaleidoscope_smooth_identity_and_presets() {
                 WB::Params::template HAS<"color">);
   static_assert(!WB::Params::template HAS<"lens"> &&
                 !WB::Params::template HAS<"surface">);
-  static_assert(sizeof(WB::Params) == sizeof(Pullback::ProjectionParams) +
-                                          sizeof(Pullback::MirrorParams) +
-                                          sizeof(Pullback::GridSourceParams) +
-                                          sizeof(Pullback::ColorParams));
+  static_assert(
+      sizeof(WB::Params) ==
+      sizeof(Pullback::ProjectionParams) + sizeof(Pullback::MirrorParams) +
+          sizeof(Pullback::GridSourceParams) + sizeof(Pullback::ColorParams) +
+          sizeof(
+              Pullback::Modulation::Params<Pattern::SourceKind::NOISE,
+                                           Pattern::Evaluation::BAKED_CUBE>));
 
   reset_effect_globals();
   FX effect;

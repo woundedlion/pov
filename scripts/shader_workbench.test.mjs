@@ -258,7 +258,7 @@ test('SHA-256 matches Node across padding boundaries and multiblock inputs', () 
 // tests/data/shader_chain_catalog.json is the same emitter's output from an
 // LP64 host build; a pointer-bearing `prepared` block is wider there, and
 // nothing else may differ from the wasm32 catalog.
-const POINTER_WIDENED_OPERATORS = 7;
+const POINTER_WIDENED_OPERATORS = 8;
 
 test('the native golden and the wasm source catalog differ only in pointer-block width', async () => {
   const golden = JSON.parse(await readFile(
@@ -275,17 +275,24 @@ test('the native golden and the wasm source catalog differ only in pointer-block
     assert.deepEqual({ ...wasm, blocks: null }, { ...native, blocks: null },
       `${native.id} diverges outside its block layout`);
     assert.deepEqual(wasm.blocks.param, native.blocks.param, `${native.id} param block`);
-    assert.deepEqual(wasm.blocks.state, native.blocks.state, `${native.id} state block`);
-    assert.ok(wasm.blocks.prepared.size <= native.blocks.prepared.size,
-      `${native.id} prepared block is wider on wasm32 than on LP64`);
-    if (wasm.blocks.prepared.size === native.blocks.prepared.size
-      && wasm.blocks.prepared.align === native.blocks.prepared.align) return;
-    widened += 1;
-    widest = Math.max(widest, native.blocks.prepared.size - wasm.blocks.prepared.size);
-    assert.equal(native.blocks.prepared.align, 8,
-      `${native.id} prepared block diverges without carrying an LP64 pointer`);
-    assert.equal(wasm.blocks.prepared.align, 4,
-      `${native.id} prepared block diverges without narrowing to wasm32`);
+    let pointerBlocks = false;
+    let widthDifference = 0;
+    for (const kind of ['prepared', 'state', 'interval']) {
+      const before = wasm.blocks[kind], after = native.blocks[kind];
+      if (kind !== 'prepared' && native.id !== 'color.modulate.v1')
+        assert.deepEqual(before, after, `${native.id} ${kind} block`);
+      assert.ok(before.size <= after.size,
+        `${native.id} ${kind} block is wider on wasm32 than on LP64`);
+      if (before.size === after.size && before.align === after.align) continue;
+      pointerBlocks = true;
+      widthDifference += after.size - before.size;
+      assert.equal(after.align, 8,
+        `${native.id} ${kind} block diverges without carrying an LP64 pointer`);
+      assert.equal(before.align, 4,
+        `${native.id} ${kind} block diverges without narrowing to wasm32`);
+    }
+    widened += Number(pointerBlocks);
+    widest = Math.max(widest, widthDifference);
   });
   assert.equal(widened, POINTER_WIDENED_OPERATORS,
     'the pointer-bearing operator set moved; re-pin it deliberately');
@@ -1079,7 +1086,7 @@ test('catalog declarations share the compiler label and topology contracts', () 
   for (const label of ['colorize', 'warp2', 'warp-outer']) assert.match(label, LABEL_PATTERN);
   for (const label of ['Warp', 'warp_outer', 'warp.outer', 'warp--outer'])
     assert.doesNotMatch(label, LABEL_PATTERN);
-  const operator = CATALOG.operators.find(({ id }) => id === 'colorize.generated-palette.v3');
+  const operator = CATALOG.operators.find(({ id }) => id === 'colorize.generated-palette.v4');
   const field = operator.params.find(({ id }) => id === 'palette-mapping');
   const declaration = declarationFromCatalogField('colorize', field, operator.id);
   assert.equal(declaration.id, 'colorize.palette-mapping');
@@ -1119,7 +1126,7 @@ test('catalog declarations preserve source and clock speed units', () => {
     ['warp.mirror.v1', 'speed', 'turn-per-frame'],
     ['project.stereographic.v1', 'projection-spin-speed', 'radian-per-frame'],
     ['sphere.rotate.v1', 'spin-speed', 'radian-per-frame'],
-    ['colorize.generated-palette.v3', 'pattern-speed', 'turn-per-frame'],
+    ['color.modulate.v1', 'pattern-speed', 'turn-per-frame'],
   ]) {
     const field = { id, curve: 'lerp', min: -1, max: 1, default: 0 };
     assert.equal(declarationFromCatalogField('stage', field, operator).unit, unit);

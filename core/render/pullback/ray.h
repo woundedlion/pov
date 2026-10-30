@@ -15,7 +15,8 @@ namespace Pullback {
  * @tparam Renderer Supplies prepare(frame) and shade(direction, frame,
  * prepared), returning Color4 from shade(). */
 template <typename Renderer>
-struct RayStage : Stage::Contract<RayStage<Renderer>, SphereSample, Color4> {
+struct RayStage
+    : Stage::Contract<RayStage<Renderer>, SphereSample, ColorSample> {
   using Policies = std::tuple<>; ///< No stage policies.
 
   /** @brief Forwards to `Renderer::prepare`.
@@ -35,10 +36,11 @@ struct RayStage : Stage::Contract<RayStage<Renderer>, SphereSample, Color4> {
    * @param prepared Result of `prepare` for this frame.
    * @return Shaded colour. */
   template <typename Binding, typename Prepared>
-  __attribute__((always_inline)) static Color4
+  __attribute__((always_inline)) static ColorSample
   run(const SphereSample &input, const typename Binding::FrameState &frame,
       const Prepared &prepared) {
-    return Renderer::shade(input.dir, frame, prepared);
+    return {Renderer::shade(input.dir, frame, prepared),
+            {0.0f, 1.0f, input.dir, input.path_length}};
   }
 };
 

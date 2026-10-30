@@ -922,7 +922,7 @@ struct ApplyCoverage
  * @tparam ColorPolicyT Color policy producing straight-alpha Color4.
  */
 template <typename ColorPolicyT>
-struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, Color4> {
+struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, ColorSample> {
   using Policies = std::tuple<ColorPolicyT>; ///< Policies the stage binds.
   using ColorPolicy = ColorPolicyT;          ///< The color policy.
 
@@ -932,6 +932,8 @@ struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, Color4> {
    */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
+      Detail::apply_policy_callable<ColorPolicyT, FieldSample, ColorSample,
+                                    typename Binding::FrameState>() ||
       Detail::apply_policy_callable<ColorPolicyT, FieldSample, Color4,
                                     typename Binding::FrameState>();
 
@@ -956,13 +958,94 @@ struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, Color4> {
    * @return Straight-alpha color.
    */
   template <typename Binding>
-  __attribute__((always_inline)) static Color4
+  __attribute__((always_inline)) static ColorSample
   run(const FieldSample &input, const typename Binding::FrameState &frame,
       const Detail::PolicyPrepared<ColorPolicyT, typename Binding::FrameState>
           &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    Color4 result;
+    const auto result = [&] {
+      if constexpr (Detail::PolicyPrepares<ColorPolicyT,
+                                           typename Binding::FrameState>)
+        return ColorPolicyT::apply(input, frame, prepared);
+      else
+        return ColorPolicyT::apply(input, frame);
+    }();
+    Instrumentation::template span<ProfileEvent::COLOR>(start);
+    if constexpr (std::is_same_v<decltype(result), const Color4>)
+      return ColorSample{result, input};
+    else
+      return result;
+  }
+  /** @brief Selects one immutable color endpoint.
+   * @tparam Binding Pipeline binding.
+   * @param input Input carrier.
+   * @param frame Frame context.
+   * @param prepared Prepared policy state.
+   * @param previous Selects retained resources.
+   * @return Color carrier. */
+  template <typename Binding>
+  static ColorSample run_endpoint(
+      const FieldSample &input, const typename Binding::FrameState &frame,
+      const Detail::PolicyPrepared<ColorPolicyT, typename Binding::FrameState>
+          &prepared,
+      bool previous) {
+    if constexpr (requires {
+                    ColorPolicyT::apply_endpoint(input, frame, prepared,
+                                                 previous);
+                  })
+      return ColorPolicyT::apply_endpoint(input, frame, prepared, previous);
+    else {
+      (void)previous;
+      return run<Binding>(input, frame, prepared);
+    }
+  }
+};
+
+/** @brief COLOR-to-COLOR modulation stage.
+ * @tparam ColorPolicyT Ordered color operation. */
+template <typename ColorPolicyT>
+struct Modulate : Contract<Modulate<ColorPolicyT>, ColorSample, ColorSample> {
+  using Policies = std::tuple<ColorPolicyT>; ///< Policies the stage binds.
+  using ColorPolicy = ColorPolicyT;          ///< The color policy.
+
+  /**
+   * @brief Whether `ColorPolicyT::apply` is callable under @p Binding.
+   * @tparam Binding Binding being checked.
+   */
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::apply_policy_callable<ColorPolicyT, ColorSample, ColorSample,
+                                    typename Binding::FrameState>();
+
+  /**
+   * @brief Resolves the color policy's per-frame state.
+   * @tparam Binding Binding of the pipeline.
+   * @param frame Frame state.
+   * @return The prepared state, or NoPrepared when the policy declares none.
+   */
+  template <typename Binding>
+  HS_FLASH_INLINE static auto
+  prepare(const typename Binding::FrameState &frame) {
+    return Detail::prepare_policy<ColorPolicyT>(frame);
+  }
+
+  /**
+   * @brief Modulates the field carrier.
+   * @tparam Binding Binding of the pipeline.
+   * @param input Field carrier.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Straight-alpha color.
+   */
+  template <typename Binding>
+  __attribute__((always_inline)) static ColorSample
+  run(const ColorSample &input, const typename Binding::FrameState &frame,
+      const Detail::PolicyPrepared<ColorPolicyT, typename Binding::FrameState>
+          &prepared) {
+    using Instrumentation = typename Binding::Instrumentation;
+    const auto start = Instrumentation::mark();
+    ColorSample result;
     if constexpr (Detail::PolicyPrepares<ColorPolicyT,
                                          typename Binding::FrameState>)
       result = ColorPolicyT::apply(input, frame, prepared);
@@ -970,6 +1053,29 @@ struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, Color4> {
       result = ColorPolicyT::apply(input, frame);
     Instrumentation::template span<ProfileEvent::COLOR>(start);
     return result;
+  }
+  /** @brief Selects one immutable color endpoint.
+   * @tparam Binding Pipeline binding.
+   * @param input Input carrier.
+   * @param frame Frame context.
+   * @param prepared Prepared policy state.
+   * @param previous Selects retained resources.
+   * @return Color carrier. */
+  template <typename Binding>
+  static ColorSample run_endpoint(
+      const ColorSample &input, const typename Binding::FrameState &frame,
+      const Detail::PolicyPrepared<ColorPolicyT, typename Binding::FrameState>
+          &prepared,
+      bool previous) {
+    if constexpr (requires {
+                    ColorPolicyT::apply_endpoint(input, frame, prepared,
+                                                 previous);
+                  })
+      return ColorPolicyT::apply_endpoint(input, frame, prepared, previous);
+    else {
+      (void)previous;
+      return run<Binding>(input, frame, prepared);
+    }
   }
 };
 

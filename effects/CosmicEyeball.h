@@ -44,9 +44,13 @@ struct CosmicEyeballSpec : Pullback::Spec {
                               typename Pullback::CoveragePolicyFor<
                                   Pullback::ProjectionCoverageMode::EDGE_FADE,
                                   B, Pullback::EdgeValueParams>::Type>,
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::PATH_LENGTH,
-                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "displacement", Pattern::SourceKind::DISPLACEMENT,
+              Pattern::Evaluation::DIRECT>>>>;
 };
 /// Parameter block derived from `CosmicEyeballSpec`.
 using CosmicEyeballParams = Pullback::ParamsFor<CosmicEyeballSpec>;
@@ -70,9 +74,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "abecc6184f6b972203459321778d29e0da4ce88c9f9912a70614a4756ea81a6a";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "e5bec80fa4613070cbd747c05cea3e6deac8e06e884c0aef82e5415338359747";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "a3b2dd1623017d70e33b2b5faf977c4cdbcff3055894ef452a06886b1695f686";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "60f476d269e4a4722cb467123bba229bbcc8f32b18fc01ced07db1451a03cc28";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "mirrored-grid"
@@ -82,7 +86,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
   /**
@@ -92,16 +96,19 @@ public:
   static constexpr Params initial_params() {
     Params value;
     value.template get<"projection">().camera_wander = 1.0f;
-    value.template get<"color">().hue_shift_amount = 2.048f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
-    value.template get<"color">().modulation.enabled = false;
     value.template get<"color">().palette_chroma = 0.292f;
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::LINEAR;
     value.template get<"color">().phase_oscillation_depth = 0.0f;
     value.template get<"color">().phase_oscillation_speed = 0.0f;
     value.template get<"color">().opacity_high = 1.0f;
     value.template get<"color">().opacity_low = 1.0f;
+    value.template get<"displacement">().modulation.mechanic.amount = 2.048f;
+    value.template get<"displacement">().modulation.enabled = true;
+    value.template get<"displacement">().modulation.evaluation = Pattern::Evaluation::DIRECT;
+    value.template get<"displacement">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
+    value.template get<"displacement">().modulation.source = Pattern::SourceKind::DISPLACEMENT;
     value.template get<"projection">().singularity_fade = 1.4f;
     value.template get<"source">().angle_rate = 0.0f;
     value.template get<"source">().complexity = 1.854f;

@@ -16,7 +16,7 @@
       },
       {
         "label": "colorize",
-        "operator": "colorize.generated-palette.v3"
+        "operator": "colorize.generated-palette.v4"
       }
     ],
     "parameters": [

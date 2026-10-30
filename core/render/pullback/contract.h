@@ -14,6 +14,7 @@
 #include <utility>
 
 #include "core/color/color.h"
+#include "core/color/hue_rotation_lut.h"
 #include "core/math/geometry.h"
 #include "core/math/projections.h"
 
@@ -132,14 +133,48 @@ struct FieldSample {
   float path_length; ///< Accumulated path length.
 };
 
+/** @brief Rank-3 color with sampling coordinates and deferred adjustments. */
+struct ColorSample {
+  Color4 color;      ///< Straight-alpha color.
+  FieldSample field; ///< Sample coordinates and coverage.
+  const Pixel *hue_rotation =
+      nullptr;                     ///< Palette hue table, until RGB changes.
+  float palette_coordinate = 0.0f; ///< Base palette coordinate.
+  float pending_hue = 0.0f;        ///< Accumulated adjacent hue turns.
+  float brightness_gain = 1.0f;    ///< Final RGB gain.
+};
+
+/** @brief Applies pending hue turns to a color sample.
+ * @param sample Color sample to update. */
+inline void flush_color_hue(ColorSample &sample) {
+  if (sample.pending_hue == 0.0f)
+    return;
+  sample.color.color =
+      sample.hue_rotation
+          ? sample_hue_rotation_lut({sample.hue_rotation, true},
+                                    sample.palette_coordinate,
+                                    sample.pending_hue)
+          : hue_rotate_lut_gamut(sample.color, sample.pending_hue).color;
+  sample.pending_hue = 0.0f;
+}
+
+/** @brief Completes pending hue and brightness adjustments.
+ * @param sample Color sample to finish.
+ * @return Final straight-alpha color. */
+inline Color4 finish_color_sample(ColorSample sample) {
+  flush_color_hue(sample);
+  if (sample.brightness_gain != 1.0f)
+    sample.color.color = sample.color.color * sample.brightness_gain;
+  return sample.color;
+}
+
 static_assert(sizeof(SphereSample) == 4 * sizeof(float));
 static_assert(std::is_trivially_copyable_v<SphereSample>);
 static_assert(std::is_trivially_copyable_v<PlaneSample>);
 static_assert(std::is_trivially_copyable_v<FieldSample>);
-static_assert(std::is_trivially_copyable_v<Color4>);
+static_assert(std::is_trivially_copyable_v<ColorSample>);
 
-// Rank 3 is Color4, straight alpha: endomorphisms are Color4 -> Color4 and
-// final premultiplication stays in Scan::Shader, after the chain.
+// Color finalization precedes Scan::Shader premultiplication.
 
 /** @brief The surface policy protocol: a displaced point plus its step length. */
 struct SurfaceResult {
@@ -185,7 +220,7 @@ template <size_t Index, typename... Ts> struct TypeAt<Index, TypeList<Ts...>> {
  *        slot ABI derive from it.
  */
 using CarrierList =
-    Detail::TypeList<SphereSample, PlaneSample, FieldSample, Color4>;
+    Detail::TypeList<SphereSample, PlaneSample, FieldSample, ColorSample>;
 
 /** Sentinel rank of a type outside the carrier set; keeps family_of total. */
 inline constexpr size_t FOREIGN_FAMILY_RANK = static_cast<size_t>(-1);
@@ -626,6 +661,27 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
     run(const Input &input, const FrameState &frame, const Prepared &prepared) {
       return Derived::template run<BindingT>(input, frame, prepared);
     }
+
+    /** @brief Runs one immutable color endpoint.
+     * @param input Input carrier.
+     * @param frame Frame context.
+     * @param prepared Prepared state.
+     * @param previous Selects retained resources.
+     * @return Output carrier. */
+    __attribute__((always_inline)) static Output
+    run_endpoint(const Input &input, const FrameState &frame,
+                 const Prepared &prepared, bool previous) {
+      if constexpr (requires {
+                      Derived::template run_endpoint<BindingT>(
+                          input, frame, prepared, previous);
+                    })
+        return Derived::template run_endpoint<BindingT>(input, frame, prepared,
+                                                        previous);
+      else {
+        (void)previous;
+        return run(input, frame, prepared);
+      }
+    }
   };
 };
 
@@ -826,16 +882,37 @@ protected:
   template <size_t Index, typename In>
   __attribute__((always_inline)) static Output
   run_children(const In &input, const FrameState &frame,
-               const Prepared &prepared) {
+               const Prepared &prepared, bool previous = false) {
     using Current = ChildAt<Index>;
     static_assert(std::is_same_v<In, typename Current::Input>,
                   "pullback pipeline: stage input mismatch");
-    const typename Current::Output output =
-        Current::run(input, frame, std::get<Index>(prepared));
+    const auto output = [&] {
+      if constexpr (requires {
+                      Current::run_endpoint(
+                          input, frame, std::get<Index>(prepared), previous);
+                    })
+        return Current::run_endpoint(input, frame, std::get<Index>(prepared),
+                                     previous);
+      else
+        return Current::run(input, frame, std::get<Index>(prepared));
+    }();
     if constexpr (Index + 1 == CHILD_COUNT)
       return output;
     else
-      return run_children<Index + 1>(output, frame, prepared);
+      return run_children<Index + 1>(output, frame, prepared, previous);
+  }
+
+public:
+  /** @brief Runs a placement group against one immutable color endpoint.
+   * @param input Input carrier.
+   * @param frame Frame context.
+   * @param prepared Prepared child states.
+   * @param previous Selects retained color resources.
+   * @return Group output carrier. */
+  __attribute__((always_inline)) static Output
+  run_endpoint(const Input &input, const FrameState &frame,
+               const Prepared &prepared, bool previous) {
+    return run_children<0>(input, frame, prepared, previous);
   }
 };
 
@@ -965,7 +1042,7 @@ template <bool ShapeValid, typename LeafList> struct LeafCarrierRows {
   static constexpr bool CARRIERS = false;
   /// The first stage consumes `SphereSample`.
   static constexpr bool ENTRY = false;
-  /// The last stage produces `Color4`.
+  /// The last stage produces `ColorSample`.
   static constexpr bool EXIT = false;
 };
 
@@ -1000,9 +1077,10 @@ public:
   static constexpr bool ENTRY =
       std::is_same_v<typename std::tuple_element_t<0, Tuple>::Input,
                      SphereSample>;
-  /// The last stage produces `Color4`.
+  /// The last stage produces `ColorSample`.
   static constexpr bool EXIT = std::is_same_v<
-      typename std::tuple_element_t<sizeof...(Ls) - 1, Tuple>::Output, Color4>;
+      typename std::tuple_element_t<sizeof...(Ls) - 1, Tuple>::Output,
+      ColorSample>;
 };
 
 /** @brief Binding rows; all false unless the shape is valid.
@@ -1183,7 +1261,7 @@ public:
   static constexpr bool CARRIERS = CarrierRows::CARRIERS;
   /// The first stage consumes `SphereSample`.
   static constexpr bool ENTRY = CarrierRows::ENTRY;
-  /// The last stage produces `Color4`.
+  /// The last stage produces `ColorSample`.
   static constexpr bool EXIT = CarrierRows::EXIT;
   /// Every leaf is `descriptor_bindable`.
   static constexpr bool BINDINGS = BindingRows::BINDINGS;
@@ -1309,16 +1387,42 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
   template <size_t Index, typename Input>
   __attribute__((always_inline)) static Color4
   run_stage(const Input &input, const FrameState &ctx,
-            const PreparedTuple &prepared) {
+            const PreparedTuple &prepared, bool previous = false) {
     using CurrentNode = NodeAt<Index>;
     static_assert(std::is_same_v<Input, typename CurrentNode::Input>,
                   "pullback pipeline: stage input mismatch");
-    const typename CurrentNode::Output output =
-        CurrentNode::run(input, ctx, std::get<Index>(prepared));
-    if constexpr (Index + 1 == NODE_COUNT)
-      return output;
-    else
-      return run_stage<Index + 1>(output, ctx, prepared);
+    const auto endpoint = [&](bool retained) __attribute__((always_inline)) {
+      if constexpr (requires {
+                      CurrentNode::run_endpoint(
+                          input, ctx, std::get<Index>(prepared), retained);
+                    })
+        return CurrentNode::run_endpoint(input, ctx, std::get<Index>(prepared),
+                                         retained);
+      else
+        return CurrentNode::run(input, ctx, std::get<Index>(prepared));
+    };
+    const auto finish = [&](const auto &output,
+                            bool retained) __attribute__((always_inline)) {
+      if constexpr (Index + 1 == NODE_COUNT)
+        return finish_color_sample(output);
+      else
+        return run_stage<Index + 1>(output, ctx, prepared, retained);
+    };
+    const auto output = endpoint(previous);
+    if constexpr (std::is_same_v<typename CurrentNode::Output, ColorSample> &&
+                  !std::is_same_v<Input, ColorSample> &&
+                  requires { ctx.temporal.fraction; }) {
+      const float FRACTION = ctx.temporal.fraction;
+      if (FRACTION < 1.0f) {
+        const Color4 A = finish(endpoint(true), true);
+        if (FRACTION <= 0.0f)
+          return A;
+        const Color4 B = finish(output, false);
+        return Color4(A.color.lerp16(B.color, frac_to_q16(FRACTION)),
+                      hs::lerp(A.alpha, B.alpha, FRACTION));
+      }
+    }
+    return finish(output, previous);
   }
 };
 
@@ -1330,7 +1434,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
  * @details Binding appears exactly once — the first parameter binds the whole
  * list. `void` entries and empty placement groups vanish. The chain must be
  * non-decreasing in family rank, adjacent carriers must agree, the first stage
- * consumes SphereSample and the last produces Color4. Leaf indices
+ * consumes SphereSample and the last produces ColorSample. Leaf indices
  * (STAGE_COUNT, StageAt) and execution-node indices are distinct.
  */
 template <typename BindingT, typename... Entries> struct Pipeline {
@@ -1351,7 +1455,7 @@ template <typename BindingT, typename... Entries> struct Pipeline {
   static_assert(!Validation::NONEMPTY || !Validation::CONTRACTS ||
                     Validation::CANONICAL,
                 "pullback pipeline: stage carrier is outside the canonical "
-                "set (SphereSample, PlaneSample, FieldSample, Color4)");
+                "set (SphereSample, PlaneSample, FieldSample, ColorSample)");
   static_assert(!Validation::NONEMPTY || !Validation::CONTRACTS ||
                     !Validation::CANONICAL || Validation::MONOTONE,
                 "pullback pipeline: a stage may not decrease its family "
@@ -1364,7 +1468,7 @@ template <typename BindingT, typename... Entries> struct Pipeline {
                 "pullback pipeline: the first stage must consume SphereSample");
   static_assert(!Validation::NONEMPTY || !Validation::CONTRACTS ||
                     !Validation::CANONICAL || Validation::EXIT,
-                "pullback pipeline: the last stage must produce Color4");
+                "pullback pipeline: the last stage must produce ColorSample");
   static_assert(!Validation::NONEMPTY || !Validation::CONTRACTS ||
                     Validation::BINDINGS,
                 "pullback pipeline: stage binding mismatch");

@@ -7,7 +7,7 @@
 struct UnknownCoverage {};
 struct MetadataSpec : Pullback::Spec {
 #ifdef HS_METADATA_REDUNDANT_SCALAR
-  static constexpr auto HUE = Pullback::HueMode::NONE;
+  static constexpr auto HUE = 0;
 #endif
   template <typename B>
   using Pipeline = Pullback::Pipeline<
@@ -37,14 +37,21 @@ struct MetadataSpec : Pullback::Spec {
 #endif
       Pullback::Stage::Transfer<Pullback::Transfer::IsoContour<
           Pullback::ValueProvider<B, Pullback::IsoValueParams>>>,
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B,
-#ifdef HS_METADATA_UNTRACKED_HUE
-                                  Pullback::HueMode::PATH_LENGTH,
-#else
-                                  Pullback::HueMode::NONE,
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::BELL>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "modulation", Pattern::SourceKind::NOISE,
+              Pattern::Evaluation::DIRECT>>>
+#ifdef HS_METADATA_UNTRACKED_DISPLACEMENT
+      ,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "displacement", Pattern::SourceKind::DISPLACEMENT,
+              Pattern::Evaluation::DIRECT>>>
 #endif
-                                  Pullback::Color::BrightnessEnvelope::BELL>>>>;
+      >;
 };
 using Metadata = Pullback::MetadataFor<MetadataSpec>;
 static_assert(sizeof(Metadata) > 0);
@@ -59,9 +66,6 @@ static_assert(Metadata::FIELD_COVERAGE == Pullback::FieldCoverageKind::NONE);
 static_assert(Metadata::SURFACE_PLACEMENT ==
               Pullback::SurfacePlacement::AFTER_LENS);
 static_assert(std::is_same_v<Metadata::LensPolicy, Pullback::Lens::Glitch>);
-#ifndef HS_METADATA_UNTRACKED_HUE
-static_assert(Metadata::HUE == Pullback::HueMode::NONE);
-#endif
 static_assert(Metadata::BRIGHTNESS ==
               Pullback::Color::BrightnessEnvelope::BELL);
 static_assert(!Metadata::PATH_TRACKED);
@@ -70,11 +74,7 @@ struct MetadataEffect
                                Control::HookOwnership::INHERITED> {};
 static_assert(sizeof(MetadataEffect) > 0);
 
-struct ModulationBankSpec : MetadataSpec {
-  static constexpr bool MODULATION = true;
-  static constexpr Pattern::Evaluation MODULATION_EVALUATION =
-      Pattern::Evaluation::DIRECT;
-};
+struct ModulationBankSpec : MetadataSpec {};
 struct ModulationBankEffect
     : Pullback::ComposedEffect<8, 8, ModulationBankEffect, ModulationBankSpec,
                                Control::HookOwnership::INHERITED> {
@@ -82,7 +82,7 @@ struct ModulationBankEffect
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr auto PRESETS = [] {
     std::array<PresetEntry<Params>, 2> rows{};
-    auto &config = rows[1].params.template get<"color">().modulation;
+    auto &config = rows[1].params.template get<"modulation">().modulation;
 #ifdef HS_METADATA_MODULATION_SOURCE_CHANGE
     config.source = Pattern::SourceKind::SPHERE_SMOOTH_GRID;
 #endif

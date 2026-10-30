@@ -24,7 +24,11 @@
       },
       {
         "label": "colorize",
-        "operator": "colorize.generated-palette.v3"
+        "operator": "colorize.generated-palette.v4"
+      },
+      {
+        "label": "displacement",
+        "operator": "color.modulate.v1"
       }
     ],
     "parameters": [
@@ -91,36 +95,6 @@
       },
       {
         "classification": "preset",
-        "default": 0,
-        "domain": {
-          "maximum": 4,
-          "minimum": -4
-        },
-        "id": "colorize.hue-shift-amount",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": "path-length",
-        "domain": {
-          "values": [
-            "none",
-            "path-length"
-          ]
-        },
-        "id": "colorize.hue-shift-mode",
-        "interpolation": {
-          "kind": "MIXED_ENUM"
-        },
-        "storage": "enum8",
-        "unit": "mode"
-      },
-      {
-        "classification": "preset",
         "default": 1,
         "domain": {
           "maximum": 32,
@@ -146,22 +120,6 @@
         },
         "storage": "binary32",
         "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": "disabled",
-        "domain": {
-          "values": [
-            "disabled",
-            "enabled"
-          ]
-        },
-        "id": "colorize.modulation-enabled",
-        "interpolation": {
-          "kind": "MIXED_ENUM"
-        },
-        "storage": "enum8",
-        "unit": "mode"
       },
       {
         "classification": "preset",
@@ -267,6 +225,88 @@
         },
         "storage": "binary32",
         "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 4,
+          "minimum": -4
+        },
+        "id": "displacement.modulation-amount",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "enabled",
+        "domain": {
+          "values": [
+            "disabled",
+            "enabled"
+          ]
+        },
+        "id": "displacement.modulation-enabled",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "direct",
+        "domain": {
+          "values": [
+            "direct",
+            "baked-cube"
+          ]
+        },
+        "id": "displacement.modulation-evaluation",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "hue-rotation",
+        "domain": {
+          "values": [
+            "hue-rotation",
+            "positive-lightness-lift",
+            "opacity"
+          ]
+        },
+        "id": "displacement.modulation-mechanic",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "displacement",
+        "domain": {
+          "values": [
+            "noise",
+            "directional-sine",
+            "sphere-interference",
+            "sphere-smooth-grid",
+            "displacement"
+          ]
+        },
+        "id": "displacement.modulation-source",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
       },
       {
         "classification": "preset",
@@ -610,11 +650,8 @@
         "colorize.brightness-bottom",
         "colorize.brightness-envelope",
         "colorize.brightness-top",
-        "colorize.hue-shift-amount",
-        "colorize.hue-shift-mode",
         "colorize.mapping-frequency",
         "colorize.mapping-phase",
-        "colorize.modulation-enabled",
         "colorize.palette-chroma",
         "colorize.palette-mapping",
         "colorize.palette-mode",
@@ -622,6 +659,11 @@
         "colorize.phase-oscillation-speed",
         "colorize.value-opacity-high",
         "colorize.value-opacity-low",
+        "displacement.modulation-amount",
+        "displacement.modulation-enabled",
+        "displacement.modulation-evaluation",
+        "displacement.modulation-mechanic",
+        "displacement.modulation-source",
         "lens.mobius-a-im",
         "lens.mobius-a-re",
         "lens.mobius-b-im",
@@ -698,11 +740,8 @@
           "colorize.brightness-bottom": 0,
           "colorize.brightness-envelope": "cup",
           "colorize.brightness-top": 1,
-          "colorize.hue-shift-amount": 0.31200000643730164,
-          "colorize.hue-shift-mode": "path-length",
           "colorize.mapping-frequency": 1,
           "colorize.mapping-phase": 0,
-          "colorize.modulation-enabled": "disabled",
           "colorize.palette-chroma": 0.39800000190734863,
           "colorize.palette-mapping": "linear",
           "colorize.palette-mode": "complementary",
@@ -710,6 +749,11 @@
           "colorize.phase-oscillation-speed": 0,
           "colorize.value-opacity-high": 1,
           "colorize.value-opacity-low": 1,
+          "displacement.modulation-amount": 0.31200000643730164,
+          "displacement.modulation-enabled": "enabled",
+          "displacement.modulation-evaluation": "direct",
+          "displacement.modulation-mechanic": "hue-rotation",
+          "displacement.modulation-source": "displacement",
           "lens.mobius-a-im": 0.30399999022483826,
           "lens.mobius-a-re": -1.0720000267028809,
           "lens.mobius-b-im": 0,
@@ -743,11 +787,8 @@
           "colorize.brightness-bottom": 0,
           "colorize.brightness-envelope": "cup",
           "colorize.brightness-top": 1,
-          "colorize.hue-shift-amount": 0.31200000643730164,
-          "colorize.hue-shift-mode": "path-length",
           "colorize.mapping-frequency": 1,
           "colorize.mapping-phase": 0,
-          "colorize.modulation-enabled": "disabled",
           "colorize.palette-chroma": 0.39800000190734863,
           "colorize.palette-mapping": "linear",
           "colorize.palette-mode": "complementary",
@@ -755,6 +796,11 @@
           "colorize.phase-oscillation-speed": 0,
           "colorize.value-opacity-high": 1,
           "colorize.value-opacity-low": 1,
+          "displacement.modulation-amount": 0.31200000643730164,
+          "displacement.modulation-enabled": "enabled",
+          "displacement.modulation-evaluation": "direct",
+          "displacement.modulation-mechanic": "hue-rotation",
+          "displacement.modulation-source": "displacement",
           "lens.mobius-a-im": 0.30399999022483826,
           "lens.mobius-a-re": -1.0720000267028809,
           "lens.mobius-b-im": 0,

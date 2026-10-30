@@ -657,6 +657,10 @@ async function main(probe) {
         fail('chain-snapshot: ShaderChain failed');
       const bindings = engine.getShaderChainBindings();
       try {
+        const chain = bindings.getSnapshot().chain;
+        chain.push({ instance: 'modulation', operator: 'color.modulate.v1' });
+        if (bindings.setShaderChain(chain).code !== 'APPLIED')
+          fail('chain-snapshot: modulation layer failed');
         const saved = bindings.getSnapshot();
         engine.drawFrame();
         const expected = Array.from(engine.getPixels());
@@ -675,13 +679,13 @@ async function main(probe) {
           (snapshot) => { snapshot.modulation[0].recipe.version = 99; },
           (snapshot) => { snapshot.modulation[0].recipe.source = 99; },
           (snapshot) => {
-            const clock = snapshot.runtime.find((entry) => entry.kind === 'color-clock-v2');
-            clock.state.modulation.initialized = false;
-            clock.state.modulation.phaseTurns = 0.25;
+            const clock = snapshot.runtime.find((entry) => entry.kind === 'modulation-clock-v1');
+            clock.state.initialized = false;
+            clock.state.phaseTurns = 0.25;
           },
           (snapshot) => {
-            const clock = snapshot.runtime.find((entry) => entry.kind === 'color-clock-v2');
-            clock.state.modulation.source = 1;
+            const clock = snapshot.runtime.find((entry) => entry.kind === 'modulation-clock-v1');
+            clock.state.source = 1;
           },
         ]) {
           const malformed = structuredClone(saved);
@@ -735,7 +739,7 @@ async function main(probe) {
         { instance: 'camera', operator: 'sphere.rotate.v2' },
         { instance: 'project', operator: 'project.stereographic.v2' },
         { instance: 'sample', operator: 'sample.grid.v3' },
-        { instance: 'colorize', operator: 'colorize.generated-palette.v3' },
+        { instance: 'colorize', operator: 'colorize.generated-palette.v4' },
       ];
 
       if (engine.setEffect('MindSplatter') !== ES.INSTALLED

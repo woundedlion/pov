@@ -80,7 +80,12 @@ interpolate(
  * @return True when every field is in range.
  */
 template <Pullback::HasFields T> inline bool valid(const T &value) {
-  return Pullback::Fields::valid(value);
+  if constexpr (requires { value.modulation; })
+    return Modulation::admitted(value.modulation) &&
+           value.modulation.source == T::SOURCE &&
+           value.modulation.evaluation == T::EVALUATION;
+  else
+    return Pullback::Fields::valid(value);
 }
 
 /**
@@ -163,7 +168,7 @@ sample_lens_phase(const MobiusLensParams &lens, float angle, float magnitude) {
  * @return True when every field and the mapping enumerator are valid.
  */
 inline bool valid(const ColorParams &p) {
-  return Pullback::Fields::valid(p) && Modulation::admitted(p.modulation) &&
+  return Pullback::Fields::valid(p) &&
          static_cast<uint8_t>(p.palette_mapping) <=
              static_cast<uint8_t>(Pullback::Color::PaletteMapping::REVERSE);
 }
@@ -197,14 +202,6 @@ template <> struct OptionalHueRotationLut<true> {
   /** Palette bake the resident table was built from; 0 matches no bake,
       forcing the first build. */
   uint32_t hue_rotation_lut_bake = 0;
-};
-
-/** @brief Optional spatial modulation resources. */
-template <bool Enabled, bool Baked> struct OptionalModulation {};
-/** @brief Enabled spatial modulation resources. */
-template <bool Baked> struct OptionalModulation<true, Baked> {
-  Modulation::Resources<Baked>
-      modulation_resources; ///< Current owned endpoint.
 };
 
 /** @brief Projection-walk noise storage; empty when disabled. */

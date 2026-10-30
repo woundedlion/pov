@@ -43,16 +43,16 @@ struct ChainSnapshot {
     std::string instance;                    ///< Owning instance name.
     Pullback::Interp::RuntimeSnapshot state; ///< Operator runtime state.
   };
-  /** @brief Canonical modulation recipe of one colorize instance. */
+  /** @brief Canonical modulation recipe of one modulation instance. */
   struct ModulationRecipe {
     std::string instance;           ///< Owning instance name.
     ColorModulation::Config recipe; ///< Serializable configuration.
   };
-  static constexpr uint32_t SCHEMA_VERSION = 3; ///< Current snapshot schema.
+  static constexpr uint32_t SCHEMA_VERSION = 4; ///< Current snapshot schema.
   uint32_t schema_version = SCHEMA_VERSION;     ///< Schema this snapshot uses.
   std::vector<Entry> chain;          ///< Program entries, in chain order.
   std::vector<Parameter> parameters; ///< Values to restore, unique names.
-  std::vector<ModulationRecipe> modulation; ///< Colorize recipes.
+  std::vector<ModulationRecipe> modulation; ///< Modulation recipes.
   /// Runtime state for stateful instances; absent starts them fresh.
   std::optional<std::vector<Runtime>> runtime;
   /// Generated-palette bank state; absent resets the bank to its defaults.

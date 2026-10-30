@@ -19,7 +19,6 @@
 
 /** @brief Stage spec for `KaleidoscopePentBright`. */
 struct KaleidoscopePentBrightSpec : Pullback::Spec {
-  static constexpr bool MODULATION = true;
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
@@ -46,9 +45,13 @@ struct KaleidoscopePentBrightSpec : Pullback::Spec {
           Pullback::Weight::Projection,
           typename Pullback::CoveragePolicyFor<
               Pullback::ProjectionCoverageMode::WEIGHT_SQUARED, B, void>::Type>,
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
-                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "modulation", Pattern::SourceKind::NOISE,
+              Pattern::Evaluation::BAKED_CUBE>>>>;
 };
 /// Parameter block derived from `KaleidoscopePentBrightSpec`.
 using KaleidoscopePentBrightParams =
@@ -73,9 +76,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "4c5626d253f653c91f0fb86de54ed55e13800a6844574b60d6206f7d74abbafa";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "596d03bb503eedce84042d6c0a46e1b68d1c75589ba793e166044601076d2263";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "f60001eaf2b74e90fed5b31062c2892dfeeb79a8d366d669167a61aae7abd690";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "b499667add347f8032aa8451ada440c6fedaec60e3c9693d6daf0ce101e4b64d";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "polar-wave"
@@ -85,7 +88,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -98,19 +101,19 @@ public:
     value.template get<"projection">().camera_wander = 1.0f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = -0.166f;
-    value.template get<"color">().modulation.mechanic.amount = 0.268f;
-    value.template get<"color">().modulation.enabled = true;
-    value.template get<"color">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
-    value.template get<"color">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
-    value.template get<"color">().modulation.source = Pattern::SourceKind::NOISE;
     value.template get<"color">().palette_chroma = 1.0f;
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::CUP;
-    value.template get<"color">().modulation.noise.scale = 2.0f;
-    value.template get<"color">().modulation.noise.speed = 0.0f;
     value.template get<"color">().phase_oscillation_depth = 0.0f;
     value.template get<"color">().phase_oscillation_speed = 0.0f;
     value.template get<"color">().opacity_high = 1.0f;
     value.template get<"color">().opacity_low = 1.0f;
+    value.template get<"modulation">().modulation.mechanic.amount = 0.268f;
+    value.template get<"modulation">().modulation.enabled = true;
+    value.template get<"modulation">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
+    value.template get<"modulation">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
+    value.template get<"modulation">().modulation.source = Pattern::SourceKind::NOISE;
+    value.template get<"modulation">().modulation.noise.scale = 2.0f;
+    value.template get<"modulation">().modulation.noise.speed = 0.0f;
     value.template get<"projection">().spin_rate = 0.0f;
     value.template get<"projection">().wander = 1.0f;
     value.template get<"projection">().singularity_fade = 2.273f;

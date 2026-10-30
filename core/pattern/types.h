@@ -87,7 +87,8 @@ enum class SourceKind : uint8_t {
   NOISE,
   DIRECTIONAL_SINE,
   SPHERE_INTERFERENCE,
-  SPHERE_SMOOTH_GRID
+  SPHERE_SMOOTH_GRID,
+  DISPLACEMENT
 };
 /** @brief Explicit sphere evaluation strategy. */
 enum class Evaluation : uint8_t { DIRECT, BAKED_CUBE };

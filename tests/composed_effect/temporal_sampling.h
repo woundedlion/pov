@@ -74,8 +74,7 @@ HS_FLASH_INLINE Frame sample_frame_reference(const Frame &from, const Frame &to,
               : end;
     }
   });
-  frame.temporal = {from.palette, from.hue_rotation_lut, from.modulation,
-                    fraction};
+  frame.temporal = {from.palette, from.hue_rotation_lut, fraction};
   return frame;
 }
 
@@ -325,25 +324,22 @@ inline void test_temporal_equal_palettes_color_as_current() {
   effect.draw_frame();
   effect.advance_display();
   const auto current = effect.frame_for_test();
-  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NONE, true, true>
-      history;
+  Spacetime::FrameHistory<FX::FrameState, true, true> history;
   history.capture(current, persistent_arena);
-  using PathPalette = Pullback::Color::GeneratedPalette<
-      Pullback::ColorProvider<FX::Binding, Pullback::HueMode::PATH_LENGTH,
-                              Pullback::Color::BrightnessEnvelope::CUP>>;
+  using PathPalette = Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+      FX::Binding, Pullback::Color::BrightnessEnvelope::CUP>>;
   const Pullback::FrameInterval EQUAL(history.previous, current);
   auto sample = EQUAL.at(0.5f);
   HS_EXPECT_TRUE(Spacetime::sample_frame(history.previous, current, 0.5f)
                      .temporal.same_palette);
   HS_EXPECT_TRUE(sample.temporal.same_palette);
-  sample.params.template get<"color">().hue_shift_amount = 0.3f;
-  sample.params.template get<"color">().modulation.enabled = false;
-  sample.modulation = nullptr;
-  sample.temporal.continuous_modulation = false;
+  sample.params.template get<"modulation">().modulation.mechanic.amount = 0.3f;
+  sample.params.template get<"modulation">().modulation.enabled = false;
   const auto prepared = PathPalette::prepare(sample);
   HS_EXPECT_NEAR(prepared.fraction, 1.0f, 0.0f);
   auto interpolated = sample;
   interpolated.temporal.same_palette = false;
+  interpolated.temporal.fraction = 0.5f;
   const auto blended = PathPalette::prepare(interpolated);
   HS_EXPECT_NEAR(blended.fraction, 0.5f, 0.0f);
   for (int index = 0; index < 257; ++index) {
@@ -351,8 +347,10 @@ inline void test_temporal_equal_palettes_color_as_current() {
     field.value = static_cast<float>(index) / 256;
     field.coverage = 0.75f;
     field.path_length = static_cast<float>(index) * 0.37f;
-    const Color4 A = PathPalette::apply(field, sample, prepared);
-    const Color4 B = PathPalette::apply(field, interpolated, blended);
+    const Color4 A =
+        Pullback::Color::finish(PathPalette::apply(field, sample, prepared));
+    const Color4 B = Pullback::Color::finish(
+        PathPalette::apply(field, interpolated, blended));
     HS_EXPECT_TRUE(A.color == B.color);
     HS_EXPECT_NEAR(A.alpha, B.alpha, 0.0f);
   }
@@ -384,24 +382,23 @@ inline void test_temporal_moving_families_interpolate() {
   effect.draw_frame();
   effect.advance_display();
   const auto current = effect.frame_for_test();
-  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NONE, true, true>
-      history;
+  Spacetime::FrameHistory<FX::FrameState, true, true> history;
   history.capture(current, persistent_arena);
   auto moved = current;
-  moved.params.template get<"color">().hue_shift_amount += 0.25f;
+  moved.params.template get<"modulation">().modulation.mechanic.amount += 0.25f;
   auto &start_config =
-      history.previous.params.template get<"color">().modulation;
-  auto &end_config = moved.params.template get<"color">().modulation;
+      history.previous.params.template get<"modulation">().modulation;
+  auto &end_config = moved.params.template get<"modulation">().modulation;
   start_config.noise.scale = 1.0f;
   start_config.noise.speed = -0.001f;
   end_config.noise.scale = 4.0f;
   end_config.noise.speed = 0.001f;
   const auto MIDPOINT =
       Pullback::interpolate(history.previous.params, moved.params, 0.5f);
-  HS_EXPECT_NEAR(MIDPOINT.template get<"color">().modulation.noise.scale, 2.0f,
-                 1e-6f);
-  HS_EXPECT_NEAR(MIDPOINT.template get<"color">().modulation.noise.speed, 0.0f,
-                 1e-8f);
+  HS_EXPECT_NEAR(MIDPOINT.template get<"modulation">().modulation.noise.scale,
+                 2.0f, 1e-6f);
+  HS_EXPECT_NEAR(MIDPOINT.template get<"modulation">().modulation.noise.speed,
+                 0.0f, 1e-8f);
 
   for (bool variant_mismatch : {false, true}) {
     Pullback::Modulation::Config start, end;
@@ -434,8 +431,9 @@ inline void test_temporal_moving_families_interpolate() {
     const auto sampled = SAMPLER.at(fraction).params;
     const auto expected =
         Pullback::interpolate(history.previous.params, moved.params, fraction);
-    HS_EXPECT_NEAR(sampled.template get<"color">().hue_shift_amount,
-                   expected.template get<"color">().hue_shift_amount, 0.0f);
+    HS_EXPECT_NEAR(
+        sampled.template get<"modulation">().modulation.mechanic.amount,
+        expected.template get<"modulation">().modulation.mechanic.amount, 0.0f);
     HS_EXPECT_TRUE(std::memcmp(&sampled, &expected, sizeof(sampled)) == 0);
   }
 }
@@ -448,18 +446,21 @@ inline void test_temporal_owned_resources() {
   FX effect;
   effect.init();
   auto params = FX::initial_params();
-  params.template get<"color">().modulation.noise.speed = .001f;
+  params.template get<"modulation">().modulation.noise.speed = .001f;
   ComposedFrameWhiteBox::set_params(effect, params);
   effect.draw_frame();
   effect.advance_display();
   const auto current = effect.frame_for_test();
-  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NONE, true, true>
-      history;
+  Spacetime::FrameHistory<FX::FrameState, true, true> history;
   history.capture(current, persistent_arena);
   HS_EXPECT_TRUE(history.previous.palette != current.palette);
-  HS_EXPECT_TRUE(history.previous.modulation != current.modulation);
-  HS_EXPECT_TRUE(history.previous.modulation->cube.data !=
-                 current.modulation->cube.data);
+  HS_EXPECT_TRUE(
+      history.previous.resources.template get<"modulation">().modulation !=
+      current.resources.template get<"modulation">().modulation);
+  HS_EXPECT_TRUE(
+      history.previous.resources.template get<"modulation">()
+          .modulation->cube.data !=
+      current.resources.template get<"modulation">().modulation->cube.data);
   std::array<float, 8> retained_samples{}, live_samples{};
   const auto direction = [](size_t index) {
     return Pattern::SphereDirection::from(
@@ -467,13 +468,16 @@ inline void test_temporal_owned_resources() {
   };
   for (size_t index = 0; index < retained_samples.size(); ++index) {
     retained_samples[index] = Pullback::Modulation::sample(
-        *history.previous.modulation, direction(index));
-    live_samples[index] =
-        Pullback::Modulation::sample(*current.modulation, direction(index));
+        *history.previous.resources.template get<"modulation">().modulation,
+        direction(index));
+    live_samples[index] = Pullback::Modulation::sample(
+        *current.resources.template get<"modulation">().modulation,
+        direction(index));
     HS_EXPECT_EQ(retained_samples[index], live_samples[index]);
   }
-  const auto TABLE = history.modulation_table;
-  const auto RECIPE = history.modulation.config;
+  const auto TABLE = history.resources.template get<"modulation">().table;
+  const auto RECIPE =
+      history.resources.template get<"modulation">().modulation.config;
   const Pixel PALETTE = history.previous.palette->get(0.4f).color;
   for (int frame = 0; frame < 4; ++frame) {
     effect.draw_frame();
@@ -481,16 +485,21 @@ inline void test_temporal_owned_resources() {
   }
   bool live_changed = false;
   for (size_t index = 0; index < retained_samples.size(); ++index) {
-    HS_EXPECT_EQ(Pullback::Modulation::sample(*history.previous.modulation,
-                                              direction(index)),
-                 retained_samples[index]);
+    HS_EXPECT_EQ(
+        Pullback::Modulation::sample(
+            *history.previous.resources.template get<"modulation">().modulation,
+            direction(index)),
+        retained_samples[index]);
     live_changed |=
-        Pullback::Modulation::sample(*current.modulation, direction(index)) !=
-        live_samples[index];
+        Pullback::Modulation::sample(
+            *current.resources.template get<"modulation">().modulation,
+            direction(index)) != live_samples[index];
   }
   HS_EXPECT_TRUE(live_changed);
-  HS_EXPECT_TRUE(history.modulation_table == TABLE);
-  HS_EXPECT_TRUE(history.modulation.config == RECIPE);
+  HS_EXPECT_TRUE(history.resources.template get<"modulation">().table == TABLE);
+  HS_EXPECT_TRUE(
+      history.resources.template get<"modulation">().modulation.config ==
+      RECIPE);
   HS_EXPECT_TRUE(history.previous.palette->get(0.4f).color == PALETTE);
 
   using namespace Pullback;
@@ -506,71 +515,25 @@ inline void test_temporal_owned_resources() {
   a.prepare(config, clock);
   clock.phase.phase_turns = 0.25f;
   b.prepare(config, clock);
-  Color::GeneratedPaletteState end{
-      Color::PaletteMappingWeights::single(Color::PaletteMapping::LINEAR),
-      1.0f,
-      0.0f,
-      current.palette,
-      Color::HueMode::NONE,
-      0.0f,
-      {nullptr, false},
-      &b.prepared,
-      {config.mechanic.amount}};
-  end.apply_mechanic = ColorModulation::kernel(config.mechanic.kind);
-  auto start = end;
-  start.modulation = &a.prepared;
-  FieldSample field{};
-  field.value = 0.4f;
-  field.coverage = 0.6f;
-  field.sphere = math::Vector(0.3f, 0.8f, -0.2f);
-  const Color4 A = Color::apply_generated_palette(field, start);
-  const Color4 B = Color::apply_generated_palette(field, end);
-  HS_EXPECT_NEAR(A.alpha, 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(B.alpha, current.palette->get(0.4f).alpha * field.coverage,
-                 1e-5f);
-  for (float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
-    const Color::TemporalGeneratedPaletteState INTERVAL{end, start, fraction,
-                                                        frac_to_q16(fraction)};
-    const Color4 RESULT =
-        Color::apply_temporal_generated_palette(field, INTERVAL);
-    HS_EXPECT_TRUE(RESULT.color ==
-                   A.color.lerp16(B.color, frac_to_q16(fraction)));
-    HS_EXPECT_NEAR(RESULT.alpha, hs::lerp(A.alpha, B.alpha, fraction), 1e-6f);
-  }
-  config.mechanic = {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT, 1.0f};
-  end.mechanic = start.mechanic = {config.mechanic.amount};
-  end.apply_mechanic = start.apply_mechanic =
-      ColorModulation::kernel(config.mechanic.kind);
-  const auto BEFORE = Color::apply_generated_palette(field, start);
-  const auto AFTER = Color::apply_generated_palette(field, end);
-  const Color::TemporalGeneratedPaletteState INTERVAL{end, start, 0.5f,
-                                                      frac_to_q16(0.5f)};
-  const Color4 RESULT =
-      Color::apply_temporal_generated_palette(field, INTERVAL);
-  HS_EXPECT_TRUE(RESULT.color ==
-                 BEFORE.color.lerp16(AFTER.color, frac_to_q16(0.5f)));
-  const auto SCALAR_FIRST = ColorModulation::apply(
-      current.palette->get(field.value), 0.0f, config.mechanic);
-  HS_EXPECT_TRUE(RESULT.color != SCALAR_FIRST.color);
-
   auto from = current;
   auto to = current;
-  from.params.template get<"color">().modulation = config;
-  to.params.template get<"color">().modulation = config;
-  to.params.template get<"color">().modulation.source =
+  from.params.template get<"modulation">().modulation = config;
+  to.params.template get<"modulation">().modulation = config;
+  to.params.template get<"modulation">().modulation.source =
       Pattern::SourceKind::SPHERE_SMOOTH_GRID;
-  from.params.template get<"color">().modulation.mechanic = {
+  from.params.template get<"modulation">().modulation.mechanic = {
       ColorModulation::Mechanic::OPACITY, 0.2f};
-  to.params.template get<"color">().modulation.mechanic = {
+  to.params.template get<"modulation">().modulation.mechanic = {
       ColorModulation::Mechanic::OPACITY, 0.8f};
-  from.modulation = &a.prepared;
-  to.modulation = &b.prepared;
+  from.resources.template get<"modulation">().modulation = &a.prepared;
+  to.resources.template get<"modulation">().modulation = &b.prepared;
   for (float fraction : {0.0f, 0.25f, 0.5f, 1.0f}) {
     const auto COLUMN = FrameInterval(from, to).at(fraction);
-    HS_EXPECT_TRUE(COLUMN.modulation == to.modulation);
+    HS_EXPECT_TRUE(COLUMN.resources.template get<"modulation">().modulation ==
+                   to.resources.template get<"modulation">().modulation);
     HS_EXPECT_NEAR(
-        COLUMN.params.template get<"color">().modulation.mechanic.amount, 0.8f,
-        0.0f);
+        COLUMN.params.template get<"modulation">().modulation.mechanic.amount,
+        0.8f, 0.0f);
   }
   config = {};
   config.enabled = false;
@@ -673,8 +636,7 @@ inline void test_gridspace_factored_columns() {
   effect.init();
   effect.draw_frame();
   effect.advance_display();
-  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NONE, true, true>
-      history;
+  Spacetime::FrameHistory<FX::FrameState, true, true> history;
   int maximum_error = 0;
   uint64_t error_sum = 0;
   uint64_t channels = 0;
@@ -725,8 +687,7 @@ inline void test_gridspace_temporal_pixels() {
   effect.init();
   effect.draw_frame();
   effect.advance_display();
-  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NONE, true, true>
-      history;
+  Spacetime::FrameHistory<FX::FrameState, true, true> history;
   history.capture(effect.frame_for_test(), persistent_arena);
   effect.set_clip(3, 17, 39, 83);
   effect.draw_frame();
@@ -808,9 +769,8 @@ inline void check_temporal_roster_pixels(const char *name) {
   constexpr int TOLERANCE = FX::Spec::FACTORED_COLUMNS ? 16 : 2;
   FX effect;
   effect.init();
-  Spacetime::FrameHistory<
-      typename FX::FrameState, FX::Metadata::HUE, true, FX::Spec::MODULATION,
-      FX::Spec::MODULATION_EVALUATION == Pattern::Evaluation::BAKED_CUBE>
+  Spacetime::FrameHistory<typename FX::FrameState, true,
+                          FX::Metadata::MODULATION>
       history;
   const auto view = [](int x, int y) {
     const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
@@ -834,8 +794,10 @@ inline void check_temporal_roster_pixels(const char *name) {
       expect_pixel(effect.get_pixel(x, y), FX::shade(view(x, y), first));
   history.capture(initial, persistent_arena);
   HS_EXPECT_TRUE(history.previous.palette != initial.palette);
-  if constexpr (FX::Spec::MODULATION) {
-    HS_EXPECT_TRUE(history.previous.modulation != initial.modulation);
+  if constexpr (FX::Params::template HAS<"modulation">) {
+    HS_EXPECT_TRUE(
+        history.previous.resources.template get<"modulation">().modulation !=
+        initial.resources.template get<"modulation">().modulation);
     HS_EXPECT_TRUE(history.previous.hue_rotation_lut !=
                    initial.hue_rotation_lut);
   }
@@ -945,9 +907,8 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
 /** @brief Composed history type of an effect.
  * @tparam FX Composed effect specialization. */
 template <typename FX>
-using ComposedHistory = Spacetime::FrameHistory<
-    typename FX::FrameState, FX::Metadata::HUE, true, FX::Spec::MODULATION,
-    FX::Spec::MODULATION_EVALUATION == Pattern::Evaluation::BAKED_CUBE>;
+using ComposedHistory = Spacetime::FrameHistory<typename FX::FrameState, true,
+                                                FX::Metadata::MODULATION>;
 
 /** @brief MobiusGrid's lens b at a continuous frame time.
  * @param time Frames since init; draw k spans [k, k + 1].
@@ -1140,4 +1101,55 @@ inline void test_mobius_grid_segmented_matches_single_engine() {
     });
   HS_EXPECT_EQ(compared, DRAWS * (SMALL_W + 16) * SMALL_H);
   HS_EXPECT_EQ(mismatches, 0);
+}
+
+/** @brief Each baked modulation retains its own immutable cube and source clock. */
+inline void test_temporal_stacked_modulation_resources() {
+  reset_globals();
+  StackedModulationProbe effect;
+  effect.init();
+  HS_EXPECT_TRUE(effect.getParameters().find("modulation.Modulation Amount") !=
+                 nullptr);
+  HS_EXPECT_TRUE(effect.getParameters().find("second.Modulation Amount") !=
+                 nullptr);
+  effect.draw_frame();
+  effect.advance_display();
+  const auto current = effect.frame_for_test();
+  const auto *a = current.resources.template get<"modulation">().modulation;
+  const auto *b = current.resources.template get<"second">().modulation;
+  HS_EXPECT_TRUE(a != b);
+  HS_EXPECT_TRUE(a->cube.data != b->cube.data);
+  HS_EXPECT_NEAR(a->state.phase.phase_turns, 0.001f, 1e-7f);
+  HS_EXPECT_NEAR(b->state.phase.phase_turns, 0.9995f, 1e-7f);
+  Spacetime::FrameHistory<StackedModulationProbe::FrameState, true, true>
+      history;
+  history.capture(current, persistent_arena);
+  const auto *old_a =
+      history.previous.resources.template get<"modulation">().modulation;
+  const auto *old_b =
+      history.previous.resources.template get<"second">().modulation;
+  HS_EXPECT_TRUE(old_a->cube.data != old_b->cube.data);
+  HS_EXPECT_TRUE(old_a->cube.data != a->cube.data);
+  HS_EXPECT_TRUE(old_b->cube.data != b->cube.data);
+  const auto DIRECTION =
+      Pattern::SphereDirection::from(math::Vector(0.3f, 0.8f, 0.2f));
+  const float A = Pullback::Modulation::sample(*a, DIRECTION);
+  const float B = Pullback::Modulation::sample(*b, DIRECTION);
+  HS_EXPECT_TRUE(A != B);
+  const auto BEFORE =
+      StackedModulationProbe::RenderPipeline::prepare(history.previous);
+  const auto PIXEL_BEFORE = StackedModulationProbe::shade(
+      math::Vector(0.3f, 0.8f, 0.2f).normalized(), BEFORE);
+  for (int i = 0; i < 4; ++i) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  HS_EXPECT_EQ(Pullback::Modulation::sample(*old_a, DIRECTION), A);
+  HS_EXPECT_EQ(Pullback::Modulation::sample(*old_b, DIRECTION), B);
+  const auto AFTER =
+      StackedModulationProbe::RenderPipeline::prepare(history.previous);
+  const auto PIXEL_AFTER = StackedModulationProbe::shade(
+      math::Vector(0.3f, 0.8f, 0.2f).normalized(), AFTER);
+  HS_EXPECT_EQ(PIXEL_BEFORE.color, PIXEL_AFTER.color);
+  HS_EXPECT_NEAR(PIXEL_BEFORE.alpha, PIXEL_AFTER.alpha, 0.0f);
 }

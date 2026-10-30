@@ -92,8 +92,6 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     // TransferKind is NONE or ISO_CONTOUR.
     {"field.transfer.ridge.v2", nullptr, {}},
     {"field.transfer.smooth-bands.v2", nullptr, {}},
-    {"modulate.field.v1", nullptr, {}},
-    {"modulate.hue-shift.v1", nullptr, {}},
     // ProjectionKind names the folded gnomonic alone.
     {"project.gnomonic.v2", "hemisphere", {{"folded"}}},
     {"project.stereographic.v2", "frame", {{"identity", "spin-wander"}}},
@@ -134,36 +132,25 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sample.spherical-noise.v3", "basis", {}},
     {"sample.lattice.v2", "weight-mode", {{"projection"}}},
     {"sample.lattice.v2", "coverage-mode", {{"weight", "weight-squared"}}},
-    {"colorize.generated-palette.v3",
+    {"colorize.generated-palette.v4",
      "palette-mode",
      {{"triadic", "complementary", "analogous"}}},
-    {"colorize.generated-palette.v3", "palette-type", {{"cycling-generated"}}},
-    {"colorize.generated-palette.v3", "palette-harmony", {}},
-    {"colorize.generated-palette.v3", "palette-lightness-curve", {}},
-    {"colorize.generated-palette.v3", "palette-name", {}},
-    {"colorize.generated-palette.v3", "palette-name-b", {}},
-    {"colorize.generated-palette.v3",
+    {"colorize.generated-palette.v4", "palette-type", {{"cycling-generated"}}},
+    {"colorize.generated-palette.v4", "palette-harmony", {}},
+    {"colorize.generated-palette.v4", "palette-lightness-curve", {}},
+    {"colorize.generated-palette.v4", "palette-name", {}},
+    {"colorize.generated-palette.v4", "palette-name-b", {}},
+    {"colorize.generated-palette.v4",
      "palette-mapping",
      {{"cup", "bell", "linear"}}},
-    {"colorize.generated-palette.v3",
-     "hue-shift-mode",
-     {{"none", "path-length"}}},
-    {"colorize.generated-palette.v3",
-     "modulation-enabled",
-     {{"disabled", "enabled"}}},
-    {"colorize.generated-palette.v3", "modulation-source", {{"noise"}}},
-    {"colorize.generated-palette.v3",
-     "modulation-evaluation",
-     {{"baked-cube"}}},
-    {"colorize.generated-palette.v3",
-     "modulation-mechanic",
-     {{"hue-rotation"}}},
-    {"colorize.generated-palette.v3", "pattern-noise-basis", {{"simplex"}}},
-    {"colorize.generated-palette.v3",
-     "pattern-noise-variant",
-     {{"configured-single"}}},
+    {"color.modulate.v1", "modulation-enabled", {{"enabled"}}},
+    {"color.modulate.v1", "modulation-source", {{"noise", "displacement"}}},
+    {"color.modulate.v1", "modulation-evaluation", {{"direct", "baked-cube"}}},
+    {"color.modulate.v1", "modulation-mechanic", {{"hue-rotation"}}},
+    {"color.modulate.v1", "pattern-noise-basis", {{"simplex"}}},
+    {"color.modulate.v1", "pattern-noise-variant", {{"configured-single"}}},
     // Shipped Specs select only the none and cup brightness envelopes.
-    {"colorize.generated-palette.v3", "brightness-envelope", {{"none", "cup"}}},
+    {"colorize.generated-palette.v4", "brightness-envelope", {{"none", "cup"}}},
 };
 
 /** @brief The topology enum8 @p topology_id of @p op, or null. */
@@ -263,8 +250,8 @@ inline void test_composed_derivation_reach() {
     }
   }
 
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 40u);
-  HS_EXPECT_EQ(unreachable_operators, 14u);
-  HS_EXPECT_EQ(catalog_values, 263u);
-  HS_EXPECT_EQ(unreachable_values, 213u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 39u);
+  HS_EXPECT_EQ(unreachable_operators, 12u);
+  HS_EXPECT_EQ(catalog_values, 244u);
+  HS_EXPECT_EQ(unreachable_values, 195u);
 }

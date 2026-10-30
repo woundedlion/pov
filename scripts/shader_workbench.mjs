@@ -1055,11 +1055,120 @@ export function fixedDerivedBinding(descriptor, parameterId, values) {
   };
 }
 
+/** Converts legacy combined colorizers into palette and ordered modulation nodes.
+ * @param {Object} document Shader document.
+ * @param {Object} catalog Current operator catalog.
+ * @returns {Object} Converted document, or the original when already current. */
+export function migrateLegacyShaderDocument(document, catalog) {
+  if (!Array.isArray(document?.descriptor?.chain)) return document;
+  const legacyIds = new Set(['colorize.generated-palette.v3',
+    'modulate.field.v1', 'modulate.hue-shift.v1']);
+  const legacy = document.descriptor.chain.filter(
+    (entry) => legacyIds.has(entry?.operator));
+  if (!legacy?.length) return document;
+  if (!Array.isArray(document.descriptor.parameters) ||
+      !Array.isArray(document.descriptor.path_policies) ||
+      !Array.isArray(document?.preset_bank?.presets) ||
+      !document.descriptor.serialization) return document;
+  if (document.descriptor.chain.some((entry) => !entry || typeof entry.label !== 'string') ||
+      document.descriptor.parameters.some((parameter) => !parameter || typeof parameter.id !== 'string') ||
+      document.preset_bank.presets.some((preset) => !preset || !preset.values ||
+        typeof preset.values !== 'object' || Array.isArray(preset.values))) return document;
+  const modulation = catalog?.operators?.find((entry) => entry.id === 'color.modulate.v1');
+  const palette = catalog?.operators?.find((entry) => entry.id === 'colorize.generated-palette.v4');
+  if (!modulation || !palette) return document;
+  const result = structuredClone(document);
+  const descriptor = result.descriptor;
+  const used = new Set(descriptor.chain.map((entry) => entry.label));
+  const labelFor = (base) => {
+    let label = base;
+    for (let suffix = 2; used.has(label); ++suffix) label = `${base}-${suffix}`;
+    used.add(label);
+    return label;
+  };
+  for (const entry of descriptor.chain.filter(
+    (node) => legacyIds.has(node?.operator))) {
+    const owner = entry.label;
+    const prefix = `${owner}.`;
+    const declarations = descriptor.parameters.filter((parameter) => parameter.id.startsWith(prefix));
+    if (entry.operator === 'modulate.field.v1') {
+      entry.operator = modulation.id;
+      for (const parameter of declarations) {
+        const field = modulation.params.find((candidate) => parameter.id === `${owner}.${candidate.id}`);
+        if (field?.topology) parameter.domain = { values: [...field.values] };
+      }
+      continue;
+    }
+    const embedded = entry.operator === 'colorize.generated-palette.v3';
+    const displacementLabel = embedded ? labelFor('displacement') : owner;
+    const spatialLabel = embedded ? labelFor('modulation') : null;
+    const replacements = new Map();
+    for (const parameter of declarations) {
+      const field = parameter.id.slice(prefix.length);
+      if (field === 'hue-shift-mode')
+        replacements.set(parameter.id, displacementLabel ? `${displacementLabel}.modulation-enabled` : null);
+      else if (field === 'hue-shift-amount')
+        replacements.set(parameter.id, displacementLabel ? `${displacementLabel}.modulation-amount` : null);
+      else if (modulation.params.some((candidate) => candidate.id === field))
+        replacements.set(parameter.id, `${spatialLabel}.${field}`);
+    }
+    descriptor.parameters = descriptor.parameters.flatMap((parameter) => {
+      if (!replacements.has(parameter.id)) return [parameter];
+      const target = replacements.get(parameter.id);
+      if (!target) return [];
+      const label = target.slice(0, target.indexOf('.'));
+      const fieldId = target.slice(target.indexOf('.') + 1);
+      const field = modulation.params.find((candidate) => candidate.id === fieldId);
+      const converted = { ...parameter, id: target };
+      if (parameter.id.endsWith('.hue-shift-mode')) {
+        return [{ ...declarationFromCatalogField(label, field, modulation.id),
+          default: parameter.default === 'path-length' ? 'enabled' : 'disabled' }];
+      }
+      if (field.topology) converted.domain = { values: [...field.values] };
+      return [converted];
+    });
+    const remapValues = (values) => Object.fromEntries(Object.entries(values).flatMap(([id, value]) => {
+      if (!replacements.has(id)) return [[id, value]];
+      const target = replacements.get(id);
+      return target ? [[target, id.endsWith('.hue-shift-mode')
+        ? (value === 'path-length' ? 'enabled' : 'disabled') : value]] : [];
+    }));
+    for (const preset of result.preset_bank.presets) preset.values = remapValues(preset.values);
+    if (displacementLabel) {
+      const fixed = { 'modulation-source': 'displacement', 'modulation-evaluation': 'direct',
+        'modulation-mechanic': 'hue-rotation', 'modulation-enabled': embedded ? 'disabled' : 'enabled',
+        'modulation-amount': 0 };
+      for (const [id, value] of Object.entries(fixed)) {
+        if (descriptor.parameters.some((parameter) => parameter.id === `${displacementLabel}.${id}`)) continue;
+        const field = modulation.params.find((candidate) => candidate.id === id);
+        descriptor.parameters.push({ ...declarationFromCatalogField(displacementLabel, field, modulation.id), default: value });
+        for (const preset of result.preset_bank.presets) preset.values[`${displacementLabel}.${id}`] = value;
+      }
+    }
+    for (const policy of descriptor.path_policies) {
+      if (!Array.isArray(policy?.groups)) continue;
+      policy.groups = policy.groups.flatMap((id) =>
+        replacements.has(id) ? (replacements.get(id) ? [replacements.get(id)] : []) : [id]);
+      for (const parameter of descriptor.parameters)
+        if (parameter.id.startsWith(`${displacementLabel}.`) && !policy.groups.includes(parameter.id))
+          policy.groups.push(parameter.id);
+    }
+    entry.operator = embedded ? palette.id : modulation.id;
+    if (embedded)
+      descriptor.chain.splice(descriptor.chain.indexOf(entry) + 1, 0,
+        { label: displacementLabel, operator: modulation.id },
+        { label: spatialLabel, operator: modulation.id });
+  }
+  descriptor.serialization.fields = descriptor.parameters.map((parameter) => parameter.id);
+  return result;
+}
+
 export function compileShaderDocument(source, options = {}) {
   try {
-    const document = typeof source === 'string'
+    const decoded = typeof source === 'string'
       ? parseShaderDocument(source, options.limits)
       : checkDecodedDocumentLimits(source, options.limits);
+    const document = migrateLegacyShaderDocument(decoded, options.catalog);
     object(document, '$');
     const diagnostics = validateShaderDocument(document, options);
     if (diagnostics.length > 0) return { status: 'INVALID', diagnostics };

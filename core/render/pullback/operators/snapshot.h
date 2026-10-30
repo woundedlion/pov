@@ -12,7 +12,6 @@
 #if HS_ENABLE_CHAIN_INTERPRETER
 
 #include "core/render/pullback/operators.h"
-#include "core/render/pullback/operators/modulate.h"
 
 namespace Pullback::Interp {
 
@@ -247,7 +246,7 @@ template <> struct RuntimeStateCodec<Op::ColorClockState> {
    * @return A ColorClockSnapshot.
    */
   static RuntimeSnapshot capture(const Op::ColorClockState &state) {
-    return ColorClockSnapshot{state.oscillation_phase, state.modulation};
+    return ColorClockSnapshot{state.oscillation_phase};
   }
   /**
    * @brief Restores @p state from a ColorClockSnapshot.
@@ -259,37 +258,37 @@ template <> struct RuntimeStateCodec<Op::ColorClockState> {
   static bool restore(Op::ColorClockState &state,
                       const RuntimeSnapshot &snapshot) {
     const auto *value = std::get_if<ColorClockSnapshot>(&snapshot);
-    if (value == nullptr || !Detail::snapshot_phase(value->oscillation_phase) ||
+    if (value == nullptr || !Detail::snapshot_phase(value->oscillation_phase))
+      return false;
+    state.oscillation_phase = value->oscillation_phase;
+    return true;
+  }
+};
+
+/** @brief Snapshot codec of one modulation clock. */
+template <> struct RuntimeStateCodec<Op::ModulationClockState> {
+  /** @brief Captures the source clock.
+   * @param state Clock state.
+   * @return Captured clock. */
+  static RuntimeSnapshot capture(const Op::ModulationClockState &state) {
+    return ModulationClockSnapshot{state.modulation};
+  }
+  /** @brief Restores a validated source clock.
+   * @param state State to update.
+   * @param snapshot Captured clock.
+   * @return Whether the clock is valid. */
+  static bool restore(Op::ModulationClockState &state,
+                      const RuntimeSnapshot &snapshot) {
+    const auto *value = std::get_if<ModulationClockSnapshot>(&snapshot);
+    if (!value ||
         !Detail::snapshot_phase(value->modulation.phase.phase_turns) ||
         (!value->modulation.initialized &&
          value->modulation.phase.phase_turns != 0.0f) ||
         value->modulation.version != 1 ||
         static_cast<unsigned>(value->modulation.source) >
-            static_cast<unsigned>(Pattern::SourceKind::SPHERE_SMOOTH_GRID))
+            static_cast<unsigned>(Pattern::SourceKind::DISPLACEMENT))
       return false;
-    state.oscillation_phase = value->oscillation_phase;
     state.modulation = value->modulation;
-    return true;
-  }
-};
-
-/** @brief Snapshot codec of an independently owned modulation endpoint. */
-template <> struct RuntimeStateCodec<Op::FieldModulationState> {
-  /** @brief Captures source clocks.
-   * @param state Instance state.
-   * @return Existing versioned color-clock representation. */
-  static RuntimeSnapshot capture(const Op::FieldModulationState &state) {
-    return RuntimeStateCodec<Op::ColorClockState>::capture(state.clock);
-  }
-  /** @brief Restores clocks and invalidates derived source resources.
-   * @param state Instance state.
-   * @param snapshot Captured source clock.
-   * @return Whether the snapshot was admitted. */
-  static bool restore(Op::FieldModulationState &state,
-                      const RuntimeSnapshot &snapshot) {
-    if (!RuntimeStateCodec<Op::ColorClockState>::restore(state.clock, snapshot))
-      return false;
-    state.resources->reset();
     return true;
   }
 };

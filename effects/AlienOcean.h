@@ -19,7 +19,6 @@
 
 /** @brief Pullback stage spec for `AlienOcean`. */
 struct AlienOceanSpec : Pullback::Spec {
-  static constexpr bool MODULATION = true;
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
@@ -45,9 +44,13 @@ struct AlienOceanSpec : Pullback::Spec {
                               typename Pullback::CoveragePolicyFor<
                                   Pullback::ProjectionCoverageMode::EDGE_FADE,
                                   B, Pullback::EdgeValueParams>::Type>,
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
-                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "modulation", Pattern::SourceKind::NOISE,
+              Pattern::Evaluation::BAKED_CUBE>>>>;
 };
 /// Parameter block derived from `AlienOceanSpec`.
 using AlienOceanParams = Pullback::ParamsFor<AlienOceanSpec>;
@@ -71,9 +74,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "167b164a432b119a784365fd32a5c043802ec7f11c94528ed54f1ad20361e0b7";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "7e6db1cf821366f63e25e884eaedb3ea36f71fe2b94908660a22398aacedb538";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "541f2c000876e00250228f4d0d47a7c0c557904a39ef50a7e42b7bf0b2c1de0c";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "74ba2ce5abea3ab43fc0ab03f06112fe203106c5af1115481c3dc08e9bcb4385";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "folded-grid"
@@ -83,7 +86,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
   /**
@@ -95,19 +98,19 @@ public:
     value.template get<"projection">().camera_wander = 1.0f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
-    value.template get<"color">().modulation.mechanic.amount = 0.424f;
-    value.template get<"color">().modulation.enabled = true;
-    value.template get<"color">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
-    value.template get<"color">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
-    value.template get<"color">().modulation.source = Pattern::SourceKind::NOISE;
     value.template get<"color">().palette_chroma = 0.4f;
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::LINEAR;
-    value.template get<"color">().modulation.noise.scale = 2.2033439f;
-    value.template get<"color">().modulation.noise.speed = 0.0f;
     value.template get<"color">().phase_oscillation_depth = 0.0f;
     value.template get<"color">().phase_oscillation_speed = 0.0f;
     value.template get<"color">().opacity_high = 1.0f;
     value.template get<"color">().opacity_low = 1.0f;
+    value.template get<"modulation">().modulation.mechanic.amount = 0.424f;
+    value.template get<"modulation">().modulation.enabled = true;
+    value.template get<"modulation">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
+    value.template get<"modulation">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
+    value.template get<"modulation">().modulation.source = Pattern::SourceKind::NOISE;
+    value.template get<"modulation">().modulation.noise.scale = 2.2033439f;
+    value.template get<"modulation">().modulation.noise.speed = 0.0f;
     value.template get<"projection">().singularity_fade = 1.4f;
     value.template get<"source">().angle_rate = 0.0f;
     value.template get<"source">().complexity = 0.0f;

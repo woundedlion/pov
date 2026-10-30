@@ -122,7 +122,7 @@ inline bool arm_warp_op_chain(In::ChainProgram &program, const char *op_id,
       {"project", "project.stereographic.v2"},
       {"warp", op_id},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   return arm_chain<In::Op::RotateChainParams, In::Op::ProjectChainParams,
                    OpParams, In::Op::GridSampleParams,
@@ -287,7 +287,7 @@ inline void test_shader_chain_noise_instances_decorrelate() {
       {"warp-a", In::Op::WarpVectorNoise::ID},
       {"warp-b", In::Op::WarpVectorNoise::ID},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   const In::ChainRefusal refusal =
       program.compile(std::span<const In::ChainEntryRequest>(chain));

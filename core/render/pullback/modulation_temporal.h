@@ -30,8 +30,26 @@ inline const Prepared *retain(const Prepared *source, Prepared &destination,
  * @param a Previous endpoint.
  * @param b Current endpoint.
  * @return Whether both evaluate the same scalar field. */
-inline bool same_field(const Prepared &a, const Prepared &b) {
-  return field_identity(a.config, a.state) == field_identity(b.config, b.state);
+HS_HOT_FLASH_MEMBER inline bool same_field(const Prepared &a,
+                                           const Prepared &b) {
+  const auto &start = a.config;
+  const auto &end = b.config;
+  if (start.source != end.source || start.version != end.version ||
+      start.evaluation != end.evaluation || a.state.phase != b.state.phase)
+    return false;
+  switch (start.source) {
+  case Pattern::SourceKind::DISPLACEMENT:
+    return true;
+  case Pattern::SourceKind::NOISE:
+    return start.seed == end.seed && start.noise == end.noise;
+  case Pattern::SourceKind::DIRECTIONAL_SINE:
+    return start.sine == end.sine;
+  case Pattern::SourceKind::SPHERE_INTERFERENCE:
+    return start.interference == end.interference;
+  case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
+    return start.grid == end.grid;
+  }
+  return false;
 }
 /** @brief Interpolates completed straight-alpha colors with RGB16 rounding.
  * @param a Previous completed endpoint.

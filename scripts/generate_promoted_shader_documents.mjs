@@ -31,30 +31,51 @@ const INHERITED_SEGUE_FRAMES = 480;
 
 const effects = [
   {
-    id: "alien-brain",
-    metadata: {
+    "id": "alien-brain",
+    "metadata": {
       "description": "Glitch-folded grids pulled through an animated wave shear.",
-      "display_name": "Alien Brain",
+      "display_name": "Alien Brain"
     },
-    chain: [
-      {"label": "camera", "operator": "sphere.rotate.v2"},
-      {"label": "lens", "operator": "sphere.lens.glitch.v2"},
-      {"label": "project", "operator": "project.stereographic.v2"},
-      {"label": "warp1", "operator": "warp.wave-shear.v2"},
-      {"label": "sample", "operator": "sample.grid.v3"},
-      {"label": "colorize", "operator": "colorize.generated-palette.v3"},
+    "chain": [
+      {
+        "label": "camera",
+        "operator": "sphere.rotate.v2"
+      },
+      {
+        "label": "lens",
+        "operator": "sphere.lens.glitch.v2"
+      },
+      {
+        "label": "project",
+        "operator": "project.stereographic.v2"
+      },
+      {
+        "label": "warp1",
+        "operator": "warp.wave-shear.v2"
+      },
+      {
+        "label": "sample",
+        "operator": "sample.grid.v3"
+      },
+      {
+        "label": "colorize",
+        "operator": "colorize.generated-palette.v4"
+      },
+      {
+        "label": "modulation",
+        "operator": "color.modulate.v1"
+      }
     ],
-    values: {
+    "values": {
       "camera.wander": 0,
       "colorize.brightness-envelope": "none",
-      "colorize.pattern-scale": 1,
-      "colorize.pattern-speed": 0,
-      "colorize.modulation-amount": 0,
-      "colorize.hue-shift-mode": "none",
-      "colorize.modulation-enabled": "enabled",
-      "colorize.modulation-source": "noise",
-      "colorize.modulation-evaluation": "baked-cube",
-      "colorize.modulation-mechanic": "hue-rotation",
+      "modulation.pattern-scale": 1,
+      "modulation.pattern-speed": 0,
+      "modulation.modulation-amount": 0,
+      "modulation.modulation-enabled": "enabled",
+      "modulation.modulation-source": "noise",
+      "modulation.modulation-evaluation": "baked-cube",
+      "modulation.modulation-mechanic": "hue-rotation",
       "colorize.mapping-frequency": 1,
       "colorize.mapping-phase": 0,
       "colorize.palette-chroma": 0.6200000047683716,
@@ -78,41 +99,121 @@ const effects = [
       "warp1.field-angle": 0,
       "warp1.frequency": 1,
       "warp1.speed": 0,
-      "warp1.strength": 0,
+      "warp1.strength": 0
     },
-    snap: [],
-    presets: [
-      {"id": "alien-brain", "name": "Alien Brain", "values": {"camera.wander": 0.800000011920929, "colorize.pattern-scale": 0.6304218769073486, "colorize.modulation-amount": 0.2919999957084656, "colorize.palette-chroma": 0.7879999876022339, "colorize.palette-mapping": "cup", "sample.complexity": 0.5, "sample.pattern-freq": 4.439000129699707, "sample.speed": 0.24500000476837158, "warp1.speed": 0.015625, "warp1.strength": 0.5}},
-      {"id": "alien-brain-2", "name": "Alien Brain 2", "values": {"camera.wander": 0.800000011920929, "colorize.pattern-scale": 0.6304218769073486, "colorize.modulation-amount": 0.2919999957084656, "colorize.palette-chroma": 0.7879999876022339, "colorize.palette-mapping": "cup", "sample.complexity": 0.5, "sample.pattern-freq": 3.144700050354004, "sample.speed": 0.24500000476837158, "warp1.speed": 0.006906250026077032, "warp1.strength": 2.7200000286102295}},
-      {"id": "alien-brain-3", "name": "Alien Brain 3", "values": {"camera.wander": 0.800000011920929, "colorize.pattern-scale": 0.6304218769073486, "colorize.modulation-amount": 0.2919999957084656, "colorize.palette-chroma": 0.7879999876022339, "colorize.palette-mapping": "cup", "sample.complexity": 1.6979999542236328, "sample.pattern-freq": 7.52269983291626, "sample.speed": 0.24500000476837158, "warp1.speed": 0.006906250026077032}},
-      {"id": "alien-brain-4", "name": "Alien Brain 4", "values": {"camera.wander": 0.800000011920929, "colorize.pattern-scale": 0.6304218769073486, "colorize.modulation-amount": 0.2919999957084656, "colorize.palette-chroma": 0.7879999876022339, "colorize.palette-mapping": "cup", "sample.complexity": 1.6979999542236328, "sample.pattern-freq": 8.816200256347656, "sample.speed": 0.24500000476837158, "warp1.speed": 0.005593750160187483, "warp1.strength": 1.3760000467300415}},
-    ],
+    "snap": [],
+    "presets": [
+      {
+        "id": "alien-brain",
+        "name": "Alien Brain",
+        "values": {
+          "camera.wander": 0.800000011920929,
+          "modulation.pattern-scale": 0.6304218769073486,
+          "modulation.modulation-amount": 0.2919999957084656,
+          "colorize.palette-chroma": 0.7879999876022339,
+          "colorize.palette-mapping": "cup",
+          "sample.complexity": 0.5,
+          "sample.pattern-freq": 4.439000129699707,
+          "sample.speed": 0.24500000476837158,
+          "warp1.speed": 0.015625,
+          "warp1.strength": 0.5
+        }
+      },
+      {
+        "id": "alien-brain-2",
+        "name": "Alien Brain 2",
+        "values": {
+          "camera.wander": 0.800000011920929,
+          "modulation.pattern-scale": 0.6304218769073486,
+          "modulation.modulation-amount": 0.2919999957084656,
+          "colorize.palette-chroma": 0.7879999876022339,
+          "colorize.palette-mapping": "cup",
+          "sample.complexity": 0.5,
+          "sample.pattern-freq": 3.144700050354004,
+          "sample.speed": 0.24500000476837158,
+          "warp1.speed": 0.006906250026077032,
+          "warp1.strength": 2.7200000286102295
+        }
+      },
+      {
+        "id": "alien-brain-3",
+        "name": "Alien Brain 3",
+        "values": {
+          "camera.wander": 0.800000011920929,
+          "modulation.pattern-scale": 0.6304218769073486,
+          "modulation.modulation-amount": 0.2919999957084656,
+          "colorize.palette-chroma": 0.7879999876022339,
+          "colorize.palette-mapping": "cup",
+          "sample.complexity": 1.6979999542236328,
+          "sample.pattern-freq": 7.52269983291626,
+          "sample.speed": 0.24500000476837158,
+          "warp1.speed": 0.006906250026077032
+        }
+      },
+      {
+        "id": "alien-brain-4",
+        "name": "Alien Brain 4",
+        "values": {
+          "camera.wander": 0.800000011920929,
+          "modulation.pattern-scale": 0.6304218769073486,
+          "modulation.modulation-amount": 0.2919999957084656,
+          "colorize.palette-chroma": 0.7879999876022339,
+          "colorize.palette-mapping": "cup",
+          "sample.complexity": 1.6979999542236328,
+          "sample.pattern-freq": 8.816200256347656,
+          "sample.speed": 0.24500000476837158,
+          "warp1.speed": 0.005593750160187483,
+          "warp1.strength": 1.3760000467300415
+        }
+      }
+    ]
   },
   {
-    id: "kaleidoscope-hex-soft",
-    metadata: {
+    "id": "kaleidoscope-hex-soft",
+    "metadata": {
       "description": "A drifting twin wave reflected through a kaleidoscope.",
-      "display_name": "Kaleidoscope Hex Soft",
+      "display_name": "Kaleidoscope Hex Soft"
     },
-    chain: [
-      {"label": "camera", "operator": "sphere.rotate.v2"},
-      {"label": "lens", "operator": "sphere.lens.kaleidoscope.v2"},
-      {"label": "project", "operator": "project.stereographic.v2"},
-      {"label": "warp2", "operator": "warp.mirror-tile.v2"},
-      {"label": "sample", "operator": "sample.twin-wave.v3"},
-      {"label": "colorize", "operator": "colorize.generated-palette.v3"},
+    "chain": [
+      {
+        "label": "camera",
+        "operator": "sphere.rotate.v2"
+      },
+      {
+        "label": "lens",
+        "operator": "sphere.lens.kaleidoscope.v2"
+      },
+      {
+        "label": "project",
+        "operator": "project.stereographic.v2"
+      },
+      {
+        "label": "warp2",
+        "operator": "warp.mirror-tile.v2"
+      },
+      {
+        "label": "sample",
+        "operator": "sample.twin-wave.v3"
+      },
+      {
+        "label": "colorize",
+        "operator": "colorize.generated-palette.v4"
+      },
+      {
+        "label": "modulation",
+        "operator": "color.modulate.v1"
+      }
     ],
-    values: {
+    "values": {
       "camera.wander": 0,
       "colorize.brightness-envelope": "none",
-      "colorize.pattern-scale": 1,
-      "colorize.pattern-speed": 0,
-      "colorize.modulation-amount": 0,
-      "colorize.hue-shift-mode": "none",
-      "colorize.modulation-enabled": "enabled",
-      "colorize.modulation-source": "noise",
-      "colorize.modulation-evaluation": "baked-cube",
-      "colorize.modulation-mechanic": "hue-rotation",
+      "modulation.pattern-scale": 1,
+      "modulation.pattern-speed": 0,
+      "modulation.modulation-amount": 0,
+      "modulation.modulation-enabled": "enabled",
+      "modulation.modulation-source": "noise",
+      "modulation.modulation-evaluation": "baked-cube",
+      "modulation.modulation-mechanic": "hue-rotation",
       "colorize.mapping-frequency": 1,
       "colorize.mapping-phase": 0,
       "colorize.palette-chroma": 0.6200000047683716,
@@ -137,38 +238,75 @@ const effects = [
       "warp2.offset-x": 0,
       "warp2.offset-y": 0,
       "warp2.rotation": 0,
-      "warp2.speed": 0,
+      "warp2.speed": 0
     },
-    snap: [],
-    presets: [
-      {"id": "twin-wave", "name": "Twin Wave", "values": {"camera.wander": 1, "colorize.pattern-scale": 2.2033438682556152, "colorize.pattern-speed": -0.00040800002170726657, "colorize.modulation-amount": 0.27000001072883606, "colorize.palette-chroma": 0.3610000014305115, "project.projection-wander": 1, "project.singularity-fade": 4.9710001945495605, "sample.angle-speed": 0.05000000074505806, "sample.drift": 0.800000011920929, "sample.pattern-freq": 4.975500106811523, "sample.speed": 0.125}},
-    ],
+    "snap": [],
+    "presets": [
+      {
+        "id": "twin-wave",
+        "name": "Twin Wave",
+        "values": {
+          "camera.wander": 1,
+          "modulation.pattern-scale": 2.2033438682556152,
+          "modulation.pattern-speed": -0.00040800002170726657,
+          "modulation.modulation-amount": 0.27000001072883606,
+          "colorize.palette-chroma": 0.3610000014305115,
+          "project.projection-wander": 1,
+          "project.singularity-fade": 4.9710001945495605,
+          "sample.angle-speed": 0.05000000074505806,
+          "sample.drift": 0.800000011920929,
+          "sample.pattern-freq": 4.975500106811523,
+          "sample.speed": 0.125
+        }
+      }
+    ]
   },
   {
-    id: "alien-ocean",
-    metadata: {
+    "id": "alien-ocean",
+    "metadata": {
       "description": "A broad folded grid with slow mirrored drift.",
-      "display_name": "Alien Ocean",
+      "display_name": "Alien Ocean"
     },
-    chain: [
-      {"label": "camera", "operator": "sphere.rotate.v2"},
-      {"label": "lens", "operator": "sphere.lens.kaleidoscope.v2"},
-      {"label": "project", "operator": "project.gnomonic.v2"},
-      {"label": "warp1", "operator": "warp.mirror-tile.v2"},
-      {"label": "sample", "operator": "sample.grid.v3"},
-      {"label": "colorize", "operator": "colorize.generated-palette.v3"},
+    "chain": [
+      {
+        "label": "camera",
+        "operator": "sphere.rotate.v2"
+      },
+      {
+        "label": "lens",
+        "operator": "sphere.lens.kaleidoscope.v2"
+      },
+      {
+        "label": "project",
+        "operator": "project.gnomonic.v2"
+      },
+      {
+        "label": "warp1",
+        "operator": "warp.mirror-tile.v2"
+      },
+      {
+        "label": "sample",
+        "operator": "sample.grid.v3"
+      },
+      {
+        "label": "colorize",
+        "operator": "colorize.generated-palette.v4"
+      },
+      {
+        "label": "modulation",
+        "operator": "color.modulate.v1"
+      }
     ],
-    values: {
+    "values": {
       "camera.wander": 0,
       "colorize.brightness-envelope": "none",
-      "colorize.pattern-scale": 1,
-      "colorize.pattern-speed": 0,
-      "colorize.modulation-amount": 0,
-      "colorize.hue-shift-mode": "none",
-      "colorize.modulation-enabled": "enabled",
-      "colorize.modulation-source": "noise",
-      "colorize.modulation-evaluation": "baked-cube",
-      "colorize.modulation-mechanic": "hue-rotation",
+      "modulation.pattern-scale": 1,
+      "modulation.pattern-speed": 0,
+      "modulation.modulation-amount": 0,
+      "modulation.modulation-enabled": "enabled",
+      "modulation.modulation-source": "noise",
+      "modulation.modulation-evaluation": "baked-cube",
+      "modulation.modulation-mechanic": "hue-rotation",
       "colorize.mapping-frequency": 1,
       "colorize.mapping-phase": 0,
       "colorize.palette-chroma": 0.6200000047683716,
@@ -196,38 +334,78 @@ const effects = [
       "warp1.offset-x": 0,
       "warp1.offset-y": 0,
       "warp1.rotation": 0,
-      "warp1.speed": 0,
+      "warp1.speed": 0
     },
-    snap: [],
-    presets: [
-      {"id": "folded-grid", "name": "Folded Grid", "values": {"camera.wander": 1, "colorize.pattern-scale": 2.2033438682556152, "colorize.modulation-amount": 0.42399999499320984, "colorize.palette-chroma": 0.4000000059604645, "project.singularity-fade": 1.399999976158142, "sample.drift": 1, "sample.edge-width": 0.5, "sample.pattern-freq": 3.565000057220459, "sample.pattern-mix": 1, "sample.speed": 0.23499999940395355, "warp1.cell-x": 5.381124973297119, "warp1.offset-x": 1.343999981880188, "warp1.offset-y": -1.4559999704360962, "warp1.rotation": 0.29530972242355347}},
-    ],
+    "snap": [],
+    "presets": [
+      {
+        "id": "folded-grid",
+        "name": "Folded Grid",
+        "values": {
+          "camera.wander": 1,
+          "modulation.pattern-scale": 2.2033438682556152,
+          "modulation.modulation-amount": 0.42399999499320984,
+          "colorize.palette-chroma": 0.4000000059604645,
+          "project.singularity-fade": 1.399999976158142,
+          "sample.drift": 1,
+          "sample.edge-width": 0.5,
+          "sample.pattern-freq": 3.565000057220459,
+          "sample.pattern-mix": 1,
+          "sample.speed": 0.23499999940395355,
+          "warp1.cell-x": 5.381124973297119,
+          "warp1.offset-x": 1.343999981880188,
+          "warp1.offset-y": -1.4559999704360962,
+          "warp1.rotation": 0.29530972242355347
+        }
+      }
+    ]
   },
   {
-    id: "alien-core",
-    metadata: {
+    "id": "alien-core",
+    "metadata": {
       "description": "A mirrored grid folded by the glitch lens.",
-      "display_name": "Alien Core",
+      "display_name": "Alien Core"
     },
-    chain: [
-      {"label": "camera", "operator": "sphere.rotate.v2"},
-      {"label": "lens", "operator": "sphere.lens.glitch.v2"},
-      {"label": "project", "operator": "project.gnomonic.v2"},
-      {"label": "warp1", "operator": "warp.mirror-tile.v2"},
-      {"label": "sample", "operator": "sample.grid.v3"},
-      {"label": "colorize", "operator": "colorize.generated-palette.v3"},
+    "chain": [
+      {
+        "label": "camera",
+        "operator": "sphere.rotate.v2"
+      },
+      {
+        "label": "lens",
+        "operator": "sphere.lens.glitch.v2"
+      },
+      {
+        "label": "project",
+        "operator": "project.gnomonic.v2"
+      },
+      {
+        "label": "warp1",
+        "operator": "warp.mirror-tile.v2"
+      },
+      {
+        "label": "sample",
+        "operator": "sample.grid.v3"
+      },
+      {
+        "label": "colorize",
+        "operator": "colorize.generated-palette.v4"
+      },
+      {
+        "label": "modulation",
+        "operator": "color.modulate.v1"
+      }
     ],
-    values: {
+    "values": {
       "camera.wander": 0,
       "colorize.brightness-envelope": "none",
-      "colorize.pattern-scale": 1,
-      "colorize.pattern-speed": 0,
-      "colorize.modulation-amount": 0,
-      "colorize.hue-shift-mode": "none",
-      "colorize.modulation-enabled": "enabled",
-      "colorize.modulation-source": "noise",
-      "colorize.modulation-evaluation": "baked-cube",
-      "colorize.modulation-mechanic": "hue-rotation",
+      "modulation.pattern-scale": 1,
+      "modulation.pattern-speed": 0,
+      "modulation.modulation-amount": 0,
+      "modulation.modulation-enabled": "enabled",
+      "modulation.modulation-source": "noise",
+      "modulation.modulation-evaluation": "baked-cube",
+      "modulation.modulation-mechanic": "hue-rotation",
       "colorize.mapping-frequency": 1,
       "colorize.mapping-phase": 0,
       "colorize.palette-chroma": 0.6200000047683716,
@@ -254,39 +432,79 @@ const effects = [
       "warp1.offset-x": 0,
       "warp1.offset-y": 0,
       "warp1.rotation": 0,
-      "warp1.speed": 0,
+      "warp1.speed": 0
     },
-    snap: [],
-    presets: [
-      {"id": "folded-glitch", "name": "Folded Glitch", "values": {"camera.wander": 1, "project.singularity-fade": 1.399999976158142, "sample.drift": 1, "sample.edge-width": 0.5, "sample.pattern-freq": 3.565000057220459, "sample.pattern-mix": 1, "sample.speed": 0.23499999940395355, "warp1.cell-x": 5.381124973297119, "warp1.offset-x": 1.343999981880188, "warp1.offset-y": -1.4559999704360962, "warp1.rotation": 0.29530972242355347}},
-    ],
+    "snap": [],
+    "presets": [
+      {
+        "id": "folded-glitch",
+        "name": "Folded Glitch",
+        "values": {
+          "camera.wander": 1,
+          "project.singularity-fade": 1.399999976158142,
+          "sample.drift": 1,
+          "sample.edge-width": 0.5,
+          "sample.pattern-freq": 3.565000057220459,
+          "sample.pattern-mix": 1,
+          "sample.speed": 0.23499999940395355,
+          "warp1.cell-x": 5.381124973297119,
+          "warp1.offset-x": 1.343999981880188,
+          "warp1.offset-y": -1.4559999704360962,
+          "warp1.rotation": 0.29530972242355347
+        }
+      }
+    ]
   },
   {
-    id: "kaleidoscope-mandala",
-    metadata: {
+    "id": "kaleidoscope-mandala",
+    "metadata": {
       "description": "A wave-sheared grid moving across dodecahedral facets.",
-      "display_name": "Kaleidoscope Mandala",
+      "display_name": "Kaleidoscope Mandala"
     },
-    chain: [
-      {"label": "camera", "operator": "sphere.rotate.v2"},
-      {"label": "lens", "operator": "sphere.lens.kaleidoscope.v2"},
-      {"label": "project", "operator": "project.gnomonic.v2"},
-      {"label": "warp1", "operator": "warp.wave-shear.v2"},
-      {"label": "warp2", "operator": "warp.mirror-tile.v2"},
-      {"label": "sample", "operator": "sample.grid.v3"},
-      {"label": "colorize", "operator": "colorize.generated-palette.v3"},
+    "chain": [
+      {
+        "label": "camera",
+        "operator": "sphere.rotate.v2"
+      },
+      {
+        "label": "lens",
+        "operator": "sphere.lens.kaleidoscope.v2"
+      },
+      {
+        "label": "project",
+        "operator": "project.gnomonic.v2"
+      },
+      {
+        "label": "warp1",
+        "operator": "warp.wave-shear.v2"
+      },
+      {
+        "label": "warp2",
+        "operator": "warp.mirror-tile.v2"
+      },
+      {
+        "label": "sample",
+        "operator": "sample.grid.v3"
+      },
+      {
+        "label": "colorize",
+        "operator": "colorize.generated-palette.v4"
+      },
+      {
+        "label": "modulation",
+        "operator": "color.modulate.v1"
+      }
     ],
-    values: {
+    "values": {
       "camera.wander": 0,
       "colorize.brightness-envelope": "none",
-      "colorize.pattern-scale": 1,
-      "colorize.pattern-speed": 0,
-      "colorize.modulation-amount": 0,
-      "colorize.hue-shift-mode": "none",
-      "colorize.modulation-enabled": "enabled",
-      "colorize.modulation-source": "noise",
-      "colorize.modulation-evaluation": "baked-cube",
-      "colorize.modulation-mechanic": "hue-rotation",
+      "modulation.pattern-scale": 1,
+      "modulation.pattern-speed": 0,
+      "modulation.modulation-amount": 0,
+      "modulation.modulation-enabled": "enabled",
+      "modulation.modulation-source": "noise",
+      "modulation.modulation-evaluation": "baked-cube",
+      "modulation.modulation-mechanic": "hue-rotation",
       "colorize.mapping-frequency": 1,
       "colorize.mapping-phase": 0,
       "colorize.palette-chroma": 0.6200000047683716,
@@ -317,39 +535,98 @@ const effects = [
       "warp2.offset-x": 0,
       "warp2.offset-y": 0,
       "warp2.rotation": 0,
-      "warp2.speed": 0,
+      "warp2.speed": 0
     },
-    snap: [],
-    presets: [
-      {"id": "wave-mirror", "name": "Wave Mirror", "values": {"camera.wander": 1, "colorize.modulation-amount": 0.7210000157356262, "colorize.palette-chroma": 1, "project.singularity-fade": 2.311000108718872, "sample.angle-speed": 0.027000000700354576, "sample.complexity": 1.7039999961853027, "sample.drift": 0.800000011920929, "sample.pattern-freq": 6.328700065612793, "sample.speed": 0.03999999910593033, "warp1.field-angle": 2.2305307388305664, "warp1.frequency": 1.4079999923706055, "warp1.speed": -0.0032500000670552254, "warp1.strength": -0.17599999904632568}},
-      {"id": "cup-hue", "name": "Cup Hue", "values": {"camera.wander": 1, "colorize.pattern-scale": 1.9717968702316284, "colorize.modulation-amount": 1, "colorize.palette-chroma": 1, "colorize.palette-mapping": "cup", "project.singularity-fade": 2.311000108718872, "sample.angle-speed": 0.027000000700354576, "sample.complexity": 1.7039999961853027, "sample.drift": 0.800000011920929, "sample.pattern-freq": 6.328700065612793, "sample.speed": 0.03999999910593033, "warp1.field-angle": 2.2305307388305664, "warp1.frequency": 1.4079999923706055, "warp1.speed": -0.0032500000670552254, "warp1.strength": -0.17599999904632568}},
-    ],
+    "snap": [],
+    "presets": [
+      {
+        "id": "wave-mirror",
+        "name": "Wave Mirror",
+        "values": {
+          "camera.wander": 1,
+          "modulation.modulation-amount": 0.7210000157356262,
+          "colorize.palette-chroma": 1,
+          "project.singularity-fade": 2.311000108718872,
+          "sample.angle-speed": 0.027000000700354576,
+          "sample.complexity": 1.7039999961853027,
+          "sample.drift": 0.800000011920929,
+          "sample.pattern-freq": 6.328700065612793,
+          "sample.speed": 0.03999999910593033,
+          "warp1.field-angle": 2.2305307388305664,
+          "warp1.frequency": 1.4079999923706055,
+          "warp1.speed": -0.0032500000670552254,
+          "warp1.strength": -0.17599999904632568
+        }
+      },
+      {
+        "id": "cup-hue",
+        "name": "Cup Hue",
+        "values": {
+          "camera.wander": 1,
+          "modulation.pattern-scale": 1.9717968702316284,
+          "modulation.modulation-amount": 1,
+          "colorize.palette-chroma": 1,
+          "colorize.palette-mapping": "cup",
+          "project.singularity-fade": 2.311000108718872,
+          "sample.angle-speed": 0.027000000700354576,
+          "sample.complexity": 1.7039999961853027,
+          "sample.drift": 0.800000011920929,
+          "sample.pattern-freq": 6.328700065612793,
+          "sample.speed": 0.03999999910593033,
+          "warp1.field-angle": 2.2305307388305664,
+          "warp1.frequency": 1.4079999923706055,
+          "warp1.speed": -0.0032500000670552254,
+          "warp1.strength": -0.17599999904632568
+        }
+      }
+    ]
   },
   {
-    id: "grid-space",
-    metadata: {
+    "id": "grid-space",
+    "metadata": {
       "description": "An affine primitive lattice rendered as soft contours.",
-      "display_name": "Grid Space",
+      "display_name": "Grid Space"
     },
-    chain: [
-      {"label": "camera", "operator": "sphere.rotate.v2"},
-      {"label": "project", "operator": "project.gnomonic.v2"},
-      {"label": "warp1", "operator": "warp.affine.v3"},
-      {"label": "sample", "operator": "sample.lattice.v2"},
-      {"label": "transfer", "operator": "field.transfer.iso-contour.v2"},
-      {"label": "colorize", "operator": "colorize.generated-palette.v3"},
+    "chain": [
+      {
+        "label": "camera",
+        "operator": "sphere.rotate.v2"
+      },
+      {
+        "label": "project",
+        "operator": "project.gnomonic.v2"
+      },
+      {
+        "label": "warp1",
+        "operator": "warp.affine.v3"
+      },
+      {
+        "label": "sample",
+        "operator": "sample.lattice.v2"
+      },
+      {
+        "label": "transfer",
+        "operator": "field.transfer.iso-contour.v2"
+      },
+      {
+        "label": "colorize",
+        "operator": "colorize.generated-palette.v4"
+      },
+      {
+        "label": "modulation",
+        "operator": "color.modulate.v1"
+      }
     ],
-    values: {
+    "values": {
       "camera.wander": 0,
       "colorize.brightness-envelope": "none",
-      "colorize.pattern-scale": 1,
-      "colorize.pattern-speed": 0,
-      "colorize.modulation-amount": 0,
-      "colorize.hue-shift-mode": "none",
-      "colorize.modulation-enabled": "enabled",
-      "colorize.modulation-source": "noise",
-      "colorize.modulation-evaluation": "baked-cube",
-      "colorize.modulation-mechanic": "hue-rotation",
+      "modulation.pattern-scale": 1,
+      "modulation.pattern-speed": 0,
+      "modulation.modulation-amount": 0,
+      "modulation.modulation-enabled": "enabled",
+      "modulation.modulation-source": "noise",
+      "modulation.modulation-evaluation": "baked-cube",
+      "modulation.modulation-mechanic": "hue-rotation",
       "colorize.mapping-frequency": 1,
       "colorize.mapping-phase": 0,
       "colorize.palette-chroma": 0.6200000047683716,
@@ -378,39 +655,84 @@ const effects = [
       "warp1.shear": 0,
       "warp1.speed": 0,
       "warp1.translation-x": 0,
-      "warp1.translation-y": 0,
+      "warp1.translation-y": 0
     },
-    snap: [],
-    presets: [
-      {"id": "affine-contour", "name": "Affine Contour", "values": {"camera.wander": 1, "colorize.pattern-scale": 0.8300312757492065, "colorize.pattern-speed": 0.00021200001356191933, "colorize.modulation-amount": 0.39800000190734863, "project.projection-spin-speed": 0.020879197865724564, "project.projection-wander": 0.003091752529144287, "sample.lattice-cell-scale": 1.2292499542236328, "sample.lattice-radius": 0.3329818844795227, "sample.lattice-shape": 1, "sample.lattice-softness": 0.16082030534744263, "transfer.iso-level": 0.1379999965429306, "transfer.iso-width": 0.22703418135643005, "warp1.lattice-period": 0.813504159450531, "warp1.speed": 0.015625, "warp1.translation-x": 4, "warp1.translation-y": 4}},
-    ],
+    "snap": [],
+    "presets": [
+      {
+        "id": "affine-contour",
+        "name": "Affine Contour",
+        "values": {
+          "camera.wander": 1,
+          "modulation.pattern-scale": 0.8300312757492065,
+          "modulation.pattern-speed": 0.00021200001356191933,
+          "modulation.modulation-amount": 0.39800000190734863,
+          "project.projection-spin-speed": 0.020879197865724564,
+          "project.projection-wander": 0.003091752529144287,
+          "sample.lattice-cell-scale": 1.2292499542236328,
+          "sample.lattice-radius": 0.3329818844795227,
+          "sample.lattice-shape": 1,
+          "sample.lattice-softness": 0.16082030534744263,
+          "transfer.iso-level": 0.1379999965429306,
+          "transfer.iso-width": 0.22703418135643005,
+          "warp1.lattice-period": 0.813504159450531,
+          "warp1.speed": 0.015625,
+          "warp1.translation-x": 4,
+          "warp1.translation-y": 4
+        }
+      }
+    ]
   },
   {
-    id: "kaleidoscope-pent-bright",
-    metadata: {
+    "id": "kaleidoscope-pent-bright",
+    "metadata": {
       "description": "A polar lattice folded through a pentagonal prism.",
-      "display_name": "Kaleidoscope Pent Bright",
+      "display_name": "Kaleidoscope Pent Bright"
     },
-    chain: [
-      {"label": "camera", "operator": "sphere.rotate.v2"},
-      {"label": "lens", "operator": "sphere.lens.kaleidoscope.v2"},
-      {"label": "project", "operator": "project.stereographic.v2"},
-      {"label": "warp1", "operator": "warp.polar-chart.v2"},
-      {"label": "warp2", "operator": "warp.wave-shear.v2"},
-      {"label": "sample", "operator": "sample.lattice.v2"},
-      {"label": "colorize", "operator": "colorize.generated-palette.v3"},
+    "chain": [
+      {
+        "label": "camera",
+        "operator": "sphere.rotate.v2"
+      },
+      {
+        "label": "lens",
+        "operator": "sphere.lens.kaleidoscope.v2"
+      },
+      {
+        "label": "project",
+        "operator": "project.stereographic.v2"
+      },
+      {
+        "label": "warp1",
+        "operator": "warp.polar-chart.v2"
+      },
+      {
+        "label": "warp2",
+        "operator": "warp.wave-shear.v2"
+      },
+      {
+        "label": "sample",
+        "operator": "sample.lattice.v2"
+      },
+      {
+        "label": "colorize",
+        "operator": "colorize.generated-palette.v4"
+      },
+      {
+        "label": "modulation",
+        "operator": "color.modulate.v1"
+      }
     ],
-    values: {
+    "values": {
       "camera.wander": 0,
       "colorize.brightness-envelope": "none",
-      "colorize.pattern-scale": 1,
-      "colorize.pattern-speed": 0,
-      "colorize.modulation-amount": 0,
-      "colorize.hue-shift-mode": "none",
-      "colorize.modulation-enabled": "enabled",
-      "colorize.modulation-source": "noise",
-      "colorize.modulation-evaluation": "baked-cube",
-      "colorize.modulation-mechanic": "hue-rotation",
+      "modulation.pattern-scale": 1,
+      "modulation.pattern-speed": 0,
+      "modulation.modulation-amount": 0,
+      "modulation.modulation-enabled": "enabled",
+      "modulation.modulation-source": "noise",
+      "modulation.modulation-evaluation": "baked-cube",
+      "modulation.modulation-mechanic": "hue-rotation",
       "colorize.mapping-frequency": 1,
       "colorize.mapping-phase": 0,
       "colorize.palette-chroma": 0.6200000047683716,
@@ -438,41 +760,84 @@ const effects = [
       "warp2.field-angle": 0,
       "warp2.frequency": 1,
       "warp2.speed": 0,
-      "warp2.strength": 0,
+      "warp2.strength": 0
     },
-    snap: [],
-    presets: [
-      {"id": "polar-wave", "name": "Polar Wave", "values": {"camera.wander": 1, "colorize.pattern-scale": 2, "colorize.modulation-amount": 0.2680000066757202, "colorize.mapping-phase": -0.16599999368190765, "colorize.palette-chroma": 1, "colorize.palette-mapping": "cup", "project.projection-wander": 1, "project.singularity-fade": 2.2730000019073486, "sample.lattice-cell-scale": 0.7957746982574463, "sample.lattice-radius": 0.2907625138759613, "sample.lattice-shape": 1, "sample.lattice-softness": 0.37760838866233826, "warp1.speed": 0.00034374999813735485, "warp2.speed": 0.0009999999310821295}},
-    ],
+    "snap": [],
+    "presets": [
+      {
+        "id": "polar-wave",
+        "name": "Polar Wave",
+        "values": {
+          "camera.wander": 1,
+          "modulation.pattern-scale": 2,
+          "modulation.modulation-amount": 0.2680000066757202,
+          "colorize.mapping-phase": -0.16599999368190765,
+          "colorize.palette-chroma": 1,
+          "colorize.palette-mapping": "cup",
+          "project.projection-wander": 1,
+          "project.singularity-fade": 2.2730000019073486,
+          "sample.lattice-cell-scale": 0.7957746982574463,
+          "sample.lattice-radius": 0.2907625138759613,
+          "sample.lattice-shape": 1,
+          "sample.lattice-softness": 0.37760838866233826,
+          "warp1.speed": 0.00034374999813735485,
+          "warp2.speed": 0.0009999999310821295
+        }
+      }
+    ]
   },
   {
-    id: "kaleidoscope-stained-glass",
-    metadata: {
+    "id": "kaleidoscope-stained-glass",
+    "metadata": {
       "description": "A vector-noise grid refracted across dodecahedral facets.",
-      "display_name": "Kaleidoscope Stained Glass",
+      "display_name": "Kaleidoscope Stained Glass"
     },
-    chain: [
-      {"label": "camera", "operator": "sphere.rotate.v2"},
-      {"label": "lens", "operator": "sphere.lens.kaleidoscope.v2"},
-      {"label": "project", "operator": "project.gnomonic.v2"},
-      {"label": "warp1", "operator": "warp.vector-noise.v2"},
-      {"label": "warp2", "operator": "warp.mirror-tile.v2"},
-      {"label": "sample", "operator": "sample.grid.v3"},
-      {"label": "colorize", "operator": "colorize.generated-palette.v3"},
+    "chain": [
+      {
+        "label": "camera",
+        "operator": "sphere.rotate.v2"
+      },
+      {
+        "label": "lens",
+        "operator": "sphere.lens.kaleidoscope.v2"
+      },
+      {
+        "label": "project",
+        "operator": "project.gnomonic.v2"
+      },
+      {
+        "label": "warp1",
+        "operator": "warp.vector-noise.v2"
+      },
+      {
+        "label": "warp2",
+        "operator": "warp.mirror-tile.v2"
+      },
+      {
+        "label": "sample",
+        "operator": "sample.grid.v3"
+      },
+      {
+        "label": "colorize",
+        "operator": "colorize.generated-palette.v4"
+      },
+      {
+        "label": "modulation",
+        "operator": "color.modulate.v1"
+      }
     ],
-    values: {
+    "values": {
       "camera.wander": 0,
       "colorize.brightness-bottom": 0,
       "colorize.brightness-envelope": "cup",
       "colorize.brightness-top": 1,
-      "colorize.pattern-scale": 1,
-      "colorize.pattern-speed": 0,
-      "colorize.modulation-amount": 0,
-      "colorize.hue-shift-mode": "none",
-      "colorize.modulation-enabled": "enabled",
-      "colorize.modulation-source": "noise",
-      "colorize.modulation-evaluation": "baked-cube",
-      "colorize.modulation-mechanic": "hue-rotation",
+      "modulation.pattern-scale": 1,
+      "modulation.pattern-speed": 0,
+      "modulation.modulation-amount": 0,
+      "modulation.modulation-enabled": "enabled",
+      "modulation.modulation-source": "noise",
+      "modulation.modulation-evaluation": "baked-cube",
+      "modulation.modulation-mechanic": "hue-rotation",
       "colorize.mapping-frequency": 1,
       "colorize.mapping-phase": 0,
       "colorize.palette-chroma": 0.6200000047683716,
@@ -504,38 +869,78 @@ const effects = [
       "warp2.offset-x": 0,
       "warp2.offset-y": 0,
       "warp2.rotation": 0,
-      "warp2.speed": 0,
+      "warp2.speed": 0
     },
-    snap: [],
-    presets: [
-      {"id": "vector-mirror", "name": "Vector Mirror", "values": {"camera.wander": 1, "colorize.brightness-bottom": 0.3449999988079071, "colorize.modulation-amount": 0.7210000157356262, "colorize.palette-chroma": 1, "colorize.palette-mapping": "cup", "project.singularity-fade": 2.311000108718872, "sample.angle-speed": 0.027000000700354576, "sample.complexity": 1.7039999961853027, "sample.drift": 0.800000011920929, "sample.pattern-freq": 4.975500106811523, "sample.speed": 0.03999999910593033, "warp1.speed": -4.999999873689376e-05, "warp1.strength": 0.1379999965429306, "warp2.speed": 0.003279999829828739}},
-    ],
+    "snap": [],
+    "presets": [
+      {
+        "id": "vector-mirror",
+        "name": "Vector Mirror",
+        "values": {
+          "camera.wander": 1,
+          "colorize.brightness-bottom": 0.3449999988079071,
+          "modulation.modulation-amount": 0.7210000157356262,
+          "colorize.palette-chroma": 1,
+          "colorize.palette-mapping": "cup",
+          "project.singularity-fade": 2.311000108718872,
+          "sample.angle-speed": 0.027000000700354576,
+          "sample.complexity": 1.7039999961853027,
+          "sample.drift": 0.800000011920929,
+          "sample.pattern-freq": 4.975500106811523,
+          "sample.speed": 0.03999999910593033,
+          "warp1.speed": -0.00004999999873689376,
+          "warp1.strength": 0.1379999965429306,
+          "warp2.speed": 0.003279999829828739
+        }
+      }
+    ]
   },
   {
-    id: "kaleidoscope-hex-bright",
-    metadata: {
+    "id": "kaleidoscope-hex-bright",
+    "metadata": {
       "description": "A twin wave folded through a hexagonal prism.",
-      "display_name": "Kaleidoscope Hex Bright",
+      "display_name": "Kaleidoscope Hex Bright"
     },
-    chain: [
-      {"label": "camera", "operator": "sphere.rotate.v2"},
-      {"label": "lens", "operator": "sphere.lens.kaleidoscope.v2"},
-      {"label": "project", "operator": "project.stereographic.v2"},
-      {"label": "warp2", "operator": "warp.mirror-tile.v2"},
-      {"label": "sample", "operator": "sample.twin-wave.v3"},
-      {"label": "colorize", "operator": "colorize.generated-palette.v3"},
+    "chain": [
+      {
+        "label": "camera",
+        "operator": "sphere.rotate.v2"
+      },
+      {
+        "label": "lens",
+        "operator": "sphere.lens.kaleidoscope.v2"
+      },
+      {
+        "label": "project",
+        "operator": "project.stereographic.v2"
+      },
+      {
+        "label": "warp2",
+        "operator": "warp.mirror-tile.v2"
+      },
+      {
+        "label": "sample",
+        "operator": "sample.twin-wave.v3"
+      },
+      {
+        "label": "colorize",
+        "operator": "colorize.generated-palette.v4"
+      },
+      {
+        "label": "modulation",
+        "operator": "color.modulate.v1"
+      }
     ],
-    values: {
+    "values": {
       "camera.wander": 0,
       "colorize.brightness-envelope": "none",
-      "colorize.pattern-scale": 1,
-      "colorize.pattern-speed": 0,
-      "colorize.modulation-amount": 0,
-      "colorize.hue-shift-mode": "none",
-      "colorize.modulation-enabled": "enabled",
-      "colorize.modulation-source": "noise",
-      "colorize.modulation-evaluation": "baked-cube",
-      "colorize.modulation-mechanic": "hue-rotation",
+      "modulation.pattern-scale": 1,
+      "modulation.pattern-speed": 0,
+      "modulation.modulation-amount": 0,
+      "modulation.modulation-enabled": "enabled",
+      "modulation.modulation-source": "noise",
+      "modulation.modulation-evaluation": "baked-cube",
+      "modulation.modulation-mechanic": "hue-rotation",
       "colorize.mapping-frequency": 1,
       "colorize.mapping-phase": 0,
       "colorize.palette-chroma": 0.6200000047683716,
@@ -560,39 +965,98 @@ const effects = [
       "warp2.offset-x": 0,
       "warp2.offset-y": 0,
       "warp2.rotation": 0,
-      "warp2.speed": 0,
+      "warp2.speed": 0
     },
-    snap: [],
-    presets: [
-      {"id": "hex-twin-wave", "name": "Hex Twin Wave", "values": {"camera.wander": 1, "colorize.pattern-scale": 1.472156286239624, "colorize.pattern-speed": 0.00013800000306218863, "colorize.modulation-amount": 0.22599999606609344, "colorize.mapping-frequency": 1.340999960899353, "colorize.mapping-phase": -1, "colorize.palette-chroma": 1, "colorize.palette-mapping": "bell", "project.projection-wander": 1, "project.singularity-fade": 4.9710001945495605, "sample.angle-speed": 0.027000000700354576, "sample.drift": 0.800000011920929, "sample.pattern-freq": 3.88100004196167, "sample.speed": 0.12859822809696198}},
-      {"id": "hex-twin-wave-alt", "name": "Hex Twin Wave Alt", "values": {"camera.wander": 1, "colorize.pattern-scale": 1.472156286239624, "colorize.pattern-speed": 0.00013800000306218863, "colorize.modulation-amount": 0.22599999606609344, "colorize.mapping-frequency": 2, "colorize.mapping-phase": -1, "colorize.palette-chroma": 1, "colorize.palette-mapping": "bell", "project.projection-wander": 1, "project.singularity-fade": 4.9710001945495605, "sample.angle-speed": 0.027000000700354576, "sample.drift": 0.800000011920929, "sample.pattern-freq": 3.88100004196167, "sample.speed": 0.12859822809696198}},
-    ],
+    "snap": [],
+    "presets": [
+      {
+        "id": "hex-twin-wave",
+        "name": "Hex Twin Wave",
+        "values": {
+          "camera.wander": 1,
+          "modulation.pattern-scale": 1.472156286239624,
+          "modulation.pattern-speed": 0.00013800000306218863,
+          "modulation.modulation-amount": 0.22599999606609344,
+          "colorize.mapping-frequency": 1.340999960899353,
+          "colorize.mapping-phase": -1,
+          "colorize.palette-chroma": 1,
+          "colorize.palette-mapping": "bell",
+          "project.projection-wander": 1,
+          "project.singularity-fade": 4.9710001945495605,
+          "sample.angle-speed": 0.027000000700354576,
+          "sample.drift": 0.800000011920929,
+          "sample.pattern-freq": 3.88100004196167,
+          "sample.speed": 0.12859822809696198
+        }
+      },
+      {
+        "id": "hex-twin-wave-alt",
+        "name": "Hex Twin Wave Alt",
+        "values": {
+          "camera.wander": 1,
+          "modulation.pattern-scale": 1.472156286239624,
+          "modulation.pattern-speed": 0.00013800000306218863,
+          "modulation.modulation-amount": 0.22599999606609344,
+          "colorize.mapping-frequency": 2,
+          "colorize.mapping-phase": -1,
+          "colorize.palette-chroma": 1,
+          "colorize.palette-mapping": "bell",
+          "project.projection-wander": 1,
+          "project.singularity-fade": 4.9710001945495605,
+          "sample.angle-speed": 0.027000000700354576,
+          "sample.drift": 0.800000011920929,
+          "sample.pattern-freq": 3.88100004196167,
+          "sample.speed": 0.12859822809696198
+        }
+      }
+    ]
   },
   {
-    id: "kaleidoscope-flowers",
-    metadata: {
+    "id": "kaleidoscope-flowers",
+    "metadata": {
       "description": "Dodecahedral grids mapped continuously around the equator.",
-      "display_name": "Kaleidoscope Flowers",
+      "display_name": "Kaleidoscope Flowers"
     },
-    chain: [
-      {"label": "camera", "operator": "sphere.rotate.v2"},
-      {"label": "lens", "operator": "sphere.lens.kaleidoscope.v2"},
-      {"label": "project", "operator": "project.equirectangular.v2"},
-      {"label": "warp2", "operator": "warp.mirror-tile.v2"},
-      {"label": "sample", "operator": "sample.grid.v3"},
-      {"label": "colorize", "operator": "colorize.generated-palette.v3"},
+    "chain": [
+      {
+        "label": "camera",
+        "operator": "sphere.rotate.v2"
+      },
+      {
+        "label": "lens",
+        "operator": "sphere.lens.kaleidoscope.v2"
+      },
+      {
+        "label": "project",
+        "operator": "project.equirectangular.v2"
+      },
+      {
+        "label": "warp2",
+        "operator": "warp.mirror-tile.v2"
+      },
+      {
+        "label": "sample",
+        "operator": "sample.grid.v3"
+      },
+      {
+        "label": "colorize",
+        "operator": "colorize.generated-palette.v4"
+      },
+      {
+        "label": "modulation",
+        "operator": "color.modulate.v1"
+      }
     ],
-    values: {
+    "values": {
       "camera.wander": 0,
       "colorize.brightness-envelope": "none",
-      "colorize.pattern-scale": 1,
-      "colorize.pattern-speed": 0,
-      "colorize.modulation-amount": 0,
-      "colorize.hue-shift-mode": "none",
-      "colorize.modulation-enabled": "enabled",
-      "colorize.modulation-source": "noise",
-      "colorize.modulation-evaluation": "baked-cube",
-      "colorize.modulation-mechanic": "hue-rotation",
+      "modulation.pattern-scale": 1,
+      "modulation.pattern-speed": 0,
+      "modulation.modulation-amount": 0,
+      "modulation.modulation-enabled": "enabled",
+      "modulation.modulation-source": "noise",
+      "modulation.modulation-evaluation": "baked-cube",
+      "modulation.modulation-mechanic": "hue-rotation",
       "colorize.mapping-frequency": 1,
       "colorize.mapping-phase": 0,
       "colorize.palette-chroma": 0.6200000047683716,
@@ -620,35 +1084,117 @@ const effects = [
       "warp2.offset-x": 0,
       "warp2.offset-y": 0,
       "warp2.rotation": 0,
-      "warp2.speed": 0,
+      "warp2.speed": 0
     },
-    snap: [],
-    presets: [
-      {"id": "double-map", "name": "Double Map", "values": {"camera.wander": 1, "colorize.pattern-scale": 1.472156286239624, "colorize.modulation-amount": 0.3659999966621399, "colorize.mapping-frequency": 2, "colorize.palette-chroma": 1, "colorize.palette-mapping": "cup", "project.projection-wander": 0.16500000655651093, "project.singularity-fade": 2.140000104904175, "sample.angle-speed": 0.026999998837709427, "sample.complexity": 3, "sample.drift": 0.800000011920929, "sample.pattern-freq": 3.940700054168701, "sample.pattern-mix": 1, "warp2.cell-x": 1.0471975803375244, "warp2.cell-y": 0.9977031350135803, "warp2.speed": 0.00013000000035390258}},
-      {"id": "open-grid", "name": "Open Grid", "values": {"camera.wander": 1, "colorize.pattern-scale": 1.472156286239624, "colorize.modulation-amount": 0.3659999966621399, "colorize.palette-chroma": 1, "colorize.palette-mapping": "cup", "project.projection-wander": 0.16500000655651093, "project.singularity-fade": 2.140000104904175, "sample.angle-speed": 0.026999998837709427, "sample.complexity": 3, "sample.drift": 0.800000011920929, "sample.pattern-freq": 3.940700054168701, "sample.pattern-mix": 1, "warp2.cell-x": 1.0471975803375244, "warp2.cell-y": 0.9977031350135803, "warp2.speed": 0.00013000000035390258}},
-      {"id": "fine-grid", "name": "Fine Grid", "values": {"camera.wander": 1, "colorize.pattern-scale": 1.472156286239624, "colorize.modulation-amount": 0.3659999966621399, "colorize.mapping-frequency": 21.211999893188477, "colorize.palette-chroma": 1, "colorize.palette-mapping": "cup", "project.projection-wander": 0.16500000655651093, "project.singularity-fade": 2.140000104904175, "sample.angle-speed": 0.026999998837709427, "sample.complexity": 3, "sample.drift": 0.800000011920929, "sample.pattern-freq": 0.398499995470047, "sample.pattern-mix": 1, "warp2.cell-x": 1.0471975803375244, "warp2.cell-y": 0.9018906354904175, "warp2.speed": 0.0005799999926239252}},
-    ],
+    "snap": [],
+    "presets": [
+      {
+        "id": "double-map",
+        "name": "Double Map",
+        "values": {
+          "camera.wander": 1,
+          "modulation.pattern-scale": 1.472156286239624,
+          "modulation.modulation-amount": 0.3659999966621399,
+          "colorize.mapping-frequency": 2,
+          "colorize.palette-chroma": 1,
+          "colorize.palette-mapping": "cup",
+          "project.projection-wander": 0.16500000655651093,
+          "project.singularity-fade": 2.140000104904175,
+          "sample.angle-speed": 0.026999998837709427,
+          "sample.complexity": 3,
+          "sample.drift": 0.800000011920929,
+          "sample.pattern-freq": 3.940700054168701,
+          "sample.pattern-mix": 1,
+          "warp2.cell-x": 1.0471975803375244,
+          "warp2.cell-y": 0.9977031350135803,
+          "warp2.speed": 0.00013000000035390258
+        }
+      },
+      {
+        "id": "open-grid",
+        "name": "Open Grid",
+        "values": {
+          "camera.wander": 1,
+          "modulation.pattern-scale": 1.472156286239624,
+          "modulation.modulation-amount": 0.3659999966621399,
+          "colorize.palette-chroma": 1,
+          "colorize.palette-mapping": "cup",
+          "project.projection-wander": 0.16500000655651093,
+          "project.singularity-fade": 2.140000104904175,
+          "sample.angle-speed": 0.026999998837709427,
+          "sample.complexity": 3,
+          "sample.drift": 0.800000011920929,
+          "sample.pattern-freq": 3.940700054168701,
+          "sample.pattern-mix": 1,
+          "warp2.cell-x": 1.0471975803375244,
+          "warp2.cell-y": 0.9977031350135803,
+          "warp2.speed": 0.00013000000035390258
+        }
+      },
+      {
+        "id": "fine-grid",
+        "name": "Fine Grid",
+        "values": {
+          "camera.wander": 1,
+          "modulation.pattern-scale": 1.472156286239624,
+          "modulation.modulation-amount": 0.3659999966621399,
+          "colorize.mapping-frequency": 21.211999893188477,
+          "colorize.palette-chroma": 1,
+          "colorize.palette-mapping": "cup",
+          "project.projection-wander": 0.16500000655651093,
+          "project.singularity-fade": 2.140000104904175,
+          "sample.angle-speed": 0.026999998837709427,
+          "sample.complexity": 3,
+          "sample.drift": 0.800000011920929,
+          "sample.pattern-freq": 0.398499995470047,
+          "sample.pattern-mix": 1,
+          "warp2.cell-x": 1.0471975803375244,
+          "warp2.cell-y": 0.9018906354904175,
+          "warp2.speed": 0.0005799999926239252
+        }
+      }
+    ]
   },
   {
-    id: "cosmic-eyeball",
-    metadata: {
+    "id": "cosmic-eyeball",
+    "metadata": {
       "description": "A high-contrast mirrored grid with displacement-driven hue.",
-      "display_name": "Cosmic Eyeball",
+      "display_name": "Cosmic Eyeball"
     },
-    chain: [
-      {"label": "camera", "operator": "sphere.rotate.v2"},
-      {"label": "lens", "operator": "sphere.lens.glitch.v2"},
-      {"label": "project", "operator": "project.stereographic.v2"},
-      {"label": "warp1", "operator": "warp.mirror-tile.v2"},
-      {"label": "sample", "operator": "sample.grid.v3"},
-      {"label": "colorize", "operator": "colorize.generated-palette.v3"},
+    "chain": [
+      {
+        "label": "camera",
+        "operator": "sphere.rotate.v2"
+      },
+      {
+        "label": "lens",
+        "operator": "sphere.lens.glitch.v2"
+      },
+      {
+        "label": "project",
+        "operator": "project.stereographic.v2"
+      },
+      {
+        "label": "warp1",
+        "operator": "warp.mirror-tile.v2"
+      },
+      {
+        "label": "sample",
+        "operator": "sample.grid.v3"
+      },
+      {
+        "label": "colorize",
+        "operator": "colorize.generated-palette.v4"
+      },
+      {
+        "label": "displacement",
+        "operator": "color.modulate.v1"
+      }
     ],
-    values: {
+    "values": {
       "camera.wander": 0,
       "colorize.brightness-envelope": "none",
-      "colorize.hue-shift-amount": 0,
-      "colorize.hue-shift-mode": "path-length",
-      "colorize.modulation-enabled": "disabled",
+      "displacement.modulation-amount": 0,
       "colorize.mapping-frequency": 1,
       "colorize.mapping-phase": 0,
       "colorize.palette-chroma": 0.6200000047683716,
@@ -675,34 +1221,76 @@ const effects = [
       "warp1.offset-y": 0,
       "warp1.rotation": 0,
       "warp1.speed": 0,
+      "displacement.modulation-enabled": "enabled",
+      "displacement.modulation-source": "displacement",
+      "displacement.modulation-evaluation": "direct",
+      "displacement.modulation-mechanic": "hue-rotation"
     },
-    snap: [],
-    presets: [
-      {"id": "mirrored-grid", "name": "Mirrored Grid", "values": {"camera.wander": 1, "colorize.hue-shift-amount": 2.0480000972747803, "colorize.palette-chroma": 0.2919999957084656, "project.singularity-fade": 1.399999976158142, "sample.complexity": 1.8539999723434448, "sample.drift": 1, "sample.edge-width": 0.5, "sample.pattern-freq": 2.5476999282836914, "sample.speed": 0.23499999940395355, "warp1.cell-x": 5.381124973297119, "warp1.offset-x": 1.343999981880188, "warp1.offset-y": -1.4559999704360962, "warp1.rotation": 0.29530972242355347}},
-    ],
+    "snap": [],
+    "presets": [
+      {
+        "id": "mirrored-grid",
+        "name": "Mirrored Grid",
+        "values": {
+          "camera.wander": 1,
+          "displacement.modulation-amount": 2.0480000972747803,
+          "colorize.palette-chroma": 0.2919999957084656,
+          "project.singularity-fade": 1.399999976158142,
+          "sample.complexity": 1.8539999723434448,
+          "sample.drift": 1,
+          "sample.edge-width": 0.5,
+          "sample.pattern-freq": 2.5476999282836914,
+          "sample.speed": 0.23499999940395355,
+          "warp1.cell-x": 5.381124973297119,
+          "warp1.offset-x": 1.343999981880188,
+          "warp1.offset-y": -1.4559999704360962,
+          "warp1.rotation": 0.29530972242355347
+        }
+      }
+    ]
   },
   {
-    id: "mobius-grid",
-    metadata: {
+    "id": "mobius-grid",
+    "metadata": {
       "description": "A continuously animated Mobius lens over a mirrored twin wave.",
-      "display_name": "Mobius Grid",
+      "display_name": "Mobius Grid"
     },
-    chain: [
-      {"label": "camera", "operator": "sphere.rotate.v2"},
-      {"label": "lens", "operator": "sphere.lens.mobius.v2"},
-      {"label": "project", "operator": "project.stereographic.v2"},
-      {"label": "warp2", "operator": "warp.mirror-tile.v2"},
-      {"label": "sample", "operator": "sample.twin-wave.v3"},
-      {"label": "colorize", "operator": "colorize.generated-palette.v3"},
+    "chain": [
+      {
+        "label": "camera",
+        "operator": "sphere.rotate.v2"
+      },
+      {
+        "label": "lens",
+        "operator": "sphere.lens.mobius.v2"
+      },
+      {
+        "label": "project",
+        "operator": "project.stereographic.v2"
+      },
+      {
+        "label": "warp2",
+        "operator": "warp.mirror-tile.v2"
+      },
+      {
+        "label": "sample",
+        "operator": "sample.twin-wave.v3"
+      },
+      {
+        "label": "colorize",
+        "operator": "colorize.generated-palette.v4"
+      },
+      {
+        "label": "displacement",
+        "operator": "color.modulate.v1"
+      }
     ],
-    values: {
+    "values": {
       "camera.wander": 0,
       "colorize.brightness-bottom": 0,
       "colorize.brightness-envelope": "cup",
       "colorize.brightness-top": 1,
-      "colorize.hue-shift-amount": 0,
-      "colorize.hue-shift-mode": "path-length",
-      "colorize.modulation-enabled": "disabled",
+      "displacement.modulation-amount": 0,
       "colorize.mapping-frequency": 1,
       "colorize.mapping-phase": 0,
       "colorize.palette-chroma": 0.6200000047683716,
@@ -735,13 +1323,63 @@ const effects = [
       "warp2.offset-y": 0,
       "warp2.rotation": 0,
       "warp2.speed": 0,
+      "displacement.modulation-enabled": "enabled",
+      "displacement.modulation-source": "displacement",
+      "displacement.modulation-evaluation": "direct",
+      "displacement.modulation-mechanic": "hue-rotation"
     },
-    snap: ["lens.mobius-a-im", "lens.mobius-a-re", "lens.mobius-b-im", "lens.mobius-b-re", "lens.mobius-c-im", "lens.mobius-c-re", "lens.mobius-d-im", "lens.mobius-d-re"],
-    presets: [
-      {"id": "mobius-grid", "name": "Mobius Grid", "values": {"camera.wander": 1, "colorize.hue-shift-amount": 0.31200000643730164, "colorize.palette-chroma": 0.39800000190734863, "lens.mobius-a-im": 0.30399999022483826, "lens.mobius-a-re": -1.0720000267028809, "lens.mobius-b-re": 0.41600000858306885, "project.projection-wander": 1, "project.singularity-fade": 2.1019999980926514, "sample.angle-speed": 0.027000000700354576, "sample.drift": 0.800000011920929, "sample.pattern-freq": 10.157999992370605, "sample.speed": 0.24500000476837158}},
-      {"id": "mobius-grid-2", "name": "Mobius Grid 2", "values": {"camera.wander": 1, "colorize.hue-shift-amount": 0.31200000643730164, "colorize.palette-chroma": 0.39800000190734863, "lens.mobius-a-im": 0.30399999022483826, "lens.mobius-a-re": -1.0720000267028809, "lens.mobius-b-re": 0.41600000858306885, "project.projection-wander": 1, "project.singularity-fade": 2.1019999980926514, "sample.angle-speed": 0.027000000700354576, "sample.drift": 0.800000011920929, "sample.pattern-freq": 10.157999992370605, "sample.speed": 0.24500000476837158, "warp2.cell-x": 0.279109388589859, "warp2.cell-y": 6.810328006744385, "warp2.speed": 0.005874999798834324}},
+    "snap": [
+      "lens.mobius-a-im",
+      "lens.mobius-a-re",
+      "lens.mobius-b-im",
+      "lens.mobius-b-re",
+      "lens.mobius-c-im",
+      "lens.mobius-c-re",
+      "lens.mobius-d-im",
+      "lens.mobius-d-re"
     ],
-  },
+    "presets": [
+      {
+        "id": "mobius-grid",
+        "name": "Mobius Grid",
+        "values": {
+          "camera.wander": 1,
+          "displacement.modulation-amount": 0.31200000643730164,
+          "colorize.palette-chroma": 0.39800000190734863,
+          "lens.mobius-a-im": 0.30399999022483826,
+          "lens.mobius-a-re": -1.0720000267028809,
+          "lens.mobius-b-re": 0.41600000858306885,
+          "project.projection-wander": 1,
+          "project.singularity-fade": 2.1019999980926514,
+          "sample.angle-speed": 0.027000000700354576,
+          "sample.drift": 0.800000011920929,
+          "sample.pattern-freq": 10.157999992370605,
+          "sample.speed": 0.24500000476837158
+        }
+      },
+      {
+        "id": "mobius-grid-2",
+        "name": "Mobius Grid 2",
+        "values": {
+          "camera.wander": 1,
+          "displacement.modulation-amount": 0.31200000643730164,
+          "colorize.palette-chroma": 0.39800000190734863,
+          "lens.mobius-a-im": 0.30399999022483826,
+          "lens.mobius-a-re": -1.0720000267028809,
+          "lens.mobius-b-re": 0.41600000858306885,
+          "project.projection-wander": 1,
+          "project.singularity-fade": 2.1019999980926514,
+          "sample.angle-speed": 0.027000000700354576,
+          "sample.drift": 0.800000011920929,
+          "sample.pattern-freq": 10.157999992370605,
+          "sample.speed": 0.24500000476837158,
+          "warp2.cell-x": 0.279109388589859,
+          "warp2.cell-y": 6.810328006744385,
+          "warp2.speed": 0.005874999798834324
+        }
+      }
+    ]
+  }
 ];
 
 const documentFor = (spec, catalog) => {

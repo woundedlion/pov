@@ -137,17 +137,19 @@ public:
     if (fraction <= 0.0f) {
       frame = from;
       hold_discrete_lenses(frame, from, to);
-      if constexpr (requires {
-                      from.params.template get<"color">().modulation;
-                    }) {
-        if (!Modulation::same_topology(
-                from.params.template get<"color">().modulation,
-                to.params.template get<"color">().modulation)) {
-          frame.modulation = to.modulation;
-          frame.params.template get<"color">().modulation =
-              to.params.template get<"color">().modulation;
+      to.params.visit([&]<typename Resource>(const auto &family) {
+        if constexpr (Resource::KIND == ResourceKind::MODULATION) {
+          if (!Modulation::same_topology(
+                  from.params.template get<Resource::KEY>().modulation,
+                  family.modulation)) {
+            frame.params.template get<Resource::KEY>() = family;
+            frame.resources.template get<Resource::KEY>() =
+                to.resources.template get<Resource::KEY>();
+          }
         }
-      }
+      });
+      frame.temporal = {from.palette, from.hue_rotation_lut, 0.0f,
+                        same_palette};
       return;
     }
     frame = to;
@@ -215,16 +217,28 @@ public:
                 : end;
       }
     });
-    bool continuous = true;
-    if constexpr (requires {
-                    from.params.template get<"color">().modulation;
-                  }) {
-      continuous = Modulation::same_topology(
-          from.params.template get<"color">().modulation,
-          to.params.template get<"color">().modulation);
-    }
-    frame.temporal = {from.palette, from.hue_rotation_lut, from.modulation,
-                      fraction,     same_palette,          continuous};
+    bool same_sources = true;
+    frame.params.visit([&]<typename Resource>(const auto &family) {
+      if constexpr (Resource::KIND == ResourceKind::MODULATION) {
+        auto &resource = frame.resources.template get<Resource::KEY>();
+        resource.previous_modulation =
+            Modulation::same_topology(
+                from.params.template get<Resource::KEY>().modulation,
+                family.modulation)
+                ? from.resources.template get<Resource::KEY>().modulation
+                : resource.modulation;
+        if (family.modulation.enabled &&
+            family.modulation.mechanic.amount != 0.0f &&
+            resource.modulation != resource.previous_modulation)
+          same_sources = same_sources && resource.modulation &&
+                         resource.previous_modulation &&
+                         Modulation::same_field(*resource.modulation,
+                                                *resource.previous_modulation);
+      }
+    });
+    frame.temporal = {from.palette, from.hue_rotation_lut,
+                      same_palette && same_sources ? 1.0f : fraction,
+                      same_palette};
   }
 };
 
@@ -245,25 +259,21 @@ HS_FLASH_INLINE Frame sample_frame(const Frame &from, const Frame &to,
 }
 
 /** @brief Owned palette and hue tables for the previous frame endpoint. */
-template <typename Frame, Pullback::Color::HueMode Hue, bool Modulation,
-          bool Baked>
+template <typename Frame, bool Hue>
   requires BorrowsColorResources<Frame>
-struct FrameHistory<Frame, Hue, true, Modulation, Baked> {
-  Frame previous{}; ///< Previous endpoint with owned color resource views.
-  BakedPaletteStorage palette; ///< Retained palette table.
-  std::array<Pixel, Hue != Pullback::Color::HueMode::NONE || Modulation
-                        ? Pullback::Color::HueRotationLutView::SIZE
-                        : 0>
-      hue_rotation; ///< Retained hue-rotation table.
-  std::array<int8_t, Modulation && Baked ? Pattern::SphereLutView::SIZE : 0>
-      modulation_table{}; ///< Retained scalar table.
-  std::conditional_t<Modulation, Pullback::Modulation::Prepared, std::monostate>
-      modulation;           ///< Retained immutable source inputs.
-  bool initialized = false; ///< Whether a previous endpoint exists.
-
-  /** @brief Retains the current endpoint before the next animation step.
-   * @param frame Current frame.
-   * @param arena Palette storage arena, used only on the first capture. */
+struct FrameHistory<Frame, true, Hue> {
+  Frame previous{};            ///< Retained endpoint.
+  BakedPaletteStorage palette; ///< Owned palette entries.
+  std::array<Pixel, Hue ? Pullback::Color::HueRotationLutView::SIZE : 0>
+      hue_rotation; ///< Retained hue table.
+  Pullback::ComposedDetail::ResourceStorage<
+      Pullback::ComposedDetail::ResourceModulationHistory,
+      typename decltype(Frame::params)::ResourceTypes>
+      resources;            ///< Retained layer sources.
+  bool initialized = false; ///< Whether a frame was captured.
+  /** @brief Retains palette and per-layer sources.
+   * @param frame Frame to retain.
+   * @param arena Palette storage arena. */
   HS_FLASH_MEMBER void capture(const Frame &frame, Arena &arena) {
     if (!initialized)
       palette.clone_from(*frame.palette, arena);
@@ -271,16 +281,25 @@ struct FrameHistory<Frame, Hue, true, Modulation, Baked> {
       palette.rebake_copy(*frame.palette);
     previous = frame;
     previous.palette = &palette.view();
-    if constexpr (Hue != Pullback::Color::HueMode::NONE || Modulation) {
+    if constexpr (Hue) {
       std::copy_n(frame.hue_rotation_lut, hue_rotation.size(),
                   hue_rotation.data());
       previous.hue_rotation_lut = hue_rotation.data();
     }
-    if constexpr (Modulation)
-      previous.modulation = Pullback::Modulation::retain(
-          frame.modulation, modulation, modulation_table);
-    previous.temporal = {previous.palette, previous.hue_rotation_lut,
-                         previous.modulation, 1.0f};
+    frame.params.visit([&]<typename Resource>(const auto &) {
+      if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {
+        if constexpr (Resource::Family::SOURCE !=
+                      Pattern::SourceKind::DISPLACEMENT) {
+          auto &owned = resources.template get<Resource::KEY>();
+          auto &view = previous.resources.template get<Resource::KEY>();
+          view.modulation = Pullback::Modulation::retain(
+              frame.resources.template get<Resource::KEY>().modulation,
+              owned.modulation, owned.table);
+          view.previous_modulation = view.modulation;
+        }
+      }
+    });
+    previous.temporal = {previous.palette, previous.hue_rotation_lut, 1.0f};
     initialized = true;
   }
 };

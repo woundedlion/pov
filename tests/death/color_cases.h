@@ -37,6 +37,31 @@ inline void case_shader_palette_invalid_authored_type() {
   (void)resources.prepare(arena, params);
 }
 
+/** @brief Authored palette baking rejects an unknown named palette. */
+inline void case_shader_palette_invalid_name() {
+  reset_globals();
+  ShaderPaletteResources resources;
+  Pullback::Interp::Op::GeneratedPaletteParams params;
+  params.palette_type =
+      static_cast<uint8_t>(Pullback::Interp::Op::PaletteType::PROCEDURAL);
+  (void)resources.prepare(persistent_arena, params);
+  params.palette_name = opaque<uint8_t>(255);
+  (void)resources.prepare(persistent_arena, params);
+}
+
+/** @brief Authored palette baking rejects the cycling palette family. */
+inline void case_shader_palette_invalid_type() {
+  reset_globals();
+  ShaderPaletteResources resources;
+  Pullback::Interp::Op::GeneratedPaletteParams params;
+  params.palette_type =
+      static_cast<uint8_t>(Pullback::Interp::Op::PaletteType::PROCEDURAL);
+  (void)resources.prepare(persistent_arena, params);
+  params.palette_type = opaque<uint8_t>(static_cast<uint8_t>(
+      Pullback::Interp::Op::PaletteType::CYCLING_GENERATED));
+  (void)resources.prepare(persistent_arena, params);
+}
+
 /** @brief Traps on gamut lut scratch a. */
 inline void case_gamut_lut_scratch_a() {
   init_gamut_lut(scratch_arena_a, GAMUT_LUT_MIN_ANGLE_STEPS,

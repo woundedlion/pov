@@ -17,7 +17,7 @@ inline void test_shader_chain_program_lifetime() {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
-      {"colorize", "colorize.generated-palette.v3"},
+      {"colorize", "colorize.generated-palette.v4"},
   };
   const auto compile_status1 = fixture->program.compile(chain).code;
   HS_EXPECT_EQ(compile_status1, In::ChainStatus::OK);
@@ -46,14 +46,14 @@ inline void test_shader_chain_table_behavior() {
     if (op.input == In::CarrierId::FIELD || op.input == In::CarrierId::COLOR)
       append("sample", "sample.grid.v3");
     if (op.input == In::CarrierId::COLOR)
-      append("colorize", "colorize.generated-palette.v3");
+      append("colorize", "colorize.generated-palette.v4");
     append("subject", op.operator_id);
     if (op.output == In::CarrierId::SPHERE)
       append("project", "project.stereographic.v2");
     if (op.output == In::CarrierId::SPHERE || op.output == In::CarrierId::PLANE)
       append("sample", "sample.grid.v3");
     if (op.output != In::CarrierId::COLOR)
-      append("colorize", "colorize.generated-palette.v3");
+      append("colorize", "colorize.generated-palette.v4");
     const auto status = fixture->program.compile(
         std::span<const In::ChainEntryRequest>(chain.data(), count));
     HS_EXPECT_EQ(static_cast<int>(status.code),
@@ -100,23 +100,16 @@ inline void test_shader_chain_state_restore_values() {
         *static_cast<float *>(op.runtime.param_address(params.data(), index)) =
             field.min + 0.37f * (field.max - field.min);
     }
-    if (std::string_view(op.operator_id) == "colorize.generated-palette.v3") {
-      static_cast<In::Op::GeneratedPaletteParams *>(
+    if (std::string_view(op.operator_id) == "color.modulate.v1") {
+      static_cast<In::Op::ModulationParams *>(
           static_cast<void *>(params.data()))
           ->modulation.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
-      static_cast<In::Op::GeneratedPaletteParams *>(
+      static_cast<In::Op::ModulationParams *>(
           static_cast<void *>(params.data()))
           ->modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
-      static_cast<In::Op::GeneratedPaletteParams *>(
+      static_cast<In::Op::ModulationParams *>(
           static_cast<void *>(params.data()))
           ->modulation.noise.scale = 4.0f;
-    }
-    if (std::string_view(op.operator_id) == In::Op::ModulateField::ID) {
-      auto &config = static_cast<In::Op::FieldModulationParams *>(
-                         static_cast<void *>(params.data()))
-                         ->modulation;
-      config.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
-      config.noise.scale = 4.0f;
     }
     const auto *param_bytes = reinterpret_cast<const uint8_t *>(params.data());
     auto advanced = blocks(op.runtime.state.size);
@@ -198,13 +191,15 @@ inline void test_shader_chain_table_integrity() {
     return;
   HS_EXPECT_FALSE(required_op3->approximate);
   const auto *colorize_found =
-      require_operator("colorize.generated-palette.v3");
+      require_operator("colorize.generated-palette.v4");
   if (!colorize_found)
     return;
   const In::OperatorDescriptor &colorize = *colorize_found;
-  HS_EXPECT_TRUE(colorize.approximate);
+  HS_EXPECT_FALSE(colorize.approximate);
+  const auto &modulate = *require_operator("color.modulate.v1");
+  HS_EXPECT_TRUE(modulate.approximate);
   HS_EXPECT_EQ(
-      static_cast<int>(colorize.oracle),
+      static_cast<int>(modulate.oracle),
       static_cast<int>(PB::ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS));
   const auto *peirce_fast_found =
       require_operator("project.peirce-square-fast.v3");
@@ -218,7 +213,7 @@ inline void test_shader_chain_table_integrity() {
   size_t approximate_count = 0;
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE)
     approximate_count += op.approximate ? 1 : 0;
-  HS_EXPECT_EQ(approximate_count, 3u);
+  HS_EXPECT_EQ(approximate_count, 2u);
 }
 
 /** Schema field of @p op with id @p field_id, or null. */
@@ -231,7 +226,6 @@ inline const In::ParamFieldInfo *schema_field(const In::OperatorDescriptor &op,
 }
 
 inline void test_shader_chain_schema_and_field_ids() {
-  static_assert(std::is_same_v<In::Op::HueShiftMode, PB::Color::HueMode>);
   static_assert(std::is_same_v<In::Op::ProjectionCoverageMode,
                                PB::ProjectionCoverageMode>);
   static_assert(!In::topology_defaults_match<MismatchedTopologyDefaults>());
@@ -244,10 +238,10 @@ inline void test_shader_chain_schema_and_field_ids() {
       In::schema_ids_unique(In::SCHEMA<In::Op::ProjectStereographic>));
   static_assert(In::schema_ids_unique(In::SCHEMA<In::Op::SampleGridV3>));
   static_assert(
-      In::schema_ids_unique(In::SCHEMA<In::Op::ColorizeGeneratedPaletteV3>));
+      In::schema_ids_unique(In::SCHEMA<In::Op::ColorizeGeneratedPaletteV4>));
   static_assert(In::topology_wellformed(In::SCHEMA<In::Op::SampleGridV3>));
   static_assert(
-      In::topology_wellformed(In::SCHEMA<In::Op::ColorizeGeneratedPaletteV3>));
+      In::topology_wellformed(In::SCHEMA<In::Op::ColorizeGeneratedPaletteV4>));
 
   static_assert(PB::field_ids_unique<In::Op::CurlDisplaceParams>());
   static_assert(PB::field_ids_unique<In::Op::DirectDisplaceParams>());
@@ -284,15 +278,12 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_TRUE(std::string_view(coverage.enum_ids[3]) == "edge-fade");
 
   const auto *colorize_found =
-      require_operator("colorize.generated-palette.v3");
+      require_operator("colorize.generated-palette.v4");
   if (!colorize_found)
     return;
   const In::OperatorDescriptor &colorize = *colorize_found;
   constexpr size_t COLOR_FIELDS = In::Op::GeneratedPaletteParams::FIELDS.size();
-  HS_EXPECT_SIZE_OR_RETURN(
-      colorize.schema_span(),
-      COLOR_FIELDS + In::Op::GeneratedPaletteParams::TOPOLOGY.size() +
-          In::Op::GeneratedPaletteParams::EXTRA_SCHEMA.size());
+  HS_EXPECT_SIZE_OR_RETURN(colorize.schema_span(), COLOR_FIELDS + 8);
   HS_EXPECT_TRUE(std::string_view(colorize.schema[COLOR_FIELDS].id) ==
                  "palette-mode");
   HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS].enum_count, 3);
@@ -300,14 +291,22 @@ inline void test_shader_chain_schema_and_field_ids() {
                  "palette-mapping");
   HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS + 1].enum_count, 4);
   HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS + 1].enum_def, 2);
-  const In::ParamFieldInfo &hue = colorize.schema[COLOR_FIELDS + 2];
-  HS_EXPECT_EQ(hue.enum_count, 2);
-  HS_EXPECT_TRUE(std::string_view(hue.enum_ids[0]) == "none");
-  HS_EXPECT_TRUE(std::string_view(hue.enum_ids[1]) == "path-length");
-  HS_EXPECT_EQ(hue.enum_def, static_cast<uint8_t>(PB::Color::HueMode::NONE));
-  HS_EXPECT_TRUE(std::string_view(colorize.schema[COLOR_FIELDS + 3].id) ==
+  HS_EXPECT_TRUE(std::string_view(colorize.schema[COLOR_FIELDS + 2].id) ==
                  "brightness-envelope");
-  HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS + 3].enum_count, 5);
+  HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS + 2].enum_count, 5);
+  const auto *modulate = require_operator("color.modulate.v1");
+  HS_EXPECT_TRUE(modulate != nullptr);
+  if (modulate) {
+    HS_EXPECT_EQ(modulate->input, In::CarrierId::COLOR);
+    HS_EXPECT_EQ(modulate->output, In::CarrierId::COLOR);
+    HS_EXPECT_EQ(modulate->schema_count, 38);
+    const auto *source = schema_field(*modulate, "modulation-source");
+    HS_EXPECT_TRUE(source != nullptr);
+    if (source) {
+      HS_EXPECT_EQ(source->enum_count, 5);
+      HS_EXPECT_STREQ(source->enum_ids[4], "displacement");
+    }
+  }
 
   const auto *rotate_found = require_operator("sphere.rotate.v2");
   if (!rotate_found)
@@ -652,14 +651,14 @@ inline void test_shader_chain_instance_id_wellformed() {
 }
 
 inline void test_shader_chain_slot_and_hash_contract() {
-  static_assert(In::SLOT_SIZE == sizeof(PB::PlaneSample));
-  static_assert(In::SLOT_ALIGN == alignof(PB::PlaneSample));
+  static_assert(In::SLOT_SIZE == sizeof(PB::ColorSample));
+  static_assert(In::SLOT_ALIGN == alignof(PB::ColorSample));
   static_assert(In::SLOT_SIZE >= sizeof(Color4));
-  HS_EXPECT_EQ(In::SLOT_SIZE, 44u);
-  HS_EXPECT_EQ(In::SLOT_ALIGN, 4u);
+  HS_EXPECT_EQ(In::SLOT_SIZE, sizeof(void *) == 8 ? 64u : 52u);
+  HS_EXPECT_EQ(In::SLOT_ALIGN, alignof(void *));
   HS_EXPECT_EQ(static_cast<int>(In::carrier_id_of<PB::SphereSample>()),
                static_cast<int>(In::CarrierId::SPHERE));
-  HS_EXPECT_EQ(static_cast<int>(In::carrier_id_of<Color4>()),
+  HS_EXPECT_EQ(static_cast<int>(In::carrier_id_of<PB::ColorSample>()),
                static_cast<int>(In::CarrierId::COLOR));
   constexpr uint32_t HASH = In::instance_hash("camera", "sphere.rotate.v2");
   static_assert(HASH == In::instance_hash("camera", "sphere.rotate.v2"));
@@ -709,7 +708,7 @@ inline void test_shader_chain_catalog_shape() {
   HS_EXPECT_TRUE(contains("\"id\":\"sample.spherical-rings.v3\""));
   HS_EXPECT_TRUE(contains("\"id\":\"sample.fractal.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"sample.tessellation.v2\""));
-  HS_EXPECT_TRUE(contains("\"id\":\"colorize.generated-palette.v3\""));
+  HS_EXPECT_TRUE(contains("\"id\":\"colorize.generated-palette.v4\""));
   HS_EXPECT_TRUE(contains("\"id\":\"weight-mode\",\"topology\":true,"
                           "\"values\":[\"none\",\"projection\"],"
                           "\"default\":\"projection\""));

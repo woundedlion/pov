@@ -10,6 +10,7 @@
 #pragma once
 
 #include <emscripten/val.h>
+#include <algorithm>
 #include <limits>
 #include "core/render/pullback/interpreter.h"
 #include "workbench/shader/chain_snapshot.h"
@@ -210,6 +211,224 @@ class ChainSnapshotCodec {
     config.mechanic.kind = static_cast<ColorModulation::Mechanic>(mechanic);
     return Pullback::Modulation::valid(config);
   }
+  static Val modulation_clock(const Pullback::Modulation::State &state) {
+    auto out = Val::object();
+    out.set("source", static_cast<uint8_t>(state.source));
+    out.set("version", state.version);
+    out.set("phaseTurns", state.phase.phase_turns);
+    out.set("initialized", state.initialized);
+    return out;
+  }
+
+  static bool modulation_clock(const Val &value,
+                               Pullback::Modulation::State &state) {
+    uint8_t source;
+    if (!object(value) || !integer(value, "source", source) || source > 4 ||
+        !integer(value, "version", state.version) || state.version != 1 ||
+        !number(value, "phaseTurns", state.phase.phase_turns) ||
+        state.phase.phase_turns < 0.0f || state.phase.phase_turns >= 1.0f ||
+        !boolean(value, "initialized", state.initialized) ||
+        (!state.initialized && state.phase.phase_turns != 0.0f))
+      return false;
+    state.source = static_cast<Pattern::SourceKind>(source);
+    return true;
+  }
+
+  struct LegacyClock {
+    std::string instance;
+    Pullback::Modulation::State state;
+  };
+
+  static Result migrate_legacy(ChainSnapshot &snapshot,
+                               const std::vector<LegacyClock> &clocks) {
+    std::vector<std::string> names;
+    for (const auto &entry : snapshot.chain)
+      names.push_back(entry.instance);
+    for (size_t index = 0; index < snapshot.parameters.size(); ++index) {
+      const auto &name = snapshot.parameters[index].name;
+      bool known = false;
+      for (const auto &entry : snapshot.chain)
+        known |= name.starts_with(entry.instance + ".");
+      if (!known)
+        return Result::INVALID_VALUE;
+      for (size_t previous = 0; previous < index; ++previous)
+        if (snapshot.parameters[previous].name == name)
+          return Result::INVALID_VALUE;
+    }
+    if (snapshot.runtime)
+      for (const auto &entry : *snapshot.runtime)
+        if (std::find(names.begin(), names.end(), entry.instance) ==
+            names.end())
+          return Result::INVALID_VALUE;
+    const auto allocate_name = [&](const char *base) {
+      std::string candidate = base;
+      for (size_t suffix = 2;
+           std::find(names.begin(), names.end(), candidate) != names.end();
+           ++suffix)
+        candidate = std::string(base) + "-" + std::to_string(suffix);
+      names.push_back(candidate);
+      return candidate;
+    };
+    ChainSnapshot migrated;
+    migrated.animations_paused = snapshot.animations_paused;
+    migrated.palette_bank = snapshot.palette_bank;
+    if (snapshot.runtime)
+      migrated.runtime.emplace();
+    size_t recipes = 0;
+    for (const auto &entry : snapshot.chain) {
+      const bool field_layer = entry.operator_id == "modulate.field.v1";
+      const bool path_layer = entry.operator_id == "modulate.hue-shift.v1";
+      if (field_layer || path_layer) {
+        ColorModulation::Config config;
+        Pullback::Modulation::State state;
+        if (field_layer) {
+          const ChainSnapshot::ModulationRecipe *selected = nullptr;
+          for (const auto &recipe : snapshot.modulation)
+            if (recipe.instance == entry.instance) {
+              if (selected != nullptr)
+                return Result::INVALID_VALUE;
+              selected = &recipe;
+            }
+          if (selected == nullptr)
+            return Result::INVALID_VALUE;
+          config = selected->recipe;
+          ++recipes;
+          for (const auto &value : snapshot.parameters)
+            if (value.name.starts_with(entry.instance + "."))
+              return Result::INVALID_VALUE;
+          if (snapshot.runtime) {
+            const LegacyClock *selected_clock = nullptr;
+            for (const auto &clock : clocks)
+              if (clock.instance == entry.instance) {
+                if (selected_clock != nullptr)
+                  return Result::INVALID_VALUE;
+                selected_clock = &clock;
+              }
+            size_t runtime_count = 0;
+            for (const auto &runtime : *snapshot.runtime)
+              runtime_count += runtime.instance == entry.instance ? 1 : 0;
+            if (selected_clock == nullptr || runtime_count != 1)
+              return Result::INVALID_VALUE;
+            state = selected_clock->state;
+          }
+        } else {
+          config.seed = Pullback::HUE_NOISE_SEED;
+          config.source = Pattern::SourceKind::DISPLACEMENT;
+          config.evaluation = Pattern::Evaluation::DIRECT;
+          config.enabled = true;
+          config.mechanic.amount = 0.0f;
+          for (const auto &value : snapshot.parameters)
+            if (value.name.starts_with(entry.instance + ".")) {
+              const auto field = value.name.substr(entry.instance.size() + 1);
+              if (field == "hue-shift-mode") {
+                if (value.value != 0.0f && value.value != 1.0f)
+                  return Result::INVALID_VALUE;
+                config.enabled = value.value == 1.0f;
+              } else if (field == "hue-shift-amount") {
+                if (value.value < -4.0f || value.value > 4.0f)
+                  return Result::INVALID_VALUE;
+                config.mechanic.amount = value.value;
+              } else
+                return Result::INVALID_VALUE;
+            }
+          if (snapshot.runtime)
+            for (const auto &runtime : *snapshot.runtime)
+              if (runtime.instance == entry.instance)
+                return Result::INVALID_VALUE;
+          state.source = Pattern::SourceKind::DISPLACEMENT;
+          state.initialized = true;
+        }
+        migrated.chain.push_back({entry.instance, "color.modulate.v1"});
+        migrated.modulation.push_back({entry.instance, config});
+        if (snapshot.runtime)
+          migrated.runtime->push_back(
+              {entry.instance,
+               Pullback::Interp::ModulationClockSnapshot{state}});
+        continue;
+      }
+      const bool color = entry.operator_id == "colorize.generated-palette.v3";
+      migrated.chain.push_back(
+          {entry.instance,
+           color ? "colorize.generated-palette.v4" : entry.operator_id});
+      if (!color) {
+        for (const auto &value : snapshot.parameters)
+          if (value.name.starts_with(entry.instance + "."))
+            migrated.parameters.push_back(value);
+        if (snapshot.runtime)
+          for (const auto &runtime : *snapshot.runtime)
+            if (runtime.instance == entry.instance)
+              migrated.runtime->push_back(runtime);
+        continue;
+      }
+      const std::string displacement = allocate_name("displacement");
+      const std::string spatial = allocate_name("modulation");
+      migrated.chain.push_back({displacement, "color.modulate.v1"});
+      migrated.chain.push_back({spatial, "color.modulate.v1"});
+      ColorModulation::Config path;
+      path.seed = Pullback::HUE_NOISE_SEED;
+      path.source = Pattern::SourceKind::DISPLACEMENT;
+      path.evaluation = Pattern::Evaluation::DIRECT;
+      path.enabled = false;
+      for (const auto &value : snapshot.parameters)
+        if (value.name.starts_with(entry.instance + ".")) {
+          const std::string field =
+              value.name.substr(entry.instance.size() + 1);
+          if (field == "hue-shift-mode") {
+            if (value.value != 0.0f && value.value != 1.0f)
+              return Result::INVALID_VALUE;
+            path.enabled = value.value == 1.0f;
+          } else if (field == "hue-shift-amount") {
+            if (value.value < -4.0f || value.value > 4.0f)
+              return Result::INVALID_VALUE;
+            path.mechanic.amount = value.value;
+          } else {
+            migrated.parameters.push_back(value);
+          }
+        }
+      const ChainSnapshot::ModulationRecipe *recipe = nullptr;
+      for (const auto &candidate : snapshot.modulation)
+        if (candidate.instance == entry.instance) {
+          if (recipe != nullptr)
+            return Result::INVALID_VALUE;
+          recipe = &candidate;
+        }
+      if (recipe == nullptr)
+        return Result::INVALID_VALUE;
+      ++recipes;
+      migrated.modulation.push_back({displacement, path});
+      migrated.modulation.push_back({spatial, recipe->recipe});
+      if (snapshot.runtime) {
+        const LegacyClock *clock = nullptr;
+        for (const auto &candidate : clocks)
+          if (candidate.instance == entry.instance) {
+            if (clock != nullptr)
+              return Result::INVALID_VALUE;
+            clock = &candidate;
+          }
+        if (clock == nullptr)
+          return Result::INVALID_VALUE;
+        for (const auto &runtime : *snapshot.runtime)
+          if (runtime.instance == entry.instance)
+            migrated.runtime->push_back(runtime);
+        Pullback::Modulation::State path_clock;
+        path_clock.source = Pattern::SourceKind::DISPLACEMENT;
+        path_clock.initialized = true;
+        migrated.runtime->push_back(
+            {displacement,
+             Pullback::Interp::ModulationClockSnapshot{path_clock}});
+        migrated.runtime->push_back(
+            {spatial, Pullback::Interp::ModulationClockSnapshot{clock->state}});
+      }
+    }
+    if (recipes != snapshot.modulation.size())
+      return Result::INVALID_VALUE;
+    if (migrated.chain.size() > Pullback::Interp::MAX_CHAIN_OPS ||
+        migrated.modulation.size() > Pullback::Interp::MAX_CHAIN_OPS)
+      return Result::INVALID_LENGTH;
+    snapshot = std::move(migrated);
+    return Result::APPLIED;
+  }
+
   static Val runtime_state(const Runtime &snapshot) {
     using namespace Pullback::Interp;
     return std::visit(
@@ -243,13 +462,8 @@ class ChainSnapshotCodec {
             out.set("waves", waves);
           } else if constexpr (std::is_same_v<State, ColorClockSnapshot>) {
             out.set("oscillationPhase", state.oscillation_phase);
-            auto modulation = Val::object();
-            modulation.set("source",
-                           static_cast<uint8_t>(state.modulation.source));
-            modulation.set("version", state.modulation.version);
-            modulation.set("phaseTurns", state.modulation.phase.phase_turns);
-            modulation.set("initialized", state.modulation.initialized);
-            out.set("modulation", modulation);
+          } else if constexpr (std::is_same_v<State, ModulationClockSnapshot>) {
+            out = modulation_clock(state.modulation);
           } else if constexpr (std::is_same_v<State, SphericalRingsSnapshot>) {
             out.set("walk", spatial(state.walk));
             out.set("phase", state.phase);
@@ -259,8 +473,9 @@ class ChainSnapshotCodec {
         },
         snapshot);
   }
-  static bool runtime_state(const std::string &kind, const Val &value,
-                            Runtime &out) {
+  static bool
+  runtime_state(const std::string &kind, const Val &value, Runtime &out,
+                Pullback::Modulation::State *legacy_modulation = nullptr) {
     using namespace Pullback::Interp;
     if (!object(value))
       return false;
@@ -303,18 +518,18 @@ class ChainSnapshotCodec {
           !number(value, "rotation", state.rotation))
         return false;
       out = state;
-    } else if (kind == "color-clock-v2") {
+    } else if (kind == "color-clock-v3" ||
+               (kind == "color-clock-v2" && legacy_modulation != nullptr)) {
       ColorClockSnapshot state;
-      uint8_t source;
-      const auto modulation = value["modulation"];
       if (!number(value, "oscillationPhase", state.oscillation_phase) ||
-          !object(modulation) || !integer(modulation, "source", source) ||
-          !integer(modulation, "version", state.modulation.version) ||
-          !number(modulation, "phaseTurns",
-                  state.modulation.phase.phase_turns) ||
-          !boolean(modulation, "initialized", state.modulation.initialized))
+          (kind == "color-clock-v2" &&
+           !modulation_clock(value["modulation"], *legacy_modulation)))
         return false;
-      state.modulation.source = static_cast<Pattern::SourceKind>(source);
+      out = state;
+    } else if (kind == "modulation-clock-v1") {
+      ModulationClockSnapshot state;
+      if (!modulation_clock(value, state.modulation))
+        return false;
       out = state;
     } else if (kind == "spherical-rings-v2") {
       SphericalRingsSnapshot state;
@@ -418,7 +633,7 @@ public:
    * @return `APPLIED` when every field decodes (nothing is applied here);
    *         `INVALID_VALUE` for a missing or mistyped field, including a
    *         missing or non-array `modulation`;
-   *         `UNSUPPORTED_VERSION` for a `schemaVersion` other than
+   *         `UNSUPPORTED_VERSION` for a `schemaVersion` other than 3 or
    *         `ChainSnapshot::SCHEMA_VERSION`; `INVALID_LENGTH` for an over-cap
    *         `chain`, `parameters`, `modulation` or `runtime` array, or `hues`/`cycles`
    *         arrays not of length 3.
@@ -426,8 +641,10 @@ public:
   static Result decode(const Val &input, ChainSnapshot &out) {
     if (!object(input) || !integer(input, "schemaVersion", out.schema_version))
       return Result::INVALID_VALUE;
-    if (out.schema_version != ChainSnapshot::SCHEMA_VERSION)
+    const bool legacy = out.schema_version == 3;
+    if (!legacy && out.schema_version != ChainSnapshot::SCHEMA_VERSION)
       return Result::UNSUPPORTED_VERSION;
+    std::vector<LegacyClock> legacy_clocks;
     if (!boolean(input, "animationsPaused", out.animations_paused))
       return Result::INVALID_VALUE;
     const auto chain = input["chain"];
@@ -464,6 +681,8 @@ public:
           !text(modulation[index], "instance", entry.instance) ||
           !recipe(modulation[index]["recipe"], entry.recipe))
         return Result::INVALID_VALUE;
+      if (legacy && entry.recipe.source == Pattern::SourceKind::DISPLACEMENT)
+        return Result::INVALID_VALUE;
       out.modulation.push_back(std::move(entry));
     }
     const auto runtime = input["runtime"];
@@ -476,11 +695,18 @@ public:
       for (size_t index = 0; index < runtime["length"].as<size_t>(); ++index) {
         ChainSnapshot::Runtime entry;
         std::string kind;
+        Pullback::Modulation::State clock;
         if (!object(runtime[index]) ||
             !text(runtime[index], "instance", entry.instance) ||
             !text(runtime[index], "kind", kind) ||
-            !runtime_state(kind, runtime[index]["state"], entry.state))
+            !runtime_state(kind, runtime[index]["state"], entry.state,
+                           legacy ? &clock : nullptr))
           return Result::INVALID_VALUE;
+        if (legacy && kind == "color-clock-v2") {
+          if (clock.source == Pattern::SourceKind::DISPLACEMENT)
+            return Result::INVALID_VALUE;
+          legacy_clocks.push_back({entry.instance, clock});
+        }
         out.runtime->push_back(std::move(entry));
       }
     }
@@ -508,7 +734,7 @@ public:
       }
       out.palette_bank = bank;
     }
-    return Result::APPLIED;
+    return legacy ? migrate_legacy(out, legacy_clocks) : Result::APPLIED;
   }
 };
 

@@ -315,6 +315,7 @@ enum class SlotRole : uint8_t {
   SAMPLE,
   FIELD,
   COLORIZE,
+  MODULATION,
   UNKNOWN
 };
 
@@ -341,6 +342,8 @@ inline SlotRole classify_operator(std::string_view operator_id) {
     return SlotRole::SAMPLE;
   if (operator_id.starts_with("field."))
     return SlotRole::FIELD;
+  if (operator_id == "color.modulate.v1")
+    return SlotRole::MODULATION;
   if (operator_id.starts_with("colorize."))
     return SlotRole::COLORIZE;
   return SlotRole::UNKNOWN;
@@ -357,7 +360,7 @@ inline bool assign_field(Family &family, std::string_view id, float value) {
       }
   }
   if constexpr (requires { family.modulation; }) {
-    Pullback::Interp::Op::GeneratedPaletteParams bridge;
+    Pullback::Interp::Op::ModulationParams bridge;
     bridge.modulation = family.modulation;
     for (size_t index = 0; index < bridge.EXTRA_SCHEMA.size(); ++index)
       if (id == bridge.EXTRA_SCHEMA[index].id &&
@@ -503,6 +506,15 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
       return assign_mobius(built, field_id, number);
     case SlotRole::COLORIZE:
       return assign_field(built.template get<"color">(), field_id, number);
+    case SlotRole::MODULATION: {
+      bool assigned = false;
+      built.visit([&]<typename Resource>(auto &family) {
+        if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION)
+          if (Resource::KEY.view() == slot.label)
+            assigned = assign_field(family, field_id, number);
+      });
+      return assigned;
+    }
     default:
       return false;
     }
@@ -511,22 +523,33 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     return false;
   const std::string_view text = value.text;
   switch (slot.role) {
-  case SlotRole::COLORIZE: {
-    ChainOp::GeneratedPaletteParams bridge;
-    bridge.modulation = built.template get<"color">().modulation;
-    for (size_t index = 0; index < bridge.EXTRA_SCHEMA.size(); ++index) {
-      const auto &field = bridge.EXTRA_SCHEMA[index];
-      if (field_id == field.id && field.topology)
-        for (uint8_t value = 0; value < field.enum_count; ++value)
-          if (text == field.enum_ids[value]) {
-            *static_cast<uint8_t *>(bridge.extra_address(index)) = value;
-            built.template get<"color">().modulation = bridge.modulation;
-            HS_EXPECT_TRUE(
-                derivation_value_reachable(slot.operator_id, field_id, text));
-            return true;
-          }
-    }
+  case SlotRole::MODULATION: {
+    bool assigned = false;
+    built.visit([&]<typename Resource>(auto &family) {
+      if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {
+        if (Resource::KEY.view() != slot.label)
+          return;
+        ChainOp::ModulationParams bridge;
+        bridge.modulation = family.modulation;
+        for (size_t index = 0; index < bridge.EXTRA_SCHEMA.size(); ++index) {
+          const auto &field = bridge.EXTRA_SCHEMA[index];
+          if (field_id != field.id || !field.topology)
+            continue;
+          for (uint8_t option = 0; option < field.enum_count; ++option)
+            if (text == field.enum_ids[option]) {
+              *static_cast<uint8_t *>(bridge.extra_address(index)) = option;
+              family.modulation = bridge.modulation;
+              assigned = true;
+            }
+        }
+      }
+    });
+    if (assigned)
+      HS_EXPECT_TRUE(
+          derivation_value_reachable(slot.operator_id, field_id, text));
+    return assigned;
   }
+  case SlotRole::COLORIZE:
     if (field_id == "palette-mapping") {
       for (uint8_t index = 0; index < std::size(ChainOp::PALETTE_MAPPING_IDS);
            ++index)
@@ -542,14 +565,6 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     if (field_id == "palette-mode") {
       const char *expected = palette_mode_id(Traits::HARMONY);
       HS_EXPECT_TRUE(expected != nullptr && text == expected);
-      HS_EXPECT_TRUE(
-          derivation_value_reachable(slot.operator_id, field_id, text));
-      return true;
-    }
-    if (field_id == "hue-shift-mode") {
-      HS_EXPECT_TRUE(
-          text ==
-          ChainOp::HUE_SHIFT_MODE_IDS[static_cast<uint8_t>(Traits::HUE)]);
       HS_EXPECT_TRUE(
           derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
@@ -798,9 +813,6 @@ inline void check_document_values(const char *name) {
                 TraitsOf<FX>::BRIGHTNESS ==
                     Pullback::Color::BrightnessEnvelope::NONE)
               continue;
-            if (field.member == &Family::hue_shift_amount &&
-                TraitsOf<FX>::HUE == Pullback::HueMode::NONE)
-              continue;
           }
           family.*(field.member) = MISSING;
         }
@@ -809,12 +821,15 @@ inline void check_document_values(const char *name) {
       if constexpr (Pullback::HasFields<typename Resource::Family>)
         poison(family);
     });
-    if constexpr (FX::Spec::MODULATION) {
-      auto &config = built.template get<"color">().modulation;
-      config.mechanic.amount = MISSING;
-      config.noise.scale = MISSING;
-      config.noise.speed = MISSING;
-    }
+    built.visit([&]<typename Resource>(auto &family) {
+      if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {
+        family.modulation.mechanic.amount = MISSING;
+        if (family.modulation.source == Pattern::SourceKind::NOISE) {
+          family.modulation.noise.scale = MISSING;
+          family.modulation.noise.speed = MISSING;
+        }
+      }
+    });
     built.template get<"color">().palette_mapping =
         static_cast<Pullback::Color::PaletteMapping>(255);
     if constexpr (FX::Params::template HAS<"lens">)

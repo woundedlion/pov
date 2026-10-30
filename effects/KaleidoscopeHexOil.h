@@ -43,9 +43,13 @@ struct KaleidoscopeHexOilSpec : Pullback::Spec {
           Pullback::Weight::Projection,
           typename Pullback::CoveragePolicyFor<
               Pullback::ProjectionCoverageMode::WEIGHT_SQUARED, B, void>::Type>,
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::HueMode::PATH_LENGTH,
-                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "displacement", Pattern::SourceKind::DISPLACEMENT,
+              Pattern::Evaluation::DIRECT>>>>;
 };
 /// Parameter block derived from `KaleidoscopeHexOilSpec`.
 using KaleidoscopeHexOilParams = Pullback::ParamsFor<KaleidoscopeHexOilSpec>;
@@ -69,9 +73,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "7c905e729fb3dc4f261e4ead30c02ec2a509447d6933a75648909fb1950730af";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "14c7d06e4519435c86d4863cad20817f5a08f3daea286ada0eac54ea3c3116cc";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "11c244b834a8d9b98743f6ab0da41c12a987c9a2bfe37cdcd2896fcfe1454c3a";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "c1901a4ecb22bd7b39923930d5e5f758baa6a2853db3b4be8e6a3d354ed6cca8";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "kaleidoscope-hex-oil",
@@ -82,7 +86,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -93,16 +97,19 @@ public:
   static constexpr Params initial_params() {
     Params value;
     value.template get<"projection">().camera_wander = 1.0f;
-    value.template get<"color">().hue_shift_amount = -2.216f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
-    value.template get<"color">().modulation.enabled = false;
     value.template get<"color">().palette_chroma = 0.78f;
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::CUP;
     value.template get<"color">().phase_oscillation_depth = 0.0f;
     value.template get<"color">().phase_oscillation_speed = 0.0f;
     value.template get<"color">().opacity_high = 1.0f;
     value.template get<"color">().opacity_low = 1.0f;
+    value.template get<"displacement">().modulation.mechanic.amount = -2.216f;
+    value.template get<"displacement">().modulation.enabled = true;
+    value.template get<"displacement">().modulation.evaluation = Pattern::Evaluation::DIRECT;
+    value.template get<"displacement">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
+    value.template get<"displacement">().modulation.source = Pattern::SourceKind::DISPLACEMENT;
     value.template get<"projection">().spin_rate = 0.0f;
     value.template get<"projection">().wander = 1.0f;
     value.template get<"projection">().singularity_fade = 1.627f;

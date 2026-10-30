@@ -44,7 +44,8 @@ enum class ResourceKind {
   SURFACE,    ///< Displacement surface.
   LENS,       ///< Mobius lens.
   VALUE,      ///< Value transfer and coverage.
-  COLOR       ///< Colorizer.
+  COLOR,      ///< Colorizer.
+  MODULATION  ///< Ordered color modulation.
 };
 
 /** @brief The storage required by one provider instance. */
@@ -55,8 +56,8 @@ struct ParameterResource {
   using Family = FamilyT; ///< Parameter family stored for this instance.
   /// Standard instance keys, in canonical storage order.
   static constexpr std::string_view INSTANCE_ORDER[] = {
-      "source",  "projection", "outer_warp", "inner_warp",
-      "surface", "lens",       "value",      "color"};
+      "source", "projection", "outer_warp", "inner_warp",   "surface",
+      "lens",   "value",      "color",      "displacement", "modulation"};
   /// Index of `Key` in `INSTANCE_ORDER`, or its size for a non-standard
   /// key.
   static constexpr size_t ORDER = [] {
@@ -185,14 +186,7 @@ struct DiscoveryBinding {
 template <ResourceKey Key, typename Family, bool Modulation = true,
           Pattern::Evaluation Evaluation = Pattern::Evaluation::BAKED_CUBE>
 struct ParameterBlock {
-  Family data = [] {
-    Family value{};
-    if constexpr (requires { value.modulation; }) {
-      value.modulation.enabled = Modulation;
-      value.modulation.evaluation = Evaluation;
-    }
-    return value;
-  }(); ///< The family's parameter values.
+  Family data{}; ///< The family's parameter values.
   /** @brief Mutable access.
    *  @return `data`. */
   constexpr Family &resource() { return data; }
@@ -322,6 +316,63 @@ template <> struct ClockState<Lens::MobiusLensParams, ResourceKind::LENS> {
   float magnitude = 0.0f; ///< Generator magnitude; zero when unanimated.
   bool generated = false; ///< Whether the frame's b is the generator's.
 };
+/** @brief Modulation source clock.
+ * @tparam Family Authored modulation family. */
+template <typename Family> struct ClockState<Family, ResourceKind::MODULATION> {
+  Modulation::State modulation_clock; ///< Selected source clock.
+};
+/** @brief Spatial source storage of an authored layer.
+ * @tparam Resource Keyed resource.
+ * @tparam Spatial Whether the layer samples a spatial source. */
+template <typename Resource,
+          bool Spatial = Resource::KIND == ResourceKind::MODULATION>
+struct ResourceModulation {};
+/** @brief Modulation resource storage.
+ * @tparam Resource Authored modulation resource. */
+template <typename Resource> struct ResourceModulation<Resource, true> {
+  static constexpr bool SPATIAL =
+      Resource::Family::SOURCE !=
+      Pattern::SourceKind::DISPLACEMENT; ///< Spatial capability.
+  std::conditional_t<SPATIAL,
+                     Modulation::Resources<Resource::Family::EVALUATION ==
+                                           Pattern::Evaluation::BAKED_CUBE>,
+                     std::monostate>
+      modulation_resources; ///< Source cache.
+};
+/** @brief Borrowed modulation endpoint pair.
+ * @tparam Resource Keyed resource.
+ * @tparam Enabled Whether this resource modulates color. */
+template <typename Resource,
+          bool Enabled = Resource::KIND == ResourceKind::MODULATION>
+struct ResourceModulationView {};
+/** @brief Modulation endpoint pair.
+ * @tparam Resource Keyed modulation resource. */
+template <typename Resource> struct ResourceModulationView<Resource, true> {
+  const Modulation::Prepared *modulation = nullptr; ///< Current source.
+  const Modulation::Prepared *previous_modulation =
+      nullptr; ///< Retained source.
+};
+/** @brief Retained spatial source storage.
+ * @tparam Resource Keyed resource.
+ * @tparam Enabled Whether this resource owns a source. */
+template <typename Resource,
+          bool Enabled = Resource::KIND == ResourceKind::MODULATION>
+struct ResourceModulationHistory {};
+/** @brief Retention specialized for a modulation resource.
+ * @tparam Resource Keyed modulation resource. */
+template <typename Resource> struct ResourceModulationHistory<Resource, true> {
+  static constexpr bool SPATIAL =
+      Resource::Family::SOURCE !=
+      Pattern::SourceKind::DISPLACEMENT; ///< Source capability.
+  std::conditional_t<SPATIAL, Modulation::Prepared, std::monostate>
+      modulation; ///< Retained inputs.
+  std::array<int8_t, SPATIAL && Resource::Family::EVALUATION ==
+                                    Pattern::Evaluation::BAKED_CUBE
+                         ? Pattern::SphereLutView::SIZE
+                         : 0>
+      table{}; ///< Retained cube.
+};
+
 /** @brief The clocks of `Resource`. */
 template <typename Resource>
 struct ResourceClock : ClockState<typename Resource::Family, Resource::KIND> {};
@@ -339,9 +390,10 @@ inline constexpr bool RESOURCE_NOISE =
 
 /** @brief Owned noise generator of a noise resource; empty otherwise. */
 template <typename Resource, bool = RESOURCE_NOISE<Resource>>
-struct ResourceNoise {};
+struct ResourceNoise : ResourceModulation<Resource> {};
 /** @brief Noise resource: owns its generator. */
-template <typename Resource> struct ResourceNoise<Resource, true> {
+template <typename Resource>
+struct ResourceNoise<Resource, true> : ResourceModulation<Resource> {
   FastNoiseLite noise; ///< Seeded generator.
 };
 /** @brief Non-owning view of a resource's noise; empty otherwise. */
@@ -353,7 +405,9 @@ template <typename Resource> struct ResourceNoiseView<Resource, true> {
 };
 /** @brief Frame snapshot of one resource: its clocks and noise view. */
 template <typename Resource>
-struct ResourceFrame : ResourceClock<Resource>, ResourceNoiseView<Resource> {};
+struct ResourceFrame : ResourceClock<Resource>,
+                       ResourceNoiseView<Resource>,
+                       ResourceModulationView<Resource> {};
 
 /** @brief One `Storage<Resource>` per resource, addressed by key. */
 template <template <typename> typename Storage, typename Resources>
@@ -390,6 +444,6 @@ template <typename Spec>
 using ParamsFor = ComposedDetail::ParameterSet<
     typename ComposedDetail::PipelineResources<typename Spec::template Pipeline<
         ComposedDetail::DiscoveryBinding>>::Type,
-    Spec::MODULATION, Spec::MODULATION_EVALUATION>;
+    true, Pattern::Evaluation::BAKED_CUBE>;
 
 } // namespace Pullback

@@ -110,7 +110,7 @@ template <typename FX> void verify_export(size_t preset) {
         auto &state = mutable_state<In::Op::WarpPhaseState>(program, index);
         state.phase = own.resources.template get<"inner_warp">().phase;
       }
-    } else if (id == "colorize.generated-palette.v3") {
+    } else if (id == "colorize.generated-palette.v4") {
       mutable_state<In::Op::ColorClockState>(program, index).oscillation_phase =
           own.palette_oscillation_phase;
     }
@@ -118,7 +118,20 @@ template <typename FX> void verify_export(size_t preset) {
   In::FrameContext context;
   context.palettes.fill(own.palette);
   context.hue_rotation_lut = own.hue_rotation_lut;
-  context.modulation = own.modulation;
+  std::vector<Pullback::Modulation::Endpoint> endpoints;
+  own.params.visit([&]<typename Resource>(const auto &) {
+    if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {
+      for (size_t index = 0; index < program.ops().size(); ++index)
+        if (std::string_view(program.ops()[index].instance) ==
+            Resource::KEY.view()) {
+          const auto key =
+              mutable_state<In::Op::ModulationClockState>(program, index).key;
+          endpoints.push_back(
+              {key, own.resources.template get<Resource::KEY>().modulation});
+        }
+    }
+  });
+  context.modulations = endpoints;
   program.prepare(context);
   const auto prepared = FX::RenderPipeline::prepare(own);
   size_t visible = 0;
