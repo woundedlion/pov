@@ -245,12 +245,8 @@ struct DisplaceRipple : ValueStateModel<RipplePhaseState> {
 
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &, const Prepared &prepared) {
-    auto result = input;
-    for (uint8_t i = 0; i < prepared.count; ++i)
-      result = Kernel::displace(
-          result,
-          Surface::periodic_ripple(result.dir, prepared.waves[i], true));
-    return result;
+    return Kernel::displace(
+        input, SphereAnimation::grouped_ripples(input.dir, prepared, true));
   }
 };
 

@@ -11,7 +11,7 @@ struct SphereOpMirrorFrame {
   const FastNoiseLite *noise = nullptr;
   In::Op::CurlDisplaceParams curl;
   In::Op::DirectDisplaceParams direct;
-  PB::Surface::PeriodicRippleParams ripple;
+  PB::SphereAnimation::PreparedRipples ripples;
   math::MobiusParams mobius;
   float phase = 0.0f;
 };
@@ -54,12 +54,9 @@ struct DirectMirrorProvider {
 struct RippleMirrorProvider {
   using Binding = SphereOpMirrorBinding;
   using FrameState = SphereOpMirrorFrame;
-  static const PB::Surface::PeriodicRippleParams &
-  params(const FrameState &frame) {
-    return frame.ripple;
-  }
-  static float phase(const FrameState &frame) {
-    return PB::Surface::ripple_cycle(frame.phase, frame.ripple);
+  static const PB::SphereAnimation::PreparedRipples &
+  prepare(const FrameState &frame) {
+    return frame.ripples;
   }
   static bool path_length_required(const FrameState &) { return true; }
 };
@@ -113,8 +110,9 @@ inline SphereOpMirrorFrame sphere_op_mirror(In::ChainProgram &program) {
   }
   if (id == In::Op::DisplaceRipple::ID) {
     const auto &state = state_as<In::Op::RipplePhaseState>(program, 1);
-    mirror.ripple = param_as<PB::Surface::PeriodicRippleParams>(program, 1);
-    mirror.phase = state.waves[0].age;
+    mirror.ripples = In::Op::DisplaceRipple::prepare(
+        shared_resources().context(),
+        param_as<In::Op::RippleChainParams>(program, 1), state);
   }
   if (id == In::Op::DisplaceCurl::ID)
     mirror.curl = param_as<In::Op::CurlDisplaceParams>(program, 1);
@@ -198,11 +196,11 @@ inline void test_shader_chain_parity_displace_direct() {
 inline void test_shader_chain_parity_displace_ripple() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     if (!arm_sphere_op_chain<In::Op::RippleChainParams>(
-            program, In::Op::DisplaceRipple::ID, 4, set))
+            program, In::Op::DisplaceRipple::ID, 50, set))
       return;
     param_as<In::Op::RippleChainParams>(program, 1).random_center = 0;
     const In::FrameContext ctx = shared_resources().context();
-    using Bound = typename PB::Stage::Displace<PB::Surface::PeriodicRipple<
+    using Bound = typename PB::Stage::Displace<PB::Surface::BurstRipple<
         RippleMirrorProvider>>::template Bind<SphereOpMirrorBinding>;
     expect_sphere_op_parity<Bound>(program, ctx, sphere_op_mirror(program));
   });
