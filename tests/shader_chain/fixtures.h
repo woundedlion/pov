@@ -272,11 +272,13 @@ inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {
           put(v.phase);
           put(v.rotation);
         } else if constexpr (std::is_same_v<T, In::ColorClockSnapshot>) {
-          put(v.oscillation_phase);
-          put(static_cast<uint32_t>(v.modulation.source));
-          put(static_cast<uint32_t>(v.modulation.version));
-          put(v.modulation.phase.phase_turns);
-          put(static_cast<uint32_t>(v.modulation.initialized));
+          const auto &[oscillation, modulation] = v;
+          const auto &[source, version, phase, initialized] = modulation;
+          put(oscillation);
+          put(static_cast<uint32_t>(source));
+          put(static_cast<uint32_t>(version));
+          put(phase.phase_turns);
+          put(static_cast<uint32_t>(initialized));
         } else if constexpr (std::is_same_v<T, In::SphericalRingsSnapshot>) {
           static_assert(sizeof(T) == 15 * sizeof(uint32_t));
           put_walk(v.walk);
