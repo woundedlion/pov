@@ -175,7 +175,8 @@ private:
     float phase;           /**< Arm angle (radians, wrapped to [0, 2pi)). */
     float spin;            /**< +1 or -1: orbit direction about the core. */
     float emission_credit; /**< Fractional particles waiting to spawn. */
-    uint8_t arm;           /**< Arm the next spawn belongs to. */
+    uint8_t arm;           /**< Arm of the latest spawn attempt; the next takes
+                              (arm + 1) % arms. */
   };
 
   /**
