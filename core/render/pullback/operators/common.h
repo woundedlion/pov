@@ -9,6 +9,7 @@
 #if HS_ENABLE_CHAIN_INTERPRETER
 
 #include "core/animation/animation.h"
+#include "core/pattern/noise.h"
 #include "core/render/pullback/material.h"
 #include "core/render/pullback/operators/model.h"
 #include "core/render/pullback/stage.h"
@@ -179,7 +180,7 @@ template <typename StateT> struct PhaseClockModel : ValueStateModel<StateT> {
   template <typename Params>
   static void advance(StateT &state, const Params &params) {
     if constexpr (requires { params.noise_time_rate; })
-      state.phase = math::wrap_t(state.phase + params.noise_time_rate);
+      state.phase = Pattern::advance_noise_phase(state.phase, params);
     else
       state.phase = math::wrap_t(state.phase + params.speed);
   }

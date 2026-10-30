@@ -804,7 +804,7 @@ private:
                                 clock.angle);
         if constexpr (requires { family.noise_time_rate; })
           clock.noise_time =
-              math::wrap_t(clock.noise_time + family.noise_time_rate);
+              Pattern::advance_noise_phase(clock.noise_time, family);
       } else if constexpr (Resource::KIND == ResourceKind::SURFACE) {
         if constexpr (std::is_same_v<typename Resource::Family,
                                      PeriodicRippleParams>)

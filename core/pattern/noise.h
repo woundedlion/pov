@@ -98,6 +98,14 @@ struct SphereNoise {
   }
 };
 
+/** @brief Advances a noise loop by its declared turn rate.
+ * @param phase Previous loop phase in turns.
+ * @param params Noise source controls.
+ * @return Wrapped next phase. */
+inline float advance_noise_phase(float phase, const NoiseSourceParams &params) {
+  return math::wrap_t(phase + params.noise_time_rate);
+}
+
 /** @brief Pure projected-plane octave noise with a turn-valued loop clock. */
 struct PlaneNoise {
   using Coordinate = PlanePosition; ///< Consumer-supplied plane coordinate.
@@ -134,7 +142,7 @@ struct PlaneNoise {
   static State advance(const State &state, const Params &params) {
     HS_CHECK(valid(params) && finite(state.phase_turns),
              "pattern plane noise: invalid advance inputs");
-    return {math::wrap_t(state.phase_turns + params.noise_time_rate)};
+    return {advance_noise_phase(state.phase_turns, params)};
   }
   /** @brief Copies the generator and resolves projected loop construction.
    * @param params Source controls.
