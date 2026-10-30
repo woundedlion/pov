@@ -1226,7 +1226,7 @@ inline void test_millefiori_radial_table_interval() {
                0.0f);
   using Provider = Pullback::SurfaceProvider<FX::Binding, BurstRippleParams,
                                              true, "displace">;
-  HS_EXPECT_TRUE(Provider::prepare(CURRENT).radial_tables == nullptr);
+  HS_EXPECT_TRUE(Provider::radial_tables(CURRENT) == nullptr);
   const Pullback::FrameInterval interval(previous, CURRENT);
   for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
     const auto FRAME = interval.at(fraction);
@@ -1234,6 +1234,9 @@ inline void test_millefiori_radial_table_interval() {
     HS_EXPECT_EQ(resource.radial_tables, TABLE);
     HS_EXPECT_EQ(resource.radial_fraction,
                  fraction > 0.0f && fraction < 1.0f ? fraction : -1.0f);
+    HS_EXPECT_EQ(Provider::radial_tables(FRAME),
+                 fraction > 0.0f && fraction < 1.0f ? TABLE : nullptr);
+    HS_EXPECT_EQ(Provider::radial_fraction(FRAME), resource.radial_fraction);
   }
   const auto SAME = Pullback::FrameInterval(CURRENT, CURRENT).at(0.5f);
   HS_EXPECT_EQ(SAME.resources.template get<"displace">().radial_fraction, 1.0f);

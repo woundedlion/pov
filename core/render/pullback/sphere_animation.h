@@ -105,8 +105,6 @@ struct RadialTables {
 struct PreparedRipples {
   std::array<Surface::PreparedRipple, 16> waves; ///< Active kernels.
   uint8_t count = 0;                             ///< Active wave count.
-  const RadialTables *radial_tables = nullptr;   ///< Optional transfer curves.
-  float radial_fraction = 1.0f;                  ///< Current endpoint weight.
 };
 
 /** @brief Applies prepared waves in launch order.
@@ -288,13 +286,14 @@ inline void prepare_radial_tables(const Params &params,
 
 /** @brief Applies interpolated radial curves with grouped-kernel fallback.
  * @param input Unit direction.
- * @param prepared Current column's exact wave kernels and optional curves.
+ * @param prepared Current column's exact wave kernels.
  * @param track_path Whether to accumulate angular travel.
+ * @param tables Optional current-owned transfer curves.
+ * @param fraction Current endpoint weight.
  * @return Displaced direction and travel. */
 HS_HOT_ITCM_MEMBER inline SurfaceResult
 radial_ripples(const math::Vector &input, const PreparedRipples &prepared,
-               bool track_path) {
-  const auto *tables = prepared.radial_tables;
+               bool track_path, const RadialTables *tables, float fraction) {
   if (!tables || !tables->enabled)
     return grouped_ripples(input, prepared, track_path);
   SurfaceResult result{input, 0.0f};
@@ -319,13 +318,12 @@ radial_ripples(const math::Vector &input, const PreparedRipples &prepared,
     const auto &d = group.current[LOW_INDEX + 1];
     if (a.path < 0.0f || b.path < 0.0f || c.path < 0.0f || d.path < 0.0f)
       return grouped_ripples(input, prepared, track_path);
-    const float ANGLE =
-        hs::lerp(hs::lerp(a.angle, b.angle, WEIGHT),
-                 hs::lerp(c.angle, d.angle, WEIGHT), prepared.radial_fraction);
+    const float ANGLE = hs::lerp(hs::lerp(a.angle, b.angle, WEIGHT),
+                                 hs::lerp(c.angle, d.angle, WEIGHT), fraction);
     if (track_path)
       result.path_length +=
           hs::lerp(hs::lerp(a.path, b.path, WEIGHT),
-                   hs::lerp(c.path, d.path, WEIGHT), prepared.radial_fraction);
+                   hs::lerp(c.path, d.path, WEIGHT), fraction);
     if (ANGLE == 0.0f)
       continue;
     const math::Vector CROSS = math::cross(group.center, START);

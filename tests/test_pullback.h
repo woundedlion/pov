@@ -1579,13 +1579,14 @@ inline void test_pullback_radial_ripple_crest() {
   HS_EXPECT_TRUE(tables.enabled);
   HS_EXPECT_EQ(tables.count, 1);
   auto prepared = prepare_ripples(params, state);
-  prepared.radial_tables = &tables;
-  const auto RESULT = radial_ripples(math::X_AXIS, prepared, true);
+  const auto RESULT =
+      radial_ripples(math::X_AXIS, prepared, true, &tables, 1.0f);
   HS_EXPECT_NEAR(RESULT.sphere.x, cosf(0.075f), 1e-6f);
   HS_EXPECT_NEAR(RESULT.sphere.y, -sinf(0.075f), 1e-6f);
   HS_EXPECT_NEAR(RESULT.sphere.z, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(RESULT.path_length, 0.075f, 1e-6f);
-  const auto UNTRACKED = radial_ripples(math::X_AXIS, prepared, false);
+  const auto UNTRACKED =
+      radial_ripples(math::X_AXIS, prepared, false, &tables, 1.0f);
   HS_EXPECT_EQ(UNTRACKED.sphere.x, RESULT.sphere.x);
   HS_EXPECT_EQ(UNTRACKED.sphere.y, RESULT.sphere.y);
   HS_EXPECT_EQ(UNTRACKED.path_length, 0.0f);
@@ -1605,10 +1606,9 @@ inline void test_pullback_radial_ripple_fallback() {
     prepare_radial_tables(params, state, tables);
     HS_EXPECT_FALSE(tables.enabled);
     auto prepared = prepare_ripples(params, state);
-    prepared.radial_tables = &tables;
     const math::Vector VIEW = math::Vector(0.4f, 0.5f, 0.6f).normalized();
     const auto EXPECTED = grouped_ripples(VIEW, prepared, true);
-    const auto RESULT = radial_ripples(VIEW, prepared, true);
+    const auto RESULT = radial_ripples(VIEW, prepared, true, &tables, 1.0f);
     HS_EXPECT_EQ(RESULT.sphere.x, EXPECTED.sphere.x);
     HS_EXPECT_EQ(RESULT.sphere.y, EXPECTED.sphere.y);
     HS_EXPECT_EQ(RESULT.sphere.z, EXPECTED.sphere.z);
@@ -1619,8 +1619,8 @@ inline void test_pullback_radial_ripple_fallback() {
   HS_EXPECT_TRUE(tables.enabled);
   HS_EXPECT_EQ(tables.count, 0);
   PreparedRipples empty;
-  empty.radial_tables = &tables;
-  const auto IDENTITY = radial_ripples(math::X_AXIS, empty, true);
+  const auto IDENTITY =
+      radial_ripples(math::X_AXIS, empty, true, &tables, 1.0f);
   HS_EXPECT_EQ(IDENTITY.sphere.x, 1.0f);
   HS_EXPECT_EQ(IDENTITY.path_length, 0.0f);
 }
@@ -1643,8 +1643,6 @@ inline void test_pullback_radial_ripple_geometry() {
       for (auto &wave : sampled.waves)
         wave.age -= 1.0f - fraction;
       auto prepared = prepare_ripples(params, sampled);
-      prepared.radial_tables = &tables;
-      prepared.radial_fraction = fraction;
       for (int i = 0; i < 32; ++i) {
         const float Y = -1.0f + (2.0f * i + 1.0f) / 32.0f;
         const float AZIMUTH = i * 2.39996323f;
@@ -1652,7 +1650,8 @@ inline void test_pullback_radial_ripple_geometry() {
         const math::Vector VIEW(RADIUS * cosf(AZIMUTH), Y,
                                 RADIUS * sinf(AZIMUTH));
         const auto EXPECTED = grouped_ripples(VIEW, prepared, true);
-        const auto RESULT = radial_ripples(VIEW, prepared, true);
+        const auto RESULT =
+            radial_ripples(VIEW, prepared, true, &tables, fraction);
         HS_EXPECT_TRUE(std::isfinite(RESULT.path_length));
         HS_EXPECT_GE(RESULT.path_length, 0.0f);
         HS_EXPECT_NEAR(math::dot(RESULT.sphere, RESULT.sphere), 1.0f, 1e-5f);

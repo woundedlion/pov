@@ -226,11 +226,7 @@ struct SurfaceProvider {
   __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
     if constexpr (std::is_same_v<Family, SphereAnimation::BurstRippleParams>) {
       const auto &resource = frame.resources.template get<Key>();
-      auto prepared = SphereAnimation::prepare_ripples(params(frame), resource);
-      prepared.radial_tables =
-          resource.radial_fraction >= 0.0f ? resource.radial_tables : nullptr;
-      prepared.radial_fraction = resource.radial_fraction;
-      return prepared;
+      return SphereAnimation::prepare_ripples(params(frame), resource);
     } else if constexpr (requires {
                            frame.params.template get<Key>().direction;
                          })
@@ -240,6 +236,21 @@ struct SurfaceProvider {
     else
       return Pullback::Surface::prepare(
           frame.resources.template get<Key>().phase);
+  }
+  /** @brief Current-owned ripple curves selected for this column.
+   * @param frame Current column context.
+   * @return Transfer curves, or null for canonical evaluation. */
+  __attribute__((always_inline)) static const SphereAnimation::RadialTables *
+  radial_tables(const FrameState &frame) {
+    const auto &resource = frame.resources.template get<Key>();
+    return resource.radial_fraction >= 0.0f ? resource.radial_tables : nullptr;
+  }
+  /** @brief Ripple transfer weight of the current column.
+   * @param frame Current column context.
+   * @return Current endpoint weight. */
+  __attribute__((always_inline)) static float
+  radial_fraction(const FrameState &frame) {
+    return frame.resources.template get<Key>().radial_fraction;
   }
   /** @brief The surface instance's parameters.
    *  @param frame Current frame.
@@ -302,8 +313,16 @@ template <typename State> struct BurstRipple : ApproximationDefaults {
    * @return Displaced direction and accumulated path length. */
   static SurfaceResult apply(const math::Vector &input, const FrameState &frame,
                              const Prepared &prepared) {
-    return SphereAnimation::radial_ripples(input, prepared,
-                                           State::path_length_required(frame));
+    if constexpr (requires {
+                    State::radial_tables(frame);
+                    State::radial_fraction(frame);
+                  })
+      return SphereAnimation::radial_ripples(
+          input, prepared, State::path_length_required(frame),
+          State::radial_tables(frame), State::radial_fraction(frame));
+    else
+      return SphereAnimation::grouped_ripples(
+          input, prepared, State::path_length_required(frame));
   }
 };
 } // namespace Surface
