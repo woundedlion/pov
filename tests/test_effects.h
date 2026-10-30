@@ -178,6 +178,7 @@ inline int run_effects_tests() {
   run_effect_case_gs_rest_state_is_fixed_point();
   run_effect_case_gs_substep_signs_and_clamp();
   run_effect_case_bz_q16_roundtrip();
+  run_effect_case_bz_ordered_neighbors();
   run_effect_case_bz_advance_species_signs_and_clamp();
   run_effect_case_bz_perturb_state_draw_count_pinned();
   run_effect_case_hopf_projection_math();

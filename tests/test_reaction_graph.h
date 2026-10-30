@@ -114,6 +114,7 @@ inline void test_d_avg_matches_rd_n() {
 
 /** @brief Expands every run and compares all ordered slots to the K-NN table. */
 inline void test_neighbor_runs_match_table() {
+  ReactionGraph::validate_neighbor_runs();
   static_assert(sizeof(ReactionGraph::NeighborRun) == 2 * (RD_K + 1));
   HS_EXPECT_GT(ReactionGraph::NEIGHBOR_RUN_COUNT, 0u);
   HS_EXPECT_LE(ReactionGraph::NEIGHBOR_RUN_COUNT, static_cast<unsigned>(RD_N));

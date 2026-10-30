@@ -18,6 +18,10 @@ void run_effect_case_bz_q16_roundtrip() {
   HS_RUN(run_case, test_bz_q16_roundtrip);
 }
 
+void run_effect_case_bz_ordered_neighbors() {
+  HS_RUN(run_case, test_bz_ordered_neighbors);
+}
+
 void run_effect_case_bz_advance_species_signs_and_clamp() {
   HS_RUN(run_case, test_bz_advance_species_signs_and_clamp);
 }
@@ -84,6 +88,7 @@ int run_reaction_diffusion_bz_tests() {
   using namespace effects_tests;
   ModuleFixture fixture("effects");
   run_effect_case_bz_q16_roundtrip();
+  run_effect_case_bz_ordered_neighbors();
   run_effect_case_bz_advance_species_signs_and_clamp();
   run_effect_case_bz_perturb_state_draw_count_pinned();
   run_effect_case_bz_authored_palette();

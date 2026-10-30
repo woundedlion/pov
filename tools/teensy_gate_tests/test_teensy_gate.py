@@ -30,6 +30,11 @@ from scons_hook_test_env import FakeEnv, load_hook  # noqa: E402
 FIX = Path(__file__).resolve().parent / "fixtures"
 REAL_DIR = FIX / "real"
 BUDGETS = tg.load_budgets(TOOLS / "teensy_budgets.json")
+HISTORICAL_PHANTASM_BUDGET = copy.deepcopy(BUDGETS["phantasm"])
+HISTORICAL_PHANTASM_BUDGET["symbols"]["reaction_graph"]["name"] = (
+    "_ZN13ReactionGraph9neighborsE")
+for key in ("reaction_graph_index", "reaction_graph_count"):
+    del HISTORICAL_PHANTASM_BUDGET["symbols"][key]
 
 # Verbatim toolchain output; all committed, so a missing one is a deleted fixture.
 REAL_CAPTURES = (
@@ -257,13 +262,31 @@ class TestLayoutInvariantsFail(unittest.TestCase):
         self.assertTrue(any("framebuffer" in v.message for v in result.violations))
 
     def test_reaction_graph_dropped_const_lands_in_ram(self):
-        # phantasm env: it instantiates reaction-diffusion effects so the K-NN
-        # table is present + budgeted (Holosphere GC's it out).
         result = _eval("phantasm", "good_teensy_size.txt",
                        "broken_reaction_graph_ram_syms.txt")
         self.assertFalse(result.passed)
         self.assertEqual(_codes(result), ["symbol-wrong-region"])
         self.assertTrue(any("reaction_graph" in v.message for v in result.violations))
+
+    def test_compact_graph_arrays_require_flash_and_presence(self):
+        sizes = tg.parse_teensy_size(_read("good_teensy_size.txt"))
+        sections = tg.parse_readelf_sections(_read("good_readelf_secs.txt"))
+        symbols = tg.parse_readelf_symbols(_read("good_readelf_syms.txt"))
+        budget = BUDGETS["phantasm"]
+        self.assertTrue(tg.evaluate("phantasm", budget, sizes, symbols, sections).passed)
+        for key in ("reaction_graph", "reaction_graph_index", "reaction_graph_count"):
+            name = budget["symbols"][key]["name"]
+            with self.subTest(symbol=key, corruption="region"):
+                corrupt = [dataclasses.replace(s, value=0x20010000)
+                           if s.name == name else s for s in symbols]
+                result = tg.evaluate("phantasm", budget, sizes, corrupt, sections)
+                self.assertEqual(_codes(result), ["symbol-wrong-region"])
+                self.assertIn(key, result.violations[0].message)
+            with self.subTest(symbol=key, corruption="missing"):
+                corrupt = [s for s in symbols if s.name != name]
+                result = tg.evaluate("phantasm", budget, sizes, corrupt, sections)
+                self.assertEqual(_codes(result), ["symbol-not-found"])
+                self.assertIn(key, result.violations[0].message)
 
     def test_dma_tx_buffer_dropped_dmamem_lands_in_dtcm(self):
         # phantasm env: the segment LED controller's eDMA TX buffers must stay in
@@ -956,7 +979,7 @@ class TestRealCapture(unittest.TestCase):
         sizes = tg.parse_teensy_size((REAL_DIR / "phantasm_teensy_size.txt").read_text())
         syms = tg.parse_readelf_symbols((REAL_DIR / "phantasm_readelf_syms.txt").read_text())
         secs = tg.parse_readelf_sections((REAL_DIR / "phantasm_readelf_secs.txt").read_text())
-        result = tg.evaluate("phantasm", BUDGETS["phantasm"], sizes, syms, secs)
+        result = tg.evaluate("phantasm", HISTORICAL_PHANTASM_BUDGET, sizes, syms, secs)
         self.assertTrue(result.passed, msg=_codes(result))
         # The bank-derived ITCM ceiling is phantasm-only and unmeasurable from
         # `size -A`; a capture without the code component would pass every other

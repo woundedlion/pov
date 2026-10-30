@@ -1052,8 +1052,7 @@ private:
     uint16_t pigment;
     {
       HS_PROFILE_DEEP(grd_shader_stencil);
-      int center =
-          Base::template refine_render_center<true>(center_rv, nodes, seed);
+      int center = Base::refine_render_center(center_rv, nodes, seed);
       if (culled(hot_flags, center))
         return Pixel(0, 0, 0);
       pigment = state.pigment[center];
@@ -1147,8 +1146,7 @@ private:
     uint16_t pigment;
     {
       HS_PROFILE_DEEP(grd_shader_stencil);
-      int center =
-          Base::template refine_render_center<true>(center_rv, nodes, seed);
+      int center = Base::refine_render_center(center_rv, nodes, seed);
       if (culled(hot_flags, center))
         return Pixel(0, 0, 0);
       const float LIMIT = render_support_limit<Grid>();

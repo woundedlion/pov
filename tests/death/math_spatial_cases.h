@@ -87,15 +87,71 @@ inline void case_reaction_graph_node_index_out_of_range() {
     std::printf("x");
 }
 
-/**
- * @brief Death case: a neighbor-table slot outside the lattice must trap.
- * @details Spatial surface — validate_neighbors() traps on a slot that is not
- *          a node index.
- */
+/** @brief Mutable copy of the generated compact graph for guard cases. */
+struct NeighborRunsFixture {
+  ReactionGraph::NeighborRun runs[256];
+  uint8_t index[ReactionGraph::RD_N];
+  NeighborRunsFixture() {
+    std::copy_n(ReactionGraph::neighbor_runs, ReactionGraph::NEIGHBOR_RUN_COUNT,
+                runs);
+    std::copy_n(ReactionGraph::neighbor_run_index, ReactionGraph::RD_N, index);
+  }
+  void validate(unsigned count = ReactionGraph::NEIGHBOR_RUN_COUNT) const {
+    ReactionGraph::validate_neighbor_runs(runs, count, index);
+  }
+};
+
+/** @brief Death case: a decoded neighbor below the lattice must trap. */
 inline void case_reaction_graph_slot_out_of_range() {
-  static int16_t table[ReactionGraph::RD_N][ReactionGraph::RD_K] = {};
-  table[0][0] = opaque<int16_t>(-1);
-  ReactionGraph::validate_neighbors(table);
+  NeighborRunsFixture fixture;
+  fixture.runs[0].delta[0] = opaque<int16_t>(-1);
+  fixture.validate();
+}
+
+/** @brief Death case: a decoded neighbor past the lattice must trap. */
+inline void case_reaction_graph_slot_above_range() {
+  NeighborRunsFixture fixture;
+  fixture.runs[0].delta[0] = opaque<int16_t>(ReactionGraph::RD_N);
+  fixture.validate();
+}
+
+/** @brief Death case: an empty compact graph must trap. */
+inline void case_reaction_graph_empty_runs() {
+  NeighborRunsFixture fixture;
+  fixture.validate(opaque(0u));
+}
+
+/** @brief Death case: a run count beyond the index capacity must trap. */
+inline void case_reaction_graph_excess_runs() {
+  NeighborRunsFixture fixture;
+  fixture.validate(opaque(257u));
+}
+
+/** @brief Death case: a nonincreasing run endpoint must trap. */
+inline void case_reaction_graph_unordered_runs() {
+  NeighborRunsFixture fixture;
+  fixture.runs[1].end = opaque(fixture.runs[0].end);
+  fixture.validate();
+}
+
+/** @brief Death case: run coverage past the lattice must trap. */
+inline void case_reaction_graph_endpoint_above_range() {
+  NeighborRunsFixture fixture;
+  fixture.runs[0].end = opaque<uint16_t>(ReactionGraph::RD_N + 1);
+  fixture.validate();
+}
+
+/** @brief Death case: incomplete lattice coverage must trap. */
+inline void case_reaction_graph_incomplete_runs() {
+  NeighborRunsFixture fixture;
+  fixture.validate(opaque(ReactionGraph::NEIGHBOR_RUN_COUNT - 1));
+}
+
+/** @brief Death case: an incorrect node-to-run index must trap. */
+inline void case_reaction_graph_bad_run_index() {
+  NeighborRunsFixture fixture;
+  fixture.index[0] = opaque<uint8_t>(1);
+  fixture.validate();
 }
 
 /**

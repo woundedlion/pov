@@ -19,7 +19,7 @@ python -m unittest discover -s tools/teensy_gate_tests
 | `good_readelf_secs.txt` | `readelf -S` section headers (ndx → name/addr). |
 | `good_size_a.txt` | `size -A` for the address-bucketing test. |
 | `broken_framebuffer_dtcm_syms.txt` | `DMAMEM` dropped → `Effect::buffer_a/b` land in DTCM → framebuffers→OCRAM must fail. |
-| `broken_reaction_graph_ram_syms.txt` | `const` dropped → `ReactionGraph::neighbors` in DTCM → table→FLASH must fail. |
+| `broken_reaction_graph_ram_syms.txt` | `const` dropped → `ReactionGraph::neighbor_runs` in DTCM → table→FLASH must fail. |
 | `broken_arena_8mb_syms.txt` | `global_arena_block` at the 8 MiB host-harness size → arena magnitude must fail. |
 | `broken_missing_symbol_syms.txt` | a framebuffer renamed → "symbol not found" hard-fails (never a silent skip). |
 | `broken_over_cap_teensy_size.txt` | FLASH and RAM2 exceed their region caps. |
@@ -36,7 +36,7 @@ python -m unittest discover -s tools/teensy_gate_tests
 | `real/holosphere_size_a.txt` | Verbatim `size -A` for the fallback bucketing path. |
 | `real/phantasm_teensy_size.txt` | Verbatim `teensy_size` for `[env:phantasm]` — the calibrated region totals the end-to-end `evaluate()` test runs against. |
 | `real/phantasm_teensy_size_historical.txt` | Retained earlier `teensy_size` output for the calibrated bank-headroom regression. |
-| `real/phantasm_readelf_syms.txt` | `readelf -sW` rows for the layout symbols `tools/teensy_budgets.json` names, excerpted verbatim from the full table (the whole dump is ~600 KB). |
+| `real/phantasm_readelf_syms.txt` | `readelf -sW` rows for the layout symbols the historical full-table budget names, excerpted verbatim from the full table (the whole dump is ~600 KB). |
 | `real/phantasm_readelf_secs.txt` | Verbatim `readelf -SW`; also pins `.ARM.exidx` to flash, where `tools/phantasm.ld` routes it. |
 | `real/phantasm_size_a.txt` | Verbatim `size -A` for the fallback bucketing path. |
 

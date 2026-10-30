@@ -34,7 +34,7 @@
       "arena":         { "name": "_ZL18global_arena_block", "region": "DTCM", "min_bytes": 294912, "max_bytes": 327680 }, // 305,152 B (298 KiB)
       "framebuffer_a": { "name": "_ZN6Effect8buffer_aE",    "region": "OCRAM" },
       "framebuffer_b": { "name": "_ZN6Effect8buffer_bE",    "region": "OCRAM" }
-      // NOTE: reaction_graph (ReactionGraph::neighbors) is GC'd out of Holosphere
+      // ReactionGraph's neighbor runs are GC'd out of Holosphere
       // — RingSpin uses no reaction-diffusion effect — so it is intentionally NOT
       // a layout symbol here. It IS checked for Phantasm (below).
     }
@@ -74,10 +74,10 @@
       "arena":          { "name": "_ZL18global_arena_block",        "region": "DTCM", "min_bytes": 294912, "max_bytes": 327680 },
       "framebuffer_a":  { "name": "_ZN6Effect8buffer_aE",          "region": "OCRAM" },
       "framebuffer_b":  { "name": "_ZN6Effect8buffer_bE",          "region": "OCRAM" },
-      // Phantasm instantiates reaction-diffusion effects, so the K-NN
-      // table is present and must stay in flash (const => flash/.rodata).
-      // Verified on the real Phantasm ELF.
-      "reaction_graph": { "name": "_ZN13ReactionGraph9neighborsE", "region": "FLASH" },
+      // Compact ordered K-NN adjacency stays in flash.
+      "reaction_graph": { "name": "_ZN13ReactionGraph13neighbor_runsE", "region": "FLASH" },
+      "reaction_graph_index": { "name": "_ZN13ReactionGraph18neighbor_run_indexE", "region": "FLASH" },
+      "reaction_graph_count": { "name": "_ZN13ReactionGraph18NEIGHBOR_RUN_COUNTE", "region": "FLASH" },
       // The segment LED controller's HD107SFrame buffers are the eDMA TX source and
       // stay in OCRAM to preserve RAM1/DTCM capacity. Cached OCRAM requires
       // arm_dcache_flush() before DMA. Emitted by HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER in

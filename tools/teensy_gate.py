@@ -557,7 +557,8 @@ _REQUIRED_SYMBOLS = frozenset({"arena", "framebuffer_a", "framebuffer_b"})
 
 # Layout symbols required of specific targets only.
 _REQUIRED_SYMBOLS_BY_ENV: dict[str, frozenset[str]] = {
-    "phantasm": frozenset({"reaction_graph", "dma_tx_buffer"}),
+    "phantasm": frozenset({"reaction_graph", "reaction_graph_index",
+                           "reaction_graph_count", "dma_tx_buffer"}),
 }
 _REQUIRED_COMPONENTS_BY_ENV: dict[str, dict[str, frozenset[str]]] = {
     "phantasm": {"ram1": frozenset({"code"})},

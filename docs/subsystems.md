@@ -1765,8 +1765,11 @@ parameters and frame state.
 `KDTree::nearest_moved` answers the same query for points that have moved by a
 bounded distance since the build, ranking them by a caller-supplied distance.
 `reaction_graph.h` defines the Fibonacci reaction lattice and node lookup;
-`reaction_graph.cpp` stores the generated neighbor table, its run-length
-encoding (`neighbor_runs`/`neighbor_run_index`) and immutable float node positions.
+`reaction_graph.cpp` stores ordered K-NN adjacency as lossless offset runs
+(`neighbor_runs`/`neighbor_run_index`) and immutable float node positions. The full
+neighbor table is a test-only oracle enabled by `HS_ENABLE_TEST_ORACLES`. Startup
+validates run coverage, the node-to-run index and every decoded neighbor bound.
+The cubemap descent reloads the current node's run after each hop within an iteration.
 The generator of record is `scripts/generate_reaction_graph.py`; its provenance
 gate diffs the whole generated file. The analytic `ReactionGraph::node()`
 remains the reference, with a native comparison across all 7,680 positions.

@@ -227,6 +227,9 @@ void run_effect_case_gs_substep_signs_and_clamp();
 /** @brief Runs test_bz_q16_roundtrip with its case context. */
 void run_effect_case_bz_q16_roundtrip();
 
+/** @brief Runs test_bz_ordered_neighbors with its case context. */
+void run_effect_case_bz_ordered_neighbors();
+
 /** @brief Runs test_bz_advance_species_signs_and_clamp with its case context. */
 void run_effect_case_bz_advance_species_signs_and_clamp();
 

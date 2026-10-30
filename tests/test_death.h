@@ -590,8 +590,35 @@ inline const Case *all_cases(int &n) {
        "(i >= 0 && i < RD_N) node() index outside the lattice"},
       {"reaction_graph_slot_out_of_range",
        case_reaction_graph_slot_out_of_range, "core/spatial/reaction_graph.h",
-       "(table[i][k] >= 0 && table[i][k] < RD_N) neighbors[] slot is not a "
+       "(NEIGHBOR >= 0 && NEIGHBOR < RD_N) neighbor run slot is not a "
        "lattice node index"},
+      {"reaction_graph_slot_above_range", case_reaction_graph_slot_above_range,
+       "core/spatial/reaction_graph.h",
+       "(NEIGHBOR >= 0 && NEIGHBOR < RD_N) neighbor run slot is not a "
+       "lattice node index"},
+      {"reaction_graph_empty_runs", case_reaction_graph_empty_runs,
+       "core/spatial/reaction_graph.h",
+       "(count > 0 && count <= 256) neighbor run count outside uint8_t "
+       "capacity"},
+      {"reaction_graph_excess_runs", case_reaction_graph_excess_runs,
+       "core/spatial/reaction_graph.h",
+       "(count > 0 && count <= 256) neighbor run count outside uint8_t "
+       "capacity"},
+      {"reaction_graph_unordered_runs", case_reaction_graph_unordered_runs,
+       "core/spatial/reaction_graph.h",
+       "(run.end > start && run.end <= RD_N) neighbor run endpoint outside "
+       "ordered lattice coverage"},
+      {"reaction_graph_endpoint_above_range",
+       case_reaction_graph_endpoint_above_range,
+       "core/spatial/reaction_graph.h",
+       "(run.end > start && run.end <= RD_N) neighbor run endpoint outside "
+       "ordered lattice coverage"},
+      {"reaction_graph_incomplete_runs", case_reaction_graph_incomplete_runs,
+       "core/spatial/reaction_graph.h",
+       "(start == RD_N) neighbor runs do not cover the lattice"},
+      {"reaction_graph_bad_run_index", case_reaction_graph_bad_run_index,
+       "core/spatial/reaction_graph.h",
+       "(index[i] == r) neighbor run index does not match coverage"},
       {"gs_neighbor_exceeds_history", case_gs_neighbor_exceeds_history,
        "effects/GSReactionDiffusion.h",
        "(delta >= -PHYSICS_NEIGHBOR_REACH) GS neighbor exceeds delayed-write history"},

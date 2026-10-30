@@ -17,6 +17,15 @@ struct BZWhiteBox {
   using Grid = Scan::Shader::SsaaGrid<SMALL_W, SMALL_H>;
   static constexpr int N = BZ::RD_N;
 
+  static std::array<int, ReactionGraph::RD_K> ordered_neighbors(int node) {
+    std::array<int, ReactionGraph::RD_K> result;
+    result.fill(-1);
+    int slot = 0;
+    BZ::for_each_neighbor(node,
+                          [&](int neighbor) { result[slot++] = neighbor; });
+    return result;
+  }
+
   static Pixel palette_color(const BZ &bz, float t) {
     const auto &color = t == 0.0f   ? bz.color_a
                         : t == 0.5f ? bz.color_b
@@ -415,6 +424,15 @@ inline void test_bz_perturb_scales_with_timestep() {
     HS_EXPECT_EQ(malformed, 0);
     HS_EXPECT_EQ(total, static_cast<int64_t>(PASSES) *
                             BZWhiteBox::num_perturbations() * step);
+  }
+}
+
+/** @brief Compares common traversal order against the full generated table. */
+inline void test_bz_ordered_neighbors() {
+  for (int i = 0; i < ReactionGraph::RD_N; ++i) {
+    const auto ACTUAL = BZWhiteBox::ordered_neighbors(i);
+    for (int k = 0; k < ReactionGraph::RD_K; ++k)
+      HS_EXPECT_EQ(ACTUAL[k], ReactionGraph::neighbors[i][k]);
   }
 }
 

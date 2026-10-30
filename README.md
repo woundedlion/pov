@@ -1344,7 +1344,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   └── relax_bake_specs.h      Authored relax-bake names and iteration budgets
 │   ├── spatial/                Spatial indexing and spherical graph structures
 │   │   ├── kd_tree.h               KDTree k-nearest-neighbor search, also over moved points
-│   │   └── reaction_graph.h / reaction_graph.cpp  Precomputed Fibonacci-lattice K-NN graph: neighbors, node_positions, neighbor-run encoding and the 48 KiB CubemapLUT
+│   │   └── reaction_graph.h / reaction_graph.cpp  Precomputed Fibonacci-lattice K-NN graph: ordered neighbor runs, node_positions, test oracle and the 48 KiB CubemapLUT
 │   ├── color/                  Color math and palettes
 │   │   ├── color.h                 Color and palette umbrella
 │   │   ├── pixel.h                 Linear pixels, alpha, and integer sRGB conversion

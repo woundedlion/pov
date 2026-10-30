@@ -10,7 +10,7 @@
  * @brief Fibonacci lattice K-NN graph and nearest-node lookup.
  *
  * node() mirrors the lattice math of scripts/generate_reaction_graph.py, which
- * emits neighbors[], node_positions[] and neighbor-run encoding.
+ * emits node_positions[], neighbor-run encoding and a test-only neighbor oracle.
  * CubemapLUT retains an arena-backed direction-to-node lookup table.
  */
 
@@ -22,7 +22,7 @@
 
 namespace ReactionGraph {
 
-// Changing RD_N requires regenerating neighbors[] and updating D_AVG.
+// Changing RD_N requires regenerating the graph and updating D_AVG.
 inline constexpr int RD_N = 7680; ///< Fibonacci-lattice node count.
 inline constexpr int RD_K = 6;    ///< Neighbors stored per node.
 
@@ -35,7 +35,7 @@ inline constexpr float D_AVG = 0.0404505398f; // sqrt(4π / 7680)
 // node()'s `(RD_N - 1)` divisor degenerates (divide-by-zero) when RD_N <= 1.
 static_assert(RD_N >= 2, "node() lattice mapping degenerates when RD_N <= 1");
 
-// neighbors[] elements and stored node indices are int16_t.
+// Neighbor offsets and stored node indices are int16_t.
 static_assert(RD_N <= INT16_MAX, "node index must fit int16_t");
 
 // D_AVG = sqrt(4π / RD_N), so D_AVG*D_AVG*RD_N must equal 4π (12.566...). sqrtf
@@ -71,13 +71,10 @@ HS_COLD_MEMBER inline math::Vector node(int i) {
 extern HS_PROGMEM_UNIQUE(node_positions) const math::Vector
     node_positions[RD_N];
 
-/**
- * @brief Precomputed K-nearest-neighbor indices for every lattice node.
- * @details neighbors[i][k] is the node index of the k-th nearest neighbor of node
- *          i. Every slot is a node index in [0, RD_N), with no vacant-slot
- *          sentinel; validate_neighbors() checks this.
- */
+#if HS_ENABLE_TEST_ORACLES
+/** @brief Independent generated ordered K-NN table for test comparisons. */
 extern HS_PROGMEM_UNIQUE(neighbors) const int16_t neighbors[RD_N][RD_K];
+#endif
 
 /** @brief Consecutive nodes sharing an ordered tuple of neighbor offsets. */
 struct NeighborRun {
@@ -95,15 +92,33 @@ extern HS_PROGMEM_UNIQUE(neighbor_run_index) const uint8_t
     neighbor_run_index[RD_N];
 
 /**
- * @brief Traps unless every slot of a neighbor table is a lattice node index.
- * @param table Neighbor rows to check, RD_N rows of RD_K indices.
+ * @brief Validates compact run coverage, node-to-run indices and neighbor bounds.
+ * @param runs Ordered runs, with strictly increasing exclusive endpoints.
+ * @param count Number of accessible runs.
+ * @param index Run index for each lattice node.
  */
 HS_COLD_MEMBER inline void
-validate_neighbors(const int16_t (&table)[RD_N][RD_K]) {
-  for (int i = 0; i < RD_N; ++i)
-    for (int k = 0; k < RD_K; ++k)
-      HS_CHECK(table[i][k] >= 0 && table[i][k] < RD_N,
-               "neighbors[] slot is not a lattice node index");
+validate_neighbor_runs(const NeighborRun *runs = neighbor_runs,
+                       unsigned count = NEIGHBOR_RUN_COUNT,
+                       const uint8_t (&index)[RD_N] = neighbor_run_index) {
+  HS_CHECK(count > 0 && count <= 256,
+           "neighbor run count outside uint8_t capacity");
+  int start = 0;
+  for (unsigned r = 0; r < count; ++r) {
+    const auto &run = runs[r];
+    HS_CHECK(run.end > start && run.end <= RD_N,
+             "neighbor run endpoint outside ordered lattice coverage");
+    for (int i = start; i < run.end; ++i) {
+      HS_CHECK(index[i] == r, "neighbor run index does not match coverage");
+      for (int k = 0; k < RD_K; ++k) {
+        const int NEIGHBOR = i + run.delta[k];
+        HS_CHECK(NEIGHBOR >= 0 && NEIGHBOR < RD_N,
+                 "neighbor run slot is not a lattice node index");
+      }
+    }
+    start = run.end;
+  }
+  HS_CHECK(start == RD_N, "neighbor runs do not cover the lattice");
 }
 
 // ---------------------------------------------------------------------------
@@ -138,7 +153,7 @@ struct CubemapLUT {
    * @details Texels are filled in lookup()'s (face*RES+y)*RES+x index order.
    */
   HS_COLD_MEMBER void build(Arena &arena) {
-    validate_neighbors(neighbors);
+    validate_neighbor_runs();
     data.bind(arena, TEXELS);
     // Precompute every lattice point once into scratch for the hill-climb.
     ScratchScope lattice_guard(arena);
@@ -311,7 +326,8 @@ private:
     for (int iter = 0; iter < 64; ++iter) {
       bool improved = false;
       for (int k = 0; k < RD_K; ++k) {
-        int ni = neighbors[cur][k];
+        const auto &run = neighbor_runs[neighbor_run_index[cur]];
+        int ni = cur + run.delta[k];
         float d = math::distance_squared(p, lattice[ni]);
         if (d < best_d) {
           best_d = d;

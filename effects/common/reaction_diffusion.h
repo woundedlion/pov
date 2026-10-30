@@ -271,7 +271,6 @@ protected:
   /**
    * @brief Selects the nearest node in a cubemap-LUT seed's one-ring, skipping the
    *        six-neighbor walk when the seed is provably already nearest.
-   * @tparam Compact Decode neighbors from the indexed run table.
    * @param rv Query direction (unit vector on the sphere).
    * @param nodes Node positions in the same frame as `rv`, indexed by node id.
    * @param seed Seed node id from the cubemap LUT.
@@ -280,7 +279,6 @@ protected:
    * nearest to the seed (triangle inequality). The polar band, packed tighter
    * than D_AVG, carries its own smaller certificate.
    */
-  template <bool Compact = false>
   HS_O3_FN static int refine_render_center(const math::Vector &rv,
                                            const math::Vector *nodes,
                                            int seed) {
@@ -291,7 +289,7 @@ protected:
     if (best_d2 < safe_d2)
       return seed;
     int best = seed;
-    for_each_neighbor<Compact>(seed, [&](int ni) {
+    for_each_neighbor(seed, [&](int ni) {
       float d = dist2(rv, nodes[ni]);
       if (d < best_d2) {
         best_d2 = d;
@@ -547,9 +545,7 @@ protected:
                 alignof(ReactionGraph::CubemapLUT::Texel),
         "ReactionDiffusion: persistent arena not sized for the shared node "
         "array and cubemap LUT; configure_arenas() must run before init_lattice()");
-    // for_each_neighbor and the RD_K-degree Laplacian read every neighbor slot
-    // unguarded.
-    ReactionGraph::validate_neighbors(ReactionGraph::neighbors);
+    ReactionGraph::validate_neighbor_runs();
     if constexpr (FlashNodes) {
       nodes = ReactionGraph::node_positions;
     } else {
@@ -563,25 +559,16 @@ protected:
 
   /**
    * @brief Invokes `fn(ni)` for each of the RD_K neighbor indices of `node`.
-   * @tparam Compact Decode neighbors from the indexed run table.
    * @tparam Fn Callable accepting a neighbor node id.
    * @param node Center node id whose neighbors are visited.
    * @param fn Callable invoked once per neighbor index.
-   * @details Reads all RD_K slots unguarded. init_lattice validates
-   * `ReactionGraph::neighbors`; the Compact run encoding is checked against
-   * that table only by `test_neighbor_runs_match_table`.
+   * @details init_lattice validates the indexed run encoding before traversal.
    */
-  template <bool Compact = false, typename Fn>
-  static void for_each_neighbor(int node, Fn &&fn) {
-    if constexpr (Compact) {
-      const auto &run =
-          ReactionGraph::neighbor_runs[ReactionGraph::neighbor_run_index[node]];
-      for (int k = 0; k < RD_K; ++k)
-        fn(node + run.delta[k]);
-    } else {
-      for (int k = 0; k < RD_K; ++k)
-        fn(ReactionGraph::neighbors[node][k]);
-    }
+  template <typename Fn> static void for_each_neighbor(int node, Fn &&fn) {
+    const auto &run =
+        ReactionGraph::neighbor_runs[ReactionGraph::neighbor_run_index[node]];
+    for (int k = 0; k < RD_K; ++k)
+      fn(node + run.delta[k]);
   }
 
   /**
