@@ -730,6 +730,21 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
       Derived::template run_in_place<BindingT>(sample, frame, prepared,
                                                previous);
     }
+
+    /** @brief Evaluates retained and current endpoints together.
+     * @param input Shared input carrier.
+     * @param frame Frame context.
+     * @param prepared Prepared descriptor state.
+     * @return Retained endpoint followed by current endpoint. */
+    __attribute__((always_inline)) static auto
+    run_pair(const Input &input, const FrameState &frame,
+             const Prepared &prepared)
+      requires requires {
+        Derived::template run_pair<BindingT>(input, frame, prepared);
+      }
+    {
+      return Derived::template run_pair<BindingT>(input, frame, prepared);
+    }
   };
 };
 
@@ -1489,12 +1504,24 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
       } else
         return run_stage<Index + 1>(output, ctx, prepared, retained);
     };
-    const auto output = endpoint(previous);
     if constexpr (std::is_same_v<typename CurrentNode::Output, ColorSample> &&
                   !std::is_same_v<Input, ColorSample> &&
                   requires { ctx.temporal.fraction; }) {
       const float FRACTION = ctx.temporal.fraction;
       if (FRACTION < 1.0f) {
+        if constexpr (requires {
+                        CurrentNode::run_pair(input, ctx,
+                                              std::get<Index>(prepared));
+                      }) {
+          if (FRACTION <= 0.0f)
+            return finish(endpoint(true), true);
+          auto pair =
+              CurrentNode::run_pair(input, ctx, std::get<Index>(prepared));
+          const ColorSample A = finish(pair.first, true);
+          const ColorSample B = finish(pair.second, false);
+          return blend_color_samples(A, B, FRACTION);
+        }
+        const auto output = endpoint(previous);
         const ColorSample A = finish(endpoint(true), true);
         if (FRACTION <= 0.0f)
           return A;
@@ -1502,7 +1529,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
         return blend_color_samples(A, B, FRACTION);
       }
     }
-    return finish(output, previous);
+    return finish(endpoint(previous), previous);
   }
 };
 

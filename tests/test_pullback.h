@@ -1895,6 +1895,112 @@ using TemporalPalettePlacedPipeline = Pullback::Pipeline<
         Pullback::Stage::Modulate<
             Pullback::Color::Modulate<PaletteLayerProvider>>>>;
 
+struct CountingPairedPalette
+    : Pullback::Color::GeneratedPalette<TemporalPaletteProvider> {
+  using Base = Pullback::Color::GeneratedPalette<TemporalPaletteProvider>;
+  inline static int pairs = 0;
+  inline static int endpoints = 0;
+  static auto apply_pair(const Pullback::FieldSample &sample,
+                         const PaletteFrame &frame, const Prepared &prepared) {
+    ++pairs;
+    return Base::apply_pair(sample, frame, prepared);
+  }
+  static auto apply_endpoint(const Pullback::FieldSample &sample,
+                             const PaletteFrame &frame,
+                             const Prepared &prepared, bool previous) {
+    ++endpoints;
+    return Base::apply_endpoint(sample, frame, prepared, previous);
+  }
+};
+struct CountingEndpointPalette : CountingPairedPalette {
+  static std::pair<Pullback::ColorSample, Pullback::ColorSample>
+  apply_pair(const Pullback::FieldSample &, const PaletteFrame &,
+             const Prepared &) = delete;
+};
+
+/** @brief Paired color dispatch skips individual endpoint calls during blends. */
+inline void test_pullback_paired_color_dispatch() {
+  using namespace Pullback;
+  using Paired = Pullback::Pipeline<PaletteBinding, PaletteSampleStage,
+                                    Stage::Colorize<CountingPairedPalette>>;
+  using Fallback = Pullback::Pipeline<PaletteBinding, PaletteSampleStage,
+                                      Stage::Colorize<CountingEndpointPalette>>;
+  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> buffer{};
+  Arena arena(buffer.data(), buffer.size());
+  BakedPaletteStorage a, b;
+  a.bake(arena, ConstantPalette{Color4(Pixel(1000, 2000, 3000), 0.2f)});
+  b.bake(arena, ConstantPalette{Color4(Pixel(9000, 6000, 1000), 0.6f)});
+  PaletteFrame frame;
+  frame.palette = &b.view();
+  frame.temporal.palette = &a.view();
+  for (float fraction : {0.0f, 0.25f, 1.0f}) {
+    frame.temporal.fraction = fraction;
+    CountingPairedPalette::pairs = 0;
+    CountingPairedPalette::endpoints = 0;
+    const auto COLOR = Paired::shade(math::Y_AXIS, Paired::prepare(frame));
+    HS_EXPECT_NEAR(COLOR.color.r, 1000 + 8000 * fraction, 1.0f);
+    HS_EXPECT_NEAR(COLOR.alpha, 0.04f + 0.08f * fraction, 1e-6f);
+    HS_EXPECT_EQ(CountingPairedPalette::pairs, fraction == 0.25f ? 1 : 0);
+    HS_EXPECT_EQ(CountingPairedPalette::endpoints, fraction == 0.25f ? 0 : 1);
+    CountingPairedPalette::pairs = 0;
+    CountingPairedPalette::endpoints = 0;
+    const auto OTHER = Fallback::shade(math::Y_AXIS, Fallback::prepare(frame));
+    HS_EXPECT_EQ(OTHER.color, COLOR.color);
+    HS_EXPECT_EQ(OTHER.alpha, COLOR.alpha);
+    HS_EXPECT_EQ(CountingPairedPalette::pairs, 0);
+    HS_EXPECT_EQ(CountingPairedPalette::endpoints, fraction < 1.0f ? 2 : 1);
+  }
+}
+
+struct CoordinatePalette {
+  float alpha;
+  Color4 get(float value) const {
+    return Color4(Pixel(value * 60000, (1.0f - value) * 50000, 7000), alpha);
+  }
+};
+
+/** @brief Paired palettes preserve shared controls and endpoint resources. */
+inline void test_pullback_paired_palette_controls() {
+  using namespace Pullback;
+  using Policy = Color::GeneratedPalette<TemporalPaletteProvider>;
+  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> buffer{};
+  Arena arena(buffer.data(), buffer.size());
+  BakedPaletteStorage a, b;
+  a.bake(arena, CoordinatePalette{0.2f});
+  b.bake(arena, CoordinatePalette{0.6f});
+  std::array<Pixel, 2> hue{};
+  PaletteFrame frame;
+  frame.palette = &b.view();
+  frame.temporal.palette = &a.view();
+  auto prepared = Policy::prepare(frame);
+  prepared.current.mapping_frequency = 2.0f;
+  prepared.current.mapping_offset = 0.13f;
+  prepared.current.brightness_envelope = Color::BrightnessEnvelope::ASCENDING;
+  prepared.current.brightness_bottom = 0.2f;
+  prepared.current.brightness_top = 0.8f;
+  prepared.current.hue_rotation = {hue.data(), true};
+  prepared.previous = prepared.current;
+  prepared.previous.palette = &a.view();
+  prepared.previous.hue_rotation = {hue.data() + 1, true};
+  const FieldSample INPUT{0.37f, 0.45f, math::X_AXIS, 2.5f};
+  const auto PAIR = Policy::apply_pair(INPUT, frame, prepared);
+  for (const auto *sample : {&PAIR.first, &PAIR.second}) {
+    HS_EXPECT_NEAR(sample->palette_coordinate, 0.87f, 1e-6f);
+    HS_EXPECT_NEAR(sample->brightness_gain, 0.422f, 1e-6f);
+    HS_EXPECT_EQ(sample->field.value, INPUT.value);
+    HS_EXPECT_EQ(sample->field.coverage, INPUT.coverage);
+    HS_EXPECT_EQ(sample->field.sphere, INPUT.sphere);
+    HS_EXPECT_EQ(sample->field.path_length, INPUT.path_length);
+    HS_EXPECT_EQ(sample->pending_hue, 0.0f);
+    HS_EXPECT_EQ(sample->pending_lift, 0.0f);
+    HS_EXPECT_EQ(sample->color.color, a.view().get(0.87f).color);
+  }
+  HS_EXPECT_NEAR(PAIR.first.color.alpha, 0.03132f, 1e-6f);
+  HS_EXPECT_NEAR(PAIR.second.color.alpha, 0.09396f, 1e-6f);
+  HS_EXPECT_TRUE(PAIR.first.hue_rotation == hue.data() + 1);
+  HS_EXPECT_TRUE(PAIR.second.hue_rotation == hue.data());
+}
+
 /** @brief The complete color suffix interpolates immutable palette endpoints. */
 inline void test_pullback_temporal_palette() {
   using namespace Pullback;
@@ -2219,6 +2325,8 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_field_curves);
   HS_RUN(test_pullback_hard_edge_kernels);
   HS_RUN(test_pullback_temporal_palette);
+  HS_RUN(test_pullback_paired_color_dispatch);
+  HS_RUN(test_pullback_paired_palette_controls);
   HS_RUN(test_pullback_modulation_temporal_alpha);
   HS_RUN(test_pullback_stacked_modulations);
   HS_RUN(test_pullback_composed_lightness_hue);

@@ -444,6 +444,43 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
       return apply_generated_palette(sample, prepared);
     }
   }
+  /** @brief Samples both palettes with their shared mapping and gain controls.
+   * @tparam FrameState Frame context.
+   * @param sample Shared field coordinates.
+   * @param frame Frame context.
+   * @param prepared Prepared endpoints.
+   * @return Retained endpoint followed by current endpoint. */
+  template <typename FrameState>
+  static std::pair<ColorSample, ColorSample>
+  apply_pair(const FieldSample &sample, const FrameState &frame,
+             const Prepared &prepared)
+    requires TEMPORAL
+  {
+    (void)frame;
+    const auto &state = prepared.current;
+    const float VALUE = palette_mapping_coordinate(sample.value, state.mapping,
+                                                   state.mapping_frequency,
+                                                   state.mapping_offset);
+    const float OPACITY =
+        sample.coverage *
+        hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+    const float GAIN =
+        brightness_envelope_gain(sample.value, state.brightness_envelope,
+                                 state.brightness_bottom, state.brightness_top);
+    const auto endpoint = [&](const GeneratedPaletteState &endpoint_state) {
+      Color4 color = endpoint_state.palette->get(VALUE);
+      color.alpha *= OPACITY;
+      return ColorSample{color,
+                         sample,
+                         endpoint_state.hue_rotation.active
+                             ? endpoint_state.hue_rotation.data
+                             : nullptr,
+                         VALUE,
+                         0.0f,
+                         GAIN};
+    };
+    return {endpoint(prepared.previous), endpoint(state)};
+  }
   /** @brief Produces the current color endpoint.
    * @tparam FrameState Frame context.
    * @param sample Field coordinates.

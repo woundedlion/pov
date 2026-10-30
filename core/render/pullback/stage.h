@@ -1000,6 +1000,26 @@ struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, ColorSample> {
       return run<Binding>(input, frame, prepared);
     }
   }
+
+  /** @brief Colorizes both immutable endpoints with shared field controls.
+   * @tparam Binding Pipeline binding.
+   * @param input Shared field carrier.
+   * @param frame Frame context.
+   * @param prepared Prepared policy state.
+   * @return Retained endpoint followed by current endpoint. */
+  template <typename Binding>
+  __attribute__((always_inline)) static auto
+  run_pair(const FieldSample &input, const typename Binding::FrameState &frame,
+           const Detail::PolicyPrepared<ColorPolicyT,
+                                        typename Binding::FrameState> &prepared)
+    requires requires { ColorPolicyT::apply_pair(input, frame, prepared); }
+  {
+    using Instrumentation = typename Binding::Instrumentation;
+    const auto start = Instrumentation::mark();
+    auto result = ColorPolicyT::apply_pair(input, frame, prepared);
+    Instrumentation::template span<ProfileEvent::COLOR>(start);
+    return result;
+  }
 };
 
 /** @brief COLOR-to-COLOR modulation stage.

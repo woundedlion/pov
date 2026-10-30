@@ -370,6 +370,12 @@ At each temporal fraction, evaluate the complete ordered color suffix at each
 endpoint without finalizing it, blend the deferred states, then finalize once.
 Blending only the last color stage would resolve upstream mechanics against
 the wrong endpoint.
+The FIELD-to-COLOR stage may expose `run_pair` to evaluate retained and current
+carriers together during an interior blend. Generated palettes share mapping,
+brightness and opacity evaluation, then sample their separate immutable palette
+and hue resources. Each result still traverses its complete color suffix.
+Stages without this optional hook use individual endpoint evaluation; fractions
+zero and one select the corresponding endpoint directly when the hook exists.
 
 ## Canonical configuration and migration
 
