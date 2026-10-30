@@ -146,7 +146,7 @@ struct InterferenceParams : SineParams {
            offset_b == other.offset_b;
   }
 };
-/** @brief Parameters of an orthogonal smooth sine grid. */
+/** @brief Parameters of a smooth sine grid with independently oriented axes. */
 struct GridParams : InterferenceParams {};
 /** @brief Parameters of a sphere noise source. */
 struct NoiseParams {

@@ -15,8 +15,6 @@ namespace Pattern {
 
 /** @brief Maximum admitted axial cycles per unit coordinate. */
 inline constexpr float MAX_AXIAL_FREQUENCY = 64.0f;
-/** @brief Orthogonality tolerance for normalized grid axes. */
-inline constexpr float GRID_AXIS_TOLERANCE = 1.0e-5f;
 
 /** @brief Checks finite sine parameters and the qualified axial range.
  * @param params Axial wave controls.
@@ -136,20 +134,17 @@ struct SphereInterference {
   }
 };
 
-/** @brief Product of two orthogonal directional waves. */
+/** @brief Product of two independently oriented directional waves. */
 struct SphereSmoothGrid {
   using Coordinate = SphereDirection; ///< Admitted unit direction.
   using Params = GridParams;          ///< Smooth grid controls.
   using State = PhaseState;           ///< Shared loop phase in turns.
   using Prepared = SphereInterference::Prepared; ///< Prepared wave pair.
-  /** @brief Checks the qualified waves and unit-axis orthogonality.
+  /** @brief Checks both axes and wave controls.
    * @param params Source controls.
    * @return Whether the grid recipe is admitted. */
   static bool valid(const Params &params) {
-    return SphereInterference::valid(params) &&
-           fabsf(math::dot(SphereDirection::from(params.axis).value(),
-                           SphereDirection::from(params.axis_b).value())) <=
-               GRID_AXIS_TOLERANCE;
+    return SphereInterference::valid(params);
   }
   /** @brief Initializes the shared turn clock.
    * @param params Source controls.
@@ -166,7 +161,7 @@ struct SphereSmoothGrid {
     HS_CHECK(valid(params), "pattern grid: invalid advance parameters");
     return SphereInterference::advance(state, params);
   }
-  /** @brief Prepares the admitted orthogonal waves.
+  /** @brief Prepares the independently normalized waves.
    * @param params Source controls.
    * @param state Explicit source clock.
    * @return Immutable wave pair. */

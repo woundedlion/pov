@@ -152,6 +152,22 @@ inline void test_shader_chain_parameter_admission() {
   HS_EXPECT_EQ(compile_status2, In::ChainStatus::OK);
   if (compile_status2 != In::ChainStatus::OK)
     return;
+  HS_EXPECT_EQ(effect.updateParameter("colorize.modulation-evaluation", 0.0f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("colorize.modulation-source", 3.0f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("colorize.grid-axis-x", 0.5f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(requested_param(effect, "colorize.grid-axis-x"), 0.5f);
+  HS_EXPECT_TRUE(effect.parameter_warning("colorize.grid-axis-x") == nullptr);
+  HS_EXPECT_EQ(effect.updateParameter("colorize.grid-axis-x", 1.0f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("colorize.grid-axis-y", 0.0f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(requested_param(effect, "colorize.grid-axis-y"), 0.0f);
+  HS_EXPECT_EQ(effect.updateParameter("colorize.grid-axis-x", 0.0f),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_EQ(requested_param(effect, "colorize.grid-axis-x"), 1.0f);
   const ParamDef *strength_param = effect.getParameters().find("warp.strength");
   HS_EXPECT_TRUE(strength_param != nullptr);
   if (!strength_param)

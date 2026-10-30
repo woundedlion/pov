@@ -87,8 +87,50 @@ inline void test_pattern_sphere_formulas() {
   params.frequency = 1.0f;
   params.axis = math::Vector(0.0f, 0.0f, 0.0f);
   HS_EXPECT_TRUE(!DirectionalSine::valid(params));
-  grid.axis_b = grid.axis;
-  HS_EXPECT_TRUE(!SphereSmoothGrid::valid(grid));
+  grid.axis = math::Vector(0.0f, 2.0f, 0.0f);
+  grid.offset = -0.17f;
+  grid.offset_b = 0.23f;
+  for (const math::Vector AXIS_B :
+       {math::Vector(3.0f, 3.0f, 0.0f), math::Vector(0.0f, 4.0f, 0.0f),
+        math::Vector(0.0f, -4.0f, 0.0f)}) {
+    grid.axis_b = AXIS_B;
+    HS_EXPECT_TRUE(SphereSmoothGrid::valid(grid));
+    if (!SphereSmoothGrid::valid(grid))
+      return;
+    const auto SKEWED = SphereSmoothGrid::prepare(grid, {0.125f});
+    const float LENGTH_B = std::sqrt(AXIS_B.x * AXIS_B.x + AXIS_B.y * AXIS_B.y);
+    HS_EXPECT_NEAR(SKEWED.a.axis.y, 1.0f, 1.0e-7f);
+    HS_EXPECT_NEAR(SKEWED.b.axis.x, AXIS_B.x / LENGTH_B, 1.0e-7f);
+    HS_EXPECT_NEAR(SKEWED.b.axis.y, AXIS_B.y / LENGTH_B, 1.0e-7f);
+    for (int i = -16; i <= 16; ++i) {
+      const auto D = SphereDirection::from({0.37f, i * 0.125f, -0.91f});
+      const float EXPECTED_A =
+          std::sin(math::TWO_PI_F * (0.25f * D.value().y + 0.125f - 0.17f));
+      const float EXPECTED_B = std::sin(
+          math::TWO_PI_F *
+          (0.5f * (AXIS_B.x * D.value().x + AXIS_B.y * D.value().y) / LENGTH_B +
+           0.125f + 0.23f));
+      const float ACTUAL = SphereSmoothGrid::sample(D, SKEWED);
+      HS_EXPECT_NEAR(ACTUAL, EXPECTED_A * EXPECTED_B, 0.0035f);
+      HS_EXPECT_TRUE(std::abs(ACTUAL) <= 1.0f);
+    }
+  }
+  const GridParams VALID_GRID = grid;
+  for (bool second : {false, true}) {
+    for (const math::Vector INVALID_AXIS :
+         {math::Vector(0.0f, 0.0f, 0.0f),
+          math::Vector(std::numeric_limits<float>::infinity(), 1.0f, 0.0f),
+          math::Vector(std::numeric_limits<float>::quiet_NaN(), 1.0f, 0.0f)}) {
+      grid = VALID_GRID;
+      (second ? grid.axis_b : grid.axis) = INVALID_AXIS;
+      HS_EXPECT_TRUE(!SphereSmoothGrid::valid(grid));
+    }
+    for (float frequency : {-1.0f, MAX_AXIAL_FREQUENCY + 1.0f}) {
+      grid = VALID_GRID;
+      (second ? grid.frequency_b : grid.frequency) = frequency;
+      HS_EXPECT_TRUE(!SphereSmoothGrid::valid(grid));
+    }
+  }
 }
 
 /** @brief Turn clocks and legacy radian clocks preserve their declared rates. */

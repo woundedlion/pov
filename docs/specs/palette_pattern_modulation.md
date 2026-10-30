@@ -182,7 +182,7 @@ the existing planar/sphere catalogue extracted for pullback:
 | Noise | Adapter around the current configured noise generator, spatial scale and sphere-loop construction. Seed and generator configuration belong to source identity. |
 | Directional sine | `sin(2*pi*(frequency*dot(axis,direction) + phase + offset))`; unit axis, nonnegative frequency and offset in turns. Frequency is cycles per unit axial coordinate, so the sphere spans twice that many cycles along the axis. |
 | Sphere interference | Half the sum of two directional sines, with separate axes, frequencies and offsets. Both use the same loop phase; the fixed half gain bounds the result without dynamic normalization. |
-| SphereSmoothGrid | Product of two directional sines over orthogonal unit axes, with independent frequencies and offsets and a shared loop phase. Validate axis orthogonality. The product remains in [-1, 1]; this is not the existing planar coupled-grid algorithm. |
+| SphereSmoothGrid | Product of two directional sines over independently normalized axes, with independent frequencies and offsets and a shared loop phase. Admit finite, nondegenerate axes at any angle, including parallel axes. The product remains in [-1, 1]; this is not the existing planar coupled-grid algorithm. |
 
 New sphere sine/interference/grid phases use turns per engine update, including
 negative speeds, and repeat after one turn. Existing source clocks keep their
