@@ -73,6 +73,7 @@
 #include "core/animation/transformer.h"
 #include "hardware/pov_sync.h"
 #include "targets/wasm/param_marshal.h"
+#include "workbench/shader/palette_selection.h"
 
 #if !defined(_WIN32)
 #include <csignal>    // SIGILL — the expected trap signal
@@ -255,6 +256,30 @@ inline const Case *all_cases(int &n) {
        case_modulation_control_index_invalid,
        "core/render/pullback/operators.h",
        "(false) invalid modulation field index"},
+      {"modulation_field_missing_metadata",
+       case_modulation_field_missing_metadata,
+       "core/render/pullback/operators/modulate.h",
+       "(ctx.color_sample != nullptr) field modulation requires field sample metadata"},
+      {"modulation_temporal_field_missing_metadata",
+       case_modulation_temporal_field_missing_metadata,
+       "core/render/pullback/operators/modulate.h",
+       "(ctx.color_sample != nullptr) temporal field modulation requires field sample metadata"},
+      {"modulation_hue_invalid_mode", case_modulation_hue_invalid_mode,
+       "core/render/pullback/operators/modulate.h",
+       "(params.hue_mode <= static_cast<uint8_t>(HueShiftMode::PATH_LENGTH)) "
+       "hue modulation: invalid mode"},
+      {"modulation_hue_missing_metadata", case_modulation_hue_missing_metadata,
+       "core/render/pullback/operators/modulate.h",
+       "(ctx.color_sample != nullptr) hue modulation requires field sample metadata"},
+      {"shader_palette_invalid_named_index",
+       case_shader_palette_invalid_named_index,
+       "workbench/shader/palette_selection.h",
+       "(params.palette_name < std::size(COEFFICIENTS) && "
+       "params.palette_name_b < std::size(COEFFICIENTS)) invalid named palette index"},
+      {"shader_palette_invalid_authored_type",
+       case_shader_palette_invalid_authored_type,
+       "workbench/shader/palette_selection.h",
+       "(type == Type::PROCEDURAL) invalid authored palette type"},
       {"pattern_direction_invalid", case_pattern_direction_invalid,
        "core/pattern/types.h",
        "(valid(vector)) pattern: invalid sphere direction"},
@@ -1434,13 +1459,13 @@ inline const Case *all_cases(int &n) {
       {"raster_nonfinite_point", case_raster_nonfinite_point,
        "core/render/plot/raster.h",
        "(std::isfinite(point.pos.x) && std::isfinite(point.pos.y) && std::isfinite(point.pos.z)) rasterize control points must be finite"},
-      {"raster_single_nonfinite_point", case_raster_single_nonfinite_point,
-       "core/render/plot/raster.h",
-       "(std::isfinite(point.pos.x) && std::isfinite(point.pos.y) && std::isfinite(point.pos.z)) rasterize control points must be finite"},
+      {"raster_single_nonfinite_point", case_raster_single_nonfinite_point, "core/render/plot/raster.h", "(std::isfinite(point.pos.x) && std::isfinite(point.pos.y) && std::isfinite(point.pos.z)) rasterize control points must be finite"},
       {"raster_empty_path_null_shader", case_raster_empty_path_null_shader,
        "core/render/plot/raster.h",
        "(fragment_shader) rasterize requires a non-null fragment_shader"},
-      {"raster_edge_flags_short", case_raster_edge_flags_short, "core/render/plot/raster.h", "(edge_flags == nullptr || opts.projection.flags().size() == count) edge_flags length must match the rasterized edge count"},
+      {"raster_edge_flags_short", case_raster_edge_flags_short,
+       "core/render/plot/raster.h",
+       "(edge_flags == nullptr || opts.projection.flags().size() == count) edge_flags length must match the rasterized edge count"},
       {"raster_point_projections_short", case_raster_point_projections_short,
        "core/render/plot/raster.h",
        "(point_rows == nullptr || opts.point_projections.size() == len) hoisted "

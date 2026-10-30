@@ -109,7 +109,7 @@ struct ModulateField {
     if (!current.source->config.enabled || current.amount.amount == 0.0f)
       return input;
     HS_CHECK(ctx.color_sample != nullptr,
-             "field modulation requires field sample metadata");
+             "temporal field modulation requires field sample metadata");
     const auto DIRECTION =
         Pattern::SphereDirection::admit(ctx.color_sample->sphere);
     if (!Modulation::same_topology(current.source->config,
