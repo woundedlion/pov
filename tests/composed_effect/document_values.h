@@ -418,7 +418,8 @@ constexpr const char *palette_mode_id(PaletteHarmony harmony) {
 template <typename Lens> constexpr std::string_view lens_symmetry_id() {
   if constexpr (std::is_same_v<Lens, Pullback::Lens::Kaleidoscope>)
     return "azimuthal";
-  if constexpr (std::is_same_v<Lens, Pullback::Lens::TetrahedralKaleidoscope>)
+  if constexpr (std::is_base_of_v<Pullback::Lens::TetrahedralKaleidoscope,
+                                  Lens>)
     return "tetrahedral";
   if constexpr (std::is_same_v<Lens, Pullback::Lens::OctahedralKaleidoscope>)
     return "octahedral";

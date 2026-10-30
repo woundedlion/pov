@@ -17,6 +17,21 @@
 
 #include "core/render/pullback/composed_effect.h"
 
+/** @brief Tetrahedral folding of the preceding dodecahedral chamber. */
+struct MillefioriTetrahedralLens : Pullback::Lens::TetrahedralKaleidoscope {
+  /**
+   * @brief Folds a dodecahedral chamber direction into the tetrahedral chamber.
+   * @tparam FrameState Frame state type; unused.
+   * @param input Unit direction in the dodecahedral chamber.
+   * @return Direction in the tetrahedral chamber.
+   */
+  template <typename FrameState>
+  __attribute__((always_inline)) static math::Vector
+  apply(const math::Vector &input, const FrameState &) {
+    return lenses::tetrahedral_from_dodecahedral_chamber(input);
+  }
+};
+
 /** @brief Pullback stage spec for `Millefiori`. */
 struct MillefioriSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
@@ -36,7 +51,7 @@ struct MillefioriSpec : Pullback::Spec {
                   B, Pullback::SphereAnimation::BurstRippleParams, true,
                   "displace">>>,
           Pullback::Stage::Lens<Pullback::Lens::DodecahedralKaleidoscope>,
-          Pullback::Stage::Lens<Pullback::Lens::TetrahedralKaleidoscope>,
+          Pullback::Stage::Lens<MillefioriTetrahedralLens>,
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
               Pullback::ProjectionKind::GNOMONIC_FOLDED, B>::Type>>,
       Pullback::Stage::Warp<Pullback::Warp::Vortex<Pullback::WarpProvider<

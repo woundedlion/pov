@@ -171,6 +171,46 @@ polyhedral_kaleidoscope_lens(math::Vector v,
 }
 
 /**
+ * @brief Applies the tetrahedral fold to a dodecahedral chamber direction.
+ * @param v Unit direction inside the dodecahedral chamber.
+ * @return The direction folded into the tetrahedral chamber.
+ */
+HS_HOT_INLINE inline math::Vector
+tetrahedral_from_dodecahedral_chamber(math::Vector v) {
+  constexpr math::Vector NORMAL = TETRAHEDRAL_MIRRORS[2];
+  constexpr math::Vector SECOND = TETRAHEDRAL_MIRRORS[1];
+  constexpr math::Vector OBLIQUE = DODECAHEDRAL_MIRRORS[1];
+  constexpr float X_FROM_Y = -OBLIQUE.y / OBLIQUE.x;
+  constexpr float X_FROM_Z = -OBLIQUE.z / OBLIQUE.x;
+  constexpr float SECOND_Y =
+      SECOND.y * (1.0f - 2.0f * NORMAL.y * NORMAL.y) + SECOND.x * X_FROM_Y;
+  constexpr float SECOND_Z =
+      -2.0f * SECOND.y * NORMAL.y * NORMAL.z + SECOND.x * X_FROM_Z;
+  static_assert(SECOND_Y > 0.0f && SECOND_Z > 0.0f);
+  // Height bound of the EPS-expanded dodecahedral chamber's other tetrahedral wall.
+  constexpr float MIN_SAFE_Y = POLYHEDRAL_MIRROR_EPS *
+                               (1.0f + SECOND.x / OBLIQUE.x + SECOND_Z) /
+                               SECOND_Y;
+  if (v.y <= MIN_SAFE_Y)
+    return polyhedral_kaleidoscope_lens(v, TETRAHEDRAL_MIRRORS);
+  const float DISTANCE = math::dot(v, NORMAL);
+  if (DISTANCE < -POLYHEDRAL_MIRROR_EPS) {
+    v.y -= 2.0f * DISTANCE * NORMAL.y;
+    v.z -= 2.0f * DISTANCE * NORMAL.z;
+  }
+  HS_PULLBACK_PROJECTION_COUNT(
+      ++hs::g_pullback_projection_counts.polyhedral_pixels);
+  HS_PULLBACK_PROJECTION_COUNT(
+      hs::g_pullback_projection_counts.polyhedral_reflections +=
+      DISTANCE < -POLYHEDRAL_MIRROR_EPS ? 1 : 0);
+  HS_PULLBACK_PROJECTION_COUNT(
+      hs::g_pullback_projection_counts.polyhedral_max_reflections =
+          std::max(hs::g_pullback_projection_counts.polyhedral_max_reflections,
+                   uint32_t(DISTANCE < -POLYHEDRAL_MIRROR_EPS ? 1 : 0)));
+  return v;
+}
+
+/**
  * @brief Folds a direction into the dodecahedral chamber.
  * @details Specialization of polyhedral_kaleidoscope_lens for
  * DODECAHEDRAL_MIRRORS.

@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <vector>
 
 namespace hs_test {
 namespace math3d_tests {
@@ -1908,6 +1909,94 @@ inline void test_dodecahedral_kaleidoscope_specialization() {
   });
 }
 
+/** @brief The tetrahedral chamber shortcut matches the composed priority folds. */
+inline void test_tetrahedral_after_dodecahedral() {
+  for (int y = -4; y <= 32; ++y)
+    for (const float X : {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f, 4.0f, 16.0f})
+      for (const float Z : {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f, 4.0f, 16.0f}) {
+        const math::Vector input =
+            math::Vector(X, float(y), Z) * lenses::POLYHEDRAL_MIRROR_EPS;
+        bool inside = true;
+        for (const auto &normal : lenses::DODECAHEDRAL_MIRRORS)
+          inside &= math::dot(input, normal) >= -lenses::POLYHEDRAL_MIRROR_EPS;
+        if (!inside)
+          continue;
+        const math::Vector expected = lenses::polyhedral_kaleidoscope_lens(
+            input, lenses::TETRAHEDRAL_MIRRORS);
+        const math::Vector actual =
+            lenses::tetrahedral_from_dodecahedral_chamber(input);
+        HS_EXPECT_EQ(actual.x, expected.x);
+        HS_EXPECT_EQ(actual.y, expected.y);
+        HS_EXPECT_EQ(actual.z, expected.z);
+      }
+  hs::Pcg32 rng(20261030u);
+  for (int group = 0; group < 2; ++group) {
+    const auto &mirrors =
+        group == 0 ? lenses::TETRAHEDRAL_MIRRORS : lenses::DODECAHEDRAL_MIRRORS;
+    const auto verify = [&](math::Vector input) {
+      input = input / input.magnitude();
+      input = lenses::dodecahedral_kaleidoscope_lens(input);
+      const math::Vector expected = lenses::polyhedral_kaleidoscope_lens(
+          input, lenses::TETRAHEDRAL_MIRRORS);
+      const math::Vector actual =
+          lenses::tetrahedral_from_dodecahedral_chamber(input);
+      HS_EXPECT_EQ(actual.x, expected.x);
+      HS_EXPECT_EQ(actual.y, expected.y);
+      HS_EXPECT_EQ(actual.z, expected.z);
+      HS_EXPECT_NEAR(actual.magnitude(), input.magnitude(), 1e-4f);
+      for (const math::Vector &normal : lenses::TETRAHEDRAL_MIRRORS)
+        HS_EXPECT_GE(math::dot(actual, normal), -1e-5f);
+    };
+    for (int sample = 0; sample < 8192; ++sample) {
+      const math::Vector input(rand_uniform(rng, -1.0f, 1.0f),
+                               rand_uniform(rng, -1.0f, 1.0f),
+                               rand_uniform(rng, -1.0f, 1.0f));
+      verify(input);
+    }
+    std::vector<math::Vector> roots(mirrors.begin(), mirrors.end());
+    for (size_t index = 0; index < roots.size(); ++index) {
+      for (const math::Vector &normal : mirrors) {
+        const math::Vector reflected =
+            roots[index] - normal * (2.0f * math::dot(roots[index], normal));
+        bool found = false;
+        for (const math::Vector &root : roots)
+          found |= (reflected - root).magnitude() < 1e-5f;
+        if (!found) {
+          HS_EXPECT_LT(roots.size(), size_t(30));
+          if (roots.size() >= 30)
+            return;
+          roots.push_back(reflected);
+        }
+      }
+    }
+    HS_EXPECT_EQ(roots.size(), group == 0 ? size_t(12) : size_t(30));
+    for (const math::Vector &normal : roots) {
+      math::Vector tangent = math::cross(
+          normal, std::abs(normal.x) < 0.5f ? math::Vector(1.0f, 0.0f, 0.0f)
+                                            : math::Vector(0.0f, 1.0f, 0.0f));
+      tangent = tangent / tangent.magnitude();
+      const math::Vector bitangent = math::cross(normal, tangent);
+      for (int angle = 0; angle < 64; ++angle) {
+        const float PHASE = angle * (2.0f * math::PI_F / 64.0f);
+        const math::Vector on_wall =
+            tangent * std::cos(PHASE) + bitangent * std::sin(PHASE);
+        for (const float OFFSET :
+             {-4e-6f, -2e-6f, -1.001e-6f, -1e-6f, -0.999e-6f, -1e-7f, 0.0f,
+              1e-7f, 0.999e-6f, 1e-6f, 1.001e-6f, 2e-6f, 4e-6f})
+          verify(on_wall + normal * OFFSET);
+      }
+    }
+    for (const math::Vector &first : roots)
+      for (const math::Vector &second : roots) {
+        const math::Vector intersection = math::cross(first, second);
+        if (intersection.magnitude() > 1e-5f) {
+          verify(intersection);
+          verify(intersection * -1.0f);
+        }
+      }
+  }
+}
+
 // ============================================================================
 // 4D linear algebra
 // ============================================================================
@@ -2136,6 +2225,7 @@ inline int run_3dmath_tests() {
   HS_RUN(test_kaleidoscope_lens);
   HS_RUN(test_polyhedral_kaleidoscope_chambers);
   HS_RUN(test_dodecahedral_kaleidoscope_specialization);
+  HS_RUN(test_tetrahedral_after_dodecahedral);
 
   HS_RUN(test_fast_atan2);
   HS_RUN(test_shared_angle_helpers);
