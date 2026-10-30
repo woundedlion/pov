@@ -675,46 +675,72 @@ public:
    * @tparam W Display width.
    * @param column Absolute canvas column.
    * @param time Frame fraction.
-   * @param initial_span Signed frame-start endpoint separation, columns.
-   * @param span_delta Change in signed endpoint separation over the frame, columns.
+   * @param initial_arc_span Signed frame-start endpoint separation, columns.
+   * @param arc_span_delta Change in signed endpoint separation over the frame, columns.
    * @return Wrapped directed offset and absolute arc extent, columns. */
   template <int W>
   HS_HOT_INLINE detail::ColumnArcPosition
-  arc_column_position(int column, float time, float initial_span,
-                      float span_delta) const {
+  arc_column_position(int column, float time, float initial_arc_span,
+                      float arc_span_delta) const {
     const float arc_start = tracks[0].origin + tracks[0].travel * time;
-    const float signed_extent = initial_span + span_delta * time;
+    const float signed_extent = initial_arc_span + arc_span_delta * time;
     float offset = signed_extent < 0.0f ? arc_start - float(column)
                                         : float(column) - arc_start;
     offset -= float(W) * floorf(offset * (1.0f / W));
     return {offset, fabsf(signed_extent)};
   }
 
+  /** @brief Bounds both endpoint tracks and their arc's longitude side.
+   * @tparam W Display width.
+   * @param initial_arc_span Receives signed frame-start endpoint separation, columns.
+   * @param arc_span_delta Receives its change over the frame, columns.
+   * @return Whether both tracks are bounded and their arc stays on the minor side. */
+  template <int W>
+  HS_HOT_INLINE bool prepare_longitude_tracks(float &initial_arc_span,
+                                              float &arc_span_delta) {
+    constexpr float HALF = W / 2.0f;
+    const bool start_known = Spacetime::model_track<W>(
+        bases[0].v1, bases[1].v1, deviation, 1.0f, tracks[0]);
+    const bool end_known =
+        Spacetime::model_track<W>(ends[0], ends[1], deviation, 1.0f, tracks[1]);
+    if (!(start_known && end_known))
+      return false;
+    initial_arc_span =
+        math::centered_remainder(tracks[1].origin - tracks[0].origin, float(W));
+    arc_span_delta = tracks[1].travel - tracks[0].travel;
+    return fmaxf(fabsf(initial_arc_span),
+                 fabsf(initial_arc_span + arc_span_delta)) <
+           HALF - tracks[0].guard - tracks[1].guard;
+  }
+
   /** @brief Last possible lit column of a pass under bounded endpoint tracks.
    * @tparam W Display width.
    * @param pass,direction Arm pass and walk direction.
-   * @param span,widening Initial endpoint separation and its change, columns.
-   * @param last Last guarded endpoint crossing, in walk order.
-   * @param start First planned column in walk order.
-   * @return Exclusive end in pass coordinates. */
+   * @param initial_arc_span,arc_span_delta Signed frame-start endpoint separation
+   * and its change over the frame, columns.
+   * @param last_crossing Last guarded endpoint crossing, in walk columns.
+   * @param first_step First planned step relative to the pass head.
+   * @return Exclusive end step relative to the pass head. */
   template <int W>
-  HS_HOT_FLASH_MEMBER int planned_end(int pass, int direction, float span,
-                                      float widening, float last,
-                                      int start) const {
-    int end = W / 2;
+  HS_HOT_FLASH_MEMBER int
+  planned_end(int pass, int direction, float initial_arc_span,
+              float arc_span_delta, float last_crossing, int first_step) const {
+    int end_step = W / 2;
     constexpr int PASS = W / 2;
     constexpr float HALF = W / 2.0f;
     const int final_column = pass * PASS + (direction > 0 ? PASS - 1 : 0);
     const float final_time = direction > 0 ? (HALF - 1.0f) / HALF : 0.0f;
-    const auto position =
-        arc_column_position<W>(final_column, final_time, span, widening);
-    if (position.offset > position.extent + tracks[1].guard / tracks[1].rate &&
-        position.offset < float(W) - tracks[0].guard / tracks[0].rate) {
-      if (!std::isfinite(last))
-        return start;
-      end = std::min(PASS, int(ceilf(last)) + 1);
+    const auto position = arc_column_position<W>(
+        final_column, final_time, initial_arc_span, arc_span_delta);
+    const float start_margin = tracks[0].guard / tracks[0].rate;
+    const float end_margin = tracks[1].guard / tracks[1].rate;
+    if (position.offset > position.extent + end_margin &&
+        position.offset < float(W) - start_margin) {
+      if (!std::isfinite(last_crossing))
+        return first_step;
+      end_step = std::min(PASS, int(ceilf(last_crossing)) + 1);
     }
-    return end;
+    return end_step;
   }
 
   /** @brief Bounds the columns each arm pass can light.
@@ -738,61 +764,56 @@ public:
   plan(int direction, detail::ColumnSegment segments[2], bool bounded = false) {
     constexpr int PASS = W / 2;
     constexpr float HALF = W / 2.0f;
-    const bool start_known = Spacetime::model_track<W>(
-        bases[0].v1, bases[1].v1, deviation, 1.0f, tracks[0]);
-    const bool end_known =
-        Spacetime::model_track<W>(ends[0], ends[1], deviation, 1.0f, tracks[1]);
-    known = start_known && end_known;
-    float span = 0.0f, widening = 0.0f;
-    if (known) {
-      span = math::centered_remainder(tracks[1].origin - tracks[0].origin,
-                                      float(W));
-      widening = tracks[1].travel - tracks[0].travel;
-      known = fmaxf(fabsf(span), fabsf(span + widening)) <
-              HALF - tracks[0].guard - tracks[1].guard;
-    }
-    float entry[2] = {std::numeric_limits<float>::infinity(),
-                      std::numeric_limits<float>::infinity()};
-    float last[2] = {-entry[0], -entry[0]};
+    float initial_arc_span = 0.0f, arc_span_delta = 0.0f;
+    known = prepare_longitude_tracks<W>(initial_arc_span, arc_span_delta);
+    float first_crossing[2] = {std::numeric_limits<float>::infinity(),
+                               std::numeric_limits<float>::infinity()};
+    float last_crossing[2] = {-first_crossing[0], -first_crossing[0]};
     if (known)
       for (const auto &track : tracks)
         Spacetime::track_crossings<W>(
             track, 0.0f, 1.0f, true, true,
             [&](const Spacetime::Crossing &pass) HS_HOT_INLINE {
               const int arm = pass.arm & 1;
-              const float at = pass.time * HALF;
-              const float walk = direction > 0 ? at : HALF - 1.0f - at;
-              entry[arm] = fminf(entry[arm], walk - track.guard);
-              last[arm] = fmaxf(last[arm], walk + track.guard);
+              const float sweep_column = pass.time * HALF;
+              const float walk_step =
+                  direction > 0 ? sweep_column : HALF - 1.0f - sweep_column;
+              first_crossing[arm] =
+                  fminf(first_crossing[arm], walk_step - track.guard);
+              last_crossing[arm] =
+                  fmaxf(last_crossing[arm], walk_step + track.guard);
             });
     int count = 0;
     for (int pass = 0; pass < 2; ++pass) {
-      const int first = pass * PASS + (direction > 0 ? 0 : PASS - 1);
+      const int first_column = pass * PASS + (direction > 0 ? 0 : PASS - 1);
       if (!known) {
-        segments[count++] = {first, PASS, PASS};
+        segments[count++] = {first_column, PASS, PASS};
         continue;
       }
-      int start = 0, deadline = PASS;
-      if (entry[pass] > 0.0f) {
+      int first_step = 0, deadline = PASS;
+      if (first_crossing[pass] > 0.0f) {
         const float time = direction > 0 ? 0.0f : (HALF - 1.0f) / HALF;
-        const auto position =
-            arc_column_position<W>(first, time, span, widening);
+        const auto position = arc_column_position<W>(
+            first_column, time, initial_arc_span, arc_span_delta);
         if (position.offset <= position.extent) {
           deadline = 1;
         } else {
-          if (!(entry[pass] < HALF))
+          if (!(first_crossing[pass] < HALF))
             continue;
-          start = int(entry[pass]);
-          deadline = int(ceilf(last[pass])) + 1 - start;
+          first_step = int(first_crossing[pass]);
+          deadline = int(ceilf(last_crossing[pass])) + 1 - first_step;
         }
-      } else if (last[pass] < HALF) {
-        deadline = int(ceilf(last[pass])) + 1;
+      } else if (last_crossing[pass] < HALF) {
+        deadline = int(ceilf(last_crossing[pass])) + 1;
       }
-      const int end = bounded ? planned_end<W>(pass, direction, span, widening,
-                                               last[pass], start)
-                              : PASS;
-      segments[count++] = {math::fast_wrap(first + direction * start, W),
-                           std::max(0, end - start), deadline};
+      const int end_step =
+          bounded
+              ? planned_end<W>(pass, direction, initial_arc_span,
+                               arc_span_delta, last_crossing[pass], first_step)
+              : PASS;
+      segments[count++] = {
+          math::fast_wrap(first_column + direction * first_step, W),
+          std::max(0, end_step - first_step), deadline};
     }
     return count;
   }
