@@ -107,13 +107,16 @@ inline void init_walk(SpatialWalkState &state, int32_t seed) {
  * @param state Walk state to advance.
  * @param wander Fraction of the walk rotation absorbed this frame, [0, 1].
  * @param spin_rate Spin angle added this frame, in radians.
+ * @param speed Walk distance per frame, in radians.
  */
-inline void advance_walk(SpatialWalkState &state, float wander,
-                         float spin_rate) {
+inline void advance_walk(SpatialWalkState &state, float wander, float spin_rate,
+                         float speed = WALK_OPTIONS.speed) {
   ++state.walk_time;
+  auto options = WALK_OPTIONS;
+  options.speed = speed;
   const Animation::RandomWalkDelta delta = Animation::step_random_walk<false>(
       state.position, state.direction, state.angular_velocity, state.walk_noise,
-      WALK_OPTIONS, state.walk_time);
+      options, state.walk_time);
   state.wander =
       math::absorb_rotation_delta(delta.rotation, wander, state.wander);
   state.spin_phase = fmodf(state.spin_phase + spin_rate, math::TWO_PI_F);

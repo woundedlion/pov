@@ -697,6 +697,9 @@ cannot follow a projection: that would move backward in carrier rank.
 | **Coverage** | Value Cutout | Field → Field; cutout threshold and softness; projection-based coverage belongs to planar sources |
 | **Colorize** | Generated Triadic, Complementary, Analogous | Field → Color; palette mapping, phase oscillation, brightness envelope, opacity, optional path-length hue shift and a sphere-space modulation recipe |
 
+Twist Lens exposes Twist Rate and Speed. Its origin follows a languid spherical
+random walk; Speed sets its angular travel per frame, and zero holds the origin.
+
 Planar-warp **Speed** advances its wrapped phase in cycles per frame. The chain
 operator `warp.affine.v3` uses its explicit **Lattice Period** (1/64–100 plane
 units) to scale Translation X/Y, which may be fractional. It neither derives

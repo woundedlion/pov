@@ -258,25 +258,20 @@ struct LensGlitch : StatelessModel {
 /** @brief Parameter family of sphere.lens.twist.v2. */
 struct TwistChainParams {
   float twist_rate = lenses::TWIST_RATE; /**< Radians per unit height. */
-  float origin_phi = 0.0f;    /**< Polar angle from +Y, in radians. */
-  float origin_lambda = 0.0f; /**< Azimuth from +X toward +Z, in radians. */
+  float speed = 0.02f; /**< Origin walk distance per frame, in radians. */
 
   static constexpr auto FIELDS = std::array{
       Field<TwistChainParams>{"twist-rate", &TwistChainParams::twist_rate,
                               "Twist Rate", -12.0f, 12.0f, FieldCurve::LERP},
-      Field<TwistChainParams>{"origin-phi", &TwistChainParams::origin_phi,
-                              "Origin Phi (Polar)", 0.0f, math::PI_F,
-                              FieldCurve::LERP},
-      Field<TwistChainParams>{"origin-lambda", &TwistChainParams::origin_lambda,
-                              "Origin Lambda (Azimuth)", 0.0f, math::TWO_PI_F,
-                              FieldCurve::SHORTEST_PERIODIC},
+      Field<TwistChainParams>{"speed", &TwistChainParams::speed, "Speed", 0.0f,
+                              0.05f, FieldCurve::LERP},
   };
 };
 static_assert(field_ids_unique<TwistChainParams>());
 static_assert(field_defaults_in_range<TwistChainParams>());
 
 /** @brief SPHERE endomorphism: the height-dependent twist lens. */
-struct LensTwist : StatelessModel {
+struct LensTwist : ValueStateModel<SpatialWalkState> {
   static constexpr const char *ID = "sphere.lens.twist.v2";
   static constexpr const char *NAME = "Twist Lens";
   using Input = SphereSample;
@@ -287,14 +282,20 @@ struct LensTwist : StatelessModel {
     math::Vector axis{0.0f, 1.0f, 0.0f}; /**< Unit twist axis. */
   };
 
-  static Prepared prepare(const FrameContext &, const Params &params,
-                          const State &) {
-    return {
-        math::Vector::from_spherical(params.origin_lambda, params.origin_phi)};
+  static void init(State &state, InstanceId id) {
+    init_walk(state, static_cast<int32_t>(id.stable_hash));
+  }
+  static void advance(State &state, const Params &params) {
+    if (params.speed != 0.0f)
+      advance_walk(state, 1.0f, 0.0f, params.speed);
+  }
+  static Prepared prepare(const FrameContext &, const Params &,
+                          const State &state) {
+    return {math::rotate(math::UP, state.wander).normalized()};
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &params, const Prepared &prepared) {
-    if (params.origin_phi == 0.0f)
+    if (prepared.axis.y == 1.0f)
       return Kernel::lens(input,
                           lenses::twist_lens(input.dir, params.twist_rate));
     const float height = math::dot(input.dir, prepared.axis);

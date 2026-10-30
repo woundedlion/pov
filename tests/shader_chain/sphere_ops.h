@@ -217,6 +217,10 @@ inline void run_lens_parity(const char *op_id, ValueSet set) {
     if (set != ValueSet::DEFAULTS)
       param_as<OpParams>(program, 1).d_re *= -1.0f;
   }
+  if constexpr (std::is_same_v<OpParams, In::Op::TwistChainParams>)
+    const_cast<In::Op::SpatialWalkState &>(
+        state_as<In::Op::SpatialWalkState>(program, 1))
+        .wander = {};
   const In::FrameContext ctx = shared_resources().context();
   using Bound = typename PB::Stage::Lens<LensPolicy>::template Bind<
       SphereOpMirrorBinding>;
@@ -300,9 +304,10 @@ inline void test_shader_chain_lens_controls() {
   for (const float phi : {0.4f, math::PI_F * 0.5f, 2.2f}) {
     for (const float lambda : {0.0f, 0.7f, math::PI_F * 0.5f}) {
       In::Op::TwistChainParams params;
-      *static_cast<float *>(twist->runtime.param_address(&params, 1)) = phi;
-      *static_cast<float *>(twist->runtime.param_address(&params, 2)) = lambda;
-      const auto prepared = In::Op::LensTwist::prepare(ctx, params, {});
+      In::Op::LensTwist::State state;
+      state.wander = math::make_rotation(
+          math::UP, math::Vector::from_spherical(lambda, phi));
+      const auto prepared = In::Op::LensTwist::prepare(ctx, params, state);
       const auto result = In::Op::LensTwist::run(input, ctx, params, prepared);
       const double ax = sin(phi) * cos(lambda);
       const double ay = cos(phi);
@@ -343,4 +348,39 @@ inline void test_shader_chain_lens_controls() {
       HS_EXPECT_EQ(result.path_length, input.path_length);
     }
   }
+}
+
+/** @brief Twist origin walks at the selected speed and freezes at zero. */
+inline void test_shader_chain_twist_animation() {
+  using Twist = In::Op::LensTwist;
+  const auto ctx = shared_resources().context();
+  Twist::State state;
+  Twist::init(state,
+              {"twist", Twist::ID, In::instance_hash("twist", Twist::ID)});
+  Twist::Params params;
+  params.speed = 0.01f;
+  const auto start = state;
+  Twist::advance(state, params);
+  const auto axis = Twist::prepare(ctx, params, state).axis;
+  HS_EXPECT_NEAR(math::dot(math::UP, axis), cosf(0.01f), 1e-6f);
+  HS_EXPECT_TRUE(math::cross(math::UP, axis).magnitude() > 0.009f);
+  auto faster = start;
+  params.speed = 0.04f;
+  Twist::advance(faster, params);
+  const auto fast_axis = Twist::prepare(ctx, params, faster).axis;
+  HS_EXPECT_NEAR(math::dot(math::UP, fast_axis), cosf(0.04f), 1e-6f);
+  HS_EXPECT_TRUE(math::cross(math::UP, fast_axis).magnitude() > 0.039f);
+  params.speed = 0.0f;
+  for (int i = 0; i < 20; ++i)
+    Twist::advance(state, params);
+  const auto held = Twist::prepare(ctx, params, state).axis;
+  HS_EXPECT_EQ(held.x, axis.x);
+  HS_EXPECT_EQ(held.y, axis.y);
+  HS_EXPECT_EQ(held.z, axis.z);
+  auto column = state;
+  const auto interval = In::Op::temporal_interval(start, state);
+  In::Op::temporal_sample(column, interval, params, 0.5f);
+  const auto middle = Twist::prepare(ctx, params, column).axis;
+  HS_EXPECT_NEAR(math::dot(math::UP, middle), cosf(0.005f), 1e-6f);
+  HS_EXPECT_TRUE(math::cross(math::UP, middle).magnitude() > 0.004f);
 }
