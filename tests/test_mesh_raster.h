@@ -1117,7 +1117,7 @@ inline void check_face_concavity_agrees(size_t islamic_idx) {
 
   static SDF::FaceScratchBuffer face_scratch;
   std::vector<float> xy;
-  size_t checked = 0, concave_seen = 0;
+  size_t checked = 0, concave_seen = 0, convex_seen = 0;
   for (size_t f = 0; f < F; ++f) {
     SDF::PreparedFace face(verts, std::span<const uint16_t>(fi + fo[f], fc[f]),
                            face_scratch, H + hs::H_OFFSET, H, nullptr, nullptr,
@@ -1125,6 +1125,7 @@ inline void check_face_concavity_agrees(size_t islamic_idx) {
     // A culled face never reached the turn test.
     if (face.count == 0)
       continue;
+    convex_seen += face.convex ? 1u : 0u;
     xy.clear();
     for (int k = 0; k < face.count; ++k) {
       xy.push_back(face.poly_2d[k].x);
@@ -1148,10 +1149,9 @@ inline void check_face_concavity_agrees(size_t islamic_idx) {
     concave_seen += concave ? 1u : 0u;
   }
 
-  // Both verdicts occur in the corpus, so agreement is not agreement on a
-  // constant.
   HS_EXPECT_GT(checked, (size_t)0);
   HS_EXPECT_GT(concave_seen, (size_t)0);
+  HS_EXPECT_GT(convex_seen, (size_t)0);
   HS_EXPECT_GT(checked - concave_seen, (size_t)0);
 }
 
