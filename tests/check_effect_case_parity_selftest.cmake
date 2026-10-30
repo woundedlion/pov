@@ -47,4 +47,5 @@ check_fixture("${missing}" FALSE "membership/tier mismatch")
 string(REPLACE "  if (effects_full_suite()) {\n    run_effect_case_beta();\n  }"
   "  run_effect_case_beta();" wrong_tier "${focused}")
 check_fixture("${wrong_tier}" FALSE "membership/tier mismatch")
-check_fixture("${focused}" TRUE "")
+string(REGEX REPLACE "[^\n]*run_effect_case_alpha[^\n]*\n" "" ownerless "${focused}")
+check_fixture("${ownerless}" FALSE "exactly one focused owner")
