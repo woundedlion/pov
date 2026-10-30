@@ -82,7 +82,7 @@ struct ParamView {
 
 /** @brief Reserved backing stores for the engine parameter streams. */
 struct ParamStreams {
-  static constexpr size_t CAPACITY = 256; ///< Reserved entries per stream.
+  static constexpr size_t CAPACITY = 384; ///< Reserved entries per stream.
   std::vector<float> values;              ///< Per-frame values stream.
   std::vector<ParamView> views;           ///< Definitions stream.
 

@@ -92,6 +92,8 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     // TransferKind is NONE or ISO_CONTOUR.
     {"field.transfer.ridge.v2", nullptr, {}},
     {"field.transfer.smooth-bands.v2", nullptr, {}},
+    {"modulate.field.v1", nullptr, {}},
+    {"modulate.hue-shift.v1", nullptr, {}},
     // ProjectionKind names the folded gnomonic alone.
     {"project.gnomonic.v2", "hemisphere", {{"folded"}}},
     {"project.stereographic.v2", "frame", {{"identity", "spin-wander"}}},
@@ -135,6 +137,11 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"colorize.generated-palette.v3",
      "palette-mode",
      {{"triadic", "complementary", "analogous"}}},
+    {"colorize.generated-palette.v3", "palette-type", {{"cycling-generated"}}},
+    {"colorize.generated-palette.v3", "palette-harmony", {}},
+    {"colorize.generated-palette.v3", "palette-lightness-curve", {}},
+    {"colorize.generated-palette.v3", "palette-name", {}},
+    {"colorize.generated-palette.v3", "palette-name-b", {}},
     {"colorize.generated-palette.v3",
      "palette-mapping",
      {{"cup", "bell", "linear"}}},
@@ -256,8 +263,8 @@ inline void test_composed_derivation_reach() {
     }
   }
 
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 38u);
-  HS_EXPECT_EQ(unreachable_operators, 12u);
-  HS_EXPECT_EQ(catalog_values, 173u);
-  HS_EXPECT_EQ(unreachable_values, 124u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 40u);
+  HS_EXPECT_EQ(unreachable_operators, 14u);
+  HS_EXPECT_EQ(catalog_values, 263u);
+  HS_EXPECT_EQ(unreachable_values, 213u);
 }

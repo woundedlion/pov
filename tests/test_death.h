@@ -1124,8 +1124,8 @@ inline const Case *all_cases(int &n) {
        "exceeded ParamList capacity"},
       {"wasm_param_capacity_exceeded", case_wasm_param_capacity_exceeded,
        "targets/wasm/param_marshal.h",
-       "(count <= ParamStreams::CAPACITY) effect exposes 257 params, past the "
-       "256 reserved"},
+       "(count <= ParamStreams::CAPACITY) effect exposes 385 params, past the "
+       "384 reserved"},
       {"parameter_group_empty_registry", case_parameter_group_empty_registry,
        "core/control/param_host.h",
        "(parameters.count > 0) parameter group requires a registered parameter"},
