@@ -1315,6 +1315,33 @@ private:
     tr.seed_faces = source.mesh.face_counts.size();
   }
 
+  /** @brief Visits dual corners in first-seen face-walk order.
+   * @tparam Emit Corner consumer.
+   * @param dual Dual seed mesh.
+   * @param arena Scratch storage for visited vertices.
+   * @param emit Receives each vertex index and its first host face. */
+  template <typename Emit>
+  HS_COLD_MEMBER static void first_seen_corners(const PolyMesh &dual,
+                                                Arena &arena, Emit &&emit) {
+    const size_t V = dual.vertices.size();
+    bool *seen = arena.allocate_n<bool>(V);
+    std::fill_n(seen, V, false);
+    size_t out = 0, off = 0;
+    for (size_t face = 0; face < dual.face_counts.size(); ++face) {
+      for (int j = 0; j < dual.face_counts[face]; ++j) {
+        const uint16_t vertex = dual.faces[off + j];
+        HS_CHECK(vertex < V, "OpLeg: dual face index out of range");
+        if (seen[vertex])
+          continue;
+        seen[vertex] = true;
+        emit(vertex, static_cast<int>(face));
+        ++out;
+      }
+      off += dual.face_counts[face];
+    }
+    HS_CHECK(out == V, "OpLeg: dual corners incomplete");
+  }
+
   HS_COLD_MEMBER static const uint8_t *
   dual_closing_palettes(const PolyMesh &dual, const PaletteHandoff &handoff,
                         Arena &scratch) {
@@ -1328,18 +1355,10 @@ private:
     for (size_t f = 0; f < dual_faces; ++f)
       from[f] = handoff.prev_face_palette[primal_faces + f];
 
-    bool *seen = scratch.allocate_n<bool>(primal_faces);
-    std::fill_n(seen, primal_faces, false);
     size_t out = dual_faces;
-    for (uint16_t vertex : dual.faces) {
-      HS_CHECK(vertex < primal_faces, "OpLeg: dual face index out of range");
-      if (seen[vertex])
-        continue;
-      seen[vertex] = true;
+    first_seen_corners(dual, scratch, [&](uint16_t vertex, int) {
       from[out++] = handoff.prev_face_palette[vertex];
-    }
-    HS_CHECK(out == handoff.prev_faces,
-             "OpLeg: structural dual handoff is incomplete");
+    });
     return from;
   }
 
@@ -2121,20 +2140,9 @@ private:
                  corners == dual.vertices.size(),
              "OpLeg: closing-leg blocks differ from the dual seed");
     int *corner_host = scratch_arena_a.allocate_n<int>(corners);
-    bool *seen = scratch_arena_a.allocate_n<bool>(corners);
-    std::fill_n(seen, corners, false);
-    size_t out = 0, off = 0;
-    for (size_t fi = 0; fi < landed; ++fi) {
-      for (int j = 0; j < dual.face_counts[fi]; ++j) {
-        const uint16_t v = dual.faces[off + j];
-        if (!seen[v]) {
-          seen[v] = true;
-          corner_host[out++] = static_cast<int>(fi);
-        }
-      }
-      off += dual.face_counts[fi];
-    }
-    HS_CHECK(out == corners, "OpLeg: dual corner hosts incomplete");
+    size_t out = 0;
+    first_seen_corners(dual, scratch_arena_a,
+                       [&](uint16_t, int host) { corner_host[out++] = host; });
     return corner_host;
   }
 
