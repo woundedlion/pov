@@ -22,6 +22,8 @@ struct Spec {
   static constexpr bool TEMPORAL_SAMPLING = false;
   /// Factors a supported rotation prefix into column bases.
   static constexpr bool FACTORED_COLUMNS = false;
+  /// Bakes endpoint radial transfer curves for burst ripples.
+  static constexpr bool RIPPLE_RADIAL_TABLE = false;
   /// Keeps the full-resolution gamut table in device persistent storage.
   static constexpr bool CACHE_FULL_GAMUT_LUT = false;
 };

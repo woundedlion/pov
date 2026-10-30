@@ -819,6 +819,7 @@ inline void test_millefiori_document_pipeline() {
 /** @brief Module entry point for the composed-effect base contract. */
 inline int run_composed_effect_tests() {
   ModuleFixture fixture("composed_effect");
+  HS_RUN(test_millefiori_radial_table_interval);
   HS_RUN(test_millefiori_document_pipeline);
   HS_RUN(test_millefiori_ripple_endpoints);
   HS_RUN(test_composed_strobe_roster);

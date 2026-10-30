@@ -141,6 +141,17 @@ public:
       frame = from;
       hold_discrete_lenses(frame, from, to);
       to.params.visit([&]<typename Resource>(const auto &family) {
+        if constexpr (std::is_same_v<typename Resource::Family,
+                                     SphereAnimation::BurstRippleParams>) {
+          auto &resource = frame.resources.template get<Resource::KEY>();
+          const auto &end = to.resources.template get<Resource::KEY>();
+          const uint32_t DELTA = end.frames - resource.frames;
+          resource.radial_tables = DELTA <= 1 ? end.radial_tables : nullptr;
+          resource.radial_fraction = -1.0f;
+          if (std::memcmp(&family, &from.params.template get<Resource::KEY>(),
+                          sizeof(family)) != 0)
+            resource.radial_tables = nullptr;
+        }
         if constexpr (Resource::KIND == ResourceKind::MODULATION) {
           if (!Modulation::same_topology(
                   from.params.template get<Resource::KEY>().modulation,
@@ -156,8 +167,14 @@ public:
       return;
     }
     frame = to;
-    if (fraction >= 1.0f)
+    if (fraction >= 1.0f) {
+      frame.params.visit([&]<typename Resource>(const auto &) {
+        if constexpr (std::is_same_v<typename Resource::Family,
+                                     SphereAnimation::BurstRippleParams>)
+          frame.resources.template get<Resource::KEY>().radial_fraction = -1.0f;
+      });
       return;
+    }
     frame.projection_conjugate = projection.sample(fraction);
     frame.outer_conjugate = outer.sample(fraction);
     if (constant_params) {
@@ -201,8 +218,16 @@ public:
         if constexpr (std::is_same_v<typename Resource::Family,
                                      SphereAnimation::BurstRippleParams>) {
           const auto &end = to.resources.template get<Resource::KEY>();
+          const uint32_t DELTA = end.frames - start.frames;
           for (auto &wave : clock.waves)
-            wave.age -= (end.frames - start.frames) * (1.0f - fraction);
+            wave.age -= DELTA * (1.0f - fraction);
+          clock.radial_fraction = DELTA == 1 ? fraction : 1.0f;
+          if (DELTA > 1 ||
+              std::memcmp(&family, &to.params.template get<Resource::KEY>(),
+                          sizeof(family)) != 0 ||
+              std::memcmp(&family, &from.params.template get<Resource::KEY>(),
+                          sizeof(family)) != 0)
+            clock.radial_tables = nullptr;
         } else if constexpr (std::is_same_v<typename Resource::Family,
                                             PeriodicRippleParams>)
           clock.phase = Spacetime::sample_clock(

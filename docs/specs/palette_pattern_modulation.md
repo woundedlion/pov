@@ -377,6 +377,34 @@ and hue resources. Each result still traverses its complete color suffix.
 Stages without this optional hook use individual endpoint evaluation; fractions
 zero and one select the corresponding endpoint directly when the hook exists.
 
+### Burst-ripple radial transfer
+
+`Spec::RIPPLE_RADIAL_TABLE` defaults off; Millefiori enables it for temporal
+column rendering. Each persistent resource owns radial curves of net rotation
+and absolute travel for its burst centers. Frame preparation bakes current wave
+ages and ages minus one, preserving wave order. Column views borrow the current
+resource's tables and blend those endpoints only across a one-frame interval;
+table contents remain valid until the next draw. Initial identical frame
+endpoints use the current curve. Static/direct evaluation and literal interval
+fractions 0 and 1 use the canonical grouped kernel, preserving document parity
+and endpoint identities.
+
+The curve is a spatial and temporal approximation, with one final sphere
+rotation per center and unchanged downstream pixel shading. Union support
+bounds reject inactive rays before angular lookup. Unsupported controls,
+parameter changes, skipped frame intervals, pole crossings and invalid lookup
+cells fall back to grouped evaluation. The optional curves occupy 16,532 bytes
+inside the existing persistent arena, counted by the composed footprint gate;
+no arena or stack budget is increased.
+
+Qualification covers geometry, unit norm, path continuity, burst births/deaths,
+slot replacement and shared or random centers. The default preset's 1.536 million
+sample qualification observed maximum direction difference 0.00463 radians and
+squared-norm error below 3.6e-7. Sixteen parameter corners covering 24.576 million
+samples observed maximum direction difference 0.00771 radians. Full-frame motion
+and visual continuity qualify color changes; legacy RGB16 equality is not an
+acceptance gate for this temporal approximation.
+
 ## Canonical configuration and migration
 
 Each `color.modulate.v1` node owns one configuration containing source controls,

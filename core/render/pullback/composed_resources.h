@@ -431,10 +431,37 @@ struct ResourceNoiseView {};
 template <typename Resource> struct ResourceNoiseView<Resource, true> {
   const FastNoiseLite *noise = nullptr; ///< Runtime-owned generator.
 };
+/** @brief Optional persistent radial table for one resource.
+ * @tparam Resource Keyed resource.
+ * @tparam Enabled Whether the effect bakes this resource's ripple curves. */
+template <typename Resource, bool Enabled> struct ResourceRippleRadialTable {};
+/** @brief Enabled persistent ripple curves.
+ * @tparam Resource Burst-ripple resource. */
+template <typename Resource> struct ResourceRippleRadialTable<Resource, true> {
+  SphereAnimation::RadialTables radial_tables; ///< Frame endpoint curves.
+};
+
+/** @brief Optional borrowed ripple transfer curves.
+ * @tparam Resource Keyed resource.
+ * @tparam Enabled Whether this family schedules burst ripples. */
+template <typename Resource,
+          bool Enabled = std::is_same_v<typename Resource::Family,
+                                        SphereAnimation::BurstRippleParams>>
+struct ResourceRippleRadialView {};
+/** @brief Borrowed ripple curves for a column time.
+ * @tparam Resource Burst-ripple resource. */
+template <typename Resource> struct ResourceRippleRadialView<Resource, true> {
+  const SphereAnimation::RadialTables *radial_tables =
+      nullptr; ///< Runtime-owned curves.
+  float radial_fraction =
+      -1.0f; ///< Current endpoint weight; negative disables.
+};
+
 /** @brief Frame snapshot of one resource: its clocks and noise view. */
 template <typename Resource>
 struct ResourceFrame : ResourceClock<Resource>,
                        ResourceNoiseView<Resource>,
+                       ResourceRippleRadialView<Resource>,
                        ResourceModulationView<Resource> {};
 
 /** @brief One `Storage<Resource>` per resource, addressed by key. */

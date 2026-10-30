@@ -57,8 +57,16 @@ HS_FLASH_INLINE Frame sample_frame_reference(const Frame &from, const Frame &to,
       if constexpr (std::is_same_v<
                         typename Resource::Family,
                         Pullback::SphereAnimation::BurstRippleParams>) {
+        const uint32_t DELTA = b.frames - a.frames;
         for (auto &wave : clock.waves)
-          wave.age -= (b.frames - a.frames) * (1.0f - fraction);
+          wave.age -= DELTA * (1.0f - fraction);
+        clock.radial_fraction = DELTA == 1 ? fraction : 1.0f;
+        if (DELTA > 1 ||
+            std::memcmp(&family, &from.params.template get<Resource::KEY>(),
+                        sizeof(family)) != 0 ||
+            std::memcmp(&family, &to.params.template get<Resource::KEY>(),
+                        sizeof(family)) != 0)
+          clock.radial_tables = nullptr;
       } else if constexpr (std::is_same_v<typename Resource::Family,
                                           Pullback::PeriodicRippleParams>)
         clock.phase =
@@ -793,10 +801,12 @@ inline void check_temporal_roster_pixels(const char *name) {
   effect.draw_frame();
   effect.advance_display();
   const auto initial = effect.frame_for_test();
-  const auto first = FX::RenderPipeline::prepare(initial);
-  for (int x : {0, 1, 47, 48, 49, 95})
+  for (int x : {0, 1, 47, 48, 49, 95}) {
+    const auto FIRST = FX::RenderPipeline::prepare(Spacetime::sample_frame(
+        initial, initial, static_cast<float>(x % (W / 2)) / (W / 2)));
     for (int y : {1, 7, 18})
-      expect_pixel(effect.get_pixel(x, y), FX::shade(view(x, y), first));
+      expect_pixel(effect.get_pixel(x, y), FX::shade(view(x, y), FIRST));
+  }
   history.capture(initial, persistent_arena);
   HS_EXPECT_TRUE(history.previous.palette != initial.palette);
   if constexpr (FX::Params::template HAS<"modulation">) {
@@ -1194,4 +1204,48 @@ inline void test_millefiori_ripple_endpoints() {
   invalid.params.template get<"displace">().random_center = 2;
   HS_EXPECT_FALSE(effect.restore_parameters(invalid));
   HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
+}
+
+/** @brief Ripple curves borrow current storage with interval-specific weights. */
+inline void test_millefiori_radial_table_interval() {
+  using FX = Millefiori<96, 20>;
+  using namespace Pullback::SphereAnimation;
+  static_assert(FX::Spec::RIPPLE_RADIAL_TABLE);
+  reset_globals();
+  FX effect;
+  effect.init();
+  auto previous = effect.frame_for_test();
+  ComposedFrameWhiteBox::advance(effect);
+  const auto CURRENT = effect.frame_for_test();
+  previous.resources.template get<"displace">().radial_tables = nullptr;
+  const auto *TABLE =
+      CURRENT.resources.template get<"displace">().radial_tables;
+  HS_EXPECT_TRUE(TABLE != nullptr);
+  HS_EXPECT_TRUE(TABLE->enabled);
+  HS_EXPECT_LT(CURRENT.resources.template get<"displace">().radial_fraction,
+               0.0f);
+  using Provider = Pullback::SurfaceProvider<FX::Binding, BurstRippleParams,
+                                             true, "displace">;
+  HS_EXPECT_TRUE(Provider::prepare(CURRENT).radial_tables == nullptr);
+  const Pullback::FrameInterval interval(previous, CURRENT);
+  for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
+    const auto FRAME = interval.at(fraction);
+    const auto &resource = FRAME.resources.template get<"displace">();
+    HS_EXPECT_EQ(resource.radial_tables, TABLE);
+    HS_EXPECT_EQ(resource.radial_fraction,
+                 fraction > 0.0f && fraction < 1.0f ? fraction : -1.0f);
+  }
+  const auto SAME = Pullback::FrameInterval(CURRENT, CURRENT).at(0.5f);
+  HS_EXPECT_EQ(SAME.resources.template get<"displace">().radial_fraction, 1.0f);
+  auto skipped = CURRENT;
+  skipped.resources.template get<"displace">().frames += 2;
+  for (float fraction : {0.0f, 0.5f}) {
+    const auto FRAME = Pullback::FrameInterval(previous, skipped).at(fraction);
+    HS_EXPECT_TRUE(FRAME.resources.template get<"displace">().radial_tables ==
+                   nullptr);
+  }
+  previous.params.template get<"displace">().period += 1.0f;
+  const auto CHANGED = Pullback::FrameInterval(previous, CURRENT).at(0.5f);
+  HS_EXPECT_TRUE(CHANGED.resources.template get<"displace">().radial_tables ==
+                 nullptr);
 }

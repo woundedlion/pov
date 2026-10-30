@@ -224,10 +224,16 @@ struct SurfaceProvider {
    *  @return `Pullback::Surface::prepare_direct` for a directed family,
    *  else `Pullback::Surface::prepare`. */
   __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
-    if constexpr (std::is_same_v<Family, SphereAnimation::BurstRippleParams>)
-      return SphereAnimation::prepare_ripples(
-          params(frame), frame.resources.template get<Key>());
-    else if constexpr (requires { frame.params.template get<Key>().direction; })
+    if constexpr (std::is_same_v<Family, SphereAnimation::BurstRippleParams>) {
+      const auto &resource = frame.resources.template get<Key>();
+      auto prepared = SphereAnimation::prepare_ripples(params(frame), resource);
+      prepared.radial_tables =
+          resource.radial_fraction >= 0.0f ? resource.radial_tables : nullptr;
+      prepared.radial_fraction = resource.radial_fraction;
+      return prepared;
+    } else if constexpr (requires {
+                           frame.params.template get<Key>().direction;
+                         })
       return Pullback::Surface::prepare_direct(
           frame.resources.template get<Key>().phase,
           frame.params.template get<Key>().direction);
@@ -296,8 +302,8 @@ template <typename State> struct BurstRipple : ApproximationDefaults {
    * @return Displaced direction and accumulated path length. */
   static SurfaceResult apply(const math::Vector &input, const FrameState &frame,
                              const Prepared &prepared) {
-    return SphereAnimation::grouped_ripples(input, prepared,
-                                            State::path_length_required(frame));
+    return SphereAnimation::radial_ripples(input, prepared,
+                                           State::path_length_required(frame));
   }
 };
 } // namespace Surface

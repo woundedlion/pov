@@ -613,11 +613,22 @@ private:
     return supported;
   }
 
+  /** @brief Owned per-resource state with optional ripple transfer curves.
+   * @tparam Resource Keyed resource. */
+  template <typename Resource>
+  struct RuntimeResource
+      : ComposedDetail::ResourceNoise<Resource>,
+        ComposedDetail::ResourceRippleRadialTable<
+            Resource, SpecT::RIPPLE_RADIAL_TABLE &&
+                          std::is_same_v<typename Resource::Family,
+                                         SphereAnimation::BurstRippleParams>> {
+  };
+
   struct State : ProjectionWalkNoise<ANIMATED_PROJECTION>,
                  OptionalHueRotationLut<Metadata::MODULATION>,
                  Spacetime::FrameHistory<FrameState, TEMPORAL_SAMPLING,
                                          Metadata::MODULATION> {
-    ComposedDetail::ResourceStorage<ComposedDetail::ResourceNoise,
+    ComposedDetail::ResourceStorage<RuntimeResource,
                                     typename Params::ResourceTypes>
         resources;
     FastNoiseLite outer_walk_noise;
@@ -870,10 +881,16 @@ private:
     this->params.visit([&]<typename Resource>(const auto &) {
       auto &resource = frame.resources.template get<Resource::KEY>();
       if constexpr (std::is_same_v<typename Resource::Family,
-                                   SphereAnimation::BurstRippleParams>)
-        static_cast<SphereAnimation::RippleState &>(resource) =
-            state->resources.template get<Resource::KEY>().ripples;
-      else
+                                   SphereAnimation::BurstRippleParams>) {
+        auto &owned = state->resources.template get<Resource::KEY>();
+        static_cast<SphereAnimation::RippleState &>(resource) = owned.ripples;
+        if constexpr (SpecT::RIPPLE_RADIAL_TABLE) {
+          SphereAnimation::prepare_radial_tables(
+              frame.params.template get<Resource::KEY>(), owned.ripples,
+              owned.radial_tables);
+          resource.radial_tables = &owned.radial_tables;
+        }
+      } else
         static_cast<ComposedDetail::ResourceClock<Resource> &>(resource) =
             clocks.template get<Resource::KEY>();
       if constexpr (ComposedDetail::RESOURCE_NOISE<Resource>)

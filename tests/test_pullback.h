@@ -1563,6 +1563,106 @@ inline void test_pullback_grouped_ripple_path_continuity() {
   HS_EXPECT_LT((A.sphere - B.sphere).length(), 1e-5f);
 }
 
+/** @brief Radial endpoints reproduce an analytic single-wave crest. */
+inline void test_pullback_radial_ripple_crest() {
+  using namespace Pullback::SphereAnimation;
+  BurstRippleParams params;
+  params.period = 80.0f;
+  params.decay = 0.0f;
+  params.random_center = 0;
+  params.center_polar = 0.0f;
+  RippleState state;
+  state.burst_count = 1;
+  state.waves[0] = {40.0f, 0};
+  static RadialTables tables;
+  prepare_radial_tables(params, state, tables);
+  HS_EXPECT_TRUE(tables.enabled);
+  HS_EXPECT_EQ(tables.count, 1);
+  auto prepared = prepare_ripples(params, state);
+  prepared.radial_tables = &tables;
+  const auto RESULT = radial_ripples(math::X_AXIS, prepared, true);
+  HS_EXPECT_NEAR(RESULT.sphere.x, cosf(0.075f), 1e-6f);
+  HS_EXPECT_NEAR(RESULT.sphere.y, -sinf(0.075f), 1e-6f);
+  HS_EXPECT_NEAR(RESULT.sphere.z, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(RESULT.path_length, 0.075f, 1e-6f);
+  const auto UNTRACKED = radial_ripples(math::X_AXIS, prepared, false);
+  HS_EXPECT_EQ(UNTRACKED.sphere.x, RESULT.sphere.x);
+  HS_EXPECT_EQ(UNTRACKED.sphere.y, RESULT.sphere.y);
+  HS_EXPECT_EQ(UNTRACKED.path_length, 0.0f);
+}
+
+/** @brief Unsupported clocks and narrow wavelets retain grouped evaluation. */
+inline void test_pullback_radial_ripple_fallback() {
+  using namespace Pullback::SphereAnimation;
+  BurstRippleParams params;
+  RippleState state;
+  state.burst_count = 1;
+  state.waves[0] = {20.0f, 0};
+  static RadialTables tables;
+  for (bool narrow : {false, true}) {
+    params.period = narrow ? 80.0f : 30.0f;
+    params.thickness = narrow ? 0.1f : 0.7f;
+    prepare_radial_tables(params, state, tables);
+    HS_EXPECT_FALSE(tables.enabled);
+    auto prepared = prepare_ripples(params, state);
+    prepared.radial_tables = &tables;
+    const math::Vector VIEW = math::Vector(0.4f, 0.5f, 0.6f).normalized();
+    const auto EXPECTED = grouped_ripples(VIEW, prepared, true);
+    const auto RESULT = radial_ripples(VIEW, prepared, true);
+    HS_EXPECT_EQ(RESULT.sphere.x, EXPECTED.sphere.x);
+    HS_EXPECT_EQ(RESULT.sphere.y, EXPECTED.sphere.y);
+    HS_EXPECT_EQ(RESULT.sphere.z, EXPECTED.sphere.z);
+    HS_EXPECT_EQ(RESULT.path_length, EXPECTED.path_length);
+  }
+  params = {};
+  prepare_radial_tables(params, RippleState{}, tables);
+  HS_EXPECT_TRUE(tables.enabled);
+  HS_EXPECT_EQ(tables.count, 0);
+  PreparedRipples empty;
+  empty.radial_tables = &tables;
+  const auto IDENTITY = radial_ripples(math::X_AXIS, empty, true);
+  HS_EXPECT_EQ(IDENTITY.sphere.x, 1.0f);
+  HS_EXPECT_EQ(IDENTITY.path_length, 0.0f);
+}
+
+/** @brief Cached ripple geometry stays subpixel across column times. */
+inline void test_pullback_radial_ripple_geometry() {
+  using namespace Pullback::SphereAnimation;
+  BurstRippleParams params;
+  params.period = 91.48529f;
+  params.decay = 0.2f;
+  params.burst_rate = 1.0f / 128.0f;
+  RippleState state;
+  state.seed = 149502542u;
+  static RadialTables tables;
+  for (int frame = 0; frame < 300; ++frame) {
+    advance_ripple(state, params);
+    prepare_radial_tables(params, state, tables);
+    for (float fraction : {0.0f, 0.5f, 1.0f}) {
+      auto sampled = state;
+      for (auto &wave : sampled.waves)
+        wave.age -= 1.0f - fraction;
+      auto prepared = prepare_ripples(params, sampled);
+      prepared.radial_tables = &tables;
+      prepared.radial_fraction = fraction;
+      for (int i = 0; i < 32; ++i) {
+        const float Y = -1.0f + (2.0f * i + 1.0f) / 32.0f;
+        const float AZIMUTH = i * 2.39996323f;
+        const float RADIUS = sqrtf(1.0f - Y * Y);
+        const math::Vector VIEW(RADIUS * cosf(AZIMUTH), Y,
+                                RADIUS * sinf(AZIMUTH));
+        const auto EXPECTED = grouped_ripples(VIEW, prepared, true);
+        const auto RESULT = radial_ripples(VIEW, prepared, true);
+        HS_EXPECT_TRUE(std::isfinite(RESULT.path_length));
+        HS_EXPECT_GE(RESULT.path_length, 0.0f);
+        HS_EXPECT_NEAR(math::dot(RESULT.sphere, RESULT.sphere), 1.0f, 1e-5f);
+        HS_EXPECT_LE((RESULT.sphere - EXPECTED.sphere).length(), 0.005f);
+        HS_EXPECT_LE(fabsf(RESULT.path_length - EXPECTED.path_length), 0.02f);
+      }
+    }
+  }
+}
+
 struct AddLens : Pullback::ApproximationDefaults {
   static math::Vector apply(const math::Vector &input, const TestFrame &) {
     return math::Vector(input.x + 1.0f, input.y, input.z);
@@ -2314,6 +2414,9 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_displacement_overflow);
   HS_RUN(test_pullback_warp_phase_loop);
   HS_RUN(test_pullback_periodic_ripple);
+  HS_RUN(test_pullback_radial_ripple_crest);
+  HS_RUN(test_pullback_radial_ripple_fallback);
+  HS_RUN(test_pullback_radial_ripple_geometry);
   HS_RUN(test_pullback_grouped_ripple_identity);
   HS_RUN(test_pullback_grouped_ripple_analytic_crest);
   HS_RUN(test_pullback_grouped_ripple_order);

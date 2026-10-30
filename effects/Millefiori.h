@@ -23,6 +23,7 @@ struct MillefioriSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = true;
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr bool CACHE_FULL_GAMUT_LUT = true;
+  static constexpr bool RIPPLE_RADIAL_TABLE = true;
   /** @brief Authored ripple, kaleidoscope and lattice stage chain.
    * @tparam B Frame binding. */
   template <typename B>
