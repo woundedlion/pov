@@ -12,7 +12,6 @@
 #include <limits>
 
 namespace {
-const int FEEDBACK_FRAMES = hs_test::smoke_frames();
 template <int W, int H> void check_geometry(float north, float south) {
   using Geometry = math::DisplayGeometry<H>;
   using Field = hs::SphericalFieldLayout<W, H>;
@@ -81,36 +80,23 @@ template <int W, int H> void check_geometry(float north, float south) {
               });
     HS_EXPECT_NEAR(energy, pole ? 1.0f : 0.75f, 1e-6f);
   }
-  hs_test::reset_globals();
-  MeshFeedback<W, H> feedback;
-  feedback.init();
   int lit = 0;
   int lit_endpoint_rows[2] = {0, 0};
-  for (int frame = 0; frame < FEEDBACK_FRAMES; ++frame) {
-    hs_test::pin_frame_clock(frame);
-    feedback.draw_frame();
-    feedback.advance_display();
-  }
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x) {
-      const Pixel &p = feedback.get_pixel(x, y);
-      if (!(p.r | p.g | p.b))
-        continue;
-      ++lit;
-      if (y == 0)
-        ++lit_endpoint_rows[0];
-      if (y == H - 1)
-        ++lit_endpoint_rows[1];
-    }
+  hs_test::pole_geometry::check_feedback_device_budget<W, H>(
+      [&](const auto &feedback) {
+        for (int y = 0; y < H; ++y)
+          for (int x = 0; x < W; ++x) {
+            const Pixel &p = feedback.get_pixel(x, y);
+            if (!(p.r | p.g | p.b))
+              continue;
+            ++lit;
+            if (y == 0)
+              ++lit_endpoint_rows[0];
+            if (y == H - 1)
+              ++lit_endpoint_rows[1];
+          }
+      });
   HS_EXPECT_GT(lit, 0);
-  std::printf("  [MeshFeedback %dx%d phi %.3f..%.3f] arenas %zu/%zu/%zu\n", W,
-              H, north, south, persistent_arena.get_high_water_mark(),
-              scratch_arena_a.get_high_water_mark(),
-              scratch_arena_b.get_high_water_mark());
-  HS_EXPECT_LE(persistent_arena.get_high_water_mark(),
-               DEVICE_PERSISTENT_BUDGET);
-  HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(), DEFAULT_SCRATCH_A_SIZE);
-  HS_EXPECT_LE(scratch_arena_b.get_high_water_mark(), DEFAULT_SCRATCH_B_SIZE);
   if (!Field::HAS_NORTH_POLE)
     HS_EXPECT_GT(lit_endpoint_rows[0], 0);
   if (!Field::HAS_SOUTH_POLE)

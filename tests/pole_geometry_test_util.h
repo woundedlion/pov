@@ -18,8 +18,13 @@
 #include "tests/pixel_test_util.h"
 
 namespace hs_test::pole_geometry {
-/** @brief Checks MeshFeedback's arena peaks against the device partitions. */
-template <int W, int H> inline void check_feedback_device_budget() {
+/** @brief Checks MeshFeedback's arena peaks against the device partitions.
+ * @tparam W,H Canvas dimensions.
+ * @tparam Inspect Post-smoke effect inspector.
+ * @param inspect Receives the effect after the smoke frames. */
+template <int W, int H,
+          typename Inspect = decltype([](const MeshFeedback<W, H> &) {})>
+inline void check_feedback_device_budget(Inspect inspect = {}) {
   reset_globals();
   MeshFeedback<W, H> effect;
   effect.init();
@@ -28,6 +33,7 @@ template <int W, int H> inline void check_feedback_device_budget() {
     effect.draw_frame();
     effect.advance_display();
   }
+  inspect(effect);
   std::printf("  [MeshFeedback %dx%d] arenas %zu/%zu/%zu\n", W, H,
               persistent_arena.get_high_water_mark(),
               scratch_arena_a.get_high_water_mark(),
