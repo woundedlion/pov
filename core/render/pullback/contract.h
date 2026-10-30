@@ -714,6 +714,22 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
         return run(input, frame, prepared);
       }
     }
+    /** @brief Updates a carrier through an optional in-place descriptor.
+     * @param sample Output carrier to update.
+     * @param frame Frame context.
+     * @param prepared Prepared descriptor state.
+     * @param previous Selects retained resources. */
+    __attribute__((always_inline)) static void
+    run_in_place(Output &sample, const FrameState &frame,
+                 const Prepared &prepared, bool previous)
+      requires requires {
+        Derived::template run_in_place<BindingT>(sample, frame, prepared,
+                                                 previous);
+      }
+    {
+      Derived::template run_in_place<BindingT>(sample, frame, prepared,
+                                               previous);
+    }
   };
 };
 
@@ -1409,6 +1425,34 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
     return PreparedTuple{BindNode<Nodes, Binding>::Type::prepare(ctx)...};
   }
 
+  /** @brief Updates a deferred color through the remaining nodes.
+   * @tparam Index First node to run.
+   * @param sample Color carrier to update.
+   * @param ctx Frame context.
+   * @param prepared Per-node prepared state.
+   * @param previous Selects retained resources. */
+  template <size_t Index>
+  __attribute__((always_inline)) static void
+  run_color_tail(ColorSample &sample, const FrameState &ctx,
+                 const PreparedTuple &prepared, bool previous) {
+    using Current = NodeAt<Index>;
+    if constexpr (requires {
+                    Current::run_in_place(sample, ctx,
+                                          std::get<Index>(prepared), previous);
+                  })
+      Current::run_in_place(sample, ctx, std::get<Index>(prepared), previous);
+    else if constexpr (requires {
+                         Current::run_endpoint(
+                             sample, ctx, std::get<Index>(prepared), previous);
+                       })
+      sample = Current::run_endpoint(sample, ctx, std::get<Index>(prepared),
+                                     previous);
+    else
+      sample = Current::run(sample, ctx, std::get<Index>(prepared));
+    if constexpr (Index + 1 < NODE_COUNT)
+      run_color_tail<Index + 1>(sample, ctx, prepared, previous);
+  }
+
   /** @brief Runs nodes from @p Index to the last.
    * @tparam Index First node to run.
    * @tparam Input Carrier fed to it.
@@ -1437,7 +1481,12 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                             bool retained) __attribute__((always_inline)) {
       if constexpr (Index + 1 == NODE_COUNT)
         return output;
-      else
+      else if constexpr (std::is_same_v<std::remove_cvref_t<decltype(output)>,
+                                        ColorSample>) {
+        ColorSample result = output;
+        run_color_tail<Index + 1>(result, ctx, prepared, retained);
+        return result;
+      } else
         return run_stage<Index + 1>(output, ctx, prepared, retained);
     };
     const auto output = endpoint(previous);

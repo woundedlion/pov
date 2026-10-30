@@ -312,35 +312,46 @@ struct ModulationState {
   bool enabled = false;             ///< Whether this layer contributes.
 };
 /** @brief Applies one ordered modulation layer.
- * @param input Color and source coordinates.
+ * @param sample Color and source coordinates, updated in place.
  * @param state Layer controls and endpoint sources.
  * @param previous Whether to sample the retained endpoint.
- * @return Modulated color carrier. */
-HS_HOT_ITCM_MEMBER inline ColorSample
-apply_modulation(const ColorSample &input, const ModulationState &state,
-                 bool previous = false) {
+ */
+HS_HOT_ITCM_MEMBER inline void
+apply_modulation_in_place(ColorSample &sample, const ModulationState &state,
+                          bool previous = false) {
   if (!state.enabled || state.mechanic.amount == 0.0f)
-    return input;
+    return;
   float scalar;
   if (state.source == Pattern::SourceKind::DISPLACEMENT)
-    scalar = input.field.path_length;
+    scalar = sample.field.path_length;
   else {
     const auto *source = previous ? state.previous : state.current;
     assert(source);
     scalar = Modulation::sample(
-        *source, Pattern::SphereDirection::admit(input.field.sphere));
+        *source, Pattern::SphereDirection::admit(sample.field.sphere));
   }
-  ColorSample output = input;
   if (state.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)
-    output.pending_hue = math::wrap_t(
-        input.pending_hue + math::wrap_t(state.mechanic.amount * scalar));
+    sample.pending_hue = math::wrap_t(
+        sample.pending_hue + math::wrap_t(state.mechanic.amount * scalar));
   else if (state.mechanic.kind ==
            ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT) {
     const float LIFT = state.mechanic.amount * hs::clamp(scalar, 0.0f, 1.0f);
-    output.pending_lift += (1.0f - input.pending_lift) * LIFT;
+    sample.pending_lift += (1.0f - sample.pending_lift) * LIFT;
   } else {
-    output.color = ColorModulation::apply(input.color, scalar, state.mechanic);
+    sample.color = ColorModulation::apply(sample.color, scalar, state.mechanic);
   }
+}
+
+/** @brief Applies one ordered modulation layer to a copy.
+ * @param input Color and source coordinates.
+ * @param state Layer controls and endpoint sources.
+ * @param previous Whether to sample the retained endpoint.
+ * @return Modulated color carrier. */
+inline ColorSample apply_modulation(const ColorSample &input,
+                                    const ModulationState &state,
+                                    bool previous = false) {
+  ColorSample output = input;
+  apply_modulation_in_place(output, state, previous);
   return output;
 }
 
@@ -483,6 +494,19 @@ template <typename State> struct Modulate : ApproximationDefaults {
                                     const Prepared &prepared, bool previous) {
     (void)frame;
     return apply_modulation(input, prepared, previous);
+  }
+  /** @brief Modulates one endpoint without copying its carrier.
+   * @tparam FrameState Frame context.
+   * @param sample Color carrier to update.
+   * @param frame Frame context.
+   * @param prepared Layer endpoints.
+   * @param previous Selects the retained endpoint. */
+  template <typename FrameState>
+  static void apply_endpoint_in_place(ColorSample &sample,
+                                      const FrameState &frame,
+                                      const Prepared &prepared, bool previous) {
+    (void)frame;
+    apply_modulation_in_place(sample, prepared, previous);
   }
   /** @brief Modulates the current endpoint.
    * @tparam FrameState Frame context.

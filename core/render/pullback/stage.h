@@ -1077,6 +1077,24 @@ struct Modulate : Contract<Modulate<ColorPolicyT>, ColorSample, ColorSample> {
       return run<Binding>(input, frame, prepared);
     }
   }
+  /** @brief Updates an endpoint using an in-place color policy.
+   * @tparam Binding Binding of the pipeline.
+   * @param sample Color carrier to update.
+   * @param frame Frame context.
+   * @param prepared Prepared policy state.
+   * @param previous Selects retained resources. */
+  template <typename Binding>
+  static void run_in_place(
+      ColorSample &sample, const typename Binding::FrameState &frame,
+      const Detail::PolicyPrepared<ColorPolicyT, typename Binding::FrameState>
+          &prepared,
+      bool previous)
+    requires requires {
+      ColorPolicyT::apply_endpoint_in_place(sample, frame, prepared, previous);
+    }
+  {
+    ColorPolicyT::apply_endpoint_in_place(sample, frame, prepared, previous);
+  }
 };
 
 } // namespace Stage
