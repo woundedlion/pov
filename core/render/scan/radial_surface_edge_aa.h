@@ -281,22 +281,8 @@ private:
     return false;
   }
 
-  static HS_HOT_INLINE float cross(Point a, Point b) {
-    return a.x * b.y - a.y * b.x;
-  }
   static HS_HOT_INLINE float dot(Point a, Point b) {
     return a.x * b.x + a.y * b.y;
-  }
-  static HS_HOT_INLINE Point multiply(Point a, Point b) {
-    return {a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x};
-  }
-  static HS_HOT_INLINE int floor_int(float x) {
-    const int T = int(x);
-    return T - (float(T) > x);
-  }
-  static HS_HOT_INLINE int wrap(int x, int count) {
-    const int R = x % count;
-    return R < 0 ? R + count : R;
   }
   struct Detector {
     Point p, dx, dy, shape0, shape1, boundary{}, second_boundary{};
@@ -360,7 +346,8 @@ private:
           16 * FLT_EPSILON *
           (X * Y + (fabsf(OFFSET.x) + fabsf(OFFSET.y)) * fmaxf(X, Y));
       const float HALF = .5f * fabsf(determinant) - ERROR;
-      return fabsf(cross(OFFSET, dy)) < HALF && fabsf(cross(dx, OFFSET)) < HALF;
+      return fabsf(radial_cross(OFFSET, dy)) < HALF &&
+             fabsf(radial_cross(dx, OFFSET)) < HALF;
     }
     /** @brief Offsets a boundary point within the affine footprint.
      * @param q Boundary point.
@@ -368,7 +355,7 @@ private:
      * @return Contained side sample. */
     HS_HOT_FLASH_MEMBER Point side(Point q, float u, float v) const {
       const Point offset{q.x - p.x, q.y - p.y};
-      const float DET = cross(dx, dy);
+      const float DET = radial_cross(dx, dy);
       if (DET == 0) {
         const Point E = dot(dx, dx) > dot(dy, dy) ? dx : dy;
         const float LENGTH = dot(E, E);
@@ -380,8 +367,8 @@ private:
             std::clamp(dot(offset, E) + u * X + v * Y, -H, H) / LENGTH;
         return {p.x + T * E.x, p.y + T * E.y};
       }
-      const float U = cross(offset, dy) / DET + u;
-      const float V = cross(dx, offset) / DET + v;
+      const float U = radial_cross(offset, dy) / DET + u;
+      const float V = radial_cross(dx, offset) / DET + v;
       if (fabsf(U) <= .5f && fabsf(V) <= .5f)
         return {q.x + u * dx.x + v * dy.x, q.y + u * dx.y + v * dy.y};
       return point(U, V);
@@ -443,7 +430,8 @@ private:
         if (dot(Q, Q) > extent * extent)
           return;
       }
-      const float LA = cross(E, dx), LB = cross(E, dy), LC = cross(E, OFFSET);
+      const float LA = radial_cross(E, dx), LB = radial_cross(E, dy),
+                  LC = radial_cross(E, OFFSET);
       const float SUPPORT = .5f * (fabsf(LA) + fabsf(LB));
       if (SUPPORT <= 0 || fabsf(LC) >= SUPPORT)
         return;
@@ -451,13 +439,13 @@ private:
       if (PROJECTION + ALONG < 0 || PROJECTION - ALONG > LENGTH)
         return;
       float entry = 0, leave = 1;
-      const float DET = cross(dx, dy);
+      const float DET = radial_cross(dx, dy);
       if (DET == 0) {
         const Point AXIS = dot(dx, dx) > dot(dy, dy) ? dx : dy;
-        const float DENOMINATOR = cross(E, AXIS);
+        const float DENOMINATOR = radial_cross(E, AXIS);
         if (DENOMINATOR == 0)
           return;
-        const float T = cross(OFFSET, AXIS) / DENOMINATOR;
+        const float T = radial_cross(OFFSET, AXIS) / DENOMINATOR;
         if (T < 0 || T > 1)
           return;
         const Point Q{T * E.x - OFFSET.x, T * E.y - OFFSET.y};
@@ -471,9 +459,10 @@ private:
                      DET)) {
         const float SIGN = copysignf(1.0f, DET);
         const float HALF = .5f * fabsf(DET);
-        const float U = -SIGN * cross(OFFSET, dy),
-                    V = -SIGN * cross(dx, OFFSET);
-        const float DU = SIGN * cross(E, dy), DV = SIGN * cross(dx, E);
+        const float U = -SIGN * radial_cross(OFFSET, dy),
+                    V = -SIGN * radial_cross(dx, OFFSET);
+        const float DU = SIGN * radial_cross(E, dy),
+                    DV = SIGN * radial_cross(dx, E);
         if (!RadialSurfaceBoundaryCandidates::clip_parameter(U - HALF, DU,
                                                              entry, leave) ||
             !RadialSurfaceBoundaryCandidates::clip_parameter(-U - HALF, -DU,
@@ -543,25 +532,26 @@ private:
       const auto &k = surface.knot(index);
       const Point C{k.real, k.imag};
       const int LOW_SECTOR =
-          all ? 0 : floor_int((theta - angular - k.phase) * inverse_sector);
+          all ? 0
+              : radial_floor_int((theta - angular - k.phase) * inverse_sector);
       const int HIGH_SECTOR =
           all ? 2 * sides - 1
-              : floor_int((theta + angular - k.phase) * inverse_sector);
+              : radial_floor_int((theta + angular - k.phase) * inverse_sector);
       for (int sector = LOW_SECTOR; sector <= HIGH_SECTOR; ++sector) {
-        const int I = wrap(sector, 2 * sides);
+        const int I = radial_wrap_index(sector, 2 * sides);
         float low = 0, high = 1;
         if (index > 0) {
           const auto &previous = surface.knot(index - 1);
           const Point D{C.x - previous.real, C.y - previous.imag};
           const Point SHAPE = (I & 1) ? shape1 : shape0;
           const float H = (I & 1) ? h1 : h0;
-          const float SPIN = cross(C, D);
+          const float SPIN = radial_cross(C, D);
           if (!RadialSurfaceBoundaryCandidates::endpoint_range(
                   SPIN, dot(C, D), SHAPE.x, SHAPE.y, H, 0.0f, low, high))
             continue;
         }
-        const Point A = multiply(C, surface.vertex(I)),
-                    E = multiply(C, surface.edge(I));
+        const Point A = radial_multiply<true>(C, surface.vertex(I)),
+                    E = radial_multiply<true>(C, surface.edge(I));
         record({A.x + low * E.x, A.y + low * E.y},
                {A.x + high * E.x, A.y + high * E.y}, float(index), float(index),
                1, false, index == surface.interval_count());
@@ -580,9 +570,12 @@ private:
       }
       const auto &k = surface.knot(i);
       const Point C{k.real, k.imag};
-      sector = floor_int((theta - k.phase) * inverse_sector);
-      value = cross(p, multiply(C, surface.edge(wrap(sector, 2 * sides)))) -
-              h0 * dot(C, C);
+      sector = radial_floor_int((theta - k.phase) * inverse_sector);
+      value =
+          radial_cross(
+              p, radial_multiply<true>(
+                     C, surface.edge(radial_wrap_index(sector, 2 * sides)))) -
+          h0 * dot(C, C);
     }
     HS_HOT_FLASH_MEMBER bool covered(const Surface &surface, int i) const {
       int sector;
@@ -603,19 +596,20 @@ private:
       if (covered(surface, I + 1))
         return float(I + 1);
       const auto &ka = surface.knot(I), &kb = surface.knot(I + 1);
-      const int START = floor_int((theta - ka.phase) * inverse_sector);
-      const int END = floor_int((theta - kb.phase) * inverse_sector);
+      const int START = radial_floor_int((theta - ka.phase) * inverse_sector);
+      const int END = radial_floor_int((theta - kb.phase) * inverse_sector);
       if (START == END)
         return -1;
       const int CORNER = std::max(START, END);
       if (CORNER & 1)
         return -1;
-      const Point V = surface.vertex(wrap(CORNER, 2 * sides));
+      const Point V = surface.vertex(radial_wrap_index(CORNER, 2 * sides));
       const Point C{ka.real, ka.imag}, D{kb.real - ka.real, kb.imag - ka.imag};
-      const float DENOMINATOR = cross(p, multiply(D, V));
+      const float DENOMINATOR = radial_cross(p, radial_multiply<true>(D, V));
       if (DENOMINATOR == 0)
         return -1;
-      const float T = -cross(p, multiply(C, V)) / DENOMINATOR;
+      const float T =
+          -radial_cross(p, radial_multiply<true>(C, V)) / DENOMINATOR;
       if (T < hit.fraction || T > 1)
         return -1;
       const typename Surface::Knot K{C.x + T * D.x, C.y + T * D.y,
@@ -638,7 +632,7 @@ private:
       const Point C{ka.real, ka.imag}, D{kb.real - ka.real, kb.imag - ka.imag};
       if (i == 0)
         endpoint(surface, 0);
-      const float SPIN = cross(C, D), RADIAL = dot(C, D);
+      const float SPIN = radial_cross(C, D), RADIAL = dot(C, D);
       const float REACH = radius + extent, INNER = fmaxf(0.0f, radius - extent);
       const float RA = dot(C, C);
       const Point CB{kb.real, kb.imag};
@@ -648,12 +642,14 @@ private:
       if (RADIAL_TIP) {
         const int LOW_SECTOR =
             all ? -1
-                : floor_int((theta - angular - fmaxf(ka.phase, kb.phase)) *
-                            inverse_sector);
+                : radial_floor_int(
+                      (theta - angular - fmaxf(ka.phase, kb.phase)) *
+                      inverse_sector);
         const int HIGH_SECTOR =
             all ? 2 * sides - 1
-                : floor_int((theta + angular - fminf(ka.phase, kb.phase)) *
-                            inverse_sector);
+                : radial_floor_int(
+                      (theta + angular - fminf(ka.phase, kb.phase)) *
+                      inverse_sector);
         int corner = LOW_SECTOR + 1;
         if (corner & 1)
           ++corner;
@@ -668,8 +664,10 @@ private:
             const Point A{C.x + low * D.x, C.y + low * D.y},
                 B{C.x + high * D.x, C.y + high * D.y};
             for (; corner <= HIGH_SECTOR; corner += 2) {
-              const Point TIP = surface.vertex(wrap(corner, 2 * sides));
-              record(multiply(A, TIP), multiply(B, TIP), i + low, i + high,
+              const Point TIP =
+                  surface.vertex(radial_wrap_index(corner, 2 * sides));
+              record(radial_multiply<true>(A, TIP),
+                     radial_multiply<true>(B, TIP), i + low, i + high,
                      SPIN >= 0 ? 1.0f : -1.0f, true);
             }
           }
@@ -679,22 +677,24 @@ private:
         return;
       const auto &previous = surface.knot(i - 1);
       const Point LEFT{C.x - previous.real, C.y - previous.imag};
-      const float LS = cross(C, LEFT), LR = dot(C, LEFT);
+      const float LS = radial_cross(C, LEFT), LR = dot(C, LEFT);
       const int LOW_SECTOR =
-          all ? 0 : floor_int((theta - angular - ka.phase) * inverse_sector);
+          all ? 0
+              : radial_floor_int((theta - angular - ka.phase) * inverse_sector);
       const int HIGH_SECTOR =
           all ? 2 * sides - 1
-              : floor_int((theta + angular - ka.phase) * inverse_sector);
+              : radial_floor_int((theta + angular - ka.phase) * inverse_sector);
       for (int sector = LOW_SECTOR; sector <= HIGH_SECTOR; ++sector) {
-        const int INDEX = wrap(sector, 2 * sides), edge = INDEX & 1;
+        const int INDEX = radial_wrap_index(sector, 2 * sides),
+                  edge = INDEX & 1;
         const Point SHAPE = edge == 0 ? shape0 : shape1;
         const float H = edge == 0 ? h0 : h1;
         float low = 0, high = 1;
         if (!RadialSurfaceBoundaryCandidates::knot_range(
                 LS, LR, SPIN, RADIAL, SHAPE.x, SHAPE.y, H, 0.0f, low, high))
           continue;
-        const Point A = multiply(C, surface.vertex(INDEX)),
-                    E = multiply(C, surface.edge(INDEX));
+        const Point A = radial_multiply<true>(C, surface.vertex(INDEX)),
+                    E = radial_multiply<true>(C, surface.edge(INDEX));
         record({A.x + low * E.x, A.y + low * E.y},
                {A.x + high * E.x, A.y + high * E.y}, float(i), float(i));
       }

@@ -147,7 +147,8 @@ public:
     if (R2 >= extent2)
       return false;
     const int RADIAL = std::clamp(int(R2 * radial_scale), 0, RADIAL_BINS - 1);
-    const int ANGLE = wrap(floor_int(theta * angular_scale));
+    const int ANGLE = radial_wrap_index(radial_floor_int(theta * angular_scale),
+                                        ANGULAR_BINS);
     return rows[RADIAL * ANGULAR_BINS + ANGLE] != 0;
   }
 
@@ -160,7 +161,8 @@ public:
     if (R2 >= extent2)
       return 0;
     const int RADIAL = std::clamp(int(R2 * radial_scale), 0, RADIAL_BINS - 1);
-    const int ANGLE = wrap(floor_int(theta * angular_scale));
+    const int ANGLE = radial_wrap_index(radial_floor_int(theta * angular_scale),
+                                        ANGULAR_BINS);
     return rows[RADIAL * ANGULAR_BINS + ANGLE];
   }
 
@@ -168,14 +170,6 @@ public:
   HS_HOT_INLINE int interval_shift() const { return group_shift; }
 
 private:
-  static HS_HOT_INLINE int floor_int(float value) {
-    const int TRUNC = int(value);
-    return TRUNC - (float(TRUNC) > value);
-  }
-  static HS_HOT_INLINE int wrap(int value) {
-    const int REMAINDER = value % ANGULAR_BINS;
-    return REMAINDER < 0 ? REMAINDER + ANGULAR_BINS : REMAINDER;
-  }
   static HS_HOT_INLINE float square(Point p) { return p.x * p.x + p.y * p.y; }
   template <bool COUNT>
   HS_HOT_INLINE void mark(Point a, Point b, Stats &stats, bool angles_known,
@@ -191,10 +185,10 @@ private:
     const float MIN2 = square(NEAREST), MAX2 = fmaxf(square(a), square(b));
     const float UPPER = sqrtf(MAX2);
     const float PAD2 = 2 * UPPER * padding + padding * padding;
-    const int FIRST_ROW =
-        std::clamp(floor_int((MIN2 - PAD2) * radial_scale), 0, RADIAL_BINS - 1);
-    const int LAST_ROW =
-        std::clamp(floor_int((MAX2 + PAD2) * radial_scale), 0, RADIAL_BINS - 1);
+    const int FIRST_ROW = std::clamp(
+        radial_floor_int((MIN2 - PAD2) * radial_scale), 0, RADIAL_BINS - 1);
+    const int LAST_ROW = std::clamp(
+        radial_floor_int((MAX2 + PAD2) * radial_scale), 0, RADIAL_BINS - 1);
     constexpr Bits ALL = ~Bits(0) >> (sizeof(Bits) * 8 - ANGULAR_BINS);
     float first = start_angle, last = finish_angle;
     const float PADDING2 = padding * padding;
@@ -235,11 +229,11 @@ private:
                                           : last + ANGULAR_RATE * (1 - high);
         const float END = first <= last ? last - ANGULAR_RATE * (1 - high)
                                         : first - ANGULAR_RATE * low;
-        const int FIRST = floor_int((BEGIN - PAD) * angular_scale);
-        const int LAST = floor_int((END + PAD) * angular_scale);
+        const int FIRST = radial_floor_int((BEGIN - PAD) * angular_scale);
+        const int LAST = radial_floor_int((END + PAD) * angular_scale);
         const int BIT_COUNT = LAST - FIRST + 1;
         if (BIT_COUNT < ANGULAR_BINS) {
-          const int SHIFT = wrap(FIRST);
+          const int SHIFT = radial_wrap_index(FIRST, ANGULAR_BINS);
           const Bits RANGE = (Bits(1) << BIT_COUNT) - 1;
           bits = SHIFT == 0
                      ? RANGE

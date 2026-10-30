@@ -5,12 +5,51 @@
 #pragma once
 
 /** @file radial_surface_math.h
- * @brief Accurate bounded chart-angle evaluation. */
+ * @brief Chart arithmetic and accurate bounded angle evaluation. */
 
 #include <cmath>
 #include "core/math/3dmath.h"
 
 namespace Scan {
+
+/** @brief Signed determinant of chart vectors.
+ * @tparam Point Chart point type.
+ * @param a,b Chart vectors.
+ * @return Signed determinant. */
+template <class Point>
+HS_HOT_INLINE inline float radial_cross(Point a, Point b) {
+  return a.x * b.y - a.y * b.x;
+}
+
+/** @brief Complex product of chart vectors.
+ * @tparam X_FIRST Add the x-led imaginary product first.
+ * @tparam Point Chart point type.
+ * @param a,b Complex chart vectors.
+ * @return Complex product. */
+template <bool X_FIRST = false, class Point>
+HS_HOT_INLINE inline Point radial_multiply(Point a, Point b) {
+  if constexpr (X_FIRST)
+    return {a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x};
+  else
+    return {a.x * b.x - a.y * b.y, a.y * b.x + a.x * b.y};
+}
+
+/** @brief Floors a chart coordinate to an integer.
+ * @param value Coordinate within the integer range.
+ * @return Floor of the coordinate. */
+HS_HOT_INLINE inline int radial_floor_int(float value) {
+  const int TRUNCATED = int(value);
+  return TRUNCATED - (float(TRUNCATED) > value);
+}
+
+/** @brief Wraps a chart index by a positive count.
+ * @param value Unwrapped index.
+ * @param count Positive index count.
+ * @return Index in [0, count). */
+HS_HOT_INLINE inline int radial_wrap_index(int value, int count) {
+  const int REMAINDER = value % count;
+  return REMAINDER < 0 ? REMAINDER + count : REMAINDER;
+}
 
 /** @brief Evaluates atan2 with an octant-reduced degree-9 polynomial.
  * @param y,x Finite Cartesian coordinates.

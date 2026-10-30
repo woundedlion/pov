@@ -11,6 +11,7 @@
 #include <cfloat>
 #include <cmath>
 #include "core/math/3dmath.h"
+#include "core/render/scan/radial_surface_math.h"
 
 namespace Scan {
 
@@ -128,10 +129,10 @@ public:
         continue;
       const auto first = surface.edge(0);
       const float H = first.y;
-      const bool POSITIVE = cross(C, D) >= 0.0f;
+      const bool POSITIVE = radial_cross(C, D) >= 0.0f;
       const auto before = surface.edge(POSITIVE ? 0 : surface.edge_count() - 1);
       const auto after = surface.edge(POSITIVE ? surface.edge_count() - 1 : 0);
-      const float SPIN = cross(C, D);
+      const float SPIN = radial_cross(C, D);
       const float RADIAL = C.x * D.x + C.y * D.y;
       const float LOCAL_RADIUS2 = fmaxf(a.real * a.real + a.imag * a.imag,
                                         b.real * b.real + b.imag * b.imag);
@@ -160,7 +161,7 @@ public:
                      &prior = surface.knot(endpoint - 1);
           const Point C{k.real, k.imag},
               D{k.real - prior.real, k.imag - prior.imag};
-          const float SPIN = cross(C, D), H = cross(A, E);
+          const float SPIN = radial_cross(C, D), H = radial_cross(A, E);
           const float LOCAL_RADIUS2 =
               fmaxf(k.real * k.real + k.imag * k.imag,
                     prior.real * prior.real + prior.imag * prior.imag);
@@ -195,7 +196,8 @@ public:
       const Point LEFT{c.real - previous.real, c.imag - previous.imag};
       const Point RIGHT{next.real - c.real, next.imag - c.imag};
       const Point C{c.real, c.imag};
-      const float LEFT_SPIN = cross(C, LEFT), RIGHT_SPIN = cross(C, RIGHT);
+      const float LEFT_SPIN = radial_cross(C, LEFT),
+                  RIGHT_SPIN = radial_cross(C, RIGHT);
       const float LEFT_RADIAL = C.x * LEFT.x + C.y * LEFT.y;
       const float RIGHT_RADIAL = C.x * RIGHT.x + C.y * RIGHT.y;
       for (int edge = 0; edge < 2; ++edge) {
@@ -245,23 +247,13 @@ private:
            clip_parameter(left.x - TOLERANCE, left.y, low, high) &&
            clip_parameter(-right.x - TOLERANCE, -right.y, low, high);
   }
-  /** @param a,b Chart vectors.
-   * @return Signed determinant. */
-  static HS_HOT_INLINE float cross(Point a, Point b) {
-    return a.x * b.y - a.y * b.x;
-  }
-  /** @param a,b Complex chart vectors.
-   * @return Complex product. */
-  static HS_HOT_INLINE Point multiply(Point a, Point b) {
-    return {a.x * b.x - a.y * b.y, a.y * b.x + a.x * b.y};
-  }
   /** @tparam Knot Similarity multiplier type.
    * @param c Similarity multiplier.
    * @param p Unit-star coordinate.
    * @return Transformed coordinate. */
   template <class Knot>
   static HS_HOT_INLINE Point transform(const Knot &c, Point p) {
-    return multiply({c.real, c.imag}, p);
+    return radial_multiply(Point{c.real, c.imag}, p);
   }
 };
 

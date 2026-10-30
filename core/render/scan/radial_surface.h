@@ -13,6 +13,7 @@
 #include <span>
 #include <type_traits>
 #include "core/math/3dmath.h"
+#include "core/render/scan/radial_surface_math.h"
 #include "core/memory.h"
 
 namespace Scan {
@@ -43,7 +44,7 @@ public:
   struct EdgeMetrics {
     float dot;            ///< dot(A, E) for edge start A and edge vector E.
     float squared_length; ///< |E|^2.
-    float determinant;    ///< cross(A, E).
+    float determinant;    ///< radial_cross(A, E).
   };
 
   /** @brief First boundary sheet reached by a chart point. */
@@ -264,10 +265,10 @@ public:
         sector_index(query.theta + query.angular_extent - BLOCK.low_phase);
     if (FIRST_SECTOR != LAST_SECTOR)
       return interval;
-    const Point EDGE = edges[wrap(FIRST_SECTOR)];
-    const float A = cross(query.point, multiply(knots[FIRST], EDGE)) -
+    const Point EDGE = edges[radial_wrap_index(FIRST_SECTOR, num_edges)];
+    const float A = radial_cross(query.point, multiply(knots[FIRST], EDGE)) -
                     determinant * norms[FIRST];
-    const float B = cross(query.point, multiply(knots[END], EDGE)) -
+    const float B = radial_cross(query.point, multiply(knots[END], EDGE)) -
                     determinant * norms[END];
     const float ROUNDING = 32.0f * FLT_EPSILON *
                            (1.0f + query.radius * BLOCK.reach +
@@ -315,8 +316,8 @@ public:
   HS_HOT_INLINE bool contains_footprint(const QueryBounds &query, Point dx,
                                         Point dy, const Knot &c) const {
     const int CENTER = sector_index(query.theta - c.phase);
-    const Point EDGE = multiply(c, edges[wrap(CENTER)]);
-    const float VALUE = cross(query.point, EDGE) -
+    const Point EDGE = multiply(c, edges[radial_wrap_index(CENTER, num_edges)]);
+    const float VALUE = radial_cross(query.point, EDGE) -
                         determinant * (c.real * c.real + c.imag * c.imag);
     return contains_footprint(query, dx, dy, c, CENTER, VALUE);
   }
@@ -336,9 +337,10 @@ public:
     const Point C{c.real, c.imag};
     const float CONSTANT = determinant * (C.x * C.x + C.y * C.y);
     auto inside = [&](int index, float predicate) HS_HOT_INLINE {
-      const Point EDGE = multiply(C, edges[wrap(index)]);
+      const Point EDGE =
+          radial_multiply(C, edges[radial_wrap_index(index, num_edges)]);
       const float SUPPORT =
-          .5f * (fabsf(cross(dx, EDGE)) + fabsf(cross(dy, EDGE)));
+          .5f * (fabsf(radial_cross(dx, EDGE)) + fabsf(radial_cross(dy, EDGE)));
       const float GUARD =
           32 * FLT_EPSILON * (1 + fabsf(predicate) + SUPPORT + CONSTANT);
       return predicate + SUPPORT < -GUARD;
@@ -353,7 +355,10 @@ public:
     for (int i = LOW_SECTOR; i <= HIGH_SECTOR; ++i)
       if (i != center &&
           !inside(i,
-                  cross(query.point, multiply(C, edges[wrap(i)])) - CONSTANT))
+                  radial_cross(query.point,
+                               radial_multiply(
+                                   C, edges[radial_wrap_index(i, num_edges)])) -
+                      CONSTANT))
         return false;
     return true;
   }
@@ -389,10 +394,10 @@ public:
       QUERY = observer->query;
 
     int start_sector = sector_index(theta - knots[first_interval].phase);
-    int start_edge = wrap(start_sector);
+    int start_edge = radial_wrap_index(start_sector, num_edges);
     const Point START_EDGE = multiply(knots[first_interval], edges[start_edge]);
     float start_value =
-        cross(p, START_EDGE) - determinant * norms[first_interval];
+        radial_cross(p, START_EDGE) - determinant * norms[first_interval];
     if (norms[first_interval] > 0.0f && start_value <= 0.0f)
       return finish<DERIVATIVES>(p, first_interval, 0.0f, start_edge);
 
@@ -411,9 +416,10 @@ public:
             if (i >= num_intervals)
               break;
             start_sector = sector_index(theta - knots[i].phase);
-            start_edge = wrap(start_sector);
-            start_value = cross(p, multiply(knots[i], edges[start_edge])) -
-                          determinant * norms[i];
+            start_edge = radial_wrap_index(start_sector, num_edges);
+            start_value =
+                radial_cross(p, multiply(knots[i], edges[start_edge])) -
+                determinant * norms[i];
             --i;
             continue;
           }
@@ -428,14 +434,16 @@ public:
         end_edge -= num_edges;
       const int END_EDGE = end_edge;
       const Point END_VECTOR = multiply(knots[i + 1], edges[END_EDGE]);
-      const float END_VALUE = cross(p, END_VECTOR) - determinant * norms[i + 1];
+      const float END_VALUE =
+          radial_cross(p, END_VECTOR) - determinant * norms[i + 1];
       if constexpr (!std::is_same_v<Observer, NoObserver>)
         observer->interval(*this, i, start_sector, start_value, END_SECTOR,
                            END_VALUE);
       if (norms[i] == 0.0f) {
         if (END_VALUE <= 0.0f) {
           count<COUNT>(stats, &Stats::roots);
-          const float T = cross(p, END_VECTOR) / (determinant * norms[i + 1]);
+          const float T =
+              radial_cross(p, END_VECTOR) / (determinant * norms[i + 1]);
           return finish<DERIVATIVES>(p, i, std::clamp(T, 0.0f, 1.0f), END_EDGE);
         }
       } else if (start_sector == END_SECTOR) {
@@ -449,10 +457,10 @@ public:
           count<COUNT>(stats, &Stats::events);
           const Point CORNER_START = multiply(knots[i], vertices[CORNER]);
           const Point CORNER_DELTA =
-              multiply(pieces[i].delta, vertices[CORNER]);
-          const float DENOMINATOR = cross(p, CORNER_DELTA);
-          const float EVENT =
-              std::clamp(-cross(p, CORNER_START) / DENOMINATOR, 0.0f, 1.0f);
+              radial_multiply(pieces[i].delta, vertices[CORNER]);
+          const float DENOMINATOR = radial_cross(p, CORNER_DELTA);
+          const float EVENT = std::clamp(
+              -radial_cross(p, CORNER_START) / DENOMINATOR, 0.0f, 1.0f);
           const int START_EDGE = start_edge;
           const float EVENT_VALUE = predicate(p, i, START_EDGE, EVENT);
           if (EVENT_VALUE <= 0.0f) {
@@ -491,34 +499,16 @@ private:
     float radial_linear; ///< Linear coefficient of determinant times radius².
   };
 
-  /** @param a,b Chart vectors.
-   * @return Signed determinant. */
-  static HS_HOT_INLINE float cross(Point a, Point b) {
-    return a.x * b.y - a.y * b.x;
-  }
-  /** @param a,b Complex chart vectors.
-   * @return Complex product. */
-  static HS_HOT_INLINE Point multiply(Point a, Point b) {
-    return {a.x * b.x - a.y * b.y, a.y * b.x + a.x * b.y};
-  }
   /** @param a Similarity multiplier.
    * @param b Chart vector.
    * @return Transformed vector. */
   static HS_HOT_INLINE Point multiply(const Knot &a, Point b) {
-    return multiply(Point{a.real, a.imag}, b);
-  }
-  /** @param i Unwrapped edge sector.
-   * @return Unit-star edge index. */
-  HS_HOT_INLINE int wrap(int i) const {
-    const int REMAINDER = i % num_edges;
-    return REMAINDER < 0 ? REMAINDER + num_edges : REMAINDER;
+    return radial_multiply(Point{a.real, a.imag}, b);
   }
   /** @param angle Relative point argument.
    * @return Unwrapped edge sector. */
   HS_HOT_INLINE int sector_index(float angle) const {
-    const float SCALED = angle * inverse_sector;
-    const int TRUNCATED = int(SCALED);
-    return TRUNCATED - (float(TRUNCATED) > SCALED);
+    return radial_floor_int(angle * inverse_sector);
   }
   /** @param p Chart point.
    * @param i Interval.
@@ -528,7 +518,7 @@ private:
   HS_HOT_INLINE float predicate(Point p, int i, int edge_index, float t) const {
     const Point C{knots[i].real + t * pieces[i].delta.x,
                   knots[i].imag + t * pieces[i].delta.y};
-    return cross(p, multiply(C, edges[edge_index])) -
+    return radial_cross(p, radial_multiply(C, edges[edge_index])) -
            determinant * (C.x * C.x + C.y * C.y);
   }
   /** @param p Chart point.
@@ -543,8 +533,9 @@ private:
     if (value <= 0.0f)
       return finish<DERIVATIVES>(p, i, low, edge_index);
     const Piece &PIECE = pieces[i];
-    const float LINEAR = cross(p, multiply(PIECE.delta, edges[edge_index])) -
-                         PIECE.radial_linear - 2.0f * PIECE.quadratic * low;
+    const float LINEAR =
+        radial_cross(p, radial_multiply(PIECE.delta, edges[edge_index])) -
+        PIECE.radial_linear - 2.0f * PIECE.quadratic * low;
     const float ROOT = sqrtf(LINEAR * LINEAR + 4.0f * PIECE.quadratic * value);
     const float DENOMINATOR = ROOT - LINEAR;
     HS_CHECK(DENOMINATOR > 0.0f, "RadialSurface: descending root denominator");
@@ -563,9 +554,9 @@ private:
     const Piece &PIECE = pieces[i];
     const Point C{knots[i].real + t * PIECE.delta.x,
                   knots[i].imag + t * PIECE.delta.y};
-    const Point EDGE = multiply(C, edges[edge_index]);
+    const Point EDGE = radial_multiply(C, edges[edge_index]);
     const float DERIVATIVE =
-        cross(p, multiply(PIECE.delta, edges[edge_index])) -
+        radial_cross(p, radial_multiply(PIECE.delta, edges[edge_index])) -
         PIECE.radial_linear - 2.0f * PIECE.quadratic * t;
     const float INV = DERIVATIVE != 0.0f ? -1.0f / DERIVATIVE : 0.0f;
     return {i,          t,
