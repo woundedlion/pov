@@ -850,14 +850,14 @@ inline void test_shader_chain_column_params_interpolate() {
   program.prepare(ctx);
 }
 
-/** @brief Every shipped operator with instance state samples its clocks, each
- *  along the shortest arc of its period. */
+/** @brief Stateful operators sample clocks or retain complete color endpoints. */
 inline void test_shader_chain_operator_states_sample_clocks() {
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
     HS_CONTEXT(op.operator_id);
     HS_EXPECT_TRUE(op.runtime.sample_params != nullptr);
     HS_EXPECT_TRUE(op.runtime.state.size == sizeof(In::EmptyState) ||
-                   op.runtime.sample_state != nullptr);
+                   op.runtime.sample_state != nullptr ||
+                   op.runtime.run_temporal != nullptr);
   }
   const float TWO_PI = math::TWO_PI_F;
   In::Op::SpatialWalkState walk_from, walk_to, walk;

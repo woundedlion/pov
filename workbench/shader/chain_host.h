@@ -146,19 +146,12 @@ public:
     for (size_t index = 0; index < ops.size(); ++index) {
       const auto &op = ops[index];
       out.chain.push_back({op.instance, op.op->operator_id});
-      const bool modulated =
-          std::string_view(op.op->operator_id) ==
-          Pullback::Interp::Op::ColorizeGeneratedPaletteV3::ID;
-      if (modulated) {
-        const auto &params = *reinterpret_cast<
-            const Pullback::Interp::Op::GeneratedPaletteParams *>(
-            program.param_block(index));
-        out.modulation.push_back({op.instance, params.modulation});
-      }
+      const auto *modulation = modulation_recipe(
+          *op.op, const_cast<uint8_t *>(program.param_block(index)));
+      if (modulation)
+        out.modulation.push_back({op.instance, *modulation});
       for (uint16_t field = 0; field < op.op->schema_count; ++field) {
-        if (modulated &&
-            Pullback::Interp::Op::GeneratedPaletteParams::temporal_hold_field(
-                field))
+        if (modulation_recipe_field(*op.op, field))
           continue;
         const auto &info = op.op->schema[field];
         const void *address = op.op->runtime.param_address(
@@ -170,12 +163,9 @@ public:
         out.parameters.push_back({program.param_name(index, field), value});
       }
       auto state = op.op->runtime.capture_state(program.state_block(index));
-      if (modulated) {
+      if (modulation) {
         auto &clock = std::get<Pullback::Interp::ColorClockSnapshot>(state);
-        const auto &params = *reinterpret_cast<
-            const Pullback::Interp::Op::GeneratedPaletteParams *>(
-            program.param_block(index));
-        Pullback::Modulation::synchronize(clock.modulation, params.modulation);
+        Pullback::Modulation::synchronize(clock.modulation, *modulation);
       }
       if (!std::holds_alternative<std::monostate>(state))
         out.runtime->push_back({op.instance, std::move(state)});
@@ -225,10 +215,7 @@ public:
                     reinterpret_cast<const char *>(
                         base + op.name_offset + field * PER_PARAM_NAME_BYTES))
                   continue;
-                if (std::string_view(op.op->operator_id) ==
-                        Op::ColorizeGeneratedPaletteV3::ID &&
-                    Pullback::Interp::Op::GeneratedPaletteParams::
-                        temporal_hold_field(field))
+                if (modulation_recipe_field(*op.op, field))
                   return false;
                 if (!field_in_schema(info, write.value))
                   return false;
@@ -255,8 +242,7 @@ public:
           for (size_t index = 0; index < ops.size(); ++index) {
             const auto &op = ops[index];
             void *params = base + op.param_offset;
-            if (std::string_view(op.op->operator_id) ==
-                Op::ColorizeGeneratedPaletteV3::ID) {
+            if (auto *modulation = modulation_recipe(*op.op, params)) {
               const ChainSnapshot::ModulationRecipe *selected = nullptr;
               for (const auto &recipe : snapshot.modulation)
                 if (recipe.instance == op.instance) {
@@ -267,8 +253,7 @@ public:
               if (selected == nullptr ||
                   !Pullback::Modulation::admitted(selected->recipe))
                 return false;
-              static_cast<Op::GeneratedPaletteParams *>(params)->modulation =
-                  selected->recipe;
+              *modulation = selected->recipe;
               ++modulation_count;
             }
             if (admission_refusal(ops, index, params))
@@ -289,15 +274,12 @@ public:
             if (selected == nullptr ||
                 !op.op->runtime.restore_state(state, selected->state))
               return false;
-            if (std::string_view(op.op->operator_id) ==
-                Op::ColorizeGeneratedPaletteV3::ID) {
-              const auto &config =
-                  static_cast<const Op::GeneratedPaletteParams *>(params)
-                      ->modulation;
+            if (const auto *config = modulation_recipe(*op.op, params)) {
+              const auto restored_clock = op.op->runtime.capture_state(state);
               const auto &clock =
-                  static_cast<const Op::ColorClockState *>(state)->modulation;
-              if (clock.source != config.source ||
-                  clock.version != config.version)
+                  std::get<ColorClockSnapshot>(restored_clock).modulation;
+              if (clock.source != config->source ||
+                  clock.version != config->version)
                 return false;
             }
             ++runtime_count;
@@ -422,6 +404,36 @@ public:
 #endif
 
 private:
+  /** @brief Finds the canonical recipe of a palette or field stage.
+   * @param op Operator descriptor.
+   * @param params Mutable parameter block.
+   * @return Recipe, or null for another operator. */
+  static ColorModulation::Config *
+  modulation_recipe(const Pullback::Interp::OperatorDescriptor &op,
+                    void *params) {
+    using namespace Pullback::Interp::Op;
+    const std::string_view id = op.operator_id;
+    if (id == ColorizeGeneratedPaletteV3::ID)
+      return &static_cast<GeneratedPaletteParams *>(params)->modulation;
+    if (id == ModulateField::ID)
+      return &static_cast<FieldModulationParams *>(params)->modulation;
+    return nullptr;
+  }
+
+  /** @brief Identifies controls serialized in the canonical recipe.
+   * @param op Operator descriptor.
+   * @param field Schema field index.
+   * @return Whether the field belongs to a separately captured recipe. */
+  static bool
+  modulation_recipe_field(const Pullback::Interp::OperatorDescriptor &op,
+                          uint16_t field) {
+    using namespace Pullback::Interp::Op;
+    const std::string_view id = op.operator_id;
+    return id == ModulateField::ID ||
+           (id == ColorizeGeneratedPaletteV3::ID &&
+            GeneratedPaletteParams::temporal_hold_field(field));
+  }
+
   static bool field_in_schema(const Pullback::Interp::ParamFieldInfo &info,
                               float value) {
     if (info.enum_count > 0)

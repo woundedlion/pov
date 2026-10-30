@@ -61,6 +61,7 @@ static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::MIDPOINT4) == 4);
 #include "tests/shader_chain/sample_ops.h"
 #include "tests/shader_chain/effect_cases.h"
 #include "tests/shader_chain/palette_ops.h"
+#include "tests/shader_chain/modulation_ops.h"
 /** @brief Spatial cache ignores palette/mechanic changes and tracks source inputs. */
 inline void test_shader_chain_modulation_bake_cache() {
   using WB = ShaderChainWhiteBox;
@@ -809,6 +810,9 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_snapshot_roundtrip);
   HS_RUN(test_shader_chain_snapshot_refusals);
   HS_RUN(test_shader_chain_modulation_snapshot_identity);
+  HS_RUN(test_shader_chain_modulation_instances);
+  HS_RUN(test_shader_chain_modulation_columns);
+  HS_RUN(test_shader_chain_modulation_stage_snapshots);
   return fixture.result();
 }
 

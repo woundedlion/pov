@@ -12,6 +12,7 @@
 #if HS_ENABLE_CHAIN_INTERPRETER
 
 #include "core/render/pullback/operators.h"
+#include "core/render/pullback/operators/modulate.h"
 
 namespace Pullback::Interp {
 
@@ -268,6 +269,27 @@ template <> struct RuntimeStateCodec<Op::ColorClockState> {
       return false;
     state.oscillation_phase = value->oscillation_phase;
     state.modulation = value->modulation;
+    return true;
+  }
+};
+
+/** @brief Snapshot codec of an independently owned modulation endpoint. */
+template <> struct RuntimeStateCodec<Op::FieldModulationState> {
+  /** @brief Captures source clocks.
+   * @param state Instance state.
+   * @return Existing versioned color-clock representation. */
+  static RuntimeSnapshot capture(const Op::FieldModulationState &state) {
+    return RuntimeStateCodec<Op::ColorClockState>::capture(state.clock);
+  }
+  /** @brief Restores clocks and invalidates derived source resources.
+   * @param state Instance state.
+   * @param snapshot Captured source clock.
+   * @return Whether the snapshot was admitted. */
+  static bool restore(Op::FieldModulationState &state,
+                      const RuntimeSnapshot &snapshot) {
+    if (!RuntimeStateCodec<Op::ColorClockState>::restore(state.clock, snapshot))
+      return false;
+    state.resources->reset();
     return true;
   }
 };

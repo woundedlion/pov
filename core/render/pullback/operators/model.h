@@ -122,6 +122,8 @@ struct FrameContext {
   const Pixel *hue_rotation_lut = nullptr; ///< Hue-rotation lookup table.
   const Modulation::Prepared *modulation =
       nullptr; ///< Immutable source endpoint.
+  const FieldSample *color_sample =
+      nullptr; ///< Evaluator-owned field metadata for color endomorphisms.
 };
 
 /**
@@ -234,8 +236,9 @@ struct OperatorRuntime {
                            const void *to) = nullptr;
   BlockLayout interval{1, 1}; ///< Retained column clock interval layout.
   /** Colors one input from two immutable endpoint resources. */
-  void (*run_temporal)(const void *in, void *out, const uint8_t *current,
-                       const uint8_t *previous, float fraction) = nullptr;
+  void (*run_temporal)(const void *in, void *out, const FrameContext &ctx,
+                       const uint8_t *current, const uint8_t *previous,
+                       float fraction) = nullptr;
   /** Whether a schema field may change without snapping the column interval. */
   bool (*temporal_hold_field)(uint16_t field) = nullptr;
 };
@@ -566,15 +569,25 @@ template <typename Model> struct ErasedAdapter {
   /** @brief Constructs a completed temporal output from prepared endpoints.
    * @param in Input carrier.
    * @param out Raw output storage.
+   * @param ctx Per-sample field metadata.
    * @param current Current prepared block.
    * @param previous Retained prepared block.
    * @param fraction Current endpoint interpolation weight. */
-  static void run_temporal(const void *in, void *out, const uint8_t *current,
-                           const uint8_t *previous, float fraction) {
-    ::new (out) Output{Model::run_temporal(
-        *std::launder(static_cast<const Input *>(in)),
-        *std::launder(reinterpret_cast<const Prepared *>(current)),
-        *std::launder(reinterpret_cast<const Prepared *>(previous)), fraction)};
+  static void run_temporal(const void *in, void *out, const FrameContext &ctx,
+                           const uint8_t *current, const uint8_t *previous,
+                           float fraction) {
+    const Input &input = *std::launder(static_cast<const Input *>(in));
+    const Prepared &now =
+        *std::launder(reinterpret_cast<const Prepared *>(current));
+    const Prepared &before =
+        *std::launder(reinterpret_cast<const Prepared *>(previous));
+    if constexpr (requires {
+                    Model::run_temporal(input, ctx, now, before, fraction);
+                  })
+      ::new (out)
+          Output{Model::run_temporal(input, ctx, now, before, fraction)};
+    else
+      ::new (out) Output{Model::run_temporal(input, now, before, fraction)};
   }
 
   /**
@@ -721,8 +734,8 @@ template <typename Model> constexpr BlockLayout model_interval_layout() {
  * @tparam Model Operator model.
  * @return Erased kernel or null. */
 template <typename Model> constexpr auto model_run_temporal() {
-  using Kernel =
-      void (*)(const void *, void *, const uint8_t *, const uint8_t *, float);
+  using Kernel = void (*)(const void *, void *, const FrameContext &,
+                          const uint8_t *, const uint8_t *, float);
   if constexpr (requires { Model::run_temporal; })
     return static_cast<Kernel>(&ErasedAdapter<Model>::run_temporal);
   else

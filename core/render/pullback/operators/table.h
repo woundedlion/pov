@@ -9,6 +9,7 @@
 #if HS_ENABLE_CHAIN_INTERPRETER
 
 #include "core/render/pullback/operators.h"
+#include "core/render/pullback/operators/modulate.h"
 #include "core/render/pullback/operators/snapshot.h"
 
 /**
@@ -21,7 +22,7 @@ namespace Pullback {
 namespace Interp {
 
 /** @brief Every chain operator's descriptor, one per operator model. */
-inline constexpr std::array<OperatorDescriptor, 38> OPERATOR_TABLE{
+inline constexpr std::array<OperatorDescriptor, 40> OPERATOR_TABLE{
     make_operator_descriptor<Op::Rotate>(),
     make_operator_descriptor<Op::DisplaceCurl>(),
     make_operator_descriptor<Op::DisplaceDirect>(),
@@ -60,6 +61,8 @@ inline constexpr std::array<OperatorDescriptor, 38> OPERATOR_TABLE{
     make_operator_descriptor<Op::TransferSmoothBands>(),
     make_operator_descriptor<Op::CoverageValueCutout>(),
     make_operator_descriptor<Op::ColorizeGeneratedPaletteV3>(),
+    make_operator_descriptor<Op::ModulateField>(),
+    make_operator_descriptor<Op::ModulateHueShift>(),
 };
 
 /**

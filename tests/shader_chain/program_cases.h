@@ -43,8 +43,10 @@ inline void test_shader_chain_table_behavior() {
     };
     if (op.input != In::CarrierId::SPHERE)
       append("project", "project.stereographic.v2");
-    if (op.input == In::CarrierId::FIELD)
+    if (op.input == In::CarrierId::FIELD || op.input == In::CarrierId::COLOR)
       append("sample", "sample.grid.v3");
+    if (op.input == In::CarrierId::COLOR)
+      append("colorize", "colorize.generated-palette.v3");
     append("subject", op.operator_id);
     if (op.output == In::CarrierId::SPHERE)
       append("project", "project.stereographic.v2");
@@ -108,6 +110,13 @@ inline void test_shader_chain_state_restore_values() {
       static_cast<In::Op::GeneratedPaletteParams *>(
           static_cast<void *>(params.data()))
           ->modulation.noise.scale = 4.0f;
+    }
+    if (std::string_view(op.operator_id) == In::Op::ModulateField::ID) {
+      auto &config = static_cast<In::Op::FieldModulationParams *>(
+                         static_cast<void *>(params.data()))
+                         ->modulation;
+      config.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
+      config.noise.scale = 4.0f;
     }
     const auto *param_bytes = reinterpret_cast<const uint8_t *>(params.data());
     auto advanced = blocks(op.runtime.state.size);
@@ -209,7 +218,7 @@ inline void test_shader_chain_table_integrity() {
   size_t approximate_count = 0;
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE)
     approximate_count += op.approximate ? 1 : 0;
-  HS_EXPECT_EQ(approximate_count, 2u);
+  HS_EXPECT_EQ(approximate_count, 3u);
 }
 
 /** Schema field of @p op with id @p field_id, or null. */
