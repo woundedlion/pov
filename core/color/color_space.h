@@ -298,9 +298,8 @@ inline constexpr int GAMUT_LUT_MIN_L_STEPS = 64;
  *        and be at least GAMUT_LUT_MIN_ANGLE_STEPS.
  * @param l_steps Lightness buckets; must divide GAMUT_LUT_L_STEPS and be at
  *        least GAMUT_LUT_MIN_L_STEPS.
- * @details Only g_gamut_lut readers see the copy;
- * gamut_continuous_chroma_sample() and the one-argument
- * gamut_scale_to_boundary_lut() always read the flash master. A coarse cell
+ * @details The one-argument gamut_scale_to_boundary_lut() uses full-resolution
+ * copies; gamut_continuous_chroma_sample() reads the flash master. A coarse cell
  * merges its minima and maxima, which does not certify enclosure of every
  * ray's first exit. Costs gamut_lut_bytes(angle_steps, l_steps) arena bytes.
  */
@@ -1056,11 +1055,15 @@ inline Color4 hue_rotate(const HueRotateBase &hb, float amount) {
  * @param lab Source color; lightness is clamped to [0, 1] first.
  * @return The color scaled to the tabulated boundary chroma for its hue and
  *         lightness cell, or the neutral axis when chroma underflows.
- * @details Reads the flash master rather than g_gamut_lut, so a coarse arena
- * copy's merged minima never narrow the result.
+ * @details Uses a full-resolution arena copy when armed, otherwise the flash
+ * master; coarse copies do not narrow the result.
  */
-HS_FLASH_INLINE inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
-  return gamut_scale_to_boundary_lut(lab, GAMUT_LUT_MASTER);
+HS_HOT_ITCM_MEMBER inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
+  GamutLut lut = GAMUT_LUT_MASTER;
+  if (g_gamut_lut.angle_steps == GAMUT_LUT_ANGLE_STEPS &&
+      g_gamut_lut.l_steps == GAMUT_LUT_L_STEPS)
+    lut.table = g_gamut_lut.table;
+  return gamut_scale_to_boundary_lut(lab, lut);
 }
 
 /**

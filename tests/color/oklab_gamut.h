@@ -612,6 +612,38 @@ inline void test_gamut_lut_downsample_preserves_bracket() {
   release_gamut_lut();
 }
 
+/** @brief Full-resolution caching and coarse copies preserve master scaling. */
+inline void test_gamut_boundary_scale_cache_matches_master() {
+  alignas(uint16_t) static uint8_t
+      lut_buf[gamut_lut_bytes(GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS)];
+  Arena lut_arena(lut_buf, sizeof(lut_buf));
+  for (const int DIVISOR : {1, 2}) {
+    release_gamut_lut();
+    lut_arena.reset();
+    init_gamut_lut(lut_arena, GAMUT_LUT_ANGLE_STEPS / DIVISOR,
+                   GAMUT_LUT_L_STEPS / DIVISOR);
+    if (DIVISOR == 1)
+      HS_EXPECT_EQ(std::memcmp(g_gamut_lut.table, GAMUT_LUT, sizeof(GAMUT_LUT)),
+                   0);
+    for (int lightness = 0; lightness <= 32; ++lightness)
+      for (int hue = 0; hue < 128; ++hue)
+        for (float chroma : {0.0f, 0.1f, 0.5f}) {
+          const auto LAB = oklch_to_oklab(
+              {lightness / 32.0f, chroma, hue * math::TWO_PI_F / 128.0f});
+          const auto EXPECTED =
+              gamut_scale_to_boundary_lut(LAB, GAMUT_LUT_MASTER);
+          const auto ACTUAL = gamut_scale_to_boundary_lut(LAB);
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(ACTUAL.L),
+                       std::bit_cast<uint32_t>(EXPECTED.L));
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(ACTUAL.a),
+                       std::bit_cast<uint32_t>(EXPECTED.a));
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(ACTUAL.b),
+                       std::bit_cast<uint32_t>(EXPECTED.b));
+        }
+  }
+  release_gamut_lut();
+}
+
 inline void test_gamut_cell_nonfinite_coordinates() {
   const auto cell = gamut_cell(g_gamut_lut, NAN, NAN, NAN);
   HS_EXPECT_EQ(cell.angle_index, g_gamut_lut.angle_steps - 1);

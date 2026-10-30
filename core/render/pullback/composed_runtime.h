@@ -165,6 +165,11 @@ public:
                         typename Animation::RandomWalk<W>::Options{},
                         CAMERA_WALK_SEED));
     register_parameters();
+#ifdef ARDUINO
+    if constexpr (SpecT::CACHE_FULL_GAMUT_LUT)
+      init_gamut_lut(persistent_arena, GAMUT_LUT_ANGLE_STEPS,
+                     GAMUT_LUT_L_STEPS);
+#endif
     if constexpr (Choreography::template has_hook<
                       Control::ChoreographyHook::AFTER_COMPOSED_INIT>())
       this->template invoke_hook<
@@ -627,6 +632,9 @@ private:
   // array, one State and qualified parameter names from the persistent arena.
   // A temporal effect's first draw_frame() clones one palette bake.
   static constexpr size_t FOOTPRINT_BYTES =
+      (SpecT::CACHE_FULL_GAMUT_LUT
+           ? gamut_lut_bytes(GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS)
+           : 0) +
       PaletteCycler::generated_arena_bytes() +
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(State) + alignof(State) +
       (TEMPORAL_SAMPLING ? BakedPalette::required_arena_bytes() : 0) +

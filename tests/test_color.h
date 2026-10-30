@@ -174,6 +174,7 @@ inline int run_color_tests() {
   HS_RUN(test_gamut_continuous_chroma_is_smooth_and_in_gamut);
   HS_RUN(test_gamut_lut_clip_lands_on_first_exit);
   HS_RUN(test_gamut_lut_downsample_preserves_bracket);
+  HS_RUN(test_gamut_boundary_scale_cache_matches_master);
   HS_RUN(test_gamut_lut_release_and_passthrough);
   HS_RUN(test_gamut_cell_nonfinite_coordinates);
   HS_RUN(test_gamut_lut_boundary_scale_rounding);
