@@ -278,7 +278,7 @@ struct TemporalGeneratedPaletteState {
  * @param sample Sampled field.
  * @param state Palette controls and resources.
  * @return Base color with deferred brightness. */
-HS_HOT_FLASH_MEMBER inline ColorSample
+HS_HOT_ITCM_MEMBER inline ColorSample
 apply_generated_palette(const FieldSample &sample,
                         const GeneratedPaletteState &state) {
   const float VALUE =
@@ -316,7 +316,7 @@ struct ModulationState {
  * @param state Layer controls and endpoint sources.
  * @param previous Whether to sample the retained endpoint.
  * @return Modulated color carrier. */
-HS_HOT_FLASH_MEMBER inline ColorSample
+HS_HOT_ITCM_MEMBER inline ColorSample
 apply_modulation(const ColorSample &input, const ModulationState &state,
                  bool previous = false) {
   if (!state.enabled || state.mechanic.amount == 0.0f)

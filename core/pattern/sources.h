@@ -379,7 +379,7 @@ HS_HOT_ITCM_MEMBER inline float grid(const PlanePosition &coordinate,
  * @return 1 inside the primitive, -1 outside, ramped across the edge.
  */
 template <typename Params>
-HS_HOT_FLASH_MEMBER inline float
+HS_HOT_ITCM_MEMBER inline float
 primitive_lattice(const PlanePosition &coordinate, const Params &params) {
   const auto &input = coordinate.value;
   const float x =
