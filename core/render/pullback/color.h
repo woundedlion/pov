@@ -522,6 +522,9 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
         brightness_envelope_gain(sample.value, state.brightness_envelope,
                                  state.brightness_bottom, state.brightness_top);
     const auto endpoint = [&](const GeneratedPaletteState &endpoint_state) {
+      if constexpr (LAB_CACHE)
+        return apply_cache_fallback_endpoint(sample, endpoint_state, VALUE,
+                                             OPACITY, GAIN);
       Color4 color = endpoint_state.palette->get(VALUE);
       color.alpha *= OPACITY;
       return ColorSample{color,
@@ -534,6 +537,29 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
                          GAIN};
     };
     return {endpoint(prepared.previous), endpoint(state)};
+  }
+  /** @brief Samples a canonical endpoint for a cache-enabled fallback.
+   * @param sample Shared field coordinates.
+   * @param state Endpoint resources.
+   * @param value Prepared palette coordinate.
+   * @param opacity Shared coverage and opacity.
+   * @param gain Shared final brightness.
+   * @return Canonical deferred endpoint. */
+  HS_HOT_FLASH_MEMBER static ColorSample
+  apply_cache_fallback_endpoint(const FieldSample &sample,
+                                const GeneratedPaletteState &state, float value,
+                                float opacity, float gain)
+    requires LAB_CACHE
+  {
+    Color4 color = state.palette->get(value);
+    color.alpha *= opacity;
+    return ColorSample{
+        color,
+        sample,
+        state.hue_rotation.active ? state.hue_rotation.data : nullptr,
+        value,
+        0.0f,
+        gain};
   }
   /** @brief Tries one cached base without fetching either palette.
    * @tparam FrameState Frame context.
