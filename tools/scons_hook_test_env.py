@@ -59,8 +59,7 @@ def load_hook(name, **scons_globals):
     """Exec a hook the way PlatformIO does: SCons globals injected, not imported."""
     path = TOOLS / name
     mod = types.ModuleType(path.stem)
-    mod.__file__ = str(path)
     mod.__dict__["Import"] = lambda *a, **k: None
     mod.__dict__.update(scons_globals)
-    exec(compile(path.read_text(encoding="utf-8"), mod.__file__, "exec"), mod.__dict__)
+    exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"), mod.__dict__)
     return mod
