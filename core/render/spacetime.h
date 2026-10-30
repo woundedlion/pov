@@ -6,6 +6,20 @@
 
 /** @file spacetime.h
  * @brief Frame motion, sampling surfaces, poses and time-aware fields.
+ *
+ * @par Terminology
+ * - Worldline: a vertex's position as a function of frame time.
+ * - Worldsheet: an edge swept through time by joining its endpoint worldlines
+ *   at matching times.
+ * - Certified: established by a sufficient analytic bound, such as sample
+ *   spacing within the anti-alias footprint or columns outside its support.
+ * - Guarded crossing: a modelled endpoint/arm intersection widened in walk
+ *   columns by a bound covering model error, column width and rounding.
+ * - Coherent anchors: moving projected chord endpoints whose crossing times
+ *   can be interpolated across an interval that stays in one arm, keeps its
+ *   sample count and meets the physical error bound.
+ *
+ * See [Motion, worldlines and poses](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md#motion-worldlines-and-poses).
  */
 
 #include "core/render/spacetime/surface.h"
