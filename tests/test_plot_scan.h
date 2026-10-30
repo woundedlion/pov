@@ -89,6 +89,7 @@ static_assert(Plot::RasterLoop::closed().is_closed());
 #include "tests/plot_scan/temporal_crossings.h"
 #include "tests/plot_scan/temporal_swept.h"
 #include "tests/plot_scan/point_route.h"
+#include "tests/plot_scan/column_chunk.h"
 /**
  * @brief Runs every plot/scan sampling test in this module.
  * @return Number of failed assertions reported across the module's tests.
@@ -98,6 +99,7 @@ inline int run_plot_scan_tests() {
 
   HS_RUN(hs_test::test_reference_row_displacement_is_analytic);
   HS_RUN(hs_test::test_temporal_oracle_uses_whole_frame_endpoint_budget);
+  HS_RUN(test_column_chunk_capacity_boundary);
   HS_RUN(test_retained_endpoint_lifecycle);
   HS_RUN(test_timed_projected_entry_bypasses_world);
   HS_RUN(test_timed_mesh_endpoint_cache);
