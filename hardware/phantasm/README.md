@@ -157,7 +157,8 @@ is expected, and J1's edge-trimmed silkscreen may report at most once. The first
 independent failures together; later gates stop on failure. Neither validation
 nor release repairs source files. Rev 1.3 release is not supported.
 
-Repair a **separate copy of the whole project**, retaining its library tables.
+Repair a **separate copy of the whole project**, retaining its library tables
+but not its `candidate.json` (the repair tools refuse hash-manifested directories).
 Use the existing zone and clearance repair tools on that copy, review the diff,
 restore ENIG and inspect the stackup in KiCad. Update the PCB from its schematic
 and resolve placement/library differences as needed. Refill and save zones in
