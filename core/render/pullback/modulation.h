@@ -12,6 +12,7 @@
 #include "core/pattern/sphere_lut.h"
 #include "core/render/pullback/runtime_seeds.h"
 #include <array>
+#include <span>
 #include <variant>
 #include <string_view>
 
@@ -279,6 +280,18 @@ struct Endpoint {
   std::string_view key;     ///< Exact instance label.
   const Prepared *prepared; ///< Borrowed spatial source; null for displacement.
 };
+
+/** @brief Looks up a modulation source by exact instance label.
+ * @param endpoints Prepared sources.
+ * @param key Instance label.
+ * @return Borrowed source, or null when absent or displacement-driven. */
+inline const Prepared *find_endpoint(std::span<const Endpoint> endpoints,
+                                     std::string_view key) {
+  for (const auto &endpoint : endpoints)
+    if (endpoint.key == key)
+      return endpoint.prepared;
+  return nullptr;
+}
 
 /** @brief Source controls of one authored modulation stage.
  * @tparam SourceV Source capability.

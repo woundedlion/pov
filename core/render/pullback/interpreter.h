@@ -387,17 +387,11 @@ public:
       if (op.op->output == CarrierId::COLOR) {
         FrameContext previous_color_ctx = previous_ctx;
         Modulation::Endpoint selected{};
-        if (std::string_view(op.op->operator_id) == Op::ModulateColorV1::ID) {
-          const auto key =
-              static_cast<const Op::ModulationClockState *>(state)->key;
-          const Modulation::Prepared *current = nullptr;
-          const Modulation::Prepared *previous = nullptr;
-          for (const auto &endpoint : ctx.modulations)
-            if (endpoint.key == key)
-              current = endpoint.prepared;
-          for (const auto &endpoint : previous_ctx.modulations)
-            if (endpoint.key == key)
-              previous = endpoint.prepared;
+        if (runtime.modulation_key != nullptr) {
+          const auto key = runtime.modulation_key(state);
+          const auto *current = Modulation::find_endpoint(ctx.modulations, key);
+          const auto *previous =
+              Modulation::find_endpoint(previous_ctx.modulations, key);
           if (current == nullptr || previous == nullptr ||
               !Modulation::same_topology(current->config, previous->config) ||
               Modulation::same_field(*current, *previous))

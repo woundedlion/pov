@@ -237,6 +237,8 @@ struct OperatorRuntime {
   void (*run_temporal)(const void *in, void *out, const FrameContext &ctx,
                        const uint8_t *current, const uint8_t *previous,
                        float fraction) = nullptr;
+  /** Exact modulation instance label, or null for other operator kinds. */
+  std::string_view (*modulation_key)(const void *state) = nullptr;
   /** Whether a schema field may change without snapping the column interval. */
   bool (*temporal_hold_field)(uint16_t field) = nullptr;
 };
@@ -740,6 +742,22 @@ template <typename Model> constexpr auto model_run_temporal() {
     return static_cast<Kernel>(nullptr);
 }
 
+/** @brief Optional modulation instance key accessor.
+ * @tparam Model Operator model.
+ * @return Erased accessor or null. */
+template <typename Model> constexpr auto model_modulation_key() {
+  using Key = std::string_view (*)(const void *);
+  if constexpr (requires(const typename Model::State &state) {
+                  Model::modulation_key(state);
+                })
+    return static_cast<Key>(+[](const void *state) {
+      return Model::modulation_key(
+          *std::launder(static_cast<const typename Model::State *>(state)));
+    });
+  else
+    return static_cast<Key>(nullptr);
+}
+
 /** @brief Optional current-topology field policy.
  * @tparam Model Operator model.
  * @return Field policy or null. */
@@ -949,6 +967,7 @@ constexpr OperatorDescriptor make_operator_descriptor() {
           Detail::model_prepare_interval<Model>(),
           Detail::model_interval_layout<Model>(),
           Detail::model_run_temporal<Model>(),
+          Detail::model_modulation_key<Model>(),
           Detail::model_temporal_hold_field<Model>(),
       },
       Detail::model_approximate<Model>(),

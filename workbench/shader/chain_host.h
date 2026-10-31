@@ -793,8 +793,8 @@ private:
     bool hue_active = false;
     const auto ops = program.ops();
     for (size_t index = 0; index < ops.size(); ++index) {
-      if (std::string_view(ops[index].op->operator_id) !=
-          Pullback::Interp::Op::ModulateColorV1::ID)
+      const auto key = ops[index].op->runtime.modulation_key;
+      if (key == nullptr)
         continue;
       const auto &params =
           *reinterpret_cast<const Pullback::Interp::Op::ModulationParams *>(
@@ -808,7 +808,7 @@ private:
       if (params.modulation.source != Pattern::SourceKind::DISPLACEMENT)
         prepared = &modulation_resources(clock.key).modulation.prepare(
             params.modulation, clock.modulation);
-      resources->endpoints[count++] = {modulation_resources(clock.key).key,
+      resources->endpoints[count++] = {modulation_resources(key(&clock)).key,
                                        prepared};
       hue_active |= params.modulation.enabled &&
                     params.modulation.mechanic.kind ==

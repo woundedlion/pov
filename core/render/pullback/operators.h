@@ -617,6 +617,12 @@ struct ModulateColorV1 : ValueStateModel<ModulationClockState> {
       ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
   static constexpr auto METRICS = Color::GENERATED_PALETTE_METRICS;
   static void init(State &state, InstanceId id) { state.key = id.instance; }
+  /** @brief Exact instance label of the modulation source.
+   * @param state Instance state.
+   * @return Source key. */
+  static std::string_view modulation_key(const State &state) {
+    return state.key;
+  }
   /** @brief Copies the source clock and binds its destination instance.
    * @param dst Destination state.
    * @param src Source state.
@@ -649,12 +655,7 @@ struct ModulateColorV1 : ValueStateModel<ModulationClockState> {
   }
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {
-    const Modulation::Prepared *source = nullptr;
-    for (const auto &endpoint : ctx.modulations)
-      if (endpoint.key == state.key) {
-        source = endpoint.prepared;
-        break;
-      }
+    const auto *source = Modulation::find_endpoint(ctx.modulations, state.key);
     HS_CHECK(source ||
                  params.modulation.source ==
                      Pattern::SourceKind::DISPLACEMENT ||
