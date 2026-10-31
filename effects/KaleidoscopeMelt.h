@@ -29,6 +29,7 @@ struct KaleidoscopeMeltSpec : Pullback::Spec {
   static constexpr bool HUE_ROTATION_LUT = false;
   static constexpr bool TEMPORAL_COLOR_PHASE = true;
   static constexpr bool PALETTE_LAB_CACHE = true;
+  static constexpr bool CACHE_FULL_GAMUT_LUT = true;
   static constexpr int PALETTE_LAB_VALUES = 256;
   static constexpr bool INITIAL_CACHE_CONTROLS_ONLY = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;

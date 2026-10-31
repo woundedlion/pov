@@ -780,7 +780,8 @@ private:
   struct State
       : ProjectionWalkNoise<ANIMATED_PROJECTION>,
         OptionalHueRotationLut<HUE_ROTATION_LUT>,
-        OptionalPaletteLabLut<SpecT::PALETTE_LAB_CACHE, SpecT::PALETTE_LAB_VALUES>,
+        OptionalPaletteLabLut<SpecT::PALETTE_LAB_CACHE,
+                              SpecT::PALETTE_LAB_VALUES>,
         OptionalDodecahedralMatrices<SpecT::CACHE_DODECAHEDRAL_MATRICES>,
         OptionalDodecahedralFaces<SpecT::CACHE_DODECAHEDRAL_FACES>,
         OptionalPaletteRgbLut<SpecT::PALETTE_RGB_CACHE,

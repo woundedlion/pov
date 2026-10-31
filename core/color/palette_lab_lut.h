@@ -17,11 +17,11 @@
 
 /** @brief Borrowed neighboring time rows for opaque palettes. */
 struct PaletteLabTimeView {
-  const OKLab *low = nullptr;  ///< Lower time row.
-  const OKLab *high = nullptr; ///< Upper time row.
-  float weight = 0.0f;         ///< Upper time weight.
-  int value_steps = 64;        ///< Nodes in each borrowed row.
-  const math::Vector *rgb_low = nullptr; ///< Optional lower hue table.
+  const OKLab *low = nullptr;             ///< Lower time row.
+  const OKLab *high = nullptr;            ///< Upper time row.
+  float weight = 0.0f;                    ///< Upper time weight.
+  int value_steps = 64;                   ///< Nodes in each borrowed row.
+  const math::Vector *rgb_low = nullptr;  ///< Optional lower hue table.
   const math::Vector *rgb_high = nullptr; ///< Optional upper hue table.
 };
 
@@ -44,10 +44,17 @@ struct PaletteLabLutBase {
     const float POSITION = hs::clamp(fraction, 0.0f, 1.0f) * (TIMES - 1);
     const int LOW_INDEX = std::min(int(POSITION), TIMES - 2);
     return {data + LOW_INDEX * value_steps,
-            data + (LOW_INDEX + 1) * value_steps, POSITION - LOW_INDEX,
+            data + (LOW_INDEX + 1) * value_steps,
+            POSITION - LOW_INDEX,
             value_steps,
-            rgb_nodes ? rgb_nodes + (rgb_midpoint ? rgb_midpoint_row : LOW_INDEX) * HueRotationLutView::SIZE : nullptr,
-            rgb_nodes ? rgb_nodes + (rgb_midpoint ? rgb_midpoint_row : LOW_INDEX + 1) * HueRotationLutView::SIZE : nullptr};
+            rgb_nodes
+                ? rgb_nodes + (rgb_midpoint ? rgb_midpoint_row : LOW_INDEX) *
+                                  HueRotationLutView::SIZE
+                : nullptr,
+            rgb_nodes ? rgb_nodes +
+                            (rgb_midpoint ? rgb_midpoint_row : LOW_INDEX + 1) *
+                                HueRotationLutView::SIZE
+                      : nullptr};
   }
 
   /** @brief Samples neighboring palette nodes from both prepared time rows.
