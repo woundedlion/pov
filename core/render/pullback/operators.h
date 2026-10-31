@@ -615,7 +615,7 @@ struct ModulateColorV1 : ValueStateModel<ModulationClockState> {
   static constexpr bool APPROXIMATE = true;
   static constexpr ApproximationOracleId ORACLE =
       ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
-  static constexpr auto METRICS = Color::GENERATED_PALETTE_METRICS;
+  static constexpr auto METRICS = Color::MODULATION_LUT_METRICS;
   static void init(State &state, InstanceId id) { state.key = id.instance; }
   /** @brief Exact instance label of the modulation source.
    * @param state Instance state.

@@ -96,10 +96,10 @@ int main() {
   check_oracle_metrics("PEIRCE_FAST_SQUARE",
                        Pullback::Projection::PEIRCE_FAST_SQUARE_METRICS);
   check_oracle_metrics("HUE_ROTATION_AND_NOISE_LUTS",
-                       Pullback::Color::GENERATED_PALETTE_METRICS);
+                       Pullback::Color::MODULATION_LUT_METRICS);
   HS_EXPECT_EQ(PullbackManifest::ORACLE_METRICS.size(),
                Pullback::Projection::PEIRCE_FAST_SQUARE_METRICS.size() +
-                   Pullback::Color::GENERATED_PALETTE_METRICS.size());
+                   Pullback::Color::MODULATION_LUT_METRICS.size());
 
   return hs_test::end_module(scope) ? 1 : 0;
 }

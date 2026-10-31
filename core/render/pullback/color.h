@@ -402,8 +402,8 @@ inline ColorSample apply_modulation(const ColorSample &input,
   return output;
 }
 
-/// Qualified generated-palette approximation bounds.
-inline constexpr std::array<ApproximationMetric, 3> GENERATED_PALETTE_METRICS{{
+/// Qualified hue-rotation and noise-LUT modulation bounds.
+inline constexpr std::array<ApproximationMetric, 3> MODULATION_LUT_METRICS{{
     {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MAXIMUM,
      7000.0f, "channel code"},
     {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MEAN, 256.0f,
@@ -636,8 +636,8 @@ template <typename State> struct Modulate : ApproximationDefaults {
   static constexpr bool APPROXIMATE =
       true; ///< Uses scalar and hue lookup tables.
   static constexpr ApproximationOracleId ORACLE =
-      ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;    ///< Reference.
-  static constexpr auto METRICS = GENERATED_PALETTE_METRICS; ///< Error bounds.
+      ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS; ///< Reference.
+  static constexpr auto METRICS = MODULATION_LUT_METRICS; ///< Error bounds.
 
   using Prepared = decltype(State::prepare(
       std::declval<
