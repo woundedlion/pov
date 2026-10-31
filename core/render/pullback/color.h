@@ -307,7 +307,7 @@ apply_palette_endpoint_impl(const FieldSample &sample,
  * @param opacity Shared coverage and opacity.
  * @param gain Shared final brightness.
  * @return Canonical deferred endpoint. */
-HS_ITCM_MEMBER inline ColorSample
+HS_HOT_ITCM_MEMBER inline ColorSample
 apply_palette_endpoint(const FieldSample &sample,
                        const GeneratedPaletteState &state, float value,
                        float opacity, float gain) {
