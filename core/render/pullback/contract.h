@@ -1007,7 +1007,7 @@ protected:
     using Current = ChildAt<Index>;
     static_assert(std::is_same_v<In, typename Current::Input>,
                   "pullback pipeline: stage input mismatch");
-    const auto output = [&] {
+    const auto output = [&]() HS_HOT_INLINE {
       if constexpr (requires {
                       Current::run_endpoint(
                           input, frame, std::get<Index>(prepared), previous);
