@@ -102,10 +102,10 @@ public:
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "7ae5f5d0651ce6445f8416ba726fc5ee85fa4cdf953b6aef70e4f65cc4584e8a";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "5de232336916f545f7699dd5cb1a92ce7c24dd530a79b6352ee986ebf71b6331";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "213184535665d47a4b271eaa16e188da62ba24944a1e8efb5a93ca6130e3abc2";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
-      "affine-contour"
+      "millefiori"
   };
   /// Frames each preset holds before advancing.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;

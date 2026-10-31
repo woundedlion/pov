@@ -1410,17 +1410,17 @@
     },
     "choreography": {
       "dwell": {
-        "affine-contour": 600
+        "millefiori": 600
       },
       "generated_order": [
-        "affine-contour"
+        "millefiori"
       ]
     },
     "edges": [],
     "presets": [
       {
-        "display_name": "Affine Contour",
-        "preset_id": "affine-contour",
+        "display_name": "Millefiori",
+        "preset_id": "millefiori",
         "values": {
           "camera.wander": 1,
           "colorize.brightness-bottom": 0,

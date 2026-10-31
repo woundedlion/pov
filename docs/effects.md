@@ -273,7 +273,7 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 
 ### Millefiori
 
-Spherical ripple bursts feed dodecahedral and tetrahedral kaleidoscopes, a folded gnomonic projection and a planar vortex over a soft primitive lattice. An analogous palette uses a bell brightness envelope, smooth-grid lightness modulation and displacement-based hue rotation. Its single `affine-contour` preset is promoted from the authored Grid Space copy. Millefiori opens by default in the simulator and plays second in Phantasm for 60 seconds.
+Spherical ripple bursts feed dodecahedral and tetrahedral kaleidoscopes, a folded gnomonic projection and a planar vortex over a soft primitive lattice. An analogous palette uses a bell brightness envelope, smooth-grid lightness modulation and displacement-based hue rotation. Its single `millefiori` preset carries the effect's authored configuration. Millefiori opens by default in the simulator and plays second in Phantasm for 60 seconds.
 
 </td></tr></table>
 
