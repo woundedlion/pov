@@ -143,7 +143,8 @@ public:
                   centroids from the leg's own start (closing) or arrival
                   (opening) mesh, since the departed face blocks are
                   transposed against the handoff. */
-    const BridgePreparation *prepared = nullptr; /**< Opening bridge cache. */
+    const BridgePreparation *prepared =
+        nullptr; /**< Opening bridge cache; hosts use the seed centroids. */
   };
 
   /** @brief Conway sweep source; cloned unless explicitly borrowed. */
@@ -532,6 +533,8 @@ public:
 
     if (spec.prepared && spec.bridge_provenance && truncate &&
         spec.t_start == 0.0f && spec.t_end == 0.5f && !bookend.topology &&
+        handoff.prev_face_centroid != nullptr &&
+        handoff.correspondence == FaceCorrespondence::GEOMETRIC &&
         handoff.prev_faces == source.mesh.face_counts.size()) {
       tr.topo.bind(arena, spec.prepared->topology.size());
       tr.topo.append_bulk(spec.prepared->topology.data(),
