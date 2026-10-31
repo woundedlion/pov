@@ -1621,6 +1621,63 @@ inline math::Vector ripple_test_sequential(
   return view;
 }
 
+/** @brief Group rotations preserve the analytic rotation within their domain. */
+inline void test_pullback_group_rotation_polynomial() {
+  static_assert(RippleKernel::GROUP_ROTATION_POLYNOMIAL_MAX == 0.5f);
+  const float OUTSIDE = std::nextafter(0.5f, 1.0f);
+  const float ANGLES[] = {-0.9f,  -OUTSIDE, -0.5f, -0.49999f, -0.2f,
+                          -0.15f, -0.05f,   0.0f,  0.05f,     0.15f,
+                          0.2f,   0.49999f, 0.5f,  OUTSIDE,   0.9f};
+  for (int row = 0; row < 13; ++row)
+    for (int column = 0; column < 17; ++column) {
+      const float Y = -0.99f + 1.98f * row / 12;
+      const float ANGLE = math::TWO_PI_F * column / 17;
+      const float RADIUS = sqrtf(1.0f - Y * Y);
+      const math::Vector START(RADIUS * cosf(ANGLE), Y, RADIUS * sinf(ANGLE));
+      const math::Vector CENTER = math::Vector(cosf(ANGLE * 0.37f + 0.2f), 0.3f,
+                                               sinf(ANGLE * 0.71f + 0.4f))
+                                      .normalized();
+      const auto CROSS = math::cross(CENTER, START);
+      const float CROSS_SQ = math::dot(CROSS, CROSS);
+      if (CROSS_SQ < 1e-4f)
+        continue;
+      const auto AXIS = CROSS * (1.0f / sqrtf(CROSS_SQ));
+      for (float angle : ANGLES) {
+        math::Vector output;
+        HS_EXPECT_TRUE(
+            RippleKernel::rotate_group(START, CENTER, angle, output));
+        const auto REFERENCE = RippleKernel::rotate(START, AXIS, angle);
+        const auto DELTA = output - REFERENCE;
+        HS_EXPECT_LE(math::dot(DELTA, DELTA), 1e-12f);
+        HS_EXPECT_NEAR(math::dot(output, output), 1.0f, 1e-6f);
+        const double COSINE = std::cos(double(angle));
+        const double SINE = std::sin(double(angle));
+        const double DOT = double(AXIS.x) * START.x + double(AXIS.y) * START.y +
+                           double(AXIS.z) * START.z;
+        const double expected[] = {
+            START.x * COSINE +
+                (double(AXIS.y) * START.z - double(AXIS.z) * START.y) * SINE +
+                AXIS.x * DOT * (1.0 - COSINE),
+            START.y * COSINE +
+                (double(AXIS.z) * START.x - double(AXIS.x) * START.z) * SINE +
+                AXIS.y * DOT * (1.0 - COSINE),
+            START.z * COSINE +
+                (double(AXIS.x) * START.y - double(AXIS.y) * START.x) * SINE +
+                AXIS.z * DOT * (1.0 - COSINE)};
+        const double ERROR_SQ =
+            (output.x - expected[0]) * (output.x - expected[0]) +
+            (output.y - expected[1]) * (output.y - expected[1]) +
+            (output.z - expected[2]) * (output.z - expected[2]);
+        HS_EXPECT_LE(ERROR_SQ, 1e-12);
+        if (fabsf(angle) > 0.5f) {
+          HS_EXPECT_EQ(output.x, REFERENCE.x);
+          HS_EXPECT_EQ(output.y, REFERENCE.y);
+          HS_EXPECT_EQ(output.z, REFERENCE.z);
+        }
+      }
+    }
+}
+
 /** @brief Empty ripple batches preserve the direction and zero travel. */
 inline void test_pullback_grouped_ripple_identity() {
   const Pullback::SphereAnimation::PreparedRipples EMPTY{};
@@ -3384,6 +3441,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_radial_ripple_lazy_fallback);
   HS_RUN(test_pullback_ripple_lazy_preparation);
   HS_RUN(test_pullback_radial_ripple_geometry);
+  HS_RUN(test_pullback_group_rotation_polynomial);
   HS_RUN(test_pullback_grouped_ripple_identity);
   HS_RUN(test_pullback_grouped_ripple_analytic_crest);
   HS_RUN(test_pullback_grouped_ripple_order);

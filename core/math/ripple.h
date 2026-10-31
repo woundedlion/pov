@@ -41,6 +41,8 @@ struct Wave {
 
 /** @brief Largest angle evaluated with the truncated quaternion series. */
 inline constexpr float SMALL_ANGLE_MAX = 0.15f;
+/** @brief Largest radial-group rotation evaluated with sine/cosine series. */
+inline constexpr float GROUP_ROTATION_POLYNOMIAL_MAX = 0.5f;
 
 /** @brief Tests exact center identity.
  * @param a First center.
@@ -198,7 +200,18 @@ HS_HOT_INLINE inline bool rotate_group(const math::Vector &start,
   if (!(CROSS_SQ >= 1e-4f) || !(fabsf(math::dot(start, start) - 1.0f) <= 1e-4f))
     return false;
   const math::Vector AXIS = CROSS * (1.0f / sqrtf(CROSS_SQ));
-  output = rotate(start, AXIS, angle);
+  if (fabsf(angle) <= GROUP_ROTATION_POLYNOMIAL_MAX) {
+    const float SQUARED = angle * angle;
+    const float COSINE =
+        1.0f + SQUARED * (-0.5f +
+                          SQUARED * (1.0f / 24.0f - SQUARED * (1.0f / 720.0f)));
+    const float SINE =
+        angle * (1.0f + SQUARED * (-1.0f / 6.0f +
+                                   SQUARED * (1.0f / 120.0f -
+                                              SQUARED * (1.0f / 5040.0f))));
+    output = start * COSINE + math::cross(AXIS, start) * SINE;
+  } else
+    output = rotate(start, AXIS, angle);
   return true;
 }
 
