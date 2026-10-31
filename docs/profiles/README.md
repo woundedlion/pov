@@ -224,7 +224,7 @@ JewelMelt, KaleidoscopeMelt, KaleidoscopeStainedGlass and RingShower remain in t
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [KaleidoscopeMelt selective o3](excluded/profile_kaleidoscopemelt_selective_o3_teensy_2026-10-30.md) ● | `fx_shader_draw` | 🔴 88.522 | 🔴 2684/2684 (100.00%) | 2026-10-30 23:37 |
+| [KaleidoscopeMelt selective o3](excluded/profile_kaleidoscopemelt_selective_o3_teensy_2026-10-31.md) ● | `fx_shader_draw` | 🟢 55.668 | 🟢 0/8188 (0.00%) | 2026-10-31 03:55 |
 | [JewelMelt selective o3](excluded/profile_jewelmelt_selective_o3_teensy_2026-10-14.md) ● | `fx_shader_draw` | 🟢 46.35 | 🟢 0/1087 (0.00%) | 2026-10-14 20:16 |
 | [KaleidoscopeStainedGlass selective o3](excluded/profile_kaleidoscopestainedglass_selective_o3_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 43.00 | 🟢 0/1087 (0.00%) | 2026-10-06 18:50 |
 | [KaleidoscopeStainedGlass global o3](excluded/profile_kaleidoscopestainedglass_global_o3_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 46.99 | 🟢 0/1088 (0%) | 2026-08-26 02:51 |
