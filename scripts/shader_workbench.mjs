@@ -1055,11 +1055,51 @@ export function fixedDerivedBinding(descriptor, parameterId, values) {
   };
 }
 
-/** Converts legacy combined colorizers into palette and ordered modulation nodes.
+/** Upgrades Twist Distribution declarations to the catalog's unit domain.
+ * @param {Object} document Shader document.
+ * @param {Object} catalog Current operator catalog.
+ * @returns {Object} Converted document, or the original when already current. */
+function migrateTwistDistribution(document, catalog) {
+  const operator = Array.isArray(catalog?.operators)
+    ? catalog.operators.find((entry) => entry?.id === 'sphere.lens.twist.v2') : null;
+  const field = Array.isArray(operator?.params)
+    ? operator.params.find((entry) => entry?.id === 'twist-distribution') : null;
+  if (field?.topology || field?.min !== 0 || field?.max !== 1 ||
+      !Array.isArray(document?.descriptor?.chain) ||
+      !Array.isArray(document.descriptor.parameters) ||
+      !Array.isArray(document?.preset_bank?.presets) ||
+      document.preset_bank.presets.some((preset) => !preset?.values ||
+        typeof preset.values !== 'object' || Array.isArray(preset.values))) return document;
+  const ids = new Set(document.descriptor.chain
+    .filter((entry) => entry?.operator === 'sphere.lens.twist.v2' && typeof entry.label === 'string')
+    .map((entry) => `${entry.label}.twist-distribution`));
+  const upgrades = document.descriptor.parameters.flatMap((parameter, index) => {
+    if (!ids.has(parameter?.id) || parameter.storage !== 'binary32' ||
+        !Number.isFinite(parameter.domain?.minimum) ||
+        !Number.isFinite(parameter.domain?.maximum) ||
+        Math.fround(parameter.domain.minimum) !== 0) return [];
+    const maximum = Math.fround(parameter.domain.maximum);
+    if (maximum !== Math.fround(0.98) && maximum !== Math.fround(0.999)) return [];
+    const withinBounds = (value) => Number.isFinite(value) &&
+      Math.fround(value) >= 0 && Math.fround(value) <= maximum;
+    if (!withinBounds(parameter.default) || document.preset_bank.presets.some(
+      (preset) => Object.hasOwn(preset.values, parameter.id) &&
+        !withinBounds(preset.values[parameter.id]))) return [];
+    return [index];
+  });
+  if (upgrades.length === 0) return document;
+  const result = structuredClone(document);
+  for (const index of upgrades)
+    result.descriptor.parameters[index].domain.maximum = 1;
+  return result;
+}
+
+/** Upgrades shader controls and splits combined colorizers into ordered nodes.
  * @param {Object} document Shader document.
  * @param {Object} catalog Current operator catalog.
  * @returns {Object} Converted document, or the original when already current. */
 export function migrateLegacyShaderDocument(document, catalog) {
+  document = migrateTwistDistribution(document, catalog);
   if (!Array.isArray(document?.descriptor?.chain)) return document;
   const legacyIds = new Set(['colorize.generated-palette.v3',
     'modulate.field.v1', 'modulate.hue-shift.v1']);

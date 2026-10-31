@@ -121,3 +121,27 @@ test('standalone legacy hue modulation keeps its enabled default when mode is im
   assert.equal(result.preset_bank.presets[0].values['hue.modulation-amount'], 0);
   assert.equal(result.descriptor.chain.length, 1);
 });
+
+test('Twist Distribution upgrades compose with combined colorizer migration', () => {
+  const input = legacy();
+  const operator = { id: 'sphere.lens.twist.v2', params: [
+    { id: 'twist-distribution', min: 0, max: 1, default: 0.85, curve: 'lerp' },
+  ] };
+  const declaration = declarationFromCatalogField('twist', operator.params[0], operator.id);
+  declaration.domain.maximum = 0.98;
+  input.descriptor.chain.unshift({ label: 'twist', operator: operator.id });
+  input.descriptor.parameters.push(declaration);
+  input.descriptor.serialization.fields.push(declaration.id);
+  for (const preset of input.preset_bank.presets) preset.values[declaration.id] = 0.7;
+  const original = structuredClone(input);
+  const current = { operators: [...catalog.operators, operator] };
+  const result = migrateLegacyShaderDocument(input, current);
+  assert.equal(result.descriptor.parameters.find(
+    (parameter) => parameter.id === declaration.id).domain.maximum, 1);
+  assert.equal(result.descriptor.chain.find((entry) => entry.label === 'ink').operator,
+    'colorize.generated-palette.v4');
+  assert.equal(result.descriptor.chain.filter((entry) => entry.operator === modulation.id).length, 2);
+  for (const preset of result.preset_bank.presets) assert.equal(preset.values[declaration.id], 0.7);
+  assert.deepEqual(input, original);
+  assert.strictEqual(migrateLegacyShaderDocument(result, current), result);
+});

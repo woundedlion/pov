@@ -22,6 +22,7 @@ import {
   fixedDerivedBinding,
   interpolateNormalizedGroup,
   interpolateValue,
+  migrateLegacyShaderDocument,
   parseShaderDocument,
   stableStringify,
   validateShaderDocument,
@@ -72,6 +73,122 @@ const withAdmissionOperator = (operatorId, index) => {
   }
   return document;
 };
+
+test('Twist Distribution imports widen supported domains without changing values', () => {
+  const catalog = structuredClone(CATALOG);
+  catalog.operators.find((entry) => entry.id === 'sphere.lens.twist.v2')
+    .params.find((field) => field.id === 'twist-distribution').max = 1;
+  for (const maximum of [0.98, Math.fround(0.98), 0.999, Math.fround(0.999)]) {
+    const document = withAdmissionOperator('sphere.lens.twist.v2', 1);
+    const parameter = document.descriptor.parameters.find(
+      (entry) => entry.id === 'admission.twist-distribution');
+    parameter.domain.maximum = maximum;
+    document.preset_bank.presets[0].values[parameter.id] = 0.6;
+    document.preset_bank.presets[1].values[parameter.id] = Math.fround(maximum);
+    const original = structuredClone(document);
+    assert.ok(validateShaderDocument(document, { catalog }).some(
+      (diagnostic) => diagnostic.code === 'SCALAR_DOMAIN_MISMATCH'));
+    const result = compileShaderDocument(document, { catalog });
+    assert.equal(result.status, 'VALID', JSON.stringify(result.diagnostics));
+    const expected = structuredClone(original);
+    expected.descriptor.parameters.find((entry) => entry.id === parameter.id)
+      .domain.maximum = 1;
+    assert.deepEqual(result.document, expected);
+    assert.deepEqual(document, original);
+    assert.strictEqual(migrateLegacyShaderDocument(result.document, catalog), result.document);
+    const roundTrip = compileShaderDocument(exportShaderDocumentJson(result.document), { catalog });
+    assert.equal(roundTrip.status, 'VALID');
+    assert.equal(roundTrip.descriptor_digest, result.descriptor_digest);
+    assert.equal(roundTrip.preset_bank_digest, result.preset_bank_digest);
+  }
+});
+
+test('Twist Distribution upgrades each instance without changing preset values', () => {
+  const catalog = structuredClone(CATALOG);
+  const operator = catalog.operators.find((entry) => entry.id === 'sphere.lens.twist.v2');
+  operator.params.find((field) => field.id === 'twist-distribution').max = 1;
+  const document = withAdmissionOperator(operator.id, 1);
+  document.descriptor.chain.splice(2, 0, { label: 'second', operator: operator.id });
+  for (const field of operator.params) {
+    const declaration = declarationFromCatalogField('second', field, operator.id);
+    document.descriptor.parameters.push(declaration);
+    document.descriptor.serialization.fields.push(declaration.id);
+    for (const preset of document.preset_bank.presets)
+      preset.values[declaration.id] = declaration.default;
+  }
+  for (const [label, maximum] of [['admission', 0.98], ['second', 0.999]])
+    document.descriptor.parameters.find((entry) => entry.id === `${label}.twist-distribution`)
+      .domain.maximum = maximum;
+  document.preset_bank.presets[0].values['second.twist-distribution'] = 0.65;
+  const original = structuredClone(document);
+  const result = compileShaderDocument(document, { catalog });
+  assert.equal(result.status, 'VALID', JSON.stringify(result.diagnostics));
+  for (const label of ['admission', 'second']) {
+    const parameter = result.document.descriptor.parameters.find(
+      (entry) => entry.id === `${label}.twist-distribution`);
+    assert.equal(parameter.domain.maximum, 1);
+    assert.equal(parameter.default, 0.85);
+  }
+  assert.deepEqual(result.document.preset_bank, original.preset_bank);
+  assert.deepEqual(result.document.descriptor.serialization, original.descriptor.serialization);
+  assert.deepEqual(document, original);
+});
+
+test('Twist Distribution migrations preserve invalid ranges, bindings and values', () => {
+  const catalog = structuredClone(CATALOG);
+  catalog.operators.find((entry) => entry.id === 'sphere.lens.twist.v2')
+    .params.find((field) => field.id === 'twist-distribution').max = 1;
+  const cases = [
+    (document, parameter) => { parameter.domain.maximum = 0.97; },
+    (document, parameter) => { parameter.domain.minimum = 0.01; },
+    (document, parameter) => { parameter.domain.maximum = '0.98'; },
+    (document, parameter) => { parameter.default = 1; },
+    (document, parameter) => { parameter.default = '0.85'; },
+    (document, parameter) => { document.preset_bank.presets[0].values[parameter.id] = 0.99; },
+    (document, parameter) => { document.preset_bank.presets[0].values[parameter.id] = -0.1; },
+    (document, parameter) => { document.preset_bank.presets[0].values[parameter.id] = '0.5'; },
+    (document) => { document.descriptor.chain[1].operator = 'sphere.lens.glitch.v2'; },
+  ];
+  for (const change of cases) {
+    const document = withAdmissionOperator('sphere.lens.twist.v2', 1);
+    const parameter = document.descriptor.parameters.find(
+      (entry) => entry.id === 'admission.twist-distribution');
+    parameter.domain.maximum = 0.98;
+    change(document, parameter);
+    const original = structuredClone(document);
+    assert.strictEqual(migrateLegacyShaderDocument(document, catalog), document);
+    assert.equal(compileShaderDocument(document, { catalog }).status, 'INVALID');
+    assert.deepEqual(document, original);
+  }
+  for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+    const document = withAdmissionOperator('sphere.lens.twist.v2', 1);
+    const parameter = document.descriptor.parameters.find(
+      (entry) => entry.id === 'admission.twist-distribution');
+    parameter.domain.maximum = 0.98;
+    parameter.default = value;
+    assert.strictEqual(migrateLegacyShaderDocument(document, catalog), document);
+    assert.equal(compileShaderDocument(document, { catalog }).status, 'INVALID');
+  }
+});
+
+test('Twist Distribution migration requires the unit catalog and leaves current controls alone', () => {
+  const document = withAdmissionOperator('sphere.lens.twist.v2', 1);
+  const parameter = document.descriptor.parameters.find(
+    (entry) => entry.id === 'admission.twist-distribution');
+  parameter.domain.maximum = 0.98;
+  assert.strictEqual(migrateLegacyShaderDocument(document), document);
+  const catalog = structuredClone(CATALOG);
+  const field = catalog.operators.find((entry) => entry.id === 'sphere.lens.twist.v2')
+    .params.find((entry) => entry.id === 'twist-distribution');
+  for (const maximum of [0.98, 0.999]) {
+    field.max = maximum;
+    assert.strictEqual(migrateLegacyShaderDocument(document, catalog), document);
+  }
+  field.max = 1;
+  parameter.domain.maximum = 1;
+  assert.strictEqual(migrateLegacyShaderDocument(document, catalog), document);
+  assert.equal(compileShaderDocument(document, { catalog }).status, 'VALID');
+});
 
 test('Mobius admission rejects singular defaults and each preset', () => {
   const document = withAdmissionOperator('sphere.lens.mobius.v2', 1);
