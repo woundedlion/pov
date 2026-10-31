@@ -3589,6 +3589,57 @@ inline void test_pullback_temporal_deferred_hue_wrap() {
   HS_EXPECT_EQ(blend_color_samples(a, b, 1.0f).pending_hue, b.pending_hue);
 }
 
+/** @brief In-place temporal blending preserves current sampling coordinates. */
+inline void test_pullback_temporal_deferred_in_place() {
+  using namespace Pullback;
+  std::array<Pixel, 2> hue{};
+  ColorSample a{Color4(Pixel(1000, 2000, 4000), 0.25f),
+                {0.1f, 0.2f, math::X_AXIS, 0.3f}};
+  ColorSample b{Color4(Pixel(9000, 6000, 12000), 0.75f),
+                {0.6f, 0.7f, math::Y_AXIS, 0.8f}};
+  a.hue_rotation = hue.data();
+  b.hue_rotation = hue.data();
+  a.palette_coordinate = 0.2f;
+  b.palette_coordinate = 0.9f;
+  a.pending_hue = 0.875f;
+  b.pending_hue = 0.125f;
+  a.pending_lift = 0.25f;
+  b.pending_lift = 0.75f;
+  a.brightness_gain = 0.5f;
+  b.brightness_gain = 0.75f;
+  blend_color_samples_in_place(a, b, 0.5f);
+  HS_EXPECT_EQ(b.color.color, Pixel(5000, 4000, 8000));
+  HS_EXPECT_EQ(b.color.alpha, 0.5f);
+  HS_EXPECT_EQ(b.pending_hue, 0.0f);
+  HS_EXPECT_EQ(b.pending_lift, 0.5f);
+  HS_EXPECT_EQ(b.brightness_gain, 0.625f);
+  HS_EXPECT_EQ(b.field.value, 0.6f);
+  HS_EXPECT_EQ(b.field.coverage, 0.7f);
+  HS_EXPECT_EQ(b.field.sphere, math::Y_AXIS);
+  HS_EXPECT_EQ(b.field.path_length, 0.8f);
+  HS_EXPECT_EQ(b.palette_coordinate, 0.9f);
+  HS_EXPECT_TRUE(b.hue_rotation == nullptr);
+  HS_EXPECT_EQ(a.color.color, Pixel(1000, 2000, 4000));
+  HS_EXPECT_EQ(a.pending_hue, 0.875f);
+  HS_EXPECT_TRUE(a.hue_rotation == hue.data());
+
+  b = a;
+  b.color.color.r = 1001;
+  blend_color_samples_in_place(a, b, 0.000001f);
+  HS_EXPECT_EQ(b.color.color, a.color.color);
+  HS_EXPECT_TRUE(b.hue_rotation == nullptr);
+  a.cached_lab = {0.4f, 0.1f, -0.2f};
+  a.has_cached_lab = true;
+  blend_color_samples_in_place(a, b, 0.0f);
+  HS_EXPECT_TRUE(b.has_cached_lab);
+  HS_EXPECT_EQ(b.cached_lab.L, 0.4f);
+  HS_EXPECT_EQ(b.cached_lab.a, 0.1f);
+  HS_EXPECT_EQ(b.cached_lab.b, -0.2f);
+  HS_EXPECT_TRUE(b.hue_rotation == hue.data());
+  blend_color_samples_in_place(a, b, 1.0f);
+  HS_EXPECT_TRUE(b.has_cached_lab);
+}
+
 /** @brief Modulation identities retain common and selected inputs only. */
 inline void test_pullback_modulation_field_identity() {
   using namespace Pullback::Modulation;
@@ -3778,6 +3829,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_finish_brightness_quantization);
   HS_RUN(test_pullback_temporal_composed_modulations);
   HS_RUN(test_pullback_temporal_deferred_hue_wrap);
+  HS_RUN(test_pullback_temporal_deferred_in_place);
   return fixture.result();
 }
 

@@ -151,6 +151,35 @@ struct ColorSample {
   const PaletteLabTimeView *cached_rgb = nullptr; ///< Optional final hue cache.
 };
 
+/** @brief Blends retained deferred state into the current carrier.
+ * @param a Retained endpoint.
+ * @param b Current endpoint, updated in place.
+ * @param fraction Current endpoint weight. */
+HS_HOT_ITCM_MEMBER inline void
+blend_color_samples_in_place(const ColorSample &a, ColorSample &b,
+                             float fraction) {
+  if (fraction <= 0.0f) {
+    b = a;
+    return;
+  }
+  if (fraction >= 1.0f)
+    return;
+  assert(!a.has_cached_lab && !b.has_cached_lab);
+  const bool SAME_BASE = a.color.color == b.color.color &&
+                         a.hue_rotation == b.hue_rotation &&
+                         a.palette_coordinate == b.palette_coordinate;
+  b.color = Color4(a.color.color.lerp16(b.color.color, frac_to_q16(fraction)),
+                   hs::lerp(a.color.alpha, b.color.alpha, fraction));
+  b.pending_hue = a.pending_hue == b.pending_hue
+                      ? a.pending_hue
+                      : interp::shortest_periodic(a.pending_hue, b.pending_hue,
+                                                  fraction, 1.0f);
+  b.pending_lift = hs::lerp(a.pending_lift, b.pending_lift, fraction);
+  b.brightness_gain = hs::lerp(a.brightness_gain, b.brightness_gain, fraction);
+  if (!SAME_BASE)
+    b.hue_rotation = nullptr;
+}
+
 /** @brief Blends deferred color state before perceptual finalization.
  * @param a Retained endpoint.
  * @param b Current endpoint.
@@ -163,21 +192,8 @@ HS_HOT_ITCM_MEMBER inline ColorSample blend_color_samples(const ColorSample &a,
     return a;
   if (fraction >= 1.0f)
     return b;
-  assert(!a.has_cached_lab && !b.has_cached_lab);
   ColorSample result = b;
-  result.color =
-      Color4(a.color.color.lerp16(b.color.color, frac_to_q16(fraction)),
-             hs::lerp(a.color.alpha, b.color.alpha, fraction));
-  result.pending_hue = a.pending_hue == b.pending_hue
-                           ? a.pending_hue
-                           : interp::shortest_periodic(
-                                 a.pending_hue, b.pending_hue, fraction, 1.0f);
-  result.pending_lift = hs::lerp(a.pending_lift, b.pending_lift, fraction);
-  result.brightness_gain =
-      hs::lerp(a.brightness_gain, b.brightness_gain, fraction);
-  if (a.color.color != b.color.color || a.hue_rotation != b.hue_rotation ||
-      a.palette_coordinate != b.palette_coordinate)
-    result.hue_rotation = nullptr;
+  blend_color_samples_in_place(a, result, fraction);
   return result;
 }
 
@@ -1643,18 +1659,21 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                     run_phase_tail<Index + 1>(result, ctx, prepared);
                     return result;
                   }
-                const auto PAIR = CurrentNode::run_pair(
-                    input, ctx, std::get<Index>(prepared));
-                result = blend_color_samples(PAIR.first, PAIR.second, FRACTION);
-                run_phase_tail<Index + 1>(result, ctx, prepared);
-                return result;
+                auto pair = CurrentNode::run_pair(input, ctx,
+                                                  std::get<Index>(prepared));
+                blend_color_samples_in_place(pair.first, pair.second, FRACTION);
+                run_phase_tail<Index + 1>(pair.second, ctx, prepared);
+                return pair.second;
               }
           }
-          const auto pair =
+          auto pair =
               CurrentNode::run_pair(input, ctx, std::get<Index>(prepared));
-          const ColorSample A = finish(pair.first, true);
-          const ColorSample B = finish(pair.second, false);
-          return blend_color_samples(A, B, FRACTION);
+          if constexpr (Index + 1 < NODE_COUNT) {
+            run_color_tail<Index + 1>(pair.first, ctx, prepared, true);
+            run_color_tail<Index + 1>(pair.second, ctx, prepared, false);
+          }
+          blend_color_samples_in_place(pair.first, pair.second, FRACTION);
+          return pair.second;
         }
         const auto output = endpoint(previous);
         const ColorSample A = finish(endpoint(true), true);
