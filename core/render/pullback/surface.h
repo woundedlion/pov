@@ -474,13 +474,23 @@ struct CurlNoise : PrepareFromState<State> {
    * @param prepared This frame's prepared state.
    * @return Displaced point and its path length when required.
    */
-  HS_O3_FN static SurfaceResult apply(const math::Vector &input,
-                                      const FrameState &frame,
-                                      const Prepared &prepared) {
-    return curl_noise(input, State::noise(frame), Basis,
-                      IntegratorPolicy::VALUE, Limit, State::scale(frame),
-                      prepared.loop_offset, State::strength(frame),
-                      State::path_length_required(frame));
+  __attribute__((always_inline)) HS_O3_FN static SurfaceResult
+  apply(const math::Vector &input, const FrameState &frame,
+        const Prepared &prepared) {
+    if constexpr (IntegratorPolicy::VALUE == Integrator::EULER) {
+      const float STRENGTH = State::strength(frame);
+      if (STRENGTH == 0.0f)
+        return {input, 0.0f};
+      return finish_step(
+          input,
+          STRENGTH * curl_field(input, State::noise(frame), Basis, Limit,
+                                State::scale(frame), prepared.loop_offset),
+          State::path_length_required(frame));
+    } else
+      return curl_noise(input, State::noise(frame), Basis,
+                        IntegratorPolicy::VALUE, Limit, State::scale(frame),
+                        prepared.loop_offset, State::strength(frame),
+                        State::path_length_required(frame));
   }
 };
 

@@ -43,7 +43,7 @@ struct AshCloudSpec : Pullback::Spec {
               B, Pullback::SphereAnimation::BurstRippleParams, true,
               "displace">>>,
       Pullback::Stage::Placed<
-          Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+          Pullback::CodeEmission::INLINE_ONLY,
           Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
               Pullback::SurfaceNoiseParams, B, true>::Type>,
           Pullback::Stage::Lens<Pullback::Lens::DodecahedralKaleidoscope>,
@@ -196,12 +196,12 @@ public:
   // End generated params.
 
 public:
-  /** @brief Evaluates the composed pixel pipeline from hot FLASH.
+  /** @brief Evaluates the composed pixel pipeline from ITCM.
    * @param view Unit view direction.
    * @param frame Prepared column state.
    * @return Straight-alpha pixel color. */
-  HS_HOT_FLASH_MEMBER static Color4 shade(const math::Vector &view,
-                                          const typename Base::Frame &frame) {
+  HS_HOT_ITCM_MEMBER static Color4 shade(const math::Vector &view,
+                                         const typename Base::Frame &frame) {
     return Base::RenderPipeline::evaluate(view, frame.ctx, frame.prepared);
   }
 

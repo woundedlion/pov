@@ -44,7 +44,8 @@ struct RippleState {
  * @param state Scheduler state.
  * @param params Current controls. */
 template <typename Params>
-inline void advance_ripple(RippleState &state, const Params &params) {
+HS_COLD_MEMBER inline void advance_ripple(RippleState &state,
+                                          const Params &params) {
   ++state.frames;
   for (auto &wave : state.waves)
     wave.age = fminf(wave.age + 1.0f, 1000.0f);
@@ -65,7 +66,8 @@ inline void advance_ripple(RippleState &state, const Params &params) {
  * @param seed Instance seed.
  * @param burst Burst identity.
  * @return Unit center direction. */
-inline math::Vector ripple_center(uint32_t seed, uint32_t burst) {
+HS_HOT_FLASH_MEMBER inline math::Vector ripple_center(uint32_t seed,
+                                                      uint32_t burst) {
   uint32_t hash = seed ^ (burst * 0x9e3779b9U);
   hash = (hash ^ (hash >> 16)) * 0x7feb352dU;
   hash = (hash ^ (hash >> 15)) * 0x846ca68bU;
@@ -300,8 +302,8 @@ radial_ripples(const math::Vector &input, const PreparedRipples &prepared,
  * @param state Scheduler state.
  * @return Active kernels in launch order. */
 template <typename Params>
-inline PreparedRipples prepare_ripples(const Params &params,
-                                       const RippleState &state) {
+HS_HOT_FLASH_MEMBER inline PreparedRipples
+prepare_ripples(const Params &params, const RippleState &state) {
   PreparedRipples result;
   for (uint32_t lag = 4; lag > 0; --lag) {
     const uint32_t BURST = state.burst_count - lag;

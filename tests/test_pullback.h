@@ -1413,6 +1413,80 @@ inline void test_pullback_ripple_burst_centers() {
   }
 }
 
+/** @brief Compile-time Euler curl matches the generic surface kernel. */
+inline void test_pullback_euler_curl_specialization() {
+  struct Frame {
+    FastNoiseLite noise;
+    float scale = 1.0f;
+    float strength = 0.0f;
+    bool track_path = false;
+  };
+  struct Provider {
+    using FrameState = Frame;
+    struct Binding {
+      using FrameState = Frame;
+    };
+    static const FastNoiseLite &noise(const Frame &frame) {
+      return frame.noise;
+    }
+    static float scale(const Frame &frame) { return frame.scale; }
+    static float strength(const Frame &frame) { return frame.strength; }
+    static Pullback::Surface::PreparedLoop prepare(const Frame &) {
+      return Pullback::Surface::prepare(0.0f);
+    }
+    static bool path_length_required(const Frame &frame) {
+      return frame.track_path;
+    }
+  };
+  auto compare = []<math::NoiseBasis BASIS, math::TangentLimit LIMIT>() {
+    using Policy =
+        Pullback::Surface::CurlNoise<Provider, BASIS, Pullback::Surface::Euler,
+                                     LIMIT>;
+    static_assert(Policy::template PROVIDER_VALID<typename Provider::Binding>);
+    Frame frame;
+    for (int seed : {1, 1337, -7631}) {
+      frame.noise.SetSeed(seed);
+      for (float scale : {0.125f, 5.7742186f, 16.0f}) {
+        frame.scale = scale;
+        for (float strength : {0.0f, 0.00001f, 0.043f, 0.3f}) {
+          frame.strength = strength;
+          for (bool track_path : {false, true}) {
+            frame.track_path = track_path;
+            for (float phase : {0.0f, 0.37f, 0.9999f}) {
+              const auto PREPARED = Pullback::Surface::prepare(phase);
+              for (const auto &direction :
+                   {math::X_AXIS, math::Y_AXIS, math::Z_AXIS, -math::X_AXIS,
+                    math::Vector(0.3f, -0.4f, 0.5f).normalized()}) {
+                const auto EXPECTED = Pullback::Surface::curl_noise(
+                    direction, frame.noise, BASIS,
+                    Pullback::Surface::Integrator::EULER, LIMIT, frame.scale,
+                    PREPARED.loop_offset, frame.strength, frame.track_path);
+                const auto ACTUAL = Policy::apply(direction, frame, PREPARED);
+                HS_EXPECT_EQ(ACTUAL.sphere.x, EXPECTED.sphere.x);
+                HS_EXPECT_EQ(ACTUAL.sphere.y, EXPECTED.sphere.y);
+                HS_EXPECT_EQ(ACTUAL.sphere.z, EXPECTED.sphere.z);
+                HS_EXPECT_EQ(ACTUAL.path_length, EXPECTED.path_length);
+              }
+            }
+          }
+        }
+      }
+    }
+  };
+  compare.template
+  operator()<math::NoiseBasis::SIMPLEX, math::TangentLimit::SMOOTH>();
+  compare.template
+  operator()<math::NoiseBasis::SIMPLEX, math::TangentLimit::CLAMP>();
+  compare.template
+  operator()<math::NoiseBasis::FBM3, math::TangentLimit::SMOOTH>();
+  compare
+      .template operator()<math::NoiseBasis::FBM3, math::TangentLimit::CLAMP>();
+  compare.template
+  operator()<math::NoiseBasis::RIDGED3, math::TangentLimit::SMOOTH>();
+  compare.template
+  operator()<math::NoiseBasis::RIDGED3, math::TangentLimit::CLAMP>();
+}
+
 /** @brief Ripple phase repeats after its configured period. */
 inline void test_pullback_periodic_ripple() {
   Pullback::Surface::PeriodicRippleParams clock;
@@ -3243,6 +3317,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_hexagonal_edges);
   HS_RUN(test_pullback_displacement_overflow);
   HS_RUN(test_pullback_warp_phase_loop);
+  HS_RUN(test_pullback_euler_curl_specialization);
   HS_RUN(test_pullback_periodic_ripple);
   HS_RUN(test_pullback_ripple_supplied_center);
   HS_RUN(test_pullback_ripple_burst_centers);
