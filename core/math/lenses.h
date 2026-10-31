@@ -222,31 +222,33 @@ HS_O3_FN __attribute__((always_inline)) inline math::Vector
 dodecahedral_kaleidoscope_lens(math::Vector v) {
   [[maybe_unused]] uint32_t reflections = 0;
   constexpr math::Vector OBLIQUE = DODECAHEDRAL_MIRRORS[1];
-  for (int reflection = 0; reflection < POLYHEDRAL_REFLECTION_LIMIT;
-       ++reflection) {
+  for (int remaining = POLYHEDRAL_REFLECTION_LIMIT; remaining > 0;
+       --remaining) {
     if (!(v.x >= -POLYHEDRAL_MIRROR_EPS)) {
       v.x = -v.x;
+      HS_PULLBACK_PROJECTION_COUNT(++reflections);
+      if (--remaining == 0)
+        break;
+    }
+    const float distance = math::dot(v, OBLIQUE);
+    if (!(distance >= -POLYHEDRAL_MIRROR_EPS)) {
+      v.x -= 2.0f * distance * OBLIQUE.x;
+      v.y -= 2.0f * distance * OBLIQUE.y;
+      v.z -= 2.0f * distance * OBLIQUE.z;
+    } else if (!(v.z >= -POLYHEDRAL_MIRROR_EPS)) {
+      v.z = -v.z;
     } else {
-      const float distance = math::dot(v, OBLIQUE);
-      if (!(distance >= -POLYHEDRAL_MIRROR_EPS)) {
-        v.x -= 2.0f * distance * OBLIQUE.x;
-        v.y -= 2.0f * distance * OBLIQUE.y;
-        v.z -= 2.0f * distance * OBLIQUE.z;
-      } else if (!(v.z >= -POLYHEDRAL_MIRROR_EPS)) {
-        v.z = -v.z;
-      } else {
-        HS_PULLBACK_PROJECTION_COUNT(
-            ++hs::g_pullback_projection_counts.polyhedral_pixels);
-        HS_PULLBACK_PROJECTION_COUNT(
-            hs::g_pullback_projection_counts.polyhedral_reflections +=
-            reflections);
-        HS_PULLBACK_PROJECTION_COUNT(
-            hs::g_pullback_projection_counts.polyhedral_max_reflections =
-                std::max(
-                    hs::g_pullback_projection_counts.polyhedral_max_reflections,
-                    reflections));
-        return v;
-      }
+      HS_PULLBACK_PROJECTION_COUNT(
+          ++hs::g_pullback_projection_counts.polyhedral_pixels);
+      HS_PULLBACK_PROJECTION_COUNT(
+          hs::g_pullback_projection_counts.polyhedral_reflections +=
+          reflections);
+      HS_PULLBACK_PROJECTION_COUNT(
+          hs::g_pullback_projection_counts.polyhedral_max_reflections =
+              std::max(
+                  hs::g_pullback_projection_counts.polyhedral_max_reflections,
+                  reflections));
+      return v;
     }
     HS_PULLBACK_PROJECTION_COUNT(++reflections);
   }
