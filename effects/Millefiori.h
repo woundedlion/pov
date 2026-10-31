@@ -121,6 +121,8 @@ public:
   static constexpr Params initial_params() {
     Params value;
     value.template get<"projection">().camera_wander = 1.0f;
+    value.template get<"color">().brightness_bottom = 0.0f;
+    value.template get<"color">().brightness_top = 1.0f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = -0.046783626f;
     value.template get<"color">().palette_chroma = 1.0f;
@@ -129,6 +131,7 @@ public:
     value.template get<"color">().phase_oscillation_speed = 0.0f;
     value.template get<"color">().opacity_high = 1.0f;
     value.template get<"color">().opacity_low = 1.0f;
+    value.template get<"displace">().burst_rate = 0.0078125f;
     value.template get<"displace">().center_azimuth = 0.0f;
     value.template get<"displace">().center_polar = 1.5707964f;
     value.template get<"displace">().decay = 0.2f;
@@ -175,6 +178,9 @@ public:
     value.template get<"field">().modulation.sine.speed = 0.1754386f;
     value.template get<"modulate">().modulation.mechanic.amount = 2.235294f;
     value.template get<"modulate">().modulation.enabled = true;
+    value.template get<"modulate">().modulation.evaluation = Pattern::Evaluation::DIRECT;
+    value.template get<"modulate">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
+    value.template get<"modulate">().modulation.source = Pattern::SourceKind::DISPLACEMENT;
     value.template get<"projection">().spin_rate = 0.0f;
     value.template get<"projection">().wander = 0.0f;
     value.template get<"projection">().singularity_fade = 1.0f;
@@ -188,12 +194,6 @@ public:
     value.template get<"outer_warp">().radius = 1.3072151f;
     value.template get<"outer_warp">().speed = 0.0f;
     value.template get<"outer_warp">().turns = 0.7764706f;
-    value.template get<"modulate">().modulation.source = Pattern::SourceKind::DISPLACEMENT;
-    value.template get<"modulate">().modulation.evaluation = Pattern::Evaluation::DIRECT;
-    value.template get<"modulate">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
-    value.template get<"color">().brightness_bottom = 0.0f;
-    value.template get<"color">().brightness_top = 1.0f;
-    value.template get<"displace">().burst_rate = 0.0078125f;
     return value;
   }
   // clang-format on
