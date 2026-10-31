@@ -278,6 +278,27 @@ struct TemporalGeneratedPaletteState {
   float fraction = 1.0f;          ///< Current endpoint weight.
   PaletteLabTimeView lab{};       ///< Optional interval base cache.
 };
+/** @brief Samples an endpoint with shared palette controls.
+ * @param sample Shared field coordinates.
+ * @param state Endpoint resources.
+ * @param value Prepared palette coordinate.
+ * @param opacity Shared coverage and opacity.
+ * @param gain Shared final brightness.
+ * @return Canonical deferred endpoint. */
+HS_NOINLINE_NOCLONE inline ColorSample
+apply_palette_endpoint(const FieldSample &sample,
+                       const GeneratedPaletteState &state, float value,
+                       float opacity, float gain) {
+  Color4 color = state.palette->get(value);
+  color.alpha *= opacity;
+  return ColorSample{
+      color,
+      sample,
+      state.hue_rotation.active ? state.hue_rotation.data : nullptr,
+      value,
+      0.0f,
+      gain};
+}
 /** @brief Maps a sampled field into the color carrier.
  * @param sample Sampled field.
  * @param state Palette controls and resources.
@@ -523,22 +544,17 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
     const float GAIN =
         brightness_envelope_gain(sample.value, state.brightness_envelope,
                                  state.brightness_bottom, state.brightness_top);
-    const auto endpoint = [&](const GeneratedPaletteState &endpoint_state) {
-      if constexpr (LAB_CACHE)
+    if constexpr (LAB_CACHE) {
+      const auto endpoint = [&](const GeneratedPaletteState &endpoint_state) {
         return apply_cache_fallback_endpoint(sample, endpoint_state, VALUE,
                                              OPACITY, GAIN);
-      Color4 color = endpoint_state.palette->get(VALUE);
-      color.alpha *= OPACITY;
-      return ColorSample{color,
-                         sample,
-                         endpoint_state.hue_rotation.active
-                             ? endpoint_state.hue_rotation.data
-                             : nullptr,
-                         VALUE,
-                         0.0f,
-                         GAIN};
-    };
-    return {endpoint(prepared.previous), endpoint(state)};
+      };
+      return {endpoint(prepared.previous), endpoint(state)};
+    } else {
+      return {apply_palette_endpoint(sample, prepared.previous, VALUE, OPACITY,
+                                     GAIN),
+              apply_palette_endpoint(sample, state, VALUE, OPACITY, GAIN)};
+    }
   }
   /** @brief Samples a canonical endpoint for a cache-enabled fallback.
    * @param sample Shared field coordinates.
