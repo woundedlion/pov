@@ -1331,6 +1331,85 @@ inline void test_pullback_warp_phase_loop() {
                  affine_1.transform.affine.shear, 1e-6f);
 }
 
+/** @brief Supplied centers preserve the periodic wave's other prepared fields. */
+inline void test_pullback_ripple_supplied_center() {
+  Pullback::Surface::PeriodicRippleParams params;
+  params.center_azimuth = 0.73f;
+  params.center_polar = 1.17f;
+  params.strength = 0.15f;
+  params.thickness = 0.7f;
+  params.decay = 0.2f;
+  const auto CENTER =
+      math::Vector::from_spherical(params.center_azimuth, params.center_polar);
+  const auto OTHER = math::Vector(0.2f, 0.8f, -0.3f).normalized();
+  for (float cycle : {-0.25f, 0.0f, 0.01f, 0.5f, 1.0f, 1.25f}) {
+    const auto FIXED = Pullback::Surface::prepare_ripple(params, cycle);
+    const auto SUPPLIED =
+        Pullback::Surface::prepare_ripple(params, cycle, CENTER);
+    HS_EXPECT_EQ(
+        std::memcmp(&FIXED.ripple, &SUPPLIED.ripple, sizeof(FIXED.ripple)), 0);
+    auto expected = FIXED;
+    expected.ripple.center = OTHER;
+    const auto ACTUAL = Pullback::Surface::prepare_ripple(params, cycle, OTHER);
+    HS_EXPECT_EQ(
+        std::memcmp(&expected.ripple, &ACTUAL.ripple, sizeof(expected.ripple)),
+        0);
+  }
+}
+
+/** @brief Sparse and stale burst slots retain canonical prepared waves. */
+inline void test_pullback_ripple_burst_centers() {
+  using namespace Pullback::SphereAnimation;
+  BurstRippleParams params;
+  params.period = 91.48529f;
+  params.strength = 0.15f;
+  params.thickness = 0.7f;
+  params.decay = 0.2f;
+  RippleState state;
+  state.seed = 0x12345678;
+  state.burst_count = 4;
+  state.waves[4] = {5.0f, 1};
+  state.waves[5] = {10.0f, 1};
+  state.waves[8] = {params.period, 2};
+  state.waves[9] = {params.period - 1.0f, 2};
+  state.waves[10] = {params.period + 1.0f, 2};
+  state.waves[11] = {4.0f, 2};
+  state.waves[12] = {1.0f, 99};
+  for (bool random : {false, true}) {
+    params.random_center = random;
+    const auto ACTUAL = prepare_ripples(params, state);
+    PreparedRipples reference;
+    for (uint32_t lag = 4; lag > 0; --lag) {
+      const uint32_t BURST = state.burst_count - lag;
+      for (size_t i = 0; i < 4; ++i) {
+        const auto &wave = state.waves[(BURST % 4) * 4 + i];
+        if (wave.age < 0.0f || wave.age >= params.period || wave.burst != BURST)
+          continue;
+        auto prepared =
+            Pullback::Surface::prepare_ripple(params, wave.age / params.period);
+        if (random)
+          prepared.ripple.center = ripple_center(state.seed, BURST);
+        reference.waves[reference.count++] = prepared;
+      }
+    }
+    HS_EXPECT_EQ(ACTUAL.count, uint8_t{4});
+    HS_EXPECT_EQ(ACTUAL.count, reference.count);
+    for (uint8_t i = 0; i < ACTUAL.count; ++i)
+      HS_EXPECT_EQ(std::memcmp(&ACTUAL.waves[i], &reference.waves[i],
+                               sizeof(ACTUAL.waves[i])),
+                   0);
+    static RadialTables tables;
+    prepare_radial_tables(params, state, tables);
+    HS_EXPECT_EQ(tables.count, uint8_t{2});
+    for (uint8_t i = 0; i < tables.count; ++i) {
+      const auto EXPECTED =
+          random ? ripple_center(state.seed, i + 1)
+                 : Pullback::Surface::prepare_ripple_center(params);
+      HS_EXPECT_EQ(tables.groups[i].center, EXPECTED);
+    }
+  }
+}
+
 /** @brief Ripple phase repeats after its configured period. */
 inline void test_pullback_periodic_ripple() {
   Pullback::Surface::PeriodicRippleParams clock;
@@ -2824,6 +2903,8 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_displacement_overflow);
   HS_RUN(test_pullback_warp_phase_loop);
   HS_RUN(test_pullback_periodic_ripple);
+  HS_RUN(test_pullback_ripple_supplied_center);
+  HS_RUN(test_pullback_ripple_burst_centers);
   HS_RUN(test_pullback_radial_ripple_crest);
   HS_RUN(test_pullback_radial_ripple_fallback);
   HS_RUN(test_pullback_radial_ripple_geometry);

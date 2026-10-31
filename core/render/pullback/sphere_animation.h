@@ -268,14 +268,19 @@ inline PreparedRipples prepare_ripples(const Params &params,
   PreparedRipples result;
   for (uint32_t lag = 4; lag > 0; --lag) {
     const uint32_t BURST = state.burst_count - lag;
+    math::Vector center;
+    bool center_ready = false;
     for (size_t i = 0; i < 4; ++i) {
       const auto &wave = state.waves[(BURST % 4) * 4 + i];
       if (wave.age < 0.0f || wave.age >= params.period || wave.burst != BURST)
         continue;
-      auto prepared = Surface::prepare_ripple(params, wave.age / params.period);
-      if (params.random_center)
-        prepared.ripple.center = ripple_center(state.seed, BURST);
-      result.waves[result.count++] = prepared;
+      if (!center_ready) {
+        center = params.random_center ? ripple_center(state.seed, BURST)
+                                      : Surface::prepare_ripple_center(params);
+        center_ready = true;
+      }
+      result.waves[result.count++] =
+          Surface::prepare_ripple(params, wave.age / params.period, center);
     }
   }
   return result;

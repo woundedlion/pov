@@ -151,15 +151,25 @@ struct PreparedRipple {
   Animation::RippleWave ripple; ///< Synced ripple with the cycle envelope.
 };
 
-/** @brief Resolves a seamless ripple cycle for ripple_transform().
+/** @brief Resolves the configured fixed ripple center.
+ * @param params Ripple controls.
+ * @return Unit center direction. */
+HS_FLASH_INLINE inline math::Vector
+prepare_ripple_center(const PeriodicRippleParams &params) {
+  return math::Vector::from_spherical(params.center_azimuth,
+                                      params.center_polar);
+}
+
+/** @brief Resolves a seamless ripple cycle around a supplied center.
  *  @param params Ripple parameters.
  *  @param cycle Normalized cycle; wrapped to [0, 1).
+ *  @param center Prepared center direction.
  *  @return The synced ripple, its amplitude enveloped over the cycle. */
 HS_FLASH_INLINE inline PreparedRipple
-prepare_ripple(const PeriodicRippleParams &params, float cycle) {
+prepare_ripple(const PeriodicRippleParams &params, float cycle,
+               const math::Vector &center) {
   Animation::RippleWave ripple;
-  ripple.center =
-      math::Vector::from_spherical(params.center_azimuth, params.center_polar);
+  ripple.center = center;
   ripple.amplitude = params.strength;
   ripple.decay = params.decay;
   ripple.thickness = params.thickness;
@@ -169,6 +179,15 @@ prepare_ripple(const PeriodicRippleParams &params, float cycle) {
   ripple.amplitude *= attack * attack * (1.0f - progress);
   ripple.sync();
   return {ripple};
+}
+
+/** @brief Resolves a seamless ripple cycle around the configured center.
+ * @param params Ripple parameters.
+ * @param cycle Normalized cycle; wrapped to [0, 1).
+ * @return Synced ripple with its cycle envelope. */
+HS_FLASH_INLINE inline PreparedRipple
+prepare_ripple(const PeriodicRippleParams &params, float cycle) {
+  return prepare_ripple(params, cycle, prepare_ripple_center(params));
 }
 
 /** @brief Applies a prepared periodic ripple and reports its angular travel.
