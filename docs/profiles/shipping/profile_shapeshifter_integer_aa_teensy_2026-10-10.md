@@ -134,7 +134,7 @@ README cells: peak 🟢 54.821 (9), spilled 🟢 0/2447 (0.00%).
 - Per-pixel scope overhead would affect a count/stall image; neither capture enables those counters. `filter_blend` parenting can hide its subtree when the first parent's call count is zero; no such counter is present here.
 - Both runs use shipping selective-O3 direct-AA and scan regions, with no dwell compression. The longer epoch only prevents reinitialization within the full cycle.
 - This captures a mixed ShapeShifter workload rather than an isolated integer-plot benchmark. It does not establish a Galaxies performance figure.
-- Captured source hashes identify pre-report commits retained in the local branch history; later documentation and parser changes are outside the measured images.
+- Captured source hashes `df2b955eb` and `eeda8b0a3` identify unreferenced pre-report commits that may be garbage-collected. The published equivalent is `52d4f0a69`, matched by patch-id; later documentation and parser changes are outside the measured images.
 
 ## Harness
 
