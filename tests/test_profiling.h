@@ -66,32 +66,19 @@ inline void test_profile_clock_pair_interrupt_mask() {
     HS_EXPECT_EQ(sample.cycles, 60000u);
     HS_EXPECT_EQ(mask, prior_mask);
     HS_EXPECT_EQ(interrupts, prior_mask == 0 ? 1u : 0u);
+    if (prior_mask == 0) {
+      const auto end = hs::sample_profile_clocks(
+          [&] { return wall; }, [&] { return cycles; },
+          [&] {
+            const auto saved = mask;
+            mask = 1;
+            return saved;
+          },
+          [&](uint32_t saved) { mask = saved; });
+      HS_EXPECT_EQ(end.wall_us - sample.wall_us, 17u);
+      HS_EXPECT_EQ(end.cycles - sample.cycles, 10200u);
+    }
   }
-}
-
-/** @brief Matched clock intervals include interrupts between the samples. */
-inline void test_profile_clock_interval_includes_interrupts() {
-  uint32_t mask = 0, wall = 100, cycles = 60000;
-  const auto sample = [&] {
-    return hs::sample_profile_clocks([&] { return wall; },
-                                     [&] { return cycles; },
-                                     [&] {
-                                       const auto saved = mask;
-                                       mask = 1;
-                                       return saved;
-                                     },
-                                     [&](uint32_t saved) { mask = saved; });
-  };
-  const auto begin = sample();
-  HS_EXPECT_EQ(mask, 0u);
-  wall += 40;
-  cycles += 24000;
-  wall += 17;
-  cycles += 10200;
-  const auto end = sample();
-  HS_EXPECT_EQ(mask, 0u);
-  HS_EXPECT_EQ(end.wall_us - begin.wall_us, 57u);
-  HS_EXPECT_EQ(end.cycles - begin.cycles, 34200u);
 }
 
 /** @brief Captures the counter report into a NUL-terminated bounded buffer. */
@@ -830,7 +817,6 @@ inline int run_profiling_tests() {
 
   HS_RUN(test_sampled_cycle_scope_bounds_and_nesting);
   HS_RUN(test_profile_clock_pair_interrupt_mask);
-  HS_RUN(test_profile_clock_interval_includes_interrupts);
   HS_RUN(test_u64_dec_boundaries);
   HS_RUN(test_u64_dec_powers_of_ten);
   HS_RUN(test_find_suffix);
