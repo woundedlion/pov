@@ -16,6 +16,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 
 #include "core/platform/platform.h"
 #include "core/math/3dmath.h"
@@ -358,27 +359,39 @@ constexpr uint8_t classify(std::array<float, 3> point) {
   }
   return 255;
 }
-constexpr auto make_face(int face) {
+constexpr auto make_row(int face, int y) {
+  std::array<uint8_t, FACE_STEPS> result{};
+  for (int x = 0; x < FACE_STEPS; ++x)
+    result[x] =
+        classify(face_direction(face, (x + 0.5f) * (2.0f / FACE_STEPS) - 1.0f,
+                                (y + 0.5f) * (2.0f / FACE_STEPS) - 1.0f));
+  return result;
+}
+template <int Face, size_t Row> inline constexpr auto ROW = make_row(Face, Row);
+template <int Face, size_t... Rows>
+constexpr auto make_face(std::index_sequence<Rows...>) {
+  const std::array rows{ROW<Face, Rows>...};
   std::array<uint8_t, FACE_STEPS * FACE_STEPS> result{};
   for (int y = 0; y < FACE_STEPS; ++y)
     for (int x = 0; x < FACE_STEPS; ++x)
-      result[y * FACE_STEPS + x] =
-          classify(face_direction(face, (x + 0.5f) * (2.0f / FACE_STEPS) - 1.0f,
-                                  (y + 0.5f) * (2.0f / FACE_STEPS) - 1.0f));
+      result[y * FACE_STEPS + x] = rows[y][x];
   return result;
 }
+template <int Face> constexpr auto make_face() {
+  return make_face<Face>(std::make_index_sequence<FACE_STEPS>{});
+}
 inline constexpr auto
-    FACE_0 HS_PROGMEM_UNIQUE(dodecahedral_fold_face0) = make_face(0);
+    FACE_0 HS_PROGMEM_UNIQUE(dodecahedral_fold_face0) = make_face<0>();
 inline constexpr auto
-    FACE_1 HS_PROGMEM_UNIQUE(dodecahedral_fold_face1) = make_face(1);
+    FACE_1 HS_PROGMEM_UNIQUE(dodecahedral_fold_face1) = make_face<1>();
 inline constexpr auto
-    FACE_2 HS_PROGMEM_UNIQUE(dodecahedral_fold_face2) = make_face(2);
+    FACE_2 HS_PROGMEM_UNIQUE(dodecahedral_fold_face2) = make_face<2>();
 inline constexpr auto
-    FACE_3 HS_PROGMEM_UNIQUE(dodecahedral_fold_face3) = make_face(3);
+    FACE_3 HS_PROGMEM_UNIQUE(dodecahedral_fold_face3) = make_face<3>();
 inline constexpr auto
-    FACE_4 HS_PROGMEM_UNIQUE(dodecahedral_fold_face4) = make_face(4);
+    FACE_4 HS_PROGMEM_UNIQUE(dodecahedral_fold_face4) = make_face<4>();
 inline constexpr auto
-    FACE_5 HS_PROGMEM_UNIQUE(dodecahedral_fold_face5) = make_face(5);
+    FACE_5 HS_PROGMEM_UNIQUE(dodecahedral_fold_face5) = make_face<5>();
 inline constexpr std::array<const uint8_t *, 6> FACES HS_PROGMEM_UNIQUE(
     dodecahedral_fold_faces) = {FACE_0.data(), FACE_1.data(), FACE_2.data(),
                                 FACE_3.data(), FACE_4.data(), FACE_5.data()};
