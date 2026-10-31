@@ -98,16 +98,22 @@ template <int ValueSteps> struct PaletteLabLutStorage : PaletteLabLutBase {
     active = A.has_value() && B.has_value() && *A == 1.0f && *B == 1.0f;
     if (!active)
       return;
-    for (int time = 0; time < TIMES; ++time) {
-      const uint16_t WEIGHT = frac_to_q16(float(time) / (TIMES - 1));
-      for (int value = 0; value < VALUES; ++value) {
-        const float COORDINATE = float(value) / (VALUES - 1);
-        const Pixel RGB =
-            from.get_color(COORDINATE).lerp16(to.get_color(COORDINATE), WEIGHT);
-        const LinRGB LINEAR = pixel_to_linrgb(RGB);
-        nodes[time * VALUES + value] =
-            linear_rgb_to_oklab_fast(LINEAR.r, LINEAR.g, LINEAR.b);
-      }
+    const auto convert = [](const Pixel &rgb) HS_HOT_INLINE {
+      const LinRGB LINEAR = pixel_to_linrgb(rgb);
+      return linear_rgb_to_oklab_fast(LINEAR.r, LINEAR.g, LINEAR.b);
+    };
+    for (int value = 0; value < VALUES; ++value) {
+      const float COORDINATE = float(value) / (VALUES - 1);
+      const Pixel FROM = from.get_color(COORDINATE);
+      const Pixel TO = to.get_color(COORDINATE);
+      const OKLab FROM_LAB = convert(FROM);
+      const OKLab TO_LAB = FROM == TO ? FROM_LAB : convert(TO);
+      const Pixel MIDPOINT = FROM.lerp16(TO, frac_to_q16(0.5f));
+      nodes[value] = FROM_LAB;
+      nodes[VALUES + value] = MIDPOINT == FROM ? FROM_LAB
+                              : MIDPOINT == TO ? TO_LAB
+                                               : convert(MIDPOINT);
+      nodes[2 * VALUES + value] = TO_LAB;
     }
   }
 };
