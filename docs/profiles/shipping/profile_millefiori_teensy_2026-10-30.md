@@ -1,14 +1,14 @@
 # Millefiori on-device profile — Teensy 4.0, segmented mode (2026-10-30, **selective -O3**)
 
-Point-in-time snapshot (regenerate with the command below) of clean source `d3bfdbc02c0ec88e14658e6fdae2d3d0d7fb7872`. Raw capture:
-`C:/work/temp/ripple-unify-study-20261030/millefiori-arena-lazy-d3bfdbc02.log`. This replaces the earlier 2026-10-30 snapshot.
+Point-in-time snapshot (regenerate with the command below) of clean source `86497f3b02e0e78909a36907b94845a35e34b948`. Raw capture:
+`C:/work/temp/ripple-unify-study-20261030/millefiori-size-86497f3b0.log`. This replaces the earlier 2026-10-30 timing snapshot and records the subsequent ITCM audit.
 
 **Ongoing ≤58 ms target: MET.** Fully reported frames
-2–2048: peak **56.720 ms**
-at frame 1627; 0 frames above 58 ms;
+2–2048: peak **56.200 ms**
+at frame 1623; 0 frames above 58 ms;
 **0/2047 ongoing display spills**.
-Setup frame 1 is 81.618 ms. Full pass peak is
-81.618 ms at frame 1, with **1/2048 spills**.
+Setup frame 1 is 82.100 ms. Full pass peak is
+82.100 ms at frame 1, with **1/2048 spills**.
 
 ## Setup
 
@@ -17,15 +17,15 @@ Setup frame 1 is 81.618 ms. Full pass peak is
 | Hardware | Teensy 4.0 @ 600 MHz, segmented POV, flywheel and DMA ISRs live; COM3, serial 6362410 |
 | Image | Shipping `profile`: `-Os` base with selective `HS_O3` shader/scan/color helpers; PC=False, deep=False |
 | Driver | `POVSegmented<288,4,480>`, segment 0 master |
-| Effect | Millefiori 288×144, single-entry playlist, source `d3bfdbc02c0e` |
+| Effect | Millefiori 288×144, single-entry playlist, source `86497f3b02e0` |
 | Method | 32-frame windows; clock sampling **paired**; `HS_PROFILE_EPOCH_REVS=1200` |
 | Reproduce | `bash tools/profile_one.sh Millefiori profile 130 32 '-D HS_PROFILE_EPOCH_REVS=1200'` |
 
-`profile`: FLASH code 105,920, data 153,376, headers 8,992; RAM1 variables 313,056, code 32,216, padding 552, free local 178,464; RAM2 variables 520,064, free 4,224 bytes.
+`profile`: FLASH code 105,912, data 153,376, headers 9,000; RAM1 variables 313,056, code 29,848, padding 2,920, free local 178,464; RAM2 variables 520,064, free 4,224 bytes.
 
-`phantasm`: FLASH code 1,039,200, data 749,240, headers 8,680; RAM1 variables 312,736, code 196,600, padding 8, free local 14,944; RAM2 variables 520,064, free 4,224 bytes.
+`phantasm`: FLASH code 1,037,664, data 749,244, headers 9,188; RAM1 variables 312,736, code 192,632, padding 3,976, free local 14,944; RAM2 variables 520,064, free 4,224 bytes.
 
-Canonical parser validation: **VALID**, root checksum 0.9 ppm, window [1953, 1984]. Wrapper validation=True; clean artifact=True. 64 complete windows; 8 unreported tail rows excluded.
+Canonical parser validation: **VALID**, root checksum 0.6 ppm, window [1953, 1984]. Wrapper validation=True; clean artifact=True. 64 complete windows; 8 unreported tail rows excluded.
 
 The root counter’s cycles divided by 600 MHz match measured wall sum within the reported checksum error. Paired wall/cycle reads use one interrupt mask and restore its preceding state.
 
@@ -33,30 +33,30 @@ The root counter’s cycles divided by 600 MHz match measured wall sum within th
 
 |Artifact|SHA-256/value|
 |---|---|
-|Source|`d3bfdbc02c0ec88e14658e6fdae2d3d0d7fb7872`|
-|Profile ELF|`de81c4a6e1203762568415f32d3e514200a6ee7cccefd6783dc0288dc7f17cb5`|
-|Shipping ELF|`98c06ee6023ba5cc461028d6511dc14339be794dbbc497e1d8d8c483481ff1f9`|
-|Capture|`891dcbcc41a13fcc01130fc21214c07370ac7dcf3709a56180b62ad4a9834535`|
-|Profile envdump|`b65b3058b70410bc8667000cfa1ff2d180edf58e6bcc9620264c29b2019c967a`|
+|Source|`86497f3b02e0e78909a36907b94845a35e34b948`|
+|Profile ELF|`9f3ff19ed883b65e2f0843b1dd5007667c09c28a5936fdf55cdc59c09fb2a55d`|
+|Shipping ELF|`2c709a9716a9c605656b1f2b8f81f3987c42f864d8dc83590776415b4891fa09`|
+|Capture|`bc55d7c61c1ca82f9b96b93a5399a678ff3453d7a853f6fbac9ac303f500679d`|
+|Profile envdump|`82220a805ab73106cfaae38c360b378b35aa4f8367e8d9658046e2c3ee8482eb`|
 |Compiler|`GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203`|
 
-Artifacts: `C:/work/temp/ripple-unify-study-20261030/artifacts/millefiori-arena-lazy-d3bfdbc02_d3bfdbc02c0e_de81c4a6e120`. ELF and envdump hashes are verified against the archive; source status and diff, PC/deep flags, excluded windows and exact counter trees are retained in the companion JSON.
+Artifacts: `C:/work/temp/ripple-unify-study-20261030/artifacts/millefiori-size-86497f3b0_86497f3b02e0_9f3ff19ed883`. ELF and envdump hashes are verified against the archive; source status and diff, PC/deep flags, excluded windows and exact counter trees are retained in the companion JSON.
 
 ## Frame cadence
 
 | Scope | Frames | Peak render | >58 ms | Display spills (>62.5 ms) |
 |---|---:|---:|---:|---:|
-| Setup | 1 | 81.618 ms | 1 | 1/1 |
-| Ongoing acceptance | 2–2048 | 56.720 ms, frame 1627 | 0 | 0/2047 |
-| Full pass | 1–2048 | 81.618 ms, frame 1 | 1 | 1/2048 |
+| Setup | 1 | 82.100 ms | 1 | 1/1 |
+| Ongoing acceptance | 2–2048 | 56.200 ms, frame 1623 | 0 | 0/2047 |
+| Full pass | 1–2048 | 82.100 ms, frame 1 | 1 | 1/2048 |
 
-README cells: peak 🟢 56.720, spilled 🟢 0/2047 (0.00%).
-These cells use ongoing frames; setup is reported separately.
+README cells: peak 🟢 56.200, spilled 🟢 0/2047 (0.00%).
+These cells use ongoing frames; setup remains separate.
 
 Acceptance uses exact per-frame **render**, never wall. Ongoing mean render is
-50.432 ms. The ongoing peak has
-1.280 ms margin against 58 ms and
-5.780 ms against the 62.5 ms display window.
+49.820 ms. The ongoing peak has
+1.800 ms margin against 58 ms and
+6.300 ms against the 62.5 ms display window.
 Setup remains included in full-pass figures. No shorter matched prefix replaces
 the ALL-ongoing peak.
 
@@ -74,70 +74,70 @@ calls/frame and microseconds/call. Parents include children.
 ### Startup-containing window (frames 1–32)
 
 ```text
-frame                     62.540ms 37.52M 100.0%
-  pov_preserve_half        0.135ms  0.08M  0.2% x0.969 139.26us
-  fx_shader_draw          46.246ms 27.75M 73.9% x1 46246.50us
-    fx_prepare_column      2.225ms  1.33M  3.6% x144 15.45us
-  fx_prepare_frame         0.640ms  0.38M  1.0% x1 639.53us
-  fx_advance               0.987ms  0.59M  1.6% x1 986.97us
-    palette_cycle_step     0.902ms  0.54M  1.4% x1 902.47us
-  fx_timeline_step         0.080ms  0.05M  0.1% x1 80.31us
-  canvas_clear             0.098ms  0.06M  0.2% x1 97.53us
-  canvas_buffer_wait      13.980ms  8.39M 22.4% x1 13980.47us
+frame                     62.526ms 37.52M 100.0%
+  pov_preserve_half        0.136ms  0.08M  0.2% x0.969 139.90us
+  fx_shader_draw          45.516ms 27.31M 72.8% x1 45516.41us
+    fx_prepare_column      1.771ms  1.06M  2.8% x144 12.30us
+  fx_prepare_frame         0.635ms  0.38M  1.0% x1 635.09us
+  fx_advance               1.135ms  0.68M  1.8% x1 1134.66us
+    palette_cycle_step     1.034ms  0.62M  1.7% x1 1034.50us
+  fx_timeline_step         0.101ms  0.06M  0.2% x1 101.19us
+  canvas_clear             0.093ms  0.06M  0.1% x1 93.22us
+  canvas_buffer_wait      14.517ms  8.71M 23.2% x1 14517.34us
 ```
 
-Wall min/avg/max=43.357/62.540/81.618 ms; mean render=48.560 ms; exact peak render=81.618 ms.
+Wall min/avg/max=42.431/62.525/82.101 ms; mean render=48.008 ms; exact peak render=82.100 ms.
 
 ### Ongoing peak window (frames 1601–1632)
 
 ```text
-frame                     62.457ms 37.47M 100.0%
-  pov_preserve_half        0.137ms  0.08M  0.2% x1 136.81us
-  fx_shader_draw          52.424ms 31.45M 83.9% x1 52424.28us
-    fx_prepare_column      2.239ms  1.34M  3.6% x144 15.55us
-  fx_prepare_frame         0.863ms  0.52M  1.4% x1 863.44us
-  fx_advance               0.970ms  0.58M  1.6% x1 969.66us
-    palette_cycle_step     0.941ms  0.56M  1.5% x1 941.47us
-  fx_timeline_step         0.083ms  0.05M  0.1% x1 83.34us
-  canvas_clear             0.095ms  0.06M  0.2% x1 94.66us
-  canvas_buffer_wait       7.524ms  4.51M 12.0% x1 7523.91us
+frame                     62.454ms 37.47M 100.0%
+  pov_preserve_half        0.136ms  0.08M  0.2% x1 136.34us
+  fx_shader_draw          51.764ms 31.06M 82.9% x1 51763.91us
+    fx_prepare_column      1.797ms  1.08M  2.9% x144 12.48us
+  fx_prepare_frame         0.861ms  0.52M  1.4% x1 861.31us
+  fx_advance               1.066ms  0.64M  1.7% x1 1065.66us
+    palette_cycle_step     1.031ms  0.62M  1.7% x1 1031.34us
+  fx_timeline_step         0.099ms  0.06M  0.2% x1 99.19us
+  canvas_clear             0.089ms  0.05M  0.1% x1 88.69us
+  canvas_buffer_wait       8.055ms  4.83M 12.9% x1 8055.38us
 ```
 
-Wall min/avg/max=58.493/62.457/66.422 ms; mean render=54.934 ms; exact peak render=56.720 ms.
+Wall min/avg/max=58.611/62.453/66.349 ms; mean render=54.399 ms; exact peak render=56.200 ms.
 
 ### Highest mean shader cost (frames 1953–1984)
 
 ```text
-frame                     62.386ms 37.43M 100.0%
-  pov_preserve_half        0.137ms  0.08M  0.2% x1 137.09us
-  fx_shader_draw          52.914ms 31.75M 84.8% x1 52914.00us
-    fx_prepare_column      2.253ms  1.35M  3.6% x144 15.65us
-  fx_prepare_frame         0.846ms  0.51M  1.4% x1 846.09us
-  fx_advance               0.953ms  0.57M  1.5% x1 952.69us
-    palette_cycle_step     0.923ms  0.55M  1.5% x1 922.53us
-  fx_timeline_step         0.084ms  0.05M  0.1% x1 84.03us
-  canvas_clear             0.094ms  0.06M  0.2% x1 93.72us
-  canvas_buffer_wait       6.997ms  4.20M 11.2% x1 6996.97us
+frame                     62.390ms 37.43M 100.0%
+  pov_preserve_half        0.136ms  0.08M  0.2% x1 136.19us
+  fx_shader_draw          52.295ms 31.38M 83.8% x1 52294.56us
+    fx_prepare_column      1.803ms  1.08M  2.9% x144 12.52us
+  fx_prepare_frame         0.845ms  0.51M  1.4% x1 845.44us
+  fx_advance               0.933ms  0.56M  1.5% x1 932.69us
+    palette_cycle_step     0.899ms  0.54M  1.4% x1 899.06us
+  fx_timeline_step         0.097ms  0.06M  0.2% x1 97.31us
+  canvas_clear             0.090ms  0.05M  0.1% x1 89.59us
+  canvas_buffer_wait       7.601ms  4.56M 12.2% x1 7601.16us
 ```
 
-Wall min/avg/max=61.154/62.386/63.739 ms; mean render=55.389 ms; exact peak render=56.165 ms.
+Wall min/avg/max=61.085/62.390/63.707 ms; mean render=54.789 ms; exact peak render=55.524 ms.
 
 ### Lowest mean shader cost (frames 737–768)
 
 ```text
-frame                     62.355ms 37.41M 100.0%
-  pov_preserve_half        0.138ms  0.08M  0.2% x1 138.41us
-  fx_shader_draw          42.030ms 25.22M 67.4% x1 42030.34us
-    fx_prepare_column      2.198ms  1.32M  3.5% x144 15.26us
-  fx_prepare_frame         0.596ms  0.36M  1.0% x1 596.25us
-  fx_advance               0.953ms  0.57M  1.5% x1 952.84us
-    palette_cycle_step     0.924ms  0.55M  1.5% x1 923.97us
-  fx_timeline_step         0.088ms  0.05M  0.1% x1 87.56us
-  canvas_clear             0.094ms  0.06M  0.2% x1 93.78us
-  canvas_buffer_wait      18.101ms 10.86M 29.0% x1 18101.41us
+frame                     62.330ms 37.40M 100.0%
+  pov_preserve_half        0.139ms  0.08M  0.2% x1 139.44us
+  fx_shader_draw          41.352ms 24.81M 66.3% x1 41352.19us
+    fx_prepare_column      1.779ms  1.07M  2.9% x144 12.36us
+  fx_prepare_frame         0.604ms  0.36M  1.0% x1 603.84us
+  fx_advance               0.975ms  0.59M  1.6% x1 975.06us
+    palette_cycle_step     0.945ms  0.57M  1.5% x1 944.56us
+  fx_timeline_step         0.111ms  0.07M  0.2% x1 110.69us
+  canvas_clear             0.088ms  0.05M  0.1% x1 88.22us
+  canvas_buffer_wait      18.687ms 11.21M 30.0% x1 18687.03us
 ```
 
-Wall min/avg/max=59.143/62.354/65.332 ms; mean render=44.253 ms; exact peak render=46.768 ms.
+Wall min/avg/max=59.096/62.329/65.426 ms; mean render=43.643 ms; exact peak render=46.238 ms.
 
 ### Per-pixel figures
 
@@ -145,42 +145,42 @@ Direct pixel shading has no `filter_blend` subtree. These inclusive shader figur
 
 |Window|Actual pixels/window|Cycles/pixel|µs/pixel|
 |---|---:|---:|---:|
-|1–32|351,422|2526.7|4.211|
-|1601–1632|341,056|2951.3|4.919|
-|1953–1984|341,056|2978.8|4.965|
-|737–768|341,056|2366.1|3.944|
+|1–32|351,422|2486.8|4.145|
+|1601–1632|341,056|2914.1|4.857|
+|1953–1984|341,056|2944.0|4.907|
+|737–768|341,056|2328.0|3.880|
 
 ## Column-ISR / DMA marshaling cost
 
-Frames 1601–1632, ISR interval 2,001,777 µs.
+Frames 1601–1632, ISR interval 2,001,717 µs.
 
 |Scope|Calls/frame|Calls/s|Min/avg/max µs|CPU share|
 |---|---:|---:|---:|---:|
-|`isr_wake`|1153.09|18433.1|0.473/2.013/28.981|3.71%|
-|`isr_pack`|144.12|2304.0|8.755/9.503/12.821|2.18%|
-|`isr_dma_submit`|144.12|2304.0|0.715/0.930/1.035|0.21%|
+|`isr_wake`|1153.06|18433.2|0.488/2.041/30.855|3.76%|
+|`isr_pack`|144.12|2304.0|8.755/9.501/12.301|2.18%|
+|`isr_dma_submit`|144.12|2304.0|0.770/0.933/9.050|0.21%|
 
-Inclusive wake corresponds to 2.321 ms per 62.5 ms display window.
+Inclusive wake corresponds to 2.353 ms per 62.5 ms display window.
 
-Frames 1953–1984, ISR interval 1,999,729 µs.
+Frames 1953–1984, ISR interval 1,999,831 µs.
 
 |Scope|Calls/frame|Calls/s|Min/avg/max µs|CPU share|
 |---|---:|---:|---:|---:|
-|`isr_wake`|1151.94|18433.5|0.473/2.008/24.801|3.70%|
-|`isr_pack`|144.00|2304.3|8.670/9.455/12.638|2.17%|
-|`isr_dma_submit`|144.00|2304.3|0.578/0.930/1.060|0.21%|
+|`isr_wake`|1151.97|18433.1|0.488/2.033/28.568|3.74%|
+|`isr_pack`|143.97|2303.7|8.665/9.453/12.800|2.17%|
+|`isr_dma_submit`|143.97|2303.7|0.648/0.928/1.075|0.21%|
 
-Inclusive wake corresponds to 2.315 ms per 62.5 ms display window.
+Inclusive wake corresponds to 2.344 ms per 62.5 ms display window.
 
 Wake includes nested pack and submit: never add their shares. Rates use the ISR interval, not the frame wall sum. Submit is CPU setup; async wire transfer, DMA-completion and other interrupts are not measured here. Render already includes interruptions.
 
 ## Summary ranking
 
-- `fx_shader_draw`: 48.084 ms/frame, 77.05% of root.
-- `fx_prepare_column`: 2.224 ms/frame, 3.56% of root.
-- `fx_prepare_frame`: 0.740 ms/frame, 1.19% of root.
-- `fx_advance`: 0.949 ms/frame, 1.52% of root.
-- `canvas_buffer_wait`: 11.964 ms/frame, 19.17% of root.
+- `fx_shader_draw`: 47.411 ms/frame, 75.98% of root.
+- `fx_prepare_column`: 1.788 ms/frame, 2.87% of root.
+- `fx_prepare_frame`: 0.741 ms/frame, 1.19% of root.
+- `fx_advance`: 0.973 ms/frame, 1.56% of root.
+- `canvas_buffer_wait`: 12.566 ms/frame, 20.14% of root.
 
 ### Shared kernel and arena preparation
 
@@ -220,8 +220,76 @@ Actual final ARM code skips wave construction, center/hash evaluation and sync
 on the successful table preparation path. One 584 B clear and two 584 B tuple
 copies remain; their removal is an unlanded experiment and is not part of this
 report's performance claim. The complete accepted arena configuration measures
-56.720 ms ongoing peak. Individual source changes are not assigned isolated
+56.200 ms ongoing peak after the size cleanup. Individual source changes are not assigned isolated
 timing gains from the separate-binary captures.
+
+### ITCM audit and recovery
+
+The historical audit rebuilds clean pre-promotion source `9183a1438` with the
+same GCC 15.2.1 shipping flags, linker script and build hooks, and compares 16
+retained image milestones. Actual ITCM means the ELF `.text.itcm` section.
+The stock size tool adds an 8 B FLASH unwind table to its reported RAM1 code;
+that reported number is not the actual instruction-section size.
+
+| Configuration | Actual ITCM B | Actual headroom B | Observed ongoing peak |
+|---|---:|---:|---|
+| Before Millefiori promotion, `9183a1438` | 183,808 | 12,800 | Not in playlist |
+| First promoted configuration, `5e5f76362` | 184,288 | 12,320 | 116.378 ms, frames 2-352 |
+| Arena target before size cleanup, `d3bfdbc02` | 196,592 | 16 | 56.720 ms, frames 2-2048 |
+| Smaller configuration, `86497f3b0` | **192,624** | **3,984** | **56.200 ms**, frames 2-2048 |
+
+The earliest timing used a promotion patch later committed as `5e5f76362`.
+Capture coverage and clock sampling differ across the historical study; these
+are milestone observations, not isolated timing gains attributable to each
+commit. Current acceptance uses the clean, interrupt-matched final capture.
+
+Before cleanup, the full pre-Millefiori-to-target regression was 12,784 B of
+actual ITCM. The cleanup recovers 3,968 B; the remaining increase is 8,816 B
+(4.8%). All configurations reserve six 32 KiB ITCM banks. RAM1 globals remain
+312,736 B and linker free local space remains 14,944 B; this audit concerns
+instruction headroom inside the existing bank allocation. Total FLASH falls
+from 1,894,400 to 1,796,096 B, a separate 96 KiB reduction.
+
+The largest retained code-growth buckets before cleanup were ripple helpers
+(4,000 B), the Millefiori pixel shader (2,776 B), paired palette preparation
+(2,290 B) and deferred finishing (1,354 B). The palette bucket contained eleven
+identical 126 B endpoint lambdas. One typed non-template endpoint helper now
+shares that work. Its compact GCC body remains in ITCM; Clang can inline it.
+Nineteen effects remain bit-exact over 600-frame comparisons, and the cached
+Millefiori path is unchanged by this deduplication.
+
+Only the exact sequential and grouped ripple wrappers move to hot FLASH. Their
+math, guards and O3 settings are unchanged; the radial-table success kernel
+stays in ITCM. The native replay counted 308,781 grouped evaluations out of
+21,827,584 pixel evaluations (1.4146%), including 299,008 canonical endpoint
+evaluations. It counted 6,285 nested sequential fallbacks (0.0288% of all
+evaluations). These counts do not describe every control setting.
+
+### Table-disabled control comparison
+
+Two separate clean diagnostic branches change only the initial ripple period
+to 30, which disables radial tables. They preserve the same controls and
+rendering math, and compare grouped code in ITCM versus FLASH. Both captures
+use 70 s, 32-frame windows, the same board and the supported locked uploader.
+They are control experiments, not the default target capture.
+
+| Period 30, frames 2-1088 | Grouped in ITCM | Grouped in FLASH |
+|---|---:|---:|
+| Ongoing peak at frame 914 | 55.989 ms | 56.733 ms |
+| Ongoing mean | 47.896 ms | 48.333 ms |
+| Ongoing spills | 0/1087 | 0/1087 |
+
+The observed FLASH cost is 0.744 ms at this control's peak and 0.437 ms on its
+mean. Both remain below 58 ms over the sampled prefix. Source revisions are
+`80edc16cf6b8ecafeb27be124c3beb0eb403bb39` and
+`fd3a37d89b2b299ac1208db45dea8a66bd9ab8b9`; the source, retained ELF and capture
+hashes pass integrity checks. Other table-disabled parameter combinations and
+future effects are not claimed to have the same cost.
+
+The full historical sizes, symbol buckets and counter details are retained in
+`C:/work/temp/ripple-ci-firmware-study-20261030/millefiori-full-itcm-history.json`
+and the period-30 comparison in
+`C:/work/temp/ripple-unify-study-20261030/period30-comparison.json`.
 
 ### Controlled captures and storage experiments
 
@@ -236,6 +304,7 @@ Arena-backed frame storage and the stack both reside in DTCM on Teensy 4.0. A co
 |millefiori-arena-3f1272108|`3f12721084`|paired|60.123|1621|113|0/2047|
 |millefiori-center-129ee42da|`129ee42da8`|paired|58.135|1623|4|0/2047|
 |millefiori-arena-lazy-d3bfdbc02|`d3bfdbc02c`|paired|56.720|1627|0|0/2047|
+|millefiori-size-86497f3b0|`86497f3b02`|paired|56.200|1623|0|0/2047|
 
 Older independent-clock captures remain historical evidence. Current acceptance and controlled comparisons use interrupt-matched wall/cycle samples. Timing from different clock methods is not presented as a clean algorithmic delta.
 
@@ -284,20 +353,26 @@ unchanged.
 
 User approved the radial-table appearance. The renderer retains deferred temporal color composition and one finish per final pixel.
 
-- Native `composed_effect`: 358,777 passed, 0 failed.
+- Native `composed_effect`: 358,803 passed, 0 failed.
 - Native `pullback`: 1,363,013 passed, 0 failed.
 - Native `shader_chain`: 5,173,555 passed, 0 failed.
 - Native `profiling`: 483 passed, 0 failed.
 - Native `transformers`: 2,329 passed, 0 failed.
 - Native `effects`: 24,584,729 passed, 0 failed.
+- Native `kaleidoscope_melt`: 96 passed, 0 failed.
 - Render goldens: 175 passed, 0 failed.
-- Cold Phantasm and Holosphere builds: all ten first-party translation units compiled; zero first-party warnings; size and layout gates passed.
-- Local validation covers the six relevant suites and rendering goldens; the full matrix runs in remote CI.
+- Cold Holosphere, Phantasm and eight-board builds: all fifteen first-party translation units compiled; zero first-party warnings; all applicable size/layout checks passed.
+- Static CTest: 10 passed, 0 failed.
+- Local validation covers seven relevant native suites, ten death/static checks and rendering goldens; the full matrix runs in remote CI.
 - WASM smoke: 120 frames; 0 failures.
 - WASM Millefiori 96×20 flat measured stack 1236/8192 B, init 1088 B; verified against the rebuilt module. Existing 2,048 B creep gate remains unchanged.
 - WASM Millefiori 96×20 temporal measured stack 1252/8192 B, init 1088 B; verified against the rebuilt module. Existing 2,048 B creep gate remains unchanged.
 - WASM Millefiori 288×144 flat measured stack 1236/8192 B, init 1088 B; verified against the rebuilt module. Existing 2,048 B creep gate remains unchanged.
 - WASM Millefiori 288×144 temporal measured stack 1252/8192 B, init 1088 B; verified against the rebuilt module. Existing 2,048 B creep gate remains unchanged.
+
+Final source `decb445af3b73f78ddf047b7244b1e2be2e59f6e` includes a GCC-equivalent placement-macro follow-up that restores Clang inlining. The validation record explicitly covers captured source `86497f3b0`; fresh final-module stack and smoke results are reported above.
+
+GridSpace's separate CI repair selects canonical coordinate evaluation to preserve its existing 16-code color bound at a gamut-mapping discontinuity. It saves 192 B of ITCM and measured 13.88% slower in a host replay; this is not a device timing measurement. Millefiori's factored path remains enabled.
 
 ## Caveats
 
@@ -307,7 +382,7 @@ User approved the radial-table appearance. The renderer retains deferred tempora
 - This shipping selective-O3 configuration is not an all-O3 image. No per-pixel scopes were added.
 - `HS_PROFILE_EPOCH_REVS=1200` extends the playlist lifetime; it does not reduce per-frame work.
 - Color fidelity to the old framebuffer was relaxed; ripple geometry/motion was qualified and the user approved the look.
-- Assertion reachability and promoted document bindings pass their checks. The typed document API is exercised by headless smoke; the Daydream compiled-apply consumer is unchanged.
+- Assertion reachability, document bindings, enum-guard death coverage and stateless fixture layout pass their checks. The typed document API is exercised by headless smoke; the Daydream compiled-apply consumer is unchanged.
 
 ## Harness
 
