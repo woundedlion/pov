@@ -125,7 +125,7 @@ sequential_ripples(const math::Vector &input, const PreparedRipples &prepared,
  * @param prepared Prepared wave kernels in launch order.
  * @param track_path Whether to accumulate angular travel.
  * @return Displaced direction and travel. */
-HS_HOT_ITCM_MEMBER inline SurfaceResult
+HS_HOT_FLASH_MEMBER inline SurfaceResult
 grouped_ripples(const math::Vector &input, const PreparedRipples &prepared,
                 bool track_path) {
   return RippleKernel::grouped<SurfaceResult>(
