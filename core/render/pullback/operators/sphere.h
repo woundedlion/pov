@@ -353,6 +353,7 @@ struct LensTwist : ValueStateModel<TwistOrbitState> {
   /** @brief Per-frame twist orientation. */
   struct Prepared {
     math::Vector axis{0.0f, 1.0f, 0.0f}; /**< Unit twist axis. */
+    /// Prepared twist rate and axial distribution.
     lenses::TwistProfile profile = lenses::prepare_twist_profile();
   };
 
