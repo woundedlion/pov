@@ -73,7 +73,7 @@ A promoted document is also applied to its compiled effect by control name, one
 writable parameter at a time, so every writable parameter id must resolve to a
 control that effect registers. Chain labels are the vocabulary that resolution runs on — `camera`,
 `lens`, `surface`, `project`, `warp1`/`warp2`, `sample`, `transfer`, `cutout`,
-`colorize`. Generated and hand-authored documents use the same labels. `scripts/wasm_smoke.mjs` resolves writable promoted ids against
+`colorize` and `modulation`. Generated documents use these labels; hand-authored documents may use different labels, which the workbench resolves by operator. `scripts/wasm_smoke.mjs` resolves writable promoted ids against
 the running module's registered controls. Fixed topology fields and
 `camera.spin-speed`, which `AshCloud` holds as a compile-time constant, are exempt.
 Derived values are also exempt when the compiled controls used to derive them
@@ -112,6 +112,7 @@ Every document except `example.shader.json` backs a
 | --- | --- |
 | `alien_ocean` | `AlienOcean` |
 | `grid_space` | `GridSpace` |
+| `millefiori` | `Millefiori` |
 | `cosmic_eyeball` | `CosmicEyeball` |
 | `ash_cloud` | `AshCloud` |
 | `kaleidoscope_melt` | `KaleidoscopeMelt` |
