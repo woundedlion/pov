@@ -1090,7 +1090,7 @@ inline LinRGB oklab_to_linear_rgb_lut_gamut(OKLab lab) {
  */
 inline void hue_sincos(float turns, float &cosine, float &sine) {
   const float x = 2.0f * (turns - floorf(turns + 0.5f));
-  const auto sine_turn = [](float value) {
+  const auto sine_turn = [](float value) HS_HOT_INLINE {
     const float parabolic = 4.0f * value * (1.0f - fabsf(value));
     return parabolic * (0.775f + 0.225f * fabsf(parabolic));
   };
