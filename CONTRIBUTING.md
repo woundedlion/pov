@@ -222,6 +222,36 @@ Outside the replay rule in [Landing model](#landing-model), `--no-verify` is
 the explicit emergency escape from the local prefilter. It does not bypass
 protected-branch CI.
 
+## On-device uploads
+
+Use `tools/profile_one.sh` for build, upload and capture under the shared
+device lock. Its default uploader uses the verified headless TyTools release
+when installed. Install the pinned Windows executable once with:
+
+```sh
+python tools/setup_teensy_uploader.py
+```
+
+The installer verifies the release archive and executable hashes, retains
+the release license and records provenance under the user's .holosphere/tools
+directory. Uploads verify the executable again; they do not download tools.
+The version, official release URL and hashes are declared in
+`tools/teensy_upload.py`.
+
+Set `HS_TYCMD` to a native Windows executable path to select another copy of
+the pinned tool. `HS_UPLOAD_BACKEND=headless` requires headless upload;
+`HS_UPLOAD_BACKEND=vendor` explicitly selects the PlatformIO vendor uploader.
+Without an installed headless tool the default remains the vendor uploader.
+A selected tool's checksum, version or upload failure is reported without
+silently switching uploaders.
+
+The headless path resolves the lock's exact COM interface to one Teensy 4.0
+serial number and USB location, then pins both identities through reboot and
+upload. Missing or ambiguous matches fail. The claim token is checked again
+before upload, tool calls have timeouts, RTC is preserved, and the selected
+board and firmware hashes are printed with the tool provenance. The helper's
+`--resolve` mode only verifies the tool; uploading requires the held claim.
+
 ## Reporting a vulnerability
 
 Report privately through GitHub's security advisories for this repository

@@ -1740,7 +1740,9 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── docs_sync.py          Refreshes repository maps and source-derived documentation counts
 │   ├── engine_source_state.py Reports tracked edits and untracked non-ignored files
 │   ├── fw_cache.sh           Built-image cache shared by worktrees, keyed by tree, environment, flags and toolchain
-│   ├── teensy_flash.sh       Uploads firmware to the USB location of the locked board
+│   ├── teensy_flash.sh       Selects headless or vendor upload under the held board claim
+│   ├── teensy_upload.py      Verifies the pinned headless tool and selects the claimed serial/USB identity
+│   ├── setup_teensy_uploader.py  Installs the hash-pinned Windows uploader and release provenance
 │   └── upload_one.sh         Builds and flashes one image under the per-board lock
 ├── docs/                       subsystems.md (engine subsystem reference) and effects.md (per-effect reference) — plus phantasm_circuit.svg, the design specs (indexed in docs/specs/README.md), the device/host divergence ledger (docs/ledgers/), on-device profiles (docs/profiles/), the docs/screenshots/ gallery, and Doxygen theme inputs (doxygen-theme.cfg and doxygen-custom.css)
 ├── Doxyfile                    Doxygen config for the published API reference

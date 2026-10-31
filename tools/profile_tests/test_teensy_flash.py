@@ -29,7 +29,8 @@ class TeensyFlashTests(unittest.TestCase):
                 script.write_text("#!/bin/bash\n" + body + "\n", encoding="utf-8", newline="\n")
                 script.chmod(0o755)
             env = {key: value for key, value in os.environ.items()
-                   if not key.startswith(("HS_DEVICE_", "HS_TEENSY_"))}
+                   if not key.startswith(("HS_DEVICE_", "HS_TEENSY_", "HS_TYCMD", "HS_UPLOAD_"))}
+            env["HS_UPLOAD_BACKEND"] = "vendor"
             env.update(HS_TEENSY_TOOLS=root.as_posix(), HS_TEENSY_PORT=port or "", **lock_env)
             if port is None:
                 env.pop("HS_TEENSY_PORT", None)
