@@ -1436,7 +1436,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── ray.h                   Spherical ray rendering umbrella
 │   │   ├── ray/                    Ray contracts, camera embeddings, query adapters, shared marching, ordered event tracing and depth/layer shading
 │   │   ├── render_policy.h         Shape ratios and pole shading policy
-│   │   ├── spacetime.h             Frame motion, sampling surface, poses and fields; retained plotted capture helpers
+│   │   ├── spacetime.h             Space-time umbrella (surface, worldlines, poses, fields); TemporalRotation, the Timed tag and geometry-callback work counters
 │   │   ├── spacetime/              Space-time geometry and surface-time shading
 │   │   │   ├── surface.h               SamplingSurface, flat-surface selection and simulation time slabs
 │   │   │   ├── motion.h                PathBound, Interpolant and Worldline
