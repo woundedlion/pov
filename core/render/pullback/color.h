@@ -464,6 +464,37 @@ inline ColorSample apply_modulation(const ColorSample &input,
   return output;
 }
 
+/// Linear-RGB distance from a gamut gate requiring the canonical palette base.
+inline constexpr float PALETTE_LAB_GAMUT_GUARD_WIDTH = 0.001f;
+
+/** @brief Restores a cached base whose raw RGB can cross the gamut gate.
+ * @tparam Restore Canonical base callback.
+ * @param sample Deferred color carrier, updated on fallback.
+ * @param restore Replaces the carrier's RGB base and hue-table identity.
+ * @return Whether the canonical callback ran. */
+template <typename Restore>
+HS_HOT_INLINE inline bool
+restore_cached_palette_base_near_gamut_gate(ColorSample &sample,
+                                            Restore &&restore) {
+  if (!sample.has_cached_lab || sample.brightness_gain == 0.0f)
+    return false;
+  auto lab = sample.cached_lab;
+  lab.L += (1.0f - lab.L) * sample.pending_lift;
+  float cosine;
+  float sine;
+  hue_sincos(sample.pending_hue, cosine, sine);
+  const auto RAW = oklab_to_linear_rgb(
+      {lab.L, lab.a * cosine - lab.b * sine, lab.a * sine + lab.b * cosine});
+  const float LEAST = __builtin_fminf(__builtin_fminf(RAW.r, RAW.g), RAW.b);
+  const float MOST = __builtin_fmaxf(__builtin_fmaxf(RAW.r, RAW.g), RAW.b);
+  if (fabsf(LEAST - LINEAR_RGB_GAMUT_MIN) > PALETTE_LAB_GAMUT_GUARD_WIDTH &&
+      fabsf(MOST - LINEAR_RGB_GAMUT_MAX) > PALETTE_LAB_GAMUT_GUARD_WIDTH)
+    return false;
+  restore();
+  sample.has_cached_lab = false;
+  return true;
+}
+
 /// Qualified hue-rotation and noise-LUT modulation bounds.
 inline constexpr std::array<ApproximationMetric, 3> MODULATION_LUT_METRICS{{
     {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MAXIMUM,
@@ -510,6 +541,12 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
       requires(const typename State::Binding::FrameState &frame) {
         State::palette_lab_lut(frame);
       }; ///< Whether an RGB-first base cache is available.
+  static constexpr bool FUSED_TEMPORAL_COLOR = [] {
+    if constexpr (requires { State::FUSED_TEMPORAL_COLOR; })
+      return State::FUSED_TEMPORAL_COLOR;
+    else
+      return false;
+  }(); ///< Whether the effect admits one-carrier endpoint color blending.
   static constexpr bool APPROXIMATE =
       LAB_CACHE; ///< Optional base approximation.
   static constexpr ApproximationOracleId ORACLE =
@@ -692,6 +729,125 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
     output.has_cached_lab = true;
   }
 
+  /** @brief Blends palette and modulation endpoints into one color carrier.
+   * @tparam FrameState Frame context.
+   * @param sample Shared field coordinates.
+   * @param frame Frame context.
+   * @param prepared Prepared palette endpoints.
+   * @param modulation Prepared modulation endpoints.
+   * @param fraction Current endpoint weight.
+   * @return Deferred color after canonical endpoint blending. */
+  template <typename FrameState>
+  HS_HOT_ITCM_MEMBER static ColorSample
+  apply_fused_modulation(const FieldSample &sample, const FrameState &frame,
+                         const Prepared &prepared,
+                         const ModulationState &modulation, float fraction)
+    requires(TEMPORAL && FUSED_TEMPORAL_COLOR)
+  {
+    if (fraction <= 0.0f || fraction >= 1.0f) {
+      auto result = apply_endpoint(sample, frame, prepared, fraction <= 0.0f);
+      apply_modulation_in_place(result, modulation, fraction <= 0.0f);
+      return result;
+    }
+    ColorSample result;
+    const bool CACHED = [&] {
+      if constexpr (LAB_CACHE)
+        return apply_shared_base(sample, frame, prepared, result);
+      else
+        return false;
+    }();
+    Color4 previous;
+    Color4 current;
+    const Pixel *previous_table;
+    const Pixel *current_table;
+    if (CACHED) {
+      previous = current = result.color;
+      previous_table = current_table = nullptr;
+    } else {
+      const auto &state = prepared.current;
+      const float VALUE = palette_mapping_coordinate(
+          sample.value, state.mapping, state.mapping_frequency,
+          state.mapping_offset);
+      const float OPACITY =
+          sample.coverage *
+          hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+      previous = prepared.previous.palette->get(VALUE);
+      current = state.palette->get(VALUE);
+      previous.alpha *= OPACITY;
+      current.alpha *= OPACITY;
+      previous_table = prepared.previous.hue_rotation.active
+                           ? prepared.previous.hue_rotation.data
+                           : nullptr;
+      current_table =
+          state.hue_rotation.active ? state.hue_rotation.data : nullptr;
+      result.field = sample;
+      result.hue_rotation = current_table;
+      result.palette_coordinate = VALUE;
+      result.brightness_gain = brightness_envelope_gain(
+          sample.value, state.brightness_envelope, state.brightness_bottom,
+          state.brightness_top);
+    }
+    float previous_hue = 0.0f;
+    float current_hue = 0.0f;
+    float previous_lift = 0.0f;
+    float current_lift = 0.0f;
+    if (modulation.enabled && modulation.mechanic.amount != 0.0f) {
+      const auto SCALARS = [&] {
+        if (modulation.source == Pattern::SourceKind::DISPLACEMENT)
+          return std::pair{sample.path_length, sample.path_length};
+        assert(modulation.previous && modulation.current);
+        return Modulation::sample_pair(
+            *modulation.previous, *modulation.current,
+            Pattern::SphereDirection::admit(sample.sphere));
+      }();
+      const auto apply = [&](Color4 &color, float &hue, float &lift,
+                             float scalar) {
+        if (modulation.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)
+          hue = math::wrap_t(hue +
+                             math::wrap_t(modulation.mechanic.amount * scalar));
+        else if (modulation.mechanic.kind ==
+                 ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT) {
+          const float AMOUNT =
+              modulation.mechanic.amount * hs::clamp(scalar, 0.0f, 1.0f);
+          lift += (1.0f - lift) * AMOUNT;
+        } else
+          color = ColorModulation::apply(color, scalar, modulation.mechanic);
+      };
+      apply(previous, previous_hue, previous_lift, SCALARS.first);
+      apply(current, current_hue, current_lift, SCALARS.second);
+    }
+    const bool SAME_BASE =
+        previous.color == current.color && previous_table == current_table;
+    result.color =
+        Color4(previous.color.lerp16(current.color, frac_to_q16(fraction)),
+               hs::lerp(previous.alpha, current.alpha, fraction));
+    result.pending_hue = previous_hue == current_hue
+                             ? previous_hue
+                             : interp::shortest_periodic(
+                                   previous_hue, current_hue, fraction, 1.0f);
+    result.pending_lift = hs::lerp(previous_lift, current_lift, fraction);
+    result.brightness_gain =
+        hs::lerp(result.brightness_gain, result.brightness_gain, fraction);
+    if (!SAME_BASE)
+      result.hue_rotation = nullptr;
+    if (CACHED)
+      restore_cached_palette_base_near_gamut_gate(result, [&] {
+        const Pixel A =
+            prepared.previous.palette->get_color(result.palette_coordinate);
+        const Pixel B =
+            prepared.current.palette->get_color(result.palette_coordinate);
+        const Pixel *const A_TABLE = prepared.previous.hue_rotation.active
+                                         ? prepared.previous.hue_rotation.data
+                                         : nullptr;
+        const Pixel *const B_TABLE = prepared.current.hue_rotation.active
+                                         ? prepared.current.hue_rotation.data
+                                         : nullptr;
+        result.color.color = A.lerp16(B, frac_to_q16(fraction));
+        result.hue_rotation = A == B && A_TABLE == B_TABLE ? B_TABLE : nullptr;
+      });
+    return result;
+  }
+
   /** @brief Produces the current color endpoint.
    * @tparam FrameState Frame context.
    * @param sample Field coordinates.
@@ -721,6 +877,8 @@ template <typename State> struct Modulate : ApproximationDefaults {
   /// Additional internal approximation qualified separately from the LUT metrics.
   static constexpr bool PHASE_NOISE_APPROXIMATION =
       std::is_same_v<Prepared, ChamberPhaseModulationState>;
+  static constexpr bool FUSED_ENDPOINTS =
+      std::same_as<Prepared, ModulationState>; ///< Canonical endpoint mode.
   /** @brief Checks the modulation provider contract.
    * @tparam Binding Frame binding. */
   template <typename Binding>

@@ -1624,6 +1624,50 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
     else
       return false;
   }
+
+  /** @brief Checks an exact-owned final palette and modulation crossing.
+   * @tparam Index Color crossing index.
+   * @tparam Input Carrier entering the color crossing.
+   * @return Whether one color carrier can represent both endpoints. */
+  template <size_t Index, typename Input>
+  static constexpr bool fused_color_tail_supported() {
+    if constexpr (Index + 2 != NODE_COUNT)
+      return false;
+    else if constexpr (requires {
+                         typename NodeAt<Index>::Descriptor::FusedStageOwner;
+                         typename NodeAt<Index +
+                                         1>::Descriptor::FusedStageOwner;
+                         typename NodeAt<Index>::Descriptor::ColorPolicy;
+                         typename NodeAt<Index + 1>::Descriptor::ColorPolicy;
+                       }) {
+      using ColorStage = typename NodeAt<Index>::Descriptor;
+      using ModulationStage = typename NodeAt<Index + 1>::Descriptor;
+      using Palette = typename ColorStage::ColorPolicy;
+      using Modulation = typename ModulationStage::ColorPolicy;
+      if constexpr (requires {
+                      typename Palette::SharedBaseOwner;
+                      Palette::FUSED_TEMPORAL_COLOR;
+                      typename Modulation::PairedOwner;
+                      Modulation::FUSED_ENDPOINTS;
+                    })
+      return Palette::FUSED_TEMPORAL_COLOR &&
+             std::same_as<ColorStage, typename ColorStage::FusedStageOwner> &&
+             std::same_as<ModulationStage,
+                          typename ModulationStage::FusedStageOwner> &&
+             std::same_as<Palette, typename Palette::SharedBaseOwner> &&
+             std::same_as<Modulation, typename Modulation::PairedOwner> &&
+             Modulation::FUSED_ENDPOINTS &&
+               requires(const Input &input, const FrameState &ctx,
+                        const PreparedTuple &prepared)
+      {
+        Palette::apply_fused_modulation(input, ctx, std::get<Index>(prepared),
+                                        std::get<Index + 1>(prepared),
+                                        ctx.temporal.fraction);
+      };
+      else return false;
+    } else
+      return false;
+  }
   /** @brief Checks the complete color tail's prepared eligibility.
    * @tparam Index First remaining stage.
    * @param prepared Prepared stages.
@@ -1698,6 +1742,16 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                       }) {
           if (FRACTION <= 0.0f)
             return finish(endpoint(true), true);
+          if constexpr (fused_color_tail_supported<Index, Input>()) {
+            using Palette = typename CurrentNode::Descriptor::ColorPolicy;
+            using Instrumentation = typename Binding::Instrumentation;
+            const auto START = Instrumentation::mark();
+            auto result = Palette::apply_fused_modulation(
+                input, ctx, std::get<Index>(prepared),
+                std::get<Index + 1>(prepared), FRACTION);
+            Instrumentation::template span<ProfileEvent::COLOR>(START);
+            return result;
+          }
           if constexpr (requires { CurrentNode::PHASE_BLEND_BASE; }) {
             if constexpr (CurrentNode::PHASE_BLEND_BASE &&
                           Index + 1 < NODE_COUNT &&

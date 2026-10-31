@@ -923,6 +923,7 @@ struct ApplyCoverage
  */
 template <typename ColorPolicyT>
 struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, ColorSample> {
+  using FusedStageOwner = Colorize; ///< Stage admitting fused color endpoints.
   using Policies = std::tuple<ColorPolicyT>; ///< Policies the stage binds.
   using ColorPolicy = ColorPolicyT;          ///< The color policy.
   static constexpr bool PHASE_BLEND_BASE = [] {
@@ -1055,6 +1056,7 @@ struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, ColorSample> {
  * @tparam ColorPolicyT Ordered color operation. */
 template <typename ColorPolicyT>
 struct Modulate : Contract<Modulate<ColorPolicyT>, ColorSample, ColorSample> {
+  using FusedStageOwner = Modulate; ///< Stage admitting fused color endpoints.
   using Policies = std::tuple<ColorPolicyT>; ///< Policies the stage binds.
   using ColorPolicy = ColorPolicyT;          ///< The color policy.
 

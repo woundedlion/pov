@@ -198,6 +198,11 @@ HS_O3_FN inline LinRGB oklab_to_linear_rgb(OKLab lab) {
   return rgb;
 }
 
+/// Lowest linear channel admitted by the numerical gamut gate.
+inline constexpr float LINEAR_RGB_GAMUT_MIN = -1e-4f;
+/// Highest linear channel admitted by the numerical gamut gate.
+inline constexpr float LINEAR_RGB_GAMUT_MAX = 1.0f + 1e-4f;
+
 /**
  * @brief Tests whether a linear-RGB triple lies inside the [0,1] display cube.
  * @param r Finite linear red.
@@ -206,10 +211,9 @@ HS_O3_FN inline LinRGB oklab_to_linear_rgb(OKLab lab) {
  * @return True if every channel is within [0,1] (with a small epsilon slack).
  */
 HS_O3_FN inline bool linear_rgb_in_gamut(float r, float g, float b) {
-  constexpr float GATE_LO = -1e-4f, GATE_HI = 1.0f + 1e-4f;
   const float least = __builtin_fminf(__builtin_fminf(r, g), b);
   const float most = __builtin_fmaxf(__builtin_fmaxf(r, g), b);
-  return least >= GATE_LO && most <= GATE_HI;
+  return least >= LINEAR_RGB_GAMUT_MIN && most <= LINEAR_RGB_GAMUT_MAX;
 }
 
 // Chroma pulled back off the refined crossing so the caller's re-conversion

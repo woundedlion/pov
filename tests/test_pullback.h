@@ -2671,6 +2671,7 @@ struct PaletteProvider {
   static float opacity_high(const PaletteFrame &) { return 0.6f; }
 };
 struct TemporalPaletteProvider : PaletteProvider {
+  static constexpr bool FUSED_TEMPORAL_COLOR = true;
   static auto temporal_resources(const PaletteFrame &frame) {
     return frame.temporal;
   }
@@ -3640,6 +3641,214 @@ inline void test_pullback_temporal_deferred_in_place() {
   HS_EXPECT_TRUE(b.has_cached_lab);
 }
 
+/** @brief A fused final layer matches the canonical temporal endpoint pipeline. */
+inline void test_pullback_fused_modulation_endpoints() {
+  using namespace Pullback;
+  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> bytes{};
+  Arena arena(bytes.data(), bytes.size());
+  BakedPaletteStorage a, b;
+  a.bake(arena, CoordinatePalette{0.2f});
+  b.bake(arena, ConstantPalette{Color4(Pixel(32000, 44000, 13000), 0.8f)});
+  PaletteFrame frame;
+  frame.palette = &b.view();
+  frame.temporal.palette = &a.view();
+  using Policy = Color::GeneratedPalette<TemporalPaletteProvider>;
+  struct CanonicalPalette : Policy {};
+  using Actual = TemporalPalettePipeline;
+  using Canonical = Pullback::Pipeline<
+      PaletteBinding, PaletteSampleStage, Stage::Colorize<CanonicalPalette>,
+      Stage::Modulate<Color::Modulate<PaletteLayerProvider>>>;
+  using ActualCore =
+      Detail::PipelineCore<true, PaletteBinding, typename Actual::NodeList>;
+  using CanonicalCore =
+      Detail::PipelineCore<true, PaletteBinding, typename Canonical::NodeList>;
+  using Phase =
+      Pullback::Pipeline<PaletteBinding, PaletteSampleStage,
+                         Stage::Colorize<Policy>,
+                         Stage::Modulate<Color::Modulate<PhaseLayerProvider>>>;
+  using PhaseCore =
+      Detail::PipelineCore<true, PaletteBinding, typename Phase::NodeList>;
+  static_assert(
+      ActualCore::template fused_color_tail_supported<1, FieldSample>());
+  static_assert(
+      !CanonicalCore::template fused_color_tail_supported<1, FieldSample>());
+  static_assert(
+      !PhaseCore::template fused_color_tail_supported<1, FieldSample>());
+
+  std::array<int8_t, Pattern::SphereLutView::SIZE> ac, bc;
+  for (size_t i = 0; i < ac.size(); ++i) {
+    ac[i] = int(i * 37 % 255) - 127;
+    bc[i] = int((i * 83 + 41) % 255) - 127;
+  }
+  Modulation::Prepared pa{}, pb{};
+  pa.cube = {ac.data(), true};
+  pb.cube = {bc.data(), true};
+  pa.evaluate = pb.evaluate = Modulation::sample_cube;
+  Color::ModulationState mod{&pb, &pa, Pattern::SourceKind::NOISE, {}, true};
+  frame.modulation = &pb;
+  frame.previous_modulation = &pa;
+  for (auto mapping :
+       {Color::PaletteMapping::LINEAR, Color::PaletteMapping::CUP,
+        Color::PaletteMapping::BELL, Color::PaletteMapping::REVERSE})
+    for (auto mechanic : {ColorModulation::Mechanic::HUE_ROTATION,
+                          ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT,
+                          ColorModulation::Mechanic::OPACITY})
+      for (float amount : {0.0f, 0.3f, 1.0f, 1.5958333f})
+        for (float fraction :
+             {0.0f, 0.000001f, 0.01f, 0.25f, 0.5f, 0.75f, 0.99999f, 1.0f})
+          for (int v = 0; v <= 64; ++v) {
+            if (amount > 1.0f &&
+                mechanic != ColorModulation::Mechanic::HUE_ROTATION)
+              continue;
+            frame.temporal.fraction = fraction;
+            auto prepared = Policy::prepare(frame);
+            prepared.current.mapping =
+                Color::PaletteMappingWeights::single(mapping);
+            prepared.current.mapping_frequency = 2.0f;
+            prepared.current.mapping_offset = 0.13f;
+            prepared.current.brightness_envelope =
+                Color::BrightnessEnvelope::ASCENDING;
+            prepared.current.brightness_bottom = 0.2f;
+            prepared.current.brightness_top = 0.8f;
+            prepared.previous = prepared.current;
+            prepared.previous.palette = &a.view();
+            mod.mechanic = {mechanic, amount};
+            frame.mechanic = mod.mechanic;
+            const FieldSample field{v / 64.0f, 0.45f,
+                                    math::Vector(v / 64.0f, 0.3f, 1.0f), 0.7f};
+            auto pair = Policy::apply_pair(field, frame, prepared);
+            Color::apply_modulation_in_place(pair.first, mod, true);
+            Color::apply_modulation_in_place(pair.second, mod, false);
+            const auto expected =
+                blend_color_samples(pair.first, pair.second, fraction);
+            const auto actual = Policy::apply_fused_modulation(
+                field, frame, prepared, mod, fraction);
+            HS_EXPECT_EQ(actual.color.color, expected.color.color);
+            HS_EXPECT_EQ(actual.color.alpha, expected.color.alpha);
+            HS_EXPECT_EQ(actual.pending_hue, expected.pending_hue);
+            HS_EXPECT_EQ(actual.pending_lift, expected.pending_lift);
+            HS_EXPECT_EQ(actual.brightness_gain, expected.brightness_gain);
+            HS_EXPECT_TRUE(actual.hue_rotation == expected.hue_rotation);
+            const auto x = Color::finish(actual), y = Color::finish(expected);
+            HS_EXPECT_EQ(x.color, y.color);
+            HS_EXPECT_EQ(x.alpha, y.alpha);
+            const auto PIXEL =
+                Actual::shade(field.sphere, Actual::prepare(frame));
+            const auto REFERENCE =
+                Canonical::shade(field.sphere, Canonical::prepare(frame));
+            HS_EXPECT_EQ(PIXEL.color, REFERENCE.color);
+            HS_EXPECT_EQ(PIXEL.alpha, REFERENCE.alpha);
+          }
+}
+
+/** @brief Fused cached bases retain canonical hue, opacity and inactive fallbacks. */
+inline void test_pullback_fused_cached_modulation() {
+  using namespace Pullback;
+  using Policy = Color::GeneratedPalette<LabPaletteProvider>;
+  std::array<uint8_t, 3 * BakedPalette::required_arena_bytes()> buffer{};
+  Arena arena(buffer.data(), buffer.size());
+  BakedPaletteStorage a, b, translucent;
+  a.bake(arena, CoordinatePalette{1.0f});
+  b.bake(arena, ConstantPalette{Color4(Pixel(32000, 44000, 13000), 1.0f)});
+  translucent.bake(arena,
+                   ConstantPalette{Color4(Pixel(32000, 44000, 13000), 0.6f)});
+  PaletteLabLut cache;
+  cache.bake(a.view(), b.view());
+  PaletteFrame frame;
+  frame.palette = &b.view();
+  frame.temporal.palette = &a.view();
+  Color::ModulationState modulation{
+      nullptr,
+      nullptr,
+      Pattern::SourceKind::DISPLACEMENT,
+      {ColorModulation::Mechanic::HUE_ROTATION, 1.5958333f},
+      true};
+  int cache_hits = 0;
+  for (bool active : {false, true})
+    for (float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f})
+      for (float value : {0.0f, 0.13f, 0.5f, 0.99f, 1.0f}) {
+        frame.lab = active ? &cache : nullptr;
+        frame.temporal.fraction = fraction;
+        const auto PREPARED = Policy::prepare(frame);
+        const FieldSample FIELD{value, 0.45f, math::Y_AXIS, 0.37f};
+        auto pair = Policy::apply_pair(FIELD, frame, PREPARED);
+        Color::apply_modulation_in_place(pair.first, modulation, true);
+        Color::apply_modulation_in_place(pair.second, modulation, false);
+        const auto CANONICAL =
+            blend_color_samples(pair.first, pair.second, fraction);
+        const auto ACTUAL = Policy::apply_fused_modulation(
+            FIELD, frame, PREPARED, modulation, fraction);
+        auto expected = CANONICAL;
+        if (ACTUAL.has_cached_lab) {
+          ++cache_hits;
+          HS_EXPECT_TRUE(active && fraction > 0.0f && fraction < 1.0f);
+          HS_EXPECT_TRUE(
+              Policy::apply_shared_base(FIELD, frame, PREPARED, expected));
+          expected.pending_hue = CANONICAL.pending_hue;
+          expected.pending_lift = CANONICAL.pending_lift;
+          expected.color.alpha = CANONICAL.color.alpha;
+          expected.brightness_gain = CANONICAL.brightness_gain;
+        }
+        HS_EXPECT_EQ(ACTUAL.pending_hue, CANONICAL.pending_hue);
+        HS_EXPECT_EQ(ACTUAL.pending_lift, CANONICAL.pending_lift);
+        HS_EXPECT_EQ(ACTUAL.color.alpha, CANONICAL.color.alpha);
+        HS_EXPECT_EQ(ACTUAL.brightness_gain, CANONICAL.brightness_gain);
+        const auto FINISHED = Color::finish(ACTUAL);
+        const auto EXPECTED = Color::finish(expected);
+        HS_EXPECT_EQ(FINISHED.color, EXPECTED.color);
+        HS_EXPECT_EQ(FINISHED.alpha, EXPECTED.alpha);
+      }
+  HS_EXPECT_GT(cache_hits, 0);
+  cache.bake(a.view(), translucent.view());
+  frame.palette = &translucent.view();
+  frame.lab = &cache;
+  frame.temporal.fraction = 0.5f;
+  const auto PREPARED = Policy::prepare(frame);
+  const auto FALLBACK = Policy::apply_fused_modulation(
+      FieldSample{0.5f, 0.45f, math::Y_AXIS, 0.37f}, frame, PREPARED,
+      modulation, 0.5f);
+  HS_EXPECT_FALSE(FALLBACK.has_cached_lab);
+}
+
+/** @brief Gamut-gate crossings restore RGB-first color without normal cache fetches. */
+inline void test_pullback_cached_gamut_gate_fallback() {
+  using namespace Pullback;
+  ColorSample canonical{Color4(Pixel(1582, 1359, 42855), 0.61689651f), {}};
+  canonical.pending_hue = 0.9814453125f;
+  auto cached = canonical;
+  cached.color.color = Pixel(0, 0, 0);
+  cached.cached_lab = {0.431782782f, 0.00217834837f, -0.24565056f};
+  cached.has_cached_lab = true;
+  const auto REFERENCE = finish_color_sample(canonical);
+  const auto UNGUARDED = finish_color_sample(cached);
+  const Pixel EXPECTED = REFERENCE.color * REFERENCE.alpha;
+  const Pixel WRONG = UNGUARDED.color * UNGUARDED.alpha;
+  HS_EXPECT_GT(std::max({std::abs(int(EXPECTED.r) - WRONG.r),
+                         std::abs(int(EXPECTED.g) - WRONG.g),
+                         std::abs(int(EXPECTED.b) - WRONG.b)}),
+               4000);
+  int fetches = 0;
+  HS_EXPECT_TRUE(
+      Color::restore_cached_palette_base_near_gamut_gate(cached, [&] {
+        ++fetches;
+        cached.color.color = canonical.color.color;
+        cached.hue_rotation = canonical.hue_rotation;
+      }));
+  HS_EXPECT_EQ(fetches, 1);
+  HS_EXPECT_FALSE(cached.has_cached_lab);
+  const auto GUARDED = finish_color_sample(cached);
+  HS_EXPECT_EQ(GUARDED.color, REFERENCE.color);
+  HS_EXPECT_EQ(GUARDED.alpha, REFERENCE.alpha);
+  cached.cached_lab = linear_rgb_to_oklab_fast(0.3f, 0.4f, 0.5f);
+  cached.has_cached_lab = true;
+  cached.pending_hue = 0.0f;
+  fetches = 0;
+  HS_EXPECT_FALSE(Color::restore_cached_palette_base_near_gamut_gate(
+      cached, [&] { ++fetches; }));
+  HS_EXPECT_EQ(fetches, 0);
+  HS_EXPECT_TRUE(cached.has_cached_lab);
+}
+
 /** @brief Paired cube samples preserve individual samplers and custom dispatch. */
 inline void test_pullback_modulation_paired_samples() {
   using namespace Pullback;
@@ -3933,6 +4142,9 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_temporal_composed_modulations);
   HS_RUN(test_pullback_temporal_deferred_hue_wrap);
   HS_RUN(test_pullback_temporal_deferred_in_place);
+  HS_RUN(test_pullback_fused_modulation_endpoints);
+  HS_RUN(test_pullback_fused_cached_modulation);
+  HS_RUN(test_pullback_cached_gamut_gate_fallback);
   HS_RUN(test_pullback_modulation_paired_samples);
   HS_RUN(test_pullback_modulation_paired_colors);
   return fixture.result();
