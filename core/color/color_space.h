@@ -670,12 +670,7 @@ gamut_scale_to_boundary_lut(OKLab lab, const GamutLut &lut) {
   const float chroma_sq = lab.a * lab.a + lab.b * lab.b;
   if (!(chroma_sq > 1e-12f))
     return {lab.L, 0.0f, 0.0f};
-  uint32_t inverse_bits;
-  std::memcpy(&inverse_bits, &chroma_sq, sizeof(inverse_bits));
-  inverse_bits = 0x5f3759dfu - (inverse_bits >> 1);
-  float inverse_chroma;
-  std::memcpy(&inverse_chroma, &inverse_bits, sizeof(inverse_chroma));
-  inverse_chroma *= 1.5f - 0.5f * chroma_sq * inverse_chroma * inverse_chroma;
+  const float inverse_chroma = math::fast_rsqrt<1>(chroma_sq);
   const GamutCell cell = gamut_cell(lut, lab.L, lab.a, lab.b);
   const uint16_t stored =
       lut.table[(cell.lightness_index * lut.angle_steps + cell.angle_index) *

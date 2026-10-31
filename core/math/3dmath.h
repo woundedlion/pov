@@ -607,12 +607,15 @@ HS_O3_FN __attribute__((always_inline)) inline float fast_reciprocal(float x) {
 
 /**
  * @brief Fast reciprocal square root for positive normal floats.
+ * @tparam NEWTON_STEPS Newton refinements, one or two.
  * @param x Positive normal float; subnormal inputs lose accuracy.
  * @return An approximation of 1 / sqrt(x).
- * @details Bit-hack initial guess refined by two Newton steps; peak relative
- * error ~5e-6, one-sided low up to the rounding of the final multiply.
+ * @details Bit-hack initial guess refined by the selected Newton steps;
+ * the default two-step result has peak relative error ~5e-6 and is one-sided
+ * low up to the rounding of the final multiply.
  */
-HS_O3_FN inline float fast_rsqrt(float x) {
+template <int NEWTON_STEPS = 2> HS_O3_FN inline float fast_rsqrt(float x) {
+  static_assert(NEWTON_STEPS == 1 || NEWTON_STEPS == 2);
   uint32_t i;
   std::memcpy(&i, &x, sizeof(i));
   i = 0x5f3759dfu - (i >> 1);
@@ -620,7 +623,8 @@ HS_O3_FN inline float fast_rsqrt(float x) {
   std::memcpy(&y, &i, sizeof(y));
   const float half = 0.5f * x;
   y = y * (1.5f - half * y * y);
-  y = y * (1.5f - half * y * y);
+  if constexpr (NEWTON_STEPS == 2)
+    y = y * (1.5f - half * y * y);
   return y;
 }
 
