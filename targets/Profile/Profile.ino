@@ -8,9 +8,9 @@
  * @brief Profile — single-effect on-device profiling harness (288×144,
  *        segmented).
  *
- * Target: one Teensy 4.0 running as segment 0 of the shipping 4-segment
- * Phantasm configuration. Runs exactly one effect (selected at build time via
- * `-D HS_PROFILE_TARGET=<EffectClass>`, default DisplacementField) under the
+ * Target: one Teensy 4.0 running a segment of the shipping 4-segment
+ * Phantasm configuration (segment 0 by default). Runs exactly one effect via
+ * `-D HS_PROFILE_TARGET=<EffectClass>` (default DisplacementField) under the
  * real POVSegmented driver — flywheel ISR, DMA LED output, and segment
  * clipping all live — and periodically dumps the HS_PROFILE cycle-counter
  * tree plus exact per-frame wall-clock stats over USB serial.
@@ -43,6 +43,7 @@
 #endif
 
 // Further per-run knobs (all via PLATFORMIO_BUILD_FLAGS):
+//   HS_PROFILE_SEGMENT_ID  standalone segment role (0..NUM_SEGMENTS-1)
 //   HS_PROFILE_EFFECT_HEAP_BYTES static effect storage size with no-op delete
 //   HS_PROFILE_EPOCH_REVS    epoch length override in revolutions (default:
 //                            one hour at RPM)
@@ -127,6 +128,15 @@ FLASHMEM void setup();
 void loop();
 
 namespace {
+
+constexpr int PROFILE_SEGMENT_ID =
+#ifdef HS_PROFILE_SEGMENT_ID
+    HS_PROFILE_SEGMENT_ID;
+#else
+    -1;
+#endif
+static_assert(PROFILE_SEGMENT_ID >= -1 && PROFILE_SEGMENT_ID < NUM_SEGMENTS,
+              "HS_PROFILE_SEGMENT_ID must be -1 or a valid segment ID");
 
 hs::ProfileClockSample sample_clocks() {
   return hs::sample_profile_clocks(
@@ -796,7 +806,7 @@ static_assert(profile_config().valid() == nullptr,
 
 /**
  * @brief Parks the sync output, logs the harness configuration, starts the
- *        driver, and requires segment 0.
+ *        driver with the selected segment role.
  */
 FLASHMEM void setup() {
   POV::park_sync_out();
@@ -809,13 +819,15 @@ FLASHMEM void setup() {
 #ifdef HS_PROFILE_PLOT_STALLS
   hs::enable_plot_stall_counters();
 #endif
-  POV::begin();
+  POV::begin(PROFILE_SEGMENT_ID);
+  hs::log("profile role: segment=%d timing=%s", POV::segment_index(),
+          PROFILE_SEGMENT_ID >= 0 ? "standalone" : "synchronized");
 #ifdef HS_PROFILE_PC
   hs::pc_sampler_begin();
 #endif
   // A strapped-nonzero board comes up downstream: dark in ACQUIRE, waiting on a
   // sync wire nothing drives, so the whole capture runs black and counter-empty.
-  HS_CHECK(POV::segment_index() == 0,
+  HS_CHECK(PROFILE_SEGMENT_ID >= 0 || POV::segment_index() == 0,
            "profile harness needs segment 0 (master); ID straps read %d",
            POV::segment_index());
 }
@@ -823,5 +835,6 @@ FLASHMEM void setup() {
 /** @brief Runs the show; never returns. */
 void loop() {
   // Never returns: runs the single-entry playlist forever.
-  POV::run_show(EFFECT_FACTORIES, &PROFILE_REVOLUTIONS, &PROFILE_SEEDS);
+  POV::run_show(EFFECT_FACTORIES, &PROFILE_REVOLUTIONS, &PROFILE_SEEDS,
+                PROFILE_SEGMENT_ID >= 0);
 }
