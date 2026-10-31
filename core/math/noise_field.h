@@ -424,7 +424,7 @@ sample_simplex_curl_tangent(const FastNoiseLite &noise, const math::Vector &q,
  * @param v Unit sphere direction.
  * @param limit Tangent-length policy.
  * @return The canonical curl tangent. */
-HS_O3_FN inline math::Vector
+HS_O3_FN HS_HOT_INLINE inline math::Vector
 sample_unit_simplex_curl_tangent(const FastNoiseLite &noise,
                                  const math::Vector &q, const math::Vector &v,
                                  TangentLimit limit) {
@@ -489,7 +489,7 @@ inline constexpr float EXP_MAP_HALF_RADIAN_ARC_SQ_LIMIT = 0.250001f;
  *   error is under ~1e-7 within half a radian and grows as the eighth power of
  *   the arc beyond it. Nothing here clamps the arc; callers must bound it.
  */
-HS_O3_FN inline math::Vector
+HS_O3_FN HS_HOT_INLINE inline math::Vector
 sphere_exp_map_half_radian(const math::Vector &v, const math::Vector &tangent) {
   const float distance_sq = math::dot(tangent, tangent);
   assert(distance_sq <= EXP_MAP_HALF_RADIAN_ARC_SQ_LIMIT &&
