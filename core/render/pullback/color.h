@@ -342,6 +342,30 @@ inline Color4 finish(const ColorSample &sample) {
   return finish_color_sample(sample);
 }
 
+/** @brief Blends normalized hue endpoints over the shortest unit-period arc.
+ * @param previous Retained hue in [0, 1).
+ * @param current Current hue in [0, 1).
+ * @param fraction Current endpoint weight.
+ * @return Wrapped hue, or the selected endpoint outside the interior. */
+HS_HOT_INLINE inline float blend_unit_hue(float previous, float current,
+                                          float fraction) {
+  if (fraction <= 0.0f)
+    return previous;
+  if (fraction >= 1.0f)
+    return current;
+  assert(previous >= 0.0f && previous < 1.0f && current >= 0.0f &&
+         current < 1.0f);
+  float delta = current - previous;
+  if (delta < -0.5f)
+    delta += 1.0f;
+  if (delta >= 0.5f)
+    delta -= 1.0f;
+  float result = previous + delta * fraction;
+  if (result < 0.0f)
+    result += 1.0f;
+  return result >= 1.0f ? result - 1.0f : result;
+}
+
 /** @brief One color modulation's prepared endpoint pair. */
 struct ModulationState {
   const Modulation::Prepared *current = nullptr;  ///< Current spatial source.
@@ -836,9 +860,8 @@ private:
                     float fraction) {
     const float PREVIOUS = fused_endpoint_hue(scalars.first, amount);
     const float CURRENT = fused_endpoint_hue(scalars.second, amount);
-    return PREVIOUS == CURRENT
-               ? PREVIOUS
-               : interp::shortest_periodic(PREVIOUS, CURRENT, fraction, 1.0f);
+    return PREVIOUS == CURRENT ? PREVIOUS
+                               : blend_unit_hue(PREVIOUS, CURRENT, fraction);
   }
 
   /** @brief Blends palette and modulation endpoints into one color carrier.

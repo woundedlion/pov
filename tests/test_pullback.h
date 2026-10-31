@@ -3745,6 +3745,55 @@ inline void test_pullback_fused_modulation_endpoints() {
           }
 }
 
+/** @brief Unit-hue wrapping matches canonical periodic interpolation bit for bit. */
+inline void test_pullback_unit_hue_blending() {
+  const std::array<float, 12> VALUES{-0.0f,
+                                     0.0f,
+                                     std::numeric_limits<float>::denorm_min(),
+                                     std::numeric_limits<float>::min(),
+                                     0.125f,
+                                     0.25f,
+                                     std::nextafter(0.5f, 0.0f),
+                                     0.5f,
+                                     std::nextafter(0.5f, 1.0f),
+                                     0.75f,
+                                     0.875f,
+                                     std::nextafter(1.0f, 0.0f)};
+  const std::array<float, 12> FRACTIONS{
+      -1.0f,
+      -0.0f,
+      0.0f,
+      std::numeric_limits<float>::denorm_min(),
+      std::numeric_limits<float>::min(),
+      0.000001f,
+      0.25f,
+      0.5f,
+      0.75f,
+      std::nextafter(1.0f, 0.0f),
+      1.0f,
+      2.0f};
+  const auto check = [](float a, float b, float fraction) {
+    const float EXPECTED = interp::shortest_periodic(a, b, fraction, 1.0f);
+    const float ACTUAL = Pullback::Color::blend_unit_hue(a, b, fraction);
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(ACTUAL),
+                 std::bit_cast<uint32_t>(EXPECTED));
+  };
+  for (float a : VALUES)
+    for (float b : VALUES)
+      for (float fraction : FRACTIONS)
+        check(a, b, fraction);
+  uint32_t random = 0x6d2b79f5u;
+  const auto next = [&] {
+    random = random * 1664525u + 1013904223u;
+    return float(random >> 8) * (1.0f / 16777216.0f);
+  };
+  for (int i = 0; i < 131072; ++i) {
+    const float A = next();
+    const float B = next();
+    check(A, B, i % 8 == 0 ? FRACTIONS[(i / 8) % FRACTIONS.size()] : next());
+  }
+}
+
 /** @brief Fused cached bases retain canonical hue, opacity and inactive fallbacks. */
 inline void test_pullback_fused_cached_modulation() {
   using namespace Pullback;
@@ -4434,6 +4483,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_temporal_composed_modulations);
   HS_RUN(test_pullback_temporal_deferred_hue_wrap);
   HS_RUN(test_pullback_temporal_deferred_in_place);
+  HS_RUN(test_pullback_unit_hue_blending);
   HS_RUN(test_pullback_fused_modulation_endpoints);
   HS_RUN(test_pullback_fused_cached_modulation);
   HS_RUN(test_pullback_fused_lab_direct_fallback);
