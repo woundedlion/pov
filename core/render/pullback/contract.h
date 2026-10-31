@@ -998,6 +998,7 @@ protected:
    * @param input Carrier fed to child @p Index.
    * @param frame Per-frame state.
    * @param prepared Children's prepared states.
+   * @param previous Selects the retained temporal endpoint.
    * @return The last child's output. */
   template <size_t Index, typename In>
   __attribute__((always_inline)) static Output
@@ -1573,6 +1574,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
    * @param input Carrier fed to node @p Index.
    * @param ctx Per-frame state.
    * @param prepared Per-node prepared state.
+   * @param previous Selects the retained temporal endpoint.
    * @return The last node's deferred color sample. */
   template <size_t Index, typename Input>
   __attribute__((always_inline)) static ColorSample
