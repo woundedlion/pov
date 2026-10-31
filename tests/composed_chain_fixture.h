@@ -14,7 +14,13 @@ namespace hs_test::composed_chain_tests {
 
 template <typename T>
 T &mutable_state(Pullback::Interp::ChainProgram &program, size_t index) {
-  return *static_cast<T *>(const_cast<void *>(program.state_block(index)));
+  const auto &layout = program.ops()[index].op->runtime.state;
+  void *state = const_cast<void *>(program.state_block(index));
+  const bool MATCHES = layout.size == sizeof(T) && layout.align == alignof(T) &&
+                       reinterpret_cast<uintptr_t>(state) % alignof(T) == 0;
+  HS_EXPECT_TRUE(MATCHES);
+  HS_CHECK(MATCHES, "composed parity fixture state type mismatch");
+  return *static_cast<T *>(state);
 }
 
 template <typename FX> void verify_export(size_t preset) {
@@ -101,10 +107,6 @@ template <typename FX> void verify_export(size_t preset) {
         static_cast<In::RippleClockSnapshot &>(
             mutable_state<In::Op::RipplePhaseState>(program, index)) =
             own.resources.template get<"displace">();
-    } else if (id == "sample.lattice.v2") {
-      auto &clock = mutable_state<In::Op::SourceClockState>(program, index);
-      const auto &resource = own.resources.template get<"source">();
-      clock = {resource.primary, resource.secondary, resource.angle};
     } else if (id == "warp.vortex.v2") {
       if constexpr (FX::Params::template HAS<"outer_warp">)
         mutable_state<In::Op::WarpPhaseState>(program, index).phase =
