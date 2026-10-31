@@ -387,6 +387,9 @@ primitive_lattice(const PlanePosition &coordinate, const Params &params) {
   const float y =
       math::wrap_t(params.lattice_cell_scale * input.im + 0.5f) - 0.5f;
   const float circle = sqrtf(x * x + y * y) - params.lattice_radius;
+  if (params.lattice_shape_blend == 0.0f)
+    return 1.0f - 2.0f * ::math::smooth_ramp(-params.lattice_softness,
+                                             params.lattice_softness, circle);
   const float bx = fabsf(x) - params.lattice_radius;
   const float by = fabsf(y) - params.lattice_radius;
   const float square = sqrtf(fmaxf(bx, 0.0f) * fmaxf(bx, 0.0f) +

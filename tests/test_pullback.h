@@ -1119,6 +1119,52 @@ inline void test_pullback_provider_contracts() {
   HS_EXPECT_EQ(carried.path_length, 4.0f);
 }
 
+/** @brief Circle-only lattice evaluation preserves the blended formula's bits. */
+inline void test_pullback_lattice_circle_identity() {
+  const auto reference = [](const Pattern::PlanePosition &coordinate,
+                            const Pattern::LatticeSourceParams &params) {
+    const float X =
+        math::wrap_t(params.lattice_cell_scale * coordinate.value.re + 0.5f) -
+        0.5f;
+    const float Y =
+        math::wrap_t(params.lattice_cell_scale * coordinate.value.im + 0.5f) -
+        0.5f;
+    const float CIRCLE = sqrtf(X * X + Y * Y) - params.lattice_radius;
+    const float BX = fabsf(X) - params.lattice_radius;
+    const float BY = fabsf(Y) - params.lattice_radius;
+    const float SQUARE = sqrtf(fmaxf(BX, 0.0f) * fmaxf(BX, 0.0f) +
+                               fmaxf(BY, 0.0f) * fmaxf(BY, 0.0f)) +
+                         fminf(fmaxf(BX, BY), 0.0f);
+    return 1.0f -
+           2.0f * math::smooth_ramp(
+                      -params.lattice_softness, params.lattice_softness,
+                      hs::lerp(CIRCLE, SQUARE, params.lattice_shape_blend));
+  };
+  uint32_t random = 0x12345678u;
+  for (float scale : {1.0f / 64.0f, 0.98971874f, 1.0f, 8.0f})
+    for (float radius : {1.0f / 64.0f, 0.25f, 0.37757313f, 0.49f})
+      for (float softness : {1.0f / 1024.0f, 0.1f, 0.34563965f, 1.0f})
+        for (float blend : {0.0f, 0.00001f, 0.25f, 0.99999f, 1.0f}) {
+          Pattern::LatticeSourceParams params;
+          params.lattice_cell_scale = scale;
+          params.lattice_radius = radius;
+          params.lattice_softness = softness;
+          params.lattice_shape_blend = blend;
+          for (int sample = 0; sample < 256; ++sample) {
+            random = random * 1664525u + 1013904223u;
+            const float X = float(int32_t(random)) * (1024.0f / 2147483648.0f);
+            random = random * 1664525u + 1013904223u;
+            const float Y = float(int32_t(random)) * (1024.0f / 2147483648.0f);
+            const Pattern::PlanePosition COORDINATE{
+                math::Complex(sample < 8 ? float(sample - 4) * 0.5f : X,
+                              sample < 8 ? 0.0f : Y)};
+            const float EXPECTED = reference(COORDINATE, params);
+            const float ACTUAL = Pattern::primitive_lattice(COORDINATE, params);
+            HS_EXPECT_TRUE(std::memcmp(&EXPECTED, &ACTUAL, sizeof(float)) == 0);
+          }
+        }
+}
+
 /** @brief Concrete stages evaluate against their independent expected values. */
 inline void test_pullback_concrete_catalog() {
   struct Prepared {
@@ -3427,6 +3473,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_stage_combinators);
   HS_RUN(test_pullback_provider_contracts);
   HS_RUN(test_pullback_concrete_catalog);
+  HS_RUN(test_pullback_lattice_circle_identity);
   HS_RUN(test_pullback_custom_grid_preparation);
   HS_RUN(test_pullback_hexagonal_edges);
   HS_RUN(test_pullback_displacement_overflow);
