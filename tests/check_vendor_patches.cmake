@@ -12,7 +12,7 @@ set(VENDORED_VERSION "1.1.1")
 #   cmake -E sha256sum core/vendor/FastNoiseLite.h
 # on a checkout whose line endings are LF.
 set(VENDORED_SHA256
-    "59d9c1894a46fc3d7682f7cad0029df497d3c51c54b066c1572aed4302adb37c")
+    "b05f779fbcd3186980cabf3220a25b2d0dd85fea2306e787479e7bdd5722f924")
 
 file(READ "${HEADER}" _header)
 file(READ "${CONFIG}" _config)
@@ -46,6 +46,11 @@ endif()
 
 if(NOT _header MATCHES "HS_O3_FN float SingleOpenSimplex2\\(")
   list(APPEND _missing "SingleOpenSimplex2 has lost its HS_O3_FN")
+endif()
+
+if(NOT _header MATCHES "static T Gradients3D\\[\\];" OR
+   NOT _header MATCHES "[\r\n]T FastNoiseLite::Lookup<T>::Gradients3D\\[\\] =")
+  list(APPEND _missing "3D gradient lookup has lost its mutable data storage")
 endif()
 
 if(NOT _header MATCHES "float GetNoiseSingle\\(" OR

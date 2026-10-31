@@ -13,7 +13,7 @@
 //   - the `#include "FastNoiseLite_config.h"` that pulls in this file
 //   - three FASTNOISELITE_ONLY_OPENSIMPLEX2 guards (both
 //     GenNoiseSingle overloads, vector-noise dispatch)
-//   - selective-O3 placement on the scalar and vector OpenSimplex2 leaves
+//   - selective-O3 code placement and mutable 3D gradient lookup storage
 //   - raw-octave paths used by first-party basis and derivative policies
 //   - a raw vector-noise path used by spherical tangent displacement
 //   - analytic raw OpenSimplex2 gradients, with value and reference APIs

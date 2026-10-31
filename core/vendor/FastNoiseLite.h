@@ -511,7 +511,7 @@ private:
 
   template <typename T> struct Lookup {
     static const T Gradients2D[];
-    static const T Gradients3D[];
+    static T Gradients3D[];
     static const T RandVecs2D[];
     static const T RandVecs3D[];
   };
@@ -2970,7 +2970,7 @@ const T FastNoiseLite::Lookup<T>::RandVecs2D[] = {
 };
 
 template <typename T>
-const T FastNoiseLite::Lookup<T>::Gradients3D[] = {
+T FastNoiseLite::Lookup<T>::Gradients3D[] = {
     0,  1,  1,  0, 0,  -1, 1,  0, 0,  1,  -1, 0, 0,  -1, -1, 0, 1,  0,  1,  0,
     -1, 0,  1,  0, 1,  0,  -1, 0, -1, 0,  -1, 0, 1,  1,  0,  0, -1, 1,  0,  0,
     1,  -1, 0,  0, -1, -1, 0,  0, 0,  1,  1,  0, 0,  -1, 1,  0, 0,  1,  -1, 0,
