@@ -43,8 +43,15 @@ def sources(project):
     return {path.relative_to(project).as_posix(): fab.sha256_file(path) for path in paths}
 
 
+def load_object(path, what):
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError(f"{what} must be a JSON object")
+    return value
+
+
 def check_candidate(project):
-    status = json.loads((project / "candidate.json").read_text(encoding="utf-8"))
+    status = load_object(project / "candidate.json", "candidate status")
     if (status.get("revision") != project.parent.name or status.get("status") != "unvalidated"
             or status.get("ordered") is not False or status.get("producer") != "Quilter"
             or not status.get("provenance")):
@@ -151,7 +158,7 @@ def inventory(directory):
 
 
 def verify(directory):
-    record = json.loads((directory / "release.json").read_text(encoding="utf-8"))
+    record = load_object(directory / "release.json", "release manifest")
     if record.get("status") != "validated" or record.get("files") != inventory(directory):
         raise ValueError("release contents do not match validated manifest")
     if record.get("source_sha256") != sources(directory / "source"):
@@ -215,12 +222,14 @@ def build(project, revision, destination=None):
 
 
 def record_order(package, expected_hash, details, output):
+    if not isinstance(details, dict):
+        raise ValueError("order details must be a JSON object")
     if output.resolve() == package.resolve() or package.resolve() in output.resolve().parents:
         raise ValueError("order record must be outside the release package")
     actual = verify(package)
     if actual != expected_hash:
         raise ValueError("release SHA256 differs from the reviewed package")
-    release = json.loads((package / "release.json").read_text(encoding="utf-8"))
+    release = load_object(package / "release.json", "release manifest")
     for field in ("vendor", "order_id", "ordered_at"):
         if not isinstance(details.get(field), str) or not details[field].strip():
             raise ValueError(f"order details require {field}")
@@ -263,7 +272,7 @@ def main(argv=None):
             print("Candidate status and provenance verified; fabrication readiness is not asserted.")
         elif args.command == "record-order":
             record_order(args.package.resolve(), args.release_sha256,
-                         json.loads(args.details.read_text(encoding="utf-8")), args.output)
+                         load_object(args.details, "order details"), args.output)
         elif args.command == "verify":
             print(f"Release SHA256: {verify(args.package.resolve())}")
         else:

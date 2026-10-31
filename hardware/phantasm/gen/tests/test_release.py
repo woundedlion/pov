@@ -51,6 +51,17 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "ordered=false"):
             release.check_candidate(self.project)
 
+    def test_candidate_requires_an_object(self):
+        release.write_json(self.project / "candidate.json", [])
+        with self.assertRaisesRegex(ValueError, "candidate status must be a JSON object"):
+            release.check_candidate(self.project)
+
+    def test_order_details_are_checked_before_package_verification(self):
+        with mock.patch.object(release, "verify") as verify:
+            with self.assertRaisesRegex(ValueError, "order details must be a JSON object"):
+                release.record_order(self.destination, "digest", [], self.root / "order.json")
+            verify.assert_not_called()
+
     def test_snapshot_includes_libraries_and_rules_excludes_history(self):
         library = self.project / "phantasm.pretty"
         library.mkdir()
