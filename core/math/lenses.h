@@ -255,7 +255,7 @@ dodecahedral_kaleidoscope_lens(math::Vector v) {
 }
 
 namespace DodecahedralTable {
-inline constexpr int FACE_STEPS = 16;
+inline constexpr int FACE_STEPS = 64;
 inline constexpr float WALL_MARGIN = 1e-5f;
 static_assert(WALL_MARGIN > POLYHEDRAL_MIRROR_EPS);
 using Matrix = std::array<std::array<float, 3>, 3>;

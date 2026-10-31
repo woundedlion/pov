@@ -500,7 +500,7 @@ acceptance gate for this temporal approximation.
 
 AshCloud's interior columns may select a reflection matrix from a coarse cube
 cell. The constexpr tables hold the 120 dodecahedral reflection-group matrices
-and six 16-by-16 cell maps in FLASH; they allocate no persistent arena or RAM
+and six 64-by-64 cell maps in FLASH; they allocate no persistent arena or RAM
 storage. A cell selects a candidate transform, rather than a quantized output
 direction. The transformed input must lie strictly inside all three canonical
 chamber walls, beyond the lookup's wall margin. A rejected candidate restarts
