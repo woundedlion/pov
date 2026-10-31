@@ -97,6 +97,7 @@
 #define HS_PROFILE_STR(x) HS_PROFILE_STR2(x)
 
 #include "targets/Phantasm/phantasm_target.h"
+#include "tools/profile_clock.h"
 #include "tools/profile_isr_window.h"
 
 #ifdef HS_PROFILE_PC
@@ -126,6 +127,13 @@ FLASHMEM void setup();
 void loop();
 
 namespace {
+
+hs::ProfileClockSample sample_clocks() {
+  return hs::sample_profile_clocks(
+      [] { return micros(); }, [] { return HS_OS_CYCLES(); },
+      [] { return hs::save_disable_interrupts(); },
+      [](uint32_t mask) { hs::restore_interrupts(mask); });
+}
 
 #ifdef HS_MINDSPLATTER_REPLAY_AB
 static Pixel replay_reference_pixels[MAX_W * (2 * MAX_H / NUM_SEGMENTS)];
@@ -247,8 +255,7 @@ public:
 #endif
     {
       hs::SampledCycleScope frame_scope(frame_counter);
-      const unsigned long t0 = micros();
-      const uint32_t c0 = HS_OS_CYCLES();
+      const auto begin = sample_clocks();
       {
 #ifdef HS_MINDSPLATTER_REPLAY
 #ifdef HS_MINDSPLATTER_REPLAY_AB
@@ -277,10 +284,9 @@ public:
         HS_PROFILE_TARGET<W, H>::draw_frame();
 #endif
       }
-      const unsigned long t1 = micros();
-      const uint32_t c1 = HS_OS_CYCLES();
-      frame_scope.record(c0, c1);
-      dt = t1 - t0;
+      const auto end = sample_clocks();
+      frame_scope.record(begin.cycles, end.cycles);
+      dt = end.wall_us - begin.wall_us;
     }
 #ifdef HS_MINDSPLATTER_REPLAY
 #ifndef HS_MINDSPLATTER_REPLAY_AB

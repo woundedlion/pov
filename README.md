@@ -1712,6 +1712,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── profile_islamic_big.sh  Focused profiling loop for IslamicStars' largest mesh
 │   ├── profile_capture.py      Serial capture of the profiling image's readout
 │   ├── profile_envdump.py      Omit host process variables from build captures
+│   ├── profile_clock.h           Interrupt-matched wall and cycle clock samples
 │   ├── profile_isr_window.h      Atomic ISR statistics and elapsed-window snapshots
 │   ├── pc_sampler.h            Render-gated PC sampler for HS_PROFILE_PC images: frame decode, PC histogram, GPT2 tick
 │   ├── pc_profile.py           Symbolizes an HS_PROFILE_PC capture per function and memory region (ITCM/flash)

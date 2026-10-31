@@ -12,6 +12,7 @@
 #include "tests/test_harness.h"
 #include "tests/fd_capture_util.h"
 #include "tools/pc_sampler.h"
+#include "tools/profile_clock.h"
 #include "tools/profile_isr_window.h"
 
 #include <cstdint>
@@ -24,6 +25,74 @@
 
 namespace hs_test {
 namespace profiling_tests {
+
+/** @brief Clock reads defer seam interrupts and restore the incoming mask. */
+inline void test_profile_clock_pair_interrupt_mask() {
+  for (uint32_t prior_mask : {0u, 1u}) {
+    uint32_t mask = prior_mask;
+    uint32_t wall = 100, cycles = 60000, interrupts = 0;
+    bool pending = false;
+    const auto service_interrupt = [&] {
+      if (pending && mask == 0) {
+        wall += 17;
+        cycles += 10200;
+        ++interrupts;
+        pending = false;
+      }
+    };
+    const auto sample = hs::sample_profile_clocks(
+        [&] {
+          HS_EXPECT_EQ(mask, 1u);
+          const auto value = wall;
+          pending = true;
+          service_interrupt();
+          return value;
+        },
+        [&] {
+          HS_EXPECT_EQ(mask, 1u);
+          HS_EXPECT_EQ(interrupts, 0u);
+          return cycles;
+        },
+        [&] {
+          const auto saved = mask;
+          mask = 1;
+          return saved;
+        },
+        [&](uint32_t saved) {
+          mask = saved;
+          service_interrupt();
+        });
+    HS_EXPECT_EQ(sample.wall_us, 100u);
+    HS_EXPECT_EQ(sample.cycles, 60000u);
+    HS_EXPECT_EQ(mask, prior_mask);
+    HS_EXPECT_EQ(interrupts, prior_mask == 0 ? 1u : 0u);
+  }
+}
+
+/** @brief Matched clock intervals include interrupts between the samples. */
+inline void test_profile_clock_interval_includes_interrupts() {
+  uint32_t mask = 0, wall = 100, cycles = 60000;
+  const auto sample = [&] {
+    return hs::sample_profile_clocks([&] { return wall; },
+                                     [&] { return cycles; },
+                                     [&] {
+                                       const auto saved = mask;
+                                       mask = 1;
+                                       return saved;
+                                     },
+                                     [&](uint32_t saved) { mask = saved; });
+  };
+  const auto begin = sample();
+  HS_EXPECT_EQ(mask, 0u);
+  wall += 40;
+  cycles += 24000;
+  wall += 17;
+  cycles += 10200;
+  const auto end = sample();
+  HS_EXPECT_EQ(mask, 0u);
+  HS_EXPECT_EQ(end.wall_us - begin.wall_us, 57u);
+  HS_EXPECT_EQ(end.cycles - begin.cycles, 34200u);
+}
 
 /** @brief Captures the counter report into a NUL-terminated bounded buffer. */
 inline bool capture_log_all(char *out, size_t n) {
@@ -760,6 +829,8 @@ inline int run_profiling_tests() {
   hs_test::ModuleFixture fixture("profiling");
 
   HS_RUN(test_sampled_cycle_scope_bounds_and_nesting);
+  HS_RUN(test_profile_clock_pair_interrupt_mask);
+  HS_RUN(test_profile_clock_interval_includes_interrupts);
   HS_RUN(test_u64_dec_boundaries);
   HS_RUN(test_u64_dec_powers_of_ten);
   HS_RUN(test_find_suffix);
