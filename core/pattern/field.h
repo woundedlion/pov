@@ -16,7 +16,7 @@ namespace Pattern {
 /** @brief Clamps finite numerical overshoot at the scalar boundary.
  * @param value Raw source sample.
  * @return Sample in [-1, 1]. */
-inline float bounded_scalar(float value) {
+HS_HOT_INLINE inline float bounded_scalar(float value) {
   assert(finite(value));
   return hs::clamp(value, -1.0f, 1.0f);
 }
