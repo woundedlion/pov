@@ -69,10 +69,45 @@ inline void test_kaleidoscope_melt_chain_equivalence() {
   composed_chain_tests::verify_export<KaleidoscopeMeltWhiteBox::FX>(0);
 }
 
+inline void test_kaleidoscope_melt_cache_color_controls() {
+  using FX = KaleidoscopeMeltWhiteBox::FX;
+  reset_effect_globals();
+  ScopedTemporalSampling temporal(true);
+  pin_frame_clock(0);
+  FX effect;
+  effect.init();
+  const auto INITIAL = KaleidoscopeMeltWhiteBox::params(effect);
+  const auto draw = [&](int frame) {
+    pin_frame_clock(frame);
+    effect.draw_frame();
+    const auto &CURRENT = ComposedFrameWhiteBox::current_frame(effect);
+    const bool CACHED =
+        CURRENT.palette_lab_lut && CURRENT.palette_lab_lut->active;
+    effect.advance_display();
+    return CACHED;
+  };
+  HS_EXPECT_TRUE(draw(1));
+  for (int control = 0; control < 2; ++control) {
+    auto changed = INITIAL;
+    auto &color = changed.template get<"color">();
+    if (control == 0)
+      color.opacity_high = 1.0f;
+    else
+      color.palette_mapping = Pullback::Color::PaletteMapping::LINEAR;
+    ComposedFrameWhiteBox::set_params(effect, changed);
+    HS_EXPECT_FALSE(draw(2 + control * 3));
+    HS_EXPECT_FALSE(draw(3 + control * 3));
+  }
+  ComposedFrameWhiteBox::set_params(effect, INITIAL);
+  HS_EXPECT_FALSE(draw(8));
+  HS_EXPECT_TRUE(draw(9));
+}
+
 inline int run_kaleidoscope_melt_tests() {
   ModuleFixture fixture("kaleidoscope_melt");
   HS_RUN(test_kaleidoscope_melt_identity_and_controls);
   HS_RUN(test_kaleidoscope_melt_chain_equivalence);
+  HS_RUN(test_kaleidoscope_melt_cache_color_controls);
   return fixture.result();
 }
 

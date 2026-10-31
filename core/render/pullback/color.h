@@ -896,14 +896,7 @@ private:
     float previous_lift = 0.0f;
     float current_lift = 0.0f;
     if (modulation.enabled && modulation.mechanic.amount != 0.0f) {
-      const auto SCALARS = [&] {
-        if (modulation.source == Pattern::SourceKind::DISPLACEMENT)
-          return std::pair{sample.path_length, sample.path_length};
-        assert(modulation.previous && modulation.current);
-        return Modulation::sample_pair(
-            *modulation.previous, *modulation.current,
-            Pattern::SphereDirection::admit(sample.sphere));
-      }();
+      const auto SCALARS = sample_fused_scalars(sample, modulation);
       const auto apply = [&](Color4 &color, float &hue, float &lift,
                              float scalar) {
         if (modulation.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)

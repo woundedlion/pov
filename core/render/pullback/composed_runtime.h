@@ -93,6 +93,9 @@ public:
   using Binding = Pullback::Binding<FrameState>; ///< Pipeline binding.
   /// Whether the projection orientation follows a random walk and spin.
   static constexpr bool ANIMATED_PROJECTION = SpecT::ANIMATED_PROJECTION;
+  /// Whether the effect retains palette hue tables.
+  static constexpr bool HUE_ROTATION_LUT =
+      Metadata::MODULATION && SpecT::HUE_ROTATION_LUT;
   /**
    * @brief Whether any resource of a kind samples a noise field.
    * @tparam Kind Resource kind to test.
@@ -240,13 +243,15 @@ public:
     if constexpr (TEMPORAL_SAMPLING) {
       auto &history =
           static_cast<Spacetime::FrameHistory<FrameState, TEMPORAL_SAMPLING,
-                                              Metadata::MODULATION> &>(*state);
+                                              HUE_ROTATION_LUT> &>(*state);
       if (!history.initialized)
         history.capture(current, persistent_arena);
       if (!Spacetime::flat_surface()) {
         if constexpr (SpecT::PALETTE_LAB_CACHE) {
-          if (history.previous.params.template get<"color">() ==
-              current.params.template get<"color">()) {
+          if (palette_cache_controls_eligible(current.params) &&
+              history.previous.params.template get<"color">() ==
+                  current.params.template get<"color">()) {
+            HS_PROFILE(fx_palette_base_bake);
             state->palette_lab_slot ^= 1;
             auto &cache = state->palette_lab_luts[state->palette_lab_slot];
             cache.bake(*history.previous.palette, *current.palette);
@@ -773,14 +778,14 @@ private:
 
   struct State
       : ProjectionWalkNoise<ANIMATED_PROJECTION>,
-        OptionalHueRotationLut<Metadata::MODULATION>,
+        OptionalHueRotationLut<HUE_ROTATION_LUT>,
         OptionalPaletteLabLut<SpecT::PALETTE_LAB_CACHE, SpecT::PALETTE_LAB_VALUES>,
         OptionalDodecahedralMatrices<SpecT::CACHE_DODECAHEDRAL_MATRICES>,
         OptionalDodecahedralFaces<SpecT::CACHE_DODECAHEDRAL_FACES>,
         OptionalPaletteRgbLut<SpecT::PALETTE_RGB_CACHE,
                               SpecT::PALETTE_RGB_MIDPOINT_ONLY>,
         Spacetime::FrameHistory<FrameState, TEMPORAL_SAMPLING,
-                                Metadata::MODULATION> {
+                                HUE_ROTATION_LUT> {
     ComposedDetail::ResourceStorage<RuntimeResource,
                                     typename Params::ResourceTypes>
         resources;
@@ -1005,10 +1010,21 @@ private:
 
   /** @brief The hue-rotation LUT base, or null when no hue mode reads one. */
   const Pixel *hue_rotation_lut_data() const {
-    if constexpr (Metadata::MODULATION)
+    if constexpr (HUE_ROTATION_LUT)
       return state->hue_rotation_lut.data();
     else
       return nullptr;
+  }
+
+  /** @brief Checks the authored cache qualification domain.
+   * @param value Frame parameters.
+   * @return Whether the color controls admit interval caching. */
+  static bool palette_cache_controls_eligible(const Params &value) {
+    if constexpr (SpecT::INITIAL_COLOR_CACHE_ONLY)
+      return value.template get<"color">() ==
+             Derived::initial_params().template get<"color">();
+    else
+      return true;
   }
 
   /**
@@ -1019,7 +1035,7 @@ private:
    */
   HS_COLD_MEMBER void prepare_frame(FrameState &frame) {
     HS_PROFILE(fx_prepare_frame);
-    if constexpr (Metadata::MODULATION)
+    if constexpr (HUE_ROTATION_LUT)
       if (state->hue_rotation_lut_bake != palette_cycler.bake_generation()) {
         Pullback::Color::prepare_hue_rotation_lut(
             std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(

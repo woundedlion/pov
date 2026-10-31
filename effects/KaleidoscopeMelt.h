@@ -26,6 +26,11 @@ struct KaleidoscopeMeltSpec : Pullback::Spec {
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr bool FUSED_TEMPORAL_COLOR = true;
+  static constexpr bool HUE_ROTATION_LUT = false;
+  static constexpr bool TEMPORAL_COLOR_PHASE = true;
+  static constexpr bool PALETTE_LAB_CACHE = true;
+  static constexpr int PALETTE_LAB_VALUES = 256;
+  static constexpr bool INITIAL_COLOR_CACHE_ONLY = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
@@ -39,7 +44,7 @@ struct KaleidoscopeMeltSpec : Pullback::Spec {
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
       Pullback::Stage::Placed<
-          Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+          Pullback::CodeEmission::INLINE_ONLY,
           Pullback::Stage::Lens<Pullback::Lens::DodecahedralKaleidoscope>,
           Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
               Pullback::SurfaceNoiseParams, B, false>::Type>,

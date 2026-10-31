@@ -1008,8 +1008,7 @@ inline void check_temporal_roster_pixels(const char *name) {
   constexpr int TOLERANCE = FX::Spec::FACTORED_COLUMNS ? 16 : 2;
   FX effect;
   effect.init();
-  Spacetime::FrameHistory<typename FX::FrameState, true,
-                          FX::Metadata::MODULATION>
+  Spacetime::FrameHistory<typename FX::FrameState, true, FX::HUE_ROTATION_LUT>
       history;
   const auto view = [](int x, int y) {
     const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
@@ -1039,8 +1038,9 @@ inline void check_temporal_roster_pixels(const char *name) {
     HS_EXPECT_TRUE(
         history.previous.resources.template get<"modulation">().modulation !=
         initial.resources.template get<"modulation">().modulation);
-    HS_EXPECT_TRUE(history.previous.hue_rotation_lut !=
-                   initial.hue_rotation_lut);
+    if constexpr (FX::HUE_ROTATION_LUT)
+      HS_EXPECT_TRUE(history.previous.hue_rotation_lut !=
+                     initial.hue_rotation_lut);
   }
 
   effect.set_clip(3, 17, 39, 83);
@@ -1149,7 +1149,7 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
  * @tparam FX Composed effect specialization. */
 template <typename FX>
 using ComposedHistory = Spacetime::FrameHistory<typename FX::FrameState, true,
-                                                FX::Metadata::MODULATION>;
+                                                FX::HUE_ROTATION_LUT>;
 
 /** @brief MobiusGrid's lens b at a continuous frame time.
  * @param time Frames since init; draw k spans [k, k + 1].
