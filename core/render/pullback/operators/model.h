@@ -233,10 +233,6 @@ struct OperatorRuntime {
   void (*prepare_interval)(void *out, const void *from,
                            const void *to) = nullptr;
   BlockLayout interval{1, 1}; ///< Retained column clock interval layout.
-  /** Colors one input from two immutable endpoint resources. */
-  void (*run_temporal)(const void *in, void *out, const FrameContext &ctx,
-                       const uint8_t *current, const uint8_t *previous,
-                       float fraction) = nullptr;
   /** Exact modulation instance label, or null for other operator kinds. */
   std::string_view (*modulation_key)(const void *state) = nullptr;
   /** Whether a schema field may change without snapping the column interval. */
@@ -566,30 +562,6 @@ template <typename Model> struct ErasedAdapter {
         *std::launder(reinterpret_cast<const Prepared *>(prepared)))};
   }
 
-  /** @brief Constructs a completed temporal output from prepared endpoints.
-   * @param in Input carrier.
-   * @param out Raw output storage.
-   * @param ctx Per-sample field metadata.
-   * @param current Current prepared block.
-   * @param previous Retained prepared block.
-   * @param fraction Current endpoint interpolation weight. */
-  static void run_temporal(const void *in, void *out, const FrameContext &ctx,
-                           const uint8_t *current, const uint8_t *previous,
-                           float fraction) {
-    const Input &input = *std::launder(static_cast<const Input *>(in));
-    const Prepared &now =
-        *std::launder(reinterpret_cast<const Prepared *>(current));
-    const Prepared &before =
-        *std::launder(reinterpret_cast<const Prepared *>(previous));
-    if constexpr (requires {
-                    Model::run_temporal(input, ctx, now, before, fraction);
-                  })
-      ::new (out)
-          Output{Model::run_temporal(input, ctx, now, before, fraction)};
-    else
-      ::new (out) Output{Model::run_temporal(input, now, before, fraction)};
-  }
-
   /**
    * @brief Writes the param block between two endpoints along each field's
    *        transition curve.
@@ -728,18 +700,6 @@ template <typename Model> constexpr BlockLayout model_interval_layout() {
   } else {
     return {1, 1};
   }
-}
-
-/** @brief Optional completed-endpoint color kernel.
- * @tparam Model Operator model.
- * @return Erased kernel or null. */
-template <typename Model> constexpr auto model_run_temporal() {
-  using Kernel = void (*)(const void *, void *, const FrameContext &,
-                          const uint8_t *, const uint8_t *, float);
-  if constexpr (requires { Model::run_temporal; })
-    return static_cast<Kernel>(&ErasedAdapter<Model>::run_temporal);
-  else
-    return static_cast<Kernel>(nullptr);
 }
 
 /** @brief Optional modulation instance key accessor.
@@ -966,7 +926,6 @@ constexpr OperatorDescriptor make_operator_descriptor() {
           Detail::model_sample_state<Model>(),
           Detail::model_prepare_interval<Model>(),
           Detail::model_interval_layout<Model>(),
-          Detail::model_run_temporal<Model>(),
           Detail::model_modulation_key<Model>(),
           Detail::model_temporal_hold_field<Model>(),
       },
