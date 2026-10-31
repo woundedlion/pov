@@ -8,6 +8,7 @@
 
 #include <cstring>
 #include <bit>
+#include <limits>
 
 #include "core/math/noise_field.h"
 #include "core/render/pullback/surface.h"
@@ -291,8 +292,25 @@ inline void test_noise_gradient_residual_sign() {
 #endif
 }
 
-/** @brief Value-returning gradients preserve the reference-output API. */
+/** @brief Gradient APIs agree exactly in strict mode and within fast-math roundoff. */
 inline void test_noise_field_gradient_value_return() {
+  // Gradient roundoff scales with frequency; transform roundoff with coordinates.
+  constexpr float GRADIENT_ROUNDOFF =
+      64.0f * std::numeric_limits<float>::epsilon();
+  constexpr float TRANSFORM_ROUNDOFF =
+      128.0f * std::numeric_limits<float>::epsilon();
+  const auto expect_gradient = [](const auto &actual, const auto &expected,
+                                  [[maybe_unused]] float tolerance) {
+#if defined(HS_TEST_FAST_MATH)
+    HS_EXPECT_NEAR(actual.x, expected.x, tolerance);
+    HS_EXPECT_NEAR(actual.y, expected.y, tolerance);
+    HS_EXPECT_NEAR(actual.z, expected.z, tolerance);
+#else
+    HS_EXPECT_EQ(actual.x, expected.x);
+    HS_EXPECT_EQ(actual.y, expected.y);
+    HS_EXPECT_EQ(actual.z, expected.z);
+#endif
+  };
   uint32_t state = 0x4a31c587;
   const auto coordinate = [&]() {
     state ^= state << 13;
@@ -319,18 +337,21 @@ inline void test_noise_field_gradient_value_return() {
                                        reference.y, reference.z);
           const auto VALUE =
               noise.get_noise_gradient_single(POINT.x, POINT.y, POINT.z);
-          HS_EXPECT_EQ(VALUE.x, reference.x);
-          HS_EXPECT_EQ(VALUE.y, reference.y);
-          HS_EXPECT_EQ(VALUE.z, reference.z);
+          expect_gradient(VALUE, reference, GRADIENT_ROUNDOFF * frequency);
           if (ELIGIBLE) {
             const auto DEFAULT = noise.get_noise_gradient_unit_default(
                 POINT.x, POINT.y, POINT.z);
-            HS_EXPECT_EQ(DEFAULT.x, reference.x);
-            HS_EXPECT_EQ(DEFAULT.y, reference.y);
-            HS_EXPECT_EQ(DEFAULT.z, reference.z);
+            const float COORDINATE_SCALE = std::max(
+                {1.0f, fabsf(POINT.x), fabsf(POINT.y), fabsf(POINT.z)});
+            expect_gradient(DEFAULT, reference,
+                            TRANSFORM_ROUNDOFF * COORDINATE_SCALE);
             const auto INLINE = noise.get_noise_gradient_unit_default<true>(
                 POINT.x, POINT.y, POINT.z);
+#if defined(HS_TEST_FAST_MATH)
+            expect_gradient(INLINE, DEFAULT, GRADIENT_ROUNDOFF);
+#else
             HS_EXPECT_EQ(std::memcmp(&INLINE, &DEFAULT, sizeof(DEFAULT)), 0);
+#endif
           }
         }
       }
@@ -598,6 +619,10 @@ inline void check_curl_policy_dispatch() {
                 oracle(INPUT, frame.noise, Basis, Integrator::VALUE, Limit,
                        scale, PREPARED.loop_offset, strength, path_required);
             const auto RESULT = Policy::apply(INPUT, frame, PREPARED);
+#if defined(HS_TEST_FAST_MATH)
+            HS_EXPECT_VEC(RESULT.sphere, EXPECTED.sphere, 1e-6f);
+            HS_EXPECT_NEAR(RESULT.path_length, EXPECTED.path_length, 1e-6f);
+#else
             HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.sphere.x),
                          std::bit_cast<uint32_t>(EXPECTED.sphere.x));
             HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.sphere.y),
@@ -606,6 +631,7 @@ inline void check_curl_policy_dispatch() {
                          std::bit_cast<uint32_t>(EXPECTED.sphere.z));
             HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.path_length),
                          std::bit_cast<uint32_t>(EXPECTED.path_length));
+#endif
           }
         }
 }
@@ -617,7 +643,7 @@ inline void check_curl_policy_integrators() {
   check_curl_policy_dispatch<Basis, Limit, Pullback::Surface::Midpoint2>();
 }
 
-/** @brief Curl policies preserve the dynamic integrator's result bits. */
+/** @brief Curl dispatch preserves strict result bits and fast-math precision. */
 inline void test_curl_policy_static_integrator() {
   check_curl_policy_integrators<math::NoiseBasis::SIMPLEX,
                                 math::TangentLimit::SMOOTH>();

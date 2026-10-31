@@ -1439,12 +1439,13 @@ inline void test_millefiori_column_color_phase() {
     for (const auto &direction :
          {math::X_AXIS, math::Y_AXIS, math::Z_AXIS,
           math::Vector(0.3f, 0.4f, 0.5f).normalized()}) {
+      const auto ADMITTED = Pattern::SphereDirection::admit(direction).value();
       const float A = math::sinf_0_2pi(
           math::TWO_PI_F *
-          math::wrap_t(3.0f * direction.y + 0.99f + 0.02f * fraction));
+          math::wrap_t(3.0f * ADMITTED.y + 0.99f + 0.02f * fraction));
       const float B = math::sinf_0_2pi(
           math::TWO_PI_F *
-          math::wrap_t(2.0f * direction.x + 0.24f + 0.02f * fraction));
+          math::wrap_t(2.0f * ADMITTED.x + 0.24f + 0.02f * fraction));
       ColorSample sample{Color4(Pixel(2000, 4000, 6000), 0.37f),
                          {0.5f, 0.7f, direction, 2.0f}};
       Color::Modulate<Provider>::apply_phase_in_place(sample, COLUMN, PREPARED);
@@ -1745,6 +1746,18 @@ inline void test_millefiori_radial_table_interval() {
 
 /** @brief Composed curl qualifies the unit default generator before pixel work. */
 inline void test_composed_default_gradient_preparation() {
+  const auto expect_displacement = [](const auto &actual,
+                                      const auto &expected) {
+#if defined(HS_TEST_FAST_MATH)
+    HS_EXPECT_VEC(actual.sphere, expected.sphere, 1e-6f);
+    HS_EXPECT_NEAR(actual.path_length, expected.path_length, 1e-6f);
+#else
+    HS_EXPECT_EQ(actual.sphere.x, expected.sphere.x);
+    HS_EXPECT_EQ(actual.sphere.y, expected.sphere.y);
+    HS_EXPECT_EQ(actual.sphere.z, expected.sphere.z);
+    HS_EXPECT_EQ(actual.path_length, expected.path_length);
+#endif
+  };
   using FX = AshCloud<SMALL_W, SMALL_H>;
   using Provider =
       Pullback::SurfaceProvider<typename FX::Binding,
@@ -1801,21 +1814,12 @@ inline void test_composed_default_gradient_preparation() {
           Pullback::Surface::Integrator::EULER, math::TangentLimit::SMOOTH,
           params.scale, PREPARED.loop_offset, params.strength, true);
       const auto ACTUAL = Policy::apply(direction, frame, PREPARED);
-      HS_EXPECT_EQ(ACTUAL.sphere.x, EXPECTED.sphere.x);
-      HS_EXPECT_EQ(ACTUAL.sphere.y, EXPECTED.sphere.y);
-      HS_EXPECT_EQ(ACTUAL.sphere.z, EXPECTED.sphere.z);
-      HS_EXPECT_EQ(ACTUAL.path_length, EXPECTED.path_length);
+      expect_displacement(ACTUAL, EXPECTED);
       const auto SHARED = DefaultPolicy::apply(direction, frame, PREPARED);
-      HS_EXPECT_EQ(ACTUAL.sphere.x, SHARED.sphere.x);
-      HS_EXPECT_EQ(ACTUAL.sphere.y, SHARED.sphere.y);
-      HS_EXPECT_EQ(ACTUAL.sphere.z, SHARED.sphere.z);
-      HS_EXPECT_EQ(ACTUAL.path_length, SHARED.path_length);
+      expect_displacement(ACTUAL, SHARED);
       const auto FOREIGN = ForeignPolicy::apply(
           direction, frame, ForeignProvider::prepare(frame));
-      HS_EXPECT_EQ(FOREIGN.sphere.x, EXPECTED.sphere.x);
-      HS_EXPECT_EQ(FOREIGN.sphere.y, EXPECTED.sphere.y);
-      HS_EXPECT_EQ(FOREIGN.sphere.z, EXPECTED.sphere.z);
-      HS_EXPECT_EQ(FOREIGN.path_length, EXPECTED.path_length);
+      expect_displacement(FOREIGN, EXPECTED);
     }
   }
 }
