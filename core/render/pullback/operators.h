@@ -617,6 +617,11 @@ struct ModulateColorV1 : ValueStateModel<ModulationClockState> {
       ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
   static constexpr auto METRICS = Color::GENERATED_PALETTE_METRICS;
   static void init(State &state, InstanceId id) { state.key = id.instance; }
+  /** @brief Copies the source clock and binds its destination instance.
+   * @param dst Destination state.
+   * @param src Source state.
+   * @param id Destination instance identity.
+   * @return Successful migration status. */
   static Status migrate(State &dst, const State &src, InstanceId id) {
     dst = src;
     dst.key = id.instance;
@@ -625,13 +630,20 @@ struct ModulateColorV1 : ValueStateModel<ModulationClockState> {
   static void advance(State &state, const Params &params) {
     Modulation::advance(state.modulation, params.modulation);
   }
+  /** @brief Checks modulation configuration admission.
+   * @param params Modulation controls.
+   * @return Null when admitted, otherwise a diagnostic. */
   static const char *validate(const Params &params) {
     return Modulation::admitted(params.modulation)
                ? nullptr
                : Modulation::INVALID_CONFIGURATION;
   }
+  /// Admission rule for interpolation between source recipes.
   static constexpr const char *ADMISSIBILITY_CONVEXITY =
       "Source recipes hold endpoint topology; mechanic strength interpolates within matching topology.";
+  /** @brief Tests whether a field holds its temporal endpoint.
+   * @param field Parameter field index.
+   * @return Whether the field is held. */
   static constexpr bool temporal_hold_field(uint16_t field) {
     return Params::temporal_hold_field(field);
   }

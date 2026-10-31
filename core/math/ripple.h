@@ -22,7 +22,8 @@ struct Wave {
   float cos_threshold_min = 1.0f;  ///< Upper cosine support bound.
   float cos_threshold_max = -1.0f; ///< Lower cosine support bound.
 
-  /** @brief Returns the wavelet half-width, floored at 0.001 radians. */
+  /** @brief Returns the wavelet half-width, floored at 0.001 radians.
+   * @return Half-width in radians. */
   float half_width() const {
     float hw = thickness * 0.5f;
     return hw < 0.001f ? 0.001f : hw;
@@ -41,25 +42,38 @@ struct Wave {
 /** @brief Largest angle evaluated with the truncated quaternion series. */
 inline constexpr float SMALL_ANGLE_MAX = 0.15f;
 
-/** @brief Tests exact center identity. */
+/** @brief Tests exact center identity.
+ * @param a First center.
+ * @param b Second center.
+ * @return Whether all components match. */
 HS_HOT_INLINE inline bool same_center(const math::Vector &a,
                                       const math::Vector &b) {
   return a.x == b.x && a.y == b.y && a.z == b.z;
 }
 
-/** @brief Includes a wave's support in a cosine-band union. */
+/** @brief Includes a wave's support in a cosine-band union.
+ * @param near Upper cosine bound to extend.
+ * @param far Lower cosine bound to extend.
+ * @param wave Wave whose support is included. */
 HS_HOT_INLINE inline void include_support(float &near, float &far,
                                           const Wave &wave) {
   near = fmaxf(near, wave.cos_threshold_min);
   far = fminf(far, wave.cos_threshold_max);
 }
 
-/** @brief Tests the closed cosine support band. */
+/** @brief Tests the closed cosine support band.
+ * @param wave Wave support bounds.
+ * @param cosine Cosine of the source distance.
+ * @return Whether the cosine lies within the support. */
 HS_HOT_INLINE inline bool contains(const Wave &wave, float cosine) {
   return !(cosine > wave.cos_threshold_min || cosine < wave.cos_threshold_max);
 }
 
-/** @brief Evaluates the wavelet at an angular distance and phase. */
+/** @brief Evaluates the wavelet at an angular distance and phase.
+ * @param wave Wave shape and amplitude.
+ * @param distance Source distance in radians.
+ * @param phase Wavefront distance in radians.
+ * @return Signed angular displacement. */
 HS_HOT_INLINE inline float angle_at_distance(const Wave &wave, float distance,
                                              float phase) {
   float dist_from_peak = distance - phase;
@@ -69,7 +83,11 @@ HS_HOT_INLINE inline float angle_at_distance(const Wave &wave, float distance,
          math::fast_expf(-0.5f * t * t - wave.decay * distance);
 }
 
-/** @brief Rotates around a normalized axis with the ripple angle policy. */
+/** @brief Rotates around a normalized axis with the ripple angle policy.
+ * @param v Direction to rotate.
+ * @param axis Unit rotation axis.
+ * @param theta Signed rotation in radians.
+ * @return Rotated direction. */
 HS_HOT_INLINE inline math::Vector
 rotate(const math::Vector &v, const math::Vector &axis, float theta) {
   if (fabsf(theta) <= SMALL_ANGLE_MAX) {
@@ -83,7 +101,12 @@ rotate(const math::Vector &v, const math::Vector &axis, float theta) {
   return math::rotate(v, q);
 }
 
-/** @brief Applies one wave at a known distance without testing its support. */
+/** @brief Applies one wave at a known distance without testing its support.
+ * @param v Direction to displace.
+ * @param wave Wave shape and center.
+ * @param distance Source distance in radians.
+ * @param phase Wavefront distance in radians.
+ * @return Displaced direction, or the input at a degenerate axis. */
 HS_HOT_INLINE inline math::Vector transform_at_distance(const math::Vector &v,
                                                         const Wave &wave,
                                                         float distance,
@@ -98,7 +121,10 @@ HS_HOT_INLINE inline math::Vector transform_at_distance(const math::Vector &v,
   return v;
 }
 
-/** @brief Applies one wave after amplitude and cosine support rejection. */
+/** @brief Applies one wave after amplitude and cosine support rejection.
+ * @param v Direction to displace.
+ * @param wave Wave shape, center and support.
+ * @return Displaced direction. */
 HS_HOT_INLINE inline math::Vector transform(const math::Vector &v,
                                             const Wave &wave) {
   if (wave.amplitude <= 0.001f)
@@ -116,7 +142,13 @@ struct RadialTransfer {
   float path = 0.0f;  ///< Absolute angular travel.
 };
 
-/** @brief Advances one angularly supported wave, rejecting pole crossings. */
+/** @brief Advances one angularly supported wave, rejecting pole crossings.
+ * @param wave Wave shape and support.
+ * @param distance Current radial distance, updated in place.
+ * @param angle Accumulated signed rotation.
+ * @param path Accumulated absolute angular travel.
+ * @param track_path Whether to accumulate travel.
+ * @return Whether the resulting distance avoids both poles. */
 HS_HOT_INLINE inline bool radial_step(const Wave &wave, float &distance,
                                       float &angle, float &path,
                                       bool track_path) {
@@ -137,7 +169,11 @@ HS_HOT_INLINE inline bool radial_step(const Wave &wave, float &distance,
 }
 
 /** @brief Resolves a same-center wave sequence in radial coordinates.
- * @tparam WaveAt Inline accessor returning a wave reference. */
+ * @tparam WaveAt Inline accessor returning a wave reference.
+ * @param distance Initial source distance in radians.
+ * @param wave_at Wave accessor in composition order.
+ * @param count Number of waves.
+ * @return Net rotation and travel, with negative travel on a pole crossing. */
 template <typename WaveAt>
 HS_HOT_INLINE inline RadialTransfer
 radial_transfer(float distance, const WaveAt &wave_at, uint8_t count) {
@@ -148,7 +184,12 @@ radial_transfer(float distance, const WaveAt &wave_at, uint8_t count) {
   return result;
 }
 
-/** @brief Applies a grouped rotation when its axis and unit-vector bounds hold. */
+/** @brief Applies a grouped rotation when its axis and unit-vector bounds hold.
+ * @param start Initial unit direction.
+ * @param center Common wave center.
+ * @param angle Net rotation in radians.
+ * @param output Receives the rotated direction on success.
+ * @return Whether the axis and unit-vector bounds hold. */
 HS_HOT_INLINE inline bool rotate_group(const math::Vector &start,
                                        const math::Vector &center, float angle,
                                        math::Vector &output) {
@@ -163,7 +204,12 @@ HS_HOT_INLINE inline bool rotate_group(const math::Vector &start,
 
 /** @brief Applies waves sequentially and measures their actual angular travel.
  * @tparam Result Carrier with sphere and path_length members.
- * @tparam WaveAt Inline accessor returning a wave reference. */
+ * @tparam WaveAt Inline accessor returning a wave reference.
+ * @param input Initial direction.
+ * @param wave_at Wave accessor in composition order.
+ * @param count Number of waves.
+ * @param track_path Whether to accumulate travel.
+ * @return Displaced direction and angular travel. */
 template <typename Result, typename WaveAt>
 HS_HOT_INLINE inline Result sequential(const math::Vector &input,
                                        const WaveAt &wave_at, uint8_t count,
@@ -184,7 +230,13 @@ HS_HOT_INLINE inline Result sequential(const math::Vector &input,
 /** @brief Composes consecutive same-center waves in one radial basis.
  * @tparam Result Carrier with sphere and path_length members.
  * @tparam WaveAt Inline accessor returning a wave reference.
- * @tparam Fallback Inline callable resolving the original input sequentially. */
+ * @tparam Fallback Inline callable resolving the original input sequentially.
+ * @param input Initial direction.
+ * @param wave_at Wave accessor in composition order.
+ * @param count Number of waves.
+ * @param track_path Whether to accumulate travel.
+ * @param fallback Resolver used when radial composition is invalid.
+ * @return Displaced direction and angular travel. */
 template <typename Result, typename WaveAt, typename Fallback>
 HS_HOT_INLINE inline Result grouped(const math::Vector &input,
                                     const WaveAt &wave_at, uint8_t count,
@@ -209,7 +261,15 @@ HS_HOT_INLINE inline Result grouped(const math::Vector &input,
   return result;
 }
 
-/** @brief Samples neighboring nodes from two radial-transfer curves. */
+/** @brief Samples neighboring nodes from two radial-transfer curves.
+ * @tparam Samples Number of radial nodes per curve.
+ * @param previous Previous endpoint curve.
+ * @param current Current endpoint curve.
+ * @param distance Source distance in radians.
+ * @param fraction Temporal interpolation fraction.
+ * @param track_path Whether to interpolate travel.
+ * @param output Receives the interpolated transfer on success.
+ * @return Whether the distance and neighboring nodes are valid. */
 template <size_t Samples>
 HS_HOT_INLINE inline bool
 sample_transfer(const std::array<RadialTransfer, Samples> &previous,
@@ -243,7 +303,12 @@ template <typename Params> struct EndpointGroup {
   int end = 0;                    ///< Exclusive end of the group.
 };
 
-/** @brief Appends one active wave to caller-owned endpoint group storage. */
+/** @brief Appends one active wave to caller-owned endpoint group storage.
+ * @tparam Params Wave parameter type.
+ * @param waves Caller-owned storage with room for another wave.
+ * @param count Current wave count, incremented in place.
+ * @param first First wave of the current group, updated for a new center.
+ * @param params Wave parameters retained by reference. */
 template <typename Params>
 HS_HOT_INLINE inline void append_endpoint(EndpointGroup<Params> *waves,
                                           int &count, int &first,
@@ -262,7 +327,13 @@ HS_HOT_INLINE inline void append_endpoint(EndpointGroup<Params> *waves,
 /** @brief Rejects endpoint groups, then applies surviving waves sequentially.
  * @tparam Params Wave parameter type.
  * @tparam OnGroup Inline group-visit observer.
- * @tparam OnWave Inline individual-band observer. */
+ * @tparam OnWave Inline individual-band observer.
+ * @param v Initial direction.
+ * @param waves Consecutive same-center wave groups.
+ * @param count Number of waves.
+ * @param on_group Observer called for each group support test.
+ * @param on_wave Observer called for each individual support test.
+ * @return Displaced direction. */
 template <typename Params, typename OnGroup, typename OnWave>
 HS_HOT_INLINE inline math::Vector
 sequential_groups(math::Vector v, const EndpointGroup<Params> *waves, int count,

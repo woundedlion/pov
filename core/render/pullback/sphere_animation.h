@@ -17,6 +17,7 @@ struct BurstRippleParams : Surface::PeriodicRippleParams {
   float burst_rate = 1.0f / 128.0f; ///< Bursts per frame.
   uint8_t burst_size = 3;           ///< Ripples per burst minus one.
   uint8_t random_center = 1; ///< One random center per burst when enabled.
+  /// Interpolable periodic-wave and burst-rate fields.
   static constexpr auto FIELDS = concat_fields<BurstRippleParams>(
       Surface::PeriodicRippleParams::FIELDS,
       std::array{Field<BurstRippleParams>{

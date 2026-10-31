@@ -396,6 +396,8 @@ inline constexpr std::array<ApproximationMetric, 3> GENERATED_PALETTE_METRICS{{
 template <typename State> struct GeneratedPalette : ApproximationDefaults {
   using SharedBaseOwner = GeneratedPalette<State>; ///< Cache-contract owner.
   static constexpr bool PHASE_BLEND_BASE = true;   ///< Common field controls.
+  /** @brief Checks the generated-palette provider contract.
+   * @tparam Binding Frame binding. */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -624,6 +626,8 @@ template <typename State> struct Modulate : ApproximationDefaults {
   using Prepared = decltype(State::prepare(
       std::declval<
           const typename State::Binding::FrameState &>())); ///< Layer state.
+  /** @brief Checks the modulation provider contract.
+   * @tparam Binding Frame binding. */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&

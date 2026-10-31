@@ -36,12 +36,14 @@ struct MillefioriTetrahedralLens : Pullback::Lens::TetrahedralKaleidoscope {
 struct MillefioriSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
-  static constexpr bool TEMPORAL_SAMPLING = true;
-  static constexpr bool TEMPORAL_COLOR_PHASE = true;
-  static constexpr bool PALETTE_LAB_CACHE = true;
-  static constexpr bool CACHE_FULL_GAMUT_LUT = true;
-  static constexpr bool RIPPLE_RADIAL_TABLE = true;
-  static constexpr bool PERSISTENT_PREPARED_FRAME = true;
+  static constexpr bool TEMPORAL_SAMPLING = true; ///< Sample column endpoints.
+  static constexpr bool TEMPORAL_COLOR_PHASE = true; ///< Blend deferred color.
+  static constexpr bool PALETTE_LAB_CACHE =
+      true; ///< Cache palette Lab samples.
+  static constexpr bool CACHE_FULL_GAMUT_LUT = true; ///< Retain gamut lookup.
+  static constexpr bool RIPPLE_RADIAL_TABLE = true; ///< Cache radial transfers.
+  static constexpr bool PERSISTENT_PREPARED_FRAME =
+      true; ///< Arena-owned frame.
   /** @brief Authored ripple, kaleidoscope and lattice stage chain.
    * @tparam B Frame binding. */
   template <typename B>
