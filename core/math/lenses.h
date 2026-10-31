@@ -26,8 +26,12 @@
  */
 namespace lenses {
 
-/** @brief Azimuthal rotation in radians applied per unit of height. */
+/** @brief Azimuthal rotation in radians at unit height. */
 inline constexpr float TWIST_RATE = 3.0f;
+/** @brief Default redistribution of axial twist toward the poles. */
+inline constexpr float TWIST_DISTRIBUTION = 0.85f;
+/** @brief Maximum twist redistribution with finite polar derivatives. */
+inline constexpr float TWIST_DISTRIBUTION_MAX = 0.98f;
 /** @brief Signed mirror distance treated as "on the chamber wall". */
 inline constexpr float POLYHEDRAL_MIRROR_EPS = 1e-6f;
 /** @brief Loop passes a chamber fold may take before it is declared stuck. */
@@ -89,19 +93,60 @@ inline math::Vector glitch_lens(const math::Vector &v) {
                       double_y * v.z * (3.0f - 4.0f * z2 * inverse_radius2));
 }
 
+/** @brief Prepared axial twist profile. */
+struct TwistProfile {
+  float distribution; ///< Redistribution toward the poles.
+  float scale;        ///< Normalized angular scale, in radians.
+};
+
+/** @brief Prepares a normalized twist profile.
+ * @param rate Rotation in radians at unit height.
+ * @param distribution Redistribution in [0, TWIST_DISTRIBUTION_MAX].
+ * @return Profile with a linear limit at zero distribution. */
+inline TwistProfile
+prepare_twist_profile(float rate = TWIST_RATE,
+                      float distribution = TWIST_DISTRIBUTION) {
+  distribution = std::clamp(distribution, 0.0f, TWIST_DISTRIBUTION_MAX);
+  if (distribution < 1e-4f)
+    return {0.0f, rate};
+  return {distribution, rate / atanhf(distribution)};
+}
+
+/** @brief Evaluates the axial rotation angle of a twist profile.
+ * @param height Signed axial height, clamped to [-1, 1].
+ * @param profile Prepared twist profile.
+ * @return Rotation in radians. */
+inline float twist_angle(float height, const TwistProfile &profile) {
+  height = std::clamp(height, -1.0f, 1.0f);
+  return profile.scale * (profile.distribution == 0.0f
+                              ? height
+                              : atanhf(profile.distribution * height));
+}
+
 /**
- * @brief Rotates a direction about the Y axis in proportion to its height.
+ * @brief Rotates a direction about the Y axis through a prepared twist profile.
  * @param v Unit direction on the sphere.
- * @param rate Rotation in radians per unit height.
- * @return The direction rotated by rate * v.y radians.
+ * @param profile Prepared axial twist profile.
+ * @return The direction rotated by the profile's angle at v.y.
  * @note The fast trigonometric approximation can move a unit input slightly
  *       off unit length; the result is not renormalized.
  */
-inline math::Vector twist_lens(const math::Vector &v, float rate = TWIST_RATE) {
-  const float angle = rate * v.y;
+inline math::Vector twist_lens(const math::Vector &v,
+                               const TwistProfile &profile) {
+  const float angle = twist_angle(v.y, profile);
   const float c = math::fast_cosf(angle);
   const float s = math::fast_sinf(angle);
   return math::Vector(v.x * c - v.z * s, v.y, v.x * s + v.z * c);
+}
+
+/** @brief Rotates a direction about Y with redistributed axial twist.
+ * @param v Unit direction on the sphere.
+ * @param rate Rotation in radians at unit height.
+ * @param distribution Redistribution toward the poles; zero is linear height.
+ * @return Direction rotated through the normalized twist profile. */
+inline math::Vector twist_lens(const math::Vector &v, float rate = TWIST_RATE,
+                               float distribution = TWIST_DISTRIBUTION) {
+  return twist_lens(v, prepare_twist_profile(rate, distribution));
 }
 
 /**

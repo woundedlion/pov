@@ -1790,23 +1790,39 @@ inline void test_value_noise() {
 // ============================================================================
 
 inline void test_twist_lens() {
-  math::Vector input(0.6f, 0.5f, 0.6244998f);
-  const math::Vector output = lenses::twist_lens(input);
-  const float angle = lenses::TWIST_RATE * input.y;
-  HS_EXPECT_NEAR(output.x, input.x * cosf(angle) - input.z * sinf(angle),
-                 2e-3f);
-  HS_EXPECT_NEAR(output.y, input.y, 1e-6f);
-  HS_EXPECT_NEAR(output.z, input.x * sinf(angle) + input.z * cosf(angle),
-                 2e-3f);
-  for (const float rate : {-12.0f, 0.0f, 12.0f}) {
-    const math::Vector twisted = lenses::twist_lens(input, rate);
-    const float radians = rate * input.y;
-    HS_EXPECT_NEAR(twisted.x, input.x * cosf(radians) - input.z * sinf(radians),
-                   2e-3f);
-    HS_EXPECT_EQ(twisted.y, input.y);
-    HS_EXPECT_NEAR(twisted.z, input.x * sinf(radians) + input.z * cosf(radians),
-                   2e-3f);
+  for (const float distribution : {0.0f, 1e-7f, 1e-4f, 0.85f, 0.98f}) {
+    for (const float rate : {-12.0f, 0.0f, 3.0f, 12.0f}) {
+      const auto profile = lenses::prepare_twist_profile(rate, distribution);
+      for (const float height :
+           {-1.0f, -0.99999f, -0.5f, 0.0f, 0.5f, 0.99999f, 1.0f}) {
+        const double h = height;
+        const double a = distribution;
+        const double angle = rate * (a == 0.0 ? h : atanh(a * h) / atanh(a));
+        HS_EXPECT_NEAR(lenses::twist_angle(height, profile), angle, 6e-6);
+        const float radius = sqrtf(std::max(0.0f, 1.0f - height * height));
+        const math::Vector input(radius * 0.6f, height, radius * 0.8f);
+        const auto output = lenses::twist_lens(input, rate, distribution);
+        HS_EXPECT_TRUE(std::isfinite(output.x));
+        HS_EXPECT_TRUE(std::isfinite(output.y));
+        HS_EXPECT_TRUE(std::isfinite(output.z));
+        HS_EXPECT_NEAR(output.x, input.x * cos(angle) - input.z * sin(angle),
+                       2e-3);
+        HS_EXPECT_EQ(output.y, input.y);
+        HS_EXPECT_NEAR(output.z, input.x * sin(angle) + input.z * cos(angle),
+                       2e-3);
+      }
+    }
   }
+  const math::Vector input(0.6f, 0.5f, 0.6244998f);
+  const auto output = lenses::twist_lens(input);
+  const double angle = 3.0 * atanh(0.85 * input.y) / atanh(0.85);
+  HS_EXPECT_NEAR(output.x, input.x * cos(angle) - input.z * sin(angle), 2e-3);
+  HS_EXPECT_NEAR(output.z, input.x * sin(angle) + input.z * cos(angle), 2e-3);
+  const auto profile = lenses::prepare_twist_profile(3.0f, 0.85f);
+  HS_EXPECT_TRUE(lenses::twist_angle(0.001f, profile) / 0.001f < 2.1f);
+  HS_EXPECT_NEAR(lenses::twist_angle(-1.0f, profile), -3.0f, 1e-6);
+  HS_EXPECT_EQ(lenses::twist_angle(0.0f, profile), 0.0f);
+  HS_EXPECT_NEAR(lenses::twist_angle(1.0f, profile), 3.0f, 1e-6);
 }
 
 /**

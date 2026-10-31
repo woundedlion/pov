@@ -288,13 +288,18 @@ struct LensGlitch : StatelessModel {
 
 /** @brief Parameter family of sphere.lens.twist.v2. */
 struct TwistChainParams {
-  float twist_rate = lenses::TWIST_RATE; /**< Radians per unit height. */
+  float twist_rate = lenses::TWIST_RATE; /**< Radians at unit axial height. */
+  float distribution = lenses::TWIST_DISTRIBUTION; ///< Polar redistribution.
   float speed = 0.02f;  /**< Polar rotation per frame, in radians. */
   float drift = 0.002f; /**< Azimuth rotation per frame, in radians. */
 
   static constexpr auto FIELDS = std::array{
       Field<TwistChainParams>{"twist-rate", &TwistChainParams::twist_rate,
                               "Twist Rate", -12.0f, 12.0f, FieldCurve::LERP},
+      Field<TwistChainParams>{"twist-distribution",
+                              &TwistChainParams::distribution,
+                              "Twist Distribution", 0.0f,
+                              lenses::TWIST_DISTRIBUTION_MAX, FieldCurve::LERP},
       Field<TwistChainParams>{"speed", &TwistChainParams::speed, "Speed", 0.0f,
                               0.05f, FieldCurve::LERP},
       Field<TwistChainParams>{"drift", &TwistChainParams::drift, "Drift", 0.0f,
@@ -338,7 +343,7 @@ HS_FLASH_INLINE inline void temporal_sample(TwistOrbitState &out,
   out.lambda = interval.lambda.sample(fraction);
 }
 
-/** @brief SPHERE endomorphism: the height-dependent twist lens. */
+/** @brief SPHERE endomorphism: the redistributed axial twist lens. */
 struct LensTwist : ValueStateModel<TwistOrbitState> {
   static constexpr const char *ID = "sphere.lens.twist.v2";
   static constexpr const char *NAME = "Twist Lens";
@@ -348,23 +353,26 @@ struct LensTwist : ValueStateModel<TwistOrbitState> {
   /** @brief Per-frame twist orientation. */
   struct Prepared {
     math::Vector axis{0.0f, 1.0f, 0.0f}; /**< Unit twist axis. */
+    lenses::TwistProfile profile = lenses::prepare_twist_profile();
   };
 
   static void advance(State &state, const Params &params) {
     state.phi = fmodf(state.phi + params.speed, math::TWO_PI_F);
     state.lambda = fmodf(state.lambda + params.drift, math::TWO_PI_F);
   }
-  static Prepared prepare(const FrameContext &, const Params &,
+  static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
-    return {math::Vector::from_spherical(state.lambda, state.phi)};
+    return {
+        math::Vector::from_spherical(state.lambda, state.phi),
+        lenses::prepare_twist_profile(params.twist_rate, params.distribution)};
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
-                          const Params &params, const Prepared &prepared) {
+                          const Params &, const Prepared &prepared) {
     if (prepared.axis.y == 1.0f)
       return Kernel::lens(input,
-                          lenses::twist_lens(input.dir, params.twist_rate));
+                          lenses::twist_lens(input.dir, prepared.profile));
     const float height = math::dot(input.dir, prepared.axis);
-    const float angle = params.twist_rate * height;
+    const float angle = lenses::twist_angle(height, prepared.profile);
     const float c = math::fast_cosf(angle);
     const float s = math::fast_sinf(angle);
     return Kernel::lens(input, input.dir * c +

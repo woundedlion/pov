@@ -609,6 +609,14 @@ Shipping composed effects are ordinary concrete `Effect` types. Each names one c
 
 Each editable source document lives under `patterns/*.shader.json`. The browser validates and canonicalizes a document before changing the live engine, matches its exact descriptor digest to a composed effect, and selects presets by immutable ID. Open/save preserves exhaustive chain, parameter, transition, and choreography data. Unknown or invalid semantics leave the current preview untouched. The current catalog maps each composed effect to its authoring document.
 
+The **Twist Lens** rotates around its animated axis with a normalized axial profile:
+`angle = Twist Rate * atanh(Twist Distribution * height) / atanh(Twist Distribution)`.
+**Twist Distribution** defaults to 0.85 and ranges from 0 to 0.98. Zero uses a
+linear height profile; increasing it redistributes twist toward the poles and
+reduces equatorial squeezing while preserving the rotation at unit axial height.
+**Twist Rate** ranges from -12 to 12 radians; **Speed** and **Drift** animate the
+axis orientation independently.
+
 The shader is a *pullback*: it starts at a visible sphere point and walks backward through a chain of stages over four ranked carrier families — Sphere, Plane, Field, Color. A chain is any stage sequence that is non-decreasing in family rank with agreeing adjacent carriers, entering at `SphereSample` and exiting at `Color4`; each family boundary is crossed at most once. Both Shader preview and concrete effects call the same public kernels in `core/render/pullback.h`. Palette mapping is continuous preset state: a transition carries both mapping endpoints and interpolates their coordinates before the single palette sample, so changing Cup/Bell/Linear/Reverse does not require another pipeline or effect.
 
 ```

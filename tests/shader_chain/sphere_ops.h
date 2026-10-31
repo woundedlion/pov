@@ -309,20 +309,24 @@ inline void test_shader_chain_parity_lens_ops() {
 
   run_lens_parity<PB::Lens::Twist, In::Op::TwistChainParams>(
       In::Op::LensTwist::ID, ValueSet::DEFAULTS);
-  for (const float rate : {-12.0f, 0.0f, 12.0f}) {
-    const PB::SphereSample input{math::Vector(0.6f, 0.5f, 0.6244998f), 0.0f};
-    In::Op::TwistChainParams params;
-    params.twist_rate = rate;
-    const auto result =
-        In::Op::LensTwist::run(input, shared_resources().context(), params, {});
-    const float angle = rate * input.dir.y;
-    HS_EXPECT_NEAR(result.dir.x,
-                   input.dir.x * cosf(angle) - input.dir.z * sinf(angle),
-                   2e-3f);
-    HS_EXPECT_EQ(result.dir.y, input.dir.y);
-    HS_EXPECT_NEAR(result.dir.z,
-                   input.dir.x * sinf(angle) + input.dir.z * cosf(angle),
-                   2e-3f);
+  for (const float distribution : {0.0f, 0.85f, 0.98f}) {
+    for (const float rate : {-12.0f, 0.0f, 12.0f}) {
+      const PB::SphereSample input{math::Vector(0.6f, 0.5f, 0.6244998f), 0.0f};
+      In::Op::TwistChainParams params;
+      params.twist_rate = rate;
+      params.distribution = distribution;
+      const auto ctx = shared_resources().context();
+      const auto prepared = In::Op::LensTwist::prepare(ctx, params, {});
+      const auto result = In::Op::LensTwist::run(input, ctx, params, prepared);
+      const double a = distribution;
+      const double angle =
+          rate * (a == 0.0 ? input.dir.y : atanh(a * input.dir.y) / atanh(a));
+      HS_EXPECT_NEAR(result.dir.x,
+                     input.dir.x * cos(angle) - input.dir.z * sin(angle), 2e-3);
+      HS_EXPECT_EQ(result.dir.y, input.dir.y);
+      HS_EXPECT_NEAR(result.dir.z,
+                     input.dir.x * sin(angle) + input.dir.z * cos(angle), 2e-3);
+    }
   }
 
   auto fixture = std::make_unique<ProgramFixture>();
@@ -361,36 +365,43 @@ inline void test_shader_chain_lens_controls() {
     return;
   const auto ctx = shared_resources().context();
   const PB::SphereSample input{math::Vector(0.6f, 0.5f, sqrtf(0.39f)), 0.25f};
-  for (const float phi : {0.4f, math::PI_F * 0.5f, 2.2f}) {
-    for (const float lambda : {0.0f, 0.7f, math::PI_F * 0.5f}) {
-      In::Op::TwistChainParams params;
-      In::Op::LensTwist::State state;
-      state.phi = phi;
-      state.lambda = lambda;
-      const auto prepared = In::Op::LensTwist::prepare(ctx, params, state);
-      const auto result = In::Op::LensTwist::run(input, ctx, params, prepared);
-      const double ax = sin(phi) * cos(lambda);
-      const double ay = cos(phi);
-      const double az = sin(phi) * sin(lambda);
-      const double h = input.dir.x * ax + input.dir.y * ay + input.dir.z * az;
-      const double c = cos(params.twist_rate * h);
-      const double s = sin(params.twist_rate * h);
-      HS_EXPECT_NEAR(result.dir.x,
-                     input.dir.x * c +
-                         (input.dir.y * az - input.dir.z * ay) * s +
-                         ax * h * (1 - c),
-                     2e-3);
-      HS_EXPECT_NEAR(result.dir.y,
-                     input.dir.y * c +
-                         (input.dir.z * ax - input.dir.x * az) * s +
-                         ay * h * (1 - c),
-                     2e-3);
-      HS_EXPECT_NEAR(result.dir.z,
-                     input.dir.z * c +
-                         (input.dir.x * ay - input.dir.y * ax) * s +
-                         az * h * (1 - c),
-                     2e-3);
-      HS_EXPECT_EQ(result.path_length, input.path_length);
+  for (const float distribution : {0.0f, 0.85f, 0.98f}) {
+    for (const float phi : {0.4f, math::PI_F * 0.5f, 2.2f}) {
+      for (const float lambda : {0.0f, 0.7f, math::PI_F * 0.5f}) {
+        In::Op::TwistChainParams params;
+        params.distribution = distribution;
+        In::Op::LensTwist::State state;
+        state.phi = phi;
+        state.lambda = lambda;
+        const auto prepared = In::Op::LensTwist::prepare(ctx, params, state);
+        const auto result =
+            In::Op::LensTwist::run(input, ctx, params, prepared);
+        const double ax = sin(phi) * cos(lambda);
+        const double ay = cos(phi);
+        const double az = sin(phi) * sin(lambda);
+        const double h = input.dir.x * ax + input.dir.y * ay + input.dir.z * az;
+        const double a = distribution;
+        const double angle =
+            params.twist_rate * (a == 0.0 ? h : atanh(a * h) / atanh(a));
+        const double c = cos(angle);
+        const double s = sin(angle);
+        HS_EXPECT_NEAR(result.dir.x,
+                       input.dir.x * c +
+                           (input.dir.y * az - input.dir.z * ay) * s +
+                           ax * h * (1 - c),
+                       2e-3);
+        HS_EXPECT_NEAR(result.dir.y,
+                       input.dir.y * c +
+                           (input.dir.z * ax - input.dir.x * az) * s +
+                           ay * h * (1 - c),
+                       2e-3);
+        HS_EXPECT_NEAR(result.dir.z,
+                       input.dir.z * c +
+                           (input.dir.x * ay - input.dir.y * ax) * s +
+                           az * h * (1 - c),
+                       2e-3);
+        HS_EXPECT_EQ(result.path_length, input.path_length);
+      }
     }
   }
   for (const float polar : {-12.0f, 0.0f, 1.0f, 2.0f, 12.0f}) {
