@@ -835,7 +835,8 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_temporal_affine_cycle);
   HS_RUN(test_temporal_custom_shade_is_authoritative);
   HS_RUN(test_scoped_temporal_sampling_restores_entering_mode);
-  HS_RUN(test_gridspace_factored_columns);
+  HS_RUN(test_gridspace_column_basis_geometry);
+  HS_RUN(test_gridspace_canonical_columns);
   HS_RUN(test_temporal_equal_palettes_color_as_current);
   HS_RUN(test_temporal_moving_families_interpolate);
   HS_RUN(test_temporal_owned_resources);

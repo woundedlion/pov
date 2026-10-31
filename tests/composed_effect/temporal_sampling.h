@@ -797,12 +797,14 @@ inline void test_temporal_owned_resources() {
   HS_EXPECT_NEAR(clock.phase.phase_turns, 0.375f, 0.0f);
 }
 
-/** @brief Factored projection stays within the RGB16 rounding budget. */
-inline void test_gridspace_factored_columns() {
-  HS_CONTEXT("GridSpace factored columns");
+/** @brief Factored meridians retain the canonical projection-local geometry. */
+inline void test_gridspace_column_basis_geometry() {
+  HS_CONTEXT("GridSpace column basis geometry");
   reset_globals();
   using FX = GridSpace<288, 144>;
   using Pipeline = FX::RenderPipeline;
+  using Policy = typename Pullback::ProjectionPolicyFor<
+      Pullback::ProjectionKind::GNOMONIC_FOLDED, FX::Binding>::Type;
   static_assert(Pipeline::LINEAR_COLUMNS);
   using GroupedPrefix = Pullback::Detail::TypeList<
       Pipeline::StageAt<0>,
@@ -815,9 +817,7 @@ inline void test_gridspace_factored_columns() {
   effect.draw_frame();
   effect.advance_display();
   Spacetime::FrameHistory<FX::FrameState, true, true> history;
-  int maximum_error = 0;
-  uint64_t error_sum = 0;
-  uint64_t channels = 0;
+  float maximum_error = 0.0f;
   for (int step = 0; step < 8; ++step) {
     history.capture(effect.frame_for_test(), persistent_arena);
     effect.draw_frame();
@@ -836,24 +836,76 @@ inline void test_gridspace_factored_columns() {
         const float SIN_PHI = math::TrigLUT<288, 144>::sin_phi[y];
         const float COS_PHI = math::TrigLUT<288, 144>::cos_phi[y];
         const math::Vector VIEW(SIN_PHI * COSINE, COS_PHI, SIN_PHI * SINE);
+        const auto ROTATED =
+            Pipeline::NodeAt<0>::run(Pullback::SphereSample{VIEW, 0.0f},
+                                     frame.ctx, std::get<0>(frame.prepared));
+        const auto EXPECTED =
+            math::rotate(ROTATED.dir, Policy::frame_conjugate(frame.ctx));
+        const auto ACTUAL = SIN_PHI * basis.equator + COS_PHI * basis.up;
+        maximum_error = std::max(maximum_error, (ACTUAL - EXPECTED).length());
+      }
+    }
+  }
+  HS_EXPECT_LE(maximum_error, 1e-6f);
+}
+
+/** @brief Product columns preserve canonical colors through gamut boundaries. */
+inline void test_gridspace_canonical_columns() {
+  HS_CONTEXT("GridSpace canonical columns");
+  reset_globals();
+  HS_EXPECT_FALSE(GridSpaceSpec::FACTORED_COLUMNS);
+  using FX = GridSpace<288, 144>;
+  using Pipeline = FX::RenderPipeline;
+  FX effect;
+  effect.init();
+  effect.draw_frame();
+  effect.advance_display();
+  Spacetime::FrameHistory<FX::FrameState, true, true> history;
+  int maximum_error = 0;
+  int worst_step = 0, worst_x = 0, worst_y = 0;
+  uint64_t error_sum = 0;
+  uint64_t channels = 0;
+  for (int step = 0; step <= 46; ++step) {
+    history.capture(effect.frame_for_test(), persistent_arena);
+    effect.draw_frame();
+    effect.advance_display();
+    if (step >= 8 && step != 46)
+      continue;
+    const auto current = effect.frame_for_test();
+    for (int x = 0; x < 288; ++x) {
+      const float TIME = static_cast<float>(x % 144) / 144;
+      const auto frame = Pipeline::prepare(
+          Spacetime::sample_frame(history.previous, current, TIME));
+      for (int y = 0; y < 144; ++y) {
+        const float SIN_PHI = math::TrigLUT<288, 144>::sin_phi[y];
+        const math::Vector VIEW(SIN_PHI * math::TrigLUT<288, 144>::cos_theta(x),
+                                math::TrigLUT<288, 144>::cos_phi[y],
+                                SIN_PHI *
+                                    math::TrigLUT<288, 144>::sin_theta[x]);
         const Color4 EXPECTED = Pipeline::shade(VIEW, frame);
-        const Color4 ACTUAL =
-            Pipeline::shade_column(SIN_PHI, COS_PHI, frame, basis);
-        const Pixel A = ACTUAL.color * ACTUAL.alpha;
+        const Pixel A = effect.get_pixel(x, y);
         const Pixel B = EXPECTED.color * EXPECTED.alpha;
         for (int error : {std::abs(int(A.r) - B.r), std::abs(int(A.g) - B.g),
                           std::abs(int(A.b) - B.b)}) {
-          maximum_error = std::max(maximum_error, error);
+          if (error > maximum_error) {
+            maximum_error = error;
+            worst_step = step;
+            worst_x = x;
+            worst_y = y;
+          }
           error_sum += error;
           ++channels;
         }
       }
     }
   }
-  HS_EXPECT_TRUE(maximum_error <= 16);
-  HS_EXPECT_TRUE(static_cast<double>(error_sum) / channels < 0.05);
+  char location[80];
+  std::snprintf(location, sizeof(location), "step=%d x=%d y=%d", worst_step,
+                worst_x, worst_y);
+  HS_CONTEXT(location);
+  HS_EXPECT_LE(maximum_error, 16);
+  HS_EXPECT_LT(static_cast<double>(error_sum) / channels, 0.05);
 }
-
 /** @brief GridSpace shades each clipped column at its own sweep time. */
 inline void test_gridspace_temporal_pixels() {
   HS_CONTEXT("GridSpace column-time pixels");
