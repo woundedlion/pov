@@ -152,7 +152,7 @@ constexpr DerivationReach DERIVATION_REACH[] = {
      {{"hue-rotation", "positive-lightness-lift"}}},
     {"color.modulate.v1", "pattern-noise-basis", {{"simplex"}}},
     {"color.modulate.v1", "pattern-noise-variant", {{"configured-single"}}},
-    // Shipped Specs select only the none and cup brightness envelopes.
+    // Shipped Specs select the none, cup and bell brightness envelopes.
     {"colorize.generated-palette.v4",
      "brightness-envelope",
      {{"none", "cup", "bell"}}},
