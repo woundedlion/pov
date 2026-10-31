@@ -473,7 +473,8 @@ zero and one select the corresponding endpoint directly when the hook exists.
 `Spec::RIPPLE_RADIAL_TABLE` defaults off; Millefiori and AshCloud enable it for temporal
 column rendering. Each persistent resource owns radial curves of net rotation
 and absolute travel for its burst centers. Frame preparation bakes current wave
-ages and ages minus one, preserving wave order. Column views borrow the current
+ages and ages minus one, preserving wave order. Bitwise-identical ordered ages
+and wave controls reuse a retained current curve for the previous endpoint. Column views borrow the current
 resource's tables and blend those endpoints only across a one-frame interval;
 table contents remain valid until the next draw. Initial identical frame
 endpoints use the current curve. Static/direct evaluation and literal interval
@@ -484,7 +485,7 @@ The curve is a spatial and temporal approximation, with one final sphere
 rotation per center and unchanged downstream pixel shading. Union support
 bounds reject inactive rays before angular lookup. Unsupported controls,
 parameter changes, skipped frame intervals, pole crossings and invalid lookup
-cells fall back to grouped evaluation. The optional curves occupy 16,532 bytes
+cells fall back to grouped evaluation. The optional curves and retained keys occupy 16,676 bytes
 inside the existing persistent arena, counted by the composed footprint gate;
 no arena or stack budget is increased.
 

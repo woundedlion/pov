@@ -1879,6 +1879,137 @@ inline void test_pullback_grouped_ripple_path_continuity() {
   HS_EXPECT_LT((A.sphere - B.sphere).length(), 1e-5f);
 }
 
+/** @brief Reused radial endpoints match fresh bakes across clock and parameter changes. */
+inline void test_pullback_radial_ripple_endpoint_reuse() {
+  using namespace Pullback::SphereAnimation;
+  static RadialTables cached, fresh;
+  const auto CHECK = [&](const BurstRippleParams &params,
+                         const RippleState &state) {
+    prepare_radial_tables(params, state, cached);
+    fresh.enabled = false;
+    prepare_radial_tables(params, state, fresh);
+    HS_EXPECT_EQ(cached.enabled, fresh.enabled);
+    HS_EXPECT_EQ(cached.count, fresh.count);
+    for (uint8_t group = 0; group < fresh.count; ++group) {
+      const auto &ACTUAL = cached.groups[group];
+      const auto &EXPECTED = fresh.groups[group];
+      HS_EXPECT_EQ(
+          std::memcmp(&ACTUAL.center, &EXPECTED.center, sizeof(ACTUAL.center)),
+          0);
+      HS_EXPECT_EQ(std::memcmp(&ACTUAL.cos_threshold_min,
+                               &EXPECTED.cos_threshold_min, sizeof(float)),
+                   0);
+      HS_EXPECT_EQ(std::memcmp(&ACTUAL.cos_threshold_max,
+                               &EXPECTED.cos_threshold_max, sizeof(float)),
+                   0);
+      HS_EXPECT_EQ(std::memcmp(ACTUAL.previous.data(), EXPECTED.previous.data(),
+                               sizeof(ACTUAL.previous)),
+                   0);
+      HS_EXPECT_EQ(std::memcmp(ACTUAL.current.data(), EXPECTED.current.data(),
+                               sizeof(ACTUAL.current)),
+                   0);
+    }
+  };
+  for (bool randomize : {false, true}) {
+    cached.enabled = false;
+    BurstRippleParams params;
+    params.period = 143.0f;
+    params.burst_rate = 1.0f / 64.0f;
+    RippleState state;
+    state.seed = 149502542u;
+    uint32_t random = 0x719463a5u;
+    const auto NEXT = [&]() {
+      random ^= random << 13;
+      random ^= random >> 17;
+      random ^= random << 5;
+      return static_cast<float>(random & 0xffffffu) / 16777216.0f;
+    };
+    for (int frame = 0; frame < 600; ++frame) {
+      if (randomize && frame % 29 == 0) {
+        params.period = 60.0f + 83.0f * NEXT();
+        params.strength = 0.01f + 0.14f * NEXT();
+        params.decay = 5.0f * NEXT();
+        params.thickness = 0.7f + 0.7f * NEXT();
+        params.burst_rate = (1.0f + NEXT()) / 128.0f;
+        params.burst_size = static_cast<uint8_t>(4.0f * NEXT());
+        params.random_center = static_cast<uint8_t>(NEXT() >= 0.5f);
+        params.center_azimuth = math::TWO_PI_F * NEXT();
+        params.center_polar = math::PI_F * NEXT();
+        state.seed = random;
+      }
+      if (randomize && frame % 83 == 0)
+        for (auto &wave : state.waves)
+          wave.age += 0.25f;
+      if (randomize && frame % 101 == 0)
+        for (int skipped = 0; skipped < 7; ++skipped)
+          advance_ripple(state, params);
+      advance_ripple(state, params);
+      CHECK(params, state);
+      if (randomize && frame % 47 == 0) {
+        auto unsupported = params;
+        unsupported.thickness = 0.1f;
+        CHECK(unsupported, state);
+        CHECK(params, state);
+      }
+    }
+  }
+  cached.enabled = false;
+  BurstRippleParams params;
+  params.period = 143.0f;
+  RippleState reordered;
+  reordered.burst_count = 4;
+  for (uint32_t burst = 0; burst < 4; ++burst)
+    reordered.waves[burst * 4] = {20.0f * (burst + 1), burst};
+  CHECK(params, reordered);
+  for (uint32_t burst = 0; burst < 4; ++burst)
+    reordered.waves[burst * 4].age = 81.0f - 20.0f * burst;
+  CHECK(params, reordered);
+
+  for (int control = 0; control < 4; ++control) {
+    cached.enabled = false;
+    params = {};
+    params.period = 143.0f;
+    reordered.waves[0] = {40.0f, 0};
+    CHECK(params, reordered);
+    advance_ripple(reordered, params);
+    switch (control) {
+    case 0:
+      params.period = 142.0f;
+      break;
+    case 1:
+      params.strength = 0.125f;
+      break;
+    case 2:
+      params.decay = 0.2f;
+      break;
+    case 3:
+      params.thickness = 0.8f;
+      break;
+    }
+    CHECK(params, reordered);
+  }
+
+  RadialCurveKey key{{80.0f, 0.15f, 0.1f, 0.7f}, {20.0f, 4.0f}, 2};
+  HS_EXPECT_TRUE(key.matches(key));
+  for (size_t scalar = 0; scalar < key.shape.size(); ++scalar) {
+    auto different = key;
+    different.shape[scalar] = std::nextafter(key.shape[scalar], 1000.0f);
+    HS_EXPECT_FALSE(key.matches(different));
+  }
+  for (uint8_t wave = 0; wave < key.count; ++wave) {
+    auto different = key;
+    different.ages[wave] = std::nextafter(key.ages[wave], 1000.0f);
+    HS_EXPECT_FALSE(key.matches(different));
+  }
+  auto different = key;
+  --different.count;
+  HS_EXPECT_FALSE(key.matches(different));
+  different = key;
+  different.ages[0] = -0.0f;
+  key.ages[0] = 0.0f;
+  HS_EXPECT_FALSE(key.matches(different));
+}
+
 /** @brief Radial endpoints reproduce an analytic single-wave crest. */
 inline void test_pullback_radial_ripple_crest() {
   using namespace Pullback::SphereAnimation;
@@ -3483,6 +3614,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_periodic_ripple);
   HS_RUN(test_pullback_ripple_supplied_center);
   HS_RUN(test_pullback_ripple_burst_centers);
+  HS_RUN(test_pullback_radial_ripple_endpoint_reuse);
   HS_RUN(test_pullback_radial_ripple_crest);
   HS_RUN(test_pullback_radial_ripple_fallback);
   HS_RUN(test_pullback_radial_ripple_lazy_fallback);

@@ -82,6 +82,23 @@ HS_HOT_FLASH_MEMBER inline math::Vector ripple_center(uint32_t seed,
 /** @brief Net rotation and absolute travel along one radial ray. */
 using RadialTransfer = RippleKernel::RadialTransfer;
 
+/** @brief Scalar inputs to an ordered radial endpoint bake. */
+struct RadialCurveKey {
+  std::array<float, 4> shape{}; ///< Period, strength, decay and thickness.
+  std::array<float, 4> ages{};  ///< Active wave ages in launch order.
+  uint8_t count = 0;            ///< Active wave count.
+
+  /** @brief Tests bitwise identity of all curve inputs.
+   * @param other Previously baked endpoint inputs.
+   * @return Whether both ordered radial curves have identical inputs. */
+  bool matches(const RadialCurveKey &other) const {
+    return count == other.count &&
+           std::memcmp(shape.data(), other.shape.data(), sizeof(shape)) == 0 &&
+           std::memcmp(ages.data(), other.ages.data(), count * sizeof(float)) ==
+               0;
+  }
+};
+
 /** @brief Endpoint transfer curves for one burst center. */
 struct RadialGroup {
   static constexpr size_t SAMPLES = 257; ///< Uniform samples over [0, pi].
@@ -91,6 +108,7 @@ struct RadialGroup {
   float cos_threshold_max = 1.0f; ///< Outermost support bound across endpoints.
   std::array<RadialTransfer, SAMPLES> previous; ///< One-frame-old wave ages.
   std::array<RadialTransfer, SAMPLES> current;  ///< Current wave ages.
+  RadialCurveKey current_key; ///< Inputs of the cached current endpoint.
 };
 
 /** @brief Persistent radial curves baked once for a frame. */
@@ -158,15 +176,16 @@ radial_transfer(float distance,
       count);
 }
 
-/** @brief Bakes both temporal endpoints of each burst's radial transfer.
+/** @brief Bakes radial endpoints, reusing bitwise-matching current curves.
  * @tparam Params Ripple controls.
  * @param params Current controls.
  * @param state Current scheduler state.
  * @param tables Persistent destination. */
 template <typename Params>
-inline void prepare_radial_tables(const Params &params,
-                                  const RippleState &state,
-                                  RadialTables &tables) {
+HS_HOT_FLASH_MEMBER inline void prepare_radial_tables(const Params &params,
+                                                      const RippleState &state,
+                                                      RadialTables &tables) {
+  const uint8_t CACHED_COUNT = tables.enabled ? tables.count : 0;
   tables.count = 0;
   tables.enabled = params.strength >= 0.0f && params.strength <= 0.15f &&
                    params.thickness >= 0.7f && params.thickness <= 1.4f &&
@@ -174,21 +193,32 @@ inline void prepare_radial_tables(const Params &params,
                    params.decay >= 0.0f && params.decay <= 5.0f;
   if (!tables.enabled)
     return;
+  std::array<std::array<Surface::PreparedRipple, 4>, 4> current_waves;
+  std::array<RadialCurveKey, 4> current_keys;
   for (uint32_t lag = 4; lag > 0; --lag) {
     const uint32_t BURST = state.burst_count - lag;
-    std::array<Surface::PreparedRipple, 4> previous, current;
+    std::array<Surface::PreparedRipple, 4> previous;
+    auto &current = current_waves[tables.count];
+    RadialCurveKey previous_key{
+        {params.period, params.strength, params.decay, params.thickness}};
+    auto &current_key = current_keys[tables.count];
+    current_key.shape = previous_key.shape;
     uint8_t previous_count = 0, current_count = 0;
     for (size_t i = 0; i < 4; ++i) {
       const auto &wave = state.waves[(BURST % 4) * 4 + i];
       if (wave.burst != BURST)
         continue;
-      if (wave.age >= 0.0f && wave.age < params.period)
+      if (wave.age >= 0.0f && wave.age < params.period) {
+        current_key.ages[current_count] = wave.age;
         current[current_count++] =
             Surface::prepare_ripple(params, wave.age / params.period);
+      }
       const float PREVIOUS_AGE = wave.age - 1.0f;
-      if (PREVIOUS_AGE >= 0.0f && PREVIOUS_AGE < params.period)
+      if (PREVIOUS_AGE >= 0.0f && PREVIOUS_AGE < params.period) {
+        previous_key.ages[previous_count] = PREVIOUS_AGE;
         previous[previous_count++] =
             Surface::prepare_ripple(params, PREVIOUS_AGE / params.period);
+      }
     }
     if (!previous_count && !current_count)
       continue;
@@ -214,11 +244,30 @@ inline void prepare_radial_tables(const Params &params,
     group.center = params.random_center
                        ? ripple_center(state.seed, BURST)
                        : Surface::prepare_ripple_center(params);
+    previous_key.count = previous_count;
+    current_key.count = current_count;
+    bool reused = false;
+    for (uint8_t cached = 0; cached < CACHED_COUNT; ++cached)
+      if (previous_key.matches(tables.groups[cached].current_key)) {
+        std::memcpy(group.previous.data(), tables.groups[cached].current.data(),
+                    sizeof(group.previous));
+        reused = true;
+        break;
+      }
+    if (!reused)
+      for (size_t i = 0; i < RadialGroup::SAMPLES; ++i) {
+        const float DISTANCE = math::PI_F * i / (RadialGroup::SAMPLES - 1);
+        group.previous[i] = radial_transfer(DISTANCE, previous, previous_count);
+      }
+  }
+  for (uint8_t group_index = 0; group_index < tables.count; ++group_index) {
+    auto &group = tables.groups[group_index];
     for (size_t i = 0; i < RadialGroup::SAMPLES; ++i) {
       const float DISTANCE = math::PI_F * i / (RadialGroup::SAMPLES - 1);
-      group.previous[i] = radial_transfer(DISTANCE, previous, previous_count);
-      group.current[i] = radial_transfer(DISTANCE, current, current_count);
+      group.current[i] = radial_transfer(DISTANCE, current_waves[group_index],
+                                         current_keys[group_index].count);
     }
+    group.current_key = current_keys[group_index];
   }
 }
 
