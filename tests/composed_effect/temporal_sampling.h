@@ -1129,20 +1129,20 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
                       {{6805330220ull, 6844874216ull, 7112697845ull},
                        201312982882ull,
                        983633955317ull}},
-                     {0x69e38ef852f070daull,
-                      {{6568081584ull, 6978293201ull, 6966434110ull},
-                       195726651229ull,
-                       957665657686ull}},
+                     {0x108d580bf9f3ec58ull,
+                      {{6441042071ull, 6850644753ull, 6909235984ull},
+                       194439400705ull,
+                       956507611724ull}},
                      1e-3,
                      0.01,
                      {0x54b286aedc50e5b7ull,
                       {{7025810653ull, 6816434558ull, 7032280424ull},
                        208885953563ull,
                        984308556083ull}},
-                     {0x8c65f65a113972deull,
-                      {{6401113354ull, 6273991381ull, 6152479994ull},
-                       179644043625ull,
-                       913767027589ull}}});
+                     {0xd4dacd713fdb8d86ull,
+                      {{6450621075ull, 6695747794ull, 6621267470ull},
+                       199295371499ull,
+                       955593357028ull}}});
 }
 
 /** @brief Composed history type of an effect.
