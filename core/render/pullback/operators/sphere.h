@@ -157,17 +157,11 @@ struct DisplaceDirect : PhaseClockModel<NoisePhaseState> {
 };
 
 /** @brief Burst controls of sphere.displace.ripple.v2. */
-struct RippleChainParams : Surface::PeriodicRippleParams {
-  float burst_rate = 1.0f / 128.0f; /**< Bursts per frame. */
-  uint8_t burst_size = 3;           /**< Ripples per burst minus one. */
-  uint8_t random_center = 1;        /**< One random center per burst when on. */
-
+struct RippleChainParams : SphereAnimation::BurstRippleParams {
   static constexpr auto FIELDS = [] {
     auto fields = concat_fields<RippleChainParams>(
-        Surface::PeriodicRippleParams::FIELDS,
-        std::array{Field<RippleChainParams>{
-            "burst-rate", &RippleChainParams::burst_rate, "Burst Rate", 0.0f,
-            1.0f / 64.0f, FieldCurve::LERP}});
+        SphereAnimation::BurstRippleParams::FIELDS,
+        std::array<Field<RippleChainParams>, 0>{});
     fields[0].name = "Ripple Duration";
     fields[4].topology_gate = {"random-center", live_values(0)};
     fields[5].topology_gate = {"random-center", live_values(0)};
