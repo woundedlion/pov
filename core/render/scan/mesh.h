@@ -802,20 +802,18 @@ face_bounds_pose(std::span<const math::Vector> vertices,
   if (!(length_sq > 1e-12f))
     return false;
   axis = axis * (1.0f / sqrtf(length_sq));
-  float min_cos = 1.0f;
-  for (const uint16_t i : indices)
-    min_cos = fminf(min_cos, math::dot(axis, vertices[i]));
-  if (!(min_cos > 0.0f))
-    return false;
   float cap_cosine = 1.0f;
   for (const uint16_t i : indices) {
     const auto &v = vertices[i];
-    cap_cosine = fminf(cap_cosine, math::dot(axis, v) / sqrtf(math::dot(v, v)));
+    const float PROJECTION = math::dot(axis, v);
+    if (!(PROJECTION > 0.0f))
+      return false;
+    cap_cosine = fminf(cap_cosine, PROJECTION / sqrtf(math::dot(v, v)));
   }
   culled = clip_planes.rejects(axis, fmaxf(cap_cosine - 2e-6f, 0.0f));
   if (culled || !time || !time->azimuth || !(time->sweep_arc > 0.0f))
     return false;
-  const float radius = cosine_arc(fminf(min_cos, 1.0f));
+  const float radius = cosine_arc(fminf(cap_cosine, 1.0f));
   int lo, hi;
   if (!lit_span<W>(axis, radius, time->sweep_arc, lo, hi) ||
       hi - lo > WIDE_FACE_COLUMNS)
