@@ -73,7 +73,10 @@ class TestGamutLutMirrors(unittest.TestCase):
         mutations = (
             (r"(GAMUT_SCAN_STEPS\s*=\s*)4", r"\g<1>5", "GAMUT_SCAN_STEPS differs"),
             (r"(GAMUT_BRACKET_STEPS\s*=\s*)3", r"\g<1>4", "GAMUT_BRACKET_STEPS differs"),
-            (r"(GATE_LO\s*=\s*)-1e-4f", r"\g<1>-2e-4f", "slack"),
+            (r"(LINEAR_RGB_GAMUT_MIN\s*=\s*)-1e-4f", r"\g<1>-2e-4f", "slack"),
+            (r"(LINEAR_RGB_GAMUT_MAX\s*=\s*1.0f\s*\+\s*)1e-4f",
+             r"\g<1>2e-4f", "slack"),
+            (r"least >= LINEAR_RGB_GAMUT_MIN", "least > LINEAR_RGB_GAMUT_MIN", "slack"),
             (r"inline constexpr float OKLAB_TO_LMS_CBRT\[3\]\[3\]", "inline constexpr float RENAMED[3][3]", "missing shared matrix"),
             (r"0.3963377774f,", "", "has 8 coefficients"),
         )

@@ -539,12 +539,16 @@ def check_mirrors(color_h_path, math_h_path):
     except ValueError as error:
         sys.stderr.write(f"could not parse linear_rgb_in_gamut: {error}\n")
         return False
-    m = re.search(r"GATE_LO\s*=\s*(%s)f\s*,\s*GATE_HI\s*=\s*(%s)f\s*\+\s*(%s)f"
-                  % (NUM, NUM, NUM), gamut)
-    if not m:
+    low = re.search(r"LINEAR_RGB_GAMUT_MIN\s*=\s*(%s)f" % NUM, text)
+    high = re.search(r"LINEAR_RGB_GAMUT_MAX\s*=\s*(%s)f\s*\+\s*(%s)f"
+                     % (NUM, NUM), text)
+    gates = re.search(r"least\s*>=\s*LINEAR_RGB_GAMUT_MIN\s*&&\s*"
+                      r"most\s*<=\s*LINEAR_RGB_GAMUT_MAX", gamut)
+    if not low or not high or not gates:
         sys.stderr.write("could not parse linear_rgb_in_gamut() slack\n")
         return False
-    lo, one, eps = (float(m.group(i)) for i in (1, 2, 3))
+    lo = float(low.group(1))
+    one, eps = (float(high.group(i)) for i in (1, 2))
     if (lo, one + eps) != (GAMUT_LO, GAMUT_HI):
         sys.stderr.write("gamut slack drift\n  color_space.h: %r %r\n  here:    %r %r\n"
                          % (lo, one + eps, GAMUT_LO, GAMUT_HI))
