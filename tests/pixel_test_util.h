@@ -467,16 +467,9 @@ inline int expect_frames_within(const char *label,
                                 const std::vector<Pixel> &actual,
                                 const std::vector<Pixel> &expected, int bound) {
   HS_CONTEXT(label);
-  int maximum_error = 0;
-  int lit = 0;
-  for (size_t i = 0; i < expected.size(); ++i) {
-    lit += !is_black(expected[i]);
-    const Pixel &a = actual[i];
-    const Pixel &b = expected[i];
-    maximum_error = std::max<int>(maximum_error, max_channel_gap(a, b));
-  }
-  HS_EXPECT_LE(maximum_error, bound);
-  return lit;
+  const FrameErrorStats s = compare_buffers(expected, actual);
+  HS_EXPECT_LE(s.max_absolute_error, static_cast<uint32_t>(bound));
+  return static_cast<int>(s.lit_reference_pixels);
 }
 
 /**
