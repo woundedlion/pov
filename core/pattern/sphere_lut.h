@@ -207,7 +207,7 @@ inline float sphere_face_grid_coordinate(int index) {
  * @param output Destination storage.
  * @param prepared Immutable prepared source inputs. */
 template <class Source>
-HS_FLASH_INLINE inline void
+HS_FLASH_INLINE __attribute__((flatten)) inline void
 prepare_sphere_lut(std::span<int8_t, SphereLutView::SIZE> output,
                    const typename Source::Prepared &prepared) {
   for (int face = 0; face < SphereLutView::FACE_COUNT; ++face)
