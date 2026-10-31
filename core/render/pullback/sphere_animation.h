@@ -109,7 +109,7 @@ struct PreparedRipples {
  * @param prepared Prepared wave kernels.
  * @param track_path Whether to accumulate angular travel.
  * @return Displaced direction and travel. */
-HS_HOT_ITCM_MEMBER inline SurfaceResult
+HS_HOT_FLASH_MEMBER inline SurfaceResult
 sequential_ripples(const math::Vector &input, const PreparedRipples &prepared,
                    bool track_path) {
   return RippleKernel::sequential<SurfaceResult>(
