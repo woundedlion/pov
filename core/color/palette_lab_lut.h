@@ -90,6 +90,8 @@ template <int ValueSteps> struct PaletteLabLutStorage : PaletteLabLutBase {
     data = nodes.data();
     value_steps = VALUES;
   }
+  /** @brief Copies the cache and binds the Lab view to its own nodes.
+   * @param other Cache to copy, including borrowed RGB rows. */
   PaletteLabLutStorage(const PaletteLabLutStorage &other)
       : PaletteLabLutBase(other), nodes(other.nodes) {
     data = nodes.data();

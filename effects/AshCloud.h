@@ -57,7 +57,9 @@ struct AshCloudSpec : Pullback::Spec {
   static constexpr bool CACHE_DODECAHEDRAL_MATRICES =
       true; ///< Copies reflection matrices into RAM.
   static constexpr bool TEMPORAL_COLOR_PHASE = true; ///< Shared color tail.
+  /// Caches interval palette blends in OKLab.
   static constexpr bool PALETTE_LAB_CACHE = true;
+  /// Caches final palette colors by value and hue.
   static constexpr bool PALETTE_RGB_CACHE = true;
   static constexpr float PALETTE_RGB_CHROMA =
       .314f;                                      ///< Qualified source chroma.

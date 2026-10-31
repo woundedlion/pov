@@ -28,6 +28,7 @@ struct Spec {
   static constexpr bool HUE_ROTATION_LUT = true;
   /// Caches RGB-first interval palette blends in OKLab.
   static constexpr bool PALETTE_LAB_CACHE = false;
+  /// Caches palette colors after hue rotation and gamut mapping.
   static constexpr bool PALETTE_RGB_CACHE = false;
   static constexpr float PALETTE_RGB_CHROMA =
       0.0f; ///< Qualified source chroma.

@@ -25,12 +25,19 @@ template <typename FX> struct ComposedWhiteBox;
 struct KaleidoscopeMeltSpec : Pullback::Spec {
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
+  /// Fuses eligible temporal color endpoints.
   static constexpr bool FUSED_TEMPORAL_COLOR = true;
+  /// Disables palette-coordinate hue tables.
   static constexpr bool HUE_ROTATION_LUT = false;
+  /// Shares eligible color-source phase evaluation.
   static constexpr bool TEMPORAL_COLOR_PHASE = true;
+  /// Caches interval palette blends in OKLab.
   static constexpr bool PALETTE_LAB_CACHE = true;
+  /// Keeps the full gamut table in persistent storage.
   static constexpr bool CACHE_FULL_GAMUT_LUT = true;
+  /// Palette-coordinate nodes per cached time row.
   static constexpr int PALETTE_LAB_VALUES = 256;
+  /// Restricts interval caches to the initial authored controls.
   static constexpr bool INITIAL_CACHE_CONTROLS_ONLY = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
