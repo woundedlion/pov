@@ -868,7 +868,7 @@ inline void test_ash_cloud_document_pipeline() {
           "displace">>>;
   using Curl = Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
       Pullback::SurfaceNoiseParams, FX::Binding, true>::Type>;
-  using Lens = Pullback::Stage::Lens<Pullback::Lens::DodecahedralKaleidoscope>;
+  using Lens = Pullback::Stage::Lens<AshCloudDodecahedralLens>;
   using Project = Pullback::Stage::Project<Pullback::ProjectionPolicyFor<
       Pullback::ProjectionKind::STEREOGRAPHIC, FX::Binding>::Type>;
   using Leaves = Pullback::ComposedDetail::PipelineLeaves<
@@ -877,6 +877,22 @@ inline void test_ash_cloud_document_pipeline() {
   static_assert(std::is_same_v<Leaves::StageAt<2>, Curl>);
   static_assert(std::is_same_v<Leaves::StageAt<3>, Lens>);
   static_assert(std::is_same_v<Leaves::StageAt<4>, Project>);
+  struct Frame {
+    struct Temporal {
+      float fraction;
+    } temporal;
+  };
+  for (const auto &view : {math::X_AXIS, -math::Y_AXIS, math::Z_AXIS,
+                           math::Vector(-0.3f, 0.4f, -0.5f).normalized()}) {
+    const auto EXPECTED = lenses::dodecahedral_kaleidoscope_lens(view);
+    for (float fraction : {0.0f, 1.0f}) {
+      const auto ACTUAL =
+          AshCloudDodecahedralLens::apply(view, Frame{{fraction}});
+      HS_EXPECT_EQ(ACTUAL.x, EXPECTED.x);
+      HS_EXPECT_EQ(ACTUAL.y, EXPECTED.y);
+      HS_EXPECT_EQ(ACTUAL.z, EXPECTED.z);
+    }
+  }
   composed_chain_tests::verify_export<FX>(0);
 }
 

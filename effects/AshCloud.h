@@ -17,6 +17,23 @@
 
 #include "core/render/pullback/composed_effect.h"
 
+/** @brief Canonical dodecahedral lens with validated interior matrix lookup. */
+struct AshCloudDodecahedralLens : Pullback::Lens::DodecahedralKaleidoscope {
+  /** @brief Preserves literal endpoints and validates interior matrix folds.
+   * @tparam FrameState Prepared column context.
+   * @param input Unit view direction.
+   * @param frame Column context.
+   * @return Canonical chamber direction. */
+  template <typename FrameState>
+  HS_HOT_INLINE static math::Vector apply(const math::Vector &input,
+                                          const FrameState &frame) {
+    if constexpr (requires { frame.temporal.fraction; })
+      if (frame.temporal.fraction > 0.0f && frame.temporal.fraction < 1.0f)
+        return lenses::dodecahedral_table_lens(input);
+    return lenses::dodecahedral_kaleidoscope_lens(input);
+  }
+};
+
 /** @brief Pullback stage spec for `AshCloud`. */
 struct AshCloudSpec : Pullback::Spec {
   /// Samples animation continuously across each two-arm half-turn.
@@ -46,7 +63,7 @@ struct AshCloudSpec : Pullback::Spec {
           Pullback::CodeEmission::INLINE_ONLY,
           Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
               Pullback::SurfaceNoiseParams, B, true>::Type>,
-          Pullback::Stage::Lens<Pullback::Lens::DodecahedralKaleidoscope>,
+          Pullback::Stage::Lens<AshCloudDodecahedralLens>,
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
               Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<

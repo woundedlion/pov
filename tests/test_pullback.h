@@ -1413,6 +1413,63 @@ inline void test_pullback_ripple_burst_centers() {
   }
 }
 
+/** @brief Validated dodecahedral matrices preserve canonical folds and wall fallback. */
+inline void test_pullback_dodecahedral_matrix_fold() {
+  static_assert(lenses::DodecahedralTable::GROUP.count == 120);
+  size_t accepted = 0;
+  uint32_t state = 0x735b18a3;
+  const auto random = [&]() {
+    state ^= state << 13;
+    state ^= state >> 17;
+    state ^= state << 5;
+    return float(state & 0xffffff) * (2.0f / 0xffffff) - 1.0f;
+  };
+  for (int sample = 0; sample < 8192; ++sample) {
+    const auto INPUT = math::Vector(random(), random(), random()).normalized();
+    const auto EXPECTED = lenses::dodecahedral_kaleidoscope_lens(INPUT);
+    math::Vector candidate;
+    const bool FAST = lenses::try_dodecahedral_table(INPUT, candidate);
+    const auto ACTUAL = lenses::dodecahedral_table_lens(INPUT);
+    HS_EXPECT_LE((ACTUAL - EXPECTED).length(), 2e-6f);
+    HS_EXPECT_NEAR(math::dot(ACTUAL, ACTUAL), math::dot(INPUT, INPUT), 2e-6f);
+    if (FAST) {
+      ++accepted;
+      HS_EXPECT_GT(candidate.x, lenses::DodecahedralTable::WALL_MARGIN);
+      HS_EXPECT_GT(candidate.z, lenses::DodecahedralTable::WALL_MARGIN);
+      HS_EXPECT_GT(math::dot(candidate, lenses::DODECAHEDRAL_MIRRORS[1]),
+                   lenses::DodecahedralTable::WALL_MARGIN);
+    }
+  }
+  HS_EXPECT_GT(accepted, size_t(6000));
+  HS_EXPECT_LT(accepted, size_t(8192));
+  const auto NORMAL = lenses::DODECAHEDRAL_MIRRORS[1];
+  const math::Vector WALLS[] = {
+      {0.0f, 0.95f, 0.3f},
+      {0.2f, 0.98f, 0.0f},
+      {0.1f, (-NORMAL.x * 0.1f - NORMAL.z * 0.1f) / NORMAL.y, 0.1f}};
+  const math::Vector NORMALS[] = {math::X_AXIS, math::Z_AXIS, NORMAL};
+  for (const auto &matrix : lenses::DodecahedralTable::GROUP.values)
+    for (int wall = 0; wall < 3; ++wall)
+      for (float offset : {-1e-6f, 0.0f, 1e-6f}) {
+        const auto POINT = (WALLS[wall] + offset * NORMALS[wall]).normalized();
+        const auto INPUT =
+            math::Vector(matrix[0][0] * POINT.x + matrix[1][0] * POINT.y +
+                             matrix[2][0] * POINT.z,
+                         matrix[0][1] * POINT.x + matrix[1][1] * POINT.y +
+                             matrix[2][1] * POINT.z,
+                         matrix[0][2] * POINT.x + matrix[1][2] * POINT.y +
+                             matrix[2][2] * POINT.z)
+                .normalized();
+        math::Vector candidate;
+        HS_EXPECT_FALSE(lenses::try_dodecahedral_table(INPUT, candidate));
+        const auto EXPECTED = lenses::dodecahedral_kaleidoscope_lens(INPUT);
+        const auto ACTUAL = lenses::dodecahedral_table_lens(INPUT);
+        HS_EXPECT_EQ(ACTUAL.x, EXPECTED.x);
+        HS_EXPECT_EQ(ACTUAL.y, EXPECTED.y);
+        HS_EXPECT_EQ(ACTUAL.z, EXPECTED.z);
+      }
+}
+
 /** @brief Compile-time Euler curl matches the generic surface kernel. */
 inline void test_pullback_euler_curl_specialization() {
   struct Frame {
@@ -3317,6 +3374,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_hexagonal_edges);
   HS_RUN(test_pullback_displacement_overflow);
   HS_RUN(test_pullback_warp_phase_loop);
+  HS_RUN(test_pullback_dodecahedral_matrix_fold);
   HS_RUN(test_pullback_euler_curl_specialization);
   HS_RUN(test_pullback_periodic_ripple);
   HS_RUN(test_pullback_ripple_supplied_center);

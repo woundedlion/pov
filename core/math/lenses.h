@@ -253,4 +253,191 @@ dodecahedral_kaleidoscope_lens(math::Vector v) {
   return v;
 }
 
+namespace DodecahedralTable {
+inline constexpr int FACE_STEPS = 16;
+inline constexpr float WALL_MARGIN = 1e-5f;
+static_assert(WALL_MARGIN > POLYHEDRAL_MIRROR_EPS);
+using Matrix = std::array<std::array<float, 3>, 3>;
+struct Group {
+  std::array<Matrix, 120> values{};
+  uint8_t count = 0;
+};
+constexpr Matrix identity() {
+  return {{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
+}
+constexpr Matrix reflect(Matrix matrix, int mirror) {
+  const auto normal = DODECAHEDRAL_MIRRORS[mirror];
+  const float n[] = {normal.x, normal.y, normal.z};
+  for (int column = 0; column < 3; ++column) {
+    const float distance = matrix[0][column] * n[0] + matrix[1][column] * n[1] +
+                           matrix[2][column] * n[2];
+    for (int row = 0; row < 3; ++row)
+      matrix[row][column] -= 2.0f * distance * n[row];
+  }
+  return matrix;
+}
+constexpr bool same(const Matrix &a, const Matrix &b) {
+  for (int row = 0; row < 3; ++row)
+    for (int column = 0; column < 3; ++column) {
+      const float delta = a[row][column] - b[row][column];
+      if (delta < -2e-5f || delta > 2e-5f)
+        return false;
+    }
+  return true;
+}
+constexpr Group make_group() {
+  Group result;
+  result.values[result.count++] = identity();
+  for (int index = 0; index < result.count; ++index)
+    for (int mirror = 0; mirror < 3; ++mirror) {
+      const auto candidate = reflect(result.values[index], mirror);
+      bool found = false;
+      for (int other = 0; other < result.count; ++other)
+        if (same(candidate, result.values[other])) {
+          found = true;
+          break;
+        }
+      if (found)
+        continue;
+      if (result.count == result.values.size()) {
+        ++result.count;
+        return result;
+      }
+      result.values[result.count++] = candidate;
+    }
+  return result;
+}
+inline constexpr auto
+    GROUP HS_PROGMEM_UNIQUE(dodecahedral_fold_group) = make_group();
+static_assert(GROUP.count == 120);
+constexpr std::array<float, 3> face_direction(int face, float u, float v) {
+  switch (face) {
+  case 0:
+    return {1.0f, v, u};
+  case 1:
+    return {-1.0f, v, -u};
+  case 2:
+    return {u, 1.0f, v};
+  case 3:
+    return {u, -1.0f, -v};
+  case 4:
+    return {u, v, 1.0f};
+  default:
+    return {-u, v, -1.0f};
+  }
+}
+constexpr uint8_t classify(std::array<float, 3> point) {
+  auto matrix = identity();
+  for (int step = 0; step < POLYHEDRAL_REFLECTION_LIMIT; ++step) {
+    int mirror;
+    const auto normal = DODECAHEDRAL_MIRRORS[1];
+    const float distance =
+        point[0] * normal.x + point[1] * normal.y + point[2] * normal.z;
+    if (point[0] < -POLYHEDRAL_MIRROR_EPS)
+      mirror = 0;
+    else if (distance < -POLYHEDRAL_MIRROR_EPS)
+      mirror = 1;
+    else if (point[2] < -POLYHEDRAL_MIRROR_EPS)
+      mirror = 2;
+    else {
+      for (int index = 0; index < GROUP.count; ++index)
+        if (same(matrix, GROUP.values[index]))
+          return static_cast<uint8_t>(index);
+      return 255;
+    }
+    matrix = reflect(matrix, mirror);
+    if (mirror == 0)
+      point[0] = -point[0];
+    else if (mirror == 2)
+      point[2] = -point[2];
+    else {
+      point[0] -= 2.0f * distance * normal.x;
+      point[1] -= 2.0f * distance * normal.y;
+      point[2] -= 2.0f * distance * normal.z;
+    }
+  }
+  return 255;
+}
+constexpr auto make_face(int face) {
+  std::array<uint8_t, FACE_STEPS * FACE_STEPS> result{};
+  for (int y = 0; y < FACE_STEPS; ++y)
+    for (int x = 0; x < FACE_STEPS; ++x)
+      result[y * FACE_STEPS + x] =
+          classify(face_direction(face, (x + 0.5f) * (2.0f / FACE_STEPS) - 1.0f,
+                                  (y + 0.5f) * (2.0f / FACE_STEPS) - 1.0f));
+  return result;
+}
+inline constexpr auto
+    FACE_0 HS_PROGMEM_UNIQUE(dodecahedral_fold_face0) = make_face(0);
+inline constexpr auto
+    FACE_1 HS_PROGMEM_UNIQUE(dodecahedral_fold_face1) = make_face(1);
+inline constexpr auto
+    FACE_2 HS_PROGMEM_UNIQUE(dodecahedral_fold_face2) = make_face(2);
+inline constexpr auto
+    FACE_3 HS_PROGMEM_UNIQUE(dodecahedral_fold_face3) = make_face(3);
+inline constexpr auto
+    FACE_4 HS_PROGMEM_UNIQUE(dodecahedral_fold_face4) = make_face(4);
+inline constexpr auto
+    FACE_5 HS_PROGMEM_UNIQUE(dodecahedral_fold_face5) = make_face(5);
+inline constexpr std::array<const uint8_t *, 6> FACES HS_PROGMEM_UNIQUE(
+    dodecahedral_fold_faces) = {FACE_0.data(), FACE_1.data(), FACE_2.data(),
+                                FACE_3.data(), FACE_4.data(), FACE_5.data()};
+} // namespace DodecahedralTable
+
+/** @brief Attempts a chamber-validated reflection matrix from a coarse cube cell.
+ * @param input Unit direction.
+ * @param result Receives the folded direction on success.
+ * @return Whether the candidate lies strictly inside the canonical chamber. */
+HS_HOT_INLINE inline bool try_dodecahedral_table(const math::Vector &input,
+                                                 math::Vector &result) {
+  const float ax = fabsf(input.x), ay = fabsf(input.y), az = fabsf(input.z);
+  float major, u, v;
+  int face;
+  if (ax >= ay && ax >= az) {
+    major = ax;
+    face = input.x >= 0.0f ? 0 : 1;
+    u = input.x >= 0.0f ? input.z : -input.z;
+    v = input.y;
+  } else if (ay >= az) {
+    major = ay;
+    face = input.y >= 0.0f ? 2 : 3;
+    u = input.x;
+    v = input.y >= 0.0f ? input.z : -input.z;
+  } else {
+    major = az;
+    face = input.z >= 0.0f ? 4 : 5;
+    u = input.z >= 0.0f ? input.x : -input.x;
+    v = input.y;
+  }
+  if (!(major > 0.0f))
+    return false;
+  const float inverse = 1.0f / major;
+  constexpr int N = DodecahedralTable::FACE_STEPS;
+  const int x =
+      std::min(static_cast<int>((u * inverse + 1.0f) * (0.5f * N)), N - 1);
+  const int y =
+      std::min(static_cast<int>((v * inverse + 1.0f) * (0.5f * N)), N - 1);
+  const uint8_t index = DodecahedralTable::FACES[face][y * N + x];
+  if (index >= DodecahedralTable::GROUP.count)
+    return false;
+  const auto &m = DodecahedralTable::GROUP.values[index];
+  result = {m[0][0] * input.x + m[0][1] * input.y + m[0][2] * input.z,
+            m[1][0] * input.x + m[1][1] * input.y + m[1][2] * input.z,
+            m[2][0] * input.x + m[2][1] * input.y + m[2][2] * input.z};
+  constexpr float MARGIN = DodecahedralTable::WALL_MARGIN;
+  return result.x > MARGIN && result.z > MARGIN &&
+         math::dot(result, DODECAHEDRAL_MIRRORS[1]) > MARGIN;
+}
+
+/** @brief Folds by a validated matrix, using ordered reflections near walls.
+ * @param input Unit direction.
+ * @return The symmetry-equivalent chamber direction. */
+HS_HOT_INLINE inline math::Vector
+dodecahedral_table_lens(const math::Vector &input) {
+  math::Vector result;
+  return try_dodecahedral_table(input, result)
+             ? result
+             : dodecahedral_kaleidoscope_lens(input);
+}
+
 } // namespace lenses

@@ -453,6 +453,23 @@ samples observed maximum direction difference 0.00771 radians. Full-frame motion
 and visual continuity qualify color changes; legacy RGB16 equality is not an
 acceptance gate for this temporal approximation.
 
+### Validated dodecahedral matrices
+
+AshCloud's interior columns may select a reflection matrix from a coarse cube
+cell. The constexpr tables hold the 120 dodecahedral reflection-group matrices
+and six 16-by-16 cell maps in FLASH; they allocate no persistent arena or RAM
+storage. A cell selects a candidate transform, rather than a quantized output
+direction. The transformed input must lie strictly inside all three canonical
+chamber walls, beyond the lookup's wall margin. A rejected candidate restarts
+the ordered canonical fold from the original input. Literal column fractions
+zero and one retain the canonical fold and document-built chain parity.
+
+The accepted transform represents the same reflection-group action, with
+floating-point differences from matrix multiplication. Canonical comparison,
+unit-norm checks and transformed wall fixtures qualify those differences and
+pin rejection near every chamber wall. Changing the cube cell classification
+cannot bypass the chamber validation.
+
 ## Canonical configuration and migration
 
 Each `color.modulate.v1` node owns one configuration containing source controls,
