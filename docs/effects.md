@@ -693,7 +693,7 @@ cannot follow a projection: that would move backward in carrier rank.
 | **Sphere source** | Spherical Noise, Spherical Rings | Sphere → Field; source-specific controls; no projection or planar warp |
 | **Value transfer** | Ridge, Iso Contour, Smooth Bands | Field → Field; reshapes the normalized value; iso and band controls belong to their operator |
 | **Coverage** | Value Cutout | Field → Field; cutout threshold and softness; projection-based coverage belongs to planar sources |
-| **Colorize** | Generated Triadic, Complementary, Analogous | Field → Color; palette mapping, phase oscillation, brightness envelope and opacity |
+| **Colorize** | Cycling-generated, generated, procedural, gradient, mutating | Field → Color; palette-source selection, family-gated palette controls, mapping, phase oscillation, brightness envelope and opacity |
 | **Modulation** | Pattern color modulation | Color → Color; ordered displacement, noise, sine, interference or grid layers affecting hue, lightness or opacity |
 
 Twist Lens exposes Twist Rate and Speed. Its origin follows a languid spherical
@@ -736,7 +736,7 @@ requires edge-fade coverage or an edge-fade warp envelope, and brightness
 endpoints require a brightness envelope. Deactivation dims the controls without removing their stored values.
 The exact fields and ranges come from the selected operator instances.
 
-The color card contains palette mapping, brightness and value opacity. Add
+The color card selects the palette source and its family-gated controls, plus palette mapping, brightness and value opacity. Add
 **Modulation** stages after it to stack color effects. Each layer selects a
 source, an affected color property and an amount; layers run in chain order.
 They can be added, removed, disabled and reordered independently.
