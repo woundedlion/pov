@@ -228,8 +228,7 @@ public:
               sampler.at_into(state->column,
                               Spacetime::SamplingSurface<W>::time(c));
               if constexpr (SpecT::PERSISTENT_PREPARED_FRAME)
-                return static_cast<const Frame &>(
-                    state->prepared.emplace(state->column));
+                return prepare_persistent_frame(state->column);
               else
                 return RenderPipeline::prepare(state->column);
             },
@@ -297,13 +296,23 @@ public:
     }
   }
 
+  /** @brief Replaces the persistent prepared frame from one context.
+   * @param context Current column or fixed-frame context.
+   * @return The current arena-owned prepared frame. */
+  HS_FLASH_MEMBER const Frame &
+  prepare_persistent_frame(const FrameState &context)
+    requires(SpecT::PERSISTENT_PREPARED_FRAME)
+  {
+    return state->prepared.emplace(context);
+  }
+
   /** @brief Prepares and shades one fixed context.
    * @param canvas Destination canvas.
    * @param current Frame context. */
   HS_FLASH_MEMBER void draw_current_columns(Canvas &canvas,
                                             const FrameState &current) {
     if constexpr (SpecT::PERSISTENT_PREPARED_FRAME) {
-      const Frame &frame = state->prepared.emplace(current);
+      const Frame &frame = prepare_persistent_frame(current);
       HS_PROFILE(fx_shader_draw);
       draw_static_columns(canvas, frame);
     } else {
