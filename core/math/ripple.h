@@ -14,11 +14,11 @@ namespace RippleKernel {
 
 /** @brief Instantaneous wave parameters and cached cosine support. */
 struct Wave {
-  math::Vector center;             ///< Unit source direction.
-  float amplitude = 0.0f;          ///< Signed angular amplitude.
-  float phase = 0.0f;              ///< Wavefront distance in radians.
-  float decay{5.0};                ///< Spatial decay rate.
-  float thickness{1.0f};           ///< Wavelet thickness in radians.
+  math::Vector center;    ///< Unit source direction.
+  float amplitude = 0.0f; ///< Peak angular amplitude in radians; non-negative.
+  float phase = 0.0f;     ///< Wavefront distance in radians.
+  float decay{5.0};       ///< Spatial decay rate.
+  float thickness{1.0f};  ///< Wavelet thickness in radians.
   float cos_threshold_min = 1.0f;  ///< Upper cosine support bound.
   float cos_threshold_max = -1.0f; ///< Lower cosine support bound.
 
