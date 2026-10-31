@@ -46,12 +46,15 @@ exists; a red row is a real device-only path that no automated test currently re
 | 15 | **Inline parameter capacity and arena overflow** (`HS_INLINE_PARAM_CAPACITY`, `HS_EXTERNAL_PARAM_STORAGE`, `core/platform/build_features.h`) | Device defaults to 16 inline parameter slots and permits arena-backed storage; host defaults to 32 inline slots. WASM also permits external storage through its GUI bridge. HyperLattice allocates persistent arena storage when its registry outgrows the inline array. | **Yes** — device-only arena usage, and registration traps when an effect exceeds its storage capacity without configuring overflow storage. | ✅ **Yes.** `unit_arena_budget` builds `tests/arena_measure.cpp` with the device inline capacity read from `core/platform/build_features.h` and external parameter storage enabled, then checks effect high-water usage against device arena budgets. | Closed by the device-capacity arena measurement build. |
 | 16 | **HSV to RGB conversion** (`CRGB(const CHSV&)`, `core/platform/arduino_mocks.h`) | The host mock uses a six-sector conversion; FastLED 3.4 uses `hsv2rgb_rainbow`. `Pixel(const CHSV&)` exposes this difference in rendered colors. | **Yes** — identical HSV inputs can produce different RGB channels. | ❌ **No.** The host suite does not execute FastLED's device conversion. | Known model gap; HSV-rendered pixels have no host/device color-parity guarantee. |
 
+| 17 | **Modulation recipe admission** (`Pullback::Modulation::admitted` / `device_qualified`, `core/render/pullback/modulation.h`) | Under `ARDUINO`, admission also requires device qualification; the host accepts any otherwise valid recipe. | **Yes** — a simulator-admitted preset can trap during device initialization. | ❌ **No.** The qualification predicate is tested, but shipped preset recipes are not replayed under device admission. | Known preset-qualification coverage gap. |
+| 18 | **Full-resolution gamut-table storage** (`ComposedEffect::init` / `FOOTPRINT_BYTES`, `core/render/pullback/composed_runtime.h`) | Under `ARDUINO`, `CACHE_FULL_GAMUT_LUT` copies the full-resolution table into persistent arena storage (131,074 bytes). Host initialization omits the copy. | **No** — storage placement is image-neutral. | ⚪ **N/A.** Host arena tests omit this allocation; the device footprint static assertion includes it. | Compile-time footprint guard. |
+
 Legend: ✅ reached by a device-value test · ❌ real device-only path with no device-value test
 · ⚪ no behavioral fork / divergent by design (nothing to cover).
 
 ## Standing risk
 
-**Four red rows:** row 11 is a bug-path-only accepted risk; row 13 is a
+**Five red rows:** row 17 is a shipped-preset qualification coverage gap; row 11 is a bug-path-only accepted risk; row 13 is a
 read-before-write model gap; row 14 is a float-rounding-only evaluation-order fork;
 row 16 is an HSV color-conversion model gap. The default-initialization gap in
 row 13 is also uncovered on device. Row 9 is an accepted divergence. Its empty `Fn` invoke fires only
@@ -65,9 +68,9 @@ silent (a hang, a zero return) on the device.
 Row 1 (`beat88`) is not a breach: the `uint16_t` result extracts bits [16,31] of the phase product,
 which the device's mod-2³² wrap cannot change, so the 64-bit native build and the 32-bit
 device/wasm builds produce bit-identical phases.
-Every behavioral fork other than rows 9, 11, 13, 14 and 16 either has device-value coverage (rows 3–4, 12 and 15), host model-level coverage with only a
+Every behavioral fork other than rows 9, 11, 13, 14, 16 and 17 either has device-value coverage (rows 3–4, 12 and 15), host model-level coverage with only a
 device-only ISA-instruction tail (row 8), or is divergent by design / non-behavioral (rows 5–7,
-10). Row 2 is an explicit display profile with coverage for both caps.
+10 and 18). Row 2 is an explicit display profile with coverage for both caps.
 
 ## Maintenance rule
 
