@@ -103,7 +103,7 @@ of fully validated cycle-counter exactness.
 Show duration covers the authored show segment; a segment can end before its
 last departure wraps. The per-effect report states observed coverage.
 
-● captures updated 2026-10-26, 2026-10-29 and 2026-10-30.
+● captures updated 2026-10-30.
 
 ## Memory captures
 

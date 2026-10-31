@@ -109,7 +109,7 @@ Integer direct-AA validation: [ShapeShifter paired capture](profile_shapeshifter
 
 [GridSpace matched A/B](profile_gridspace_teensy_2026-10-17.md) preserves the historical same-source temporal-on/off measurements cited by the rendering specification. Current shipping timing is in the canonical report above.
 
-● captures updated 2026-10-26, 2026-10-29 and 2026-10-30.
+● captures updated 2026-10-30.
 
 ## Palette-pattern recipe qualification
 
