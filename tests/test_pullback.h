@@ -1119,7 +1119,7 @@ inline void test_pullback_provider_contracts() {
   HS_EXPECT_EQ(carried.path_length, 4.0f);
 }
 
-/** @brief Circle-only lattice evaluation preserves the blended formula's bits. */
+/** @brief Circle-only lattice evaluation preserves the blended formula. */
 inline void test_pullback_lattice_circle_identity() {
   const auto reference = [](const Pattern::PlanePosition &coordinate,
                             const Pattern::LatticeSourceParams &params) {
@@ -1160,7 +1160,12 @@ inline void test_pullback_lattice_circle_identity() {
                               sample < 8 ? 0.0f : Y)};
             const float EXPECTED = reference(COORDINATE, params);
             const float ACTUAL = Pattern::primitive_lattice(COORDINATE, params);
+#if HS_TEST_FAST_MATH
+            HS_EXPECT_NEAR(ACTUAL, EXPECTED,
+                           8.0f * std::numeric_limits<float>::epsilon());
+#else
             HS_EXPECT_TRUE(std::memcmp(&EXPECTED, &ACTUAL, sizeof(float)) == 0);
+#endif
           }
         }
 }

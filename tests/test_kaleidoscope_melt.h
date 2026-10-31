@@ -66,7 +66,12 @@ inline void test_kaleidoscope_melt_identity_and_controls() {
 }
 
 inline void test_kaleidoscope_melt_chain_equivalence() {
+#if HS_TEST_FAST_MATH
+  composed_chain_tests::verify_export<KaleidoscopeMeltWhiteBox::FX>(0, 2,
+                                                                    2e-6f);
+#else
   composed_chain_tests::verify_export<KaleidoscopeMeltWhiteBox::FX>(0);
+#endif
 }
 
 inline void test_kaleidoscope_melt_cache_controls() {

@@ -35,7 +35,9 @@
 #include "targets/wasm/document_parameters.h"
 
 namespace hs_test::composed_chain_tests {
-template <typename FX> void verify_export(size_t preset);
+template <typename FX>
+void verify_export(size_t preset, int channel_tolerance = 1,
+                   float alpha_tolerance = 1e-6f);
 }
 
 namespace hs_test {

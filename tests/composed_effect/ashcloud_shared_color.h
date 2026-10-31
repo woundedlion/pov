@@ -135,11 +135,20 @@ inline void test_ash_cloud_shared_camera_qualification() {
   }
   HS_EXPECT_EQ(samples, uint64_t{599 * 16 * 144});
   HS_EXPECT_EQ(factored_samples, FX::camera_column_admitted() ? samples : 0);
+#if !HS_TEST_FAST_MATH
   HS_EXPECT_EQ(unfactored_mismatches, uint64_t{0});
+#endif
   if (!FX::camera_column_admitted()) {
+#if HS_TEST_FAST_MATH
+    // Full-shader fusion changes floating-point reassociation before color sampling.
+    HS_EXPECT_LE(maximum_rgb, 16);
+    HS_EXPECT_LE(maximum_premultiplied, 8);
+    HS_EXPECT_LE(maximum_alpha, 1e-5f);
+#else
     HS_EXPECT_EQ(maximum_rgb, 0);
     HS_EXPECT_EQ(maximum_premultiplied, 0);
     HS_EXPECT_EQ(maximum_alpha, 0.0f);
+#endif
     HS_EXPECT_EQ(maximum_direction, 0.0f);
   }
   HS_EXPECT_LE(maximum_rgb, 256);
@@ -147,8 +156,9 @@ inline void test_ash_cloud_shared_camera_qualification() {
   HS_EXPECT_LE(maximum_alpha, .002f);
   HS_EXPECT_LE(maximum_direction, 1e-6f);
   std::printf(
-      "  AshCloud camera samples=%llu RGB max=%d mean=%.9g premultiplied=%d alpha=%.9g direction=%.9g\n",
-      static_cast<unsigned long long>(samples), maximum_rgb,
+      "  AshCloud camera samples=%llu unfactored mismatches=%llu RGB max=%d mean=%.9g premultiplied=%d alpha=%.9g direction=%.9g\n",
+      static_cast<unsigned long long>(samples),
+      static_cast<unsigned long long>(unfactored_mismatches), maximum_rgb,
       double(sum) / (samples * 3), maximum_premultiplied, double(maximum_alpha),
       double(maximum_direction));
 }

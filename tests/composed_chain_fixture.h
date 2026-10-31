@@ -23,7 +23,9 @@ T &mutable_state(Pullback::Interp::ChainProgram &program, size_t index) {
   return *static_cast<T *>(state);
 }
 
-template <typename FX> void verify_export(size_t preset) {
+template <typename FX>
+void verify_export(size_t preset, int channel_tolerance,
+                   float alpha_tolerance) {
   using namespace composed_effect_tests;
   using namespace shader_chain_tests;
   HS_CONTEXT(FX::EFFECT_ID.data());
@@ -160,7 +162,7 @@ template <typename FX> void verify_export(size_t preset) {
   for (const auto &view : sweep_views()) {
     const auto expected = FX::shade(view, prepared);
     const auto actual = program.evaluate(view, context);
-    expect_color_within(actual, expected, 1, 1e-6f);
+    expect_color_within(actual, expected, channel_tolerance, alpha_tolerance);
     visible += expected.alpha > 0.0f &&
                (expected.color.r || expected.color.g || expected.color.b);
   }
