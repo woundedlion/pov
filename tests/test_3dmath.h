@@ -1915,6 +1915,76 @@ inline void test_polyhedral_kaleidoscope_chambers() {
   });
 }
 
+/** @brief Generated group transforms preserve lengths and mirror transitions. */
+inline void test_dodecahedral_group_generation() {
+  namespace table = lenses::DodecahedralTable;
+  const auto group = table::make_group();
+  HS_EXPECT_EQ(group.count, 120);
+  const auto apply = [](const table::Matrix &matrix, const math::Vector &v) {
+    return math::Vector(
+        matrix[0][0] * v.x + matrix[0][1] * v.y + matrix[0][2] * v.z,
+        matrix[1][0] * v.x + matrix[1][1] * v.y + matrix[1][2] * v.z,
+        matrix[2][0] * v.x + matrix[2][1] * v.y + matrix[2][2] * v.z);
+  };
+  for (int index = 0; index < group.count; ++index) {
+    HS_CONTEXT("group", index);
+    const auto &matrix = group.values[index];
+    const auto transitions = table::make_transition_row(index);
+    for (const math::Vector input :
+         {math::Vector(1, 0, 0), math::Vector(0, 1, 0), math::Vector(0, 0, 1),
+          math::Vector(.3f, -.7f, .2f)}) {
+      const auto output = apply(matrix, input);
+      HS_EXPECT_NEAR(output.magnitude(), input.magnitude(), 1e-5f);
+      HS_EXPECT_VEC(apply(table::GROUP.values[index], input), output, 1e-6f);
+      for (int mirror = 0; mirror < 3; ++mirror) {
+        const auto normal = lenses::DODECAHEDRAL_MIRRORS[mirror];
+        const auto expected =
+            output - normal * (2.0f * math::dot(output, normal));
+        HS_EXPECT_LT(transitions[mirror], group.count);
+        if (transitions[mirror] < group.count)
+          HS_EXPECT_VEC(apply(group.values[transitions[mirror]], input),
+                        expected, 1e-5f);
+      }
+    }
+    for (int previous = 0; previous < index; ++previous)
+      HS_EXPECT_FALSE(table::same(matrix, group.values[previous]));
+  }
+}
+
+/** @brief Generated cube classifiers reproduce ordered reflection folds. */
+inline void test_dodecahedral_classifier_generation() {
+  namespace table = lenses::DodecahedralTable;
+  constexpr int N = table::FACE_STEPS;
+  for (int face = 0; face < 6; ++face)
+    for (int y = 0; y < N; ++y) {
+      const auto row = table::make_row(face, y);
+      for (int x = 0; x < N; ++x) {
+        HS_CONTEXT("cube cell", face * N * N + y * N + x);
+        const float u = (x + .5f) * (2.0f / N) - 1.0f;
+        const float v = (y + .5f) * (2.0f / N) - 1.0f;
+        const math::Vector directions[] = {{1, v, u}, {-1, v, -u},
+                                           {u, 1, v}, {u, -1, -v},
+                                           {u, v, 1}, {-u, v, -1}};
+        const auto input = directions[face];
+        const auto expected = lenses::polyhedral_kaleidoscope_lens(
+            input, lenses::DODECAHEDRAL_MIRRORS);
+        HS_EXPECT_LT(row[x], table::GROUP.count);
+        HS_EXPECT_EQ(row[x], table::FACES[face][y * N + x]);
+        if (row[x] < table::GROUP.count) {
+          const auto &matrix = table::GROUP.values[row[x]];
+          const math::Vector actual(
+              matrix[0][0] * input.x + matrix[0][1] * input.y +
+                  matrix[0][2] * input.z,
+              matrix[1][0] * input.x + matrix[1][1] * input.y +
+                  matrix[1][2] * input.z,
+              matrix[2][0] * input.x + matrix[2][1] * input.y +
+                  matrix[2][2] * input.z);
+          HS_EXPECT_VEC(actual, expected, 1e-5f);
+        }
+      }
+    }
+}
+
 inline void test_dodecahedral_kaleidoscope_specialization() {
   for_each_sphere_direction([](const math::Vector &input) {
     const math::Vector generic = lenses::polyhedral_kaleidoscope_lens(
@@ -2241,6 +2311,8 @@ inline int run_3dmath_tests() {
   HS_RUN(test_kaleidoscope_lens);
   HS_RUN(test_polyhedral_kaleidoscope_chambers);
   HS_RUN(test_dodecahedral_kaleidoscope_specialization);
+  HS_RUN(test_dodecahedral_group_generation);
+  HS_RUN(test_dodecahedral_classifier_generation);
   HS_RUN(test_tetrahedral_after_dodecahedral);
 
   HS_RUN(test_fast_atan2);
