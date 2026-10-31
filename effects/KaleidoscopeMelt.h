@@ -25,6 +25,7 @@ template <typename FX> struct ComposedWhiteBox;
 struct KaleidoscopeMeltSpec : Pullback::Spec {
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
+  static constexpr bool FUSED_TEMPORAL_COLOR = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
@@ -50,9 +51,9 @@ struct KaleidoscopeMeltSpec : Pullback::Spec {
           Pullback::Weight::Projection,
           typename Pullback::CoveragePolicyFor<
               Pullback::ProjectionCoverageMode::WEIGHT, B, void>::Type>,
-      Pullback::Stage::Colorize<
-          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
-              B, Pullback::Color::BrightnessEnvelope::NONE>>>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, Pullback::Color::BrightnessEnvelope::NONE,
+                                  PALETTE_LAB_CACHE, FUSED_TEMPORAL_COLOR>>>,
       Pullback::Stage::Modulate<
           Pullback::Color::Modulate<Pullback::ModulationProvider<
               B, "modulation", Pattern::SourceKind::NOISE,

@@ -59,6 +59,9 @@ public:
   static constexpr bool TEMPORAL_SAMPLING = SpecT::TEMPORAL_SAMPLING;
   static_assert(Metadata::ColorModes::LAB_CACHE == SpecT::PALETTE_LAB_CACHE,
                 "palette base cache policy must match its runtime storage");
+  static_assert(Metadata::ColorModes::FUSED_TEMPORAL_COLOR ==
+                    SpecT::FUSED_TEMPORAL_COLOR,
+                "temporal color fusion policy must match its spec");
   static_assert(!SpecT::PALETTE_LAB_CACHE ||
                     (TEMPORAL_SAMPLING && SpecT::TEMPORAL_COLOR_PHASE),
                 "palette base caches require temporal phase color sampling");
@@ -771,7 +774,7 @@ private:
   struct State
       : ProjectionWalkNoise<ANIMATED_PROJECTION>,
         OptionalHueRotationLut<Metadata::MODULATION>,
-        OptionalPaletteLabLut<SpecT::PALETTE_LAB_CACHE>,
+        OptionalPaletteLabLut<SpecT::PALETTE_LAB_CACHE, SpecT::PALETTE_LAB_VALUES>,
         OptionalDodecahedralMatrices<SpecT::CACHE_DODECAHEDRAL_MATRICES>,
         OptionalDodecahedralFaces<SpecT::CACHE_DODECAHEDRAL_FACES>,
         OptionalPaletteRgbLut<SpecT::PALETTE_RGB_CACHE,

@@ -17,22 +17,74 @@
 
 /** @brief Borrowed neighboring time rows for opaque palettes. */
 struct PaletteLabTimeView {
-  const OKLab *low = nullptr;             ///< Lower time row.
-  const OKLab *high = nullptr;            ///< Upper time row.
-  float weight = 0.0f;                    ///< Upper time weight.
-  const math::Vector *rgb_low = nullptr;  ///< Optional lower hue table.
+  const OKLab *low = nullptr;  ///< Lower time row.
+  const OKLab *high = nullptr; ///< Upper time row.
+  float weight = 0.0f;         ///< Upper time weight.
+  int value_steps = 64;        ///< Nodes in each borrowed row.
+  const math::Vector *rgb_low = nullptr; ///< Optional lower hue table.
   const math::Vector *rgb_high = nullptr; ///< Optional upper hue table.
 };
 
-/** @brief Owned palette-coordinate by frame-time base-color cache. */
-struct PaletteLabLut {
-  static constexpr int VALUES = 64;          ///< Palette-coordinate nodes.
-  static constexpr int TIMES = 3;            ///< Frame-time nodes.
-  std::array<OKLab, VALUES * TIMES> nodes{}; ///< RGB-first blended colors.
-  bool active = false; ///< Whether both palettes are opaque.
+/** @brief Borrowed palette-coordinate by frame-time base-color cache. */
+struct PaletteLabLutBase {
+  static constexpr int TIMES = 3; ///< Frame-time nodes.
+  const OKLab *data = nullptr;    ///< Borrowed RGB-first blended colors.
+  int value_steps = 64;           ///< Nodes in each time row.
+  bool active = false;            ///< Whether both palettes are opaque.
   const math::Vector *rgb_nodes = nullptr; ///< Optional final hue table.
   bool rgb_midpoint = false; ///< Shares the interval midpoint for every column.
   uint8_t rgb_midpoint_row = 1; ///< Physical RGB row containing the midpoint.
+
+  /** @brief Prepares the two time rows for one column.
+   * @param fraction Frame progress in [0, 1].
+   * @return Borrowed rows, or an inactive view. */
+  HS_FLASH_INLINE PaletteLabTimeView view(float fraction) const {
+    if (!active)
+      return {};
+    const float POSITION = hs::clamp(fraction, 0.0f, 1.0f) * (TIMES - 1);
+    const int LOW_INDEX = std::min(int(POSITION), TIMES - 2);
+    return {data + LOW_INDEX * value_steps,
+            data + (LOW_INDEX + 1) * value_steps, POSITION - LOW_INDEX,
+            value_steps,
+            rgb_nodes ? rgb_nodes + (rgb_midpoint ? rgb_midpoint_row : LOW_INDEX) * HueRotationLutView::SIZE : nullptr,
+            rgb_nodes ? rgb_nodes + (rgb_midpoint ? rgb_midpoint_row : LOW_INDEX + 1) * HueRotationLutView::SIZE : nullptr};
+  }
+
+  /** @brief Samples neighboring palette nodes from both prepared time rows.
+   * @param time Prepared column rows.
+   * @param value Palette coordinate in [0, 1].
+   * @return Bilinearly interpolated base OKLab. */
+  __attribute__((always_inline)) static OKLab
+  sample(const PaletteLabTimeView &time, float value) {
+    assert(time.low && time.high && time.value_steps >= 2);
+    const float POSITION =
+        hs::clamp(value, 0.0f, 1.0f) * (time.value_steps - 1);
+    const int LOW_INDEX = std::min(int(POSITION), time.value_steps - 2);
+    const float WEIGHT = POSITION - LOW_INDEX;
+    const auto lerp = [](const OKLab &a, const OKLab &b, float fraction) {
+      return OKLab{hs::lerp(a.L, b.L, fraction), hs::lerp(a.a, b.a, fraction),
+                   hs::lerp(a.b, b.b, fraction)};
+    };
+    return lerp(lerp(time.low[LOW_INDEX], time.low[LOW_INDEX + 1], WEIGHT),
+                lerp(time.high[LOW_INDEX], time.high[LOW_INDEX + 1], WEIGHT),
+                time.weight);
+  }
+};
+
+/** @brief Owned interval palette bases.
+ * @tparam ValueSteps Palette-coordinate nodes per time row. */
+template <int ValueSteps> struct PaletteLabLutStorage : PaletteLabLutBase {
+  static_assert(ValueSteps >= 2);
+  static constexpr int VALUES = ValueSteps;  ///< Palette-coordinate nodes.
+  std::array<OKLab, VALUES * TIMES> nodes{}; ///< RGB-first blended colors.
+
+  /** @brief Binds the borrowed view to this cache's storage. */
+  PaletteLabLutStorage() {
+    data = nodes.data();
+    value_steps = VALUES;
+  }
+  PaletteLabLutStorage(const PaletteLabLutStorage &) = delete;
+  PaletteLabLutStorage &operator=(const PaletteLabLutStorage &) = delete;
 
   /** @brief Bakes RGB16 endpoint blends before converting each node to OKLab.
    * @param from Previous immutable palette.
@@ -58,46 +110,10 @@ struct PaletteLabLut {
       }
     }
   }
-
-  /** @brief Prepares the two time rows for one column.
-   * @param fraction Frame progress in [0, 1].
-   * @return Borrowed rows, or an inactive view. */
-  HS_FLASH_INLINE PaletteLabTimeView view(float fraction) const {
-    if (!active)
-      return {};
-    const float POSITION = hs::clamp(fraction, 0.0f, 1.0f) * (TIMES - 1);
-    const int LOW_INDEX = std::min(int(POSITION), TIMES - 2);
-    return {nodes.data() + LOW_INDEX * VALUES,
-            nodes.data() + (LOW_INDEX + 1) * VALUES, POSITION - LOW_INDEX,
-            rgb_nodes
-                ? rgb_nodes + (rgb_midpoint ? rgb_midpoint_row : LOW_INDEX) *
-                                  HueRotationLutView::SIZE
-                : nullptr,
-            rgb_nodes ? rgb_nodes +
-                            (rgb_midpoint ? rgb_midpoint_row : LOW_INDEX + 1) *
-                                HueRotationLutView::SIZE
-                      : nullptr};
-  }
-
-  /** @brief Samples neighboring palette nodes from both prepared time rows.
-   * @param time Prepared column rows.
-   * @param value Palette coordinate in [0, 1].
-   * @return Bilinearly interpolated base OKLab. */
-  __attribute__((always_inline)) static OKLab
-  sample(const PaletteLabTimeView &time, float value) {
-    assert(time.low && time.high);
-    const float POSITION = hs::clamp(value, 0.0f, 1.0f) * (VALUES - 1);
-    const int LOW_INDEX = std::min(int(POSITION), VALUES - 2);
-    const float WEIGHT = POSITION - LOW_INDEX;
-    const auto lerp = [](const OKLab &a, const OKLab &b, float fraction) {
-      return OKLab{hs::lerp(a.L, b.L, fraction), hs::lerp(a.a, b.a, fraction),
-                   hs::lerp(a.b, b.b, fraction)};
-    };
-    return lerp(lerp(time.low[LOW_INDEX], time.low[LOW_INDEX + 1], WEIGHT),
-                lerp(time.high[LOW_INDEX], time.high[LOW_INDEX + 1], WEIGHT),
-                time.weight);
-  }
 };
+
+/// Default interval palette cache resolution.
+using PaletteLabLut = PaletteLabLutStorage<64>;
 
 /** @brief Interval palette bases baked through the final hue and gamut mapping.
  * @tparam MidpointOnly Whether storage is limited to one admitted midpoint row. */

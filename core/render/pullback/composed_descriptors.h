@@ -220,12 +220,16 @@ template <typename Policy> struct ColorModesOf {
 /** @brief Generated-palette color modes.
  * @tparam B Declaration binding.
  * @tparam Brightness Brightness envelope.
- * @tparam LabCache Whether palette bases use the interval cache. */
-template <typename B, Color::BrightnessEnvelope Brightness, bool LabCache>
+ * @tparam LabCache Whether palette bases use the interval cache.
+ * @tparam Fused Whether the final temporal color layer may be fused. */
+template <typename B, Color::BrightnessEnvelope Brightness, bool LabCache,
+          bool Fused>
 struct ColorModesOf<
-    Color::GeneratedPalette<ColorProvider<B, Brightness, LabCache>>> {
+    Color::GeneratedPalette<ColorProvider<B, Brightness, LabCache, Fused>>> {
   static constexpr auto BRIGHTNESS = Brightness; ///< Brightness envelope.
   static constexpr bool LAB_CACHE = LabCache; ///< Uses interval palette bases.
+  static constexpr bool FUSED_TEMPORAL_COLOR =
+      Fused; ///< Fuses the final layer.
 };
 /** @brief Whether a leaf colorizes sampled values. @tparam T Stage descriptor. */
 template <typename T> struct IsColorStage : std::false_type {};
@@ -414,9 +418,11 @@ struct PolicyResources<ValueProvider<B, Family, Key>> {
  * @tparam B Frame binding.
  * @tparam Brightness Brightness envelope.
  * @tparam LabCache Whether palette bases use the interval cache.
+ * @tparam Fused Whether the final temporal color layer may be fused.
  */
-template <typename B, Color::BrightnessEnvelope Brightness, bool LabCache>
-struct PolicyResources<ColorProvider<B, Brightness, LabCache>> {
+template <typename B, Color::BrightnessEnvelope Brightness, bool LabCache,
+          bool Fused>
+struct PolicyResources<ColorProvider<B, Brightness, LabCache, Fused>> {
   using Type = ResourceList<
       ParameterResource<"color", ColorParams, ResourceKind::COLOR>>;
 };

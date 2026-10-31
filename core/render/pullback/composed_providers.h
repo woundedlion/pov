@@ -65,7 +65,7 @@ template <typename ParamsT, bool PhaseNoise = false> struct FrameState {
       typename ParamsT::ResourceTypes>
       resources; ///< Per-resource clocks and noise views, keyed by resource.
   float palette_oscillation_phase; /**< Phase of the mapping wobble. */
-  const PaletteLabLut *palette_lab_lut =
+  const PaletteLabLutBase *palette_lab_lut =
       nullptr; ///< Borrowed interval base cache.
   const lenses::DodecahedralTable::Matrix *dodecahedral_matrices =
       nullptr; ///< Runtime-owned immutable reflection matrices.
@@ -518,16 +518,19 @@ struct ValueProvider {
  * @tparam BindingT The effect's Binding.
  * @tparam BrightnessV Brightness envelope reported to the color stage.
  * @tparam LabCacheV Whether the provider exposes an interval base cache.
+ * @tparam FusedV Whether the final temporal color layer may be fused.
  */
 template <typename BindingT, Pullback::Color::BrightnessEnvelope BrightnessV,
-          bool LabCacheV = false>
+          bool LabCacheV = false, bool FusedV = false>
 struct ColorProvider {
   using Binding = BindingT;                        ///< The effect's Binding.
   using FrameState = typename Binding::FrameState; ///< The effect's frame.
+  static constexpr bool FUSED_TEMPORAL_COLOR =
+      FusedV; ///< Fuses the final layer.
   /** @brief Borrows the interval's palette base cache.
    * @param frame Column frame context.
    * @return Persistent cache, or null for canonical draws. */
-  static const PaletteLabLut *palette_lab_lut(const FrameState &frame)
+  static const PaletteLabLutBase *palette_lab_lut(const FrameState &frame)
     requires LabCacheV
   {
     return frame.palette_lab_lut;

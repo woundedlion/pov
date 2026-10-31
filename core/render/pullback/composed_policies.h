@@ -22,6 +22,8 @@ struct Spec {
   static constexpr bool TEMPORAL_SAMPLING = false;
   /// Samples eligible color-source phases once after palette interpolation.
   static constexpr bool TEMPORAL_COLOR_PHASE = false;
+  /// Fuses an eligible final temporal color layer.
+  static constexpr bool FUSED_TEMPORAL_COLOR = false;
   /// Caches RGB-first interval palette blends in OKLab.
   static constexpr bool PALETTE_LAB_CACHE = false;
   static constexpr bool PALETTE_RGB_CACHE = false;
@@ -31,6 +33,8 @@ struct Spec {
   static constexpr bool PHASE_NOISE_CACHE = false;
   static constexpr bool PALETTE_RGB_MIDPOINT_ONLY =
       false; ///< Stores one admitted RGB midpoint.
+  /// Palette-coordinate nodes per cached time row.
+  static constexpr int PALETTE_LAB_VALUES = 64;
   /// Factors a supported rotation prefix into column bases.
   static constexpr bool FACTORED_COLUMNS = false;
   /// Bakes endpoint radial transfer curves for burst ripples.

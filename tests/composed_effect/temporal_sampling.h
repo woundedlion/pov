@@ -1592,9 +1592,24 @@ inline void test_millefiori_palette_lab_lifetime() {
   effect.draw_frame();
   const auto FIRST = ComposedFrameWhiteBox::current_frame(effect);
   HS_EXPECT_TRUE(FIRST.palette_lab_lut && FIRST.palette_lab_lut->active);
-  const auto FIRST_NODES = FIRST.palette_lab_lut->nodes;
+  const auto *FIRST_CACHE =
+      static_cast<const PaletteLabLut *>(FIRST.palette_lab_lut);
+  const auto FIRST_NODES = FIRST_CACHE->nodes;
   const auto FIRST_VIEW = FIRST.palette_lab_lut->view(0.37f);
   const auto FIRST_LAB = PaletteLabLut::sample(FIRST_VIEW, 0.43f);
+  PaletteLabLutStorage<256> dense;
+  dense.bake(*FIRST.palette, *FIRST.palette);
+  const auto DENSE_VIEW = dense.view(0.37f);
+  HS_EXPECT_EQ(DENSE_VIEW.value_steps, 256);
+  constexpr float DENSE_COORDINATE = 127.0f / 255.0f;
+  const auto LINEAR =
+      pixel_to_linrgb(FIRST.palette->get_color(DENSE_COORDINATE));
+  const auto EXPECTED_DENSE =
+      linear_rgb_to_oklab_fast(LINEAR.r, LINEAR.g, LINEAR.b);
+  const auto ACTUAL_DENSE = PaletteLabLut::sample(DENSE_VIEW, DENSE_COORDINATE);
+  HS_EXPECT_NEAR(ACTUAL_DENSE.L, EXPECTED_DENSE.L, 1e-6f);
+  HS_EXPECT_NEAR(ACTUAL_DENSE.a, EXPECTED_DENSE.a, 1e-6f);
+  HS_EXPECT_NEAR(ACTUAL_DENSE.b, EXPECTED_DENSE.b, 1e-6f);
   Pullback::ColorSample carrier{Color4(Pixel(0, 0, 0), 0.37f),
                                 {0.5f, 0.7f, math::Y_AXIS, 2.0f}};
   carrier.cached_lab = FIRST_LAB;
@@ -1607,11 +1622,12 @@ inline void test_millefiori_palette_lab_lifetime() {
   effect.draw_frame();
   const auto SECOND = ComposedFrameWhiteBox::current_frame(effect);
   HS_EXPECT_TRUE(SECOND.palette_lab_lut != FIRST.palette_lab_lut);
-  HS_EXPECT_EQ(std::memcmp(FIRST_NODES.data(),
-                           FIRST.palette_lab_lut->nodes.data(),
+  HS_EXPECT_EQ(std::memcmp(FIRST_NODES.data(), FIRST_CACHE->nodes.data(),
                            sizeof(FIRST_NODES)),
                0);
-  const auto SECOND_NODES = SECOND.palette_lab_lut->nodes;
+  const auto *SECOND_CACHE =
+      static_cast<const PaletteLabLut *>(SECOND.palette_lab_lut);
+  const auto SECOND_NODES = SECOND_CACHE->nodes;
   HS_EXPECT_TRUE(std::memcmp(FIRST_NODES.data(), SECOND_NODES.data(),
                              sizeof(FIRST_NODES)) != 0);
   effect.advance_display();
@@ -1621,13 +1637,14 @@ inline void test_millefiori_palette_lab_lifetime() {
   effect.draw_frame();
   const auto THIRD = ComposedFrameWhiteBox::current_frame(effect);
   HS_EXPECT_TRUE(THIRD.palette_lab_lut == FIRST.palette_lab_lut);
-  HS_EXPECT_EQ(std::memcmp(SECOND_NODES.data(),
-                           SECOND.palette_lab_lut->nodes.data(),
+  HS_EXPECT_EQ(std::memcmp(SECOND_NODES.data(), SECOND_CACHE->nodes.data(),
                            sizeof(SECOND_NODES)),
                0);
   HS_EXPECT_EQ(Pullback::finish_color_sample(carrier).color, FIRST_COLOR.color);
   HS_EXPECT_EQ(Pullback::finish_color_sample(carrier).alpha, FIRST_COLOR.alpha);
-  const auto THIRD_NODES = THIRD.palette_lab_lut->nodes;
+  const auto *THIRD_CACHE =
+      static_cast<const PaletteLabLut *>(THIRD.palette_lab_lut);
+  const auto THIRD_NODES = THIRD_CACHE->nodes;
   auto params = THIRD.params;
   params.template get<"color">().palette_chroma += 0.01f;
   ComposedFrameWhiteBox::set_params(effect, params);
@@ -1636,8 +1653,7 @@ inline void test_millefiori_palette_lab_lifetime() {
   effect.draw_frame();
   HS_EXPECT_TRUE(ComposedFrameWhiteBox::current_frame(effect).palette_lab_lut ==
                  nullptr);
-  HS_EXPECT_EQ(std::memcmp(THIRD_NODES.data(),
-                           THIRD.palette_lab_lut->nodes.data(),
+  HS_EXPECT_EQ(std::memcmp(THIRD_NODES.data(), THIRD_CACHE->nodes.data(),
                            sizeof(THIRD_NODES)),
                0);
   HS_EXPECT_TRUE(ComposedFrameWhiteBox::frame(effect).palette_lab_lut ==

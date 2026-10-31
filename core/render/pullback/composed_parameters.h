@@ -211,8 +211,9 @@ template <> struct OptionalDodecahedralMatrices<true> {
       dodecahedral_matrices; ///< Exact copy of the canonical group matrices.
 };
 /** @brief Interval base storage, empty unless the spec opts in.
- * @tparam Enabled Whether the effect owns palette base caches. */
-template <bool Enabled> struct OptionalPaletteLabLut {};
+ * @tparam Enabled Whether the effect owns palette base caches.
+ * @tparam Values Palette-coordinate nodes per cached time row. */
+template <bool Enabled, int Values = 64> struct OptionalPaletteLabLut {};
 /** @brief Final hue-cache storage, empty unless the spec opts in.
  * @tparam Enabled Whether interval RGB caches are owned.
  * @tparam MidpointOnly Whether only one qualified time row is stored. */
@@ -224,8 +225,8 @@ template <bool MidpointOnly> struct OptionalPaletteRgbLut<true, MidpointOnly> {
       palette_rgb_luts; ///< Ping-pong interval tables.
 };
 /** @brief Ping-pong interval bases retained across consecutive frames. */
-template <> struct OptionalPaletteLabLut<true> {
-  std::array<PaletteLabLut, 2>
+template <int Values> struct OptionalPaletteLabLut<true, Values> {
+  std::array<PaletteLabLutStorage<Values>, 2>
       palette_lab_luts;         ///< Previous and current bases.
   uint8_t palette_lab_slot = 0; ///< Most recently baked base.
 };
