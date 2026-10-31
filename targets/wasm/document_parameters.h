@@ -41,7 +41,9 @@ inline bool writable(const ColorModulation::Config &config, size_t index) {
     return true;
   switch (config.source) {
   case Pattern::SourceKind::NOISE:
-    return id.starts_with("pattern-");
+    return id.starts_with("pattern-") &&
+           (id != "pattern-contrast" ||
+            config.noise.variant == Pattern::NoiseVariant::OCTAVE_CONTOUR);
   case Pattern::SourceKind::DIRECTIONAL_SINE:
     return id.starts_with("sine-");
   case Pattern::SourceKind::SPHERE_INTERFERENCE:

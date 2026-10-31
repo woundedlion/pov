@@ -231,6 +231,15 @@ inline void test_composed_document_modulation_members() {
                ParamSetResult::INADMISSIBLE);
   HS_EXPECT_TRUE(read() == before);
 
+  ColorModulation::Config noise_config;
+  noise_config.source = Pattern::SourceKind::NOISE;
+  HS_EXPECT_EQ(Document::write(noise_config, "pattern-contrast", 1.0f),
+               ParamSetResult::READONLY);
+  noise_config.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
+  HS_EXPECT_EQ(Document::write(noise_config, "pattern-contrast", 1.0f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(noise_config.noise.contrast, 1.0f);
+
   auto config = initial;
   config.grid.axis = math::Vector(1, 0, 0);
   const auto valid = config;
