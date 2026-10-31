@@ -45,7 +45,7 @@ list(LENGTH _rows _nrow)
 
 if(NOT _ninc EQUAL _nrow)
   message(FATAL_ERROR
-    "run_tests.cpp: ${_ninc} test-module includes vs ${_nrow} HS_TEST_MODULE_LIST "
+    "module groups: ${_ninc} test-module includes vs ${_nrow} HS_TEST_MODULE_LIST "
     "rows. An include without a matching roster row compiles dead test source "
     "silently; add the row or drop the orphaned include.")
 endif()
@@ -149,5 +149,5 @@ endif()
 
 list(LENGTH _headers _nhdr)
 message(STATUS
-  "run_tests include pin: ${_ninc} includes match the roster; ${_nhdr} test "
+  "compiled module groups include pin: ${_ninc} includes match the roster; ${_nhdr} test "
   "directory headers all accounted for")
