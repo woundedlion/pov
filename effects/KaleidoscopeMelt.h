@@ -30,7 +30,7 @@ struct KaleidoscopeMeltSpec : Pullback::Spec {
   static constexpr bool TEMPORAL_COLOR_PHASE = true;
   static constexpr bool PALETTE_LAB_CACHE = true;
   static constexpr int PALETTE_LAB_VALUES = 256;
-  static constexpr bool INITIAL_COLOR_CACHE_ONLY = true;
+  static constexpr bool INITIAL_CACHE_CONTROLS_ONLY = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**

@@ -35,8 +35,8 @@ struct Spec {
   static constexpr bool PHASE_NOISE_CACHE = false;
   static constexpr bool PALETTE_RGB_MIDPOINT_ONLY =
       false; ///< Stores one admitted RGB midpoint.
-  /// Limits interval caches to the initial color controls.
-  static constexpr bool INITIAL_COLOR_CACHE_ONLY = false;
+  /// Limits interval caches to the initial color and modulation controls.
+  static constexpr bool INITIAL_CACHE_CONTROLS_ONLY = false;
   /// Palette-coordinate nodes per cached time row.
   static constexpr int PALETTE_LAB_VALUES = 64;
   /// Factors a supported rotation prefix into column bases.
