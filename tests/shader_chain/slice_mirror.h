@@ -115,12 +115,9 @@ using MirrorPipeline = PB::Pipeline<
     PB::Stage::Sample<PB::Source::Grid<MirrorSource>, WeightP, CoverageP>,
     PB::Stage::Colorize<PB::Color::GeneratedPalette<MirrorColor<BrightV>>>>;
 
-/** Mirror frame populated from the erased program's blocks: providers read
-    the same raw state the erased prepare reads. @p color is entry 3's family
-    in the palette layout. */
+/** Mirror frame populated from the erased program's parameter and state blocks. */
 inline MirrorFrame mirror_from(In::ChainProgram &program,
-                               const In::FrameContext &ctx,
-                               const In::Op::GeneratedPaletteParams &color) {
+                               const In::FrameContext &ctx) {
   MirrorFrame frame;
   const auto &camera = state_as<In::Op::SpatialWalkState>(program, 0);
   const auto &projection = state_as<In::Op::SpatialWalkState>(program, 1);
@@ -135,7 +132,7 @@ inline MirrorFrame mirror_from(In::ChainProgram &program,
           .conjugate();
   frame.projection = param_as<In::Op::ProjectChainParams>(program, 1);
   frame.sample = param_as<In::Op::GridSampleParams>(program, 2);
-  frame.color = color;
+  frame.color = param_as<In::Op::GeneratedPaletteParams>(program, 3);
   frame.source_primary = source.primary;
   frame.source_secondary = source.secondary;
   frame.source_angle = source.angle;
@@ -143,12 +140,6 @@ inline MirrorFrame mirror_from(In::ChainProgram &program,
   frame.palette = ctx.palettes[frame.color.palette_mode];
   frame.hue_rotation_lut = ctx.hue_rotation_lut;
   return frame;
-}
-
-inline MirrorFrame mirror_from(In::ChainProgram &program,
-                               const In::FrameContext &ctx) {
-  return mirror_from(program, ctx,
-                     param_as<In::Op::GeneratedPaletteParams>(program, 3));
 }
 
 template <typename Pipe>
