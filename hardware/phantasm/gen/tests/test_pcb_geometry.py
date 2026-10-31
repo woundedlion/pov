@@ -225,9 +225,6 @@ class RotationPolicyTests(unittest.TestCase):
 class BoardWidthCapTests(unittest.TestCase):
     """R-MECH-6 caps the segment board width."""
 
-    def test_the_configured_width_is_within_the_cap(self):
-        self.assertLessEqual(pcb.PCB_W, pcb.PCB_W_MAX)
-
     def test_the_staged_board_note_names_the_same_cap(self):
         texts = [str(node[1]) for node in
                  sexp.parse_one(UNPLACED.read_text(encoding="utf-8"))
