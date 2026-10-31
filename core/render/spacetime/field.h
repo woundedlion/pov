@@ -9,7 +9,6 @@
  */
 
 #include "core/render/spacetime/surface.h"
-#include "core/render/pullback/color.h"
 #include <cmath>
 #include <concepts>
 #include <type_traits>
