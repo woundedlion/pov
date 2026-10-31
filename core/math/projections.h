@@ -137,7 +137,10 @@ struct ProjectionKernelResult {
  *         range gets it on the negative side only.
  */
 inline float wrap_longitude(float longitude) {
-  float wrapped = fmodf(longitude + math::PI_F, math::TWO_PI_F);
+  const float SHIFTED = longitude + math::PI_F;
+  float wrapped = fabsf(SHIFTED) < math::TWO_PI_F
+                      ? SHIFTED
+                      : fmodf(SHIFTED, math::TWO_PI_F);
   if (wrapped < 0.0f)
     wrapped += math::TWO_PI_F;
   return wrapped - math::PI_F;

@@ -109,6 +109,43 @@ inline void test_wrap_longitude_range() {
   HS_EXPECT_EQ(wrap_longitude(3.0f * math::PI_F), -math::PI_F);
 }
 
+/** @brief Longitude reduction retains fmod rounding at cuts and large inputs. */
+inline void test_wrap_longitude_fmod_contract() {
+  const auto reference = [](float raw) {
+    float reduced = std::fmod(raw + math::PI_F, math::TWO_PI_F);
+    if (reduced < 0.0f)
+      reduced += math::TWO_PI_F;
+    return reduced - math::PI_F;
+  };
+  const auto check = [&](float raw) {
+    const float EXPECTED = reference(raw);
+    const float ACTUAL = wrap_longitude(raw);
+    if (std::isnan(EXPECTED))
+      HS_EXPECT_TRUE(std::isnan(ACTUAL));
+    else
+      HS_EXPECT_EQ(std::bit_cast<uint32_t>(ACTUAL),
+                   std::bit_cast<uint32_t>(EXPECTED));
+  };
+  const float INFINITY_VALUE = std::numeric_limits<float>::infinity();
+  for (float value : {-3.0f * math::PI_F, -math::PI_F, -0.0f, 0.0f, math::PI_F,
+                      3.0f * math::PI_F}) {
+    check(std::nextafter(value, -INFINITY_VALUE));
+    check(value);
+    check(std::nextafter(value, INFINITY_VALUE));
+  }
+  for (float value : {std::numeric_limits<float>::lowest(),
+                      std::numeric_limits<float>::max(), -INFINITY_VALUE,
+                      INFINITY_VALUE, std::numeric_limits<float>::quiet_NaN()})
+    check(value);
+  uint32_t state = 0x8e2bd471u;
+  for (int index = 0; index < 4096; ++index) {
+    state ^= state << 13;
+    state ^= state >> 17;
+    state ^= state << 5;
+    check(std::bit_cast<float>(state));
+  }
+}
+
 /** @brief Bonne converges to sinusoidal coordinates as the standard parallel approaches zero. */
 inline void test_bonne_sinusoidal_limit() {
   for (int latitude_step = -12; latitude_step <= 12; ++latitude_step) {
@@ -705,6 +742,7 @@ inline void test_cylindrical_coordinates() {
 inline int run_projections_tests() {
   hs_test::ModuleFixture fixture("projections");
   HS_RUN(test_wrap_longitude_range);
+  HS_RUN(test_wrap_longitude_fmod_contract);
   HS_RUN(test_cylindrical_coordinates);
   HS_RUN(test_bonne_sinusoidal_limit);
   HS_RUN(test_bonne_polar_limit_is_finite);
