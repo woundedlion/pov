@@ -211,8 +211,7 @@ inline void prepare_radial_tables(const Params &params,
     ++tables.count;
     group.center = params.random_center
                        ? ripple_center(state.seed, BURST)
-                       : math::Vector::from_spherical(params.center_azimuth,
-                                                      params.center_polar);
+                       : Surface::prepare_ripple_center(params);
     for (size_t i = 0; i < RadialGroup::SAMPLES; ++i) {
       const float DISTANCE = math::PI_F * i / (RadialGroup::SAMPLES - 1);
       group.previous[i] = radial_transfer(DISTANCE, previous, previous_count);
