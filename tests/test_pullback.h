@@ -2827,10 +2827,11 @@ using TemporalPalettePipeline = Pullback::Pipeline<
     Pullback::Stage::Colorize<
         Pullback::Color::GeneratedPalette<TemporalPaletteProvider>>,
     Pullback::Stage::Modulate<Pullback::Color::Modulate<PaletteLayerProvider>>>;
+template <Pullback::CodeEmission Emission>
 using TemporalPalettePlacedPipeline = Pullback::Pipeline<
     PaletteBinding, PaletteSampleStage,
     Pullback::Stage::Placed<
-        Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+        Emission,
         Pullback::Stage::Colorize<
             Pullback::Color::GeneratedPalette<TemporalPaletteProvider>>,
         Pullback::Stage::Modulate<
@@ -3309,10 +3310,15 @@ inline void test_pullback_modulation_temporal_alpha() {
         math::Y_AXIS, TemporalPalettePipeline::prepare(frame));
     HS_EXPECT_EQ(COLOR.color, RGB);
     HS_EXPECT_NEAR(COLOR.alpha, 0.12f * fraction, 1e-6f);
-    const auto PLACED = TemporalPalettePlacedPipeline::shade(
-        math::Y_AXIS, TemporalPalettePlacedPipeline::prepare(frame));
-    HS_EXPECT_EQ(PLACED.color, COLOR.color);
-    HS_EXPECT_NEAR(PLACED.alpha, COLOR.alpha, 0.0f);
+    const auto check_placed = [&]<CodeEmission Emission>() {
+      using Placed = TemporalPalettePlacedPipeline<Emission>;
+      const auto PLACED = Placed::shade(math::Y_AXIS, Placed::prepare(frame));
+      HS_EXPECT_EQ(PLACED.color, COLOR.color);
+      HS_EXPECT_NEAR(PLACED.alpha, COLOR.alpha, 0.0f);
+    };
+    check_placed.template operator()<CodeEmission::INLINE_ONLY>();
+    check_placed.template operator()<CodeEmission::OUT_OF_LINE_FLASH>();
+    check_placed.template operator()<CodeEmission::OUT_OF_LINE_ITCM>();
   }
   frame.mechanic = {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT, 1.0f};
   frame.temporal.fraction = 0.5f;
