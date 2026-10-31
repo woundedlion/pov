@@ -285,7 +285,7 @@ struct TemporalGeneratedPaletteState {
  * @param opacity Shared coverage and opacity.
  * @param gain Shared final brightness.
  * @return Canonical deferred endpoint. */
-HS_NOINLINE_NOCLONE inline ColorSample
+HS_ITCM_MEMBER inline ColorSample
 apply_palette_endpoint(const FieldSample &sample,
                        const GeneratedPaletteState &state, float value,
                        float opacity, float gain) {
