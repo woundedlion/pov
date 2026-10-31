@@ -132,7 +132,7 @@ sample_sphere_lut_face(const SphereLutView &view, int face, float u, float v) {
  *          normalization is not required.
  * @return Cube-map coordinates for a bilinear sample.
  */
-HS_O3_FN inline SphereLutSample
+HS_O3_FN HS_HOT_INLINE inline SphereLutSample
 prepare_sphere_lut_sample_unchecked(const math::Vector &direction) {
   const float ax = fabsf(direction.x);
   const float ay = fabsf(direction.y);
