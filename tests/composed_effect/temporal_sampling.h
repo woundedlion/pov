@@ -501,7 +501,7 @@ inline void test_temporal_custom_shade_is_authoritative() {
 }
 
 /** @brief Endpoints with equal palette tables colour as the current one, and
- *  any differing entry interpolates. */
+ *  any differing entry clears same_palette. */
 inline void test_temporal_equal_palettes_color_as_current() {
   HS_CONTEXT("temporal equal palettes");
   reset_globals();
@@ -534,10 +534,10 @@ inline void test_temporal_equal_palettes_color_as_current() {
     field.value = static_cast<float>(index) / 256;
     field.coverage = 0.75f;
     field.path_length = static_cast<float>(index) * 0.37f;
-    const Color4 A =
-        Pullback::Color::finish(PathPalette::apply(field, sample, prepared));
+    const Color4 A = Pullback::Color::finish(
+        PathPalette::apply_endpoint(field, interpolated, blended, true));
     const Color4 B = Pullback::Color::finish(
-        PathPalette::apply(field, interpolated, blended));
+        PathPalette::apply_endpoint(field, interpolated, blended, false));
     HS_EXPECT_TRUE(A.color == B.color);
     HS_EXPECT_NEAR(A.alpha, B.alpha, 0.0f);
   }
