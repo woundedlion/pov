@@ -60,6 +60,20 @@
       },
       {
         "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.brightness-bottom",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
         "default": "none",
         "domain": {
           "values": [
@@ -76,6 +90,20 @@
         },
         "storage": "enum8",
         "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.brightness-top",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
       },
       {
         "classification": "preset",
@@ -212,6 +240,38 @@
       },
       {
         "classification": "preset",
+        "default": 0.0078125,
+        "domain": {
+          "maximum": 0.015625,
+          "minimum": 0
+        },
+        "id": "displace.burst-rate",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "four",
+        "domain": {
+          "values": [
+            "one",
+            "two",
+            "three",
+            "four"
+          ]
+        },
+        "id": "displace.burst-size",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
         "default": 0,
         "domain": {
           "maximum": 6.2831854820251465,
@@ -266,6 +326,22 @@
         },
         "storage": "binary32",
         "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "on",
+        "domain": {
+          "values": [
+            "off",
+            "on"
+          ]
+        },
+        "id": "displace.random-center",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
       },
       {
         "classification": "preset",
@@ -905,20 +981,72 @@
         "unit": "ratio"
       },
       {
-        "id": "modulate.modulation-enabled",
         "classification": "preset",
-        "storage": "enum8",
-        "unit": "mode",
+        "default": "enabled",
         "domain": {
           "values": [
             "disabled",
             "enabled"
           ]
         },
+        "id": "modulate.modulation-enabled",
         "interpolation": {
           "kind": "MIXED_ENUM"
         },
-        "default": "enabled"
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "direct",
+        "domain": {
+          "values": [
+            "direct",
+            "baked-cube"
+          ]
+        },
+        "id": "modulate.modulation-evaluation",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "hue-rotation",
+        "domain": {
+          "values": [
+            "hue-rotation",
+            "positive-lightness-lift",
+            "opacity"
+          ]
+        },
+        "id": "modulate.modulation-mechanic",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "displacement",
+        "domain": {
+          "values": [
+            "noise",
+            "directional-sine",
+            "sphere-interference",
+            "sphere-smooth-grid",
+            "displacement"
+          ]
+        },
+        "id": "modulate.modulation-source",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
       },
       {
         "classification": "preset",
@@ -1168,134 +1296,6 @@
         },
         "storage": "binary32",
         "unit": "ratio"
-      },
-      {
-        "id": "modulate.modulation-source",
-        "classification": "preset",
-        "storage": "enum8",
-        "unit": "mode",
-        "domain": {
-          "values": [
-            "noise",
-            "directional-sine",
-            "sphere-interference",
-            "sphere-smooth-grid",
-            "displacement"
-          ]
-        },
-        "interpolation": {
-          "kind": "MIXED_ENUM"
-        },
-        "default": "displacement"
-      },
-      {
-        "id": "modulate.modulation-evaluation",
-        "classification": "preset",
-        "storage": "enum8",
-        "unit": "mode",
-        "domain": {
-          "values": [
-            "direct",
-            "baked-cube"
-          ]
-        },
-        "interpolation": {
-          "kind": "MIXED_ENUM"
-        },
-        "default": "direct"
-      },
-      {
-        "id": "modulate.modulation-mechanic",
-        "classification": "preset",
-        "storage": "enum8",
-        "unit": "mode",
-        "domain": {
-          "values": [
-            "hue-rotation",
-            "positive-lightness-lift",
-            "opacity"
-          ]
-        },
-        "interpolation": {
-          "kind": "MIXED_ENUM"
-        },
-        "default": "hue-rotation"
-      },
-      {
-        "id": "colorize.brightness-bottom",
-        "classification": "preset",
-        "storage": "binary32",
-        "unit": "ratio",
-        "domain": {
-          "minimum": 0,
-          "maximum": 1
-        },
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "default": 0
-      },
-      {
-        "id": "colorize.brightness-top",
-        "classification": "preset",
-        "storage": "binary32",
-        "unit": "ratio",
-        "domain": {
-          "minimum": 0,
-          "maximum": 1
-        },
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "default": 1
-      },
-      {
-        "id": "displace.burst-rate",
-        "classification": "preset",
-        "storage": "binary32",
-        "unit": "ratio",
-        "domain": {
-          "minimum": 0,
-          "maximum": 0.015625
-        },
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "default": 0.0078125
-      },
-      {
-        "id": "displace.burst-size",
-        "classification": "preset",
-        "storage": "enum8",
-        "unit": "mode",
-        "domain": {
-          "values": [
-            "one",
-            "two",
-            "three",
-            "four"
-          ]
-        },
-        "interpolation": {
-          "kind": "MIXED_ENUM"
-        },
-        "default": "four"
-      },
-      {
-        "id": "displace.random-center",
-        "classification": "preset",
-        "storage": "enum8",
-        "unit": "mode",
-        "domain": {
-          "values": [
-            "off",
-            "on"
-          ]
-        },
-        "interpolation": {
-          "kind": "MIXED_ENUM"
-        },
-        "default": "on"
       }
     ],
     "path_policies": [
@@ -1307,7 +1307,9 @@
     "serialization": {
       "fields": [
         "camera.wander",
+        "colorize.brightness-bottom",
         "colorize.brightness-envelope",
+        "colorize.brightness-top",
         "colorize.mapping-frequency",
         "colorize.mapping-phase",
         "colorize.palette-chroma",
@@ -1317,10 +1319,13 @@
         "colorize.phase-oscillation-speed",
         "colorize.value-opacity-high",
         "colorize.value-opacity-low",
+        "displace.burst-rate",
+        "displace.burst-size",
         "displace.center-azimuth",
         "displace.center-polar",
         "displace.decay",
         "displace.period",
+        "displace.random-center",
         "displace.strength",
         "displace.thickness",
         "field.grid-axis-b-x",
@@ -1365,6 +1370,9 @@
         "lens1.symmetry",
         "modulate.modulation-amount",
         "modulate.modulation-enabled",
+        "modulate.modulation-evaluation",
+        "modulate.modulation-mechanic",
+        "modulate.modulation-source",
         "project.frame",
         "project.hemisphere",
         "project.projection-spin-speed",
@@ -1381,15 +1389,7 @@
         "warp.center-y",
         "warp.radius",
         "warp.speed",
-        "warp.turns",
-        "modulate.modulation-source",
-        "modulate.modulation-evaluation",
-        "modulate.modulation-mechanic",
-        "colorize.brightness-bottom",
-        "colorize.brightness-top",
-        "displace.burst-rate",
-        "displace.burst-size",
-        "displace.random-center"
+        "warp.turns"
       ],
       "schema_version": 1
     }
@@ -1423,7 +1423,9 @@
         "preset_id": "affine-contour",
         "values": {
           "camera.wander": 1,
+          "colorize.brightness-bottom": 0,
           "colorize.brightness-envelope": "bell",
+          "colorize.brightness-top": 1,
           "colorize.mapping-frequency": 1,
           "colorize.mapping-phase": -0.046783626079559326,
           "colorize.palette-chroma": 1,
@@ -1433,10 +1435,13 @@
           "colorize.phase-oscillation-speed": 0,
           "colorize.value-opacity-high": 1,
           "colorize.value-opacity-low": 1,
+          "displace.burst-rate": 0.0078125,
+          "displace.burst-size": "four",
           "displace.center-azimuth": 0,
           "displace.center-polar": 1.5707963705062866,
           "displace.decay": 0.20000000298023224,
           "displace.period": 91.48529052734375,
+          "displace.random-center": "on",
           "displace.strength": 0.15000000596046448,
           "displace.thickness": 0.699999988079071,
           "field.grid-axis-b-x": 1,
@@ -1481,6 +1486,9 @@
           "lens1.symmetry": "tetrahedral",
           "modulate.modulation-amount": 2.2352941036224365,
           "modulate.modulation-enabled": "enabled",
+          "modulate.modulation-evaluation": "direct",
+          "modulate.modulation-mechanic": "hue-rotation",
+          "modulate.modulation-source": "displacement",
           "project.frame": "spin-wander",
           "project.hemisphere": "folded",
           "project.projection-spin-speed": 0,
@@ -1497,15 +1505,7 @@
           "warp.center-y": 0.4941176474094391,
           "warp.radius": 1.3072150945663452,
           "warp.speed": 0,
-          "warp.turns": 0.7764706015586853,
-          "modulate.modulation-source": "displacement",
-          "modulate.modulation-evaluation": "direct",
-          "modulate.modulation-mechanic": "hue-rotation",
-          "colorize.brightness-bottom": 0,
-          "colorize.brightness-top": 1,
-          "displace.burst-rate": 0.0078125,
-          "displace.burst-size": "four",
-          "displace.random-center": "on"
+          "warp.turns": 0.7764706015586853
         }
       }
     ],
