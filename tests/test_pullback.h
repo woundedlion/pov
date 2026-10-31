@@ -1879,17 +1879,148 @@ inline void test_pullback_grouped_ripple_path_continuity() {
   HS_EXPECT_LT((A.sphere - B.sphere).length(), 1e-5f);
 }
 
+/** @brief Baked validity preserves every endpoint-cell admission and transfer bit. */
+inline void test_pullback_radial_cell_validity() {
+  using namespace Pullback::SphereAnimation;
+  static RadialTables tables;
+  tables = {};
+  HS_EXPECT_FALSE(tables.validity_ready);
+  tables.enabled = true;
+  tables.count = 1;
+  auto &group = tables.groups[0];
+  group.previous.fill({.04f, .1f});
+  group.current.fill({.08f, .2f});
+  const auto CHECK = [&]() {
+    prepare_radial_validity(tables);
+    HS_EXPECT_TRUE(tables.validity_ready);
+    for (size_t cell = 0; cell < RadialGroup::SAMPLES - 1; ++cell) {
+      const bool VALID = !(group.previous[cell].path < 0.0f ||
+                           group.previous[cell + 1].path < 0.0f ||
+                           group.current[cell].path < 0.0f ||
+                           group.current[cell + 1].path < 0.0f);
+      HS_EXPECT_EQ(bool(tables.valid_cells[0][cell]), VALID);
+      const float DISTANCE =
+          (float(cell) + .375f) * (math::PI_F / (RadialGroup::SAMPLES - 1));
+      for (bool track_path : {false, true}) {
+        RadialTransfer expected{.123f, .456f}, actual = expected;
+        const bool EXPECTED = RippleKernel::sample_transfer(
+            group.previous, group.current, DISTANCE, .625f, track_path,
+            expected);
+        const bool ACTUAL = RippleKernel::sample_transfer(
+            group.previous, group.current, DISTANCE, .625f, track_path, actual,
+            tables.valid_cells[0].data());
+        HS_EXPECT_EQ(ACTUAL, EXPECTED);
+        HS_EXPECT_EQ(std::memcmp(&actual, &expected, sizeof(actual)), 0);
+      }
+    }
+  };
+  CHECK();
+  for (int endpoint : {0, 1})
+    for (size_t node : {size_t{0}, size_t{1}, size_t{128}, size_t{256}}) {
+      auto &curve = endpoint == 0 ? group.previous : group.current;
+      const float SAVED = curve[node].path;
+      curve[node].path = -1.0f;
+      CHECK();
+      curve[node].path = SAVED;
+    }
+  group.previous[0].path = -0.0f;
+  group.current[0].path = std::numeric_limits<float>::quiet_NaN();
+  CHECK();
+  RadialTransfer expected{.123f, .456f}, actual = expected;
+  const bool EXPECTED = RippleKernel::sample_transfer(
+      group.previous, group.current, math::PI_F, .25f, true, expected);
+  const bool ACTUAL = RippleKernel::sample_transfer(
+      group.previous, group.current, math::PI_F, .25f, true, actual,
+      tables.valid_cells[0].data());
+  HS_EXPECT_EQ(ACTUAL, EXPECTED);
+  HS_EXPECT_EQ(std::memcmp(&actual, &expected, sizeof(actual)), 0);
+}
+
+/** @brief Owned masks match legacy radial output through supported and rejected updates. */
+inline void test_pullback_radial_validity_lifetime() {
+  using namespace Pullback::SphereAnimation;
+  static RadialTables tables;
+  tables = {};
+  BurstRippleParams params;
+  params.period = 80.0f;
+  params.burst_rate = 1.0f / 64.0f;
+  RippleState state;
+  state.seed = 149502542u;
+  uint64_t successes = 0;
+  for (int frame = 0; frame < 600; ++frame) {
+    if (frame == 173)
+      params.strength = .12f;
+    if (frame == 279)
+      params.period = 143.0f;
+    if (frame == 381)
+      params.random_center = 0;
+    if (frame == 419) {
+      auto unsupported = params;
+      unsupported.thickness = .1f;
+      prepare_radial_tables(unsupported, state, tables, true);
+      HS_EXPECT_FALSE(tables.enabled);
+      HS_EXPECT_FALSE(tables.validity_ready);
+    }
+    advance_ripple(state, params);
+    prepare_radial_tables(params, state, tables, true);
+    HS_EXPECT_TRUE(tables.enabled);
+    HS_EXPECT_TRUE(tables.validity_ready);
+    for (int probe = 0; probe < 32; ++probe) {
+      const float AZIMUTH = math::TWO_PI_F * probe / 32;
+      const float Y = -.95f + 1.9f * ((probe * 17 + frame) % 32) / 31;
+      const float RADIUS = sqrtf(1.0f - Y * Y);
+      const math::Vector VIEW{RADIUS * cosf(AZIMUTH), Y,
+                              RADIUS * sinf(AZIMUTH)};
+      for (bool track_path : {false, true}) {
+        Pullback::SurfaceResult actual, expected;
+        const bool ACTUAL =
+            try_radial_ripples(VIEW, track_path, &tables, .375f, actual);
+        tables.validity_ready = false;
+        const bool EXPECTED =
+            try_radial_ripples(VIEW, track_path, &tables, .375f, expected);
+        tables.validity_ready = true;
+        HS_EXPECT_EQ(ACTUAL, EXPECTED);
+        HS_EXPECT_EQ(std::memcmp(&actual, &expected, sizeof(actual)), 0);
+        successes += ACTUAL;
+      }
+    }
+  }
+  HS_EXPECT_GT(successes, uint64_t{10000});
+  prepare_radial_tables(params, state, tables);
+  HS_EXPECT_FALSE(tables.validity_ready);
+  RadialTables manual{};
+  HS_EXPECT_FALSE(manual.validity_ready);
+  manual.enabled = true;
+  manual.count = 1;
+  auto &group = manual.groups[0];
+  group.center = math::Y_AXIS;
+  group.cos_threshold_min = 1.0f;
+  group.cos_threshold_max = -1.0f;
+  group.previous.fill({0.0f, .1f});
+  group.current.fill({0.0f, .1f});
+  Pullback::SurfaceResult result;
+  HS_EXPECT_TRUE(try_radial_ripples(math::X_AXIS, true, &manual, .5f, result));
+  group.current[128].path = -1.0f;
+  HS_EXPECT_FALSE(try_radial_ripples(math::X_AXIS, true, &manual, .5f, result));
+}
+
 /** @brief Reused radial endpoints match fresh bakes across clock and parameter changes. */
 inline void test_pullback_radial_ripple_endpoint_reuse() {
   using namespace Pullback::SphereAnimation;
   static RadialTables cached, fresh;
   const auto CHECK = [&](const BurstRippleParams &params,
                          const RippleState &state) {
-    prepare_radial_tables(params, state, cached);
+    prepare_radial_tables(params, state, cached, true);
     fresh.enabled = false;
-    prepare_radial_tables(params, state, fresh);
+    prepare_radial_tables(params, state, fresh, true);
     HS_EXPECT_EQ(cached.enabled, fresh.enabled);
     HS_EXPECT_EQ(cached.count, fresh.count);
+    HS_EXPECT_EQ(cached.validity_ready, fresh.validity_ready);
+    if (fresh.validity_ready)
+      HS_EXPECT_EQ(std::memcmp(cached.valid_cells.data(),
+                               fresh.valid_cells.data(),
+                               sizeof(cached.valid_cells)),
+                   0);
     for (uint8_t group = 0; group < fresh.count; ++group) {
       const auto &ACTUAL = cached.groups[group];
       const auto &EXPECTED = fresh.groups[group];
@@ -3615,6 +3746,8 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_ripple_supplied_center);
   HS_RUN(test_pullback_ripple_burst_centers);
   HS_RUN(test_pullback_radial_ripple_endpoint_reuse);
+  HS_RUN(test_pullback_radial_cell_validity);
+  HS_RUN(test_pullback_radial_validity_lifetime);
   HS_RUN(test_pullback_radial_ripple_crest);
   HS_RUN(test_pullback_radial_ripple_fallback);
   HS_RUN(test_pullback_radial_ripple_lazy_fallback);

@@ -485,9 +485,19 @@ The curve is a spatial and temporal approximation, with one final sphere
 rotation per center and unchanged downstream pixel shading. Union support
 bounds reject inactive rays before angular lookup. Unsupported controls,
 parameter changes, skipped frame intervals, pole crossings and invalid lookup
-cells fall back to grouped evaluation. The optional curves and retained keys occupy 16,676 bytes
+cells fall back to grouped evaluation. The optional curves, retained keys and cell-validity bytes occupy 17,700 bytes
 inside the existing persistent arena, counted by the composed footprint gate;
 no arena or stack budget is increased.
+
+The runtime opts immutable endpoint pairs into a derived cell-validity mask:
+256 bytes per burst group, replacing the same four negative-path checks at
+lookup. `prepare_radial_tables` defaults to ordinary validation for public or
+manually edited curves. Its `immutable_view` opt-in clears mask readiness before
+any update and publishes a new mask only after both endpoints are finalized.
+Disabling interpolation also clears readiness. Curve edits require invalidating
+that derived view before lookup; interpolation and fallback arithmetic stay
+unchanged. Exhaustive cell fixtures and 600-frame update/reuse comparisons retain
+bitwise direction and travel parity with ordinary validation.
 
 Qualification covers geometry, unit norm, path continuity, burst births/deaths,
 slot replacement and shared or random centers. The default preset's 1.536 million

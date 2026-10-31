@@ -114,8 +114,12 @@ struct RadialGroup {
 /** @brief Persistent radial curves baked once for a frame. */
 struct RadialTables {
   std::array<RadialGroup, 4> groups; ///< Burst groups in launch order.
-  uint8_t count = 0;                 ///< Active group count.
+  std::array<std::array<uint8_t, RadialGroup::SAMPLES - 1>, 4>
+      valid_cells{};    ///< Finalized endpoint-pair cell validity.
+  uint8_t count = 0;    ///< Active group count.
   bool enabled = false; ///< Whether the parameters admit radial interpolation.
+  bool validity_ready =
+      false; ///< Whether the endpoint-pair validity was baked.
 };
 
 /** @brief Active ripple kernels in launch order. */
@@ -176,16 +180,34 @@ radial_transfer(float distance,
       count);
 }
 
+/** @brief Bakes cell validity after both endpoint curves are finalized.
+ * @param tables Finalized curves; clear validity_ready before later edits. */
+HS_COLD_MEMBER inline void prepare_radial_validity(RadialTables &tables) {
+  tables.validity_ready = false;
+  for (uint8_t index = 0; index < tables.count; ++index) {
+    const auto &group = tables.groups[index];
+    auto &cells = tables.valid_cells[index];
+    for (size_t cell = 0; cell < cells.size(); ++cell)
+      cells[cell] = !(group.previous[cell].path < 0.0f ||
+                      group.previous[cell + 1].path < 0.0f ||
+                      group.current[cell].path < 0.0f ||
+                      group.current[cell + 1].path < 0.0f);
+  }
+  tables.validity_ready = true;
+}
+
 /** @brief Bakes radial endpoints, reusing bitwise-matching current curves.
  * @tparam Params Ripple controls.
  * @param params Current controls.
  * @param state Current scheduler state.
- * @param tables Persistent destination. */
+ * @param tables Persistent destination.
+ * @param immutable_view Whether the curves remain immutable until the next bake. */
 template <typename Params>
-HS_HOT_FLASH_MEMBER inline void prepare_radial_tables(const Params &params,
-                                                      const RippleState &state,
-                                                      RadialTables &tables) {
+HS_HOT_FLASH_MEMBER inline void
+prepare_radial_tables(const Params &params, const RippleState &state,
+                      RadialTables &tables, bool immutable_view = false) {
   const uint8_t CACHED_COUNT = tables.enabled ? tables.count : 0;
+  tables.validity_ready = false;
   tables.count = 0;
   tables.enabled = params.strength >= 0.0f && params.strength <= 0.15f &&
                    params.thickness >= 0.7f && params.thickness <= 1.4f &&
@@ -269,6 +291,8 @@ HS_HOT_FLASH_MEMBER inline void prepare_radial_tables(const Params &params,
     }
     group.current_key = current_keys[group_index];
   }
+  if (immutable_view)
+    prepare_radial_validity(tables);
 }
 
 /** @brief Attempts interpolated radial curves without exact fallback.
@@ -296,8 +320,11 @@ HS_HOT_ITCM_MEMBER inline bool try_radial_ripples(const math::Vector &input,
     const float DISTANCE =
         math::fast_acos(hs::clamp(DISTANCE_COS, -1.0f, 1.0f));
     RadialTransfer transfer;
-    if (!RippleKernel::sample_transfer(group.previous, group.current, DISTANCE,
-                                       fraction, track_path, transfer))
+    if (!RippleKernel::sample_transfer(
+            group.previous, group.current, DISTANCE, fraction, track_path,
+            transfer,
+            tables->validity_ready ? tables->valid_cells[group_index].data()
+                                   : nullptr))
       return false;
     if (track_path)
       result.path_length += transfer.path;

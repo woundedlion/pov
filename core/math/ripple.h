@@ -282,13 +282,14 @@ HS_HOT_INLINE inline Result grouped(const math::Vector &input,
  * @param fraction Temporal interpolation fraction.
  * @param track_path Whether to interpolate travel.
  * @param output Receives the interpolated transfer on success.
+ * @param valid_cells Optional Samples-1 validity bytes matching finalized curves.
  * @return Whether the distance and neighboring nodes are valid. */
 template <size_t Samples>
 HS_HOT_INLINE inline bool
 sample_transfer(const std::array<RadialTransfer, Samples> &previous,
                 const std::array<RadialTransfer, Samples> &current,
                 float distance, float fraction, bool track_path,
-                RadialTransfer &output) {
+                RadialTransfer &output, const uint8_t *valid_cells = nullptr) {
   const float POSITION = distance * ((Samples - 1) / math::PI_F);
   if (!(POSITION >= 0.0f && POSITION <= Samples - 1))
     return false;
@@ -298,7 +299,9 @@ sample_transfer(const std::array<RadialTransfer, Samples> &previous,
   const auto &b = previous[LOW_INDEX + 1];
   const auto &c = current[LOW_INDEX];
   const auto &d = current[LOW_INDEX + 1];
-  if (a.path < 0.0f || b.path < 0.0f || c.path < 0.0f || d.path < 0.0f)
+  if (valid_cells
+          ? !valid_cells[LOW_INDEX]
+          : (a.path < 0.0f || b.path < 0.0f || c.path < 0.0f || d.path < 0.0f))
     return false;
   output.angle = hs::lerp(hs::lerp(a.angle, b.angle, WEIGHT),
                           hs::lerp(c.angle, d.angle, WEIGHT), fraction);

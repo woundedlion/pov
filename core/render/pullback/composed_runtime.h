@@ -982,7 +982,7 @@ private:
         if constexpr (SpecT::RIPPLE_RADIAL_TABLE) {
           SphereAnimation::prepare_radial_tables(
               frame.params.template get<Resource::KEY>(), owned.ripples,
-              owned.radial_tables);
+              owned.radial_tables, true);
           resource.radial_tables = &owned.radial_tables;
         }
       } else
