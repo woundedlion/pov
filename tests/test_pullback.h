@@ -3093,6 +3093,128 @@ inline void test_pullback_temporal_deferred_hue_wrap() {
   HS_EXPECT_EQ(blend_color_samples(a, b, 1.0f).pending_hue, b.pending_hue);
 }
 
+/** @brief Modulation identities retain common and selected inputs only. */
+inline void test_pullback_modulation_field_identity() {
+  using namespace Pullback::Modulation;
+  using Pattern::SourceKind;
+  Config config;
+  config.version = 7;
+  config.evaluation = Pattern::Evaluation::DIRECT;
+  config.noise.scale = 2.0f;
+  config.sine.frequency = 3.0f;
+  config.interference.frequency_b = 4.0f;
+  config.grid.offset_b = 0.5f;
+  config.seed = 123;
+  const State STATE{SourceKind::NOISE, 1, {0.25f}, true};
+  for (SourceKind source :
+       {SourceKind::NOISE, SourceKind::DIRECTIONAL_SINE,
+        SourceKind::SPHERE_INTERFERENCE, SourceKind::SPHERE_SMOOTH_GRID,
+        SourceKind::DISPLACEMENT}) {
+    config.source = source;
+    const FieldIdentity IDENTITY = field_identity(config, STATE);
+    HS_EXPECT_EQ(IDENTITY.source, source);
+    HS_EXPECT_EQ(IDENTITY.version, 7);
+    HS_EXPECT_EQ(IDENTITY.evaluation, Pattern::Evaluation::DIRECT);
+    HS_EXPECT_EQ(IDENTITY.phase, Pattern::PhaseState{0.25f});
+    HS_EXPECT_EQ(IDENTITY.bake_layout_version,
+                 Pattern::SphereLutView::LAYOUT_VERSION);
+    HS_EXPECT_EQ(IDENTITY.seed, source == SourceKind::NOISE ? 123 : 0);
+    HS_EXPECT_EQ(IDENTITY.noise, source == SourceKind::NOISE
+                                     ? config.noise
+                                     : Pattern::NoiseParams{});
+    HS_EXPECT_EQ(IDENTITY.sine, source == SourceKind::DIRECTIONAL_SINE
+                                    ? config.sine
+                                    : Pattern::SineParams{});
+    HS_EXPECT_EQ(IDENTITY.interference,
+                 source == SourceKind::SPHERE_INTERFERENCE
+                     ? config.interference
+                     : Pattern::InterferenceParams{});
+    HS_EXPECT_EQ(IDENTITY.grid, source == SourceKind::SPHERE_SMOOTH_GRID
+                                    ? config.grid
+                                    : Pattern::GridParams{});
+  }
+  config.source = static_cast<SourceKind>(255);
+  const FieldIdentity UNKNOWN = field_identity(config, STATE);
+  HS_EXPECT_EQ(UNKNOWN.source, static_cast<SourceKind>(255));
+  HS_EXPECT_EQ(UNKNOWN.version, 7);
+  HS_EXPECT_EQ(UNKNOWN.evaluation, Pattern::Evaluation::DIRECT);
+  HS_EXPECT_EQ(UNKNOWN.phase, STATE.phase);
+  HS_EXPECT_EQ(UNKNOWN.noise, Pattern::NoiseParams{});
+  HS_EXPECT_EQ(UNKNOWN.sine, Pattern::SineParams{});
+  HS_EXPECT_EQ(UNKNOWN.interference, Pattern::InterferenceParams{});
+  HS_EXPECT_EQ(UNKNOWN.grid, Pattern::GridParams{});
+  HS_EXPECT_EQ(UNKNOWN.seed, 0);
+  HS_EXPECT_EQ(UNKNOWN.bake_layout_version,
+               Pattern::SphereLutView::LAYOUT_VERSION);
+}
+
+/** @brief Modulation equality distinguishes field inputs from dormant controls. */
+inline void test_pullback_modulation_field_equality() {
+  using namespace Pullback::Modulation;
+  using Pattern::SourceKind;
+  for (SourceKind source :
+       {SourceKind::NOISE, SourceKind::DIRECTIONAL_SINE,
+        SourceKind::SPHERE_INTERFERENCE, SourceKind::SPHERE_SMOOTH_GRID,
+        SourceKind::DISPLACEMENT}) {
+    Prepared baseline{};
+    baseline.config.source = source;
+    baseline.config.evaluation = Pattern::Evaluation::DIRECT;
+    const auto expect = [&](auto change, bool equal) {
+      Prepared other = baseline;
+      change(other);
+      HS_EXPECT_EQ(same_field(baseline, other), equal);
+      HS_EXPECT_EQ(same_field(other, baseline), equal);
+      HS_EXPECT_EQ(field_identity(baseline.config, baseline.state) ==
+                       field_identity(other.config, other.state),
+                   equal);
+    };
+    HS_EXPECT_TRUE(same_field(baseline, baseline));
+    expect(
+        [&](auto &p) {
+          p.config.source = source == SourceKind::NOISE
+                                ? SourceKind::DISPLACEMENT
+                                : SourceKind::NOISE;
+        },
+        false);
+    expect([](auto &p) { ++p.config.version; }, false);
+    expect(
+        [](auto &p) { p.config.evaluation = Pattern::Evaluation::BAKED_CUBE; },
+        false);
+    expect([](auto &p) { p.state.phase.phase_turns = 0.25f; }, false);
+    expect([](auto &p) { ++p.config.seed; }, source != SourceKind::NOISE);
+    expect([](auto &p) { p.config.noise.scale = 2.0f; },
+           source != SourceKind::NOISE);
+    expect([](auto &p) { p.config.noise.speed = 0.5f; },
+           source != SourceKind::NOISE);
+    expect([](auto &p) { p.config.sine.frequency = 2.0f; },
+           source != SourceKind::DIRECTIONAL_SINE);
+    expect([](auto &p) { p.config.sine.axis.x = 0.25f; },
+           source != SourceKind::DIRECTIONAL_SINE);
+    expect([](auto &p) { p.config.interference.frequency = 2.0f; },
+           source != SourceKind::SPHERE_INTERFERENCE);
+    expect([](auto &p) { p.config.interference.axis_b.z = 0.25f; },
+           source != SourceKind::SPHERE_INTERFERENCE);
+    expect([](auto &p) { p.config.grid.frequency = 2.0f; },
+           source != SourceKind::SPHERE_SMOOTH_GRID);
+    expect([](auto &p) { p.config.grid.offset_b = 0.25f; },
+           source != SourceKind::SPHERE_SMOOTH_GRID);
+    expect([](auto &p) { p.config.enabled = false; }, true);
+    expect(
+        [](auto &p) {
+          p.config.mechanic.kind = ColorModulation::Mechanic::OPACITY;
+        },
+        true);
+    expect([](auto &p) { p.config.mechanic.amount = 0.5f; }, true);
+    expect([](auto &p) { p.state.source = static_cast<SourceKind>(255); },
+           true);
+    expect([](auto &p) { ++p.state.version; }, true);
+    expect([](auto &p) { p.state.initialized = true; }, true);
+  }
+  Prepared unknown{};
+  unknown.config.source = static_cast<SourceKind>(255);
+  HS_EXPECT_FALSE(same_field(unknown, unknown));
+}
+
 /** @brief Runs pullback tests. */
 inline int run_pullback_tests() {
   ModuleFixture fixture("pullback");
@@ -3102,6 +3224,8 @@ inline int run_pullback_tests() {
   HS_RUN(pattern_tests::test_pattern_noise_formulas);
   HS_RUN(pattern_tests::test_pattern_extracted_source_protocols);
   HS_RUN(test_pullback_runtime_seed_contract);
+  HS_RUN(test_pullback_modulation_field_identity);
+  HS_RUN(test_pullback_modulation_field_equality);
   HS_RUN(test_pullback_carrier_contract);
   HS_RUN(test_pullback_projection_traits);
   HS_RUN(test_pullback_validation_predicates);

@@ -248,31 +248,53 @@ struct FieldIdentity {
       Pattern::SphereLutView::LAYOUT_VERSION; ///< Cube storage version.
   constexpr bool operator==(const FieldIdentity &) const = default;
 };
+namespace Detail {
+/** @brief Visits common inputs and the selected source's recipe.
+ * @tparam Target Configuration or identity receiving the visited fields.
+ * @tparam Phase Const or mutable target phase.
+ * @tparam Visitor Field comparison or assignment.
+ * @param source Source configuration.
+ * @param phase Source phase.
+ * @param target Target fields.
+ * @param target_phase Target phase.
+ * @param visit Returns whether to continue visiting.
+ * @return False for a stopped visit or an unknown source. */
+template <typename Target, typename Phase, typename Visitor>
+HS_HOT_INLINE inline bool
+visit_field_inputs(const Config &source, const Pattern::PhaseState &phase,
+                   Target &target, Phase &target_phase, Visitor visit) {
+  if (!visit(source.source, target.source) ||
+      !visit(source.version, target.version) ||
+      !visit(source.evaluation, target.evaluation) ||
+      !visit(phase, target_phase))
+    return false;
+  switch (source.source) {
+  case Pattern::SourceKind::DISPLACEMENT:
+    return true;
+  case Pattern::SourceKind::NOISE:
+    return visit(source.seed, target.seed) && visit(source.noise, target.noise);
+  case Pattern::SourceKind::DIRECTIONAL_SINE:
+    return visit(source.sine, target.sine);
+  case Pattern::SourceKind::SPHERE_INTERFERENCE:
+    return visit(source.interference, target.interference);
+  case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
+    return visit(source.grid, target.grid);
+  }
+  return false;
+}
+} // namespace Detail
+
 /** @brief Builds the selected source identity without dormant parameters.
  * @param config Endpoint configuration.
  * @param state Endpoint source state.
  * @return Complete source and bake identity. */
 inline FieldIdentity field_identity(const Config &config, const State &state) {
-  FieldIdentity identity{
-      config.source, config.version, config.evaluation, {}, {}, {}, {}, 0,
-      state.phase};
-  switch (config.source) {
-  case Pattern::SourceKind::DISPLACEMENT:
-    break;
-  case Pattern::SourceKind::NOISE:
-    identity.noise = config.noise;
-    identity.seed = config.seed;
-    break;
-  case Pattern::SourceKind::DIRECTIONAL_SINE:
-    identity.sine = config.sine;
-    break;
-  case Pattern::SourceKind::SPHERE_INTERFERENCE:
-    identity.interference = config.interference;
-    break;
-  case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
-    identity.grid = config.grid;
-    break;
-  }
+  FieldIdentity identity{};
+  Detail::visit_field_inputs(config, state.phase, identity, identity.phase,
+                             [](const auto &input, auto &output) {
+                               output = input;
+                               return true;
+                             });
   return identity;
 }
 /** @brief Keyed immutable source prepared for one modulation node. */
