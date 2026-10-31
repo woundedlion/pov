@@ -288,7 +288,8 @@ struct LensGlitch : StatelessModel {
 
 /** @brief Parameter family of sphere.lens.twist.v2. */
 struct TwistChainParams {
-  float twist_rate = lenses::TWIST_RATE; /**< Radians at unit axial height. */
+  float twist_rate =
+      lenses::TWIST_RATE; ///< Equatorial radians per unit height.
   float distribution = lenses::TWIST_DISTRIBUTION; ///< Polar redistribution.
   float speed = 0.02f;  /**< Polar rotation per frame, in radians. */
   float drift = 0.002f; /**< Azimuth rotation per frame, in radians. */

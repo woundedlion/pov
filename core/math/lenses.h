@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -26,12 +27,14 @@
  */
 namespace lenses {
 
-/** @brief Azimuthal rotation in radians at unit height. */
+/** @brief Azimuthal radians per unit axial height at the equator. */
 inline constexpr float TWIST_RATE = 3.0f;
 /** @brief Default redistribution of axial twist toward the poles. */
 inline constexpr float TWIST_DISTRIBUTION = 0.85f;
 /** @brief Maximum twist redistribution with finite polar derivatives. */
-inline constexpr float TWIST_DISTRIBUTION_MAX = 0.98f;
+inline constexpr float TWIST_DISTRIBUTION_MAX = 1.0f;
+/** @brief Maximum internal twist coefficient with finite polar derivatives. */
+inline constexpr float TWIST_PROFILE_MAX = 0.999f;
 /** @brief Signed mirror distance treated as "on the chamber wall". */
 inline constexpr float POLYHEDRAL_MIRROR_EPS = 1e-6f;
 /** @brief Loop passes a chamber fold may take before it is declared stuck. */
@@ -93,14 +96,61 @@ inline math::Vector glitch_lens(const math::Vector &v) {
                       double_y * v.z * (3.0f - 4.0f * z2 * inverse_radius2));
 }
 
+namespace TwistTable {
+/** @brief Builds logarithm samples over the unit mantissa interval.
+ * @return Logarithm samples from 1 through 2. */
+constexpr auto make_log_mantissa() {
+  std::array<float, 129> table{};
+  for (size_t i = 0; i < table.size(); ++i) {
+    const double M = 1.0 + static_cast<double>(i) / 128.0;
+    const double Z = (M - 1.0) / (M + 1.0);
+    const double Z2 = Z * Z;
+    double term = Z;
+    double sum = 0.0;
+    for (int order = 1; order <= 25; order += 2) {
+      sum += term / order;
+      term *= Z2;
+    }
+    table[i] = static_cast<float>(2.0 * sum);
+  }
+  return table;
+}
+/** @brief Unit-mantissa logarithm samples in flash. */
+inline constexpr auto LOG_MANTISSA HS_PROGMEM_UNIQUE(TWIST_LOG_MANTISSA_LUT) =
+    make_log_mantissa();
+} // namespace TwistTable
+
+/** @brief Approximates inverse hyperbolic tangent with a polynomial and lookup.
+ * @param x Value in [-TWIST_PROFILE_MAX, TWIST_PROFILE_MAX].
+ * @return Odd approximation of the inverse hyperbolic tangent. */
+inline float twist_atanh(float x) {
+  const float magnitude = fabsf(x);
+  if (magnitude < 0.25f) {
+    const float x2 = x * x;
+    return x *
+           (1.0f + x2 * (1.0f / 3.0f +
+                         x2 * (1.0f / 5.0f + x2 * (1.0f / 7.0f + x2 / 9.0f))));
+  }
+  const float ratio = (1.0f + magnitude) / (1.0f - magnitude);
+  const uint32_t bits = std::bit_cast<uint32_t>(ratio);
+  const int exponent = static_cast<int>((bits >> 23) & 0xffu) - 127;
+  const uint32_t index = (bits >> 16) & 0x7fu;
+  const float fraction = static_cast<float>(bits & 0xffffu) / 65536.0f;
+  const float low = TwistTable::LOG_MANTISSA[index];
+  const float high = TwistTable::LOG_MANTISSA[index + 1];
+  constexpr float LOG_2 = 0.69314718055994530942f;
+  const float logarithm = exponent * LOG_2 + low + fraction * (high - low);
+  return copysignf(0.5f * logarithm, x);
+}
+
 /** @brief Prepared axial twist profile. */
 struct TwistProfile {
-  float distribution; ///< Redistribution toward the poles.
-  float scale;        ///< Normalized angular scale, in radians.
+  float distribution; ///< Effective redistribution toward the poles.
+  float scale;        ///< Angular scale, in radians.
 };
 
-/** @brief Prepares a normalized twist profile.
- * @param rate Rotation in radians at unit height.
+/** @brief Prepares a twist profile with fixed equatorial shear.
+ * @param rate Radians per unit axial height at the equator.
  * @param distribution Redistribution in [0, TWIST_DISTRIBUTION_MAX].
  * @return Profile with a linear limit at zero distribution. */
 inline TwistProfile
@@ -109,7 +159,8 @@ prepare_twist_profile(float rate = TWIST_RATE,
   distribution = std::clamp(distribution, 0.0f, TWIST_DISTRIBUTION_MAX);
   if (distribution < 1e-4f)
     return {0.0f, rate};
-  return {distribution, rate / atanhf(distribution)};
+  distribution *= TWIST_PROFILE_MAX;
+  return {distribution, rate / distribution};
 }
 
 /** @brief Evaluates the axial rotation angle of a twist profile.
@@ -120,7 +171,7 @@ inline float twist_angle(float height, const TwistProfile &profile) {
   height = std::clamp(height, -1.0f, 1.0f);
   return profile.scale * (profile.distribution == 0.0f
                               ? height
-                              : atanhf(profile.distribution * height));
+                              : twist_atanh(profile.distribution * height));
 }
 
 /**
@@ -141,9 +192,9 @@ inline math::Vector twist_lens(const math::Vector &v,
 
 /** @brief Rotates a direction about Y with redistributed axial twist.
  * @param v Unit direction on the sphere.
- * @param rate Rotation in radians at unit height.
+ * @param rate Radians per unit axial height at the equator.
  * @param distribution Redistribution toward the poles; zero is linear height.
- * @return Direction rotated through the normalized twist profile. */
+ * @return Direction rotated with fixed equatorial shear. */
 inline math::Vector twist_lens(const math::Vector &v, float rate = TWIST_RATE,
                                float distribution = TWIST_DISTRIBUTION) {
   return twist_lens(v, prepare_twist_profile(rate, distribution));

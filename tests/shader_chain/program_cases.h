@@ -341,7 +341,7 @@ inline void test_shader_chain_schema_and_field_ids() {
                  "Twist Distribution");
   HS_EXPECT_EQ(twist.schema[1].def, 0.85f);
   HS_EXPECT_EQ(twist.schema[1].min, 0.0f);
-  HS_EXPECT_EQ(twist.schema[1].max, 0.98f);
+  HS_EXPECT_EQ(twist.schema[1].max, 1.0f);
   HS_EXPECT_TRUE(std::string_view(twist.schema[2].id) == "speed");
   HS_EXPECT_EQ(twist.schema[2].def, 0.02f);
   HS_EXPECT_EQ(twist.schema[2].min, 0.0f);
