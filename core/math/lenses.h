@@ -311,6 +311,33 @@ constexpr Group make_group() {
 inline constexpr auto
     GROUP HS_PROGMEM_UNIQUE(dodecahedral_fold_group) = make_group();
 static_assert(GROUP.count == 120);
+constexpr auto make_transition_row(size_t index) {
+  std::array<uint8_t, 3> result{255, 255, 255};
+  for (int mirror = 0; mirror < 3; ++mirror) {
+    const auto candidate = reflect(GROUP.values[index], mirror);
+    for (int next = 0; next < GROUP.count; ++next)
+      if (same(candidate, GROUP.values[next])) {
+        result[mirror] = static_cast<uint8_t>(next);
+        break;
+      }
+  }
+  return result;
+}
+template <size_t Index>
+inline constexpr auto TRANSITION_ROW = make_transition_row(Index);
+template <size_t... Indices>
+constexpr auto make_transitions(std::index_sequence<Indices...>) {
+  return std::array{TRANSITION_ROW<Indices>...};
+}
+inline constexpr auto TRANSITIONS =
+    make_transitions(std::make_index_sequence<GROUP.count>{});
+static_assert([] {
+  for (const auto &row : TRANSITIONS)
+    for (uint8_t index : row)
+      if (index >= GROUP.count)
+        return false;
+  return true;
+}());
 constexpr std::array<float, 3> face_direction(int face, float u, float v) {
   switch (face) {
   case 0:
@@ -328,7 +355,7 @@ constexpr std::array<float, 3> face_direction(int face, float u, float v) {
   }
 }
 constexpr uint8_t classify(std::array<float, 3> point) {
-  auto matrix = identity();
+  uint8_t matrix_index = 0;
   for (int step = 0; step < POLYHEDRAL_REFLECTION_LIMIT; ++step) {
     int mirror;
     const auto normal = DODECAHEDRAL_MIRRORS[1];
@@ -340,13 +367,9 @@ constexpr uint8_t classify(std::array<float, 3> point) {
       mirror = 1;
     else if (point[2] < -POLYHEDRAL_MIRROR_EPS)
       mirror = 2;
-    else {
-      for (int index = 0; index < GROUP.count; ++index)
-        if (same(matrix, GROUP.values[index]))
-          return static_cast<uint8_t>(index);
-      return 255;
-    }
-    matrix = reflect(matrix, mirror);
+    else
+      return matrix_index;
+    matrix_index = TRANSITIONS[matrix_index][mirror];
     if (mirror == 0)
       point[0] = -point[0];
     else if (mirror == 2)
