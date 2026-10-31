@@ -1835,9 +1835,8 @@ inline void test_pullback_ripple_lazy_preparation() {
   HS_EXPECT_EQ(Generic::prepare(frame).count, EXACT.count);
   HS_EXPECT_EQ(Generic::apply(math::X_AXIS, frame, EXACT).sphere,
                GROUPED.sphere);
-  for (float fraction : {-1.0f, 0.0f, 1.0f}) {
-    clock.radial_fraction =
-        fraction == 0.0f || fraction == 1.0f ? -1.0f : fraction;
+  {
+    clock.radial_fraction = -1.0f;
     const auto ENDPOINT = Policy::prepare(frame);
     HS_EXPECT_TRUE(ENDPOINT.has_value());
     HS_EXPECT_EQ(ENDPOINT->count, EXACT.count);
