@@ -12,7 +12,7 @@ USE_MDFILE_AS_MAINPAGE = README.md
 # Tests are omitted from the API reference on purpose.
 INPUT                  = README.md patterns/README.md core effects workbench hardware targets \
                          docs/ledgers/device_host_divergence_ledger.md \
-                         tools/pc_sampler.h tools/profile_isr_window.h \
+                         tools/pc_sampler.h tools/profile_isr_window.h tools/profile_clock.h \
                          tools/phantasm.ld
 FILE_PATTERNS          = *.h *.cpp *.ino *.ld
 # .ino is Arduino C++; Doxygen has no built-in mapping for the extension.
