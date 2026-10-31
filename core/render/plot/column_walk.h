@@ -866,11 +866,13 @@ template <int W> struct ColumnWalk {
   const float *velocity; /**< Endpoint motion, pixels per frame. */
   bool source_positions; /**< Shaders read source-space positions. */
   bool chained;          /**< The end vertex is left unplotted. */
-  bool turning;    /**< The arc can turn its longitude direction this frame. */
-  float top_y;     /**< Highest emitted unit-sphere y. */
-  float bottom_y;  /**< Lowest emitted unit-sphere y. */
-  float half_sine; /**< Sine of half a column. */
-  float half_cosine; /**< Cosine of half a column. */
+  bool turning;   /**< The arc can turn its longitude direction this frame. */
+  float top_y;    /**< Highest emitted unit-sphere y. */
+  float bottom_y; /**< Lowest emitted unit-sphere y. */
+  float
+      half_sine; /**< Sine of the window half-width: half a column, or a full column for local lattices. */
+  float
+      half_cosine; /**< Cosine of the window half-width: half a column, or a full column for local lattices. */
 };
 
 /** @brief A walked sample whose tap columns splat at their own times. */
