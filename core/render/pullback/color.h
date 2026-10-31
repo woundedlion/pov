@@ -349,6 +349,8 @@ struct ModulationState {
   Pattern::SourceKind source = Pattern::SourceKind::NOISE; ///< Scalar source.
   ColorModulation::Params mechanic; ///< Color operation and strength.
   bool enabled = false;             ///< Whether this layer contributes.
+  bool paired_cube_ready =
+      false; ///< Immutable endpoints admit shared cube taps.
 };
 
 /** @brief Eligible spatial source prepared at the column phase. */
@@ -806,9 +808,14 @@ private:
     if (modulation.source == Pattern::SourceKind::DISPLACEMENT)
       return {sample.path_length, sample.path_length};
     assert(modulation.previous && modulation.current);
-    return Modulation::sample_pair(
-        *modulation.previous, *modulation.current,
-        Pattern::SphereDirection::admit(sample.sphere));
+    const auto DIRECTION = Pattern::SphereDirection::admit(sample.sphere);
+    if (modulation.paired_cube_ready) {
+      const auto TAP = Pattern::prepare_sphere_lut_sample(DIRECTION);
+      return {Pattern::bounded_scalar(TAP.sample(modulation.previous->cube)),
+              Pattern::bounded_scalar(TAP.sample(modulation.current->cube))};
+    }
+    return Modulation::sample_pair(*modulation.previous, *modulation.current,
+                                   DIRECTION);
   }
 
   /** @brief Resolves one canonical deferred hue endpoint.
@@ -1112,7 +1119,16 @@ template <typename State> struct Modulate : ApproximationDefaults {
    * @return Layer endpoints. */
   template <typename FrameState>
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return State::prepare(frame);
+    if constexpr (std::same_as<Prepared, ModulationState>) {
+      auto prepared = State::prepare(frame);
+      prepared.paired_cube_ready =
+          prepared.previous && prepared.current &&
+          prepared.previous->evaluate == Modulation::sample_cube &&
+          prepared.current->evaluate == Modulation::sample_cube &&
+          prepared.previous->cube.active && prepared.current->cube.active;
+      return prepared;
+    } else
+      return State::prepare(frame);
   }
   /** @brief Whether the prepared layer supports shared phase evaluation.
    * @param prepared Layer state.

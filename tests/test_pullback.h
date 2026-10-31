@@ -4041,6 +4041,106 @@ inline void test_pullback_cached_gamut_gate_fallback() {
         }
 }
 
+/** @brief Prepared cube-pair eligibility preserves evaluator and active-source boundaries. */
+inline void test_pullback_prepared_cube_pair() {
+  using namespace Pullback;
+  using Layer = Color::Modulate<PaletteLayerProvider>;
+  using Policy = Color::GeneratedPalette<TemporalPaletteProvider>;
+  constexpr size_t ALIGNMENT = alignof(Color::ModulationState);
+  constexpr size_t PREVIOUS_SIZE = (offsetof(Color::ModulationState, enabled) +
+                                    sizeof(bool) + ALIGNMENT - 1) /
+                                   ALIGNMENT * ALIGNMENT;
+  static_assert(sizeof(Color::ModulationState) == PREVIOUS_SIZE);
+  std::array<int8_t, Pattern::SphereLutView::SIZE> ac, bc;
+  std::array<float, Pattern::SphereLutView::SIZE> linear;
+  for (size_t i = 0; i < ac.size(); ++i) {
+    ac[i] = int(i * 37 % 255) - 127;
+    bc[i] = int((i * 83 + 41) % 255) - 127;
+    linear[i] = bc[i];
+  }
+  Modulation::Prepared a{}, b{};
+  a.cube = {ac.data(), true};
+  b.cube = {bc.data(), true};
+  a.evaluate = b.evaluate = Modulation::sample_cube;
+  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> bytes{};
+  Arena arena(bytes.data(), bytes.size());
+  BakedPaletteStorage from, to;
+  from.bake(arena, CoordinatePalette{0.2f});
+  to.bake(arena, ConstantPalette{Color4(Pixel(32000, 44000, 13000), 0.8f)});
+  PaletteFrame frame;
+  frame.palette = &to.view();
+  frame.temporal.palette = &from.view();
+  frame.previous_modulation = &a;
+  frame.modulation = &b;
+  frame.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 1.5958333f};
+  for (bool floats : {false, true}) {
+    b.cube.linear_data = floats ? linear.data() : nullptr;
+    const auto PREPARED = Layer::prepare(frame);
+    HS_EXPECT_TRUE(PREPARED.paired_cube_ready);
+    auto dynamic = PREPARED;
+    dynamic.paired_cube_ready = false;
+    for (float fraction : {0.00001f, 0.25f, 0.75f, 0.99999f}) {
+      frame.temporal.fraction = fraction;
+      const auto PALETTE = Policy::prepare(frame);
+      for (int x = -3; x <= 3; ++x) {
+        const FieldSample FIELD{0.13f, 0.47f, math::Vector(x, 0.7f, -1.0f),
+                                0.3f};
+        const auto EXPECTED = Policy::apply_fused_modulation(
+            FIELD, frame, PALETTE, dynamic, fraction);
+        const auto ACTUAL = Policy::apply_fused_modulation(
+            FIELD, frame, PALETTE, PREPARED, fraction);
+        HS_EXPECT_EQ(ACTUAL.pending_hue, EXPECTED.pending_hue);
+        HS_EXPECT_EQ(ACTUAL.color.color, EXPECTED.color.color);
+        HS_EXPECT_EQ(ACTUAL.color.alpha, EXPECTED.color.alpha);
+        const auto FINISHED = Policy::shade_fused_modulation(
+            FIELD, frame, PALETTE, PREPARED, fraction);
+        const auto REFERENCE = finish_color_sample(EXPECTED);
+        HS_EXPECT_EQ(FINISHED.color, REFERENCE.color);
+        HS_EXPECT_EQ(FINISHED.alpha, REFERENCE.alpha);
+      }
+      const auto PIPELINE_FRAME = TemporalPalettePipeline::prepare(frame);
+      HS_EXPECT_TRUE(std::get<2>(PIPELINE_FRAME.prepared).paired_cube_ready);
+    }
+  }
+  static int calls;
+  const auto CUSTOM = [](const Modulation::Prepared &prepared,
+                         const Pattern::SphereDirection &) {
+    ++calls;
+    return prepared.state.phase.phase_turns;
+  };
+  a.state.phase.phase_turns = -0.3f;
+  b.state.phase.phase_turns = 0.7f;
+  for (int custom = 1; custom <= 3; ++custom) {
+    a.evaluate = custom & 1 ? CUSTOM : Modulation::sample_cube;
+    b.evaluate = custom & 2 ? CUSTOM : Modulation::sample_cube;
+    const auto PREPARED = Layer::prepare(frame);
+    HS_EXPECT_FALSE(PREPARED.paired_cube_ready);
+    calls = 0;
+    const auto PALETTE = Policy::prepare(frame);
+    (void)Policy::shade_fused_modulation(
+        FieldSample{0.5f, 0.5f, math::Y_AXIS, 0.0f}, frame, PALETTE, PREPARED,
+        frame.temporal.fraction);
+    HS_EXPECT_EQ(calls, custom == 3 ? 2 : 1);
+  }
+  a.evaluate = b.evaluate = Modulation::sample_cube;
+  for (int inactive = 1; inactive <= 3; ++inactive) {
+    a.cube.active = !(inactive & 1);
+    b.cube.active = !(inactive & 2);
+    HS_EXPECT_FALSE(Layer::prepare(frame).paired_cube_ready);
+  }
+  a.cube.active = b.cube.active = true;
+  frame.modulation = nullptr;
+  HS_EXPECT_FALSE(Layer::prepare(frame).paired_cube_ready);
+  frame.modulation = &b;
+  frame.previous_modulation = nullptr;
+  HS_EXPECT_FALSE(Layer::prepare(frame).paired_cube_ready);
+  frame.modulation = nullptr;
+  HS_EXPECT_FALSE(Layer::prepare(frame).paired_cube_ready);
+  const Color::ModulationState MANUAL{&b, &a, Pattern::SourceKind::NOISE,
+                                      frame.mechanic, true};
+  HS_EXPECT_FALSE(MANUAL.paired_cube_ready);
+}
+
 /** @brief Paired cube samples preserve individual samplers and custom dispatch. */
 inline void test_pullback_modulation_paired_samples() {
   using namespace Pullback;
@@ -4339,6 +4439,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_fused_lab_direct_fallback);
   HS_RUN(test_pullback_fused_lab_current_endpoint);
   HS_RUN(test_pullback_cached_gamut_gate_fallback);
+  HS_RUN(test_pullback_prepared_cube_pair);
   HS_RUN(test_pullback_modulation_paired_samples);
   HS_RUN(test_pullback_modulation_paired_colors);
   return fixture.result();
