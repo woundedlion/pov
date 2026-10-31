@@ -314,7 +314,8 @@ inline void test_shader_chain_modulation_endpoint_identity() {
         param_as<In::Op::ModulationParams>(program, index + 4).modulation;
     config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
     config.evaluation = Pattern::Evaluation::DIRECT;
-    config.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
+    config.mechanic = {ColorModulation::Mechanic::OPACITY,
+                       index == 0 ? 1.0f : 0.5f};
     prepared[index].config = config;
     prepared[index].state.phase.phase_turns = index == 0 ? -.5f : .5f;
     prepared[index].evaluate = +[](const PB::Modulation::Prepared &source,
@@ -331,7 +332,7 @@ inline void test_shader_chain_modulation_endpoint_identity() {
   const auto VIEW = math::Vector(.3f, .7f, .2f).normalized();
   const auto FIELD = run_entry<PB::FieldSample>(
       program, context, 2, projected_input(program, context, VIEW));
-  const float EXPECTED = FIELD.coverage * .25f * .75f;
+  const float EXPECTED = FIELD.coverage * .25f * .875f;
   HS_EXPECT_GT(EXPECTED, 0.0f);
   HS_EXPECT_NEAR(program.evaluate(VIEW, context).alpha, EXPECTED, 1e-7f);
 }
