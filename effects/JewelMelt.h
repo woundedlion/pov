@@ -26,7 +26,8 @@ struct JewelMeltSpec : Pullback::Spec {
   /**
    * @brief Stage chain: camera rotation, octahedral kaleidoscope lens,
    *  surface-noise displacement, projection, lattice source, generated
-   *  palette.
+   *  palette,
+   *  noise hue modulation.
    * @tparam B The effect's Binding.
    */
   template <typename B>

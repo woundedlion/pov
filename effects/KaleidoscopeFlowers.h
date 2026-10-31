@@ -25,7 +25,8 @@ struct KaleidoscopeFlowersSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
    * @brief Stage chain: camera rotation, dodecahedral kaleidoscope lens,
-   *  projection, mirror warp, grid source, generated palette.
+   *  projection, mirror warp, grid source, generated palette,
+   *  noise hue modulation.
    * @tparam B The effect's Binding.
    */
   template <typename B>

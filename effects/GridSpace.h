@@ -27,7 +27,8 @@ struct GridSpaceSpec : Pullback::Spec {
   static constexpr bool FACTORED_COLUMNS = false;
   /**
    * @brief Stage chain: camera rotation, projection, affine warp, lattice
-   *  source, iso-contour transfer, generated palette.
+   *  source, iso-contour transfer, generated palette,
+   *  noise hue modulation.
    * @tparam B The effect's Binding.
    */
   template <typename B>

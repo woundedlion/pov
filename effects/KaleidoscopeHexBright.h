@@ -24,7 +24,8 @@ struct KaleidoscopeHexBrightSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
-   * @brief Stage chain: camera rotation, hexagonal-prism kaleidoscope lens, stereographic projection, mirror warp, twin-wave source, generated palette.
+   * @brief Stage chain: camera rotation, hexagonal-prism kaleidoscope lens, stereographic projection, mirror warp, twin-wave source, generated palette,
+   *  noise hue modulation.
    * @tparam B The effect's Binding.
    */
   template <typename B>

@@ -26,7 +26,8 @@ struct AshCloudSpec : Pullback::Spec {
   /**
    * @brief Stage chain: camera rotation, surface-noise displacement, dodecahedral
    *  kaleidoscope lens, projection, lattice source, value cutout, generated
-   *  palette.
+   *  palette,
+   *  noise hue modulation.
    * @tparam B The effect's Binding.
    */
   template <typename B>

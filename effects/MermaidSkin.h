@@ -24,7 +24,8 @@ struct MermaidSkinSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
-   * @brief Stage chain: camera rotation, surface-noise displacement, folded sinusoidal projection, grid source, generated palette.
+   * @brief Stage chain: camera rotation, surface-noise displacement, folded sinusoidal projection, grid source, generated palette,
+   *  noise hue modulation.
    * @tparam B The effect's Binding.
    */
   template <typename B>

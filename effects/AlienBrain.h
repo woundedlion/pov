@@ -25,7 +25,8 @@ struct AlienBrainSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
    * @brief Stage chain: camera rotation, glitch lens, projection, wave-shear warp,
-   *  grid source, generated palette.
+   *  grid source, generated palette,
+   *  noise hue modulation.
    * @tparam B The effect's Binding.
    */
   template <typename B>

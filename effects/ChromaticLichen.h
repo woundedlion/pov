@@ -25,7 +25,8 @@ struct ChromaticLichenSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
    * @brief Stage chain: camera rotation, glitch lens, surface-noise
-   *  displacement, projection, grid source, generated palette.
+   *  displacement, projection, grid source, generated palette,
+   *  noise hue modulation.
    * @tparam B The effect's Binding.
    */
   template <typename B>

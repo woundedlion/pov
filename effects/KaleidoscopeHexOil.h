@@ -24,7 +24,8 @@ struct KaleidoscopeHexOilSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
-   * @brief Stage chain: camera rotation, hexagonal-prism kaleidoscope lens, direct surface displacement, stereographic projection, spiral source, generated palette.
+   * @brief Stage chain: camera rotation, hexagonal-prism kaleidoscope lens, direct surface displacement, stereographic projection, spiral source, generated palette,
+   *  displacement hue modulation.
    * @tparam B The effect's Binding.
    */
   template <typename B>

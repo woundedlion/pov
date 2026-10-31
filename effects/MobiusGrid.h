@@ -24,7 +24,8 @@ struct MobiusGridSpec : Pullback::Spec {
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
   /**
-   * @brief Stage chain: camera rotation, Mobius lens, stereographic projection, mirror warp, twin-wave source, generated palette.
+   * @brief Stage chain: camera rotation, Mobius lens, stereographic projection, mirror warp, twin-wave source, generated palette,
+   *  displacement hue modulation.
    * @tparam B The effect's Binding.
    */
   template <typename B>
