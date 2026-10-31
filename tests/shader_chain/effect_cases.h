@@ -910,7 +910,7 @@ inline void test_shader_chain_operator_states_sample_clocks() {
   In::Op::temporal_sample(
       color, In::Op::temporal_interval(color_from, color_to), 0, 0.5f);
   HS_EXPECT_NEAR(std::remainder(color.oscillation_phase, 1.0f), 0.0f, 1e-6f);
-  In::Op::ModulationClockState modulation;
-  modulation.modulation.phase.phase_turns = .4f;
-  HS_EXPECT_EQ(modulation.modulation.phase.phase_turns, .4f);
+  const auto *modulate = require_operator(In::Op::ModulateColorV1::ID);
+  HS_EXPECT_TRUE(modulate != nullptr &&
+                 modulate->runtime.sample_state == nullptr);
 }
