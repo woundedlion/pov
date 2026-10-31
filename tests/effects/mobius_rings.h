@@ -221,7 +221,7 @@ struct MobiusRingsWhiteBox {
     const auto full = render<288, 144>(true, 1.0f, 0.0f, 1.0f);
     const auto clipped = render<288, 144>(true, 1.0f, 0.0f, 1.0f, true);
     const auto work = Spacetime::geometry_counters;
-    constexpr unsigned VERTICES = 6 * (288 / 4);
+    constexpr unsigned VERTICES = 6 * MobiusRings<288, 144>::CURVE_SIDES;
     std::printf(
         "  MobiusRings device clip: callback evaluations=%u vertices=%u ratio=%.3f columns=%u culled=%u\n",
         VERTICES + work.endpoint_evaluations + work.midpoint_evaluations,
