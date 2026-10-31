@@ -2803,6 +2803,52 @@ inline void test_pullback_palette_lab_nodes() {
   HS_EXPECT_TRUE(cache.view(0.5f).low == nullptr);
 }
 
+/** @brief Owned palette copies rebind Lab nodes and retain external RGB bindings. */
+inline void test_pullback_palette_lab_owned_copy() {
+  const auto check = []<int Values>() {
+    PaletteLabLutStorage<Values> source;
+    for (size_t i = 0; i < source.nodes.size(); ++i)
+      source.nodes[i] = {float(i) / source.nodes.size(), 0.1f, -0.2f};
+    std::array<math::Vector, HueRotationLutView::SIZE> rgb{};
+    source.active = true;
+    source.rgb_nodes = rgb.data();
+    source.rgb_midpoint = true;
+    source.rgb_midpoint_row = 0;
+    const auto NODES = source.nodes;
+    PaletteLabLutStorage<Values> copy(source);
+    HS_EXPECT_TRUE(copy.data == copy.nodes.data() && copy.data != source.data);
+    HS_EXPECT_EQ(copy.value_steps, Values);
+    HS_EXPECT_TRUE(copy.active && copy.rgb_midpoint);
+    HS_EXPECT_EQ(copy.rgb_midpoint_row, 0);
+    HS_EXPECT_TRUE(copy.rgb_nodes == rgb.data());
+    HS_EXPECT_EQ(std::memcmp(copy.nodes.data(), NODES.data(), sizeof(NODES)),
+                 0);
+    source.nodes[0].L = 1.0f;
+    HS_EXPECT_EQ(copy.nodes[0].L, NODES[0].L);
+    const auto VIEW = copy.view(0.25f);
+    HS_EXPECT_TRUE(VIEW.low == copy.nodes.data());
+    HS_EXPECT_EQ(VIEW.value_steps, Values);
+    HS_EXPECT_TRUE(VIEW.rgb_low == rgb.data() && VIEW.rgb_high == rgb.data());
+    PaletteLabLutStorage<Values> assigned;
+    HS_EXPECT_TRUE(&(assigned = copy) == &assigned);
+    HS_EXPECT_TRUE(assigned.data == assigned.nodes.data());
+    HS_EXPECT_TRUE(assigned.data != copy.data);
+    HS_EXPECT_EQ(
+        std::memcmp(assigned.nodes.data(), NODES.data(), sizeof(NODES)), 0);
+    auto *same = &assigned;
+    assigned = *same;
+    HS_EXPECT_TRUE(assigned.data == assigned.nodes.data());
+    HS_EXPECT_EQ(
+        std::memcmp(assigned.nodes.data(), NODES.data(), sizeof(NODES)), 0);
+    HS_EXPECT_TRUE(assigned.rgb_nodes == rgb.data() && assigned.rgb_midpoint);
+    HS_EXPECT_EQ(assigned.rgb_midpoint_row, 0);
+    copy.nodes[0].L = 0.75f;
+    HS_EXPECT_EQ(assigned.nodes[0].L, NODES[0].L);
+  };
+  check.template operator()<64>();
+  check.template operator()<256>();
+}
+
 /** @brief Cached neutral adjustments materialize their base with exact alpha. */
 inline void test_pullback_cached_lab_finish() {
   using namespace Pullback;
@@ -2897,6 +2943,78 @@ struct ShiftedLabPalette : CountingLabPalette {
     return pair;
   }
 };
+
+/** @brief RGB-bound fused carriers retain the shared RGB and materialized-Lab finishers. */
+inline void test_pullback_fused_rgb_carrier_finish() {
+  using namespace Pullback;
+  using Policy = Color::GeneratedPalette<LabPaletteProvider>;
+  using Pipeline = Pullback::Pipeline<
+      PaletteBinding, PaletteSampleStage, Stage::Colorize<Policy>,
+      Stage::Modulate<Color::Modulate<PaletteLayerProvider>>>;
+  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> bytes{};
+  Arena arena(bytes.data(), bytes.size());
+  BakedPaletteStorage a, b;
+  a.bake(arena, ConstantPalette{Color4(Pixel(12000, 13000, 14000), 1.0f)});
+  b.bake(arena, ConstantPalette{Color4(Pixel(22000, 23000, 24000), 1.0f)});
+  PaletteLabLut cache;
+  cache.bake(a.view(), b.view());
+  PaletteRgbHueLut rgb;
+  rgb.bake(cache);
+  PaletteFrame frame;
+  frame.palette = &b.view();
+  frame.temporal.palette = &a.view();
+  frame.lab = &cache;
+  Modulation::Prepared previous{}, current{};
+  const auto SOURCE = [](const Modulation::Prepared &p,
+                         const Pattern::SphereDirection &) {
+    return p.state.phase.phase_turns;
+  };
+  previous.evaluate = current.evaluate = SOURCE;
+  previous.state.phase.phase_turns = 0.13f;
+  current.state.phase.phase_turns = 0.67f;
+  frame.previous_modulation = &previous;
+  frame.modulation = &current;
+  const FieldSample FIELD{0.5f, 0.5f, math::Y_AXIS, 0.0f};
+  for (float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f})
+    for (auto kind : {ColorModulation::Mechanic::HUE_ROTATION,
+                      ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT,
+                      ColorModulation::Mechanic::OPACITY}) {
+      frame.temporal.fraction = fraction;
+      frame.mechanic = {kind, 0.4f};
+      const auto PREPARED = Policy::prepare(frame);
+      const auto MODULATION = PaletteLayerProvider::prepare(frame);
+      const auto CARRIER = Policy::apply_fused_modulation(
+          FIELD, frame, PREPARED, MODULATION, fraction);
+      if (fraction > 0.0f && fraction < 1.0f) {
+        HS_EXPECT_TRUE(CARRIER.cached_rgb == &PREPARED.lab);
+        HS_EXPECT_TRUE(CARRIER.has_cached_lab);
+        for (float gain : {0.0f, 0.3f, 1.0f})
+          for (float lift : {0.0f, 0.4f}) {
+            auto sample = CARRIER;
+            sample.brightness_gain = gain;
+            sample.pending_lift = lift;
+            const auto EXPECTED = finish_color_sample(sample);
+            int callbacks = 0;
+            HS_EXPECT_FALSE(Color::restore_cached_palette_base_near_gamut_gate(
+                sample, [&] { ++callbacks; }));
+            const auto ACTUAL =
+                Color::finish_fused_color(sample, [&] { ++callbacks; });
+            HS_EXPECT_EQ(callbacks, 0);
+            HS_EXPECT_EQ(ACTUAL.color, EXPECTED.color);
+            HS_EXPECT_EQ(ACTUAL.alpha, EXPECTED.alpha);
+          }
+      }
+      const auto EXPECTED = finish_color_sample(CARRIER);
+      const auto DIRECT = Policy::shade_fused_modulation(FIELD, frame, PREPARED,
+                                                         MODULATION, fraction);
+      HS_EXPECT_EQ(DIRECT.color, EXPECTED.color);
+      HS_EXPECT_EQ(DIRECT.alpha, EXPECTED.alpha);
+      const auto PIXEL =
+          Pipeline::shade(math::Y_AXIS, Pipeline::prepare(frame));
+      HS_EXPECT_EQ(PIXEL.color, EXPECTED.color);
+      HS_EXPECT_EQ(PIXEL.alpha, EXPECTED.alpha);
+    }
+}
 
 /** @brief Consecutive analogous cycle bakes meet cached channel bounds. */
 inline void test_pullback_palette_lab_qualification() {
@@ -4477,6 +4595,8 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_temporal_palette);
   HS_RUN(test_pullback_phase_tail_dispatch);
   HS_RUN(test_pullback_palette_lab_nodes);
+  HS_RUN(test_pullback_palette_lab_owned_copy);
+  HS_RUN(test_pullback_fused_rgb_carrier_finish);
   HS_RUN(test_pullback_cached_lab_finish);
   HS_RUN(test_pullback_palette_lab_qualification);
   HS_RUN(test_pullback_shared_lab_dispatch);

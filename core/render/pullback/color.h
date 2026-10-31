@@ -527,7 +527,8 @@ template <typename Restore>
 HS_HOT_INLINE inline bool
 restore_cached_palette_base_near_gamut_gate(ColorSample &sample,
                                             Restore &&restore) {
-  if (!sample.has_cached_lab || sample.brightness_gain == 0.0f)
+  if (!sample.has_cached_lab || sample.cached_rgb ||
+      sample.brightness_gain == 0.0f)
     return false;
   if (!near_palette_gamut_gate(oklab_to_linear_rgb(rotated_palette_lab(
           sample.cached_lab, sample.pending_hue, sample.pending_lift))))
@@ -576,7 +577,7 @@ HS_HOT_INLINE inline Color4 finish_palette_lab(OKLab lab, float hue, float lift,
 template <typename Restore>
 HS_HOT_INLINE inline Color4 finish_fused_color(ColorSample &sample,
                                                Restore &&restore) {
-  if (!sample.has_cached_lab)
+  if (!sample.has_cached_lab || sample.cached_rgb)
     return finish_color_sample(sample);
   return finish_palette_lab(sample.cached_lab, sample.pending_hue,
                             sample.pending_lift, sample.brightness_gain,
@@ -1023,6 +1024,7 @@ public:
   {
     if constexpr (LAB_CACHE)
       if (fraction == 1.0f && prepared.fraction == 1.0f && prepared.lab.low &&
+          !prepared.lab.rgb_low && !prepared.lab.rgb_high &&
           prepared.current.brightness_envelope == BrightnessEnvelope::NONE &&
           (!modulation.enabled || modulation.mechanic.amount == 0.0f ||
            modulation.mechanic.kind ==
@@ -1061,7 +1063,8 @@ public:
       }
     if constexpr (LAB_CACHE)
       if (prepared.lab.low && fraction == prepared.fraction &&
-          fraction > 0.0f && fraction < 1.0f && modulation.enabled &&
+          !prepared.lab.rgb_low && !prepared.lab.rgb_high && fraction > 0.0f &&
+          fraction < 1.0f && modulation.enabled &&
           modulation.mechanic.amount != 0.0f &&
           modulation.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION &&
           prepared.current.brightness_envelope == BrightnessEnvelope::NONE) {

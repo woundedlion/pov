@@ -90,8 +90,18 @@ template <int ValueSteps> struct PaletteLabLutStorage : PaletteLabLutBase {
     data = nodes.data();
     value_steps = VALUES;
   }
-  PaletteLabLutStorage(const PaletteLabLutStorage &) = delete;
-  PaletteLabLutStorage &operator=(const PaletteLabLutStorage &) = delete;
+  PaletteLabLutStorage(const PaletteLabLutStorage &other)
+      : PaletteLabLutBase(other), nodes(other.nodes) {
+    data = nodes.data();
+  }
+  PaletteLabLutStorage &operator=(const PaletteLabLutStorage &other) {
+    if (this != &other) {
+      static_cast<PaletteLabLutBase &>(*this) = other;
+      nodes = other.nodes;
+    }
+    data = nodes.data();
+    return *this;
+  }
 
   /** @brief Bakes RGB16 endpoint blends before converting each node to OKLab.
    * @param from Previous immutable palette.
