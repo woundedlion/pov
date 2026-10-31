@@ -467,6 +467,30 @@ inline ColorSample apply_modulation(const ColorSample &input,
 /// Linear-RGB distance from a gamut gate requiring the canonical palette base.
 inline constexpr float PALETTE_LAB_GAMUT_GUARD_WIDTH = 0.001f;
 
+/** @brief Resolves cached lightness and hue into rotated perceptual coordinates.
+ * @param sample Deferred cached color.
+ * @return Perceptual color before gamut mapping. */
+HS_HOT_INLINE inline OKLab
+rotated_cached_palette_lab(const ColorSample &sample) {
+  auto lab = sample.cached_lab;
+  lab.L += (1.0f - lab.L) * sample.pending_lift;
+  float cosine;
+  float sine;
+  hue_sincos(sample.pending_hue, cosine, sine);
+  return {lab.L, lab.a * cosine - lab.b * sine, lab.a * sine + lab.b * cosine};
+}
+
+/** @brief Tests raw RGB proximity to a discontinuous gamut gate.
+ * @param raw Hue-rotated linear RGB before gamut mapping.
+ * @return Whether the canonical palette base is required. */
+HS_HOT_INLINE inline bool near_palette_gamut_gate(const LinRGB &raw) {
+  const float LEAST = __builtin_fminf(__builtin_fminf(raw.r, raw.g), raw.b);
+  const float MOST = __builtin_fmaxf(__builtin_fmaxf(raw.r, raw.g), raw.b);
+  return !(fabsf(LEAST - LINEAR_RGB_GAMUT_MIN) >
+               PALETTE_LAB_GAMUT_GUARD_WIDTH &&
+           fabsf(MOST - LINEAR_RGB_GAMUT_MAX) > PALETTE_LAB_GAMUT_GUARD_WIDTH);
+}
+
 /** @brief Restores a cached base whose raw RGB can cross the gamut gate.
  * @tparam Restore Canonical base callback.
  * @param sample Deferred color carrier, updated on fallback.
@@ -478,21 +502,41 @@ restore_cached_palette_base_near_gamut_gate(ColorSample &sample,
                                             Restore &&restore) {
   if (!sample.has_cached_lab || sample.brightness_gain == 0.0f)
     return false;
-  auto lab = sample.cached_lab;
-  lab.L += (1.0f - lab.L) * sample.pending_lift;
-  float cosine;
-  float sine;
-  hue_sincos(sample.pending_hue, cosine, sine);
-  const auto RAW = oklab_to_linear_rgb(
-      {lab.L, lab.a * cosine - lab.b * sine, lab.a * sine + lab.b * cosine});
-  const float LEAST = __builtin_fminf(__builtin_fminf(RAW.r, RAW.g), RAW.b);
-  const float MOST = __builtin_fmaxf(__builtin_fmaxf(RAW.r, RAW.g), RAW.b);
-  if (fabsf(LEAST - LINEAR_RGB_GAMUT_MIN) > PALETTE_LAB_GAMUT_GUARD_WIDTH &&
-      fabsf(MOST - LINEAR_RGB_GAMUT_MAX) > PALETTE_LAB_GAMUT_GUARD_WIDTH)
+  if (!near_palette_gamut_gate(
+          oklab_to_linear_rgb(rotated_cached_palette_lab(sample))))
     return false;
   restore();
   sample.has_cached_lab = false;
   return true;
+}
+
+/** @brief Finishes a guarded cached carrier using one raw RGB evaluation.
+ * @tparam Restore Canonical base callback.
+ * @param sample Deferred color carrier, updated on fallback.
+ * @param restore Replaces the carrier's RGB base and hue-table identity.
+ * @return Final straight-alpha color. */
+template <typename Restore>
+HS_HOT_INLINE inline Color4 finish_fused_color(ColorSample &sample,
+                                               Restore &&restore) {
+  if (!sample.has_cached_lab || sample.brightness_gain == 0.0f)
+    return finish_color_sample(sample);
+  const auto LAB = rotated_cached_palette_lab(sample);
+  auto output = oklab_to_linear_rgb(LAB);
+  if (near_palette_gamut_gate(output)) {
+    restore();
+    sample.has_cached_lab = false;
+    return finish_color_sample(sample);
+  }
+  if (!linear_rgb_in_gamut(output.r, output.g, output.b)) {
+    HS_PROFILE_DEEP(gamut_clip);
+    output = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(LAB));
+  }
+  if (sample.brightness_gain != 1.0f) {
+    output.r = hs::clamp(output.r, 0.0f, 1.0f) * sample.brightness_gain;
+    output.g = hs::clamp(output.g, 0.0f, 1.0f) * sample.brightness_gain;
+    output.b = hs::clamp(output.b, 0.0f, 1.0f) * sample.brightness_gain;
+  }
+  return Color4(linrgb_to_pixel(output), sample.color.alpha);
 }
 
 /// Qualified hue-rotation and noise-LUT modulation bounds.
@@ -729,27 +773,27 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
     output.has_cached_lab = true;
   }
 
+private:
   /** @brief Blends palette and modulation endpoints into one color carrier.
    * @tparam FrameState Frame context.
+   * @param result Fresh color carrier to populate.
    * @param sample Shared field coordinates.
    * @param frame Frame context.
    * @param prepared Prepared palette endpoints.
    * @param modulation Prepared modulation endpoints.
-   * @param fraction Current endpoint weight.
-   * @return Deferred color after canonical endpoint blending. */
+   * @param fraction Current endpoint weight. */
   template <typename FrameState>
-  HS_HOT_ITCM_MEMBER static ColorSample
-  apply_fused_modulation(const FieldSample &sample, const FrameState &frame,
-                         const Prepared &prepared,
-                         const ModulationState &modulation, float fraction)
+  HS_HOT_INLINE static void
+  prepare_fused_modulation(ColorSample &result, const FieldSample &sample,
+                           const FrameState &frame, const Prepared &prepared,
+                           const ModulationState &modulation, float fraction)
     requires(TEMPORAL && FUSED_TEMPORAL_COLOR)
   {
     if (fraction <= 0.0f || fraction >= 1.0f) {
-      auto result = apply_endpoint(sample, frame, prepared, fraction <= 0.0f);
+      result = apply_endpoint(sample, frame, prepared, fraction <= 0.0f);
       apply_modulation_in_place(result, modulation, fraction <= 0.0f);
-      return result;
+      return;
     }
-    ColorSample result;
     const bool CACHED = [&] {
       if constexpr (LAB_CACHE)
         return apply_shared_base(sample, frame, prepared, result);
@@ -830,22 +874,79 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
         hs::lerp(result.brightness_gain, result.brightness_gain, fraction);
     if (!SAME_BASE)
       result.hue_rotation = nullptr;
-    if (CACHED)
+  }
+
+  /** @brief Restores the canonical RGB-first palette base.
+   * @param result Deferred carrier to restore.
+   * @param prepared Prepared palette endpoints.
+   * @param fraction Current endpoint weight. */
+  HS_HOT_INLINE static void restore_fused_palette_base(ColorSample &result,
+                                                       const Prepared &prepared,
+                                                       float fraction) {
+    const Pixel A =
+        prepared.previous.palette->get_color(result.palette_coordinate);
+    const Pixel B =
+        prepared.current.palette->get_color(result.palette_coordinate);
+    const Pixel *const A_TABLE = prepared.previous.hue_rotation.active
+                                     ? prepared.previous.hue_rotation.data
+                                     : nullptr;
+    const Pixel *const B_TABLE = prepared.current.hue_rotation.active
+                                     ? prepared.current.hue_rotation.data
+                                     : nullptr;
+    result.color.color = A.lerp16(B, frac_to_q16(fraction));
+    result.hue_rotation = A == B && A_TABLE == B_TABLE ? B_TABLE : nullptr;
+  }
+
+public:
+  /** @brief Blends palette and modulation endpoints into one guarded carrier.
+   * @tparam FrameState Frame context.
+   * @param sample Shared field coordinates.
+   * @param frame Frame context.
+   * @param prepared Prepared palette endpoints.
+   * @param modulation Prepared modulation endpoints.
+   * @param fraction Current endpoint weight.
+   * @return Deferred color after canonical endpoint blending. */
+  template <typename FrameState>
+  HS_HOT_ITCM_MEMBER static ColorSample
+  apply_fused_modulation(const FieldSample &sample, const FrameState &frame,
+                         const Prepared &prepared,
+                         const ModulationState &modulation, float fraction)
+    requires(TEMPORAL && FUSED_TEMPORAL_COLOR)
+  {
+    ColorSample result;
+    prepare_fused_modulation(result, sample, frame, prepared, modulation,
+                             fraction);
+    if constexpr (LAB_CACHE)
       restore_cached_palette_base_near_gamut_gate(result, [&] {
-        const Pixel A =
-            prepared.previous.palette->get_color(result.palette_coordinate);
-        const Pixel B =
-            prepared.current.palette->get_color(result.palette_coordinate);
-        const Pixel *const A_TABLE = prepared.previous.hue_rotation.active
-                                         ? prepared.previous.hue_rotation.data
-                                         : nullptr;
-        const Pixel *const B_TABLE = prepared.current.hue_rotation.active
-                                         ? prepared.current.hue_rotation.data
-                                         : nullptr;
-        result.color.color = A.lerp16(B, frac_to_q16(fraction));
-        result.hue_rotation = A == B && A_TABLE == B_TABLE ? B_TABLE : nullptr;
+        restore_fused_palette_base(result, prepared, fraction);
       });
     return result;
+  }
+
+  /** @brief Shades fused endpoints without returning a deferred carrier.
+   * @tparam FrameState Frame context.
+   * @param sample Shared field coordinates.
+   * @param frame Frame context.
+   * @param prepared Prepared palette endpoints.
+   * @param modulation Prepared modulation endpoints.
+   * @param fraction Current endpoint weight.
+   * @return Final straight-alpha color. */
+  template <typename FrameState>
+  HS_HOT_ITCM_MEMBER static Color4
+  shade_fused_modulation(const FieldSample &sample, const FrameState &frame,
+                         const Prepared &prepared,
+                         const ModulationState &modulation, float fraction)
+    requires(TEMPORAL && FUSED_TEMPORAL_COLOR)
+  {
+    ColorSample result;
+    prepare_fused_modulation(result, sample, frame, prepared, modulation,
+                             fraction);
+    if constexpr (LAB_CACHE)
+      return finish_fused_color(result, [&] {
+        restore_fused_palette_base(result, prepared, fraction);
+      });
+    else
+      return finish_color_sample(result);
   }
 
   /** @brief Produces the current color endpoint.

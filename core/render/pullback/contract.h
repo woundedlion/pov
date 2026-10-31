@@ -1663,11 +1663,68 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
         Palette::apply_fused_modulation(input, ctx, std::get<Index>(prepared),
                                         std::get<Index + 1>(prepared),
                                         ctx.temporal.fraction);
+        Palette::shade_fused_modulation(input, ctx, std::get<Index>(prepared),
+                                        std::get<Index + 1>(prepared),
+                                        ctx.temporal.fraction);
       };
       else return false;
     } else
       return false;
   }
+
+  /** @brief Whether the final color crossing admits direct fused shading.
+   * @return Whether the pipeline opted into the fused final layer. */
+  static constexpr bool has_fused_final_color() {
+    if constexpr (NODE_COUNT < 2)
+      return false;
+    else
+      return fused_color_tail_supported<
+          NODE_COUNT - 2, typename NodeAt<NODE_COUNT - 2>::Input>();
+  }
+
+  /** @brief Runs a prefix and finishes an opted-in fused color crossing.
+   * @tparam Index First node to run.
+   * @tparam Input Carrier entering that node.
+   * @param input Input carrier.
+   * @param ctx Column frame context.
+   * @param prepared Per-node prepared state.
+   * @return Final straight-alpha color. */
+  template <size_t Index, typename Input>
+  HS_HOT_INLINE static Color4 shade_stage(const Input &input,
+                                          const FrameState &ctx,
+                                          const PreparedTuple &prepared) {
+    using CurrentNode = NodeAt<Index>;
+    if constexpr (fused_color_tail_supported<Index, Input>()) {
+      if (ctx.temporal.fraction > 0.0f && ctx.temporal.fraction < 1.0f) {
+        using Palette = typename CurrentNode::Descriptor::ColorPolicy;
+        using Instrumentation = typename Binding::Instrumentation;
+        const auto START = Instrumentation::mark();
+        auto result = Palette::shade_fused_modulation(
+            input, ctx, std::get<Index>(prepared),
+            std::get<Index + 1>(prepared), ctx.temporal.fraction);
+        Instrumentation::template span<ProfileEvent::COLOR>(START);
+        return result;
+      }
+      return finish_color_sample(run_stage<Index>(input, ctx, prepared));
+    } else if constexpr (Index + 1 < NODE_COUNT &&
+                         !std::same_as<typename CurrentNode::Output,
+                                       ColorSample>) {
+      if constexpr (requires {
+                      CurrentNode::run_endpoint(
+                          input, ctx, std::get<Index>(prepared), false);
+                    })
+        return shade_stage<Index + 1>(
+            CurrentNode::run_endpoint(input, ctx, std::get<Index>(prepared),
+                                      false),
+            ctx, prepared);
+      else
+        return shade_stage<Index + 1>(
+            CurrentNode::run(input, ctx, std::get<Index>(prepared)), ctx,
+            prepared);
+    } else
+      return finish_color_sample(run_stage<Index>(input, ctx, prepared));
+  }
+
   /** @brief Checks the complete color tail's prepared eligibility.
    * @tparam Index First remaining stage.
    * @param prepared Prepared stages.
@@ -1964,8 +2021,11 @@ public:
       result = Policy::project(LOCAL, frame.ctx);
     const PlaneSample PLANE{result.coords, result.provenance, LOCAL, 0.0f};
     Instrumentation::template span<ProfileEvent::PROJECTION>(start);
-    return finish_color_sample(
-        Core::template run_stage<2>(PLANE, frame.ctx, frame.prepared));
+    if constexpr (Core::has_fused_final_color())
+      return Core::template shade_stage<2>(PLANE, frame.ctx, frame.prepared);
+    else
+      return finish_color_sample(
+          Core::template run_stage<2>(PLANE, frame.ctx, frame.prepared));
   }
 
   /** @brief Resolves every stage's prepared state from @p ctx.
@@ -2002,8 +2062,12 @@ public:
   __attribute__((always_inline)) static Color4
   evaluate(const math::Vector &view, const FrameState &ctx,
            const PreparedTuple &prepared) {
-    return finish_color_sample(
-        Core::template run_stage<0>(SphereSample{view, 0.0f}, ctx, prepared));
+    if constexpr (Core::has_fused_final_color())
+      return Core::template shade_stage<0>(SphereSample{view, 0.0f}, ctx,
+                                           prepared);
+    else
+      return finish_color_sample(
+          Core::template run_stage<0>(SphereSample{view, 0.0f}, ctx, prepared));
   }
 
   /** @brief Shades a view direction using a frame returned by prepare().

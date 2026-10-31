@@ -3732,6 +3732,10 @@ inline void test_pullback_fused_modulation_endpoints() {
             const auto x = Color::finish(actual), y = Color::finish(expected);
             HS_EXPECT_EQ(x.color, y.color);
             HS_EXPECT_EQ(x.alpha, y.alpha);
+            const auto DIRECT = Policy::shade_fused_modulation(
+                field, frame, prepared, mod, fraction);
+            HS_EXPECT_EQ(DIRECT.color, y.color);
+            HS_EXPECT_EQ(DIRECT.alpha, y.alpha);
             const auto PIXEL =
                 Actual::shade(field.sphere, Actual::prepare(frame));
             const auto REFERENCE =
@@ -3797,6 +3801,10 @@ inline void test_pullback_fused_cached_modulation() {
         const auto EXPECTED = Color::finish(expected);
         HS_EXPECT_EQ(FINISHED.color, EXPECTED.color);
         HS_EXPECT_EQ(FINISHED.alpha, EXPECTED.alpha);
+        const auto DIRECT = Policy::shade_fused_modulation(
+            FIELD, frame, PREPARED, modulation, fraction);
+        HS_EXPECT_EQ(DIRECT.color, FINISHED.color);
+        HS_EXPECT_EQ(DIRECT.alpha, FINISHED.alpha);
       }
   HS_EXPECT_GT(cache_hits, 0);
   cache.bake(a.view(), translucent.view());
@@ -3813,6 +3821,9 @@ inline void test_pullback_fused_cached_modulation() {
 /** @brief Gamut-gate crossings restore RGB-first color without normal cache fetches. */
 inline void test_pullback_cached_gamut_gate_fallback() {
   using namespace Pullback;
+  const float NAN_VALUE = std::numeric_limits<float>::quiet_NaN();
+  HS_EXPECT_TRUE(
+      Color::near_palette_gamut_gate({NAN_VALUE, NAN_VALUE, NAN_VALUE}));
   ColorSample canonical{Color4(Pixel(1582, 1359, 42855), 0.61689651f), {}};
   canonical.pending_hue = 0.9814453125f;
   auto cached = canonical;
@@ -3821,6 +3832,17 @@ inline void test_pullback_cached_gamut_gate_fallback() {
   cached.has_cached_lab = true;
   const auto REFERENCE = finish_color_sample(canonical);
   const auto UNGUARDED = finish_color_sample(cached);
+  auto direct = cached;
+  int direct_fetches = 0;
+  const auto DIRECT = Color::finish_fused_color(direct, [&] {
+    ++direct_fetches;
+    direct.color.color = canonical.color.color;
+    direct.hue_rotation = canonical.hue_rotation;
+  });
+  HS_EXPECT_EQ(direct_fetches, 1);
+  HS_EXPECT_FALSE(direct.has_cached_lab);
+  HS_EXPECT_EQ(DIRECT.color, REFERENCE.color);
+  HS_EXPECT_EQ(DIRECT.alpha, REFERENCE.alpha);
   const Pixel EXPECTED = REFERENCE.color * REFERENCE.alpha;
   const Pixel WRONG = UNGUARDED.color * UNGUARDED.alpha;
   HS_EXPECT_GT(std::max({std::abs(int(EXPECTED.r) - WRONG.r),
@@ -3847,6 +3869,33 @@ inline void test_pullback_cached_gamut_gate_fallback() {
       cached, [&] { ++fetches; }));
   HS_EXPECT_EQ(fetches, 0);
   HS_EXPECT_TRUE(cached.has_cached_lab);
+  for (float hue : {0.0f, 0.13f, 0.5f, 0.9814453125f})
+    for (float lift : {0.0f, 0.4f, 1.0f})
+      for (float gain : {0.0f, 0.3f, 1.0f})
+        for (auto lab : {linear_rgb_to_oklab_fast(0.3f, 0.4f, 0.5f),
+                         OKLab{0.5f, 0.3f, -0.3f}}) {
+          cached.cached_lab = lab;
+          cached.pending_hue = hue;
+          cached.pending_lift = lift;
+          cached.brightness_gain = gain;
+          cached.has_cached_lab = true;
+          auto expected = cached;
+          int reference_fetches = 0;
+          Color::restore_cached_palette_base_near_gamut_gate(expected, [&] {
+            ++reference_fetches;
+            expected.color.color = canonical.color.color;
+          });
+          const auto FINISHED = finish_color_sample(expected);
+          int actual_fetches = 0;
+          const auto FAST = Color::finish_fused_color(cached, [&] {
+            ++actual_fetches;
+            cached.color.color = canonical.color.color;
+          });
+          HS_EXPECT_EQ(FAST.color, FINISHED.color);
+          HS_EXPECT_EQ(FAST.alpha, FINISHED.alpha);
+          HS_EXPECT_EQ(actual_fetches, reference_fetches);
+          HS_EXPECT_EQ(cached.has_cached_lab, expected.has_cached_lab);
+        }
 }
 
 /** @brief Paired cube samples preserve individual samplers and custom dispatch. */
