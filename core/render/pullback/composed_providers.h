@@ -464,10 +464,6 @@ struct ValueProvider {
 template <typename BindingT, Pullback::Color::BrightnessEnvelope BrightnessV,
           bool LabCacheV = false>
 struct ColorProvider {
-  using InteriorFractionOwner = ColorProvider; ///< Mirrors the frame fraction.
-  using BrightnessOwner = ColorProvider; ///< Fixed-envelope contract owner.
-  static constexpr auto BRIGHTNESS_ENVELOPE =
-      BrightnessV;                                 ///< Fixed gain curve.
   using Binding = BindingT;                        ///< The effect's Binding.
   using FrameState = typename Binding::FrameState; ///< The effect's frame.
   /** @brief Borrows the interval's palette base cache.

@@ -955,30 +955,6 @@ struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, ColorSample> {
     return ColorPolicyT::apply_shared_base(input, frame, prepared, output);
   }
 
-  /** @brief Tries a shared base for a proven interior column fraction.
-   * @tparam Binding Pipeline binding.
-   * @param input Shared field coordinates.
-   * @param frame Frame context.
-   * @param prepared Immutable prepared policy state.
-   * @param output Receives the cached color carrier.
-   * @return Whether the policy supplied a base. */
-  template <typename Binding>
-  HS_HOT_INLINE static bool run_shared_base_interior(
-      const FieldSample &input, const typename Binding::FrameState &frame,
-      const Detail::PolicyPrepared<ColorPolicyT, typename Binding::FrameState>
-          &prepared,
-      ColorSample &output)
-    requires requires {
-      typename ColorPolicyT::InteriorSharedBaseOwner;
-      requires std::same_as<ColorPolicyT,
-                            typename ColorPolicyT::InteriorSharedBaseOwner>;
-      ColorPolicyT::apply_shared_base_interior(input, frame, prepared, output);
-    }
-  {
-    return ColorPolicyT::apply_shared_base_interior(input, frame, prepared,
-                                                    output);
-  }
-
   /**
    * @brief Whether `ColorPolicyT::apply` is callable under @p Binding.
    * @tparam Binding Binding being checked.

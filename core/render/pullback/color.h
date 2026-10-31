@@ -395,14 +395,7 @@ inline constexpr std::array<ApproximationMetric, 3> GENERATED_PALETTE_METRICS{{
  * @tparam State Palette resource provider. */
 template <typename State> struct GeneratedPalette : ApproximationDefaults {
   using SharedBaseOwner = GeneratedPalette<State>; ///< Cache-contract owner.
-  static constexpr bool INTERIOR_FRACTION_PREPARED = requires {
-    typename State::InteriorFractionOwner;
-    requires std::same_as<State, typename State::InteriorFractionOwner>;
-  }; ///< Whether preparation preserves the bound frame fraction.
-  using InteriorSharedBaseOwner =
-      std::conditional_t<INTERIOR_FRACTION_PREPARED, GeneratedPalette<State>,
-                         void>;                  ///< Interior contract owner.
-  static constexpr bool PHASE_BLEND_BASE = true; ///< Common field controls.
+  static constexpr bool PHASE_BLEND_BASE = true;   ///< Common field controls.
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -576,41 +569,14 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
    * @param output Receives the cached color carrier.
    * @return Whether the cache supplied the base. */
   template <typename FrameState>
-  HS_HOT_INLINE static bool
+  HS_HOT_FLASH_MEMBER static bool
   apply_shared_base(const FieldSample &sample, const FrameState &frame,
                     const Prepared &prepared, ColorSample &output)
     requires(TEMPORAL && LAB_CACHE)
   {
+    (void)frame;
     if (!prepared.lab.low || prepared.fraction <= 0.0f ||
         prepared.fraction >= 1.0f)
-      return false;
-    return apply_shared_base_impl<false>(sample, frame, prepared, output);
-  }
-
-  /** @brief Tries a shared base after the caller proves an interior fraction.
-   * @tparam FrameState Frame context.
-   * @param sample Shared field coordinates.
-   * @param frame Frame context.
-   * @param prepared Immutable prepared endpoints with fraction in (0, 1).
-   * @param output Receives the cached color carrier.
-   * @return Whether the cache supplied the base. */
-  template <typename FrameState>
-  HS_HOT_INLINE static bool
-  apply_shared_base_interior(const FieldSample &sample, const FrameState &frame,
-                             const Prepared &prepared, ColorSample &output)
-    requires(TEMPORAL && LAB_CACHE)
-  {
-    assert(prepared.fraction > 0.0f && prepared.fraction < 1.0f);
-    return apply_shared_base_impl<true>(sample, frame, prepared, output);
-  }
-
-private:
-  template <bool Interior, typename FrameState>
-  HS_HOT_FLASH_MEMBER static bool
-  apply_shared_base_impl(const FieldSample &sample, const FrameState &frame,
-                         const Prepared &prepared, ColorSample &output) {
-    (void)frame;
-    if (!prepared.lab.low)
       return false;
     const auto &state = prepared.current;
     const float VALUE = palette_mapping_coordinate(sample.value, state.mapping,
@@ -624,26 +590,15 @@ private:
     output.hue_rotation = nullptr;
     output.palette_coordinate = VALUE;
     output.pending_hue = 0.0f;
-    const auto ENVELOPE = [&]() HS_HOT_INLINE {
-      if constexpr (Interior && requires {
-                      typename State::BrightnessOwner;
-                      requires std::same_as<State,
-                                            typename State::BrightnessOwner>;
-                      State::BRIGHTNESS_ENVELOPE;
-                    })
-        return State::BRIGHTNESS_ENVELOPE;
-      else
-        return state.brightness_envelope;
-    }();
-    output.brightness_gain = brightness_envelope_gain(
-        sample.value, ENVELOPE, state.brightness_bottom, state.brightness_top);
+    output.brightness_gain =
+        brightness_envelope_gain(sample.value, state.brightness_envelope,
+                                 state.brightness_bottom, state.brightness_top);
     output.pending_lift = 0.0f;
     output.cached_lab = PaletteLabLut::sample(prepared.lab, VALUE);
     output.has_cached_lab = true;
     return true;
   }
 
-public:
   /** @brief Produces the current color endpoint.
    * @tparam FrameState Frame context.
    * @param sample Field coordinates.
