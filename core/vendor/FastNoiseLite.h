@@ -350,6 +350,23 @@ public:
     return GenNoiseSingle(mSeed, x, y, z);
   }
 
+  /// Three independently accumulated gradient components.
+  struct Gradient3 {
+    float x;
+    float y;
+    float z;
+  };
+
+  HS_HOT_ITCM_MEMBER Gradient3 get_noise_gradient_single(float x, float y,
+                                                         float z) const {
+    TransformNoiseCoordinate(x, y, z);
+    Gradient3 gradient;
+    SingleOpenSimplex2Gradient(mSeed, x, y, z, gradient.x, gradient.y,
+                               gradient.z);
+    TransformNoiseGradient(gradient.x, gradient.y, gradient.z);
+    return gradient;
+  }
+
   HS_HOT_ITCM_MEMBER void GetNoiseGradientSingle(float x, float y, float z,
                                                  float &xg, float &yg,
                                                  float &zg) const {

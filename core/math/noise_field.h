@@ -414,10 +414,8 @@ HS_O3_FN inline math::Vector curl_from_gradient(const math::Vector &gradient,
 HS_O3_FN inline math::Vector
 sample_simplex_curl_tangent(const FastNoiseLite &noise, const math::Vector &q,
                             const math::Vector &v, TangentLimit limit) {
-  math::Vector gradient;
-  noise.GetNoiseGradientSingle(q.x, q.y, q.z, gradient.x, gradient.y,
-                               gradient.z);
-  return curl_from_gradient(gradient, v, limit);
+  const auto GRADIENT = noise.get_noise_gradient_single(q.x, q.y, q.z);
+  return curl_from_gradient({GRADIENT.x, GRADIENT.y, GRADIENT.z}, v, limit);
 }
 
 /**

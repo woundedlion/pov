@@ -231,6 +231,38 @@ inline void test_noise_field_tetrahedral_gradient() {
   }
 }
 
+/** @brief Value-returning gradients preserve the reference-output API. */
+inline void test_noise_field_gradient_value_return() {
+  uint32_t state = 0x4a31c587;
+  const auto coordinate = [&]() {
+    state ^= state << 13;
+    state ^= state >> 17;
+    state ^= state << 5;
+    return float(state & 0xffffff) * (64.0f / 0xffffff) - 32.0f;
+  };
+  for (int seed : {-991, 1, 1337})
+    for (float frequency : {0.0f, 0.0125f, 0.73f, 1.0f, 6.4f})
+      for (FastNoiseLite::RotationType3D rotation :
+           {FastNoiseLite::RotationType3D_None,
+            FastNoiseLite::RotationType3D_ImproveXYPlanes,
+            FastNoiseLite::RotationType3D_ImproveXZPlanes}) {
+        FastNoiseLite noise = make_noise(seed);
+        noise.SetFrequency(frequency);
+        noise.SetRotationType3D(rotation);
+        for (int sample = 0; sample < 256; ++sample) {
+          const math::Vector POINT(coordinate(), coordinate(), coordinate());
+          math::Vector reference;
+          noise.GetNoiseGradientSingle(POINT.x, POINT.y, POINT.z, reference.x,
+                                       reference.y, reference.z);
+          const auto VALUE =
+              noise.get_noise_gradient_single(POINT.x, POINT.y, POINT.z);
+          HS_EXPECT_EQ(VALUE.x, reference.x);
+          HS_EXPECT_EQ(VALUE.y, reference.y);
+          HS_EXPECT_EQ(VALUE.z, reference.z);
+        }
+      }
+}
+
 /** @brief Analytic gradients match finite differences across coordinate rotations. */
 inline void test_noise_field_analytic_gradient() {
   constexpr float STEP = 1.0f / 2048.0f;
@@ -456,6 +488,7 @@ inline int run_noise_field_tests() {
   HS_RUN(test_noise_field_ridged_channel_pairs);
   HS_RUN(test_noise_field_direct_tangent);
   HS_RUN(test_noise_field_tetrahedral_gradient);
+  HS_RUN(test_noise_field_gradient_value_return);
   HS_RUN(test_noise_field_analytic_gradient);
   HS_RUN(test_vector_noise_rotation_setter_order);
   HS_RUN(test_noise_field_simplex_curl_approximation);

@@ -16,7 +16,7 @@
 //   - selective-O3 placement on the scalar and vector OpenSimplex2 leaves
 //   - raw-octave paths used by first-party basis and derivative policies
 //   - a raw vector-noise path used by spherical tangent displacement
-//   - an analytic raw OpenSimplex2 gradient path used by spherical curl
+//   - analytic raw OpenSimplex2 gradients, with value and reference APIs
 //   - the `#include "core/platform/platform.h"` that supplies HS_O3_FN
 //
 // HS_O3_FN comes from core/platform/platform.h. Version bumps must preserve
