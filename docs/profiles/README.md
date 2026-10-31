@@ -54,6 +54,7 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 |---|---|--:|--:|--:|--:|--:|--:|--:|---|
 | [Raymarch](shipping/profile_raymarch_teensy_2026-10-23.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 57.751 | 103.890 | 🟢 56.04 | 🟢 0/447 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-10-23 13:30<br>O3 2026-09-20 23:07 |
 | [MindSplatter](shipping/profile_mindsplatter_teensy_2026-10-30.md) / [O3](O3/profile_mindsplatter_architecture_teensy_2026-10-01.md) § ● | `msp_draw_particles` | 🟢 57.717 (8) | 0.410 | 🟢 54.539 (8) | 🟢 0/1407 (0.00%) | 🟢 0/1736 (0.00%) | +21,976 B | +17,200 B | ship 2026-10-30 09:29<br>O3 2026-10-01 09:22 |
+| [AshCloud](shipping/profile_ashcloud_teensy_2026-10-31.md) / [O3](O3/profile_ashcloud_teensy_2026-08-26.md) â— | `fx_shader_draw` | 🟢 57.671 | 107.306 | 🔴 79.81 | 🟢 0/2047 (0.00%) | 🔴 544/544 (100%) | â€” | â€” | ship 2026-10-31 03:25<br>O3 2026-08-26 02:45 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-10-23.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 57.537 (9) | 47.865 | 🟢 60.05 (9) | 🟢 0/4271 (0.00%) | 🟢 0/2457 (0.00%) | +29,288 B | +24,496 B | ship 2026-10-23 17:21<br>O3 2026-09-25 07:29 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-10-23.md) / [O3](O3/profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 56.256 | 0.696 | 🟢 46.52 | 🟢 0/927 (0.00%) | 🟢 0/1088 (0%) | +19,616 B | +18,272 B | ship 2026-10-23 13:26<br>O3 2026-08-26 01:27 |
 | [Millefiori](shipping/profile_millefiori_teensy_2026-10-30.md) ● | `fx_shader_draw` | 🟢 56.200 | 82.100 | — | 🟢 0/2047 (0.00%) | — | — | — | ship 2026-10-30 19:35 |
@@ -64,7 +65,6 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-10-30.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md) ● | `grd_render` | 🟢 53.504 | 25.722 | 🔴 279.686 | 🟢 0/2047 (0.00%) | 🔴 538/538 (100.00%) | +16,024 B | +10,832 B | ship 2026-10-30 09:50<br>O3 2026-09-30 19:15 |
 | [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-10-23.md) / [O3](O3/profile_meshfeedback_teensy_2026-08-26.md) § | `mf_feedback_flush` | 🟢 52.652 (12) | 5.659 | 🟢 58.32 (13) | 🟢 0/2863 (0.00%) | 🟢 0/6688 (0%) | +34,144 B | +21,776 B | ship 2026-10-23 13:51<br>O3 2026-08-26 02:10 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-10-23.md) / [O3](O3/profile_displacementfield_teensy_2026-09-19.md) § | `df_timeline_step` | 🟢 51.257 (2) | 18.953 | 🟢 57.45 | 🟢 0/1887 (0.00%) | 🟢 0/1088 (0%) | +25,856 B | +22,144 B | ship 2026-10-23 13:23<br>O3 2026-09-19 22:19 |
-| [AshCloud](shipping/profile_ashcloud_teensy_2026-10-23.md) / [O3](O3/profile_ashcloud_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 47.180 | 73.108 | 🔴 79.81 | 🟢 0/927 (0.00%) | 🔴 544/544 (100%) | +16,608 B | +12,112 B | ship 2026-10-23 14:21<br>O3 2026-08-26 02:45 |
 | [Galaxies](shipping/profile_galaxies_teensy_2026-10-23.md) | `gx_particle_step` | 🟢 45.223 | 1.494 | — | 🟢 0/927 (0.00%) | — | — | — | ship 2026-10-23 13:17 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-10-30.md) / [O3](O3/profile_bzreactiondiffusion_teensy_2026-08-26.md) ● | `bz_render` | 🟢 44.608 | 76.549 | 🟢 48.65 | 🟢 0/2047 (0.00%) | 🟢 0/2048 (0%) | +12,760 B | +10,224 B | ship 2026-10-30 09:46<br>O3 2026-08-26 01:16 |
 | [KaleidoscopeHexOil](shipping/profile_kaleidoscopehexoil_teensy_2026-10-23.md) / [O3](O3/profile_kaleidoscopehexoil_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 43.705 (2) | 69.694 | 🟢 38.94 (3) | 🟢 0/1647 (0.00%) | 🟢 0/2208 (0%) | +13,456 B | +10,608 B | ship 2026-10-23 14:25<br>O3 2026-08-26 02:49 |
@@ -90,7 +90,8 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | [Voronoi](shipping/profile_voronoi_teensy_2026-10-23.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 9.242 | 13.222 | 🟢 7.71 | 🟢 0/447 (0.00%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-10-23 13:33<br>O3 2026-08-26 01:39 |
 
 Millefiori was re-captured on COM3 at `86497f3b02e0e78909a36907b94845a35e34b948`; its ongoing peak is 56.200 ms, with setup separate. Older shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, except IslamicStars, re-captured on COM3 at `e55cab1116daea41a4a9de5b793282040db0ed19`, and HankinSolids and ShapeShifter, re-captured on COM4 at `bda58b65d3fc317f5d6ccbe29888014738a0ee25`. MindSplatter was re-captured on COM3 on October 30 at `c87e96523a1b7cc97e8e7bb5529cc52e78ad1503`; its row uses the 90-second complete-cycle pass, including the wrap (setup separate). Millefiori uses a 130-second capture with `HS_PROFILE_EPOCH_REVS=1200` to validate ongoing animation beyond its 60-second show entry. The remaining captures use their Phantasm show-segment budgets except IslamicStars: its matched shipping/O3 pair uses TS4, and the shipping re-capture runs 210 s with 16-frame windows and `HS_PROFILE_EPOCH_REVS=1920` (the normal show segment is 306 s). Capture times are local raw-log mtimes.
-These captures ran kaleidoscope effects with column strobe off.
+The October 23 kaleidoscope captures used column strobe off. The October 31
+AshCloud capture uses its shipping column blanking.
 
 MindSplatter steady figures use frames 2–1408 of the October 30 complete-cycle capture. Other shipping steady figures use frames 2 through the last complete counter window. Setup frame 1 is separate. The measured scope is per-frame render telemetry (`frame` minus buffer wait), under the shipping segment clip.
 Each report separately gives trailing raw-frame telemetry, exclusions, preset
@@ -259,3 +260,7 @@ Low-resolution-only (96×20) effects:
 | Octave noise / hue / baked | 🔴 64.235 | 🔴 1/1088 (0.09%) | 2026-10-29 12:01 |
 | Octave noise / opacity / baked | 🟢 58.521 | 🟢 0/1088 (0.00%) | 2026-10-29 12:03 |
 | Single noise / lightness lift / baked | 🔴 63.194 | 🔴 1/1088 (0.09%) | 2026-10-29 11:59 |
+
+AshCloud â— was re-captured 2026-10-31 03:25 on COM4 at `4a67716ae975443ceab6e75b1061d537dee4c2d6`;
+its row uses the 130-second integrated pass with setup separate.
+The historical AshCloud O3 capture uses the prior shader; paired code deltas are omitted.

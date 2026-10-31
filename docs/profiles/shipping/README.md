@@ -9,6 +9,7 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 |---|---|--:|--:|--:|---|
 | [Raymarch](profile_raymarch_teensy_2026-10-23.md) | `rm_shader_draw` | 🟢 57.751 | 103.890 | 🟢 0/447 (0.00%) | 2026-10-23 13:30 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-10-30.md) § ● | `msp_draw_particles` | 🟢 57.717 (8) | 0.410 | 🟢 0/1407 (0.00%) | 2026-10-30 09:29 |
+| [AshCloud](profile_ashcloud_teensy_2026-10-31.md) â— | `fx_shader_draw` | 🟢 57.671 | 107.306 | 🟢 0/2047 (0.00%) | 2026-10-31 03:25 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-10-23.md) § | `ss_draw_all` | 🟢 57.537 (9) | 47.865 | 🟢 0/4271 (0.00%) | 2026-10-23 17:21 |
 | [HopfFibration](profile_hopffibration_teensy_2026-10-23.md) | `hf_render_trails` | 🟢 56.256 | 0.696 | 🟢 0/927 (0.00%) | 2026-10-23 13:26 |
 | [Millefiori](profile_millefiori_teensy_2026-10-30.md) ● | `fx_shader_draw` | 🟢 56.200 | 82.100 | 🟢 0/2047 (0.00%) | 2026-10-30 19:35 |
@@ -19,7 +20,6 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-10-30.md) ● | `grd_render` | 🟢 53.504 | 25.722 | 🟢 0/2047 (0.00%) | 2026-10-30 09:50 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-10-23.md) § | `mf_feedback_flush` | 🟢 52.652 (12) | 5.659 | 🟢 0/2863 (0.00%) | 2026-10-23 13:51 |
 | [DisplacementField](profile_displacementfield_teensy_2026-10-23.md) § | `df_timeline_step` | 🟢 51.257 (2) | 18.953 | 🟢 0/1887 (0.00%) | 2026-10-23 13:23 |
-| [AshCloud](profile_ashcloud_teensy_2026-10-23.md) | `fx_shader_draw` | 🟢 47.180 | 73.108 | 🟢 0/927 (0.00%) | 2026-10-23 14:21 |
 | [Galaxies](profile_galaxies_teensy_2026-10-23.md) | `gx_particle_step` | 🟢 45.223 | 1.494 | 🟢 0/927 (0.00%) | 2026-10-23 13:17 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-10-30.md) ● | `bz_render` | 🟢 44.608 | 76.549 | 🟢 0/2047 (0.00%) | 2026-10-30 09:46 |
 | [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-10-23.md) § | `fx_shader_draw` | 🟢 43.705 (2) | 69.694 | 🟢 0/1647 (0.00%) | 2026-10-23 14:25 |
@@ -45,7 +45,8 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | [Voronoi](profile_voronoi_teensy_2026-10-23.md) | `vo_shade` | 🟢 9.242 | 13.222 | 🟢 0/447 (0.00%) | 2026-10-23 13:33 |
 
 Millefiori was re-captured on COM3 at `86497f3b02e0e78909a36907b94845a35e34b948`; its ongoing peak is 56.200 ms, with setup separate. Older shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, except IslamicStars, re-captured on COM3 at `e55cab1116daea41a4a9de5b793282040db0ed19`, and HankinSolids and ShapeShifter, re-captured on COM4 at `bda58b65d3fc317f5d6ccbe29888014738a0ee25`. MindSplatter was re-captured on COM3 on October 30 at `c87e96523a1b7cc97e8e7bb5529cc52e78ad1503`; its row uses the 90-second complete-cycle pass, including the wrap (setup separate). Millefiori uses a 130-second capture with `HS_PROFILE_EPOCH_REVS=1200` to validate ongoing animation beyond its 60-second show entry. The remaining captures use their Phantasm show-segment budgets except IslamicStars: its matched shipping/O3 pair uses TS4, and the shipping re-capture runs 210 s with 16-frame windows and `HS_PROFILE_EPOCH_REVS=1920` (the normal show segment is 306 s). Capture times are local raw-log mtimes.
-These captures ran kaleidoscope effects with column strobe off.
+The October 23 kaleidoscope captures used column strobe off. The October 31
+AshCloud capture uses its shipping column blanking.
 
 MindSplatter steady figures use frames 2–1408 of the October 30 complete-cycle capture. Other shipping steady figures use frames 2 through the last complete counter window. Setup frame 1 is separate. The measured scope is per-frame render telemetry (`frame` minus buffer wait), under the shipping segment clip.
 Each report separately gives trailing raw-frame telemetry, exclusions, preset
@@ -114,3 +115,7 @@ Integer direct-AA validation: [ShapeShifter paired capture](profile_shapeshifter
 ## Palette-pattern recipe qualification
 
 [GridSpace recipe overrides, 2026-10-29](profile_gridspace_palette_patterns_teensy_2026-10-29.md) qualify selected source, mechanic and evaluation combinations separately from the normal GridSpace shipping row.
+
+AshCloud â— was re-captured 2026-10-31 03:25 on COM4 at `4a67716ae975443ceab6e75b1061d537dee4c2d6`;
+its row uses the 130-second integrated pass with setup separate.
+The historical AshCloud O3 capture uses the prior shader; paired code deltas are omitted.
