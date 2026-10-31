@@ -352,10 +352,11 @@ template <typename State> struct BurstRipple : ApproximationDefaults {
           State::radial_tables(frame), State::radial_fraction(frame),
           [&](const math::Vector &original)
               HS_HOT_INLINE { return exact_fallback(original, frame); });
-    } else if constexpr (requires {
-                           State::radial_tables(frame);
-                           State::radial_fraction(frame);
-                         })
+    } else if constexpr (
+        requires {
+          State::radial_tables(frame);
+          State::radial_fraction(frame);
+        } && !requires { typename State::RadialPrepareOwner; })
       return SphereAnimation::radial_ripples(
           input, prepared, State::path_length_required(frame),
           State::radial_tables(frame), State::radial_fraction(frame));

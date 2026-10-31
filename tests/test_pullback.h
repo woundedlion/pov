@@ -1818,6 +1818,9 @@ inline void test_pullback_ripple_lazy_preparation() {
   const auto RESULT = Policy::apply(math::X_AXIS, frame, PREPARED);
   HS_EXPECT_EQ(RESULT.sphere, EXPECTED.sphere);
   HS_EXPECT_EQ(RESULT.path_length, EXPECTED.path_length);
+  const auto CUSTOM_INTACT = Custom::prepare(frame);
+  HS_EXPECT_EQ(Custom::apply(math::X_AXIS, frame, CUSTOM_INTACT).sphere,
+               math::X_AXIS);
   tables.groups[0].current.fill({0.0f, -1.0f});
   const auto FALLBACK = Policy::apply(math::X_AXIS, frame, PREPARED);
   const auto GROUPED = grouped_ripples(math::X_AXIS, EXACT, true);
