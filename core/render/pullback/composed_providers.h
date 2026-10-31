@@ -223,6 +223,8 @@ struct SurfaceProvider {
   using Binding = BindingT;                        ///< The effect's Binding.
   using FrameState = typename Binding::FrameState; ///< The effect's frame.
   using RadialPrepareOwner = SurfaceProvider; ///< Owner of radial preparation.
+  using GradientPrepareOwner =
+      SurfaceProvider; ///< Owner of gradient qualification.
   /** @brief The surface's noise generator.
    *  @param frame Current frame.
    *  @return The runtime-owned generator. */
@@ -245,9 +247,14 @@ struct SurfaceProvider {
       return Pullback::Surface::prepare_direct(
           frame.resources.template get<Key>().phase,
           frame.params.template get<Key>().direction);
-    else
-      return Pullback::Surface::prepare(
-          frame.resources.template get<Key>().phase);
+    else {
+      auto prepared =
+          Pullback::Surface::prepare(frame.resources.template get<Key>().phase);
+      if constexpr (std::is_same_v<Family, SurfaceNoiseParams>)
+        prepared.unit_default_gradient =
+            noise(frame).has_default_gradient_transform();
+      return prepared;
+    }
   }
   /** @brief Current-owned ripple curves selected for this column.
    * @param frame Current column context.

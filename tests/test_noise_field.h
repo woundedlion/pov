@@ -249,6 +249,9 @@ inline void test_noise_field_gradient_value_return() {
         FastNoiseLite noise = make_noise(seed);
         noise.SetFrequency(frequency);
         noise.SetRotationType3D(rotation);
+        const bool ELIGIBLE =
+            frequency == 1.0f && rotation == FastNoiseLite::RotationType3D_None;
+        HS_EXPECT_EQ(noise.has_default_gradient_transform(), ELIGIBLE);
         for (int sample = 0; sample < 256; ++sample) {
           const math::Vector POINT(coordinate(), coordinate(), coordinate());
           math::Vector reference;
@@ -259,6 +262,13 @@ inline void test_noise_field_gradient_value_return() {
           HS_EXPECT_EQ(VALUE.x, reference.x);
           HS_EXPECT_EQ(VALUE.y, reference.y);
           HS_EXPECT_EQ(VALUE.z, reference.z);
+          if (ELIGIBLE) {
+            const auto DEFAULT = noise.get_noise_gradient_unit_default(
+                POINT.x, POINT.y, POINT.z);
+            HS_EXPECT_EQ(DEFAULT.x, reference.x);
+            HS_EXPECT_EQ(DEFAULT.y, reference.y);
+            HS_EXPECT_EQ(DEFAULT.z, reference.z);
+          }
         }
       }
 }

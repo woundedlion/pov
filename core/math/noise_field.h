@@ -418,6 +418,20 @@ sample_simplex_curl_tangent(const FastNoiseLite &noise, const math::Vector &q,
   return curl_from_gradient({GRADIENT.x, GRADIENT.y, GRADIENT.z}, v, limit);
 }
 
+/** @brief Curl tangent for a generator with its unit default transform.
+ * @param noise Generator satisfying `has_default_gradient_transform`.
+ * @param q Noise-space coordinate.
+ * @param v Unit sphere direction.
+ * @param limit Tangent-length policy.
+ * @return The canonical curl tangent. */
+HS_O3_FN inline math::Vector
+sample_unit_simplex_curl_tangent(const FastNoiseLite &noise,
+                                 const math::Vector &q, const math::Vector &v,
+                                 TangentLimit limit) {
+  const auto GRADIENT = noise.get_noise_gradient_unit_default(q.x, q.y, q.z);
+  return curl_from_gradient({GRADIENT.x, GRADIENT.y, GRADIENT.z}, v, limit);
+}
+
 /**
  * @brief Curl-oriented tangent field, by whichever gradient the basis has.
  * @param noise Prepared generator.

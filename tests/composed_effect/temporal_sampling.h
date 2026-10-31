@@ -1726,3 +1726,67 @@ inline void test_millefiori_radial_table_interval() {
   HS_EXPECT_TRUE(CHANGED.resources.template get<"displace">().radial_tables ==
                  nullptr);
 }
+
+/** @brief Composed curl qualifies the unit default generator before pixel work. */
+inline void test_composed_default_gradient_preparation() {
+  using FX = AshCloud<SMALL_W, SMALL_H>;
+  using Provider =
+      Pullback::SurfaceProvider<typename FX::Binding,
+                                Pullback::SurfaceNoiseParams, true>;
+  using Policy =
+      typename Pullback::SurfacePolicyFor<Pullback::SurfaceNoiseParams,
+                                          typename FX::Binding, true>::Type;
+  struct ForeignProvider : Provider {
+    static auto prepare(const typename FX::FrameState &frame) {
+      auto result = Provider::prepare(frame);
+      result.unit_default_gradient = true;
+      return result;
+    }
+  };
+  using ForeignPolicy =
+      Pullback::Surface::CurlNoise<ForeignProvider, math::NoiseBasis::SIMPLEX,
+                                   Pullback::Surface::Euler,
+                                   math::TangentLimit::SMOOTH>;
+  static_assert(!ForeignPolicy::OWNED_GRADIENT_PREPARE);
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+  auto frame = ComposedFrameWhiteBox::frame(effect);
+  auto noise = *frame.resources.template get<"surface">().noise;
+  frame.resources.template get<"surface">().noise = &noise;
+  const auto &params = frame.params.template get<"surface">();
+  for (int change = 0; change < 5; ++change) {
+    noise.SetFrequency(1.0f);
+    noise.SetRotationType3D(FastNoiseLite::RotationType3D_None);
+    noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    if (change == 1)
+      noise.SetFrequency(0.75f);
+    if (change == 2)
+      noise.SetFrequency(1.00000012f);
+    if (change == 3)
+      noise.SetRotationType3D(FastNoiseLite::RotationType3D_ImproveXYPlanes);
+    if (change == 4)
+      noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    const auto PREPARED = Provider::prepare(frame);
+    HS_EXPECT_EQ(PREPARED.unit_default_gradient, change == 0);
+    for (const auto &direction :
+         {math::X_AXIS, math::Y_AXIS,
+          math::Vector(-0.3f, 0.4f, -0.5f).normalized()}) {
+      const auto EXPECTED = Pullback::Surface::curl_noise(
+          direction, noise, math::NoiseBasis::SIMPLEX,
+          Pullback::Surface::Integrator::EULER, math::TangentLimit::SMOOTH,
+          params.scale, PREPARED.loop_offset, params.strength, true);
+      const auto ACTUAL = Policy::apply(direction, frame, PREPARED);
+      HS_EXPECT_EQ(ACTUAL.sphere.x, EXPECTED.sphere.x);
+      HS_EXPECT_EQ(ACTUAL.sphere.y, EXPECTED.sphere.y);
+      HS_EXPECT_EQ(ACTUAL.sphere.z, EXPECTED.sphere.z);
+      HS_EXPECT_EQ(ACTUAL.path_length, EXPECTED.path_length);
+      const auto FOREIGN = ForeignPolicy::apply(
+          direction, frame, ForeignProvider::prepare(frame));
+      HS_EXPECT_EQ(FOREIGN.sphere.x, EXPECTED.sphere.x);
+      HS_EXPECT_EQ(FOREIGN.sphere.y, EXPECTED.sphere.y);
+      HS_EXPECT_EQ(FOREIGN.sphere.z, EXPECTED.sphere.z);
+      HS_EXPECT_EQ(FOREIGN.path_length, EXPECTED.path_length);
+    }
+  }
+}

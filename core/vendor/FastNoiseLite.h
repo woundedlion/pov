@@ -357,6 +357,27 @@ public:
     float z;
   };
 
+  bool has_default_gradient_transform() const {
+    return mFrequency == 1.0f &&
+           mTransformType3D == TransformType3D_DefaultOpenSimplex2;
+  }
+
+  /// Requires has_default_gradient_transform().
+  HS_HOT_ITCM_MEMBER Gradient3 get_noise_gradient_unit_default(float x, float y,
+                                                               float z) const {
+    constexpr float ROTATION = 2.0f / 3.0f;
+    const float coordinate_sum = (x + y + z) * ROTATION;
+    x = coordinate_sum - x;
+    y = coordinate_sum - y;
+    z = coordinate_sum - z;
+    Gradient3 gradient;
+    SingleOpenSimplex2Gradient(mSeed, x, y, z, gradient.x, gradient.y,
+                               gradient.z);
+    const float reflection = ROTATION * (gradient.x + gradient.y + gradient.z);
+    return {reflection - gradient.x, reflection - gradient.y,
+            reflection - gradient.z};
+  }
+
   HS_HOT_ITCM_MEMBER Gradient3 get_noise_gradient_single(float x, float y,
                                                          float z) const {
     TransformNoiseCoordinate(x, y, z);

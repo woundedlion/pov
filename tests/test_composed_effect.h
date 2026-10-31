@@ -903,6 +903,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_millefiori_radial_table_interval);
   HS_RUN(test_millefiori_document_pipeline);
   HS_RUN(test_ash_cloud_document_pipeline);
+  HS_RUN(test_composed_default_gradient_preparation);
   HS_RUN(test_composed_persistent_prepared_frame);
   HS_RUN(test_composed_document_modulation_members);
   HS_RUN(test_millefiori_column_color_phase);

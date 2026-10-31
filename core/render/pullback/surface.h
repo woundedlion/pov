@@ -129,7 +129,8 @@ inline float ripple_cycle(float phase, const PeriodicRippleParams &params) {
 
 /** @brief This frame's point on the displacement field's closed loop. */
 struct PreparedLoop {
-  math::Vector loop_offset; ///< Noise-space offset of the loop point.
+  math::Vector loop_offset;           ///< Noise-space offset of the loop point.
+  bool unit_default_gradient = false; ///< Generator transform was qualified.
 };
 
 /** @brief Resolves this frame's loop point from the loop phase.
@@ -443,6 +444,12 @@ template <typename State, math::NoiseBasis Basis, typename IntegratorPolicy,
           math::TangentLimit Limit>
 struct CurlNoise : PrepareFromState<State> {
   using FrameState = typename State::FrameState; ///< The provider's frame.
+  static constexpr bool OWNED_GRADIENT_PREPARE = [] {
+    if constexpr (requires { typename State::GradientPrepareOwner; })
+      return std::is_same_v<typename State::GradientPrepareOwner, State>;
+    else
+      return false;
+  }(); ///< Whether the provider owns generator qualification.
 
   /**
    * @brief Whether `State` is a provider for `Binding` with every accessor
@@ -481,11 +488,24 @@ struct CurlNoise : PrepareFromState<State> {
       const float STRENGTH = State::strength(frame);
       if (STRENGTH == 0.0f)
         return {input, 0.0f};
-      return finish_step(
-          input,
-          STRENGTH * curl_field(input, State::noise(frame), Basis, Limit,
-                                State::scale(frame), prepared.loop_offset),
-          State::path_length_required(frame));
+      math::Vector tangent;
+      if constexpr (Basis == math::NoiseBasis::SIMPLEX &&
+                    OWNED_GRADIENT_PREPARE &&
+                    requires { prepared.unit_default_gradient; }) {
+        if (prepared.unit_default_gradient)
+          tangent = math::sample_unit_simplex_curl_tangent(
+              State::noise(frame),
+              math::noise_sphere_coordinate(input, State::scale(frame),
+                                            prepared.loop_offset),
+              input, Limit);
+        else
+          tangent = curl_field(input, State::noise(frame), Basis, Limit,
+                               State::scale(frame), prepared.loop_offset);
+      } else
+        tangent = curl_field(input, State::noise(frame), Basis, Limit,
+                             State::scale(frame), prepared.loop_offset);
+      return finish_step(input, STRENGTH * tangent,
+                         State::path_length_required(frame));
     } else
       return curl_noise(input, State::noise(frame), Basis,
                         IntegratorPolicy::VALUE, Limit, State::scale(frame),
