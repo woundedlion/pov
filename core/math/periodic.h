@@ -25,7 +25,14 @@ namespace math {
  * @return `value` modulo `period`, in [0, period).
  */
 template <typename T> inline T wrap_positive(T value, T period) {
-  T result = std::fmod(value, period);
+  T result;
+  // Strict bounds retain fmod's signed zero at exact multiples.
+  if constexpr (std::is_floating_point_v<T>)
+    result = std::isfinite(period) && value > -period && value < period
+                 ? value
+                 : std::fmod(value, period);
+  else
+    result = std::fmod(value, period);
   if (result < 0)
     result += period;
   return result >= period ? T{0} : result;

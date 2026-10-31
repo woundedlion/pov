@@ -85,7 +85,11 @@ inline float shortest_periodic(float a, float b, float progress, float period) {
   if (period <= 0.0f)
     return linear(a, b, progress);
   const float half = period * 0.5f;
-  float delta = std::fmod(b - a, period);
+  const float raw_delta = b - a;
+  float delta =
+      std::isfinite(period) && raw_delta > -period && raw_delta < period
+          ? raw_delta
+          : std::fmod(raw_delta, period);
   if (delta < -half)
     delta += period;
   if (delta >= half)
