@@ -15,7 +15,7 @@ python -m unittest discover -s tools/teensy_gate_tests
 | File | Role |
 |---|---|
 | `good_teensy_size.txt` | A passing `teensy_size` region report. |
-| `good_readelf_syms.txt` | `readelf -s` with the real **mangled** symbol names (`_ZN6Effect8buffer_aE`, `_ZN13ReactionGraph9neighborsE`) and the internal-linkage `global_arena_block` (a LOCAL symbol). |
+| `good_readelf_syms.txt` | `readelf -s` with the real **mangled** symbol names (`_ZN6Effect8buffer_aE`, `_ZN13ReactionGraph13neighbor_runsE`) and the internal-linkage `global_arena_block` (a LOCAL symbol). |
 | `good_readelf_secs.txt` | `readelf -S` section headers (ndx → name/addr). |
 | `good_size_a.txt` | `size -A` for the address-bucketing test. |
 | `broken_framebuffer_dtcm_syms.txt` | `DMAMEM` dropped → `Effect::buffer_a/b` land in DTCM → framebuffers→OCRAM must fail. |
