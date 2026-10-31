@@ -947,6 +947,12 @@ back to sequential evaluation at pole or unit-vector limits. Pullback's optional
 radial tables sample that angular transfer; IslamicStars retains sequential
 endpoint and capture-time evaluation.
 
+An owned surface provider leaves exact column waves unconstructed when its
+radial table is usable. A rejected table sample prepares them locally and
+restarts grouped evaluation from the original input. Literal endpoints,
+unsupported tables and custom providers retain eager preparation. The optional
+prepared value owns its kernels and borrows no column context.
+
 Transformers deform the sphere geometry before rendering. The `Transformer<ParamsT, AnimT, TransformFunc, CAPACITY>` class manages a pool of active transform instances, each with its own animated parameters:
 
 ```cpp

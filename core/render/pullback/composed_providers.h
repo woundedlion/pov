@@ -214,6 +214,7 @@ template <typename BindingT, typename Family, bool TrackPath = false,
 struct SurfaceProvider {
   using Binding = BindingT;                        ///< The effect's Binding.
   using FrameState = typename Binding::FrameState; ///< The effect's frame.
+  using RadialPrepareOwner = SurfaceProvider; ///< Owner of radial preparation.
   /** @brief The surface's noise generator.
    *  @param frame Current frame.
    *  @return The runtime-owned generator. */
@@ -299,26 +300,62 @@ namespace Surface {
 /** @brief Sequential spherical ripple bursts.
  * @tparam State Surface provider. */
 template <typename State> struct BurstRipple : ApproximationDefaults {
-  using Binding = typename State::Binding;           ///< Frame binding.
-  using FrameState = typename State::FrameState;     ///< Current frame.
-  using Prepared = SphereAnimation::PreparedRipples; ///< Active waves.
-  /** @brief Prepares the active wave kernels.
+  using Binding = typename State::Binding;       ///< Frame binding.
+  using FrameState = typename State::FrameState; ///< Current frame.
+  static constexpr bool LAZY_RADIAL_PREPARE = [] {
+    if constexpr (requires {
+                    typename State::RadialPrepareOwner;
+                    State::radial_tables(std::declval<const FrameState &>());
+                    State::radial_fraction(std::declval<const FrameState &>());
+                  })
+      return std::is_same_v<State, typename State::RadialPrepareOwner>;
+    else
+      return false;
+  }(); ///< Whether table-eligible columns defer exact wave preparation.
+  using Prepared = std::conditional_t<
+      LAZY_RADIAL_PREPARE, std::optional<SphereAnimation::PreparedRipples>,
+      SphereAnimation::PreparedRipples>; ///< Optional exact wave kernels.
+  /** @brief Prepares exact waves unless the column has a usable radial table.
    * @param frame Current frame.
-   * @return Active kernels in launch order. */
+   * @return Exact kernels, or an empty optional for deferred preparation. */
   static Prepared prepare(const FrameState &frame) {
+    if constexpr (LAZY_RADIAL_PREPARE) {
+      const auto *TABLES = State::radial_tables(frame);
+      if (TABLES && TABLES->enabled)
+        return std::nullopt;
+    }
     return State::prepare(frame);
+  }
+  /** @brief Prepares exact waves for a rejected radial sample.
+   * @param input Original input direction.
+   * @param frame Current column context.
+   * @return Exact grouped displacement and angular travel. */
+  HS_HOT_FLASH_MEMBER static SurfaceResult
+  exact_fallback(const math::Vector &input, const FrameState &frame) {
+    const auto PREPARED = State::prepare(frame);
+    return SphereAnimation::grouped_ripples(input, PREPARED,
+                                            State::path_length_required(frame));
   }
   /** @brief Applies every active wave in launch order.
    * @param input Unit sphere direction.
    * @param frame Current frame.
-   * @param prepared Active wave kernels.
+   * @param prepared Exact kernels, or an empty optional for radial evaluation.
    * @return Displaced direction and accumulated path length. */
   static SurfaceResult apply(const math::Vector &input, const FrameState &frame,
                              const Prepared &prepared) {
-    if constexpr (requires {
-                    State::radial_tables(frame);
-                    State::radial_fraction(frame);
-                  })
+    if constexpr (LAZY_RADIAL_PREPARE) {
+      if (prepared)
+        return SphereAnimation::grouped_ripples(
+            input, *prepared, State::path_length_required(frame));
+      return SphereAnimation::radial_ripples(
+          input, State::path_length_required(frame),
+          State::radial_tables(frame), State::radial_fraction(frame),
+          [&](const math::Vector &original)
+              HS_HOT_INLINE { return exact_fallback(original, frame); });
+    } else if constexpr (requires {
+                           State::radial_tables(frame);
+                           State::radial_fraction(frame);
+                         })
       return SphereAnimation::radial_ripples(
           input, prepared, State::path_length_required(frame),
           State::radial_tables(frame), State::radial_fraction(frame));

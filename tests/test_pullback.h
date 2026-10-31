@@ -13,6 +13,7 @@
 #include <type_traits>
 
 #include "core/render/pullback.h"
+#include "core/render/pullback/composed_effect.h"
 #include "core/render/pullback/runtime_seeds.h"
 #include "core/render/pullback/sphere_animation.h"
 #include "tests/test_fixture.h"
@@ -1704,6 +1705,149 @@ inline void test_pullback_radial_ripple_fallback() {
   HS_EXPECT_EQ(IDENTITY.path_length, 0.0f);
 }
 
+/** @brief Radial rejection resolves the whole original input exactly once. */
+inline void test_pullback_radial_ripple_lazy_fallback() {
+  using namespace Pullback::SphereAnimation;
+  static RadialTables tables;
+  tables.enabled = true;
+  tables.count = 2;
+  for (auto &group : tables.groups) {
+    group.cos_threshold_min = 1.0f;
+    group.cos_threshold_max = -1.0f;
+    group.previous.fill({0.2f, 0.2f});
+    group.current.fill({0.2f, 0.2f});
+  }
+  tables.groups[0].center = math::Y_AXIS;
+  tables.groups[1].center = math::Z_AXIS;
+  const Pullback::SurfaceResult EXPECTED{math::Vector(0.2f, 0.3f, 0.4f), 0.75f};
+  int calls = 0;
+  math::Vector input = math::X_AXIS;
+  const auto FALLBACK = [&](const math::Vector &original) {
+    ++calls;
+    HS_EXPECT_EQ(original, input);
+    return EXPECTED;
+  };
+  const auto CHECK_FALLBACK = [&](const RadialTables *view) {
+    calls = 0;
+    const auto RESULT = radial_ripples(input, true, view, 0.5f, FALLBACK);
+    HS_EXPECT_EQ(calls, 1);
+    HS_EXPECT_EQ(RESULT.sphere, EXPECTED.sphere);
+    HS_EXPECT_EQ(RESULT.path_length, EXPECTED.path_length);
+  };
+  CHECK_FALLBACK(nullptr);
+  tables.enabled = false;
+  CHECK_FALLBACK(&tables);
+  tables.enabled = true;
+  tables.groups[1].current.fill({0.2f, -1.0f});
+  CHECK_FALLBACK(&tables);
+  tables.count = 1;
+  input = math::Y_AXIS;
+  CHECK_FALLBACK(&tables);
+  input = 2.0f * math::X_AXIS;
+  CHECK_FALLBACK(&tables);
+  input = math::X_AXIS;
+  calls = 0;
+  const auto RESULT = radial_ripples(input, true, &tables, 0.5f, FALLBACK);
+  HS_EXPECT_EQ(calls, 0);
+  HS_EXPECT_GT((RESULT.sphere - input).length(), 0.1f);
+}
+
+template <typename Value> struct RippleTestResource {
+  Value value;
+  template <auto Key> const Value &get() const { return value; }
+};
+struct RippleTestClock : Pullback::SphereAnimation::RippleState {
+  const Pullback::SphereAnimation::RadialTables *radial_tables = nullptr;
+  float radial_fraction = -1.0f;
+};
+struct RippleTestFrame {
+  RippleTestResource<Pullback::SphereAnimation::BurstRippleParams> params;
+  RippleTestResource<RippleTestClock> resources;
+};
+struct RippleTestBinding {
+  using FrameState = RippleTestFrame;
+};
+using RippleTestProvider = Pullback::SurfaceProvider<
+    RippleTestBinding, Pullback::SphereAnimation::BurstRippleParams, true>;
+struct CustomRippleTestProvider : RippleTestProvider {
+  static inline int calls = 0;
+  static auto prepare(const FrameState &frame) {
+    ++calls;
+    auto prepared = RippleTestProvider::prepare(frame);
+    prepared.count = 0;
+    return prepared;
+  }
+};
+struct GenericRippleTestProvider {
+  using Binding = RippleTestBinding;
+  using FrameState = RippleTestFrame;
+  static auto prepare(const FrameState &frame) {
+    return RippleTestProvider::prepare(frame);
+  }
+  static bool path_length_required(const FrameState &) { return true; }
+};
+
+/** @brief Only owned usable radial views defer exact column preparation. */
+inline void test_pullback_ripple_lazy_preparation() {
+  using namespace Pullback::SphereAnimation;
+  using Policy = Pullback::Surface::BurstRipple<RippleTestProvider>;
+  using Custom = Pullback::Surface::BurstRipple<CustomRippleTestProvider>;
+  using Generic = Pullback::Surface::BurstRipple<GenericRippleTestProvider>;
+  static_assert(Policy::LAZY_RADIAL_PREPARE);
+  static_assert(!Custom::LAZY_RADIAL_PREPARE);
+  static_assert(!Generic::LAZY_RADIAL_PREPARE);
+  static_assert(std::is_same_v<Custom::Prepared, PreparedRipples>);
+  static_assert(std::is_same_v<Generic::Prepared, PreparedRipples>);
+  RippleTestFrame frame;
+  auto &params = frame.params.value;
+  auto &clock = frame.resources.value;
+  params.period = 80.0f;
+  params.random_center = 0;
+  params.center_polar = 0.0f;
+  clock.burst_count = 1;
+  clock.waves[0] = {40.0f, 0};
+  static RadialTables tables;
+  prepare_radial_tables(params, clock, tables);
+  clock.radial_tables = &tables;
+  clock.radial_fraction = 0.5f;
+  const auto PREPARED = Policy::prepare(frame);
+  HS_EXPECT_FALSE(PREPARED.has_value());
+  const auto EXACT = RippleTestProvider::prepare(frame);
+  const auto EXPECTED =
+      radial_ripples(math::X_AXIS, EXACT, true, &tables, 0.5f);
+  const auto RESULT = Policy::apply(math::X_AXIS, frame, PREPARED);
+  HS_EXPECT_EQ(RESULT.sphere, EXPECTED.sphere);
+  HS_EXPECT_EQ(RESULT.path_length, EXPECTED.path_length);
+  tables.groups[0].current.fill({0.0f, -1.0f});
+  const auto FALLBACK = Policy::apply(math::X_AXIS, frame, PREPARED);
+  const auto GROUPED = grouped_ripples(math::X_AXIS, EXACT, true);
+  HS_EXPECT_EQ(FALLBACK.sphere, GROUPED.sphere);
+  HS_EXPECT_EQ(FALLBACK.path_length, GROUPED.path_length);
+  CustomRippleTestProvider::calls = 0;
+  const auto CUSTOM = Custom::prepare(frame);
+  HS_EXPECT_EQ(CustomRippleTestProvider::calls, 1);
+  HS_EXPECT_EQ(CUSTOM.count, 0);
+  HS_EXPECT_EQ(Custom::apply(math::X_AXIS, frame, CUSTOM).sphere, math::X_AXIS);
+  HS_EXPECT_EQ(CustomRippleTestProvider::calls, 1);
+  HS_EXPECT_EQ(Generic::prepare(frame).count, EXACT.count);
+  HS_EXPECT_EQ(Generic::apply(math::X_AXIS, frame, EXACT).sphere,
+               GROUPED.sphere);
+  for (float fraction : {-1.0f, 0.0f, 1.0f}) {
+    clock.radial_fraction =
+        fraction == 0.0f || fraction == 1.0f ? -1.0f : fraction;
+    const auto ENDPOINT = Policy::prepare(frame);
+    HS_EXPECT_TRUE(ENDPOINT.has_value());
+    HS_EXPECT_EQ(ENDPOINT->count, EXACT.count);
+    HS_EXPECT_EQ(Policy::apply(math::X_AXIS, frame, ENDPOINT).sphere,
+                 GROUPED.sphere);
+  }
+  clock.radial_fraction = 0.5f;
+  tables.enabled = false;
+  HS_EXPECT_TRUE(Policy::prepare(frame).has_value());
+  tables.enabled = true;
+  clock.radial_tables = nullptr;
+  HS_EXPECT_TRUE(Policy::prepare(frame).has_value());
+}
 /** @brief Cached ripple geometry stays subpixel across column times. */
 inline void test_pullback_radial_ripple_geometry() {
   using namespace Pullback::SphereAnimation;
@@ -2907,6 +3051,8 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_ripple_burst_centers);
   HS_RUN(test_pullback_radial_ripple_crest);
   HS_RUN(test_pullback_radial_ripple_fallback);
+  HS_RUN(test_pullback_radial_ripple_lazy_fallback);
+  HS_RUN(test_pullback_ripple_lazy_preparation);
   HS_RUN(test_pullback_radial_ripple_geometry);
   HS_RUN(test_pullback_grouped_ripple_identity);
   HS_RUN(test_pullback_grouped_ripple_analytic_crest);
