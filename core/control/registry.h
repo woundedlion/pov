@@ -65,12 +65,16 @@ struct FactoryEntry {
   PresetIdFn preset_id =
       nullptr; /**< Stable ID of a preset by index; null without PRESET_IDS. */
 #if defined(__EMSCRIPTEN__)
+  /// Synchronous visitor of one current typed modulation resource.
   using ModulationVisitor = void (*)(void *, std::string_view,
                                      const ColorModulation::Config &);
+  /// Synchronous editor of one candidate modulation recipe.
   using ModulationEditor = ParamSetResult (*)(void *,
                                               ColorModulation::Config &);
+  /// Visits the current effect's modulation recipes; null when unsupported.
   void (*visit_modulations)(const Effect &, void *,
                             ModulationVisitor) = nullptr;
+  /// Admits an edit to one current resource; null when unsupported.
   ParamSetResult (*edit_modulation)(Effect &, std::string_view, void *,
                                     ModulationEditor) = nullptr;
 #endif

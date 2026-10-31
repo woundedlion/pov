@@ -13,6 +13,7 @@
 #include <string_view>
 
 namespace hs_wasm::document_parameters {
+/// Canonical operator schema and typed member addresses.
 using Params = Pullback::Interp::Op::ModulationParams;
 
 /** @brief Whether a canonical numeric field belongs to the selected recipe.
