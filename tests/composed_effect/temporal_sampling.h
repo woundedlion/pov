@@ -1477,6 +1477,109 @@ inline void test_millefiori_column_color_phase() {
   }
 }
 
+/** @brief AshCloud noise phases cross the loop seam and reject changed recipes. */
+inline void test_ash_cloud_noise_column_phase() {
+  using namespace Pullback;
+  using FX = AshCloud<SMALL_W, SMALL_H>;
+  using Provider =
+      ModulationProvider<FX::Binding, "modulation", Pattern::SourceKind::NOISE,
+                         Pattern::Evaluation::DIRECT, true>;
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+  auto from = ComposedFrameWhiteBox::frame(effect);
+  auto to = from;
+  auto config = from.params.template get<"modulation">().modulation;
+  config.enabled = true;
+  config.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, -0.35f};
+  config.noise.scale = 2.0f;
+  config.noise.speed = 0.0002f;
+  config.noise.basis = Pattern::NoiseBasis::SIMPLEX;
+  config.noise.variant = Pattern::NoiseVariant::CONFIGURED_SINGLE;
+  config.noise.contrast = 0.0f;
+  Modulation::Resources<false> previous, current;
+  auto clock = Modulation::init(config);
+  clock.phase.phase_turns = 0.9999f;
+  previous.prepare(config, clock);
+  clock.phase.phase_turns = 0.0001f;
+  current.prepare(config, clock);
+  from.params.template get<"modulation">().modulation = config;
+  to.params.template get<"modulation">().modulation = config;
+  from.resources.template get<"modulation">().modulation = &previous.prepared;
+  to.resources.template get<"modulation">().modulation = &current.prepared;
+  HS_EXPECT_TRUE(Modulation::phase_compatible(config, config));
+  for (const float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+    const auto COLUMN = FrameInterval(from, to).at(fraction);
+    const auto PREPARED = Provider::prepare(COLUMN);
+    HS_EXPECT_EQ(PREPARED.ready, fraction > 0.0f && fraction < 1.0f);
+    if (!PREPARED.ready)
+      continue;
+    HS_EXPECT_TRUE(PREPARED.noise == &std::get<0>(current.prepared.source));
+    const float ADVANCE = (0.0001f - 0.9999f) + 1.0f;
+    const float PHASE = math::wrap_t(0.9999f + ADVANCE * fraction);
+    const float ANGLE = math::TWO_PI_F * PHASE;
+    const math::Vector OFFSET(math::NOISE_LOOP_RADIUS * cosf(ANGLE),
+                              math::NOISE_LOOP_RADIUS * sinf(ANGLE), 0.0f);
+    HS_EXPECT_NEAR(PREPARED.noise_offset.x, OFFSET.x, 1e-5f);
+    HS_EXPECT_NEAR(PREPARED.noise_offset.y, OFFSET.y, 1e-5f);
+    HS_EXPECT_EQ(PREPARED.noise_offset.z, 0.0f);
+    for (const auto &direction :
+         {math::X_AXIS, math::Y_AXIS, math::Z_AXIS,
+          math::Vector(0.3f, 0.4f, 0.5f).normalized()}) {
+      const auto UNIT = Pattern::SphereDirection::admit(direction).value();
+      const auto Q = UNIT * config.noise.scale + OFFSET;
+      const float SCALAR = hs::clamp(std::get<0>(current.prepared.source)
+                                         .noise.GetNoiseSingle(Q.x, Q.y, Q.z),
+                                     -1.0f, 1.0f);
+      ColorSample sample{Color4(Pixel(2000, 4000, 6000), 0.37f),
+                         {0.5f, 0.7f, direction, 2.0f}};
+      Color::Modulate<Provider>::apply_phase_in_place(sample, COLUMN, PREPARED);
+      HS_EXPECT_NEAR(sample.pending_hue, math::wrap_t(-0.35f * SCALAR), 1e-6f);
+      HS_EXPECT_EQ(sample.color.alpha, 0.37f);
+    }
+  }
+  for (int change = 0; change < 10; ++change) {
+    auto changed = to;
+    auto &recipe = changed.params.template get<"modulation">().modulation;
+    if (change == 0)
+      recipe.noise.scale += 0.1f;
+    if (change == 1)
+      recipe.noise.speed += 0.0001f;
+    if (change == 2)
+      ++recipe.seed;
+    if (change == 3)
+      recipe.noise.basis = Pattern::NoiseBasis::RIDGED3;
+    if (change == 4)
+      recipe.noise.contrast = 0.1f;
+    if (change == 5)
+      recipe.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
+    if (change == 6)
+      recipe.enabled = false;
+    if (change == 7)
+      recipe.mechanic.kind = ColorModulation::Mechanic::OPACITY;
+    if (change == 8)
+      recipe.source = Pattern::SourceKind::DISPLACEMENT;
+    if (change == 9)
+      recipe.evaluation = Pattern::Evaluation::BAKED_CUBE;
+    HS_EXPECT_FALSE(Modulation::phase_compatible(config, recipe));
+    const auto COLUMN = FrameInterval(from, changed).at(0.5f);
+    HS_EXPECT_FALSE(COLUMN.temporal.phase_compatible);
+    HS_EXPECT_FALSE(Provider::prepare(COLUMN).ready);
+  }
+  auto unsupported = config;
+  unsupported.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
+  HS_EXPECT_FALSE(Modulation::phase_compatible(unsupported, unsupported));
+  unsupported = config;
+  unsupported.evaluation = Pattern::Evaluation::BAKED_CUBE;
+  HS_EXPECT_FALSE(Modulation::phase_compatible(unsupported, unsupported));
+  auto missing = FrameInterval(from, to).at(0.5f);
+  missing.resources.template get<"modulation">().previous_modulation = nullptr;
+  HS_EXPECT_FALSE(Provider::prepare(missing).ready);
+  missing = FrameInterval(from, to).at(0.5f);
+  missing.resources.template get<"modulation">().modulation = nullptr;
+  HS_EXPECT_FALSE(Provider::prepare(missing).ready);
+}
+
 /** @brief Palette-base slots preserve the other endpoint and skip changed controls. */
 inline void test_millefiori_palette_lab_lifetime() {
   using FX = Millefiori<SMALL_W, SMALL_H>;

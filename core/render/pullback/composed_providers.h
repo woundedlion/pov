@@ -646,8 +646,25 @@ struct ModulationProvider {
           return result;
         if constexpr (SourceV == Pattern::SourceKind::DISPLACEMENT)
           result.ready = true;
-        else if constexpr (SourceV == Pattern::SourceKind::SPHERE_SMOOTH_GRID &&
+        else if constexpr (SourceV == Pattern::SourceKind::NOISE &&
                            EvaluationV == Pattern::Evaluation::DIRECT) {
+          if (!resource.modulation || !resource.previous_modulation)
+            return result;
+          if (!Modulation::phase_compatible(
+                  resource.previous_modulation->config,
+                  resource.modulation->config))
+            return result;
+          result.noise = &std::get<0>(resource.modulation->source);
+          const float PHASE =
+              Spacetime::ClockInterval(
+                  resource.previous_modulation->state.phase.phase_turns,
+                  resource.modulation->state.phase.phase_turns, 1.0f)
+                  .sample(frame.temporal.fraction);
+          result.noise_offset = math::noise_sphere_loop_offset(PHASE);
+          result.ready = true;
+        } else if constexpr (SourceV ==
+                                 Pattern::SourceKind::SPHERE_SMOOTH_GRID &&
+                             EvaluationV == Pattern::Evaluation::DIRECT) {
           if (!resource.modulation || !resource.previous_modulation)
             return result;
           if (!Modulation::phase_compatible(

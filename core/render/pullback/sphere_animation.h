@@ -220,21 +220,21 @@ inline void prepare_radial_tables(const Params &params,
   }
 }
 
-/** @brief Applies interpolated radial curves with grouped-kernel fallback.
+/** @brief Attempts interpolated radial curves without exact fallback.
  * @param input Unit direction.
  * @param track_path Whether to accumulate angular travel.
  * @param tables Optional current-owned transfer curves.
  * @param fraction Current endpoint weight.
- * @param fallback Resolves the original input with exact kernels.
- * @return Displaced direction and travel. */
-template <typename Fallback>
-HS_HOT_ITCM_MEMBER inline SurfaceResult
-radial_ripples(const math::Vector &input, bool track_path,
-               const RadialTables *tables, float fraction,
-               const Fallback &fallback) {
-  SurfaceResult result{input, 0.0f};
+ * @param result Receives displaced direction and travel on success.
+ * @return Whether every transfer was admitted. */
+HS_HOT_ITCM_MEMBER inline bool try_radial_ripples(const math::Vector &input,
+                                                  bool track_path,
+                                                  const RadialTables *tables,
+                                                  float fraction,
+                                                  SurfaceResult &result) {
+  result = {input, 0.0f};
   if (!tables || !tables->enabled)
-    goto exact;
+    return false;
   for (uint8_t group_index = 0; group_index < tables->count; ++group_index) {
     const auto &group = tables->groups[group_index];
     const math::Vector START = result.sphere;
@@ -247,17 +247,33 @@ radial_ripples(const math::Vector &input, bool track_path,
     RadialTransfer transfer;
     if (!RippleKernel::sample_transfer(group.previous, group.current, DISTANCE,
                                        fraction, track_path, transfer))
-      goto exact;
+      return false;
     if (track_path)
       result.path_length += transfer.path;
     if (transfer.angle == 0.0f)
       continue;
     if (!RippleKernel::rotate_group(START, group.center, transfer.angle,
                                     result.sphere))
-      goto exact;
+      return false;
   }
-  return result;
-exact:
+  return true;
+}
+
+/** @brief Applies radial curves, restarting exact fallback from the input.
+ * @param input Unit direction.
+ * @param track_path Whether to accumulate angular travel.
+ * @param tables Optional current-owned transfer curves.
+ * @param fraction Current endpoint weight.
+ * @param fallback Resolves the original input with exact kernels.
+ * @return Displaced direction and travel. */
+template <typename Fallback>
+HS_HOT_INLINE inline SurfaceResult
+radial_ripples(const math::Vector &input, bool track_path,
+               const RadialTables *tables, float fraction,
+               const Fallback &fallback) {
+  SurfaceResult result;
+  if (try_radial_ripples(input, track_path, tables, fraction, result))
+    return result;
   return fallback(input);
 }
 

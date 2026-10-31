@@ -150,12 +150,16 @@ inline bool same_topology(const Config &a, const Config &b) {
 /** @brief Checks recipes admitted by column-phase color sampling.
  * @param a Previous recipe.
  * @param b Current recipe.
- * @return Whether the spatial recipe is unchanged and analytic. */
+ * @return Whether the spatial recipe supports continuous column-phase sampling. */
 inline bool phase_compatible(const Config &a, const Config &b) {
   if (!same_topology(a, b))
     return false;
   if (b.source == Pattern::SourceKind::DISPLACEMENT)
     return true;
+  if (b.source == Pattern::SourceKind::NOISE)
+    return b.evaluation == Pattern::Evaluation::DIRECT &&
+           b.noise.variant == Pattern::NoiseVariant::CONFIGURED_SINGLE &&
+           a.noise == b.noise && a.seed == b.seed;
   return b.source == Pattern::SourceKind::SPHERE_SMOOTH_GRID &&
          b.evaluation == Pattern::Evaluation::DIRECT && a.grid == b.grid;
 }

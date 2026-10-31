@@ -350,10 +350,13 @@ struct ModulationState {
   bool enabled = false;             ///< Whether this layer contributes.
 };
 
-/** @brief Narrow analytic grid prepared at the column phase. */
+/** @brief Eligible spatial source prepared at the column phase. */
 struct PhaseModulationState : ModulationState {
   Pattern::SphereSmoothGrid::Prepared grid{}; ///< Interpolated axial phases.
-  bool ready = false; ///< Whether one shared color tail is admitted.
+  const Pattern::SphereNoise::Prepared *noise =
+      nullptr;                 ///< Retained generator.
+  math::Vector noise_offset{}; ///< Noise loop at the column phase.
+  bool ready = false;          ///< Whether one shared color tail is admitted.
 };
 static_assert(sizeof(Pattern::SphereSmoothGrid::Prepared) == 40);
 
@@ -684,13 +687,20 @@ template <typename State> struct Modulate : ApproximationDefaults {
     (void)frame;
     if (!prepared.enabled || prepared.mechanic.amount == 0.0f)
       return;
-    const float SCALAR =
-        prepared.source == Pattern::SourceKind::DISPLACEMENT
-            ? sample.field.path_length
-            : Pattern::SphereSmoothGrid::sample(
-                  Pattern::SphereDirection::admit(sample.field.sphere),
-                  prepared.grid);
-    apply_perceptual_scalar(sample, SCALAR, prepared.mechanic);
+    float scalar;
+    if (prepared.source == Pattern::SourceKind::DISPLACEMENT)
+      scalar = sample.field.path_length;
+    else if (prepared.source == Pattern::SourceKind::NOISE) {
+      const auto &noise = *prepared.noise;
+      const auto q = math::noise_sphere_coordinate(
+          Pattern::SphereDirection::admit(sample.field.sphere).value(),
+          noise.scale, prepared.noise_offset);
+      scalar =
+          Pattern::bounded_scalar(noise.noise.GetNoiseSingle(q.x, q.y, q.z));
+    } else
+      scalar = Pattern::SphereSmoothGrid::sample(
+          Pattern::SphereDirection::admit(sample.field.sphere), prepared.grid);
+    apply_perceptual_scalar(sample, scalar, prepared.mechanic);
   }
   /** @brief Modulates one endpoint.
    * @tparam FrameState Frame context.

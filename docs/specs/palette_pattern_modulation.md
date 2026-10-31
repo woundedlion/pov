@@ -352,14 +352,21 @@ their existing RGB16 brightness scaling.
 
 `Spec::TEMPORAL_COLOR_PHASE` opts eligible authored modulation providers into a
 different interior color-time model. Blend the base palette RGB and alpha first,
-sample the analytic smooth grid at the shortest interpolated column phase, then
-apply each hue/lift layer once. Displacement layers use the sampled geometric
-path length. All color-tail stages must declare and admit this protocol; an
+sample eligible spatial sources at the shortest interpolated column phase, then
+apply each hue/lift layer once. Smooth grids interpolate their axial phases.
+Direct configured-single noise interpolates the loop clock and resolves its loop
+offset once per column, then samples the retained configured generator once per
+pixel. Noise admission requires unchanged noise parameters and generator seed;
+baked and octave-contour noise retain endpoint-tail evaluation. Displacement
+layers use the sampled geometric path length. All color-tail stages must declare and admit this protocol; an
 unknown stage, unsupported source/mechanic, or changed source recipe keeps the
 complete endpoint-tail model. Literal fractions zero and one remain canonical.
 Grid preparation retains only the normalized axes, frequencies and phases;
-it does not copy the noise-preparation variant into column storage. Millefiori
-enables this model; other authored specs default to the endpoint-tail model.
+it does not copy the noise-preparation variant into column storage. Noise
+preparation borrows the current immutable generator and stores the column loop
+offset; its endpoint owner survives the complete column draw. Millefiori and
+AshCloud enable this model; other authored specs default to the endpoint-tail
+model.
 Both models compose hue and lift before one final gamut mapping. Alpha is
 unchanged because the admitted shared mechanics preserve it.
 
@@ -420,7 +427,7 @@ zero and one select the corresponding endpoint directly when the hook exists.
 
 ### Burst-ripple radial transfer
 
-`Spec::RIPPLE_RADIAL_TABLE` defaults off; Millefiori enables it for temporal
+`Spec::RIPPLE_RADIAL_TABLE` defaults off; Millefiori and AshCloud enable it for temporal
 column rendering. Each persistent resource owns radial curves of net rotation
 and absolute travel for its burst centers. Frame preparation bakes current wave
 ages and ages minus one, preserving wave order. Column views borrow the current

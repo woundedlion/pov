@@ -67,7 +67,7 @@ static_assert(CoverageFixture::Metadata::COVERAGE ==
               Pullback::ProjectionCoverageMode::WEIGHT);
 using TrackedFixture = CosmicEyeball<SMALL_W, SMALL_H>;
 static_assert(TrackedFixture::Metadata::PATH_TRACKED);
-static_assert(!CoverageFixture::Metadata::PATH_TRACKED);
+static_assert(CoverageFixture::Metadata::PATH_TRACKED);
 
 template <typename FX> struct TraitsOf {
   using Spec = typename FX::Spec;
@@ -347,6 +347,48 @@ inline void check_slider_registration(const char *name) {
                                         "field.Modulation Amount",
                                         "field.Pattern Frequency",
                                         "field.Pattern Speed",
+                                        "modulate.Modulation Amount"};
+    for (const char *slider : EXPECTED) {
+      HS_CONTEXT(slider);
+      HS_EXPECT_TRUE(params.find(slider) != nullptr);
+    }
+    HS_EXPECT_EQ(params.size(), std::size(EXPECTED));
+    HS_EXPECT_EQ(params.size(), params.capacity());
+    return;
+  }
+
+  if constexpr (std::is_same_v<FX, AshCloud<SMALL_W, SMALL_H>>) {
+    constexpr const char *EXPECTED[] = {"Lattice Cell Scale",
+                                        "Lattice Radius",
+                                        "Lattice Shape",
+                                        "Lattice Softness",
+                                        "Camera Wander",
+                                        "Projection Spin Speed",
+                                        "Projection Wander",
+                                        "Singularity Fade",
+                                        "Surface Noise Scale",
+                                        "Surface Noise Strength",
+                                        "Surface Noise Speed",
+                                        "displace.Ripple Period",
+                                        "displace.Ripple Strength",
+                                        "displace.Ripple Decay",
+                                        "displace.Ripple Thickness",
+                                        "displace.Ripple Center Azimuth",
+                                        "displace.Ripple Center Polar",
+                                        "displace.Burst Rate",
+                                        "Cutout Threshold",
+                                        "Cutout Softness",
+                                        "Palette Chroma",
+                                        "Palette Mapping",
+                                        "Mapping Frequency",
+                                        "Mapping Phase",
+                                        "Phase Oscillation Depth",
+                                        "Phase Oscillation Speed",
+                                        "Opacity at Value 0",
+                                        "Opacity at Value 1",
+                                        "modulation.Modulation Amount",
+                                        "modulation.Pattern Scale",
+                                        "modulation.Pattern Speed",
                                         "modulate.Modulation Amount"};
     for (const char *slider : EXPECTED) {
       HS_CONTEXT(slider);
@@ -817,14 +859,37 @@ inline void test_millefiori_document_pipeline() {
   composed_chain_tests::verify_export<Millefiori<SMALL_W, SMALL_H>>(0);
 }
 
+/** @brief AshCloud pixels match its document-built operator chain. */
+inline void test_ash_cloud_document_pipeline() {
+  using FX = AshCloud<SMALL_W, SMALL_H>;
+  using Ripple = Pullback::Stage::Displace<
+      Pullback::Surface::BurstRipple<Pullback::SurfaceProvider<
+          FX::Binding, Pullback::SphereAnimation::BurstRippleParams, true,
+          "displace">>>;
+  using Curl = Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
+      Pullback::SurfaceNoiseParams, FX::Binding, true>::Type>;
+  using Lens = Pullback::Stage::Lens<Pullback::Lens::DodecahedralKaleidoscope>;
+  using Project = Pullback::Stage::Project<Pullback::ProjectionPolicyFor<
+      Pullback::ProjectionKind::STEREOGRAPHIC, FX::Binding>::Type>;
+  using Leaves = Pullback::ComposedDetail::PipelineLeaves<
+      FX::Spec::template Pipeline<FX::Binding>>;
+  static_assert(std::is_same_v<Leaves::StageAt<1>, Ripple>);
+  static_assert(std::is_same_v<Leaves::StageAt<2>, Curl>);
+  static_assert(std::is_same_v<Leaves::StageAt<3>, Lens>);
+  static_assert(std::is_same_v<Leaves::StageAt<4>, Project>);
+  composed_chain_tests::verify_export<FX>(0);
+}
+
 /** @brief Module entry point for the composed-effect base contract. */
 inline int run_composed_effect_tests() {
   ModuleFixture fixture("composed_effect");
   HS_RUN(test_millefiori_radial_table_interval);
   HS_RUN(test_millefiori_document_pipeline);
+  HS_RUN(test_ash_cloud_document_pipeline);
   HS_RUN(test_composed_persistent_prepared_frame);
   HS_RUN(test_composed_document_modulation_members);
   HS_RUN(test_millefiori_column_color_phase);
+  HS_RUN(test_ash_cloud_noise_column_phase);
   HS_RUN(test_millefiori_palette_lab_lifetime);
   HS_RUN(test_millefiori_ripple_endpoints);
   HS_RUN(test_composed_strobe_roster);
