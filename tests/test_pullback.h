@@ -2399,6 +2399,64 @@ struct ShiftedLabPalette : CountingLabPalette {
   }
 };
 
+/** @brief Cached generated palettes meet channel error bounds between nodes. */
+inline void test_pullback_palette_lab_qualification() {
+  using namespace Pullback;
+  using Policy = Color::GeneratedPalette<LabPaletteProvider>;
+  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> buffer{};
+  Arena arena(buffer.data(), buffer.size());
+  const GenerativePalette FROM(
+      PaletteRecipes::profile(PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC,
+                              AxisCurve::BELL, 0.08f, 0.84f));
+  const GenerativePalette TO(PaletteRecipes::profile(
+      PaletteDomain::STRAIGHT, PaletteHarmony::COMPLEMENTARY, AxisCurve::CUP,
+      0.61f, 0.78f));
+  BakedPaletteStorage from, to;
+  from.bake(arena, FROM);
+  to.bake(arena, TO);
+  PaletteLabLut cache;
+  cache.bake(from.view(), to.view());
+  HS_EXPECT_TRUE(cache.active);
+  PaletteFrame frame;
+  frame.palette = &to.view();
+  frame.temporal.palette = &from.view();
+  frame.lab = &cache;
+  uint32_t maximum = 0;
+  uint64_t total = 0;
+  size_t channels = 0;
+  constexpr int VALUES = 2048;
+  constexpr int FRACTIONS = 128;
+  for (int time = 0; time < FRACTIONS; ++time) {
+    frame.temporal.fraction = (static_cast<float>(time) + 0.5f) / FRACTIONS;
+    const auto PREPARED = Policy::prepare(frame);
+    for (int index = 0; index < VALUES; ++index) {
+      const FieldSample FIELD{(static_cast<float>(index) + 0.5f) / VALUES,
+                              0.75f, math::Y_AXIS, 0.0f};
+      ColorSample cached;
+      HS_EXPECT_TRUE(Policy::apply_shared_base(FIELD, frame, PREPARED, cached));
+      const auto PAIR = Policy::apply_pair(FIELD, frame, PREPARED);
+      const auto EXPECTED = finish_color_sample(blend_color_samples(
+          PAIR.first, PAIR.second, frame.temporal.fraction));
+      const auto ACTUAL = finish_color_sample(cached);
+      HS_EXPECT_NEAR(ACTUAL.alpha, EXPECTED.alpha, 1e-7f);
+      for (const uint32_t ERROR :
+           {channel_gap(ACTUAL.color.r, EXPECTED.color.r),
+            channel_gap(ACTUAL.color.g, EXPECTED.color.g),
+            channel_gap(ACTUAL.color.b, EXPECTED.color.b)}) {
+        maximum = std::max(maximum, ERROR);
+        total += ERROR;
+        ++channels;
+      }
+    }
+  }
+  const double MEAN = static_cast<double>(total) / channels;
+  std::printf("  palette lab cache max=%u mean=%.3f channel codes\n", maximum,
+              MEAN);
+  HS_EXPECT_GT(maximum, 0u);
+  HS_EXPECT_LE(static_cast<float>(maximum), Policy::METRICS[0].limit);
+  HS_EXPECT_LE(MEAN, Policy::METRICS[1].limit);
+}
+
 /** @brief Shared cached bases skip both palette endpoints and preserve alpha. */
 inline void test_pullback_shared_lab_dispatch() {
   using namespace Pullback;
@@ -3071,6 +3129,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_phase_tail_dispatch);
   HS_RUN(test_pullback_palette_lab_nodes);
   HS_RUN(test_pullback_cached_lab_finish);
+  HS_RUN(test_pullback_palette_lab_qualification);
   HS_RUN(test_pullback_shared_lab_dispatch);
   HS_RUN(test_pullback_paired_color_dispatch);
   HS_RUN(test_pullback_paired_palette_controls);
