@@ -777,7 +777,7 @@ conversion.
 | `getShaderChainBindings()` | Acquire the loaded chain's authoring capability, or null for a fixed effect. Release it with `delete()` after use. |
 | `ShaderChainBindings.isValid()` → `bool` | Whether the handle still addresses the live chain incarnation. |
 | `ShaderChainBindings.getProgram()` | Read back the ordered chain entries as `[{instance, operator}]`. |
-| `ShaderChainBindings.getSnapshot()` | Capture the schema-3 program, named parameters, required per-colorize modulation recipes, typed clocks/noise/walk state, generated palette bank and pause flag. Modulation fields travel in `modulation`, not named parameters; sending them as parameters returns `INVALID_VALUE`. |
+| `ShaderChainBindings.getSnapshot()` | Capture the schema-4 program, named parameters, required per-modulation-stage recipes (schema 3 is migrated on decode), typed clocks/noise/walk state, generated palette bank and pause flag. Modulation fields travel in `modulation`, not named parameters; sending them as parameters returns `INVALID_VALUE`. |
 | `ShaderChainBindings.restoreSnapshot(snapshot)` | Restore atomically; a refusal commits no restoration writes. Side effects of caller accessors during payload cloning are not rolled back. Returns `Module.ChainSnapshotRestoreResult`. |
 | `getPixels()` | Return a zero-copy `Uint16Array` view into WASM linear memory, spanning the active resolution's prefix of the fixed backing buffer |
 | `getBufferLength()` → `int` | Length of the pixel buffer (`W × H × 3`) for sizing the view, and the staleness test for a cached one: a `setResolution` moves this length without detaching the outstanding view |

@@ -18,12 +18,12 @@
 
 /** @brief Outcome of decoding or restoring a ShaderChain snapshot. */
 enum class ChainSnapshotRestoreResult {
-  APPLIED,             ///< Decoded or restored successfully.
-  NOT_SHADER_CHAIN,    ///< Stale handle, or the effect is not a ShaderChain.
-  UNSUPPORTED_VERSION, ///< schema_version is not ChainSnapshot::SCHEMA_VERSION.
-  INVALID_LENGTH,      ///< Empty chain, or an array over capacity/fixed length.
-  INVALID_VALUE,       ///< A missing, mistyped or out-of-range value.
-  INVALID_CHAIN        ///< The program shape fails to compile.
+  APPLIED,          ///< Decoded or restored successfully.
+  NOT_SHADER_CHAIN, ///< Stale handle, or the effect is not a ShaderChain.
+  UNSUPPORTED_VERSION, ///< Restore requires ChainSnapshot::SCHEMA_VERSION; decode migrates schema 3.
+  INVALID_LENGTH, ///< Empty chain, or an array over capacity/fixed length.
+  INVALID_VALUE,  ///< A missing, mistyped or out-of-range value.
+  INVALID_CHAIN   ///< The program shape fails to compile.
 };
 
 /** @brief Serializable ShaderChain state: program, values and runtime. */
