@@ -51,6 +51,7 @@
 #define FASTNOISELITE_H
 
 #include <cmath>
+#include <bit>
 #include "FastNoiseLite_config.h"
 
 class FastNoiseLite {
@@ -400,6 +401,16 @@ private:
   }
 
 public:
+#if HS_ENABLE_TEST_ORACLES
+  template <typename FNfloat> static int FastRoundForTest(FNfloat value) {
+    return FastRound(value);
+  }
+
+  static int GradientResidualSignForTest(float value) {
+    return GradientResidualSign(value);
+  }
+#endif
+
   HS_HOT_ITCM_MEMBER void GetNoiseGradientSingle(float x, float y, float z,
                                                  float &xg, float &yg,
                                                  float &zg) const {
@@ -518,7 +529,11 @@ private:
   }
 
   template <typename FNfloat> static int FastRound(FNfloat f) {
-    return f >= 0 ? (int)(f + 0.5f) : (int)(f - 0.5f);
+    return (int)(f + std::copysign(FNfloat(0.5f), f));
+  }
+
+  __attribute__((always_inline)) static int GradientResidualSign(float value) {
+    return std::bit_cast<uint32_t>(value) > 0xb3000000u ? 1 : -1;
   }
 
   static float Lerp(float a, float b, float t) { return a + t * (b - a); }
@@ -1205,9 +1220,9 @@ private:
     float y0 = y - j;
     float z0 = z - k;
 
-    int xNSign = (int)(-1.0f - x0) | 1;
-    int yNSign = (int)(-1.0f - y0) | 1;
-    int zNSign = (int)(-1.0f - z0) | 1;
+    int xNSign = GradientResidualSign(x0);
+    int yNSign = GradientResidualSign(y0);
+    int zNSign = GradientResidualSign(z0);
 
     float ax0 = xNSign * -x0;
     float ay0 = yNSign * -y0;
@@ -1244,11 +1259,17 @@ private:
       float y1 = y0;
       float z1 = z0;
 
-      if (ax0 >= ay0 && ax0 >= az0) {
+      const uint32_t axBits = std::bit_cast<uint32_t>(ax0);
+      const uint32_t ayBits = std::bit_cast<uint32_t>(ay0);
+      const uint32_t azBits = std::bit_cast<uint32_t>(az0);
+      const bool nonnegative = ((axBits | ayBits | azBits) & 0x80000000u) == 0;
+      if (nonnegative ? (axBits >= ayBits && axBits >= azBits)
+                      : (ax0 >= ay0 && ax0 >= az0)) {
         x1 += xNSign;
         b -= xNSign * 2 * x1;
         i1 -= xNSign * PrimeX;
-      } else if (ay0 > ax0 && ay0 >= az0) {
+      } else if (nonnegative ? (ayBits > axBits && ayBits >= azBits)
+                             : (ay0 > ax0 && ay0 >= az0)) {
         y1 += yNSign;
         b -= yNSign * 2 * y1;
         j1 -= yNSign * PrimeY;
@@ -1312,9 +1333,9 @@ private:
     float y0 = y - j;
     float z0 = z - k;
 
-    int xNSign = (int)(-1.0f - x0) | 1;
-    int yNSign = (int)(-1.0f - y0) | 1;
-    int zNSign = (int)(-1.0f - z0) | 1;
+    int xNSign = GradientResidualSign(x0);
+    int yNSign = GradientResidualSign(y0);
+    int zNSign = GradientResidualSign(z0);
 
     float ax0 = xNSign * -x0;
     float ay0 = yNSign * -y0;
@@ -1354,11 +1375,17 @@ private:
       float y1 = y0;
       float z1 = z0;
 
-      if (ax0 >= ay0 && ax0 >= az0) {
+      const uint32_t axBits = std::bit_cast<uint32_t>(ax0);
+      const uint32_t ayBits = std::bit_cast<uint32_t>(ay0);
+      const uint32_t azBits = std::bit_cast<uint32_t>(az0);
+      const bool nonnegative = ((axBits | ayBits | azBits) & 0x80000000u) == 0;
+      if (nonnegative ? (axBits >= ayBits && axBits >= azBits)
+                      : (ax0 >= ay0 && ax0 >= az0)) {
         x1 += xNSign;
         b -= xNSign * 2 * x1;
         i1 -= xNSign * PrimeX;
-      } else if (ay0 > ax0 && ay0 >= az0) {
+      } else if (nonnegative ? (ayBits > axBits && ayBits >= azBits)
+                             : (ay0 > ax0 && ay0 >= az0)) {
         y1 += yNSign;
         b -= yNSign * 2 * y1;
         j1 -= yNSign * PrimeY;

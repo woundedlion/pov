@@ -233,6 +233,64 @@ inline void test_noise_field_tetrahedral_gradient() {
   }
 }
 
+template <typename Float> inline void check_noise_rounding() {
+#if HS_ENABLE_TEST_ORACLES
+  const auto check = [](Float value) {
+    if (!std::isfinite(value) || std::fabs(value) > Float(1000000000))
+      return;
+    const int EXPECTED = value >= 0 ? int(value + 0.5f) : int(value - 0.5f);
+    HS_EXPECT_EQ(FastNoiseLite::FastRoundForTest(value), EXPECTED);
+  };
+  for (Float value :
+       {Float(-0.0), Float(0.0), Float(-0.5), Float(0.5), Float(-1.5),
+        Float(1.5), Float(-8388609), Float(8388609), Float(-16777215),
+        Float(16777215), -std::numeric_limits<Float>::denorm_min(),
+        std::numeric_limits<Float>::denorm_min()}) {
+    check(value);
+    check(std::nextafter(value, -std::numeric_limits<Float>::infinity()));
+    check(std::nextafter(value, std::numeric_limits<Float>::infinity()));
+  }
+  using Bits = std::conditional_t<sizeof(Float) == 4, uint32_t, uint64_t>;
+  uint64_t state = 0x723f1185bc83d229ull;
+  for (int i = 0; i < 100000; ++i) {
+    state ^= state << 13;
+    state ^= state >> 7;
+    state ^= state << 17;
+    check(std::bit_cast<Float>(static_cast<Bits>(state)));
+  }
+#endif
+}
+
+/** @brief Noise rounding retains add-half truncation at ties and neighboring floats. */
+inline void test_noise_rounding_contract() {
+  check_noise_rounding<float>();
+  check_noise_rounding<double>();
+}
+
+/** @brief Gradient residual signs retain rounded subtract-one truncation. */
+inline void test_noise_gradient_residual_sign() {
+#if HS_ENABLE_TEST_ORACLES
+  const auto check = [](float value) {
+    if (!std::isfinite(value) || std::fabs(value) > 1.0f)
+      return;
+    HS_EXPECT_EQ(FastNoiseLite::GradientResidualSignForTest(value),
+                 int(-1.0f - value) | 1);
+  };
+  const float BOUNDARY = -0x1p-25f;
+  for (float value :
+       {-1.0f, 1.0f, -0.0f, 0.0f, BOUNDARY, std::nextafter(BOUNDARY, -1.0f),
+        std::nextafter(BOUNDARY, 0.0f)})
+    check(value);
+  uint32_t bits = 41;
+  for (int i = 0; i < 100000; ++i) {
+    bits ^= bits << 13;
+    bits ^= bits >> 17;
+    bits ^= bits << 5;
+    check(std::bit_cast<float>(bits));
+  }
+#endif
+}
+
 /** @brief Value-returning gradients preserve the reference-output API. */
 inline void test_noise_field_gradient_value_return() {
   uint32_t state = 0x4a31c587;
@@ -586,6 +644,8 @@ inline int run_noise_field_tests() {
   HS_RUN(test_noise_field_direct_tangent);
   HS_RUN(test_noise_field_tetrahedral_gradient);
   HS_RUN(test_noise_field_gradient_value_return);
+  HS_RUN(test_noise_rounding_contract);
+  HS_RUN(test_noise_gradient_residual_sign);
   HS_RUN(test_noise_field_analytic_gradient);
   HS_RUN(test_vector_noise_rotation_setter_order);
   HS_RUN(test_noise_field_simplex_curl_approximation);
