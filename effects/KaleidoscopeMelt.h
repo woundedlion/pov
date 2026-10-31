@@ -84,7 +84,7 @@ public:
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "c2da811406c029dc64b7431f11034d3a10847808a3ee502c77c8b478c2a828cc";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "0a1ebcb5c27c959c4e5baec2849fe0a86ec532242394420506f8653d4801c9da";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "49fa23536dc1a8a7472a54fe0071b4cc0da91fd59ac6d18e01aaf075541c8383";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "kaleidoscope-melt"
@@ -111,8 +111,8 @@ public:
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::CUP;
     value.template get<"color">().phase_oscillation_depth = 0.0f;
     value.template get<"color">().phase_oscillation_speed = 0.0f;
-    value.template get<"color">().opacity_high = 1.0f;
-    value.template get<"color">().opacity_low = 1.0f;
+    value.template get<"color">().opacity_high = 0.865f;
+    value.template get<"color">().opacity_low = 0.339f;
     value.template get<"modulation">().modulation.mechanic.amount = 1.5958333f;
     value.template get<"modulation">().modulation.enabled = true;
     value.template get<"modulation">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
