@@ -1695,7 +1695,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                                           const PreparedTuple &prepared) {
     using CurrentNode = NodeAt<Index>;
     if constexpr (fused_color_tail_supported<Index, Input>()) {
-      if (ctx.temporal.fraction > 0.0f && ctx.temporal.fraction < 1.0f) {
+      if (ctx.temporal.fraction > 0.0f && ctx.temporal.fraction <= 1.0f) {
         using Palette = typename CurrentNode::Descriptor::ColorPolicy;
         using Instrumentation = typename Binding::Instrumentation;
         const auto START = Instrumentation::mark();

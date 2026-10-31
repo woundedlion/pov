@@ -3874,6 +3874,93 @@ inline void test_pullback_fused_lab_direct_fallback() {
   }
 }
 
+/** @brief Cached current endpoints sample one live source and retain exact alpha. */
+inline void test_pullback_fused_lab_current_endpoint() {
+  using namespace Pullback;
+  using Policy = Color::GeneratedPalette<LabPaletteProvider>;
+  using Pipeline = Pullback::Pipeline<
+      PaletteBinding, PaletteSampleStage, Stage::Colorize<Policy>,
+      Stage::Modulate<Color::Modulate<PaletteLayerProvider>>>;
+  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> bytes{};
+  Arena arena(bytes.data(), bytes.size());
+  BakedPaletteStorage a, b;
+  a.bake(arena, ConstantPalette{Color4(Pixel(10000, 40000, 20000), 1.0f)});
+  b.bake(arena, ConstantPalette{Color4(Pixel(1451, 1516, 42130), 1.0f)});
+  PaletteLabLut cache;
+  PaletteFrame frame;
+  frame.palette = &b.view();
+  frame.temporal.palette = &a.view();
+  frame.temporal.fraction = 1.0f;
+  frame.lab = &cache;
+  frame.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 1.0f};
+  static int calls;
+  const auto SOURCE = [](const Modulation::Prepared &prepared,
+                         const Pattern::SphereDirection &) {
+    ++calls;
+    return prepared.state.phase.phase_turns;
+  };
+  Modulation::Prepared current{};
+  current.evaluate = SOURCE;
+  frame.modulation = &current;
+  for (bool guard : {false, true}) {
+    cache.bake(a.view(), b.view());
+    if (guard)
+      cache.nodes.fill({0.431782782f, 0.00217834837f, -0.24565056f});
+    for (float scalar : {-0.125f, 0.0f, 0.13f, 0.9814453125f}) {
+      current.state.phase.phase_turns = scalar;
+      const auto MODULATION = PaletteLayerProvider::prepare(frame);
+      const auto PREPARED = Policy::prepare(frame);
+      for (float coverage : {0.0f, 0.5f, 1.0f}) {
+        const FieldSample FIELD{0.5f, coverage, math::Y_AXIS, 0.0f};
+        const auto REFERENCE = Policy::apply_fused_modulation(
+            FIELD, frame, PREPARED, MODULATION, 1.0f);
+        const auto EXPECTED = finish_color_sample(REFERENCE);
+        auto cached = REFERENCE;
+        cached.cached_lab =
+            PaletteLabLut::sample(PREPARED.lab, cached.palette_coordinate);
+        cached.has_cached_lab = true;
+        Color::restore_cached_palette_base_near_gamut_gate(cached, [] {});
+        if (guard && scalar == 0.9814453125f)
+          HS_EXPECT_FALSE(cached.has_cached_lab);
+        const auto CACHED = finish_color_sample(cached);
+        calls = 0;
+        const auto ACTUAL = Policy::shade_fused_modulation(
+            FIELD, frame, PREPARED, MODULATION, 1.0f);
+        HS_EXPECT_EQ(ACTUAL.color, CACHED.color);
+        HS_EXPECT_EQ(ACTUAL.alpha, EXPECTED.alpha);
+        HS_EXPECT_EQ(calls, 1);
+        if (!guard) {
+          HS_EXPECT_NEAR(ACTUAL.color.r, EXPECTED.color.r, 2);
+          HS_EXPECT_NEAR(ACTUAL.color.g, EXPECTED.color.g, 2);
+          HS_EXPECT_NEAR(ACTUAL.color.b, EXPECTED.color.b, 2);
+        }
+      }
+      calls = 0;
+      const auto PIXEL =
+          Pipeline::shade(math::Y_AXIS, Pipeline::prepare(frame));
+      HS_EXPECT_EQ(calls, 1);
+      const auto DIRECT = Policy::shade_fused_modulation(
+          FieldSample{0.5f, 0.5f, math::Y_AXIS, 0.0f}, frame, PREPARED,
+          MODULATION, 1.0f);
+      HS_EXPECT_EQ(PIXEL.color, DIRECT.color);
+      HS_EXPECT_EQ(PIXEL.alpha, DIRECT.alpha);
+    }
+  }
+  frame.temporal.fraction = 0.0f;
+  frame.previous_modulation = &current;
+  const auto PREPARED = Policy::prepare(frame);
+  const auto MODULATION = PaletteLayerProvider::prepare(frame);
+  const FieldSample FIELD{0.5f, 0.5f, math::Y_AXIS, 0.0f};
+  const auto EXPECTED = finish_color_sample(
+      Policy::apply_fused_modulation(FIELD, frame, PREPARED, MODULATION, 0.0f));
+  calls = 0;
+  const auto ACTUAL =
+      Policy::shade_fused_modulation(FIELD, frame, PREPARED, MODULATION, 0.0f);
+  HS_EXPECT_EQ(ACTUAL.color, EXPECTED.color);
+  HS_EXPECT_EQ(ACTUAL.alpha, EXPECTED.alpha);
+  HS_EXPECT_EQ(calls, 1);
+}
+
 /** @brief Gamut-gate crossings restore RGB-first color without normal cache fetches. */
 inline void test_pullback_cached_gamut_gate_fallback() {
   using namespace Pullback;
@@ -4250,6 +4337,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_fused_modulation_endpoints);
   HS_RUN(test_pullback_fused_cached_modulation);
   HS_RUN(test_pullback_fused_lab_direct_fallback);
+  HS_RUN(test_pullback_fused_lab_current_endpoint);
   HS_RUN(test_pullback_cached_gamut_gate_fallback);
   HS_RUN(test_pullback_modulation_paired_samples);
   HS_RUN(test_pullback_modulation_paired_colors);

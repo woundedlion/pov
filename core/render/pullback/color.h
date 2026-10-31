@@ -796,6 +796,44 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
   }
 
 private:
+  /** @brief Samples the original modulation endpoints at shared coordinates.
+   * @param sample Shared field coordinates.
+   * @param modulation Prepared modulation endpoints.
+   * @return Previous and current endpoint scalars. */
+  HS_HOT_INLINE static std::pair<float, float>
+  sample_fused_scalars(const FieldSample &sample,
+                       const ModulationState &modulation) {
+    if (modulation.source == Pattern::SourceKind::DISPLACEMENT)
+      return {sample.path_length, sample.path_length};
+    assert(modulation.previous && modulation.current);
+    return Modulation::sample_pair(
+        *modulation.previous, *modulation.current,
+        Pattern::SphereDirection::admit(sample.sphere));
+  }
+
+  /** @brief Resolves one canonical deferred hue endpoint.
+   * @param scalar Source scalar.
+   * @param amount Hue turns per source unit.
+   * @return Deferred hue rotation in turns. */
+  HS_HOT_INLINE static float fused_endpoint_hue(float scalar, float amount) {
+    return math::wrap_t(0.0f + math::wrap_t(amount * scalar));
+  }
+
+  /** @brief Resolves the canonical shortest-path endpoint hue blend.
+   * @param scalars Previous and current source scalars.
+   * @param amount Hue turns per source unit.
+   * @param fraction Current endpoint weight.
+   * @return Deferred hue rotation in turns. */
+  HS_HOT_INLINE static float
+  fused_pending_hue(const std::pair<float, float> &scalars, float amount,
+                    float fraction) {
+    const float PREVIOUS = fused_endpoint_hue(scalars.first, amount);
+    const float CURRENT = fused_endpoint_hue(scalars.second, amount);
+    return PREVIOUS == CURRENT
+               ? PREVIOUS
+               : interp::shortest_periodic(PREVIOUS, CURRENT, fraction, 1.0f);
+  }
+
   /** @brief Blends palette and modulation endpoints into one color carrier.
    * @tparam FrameState Frame context.
    * @param result Fresh color carrier to populate.
@@ -960,6 +998,44 @@ public:
                          const ModulationState &modulation, float fraction)
     requires(TEMPORAL && FUSED_TEMPORAL_COLOR)
   {
+    if constexpr (LAB_CACHE)
+      if (fraction == 1.0f && prepared.fraction == 1.0f && prepared.lab.low &&
+          prepared.current.brightness_envelope == BrightnessEnvelope::NONE &&
+          (!modulation.enabled || modulation.mechanic.amount == 0.0f ||
+           modulation.mechanic.kind ==
+               ColorModulation::Mechanic::HUE_ROTATION)) {
+        const auto &state = prepared.current;
+        const float VALUE = palette_mapping_coordinate(
+            sample.value, state.mapping, state.mapping_frequency,
+            state.mapping_offset);
+        const float OPACITY =
+            sample.coverage *
+            hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+        const float HUE = [&] {
+          if (!modulation.enabled || modulation.mechanic.amount == 0.0f)
+            return 0.0f;
+          const float SCALAR = [&] {
+            if (modulation.source == Pattern::SourceKind::DISPLACEMENT)
+              return sample.path_length;
+            assert(modulation.current);
+            return Modulation::sample(
+                *modulation.current,
+                Pattern::SphereDirection::admit(sample.sphere));
+          }();
+          return fused_endpoint_hue(SCALAR, modulation.mechanic.amount);
+        }();
+        return finish_palette_lab(
+            PaletteLabLut::sample(prepared.lab, VALUE), HUE, 0.0f, 1.0f,
+            OPACITY, [&] {
+              ColorSample canonical{
+                  Color4(state.palette->get_color(VALUE), OPACITY), {}};
+              canonical.palette_coordinate = VALUE;
+              canonical.pending_hue = HUE;
+              canonical.hue_rotation =
+                  state.hue_rotation.active ? state.hue_rotation.data : nullptr;
+              return finish_color_sample(canonical);
+            });
+      }
     if constexpr (LAB_CACHE)
       if (prepared.lab.low && fraction == prepared.fraction &&
           fraction > 0.0f && fraction < 1.0f && modulation.enabled &&
