@@ -225,6 +225,7 @@ template <typename B, Color::BrightnessEnvelope Brightness, bool LabCache>
 struct ColorModesOf<
     Color::GeneratedPalette<ColorProvider<B, Brightness, LabCache>>> {
   static constexpr auto BRIGHTNESS = Brightness; ///< Brightness envelope.
+  static constexpr bool LAB_CACHE = LabCache; ///< Uses interval palette bases.
 };
 /** @brief Whether a leaf colorizes sampled values. @tparam T Stage descriptor. */
 template <typename T> struct IsColorStage : std::false_type {};

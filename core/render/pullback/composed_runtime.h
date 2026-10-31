@@ -56,6 +56,8 @@ public:
   using Metadata = MetadataFor<SpecT>; ///< Topology derived from typed stages.
   /// Whether the effect samples time across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = SpecT::TEMPORAL_SAMPLING;
+  static_assert(Metadata::ColorModes::LAB_CACHE == SpecT::PALETTE_LAB_CACHE,
+                "palette base cache policy must match its runtime storage");
   static_assert(!SpecT::PALETTE_LAB_CACHE ||
                     (TEMPORAL_SAMPLING && SpecT::TEMPORAL_COLOR_PHASE),
                 "palette base caches require temporal phase color sampling");
