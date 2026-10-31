@@ -39,7 +39,7 @@ inline constexpr Vector UP = Y_AXIS;
  * @param i The index of the point to calculate.
  * @return The point on the unit sphere.
  */
-inline Vector fib_spiral(int n, float eps, int i) {
+HS_FLASH_MEMBER inline Vector fib_spiral(int n, float eps, int i) {
   HS_CHECK(n > 0, "fib_spiral: n must be positive");
   // Clamp keeps |y| <= 1, so the ring radius never takes sqrtf of a negative.
   float y = hs::clamp(1.0f - (2.0f * (static_cast<float>(i) + eps)) /
