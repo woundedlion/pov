@@ -196,10 +196,12 @@ inline void test_shader_chain_table_integrity() {
     return;
   const In::OperatorDescriptor &colorize = *colorize_found;
   HS_EXPECT_FALSE(colorize.approximate);
-  const auto &modulate = *require_operator("color.modulate.v1");
-  HS_EXPECT_TRUE(modulate.approximate);
+  const auto *modulate = require_operator("color.modulate.v1");
+  if (!modulate)
+    return;
+  HS_EXPECT_TRUE(modulate->approximate);
   HS_EXPECT_EQ(
-      static_cast<int>(modulate.oracle),
+      static_cast<int>(modulate->oracle),
       static_cast<int>(PB::ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS));
   const auto *peirce_fast_found =
       require_operator("project.peirce-square-fast.v3");
