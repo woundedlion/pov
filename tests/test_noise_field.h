@@ -7,8 +7,10 @@
 #pragma once
 
 #include <cstring>
+#include <bit>
 
 #include "core/math/noise_field.h"
+#include "core/render/pullback/surface.h"
 #include "tests/test_fixture.h"
 #include "tests/vec_test_util.h"
 #include "tests/test_harness.h"
@@ -491,6 +493,88 @@ inline void test_half_radian_exp_map_approximation() {
   HS_EXPECT_LT(max_error, 2e-7f);
 }
 
+struct CurlPolicyFrame {
+  FastNoiseLite noise = make_noise(41);
+  float scale = 1.0f;
+  float strength = 0.0f;
+  float phase = 0.0f;
+  bool path_required = false;
+};
+
+struct CurlPolicyProvider {
+  using FrameState = CurlPolicyFrame;
+  static const FastNoiseLite &noise(const FrameState &frame) {
+    return frame.noise;
+  }
+  static float scale(const FrameState &frame) { return frame.scale; }
+  static float strength(const FrameState &frame) { return frame.strength; }
+  static bool path_length_required(const FrameState &frame) {
+    return frame.path_required;
+  }
+  static auto prepare(const FrameState &frame) {
+    return Pullback::Surface::prepare(frame.phase);
+  }
+};
+
+template <math::NoiseBasis Basis, math::TangentLimit Limit, typename Integrator>
+inline void check_curl_policy_dispatch() {
+  using Policy = Pullback::Surface::CurlNoise<CurlPolicyProvider, Basis,
+                                              Integrator, Limit>;
+  auto *volatile oracle = &Pullback::Surface::curl_noise;
+  CurlPolicyFrame frame;
+  for (bool path_required : {false, true})
+    for (float scale : {0.25f, 1.9651489f, 8.0f})
+      for (float strength : {-0.5f, -0.0f, 0.15546875f})
+        for (float phase : {-0.125f, 0.0f, 0.375f}) {
+          frame.path_required = path_required;
+          frame.scale = scale;
+          frame.strength = strength;
+          frame.phase = phase;
+          const auto PREPARED = Policy::prepare(frame);
+          for (int i = 0; i < 12; ++i) {
+            const float Y = -1.0f + (2.0f * i + 1.0f) / 12.0f;
+            const float RADIUS = sqrtf(1.0f - Y * Y);
+            const math::Vector INPUT(RADIUS * cosf(i * 2.39996323f), Y,
+                                     RADIUS * sinf(i * 2.39996323f));
+            const auto EXPECTED =
+                oracle(INPUT, frame.noise, Basis, Integrator::VALUE, Limit,
+                       scale, PREPARED.loop_offset, strength, path_required);
+            const auto RESULT = Policy::apply(INPUT, frame, PREPARED);
+            HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.sphere.x),
+                         std::bit_cast<uint32_t>(EXPECTED.sphere.x));
+            HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.sphere.y),
+                         std::bit_cast<uint32_t>(EXPECTED.sphere.y));
+            HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.sphere.z),
+                         std::bit_cast<uint32_t>(EXPECTED.sphere.z));
+            HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.path_length),
+                         std::bit_cast<uint32_t>(EXPECTED.path_length));
+          }
+        }
+}
+
+template <math::NoiseBasis Basis, math::TangentLimit Limit>
+inline void check_curl_policy_integrators() {
+  check_curl_policy_dispatch<Basis, Limit, Pullback::Surface::Euler>();
+  check_curl_policy_dispatch<Basis, Limit, Pullback::Surface::Midpoint>();
+  check_curl_policy_dispatch<Basis, Limit, Pullback::Surface::Midpoint2>();
+}
+
+/** @brief Curl policies preserve the dynamic integrator's result bits. */
+inline void test_curl_policy_static_integrator() {
+  check_curl_policy_integrators<math::NoiseBasis::SIMPLEX,
+                                math::TangentLimit::SMOOTH>();
+  check_curl_policy_integrators<math::NoiseBasis::SIMPLEX,
+                                math::TangentLimit::CLAMP>();
+  check_curl_policy_integrators<math::NoiseBasis::FBM3,
+                                math::TangentLimit::SMOOTH>();
+  check_curl_policy_integrators<math::NoiseBasis::FBM3,
+                                math::TangentLimit::CLAMP>();
+  check_curl_policy_integrators<math::NoiseBasis::RIDGED3,
+                                math::TangentLimit::SMOOTH>();
+  check_curl_policy_integrators<math::NoiseBasis::RIDGED3,
+                                math::TangentLimit::CLAMP>();
+}
+
 inline int run_noise_field_tests() {
   hs_test::ModuleFixture fixture("noise_field");
   HS_RUN(test_noise_field_key_identity);
@@ -509,6 +593,7 @@ inline int run_noise_field_tests() {
   HS_RUN(test_noise_field_smooth_curl_tangent);
   HS_RUN(test_sphere_exp_map_and_transport);
   HS_RUN(test_half_radian_exp_map_approximation);
+  HS_RUN(test_curl_policy_static_integrator);
   return fixture.result();
 }
 
