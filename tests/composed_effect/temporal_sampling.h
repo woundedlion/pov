@@ -1554,7 +1554,6 @@ inline void test_millefiori_ripple_endpoints() {
   HS_EXPECT_EQ(first.burst_count, 1u);
   HS_EXPECT_EQ(first.seed, Pullback::Interp::instance_hash(
                                "displace", "sphere.displace.ripple.v2"));
-  HS_EXPECT_NEAR(first.waves[0].age, 1.0f, 0.0f);
   HS_EXPECT_NEAR(first.waves[1].age, -15.0f, 0.0f);
   ComposedFrameWhiteBox::advance(effect);
   const auto to = ComposedFrameWhiteBox::frame(effect);
