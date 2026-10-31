@@ -3818,6 +3818,62 @@ inline void test_pullback_fused_cached_modulation() {
   HS_EXPECT_FALSE(FALLBACK.has_cached_lab);
 }
 
+/** @brief Direct Lab shading reuses endpoint taps through canonical gamut fallback. */
+inline void test_pullback_fused_lab_direct_fallback() {
+  using namespace Pullback;
+  using Policy = Color::GeneratedPalette<LabPaletteProvider>;
+  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> bytes{};
+  Arena arena(bytes.data(), bytes.size());
+  BakedPaletteStorage a, b;
+  a.bake(arena, ConstantPalette{Color4(Pixel(1626, 1306, 43097), 1.0f)});
+  b.bake(arena, ConstantPalette{Color4(Pixel(1451, 1516, 42130), 1.0f)});
+  PaletteLabLut cache;
+  cache.active = true;
+  std::array<Pixel, HueRotationLutView::SIZE> hue;
+  hue.fill(Pixel(111, 222, 333));
+  PaletteFrame frame;
+  frame.palette = &b.view();
+  frame.lab = &cache;
+  frame.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 1.0f};
+  static int calls;
+  const auto SOURCE = [](const Modulation::Prepared &,
+                         const Pattern::SphereDirection &) {
+    ++calls;
+    return 0.9814453125f;
+  };
+  Modulation::Prepared previous{}, current{};
+  previous.evaluate = current.evaluate = SOURCE;
+  frame.previous_modulation = &previous;
+  frame.modulation = &current;
+  const auto MODULATION = PaletteLayerProvider::prepare(frame);
+  for (bool guard : {false, true}) {
+    cache.nodes.fill(guard ? OKLab{0.431782782f, 0.00217834837f, -0.24565056f}
+                           : linear_rgb_to_oklab_fast(0.3f, 0.4f, 0.5f));
+    for (bool same_base : {false, true}) {
+      frame.temporal.palette = same_base ? &b.view() : &a.view();
+      frame.hue_rotation = frame.temporal.hue_rotation =
+          same_base ? hue.data() : nullptr;
+      for (float fraction : {0.25f, 0.5f, 0.75f}) {
+        frame.temporal.fraction = fraction;
+        const auto PREPARED = Policy::prepare(frame);
+        const FieldSample FIELD{0.5f, 0.61689651f, math::Y_AXIS, 0.37f};
+        const auto CARRIER = Policy::apply_fused_modulation(
+            FIELD, frame, PREPARED, MODULATION, fraction);
+        HS_EXPECT_EQ(CARRIER.has_cached_lab, !guard);
+        const auto EXPECTED = finish_color_sample(CARRIER);
+        calls = 0;
+        const auto ACTUAL = Policy::shade_fused_modulation(
+            FIELD, frame, PREPARED, MODULATION, fraction);
+        HS_EXPECT_EQ(ACTUAL.color, EXPECTED.color);
+        HS_EXPECT_EQ(ACTUAL.alpha, EXPECTED.alpha);
+        HS_EXPECT_EQ(calls, 2);
+        if (guard && same_base)
+          HS_EXPECT_EQ(ACTUAL.color, hue.front());
+      }
+    }
+  }
+}
+
 /** @brief Gamut-gate crossings restore RGB-first color without normal cache fetches. */
 inline void test_pullback_cached_gamut_gate_fallback() {
   using namespace Pullback;
@@ -4193,6 +4249,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_temporal_deferred_in_place);
   HS_RUN(test_pullback_fused_modulation_endpoints);
   HS_RUN(test_pullback_fused_cached_modulation);
+  HS_RUN(test_pullback_fused_lab_direct_fallback);
   HS_RUN(test_pullback_cached_gamut_gate_fallback);
   HS_RUN(test_pullback_modulation_paired_samples);
   HS_RUN(test_pullback_modulation_paired_colors);

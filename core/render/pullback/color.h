@@ -467,16 +467,17 @@ inline ColorSample apply_modulation(const ColorSample &input,
 /// Linear-RGB distance from a gamut gate requiring the canonical palette base.
 inline constexpr float PALETTE_LAB_GAMUT_GUARD_WIDTH = 0.001f;
 
-/** @brief Resolves cached lightness and hue into rotated perceptual coordinates.
- * @param sample Deferred cached color.
+/** @brief Resolves lightness and hue into rotated perceptual coordinates.
+ * @param lab Base perceptual color.
+ * @param hue Hue rotation in turns.
+ * @param lift Lightness lift toward white.
  * @return Perceptual color before gamut mapping. */
-HS_HOT_INLINE inline OKLab
-rotated_cached_palette_lab(const ColorSample &sample) {
-  auto lab = sample.cached_lab;
-  lab.L += (1.0f - lab.L) * sample.pending_lift;
+HS_HOT_INLINE inline OKLab rotated_palette_lab(OKLab lab, float hue,
+                                               float lift) {
+  lab.L += (1.0f - lab.L) * lift;
   float cosine;
   float sine;
-  hue_sincos(sample.pending_hue, cosine, sine);
+  hue_sincos(hue, cosine, sine);
   return {lab.L, lab.a * cosine - lab.b * sine, lab.a * sine + lab.b * cosine};
 }
 
@@ -502,12 +503,43 @@ restore_cached_palette_base_near_gamut_gate(ColorSample &sample,
                                             Restore &&restore) {
   if (!sample.has_cached_lab || sample.brightness_gain == 0.0f)
     return false;
-  if (!near_palette_gamut_gate(
-          oklab_to_linear_rgb(rotated_cached_palette_lab(sample))))
+  if (!near_palette_gamut_gate(oklab_to_linear_rgb(rotated_palette_lab(
+          sample.cached_lab, sample.pending_hue, sample.pending_lift))))
     return false;
   restore();
   sample.has_cached_lab = false;
   return true;
+}
+
+/** @brief Finishes perceptual color with canonical gamut-gate fallback.
+ * @tparam Canonical Canonical finished-color callback.
+ * @param lab Cached perceptual base.
+ * @param hue Deferred hue rotation in turns.
+ * @param lift Deferred lightness lift.
+ * @param gain Final RGB brightness gain.
+ * @param alpha Straight alpha.
+ * @param canonical Produces canonical RGB-first finished color on fallback.
+ * @return Final straight-alpha color. */
+template <typename Canonical>
+HS_HOT_INLINE inline Color4 finish_palette_lab(OKLab lab, float hue, float lift,
+                                               float gain, float alpha,
+                                               Canonical &&canonical) {
+  if (gain == 0.0f)
+    return Color4(Pixel(0, 0, 0), alpha);
+  const auto LAB = rotated_palette_lab(lab, hue, lift);
+  auto output = oklab_to_linear_rgb(LAB);
+  if (near_palette_gamut_gate(output))
+    return canonical();
+  if (!linear_rgb_in_gamut(output.r, output.g, output.b)) {
+    HS_PROFILE_DEEP(gamut_clip);
+    output = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(LAB));
+  }
+  if (gain != 1.0f) {
+    output.r = hs::clamp(output.r, 0.0f, 1.0f) * gain;
+    output.g = hs::clamp(output.g, 0.0f, 1.0f) * gain;
+    output.b = hs::clamp(output.b, 0.0f, 1.0f) * gain;
+  }
+  return Color4(linrgb_to_pixel(output), alpha);
 }
 
 /** @brief Finishes a guarded cached carrier using one raw RGB evaluation.
@@ -518,25 +550,15 @@ restore_cached_palette_base_near_gamut_gate(ColorSample &sample,
 template <typename Restore>
 HS_HOT_INLINE inline Color4 finish_fused_color(ColorSample &sample,
                                                Restore &&restore) {
-  if (!sample.has_cached_lab || sample.brightness_gain == 0.0f)
+  if (!sample.has_cached_lab)
     return finish_color_sample(sample);
-  const auto LAB = rotated_cached_palette_lab(sample);
-  auto output = oklab_to_linear_rgb(LAB);
-  if (near_palette_gamut_gate(output)) {
-    restore();
-    sample.has_cached_lab = false;
-    return finish_color_sample(sample);
-  }
-  if (!linear_rgb_in_gamut(output.r, output.g, output.b)) {
-    HS_PROFILE_DEEP(gamut_clip);
-    output = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(LAB));
-  }
-  if (sample.brightness_gain != 1.0f) {
-    output.r = hs::clamp(output.r, 0.0f, 1.0f) * sample.brightness_gain;
-    output.g = hs::clamp(output.g, 0.0f, 1.0f) * sample.brightness_gain;
-    output.b = hs::clamp(output.b, 0.0f, 1.0f) * sample.brightness_gain;
-  }
-  return Color4(linrgb_to_pixel(output), sample.color.alpha);
+  return finish_palette_lab(sample.cached_lab, sample.pending_hue,
+                            sample.pending_lift, sample.brightness_gain,
+                            sample.color.alpha, [&] {
+                              restore();
+                              sample.has_cached_lab = false;
+                              return finish_color_sample(sample);
+                            });
 }
 
 /// Qualified hue-rotation and noise-LUT modulation bounds.
@@ -938,6 +960,33 @@ public:
                          const ModulationState &modulation, float fraction)
     requires(TEMPORAL && FUSED_TEMPORAL_COLOR)
   {
+    if constexpr (LAB_CACHE)
+      if (prepared.lab.low && fraction == prepared.fraction &&
+          fraction > 0.0f && fraction < 1.0f && modulation.enabled &&
+          modulation.mechanic.amount != 0.0f &&
+          modulation.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION &&
+          prepared.current.brightness_envelope == BrightnessEnvelope::NONE) {
+        const auto SCALARS = sample_fused_scalars(sample, modulation);
+        const auto &state = prepared.current;
+        const float VALUE = palette_mapping_coordinate(
+            sample.value, state.mapping, state.mapping_frequency,
+            state.mapping_offset);
+        const float OPACITY =
+            sample.coverage *
+            hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+        const float ALPHA = hs::lerp(OPACITY, OPACITY, fraction);
+        const float HUE =
+            fused_pending_hue(SCALARS, modulation.mechanic.amount, fraction);
+        return finish_palette_lab(
+            PaletteLabLut::sample(prepared.lab, VALUE), HUE, 0.0f, 1.0f, ALPHA,
+            [&] {
+              ColorSample canonical{Color4(Pixel(0, 0, 0), ALPHA), {}};
+              canonical.palette_coordinate = VALUE;
+              canonical.pending_hue = HUE;
+              restore_fused_palette_base(canonical, prepared, fraction);
+              return finish_color_sample(canonical);
+            });
+      }
     ColorSample result;
     prepare_fused_modulation(result, sample, frame, prepared, modulation,
                              fraction);
