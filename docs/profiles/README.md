@@ -13,8 +13,7 @@ Recorded capture revisions retain their original IDs. The
 metadata rewrite in `current_commit`. For a published-branch source tree, use
 `published_commit` when present, otherwise `current_commit`; these commits have
 identical trees. Targets `013bf2db1b`, `449e8f9c5f` and `75bd9d5f4b`
-resolve only from retained local branches. The additional target `03db927e8972`
-exists only as an unreferenced local object. None has an identical-tree twin on
+resolve only from retained local branches. None has an identical-tree twin on
 the published branch.
 
 The current Profile harness captures ISR counters and their timestamp together

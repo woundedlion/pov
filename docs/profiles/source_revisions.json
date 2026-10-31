@@ -399,12 +399,6 @@
       "published_commit": "36f06149ca501e4095bf45c0edb37146d7a4f50c"
     },
     {
-      "recorded": "e926bfd4878bc13e9f7205d6715837fe9fe06a89",
-      "original_commit": "e926bfd4878bc13e9f7205d6715837fe9fe06a89",
-      "current_commit": "03db927e897211d5adc5a14f574e205c86ecc648",
-      "tree": "532ad64c3996c7db6c877af764b3197dd3027abe"
-    },
-    {
       "recorded": "eac6c22a58cfaf313725c9c41960f50fde2101ed",
       "original_commit": "eac6c22a58cfaf313725c9c41960f50fde2101ed",
       "current_commit": "e231a40c4a19a02f7452f581d28f599a64649bbc",
