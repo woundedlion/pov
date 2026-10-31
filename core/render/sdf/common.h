@@ -37,7 +37,8 @@ inline constexpr float ANNULAR_ANGLE_PAD = 6e-5f;
 /** Threshold for near-pole ring approximation safety. */
 inline constexpr float POLE_SAFE_MARGIN = 0.05f;
 /** Ring thickness ceiling as a fraction of tan(target_angle) for the
- *  linearized centerline distance; bounds its relative error at half this. */
+ *  linearized centerline distance; bounds the curvature term of its relative
+ *  error at half this. The sin(delta) approximation adds about thickness^2/6. */
 inline constexpr float RING_LINEARIZE_TAN_FRAC = 0.1f;
 /** Pole-on-boundary tolerance, as a fraction of a face's 2D circumradius. */
 inline constexpr float POLE_BOUNDARY_TOL = 1e-3f;
