@@ -422,8 +422,9 @@ four Lab nodes. The cached value is copied into the color carrier before the
 same composed hue, lift, gamut mapping and brightness finish.
 
 Two effect-owned buffers preserve consecutive frame views. A frame never bakes
-into the buffer borrowed by its previous endpoint; carriers copy Lab values,
-not time-view pointers. Literal/static draws, changed color-family controls,
+into the buffer borrowed by its previous endpoint. Lab-only carriers copy Lab
+values; the optional final RGB cache borrows a column view through immediate
+finalization. Literal/static draws, changed color-family controls,
 nonopaque palette alpha, and unsupported/custom color tails retain canonical
 RGB sampling. Opaque palette alpha preserves the common coverage and opacity.
 Derived color policies must explicitly own their
@@ -431,11 +432,40 @@ shared-base contract before the stage can bypass their endpoint operations.
 Cached carriers enter after the sole base blend; interior blending of an
 already cached carrier is outside that internal protocol.
 Eligible phase tails adjust deferred state without reading the carrier's RGB.
+Palette-cache admission compares named color fields by semantic equality;
+padding bytes do not participate.
 
 The `PALETTE_RGB_BLEND_TO_LAB_LUT` oracle compares the cache to RGB-first palette
 sampling, not interpolation of endpoint Lab. Qualification keeps existing hue
 and framebuffer references unchanged and records the new cache's measured
 RGB16 error independently.
+
+AshCloud selects its shared cached color shader once per column when the base
+Lab/RGB view, interior temporal fraction and both modulation phase states are
+ready, with a NONE brightness envelope and hue-only active mechanics. That
+shader runs the same geometry and field, maps the palette coordinate and opacity,
+accumulates the ordered hue scalars and samples the final RGB cache directly.
+Literal endpoints and missing cache or phase
+states select the canonical FLASH pipeline. The runtime's optional
+`prepare_column_shader(frame, x)` factory leaves other effects on their existing
+shader selection.
+
+The selected camera path rotates the column's equatorial and polar basis once,
+then combines those directions at each full-resolution latitude. This changes
+floating-point association rather than sample resolution. Factoring admits only
+288-by-144 geometry with latitude endpoints exactly 0.02*pi and 0.98*pi.
+Other resolutions and latitude endpoints retain the canonical per-pixel camera
+rotation while keeping the eligible shared color tail. Runtime endpoint changes
+undergo the same admission. Its separate default
+600-frame, 16-column, 144-row qualification permits RGB16 error at most 256,
+premultiplied RGB16 error at most 128, alpha error at most 0.002 and camera
+vector error at most 1e-6. The final fast-math maxima were 59, 34, 5.371e-5
+and 3.875e-7 respectively. These are finite default-control
+qualification results, not universal bounds or changes to an existing oracle.
+The scalar color tail retains bitwise RGB16 and alpha parity with the canonical
+shared-color path when fed identical field coordinates. Separate geometry calls
+can differ in floating-point rounding under fast math. Unsupported columns call
+the canonical pipeline.
 
 A source kind/custom recipe version, evaluation strategy, mechanic kind or
 enabled-state change is a topology change for that layer. Hold that layer
@@ -933,3 +963,50 @@ artifacts. The final input-tree SHA-256 is
 No compatibility modifier headers remain. GS retains the corrected symmetric
 cube sampling; its reviewed FULL strict and fast render pins are updated, with
 no widened color, gamut, alpha or determinism bounds.
+
+
+### Interval final hue RGB cache
+
+`Spec::PALETTE_RGB_CACHE` optionally stores final hue colors for the shared
+RGB-first palette base. It requires `PALETTE_LAB_CACHE`, the NONE brightness
+envelope and source chroma equal to `Spec::PALETTE_RGB_CHROMA` (0.314 for
+AshCloud). The owner holds two 64-value by 16-periodic-hue by 3-time tables storing RGB16 code units as float vectors
+(73,728 bytes of color samples), plus 1,536 bytes of retained Lab midpoint keys.
+`Spec::PALETTE_RGB_MIDPOINT_ONLY` selects one stored row per owner instead; the
+physical midpoint row is zero and the two owners retain 24,576 sample bytes,
+saving 49,152 bytes. `PaletteRgbHueLut` keeps its generic three-row API;
+`PaletteRgbHueLutImpl<true>` supplies the compact owner used by AshCloud.
+
+Intervals whose maximum endpoint Lab component difference is at most 0.005
+share the midpoint's RGB row across all columns. A retained row can be reused
+while its original baked midpoint differs from the new midpoint by at most 0.001
+in every Lab component. Reuse copies that original key along with the RGB row;
+it does not advance the key to an unbaked endpoint. A cold midpoint bake computes
+1,024 final colors, with hue sine/cosine prepared once per hue node. Larger
+interval steps use the three-time-row cache in the generic owner. The compact
+owner instead publishes no RGB view and retains the ordinary Lab-backed color
+path. In the generic path, an exactly equal
+retained final Lab row and matching RGB owner permit copying the initial row;
+other rows use a full bake.
+
+Shared color carriers borrow their prepared column's time view until immediate
+finalization. The RGB path interpolates palette coordinate and periodic hue as floats,
+plus time when separate rows are needed, then rounds each RGB16 channel once
+and preserves the carrier's alpha. Its interpolation stays within one RGB16 code
+of the corresponding Q16 interpolation in the deterministic compatibility test.
+It skips per-pixel Lab interpolation. A lift or nonunit brightness resolves the
+deferred Lab base and uses the ordinary finalizer. Active non-hue modulation
+recipes and unqualified chroma skip the RGB bake. Literal temporal endpoints,
+static draws and missing RGB views retain the ordinary color paths. The source
+document, controls and geometry are unchanged.
+
+`PaletteRgbHueLut::APPROXIMATE` marks this additional interpolation. The ordinary
+palette-base and modulation LUT metrics do not bound its additional RGB error.
+For AshCloud's authored defaults, an independent native RGB16 replay against the
+same pipeline with only this cache disabled measured max 1,440 and mean 21.96690
+channel codes over 2,080 frames at 96 by 20, and max 416 and mean 24.66234 over
+300 frames at 288 by 144. All 2,080 low-resolution intervals admitted midpoint
+sampling; 1,322 reused a retained bake. A separate 3,000-frame palette-step scan
+observed a maximum endpoint Lab component step of 0.00475216 at frame 866.
+These are finite replay observations, not a bound on all admitted controls. The
+cache adds no geometric approximation.

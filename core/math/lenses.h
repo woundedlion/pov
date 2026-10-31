@@ -254,18 +254,26 @@ dodecahedral_kaleidoscope_lens(math::Vector v) {
   return v;
 }
 
+/** @brief Canonical reflection-group assets and cube classifiers. */
 namespace DodecahedralTable {
-inline constexpr int FACE_STEPS = 64;
-inline constexpr float WALL_MARGIN = 1e-5f;
+inline constexpr int FACE_STEPS = 64; ///< Classifier cells per cube-face axis.
+inline constexpr float WALL_MARGIN = 1e-5f; ///< Strict chamber-interior margin.
 static_assert(WALL_MARGIN > POLYHEDRAL_MIRROR_EPS);
-using Matrix = std::array<std::array<float, 3>, 3>;
+using Matrix = std::array<std::array<float, 3>, 3>; ///< Linear group transform.
+/** @brief Finite closure of the canonical chamber mirrors. */
 struct Group {
-  std::array<Matrix, 120> values{};
-  uint8_t count = 0;
+  std::array<Matrix, 120> values{}; ///< Transforms in discovery order.
+  uint8_t count = 0;                ///< Admitted transform count.
 };
+/** @brief Unit reflection-group transform.
+ * @return Identity matrix. */
 constexpr Matrix identity() {
   return {{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
 }
+/** @brief Reflects each transform column through one chamber mirror.
+ * @param matrix Transform to reflect.
+ * @param mirror Chamber-mirror index.
+ * @return Reflected transform. */
 constexpr Matrix reflect(Matrix matrix, int mirror) {
   const auto normal = DODECAHEDRAL_MIRRORS[mirror];
   const float n[] = {normal.x, normal.y, normal.z};
@@ -277,6 +285,10 @@ constexpr Matrix reflect(Matrix matrix, int mirror) {
   }
   return matrix;
 }
+/** @brief Compares transform coefficients within the group-generation tolerance.
+ * @param a First transform.
+ * @param b Second transform.
+ * @return Whether all coefficients match. */
 constexpr bool same(const Matrix &a, const Matrix &b) {
   for (int row = 0; row < 3; ++row)
     for (int column = 0; column < 3; ++column) {
@@ -286,6 +298,8 @@ constexpr bool same(const Matrix &a, const Matrix &b) {
     }
   return true;
 }
+/** @brief Closes the chamber mirrors under reflection.
+ * @return Group transforms in discovery order. */
 constexpr Group make_group() {
   Group result;
   result.values[result.count++] = identity();
@@ -308,9 +322,13 @@ constexpr Group make_group() {
     }
   return result;
 }
+/** @brief Canonical finite reflection group. */
 inline constexpr auto
     GROUP HS_PROGMEM_UNIQUE(dodecahedral_fold_group) = make_group();
 static_assert(GROUP.count == 120);
+/** @brief Resolves each mirror transition from one group transform.
+ * @param index Source group index.
+ * @return Destination index for each chamber mirror. */
 constexpr auto make_transition_row(size_t index) {
   std::array<uint8_t, 3> result{255, 255, 255};
   for (int mirror = 0; mirror < 3; ++mirror) {
@@ -323,12 +341,18 @@ constexpr auto make_transition_row(size_t index) {
   }
   return result;
 }
+/** @brief Cached mirror transitions for one group transform.
+ * @tparam Index Source group index. */
 template <size_t Index>
 inline constexpr auto TRANSITION_ROW = make_transition_row(Index);
+/** @brief Assembles the cached transition rows.
+ * @tparam Indices Source group indices.
+ * @return Group-index by mirror-index transitions. */
 template <size_t... Indices>
 constexpr auto make_transitions(std::index_sequence<Indices...>) {
   return std::array{TRANSITION_ROW<Indices>...};
 }
+/** @brief Mirror transitions between canonical group transforms. */
 inline constexpr auto TRANSITIONS =
     make_transitions(std::make_index_sequence<GROUP.count>{});
 static_assert([] {
@@ -338,6 +362,11 @@ static_assert([] {
         return false;
   return true;
 }());
+/** @brief Maps cube-face chart coordinates to a direction.
+ * @param face Cube-face index.
+ * @param u Horizontal chart coordinate.
+ * @param v Vertical chart coordinate.
+ * @return Unnormalized direction on the selected face. */
 constexpr std::array<float, 3> face_direction(int face, float u, float v) {
   switch (face) {
   case 0:
@@ -354,6 +383,9 @@ constexpr std::array<float, 3> face_direction(int face, float u, float v) {
     return {-u, v, -1.0f};
   }
 }
+/** @brief Resolves the ordered canonical fold of one chart direction.
+ * @param point Unnormalized chart direction.
+ * @return Group index, or 255 when the fold exceeds its iteration limit. */
 constexpr uint8_t classify(std::array<float, 3> point) {
   uint8_t matrix_index = 0;
   for (int step = 0; step < POLYHEDRAL_REFLECTION_LIMIT; ++step) {
@@ -382,6 +414,10 @@ constexpr uint8_t classify(std::array<float, 3> point) {
   }
   return 255;
 }
+/** @brief Evaluates one cube-face classifier row.
+ * @param face Cube-face index.
+ * @param y Row index.
+ * @return Classifier indices in horizontal order. */
 constexpr auto make_row(int face, int y) {
   std::array<uint8_t, FACE_STEPS> result{};
   for (int x = 0; x < FACE_STEPS; ++x)
@@ -390,7 +426,14 @@ constexpr auto make_row(int face, int y) {
                                 (y + 0.5f) * (2.0f / FACE_STEPS) - 1.0f));
   return result;
 }
+/** @brief Independently evaluated classifier row.
+ * @tparam Face Cube-face index.
+ * @tparam Row Vertical row index. */
 template <int Face, size_t Row> inline constexpr auto ROW = make_row(Face, Row);
+/** @brief Flattens cached classifier rows into one face.
+ * @tparam Face Cube-face index.
+ * @tparam Rows Vertical row indices.
+ * @return Row-major classifier map. */
 template <int Face, size_t... Rows>
 constexpr auto make_face(std::index_sequence<Rows...>) {
   const std::array rows{ROW<Face, Rows>...};
@@ -400,21 +443,31 @@ constexpr auto make_face(std::index_sequence<Rows...>) {
       result[y * FACE_STEPS + x] = rows[y][x];
   return result;
 }
+/** @brief Evaluates one complete cube-face map.
+ * @tparam Face Cube-face index.
+ * @return Row-major classifier map. */
 template <int Face> constexpr auto make_face() {
   return make_face<Face>(std::make_index_sequence<FACE_STEPS>{});
 }
+/** @brief Classifier map on the +X cube face. */
 inline constexpr auto
     FACE_0 HS_PROGMEM_UNIQUE(dodecahedral_fold_face0) = make_face<0>();
+/** @brief Classifier map on the -X cube face. */
 inline constexpr auto
     FACE_1 HS_PROGMEM_UNIQUE(dodecahedral_fold_face1) = make_face<1>();
+/** @brief Classifier map on the +Y cube face. */
 inline constexpr auto
     FACE_2 HS_PROGMEM_UNIQUE(dodecahedral_fold_face2) = make_face<2>();
+/** @brief Classifier map on the -Y cube face. */
 inline constexpr auto
     FACE_3 HS_PROGMEM_UNIQUE(dodecahedral_fold_face3) = make_face<3>();
+/** @brief Classifier map on the +Z cube face. */
 inline constexpr auto
     FACE_4 HS_PROGMEM_UNIQUE(dodecahedral_fold_face4) = make_face<4>();
+/** @brief Classifier map on the -Z cube face. */
 inline constexpr auto
     FACE_5 HS_PROGMEM_UNIQUE(dodecahedral_fold_face5) = make_face<5>();
+/** @brief Classifier maps in cube-face orientation order. */
 inline constexpr std::array<const uint8_t *, 6> FACES HS_PROGMEM_UNIQUE(
     dodecahedral_fold_faces) = {FACE_0.data(), FACE_1.data(), FACE_2.data(),
                                 FACE_3.data(), FACE_4.data(), FACE_5.data()};
@@ -423,9 +476,13 @@ inline constexpr std::array<const uint8_t *, 6> FACES HS_PROGMEM_UNIQUE(
 /** @brief Attempts a chamber-validated reflection matrix from a coarse cube cell.
  * @param input Unit direction.
  * @param result Receives the folded direction on success.
+ * @param matrices Nonnull immutable group matrix array.
+ * @param faces Optional face-major classifiers; null uses the flash maps.
  * @return Whether the candidate lies strictly inside the canonical chamber. */
-HS_HOT_INLINE inline bool try_dodecahedral_table(const math::Vector &input,
-                                                 math::Vector &result) {
+HS_HOT_INLINE inline bool
+try_dodecahedral_table(const math::Vector &input, math::Vector &result,
+                       const DodecahedralTable::Matrix *matrices,
+                       const uint8_t *faces) {
   const float ax = fabsf(input.x), ay = fabsf(input.y), az = fabsf(input.z);
   float major, u, v;
   int face;
@@ -453,10 +510,11 @@ HS_HOT_INLINE inline bool try_dodecahedral_table(const math::Vector &input,
       std::min(static_cast<int>((u * inverse + 1.0f) * (0.5f * N)), N - 1);
   const int y =
       std::min(static_cast<int>((v * inverse + 1.0f) * (0.5f * N)), N - 1);
-  const uint8_t index = DodecahedralTable::FACES[face][y * N + x];
+  const uint8_t index = faces ? faces[face * N * N + y * N + x]
+                              : DodecahedralTable::FACES[face][y * N + x];
   if (index >= DodecahedralTable::GROUP.count)
     return false;
-  const auto &m = DodecahedralTable::GROUP.values[index];
+  const auto &m = matrices[index];
   result = {m[0][0] * input.x + m[0][1] * input.y + m[0][2] * input.z,
             m[1][0] * input.x + m[1][1] * input.y + m[1][2] * input.z,
             m[2][0] * input.x + m[2][1] * input.y + m[2][2] * input.z};
@@ -465,15 +523,58 @@ HS_HOT_INLINE inline bool try_dodecahedral_table(const math::Vector &input,
          math::dot(result, DODECAHEDRAL_MIRRORS[1]) > MARGIN;
 }
 
+/** @brief Attempts a validated transform with flash-resident classifiers.
+ * @param input Unit direction.
+ * @param result Receives the folded direction on success.
+ * @param matrices Nonnull immutable group matrix array.
+ * @return Whether the candidate lies inside the canonical chamber. */
+HS_HOT_INLINE inline bool
+try_dodecahedral_table(const math::Vector &input, math::Vector &result,
+                       const DodecahedralTable::Matrix *matrices) {
+  return try_dodecahedral_table(input, result, matrices, nullptr);
+}
+
+/** @brief Attempts the canonical flash-resident reflection matrix.
+ * @param input Unit direction.
+ * @param result Receives the folded direction on success.
+ * @return Whether the candidate lies inside the canonical chamber. */
+HS_HOT_INLINE inline bool try_dodecahedral_table(const math::Vector &input,
+                                                 math::Vector &result) {
+  return try_dodecahedral_table(input, result,
+                                DodecahedralTable::GROUP.values.data());
+}
+
 /** @brief Folds by a validated matrix, using ordered reflections near walls.
+ * @param input Unit direction.
+ * @param matrices Nonnull immutable group matrix array.
+ * @param faces Optional face-major classifiers; null uses the flash maps.
+ * @return The symmetry-equivalent chamber direction. */
+HS_HOT_INLINE inline math::Vector
+dodecahedral_table_lens(const math::Vector &input,
+                        const DodecahedralTable::Matrix *matrices,
+                        const uint8_t *faces) {
+  math::Vector result;
+  return try_dodecahedral_table(input, result, matrices, faces)
+             ? result
+             : dodecahedral_kaleidoscope_lens(input);
+}
+
+/** @brief Folds with explicit matrices and flash-resident classifiers.
+ * @param input Unit direction.
+ * @param matrices Nonnull immutable group matrix array.
+ * @return The symmetry-equivalent chamber direction. */
+HS_HOT_INLINE inline math::Vector
+dodecahedral_table_lens(const math::Vector &input,
+                        const DodecahedralTable::Matrix *matrices) {
+  return dodecahedral_table_lens(input, matrices, nullptr);
+}
+
+/** @brief Folds with the canonical flash-resident matrices.
  * @param input Unit direction.
  * @return The symmetry-equivalent chamber direction. */
 HS_HOT_INLINE inline math::Vector
 dodecahedral_table_lens(const math::Vector &input) {
-  math::Vector result;
-  return try_dodecahedral_table(input, result)
-             ? result
-             : dodecahedral_kaleidoscope_lens(input);
+  return dodecahedral_table_lens(input, DodecahedralTable::GROUP.values.data());
 }
 
 } // namespace lenses

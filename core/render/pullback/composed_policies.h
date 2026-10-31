@@ -24,8 +24,13 @@ struct Spec {
   static constexpr bool TEMPORAL_COLOR_PHASE = false;
   /// Caches RGB-first interval palette blends in OKLab.
   static constexpr bool PALETTE_LAB_CACHE = false;
+  static constexpr bool PALETTE_RGB_CACHE = false;
+  static constexpr float PALETTE_RGB_CHROMA =
+      0.0f; ///< Qualified source chroma.
   /// Caches direct noise over the dodecahedral chamber at temporal endpoints.
   static constexpr bool PHASE_NOISE_CACHE = false;
+  static constexpr bool PALETTE_RGB_MIDPOINT_ONLY =
+      false; ///< Stores one admitted RGB midpoint.
   /// Factors a supported rotation prefix into column bases.
   static constexpr bool FACTORED_COLUMNS = false;
   /// Bakes endpoint radial transfer curves for burst ripples.
@@ -34,6 +39,10 @@ struct Spec {
   static constexpr bool PERSISTENT_PREPARED_FRAME = false;
   /// Keeps the full-resolution gamut table in device persistent storage.
   static constexpr bool CACHE_FULL_GAMUT_LUT = false;
+  /// Copies immutable dodecahedral reflection matrices into persistent storage.
+  static constexpr bool CACHE_DODECAHEDRAL_MATRICES = false;
+  static constexpr bool CACHE_DODECAHEDRAL_FACES =
+      false; ///< Copies cube classifiers into persistent storage.
 };
 
 /**

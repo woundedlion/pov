@@ -841,6 +841,9 @@ inline void test_palette_mapping_crossfade() {
 
 #include "tests/composed_effect/temporal_sampling.h"
 #include "tests/composed_effect/chamber_noise_cache.h"
+#include "tests/composed_effect/dodecahedral_matrix_cache.h"
+#include "tests/composed_effect/ashcloud_shared_color.h"
+#include "tests/composed_effect/palette_rgb_cache.h"
 
 /** @brief Every composed effect defaults to blanking displayed columns. */
 inline void test_composed_strobe_roster() {
@@ -906,6 +909,10 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_millefiori_radial_table_interval);
   HS_RUN(test_millefiori_document_pipeline);
   HS_RUN(test_ash_cloud_document_pipeline);
+  HS_RUN(test_ash_cloud_shared_color_identity);
+  HS_RUN(test_ash_cloud_camera_column_admission);
+  HS_RUN(test_ash_cloud_shared_camera_qualification);
+  HS_RUN(test_ash_cloud_shared_column_fallbacks);
   HS_RUN(test_composed_default_gradient_preparation);
   HS_RUN(test_composed_persistent_prepared_frame);
   HS_RUN(test_composed_document_modulation_members);
@@ -915,6 +922,23 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_chamber_noise_cache_admission);
   HS_RUN(test_chamber_noise_cache_phase_and_fallback);
   HS_RUN(test_chamber_noise_cache_runtime_history);
+  HS_RUN(test_dodecahedral_matrix_cache_lifetime);
+  HS_RUN(test_dodecahedral_matrix_cache_fold_parity);
+  HS_RUN(test_dodecahedral_matrix_cache_lens_binding);
+  HS_RUN(test_dodecahedral_face_cache_lifetime);
+  HS_RUN(test_dodecahedral_face_cache_fold_parity);
+  HS_RUN(test_dodecahedral_face_cache_lens_binding);
+  HS_RUN(test_palette_rgb_cache_axes_and_wrap);
+  HS_RUN(test_palette_rgb_cache_lazy_guards);
+  HS_RUN(test_palette_rgb_cache_runtime_lifetime);
+  HS_RUN(test_palette_rgb_cache_bake_reuse);
+  HS_RUN(test_palette_rgb_cache_shared_base_endpoints);
+  HS_RUN(test_palette_rgb_cache_midpoint_reuse);
+  HS_RUN(test_palette_rgb_cache_chroma_fallback);
+  HS_RUN(test_palette_rgb_cache_q16_compatibility);
+  HS_RUN(test_palette_rgb_midpoint_only_storage);
+  HS_RUN(test_palette_rgb_midpoint_only_fallback);
+  HS_RUN(test_palette_lab_cache_color_padding);
   HS_RUN(test_millefiori_palette_lab_lifetime);
   HS_RUN(test_millefiori_ripple_endpoints);
   HS_RUN(test_composed_strobe_roster);

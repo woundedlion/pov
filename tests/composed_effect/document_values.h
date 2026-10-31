@@ -423,7 +423,8 @@ template <typename Lens> constexpr std::string_view lens_symmetry_id() {
     return "tetrahedral";
   if constexpr (std::is_same_v<Lens, Pullback::Lens::OctahedralKaleidoscope>)
     return "octahedral";
-  if constexpr (std::is_same_v<Lens, Pullback::Lens::DodecahedralKaleidoscope>)
+  if constexpr (std::is_base_of_v<Pullback::Lens::DodecahedralKaleidoscope,
+                                  Lens>)
     return "dodecahedral";
   if constexpr (std::is_same_v<Lens,
                                Pullback::Lens::TriangularPrismKaleidoscope>)

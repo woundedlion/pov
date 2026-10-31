@@ -42,6 +42,18 @@ struct ComposedFrameWhiteBox {
     return effect.state->current;
   }
 
+  /** @brief Reads the retained previous endpoint after a completed draw.
+   * @tparam FX Composed effect type.
+   * @param effect Effect owning the endpoint.
+   * @return Retained frame until its next capture. */
+  template <typename FX>
+  static const typename FX::FrameState &previous_frame(const FX &effect) {
+    using History = Spacetime::FrameHistory<typename FX::FrameState,
+                                            FX::Spec::TEMPORAL_SAMPLING,
+                                            FX::Metadata::MODULATION>;
+    return static_cast<const History &>(*effect.state).previous;
+  }
+
   template <typename FX>
   static const typename FX::Frame *prepared_frame(const FX &effect) {
     return effect.state->prepared ? &*effect.state->prepared : nullptr;

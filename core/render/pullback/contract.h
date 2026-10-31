@@ -15,6 +15,7 @@
 
 #include "core/color/color.h"
 #include "core/color/hue_rotation_lut.h"
+#include "core/color/palette_lab_lut.h"
 #include "core/math/geometry.h"
 #include "core/math/interpolate.h"
 #include "core/math/projections.h"
@@ -147,6 +148,7 @@ struct ColorSample {
   float pending_lift = 0.0f;       ///< Composed lightness lift toward white.
   OKLab cached_lab{};              ///< Shared base before hue and lift.
   bool has_cached_lab = false;     ///< RGB is represented by `cached_lab`.
+  const PaletteLabTimeView *cached_rgb = nullptr; ///< Optional final hue cache.
 };
 
 /** @brief Blends deferred color state before perceptual finalization.
@@ -185,11 +187,20 @@ HS_HOT_ITCM_MEMBER inline ColorSample blend_color_samples(const ColorSample &a,
 HS_HOT_ITCM_MEMBER inline Color4
 finish_color_sample(const ColorSample &sample) {
   Color4 color = sample.color;
+  if (sample.cached_rgb && sample.has_cached_lab &&
+      sample.pending_lift == 0.0f && sample.brightness_gain == 1.0f)
+    return Color4(PaletteRgbHueLut::sample(*sample.cached_rgb,
+                                           sample.palette_coordinate,
+                                           sample.pending_hue),
+                  color.alpha);
   if (sample.brightness_gain == 0.0f)
     return Color4(Pixel(0, 0, 0), color.alpha);
   if (sample.has_cached_lab || sample.pending_lift != 0.0f ||
       (sample.pending_hue != 0.0f && !sample.hue_rotation)) {
-    OKLab lab = sample.cached_lab;
+    OKLab lab = sample.cached_rgb
+                    ? PaletteLabLut::sample(*sample.cached_rgb,
+                                            sample.palette_coordinate)
+                    : sample.cached_lab;
     if (!sample.has_cached_lab) {
       const LinRGB input = pixel_to_linrgb(color.color);
       lab = linear_rgb_to_oklab_fast(input.r, input.g, input.b);

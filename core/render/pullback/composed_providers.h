@@ -67,6 +67,10 @@ template <typename ParamsT, bool PhaseNoise = false> struct FrameState {
   float palette_oscillation_phase; /**< Phase of the mapping wobble. */
   const PaletteLabLut *palette_lab_lut =
       nullptr; ///< Borrowed interval base cache.
+  const lenses::DodecahedralTable::Matrix *dodecahedral_matrices =
+      nullptr; ///< Runtime-owned immutable reflection matrices.
+  const uint8_t *dodecahedral_faces =
+      nullptr; ///< Runtime-owned face-major classifiers.
 };
 
 /** @brief Column-sampled context with retained color resources.

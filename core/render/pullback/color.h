@@ -377,8 +377,9 @@ struct ChamberPhaseModulationState : PhaseModulationState {
  * @param sample Carrier to update.
  * @param scalar Source value.
  * @param mechanic Ordered perceptual operation. */
-inline void apply_perceptual_scalar(ColorSample &sample, float scalar,
-                                    const ColorModulation::Params &mechanic) {
+HS_HOT_INLINE inline void
+apply_perceptual_scalar(ColorSample &sample, float scalar,
+                        const ColorModulation::Params &mechanic) {
   if (mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)
     sample.pending_hue = math::wrap_t(sample.pending_hue +
                                       math::wrap_t(mechanic.amount * scalar));
@@ -608,7 +609,7 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
    * @param output Receives the cached color carrier.
    * @return Whether the cache supplied the base. */
   template <typename FrameState>
-  HS_HOT_FLASH_MEMBER static bool
+  HS_HOT_INLINE static bool
   apply_shared_base(const FieldSample &sample, const FrameState &frame,
                     const Prepared &prepared, ColorSample &output)
     requires(TEMPORAL && LAB_CACHE)
@@ -617,6 +618,24 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
     if (!prepared.lab.low || prepared.fraction <= 0.0f ||
         prepared.fraction >= 1.0f)
       return false;
+    apply_shared_base_ready(sample, frame, prepared, output);
+    return true;
+  }
+
+  /** @brief Produces a cached base after column eligibility was checked.
+   * @tparam FrameState Frame context.
+   * @param sample Shared field coordinates.
+   * @param frame Frame context.
+   * @param prepared Prepared eligible cache view.
+   * @param output Receives the cached color carrier.
+   * @pre The base view is active and its fraction is inside (0, 1). */
+  template <typename FrameState>
+  HS_HOT_INLINE static void
+  apply_shared_base_ready(const FieldSample &sample, const FrameState &frame,
+                          const Prepared &prepared, ColorSample &output)
+    requires(TEMPORAL && LAB_CACHE)
+  {
+    (void)frame;
     const auto &state = prepared.current;
     const float VALUE = palette_mapping_coordinate(sample.value, state.mapping,
                                                    state.mapping_frequency,
@@ -633,9 +652,12 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
         brightness_envelope_gain(sample.value, state.brightness_envelope,
                                  state.brightness_bottom, state.brightness_top);
     output.pending_lift = 0.0f;
-    output.cached_lab = PaletteLabLut::sample(prepared.lab, VALUE);
+    output.cached_rgb =
+        prepared.lab.rgb_low && prepared.lab.rgb_high ? &prepared.lab : nullptr;
+    output.cached_lab = output.cached_rgb
+                            ? OKLab{}
+                            : PaletteLabLut::sample(prepared.lab, VALUE);
     output.has_cached_lab = true;
-    return true;
   }
 
   /** @brief Produces the current color endpoint.
@@ -703,17 +725,27 @@ template <typename State> struct Modulate : ApproximationDefaults {
     (void)frame;
     if (!prepared.enabled || prepared.mechanic.amount == 0.0f)
       return;
+    apply_perceptual_scalar(sample, sample_phase_scalar(sample.field, prepared),
+                            prepared.mechanic);
+  }
+  /** @brief Samples a prepared column's analytic phase source.
+   * @param field Source coordinates and displacement travel.
+   * @param prepared Ready column phase state.
+   * @return Source scalar before the mechanic is applied. */
+  HS_HOT_INLINE static float sample_phase_scalar(const FieldSample &field,
+                                                 const Prepared &prepared)
+    requires std::is_base_of_v<PhaseModulationState, Prepared>
+  {
     float scalar = 0.0f;
     if (prepared.source == Pattern::SourceKind::DISPLACEMENT)
-      scalar = sample.field.path_length;
+      scalar = field.path_length;
     else if (prepared.source == Pattern::SourceKind::NOISE) {
       bool cached = false;
       if constexpr (std::is_same_v<Prepared, ChamberPhaseModulationState>)
         if (prepared.noise_previous && prepared.noise_current)
           cached = Modulation::sample_chamber_noise(
-              sample.field.sphere, prepared.noise_to_chamber,
-              *prepared.noise_previous, *prepared.noise_current,
-              prepared.noise_fraction, scalar);
+              field.sphere, prepared.noise_to_chamber, *prepared.noise_previous,
+              *prepared.noise_current, prepared.noise_fraction, scalar);
       if (!cached) {
         const auto &noise = *prepared.noise;
         auto noise_offset = prepared.noise_offset;
@@ -721,15 +753,15 @@ template <typename State> struct Modulate : ApproximationDefaults {
           if (prepared.lazy_noise_offset)
             noise_offset = math::noise_sphere_loop_offset(prepared.noise_phase);
         const auto q = math::noise_sphere_coordinate(
-            Pattern::SphereDirection::admit(sample.field.sphere).value(),
-            noise.scale, noise_offset);
+            Pattern::SphereDirection::admit(field.sphere).value(), noise.scale,
+            noise_offset);
         scalar =
             Pattern::bounded_scalar(noise.noise.GetNoiseSingle(q.x, q.y, q.z));
       }
     } else
       scalar = Pattern::SphereSmoothGrid::sample(
-          Pattern::SphereDirection::admit(sample.field.sphere), prepared.grid);
-    apply_perceptual_scalar(sample, scalar, prepared.mechanic);
+          Pattern::SphereDirection::admit(field.sphere), prepared.grid);
+    return scalar;
   }
   /** @brief Modulates one endpoint.
    * @tparam FrameState Frame context.

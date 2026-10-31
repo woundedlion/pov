@@ -192,9 +192,37 @@ inline bool valid(const ComposedDetail::ParameterSet<
 
 /** @brief Hue-rotation LUT storage; empty when the effect never rotates hue. */
 template <bool Enabled> struct OptionalHueRotationLut {};
+/** @brief Persistent dodecahedral matrices, empty when disabled.
+ * @tparam Enabled Whether reflection matrices are owned. */
+template <bool Enabled> struct OptionalDodecahedralMatrices {};
+/** @brief Persistent face classifiers, empty when disabled.
+ * @tparam Enabled Whether classifier maps are owned. */
+template <bool Enabled> struct OptionalDodecahedralFaces {};
+/** @brief Immutable cube-face classifiers owned by one effect instance. */
+template <> struct OptionalDodecahedralFaces<true> {
+  std::array<uint8_t, 6 * lenses::DodecahedralTable::FACE_STEPS *
+                          lenses::DodecahedralTable::FACE_STEPS>
+      dodecahedral_faces; ///< Face-major exact classifier bytes.
+};
+/** @brief Immutable reflection matrices owned by one effect instance. */
+template <> struct OptionalDodecahedralMatrices<true> {
+  std::array<lenses::DodecahedralTable::Matrix,
+             lenses::DodecahedralTable::GROUP.count>
+      dodecahedral_matrices; ///< Exact copy of the canonical group matrices.
+};
 /** @brief Interval base storage, empty unless the spec opts in.
  * @tparam Enabled Whether the effect owns palette base caches. */
 template <bool Enabled> struct OptionalPaletteLabLut {};
+/** @brief Final hue-cache storage, empty unless the spec opts in.
+ * @tparam Enabled Whether interval RGB caches are owned.
+ * @tparam MidpointOnly Whether only one qualified time row is stored. */
+template <bool Enabled, bool MidpointOnly = false>
+struct OptionalPaletteRgbLut {};
+/** @brief Retained and current final hue tables. */
+template <bool MidpointOnly> struct OptionalPaletteRgbLut<true, MidpointOnly> {
+  std::array<PaletteRgbHueLutImpl<MidpointOnly>, 2>
+      palette_rgb_luts; ///< Ping-pong interval tables.
+};
 /** @brief Ping-pong interval bases retained across consecutive frames. */
 template <> struct OptionalPaletteLabLut<true> {
   std::array<PaletteLabLut, 2>

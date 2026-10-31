@@ -20,16 +20,17 @@
  * effects may fall back to startup params. Optional hook bindings:
  * `INITIAL_PARAMS` and `AFTER_COMPOSED_INIT`. Optional members:
  * `ANIMATED_MOBIUS`, `CAMERA_SPIN_RATE`, and `WARP_NOISE_SEED` /
- * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` shadows. A shade() shadow changes
- * the emitted body only by calling
- * RenderPipeline::evaluate(view, frame.ctx, frame.prepared).
+ * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` shadows. A shade() shadow supplies
+ * the per-pixel body. An optional `prepare_column_shader(frame, x)` factory
+ * returns a column shader accepting latitude sine and cosine.
  * `DESCRIPTOR_DIGEST` and `PRESET_BANK_DIGEST` pin the pattern document; the
  * runtime never reads them.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @tparam Derived The effect class deriving from this base.
  * @tparam SpecT The effect's `Spec`.
- * @tparam Ownership Whether Derived declares hooks or inherits composed defaults.
+ * @tparam Ownership Whether Derived declares hooks or inherits composed
+ * defaults.
  */
 template <int W, int H, typename Derived, typename SpecT,
           Control::HookOwnership Ownership = Control::HookOwnership::AUTHORED>
@@ -61,11 +62,25 @@ public:
   static_assert(!SpecT::PALETTE_LAB_CACHE ||
                     (TEMPORAL_SAMPLING && SpecT::TEMPORAL_COLOR_PHASE),
                 "palette base caches require temporal phase color sampling");
+  static_assert(!SpecT::PALETTE_RGB_CACHE ||
+                    (SpecT::PALETTE_LAB_CACHE &&
+                     Metadata::BRIGHTNESS == Color::BrightnessEnvelope::NONE),
+                "final palette caches require unit-brightness interval bases");
+  static_assert(!SpecT::PALETTE_RGB_MIDPOINT_ONLY || SpecT::PALETTE_RGB_CACHE,
+                "midpoint-only storage requires an interval RGB cache");
   static_assert(!SpecT::PHASE_NOISE_CACHE ||
                     (TEMPORAL_SAMPLING && SpecT::TEMPORAL_COLOR_PHASE &&
                      std::is_base_of_v<Lens::DodecahedralKaleidoscope,
                                        typename Metadata::LensPolicy>),
                 "phase noise cache requires a temporal dodecahedral chamber");
+  static_assert(!SpecT::CACHE_DODECAHEDRAL_MATRICES ||
+                    std::is_base_of_v<Lens::DodecahedralKaleidoscope,
+                                      typename Metadata::LensPolicy>,
+                "cached dodecahedral matrices require a dodecahedral lens");
+  static_assert(!SpecT::CACHE_DODECAHEDRAL_FACES ||
+                    std::is_base_of_v<Lens::DodecahedralKaleidoscope,
+                                      typename Metadata::LensPolicy>,
+                "cached cube classifiers require a dodecahedral lens");
   static_assert(!TEMPORAL_SAMPLING || (W >= 2 && W % 2 == 0),
                 "Column-time sampling requires an even two-arm canvas width");
   /// Frame context, including retained color resources when sampling time.
@@ -130,6 +145,18 @@ public:
         "composed modulation presets must retain source and mechanic");
     this->begin_choreography();
     state = persistent_arena.make<State>();
+    if constexpr (SpecT::CACHE_DODECAHEDRAL_MATRICES)
+      std::memcpy(state->dodecahedral_matrices.data(),
+                  lenses::DodecahedralTable::GROUP.values.data(),
+                  sizeof(state->dodecahedral_matrices));
+    if constexpr (SpecT::CACHE_DODECAHEDRAL_FACES) {
+      constexpr size_t FACE_SIZE = lenses::DodecahedralTable::FACE_STEPS *
+                                   lenses::DodecahedralTable::FACE_STEPS;
+      for (size_t face = 0; face < lenses::DodecahedralTable::FACES.size();
+           ++face)
+        std::memcpy(state->dodecahedral_faces.data() + face * FACE_SIZE,
+                    lenses::DodecahedralTable::FACES[face], FACE_SIZE);
+    }
     use_parameter_storage(persistent_arena,
                           persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
@@ -215,13 +242,31 @@ public:
         history.capture(current, persistent_arena);
       if (!Spacetime::flat_surface()) {
         if constexpr (SpecT::PALETTE_LAB_CACHE) {
-          if (std::memcmp(&history.previous.params.template get<"color">(),
-                          &current.params.template get<"color">(),
-                          sizeof(current.params.template get<"color">())) ==
-              0) {
+          if (history.previous.params.template get<"color">() ==
+              current.params.template get<"color">()) {
             state->palette_lab_slot ^= 1;
             auto &cache = state->palette_lab_luts[state->palette_lab_slot];
             cache.bake(*history.previous.palette, *current.palette);
+            if constexpr (SpecT::PALETTE_RGB_CACHE) {
+              bool hue_only =
+                  current.params.template get<"color">().palette_chroma ==
+                  SpecT::PALETTE_RGB_CHROMA;
+              current.params.visit([&]<typename Resource>(const auto &family) {
+                if constexpr (Resource::KIND == ResourceKind::MODULATION)
+                  if (family.modulation.enabled &&
+                      family.modulation.mechanic.amount != 0.0f &&
+                      family.modulation.mechanic.kind !=
+                          ColorModulation::Mechanic::HUE_ROTATION)
+                    hue_only = false;
+              });
+              if (hue_only) {
+                HS_PROFILE(fx_palette_rgb_bake);
+                state->palette_rgb_luts[state->palette_lab_slot].bake(
+                    cache,
+                    &state->palette_lab_luts[state->palette_lab_slot ^ 1],
+                    &state->palette_rgb_luts[state->palette_lab_slot ^ 1]);
+              }
+            }
             state->current.palette_lab_lut = &cache;
           }
         }
@@ -240,7 +285,11 @@ public:
                 return RenderPipeline::prepare(state->column);
             },
             [](const Frame &frame, int x) {
-              if constexpr (factored_columns()) {
+              if constexpr (requires {
+                              Derived::prepare_column_shader(frame, x);
+                            }) {
+                return Derived::prepare_column_shader(frame, x);
+              } else if constexpr (factored_columns()) {
                 return column_shader(frame, x);
               } else {
                 return [&frame](const math::Vector &view) {
@@ -292,7 +341,11 @@ public:
    * @param canvas Destination canvas.
    * @param frame Prepared frame to shade. */
   static void draw_static_columns(Canvas &canvas, const Frame &frame) {
-    if constexpr (factored_columns()) {
+    if constexpr (requires { Derived::prepare_column_shader(frame, 0); }) {
+      Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
+        return Derived::prepare_column_shader(frame, x);
+      });
+    } else if constexpr (factored_columns()) {
       Scan::Shader::draw_columns<W, H>(
           canvas, [&](int x) { return column_shader(frame, x); });
     } else {
@@ -454,8 +507,8 @@ protected:
   const char *refused_warning = nullptr;
 #endif
 
-  using Choreography::step_choreography;
   using Choreography::register_animated_param;
+  using Choreography::step_choreography;
   using Choreography::timeline;
   using Choreography::transition;
   using Choreography::use_parameter_storage;
@@ -584,7 +637,8 @@ protected:
         target.template get<"color">().palette_mapping);
   }
 
-  /** @brief Adopts an automatic target while retaining animated lens coefficients.
+  /** @brief Adopts an automatic target while retaining animated lens
+   * coefficients.
    *  @param target Parameters to adopt. */
   HS_COLD_MEMBER void finish_blend(const Params &target)
     requires(requires { Derived::ANIMATED_MOBIUS; } && Derived::ANIMATED_MOBIUS)
@@ -714,11 +768,16 @@ private:
                                          SphereAnimation::BurstRippleParams>> {
   };
 
-  struct State : ProjectionWalkNoise<ANIMATED_PROJECTION>,
-                 OptionalHueRotationLut<Metadata::MODULATION>,
-                 OptionalPaletteLabLut<SpecT::PALETTE_LAB_CACHE>,
-                 Spacetime::FrameHistory<FrameState, TEMPORAL_SAMPLING,
-                                         Metadata::MODULATION> {
+  struct State
+      : ProjectionWalkNoise<ANIMATED_PROJECTION>,
+        OptionalHueRotationLut<Metadata::MODULATION>,
+        OptionalPaletteLabLut<SpecT::PALETTE_LAB_CACHE>,
+        OptionalDodecahedralMatrices<SpecT::CACHE_DODECAHEDRAL_MATRICES>,
+        OptionalDodecahedralFaces<SpecT::CACHE_DODECAHEDRAL_FACES>,
+        OptionalPaletteRgbLut<SpecT::PALETTE_RGB_CACHE,
+                              SpecT::PALETTE_RGB_MIDPOINT_ONLY>,
+        Spacetime::FrameHistory<FrameState, TEMPORAL_SAMPLING,
+                                Metadata::MODULATION> {
     ComposedDetail::ResourceStorage<RuntimeResource,
                                     typename Params::ResourceTypes>
         resources;
@@ -951,7 +1010,8 @@ private:
 
   /**
    * @brief Bakes the frame's LUTs and snapshots everything the scan reads.
-   * @details Temporal draws retain palette and source endpoints through the scan.
+   * @details Temporal draws retain palette and source endpoints through the
+   * scan.
    * @param frame Receives this draw's frame state.
    */
   HS_COLD_MEMBER void prepare_frame(FrameState &frame) {
@@ -969,6 +1029,14 @@ private:
     frame.palette = &palette_cycler.palette();
     frame.hue_rotation_lut = hue_rotation_lut_data();
     frame.palette_lab_lut = nullptr;
+    if constexpr (SpecT::CACHE_DODECAHEDRAL_MATRICES)
+      frame.dodecahedral_matrices = state->dodecahedral_matrices.data();
+    else
+      frame.dodecahedral_matrices = nullptr;
+    if constexpr (SpecT::CACHE_DODECAHEDRAL_FACES)
+      frame.dodecahedral_faces = state->dodecahedral_faces.data();
+    else
+      frame.dodecahedral_faces = nullptr;
     frame.params = params;
     frame.resources = {};
     frame.palette_mapping = palette_mapping;

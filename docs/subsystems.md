@@ -155,7 +155,7 @@ The fragment shader receives `pos` set to the closest local-space hit point (in 
 
 ### Composed pullback metadata
 
-`Pullback::Spec` supplies a typed `Pipeline<B>` plus the `HARMONY`, `ANIMATED_PROJECTION`, `TEMPORAL_SAMPLING`, `TEMPORAL_COLOR_PHASE`, `PALETTE_LAB_CACHE`, `PHASE_NOISE_CACHE`, `FACTORED_COLUMNS`, `RIPPLE_RADIAL_TABLE`, `PERSISTENT_PREPARED_FRAME` and `CACHE_FULL_GAMUT_LUT` controls. `Pullback::MetadataFor<Spec>` inspects the normalized semantic leaves, including nested placement groups and optional `void` entries. It derives projection, sampling and field coverage, transfer kind, lens policy, surface placement, path tracking and color modes without binding an executable frame. `ComposedEffect::Metadata` exposes that topology to slider registration and optional storage. Authored scalar topology fields are rejected.
+`Pullback::Spec` supplies a typed `Pipeline<B>` plus the `HARMONY`, `ANIMATED_PROJECTION`, `TEMPORAL_SAMPLING`, `TEMPORAL_COLOR_PHASE`, `PALETTE_LAB_CACHE`, `PALETTE_RGB_CACHE`, `PALETTE_RGB_CHROMA`, `PALETTE_RGB_MIDPOINT_ONLY`, `PHASE_NOISE_CACHE`, `FACTORED_COLUMNS`, `RIPPLE_RADIAL_TABLE`, `PERSISTENT_PREPARED_FRAME`, `CACHE_FULL_GAMUT_LUT`, `CACHE_DODECAHEDRAL_MATRICES` and `CACHE_DODECAHEDRAL_FACES` controls. `Pullback::MetadataFor<Spec>` inspects the normalized semantic leaves, including nested placement groups and optional `void` entries. It derives projection, sampling and field coverage, transfer kind, lens policy, surface placement, path tracking and color modes without binding an executable frame. `ComposedEffect::Metadata` exposes that topology to slider registration and optional storage. Authored scalar topology fields are rejected.
 
 ### Space-time rendering
 
@@ -1126,6 +1126,22 @@ The clip reads the 256 × 128 flash master by default. An effect that clips per 
 | `release_gamut_lut()` | Drops the copy and points the clip back at the flash master. Registered as an `ArenaResetHook`, so `configure_arenas()` and the mesh carousel's compaction both run it before handing the storage out again. |
 
 `MeshFeedback::init()` and Millefiori's composed runtime arm the full 256 × 128 grid on device, using `gamut_lut_bytes(256, 128)` = 131,074 B of persistent arena. Composed specs select this allocation with `CACHE_FULL_GAMUT_LUT`; its size is included in the static persistent-footprint budget. The one-argument `gamut_scale_to_boundary_lut()` uses an armed full-resolution copy and retains the flash master when a coarse copy is armed. The Shader workbench and `ShaderChain` do not allocate a gamut copy.
+
+`CACHE_DODECAHEDRAL_MATRICES` copies the canonical 120 reflection matrices
+(4,320 bytes) into the composed effect's persistent state at initialization.
+Frames borrow that immutable array through `dodecahedral_matrices`; retained
+history and column intervals preserve the borrow. AshCloud uses the RAM matrices
+for its interior dodecahedral lookup, with the same classifier maps, matrix
+arithmetic and wall fallback. Literal endpoints and static draws retain the
+canonical reflection path. Missing cache views use the flash matrices. The
+optional owner is included in the existing persistent-footprint budget; the
+parameter schema and global arena size are unchanged.
+`CACHE_DODECAHEDRAL_FACES` also retains the face-major 64-by-64 classifier maps
+(24,576 exact bytes). Frames borrow that immutable array through
+`dodecahedral_faces`, with the same history lifetime as the matrices. Null face
+views use the flash classifiers; the original flash entry points remain
+available. AshCloud's compact RGB midpoint owner frees 49,152 bytes before both
+lookup copies are enabled. Neither lookup copy introduces a new approximation.
 
 The feedback flush's colour path (`hue_fade_apply`, `hue_fade_apply2`) does not walk the bracket: `lms_cbrt_transform_rgb_lut` (two pixels at a time in `lms_cbrt_transform_rgb2_lut`) rescales an out-of-gamut pixel's chroma straight onto the armed grid's cell minimum through `lms_cbrt_scale_to_gamut_lut`, so a clipped trail pixel costs one grid read. The sampled cell minimum has no certified deficit bound against the exact boundary. The feedback loop re-clips every bright trail pixel each frame, which is where the per-pixel walk was spent.
 
