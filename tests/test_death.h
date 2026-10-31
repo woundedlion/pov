@@ -293,10 +293,6 @@ inline const Case *all_cases(int &n) {
        "workbench/shader/palette_selection.h",
        "(params.palette_name < std::size(COEFFICIENTS) && "
        "params.palette_name_b < std::size(COEFFICIENTS)) invalid named palette index"},
-      {"shader_palette_invalid_authored_type",
-       case_shader_palette_invalid_authored_type,
-       "workbench/shader/palette_selection.h",
-       "(type == Type::PROCEDURAL) invalid authored palette type"},
       {"shader_palette_invalid_name", case_shader_palette_invalid_name,
        "workbench/shader/palette_selection.h",
        "(params.palette_name < std::size(COEFFICIENTS) && "

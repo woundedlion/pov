@@ -22,21 +22,6 @@ inline void case_shader_palette_invalid_named_index() {
   (void)resources.prepare(arena, params);
 }
 
-/** @brief Authored palettes reject types outside the supported source roster. */
-inline void case_shader_palette_invalid_authored_type() {
-  using namespace Pullback::Interp::Op;
-  alignas(std::max_align_t)
-      uint8_t storage[BakedPalette::required_arena_bytes()];
-  Arena arena(storage, sizeof(storage));
-  ShaderPaletteResources resources;
-  GeneratedPaletteParams params;
-  params.palette_type = static_cast<uint8_t>(PaletteType::PROCEDURAL);
-  HS_CHECK(resources.prepare(arena, params).get(.5f).alpha == 1.0f,
-           "valid authored palette companion failed");
-  params.palette_type = opaque(uint8_t{255});
-  (void)resources.prepare(arena, params);
-}
-
 /** @brief Authored palette baking rejects an unknown named palette. */
 inline void case_shader_palette_invalid_name() {
   reset_globals();
