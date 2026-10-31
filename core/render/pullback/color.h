@@ -419,6 +419,38 @@ apply_modulation_in_place(ColorSample &sample, const ModulationState &state,
   }
 }
 
+/** @brief Applies one layer to retained and current color endpoints.
+ * @param previous Retained color carrier.
+ * @param current Current color carrier.
+ * @param state Layer controls and immutable sources. */
+HS_HOT_ITCM_MEMBER inline void
+apply_modulation_pair_in_place(ColorSample &previous, ColorSample &current,
+                               const ModulationState &state) {
+  if (!state.enabled || state.mechanic.amount == 0.0f)
+    return;
+  if (state.source == Pattern::SourceKind::DISPLACEMENT ||
+      previous.field.sphere != current.field.sphere) {
+    apply_modulation_in_place(previous, state, true);
+    apply_modulation_in_place(current, state, false);
+    return;
+  }
+  assert(state.previous && state.current);
+  const auto DIRECTION = Pattern::SphereDirection::admit(current.field.sphere);
+  const auto SCALARS =
+      Modulation::sample_pair(*state.previous, *state.current, DIRECTION);
+  const auto apply = [&](ColorSample &sample, float scalar) {
+    if (state.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION ||
+        state.mechanic.kind ==
+            ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT)
+      apply_perceptual_scalar(sample, scalar, state.mechanic);
+    else
+      sample.color =
+          ColorModulation::apply(sample.color, scalar, state.mechanic);
+  };
+  apply(previous, SCALARS.first);
+  apply(current, SCALARS.second);
+}
+
 /** @brief Applies one ordered modulation layer to a copy.
  * @param input Color and source coordinates.
  * @param state Layer controls and endpoint sources.
@@ -676,6 +708,7 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
 /** @brief Ordered color modulation policy.
  * @tparam State Layer resource provider. */
 template <typename State> struct Modulate : ApproximationDefaults {
+  using PairedOwner = Modulate; ///< Policy admitting paired endpoint updates.
   static constexpr bool APPROXIMATE =
       true; ///< Uses scalar and hue lookup tables.
   static constexpr ApproximationOracleId ORACLE =
@@ -789,6 +822,20 @@ template <typename State> struct Modulate : ApproximationDefaults {
                                       const Prepared &prepared, bool previous) {
     (void)frame;
     apply_modulation_in_place(sample, prepared, previous);
+  }
+
+  /** @brief Updates both endpoints through one prepared layer.
+   * @tparam FrameState Frame context.
+   * @param previous Retained carrier to update.
+   * @param current Current carrier to update.
+   * @param frame Frame context.
+   * @param prepared Prepared layer state. */
+  template <typename FrameState>
+  static void
+  apply_endpoints_in_place(ColorSample &previous, ColorSample &current,
+                           const FrameState &frame, const Prepared &prepared) {
+    (void)frame;
+    apply_modulation_pair_in_place(previous, current, prepared);
   }
   /** @brief Modulates the current endpoint.
    * @tparam FrameState Frame context.

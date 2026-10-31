@@ -1173,6 +1173,28 @@ struct Modulate : Contract<Modulate<ColorPolicyT>, ColorSample, ColorSample> {
   {
     ColorPolicyT::apply_endpoint_in_place(sample, frame, prepared, previous);
   }
+
+  /** @brief Updates paired endpoints through an explicitly paired policy.
+   * @tparam Binding Binding of the pipeline.
+   * @param previous Retained carrier to update.
+   * @param current Current carrier to update.
+   * @param frame Frame context.
+   * @param prepared Prepared policy state. */
+  template <typename Binding>
+  static void run_endpoints_in_place(
+      ColorSample &previous, ColorSample &current,
+      const typename Binding::FrameState &frame,
+      const Detail::PolicyPrepared<ColorPolicyT, typename Binding::FrameState>
+          &prepared)
+    requires requires {
+      typename ColorPolicyT::PairedOwner;
+      requires std::same_as<ColorPolicyT, typename ColorPolicyT::PairedOwner>;
+      ColorPolicyT::apply_endpoints_in_place(previous, current, frame,
+                                             prepared);
+    }
+  {
+    ColorPolicyT::apply_endpoints_in_place(previous, current, frame, prepared);
+  }
 };
 
 } // namespace Stage

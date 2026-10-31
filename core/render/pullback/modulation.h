@@ -15,6 +15,7 @@
 #include <span>
 #include <variant>
 #include <string_view>
+#include <utility>
 
 /** @file modulation.h
  * @brief Sphere modulation validation, scheduling and owned resources. */
@@ -228,6 +229,14 @@ struct Prepared {
   float (*evaluate)(const Prepared &, const Pattern::SphereDirection &) =
       nullptr; ///< Resolved built-in sampler.
 };
+/** @brief Samples the prepared byte cube along an admitted direction.
+ * @param prepared Endpoint source with cube storage.
+ * @param direction Admitted unit coordinate.
+ * @return Interpolated signed scalar. */
+inline float sample_cube(const Prepared &prepared,
+                         const Pattern::SphereDirection &direction) {
+  return Pattern::sample_sphere_lut(prepared.cube, direction);
+}
 /** @brief Samples one admitted direction without reading mutable controls.
  * @param prepared Endpoint source.
  * @param direction Admitted unit coordinate.
@@ -236,6 +245,22 @@ inline float sample(const Prepared &prepared,
                     const Pattern::SphereDirection &direction) {
   assert(prepared.evaluate);
   return Pattern::bounded_scalar(prepared.evaluate(prepared, direction));
+}
+/** @brief Samples two immutable endpoints at one admitted direction.
+ * @param previous Retained endpoint.
+ * @param current Current endpoint.
+ * @param direction Shared admitted coordinate.
+ * @return Retained scalar followed by current scalar. */
+HS_HOT_INLINE inline std::pair<float, float>
+sample_pair(const Prepared &previous, const Prepared &current,
+            const Pattern::SphereDirection &direction) {
+  if (previous.evaluate == sample_cube && current.evaluate == sample_cube &&
+      previous.cube.active && current.cube.active) {
+    const auto TAP = Pattern::prepare_sphere_lut_sample(direction);
+    return {Pattern::bounded_scalar(TAP.sample(previous.cube)),
+            Pattern::bounded_scalar(TAP.sample(current.cube))};
+  }
+  return {sample(previous, direction), sample(current, direction)};
 }
 /** @brief Complete spatial cache identity, independent of mechanic and palette. */
 struct FieldIdentity {
@@ -433,10 +458,7 @@ template <bool Baked = true> struct Resources {
       break;
     }
     if (config.evaluation == Pattern::Evaluation::BAKED_CUBE) {
-      prepared.evaluate = [](const Prepared &value,
-                             const Pattern::SphereDirection &coordinate) {
-        return Pattern::sample_sphere_lut(value.cube, coordinate);
-      };
+      prepared.evaluate = sample_cube;
     } else {
       switch (config.source) {
       case Pattern::SourceKind::DISPLACEMENT:

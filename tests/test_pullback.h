@@ -3640,6 +3640,109 @@ inline void test_pullback_temporal_deferred_in_place() {
   HS_EXPECT_TRUE(b.has_cached_lab);
 }
 
+/** @brief Paired cube samples preserve individual samplers and custom dispatch. */
+inline void test_pullback_modulation_paired_samples() {
+  using namespace Pullback;
+  std::array<int8_t, Pattern::SphereLutView::SIZE> previous_cube;
+  std::array<int8_t, Pattern::SphereLutView::SIZE> current_cube;
+  std::array<float, Pattern::SphereLutView::SIZE> linear_cube;
+  for (size_t index = 0; index < previous_cube.size(); ++index) {
+    previous_cube[index] = static_cast<int8_t>((index * 37) % 255 - 127);
+    current_cube[index] = static_cast<int8_t>((index * 83 + 19) % 255 - 127);
+    linear_cube[index] = current_cube[index];
+  }
+  Modulation::Prepared previous{};
+  Modulation::Prepared current{};
+  previous.cube = {previous_cube.data(), true};
+  current.cube = {current_cube.data(), true};
+  previous.evaluate = current.evaluate = Modulation::sample_cube;
+  for (bool floats : {false, true}) {
+    current.cube.linear_data = floats ? linear_cube.data() : nullptr;
+    for (int x = -3; x <= 3; ++x)
+      for (int y = -3; y <= 3; ++y)
+        for (int z = -3; z <= 3; ++z) {
+          if (x == 0 && y == 0 && z == 0)
+            continue;
+          const auto DIRECTION =
+              Pattern::SphereDirection::admit(math::Vector(x, y, z));
+          const auto PAIR =
+              Modulation::sample_pair(previous, current, DIRECTION);
+          HS_EXPECT_EQ(PAIR.first, Modulation::sample(previous, DIRECTION));
+          HS_EXPECT_EQ(PAIR.second, Modulation::sample(current, DIRECTION));
+        }
+  }
+  static int calls;
+  calls = 0;
+  const auto CUSTOM = [](const Modulation::Prepared &prepared,
+                         const Pattern::SphereDirection &) {
+    ++calls;
+    return prepared.state.phase.phase_turns;
+  };
+  previous.evaluate = current.evaluate = CUSTOM;
+  previous.state.phase.phase_turns = -2.0f;
+  current.state.phase.phase_turns = 3.0f;
+  const auto PAIR = Modulation::sample_pair(
+      previous, current, Pattern::SphereDirection::from_unit(math::Y_AXIS));
+  HS_EXPECT_EQ(calls, 2);
+  HS_EXPECT_EQ(PAIR.first, -1.0f);
+  HS_EXPECT_EQ(PAIR.second, 1.0f);
+}
+
+/** @brief Paired modulation keeps canonical endpoint colors and mechanic order. */
+inline void test_pullback_modulation_paired_colors() {
+  using namespace Pullback;
+  std::array<int8_t, Pattern::SphereLutView::SIZE> previous_cube;
+  std::array<int8_t, Pattern::SphereLutView::SIZE> current_cube;
+  for (size_t index = 0; index < previous_cube.size(); ++index) {
+    previous_cube[index] = static_cast<int8_t>((index * 17) % 255 - 127);
+    current_cube[index] = static_cast<int8_t>((index * 41 + 37) % 255 - 127);
+  }
+  Modulation::Prepared previous{};
+  Modulation::Prepared current{};
+  previous.cube = {previous_cube.data(), true};
+  current.cube = {current_cube.data(), true};
+  previous.evaluate = current.evaluate = Modulation::sample_cube;
+  Color::ModulationState state{
+      &current, &previous, Pattern::SourceKind::NOISE, {}, true};
+  for (auto mechanic : {ColorModulation::Mechanic::HUE_ROTATION,
+                        ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT,
+                        ColorModulation::Mechanic::OPACITY})
+    for (float amount : {0.0f, 0.3f, 1.5f})
+      for (bool same_direction : {false, true})
+        for (int x = -2; x <= 2; ++x) {
+          if (amount > 1.0f &&
+              mechanic != ColorModulation::Mechanic::HUE_ROTATION)
+            continue;
+          state.mechanic = {mechanic, amount};
+          ColorSample a{Color4(Pixel(41000, 17000, 33000), 0.25f),
+                        {0.3f, 0.4f, math::Vector(x, 1.0f, 0.3f), 0.7f}};
+          ColorSample b{
+              Color4(Pixel(27000, 53000, 9000), 0.75f),
+              {0.6f, 0.8f,
+               same_direction ? a.field.sphere : math::Vector(0.3f, x, 1.0f),
+               0.2f}};
+          a.pending_hue = 0.93f;
+          b.pending_hue = 0.07f;
+          a.pending_lift = 0.2f;
+          b.pending_lift = 0.4f;
+          const auto EXPECTED_A = Color::apply_modulation(a, state, true);
+          const auto EXPECTED_B = Color::apply_modulation(b, state, false);
+          Color::apply_modulation_pair_in_place(a, b, state);
+          for (auto pair :
+               {std::pair{a, EXPECTED_A}, std::pair{b, EXPECTED_B}}) {
+            HS_EXPECT_EQ(pair.first.color.color, pair.second.color.color);
+            HS_EXPECT_EQ(pair.first.color.alpha, pair.second.color.alpha);
+            HS_EXPECT_EQ(pair.first.pending_hue, pair.second.pending_hue);
+            HS_EXPECT_EQ(pair.first.pending_lift, pair.second.pending_lift);
+            HS_EXPECT_EQ(pair.first.field.sphere, pair.second.field.sphere);
+            const auto FINISHED = Color::finish(pair.first);
+            const auto EXPECTED = Color::finish(pair.second);
+            HS_EXPECT_EQ(FINISHED.color, EXPECTED.color);
+            HS_EXPECT_EQ(FINISHED.alpha, EXPECTED.alpha);
+          }
+        }
+}
+
 /** @brief Modulation identities retain common and selected inputs only. */
 inline void test_pullback_modulation_field_identity() {
   using namespace Pullback::Modulation;
@@ -3830,6 +3933,8 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_temporal_composed_modulations);
   HS_RUN(test_pullback_temporal_deferred_hue_wrap);
   HS_RUN(test_pullback_temporal_deferred_in_place);
+  HS_RUN(test_pullback_modulation_paired_samples);
+  HS_RUN(test_pullback_modulation_paired_colors);
   return fixture.result();
 }
 
