@@ -255,6 +255,18 @@ inline void test_pattern_extracted_source_protocols() {
   HS_EXPECT_EQ(PlanePrimitiveLattice::sample(
                    {{}}, PlanePrimitiveLattice::prepare(lattice, EMPTY)),
                1.0f);
+  lattice.lattice_shape_blend = 1.0f;
+  lattice.lattice_softness = 0.5f;
+  const auto SQUARE = PlanePrimitiveLattice::prepare(lattice, EMPTY);
+  HS_EXPECT_EQ(PlanePrimitiveLattice::sample({{}}, SQUARE), 0.6875f);
+  for (float sign : {-1.0f, 1.0f}) {
+    HS_EXPECT_EQ(PlanePrimitiveLattice::sample({{sign * 0.125f, 0.0f}}, SQUARE),
+                 0.3671875f);
+    HS_EXPECT_EQ(PlanePrimitiveLattice::sample({{sign * 0.25f, 0.0f}}, SQUARE),
+                 0.0f);
+    HS_EXPECT_EQ(PlanePrimitiveLattice::sample({{sign * 0.375f, 0.0f}}, SQUARE),
+                 -0.3671875f);
+  }
   HS_EXPECT_EQ(
       PlaneEscapeFractal::sample({{}}, PlaneEscapeFractal::prepare({}, {})),
       1.0f);

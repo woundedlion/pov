@@ -392,9 +392,11 @@ primitive_lattice(const PlanePosition &coordinate, const Params &params) {
       return 1.0f - 2.0f * ::math::smooth_ramp(-params.lattice_softness, params.lattice_softness, circle);
     const float bx = fabsf(x) - params.lattice_radius;
     const float by = fabsf(y) - params.lattice_radius;
-    const float square = sqrtf(fmaxf(bx, 0.0f) * fmaxf(bx, 0.0f) +
-                               fmaxf(by, 0.0f) * fmaxf(by, 0.0f)) +
-                         fminf(fmaxf(bx, by), 0.0f);
+    const float EDGE = fmaxf(bx, by);
+    const float CORNER = EDGE < 0.0f ? 0.0f
+                                     : sqrtf(fmaxf(bx, 0.0f) * fmaxf(bx, 0.0f) +
+                                             fmaxf(by, 0.0f) * fmaxf(by, 0.0f));
+    const float square = CORNER + fminf(EDGE, 0.0f);
     const float distance = hs::lerp(circle, square, blend);
     return 1.0f - 2.0f * ::math::smooth_ramp(-params.lattice_softness,
                                              params.lattice_softness, distance);
