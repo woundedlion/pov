@@ -12,6 +12,7 @@
 #include <cstring>
 #include <type_traits>
 
+#include "core/color/palette_cycler.h"
 #include "core/render/pullback.h"
 #include "core/render/pullback/composed_effect.h"
 #include "core/render/pullback/runtime_seeds.h"
@@ -19,6 +20,7 @@
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/pattern/fields.h"
+#include "tests/pixel_test_util.h"
 
 namespace hs_test {
 namespace pullback_tests {
@@ -2398,21 +2400,32 @@ struct ShiftedLabPalette : CountingLabPalette {
   }
 };
 
-/** @brief Cached generated palettes meet channel error bounds between nodes. */
+/** @brief Consecutive analogous cycle bakes meet cached channel bounds. */
 inline void test_pullback_palette_lab_qualification() {
   using namespace Pullback;
   using Policy = Color::GeneratedPalette<LabPaletteProvider>;
-  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> buffer{};
+  std::array<uint8_t, PaletteCycler::generated_arena_bytes() +
+                          2 * BakedPalette::required_arena_bytes()>
+      buffer{};
   Arena arena(buffer.data(), buffer.size());
-  const GenerativePalette FROM(
-      PaletteRecipes::profile(PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC,
-                              AxisCurve::BELL, 0.08f, 0.84f));
-  const GenerativePalette TO(PaletteRecipes::profile(
-      PaletteDomain::STRAIGHT, PaletteHarmony::COMPLEMENTARY, AxisCurve::CUP,
-      0.61f, 0.78f));
+  uint32_t hue = 0;
+  PaletteCycler cycler;
+  cycler.init_generated(
+      arena,
+      +[](void *context, uint32_t sequence, GenerativePalette &out) {
+        GeneratedPaletteBank::next_palette(*static_cast<uint32_t *>(context),
+                                           sequence, PaletteHarmony::ANALOGOUS,
+                                           0.84f, out);
+      },
+      &hue, GeneratedPaletteBank::DWELL_FRAMES,
+      GeneratedPaletteBank::FADE_FRAMES, math::ease_in_out_sin, nullptr, 2);
+  for (int frame = 0; frame < GeneratedPaletteBank::FADE_FRAMES / 2; ++frame)
+    cycler.step();
   BakedPaletteStorage from, to;
-  from.bake(arena, FROM);
-  to.bake(arena, TO);
+  from.clone_from(cycler.palette(), arena);
+  cycler.step();
+  cycler.step();
+  to.clone_from(cycler.palette(), arena);
   PaletteLabLut cache;
   cache.bake(from.view(), to.view());
   HS_EXPECT_TRUE(cache.active);
