@@ -285,10 +285,10 @@ struct TemporalGeneratedPaletteState {
  * @param opacity Shared coverage and opacity.
  * @param gain Shared final brightness.
  * @return Canonical deferred endpoint. */
-HS_ITCM_MEMBER inline ColorSample
-apply_palette_endpoint(const FieldSample &sample,
-                       const GeneratedPaletteState &state, float value,
-                       float opacity, float gain) {
+HS_HOT_INLINE inline ColorSample
+apply_palette_endpoint_impl(const FieldSample &sample,
+                            const GeneratedPaletteState &state, float value,
+                            float opacity, float gain) {
   Color4 color = state.palette->get(value);
   color.alpha *= opacity;
   return ColorSample{
@@ -298,6 +298,19 @@ apply_palette_endpoint(const FieldSample &sample,
       value,
       0.0f,
       gain};
+}
+/** @brief Samples a canonical endpoint from ITCM.
+ * @param sample Shared field coordinates.
+ * @param state Endpoint resources.
+ * @param value Prepared palette coordinate.
+ * @param opacity Shared coverage and opacity.
+ * @param gain Shared final brightness.
+ * @return Canonical deferred endpoint. */
+HS_ITCM_MEMBER inline ColorSample
+apply_palette_endpoint(const FieldSample &sample,
+                       const GeneratedPaletteState &state, float value,
+                       float opacity, float gain) {
+  return apply_palette_endpoint_impl(sample, state, value, opacity, gain);
 }
 /** @brief Maps a sampled field into the color carrier.
  * @param sample Sampled field.
@@ -569,15 +582,7 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
                                 float opacity, float gain)
     requires LAB_CACHE
   {
-    Color4 color = state.palette->get(value);
-    color.alpha *= opacity;
-    return ColorSample{
-        color,
-        sample,
-        state.hue_rotation.active ? state.hue_rotation.data : nullptr,
-        value,
-        0.0f,
-        gain};
+    return apply_palette_endpoint_impl(sample, state, value, opacity, gain);
   }
   /** @brief Tries one cached base without fetching either palette.
    * @tparam FrameState Frame context.
