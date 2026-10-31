@@ -24,6 +24,8 @@ struct Spec {
   static constexpr bool TEMPORAL_COLOR_PHASE = false;
   /// Caches RGB-first interval palette blends in OKLab.
   static constexpr bool PALETTE_LAB_CACHE = false;
+  /// Caches direct noise over the dodecahedral chamber at temporal endpoints.
+  static constexpr bool PHASE_NOISE_CACHE = false;
   /// Factors a supported rotation prefix into column bases.
   static constexpr bool FACTORED_COLUMNS = false;
   /// Bakes endpoint radial transfer curves for burst ripples.

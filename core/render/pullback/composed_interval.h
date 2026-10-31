@@ -45,6 +45,18 @@ template <typename Frame> class FrameInterval {
   bool same_palette;
   bool phase_compatible = true;
 
+  /** @brief Matches projection controls when that family exists.
+   * @param a Previous endpoint.
+   * @param b Current endpoint.
+   * @return Whether both endpoints share projection controls. */
+  static bool same_projection_controls(const Frame &a, const Frame &b) {
+    if constexpr (Params::template HAS<"projection">)
+      return std::memcmp(&a.params.template get<"projection">(),
+                         &b.params.template get<"projection">(),
+                         sizeof(b.params.template get<"projection">())) == 0;
+    return false;
+  }
+
 public:
   /** @brief Prepares parameter identity and periodic clock deltas.
    * @param a Previous frame endpoint.
@@ -267,6 +279,15 @@ public:
                 family.modulation)
                 ? from.resources.template get<Resource::KEY>().modulation
                 : resource.modulation;
+        if constexpr (requires { resource.phase_noise_current; }) {
+          resource.phase_noise_previous =
+              from.resources.template get<Resource::KEY>().phase_noise_current;
+          resource.phase_noise_fraction = fraction;
+          if (!same_projection_controls(from, to)) {
+            resource.phase_noise_previous = {};
+            resource.phase_noise_current = {};
+          }
+        }
         if (family.modulation.enabled &&
             family.modulation.mechanic.amount != 0.0f &&
             resource.modulation != resource.previous_modulation)
@@ -336,6 +357,8 @@ struct FrameHistory<Frame, true, Hue> {
               frame.resources.template get<Resource::KEY>().modulation,
               owned.modulation, owned.table);
           view.previous_modulation = view.modulation;
+          if constexpr (requires { view.phase_noise_current; })
+            view.phase_noise_previous = view.phase_noise_current;
         }
       }
     });

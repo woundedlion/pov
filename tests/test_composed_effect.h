@@ -840,6 +840,7 @@ inline void test_palette_mapping_crossfade() {
 }
 
 #include "tests/composed_effect/temporal_sampling.h"
+#include "tests/composed_effect/chamber_noise_cache.h"
 
 /** @brief Every composed effect defaults to blanking displayed columns. */
 inline void test_composed_strobe_roster() {
@@ -906,6 +907,10 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_document_modulation_members);
   HS_RUN(test_millefiori_column_color_phase);
   HS_RUN(test_ash_cloud_noise_column_phase);
+  HS_RUN(test_chamber_noise_cache_bake_lifetime);
+  HS_RUN(test_chamber_noise_cache_admission);
+  HS_RUN(test_chamber_noise_cache_phase_and_fallback);
+  HS_RUN(test_chamber_noise_cache_runtime_history);
   HS_RUN(test_millefiori_palette_lab_lifetime);
   HS_RUN(test_millefiori_ripple_endpoints);
   HS_RUN(test_composed_strobe_roster);

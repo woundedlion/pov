@@ -10,6 +10,7 @@
 #include "core/color/hue_rotation_lut.h"
 #include "core/color/palette_lab_lut.h"
 #include "core/render/pullback/modulation_temporal.h"
+#include "core/render/pullback/chamber_noise_cache.h"
 
 /**
  * @file color.h
@@ -360,6 +361,16 @@ struct PhaseModulationState : ModulationState {
 };
 static_assert(sizeof(Pattern::SphereSmoothGrid::Prepared) == 40);
 
+/** @brief Optional chamber patches shared by a direct-noise color tail. */
+struct ChamberPhaseModulationState : PhaseModulationState {
+  const Modulation::ChamberNoisePatch *noise_previous =
+      nullptr; ///< Retained samples.
+  const Modulation::ChamberNoisePatch *noise_current =
+      nullptr;                       ///< Current samples.
+  math::Quaternion noise_to_chamber; ///< Inverse column projection.
+  float noise_fraction = 0.0f;       ///< Current endpoint weight.
+};
+
 /** @brief Updates deferred perceptual state from one scalar.
  * @param sample Carrier to update.
  * @param scalar Source value.
@@ -650,6 +661,9 @@ template <typename State> struct Modulate : ApproximationDefaults {
   using Prepared = decltype(State::prepare(
       std::declval<
           const typename State::Binding::FrameState &>())); ///< Layer state.
+  /// Additional internal approximation qualified separately from the LUT metrics.
+  static constexpr bool PHASE_NOISE_APPROXIMATION =
+      std::is_same_v<Prepared, ChamberPhaseModulationState>;
   /** @brief Checks the modulation provider contract.
    * @tparam Binding Frame binding. */
   template <typename Binding>
@@ -670,7 +684,7 @@ template <typename State> struct Modulate : ApproximationDefaults {
    * @param prepared Layer state.
    * @return Whether this column can use the shared tail. */
   static bool phase_ready(const Prepared &prepared)
-    requires std::is_same_v<Prepared, PhaseModulationState>
+    requires std::is_base_of_v<PhaseModulationState, Prepared>
   {
     return prepared.ready;
   }
@@ -682,21 +696,30 @@ template <typename State> struct Modulate : ApproximationDefaults {
   template <typename FrameState>
   static void apply_phase_in_place(ColorSample &sample, const FrameState &frame,
                                    const Prepared &prepared)
-    requires std::is_same_v<Prepared, PhaseModulationState>
+    requires std::is_base_of_v<PhaseModulationState, Prepared>
   {
     (void)frame;
     if (!prepared.enabled || prepared.mechanic.amount == 0.0f)
       return;
-    float scalar;
+    float scalar = 0.0f;
     if (prepared.source == Pattern::SourceKind::DISPLACEMENT)
       scalar = sample.field.path_length;
     else if (prepared.source == Pattern::SourceKind::NOISE) {
-      const auto &noise = *prepared.noise;
-      const auto q = math::noise_sphere_coordinate(
-          Pattern::SphereDirection::admit(sample.field.sphere).value(),
-          noise.scale, prepared.noise_offset);
-      scalar =
-          Pattern::bounded_scalar(noise.noise.GetNoiseSingle(q.x, q.y, q.z));
+      bool cached = false;
+      if constexpr (std::is_same_v<Prepared, ChamberPhaseModulationState>)
+        if (prepared.noise_previous && prepared.noise_current)
+          cached = Modulation::sample_chamber_noise(
+              sample.field.sphere, prepared.noise_to_chamber,
+              *prepared.noise_previous, *prepared.noise_current,
+              prepared.noise_fraction, scalar);
+      if (!cached) {
+        const auto &noise = *prepared.noise;
+        const auto q = math::noise_sphere_coordinate(
+            Pattern::SphereDirection::admit(sample.field.sphere).value(),
+            noise.scale, prepared.noise_offset);
+        scalar =
+            Pattern::bounded_scalar(noise.noise.GetNoiseSingle(q.x, q.y, q.z));
+      }
     } else
       scalar = Pattern::SphereSmoothGrid::sample(
           Pattern::SphereDirection::admit(sample.field.sphere), prepared.grid);

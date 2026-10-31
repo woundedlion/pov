@@ -155,7 +155,7 @@ The fragment shader receives `pos` set to the closest local-space hit point (in 
 
 ### Composed pullback metadata
 
-`Pullback::Spec` supplies a typed `Pipeline<B>` plus the `HARMONY`, `ANIMATED_PROJECTION`, `TEMPORAL_SAMPLING`, `TEMPORAL_COLOR_PHASE`, `PALETTE_LAB_CACHE`, `FACTORED_COLUMNS`, `RIPPLE_RADIAL_TABLE`, `PERSISTENT_PREPARED_FRAME` and `CACHE_FULL_GAMUT_LUT` controls. `Pullback::MetadataFor<Spec>` inspects the normalized semantic leaves, including nested placement groups and optional `void` entries. It derives projection, sampling and field coverage, transfer kind, lens policy, surface placement, path tracking and color modes without binding an executable frame. `ComposedEffect::Metadata` exposes that topology to slider registration and optional storage. Authored scalar topology fields are rejected.
+`Pullback::Spec` supplies a typed `Pipeline<B>` plus the `HARMONY`, `ANIMATED_PROJECTION`, `TEMPORAL_SAMPLING`, `TEMPORAL_COLOR_PHASE`, `PALETTE_LAB_CACHE`, `PHASE_NOISE_CACHE`, `FACTORED_COLUMNS`, `RIPPLE_RADIAL_TABLE`, `PERSISTENT_PREPARED_FRAME` and `CACHE_FULL_GAMUT_LUT` controls. `Pullback::MetadataFor<Spec>` inspects the normalized semantic leaves, including nested placement groups and optional `void` entries. It derives projection, sampling and field coverage, transfer kind, lens policy, surface placement, path tracking and color modes without binding an executable frame. `ComposedEffect::Metadata` exposes that topology to slider registration and optional storage. Authored scalar topology fields are rejected.
 
 ### Space-time rendering
 

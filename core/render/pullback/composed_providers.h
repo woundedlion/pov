@@ -42,8 +42,12 @@ using Warp::WaveShearParams;
  * @details Its pointers alias the runtime's persistent state and the palette
  * cycler's current bake, so a frame stays valid only until the next
  * draw_frame().
+ * @tparam ParamsT Keyed parameter set.
+ * @tparam PhaseNoise Whether frames borrow chamber noise patches.
  */
-template <typename ParamsT> struct FrameState {
+template <typename ParamsT, bool PhaseNoise = false> struct FrameState {
+  static constexpr bool PHASE_NOISE_CACHE =
+      PhaseNoise; ///< Borrows chamber noise.
   /** Conjugate of the projection orientation; identity unless the effect sets
       `ANIMATED_PROJECTION`. */
   math::Quaternion projection_conjugate;
@@ -56,16 +60,20 @@ template <typename ParamsT> struct FrameState {
                        preset transition is in flight. */
   /** Palette mapping weights, blended across a preset transition. */
   Pullback::Color::PaletteMappingWeights palette_mapping;
-  ComposedDetail::ResourceStorage<ComposedDetail::ResourceFrame,
-                                  typename ParamsT::ResourceTypes>
+  ComposedDetail::ResourceStorage<
+      ComposedDetail::ResourceFrameBinding<PhaseNoise>::template Type,
+      typename ParamsT::ResourceTypes>
       resources; ///< Per-resource clocks and noise views, keyed by resource.
   float palette_oscillation_phase; /**< Phase of the mapping wobble. */
   const PaletteLabLut *palette_lab_lut =
       nullptr; ///< Borrowed interval base cache.
 };
 
-/** @brief Column-sampled context with retained color resources. */
-template <typename ParamsT> struct FrameIntervalState : FrameState<ParamsT> {
+/** @brief Column-sampled context with retained color resources.
+ * @tparam ParamsT Keyed parameter set.
+ * @tparam PhaseNoise Whether frames borrow chamber noise patches. */
+template <typename ParamsT, bool PhaseNoise = false>
+struct FrameIntervalState : FrameState<ParamsT, PhaseNoise> {
   Color::TemporalPaletteResources temporal; ///< Previous color resources.
 };
 
@@ -619,7 +627,17 @@ template <typename BindingT, ResourceKey Key, Pattern::SourceKind SourceV,
 struct ModulationProvider {
   using Binding = BindingT;                        ///< Pipeline binding.
   using FrameState = typename Binding::FrameState; ///< Frame context.
-  using Prepared = std::conditional_t<PhaseV, Color::PhaseModulationState,
+  static constexpr bool CACHED_NOISE = [] {
+    if constexpr (requires { FrameState::PHASE_NOISE_CACHE; })
+      return FrameState::PHASE_NOISE_CACHE &&
+             SourceV == Pattern::SourceKind::NOISE &&
+             EvaluationV == Pattern::Evaluation::DIRECT;
+    return false;
+  }(); ///< Whether this source borrows chamber patches.
+  using PhasePrepared =
+      std::conditional_t<CACHED_NOISE, Color::ChamberPhaseModulationState,
+                         Color::PhaseModulationState>; ///< Column phase state.
+  using Prepared = std::conditional_t<PhaseV, PhasePrepared,
                                       Color::ModulationState>; ///< Layer state.
   /** @brief Prepares endpoint views and mechanic controls.
    * @param frame Frame context.
@@ -633,7 +651,7 @@ struct ModulationProvider {
     if constexpr (!PhaseV)
       return BASE;
     else {
-      Color::PhaseModulationState result;
+      PhasePrepared result;
       static_cast<Color::ModulationState &>(result) = BASE;
       if constexpr (requires { frame.temporal.phase_compatible; }) {
         if (!frame.temporal.phase_compatible)
@@ -655,6 +673,22 @@ struct ModulationProvider {
                   resource.modulation->config))
             return result;
           result.noise = &std::get<0>(resource.modulation->source);
+          if constexpr (CACHED_NOISE) {
+            const auto &a = resource.phase_noise_previous;
+            const auto &b = resource.phase_noise_current;
+            if (a.patch && b.patch && resource.phase_noise_fraction > 0.0f &&
+                resource.phase_noise_fraction < 1.0f &&
+                a.patch->matches(*resource.previous_modulation, a.projection) &&
+                b.patch->matches(*resource.modulation, b.projection) &&
+                Modulation::ChamberNoisePatch::continuous(
+                    a.patch->phase, a.projection, b.patch->phase,
+                    b.projection)) {
+              result.noise_previous = a.patch;
+              result.noise_current = b.patch;
+              result.noise_fraction = resource.phase_noise_fraction;
+              result.noise_to_chamber = frame.projection_conjugate.conjugate();
+            }
+          }
           const float PHASE =
               Spacetime::ClockInterval(
                   resource.previous_modulation->state.phase.phase_turns,

@@ -370,6 +370,49 @@ model.
 Both models compose hue and lift before one final gamut mapping. Alpha is
 unchanged because the admitted shared mechanics preserve it.
 
+`Spec::PHASE_NOISE_CACHE` optionally approximates AshCloud's direct configured-single
+noise within a dodecahedral chamber. It leaves the authored source, evaluation
+strategy, parameters and document topology unchanged. Each endpoint bakes a
+floating scalar patch in the chamber's x/y, z/y chart. Baking rotates each chart
+direction by that endpoint's projection and samples its immutable noise source.
+A column recovers chart coordinates with the inverse sampled projection, samples
+both endpoint patches bilinearly, interpolates their scalars at column time and
+applies the admitted hue/lift mechanic once. The explicit chart bounds and sample
+counts are declared by `ChamberNoisePatch`. Cache views retain actual column
+time independently of the palette blend weight, which can collapse to one when
+both source clocks and palettes are equal but the projection changes.
+
+Cache admission is restricted to the qualified authored noise recipe: configured
+single simplex, zero contrast, scale 2.4029531, speed 0.00015, seed 6047 and recipe
+version 1. Other admitted controls retain direct evaluation without baking an
+unused patch. Large clock or projection steps suspend caching; the bounds are
+`ChamberNoisePatch::MAX_CLOCK_STEP` and `MAX_PROJECTION_STEP_SQ`. Step checks follow
+the short clock arc and treat antipodal quaternions as one orientation. A rejected
+endpoint is not rebaked by repeated preparation; subsequent continuous endpoints
+prime the alternating storage again.
+
+Two runtime-owned slots alternate only when the endpoint identity changes.
+Their identities include the complete active noise recipe, seed, loop phase and
+projection quaternion. Frame views retain the expected quaternion, and source
+identity is checked against the retained immutable prepared endpoint. The previous
+frame's slot remains immutable through the next draw. Direct source retention
+never marks its ordinary cube active or requires history cube storage.
+
+Literal endpoints and static frames retain canonical evaluation. Missing or stale
+patches, changed projection controls and directions outside the chart retain the
+existing direct column-phase sampler; out-of-chart coordinates are not clamped.
+Changed noise recipes and unsupported variants retain the existing temporal
+admission and endpoint-tail fallback. Cache storage and frame views exist only
+for an opted-in direct-noise resource and remain inside the existing persistent
+arena budget. The cache changes color sampling, leaving geometry, path length,
+coverage and alpha intact. Qualification compares its RGB16 output against the
+same effect with this cache alone disabled; its measured error is recorded
+independently of the palette and radial approximations. `Color::Modulate`
+exposes this additional internal approximation through
+`PHASE_NOISE_APPROXIMATION`. The existing ordinary hue/noise LUT metrics do not
+bound its additional chamber-cache error; qualification is finite capture
+coverage, not a universal bound for all future frames and color controls.
+
 `Spec::PALETTE_LAB_CACHE` optionally supplies the eligible shared tail with a
 palette-aware base cache. Each node first blends the previous/current RGB16
 palette samples with the canonical Q16 weight, then converts that RGB to OKLab.

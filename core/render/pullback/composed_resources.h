@@ -14,6 +14,7 @@
 
 #include "core/math/noise_field.h"
 #include "core/render/pullback/lens.h"
+#include "core/render/pullback/chamber_noise_cache.h"
 #include "core/render/pullback/source.h"
 #include "core/render/pullback/sphere_animation.h"
 #include "core/render/pullback/stage.h"
@@ -343,6 +344,37 @@ template <typename Resource> struct ResourceModulationView<Resource, true> {
   const Modulation::Prepared *previous_modulation =
       nullptr; ///< Retained source.
 };
+/// Whether the resource declares a direct spatial noise source.
+template <typename Resource>
+inline constexpr bool RESOURCE_DIRECT_NOISE = [] {
+  if constexpr (Resource::KIND == ResourceKind::MODULATION)
+    return Resource::Family::SOURCE == Pattern::SourceKind::NOISE &&
+           Resource::Family::EVALUATION == Pattern::Evaluation::DIRECT;
+  return false;
+}();
+
+/** @brief Optional owned chamber noise endpoints.
+ * @tparam Resource Keyed resource.
+ * @tparam Enabled Whether this resource caches phase noise. */
+template <typename Resource, bool Enabled> struct ResourcePhaseNoiseCache {};
+/** @brief Owned endpoint patches for an eligible noise resource.
+ * @tparam Resource Keyed direct-noise resource. */
+template <typename Resource> struct ResourcePhaseNoiseCache<Resource, true> {
+  Modulation::ChamberNoiseCache phase_noise; ///< Alternating endpoint samples.
+};
+
+/** @brief Optional borrowed chamber noise endpoints.
+ * @tparam Resource Keyed resource.
+ * @tparam Enabled Whether this frame borrows phase noise. */
+template <typename Resource, bool Enabled> struct ResourcePhaseNoiseView {};
+/** @brief Borrowed current and previous endpoint patches.
+ * @tparam Resource Keyed direct-noise resource. */
+template <typename Resource> struct ResourcePhaseNoiseView<Resource, true> {
+  Modulation::ChamberNoiseView phase_noise_current;  ///< Current samples.
+  Modulation::ChamberNoiseView phase_noise_previous; ///< Retained samples.
+  float phase_noise_fraction = -1.0f; ///< Column time; negative disables cache.
+};
+
 /** @brief Retained spatial source storage.
  * @tparam Resource Keyed resource.
  * @tparam Enabled Whether this resource owns a source. */
@@ -443,12 +475,24 @@ template <typename Resource> struct ResourceRippleRadialView<Resource, true> {
       -1.0f; ///< Current endpoint weight; negative disables.
 };
 
-/** @brief Frame snapshot of one resource: its clocks and noise view. */
-template <typename Resource>
-struct ResourceFrame : ResourceClock<Resource>,
-                       ResourceNoiseView<Resource>,
-                       ResourceRippleRadialView<Resource>,
-                       ResourceModulationView<Resource> {};
+/** @brief Frame snapshot of one resource: its clocks and noise view.
+ * @tparam Resource Keyed resource.
+ * @tparam PhaseNoise Whether frames borrow chamber noise patches. */
+template <typename Resource, bool PhaseNoise = false>
+struct ResourceFrame
+    : ResourceClock<Resource>,
+      ResourceNoiseView<Resource>,
+      ResourceRippleRadialView<Resource>,
+      ResourceModulationView<Resource>,
+      ResourcePhaseNoiseView<Resource,
+                             PhaseNoise && RESOURCE_DIRECT_NOISE<Resource>> {};
+
+/** @brief Binds optional frame storage to a resource-list adapter.
+ * @tparam PhaseNoise Whether frame resources borrow chamber noise. */
+template <bool PhaseNoise> struct ResourceFrameBinding {
+  template <typename Resource>
+  using Type = ResourceFrame<Resource, PhaseNoise>; ///< Bound resource frame.
+};
 
 /** @brief One `Storage<Resource>` per resource, addressed by key. */
 template <template <typename> typename Storage, typename Resources>

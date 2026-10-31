@@ -61,12 +61,17 @@ public:
   static_assert(!SpecT::PALETTE_LAB_CACHE ||
                     (TEMPORAL_SAMPLING && SpecT::TEMPORAL_COLOR_PHASE),
                 "palette base caches require temporal phase color sampling");
+  static_assert(!SpecT::PHASE_NOISE_CACHE ||
+                    (TEMPORAL_SAMPLING && SpecT::TEMPORAL_COLOR_PHASE &&
+                     std::is_base_of_v<Lens::DodecahedralKaleidoscope,
+                                       typename Metadata::LensPolicy>),
+                "phase noise cache requires a temporal dodecahedral chamber");
   static_assert(!TEMPORAL_SAMPLING || (W >= 2 && W % 2 == 0),
                 "Column-time sampling requires an even two-arm canvas width");
   /// Frame context, including retained color resources when sampling time.
-  using FrameState =
-      std::conditional_t<TEMPORAL_SAMPLING, FrameIntervalState<ParamsT>,
-                         Pullback::FrameState<ParamsT>>;
+  using FrameState = std::conditional_t<
+      TEMPORAL_SAMPLING, FrameIntervalState<ParamsT, SpecT::PHASE_NOISE_CACHE>,
+      Pullback::FrameState<ParamsT, SpecT::PHASE_NOISE_CACHE>>;
   using Binding = Pullback::Binding<FrameState>; ///< Pipeline binding.
   /// Whether the projection orientation follows a random walk and spin.
   static constexpr bool ANIMATED_PROJECTION = SpecT::ANIMATED_PROJECTION;
@@ -700,6 +705,9 @@ private:
   template <typename Resource>
   struct RuntimeResource
       : ComposedDetail::ResourceNoise<Resource>,
+        ComposedDetail::ResourcePhaseNoiseCache<
+            Resource, SpecT::PHASE_NOISE_CACHE &&
+                          ComposedDetail::RESOURCE_DIRECT_NOISE<Resource>>,
         ComposedDetail::ResourceRippleRadialTable<
             Resource, SpecT::RIPPLE_RADIAL_TABLE &&
                           std::is_same_v<typename Resource::Family,
@@ -994,6 +1002,15 @@ private:
               &state->resources.template get<Resource::KEY>()
                    .modulation_resources.prepare(config, clock);
         resource.previous_modulation = resource.modulation;
+        if constexpr (SpecT::PHASE_NOISE_CACHE &&
+                      ComposedDetail::RESOURCE_DIRECT_NOISE<Resource>) {
+          if (!Spacetime::flat_surface()) {
+            auto &owned = state->resources.template get<Resource::KEY>();
+            resource.phase_noise_current = owned.phase_noise.prepare(
+                *resource.modulation, frame.projection_conjugate);
+            resource.phase_noise_previous = resource.phase_noise_current;
+          }
+        }
       }
       if constexpr (Resource::KIND == ResourceKind::LENS)
         if (!Pullback::valid(frame.params.template get<Resource::KEY>()))

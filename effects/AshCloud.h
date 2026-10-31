@@ -38,11 +38,15 @@ struct AshCloudDodecahedralLens : Pullback::Lens::DodecahedralKaleidoscope {
 struct AshCloudSpec : Pullback::Spec {
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
-  static constexpr bool TEMPORAL_COLOR_PHASE = true;
-  static constexpr bool PALETTE_LAB_CACHE = true;
-  static constexpr bool CACHE_FULL_GAMUT_LUT = true;
-  static constexpr bool RIPPLE_RADIAL_TABLE = true;
-  static constexpr bool PERSISTENT_PREPARED_FRAME = true;
+  static constexpr bool TEMPORAL_COLOR_PHASE = true; ///< Shared color tail.
+  static constexpr bool PALETTE_LAB_CACHE = true;    ///< Cached palette blends.
+  static constexpr bool PHASE_NOISE_CACHE = true;    ///< Cached chamber noise.
+  static constexpr bool CACHE_FULL_GAMUT_LUT =
+      true; ///< Persistent gamut lookup.
+  static constexpr bool RIPPLE_RADIAL_TABLE =
+      true; ///< Cached ripple transfers.
+  static constexpr bool PERSISTENT_PREPARED_FRAME =
+      true; ///< Arena-owned frame.
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**

@@ -1388,6 +1388,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │   ├── composed_interval.h     Retained endpoints and column-time sampling
 │   │   │   ├── modulation.h            Pattern state ownership and prepared sphere binding
 │   │   │   ├── modulation_temporal.h   Endpoint retention, identity and completed straight-alpha blending
+│   │   │   ├── chamber_noise_cache.h    Retained direct-noise samples over the dodecahedral chamber chart
 │   │   │   ├── runtime_snapshot.h      Chain runtime snapshot contracts
 │   │   │   ├── sphere_animation.h      Ripple burst scheduling
 │   │   │   ├── operators.h             Chain-operator umbrella and camera/color exit adapters
