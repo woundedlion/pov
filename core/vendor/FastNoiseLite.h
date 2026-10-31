@@ -363,16 +363,14 @@ public:
   }
 
   /// Requires has_default_gradient_transform().
-  HS_HOT_ITCM_MEMBER Gradient3 get_noise_gradient_unit_default(float x, float y,
-                                                               float z) const {
+  HS_HOT_INLINE Gradient3 get_noise_gradient_unit_default(float x, float y,
+                                                          float z) const {
     constexpr float ROTATION = 2.0f / 3.0f;
     const float coordinate_sum = (x + y + z) * ROTATION;
     x = coordinate_sum - x;
     y = coordinate_sum - y;
     z = coordinate_sum - z;
-    Gradient3 gradient;
-    SingleOpenSimplex2Gradient(mSeed, x, y, z, gradient.x, gradient.y,
-                               gradient.z);
+    Gradient3 gradient = get_noise_gradient_transformed(x, y, z);
     const float reflection = ROTATION * (gradient.x + gradient.y + gradient.z);
     return {reflection - gradient.x, reflection - gradient.y,
             reflection - gradient.z};
@@ -381,13 +379,21 @@ public:
   HS_HOT_ITCM_MEMBER Gradient3 get_noise_gradient_single(float x, float y,
                                                          float z) const {
     TransformNoiseCoordinate(x, y, z);
-    Gradient3 gradient;
-    SingleOpenSimplex2Gradient(mSeed, x, y, z, gradient.x, gradient.y,
-                               gradient.z);
+    Gradient3 gradient = get_noise_gradient_transformed(x, y, z);
     TransformNoiseGradient(gradient.x, gradient.y, gradient.z);
     return gradient;
   }
 
+private:
+  HS_HOT_ITCM_MEMBER Gradient3 get_noise_gradient_transformed(float x, float y,
+                                                              float z) const {
+    Gradient3 gradient;
+    SingleOpenSimplex2Gradient(mSeed, x, y, z, gradient.x, gradient.y,
+                               gradient.z);
+    return gradient;
+  }
+
+public:
   HS_HOT_ITCM_MEMBER void GetNoiseGradientSingle(float x, float y, float z,
                                                  float &xg, float &yg,
                                                  float &zg) const {
