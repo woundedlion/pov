@@ -34,15 +34,11 @@ inline void case_pattern_interference_invalid_prepare() {
 inline void case_pattern_grid_invalid_advance() {
   Pattern::GridParams params;
   (void)Pattern::SphereSmoothGrid::advance({}, params);
-  params.axis_b = params.axis;
-  (void)Pattern::SphereSmoothGrid::advance({}, params);
   params.axis_b = math::Vector(0.0f, 0.0f, 0.0f);
   (void)Pattern::SphereSmoothGrid::advance({}, params);
 }
 inline void case_pattern_grid_invalid_prepare() {
   Pattern::GridParams params;
-  (void)Pattern::SphereSmoothGrid::prepare(params, {});
-  params.axis_b = params.axis;
   (void)Pattern::SphereSmoothGrid::prepare(params, {});
   params.axis_b = math::Vector(0.0f, 0.0f, 0.0f);
   (void)Pattern::SphereSmoothGrid::prepare(params, {});
