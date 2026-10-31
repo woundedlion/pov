@@ -249,6 +249,7 @@ public:
       if (!Spacetime::flat_surface()) {
         if constexpr (SpecT::PALETTE_LAB_CACHE) {
           if (palette_cache_controls_eligible(current.params) &&
+              palette_cache_controls_eligible(history.previous.params) &&
               history.previous.params.template get<"color">() ==
                   current.params.template get<"color">()) {
             HS_PROFILE(fx_palette_base_bake);
