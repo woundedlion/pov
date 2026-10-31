@@ -268,6 +268,9 @@ inline void test_noise_field_gradient_value_return() {
             HS_EXPECT_EQ(DEFAULT.x, reference.x);
             HS_EXPECT_EQ(DEFAULT.y, reference.y);
             HS_EXPECT_EQ(DEFAULT.z, reference.z);
+            const auto INLINE = noise.get_noise_gradient_unit_default<true>(
+                POINT.x, POINT.y, POINT.z);
+            HS_EXPECT_EQ(std::memcmp(&INLINE, &DEFAULT, sizeof(DEFAULT)), 0);
           }
         }
       }

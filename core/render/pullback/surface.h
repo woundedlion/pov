@@ -450,6 +450,12 @@ struct CurlNoise : PrepareFromState<State> {
     else
       return false;
   }(); ///< Whether the provider owns generator qualification.
+  static constexpr bool INLINE_UNIT_GRADIENT = [] {
+    if constexpr (requires { IntegratorPolicy::INLINE_UNIT_GRADIENT; })
+      return IntegratorPolicy::INLINE_UNIT_GRADIENT;
+    else
+      return false;
+  }(); ///< Whether the qualified gradient core is emitted at the caller.
 
   /**
    * @brief Whether `State` is a provider for `Binding` with every accessor
@@ -493,11 +499,12 @@ struct CurlNoise : PrepareFromState<State> {
                     OWNED_GRADIENT_PREPARE &&
                     requires { prepared.unit_default_gradient; }) {
         if (prepared.unit_default_gradient)
-          tangent = math::sample_unit_simplex_curl_tangent(
-              State::noise(frame),
-              math::noise_sphere_coordinate(input, State::scale(frame),
-                                            prepared.loop_offset),
-              input, Limit);
+          tangent =
+              math::sample_unit_simplex_curl_tangent<INLINE_UNIT_GRADIENT>(
+                  State::noise(frame),
+                  math::noise_sphere_coordinate(input, State::scale(frame),
+                                                prepared.loop_offset),
+                  input, Limit);
         else
           tangent = curl_field(input, State::noise(frame), Basis, Limit,
                                State::scale(frame), prepared.loop_offset);

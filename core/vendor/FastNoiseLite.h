@@ -363,6 +363,7 @@ public:
   }
 
   /// Requires has_default_gradient_transform().
+  template <bool InlineCore = false>
   HS_HOT_INLINE Gradient3 get_noise_gradient_unit_default(float x, float y,
                                                           float z) const {
     constexpr float ROTATION = 2.0f / 3.0f;
@@ -370,7 +371,12 @@ public:
     x = coordinate_sum - x;
     y = coordinate_sum - y;
     z = coordinate_sum - z;
-    Gradient3 gradient = get_noise_gradient_transformed(x, y, z);
+    Gradient3 gradient;
+    if constexpr (InlineCore)
+      SingleOpenSimplex2Gradient(mSeed, x, y, z, gradient.x, gradient.y,
+                                 gradient.z);
+    else
+      gradient = get_noise_gradient_transformed(x, y, z);
     const float reflection = ROTATION * (gradient.x + gradient.y + gradient.z);
     return {reflection - gradient.x, reflection - gradient.y,
             reflection - gradient.z};
@@ -1188,9 +1194,10 @@ private:
     return value * 32.69428253173828125f;
   }
 
-  HS_O3_FN void SingleOpenSimplex2Gradient(int seed, float x, float y, float z,
-                                           float &gradientX, float &gradientY,
-                                           float &gradientZ) const {
+  HS_O3_FN HS_HOT_INLINE void
+  SingleOpenSimplex2Gradient(int seed, float x, float y, float z,
+                             float &gradientX, float &gradientY,
+                             float &gradientZ) const {
     int i = FastRound(x);
     int j = FastRound(y);
     int k = FastRound(z);

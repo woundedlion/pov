@@ -423,12 +423,15 @@ sample_simplex_curl_tangent(const FastNoiseLite &noise, const math::Vector &q,
  * @param q Noise-space coordinate.
  * @param v Unit sphere direction.
  * @param limit Tangent-length policy.
- * @return The canonical curl tangent. */
+ * @return The canonical curl tangent.
+ * @tparam InlineCore Whether the gradient core is emitted at the caller. */
+template <bool InlineCore = false>
 HS_O3_FN HS_HOT_INLINE inline math::Vector
 sample_unit_simplex_curl_tangent(const FastNoiseLite &noise,
                                  const math::Vector &q, const math::Vector &v,
                                  TangentLimit limit) {
-  const auto GRADIENT = noise.get_noise_gradient_unit_default(q.x, q.y, q.z);
+  const auto GRADIENT =
+      noise.get_noise_gradient_unit_default<InlineCore>(q.x, q.y, q.z);
   return curl_from_gradient({GRADIENT.x, GRADIENT.y, GRADIENT.z}, v, limit);
 }
 

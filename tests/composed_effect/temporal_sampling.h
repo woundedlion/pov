@@ -1733,9 +1733,17 @@ inline void test_composed_default_gradient_preparation() {
   using Provider =
       Pullback::SurfaceProvider<typename FX::Binding,
                                 Pullback::SurfaceNoiseParams, true>;
-  using Policy =
+  using DefaultPolicy =
       typename Pullback::SurfacePolicyFor<Pullback::SurfaceNoiseParams,
                                           typename FX::Binding, true>::Type;
+  using Policy =
+      Pullback::Surface::CurlNoise<Provider, math::NoiseBasis::SIMPLEX,
+                                   AshCloudInlineEuler,
+                                   math::TangentLimit::SMOOTH>;
+  static_assert(Policy::INLINE_UNIT_GRADIENT);
+  static_assert(!DefaultPolicy::INLINE_UNIT_GRADIENT);
+  static_assert(AshCloudInlineEuler::VALUE ==
+                Pullback::Surface::Integrator::EULER);
   struct ForeignProvider : Provider {
     static auto prepare(const typename FX::FrameState &frame) {
       auto result = Provider::prepare(frame);
@@ -1745,7 +1753,7 @@ inline void test_composed_default_gradient_preparation() {
   };
   using ForeignPolicy =
       Pullback::Surface::CurlNoise<ForeignProvider, math::NoiseBasis::SIMPLEX,
-                                   Pullback::Surface::Euler,
+                                   AshCloudInlineEuler,
                                    math::TangentLimit::SMOOTH>;
   static_assert(!ForeignPolicy::OWNED_GRADIENT_PREPARE);
   reset_effect_globals();
@@ -1781,6 +1789,11 @@ inline void test_composed_default_gradient_preparation() {
       HS_EXPECT_EQ(ACTUAL.sphere.y, EXPECTED.sphere.y);
       HS_EXPECT_EQ(ACTUAL.sphere.z, EXPECTED.sphere.z);
       HS_EXPECT_EQ(ACTUAL.path_length, EXPECTED.path_length);
+      const auto SHARED = DefaultPolicy::apply(direction, frame, PREPARED);
+      HS_EXPECT_EQ(ACTUAL.sphere.x, SHARED.sphere.x);
+      HS_EXPECT_EQ(ACTUAL.sphere.y, SHARED.sphere.y);
+      HS_EXPECT_EQ(ACTUAL.sphere.z, SHARED.sphere.z);
+      HS_EXPECT_EQ(ACTUAL.path_length, SHARED.path_length);
       const auto FOREIGN = ForeignPolicy::apply(
           direction, frame, ForeignProvider::prepare(frame));
       HS_EXPECT_EQ(FOREIGN.sphere.x, EXPECTED.sphere.x);

@@ -34,6 +34,11 @@ struct AshCloudDodecahedralLens : Pullback::Lens::DodecahedralKaleidoscope {
   }
 };
 
+/** @brief Euler integration with an inline qualified gradient core. */
+struct AshCloudInlineEuler : Pullback::Surface::Euler {
+  static constexpr bool INLINE_UNIT_GRADIENT = true;
+};
+
 /** @brief Pullback stage spec for `AshCloud`. */
 struct AshCloudSpec : Pullback::Spec {
   /// Samples animation continuously across each two-arm half-turn.
@@ -65,8 +70,10 @@ struct AshCloudSpec : Pullback::Spec {
               "displace">>>,
       Pullback::Stage::Placed<
           Pullback::CodeEmission::INLINE_ONLY,
-          Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
-              Pullback::SurfaceNoiseParams, B, true>::Type>,
+          Pullback::Stage::Displace<Pullback::Surface::CurlNoise<
+              Pullback::SurfaceProvider<B, Pullback::SurfaceNoiseParams, true>,
+              math::NoiseBasis::SIMPLEX, AshCloudInlineEuler,
+              math::TangentLimit::SMOOTH>>,
           Pullback::Stage::Lens<AshCloudDodecahedralLens>,
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
               Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,

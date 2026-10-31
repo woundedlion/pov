@@ -867,8 +867,11 @@ inline void test_ash_cloud_document_pipeline() {
       Pullback::Surface::BurstRipple<Pullback::SurfaceProvider<
           FX::Binding, Pullback::SphereAnimation::BurstRippleParams, true,
           "displace">>>;
-  using Curl = Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
-      Pullback::SurfaceNoiseParams, FX::Binding, true>::Type>;
+  using Curl = Pullback::Stage::Displace<Pullback::Surface::CurlNoise<
+      Pullback::SurfaceProvider<FX::Binding, Pullback::SurfaceNoiseParams,
+                                true>,
+      math::NoiseBasis::SIMPLEX, AshCloudInlineEuler,
+      math::TangentLimit::SMOOTH>>;
   using Lens = Pullback::Stage::Lens<AshCloudDodecahedralLens>;
   using Project = Pullback::Stage::Project<Pullback::ProjectionPolicyFor<
       Pullback::ProjectionKind::STEREOGRAPHIC, FX::Binding>::Type>;
