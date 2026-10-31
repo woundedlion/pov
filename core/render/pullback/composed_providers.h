@@ -224,7 +224,8 @@ struct SurfaceProvider {
   }
   /** @brief Per-frame prepared surface state.
    *  @param frame Current frame.
-   *  @return `Pullback::Surface::prepare_direct` for a directed family,
+   *  @return `SphereAnimation::prepare_ripples` for burst ripples,
+   *  `Pullback::Surface::prepare_direct` for a directed family,
    *  else `Pullback::Surface::prepare`. */
   __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
     if constexpr (std::is_same_v<Family, SphereAnimation::BurstRippleParams>) {
