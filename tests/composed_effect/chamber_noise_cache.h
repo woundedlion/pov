@@ -139,6 +139,13 @@ inline void test_chamber_noise_cache_phase_and_fallback() {
                          Pattern::Evaluation::DIRECT, true>;
   static_assert(
       std::is_same_v<Provider::Prepared, Color::ChamberPhaseModulationState>);
+  using GenericFrame = FrameIntervalState<FX::Params>;
+  using GenericProvider =
+      ModulationProvider<Binding<GenericFrame>, "modulation",
+                         Pattern::SourceKind::NOISE,
+                         Pattern::Evaluation::DIRECT, true>;
+  static_assert(
+      std::is_same_v<GenericProvider::Prepared, Color::PhaseModulationState>);
   using Grid = ModulationProvider<Millefiori<96, 20>::Binding, "field",
                                   Pattern::SourceKind::SPHERE_SMOOTH_GRID,
                                   Pattern::Evaluation::DIRECT, true>;
@@ -184,12 +191,67 @@ inline void test_chamber_noise_cache_phase_and_fallback() {
       continue;
     HS_EXPECT_TRUE(prepared.noise_current == b.patch);
     HS_EXPECT_TRUE(prepared.noise_previous == a.patch);
+    const float PHASE = Spacetime::ClockInterval(.9999f, .0001f, 1.0f)
+                            .sample(column.temporal.fraction);
+    HS_EXPECT_TRUE(prepared.lazy_noise_offset);
+    HS_EXPECT_EQ(prepared.noise_phase, PHASE);
+    HS_EXPECT_EQ(prepared.noise_offset.x, 0.0f);
+    HS_EXPECT_EQ(prepared.noise_offset.y, 0.0f);
+    HS_EXPECT_EQ(prepared.noise_offset.z, 0.0f);
+    auto eager = prepared;
+    eager.lazy_noise_offset = false;
+    eager.noise_offset = math::noise_sphere_loop_offset(PHASE);
+    GenericFrame generic{};
+    generic.params = column.params;
+    generic.temporal = column.temporal;
+    auto &generic_resource = generic.resources.template get<"modulation">();
+    generic_resource.modulation = &current.prepared;
+    generic_resource.previous_modulation = &previous.prepared;
+    const auto GENERIC = GenericProvider::prepare(generic);
+    HS_EXPECT_TRUE(GENERIC.ready);
+    HS_EXPECT_EQ(GENERIC.noise_offset.x, eager.noise_offset.x);
+    HS_EXPECT_EQ(GENERIC.noise_offset.y, eager.noise_offset.y);
+    HS_EXPECT_EQ(GENERIC.noise_offset.z, eager.noise_offset.z);
     const float U = .1915f, V = .31f;
     const auto sphere = math::rotate(math::Vector(U, 1, V).normalized(),
                                      column.projection_conjugate);
     ColorSample carrier{Color4(Pixel(2000, 4000, 6000), .37f),
                         {.5f, .7f, sphere, 2.0f}};
+    auto eager_carrier = carrier;
+    Color::Modulate<Provider>::apply_phase_in_place(eager_carrier, column,
+                                                    eager);
     Color::Modulate<Provider>::apply_phase_in_place(carrier, column, prepared);
+    HS_EXPECT_NEAR(carrier.pending_hue, eager_carrier.pending_hue, 1e-7f);
+    HS_EXPECT_EQ(carrier.pending_lift, eager_carrier.pending_lift);
+    for (int missing = 1; missing < 4; ++missing) {
+      auto view = prepared;
+      if (missing & 1)
+        view.noise_previous = nullptr;
+      if (missing & 2)
+        view.noise_current = nullptr;
+      ColorSample fallback{Color4(Pixel(2000, 4000, 6000), .37f),
+                           {.5f, .7f, sphere, 2.0f}};
+      auto expected = fallback;
+      Color::Modulate<Provider>::apply_phase_in_place(fallback, column, view);
+      Color::Modulate<GenericProvider>::apply_phase_in_place(expected, generic,
+                                                             GENERIC);
+      HS_EXPECT_NEAR(fallback.pending_hue, expected.pending_hue, 1e-7f);
+    }
+    Color::ChamberPhaseModulationState supplied;
+    static_cast<Color::PhaseModulationState &>(supplied) = GENERIC;
+    supplied.noise_offset = math::noise_sphere_loop_offset(.137f);
+    HS_EXPECT_FALSE(supplied.lazy_noise_offset);
+    ColorSample synthetic{Color4(Pixel(2000, 4000, 6000), .37f),
+                          {.5f, .7f, sphere, 2.0f}};
+    auto expected_synthetic = synthetic;
+    auto supplied_generic = GENERIC;
+    supplied_generic.noise_offset = supplied.noise_offset;
+    Color::Modulate<Provider>::apply_phase_in_place(synthetic, column,
+                                                    supplied);
+    Color::Modulate<GenericProvider>::apply_phase_in_place(
+        expected_synthetic, generic, supplied_generic);
+    HS_EXPECT_NEAR(synthetic.pending_hue, expected_synthetic.pending_hue,
+                   1e-7f);
     const float X = (U + .002f) / (.385f + .002f) * 15;
     const float Y = (V + .002f) / (.622f + .002f) * 23;
     const float expected = .25f * (.01f * X + .02f * Y - .3f + .1f * fraction);
@@ -200,8 +262,12 @@ inline void test_chamber_noise_cache_phase_and_fallback() {
       const auto local = math::rotate(direction, column.projection_conjugate);
       ColorSample fallback{Color4(Pixel(2000, 4000, 6000), .37f),
                            {.5f, .7f, local, 2.0f}};
+      auto direct = fallback;
+      Color::Modulate<GenericProvider>::apply_phase_in_place(direct, generic,
+                                                             GENERIC);
       Color::Modulate<Provider>::apply_phase_in_place(fallback, column,
                                                       prepared);
+      HS_EXPECT_NEAR(fallback.pending_hue, direct.pending_hue, 1e-7f);
       const float advance = (.0001f - .9999f) + 1.0f;
       const float phase = math::wrap_t(.9999f + advance * fraction);
       const float angle = math::TWO_PI_F * phase;
@@ -215,9 +281,29 @@ inline void test_chamber_noise_cache_phase_and_fallback() {
     }
   }
   auto column = FrameInterval(from, to).at(.5f);
+  column.temporal.fraction = .75f;
+  column.resources.template get<"modulation">().phase_noise_fraction = .25f;
+  const auto SEPARATE = Provider::prepare(column);
+  HS_EXPECT_TRUE(SEPARATE.lazy_noise_offset);
+  HS_EXPECT_EQ(SEPARATE.noise_fraction, .25f);
+  HS_EXPECT_EQ(SEPARATE.noise_phase,
+               Spacetime::ClockInterval(.9999f, .0001f, 1.0f).sample(.75f));
+  auto eager_separate = SEPARATE;
+  eager_separate.lazy_noise_offset = false;
+  eager_separate.noise_offset =
+      math::noise_sphere_loop_offset(SEPARATE.noise_phase);
+  ColorSample outside{Color4(Pixel(2000, 4000, 6000), .37f),
+                      {.5f, .7f, math::Vector(0, -1, 0), 2.0f}};
+  auto eager_outside = outside;
+  Color::Modulate<Provider>::apply_phase_in_place(outside, column, SEPARATE);
+  Color::Modulate<Provider>::apply_phase_in_place(eager_outside, column,
+                                                  eager_separate);
+  HS_EXPECT_NEAR(outside.pending_hue, eager_outside.pending_hue, 1e-7f);
+  column = FrameInterval(from, to).at(.5f);
   column.resources.template get<"modulation">().phase_noise_current = {};
   HS_EXPECT_TRUE(Provider::prepare(column).noise_current == nullptr);
   HS_EXPECT_TRUE(Provider::prepare(column).ready);
+  HS_EXPECT_FALSE(Provider::prepare(column).lazy_noise_offset);
   column = FrameInterval(from, to).at(.5f);
   column.resources.template get<"modulation">()
       .phase_noise_current.projection.r += .1f;

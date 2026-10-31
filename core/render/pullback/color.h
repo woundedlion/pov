@@ -369,6 +369,8 @@ struct ChamberPhaseModulationState : PhaseModulationState {
       nullptr;                       ///< Current samples.
   math::Quaternion noise_to_chamber; ///< Inverse column projection.
   float noise_fraction = 0.0f;       ///< Current endpoint weight.
+  float noise_phase = 0.0f;          ///< Loop phase for uncached lookups.
+  bool lazy_noise_offset = false;    ///< Resolve the loop offset on fallback.
 };
 
 /** @brief Updates deferred perceptual state from one scalar.
@@ -714,9 +716,13 @@ template <typename State> struct Modulate : ApproximationDefaults {
               prepared.noise_fraction, scalar);
       if (!cached) {
         const auto &noise = *prepared.noise;
+        auto noise_offset = prepared.noise_offset;
+        if constexpr (std::is_same_v<Prepared, ChamberPhaseModulationState>)
+          if (prepared.lazy_noise_offset)
+            noise_offset = math::noise_sphere_loop_offset(prepared.noise_phase);
         const auto q = math::noise_sphere_coordinate(
             Pattern::SphereDirection::admit(sample.field.sphere).value(),
-            noise.scale, prepared.noise_offset);
+            noise.scale, noise_offset);
         scalar =
             Pattern::bounded_scalar(noise.noise.GetNoiseSingle(q.x, q.y, q.z));
       }

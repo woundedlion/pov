@@ -701,6 +701,13 @@ struct ModulationProvider {
                   resource.previous_modulation->state.phase.phase_turns,
                   resource.modulation->state.phase.phase_turns, 1.0f)
                   .sample(frame.temporal.fraction);
+          if constexpr (CACHED_NOISE)
+            if (result.noise_previous && result.noise_current) {
+              result.noise_phase = PHASE;
+              result.lazy_noise_offset = true;
+              result.ready = true;
+              return result;
+            }
           result.noise_offset = math::noise_sphere_loop_offset(PHASE);
           result.ready = true;
         } else if constexpr (SourceV ==
