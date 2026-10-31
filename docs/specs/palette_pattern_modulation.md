@@ -381,6 +381,11 @@ shared-base contract before the stage can bypass their endpoint operations.
 Cached carriers enter after the sole base blend; interior blending of an
 already cached carrier is outside that internal protocol.
 Eligible phase tails adjust deferred state without reading the carrier's RGB.
+An exact provider may declare that preparation preserves the bound frame's
+fraction and fixes its brightness envelope. Interior pipeline columns can use
+those proofs to omit repeated checks and curve dispatch. Checked entry points
+retain fraction guards; derived providers retain runtime envelope selection
+unless they explicitly own the corresponding contract.
 
 The `PALETTE_RGB_BLEND_TO_LAB_LUT` oracle compares the cache to RGB-first palette
 sampling, not interpolation of endpoint Lab. Qualification keeps existing hue

@@ -2173,6 +2173,123 @@ struct ShiftedLabPalette : CountingLabPalette {
   }
 };
 
+struct FixedBrightnessLabProvider : LabPaletteProvider {
+  using BrightnessOwner = FixedBrightnessLabProvider;
+  static constexpr auto BRIGHTNESS_ENVELOPE =
+      Pullback::Color::BrightnessEnvelope::BELL;
+  static auto brightness_envelope(const PaletteFrame &) {
+    return BRIGHTNESS_ENVELOPE;
+  }
+  static float brightness_bottom(const PaletteFrame &) { return 0.0f; }
+  static float brightness_top(const PaletteFrame &) { return 1.0f; }
+};
+
+struct RuntimeBrightnessLabProvider : FixedBrightnessLabProvider {
+  static auto brightness_envelope(const PaletteFrame &frame) {
+    return frame.temporal.same_palette
+               ? Pullback::Color::BrightnessEnvelope::ASCENDING
+               : Pullback::Color::BrightnessEnvelope::DESCENDING;
+  }
+};
+
+struct EndpointFractionLabProvider : FixedBrightnessLabProvider {
+  static auto temporal_resources(const PaletteFrame &frame) {
+    auto resources = frame.temporal;
+    resources.fraction = 0.0f;
+    return resources;
+  }
+};
+
+struct CountingInteriorLabPalette : CountingLabPalette {
+  using InteriorSharedBaseOwner = CountingInteriorLabPalette;
+  inline static int interior_calls = 0;
+  static bool apply_shared_base_interior(const Pullback::FieldSample &input,
+                                         const PaletteFrame &frame,
+                                         const Prepared &prepared,
+                                         Pullback::ColorSample &output) {
+    ++interior_calls;
+    return Base::apply_shared_base_interior(input, frame, prepared, output);
+  }
+};
+
+/** @brief Interior proofs preserve checked guards and runtime provider curves. */
+inline void test_pullback_shared_lab_interior() {
+  using namespace Pullback;
+  using Fixed = Color::GeneratedPalette<FixedBrightnessLabProvider>;
+  using Runtime = Color::GeneratedPalette<RuntimeBrightnessLabProvider>;
+  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> buffer{};
+  Arena arena(buffer.data(), buffer.size());
+  BakedPaletteStorage a, b;
+  a.bake(arena, ConstantPalette{Color4(Pixel(1000, 2000, 3000), 1.0f)});
+  b.bake(arena, ConstantPalette{Color4(Pixel(9000, 6000, 1000), 1.0f)});
+  PaletteLabLut cache;
+  cache.bake(a.view(), b.view());
+  PaletteFrame frame;
+  frame.palette = &b.view();
+  frame.temporal.palette = &a.view();
+  frame.temporal.fraction = 0.37f;
+  frame.lab = &cache;
+  const FieldSample FIELD{0.23f, 0.51f, math::Y_AXIS, 0.7f};
+  const auto PREPARED = Fixed::prepare(frame);
+  ColorSample checked, interior;
+  HS_EXPECT_TRUE(Fixed::apply_shared_base(FIELD, frame, PREPARED, checked));
+  HS_EXPECT_TRUE(
+      Fixed::apply_shared_base_interior(FIELD, frame, PREPARED, interior));
+  HS_EXPECT_EQ(interior.brightness_gain, math::unit_bell(FIELD.value));
+  HS_EXPECT_EQ(interior.brightness_gain, checked.brightness_gain);
+  HS_EXPECT_EQ(interior.color.alpha, checked.color.alpha);
+  HS_EXPECT_EQ(interior.cached_lab.L, checked.cached_lab.L);
+  HS_EXPECT_EQ(interior.cached_lab.a, checked.cached_lab.a);
+  HS_EXPECT_EQ(interior.cached_lab.b, checked.cached_lab.b);
+  for (bool ascending : {false, true}) {
+    frame.temporal.same_palette = ascending;
+    HS_EXPECT_TRUE(Runtime::apply_shared_base_interior(
+        FIELD, frame, Runtime::prepare(frame), interior));
+    HS_EXPECT_EQ(interior.brightness_gain,
+                 ascending ? FIELD.value : 1.0f - FIELD.value);
+  }
+  auto altered = PREPARED;
+  altered.current.brightness_envelope = Color::BrightnessEnvelope::DESCENDING;
+  HS_EXPECT_TRUE(Fixed::apply_shared_base(FIELD, frame, altered, checked));
+  HS_EXPECT_EQ(checked.brightness_gain, 1.0f - FIELD.value);
+  for (float fraction : {0.0f, 1.0f}) {
+    altered.fraction = fraction;
+    checked.brightness_gain = 0.123f;
+    HS_EXPECT_FALSE(Fixed::apply_shared_base(FIELD, frame, altered, checked));
+    HS_EXPECT_EQ(checked.brightness_gain, 0.123f);
+  }
+  Color::PhaseModulationState layer;
+  layer.source = Pattern::SourceKind::DISPLACEMENT;
+  layer.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 0.2f};
+  layer.enabled = layer.ready = true;
+  frame.phase = &layer;
+  using Pipeline =
+      Pullback::Pipeline<PaletteBinding, PaletteSampleStage,
+                         Stage::Colorize<CountingInteriorLabPalette>,
+                         Stage::Modulate<CountingPhasePolicy>>;
+  using Core =
+      Detail::PipelineCore<true, PaletteBinding, typename Pipeline::NodeList>;
+  CountingInteriorLabPalette::interior_calls = 0;
+  CountingLabPalette::shared_calls = CountingLabPalette::pair_calls = 0;
+  const auto RESULT = Core::template run_stage<0>(
+      SphereSample{math::Y_AXIS, 0.7f}, frame, Pipeline::prepare_stages(frame));
+  HS_EXPECT_TRUE(RESULT.has_cached_lab);
+  HS_EXPECT_EQ(CountingInteriorLabPalette::interior_calls, 1);
+  HS_EXPECT_EQ(CountingLabPalette::shared_calls, 0);
+  HS_EXPECT_EQ(CountingLabPalette::pair_calls, 0);
+  using CustomFractionPipeline = Pullback::Pipeline<
+      PaletteBinding, PaletteSampleStage,
+      Stage::Colorize<Color::GeneratedPalette<EndpointFractionLabProvider>>,
+      Stage::Modulate<CountingPhasePolicy>>;
+  using CustomFractionCore =
+      Detail::PipelineCore<true, PaletteBinding,
+                           typename CustomFractionPipeline::NodeList>;
+  const auto CUSTOM_FRACTION = CustomFractionCore::template run_stage<0>(
+      SphereSample{math::Y_AXIS, 0.7f}, frame,
+      CustomFractionPipeline::prepare_stages(frame));
+  HS_EXPECT_FALSE(CUSTOM_FRACTION.has_cached_lab);
+}
+
 /** @brief Shared cached bases skip both palette endpoints and preserve alpha. */
 inline void test_pullback_shared_lab_dispatch() {
   using namespace Pullback;
@@ -2842,6 +2959,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_palette_lab_nodes);
   HS_RUN(test_pullback_cached_lab_finish);
   HS_RUN(test_pullback_shared_lab_dispatch);
+  HS_RUN(test_pullback_shared_lab_interior);
   HS_RUN(test_pullback_paired_color_dispatch);
   HS_RUN(test_pullback_paired_palette_controls);
   HS_RUN(test_pullback_modulation_temporal_alpha);

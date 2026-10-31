@@ -788,6 +788,24 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
                                                          output);
     }
 
+    /** @brief Tries an optional shared base at a proven interior fraction.
+     * @param input Shared input carrier.
+     * @param frame Frame context.
+     * @param prepared Descriptor state.
+     * @param output Receives the cached base on success.
+     * @return Whether the descriptor supplied a shared base. */
+    HS_HOT_INLINE static bool
+    run_shared_base_interior(const Input &input, const FrameState &frame,
+                             const Prepared &prepared, ColorSample &output)
+      requires requires {
+        Derived::template run_shared_base_interior<BindingT>(input, frame,
+                                                             prepared, output);
+      }
+    {
+      return Derived::template run_shared_base_interior<BindingT>(
+          input, frame, prepared, output);
+    }
+
     /** @brief Evaluates retained and current endpoints together.
      * @param input Shared input carrier.
      * @param frame Frame context.
@@ -1620,16 +1638,25 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                           phase_tail_supported<Index + 1>())
               if (phase_tail_ready<Index + 1>(prepared)) {
                 ColorSample result;
+                bool shared = false;
                 if constexpr (requires {
-                                CurrentNode::run_shared_base(
+                                CurrentNode::run_shared_base_interior(
                                     input, ctx, std::get<Index>(prepared),
                                     result);
                               })
-                  if (CurrentNode::run_shared_base(
-                          input, ctx, std::get<Index>(prepared), result)) {
-                    run_phase_tail<Index + 1>(result, ctx, prepared);
-                    return result;
-                  }
+                  shared = CurrentNode::run_shared_base_interior(
+                      input, ctx, std::get<Index>(prepared), result);
+                else if constexpr (requires {
+                                     CurrentNode::run_shared_base(
+                                         input, ctx, std::get<Index>(prepared),
+                                         result);
+                                   })
+                  shared = CurrentNode::run_shared_base(
+                      input, ctx, std::get<Index>(prepared), result);
+                if (shared) {
+                  run_phase_tail<Index + 1>(result, ctx, prepared);
+                  return result;
+                }
                 const auto PAIR = CurrentNode::run_pair(
                     input, ctx, std::get<Index>(prepared));
                 result = blend_color_samples(PAIR.first, PAIR.second, FRACTION);
