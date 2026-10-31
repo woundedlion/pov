@@ -16,6 +16,16 @@ namespace hs_wasm::document_parameters {
 /// Canonical operator schema and typed member addresses.
 using Params = Pullback::Interp::Op::ModulationParams;
 
+/** @brief Reads the canonical spelling of a compiled enum value.
+ * @param field Canonical enum field metadata.
+ * @param index Compiled enum value index.
+ * @return Registered enum spelling. */
+inline const char *enum_id(const Pullback::Interp::ParamFieldInfo &field,
+                           uint8_t index) {
+  HS_CHECK(index < field.enum_count, "invalid compiled document enum");
+  return field.enum_ids[index];
+}
+
 /** @brief Whether a canonical numeric field belongs to the selected recipe.
  * @param config Current compiled recipe.
  * @param index Field index in the operator schema.

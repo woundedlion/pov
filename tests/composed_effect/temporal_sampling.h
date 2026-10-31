@@ -173,6 +173,11 @@ inline void test_composed_persistent_prepared_frame() {
 
 inline void test_composed_document_modulation_members() {
   namespace Document = hs_wasm::document_parameters;
+  for (const auto &field : Document::Params::EXTRA_SCHEMA) {
+    for (uint8_t index = 0; index < field.enum_count; ++index)
+      HS_EXPECT_TRUE(std::string_view(Document::enum_id(field, index)) ==
+                     field.enum_ids[index]);
+  }
   reset_effect_globals();
   Millefiori<SMALL_W, SMALL_H> effect;
   effect.init();

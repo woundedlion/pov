@@ -152,6 +152,17 @@ inline void case_wasm_param_capacity_exceeded() {
   hs_wasm::check_param_capacity(fx);
 }
 
+/** @brief Rejects a compiled document enum beyond its registered values. */
+inline void case_wasm_document_enum_out_of_range() {
+  for (const auto &field : hs_wasm::document_parameters::Params::EXTRA_SCHEMA) {
+    if (field.enum_count) {
+      hs_wasm::document_parameters::enum_id(
+          field, static_cast<uint8_t>(opaque(field.enum_count)));
+      return;
+    }
+  }
+}
+
 /** @brief Exposes parameter registration and presentation metadata to tests. */
 struct ParameterGroupHost : ParamHost {
   using ParamHost::register_param;

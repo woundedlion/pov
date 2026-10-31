@@ -73,6 +73,7 @@
 #include "core/animation/transformer.h"
 #include "hardware/pov_sync.h"
 #include "targets/wasm/param_marshal.h"
+#include "targets/wasm/document_parameters.h"
 
 #if !defined(_WIN32)
 #include <csignal>    // SIGILL — the expected trap signal
@@ -1174,6 +1175,9 @@ inline const Case *all_cases(int &n) {
        "targets/wasm/param_marshal.h",
        "(count <= ParamStreams::CAPACITY) effect exposes 385 params, past the "
        "384 reserved"},
+      {"wasm_document_enum_out_of_range", case_wasm_document_enum_out_of_range,
+       "targets/wasm/document_parameters.h",
+       "(index < field.enum_count) invalid compiled document enum"},
       {"parameter_group_empty_registry", case_parameter_group_empty_registry,
        "core/control/param_host.h",
        "(parameters.count > 0) parameter group requires a registered parameter"},

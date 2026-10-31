@@ -549,9 +549,8 @@ public:
             const void *address = params.extra_address(i);
             if (field.enum_count) {
               const auto index = *static_cast<const uint8_t *>(address);
-              HS_CHECK(index < field.enum_count,
-                       "invalid compiled document enum");
-              entry.set("value", field.enum_ids[index]);
+              entry.set("value",
+                        hs_wasm::document_parameters::enum_id(field, index));
             } else
               entry.set("value", *static_cast<const float *>(address));
             out.array.set(out.count++, entry);
