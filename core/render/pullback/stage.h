@@ -1109,9 +1109,9 @@ struct Modulate : Contract<Modulate<ColorPolicyT>, ColorSample, ColorSample> {
   }
 
   /**
-   * @brief Modulates the field carrier.
+   * @brief Modulates the color carrier.
    * @tparam Binding Binding of the pipeline.
-   * @param input Field carrier.
+   * @param input Color carrier.
    * @param frame Frame state.
    * @param prepared This frame's `prepare` result.
    * @return Straight-alpha color.
