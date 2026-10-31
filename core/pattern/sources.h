@@ -381,23 +381,27 @@ HS_HOT_ITCM_MEMBER inline float grid(const PlanePosition &coordinate,
 template <typename Params>
 HS_HOT_ITCM_MEMBER inline float
 primitive_lattice(const PlanePosition &coordinate, const Params &params) {
-  const auto &input = coordinate.value;
-  const float x =
-      math::wrap_t(params.lattice_cell_scale * input.re + 0.5f) - 0.5f;
-  const float y =
-      math::wrap_t(params.lattice_cell_scale * input.im + 0.5f) - 0.5f;
-  const float circle = sqrtf(x * x + y * y) - params.lattice_radius;
-  if (params.lattice_shape_blend == 0.0f)
+  const auto evaluate = [&](float blend) __attribute__((always_inline)) {
+    const auto &input = coordinate.value;
+    const float x =
+        math::wrap_t(params.lattice_cell_scale * input.re + 0.5f) - 0.5f;
+    const float y =
+        math::wrap_t(params.lattice_cell_scale * input.im + 0.5f) - 0.5f;
+    const float circle = sqrtf(x * x + y * y) - params.lattice_radius;
+    if (blend == 0.0f)
+      return 1.0f - 2.0f * ::math::smooth_ramp(-params.lattice_softness, params.lattice_softness, circle);
+    const float bx = fabsf(x) - params.lattice_radius;
+    const float by = fabsf(y) - params.lattice_radius;
+    const float square = sqrtf(fmaxf(bx, 0.0f) * fmaxf(bx, 0.0f) +
+                               fmaxf(by, 0.0f) * fmaxf(by, 0.0f)) +
+                         fminf(fmaxf(bx, by), 0.0f);
+    const float distance = hs::lerp(circle, square, blend);
     return 1.0f - 2.0f * ::math::smooth_ramp(-params.lattice_softness,
-                                             params.lattice_softness, circle);
-  const float bx = fabsf(x) - params.lattice_radius;
-  const float by = fabsf(y) - params.lattice_radius;
-  const float square = sqrtf(fmaxf(bx, 0.0f) * fmaxf(bx, 0.0f) +
-                             fmaxf(by, 0.0f) * fmaxf(by, 0.0f)) +
-                       fminf(fmaxf(bx, by), 0.0f);
-  const float distance = hs::lerp(circle, square, params.lattice_shape_blend);
-  return 1.0f - 2.0f * ::math::smooth_ramp(-params.lattice_softness,
-                                           params.lattice_softness, distance);
+                                             params.lattice_softness, distance);
+  };
+  if (params.lattice_shape_blend == 1.0f)
+    return evaluate(1.0f);
+  return evaluate(params.lattice_shape_blend);
 }
 
 /**
