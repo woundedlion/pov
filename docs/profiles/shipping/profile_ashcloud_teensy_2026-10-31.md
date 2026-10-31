@@ -1,4 +1,4 @@
-# AshCloud on-device profile â€” Teensy 4.0, segmented mode (2026-10-31, **selective -O3**)
+# AshCloud on-device profile — Teensy 4.0, segmented mode (2026-10-31, **selective -O3**)
 
 Point-in-time snapshot (regenerate with `just profile AshCloud`).
 Raw capture: `build/prof/ashcloud_ship.log`, captured **2026-10-31 03:25**
@@ -11,7 +11,7 @@ America/Los_Angeles on COM4. Replaces `profile_ashcloud_teensy_2026-10-23.md`.
 | Hardware | Teensy 4.0 at 600 MHz, live flywheel and DMA ISRs |
 | Image | `profile`, shipping `-Os` with selective `HS_O3`/ITCM shader, ripple and noise kernels |
 | Driver | `POVSegmented<288, 4, 480>`, segment 0 master |
-| Effect | AshCloud 288Ã—144, authored `ash-cloud-v1-copy1` preset, source `4a67716ae975443ceab6e75b1061d537dee4c2d6` |
+| Effect | AshCloud 288×144, authored `ash-cloud-v1-copy1` preset, source `4a67716ae975443ceab6e75b1061d537dee4c2d6` |
 | Method | `HS_PROFILE`, 32-frame windows, 130 seconds, `HS_PROFILE_EPOCH_REVS=1200`; no epoch reset |
 | Reproduce | `HS_PROFILE_TREE=C:/work/Holosphere HS_PIO_JOBS=4 bash tools/profile_one.sh AshCloud profile 130 32 '-D HS_PROFILE_EPOCH_REVS=1200'` |
 
@@ -25,7 +25,7 @@ Full Phantasm image: `FLASH: code:1054128, data:779156, headers:8892`;
 
 | Region | Starting tree `9cfcf4e24` | Final | Delta |
 |---|--:|--:|--:|
-| RAM1 code | 192,632 | 192,568 | âˆ’64 |
+| RAM1 code | 192,632 | 192,568 | −64 |
 | RAM1 variables | 312,736 | 312,736 | 0 |
 | FLASH data | 749,244 | 779,156 | +29,912 |
 
