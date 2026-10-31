@@ -427,8 +427,7 @@ inline void test_hankin_flat_and_twisted_differ() {
   float max_dynamic_delta = 0.0f;
   for (size_t i = static_count; i < flat.vertices.size(); ++i) {
     const float d = (flat.vertices[i] - twisted.vertices[i]).length();
-    if (d > max_dynamic_delta)
-      max_dynamic_delta = d;
+    max_dynamic_delta = hs_test::fold_worst(max_dynamic_delta, d);
   }
   HS_EXPECT_TRUE(max_dynamic_delta > 1e-2f);
 }
