@@ -1565,10 +1565,17 @@ inline void test_pullback_euler_curl_specialization() {
                     Pullback::Surface::Integrator::EULER, LIMIT, frame.scale,
                     PREPARED.loop_offset, frame.strength, frame.track_path);
                 const auto ACTUAL = Policy::apply(direction, frame, PREPARED);
+#if defined(HS_TEST_FAST_MATH)
+                HS_EXPECT_NEAR(ACTUAL.sphere.x, EXPECTED.sphere.x, 1e-6f);
+                HS_EXPECT_NEAR(ACTUAL.sphere.y, EXPECTED.sphere.y, 1e-6f);
+                HS_EXPECT_NEAR(ACTUAL.sphere.z, EXPECTED.sphere.z, 1e-6f);
+                HS_EXPECT_NEAR(ACTUAL.path_length, EXPECTED.path_length, 1e-6f);
+#else
                 HS_EXPECT_EQ(ACTUAL.sphere.x, EXPECTED.sphere.x);
                 HS_EXPECT_EQ(ACTUAL.sphere.y, EXPECTED.sphere.y);
                 HS_EXPECT_EQ(ACTUAL.sphere.z, EXPECTED.sphere.z);
                 HS_EXPECT_EQ(ACTUAL.path_length, EXPECTED.path_length);
+#endif
               }
             }
           }
