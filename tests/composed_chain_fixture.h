@@ -99,9 +99,12 @@ template <typename FX> void verify_export(size_t preset) {
                          .conjugate();
       state.spin_phase = 0.0f;
     } else if (id == "sphere.lens.twist.v2") {
-      if constexpr (FX::Params::template HAS<"lens2">)
-        mutable_state<In::Op::SpatialWalkState>(program, index).wander =
-            own.resources.template get<"lens2">().wander;
+      if constexpr (FX::Params::template HAS<"lens2">) {
+        const auto axis = math::rotate(
+            math::UP, own.resources.template get<"lens2">().wander);
+        mutable_state<In::Op::TwistOrbitState>(program, index) = {
+            acosf(hs::clamp(axis.y, -1.0f, 1.0f)), atan2f(axis.z, axis.x)};
+      }
     } else if (id == "sphere.displace.ripple.v2") {
       if constexpr (FX::Params::template HAS<"displace">)
         static_cast<In::RippleClockSnapshot &>(

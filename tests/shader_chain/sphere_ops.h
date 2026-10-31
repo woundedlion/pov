@@ -279,9 +279,8 @@ inline void run_lens_parity(const char *op_id, ValueSet set) {
       param_as<OpParams>(program, 1).d_re *= -1.0f;
   }
   if constexpr (std::is_same_v<OpParams, In::Op::TwistChainParams>)
-    const_cast<In::Op::SpatialWalkState &>(
-        state_as<In::Op::SpatialWalkState>(program, 1))
-        .wander = {};
+    const_cast<In::Op::TwistOrbitState &>(
+        state_as<In::Op::TwistOrbitState>(program, 1)) = {};
   const In::FrameContext ctx = shared_resources().context();
   using Bound = typename PB::Stage::Lens<LensPolicy>::template Bind<
       SphereOpMirrorBinding>;
@@ -366,8 +365,8 @@ inline void test_shader_chain_lens_controls() {
     for (const float lambda : {0.0f, 0.7f, math::PI_F * 0.5f}) {
       In::Op::TwistChainParams params;
       In::Op::LensTwist::State state;
-      state.wander = math::make_rotation(
-          math::UP, math::Vector::from_spherical(lambda, phi));
+      state.phi = phi;
+      state.lambda = lambda;
       const auto prepared = In::Op::LensTwist::prepare(ctx, params, state);
       const auto result = In::Op::LensTwist::run(input, ctx, params, prepared);
       const double ax = sin(phi) * cos(lambda);
@@ -411,37 +410,57 @@ inline void test_shader_chain_lens_controls() {
   }
 }
 
-/** @brief Twist origin walks at the selected speed and freezes at zero. */
+/** @brief Twist origin angles circle independently and interpolate across wraps. */
 inline void test_shader_chain_twist_animation() {
   using Twist = In::Op::LensTwist;
   const auto ctx = shared_resources().context();
-  Twist::State state;
-  Twist::init(state,
-              {"twist", Twist::ID, In::instance_hash("twist", Twist::ID)});
+  const auto expect_axis = [&](const Twist::State &state, double phi,
+                               double lambda) {
+    const auto axis = Twist::prepare(ctx, {}, state).axis;
+    HS_EXPECT_NEAR(axis.x, sin(phi) * cos(lambda), 1e-4);
+    HS_EXPECT_NEAR(axis.y, cos(phi), 1e-4);
+    HS_EXPECT_NEAR(axis.z, sin(phi) * sin(lambda), 1e-4);
+  };
+  for (const float speed : {0.0f, 0.01f, 0.04f}) {
+    for (const float drift : {0.0f, 0.013f}) {
+      Twist::Params params;
+      params.speed = speed;
+      params.drift = drift;
+      Twist::State state{0.8f, 0.3f};
+      for (int frame = 1; frame <= 700; ++frame) {
+        Twist::advance(state, params);
+        expect_axis(state, 0.8f + double(frame) * speed,
+                    0.3f + double(frame) * drift);
+      }
+    }
+  }
   Twist::Params params;
-  params.speed = 0.01f;
-  const auto start = state;
-  Twist::advance(state, params);
-  const auto axis = Twist::prepare(ctx, params, state).axis;
-  HS_EXPECT_NEAR(math::dot(math::UP, axis), cosf(0.01f), 1e-6f);
-  HS_EXPECT_TRUE(math::cross(math::UP, axis).magnitude() > 0.009f);
-  auto faster = start;
   params.speed = 0.04f;
-  Twist::advance(faster, params);
-  const auto fast_axis = Twist::prepare(ctx, params, faster).axis;
-  HS_EXPECT_NEAR(math::dot(math::UP, fast_axis), cosf(0.04f), 1e-6f);
-  HS_EXPECT_TRUE(math::cross(math::UP, fast_axis).magnitude() > 0.039f);
-  params.speed = 0.0f;
-  for (int i = 0; i < 20; ++i)
-    Twist::advance(state, params);
-  const auto held = Twist::prepare(ctx, params, state).axis;
-  HS_EXPECT_EQ(held.x, axis.x);
-  HS_EXPECT_EQ(held.y, axis.y);
-  HS_EXPECT_EQ(held.z, axis.z);
-  auto column = state;
-  const auto interval = In::Op::temporal_interval(start, state);
-  In::Op::temporal_sample(column, interval, params, 0.5f);
-  const auto middle = Twist::prepare(ctx, params, column).axis;
-  HS_EXPECT_NEAR(math::dot(math::UP, middle), cosf(0.005f), 1e-6f);
-  HS_EXPECT_TRUE(math::cross(math::UP, middle).magnitude() > 0.004f);
+  params.drift = 0.013f;
+  const Twist::State start{math::TWO_PI_F - 0.02f, math::TWO_PI_F - 0.006f};
+  auto end = start;
+  Twist::advance(end, params);
+  HS_EXPECT_TRUE(end.phi < 0.03f);
+  HS_EXPECT_TRUE(end.lambda < 0.01f);
+  const auto interval = In::Op::temporal_interval(start, end);
+  for (const float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+    auto column = end;
+    In::Op::temporal_sample(column, interval, params, fraction);
+    expect_axis(column, double(start.phi) + params.speed * fraction,
+                double(start.lambda) + params.drift * fraction);
+  }
+  const auto snapshot = In::RuntimeStateCodec<Twist::State>::capture(end);
+  Twist::State restored;
+  HS_EXPECT_TRUE(
+      In::RuntimeStateCodec<Twist::State>::restore(restored, snapshot));
+  Twist::advance(end, params);
+  Twist::advance(restored, params);
+  HS_EXPECT_EQ(restored.phi, end.phi);
+  HS_EXPECT_EQ(restored.lambda, end.lambda);
+  auto invalid = std::get<In::SourceClockSnapshot>(snapshot);
+  invalid.secondary = math::TWO_PI_F;
+  HS_EXPECT_FALSE(
+      In::RuntimeStateCodec<Twist::State>::restore(restored, invalid));
+  HS_EXPECT_EQ(restored.phi, end.phi);
+  HS_EXPECT_EQ(restored.lambda, end.lambda);
 }

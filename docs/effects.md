@@ -696,8 +696,10 @@ cannot follow a projection: that would move backward in carrier rank.
 | **Colorize** | Cycling-generated, generated, procedural, gradient, mutating | Field → Color; palette-source selection, family-gated palette controls, mapping, phase oscillation, brightness envelope and opacity |
 | **Modulation** | Pattern color modulation | Color → Color; ordered displacement, noise, sine, interference or grid layers affecting hue, lightness or opacity |
 
-Twist Lens exposes Twist Rate and Speed. Its origin follows a languid spherical
-random walk; Speed sets its angular travel per frame, and zero holds the origin.
+Twist Lens exposes Twist Rate, Speed and Drift. Its origin circles continuously
+in polar angle (phi) at Speed while its azimuth (lambda) circles at Drift, both
+in radians per frame. Zero holds the corresponding angle; both at zero hold the
+origin.
 
 Ripple emits bursts of one to four waves, staggered by 16 frames. Burst Rate
 sets how often a burst starts; zero stops new bursts after the initial burst.

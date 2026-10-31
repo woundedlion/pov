@@ -95,6 +95,29 @@ template <> struct RuntimeStateCodec<Op::SpatialWalkState> {
   }
 };
 
+/** @brief Snapshot codec of Op::TwistOrbitState. */
+template <> struct RuntimeStateCodec<Op::TwistOrbitState> {
+  /** @brief Captures the twist origin angles.
+   * @param state State to capture.
+   * @return Angle clocks in the primary and secondary slots. */
+  static RuntimeSnapshot capture(const Op::TwistOrbitState &state) {
+    return SourceClockSnapshot{state.phi, state.lambda, 0.0f};
+  }
+  /** @brief Restores the twist origin angles.
+   * @param state State to overwrite.
+   * @param snapshot Captured angle clocks.
+   * @return False without modifying state if the snapshot is invalid. */
+  static bool restore(Op::TwistOrbitState &state,
+                      const RuntimeSnapshot &snapshot) {
+    const auto *value = std::get_if<SourceClockSnapshot>(&snapshot);
+    if (value == nullptr || !Detail::snapshot_angle(value->primary) ||
+        !Detail::snapshot_angle(value->secondary) || value->angle != 0.0f)
+      return false;
+    state = {value->primary, value->secondary};
+    return true;
+  }
+};
+
 /** @brief Snapshot codec of Op::SourceClockState. */
 template <> struct RuntimeStateCodec<Op::SourceClockState> {
   /**

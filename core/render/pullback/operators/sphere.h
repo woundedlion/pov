@@ -289,20 +289,57 @@ struct LensGlitch : StatelessModel {
 /** @brief Parameter family of sphere.lens.twist.v2. */
 struct TwistChainParams {
   float twist_rate = lenses::TWIST_RATE; /**< Radians per unit height. */
-  float speed = 0.02f; /**< Origin walk distance per frame, in radians. */
+  float speed = 0.02f;  /**< Polar rotation per frame, in radians. */
+  float drift = 0.002f; /**< Azimuth rotation per frame, in radians. */
 
   static constexpr auto FIELDS = std::array{
       Field<TwistChainParams>{"twist-rate", &TwistChainParams::twist_rate,
                               "Twist Rate", -12.0f, 12.0f, FieldCurve::LERP},
       Field<TwistChainParams>{"speed", &TwistChainParams::speed, "Speed", 0.0f,
                               0.05f, FieldCurve::LERP},
+      Field<TwistChainParams>{"drift", &TwistChainParams::drift, "Drift", 0.0f,
+                              0.05f, FieldCurve::LERP},
   };
 };
 static_assert(field_ids_unique<TwistChainParams>());
 static_assert(field_defaults_in_range<TwistChainParams>());
 
+/** @brief Twist origin angles, in radians modulo 2pi. */
+struct TwistOrbitState {
+  float phi = 0.0f;    ///< Polar rotation angle.
+  float lambda = 0.0f; ///< Azimuth rotation angle.
+};
+
+/** @brief Prepared angle clocks of the twist origin. */
+struct TwistOrbitInterval {
+  Spacetime::ClockInterval phi;    ///< Polar interval.
+  Spacetime::ClockInterval lambda; ///< Azimuth interval.
+};
+
+/** @brief Prepares the twist origin clocks between consecutive frames.
+ * @param from Previous state.
+ * @param to Current state.
+ * @return Prepared angle intervals. */
+HS_FLASH_INLINE inline TwistOrbitInterval
+temporal_interval(const TwistOrbitState &from, const TwistOrbitState &to) {
+  return {{from.phi, to.phi, math::TWO_PI_F},
+          {from.lambda, to.lambda, math::TWO_PI_F}};
+}
+
+/** @brief Samples the twist origin clocks at a frame fraction.
+ * @param out Column state to update.
+ * @param interval Prepared angle intervals.
+ * @param fraction Frame fraction in [0, 1]. */
+HS_FLASH_INLINE inline void temporal_sample(TwistOrbitState &out,
+                                            const TwistOrbitInterval &interval,
+                                            const TwistChainParams &,
+                                            float fraction) {
+  out.phi = interval.phi.sample(fraction);
+  out.lambda = interval.lambda.sample(fraction);
+}
+
 /** @brief SPHERE endomorphism: the height-dependent twist lens. */
-struct LensTwist : ValueStateModel<SpatialWalkState> {
+struct LensTwist : ValueStateModel<TwistOrbitState> {
   static constexpr const char *ID = "sphere.lens.twist.v2";
   static constexpr const char *NAME = "Twist Lens";
   using Input = SphereSample;
@@ -313,16 +350,13 @@ struct LensTwist : ValueStateModel<SpatialWalkState> {
     math::Vector axis{0.0f, 1.0f, 0.0f}; /**< Unit twist axis. */
   };
 
-  static void init(State &state, InstanceId id) {
-    init_walk(state, static_cast<int32_t>(id.stable_hash));
-  }
   static void advance(State &state, const Params &params) {
-    if (params.speed != 0.0f)
-      advance_walk(state, 1.0f, 0.0f, params.speed);
+    state.phi = fmodf(state.phi + params.speed, math::TWO_PI_F);
+    state.lambda = fmodf(state.lambda + params.drift, math::TWO_PI_F);
   }
   static Prepared prepare(const FrameContext &, const Params &,
                           const State &state) {
-    return {math::rotate(math::UP, state.wander).normalized()};
+    return {math::Vector::from_spherical(state.lambda, state.phi)};
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &params, const Prepared &prepared) {

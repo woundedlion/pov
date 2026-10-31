@@ -333,11 +333,15 @@ inline void test_shader_chain_schema_and_field_ids() {
   if (!twist_found)
     return;
   const In::OperatorDescriptor &twist = *twist_found;
-  HS_EXPECT_SIZE_OR_RETURN(twist.schema_span(), 2);
+  HS_EXPECT_SIZE_OR_RETURN(twist.schema_span(), 3);
   HS_EXPECT_TRUE(std::string_view(twist.schema[1].id) == "speed");
   HS_EXPECT_EQ(twist.schema[1].def, 0.02f);
   HS_EXPECT_EQ(twist.schema[1].min, 0.0f);
   HS_EXPECT_EQ(twist.schema[1].max, 0.05f);
+  HS_EXPECT_TRUE(std::string_view(twist.schema[2].id) == "drift");
+  HS_EXPECT_EQ(twist.schema[2].def, 0.002f);
+  HS_EXPECT_EQ(twist.schema[2].min, 0.0f);
+  HS_EXPECT_EQ(twist.schema[2].max, 0.05f);
   HS_EXPECT_TRUE(std::string_view(twist.schema[0].id) == "twist-rate");
   HS_EXPECT_EQ(twist.schema[0].def, lenses::TWIST_RATE);
   const auto *kaleidoscope_found =
