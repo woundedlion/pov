@@ -2,8 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/platform/cycle_counting.h, tools/profile_isr_window.h
- * and tools/pc_sampler.h.
+ * Unit tests for cycle counting, profiling clocks, ISR windows and PC sampling.
  */
 #pragma once
 

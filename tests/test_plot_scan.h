@@ -2,8 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/render/plot.h and the ClipRegion helpers in
- * core/render/clip.h.
+ * Unit tests for plotting, column scans, clipping and space-time helpers.
  */
 #pragma once
 #include "tests/pixel_test_util.h"
