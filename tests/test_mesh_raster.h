@@ -1255,6 +1255,20 @@ inline void test_swept_face_vertex_cone_distance() {
   HS_EXPECT_NEAR(distance.dist, -RADIUS, 1e-6f);
 }
 
+/** @brief Face caps reject zero vertices and admit finite companions. */
+inline void test_face_cap_zero_vertex() {
+  std::array<math::Vector, 3> vertices{
+      math::Vector(1.0f, 0.0f, 0.0f), math::Vector(0.0f, 1.0f, 0.0f),
+      math::Vector(0.70710678f, 0.70710678f, 0.0f)};
+  constexpr std::array<uint16_t, 3> INDICES{0, 1, 2};
+  math::Vector axis;
+  HS_EXPECT_TRUE(
+      Scan::detail::face_cap(vertices.data(), INDICES.data(), 3, axis) > 0.0f);
+  vertices[2] = math::Vector(0.0f, 0.0f, 0.0f);
+  HS_EXPECT_EQ(Scan::detail::face_cap(vertices.data(), INDICES.data(), 3, axis),
+               Scan::UNBOUNDED_FACE_CAP);
+}
+
 /** @brief A seeing-time bounds pose accepts a matching render clip. */
 inline void test_face_bounds_pose_with_clip() {
   constexpr int W = 32, H = 16;
@@ -1280,6 +1294,7 @@ inline int run_mesh_raster_tests() {
   hs_test::ModuleFixture fixture("mesh_raster");
 
   HS_RUN(test_swept_face_vertex_cone_distance);
+  HS_RUN(test_face_cap_zero_vertex);
   HS_RUN(test_face_bounds_pose_with_clip);
   HS_RUN(test_empty_and_single_face_meshes);
   HS_RUN(test_wireframe_draws_every_edge);

@@ -769,6 +769,54 @@ template <int W, int H> struct FaceClipPlanes {
   }
 };
 
+/// Cap radius of a face that no cap about its vertex mean bounds.
+inline constexpr float UNBOUNDED_FACE_CAP = -1.0f;
+
+/**
+ * @brief Axis of the cap about a face's vertex mean.
+ * @param vertices Mesh vertex pool.
+ * @param indices The face's vertex indices.
+ * @param count Number of face vertices.
+ * @param axis Receives the unit vertex mean.
+ * @return False when the vertex mean is too short to give a direction.
+ */
+HS_HOT_INLINE inline bool face_cap_axis(const math::Vector *vertices,
+                                        const uint16_t *indices, size_t count,
+                                        math::Vector &axis) {
+  math::Vector sum(0.0f, 0.0f, 0.0f);
+  for (size_t k = 0; k < count; ++k)
+    sum = sum + vertices[indices[k]];
+  const float length = sqrtf(math::dot(sum, sum));
+  if (!(length > math::TOLERANCE))
+    return false;
+  axis = sum * (1.0f / length);
+  return true;
+}
+
+namespace detail {
+/** @brief Cosine bound of a face about its vertex mean.
+ * @param vertices Mesh vertex pool.
+ * @param indices Face vertex indices.
+ * @param count Number of face vertices.
+ * @param axis Receives the unit cap axis.
+ * @return Minimum vertex cosine, or UNBOUNDED_FACE_CAP. */
+HS_HOT_INLINE inline float face_cap_cosine(const math::Vector *vertices,
+                                           const uint16_t *indices,
+                                           size_t count, math::Vector &axis) {
+  if (!face_cap_axis(vertices, indices, count, axis))
+    return UNBOUNDED_FACE_CAP;
+  float min_cos = 1.0f;
+  for (size_t k = 0; k < count; ++k) {
+    const math::Vector &v = vertices[indices[k]];
+    const float PROJECTION = math::dot(axis, v);
+    if (!(PROJECTION > 0.0f))
+      return UNBOUNDED_FACE_CAP;
+    min_cos = fminf(min_cos, PROJECTION / sqrtf(math::dot(v, v)));
+  }
+  return min_cos;
+}
+} // namespace detail
+
 /**
  * @brief Builds a compact face's seeing-time bounds frame.
  * @tparam W Canvas width.
@@ -795,21 +843,11 @@ face_bounds_pose(std::span<const math::Vector> vertices,
   if (face_audit_reference)
     return false;
 #endif
-  math::Vector axis(0, 0, 0);
-  for (const uint16_t i : indices)
-    axis = axis + vertices[i];
-  const float length_sq = math::dot(axis, axis);
-  if (!(length_sq > 1e-12f))
+  math::Vector axis;
+  const float cap_cosine = detail::face_cap_cosine(
+      vertices.data(), indices.data(), indices.size(), axis);
+  if (!(cap_cosine > 0.0f))
     return false;
-  axis = axis * (1.0f / sqrtf(length_sq));
-  float cap_cosine = 1.0f;
-  for (const uint16_t i : indices) {
-    const auto &v = vertices[i];
-    const float PROJECTION = math::dot(axis, v);
-    if (!(PROJECTION > 0.0f))
-      return false;
-    cap_cosine = fminf(cap_cosine, PROJECTION / sqrtf(math::dot(v, v)));
-  }
   culled = clip_planes.rejects(axis, fmaxf(cap_cosine - 2e-6f, 0.0f));
   if (culled || !time || !time->azimuth || !(time->sweep_arc > 0.0f))
     return false;
@@ -852,30 +890,6 @@ HS_HOT_INLINE inline bool mesh_visible(const uint8_t *bits, size_t i) {
 /// Seeing-column entry of a face that holds over the frame.
 inline constexpr uint16_t HELD_FACE_COLUMN = 0xFFFF;
 
-/// Cap radius of a face that no cap about its vertex mean bounds.
-inline constexpr float UNBOUNDED_FACE_CAP = -1.0f;
-
-/**
- * @brief Axis of the cap about a face's vertex mean.
- * @param vertices Mesh vertex pool.
- * @param indices The face's vertex indices.
- * @param count Number of face vertices.
- * @param axis Receives the unit vertex mean.
- * @return False when the vertex mean is too short to give a direction.
- */
-HS_HOT_INLINE inline bool face_cap_axis(const math::Vector *vertices,
-                                        const uint16_t *indices, size_t count,
-                                        math::Vector &axis) {
-  math::Vector sum(0.0f, 0.0f, 0.0f);
-  for (size_t k = 0; k < count; ++k)
-    sum = sum + vertices[indices[k]];
-  const float length = sqrtf(math::dot(sum, sum));
-  if (!(length > math::TOLERANCE))
-    return false;
-  axis = sum * (1.0f / length);
-  return true;
-}
-
 /**
  * @brief Canvas columns that can see a cap over one frame.
  * @tparam W Canvas width in pixels.
@@ -909,15 +923,8 @@ namespace detail {
 HS_HOT_INLINE inline float face_cap(const math::Vector *vertices,
                                     const uint16_t *indices, size_t count,
                                     math::Vector &axis) {
-  if (!face_cap_axis(vertices, indices, count, axis))
-    return UNBOUNDED_FACE_CAP;
-  float min_cos = 1.0f;
-  for (size_t k = 0; k < count; ++k) {
-    const math::Vector &v = vertices[indices[k]];
-    min_cos = fminf(min_cos, math::dot(axis, v) / sqrtf(math::dot(v, v)));
-  }
-  // A cap past a hemisphere does not bound its polygon.
-  return min_cos > 0.0f ? cosine_arc(min_cos) : UNBOUNDED_FACE_CAP;
+  const float COSINE = face_cap_cosine(vertices, indices, count, axis);
+  return COSINE > 0.0f ? cosine_arc(COSINE) : UNBOUNDED_FACE_CAP;
 }
 } // namespace detail
 
