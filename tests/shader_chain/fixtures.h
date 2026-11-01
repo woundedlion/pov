@@ -105,6 +105,7 @@ inline const ColorResources &shared_resources() {
 }
 
 inline constexpr auto &DEFAULT_CHAIN = SHADER_CHAIN_DEFAULT_CHAIN;
+
 inline constexpr In::ChainEntryRequest MODULATED_CHAIN[] = {
     {"camera", "sphere.rotate.v2"},
     {"project", "project.stereographic.v2"},
@@ -274,6 +275,9 @@ inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {
           put(v.phase);
           put(v.noise_seed);
         } else if constexpr (std::is_same_v<T, In::RippleClockSnapshot>) {
+          static_assert(
+              sizeof(T) ==
+              (4 + 2 * std::tuple_size_v<decltype(T::waves)>)*sizeof(uint32_t));
           put(v.phase);
           put(v.seed);
           put(v.burst_count);
@@ -290,6 +294,7 @@ inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {
           put(v.phase);
           put(v.rotation);
         } else if constexpr (std::is_same_v<T, In::ColorClockSnapshot>) {
+          static_assert(sizeof(T) == sizeof(uint32_t));
           put(v.oscillation_phase);
         } else if constexpr (std::is_same_v<T, In::ModulationClockSnapshot>) {
           const auto &[source, version, phase, initialized] = v.modulation;
