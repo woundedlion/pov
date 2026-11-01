@@ -23,6 +23,10 @@ The frame header's elapsed window excludes the preceding report output.
 
 ## Capture configurations
 
+The default profiling epoch is one hour. Images built before 2026-10-11
+(`e70ec46de`) ignored `HS_PROFILE_EPOCH_REVS`, so older reports listing an
+override ran on the default epoch.
+
 Timing sets contain one canonical report per effect, with optional supplemental
 reports identified by underscore-separated variant suffixes before `_teensy_`.
 Each effect/variant pair has one dated report per set. Supplemental reports use

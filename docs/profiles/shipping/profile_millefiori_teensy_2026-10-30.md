@@ -380,7 +380,7 @@ GridSpace's separate CI repair selects canonical coordinate evaluation to preser
 - All fully reported ongoing frames count; setup and full-pass spills remain explicit. Unreported tails are excluded.
 - CYCCNT includes ISR and instrumentation; counter parents and children overlap.
 - This shipping selective-O3 configuration is not an all-O3 image. No per-pixel scopes were added.
-- `HS_PROFILE_EPOCH_REVS=1200` extends the playlist lifetime; it does not reduce per-frame work.
+- `HS_PROFILE_EPOCH_REVS=1200` sets a 150-second epoch, shorter than the one-hour default and longer than the 130-second capture; it does not reduce per-frame work.
 - Color fidelity to the old framebuffer was relaxed; ripple geometry/motion was qualified and the user approved the look.
 - Assertion reachability, document bindings, enum-guard death coverage and stateless fixture layout pass their checks. The typed document API is exercised by headless smoke; the Daydream compiled-apply consumer is unchanged.
 

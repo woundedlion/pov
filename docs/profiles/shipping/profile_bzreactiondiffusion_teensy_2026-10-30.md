@@ -11,7 +11,7 @@ Raw capture: `build/prof/bzreactiondiffusion_ship.log`, copied with original mti
 | Image | Shipping selective-O3 `profile`, effect render/physics and Scan hot regions active; no deep, replay, PC or count instrumentation |
 | Driver | `POVSegmented<288,4,480>`, segment 0 master |
 | Effect | BZReactionDiffusion 288x144, single-entry playlist, source `480cd8ac1b417fcbe381ac645f4b5761268ab8e5` |
-| Method | 130 s, window 32; `HS_PROFILE_EPOCH_REVS=1200` stretches the instance to 150 s, avoiding an epoch crossing |
+| Method | 130 s, window 32; `HS_PROFILE_EPOCH_REVS=1200` sets a 150 s epoch, shorter than the one-hour default and longer than the 130 s capture |
 | Reproduce | `HS_PROFILE_TREE=C:/work/temp/Holosphere-flash-neighbors-20261030 HS_TEENSY_PORT=COM4 HS_TEENSY_TOOLS=C:/work/temp/teensy-tools-loopback-20261030 bash tools/profile_one.sh BZReactionDiffusion profile 130 32 '-D HS_PROFILE_EPOCH_REVS=1200'` |
 
 Profile image size: `FLASH: code:73736, data:156512, headers:8344   free for files:1793024 / RAM1: variables:313024, code:16200, padding:16568   free for local variables:178496 / RAM2: variables:520064  free for malloc/new:4224`.
@@ -20,7 +20,7 @@ The shipping image uses FLASH code 1,021,896 B, data 749,104 B and headers 8,712
 
 Exactness cross-check: frames 577-608 root cycles / 600 MHz = 1997880.350 us; measured wall sum 1997878 us, delta 1.18 ppm. `parse_profile.py ... validate` passes frame coverage and no-reset checks. Captured 2026-10-30 09:46, America/Los_Angeles.
 
-The matched COM4 baseline `flash-20261030-bz-before.log` ran source `aaef299bd` with the same effect, flags, duration, driver and epoch stretch. The candidate includes the independently landed cold-registration change and pullback/Millefiori work; those do not change these effects' simulation equations or authored configuration. This comparison measures the complete candidate against the recorded baseline, not the old shorter canonical capture.
+The matched COM4 baseline `flash-20261030-bz-before.log` ran source `aaef299bd` with the same effect, flags, duration, driver and epoch override. The candidate includes the independently landed cold-registration change and pullback/Millefiori work; those do not change these effects' simulation equations or authored configuration. This comparison measures the complete candidate against the recorded baseline, not the old shorter canonical capture.
 
 ## Frame cadence
 
@@ -40,7 +40,7 @@ README cells: peak 🟢 44.608, spilled 🟢 0/2047 (0.00%).
 
 ## Phase-by-phase readout
 
-The simulation evolves continuously. Startup, peak post-setup load and the late captured state sample its observed cost regimes; no preset-cycling marker is expected. Epoch stretching changes instance lifetime, not the per-frame physics or shading work.
+The simulation evolves continuously. Startup, peak post-setup load and the late captured state sample its observed cost regimes; no preset-cycling marker is expected. The epoch override changes instance lifetime, not the per-frame physics or shading work.
 
 ### Startup (frames 1-32)
 
@@ -122,10 +122,10 @@ Native Release checks preserve the full, clipped and shipped render goldens. The
 - `filter_blend` is parented by its first caller and is absent from this direct-path capture; no complete blend count is inferred. MIXED-PARENT palette/seed counters, when present, are non-exclusive and must not be summed with their displayed siblings.
 - No per-pixel scopes were added. Existing scope overhead is part of the measured image.
 - Shipping selective-O3 physics/render/Scan regions remain enabled; the full neighbor array is excluded from production, and compact decoding preserves neighbor order. Node positions and visual quality settings are unchanged.
-- The 150-second profiling epoch is a lifetime stretch only; this 130-second pass does not cross a reset. The older canonical report covered a shorter segment, so its peak is not the matched baseline for this change.
+- The 150-second profiling epoch shortens the default one-hour instance; this 130-second pass does not cross a reset. The older canonical report covered a shorter segment, so its peak is not the matched baseline for this change.
 - The measured candidate worktree was clean. Source/ELF/compiler attestations and immutable profile/shipping artifacts are named in the raw log.
 - The supported locked wrapper uses isolated uploader helpers from `C:/work/temp/teensy-tools-loopback-20261030` to correct false localhost-listener discovery. Installed vendor binaries and measured firmware are unchanged by that host workaround; hashes and exact helper edits are retained in `loopback-preflight.json`.
 
 ## Harness
 
-`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET` and `HS_PROFILE_WINDOW`; `just profile` invokes the supported build/flash/capture wrapper. Reproduce this extended steady-effect pass with the command in Setup, including its epoch stretch. Use `parse_profile.py` modes `validate` and `windows` on the retained raw log.
+`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET` and `HS_PROFILE_WINDOW`; `just profile` invokes the supported build/flash/capture wrapper. Reproduce this extended steady-effect pass with the command in Setup, including its epoch override. Use `parse_profile.py` modes `validate` and `windows` on the retained raw log.

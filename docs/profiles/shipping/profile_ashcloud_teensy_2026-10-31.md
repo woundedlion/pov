@@ -186,8 +186,8 @@ and layout checks, source formatting, lint, include and license checks pass.
   use it. Nested counters are inclusive and must not be summed.
 - No per-pixel timing scopes were added; their overhead would distort the loop.
 - Shipping selective `HS_O3` regions are used; this is not a global-O3 image.
-- The epoch knob extends capture duration, with no dwell compression or change
-  to the work per rendered frame.
+- The epoch override sets a 150-second instance, shorter than the one-hour
+  default and longer than the 130-second capture, without changing per-frame work.
 - The 58 ms result is a finite default-preset observation, with startup separate.
   It is not a universal bound over all controls or arbitrary animation duration.
 - Uploads use the verified pinned TyTools 0.9.9 headless backend through the

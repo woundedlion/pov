@@ -11,7 +11,7 @@ Raw capture: `build/prof/mindsplatter_ship.log`, copied with its original mtime 
 | Image | Shipping selective-O3 `profile`; existing MindSplatter trail/point/lattice and Plot hot regions; no deep, PC, replay or count flags |
 | Driver | `POVSegmented<288,4,480>`, segment 0 master |
 | Effect | MindSplatter 288×144, single-entry playlist, source `c87e96523a1b7cc97e8e7bb5529cc52e78ad1503` |
-| Method | 90 s, window 16; normal preset dwells; one complete eight-preset cycle and wrap, within the default 120 s profiling epoch |
+| Method | 90 s, window 16; normal preset dwells; one complete eight-preset cycle and wrap, within the default one-hour profiling epoch |
 | Reproduce | `HS_PROFILE_TREE=C:/work/temp/Holosphere-flash-20261030 HS_TEENSY_PORT=COM3 HS_TEENSY_TOOLS=C:/work/temp/teensy-tools-loopback-20261030 bash tools/profile_one.sh MindSplatter profile 90 16` |
 
 Profile image size: `FLASH: code:164216, data:546336, headers:8296   free for files:1312768 / RAM1: variables:313152, code:60568, padding:4968   free for local variables:145600 / RAM2: variables:520064  free for malloc/new:4224`.
@@ -138,7 +138,7 @@ The same-board before/after peak has no measured regression and no new spill. Na
 - `filter_blend` parenting depends on its first caller; it is absent from this direct-route timing capture, so no complete blend count is inferred.
 - No per-pixel scopes were added. Existing instrumentation cost remains in the timings.
 - The shipping selective-O3 regions, ITCM trail/point/lattice entries and cached-flash Plot leaves remain active. The refactor changes cold registration only.
-- No dwell-compression knob is used. This 90-second run extends beyond the normal 80-second show entry to confirm wrap, but remains within one 120-second profiling instance. It is not a natural-handoff capture.
+- No dwell-compression knob is used. This 90-second run extends beyond the normal 80-second show entry to confirm wrap, but remains within the default one-hour profiling instance. It is not a natural-handoff capture.
 - The measured source worktree was clean. A rebased parent contains the independent pullback color update; the matched COM3 baseline predates it.
 - The host uploader uses isolated copies under `C:/work/temp/teensy-tools-loopback-20261030`. Their TCP-table listener-state preflight was corrected because it falsely rejected live localhost listeners. Loopback endpoint/greeting checks, pinned board selection and the supported wrapper's locks remain active. Installed vendor tools and measured firmware are unmodified. Byte offsets and original/corrected helper hashes are retained in `loopback-preflight.json` there.
 
