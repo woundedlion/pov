@@ -479,9 +479,7 @@ inline void test_hankinsolids_conway_crossfade_shades_at_column_time() {
 inline constexpr int HANKIN_SEAM_FRAME = 25;
 
 /**
- * @brief The starting tetrahedron has no excess colour step at capture seams.
- * @details Nearly every face of the tetrahedron's hankin reaches a pole, and
- * its large faces sweep column pair by column pair.
+ * @brief The tetrahedron sweep and following morph leg have no excess seam step.
  */
 inline void test_hankinsolids_interlace_motion_is_seam_free() {
   constexpr int W = 288, H = 144;
