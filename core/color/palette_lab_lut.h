@@ -143,6 +143,8 @@ using PaletteLabLut = PaletteLabLutStorage<64>;
 /** @brief Interval palette bases baked through the final hue and gamut mapping.
  * @tparam MidpointOnly Whether storage is limited to one admitted midpoint row. */
 template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
+  static_assert(PaletteLabLut::VALUES == HueRotationLutView::VALUE_STEPS,
+                "palette value nodes must match hue rotation table rows");
   static constexpr int RGB_TIMES =
       MidpointOnly ? 1 : PaletteLabLut::TIMES; ///< Stored time rows.
   static constexpr int MIDPOINT_ROW =
