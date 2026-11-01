@@ -958,7 +958,7 @@ Transformers deform the sphere geometry before rendering. The `Transformer<Param
 ```cpp
 template <int CAPACITY>
 using RippleTransformer = Transformer<Animation::RippleParams, Animation::Ripple,
-                                      ripple_transform, CAPACITY>;
+                                      ripple_params_transform, CAPACITY>;
 ```
 
 Available transformers:
