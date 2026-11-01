@@ -609,17 +609,16 @@ Shipping composed effects are ordinary concrete `Effect` types. Each names one c
 
 Each editable source document lives under `patterns/*.shader.json`. The browser validates and canonicalizes a document before changing the live engine, matches its exact descriptor digest to a composed effect, and selects presets by immutable ID. Open/save preserves exhaustive chain, parameter, transition, and choreography data. Unknown or invalid semantics leave the current preview untouched. The current catalog maps each composed effect to its authoring document.
 
-The **Twist Lens** rotates around its animated axis with a profile that preserves the equatorial rate:
+The **Twist Lens** rotates around its animated axis with a fixed total winding:
 `a = Twist Distribution * 0.999` and
-`angle = Twist Rate * atanh(a * height) / a`.
-**Twist Distribution** defaults to 0.85 and ranges from 0 to 1. Zero uses a
-linear height profile; increasing it adds winding toward the poles while keeping
-the equatorial twist density fixed. Near its maximum, the surface shear stays
-nearly uniform across most of the sphere and relaxes within smooth polar caps.
-**Twist Rate** ranges from -12 to 12 radians per unit axial height at the equator;
-**Speed** and **Drift** animate the axis orientation independently. A small flash
-lookup table and polynomial evaluate the profile without per-pixel logarithms or
-inverse hyperbolic functions.
+`angle(height) = 0.5 * Twist Angle * atanh(a * height) / atanh(a)`.
+**Twist Angle (rad)** is the signed pole-to-pole rotation, from -96 to 96 radians;
+its default is 2π, one complete wind. **Twist Distribution** defaults to 0.85 and
+ranges from 0 to 1. Zero gives a linear height profile; increasing it redistributes
+spacing toward the poles while preserving the total winding and the endpoint
+rotations at ±half the Twist Angle. **Speed** and **Drift** animate the axis
+orientation independently. A small flash lookup table and polynomial evaluate
+the profile without per-pixel logarithms or inverse hyperbolic functions.
 
 The shader is a *pullback*: it starts at a visible sphere point and walks backward through a chain of stages over four ranked carrier families — Sphere, Plane, Field, Color. A chain is any stage sequence that is non-decreasing in family rank with agreeing adjacent carriers, entering at `SphereSample` and exiting at `Color4`; each family boundary is crossed at most once. Both Shader preview and concrete effects call the same public kernels in `core/render/pullback.h`. Palette mapping is continuous preset state: a transition carries both mapping endpoints and interpolates their coordinates before the single palette sample, so changing Cup/Bell/Linear/Reverse does not require another pipeline or effect.
 
@@ -708,7 +707,7 @@ cannot follow a projection: that would move backward in carrier rank.
 | **Colorize** | Cycling-generated, generated, procedural, gradient, mutating | Field → Color; palette-source selection, family-gated palette controls, mapping, phase oscillation, brightness envelope and opacity |
 | **Modulation** | Pattern color modulation | Color → Color; ordered displacement, noise, sine, interference or grid layers affecting hue, lightness or opacity |
 
-Twist Lens exposes Twist Rate, Twist Distribution, Speed and Drift. Its origin
+Twist Lens exposes Twist Angle (rad), Twist Distribution, Speed and Drift. Its origin
 circles continuously in polar angle (phi) at Speed while its azimuth (lambda)
 circles at Drift, both in radians per frame. Zero holds the corresponding angle; both at zero hold the
 origin.

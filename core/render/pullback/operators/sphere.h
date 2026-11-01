@@ -288,15 +288,15 @@ struct LensGlitch : StatelessModel {
 
 /** @brief Parameter family of sphere.lens.twist.v2. */
 struct TwistChainParams {
-  float twist_rate =
-      lenses::TWIST_RATE; ///< Equatorial radians per unit height.
+  float twist_angle = lenses::TWIST_ANGLE; ///< Total pole-to-pole radians.
   float distribution = lenses::TWIST_DISTRIBUTION; ///< Polar redistribution.
   float speed = 0.02f;  /**< Polar rotation per frame, in radians. */
   float drift = 0.002f; /**< Azimuth rotation per frame, in radians. */
 
   static constexpr auto FIELDS = std::array{
-      Field<TwistChainParams>{"twist-rate", &TwistChainParams::twist_rate,
-                              "Twist Rate", -12.0f, 12.0f, FieldCurve::LERP},
+      Field<TwistChainParams>{"twist-angle", &TwistChainParams::twist_angle,
+                              "Twist Angle (rad)", -96.0f, 96.0f,
+                              FieldCurve::LERP},
       Field<TwistChainParams>{"twist-distribution",
                               &TwistChainParams::distribution,
                               "Twist Distribution", 0.0f,
@@ -354,7 +354,7 @@ struct LensTwist : ValueStateModel<TwistOrbitState> {
   /** @brief Per-frame twist orientation. */
   struct Prepared {
     math::Vector axis{0.0f, 1.0f, 0.0f}; /**< Unit twist axis. */
-    /// Prepared twist rate and axial distribution.
+    /// Prepared twist angle and axial distribution.
     lenses::TwistProfile profile = lenses::prepare_twist_profile();
   };
 
@@ -366,7 +366,7 @@ struct LensTwist : ValueStateModel<TwistOrbitState> {
                           const State &state) {
     return {
         math::Vector::from_spherical(state.lambda, state.phi),
-        lenses::prepare_twist_profile(params.twist_rate, params.distribution)};
+        lenses::prepare_twist_profile(params.twist_angle, params.distribution)};
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &, const Prepared &prepared) {

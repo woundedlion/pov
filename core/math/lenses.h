@@ -27,8 +27,8 @@
  */
 namespace lenses {
 
-/** @brief Azimuthal radians per unit axial height at the equator. */
-inline constexpr float TWIST_RATE = 3.0f;
+/** @brief Total signed pole-to-pole twist, in radians. */
+inline constexpr float TWIST_ANGLE = math::TWO_PI_F;
 /** @brief Default redistribution of axial twist toward the poles. */
 inline constexpr float TWIST_DISTRIBUTION = 0.85f;
 /** @brief Maximum twist redistribution with finite polar derivatives. */
@@ -149,18 +149,18 @@ struct TwistProfile {
   float scale;        ///< Angular scale, in radians.
 };
 
-/** @brief Prepares a twist profile with fixed equatorial shear.
- * @param rate Radians per unit axial height at the equator.
+/** @brief Prepares a twist profile with fixed pole-to-pole rotation.
+ * @param angle Total signed pole-to-pole rotation, in radians.
  * @param distribution Redistribution in [0, TWIST_DISTRIBUTION_MAX].
  * @return Profile with a linear limit at zero distribution. */
 inline TwistProfile
-prepare_twist_profile(float rate = TWIST_RATE,
+prepare_twist_profile(float angle = TWIST_ANGLE,
                       float distribution = TWIST_DISTRIBUTION) {
   distribution = std::clamp(distribution, 0.0f, TWIST_DISTRIBUTION_MAX);
   if (distribution < 1e-4f)
-    return {0.0f, rate};
+    return {0.0f, 0.5f * angle};
   distribution *= TWIST_PROFILE_MAX;
-  return {distribution, rate / distribution};
+  return {distribution, 0.5f * angle / twist_atanh(distribution)};
 }
 
 /** @brief Evaluates the axial rotation angle of a twist profile.
@@ -192,12 +192,12 @@ inline math::Vector twist_lens(const math::Vector &v,
 
 /** @brief Rotates a direction about Y with redistributed axial twist.
  * @param v Unit direction on the sphere.
- * @param rate Radians per unit axial height at the equator.
+ * @param angle Total signed pole-to-pole rotation, in radians.
  * @param distribution Redistribution toward the poles; zero is linear height.
- * @return Direction rotated with fixed equatorial shear. */
-inline math::Vector twist_lens(const math::Vector &v, float rate = TWIST_RATE,
+ * @return Direction rotated with fixed pole-to-pole rotation. */
+inline math::Vector twist_lens(const math::Vector &v, float angle = TWIST_ANGLE,
                                float distribution = TWIST_DISTRIBUTION) {
-  return twist_lens(v, prepare_twist_profile(rate, distribution));
+  return twist_lens(v, prepare_twist_profile(angle, distribution));
 }
 
 /**

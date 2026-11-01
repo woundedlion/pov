@@ -334,8 +334,12 @@ inline void test_shader_chain_schema_and_field_ids() {
     return;
   const In::OperatorDescriptor &twist = *twist_found;
   HS_EXPECT_SIZE_OR_RETURN(twist.schema_span(), 4);
-  HS_EXPECT_TRUE(std::string_view(twist.schema[0].id) == "twist-rate");
-  HS_EXPECT_EQ(twist.schema[0].def, lenses::TWIST_RATE);
+  HS_EXPECT_TRUE(std::string_view(twist.schema[0].id) == "twist-angle");
+  HS_EXPECT_EQ(twist.schema[0].def, math::TWO_PI_F);
+  HS_EXPECT_EQ(twist.schema[0].min, -96.0f);
+  HS_EXPECT_EQ(twist.schema[0].max, 96.0f);
+  HS_EXPECT_TRUE(std::string_view(twist.schema[0].display_name) ==
+                 "Twist Angle (rad)");
   HS_EXPECT_TRUE(std::string_view(twist.schema[1].id) == "twist-distribution");
   HS_EXPECT_TRUE(std::string_view(twist.schema[1].display_name) ==
                  "Twist Distribution");

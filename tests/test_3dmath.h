@@ -1791,86 +1791,82 @@ inline void test_value_noise() {
 // ============================================================================
 
 inline void test_twist_lens() {
-  for (const float distribution : {0.0f, 1e-7f, 1e-4f, 0.85f, 1.0f}) {
-    for (const float rate : {-12.0f, 0.0f, 3.0f, 12.0f}) {
-      const auto profile = lenses::prepare_twist_profile(rate, distribution);
+  for (const float distribution : {0.0f, 1e-7f, 1e-4f, 0.25f, 0.85f, 1.0f}) {
+    for (const float total_angle :
+         {-96.0f, -math::TWO_PI_F, 0.0f, math::TWO_PI_F, 96.0f}) {
+      const auto profile =
+          lenses::prepare_twist_profile(total_angle, distribution);
       for (const float height :
            {-1.0f, -0.99999f, -0.5f, 0.0f, 0.5f, 0.99999f, 1.0f}) {
         const double h = height;
         const double a = distribution * 0.999;
-        const double angle = rate * (a == 0.0 ? h : atanh(a * h) / a);
-        const double ERROR = 2e-4 + 2.0 *
-                                        std::numeric_limits<float>::epsilon() *
-                                        fabs(rate * h) / (1.0 - a * a * h * h);
-        HS_EXPECT_NEAR(lenses::twist_angle(height, profile), angle, ERROR);
+        const double angle =
+            0.5 * total_angle * (a == 0.0 ? h : atanh(a * h) / atanh(a));
+        HS_EXPECT_NEAR(lenses::twist_angle(height, profile), angle, 6e-4);
         const float radius = sqrtf(std::max(0.0f, 1.0f - height * height));
         const math::Vector input(radius * 0.6f, height, radius * 0.8f);
-        const auto output = lenses::twist_lens(input, rate, distribution);
+        const auto output =
+            lenses::twist_lens(input, total_angle, distribution);
         HS_EXPECT_TRUE(std::isfinite(output.x));
         HS_EXPECT_TRUE(std::isfinite(output.y));
         HS_EXPECT_TRUE(std::isfinite(output.z));
         HS_EXPECT_NEAR(output.x, input.x * cos(angle) - input.z * sin(angle),
-                       2e-3);
+                       2.5e-3);
         HS_EXPECT_EQ(output.y, input.y);
         HS_EXPECT_NEAR(output.z, input.x * sin(angle) + input.z * cos(angle),
-                       2e-3);
+                       2.5e-3);
       }
+      const float north = lenses::twist_angle(1.0f, profile);
+      const float south = lenses::twist_angle(-1.0f, profile);
+      HS_EXPECT_NEAR(north, 0.5 * total_angle, 8e-6);
+      HS_EXPECT_NEAR(south, -0.5 * total_angle, 8e-6);
+      HS_EXPECT_NEAR((north - south) / math::TWO_PI_F,
+                     total_angle / math::TWO_PI_F, 3e-6);
+      HS_EXPECT_EQ(lenses::twist_angle(0.0f, profile), 0.0f);
     }
   }
   const math::Vector input(0.6f, 0.5f, 0.6244998f);
   const auto output = lenses::twist_lens(input);
-  const double angle = 3.0 * atanh((0.85 * 0.999) * input.y) / (0.85 * 0.999);
+  const double A = 0.85 * 0.999;
+  const double angle = 0.5 * math::TWO_PI_F * atanh(A * input.y) / atanh(A);
   HS_EXPECT_NEAR(output.x, input.x * cos(angle) - input.z * sin(angle), 2e-3);
   HS_EXPECT_NEAR(output.z, input.x * sin(angle) + input.z * cos(angle), 2e-3);
-  for (const float distribution : {0.0f, 0.85f, 1.0f}) {
-    const auto profile = lenses::prepare_twist_profile(3.0f, distribution);
-    HS_EXPECT_NEAR(lenses::twist_angle(0.001f, profile) / 0.001f, 3.0f, 2e-6);
-    HS_EXPECT_EQ(lenses::twist_angle(0.0f, profile), 0.0f);
-    for (const float height : {0.0f, 0.5f, 0.8660254f, 0.9659258f}) {
-      constexpr float STEP = 0.001f;
-      const float slope = (lenses::twist_angle(height + STEP, profile) -
-                           lenses::twist_angle(height - STEP, profile)) /
-                          (2.0f * STEP);
-      const double h = height;
-      const double a = distribution * 0.999;
-      const double expected_shear = 3.0 * (1.0 - h * h) / (1.0 - a * a * h * h);
-      HS_EXPECT_NEAR((1.0f - height * height) * slope, expected_shear, 0.004);
-      if (distribution > 0.99f)
-        HS_EXPECT_GT((1.0f - height * height) * slope / 3.0f, 0.97f);
-    }
-    const double a = distribution * 0.999;
-    const double pole_angle = 3.0 * (a == 0.0 ? 1.0 : atanh(a) / a);
-    HS_EXPECT_NEAR(lenses::twist_angle(-1.0f, profile), -pole_angle, 2e-4);
-    HS_EXPECT_NEAR(lenses::twist_angle(1.0f, profile), pole_angle, 2e-4);
-  }
-  HS_EXPECT_GT(
-      lenses::twist_angle(1.0f, lenses::prepare_twist_profile(3.0f, 1.0f)),
-      11.0f);
+  const auto linear = lenses::prepare_twist_profile(math::TWO_PI_F, 0.0f);
+  const auto distributed = lenses::prepare_twist_profile(math::TWO_PI_F, 1.0f);
+  HS_EXPECT_NEAR(lenses::twist_angle(0.5f, linear), 0.25 * math::TWO_PI_F,
+                 1e-6);
+  HS_EXPECT_LT(lenses::twist_angle(0.5f, distributed),
+               0.5f * lenses::twist_angle(0.5f, linear));
+  HS_EXPECT_NEAR(lenses::twist_angle(1.0f, lenses::prepare_twist_profile()),
+                 math::PI_F, 1e-6);
 }
 
-/** @brief Lookup twist angles track the analytic curve across the control range. */
+/** @brief Lookup twist angles preserve winding while redistributing interior spacing. */
 inline void test_twist_lens_lookup_error() {
   double max_error = 0.0;
-  for (int distribution_step = 1; distribution_step <= 32;
+  for (int distribution_step = 0; distribution_step <= 64;
        ++distribution_step) {
-    const float distribution = distribution_step / 32.0f;
-    const auto profile = lenses::prepare_twist_profile(12.0f, distribution);
+    const float distribution = distribution_step / 64.0f;
+    const auto profile = lenses::prepare_twist_profile(96.0f, distribution);
+    const auto reverse = lenses::prepare_twist_profile(-96.0f, distribution);
+    float previous = 0.0f;
     for (int height_step = 0; height_step <= 4096; ++height_step) {
       const float height = height_step / 4096.0f;
       const double a = distribution * 0.999;
       const double h = height;
-      const double expected = 12.0 * atanh(a * h) / a;
-      const double conditioning = 2.0 * std::numeric_limits<float>::epsilon() *
-                                  fabs(12.0 * h) / (1.0 - a * a * h * h);
+      const double expected = 48.0 * (a == 0.0 ? h : atanh(a * h) / atanh(a));
       const float actual = lenses::twist_angle(height, profile);
-      max_error = std::max(max_error, fabs(actual - expected) - conditioning);
+      max_error = std::max(max_error, fabs(actual - expected));
+      HS_EXPECT_TRUE(std::isfinite(actual));
+      HS_EXPECT_GE(actual, previous);
       HS_EXPECT_EQ(lenses::twist_angle(-height, profile), -actual);
-      HS_EXPECT_EQ(lenses::twist_angle(height, lenses::prepare_twist_profile(
-                                                   -12.0f, distribution)),
-                   -actual);
+      HS_EXPECT_EQ(lenses::twist_angle(height, reverse), -actual);
+      previous = actual;
     }
+    HS_EXPECT_NEAR(lenses::twist_angle(1.0f, profile), 48.0f, 8e-6);
+    HS_EXPECT_NEAR(lenses::twist_angle(-1.0f, profile), -48.0f, 8e-6);
   }
-  HS_EXPECT_LE(max_error, 2e-4);
+  HS_EXPECT_LE(max_error, 6e-4);
   for (int exponent = 0; exponent <= 10; ++exponent) {
     const double power = static_cast<double>(uint32_t{1} << exponent);
     const float boundary =

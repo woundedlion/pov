@@ -89,7 +89,7 @@ struct Glitch : ApproximationDefaults {
   }
 };
 
-/** @brief Twist lens: `lenses::twist_lens` at its default rate. */
+/** @brief Twist lens: `lenses::twist_lens` at its default angle and distribution. */
 struct Twist : ApproximationDefaults {
   /**
    * @brief Applies the lens to a sphere direction.

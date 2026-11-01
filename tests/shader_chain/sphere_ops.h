@@ -310,22 +310,25 @@ inline void test_shader_chain_parity_lens_ops() {
   run_lens_parity<PB::Lens::Twist, In::Op::TwistChainParams>(
       In::Op::LensTwist::ID, ValueSet::DEFAULTS);
   for (const float distribution : {0.0f, 0.85f, 1.0f}) {
-    for (const float rate : {-12.0f, 0.0f, 12.0f}) {
+    for (const float total_angle : {-96.0f, 0.0f, 96.0f}) {
       const PB::SphereSample input{math::Vector(0.6f, 0.5f, 0.6244998f), 0.0f};
       In::Op::TwistChainParams params;
-      params.twist_rate = rate;
+      params.twist_angle = total_angle;
       params.distribution = distribution;
       const auto ctx = shared_resources().context();
       const auto prepared = In::Op::LensTwist::prepare(ctx, params, {});
       const auto result = In::Op::LensTwist::run(input, ctx, params, prepared);
       const double a = distribution * 0.999;
       const double angle =
-          rate * (a == 0.0 ? input.dir.y : atanh(a * input.dir.y) / a);
+          0.5 * total_angle *
+          (a == 0.0 ? input.dir.y : atanh(a * input.dir.y) / atanh(a));
       HS_EXPECT_NEAR(result.dir.x,
-                     input.dir.x * cos(angle) - input.dir.z * sin(angle), 2e-3);
+                     input.dir.x * cos(angle) - input.dir.z * sin(angle),
+                     2.5e-3);
       HS_EXPECT_EQ(result.dir.y, input.dir.y);
       HS_EXPECT_NEAR(result.dir.z,
-                     input.dir.x * sin(angle) + input.dir.z * cos(angle), 2e-3);
+                     input.dir.x * sin(angle) + input.dir.z * cos(angle),
+                     2.5e-3);
     }
   }
 
@@ -382,7 +385,7 @@ inline void test_shader_chain_lens_controls() {
         const double h = input.dir.x * ax + input.dir.y * ay + input.dir.z * az;
         const double a = distribution * 0.999;
         const double angle =
-            params.twist_rate * (a == 0.0 ? h : atanh(a * h) / a);
+            0.5 * params.twist_angle * (a == 0.0 ? h : atanh(a * h) / atanh(a));
         const double c = cos(angle);
         const double s = sin(angle);
         HS_EXPECT_NEAR(result.dir.x,
