@@ -28,12 +28,13 @@ struct BasisClip {
  * @param draw Callable `(Pipeline<W, H> &, Canvas &, const Quaternion &)`
  *        drawing the shapes at an orientation.
  * @param clip Display clip.
+ * @param state_moves Whether geometry changes over the frame.
  * @return Displayed frame.
  */
 template <int W, int H, typename DrawFn>
-inline std::vector<Pixel> render_column_basis(const BasisMotion &motion,
-                                              DrawFn &&draw,
-                                              const BasisClip &clip = {}) {
+inline std::vector<Pixel>
+render_column_basis(const BasisMotion &motion, DrawFn &&draw,
+                    const BasisClip &clip = {}, bool state_moves = false) {
   hs_test::StubEffect fx(W, H);
   if (clip.x1 > 0)
     fx.set_clip(0, H, clip.x0, clip.x1);
@@ -41,7 +42,7 @@ inline std::vector<Pixel> render_column_basis(const BasisMotion &motion,
     fx.set_margin(clip.margin);
   auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
   const Scan::ColumnBasis time =
-      basis->prepare(motion.previous, motion.current);
+      basis->prepare(motion.previous, motion.current, state_moves);
   HS_EXPECT_TRUE(time.azimuth != nullptr);
   Pipeline<W, H> pipeline;
   {
@@ -2460,6 +2461,80 @@ inline void test_mesh_motion_activation() {
 /// vertex paths.
 inline constexpr int POLAR_SWEEP_BOUND = 6144;
 
+/** @brief Moving polar-face draws and independent column-time references. */
+template <typename Position> struct PolarFaceCase {
+  static constexpr int W = 288, H = 144;
+  ScratchScope guard{scratch_arena_a};
+  MeshState mesh;
+  size_t count;
+  float reach;
+  BasisMotion motion;
+  Position position;
+  std::vector<uint8_t> moving;
+  std::vector<uint16_t> starts;
+  std::array<uint16_t, 2> columns{};
+
+  PolarFaceCase(size_t count, float reach, const math::Quaternion &to,
+                Position position)
+      : count(count), reach(reach), motion{{}, to}, position(position),
+        moving(count, 1), starts(count) {
+    build_single_face(mesh, count, [&](size_t i) { return position(i, 1); });
+  }
+
+  template <typename Draw> std::vector<Pixel> render(Draw draw) {
+    return render_column_basis<W, H>(
+        motion,
+        [&](Pipeline<W, H> &pipeline, Canvas &canvas, const auto &) {
+          draw(pipeline, canvas);
+        },
+        {}, true);
+  }
+
+  void scan(Pipeline<W, H> &pipeline, Canvas &canvas) {
+    float scale = 0.0f;
+    const auto setup = [&](size_t, float size) { scale = 1.0f / size; };
+    const auto shader = [&](const math::Vector &, Fragment &f) {
+      const float depth = hs::clamp(-f.v1 * scale, 0.0f, 1.0f);
+      f.color = Color4(
+          Pixel(static_cast<uint16_t>(2000 + 60000 * depth), 20000, 30000), 1);
+    };
+    Scan::Mesh::draw_specialized<W, H>(pipeline, canvas, mesh, shader,
+                                       scratch_arena_b, nullptr, setup);
+  }
+
+  template <typename Hook> std::vector<Pixel> draw(Hook before_scan) {
+    Scan::mesh_capture_counters = {};
+    return render([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+      for (size_t i = 0; i < count; ++i)
+        starts[i] = Scan::vertex_column(position(i, 0), *canvas.column_basis(),
+                                        0.0f, W);
+      Scan::pick_moving_faces<W>(canvas, mesh, moving.data(), reach,
+                                 columns.data());
+      for (size_t i = 0; i < count; ++i)
+        if (moving[i])
+          moving[i] = Scan::vertex_flags(reach);
+      Scan::deform_mesh<W, H>(canvas, mesh, true, columns.data(), moving.data(),
+                              starts.data(), scratch_arena_b, reach, position,
+                              [&] {
+                                before_scan(canvas);
+                                scan(pipeline, canvas);
+                              });
+    });
+  }
+
+  std::vector<Pixel> frozen(float fraction) {
+    for (size_t i = 0; i < count; ++i)
+      mesh.vertices[i] = position(i, fraction);
+    return render([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+      scan(pipeline, canvas);
+    });
+  }
+
+  std::vector<Pixel> reference() {
+    return column_time_oracle<W, H>([&](float u) { return frozen(u); });
+  }
+};
+
 /**
  * @brief A face around a pole draws each column pair as the face stood at
  *        the pair's sweep time.
@@ -2478,7 +2553,7 @@ inline constexpr int POLAR_SWEEP_BOUND = 6144;
 inline void check_polar_face_sweep(size_t points, float notch, bool north,
                                    float turn, bool grow = false,
                                    float tilt = 0.0f) {
-  constexpr int W = 288, H = 144;
+  constexpr int W = 288;
   constexpr float SPIN = 0.2f, TIP = 0.4f, WOBBLE = 3.0f * math::PI_F / 180.0f;
   HS_CONTEXT("star points", static_cast<long long>(points));
   HS_CONTEXT("north", north ? 1 : 0);
@@ -2496,56 +2571,12 @@ inline void check_polar_face_sweep(size_t points, float notch, bool north,
                                      sinf(polar) * sinf(azimuth)),
                         math::make_rotation(math::Vector(0, 0, 1), tilt));
   };
-  const math::Quaternion from;
   const math::Quaternion to =
       math::make_rotation(math::Vector(0.3f, 0.2f, 0.9f).normalized(), turn);
-  float scale = 0.0f;
-  auto setup = [&](size_t, float size) { scale = 1.0f / size; };
-  auto shader = [&](const math::Vector &, Fragment &f) {
-    const float depth = hs::clamp(-f.v1 * scale, 0.0f, 1.0f);
-    f.color = Color4(
-        Pixel(static_cast<uint16_t>(2000 + 60000 * depth), 20000, 30000), 1);
-  };
-  const auto render = [&](auto &&draw) {
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> pipeline;
-    {
-      Canvas canvas(fx);
-      auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
-      const Scan::ColumnBasis time = basis->prepare(from, to, true);
-      Scan::ColumnBasisScope column_scope(canvas, time);
-      draw(pipeline, canvas);
-    }
-    fx.advance_display();
-    std::vector<Pixel> out;
-    capture_frame<W, H>(fx, out);
-    return out;
-  };
-  ScratchScope guard(scratch_arena_a);
-  MeshState mesh;
-  build_single_face(mesh, count, [&](size_t i) { return position(i, 1); });
-  std::vector<uint8_t> moving(count, 1);
-  std::vector<uint16_t> starts(count);
-  std::vector<uint16_t> columns(2);
   const float reach = SPIN * sinf(TIP) + WOBBLE;
-  Scan::mesh_capture_counters = {};
-  const std::vector<Pixel> drawn = render([&](Pipeline<W, H> &pipeline,
-                                              Canvas &canvas) {
-    for (size_t i = 0; i < count; ++i)
-      starts[i] =
-          Scan::vertex_column(position(i, 0), *canvas.column_basis(), 0.0f, W);
-    Scan::pick_moving_faces<W>(canvas, mesh, moving.data(), reach,
-                               columns.data());
-    for (size_t i = 0; i < count; ++i)
-      if (moving[i])
-        moving[i] = Scan::vertex_flags(reach);
-    Scan::deform_mesh<W, H>(
-        canvas, mesh, true, columns.data(), moving.data(), starts.data(),
-        scratch_arena_b, reach, position, [&] {
-          HS_EXPECT_TRUE(canvas.column_basis()->mesh.face_sweep != nullptr);
-          Scan::Mesh::draw_specialized<W, H>(pipeline, canvas, mesh, shader,
-                                             scratch_arena_b, nullptr, setup);
-        });
+  PolarFaceCase test(count, reach, to, position);
+  const std::vector<Pixel> drawn = test.draw([](Canvas &canvas) {
+    HS_EXPECT_TRUE(canvas.column_basis()->mesh.face_sweep != nullptr);
   });
   const Scan::MeshCaptureCounters work = Scan::mesh_capture_counters;
   HS_EXPECT_EQ(work.polar_faces, size_t(1));
@@ -2560,14 +2591,7 @@ inline void check_polar_face_sweep(size_t points, float notch, bool north,
   // Classification measures each moving vertex's motion at the frame's start
   // and middle, and the sweep's paths evaluate it there again.
   HS_EXPECT_EQ(work.evaluations, 4 * count);
-  const std::vector<Pixel> expected = column_time_oracle<W, H>([&](float u) {
-    for (size_t i = 0; i < count; ++i)
-      mesh.vertices[i] = position(i, u);
-    return render([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
-      Scan::Mesh::draw_specialized<W, H>(pipeline, canvas, mesh, shader,
-                                         scratch_arena_b, nullptr, setup);
-    });
-  });
+  const std::vector<Pixel> expected = test.reference();
   HS_EXPECT_GT(
       expect_frames_within("polar sweep", drawn, expected, POLAR_SWEEP_BOUND),
       tilt != 0.0f ? W : W * 4);
@@ -2599,7 +2623,6 @@ inline void test_mesh_polar_face_sweep() {
  */
 inline void check_polar_face_windows(size_t points, float notch, bool north,
                                      float turn) {
-  constexpr int W = 288, H = 144;
   constexpr float SPIN = 0.05f, TIP = 0.2f, WOBBLE = 0.5f * math::PI_F / 180.0f;
   HS_CONTEXT("star points", static_cast<long long>(points));
   HS_CONTEXT("north", north ? 1 : 0);
@@ -2613,56 +2636,11 @@ inline void check_polar_face_windows(size_t points, float notch, bool north,
     return math::Vector(sinf(polar) * cosf(azimuth), north ? y : -y,
                         sinf(polar) * sinf(azimuth));
   };
-  const math::Quaternion from;
   const math::Quaternion to =
       math::make_rotation(math::Vector(0.3f, 0.2f, 0.9f).normalized(), turn);
-  float scale = 0.0f;
-  auto setup = [&](size_t, float size) { scale = 1.0f / size; };
-  auto shader = [&](const math::Vector &, Fragment &f) {
-    const float depth = hs::clamp(-f.v1 * scale, 0.0f, 1.0f);
-    f.color = Color4(
-        Pixel(static_cast<uint16_t>(2000 + 60000 * depth), 20000, 30000), 1);
-  };
-  const auto render = [&](auto &&draw) {
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> pipeline;
-    {
-      Canvas canvas(fx);
-      auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
-      const Scan::ColumnBasis time = basis->prepare(from, to, true);
-      Scan::ColumnBasisScope column_scope(canvas, time);
-      draw(pipeline, canvas);
-    }
-    fx.advance_display();
-    std::vector<Pixel> out;
-    capture_frame<W, H>(fx, out);
-    return out;
-  };
-  ScratchScope guard(scratch_arena_a);
-  MeshState mesh;
-  build_single_face(mesh, count, [&](size_t i) { return position(i, 1); });
-  std::vector<uint8_t> moving(count, 1);
-  std::vector<uint16_t> starts(count);
-  std::vector<uint16_t> columns(2);
   const float reach = SPIN * sinf(TIP) + WOBBLE;
-  Scan::mesh_capture_counters = {};
-  const std::vector<Pixel> drawn = render([&](Pipeline<W, H> &pipeline,
-                                              Canvas &canvas) {
-    for (size_t i = 0; i < count; ++i)
-      starts[i] =
-          Scan::vertex_column(position(i, 0), *canvas.column_basis(), 0.0f, W);
-    Scan::pick_moving_faces<W>(canvas, mesh, moving.data(), reach,
-                               columns.data());
-    for (size_t i = 0; i < count; ++i)
-      if (moving[i])
-        moving[i] = Scan::vertex_flags(reach);
-    Scan::deform_mesh<W, H>(
-        canvas, mesh, true, columns.data(), moving.data(), starts.data(),
-        scratch_arena_b, reach, position, [&] {
-          Scan::Mesh::draw_specialized<W, H>(pipeline, canvas, mesh, shader,
-                                             scratch_arena_b, nullptr, setup);
-        });
-  });
+  PolarFaceCase test(count, reach, to, position);
+  const std::vector<Pixel> drawn = test.draw([](Canvas &) {});
   const Scan::MeshCaptureCounters work = Scan::mesh_capture_counters;
   HS_EXPECT_EQ(work.polar_faces, size_t(1));
   HS_EXPECT_EQ(work.swept_faces, size_t(0));
@@ -2673,21 +2651,8 @@ inline void check_polar_face_windows(size_t points, float notch, bool north,
   // and middle.
   HS_EXPECT_EQ(work.evaluations, work.captures + 2 * count);
   HS_EXPECT_LE(work.captures, work.scans * count);
-  for (size_t i = 0; i < count; ++i)
-    mesh.vertices[i] = position(i, 1.0f);
-  const std::vector<Pixel> held =
-      render([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
-        Scan::Mesh::draw_specialized<W, H>(pipeline, canvas, mesh, shader,
-                                           scratch_arena_b, nullptr, setup);
-      });
-  const std::vector<Pixel> expected = column_time_oracle<W, H>([&](float u) {
-    for (size_t i = 0; i < count; ++i)
-      mesh.vertices[i] = position(i, u);
-    return render([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
-      Scan::Mesh::draw_specialized<W, H>(pipeline, canvas, mesh, shader,
-                                         scratch_arena_b, nullptr, setup);
-    });
-  });
+  const std::vector<Pixel> held = test.frozen(1.0f);
+  const std::vector<Pixel> expected = test.reference();
   const auto error = [&](const std::vector<Pixel> &frame) {
     double sum = 0.0;
     for (size_t i = 0; i < expected.size(); ++i)
