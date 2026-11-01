@@ -98,7 +98,8 @@ gnomonic lattice, analogous cup palette and direct directional-sine hue shift.
 
 `ash_cloud.shader.json` is the editable source for the `AshCloud` effect. Its
 value cutout follows a primitive lattice displaced by sphere-space curl noise
-and folded through a dodecahedral kaleidoscope.
+and folded through a dodecahedral kaleidoscope, with random ripple bursts
+whose displacement drives hue rotation.
 
 `kaleidoscope_smooth.shader.json` describes the fixed stereographic dodecahedral-grid
 pipeline used by `KaleidoscopeSmooth`. Its four presets differ only in source,
