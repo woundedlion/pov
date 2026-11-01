@@ -275,9 +275,7 @@ public:
     const float VALUE = Pullback::Color::palette_mapping_coordinate(
         COVERED.value, STATE.mapping, STATE.mapping_frequency,
         STATE.mapping_offset);
-    const float OPACITY =
-        COVERED.coverage *
-        hs::lerp(STATE.opacity_low, STATE.opacity_high, COVERED.value);
+    const float OPACITY = Pullback::Color::palette_opacity(COVERED, STATE);
     float hue = 0.0f;
     const auto apply_hue = [&]<size_t Index>() HS_HOT_INLINE {
       const auto &PREPARED = std::get<Index>(frame.prepared);

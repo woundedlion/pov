@@ -313,6 +313,15 @@ apply_palette_endpoint(const FieldSample &sample,
                        float opacity, float gain) {
   return apply_palette_endpoint_impl(sample, state, value, opacity, gain);
 }
+/** @brief Resolves palette opacity at the sampled field value.
+ * @param sample Sampled field and coverage.
+ * @param state Palette opacity controls.
+ * @return Coverage-scaled opacity. */
+HS_HOT_INLINE inline float palette_opacity(const FieldSample &sample,
+                                           const GeneratedPaletteState &state) {
+  return sample.coverage *
+         hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+}
 /** @brief Maps a sampled field into the color carrier.
  * @param sample Sampled field.
  * @param state Palette controls and resources.
@@ -324,8 +333,7 @@ apply_generated_palette(const FieldSample &sample,
       palette_mapping_coordinate(sample.value, state.mapping,
                                  state.mapping_frequency, state.mapping_offset);
   Color4 color = state.palette->get(VALUE);
-  color.alpha *= sample.coverage *
-                 hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+  color.alpha *= palette_opacity(sample, state);
   return {color,
           sample,
           state.hue_rotation.active ? state.hue_rotation.data : nullptr,
@@ -751,9 +759,7 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
     const float VALUE = palette_mapping_coordinate(sample.value, state.mapping,
                                                    state.mapping_frequency,
                                                    state.mapping_offset);
-    const float OPACITY =
-        sample.coverage *
-        hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+    const float OPACITY = palette_opacity(sample, state);
     const float GAIN =
         brightness_envelope_gain(sample.value, state.brightness_envelope,
                                  state.brightness_bottom, state.brightness_top);
@@ -823,9 +829,7 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
     const float VALUE = palette_mapping_coordinate(sample.value, state.mapping,
                                                    state.mapping_frequency,
                                                    state.mapping_offset);
-    const float OPACITY =
-        sample.coverage *
-        hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+    const float OPACITY = palette_opacity(sample, state);
     output.color = Color4(Pixel(0, 0, 0), OPACITY);
     output.field = sample;
     output.hue_rotation = nullptr;
@@ -924,9 +928,7 @@ private:
       const float VALUE = palette_mapping_coordinate(
           sample.value, state.mapping, state.mapping_frequency,
           state.mapping_offset);
-      const float OPACITY =
-          sample.coverage *
-          hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+      const float OPACITY = palette_opacity(sample, state);
       previous = prepared.previous.palette->get(VALUE);
       current = state.palette->get(VALUE);
       previous.alpha *= OPACITY;
@@ -1049,9 +1051,7 @@ public:
         const float VALUE = palette_mapping_coordinate(
             sample.value, state.mapping, state.mapping_frequency,
             state.mapping_offset);
-        const float OPACITY =
-            sample.coverage *
-            hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+        const float OPACITY = palette_opacity(sample, state);
         const float HUE = [&] {
           if (!modulation.enabled || modulation.mechanic.amount == 0.0f)
             return 0.0f;
@@ -1089,9 +1089,7 @@ public:
         const float VALUE = palette_mapping_coordinate(
             sample.value, state.mapping, state.mapping_frequency,
             state.mapping_offset);
-        const float OPACITY =
-            sample.coverage *
-            hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+        const float OPACITY = palette_opacity(sample, state);
         const float HUE =
             fused_pending_hue(SCALARS, modulation.mechanic.amount, fraction);
         return finish_palette_lab(
