@@ -13,6 +13,8 @@ struct SphereOpMirrorFrame {
   In::Op::DirectDisplaceParams direct;
   PB::SphereAnimation::PreparedRipples ripples;
   math::MobiusParams mobius;
+  In::Op::TwistChainParams twist;
+  In::Op::TwistOrbitState twist_phase;
   float phase = 0.0f;
 };
 
@@ -59,6 +61,17 @@ struct RippleMirrorProvider {
     return frame.ripples;
   }
   static bool path_length_required(const FrameState &) { return true; }
+};
+
+struct TwistMirrorProvider {
+  using Binding = SphereOpMirrorBinding;
+  using FrameState = SphereOpMirrorFrame;
+  static const In::Op::TwistChainParams &params(const FrameState &frame) {
+    return frame.twist;
+  }
+  static const In::Op::TwistOrbitState &phase(const FrameState &frame) {
+    return frame.twist_phase;
+  }
 };
 
 struct MobiusMirrorProvider {
@@ -123,6 +136,10 @@ inline SphereOpMirrorFrame sphere_op_mirror(In::ChainProgram &program) {
     mirror.mobius =
         math::MobiusParams{params.a_re, params.a_im, params.b_re, params.b_im,
                            params.c_re, params.c_im, params.d_re, params.d_im};
+  }
+  if (id == In::Op::LensTwist::ID) {
+    mirror.twist = param_as<In::Op::TwistChainParams>(program, 1);
+    mirror.twist_phase = state_as<In::Op::TwistOrbitState>(program, 1);
   }
   return mirror;
 }
@@ -278,7 +295,7 @@ inline void run_lens_parity(const char *op_id, ValueSet set) {
     if (set != ValueSet::DEFAULTS)
       param_as<OpParams>(program, 1).d_re *= -1.0f;
   }
-  if constexpr (std::is_same_v<OpParams, In::Op::TwistChainParams>)
+  if constexpr (std::is_same_v<LensPolicy, PB::Lens::Twist>)
     const_cast<In::Op::TwistOrbitState &>(
         state_as<In::Op::TwistOrbitState>(program, 1)) = {};
   const In::FrameContext ctx = shared_resources().context();
@@ -309,6 +326,10 @@ inline void test_shader_chain_parity_lens_ops() {
 
   run_lens_parity<PB::Lens::Twist, In::Op::TwistChainParams>(
       In::Op::LensTwist::ID, ValueSet::DEFAULTS);
+  for_each_value_set([&](ValueSet set) {
+    run_lens_parity<PB::Lens::AnimatedTwist<TwistMirrorProvider>,
+                    In::Op::TwistChainParams>(In::Op::LensTwist::ID, set);
+  });
   for (const float distribution : {0.0f, 0.85f, 1.0f}) {
     for (const float total_angle : {-96.0f, 0.0f, 96.0f}) {
       const PB::SphereSample input{math::Vector(0.6f, 0.5f, 0.6244998f), 0.0f};
@@ -368,6 +389,10 @@ inline void test_shader_chain_lens_controls() {
     return;
   const auto ctx = shared_resources().context();
   const PB::SphereSample input{math::Vector(0.6f, 0.5f, sqrtf(0.39f)), 0.25f};
+  for_each_value_set([&](ValueSet set) {
+    run_lens_parity<PB::Lens::AnimatedTwist<TwistMirrorProvider>,
+                    In::Op::TwistChainParams>(In::Op::LensTwist::ID, set);
+  });
   for (const float distribution : {0.0f, 0.85f, 1.0f}) {
     for (const float phi : {0.4f, math::PI_F * 0.5f, 2.2f}) {
       for (const float lambda : {0.0f, 0.7f, math::PI_F * 0.5f}) {
