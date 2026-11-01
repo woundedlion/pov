@@ -15,11 +15,11 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | [HopfFibration](profile_hopffibration_teensy_2026-10-23.md) | `hf_render_trails` | 🟢 56.256 | 0.696 | 🟢 0/927 (0.00%) | 2026-10-23 13:26 |
 | [Millefiori](profile_millefiori_teensy_2026-10-30.md) ● | `fx_shader_draw` | 🟢 56.200 | 82.100 | 🟢 0/2047 (0.00%) | 2026-10-30 19:35 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-10-23.md) § | `hl_shader_draw` | 🟢 55.035 (9) | 43.131 | 🟢 0/4767 (0.00%) | 2026-10-23 14:18 |
-| [DreamBalls](profile_dreamballs_teensy_2026-10-23.md) § | `db_timeline_step` | 🟢 54.311 (10) | 49.756 | 🟢 0/3167 (0.00%) | 2026-10-23 14:00 |
 | [IslamicStars](profile_islamicstars_teensy_2026-10-30.md) § ● | `is_timeline_step` | 🟢 53.769 (16) | 18.738 | 🟢 0/3327 (0.00%) | 2026-10-30 17:56 |
 | [RingSpin](profile_ringspin_teensy_2026-10-23.md) | `rs_draw_rings` | 🟢 53.743 | 3.396 | 🟢 0/927 (0.00%) | 2026-10-23 13:32 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-10-30.md) ● | `grd_render` | 🟢 53.504 | 25.722 | 🟢 0/2047 (0.00%) | 2026-10-30 09:50 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-10-23.md) § | `mf_feedback_flush` | 🟢 52.652 (12) | 5.659 | 🟢 0/2863 (0.00%) | 2026-10-23 13:51 |
+| [DreamBalls](profile_dreamballs_teensy_2026-11-01.md) § ● | `db_timeline_step` | 🟢 51.563 (10) | 52.168 | 🟢 0/3647 (0.00%) | 2026-11-01 14:12 |
 | [DisplacementField](profile_displacementfield_teensy_2026-10-23.md) § | `df_timeline_step` | 🟢 51.257 (2) | 18.953 | 🟢 0/1887 (0.00%) | 2026-10-23 13:23 |
 | [Galaxies](profile_galaxies_teensy_2026-10-23.md) | `gx_particle_step` | 🟢 45.223 | 1.494 | 🟢 0/927 (0.00%) | 2026-10-23 13:17 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-10-30.md) ● | `bz_render` | 🟢 44.608 | 76.549 | 🟢 0/2047 (0.00%) | 2026-10-30 09:46 |
