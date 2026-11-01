@@ -56,6 +56,7 @@ export function declarationFromCatalogField(label, field, operator) {
     classification: 'preset',
     storage: 'binary32',
     unit: periodic !== null ? periodic.unit
+      : operator === 'sphere.lens.twist.v2' && field.id === 'twist-angle' ? 'radian'
       : field.id.endsWith('speed')
         ? ((operator.startsWith('sample.') && ['speed', 'angle-speed'].includes(field.id))
           || field.id === 'projection-spin-speed' || field.id === 'spin-speed'
@@ -1094,12 +1095,104 @@ function migrateTwistDistribution(document, catalog) {
   return result;
 }
 
+/** Converts axial twist rates to fixed pole-to-pole angles.
+ * @param {Object} document Shader document.
+ * @param {Object} catalog Current operator catalog.
+ * @returns {Object} Converted document, or the original when already current. */
+function migrateTwistAngle(document, catalog) {
+  const operator = Array.isArray(catalog?.operators)
+    ? catalog.operators.find((entry) => entry?.id === 'sphere.lens.twist.v2') : null;
+  const field = Array.isArray(operator?.params)
+    ? operator.params.find((entry) => entry?.id === 'twist-angle') : null;
+  const descriptor = document?.descriptor;
+  const presets = document?.preset_bank?.presets;
+  if (field?.topology || field?.curve !== 'lerp' ||
+      !Number.isFinite(field.min) || !Number.isFinite(field.max) ||
+      !Array.isArray(descriptor?.chain) || !Array.isArray(descriptor.parameters) ||
+      !Array.isArray(descriptor.path_policies) ||
+      !Array.isArray(descriptor.serialization?.fields) || !Array.isArray(presets) ||
+      presets.some((preset) => !preset?.values || typeof preset.values !== 'object' ||
+        Array.isArray(preset.values))) return document;
+  const withinBounds = (value, minimum, maximum) => Number.isFinite(value) &&
+    Math.fround(value) >= Math.fround(minimum) && Math.fround(value) <= Math.fround(maximum);
+  const hasDomain = (parameter, minimum, maximum) => parameter?.storage === 'binary32' &&
+    Number.isFinite(parameter.domain?.minimum) && Number.isFinite(parameter.domain?.maximum) &&
+    Math.fround(parameter.domain.minimum) === minimum && Math.fround(parameter.domain.maximum) === maximum;
+  const angleFor = (rate, distribution) => {
+    const a = 0.999 * Math.fround(distribution);
+    return Math.fround(2 * Math.fround(rate) * (a === 0 ? 1 : Math.atanh(a) / a));
+  };
+  const upgrades = [];
+  for (const entry of descriptor.chain) {
+    if (entry?.operator !== operator.id || typeof entry.label !== 'string' ||
+        descriptor.chain.filter((node) => node?.label === entry.label).length !== 1) continue;
+    const rateId = `${entry.label}.twist-rate`;
+    const angleId = `${entry.label}.twist-angle`;
+    const distributionId = `${entry.label}.twist-distribution`;
+    const rates = descriptor.parameters.filter((parameter) => parameter?.id === rateId);
+    const distributions = descriptor.parameters.filter((parameter) => parameter?.id === distributionId);
+    if (rates.length !== 1 || distributions.length > 1 ||
+        descriptor.parameters.some((parameter) => parameter?.id === angleId) ||
+        descriptor.serialization.fields.filter((id) => id === rateId).length !== 1 ||
+        descriptor.serialization.fields.includes(angleId) ||
+        descriptor.path_policies.some((policy) => Array.isArray(policy?.groups) &&
+          policy.groups.includes(angleId)) ||
+        presets.some((preset) => Object.hasOwn(preset.values, angleId))) continue;
+    const rate = rates[0];
+    const distribution = distributions[0];
+    if (!hasDomain(rate, -12, 12) || !withinBounds(rate.default, -12, 12) ||
+        (distribution && (!hasDomain(distribution, 0, 1) ||
+          !withinBounds(distribution.default, 0, 1)))) continue;
+    try {
+      validateParameterShape(rate, '$.descriptor.parameters');
+      if (distribution) validateParameterShape(distribution, '$.descriptor.parameters');
+    } catch (error) {
+      if (!(error instanceof ShaderDocumentError)) throw error;
+      continue;
+    }
+    const defaultDistribution = distribution?.default ?? 0.85;
+    const defaultAngle = angleFor(rate.default, defaultDistribution);
+    const values = presets.map((preset) => {
+      const hasDistribution = Object.hasOwn(preset.values, distributionId);
+      if (!Object.hasOwn(preset.values, rateId) ||
+          !withinBounds(preset.values[rateId], -12, 12) ||
+          Boolean(distribution) !== hasDistribution ||
+          (hasDistribution && !withinBounds(preset.values[distributionId], 0, 1))) return null;
+      return angleFor(preset.values[rateId], hasDistribution
+        ? preset.values[distributionId] : defaultDistribution);
+    });
+    if (!withinBounds(defaultAngle, field.min, field.max) ||
+        values.some((value) => !withinBounds(value, field.min, field.max))) continue;
+    upgrades.push({ rateId, angleId, defaultAngle, values });
+  }
+  if (upgrades.length === 0) return document;
+  const result = structuredClone(document);
+  for (const { rateId, angleId, defaultAngle, values } of upgrades) {
+    const index = result.descriptor.parameters.findIndex((parameter) => parameter?.id === rateId);
+    const parameter = result.descriptor.parameters[index];
+    const canonical = declarationFromCatalogField(angleId.split('.')[0], field, operator.id);
+    result.descriptor.parameters[index] = { ...parameter, id: angleId,
+      unit: canonical.unit, domain: canonical.domain, default: defaultAngle };
+    result.descriptor.serialization.fields = result.descriptor.serialization.fields.map(
+      (id) => id === rateId ? angleId : id);
+    for (const policy of result.descriptor.path_policies)
+      if (Array.isArray(policy?.groups)) policy.groups = policy.groups.map(
+        (id) => id === rateId ? angleId : id);
+    result.preset_bank.presets.forEach((preset, presetIndex) => {
+      preset.values[angleId] = values[presetIndex];
+      delete preset.values[rateId];
+    });
+  }
+  return result;
+}
+
 /** Upgrades shader controls and splits combined colorizers into ordered nodes.
  * @param {Object} document Shader document.
  * @param {Object} catalog Current operator catalog.
  * @returns {Object} Converted document, or the original when already current. */
 export function migrateLegacyShaderDocument(document, catalog) {
   document = migrateTwistDistribution(document, catalog);
+  document = migrateTwistAngle(document, catalog);
   if (!Array.isArray(document?.descriptor?.chain)) return document;
   const legacyIds = new Set(['colorize.generated-palette.v3',
     'modulate.field.v1', 'modulate.hue-shift.v1']);

@@ -190,6 +190,185 @@ test('Twist Distribution migration requires the unit catalog and leaves current 
   assert.equal(compileShaderDocument(document, { catalog }).status, 'VALID');
 });
 
+const twistAngleCatalog = () => {
+  const catalog = structuredClone(CATALOG);
+  const operator = catalog.operators.find((entry) => entry.id === 'sphere.lens.twist.v2');
+  operator.params = [{ id: 'twist-angle', name: 'Twist Angle (rad)', min: -96, max: 96,
+    default: Math.fround(2 * Math.PI), curve: 'lerp' }, ...operator.params.filter(
+    (field) => !['twist-rate', 'twist-angle'].includes(field.id))];
+  operator.params.find((field) => field.id === 'twist-distribution').max = 1;
+  return catalog;
+};
+
+const addLegacyTwist = (document, label) => {
+  document.descriptor.chain.splice(1, 0, { label, operator: 'sphere.lens.twist.v2' });
+  const operator = CATALOG.operators.find((entry) => entry.id === 'sphere.lens.twist.v2');
+  const fields = [{ id: 'twist-rate', min: -12, max: 12, default: 3, curve: 'lerp' },
+    ...operator.params.filter((field) => !['twist-rate', 'twist-angle'].includes(field.id))];
+  for (const field of fields) {
+    const declaration = declarationFromCatalogField(label, field, operator.id);
+    document.descriptor.parameters.push(declaration);
+    document.descriptor.serialization.fields.push(declaration.id);
+    for (const preset of document.preset_bank.presets)
+      preset.values[declaration.id] = declaration.default;
+  }
+  return document;
+};
+
+test('Twist Rate imports become pole-to-pole angles using each preset distribution', () => {
+  const catalog = twistAngleCatalog();
+  const document = addLegacyTwist(example(), 'twist');
+  const rate = document.descriptor.parameters.find((entry) => entry.id === 'twist.twist-rate');
+  const distribution = document.descriptor.parameters.find(
+    (entry) => entry.id === 'twist.twist-distribution');
+  rate.default = -4;
+  rate.interpolation = { kind: 'SNAP' };
+  distribution.default = 0.4;
+  document.preset_bank.presets[0].values['twist.twist-rate'] = 2;
+  document.preset_bank.presets[0].values['twist.twist-distribution'] = 0;
+  document.preset_bank.presets[1].values['twist.twist-rate'] = -3;
+  document.preset_bank.presets[1].values['twist.twist-distribution'] = 1;
+  document.descriptor.path_policies[0] = { id: 'parallel', kind: 'STAGGERED_ORDERED',
+    groups: document.descriptor.parameters.map((parameter) => parameter.id) };
+  const original = structuredClone(document);
+  assert.ok(validateShaderDocument(document, { catalog }).some(
+    (diagnostic) => diagnostic.code === 'UNBOUND_PARAMETER'));
+  const result = compileShaderDocument(document, { catalog });
+  assert.equal(result.status, 'VALID', JSON.stringify(result.diagnostics));
+  const angle = result.document.descriptor.parameters.find((entry) => entry.id === 'twist.twist-angle');
+  assert.deepEqual(angle.domain, { minimum: -96, maximum: 96 });
+  assert.equal(angle.unit, 'radian');
+  assert.equal(angle.default, -8.471928596496582);
+  assert.equal(angle.classification, rate.classification);
+  assert.deepEqual(angle.interpolation, rate.interpolation);
+  assert.equal(result.document.preset_bank.presets[0].values['twist.twist-angle'], 4);
+  assert.equal(result.document.preset_bank.presets[1].values['twist.twist-angle'], -22.824031829833984);
+  assert.deepEqual(result.document.descriptor.serialization.fields,
+    original.descriptor.serialization.fields.map((id) => id === rate.id ? angle.id : id));
+  assert.deepEqual(result.document.descriptor.path_policies[0].groups,
+    original.descriptor.path_policies[0].groups.map((id) => id === rate.id ? angle.id : id));
+  for (const [index, preset] of result.document.preset_bank.presets.entries()) {
+    assert.ok(!Object.hasOwn(preset.values, rate.id));
+    const unchanged = { ...preset.values };
+    delete unchanged[angle.id];
+    const expected = { ...original.preset_bank.presets[index].values };
+    delete expected[rate.id];
+    assert.deepEqual(unchanged, expected);
+  }
+  assert.deepEqual(result.document.descriptor.chain, original.descriptor.chain);
+  assert.deepEqual(document, original);
+  assert.strictEqual(migrateLegacyShaderDocument(result.document, catalog), result.document);
+  const roundTrip = compileShaderDocument(exportShaderDocumentJson(result.document), { catalog });
+  assert.equal(roundTrip.status, 'VALID');
+  assert.equal(roundTrip.descriptor_digest, result.descriptor_digest);
+  assert.equal(roundTrip.preset_bank_digest, result.preset_bank_digest);
+});
+
+test('Twist Angle migration uses the distribution fallback and converts separate instances', () => {
+  const catalog = twistAngleCatalog();
+  const document = addLegacyTwist(addLegacyTwist(example(), 'first'), 'second');
+  const absent = 'first.twist-distribution';
+  document.descriptor.parameters = document.descriptor.parameters.filter((entry) => entry.id !== absent);
+  document.descriptor.serialization.fields = document.descriptor.serialization.fields.filter((id) => id !== absent);
+  for (const preset of document.preset_bank.presets) delete preset.values[absent];
+  document.descriptor.parameters.find((entry) => entry.id === 'second.twist-rate').default = 4;
+  document.descriptor.parameters.find((entry) => entry.id === 'second.twist-distribution').default = 0.6;
+  document.preset_bank.presets[0].values['second.twist-rate'] = 3;
+  document.preset_bank.presets[0].values['second.twist-distribution'] = 0.2;
+  document.preset_bank.presets[1].values['second.twist-rate'] = 3;
+  document.preset_bank.presets[1].values['second.twist-distribution'] = 0.9;
+  const result = compileShaderDocument(document, { catalog });
+  assert.equal(result.status, 'VALID', JSON.stringify(result.diagnostics));
+  assert.equal(result.document.descriptor.parameters.find(
+    (entry) => entry.id === 'first.twist-angle').default, 8.854249954223633);
+  assert.equal(result.document.descriptor.parameters.find(
+    (entry) => entry.id === 'second.twist-angle').default, 9.23870849609375);
+  for (const preset of result.document.preset_bank.presets)
+    assert.equal(preset.values['first.twist-angle'], 8.854249954223633);
+  assert.equal(result.document.preset_bank.presets[0].values['second.twist-angle'], 6.081808567047119);
+  assert.equal(result.document.preset_bank.presets[1].values['second.twist-angle'], 9.793144226074219);
+});
+
+test('Twist Rate migration follows distribution-domain upgrades', () => {
+  const catalog = twistAngleCatalog();
+  for (const maximum of [0.98, 0.999]) {
+    const document = addLegacyTwist(example(), 'twist');
+    document.descriptor.parameters.find((entry) => entry.id === 'twist.twist-distribution')
+      .domain.maximum = maximum;
+    const result = compileShaderDocument(document, { catalog });
+    assert.equal(result.status, 'VALID', JSON.stringify(result.diagnostics));
+    assert.equal(result.document.descriptor.parameters.find(
+      (entry) => entry.id === 'twist.twist-distribution').domain.maximum, 1);
+    assert.equal(result.document.descriptor.parameters.find(
+      (entry) => entry.id === 'twist.twist-angle').default, 8.854249954223633);
+    for (const preset of result.document.preset_bank.presets)
+      assert.equal(preset.values['twist.twist-angle'], 8.854249954223633);
+  }
+});
+
+test('Twist Angle migration leaves invalid and conflicting rate controls rejected', () => {
+  const catalog = twistAngleCatalog();
+  const changes = [
+    (document, rate) => { rate.domain.maximum = 13; },
+    (document, rate) => { rate.domain.extra = 1; },
+    (document, rate) => { rate.unit = 1; },
+    (document, rate) => { rate.default = 13; },
+    (document, rate) => { rate.default = '3'; },
+    (document) => { document.preset_bank.presets[0].values['twist.twist-rate'] = 13; },
+    (document) => { document.preset_bank.presets[0].values['twist.twist-rate'] = '3'; },
+    (document) => { delete document.preset_bank.presets[0].values['twist.twist-rate']; },
+    (document) => { document.descriptor.parameters.find(
+      (entry) => entry.id === 'twist.twist-distribution').default = 1.1; },
+    (document) => { document.preset_bank.presets[0].values['twist.twist-distribution'] = 1.1; },
+    (document) => { delete document.preset_bank.presets[0].values['twist.twist-distribution']; },
+    (document, rate) => { document.descriptor.parameters.push(structuredClone(rate)); },
+    (document) => { document.descriptor.parameters.push(structuredClone(
+      document.descriptor.parameters.find((entry) => entry.id === 'twist.twist-distribution'))); },
+    (document) => {
+      const field = catalog.operators.find((entry) => entry.id === 'sphere.lens.twist.v2')
+        .params.find((entry) => entry.id === 'twist-angle');
+      document.descriptor.parameters.push(declarationFromCatalogField('twist', field, 'sphere.lens.twist.v2'));
+    },
+    (document) => { document.preset_bank.presets[0].values['twist.twist-angle'] = 3; },
+    (document) => { document.descriptor.serialization.fields = document.descriptor.serialization.fields.map(
+      (id) => id === 'twist.twist-rate' ? 'twist.twist-angle' : id); },
+    (document) => {
+      document.descriptor.path_policies[0] = { id: 'parallel', kind: 'STAGGERED_ORDERED',
+        groups: document.descriptor.parameters.map((parameter) =>
+          parameter.id === 'twist.twist-rate' ? 'twist.twist-angle' : parameter.id) };
+    },
+    (document) => { document.descriptor.chain[1].operator = 'sphere.lens.glitch.v2'; },
+  ];
+  for (const change of changes) {
+    const document = addLegacyTwist(example(), 'twist');
+    const rate = document.descriptor.parameters.find((entry) => entry.id === 'twist.twist-rate');
+    change(document, rate);
+    const original = structuredClone(document);
+    assert.strictEqual(migrateLegacyShaderDocument(document, catalog), document);
+    assert.equal(compileShaderDocument(document, { catalog }).status, 'INVALID');
+    assert.deepEqual(document, original);
+  }
+  for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+    const document = addLegacyTwist(example(), 'twist');
+    document.preset_bank.presets[0].values['twist.twist-rate'] = value;
+    assert.strictEqual(migrateLegacyShaderDocument(document, catalog), document);
+    assert.equal(compileShaderDocument(document, { catalog }).status, 'INVALID');
+  }
+});
+
+test('Twist Angle migration requires the new catalog field', () => {
+  const document = addLegacyTwist(example(), 'twist');
+  const catalog = twistAngleCatalog();
+  const operator = catalog.operators.find((entry) => entry.id === 'sphere.lens.twist.v2');
+  operator.params = operator.params.filter((entry) => entry.id !== 'twist-angle');
+  operator.params.unshift({ id: 'twist-rate', min: -12, max: 12, default: 3, curve: 'lerp' });
+  assert.strictEqual(migrateLegacyShaderDocument(document, catalog), document);
+  assert.strictEqual(migrateLegacyShaderDocument(document), document);
+  assert.equal(compileShaderDocument(document, { catalog }).status, 'VALID');
+  const field = { id: 'twist-angle', min: -96, max: 96, default: 2 * Math.PI, curve: 'lerp' };
+  assert.equal(declarationFromCatalogField('twist', field, operator.id).unit, 'radian');
+});
+
 test('Mobius admission rejects singular defaults and each preset', () => {
   const document = withAdmissionOperator('sphere.lens.mobius.v2', 1);
   assert.equal(compile(document).status, 'VALID');

@@ -145,3 +145,37 @@ test('Twist Distribution upgrades compose with combined colorizer migration', ()
   assert.deepEqual(input, original);
   assert.strictEqual(migrateLegacyShaderDocument(result, current), result);
 });
+
+test('Twist Angle conversion composes with distribution and colorizer upgrades', () => {
+  const input = legacy();
+  const operator = { id: 'sphere.lens.twist.v2', params: [
+    { id: 'twist-angle', min: -96, max: 96, default: 2 * Math.PI, curve: 'lerp' },
+    { id: 'twist-distribution', min: 0, max: 1, default: 0.85, curve: 'lerp' },
+  ] };
+  const rate = declarationFromCatalogField('twist',
+    { id: 'twist-rate', min: -12, max: 12, default: 3, curve: 'lerp' }, operator.id);
+  const distribution = declarationFromCatalogField('twist', operator.params[1], operator.id);
+  distribution.domain.maximum = 0.98;
+  input.descriptor.chain.unshift({ label: 'twist', operator: operator.id });
+  input.descriptor.parameters.push(rate, distribution);
+  input.descriptor.serialization.fields.push(rate.id, distribution.id);
+  input.descriptor.path_policies[0].groups.push(rate.id, distribution.id);
+  Object.assign(input.preset_bank.presets[0].values, { [rate.id]: 2, [distribution.id]: 0 });
+  Object.assign(input.preset_bank.presets[1].values, { [rate.id]: -3, [distribution.id]: 0.9 });
+  const original = structuredClone(input);
+  const current = { operators: [...catalog.operators, operator] };
+  const result = migrateLegacyShaderDocument(input, current);
+  const angle = result.descriptor.parameters.find((parameter) => parameter.id === 'twist.twist-angle');
+  assert.equal(angle.default, 8.854249954223633);
+  assert.equal(angle.unit, 'radian');
+  assert.equal(result.preset_bank.presets[0].values[angle.id], 4);
+  assert.equal(result.preset_bank.presets[1].values[angle.id], -9.793144226074219);
+  assert.equal(result.descriptor.parameters.find(
+    (parameter) => parameter.id === distribution.id).domain.maximum, 1);
+  assert.equal(result.descriptor.chain.find((entry) => entry.label === 'ink').operator,
+    'colorize.generated-palette.v4');
+  assert.ok(result.descriptor.serialization.fields.includes(angle.id));
+  assert.ok(result.descriptor.path_policies[0].groups.includes(angle.id));
+  assert.deepEqual(input, original);
+  assert.strictEqual(migrateLegacyShaderDocument(result, current), result);
+});
