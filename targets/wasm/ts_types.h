@@ -60,7 +60,7 @@ inline void bind_ts_types() {
       R"(import("./engine_types.js").ParameterDefinition[])");
   emscripten::register_type<DocumentDefinitionsValue>(
       "DocumentDefinitionsValue",
-      R"({resource: string; id: string; value: number | string; readonly: boolean; reason: "active-source" | "inactive-source" | "fixed-topology"}[])");
+      R"({resource: string; id: string; value: number | string; readonly: boolean; reason: "active-source" | "inactive-source" | "inactive-variant" | "fixed-topology"}[])");
   emscripten::register_type<ArenaMetricsValue>(
       "ArenaMetricsValue", R"(import("./engine_types.js").ArenaMetrics)");
   emscripten::register_type<SizesValue>("SizesValue",

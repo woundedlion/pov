@@ -26,34 +26,48 @@ inline const char *enum_id(const Pullback::Interp::ParamFieldInfo &field,
   return field.enum_ids[index];
 }
 
+/** @brief Admission reason for a canonical compiled-document field.
+ * @param config Current compiled recipe.
+ * @param index Field index in the operator schema.
+ * @return Active source, inactive source, inactive variant or fixed topology. */
+inline const char *reason(const ColorModulation::Config &config, size_t index) {
+  if (index >= Params::EXTRA_SCHEMA.size())
+    return "inactive-source";
+  const auto &field = Params::EXTRA_SCHEMA[index];
+  if (field.enum_count || field.topology)
+    return "fixed-topology";
+  const std::string_view id = field.id;
+  if (id == "modulation-amount")
+    return "active-source";
+  bool active = false;
+  switch (config.source) {
+  case Pattern::SourceKind::NOISE:
+    active = id.starts_with("pattern-");
+    if (active && id == "pattern-contrast" &&
+        config.noise.variant != Pattern::NoiseVariant::OCTAVE_CONTOUR)
+      return "inactive-variant";
+    break;
+  case Pattern::SourceKind::DIRECTIONAL_SINE:
+    active = id.starts_with("sine-");
+    break;
+  case Pattern::SourceKind::SPHERE_INTERFERENCE:
+    active = id.starts_with("interference-");
+    break;
+  case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
+    active = id.starts_with("grid-");
+    break;
+  case Pattern::SourceKind::DISPLACEMENT:
+    break;
+  }
+  return active ? "active-source" : "inactive-source";
+}
+
 /** @brief Whether a canonical numeric field belongs to the selected recipe.
  * @param config Current compiled recipe.
  * @param index Field index in the operator schema.
  * @return Whether the field accepts document writes. */
 inline bool writable(const ColorModulation::Config &config, size_t index) {
-  if (index >= Params::EXTRA_SCHEMA.size())
-    return false;
-  const auto &field = Params::EXTRA_SCHEMA[index];
-  if (field.enum_count || field.topology)
-    return false;
-  const std::string_view id = field.id;
-  if (id == "modulation-amount")
-    return true;
-  switch (config.source) {
-  case Pattern::SourceKind::NOISE:
-    return id.starts_with("pattern-") &&
-           (id != "pattern-contrast" ||
-            config.noise.variant == Pattern::NoiseVariant::OCTAVE_CONTOUR);
-  case Pattern::SourceKind::DIRECTIONAL_SINE:
-    return id.starts_with("sine-");
-  case Pattern::SourceKind::SPHERE_INTERFERENCE:
-    return id.starts_with("interference-");
-  case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
-    return id.starts_with("grid-");
-  case Pattern::SourceKind::DISPLACEMENT:
-    return false;
-  }
-  return false;
+  return std::string_view(reason(config, index)) == "active-source";
 }
 
 /** @brief Writes one active numeric member through the canonical schema.

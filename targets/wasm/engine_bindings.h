@@ -543,9 +543,8 @@ public:
             entry.set("resource", std::string(resource));
             entry.set("id", field.id);
             entry.set("readonly", !writable);
-            entry.set("reason", field.enum_count ? "fixed-topology"
-                                : writable       ? "active-source"
-                                                 : "inactive-source");
+            entry.set("reason",
+                      hs_wasm::document_parameters::reason(config, i));
             const void *address = params.extra_address(i);
             if (field.enum_count) {
               const auto index = *static_cast<const uint8_t *>(address);

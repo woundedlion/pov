@@ -231,11 +231,25 @@ inline void test_composed_document_modulation_members() {
                ParamSetResult::INADMISSIBLE);
   HS_EXPECT_TRUE(read() == before);
 
+  const auto reason_for = [](const auto &config, std::string_view id) {
+    for (size_t i = 0; i < Document::Params::EXTRA_SCHEMA.size(); ++i)
+      if (id == Document::Params::EXTRA_SCHEMA[i].id)
+        return std::string_view(Document::reason(config, i));
+    return std::string_view{};
+  };
   ColorModulation::Config noise_config;
   noise_config.source = Pattern::SourceKind::NOISE;
+  HS_EXPECT_TRUE(reason_for(noise_config, "pattern-contrast") ==
+                 "inactive-variant");
+  HS_EXPECT_TRUE(reason_for(noise_config, "pattern-speed") == "active-source");
+  HS_EXPECT_TRUE(reason_for(noise_config, "grid-speed") == "inactive-source");
+  HS_EXPECT_TRUE(reason_for(noise_config, "modulation-source") ==
+                 "fixed-topology");
   HS_EXPECT_EQ(Document::write(noise_config, "pattern-contrast", 1.0f),
                ParamSetResult::READONLY);
   noise_config.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
+  HS_EXPECT_TRUE(reason_for(noise_config, "pattern-contrast") ==
+                 "active-source");
   HS_EXPECT_EQ(Document::write(noise_config, "pattern-contrast", 1.0f),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(noise_config.noise.contrast, 1.0f);
