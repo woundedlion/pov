@@ -721,6 +721,17 @@ _hs_warnings(runtime_display_geometry_check)
 _hs_sanitize(runtime_display_geometry_check)
 add_test(NAME unit_runtime_display_geometry COMMAND runtime_display_geometry_check)
 
+add_executable(ashcloud_camera_check
+  ${CMAKE_CURRENT_SOURCE_DIR}/ashcloud_camera_check.cpp
+  ${HS_ENGINE_SOURCES})
+target_compile_definitions(ashcloud_camera_check PRIVATE
+  HS_RUNTIME_DISPLAY_GEOMETRY=1 HS_ENABLE_TEST_HOOKS=1)
+target_link_libraries(ashcloud_camera_check PRIVATE hs_host_effect_runtime)
+target_include_directories(ashcloud_camera_check PRIVATE ${HS_ENGINE_INCLUDES})
+_hs_warnings(ashcloud_camera_check)
+_hs_sanitize(ashcloud_camera_check)
+add_test(NAME unit_ashcloud_camera COMMAND ashcloud_camera_check)
+
 # Host stack high-water-mark gate across every effect, built -Os + the device
 # math flags to track device frame sizes. Fails if the worst effect exceeds the
 # device DTCM stack reservation, read from tools/teensy_budgets.json
