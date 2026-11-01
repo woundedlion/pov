@@ -62,9 +62,11 @@ public:
   static_assert(Metadata::ColorModes::FUSED_TEMPORAL_COLOR ==
                     SpecT::FUSED_TEMPORAL_COLOR,
                 "temporal color fusion policy must match its spec");
-  static_assert(!SpecT::PALETTE_LAB_CACHE ||
-                    (TEMPORAL_SAMPLING && SpecT::TEMPORAL_COLOR_PHASE),
-                "palette base caches require temporal phase color sampling");
+  static_assert(
+      !SpecT::PALETTE_LAB_CACHE ||
+          (TEMPORAL_SAMPLING &&
+           (SpecT::TEMPORAL_COLOR_PHASE || SpecT::FUSED_TEMPORAL_COLOR)),
+      "palette base caches require phase sampling or fused temporal color");
   static_assert(!SpecT::PALETTE_RGB_CACHE ||
                     (SpecT::PALETTE_LAB_CACHE &&
                      Metadata::BRIGHTNESS == Color::BrightnessEnvelope::NONE),

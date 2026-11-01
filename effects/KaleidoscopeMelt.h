@@ -29,8 +29,6 @@ struct KaleidoscopeMeltSpec : Pullback::Spec {
   static constexpr bool FUSED_TEMPORAL_COLOR = true;
   /// Disables palette-coordinate hue tables.
   static constexpr bool HUE_ROTATION_LUT = false;
-  /// Shares eligible color-source phase evaluation.
-  static constexpr bool TEMPORAL_COLOR_PHASE = true;
   /// Caches interval palette blends in OKLab.
   static constexpr bool PALETTE_LAB_CACHE = true;
   /// Keeps the full gamut table in persistent storage.
