@@ -196,6 +196,34 @@ class UploadTests(unittest.TestCase):
         sleep.assert_called_once_with(1)
         self.assertEqual(self.runner.call_args_list[-1].args[0][1], "upload")
 
+    def test_absent_board_deadline_never_uploads(self):
+        self.listing = "[]"
+        with mock.patch.object(upload.time, "monotonic", side_effect=(0, 1, 3, 5)), \
+                mock.patch.object(upload.time, "sleep") as sleep:
+            with self.assertRaises(upload.BoardAbsent):
+                self.invoke(absent_seconds=4)
+        self.assertEqual(self.runner.call_count, 3)
+        self.assertFalse(any(call.args[0][1] == "upload"
+                             for call in self.runner.call_args_list))
+        self.assertLessEqual(sum(call.args[0] for call in sleep.call_args_list), 4)
+
+    def test_absent_board_wait_rechecks_claim_ownership(self):
+        self.listing = "[]"
+
+        def change_claim(command, **options):
+            response = self.respond(command, **options)
+            if command[1] == "list":
+                self.info.write_text("token=replaced\nport=COM4\n", encoding="utf-8")
+            return response
+
+        self.runner.side_effect = change_claim
+        with mock.patch.object(upload.time, "monotonic", side_effect=(0, 1, 3, 5)), \
+                mock.patch.object(upload.time, "sleep") as sleep:
+            with self.assertRaisesRegex(upload.UploadError, "no longer owns"):
+                self.invoke(absent_seconds=4)
+        self.assertEqual(self.runner.call_count, 2)
+        sleep.assert_not_called()
+
     def test_resolve_mode_only_verifies_tool_without_board_access(self):
         self.assertEqual(upload.main(["--resolve"]), 0)
         self.assertEqual(self.runner.call_count, 1)
