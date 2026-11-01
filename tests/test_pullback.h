@@ -3333,7 +3333,8 @@ inline void test_pullback_paired_color_dispatch() {
     HS_EXPECT_EQ(OTHER.color, COLOR.color);
     HS_EXPECT_EQ(OTHER.alpha, COLOR.alpha);
     HS_EXPECT_EQ(CountingPairedPalette::pairs, 0);
-    HS_EXPECT_EQ(CountingPairedPalette::endpoints, fraction < 1.0f ? 2 : 1);
+    HS_EXPECT_EQ(CountingPairedPalette::endpoints,
+                 fraction > 0.0f && fraction < 1.0f ? 2 : 1);
   }
 }
 

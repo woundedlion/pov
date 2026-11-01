@@ -1841,10 +1841,10 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
           blend_color_samples_in_place(pair.first, pair.second, FRACTION);
           return pair.second;
         }
-        const auto output = endpoint(previous);
         const ColorSample A = finish(endpoint(true), true);
         if (FRACTION <= 0.0f)
           return A;
+        const auto output = endpoint(previous);
         const ColorSample B = finish(output, false);
         return blend_color_samples(A, B, FRACTION);
       }
