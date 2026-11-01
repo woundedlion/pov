@@ -11,7 +11,7 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | [MindSplatter](profile_mindsplatter_teensy_2026-10-30.md) § ● | `msp_draw_particles` | 🟢 57.717 (8) | 0.410 | 🟢 0/1407 (0.00%) | 2026-10-30 09:29 |
 | [AshCloud](profile_ashcloud_teensy_2026-10-31.md) â— | `fx_shader_draw` | 🟢 57.671 | 107.306 | 🟢 0/2047 (0.00%) | 2026-10-31 03:25 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-10-23.md) § | `ss_draw_all` | 🟢 57.537 (9) | 47.865 | 🟢 0/4271 (0.00%) | 2026-10-23 17:21 |
-| [GridWorms](profile_gridworms_teensy_2026-10-31.md) ● | `fx_shader_draw` | 🟢 56.461 | 60.872 | 🟢 0/1087 (0.00%) | 2026-10-31 20:23 |
+| [GridWorms](profile_gridworms_teensy_2026-10-31.md) ● | `fx_shader_draw` | 🟢 56.505 | 60.735 | 🟢 0/1087 (0.00%) | 2026-10-31 21:15 |
 | [HopfFibration](profile_hopffibration_teensy_2026-10-23.md) | `hf_render_trails` | 🟢 56.256 | 0.696 | 🟢 0/927 (0.00%) | 2026-10-23 13:26 |
 | [Millefiori](profile_millefiori_teensy_2026-10-30.md) ● | `fx_shader_draw` | 🟢 56.200 | 82.100 | 🟢 0/2047 (0.00%) | 2026-10-30 19:35 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-10-23.md) § | `hl_shader_draw` | 🟢 55.035 (9) | 43.131 | 🟢 0/4767 (0.00%) | 2026-10-23 14:18 |
@@ -121,4 +121,4 @@ AshCloud â— was re-captured 2026-10-31 03:25 on COM4 at `4a67716ae975443cea
 its row uses the 130-second integrated pass with setup separate.
 The historical AshCloud O3 capture uses the prior shader; paired code deltas are omitted.
 
-GridWorms ● was captured 2026-10-31 20:23 on COM3; its setup frame and steady samples are separate.
+GridWorms ● was captured 2026-10-31 21:15 on COM3; its setup frame and steady samples are separate.

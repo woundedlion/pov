@@ -38,17 +38,18 @@ template <size_t N> struct ResourceKey {
   constexpr std::string_view view() const { return {text, N - 1}; }
 };
 
-/** @brief Pipeline role of a composed parameter resource. */
+/** @brief Pipeline role of a composed parameter resource.
+ * @details Values are part of parameter-provider template identities. */
 enum class ResourceKind {
   SOURCE,     ///< Scalar pattern source.
   PROJECTION, ///< Sphere-to-plane projection.
   WARP,       ///< Planar warp.
   SURFACE,    ///< Displacement surface.
   LENS,       ///< Mobius lens.
-  TWIST,      ///< Animated axial twist lens.
   VALUE,      ///< Value transfer and coverage.
   COLOR,      ///< Colorizer.
-  MODULATION  ///< Ordered color modulation.
+  MODULATION, ///< Ordered color modulation.
+  TWIST       ///< Animated axial twist lens.
 };
 
 /** @brief The storage required by one provider instance. */

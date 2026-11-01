@@ -895,7 +895,12 @@ inline void test_composed_strobe_roster() {
 
 /** @brief Millefiori pixels match its document-built operator chain. */
 inline void test_millefiori_document_pipeline() {
+#if HS_TEST_FAST_MATH
+  composed_chain_tests::verify_export<Millefiori<SMALL_W, SMALL_H>>(0, 2,
+                                                                    1e-6f);
+#else
   composed_chain_tests::verify_export<Millefiori<SMALL_W, SMALL_H>>(0);
+#endif
 }
 
 /** @brief AshCloud pixels match its document-built operator chain. */
@@ -935,7 +940,11 @@ inline void test_ash_cloud_document_pipeline() {
       HS_EXPECT_EQ(ACTUAL.z, EXPECTED.z);
     }
   }
+#if HS_TEST_FAST_MATH
+  composed_chain_tests::verify_export<FX>(0, 2, 1e-6f);
+#else
   composed_chain_tests::verify_export<FX>(0);
+#endif
 }
 
 /** @brief Module entry point for the composed-effect base contract. */
