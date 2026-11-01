@@ -857,19 +857,14 @@ face_bounds_pose(std::span<const math::Vector> vertices,
       hi - lo > WIDE_FACE_COLUMNS)
     return false;
   constexpr int HALF = W / 2;
-  const int arm =
-      static_cast<int>(floorf(static_cast<float>(lo) / HALF)) * HALF;
+  const int arm = seeing_arm_start<W>(lo);
   if (hi >= arm + HALF)
     return false;
   const int m = (lo + hi) / 2 - arm;
-  const math::Vector &e = time->azimuth[m];
-  const math::Vector &v = time->up[m];
-  const math::Vector t = math::cross(e, v);
-  const float ct = math::TrigLUT<W, H>::cos_theta_data()[m];
-  const float st = math::TrigLUT<W, H>::sin_theta[m];
-  pose.x = e * ct - t * st;
-  pose.y = v;
-  pose.z = e * st + t * ct;
+  const auto FRAME = seeing_frame<W, H>(*time, m);
+  pose.x = FRAME.equator * FRAME.cosine - FRAME.tangent * FRAME.sine;
+  pose.y = FRAME.up;
+  pose.z = FRAME.equator * FRAME.sine + FRAME.tangent * FRAME.cosine;
   const bool wide = hi - lo > COMPACT_FACE_COLUMNS;
   pose.residual = compact_face_residual<W>(
       time->sweep_rate, wide ? WIDE_FACE_COLUMNS : COMPACT_FACE_COLUMNS);

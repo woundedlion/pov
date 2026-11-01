@@ -389,6 +389,15 @@ HS_HOT_INLINE bool lit_span(const math::Vector &axis, float radius, float sweep,
   return true;
 }
 
+/** @brief Start of the half-turn arm containing a column.
+ * @tparam W Canvas width.
+ * @param column Unwrapped column index.
+ * @return Unwrapped arm start. */
+template <int W> HS_HOT_INLINE int seeing_arm_start(int column) {
+  constexpr int HALF = W / 2;
+  return (column >= 0 ? column / HALF : -((HALF - 1 - column) / HALF)) * HALF;
+}
+
 /**
  * @brief First-arm columns that can see a compact shape over one frame.
  * @tparam W Canvas width in columns.
@@ -408,13 +417,35 @@ inline void lit_columns(const math::Vector &axis, float radius, float sweep,
   last = HALF - 1;
   int lo, hi;
   if (lit_span<W>(axis, radius, sweep, lo, hi)) {
-    const int arm_start =
-        (lo >= 0 ? lo / HALF : -((HALF - 1 - lo) / HALF)) * HALF;
+    const int arm_start = seeing_arm_start<W>(lo);
     if (hi < arm_start + HALF) {
       first = lo - arm_start;
       last = hi - arm_start;
     }
   }
+}
+
+/** @brief Rotated meridian vectors and their fixed-column azimuth. */
+struct SeeingFrame {
+  math::Vector equator; ///< Rotated equatorial direction.
+  math::Vector up;      ///< Rotated polar direction.
+  math::Vector tangent; ///< Meridian tangent.
+  float cosine;         ///< Fixed-column azimuth cosine.
+  float sine;           ///< Fixed-column azimuth sine.
+};
+
+/** @brief Borrows one seeing column's rotated frame.
+ * @tparam W,H Canvas dimensions.
+ * @param time Column basis table.
+ * @param column First-arm column index.
+ * @return Rotated vectors and fixed-column azimuth. */
+template <int W, int H>
+HS_HOT_INLINE SeeingFrame seeing_frame(const ColumnBasis &time, int column) {
+  const auto &EQUATOR = time.azimuth[column];
+  const auto &UP = time.up[column];
+  return {EQUATOR, UP, math::cross(EQUATOR, UP),
+          math::TrigLUT<W, H>::cos_theta_data()[column],
+          math::TrigLUT<W, H>::sin_theta[column]};
 }
 
 /**
@@ -471,15 +502,12 @@ inline bool lit_cap(const math::Vector &axis, float radius,
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
   const math::Vector seen = drifted_direction<W>(axis, -time.drift, m);
-  const math::Vector &e = time.azimuth[m];
-  const math::Vector &v = time.up[m];
-  const math::Vector t = math::cross(e, v);
-  const float a = math::dot(seen, e);
-  const float b = math::dot(seen, v);
-  const float c = math::dot(seen, t);
-  const float ct = math::TrigLUT<W, H>::cos_theta_data()[m];
-  const float st = math::TrigLUT<W, H>::sin_theta[m];
-  lit.axis = math::Vector(a * ct - c * st, b, a * st + c * ct);
+  const auto FRAME = seeing_frame<W, H>(time, m);
+  const float a = math::dot(seen, FRAME.equator);
+  const float b = math::dot(seen, FRAME.up);
+  const float c = math::dot(seen, FRAME.tangent);
+  lit.axis = math::Vector(a * FRAME.cosine - c * FRAME.sine, b,
+                          a * FRAME.sine + c * FRAME.cosine);
   lit.arc = arc;
   return true;
 }
