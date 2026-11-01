@@ -286,7 +286,7 @@ public:
       using Policy =
           typename Pipeline::template NodeAt<Index>::Descriptor::ColorPolicy;
       const float SCALAR = Policy::sample_phase_scalar(COVERED, PREPARED);
-      hue = math::wrap_t(hue + math::wrap_t(PREPARED.mechanic.amount * SCALAR));
+      hue = Pullback::Color::accumulate_hue(hue, SCALAR, PREPARED.mechanic);
     };
     apply_hue.template operator()<6>();
     apply_hue.template operator()<7>();

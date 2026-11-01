@@ -399,6 +399,29 @@ struct ChamberPhaseModulationState : PhaseModulationState {
   bool lazy_noise_offset = false;    ///< Resolve the loop offset on fallback.
 };
 
+/** @brief Accumulates one deferred hue rotation.
+ * @param hue Prior hue in turns.
+ * @param scalar Source value.
+ * @param mechanic Rotation controls.
+ * @return Wrapped hue in turns. */
+HS_HOT_INLINE inline float
+accumulate_hue(float hue, float scalar,
+               const ColorModulation::Params &mechanic) {
+  return math::wrap_t(hue + math::wrap_t(mechanic.amount * scalar));
+}
+
+/** @brief Accumulates one deferred positive lightness lift.
+ * @param lift Prior lift.
+ * @param scalar Source value.
+ * @param mechanic Lift controls.
+ * @return Combined unit-range lift. */
+HS_HOT_INLINE inline float
+accumulate_lift(float lift, float scalar,
+                const ColorModulation::Params &mechanic) {
+  const float LIFT = mechanic.amount * hs::clamp(scalar, 0.0f, 1.0f);
+  return lift + (1.0f - lift) * LIFT;
+}
+
 /** @brief Updates deferred perceptual state from one scalar.
  * @param sample Carrier to update.
  * @param scalar Source value.
@@ -407,12 +430,10 @@ HS_HOT_INLINE inline void
 apply_perceptual_scalar(ColorSample &sample, float scalar,
                         const ColorModulation::Params &mechanic) {
   if (mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)
-    sample.pending_hue = math::wrap_t(sample.pending_hue +
-                                      math::wrap_t(mechanic.amount * scalar));
-  else {
-    const float LIFT = mechanic.amount * hs::clamp(scalar, 0.0f, 1.0f);
-    sample.pending_lift += (1.0f - sample.pending_lift) * LIFT;
-  }
+    sample.pending_hue = accumulate_hue(sample.pending_hue, scalar, mechanic);
+  else
+    sample.pending_lift =
+        accumulate_lift(sample.pending_lift, scalar, mechanic);
 }
 /** @brief Applies one ordered modulation layer.
  * @param sample Color and source coordinates, updated in place.
@@ -434,12 +455,12 @@ apply_modulation_in_place(ColorSample &sample, const ModulationState &state,
         *source, Pattern::SphereDirection::admit(sample.field.sphere));
   }
   if (state.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)
-    sample.pending_hue = math::wrap_t(
-        sample.pending_hue + math::wrap_t(state.mechanic.amount * scalar));
+    sample.pending_hue =
+        accumulate_hue(sample.pending_hue, scalar, state.mechanic);
   else if (state.mechanic.kind ==
            ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT) {
-    const float LIFT = state.mechanic.amount * hs::clamp(scalar, 0.0f, 1.0f);
-    sample.pending_lift += (1.0f - sample.pending_lift) * LIFT;
+    sample.pending_lift =
+        accumulate_lift(sample.pending_lift, scalar, state.mechanic);
   } else {
     sample.color = ColorModulation::apply(sample.color, scalar, state.mechanic);
   }
@@ -848,7 +869,7 @@ private:
    * @param amount Hue turns per source unit.
    * @return Deferred hue rotation in turns. */
   HS_HOT_INLINE static float fused_endpoint_hue(float scalar, float amount) {
-    return math::wrap_t(0.0f + math::wrap_t(amount * scalar));
+    return accumulate_hue(0.0f, scalar, {.amount = amount});
   }
 
   /** @brief Resolves the canonical shortest-path endpoint hue blend.
@@ -931,13 +952,10 @@ private:
       const auto apply = [&](Color4 &color, float &hue, float &lift,
                              float scalar) {
         if (modulation.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)
-          hue = math::wrap_t(hue +
-                             math::wrap_t(modulation.mechanic.amount * scalar));
+          hue = accumulate_hue(hue, scalar, modulation.mechanic);
         else if (modulation.mechanic.kind ==
                  ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT) {
-          const float AMOUNT =
-              modulation.mechanic.amount * hs::clamp(scalar, 0.0f, 1.0f);
-          lift += (1.0f - lift) * AMOUNT;
+          lift = accumulate_lift(lift, scalar, modulation.mechanic);
         } else
           color = ColorModulation::apply(color, scalar, modulation.mechanic);
       };
