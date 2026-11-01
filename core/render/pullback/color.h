@@ -954,8 +954,6 @@ private:
                              : interp::shortest_periodic(
                                    previous_hue, current_hue, fraction, 1.0f);
     result.pending_lift = hs::lerp(previous_lift, current_lift, fraction);
-    result.brightness_gain =
-        hs::lerp(result.brightness_gain, result.brightness_gain, fraction);
     if (!SAME_BASE)
       result.hue_rotation = nullptr;
   }
@@ -1076,13 +1074,12 @@ public:
         const float OPACITY =
             sample.coverage *
             hs::lerp(state.opacity_low, state.opacity_high, sample.value);
-        const float ALPHA = hs::lerp(OPACITY, OPACITY, fraction);
         const float HUE =
             fused_pending_hue(SCALARS, modulation.mechanic.amount, fraction);
         return finish_palette_lab(
-            PaletteLabLut::sample(prepared.lab, VALUE), HUE, 0.0f, 1.0f, ALPHA,
-            [&] {
-              ColorSample canonical{Color4(Pixel(0, 0, 0), ALPHA), {}};
+            PaletteLabLut::sample(prepared.lab, VALUE), HUE, 0.0f, 1.0f,
+            OPACITY, [&] {
+              ColorSample canonical{Color4(Pixel(0, 0, 0), OPACITY), {}};
               canonical.palette_coordinate = VALUE;
               canonical.pending_hue = HUE;
               restore_fused_palette_base(canonical, prepared, fraction);
