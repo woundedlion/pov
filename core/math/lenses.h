@@ -168,7 +168,7 @@ prepare_twist_profile(float angle = TWIST_ANGLE,
  * @param profile Prepared twist profile.
  * @return Rotation in radians. */
 inline float twist_angle(float height, const TwistProfile &profile) {
-  height = std::clamp(height, -1.0f, 1.0f);
+  height = hs::clamp(height, -1.0f, 1.0f);
   return profile.scale * (profile.distribution == 0.0f
                               ? height
                               : twist_atanh(profile.distribution * height));
