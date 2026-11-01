@@ -630,6 +630,49 @@ struct Ring {
                             timed_stride<W>(start_radius, radius));
   }
 
+  /** @brief Draws a growing ring across its retained and current ages.
+   * @tparam W,H Canvas dimensions.
+   * @tparam PipelineT,GrowthT,FadeT,ShaderT,BoundT Drawing callables.
+   * @param pipeline Screen pipeline.
+   * @param canvas Destination canvas.
+   * @param basis Fixed ring basis.
+   * @param age Current age.
+   * @param previous_age Retained age.
+   * @param life Slot lifetime.
+   * @param has_history Whether a retained age exists.
+   * @param radius Current radius in hemisphere units.
+   * @param opacity Current fade.
+   * @param growth Radius at an age; the second argument selects frame start.
+   * @param fade Fade at an intermediate age.
+   * @param shader Shades a fragment with its resolved fade.
+   * @param bound Motion bound from age span and frame-start radius. */
+  template <int W, int H, typename PipelineT, typename GrowthT, typename FadeT,
+            typename ShaderT, typename BoundT>
+  HS_HOT_INLINE static void
+  draw_growing(PipelineT &pipeline, Canvas &canvas, const math::Basis &basis,
+               int age, int previous_age, int life, bool has_history,
+               float radius, float opacity, GrowthT growth, FadeT fade,
+               ShaderT shader, BoundT bound) {
+    const float start_age =
+        has_history && age + 1 < life ? float(previous_age) : float(age);
+    const auto age_at = [&](float time) {
+      return start_age + (float(age) - start_age) * time;
+    };
+    const auto fragment = [&](const math::Vector &point, Fragment &f,
+                              float time) {
+      shader(point, f, time == 1.0f ? opacity : fade(age_at(time)));
+    };
+    const auto vertex = [&](size_t i, float time) {
+      const float polar = growth(age_at(time), false) * (math::PI_F * 0.5f);
+      return ring_vertex<W>(basis, polar, i);
+    };
+    const float START_RADIUS = growth(start_age, true);
+    GeometryCallback geometry{vertex,
+                              bound(float(age) - start_age, START_RADIUS)};
+    draw_timed<W, H>(pipeline, canvas, basis, radius, fragment, geometry,
+                     START_RADIUS);
+  }
+
   /**
    * @brief Samples a closed ring at `num_samples` evenly-spaced angles.
    * @param points Output fragment list; num_samples+1 fragments are appended.

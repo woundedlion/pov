@@ -204,35 +204,25 @@ private:
   void draw_ring(Canvas &canvas, const Ring &ring) {
     const float opacity = ring.opacity_at();
     math::Basis basis = math::make_basis(math::Quaternion(), ring.normal);
-    // v is unit, so dot(X, v) is v.x; the palette is baked in this cos domain
-    // (dot_keyed).
-    const float start_age = ring.has_history && ring.age + 1 < ring.life
-                                ? float(ring.previous_age)
-                                : float(ring.age);
-    auto age_at = [&](float t) {
-      return start_age + (float(ring.age) - start_age) * t;
+    const auto growth = [&](float age, bool start) {
+      if (start)
+        return Ring::RADIUS_MAX * (age + 1.0f) / ring.life;
+      return Ring::RADIUS_MAX * hs::clamp((age + 1.0f) / ring.life, 0.0f, 1.0f);
     };
-    auto fragment_shader = [&](const math::Vector &v, Fragment &f, float t) {
+    const auto fade = [](float age) {
+      return hs::clamp((age + 1.0f) / Ring::FADE_IN_FRAMES, 0.0f, 1.0f);
+    };
+    const auto shader = [&](const math::Vector &v, Fragment &f, float fade) {
       f.color = ring.palette.get(dot_key(v.x));
-      const float fade =
-          t == 1.0f ? opacity
-                    : hs::clamp((age_at(t) + 1.0f) / Ring::FADE_IN_FRAMES, 0.0f,
-                                1.0f);
       f.color.alpha *= fade * params.alpha;
     };
-    auto vertex = [&](size_t i, float t) {
-      const float radius =
-          Ring::RADIUS_MAX *
-          hs::clamp((age_at(t) + 1.0f) / ring.life, 0.0f, 1.0f);
-      const float polar = radius * (math::PI_F * 0.5f);
-      return Plot::ring_vertex<W>(basis, polar, i);
+    const auto bound = [&](float age_span, float) {
+      return Spacetime::PathBound::rotation(age_span * math::PI_F / ring.life);
     };
-    Plot::GeometryCallback geometry{
-        vertex, Spacetime::PathBound::rotation((float(ring.age) - start_age) *
-                                               math::PI_F / ring.life)};
-    Plot::Ring::draw_timed<W, H>(
-        filters, canvas, basis, ring.radius_at(), fragment_shader, geometry,
-        Ring::RADIUS_MAX * (start_age + 1.0f) / ring.life);
+    Plot::Ring::draw_growing<W, H>(filters, canvas, basis, ring.age,
+                                   ring.previous_age, ring.life,
+                                   ring.has_history, ring.radius_at(), opacity,
+                                   growth, fade, shader, bound);
   }
 
   static constexpr size_t MAX_RINGS = 16; /**< Fixed pool of ring slots. */

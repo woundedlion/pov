@@ -273,42 +273,28 @@ private:
       return;
     HS_PROFILE(th_thruster_draw);
     math::Basis basis = math::make_basis(ctx.orientation.get(), ctx.point);
-    const float start_age =
-        ctx.has_history && ctx.age + 1 < ThrusterContext::LIFE
-            ? float(ctx.previous_age)
-            : float(ctx.age);
-    auto age_at = [&](float t) {
-      return start_age + (float(ctx.age) - start_age) * t;
+    const auto growth = [](float age, bool) {
+      return ThrusterContext::RADIUS_MAX *
+             hs::clamp((age + 1.0f) / ThrusterContext::RADIUS_GROW_FRAMES, 0.0f,
+                       1.0f);
     };
-    auto fragment_shader = [&, this](const math::Vector &, Fragment &f,
-                                     float t) {
-      const float fade =
-          t == 1.0f
-              ? opacity
-              : 1.0f - math::ease_out_expo(hs::clamp(
-                           age_at(t) / ThrusterContext::LIFE, 0.0f, 1.0f));
+    const auto fade = [](float age) {
+      return 1.0f - math::ease_out_expo(
+                        hs::clamp(age / ThrusterContext::LIFE, 0.0f, 1.0f));
+    };
+    const auto shader = [this](const math::Vector &, Fragment &f, float fade) {
       f.color = Color4(CRGB(255, 255, 255));
       // Opacity scales both color and alpha, so the lifetime fade is quadratic.
       f.color.color = f.color.color * fade;
       f.color.alpha = fade * params.alpha;
     };
-    auto vertex = [&](size_t i, float t) {
-      const float r =
-          ThrusterContext::RADIUS_MAX *
-          hs::clamp((age_at(t) + 1.0f) / ThrusterContext::RADIUS_GROW_FRAMES,
-                    0.0f, 1.0f);
-      const float polar = r * (math::PI_F * 0.5f);
-      return Plot::ring_vertex<W>(basis, polar, i);
+    const auto bound = [radius](float, float start_radius) {
+      return Spacetime::PathBound::rotation(fabsf(radius - start_radius) *
+                                            (math::PI_F * 0.5f));
     };
-    const float start_radius =
-        ThrusterContext::RADIUS_MAX *
-        hs::clamp((start_age + 1.0f) / ThrusterContext::RADIUS_GROW_FRAMES,
-                  0.0f, 1.0f);
-    Plot::GeometryCallback geometry{
-        vertex, Spacetime::PathBound::rotation(fabsf(radius - start_radius) *
-                                               (math::PI_F * 0.5f))};
-    Plot::Ring::draw_timed<W, H>(filters, c, basis, radius, fragment_shader,
-                                 geometry, start_radius);
+    Plot::Ring::draw_growing<W, H>(
+        filters, c, basis, ctx.age, ctx.previous_age, ThrusterContext::LIFE,
+        ctx.has_history, radius, opacity, growth, fade, shader, bound);
   }
 
   /**
