@@ -279,10 +279,14 @@ inline void test_composed_document_modulation_members() {
   }
 }
 
+struct TemporalShadeProbeSpec : GridSpaceSpec {
+  static constexpr bool FACTORED_COLUMNS = true;
+};
+
 /** @brief Custom shading remains authoritative with column factoring enabled. */
 class TemporalShadeProbe
     : public Pullback::ComposedEffect<96, 20, TemporalShadeProbe,
-                                      GridSpaceSpec> {
+                                      TemporalShadeProbeSpec> {
 public:
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"custom-shade"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
@@ -291,8 +295,9 @@ public:
     return GridSpace<96, 20>::initial_params();
   }
   static consteval auto choreography_hooks() {
-    return Pullback::ComposedEffect<96, 20, TemporalShadeProbe,
-                                    GridSpaceSpec>::choreography_hooks()
+    return Pullback::ComposedEffect<
+               96, 20, TemporalShadeProbe,
+               TemporalShadeProbeSpec>::choreography_hooks()
         .template extend<
             TemporalShadeProbe,
             Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
@@ -302,6 +307,10 @@ public:
     return Color4(Pixel(1000, 2000, 3000), 0.5f);
   }
 };
+
+static_assert(TemporalShadeProbeSpec::FACTORED_COLUMNS &&
+              TemporalShadeProbe::RenderPipeline::LINEAR_COLUMNS);
+static_assert(!TemporalShadeProbe::factored_columns());
 
 /** @brief Both arms use absolute column timing through clock rollover. */
 inline void test_temporal_clock_sampling() {
