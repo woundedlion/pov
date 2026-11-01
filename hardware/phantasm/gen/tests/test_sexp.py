@@ -160,7 +160,7 @@ class FormattingTests(unittest.TestCase):
 
         dumped = sexp.dumps(root) + "\n"
         changed = [(before, after) for before, after in
-                   zip(source.splitlines(), dumped.splitlines())
+                   zip(source.splitlines(), dumped.splitlines(), strict=True)
                    if before != after]
 
         self.assertEqual(changed, [(f"\t(version {original_version})",
