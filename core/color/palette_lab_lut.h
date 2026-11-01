@@ -160,7 +160,8 @@ template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
       true; ///< Samples a trilinear color table.
   std::array<math::Vector, RGB_TIMES * HueRotationLutView::SIZE>
       nodes{}; ///< Quantized RGB16 code units by time, value and hue.
-  /** @brief Bakes final hue colors and reuses an exactly matching retained row.
+  /** @brief Bakes hue colors, reusing exact base rows or midpoint rows within
+   * `MAX_REUSE_DELTA` of their original baked key.
    * @param base Interval base receiving this cache binding.
    * @param previous_base Prior interval's immutable base, when retained.
    * @param previous Prior interval's RGB owner, when retained. */
