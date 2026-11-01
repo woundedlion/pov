@@ -228,13 +228,18 @@ inline void test_periodic_wrap_fmod_parity() {
     expect_periodic_bits(math::wrap_positive(VALUE, PERIOD),
                          fmod_wrap_reference(VALUE, PERIOD));
   }
-  for (uint64_t value :
-       {uint64_t{0}, uint64_t{1}, uint64_t{1} << 54, (uint64_t{1} << 54) + 1,
-        std::numeric_limits<uint64_t>::max() - 1}) {
-    constexpr uint64_t PERIOD = uint64_t{1} << 63;
-    HS_EXPECT_EQ(math::wrap_positive(value, PERIOD),
-                 fmod_wrap_reference(value, PERIOD));
-  }
+  constexpr uint64_t PERIOD = uint64_t{1} << 63;
+  constexpr std::array<uint64_t, 5> VALUES{
+      0, 1, uint64_t{1} << 54, (uint64_t{1} << 54) + 1,
+      std::numeric_limits<uint64_t>::max() - 1};
+  constexpr std::array<uint64_t, 5> EXPECTED{0, 1, uint64_t{1} << 54,
+                                             (uint64_t{1} << 54) + 1,
+                                             (uint64_t{1} << 63) - 2};
+  for (size_t i = 0; i < VALUES.size(); ++i)
+    HS_EXPECT_EQ(math::wrap_positive(VALUES[i], PERIOD), EXPECTED[i]);
+  HS_EXPECT_EQ(math::wrap_positive(-7, 3), 2);
+  HS_EXPECT_EQ(math::wrap_positive(-(int64_t{1} << 54) - 1, int64_t{3}),
+               int64_t{1});
 }
 
 /** @brief Shortest-arc interpolation preserves fmod bits over hue and extremes. */

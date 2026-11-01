@@ -32,7 +32,7 @@ template <typename T> inline T wrap_positive(T value, T period) {
                  ? value
                  : std::fmod(value, period);
   else
-    result = std::fmod(value, period);
+    result = static_cast<T>(value % period);
   if (result < 0)
     result += period;
   return result >= period ? T{0} : result;
