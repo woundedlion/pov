@@ -427,11 +427,11 @@ inline void lit_columns(const math::Vector &axis, float radius, float sweep,
 
 /** @brief Rotated meridian vectors and their fixed-column azimuth. */
 struct SeeingFrame {
-  math::Vector equator; ///< Rotated equatorial direction.
-  math::Vector up;      ///< Rotated polar direction.
-  math::Vector tangent; ///< Meridian tangent.
-  float cosine;         ///< Fixed-column azimuth cosine.
-  float sine;           ///< Fixed-column azimuth sine.
+  const math::Vector &equator; ///< Rotated equatorial direction.
+  const math::Vector &up;      ///< Rotated polar direction.
+  math::Vector tangent;        ///< Meridian tangent.
+  float cosine;                ///< Fixed-column azimuth cosine.
+  float sine;                  ///< Fixed-column azimuth sine.
 };
 
 /** @brief Borrows one seeing column's rotated frame.
