@@ -62,8 +62,8 @@ void run_effect_case_dreamballs_temporal_source_oracle();
 /** @brief Runs test_dreamballs_column_work_is_bounded with its case context. */
 void run_effect_case_dreamballs_column_work_is_bounded();
 
-/** @brief Runs DreamBallsWhiteBox check_endpoint_error_bound with its case context. */
-void run_effect_case_dream_balls_white_box_check_endpoint_error_bound();
+/** @brief Runs DreamBallsWhiteBox check_orbit_bounds with its case context. */
+void run_effect_case_dream_balls_white_box_check_orbit_bounds();
 
 /** @brief Runs test_petalflow_temporal_source_oracle with its case context. */
 void run_effect_case_petalflow_temporal_source_oracle();

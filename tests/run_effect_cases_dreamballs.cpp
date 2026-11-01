@@ -22,8 +22,8 @@ void run_effect_case_dreamballs_column_work_is_bounded() {
   HS_RUN(run_case, test_dreamballs_column_work_is_bounded);
 }
 
-void run_effect_case_dream_balls_white_box_check_endpoint_error_bound() {
-  HS_RUN(run_case, DreamBallsWhiteBox::check_endpoint_error_bound);
+void run_effect_case_dream_balls_white_box_check_orbit_bounds() {
+  HS_RUN(run_case, DreamBallsWhiteBox::check_orbit_bounds);
 }
 
 void run_effect_case_dreamballs_max_edge_solid_render() {
@@ -73,7 +73,7 @@ int run_dreamballs_tests() {
   ModuleFixture fixture("effects");
   run_effect_case_dreamballs_temporal_source_oracle();
   run_effect_case_dreamballs_column_work_is_bounded();
-  run_effect_case_dream_balls_white_box_check_endpoint_error_bound();
+  run_effect_case_dream_balls_white_box_check_orbit_bounds();
   run_effect_case_dreamballs_max_edge_solid_render();
   run_effect_case_dreamballs_retained_history_resets();
   run_effect_case_dreamballs_preset_cycle_bookkeeping();

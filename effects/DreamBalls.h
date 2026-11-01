@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <array>
+#include <limits>
 
 namespace DreamBallsDetail {
 /// Default `DreamBallsParams::weave_gap`.
@@ -302,10 +303,7 @@ private:
   float phase_start = 0.0f;   /**< Unwrapped orbit start for this draw. */
   float opacity_start = 0.0f; /**< Opacity at this draw's start. */
   float motion_bound = 0.0f;  /**< Orbit displacement over the frame. */
-  Spacetime::PathBound orbit_path{}; /**< A vertex's orbit path over the frame:
-                                       eight times the certified chord error,
-                                       and one orbit turn more for the third
-                                       derivative, as on a circle. */
+  Spacetime::PathBound orbit_path{}; ///< Source vertex derivative bounds.
   Spacetime::Retained<math::Quaternion>
       pose_history; ///< Last visible draw pose.
   bool sprite_unseen =
@@ -832,12 +830,25 @@ private:
     }
   }
 
-  /** @brief Bounds normalized endpoint interpolation error in radians.
+  /** @brief A source orbit's displacement and derivative bounds. */
+  struct OrbitBounds {
+    float motion = 0.0f;         ///< Angular displacement over the frame.
+    Spacetime::PathBound path{}; ///< Normalized source derivative bounds.
+  };
+
+  /** @brief Bounds a normalized Bhaskara orbit over one frame.
    * @param orbit Orbit phase change in radians.
-   * @param radius Tangent orbit radius.
-   * @return Angular chord error bound. */
-  HS_HOT_INLINE static float endpoint_error_bound(float orbit, float radius) {
-    return radius * orbit * orbit;
+   * @param radius Tangent orbit radius, in [0, 1].
+   * @return Displacement and second-derivative bounds; a moving orbit has
+   *         unbounded third derivative at the trig folds.
+   * @see docs/dreamballs_orbit_bound.md */
+  HS_HOT_INLINE static OrbitBounds orbit_bounds(float orbit, float radius) {
+    if (orbit == 0.0f || radius == 0.0f)
+      return {};
+    const float rho = radius / sqrtf(1.0f + radius * radius);
+    return {
+        1.025f * rho * fabsf(orbit),
+        {1.06f * rho * orbit * orbit, std::numeric_limits<float>::infinity()}};
   }
 
   HS_HOT_FLASH_MEMBER void draw_original_scene(Canvas &canvas, const Params &p,
@@ -917,9 +928,9 @@ private:
             : orbit_phase;
     opacity_start = continuous ? drawn_opacity : sprite_unseen ? 0.0f : opacity;
     const float orbit = fabsf(orbit_phase - phase_start) * 2.0f * math::PI_F;
-    motion_bound = orbit * p.offset_radius;
-    const float chord = endpoint_error_bound(orbit, p.offset_radius);
-    orbit_path = {8.0f * chord, 8.0f * chord * orbit};
+    const auto bounds = orbit_bounds(orbit, p.offset_radius);
+    motion_bound = bounds.motion;
+    orbit_path = bounds.path;
 
     if (p.weave_topology == WeaveTopology::ORIGINAL_WITH_DEFECTS) {
       auto fragment_shader = [&](const math::Vector &, Fragment &f,

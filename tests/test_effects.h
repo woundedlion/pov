@@ -116,7 +116,7 @@ inline int run_effects_tests() {
   run_effect_case_thrusters_white_box_check_temporal_rings();
   run_effect_case_dreamballs_temporal_source_oracle();
   run_effect_case_dreamballs_column_work_is_bounded();
-  run_effect_case_dream_balls_white_box_check_endpoint_error_bound();
+  run_effect_case_dream_balls_white_box_check_orbit_bounds();
   run_effect_case_petalflow_temporal_source_oracle();
   run_effect_case_meshfeedback_temporal_source_oracle();
   run_effect_case_meshfeedback_stationary_timed_source();

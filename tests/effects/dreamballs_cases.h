@@ -132,31 +132,80 @@ struct DreamBallsWhiteBox {
     return capture_luminance<DEFAULT_W, DEFAULT_H>(fx);
   }
 
-  /** @brief Checks orbit interpolation against its angular bound. */
-  static void check_endpoint_error_bound() {
+  /** @brief Bhaskara orbit captures satisfy their displacement and chord bounds. */
+  static void check_orbit_bounds() {
     float worst_ratio = 0.0f;
     const auto base = math::Vector(0.3f, 0.8f, 0.5f).normalized();
     const auto tangent = math::tangent_axis(base);
-    for (float radius : {0.0f, 0.3f, 1.0f})
-      for (float orbit : {0.025132741f, 0.12566371f, 0.31415927f})
-        for (int phase = 0; phase < 32; ++phase) {
+    for (float radius : {0.0f, 0.03f, 0.05f, 0.3f, 1.0f})
+      for (float orbit : {0.0f, 0.025132741f, 0.062831853f, 0.12566371f,
+                          0.31415927f, math::PI_F})
+        for (int phase = 0; phase < 128; ++phase) {
           const auto at = [&](float t) {
             const auto offset = DB::tangent_orbit_offset(
-                base, tangent, phase * math::PI_F / 16.0f + orbit * t);
+                base, tangent, phase * math::PI_F / 64.0f + orbit * t);
             return math::normalized_or(base + offset * radius, base);
           };
           const auto a = at(0.0f), b = at(1.0f);
-          const float bound = DB::endpoint_error_bound(orbit, radius);
+          const auto bounds = DB::orbit_bounds(orbit, radius);
+          HS_EXPECT_EQ(std::isinf(bounds.path.third),
+                       radius > 0.0f && orbit > 0.0f);
+          if (radius == 0.0f || orbit == 0.0f) {
+            HS_EXPECT_EQ(bounds.motion, 0.0f);
+            HS_EXPECT_EQ(bounds.path.second, 0.0f);
+            HS_EXPECT_EQ(bounds.path.third, 0.0f);
+          }
           for (int step = 1; step < 32; ++step) {
             const float t = step / 32.0f;
-            const auto delta = at(t) - (a * (1.0f - t) + b * t).normalized();
+            const auto point = at(t);
+            const auto delta = point - (a * (1.0f - t) + b * t);
             const float error = sqrtf(math::dot(delta, delta));
-            HS_EXPECT_LE(error, bound + 0.000002f);
-            if (bound > 0.0f)
-              worst_ratio = fmaxf(worst_ratio, error / bound);
+            HS_EXPECT_LE(error, bounds.path.chord_error() + 0.0000006f);
+            const auto displacement = point - a;
+            HS_EXPECT_LE(sqrtf(math::dot(displacement, displacement)),
+                         bounds.motion * t + 0.0000006f);
+            if (bounds.path.second > 0.0f)
+              worst_ratio =
+                  fmaxf(worst_ratio, error / bounds.path.chord_error());
           }
         }
-    std::printf("  [DreamBalls endpoint bound] worst ratio %.6f\n",
+    const double PI_D = std::acos(-1.0);
+    const auto quarter = [PI_D](double u) {
+      const double d = (u - 1.0) * (u - 1.0) + 4.0;
+      return std::array<double, 3>{4.0 * u * (2.0 - u) / d,
+                                   -40.0 * (u - 1.0) / (d * d) * (2.0 / PI_D),
+                                   40.0 * (3.0 * (u - 1.0) * (u - 1.0) - 4.0) /
+                                       (d * d * d) * (4.0 / (PI_D * PI_D))};
+    };
+    for (float radius : {0.03f, 0.05f, 0.3f, 1.0f}) {
+      const auto bound = DB::orbit_bounds(1.0f, radius);
+      for (int phase = 0; phase <= 1024; ++phase) {
+        const double u = phase / 1024.0, r = radius;
+        const auto sn = quarter(u), cs = quarter(1.0 - u);
+        const double n2 = 1.0 + r * r * (cs[0] * cs[0] + sn[0] * sn[0]);
+        const double n = std::sqrt(n2);
+        const double h = r * r * (-cs[0] * cs[1] + sn[0] * sn[1]);
+        const double k =
+            r * r *
+            (cs[1] * cs[1] + sn[1] * sn[1] + cs[0] * cs[2] + sn[0] * sn[2]);
+        const std::array<double, 3> q{r * cs[0], r * sn[0], 1.0};
+        const std::array<double, 3> dq{-r * cs[1], r * sn[1], 0.0};
+        const std::array<double, 3> ddq{r * cs[2], r * sn[2], 0.0};
+        double speed2 = 0.0, acceleration2 = 0.0;
+        for (size_t axis = 0; axis < 3; ++axis) {
+          const double speed = dq[axis] / n - q[axis] * h / (n2 * n);
+          const double acceleration =
+              ddq[axis] / n - (2.0 * h * dq[axis] + k * q[axis]) / (n2 * n) +
+              3.0 * h * h * q[axis] / (n2 * n2 * n);
+          speed2 += speed * speed;
+          acceleration2 += acceleration * acceleration;
+        }
+        HS_EXPECT_LE(std::sqrt(speed2), static_cast<double>(bound.motion));
+        HS_EXPECT_LE(std::sqrt(acceleration2),
+                     static_cast<double>(bound.path.second));
+      }
+    }
+    std::printf("  [DreamBalls orbit chord bound] worst ratio %.6f\n",
                 worst_ratio);
   }
 
@@ -697,7 +746,7 @@ inline void test_dreamballs_column_work_is_bounded() {
   HS_EXPECT_GT(spun.column_path_evaluations, 0u);
   HS_EXPECT_GT(spun.endpoint_evaluations, 0u);
   HS_EXPECT_LE(spun.midpoint_evaluations, spun.endpoint_evaluations);
-  for (size_t preset : {size_t(8), size_t(0)}) {
+  for (size_t preset : {size_t(8), size_t(0), size_t(2)}) {
     reset_effect_globals();
     DreamBalls<DEFAULT_W, DEFAULT_H> fx;
     fx.init();
@@ -713,8 +762,14 @@ inline void test_dreamballs_column_work_is_bounded() {
       if (frame == 0) {
         HS_EXPECT_EQ(counts.endpoint_evaluations, 0u);
         HS_EXPECT_EQ(counts.midpoint_evaluations, 0u);
-      } else
+      } else {
         HS_EXPECT_GT(counts.column_crossings, 0u);
+        if (preset == 2) {
+          HS_EXPECT_GT(counts.endpoint_evaluations, 0u);
+          HS_EXPECT_LT(counts.midpoint_evaluations * 4,
+                       counts.endpoint_evaluations);
+        }
+      }
     }
   }
 }
