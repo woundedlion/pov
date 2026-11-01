@@ -107,6 +107,7 @@ g5_ship)
   run AlienCore profile 30 32
   run KaleidoscopeMandala profile 105 32
   run GridSpace profile 60 32
+  run GridWorms profile 60 32
   run Millefiori profile 60 32
   run HyperLattice profile 300 16
   run ChromaticLichen profile 30 32
