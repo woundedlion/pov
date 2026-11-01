@@ -56,11 +56,6 @@ struct ShaderChainWhiteBox {
   static auto &layer_resources(FX &effect, std::string_view key) {
     return effect.modulation_resources(key);
   }
-  /** The committed colorize instance's phase clocks. */
-  static const In::Op::ColorClockState &color_clocks(const FX &effect) {
-    return *static_cast<const In::Op::ColorClockState *>(
-        effect.program.state_block(static_cast<size_t>(effect.colorize.index)));
-  }
   /** The retained previous frame context, its palettes and hue tables owned
       by the effect. */
   static const In::FrameContext &previous_context(const FX &effect) {
@@ -69,11 +64,5 @@ struct ShaderChainWhiteBox {
   /** The frame snapshot draw_frame() hands the program, hue bakes included. */
   static In::FrameContext frame_context(FX &effect) {
     return effect.make_frame_context(effect.colorize);
-  }
-  /** The resident baked modulation cube; writable so a probe can poison it and see
-      whether the next frame re-baked. */
-  static int8_t *pattern_lut(FX &effect) {
-    const auto key = modulation_clocks(effect).key;
-    return effect.modulation_resources(key).modulation.table.data();
   }
 };

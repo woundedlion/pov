@@ -106,14 +106,6 @@ inline const ColorResources &shared_resources() {
 
 inline constexpr auto &DEFAULT_CHAIN = SHADER_CHAIN_DEFAULT_CHAIN;
 
-inline constexpr In::ChainEntryRequest MODULATED_CHAIN[] = {
-    {"camera", "sphere.rotate.v2"},
-    {"project", "project.stereographic.v2"},
-    {"sample", "sample.grid.v3"},
-    {"colorize", "colorize.generated-palette.v4"},
-    {"modulation", "color.modulate.v1"},
-};
-
 static_assert(DEFAULT_CHAIN[0].operator_id == "sphere.rotate.v2");
 static_assert(DEFAULT_CHAIN[2].operator_id == "sample.grid.v3");
 
