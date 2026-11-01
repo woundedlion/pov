@@ -179,7 +179,6 @@ template <typename State> struct AnimatedTwist : ApproximationDefaults {
   }
   /** @brief Applies the prepared twist.
    * @param input Unit direction.
-   * @param frame Bound frame.
    * @param prepared Axis and profile.
    * @return Twisted direction. */
   static math::Vector apply(const math::Vector &input, const FrameState &,
