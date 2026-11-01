@@ -62,22 +62,27 @@ class ChainCaptureFixtureTests(unittest.TestCase):
         for record in self.records:
             snapshot = record["snapshot"]
             with self.subTest(name=record["name"]):
-                self.assertEqual(snapshot["schemaVersion"], 3)
-                recipe = snapshot["modulation"][0]["recipe"]
-                clock = next(entry for entry in snapshot["runtime"]
-                             if entry["kind"] == "color-clock-v2")
-                self.assertEqual(recipe["seed"], 6047)
-                self.assertEqual(clock["state"]["modulation"]["source"], recipe["source"])
-                self.assertEqual(clock["state"]["modulation"]["version"], recipe["version"])
-                self.assertNotIn("hueNoiseSeed", clock["state"])
-                self.assertNotIn("hueNoisePhase", clock["state"])
-                fields = {entry["name"]: entry["value"] for entry in snapshot["parameters"]}
-                self.assertNotIn("colorize.hue-noise-scale", fields)
-                self.assertNotIn("colorize.hue-noise-speed", fields)
-                path = fields["colorize.hue-shift-mode"] == 1
-                self.assertEqual(recipe["enabled"], not path)
+                self.assertEqual(snapshot["schemaVersion"], 4)
+                displacement, spatial = snapshot["modulation"]
+                clocks = {entry["instance"]: entry for entry in snapshot["runtime"]}
+                for entry in (displacement, spatial):
+                    recipe = entry["recipe"]
+                    clock = clocks[entry["instance"]]
+                    self.assertEqual(recipe["seed"], 6047)
+                    self.assertEqual(clock["kind"], "modulation-clock-v1")
+                    self.assertEqual(clock["state"]["source"], recipe["source"])
+                    self.assertEqual(clock["state"]["version"], recipe["version"])
+                self.assertEqual(displacement["recipe"]["source"], 4)
+                self.assertEqual(displacement["recipe"]["evaluation"], 0)
+                self.assertEqual(clocks[displacement["instance"]]["state"]["phaseTurns"], 0)
+                self.assertEqual(clocks["colorize"]["kind"], "color-clock-v3")
+                self.assertEqual(set(clocks["colorize"]["state"]), {"oscillationPhase"})
+                self.assertTrue(all("hue-shift" not in entry["name"]
+                                    for entry in snapshot["parameters"]))
+                path = displacement["recipe"]["enabled"]
+                self.assertEqual(spatial["recipe"]["enabled"], not path)
                 if not path:
-                    self.assertEqual(fields["colorize.hue-shift-amount"], 0)
+                    self.assertEqual(displacement["recipe"]["mechanic"]["amount"], 0)
 
     def test_duplicate_case_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "duplicate"):
@@ -85,39 +90,14 @@ class ChainCaptureFixtureTests(unittest.TestCase):
 
     def test_frozen_noise_controls_keep_their_authored_values(self):
         snapshot = self.records[0]["snapshot"]
-        recipe = snapshot["modulation"][0]["recipe"]
+        recipe = snapshot["modulation"][1]["recipe"]
         self.assertEqual(recipe["noise"]["scale"], 0.8300312757492065)
         self.assertEqual(recipe["noise"]["speed"], 0.00021200001356191933)
         self.assertEqual(recipe["mechanic"]["amount"], 0.39800000190734863)
         clock = next(entry for entry in snapshot["runtime"]
-                     if entry["kind"] == "color-clock-v2")
-        self.assertEqual(clock["state"]["modulation"]["phaseTurns"], 0.78100002)
-
-    def test_legacy_snapshots_split_recipes_and_clocks_without_mutating_the_corpus(self):
-        original = self.records[0]["snapshot"]
-        before = copy.deepcopy(original)
-        snapshot = generator.migrate_legacy_snapshot(original)
-        self.assertEqual(original, before)
-        self.assertEqual(snapshot["schemaVersion"], 4)
-        self.assertEqual(snapshot["chain"][-3:], [
-            {"instance": "colorize", "operator": "colorize.generated-palette.v4"},
-            {"instance": "displacement", "operator": "color.modulate.v1"},
-            {"instance": "modulation", "operator": "color.modulate.v1"},
-        ])
-        path, spatial = snapshot["modulation"]
-        self.assertEqual(path["recipe"]["source"], 4)
-        self.assertEqual(path["recipe"]["evaluation"], 0)
-        self.assertFalse(path["recipe"]["enabled"])
-        self.assertEqual(spatial["recipe"], original["modulation"][0]["recipe"])
-        clocks = {entry["instance"]: entry for entry in snapshot["runtime"]}
-        self.assertEqual(clocks["modulation"]["state"],
-                         next(entry for entry in original["runtime"]
-                              if entry["instance"] == "colorize")["state"]["modulation"])
-        self.assertEqual(clocks["displacement"]["state"]["phaseTurns"], 0)
-        self.assertNotIn("modulation", clocks["colorize"]["state"])
-        self.assertTrue(all("hue-shift" not in entry["name"] for entry in snapshot["parameters"]))
-        self.assertIs(generator.migrate_legacy_snapshot(snapshot), snapshot)
-        self.assertIn("color.modulate.v1", generator.generate([{**self.records[0], "snapshot": snapshot}]))
+                     if entry["instance"] == snapshot["modulation"][1]["instance"])
+        self.assertEqual(clock["kind"], "modulation-clock-v1")
+        self.assertEqual(clock["state"]["phaseTurns"], 0.78100002)
 
     def test_unknown_pattern_and_retired_runtime_are_rejected(self):
         self.assertIn("ColorModulation::Config", generator.generate([self.records[0]]))
@@ -127,8 +107,8 @@ class ChainCaptureFixtureTests(unittest.TestCase):
             generator.generate([record])
         record = copy.deepcopy(self.records[0])
         clock = next(entry for entry in record["snapshot"]["runtime"]
-                     if entry["kind"] == "color-clock-v2")
-        clock["kind"] = "color-clock-v1"
+                     if entry["kind"] == "color-clock-v3")
+        clock["kind"] = "color-clock-v2"
         with self.assertRaisesRegex(ValueError, "unknown capture runtime"):
             generator.generate([record])
 
@@ -143,7 +123,7 @@ class ChainCaptureFixtureTests(unittest.TestCase):
             record[field] = value
             with self.subTest(field=field), self.assertRaises(ValueError):
                 generator.generate([record])
-        for version in (0, 1, 2, 5):
+        for version in (0, 1, 2, 3, 5):
             record = copy.deepcopy(self.records[0])
             record["snapshot"]["schemaVersion"] = version
             with self.subTest(version=version), self.assertRaisesRegex(
