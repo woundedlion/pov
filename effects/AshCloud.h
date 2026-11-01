@@ -361,15 +361,10 @@ public:
                         SHARED,
                         SHARED && camera_column_admitted()};
     if (shader.factored) {
-      shader.equator =
-          Pipeline::template NodeAt<0>::run(
-              Pullback::SphereSample{{shader.cosine, 0.0f, shader.sine}, 0.0f},
-              frame.ctx, std::get<0>(frame.prepared))
-              .dir;
-      shader.up = Pipeline::template NodeAt<0>::run(
-                      Pullback::SphereSample{{0.0f, 1.0f, 0.0f}, 0.0f},
-                      frame.ctx, std::get<0>(frame.prepared))
-                      .dir;
+      const auto BASIS =
+          Pipeline::rotation_column_basis(frame, shader.cosine, shader.sine);
+      shader.equator = BASIS.equator;
+      shader.up = BASIS.up;
     }
     return shader;
   }

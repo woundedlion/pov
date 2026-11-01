@@ -889,6 +889,21 @@ struct ColumnLeaf<Stage::Placed<Emission, Child>> {
   }
 };
 
+/** @brief Whether a stage rotates the incoming sphere direction. */
+template <typename Node> inline constexpr bool ROTATION_COLUMN_PREFIX = false;
+template <typename Provider>
+inline constexpr bool ROTATION_COLUMN_PREFIX<Stage::Rotate<Provider>> = true;
+
+/** @brief Rotation-basis support for a pipeline execution sequence. */
+template <typename Nodes> struct RotationPrefix {
+  static constexpr bool SUPPORTED = false; ///< No leading rotation.
+};
+template <typename First, typename... Rest>
+struct RotationPrefix<TypeList<First, Rest...>> {
+  static constexpr bool SUPPORTED = ROTATION_COLUMN_PREFIX<
+      typename ColumnLeaf<First>::Type>; ///< Leading rotation.
+};
+
 /** @brief Whether two stages form a linear sphere-to-plane prefix. */
 template <typename Rotation, typename Projection>
 inline constexpr bool LINEAR_COLUMN_PREFIX = false;
@@ -1942,6 +1957,9 @@ public:
 
   /** Per-node prepared state, nested per placement group. */
   using PreparedTuple = typename Core::PreparedTuple;
+  /// Whether the first execution node rotates sphere directions.
+  static constexpr bool ROTATION_COLUMNS =
+      Detail::RotationPrefix<NodeList>::SUPPORTED;
   /// Whether the entry rotations can be factored into a meridian basis.
   static constexpr bool LINEAR_COLUMNS =
       Detail::ColumnPrefix<NodeList>::SUPPORTED;
@@ -1971,6 +1989,24 @@ public:
     math::Vector up;      ///< Transformed positive polar axis.
   };
 
+  /** @brief Prepares a camera-rotated meridian basis.
+   * @param frame Prepared pipeline state.
+   * @param cosine Cosine of longitude.
+   * @param sine Sine of longitude.
+   * @return Camera-rotated meridian basis. */
+  HS_FLASH_INLINE static ColumnBasis
+  rotation_column_basis(const Frame &frame, float cosine, float sine)
+    requires(ROTATION_COLUMNS)
+  {
+    const auto transform = [&](const math::Vector &view) {
+      return NodeAt<0>::run(SphereSample{view, 0.0f}, frame.ctx,
+                            std::get<0>(frame.prepared))
+          .dir;
+    };
+    return {transform(math::Vector(cosine, 0.0f, sine)),
+            transform(math::Vector(0.0f, 1.0f, 0.0f))};
+  }
+
   /** @brief Prepares a meridian's linear rotation prefix.
    * @param frame Prepared pipeline state.
    * @param cosine Cosine of longitude.
@@ -1983,13 +2019,9 @@ public:
     using Projection =
         typename Detail::ColumnPrefix<NodeList>::ProjectionLeaf::Type;
     using Policy = typename Projection::ProjectionPolicy;
-    const auto transform = [&](const math::Vector &view) {
-      const auto rotated = NodeAt<0>::run(SphereSample{view, 0.0f}, frame.ctx,
-                                          std::get<0>(frame.prepared));
-      return math::rotate(rotated.dir, Policy::frame_conjugate(frame.ctx));
-    };
-    return {transform(math::Vector(cosine, 0.0f, sine)),
-            transform(math::Vector(0.0f, 1.0f, 0.0f))};
+    const auto ROTATED = rotation_column_basis(frame, cosine, sine);
+    return {math::rotate(ROTATED.equator, Policy::frame_conjugate(frame.ctx)),
+            math::rotate(ROTATED.up, Policy::frame_conjugate(frame.ctx))};
   }
 
   /** @brief Shades a latitude using the factored rotation prefix.
