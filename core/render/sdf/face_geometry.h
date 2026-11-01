@@ -792,10 +792,12 @@ compute_full_bounds(FaceScratchBuffer &scratch, int count,
    * @return The stored {y_min, y_max} bounds.
    */
 template <int H> Bounds get_vertical_bounds() const {
-  HS_CHECK(H == build_height,
-           "Face::get_vertical_bounds: H differs from construction height");
-  HS_CHECK(!scratch_owner || scratch_owner->claim_seq == scratch_claim,
-           "SDF::Face scanned after a later Face claimed its scratch buffer");
+  HS_CHECK(
+      H == build_height,
+      "PreparedFace::get_vertical_bounds: H differs from construction height");
+  HS_CHECK(
+      !scratch_owner || scratch_owner->claim_seq == scratch_claim,
+      "SDF::PreparedFace scanned after a later PreparedFace claimed its scratch buffer");
   return {y_min, y_max};
 }
 
@@ -879,9 +881,10 @@ template <int W, int H, typename OutputIt>
 bool get_horizontal_intervals(int y, OutputIt out) const {
   if (y < y_min || y > y_max)
     return true;
-  HS_CHECK(build_width == 0 || W == build_width,
-           "Face::get_horizontal_intervals: W differs from the clip width the "
-           "azimuth cull ran against");
+  HS_CHECK(
+      build_width == 0 || W == build_width,
+      "PreparedFace::get_horizontal_intervals: W differs from the clip width the "
+      "azimuth cull ran against");
   if (full_width)
     return false;
   const float pad = azimuth_pad_at_row<W, H>(y);

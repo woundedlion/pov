@@ -101,7 +101,7 @@ struct FaceScratchBuffer {
       pseudo_angles; /**< Unwrapped sector angles, or sorted exact-walk rows. */
   std::array<uint32_t, MAX_VERTS + 1>
       sector_keys; /**< pseudo_angles as order-preserving integer keys. */
-  /** Bumped by every Face that writes geometry here, including post-projection
+  /** Bumped by every PreparedFace that writes geometry here, including post-projection
    * culls; an older value identifies retargeted geometry. */
   uint32_t claim_seq = 0;
 };
@@ -142,9 +142,9 @@ struct FaceBoundsPose {
 /**
  * @brief Prepared projection, bounds and distance state for one planar face.
  * @details The span members view the FaceScratchBuffer handed to the
- * constructor and own none of it: the buffer must outlive the Face and back no
- * other live Face, since building a second Face over it retargets the first.
- * get_vertical_bounds() traps on a retargeted Face.
+ * constructor and own none of it: the buffer must outlive the PreparedFace and
+ * back no other live PreparedFace. get_vertical_bounds() traps on retargeted
+ * scratch storage.
  */
 struct PreparedFace {
   static constexpr float AZIMUTH_ERROR =
@@ -270,7 +270,7 @@ struct PreparedFace {
     HS_CHECK(build_geometry.row_to_phi(0) == DISPLAY_GEOMETRY.row_to_phi(0) &&
                  build_geometry.row_to_phi(height - 1) ==
                      DISPLAY_GEOMETRY.row_to_phi(height - 1),
-             "Face: virtual height must match the display geometry");
+             "PreparedFace: virtual height must match the display geometry");
   }
 
   /**

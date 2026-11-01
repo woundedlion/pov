@@ -1290,7 +1290,7 @@ inline const Case *all_cases(int &n) {
       {"face_scratch_retargeted", case_face_scratch_retargeted,
        "core/render/sdf/face_geometry.h",
        "(!scratch_owner || scratch_owner->claim_seq == scratch_claim) "
-       "SDF::Face scanned after a later Face claimed its scratch buffer"},
+       "SDF::PreparedFace scanned after a later PreparedFace claimed its scratch buffer"},
       {"face_bounds_pose_without_clip", case_face_bounds_pose_without_clip,
        "core/render/sdf/face.h",
        "(!bounds_pose || clip) PreparedFace: bounds pose requires a clip"},
@@ -1299,12 +1299,12 @@ inline const Case *all_cases(int &n) {
        "(build_geometry.row_to_phi(0) == DISPLAY_GEOMETRY.row_to_phi(0) && "
        "build_geometry.row_to_phi(height - 1) == "
        "DISPLAY_GEOMETRY.row_to_phi(height - 1)) "
-       "Face: virtual height must match the display geometry"},
+       "PreparedFace: virtual height must match the display geometry"},
       {"face_scratch_retargeted_by_culled_face",
        case_face_scratch_retargeted_by_culled_face,
        "core/render/sdf/face_geometry.h",
        "(!scratch_owner || scratch_owner->claim_seq == scratch_claim) "
-       "SDF::Face scanned after a later Face claimed its scratch buffer"},
+       "SDF::PreparedFace scanned after a later PreparedFace claimed its scratch buffer"},
       {"scan_canvas_dim_mismatch", case_scan_canvas_dim_mismatch,
        "core/render/scan/raster.h",
        "(canvas.width() == W && canvas.height() == H) canvas size differs from "
@@ -1482,8 +1482,8 @@ inline const Case *all_cases(int &n) {
       {"raster_nonfinite_point", case_raster_nonfinite_point,
        "core/render/plot/raster.h",
        "(std::isfinite(point.pos.x) && std::isfinite(point.pos.y) && std::isfinite(point.pos.z)) rasterize control points must be finite"},
-      {"raster_single_nonfinite_point", case_raster_single_nonfinite_point,
-       "core/render/plot/raster.h", "(std::isfinite(point.pos.x) && std::isfinite(point.pos.y) && std::isfinite(point.pos.z)) rasterize control points must be finite"},
+      {"raster_single_nonfinite_point",
+       case_raster_single_nonfinite_point, "core/render/plot/raster.h", "(std::isfinite(point.pos.x) && std::isfinite(point.pos.y) && std::isfinite(point.pos.z)) rasterize control points must be finite"},
       {"raster_empty_path_null_shader", case_raster_empty_path_null_shader,
        "core/render/plot/raster.h",
        "(fragment_shader) rasterize requires a non-null fragment_shader"},
