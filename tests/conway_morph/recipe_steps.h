@@ -79,6 +79,9 @@ inline constexpr StepLegSite RELAX_LEG_SITES[] = {
     relax_leg_site<
         Solids::TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_RECIPE>(
         "truncatedIcosidodecahedron_bevel50"),
+    relax_leg_site<
+        Solids::ICOSAHEDRON_TRUNCATE25_HK60_AMBO_RELAX100_HK60_RECIPE>(
+        "icosahedron_truncate25_hk60_ambo"),
     relax_leg_site<Solids::DODECAHEDRON_HK35_AMBO_HK62_AMBO_RELAX_HK42_RECIPE>(
         "dodecahedron_hk35_ambo_hk62_ambo"),
 };
