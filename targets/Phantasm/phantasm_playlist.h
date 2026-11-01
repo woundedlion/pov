@@ -34,6 +34,7 @@
   X(Raymarch, 30)                                                              \
   X(AlienBrain, hs_preset_window_seconds<AlienBrain>())                        \
   X(GridSpace, 60)                                                             \
+  X(GridWorms, 60)                                                             \
   X(IslamicStars, hs_preset_window_seconds<IslamicStars>())                    \
   X(BZReactionDiffusion, 60)                                                   \
   X(HyperLattice, hs_preset_window_seconds<HyperLattice>())                    \
@@ -151,7 +152,6 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
  *          Other exclusions are product curation.
  */
 #define HS_PHANTASM_EXCLUDED_EFFECTS(X)                                        \
-  X(GridWorms)                                                                 \
   X(JewelMelt)                                                                 \
   X(KaleidoscopeStainedGlass)                                                  \
   X(KaleidoscopeMelt)                                                          \
