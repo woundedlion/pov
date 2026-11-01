@@ -1522,7 +1522,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── phantasm_playlist.h HS_PHANTASM_EFFECT_LIST — device show order, per-entry durations, roster drift guards
 │   │   └── phantasm_target.h   Shared Phantasm-class boilerplate — TOTAL_PIXELS=288, RPM=480, LED transport, geometry, boot, effect construction
 │   ├── Profile/
-│   │   └── Profile.ino         Single-effect HS_PROFILE harness on segment 0 of the segmented rig
+│   │   └── Profile.ino         Single-effect HS_PROFILE harness on one segment of the segmented rig (segment 0 by default)
 │   └── wasm/
 │       ├── wasm.cpp            Emscripten binding TU — includes the binding headers below
 │       ├── engine_bindings.h   Render bridge — HolosphereEngine JS class, readback buffers, embind registration
