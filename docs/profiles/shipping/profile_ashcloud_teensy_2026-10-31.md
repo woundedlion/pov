@@ -137,8 +137,9 @@ isr_dma_submit   144.19/frame  0.720/0.941/5.763 us  0.21%
 ```
 
 Pack and submit run inside wake. **Wake is inclusive: do not add these shares.**
-Wire transfer is asynchronous, 200 microseconds for the 600-byte
-72-pixel image-plus-black HD107S transfer at 24 MHz. DMA-completion and other interrupts are not
+Wire transfer is asynchronous, about 230 microseconds including LPSPI byte
+framing (200 microseconds ideal payload) for the 600-byte, 72-pixel
+image-plus-black HD107S transfer at 24 MHz. DMA-completion and other interrupts are not
 measured by these ISR scopes. The measured wake share leaves about
 60.2 ms of foreground CPU in a 62.5 ms window; render telemetry already includes
 interruptions, so its 62.5 ms budget must not subtract wake a second time.
