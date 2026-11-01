@@ -193,7 +193,8 @@ struct DynamoTemporalOracle {
           char name[64];
           std::snprintf(name, sizeof(name), "Dynamo %dx%d %s", W, H,
                         replay ? "replay" : "live");
-          hs_test::seam_compare_render<W, H>(render_scene, name, 1.0f, true);
+          hs_test::seam_compare_render<W, H>(render_scene, name,
+                                             {.bidirectional = true});
         }
   }
 };

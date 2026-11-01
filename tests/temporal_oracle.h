@@ -10,6 +10,8 @@
 #include <cmath>
 #include <cstdio>
 #include <optional>
+#include <functional>
+#include <span>
 #include <type_traits>
 #include <vector>
 
@@ -128,32 +130,49 @@ inline bool temporal_frame_error_within_budget(float error,
   return error <= share * endpoint_error / 20.0f + 1e-5f;
 }
 
+/** @brief Controls frozen-column displacement and frame budgets. */
+struct SeamCompareOptions {
+  float share = 1.0f;         ///< Share of the frame error budget.
+  bool bidirectional = false; ///< Compare both displacement directions.
+  bool require_motion = true; ///< Require a nonzero endpoint error.
+  /// Optional larger displacement budget for one column.
+  std::function<float(int, float, std::span<const float>, float)>
+      widen_budget{};
+};
+
+/** @brief Accumulated frozen-column comparison measurements. */
+struct SeamCompareResult {
+  float total;          ///< Temporal rendering error.
+  float endpoint_total; ///< Endpoint rendering error.
+  float energy;         ///< Frozen-reference luminance.
+};
+
 /** @brief Compares columns and whole-frame error with frozen geometry.
  * @param render Timed or frozen render callback.
  * @param name Diagnostic label.
- * @param share Fraction of the twentieth-error frame limit allowed.
- * @param bidirectional Uses each column's larger error under positive and
- * negative uniform 0.2-pixel displacements. */
+ * @param options Displacement and whole-frame budget controls.
+ * @return Summed temporal error, endpoint error and reference energy. */
 template <int W, int H, typename Render>
-void seam_compare_render(Render render, const char *name, float share = 1.0f,
-                         bool bidirectional = false) {
+SeamCompareResult seam_compare_render(Render render, const char *name,
+                                      const SeamCompareOptions &options = {}) {
   const auto actual = render(true, 1.0f, 0.0f);
   const auto endpoint = render(false, 1.0f, 0.0f);
   float total = 0.0f, endpoint_total = 0.0f, displaced_total = 0.0f;
-  float worst = 0.0f;
+  float worst = 0.0f, energy = 0.0f;
   int displacement_failures = 0;
   for (int column = 0; column < W / 2; ++column) {
     const float fraction = Spacetime::SamplingSurface<W>::time(column);
     const auto frozen = render(false, fraction, 0.0f);
     const auto shifted = render(false, fraction, 0.2f);
     std::optional<std::remove_cvref_t<decltype(shifted)>> opposite;
-    if (bidirectional)
+    if (options.bidirectional)
       opposite.emplace(render(false, fraction, -0.2f));
     for (int x : {column, column + W / 2}) {
       float error = 0.0f, endpoint_error = 0.0f, displaced_error = 0.0f;
       float opposite_error = 0.0f;
       for (int y = 0; y < H; ++y) {
         const size_t index = y * W + x;
+        energy += frozen[index];
         error += fabsf(actual[index] - frozen[index]);
         endpoint_error += fabsf(endpoint[index] - frozen[index]);
         displaced_error += fabsf(shifted[index] - frozen[index]);
@@ -161,6 +180,9 @@ void seam_compare_render(Render render, const char *name, float share = 1.0f,
           opposite_error += fabsf((*opposite)[index] - frozen[index]);
       }
       displaced_error = std::max(displaced_error, opposite_error);
+      if (error > displaced_error + 1e-5f && options.widen_budget)
+        displaced_error =
+            options.widen_budget(x, fraction, frozen, displaced_error);
       total += error;
       endpoint_total += endpoint_error;
       displaced_total += displaced_error;
@@ -175,11 +197,15 @@ void seam_compare_render(Render render, const char *name, float share = 1.0f,
               "worst_column=%.6f frame_limit=%.6f displacement_failures=%d\n",
               name, total, endpoint_total, displaced_total, worst,
               endpoint_total / 20.0f, displacement_failures);
-  HS_EXPECT_GT(endpoint_total, 0.01f);
-  HS_EXPECT(temporal_frame_error_within_budget(total, endpoint_total, share),
-            "whole-frame error is within its share of one twentieth of "
-            "endpoint error");
+  if (options.require_motion) {
+    HS_EXPECT_GT(endpoint_total, 0.01f);
+    HS_EXPECT(temporal_frame_error_within_budget(total, endpoint_total,
+                                                 options.share),
+              "whole-frame error is within its share of one twentieth of "
+              "endpoint error");
+  }
   HS_EXPECT_EQ(displacement_failures, 0);
+  return {total, endpoint_total, energy};
 }
 
 /** @brief The endpoint budget is shared across columns and retains its scale. */

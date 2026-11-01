@@ -666,7 +666,7 @@ inline void test_dreamballs_temporal_source_oracle() {
         : newborn  ? "DreamBalls birth"
         : woven    ? "DreamBalls woven"
                    : "DreamBalls original",
-        scene == 3 ? 1.0f : 0.5f);
+        {.share = scene == 3 ? 1.0f : 0.5f});
   }
 }
 

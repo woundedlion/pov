@@ -156,7 +156,7 @@ inline void test_surface_seams() {
         [&](bool timed, float t, float displacement) {
           return surface_kernel_motion(pose, timed, t, displacement);
         },
-        pose.name, 1, true);
+        pose.name, {.bidirectional = true});
 }
 
 inline void surface_mask_case(OracleEffect &effect, const char *name,

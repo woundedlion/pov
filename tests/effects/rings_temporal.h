@@ -133,57 +133,30 @@ struct RingTemporalOracle {
   template <typename Render>
   static void compare(Render render, const char *name, bool moving) {
     const auto actual = render(true, 1.0f, 0.0f, -1);
-    const auto endpoint = render(false, 1.0f, 0.0f, -1);
-    float total = 0, endpoint_total = 0, energy = 0;
-    int failures = 0;
-    for (int c = 0; c < DEFAULT_W / 2; ++c) {
-      const float t = float(c) / (DEFAULT_W / 2);
-      const auto expected = render(false, t, 0.0f, -1);
-      const auto shifted = render(false, t, 0.2f, -1);
-      const auto reversed = render(false, t, -0.2f, -1);
-      for (int x : {c, c + DEFAULT_W / 2}) {
-        float error = 0, budget = 0, reverse_budget = 0;
-        for (int y = 0; y < DEFAULT_H; ++y) {
-          const size_t i = y * DEFAULT_W + x;
-          error += fabsf(actual[i] - expected[i]);
-          budget += fabsf(shifted[i] - expected[i]);
-          reverse_budget += fabsf(reversed[i] - expected[i]);
-          endpoint_total += fabsf(endpoint[i] - expected[i]);
-          energy += expected[i];
+    hs_test::SeamCompareOptions options;
+    options.bidirectional = true;
+    options.require_motion = moving;
+    options.widen_budget = [&](int x, float t, std::span<const float> expected,
+                               float budget) {
+      for (Direction direction : {Direction::AZIMUTH, Direction::MERIDIAN})
+        for (float sign : {-1.0f, 1.0f}) {
+          const auto displaced =
+              render(false, t, Offset(sign * 0.2f, direction), -1);
+          float axis_budget = 0.0f;
+          for (int y = 0; y < DEFAULT_H; ++y) {
+            const size_t i = y * DEFAULT_W + x;
+            axis_budget += fabsf(displaced[i] - expected[i]);
+          }
+          budget = std::max(budget, axis_budget);
         }
-        total += error;
-        budget = std::max(budget, reverse_budget);
-        if (error > budget + 1e-5f) {
-          for (Direction direction : {Direction::AZIMUTH, Direction::MERIDIAN})
-            for (float sign : {-1.0f, 1.0f}) {
-              const auto displaced =
-                  render(false, t, Offset(sign * 0.2f, direction), -1);
-              float axis_budget = 0;
-              for (int y = 0; y < DEFAULT_H; ++y) {
-                const size_t i = y * DEFAULT_W + x;
-                axis_budget += fabsf(displaced[i] - expected[i]);
-              }
-              budget = std::max(budget, axis_budget);
-            }
-        }
-        if (error > budget + 1e-5f) {
-          if (failures < 4)
-            std::printf("  %s col=%d error=%g budget=%g\n", name, x, error,
-                        budget);
-          ++failures;
-        }
-      }
-    }
-    std::printf("  %s error=%g endpoint=%g limit=%g bad_columns=%d\n", name,
-                total, endpoint_total, endpoint_total / 20.0f, failures);
-    HS_EXPECT_GT(energy, 0.01f);
-    HS_EXPECT_EQ(failures, 0);
-    if (moving) {
-      HS_EXPECT_GT(endpoint_total, 0.01f);
-      HS_EXPECT(
-          hs_test::temporal_frame_error_within_budget(total, endpoint_total),
-          "ring frame meets one twentieth endpoint error");
-    }
+      return budget;
+    };
+    const auto result = hs_test::seam_compare_render<DEFAULT_W, DEFAULT_H>(
+        [&](bool timed, float fraction, float displacement) {
+          return render(timed, fraction, displacement, -1);
+        },
+        name, options);
+    HS_EXPECT_GT(result.energy, 0.01f);
     for (int segment = 0; segment < 8; ++segment) {
       const auto clipped = render(true, 1.0f, 0.0f, segment);
       const auto map = pov::segment_map(segment % 4, DEFAULT_H * 2, 4);
