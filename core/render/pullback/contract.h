@@ -891,6 +891,7 @@ struct ColumnLeaf<Stage::Placed<Emission, Child>> {
 
 /** @brief Whether a stage rotates the incoming sphere direction. */
 template <typename Node> inline constexpr bool ROTATION_COLUMN_PREFIX = false;
+/** @brief Rotation stages admit a camera-rotated column basis. */
 template <typename Provider>
 inline constexpr bool ROTATION_COLUMN_PREFIX<Stage::Rotate<Provider>> = true;
 
@@ -898,6 +899,7 @@ inline constexpr bool ROTATION_COLUMN_PREFIX<Stage::Rotate<Provider>> = true;
 template <typename Nodes> struct RotationPrefix {
   static constexpr bool SUPPORTED = false; ///< No leading rotation.
 };
+/** @brief Classifies the first execution node's rotation support. */
 template <typename First, typename... Rest>
 struct RotationPrefix<TypeList<First, Rest...>> {
   static constexpr bool SUPPORTED = ROTATION_COLUMN_PREFIX<
