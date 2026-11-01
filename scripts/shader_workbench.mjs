@@ -1030,13 +1030,32 @@ export function exportShaderDocumentJson(document) {
 }
 
 /**
- * Resolves an affine period supplied by a fixed effect's source parameters.
+ * Resolves a fixed binding supplied by source parameters or coverage topology.
  * @param {object} descriptor Validated chain descriptor.
  * @param {string} parameterId Chain parameter id.
  * @param {object} values Selected preset values.
  * @returns {{sourceId: string|null, valid: boolean, expected: number}|null}
  */
 export function fixedDerivedBinding(descriptor, parameterId, values) {
+  if (/\.pattern-(scale|speed|contrast)$/.test(parameterId)) {
+    const label = parameterId.slice(0, parameterId.indexOf('.'));
+    const slot = descriptor?.chain?.find((entry) => entry.label === label);
+    if (slot?.operator === 'color.modulate.v1' &&
+        ['directional-sine', 'sphere-interference', 'sphere-smooth-grid', 'displacement']
+          .includes(values[`${label}.modulation-source`])) {
+      const expected = Math.fround(values[parameterId]);
+      return { sourceId: null, expected, valid: Number.isFinite(expected) };
+    }
+  }
+  if (parameterId.endsWith('.edge-width')) {
+    const label = parameterId.slice(0, -'.edge-width'.length);
+    const slot = descriptor?.chain?.find((entry) => entry.label === label);
+    if (slot?.operator?.startsWith('sample.') &&
+        ['none', 'weight', 'weight-squared'].includes(values[`${label}.coverage-mode`])) {
+      const expected = Math.fround(values[parameterId]);
+      return { sourceId: null, expected, valid: Number.isFinite(expected) };
+    }
+  }
   const suffix = '.lattice-period';
   if (!parameterId.endsWith(suffix)) return null;
   const label = parameterId.slice(0, -suffix.length);
@@ -1507,6 +1526,19 @@ export function engineControlNames(parameterId, descriptor) {
   const field = parameterId.slice(dot + 1);
   const words = titleWords(field);
   const slot = descriptor?.chain?.find((entry) => entry.label === label);
+  if (slot?.operator === 'color.modulate.v1' &&
+      /^(sine|interference|grid)-(frequency|speed)$/.test(field)) {
+    const resource = slot.resource_key ?? label;
+    const repeated = descriptor.chain.filter((entry) => entry.operator === slot.operator).length > 1;
+    const name = field.endsWith('-frequency') ? 'Pattern Frequency' : 'Pattern Speed';
+    return [resource === 'modulation' && !repeated ? name : `${resource}.${name}`];
+  }
+  if (slot?.operator === 'sphere.lens.twist.v2') {
+    const resource = slot.resource_key ?? label;
+    const repeated = descriptor.chain.filter((entry) => entry.operator === slot.operator).length > 1;
+    const name = field === 'twist-angle' ? 'Twist Angle (rad)' : words;
+    return [resource === 'lens' && !repeated ? name : `${resource}.${name}`];
+  }
   if (slot?.operator === 'sphere.displace.ripple.v2') {
     const name = field === 'burst-rate' ? 'Burst Rate' : `Ripple ${words}`;
     const resource = slot.resource_key ?? label;

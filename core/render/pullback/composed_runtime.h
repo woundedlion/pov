@@ -607,7 +607,8 @@ protected:
     else if constexpr (Resource::KIND == ResourceKind::WARP)
       return Resource::KEY.view() == "outer_warp" ? ParameterStage::WARP_1
                                                   : ParameterStage::WARP_2;
-    else if constexpr (Resource::KIND == ResourceKind::LENS)
+    else if constexpr (Resource::KIND == ResourceKind::LENS ||
+                       Resource::KIND == ResourceKind::TWIST)
       return ParameterStage::LENS;
     else if constexpr (Resource::KIND == ResourceKind::VALUE)
       return std::is_same_v<typename Resource::Family, IsoValueParams>
@@ -901,6 +902,7 @@ private:
     register_resource_kind<ResourceKind::WARP>();
     register_resource_kind<ResourceKind::VALUE>();
     register_resource_kind<ResourceKind::LENS>();
+    register_resource_kind<ResourceKind::TWIST>();
     register_color_field<&ColorParams::palette_chroma>("Palette Chroma");
     register_animated_param(
         "Palette Mapping",
@@ -959,6 +961,8 @@ private:
           Surface::advance_ripple_phase(clock.phase, family);
         else
           clock.phase = math::wrap_t(clock.phase + family.speed);
+      } else if constexpr (Resource::KIND == ResourceKind::TWIST) {
+        Lens::advance_twist(clock, family);
       } else if constexpr (Resource::KIND == ResourceKind::MODULATION) {
         Modulation::advance(clock.modulation_clock, family.modulation);
       } else if constexpr (Resource::KIND == ResourceKind::WARP) {

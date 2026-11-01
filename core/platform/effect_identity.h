@@ -110,6 +110,7 @@ namespace effect_identities {
   X(GnomonicStars, "gnomonic-stars", "GnomonicStars", "GnomonicStars",         \
     "GnomonicStars")                                                           \
   X(GridSpace, "grid-space", "GridSpace", "grid-space", "grid-space")          \
+  X(GridWorms, "grid-worms", "GridWorms", "grid-worms", "grid-worms")          \
   X(GSReactionDiffusion, "gs-reaction-diffusion", "GSReactionDiffusion",       \
     "GSReactionDiffusion", "GSReactionDiffusion")                              \
   X(HankinSolids, "hankin-solids", "HankinSolids", "HankinSolids",             \

@@ -1472,3 +1472,24 @@ test('chain arena reserves shared prepared and interval storage with maximum ali
   ops[0].blocks.interval = { size: 4, align: 1 };
   assert.equal(chainArenaBytes(ops, {}), 17);
 });
+
+test('fixed bindings skip dormant width and noise controls while preserving their values', () => {
+  const descriptor = { chain: [
+    { label: 'sample', operator: 'sample.lattice.v2' },
+    { label: 'modulation', operator: 'color.modulate.v1' },
+  ] };
+  const values = { 'sample.edge-width': 0.1, 'sample.coverage-mode': 'weight',
+    'modulation.modulation-source': 'directional-sine',
+    'modulation.pattern-scale': 0.14453938603401184,
+    'modulation.pattern-speed': -1.0416666782475659e-6 };
+  for (const id of ['sample.edge-width', 'modulation.pattern-scale', 'modulation.pattern-speed']) {
+    assert.deepEqual(fixedDerivedBinding(descriptor, id, values), {
+      sourceId: null, valid: true, expected: Math.fround(values[id]),
+    });
+  }
+  assert.equal(fixedDerivedBinding(descriptor, 'modulation.sine-frequency', values), null);
+  values['sample.coverage-mode'] = 'edge-fade';
+  assert.equal(fixedDerivedBinding(descriptor, 'sample.edge-width', values), null);
+  values['modulation.modulation-source'] = 'noise';
+  assert.equal(fixedDerivedBinding(descriptor, 'modulation.pattern-scale', values), null);
+});

@@ -45,6 +45,7 @@ enum class ResourceKind {
   WARP,       ///< Planar warp.
   SURFACE,    ///< Displacement surface.
   LENS,       ///< Mobius lens.
+  TWIST,      ///< Animated axial twist lens.
   VALUE,      ///< Value transfer and coverage.
   COLOR,      ///< Colorizer.
   MODULATION  ///< Ordered color modulation.
@@ -304,6 +305,10 @@ template <> struct ClockState<Lens::MobiusLensParams, ResourceKind::LENS> {
   float magnitude = 0.0f; ///< Generator magnitude; zero when unanimated.
   bool generated = false; ///< Whether the frame's b is the generator's.
 };
+/** @brief Accumulated twist-axis angles. */
+template <>
+struct ClockState<Lens::TwistLensParams, ResourceKind::TWIST>
+    : Lens::TwistPhase {};
 /** @brief Ripple burst clocks and active wave ages. */
 template <>
 struct ClockState<SphereAnimation::BurstRippleParams, ResourceKind::SURFACE>

@@ -376,7 +376,8 @@ inline bool assign_field(Family &family, std::string_view id, float value) {
 /** @brief Writes one Mobius coefficient addressed by its chain field id. */
 template <typename Params>
 inline bool assign_mobius(Params &params, std::string_view id, float value) {
-  if constexpr (Params::template HAS<"lens">) {
+  if constexpr (std::is_same_v<typename Params::template Family<"lens">,
+                               Pullback::MobiusLensParams>) {
     auto &mobius = params.template get<"lens">().mobius;
     const struct {
       std::string_view id;
@@ -512,7 +513,8 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     case SlotRole::LENS: {
       bool assigned = assign_mobius(built, field_id, number);
       built.visit([&]<typename Resource>(auto &family) {
-        if constexpr (Resource::KIND == Pullback::ResourceKind::LENS)
+        if constexpr (Resource::KIND == Pullback::ResourceKind::LENS ||
+                      Resource::KIND == Pullback::ResourceKind::TWIST)
           if (Resource::KEY.view() == slot.label)
             assigned = assign_field(family, field_id, number) || assigned;
       });
@@ -564,6 +566,12 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     return assigned;
   }
   case SlotRole::COLORIZE:
+    if (field_id == "palette-type") {
+      HS_EXPECT_TRUE(text == "cycling-generated");
+      HS_EXPECT_TRUE(
+          derivation_value_reachable(slot.operator_id, field_id, text));
+      return true;
+    }
     if (field_id == "palette-mapping") {
       for (uint8_t index = 0; index < std::size(ChainOp::PALETTE_MAPPING_IDS);
            ++index)

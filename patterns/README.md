@@ -51,9 +51,9 @@ scripts/generate_promoted_shader_documents.mjs` rewrites `alien_ocean`,
 `alien_brain` and `kaleidoscope_stained_glass` from the effect specs the script holds, so a
 hand edit to those files is lost on the next run — change the spec instead. The specs use current chain IDs and named parameter values.
 
-Nine documents are authored directly in this directory: `ash_cloud`,
+Ten documents are authored directly in this directory: `ash_cloud`,
 `chromatic_lichen`, `mermaid_skin`, `example`, `kaleidoscope_hex_oil`,
-`kaleidoscope_smooth`, `kaleidoscope_melt`, `jewel_melt` and `millefiori`. Edit these version 2 documents here.
+`kaleidoscope_smooth`, `kaleidoscope_melt`, `jewel_melt`, `millefiori` and `grid_worms`. Edit these version 2 documents here.
 
 After editing any document, run `node scripts/generate_composed_presets.mjs`
 to refresh its effect header. Documents use canonical serialization: sorted
@@ -92,6 +92,10 @@ displacement, and a low-frequency gnomonic grid.
 effect. It combines a folded grid, maximum palette chroma, and sphere-space
 curl displacement.
 
+`grid_worms.shader.json` is the hand-authored source for `GridWorms`. It
+preserves the saved study's animated twist before camera rotation, folded
+gnomonic lattice, analogous cup palette and direct directional-sine hue shift.
+
 `ash_cloud.shader.json` is the editable source for the `AshCloud` effect. Its
 value cutout follows a primitive lattice displaced by sphere-space curl noise
 and folded through a dodecahedral kaleidoscope.
@@ -112,6 +116,7 @@ Every document except `example.shader.json` backs a
 | --- | --- |
 | `alien_ocean` | `AlienOcean` |
 | `grid_space` | `GridSpace` |
+| `grid_worms` | `GridWorms` |
 | `millefiori` | `Millefiori` |
 | `cosmic_eyeball` | `CosmicEyeball` |
 | `ash_cloud` | `AshCloud` |

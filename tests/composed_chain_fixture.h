@@ -90,7 +90,11 @@ void verify_export(size_t preset, int channel_tolerance,
                                     effects_tests::preset_params<FX>(preset));
   for (int frame = 0; frame < 3; ++frame)
     ComposedFrameWhiteBox::advance(effect);
-  const auto own = ComposedFrameWhiteBox::frame(effect);
+  auto own = ComposedFrameWhiteBox::frame(effect);
+  if constexpr (std::is_same_v<FX, GridWorms<SMALL_W, SMALL_H>>)
+    own.outer_conjugate =
+        math::make_rotation(math::Vector(0.3f, 0.7f, -0.2f).normalized(), 0.8f)
+            .conjugate();
   for (size_t index = 0; index < program.ops().size(); ++index) {
     const auto &op = program.ops()[index];
     const std::string_view id = op.op->operator_id;
@@ -101,12 +105,14 @@ void verify_export(size_t preset, int channel_tolerance,
                          .conjugate();
       state.spin_phase = 0.0f;
     } else if (id == "sphere.lens.twist.v2") {
-      if constexpr (FX::Params::template HAS<"lens2">) {
-        const auto axis = math::rotate(
-            math::UP, own.resources.template get<"lens2">().wander);
-        mutable_state<In::Op::TwistOrbitState>(program, index) = {
-            acosf(hs::clamp(axis.y, -1.0f, 1.0f)), atan2f(axis.z, axis.x)};
-      }
+      own.params.visit([&]<typename Resource>(const auto &) {
+        if constexpr (Resource::KIND == Pullback::ResourceKind::TWIST)
+          if (Resource::KEY.view() == op.instance) {
+            const auto &phase = own.resources.template get<Resource::KEY>();
+            mutable_state<In::Op::TwistOrbitState>(program, index) = {
+                phase.phi, phase.lambda};
+          }
+      });
     } else if (id == "sphere.displace.ripple.v2") {
       if constexpr (FX::Params::template HAS<"displace">)
         static_cast<In::RippleClockSnapshot &>(
@@ -167,6 +173,40 @@ void verify_export(size_t preset, int channel_tolerance,
                (expected.color.r || expected.color.g || expected.color.b);
   }
   HS_EXPECT_GT(visible, 0u);
+  if constexpr (std::is_same_v<FX, GridWorms<SMALL_W, SMALL_H>>) {
+    struct TemporalBlocks {
+      alignas(std::max_align_t) uint8_t history[In::CHAIN_ARENA_BYTES];
+      alignas(std::max_align_t) uint8_t column[In::CHAIN_ARENA_BYTES];
+    };
+    auto blocks = std::make_unique<TemporalBlocks>();
+    program.bind_temporal_storage(blocks->history, blocks->column);
+    program.prepare(context);
+    program.capture_history();
+    auto &twist = mutable_state<In::Op::TwistOrbitState>(program, 0);
+    const auto &twist_params =
+        *reinterpret_cast<const In::Op::TwistChainParams *>(
+            program.param_block(0));
+    In::Op::LensTwist::advance(twist, twist_params);
+    ComposedFrameWhiteBox::advance(effect);
+    auto next = ComposedFrameWhiteBox::frame(effect);
+    next.outer_conjugate = own.outer_conjugate;
+    const auto &clock = next.resources.template get<"lens1">();
+    HS_EXPECT_EQ(twist.phi, clock.phi);
+    HS_EXPECT_EQ(twist.lambda, clock.lambda);
+    HS_EXPECT_TRUE(program.history_continuous());
+    for (const float fraction : {0.0f, 0.125f, 0.5f, 0.875f, 1.0f}) {
+      const auto column = Pullback::FrameInterval(own, next).at(fraction);
+      const auto frame = FX::RenderPipeline::prepare(column);
+      program.prepare_column(context, context, fraction);
+      for (const auto &view : sweep_views()) {
+        const auto expected = FX::shade(view, frame);
+        const auto actual =
+            program.evaluate_column(view, context, context, fraction);
+        expect_color_within(actual, expected, channel_tolerance,
+                            alpha_tolerance);
+      }
+    }
+  }
 }
 
 } // namespace hs_test::composed_chain_tests

@@ -366,6 +366,14 @@ struct PolicyResources<LensProvider<B, Key>> {
   using Type = ResourceList<
       ParameterResource<Key, MobiusLensParams, ResourceKind::LENS>>;
 };
+/** @brief A twist provider declares independent controls and axis clocks.
+ * @tparam B Bound frame.
+ * @tparam Key Twist resource key. */
+template <typename B, ResourceKey Key>
+struct PolicyResources<TwistProvider<B, Key>> {
+  using Type = ResourceList<
+      ParameterResource<Key, TwistLensParams, ResourceKind::TWIST>>;
+};
 /**
  * @brief A warp provider declares its warp family under @p Key.
  * @tparam B Frame binding.

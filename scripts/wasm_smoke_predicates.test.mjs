@@ -349,3 +349,23 @@ test('a compiled affine period is derived from the authored lattice scale', () =
   } });
   assert.match(promotedBindingProblems(run)[0], /must match the compiled affine/);
 });
+
+test('typed twist controls follow arbitrary resource keys and repetition', () => {
+  const descriptor = { chain: [{ label: 'whorl', operator: 'sphere.lens.twist.v2' }] };
+  assert.deepEqual(engineControlNames('whorl.twist-angle', descriptor), ['whorl.Twist Angle (rad)']);
+  assert.deepEqual(engineControlNames('whorl.twist-distribution', descriptor), ['whorl.Twist Distribution']);
+  assert.deepEqual(engineControlNames('whorl.speed', descriptor), ['whorl.Speed']);
+  assert.deepEqual(engineControlNames('whorl.drift', descriptor), ['whorl.Drift']);
+  descriptor.chain[0].resource_key = 'lens';
+  assert.deepEqual(engineControlNames('whorl.twist-angle', descriptor), ['Twist Angle (rad)']);
+  descriptor.chain.push({ label: 'other', operator: 'sphere.lens.twist.v2' });
+  assert.deepEqual(engineControlNames('whorl.twist-angle', descriptor), ['lens.Twist Angle (rad)']);
+});
+
+test('analytic modulation frequency resolves its live compiled control', () => {
+  const descriptor = { chain: [{ label: 'modulation', operator: 'color.modulate.v1' }] };
+  assert.deepEqual(engineControlNames('modulation.sine-frequency', descriptor), ['Pattern Frequency']);
+  assert.deepEqual(engineControlNames('modulation.sine-speed', descriptor), ['Pattern Speed']);
+  descriptor.chain[0].resource_key = 'pigment';
+  assert.deepEqual(engineControlNames('modulation.sine-frequency', descriptor), ['pigment.Pattern Frequency']);
+});

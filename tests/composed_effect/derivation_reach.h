@@ -145,7 +145,7 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"color.modulate.v1", "modulation-enabled", {{"enabled"}}},
     {"color.modulate.v1",
      "modulation-source",
-     {{"noise", "displacement", "sphere-smooth-grid"}}},
+     {{"noise", "displacement", "sphere-smooth-grid", "directional-sine"}}},
     {"color.modulate.v1", "modulation-evaluation", {{"direct", "baked-cube"}}},
     {"color.modulate.v1",
      "modulation-mechanic",
@@ -258,5 +258,5 @@ inline void test_composed_derivation_reach() {
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 39u);
   HS_EXPECT_EQ(unreachable_operators, 11u);
   HS_EXPECT_EQ(catalog_values, 244u);
-  HS_EXPECT_EQ(unreachable_values, 189u);
+  HS_EXPECT_EQ(unreachable_values, 188u);
 }

@@ -19,6 +19,7 @@ using Color::ColorParams;
 using ValueCoverage::CutoutValueParams;
 using ProjectionCoverage::EdgeValueParams;
 using Lens::MobiusLensParams;
+using Lens::TwistLensParams;
 using Projection::ProjectionParams;
 using Source::GridSourceParams;
 using Source::LatticeSourceParams;
@@ -149,6 +150,26 @@ template <typename BindingT, ResourceKey Key = "lens"> struct LensProvider {
   __attribute__((always_inline)) static const math::MobiusParams &
   params(const FrameState &frame) {
     return frame.params.template get<Key>().mobius;
+  }
+};
+
+/** @brief Supplies the parameters and phase of one animated twist.
+ * @tparam BindingT Bound frame.
+ * @tparam Key Twist resource key. */
+template <typename BindingT, ResourceKey Key> struct TwistProvider {
+  using Binding = BindingT;                        ///< Provider binding.
+  using FrameState = typename Binding::FrameState; ///< Bound frame.
+  /** @brief Reads the twist controls.
+   * @param frame Bound frame.
+   * @return Keyed parameter family. */
+  static const TwistLensParams &params(const FrameState &frame) {
+    return frame.params.template get<Key>();
+  }
+  /** @brief Reads the axis-angle clocks.
+   * @param frame Bound frame.
+   * @return Keyed phase state. */
+  static const Lens::TwistPhase &phase(const FrameState &frame) {
+    return frame.resources.template get<Key>();
   }
 };
 

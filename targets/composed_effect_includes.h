@@ -17,6 +17,7 @@
 #include "effects/ChromaticLichen.h"
 #include "effects/CosmicEyeball.h"
 #include "effects/GridSpace.h"
+#include "effects/GridWorms.h"
 #include "effects/JewelMelt.h"
 #include "effects/KaleidoscopeFlowers.h"
 #include "effects/KaleidoscopeHexBright.h"

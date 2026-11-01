@@ -89,6 +89,105 @@ struct Glitch : ApproximationDefaults {
   }
 };
 
+/** @brief Parameters of an animated axial twist lens. */
+struct TwistLensParams {
+  float twist_angle = lenses::TWIST_ANGLE; ///< Total pole-to-pole radians.
+  float distribution = lenses::TWIST_DISTRIBUTION; ///< Polar redistribution.
+  float speed = 0.02f;  ///< Polar rotation per frame, in radians.
+  float drift = 0.002f; ///< Azimuth rotation per frame, in radians.
+  /// Authored twist controls.
+  static constexpr auto FIELDS = std::array{
+      Field<TwistLensParams>{"twist-angle", &TwistLensParams::twist_angle,
+                             "Twist Angle (rad)", -96.0f, 96.0f,
+                             FieldCurve::LERP},
+      Field<TwistLensParams>{"twist-distribution",
+                             &TwistLensParams::distribution,
+                             "Twist Distribution", 0.0f,
+                             lenses::TWIST_DISTRIBUTION_MAX, FieldCurve::LERP},
+      Field<TwistLensParams>{"speed", &TwistLensParams::speed, "Speed", 0.0f,
+                             0.05f, FieldCurve::LERP},
+      Field<TwistLensParams>{"drift", &TwistLensParams::drift, "Drift", 0.0f,
+                             0.05f, FieldCurve::LERP},
+  };
+};
+static_assert(field_ids_unique<TwistLensParams>());
+static_assert(field_defaults_in_range<TwistLensParams>());
+
+/** @brief Twist-axis angles, in radians modulo 2pi. */
+struct TwistPhase {
+  float phi = 0.0f;    ///< Polar angle.
+  float lambda = 0.0f; ///< Azimuth angle.
+};
+
+/** @brief Prepared axis and angular profile. */
+struct TwistPrepared {
+  math::Vector axis{0.0f, 1.0f, 0.0f}; ///< Unit twist axis.
+  /// Normalized angular profile.
+  lenses::TwistProfile profile = lenses::prepare_twist_profile();
+};
+
+/** @brief Advances both twist-axis clocks.
+ * @param phase Accumulated axis angles.
+ * @param params Lens controls. */
+inline void advance_twist(TwistPhase &phase, const TwistLensParams &params) {
+  phase.phi = fmodf(phase.phi + params.speed, math::TWO_PI_F);
+  phase.lambda = fmodf(phase.lambda + params.drift, math::TWO_PI_F);
+}
+
+/** @brief Prepares the animated twist axis and angular profile.
+ * @param params Lens controls.
+ * @param phase Accumulated axis angles.
+ * @return Per-frame lens state. */
+inline TwistPrepared prepare_twist(const TwistLensParams &params,
+                                   const TwistPhase &phase) {
+  return {
+      math::Vector::from_spherical(phase.lambda, phase.phi),
+      lenses::prepare_twist_profile(params.twist_angle, params.distribution)};
+}
+
+/** @brief Applies a prepared animated twist.
+ * @param input Unit direction.
+ * @param prepared Axis and angular profile.
+ * @return Twisted direction. */
+inline math::Vector twist(const math::Vector &input,
+                          const TwistPrepared &prepared) {
+  if (prepared.axis.y == 1.0f)
+    return lenses::twist_lens(input, prepared.profile);
+  const float height = math::dot(input, prepared.axis);
+  const float angle = lenses::twist_angle(height, prepared.profile);
+  const float c = math::fast_cosf(angle);
+  const float sine = math::fast_sinf(angle);
+  return input * c + math::cross(input, prepared.axis) * sine +
+         prepared.axis * (height * (1.0f - c));
+}
+
+/** @brief Animated twist policy supplied by a typed provider.
+ * @tparam State Parameter and phase provider. */
+template <typename State> struct AnimatedTwist : ApproximationDefaults {
+  using Binding = typename State::Binding;       ///< Provider binding.
+  using FrameState = typename State::FrameState; ///< Bound frame.
+  using Prepared = TwistPrepared;                ///< Per-frame twist.
+  /// Whether the provider uses the candidate binding.
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ProviderFor<State, CandidateBinding>;
+  /** @brief Prepares one frame or column.
+   * @param frame Bound frame.
+   * @return Prepared axis and profile. */
+  static Prepared prepare(const FrameState &frame) {
+    return prepare_twist(State::params(frame), State::phase(frame));
+  }
+  /** @brief Applies the prepared twist.
+   * @param input Unit direction.
+   * @param frame Bound frame.
+   * @param prepared Axis and profile.
+   * @return Twisted direction. */
+  static math::Vector apply(const math::Vector &input, const FrameState &,
+                            const Prepared &prepared) {
+    return twist(input, prepared);
+  }
+};
+
 /** @brief Twist lens: `lenses::twist_lens` at its default angle and distribution. */
 struct Twist : ApproximationDefaults {
   /**

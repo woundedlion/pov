@@ -52,6 +52,7 @@ constexpr std::array IDENTITY_GOLDENS{
     IdentityGolden{"Galaxies", "Galaxies", 0x9874FB9E47360D77ULL},
     IdentityGolden{"GnomonicStars", "GnomonicStars", 0x025960528523F2FEULL},
     IdentityGolden{"GridSpace", "grid-space", 0x816DB39119548BD2ULL},
+    IdentityGolden{"GridWorms", "grid-worms", 0x86CF3D673A42E364ULL},
     IdentityGolden{"GSReactionDiffusion", "GSReactionDiffusion",
                    0xFA20DF830B51B72FULL},
     IdentityGolden{"HankinSolids", "HankinSolids", 0x30B3BDF0CC9BF813ULL},

@@ -190,3 +190,29 @@ test('invalid authored preset reports its document diagnostics before generation
     error.message.includes('patterns/kaleidoscope_smooth.shader.json') &&
     error.message.includes('VALUE_OUT_OF_RANGE'));
 });
+
+test('GridWorms keeps its authored stage order and keyed twist controls', async () => {
+  const source = JSON.parse(await readFile(new URL('../patterns/grid_worms.shader.json', import.meta.url), 'utf8'));
+  const compiled = compileShaderDocument(source, { catalog });
+  assert.equal(compiled.status, 'VALID');
+  assert.equal(source.document_id, 'grid-worms-v1');
+  assert.equal(source.effect_id, 'grid-worms');
+  assert.deepEqual(source.descriptor.chain.map(({ operator }) => operator), [
+    'sphere.lens.twist.v2', 'sphere.rotate.v2', 'project.gnomonic.v2',
+    'sample.lattice.v2', 'colorize.generated-palette.v4', 'color.modulate.v1',
+  ]);
+  const values = source.preset_bank.presets[0].values;
+  const assignments = presetAssignments(source, values);
+  assert.equal(assignments.get('lens1.twist_angle'), '-10.259509f');
+  assert.equal(assignments.get('lens1.distribution'), '0.999f');
+  assert.equal(assignments.get('lens1.speed'), '0.027205883f');
+  assert.equal(assignments.get('lens1.drift'), '0.01632353f');
+  assert.equal(assignments.get('source.lattice_cell_scale'), '2.420276f');
+  assert.equal(assignments.get('modulation.modulation.sine.frequency'), '1.0f');
+  assert.equal(assignments.has('value.edge_width'), false);
+  source.descriptor.chain[0].label = 'whorl';
+  source.descriptor.chain[0].resource_key = 'spin';
+  const renamed = Object.fromEntries(Object.entries(values).map(([id, value]) =>
+    [id.replace(/^lens1\./, 'whorl.'), value]));
+  assert.equal(presetAssignments(source, renamed).get('spin.twist_angle'), '-10.259509f');
+});

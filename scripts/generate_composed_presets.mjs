@@ -50,6 +50,9 @@ export function floatLiteral(value) {
 export function presetAssignments(document, values) {
   const assignments = new Map();
   const topology = topologyIds(document);
+  const twists = new Map(document.descriptor.chain.filter(
+    (slot) => slot.operator === 'sphere.lens.twist.v2')
+    .map((slot) => [slot.label, slot.resource_key ?? slot.label]));
   const modulations = new Set(document.descriptor.chain.filter(
     (slot) => slot.operator === 'color.modulate.v1').map((slot) => slot.label));
   for (const [id, value] of Object.entries(values)) {
@@ -74,7 +77,11 @@ export function presetAssignments(document, values) {
     if (BAKED_CONSTANT_IDS.has(id)) continue;
     let member;
     if (id === 'camera.wander') member = 'projection.camera_wander';
-    else if (id === 'sample.edge-width') member = 'value.edge_width';
+    else if (id === 'sample.edge-width') {
+      if (fixedDerivedBinding(document.descriptor, id, values)) continue;
+      member = 'value.edge_width';
+    } else if (twists.has(label))
+      member = `${twists.get(label)}.${field === 'twist-distribution' ? 'distribution' : field.replaceAll('-', '_')}`;
     else if (/^lens\.mobius-[abcd]-(re|im)$/.test(id))
       member = `lens.mobius.${field.split('-').slice(1).join('.')}`;
     else if (modulations.has(label) && MODULATION_MEMBERS[field])

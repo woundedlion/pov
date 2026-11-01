@@ -151,6 +151,7 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
  *          Other exclusions are product curation.
  */
 #define HS_PHANTASM_EXCLUDED_EFFECTS(X)                                        \
+  X(GridWorms)                                                                 \
   X(JewelMelt)                                                                 \
   X(KaleidoscopeStainedGlass)                                                  \
   X(KaleidoscopeMelt)                                                          \

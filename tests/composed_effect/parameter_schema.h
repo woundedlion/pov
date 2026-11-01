@@ -198,6 +198,7 @@ constexpr ParameterSchemaPin PARAMETER_SCHEMA_PINS[] = {
     {"KaleidoscopeMandala", 4, 280, 13820729389425608030ULL},
     {"Millefiori", 1, 436, 1470632974023726218ULL},
     {"GridSpace", 4, 264, 11830402334610884471ULL},
+    {"GridWorms", 1, 244, 4572924992517753811ULL},
     {"KaleidoscopeMelt", 3, 240, 738385364115786086ULL},
     {"ChromaticLichen", 4, 248, 3008862667822062567ULL},
     {"MermaidSkin", 4, 248, 3008862667822062567ULL},

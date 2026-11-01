@@ -413,6 +413,26 @@ inline void check_slider_registration(const char *name) {
   verify_warp_slot<FX, typename Params::template Family<"inner_warp">>(
       params, "Planar Warp 2 Speed");
 
+  size_t twist_sliders = 0;
+  typename FX::Params{}.visit([&]<typename Resource>(const auto &) {
+    if constexpr (Resource::KIND == Pullback::ResourceKind::TWIST) {
+      for (const auto &field : Resource::Family::FIELDS) {
+        const std::string prefix =
+            Pullback::ComposedDetail::qualified<
+                Resource, typename Params::ResourceTypes>()
+                ? std::string(Resource::KEY.view()) + "."
+                : "";
+        const auto *slider = params.find((prefix + field.name).c_str());
+        HS_EXPECT_TRUE(slider != nullptr);
+        if (slider) {
+          HS_EXPECT_EQ(slider->min, field.min);
+          HS_EXPECT_EQ(slider->max, field.max);
+        }
+        ++twist_sliders;
+      }
+    }
+  });
+
   for (const char *slider : UNGATED_COLOR_SLIDERS)
     HS_EXPECT_TRUE(params.find(slider) != nullptr);
   constexpr bool mobius =
@@ -423,13 +443,21 @@ inline void check_slider_registration(const char *name) {
   constexpr bool brightness =
       Traits::BRIGHTNESS != Pullback::Color::BrightnessEnvelope::NONE;
   constexpr bool displacement = Params::template HAS<"displacement">;
-  constexpr bool hue_noise = Params::template HAS<"modulation">;
+  constexpr bool spatial_modulation = Params::template HAS<"modulation">;
   HS_EXPECT_EQ(params.find("Modulation Amount") != nullptr,
-               displacement || hue_noise);
+               displacement || spatial_modulation);
   HS_EXPECT_EQ(params.find("Brightness Bottom") != nullptr, brightness);
   HS_EXPECT_EQ(params.find("Brightness Top") != nullptr, brightness);
-  HS_EXPECT_EQ(params.find("Pattern Scale") != nullptr, hue_noise);
-  HS_EXPECT_EQ(params.find("Pattern Speed") != nullptr, hue_noise);
+  constexpr bool noise_modulation = [] {
+    if constexpr (Params::template HAS<"modulation">)
+      return Params::template Family<"modulation">::SOURCE ==
+             Pattern::SourceKind::NOISE;
+    return false;
+  }();
+  HS_EXPECT_EQ(params.find("Pattern Scale") != nullptr, noise_modulation);
+  HS_EXPECT_EQ(params.find("Pattern Frequency") != nullptr,
+               spatial_modulation && !noise_modulation);
+  HS_EXPECT_EQ(params.find("Pattern Speed") != nullptr, spatial_modulation);
   if constexpr (Params::template HAS<"modulation">) {
     const auto initial = preset_params<FX>(0);
     const auto &config = initial.template get<"modulation">().modulation;
@@ -499,6 +527,7 @@ inline void check_slider_registration(const char *name) {
   }
 
   const size_t expected =
+      twist_sliders +
       named_field_count<FX, typename Params::template Family<"source">>() +
       named_field_count<FX, Pullback::ProjectionParams>() +
       named_field_count<FX, typename Params::template Family<"surface">>() +
@@ -507,7 +536,7 @@ inline void check_slider_registration(const char *name) {
       warp_slot_count<FX, typename Params::template Family<"inner_warp">>() +
       (mobius ? std::size(MOBIUS_SLIDERS) : size_t{0}) +
       std::size(UNGATED_COLOR_SLIDERS) + (brightness ? size_t{2} : size_t{0}) +
-      (hue_noise ? size_t{3} : size_t{0}) +
+      (spatial_modulation ? size_t{3} : size_t{0}) +
       (displacement ? size_t{1} : size_t{0});
   HS_EXPECT_EQ(params.size(), expected);
   HS_EXPECT_EQ(params.size(), params.capacity());
@@ -547,7 +576,8 @@ inline void check_snapshot_contract(const char *name) {
     if constexpr (Pullback::HasFields<typename Resource::Family>)
       move_off_captured(family, captured.params.template get<Resource::KEY>());
   });
-  if constexpr (Params::template HAS<"lens">) {
+  if constexpr (std::is_same_v<typename Params::template Family<"lens">,
+                               Pullback::MobiusLensParams>) {
     moved.params.template get<"lens">().mobius.a = {1.0f, 0.2f};
     moved.params.template get<"lens">().mobius.b = {0.3f, 0.4f};
     moved.params.template get<"lens">().mobius.c = {0.5f, 0.6f};
@@ -599,7 +629,8 @@ inline void check_snapshot_contract(const char *name) {
   HS_EXPECT_FALSE(effect.restore_parameters(mapping));
   verify_params_equal(effect.serialize_parameters().params, captured.params);
 
-  if constexpr (Params::template HAS<"lens">) {
+  if constexpr (std::is_same_v<typename Params::template Family<"lens">,
+                               Pullback::MobiusLensParams>) {
     typename FX::ParameterSnapshot lens = captured;
     lens.params.template get<"lens">().mobius.a.re =
         std::numeric_limits<float>::quiet_NaN();
@@ -860,6 +891,8 @@ inline void test_composed_strobe_roster() {
 #undef HS_COMPOSED_STROBE
 }
 
+#include "tests/composed_effect/grid_worms.h"
+
 /** @brief Millefiori pixels match its document-built operator chain. */
 inline void test_millefiori_document_pipeline() {
   composed_chain_tests::verify_export<Millefiori<SMALL_W, SMALL_H>>(0);
@@ -910,6 +943,8 @@ inline int run_composed_effect_tests() {
   ModuleFixture fixture("composed_effect");
   HS_RUN(test_millefiori_radial_table_interval);
   HS_RUN(test_millefiori_document_pipeline);
+  HS_RUN(test_grid_worms_twist_clocks);
+  HS_RUN(test_grid_worms_document_pipeline);
   HS_RUN(test_ash_cloud_document_pipeline);
   HS_RUN(test_ash_cloud_shared_color_identity);
   HS_RUN(test_ash_cloud_camera_column_admission);

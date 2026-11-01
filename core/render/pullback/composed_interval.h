@@ -125,6 +125,11 @@ public:
                                SphereAnimation::BurstRippleParams>) {
         delta.phase = Spacetime::ClockInterval::prepare_delta(start.phase,
                                                               end.phase, 1.0f);
+      } else if constexpr (Resource::KIND == ResourceKind::TWIST) {
+        delta.phi = Spacetime::ClockInterval::prepare_delta(start.phi, end.phi,
+                                                            math::TWO_PI_F);
+        delta.lambda = Spacetime::ClockInterval::prepare_delta(
+            start.lambda, end.lambda, math::TWO_PI_F);
       } else if constexpr (std::is_same_v<typename Resource::Family,
                                           MobiusLensParams>) {
         delta.angle = Spacetime::ClockInterval::prepare_delta(
@@ -255,6 +260,11 @@ public:
         else
           clock.phase = Spacetime::ClockInterval::apply(start.phase,
                                                         delta.phase, fraction);
+      } else if constexpr (Resource::KIND == ResourceKind::TWIST) {
+        clock.phi =
+            Spacetime::ClockInterval::apply(start.phi, delta.phi, fraction);
+        clock.lambda = Spacetime::ClockInterval::apply(start.lambda,
+                                                       delta.lambda, fraction);
       } else if constexpr (std::is_same_v<typename Resource::Family,
                                           MobiusLensParams>) {
         const auto &end = to.params.template get<Resource::KEY>();
