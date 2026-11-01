@@ -1995,18 +1995,19 @@ public:
    * @param frame Prepared pipeline state.
    * @param cosine Cosine of longitude.
    * @param sine Sine of longitude.
-   * @return Camera-rotated meridian basis. */
-  HS_FLASH_INLINE static ColumnBasis
-  rotation_column_basis(const Frame &frame, float cosine, float sine)
+   * @param equator Receives the rotated equatorial direction.
+   * @param up Receives the rotated polar direction. */
+  HS_FLASH_INLINE HS_HOT_INLINE static void
+  rotation_column_basis(const Frame &frame, float cosine, float sine,
+                        math::Vector &equator, math::Vector &up)
     requires(ROTATION_COLUMNS)
   {
-    const auto transform = [&](const math::Vector &view) {
-      return NodeAt<0>::run(SphereSample{view, 0.0f}, frame.ctx,
-                            std::get<0>(frame.prepared))
-          .dir;
-    };
-    return {transform(math::Vector(cosine, 0.0f, sine)),
-            transform(math::Vector(0.0f, 1.0f, 0.0f))};
+    equator = NodeAt<0>::run(SphereSample{{cosine, 0.0f, sine}, 0.0f},
+                             frame.ctx, std::get<0>(frame.prepared))
+                  .dir;
+    up = NodeAt<0>::run(SphereSample{{0.0f, 1.0f, 0.0f}, 0.0f}, frame.ctx,
+                        std::get<0>(frame.prepared))
+             .dir;
   }
 
   /** @brief Prepares a meridian's linear rotation prefix.
@@ -2021,7 +2022,8 @@ public:
     using Projection =
         typename Detail::ColumnPrefix<NodeList>::ProjectionLeaf::Type;
     using Policy = typename Projection::ProjectionPolicy;
-    const auto ROTATED = rotation_column_basis(frame, cosine, sine);
+    ColumnBasis ROTATED;
+    rotation_column_basis(frame, cosine, sine, ROTATED.equator, ROTATED.up);
     return {math::rotate(ROTATED.equator, Policy::frame_conjugate(frame.ctx)),
             math::rotate(ROTATED.up, Policy::frame_conjugate(frame.ctx))};
   }

@@ -361,10 +361,8 @@ public:
                         SHARED,
                         SHARED && camera_column_admitted()};
     if (shader.factored) {
-      const auto BASIS =
-          Pipeline::rotation_column_basis(frame, shader.cosine, shader.sine);
-      shader.equator = BASIS.equator;
-      shader.up = BASIS.up;
+      Pipeline::rotation_column_basis(frame, shader.cosine, shader.sine,
+                                      shader.equator, shader.up);
     }
     return shader;
   }
