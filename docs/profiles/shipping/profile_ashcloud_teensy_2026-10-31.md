@@ -11,7 +11,7 @@ America/Los_Angeles on COM4. Replaces `profile_ashcloud_teensy_2026-10-23.md`.
 | Hardware | Teensy 4.0 at 600 MHz, live flywheel and DMA ISRs |
 | Image | `profile`, shipping `-Os` with selective `HS_O3`/ITCM shader, ripple and noise kernels |
 | Driver | `POVSegmented<288, 4, 480>`, segment 0 master |
-| Effect | AshCloud 288×144, authored `ash-cloud-v1-copy1` preset, source `4a67716ae975443ceab6e75b1061d537dee4c2d6` |
+| Effect | AshCloud 288×144, authored `ash-cloud` preset, source `4a67716ae975443ceab6e75b1061d537dee4c2d6` |
 | Method | `HS_PROFILE`, 32-frame windows, 130 seconds, `HS_PROFILE_EPOCH_REVS=1200`; no epoch reset |
 | Reproduce | `HS_PROFILE_TREE=C:/work/Holosphere HS_PIO_JOBS=4 bash tools/profile_one.sh AshCloud profile 130 32 '-D HS_PROFILE_EPOCH_REVS=1200'` |
 
