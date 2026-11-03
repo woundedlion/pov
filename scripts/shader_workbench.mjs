@@ -775,6 +775,7 @@ const admissibleParameters = (operator, value) => {
   const f = Math.fround;
   if (operator.id === 'sphere.displace.potential.v1') {
     for (let term = 1; term <= 4; ++term) {
+      if (value(`term-${term}-type`) !== 'mode') continue;
       const orders = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
       const l = orders.indexOf(value(`term-${term}-l`)), m = orders.indexOf(value(`term-${term}-m`));
       if (l < 0 || m < 0 || m > l)

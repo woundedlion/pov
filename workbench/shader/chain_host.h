@@ -424,16 +424,19 @@ public:
 
   /** @brief Reads admitted numeric intervals with other parameters held fixed.
    * @tparam Visitor Callable receiving name, minimum and maximum.
-   * @param visit Receives each writable floating-point parameter's interval. */
+   * @param visit Receives scalar intervals and potential-field topology indices. */
   template <typename Visitor> void parameter_ranges(Visitor &&visit) {
     const auto ops = program.ops();
     for (size_t index = 0; index < ops.size(); ++index)
       for (uint16_t field = 0; field < ops[index].op->schema_count; ++field) {
         const ParamDef *parameter =
             getParameters().find(program.param_name(index, field));
-        if (parameter == nullptr || parameter->readonly ||
-            parameter->is_enum() ||
-            parameter->target_type != ParamDef::TargetType::FLOAT)
+        if (parameter == nullptr || parameter->readonly)
+          continue;
+        const bool topology = parameter->is_enum();
+        if (topology ? std::string_view(ops[index].op->operator_id) !=
+                           Pullback::Interp::Op::DisplacePotential::ID
+                     : parameter->target_type != ParamDef::TargetType::FLOAT)
           continue;
         const auto admitted = [&](float value) {
           return stage_candidates(index, index + 1, [&] {
@@ -445,6 +448,18 @@ public:
                  }).result == ParamSetResult::APPLIED;
         };
         const float current = parameter->get_requested();
+        if (topology) {
+          float minimum = INFINITY;
+          float maximum = -INFINITY;
+          for (int value = 0; value < parameter->option_count; ++value)
+            if (admitted(static_cast<float>(value))) {
+              minimum = std::min(minimum, static_cast<float>(value));
+              maximum = std::max(maximum, static_cast<float>(value));
+            }
+          if (minimum <= maximum)
+            visit(parameter->name, minimum, maximum);
+          continue;
+        }
         const auto boundary = [&](float endpoint) {
           if (((current > 0.0f && endpoint < 0.0f) ||
                (current < 0.0f && endpoint > 0.0f)) &&

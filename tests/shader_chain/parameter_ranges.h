@@ -151,3 +151,57 @@ inline void test_shader_chain_axis_ranges() {
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-x", 0.0f),
                ParamSetResult::APPLIED);
 }
+
+/** @brief Harmonic choices follow the active term and its paired degree/order. */
+inline void test_shader_chain_harmonic_ranges() {
+  reset_globals();
+  ShaderChainWhiteBox::FX effect;
+  effect.init();
+  const In::ChainEntryRequest chain[] = {
+      {"field", In::Op::DisplacePotential::ID},
+      {"project", In::Op::ProjectStereographic::ID},
+      {"sample", In::Op::SampleGridV3::ID},
+      {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID}};
+  HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+  const auto range = [&](const char *id) {
+    std::array<float, 2> result{NAN, NAN};
+    effect.parameter_ranges(
+        [&](const char *name, float minimum, float maximum) {
+          if (std::strcmp(name, id) == 0)
+            result = {minimum, maximum};
+        });
+    return result;
+  };
+  const ShaderChainParameterWrite mode[] = {{"field.term-1-l", 2},
+                                            {"field.term-1-m", 1}};
+  HS_EXPECT_EQ(effect.update_parameters(mode), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(range("field.term-1-l")[0], 1.0f);
+  HS_EXPECT_EQ(range("field.term-1-l")[1], 8.0f);
+  HS_EXPECT_EQ(range("field.term-1-m")[0], 0.0f);
+  HS_EXPECT_EQ(range("field.term-1-m")[1], 2.0f);
+  HS_EXPECT_EQ(effect.updateParameter("field.term-1-m", 3),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_EQ(effect.updateParameter("field.term-1-l", 0),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_EQ(effect.updateParameter("field.term-1-type", 1),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(range("field.term-1-l")[0], 0.0f);
+  HS_EXPECT_EQ(range("field.term-1-l")[1], 8.0f);
+  HS_EXPECT_EQ(range("field.term-1-m")[0], 0.0f);
+  HS_EXPECT_EQ(range("field.term-1-m")[1], 8.0f);
+  HS_EXPECT_EQ(effect.updateParameter("field.term-1-m", 7),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(range("field.term-1-type")[0], 1.0f);
+  HS_EXPECT_EQ(range("field.term-1-type")[1], 3.0f);
+  HS_EXPECT_EQ(effect.updateParameter("field.term-1-type", 0),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_EQ(requested_param(effect, "field.term-1-m"), 7.0f);
+  HS_EXPECT_EQ(effect.updateParameter("field.term-1-l", 8),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(range("field.term-1-type")[0], 0.0f);
+  HS_EXPECT_EQ(range("field.term-1-type")[1], 3.0f);
+  HS_EXPECT_EQ(effect.updateParameter("field.term-1-type", 0),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(range("field.term-1-l")[0], 7.0f);
+  HS_EXPECT_EQ(range("field.term-1-m")[1], 8.0f);
+}

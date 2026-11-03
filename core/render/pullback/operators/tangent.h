@@ -313,7 +313,8 @@ struct DisplacePotential
     for (const auto &t : params.terms)
       if (t.type > 3 || t.kind > 1 || !std::isfinite(t.amplitude) ||
           fabsf(t.amplitude) > 4 || !std::isfinite(t.phase) ||
-          fabsf(t.phase) > math::PI_F || t.l > 8 || t.m > t.l)
+          fabsf(t.phase) > math::PI_F || t.l > 8 || t.m > 8 ||
+          (t.type == 0 && t.m > t.l))
         return false;
     return true;
   }

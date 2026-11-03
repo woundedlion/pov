@@ -92,6 +92,23 @@ test('field documents reject invalid mode orders without clamping', () => {
   assert.equal(compile(document).status, 'VALID');
 });
 
+test('polyhedral potential terms retain independent latent harmonic controls', () => {
+  const document = withAdmissionOperator('sphere.displace.potential.v1', 1);
+  const values = document.preset_bank.presets[0].values;
+  values['admission.term-1-type'] = 'tetrahedral';
+  values['admission.term-1-l'] = 'two';
+  values['admission.term-1-m'] = 'seven';
+  values['admission.term-1-amplitude'] = 1;
+  const accepted = compile(document);
+  assert.equal(accepted.status, 'VALID');
+  assert.equal(accepted.document.preset_bank.presets[0]
+    .values['admission.term-1-m'], 'seven');
+  values['admission.term-1-type'] = 'mode';
+  const rejected = compile(document);
+  assert.equal(rejected.status, 'INVALID');
+  assert.ok(rejected.diagnostics.some(({code}) => code === 'INADMISSIBLE_PARAMETERS'));
+});
+
 test('current Twist angles round-trip without changing their distribution', () => {
   const document = withAdmissionOperator('sphere.lens.twist.v2', 1);
   const values = document.preset_bank.presets[0].values;
