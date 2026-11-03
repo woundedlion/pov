@@ -598,8 +598,12 @@ add_test(NAME unit_gamut_lut COMMAND ${CMAKE_COMMAND}
 set_tests_properties(unit_gamut_lut PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
 
 add_test(NAME unit_tangent_field_constants
-    COMMAND ${Python3_EXECUTABLE} ${HS_ROOT}/tools/gen_tangent_field_constants.py --check)
-set_tests_properties(unit_tangent_field_constants PROPERTIES TIMEOUT 300)
+    COMMAND ${CMAKE_COMMAND}
+    -DPYTHON_EXE=${Python3_EXECUTABLE}
+    -DGENERATOR=${HS_ROOT}/tools/gen_tangent_field_constants.py
+    -DSKIP_CODE=77 -DREQUIRE_GENERATORS=${HS_REQUIRE_GENERATORS}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_tangent_field_constants.cmake)
+set_tests_properties(unit_tangent_field_constants PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
 
 # Pin hardware/pov_segment_map.json against hardware/pov_segment_map.h, emitted
 # from a TU compiled against the header.
