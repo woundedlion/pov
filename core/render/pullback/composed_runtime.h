@@ -201,18 +201,21 @@ public:
                           PARAM_CAPACITY);
     this->params.visit([&]<typename Resource>(auto &) {
       if constexpr (Resource::KIND == ResourceKind::ROTATION) {
-        constexpr uint32_t SEED =
-            fnv1a("sphere.rotate.v2", fnv1a(std::string_view("\0", 1),
-                                            fnv1a(Resource::KEY.view())));
+        constexpr auto INSTANCE =
+            AUTHORED_TOPOLOGY ? authored_instance_label(Resource::KEY.view())
+                              : Resource::KEY.view();
+        constexpr uint32_t SEED = instance_hash(INSTANCE, "sphere.rotate.v2");
         SphereAnimation::init_walk(
             clocks.template get<Resource::KEY>().rotation_walk,
             static_cast<int32_t>(SEED));
       }
       if constexpr (std::is_same_v<typename Resource::Family,
                                    SphericalRingsSourceParams>) {
-        constexpr uint32_t SEED = fnv1a(
-            "sample.spherical-rings.v3",
-            fnv1a(std::string_view("\0", 1), fnv1a(Resource::KEY.view())));
+        constexpr auto INSTANCE =
+            AUTHORED_TOPOLOGY ? authored_instance_label(Resource::KEY.view())
+                              : Resource::KEY.view();
+        constexpr uint32_t SEED =
+            instance_hash(INSTANCE, "sample.spherical-rings.v3");
         SphereAnimation::init_walk(
             clocks.template get<Resource::KEY>().source_walk,
             static_cast<int32_t>(SEED));
