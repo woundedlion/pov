@@ -407,7 +407,7 @@ inline void test_shader_chain_schema_and_field_ids() {
   const In::OperatorDescriptor &ripple = *ripple_found;
   HS_EXPECT_EQ(ripple.schema_count,
                In::Op::RippleChainParams::FIELDS.size() + 2);
-  HS_EXPECT_TRUE(std::string_view(ripple.display_name) == "Ripple");
+  HS_EXPECT_TRUE(std::string_view(ripple.display_name) == "Ripple Lens");
   HS_EXPECT_TRUE(std::string_view(ripple.schema[0].id) == "period");
   HS_EXPECT_EQ(ripple.schema[0].min, 30.0f);
   HS_EXPECT_EQ(ripple.schema[0].max, 143.0f);
