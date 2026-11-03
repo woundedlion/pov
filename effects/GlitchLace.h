@@ -35,8 +35,7 @@ struct GlitchLaceSpec : Pullback::Spec {
       Pullback::Stage::Lens<
           Pullback::Lens::AnimatedTwist<Pullback::TwistProvider<B, "lens1">>,
           false>,
-      Pullback::Stage::Rotate<
-          Pullback::OuterCameraProvider<B, Pullback::AtlasProjectionParams>>,
+      Pullback::Stage::Rotate<Pullback::RotationProvider<B, "camera">>,
       Pullback::Stage::Displace<
           Pullback::Surface::RossbyHaurwitz<Pullback::SurfaceProvider<
               B, Pullback::Surface::RossbyHaurwitzParams, true, "displace">>>,
@@ -106,7 +105,7 @@ public:
    */
   static constexpr Params initial_params() {
     Params value;
-    value.template get<"projection">().camera_wander = 1.0f;
+    value.template get<"camera">().wander = 1.0f;
     value.template get<"color">().brightness_envelope = Pullback::Color::BrightnessEnvelope::NONE;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;

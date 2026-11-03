@@ -58,16 +58,18 @@ export function floatLiteral(value) {
   return `${/[.e]/.test(text) ? text : `${text}.0`}f`;
 }
 
-const groupFor = (slot) => {
+const groupFor = (slot, authoredTopology = false) => {
   if (slot.resource_key) return slot.resource_key;
+  if (slot.operator === 'sphere.rotate.v2' && authoredTopology) return slot.label;
   if (slot.operator.startsWith('sample.')) return 'source';
   if (slot.operator.startsWith('project.') || slot.operator === 'sphere.rotate.v2') return 'projection';
   if (slot.operator.startsWith('colorize.')) return 'color';
   return GROUPS[slot.label] ?? slot.label;
 };
 
-const scalarMember = (slot, field) => {
-  if (slot.operator === 'sphere.rotate.v2') return field === 'wander' ? 'camera_wander' : null;
+const scalarMember = (slot, field, authoredTopology = false) => {
+  if (slot.operator === 'sphere.rotate.v2')
+    return authoredTopology ? field.replaceAll('-', '_') : field === 'wander' ? 'camera_wander' : null;
   if (slot.operator.startsWith('sample.')) {
     const sourceNames = { 'angle-speed': 'angle_rate', drift: 'secondary_rate',
       'lattice-shape': 'lattice_shape_blend', 'noise-speed': 'noise_time_rate',
@@ -112,7 +114,7 @@ export function presetAssignments(document, values, { authoredTopology = false }
     const definition = catalog.operators.find(operator => operator.id === slot?.operator)?.params
       .find(parameter => parameter.id === field);
     if (!slot || !definition) throw new Error(`Unmapped composed parameter: ${id}`);
-    const group = groupFor(slot);
+    const group = groupFor(slot, authoredTopology);
     if (field === 'lattice-period') {
       if (slot.operator !== 'warp.affine.v3') throw new Error(`Invalid derived binding: ${id}`);
       if (!authoredTopology && fixedDerivedBinding(document.descriptor, id, values)?.valid) continue;
@@ -155,7 +157,7 @@ export function presetAssignments(document, values, { authoredTopology = false }
       }
       continue;
     }
-    if (slot.operator === 'sphere.rotate.v2' && field === 'spin-speed') continue;
+    if (!authoredTopology && slot.operator === 'sphere.rotate.v2' && field === 'spin-speed') continue;
     if (slot.operator.startsWith('sample.') && field === 'edge-width') {
       if (authoredTopology) {
         assignments.set(`${group}.edge_width`, floatLiteral(value));
@@ -165,7 +167,7 @@ export function presetAssignments(document, values, { authoredTopology = false }
         assignments.set('value.edge_width', floatLiteral(value));
       continue;
     }
-    const member = `${group}.${scalarMember(slot, field)}`;
+    const member = `${group}.${scalarMember(slot, field, authoredTopology)}`;
     if (field === 'palette-mapping') {
       if (!['cup', 'bell', 'linear', 'reverse'].includes(value)) throw new Error(`Invalid mapping: ${value}`);
       assignments.set(member, `Pullback::Color::PaletteMapping::${value.toUpperCase()}`);
@@ -212,7 +214,7 @@ export function generatedSections(compiled, metadata, { authoredTopology = false
   if (!dwell.every((value) => value === dwell[0])) throw new Error('Composed dwell must be uniform');
   const camera = document.descriptor.chain.find(slot => slot.operator === 'sphere.rotate.v2');
   const spin = presets.map(preset => camera ? preset.values[`${camera.label}.spin-speed`] : undefined);
-  if (!spin.every((value) => value === spin[0])) throw new Error('Composed camera spin must be uniform');
+  if (!authoredTopology && !spin.every((value) => value === spin[0])) throw new Error('Composed camera spin must be uniform');
   for (const parameter of document.descriptor.parameters) {
     const [label, field] = parameter.id.split('.');
     const slot = document.descriptor.chain.find(slot => slot.label === label);
@@ -240,7 +242,7 @@ export function generatedSections(compiled, metadata, { authoredTopology = false
     '  };',
     '  /// Frames each preset holds before advancing.',
     `  static constexpr uint16_t PRESET_DWELL_FRAMES = ${dwell[0]};`,
-    ...(spin[0] === undefined ? [] : [
+    ...(authoredTopology || spin[0] === undefined ? [] : [
       '  /// Outer camera spin about +Y, in radians per frame.',
       `  static constexpr float CAMERA_SPIN_RATE = ${floatLiteral(spin[0])};`,
     ]),

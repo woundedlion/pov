@@ -104,6 +104,15 @@ void verify_export(size_t preset, int channel_tolerance,
                                                : own.projection_conjugate)
                          .conjugate();
       state.spin_phase = 0.0f;
+      if (id == "sphere.rotate.v2")
+        own.params.visit([&]<typename Resource>(const auto &) {
+          if constexpr (Resource::KIND == Pullback::ResourceKind::ROTATION)
+            if (Resource::KEY.view() == op.instance) {
+              const auto &clock = own.resources.template get<Resource::KEY>();
+              state.wander = clock.wander;
+              state.spin_phase = clock.spin_phase;
+            }
+        });
     } else if (id == "sphere.lens.twist.v2") {
       own.params.visit([&]<typename Resource>(const auto &) {
         if constexpr (Resource::KIND == Pullback::ResourceKind::TWIST)

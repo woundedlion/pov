@@ -11,8 +11,9 @@
 // clang-format off
 
 inline void catalog_assignments_sphere_rotate_v2() {
-  Pullback::AtlasProjectionParams params;
-  params.camera_wander = 0.0f;
+  Pullback::RotationParams params;
+  params.wander = 0.0f;
+  params.spin_speed = 0.0f;
   (void)params;
 }
 

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { SHADER_DOCUMENT_EFFECTS } from './composed_effect_roster.mjs';
 import { departureLiteral, floatLiteral, generate, generatedSections, presetAssignments, topologySelections, updateHeader } from './generate_composed_presets.mjs';
-import { compileShaderDocument } from './shader_workbench.mjs';
+import { compileShaderDocument, declarationFromCatalogField } from './shader_workbench.mjs';
 import { loadOperatorCatalog } from './pattern_documents.mjs';
 import { loadEffectIdentities } from './effect_roster.mjs';
 
@@ -333,4 +333,30 @@ test('authored affine periods and sample coverage retain their independent stora
   assert.equal(assignments.get('source.coverage_mode'), '3');
   assert.equal(assignments.get('source.weight_mode'), '1');
   assert.ok(!assignments.has('value.edge_width'));
+});
+
+test('authored rotations retain independent keys and per-preset spin speeds', async () => {
+  const chain = { descriptor: { chain: [
+    { label: 'near', operator: 'sphere.rotate.v2' },
+    { label: 'far', operator: 'sphere.rotate.v2', resource_key: 'world' },
+  ] } };
+  assert.deepEqual([...presetAssignments(chain, {
+    'near.wander': 0.25, 'near.spin-speed': 0.03125,
+    'far.wander': 0.75, 'far.spin-speed': 0.015625,
+  }, { authoredTopology: true })], [
+    ['near.wander', '0.25f'], ['near.spin_speed', '0.03125f'],
+    ['world.wander', '0.75f'], ['world.spin_speed', '0.015625f'],
+  ]);
+  const authored = JSON.parse(await readFile(new URL('../patterns/warp_fest.shader.json', import.meta.url), 'utf8'));
+  const operator = catalog.operators.find(operator => operator.id === 'sphere.rotate.v2');
+  authored.descriptor.parameters.push(declarationFromCatalogField('camera', operator.params.find(field => field.id === 'spin-speed'), operator.id));
+  authored.descriptor.serialization.fields.push('camera.spin-speed');
+  authored.preset_bank.presets[0].values['camera.spin-speed'] = 0;
+  authored.preset_bank.presets[1].values['camera.spin-speed'] = 0.03125;
+  const compiled = compileShaderDocument(authored, { catalog });
+  assert.equal(compiled.status, 'VALID');
+  const generated = generatedSections(compiled, undefined, { authoredTopology: true });
+  assert.match(generated.params, /get<"camera">\(\)\.spin_speed = 0\.03125f;/);
+  assert.doesNotMatch(generated.identity, /CAMERA_SPIN_RATE/);
+  assert.throws(() => generatedSections(compiled), /camera spin must be uniform/);
 });

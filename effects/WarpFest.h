@@ -31,9 +31,7 @@ struct WarpFestSpec : Pullback::Spec {
    * @tparam B Effect binding. */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
-      B,
-      Pullback::Stage::Rotate<
-          Pullback::OuterCameraProvider<B, Pullback::AtlasProjectionParams>>,
+      B, Pullback::Stage::Rotate<Pullback::RotationProvider<B, "camera">>,
       Pullback::Stage::Displace<
           Pullback::Surface::BurstRipple<Pullback::SurfaceProvider<
               B, Pullback::SphereAnimation::BurstRippleParams, true,
@@ -110,7 +108,7 @@ public:
    */
   static constexpr Params initial_params() {
     Params value;
-    value.template get<"projection">().camera_wander = 1.0f;
+    value.template get<"camera">().wander = 1.0f;
     value.template get<"color">().brightness_envelope = Pullback::Color::BrightnessEnvelope::NONE;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;

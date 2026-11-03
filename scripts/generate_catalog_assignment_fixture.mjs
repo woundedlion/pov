@@ -5,7 +5,7 @@ import { loadOperatorCatalog } from './pattern_documents.mjs';
 
 const OUTPUT = new URL('../tests/composed_effect/generated_catalog_assignments.h', import.meta.url);
 const FAMILIES = {
-  'sphere.rotate.v2': 'Pullback::AtlasProjectionParams',
+  'sphere.rotate.v2': 'Pullback::RotationParams',
   'sphere.displace.curl.v2': 'Pullback::Surface::AuthoredSurfaceNoiseParams',
   'sphere.displace.direct.v2': 'Pullback::Surface::AuthoredDirectSurfaceParams',
   'sphere.displace.ripple.v2': 'Pullback::SphereAnimation::BurstRippleParams',

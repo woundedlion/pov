@@ -299,7 +299,8 @@ inline void check_authored_slider_registration(const FX &effect) {
   const auto &params = effect.getParameters();
   size_t expected = 0;
   const auto require_target = [&](const void *target, float low, float high,
-                                  bool selector = false) {
+                                  bool selector = false,
+                                  bool readonly = false) {
     const ParamDef *found = nullptr;
     size_t matches = 0;
     for (const auto &entry : params)
@@ -313,6 +314,7 @@ inline void check_authored_slider_registration(const FX &effect) {
       HS_EXPECT_EQ(found->max, high);
       HS_EXPECT_EQ(found->options != nullptr, selector);
       HS_EXPECT_TRUE(found->animated);
+      HS_EXPECT_EQ(found->readonly, readonly);
     }
     ++expected;
   };
@@ -355,6 +357,23 @@ inline void check_authored_slider_registration(const FX &effect) {
     }
     if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {
       const auto &config = family.modulation;
+      if constexpr (Family::DYNAMIC) {
+        auto &live = const_cast<ColorModulation::Config &>(config);
+        for (size_t index = 0;
+             index < Pullback::Modulation::Controls::EXTRA_SCHEMA.size();
+             ++index) {
+          const auto &field =
+              Pullback::Modulation::Controls::EXTRA_SCHEMA[index];
+          require_target(
+              Pullback::Modulation::Controls::address(live, index),
+              field.enum_count ? 0.0f : field.min,
+              field.enum_count ? float(field.enum_count - 1) : field.max,
+              field.enum_count != 0,
+              !Pullback::Modulation::Controls::active(config, index));
+        }
+        return;
+      }
+
       const bool UNIT = ColorModulation::unit_mechanic(config.mechanic.kind);
       require_target(&config.mechanic.amount, UNIT ? 0.0f : -4.0f,
                      UNIT ? 1.0f : 4.0f);

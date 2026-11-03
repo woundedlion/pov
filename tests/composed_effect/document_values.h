@@ -472,7 +472,10 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
       if (Resource::KEY.view() == document_resource_key(slot))
         assigned =
             assign_field(family,
-                         slot.role == SlotRole::CAMERA && field_id == "wander"
+                         slot.role == SlotRole::CAMERA &&
+                                 Resource::KIND ==
+                                     Pullback::ResourceKind::PROJECTION &&
+                                 field_id == "wander"
                              ? "camera-wander"
                              : field_id,
                          number) ||
@@ -801,6 +804,9 @@ inline void check_document_values(const char *name) {
       slot.resource_key = resource->text;
     slot.operator_id = operator_id->text;
     slot.role = classify_operator(operator_id->text);
+    if constexpr (AUTHORED)
+      if (slot.role == SlotRole::CAMERA && slot.resource_key.empty())
+        slot.resource_key = slot.label;
     HS_EXPECT(slot.role != SlotRole::UNKNOWN, "chain operator classified");
     if (slot.role == SlotRole::PROJECT) {
       const char *expected = nullptr;
