@@ -300,6 +300,13 @@ inline void run_sample_coverage_cases(In::ChainProgram &program,
         SourceP, WeightP, EdgeP>::template Bind<SampleMirrorBinding>>(program,
                                                                       ctx);
     break;
+  case In::Op::ProjectionCoverageMode::EDGE_FADE_SQUARED:
+    expect_sample_op_parity<typename PB::Stage::Sample<
+        SourceP, WeightP,
+        PB::ProjectionCoverage::EdgeFadeSquared<SampleEdgeMirror>>::
+                                template Bind<SampleMirrorBinding>>(program,
+                                                                    ctx);
+    break;
   }
 }
 
@@ -314,7 +321,7 @@ inline void run_sample_op_matrix(In::ChainProgram &program,
   if (!weight || !coverage)
     return;
   for (uint8_t w = 0; w < 2; ++w)
-    for (uint8_t c = 0; c < 4; ++c) {
+    for (uint8_t c = 0; c < std::size(In::Op::COVERAGE_MODE_IDS); ++c) {
       HS_CONTEXT("weight / coverage", w, c);
       *weight = w;
       *coverage = c;
@@ -665,6 +672,11 @@ inline void run_sample_variant(In::ChainProgram &program,
                     PB::ProjectionCoverage::EdgeFade<MirrorValue>, ENV>(program,
                                                                         ctx);
       break;
+    case In::Op::ProjectionCoverageMode::EDGE_FADE_SQUARED:
+      expect_parity<PB::Weight::None,
+                    PB::ProjectionCoverage::EdgeFadeSquared<MirrorValue>, ENV>(
+          program, ctx);
+      break;
     }
   } else {
     switch (coverage) {
@@ -685,6 +697,11 @@ inline void run_sample_variant(In::ChainProgram &program,
                     PB::ProjectionCoverage::EdgeFade<MirrorValue>, ENV>(program,
                                                                         ctx);
       break;
+    case In::Op::ProjectionCoverageMode::EDGE_FADE_SQUARED:
+      expect_parity<PB::Weight::Projection,
+                    PB::ProjectionCoverage::EdgeFadeSquared<MirrorValue>, ENV>(
+          program, ctx);
+      break;
     }
   }
 }
@@ -700,7 +717,8 @@ inline void test_shader_chain_parity_sample_variants() {
            {In::Op::ProjectionCoverageMode::NONE,
             In::Op::ProjectionCoverageMode::WEIGHT,
             In::Op::ProjectionCoverageMode::WEIGHT_SQUARED,
-            In::Op::ProjectionCoverageMode::EDGE_FADE}) {
+            In::Op::ProjectionCoverageMode::EDGE_FADE,
+            In::Op::ProjectionCoverageMode::EDGE_FADE_SQUARED}) {
         HS_CONTEXT("weight / coverage", int(weight), int(coverage));
         run_sample_variant(program, ctx, weight, coverage);
       }

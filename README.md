@@ -1396,6 +1396,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │   ├── modulation_temporal.h   Endpoint retention, identity and completed straight-alpha blending
 │   │   │   ├── chamber_noise_cache.h    Retained direct-noise samples over the dodecahedral chamber chart
 │   │   │   ├── runtime_snapshot.h      Chain runtime snapshot contracts
+│   │   │   ├── authored_sample.h       Runtime signal weighting and projection coverage
 │   │   │   ├── authored_source.h       Source policies with authored topology
 │   │   │   ├── authored_warp.h         Warp policies with authored topology
 │   │   │   ├── spatial_walk.h          Sphere spin and random-walk state

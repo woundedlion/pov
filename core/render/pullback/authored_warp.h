@@ -79,7 +79,7 @@ struct AuthoredCurlFlowParams : CurlFlowParams {
 /** @brief Wave shear with a runtime-selected amplitude envelope.
  * @tparam State Keyed warp provider. */
 template <typename State> struct ConfiguredWaveShear : WaveShear<State> {
-  using Base = WaveShear<State>;
+  using Base = WaveShear<State>;                ///< Static policy contract.
   using FrameState = typename Base::FrameState; ///< Bound frame.
   using Prepared = typename Base::Prepared;     ///< Vector rotation.
   /** @brief Prepares and validates the envelope.
@@ -113,7 +113,8 @@ template <typename State> struct ConfiguredWaveShear : WaveShear<State> {
 template <typename State>
 struct ConfiguredVectorNoise
     : VectorNoise<State, math::NoiseBasis::SIMPLEX, FlatEnvelope> {
-  using Base = VectorNoise<State, math::NoiseBasis::SIMPLEX, FlatEnvelope>;
+  using Base = VectorNoise<State, math::NoiseBasis::SIMPLEX,
+                           FlatEnvelope>;       ///< Static policy contract.
   using FrameState = typename Base::FrameState; ///< Bound frame.
   using Prepared = typename Base::Prepared; ///< Noise-loop and vector frame.
   /** @brief Prepares and validates the authored topology.
@@ -179,7 +180,8 @@ struct ConfiguredPolarChart : PolarChart<State, LinearPolar, 1> {
  * @tparam State Keyed warp provider. */
 template <typename State>
 struct ConfiguredCurlFlow : CurlFlow<State, math::NoiseBasis::SIMPLEX, Euler1> {
-  using Base = CurlFlow<State, math::NoiseBasis::SIMPLEX, Euler1>;
+  using Base = CurlFlow<State, math::NoiseBasis::SIMPLEX,
+                        Euler1>;                ///< Static policy contract.
   using FrameState = typename Base::FrameState; ///< Bound frame.
   using Prepared = typename Base::Prepared;     ///< Noise-loop offset.
   /** @brief Prepares and validates the authored topology.

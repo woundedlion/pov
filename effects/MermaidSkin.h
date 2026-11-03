@@ -72,7 +72,7 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "60803c69068a42f15672c67d96a3ce79e2281d59831ccdd02eb6b2c91a4ec0ad";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "b1a6811b3ee8ad27c7a89880617b4f39daae265e5e3f00dfe174415ddd50282f";
   /// SHA-256 hex of the shader document's preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST = "45590a3c8ac175a69ff32ec3260ec8a3612065933a61cf3b056845ef6dbef782";
   /// Preset identities, indexed by preset number.

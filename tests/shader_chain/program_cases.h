@@ -274,10 +274,11 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(weight.enum_def, 1);
   HS_EXPECT_TRUE(std::string_view(weight.enum_ids[1]) == "projection");
   const In::ParamFieldInfo &coverage = sample.schema[GRID_FIELDS + 1];
-  HS_EXPECT_EQ(coverage.enum_count, 4);
+  HS_EXPECT_EQ(coverage.enum_count, 5);
   HS_EXPECT_TRUE(std::string_view(coverage.enum_ids[1]) == "weight");
   HS_EXPECT_TRUE(std::string_view(coverage.enum_ids[2]) == "weight-squared");
   HS_EXPECT_TRUE(std::string_view(coverage.enum_ids[3]) == "edge-fade");
+  HS_EXPECT_TRUE(std::string_view(coverage.enum_ids[4]) == "edge-fade-squared");
 
   const auto *colorize_found =
       require_operator("colorize.generated-palette.v4");
@@ -729,7 +730,7 @@ inline void test_shader_chain_catalog_shape() {
                           "\"values\":[\"none\",\"projection\"],"
                           "\"default\":\"projection\""));
   HS_EXPECT_TRUE(contains("\"values\":[\"none\",\"weight\",\"weight-squared\","
-                          "\"edge-fade\"]"));
+                          "\"edge-fade\",\"edge-fade-squared\"]"));
   HS_EXPECT_TRUE(contains("\"approximate\":true"));
   // The cataloged block layouts are the real ABI figures.
   std::string sample_blocks = "\"blocks\":{\"param\":{\"size\":";

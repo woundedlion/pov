@@ -17,6 +17,7 @@
 #include "core/render/pullback/chamber_noise_cache.h"
 #include "core/render/pullback/source.h"
 #include "core/render/pullback/authored_source.h"
+#include "core/render/pullback/authored_sample.h"
 #include "core/render/pullback/authored_warp.h"
 #include "core/render/pullback/sphere_animation.h"
 #include "core/render/pullback/spatial_walk.h"

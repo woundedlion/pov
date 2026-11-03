@@ -129,7 +129,9 @@ public:
   using RenderPipeline = typename SpecT::template Pipeline<Binding>;
   static_assert(!SpecT::FACTORED_COLUMNS || RenderPipeline::LINEAR_COLUMNS,
                 "factored columns require a rotation/projection prefix");
-  static_assert(Metadata::COVERAGE != ProjectionCoverageMode::EDGE_FADE ||
+  static_assert((Metadata::COVERAGE != ProjectionCoverageMode::EDGE_FADE &&
+                 Metadata::COVERAGE !=
+                     ProjectionCoverageMode::EDGE_FADE_SQUARED) ||
                     Metadata::EDGE_DISTANCE_AVAILABLE,
                 "edge-fade coverage requires projection edge distance");
   static_assert(!Metadata::DISPLACEMENT || Metadata::PATH_TRACKED,
@@ -418,7 +420,15 @@ public:
    *  @param params Parameter set to check.
    *  @return True when every family is in range. */
   static bool valid_params(const Params &params) {
-    return Pullback::valid(params);
+    bool admitted = Pullback::valid(params);
+    if constexpr (!Metadata::EDGE_DISTANCE_AVAILABLE)
+      params.visit([&]<typename Resource>(const auto &family) {
+        if constexpr (requires { family.coverage_mode; })
+          admitted = admitted && family.coverage_mode <
+                                     static_cast<uint8_t>(
+                                         ProjectionCoverageMode::EDGE_FADE);
+      });
+    return admitted;
   }
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   /** @brief Visits current typed modulation resources without retaining them.

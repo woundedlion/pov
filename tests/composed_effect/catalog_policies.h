@@ -253,6 +253,81 @@ inline void test_authored_spherical_ring_interval() {
   }
 }
 
+/** @brief Runtime signal and coverage selectors preserve the crossing contract. */
+inline void test_authored_sample_crossing() {
+  using Family = Pullback::Source::AuthoredRingsSampleParams;
+  using Fixture = StageFrame<Family, Pullback::ResourceKind::SOURCE, "source">;
+  using Binding = typename Fixture::Binding;
+  using Provider = Pullback::SourceProvider<Binding, Family>;
+  using Source = typename Pullback::SourcePolicyFor<Family, Binding>::Type;
+  using Weight = Pullback::Weight::Authored<Provider>;
+  using Coverage = Pullback::ProjectionCoverage::Authored<Provider>;
+  using Crossing = Pullback::Stage::Sample<Source, Weight, Coverage>;
+  typename Fixture::Frame frame{};
+  auto &params = frame.params.template get<"source">();
+  frame.resources.template get<"source">().primary = 0.6f;
+  params.edge_width = 0.1f;
+  Pullback::PlaneSample input{{0.17f, 0.23f}, {}, math::Y_AXIS, 0.3f};
+  input.provenance.value_weight = 0.4f;
+  input.provenance.domain_coverage = 0.7f;
+  constexpr float DISTANCES[] = {-0.1f,  0.0f, 0.025f, 0.05f,
+                                 0.075f, 0.1f, 0.2f};
+  constexpr float FADES[] = {0.0f, 0.0f, 0.15625f, 0.5f, 0.84375f, 1.0f, 1.0f};
+  for (uint8_t weight = 0; weight < 2; ++weight)
+    for (uint8_t coverage = 0; coverage < 5; ++coverage)
+      for (size_t point = 0; point < std::size(DISTANCES); ++point) {
+        params.weight_mode = weight;
+        params.coverage_mode = coverage;
+        input.provenance.fade_edge_distance = DISTANCES[point];
+        const auto prepared = Crossing::template prepare<Binding>(frame);
+        const auto actual =
+            Crossing::template run<Binding>(input, frame, prepared);
+        const float raw = Pattern::rings(
+            Pattern::PlanePosition{projections::stereo_pattern_args(
+                input.coords, params.pattern_freq)},
+            Pattern::prepare(0.6f, 0.0f, 0.0f));
+        const float expected_value = 0.5f + 0.5f * raw * (weight ? 0.4f : 1.0f);
+        const float expected_coverage[] = {1.0f, 0.4f, 0.16f, FADES[point],
+                                           FADES[point] * FADES[point]};
+        HS_EXPECT_NEAR(actual.value, expected_value, 1e-6f);
+        HS_EXPECT_NEAR(actual.coverage, 0.7f * expected_coverage[coverage],
+                       1e-6f);
+        HS_EXPECT_NEAR(actual.path_length, 0.3f, 0.0f);
+      }
+  params.weight_mode = 2;
+  HS_EXPECT_FALSE(Pullback::valid(params));
+  params.weight_mode = 1;
+  params.coverage_mode = 5;
+  HS_EXPECT_FALSE(Pullback::valid(params));
+  params.coverage_mode = 4;
+  HS_EXPECT_TRUE(Pullback::valid(params));
+  Pullback::Source::AuthoredGridSampleParams grid{};
+  grid.secondary_rate = 1.8f;
+  HS_EXPECT_TRUE(Pullback::valid(grid));
+}
+
+/** @brief Static squared edge fade squares coverage without changing source weights. */
+inline void test_edge_fade_squared_curve() {
+  struct Frame {
+    float width;
+  };
+  struct Provider {
+    static float edge_width(const Frame &frame) { return frame.width; }
+  };
+  using Policy = Pullback::ProjectionCoverage::EdgeFadeSquared<Provider>;
+  Pullback::ProjectionProvenance provenance{};
+  provenance.value_weight = 0.25f;
+  for (const float width : {0.0f, 0.1f})
+    for (const float distance : {-0.1f, 0.0f, 0.05f, 0.1f, 0.2f}) {
+      provenance.fade_edge_distance = distance;
+      const float expected = width == 0.0f ? (distance > 0.0f ? 1.0f : 0.0f)
+                             : distance <= 0.0f ? 0.0f
+                             : distance >= 0.1f ? 1.0f
+                                                : 0.25f;
+      HS_EXPECT_NEAR(Policy::apply(provenance, Frame{width}), expected, 1e-6f);
+    }
+}
+
 /** @brief Ridge and cosine bands preserve their authored transfer controls. */
 inline void test_authored_transfer_catalog_parity() {
   using Fixture =

@@ -137,6 +137,18 @@ inline bool valid(const Warp::AuthoredCurlFlowParams &value) {
          value.integrator <= 2;
 }
 
+/** @brief Validates runtime source and crossing controls.
+ * @tparam Family Source-specific controls.
+ * @param value Authored source crossing.
+ * @return Whether every numeric and topology field is admitted. */
+template <typename Family>
+inline bool valid(const Source::AuthoredSampleParams<Family> &value) {
+  return valid(static_cast<const Family &>(value)) && Fields::valid(value) &&
+         value.weight_mode <= 1 &&
+         value.coverage_mode <=
+             static_cast<uint8_t>(ProjectionCoverageMode::EDGE_FADE_SQUARED);
+}
+
 /** @brief Validates ripple controls and scheduler topology.
  * @param value Ripple controls.
  * @return Whether the numeric and topology fields are admitted. */

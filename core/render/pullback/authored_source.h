@@ -51,9 +51,11 @@ struct AuthoredTessellationSourceParams : TessellationSourceParams {
 template <typename State>
 struct ConfiguredProjectedNoise
     : ProjectedNoise<State, math::NoiseBasis::SIMPLEX> {
-  using Base = ProjectedNoise<State, math::NoiseBasis::SIMPLEX>;
-  using FrameState = typename Base::FrameState; ///< Bound frame.
-  using Prepared = typename Base::Prepared;     ///< Noise-loop offset.
+  using Base =
+      ProjectedNoise<State,
+                     math::NoiseBasis::SIMPLEX>; ///< Static policy contract.
+  using FrameState = typename Base::FrameState;  ///< Bound frame.
+  using Prepared = typename Base::Prepared;      ///< Noise-loop offset.
   /** @brief Prepares and validates the selected noise basis.
    * @param frame Current frame.
    * @return Noise-loop offset. */
@@ -84,9 +86,11 @@ struct ConfiguredProjectedNoise
 template <typename State>
 struct ConfiguredSphericalNoise
     : SphericalNoise<State, math::NoiseBasis::SIMPLEX> {
-  using Base = SphericalNoise<State, math::NoiseBasis::SIMPLEX>;
-  using FrameState = typename Base::FrameState; ///< Bound frame.
-  using Prepared = typename Base::Prepared;     ///< Noise-loop offset.
+  using Base =
+      SphericalNoise<State,
+                     math::NoiseBasis::SIMPLEX>; ///< Static policy contract.
+  using FrameState = typename Base::FrameState;  ///< Bound frame.
+  using Prepared = typename Base::Prepared;      ///< Noise-loop offset.
   /** @brief Prepares and validates the selected noise basis.
    * @param frame Current frame.
    * @return Noise-loop offset. */
@@ -129,7 +133,9 @@ struct ConfiguredSphericalNoise
 template <typename State>
 struct ConfiguredTessellation
     : Tessellation<State, Pattern::TessellationKind::TRIANGULAR> {
-  using Base = Tessellation<State, Pattern::TessellationKind::TRIANGULAR>;
+  using Base = Tessellation<
+      State,
+      Pattern::TessellationKind::TRIANGULAR>;   ///< Static policy contract.
   using FrameState = typename Base::FrameState; ///< Bound frame.
   using Prepared = typename Base::Prepared;     ///< Source phases.
   /** @brief Prepares and validates the selected tessellation kind.

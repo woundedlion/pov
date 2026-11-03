@@ -240,19 +240,42 @@ test('Curl admission accepts the entire bounded domain for every integrator', ()
   }
 });
 
-test('edge-fade requires an upstream edge-distance projection for defaults and presets', () => {
+test('edge-fade modes require an upstream edge-distance projection for defaults and presets', () => {
+  for (const mode of ['edge-fade', 'edge-fade-squared']) {
+    const document = example();
+    const coverage = document.descriptor.parameters.find((parameter) => parameter.id === 'sample.coverage-mode');
+    if (!coverage.domain.values.includes(mode)) coverage.domain.values.push(mode);
+    coverage.default = mode;
+    for (const preset of document.preset_bank.presets) preset.values[coverage.id] = mode;
+    assert.equal(compile(document).status, 'VALID');
+    document.descriptor.chain.find((entry) => entry.label === 'project').operator = 'project.folded-sinusoidal.v2';
+    const result = compile(document);
+    assert.equal(result.status, 'INVALID');
+    const paths = result.diagnostics.filter((diagnostic) => diagnostic.code === 'EDGE_DISTANCE_UNAVAILABLE').map((diagnostic) => diagnostic.path);
+    assert.ok(paths.some((path) => path.endsWith('.default')));
+    for (let index = 0; index < document.preset_bank.presets.length; index++)
+      assert.ok(paths.includes(`$.preset_bank.presets[${index}].values.sample.coverage-mode`));
+  }
+});
+
+test('legacy coverage domains expand without changing authored selections', () => {
   const document = example();
   const coverage = document.descriptor.parameters.find((parameter) => parameter.id === 'sample.coverage-mode');
+  coverage.domain.values = ['none', 'weight', 'weight-squared', 'edge-fade'];
   coverage.default = 'edge-fade';
-  for (const preset of document.preset_bank.presets) preset.values[coverage.id] = 'edge-fade';
-  assert.equal(compile(document).status, 'VALID');
-  document.descriptor.chain.find((entry) => entry.label === 'project').operator = 'project.folded-sinusoidal.v2';
+  for (const preset of document.preset_bank.presets) preset.values[coverage.id] = 'weight-squared';
+  const before = structuredClone(document);
   const result = compile(document);
-  assert.equal(result.status, 'INVALID');
-  const paths = result.diagnostics.filter((diagnostic) => diagnostic.code === 'EDGE_DISTANCE_UNAVAILABLE').map((diagnostic) => diagnostic.path);
-  assert.ok(paths.some((path) => path.endsWith('.default')));
-  for (let index = 0; index < document.preset_bank.presets.length; index++)
-    assert.ok(paths.includes(`$.preset_bank.presets[${index}].values.sample.coverage-mode`));
+  assert.equal(result.status, 'VALID');
+  const upgraded = result.document.descriptor.parameters.find((parameter) => parameter.id === coverage.id);
+  assert.deepEqual(upgraded.domain.values, [...coverage.domain.values, 'edge-fade-squared']);
+  assert.equal(upgraded.default, 'edge-fade');
+  assert.deepEqual(result.document.preset_bank, before.preset_bank);
+  assert.deepEqual(document, before);
+  const expected = structuredClone(before);
+  expected.descriptor.parameters.find((parameter) => parameter.id === coverage.id)
+    .domain.values.push('edge-fade-squared');
+  assert.deepEqual(result.document, expected);
 });
 
 test('sparse imports enforce the runtime parameter budget at its exact boundary', () => {

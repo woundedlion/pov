@@ -20,7 +20,8 @@ enum class ProjectionCoverageMode : uint8_t {
   NONE = 0,
   WEIGHT = 1,
   WEIGHT_SQUARED = 2,
-  EDGE_FADE = 3
+  EDGE_FADE = 3,
+  EDGE_FADE_SQUARED = 4
 };
 
 namespace Weight {
@@ -296,6 +297,22 @@ template <typename State> struct EdgeFade : ApproximationDefaults {
   __attribute__((always_inline)) static float
   apply(const ProjectionProvenance &provenance, const FrameState &frame) {
     return edge_fade(provenance, State::edge_width(frame));
+  }
+};
+
+/** @brief Squared attenuation toward a projection edge.
+ * @tparam State Provider of the edge width. */
+template <typename State> struct EdgeFadeSquared : EdgeFade<State> {
+  /** @brief Squares the existing edge-fade attenuation.
+   * @tparam FrameState Provider frame state.
+   * @param provenance Projection metadata.
+   * @param frame Current frame.
+   * @return The square of the edge-fade coverage. */
+  template <typename FrameState>
+  static float apply(const ProjectionProvenance &provenance,
+                     const FrameState &frame) {
+    const float coverage = EdgeFade<State>::apply(provenance, frame);
+    return coverage * coverage;
   }
 };
 

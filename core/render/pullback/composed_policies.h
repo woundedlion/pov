@@ -130,6 +130,43 @@ struct SourcePolicyFor<Source::AuthoredTessellationSourceParams, B> {
       SourceProvider<B, Source::AuthoredTessellationSourceParams>>;
 };
 
+namespace ComposedDetail {
+/** @brief Rebinds a source policy to authored crossing controls.
+ * @tparam Policy Existing concrete source policy.
+ * @tparam Provider Authored crossing provider. */
+template <typename Policy, typename Provider> struct RebindSource;
+/** @brief Single-provider source policy.
+ * @tparam Policy Source policy template.
+ * @tparam Old Original provider.
+ * @tparam Provider Authored crossing provider. */
+template <template <typename> typename Policy, typename Old, typename Provider>
+struct RebindSource<Policy<Old>, Provider> {
+  using Type = Policy<Provider>;
+};
+} // namespace ComposedDetail
+
+/** @brief Grid source with the full authored drift range. @tparam B Frame binding. */
+template <typename B>
+struct SourcePolicyFor<Source::AuthoredGridSourceParams, B> {
+  using Type =
+      Source::Grid<SourceProvider<B, Source::AuthoredGridSourceParams>>;
+};
+/** @brief Twin-wave source with the full authored drift range. @tparam B Frame binding. */
+template <typename B>
+struct SourcePolicyFor<Source::AuthoredTwinWaveSourceParams, B> {
+  using Type =
+      Source::TwinWave<SourceProvider<B, Source::AuthoredTwinWaveSourceParams>>;
+};
+/** @brief Source policy retaining runtime crossing controls.
+ * @tparam Family Source-specific family.
+ * @tparam B Frame binding. */
+template <typename Family, typename B>
+struct SourcePolicyFor<Source::AuthoredSampleParams<Family>, B> {
+  using Type = typename ComposedDetail::RebindSource<
+      typename SourcePolicyFor<Family, B>::Type,
+      SourceProvider<B, Source::AuthoredSampleParams<Family>>>::Type;
+};
+
 /**
  * @brief Maps a warp parameter family to its `Pullback::Warp` policy, exposed
  *        as `Type`.
@@ -487,4 +524,15 @@ template <typename B, typename Family, ResourceKey Key>
 struct CoveragePolicyFor<ProjectionCoverageMode::EDGE_FADE, B, Family, Key> {
   using Type =
       Pullback::ProjectionCoverage::EdgeFade<ValueProvider<B, Family, Key>>;
+};
+
+/** @brief Squared projection edge-fade coverage.
+ * @tparam B Frame binding.
+ * @tparam Family Edge-width family.
+ * @tparam Key Parameter resource key. */
+template <typename B, typename Family, ResourceKey Key>
+struct CoveragePolicyFor<ProjectionCoverageMode::EDGE_FADE_SQUARED, B, Family,
+                         Key> {
+  using Type =
+      ProjectionCoverage::EdgeFadeSquared<ValueProvider<B, Family, Key>>;
 };

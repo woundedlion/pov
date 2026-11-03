@@ -418,7 +418,8 @@
             "none",
             "weight",
             "weight-squared",
-            "edge-fade"
+            "edge-fade",
+            "edge-fade-squared"
           ]
         },
         "id": "sample.coverage-mode",

@@ -887,11 +887,11 @@ export function validateShaderDocument(document, options = {}) {
       if (!field.topology || !['coverage-mode', 'envelope'].includes(field.id)) continue;
       const parameterId = `${entry.label}.${field.id}`;
       const declaration = parameters.get(parameterId);
-      if (declaration?.default === 'edge-fade')
+      if (['edge-fade', 'edge-fade-squared'].includes(declaration?.default))
         report('EDGE_DISTANCE_UNAVAILABLE', `$.descriptor.parameters[${descriptor.parameters.indexOf(declaration)}].default`,
           'Edge-fade requires an upstream projection with edge distance.');
       document.preset_bank.presets.forEach((preset, index) => {
-        if (preset?.values?.[parameterId] === 'edge-fade')
+        if (['edge-fade', 'edge-fade-squared'].includes(preset?.values?.[parameterId]))
           report('EDGE_DISTANCE_UNAVAILABLE', `$.preset_bank.presets[${index}].values.${parameterId}`,
             'Edge-fade requires an upstream projection with edge distance.');
       });
@@ -1086,11 +1086,39 @@ export function fixedDerivedBinding(descriptor, parameterId, values) {
   };
 }
 
+/** Expands the original coverage domain without changing authored values.
+ * @param {Object} document Decoded shader document.
+ * @param {Object} catalog Current operator catalog.
+ * @returns {Object} Document with current coverage choices. */
+export function migrateLegacyShaderDocument(document, catalog) {
+  const declarations = document?.descriptor?.parameters;
+  if (!Array.isArray(declarations) || !Array.isArray(document?.descriptor?.chain)) return document;
+  const updates = [];
+  for (const [index, parameter] of declarations.entries()) {
+    if (typeof parameter?.id !== 'string' || !parameter.id.endsWith('.coverage-mode') ||
+        JSON.stringify(parameter.domain?.values) !==
+          JSON.stringify(['none', 'weight', 'weight-squared', 'edge-fade'])) continue;
+    const label = parameter.id.slice(0, -'.coverage-mode'.length);
+    const slot = document.descriptor.chain.find((entry) => entry?.label === label);
+    const operator = catalog?.operators?.find((entry) => entry.id === slot?.operator);
+    const values = operator?.params?.find((entry) => entry.id === 'coverage-mode')?.values;
+    if (JSON.stringify(values) === JSON.stringify([
+      'none', 'weight', 'weight-squared', 'edge-fade', 'edge-fade-squared']))
+      updates.push({ index, values });
+  }
+  if (!updates.length) return document;
+  const result = structuredClone(document);
+  for (const { index, values } of updates)
+    result.descriptor.parameters[index].domain.values = [...values];
+  return result;
+}
+
 export function compileShaderDocument(source, options = {}) {
   try {
-    const document = typeof source === 'string'
+    const decoded = typeof source === 'string'
       ? parseShaderDocument(source, options.limits)
       : checkDecodedDocumentLimits(source, options.limits);
+    const document = migrateLegacyShaderDocument(decoded, options.catalog);
     object(document, '$');
     const diagnostics = validateShaderDocument(document, options);
     if (diagnostics.length > 0) return { status: 'INVALID', diagnostics };

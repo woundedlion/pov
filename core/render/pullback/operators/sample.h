@@ -79,9 +79,10 @@ static_assert(std::size(WEIGHT_MODE_IDS) ==
               static_cast<size_t>(WeightMode::PROJECTION) + 1);
 /** @brief Coverage topology values, in ProjectionCoverageMode order. */
 inline constexpr const char *COVERAGE_MODE_IDS[] = {
-    "none", "weight", "weight-squared", "edge-fade"};
+    "none", "weight", "weight-squared", "edge-fade", "edge-fade-squared"};
 static_assert(std::size(COVERAGE_MODE_IDS) ==
-              static_cast<size_t>(ProjectionCoverageMode::EDGE_FADE) + 1);
+              static_cast<size_t>(ProjectionCoverageMode::EDGE_FADE_SQUARED) +
+                  1);
 
 /**
  * @brief Bounds the Sample crossing's topology enum8s.
@@ -93,7 +94,7 @@ inline void check_sample_topology(uint8_t weight_mode, uint8_t coverage_mode) {
   HS_CHECK(weight_mode <= static_cast<uint8_t>(WeightMode::PROJECTION),
            "sample operator: invalid weight mode");
   HS_CHECK(coverage_mode <=
-               static_cast<uint8_t>(ProjectionCoverageMode::EDGE_FADE),
+               static_cast<uint8_t>(ProjectionCoverageMode::EDGE_FADE_SQUARED),
            "sample operator: invalid projection coverage mode");
 }
 
@@ -131,6 +132,10 @@ inline float projection_coverage(uint8_t coverage_mode,
     return ProjectionCoverage::WeightSquared::apply(provenance, ctx);
   case ProjectionCoverageMode::EDGE_FADE:
     return ProjectionCoverage::edge_fade(provenance, edge_width);
+  case ProjectionCoverageMode::EDGE_FADE_SQUARED: {
+    const float fade = ProjectionCoverage::edge_fade(provenance, edge_width);
+    return fade * fade;
+  }
   case ProjectionCoverageMode::WEIGHT:
     break;
   }
@@ -168,7 +173,8 @@ template <typename Params> consteval bool sample_crossing_defaults_match() {
 
 /** @brief Activation relation of the crossing's edge-fade width. */
 inline constexpr TopologyGate COVERAGE_EDGE_FADE_GATE{
-    "coverage-mode", live_values(ProjectionCoverageMode::EDGE_FADE)};
+    "coverage-mode", live_values(ProjectionCoverageMode::EDGE_FADE,
+                                 ProjectionCoverageMode::EDGE_FADE_SQUARED)};
 
 /** @brief The tabled field of SampleCrossingParams, retyped to the family.
  *  @tparam Params Sample crossing parameter family.

@@ -744,7 +744,8 @@ private:
         const auto value =
             *static_cast<uint8_t *>(op.runtime.param_address(params, field));
         if (value < info.enum_count &&
-            std::strcmp(info.enum_ids[value], "edge-fade") == 0)
+            (std::strcmp(info.enum_ids[value], "edge-fade") == 0 ||
+             std::strcmp(info.enum_ids[value], "edge-fade-squared") == 0))
           return "Edge-fade requires a projection with edge distance";
       }
     return nullptr;

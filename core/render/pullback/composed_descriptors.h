@@ -59,6 +59,13 @@ struct ProjectionCoverageModeOf<ProjectionCoverage::EdgeFade<P>> {
       ProjectionCoverageMode::EDGE_FADE; ///< The mode.
 };
 
+/** @brief Coverage selected by authored source controls. @tparam P Source provider. */
+template <typename P>
+struct ProjectionCoverageModeOf<ProjectionCoverage::Authored<P>> {
+  static constexpr auto VALUE =
+      static_cast<ProjectionCoverageMode>(254); ///< Runtime-selected coverage.
+};
+
 /** @brief Whether @p T is a `Stage::Lens` stage. @tparam T Stage type. */
 template <typename T> struct IsLensStage : std::false_type {};
 template <typename P, bool Track>
@@ -79,6 +86,13 @@ struct IsTransferStage<Stage::Transfer<P>> : std::true_type {};
 template <typename T> struct IsCoverageStage : std::false_type {};
 template <typename P>
 struct IsCoverageStage<Stage::ApplyCoverage<P>> : std::true_type {};
+/** @brief Squared edge-fade mode. @tparam P Edge-width provider. */
+template <typename P>
+struct ProjectionCoverageModeOf<ProjectionCoverage::EdgeFadeSquared<P>> {
+  static constexpr auto VALUE =
+      ProjectionCoverageMode::EDGE_FADE_SQUARED; ///< Coverage mode.
+};
+
 /** @brief Whether @p T is a `Lens::MobiusGenerator` policy. @tparam T Policy type. */
 template <typename T> struct IsMobiusLens : std::false_type {};
 template <typename P>
