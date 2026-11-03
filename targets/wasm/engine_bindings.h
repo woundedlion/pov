@@ -828,6 +828,25 @@ public:
     return result;
   }
 
+  /** @brief Reads conservative field-fold thresholds from current parameters.
+   * @return Advisory entries without changing the rendered parameters. */
+  ParameterAdvisoriesValue getParameterAdvisories() const {
+    emscripten::val result = emscripten::val::array();
+    if (!current_effect)
+      return result;
+    size_t index = 0;
+    for (const auto &parameter : current_effect->getParameters()) {
+      float strength;
+      if (!current_effect->parameter_fold_strength(parameter.name, strength))
+        continue;
+      emscripten::val entry = emscripten::val::object();
+      entry.set("name", parameter.name);
+      entry.set("foldStrength", strength);
+      result.set(index++, entry);
+    }
+    return result;
+  }
+
   /**
    * @brief Streams the current param values to the GUI per frame.
    * @return Zero-copy Float32Array view over the current param values, in the
@@ -1175,6 +1194,8 @@ static void bind_engine() {
       .function("getPoleLod", &HolosphereEngine::getPoleLod)
       .function("getParameterDefinitions",
                 &HolosphereEngine::getParameterDefinitions)
+      .function("getParameterAdvisories",
+                &HolosphereEngine::getParameterAdvisories)
       .function("getParamValues", &HolosphereEngine::getParamValues)
       .function("getParamGeneration", &HolosphereEngine::getParamGeneration)
       .function("getArenaMetrics", &HolosphereEngine::getArenaMetrics)

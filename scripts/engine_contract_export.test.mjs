@@ -10,6 +10,7 @@ const EXPORTER = fileURLToPath(new URL('./export_engine_contract.mjs', import.me
 const BINDINGS = `export interface ClassHandle {}
 export interface HolosphereEngine extends ClassHandle {
   getBufferLength(): number;
+  getParameterAdvisories(): {name: string; foldStrength: number}[];
 }
 export interface MeshOps extends ClassHandle {
   transform(): MeshOps;
@@ -31,6 +32,7 @@ test('browser contracts preserve emitted signatures and derive names, values and
     writeFileSync(modulePath, `
 class Engine {}
 Engine.prototype.getBufferLength = function() {};
+Engine.prototype.getParameterAdvisories = function() { return []; };
 Engine.prototype.getEffectIdentities = function() {
   return [{id: 'future-effect', display_name: 'FutureEffect', legacy_ids: ['OldFuture']}];
 };
@@ -55,6 +57,8 @@ export default async function() {
   assert.deepEqual(generate(), first, 'generation must be byte deterministic');
   assert.equal(first.bindings, BINDINGS.replace('transform(): MeshOps;', 'transform(): MeshOps | null;'));
   assert.match(first.contract, /FPS = 16;/);
+  assert.match(first.contract, /"getParameterAdvisories"/);
+  assert.match(first.bindings, /getParameterAdvisories\(\): \{name: string; foldStrength: number\}\[\];/);
   assert.match(first.contract, /"FutureResult": \{\s*"APPLIED": 0/);
   assert.match(first.contract, /"id": "future-effect"/);
   assert.match(first.contract, /"OldFuture"/);

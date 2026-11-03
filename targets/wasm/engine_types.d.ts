@@ -27,6 +27,13 @@ export interface ArenaMetrics {
   stack: StackUsage;
 }
 
+export interface ParameterAdvisory {
+  /** Registered strength parameter. */
+  name: string;
+  /** Conservative absolute strength beyond which the field step may fold. */
+  foldStrength: number;
+}
+
 export interface ParameterDefinitionBase {
   /** Parameter name, as setParameter() takes it. */
   name: string;

@@ -103,6 +103,17 @@ public:
     return parameter.get_requested();
   }
 
+  /** @brief Reads a conservative strength beyond which a field may fold.
+   * @param name Registered parameter name.
+   * @param strength Output advisory in parameter units.
+   * @return Whether this parameter has a finite advisory. */
+  virtual bool parameter_fold_strength(const char *name,
+                                       float &strength) const {
+    (void)name;
+    (void)strength;
+    return false;
+  }
+
   /**
    * @brief Reports an actionable GUI warning for one parameter.
    * @param name Registered parameter name.

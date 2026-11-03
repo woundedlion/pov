@@ -237,6 +237,8 @@ struct OperatorRuntime {
   std::string_view (*modulation_key)(const void *state) = nullptr;
   /** Whether a schema field may change without snapping the column interval. */
   bool (*temporal_hold_field)(uint16_t field) = nullptr;
+  /** Conservative fold advisory for a field operator, or infinity. */
+  float (*fold_strength)(const void *params) = nullptr;
 };
 
 /**
@@ -469,6 +471,16 @@ template <typename Model> struct ErasedAdapter {
       return Model::validate(
           *std::launder(static_cast<const Params *>(params)));
     return nullptr;
+  }
+
+  /** @brief Reads the model's fixed-step fold advisory.
+   * @param params Parameter block.
+   * @return Advisory strength, or infinity for another operator. */
+  static float fold_strength(const void *params) {
+    if constexpr (requires(const Params &p) { Model::fold_strength(p); })
+      return Model::fold_strength(
+          *std::launder(static_cast<const Params *>(params)));
+    return INFINITY;
   }
 
   /**
@@ -928,6 +940,7 @@ constexpr OperatorDescriptor make_operator_descriptor() {
           Detail::model_interval_layout<Model>(),
           Detail::model_modulation_key<Model>(),
           Detail::model_temporal_hold_field<Model>(),
+          &Adapter::fold_strength,
       },
       Detail::model_approximate<Model>(),
       Detail::model_oracle<Model>(),

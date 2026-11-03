@@ -409,6 +409,25 @@ public:
     return ParamSetResult::APPLIED;
   }
 
+  /** @brief Reads the current field strength advisory.
+   * @param name Registered parameter name.
+   * @param strength Output conservative threshold.
+   * @return Whether the parameter has a finite advisory. */
+  bool parameter_fold_strength(const char *name,
+                               float &strength) const override {
+    const auto ops = program.ops();
+    for (size_t index = 0; index < ops.size(); ++index)
+      for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
+        if (std::strcmp(ops[index].op->schema[field].id, "strength") == 0 &&
+            std::strcmp(name, program.param_name(index, field)) == 0 &&
+            ops[index].op->runtime.fold_strength != nullptr) {
+          strength =
+              ops[index].op->runtime.fold_strength(program.param_block(index));
+          return std::isfinite(strength);
+        }
+    return false;
+  }
+
   /**
    * @brief Warning for the parameter whose last write was refused.
    * @param name Registered parameter name.

@@ -14,6 +14,7 @@
 #include "core/render/pullback/operators/project.h"
 #include "core/render/pullback/operators/sample.h"
 #include "core/render/pullback/operators/sphere.h"
+#include "core/render/pullback/operators/tangent.h"
 #include "core/render/pullback/operators/warp.h"
 #include "core/render/pullback/stage.h"
 

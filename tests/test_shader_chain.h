@@ -55,6 +55,7 @@ static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::MIDPOINT4) == 4);
 #include "tests/shader_chain/program_cases.h"
 #include "tests/shader_chain/lifecycle_cases.h"
 #include "tests/shader_chain/sphere_ops.h"
+#include "tests/shader_chain/tangent_cases.h"
 #include "tests/shader_chain/warp_ops.h"
 #include "tests/shader_chain/projection_ops.h"
 #include "tests/shader_chain/field_ops.h"
@@ -745,6 +746,12 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_default_chain_renders);
   HS_RUN(test_shader_chain_param_address_channel);
   HS_RUN(test_shader_chain_parity_rotate_project);
+  HS_RUN(test_tangent_step_integrators);
+  HS_RUN(test_tangent_operator_admission);
+  HS_RUN(test_tangent_admitted_domain);
+  HS_RUN(test_tangent_mixed_boundaries);
+  HS_RUN(test_tangent_phase_clock);
+  HS_RUN(test_tangent_dynamic_advisory);
   HS_RUN(test_shader_chain_parity_displace_curl);
   HS_RUN(test_shader_chain_parity_displace_direct);
   HS_RUN(test_shader_chain_parity_displace_ripple);

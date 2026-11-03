@@ -6,6 +6,7 @@
 #include <cmath>
 
 #include "core/math/noise_field.h"
+#include "core/math/tangent_field.h"
 
 #include <algorithm>
 
@@ -33,15 +34,15 @@ struct SurfaceNoiseParams {
 
   /// Parameter registry: id, member, label, range and curve per field.
   static constexpr auto FIELDS = std::array{
-      Field<SurfaceNoiseParams>{"scale", &SurfaceNoiseParams::scale,
-                                "Surface Noise Scale", 1.0f / 64.0f, 64.0f,
-                                FieldCurve::LOG_POSITIVE},
-      Field<SurfaceNoiseParams>{"strength", &SurfaceNoiseParams::strength,
-                                "Surface Noise Strength", -0.5f, 0.5f,
-                                FieldCurve::LERP},
-      Field<SurfaceNoiseParams>{"speed", &SurfaceNoiseParams::speed,
-                                "Surface Noise Speed", -1.0f / 64.0f,
-                                1.0f / 64.0f, FieldCurve::LERP},
+      Pullback::Field<SurfaceNoiseParams>{"scale", &SurfaceNoiseParams::scale,
+                                          "Surface Noise Scale", 1.0f / 64.0f,
+                                          64.0f, FieldCurve::LOG_POSITIVE},
+      Pullback::Field<SurfaceNoiseParams>{
+          "strength", &SurfaceNoiseParams::strength, "Surface Noise Strength",
+          -0.5f, 0.5f, FieldCurve::LERP},
+      Pullback::Field<SurfaceNoiseParams>{"speed", &SurfaceNoiseParams::speed,
+                                          "Surface Noise Speed", -1.0f / 64.0f,
+                                          1.0f / 64.0f, FieldCurve::LERP},
   };
 };
 static_assert(field_ids_unique<SurfaceNoiseParams>());
@@ -59,18 +60,18 @@ struct DirectSurfaceParams {
 
   /// Parameter registry: id, member, label, range and curve per field.
   static constexpr auto FIELDS = std::array{
-      Field<DirectSurfaceParams>{"scale", &DirectSurfaceParams::scale,
-                                 "Surface Noise Scale", 1.0f / 64.0f, 64.0f,
-                                 FieldCurve::LOG_POSITIVE},
-      Field<DirectSurfaceParams>{"strength", &DirectSurfaceParams::strength,
-                                 "Surface Noise Strength", 0.0f, 0.5f,
-                                 FieldCurve::LERP},
-      Field<DirectSurfaceParams>{"speed", &DirectSurfaceParams::speed,
-                                 "Surface Noise Speed", -1.0f / 64.0f,
-                                 1.0f / 64.0f, FieldCurve::LERP},
-      Field<DirectSurfaceParams>{"direction", &DirectSurfaceParams::direction,
-                                 "Surface Noise Direction", 0.0f, 1.0f,
-                                 FieldCurve::SHORTEST_TURN},
+      Pullback::Field<DirectSurfaceParams>{"scale", &DirectSurfaceParams::scale,
+                                           "Surface Noise Scale", 1.0f / 64.0f,
+                                           64.0f, FieldCurve::LOG_POSITIVE},
+      Pullback::Field<DirectSurfaceParams>{
+          "strength", &DirectSurfaceParams::strength, "Surface Noise Strength",
+          0.0f, 0.5f, FieldCurve::LERP},
+      Pullback::Field<DirectSurfaceParams>{"speed", &DirectSurfaceParams::speed,
+                                           "Surface Noise Speed", -1.0f / 64.0f,
+                                           1.0f / 64.0f, FieldCurve::LERP},
+      Pullback::Field<DirectSurfaceParams>{
+          "direction", &DirectSurfaceParams::direction,
+          "Surface Noise Direction", 0.0f, 1.0f, FieldCurve::SHORTEST_TURN},
   };
 };
 static_assert(field_ids_unique<DirectSurfaceParams>());
@@ -88,22 +89,23 @@ struct PeriodicRippleParams {
 
   /// Parameter registry: id, member, label, range and curve per field.
   static constexpr auto FIELDS = std::array{
-      Field<PeriodicRippleParams>{"period", &PeriodicRippleParams::period,
-                                  "Ripple Period", 30.0f, 143.0f,
-                                  FieldCurve::LERP},
-      Field<PeriodicRippleParams>{"strength", &PeriodicRippleParams::strength,
-                                  "Ripple Strength", 0.0f, 0.15f,
-                                  FieldCurve::LERP},
-      Field<PeriodicRippleParams>{"decay", &PeriodicRippleParams::decay,
-                                  "Ripple Decay", 0.0f, 5.0f, FieldCurve::LERP},
-      Field<PeriodicRippleParams>{"thickness", &PeriodicRippleParams::thickness,
-                                  "Ripple Thickness", 0.7f, 1.4f,
-                                  FieldCurve::LOG_POSITIVE},
-      Field<PeriodicRippleParams>{"center-azimuth",
-                                  &PeriodicRippleParams::center_azimuth,
-                                  "Ripple Center Azimuth", 0.0f, math::TWO_PI_F,
-                                  FieldCurve::SHORTEST_PERIODIC},
-      Field<PeriodicRippleParams>{
+      Pullback::Field<PeriodicRippleParams>{
+          "period", &PeriodicRippleParams::period, "Ripple Period", 30.0f,
+          143.0f, FieldCurve::LERP},
+      Pullback::Field<PeriodicRippleParams>{
+          "strength", &PeriodicRippleParams::strength, "Ripple Strength", 0.0f,
+          0.15f, FieldCurve::LERP},
+      Pullback::Field<PeriodicRippleParams>{
+          "decay", &PeriodicRippleParams::decay, "Ripple Decay", 0.0f, 5.0f,
+          FieldCurve::LERP},
+      Pullback::Field<PeriodicRippleParams>{
+          "thickness", &PeriodicRippleParams::thickness, "Ripple Thickness",
+          0.7f, 1.4f, FieldCurve::LOG_POSITIVE},
+      Pullback::Field<PeriodicRippleParams>{
+          "center-azimuth", &PeriodicRippleParams::center_azimuth,
+          "Ripple Center Azimuth", 0.0f, math::TWO_PI_F,
+          FieldCurve::SHORTEST_PERIODIC},
+      Pullback::Field<PeriodicRippleParams>{
           "center-polar", &PeriodicRippleParams::center_polar,
           "Ripple Center Polar", 0.0f, math::PI_F, FieldCurve::LERP},
   };
@@ -267,6 +269,83 @@ finish_step(const math::Vector &input, const math::Vector &step,
   return {math::sphere_exp_map_half_radian(input, step),
           path_length(step, path_length_required)};
 }
+
+/** @brief Takes one fixed step through a tangent field.
+ * @tparam F Prepared tangent field.
+ * @tparam IntegratorPolicy Fixed stepping scheme.
+ * @param input Unit start point.
+ * @param field Prepared velocity and bounds.
+ * @param strength Signed displacement scale.
+ * @param path_length_required Whether to report angular travel.
+ * @return Displaced direction and accumulated arc length. */
+template <math::tangent_field::TangentField F, typename IntegratorPolicy>
+HS_O3_FN inline SurfaceResult step_field(const math::Vector &input,
+                                         const F &field, float strength,
+                                         bool path_length_required) {
+  if (strength == 0.0f)
+    return {input, 0.0f};
+  const bool SMALL = fabsf(strength) * field.speed_bound() <= 0.5f;
+  const auto exp_map = [SMALL](const math::Vector &p, const math::Vector &v) {
+    return SMALL ? math::sphere_exp_map_half_radian(p, v)
+                 : math::sphere_exp_map(p, v);
+  };
+  const auto finish = [&](const math::Vector &p, const math::Vector &step) {
+    return SurfaceResult{exp_map(p, step),
+                         path_length(step, path_length_required)};
+  };
+  if constexpr (IntegratorPolicy::VALUE == Integrator::EULER)
+    return finish(input, strength * field.velocity(input));
+  else {
+    const auto midpoint = [&](const math::Vector &p, float distance) {
+      const math::Vector middle =
+          exp_map(p, (0.5f * distance) * field.velocity(p));
+      return finish(p, distance * math::parallel_transport(
+                                      middle, p, field.velocity(middle)));
+    };
+    if constexpr (IntegratorPolicy::VALUE == Integrator::MIDPOINT)
+      return midpoint(input, strength);
+    else {
+      const SurfaceResult first = midpoint(input, 0.5f * strength);
+      SurfaceResult second = midpoint(first.sphere, 0.5f * strength);
+      second.path_length += first.path_length;
+      return second;
+    }
+  }
+}
+
+/** @brief Fixed-step surface policy over a prepared tangent field.
+ * @tparam State Provider of prepare, strength and path_length_required.
+ * @tparam IntegratorPolicy Fixed stepping scheme. */
+template <typename State, typename IntegratorPolicy>
+struct Field : PrepareFromState<State> {
+  using FrameState = typename State::FrameState; ///< Provider frame.
+  using Prepared = StatePrepared<State>;         ///< Prepared tangent field.
+
+  /** @brief Checks the field provider contract.
+   * @tparam Binding Chain binding. */
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ProviderFor<State, Binding> &&
+      math::tangent_field::TangentField<Prepared> &&
+      requires(const typename Binding::FrameState &frame) {
+        { State::strength(frame) } -> std::same_as<float>;
+        { State::path_length_required(frame) } -> std::same_as<bool>;
+        { IntegratorPolicy::VALUE } -> std::convertible_to<Integrator>;
+      };
+
+  /** @brief Displaces one sphere point.
+   * @param input Unit direction.
+   * @param frame Provider frame.
+   * @param prepared Prepared field.
+   * @return Direction and angular travel. */
+  HS_O3_FN static SurfaceResult apply(const math::Vector &input,
+                                      const FrameState &frame,
+                                      const Prepared &prepared) {
+    return step_field<Prepared, IntegratorPolicy>(
+        input, prepared, State::strength(frame),
+        State::path_length_required(frame));
+  }
+};
 
 /**
  * @brief Displaces a sphere point along a steered noise tangent.

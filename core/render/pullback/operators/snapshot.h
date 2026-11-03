@@ -147,6 +147,29 @@ template <> struct RuntimeStateCodec<Op::SourceClockState> {
   }
 };
 
+/** @brief Snapshot codec of the accumulated field drift. */
+template <> struct RuntimeStateCodec<Op::FieldPhaseState> {
+  /** @brief Captures field drift.
+   * @param state Field clock.
+   * @return Clock snapshot. */
+  static RuntimeSnapshot capture(const Op::FieldPhaseState &state) {
+    return SourceClockSnapshot{state.phase, 0.0f, 0.0f};
+  }
+  /** @brief Restores field drift.
+   * @param state Field clock.
+   * @param snapshot Retained clock snapshot.
+   * @return Whether the snapshot is valid. */
+  static bool restore(Op::FieldPhaseState &state,
+                      const RuntimeSnapshot &snapshot) {
+    const auto *value = std::get_if<SourceClockSnapshot>(&snapshot);
+    if (!value || !std::isfinite(value->primary) ||
+        fabsf(value->primary) >= math::TWO_PI_F)
+      return false;
+    state.phase = value->primary;
+    return true;
+  }
+};
+
 /** @brief Snapshot codec of Op::NoisePhaseState. */
 template <> struct RuntimeStateCodec<Op::NoisePhaseState> {
   /**

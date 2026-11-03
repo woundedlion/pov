@@ -73,6 +73,28 @@ const withAdmissionOperator = (operatorId, index) => {
   return document;
 };
 
+test('field documents reject invalid mode orders and arc caps without clamping', () => {
+  for (const [operator, edits] of [
+    ['sphere.displace.potential.v1', {'term-1-l': 2, 'term-1-m': 3}],
+    ['sphere.displace.potential.v1', {'term-1-l': 2.5}],
+    ['sphere.displace.rossby-haurwitz.v1', {order: 1.5}],
+    ['sphere.displace.symmetric.v1', {strength: 2, amplitude: 2}],
+  ]) {
+    const document = withAdmissionOperator(operator, 1);
+    assert.equal(compile(document).status, 'VALID');
+    Object.assign(document.preset_bank.presets[0].values,
+      Object.fromEntries(Object.entries(edits).map(([key, value]) => [`admission.${key}`, value])));
+    const before = structuredClone(document);
+    const result = compile(document);
+    assert.equal(result.status, 'INVALID');
+    assert.ok(result.diagnostics.some(({code}) => code === 'INADMISSIBLE_PARAMETERS'));
+    assert.deepEqual(document, before);
+  }
+  const document = withAdmissionOperator('sphere.displace.symmetric.v1', 1);
+  document.preset_bank.presets[0].values['admission.strength'] = 1;
+  assert.equal(compile(document).status, 'VALID');
+});
+
 test('current Twist angles round-trip without changing their distribution', () => {
   const document = withAdmissionOperator('sphere.lens.twist.v2', 1);
   const values = document.preset_bank.presets[0].values;
