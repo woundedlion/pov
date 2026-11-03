@@ -209,20 +209,23 @@ inline void case_restore_parameters_readonly_name() {
   effect.replay_parameter_writes(values);
 }
 
-/** @brief Rejects replay of a singular Mobius transform. */
-inline void case_restore_parameters_singular_mobius() {
+/** @brief Rejects replay beyond a field's joint arc cap. */
+inline void case_restore_parameters_inadmissible_field() {
   reset_globals();
-  MobiusGrid<32, 16> effect;
+  ShaderChain<32, 16> effect;
   effect.init();
+  const std::array chain{
+      Pullback::Interp::ChainEntryRequest{"field",
+                                          "sphere.displace.symmetric.v1"},
+      Pullback::Interp::ChainEntryRequest{"project",
+                                          "project.stereographic.v2"},
+      Pullback::Interp::ChainEntryRequest{"sample", "sample.grid.v3"},
+      Pullback::Interp::ChainEntryRequest{"colorize",
+                                          "colorize.generated-palette.v4"}};
+  effect.set_chain(chain);
   const std::array values{
-      std::pair<std::string, float>{"Mobius A Re", opaque(1.0f)},
-      std::pair<std::string, float>{"Mobius A Im", opaque(0.0f)},
-      std::pair<std::string, float>{"Mobius B Re", opaque(1.0f)},
-      std::pair<std::string, float>{"Mobius B Im", opaque(0.0f)},
-      std::pair<std::string, float>{"Mobius C Re", opaque(1.0f)},
-      std::pair<std::string, float>{"Mobius C Im", opaque(0.0f)},
-      std::pair<std::string, float>{"Mobius D Re", opaque(1.0f)},
-      std::pair<std::string, float>{"Mobius D Im", opaque(0.0f)}};
+      std::pair<std::string, float>{"field.strength", opaque(math::PI_F)},
+      std::pair<std::string, float>{"field.amplitude", opaque(2.0f)}};
   effect.replay_parameter_writes(values);
 }
 

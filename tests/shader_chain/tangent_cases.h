@@ -242,6 +242,12 @@ inline void test_tangent_dynamic_advisory() {
       {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v4"}};
   HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+  const std::array replay{
+      std::pair<std::string, float>{"field.strength", 0.1f},
+      std::pair<std::string, float>{"field.amplitude", 1.0f}};
+  effect.replay_parameter_writes(replay);
+  HS_EXPECT_EQ(requested_param(effect, "field.strength"), 0.1f);
+  HS_EXPECT_EQ(requested_param(effect, "field.amplitude"), 1.0f);
   float first = 0;
   HS_EXPECT_TRUE(effect.parameter_fold_strength("field.strength", first));
   HS_EXPECT_GT(first, 0.0f);
