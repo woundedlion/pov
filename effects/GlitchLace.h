@@ -61,7 +61,7 @@ struct GlitchLaceSpec : Pullback::Spec {
       Pullback::Stage::Modulate<
           Pullback::Color::Modulate<Pullback::ModulationProvider<
               B, "modulate", Pattern::SourceKind::NOISE,
-              Pattern::Evaluation::BAKED_CUBE>>>>;
+              Pattern::Evaluation::BAKED_CUBE, false, true>>>>;
 };
 /// Parameter storage derived from `GlitchLaceSpec`.
 using GlitchLaceParams = Pullback::ParamsFor<GlitchLaceSpec>;

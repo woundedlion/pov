@@ -90,6 +90,7 @@ constexpr std::array IDENTITY_GOLDENS{
     IdentityGolden{"SphericalHarmonics", "SphericalHarmonics",
                    0x9CB01486B8230EFEULL},
     IdentityGolden{"Thrusters", "Thrusters", 0x61547828E9116CB4ULL},
+    IdentityGolden{"Involution", "involution", 0x5E8E3A6822C9B036ULL},
     IdentityGolden{"WarpFest", "warp-fest", 0x7B3A6782219191FBULL},
     IdentityGolden{"GlitchLace", "glitch-lace", 0x1CE5E50B3401F6A2ULL},
     IdentityGolden{"ShaderChain", "shader-chain", 0x1968066A5CD68D2BULL},

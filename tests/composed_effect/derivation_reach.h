@@ -138,9 +138,11 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"colorize.generated-palette.v4",
      "palette-mode",
      {{"triadic", "complementary", "analogous"}}},
-    {"colorize.generated-palette.v4", "palette-type", {{"cycling-generated"}}},
+    {"colorize.generated-palette.v4",
+     "palette-type",
+     {{"cycling-generated", "generated"}}},
     {"colorize.generated-palette.v4", "palette-harmony", {}},
-    {"colorize.generated-palette.v4", "palette-lightness-curve", {}},
+    {"colorize.generated-palette.v4", "palette-lightness-curve", {{"cup"}}},
     {"colorize.generated-palette.v4", "palette-name", {}},
     {"colorize.generated-palette.v4", "palette-name-b", {}},
     {"colorize.generated-palette.v4",
@@ -261,6 +263,6 @@ inline void test_composed_derivation_reach() {
 
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 43u);
   HS_EXPECT_EQ(unreachable_operators, 12u);
-  HS_EXPECT_EQ(catalog_values, 369u);
-  HS_EXPECT_EQ(unreachable_values, 304u);
+  HS_EXPECT_EQ(catalog_values, 377u);
+  HS_EXPECT_EQ(unreachable_values, 310u);
 }

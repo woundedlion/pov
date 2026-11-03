@@ -994,6 +994,7 @@ inline void test_promoted_document_pipelines() {
   composed_chain_tests::verify_export<WarpFest<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<WarpFest<SMALL_W, SMALL_H>>(1);
   composed_chain_tests::verify_export<GlitchLace<SMALL_W, SMALL_H>>(0);
+  composed_chain_tests::verify_export<Involution<SMALL_W, SMALL_H>>(0);
 }
 
 /** @brief Module entry point for the composed-effect base contract. */

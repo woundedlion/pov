@@ -19,6 +19,7 @@
 #include "effects/GlitchLace.h"
 #include "effects/GridSpace.h"
 #include "effects/GridWorms.h"
+#include "effects/Involution.h"
 #include "effects/JewelMelt.h"
 #include "effects/KaleidoscopeFlowers.h"
 #include "effects/KaleidoscopeHexBright.h"

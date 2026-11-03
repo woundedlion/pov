@@ -214,6 +214,7 @@ inline void check_roster_order_pinned() {
                                               "Millefiori",
                                               "GridSpace",
                                               "WarpFest",
+                                              "Involution",
                                               "GlitchLace",
                                               "GridWorms",
                                               "HyperLattice",

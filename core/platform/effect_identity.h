@@ -120,6 +120,7 @@ namespace effect_identities {
     "HopfFibration")                                                           \
   X(HyperLattice, "hyper-lattice", "HyperLattice", "HyperLattice",             \
     "HyperLattice")                                                            \
+  X(Involution, "involution", "Involution", "involution", "involution")        \
   X(IslamicStars, "islamic-stars", "IslamicStars", "IslamicStars",             \
     "IslamicStars")                                                            \
   X(JewelMelt, "jewel-melt", "JewelMelt", "jewel-melt", "jewel-melt")          \

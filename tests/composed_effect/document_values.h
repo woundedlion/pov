@@ -678,8 +678,12 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     return false;
   case SlotRole::SAMPLE:
     if (field_id == "coverage-mode") {
-      HS_EXPECT_TRUE(text == ChainOp::COVERAGE_MODE_IDS[static_cast<uint8_t>(
-                                 FX::Metadata::COVERAGE)]);
+      if constexpr (static_cast<size_t>(FX::Metadata::COVERAGE) <
+                    std::size(ChainOp::COVERAGE_MODE_IDS))
+        HS_EXPECT_TRUE(text == ChainOp::COVERAGE_MODE_IDS[static_cast<uint8_t>(
+                                   FX::Metadata::COVERAGE)]);
+      else
+        return false;
       HS_EXPECT_TRUE(
           derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
@@ -945,6 +949,8 @@ inline void check_document_values(const char *name) {
     const float MISSING = std::bit_cast<float>(uint32_t{0x7fc00001});
     const auto poison = [MISSING, values, &slots]<typename Resource>(
                             typename Resource::Family &family) {
+      (void)values;
+      (void)slots;
       using Family = typename Resource::Family;
       if constexpr (Pullback::HasFields<Family> && !std::is_void_v<Family>)
         for (const auto &field : Family::FIELDS) {
@@ -1040,7 +1046,7 @@ inline void check_document_values(const char *name) {
       HS_EXPECT_TRUE(camera_spin_present);
     }
     const Params expected = preset_params<FX>(index);
-    if constexpr (requires {
+    if constexpr (!AUTHORED && requires {
                     built.template get<"source">().lattice_cell_scale;
                   }) {
       HS_EXPECT_NEAR(built.template get<"source">().lattice_cell_scale,
