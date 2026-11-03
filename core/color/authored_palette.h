@@ -22,7 +22,7 @@ public:
    * @param params Current color operator parameters.
    * @param chroma Common perceptual chroma control.
    * @return Palette view, valid until the next source change. */
-  HS_SIZE_FLASH_MEMBER const BakedPalette &
+  HS_SIZE_FLASH_MEMBER __attribute__((flatten)) const BakedPalette &
   prepare(Arena &arena, const AuthoredPaletteSelection &params, float chroma) {
     const auto &selection = params;
     if (!initialized || !(selection == previous) || chroma != previous_chroma) {

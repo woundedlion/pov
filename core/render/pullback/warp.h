@@ -263,8 +263,8 @@ static_assert(field_defaults_in_range<PeriodicAffineParams>());
 /** @brief Advances the affine frame rotation by one frame.
     @param rotation Accumulated rotation in radians, wrapped into [0, 2pi).
     @param params Speed and rotation rate. */
-inline void advance_affine_rotation(float &rotation,
-                                    const AffineParams &params) {
+HS_COLD_MEMBER inline void advance_affine_rotation(float &rotation,
+                                                   const AffineParams &params) {
   rotation = math::TWO_PI_F *
              math::wrap_t((rotation + params.speed * params.rotation_rate) /
                           math::TWO_PI_F);
