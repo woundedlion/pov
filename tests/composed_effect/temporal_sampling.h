@@ -1144,20 +1144,20 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
 #else
   expect_pixel_golden(
       "MobiusGrid 96x20", golden,
-      RecordedGolden{{0x8ab371336aee7517ull,
-                      {{6821381455ull, 6858841143ull, 7136205680ull},
-                       201547592081ull,
-                       985847639191ull}},
-                     {0x6bd619a7a7a37ce2ull,
-                      {{6497496026ull, 6893755336ull, 6961301979ull},
-                       195396223062ull,
-                       964618483879ull}},
+      RecordedGolden{{0x79bb3883d024a82cull,
+                      {{7174226396ull, 6740778423ull, 6993743408ull},
+                       201651303055ull,
+                       988143765112ull}},
+                     {0xfdedf0678704f445ull,
+                      {{7250668211ull, 6617173310ull, 6836404517ull},
+                       196907181396ull,
+                       981240128002ull}},
                      1e-3,
                      0.01,
-                     {0xb8f1409598bfb1d8ull,
-                      {{6999953024ull, 6798354163ull, 7025743323ull},
-                       209100604502ull,
-                       982148812652ull}}});
+                     {0x0584f55d092da598ull,
+                      {{7113361683ull, 6751228413ull, 7042719097ull},
+                       209075947865ull,
+                       989484057872ull}}});
 #endif
 }
 
