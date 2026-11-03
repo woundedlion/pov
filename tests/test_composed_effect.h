@@ -1033,6 +1033,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_authored_tangent_fields_after_twist);
   HS_RUN(test_authored_tangent_interval_uses_radians);
   HS_RUN(test_authored_potential_interpolation_and_admission);
+  HS_RUN(test_authored_interpolation_destination_aliases);
   HS_RUN(test_authored_surface_noise_topology);
   HS_RUN(test_authored_dynamic_modulation_storage);
   HS_RUN(test_authored_projection_bindings_match_operators);

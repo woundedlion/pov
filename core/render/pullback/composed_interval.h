@@ -100,22 +100,17 @@ public:
           return sizeof...(Resources);
         }(static_cast<typename Params::ResourceTypes *>(nullptr)) <= 32,
         "constant_families holds one bit per parameter family");
-    if (constant_params) {
-      interior_params = interpolate(a.params, b.params, 0.5f);
-    } else {
-      // A family equal at both endpoints takes its interior value throughout.
-      int family = 0;
-      interior_params.visit(
-          [&]<typename Resource>(auto &value) __attribute__((always_inline)) {
-            const auto &start = a.params.template get<Resource::KEY>();
-            const auto &end = b.params.template get<Resource::KEY>();
-            if (std::memcmp(&start, &end, sizeof(end)) == 0) {
-              value = interpolate(start, end, 0.5f);
-              constant_families |= 1u << family;
-            }
-            ++family;
-          });
-    }
+    int family = 0;
+    interior_params.visit(
+        [&]<typename Resource>(auto &value) __attribute__((always_inline)) {
+          const auto &start = a.params.template get<Resource::KEY>();
+          const auto &end = b.params.template get<Resource::KEY>();
+          if (constant_params || std::memcmp(&start, &end, sizeof(end)) == 0) {
+            value = interpolate(start, end, 0.5f);
+            constant_families |= 1u << family;
+          }
+          ++family;
+        });
     b.params.visit([&]<typename Resource>(const auto &) {
       auto &delta = deltas.template get<Resource::KEY>();
       const auto &start = a.resources.template get<Resource::KEY>();

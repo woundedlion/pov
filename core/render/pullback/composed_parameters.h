@@ -42,13 +42,34 @@ inline PotentialParams interpolate(const PotentialParams &a,
 }
 
 /**
- * @brief Interpolates a whole parameter set, family by family.
+ * @brief Writes interpolated parameter families into existing storage.
  * @tparam Resources Parameter resources.
+ * @param out Destination parameter set; may alias either endpoint.
  * @param from Parameters at progress 0.
  * @param to Parameters at progress 1.
  * @param progress Progress fraction, already eased by the caller.
- * @return The interpolated parameter set.
  */
+template <typename... Resources>
+inline void interpolate_into(
+    ComposedDetail::ParameterSet<ComposedDetail::ResourceList<Resources...>>
+        &out,
+    const ComposedDetail::ParameterSet<
+        ComposedDetail::ResourceList<Resources...>> &from,
+    const ComposedDetail::ParameterSet<
+        ComposedDetail::ResourceList<Resources...>> &to,
+    float progress) {
+  ((out.template get<Resources::KEY>() =
+        interpolate(from.template get<Resources::KEY>(),
+                    to.template get<Resources::KEY>(), progress)),
+   ...);
+}
+
+/** @brief Interpolates a parameter set family by family.
+ * @tparam Resources Parameter resources.
+ * @param from Outgoing parameters.
+ * @param to Incoming parameters.
+ * @param progress Eased transition progress.
+ * @return Interpolated parameter set. */
 template <typename... Resources>
 inline ComposedDetail::ParameterSet<ComposedDetail::ResourceList<Resources...>>
 interpolate(const ComposedDetail::ParameterSet<
@@ -56,10 +77,9 @@ interpolate(const ComposedDetail::ParameterSet<
             const ComposedDetail::ParameterSet<
                 ComposedDetail::ResourceList<Resources...>> &to,
             float progress) {
-  return {ComposedDetail::ParameterBlock<Resources::KEY,
-                                         typename Resources::Family>{
-      interpolate(from.template get<Resources::KEY>(),
-                  to.template get<Resources::KEY>(), progress)}...};
+  ComposedDetail::ParameterSet<ComposedDetail::ResourceList<Resources...>> out;
+  interpolate_into(out, from, to, progress);
+  return out;
 }
 
 /**

@@ -11,6 +11,52 @@ using AuthoredSurfaceParams = Pullback::ComposedDetail::ParameterSet<
     Pullback::ComposedDetail::ResourceList<Pullback::ParameterResource<
         "surface", Family, Pullback::ResourceKind::SURFACE>>>;
 
+/** @brief Parameter interpolation preserves both alias directions and recipe topology. */
+inline void test_authored_interpolation_destination_aliases() {
+  using namespace Pullback;
+  using Mod = Modulation::Params<Pattern::SourceKind::NOISE,
+                                 Pattern::Evaluation::BAKED_CUBE, true>;
+  using Params = ComposedDetail::ParameterSet<ComposedDetail::ResourceList<
+      ParameterResource<"a", Mod, ResourceKind::MODULATION>,
+      ParameterResource<"b", Mod, ResourceKind::MODULATION>,
+      ParameterResource<"surface", Surface::PotentialParams,
+                        ResourceKind::SURFACE>>>;
+  Params from{}, to{};
+  from.template get<"a">().modulation.noise.scale = 1.0f;
+  to.template get<"a">().modulation.noise.scale = 16.0f;
+  from.template get<"a">().modulation.mechanic.amount = 0.0f;
+  to.template get<"a">().modulation.mechanic.amount = 2.0f;
+  to.template get<"b">().modulation.source = Pattern::SourceKind::DISPLACEMENT;
+  to.template get<"b">().modulation.evaluation = Pattern::Evaluation::DIRECT;
+  from.template get<"surface">().orientation_azimuth = 3.0f;
+  to.template get<"surface">().orientation_azimuth = -3.0f;
+  from.template get<"surface">().terms[0].amplitude = 0.25f;
+  to.template get<"surface">().terms[0].amplitude = 0.75f;
+  for (const float progress : {0.0f, 0.5f, 1.0f}) {
+    for (const int alias : {0, 1, 2}) {
+      Params a = from, b = to, destination{};
+      Params &out = alias == 1 ? a : alias == 2 ? b : destination;
+      interpolate_into(out, a, b, progress);
+      const float scales[] = {1.0f, 4.0f, 16.0f};
+      HS_EXPECT_NEAR(out.template get<"a">().modulation.noise.scale,
+                     scales[static_cast<int>(progress * 2)], 1e-6f);
+      HS_EXPECT_NEAR(out.template get<"a">().modulation.mechanic.amount,
+                     2.0f * progress, 0.0f);
+      HS_EXPECT_EQ(out.template get<"b">().modulation.source,
+                   Pattern::SourceKind::DISPLACEMENT);
+      HS_EXPECT_EQ(out.template get<"b">().modulation.evaluation,
+                   Pattern::Evaluation::DIRECT);
+      HS_EXPECT_NEAR(out.template get<"surface">().orientation_azimuth,
+                     progress == 0.0f   ? 3.0f
+                     : progress == 1.0f ? -3.0f
+                                        : -math::PI_F,
+                     1e-6f);
+      HS_EXPECT_NEAR(out.template get<"surface">().terms[0].amplitude,
+                     progress < 1.0f ? 0.25f : 0.75f, 0.0f);
+    }
+  }
+}
+
 template <typename Family>
 using AuthoredSurfaceFrame =
     Pullback::FrameIntervalState<AuthoredSurfaceParams<Family>>;

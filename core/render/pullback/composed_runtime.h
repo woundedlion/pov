@@ -805,7 +805,8 @@ protected:
    * @param progress Eased transition progress, 0 to 1.
    */
   HS_COLD_MEMBER void blend_params(float progress) {
-    params = Pullback::interpolate(transition.from, transition.to, progress);
+    Pullback::interpolate_into(params, transition.from, transition.to,
+                               progress);
     palette_mapping = Pullback::Color::PaletteMappingWeights::lerp(
         mapping_from, mapping_to, progress);
     refresh_modulation_controls();
