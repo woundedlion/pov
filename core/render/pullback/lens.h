@@ -155,7 +155,8 @@ struct TwistPrepared {
 /** @brief Advances both twist-axis clocks.
  * @param phase Accumulated axis angles.
  * @param params Lens controls. */
-inline void advance_twist(TwistPhase &phase, const TwistLensParams &params) {
+HS_FLASH_INLINE inline void advance_twist(TwistPhase &phase,
+                                          const TwistLensParams &params) {
   phase.phi = fmodf(phase.phi + params.speed, math::TWO_PI_F);
   phase.lambda = fmodf(phase.lambda + params.drift, math::TWO_PI_F);
 }
@@ -164,8 +165,8 @@ inline void advance_twist(TwistPhase &phase, const TwistLensParams &params) {
  * @param params Lens controls.
  * @param phase Accumulated axis angles.
  * @return Per-frame lens state. */
-inline TwistPrepared prepare_twist(const TwistLensParams &params,
-                                   const TwistPhase &phase) {
+HS_FLASH_INLINE inline TwistPrepared
+prepare_twist(const TwistLensParams &params, const TwistPhase &phase) {
   return {
       math::Vector::from_spherical(phase.lambda, phase.phi),
       lenses::prepare_twist_profile(params.twist_angle, params.distribution)};
@@ -175,8 +176,8 @@ inline TwistPrepared prepare_twist(const TwistLensParams &params,
  * @param input Unit direction.
  * @param prepared Axis and angular profile.
  * @return Twisted direction. */
-inline math::Vector twist(const math::Vector &input,
-                          const TwistPrepared &prepared) {
+HS_FLASH_INLINE inline math::Vector twist(const math::Vector &input,
+                                          const TwistPrepared &prepared) {
   if (prepared.axis.y == 1.0f)
     return lenses::twist_lens(input, prepared.profile);
   const float height = math::dot(input, prepared.axis);

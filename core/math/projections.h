@@ -156,7 +156,7 @@ inline float wrap_longitude(float longitude) {
  * @param meridian_sin Sine of the central meridian.
  * @return Atlas coordinates, S2 face id, and nearest face-edge distance.
  */
-HS_O3_FN inline ProjectionKernelResult
+HS_FLASH_INLINE inline ProjectionKernelResult
 s2_projection(const math::Vector &v, float meridian_cos, float meridian_sin) {
   const float x = v.x * meridian_cos + v.z * meridian_sin;
   const float y = v.z * meridian_cos - v.x * meridian_sin;

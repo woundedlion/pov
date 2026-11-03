@@ -152,7 +152,8 @@ struct PotentialSample {
  * @param type Invariant polynomial family.
  * @param p Cartesian point in the fold frame.
  * @return Scalar value and analytic gradient. */
-inline PotentialSample invariant_sample(TermType type, const Vector &p) {
+HS_FLASH_INLINE inline PotentialSample invariant_sample(TermType type,
+                                                        const Vector &p) {
   if (type == TermType::TETRAHEDRAL) {
     const float a = dot(TETRAHEDRAL_AXES[0], p);
     const float b = dot(TETRAHEDRAL_AXES[1], p);
@@ -253,10 +254,10 @@ public:
    * @param authored Authored scalar terms.
    * @param drift_phase Accumulated azimuthal phase in radians.
    * @param orientation Unit local-to-world quaternion. */
-  explicit PotentialField(const std::array<PotentialTerm, 4> &authored = {},
-                          float drift_phase = 0.0f,
-                          Quaternion orientation = Quaternion(1.0f, 0.0f, 0.0f,
-                                                              0.0f))
+  HS_COLD_MEMBER explicit PotentialField(
+      const std::array<PotentialTerm, 4> &authored = {},
+      float drift_phase = 0.0f,
+      Quaternion orientation = Quaternion(1.0f, 0.0f, 0.0f, 0.0f))
       : orientation(orientation),
         oriented(orientation.r != 1.0f ||
                  dot(orientation.v, orientation.v) != 0.0f) {

@@ -147,7 +147,8 @@ inline float reduced_legendre(int l, int m, float x) {
  * @param m Order in [0, l].
  * @param x Polynomial argument.
  * @return Derivative with respect to x. */
-inline float reduced_legendre_derivative(int l, int m, float x) {
+HS_FLASH_INLINE inline float reduced_legendre_derivative(int l, int m,
+                                                         float x) {
   HS_CHECK(l >= 0 && l <= MAX_POLYNOMIAL_DEGREE && m >= 0 && m <= l,
            "Legendre derivative: unsupported mode");
   const int degree = l - m;
@@ -222,7 +223,7 @@ inline float spherical_harmonic(int l, int m, const math::Vector &p, float N) {
  * @param N Prepared harmonic scale.
  * @param phase Complex phase multiplying the azimuthal power.
  * @return Ambient gradient of the polynomial extension. */
-inline math::Vector
+HS_FLASH_INLINE inline math::Vector
 spherical_harmonic_gradient(int l, int m, const math::Vector &p, float N,
                             math::Complex phase = {1.0f, 0.0f}) {
   math::Complex power(1.0f, 0.0f), previous;

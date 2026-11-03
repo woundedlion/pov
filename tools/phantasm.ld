@@ -85,6 +85,11 @@ SECTIONS
 		*(.text.unlikely*)
 		/* Selectively optimized hot leaves intentionally executed from cache. */
 		*(.text.hot*)
+		/* Authored topology specializations execute from cached flash. */
+		*(.text.*Authored*)
+		*(.text.*WarpFest*)
+		*(.text.*GlitchLace*)
+		*(.text.*Involution*)
 		/* Sections without source-level cold annotations: generated ctors
 		 * (Animation graph nodes, PolyMesh), sort instantiations from
 		 * classify_faces_impl, setup_presets/compile_hankin inner lambdas

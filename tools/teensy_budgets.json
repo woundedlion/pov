@@ -45,8 +45,8 @@
       // -Os + nano + flash routing and a 298 KiB arena. The shipping
       // image may use all padding within its six ITCM banks; allocating a
       // seventh bank fails the stack-floor-derived ceiling.
-      // FLASH max_bytes is the same device wall as Holosphere's, not a ratchet.
-      "flash": { "max_bytes": 1900000 },
+      // FLASH retains 64 KiB below the 1984 KiB program-flash wall.
+      "flash": { "max_bytes": 1966080 },
       // free_min_bytes is the DTCM stack reservation. The host stack-painting
       // gate (tests/stack_measure.cpp) reports the current peak on its WORST:
       // line. The gate holds the host main-thread peak to the whole 12 KiB

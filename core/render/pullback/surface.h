@@ -291,21 +291,24 @@ step_field(const math::Vector &input, const F &field, float strength,
   }();
   const bool SMALL =
       HALF_RADIAN_STEPS || fabsf(strength) * field.speed_bound() <= 0.5f;
-  const auto exp_map = [&](const math::Vector &p, const math::Vector &v) {
+  const auto exp_map = [&](const math::Vector &p,
+                           const math::Vector &v) HS_HOT_INLINE {
     if constexpr (HALF_RADIAN_STEPS)
       return math::sphere_exp_map_half_radian(p, v);
     else
       return SMALL ? math::sphere_exp_map_half_radian(p, v)
                    : math::sphere_exp_map(p, v);
   };
-  const auto finish = [&](const math::Vector &p, const math::Vector &step) {
+  const auto finish = [&](const math::Vector &p,
+                          const math::Vector &step) HS_HOT_INLINE {
     return SurfaceResult{exp_map(p, step),
                          path_length(step, path_length_required)};
   };
   if constexpr (IntegratorPolicy::VALUE == Integrator::EULER)
     return finish(input, strength * field.velocity(input));
   else {
-    const auto midpoint = [&](const math::Vector &p, float distance) {
+    const auto midpoint = [&](const math::Vector &p,
+                              float distance) HS_HOT_INLINE {
       const math::Vector half_step = (0.5f * distance) * field.velocity(p);
       const math::Vector middle = exp_map(p, half_step);
       math::Vector velocity = field.velocity(middle);
