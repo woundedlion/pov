@@ -287,12 +287,6 @@ verify_family_rejection(FX &effect,
   }
 }
 
-/**
- * @brief Pins the slider set one specialization's init() registers.
- * @tparam E Composed effect class template.
- * @param name Effect name, for the failure context.
- * @details The registered count is derived from the parameter families.
- */
 /** @brief Authored fields register one control at their native storage address. */
 template <typename FX>
 inline void check_authored_slider_registration(const FX &effect) {
@@ -323,7 +317,8 @@ inline void check_authored_slider_registration(const FX &effect) {
     using Family = typename Resource::Family;
     for (const auto &field : Family::FIELDS) {
       if constexpr (Resource::KIND != Pullback::ResourceKind::COLOR)
-        if ((!field.name && Resource::KIND != Pullback::ResourceKind::WARP) ||
+        if ((!field.name && !(Resource::KIND == Pullback::ResourceKind::WARP &&
+                              std::string_view(field.id) == "speed")) ||
             !gate_open<FX>(field.gate))
           continue;
       require_target(&(family.*field.member), field.min, field.max);
@@ -409,6 +404,9 @@ inline void check_authored_slider_registration(const FX &effect) {
   HS_EXPECT_EQ(params.size(), expected);
 }
 
+/** @brief Pins the registered controls of one specialization.
+ * @tparam E Composed effect template.
+ * @param name Effect name. */
 template <template <int, int> class E>
 inline void check_slider_registration(const char *name) {
   using FX = E<SMALL_W, SMALL_H>;
@@ -1010,6 +1008,12 @@ inline void test_ash_cloud_document_pipeline() {
 #include "tests/composed_effect/authored_policies.h"
 /** @brief Promoted pixels match the authored document-built chains. */
 inline void test_promoted_document_pipelines() {
+  static_assert(WarpFest<SMALL_W, SMALL_H>::authored_instance("outer_warp") ==
+                "warp1");
+  static_assert(GlitchLace<SMALL_W, SMALL_H>::authored_instance("outer_warp") ==
+                "warp");
+  static_assert(Involution<SMALL_W, SMALL_H>::authored_instance("source") ==
+                "sample");
   composed_chain_tests::verify_export<WarpFest<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<WarpFest<SMALL_W, SMALL_H>>(1);
   composed_chain_tests::verify_export<GlitchLace<SMALL_W, SMALL_H>>(0);

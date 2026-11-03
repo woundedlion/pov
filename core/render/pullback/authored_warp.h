@@ -14,6 +14,16 @@ namespace Pullback::Warp {
 /** @brief Wave-shear controls with a runtime envelope. */
 struct AuthoredWaveShearParams : WaveShearParams {
   uint8_t envelope = 0; ///< Envelope catalog index.
+  /// Numeric controls, including runtime envelope width.
+  static constexpr auto FIELDS = [] {
+    auto fields = concat_fields<AuthoredWaveShearParams>(
+        WaveShearParams::FIELDS,
+        std::array<Field<AuthoredWaveShearParams>, 0>{});
+    for (auto &field : fields)
+      if (std::string_view(field.id) == "edge-width")
+        field.name = "Warp Edge Width";
+    return fields;
+  }();
   /// Catalog values of the envelope selector.
   static constexpr const char *ENVELOPE_IDS[] = {"flat", "projection-weight",
                                                  "edge-fade"};
@@ -27,6 +37,16 @@ struct AuthoredWaveShearParams : WaveShearParams {
 struct AuthoredVectorNoiseParams : VectorNoiseParams {
   uint8_t basis = 0;    ///< Noise-basis catalog index.
   uint8_t envelope = 0; ///< Envelope catalog index.
+  /// Numeric controls, including runtime envelope width.
+  static constexpr auto FIELDS = [] {
+    auto fields = concat_fields<AuthoredVectorNoiseParams>(
+        VectorNoiseParams::FIELDS,
+        std::array<Field<AuthoredVectorNoiseParams>, 0>{});
+    for (auto &field : fields)
+      if (std::string_view(field.id) == "edge-width")
+        field.name = "Warp Edge Width";
+    return fields;
+  }();
   /// Catalog values of the basis selector.
   static constexpr const char *BASIS_IDS[] = {"simplex", "fbm3", "ridged3"};
   /// Catalog values of the envelope selector.

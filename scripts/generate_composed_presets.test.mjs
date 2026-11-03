@@ -276,6 +276,8 @@ test('WarpFest retains live displacement selectors and per-preset harmony', asyn
   assert.match(generated.params, /get<"displace">\(\)\.symmetry = 3;/);
   assert.match(generated.params, /get<"displace">\(\)\.strength = 0\.24393544f;/);
   assert.match(generated.params, /Pattern::SourceKind::DISPLACEMENT/);
+  assert.match(generated.identity, /if \(resource == "outer_warp"\) return "warp1";/);
+  assert.match(generated.identity, /if \(resource == "source"\) return "sample";/);
 });
 
 

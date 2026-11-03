@@ -227,6 +227,14 @@ export function generatedSections(compiled, metadata, { authoredTopology = false
   }
   metadata ??= identities.find(row => row.id === document.effect_id);
   if (!metadata) throw new Error(`Unregistered composed effect ID: ${document.effect_id}`);
+  const resources = new Map();
+  if (authoredTopology)
+    for (const slot of document.descriptor.chain) {
+      const resource = groupFor(slot, true);
+      if (resources.has(resource) && resources.get(resource) !== slot.label)
+        throw new Error(`Several authored instances share resource "${resource}"`);
+      resources.set(resource, slot.label);
+    }
   const identity = [
     '  /// Machine/display identity and compatibility keys.',
     `  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::${metadata.name}::VALUE;`,
@@ -242,6 +250,16 @@ export function generatedSections(compiled, metadata, { authoredTopology = false
     '  };',
     '  /// Frames each preset holds before advancing.',
     `  static constexpr uint16_t PRESET_DWELL_FRAMES = ${dwell[0]};`,
+    ...(!authoredTopology ? [] : [
+      '  /** @brief Authored instance label of a native resource.',
+      '   * @param resource Native resource key.',
+      '   * @return Descriptor instance label. */',
+      '  static constexpr std::string_view authored_instance(std::string_view resource) {',
+      ...[...resources].filter(([resource, label]) => resource !== label)
+        .map(([resource, label]) => `    if (resource == ${JSON.stringify(resource)}) return ${JSON.stringify(label)};`),
+      '    return resource;',
+      '  }',
+    ]),
     ...(authoredTopology || spin[0] === undefined ? [] : [
       '  /// Outer camera spin about +Y, in radians per frame.',
       `  static constexpr float CAMERA_SPIN_RATE = ${floatLiteral(spin[0])};`,

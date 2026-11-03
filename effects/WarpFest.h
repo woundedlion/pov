@@ -96,6 +96,17 @@ public:
   };
   /// Frames each preset holds before advancing.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  /** @brief Authored instance label of a native resource.
+   * @param resource Native resource key.
+   * @return Descriptor instance label. */
+  static constexpr std::string_view authored_instance(std::string_view resource) {
+    if (resource == "projection") return "project";
+    if (resource == "outer_warp") return "warp1";
+    if (resource == "inner_warp") return "warp2";
+    if (resource == "source") return "sample";
+    if (resource == "color") return "colorize";
+    return resource;
+  }
   // clang-format on
   // End generated identity.
   /// Snapshot parameter layout version.
