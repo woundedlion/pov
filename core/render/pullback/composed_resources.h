@@ -300,11 +300,10 @@ struct ClockState<Family, ResourceKind::WARP> : RotationClock<Family> {
 template <typename Family> struct ClockState<Family, ResourceKind::SURFACE> {
   float phase = 0.0f; ///< Phase modulo 1; ripple frame count in [0, period).
 };
-/** @brief Phase of the animation generating a Mobius lens's b. */
-template <> struct ClockState<Lens::MobiusLensParams, ResourceKind::LENS> {
+/** @brief Phase and horizontal magnitude of a Mobius generator. */
+template <> struct ClockState<Lens::MobiusGeneratorParams, ResourceKind::LENS> {
   float angle = 0.0f;     ///< Generator angle, radians.
-  float magnitude = 0.0f; ///< Generator magnitude; zero when unanimated.
-  bool generated = false; ///< Whether the frame's b is the generator's.
+  float magnitude = 1.0f; ///< Horizontal generator multiplier.
 };
 /** @brief Accumulated twist-axis angles. */
 template <>

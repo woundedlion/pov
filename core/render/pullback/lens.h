@@ -7,6 +7,7 @@
 #include "core/math/lenses.h"
 
 #include "core/math/mobius.h"
+#include "core/math/tangent_field.h"
 #include "core/render/pullback/contract.h"
 #include "core/render/pullback/fields.h"
 
@@ -26,42 +27,57 @@ struct NoLensParams {
 };
 static_assert(field_ids_unique<NoLensParams>());
 static_assert(field_defaults_in_range<NoLensParams>());
-/** @brief Lens parameters for the Mobius map (Pullback::Lens::Mobius). */
-struct MobiusLensParams {
-  /// Message for coefficients that fail nondegenerate(); one object, so its
-  /// address identifies the refusal in every translation unit.
-  static constexpr char DEGENERATE_WARNING[] =
-      "Mobius coefficients must have |ad - bc| >= 0.001.";
-  static constexpr float COEFFICIENT_LIMIT = 4.0f;  ///< Max abs re/im part.
-  static constexpr float MOBIUS_MIN_DET_SQ = 1e-6f; ///< Minimum |ad - bc|^2.
-
-  /**
-   * @brief Squared magnitude of the complex determinant ad - bc.
-   * @param params Mobius coefficients.
-   * @return |ad - bc|^2.
-   */
-  static constexpr float
-  determinant_magnitude_squared(const math::MobiusParams &params) {
-    const float re = params.a.re * params.d.re - params.a.im * params.d.im -
-                     params.b.re * params.c.re + params.b.im * params.c.im;
-    const float im = params.a.re * params.d.im + params.a.im * params.d.re -
-                     params.b.re * params.c.im - params.b.im * params.c.re;
-    return re * re + im * im;
-  }
-
-  /**
-   * @brief Whether the coefficients define an invertible map.
-   * @param params Mobius coefficients.
-   * @return True when |ad - bc|^2 >= `MOBIUS_MIN_DET_SQ`.
-   */
-  static constexpr bool nondegenerate(const math::MobiusParams &params) {
-    return determinant_magnitude_squared(params) >= MOBIUS_MIN_DET_SQ;
-  }
-
-  /** Mobius coefficients; the default is the identity map. */
-  math::MobiusParams mobius{0.7071067811865475f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-                            0.7071067811865475f, 0.0f};
+/** @brief Authored rotation and boost of a Mobius lens. */
+struct MobiusGeneratorParams {
+  float spin_x = 0.0f; ///< Rotation about x, radians.
+  float spin_y = 0.0f; ///< Rotation about y, radians.
+  float spin_z = 0.0f; ///< Rotation about z, radians.
+  float push_x = 0.0f; ///< Boost toward x.
+  float push_y = 0.0f; ///< Boost toward y.
+  float push_z = 0.0f; ///< Boost toward z.
+  /// Refusal message for an authored generator outside its range.
+  static constexpr char RANGE_WARNING[] =
+      "Mobius generator is outside its authored range.";
+  /// Authored generator controls.
+  static constexpr auto FIELDS = std::array{
+      Field<MobiusGeneratorParams>{"spin-x", &MobiusGeneratorParams::spin_x,
+                                   "Spin X", -math::TWO_PI_F, math::TWO_PI_F,
+                                   FieldCurve::LERP},
+      Field<MobiusGeneratorParams>{"spin-y", &MobiusGeneratorParams::spin_y,
+                                   "Spin Y", -math::TWO_PI_F, math::TWO_PI_F,
+                                   FieldCurve::LERP},
+      Field<MobiusGeneratorParams>{"spin-z", &MobiusGeneratorParams::spin_z,
+                                   "Spin Z", -math::TWO_PI_F, math::TWO_PI_F,
+                                   FieldCurve::LERP},
+      Field<MobiusGeneratorParams>{"push-x", &MobiusGeneratorParams::push_x,
+                                   "Push X", -6.0f, 6.0f, FieldCurve::LERP},
+      Field<MobiusGeneratorParams>{"push-y", &MobiusGeneratorParams::push_y,
+                                   "Push Y", -6.0f, 6.0f, FieldCurve::LERP},
+      Field<MobiusGeneratorParams>{"push-z", &MobiusGeneratorParams::push_z,
+                                   "Push Z", -6.0f, 6.0f, FieldCurve::LERP},
+  };
 };
+static_assert(field_ids_unique<MobiusGeneratorParams>());
+static_assert(field_defaults_in_range<MobiusGeneratorParams>());
+
+/** @brief Exponentiates an authored generator at its animation phase.
+ * @param params Authored spin and push.
+ * @param angle Right-handed rotation about y, radians.
+ * @param magnitude Horizontal generator multiplier.
+ * @return Prepared Mobius coefficients. */
+HS_FLASH_MEMBER inline math::MobiusParams
+prepare_mobius(const MobiusGeneratorParams &params, float angle = 0.0f,
+               float magnitude = 1.0f) {
+  const float c = cosf(angle) * magnitude;
+  const float s = sinf(angle) * magnitude;
+  const math::Vector rotation{c * params.spin_x + s * params.spin_z,
+                              params.spin_y,
+                              c * params.spin_z - s * params.spin_x};
+  const math::Vector boost{c * params.push_x + s * params.push_z, params.push_y,
+                           c * params.push_z - s * params.push_x};
+  return math::mobius_exp(
+      math::tangent_field::to_mobius_generator(rotation, boost));
+}
 
 /**
  * @brief Applies a Mobius transform to a sphere direction.
@@ -202,41 +218,30 @@ struct Twist : ApproximationDefaults {
   }
 };
 
-/**
- * @brief Mobius lens policy.
- * @tparam State Provider with Binding and FrameState types and
- * params(frame) accessors.
- */
-template <typename State> struct Mobius : ApproximationDefaults {
-  using Binding = typename State::Binding;       ///< The provider's binding.
-  using FrameState = typename State::FrameState; ///< The provider's frame.
-
-  /**
-   * @brief Whether `State` is a provider for `CandidateBinding` with every
-   * accessor this policy reads.
-   * @tparam CandidateBinding Chain binding to check against.
-   */
+/** @brief Mobius generator lens policy.
+ * @tparam State Authored controls and clock provider. */
+template <typename State> struct MobiusGenerator : ApproximationDefaults {
+  using Binding = typename State::Binding;       ///< Provider binding.
+  using FrameState = typename State::FrameState; ///< Bound frame.
+  using Prepared = math::MobiusParams;           ///< Exponentiated generator.
+  /// Whether the provider uses the candidate frame binding.
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
-      Detail::ProviderFor<State, CandidateBinding> &&
-      requires(const typename CandidateBinding::FrameState &frame) {
-        State::params(frame).a;
-        State::params(frame).b;
-        State::params(frame).c;
-        State::params(frame).d;
-      } &&
-      std::is_lvalue_reference_v<decltype(State::params(
-          std::declval<const typename CandidateBinding::FrameState &>()))>;
-
-  /**
-   * @brief Applies this frame's Mobius transform.
-   * @param input Unit direction on the sphere.
-   * @param frame Frame state the coefficients are read from.
-   * @return The transformed direction.
-   */
-  __attribute__((always_inline)) static math::Vector
-  apply(const math::Vector &input, const FrameState &frame) {
-    return mobius(input, State::params(frame));
+      Detail::ProviderFor<State, CandidateBinding>;
+  /** @brief Prepares one frame or column.
+   * @param frame Bound frame.
+   * @return Exponentiated generator. */
+  static Prepared prepare(const FrameState &frame) {
+    const auto &phase = State::phase(frame);
+    return prepare_mobius(State::params(frame), phase.angle, phase.magnitude);
+  }
+  /** @brief Applies the prepared map.
+   * @param input Unit sphere direction.
+   * @param prepared Mobius coefficients.
+   * @return Transformed direction. */
+  static math::Vector apply(const math::Vector &input, const FrameState &,
+                            const Prepared &prepared) {
+    return mobius(input, prepared);
   }
 };
 

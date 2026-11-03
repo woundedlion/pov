@@ -87,9 +87,8 @@ constexpr const char *UNGATED_COLOR_SLIDERS[] = {
     "Opacity at Value 0", "Opacity at Value 1"};
 
 /** @brief Lens sliders a Mobius parameter family adds. */
-constexpr const char *MOBIUS_SLIDERS[] = {
-    "Mobius A Re", "Mobius A Im", "Mobius B Re", "Mobius B Im",
-    "Mobius C Re", "Mobius C Im", "Mobius D Re", "Mobius D Im"};
+constexpr const char *MOBIUS_SLIDERS[] = {"Spin X", "Spin Y", "Spin Z",
+                                          "Push X", "Push Y", "Push Z"};
 
 /** @brief A hand-registered color slider and the field descriptor it writes. */
 struct ColorSliderBinding {
@@ -233,8 +232,6 @@ inline void verify_params_equal(const Params &actual, const Params &expected) {
     const auto &other = expected.template get<Resource::KEY>();
     if constexpr (Pullback::HasFields<typename Resource::Family>)
       verify_family_equal(family, other);
-    if constexpr (Resource::KIND == Pullback::ResourceKind::LENS)
-      verify_mobius_equal(family.mobius, other.mobius);
     if constexpr (Resource::KIND == Pullback::ResourceKind::COLOR)
       HS_EXPECT_EQ(static_cast<int>(family.palette_mapping),
                    static_cast<int>(other.palette_mapping));
@@ -437,7 +434,7 @@ inline void check_slider_registration(const char *name) {
     HS_EXPECT_TRUE(params.find(slider) != nullptr);
   constexpr bool mobius =
       std::is_same_v<typename Params::template Family<"lens">,
-                     Pullback::MobiusLensParams>;
+                     Pullback::MobiusGeneratorParams>;
   for (const char *slider : MOBIUS_SLIDERS)
     HS_EXPECT_EQ(params.find(slider) != nullptr, mobius);
   constexpr bool brightness =
@@ -555,7 +552,6 @@ inline void check_slider_registration(const char *name) {
 template <template <int, int> class E>
 inline void check_snapshot_contract(const char *name) {
   using FX = E<SMALL_W, SMALL_H>;
-  using Params = typename FX::Params;
   HS_CONTEXT(name);
 
   reset_effect_globals();
@@ -576,13 +572,6 @@ inline void check_snapshot_contract(const char *name) {
     if constexpr (Pullback::HasFields<typename Resource::Family>)
       move_off_captured(family, captured.params.template get<Resource::KEY>());
   });
-  if constexpr (std::is_same_v<typename Params::template Family<"lens">,
-                               Pullback::MobiusLensParams>) {
-    moved.params.template get<"lens">().mobius.a = {1.0f, 0.2f};
-    moved.params.template get<"lens">().mobius.b = {0.3f, 0.4f};
-    moved.params.template get<"lens">().mobius.c = {0.5f, 0.6f};
-    moved.params.template get<"lens">().mobius.d = {0.8f, -0.1f};
-  }
   constexpr size_t MAPPINGS =
       std::size(Pullback::Interp::Op::PALETTE_MAPPING_IDS);
   moved.params.template get<"color">().palette_mapping =
@@ -628,27 +617,6 @@ inline void check_snapshot_contract(const char *name) {
       static_cast<Pullback::Color::PaletteMapping>(MAPPINGS);
   HS_EXPECT_FALSE(effect.restore_parameters(mapping));
   verify_params_equal(effect.serialize_parameters().params, captured.params);
-
-  if constexpr (std::is_same_v<typename Params::template Family<"lens">,
-                               Pullback::MobiusLensParams>) {
-    typename FX::ParameterSnapshot lens = captured;
-    lens.params.template get<"lens">().mobius.a.re =
-        std::numeric_limits<float>::quiet_NaN();
-    HS_EXPECT_FALSE(effect.restore_parameters(lens));
-    verify_params_equal(effect.serialize_parameters().params, captured.params);
-    lens = captured;
-    lens.params.template get<"lens">().mobius.a.re =
-        Pullback::MobiusLensParams::COEFFICIENT_LIMIT + 1.0f;
-    HS_EXPECT_FALSE(effect.restore_parameters(lens));
-    verify_params_equal(effect.serialize_parameters().params, captured.params);
-    lens = captured;
-    lens.params.template get<"lens">().mobius.c =
-        lens.params.template get<"lens">().mobius.a;
-    lens.params.template get<"lens">().mobius.d =
-        lens.params.template get<"lens">().mobius.b;
-    HS_EXPECT_FALSE(effect.restore_parameters(lens));
-    verify_params_equal(effect.serialize_parameters().params, captured.params);
-  }
 
   verify_params_equal(effect.serialize_parameters().params, captured.params);
 }
@@ -784,62 +752,27 @@ inline void test_mobius_grid_circular_animation() {
   reset_effect_globals();
   FX effect;
   effect.init();
-  HS_EXPECT_EQ(effect.getPresetCount(), size_t(2));
-  HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "mobius-grid-2");
-
-  const math::MobiusParams initial =
-      effect.serialize_parameters().params.template get<"lens">().mobius;
+  const auto authored = effect.serialize_parameters().params;
   effect.draw_frame();
   effect.advance_display();
-  const math::MobiusParams animated =
-      effect.serialize_parameters().params.template get<"lens">().mobius;
-  HS_EXPECT_TRUE(animated.b.re != initial.b.re ||
-                 animated.b.im != initial.b.im);
-  HS_EXPECT_NEAR(animated.b.re * animated.b.re + animated.b.im * animated.b.im,
-                 1.0f, 1e-5f);
+  const auto first = effect.frame_for_test().resources.template get<"lens">();
+  HS_EXPECT_NEAR(first.magnitude, 1.0f / 0.416f, 1e-6f);
   effect.draw_frame();
   effect.advance_display();
-  const math::MobiusParams advanced =
-      effect.serialize_parameters().params.template get<"lens">().mobius;
-  HS_EXPECT_TRUE(advanced.b.re != animated.b.re ||
-                 advanced.b.im != animated.b.im);
+  const auto second = effect.frame_for_test().resources.template get<"lens">();
+  HS_EXPECT_NE(first.angle, second.angle);
+  verify_params_equal(effect.serialize_parameters().params, authored);
   effect.setAnimationsPaused(true);
   effect.draw_frame();
   effect.advance_display();
-  const math::MobiusParams paused =
-      effect.serialize_parameters().params.template get<"lens">().mobius;
-  HS_EXPECT_EQ(paused.b.re, advanced.b.re);
-  HS_EXPECT_EQ(paused.b.im, advanced.b.im);
-
+  HS_EXPECT_EQ(effect.frame_for_test().resources.template get<"lens">().angle,
+               second.angle);
   effect.setAnimationsPaused(false);
   effect.draw_frame();
   effect.advance_display();
-  const math::MobiusParams resumed =
-      effect.serialize_parameters().params.template get<"lens">().mobius;
-  HS_EXPECT_TRUE(resumed.b.re != paused.b.re || resumed.b.im != paused.b.im);
-
-  math::MobiusParams previous = resumed;
-  const size_t initial_preset = effect.getPresetIndex();
-  const int frames =
-      FX::PRESET_DWELL_FRAMES +
-      Segue::Preset::frames(FX::preset_departure(initial_preset)) + 1;
-  for (int frame = 0; frame < frames; ++frame) {
-    effect.draw_frame();
-    effect.advance_display();
-    const math::MobiusParams current =
-        effect.serialize_parameters().params.template get<"lens">().mobius;
-    HS_EXPECT_NEAR(current.b.re * current.b.re + current.b.im * current.b.im,
-                   1.0f, 1e-5f);
-    const float delta_re = current.b.re - previous.b.re;
-    const float delta_im = current.b.im - previous.b.im;
-    HS_EXPECT_TRUE(delta_re * delta_re + delta_im * delta_im < 0.02f);
-    previous = current;
-  }
-  HS_EXPECT_NE(effect.getPresetIndex(), initial_preset);
-  const auto current = effect.serialize_parameters().params;
-  auto target = FX::preset(effect.getPresetIndex()).params;
-  target.template get<"lens">().mobius = current.template get<"lens">().mobius;
-  verify_params_equal(current, target);
+  HS_EXPECT_NE(effect.frame_for_test().resources.template get<"lens">().angle,
+               second.angle);
+  verify_params_equal(effect.serialize_parameters().params, authored);
 }
 
 /**
@@ -1005,7 +938,6 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_temporal_roster);
   HS_RUN(test_mobius_grid_instantaneous_pixel_golden);
   HS_RUN(test_mobius_grid_lens_follows_phase);
-  HS_RUN(test_mobius_grid_lens_unsupported_transitions);
   HS_RUN(test_mobius_grid_segmented_matches_single_engine);
   HS_RUN(test_alien_brain_preset_dwell);
   HS_RUN(test_mobius_grid_circular_animation);
@@ -1015,8 +947,9 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_slider_registration);
   HS_RUN(check_slider_registration<NoHueProbe>, "NoHueProbe");
   HS_RUN(test_mobius_frame_admission);
+  HS_RUN(test_mobius_generator_interpolation);
   HS_RUN(test_mobius_captured_parameter_restore);
-  HS_RUN(test_mobius_automatic_departures_retain_lens);
+  HS_RUN(test_mobius_automatic_departures_interpolate_generator);
   HS_RUN(test_composed_snapshot_contract);
   HS_RUN(test_parameter_layout_reorder);
   HS_RUN(test_composed_parameter_schema_pins);

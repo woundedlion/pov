@@ -8,7 +8,7 @@
       },
       {
         "label": "lens",
-        "operator": "sphere.lens.mobius.v2"
+        "operator": "sphere.lens.mobius.v3"
       },
       {
         "label": "project",
@@ -312,26 +312,12 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 4,
-          "minimum": -4
+          "maximum": 6,
+          "minimum": -6
         },
-        "id": "lens.mobius-a-im",
+        "id": "lens.push-x",
         "interpolation": {
-          "kind": "SNAP"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": 0.7071067690849304,
-        "domain": {
-          "maximum": 4,
-          "minimum": -4
-        },
-        "id": "lens.mobius-a-re",
-        "interpolation": {
-          "kind": "SNAP"
+          "kind": "LINEAR"
         },
         "storage": "binary32",
         "unit": "ratio"
@@ -340,12 +326,12 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 4,
-          "minimum": -4
+          "maximum": 6,
+          "minimum": -6
         },
-        "id": "lens.mobius-b-im",
+        "id": "lens.push-y",
         "interpolation": {
-          "kind": "SNAP"
+          "kind": "LINEAR"
         },
         "storage": "binary32",
         "unit": "ratio"
@@ -354,12 +340,12 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 4,
-          "minimum": -4
+          "maximum": 6,
+          "minimum": -6
         },
-        "id": "lens.mobius-b-re",
+        "id": "lens.push-z",
         "interpolation": {
-          "kind": "SNAP"
+          "kind": "LINEAR"
         },
         "storage": "binary32",
         "unit": "ratio"
@@ -368,12 +354,12 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 4,
-          "minimum": -4
+          "maximum": 6.2831854820251465,
+          "minimum": -6.2831854820251465
         },
-        "id": "lens.mobius-c-im",
+        "id": "lens.spin-x",
         "interpolation": {
-          "kind": "SNAP"
+          "kind": "LINEAR"
         },
         "storage": "binary32",
         "unit": "ratio"
@@ -382,12 +368,12 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 4,
-          "minimum": -4
+          "maximum": 6.2831854820251465,
+          "minimum": -6.2831854820251465
         },
-        "id": "lens.mobius-c-re",
+        "id": "lens.spin-y",
         "interpolation": {
-          "kind": "SNAP"
+          "kind": "LINEAR"
         },
         "storage": "binary32",
         "unit": "ratio"
@@ -396,26 +382,12 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 4,
-          "minimum": -4
+          "maximum": 6.2831854820251465,
+          "minimum": -6.2831854820251465
         },
-        "id": "lens.mobius-d-im",
+        "id": "lens.spin-z",
         "interpolation": {
-          "kind": "SNAP"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": 0.7071067690849304,
-        "domain": {
-          "maximum": 4,
-          "minimum": -4
-        },
-        "id": "lens.mobius-d-re",
-        "interpolation": {
-          "kind": "SNAP"
+          "kind": "LINEAR"
         },
         "storage": "binary32",
         "unit": "ratio"
@@ -664,14 +636,12 @@
         "displacement.modulation-evaluation",
         "displacement.modulation-mechanic",
         "displacement.modulation-source",
-        "lens.mobius-a-im",
-        "lens.mobius-a-re",
-        "lens.mobius-b-im",
-        "lens.mobius-b-re",
-        "lens.mobius-c-im",
-        "lens.mobius-c-re",
-        "lens.mobius-d-im",
-        "lens.mobius-d-re",
+        "lens.push-x",
+        "lens.push-y",
+        "lens.push-z",
+        "lens.spin-x",
+        "lens.spin-y",
+        "lens.spin-z",
         "project.projection-spin-speed",
         "project.projection-wander",
         "project.singularity-fade",
@@ -754,14 +724,12 @@
           "displacement.modulation-evaluation": "direct",
           "displacement.modulation-mechanic": "hue-rotation",
           "displacement.modulation-source": "displacement",
-          "lens.mobius-a-im": 0.30399999022483826,
-          "lens.mobius-a-re": -1.0720000267028809,
-          "lens.mobius-b-im": 0,
-          "lens.mobius-b-re": 0.41600000858306885,
-          "lens.mobius-c-im": 0,
-          "lens.mobius-c-re": 0,
-          "lens.mobius-d-im": 0,
-          "lens.mobius-d-re": 0.7071067690849304,
+          "lens.push-x": 0.007910898886620998,
+          "lens.push-y": 0.45477402210235596,
+          "lens.push-z": -0.6686195135116577,
+          "lens.spin-x": 0.6686195135116577,
+          "lens.spin-y": -2.865265369415283,
+          "lens.spin-z": 0.007910898886620998,
           "project.projection-spin-speed": 0,
           "project.projection-wander": 1,
           "project.singularity-fade": 2.1019999980926514,
@@ -801,14 +769,12 @@
           "displacement.modulation-evaluation": "direct",
           "displacement.modulation-mechanic": "hue-rotation",
           "displacement.modulation-source": "displacement",
-          "lens.mobius-a-im": 0.30399999022483826,
-          "lens.mobius-a-re": -1.0720000267028809,
-          "lens.mobius-b-im": 0,
-          "lens.mobius-b-re": 0.41600000858306885,
-          "lens.mobius-c-im": 0,
-          "lens.mobius-c-re": 0,
-          "lens.mobius-d-im": 0,
-          "lens.mobius-d-re": 0.7071067690849304,
+          "lens.push-x": 0.007910898886620998,
+          "lens.push-y": 0.45477402210235596,
+          "lens.push-z": -0.6686195135116577,
+          "lens.spin-x": 0.6686195135116577,
+          "lens.spin-y": -2.865265369415283,
+          "lens.spin-z": 0.007910898886620998,
           "project.projection-spin-speed": 0,
           "project.projection-wander": 1,
           "project.singularity-fade": 2.1019999980926514,

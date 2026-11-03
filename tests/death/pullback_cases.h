@@ -8,14 +8,6 @@
 // Pullback death cases.
 
 /** @brief Traps on pullback mobius degenerate. */
-inline void case_pullback_mobius_degenerate() {
-  Pullback::Interp::Op::MobiusChainParams params;
-  params.a_re = opaque(0.0f);
-  params.d_re = opaque(0.0f);
-  Pullback::Interp::Op::LensMobius::State state;
-  Pullback::Interp::FrameContext context{};
-  (void)Pullback::Interp::Op::LensMobius::prepare(context, params, state);
-}
 
 /** @brief Death case: the generated-palette operator rejects an unknown
     brightness envelope. */

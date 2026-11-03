@@ -767,21 +767,11 @@ const validatePresetBank = (bank, parameters, pathPolicies, report, guard) => {
 
 
 // Native constants are pinned in tests/test_shader_chain.h.
-const MOBIUS_MIN_DET_SQ = Math.fround(1e-6);
 const CURL_VECTOR_COMPONENT_MAX = 4;
 const CURL_INTERVALS = { 'euler-1': 1, 'midpoint-2': 2, 'midpoint-4': 4 };
 
 const admissibleParameters = (operator, value) => {
   const f = Math.fround;
-  if (operator.id === 'sphere.lens.mobius.v2') {
-    const coefficients = ['a-re', 'a-im', 'b-re', 'b-im', 'c-re', 'c-im', 'd-re', 'd-im']
-      .map((field) => value(`mobius-${field}`));
-    if (coefficients.some((coefficient) => !Number.isFinite(coefficient))) return true;
-    const [ar, ai, br, bi, cr, ci, dr, di] = coefficients.map(f);
-    const re = f(f(f(f(ar * dr) - f(ai * di)) - f(br * cr)) + f(bi * ci));
-    const im = f(f(f(f(ar * di) + f(ai * dr)) - f(br * ci)) - f(bi * cr));
-    return f(f(re * re) + f(im * im)) >= MOBIUS_MIN_DET_SQ;
-  }
   if (operator.id === 'warp.curl-flow.v2') {
     const scale = value('scale'), strength = value('strength');
     const intervals = CURL_INTERVALS[value('integrator')];

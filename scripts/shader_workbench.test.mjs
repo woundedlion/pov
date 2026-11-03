@@ -105,71 +105,20 @@ test('retired Twist rate controls are rejected without conversion', () => {
   assert.deepEqual(document, original);
 });
 
-test('Mobius admission rejects singular defaults and each preset', () => {
-  const document = withAdmissionOperator('sphere.lens.mobius.v2', 1);
+test('Mobius generators admit zero and interpolate every component', () => {
+  const document = withAdmissionOperator('sphere.lens.mobius.v3', 1);
   assert.equal(compile(document).status, 'VALID');
   for (const parameter of document.descriptor.parameters)
-    if (parameter.id.startsWith('admission.')) parameter.default = 0;
-  let result = compile(document);
-  assert.equal(result.status, 'INVALID');
-  assert.ok(result.diagnostics.some((diagnostic) => diagnostic.code === 'INADMISSIBLE_PARAMETERS' &&
-    diagnostic.path === '$.descriptor.parameters'));
-  const presetDocument = withAdmissionOperator('sphere.lens.mobius.v2', 1);
-  for (const key of Object.keys(presetDocument.preset_bank.presets[1].values))
-    if (key.startsWith('admission.')) presetDocument.preset_bank.presets[1].values[key] = 0;
-  result = compile(presetDocument);
-  assert.equal(result.status, 'INVALID');
-  assert.ok(result.diagnostics.some((diagnostic) => diagnostic.code === 'INADMISSIBLE_PARAMETERS' &&
-    diagnostic.path === '$.preset_bank.presets[1].values'));
-});
-
-test('Mobius determinant threshold follows the native binary32 rule', () => {
-  for (const [coefficient, accepted] of [[0.031, false], [0.032, true]]) {
-    const document = withAdmissionOperator('sphere.lens.mobius.v2', 1);
-    for (const parameter of document.descriptor.parameters)
-      if (['admission.mobius-a-re', 'admission.mobius-d-re'].includes(parameter.id)) {
-        parameter.default = coefficient;
-        for (const preset of document.preset_bank.presets) preset.values[parameter.id] = coefficient;
-      }
-    assert.equal(compile(document).status, accepted ? 'VALID' : 'INVALID');
-  }
-});
-
-test('sparse Mobius presets use catalog defaults under each instance label', () => {
-  for (const label of ['admission', 'lens']) {
-    const full = withAdmissionOperator('sphere.lens.mobius.v2', 1);
-    if (label !== 'admission') {
-      full.descriptor.chain[1].label = label;
-      for (const parameter of full.descriptor.parameters)
-        parameter.id = parameter.id.replace(/^admission\./, `${label}.`);
-      full.descriptor.serialization.fields = full.descriptor.serialization.fields
-        .map((id) => id.replace(/^admission\./, `${label}.`));
-      for (const preset of full.preset_bank.presets)
-        preset.values = Object.fromEntries(Object.entries(preset.values)
-          .map(([id, value]) => [id.replace(/^admission\./, `${label}.`), value]));
+    if (parameter.id.startsWith('admission.')) {
+      assert.equal(parameter.interpolation.kind, 'LINEAR');
+      parameter.default = 0;
     }
-    const sparse = structuredClone(full);
-    const kept = `${label}.mobius-a-re`;
-    const omitted = (id) => id.startsWith(`${label}.`) && id !== kept;
-    sparse.descriptor.parameters = sparse.descriptor.parameters.filter(({ id }) => !omitted(id));
-    sparse.descriptor.serialization.fields = sparse.descriptor.serialization.fields.filter((id) => !omitted(id));
-    for (const preset of sparse.preset_bank.presets)
-      for (const id of Object.keys(preset.values)) if (omitted(id)) delete preset.values[id];
-    assert.equal(compile(full).status, 'VALID');
-    assert.equal(compile(sparse).status, 'VALID');
-    for (const document of [full, sparse]) document.preset_bank.presets[1].values[kept] = 0;
-    const expected = [{ code: 'INADMISSIBLE_PARAMETERS', path: '$.preset_bank.presets[1].values' }];
-    for (const document of [full, sparse]) {
-      const result = compile(document);
-      assert.equal(result.status, 'INVALID');
-      assert.deepEqual(result.diagnostics.map(({ code, path }) => ({ code, path })), expected);
-    }
-    sparse.preset_bank.presets[1].values[kept] = null;
-    const malformed = compile(sparse);
-    assert.equal(malformed.status, 'INVALID');
-    assert.ok(malformed.diagnostics.some(({ code, path }) => code === 'NONFINITE_VALUE' &&
-      path === `$.preset_bank.presets[1].values.${kept}`));
-  }
+  for (const preset of document.preset_bank.presets)
+    for (const id of Object.keys(preset.values))
+      if (id.startsWith('admission.')) preset.values[id] = 0;
+  assert.equal(compile(document).status, 'VALID');
+  document.preset_bank.presets[1].values['admission.spin-x'] = 7;
+  assert.equal(compile(document).status, 'INVALID');
 });
 
 test('sparse Curl admission resolves omitted scale and integrator defaults', () => {

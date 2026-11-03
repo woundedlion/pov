@@ -18,7 +18,7 @@ enum class SurfacePlacement : uint8_t { BEFORE_LENS, AFTER_LENS };
 using Color::ColorParams;
 using ValueCoverage::CutoutValueParams;
 using ProjectionCoverage::EdgeValueParams;
-using Lens::MobiusLensParams;
+using Lens::MobiusGeneratorParams;
 using Lens::TwistLensParams;
 using Projection::ProjectionParams;
 using Source::GridSourceParams;
@@ -138,18 +138,21 @@ template <typename BindingT> struct ProjectionProvider {
   }
 };
 
-/** @brief Supplies the Mobius coefficients to Pullback::Lens::Mobius.
- * @tparam BindingT Frame binding of the effect.
+/** @brief Supplies a Mobius generator and its clock.
+ * @tparam BindingT Frame binding.
  * @tparam Key Lens resource key. */
 template <typename BindingT, ResourceKey Key = "lens"> struct LensProvider {
-  using Binding = BindingT;                        ///< The effect's Binding.
-  using FrameState = typename Binding::FrameState; ///< The effect's frame.
-  /** @brief The lens's Mobius coefficients.
-   *  @param frame Current frame.
-   *  @return The `Key` family's `mobius`. */
-  __attribute__((always_inline)) static const math::MobiusParams &
-  params(const FrameState &frame) {
-    return frame.params.template get<Key>().mobius;
+  using Binding = BindingT;                        ///< Provider binding.
+  using FrameState = typename Binding::FrameState; ///< Bound frame.
+  /** @brief Reads authored controls. @param frame Bound frame.
+   * @return Keyed generator controls. */
+  static const MobiusGeneratorParams &params(const FrameState &frame) {
+    return frame.params.template get<Key>();
+  }
+  /** @brief Reads the animation clock. @param frame Bound frame.
+   * @return Keyed clock. */
+  static const auto &phase(const FrameState &frame) {
+    return frame.resources.template get<Key>();
   }
 };
 

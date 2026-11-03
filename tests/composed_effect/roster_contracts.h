@@ -21,101 +21,85 @@ struct MobiusFrameProbe : MobiusGrid<SMALL_W, SMALL_H> {
   using MobiusGrid<SMALL_W, SMALL_H>::transition;
 };
 
-/** @brief Mobius automatic departures retain lens. */
-inline void test_mobius_automatic_departures_retain_lens() {
-  for (const bool fade : {false, true}) {
+/** @brief Mobius preset departures adopt authored generators. */
+inline void test_mobius_automatic_departures_interpolate_generator() {
+  for (bool fade : {false, true}) {
     reset_effect_globals();
-    auto effect = std::make_unique<MobiusFrameProbe>();
-    effect->init();
-    const math::MobiusParams live{1.0f, 0.2f, 0.1f, 0.3f,
-                                  0.2f, 0.1f, 0.9f, -0.1f};
-    effect->params.template get<"lens">().mobius = live;
+    MobiusFrameProbe effect;
+    effect.init();
+    effect.params.template get<"lens">().spin_x = 2.0f;
     const auto target = preset_params<MobiusFrameProbe>(1);
-    auto &transition = effect->transition;
-    transition.from = effect->params;
-    transition.to = target;
-    transition.frames = 3;
-    transition.elapsed_frames = 0;
-    transition.fades = fade;
-    transition.adopted = false;
-    transition.active = true;
-    for (const float progress : {0.25f, 0.5f, 1.0f}) {
-      effect->run_transition(progress);
-      verify_mobius_equal(effect->params.template get<"lens">().mobius, live);
-    }
-    auto expected = target;
-    expected.template get<"lens">().mobius = live;
-    verify_params_equal(effect->params, expected);
-    HS_EXPECT_FALSE(transition.active);
-    HS_EXPECT_TRUE(effect->synchronizePreset(1));
-    verify_params_equal(effect->params, target);
+    effect.transition.from = effect.params;
+    effect.transition.to = target;
+    effect.transition.frames = 3;
+    effect.transition.elapsed_frames = 0;
+    effect.transition.fades = fade;
+    effect.transition.adopted = false;
+    effect.transition.active = true;
+    for (const float progress : {0.25f, 0.5f, 1.0f})
+      effect.run_transition(progress);
+    verify_params_equal(effect.params, target);
+    HS_EXPECT_FALSE(effect.transition.active);
   }
 }
 
-/** @brief Mobius captured parameter restore. */
+/** @brief Captured generator sliders replay exactly. */
 inline void test_mobius_captured_parameter_restore() {
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  for (const math::MobiusParams target :
-       {math::MobiusParams{0, 0, 0, 0.704f, 0.304f, 0, 0, 0},
-        math::MobiusParams{0.7071f, -1, 0.7071f, -1, 0.7071f, 0, 0, 0}}) {
-    reset_effect_globals();
-    auto effect = std::make_unique<MobiusFrameProbe>();
-    effect->init();
-    HS_EXPECT_TRUE(Pullback::MobiusLensParams::nondegenerate(target));
-    effect->params.template get<"lens">().mobius = target;
-    std::vector<std::pair<std::string, float>> captured;
-    for (const auto &def : effect->getParameters())
-      if (!def.readonly)
-        captured.emplace_back(def.name, def.get_requested());
-    HS_EXPECT_TRUE(effect->synchronizePreset(0));
-    effect->replay_parameter_writes(captured);
-    verify_mobius_equal(effect->params.template get<"lens">().mobius, target);
-    HS_EXPECT_TRUE(effect->animations_paused());
-    for (const auto &[name, value] : captured) {
-      const auto *def = effect->getParameters().find(name.c_str());
-      HS_EXPECT_TRUE(def != nullptr);
-      if (def != nullptr)
-        HS_EXPECT_EQ(def->get_requested(), value);
-    }
-  }
+  reset_effect_globals();
+  MobiusFrameProbe effect;
+  effect.init();
+  effect.params.template get<"lens">().spin_x = 1.25f;
+  effect.params.template get<"lens">().push_z = -2.5f;
+  const auto expected = effect.params;
+  std::vector<std::pair<std::string, float>> captured;
+  for (const auto &def : effect.getParameters())
+    if (!def.readonly)
+      captured.emplace_back(def.name, def.get_requested());
+  HS_EXPECT_TRUE(effect.synchronizePreset(0));
+  effect.replay_parameter_writes(captured);
+  verify_params_equal(effect.params, expected);
 #endif
 }
 
-/** @brief Mobius frame admission. */
+/** @brief Snapshot admission rejects generators outside their ranges. */
 inline void test_mobius_frame_admission() {
   reset_effect_globals();
-  auto effect = std::make_unique<MobiusFrameProbe>();
-  effect->init();
-#if HS_ENABLE_PARAM_GUI_BRIDGE
-  effect->params.template get<"lens">().mobius = math::MobiusParams{};
-  const auto captured = effect->serialize_parameters();
-  HS_EXPECT_FALSE(effect->animations_paused());
-  HS_EXPECT_EQ(effect->updateParameter("Mobius A Re", 0.0f),
-               ParamSetResult::INADMISSIBLE);
-  verify_params_equal(effect->serialize_parameters().params, captured.params);
-  HS_EXPECT_FALSE(effect->animations_paused());
-  HS_EXPECT_TRUE(effect->parameter_warning("Mobius A Re") != nullptr);
-  HS_EXPECT_TRUE(effect->parameter_warning("Mobius B Re") == nullptr);
-  HS_EXPECT_EQ(effect->updateParameter("Mobius A Re", 0.5f),
-               ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(effect->animations_paused());
-  HS_EXPECT_TRUE(effect->parameter_warning("Mobius A Re") == nullptr);
-  HS_EXPECT_TRUE(effect->restore_parameters(effect->serialize_parameters()));
-#endif
-  for (const math::MobiusParams bad :
-       {math::MobiusParams{1, 0, 1, 0, 1, 0, 1, 0},
-        math::MobiusParams{std::numeric_limits<float>::quiet_NaN(), 0, 0, 0, 0,
-                           0, 1, 0}}) {
-    effect->params.template get<"lens">().mobius = bad;
-    const auto frame = effect->frame_for_test();
-    verify_mobius_equal(frame.params.template get<"lens">().mobius,
-                        math::MobiusParams{});
-    for (const math::Vector view :
-         {math::Vector{1, 0, 0}, math::Vector{0, 1, 0},
-          math::Vector{0, 0, 1}}) {
-      const auto output = math::mobius_transform(
-          view, frame.params.template get<"lens">().mobius);
-      HS_EXPECT_TRUE(finite_vec(output));
+  MobiusFrameProbe effect;
+  effect.init();
+  const auto captured = effect.serialize_parameters();
+  for (const float value : {7.0f, std::numeric_limits<float>::quiet_NaN()}) {
+    auto invalid = captured;
+    invalid.params.template get<"lens">().spin_x = value;
+    HS_EXPECT_FALSE(effect.restore_parameters(invalid));
+    verify_params_equal(effect.serialize_parameters().params, captured.params);
+  }
+  auto previous = captured;
+  previous.schema_version = 4;
+  HS_EXPECT_FALSE(effect.restore_parameters(previous));
+}
+
+/** @brief Generator interpolation produces finite, continuous sphere maps. */
+inline void test_mobius_generator_interpolation() {
+  using Params = Pullback::MobiusGeneratorParams;
+  for (int pair = 0; pair < 40; ++pair) {
+    Params a, b;
+    for (size_t i = 0; i < Params::FIELDS.size(); ++i) {
+      a.*Params::FIELDS[i].member = sinf(pair * 1.7f + i) * 2.0f;
+      b.*Params::FIELDS[i].member = cosf(pair * 0.9f + i) * 2.0f;
+    }
+    const auto first =
+        Pullback::Lens::prepare_mobius(Pullback::interpolate(a, b, 0.5f));
+    const auto second =
+        Pullback::Lens::prepare_mobius(Pullback::interpolate(a, b, 0.50001f));
+    for (int direction = 0; direction < 40; ++direction) {
+      const auto p =
+          math::Vector::from_spherical(direction * 0.618f, direction * 0.078f);
+      const auto u = math::mobius_transform(p, first);
+      const auto v = math::mobius_transform(p, second);
+      HS_EXPECT_TRUE(finite_vec(u));
+      HS_EXPECT_TRUE(finite_vec(v));
+      HS_EXPECT_LT((u - v).magnitude(), 0.003f);
     }
   }
 }
@@ -166,16 +150,14 @@ inline void test_composed_document_values() {
 }
 
 /**
- * @brief Pins the two families the base registers by hand, not by table.
- * @details Color fields have no slider names; the composed Mobius lens has no
- * field table.
+ * @brief Pins color registration and the generator field table.
  */
 inline void test_composed_hand_registered_families() {
   for (const auto &field : Pullback::ColorParams::FIELDS) {
     HS_CONTEXT(field.id);
     HS_EXPECT_TRUE(field.name == nullptr);
   }
-  static_assert(!Pullback::HasFields<Pullback::MobiusLensParams>);
+  static_assert(Pullback::HasFields<Pullback::MobiusGeneratorParams>);
   for (const ColorSliderBinding &binding : COLOR_SLIDER_BINDINGS) {
     HS_CONTEXT(binding.slider);
     HS_EXPECT_TRUE(find_field<Pullback::ColorParams>(binding.field_id) !=

@@ -648,6 +648,42 @@ private:
   float *magnitude_out = nullptr;   /**< Optional published magnitude. */
 };
 
+/** @brief Repeating phase and magnitude driver for a lens generator. */
+class LensPhase : public FiniteParamAnimationBase<LensPhase> {
+public:
+  /** @brief Constructs the clock driver.
+   * @param angle Receives the phase, radians.
+   * @param magnitude Receives the horizontal multiplier.
+   * @param scale Horizontal multiplier.
+   * @param duration Frames per revolution.
+   * @param easing Phase easing. */
+  LensPhase(float &angle, float &magnitude, float scale, int duration,
+            EasingFn easing = math::ease_in_out_sin)
+      : FiniteParamAnimationBase(duration, true), angle(angle),
+        magnitude(magnitude), scale(scale), easing(easing) {
+    HS_CHECK(std::isfinite(scale), "Lens phase scale must be finite");
+  }
+  /** @brief Binds the multiplier to a live value.
+   * @param value Value that outlives the animation. */
+  void bind_scale(const float &value) { scale_ref = &value; }
+  void bind_scale(const float &&) = delete;
+  /** @brief Publishes one clock sample. @param canvas Animation canvas. */
+  void step(Canvas &canvas) override {
+    FiniteParamAnimationBase::step(canvas);
+    if (scale_ref && std::isfinite(*scale_ref))
+      scale = *scale_ref;
+    angle.get() = easing(normalized_progress()) * math::TWO_PI_F;
+    magnitude.get() = scale;
+  }
+
+private:
+  std::reference_wrapper<float> angle;     ///< Published phase.
+  std::reference_wrapper<float> magnitude; ///< Published multiplier.
+  float scale;                             ///< Horizontal multiplier.
+  EasingFn easing;                         ///< Phase easing.
+  const float *scale_ref = nullptr;        ///< Optional live multiplier.
+};
+
 /**
  * @brief Animates the Mobius parameters for a warping effect pulling the poles
  * together.

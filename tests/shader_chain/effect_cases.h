@@ -142,7 +142,7 @@ inline void test_shader_chain_parameter_admission() {
   effect.init();
   ShaderChainWhiteBox::modulation_params(effect);
   const In::ChainEntryRequest chain[] = {
-      {"lens", "sphere.lens.mobius.v2"},
+      {"lens", "sphere.lens.mobius.v3"},
       {"project", "project.stereographic.v2"},
       {"warp", "warp.curl-flow.v2"},
       {"sample", "sample.grid.v3"},
@@ -185,56 +185,17 @@ inline void test_shader_chain_parameter_admission() {
   effect.updateParameter("warp.strength", 0.0f);
   HS_EXPECT_TRUE(effect.parameter_warning("warp.strength") == nullptr);
   HS_EXPECT_EQ(effect.accepted_parameter_value(strength), 0.0f);
-  const ParamDef *d_re_param = effect.getParameters().find("lens.mobius-d-re");
-  HS_EXPECT_TRUE(d_re_param != nullptr);
-  if (!d_re_param)
-    return;
-  const ParamDef &d_re = *d_re_param;
-  const float accepted_d_re = effect.accepted_parameter_value(d_re);
-  HS_EXPECT_EQ(effect.updateParameter("lens.mobius-a-re", 2.0f),
-               ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(effect.updateParameter("lens.mobius-d-re", 0.0f),
-               ParamSetResult::INADMISSIBLE);
-  HS_EXPECT_TRUE(effect.parameter_warning("lens.mobius-d-re") != nullptr);
-  HS_EXPECT_EQ(d_re.get_requested(), accepted_d_re);
-  HS_EXPECT_EQ(effect.accepted_parameter_value(d_re), accepted_d_re);
-  HS_EXPECT_EQ(effect.updateParameter("lens.mobius-a-re", 3.0f),
-               ParamSetResult::APPLIED);
-  const float saved_a = requested_param(effect, "lens.mobius-a-re");
-  const float saved_d = d_re.get_requested();
-  const auto compile_status3 = effect.set_chain(chain).code;
-  HS_EXPECT_EQ(compile_status3, In::ChainStatus::OK);
-  if (compile_status3 != In::ChainStatus::OK)
-    return;
-  HS_EXPECT_EQ(effect.updateParameter("lens.mobius-a-re", saved_a),
-               ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(effect.updateParameter("lens.mobius-d-re", saved_d),
-               ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(requested_param(effect, "lens.mobius-a-re"), saved_a);
-  HS_EXPECT_EQ(requested_param(effect, "lens.mobius-d-re"), saved_d);
-  effect.draw_frame();
-  effect.advance_display();
-  effect.updateParameter("lens.mobius-d-re", 1.0f);
-  HS_EXPECT_TRUE(effect.parameter_warning("lens.mobius-d-re") == nullptr);
-  const ShaderChainParameterWrite valid_batch[] = {{"lens.mobius-a-re", 0.0f},
-                                                   {"lens.mobius-b-re", 1.0f},
-                                                   {"lens.mobius-c-re", 1.0f},
-                                                   {"lens.mobius-d-re", 0.0f}};
+  const ShaderChainParameterWrite valid_batch[] = {{"lens.spin-x", 1.0f},
+                                                   {"lens.push-x", -2.0f}};
   HS_EXPECT_EQ(effect.update_parameters(valid_batch), ParamSetResult::APPLIED);
   for (const auto &write : valid_batch)
     HS_EXPECT_EQ(requested_param(effect, write.name), write.value);
-  const ShaderChainParameterWrite invalid_batch[] = {
-      {"lens.mobius-b-re", 0.0f}, {"lens.mobius-c-re", 0.0f}};
-  HS_EXPECT_EQ(effect.update_parameters(invalid_batch),
-               ParamSetResult::INADMISSIBLE);
-  HS_EXPECT_TRUE(effect.parameter_warning("lens.mobius-b-re") != nullptr);
-  HS_EXPECT_TRUE(effect.parameter_warning("lens.mobius-a-re") == nullptr);
-  const ShaderChainParameterWrite unknown_batch[] = {{"lens.mobius-a-re", 1.0f},
+  const ShaderChainParameterWrite unknown_batch[] = {{"lens.spin-x", 0.5f},
                                                      {"missing", 0.0f}};
   HS_EXPECT_EQ(effect.update_parameters(unknown_batch),
                ParamSetResult::UNKNOWN_PARAM);
-  const ShaderChainParameterWrite nonfinite_batch[] = {
-      {"lens.mobius-a-re", 1.0f}, {"lens.mobius-c-re", NAN}};
+  const ShaderChainParameterWrite nonfinite_batch[] = {{"lens.spin-x", 0.5f},
+                                                       {"lens.push-x", NAN}};
   HS_EXPECT_EQ(effect.update_parameters(nonfinite_batch),
                ParamSetResult::NON_FINITE);
   for (const auto &write : valid_batch)

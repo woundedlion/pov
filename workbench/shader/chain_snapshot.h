@@ -48,7 +48,7 @@ struct ChainSnapshot {
     std::string instance;           ///< Owning instance name.
     ColorModulation::Config recipe; ///< Serializable configuration.
   };
-  static constexpr uint32_t SCHEMA_VERSION = 4; ///< Current snapshot schema.
+  static constexpr uint32_t SCHEMA_VERSION = 5; ///< Current snapshot schema.
   uint32_t schema_version = SCHEMA_VERSION;     ///< Schema this snapshot uses.
   std::vector<Entry> chain;          ///< Program entries, in chain order.
   std::vector<Parameter> parameters; ///< Values to restore, unique names.

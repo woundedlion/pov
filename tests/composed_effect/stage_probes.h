@@ -318,10 +318,10 @@ struct RepeatedStagesSpec : Pullback::Spec {
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
       Pullback::Stage::Placed<
           Pullback::CodeEmission::INLINE_ONLY,
-          Pullback::Stage::Lens<
-              Pullback::Lens::Mobius<Pullback::LensProvider<B, "lens_a">>>,
-          Pullback::Stage::Lens<
-              Pullback::Lens::Mobius<Pullback::LensProvider<B, "lens_b">>>,
+          Pullback::Stage::Lens<Pullback::Lens::MobiusGenerator<
+              Pullback::LensProvider<B, "lens_a">>>,
+          Pullback::Stage::Lens<Pullback::Lens::MobiusGenerator<
+              Pullback::LensProvider<B, "lens_b">>>,
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
               Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
@@ -385,7 +385,7 @@ inline void test_composed_repeated_instances() {
                     sizeof(Pullback::ProjectionParams) +
                     2 * sizeof(Pullback::VectorNoiseParams) +
                     sizeof(Pullback::WaveShearParams) +
-                    2 * sizeof(Pullback::MobiusLensParams) +
+                    2 * sizeof(Pullback::MobiusGeneratorParams) +
                     sizeof(Pullback::ColorParams));
   reset_effect_globals();
   FX effect;
@@ -412,31 +412,31 @@ inline void test_composed_repeated_instances() {
                effect.getParameters().capacity());
   for (const char *name :
        {"warp_a.Planar Warp Speed", "warp_b.Planar Warp Speed",
-        "warp_c.Planar Warp Speed", "lens_a.Mobius B Re", "lens_b.Mobius B Re"})
+        "warp_c.Planar Warp Speed", "lens_a.Push X", "lens_b.Push X"})
     HS_EXPECT_TRUE(effect.getParameters().find(name) != nullptr);
-  HS_EXPECT_EQ(effect.updateParameter("lens_a.Mobius B Re", 0.2f),
+  HS_EXPECT_EQ(effect.updateParameter("lens_a.Push X", 0.2f),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(
-      effect.serialize_parameters().params.template get<"lens_a">().mobius.b.re,
+      effect.serialize_parameters().params.template get<"lens_a">().push_x,
       0.2f);
   HS_EXPECT_EQ(
-      effect.serialize_parameters().params.template get<"lens_b">().mobius.b.re,
+      effect.serialize_parameters().params.template get<"lens_b">().push_x,
       0.0f);
-  HS_EXPECT_EQ(effect.updateParameter("lens_b.Mobius B Re", -0.3f),
+  HS_EXPECT_EQ(effect.updateParameter("lens_b.Push X", -0.3f),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(
-      effect.serialize_parameters().params.template get<"lens_a">().mobius.b.re,
+      effect.serialize_parameters().params.template get<"lens_a">().push_x,
       0.2f);
   HS_EXPECT_EQ(
-      effect.serialize_parameters().params.template get<"lens_b">().mobius.b.re,
+      effect.serialize_parameters().params.template get<"lens_b">().push_x,
       -0.3f);
   auto changed = captured;
-  changed.params.template get<"lens_a">().mobius.b.re = 0.2f;
-  changed.params.template get<"lens_b">().mobius.b.re = -0.3f;
+  changed.params.template get<"lens_a">().push_x = 0.2f;
+  changed.params.template get<"lens_b">().push_x = -0.3f;
   const auto middle =
       Pullback::interpolate(captured.params, changed.params, 0.5f);
-  HS_EXPECT_NEAR(middle.template get<"lens_a">().mobius.b.re, 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(middle.template get<"lens_b">().mobius.b.re, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(middle.template get<"lens_a">().push_x, 0.1f, 1e-6f);
+  HS_EXPECT_NEAR(middle.template get<"lens_b">().push_x, -0.15f, 1e-6f);
   HS_EXPECT_TRUE(FX::valid_params(middle));
   verify_params_equal(
       Pullback::interpolate(captured.params, changed.params, 1.0f),
@@ -458,10 +458,7 @@ inline void test_composed_repeated_instances() {
     differences += initial[i].color != rendered[i].color;
   HS_EXPECT_GT(differences, size_t{0});
   auto invalid = changed;
-  invalid.params.template get<"lens_b">().mobius.c =
-      invalid.params.template get<"lens_b">().mobius.a;
-  invalid.params.template get<"lens_b">().mobius.d =
-      invalid.params.template get<"lens_b">().mobius.b;
+  invalid.params.template get<"lens_b">().push_x = 7.0f;
   HS_EXPECT_FALSE(effect.restore_parameters(invalid));
   verify_params_equal(effect.serialize_parameters().params, changed.params);
 }

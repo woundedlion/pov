@@ -42,7 +42,7 @@ namespace PB = Pullback;
 namespace In = Pullback::Interp;
 
 // Admission-rule constants mirrored by scripts/shader_workbench.mjs.
-static_assert(PB::Lens::MobiusLensParams::MOBIUS_MIN_DET_SQ == 1e-6f);
+
 static_assert(PB::Warp::CURL_VECTOR_COMPONENT_MAX == 4.0f);
 static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::EULER1) == 1);
 static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::MIDPOINT2) == 2);
@@ -620,8 +620,8 @@ inline void test_shader_chain_snapshot_refusals() {
                          {"lens", In::Op::LensMobius::ID});
   candidate.runtime.reset();
   candidate.parameters.clear();
-  candidate.parameters.push_back({"lens.mobius-a-re", 0.0f});
-  candidate.parameters.push_back({"lens.mobius-d-re", 0.0f});
+  candidate.parameters.push_back({"lens.spin-x", 7.0f});
+  candidate.parameters.push_back({"lens.push-x", 0.0f});
   refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
   candidate = saved;
   candidate.chain[1].operator_id = In::Op::ProjectFoldedSinusoidal::ID;

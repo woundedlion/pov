@@ -12,7 +12,10 @@ struct SphereOpMirrorFrame {
   In::Op::CurlDisplaceParams curl;
   In::Op::DirectDisplaceParams direct;
   PB::SphereAnimation::PreparedRipples ripples;
-  math::MobiusParams mobius;
+  In::Op::MobiusChainParams mobius;
+  struct LensClock {
+    float angle = 0, magnitude = 1;
+  } lens_clock;
   In::Op::TwistChainParams twist;
   In::Op::TwistOrbitState twist_phase;
   float phase = 0.0f;
@@ -77,9 +80,10 @@ struct TwistMirrorProvider {
 struct MobiusMirrorProvider {
   using Binding = SphereOpMirrorBinding;
   using FrameState = SphereOpMirrorFrame;
-  static const math::MobiusParams &params(const FrameState &frame) {
+  static const In::Op::MobiusChainParams &params(const FrameState &frame) {
     return frame.mobius;
   }
+  static const auto &phase(const FrameState &frame) { return frame.lens_clock; }
 };
 
 /** Compiles a chain with one sphere endomorphism at entry 1 and applies the
@@ -133,9 +137,7 @@ inline SphereOpMirrorFrame sphere_op_mirror(In::ChainProgram &program) {
     mirror.direct = param_as<In::Op::DirectDisplaceParams>(program, 1);
   if (id == In::Op::LensMobius::ID) {
     const auto &params = param_as<In::Op::MobiusChainParams>(program, 1);
-    mirror.mobius =
-        math::MobiusParams{params.a_re, params.a_im, params.b_re, params.b_im,
-                           params.c_re, params.c_im, params.d_re, params.d_im};
+    mirror.mobius = params;
   }
   if (id == In::Op::LensTwist::ID) {
     mirror.twist = param_as<In::Op::TwistChainParams>(program, 1);
@@ -291,10 +293,6 @@ inline void run_lens_parity(const char *op_id, ValueSet set) {
   In::ChainProgram &program = fixture->program;
   if (!arm_sphere_op_chain<OpParams>(program, op_id, 3, set))
     return;
-  if constexpr (std::is_same_v<OpParams, In::Op::MobiusChainParams>) {
-    if (set != ValueSet::DEFAULTS)
-      param_as<OpParams>(program, 1).d_re *= -1.0f;
-  }
   if constexpr (std::is_same_v<LensPolicy, PB::Lens::Twist>)
     const_cast<In::Op::TwistOrbitState &>(
         state_as<In::Op::TwistOrbitState>(program, 1)) = {};
@@ -320,7 +318,7 @@ inline void test_shader_chain_parity_lens_ops() {
   run_lens_parity<PB::Lens::Glitch, In::Op::GlitchChainParams>(
       In::Op::LensGlitch::ID, ValueSet::DEFAULTS);
   for_each_value_set([&](ValueSet set) {
-    run_lens_parity<PB::Lens::Mobius<MobiusMirrorProvider>,
+    run_lens_parity<PB::Lens::MobiusGenerator<MobiusMirrorProvider>,
                     In::Op::MobiusChainParams>(In::Op::LensMobius::ID, set);
   });
 

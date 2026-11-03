@@ -82,8 +82,8 @@ export function presetAssignments(document, values) {
       member = 'value.edge_width';
     } else if (twists.has(label))
       member = `${twists.get(label)}.${field === 'twist-distribution' ? 'distribution' : field.replaceAll('-', '_')}`;
-    else if (/^lens\.mobius-[abcd]-(re|im)$/.test(id))
-      member = `lens.mobius.${field.split('-').slice(1).join('.')}`;
+    else if (/^lens\.(spin|push)-[xyz]$/.test(id))
+      member = `lens.${field.replaceAll('-', '_')}`;
     else if (modulations.has(label) && MODULATION_MEMBERS[field])
       member = `${label}.modulation.${MODULATION_MEMBERS[field]}`;
     else if (modulations.has(label) && /^(sine|interference|grid)-/.test(field)) {

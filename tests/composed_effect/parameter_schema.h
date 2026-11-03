@@ -109,8 +109,7 @@ struct ParameterLayoutHash {
       this->member(root, member.x, "x");
       this->member(root, member.y, "y");
       this->member(root, member.z, "z");
-    } else if constexpr (std::is_same_v<Member, Pullback::MobiusLensParams>) {
-      this->member(root, member.mobius, "mobius");
+
     } else if constexpr (std::is_same_v<Member, math::MobiusParams>) {
       this->member(root, member.a, "a");
       this->member(root, member.b, "b");
@@ -210,7 +209,7 @@ constexpr ParameterSchemaPin PARAMETER_SCHEMA_PINS[] = {
     {"KaleidoscopeHexBright", 4, 252, 12248859291337775303ULL},
     {"KaleidoscopeFlowers", 4, 260, 16824253992083180273ULL},
     {"CosmicEyeball", 4, 264, 15015288303892513197ULL},
-    {"MobiusGrid", 4, 284, 16410136890467484544ULL},
+    {"MobiusGrid", 5, 276, 15629938187438781434ULL},
 
 };
 

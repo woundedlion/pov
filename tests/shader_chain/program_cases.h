@@ -366,16 +366,16 @@ inline void test_shader_chain_schema_and_field_ids() {
                  "azimuthal");
   HS_EXPECT_TRUE(std::string_view(kaleidoscope.schema[0].enum_ids[8]) ==
                  "octagonal-prism");
-  const auto *mobius_found = require_operator("sphere.lens.mobius.v2");
+  const auto *mobius_found = require_operator("sphere.lens.mobius.v3");
   if (!mobius_found)
     return;
   const In::OperatorDescriptor &mobius = *mobius_found;
-  HS_EXPECT_SIZE_OR_RETURN(mobius.schema_span(), 8);
-  HS_EXPECT_TRUE(std::string_view(mobius.schema[0].id) == "mobius-a-re");
-  HS_EXPECT_TRUE(std::string_view(mobius.schema[7].id) == "mobius-d-im");
-  HS_EXPECT_EQ(mobius.schema[0].min, -4.0f);
-  HS_EXPECT_EQ(mobius.schema[0].max, 4.0f);
-  HS_EXPECT_EQ(mobius.schema[0].def, 0.7071067811865475f);
+  HS_EXPECT_SIZE_OR_RETURN(mobius.schema_span(), 6);
+  HS_EXPECT_TRUE(std::string_view(mobius.schema[0].id) == "spin-x");
+  HS_EXPECT_TRUE(std::string_view(mobius.schema[5].id) == "push-z");
+  HS_EXPECT_EQ(mobius.schema[0].min, -math::TWO_PI_F);
+  HS_EXPECT_EQ(mobius.schema[0].max, math::TWO_PI_F);
+  HS_EXPECT_EQ(mobius.schema[0].def, 0.0f);
   const auto *curl_found = require_operator("sphere.displace.curl.v2");
   if (!curl_found)
     return;

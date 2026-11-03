@@ -348,92 +348,32 @@ struct LensTwist : ValueStateModel<TwistOrbitState> {
   }
 };
 
-/** @brief Slider range of each flat Mobius coefficient. */
-inline constexpr float MOBIUS_COEFFICIENT_LIMIT =
-    Lens::MobiusLensParams::COEFFICIENT_LIMIT;
+/** @brief Generator controls of the Mobius operator. */
+using MobiusChainParams = Lens::MobiusGeneratorParams;
 
-/** @brief Parameter family of sphere.lens.mobius.v2: the flat coefficient
-    fields the chain registers. */
-struct MobiusChainParams {
-  float a_re = 0.7071067811865475f; /**< Re a of (az + b) / (cz + d). */
-  float a_im = 0.0f;                /**< Im a. */
-  float b_re = 0.0f;                /**< Re b. */
-  float b_im = 0.0f;                /**< Im b. */
-  float c_re = 0.0f;                /**< Re c. */
-  float c_im = 0.0f;                /**< Im c. */
-  float d_re = 0.7071067811865475f; /**< Re d. */
-  float d_im = 0.0f;                /**< Im d. */
-
-  static constexpr auto FIELDS = std::array{
-      Field<MobiusChainParams>{"mobius-a-re", &MobiusChainParams::a_re,
-                               "Mobius A Re", -MOBIUS_COEFFICIENT_LIMIT,
-                               MOBIUS_COEFFICIENT_LIMIT, FieldCurve::SNAP},
-      Field<MobiusChainParams>{"mobius-a-im", &MobiusChainParams::a_im,
-                               "Mobius A Im", -MOBIUS_COEFFICIENT_LIMIT,
-                               MOBIUS_COEFFICIENT_LIMIT, FieldCurve::SNAP},
-      Field<MobiusChainParams>{"mobius-b-re", &MobiusChainParams::b_re,
-                               "Mobius B Re", -MOBIUS_COEFFICIENT_LIMIT,
-                               MOBIUS_COEFFICIENT_LIMIT, FieldCurve::SNAP},
-      Field<MobiusChainParams>{"mobius-b-im", &MobiusChainParams::b_im,
-                               "Mobius B Im", -MOBIUS_COEFFICIENT_LIMIT,
-                               MOBIUS_COEFFICIENT_LIMIT, FieldCurve::SNAP},
-      Field<MobiusChainParams>{"mobius-c-re", &MobiusChainParams::c_re,
-                               "Mobius C Re", -MOBIUS_COEFFICIENT_LIMIT,
-                               MOBIUS_COEFFICIENT_LIMIT, FieldCurve::SNAP},
-      Field<MobiusChainParams>{"mobius-c-im", &MobiusChainParams::c_im,
-                               "Mobius C Im", -MOBIUS_COEFFICIENT_LIMIT,
-                               MOBIUS_COEFFICIENT_LIMIT, FieldCurve::SNAP},
-      Field<MobiusChainParams>{"mobius-d-re", &MobiusChainParams::d_re,
-                               "Mobius D Re", -MOBIUS_COEFFICIENT_LIMIT,
-                               MOBIUS_COEFFICIENT_LIMIT, FieldCurve::SNAP},
-      Field<MobiusChainParams>{"mobius-d-im", &MobiusChainParams::d_im,
-                               "Mobius D Im", -MOBIUS_COEFFICIENT_LIMIT,
-                               MOBIUS_COEFFICIENT_LIMIT, FieldCurve::SNAP},
-  };
-};
-static_assert(field_ids_unique<MobiusChainParams>());
-static_assert(field_defaults_in_range<MobiusChainParams>());
-
-/** @brief SPHERE endomorphism: the Mobius map over the flat coefficients. */
+/** @brief Exact conformal flow of an authored generator. */
 struct LensMobius : StatelessModel {
-  static constexpr const char *ID = "sphere.lens.mobius.v2";
+  static constexpr const char *ID = "sphere.lens.mobius.v3";
   static constexpr const char *NAME = "Mobius Lens";
   using Input = SphereSample;
   using Output = SphereSample;
   using Params = MobiusChainParams;
-  /** @brief The frame's validated coefficients. */
+  /// Authored component ranges form a convex domain.
+  static constexpr const char *ADMISSIBILITY_CONVEXITY =
+      "Generator component ranges are convex.";
+  /** @brief Coefficients of the exponentiated generator. */
   struct Prepared {
-    math::MobiusParams mobius; ///< Nondegenerate Mobius coefficients.
+    math::MobiusParams mobius; ///< Exponentiated generator.
   };
-
-  /**
-   * @brief Gathers the flat coefficient fields.
-   * @param params Param block.
-   * @return The Mobius coefficients.
-   */
-  static math::MobiusParams coefficients(const Params &params) {
-    return {params.a_re, params.a_im, params.b_re, params.b_im,
-            params.c_re, params.c_im, params.d_re, params.d_im};
-  }
-
-  /**
-   * @brief Rejects degenerate coefficients.
-   * @param params Param block.
-   * @return The degenerate-map warning, or null.
-   */
+  /** @brief Validates the authored component ranges.
+   * @param params Authored generator.
+   * @return Range warning, or null when admitted. */
   static const char *validate(const Params &params) {
-    const math::MobiusParams mobius = coefficients(params);
-    return Lens::MobiusLensParams::nondegenerate(mobius)
-               ? nullptr
-               : Lens::MobiusLensParams::DEGENERATE_WARNING;
+    return Fields::valid(params) ? nullptr : Params::RANGE_WARNING;
   }
-
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &) {
-    const math::MobiusParams mobius = coefficients(params);
-    HS_CHECK(Lens::MobiusLensParams::nondegenerate(mobius),
-             "sphere.lens.mobius: degenerate coefficients");
-    return {mobius};
+    return {Lens::prepare_mobius(params)};
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &, const Prepared &prepared) {

@@ -11,25 +11,6 @@
 
 namespace Pullback {
 
-/** @brief Gives a frame the current lens wherever a Mobius lens cannot
- *  follow its generator phase between the endpoints.
- * @tparam Frame Composed temporal frame context.
- * @param frame Frame to correct.
- * @param from Previous frame.
- * @param to Current frame. */
-template <typename Frame>
-HS_FLASH_INLINE void hold_discrete_lenses(Frame &frame, const Frame &from,
-                                          const Frame &to) {
-  to.params.visit([&]<typename Resource>(const auto &lens) {
-    if constexpr (std::is_same_v<typename Resource::Family, MobiusLensParams>)
-      if (!lens_phase_continuous(from.params.template get<Resource::KEY>(),
-                                 lens,
-                                 from.resources.template get<Resource::KEY>(),
-                                 to.resources.template get<Resource::KEY>()))
-        frame.params.template get<Resource::KEY>() = lens;
-  });
-}
-
 /** @brief Shared preparation for column samples of one frame interval. */
 template <typename Frame> class FrameInterval {
   using Params = decltype(Frame::params);
@@ -131,13 +112,10 @@ public:
         delta.lambda = Spacetime::ClockInterval::prepare_delta(
             start.lambda, end.lambda, math::TWO_PI_F);
       } else if constexpr (std::is_same_v<typename Resource::Family,
-                                          MobiusLensParams>) {
+                                          MobiusGeneratorParams>) {
         delta.angle = Spacetime::ClockInterval::prepare_delta(
             start.angle, end.angle, math::TWO_PI_F);
         delta.magnitude = end.magnitude - start.magnitude;
-        delta.generated = lens_phase_continuous(
-            a.params.template get<Resource::KEY>(),
-            b.params.template get<Resource::KEY>(), start, end);
       } else if constexpr (Resource::KIND == ResourceKind::MODULATION) {
         const auto &previous =
             a.params.template get<Resource::KEY>().modulation;
@@ -163,7 +141,6 @@ public:
   HS_FLASH_INLINE void at_into(Frame &frame, float fraction) const {
     if (fraction <= 0.0f) {
       frame = from;
-      hold_discrete_lenses(frame, from, to);
       to.params.visit([&]<typename Resource>(const auto &family) {
         if constexpr (std::is_same_v<typename Resource::Family,
                                      SphereAnimation::BurstRippleParams>) {
@@ -266,17 +243,10 @@ public:
         clock.lambda = Spacetime::ClockInterval::apply(start.lambda,
                                                        delta.lambda, fraction);
       } else if constexpr (std::is_same_v<typename Resource::Family,
-                                          MobiusLensParams>) {
-        const auto &end = to.params.template get<Resource::KEY>();
-        frame.params.template get<Resource::KEY>() =
-            delta.generated
-                ? sample_lens_phase(
-                      end,
-                      Spacetime::ClockInterval::apply(start.angle, delta.angle,
-                                                      fraction),
-                      Spacetime::ClockInterval::apply(
-                          start.magnitude, delta.magnitude, fraction))
-                : end;
+                                          MobiusGeneratorParams>) {
+        clock.angle =
+            Spacetime::ClockInterval::apply(start.angle, delta.angle, fraction);
+        clock.magnitude = start.magnitude + delta.magnitude * fraction;
       }
     });
     bool same_sources = true;

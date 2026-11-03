@@ -34,7 +34,7 @@ struct MobiusGridSpec : Pullback::Spec {
       Pullback::Stage::Placed<
           Pullback::CodeEmission::INLINE_ONLY,
           Pullback::Stage::Lens<
-              Pullback::Lens::Mobius<Pullback::LensProvider<B>>>,
+              Pullback::Lens::MobiusGenerator<Pullback::LensProvider<B>>>,
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
               Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
@@ -58,11 +58,6 @@ using MobiusGridParams = Pullback::ParamsFor<MobiusGridSpec>;
 
 /**
  * @brief A continuously animated Mobius lens over a mirrored twin wave.
- * @details Presets store an authored lens snapshot. Once the timeline steps,
- * the circular animation drives b on the unit circle; authored b is not a
- * rendered-frame promise. Automatic Lerp and Fade departures retain all live
- * lens coefficients; manual and synchronized preset snaps adopt the authored
- * lens. Columns sample the warp's phase, never the coefficients.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */
@@ -79,9 +74,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "697ad245d625eefe426de8e8a4dd27029481c1a43934f8d0b47330aed4067c3c";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "4e98053294112e5820c463e707e90a988f2c78bfd40bcbb364d37d17cc3519cb";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "40bb4bb42ec7258d03f6781489b55cb60baef2857a5c8935d12ab2146326f6f2";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "1b88e3bfdbeeccb9173557e535019fa17a2f67625a522d5a3bec892ce98c5dc3";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "mobius-grid",
@@ -92,9 +87,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
-  /// Lens Mobius coefficients follow an animation; preset blends keep them.
-  static constexpr bool ANIMATED_MOBIUS = true;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -120,14 +113,12 @@ public:
     value.template get<"displacement">().modulation.evaluation = Pattern::Evaluation::DIRECT;
     value.template get<"displacement">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
     value.template get<"displacement">().modulation.source = Pattern::SourceKind::DISPLACEMENT;
-    value.template get<"lens">().mobius.a.im = 0.304f;
-    value.template get<"lens">().mobius.a.re = -1.072f;
-    value.template get<"lens">().mobius.b.im = 0.0f;
-    value.template get<"lens">().mobius.b.re = 0.416f;
-    value.template get<"lens">().mobius.c.im = 0.0f;
-    value.template get<"lens">().mobius.c.re = 0.0f;
-    value.template get<"lens">().mobius.d.im = 0.0f;
-    value.template get<"lens">().mobius.d.re = 0.70710677f;
+    value.template get<"lens">().push_x = 0.007910899f;
+    value.template get<"lens">().push_y = 0.45477402f;
+    value.template get<"lens">().push_z = -0.6686195f;
+    value.template get<"lens">().spin_x = 0.6686195f;
+    value.template get<"lens">().spin_y = -2.8652654f;
+    value.template get<"lens">().spin_z = 0.007910899f;
     value.template get<"projection">().spin_rate = 0.0f;
     value.template get<"projection">().wander = 1.0f;
     value.template get<"projection">().singularity_fade = 2.102f;
@@ -163,7 +154,7 @@ public:
 
   /** @brief Starts the circular Mobius lens warp. */
   HS_COLD_MEMBER void after_composed_init() {
-    this->start_mobius_animation(1.0f, 160);
+    this->start_lens_phase(1.0f / 0.416f, 160);
   }
 
 public:

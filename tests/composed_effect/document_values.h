@@ -373,27 +373,12 @@ inline bool assign_field(Family &family, std::string_view id, float value) {
   return false;
 }
 
-/** @brief Writes one Mobius coefficient addressed by its chain field id. */
+/** @brief Assigns a generator field by chain ID. */
 template <typename Params>
 inline bool assign_mobius(Params &params, std::string_view id, float value) {
   if constexpr (std::is_same_v<typename Params::template Family<"lens">,
-                               Pullback::MobiusLensParams>) {
-    auto &mobius = params.template get<"lens">().mobius;
-    const struct {
-      std::string_view id;
-      float *slot;
-    } coefficients[] = {
-        {"mobius-a-re", &mobius.a.re}, {"mobius-a-im", &mobius.a.im},
-        {"mobius-b-re", &mobius.b.re}, {"mobius-b-im", &mobius.b.im},
-        {"mobius-c-re", &mobius.c.re}, {"mobius-c-im", &mobius.c.im},
-        {"mobius-d-re", &mobius.d.re}, {"mobius-d-im", &mobius.d.im},
-    };
-    for (const auto &coefficient : coefficients)
-      if (coefficient.id == id) {
-        *coefficient.slot = value;
-        return true;
-      }
-  }
+                               Pullback::MobiusGeneratorParams>)
+    return assign_field(params.template get<"lens">(), id, value);
   return false;
 }
 
@@ -874,10 +859,6 @@ inline void check_document_values(const char *name) {
     });
     built.template get<"color">().palette_mapping =
         static_cast<Pullback::Color::PaletteMapping>(255);
-    if constexpr (FX::Params::template HAS<"lens">)
-      built.template get<"lens">().mobius = {MISSING, MISSING, MISSING,
-                                             MISSING, MISSING, MISSING,
-                                             MISSING, MISSING};
     for (size_t member = 0; member < values->member_keys.size(); ++member) {
       const std::string &key = values->member_keys[member];
       const JsonValue &value = values->member_values[member];

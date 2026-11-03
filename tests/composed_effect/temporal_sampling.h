@@ -18,7 +18,6 @@ HS_FLASH_INLINE Frame sample_frame_reference(const Frame &from, const Frame &to,
                                              float fraction) {
   if (fraction <= 0.0f) {
     Frame frame = from;
-    Pullback::hold_discrete_lenses(frame, from, to);
     return frame;
   }
   if (fraction >= 1.0f)
@@ -74,17 +73,10 @@ HS_FLASH_INLINE Frame sample_frame_reference(const Frame &from, const Frame &to,
       else
         clock.phase = Spacetime::sample_clock(a.phase, b.phase, fraction, 1.0f);
     } else if constexpr (std::is_same_v<typename Resource::Family,
-                                        Pullback::MobiusLensParams>) {
-      const auto &start = from.params.template get<Resource::KEY>();
-      const auto &end = to.params.template get<Resource::KEY>();
-      frame.params.template get<Resource::KEY>() =
-          Pullback::lens_phase_continuous(start, end, a, b)
-              ? Pullback::sample_lens_phase(
-                    end,
-                    Spacetime::sample_clock(a.angle, b.angle, fraction,
-                                            math::TWO_PI_F),
-                    a.magnitude + (b.magnitude - a.magnitude) * fraction)
-              : end;
+                                        Pullback::MobiusGeneratorParams>) {
+      clock.angle =
+          Spacetime::sample_clock(a.angle, b.angle, fraction, math::TWO_PI_F);
+      clock.magnitude = a.magnitude + (b.magnitude - a.magnitude) * fraction;
     }
   });
   frame.temporal = {from.palette, from.hue_rotation_lut, fraction};
@@ -1148,10 +1140,10 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
   hs::clear_mock_time();
   expect_pixel_golden(
       "MobiusGrid 96x20", golden,
-      RecordedGolden{{0x6d66ce5d4876ef89ull,
-                      {{6805330220ull, 6844874216ull, 7112697845ull},
-                       201312982882ull,
-                       983633955317ull}},
+      RecordedGolden{{0x8ab371336aee7517ull,
+                      {{6821381455ull, 6858841143ull, 7136205680ull},
+                       201547592081ull,
+                       985847639191ull}},
                      {0x108d580bf9f3ec58ull,
                       {{6441042071ull, 6850644753ull, 6909235984ull},
                        194439400705ull,
@@ -1194,133 +1186,41 @@ inline void test_mobius_grid_lens_follows_phase() {
   FX effect;
   effect.init();
   ComposedHistory<FX> history;
-  double worst = 0.0;
-  double worst_endpoint = 0.0;
-  double held = 0.0;
   for (int draw = 0; draw < 165; ++draw) {
     pin_frame_clock(draw);
     effect.draw_frame();
     effect.advance_display();
     const auto current = effect.frame_for_test();
-    const math::Complex endpoint =
-        current.params.template get<"lens">().mobius.b;
-    const math::Complex expected_endpoint = mobius_grid_b_at(draw + 1.0);
-    worst_endpoint = std::max<double>(
-        worst_endpoint, std::hypot(endpoint.re - expected_endpoint.re,
-                                   endpoint.im - expected_endpoint.im));
-    if (history.initialized &&
-        (draw < 4 || (draw > 77 && draw < 82) || draw > 155)) {
+    if (history.initialized) {
       const Pullback::FrameInterval sampler(history.previous, current);
-      for (int x = 0; x < SMALL_W; ++x) {
-        const float fraction = Spacetime::SamplingSurface<SMALL_W>::time(x);
+      for (float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
         const auto sampled = sampler.at(fraction);
+        const auto &phase = sampled.resources.template get<"lens">();
+        const auto prepared = Pullback::Lens::prepare_mobius(
+            sampled.params.template get<"lens">(), phase.angle,
+            phase.magnitude);
+        math::MobiusParams legacy{-1.072f, 0.304f, 0, 0, 0, 0, 0.70710677f, 0};
+        Animation::MobiusWarpCircular::write_b(legacy, phase.magnitude * 0.416f,
+                                               phase.angle);
+        for (int i = 0; i < 100; ++i) {
+          const auto p = math::Vector::from_spherical(i * 0.618f, i * 0.0314f);
+          HS_EXPECT_VEC(math::mobius_transform(p, prepared),
+                        math::mobius_transform(p, legacy), 1e-5f);
+        }
         const auto reference =
             sample_frame_reference(history.previous, current, fraction);
-        const math::MobiusParams &lens =
-            sampled.params.template get<"lens">().mobius;
-        verify_mobius_equal(lens,
-                            reference.params.template get<"lens">().mobius);
-        const math::Complex expected = mobius_grid_b_at(draw + fraction);
-        worst = std::max<double>(worst, std::hypot(lens.b.re - expected.re,
-                                                   lens.b.im - expected.im));
-        held = std::max<double>(held, std::hypot(endpoint.re - expected.re,
-                                                 endpoint.im - expected.im));
-        HS_EXPECT_EQ(lens.a.re,
-                     current.params.template get<"lens">().mobius.a.re);
-        HS_EXPECT_EQ(lens.d.re,
-                     current.params.template get<"lens">().mobius.d.re);
+        HS_EXPECT_NEAR(phase.angle,
+                       reference.resources.template get<"lens">().angle, 1e-6f);
+        verify_params_equal(sampled.params, current.params);
       }
     }
     history.capture(current, persistent_arena);
   }
   hs::clear_mock_time();
-  std::printf(
-      "  MobiusGrid lens phase: worst %.3g, endpoints %.3g, held %.3g\n", worst,
-      worst_endpoint, held);
-  HS_EXPECT_LT(worst_endpoint, 1e-5);
-  HS_EXPECT_LT(worst, 5e-4);
-  HS_EXPECT_GT(held, 0.02);
 }
 
 /** @brief Unsupported lens transitions take the current lens in every
  *  column: a snapped b, changed a, c or d, and a degenerate path sample. */
-inline void test_mobius_grid_lens_unsupported_transitions() {
-  using FX = MobiusGrid<SMALL_W, SMALL_H>;
-  reset_globals();
-  FX effect;
-  effect.init();
-  for (int draw = 0; draw < 10; ++draw) {
-    pin_frame_clock(draw);
-    effect.draw_frame();
-    effect.advance_display();
-  }
-  const auto before = effect.frame_for_test();
-  HS_EXPECT_TRUE(before.resources.template get<"lens">().generated);
-  const auto lens_at = [](const auto &from, const auto &to, float fraction) {
-    return Pullback::FrameInterval(from, to)
-        .at(fraction)
-        .params.template get<"lens">()
-        .mobius;
-  };
-
-  HS_EXPECT_TRUE(effect.selectPreset(1));
-  const auto snapped = effect.frame_for_test();
-  HS_EXPECT_FALSE(snapped.resources.template get<"lens">().generated);
-  for (const float fraction : {0.0f, 0.5f}) {
-    verify_mobius_equal(lens_at(before, snapped, fraction),
-                        snapped.params.template get<"lens">().mobius);
-    verify_mobius_equal(Spacetime::sample_frame(before, snapped, fraction)
-                            .params.template get<"lens">()
-                            .mobius,
-                        snapped.params.template get<"lens">().mobius);
-  }
-
-  auto moved = before;
-  auto &moved_phase = moved.resources.template get<"lens">();
-  moved_phase.angle += 0.2f;
-  Animation::MobiusWarpCircular::write_b(
-      moved.params.template get<"lens">().mobius, moved_phase.magnitude,
-      moved_phase.angle);
-  HS_EXPECT_TRUE(Pullback::lens_generated(moved.params.template get<"lens">(),
-                                          moved_phase));
-  const math::MobiusParams halfway = lens_at(before, moved, 0.5f);
-  HS_EXPECT_NEAR(
-      std::atan2(-halfway.b.im, halfway.b.re),
-      std::remainder(before.resources.template get<"lens">().angle + 0.1f,
-                     math::TWO_PI_F),
-      1e-5f);
-  for (auto field : {&math::MobiusParams::a, &math::MobiusParams::c,
-                     &math::MobiusParams::d}) {
-    auto edited = moved;
-    (edited.params.template get<"lens">().mobius.*field).im += 0.01f;
-    verify_mobius_equal(lens_at(before, edited, 0.5f),
-                        edited.params.template get<"lens">().mobius);
-  }
-
-  auto degenerate_from = before;
-  auto degenerate_to = before;
-  for (auto *frame : {&degenerate_from, &degenerate_to}) {
-    math::MobiusParams &mobius = frame->params.template get<"lens">().mobius;
-    mobius.a = {1.0f, 0.0f};
-    mobius.c = {1.0f, 0.0f};
-    mobius.d = {1.0f, 0.0f};
-  }
-  degenerate_from.resources.template get<"lens">().angle = -0.1f;
-  degenerate_to.resources.template get<"lens">().angle = 0.1f;
-  for (auto *frame : {&degenerate_from, &degenerate_to}) {
-    auto &phase = frame->resources.template get<"lens">();
-    phase.magnitude = 1.0f;
-    Animation::MobiusWarpCircular::write_b(
-        frame->params.template get<"lens">().mobius, 1.0f, phase.angle);
-    HS_EXPECT_TRUE(Pullback::valid(frame->params.template get<"lens">()));
-  }
-  verify_mobius_equal(lens_at(degenerate_from, degenerate_to, 0.5f),
-                      degenerate_to.params.template get<"lens">().mobius);
-  const math::MobiusParams quarter =
-      lens_at(degenerate_from, degenerate_to, 0.25f);
-  HS_EXPECT_NEAR(quarter.b.re, std::cos(-0.05f), 1e-5f);
-  HS_EXPECT_NEAR(quarter.b.im, -std::sin(-0.05f), 1e-5f);
-}
 
 /** @brief Segmented MobiusGrid engines, including clips crossing both arm
  *  boundaries, draw the same pixels as one full-frame engine. */

@@ -12,10 +12,6 @@
 
 namespace ComposedDetail {
 
-/// Slider names of the Mobius coefficients, in `math::MobiusParams` order.
-inline constexpr const char *MOBIUS_PARAM_NAMES[] = {
-    "Mobius A Re", "Mobius A Im", "Mobius B Re", "Mobius B Im",
-    "Mobius C Re", "Mobius C Im", "Mobius D Re", "Mobius D Im"};
 /**
  * @brief Slider name of a warp instance's speed parameter.
  * @param key Warp instance key.
@@ -82,9 +78,10 @@ struct IsTransferStage<Stage::Transfer<P>> : std::true_type {};
 template <typename T> struct IsCoverageStage : std::false_type {};
 template <typename P>
 struct IsCoverageStage<Stage::ApplyCoverage<P>> : std::true_type {};
-/** @brief Whether @p T is a `Lens::Mobius` policy. @tparam T Policy type. */
+/** @brief Whether @p T is a `Lens::MobiusGenerator` policy. @tparam T Policy type. */
 template <typename T> struct IsMobiusLens : std::false_type {};
-template <typename P> struct IsMobiusLens<Lens::Mobius<P>> : std::true_type {};
+template <typename P>
+struct IsMobiusLens<Lens::MobiusGenerator<P>> : std::true_type {};
 
 /**
  * @brief Index of the first stage of @p Pipeline matching @p Predicate.
@@ -364,7 +361,7 @@ struct PolicyResources<ProjectionProvider<B>>
 template <typename B, ResourceKey Key>
 struct PolicyResources<LensProvider<B, Key>> {
   using Type = ResourceList<
-      ParameterResource<Key, MobiusLensParams, ResourceKind::LENS>>;
+      ParameterResource<Key, MobiusGeneratorParams, ResourceKind::LENS>>;
 };
 /** @brief A twist provider declares independent controls and axis clocks.
  * @tparam B Bound frame.
@@ -517,14 +514,12 @@ template <typename Spec> consteval bool color_gate_open(TopologyGate gate) {
  * @tparam Spec Composed-effect Spec, for gate evaluation.
  * @tparam Resource Parameter resource.
  * @return Open fields, plus the speed slider of a warp or the palette-mapping
- *         slider of a colour family; the Mobius coefficients for a lens.
+ *         slider of a colour family.
  */
 template <typename Spec, typename Resource>
 consteval size_t resource_parameter_count() {
   using Family = typename Resource::Family;
-  if constexpr (Resource::KIND == ResourceKind::LENS)
-    return std::size(MOBIUS_PARAM_NAMES);
-  else if constexpr (Resource::KIND == ResourceKind::MODULATION)
+  if constexpr (Resource::KIND == ResourceKind::MODULATION)
     return Resource::Family::SOURCE == Pattern::SourceKind::DISPLACEMENT ? 1
                                                                          : 3;
   else {
@@ -638,11 +633,6 @@ consteval size_t resource_name_bytes() {
                                       ? "Pattern Scale"
                                       : "Pattern Frequency")
                      .size();
-      return bytes;
-    } else if constexpr (Resource::KIND == ResourceKind::LENS) {
-      size_t bytes = 0;
-      for (const char *name : MOBIUS_PARAM_NAMES)
-        bytes += PREFIX + std::string_view(name).size();
       return bytes;
     } else {
       size_t bytes = 0;

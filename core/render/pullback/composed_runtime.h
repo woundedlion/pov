@@ -19,7 +19,7 @@
  * the `PRESET_ROW` hook with `PRESET_IDS`, then `PRESETS`; only single-preset
  * effects may fall back to startup params. Optional hook bindings:
  * `INITIAL_PARAMS` and `AFTER_COMPOSED_INIT`. Optional members:
- * `ANIMATED_MOBIUS`, `CAMERA_SPIN_RATE`, and `WARP_NOISE_SEED` /
+ * `CAMERA_SPIN_RATE`, and `WARP_NOISE_SEED` /
  * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` shadows. A shade() shadow supplies
  * the per-pixel body. An optional `prepare_column_shader(frame, x)` factory
  * returns a column shader accepting latitude sine and cosine.
@@ -499,7 +499,7 @@ protected:
                           Resource::KIND == ResourceKind::MODULATION)
               refused_warning = Modulation::INVALID_CONFIGURATION;
             else
-              refused_warning = Lens::MobiusLensParams::DEGENERATE_WARNING;
+              refused_warning = Lens::MobiusGeneratorParams::RANGE_WARNING;
           }
         }
       }
@@ -649,25 +649,6 @@ protected:
         target.template get<"color">().palette_mapping);
   }
 
-  /** @brief Adopts an automatic target while retaining animated lens
-   * coefficients.
-   *  @param target Parameters to adopt. */
-  HS_COLD_MEMBER void finish_blend(const Params &target)
-    requires(requires { Derived::ANIMATED_MOBIUS; } && Derived::ANIMATED_MOBIUS)
-  {
-    this->params.visit([&]<typename Resource>(auto &family) {
-      if constexpr (Resource::KIND == ResourceKind::LENS) {
-        const auto MOBIUS = family.mobius;
-        family = target.template get<Resource::KEY>();
-        family.mobius = MOBIUS;
-      } else {
-        family = target.template get<Resource::KEY>();
-      }
-    });
-    palette_mapping = Pullback::Color::PaletteMappingWeights::single(
-        target.template get<"color">().palette_mapping);
-  }
-
   /** @brief Re-derives the palette mapping weights after a slider write. */
   HS_COLD_MEMBER void parameter_written() override {
     Choreography::parameter_written();
@@ -685,40 +666,25 @@ protected:
 
   /**
    * @brief Writes the interpolated parameters of an in-flight transition.
-   * @details Under `Derived::ANIMATED_MOBIUS` the live lens coefficients are
-   * carried across the interpolation, so the transition does not overwrite the
-   * timeline animation driving them.
    * @param progress Eased transition progress, 0 to 1.
    */
   HS_COLD_MEMBER void blend_params(float progress) {
-    const auto before = params;
     params = Pullback::interpolate(transition.from, transition.to, progress);
-    if constexpr (requires { Derived::ANIMATED_MOBIUS; })
-      if constexpr (Derived::ANIMATED_MOBIUS)
-        this->params.visit([&]<typename Resource>(auto &family) {
-          if constexpr (Resource::KIND == ResourceKind::LENS)
-            family.mobius = before.template get<Resource::KEY>().mobius;
-        });
     palette_mapping = Pullback::Color::PaletteMappingWeights::lerp(
         mapping_from, mapping_to, progress);
   }
 
-  /**
-   * @brief Starts a repeating circular Mobius warp on the lens parameters.
-   * @details Pausable, so the warp freezes with the rest of the parameter
-   * animations. Compiles to nothing for an effect whose lens family carries no
-   * Mobius coefficients.
-   * @param scale Radius of the circular warp.
-   * @param duration Frames per revolution.
-   */
+  /** @brief Starts the lens's repeating phase clock.
+   * @param scale Horizontal generator multiplier.
+   * @param duration Frames per revolution. */
   template <ResourceKey Key = "lens">
-  HS_COLD_MEMBER void start_mobius_animation(float scale, int duration) {
+  HS_COLD_MEMBER void start_lens_phase(float scale, int duration) {
     if constexpr (Params::template HAS<Key>) {
-      Animation::MobiusWarpCircular warp(
-          this->params.template get<Key>().mobius, scale, duration);
       auto &phase = clocks.template get<Key>();
-      warp.bind_phase(phase.angle, phase.magnitude);
-      timeline.add_pausable(0, std::move(warp), &anims_paused);
+      timeline.add_pausable(
+          0,
+          Animation::LensPhase(phase.angle, phase.magnitude, scale, duration),
+          &anims_paused);
     }
   }
 
@@ -736,16 +702,7 @@ public:
                              &ComposedEffect::blend_params>,
         Control::HookBinding<Control::ChoreographyHook::TRANSITION_ARMED,
                              &ComposedEffect::transition_armed>>;
-    if constexpr (requires { Derived::ANIMATED_MOBIUS; }) {
-      if constexpr (Derived::ANIMATED_MOBIUS)
-        return Hooks::template extend<
-            ComposedEffect,
-            Control::HookBinding<Control::ChoreographyHook::FINISH_BLEND,
-                                 &ComposedEffect::finish_blend>>();
-      else
-        return Hooks{};
-    } else
-      return Hooks{};
+    return Hooks{};
   }
 
 private:
@@ -841,24 +798,6 @@ private:
     register_fields<Resource>(warp);
   }
 
-  template <typename Resource, typename T>
-  HS_COLD_MEMBER void register_lens_fields(T &lens) {
-    constexpr math::Complex math::MobiusParams::*COEFFICIENTS[] = {
-        &math::MobiusParams::a, &math::MobiusParams::b, &math::MobiusParams::c,
-        &math::MobiusParams::d};
-    constexpr float math::Complex::*CHANNELS[] = {&math::Complex::re,
-                                                  &math::Complex::im};
-    constexpr float LIMIT = MobiusLensParams::COEFFICIENT_LIMIT;
-    for (size_t i = 0; i < std::size(COEFFICIENTS); ++i)
-      for (size_t j = 0; j < std::size(CHANNELS); ++j) {
-        register_animated_param(
-            resource_parameter_name<Resource>(
-                ComposedDetail::MOBIUS_PARAM_NAMES[i * 2 + j]),
-            &((lens.mobius.*COEFFICIENTS[i]).*CHANNELS[j]), -LIMIT, LIMIT);
-        set_parameter_stage(ParameterStage::LENS);
-      }
-  }
-
   template <float Color::ColorControls::*Member>
   static consteval const Field<ColorParams> &color_descriptor() {
     constexpr size_t INDEX = [] {
@@ -889,8 +828,6 @@ private:
       if constexpr (Resource::KIND == Kind) {
         if constexpr (Kind == ResourceKind::WARP)
           register_warp_fields<Resource>(family);
-        else if constexpr (Kind == ResourceKind::LENS)
-          register_lens_fields<Resource>(family);
         else
           register_fields<Resource>(family);
       }
@@ -1114,12 +1051,6 @@ private:
           }
         }
       }
-      if constexpr (Resource::KIND == ResourceKind::LENS)
-        if (!Pullback::valid(frame.params.template get<Resource::KEY>()))
-          frame.params.template get<Resource::KEY>().mobius = {};
-      if constexpr (std::is_same_v<typename Resource::Family, MobiusLensParams>)
-        resource.generated = lens_generated(
-            frame.params.template get<Resource::KEY>(), resource);
     });
     if constexpr (TEMPORAL_SAMPLING)
       frame.temporal = {frame.palette, frame.hue_rotation_lut, 1.0f};
