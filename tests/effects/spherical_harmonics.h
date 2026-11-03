@@ -552,10 +552,10 @@ inline void test_sh_instantaneous_pixel_golden() {
       });
   expect_pixel_golden(
       "SphericalHarmonics 96x20", small,
-      RecordedGolden{{0x17cfe272f7a45109ull,
-                      {{1486548374ull, 622603797ull, 2206841727ull},
-                       41167967242ull,
-                       206205913859ull}},
+      RecordedGolden{{0x9cb8df75afa8240full,
+                      {{1486548363ull, 622603791ull, 2206841731ull},
+                       41167967165ull,
+                       206205912523ull}},
                      {0x134233915279a3b6ull,
                       {{1486548175ull, 622603658ull, 2206841810ull},
                        41167968484ull,
@@ -564,10 +564,10 @@ inline void test_sh_instantaneous_pixel_golden() {
       sh_instantaneous_golden<288, 144>(3, [](auto &, int) {});
   expect_pixel_golden(
       "SphericalHarmonics 288x144", full,
-      RecordedGolden{{0x2d87b2caff082939ull,
-                      {{526758375ull, 170893029ull, 742254909ull},
-                       102953297057ull,
-                       206583177805ull}},
+      RecordedGolden{{0xb2609700dd5b422full,
+                      {{526758379ull, 170893033ull, 742254907ull},
+                       102953297215ull,
+                       206583181676ull}},
                      {0x500a13ad0928ca3bull,
                       {{526758401ull, 170893036ull, 742254889ull},
                        102953298145ull,
