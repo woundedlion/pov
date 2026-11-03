@@ -77,9 +77,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "cbe0d6c92640a4cae177b0597d886a89c707bbf7ef4077ca940f7761d1640c24";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "227dd22a2001ed4916416fee05f1dcc61a477c8e0a92f1cc832c686a998bfbe7";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "858f231632c1fa3f9a13cc2b4ea15a99f65887b3661ee187b81bebb467363e64";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "a7fa0edab19400f5f61854d1bd12b1f800bd54b6b177a09b343692dbfc97c801";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "jewel-melt"
@@ -99,7 +99,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot parameter layout version.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -184,13 +184,14 @@ public:
     value.template get<"source">().lattice_softness = 0.5f;
     value.template get<"source">().weight_mode = 1;
     value.template get<"outer_warp">().lattice_period = 0.25245383f;
+    value.template get<"outer_warp">().repeat_cells = 8.0f;
     value.template get<"outer_warp">().rotation_rate = 1.0005351f;
     value.template get<"outer_warp">().scale_x = 1.0f;
     value.template get<"outer_warp">().scale_y = 1.0f;
     value.template get<"outer_warp">().shear = 0.0f;
-    value.template get<"outer_warp">().speed = 0.013007277f;
-    value.template get<"outer_warp">().translation_x = 4.0f;
-    value.template get<"outer_warp">().translation_y = 4.0f;
+    value.template get<"outer_warp">().speed = 0.0065036383f;
+    value.template get<"outer_warp">().translation_x = 1.0f;
+    value.template get<"outer_warp">().translation_y = 1.0f;
     return value;
   }
   // clang-format on

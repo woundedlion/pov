@@ -1145,6 +1145,20 @@
       },
       {
         "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 16,
+          "minimum": 1
+        },
+        "id": "warp.repeat-cells",
+        "interpolation": {
+          "kind": "SNAP"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
         "default": 0,
         "domain": {
           "maximum": 6.2831854820251465,
@@ -1325,6 +1339,7 @@
         "sample.lattice-softness",
         "sample.weight-mode",
         "warp.lattice-period",
+        "warp.repeat-cells",
         "warp.rotation-rate",
         "warp.scale-x",
         "warp.scale-y",
@@ -1439,13 +1454,14 @@
           "sample.lattice-softness": 0.5,
           "sample.weight-mode": "projection",
           "warp.lattice-period": 0.25245383381843567,
+          "warp.repeat-cells": 8,
           "warp.rotation-rate": 1.0005351305007935,
           "warp.scale-x": 1,
           "warp.scale-y": 1,
           "warp.shear": 0,
-          "warp.speed": 0.013007276691496372,
-          "warp.translation-x": 4,
-          "warp.translation-y": 4
+          "warp.speed": 0.006503638345748186,
+          "warp.translation-x": 1,
+          "warp.translation-y": 1
         }
       }
     ],
