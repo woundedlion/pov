@@ -20,6 +20,34 @@
 
 namespace Pullback {
 
+/**
+ * @brief One topology enum8 of a parameter family: a structural switch that
+ *        selects among eagerly constructed variants at run time.
+ * @tparam Owner The family struct the enum8 lives in.
+ */
+template <typename Owner> struct TopologyField {
+  const char *id;               /**< Stable machine id, kebab-case. */
+  uint8_t Owner::*member;       /**< The enum8 member of @p Owner. */
+  const char *const *value_ids; /**< Kebab-case value spellings. */
+  uint8_t value_count;          /**< Entries in `value_ids`. */
+  uint8_t def;                  /**< Default value index. */
+
+  /**
+   * @brief Binds an enum8 member to its value spellings.
+   * @tparam N Number of values.
+   * @param id Stable machine id, kebab-case.
+   * @param member The enum8 member of @p Owner.
+   * @param value_ids Kebab-case value spellings, one per value.
+   * @param def Default value index.
+   */
+  template <size_t N>
+  constexpr TopologyField(const char *id, uint8_t Owner::*member,
+                          const char *const (&value_ids)[N], uint8_t def)
+      : id(id), member(member), value_ids(value_ids), value_count(N), def(def) {
+    static_assert(N > 0 && N <= UINT8_MAX);
+  }
+};
+
 /** @brief How a field moves across a preset transition. */
 enum class FieldCurve : uint8_t {
   LERP,              /**< Linear, exact at both endpoints. */
@@ -54,8 +82,11 @@ enum class FieldGate : uint8_t {
   ALWAYS,
   ANIMATED_PROJECTION, /**< Only when the effect animates its projection. */
   CENTRAL_MERIDIAN,    /**< Only when the effect's projection reads it. */
-  SINGULARITY_FADE     /**< Only when the effect's projection has a singular
+  SINGULARITY_FADE,    /**< Only when the effect's projection has a singular
                             locus to attenuate. */
+  COORDINATE_SCALE,    ///< Atlas projections with an authored coordinate scale.
+  LAYOUT_SCROLL,       ///< Peirce strip layouts.
+  STANDARD_PARALLEL    ///< Bonne reference latitude.
 };
 
 /**
@@ -232,6 +263,10 @@ template <HasFields T> HS_FLASH_INLINE inline bool valid(const T &value) {
     if (!field.description().valid(value))
       return false;
   }
+  if constexpr (requires { T::TOPOLOGY; })
+    for (const auto &field : T::TOPOLOGY)
+      if (value.*field.member >= field.value_count)
+        return false;
   return true;
 }
 

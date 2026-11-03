@@ -30,6 +30,11 @@ using Source::TwinWaveSourceParams;
 using Surface::DirectSurfaceParams;
 using Surface::PeriodicRippleParams;
 using Surface::SurfaceNoiseParams;
+using Surface::AuthoredSurfaceNoiseParams;
+using Surface::AuthoredDirectSurfaceParams;
+using Surface::RossbyHaurwitzParams;
+using Surface::SymmetricParams;
+using Surface::PotentialParams;
 using Transfer::IsoValueParams;
 using Warp::AffineParams;
 using Warp::MirrorParams;
@@ -95,7 +100,8 @@ template <typename FrameT> struct Binding {
 
 /** @brief Supplies the camera orientation to Pullback::Stage::Rotate.
  * @tparam BindingT Frame binding of the effect. */
-template <typename BindingT> struct OuterCameraProvider {
+template <typename BindingT, typename Family = ProjectionParams>
+struct OuterCameraProvider {
   using Binding = BindingT;                        ///< The effect's Binding.
   using FrameState = typename Binding::FrameState; ///< The effect's frame.
   /** @brief Conjugate of the outer camera orientation.
@@ -112,7 +118,8 @@ template <typename BindingT> struct OuterCameraProvider {
  *        Pullback::Projection policies.
  * @tparam BindingT Frame binding of the effect.
  */
-template <typename BindingT> struct ProjectionProvider {
+template <typename BindingT, typename Family = ProjectionParams>
+struct ProjectionProvider {
   using Binding = BindingT;                        ///< The effect's Binding.
   using FrameState = typename Binding::FrameState; ///< The effect's frame.
   /** @brief Conjugate of the projection orientation.
@@ -135,6 +142,40 @@ template <typename BindingT> struct ProjectionProvider {
   __attribute__((always_inline)) static float
   central_meridian(const FrameState &frame) {
     return frame.params.template get<"projection">().central_meridian;
+  }
+  /** @brief Projection coordinate scale.
+   * @param frame Bound frame.
+   * @return Authored scale. */
+  static float coordinate_scale(const FrameState &frame) {
+    return frame.params.template get<"projection">().coordinate_scale;
+  }
+  /** @brief Peirce strip translation.
+   * @param frame Bound frame.
+   * @return Authored strip translation. */
+  static float layout_scroll(const FrameState &frame) {
+    return frame.params.template get<"projection">().layout_scroll;
+  }
+  /** @brief Bonne standard parallel.
+   * @param frame Bound frame.
+   * @return Authored parallel, radians. */
+  static float standard_parallel(const FrameState &frame) {
+    return frame.params.template get<"projection">().standard_parallel;
+  }
+};
+
+/** @brief Reads an independently keyed lens family.
+ * @tparam BindingT Pipeline binding.
+ * @tparam Family Lens controls.
+ * @tparam Key Parameter resource key. */
+template <typename BindingT, typename Family, ResourceKey Key>
+struct KeyedLensProvider {
+  using Binding = BindingT;                        ///< Pipeline binding.
+  using FrameState = typename Binding::FrameState; ///< Bound frame.
+  /** @brief Reads authored controls.
+   * @param frame Bound frame.
+   * @return Keyed controls. */
+  static const auto &params(const FrameState &frame) {
+    return frame.params.template get<Key>();
   }
 };
 
@@ -667,7 +708,7 @@ struct ColorProvider {
  * @tparam PhaseV Whether eligible sources share column-phase evaluation. */
 template <typename BindingT, ResourceKey Key, Pattern::SourceKind SourceV,
           Pattern::Evaluation EvaluationV = Pattern::Evaluation::BAKED_CUBE,
-          bool PhaseV = false>
+          bool PhaseV = false, bool DynamicV = false>
 struct ModulationProvider {
   using Binding = BindingT;                        ///< Pipeline binding.
   using FrameState = typename Binding::FrameState; ///< Frame context.

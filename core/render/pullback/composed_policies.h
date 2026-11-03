@@ -228,6 +228,107 @@ struct ProjectionPolicyFor<ProjectionKind::FOLDED_SINUSOIDAL, B> {
   using Type = Pullback::Projection::FoldedSinusoidal<ProjectionProvider<B>>;
 };
 
+/** @brief Runtime topology for authored atlas projections.
+ * @tparam Kind Projection algorithm.
+ * @tparam State Parameter provider. */
+template <ProjectionKind Kind, typename State>
+struct AuthoredProjection
+    : Projection::FrameConjugateFromState<State>,
+      Projection::MeridianPrepared<AuthoredProjection<Kind, State>, State> {
+  using Binding = typename State::Binding;       ///< Pipeline binding.
+  using FrameState = typename State::FrameState; ///< Bound frame.
+  using Prepared = Projection::PreparedMeridian; ///< Cached meridian rotation.
+  using Projection::MeridianPrepared<AuthoredProjection, State>::project;
+  static constexpr bool EDGE_DISTANCE_AVAILABLE =
+      true; ///< Cut distances available.
+  static constexpr bool APPROXIMATE =
+      Kind == ProjectionKind::PEIRCE_SQUARE_FAST;
+  static constexpr ApproximationOracleId ORACLE =
+      APPROXIMATE ? ApproximationOracleId::PEIRCE_FAST_SQUARE
+                  : ApproximationOracleId::NONE;
+  static constexpr auto METRICS = [] {
+    if constexpr (APPROXIMATE)
+      return Projection::PEIRCE_FAST_SQUARE_METRICS;
+    else
+      return std::array<ApproximationMetric, 0>{};
+  }(); ///< Approximation error bounds.
+  /** @brief Selects the authored projection-frame behavior.
+   * @param frame Bound frame.
+   * @return Identity or animated conjugate rotation. */
+  static const math::Quaternion &frame_conjugate(const FrameState &frame) {
+    static const math::Quaternion IDENTITY;
+    return frame.params.template get<"projection">().frame == 0
+               ? IDENTITY
+               : State::conjugate(frame);
+  }
+  /** @brief Checks the bound projection provider.
+   * @tparam CandidateBinding Candidate pipeline binding. */
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      Projection::FrameProvider<State, CandidateBinding>;
+  /** @brief Projects with authored layout and hemisphere controls.
+   * @param input Projection-local unit direction.
+   * @param frame Bound frame.
+   * @param prepared Cached meridian rotation.
+   * @return Plane coordinates and projection provenance. */
+  static ProjectionResult project(const math::Vector &input,
+                                  const FrameState &frame,
+                                  const Prepared &prepared) {
+    const auto &params = frame.params.template get<"projection">();
+    if constexpr (Kind == ProjectionKind::STEREOGRAPHIC)
+      return Projection::stereographic(input, params.singularity_fade);
+    else if constexpr (Kind == ProjectionKind::FOLDED_SINUSOIDAL)
+      return Projection::folded_sinusoidal(input, params.central_meridian);
+    else if constexpr (Kind == ProjectionKind::EQUIRECTANGULAR)
+      return Projection::equirectangular(input, params.central_meridian,
+                                         params.singularity_fade);
+    else if constexpr (Kind == ProjectionKind::GNOMONIC_FOLDED)
+      return Projection::gnomonic(
+          input, params.singularity_fade,
+          static_cast<Projection::GnomonicHemisphere>(params.hemisphere));
+    else if constexpr (Kind == ProjectionKind::S2)
+      return Projection::from_kernel(
+          projections::s2_projection(input, prepared.cosine, prepared.sine),
+          params.coordinate_scale);
+    else if constexpr (Kind == ProjectionKind::PEIRCE)
+      return Projection::peirce(
+          input, params.central_meridian, params.layout, params.layout_scroll,
+          true, params.coordinate_scale, params.singularity_fade,
+          prepared.cosine, prepared.sine);
+    else if constexpr (Kind == ProjectionKind::PEIRCE_SQUARE_FAST)
+      return Projection::peirce_fast_square(input, params.coordinate_scale,
+                                            params.singularity_fade);
+    else if constexpr (Kind == ProjectionKind::BONNE)
+      return Projection::bonne(input, params.central_meridian,
+                               (params.hemisphere == 0 ? 1.0f : -1.0f) *
+                                   params.standard_parallel,
+                               params.coordinate_scale);
+    else if constexpr (Kind == ProjectionKind::AIROCEAN)
+      return Projection::airocean(input, params.layout == 1, true,
+                                  params.coordinate_scale, prepared.cosine,
+                                  prepared.sine);
+    else
+      return Projection::gnomonic(
+          input, params.singularity_fade,
+          static_cast<Projection::GnomonicHemisphere>(params.hemisphere));
+  }
+};
+
+/** @brief Selectable authored projection policy.
+ * @tparam ProjectionV Projection algorithm.
+ * @tparam B Pipeline binding. */
+template <ProjectionKind ProjectionV, typename B>
+  requires(ProjectionV == ProjectionKind::S2 ||
+           ProjectionV == ProjectionKind::PEIRCE ||
+           ProjectionV == ProjectionKind::PEIRCE_SQUARE_FAST ||
+           ProjectionV == ProjectionKind::BONNE ||
+           ProjectionV == ProjectionKind::AIROCEAN ||
+           ProjectionV == ProjectionKind::GNOMONIC)
+struct ProjectionPolicyFor<ProjectionV, B> {
+  using Type = AuthoredProjection<ProjectionV,
+                                  ProjectionProvider<B, AtlasProjectionParams>>;
+};
+
 /**
  * @brief Maps a `ProjectionCoverageMode` to its `Pullback::ProjectionCoverage`
  *        policy, exposed as `Type`.

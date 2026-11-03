@@ -124,33 +124,7 @@ struct FrameContext {
       modulations; ///< Keyed immutable sources.
 };
 
-/**
- * @brief One topology enum8 of a parameter family: a structural switch that
- *        selects among eagerly constructed variants at run time.
- * @tparam Owner The family struct the enum8 lives in.
- */
-template <typename Owner> struct TopologyField {
-  const char *id;               /**< Stable machine id, kebab-case. */
-  uint8_t Owner::*member;       /**< The enum8 member of @p Owner. */
-  const char *const *value_ids; /**< Kebab-case value spellings. */
-  uint8_t value_count;          /**< Entries in `value_ids`. */
-  uint8_t def;                  /**< Default value index. */
-
-  /**
-   * @brief Binds an enum8 member to its value spellings.
-   * @tparam N Number of values.
-   * @param id Stable machine id, kebab-case.
-   * @param member The enum8 member of @p Owner.
-   * @param value_ids Kebab-case value spellings, one per value.
-   * @param def Default value index.
-   */
-  template <size_t N>
-  constexpr TopologyField(const char *id, uint8_t Owner::*member,
-                          const char *const (&value_ids)[N], uint8_t def)
-      : id(id), member(member), value_ids(value_ids), value_count(N), def(def) {
-    static_assert(N > 0 && N <= UINT8_MAX);
-  }
-};
+using Pullback::TopologyField;
 
 /**
  * @brief One entry of an operator's registered parameter schema — the full

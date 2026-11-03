@@ -347,10 +347,13 @@ inline const Prepared *find_endpoint(std::span<const Endpoint> endpoints,
 /** @brief Source controls of one authored modulation stage.
  * @tparam SourceV Source capability.
  * @tparam EvaluationV Spatial evaluation strategy. */
-template <Pattern::SourceKind SourceV, Pattern::Evaluation EvaluationV>
+template <Pattern::SourceKind SourceV, Pattern::Evaluation EvaluationV,
+          bool DynamicV = false>
 struct Params {
   static constexpr auto SOURCE = SourceV;         ///< Source capability.
   static constexpr auto EVALUATION = EvaluationV; ///< Storage strategy.
+  static constexpr bool DYNAMIC =
+      DynamicV; ///< Whether presets may change topology.
   Config modulation = [] {
     Config value;
     value.source = SourceV;

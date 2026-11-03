@@ -118,6 +118,11 @@ struct PathTracked<WarpProvider<B, Key, Family, Track, SourceKey>>
 template <typename B, typename Family, bool Track, ResourceKey Key>
 struct PathTracked<SurfaceProvider<B, Family, Track, Key>>
     : std::bool_constant<Track> {};
+
+template <typename Provider, uint8_t Kind>
+struct PathTracked<Surface::TangentField<Provider, Kind>>
+    : PathTracked<Provider> {};
+
 template <typename Provider, typename Mode, uint8_t Harmonic>
 struct PathTracked<Warp::PolarChart<Provider, Mode, Harmonic>>
     : PathTracked<Provider> {};
@@ -196,6 +201,11 @@ template <typename P> struct ProjectionKindOf<Projection::FoldedSinusoidal<P>> {
   static constexpr auto VALUE =
       ProjectionKind::FOLDED_SINUSOIDAL; ///< Projection kind.
 };
+template <ProjectionKind Kind, typename P>
+struct ProjectionKindOf<AuthoredProjection<Kind, P>> {
+  static constexpr auto VALUE = Kind; ///< Projection algorithm.
+};
+
 /** @brief Transfer kind of a typed policy. @tparam Policy Transfer policy. */
 template <typename Policy> struct TransferKindOf {
   static_assert(!std::is_same_v<Policy, Policy>,
@@ -258,10 +268,11 @@ struct IsModulationStage<Stage::Modulate<P>> : std::true_type {};
 /** @brief Whether a color layer reads accumulated displacement. @tparam T Stage descriptor. */
 template <typename T> struct IsDisplacementStage : std::false_type {};
 template <typename B, ResourceKey Key, Pattern::SourceKind Source,
-          Pattern::Evaluation Evaluation, bool Phase>
-struct IsDisplacementStage<Stage::Modulate<
-    Color::Modulate<ModulationProvider<B, Key, Source, Evaluation, Phase>>>>
-    : std::bool_constant<Source == Pattern::SourceKind::DISPLACEMENT> {};
+          Pattern::Evaluation Evaluation, bool Phase, bool Dynamic>
+struct IsDisplacementStage<Stage::Modulate<Color::Modulate<
+    ModulationProvider<B, Key, Source, Evaluation, Phase, Dynamic>>>>
+    : std::bool_constant<Dynamic ||
+                         Source == Pattern::SourceKind::DISPLACEMENT> {};
 
 /** @brief Topology derived from normalized typed pipeline entries.
  * @tparam Pipeline Semantic leaf view. */
@@ -281,13 +292,25 @@ template <typename Pipeline> struct PipelineMetadata {
       IsCoverageStage>; ///< Field coverage stage, or void.
   using ColorStage = typename Pipeline::template StageMatching<
       IsColorStage>; ///< Color stage, or void.
-  static_assert(!std::is_void_v<ProjectStage>,
-                "composed metadata: projection stage is required");
   static_assert(!std::is_void_v<ColorStage>,
                 "composed metadata: color stage is required");
+  static_assert(
+      !std::is_void_v<ProjectStage> || std::is_void_v<SampleStage>,
+      "composed metadata: projection stage is required by a planar sampler");
   /// Sphere-to-plane projection kind.
-  static constexpr auto PROJECTION =
-      ProjectionKindOf<typename ProjectStage::ProjectionPolicy>::VALUE;
+  static constexpr auto PROJECTION = [] {
+    if constexpr (std::is_void_v<ProjectStage>)
+      return ProjectionKind::NONE;
+    else
+      return ProjectionKindOf<typename ProjectStage::ProjectionPolicy>::VALUE;
+  }();
+  /// Whether the projection supplies cut distances.
+  static constexpr bool EDGE_DISTANCE_AVAILABLE = [] {
+    if constexpr (std::is_void_v<ProjectStage>)
+      return false;
+    else
+      return ProjectStage::EDGE_DISTANCE_AVAILABLE;
+  }();
   /// Projection coverage applied at sampling.
   static constexpr auto COVERAGE = [] {
     if constexpr (std::is_void_v<SampleStage>)
@@ -365,13 +388,27 @@ struct MetadataFor
 
 /** @brief The outer camera reads the "projection" family. @tparam B Frame
     binding. */
-template <typename B> struct PolicyResources<OuterCameraProvider<B>> {
-  using Type = ResourceList<ParameterResource<"projection", ProjectionParams,
-                                              ResourceKind::PROJECTION>>;
+template <typename B, typename Family>
+struct PolicyResources<OuterCameraProvider<B, Family>> {
+  using Type = ResourceList<
+      ParameterResource<"projection", Family, ResourceKind::PROJECTION>>;
 };
-template <typename B>
-struct PolicyResources<ProjectionProvider<B>>
-    : PolicyResources<OuterCameraProvider<B>> {};
+template <typename B, typename Family>
+struct PolicyResources<ProjectionProvider<B, Family>>
+    : PolicyResources<OuterCameraProvider<B, Family>> {};
+
+template <ProjectionKind Kind, typename Provider>
+struct PolicyResources<AuthoredProjection<Kind, Provider>>
+    : PolicyResources<Provider> {};
+
+template <typename Provider, uint8_t Kind>
+struct PolicyResources<Surface::TangentField<Provider, Kind>>
+    : PolicyResources<Provider> {};
+template <typename B, typename Family, ResourceKey Key>
+struct PolicyResources<KeyedLensProvider<B, Family, Key>> {
+  using Type = ResourceList<ParameterResource<Key, Family, ResourceKind::LENS>>;
+};
+
 /**
  * @brief A lens provider declares a Mobius lens family under @p Key.
  * @tparam B Frame binding.
@@ -471,10 +508,12 @@ struct PolicyResources<AuthoredColorProvider<B, Brightness, LabCache, Fused>> {
  * @tparam Evaluation Storage strategy.
  * @tparam Phase Whether phases are sampled once per column. */
 template <typename B, ResourceKey Key, Pattern::SourceKind Source,
-          Pattern::Evaluation Evaluation, bool Phase>
-struct PolicyResources<ModulationProvider<B, Key, Source, Evaluation, Phase>> {
-  using Type = ResourceList<ParameterResource<
-      Key, Modulation::Params<Source, Evaluation>, ResourceKind::MODULATION>>;
+          Pattern::Evaluation Evaluation, bool Phase, bool Dynamic>
+struct PolicyResources<
+    ModulationProvider<B, Key, Source, Evaluation, Phase, Dynamic>> {
+  using Type = ResourceList<
+      ParameterResource<Key, Modulation::Params<Source, Evaluation, Dynamic>,
+                        ResourceKind::MODULATION>>;
 };
 
 template <typename Provider, Projection::GnomonicHemisphere Hemisphere>
@@ -516,8 +555,38 @@ template <typename Spec> constexpr bool field_gate_open(FieldGate gate) {
     return uses_central_meridian(MetadataFor<Spec>::PROJECTION);
   case FieldGate::SINGULARITY_FADE:
     return uses_singularity_fade(MetadataFor<Spec>::PROJECTION);
+  case FieldGate::COORDINATE_SCALE:
+    return MetadataFor<Spec>::PROJECTION == ProjectionKind::S2 ||
+           MetadataFor<Spec>::PROJECTION == ProjectionKind::PEIRCE ||
+           MetadataFor<Spec>::PROJECTION ==
+               ProjectionKind::PEIRCE_SQUARE_FAST ||
+           MetadataFor<Spec>::PROJECTION == ProjectionKind::BONNE ||
+           MetadataFor<Spec>::PROJECTION == ProjectionKind::AIROCEAN;
+  case FieldGate::LAYOUT_SCROLL:
+    return MetadataFor<Spec>::PROJECTION == ProjectionKind::PEIRCE;
+  case FieldGate::STANDARD_PARALLEL:
+    return MetadataFor<Spec>::PROJECTION == ProjectionKind::BONNE;
   }
   return false;
+}
+
+/** @brief Whether a resource's runtime topology control applies to its policy.
+ * @tparam Spec Composed pipeline specification.
+ * @tparam Resource Parameter resource.
+ * @param id Topology field identity.
+ * @return Whether to register the control. */
+template <typename Spec, typename Resource>
+constexpr bool resource_topology_open(std::string_view id) {
+  if constexpr (Resource::KIND == ResourceKind::PROJECTION) {
+    if (id == "layout")
+      return MetadataFor<Spec>::PROJECTION == ProjectionKind::PEIRCE ||
+             MetadataFor<Spec>::PROJECTION == ProjectionKind::AIROCEAN;
+    if (id == "hemisphere")
+      return MetadataFor<Spec>::PROJECTION == ProjectionKind::GNOMONIC ||
+             MetadataFor<Spec>::PROJECTION == ProjectionKind::GNOMONIC_FOLDED ||
+             MetadataFor<Spec>::PROJECTION == ProjectionKind::BONNE;
+  }
+  return true;
 }
 
 /** Declared only: a call makes the enclosing constant evaluation ill-formed. */
@@ -569,6 +638,9 @@ consteval size_t resource_parameter_count() {
       } else if (field.name != nullptr && field_gate_open<Spec>(field.gate))
         ++count;
     }
+    if constexpr (requires { Family::TOPOLOGY; })
+      for (const auto &field : Family::TOPOLOGY)
+        count += resource_topology_open<Spec, Resource>(field.id);
     return count;
   }
 }
@@ -674,6 +746,10 @@ consteval size_t resource_name_bytes() {
       for (const auto &field : Resource::Family::FIELDS)
         if (field.name != nullptr && field_gate_open<Spec>(field.gate))
           bytes += PREFIX + std::string_view(field.name).size();
+      if constexpr (requires { Resource::Family::TOPOLOGY; })
+        for (const auto &field : Resource::Family::TOPOLOGY)
+          if (resource_topology_open<Spec, Resource>(field.id))
+            bytes += PREFIX + std::string_view(field.id).size();
       if constexpr (Resource::KIND == ResourceKind::WARP) {
         constexpr std::string_view SPEED_NAME =
             warp_speed_name(Resource::KEY.view());

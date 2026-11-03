@@ -867,9 +867,18 @@ inline void test_ash_cloud_document_pipeline() {
 #endif
 }
 
+#include "tests/composed_effect/authored_policies.h"
+
 /** @brief Module entry point for the composed-effect base contract. */
 inline int run_composed_effect_tests() {
   ModuleFixture fixture("composed_effect");
+  HS_RUN(test_authored_tangent_bindings_match_operators);
+  HS_RUN(test_authored_tangent_interval_uses_radians);
+  HS_RUN(test_authored_potential_interpolation_and_admission);
+  HS_RUN(test_authored_surface_noise_topology);
+  HS_RUN(test_authored_dynamic_modulation_storage);
+  HS_RUN(test_authored_projection_bindings_match_operators);
+  HS_RUN(test_authored_lens_bindings_match_operators);
   HS_RUN(test_millefiori_radial_table_interval);
   HS_RUN(test_millefiori_document_pipeline);
   HS_RUN(test_grid_worms_twist_clocks);

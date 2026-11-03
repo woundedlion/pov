@@ -32,6 +32,8 @@
 #include "core/math/noise_field.h"
 #include "core/render/pullback.h"
 #include "core/render/pullback/runtime_seeds.h"
+#include "core/render/pullback/tangent_surface.h"
+#include "core/render/pullback/authored_lens.h"
 #include "core/render/pullback/composed_resources.h"
 #include "core/render/spacetime/field.h"
 

@@ -413,8 +413,8 @@ inline constexpr bool RESOURCE_NOISE =
                    Source::ProjectedNoiseSourceParams> ||
     std::is_same_v<typename Resource::Family,
                    Source::SphericalNoiseSourceParams> ||
-    std::is_same_v<typename Resource::Family, Surface::SurfaceNoiseParams> ||
-    std::is_same_v<typename Resource::Family, Surface::DirectSurfaceParams>;
+    std::is_base_of_v<Surface::SurfaceNoiseParams, typename Resource::Family> ||
+    std::is_base_of_v<Surface::DirectSurfaceParams, typename Resource::Family>;
 
 /** @brief Persistent ripple scheduler, empty for other families.
  * @tparam Resource Keyed resource.

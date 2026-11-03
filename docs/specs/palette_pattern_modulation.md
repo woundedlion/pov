@@ -9,6 +9,40 @@ single-layer implementation; current stack validation accompanies each change.
 Generalize the existing spatial palette noise modifier into independent pattern
 sources and color operations, using its existing sphere coordinates.
 
+## Authored composed operations
+
+Composed C++ pipelines use the same numerical kernels as the workbench operator
+catalog. Authored parameter families retain runtime topology where presets may
+select different numerical methods or symmetry groups. Existing fixed families
+remain available to effects that pin those choices in their policy types.
+
+`TopologyField` in [the field descriptors](../../core/render/pullback/fields.h)
+describes enum-backed controls for both operator models and composed families.
+Those values participate in admission, parameter registration and snapshots;
+they hold their outgoing value until a parameter interpolation reaches its
+incoming endpoint.
+
+[Tangent policies](../../core/render/pullback/tangent_surface.h) bind arbitrary
+potential fields, Rossby-Haurwitz fields and rotating symmetric fields. Their
+drift clocks are radians modulo two pi, including retained column intervals.
+Curl-noise controls retain the noise basis, integrator and tangent limiter;
+directed noise retains its basis and steering direction. Every displacement
+reports the same angular travel used by displacement color modulation.
+
+Authored projection controls include the projection-frame mode, coordinate
+scale, central meridian and algorithm-specific layout, hemisphere, strip-scroll
+or standard-parallel values. The identity frame bypasses accumulated projection
+motion. Projection provenance and edge distances come from the same kernels as
+the catalog crossings. Spherical samplers may cross directly to the field
+carrier without a projection; planar samplers require a projection crossing.
+
+Flexible composed modulation reserves spatial source storage and retained cube
+storage while allowing a preset to switch between displacement, direct spatial
+evaluation and a baked sphere cube. Every recipe must still pass modulation
+admission. A topology change adopts the incoming source instead of sampling
+incompatible retained endpoints. Fixed modulation families continue to reject
+changes outside their declared source and storage strategy.
+
 The abstraction has two axes: **pattern source** and **modulation mechanic**.
 Noise plus hue rotation is the existing noise modifier; noise plus positive
 lightness lift is shimmer. Grid plus opacity uses the same protocol.

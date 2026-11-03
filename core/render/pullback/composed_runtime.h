@@ -130,7 +130,7 @@ public:
   static_assert(!SpecT::FACTORED_COLUMNS || RenderPipeline::LINEAR_COLUMNS,
                 "factored columns require a rotation/projection prefix");
   static_assert(Metadata::COVERAGE != ProjectionCoverageMode::EDGE_FADE ||
-                    Metadata::ProjectStage::EDGE_DISTANCE_AVAILABLE,
+                    Metadata::EDGE_DISTANCE_AVAILABLE,
                 "edge-fade coverage requires projection edge distance");
   static_assert(!Metadata::DISPLACEMENT || Metadata::PATH_TRACKED,
                 "displacement modulation requires pipeline path tracking");
@@ -205,12 +205,15 @@ public:
                                   GeneratedPaletteBank::DWELL_FRAMES,
                                   GeneratedPaletteBank::FADE_FRAMES,
                                   math::ease_in_out_sin, nullptr, 2);
-    if constexpr (ANIMATED_PROJECTION)
-      timeline.add(0, Animation::RandomWalk<W>(
-                          this->projection_walk, math::UP,
-                          state->projection_walk_noise,
-                          typename Animation::RandomWalk<W>::Options{},
-                          PROJECTION_WALK_SEED));
+    if constexpr (ANIMATED_PROJECTION) {
+      auto walk = Animation::RandomWalk<W>(
+          this->projection_walk, math::UP, state->projection_walk_noise,
+          typename Animation::RandomWalk<W>::Options{}, PROJECTION_WALK_SEED);
+      if constexpr (requires { params.template get<"projection">().frame; })
+        timeline.add_pausable(0, std::move(walk), &projection_frame_paused);
+      else
+        timeline.add(0, std::move(walk));
+    }
     timeline.add(0, Animation::RandomWalk<W>(
                         outer_walk, math::UP, state->outer_walk_noise,
                         typename Animation::RandomWalk<W>::Options{},
@@ -234,6 +237,9 @@ public:
    */
   HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
+    if constexpr (ANIMATED_PROJECTION &&
+                  requires { params.template get<"projection">().frame; })
+      projection_frame_paused = !projection_frame_active();
     {
       HS_PROFILE(fx_timeline_step);
       timeline.step(canvas);
@@ -645,6 +651,30 @@ protected:
         }
         set_parameter_stage(stage);
       }
+    if constexpr (requires { T::TOPOLOGY; })
+      for (const auto &field : T::TOPOLOGY) {
+        if (!ComposedDetail::resource_topology_open<SpecT, Resource>(field.id))
+          continue;
+        const char *const *options = field.value_ids;
+        int option_count = field.value_count;
+        if constexpr (Resource::KIND == ResourceKind::PROJECTION) {
+          if (std::string_view(field.id) == "hemisphere" &&
+              Metadata::PROJECTION == ProjectionKind::BONNE) {
+            static constexpr const char *OPTIONS[] = {"north", "south"};
+            options = OPTIONS;
+            option_count = 2;
+          } else if (std::string_view(field.id) == "layout" &&
+                     Metadata::PROJECTION == ProjectionKind::AIROCEAN) {
+            static constexpr const char *OPTIONS[] = {"vertical", "horizontal"};
+            options = OPTIONS;
+            option_count = 2;
+          }
+        }
+        this->register_animated_enum8_param(
+            resource_parameter_name<Resource>(field.id),
+            &(family.*field.member), options, option_count);
+        set_parameter_stage(resource_parameter_stage<Resource>());
+      }
   }
 
   /** @brief Adopts a snap target and re-derives the palette mapping weights.
@@ -714,18 +744,20 @@ public:
 private:
   static consteval bool modulation_presets_are_supported() {
     bool supported = true;
-    Choreography::preset_row(0).params.visit([&]<typename Resource>(
-                                                 const auto &family) {
-      if constexpr (Resource::KIND == ResourceKind::MODULATION)
-        for (size_t index = 1; index < Choreography::authored_preset_count();
-             ++index) {
-          const auto config = Choreography::preset_row(index)
-                                  .params.template get<Resource::KEY>()
-                                  .modulation;
-          supported = supported && config.source == family.modulation.source &&
-                      config.mechanic.kind == family.modulation.mechanic.kind;
-        }
-    });
+    Choreography::preset_row(0).params.visit(
+        [&]<typename Resource>(const auto &family) {
+          if constexpr (Resource::KIND == ResourceKind::MODULATION)
+            if constexpr (!Resource::Family::DYNAMIC)
+              for (size_t index = 1;
+                   index < Choreography::authored_preset_count(); ++index) {
+                const auto config = Choreography::preset_row(index)
+                                        .params.template get<Resource::KEY>()
+                                        .modulation;
+                supported =
+                    supported && config.source == family.modulation.source &&
+                    config.mechanic.kind == family.modulation.mechanic.kind;
+              }
+        });
     return supported;
   }
 
@@ -929,6 +961,14 @@ private:
     }
   }
 
+  /** @brief Whether the current authored projection frame advances.
+   * @return False for an identity projection frame. */
+  bool projection_frame_active() const {
+    if constexpr (requires { params.template get<"projection">().frame; })
+      return params.template get<"projection">().frame != 0;
+    return true;
+  }
+
   /**
    * @brief Steps every phase clock the effect's parameter families define.
    * @details Each clock is compiled in only when its field exists. Affine
@@ -951,6 +991,14 @@ private:
         else if constexpr (std::is_same_v<typename Resource::Family,
                                           PeriodicRippleParams>)
           Surface::advance_ripple_phase(clock.phase, family);
+        else if constexpr (std::is_same_v<typename Resource::Family,
+                                          RossbyHaurwitzParams> ||
+                           std::is_same_v<typename Resource::Family,
+                                          PotentialParams>)
+          clock.phase = fmodf(clock.phase + family.drift, math::TWO_PI_F);
+        else if constexpr (std::is_same_v<typename Resource::Family,
+                                          SymmetricParams>)
+          clock.phase = fmodf(clock.phase + family.speed, math::TWO_PI_F);
         else
           clock.phase = math::wrap_t(clock.phase + family.speed);
       } else if constexpr (Resource::KIND == ResourceKind::TWIST) {
@@ -964,10 +1012,11 @@ private:
       }
     });
     if constexpr (ANIMATED_PROJECTION)
-      this->projection_spin =
-          fmodf(this->projection_spin +
-                    this->params.template get<"projection">().spin_rate,
-                math::TWO_PI_F);
+      if (projection_frame_active())
+        this->projection_spin =
+            fmodf(this->projection_spin +
+                      this->params.template get<"projection">().spin_rate,
+                  math::TWO_PI_F);
     if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
       camera_spin =
           fmodf(camera_spin + Derived::CAMERA_SPIN_RATE, math::TWO_PI_F);
@@ -978,18 +1027,20 @@ private:
 
   HS_COLD_MEMBER void update_spatial_frames() {
     if constexpr (ANIMATED_PROJECTION) {
-      const math::Quaternion projection = this->projection_walk.get();
-      const math::Quaternion projection_delta =
-          projection * this->projection_walk_previous.conjugate();
-      this->projection_walk_previous = projection;
-      this->projection_wander = math::absorb_rotation_delta(
-          projection_delta.normalized(),
-          this->params.template get<"projection">().wander,
-          this->projection_wander);
-      this->projection_conjugate =
-          (math::make_rotation(math::Y_AXIS, this->projection_spin) *
-           this->base_orientation * this->projection_wander)
-              .conjugate();
+      if (projection_frame_active()) {
+        const math::Quaternion projection = this->projection_walk.get();
+        const math::Quaternion projection_delta =
+            projection * this->projection_walk_previous.conjugate();
+        this->projection_walk_previous = projection;
+        this->projection_wander = math::absorb_rotation_delta(
+            projection_delta.normalized(),
+            this->params.template get<"projection">().wander,
+            this->projection_wander);
+        this->projection_conjugate =
+            (math::make_rotation(math::Y_AXIS, this->projection_spin) *
+             this->base_orientation * this->projection_wander)
+                .conjugate();
+      }
     }
     const math::Quaternion outer = outer_walk.get();
     const math::Quaternion outer_delta =
@@ -1205,6 +1256,7 @@ private:
                                   typename Params::ResourceTypes>
       clocks;
   float camera_spin = 0.0f;
+  bool projection_frame_paused = false;
   float palette_oscillation_phase = 0.0f;
   float palette_chroma = -1.0f;
   uint32_t palette_hue = 0;

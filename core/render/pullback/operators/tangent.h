@@ -8,6 +8,7 @@
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 #include "core/math/tangent_field.h"
+#include "core/render/pullback/tangent_surface.h"
 #include "core/render/pullback/operators/sphere.h"
 
 /** @file tangent.h
@@ -358,16 +359,8 @@ struct DisplaceRossbyHaurwitz
    * @param phase Accumulated azimuthal drift, radians.
    * @return Prepared polynomial tangent field. */
   static Prepared field(const Params &params, float phase) {
-    using namespace math::tangent_field;
-    std::array<PotentialTerm, 4> terms{};
-    terms[0] = {TermType::MODE, Kind::TOROIDAL, 1, 0, -params.omega, 0};
-    terms[1] = {TermType::MODE,
-                Kind::TOROIDAL,
-                static_cast<uint8_t>(params.order + 2),
-                static_cast<uint8_t>(params.order + 1),
-                params.wave * (params.order % 2 ? 1.0f : -1.0f),
-                0};
-    return Prepared(terms, phase);
+    return Surface::rossby_haurwitz_field(params.omega, params.wave,
+                                          params.order, phase);
   }
 };
 
@@ -390,17 +383,7 @@ struct DisplaceSymmetric
    * @param phase Accumulated frame rotation, radians.
    * @return Prepared polynomial tangent field. */
   static Prepared field(const Params &params, float phase) {
-    using namespace math::tangent_field;
-    constexpr uint8_t ORDERS[] = {6, 0, 0, 0, 3, 4, 5, 6, 8};
-    std::array<PotentialTerm, 4> terms{};
-    const auto type = params.symmetry >= 1 && params.symmetry <= 3
-                          ? static_cast<TermType>(params.symmetry)
-                          : TermType::MODE;
-    const uint8_t order = ORDERS[params.symmetry];
-    const float amplitude = order % 2 ? -1.0f : 1.0f;
-    terms[0] = {type, static_cast<Kind>(params.kind), order, order, amplitude,
-                0};
-    return Prepared(terms, 0.0f, math::make_rotation(math::Y_AXIS, phase));
+    return Surface::symmetric_field(params.symmetry, params.kind, phase);
   }
 };
 

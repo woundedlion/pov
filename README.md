@@ -1384,6 +1384,8 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │                            (runtime_seeds), named per-instance resources (composed_resources),
 │   │   │                            plus the composed-effect base
 │   │   │                            (composed_effect)
+│   │   │   ├── authored_lens.h         Keyed glitch and kaleidoscope controls
+│   │   │   ├── tangent_surface.h       Polynomial tangent-field and configurable noise displacements
 │   │   │   ├── composed_providers.h    Composed-effect provider bindings
 │   │   │   ├── composed_parameters.h   Composed-effect parameter interpolation and validation, runtime storage mixins and Spec kind enums
 │   │   │   ├── composed_policies.h     Composed-effect stage policies
