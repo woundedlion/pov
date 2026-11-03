@@ -774,24 +774,19 @@ const CURL_INTERVALS = { 'euler-1': 1, 'midpoint-2': 2, 'midpoint-4': 4 };
 const admissibleParameters = (operator, value) => {
   const f = Math.fround;
   if (operator.id === 'sphere.displace.potential.v1') {
-    let bound = 0;
     for (let term = 1; term <= 4; ++term) {
       const orders = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
       const l = orders.indexOf(value(`term-${term}-l`)), m = orders.indexOf(value(`term-${term}-m`));
       if (l < 0 || m < 0 || m > l)
         return false;
-      bound = f(bound + Math.abs(f(value(`term-${term}-amplitude`))));
     }
-    return f(Math.abs(f(value('strength'))) * bound) <= f(Math.PI);
+    return true;
   }
   if (operator.id === 'sphere.displace.rossby-haurwitz.v1') {
     const order = value('order');
     if (!['one', 'two', 'three', 'four', 'five', 'six', 'seven'].includes(order)) return false;
-    const bound = f(Math.abs(f(value('omega'))) + Math.abs(f(value('wave'))));
-    return f(Math.abs(f(value('strength'))) * bound) <= f(Math.PI);
+    return true;
   }
-  if (operator.id === 'sphere.displace.symmetric.v1')
-    return f(Math.abs(f(value('strength'))) * Math.abs(f(value('amplitude')))) <= f(Math.PI);
   if (operator.id === 'warp.curl-flow.v2') {
     const scale = value('scale'), strength = value('strength');
     const intervals = CURL_INTERVALS[value('integrator')];

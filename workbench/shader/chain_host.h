@@ -9,6 +9,7 @@
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 
+#include <bit>
 #include <span>
 #include <string_view>
 
@@ -421,6 +422,56 @@ public:
     return ParamSetResult::APPLIED;
   }
 
+  /** @brief Reads admitted numeric intervals with other parameters held fixed.
+   * @tparam Visitor Callable receiving name, minimum and maximum.
+   * @param visit Receives each writable floating-point parameter's interval. */
+  template <typename Visitor> void parameter_ranges(Visitor &&visit) {
+    const auto ops = program.ops();
+    for (size_t index = 0; index < ops.size(); ++index)
+      for (uint16_t field = 0; field < ops[index].op->schema_count; ++field) {
+        const ParamDef *parameter =
+            getParameters().find(program.param_name(index, field));
+        if (parameter == nullptr || parameter->readonly ||
+            parameter->is_enum() ||
+            parameter->target_type != ParamDef::TargetType::FLOAT)
+          continue;
+        const auto admitted = [&](float value) {
+          return stage_candidates(index, index + 1, [&] {
+                   ParamDef proposed = *parameter;
+                   proposed.target = ops[index].op->runtime.param_address(
+                       candidates[index], field);
+                   write_parameter_unchecked(proposed, value);
+                   return ParamSetResult::APPLIED;
+                 }).result == ParamSetResult::APPLIED;
+        };
+        const float current = parameter->get_requested();
+        const auto boundary = [&](float endpoint) {
+          if (((current > 0.0f && endpoint < 0.0f) ||
+               (current < 0.0f && endpoint > 0.0f)) &&
+              !admitted(0.0f))
+            endpoint = 0.0f;
+          if (admitted(endpoint))
+            return endpoint;
+          uint32_t accepted = ordered_float(current);
+          uint32_t refused = ordered_float(endpoint);
+          while (accepted > refused ? accepted - refused > 1
+                                    : refused - accepted > 1) {
+            const uint32_t middle =
+                std::min(accepted, refused) +
+                (std::max(accepted, refused) - std::min(accepted, refused)) / 2;
+            if (admitted(float_from_ordered(middle)))
+              accepted = middle;
+            else
+              refused = middle;
+          }
+          return float_from_ordered(accepted);
+        };
+        const float minimum = boundary(parameter->min);
+        const float maximum = boundary(parameter->max);
+        visit(parameter->name, minimum, maximum);
+      }
+  }
+
   /** @brief Reads the current field strength advisory.
    * @param name Registered parameter name.
    * @param strength Output conservative threshold.
@@ -697,6 +748,16 @@ private:
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
+  static uint32_t ordered_float(float value) {
+    const uint32_t bits = std::bit_cast<uint32_t>(value);
+    return bits & 0x80000000u ? ~bits : bits ^ 0x80000000u;
+  }
+
+  static float float_from_ordered(uint32_t value) {
+    return std::bit_cast<float>(value & 0x80000000u ? value ^ 0x80000000u
+                                                    : ~value);
+  }
+
   const char *validate_parameters(size_t index, void *params) {
     return admission_refusal(program.ops(), index, params);
   }

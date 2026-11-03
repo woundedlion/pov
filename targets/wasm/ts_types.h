@@ -22,6 +22,7 @@ HS_TS_PAYLOAD(ParameterValuesValue)
 HS_TS_PAYLOAD(PresetIdsValue)
 HS_TS_PAYLOAD(DefinitionsValue)
 HS_TS_PAYLOAD(ParameterAdvisoriesValue)
+HS_TS_PAYLOAD(ParameterRangesValue)
 HS_TS_PAYLOAD(DocumentDefinitionsValue)
 HS_TS_PAYLOAD(ArenaMetricsValue)
 HS_TS_PAYLOAD(SizesValue)
@@ -105,6 +106,8 @@ inline void bind_ts_types() {
       "ProgramValue", R"({instance: string; operator: string}[] | null)");
   emscripten::register_type<ParameterWritesValue>(
       "ParameterWritesValue", R"({name: string; value: number}[])");
+  emscripten::register_type<ParameterRangesValue>(
+      "ParameterRangesValue", R"({name: string; min: number; max: number}[])");
   emscripten::register_type<ChainResultValue>(
       "ChainResultValue",
       R"({status: import("./engine_types.js").EnumValue; code: string; entryIndex: number})");

@@ -357,6 +357,24 @@ public:
     return result;
   }
 
+  /** @brief Admitted numeric slider intervals for the current chain.
+   * @return Parameter names and inclusive ranges, empty for a stale handle. */
+  ParameterRangesValue getShaderChainParameterRanges() {
+    emscripten::val result = emscripten::val::array();
+    with_effect<ShaderChain>([&]<typename SC>(SC &chain) {
+      size_t index = 0;
+      chain.parameter_ranges(
+          [&](const char *name, float minimum, float maximum) {
+            emscripten::val range = emscripten::val::object();
+            range.set("name", std::string(name));
+            range.set("min", minimum);
+            range.set("max", maximum);
+            result.set(index++, range);
+          });
+    });
+    return result;
+  }
+
 private:
   bool decoding = false;
   /** @brief Result with ChainStatus, commit or refusal code, and entry index. */
@@ -429,6 +447,8 @@ static void bind_workbench_adapters() {
       .function("setShaderChain", &ShaderChainBindings::setShaderChain)
       .function("setShaderChainParameters",
                 &ShaderChainBindings::setShaderChainParameters)
+      .function("getShaderChainParameterRanges",
+                &ShaderChainBindings::getShaderChainParameterRanges)
       .function("getProgram", &ShaderChainBindings::getProgram)
       .class_function("getShaderChainCatalog",
                       &ShaderChainBindings::getShaderChainCatalog);

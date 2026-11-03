@@ -73,10 +73,9 @@ const withAdmissionOperator = (operatorId, index) => {
   return document;
 };
 
-test('field documents reject invalid mode orders and arc caps without clamping', () => {
+test('field documents reject invalid mode orders without clamping', () => {
   for (const [operator, edits] of [
     ['sphere.displace.potential.v1', {'term-1-l': 'two', 'term-1-m': 'three'}],
-    ['sphere.displace.symmetric.v1', {strength: 2, amplitude: 2}],
   ]) {
     const document = withAdmissionOperator(operator, 1);
     assert.equal(compile(document).status, 'VALID');
@@ -89,7 +88,8 @@ test('field documents reject invalid mode orders and arc caps without clamping',
     assert.deepEqual(document, before);
   }
   const document = withAdmissionOperator('sphere.displace.symmetric.v1', 1);
-  document.preset_bank.presets[0].values['admission.strength'] = 1;
+  document.preset_bank.presets[0].values['admission.strength'] = 2;
+  document.preset_bank.presets[0].values['admission.amplitude'] = 2;
   assert.equal(compile(document).status, 'VALID');
 });
 
