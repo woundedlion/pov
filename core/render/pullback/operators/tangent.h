@@ -170,13 +170,19 @@ struct PotentialDisplaceParams {
   static void sample_extra(PotentialDisplaceParams &out,
                            const PotentialDisplaceParams &from,
                            const PotentialDisplaceParams &to, float fraction) {
+    if (out.orientation_azimuth > math::PI_F)
+      out.orientation_azimuth -= math::TWO_PI_F;
     for (size_t i = 0; i < 4; ++i) {
       out.terms[i] = fraction < 1.0f ? from.terms[i] : to.terms[i];
       if (from.terms[i].type == to.terms[i].type &&
-          from.terms[i].l == to.terms[i].l && from.terms[i].m == to.terms[i].m)
+          from.terms[i].l == to.terms[i].l &&
+          from.terms[i].m == to.terms[i].m) {
         out.terms[i].phase = Control::apply_curve(
             Control::FieldCurve::SHORTEST_PERIODIC, from.terms[i].phase,
             to.terms[i].phase, fraction);
+        if (out.terms[i].phase > math::PI_F)
+          out.terms[i].phase -= math::TWO_PI_F;
+      }
     }
   }
 };

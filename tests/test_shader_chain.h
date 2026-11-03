@@ -764,6 +764,7 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_tangent_step_integrators);
   HS_RUN(test_tangent_antipodal_midpoint);
   HS_RUN(test_tangent_operator_admission);
+  HS_RUN(test_tangent_periodic_samples_are_admissible);
   HS_RUN(test_tangent_admitted_domain);
   HS_RUN(test_tangent_mixed_boundaries);
   HS_RUN(test_tangent_phase_clock);

@@ -479,6 +479,44 @@ inline void test_tangent_operator_admission() {
   HS_EXPECT_TRUE(In::Op::DisplaceSymmetric::validate(s) != nullptr);
 }
 
+/** @brief Signed periodic field samples retain admissible angles. */
+inline void test_tangent_periodic_samples_are_admissible() {
+  const auto *op = require_operator(In::Op::DisplacePotential::ID);
+  if (!op)
+    return;
+  for (float start : {-math::PI_F, -2.9f, -0.4f, 0.0f, 0.4f, 2.9f, math::PI_F})
+    for (float end :
+         {-math::PI_F, -2.9f, -0.4f, 0.0f, 0.4f, 2.9f, math::PI_F}) {
+      In::Op::PotentialDisplaceParams from, to;
+      from.orientation_azimuth = start;
+      to.orientation_azimuth = end;
+      for (size_t i = 0; i < from.terms.size(); ++i) {
+        from.terms[i].phase = start;
+        to.terms[i].phase = end;
+      }
+      HS_EXPECT_TRUE(In::Op::DisplacePotential::validate(from) == nullptr);
+      HS_EXPECT_TRUE(In::Op::DisplacePotential::validate(to) == nullptr);
+      for (float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+        In::Op::PotentialDisplaceParams sampled;
+        op->runtime.sample_params(reinterpret_cast<uint8_t *>(&sampled),
+                                  reinterpret_cast<const uint8_t *>(&from),
+                                  reinterpret_cast<const uint8_t *>(&to),
+                                  fraction);
+        HS_EXPECT_TRUE(In::Op::DisplacePotential::validate(sampled) == nullptr);
+        const float expected = Control::apply_curve(
+            Control::FieldCurve::SHORTEST_PERIODIC, start, end, fraction);
+        HS_EXPECT_NEAR(cosf(sampled.orientation_azimuth), cosf(expected),
+                       1e-6f);
+        HS_EXPECT_NEAR(sinf(sampled.orientation_azimuth), sinf(expected),
+                       1e-6f);
+        for (const auto &term : sampled.terms) {
+          HS_EXPECT_NEAR(cosf(term.phase), cosf(expected), 1e-6f);
+          HS_EXPECT_NEAR(sinf(term.phase), sinf(expected), 1e-6f);
+        }
+      }
+    }
+}
+
 /** @brief Admitted field boundaries stay finite under every stepping scheme. */
 inline void test_tangent_admitted_domain() {
   for (uint8_t symmetry = 0; symmetry < 9; ++symmetry)
