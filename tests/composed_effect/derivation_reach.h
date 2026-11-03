@@ -75,11 +75,12 @@ struct DerivationReach {
 };
 
 constexpr DerivationReach DERIVATION_REACH[] = {
-    // ProjectionKind has no spelling for these four.
+    // ProjectionKind has no spelling for these projections.
     {"project.peirce.v3", nullptr, {}},
     {"project.peirce-square-fast.v3", nullptr, {}},
     {"project.bonne.v3", nullptr, {}},
     {"project.airocean.v3", nullptr, {}},
+    {"project.s2.v1", nullptr, {}},
     // SourcePolicyFor has no policy for these samplers; spherical-rings needs
     // a prepared axis and phase.
     {"sample.rings.v2", nullptr, {}},
@@ -258,8 +259,8 @@ inline void test_composed_derivation_reach() {
     }
   }
 
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 42u);
-  HS_EXPECT_EQ(unreachable_operators, 14u);
-  HS_EXPECT_EQ(catalog_values, 367u);
-  HS_EXPECT_EQ(unreachable_values, 311u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 43u);
+  HS_EXPECT_EQ(unreachable_operators, 15u);
+  HS_EXPECT_EQ(catalog_values, 369u);
+  HS_EXPECT_EQ(unreachable_values, 313u);
 }
