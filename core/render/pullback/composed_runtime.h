@@ -177,6 +177,14 @@ public:
                           persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
     this->params.visit([&]<typename Resource>(auto &) {
+      if constexpr (Resource::KIND == ResourceKind::ROTATION) {
+        constexpr uint32_t SEED =
+            fnv1a("sphere.rotate.v2", fnv1a(std::string_view("\0", 1),
+                                            fnv1a(Resource::KEY.view())));
+        SphereAnimation::init_walk(
+            clocks.template get<Resource::KEY>().rotation_walk,
+            static_cast<int32_t>(SEED));
+      }
       if constexpr (std::is_same_v<typename Resource::Family,
                                    SphericalRingsSourceParams>) {
         constexpr uint32_t SEED = fnv1a(
@@ -633,7 +641,9 @@ protected:
    *  @return Default stage for the resource's fields. */
   template <typename Resource>
   static constexpr ParameterStage resource_parameter_stage() {
-    if constexpr (Resource::KIND == ResourceKind::SOURCE)
+    if constexpr (Resource::KIND == ResourceKind::ROTATION)
+      return ParameterStage::CAMERA;
+    else if constexpr (Resource::KIND == ResourceKind::SOURCE)
       return ParameterStage::FUNCTION;
     else if constexpr (Resource::KIND == ResourceKind::SURFACE)
       return ParameterStage::SURFACE;
@@ -997,7 +1007,15 @@ private:
   HS_COLD_MEMBER void advance_runtime() {
     this->params.visit([&]<typename Resource>(const auto &family) {
       auto &clock = clocks.template get<Resource::KEY>();
-      if constexpr (Resource::KIND == ResourceKind::SOURCE) {
+      if constexpr (Resource::KIND == ResourceKind::ROTATION) {
+        SphereAnimation::advance_walk(clock.rotation_walk, family.wander,
+                                      family.spin_speed);
+        clock.wander = clock.rotation_walk.wander;
+        clock.spin_phase = clock.rotation_walk.spin_phase;
+        clock.conjugate =
+            (math::make_rotation(math::Y_AXIS, clock.spin_phase) * clock.wander)
+                .conjugate();
+      } else if constexpr (Resource::KIND == ResourceKind::SOURCE) {
         Pattern::advance_clocks(family, clock.primary, clock.secondary,
                                 clock.angle);
         if constexpr (std::is_same_v<typename Resource::Family,

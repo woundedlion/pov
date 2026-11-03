@@ -408,6 +408,15 @@ struct MetadataFor
       "composed metadata: declare topology through typed pipeline entries");
 };
 
+/** @brief A rotation provider owns an independent walk and controls.
+ * @tparam B Frame binding.
+ * @tparam Key Rotation instance key. */
+template <typename B, ResourceKey Key>
+struct PolicyResources<RotationProvider<B, Key>> {
+  using Type = ResourceList<
+      ParameterResource<Key, RotationParams, ResourceKind::ROTATION>>;
+};
+
 /** @brief The outer camera reads the "projection" family. @tparam B Frame
     binding. */
 template <typename B, typename Family>

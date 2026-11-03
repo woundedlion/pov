@@ -233,7 +233,16 @@ public:
       auto &clock = frame.resources.template get<Resource::KEY>();
       const auto &start = from.resources.template get<Resource::KEY>();
       const auto &delta = deltas.template get<Resource::KEY>();
-      if constexpr (Resource::KIND == ResourceKind::SOURCE) {
+      if constexpr (Resource::KIND == ResourceKind::ROTATION) {
+        const auto &end = to.resources.template get<Resource::KEY>();
+        clock.wander = Spacetime::TemporalRotation(start.wander, end.wander)
+                           .sample(fraction);
+        clock.spin_phase = Spacetime::sample_clock(
+            start.spin_phase, end.spin_phase, fraction, math::TWO_PI_F);
+        clock.conjugate =
+            (math::make_rotation(math::Y_AXIS, clock.spin_phase) * clock.wander)
+                .conjugate();
+      } else if constexpr (Resource::KIND == ResourceKind::SOURCE) {
         clock.primary = Spacetime::ClockInterval::apply(
             start.primary, delta.primary, fraction);
         clock.secondary = Spacetime::ClockInterval::apply(

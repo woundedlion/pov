@@ -53,7 +53,8 @@ enum class ResourceKind {
   VALUE,      ///< Value transfer and coverage.
   COLOR,      ///< Colorizer.
   MODULATION, ///< Ordered color modulation.
-  TWIST       ///< Animated axial twist lens.
+  TWIST,      ///< Animated axial twist lens.
+  ROTATION    ///< Keyed animated sphere rotation.
 };
 
 /** @brief The storage required by one provider instance. */
@@ -294,6 +295,12 @@ struct ClockState<Source::SphericalRingsSourceParams, ResourceKind::SOURCE>
     : SourceClocks {
   math::Quaternion orientation; ///< Band-axis orientation.
 };
+/** @brief Factorized orientation of a keyed sphere rotation. */
+template <typename Family> struct ClockState<Family, ResourceKind::ROTATION> {
+  math::Quaternion wander;    ///< Accumulated walk rotation.
+  float spin_phase = 0.0f;    ///< Spin angle, radians modulo two pi.
+  math::Quaternion conjugate; ///< Inverse spin-times-wander orientation.
+};
 /** @brief Extra rotation clock of a warp family; empty by default. */
 template <typename Family,
           bool Affine = std::is_base_of_v<Warp::AffineParams, Family>>
@@ -456,13 +463,26 @@ template <typename Resource> struct SourceWalk<Resource, true> {
   SphereAnimation::SpatialWalkState source_walk; ///< Band-axis walk.
 };
 
+/** @brief Optional runtime walk of a keyed rotation.
+ * @tparam Resource Keyed resource.
+ * @tparam Enabled Whether the resource rotates the sphere. */
+template <typename Resource,
+          bool Enabled = Resource::KIND == ResourceKind::ROTATION>
+struct RotationWalk {};
+/** @brief Rotation walk state. @tparam Resource Keyed rotation. */
+template <typename Resource> struct RotationWalk<Resource, true> {
+  SphereAnimation::SpatialWalkState rotation_walk; ///< Instance-seeded walk.
+};
+
 /** @brief Member clocks, excluding arena-owned burst schedulers.
  * @tparam Resource Keyed resource.
  * @tparam Arena Whether the clock is arena-owned. */
 template <typename Resource,
           bool Arena = std::is_same_v<typename Resource::Family,
                                       SphereAnimation::BurstRippleParams>>
-struct ResourceRuntimeClock : ResourceClock<Resource>, SourceWalk<Resource> {};
+struct ResourceRuntimeClock : ResourceClock<Resource>,
+                              SourceWalk<Resource>,
+                              RotationWalk<Resource> {};
 /** @brief Empty member slot of an arena-owned burst scheduler.
  * @tparam Resource Ripple resource. */
 template <typename Resource> struct ResourceRuntimeClock<Resource, true> {};

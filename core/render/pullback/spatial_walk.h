@@ -9,9 +9,24 @@
 
 #include "core/animation/animation.h"
 #include "core/render/pullback/runtime_seeds.h"
+#include "core/render/pullback/fields.h"
 #include "core/render/spacetime.h"
 
 namespace Pullback::SphereAnimation {
+
+/** @brief Controls of one keyed sphere rotation. */
+struct RotationParams {
+  float wander = 0.0f;     ///< Fraction of each walk delta absorbed.
+  float spin_speed = 0.0f; ///< Spin about Y, radians per frame.
+  /// Numeric controls and interpolation curves.
+  static constexpr auto FIELDS = std::array{
+      Field<RotationParams>{"wander", &RotationParams::wander, "Wander", 0.0f,
+                            1.0f, FieldCurve::LERP},
+      Field<RotationParams>{"spin-speed", &RotationParams::spin_speed,
+                            "Spin Speed", 0.0f, 0.05f, FieldCurve::LERP}};
+};
+static_assert(field_ids_unique<RotationParams>());
+static_assert(field_defaults_in_range<RotationParams>());
 
 /** @brief Animation::RandomWalk tuning for the spin-and-wander operators. */
 inline constexpr Animation::RandomWalkOptions WALK_OPTIONS{};

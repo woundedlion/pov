@@ -20,6 +20,7 @@ using ValueCoverage::CutoutValueParams;
 using ProjectionCoverage::EdgeValueParams;
 using Lens::MobiusGeneratorParams;
 using Lens::TwistLensParams;
+using SphereAnimation::RotationParams;
 using Projection::ProjectionParams;
 using Source::GridSourceParams;
 using Source::RingsSourceParams;
@@ -134,6 +135,20 @@ struct OuterCameraProvider {
   __attribute__((always_inline)) static const math::Quaternion &
   conjugate(const FrameState &frame) {
     return frame.outer_conjugate;
+  }
+};
+
+/** @brief Orientation of one authored sphere-rotation instance.
+ * @tparam BindingT Pipeline binding.
+ * @tparam Key Rotation resource key. */
+template <typename BindingT, ResourceKey Key> struct RotationProvider {
+  using Binding = BindingT;                        ///< Pipeline binding.
+  using FrameState = typename Binding::FrameState; ///< Bound frame.
+  /** @brief Current inverse spin-times-wander orientation.
+   * @param frame Current column frame.
+   * @return The instance's conjugate orientation. */
+  static const math::Quaternion &conjugate(const FrameState &frame) {
+    return frame.resources.template get<Key>().conjugate;
   }
 };
 

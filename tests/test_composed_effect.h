@@ -32,6 +32,7 @@
 #include "tests/pixel_test_util.h"
 #include "tests/test_harness.h"
 #include "tests/composed_effect/catalog_policies.h"
+#include "tests/composed_effect/keyed_rotations.h"
 #include "tests/vec_test_util.h"
 #include "targets/wasm/document_parameters.h"
 
@@ -1099,6 +1100,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(hs_test::catalog_policy_tests::test_authored_spherical_ring_interval);
   HS_RUN(hs_test::catalog_policy_tests::test_authored_sample_crossing);
   HS_RUN(hs_test::catalog_policy_tests::test_edge_fade_squared_curve);
+  HS_RUN(hs_test::keyed_rotation_tests::test_keyed_rotation_runtime_parity);
   HS_RUN(test_choreography_fade_departure);
   HS_RUN(test_choreography_lerp_transition_hooks);
   HS_RUN(test_choreography_lerp_pause_policy);
