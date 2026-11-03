@@ -19,6 +19,9 @@ template <typename Frame> class FrameInterval {
   Spacetime::TemporalRotation projection;
   Spacetime::TemporalRotation outer;
   decltype(Frame::resources) deltas{};
+  ComposedDetail::ResourceStorage<ComposedDetail::ResourceMobiusInterval,
+                                  typename Params::ResourceTypes>
+      mobius_intervals;
   Params interior_params;
   bool constant_params;
   uint32_t constant_families = 0;
@@ -36,6 +39,19 @@ template <typename Frame> class FrameInterval {
                          &b.params.template get<"projection">(),
                          sizeof(b.params.template get<"projection">())) == 0;
     return false;
+  }
+
+  /** @brief Borrows shared Mobius exponentials for this sampled context.
+   * @param frame Sampled context. */
+  HS_FLASH_INLINE void bind_mobius_intervals(Frame &frame) const {
+    frame.params.visit([&]<typename Resource>(const auto &) {
+      if constexpr (std::is_same_v<typename Resource::Family,
+                                   MobiusGeneratorParams>) {
+        const auto &cache = mobius_intervals.template get<Resource::KEY>();
+        frame.resources.template get<Resource::KEY>().mobius_base =
+            cache.active ? &cache.base : nullptr;
+      }
+    });
   }
 
 public:
@@ -116,6 +132,13 @@ public:
         delta.angle = Spacetime::ClockInterval::prepare_delta(
             start.angle, end.angle, math::TWO_PI_F);
         delta.magnitude = end.magnitude - start.magnitude;
+        auto &cache = mobius_intervals.template get<Resource::KEY>();
+        const auto &a_params = a.params.template get<Resource::KEY>();
+        const auto &b_params = b.params.template get<Resource::KEY>();
+        cache.active = start.magnitude == end.magnitude &&
+                       std::memcmp(&a_params, &b_params, sizeof(b_params)) == 0;
+        if (cache.active)
+          cache.base = Lens::prepare_mobius(b_params, 0.0f, end.magnitude);
       } else if constexpr (Resource::KIND == ResourceKind::MODULATION) {
         const auto &previous =
             a.params.template get<Resource::KEY>().modulation;
@@ -165,6 +188,7 @@ public:
       });
       frame.temporal = {from.palette, from.hue_rotation_lut, 0.0f,
                         same_palette};
+      bind_mobius_intervals(frame);
       return;
     }
     frame = to;
@@ -174,6 +198,7 @@ public:
                                      SphereAnimation::BurstRippleParams>)
           frame.resources.template get<Resource::KEY>().radial_fraction = -1.0f;
       });
+      bind_mobius_intervals(frame);
       return;
     }
     frame.projection_conjugate = projection.sample(fraction);
@@ -249,6 +274,7 @@ public:
         clock.magnitude = start.magnitude + delta.magnitude * fraction;
       }
     });
+    bind_mobius_intervals(frame);
     bool same_sources = true;
     frame.params.visit([&]<typename Resource>(const auto &family) {
       if constexpr (Resource::KIND == ResourceKind::MODULATION) {

@@ -924,6 +924,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_temporal_roster);
   HS_RUN(test_mobius_grid_instantaneous_pixel_golden);
   HS_RUN(test_mobius_grid_lens_follows_phase);
+  HS_RUN(test_mobius_interval_exponential);
   HS_RUN(test_mobius_grid_segmented_matches_single_engine);
   HS_RUN(test_alien_brain_preset_dwell);
   HS_RUN(test_mobius_grid_circular_animation);

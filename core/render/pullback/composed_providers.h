@@ -154,6 +154,12 @@ template <typename BindingT, ResourceKey Key = "lens"> struct LensProvider {
   static const auto &phase(const FrameState &frame) {
     return frame.resources.template get<Key>();
   }
+  /** @brief Reads the interval's shared angle-zero exponential.
+   * @param frame Bound frame.
+   * @return Shared coefficients, or null for varying controls or magnitude. */
+  static const math::MobiusParams *mobius_base(const FrameState &frame) {
+    return frame.resources.template get<Key>().mobius_base;
+  }
 };
 
 /** @brief Supplies the parameters and phase of one animated twist.

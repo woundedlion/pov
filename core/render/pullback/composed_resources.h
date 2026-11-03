@@ -480,6 +480,33 @@ template <typename Resource> struct ResourceRippleRadialView<Resource, true> {
       -1.0f; ///< Current endpoint weight; negative disables.
 };
 
+/** @brief Optional borrowed Mobius coefficients for a frame interval.
+ * @tparam Resource Keyed resource.
+ * @tparam Enabled Whether the family is a Mobius generator. */
+template <typename Resource,
+          bool Enabled = std::is_same_v<typename Resource::Family,
+                                        Lens::MobiusGeneratorParams>>
+struct ResourceMobiusView {};
+/** @brief Borrowed angle-zero exponential at constant horizontal magnitude.
+ * @tparam Resource Keyed lens resource. */
+template <typename Resource> struct ResourceMobiusView<Resource, true> {
+  const math::MobiusParams *mobius_base = nullptr; ///< Interval-owned base.
+};
+
+/** @brief Optional Mobius exponential shared by column samples.
+ * @tparam Resource Keyed resource.
+ * @tparam Enabled Whether the family is a Mobius generator. */
+template <typename Resource,
+          bool Enabled = std::is_same_v<typename Resource::Family,
+                                        Lens::MobiusGeneratorParams>>
+struct ResourceMobiusInterval {};
+/** @brief One angle-zero exponential for an unchanged generator and magnitude.
+ * @tparam Resource Keyed lens resource. */
+template <typename Resource> struct ResourceMobiusInterval<Resource, true> {
+  math::MobiusParams base; ///< Shared exponential.
+  bool active = false;     ///< Controls and horizontal magnitude match.
+};
+
 /** @brief Frame snapshot of one resource: its clocks and noise view.
  * @tparam Resource Keyed resource.
  * @tparam PhaseNoise Whether frames borrow chamber noise patches. */
@@ -487,6 +514,7 @@ template <typename Resource, bool PhaseNoise = false>
 struct ResourceFrame
     : ResourceClock<Resource>,
       ResourceNoiseView<Resource>,
+      ResourceMobiusView<Resource>,
       ResourceRippleRadialView<Resource>,
       ResourceModulationView<Resource>,
       ResourcePhaseNoiseView<Resource,

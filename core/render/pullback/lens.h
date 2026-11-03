@@ -79,6 +79,16 @@ prepare_mobius(const MobiusGeneratorParams &params, float angle = 0.0f,
       math::tangent_field::to_mobius_generator(rotation, boost));
 }
 
+/** @brief Rotates an exponentiated generator about the sphere's y axis.
+ * @param base Coefficients prepared at angle zero.
+ * @param angle Right-handed y rotation, radians.
+ * @return Coefficients of the rotated generator. */
+inline math::MobiusParams rotate_mobius_y(const math::MobiusParams &base,
+                                          float angle) {
+  const math::Complex phase(cosf(angle), -sinf(angle));
+  return {base.a, base.b * phase, base.c * phase.conjugate(), base.d};
+}
+
 /**
  * @brief Applies a Mobius transform to a sphere direction.
  * @param input Unit direction on the sphere.
@@ -239,6 +249,9 @@ template <typename State> struct MobiusGenerator : ApproximationDefaults {
    * @return Exponentiated generator. */
   static Prepared prepare(const FrameState &frame) {
     const auto &phase = State::phase(frame);
+    if constexpr (requires { State::mobius_base(frame); })
+      if (const auto *base = State::mobius_base(frame))
+        return rotate_mobius_y(*base, phase.angle);
     return prepare_mobius(State::params(frame), phase.angle, phase.magnitude);
   }
   /** @brief Applies the prepared map.

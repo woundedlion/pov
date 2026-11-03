@@ -1224,6 +1224,69 @@ inline void test_mobius_grid_lens_follows_phase() {
   hs::clear_mock_time();
 }
 
+struct MobiusIntervalProbeProvider
+    : Pullback::LensProvider<Pullback::Binding<
+          typename MobiusGrid<SMALL_W, SMALL_H>::FrameState>> {
+  static inline int parameter_queries = 0;
+  static const Pullback::MobiusGeneratorParams &
+  params(const FrameState &frame) {
+    ++parameter_queries;
+    return frame.params.template get<"lens">();
+  }
+};
+
+/** @brief Constant Mobius intervals reuse their exponential; varying controls fall back. */
+inline void test_mobius_interval_exponential() {
+  using FX = MobiusGrid<SMALL_W, SMALL_H>;
+  using Policy = Pullback::Lens::MobiusGenerator<MobiusIntervalProbeProvider>;
+  reset_globals();
+  FX effect;
+  effect.init();
+  auto from = effect.frame_for_test();
+  auto &params = from.params.template get<"lens">();
+  params.spin_x = 0.7f;
+  params.spin_y = -0.6f;
+  params.spin_z = 0.5f;
+  params.push_x = 0.6f;
+  params.push_y = 0.9f;
+  params.push_z = -0.4f;
+  from.resources.template get<"lens">().angle = -3.13f;
+  from.resources.template get<"lens">().magnitude = 1.7f;
+  auto to = from;
+  to.resources.template get<"lens">().angle = 3.12f;
+  const auto verify = [&](bool cached) {
+    const Pullback::FrameInterval interval(from, to);
+    const math::MobiusParams *shared = nullptr;
+    for (const float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+      const auto sampled = interval.at(fraction);
+      const auto &phase = sampled.resources.template get<"lens">();
+      HS_EXPECT_EQ(phase.mobius_base != nullptr, cached);
+      if (cached) {
+        if (shared)
+          HS_EXPECT_TRUE(shared == phase.mobius_base);
+        shared = phase.mobius_base;
+      }
+      MobiusIntervalProbeProvider::parameter_queries = 0;
+      const auto prepared = Policy::prepare(sampled);
+      HS_EXPECT_EQ(MobiusIntervalProbeProvider::parameter_queries,
+                   cached ? 0 : 1);
+      const auto reference = Pullback::Lens::prepare_mobius(
+          sampled.params.template get<"lens">(), phase.angle, phase.magnitude);
+      for (const auto &point :
+           {math::X_AXIS, math::Y_AXIS, math::Z_AXIS, -math::Y_AXIS,
+            math::Vector(1, 2, 3).normalized()})
+        HS_EXPECT_VEC(math::mobius_transform(point, prepared),
+                      math::mobius_transform(point, reference), 2e-6f);
+    }
+  };
+  verify(true);
+  to.params.template get<"lens">().spin_x += 0.2f;
+  verify(false);
+  to.params = from.params;
+  to.resources.template get<"lens">().magnitude += 0.1f;
+  verify(false);
+}
+
 /** @brief Segmented MobiusGrid engines, including clips crossing both arm
  *  boundaries, draw the same pixels as one full-frame engine. */
 inline void test_mobius_grid_segmented_matches_single_engine() {
