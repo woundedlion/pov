@@ -29,9 +29,8 @@ inline constexpr const char *FIELD_RANGE_WARNING =
  * @return Advisory strength, or infinity for a zero field. */
 inline float
 field_fold_strength(const math::tangent_field::PotentialField &field) {
-  const float B = field.speed_bound();
-  const float L = field.lipschitz_bound();
-  return B == 0.0f ? INFINITY : 2.0f / (sqrtf(L * L + 2.0f * B * B) + L);
+  return math::tangent_field::fold_strength(field.speed_bound(),
+                                            field.lipschitz_bound());
 }
 
 /** @brief Accumulated azimuthal drift clock. */
@@ -226,22 +225,27 @@ struct SymmetricDisplaceParams {
 
 /** @brief Shared operator lifecycle over a fixed-step field.
  * @tparam Derived Concrete field operator.
- * @tparam ParamsT Authored controls. */
-template <typename Derived, typename ParamsT>
-struct FieldDisplaceModel : ValueStateModel<FieldPhaseState> {
+ * @tparam ParamsT Authored controls.
+ * @tparam StateT Instance clock state. */
+template <typename Derived, typename ParamsT, typename StateT = FieldPhaseState>
+struct FieldDisplaceModel : ValueStateModel<StateT> {
+  using State = StateT;
   using Params = ParamsT;
   using Input = SphereSample;
   using Output = SphereSample;
   using Prepared = math::tangent_field::PotentialField;
   static constexpr const char *ADMISSIBILITY_CONVEXITY =
       "Strength and amplitudes snap together; interpolated orientations and phases preserve speed bounds.";
-  static void advance(FieldPhaseState &state, const Params &params) {
+  static void advance(State &state, const Params &params) {
     if constexpr (requires { params.drift; })
       state.phase = fmodf(state.phase + params.drift, math::TWO_PI_F);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
-                          const FieldPhaseState &state) {
-    return Derived::field(params, state.phase);
+                          const State &state) {
+    if constexpr (requires { state.phase; })
+      return Derived::field(params, state.phase);
+    else
+      return Derived::field(params, 0.0f);
   }
   static float fold_strength(const Params &params) {
     return field_fold_strength(Derived::field(params, 0.0f));
@@ -340,7 +344,8 @@ struct DisplaceRossbyHaurwitz
 
 /** @brief Fold-aligned toroidal or poloidal invariant displacement. */
 struct DisplaceSymmetric
-    : FieldDisplaceModel<DisplaceSymmetric, SymmetricDisplaceParams> {
+    : FieldDisplaceModel<DisplaceSymmetric, SymmetricDisplaceParams,
+                         EmptyState> {
   static constexpr const char *ID = "sphere.displace.symmetric.v1";
   static constexpr const char *NAME = "Symmetric Displace";
   static bool valid_terms(const Params &params) {
