@@ -11,6 +11,9 @@
 #include "core/color/palettes.h"
 #include "core/color/palette_selection.h"
 
+#include <utility>
+#include <variant>
+
 /** @brief Baked authored palette with a cache keyed by its source controls. */
 class AuthoredPaletteResources {
 public:
@@ -23,12 +26,8 @@ public:
   prepare(Arena &arena, const AuthoredPaletteSelection &params, float chroma) {
     const auto &selection = params;
     if (!initialized || !(selection == previous) || chroma != previous_chroma) {
-      const auto bake = [&](const auto &source) {
-        if (initialized)
-          palette.rebake(source);
-        else
-          palette.bake(arena, source);
-      };
+      ScratchScope scratch(scratch_arena_a);
+      Source *source = scratch_arena_a.make<Source>();
       using Type = AuthoredPaletteType;
       const auto type = static_cast<Type>(params.palette_type);
       if (type == Type::GENERATED) {
@@ -42,22 +41,22 @@ public:
         recipe.lightness.center = params.palette_lightness;
         recipe.lightness.range = params.palette_lightness_range;
         recipe.chroma.axis.center = chroma;
-        const GenerativePalette source(recipe);
-        bake(source);
+        store(arena, source->emplace<GenerativePalette>(recipe));
       } else if (type == Type::GRADIENT) {
-        const auto color = [](float r, float g, float b) {
-          return CPixel(static_cast<uint8_t>(r * 255.0f + 0.5f),
-                        static_cast<uint8_t>(g * 255.0f + 0.5f),
-                        static_cast<uint8_t>(b * 255.0f + 0.5f));
+        const auto stop = [](float position, float r, float g, float b) {
+          return std::pair<float, CPixel>{
+              position, CPixel(static_cast<uint8_t>(r * 255.0f + 0.5f),
+                               static_cast<uint8_t>(g * 255.0f + 0.5f),
+                               static_cast<uint8_t>(b * 255.0f + 0.5f))};
         };
-        const Gradient source{
-            {0.0f, color(params.gradient_start_r, params.gradient_start_g,
-                         params.gradient_start_b)},
-            {0.5f, color(params.gradient_middle_r, params.gradient_middle_g,
-                         params.gradient_middle_b)},
-            {1.0f, color(params.gradient_end_r, params.gradient_end_g,
-                         params.gradient_end_b)}};
-        bake(ChromaSource{source, chroma});
+        const auto &gradient = source->emplace<Gradient>(
+            {stop(0.0f, params.gradient_start_r, params.gradient_start_g,
+                  params.gradient_start_b),
+             stop(0.5f, params.gradient_middle_r, params.gradient_middle_g,
+                  params.gradient_middle_b),
+             stop(1.0f, params.gradient_end_r, params.gradient_end_g,
+                  params.gradient_end_b)});
+        store(arena, ChromaSource{gradient, chroma});
       } else {
         HS_CHECK(params.palette_name < std::size(COEFFICIENTS) &&
                      params.palette_name_b < std::size(COEFFICIENTS),
@@ -65,13 +64,15 @@ public:
         const auto &a = COEFFICIENTS[params.palette_name];
         if (type == Type::MUTATING) {
           const auto &b = COEFFICIENTS[params.palette_name_b];
-          MutatingPalette source(a.a, a.b, a.c, a.d, b.a, b.b, b.c, b.d);
-          source.mutate(params.palette_mutation);
-          bake(ChromaSource{source, chroma});
+          auto &mutating = source->emplace<MutatingPalette>(a.a, a.b, a.c, a.d,
+                                                            b.a, b.b, b.c, b.d);
+          mutating.mutate(params.palette_mutation);
+          store(arena, ChromaSource{mutating, chroma});
         } else {
           HS_CHECK(type == Type::PROCEDURAL, "invalid authored palette type");
-          const ProceduralPalette source(a.a, a.b, a.c, a.d);
-          bake(ChromaSource{source, chroma});
+          store(arena, ChromaSource{source->emplace<ProceduralPalette>(
+                                        a.a, a.b, a.c, a.d),
+                                    chroma});
         }
       }
       previous = selection;
@@ -116,6 +117,18 @@ private:
       return color;
     }
   };
+  /** @brief Fills the table, allocating it on first use.
+   * @tparam Sampled Palette source type.
+   * @param arena Persistent table allocation arena.
+   * @param sampled Source to sample. */
+  template <typename Sampled>
+  __attribute__((always_inline)) void store(Arena &arena,
+                                            const Sampled &sampled) {
+    if (initialized)
+      palette.rebake(sampled);
+    else
+      palette.bake(arena, sampled);
+  }
   /** @brief Emits one row of named cosine coefficients.
    * @param name Palette identifier.
    * @param A Bias triple.
@@ -130,6 +143,10 @@ private:
   inline static constexpr Coefficients COEFFICIENTS[] = {
       HS_PROCEDURAL_PALETTE_LIST(HS_SHADER_PALETTE_COEFFICIENTS)};
 #undef HS_SHADER_PALETTE_COEFFICIENTS
+
+  /** @brief Scratch storage for whichever source the selection names. */
+  using Source = std::variant<std::monostate, GenerativePalette, Gradient,
+                              MutatingPalette, ProceduralPalette>;
 
   BakedPaletteStorage palette;
   AuthoredPaletteSelection previous;
