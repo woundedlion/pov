@@ -414,6 +414,23 @@ test('an authored native affine period does not require a lattice sampler', () =
   assert.match(promotedBindingProblems(run)[0], /"slide.lattice-period" must match the compiled affine/);
 });
 
+test('native warp speed controls follow resource keys rather than authored labels', () => {
+  for (const [label, key, name] of [
+    ['warp', undefined, 'Planar Warp 1 Speed'],
+    ['spin', 'inner_warp', 'Planar Warp 2 Speed'],
+    ['drift', 'velocity', 'velocity.Planar Warp Speed'],
+  ]) {
+    const run = bindings();
+    run.documents.push({document: 'warp.shader.json', effect: 'warp-study',
+      parameterIds: [`${label}.speed`],
+      descriptor: {chain: [{label, resource_key: key, operator: 'warp.affine.v3'}]}});
+    run.controls.set('warp-study', new Set([name]));
+    assert.deepEqual(promotedBindingProblems(run), []);
+    run.controls.get('warp-study').clear();
+    assert.match(promotedBindingProblems(run)[0], /names no control/);
+  }
+});
+
 test('typed twist controls follow arbitrary resource keys and repetition', () => {
   const descriptor = { chain: [{ label: 'whorl', operator: 'sphere.lens.twist.v2' }] };
   assert.deepEqual(engineControlNames('whorl.twist-angle', descriptor), ['whorl.Twist Angle (rad)']);

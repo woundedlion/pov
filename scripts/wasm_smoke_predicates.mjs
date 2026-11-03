@@ -144,10 +144,14 @@ export function promotedControlNames(parameterId, descriptor, catalog = null) {
           ? label === 'warp2' ? 'inner_warp' : 'outer_warp' : label);
   const title = field.split('-').map((part) => part[0]?.toUpperCase() + part.slice(1)).join(' ');
   const human = [schema?.name, title];
+  const warpSpeed = field === 'speed' && slot?.operator?.startsWith('warp.')
+    ? `Planar Warp ${key === 'outer_warp' ? '1 ' : key === 'inner_warp' ? '2 ' : ''}Speed` : null;
+  if (warpSpeed) human.unshift(warpSpeed);
   if (field === 'edge-width' && slot?.operator?.startsWith('warp.')) human.unshift('Warp Edge Width');
   return [...new Set([`${key}.${field}`,
     ...human.filter(Boolean).map((name) => `${key}.${name}`),
-    ...engineControlNames(parameterId, descriptor), parameterId, field, ...human.filter(Boolean)])];
+    ...(warpSpeed ? [warpSpeed] : []), ...engineControlNames(parameterId, descriptor),
+    parameterId, field, ...human.filter(Boolean)])];
 }
 
 function liveDerivedControl(binding, parameterId, name, registered) {
