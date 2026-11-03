@@ -999,6 +999,51 @@ struct Complex {
   }
 };
 
+/** @brief Principal complex square root.
+ * @param z Argument.
+ * @return Square root with nonnegative real part. */
+inline Complex csqrt(const Complex &z) {
+  const float radius = hypotf(z.re, z.im);
+  if (radius == 0.0f)
+    return Complex(0.0f, z.im);
+  const float major = sqrtf(0.5f * radius + 0.5f * fabsf(z.re));
+  if (z.re >= 0.0f)
+    return Complex(major, z.im / (2.0f * major));
+  return Complex(fabsf(z.im) / (2.0f * major), copysignf(major, z.im));
+}
+
+/** @brief Principal complex logarithm.
+ * @param z Argument.
+ * @return Logarithm with imaginary part in [-pi, pi]. */
+inline Complex clog(const Complex &z) {
+  return Complex(logf(hypotf(z.re, z.im)), atan2f(z.im, z.re));
+}
+
+/** @brief Complex hyperbolic cosine.
+ * @param z Argument.
+ * @return Hyperbolic cosine. */
+inline Complex ccosh(const Complex &z) {
+  const float exponential = expf(z.re);
+  const float inverse = 1.0f / exponential;
+  return Complex(0.5f * (exponential + inverse) * cosf(z.im),
+                 0.5f * (exponential - inverse) * sinf(z.im));
+}
+
+/** @brief Complex hyperbolic sine.
+ * @param z Argument.
+ * @return Hyperbolic sine. */
+inline Complex csinh(const Complex &z) {
+  return Complex(sinhf(z.re) * cosf(z.im), coshf(z.re) * sinf(z.im));
+}
+
+/** @brief Principal inverse complex hyperbolic cosine.
+ * @param z Argument.
+ * @return Inverse hyperbolic cosine. */
+inline Complex cacosh(const Complex &z) {
+  return clog(z +
+              csqrt(z - Complex(1.0f, 0.0f)) * csqrt(z + Complex(1.0f, 0.0f)));
+}
+
 /**
  * @brief Rotates a vector by a unit quaternion.
  * @details Expanded q*v*conj(q): t = 2 (q.v x v), v + q.r t + q.v x t. The

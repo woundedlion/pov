@@ -119,6 +119,72 @@ struct MobiusParams {
       : a(ar, ai), b(br, bi), c(cr, ci), d(dr, di) {}
 };
 
+/** @brief Traceless complex generator of a Mobius transform. */
+struct MobiusGenerator {
+  Complex alpha{}; ///< Diagonal entry.
+  Complex beta{};  ///< Upper off-diagonal entry.
+  Complex gamma{}; ///< Lower off-diagonal entry.
+};
+
+/** @brief Exponentiates a traceless complex generator.
+ * @param generator Generator matrix.
+ * @param t Signed flow duration.
+ * @return Determinant-one transform, subject to float rounding. */
+inline MobiusParams mobius_exp(const MobiusGenerator &generator,
+                               float t = 1.0f) {
+  const Complex T(t, 0.0f);
+  const Complex square =
+      (generator.alpha * generator.alpha + generator.beta * generator.gamma) *
+      Complex(t * t, 0.0f);
+  Complex cosine, factor;
+  if (square.squared_magnitude() < 1e-8f) {
+    const Complex fourth = square * square;
+    cosine = Complex(1.0f, 0.0f) + square * Complex(0.5f, 0.0f) +
+             fourth * Complex(1.0f / 24.0f, 0.0f);
+    factor = T * (Complex(1.0f, 0.0f) + square * Complex(1.0f / 6.0f, 0.0f) +
+                  fourth * Complex(1.0f / 120.0f, 0.0f));
+  } else {
+    const Complex delta = csqrt(square);
+    const float exponential = expf(delta.re);
+    const float inverse = 1.0f / exponential;
+    const float sine = sinf(delta.im), cos = cosf(delta.im);
+    cosine = Complex(0.5f * (exponential + inverse) * cos,
+                     0.5f * (exponential - inverse) * sine);
+    const Complex hyperbolic(0.5f * (exponential - inverse) * cos,
+                             0.5f * (exponential + inverse) * sine);
+    factor = T * (hyperbolic / delta);
+  }
+  const Complex diagonal = factor * generator.alpha;
+  return {cosine + diagonal, factor * generator.beta, factor * generator.gamma,
+          cosine - diagonal};
+}
+
+/** @brief Principal projective logarithm of a nondegenerate Mobius matrix.
+ * @param matrix Nondegenerate coefficient matrix.
+ * @return Traceless generator of the same projective map. */
+inline MobiusGenerator mobius_log(const MobiusParams &matrix) {
+  Complex root = csqrt(matrix.a * matrix.d - matrix.b * matrix.c);
+  Complex a = matrix.a / root, b = matrix.b / root;
+  Complex c = matrix.c / root, d = matrix.d / root;
+  Complex half_trace = (a + d) * Complex(0.5f, 0.0f);
+  if (half_trace.re < 0.0f || (half_trace.re == 0.0f && half_trace.im < 0.0f)) {
+    const Complex NEGATIVE(-1.0f, 0.0f);
+    a = a * NEGATIVE;
+    b = b * NEGATIVE;
+    c = c * NEGATIVE;
+    d = d * NEGATIVE;
+    half_trace = half_trace * NEGATIVE;
+  }
+  const Complex delta = cacosh(half_trace);
+  const Complex square = delta * delta;
+  const Complex factor =
+      square.squared_magnitude() < 1e-8f
+          ? Complex(1.0f, 0.0f) - square * Complex(1.0f / 6.0f, 0.0f) +
+                square * square * Complex(7.0f / 360.0f, 0.0f)
+          : delta / csinh(delta);
+  return {factor * ((a - d) * Complex(0.5f, 0.0f)), factor * b, factor * c};
+}
+
 /**
  * @brief Mobius Transformation: f(z) = (az + b) / (cz + d).
  * @param z The complex input point.

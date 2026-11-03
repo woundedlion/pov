@@ -1316,6 +1316,8 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── spherical_field.h       Latitude-ring field layout + bilinear sphere sampling
 │   │   ├── ripple.h                Shared spherical wavelet, ordered group, and radial-transfer kernels
 │   │   ├── spherical_harmonics.h   Real spherical harmonics in Cartesian form on the unit sphere
+│   │   ├── tangent_field.h       Polynomial tangent fields and conformal generators on the unit sphere
+│   │   ├── tangent_field_constants.h  Generated peak-speed scales and covariant derivative bounds
 │   │   ├── noise_basis.h           Octave noise formula selection
 │   │   ├── noise_field.h           Shared scalar/vector noise-field sampling kernels
 │   │   ├── projections.h           Bonne / Peirce quincuncial / Airocean / folded sinusoidal / equirectangular sphere → plane kernels (Airocean and Peirce coefficients PROJ-derived, MIT)
@@ -1730,6 +1732,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── pov_segment_map_export.cpp  Generator for the committed segment-map golden
 │   ├── relax_bakes.py / relax_bake_harness.cpp  Relaxed-mesh bake generator of record
 │   ├── gen_gamut_lut.py        sRGB gamut-boundary generator of record (emits core/color/gamut_lut.h)
+│   ├── gen_tangent_field_constants.py  Tangent-field peak-speed and derivative constant generator
 │   ├── mindsplatter_palette_gen.cpp  MindSplatter palette-LUT bank generator of record
 │   ├── mindsplatter_replay_gen.cpp  Golden-corpus generator of record (emits tests/mindsplatter_replay_corpus.h)
 │   ├── mindsplatter_replay_main.cpp  Replay comparator over that corpus (its fixtures live under tests/)

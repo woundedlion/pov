@@ -383,7 +383,7 @@ set(_hs_test_modules
     3dmath concepts memory spatial scb sdf ray conway conway_morph conway_continuity
     partition_seam
     conway_soak opchain_probe opchain_arena_survey hankin hyper_lattice ray_events ray_demonstrators sdf_patterns geometry
-    spherical_field spherical_harmonics
+    spherical_field spherical_harmonics tangent_field
     mesh solids
     reaction_graph color palettes easing_waves interpolate platform profiling
     pullback shader_chain filter
@@ -596,6 +596,10 @@ add_test(NAME unit_gamut_lut COMMAND ${CMAKE_COMMAND}
     -DSKIP_CODE=77 -DREQUIRE_GENERATORS=${HS_REQUIRE_GENERATORS}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_gamut_lut.cmake)
 set_tests_properties(unit_gamut_lut PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
+
+add_test(NAME unit_tangent_field_constants
+    COMMAND ${Python3_EXECUTABLE} ${HS_ROOT}/tools/gen_tangent_field_constants.py --check)
+set_tests_properties(unit_tangent_field_constants PROPERTIES TIMEOUT 300)
 
 # Pin hardware/pov_segment_map.json against hardware/pov_segment_map.h, emitted
 # from a TU compiled against the header.

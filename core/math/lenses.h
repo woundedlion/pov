@@ -383,6 +383,21 @@ constexpr Matrix reflect(Matrix matrix, int mirror) {
   }
   return matrix;
 }
+
+/** @brief Reflects transform columns through an arbitrary unit mirror.
+ * @param matrix Transform to reflect.
+ * @param normal Unit mirror normal.
+ * @return Reflected transform. */
+constexpr Matrix reflect(Matrix matrix, const math::Vector &normal) {
+  const float n[] = {normal.x, normal.y, normal.z};
+  for (int column = 0; column < 3; ++column) {
+    const float distance = matrix[0][column] * n[0] + matrix[1][column] * n[1] +
+                           matrix[2][column] * n[2];
+    for (int row = 0; row < 3; ++row)
+      matrix[row][column] -= 2.0f * distance * n[row];
+  }
+  return matrix;
+}
 /** @brief Compares transform coefficients within the group-generation tolerance.
  * @param a First transform.
  * @param b Second transform.
@@ -396,13 +411,16 @@ constexpr bool same(const Matrix &a, const Matrix &b) {
     }
   return true;
 }
-/** @brief Closes the chamber mirrors under reflection.
+/** @brief Closes a mirror table under reflection.
+ * @tparam N Mirror count.
+ * @param mirrors Unit chamber mirror normals.
  * @return Group transforms in discovery order. */
-constexpr Group make_group() {
+template <size_t N>
+constexpr Group make_group(const std::array<math::Vector, N> &mirrors) {
   Group result;
   result.values[result.count++] = identity();
   for (int index = 0; index < result.count; ++index)
-    for (int mirror = 0; mirror < 3; ++mirror) {
+    for (const auto &mirror : mirrors) {
       const auto candidate = reflect(result.values[index], mirror);
       bool found = false;
       for (int other = 0; other < result.count; ++other)
@@ -420,6 +438,9 @@ constexpr Group make_group() {
     }
   return result;
 }
+/** @brief Closes the canonical dodecahedral mirrors.
+ * @return Canonical reflection group. */
+constexpr Group make_group() { return make_group(DODECAHEDRAL_MIRRORS); }
 /** @brief Canonical finite reflection group. */
 inline constexpr auto
     GROUP HS_PROGMEM_UNIQUE(dodecahedral_fold_group) = make_group();

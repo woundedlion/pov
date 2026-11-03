@@ -30,6 +30,7 @@
   X("geometry", run_geometry_tests, false)                                     \
   X("spherical_field", run_spherical_field_tests, false)                       \
   X("spherical_harmonics", run_spherical_harmonics_tests, false)               \
+  X("tangent_field", run_tangent_field_tests, false)                           \
   X("mesh", run_mesh_tests, false)                                             \
   X("solids", run_solids_tests, false)                                         \
   X("reaction_graph", run_reaction_graph_tests, false)                         \
