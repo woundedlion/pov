@@ -599,6 +599,8 @@ P1 renders a continuous twisted star surface: each pixel takes the color of the 
 
 ### WarpFest
 
+![WarpFest](screenshots/WarpFest.png)
+
 Ripple bursts and a rotating symmetric tangent field feed a dodecahedral fold,
 folded gnomonic projection, wave shear and mirror tiling. Its authored
 `wave-mirror` and `cup-hue` presets retain their camera, grid, displacement,
@@ -608,6 +610,8 @@ the authored Strength multiplied by Amplitude.
 
 ### GlitchLace
 
+![GlitchLace](screenshots/GlitchLace.png)
+
 An animated twist precedes Rossby–Haurwitz and poloidal dodecahedral
 fields. An S2 cube atlas and an animated affine frame stretch the primitive
 lattice into a moving lace pattern, colored by a cycling generated palette
@@ -615,6 +619,8 @@ with noise hue modulation. The authored lattice period remains independent of
 its cell scale.
 
 ### Involution
+
+![Involution](screenshots/Involution.png)
 
 A moving affine frame translates and rotates a primitive lattice over the S2
 cube atlas. A generated palette retains the authored hue, spread, lightness
@@ -798,7 +804,7 @@ declared dependencies; there is no blanket cut-topology exclusion for noise.
 
 Controls use their parameter declarations and catalog `gated_by` conditions.
 For example, projection spin/wander require the spin-wander frame, edge width
-requires edge-fade coverage or an edge-fade warp envelope, and brightness
+requires edge-fade or edge-fade-squared coverage, or an edge-fade warp envelope, and brightness
 endpoints require a brightness envelope. Deactivation dims the controls without removing their stored values.
 The exact fields and ranges come from the selected operator instances.
 

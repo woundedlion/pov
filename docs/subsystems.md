@@ -172,6 +172,8 @@ All face edges are cuts, with fade distance measured in atlas units.
 On a planar source, select **Coverage Mode → edge-fade** and adjust **Edge Width**
 over 0–16. A width of half the projection's coordinate scale fades from each
 seam to the face center.
+**Edge Fade Squared** applies the square of that attenuation; its edge width
+and the strict-edge step at width zero follow Edge Fade.
 
 A planar source samples this atlas. Periodic planar textures can still jump at
 cube seams because the joined edges reverse or rotate their local axes;
