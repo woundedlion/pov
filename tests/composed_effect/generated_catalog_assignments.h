@@ -425,6 +425,19 @@ inline void catalog_assignments_warp_affine_v3() {
   (void)params;
 }
 
+inline void catalog_assignments_warp_affine_periodic_v1() {
+  Pullback::Warp::PeriodicAffineParams params;
+  params.speed = 0.0f;
+  params.rotation_rate = 0.0f;
+  params.translation_x = 0.0f;
+  params.translation_y = 0.0f;
+  params.scale_x = 1.0f;
+  params.scale_y = 1.0f;
+  params.shear = 0.0f;
+  params.lattice_period = 1.0f;
+  (void)params;
+}
+
 inline void catalog_assignments_warp_wave_shear_v2() {
   Pullback::Warp::AuthoredWaveShearParams params;
   params.speed = 0.0f;

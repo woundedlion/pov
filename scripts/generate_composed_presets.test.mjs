@@ -241,7 +241,7 @@ test('every catalog operator retains all scalar values and topology selections',
     }
     ++operators;
   }
-  assert.equal(operators, 43);
+  assert.equal(operators, 44);
   assert.ok(selectors > 100);
 });
 
@@ -361,4 +361,20 @@ test('authored rotations retain independent keys and per-preset spin speeds', as
   assert.match(generated.params, /get<"camera">\(\)\.spin_speed = 0\.03125f;/);
   assert.doesNotMatch(generated.identity, /CAMERA_SPIN_RATE/);
   assert.throws(() => generatedSections(compiled), /camera spin must be uniform/);
+});
+
+test('periodic affine keeps explicit repeat units and authored winding controls', () => {
+  const authored = { descriptor: { chain: [
+    { label: 'repeat', resource_key: 'scroll', operator: 'warp.affine-periodic.v1' },
+    { label: 'sample', operator: 'sample.lattice.v2' },
+  ] } };
+  for (const authoredTopology of [false, true]) {
+    const assignments = presetAssignments(authored, {
+      'repeat.lattice-period': 0.5, 'repeat.translation-x': -1.5,
+      'repeat.translation-y': 2.25, 'sample.lattice-cell-scale': 2,
+    }, { authoredTopology });
+    assert.equal(assignments.get('scroll.lattice_period'), '0.5f');
+    assert.equal(assignments.get('scroll.translation_x'), '-1.5f');
+    assert.equal(assignments.get('scroll.translation_y'), '2.25f');
+  }
 });

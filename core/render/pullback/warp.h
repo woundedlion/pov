@@ -235,6 +235,30 @@ struct ExplicitAffineParams : AffineParams {
 static_assert(field_ids_unique<ExplicitAffineParams>());
 static_assert(field_defaults_in_range<ExplicitAffineParams>());
 
+/** @brief Whole-repeat affine windings over an explicit planar period. */
+struct PeriodicAffineParams : ExplicitAffineParams {
+  /// Affine controls with discrete cell windings.
+  static constexpr auto FIELDS = [] {
+    auto fields = concat_fields<PeriodicAffineParams>(
+        ExplicitAffineParams::FIELDS,
+        std::array<Field<PeriodicAffineParams>, 0>{});
+    for (auto &field : fields) {
+      if (std::string_view(field.id) == "translation-x") {
+        field.name = "Repeat Windings X";
+        field.curve = FieldCurve::SNAP;
+      } else if (std::string_view(field.id) == "translation-y") {
+        field.name = "Repeat Windings Y";
+        field.curve = FieldCurve::SNAP;
+      } else if (std::string_view(field.id) == "lattice-period") {
+        field.name = "Repeat Period";
+      }
+    }
+    return fields;
+  }();
+};
+static_assert(field_ids_unique<PeriodicAffineParams>());
+static_assert(field_defaults_in_range<PeriodicAffineParams>());
+
 /** @brief Advances the affine frame rotation by one frame.
     @param rotation Accumulated rotation in radians, wrapped into [0, 2pi).
     @param params Speed and rotation rate. */
@@ -451,6 +475,16 @@ HS_FLASH_INLINE inline PreparedAffineSlot prepare(const AffineParams &warp,
   return prepared;
 }
 
+/** @brief Affine controls rounded to signed whole-cell windings.
+ * @param params Authored translation controls.
+ * @return Controls with integral translations. */
+inline ExplicitAffineParams cell_windings(const PeriodicAffineParams &params) {
+  ExplicitAffineParams rounded = params;
+  rounded.translation_x = std::round(params.translation_x);
+  rounded.translation_y = std::round(params.translation_y);
+  return rounded;
+}
+
 /** @brief A provider whose `prepare` builds the slot's per-frame state. */
 template <typename State, typename Binding>
 concept PreparedProvider = Detail::ProviderFor<State, Binding> &&
@@ -552,6 +586,26 @@ affine_frame(const math::Complex &input, const Prepared &prepared,
                                  affine.translation_x,
                              ry / affine.scale_y - affine.translation_y},
                             path_length_required);
+}
+
+/** @brief Affine coordinates with shortest-repeat displacement length.
+ * @tparam Prepared Prepared affine frame.
+ * @param input Plane coordinate.
+ * @param prepared Affine coefficients.
+ * @param period Translation symmetry of the downstream source.
+ * @param path_length_required Whether to accumulate displacement.
+ * @return Warped coordinates and repeat-relative path length. */
+template <typename Prepared>
+__attribute__((always_inline)) inline WarpStepResult
+periodic_affine_frame(const math::Complex &input, const Prepared &prepared,
+                      float period, bool path_length_required) {
+  auto step = affine_frame(input, prepared, false);
+  if (path_length_required) {
+    const float DX = std::remainder(step.coords.re - input.re, period);
+    const float DY = std::remainder(step.coords.im - input.im, period);
+    step.path_length = std::hypot(DX, DY);
+  }
+  return step;
 }
 
 /**
@@ -889,6 +943,32 @@ template <typename State> struct AffineFrame : PrepareFromState<State> {
   apply(const math::Complex &input, const ProjectionProvenance &,
         const FrameState &frame, const Prepared &prepared) {
     return affine_frame(input, prepared, State::path_length_required(frame));
+  }
+};
+
+/** @brief Whole-repeat affine warp policy.
+ * @tparam State Provider with authored repeat period and affine state. */
+template <typename State> struct PeriodicAffineFrame : AffineFrame<State> {
+  using FrameState = typename State::FrameState;
+  using Prepared = typename AffineFrame<State>::Prepared;
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      AffineFrame<State>::template PROVIDER_VALID<CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::params(frame).lattice_period } -> std::convertible_to<float>;
+      };
+
+  /** @brief Applies affine coordinates and repeat-relative path length.
+   * @param input Plane coordinate.
+   * @param frame Bound controls.
+   * @param prepared Prepared affine state.
+   * @return Warped coordinates and displacement length. */
+  __attribute__((always_inline)) static WarpStepResult
+  apply(const math::Complex &input, const ProjectionProvenance &,
+        const FrameState &frame, const Prepared &prepared) {
+    return periodic_affine_frame(input, prepared,
+                                 State::params(frame).lattice_period,
+                                 State::path_length_required(frame));
   }
 };
 

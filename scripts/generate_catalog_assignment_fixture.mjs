@@ -26,6 +26,7 @@ const FAMILIES = {
   'project.airocean.v3': 'Pullback::AtlasProjectionParams',
   'project.s2.v1': 'Pullback::AtlasProjectionParams',
   'warp.affine.v3': 'Pullback::Warp::ExplicitAffineParams',
+  'warp.affine-periodic.v1': 'Pullback::Warp::PeriodicAffineParams',
   'warp.wave-shear.v2': 'Pullback::Warp::AuthoredWaveShearParams',
   'warp.vortex.v2': 'Pullback::Warp::VortexParams',
   'warp.vector-noise.v2': 'Pullback::Warp::AuthoredVectorNoiseParams',

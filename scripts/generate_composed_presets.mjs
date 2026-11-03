@@ -116,8 +116,8 @@ export function presetAssignments(document, values, { authoredTopology = false }
     if (!slot || !definition) throw new Error(`Unmapped composed parameter: ${id}`);
     const group = groupFor(slot, authoredTopology);
     if (field === 'lattice-period') {
-      if (slot.operator !== 'warp.affine.v3') throw new Error(`Invalid derived binding: ${id}`);
-      if (!authoredTopology && fixedDerivedBinding(document.descriptor, id, values)?.valid) continue;
+      if (!['warp.affine.v3', 'warp.affine-periodic.v1'].includes(slot.operator)) throw new Error(`Invalid derived binding: ${id}`);
+      if (!authoredTopology && slot.operator === 'warp.affine.v3' && fixedDerivedBinding(document.descriptor, id, values)?.valid) continue;
       if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0)
         throw new Error(`Invalid affine lattice period: ${id}`);
       assignments.set(`${group}.lattice_period`, floatLiteral(value));

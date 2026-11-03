@@ -262,6 +262,15 @@ struct WarpPolicyFor<ExplicitAffineParams, B, K, T> {
   using Type =
       Pullback::Warp::AffineFrame<WarpProvider<B, K, ExplicitAffineParams, T>>;
 };
+/** @brief Whole-repeat affine warp with periodic displacement coloring.
+ * @tparam B Frame binding.
+ * @tparam K Resource key.
+ * @tparam T Whether path length is tracked. */
+template <typename B, ResourceKey K, bool T>
+struct WarpPolicyFor<PeriodicAffineParams, B, K, T> {
+  using Type = Pullback::Warp::PeriodicAffineFrame<
+      WarpProvider<B, K, PeriodicAffineParams, T>>;
+};
 /** @brief Orbiting vortex warp.
  * @tparam B Frame binding.
  * @tparam K Resource key.

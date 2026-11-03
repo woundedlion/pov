@@ -133,6 +133,91 @@ template <typename Family, typename Model> void check_warp() {
           }
 }
 
+/** @brief Whole windings preserve repeat-relative displacement across phase wraps. */
+inline void check_periodic_affine_windings() {
+  using namespace Pullback;
+  using Fixture = StageFrame<PeriodicAffineParams, ResourceKind::WARP>;
+  using Tracked =
+      typename WarpPolicyFor<PeriodicAffineParams, typename Fixture::Binding,
+                             "probe", true>::Type;
+  using Untracked =
+      typename WarpPolicyFor<PeriodicAffineParams, typename Fixture::Binding,
+                             "probe", false>::Type;
+  static_assert(Tracked::template PROVIDER_VALID<typename Fixture::Binding>);
+  typename Fixture::Frame frame{};
+  auto &params = frame.params.template get<"probe">();
+  auto &clock = frame.resources.template get<"probe">();
+  params.lattice_period = 0.4f;
+  for (const float winding : {-2.51f, -1.5f, -1.49f, 1.49f, 1.5f, 2.51f}) {
+    params.translation_x = winding;
+    params.translation_y = -winding;
+    for (const float phase : {0.0f, 0.125f, 0.5f, 0.875f}) {
+      clock.phase = phase;
+      const auto prepared = Tracked::prepare(frame);
+      const auto actual = Tracked::apply({}, {}, frame, prepared);
+      const float expected_x = -phase * std::round(winding) * 0.4f;
+      HS_EXPECT_NEAR(actual.coords.re, expected_x, 3e-7f);
+      HS_EXPECT_NEAR(actual.coords.im, -expected_x, 3e-7f);
+      const float remainder = std::remainder(expected_x, 0.4f);
+      HS_EXPECT_NEAR(actual.path_length,
+                     std::sqrt(2.0f * remainder * remainder), 3e-7f);
+      const auto skipped =
+          Untracked::apply({}, {}, frame, Untracked::prepare(frame));
+      HS_EXPECT_NEAR(skipped.coords.re, actual.coords.re, 0.0f);
+      HS_EXPECT_NEAR(skipped.path_length, 0.0f, 0.0f);
+    }
+  }
+  params.translation_x = 1.7f;
+  params.translation_y = -2.2f;
+  params.scale_x = 1.3f;
+  params.scale_y = 0.7f;
+  params.shear = 0.3f;
+  clock.rotation = 0.7f;
+  const math::Complex point{0.13f, -0.21f};
+  clock.phase = 0.999999f;
+  const auto before = Tracked::apply(point, {}, frame, Tracked::prepare(frame));
+  clock.phase = 0.000001f;
+  const auto after = Tracked::apply(point, {}, frame, Tracked::prepare(frame));
+  HS_EXPECT_NEAR(after.coords.re - before.coords.re, 0.8f, 3e-6f);
+  HS_EXPECT_NEAR(after.coords.im - before.coords.im, -0.8f, 3e-6f);
+  HS_EXPECT_NEAR(before.path_length, after.path_length, 3e-6f);
+  for (const auto &field : PeriodicAffineParams::FIELDS) {
+    if (std::string_view(field.id) == "translation-x" ||
+        std::string_view(field.id) == "translation-y")
+      HS_EXPECT_EQ(field.curve, FieldCurve::SNAP);
+  }
+  HS_EXPECT_TRUE(valid(params));
+  params.lattice_period = 0.0f;
+  HS_EXPECT_FALSE(valid(params));
+  for (const float direction : {-1.0f, 1.0f}) {
+    typename Fixture::Frame from{}, to{};
+    auto &a = from.params.template get<"probe">();
+    auto &b = to.params.template get<"probe">();
+    a.translation_x = 1.0f;
+    b.translation_x = -2.0f;
+    auto &start = from.resources.template get<"probe">();
+    auto &end = to.resources.template get<"probe">();
+    start.phase = direction > 0.0f ? 0.999f : 0.001f;
+    end.phase = direction > 0.0f ? 0.001f : 0.999f;
+    start.rotation = math::TWO_PI_F - 0.001f;
+    end.rotation = 0.001f;
+    FrameInterval interval(from, to);
+    for (const float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+      const auto sampled = interval.at(fraction);
+      const auto &sampled_clock = sampled.resources.template get<"probe">();
+      HS_EXPECT_NEAR(math::wrap_t(sampled_clock.phase),
+                     math::wrap_t(start.phase + direction * 0.002f * fraction),
+                     2e-7f);
+      const auto expected =
+          math::wrap_t((start.rotation + 0.002f * fraction) / math::TWO_PI_F);
+      HS_EXPECT_NEAR(math::wrap_t(sampled_clock.rotation / math::TWO_PI_F),
+                     expected, 2e-7f);
+      HS_EXPECT_NEAR(sampled.params.template get<"probe">().translation_x,
+                     fraction < 1.0f ? 1.0f : -2.0f, 0.0f);
+    }
+  }
+}
+
 /** @brief Every planar authored selector matches the catalog's observable step. */
 inline void test_authored_warp_catalog_parity() {
   check_warp<Pullback::Warp::AuthoredWaveShearParams, Op::WarpWaveShear>();
@@ -140,6 +225,8 @@ inline void test_authored_warp_catalog_parity() {
   check_warp<Pullback::Warp::AuthoredPolarParams, Op::WarpPolarChart>();
   check_warp<Pullback::Warp::AuthoredCurlFlowParams, Op::WarpCurlFlow>();
   check_warp<Pullback::ExplicitAffineParams, Op::WarpAffineV3>();
+  check_warp<Pullback::PeriodicAffineParams, Op::WarpAffinePeriodic>();
+  check_periodic_affine_windings();
 }
 
 /** @brief Compares every authored source selector against its catalog model.

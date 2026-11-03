@@ -83,6 +83,7 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sample.fractal.v2", nullptr, {}},
     {"sample.tessellation.v2", nullptr, {}},
     {"warp.curl-flow.v2", nullptr, {}},
+    {"warp.affine-periodic.v1", nullptr, {}},
     {"sphere.displace.potential.v1", nullptr, {}},
     {"sphere.displace.rossby-haurwitz.v1", "integrator", {{"euler"}}},
     {"sphere.displace.rossby-haurwitz.v1", "order", {{"four"}}},
@@ -261,8 +262,8 @@ inline void test_composed_derivation_reach() {
     }
   }
 
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 43u);
-  HS_EXPECT_EQ(unreachable_operators, 12u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 44u);
+  HS_EXPECT_EQ(unreachable_operators, 13u);
   HS_EXPECT_EQ(catalog_values, 377u);
   HS_EXPECT_EQ(unreachable_values, 310u);
 }

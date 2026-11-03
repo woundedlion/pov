@@ -57,6 +57,7 @@ using Transfer::IsoValueParams;
 using Transfer::SmoothBandsParams;
 using Warp::AffineParams;
 using Warp::ExplicitAffineParams;
+using Warp::PeriodicAffineParams;
 using Warp::CurlFlowParams;
 using Warp::AuthoredCurlFlowParams;
 using Warp::AuthoredWaveShearParams;
@@ -286,7 +287,12 @@ struct WarpProvider {
    *  `Pullback::NoPrepared` for a polar warp. */
   __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
     using WarpT = std::remove_cvref_t<decltype(params(frame))>;
-    if constexpr (std::is_same_v<WarpT, ExplicitAffineParams>) {
+    if constexpr (std::is_same_v<WarpT, PeriodicAffineParams>) {
+      return Pullback::Warp::prepare(
+          Pullback::Warp::cell_windings(params(frame)), phase(frame),
+          frame.resources.template get<Key>().rotation,
+          params(frame).lattice_period);
+    } else if constexpr (std::is_same_v<WarpT, ExplicitAffineParams>) {
       return Pullback::Warp::prepare(
           params(frame), phase(frame),
           frame.resources.template get<Key>().rotation,

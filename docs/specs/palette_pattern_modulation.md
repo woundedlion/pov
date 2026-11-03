@@ -16,6 +16,13 @@ catalog. Authored parameter families retain runtime topology where presets may
 select different numerical methods or symmetry groups. Existing fixed families
 remain available to effects that pin those choices in their policy types.
 
+`Warp::PeriodicAffineParams` and `Warp::PeriodicAffineFrame` bind
+`warp.affine-periodic.v1` directly. Translation controls snap between presets
+and round to signed whole-cell windings before preparation. Coordinates use
+the explicit repeat period; displacement coloring measures the shortest
+repeat-relative offset. The downstream sampler must have that translation
+symmetry. Affine phase and rotation retain independent column-time clocks.
+
 `TopologyField` in [the field descriptors](../../core/render/pullback/fields.h)
 describes enum-backed controls for both operator models and composed families.
 Those values participate in admission, parameter registration and snapshots;
