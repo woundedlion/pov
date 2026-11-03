@@ -291,6 +291,26 @@ template <> struct ProjectionWalkNoise<true> {
   FastNoiseLite projection_walk_noise; ///< Noise driving the projection walk.
 };
 
+/** @brief Shared outer-camera noise storage; empty when unused. */
+template <bool Enabled> struct OuterCameraNoise {};
+template <> struct OuterCameraNoise<true> {
+  FastNoiseLite outer_walk_noise; ///< Noise driving the camera walk.
+};
+
+/** @brief Shared outer-camera clocks; empty when unused. */
+template <bool Enabled> struct OuterCameraState {
+  math::Quaternion camera_conjugate() const { return {}; }
+};
+template <> struct OuterCameraState<true> {
+  math::Orientation<> outer_walk;       ///< Random-walk orientation.
+  math::Quaternion outer_walk_previous; ///< Previous walk orientation.
+  math::Quaternion outer_wander;        ///< Accumulated scaled walk deltas.
+  math::Quaternion outer_conjugate; ///< Inverse spin-times-wander orientation.
+  float camera_spin = 0.0f;         ///< Accumulated Y spin, radians.
+
+  math::Quaternion camera_conjugate() const { return outer_conjugate; }
+};
+
 /** @brief Persistent projection-walk state; empty when disabled. */
 template <bool Enabled> struct ProjectionWalkState {
   /** @brief Inverse projection frame rotation.

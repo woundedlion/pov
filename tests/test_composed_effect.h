@@ -74,6 +74,10 @@ static_assert(CoverageFixture::Metadata::COVERAGE ==
 using TrackedFixture = CosmicEyeball<SMALL_W, SMALL_H>;
 static_assert(TrackedFixture::Metadata::PATH_TRACKED);
 static_assert(CoverageFixture::Metadata::PATH_TRACKED);
+static_assert(CoverageFixture::Metadata::OUTER_CAMERA);
+static_assert(!WarpFest<SMALL_W, SMALL_H>::Metadata::OUTER_CAMERA);
+static_assert(!GlitchLace<SMALL_W, SMALL_H>::Metadata::OUTER_CAMERA);
+static_assert(!Involution<SMALL_W, SMALL_H>::Metadata::OUTER_CAMERA);
 
 template <typename FX> struct TraitsOf {
   using Spec = typename FX::Spec;
@@ -123,6 +127,8 @@ template <typename FX> constexpr bool gate_open(Pullback::FieldGate gate) {
   switch (gate) {
   case Pullback::FieldGate::ALWAYS:
     return true;
+  case Pullback::FieldGate::OUTER_CAMERA:
+    return FX::Metadata::OUTER_CAMERA;
   case Pullback::FieldGate::ANIMATED_PROJECTION:
     return FX::ANIMATED_PROJECTION;
   case Pullback::FieldGate::CENTRAL_MERIDIAN:

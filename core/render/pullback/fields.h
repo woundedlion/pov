@@ -107,7 +107,8 @@ enum class FieldGate : uint8_t {
                             locus to attenuate. */
   COORDINATE_SCALE,    ///< Atlas projections with an authored coordinate scale.
   LAYOUT_SCROLL,       ///< Peirce strip layouts.
-  STANDARD_PARALLEL    ///< Bonne reference latitude.
+  STANDARD_PARALLEL,   ///< Bonne reference latitude.
+  OUTER_CAMERA         ///< Shared outer-camera stage.
 };
 
 /**

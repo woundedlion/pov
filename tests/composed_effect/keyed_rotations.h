@@ -62,6 +62,8 @@ inline void test_keyed_rotation_runtime_parity() {
   HS_EXPECT_TRUE(effect.selectPreset(0));
   HS_EXPECT_TRUE(effect.getParameters().find("first.Spin Speed") != nullptr);
   HS_EXPECT_TRUE(effect.getParameters().find("second.Spin Speed") != nullptr);
+  static_assert(!RotationProbe::Metadata::OUTER_CAMERA);
+  HS_EXPECT_TRUE(effect.getParameters().find("Camera Wander") == nullptr);
   Model::State first{}, second{};
   Model::init(first,
               {"first", Model::ID, Interp::instance_hash("first", Model::ID)});

@@ -40,9 +40,9 @@ class ComposedEffect
           std::conditional_t<Ownership == Control::HookOwnership::INHERITED,
                              ComposedEffect<W, H, Derived, SpecT, Ownership>,
                              Derived>>,
-      private ProjectionWalkState<
-          SpecT::ANIMATED_PROJECTION &&
-          ParamsFor<SpecT>::template HAS<"projection">> {
+      private ProjectionWalkState<SpecT::ANIMATED_PROJECTION &&
+                                  ParamsFor<SpecT>::template HAS<"projection">>,
+      private OuterCameraState<MetadataFor<SpecT>::OUTER_CAMERA> {
   using ParamsT = ParamsFor<SpecT>;
   using Choreography = ChoreographedEffect<
       Derived, ParamsT,
@@ -106,7 +106,7 @@ public:
       TEMPORAL_SAMPLING, FrameIntervalState<ParamsT, SpecT::PHASE_NOISE_CACHE>,
       Pullback::FrameState<ParamsT, SpecT::PHASE_NOISE_CACHE>>;
   using Binding = Pullback::Binding<FrameState>; ///< Pipeline binding.
-  /// Whether shared camera and projection controls are present.
+  /// Whether projection controls are present.
   static constexpr bool HAS_FRAME_PARAMS = Params::template HAS<"projection">;
   /// Whether the projection orientation follows a random walk and spin.
   static constexpr bool ANIMATED_PROJECTION =
@@ -276,9 +276,9 @@ public:
       else
         timeline.add(0, std::move(walk));
     }
-    if constexpr (HAS_FRAME_PARAMS)
+    if constexpr (Metadata::OUTER_CAMERA)
       timeline.add(0, Animation::RandomWalk<W>(
-                          outer_walk, math::UP, state->outer_walk_noise,
+                          this->outer_walk, math::UP, state->outer_walk_noise,
                           typename Animation::RandomWalk<W>::Options{},
                           CAMERA_WALK_SEED));
     register_parameters();
@@ -875,6 +875,7 @@ private:
 
   struct State
       : ProjectionWalkNoise<ANIMATED_PROJECTION>,
+        OuterCameraNoise<Metadata::OUTER_CAMERA>,
         OptionalHueRotationLut<HUE_ROTATION_LUT>,
         OptionalPaletteLabLut<SpecT::PALETTE_LAB_CACHE,
                               SpecT::PALETTE_LAB_VALUES>,
@@ -890,7 +891,6 @@ private:
     std::conditional_t<AUTHORED_PALETTE, AuthoredPaletteResources,
                        std::monostate>
         authored_palette;
-    FastNoiseLite outer_walk_noise;
     FrameState current{};
     std::conditional_t<SpecT::PERSISTENT_PREPARED_FRAME, std::optional<Frame>,
                        std::monostate>
@@ -1180,9 +1180,10 @@ private:
             fmodf(this->projection_spin +
                       this->params.template get<"projection">().spin_rate,
                   math::TWO_PI_F);
-    if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
-      camera_spin =
-          fmodf(camera_spin + Derived::CAMERA_SPIN_RATE, math::TWO_PI_F);
+    if constexpr (Metadata::OUTER_CAMERA &&
+                  requires { Derived::CAMERA_SPIN_RATE; })
+      this->camera_spin =
+          fmodf(this->camera_spin + Derived::CAMERA_SPIN_RATE, math::TWO_PI_F);
     palette_oscillation_phase = math::wrap_t(
         palette_oscillation_phase +
         this->params.template get<"color">().phase_oscillation_speed);
@@ -1205,21 +1206,22 @@ private:
                 .conjugate();
       }
     }
-    if constexpr (HAS_FRAME_PARAMS) {
-      const math::Quaternion outer = outer_walk.get();
+    if constexpr (Metadata::OUTER_CAMERA) {
+      const math::Quaternion outer = this->outer_walk.get();
       const math::Quaternion outer_delta =
-          outer * outer_walk_previous.conjugate();
-      outer_walk_previous = outer;
-      outer_wander = math::absorb_rotation_delta(
+          outer * this->outer_walk_previous.conjugate();
+      this->outer_walk_previous = outer;
+      this->outer_wander = math::absorb_rotation_delta(
           outer_delta.normalized(),
           this->params.template get<"projection">().camera_wander,
-          outer_wander);
+          this->outer_wander);
       if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
-        outer_conjugate =
-            (math::make_rotation(math::Y_AXIS, camera_spin) * outer_wander)
+        this->outer_conjugate =
+            (math::make_rotation(math::Y_AXIS, this->camera_spin) *
+             this->outer_wander)
                 .conjugate();
       else
-        outer_conjugate = outer_wander.conjugate();
+        this->outer_conjugate = this->outer_wander.conjugate();
     }
   }
 
@@ -1273,7 +1275,7 @@ private:
         state->hue_rotation_lut_bake = palette_generation;
       }
     frame.projection_conjugate = this->frame_conjugate();
-    frame.outer_conjugate = outer_conjugate;
+    frame.outer_conjugate = this->camera_conjugate();
     frame.palette = &palette;
     frame.hue_rotation_lut = hue_rotation_lut_data();
     frame.palette_lab_lut = nullptr;
@@ -1415,14 +1417,9 @@ private:
           this->params.template get<"color">().palette_mapping);
   Pullback::Color::PaletteMappingWeights mapping_from;
   Pullback::Color::PaletteMappingWeights mapping_to;
-  math::Orientation<> outer_walk;
-  math::Quaternion outer_walk_previous;
-  math::Quaternion outer_wander;
-  math::Quaternion outer_conjugate;
   ComposedDetail::ResourceStorage<ComposedDetail::ResourceRuntimeClock,
                                   typename Params::ResourceTypes>
       clocks;
-  float camera_spin = 0.0f;
   bool projection_frame_paused = false;
   float palette_oscillation_phase = 0.0f;
   float palette_chroma = -1.0f;

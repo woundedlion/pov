@@ -49,7 +49,8 @@ struct ProjectionParams {
                               "Projection Wander", 0.0f, 1.0f, FieldCurve::LERP,
                               FieldGate::ANIMATED_PROJECTION},
       Field<ProjectionParams>{"camera-wander", &ProjectionParams::camera_wander,
-                              "Camera Wander", 0.0f, 1.0f, FieldCurve::LERP},
+                              "Camera Wander", 0.0f, 1.0f, FieldCurve::LERP,
+                              FieldGate::OUTER_CAMERA},
       Field<ProjectionParams>{
           "central-meridian", &ProjectionParams::central_meridian,
           "Central Meridian", 0.0f, math::TWO_PI_F,

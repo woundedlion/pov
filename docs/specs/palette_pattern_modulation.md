@@ -47,6 +47,9 @@ or standard-parallel values. The identity frame bypasses accumulated projection
 motion. Projection provenance and edge distances come from the same kernels as
 the catalog crossings. Spherical samplers may cross directly to the field
 carrier without a projection; planar samplers require a projection crossing.
+The shared outer-camera walk, storage and Camera Wander control exist only when
+a typed rotation stage reads the outer-camera provider. Keyed rotations own
+their motion independently and retain an identity shared camera frame.
 
 Flexible composed modulation reserves spatial source storage and retained cube
 storage while allowing a preset to switch between displacement, direct spatial

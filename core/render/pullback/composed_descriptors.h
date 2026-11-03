@@ -296,9 +296,18 @@ struct IsDisplacementStage<Stage::Modulate<Color::Modulate<
     : std::bool_constant<Dynamic ||
                          Source == Pattern::SourceKind::DISPLACEMENT> {};
 
+/** @brief Whether a stage reads the shared outer camera. */
+template <typename T> struct IsOuterCameraStage : std::false_type {};
+template <typename B, typename Family>
+struct IsOuterCameraStage<Stage::Rotate<OuterCameraProvider<B, Family>>>
+    : std::true_type {};
+
 /** @brief Topology derived from normalized typed pipeline entries.
  * @tparam Pipeline Semantic leaf view. */
 template <typename Pipeline> struct PipelineMetadata {
+  /// Whether the pipeline reads the shared outer camera.
+  static constexpr bool OUTER_CAMERA =
+      Pipeline::template ANY_STAGE<IsOuterCameraStage>;
   /// Whether a lens, warp or surface tracks path length.
   static constexpr bool PATH_TRACKED =
       Pipeline::template ANY_STAGE<StagePathTracked>;
@@ -597,6 +606,8 @@ template <typename Spec> constexpr bool field_gate_open(FieldGate gate) {
   switch (gate) {
   case FieldGate::ALWAYS:
     return true;
+  case FieldGate::OUTER_CAMERA:
+    return MetadataFor<Spec>::OUTER_CAMERA;
   case FieldGate::ANIMATED_PROJECTION:
     return Spec::ANIMATED_PROJECTION;
   case FieldGate::CENTRAL_MERIDIAN:
