@@ -148,16 +148,20 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
  * @brief Roster effects the Phantasm playlist omits.
  * @param X Function-like macro applied to each excluded effect class name.
  * @details Dynamo, MobiusRings and Thrusters are low-resolution only.
- *          Other exclusions are product curation.
+ *          GlitchLace, Involution and WarpFest exceed the 62.5 ms render
+ *          window. Other exclusions are product curation.
  */
 #define HS_PHANTASM_EXCLUDED_EFFECTS(X)                                        \
   X(JewelMelt)                                                                 \
   X(KaleidoscopeStainedGlass)                                                  \
   X(KaleidoscopeMelt)                                                          \
   X(Dynamo)                                                                    \
+  X(GlitchLace)                                                                \
+  X(Involution)                                                                \
   X(MobiusRings)                                                               \
   X(RingShower)                                                                \
-  X(Thrusters)
+  X(Thrusters)                                                                 \
+  X(WarpFest)
 
 /**
  * @brief Expands to +1 so HS_PHANTASM_EXCLUDED_EFFECTS sums into a count.
