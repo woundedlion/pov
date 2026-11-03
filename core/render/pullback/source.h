@@ -23,6 +23,19 @@ namespace Pullback {
 
 namespace Source {
 
+/** @brief Borrows canonical controls for a shared source kernel.
+ * @tparam Base Canonical source controls.
+ * @tparam Params Provider controls.
+ * @param params Provider parameter family.
+ * @return Canonical base when available, otherwise the provider controls. */
+template <typename Base, typename Params>
+HS_HOT_INLINE const auto &source_kernel_params(const Params &params) {
+  if constexpr (std::derived_from<Params, Base>)
+    return static_cast<const Base &>(params);
+  else
+    return params;
+}
+
 /** @brief Parameters of the concentric ring source. */
 struct RingsSourceParams : Pattern::RingsSourceParams {
   /** @brief Per-parameter id, member, label, range and curve. */
@@ -491,7 +504,7 @@ template <typename State> struct Grid : PrepareFromState<State> {
     return Pattern::grid(
         Pattern::PlanePosition{projections::stereo_pattern_args(
             input.coords, params.pattern_freq)},
-        params, prepared);
+        source_kernel_params<GridSourceParams>(params), prepared);
   }
 };
 
@@ -531,8 +544,9 @@ template <typename State> struct PrimitiveLattice : ApproximationDefaults {
    */
   __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame) {
-    return Pattern::primitive_lattice(Pattern::PlanePosition{input.coords},
-                                      State::params(frame));
+    return Pattern::primitive_lattice(
+        Pattern::PlanePosition{input.coords},
+        source_kernel_params<LatticeSourceParams>(State::params(frame)));
   }
 };
 

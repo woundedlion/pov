@@ -158,7 +158,7 @@ template <typename Owner> struct Field {
 
   /** @brief The equivalent animated `Control::Field` descriptor.
    * @return Descriptor carrying id, member, name, range and curve. */
-  constexpr Control::Field<Owner, float> description() const {
+  HS_HOT_INLINE constexpr Control::Field<Owner, float> description() const {
     return {.id = id,
             .member = member,
             .name = name,

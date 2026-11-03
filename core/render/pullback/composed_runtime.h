@@ -579,7 +579,7 @@ protected:
    *         qualified.
    */
   template <typename Resource>
-  HS_COLD_MEMBER const char *resource_parameter_name(const char *name) {
+  HS_SIZE_FLASH_MEMBER const char *resource_parameter_name(const char *name) {
     constexpr bool QUALIFY =
         ComposedDetail::qualified<Resource, typename Params::ResourceTypes>();
     if constexpr (!QUALIFY)
@@ -674,7 +674,7 @@ protected:
    *  @tparam T Parameter family type.
    *  @param family Live family the sliders write. */
   template <typename Resource, typename T>
-  HS_COLD_MEMBER void register_fields(T &family) {
+  HS_SIZE_FLASH_MEMBER void register_fields(T &family) {
     for (const auto &field : T::FIELDS)
       if (field.name != nullptr && field_gate_open(field.gate)) {
         this->register_param(resource_parameter_name<Resource>(field.name),
@@ -895,7 +895,7 @@ private:
 
   /** @brief Registers a colour slider when its topology gate is live. */
   template <float Color::ColorControls::*Member>
-  HS_COLD_MEMBER void register_color_field(const char *name) {
+  HS_SIZE_FLASH_MEMBER void register_color_field(const char *name) {
     constexpr const auto &FIELD = color_descriptor<Member>();
     if constexpr (AUTHORED_PALETTE ||
                   ComposedDetail::color_gate_open<SpecT>(FIELD.topology_gate)) {
@@ -906,7 +906,8 @@ private:
     }
   }
 
-  template <ResourceKind Kind> HS_COLD_MEMBER void register_resource_kind() {
+  template <ResourceKind Kind>
+  HS_SIZE_FLASH_MEMBER void register_resource_kind() {
     this->params.visit([&]<typename Resource>(auto &family) {
       if constexpr (Resource::KIND == Kind) {
         if constexpr (Kind == ResourceKind::WARP)
@@ -917,7 +918,7 @@ private:
     });
   }
 
-  HS_COLD_MEMBER void register_parameters() {
+  HS_SIZE_FLASH_MEMBER void register_parameters() {
     register_resource_kind<ResourceKind::ROTATION>();
     register_resource_kind<ResourceKind::SOURCE>();
     register_resource_kind<ResourceKind::PROJECTION>();
@@ -992,7 +993,8 @@ private:
   }
 
   template <typename Resource>
-  HS_COLD_MEMBER void register_modulation(ColorModulation::Config &config) {
+  HS_SIZE_FLASH_MEMBER void
+  register_modulation(ColorModulation::Config &config) {
     if constexpr (Resource::Family::DYNAMIC) {
       auto &names = state->resources.template get<Resource::KEY>()
                         .modulation_control_names;

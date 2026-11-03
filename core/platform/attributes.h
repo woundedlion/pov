@@ -68,6 +68,8 @@
  *         inlinable. */
 /** @def HS_HOT_FLASH_MEMBER
  *  @brief `HS_FLASH_MEMBER` via .text.hot.*, without marking the code cold. */
+/** @def HS_SIZE_FLASH_MEMBER
+ * @brief Size-optimized non-inlined setup code in cached flash. */
 /** @def HS_COLD_MEMBER
  *  @brief Alias of `HS_FLASH_MEMBER` (selective -O3 plus `cold`), for inline,
  *         template and COMDAT functions, member or free; unlike `HS_COLD` it
@@ -86,6 +88,8 @@
 #define HS_HOT_ITCM_MEMBER HS_O3_FN FASTRUN __attribute__((noinline, noclone))
 #define HS_ITCM_MEMBER __attribute__((noinline, noclone))
 #define HS_COLD_MEMBER HS_FLASH_MEMBER
+#define HS_SIZE_FLASH_MEMBER                                                   \
+  __attribute__((cold, noinline, noclone, optimize("Os")))
 #define HS_NOINLINE_NOCLONE __attribute__((noinline, noclone))
 #else
 #define HS_COLD FLASHMEM
@@ -95,6 +99,7 @@
 #define HS_HOT_ITCM_MEMBER
 #define HS_ITCM_MEMBER
 #define HS_COLD_MEMBER
+#define HS_SIZE_FLASH_MEMBER
 #define HS_NOINLINE_NOCLONE __attribute__((noinline))
 #endif
 
