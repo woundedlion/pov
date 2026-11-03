@@ -330,8 +330,8 @@ inline void test_symmetric_rotation_clock() {
   }
 }
 
-/** @brief Legacy snapshots restore zero rotation; new snapshots require clocks. */
-inline void test_symmetric_legacy_snapshot() {
+/** @brief Symmetric snapshots require their rotation clock and restore it atomically. */
+inline void test_symmetric_snapshot_clock() {
   using Symmetric = In::Op::DisplaceSymmetric;
   using WB = ShaderChainWhiteBox;
   reset_globals();
@@ -365,14 +365,15 @@ inline void test_symmetric_legacy_snapshot() {
   HS_EXPECT_EQ(effect.getParameterSchemaGeneration(), generation);
   HS_EXPECT_EQ(phase_of(effect.snapshot()), phase_of(saved));
   HS_EXPECT_EQ(requested_param(effect, "symmetric.speed"), -0.04f);
-  auto legacy = missing;
-  std::erase_if(legacy.parameters, [](const auto &parameter) {
+  auto without_speed = missing;
+  std::erase_if(without_speed.parameters, [](const auto &parameter) {
     return parameter.name == "symmetric.speed";
   });
-  HS_EXPECT_EQ(effect.restore_snapshot(legacy),
-               ChainSnapshotRestoreResult::APPLIED);
-  HS_EXPECT_EQ(phase_of(effect.snapshot()), 0.0f);
-  HS_EXPECT_EQ(requested_param(effect, "symmetric.speed"), 0.0f);
+  HS_EXPECT_EQ(effect.restore_snapshot(without_speed),
+               ChainSnapshotRestoreResult::INVALID_VALUE);
+  HS_EXPECT_EQ(effect.getParameterSchemaGeneration(), generation);
+  HS_EXPECT_EQ(phase_of(effect.snapshot()), phase_of(saved));
+  HS_EXPECT_EQ(requested_param(effect, "symmetric.speed"), -0.04f);
   HS_EXPECT_EQ(effect.restore_snapshot(saved),
                ChainSnapshotRestoreResult::APPLIED);
   HS_EXPECT_EQ(phase_of(effect.snapshot()), phase_of(saved));

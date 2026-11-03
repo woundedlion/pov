@@ -554,7 +554,7 @@ unit-norm checks and transformed wall fixtures qualify those differences and
 pin rejection near every chamber wall. Changing the cube cell classification
 cannot bypass the chamber validation.
 
-## Canonical configuration and migration
+## Canonical configuration and persistence
 
 Each `color.modulate.v1` node owns one configuration containing source controls,
 evaluation strategy, mechanic controls and enabled state. Disabled modulation is
@@ -577,27 +577,17 @@ derived unit-range factors, keeping lightness and alpha within their supported
 ranges.
 Sphere patterns retain their bounded [-1, 1] scalar contract.
 
-Shader documents keep document schema 2 and version their operator IDs. Import
-converts a legacy `colorize.generated-palette.v3` node to the palette node,
-followed by a displacement/hue layer and then its spatial modulation layer.
-Both layers remain present when disabled, preserving dormant controls and
-preset changes. Names are `displacement` and `modulation`, with `-2`, `-3` and
-later suffixes when labels collide; original chain labels are reserved first.
-Hue-shift mode becomes the displacement layer's enabled flag and hue-shift amount
-becomes its amount. Existing spatial controls move to the spatial layer.
-Serialization fields and staggered parameter groups follow the renamed controls.
+Shader documents use document schema 2 and current catalog operator IDs.
 Fresh documents begin with a palette node and add only requested layers.
-Legacy standalone `modulate.field.v1` nodes become unified modulation nodes with
-the same labels and recipes. Legacy `modulate.hue-shift.v1` nodes become
-displacement/hue nodes in place; their default enabled mode is preserved.
-Standalone-node conversion never inserts another generated pair of layers.
+Retired operators and scalar domains that differ from the catalog are rejected
+without conversion.
 
-Snapshot schema 4 stores modulation recipes by modulation-node instance.
+Snapshot schema 5 stores modulation recipes by modulation-node instance.
 Palette clocks use `color-clock-v3`; layer clocks use `modulation-clock-v1`.
-Legacy snapshot migration preserves the spatial recipe, seed and clock while
-initializing the displacement source at phase zero. Derived resources are rebuilt.
-Endpoint lookup uses exact instance labels, including after reorder or state
-migration; a hash collision cannot merge two layers. Each active layer owns its
+Only the current snapshot schema and runtime clock kinds are accepted.
+Derived resources are rebuilt after restore. Endpoint lookup uses exact instance
+labels, including after reorder; a hash collision cannot merge two layers.
+Each active layer owns its
 prepared source and caches, independently of the palette and other layers.
 
 Migrate all noise-hue and shimmer callers, includes, controls, snapshots and
@@ -607,8 +597,7 @@ wrappers. Remove old palette headers after their final callers migrate and updat
 documentation references to the replacement modules.
 Reuse existing noise-loop, generator and gamut math; review intentional render
 changes from exact zero identity and unified rounding. Bump snapshot/preset
-schema versions where needed. Supported legacy documents and snapshots convert
-explicitly to the current representation; unsupported versions fail without
+schema versions where needed. Unsupported documents and snapshots fail without
 changing live state.
 
 Source and mechanic selectors have independent stable identifiers in the new
@@ -784,9 +773,8 @@ and the workbench share the scheduled source clock, immutable preparation and
 completed-endpoint interpolation. The former noise/shimmer modifier headers are
 removed. The 19 composed effects and their shader documents use canonical recipes.
 
-The historical snapshot schema 3 stored one modulation recipe per colorizer
-and a typed, versioned source clock. The current format is schema 4, described
-in the migration contract above. Derived cubes and color tables are rebuilt after restore.
+The current snapshot format is schema 5, described in the persistence contract
+above. Derived cubes and color tables are rebuilt after restore.
 This guarantees scheduled-state replay; a snapshot does not serialize a partially
 consumed display interval. Composed parameter schema versions each advance once;
 complete layout pins include inactive source records and scalar types.

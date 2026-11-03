@@ -141,7 +141,22 @@ test('retired Twist rate controls are rejected without conversion', () => {
   assert.deepEqual(document, original);
 });
 
-test('legacy edge-width domains expand without changing authored values', () => {
+test('retired modulation operators are rejected without conversion', () => {
+  const current = example();
+  assert.equal(compile(current).status, 'VALID');
+  for (const operator of ['colorize.generated-palette.v3', 'modulate.field.v1',
+    'modulate.hue-shift.v1']) {
+    const document = structuredClone(current);
+    document.descriptor.chain.at(-1).operator = operator;
+    const original = structuredClone(document);
+    const result = compile(document);
+    assert.equal(result.status, 'INVALID');
+    assert.ok(result.diagnostics.some(({ code }) => code === 'UNKNOWN_OPERATOR'));
+    assert.deepEqual(document, original);
+  }
+});
+
+test('edge-width domains must match the current catalog', () => {
   const document = example();
   const slot = document.descriptor.chain.find(({ operator }) => operator === 'sample.grid.v3');
   const operator = CATALOG.operators.find(({ id }) => id === slot.operator);
@@ -150,7 +165,6 @@ test('legacy edge-width domains expand without changing authored values', () => 
   document.descriptor.parameters.push(width);
   document.descriptor.serialization.fields.push(width.id);
   for (const preset of document.preset_bank.presets) preset.values[width.id] = width.default;
-  width.domain = { minimum: 0, maximum: 1 };
   const before = structuredClone(document);
   const result = compile(document);
   assert.equal(result.status, 'VALID', JSON.stringify(result.diagnostics));
@@ -162,8 +176,14 @@ test('legacy edge-width domains expand without changing authored values', () => 
   result.document.preset_bank.presets[0].values[width.id] = 2;
   assert.equal(compile(result.document).status, 'VALID');
   assert.deepEqual(compile(result.document).document, result.document);
-  width.domain.maximum = 0.5;
-  assert.equal(compile(document).status, 'INVALID');
+  for (const maximum of [1, 0.5]) {
+    width.domain.maximum = maximum;
+    const original = structuredClone(document);
+    const rejected = compile(document);
+    assert.equal(rejected.status, 'INVALID');
+    assert.ok(rejected.diagnostics.some(({ code }) => code === 'SCALAR_DOMAIN_MISMATCH'));
+    assert.deepEqual(document, original);
+  }
 });
 
 test('Mobius generators admit zero and interpolate every component', () => {
