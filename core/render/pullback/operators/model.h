@@ -103,10 +103,7 @@ struct InstanceId {
  *  @param instance Instance label.
  *  @param operator_id Operator id.
  *  @return The pair's stable hash. */
-constexpr uint32_t instance_hash(std::string_view instance,
-                                 std::string_view operator_id) {
-  return fnv1a(operator_id, fnv1a(std::string_view("\0", 1), fnv1a(instance)));
-}
+using Pullback::instance_hash;
 
 /**
  * @brief The interpreter's per-frame snapshot: shared engine-owned resources

@@ -63,6 +63,11 @@ public:
                      Color::AuthoredColorParams>; ///< Full authored sources.
   using Spec = SpecT;                  ///< The effect's ranked stage Spec.
   using Metadata = MetadataFor<SpecT>; ///< Topology derived from typed stages.
+  static constexpr bool AUTHORED_TOPOLOGY = [] {
+    if constexpr (requires { SpecT::AUTHORED_TOPOLOGY; })
+      return SpecT::AUTHORED_TOPOLOGY;
+    return false;
+  }(); ///< Whether runtime identities follow authored nodes.
   /// Whether the effect samples time across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = SpecT::TEMPORAL_SAMPLING;
   static_assert(Metadata::ColorModes::LAB_CACHE == SpecT::PALETTE_LAB_CACHE,
@@ -150,6 +155,19 @@ public:
   static constexpr int32_t SOURCE_NOISE_SEED = EFFECT_NOISE_SEED;  ///< Source.
   static constexpr int32_t SURFACE_NOISE_SEED = EFFECT_NOISE_SEED; ///< Surface.
 
+  /** @brief Resolves a semantic resource key to its authored node label.
+   * @param resource Parameter resource key.
+   * @return The declared authored label, or the resource key. */
+  static constexpr std::string_view
+  authored_instance_label(std::string_view resource) {
+    if constexpr (requires { Derived::authored_instance(resource); })
+      return Derived::authored_instance(resource);
+    else if constexpr (requires { SpecT::authored_instance(resource); })
+      return SpecT::authored_instance(resource);
+    else
+      return resource;
+  }
+
   /** @brief Constructs the effect at W x H with its lens column-strobe mode. */
   HS_COLD_MEMBER ComposedEffect()
       : Choreography(W, H, {.strobe = Metadata::STROBE_COLUMNS}) {}
@@ -201,9 +219,11 @@ public:
       }
       if constexpr (std::is_same_v<typename Resource::Family,
                                    SphereAnimation::BurstRippleParams>) {
-        state->resources.template get<Resource::KEY>().ripples.seed = fnv1a(
-            "sphere.displace.ripple.v2",
-            fnv1a(std::string_view("\0", 1), fnv1a(Resource::KEY.view())));
+        constexpr auto INSTANCE =
+            AUTHORED_TOPOLOGY ? authored_instance_label(Resource::KEY.view())
+                              : Resource::KEY.view();
+        state->resources.template get<Resource::KEY>().ripples.seed =
+            instance_hash(INSTANCE, "sphere.displace.ripple.v2");
       }
       if constexpr (ComposedDetail::RESOURCE_NOISE<Resource>) {
         constexpr int32_t SEED = Resource::KIND == ResourceKind::WARP
@@ -212,8 +232,16 @@ public:
                                      ? Derived::SOURCE_NOISE_SEED
                                      : Derived::SURFACE_NOISE_SEED;
         constexpr int32_t INSTANCE_SEED = [] {
-          if constexpr (ComposedDetail::qualified<
-                            Resource, typename Params::ResourceTypes>()) {
+          if constexpr (AUTHORED_TOPOLOGY) {
+            constexpr auto OPERATOR =
+                ComposedDetail::noise_operator_id<typename Resource::Family>();
+            static_assert(
+                !OPERATOR.empty(),
+                "authored noise resource requires a catalog operator identity");
+            return static_cast<int32_t>(instance_hash(
+                authored_instance_label(Resource::KEY.view()), OPERATOR));
+          } else if constexpr (ComposedDetail::fixed_noise_qualified<Resource>(
+                                   typename Params::ResourceTypes{})) {
             constexpr uint32_t HASH = fnv1a(Resource::KEY.view());
             return static_cast<int32_t>(static_cast<uint32_t>(SEED) ^ HASH);
           } else {
@@ -230,9 +258,19 @@ public:
                                   GeneratedPaletteBank::FADE_FRAMES,
                                   math::ease_in_out_sin, nullptr, 2);
     if constexpr (ANIMATED_PROJECTION) {
+      constexpr int32_t SEED = [] {
+        if constexpr (AUTHORED_TOPOLOGY &&
+                      Metadata::PROJECTION != ProjectionKind::NONE)
+          return static_cast<int32_t>(
+              instance_hash(authored_instance_label("projection"),
+                            projection_operator_id(Metadata::PROJECTION)));
+        return PROJECTION_WALK_SEED;
+      }();
       auto walk = Animation::RandomWalk<W>(
           this->projection_walk, math::UP, state->projection_walk_noise,
-          typename Animation::RandomWalk<W>::Options{}, PROJECTION_WALK_SEED);
+          typename Animation::RandomWalk<W>::Options{}, SEED);
+      if constexpr (AUTHORED_TOPOLOGY)
+        state->projection_walk_noise.SetSeed(SEED);
       if constexpr (requires { params.template get<"projection">().frame; })
         timeline.add_pausable(0, std::move(walk), &projection_frame_paused);
       else
@@ -529,6 +567,7 @@ protected:
     bool admitted = true;
     this->params.visit([&]<typename Resource>(const auto &family) {
       if constexpr (Resource::KIND == ResourceKind::LENS ||
+                    Resource::KIND == ResourceKind::SURFACE ||
                     Resource::KIND == ResourceKind::COLOR ||
                     Resource::KIND == ResourceKind::MODULATION) {
         const uintptr_t begin = reinterpret_cast<uintptr_t>(&family);
@@ -544,8 +583,10 @@ protected:
             if constexpr (Resource::KIND == ResourceKind::COLOR ||
                           Resource::KIND == ResourceKind::MODULATION)
               refused_warning = Modulation::INVALID_CONFIGURATION;
-            else
+            else if constexpr (Resource::KIND == ResourceKind::LENS)
               refused_warning = Lens::MobiusGeneratorParams::RANGE_WARNING;
+            else
+              refused_warning = "invalid surface configuration";
           }
         }
       }
@@ -710,6 +751,23 @@ protected:
         this->register_animated_enum8_param(
             resource_parameter_name<Resource>(field.id),
             &(family.*field.member), options, option_count);
+        set_parameter_stage(resource_parameter_stage<Resource>());
+      }
+    if constexpr (requires {
+                    T::EXTRA_SCHEMA;
+                    family.extra_address(size_t{});
+                  })
+      for (size_t index = 0; index < T::EXTRA_SCHEMA.size(); ++index) {
+        const auto &field = T::EXTRA_SCHEMA[index];
+        const char *name = resource_parameter_name<Resource>(field.id);
+        void *address = family.extra_address(index);
+        if (field.enum_count)
+          this->register_animated_enum8_param(name,
+                                              static_cast<uint8_t *>(address),
+                                              field.enum_ids, field.enum_count);
+        else
+          register_animated_param(name, static_cast<float *>(address),
+                                  field.min, field.max);
         set_parameter_stage(resource_parameter_stage<Resource>());
       }
   }

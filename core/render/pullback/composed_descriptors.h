@@ -691,6 +691,8 @@ consteval size_t resource_parameter_count() {
     if constexpr (requires { Family::TOPOLOGY; })
       for (const auto &field : Family::TOPOLOGY)
         count += resource_topology_open<Spec, Resource>(field.id);
+    if constexpr (requires { Family::EXTRA_SCHEMA; })
+      count += Family::EXTRA_SCHEMA.size();
     return count;
   }
 }
@@ -716,25 +718,52 @@ consteval size_t family_instances(ResourceList<Resources...>) {
   return (size_t(std::is_same_v<Family, typename Resources::Family>) + ... + 0);
 }
 
+/** @brief Registered float, topology and nested names of a parameter family.
+ * @tparam Family Parameter family.
+ * @return Names, with an empty slot for an unnamed field. */
+template <typename Family> consteval auto family_control_names() {
+  constexpr size_t TOPOLOGY = [] {
+    if constexpr (requires { Family::TOPOLOGY; })
+      return Family::TOPOLOGY.size();
+    return size_t(0);
+  }();
+  constexpr size_t EXTRA = [] {
+    if constexpr (requires { Family::EXTRA_SCHEMA; })
+      return Family::EXTRA_SCHEMA.size();
+    return size_t(0);
+  }();
+  std::array<std::string_view, Family::FIELDS.size() + TOPOLOGY + EXTRA>
+      names{};
+  size_t index = 0;
+  for (const auto &field : Family::FIELDS)
+    names[index++] =
+        field.name ? std::string_view(field.name) : std::string_view{};
+  if constexpr (requires { Family::TOPOLOGY; })
+    for (const auto &field : Family::TOPOLOGY)
+      names[index++] = field.id;
+  if constexpr (requires { Family::EXTRA_SCHEMA; })
+    for (const auto &field : Family::EXTRA_SCHEMA)
+      names[index++] = field.id;
+  return names;
+}
+
 /**
- * @brief Whether two distinct same-kind resources share a field name.
+ * @brief Whether two distinct resources share a control name.
  * @tparam Resource Resource checked.
  * @tparam Other Resource compared against.
- * @return False for identical resources, different kinds and lenses.
+ * @return Whether their registered names need instance qualification.
  */
 template <typename Resource, typename Other>
 consteval bool resource_names_overlap() {
-  if constexpr (Resource::KIND != Other::KIND ||
-                std::is_same_v<Resource, Other> ||
-                Resource::KIND == ResourceKind::LENS)
+  if constexpr (std::is_same_v<Resource, Other>)
     return false;
-  else if constexpr (Resource::KIND == ResourceKind::MODULATION)
-    return true;
+  else if constexpr (Resource::KIND == ResourceKind::MODULATION ||
+                     Other::KIND == ResourceKind::MODULATION)
+    return Resource::KIND == Other::KIND;
   else {
-    for (const auto &field : Resource::Family::FIELDS)
-      for (const auto &other : Other::Family::FIELDS)
-        if (field.name != nullptr && other.name != nullptr &&
-            std::string_view(field.name) == other.name)
+    for (const auto &name : family_control_names<typename Resource::Family>())
+      for (const auto &other : family_control_names<typename Other::Family>())
+        if (!name.empty() && name == other)
           return true;
     return false;
   }
@@ -763,6 +792,36 @@ template <typename Resource, typename List> consteval bool qualified() {
   return !Resource::STANDARD ||
          family_instances<typename Resource::Family>(List{}) > 1 ||
          resource_names_overlap<Resource>(List{});
+}
+
+/** @brief Whether fixed noise resources distinguish a same-role field set.
+ * @tparam Resource Noise resource.
+ * @tparam Other Candidate resource.
+ * @return Whether their fixed field labels overlap. */
+template <typename Resource, typename Other>
+consteval bool noise_fields_overlap() {
+  if constexpr (Resource::KIND != Other::KIND ||
+                std::is_same_v<Resource, Other>)
+    return false;
+  else {
+    for (const auto &field : Resource::Family::FIELDS)
+      for (const auto &other : Other::Family::FIELDS)
+        if (field.name && other.name &&
+            std::string_view(field.name) == other.name)
+          return true;
+    return false;
+  }
+}
+
+/** @brief Whether a fixed noise field mixes its instance key into the seed.
+ * @tparam Resource Noise resource.
+ * @tparam Resources Present resources.
+ * @return Whether the instance has an independent fixed noise seed. */
+template <typename Resource, typename... Resources>
+consteval bool fixed_noise_qualified(ResourceList<Resources...> list) {
+  return !Resource::STANDARD ||
+         family_instances<typename Resource::Family>(list) > 1 ||
+         (noise_fields_overlap<Resource, Resources>() || ... || false);
 }
 
 /**
@@ -806,6 +865,9 @@ consteval size_t resource_name_bytes() {
         for (const auto &field : Resource::Family::TOPOLOGY)
           if (resource_topology_open<Spec, Resource>(field.id))
             bytes += PREFIX + std::string_view(field.id).size();
+      if constexpr (requires { Resource::Family::EXTRA_SCHEMA; })
+        for (const auto &field : Resource::Family::EXTRA_SCHEMA)
+          bytes += PREFIX + std::string_view(field.id).size();
       if constexpr (Resource::KIND == ResourceKind::WARP) {
         constexpr std::string_view SPEED_NAME =
             warp_speed_name(Resource::KEY.view());

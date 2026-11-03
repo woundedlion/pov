@@ -103,6 +103,15 @@ template <typename State> struct ConfiguredDirect : PrepareFromState<State> {
   }
 };
 
+/// Scalar-potential topology spellings.
+inline constexpr const char *POTENTIAL_TERM_IDS[] = {
+    "mode", "tetrahedral", "octahedral", "dodecahedral"};
+/// Potential Helmholtz component spellings.
+inline constexpr auto &POTENTIAL_KIND_IDS = AUTHORED_FIELD_KIND_IDS;
+/// Harmonic degree and order spellings.
+inline constexpr const char *HARMONIC_ORDER_IDS[] = {
+    "zero", "one", "two", "three", "four", "five", "six", "seven", "eight"};
+
 /** @brief One authored scalar-potential term. */
 struct PotentialTermParams {
   uint8_t type = 0;       ///< Scalar potential topology.
@@ -136,6 +145,88 @@ struct PotentialParams {
                                        "Drift", -0.1f, 0.1f, FieldCurve::LERP}};
   static constexpr auto TOPOLOGY = std::array{TopologyField<PotentialParams>{
       "integrator", &PotentialParams::integrator, AUTHORED_INTEGRATOR_IDS, 0}};
+  /// Nested term fields and their mode-only activation gates.
+  static constexpr auto EXTRA_SCHEMA = [] {
+    std::array<ParamFieldInfo, 24> fields{};
+    constexpr const char *IDS[4][6] = {
+        {"term-1-type", "term-1-kind", "term-1-l", "term-1-m",
+         "term-1-amplitude", "term-1-phase"},
+        {"term-2-type", "term-2-kind", "term-2-l", "term-2-m",
+         "term-2-amplitude", "term-2-phase"},
+        {"term-3-type", "term-3-kind", "term-3-l", "term-3-m",
+         "term-3-amplitude", "term-3-phase"},
+        {"term-4-type", "term-4-kind", "term-4-l", "term-4-m",
+         "term-4-amplitude", "term-4-phase"}};
+    for (size_t i = 0; i < 4; ++i) {
+      fields[6 * i] = {IDS[i][0], "Term Type",        0,       0,
+                       0,         FieldCurve::SNAP,   true,    4,
+                       0,         POTENTIAL_TERM_IDS, nullptr, 0};
+      fields[6 * i + 1] = {IDS[i][1],        "Kind", 0, 0, 0,
+                           FieldCurve::SNAP, true,   2, 0, POTENTIAL_KIND_IDS,
+                           nullptr,          0};
+      fields[6 * i + 2] = {
+          IDS[i][2], "Degree",           0,         0,
+          0,         FieldCurve::SNAP,   true,      9,
+          1,         HARMONIC_ORDER_IDS, IDS[i][0], live_values(0)};
+      fields[6 * i + 3] = {
+          IDS[i][3],        "Order",       0, 0, 0,
+          FieldCurve::SNAP, true,          9, 0, HARMONIC_ORDER_IDS,
+          IDS[i][0],        live_values(0)};
+      fields[6 * i + 4] = {IDS[i][4], "Amplitude",      -4,      4,
+                           0,         FieldCurve::SNAP, false,   0,
+                           0,         nullptr,          nullptr, 0};
+      fields[6 * i + 5] = {IDS[i][5],  "Phase",   -math::PI_F,
+                           math::PI_F, 0,         FieldCurve::SHORTEST_PERIODIC,
+                           false,      0,         0,
+                           nullptr,    IDS[i][0], live_values(0)};
+    }
+    return fields;
+  }();
+
+  /** @brief Addresses one nested term field.
+   * @param index Extra-schema field index.
+   * @return Parameter storage. */
+  HS_COLD_MEMBER void *extra_address(size_t index) {
+    auto &params = *this;
+    auto &term = params.terms[index / 6];
+    switch (index % 6) {
+    case 0:
+      return &term.type;
+    case 1:
+      return &term.kind;
+    case 2:
+      return &term.l;
+    case 3:
+      return &term.m;
+    case 4:
+      return &term.amplitude;
+    default:
+      return &term.phase;
+    }
+  }
+
+  /** @brief Samples nested mode phases while retaining endpoint topology.
+   * @param out Destination controls.
+   * @param from Start controls.
+   * @param to End controls.
+   * @param fraction Frame fraction. */
+  static void sample_extra(PotentialParams &out, const PotentialParams &from,
+                           const PotentialParams &to, float fraction) {
+    if (out.orientation_azimuth > math::PI_F)
+      out.orientation_azimuth -= math::TWO_PI_F;
+    for (size_t i = 0; i < 4; ++i) {
+      out.terms[i] = fraction < 1.0f ? from.terms[i] : to.terms[i];
+      if (from.terms[i].type == to.terms[i].type &&
+          from.terms[i].l == to.terms[i].l &&
+          from.terms[i].m == to.terms[i].m) {
+        out.terms[i].phase = Control::apply_curve(
+            Control::FieldCurve::SHORTEST_PERIODIC, from.terms[i].phase,
+            to.terms[i].phase, fraction);
+        if (out.terms[i].phase > math::PI_F)
+          out.terms[i].phase -= math::TWO_PI_F;
+      }
+    }
+  }
 };
 
 /** @brief Rossby-Haurwitz field controls. */

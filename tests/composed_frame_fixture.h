@@ -33,6 +33,16 @@ struct ComposedFrameWhiteBox {
     return effect.frame_for_test();
   }
 
+  /** @brief Projection walk's initialized noise field.
+   * @param effect Initialized composed effect.
+   * @return Runtime-owned projection walk noise. */
+  template <typename FX>
+  static const FastNoiseLite &projection_noise(const FX &effect)
+    requires(FX::ANIMATED_PROJECTION)
+  {
+    return effect.state->projection_walk_noise;
+  }
+
   /** @brief Reads the retained current frame without preparing it again.
    * @tparam FX Composed effect type.
    * @param effect Effect whose last draw is inspected.

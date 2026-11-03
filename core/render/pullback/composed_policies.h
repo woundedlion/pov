@@ -14,6 +14,8 @@
  * @details Derived specs supply `template <typename B> using Pipeline`.
  * Stage topology is exposed by `MetadataFor`. */
 struct Spec {
+  static constexpr bool AUTHORED_TOPOLOGY =
+      false; ///< Uses canonical authored node identities.
   /// Hue harmony of generated palettes.
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   /// Whether the projection frame random-walks and spins.
@@ -53,6 +55,36 @@ struct Spec {
   static constexpr bool CACHE_DODECAHEDRAL_FACES =
       false; ///< Copies cube classifiers into persistent storage.
 };
+
+/** @brief Catalog identity of one projection algorithm.
+ * @param projection Projection algorithm.
+ * @return Versioned operator identity, or empty for no projection. */
+constexpr std::string_view projection_operator_id(ProjectionKind projection) {
+  switch (projection) {
+  case ProjectionKind::STEREOGRAPHIC:
+    return "project.stereographic.v2";
+  case ProjectionKind::GNOMONIC_FOLDED:
+  case ProjectionKind::GNOMONIC:
+    return "project.gnomonic.v2";
+  case ProjectionKind::EQUIRECTANGULAR:
+    return "project.equirectangular.v2";
+  case ProjectionKind::FOLDED_SINUSOIDAL:
+    return "project.folded-sinusoidal.v2";
+  case ProjectionKind::S2:
+    return "project.s2.v1";
+  case ProjectionKind::PEIRCE_SQUARE_FAST:
+    return "project.peirce-square-fast.v3";
+  case ProjectionKind::PEIRCE:
+    return "project.peirce.v3";
+  case ProjectionKind::BONNE:
+    return "project.bonne.v3";
+  case ProjectionKind::AIROCEAN:
+    return "project.airocean.v3";
+  case ProjectionKind::NONE:
+    return {};
+  }
+  return {};
+}
 
 /**
  * @brief Maps a source parameter family to its `Pullback::Source` policy,

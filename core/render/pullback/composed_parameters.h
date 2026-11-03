@@ -37,19 +37,7 @@ inline T interpolate(const T &a, const T &b, float t) {
 inline PotentialParams interpolate(const PotentialParams &a,
                                    const PotentialParams &b, float t) {
   PotentialParams out = Fields::interpolate(a, b, t);
-  if (out.orientation_azimuth > math::PI_F)
-    out.orientation_azimuth -= math::TWO_PI_F;
-  for (size_t index = 0; index < out.terms.size(); ++index) {
-    const auto &from = a.terms[index];
-    const auto &to = b.terms[index];
-    if (from.type == to.type && from.l == to.l && from.m == to.m) {
-      auto &phase = out.terms[index].phase;
-      phase = Control::apply_curve(Control::FieldCurve::SHORTEST_PERIODIC,
-                                   from.phase, to.phase, t);
-      if (phase > math::PI_F)
-        phase -= math::TWO_PI_F;
-    }
-  }
+  PotentialParams::sample_extra(out, a, b, t);
   return out;
 }
 

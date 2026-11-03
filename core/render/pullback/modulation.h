@@ -534,7 +534,9 @@ struct Controls {
   /** @brief Mutable canonical control addresses.
    * @param index Index in the appended schema.
    * @return Canonical configuration field address. */
-  void *extra_address(size_t index) { return address(modulation, index); }
+  HS_COLD_MEMBER void *extra_address(size_t index) {
+    return address(modulation, index);
+  }
   /** @brief Addresses a canonical configuration field.
    * @param c Live source and mechanic recipe.
    * @param index Schema index.
@@ -596,7 +598,8 @@ struct Controls {
    * @param c Current source and mechanic recipe.
    * @param index Canonical schema index.
    * @return Whether the control accepts native parameter writes. */
-  static bool active(const ColorModulation::Config &c, size_t index) {
+  HS_COLD_MEMBER static bool active(const ColorModulation::Config &c,
+                                    size_t index) {
     if (index >= EXTRA_SCHEMA.size())
       return false;
     if (index == 0 || (index >= 32 && index <= 35))

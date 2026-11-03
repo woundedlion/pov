@@ -480,3 +480,205 @@ inline void test_authored_dynamic_modulation_controls() {
   HS_EXPECT_TRUE(
       effect.getParameters().find("interference-frequency-b")->readonly);
 }
+
+/** @brief Composed fixture for nested polynomial controls. */
+struct PotentialControlsSpec : Pullback::Spec {
+  static constexpr bool ANIMATED_PROJECTION = false;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Displace<Pullback::Surface::Potential<
+          Pullback::SurfaceProvider<B, Pullback::PotentialParams, false>>>,
+      Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+          Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>,
+      Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
+          Pullback::GridSourceParams, B>::Type>,
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>>;
+};
+
+/** @brief Native registration and harmonic-domain admission probe. */
+struct PotentialControlsProbe
+    : Pullback::ComposedEffect<8, 8, PotentialControlsProbe,
+                               PotentialControlsSpec,
+                               Control::HookOwnership::INHERITED> {
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr std::array<PresetEntry<Params>, 1> PRESETS{};
+  /** @brief Live potential controls.
+   * @return Mutable polynomial parameter family. */
+  auto &configuration() { return params.template get<"surface">(); }
+};
+
+/** @brief Nested term controls bind native selectors and reject invalid harmonics. */
+inline void test_authored_potential_nested_controls() {
+  hs_test::reset_globals();
+  PotentialControlsProbe effect;
+  effect.init();
+  using Family = Pullback::PotentialParams;
+  HS_EXPECT_EQ(Family::EXTRA_SCHEMA.size(), size_t(24));
+  for (size_t index = 0; index < Family::EXTRA_SCHEMA.size(); ++index) {
+    const auto &field = Family::EXTRA_SCHEMA[index];
+    const auto *parameter = effect.getParameters().find(
+        (std::string("surface.") + field.id).c_str());
+    HS_EXPECT_TRUE(parameter != nullptr);
+    if (!parameter)
+      continue;
+    HS_EXPECT_TRUE(parameter->target ==
+                   effect.configuration().extra_address(index));
+    HS_EXPECT_EQ(parameter->option_count, int(field.enum_count));
+    HS_EXPECT_TRUE(parameter->animated);
+  }
+  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-l", 3),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-m", 2),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-amplitude", 1.3f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-phase", 2.7f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.configuration().terms[0].l, uint8_t(3));
+  HS_EXPECT_EQ(effect.configuration().terms[0].m, uint8_t(2));
+  HS_EXPECT_EQ(effect.configuration().terms[0].amplitude, 1.3f);
+  HS_EXPECT_EQ(effect.configuration().terms[0].phase, 2.7f);
+  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-l", 1),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_EQ(effect.configuration().terms[0].l, uint8_t(3));
+  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-type", 2),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-m", 8),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-type", 0),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_EQ(effect.configuration().terms[0].type, uint8_t(2));
+  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-m", 2),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-type", 0),
+               ParamSetResult::APPLIED);
+  for (size_t index = 1; index < 4; ++index) {
+    const char *const AMPLITUDE[] = {"surface.term-2-amplitude",
+                                     "surface.term-3-amplitude",
+                                     "surface.term-4-amplitude"};
+    const float VALUE = float(index) * -0.7f;
+    HS_EXPECT_EQ(effect.updateParameter(AMPLITUDE[index - 1], VALUE),
+                 ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(effect.configuration().terms[index].amplitude, VALUE);
+  }
+}
+
+/** @brief Spherical source fixture with independently varied resource spelling.
+ * @tparam Key Source resource key.
+ * @tparam Authored Whether to use authored node identities. */
+template <Pullback::ResourceKey Key, bool Authored>
+struct SourceSeedSpec : Pullback::Spec {
+  static constexpr bool AUTHORED_TOPOLOGY = Authored;
+  static constexpr bool ANIMATED_PROJECTION = false;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::SampleSphere<Pullback::Source::SphericalNoise<
+          Pullback::SourceProvider<B, Pullback::SphericalNoiseSourceParams,
+                                   Key>,
+          math::NoiseBasis::SIMPLEX>>,
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>>;
+};
+
+/** @brief Initializes source noise through a declared authored label.
+ * @tparam Key Source resource key.
+ * @tparam Authored Whether to use authored node identities. */
+template <Pullback::ResourceKey Key, bool Authored>
+struct SourceSeedProbe
+    : Pullback::ComposedEffect<8, 8, SourceSeedProbe<Key, Authored>,
+                               SourceSeedSpec<Key, Authored>,
+                               Control::HookOwnership::INHERITED> {
+  using Base = Pullback::ComposedEffect<8, 8, SourceSeedProbe<Key, Authored>,
+                                        SourceSeedSpec<Key, Authored>,
+                                        Control::HookOwnership::INHERITED>;
+  using Params = typename Base::Params;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr std::array<PresetEntry<Params>, 1> PRESETS{};
+  /** @brief Authored node label corresponding to a source resource.
+   * @param resource Semantic resource key.
+   * @return Declared source label or the unchanged resource. */
+  static constexpr std::string_view
+  authored_instance(std::string_view resource) {
+    return resource == Key.view() ? "authored_source" : resource;
+  }
+};
+
+template <Pullback::ResourceKey Key, bool Authored>
+inline void verify_source_seed(uint32_t expected_seed) {
+  hs_test::reset_globals();
+  SourceSeedProbe<Key, Authored> effect;
+  effect.init();
+  const auto FRAME = effect.frame_for_test();
+  const auto &ACTUAL = *FRAME.resources.template get<Key>().noise;
+  FastNoiseLite expected;
+  Pullback::init_effect_noise(expected, static_cast<int32_t>(expected_seed));
+  for (const auto &point :
+       {math::Vector(0.13f, -0.77f, 0.91f), math::Vector(-2.3f, 1.17f, 0.42f)})
+    HS_EXPECT_NEAR(ACTUAL.GetNoiseSingle(point.x, point.y, point.z),
+                   expected.GetNoiseSingle(point.x, point.y, point.z), 1e-6f);
+}
+
+/** @brief Projection frame seeded from an authored projection node. */
+struct ProjectionSeedSpec : Pullback::Spec {
+  static constexpr bool AUTHORED_TOPOLOGY = true;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B,
+      Pullback::Stage::Rotate<
+          Pullback::OuterCameraProvider<B, Pullback::AtlasProjectionParams>>,
+      Pullback::Stage::Project<Pullback::AuthoredProjection<
+          Pullback::ProjectionKind::STEREOGRAPHIC,
+          Pullback::ProjectionProvider<B, Pullback::AtlasProjectionParams>>>,
+      Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
+          Pullback::GridSourceParams, B>::Type>,
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>>;
+};
+/** @brief Projection walk seed binding probe. */
+struct ProjectionSeedProbe
+    : Pullback::ComposedEffect<8, 8, ProjectionSeedProbe, ProjectionSeedSpec,
+                               Control::HookOwnership::INHERITED> {
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr std::array<PresetEntry<Params>, 1> PRESETS{};
+  /** @brief Authored label of the projection node.
+   * @param resource Semantic resource key.
+   * @return Declared projection label or the unchanged resource. */
+  static constexpr std::string_view
+  authored_instance(std::string_view resource) {
+    return resource == "projection" ? "authored_projection" : resource;
+  }
+};
+
+/** @brief Authored noise seeds depend on node identity while fixed seeds stay stable. */
+inline void test_authored_noise_seed_identity() {
+  static_assert(
+      Pullback::instance_hash("authored_source", "sample.spherical-noise.v3") ==
+      0x15F42404u);
+  static_assert(Pullback::instance_hash("authored_projection",
+                                        "project.stereographic.v2") ==
+                0x2058155Cu);
+  verify_source_seed<"source", true>(0x15F42404u);
+  verify_source_seed<"noisy", true>(0x15F42404u);
+  verify_source_seed<"source", false>(1337u);
+  verify_source_seed<"noisy", false>(0x9C442C8Cu);
+  hs_test::reset_globals();
+  ProjectionSeedProbe effect;
+  effect.init();
+  const auto &ACTUAL = hs_test::ComposedFrameWhiteBox::projection_noise(effect);
+  FastNoiseLite expected;
+  Pullback::init_effect_noise(expected, static_cast<int32_t>(0x2058155Cu));
+  expected.SetFrequency(Animation::RandomWalk<8>::Options{}.noise_scale);
+  for (const auto &point :
+       {math::Vector(0.13f, -0.77f, 0.91f), math::Vector(-2.3f, 1.17f, 0.42f)})
+    HS_EXPECT_NEAR(ACTUAL.GetNoiseSingle(point.x, point.y, point.z),
+                   expected.GetNoiseSingle(point.x, point.y, point.z), 1e-6f);
+}

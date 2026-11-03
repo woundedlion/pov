@@ -25,6 +25,15 @@ constexpr uint32_t fnv1a(std::string_view text, uint32_t hash = 2166136261u) {
   return hash;
 }
 
+/** @brief Stable hash of a node label and its versioned operator identity.
+ * @param instance Exact authored node label.
+ * @param operator_id Versioned operator identity.
+ * @return FNV-1a over the label, NUL separator and operator identity. */
+constexpr uint32_t instance_hash(std::string_view instance,
+                                 std::string_view operator_id) {
+  return fnv1a(operator_id, fnv1a(std::string_view("\0", 1), fnv1a(instance)));
+}
+
 /// Default seed for effect noise fields.
 inline constexpr int32_t EFFECT_NOISE_SEED = 1337;
 /// Seed for the camera orientation random walk.

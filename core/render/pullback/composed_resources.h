@@ -458,6 +458,30 @@ inline constexpr bool RESOURCE_NOISE =
     std::is_base_of_v<Surface::SurfaceNoiseParams, typename Resource::Family> ||
     std::is_base_of_v<Surface::DirectSurfaceParams, typename Resource::Family>;
 
+/** @brief Catalog identity of a noise-consuming parameter family.
+ * @tparam Family Parameter family.
+ * @return Versioned operator identity, or empty for a non-noise family. */
+template <typename Family> consteval std::string_view noise_operator_id() {
+  if constexpr (requires { Family::OPERATOR_ID; })
+    return Family::OPERATOR_ID;
+  else if constexpr (std::is_base_of_v<Warp::VectorNoiseParams, Family>)
+    return "warp.vector-noise.v2";
+  else if constexpr (std::is_base_of_v<Warp::CurlFlowParams, Family>)
+    return "warp.curl-flow.v2";
+  else if constexpr (std::is_base_of_v<Source::ProjectedNoiseSourceParams,
+                                       Family>)
+    return "sample.projected-noise.v2";
+  else if constexpr (std::is_base_of_v<Source::SphericalNoiseSourceParams,
+                                       Family>)
+    return "sample.spherical-noise.v3";
+  else if constexpr (std::is_base_of_v<Surface::SurfaceNoiseParams, Family>)
+    return "sphere.displace.curl.v2";
+  else if constexpr (std::is_base_of_v<Surface::DirectSurfaceParams, Family>)
+    return "sphere.displace.direct.v2";
+  else
+    return {};
+}
+
 /** @brief Persistent ripple scheduler, empty for other families.
  * @tparam Resource Keyed resource.
  * @tparam Enabled Whether the resource schedules ripple bursts. */

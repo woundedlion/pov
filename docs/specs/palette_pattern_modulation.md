@@ -29,6 +29,18 @@ Curl-noise controls retain the noise basis, integrator and tangent limiter;
 directed noise retains its basis and steering direction. Every displacement
 reports the same angular travel used by displacement color modulation.
 
+Potential term controls use one shared nested schema in the core parameter
+family. Native registration, the interpreter and document snapshots address
+the same degree, order, component, amplitude and phase members. Native writes
+validate the complete harmonic configuration before changing a member.
+
+Control names are qualified by their resource key when any registered scalar,
+topology or nested name collides with another resource. Authored noise identity
+is independent of control names: it hashes the exact descriptor node label, a
+NUL separator and the versioned operator identity. Generated effects map their
+semantic resource aliases back to those labels. Fixed effects retain their
+declared fixed noise seeds and instance-key mixing rules.
+
 Authored projection controls include the projection-frame mode, coordinate
 scale, central meridian and algorithm-specific layout, hemisphere, strip-scroll
 or standard-parallel values. The identity frame bypasses accumulated projection
