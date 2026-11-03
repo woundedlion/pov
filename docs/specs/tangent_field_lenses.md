@@ -574,7 +574,7 @@ a clamped lens is a different map.
 | `sphere.lens.mobius.v3` | Lens | ω, b (6 × LERP) | Replaces v2 (D2) |
 | `sphere.displace.potential.v1` | Displace | strength, integrator, orientation (2), drift ν, 4 × {term type, ℓ, m, kind, A, φ₀} | Term type ∈ {mode, tetrahedral, octahedral, dodecahedral}; ℓ, m and φ₀ are gated live for modes only (`TopologyGate`) |
 | `sphere.displace.rossby-haurwitz.v1` | Displace | strength, integrator, ω, K, R, ν | Two mode terms |
-| `sphere.displace.symmetric.v1` | Displace | strength, integrator, symmetry (`KALEIDOSCOPE_SYMMETRY_IDS`), kind, amplitude | One invariant term, no orientation or drift, so it stays aligned with the fold |
+| `sphere.displace.symmetric.v1` | Displace | strength, integrator, symmetry (`KALEIDOSCOPE_SYMMETRY_IDS`), kind, amplitude, speed | One invariant term rotating bodily about +y; Speed defaults to zero to preserve fold alignment |
 
 Every displacement's `validate()` refuses m > ℓ, ℓ > 8, R outside [1, 7],
 non-finite values, and `strength · speed_bound() > π`. It never clamps.
@@ -645,6 +645,15 @@ integrated over time.
   numerically. A two-phase "streaming" imitation (staggered sawtooth
   strengths blended in colour) is closed form, but costs two source samples
   per pixel and is out of scope.
+
+Symmetric Displace accumulates its Speed in radians per frame, in the range
+[-0.1, 0.1]. Its field at phase θ is `R_y(θ) u(R_y(-θ) p)`, rotating the whole
+invariant rather than advancing a harmonic phase. This rotates the polyhedral
+invariants as well as the sectoral ones. Zero Speed holds the current rotation;
+negative Speed reverses it. The existing field phase interval and runtime codec
+preserve the rotation across column samples and snapshot restores. Snapshots
+from before the Speed control, without that parameter or the instance's runtime
+entry, restore at zero rotation.
 
 Temporal continuity: c(t) is continuous, the exponential map is smooth, and
 the half-radian switch does not change the value, so D_t is continuous in t

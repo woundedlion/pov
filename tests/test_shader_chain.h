@@ -749,6 +749,9 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_tangent_integer_gates);
   HS_RUN(test_tangent_integer_controls);
   HS_RUN(test_symmetric_sectoral_phase);
+  HS_RUN(test_symmetric_frame_rotation);
+  HS_RUN(test_symmetric_rotation_clock);
+  HS_RUN(test_symmetric_legacy_snapshot);
   HS_RUN(test_tangent_step_integrators);
   HS_RUN(test_tangent_operator_admission);
   HS_RUN(test_tangent_admitted_domain);

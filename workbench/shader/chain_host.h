@@ -283,6 +283,18 @@ public:
                   return false;
                 selected = &entry;
               }
+            if (selected == nullptr && std::string_view(op.op->operator_id) ==
+                                           Op::DisplaceSymmetric::ID) {
+              const std::string speed = std::string(op.instance) + ".speed";
+              bool legacy = true;
+              for (const auto &parameter : snapshot.parameters)
+                if (parameter.name == speed)
+                  legacy = false;
+              if (legacy) {
+                *static_cast<Op::FieldPhaseState *>(state) = {};
+                continue;
+              }
+            }
             if (selected == nullptr ||
                 !op.op->runtime.restore_state(state, selected->state))
               return false;

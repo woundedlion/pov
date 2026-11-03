@@ -207,20 +207,23 @@ struct RossbyHaurwitzParams {
                                           ROSSBY_ORDER_IDS, 3}};
 };
 
-/** @brief Fold-aligned invariant field controls. */
+/** @brief Rotating invariant field controls. */
 struct SymmetricDisplaceParams {
   float strength = 0.05f; ///< Signed fixed-step scale.
   float amplitude = 1.0f; ///< Peak-speed amplitude.
+  float speed = 0.0f;     ///< Frame rotation per frame, radians.
   uint8_t integrator = 0; ///< Integration scheme.
   uint8_t symmetry = 0;   ///< Shared kaleidoscope symmetry.
   uint8_t kind = 0;       ///< Helmholtz component.
-  static constexpr auto FIELDS =
-      std::array{Field<SymmetricDisplaceParams>{
-                     "strength", &SymmetricDisplaceParams::strength, "Strength",
-                     -math::PI_F, math::PI_F, FieldCurve::SNAP},
-                 Field<SymmetricDisplaceParams>{
-                     "amplitude", &SymmetricDisplaceParams::amplitude,
-                     "Amplitude", -4, 4, FieldCurve::SNAP}};
+  static constexpr auto FIELDS = std::array{
+      Field<SymmetricDisplaceParams>{
+          "strength", &SymmetricDisplaceParams::strength, "Strength",
+          -math::PI_F, math::PI_F, FieldCurve::SNAP},
+      Field<SymmetricDisplaceParams>{"amplitude",
+                                     &SymmetricDisplaceParams::amplitude,
+                                     "Amplitude", -4, 4, FieldCurve::SNAP},
+      Field<SymmetricDisplaceParams>{"speed", &SymmetricDisplaceParams::speed,
+                                     "Speed", -0.1f, 0.1f, FieldCurve::LERP}};
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<SymmetricDisplaceParams>{
           "integrator", &SymmetricDisplaceParams::integrator,
@@ -372,22 +375,25 @@ struct DisplaceRossbyHaurwitz
   }
 };
 
-/** @brief Fold-aligned toroidal or poloidal invariant displacement. */
+/** @brief Rotating toroidal or poloidal invariant displacement. */
 struct DisplaceSymmetric
-    : FieldDisplaceModel<DisplaceSymmetric, SymmetricDisplaceParams,
-                         EmptyState> {
+    : FieldDisplaceModel<DisplaceSymmetric, SymmetricDisplaceParams> {
   static constexpr const char *ID = "sphere.displace.symmetric.v1";
   static constexpr const char *NAME = "Symmetric Displace";
+  static void advance(State &state, const Params &params) {
+    state.phase = fmodf(state.phase + params.speed, math::TWO_PI_F);
+  }
   /** @brief Checks the term topology and parameter domains.
    * @param params Authored field controls.
    * @return Whether the term configuration is admitted. */
   static bool valid_terms(const Params &params) {
     return params.symmetry < 9 && params.kind < 2;
   }
-  /** @brief Prepares the fold-aligned invariant field.
+  /** @brief Prepares the rotated invariant field.
    * @param params Authored invariant controls.
+   * @param phase Accumulated frame rotation, radians.
    * @return Prepared polynomial tangent field. */
-  static Prepared field(const Params &params, float) {
+  static Prepared field(const Params &params, float phase) {
     using namespace math::tangent_field;
     constexpr uint8_t ORDERS[] = {6, 0, 0, 0, 3, 4, 5, 6, 8};
     std::array<PotentialTerm, 4> terms{};
@@ -398,7 +404,7 @@ struct DisplaceSymmetric
     const float amplitude = order % 2 ? -params.amplitude : params.amplitude;
     terms[0] = {type, static_cast<Kind>(params.kind), order, order, amplitude,
                 0};
-    return Prepared(terms);
+    return Prepared(terms, 0.0f, math::make_rotation(math::Y_AXIS, phase));
   }
 };
 

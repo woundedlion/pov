@@ -59,6 +59,7 @@ export function declarationFromCatalogField(label, field, operator) {
       : operator === 'sphere.lens.twist.v2' && field.id === 'twist-angle' ? 'radian'
       : field.id.endsWith('speed')
         ? ((operator.startsWith('sample.') && ['speed', 'angle-speed'].includes(field.id))
+          || (operator === 'sphere.displace.symmetric.v1' && field.id === 'speed')
           || field.id === 'projection-spin-speed' || field.id === 'spin-speed'
           ? 'radian-per-frame' : 'turn-per-frame') : 'ratio',
     domain: { minimum, maximum },

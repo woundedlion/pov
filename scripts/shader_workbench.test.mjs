@@ -1152,6 +1152,7 @@ test('catalog declarations preserve source and clock speed units', () => {
     ['warp.mirror.v1', 'speed', 'turn-per-frame'],
     ['project.stereographic.v1', 'projection-spin-speed', 'radian-per-frame'],
     ['sphere.rotate.v1', 'spin-speed', 'radian-per-frame'],
+    ['sphere.displace.symmetric.v1', 'speed', 'radian-per-frame'],
     ['color.modulate.v1', 'pattern-speed', 'turn-per-frame'],
   ]) {
     const field = { id, curve: 'lerp', min: -1, max: 1, default: 0 };

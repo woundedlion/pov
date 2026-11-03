@@ -119,6 +119,158 @@ inline void test_symmetric_sectoral_phase() {
   }
 }
 
+/** @brief Every invariant rotates its field and displacement bodily about y. */
+inline void test_symmetric_frame_rotation() {
+  using Symmetric = In::Op::DisplaceSymmetric;
+  const auto rotate_y = [](const math::Vector &p, double angle) {
+    return math::Vector(cos(angle) * p.x + sin(angle) * p.z, p.y,
+                        -sin(angle) * p.x + cos(angle) * p.z);
+  };
+  const auto expect_vector = [](const math::Vector &actual,
+                                const math::Vector &expected, float tolerance) {
+    HS_EXPECT_NEAR(actual.x, expected.x, tolerance);
+    HS_EXPECT_NEAR(actual.y, expected.y, tolerance);
+    HS_EXPECT_NEAR(actual.z, expected.z, tolerance);
+  };
+  for (uint8_t symmetry = 0; symmetry < 9; ++symmetry)
+    for (uint8_t kind = 0; kind < 2; ++kind) {
+      Symmetric::Params params;
+      params.symmetry = symmetry;
+      params.kind = kind;
+      params.strength = 0.2f;
+      const auto fixed = Symmetric::field(params, 0.0f);
+      float movement = 0.0f;
+      for (const float phase : {-1.13f, 0.37f}) {
+        const auto rotating = Symmetric::prepare({}, params, {phase});
+        HS_EXPECT_EQ(rotating.speed_bound(), fixed.speed_bound());
+        HS_EXPECT_EQ(rotating.lipschitz_bound(), fixed.lipschitz_bound());
+        for (int sample = 0; sample < 8; ++sample) {
+          const auto p = math::Vector::from_spherical(0.29f + sample * 0.59f,
+                                                      0.41f + sample * 0.23f);
+          const auto local = rotate_y(p, -phase);
+          const auto expected = rotate_y(fixed.velocity(local), phase);
+          const auto actual = rotating.velocity(p);
+          expect_vector(actual, expected, 2e-5f);
+          movement += (actual - fixed.velocity(p)).length();
+          for (uint8_t integrator = 0; integrator < 3; ++integrator) {
+            params.integrator = integrator;
+            const auto stepped = Symmetric::step(local, fixed, params.strength,
+                                                 params.integrator);
+            const auto output =
+                Symmetric::run({p, 0.25f}, {}, params, rotating);
+            expect_vector(output.dir, rotate_y(stepped.sphere, phase), 3e-5f);
+            HS_EXPECT_NEAR(output.path_length, 0.25f + stepped.path_length,
+                           1e-5f);
+          }
+        }
+      }
+      HS_EXPECT_GT(movement, 0.01f);
+    }
+}
+
+/** @brief Speed holds, reverses and continuously samples the instance rotation. */
+inline void test_symmetric_rotation_clock() {
+  using Symmetric = In::Op::DisplaceSymmetric;
+  const auto *op = require_operator(Symmetric::ID);
+  if (!op)
+    return;
+  HS_EXPECT_TRUE(op->runtime.sample_state != nullptr);
+  HS_EXPECT_TRUE(op->runtime.prepare_interval != nullptr);
+  const In::ParamFieldInfo *speed = nullptr;
+  for (const auto &field : op->schema_span())
+    if (std::string_view(field.id) == "speed")
+      speed = &field;
+  HS_EXPECT_TRUE(speed != nullptr);
+  if (!speed)
+    return;
+  HS_EXPECT_STREQ(speed->display_name, "Speed");
+  HS_EXPECT_EQ(speed->def, 0.0f);
+  HS_EXPECT_EQ(speed->min, -0.1f);
+  HS_EXPECT_EQ(speed->max, 0.1f);
+  Symmetric::Params params;
+  Symmetric::State state{0.7f};
+  Symmetric::advance(state, params);
+  HS_EXPECT_EQ(state.phase, 0.7f);
+  params.speed = 0.04f;
+  Symmetric::advance(state, params);
+  HS_EXPECT_NEAR(state.phase, 0.74f, 1e-7f);
+  params.speed = -0.01f;
+  Symmetric::advance(state, params);
+  HS_EXPECT_NEAR(state.phase, 0.73f, 1e-7f);
+  for (const float rate : {-0.04f, 0.04f}) {
+    params.speed = rate;
+    const Symmetric::State from{rate > 0 ? math::TWO_PI_F - 0.02f
+                                         : -math::TWO_PI_F + 0.02f};
+    auto to = from;
+    Symmetric::advance(to, params);
+    HS_EXPECT_LT(fabsf(to.phase), 0.03f);
+    const auto interval = In::Op::temporal_interval(from, to);
+    for (const float fraction : {0.0f, 0.25f, 0.5f, 1.0f}) {
+      auto column = to;
+      In::Op::temporal_sample(column, interval, params, fraction);
+      const double expected = double(from.phase) + rate * fraction;
+      HS_EXPECT_NEAR(cos(column.phase), cos(expected), 1e-6);
+      HS_EXPECT_NEAR(sin(column.phase), sin(expected), 1e-6);
+    }
+    const auto snapshot = In::RuntimeStateCodec<Symmetric::State>::capture(to);
+    Symmetric::State restored;
+    HS_EXPECT_TRUE(
+        In::RuntimeStateCodec<Symmetric::State>::restore(restored, snapshot));
+    HS_EXPECT_EQ(restored.phase, to.phase);
+    Symmetric::advance(restored, params);
+    Symmetric::advance(to, params);
+    HS_EXPECT_EQ(restored.phase, to.phase);
+  }
+}
+
+/** @brief Legacy snapshots restore zero rotation; new snapshots require clocks. */
+inline void test_symmetric_legacy_snapshot() {
+  using Symmetric = In::Op::DisplaceSymmetric;
+  using WB = ShaderChainWhiteBox;
+  reset_globals();
+  WB::FX effect;
+  effect.init();
+  const In::ChainEntryRequest chain[] = {
+      {"symmetric", Symmetric::ID},
+      {"project", "project.stereographic.v2"},
+      {"sample", "sample.grid.v3"},
+      {"colorize", "colorize.generated-palette.v4"}};
+  HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+  HS_EXPECT_EQ(effect.updateParameter("symmetric.speed", -0.04f),
+               ParamSetResult::APPLIED);
+  for (int frame = 0; frame < 7; ++frame)
+    WB::advance_without_render(effect);
+  const auto saved = effect.snapshot();
+  const auto phase_of = [](const ChainSnapshot &snapshot) {
+    for (const auto &entry : *snapshot.runtime)
+      if (entry.instance == "symmetric")
+        return std::get<In::SourceClockSnapshot>(entry.state).primary;
+    return std::numeric_limits<float>::quiet_NaN();
+  };
+  HS_EXPECT_NEAR(phase_of(saved), -0.28f, 1e-6f);
+  auto missing = saved;
+  std::erase_if(*missing.runtime, [](const auto &entry) {
+    return entry.instance == "symmetric";
+  });
+  const auto generation = effect.getParameterSchemaGeneration();
+  HS_EXPECT_EQ(effect.restore_snapshot(missing),
+               ChainSnapshotRestoreResult::INVALID_VALUE);
+  HS_EXPECT_EQ(effect.getParameterSchemaGeneration(), generation);
+  HS_EXPECT_EQ(phase_of(effect.snapshot()), phase_of(saved));
+  HS_EXPECT_EQ(requested_param(effect, "symmetric.speed"), -0.04f);
+  auto legacy = missing;
+  std::erase_if(legacy.parameters, [](const auto &parameter) {
+    return parameter.name == "symmetric.speed";
+  });
+  HS_EXPECT_EQ(effect.restore_snapshot(legacy),
+               ChainSnapshotRestoreResult::APPLIED);
+  HS_EXPECT_EQ(phase_of(effect.snapshot()), 0.0f);
+  HS_EXPECT_EQ(requested_param(effect, "symmetric.speed"), 0.0f);
+  HS_EXPECT_EQ(effect.restore_snapshot(saved),
+               ChainSnapshotRestoreResult::APPLIED);
+  HS_EXPECT_EQ(phase_of(effect.snapshot()), phase_of(saved));
+}
+
 /** @brief Every field integrator preserves equatorial rotation and arc length. */
 inline void test_tangent_step_integrators() {
   const RotationTestField field;
