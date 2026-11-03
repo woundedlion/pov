@@ -322,10 +322,32 @@ enum class SlotRole : uint8_t {
 /** @brief One document chain entry, classified by its operator id. */
 struct DocumentSlot {
   std::string label;
+  std::string resource_key;
   std::string operator_id;
   SlotRole role = SlotRole::UNKNOWN;
   int warp_side = 0; /**< 0 = outer warp family, 1 = inner warp family. */
 };
+
+/** @brief Native resource addressed by a document chain entry. */
+inline std::string_view document_resource_key(const DocumentSlot &slot) {
+  if (!slot.resource_key.empty())
+    return slot.resource_key;
+  switch (slot.role) {
+  case SlotRole::CAMERA:
+  case SlotRole::PROJECT:
+    return "projection";
+  case SlotRole::WARP:
+    return slot.warp_side == 0 ? "outer_warp" : "inner_warp";
+  case SlotRole::SAMPLE:
+    return "source";
+  case SlotRole::FIELD:
+    return "value";
+  case SlotRole::COLORIZE:
+    return "color";
+  default:
+    return slot.label;
+  }
+}
 
 inline SlotRole classify_operator(std::string_view operator_id) {
   if (operator_id.starts_with("sphere.rotate."))
@@ -445,6 +467,19 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
   using Traits = TraitsOf<FX>;
   if (value.kind == JsonValue::Kind::NUMBER) {
     const float number = static_cast<float>(value.number);
+    bool assigned = false;
+    built.visit([&]<typename Resource>(auto &family) {
+      if (Resource::KEY.view() == document_resource_key(slot))
+        assigned =
+            assign_field(family,
+                         slot.role == SlotRole::CAMERA && field_id == "wander"
+                             ? "camera-wander"
+                             : field_id,
+                         number) ||
+            assigned;
+    });
+    if (assigned)
+      return true;
     switch (slot.role) {
     case SlotRole::CAMERA:
       if (field_id == "wander")
@@ -529,17 +564,7 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
       using Family = typename Resource::Family;
       if constexpr (requires { Family::TOPOLOGY; }) {
         const bool matches =
-            (slot.role == SlotRole::PROJECT &&
-             Resource::KIND == Pullback::ResourceKind::PROJECTION) ||
-            (slot.role == SlotRole::SAMPLE &&
-             Resource::KIND == Pullback::ResourceKind::SOURCE) ||
-            (slot.role == SlotRole::LENS &&
-             Resource::KEY.view() == slot.label) ||
-            (slot.role == SlotRole::SURFACE &&
-             Resource::KEY.view() == slot.label) ||
-            (slot.role == SlotRole::WARP &&
-             Resource::KEY.view() ==
-                 (slot.warp_side == 0 ? "outer_warp" : "inner_warp"));
+            Resource::KEY.view() == document_resource_key(slot);
         if (!matches)
           return;
         for (const auto &field : Family::TOPOLOGY)
@@ -738,6 +763,11 @@ template <template <int, int> class E>
 inline void check_document_values(const char *name) {
   using FX = E<SMALL_W, SMALL_H>;
   using Params = typename FX::Params;
+  constexpr bool AUTHORED = [] {
+    if constexpr (requires { FX::Spec::AUTHORED_TOPOLOGY; })
+      return FX::Spec::AUTHORED_TOPOLOGY;
+    return false;
+  }();
   HS_CONTEXT(name);
 
   const auto loaded = load_promoted_document<FX>();
@@ -763,12 +793,31 @@ inline void check_document_values(const char *name) {
       return;
     DocumentSlot slot;
     slot.label = label->text;
+    if (const auto *resource = entry.find("resource_key"))
+      slot.resource_key = resource->text;
     slot.operator_id = operator_id->text;
     slot.role = classify_operator(operator_id->text);
     HS_EXPECT(slot.role != SlotRole::UNKNOWN, "chain operator classified");
     if (slot.role == SlotRole::PROJECT) {
       const char *expected = nullptr;
       switch (FX::Metadata::PROJECTION) {
+      case Pullback::ProjectionKind::GNOMONIC:
+        expected = "project.gnomonic.v2";
+        break;
+      case Pullback::ProjectionKind::PEIRCE:
+        expected = "project.peirce.v3";
+        break;
+      case Pullback::ProjectionKind::PEIRCE_SQUARE_FAST:
+        expected = "project.peirce-square-fast.v3";
+        break;
+      case Pullback::ProjectionKind::BONNE:
+        expected = "project.bonne.v3";
+        break;
+      case Pullback::ProjectionKind::AIROCEAN:
+        expected = "project.airocean.v3";
+        break;
+      case Pullback::ProjectionKind::NONE:
+        break;
       case Pullback::ProjectionKind::S2:
         expected = "project.s2.v1";
         break;
@@ -894,12 +943,30 @@ inline void check_document_values(const char *name) {
 
     Params built{};
     const float MISSING = std::bit_cast<float>(uint32_t{0x7fc00001});
-    const auto poison = [MISSING]<typename Family>(Family &family) {
+    const auto poison = [MISSING, values, &slots]<typename Resource>(
+                            typename Resource::Family &family) {
+      using Family = typename Resource::Family;
       if constexpr (Pullback::HasFields<Family> && !std::is_void_v<Family>)
         for (const auto &field : Family::FIELDS) {
           if (!gate_open<FX>(field.gate))
             continue;
+          if constexpr (AUTHORED) {
+            bool addressed = false;
+            for (const auto &slot : slots)
+              if (document_resource_key(slot) == Resource::KEY.view()) {
+                const auto id =
+                    slot.role == SlotRole::CAMERA &&
+                            std::string_view(field.id) == "camera-wander"
+                        ? "wander"
+                        : field.id;
+                addressed =
+                    values->find(slot.label + "." + id) != nullptr || addressed;
+              }
+            if (!addressed)
+              continue;
+          }
           if (std::string_view(field.id) == "edge-width" &&
+              !requires { family.coverage_mode; } &&
               FX::Metadata::COVERAGE !=
                   Pullback::ProjectionCoverageMode::EDGE_FADE)
             continue;
@@ -915,7 +982,7 @@ inline void check_document_values(const char *name) {
     };
     built.visit([&]<typename Resource>(auto &family) {
       if constexpr (Pullback::HasFields<typename Resource::Family>)
-        poison(family);
+        poison.template operator()<Resource>(family);
     });
     built.visit([&]<typename Resource>(auto &family) {
       if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {
@@ -945,9 +1012,11 @@ inline void check_document_values(const char *name) {
       HS_EXPECT(slot != nullptr, "value key names a chain instance");
       if (slot == nullptr)
         continue;
-      if constexpr (requires {
-                      built.template get<"source">().lattice_cell_scale;
-                    }) {
+      if constexpr (
+          requires { built.template get<"source">().lattice_cell_scale; } &&
+          !requires(typename Params::template Family<"outer_warp"> &warp) {
+            warp.lattice_period;
+          }) {
         if (slot->role == SlotRole::WARP && field_id == "lattice-period") {
           HS_EXPECT_NEAR(static_cast<float>(value.number),
                          1.0f / preset_params<FX>(index)

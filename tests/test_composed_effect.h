@@ -65,6 +65,8 @@ using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;
 
+#include "tests/composed_effect/generated_catalog_assignments.h"
+
 using CoverageFixture = AshCloud<SMALL_W, SMALL_H>;
 static_assert(CoverageFixture::Metadata::COVERAGE ==
               Pullback::ProjectionCoverageMode::WEIGHT);
@@ -126,6 +128,17 @@ template <typename FX> constexpr bool gate_open(Pullback::FieldGate gate) {
     return Pullback::uses_central_meridian(FX::Metadata::PROJECTION);
   case Pullback::FieldGate::SINGULARITY_FADE:
     return Pullback::uses_singularity_fade(FX::Metadata::PROJECTION);
+  case Pullback::FieldGate::COORDINATE_SCALE:
+    return FX::Metadata::PROJECTION == Pullback::ProjectionKind::S2 ||
+           FX::Metadata::PROJECTION == Pullback::ProjectionKind::PEIRCE ||
+           FX::Metadata::PROJECTION ==
+               Pullback::ProjectionKind::PEIRCE_SQUARE_FAST ||
+           FX::Metadata::PROJECTION == Pullback::ProjectionKind::BONNE ||
+           FX::Metadata::PROJECTION == Pullback::ProjectionKind::AIROCEAN;
+  case Pullback::FieldGate::LAYOUT_SCROLL:
+    return FX::Metadata::PROJECTION == Pullback::ProjectionKind::PEIRCE;
+  case Pullback::FieldGate::STANDARD_PARALLEL:
+    return FX::Metadata::PROJECTION == Pullback::ProjectionKind::BONNE;
   }
   return false;
 }
@@ -204,7 +217,8 @@ inline void verify_family_equal(const Family &actual, const Family &expected) {
     HS_CONTEXT(field.id);
     HS_EXPECT_EQ(bits(actual.*(field.member)), bits(expected.*(field.member)));
   }
-  if constexpr (requires { Family::TOPOLOGY; })
+  if constexpr (Resource::KIND != Pullback::ResourceKind::COLOR &&
+                requires { Family::TOPOLOGY; })
     for (const auto &field : Family::TOPOLOGY)
       HS_EXPECT_EQ(actual.*field.member, expected.*field.member);
   if constexpr (requires { actual.modulation; })
@@ -279,6 +293,102 @@ verify_family_rejection(FX &effect,
  * @param name Effect name, for the failure context.
  * @details The registered count is derived from the parameter families.
  */
+/** @brief Authored fields register one control at their native storage address. */
+template <typename FX>
+inline void check_authored_slider_registration(const FX &effect) {
+  const auto &params = effect.getParameters();
+  size_t expected = 0;
+  const auto require_target = [&](const void *target, float low, float high,
+                                  bool selector = false) {
+    const ParamDef *found = nullptr;
+    size_t matches = 0;
+    for (const auto &entry : params)
+      if (entry.target == target) {
+        found = &entry;
+        ++matches;
+      }
+    HS_EXPECT_EQ(matches, 1u);
+    if (found) {
+      HS_EXPECT_EQ(found->min, low);
+      HS_EXPECT_EQ(found->max, high);
+      HS_EXPECT_EQ(found->options != nullptr, selector);
+      HS_EXPECT_TRUE(found->animated);
+    }
+    ++expected;
+  };
+  ComposedWhiteBox<FX>::params(effect).visit([&]<typename Resource>(
+                                                 const auto &family) {
+    using Family = typename Resource::Family;
+    for (const auto &field : Family::FIELDS) {
+      if constexpr (Resource::KIND != Pullback::ResourceKind::COLOR)
+        if ((!field.name && Resource::KIND != Pullback::ResourceKind::WARP) ||
+            !gate_open<FX>(field.gate))
+          continue;
+      require_target(&(family.*field.member), field.min, field.max);
+    }
+    if constexpr (requires { Family::TOPOLOGY; })
+      for (const auto &field : Family::TOPOLOGY) {
+        if (!Pullback::ComposedDetail::resource_topology_open<typename FX::Spec,
+                                                              Resource>(
+                field.id))
+          continue;
+        size_t options = field.value_count;
+        if constexpr (Resource::KIND == Pullback::ResourceKind::PROJECTION)
+          if ((std::string_view(field.id) == "hemisphere" &&
+               FX::Metadata::PROJECTION == Pullback::ProjectionKind::BONNE) ||
+              (std::string_view(field.id) == "layout" &&
+               FX::Metadata::PROJECTION == Pullback::ProjectionKind::AIROCEAN))
+            options = 2;
+        require_target(&(family.*field.member), 0.0f,
+                       static_cast<float>(options - 1), true);
+      }
+    if constexpr (Resource::KIND == Pullback::ResourceKind::COLOR) {
+      require_target(&family.palette_mapping, 0.0f, 3.0f, true);
+      require_target(&family.palette_mode, 0.0f, 2.0f, true);
+      require_target(&family.palette_type, 0.0f, 4.0f, true);
+      require_target(&family.palette_harmony, 0.0f, 7.0f, true);
+      require_target(&family.palette_lightness_curve, 0.0f, 4.0f, true);
+      require_target(&family.palette_name, 0.0f, 26.0f, true);
+      require_target(&family.palette_name_b, 0.0f, 26.0f, true);
+      require_target(&family.brightness_envelope, 0.0f, 4.0f, true);
+    }
+    if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {
+      const auto &config = family.modulation;
+      const bool UNIT = ColorModulation::unit_mechanic(config.mechanic.kind);
+      require_target(&config.mechanic.amount, UNIT ? 0.0f : -4.0f,
+                     UNIT ? 1.0f : 4.0f);
+      switch (config.source) {
+      case Pattern::SourceKind::NOISE:
+        require_target(&config.noise.scale, 1.0f / 64.0f, 8.0f);
+        require_target(&config.noise.speed, -Pattern::MAX_NOISE_SPEED,
+                       Pattern::MAX_NOISE_SPEED);
+        break;
+      case Pattern::SourceKind::DIRECTIONAL_SINE:
+        require_target(&config.sine.frequency, 0.0f,
+                       Pattern::MAX_AXIAL_FREQUENCY);
+        require_target(&config.sine.speed, -Pattern::MAX_ANALYTIC_SPEED,
+                       Pattern::MAX_ANALYTIC_SPEED);
+        break;
+      case Pattern::SourceKind::SPHERE_INTERFERENCE:
+        require_target(&config.interference.frequency, 0.0f,
+                       Pattern::MAX_AXIAL_FREQUENCY);
+        require_target(&config.interference.speed, -Pattern::MAX_ANALYTIC_SPEED,
+                       Pattern::MAX_ANALYTIC_SPEED);
+        break;
+      case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
+        require_target(&config.grid.frequency, 0.0f,
+                       Pattern::MAX_AXIAL_FREQUENCY);
+        require_target(&config.grid.speed, -Pattern::MAX_ANALYTIC_SPEED,
+                       Pattern::MAX_ANALYTIC_SPEED);
+        break;
+      case Pattern::SourceKind::DISPLACEMENT:
+        break;
+      }
+    }
+  });
+  HS_EXPECT_EQ(params.size(), expected);
+}
+
 template <template <int, int> class E>
 inline void check_slider_registration(const char *name) {
   using FX = E<SMALL_W, SMALL_H>;
@@ -300,6 +410,12 @@ inline void check_slider_registration(const char *name) {
     for (const ParamDef *earlier = params.begin(); earlier != slider; ++earlier)
       HS_EXPECT_TRUE(slider->target != earlier->target);
   }
+
+  if constexpr (requires { FX::Spec::AUTHORED_TOPOLOGY; })
+    if constexpr (FX::Spec::AUTHORED_TOPOLOGY) {
+      check_authored_slider_registration(effect);
+      return;
+    }
 
   if constexpr (std::is_same_v<FX, Millefiori<SMALL_W, SMALL_H>>) {
     constexpr const char *EXPECTED[] = {"Lattice Cell Scale",

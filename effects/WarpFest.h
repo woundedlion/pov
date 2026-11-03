@@ -19,7 +19,7 @@
 struct WarpFestSpec : Pullback::Spec {
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr bool AUTHORED_TOPOLOGY = true;
-  static constexpr bool ANIMATED_PROJECTION = false;
+  static constexpr bool ANIMATED_PROJECTION = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   /** @brief Authored sphere, projection, warp, source and color stages.
    * @tparam B Effect binding. */

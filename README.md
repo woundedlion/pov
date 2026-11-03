@@ -1660,6 +1660,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── pattern_documents.mjs   Shared patterns/*.shader.json discovery and compilation
 │   ├── generate_promoted_shader_documents.mjs Generates canonical promoted-effect documents
 │   ├── generate_composed_presets.mjs / generate_composed_presets.test.mjs Generates and verifies composed preset values and identities from patterns
+│   ├── generate_catalog_assignment_fixture.mjs / generate_catalog_assignment_fixture.test.mjs Generates and checks native compilation fixtures for catalog parameter assignments
 │   ├── composed_effect_roster.mjs Generated composed-effect IDs for shader documents
 │   ├── promoted_digests.test.mjs Checks header/document/product-group roster; generate_composed_presets.test.mjs pins digests
 │   ├── engine_catalog.json     wasm32 operator ABI catalog the browser workbench budgets against
