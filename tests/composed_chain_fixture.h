@@ -142,8 +142,9 @@ void verify_export(size_t preset, int channel_tolerance,
             mutable_state<In::Op::FieldPhaseState>(program, index).phase =
                 own.resources.template get<Resource::KEY>().phase;
       });
-    } else if (id == "warp.affine.v3" || id == "warp.wave-shear.v2" ||
-               id == "warp.vortex.v2" || id == "warp.mirror-tile.v2") {
+    } else if (id == "warp.affine.v3" || id == "warp.affine-periodic.v1" ||
+               id == "warp.wave-shear.v2" || id == "warp.vortex.v2" ||
+               id == "warp.mirror-tile.v2") {
       const auto key = std::string_view(op.instance) == "warp2" ? "inner_warp"
                        : std::string_view(op.instance) == "warp1" ||
                                std::string_view(op.instance) == "warp"
@@ -154,7 +155,7 @@ void verify_export(size_t preset, int channel_tolerance,
           if (Resource::KEY.view() != key)
             return;
           const auto &clock = own.resources.template get<Resource::KEY>();
-          if (id == "warp.affine.v3") {
+          if (id == "warp.affine.v3" || id == "warp.affine-periodic.v1") {
             if constexpr (requires { clock.rotation; })
               mutable_state<In::Op::AffineClockState>(program, index) = {
                   clock.phase, clock.rotation};

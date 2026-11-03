@@ -12,7 +12,7 @@
       },
       {
         "label": "warp",
-        "operator": "warp.affine.v3"
+        "operator": "warp.affine-periodic.v1"
       },
       {
         "label": "sample",
@@ -1222,7 +1222,7 @@
         },
         "id": "warp.translation-x",
         "interpolation": {
-          "kind": "LINEAR"
+          "kind": "SNAP"
         },
         "storage": "binary32",
         "unit": "ratio"
@@ -1236,7 +1236,7 @@
         },
         "id": "warp.translation-y",
         "interpolation": {
-          "kind": "LINEAR"
+          "kind": "SNAP"
         },
         "storage": "binary32",
         "unit": "ratio"
@@ -1419,7 +1419,7 @@
           "modulate.sine-frequency": 13.74117660522461,
           "modulate.sine-offset": 0,
           "modulate.sine-speed": 0,
-          "modulation.modulation-amount": 0.21176470816135406,
+          "modulation.modulation-amount": 0.8388254642486572,
           "modulation.modulation-enabled": "enabled",
           "modulation.modulation-evaluation": "direct",
           "modulation.modulation-mechanic": "hue-rotation",
@@ -1438,14 +1438,14 @@
           "sample.lattice-shape": 1,
           "sample.lattice-softness": 0.5,
           "sample.weight-mode": "projection",
-          "warp.lattice-period": 1,
-          "warp.rotation-rate": 1.5153565406799316,
+          "warp.lattice-period": 0.25245383381843567,
+          "warp.rotation-rate": 1.0005351305007935,
           "warp.scale-x": 1,
           "warp.scale-y": 1,
           "warp.shear": 0,
-          "warp.speed": 0.008588234893977642,
-          "warp.translation-x": 1.529411792755127,
-          "warp.translation-y": 1.529411792755127
+          "warp.speed": 0.013007276691496372,
+          "warp.translation-x": 4,
+          "warp.translation-y": 4
         }
       }
     ],
