@@ -775,8 +775,9 @@ const admissibleParameters = (operator, value) => {
   if (operator.id === 'sphere.displace.potential.v1') {
     let bound = 0;
     for (let term = 1; term <= 4; ++term) {
-      const l = value(`term-${term}-l`), m = value(`term-${term}-m`);
-      if (!Number.isInteger(l) || l < 0 || l > 8 || !Number.isInteger(m) || m < 0 || m > l)
+      const orders = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
+      const l = orders.indexOf(value(`term-${term}-l`)), m = orders.indexOf(value(`term-${term}-m`));
+      if (l < 0 || m < 0 || m > l)
         return false;
       bound = f(bound + Math.abs(f(value(`term-${term}-amplitude`))));
     }
@@ -784,7 +785,7 @@ const admissibleParameters = (operator, value) => {
   }
   if (operator.id === 'sphere.displace.rossby-haurwitz.v1') {
     const order = value('order');
-    if (!Number.isInteger(order) || order < 1 || order > 7) return false;
+    if (!['one', 'two', 'three', 'four', 'five', 'six', 'seven'].includes(order)) return false;
     const bound = f(Math.abs(f(value('omega'))) + Math.abs(f(value('wave'))));
     return f(Math.abs(f(value('strength'))) * bound) <= f(Math.PI);
   }

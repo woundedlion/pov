@@ -147,9 +147,9 @@ inline void append_param_json(std::string &out, const ParamFieldInfo &field,
     append_json_number(out, field.def);
     out += ",\"curve\":";
     append_json_string(out, curve_name(field.curve));
-    if (field.gated_by != nullptr)
-      append_gate_json(out, field, schema);
   }
+  if (field.gated_by != nullptr)
+    append_gate_json(out, field, schema);
   out += '}';
 }
 

@@ -75,9 +75,7 @@ const withAdmissionOperator = (operatorId, index) => {
 
 test('field documents reject invalid mode orders and arc caps without clamping', () => {
   for (const [operator, edits] of [
-    ['sphere.displace.potential.v1', {'term-1-l': 2, 'term-1-m': 3}],
-    ['sphere.displace.potential.v1', {'term-1-l': 2.5}],
-    ['sphere.displace.rossby-haurwitz.v1', {order: 1.5}],
+    ['sphere.displace.potential.v1', {'term-1-l': 'two', 'term-1-m': 'three'}],
     ['sphere.displace.symmetric.v1', {strength: 2, amplitude: 2}],
   ]) {
     const document = withAdmissionOperator(operator, 1);

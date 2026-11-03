@@ -20,6 +20,12 @@ inline constexpr const char *POTENTIAL_TERM_IDS[] = {
     "mode", "tetrahedral", "octahedral", "dodecahedral"};
 /** @brief Helmholtz component topology names. */
 inline constexpr const char *POTENTIAL_KIND_IDS[] = {"toroidal", "poloidal"};
+/** @brief Harmonic degree and order values, indexed by the integer value. */
+inline constexpr const char *HARMONIC_ORDER_IDS[] = {
+    "zero", "one", "two", "three", "four", "five", "six", "seven", "eight"};
+/** @brief Rossby wave-order values; the stored index represents R = index + 1. */
+inline constexpr const char *ROSSBY_ORDER_IDS[] = {
+    "one", "two", "three", "four", "five", "six", "seven"};
 /** @brief Rejected field configuration diagnostic. */
 inline constexpr const char *FIELD_RANGE_WARNING =
     "Field parameters must be finite and strength times peak-speed bound must not exceed pi.";
@@ -64,8 +70,8 @@ inline void temporal_sample(FieldPhaseState &out,
 struct PotentialTermParams {
   uint8_t type = 0;       ///< Scalar potential topology.
   uint8_t kind = 0;       ///< Toroidal or poloidal component.
-  float l = 1.0f;         ///< Harmonic degree.
-  float m = 0.0f;         ///< Harmonic order.
+  uint8_t l = 1;          ///< Harmonic degree.
+  uint8_t m = 0;          ///< Harmonic order.
   float amplitude = 0.0f; ///< Peak-speed amplitude.
   float phase = 0.0f;     ///< Mode phase, radians.
 };
@@ -114,12 +120,14 @@ struct PotentialDisplaceParams {
       fields[6 * i + 1] = {IDS[i][1],        "Kind", 0, 0, 0,
                            FieldCurve::SNAP, true,   2, 0, POTENTIAL_KIND_IDS,
                            nullptr,          0};
-      fields[6 * i + 2] = {IDS[i][2],        "Degree",      0, 8, 1,
-                           FieldCurve::SNAP, false,         0, 0, nullptr,
-                           IDS[i][0],        live_values(0)};
-      fields[6 * i + 3] = {IDS[i][3],        "Order",       0, 8, 0,
-                           FieldCurve::SNAP, false,         0, 0, nullptr,
-                           IDS[i][0],        live_values(0)};
+      fields[6 * i + 2] = {
+          IDS[i][2], "Degree",           0,         0,
+          0,         FieldCurve::SNAP,   true,      9,
+          1,         HARMONIC_ORDER_IDS, IDS[i][0], live_values(0)};
+      fields[6 * i + 3] = {
+          IDS[i][3],        "Order",       0, 0, 0,
+          FieldCurve::SNAP, true,          9, 0, HARMONIC_ORDER_IDS,
+          IDS[i][0],        live_values(0)};
       fields[6 * i + 4] = {IDS[i][4], "Amplitude",      -4,      4,
                            0,         FieldCurve::SNAP, false,   0,
                            0,         nullptr,          nullptr, 0};
@@ -177,7 +185,7 @@ struct RossbyHaurwitzParams {
   float strength = 0.05f; ///< Signed fixed-step scale.
   float omega = 0.0f;     ///< Zonal peak-speed amplitude.
   float wave = 1.0f;      ///< Wave peak-speed amplitude.
-  float order = 4.0f;     ///< Wave order R.
+  uint8_t order = 3;      ///< Wave order R = order + 1.
   float drift = 0.0f;     ///< Drift phase advance per frame.
   uint8_t integrator = 0; ///< Integration scheme.
   static constexpr auto FIELDS = std::array{
@@ -188,14 +196,14 @@ struct RossbyHaurwitzParams {
                                   "Zonal Amplitude", -4, 4, FieldCurve::SNAP},
       Field<RossbyHaurwitzParams>{"wave", &RossbyHaurwitzParams::wave,
                                   "Wave Amplitude", -4, 4, FieldCurve::SNAP},
-      Field<RossbyHaurwitzParams>{"order", &RossbyHaurwitzParams::order,
-                                  "Wave Order", 1, 7, FieldCurve::SNAP},
       Field<RossbyHaurwitzParams>{"drift", &RossbyHaurwitzParams::drift,
                                   "Drift", -0.1f, 0.1f, FieldCurve::LERP}};
-  static constexpr auto TOPOLOGY =
-      std::array{TopologyField<RossbyHaurwitzParams>{
-          "integrator", &RossbyHaurwitzParams::integrator,
-          SURFACE_INTEGRATOR_IDS, 0}};
+  static constexpr auto TOPOLOGY = std::array{
+      TopologyField<RossbyHaurwitzParams>{"integrator",
+                                          &RossbyHaurwitzParams::integrator,
+                                          SURFACE_INTEGRATOR_IDS, 0},
+      TopologyField<RossbyHaurwitzParams>{"order", &RossbyHaurwitzParams::order,
+                                          ROSSBY_ORDER_IDS, 3}};
 };
 
 /** @brief Fold-aligned invariant field controls. */
@@ -293,9 +301,7 @@ struct DisplacePotential
     for (const auto &t : params.terms)
       if (t.type > 3 || t.kind > 1 || !std::isfinite(t.amplitude) ||
           fabsf(t.amplitude) > 4 || !std::isfinite(t.phase) ||
-          fabsf(t.phase) > math::PI_F || !std::isfinite(t.l) ||
-          !std::isfinite(t.m) || t.l < 0 || t.l > 8 || t.m < 0 || t.m > t.l ||
-          floorf(t.l) != t.l || floorf(t.m) != t.m)
+          fabsf(t.phase) > math::PI_F || t.l > 8 || t.m > t.l)
         return false;
     return true;
   }
@@ -323,20 +329,16 @@ struct DisplaceRossbyHaurwitz
     : FieldDisplaceModel<DisplaceRossbyHaurwitz, RossbyHaurwitzParams> {
   static constexpr const char *ID = "sphere.displace.rossby-haurwitz.v1";
   static constexpr const char *NAME = "Rossby-Haurwitz Displace";
-  static bool valid_terms(const Params &params) {
-    return params.order >= 1 && params.order <= 7 &&
-           floorf(params.order) == params.order;
-  }
+  static bool valid_terms(const Params &params) { return params.order < 7; }
   static Prepared field(const Params &params, float phase) {
     using namespace math::tangent_field;
     std::array<PotentialTerm, 4> terms{};
     terms[0] = {TermType::MODE, Kind::TOROIDAL, 1, 0, -params.omega, 0};
     terms[1] = {TermType::MODE,
                 Kind::TOROIDAL,
+                static_cast<uint8_t>(params.order + 2),
                 static_cast<uint8_t>(params.order + 1),
-                static_cast<uint8_t>(params.order),
-                params.wave *
-                    (static_cast<int>(params.order) % 2 ? -1.0f : 1.0f),
+                params.wave * (params.order % 2 ? 1.0f : -1.0f),
                 0};
     return Prepared(terms, phase);
   }

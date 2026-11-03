@@ -5,6 +5,89 @@
 
 /** @brief Fixed-step field admission, clocks and advisories. */
 
+/** @brief Gated integer modes require an ungated selector and a partial mask. */
+inline void test_tangent_integer_gates() {
+  constexpr auto VALID = In::SCHEMA<In::Op::DisplacePotential>;
+  HS_EXPECT_TRUE(In::gates_wellformed(VALID));
+  constexpr auto UNKNOWN = [] {
+    auto schema = In::SCHEMA<In::Op::DisplacePotential>;
+    for (auto &field : schema)
+      if (std::string_view(field.id) == "term-1-l")
+        field.gated_by = "missing";
+    return schema;
+  }();
+  HS_EXPECT_FALSE(In::gates_wellformed(UNKNOWN));
+  constexpr auto CYCLE = [] {
+    auto schema = In::SCHEMA<In::Op::DisplacePotential>;
+    for (auto &field : schema)
+      if (std::string_view(field.id) == "term-1-type") {
+        field.gated_by = "term-1-l";
+        field.gate_values = 1;
+      }
+    return schema;
+  }();
+  HS_EXPECT_FALSE(In::gates_wellformed(CYCLE));
+  constexpr auto ALL_VALUES = [] {
+    auto schema = In::SCHEMA<In::Op::DisplacePotential>;
+    for (auto &field : schema)
+      if (std::string_view(field.id) == "term-1-l")
+        field.gate_values = 15;
+    return schema;
+  }();
+  HS_EXPECT_FALSE(In::gates_wellformed(ALL_VALUES));
+}
+
+/** @brief Engine mode controls expose bounded integer dropdowns and their gates. */
+inline void test_tangent_integer_controls() {
+  reset_globals();
+  ShaderChain<96, 20> effect;
+  effect.init();
+  const In::ChainEntryRequest chain[] = {
+      {"field", In::Op::DisplacePotential::ID},
+      {"wave", In::Op::DisplaceRossbyHaurwitz::ID},
+      {"project", "project.stereographic.v2"},
+      {"sample", "sample.grid.v3"},
+      {"colorize", "colorize.generated-palette.v4"}};
+  HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+  for (const char *id : {"field.term-1-l", "field.term-1-m"}) {
+    const auto *parameter = require_param(effect, id);
+    if (!parameter)
+      continue;
+    HS_EXPECT_TRUE(parameter->is_enum());
+    HS_EXPECT_EQ(parameter->option_count, 9);
+    HS_EXPECT_EQ(std::string_view(parameter->options[0]), "zero");
+    HS_EXPECT_EQ(std::string_view(parameter->options[8]), "eight");
+  }
+  const auto *order = require_param(effect, "wave.order");
+  if (order) {
+    HS_EXPECT_EQ(order->option_count, 7);
+    HS_EXPECT_EQ(std::string_view(order->options[0]), "one");
+    HS_EXPECT_EQ(std::string_view(order->options[6]), "seven");
+    HS_EXPECT_EQ(order->get_requested(), 3.0f);
+  }
+  const auto *op = require_operator(In::Op::DisplacePotential::ID);
+  for (const auto &field : op->schema_span())
+    if (std::string_view(field.id) == "term-1-l" ||
+        std::string_view(field.id) == "term-1-m") {
+      HS_EXPECT_TRUE(field.topology);
+      HS_EXPECT_EQ(std::string_view(field.gated_by), "term-1-type");
+      HS_EXPECT_EQ(field.gate_values, 1);
+    }
+  HS_EXPECT_EQ(effect.updateParameter("field.term-1-l", 3.0f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("field.term-1-m", 4.0f),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_EQ(requested_param(effect, "field.term-1-m"), 0.0f);
+  HS_EXPECT_EQ(effect.updateParameter("wave.order", 6.0f),
+               ParamSetResult::APPLIED);
+  const auto &program = ShaderChainWhiteBox::program(effect);
+  const auto &params = *reinterpret_cast<const In::Op::RossbyHaurwitzParams *>(
+      program.param_block(1));
+  const auto field = In::Op::DisplaceRossbyHaurwitz::field(params, 0.0f);
+  HS_EXPECT_EQ(field.terms[1].term.l, 8);
+  HS_EXPECT_EQ(field.terms[1].term.m, 7);
+}
+
 struct RotationTestField {
   math::Vector velocity(const math::Vector &p) const {
     return math::cross(math::Y_AXIS, p);
@@ -53,8 +136,6 @@ inline void test_tangent_operator_admission() {
   p.terms[0].m = 0;
   p.terms[0].l = 9;
   HS_EXPECT_TRUE(In::Op::DisplacePotential::validate(p) != nullptr);
-  p.terms[0].l = 1.5f;
-  HS_EXPECT_TRUE(In::Op::DisplacePotential::validate(p) != nullptr);
   p.terms[0].l = 1;
   p.terms[0].amplitude = 2;
   p.strength = math::PI_F;
@@ -64,7 +145,7 @@ inline void test_tangent_operator_admission() {
   p.terms[1].amplitude = NAN;
   HS_EXPECT_TRUE(In::Op::DisplacePotential::validate(p) != nullptr);
   In::Op::RossbyHaurwitzParams r;
-  for (float order : {0.0f, 1.5f, 8.0f, NAN}) {
+  for (uint8_t order : {7, 8, 255}) {
     r.order = order;
     HS_EXPECT_TRUE(In::Op::DisplaceRossbyHaurwitz::validate(r) != nullptr);
   }

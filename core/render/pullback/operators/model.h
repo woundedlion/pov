@@ -381,6 +381,7 @@ topology_wellformed(const std::array<ParamFieldInfo, N> &schema) {
 /**
  * @brief Every gated field names a topology enum8 of the same schema whose
  *        live-value mask both admits and rejects at least one value.
+ *        Gate selectors must be ungated.
  * @tparam N Schema size.
  * @param schema Registered schema.
  * @return True when every gate is well-formed.
@@ -390,14 +391,12 @@ consteval bool gates_wellformed(const std::array<ParamFieldInfo, N> &schema) {
   for (const ParamFieldInfo &field : schema) {
     if (field.gated_by == nullptr)
       continue;
-    if (field.topology)
-      return false;
     const ParamFieldInfo *gate = nullptr;
     for (const ParamFieldInfo &candidate : schema)
       if (candidate.topology &&
           std::string_view(candidate.id) == field.gated_by)
         gate = &candidate;
-    if (gate == nullptr || gate->enum_count > 16)
+    if (gate == nullptr || gate->gated_by != nullptr || gate->enum_count > 16)
       return false;
     const uint32_t all = (uint32_t{1} << gate->enum_count) - 1u;
     const uint32_t live = field.gate_values;
