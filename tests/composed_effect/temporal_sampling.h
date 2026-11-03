@@ -1150,10 +1150,10 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
                        964618483879ull}},
                      1e-3,
                      0.01,
-                     {0x54b286aedc50e5b7ull,
-                      {{7025810653ull, 6816434558ull, 7032280424ull},
-                       208885953563ull,
-                       984308556083ull}},
+                     {0xb8f1409598bfb1d8ull,
+                      {{6999953024ull, 6798354163ull, 7025743323ull},
+                       209100604502ull,
+                       982148812652ull}},
                      {0xd4dacd713fdb8d86ull,
                       {{6450621075ull, 6695747794ull, 6621267470ull},
                        199295371499ull,
@@ -1222,9 +1222,6 @@ inline void test_mobius_grid_lens_follows_phase() {
   }
   hs::clear_mock_time();
 }
-
-/** @brief Unsupported lens transitions take the current lens in every
- *  column: a snapped b, changed a, c or d, and a degenerate path sample. */
 
 /** @brief Segmented MobiusGrid engines, including clips crossing both arm
  *  boundaries, draw the same pixels as one full-frame engine. */

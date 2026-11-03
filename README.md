@@ -1804,7 +1804,8 @@ for module ownership and local validation commands.
 │   │   ├── frame_constants.js  Simulation FPS and the slow-frame threshold
 │   │   ├── geometry.js         Pixel-to-spherical mapping matching the engine's pixel_to_vector
 │   │   ├── pixel_view.js       Liveness test and re-fetch for the zero-copy WASM pixel view
-│   │   └── pole_lod.js         Pole LOD control binding, replayed once the engine loads
+│   │   ├── pole_lod.js         Pole LOD control binding, replayed once the engine loads
+│   │   └── pov_sweep.js        Swept POV response and calibrated display geometry
 │   ├── effects/                Effect roster, sequencing, persistence, and parameters
 │   │   ├── effect_identity.js  Canonical effect identities and compatibility alias lookup
 │   │   ├── effect_persistence.js URL storage and replay of engine-accepted parameters and chain snapshots
@@ -1831,6 +1832,7 @@ for module ownership and local validation commands.
 │   │   ├── effect_panel_edits.js EffectPanelEdits — defers edit persistence until a slider gesture ends
 │   │   ├── effect_panel_view.js Panel mounting, focus, and folder state kept across rebuilds
 │   │   ├── effect_param_controls.js lil-gui control per parameter definition, warnings, telemetry, and stage labels
+│   │   ├── effect_param_advisories.js Conservative field-fold warning bands without parameter writes
 │   │   ├── effect_param_values.js Per-frame sync of parameter controllers with engine values and selector states
 │   │   ├── global_stats_view.js GlobalStatsView — single-engine frame time and arena usage bar
 │   │   ├── gui.js              DeepLinkGUI — lil-gui wrapper deep-linking add() controls to URL params

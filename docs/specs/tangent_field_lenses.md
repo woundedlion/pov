@@ -1,8 +1,8 @@
 # Tangent-field lenses
 
-Status: PROPOSED on 2026-11-02 against source 77265400d, revised the same day
-after two reviews that checked the mathematics numerically, with owner
-decisions D1–D6 recorded. Nothing below is implemented.
+Status: IMPLEMENTED on 2026-11-02. The design was reviewed against source
+77265400d, with owner decisions D1–D6 recorded. Acceptance checks and numerical
+clarifications are recorded below.
 
 ## Goal
 
@@ -51,7 +51,7 @@ Non-goals:
 - **D6 (2026-11-02).** Four terms per field, ℓ ≤ 8. Raising either is an
   operator version bump.
 
-## What exists today
+## Baseline at source 77265400d
 
 | Piece | Where | Field view |
 |---|---|---|
@@ -189,7 +189,10 @@ than inside `core/math/mobius.h`.
 
 Both cosh and sinh(z)/z are even, so the result does not depend on the
 branch of δ. sinh(z)/z switches to its Taylor series below |tδ|² = 1e-4.
-det = 1 by construction, so the result is never degenerate. Cost: one
+The exact exponential has determinant 1. Float coefficient storage loses
+absolute determinant precision at strongly conditioned boosts because large
+products cancel; tests use a rounding bound scaled by coefficient magnitude
+and verify finite unit-sphere maps. Cost: one
 complex square root, one `expf`, one `sincosf`, about twenty multiplies.
 
 **Log** (`math::mobius_log(M)`, new, used only for migration and tests).
@@ -200,7 +203,8 @@ complex square root, one `expf`, one `sincosf`, about twenty multiplies.
 4. Set X = (δ / sinh δ)(M − cosh δ · I), with δ/sinh δ → 1 at δ = 0.
 
 After the sign choice tr/2 ≠ −1, so the only zero of sinh δ is δ = 0.
-Elliptic maps come out with rotation angle in (−π, π].
+Elliptic maps use the principal projective branch. At an exactly zero complex
+trace, the trace-only tie rule cannot distinguish the two equivalent signs.
 
 ## Potential terms
 
@@ -290,11 +294,11 @@ It is two toroidal mode terms, (ℓ = 1, m = 0) and (ℓ = R + 1, m = R), with
 Q_{R+1,R} ∝ y. R ∈ [1, 7], keeping ℓ ≤ 8. The pattern drifts rigidly:
 λ₀ is the accumulated drift phase, advanced by the authored rate ν (D3).
 
-The operator's ω and K are the two terms' amplitudes, so each is a peak
-speed. ω equals the Williamson ω, because |∇_S y| peaks at 1. K does not
-equal the Williamson K: the unnormalised wave term y·Re(w^R) peaks at
+The operator's ω and K are the two terms' amplitudes, with the shared 1.01
+normalisation margin. The zonal term's physical rate is ω/1.01.
+K does not equal the Williamson K: the unnormalised wave term y·Re(w^R) peaks at
 1.000, 1.000, 1.155, 1.299, 1.431, 1.553 and 1.666 for R = 1 … 7, so
-K = K_Williamson × that factor. T5's reference applies the factor.
+K = 1.01 × K_Williamson × that factor. T5's reference applies both factors.
 
 The physical rate ν = (R(3 + R)ω − 2Ω)/((1 + R)(2 + R)), for a planetary
 rotation Ω, is documented for reference only. In the lens, ω also adds a
@@ -455,10 +459,12 @@ The value reaches daydream through a new engine-contract entry, and the
 workbench draws a warning band on the strength slider beyond it. Nothing
 clamps, refuses or changes rendering.
 
-The band is deliberately conservative, not an onset prediction. It is
-tight (within about 2%) for a single poloidal term, early for toroidal
-terms (which fold 1.2–4.6× later), and early for mixes, where Lipschitz
-constants add although their peaks need not coincide.
+The band is deliberately conservative, not an onset prediction. Sampled
+single poloidal terms range from about 1% early for high-degree modes to
+27.15% early for degree one. The tetrahedral, octahedral and dodecahedral
+poloidal terms are 6.24%, 3.81% and 1.74% early, respectively, with the
+normalisation margins included. Toroidal terms and mixes can be substantially
+earlier because the derivative bound discards directional cancellation.
 The curl displacement has no fold check either; its strength range, ±0.5
 with |u| ≤ 1, is set by the half-radian domain.
 
@@ -583,7 +589,7 @@ displacements reuse the `SURFACE` phase clock for drift and per-mode phases.
 Touchpoints. Land daydream first, then pin, per the mirror-pin ordering.
 
 - **Engine and catalog:**
-  - `operators/sphere.h`;
+  - `operators/sphere.h` and `core/render/pullback/operators/tangent.h`;
   - `scripts/engine_catalog.json` and `tests/data/shader_chain_catalog.json`;
   - `tests/shader_chain/*_cases.h` and `tests/shader_chain/sphere_ops.h`;
   - the 36 Möbius lines in `tests/data/chain_capture_fixtures.jsonl`
@@ -653,7 +659,7 @@ flash-resident; no ITCM pins are proposed.
 
 | Lens | Term(s) | Per sample, with assembly | Per column (temporal) |
 |---|--:|--:|--:|
-| Möbius v3 | — | unchanged (`mobius_transform`) | + one `mobius_exp`, ≈ 300 cycles, so ≈ 0.15 ms per frame at 288 columns (to measure) |
+| Möbius v3 | — | unchanged (`mobius_transform`) | + one `mobius_exp`; measured net preparation overhead ≈ 2,381 cycles per prepared column |
 | Mode (ℓ = 6, m = 5) | ≈ 40 | ≈ 70 | one phase factor |
 | Rossby–Haurwitz, R = 4 | ≈ 35 | ≈ 65 | one phase factor |
 | Symmetric: octahedral | ≈ 10 | ≈ 40 | none |
@@ -671,6 +677,35 @@ Memory: parameter structs are fixed size (four terms). The flash tables are
 `SHMath`'s Horner coefficients (≈ 380 B), the generated peak corrections
 and Lipschitz constants (≈ 380 B). No heap, stack or arena tables.
 
+### Device acceptance, 2026-11-02
+
+Matched shipping-profile captures used the same board, compiler, flags and
+frame sequence within each comparison:
+
+- SphericalHarmonics, COM4: 218 windows and a full mode cycle. Raster cycles
+  per frame fell 4.10% overall; twelve morph groups gained 0.71–1.99% cost,
+  at most 0.348 ms/frame. Neither image spilled a frame.
+- MobiusGrid, COM4: 68 matched windows covering repeating lens phase cycles.
+  Net column preparation added 2,381 cycles/call, or 0.571 ms/frame at the
+  observed 144 prepared columns. Total render time rose 0.601 ms/frame
+  (1.55%). These are pipeline deltas, not an isolated exponential benchmark;
+  the original 300-cycle estimate was low. The capture does not cover a full
+  preset cycle and is not a whole-cycle cadence report.
+- AshCloud noise consolidation, COM3 and COM4: 1,056 steady frames per board.
+  Shader time rose 0.956–0.958% (about 0.44 ms/frame), total render time about
+  0.69%, with no steady spills before or after. This is accepted as negligible
+  for cadence. Baseline root/wall precision differed by about 10–17 ppm and
+  misses the parser's 5-ppm check; matched DWT scope counters carry the cost
+  comparison. The shared-path captures pass that precision check.
+
+Phantasm's shipping memory gate measured RAM1 code 196,280 B (+112 B), RAM1
+variables 313,760 B (unchanged), and FLASH data 781,228 B (+456 B) against the
+baseline. Holosphere and Phantasm both pass size and layout gates.
+
+Windows strict/fast and WASM fast MobiusGrid references are re-recorded.
+The Linux fast reference remains pending a Linux runner; the implementation
+host has none, and the owner confirmed no Linux runner is available.
+
 ## Testing
 
 All native tests join the CTest suite and CI module list.
@@ -679,13 +714,13 @@ All native tests join the CTest suite and CI module list.
 |---|---|
 | T1 | For random (ω, b): the central difference (t = ±1e-3) of `mobius_transform(p, mobius_exp(X(ω,b), t))` matches ω × p + Π_p b within 1e-3 on 1,000 directions, including both poles. A negated-ω control must fail |
 | T2 | `mobius_log ∘ mobius_exp` is the identity for rotation angle in (−π, π). `mobius_exp ∘ mobius_log` matches M projectively for random, parabolic, identity, near −I, tr = 0 and MobiusGrid inputs |
-| T3 | det `mobius_exp(X)` = 1 within 1e-5 at every corner of the parameter domain; outputs are finite |
+| T3 | At every corner of the parameter domain, the determinant error obeys a coefficient-scaled float rounding bound and mapped directions remain finite and unit length |
 | T4 | Toroidal terms have zero surface divergence and poloidal terms zero surface curl, by finite differences |
 | T5 | The Rossby–Haurwitz terms match an independent spherical-coordinate implementation (atan2, cos, double precision) of the Williamson formula, signs included |
 | T6 | For each of the nine symmetries: T(`kaleidoscope_lens`(p, symmetry)) = T(p) on random directions. With the group closed from each mirror table, poloidal u(gp) = g u(p) and toroidal u(gp) = det(g) g u(p). A displacement-then-fold image check confirms full symmetry (poloidal) and rotation-only symmetry (toroidal) |
 | T7 | `SHMath`'s Horner `reduced_legendre` and its derivative match an independent double-precision recurrence for every (ℓ, m) with ℓ ≤ 8 (libc++ has no `std::assoc_legendre`, so the reference is hand-written). `spherical_harmonic_gradient` matches a finite difference of `spherical_harmonic`, and the existing SphericalHarmonics tests pass unchanged |
 | T8 | Every unit-amplitude term's sampled peak speed lies in [0.985, 1.0), so `speed_bound()` is valid and tight. Mode peaks are at or below the Unsöld bound. The generator tool's output matches the committed header |
-| T9 | Fold onset per term, for the Rossby–Haurwitz and symmetric configurations, and for random four-term mixes: the smallest s at which the step's Jacobian determinant (Jacobi-field form, checked against finite differences) reaches 0 on the grid. The advisory s_fold lies at or below it in every case, and within 2% of it for single poloidal terms. The results set the default strength ranges |
+| T9 | Fold onset per term, for the Rossby–Haurwitz and symmetric configurations, and for random four-term mixes: the smallest s at which the step's Jacobian determinant (Jacobi-field form, checked against finite differences) reaches 0 on the grid. The advisory s_fold lies at or below it in every case. No fixed relative tightness is required; the degree-one poloidal example is 27.15% early. Defaults use strength 0.05 rad, below the sampled single-term onsets |
 | T10 | `validate()` refuses m > ℓ, ℓ > 8, R ∉ [1, 7] and strength · bound > π. The half-radian assert never fires across the admitted domain with each integrator |
 | T11 | MobiusGrid: v3 and v2 maps agree within 1e-5 on a direction grid for both presets over sampled (θ, m) |
 | T12 | Generator interpolation: lerped random presets give finite, continuous maps (a small Δt gives a small map change) |
@@ -760,10 +795,15 @@ device work for the displacements until a playlist effect adopts one.
 
 ## Open items
 
-None of the owner questions remain. The implementation must still settle:
+None. The implementation uses:
 
-- the default strength ranges, from T9;
-- the generator tool's grid spacing and peak search, which must find each
-  peak to within 0.5% relative, to hold T8's [0.985, 1.0) window;
-- the engine-contract shape of the advisory, agreed with daydream's
-  contract owners.
+- initial strength 0.05 rad and a published range of ±π, with the joint
+  strength × speed bound validated on writes;
+- a 1025 × 512 angular grid for constants, checked against independent
+  one-dimensional mode peaks to within 0.01% relative;
+- `getParameterAdvisories()`, returning current `{name, foldStrength}` entries
+  without writing parameters; daydream polls it and shades both strength tails;
+- gated enum8 controls for harmonic degree/order and Rossby wave order;
+- snapped strength and amplitude endpoints, keeping interpolated recipes inside
+  the joint arc cap. Orientation, drift, generator components and phases retain
+  their specified continuous interpolation.
