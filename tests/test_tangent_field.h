@@ -171,6 +171,25 @@ inline TF::PotentialField single_term(TF::PotentialTerm term) {
   return TF::PotentialField({term, {}, {}, {}});
 }
 
+inline void test_constant_potentials_have_zero_bounds() {
+  for (auto kind : {TF::Kind::TOROIDAL, TF::Kind::POLOIDAL}) {
+    const TF::PotentialTerm constant{TF::TermType::MODE, kind, 0, 0, -4.0f};
+    const auto field = single_term(constant);
+    HS_EXPECT_EQ(field.speed_bound(), 0.0f);
+    HS_EXPECT_EQ(field.lipschitz_bound(), 0.0f);
+    HS_EXPECT_TRUE(std::isinf(
+        TF::fold_strength(field.speed_bound(), field.lipschitz_bound())));
+    HS_EXPECT_VEC(field.velocity(direction(7)), math::Vector(0, 0, 0), 0.0f);
+    const TF::PotentialTerm active{TF::TermType::MODE, kind, 1, 0, 0.5f};
+    const TF::PotentialField mixed({constant, active, {}, {}});
+    const auto active_field = single_term(active);
+    HS_EXPECT_EQ(mixed.speed_bound(), 0.5f);
+    HS_EXPECT_EQ(mixed.lipschitz_bound(), active_field.lipschitz_bound());
+    HS_EXPECT_VEC(mixed.velocity(direction(7)),
+                  active_field.velocity(direction(7)), 0.0f);
+  }
+}
+
 inline void test_potential_divergence_and_curl() {
   const TF::PotentialTerm terms[] = {
       {TF::TermType::MODE, TF::Kind::TOROIDAL, 8, 5, 1.0f, 0.73f},
@@ -585,6 +604,7 @@ inline int run_tangent_field_tests() {
   HS_RUN(test_mobius_exp_log_projective_roundtrip);
   HS_RUN(test_mobius_exp_domain_corners_are_finite);
   HS_RUN(test_potential_divergence_and_curl);
+  HS_RUN(test_constant_potentials_have_zero_bounds);
   HS_RUN(test_invariants_and_vector_fields_follow_fold_groups);
   HS_RUN(test_rossby_haurwitz_matches_spherical_stream_function);
   HS_RUN(test_normalized_terms_have_tight_speed_bounds);

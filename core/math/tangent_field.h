@@ -262,6 +262,8 @@ public:
                  dot(orientation.v, orientation.v) != 0.0f) {
     for (size_t i = 0; i < terms.size(); ++i) {
       terms[i] = prepare_term(authored[i], drift_phase);
+      if (terms[i].scale == 0.0f)
+        continue;
       bound += fabsf(authored[i].amplitude);
       derivative_bound += terms[i].lipschitz;
     }
@@ -285,7 +287,7 @@ public:
   }
 
   /** @brief Uniform speed bound.
-   * @return Sum of absolute amplitudes. */
+   * @return Sum of absolute amplitudes of nonzero terms. */
   float speed_bound() const { return bound; }
   /** @brief Uniform covariant derivative bound.
    * @return Sum of amplitude-weighted term bounds. */
