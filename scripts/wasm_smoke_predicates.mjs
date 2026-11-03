@@ -128,6 +128,41 @@ export function paramStreamProblems(defs, values) {
   return problems;
 }
 
+/** Native control candidates for a document field and its declared resource. */
+export function promotedControlNames(parameterId, descriptor, catalog = null) {
+  const split = parameterId.indexOf('.');
+  if (split < 0) return engineControlNames(parameterId, descriptor);
+  const label = parameterId.slice(0, split);
+  const field = parameterId.slice(split + 1);
+  const slot = descriptor?.chain?.find((entry) => entry.label === label);
+  const operator = catalog?.operators?.find((entry) => entry.id === slot?.operator);
+  const schema = operator?.params?.find((entry) => entry.id === field);
+  const key = slot?.resource_key ?? (slot?.operator?.startsWith('sample.') ? 'source'
+    : slot?.operator?.startsWith('project.') ? 'projection'
+      : slot?.operator?.startsWith('colorize.') ? 'color'
+        : slot?.operator?.startsWith('warp.') && ['warp', 'warp1', 'warp2'].includes(label)
+          ? label === 'warp2' ? 'inner_warp' : 'outer_warp' : label);
+  const title = field.split('-').map((part) => part[0]?.toUpperCase() + part.slice(1)).join(' ');
+  const human = [schema?.name, title];
+  if (field === 'edge-width' && slot?.operator?.startsWith('warp.')) human.unshift('Warp Edge Width');
+  return [...new Set([`${key}.${field}`,
+    ...human.filter(Boolean).map((name) => `${key}.${name}`),
+    ...engineControlNames(parameterId, descriptor), parameterId, field, ...human.filter(Boolean)])];
+}
+
+function liveDerivedControl(binding, parameterId, name, registered) {
+  if (name === undefined) return false;
+  if (binding.sourceId !== null) return true;
+  const split = parameterId.indexOf('.');
+  const label = parameterId.slice(0, split);
+  const field = parameterId.slice(split + 1);
+  const resource = name.slice(0, name.lastIndexOf('.'));
+  return name === field || name.endsWith('.' + field)
+    || [label + '.modulation-source', resource + '.modulation-source', 'modulation-source',
+      label + '.coverage-mode', resource + '.coverage-mode', 'coverage-mode']
+      .some((candidate) => registered.has(candidate));
+}
+
 /**
  * Reports unresolved writable promoted ids and invalid compiled-derived values.
  *
@@ -140,10 +175,11 @@ export function paramStreamProblems(defs, values) {
  * @param {Map<string, Set<string>>} run.controls Control names per effect id.
  * @param {Set<string>} run.bakedFields From bakedTopologyFields().
  * @param {Map<string, Map<string, object[]>>} [run.documentBindings] Typed snapshots per effect and preset.
+ * @param {object} [run.catalog] Operator field names and enum domains.
  * @returns {string[]} One message per binding or exemption problem.
  */
 export function promotedBindingProblems({ documents, controls, bakedFields,
-  documentBindings = new Map() }) {
+  documentBindings = new Map(), catalog = null }) {
   const problems = [];
   const seenConstants = new Set();
   for (const { document, effect, parameterIds, presets = [], descriptor } of documents) {
@@ -153,6 +189,7 @@ export function promotedBindingProblems({ documents, controls, bakedFields,
       continue;
     }
     for (const parameterId of parameterIds) {
+      if (BAKED_CONSTANT_IDS.has(parameterId)) seenConstants.add(parameterId);
       const authored = presets.filter((preset) =>
         Object.hasOwn(preset.values ?? {}, parameterId));
       const binding = documentModulationBinding(descriptor, parameterId);
@@ -176,24 +213,25 @@ export function promotedBindingProblems({ documents, controls, bakedFields,
           problems.push(`${document}: "${parameterId}" has no compiled preset snapshot`);
         continue;
       }
+      const names = promotedControlNames(parameterId, descriptor, catalog);
+      const name = names.find((candidate) => registered.has(candidate));
       const derived = fixedDerivedBinding(descriptor, parameterId, authored[0]?.values ?? {});
       if (derived) {
+        if (liveDerivedControl(derived, parameterId, name, registered)) continue;
         if (authored.length === 0 || authored.some(({ values }) =>
           !fixedDerivedBinding(descriptor, parameterId, values).valid) ||
-            (derived.sourceId !== null && !engineControlNames(derived.sourceId, descriptor)
+            (derived.sourceId !== null && !promotedControlNames(derived.sourceId, descriptor, catalog)
               .some((name) => registered.has(name)))) {
           problems.push(`${document}: "${parameterId}" must match the compiled affine ` +
             'period derived from its source parameters');
         }
         continue;
       }
+      if (name !== undefined) continue;
       if (BAKED_CONSTANT_IDS.has(parameterId)) {
-        seenConstants.add(parameterId);
         continue;
       }
       if (bakedFields.has(parameterId.slice(parameterId.indexOf('.') + 1))) continue;
-      const names = engineControlNames(parameterId, descriptor);
-      if (names.some((name) => registered.has(name))) continue;
       problems.push(`${document}: "${parameterId}" names no control on "${effect}" ` +
         `(tried ${names.map((name) => `"${name}"`).join(', ')}) — applying the ` +
         `document to the compiled build refuses here and writes nothing`);

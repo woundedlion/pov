@@ -14,6 +14,7 @@ import {
   hyperLatticePatternProblems,
   paramStreamProblems,
   promotedBindingProblems,
+  promotedControlNames,
   stackCreepBudget,
 } from './wasm_smoke_predicates.mjs';
 
@@ -212,7 +213,7 @@ test('an id that names no control is reported with what it tried', () => {
   }));
   assert.equal(problems.length, 1);
   assert.match(problems[0], /"sample.edge-width" names no control on "ash-cloud"/);
-  assert.match(problems[0], /tried "Edge Width"/);
+  assert.match(problems[0], /tried .*"Edge Width"/);
 });
 
 test('an absent effect is reported once alongside stale exemptions', () => {
@@ -348,6 +349,55 @@ test('a compiled affine period is derived from the authored lattice scale', () =
     'warp1.lattice-period': 0.5, 'sample.lattice-cell-scale': 4,
   } });
   assert.match(promotedBindingProblems(run)[0], /must match the compiled affine/);
+});
+
+test('authored bindings resolve keyed surface, warp and repeated rotation controls', () => {
+  const run = bindings();
+  const descriptor = {chain: [
+    {label: 'camera', operator: 'sphere.rotate.v2'},
+    {label: 'second', resource_key: 'world', operator: 'sphere.rotate.v2'},
+    {label: 'displace', operator: 'sphere.displace.symmetric.v2'},
+    {label: 'bend', resource_key: 'velocity', operator: 'warp.vector-noise.v2'},
+    {label: 'warp', operator: 'warp.affine.v3'},
+    {label: 'cells', operator: 'sample.lattice.v2'},
+  ]};
+  const values = {'camera.wander': 0.3, 'camera.spin-speed': 0.02,
+    'second.wander': 0.7, 'second.spin-speed': 0.04, 'displace.strength': 0.2,
+    'bend.strength': 0.5, 'bend.basis': 'ridged3', 'bend.edge-width': 0.4,
+    'warp.scale-x': 2, 'warp.lattice-period': 0.413,
+    'cells.lattice-cell-scale': 2, 'cells.coverage-mode': 'edge-fade-squared'};
+  run.documents = [{document: 'authored.shader.json', effect: 'authored', descriptor,
+    parameterIds: Object.keys(values), presets: [{preset_id: 'one', values}]}];
+  run.catalog = {operators: [
+    {id: 'warp.vector-noise.v2', params: [{id: 'strength', name: 'Warp Strength'}]},
+    {id: 'warp.affine.v3', params: [{id: 'scale-x', name: 'Affine Scale X'}]},
+    {id: 'sample.lattice.v2', params: [{id: 'lattice-cell-scale', name: 'Lattice Cell Scale'}]},
+  ]};
+  run.controls = new Map([['authored', new Set(['camera.Wander', 'camera.Spin Speed',
+    'world.Wander', 'world.Spin Speed', 'displace.Strength', 'velocity.Warp Strength',
+    'velocity.basis', 'velocity.Warp Edge Width', 'outer_warp.Affine Scale X',
+    'outer_warp.Lattice Period', 'Lattice Cell Scale', 'coverage-mode'])]]);
+  assert.deepEqual(promotedBindingProblems(run), []);
+  run.controls.get('authored').delete('outer_warp.Lattice Period');
+  assert.match(promotedBindingProblems(run)[0], /"warp.lattice-period" must match the compiled affine/);
+  run.controls.get('authored').delete('world.Spin Speed');
+  assert.ok(promotedBindingProblems(run).some((problem) => /"second.spin-speed" names no control/.test(problem)));
+});
+
+test('native control candidates prefer declared resource fields over legacy camera and warp aliases', () => {
+  const descriptor = {chain: [
+    {label: 'camera', operator: 'sphere.rotate.v2'},
+    {label: 'flow', resource_key: 'velocity', operator: 'warp.vector-noise.v2'},
+    {label: 'sample', operator: 'sample.grid.v3'},
+  ]};
+  const catalog = {operators: [{id: 'warp.vector-noise.v2',
+    params: [{id: 'scale', name: 'Warp Scale'}]}]};
+  const camera = promotedControlNames('camera.wander', descriptor, catalog);
+  assert.ok(camera.indexOf('camera.Wander') < camera.indexOf('Camera Wander'));
+  assert.ok(promotedControlNames('flow.scale', descriptor, catalog).includes('velocity.Warp Scale'));
+  assert.ok(promotedControlNames('flow.basis', descriptor, catalog).includes('velocity.basis'));
+  assert.ok(promotedControlNames('sample.coverage-mode', descriptor, catalog).includes('source.coverage-mode'));
+  assert.ok(promotedControlNames('flow.edge-width', descriptor, catalog).includes('velocity.Warp Edge Width'));
 });
 
 test('typed twist controls follow arbitrary resource keys and repetition', () => {

@@ -769,9 +769,12 @@ async function main(probe) {
         }
         const coverage = engine.getParameterDefinitions().find(
           (d) => d.name === 'sample.coverage-mode');
+        const coverageOptions = EXPECTED_OPERATOR_CATALOG.operators
+          .find((operator) => operator.id === DEFAULT_CHAIN[2].operator)
+          .params.find((parameter) => parameter.id === 'coverage-mode').values;
         if (!coverage || !Array.isArray(coverage.options) ||
-            coverage.options.length !== 4) {
-          fail('shader-chain: sample.coverage-mode did not surface its 4 enum options');
+            coverage.options.length !== coverageOptions.length) {
+          fail(`shader-chain: sample.coverage-mode did not surface its ${coverageOptions.length} catalog enum options`);
         }
 
         // A re-chain bumps the generation and swaps the instance namespace.
@@ -903,6 +906,7 @@ async function main(probe) {
         documents,
         controls,
         documentBindings,
+        catalog: EXPECTED_OPERATOR_CATALOG,
         bakedFields: bakedTopologyFields(EXPECTED_OPERATOR_CATALOG),
       })) {
         fail(`promoted-bindings: ${problem}`);
