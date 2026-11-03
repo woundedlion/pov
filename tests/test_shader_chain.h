@@ -753,6 +753,7 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_symmetric_rotation_clock);
   HS_RUN(test_symmetric_legacy_snapshot);
   HS_RUN(test_tangent_step_integrators);
+  HS_RUN(test_tangent_antipodal_midpoint);
   HS_RUN(test_tangent_operator_admission);
   HS_RUN(test_tangent_admitted_domain);
   HS_RUN(test_tangent_mixed_boundaries);

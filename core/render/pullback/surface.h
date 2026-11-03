@@ -297,10 +297,21 @@ step_field(const math::Vector &input, const F &field, float strength,
     return finish(input, strength * field.velocity(input));
   else {
     const auto midpoint = [&](const math::Vector &p, float distance) {
-      const math::Vector middle =
-          exp_map(p, (0.5f * distance) * field.velocity(p));
-      return finish(p, distance * math::parallel_transport(
-                                      middle, p, field.velocity(middle)));
+      const math::Vector half_step = (0.5f * distance) * field.velocity(p);
+      const math::Vector middle = exp_map(p, half_step);
+      math::Vector velocity = field.velocity(middle);
+      if (SMALL)
+        return finish(p,
+                      distance * math::parallel_transport(middle, p, velocity));
+      const float angle = half_step.length();
+      if (angle != 0.0f) {
+        const math::Vector axis = math::cross(p, half_step) / angle;
+        const float cosine = cosf(angle);
+        const float sine = sinf(angle);
+        velocity = cosine * velocity - sine * math::cross(axis, velocity) +
+                   (1.0f - cosine) * math::dot(axis, velocity) * axis;
+      }
+      return finish(p, distance * velocity);
     };
     if constexpr (IntegratorPolicy::VALUE == Integrator::MIDPOINT)
       return midpoint(input, strength);

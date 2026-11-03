@@ -420,12 +420,12 @@ so the branch is uniform across a column. The two maps agree to 1e-7 at arc
 `curl_from_gradient`) and would break the area preservation of toroidal
 fields.
 
-**Strength cap.** The midpoint step's `parallel_transport` traps within
-0.01 rad of antipodal. A midpoint arc of 0.5·s·|u| reaches that near
-s·|u| = 2π. Every field displacement's `validate()` therefore enforces
-`strength · speed_bound() ≤ π`, refusing the write with a range warning and
-never clamping. The cap applies to every integrator, so the rule is the
-same whichever one is selected.
+**Midpoint transport.** Short steps use `parallel_transport` between their
+endpoints. Large steps transport the midpoint velocity back by reversing
+the known half-step's great-circle rotation. The initial tangent fixes that
+path even at antipodal endpoints, so no joint strength × speed cap is
+required. Validation keeps the declared finite scalar and harmonic domains.
+Reported path length is traveled arc and may exceed π.
 
 **Fold onset and the advisory (D5).** A single step exp_p(s·u(p)) stops
 being one-to-one once s·‖∇u‖ reaches order 1. Past onset, several screen
@@ -453,7 +453,7 @@ is closed form:
 
     s_fold = (√(L² + 2B²) − L) / B²       (→ 1/L as B/L → 0)
 
-Strengths between s_fold and the π cap are allowed. Interpreter operators
+Strengths above s_fold are allowed throughout the declared scalar domains. Interpreter operators
 report s_fold, computed per frame from the parameters with no iteration.
 The value reaches daydream through a new engine-contract entry, and the
 workbench draws a warning band on the strength slider beyond it. Nothing
@@ -577,7 +577,7 @@ a clamped lens is a different map.
 | `sphere.displace.symmetric.v1` | Displace | strength, integrator, symmetry (`KALEIDOSCOPE_SYMMETRY_IDS`), kind, amplitude, speed | One invariant term rotating bodily about +y; Speed defaults to zero to preserve fold alignment |
 
 Every displacement's `validate()` refuses m > ℓ, ℓ > 8, R outside [1, 7],
-non-finite values, and `strength · speed_bound() > π`. It never clamps.
+non-finite values, and values outside the declared scalar domains. It never clamps.
 Every displacement reports the D5 advisory.
 
 Compiled-pipeline policies: `Lens::MobiusGenerator<Provider>` replaces
@@ -730,7 +730,7 @@ All native tests join the CTest suite and CI module list.
 | T7 | `SHMath`'s Horner `reduced_legendre` and its derivative match an independent double-precision recurrence for every (ℓ, m) with ℓ ≤ 8 (libc++ has no `std::assoc_legendre`, so the reference is hand-written). `spherical_harmonic_gradient` matches a finite difference of `spherical_harmonic`, and the existing SphericalHarmonics tests pass unchanged |
 | T8 | Every unit-amplitude term's sampled peak speed lies in [0.985, 1.0), so `speed_bound()` is valid and tight. Mode peaks are at or below the Unsöld bound. The generator tool's output matches the committed header |
 | T9 | Fold onset per term, for the Rossby–Haurwitz and symmetric configurations, and for random four-term mixes: the smallest s at which the step's Jacobian determinant (Jacobi-field form, checked against finite differences) reaches 0 on the grid. The advisory s_fold lies at or below it in every case. No fixed relative tightness is required; the degree-one poloidal example is 27.15% early. Defaults use strength 0.05 rad, below the sampled single-term onsets |
-| T10 | `validate()` refuses m > ℓ, ℓ > 8, R ∉ [1, 7] and strength · bound > π. The half-radian assert never fires across the admitted domain with each integrator |
+| T10 | `validate()` refuses m > ℓ, ℓ > 8, R ∉ [1, 7], non-finite values and scalar-domain overages. Every integrator remains finite at the scalar range endpoints; known-path midpoint transport crosses antipodes and reports traveled arcs beyond π. The half-radian assert never fires across the admitted domain |
 | T11 | MobiusGrid: v3 and v2 maps agree within 1e-5 on a direction grid for both presets over sampled (θ, m) |
 | T12 | Generator interpolation: lerped random presets give finite, continuous maps (a small Δt gives a small map change) |
 | T13 | Catalog, shader-document, snapshot-version and daydream deep-link 4 → 5 migration tests, including refusal of a v2 lens whose migrated (ω, b) leaves the v3 ranges |
@@ -791,7 +791,7 @@ device work for the displacements until a playlist effect adopts one.
   vocabulary is tied to one projection (D1).
 - **Saturating the field to stay inside the half-radian domain.** A silent
   change of the field that breaks area preservation. The bound-selected full
-  exponential map and the validated π cap are the explicit routes.
+  exponential map and known-path midpoint transport handle long steps.
 - **Capping strength at fold onset.** Onset depends on the whole term mix,
   and any computable bound is conservative, so a cap would also forbid
   smooth settings (D5).
@@ -806,13 +806,12 @@ device work for the displacements until a playlist effect adopts one.
 
 None. The implementation uses:
 
-- initial strength 0.05 rad and a published range of ±π, with the joint
-  strength × speed bound validated on writes;
+- initial strength 0.05 rad and a published range of ±π, with the full
+  amplitude ranges available independently;
 - a 1025 × 512 angular grid for constants, checked against independent
   one-dimensional mode peaks to within 0.01% relative;
 - `getParameterAdvisories()`, returning current `{name, foldStrength}` entries
   without writing parameters; daydream polls it and shades both strength tails;
 - gated enum8 controls for harmonic degree/order and Rossby wave order;
-- snapped strength and amplitude endpoints, keeping interpolated recipes inside
-  the joint arc cap. Orientation, drift, generator components and phases retain
+- snapped strength and amplitude endpoints. Orientation, drift, generator components and phases retain
   their specified continuous interpolation.

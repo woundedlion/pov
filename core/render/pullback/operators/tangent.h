@@ -28,7 +28,7 @@ inline constexpr const char *ROSSBY_ORDER_IDS[] = {
     "one", "two", "three", "four", "five", "six", "seven"};
 /** @brief Rejected field configuration diagnostic. */
 inline constexpr const char *FIELD_RANGE_WARNING =
-    "Field parameters must be finite and strength times peak-speed bound must not exceed pi.";
+    "Field parameters must be finite and within their scalar and harmonic domains.";
 
 /** @brief Conservative strength before a fixed-step map can fold.
  * @param field Prepared tangent field.
@@ -246,9 +246,9 @@ struct FieldDisplaceModel : ValueStateModel<StateT> {
   using Input = SphereSample;
   using Output = SphereSample;
   using Prepared = math::tangent_field::PotentialField;
-  /// Interpolation admission contract for the fixed-step arc cap.
+  /// Interpolation admission contract for field parameter domains.
   static constexpr const char *ADMISSIBILITY_CONVEXITY =
-      "Strength and amplitudes snap together; interpolated orientations and phases preserve speed bounds.";
+      "Scalar fields retain their declared domains; harmonic topology snaps.";
   static void advance(State &state, const Params &params) {
     if constexpr (requires { params.drift; })
       state.phase = fmodf(state.phase + params.drift, math::TWO_PI_F);
@@ -266,7 +266,7 @@ struct FieldDisplaceModel : ValueStateModel<StateT> {
   static float fold_strength(const Params &params) {
     return field_fold_strength(Derived::field(params, 0.0f));
   }
-  /** @brief Checks field domains and the uniform arc cap.
+  /** @brief Checks field scalar and harmonic domains.
    * @param params Authored field controls.
    * @return Null when admitted, otherwise the range diagnostic. */
   static const char *validate(const Params &params) {
@@ -276,11 +276,7 @@ struct FieldDisplaceModel : ValueStateModel<StateT> {
         return FIELD_RANGE_WARNING;
     if (params.integrator > 2 || !Derived::valid_terms(params))
       return FIELD_RANGE_WARNING;
-    return fabsf(params.strength) *
-                       Derived::field(params, 0.0f).speed_bound() <=
-                   math::PI_F
-               ? nullptr
-               : FIELD_RANGE_WARNING;
+    return nullptr;
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &params, const Prepared &prepared) {

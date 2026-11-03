@@ -209,14 +209,14 @@ inline void case_restore_parameters_readonly_name() {
   effect.replay_parameter_writes(values);
 }
 
-/** @brief Rejects replay beyond a field's joint arc cap. */
+/** @brief Rejects replay of a harmonic order above its degree. */
 inline void case_restore_parameters_inadmissible_field() {
   reset_globals();
   ShaderChain<32, 16> effect;
   effect.init();
   const std::array chain{
       Pullback::Interp::ChainEntryRequest{"field",
-                                          "sphere.displace.symmetric.v1"},
+                                          "sphere.displace.potential.v1"},
       Pullback::Interp::ChainEntryRequest{"project",
                                           "project.stereographic.v2"},
       Pullback::Interp::ChainEntryRequest{"sample", "sample.grid.v3"},
@@ -224,8 +224,7 @@ inline void case_restore_parameters_inadmissible_field() {
                                           "colorize.generated-palette.v4"}};
   effect.set_chain(chain);
   const std::array values{
-      std::pair<std::string, float>{"field.strength", opaque(math::PI_F)},
-      std::pair<std::string, float>{"field.amplitude", opaque(2.0f)}};
+      std::pair<std::string, float>{"field.term-1-m", opaque(2.0f)}};
   effect.replay_parameter_writes(values);
 }
 

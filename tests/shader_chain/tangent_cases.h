@@ -276,7 +276,9 @@ inline void test_tangent_step_integrators() {
   const RotationTestField field;
   const math::Vector input(1, 0, 0);
   for (const float strength :
-       {-math::PI_F, -0.5001f, -0.5f, 0.0f, 0.5f, 0.5001f, math::PI_F}) {
+       {-16.0f * math::PI_F, -4.0f * math::PI_F, -2.0f * math::PI_F,
+        -math::PI_F, -0.5001f, -0.5f, 0.0f, 0.5f, 0.5001f, math::PI_F,
+        2.0f * math::PI_F, 4.0f * math::PI_F, 16.0f * math::PI_F}) {
     const auto a =
         PB::Surface::step_field<RotationTestField, PB::Surface::Euler>(
             input, field, strength, true);
@@ -301,7 +303,48 @@ inline void test_tangent_step_integrators() {
   }
 }
 
-/** @brief Mode domains and the uniform arc cap reject inadmissible recipes. */
+struct MeridianTestField {
+  math::Vector velocity(const math::Vector &p) const {
+    return math::Y_AXIS - p.y * p +
+           (0.5f * (1.0f - p.x)) * (math::Z_AXIS - p.z * p);
+  }
+  float speed_bound() const { return 2.0f; }
+  float lipschitz_bound() const { return 4.0f; }
+};
+
+/** @brief Midpoint transport follows its known geodesic through antipodes. */
+inline void test_tangent_antipodal_midpoint() {
+  const MeridianTestField field;
+  for (const float strength :
+       {-8.0f * math::PI_F, -2.0f * math::PI_F, 2.0f * math::PI_F - 0.001f,
+        2.0f * math::PI_F, 2.0f * math::PI_F + 0.001f, 6.0f * math::PI_F}) {
+    const double cosine = cos(0.5 * double(strength));
+    const double z = 0.5 * (1.0 - cosine);
+    const double arc = fabs(double(strength)) * sqrt(cosine * cosine + z * z);
+    const double sinc = sin(arc) / arc;
+    const auto result =
+        PB::Surface::step_field<MeridianTestField, PB::Surface::Midpoint>(
+            math::X_AXIS, field, strength, true);
+    HS_EXPECT_NEAR(result.sphere.x, cos(arc), 5e-5f);
+    HS_EXPECT_NEAR(result.sphere.y, sinc * strength * cosine, 5e-5f);
+    HS_EXPECT_NEAR(result.sphere.z, sinc * strength * z, 5e-5f);
+    HS_EXPECT_NEAR(result.path_length, arc, 5e-5f);
+    HS_EXPECT_NEAR(result.sphere.length(), 1.0f, 5e-5f);
+  }
+  const RotationTestField rotation;
+  for (const auto result :
+       {PB::Surface::step_field<RotationTestField, PB::Surface::Midpoint>(
+            math::Y_AXIS, rotation, 8 * math::PI_F, true),
+        PB::Surface::step_field<RotationTestField, PB::Surface::Midpoint2>(
+            math::Y_AXIS, rotation, 8 * math::PI_F, true)}) {
+    HS_EXPECT_EQ(result.sphere.x, 0.0f);
+    HS_EXPECT_EQ(result.sphere.y, 1.0f);
+    HS_EXPECT_EQ(result.sphere.z, 0.0f);
+    HS_EXPECT_EQ(result.path_length, 0.0f);
+  }
+}
+
+/** @brief Scalar and harmonic domains reject inadmissible recipes. */
 inline void test_tangent_operator_admission() {
   In::Op::PotentialDisplaceParams p;
   p.terms[0].amplitude = 1;
@@ -314,7 +357,7 @@ inline void test_tangent_operator_admission() {
   p.terms[0].l = 1;
   p.terms[0].amplitude = 2;
   p.strength = math::PI_F;
-  HS_EXPECT_TRUE(In::Op::DisplacePotential::validate(p) != nullptr);
+  HS_EXPECT_TRUE(In::Op::DisplacePotential::validate(p) == nullptr);
   p.strength = -math::PI_F / 2;
   HS_EXPECT_TRUE(In::Op::DisplacePotential::validate(p) == nullptr);
   p.terms[1].amplitude = NAN;
@@ -339,6 +382,7 @@ inline void test_tangent_admitted_domain() {
         params.kind = kind;
         params.integrator = integrator;
         params.strength = math::PI_F;
+        params.amplitude = 4.0f;
         HS_EXPECT_TRUE(In::Op::DisplaceSymmetric::validate(params) == nullptr);
         const auto field = In::Op::DisplaceSymmetric::field(params, 0);
         for (int index = 0; index < 24; ++index) {
@@ -350,12 +394,12 @@ inline void test_tangent_admitted_domain() {
                          std::isfinite(out.sphere.y) &&
                          std::isfinite(out.sphere.z));
           HS_EXPECT_NEAR(out.sphere.length(), 1.0f, 5e-4f);
-          HS_EXPECT_LE(out.path_length, math::PI_F + 1e-4f);
+          HS_EXPECT_LE(out.path_length, 4.0f * math::PI_F + 1e-4f);
         }
       }
 }
 
-/** @brief Mixed four-term recipes respect the admitted cap under each integrator. */
+/** @brief Mixed four-term recipes stay finite at the scalar range endpoints. */
 inline void test_tangent_mixed_boundaries() {
   In::Op::PotentialDisplaceParams params;
   params.orientation_azimuth = 0.7f;
@@ -370,7 +414,7 @@ inline void test_tangent_mixed_boundaries() {
   }
   for (const float sign : {-1.0f, 1.0f})
     for (uint8_t scheme = 0; scheme < 3; ++scheme) {
-      params.strength = sign * math::PI_F / 16;
+      params.strength = sign * math::PI_F;
       params.integrator = scheme;
       HS_EXPECT_TRUE(In::Op::DisplacePotential::validate(params) == nullptr);
       const auto field = In::Op::DisplacePotential::field(params, 0.9f);
@@ -379,7 +423,8 @@ inline void test_tangent_mixed_boundaries() {
         const auto result =
             In::Op::DisplacePotential::step(p, field, params.strength, scheme);
         HS_EXPECT_NEAR(result.sphere.length(), 1, 5e-4f);
-        HS_EXPECT_LE(result.path_length, math::PI_F + 1e-4f);
+        HS_EXPECT_TRUE(std::isfinite(result.path_length));
+        HS_EXPECT_LE(result.path_length, 16.0f * math::PI_F + 1e-4f);
       }
     }
 }
@@ -439,6 +484,6 @@ inline void test_tangent_dynamic_advisory() {
   HS_EXPECT_TRUE(effect.parameter_warning("field.strength") == nullptr);
   HS_EXPECT_FALSE(effect.parameter_fold_strength("field.amplitude", second));
   HS_EXPECT_EQ(effect.updateParameter("field.strength", math::PI_F),
-               ParamSetResult::INADMISSIBLE);
-  HS_EXPECT_NEAR(requested_param(effect, "field.strength"), beyond, 1e-6f);
+               ParamSetResult::APPLIED);
+  HS_EXPECT_NEAR(requested_param(effect, "field.strength"), math::PI_F, 1e-6f);
 }
