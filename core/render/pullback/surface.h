@@ -284,10 +284,19 @@ step_field(const math::Vector &input, const F &field, float strength,
            bool path_length_required) {
   if (strength == 0.0f)
     return {input, 0.0f};
-  const bool SMALL = fabsf(strength) * field.speed_bound() <= 0.5f;
-  const auto exp_map = [SMALL](const math::Vector &p, const math::Vector &v) {
-    return SMALL ? math::sphere_exp_map_half_radian(p, v)
-                 : math::sphere_exp_map(p, v);
+  constexpr bool HALF_RADIAN_STEPS = [] {
+    if constexpr (requires { F::HALF_RADIAN_STEPS; })
+      return F::HALF_RADIAN_STEPS;
+    return false;
+  }();
+  const bool SMALL =
+      HALF_RADIAN_STEPS || fabsf(strength) * field.speed_bound() <= 0.5f;
+  const auto exp_map = [&](const math::Vector &p, const math::Vector &v) {
+    if constexpr (HALF_RADIAN_STEPS)
+      return math::sphere_exp_map_half_radian(p, v);
+    else
+      return SMALL ? math::sphere_exp_map_half_radian(p, v)
+                   : math::sphere_exp_map(p, v);
   };
   const auto finish = [&](const math::Vector &p, const math::Vector &step) {
     return SurfaceResult{exp_map(p, step),
@@ -360,6 +369,8 @@ struct Field : PrepareFromState<State> {
 
 /** @brief Prepared direct-noise tangent field. */
 struct DirectNoiseField {
+  /// Admitted strengths keep every integration step within half a radian.
+  static constexpr bool HALF_RADIAN_STEPS = true;
   const FastNoiseLite &noise; ///< Prepared generator.
   math::NoiseBasis basis;     ///< Octave structure.
   float scale;                ///< Spatial frequency.
@@ -383,6 +394,8 @@ struct DirectNoiseField {
 
 /** @brief Prepared runtime-topology curl-noise tangent field. */
 struct DynamicCurlNoiseField {
+  /// Admitted strengths keep every integration step within half a radian.
+  static constexpr bool HALF_RADIAN_STEPS = true;
   const FastNoiseLite &noise; ///< Prepared generator.
   math::NoiseBasis basis;     ///< Octave structure.
   math::TangentLimit limit;   ///< Velocity saturation.
@@ -410,6 +423,8 @@ struct DynamicCurlNoiseField {
 template <math::NoiseBasis Basis, math::TangentLimit Limit,
           bool InlineUnitGradient>
 struct CurlNoiseField {
+  /// Admitted strengths keep every integration step within half a radian.
+  static constexpr bool HALF_RADIAN_STEPS = true;
   const FastNoiseLite &noise; ///< Prepared generator.
   float scale;                ///< Spatial frequency.
   math::Vector loop_offset;   ///< Closed-loop position.

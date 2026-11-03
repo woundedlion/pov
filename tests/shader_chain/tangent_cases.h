@@ -378,10 +378,41 @@ inline void test_symmetric_legacy_snapshot() {
   HS_EXPECT_EQ(phase_of(effect.snapshot()), phase_of(saved));
 }
 
+struct BoundedRotationTestField : RotationTestField {
+  static constexpr bool HALF_RADIAN_STEPS = true;
+  mutable int bound_queries = 0;
+  float speed_bound() const {
+    ++bound_queries;
+    return 1.0f;
+  }
+};
+
 /** @brief Every field integrator preserves equatorial rotation and arc length. */
 inline void test_tangent_step_integrators() {
   const RotationTestField field;
   const math::Vector input(1, 0, 0);
+  const BoundedRotationTestField bounded;
+  static_assert(PB::Surface::DirectNoiseField::HALF_RADIAN_STEPS);
+  static_assert(PB::Surface::DynamicCurlNoiseField::HALF_RADIAN_STEPS);
+  static_assert(PB::Surface::CurlNoiseField<math::NoiseBasis::SIMPLEX,
+                                            math::TangentLimit::CLAMP,
+                                            false>::HALF_RADIAN_STEPS);
+  for (const float strength : {-0.5f, 0.0f, 0.5f}) {
+    const math::Vector expected(cosf(strength), 0, -sinf(strength));
+    for (const auto &result :
+         {PB::Surface::step_field<BoundedRotationTestField, PB::Surface::Euler>(
+              input, bounded, strength, true),
+          PB::Surface::step_field<BoundedRotationTestField,
+                                  PB::Surface::Midpoint>(input, bounded,
+                                                         strength, true),
+          PB::Surface::step_field<BoundedRotationTestField,
+                                  PB::Surface::Midpoint2>(input, bounded,
+                                                          strength, true)}) {
+      HS_EXPECT_NEAR((result.sphere - expected).length(), 0.0f, 2e-5f);
+      HS_EXPECT_NEAR(result.path_length, fabsf(strength), 1e-5f);
+    }
+  }
+  HS_EXPECT_EQ(bounded.bound_queries, 0);
   for (const float strength :
        {-16.0f * math::PI_F, -4.0f * math::PI_F, -2.0f * math::PI_F,
         -math::PI_F, -0.5001f, -0.5f, 0.0f, 0.5f, 0.5001f, math::PI_F,
