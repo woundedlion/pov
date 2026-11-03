@@ -214,7 +214,7 @@ rossby_haurwitz_field(float omega, float wave, uint8_t order, float phase) {
  * @param kind Toroidal or poloidal component.
  * @param phase Field rotation in radians.
  * @return Normalized field. */
-inline math::tangent_field::PotentialField
+HS_COLD_MEMBER inline math::tangent_field::PotentialField
 symmetric_field(uint8_t symmetry, uint8_t kind, float phase) {
   using namespace math::tangent_field;
   constexpr uint8_t ORDERS[] = {6, 0, 0, 0, 3, 4, 5, 6, 8};
@@ -235,7 +235,7 @@ symmetric_field(uint8_t symmetry, uint8_t kind, float phase) {
  * @param integrator Integration scheme index.
  * @param track_path Whether to accumulate angular travel.
  * @return Displaced direction and angular travel. */
-inline SurfaceResult
+HS_HOT_FLASH_MEMBER inline SurfaceResult
 step_tangent_field(const math::Vector &input,
                    const math::tangent_field::PotentialField &field,
                    float strength, uint8_t integrator, bool track_path) {

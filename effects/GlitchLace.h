@@ -24,6 +24,7 @@ template <typename FX> struct ComposedWhiteBox;
 /** @brief Stage spec for `GlitchLace`. */
 struct GlitchLaceSpec : Pullback::Spec {
   static constexpr bool TEMPORAL_SAMPLING = true;
+  static constexpr bool PERSISTENT_PREPARED_FRAME = true;
   static constexpr bool AUTHORED_TOPOLOGY = true;
   static constexpr bool ANIMATED_PROJECTION = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;

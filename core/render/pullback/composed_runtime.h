@@ -1058,7 +1058,8 @@ private:
    * rotations accumulate independently for each affine warp.
    */
   HS_COLD_MEMBER void advance_runtime() {
-    this->params.visit([&]<typename Resource>(const auto &family) {
+    this->params.visit([&]<typename Resource>(
+                           const auto &family) HS_HOT_INLINE {
       auto &clock = clocks.template get<Resource::KEY>();
       if constexpr (Resource::KIND == ResourceKind::ROTATION) {
         SphereAnimation::advance_walk(clock.rotation_walk, family.wander,
@@ -1286,7 +1287,7 @@ private:
   }
 
   /** @brief Current generated-cycle harmony. @return Selected hue relationship. */
-  PaletteHarmony cycling_harmony() const {
+  HS_COLD_MEMBER PaletteHarmony cycling_harmony() const {
     if constexpr (AUTHORED_PALETTE) {
       constexpr PaletteHarmony HARMONIES[] = {PaletteHarmony::TRIADIC,
                                               PaletteHarmony::COMPLEMENTARY,

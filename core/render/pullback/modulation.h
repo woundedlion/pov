@@ -539,7 +539,8 @@ struct Controls {
    * @param c Live source and mechanic recipe.
    * @param index Schema index.
    * @return Address in the supplied recipe. */
-  static void *address(ColorModulation::Config &c, size_t index) {
+  HS_COLD_MEMBER static void *address(ColorModulation::Config &c,
+                                      size_t index) {
     float *addresses[] = {&c.mechanic.amount,
                           &c.noise.scale,
                           &c.noise.speed,

@@ -19,7 +19,7 @@ public:
    * @param params Current color operator parameters.
    * @param chroma Common perceptual chroma control.
    * @return Palette view, valid until the next source change. */
-  const BakedPalette &
+  HS_COLD_MEMBER const BakedPalette &
   prepare(Arena &arena, const AuthoredPaletteSelection &params, float chroma) {
     const auto &selection = params;
     if (!initialized || !(selection == previous) || chroma != previous_chroma) {
