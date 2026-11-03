@@ -40,7 +40,9 @@ class ComposedEffect
           std::conditional_t<Ownership == Control::HookOwnership::INHERITED,
                              ComposedEffect<W, H, Derived, SpecT, Ownership>,
                              Derived>>,
-      private ProjectionWalkState<SpecT::ANIMATED_PROJECTION> {
+      private ProjectionWalkState<
+          SpecT::ANIMATED_PROJECTION &&
+          ParamsFor<SpecT>::template HAS<"projection">> {
   using ParamsT = ParamsFor<SpecT>;
   using Choreography = ChoreographedEffect<
       Derived, ParamsT,
@@ -99,8 +101,11 @@ public:
       TEMPORAL_SAMPLING, FrameIntervalState<ParamsT, SpecT::PHASE_NOISE_CACHE>,
       Pullback::FrameState<ParamsT, SpecT::PHASE_NOISE_CACHE>>;
   using Binding = Pullback::Binding<FrameState>; ///< Pipeline binding.
+  /// Whether shared camera and projection controls are present.
+  static constexpr bool HAS_FRAME_PARAMS = Params::template HAS<"projection">;
   /// Whether the projection orientation follows a random walk and spin.
-  static constexpr bool ANIMATED_PROJECTION = SpecT::ANIMATED_PROJECTION;
+  static constexpr bool ANIMATED_PROJECTION =
+      SpecT::ANIMATED_PROJECTION && HAS_FRAME_PARAMS;
   /// Whether the effect retains palette hue tables.
   static constexpr bool HUE_ROTATION_LUT =
       Metadata::MODULATION && SpecT::HUE_ROTATION_LUT;
@@ -233,10 +238,11 @@ public:
       else
         timeline.add(0, std::move(walk));
     }
-    timeline.add(0, Animation::RandomWalk<W>(
-                        outer_walk, math::UP, state->outer_walk_noise,
-                        typename Animation::RandomWalk<W>::Options{},
-                        CAMERA_WALK_SEED));
+    if constexpr (HAS_FRAME_PARAMS)
+      timeline.add(0, Animation::RandomWalk<W>(
+                          outer_walk, math::UP, state->outer_walk_noise,
+                          typename Animation::RandomWalk<W>::Options{},
+                          CAMERA_WALK_SEED));
     register_parameters();
 #ifdef ARDUINO
     if constexpr (SpecT::CACHE_FULL_GAMUT_LUT)
@@ -912,6 +918,7 @@ private:
   }
 
   HS_COLD_MEMBER void register_parameters() {
+    register_resource_kind<ResourceKind::ROTATION>();
     register_resource_kind<ResourceKind::SOURCE>();
     register_resource_kind<ResourceKind::PROJECTION>();
     register_resource_kind<ResourceKind::SURFACE>();
@@ -1068,9 +1075,11 @@ private:
                                      SphericalRingsSourceParams>) {
           SphereAnimation::advance_walk(clock.source_walk, family.wander,
                                         family.spin_rate);
+          clock.ring_wander = clock.source_walk.wander;
+          clock.ring_spin = clock.source_walk.spin_phase;
           clock.orientation =
-              math::make_rotation(math::X_AXIS, clock.source_walk.spin_phase) *
-              clock.source_walk.wander;
+              math::make_rotation(math::X_AXIS, clock.ring_spin) *
+              clock.ring_wander;
         }
         if constexpr (requires { family.noise_time_rate; })
           clock.noise_time =
@@ -1135,19 +1144,22 @@ private:
                 .conjugate();
       }
     }
-    const math::Quaternion outer = outer_walk.get();
-    const math::Quaternion outer_delta =
-        outer * outer_walk_previous.conjugate();
-    outer_walk_previous = outer;
-    outer_wander = math::absorb_rotation_delta(
-        outer_delta.normalized(),
-        this->params.template get<"projection">().camera_wander, outer_wander);
-    if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
-      outer_conjugate =
-          (math::make_rotation(math::Y_AXIS, camera_spin) * outer_wander)
-              .conjugate();
-    else
-      outer_conjugate = outer_wander.conjugate();
+    if constexpr (HAS_FRAME_PARAMS) {
+      const math::Quaternion outer = outer_walk.get();
+      const math::Quaternion outer_delta =
+          outer * outer_walk_previous.conjugate();
+      outer_walk_previous = outer;
+      outer_wander = math::absorb_rotation_delta(
+          outer_delta.normalized(),
+          this->params.template get<"projection">().camera_wander,
+          outer_wander);
+      if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
+        outer_conjugate =
+            (math::make_rotation(math::Y_AXIS, camera_spin) * outer_wander)
+                .conjugate();
+      else
+        outer_conjugate = outer_wander.conjugate();
+    }
   }
 
   /** @brief The hue-rotation LUT base, or null when no hue mode reads one. */

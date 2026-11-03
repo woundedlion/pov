@@ -226,19 +226,31 @@ inline void test_authored_spherical_ring_interval() {
   auto &end = to.resources.template get<"source">();
   start.primary = 6.2f;
   end.primary = 0.1f;
-  start.orientation = math::make_rotation(math::X_AXIS, 0.1f);
-  end.orientation = math::make_rotation(math::X_AXIS, 0.5f);
+  Op::SampleSphericalRings::State a{}, b{};
+  a.walk.wander = math::make_rotation(math::Y_AXIS, 0.3f);
+  b.walk.wander = math::make_rotation(math::Z_AXIS, 0.8f);
+  a.walk.spin_phase = 6.2f;
+  b.walk.spin_phase = 0.1f;
+  a.phase = start.primary;
+  b.phase = end.primary;
+  start.ring_wander = a.walk.wander;
+  end.ring_wander = b.walk.wander;
+  start.ring_spin = a.walk.spin_phase;
+  end.ring_spin = b.walk.spin_phase;
+  start.orientation =
+      math::make_rotation(math::X_AXIS, start.ring_spin) * start.ring_wander;
+  end.orientation =
+      math::make_rotation(math::X_AXIS, end.ring_spin) * end.ring_wander;
+  const auto oracle_interval = Op::temporal_interval(a, b);
   Pullback::FrameInterval interval(from, to);
   for (float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
     const auto frame = interval.at(fraction);
     const auto prepared = Policy::prepare(frame);
-    const float phase =
-        fraction == 1.0f
-            ? 0.1f
-            : Spacetime::sample_clock(6.2f, 0.1f, fraction, math::TWO_PI_F);
-    const float angle = 0.1f + 0.4f * fraction;
-    const Pattern::PreparedSphericalRings expected{
-        math::Vector(0.0f, cosf(angle), sinf(angle)), phase};
+    auto oracle = fraction <= 0.0f ? a : b;
+    const auto params = from.params.template get<"source">();
+    if (fraction > 0.0f && fraction < 1.0f)
+      Op::temporal_sample(oracle, oracle_interval, params, fraction);
+    const auto expected = Op::SampleSphericalRings::prepare({}, params, oracle);
     HS_EXPECT_NEAR(prepared.axis.x, expected.axis.x, 1e-6f);
     HS_EXPECT_NEAR(prepared.axis.y, expected.axis.y, 1e-6f);
     HS_EXPECT_NEAR(prepared.axis.z, expected.axis.z, 1e-6f);

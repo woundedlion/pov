@@ -294,6 +294,8 @@ template <>
 struct ClockState<Source::SphericalRingsSourceParams, ResourceKind::SOURCE>
     : SourceClocks {
   math::Quaternion orientation; ///< Band-axis orientation.
+  math::Quaternion ring_wander; ///< Accumulated axis walk.
+  float ring_spin = 0.0f;       ///< Axis spin about X, radians modulo two pi.
 };
 /** @brief Factorized orientation of a keyed sphere rotation. */
 template <typename Family> struct ClockState<Family, ResourceKind::ROTATION> {

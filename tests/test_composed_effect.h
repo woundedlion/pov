@@ -1103,6 +1103,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(hs_test::catalog_policy_tests::test_authored_sample_crossing);
   HS_RUN(hs_test::catalog_policy_tests::test_edge_fade_squared_curve);
   HS_RUN(hs_test::keyed_rotation_tests::test_keyed_rotation_runtime_parity);
+  HS_RUN(hs_test::keyed_rotation_tests::test_keyed_rotation_without_projection);
   HS_RUN(test_choreography_fade_departure);
   HS_RUN(test_choreography_lerp_transition_hooks);
   HS_RUN(test_choreography_lerp_pause_policy);
