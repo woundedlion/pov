@@ -42,6 +42,15 @@ displace(const SphereSample &input, const SurfaceResult &step) {
   return {step.sphere, input.path_length + step.path_length};
 }
 
+/** @brief Shortest angular displacement between incoming and mapped directions.
+ * @param input Incoming direction.
+ * @param lensed Mapped direction.
+ * @return Net angular displacement in radians. */
+HS_HOT_FLASH_MEMBER inline float lens_displacement(const math::Vector &input,
+                                                   const math::Vector &lensed) {
+  return math::angle_between(input, lensed);
+}
+
 /**
  * @brief Replaces the direction and optionally accumulates angular displacement.
  * @param input Sphere carrier.
@@ -54,7 +63,7 @@ lens(const SphereSample &input, const math::Vector &lensed,
      bool track_path = false) {
   return {lensed,
           input.path_length +
-              (track_path ? math::angle_between(input.dir, lensed) : 0.0f)};
+              (track_path ? lens_displacement(input.dir, lensed) : 0.0f)};
 }
 
 /** @brief The Project crossing assembles the plane carrier: the policy's
