@@ -15,6 +15,12 @@
 #include <string_view>
 #include "core/render/pullback/composed_effect.h"
 
+#if HS_ENABLE_TEST_HOOKS
+namespace hs_test {
+template <typename FX> struct ComposedWhiteBox;
+}
+#endif
+
 /** @brief Stage spec for `WarpFest`. */
 struct WarpFestSpec : Pullback::Spec {
   static constexpr bool TEMPORAL_SAMPLING = true;
@@ -69,6 +75,9 @@ using WarpFestParams = Pullback::ParamsFor<WarpFestSpec>;
 template <int W, int H>
 class WarpFest
     : public Pullback::ComposedEffect<W, H, WarpFest<W, H>, WarpFestSpec> {
+#if HS_ENABLE_TEST_HOOKS
+  friend struct ::hs_test::ComposedWhiteBox<WarpFest<W, H>>;
+#endif
 public:
   using Params = WarpFestParams; ///< Live parameter record.
   // Generated identity: scripts/generate_composed_presets.mjs
@@ -195,6 +204,8 @@ public:
         .template extend<
             WarpFest,
             Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
-                                 &WarpFest::initial_params>>();
+                                 &WarpFest::initial_params>,
+            Control::HookBinding<Control::ChoreographyHook::PRESET_ROW,
+                                 &WarpFest::preset>>();
   }
 };

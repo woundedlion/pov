@@ -15,6 +15,12 @@
 #include <string_view>
 #include "core/render/pullback/composed_effect.h"
 
+#if HS_ENABLE_TEST_HOOKS
+namespace hs_test {
+template <typename FX> struct ComposedWhiteBox;
+}
+#endif
+
 /** @brief Stage spec for `GlitchLace`. */
 struct GlitchLaceSpec : Pullback::Spec {
   static constexpr bool TEMPORAL_SAMPLING = true;
@@ -66,6 +72,9 @@ using GlitchLaceParams = Pullback::ParamsFor<GlitchLaceSpec>;
 template <int W, int H>
 class GlitchLace
     : public Pullback::ComposedEffect<W, H, GlitchLace<W, H>, GlitchLaceSpec> {
+#if HS_ENABLE_TEST_HOOKS
+  friend struct ::hs_test::ComposedWhiteBox<GlitchLace<W, H>>;
+#endif
 public:
   using Params = GlitchLaceParams; ///< Live parameter record.
   // Generated identity: scripts/generate_composed_presets.mjs

@@ -217,8 +217,7 @@ inline void verify_family_equal(const Family &actual, const Family &expected) {
     HS_CONTEXT(field.id);
     HS_EXPECT_EQ(bits(actual.*(field.member)), bits(expected.*(field.member)));
   }
-  if constexpr (Resource::KIND != Pullback::ResourceKind::COLOR &&
-                requires { Family::TOPOLOGY; })
+  if constexpr (requires { Family::TOPOLOGY; })
     for (const auto &field : Family::TOPOLOGY)
       HS_EXPECT_EQ(actual.*field.member, expected.*field.member);
   if constexpr (requires { actual.modulation; })
@@ -326,7 +325,8 @@ inline void check_authored_slider_registration(const FX &effect) {
           continue;
       require_target(&(family.*field.member), field.min, field.max);
     }
-    if constexpr (requires { Family::TOPOLOGY; })
+    if constexpr (Resource::KIND != Pullback::ResourceKind::COLOR &&
+                  requires { Family::TOPOLOGY; })
       for (const auto &field : Family::TOPOLOGY) {
         if (!Pullback::ComposedDetail::resource_topology_open<typename FX::Spec,
                                                               Resource>(
