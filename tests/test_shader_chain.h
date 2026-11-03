@@ -62,6 +62,7 @@ static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::MIDPOINT4) == 4);
 #include "tests/shader_chain/sample_ops.h"
 #include "tests/shader_chain/palette_ops.h"
 #include "tests/shader_chain/effect_cases.h"
+#include "tests/shader_chain/parameter_ranges.h"
 /** @brief Layer caches retain independent fields across color-only edits. */
 inline void test_shader_chain_modulation_bake_cache() {
   static_assert(In::instance_hash("mod-56428", "color.modulate.v1") ==
@@ -746,6 +747,8 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_default_chain_renders);
   HS_RUN(test_shader_chain_param_address_channel);
   HS_RUN(test_shader_chain_parity_rotate_project);
+  HS_RUN(test_shader_chain_parameter_ranges);
+  HS_RUN(test_shader_chain_axis_ranges);
   HS_RUN(test_tangent_integer_gates);
   HS_RUN(test_tangent_integer_controls);
   HS_RUN(test_symmetric_sectoral_phase);
