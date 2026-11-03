@@ -744,6 +744,19 @@ For a seamless affine phase wrap over an unwarped Primitive Lattice, choose its
 source period `1 / Lattice Cell Scale` and whole-cell translation windings.
 Those are continuity conditions for that arrangement, not a chain admission
 rule. A later warp or path-length hue shift can make the wrap visible.
+
+**Periodic Affine** (`warp.affine-periodic.v1`) rounds Translation X/Y to signed
+whole-repeat windings. Its displacement contribution is the shortest distance
+modulo Repeat Period along both plane axes, so displacement-driven hue also
+reconnects across the phase wrap. Repeat windings use snap interpolation between
+presets. When the next stage is Primitive Lattice, the workbench links Lattice
+Period to `1 / Lattice Cell Scale`, including imported documents and live edits.
+Other translation-periodic sources can use an explicit matching repeat period.
+This requires equal X/Y repeat periods; radial periodicity alone is insufficient.
+A later nonperiodic
+warp can still expose the translation reset. This operator is available in the
+interpreter; existing Affine Warp behavior is unchanged.
+
 Mirror Tile scrolls one local X cell while its Y offset remains manual.
 Polar Chart advances Angular Phase by one turn while Radial Phase remains
 manual. Wave Shear advances its wave, Vortex orbits its center, and the projected

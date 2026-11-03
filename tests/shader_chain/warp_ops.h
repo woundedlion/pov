@@ -196,6 +196,143 @@ inline void test_shader_chain_parity_warp_affine_mirror() {
   });
 }
 
+/** @brief Lattice winding resets preserve the sampled grid and displacement hue. */
+inline void test_shader_chain_affine_periodic_wrap() {
+  using Model = In::Op::WarpAffinePeriodic;
+  const In::FrameContext ctx = shared_resources().context();
+  In::Op::SampleLattice::Params lattice;
+  lattice.lattice_cell_scale = 4.0f;
+  lattice.lattice_shape_blend = 1.0f;
+  lattice.lattice_softness = 0.2f;
+  lattice.weight_mode = 0;
+  lattice.coverage_mode = 0;
+  const In::Op::SampleLattice::Prepared sample{};
+  PB::Color::ModulationState modulation;
+  modulation.enabled = true;
+  modulation.source = Pattern::SourceKind::DISPLACEMENT;
+  modulation.mechanic.amount = 2.0f;
+  for (const float direction : {-1.0f, 1.0f}) {
+    Model::Params params;
+    params.lattice_period = 0.25f;
+    params.translation_x = direction * 1.7f;
+    params.translation_y = direction * -2.2f;
+    params.scale_x = 1.3f;
+    params.scale_y = 0.7f;
+    params.shear = 0.3f;
+    const Model::State before{0.999999f, 0.73f};
+    const Model::State after{0.0f, 0.73f};
+    const auto from = Model::prepare(ctx, params, before);
+    const auto to = Model::prepare(ctx, params, after);
+    bool varied = false;
+    float first_hue = 0.0f;
+    for (int index = 0; index < 21; ++index) {
+      PB::PlaneSample input{};
+      input.coords = {0.071f * index - 0.61f, 0.039f * index - 0.17f};
+      input.sphere = math::UP;
+      input.path_length = 0.125f;
+      const auto warped_from = Model::run(input, ctx, params, from);
+      const auto warped_to = Model::run(input, ctx, params, to);
+      HS_EXPECT_NEAR(warped_to.coords.re - warped_from.coords.re,
+                     direction * 0.5f, 2e-6f);
+      HS_EXPECT_NEAR(warped_to.coords.im - warped_from.coords.im,
+                     direction * -0.5f, 2e-6f);
+      PB::ColorSample color_from{};
+      color_from.field =
+          In::Op::SampleLattice::run(warped_from, ctx, lattice, sample);
+      PB::ColorSample color_to{};
+      color_to.field =
+          In::Op::SampleLattice::run(warped_to, ctx, lattice, sample);
+      HS_EXPECT_NEAR(color_from.field.value, color_to.field.value, 5e-5f);
+      HS_EXPECT_NEAR(color_from.field.path_length, color_to.field.path_length,
+                     3e-6f);
+      HS_EXPECT_GE(color_to.field.path_length, input.path_length);
+      HS_EXPECT_LE(color_to.field.path_length,
+                   input.path_length + std::sqrt(2.0f) * 0.125f + 1e-6f);
+      PB::Color::apply_modulation_in_place(color_from, modulation);
+      PB::Color::apply_modulation_in_place(color_to, modulation);
+      HS_EXPECT_NEAR(color_from.pending_hue, color_to.pending_hue, 6e-6f);
+      if (index == 0)
+        first_hue = color_to.pending_hue;
+      else if (fabsf(color_to.pending_hue - first_hue) > 0.01f)
+        varied = true;
+    }
+    HS_EXPECT_TRUE(varied);
+  }
+}
+
+/** @brief Periodic displacement remains continuous across its half-cell seam. */
+inline void test_shader_chain_affine_periodic_distance() {
+  using Model = In::Op::WarpAffinePeriodic;
+  const In::FrameContext ctx = shared_resources().context();
+  Model::Params params;
+  params.lattice_period = 0.4f;
+  params.translation_x = 1.0f;
+  PB::PlaneSample input{};
+  input.sphere = math::UP;
+  input.path_length = 0.125f;
+  for (float phase : {0.499999f, 0.5f, 0.500001f}) {
+    const auto prepared = Model::prepare(ctx, params, {phase, 0.0f});
+    const auto output = Model::run(input, ctx, params, prepared);
+    HS_EXPECT_NEAR(output.path_length, 0.325f, 1e-6f);
+    HS_EXPECT_NEAR(output.coords.re, -0.4f * phase, 1e-7f);
+  }
+  params.translation_x = 1.51f;
+  params.translation_y = -2.51f;
+  const auto prepared = Model::prepare(ctx, params, {0.125f, 0.0f});
+  const auto output = Model::run(input, ctx, params, prepared);
+  HS_EXPECT_NEAR(output.coords.re, -0.1f, 1e-7f);
+  HS_EXPECT_NEAR(output.coords.im, 0.15f, 1e-7f);
+  HS_EXPECT_NEAR(output.path_length, 0.125 + std::sqrt(0.1 * 0.1 + 0.15 * 0.15),
+                 1e-7f);
+  const auto end = Model::prepare(ctx, params, {0.999999f, 0.0f});
+  const auto end_output = Model::run(input, ctx, params, end);
+  const float bound = Model::plane_bound(params, 0.0f);
+  HS_EXPECT_NEAR(bound, 0.4 * std::sqrt(13.0), 2e-6f);
+  HS_EXPECT_LE(std::hypot(end_output.coords.re, end_output.coords.im), bound);
+  for (const auto &field : Model::Params::FIELDS)
+    if (std::string_view(field.id) == "translation-x" ||
+        std::string_view(field.id) == "translation-y")
+      HS_EXPECT_EQ(field.curve, PB::FieldCurve::SNAP);
+}
+
+/** @brief Both travel directions retain a continuous affine column interval. */
+inline void test_shader_chain_affine_periodic_interval() {
+  using Model = In::Op::WarpAffinePeriodic;
+  const In::FrameContext ctx = shared_resources().context();
+  for (const float speed : {-0.002f, 0.002f}) {
+    Model::Params params;
+    params.speed = speed;
+    params.rotation_rate = 0.7f;
+    params.translation_x = 2.0f;
+    params.translation_y = -3.0f;
+    params.lattice_period = 0.25f;
+    const Model::State before{speed > 0.0f ? 0.999f : 0.001f, 0.71f};
+    auto after = before;
+    Model::advance(after, params);
+    HS_EXPECT_NEAR(after.phase, speed > 0.0f ? 0.001f : 0.999f, 1e-7f);
+    const auto interval = In::Op::temporal_interval(before, after);
+    PB::PlaneSample input{};
+    input.coords = {0.13f, -0.21f};
+    input.sphere = math::UP;
+    float previous_length = 0.0f;
+    for (int index = 0; index <= 8; ++index) {
+      const float fraction = index / 8.0f;
+      auto state = after;
+      In::Op::temporal_sample(state, interval, params, fraction);
+      const float expected_phase = before.phase + speed * fraction;
+      HS_EXPECT_NEAR(state.phase, expected_phase, 2e-7f);
+      HS_EXPECT_NEAR(state.rotation,
+                     before.rotation + speed * params.rotation_rate * fraction,
+                     1e-6f);
+      const auto prepared = Model::prepare(ctx, params, state);
+      const auto output = Model::run(input, ctx, params, prepared);
+      if (index > 0)
+        HS_EXPECT_LT(fabsf(output.path_length - previous_length), 0.001f);
+      previous_length = output.path_length;
+    }
+  }
+}
+
 template <typename Envelope>
 inline void run_wave_shear_variant(In::ChainProgram &program,
                                    const In::FrameContext &ctx,

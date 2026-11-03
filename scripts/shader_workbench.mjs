@@ -1065,9 +1065,14 @@ export function fixedDerivedBinding(descriptor, parameterId, values) {
   const suffix = '.lattice-period';
   if (!parameterId.endsWith(suffix)) return null;
   const label = parameterId.slice(0, -suffix.length);
-  if (!descriptor?.chain?.some((slot) =>
-    slot.label === label && slot.operator === 'warp.affine.v3')) return null;
-  const source = descriptor.chain.find((slot) => slot.operator === 'sample.lattice.v2');
+  const index = descriptor?.chain?.findIndex((slot) => slot.label === label
+    && ['warp.affine.v3', 'warp.affine-periodic.v1'].includes(slot.operator)) ?? -1;
+  if (index < 0) return null;
+  const periodic = descriptor.chain[index].operator === 'warp.affine-periodic.v1';
+  const source = periodic
+    ? descriptor.chain[index + 1]
+    : descriptor.chain.find((slot) => slot.operator === 'sample.lattice.v2');
+  if (periodic && source?.operator !== 'sample.lattice.v2') return null;
   const sourceId = source ? `${source.label}.lattice-cell-scale` : null;
   const scale = sourceId === null ? 1 : Math.fround(values[sourceId]);
   const period = Math.fround(values[parameterId]);

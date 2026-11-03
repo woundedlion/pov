@@ -791,6 +791,9 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_parity_project_hemispheres);
   HS_RUN(test_shader_chain_parity_field_ops);
   HS_RUN(test_shader_chain_parity_warp_affine_mirror);
+  HS_RUN(test_shader_chain_affine_periodic_wrap);
+  HS_RUN(test_shader_chain_affine_periodic_distance);
+  HS_RUN(test_shader_chain_affine_periodic_interval);
   HS_RUN(test_shader_chain_parity_warp_wave_shear);
   HS_RUN(test_shader_chain_parity_warp_vortex);
   HS_RUN(test_shader_chain_parity_warp_vector_noise);

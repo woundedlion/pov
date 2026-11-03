@@ -167,6 +167,65 @@ struct WarpAffineV3 : ValueStateModel<AffineClockState> {
   }
 };
 
+/** @brief Whole-repeat affine windings over an explicit planar period. */
+struct PeriodicAffineWarpParams : AffineWarpParams {
+  /// Affine controls with discrete cell windings.
+  static constexpr auto FIELDS = [] {
+    auto fields = concat_fields<PeriodicAffineWarpParams>(
+        AffineWarpParams::FIELDS,
+        std::array<Field<PeriodicAffineWarpParams>, 0>{});
+    for (auto &field : fields) {
+      if (std::string_view(field.id) == "translation-x") {
+        field.name = "Repeat Windings X";
+        field.curve = FieldCurve::SNAP;
+      } else if (std::string_view(field.id) == "translation-y") {
+        field.name = "Repeat Windings Y";
+        field.curve = FieldCurve::SNAP;
+      } else if (std::string_view(field.id) == "lattice-period") {
+        field.name = "Repeat Period";
+      }
+    }
+    return fields;
+  }();
+};
+static_assert(field_ids_unique<PeriodicAffineWarpParams>());
+static_assert(field_defaults_in_range<PeriodicAffineWarpParams>());
+
+/** @brief Affine translation with periodic displacement coloring.
+ * @details The period must be a translation symmetry of the downstream source. */
+struct WarpAffinePeriodic : WarpAffineV3 {
+  static constexpr const char *ID = "warp.affine-periodic.v1";
+  static constexpr const char *NAME = "Periodic Affine";
+  using Params = PeriodicAffineWarpParams;
+
+  /** @brief Resolves signed whole-cell windings.
+   * @param params Authored affine controls.
+   * @return Controls with rounded translations. */
+  static AffineWarpParams cell_windings(const Params &params) {
+    AffineWarpParams rounded = params;
+    rounded.translation_x = std::round(params.translation_x);
+    rounded.translation_y = std::round(params.translation_y);
+    return rounded;
+  }
+  static float plane_bound(const Params &params, float input_bound) {
+    return WarpAffineV3::plane_bound(cell_windings(params), input_bound);
+  }
+  static Prepared prepare(const FrameContext &ctx, const Params &params,
+                          const State &state) {
+    return WarpAffineV3::prepare(ctx, cell_windings(params), state);
+  }
+  static PlaneSample run(const PlaneSample &input, const FrameContext &,
+                         const Params &params, const Prepared &prepared) {
+    auto step = Warp::affine_frame(input.coords, prepared, false);
+    const float DX =
+        std::remainder(step.coords.re - input.coords.re, params.lattice_period);
+    const float DY =
+        std::remainder(step.coords.im - input.coords.im, params.lattice_period);
+    step.path_length = std::hypot(DX, DY);
+    return Kernel::warp(input, step);
+  }
+};
+
 /** @brief Parameter family of warp.wave-shear.v2. */
 struct WaveShearWarpParams : Warp::WaveShearParams {
   /** WarpEnvelope topology value. */

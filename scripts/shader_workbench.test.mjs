@@ -1144,6 +1144,20 @@ test('a fixed affine warp without a lattice source has unit period', () => {
   assert.equal(fixedDerivedBinding(descriptor, parameter, { [parameter]: 1 }), null);
 });
 
+test('periodic affine derives its repeat only from the next lattice source', () => {
+  const descriptor = { chain: [
+    { label: 'repeat', operator: 'warp.affine-periodic.v1' },
+    { label: 'cells', operator: 'sample.lattice.v2' },
+  ] };
+  const values = { 'repeat.lattice-period': 0.25, 'cells.lattice-cell-scale': 4 };
+  assert.deepEqual(fixedDerivedBinding(descriptor, 'repeat.lattice-period', values),
+    { sourceId: 'cells.lattice-cell-scale', valid: true, expected: 0.25 });
+  descriptor.chain.splice(1, 0, { label: 'bend', operator: 'warp.vortex.v2' });
+  assert.equal(fixedDerivedBinding(descriptor, 'repeat.lattice-period', values), null);
+  descriptor.chain = [descriptor.chain[0]];
+  assert.equal(fixedDerivedBinding(descriptor, 'repeat.lattice-period', values), null);
+});
+
 test('catalog declarations share the compiler label and topology contracts', () => {
   for (const label of ['colorize', 'warp2', 'warp-outer']) assert.match(label, LABEL_PATTERN);
   for (const label of ['Warp', 'warp_outer', 'warp.outer', 'warp--outer'])
