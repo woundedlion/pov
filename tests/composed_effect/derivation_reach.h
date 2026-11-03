@@ -88,6 +88,9 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sample.tessellation.v2", nullptr, {}},
     // No WarpPolicyFor specialization carries these warp families.
     {"warp.curl-flow.v2", nullptr, {}},
+    {"sphere.displace.potential.v1", nullptr, {}},
+    {"sphere.displace.rossby-haurwitz.v1", nullptr, {}},
+    {"sphere.displace.symmetric.v1", nullptr, {}},
     // TransferKind is NONE or ISO_CONTOUR.
     {"field.transfer.ridge.v2", nullptr, {}},
     {"field.transfer.smooth-bands.v2", nullptr, {}},
@@ -255,8 +258,8 @@ inline void test_composed_derivation_reach() {
     }
   }
 
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 39u);
-  HS_EXPECT_EQ(unreachable_operators, 11u);
-  HS_EXPECT_EQ(catalog_values, 244u);
-  HS_EXPECT_EQ(unreachable_values, 188u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 42u);
+  HS_EXPECT_EQ(unreachable_operators, 14u);
+  HS_EXPECT_EQ(catalog_values, 367u);
+  HS_EXPECT_EQ(unreachable_values, 311u);
 }

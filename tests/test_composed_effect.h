@@ -211,20 +211,6 @@ inline void verify_family_equal(const Family &actual, const Family &expected) {
   }
 }
 
-/** @brief Bitwise-compares the eight Mobius coefficients. */
-inline void verify_mobius_equal(const math::MobiusParams &actual,
-                                const math::MobiusParams &expected) {
-  constexpr math::Complex math::MobiusParams::*COEFFICIENTS[] = {
-      &math::MobiusParams::a, &math::MobiusParams::b, &math::MobiusParams::c,
-      &math::MobiusParams::d};
-  for (math::Complex math::MobiusParams::*coefficient : COEFFICIENTS) {
-    HS_EXPECT_EQ(bits((actual.*coefficient).re),
-                 bits((expected.*coefficient).re));
-    HS_EXPECT_EQ(bits((actual.*coefficient).im),
-                 bits((expected.*coefficient).im));
-  }
-}
-
 /** @brief Bitwise-compares a whole parameter set, family by family. */
 template <typename Params>
 inline void verify_params_equal(const Params &actual, const Params &expected) {
