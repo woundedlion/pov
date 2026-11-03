@@ -157,6 +157,24 @@ The fragment shader receives `pos` set to the closest local-space hit point (in 
 
 `Pullback::Spec` in `core/render/pullback/composed_policies.h` defines the typed `Pipeline<B>` and authored runtime and cache controls. `Pullback::MetadataFor<Spec>` inspects the normalized semantic leaves, including nested placement groups and optional `void` entries. It derives projection, sampling and field coverage, transfer kind, lens policy, surface placement, path tracking and color modes without binding an executable frame. `ComposedEffect::Metadata` exposes that topology to slider registration and optional storage. Authored scalar topology fields are rejected.
 
+### S2 cube projection
+
+`Pullback::Projection::S2` maps sphere directions through Google's quadratic
+[S2 coordinate mapping](https://github.com/google/s2geometry/blob/master/src/s2/s2coords.h).
+The shader tool exposes it as **Google S2 Cube-to-Sphere** (`project.s2.v1`),
+with central meridian, coordinate scale, and identity or spin/wander framing.
+
+Each face contributes a unit square to a centered 3×2 atlas: faces 0–2 run
+left to right in the lower row, and 3–5 in the upper row. Coordinates span
+[-1.5, 1.5] × [-1, 1] before scaling. S2's z-up axes correspond to renderer
+(x, z, y); its face numbers and local orientations are preserved.
+All face edges are cuts, with fade distance measured in atlas units.
+
+A planar source samples this atlas. Periodic planar textures can still jump at
+cube seams because the joined edges reverse or rotate their local axes;
+arbitrary planar translation does not preserve seam matching. Sphere sources
+retain their own spherical coordinates.
+
 ### Space-time rendering
 
 A POV display lights each column at its own moment. With two opposing arms,
@@ -1783,7 +1801,7 @@ plot, scan, and pullback paths. They do not own a canvas or effect lifecycle.
 | `core/math/pixel_mapping.h` | Sphere/pixel coordinates using the calibrated LED-center latitude profile. |
 | `core/math/display_geometry.h` | Display latitude profiles, row spacing, and pole-cap geometry. |
 | `core/math/spherical.h` | Canonical axes, sphere generators, tangent frames and bases, and parallel transport. |
-| `core/math/projections.h` | Bonne, Peirce quincuncial, Airocean, folded sinusoidal, and equirectangular sphere-to-plane kernels. |
+| `core/math/projections.h` | Bonne, Peirce quincuncial, Airocean, S2, folded sinusoidal, and equirectangular sphere-to-plane kernels. |
 | `core/math/stereographic.h`, `core/math/mobius.h`, `core/math/lenses.h` | Stereographic projections, fractional-linear transforms, and sphere-domain lens kernels. |
 | `core/math/rotate.h`, `core/math/projection_patterns.h` | Angle wrapping, canvas-to-sphere projection, and shared projected-pattern coordinates. |
 | `core/math/noise_field.h`, `core/math/spherical_field.h`, `core/math/spherical_harmonics.h` | Noise sampling, spherical fields, and harmonic evaluation. |

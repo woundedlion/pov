@@ -14,6 +14,7 @@ struct ProjMirrorFrame {
   In::Op::ProjectPeirceV3::Params peirce;
   In::Op::ProjectPeirceSquareFastV3::Params peirce_fast;
   In::Op::ProjectAiroceanV3::Params airocean;
+  In::Op::ProjectS2::Params s2;
 };
 
 struct ProjMirrorBinding {
@@ -94,6 +95,15 @@ struct AiroceanProjMirror : ProjMirrorBase {
   }
 };
 
+struct S2ProjMirror : ProjMirrorBase {
+  static float central_meridian(const ProjMirrorFrame &frame) {
+    return frame.s2.central_meridian;
+  }
+  static float coordinate_scale(const ProjMirrorFrame &frame) {
+    return frame.s2.coordinate_scale;
+  }
+};
+
 /** Compiles a chain with one projection at entry 1 and applies the value set
     to every block. */
 template <typename OpParams>
@@ -130,6 +140,8 @@ inline ProjMirrorFrame project_mirror(In::ChainProgram &program,
     mirror.peirce = param_as<In::Op::ProjectPeirceV3::Params>(program, 1);
   } else if (id == In::Op::ProjectAiroceanV3::ID) {
     mirror.airocean = param_as<In::Op::ProjectAiroceanV3::Params>(program, 1);
+  } else if (id == In::Op::ProjectS2::ID) {
+    mirror.s2 = param_as<In::Op::ProjectS2::Params>(program, 1);
   } else {
     mirror.meridian = param_as<In::Op::MeridianProjectChainParams>(program, 1);
   }
@@ -202,6 +214,7 @@ inline void test_shader_chain_projection_frame_policy() {
   expect_project_frame_policy<In::Op::ProjectPeirceSquareFastV3>();
   expect_project_frame_policy<In::Op::ProjectBonneV3>();
   expect_project_frame_policy<In::Op::ProjectAiroceanV3>();
+  expect_project_frame_policy<In::Op::ProjectS2>();
 }
 
 /** Erased-vs-bound parity of the projection at entry 1. */
@@ -251,6 +264,7 @@ inline void run_project_parity(const char *op_id, ValueSet set) {
     auto changed = project_mirror(program, ctx);
     changed.peirce_fast.coordinate_scale = 1.0f;
     changed.airocean.coordinate_scale = 1.0f;
+    changed.s2.coordinate_scale = 1.0f;
     expect_project_parameter_control<Bound>(program, ctx, changed);
   }
   program.clear();
@@ -354,6 +368,8 @@ inline void test_shader_chain_parity_project_ops() {
     run_project_parity<
         PB::Projection::Airocean<AiroceanProjMirror, false, true>,
         In::Op::ProjectAiroceanV3::Params>(In::Op::ProjectAiroceanV3::ID, set);
+    run_project_parity<PB::Projection::S2<S2ProjMirror>,
+                       In::Op::ProjectS2::Params>(In::Op::ProjectS2::ID, set);
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     if (!arm_project_op_chain<In::Op::ProjectAiroceanV3::Params>(

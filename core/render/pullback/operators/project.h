@@ -53,7 +53,7 @@ projection_frame_topology(const Extra &...extra) {
 
 /** @brief Parameter family of the projection operators.
     @details `singularity-fade` is read by projections with a singular locus; it is
-    omitted for folded sinusoidal, Bonne, and Airocean. */
+    omitted for projections without a singular locus. */
 struct ProjectChainParams {
   /** ProjectionFrame topology value. */
   uint8_t frame = static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER);
@@ -469,6 +469,27 @@ struct ProjectAiroceanV3
     return Projection::airocean(local, params.layout == 1, true,
                                 params.coordinate_scale, prepared.meridian_cos,
                                 prepared.meridian_sin);
+  }
+};
+
+/** @brief SPHERE-to-PLANE crossing: Google S2's quadratic cube mapping. */
+struct ProjectS2
+    : ProjectOpModel<ProjectS2, ScaledProjectParams<RegularProjectChainParams>,
+                     true> {
+  static constexpr const char *ID = "project.s2.v1";
+  static constexpr const char *NAME = "Google S2 Cube-to-Sphere";
+
+  static float plane_bound(const Params &params, float) {
+    return 2.0f * fabsf(params.coordinate_scale);
+  }
+
+  static ProjectionResult project(const math::Vector &local,
+                                  const Params &params,
+                                  const Prepared &prepared) {
+    return Projection::from_kernel(
+        projections::s2_projection(local, prepared.meridian_cos,
+                                   prepared.meridian_sin),
+        params.coordinate_scale);
   }
 };
 

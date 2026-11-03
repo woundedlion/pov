@@ -568,7 +568,7 @@ inline void test_shader_chain_schema_and_field_ids() {
        {"project.stereographic.v2", "project.folded-sinusoidal.v2",
         "project.equirectangular.v2", "project.gnomonic.v2",
         "project.peirce.v3", "project.peirce-square-fast.v3",
-        "project.bonne.v3", "project.airocean.v3"}) {
+        "project.bonne.v3", "project.airocean.v3", "project.s2.v1"}) {
     const auto *projection_found = require_operator(id);
     if (!projection_found)
       return;

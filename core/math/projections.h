@@ -31,7 +31,7 @@
 /**
  * @file projections.h
  * @brief Sphere-to-plane projection kernels: folded sinusoidal,
- *        equirectangular, Bonne, Peirce quincuncial, and Fuller Airocean.
+ *        equirectangular, Bonne, Peirce quincuncial, Fuller Airocean, and S2.
  * @details Kernels are pure and frame-independent; the caller applies the
  * coordinate scale and the pole attenuation.
  */
@@ -144,6 +144,73 @@ inline float wrap_longitude(float longitude) {
   if (wrapped < 0.0f)
     wrapped += math::TWO_PI_F;
   return wrapped - math::PI_F;
+}
+
+/**
+ * @brief Google S2 quadratic mapping in a centered three-column, two-row atlas.
+ * @details Faces 0, 1, 2 occupy the lower row and 3, 4, 5 the upper row.
+ * S2's z-up frame is (x, z, y) in the renderer's y-up frame. Each face is
+ * a unit square with independent cuts on all edges.
+ * @param v Unit direction on the sphere.
+ * @param meridian_cos Cosine of the central meridian.
+ * @param meridian_sin Sine of the central meridian.
+ * @return Atlas coordinates, S2 face id, and nearest face-edge distance.
+ */
+HS_O3_FN inline ProjectionKernelResult
+s2_projection(const math::Vector &v, float meridian_cos, float meridian_sin) {
+  const float x = v.x * meridian_cos + v.z * meridian_sin;
+  const float y = v.z * meridian_cos - v.x * meridian_sin;
+  const float z = v.y;
+  const float ax = fabsf(x), ay = fabsf(y), az = fabsf(z);
+  const uint8_t axis = ax > ay ? (ax > az ? 0 : 2) : (ay > az ? 1 : 2);
+  const float dominant = axis == 0 ? x : (axis == 1 ? y : z);
+  const uint8_t face = axis + (dominant < 0.0f ? 3 : 0);
+  float u, w;
+  switch (face) {
+  case 0:
+    u = y / x;
+    w = z / x;
+    break;
+  case 1:
+    u = -x / y;
+    w = z / y;
+    break;
+  case 2:
+    u = -x / z;
+    w = -y / z;
+    break;
+  case 3:
+    u = z / x;
+    w = y / x;
+    break;
+  case 4:
+    u = z / y;
+    w = -x / y;
+    break;
+  default:
+    u = -y / z;
+    w = -x / z;
+    break;
+  }
+  // Inverse of S2's quadratic cell-space to cube-space mapping.
+  const float s = u >= 0.0f ? 0.5f * sqrtf(1.0f + 3.0f * u)
+                            : 1.0f - 0.5f * sqrtf(1.0f - 3.0f * u);
+  const float t = w >= 0.0f ? 0.5f * sqrtf(1.0f + 3.0f * w)
+                            : 1.0f - 0.5f * sqrtf(1.0f - 3.0f * w);
+  const float distances[] = {s, 1.0f - s, t, 1.0f - t};
+  uint8_t edge = 0;
+  for (uint8_t candidate = 1; candidate < 4; ++candidate)
+    if (distances[candidate] < distances[edge])
+      edge = candidate;
+  return {.coords = math::Complex(s + float(face % 3) - 1.5f,
+                                  t + float(face / 3) - 1.0f),
+          .region_id = face,
+          .component_id = 0,
+          .boundary_flags = projection_boundary(ProjectionBoundary::CUT),
+          .fade_edge_distance = fmaxf(0.0f, distances[edge]),
+          .flags = 0,
+          .traits = projection_traits(ProjectionTrait::CUT),
+          .edge_class = static_cast<uint8_t>(4 * face + edge)};
 }
 
 /**
