@@ -1909,7 +1909,7 @@ inline const Case *all_cases(int &n) {
        case_pullback_operator_invalid_coverage_mode,
        "core/render/pullback/operators/sample.h",
        "(coverage_mode <= static_cast<uint8_t>("
-       "ProjectionCoverageMode::EDGE_FADE)) "
+       "ProjectionCoverageMode::EDGE_FADE_SQUARED)) "
        "sample operator: invalid projection coverage mode"},
       {"pullback_operator_invalid_weight_mode",
        case_pullback_operator_invalid_weight_mode,
