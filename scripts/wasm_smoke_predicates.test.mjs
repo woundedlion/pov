@@ -400,6 +400,20 @@ test('native control candidates prefer declared resource fields over legacy came
   assert.ok(promotedControlNames('flow.edge-width', descriptor, catalog).includes('velocity.Warp Edge Width'));
 });
 
+test('an authored native affine period does not require a lattice sampler', () => {
+  const run = bindings();
+  run.documents.push({document: 'grid.shader.json', effect: 'grid',
+    parameterIds: ['slide.lattice-period'],
+    descriptor: {chain: [
+      {label: 'slide', resource_key: 'plane', operator: 'warp.affine.v3'},
+      {label: 'sample', operator: 'sample.grid.v3'},
+    ]}, presets: [{values: {'slide.lattice-period': 2.5}}]});
+  run.controls.set('grid', new Set(['plane.Lattice Period']));
+  assert.deepEqual(promotedBindingProblems(run), []);
+  run.controls.get('grid').clear();
+  assert.match(promotedBindingProblems(run)[0], /"slide.lattice-period" must match the compiled affine/);
+});
+
 test('typed twist controls follow arbitrary resource keys and repetition', () => {
   const descriptor = { chain: [{ label: 'whorl', operator: 'sphere.lens.twist.v2' }] };
   assert.deepEqual(engineControlNames('whorl.twist-angle', descriptor), ['whorl.Twist Angle (rad)']);

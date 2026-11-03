@@ -152,10 +152,10 @@ export function promotedControlNames(parameterId, descriptor, catalog = null) {
 
 function liveDerivedControl(binding, parameterId, name, registered) {
   if (name === undefined) return false;
-  if (binding.sourceId !== null) return true;
   const split = parameterId.indexOf('.');
   const label = parameterId.slice(0, split);
   const field = parameterId.slice(split + 1);
+  if (binding.sourceId !== null || field === 'lattice-period') return true;
   const resource = name.slice(0, name.lastIndexOf('.'));
   return name === field || name.endsWith('.' + field)
     || [label + '.modulation-source', resource + '.modulation-source', 'modulation-source',
