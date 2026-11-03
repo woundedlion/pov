@@ -279,9 +279,9 @@ finish_step(const math::Vector &input, const math::Vector &step,
  * @param path_length_required Whether to report angular travel.
  * @return Displaced direction and accumulated arc length. */
 template <math::tangent_field::TangentField F, typename IntegratorPolicy>
-HS_O3_FN inline SurfaceResult step_field(const math::Vector &input,
-                                         const F &field, float strength,
-                                         bool path_length_required) {
+__attribute__((always_inline)) HS_O3_FN inline SurfaceResult
+step_field(const math::Vector &input, const F &field, float strength,
+           bool path_length_required) {
   if (strength == 0.0f)
     return {input, 0.0f};
   const bool SMALL = fabsf(strength) * field.speed_bound() <= 0.5f;
@@ -347,6 +347,81 @@ struct Field : PrepareFromState<State> {
   }
 };
 
+/** @brief Prepared direct-noise tangent field. */
+struct DirectNoiseField {
+  const FastNoiseLite &noise; ///< Prepared generator.
+  math::NoiseBasis basis;     ///< Octave structure.
+  float scale;                ///< Spatial frequency.
+  math::Vector loop_offset;   ///< Closed-loop position.
+  float direction_cos;        ///< Steering cosine.
+  float direction_sin;        ///< Steering sine.
+  /** @brief Samples the steered tangent.
+   * @param p Unit direction.
+   * @return Bounded tangent velocity. */
+  __attribute__((always_inline)) math::Vector
+  velocity(const math::Vector &p) const {
+    return math::sample_direct_tangent(
+        noise, basis, math::noise_sphere_coordinate(p, scale, loop_offset), p,
+        direction_cos, direction_sin);
+  }
+  /** @brief Uniform speed bound. @return One. */
+  constexpr float speed_bound() const { return 1.0f; }
+  /** @brief Covariant derivative bound. @return Unbounded noise derivative. */
+  constexpr float lipschitz_bound() const { return INFINITY; }
+};
+
+/** @brief Prepared runtime-topology curl-noise tangent field. */
+struct DynamicCurlNoiseField {
+  const FastNoiseLite &noise; ///< Prepared generator.
+  math::NoiseBasis basis;     ///< Octave structure.
+  math::TangentLimit limit;   ///< Velocity saturation.
+  float scale;                ///< Spatial frequency.
+  math::Vector loop_offset;   ///< Closed-loop position.
+  /** @brief Samples the bounded curl tangent.
+   * @param p Unit direction.
+   * @return Bounded tangent velocity. */
+  __attribute__((always_inline)) math::Vector
+  velocity(const math::Vector &p) const {
+    return math::sample_curl_tangent(
+        noise, basis, math::noise_sphere_coordinate(p, scale, loop_offset), p,
+        limit);
+  }
+  /** @brief Uniform speed bound. @return One. */
+  constexpr float speed_bound() const { return 1.0f; }
+  /** @brief Covariant derivative bound. @return Unbounded noise derivative. */
+  constexpr float lipschitz_bound() const { return INFINITY; }
+};
+
+/** @brief Prepared curl field retaining qualified gradient specialization.
+ * @tparam Basis Octave structure.
+ * @tparam Limit Velocity saturation.
+ * @tparam InlineUnitGradient Whether to inline the qualified gradient. */
+template <math::NoiseBasis Basis, math::TangentLimit Limit,
+          bool InlineUnitGradient>
+struct CurlNoiseField {
+  const FastNoiseLite &noise; ///< Prepared generator.
+  float scale;                ///< Spatial frequency.
+  math::Vector loop_offset;   ///< Closed-loop position.
+  bool unit_default_gradient; ///< Qualified generator transform.
+  /** @brief Samples the qualified or general curl tangent.
+   * @param p Unit direction.
+   * @return Bounded tangent velocity. */
+  __attribute__((always_inline)) math::Vector
+  velocity(const math::Vector &p) const {
+    const math::Vector coordinate =
+        math::noise_sphere_coordinate(p, scale, loop_offset);
+    if constexpr (Basis == math::NoiseBasis::SIMPLEX)
+      if (unit_default_gradient)
+        return math::sample_unit_simplex_curl_tangent<InlineUnitGradient>(
+            noise, coordinate, p, Limit);
+    return math::sample_curl_tangent(noise, Basis, coordinate, p, Limit);
+  }
+  /** @brief Uniform speed bound. @return One. */
+  constexpr float speed_bound() const { return 1.0f; }
+  /** @brief Covariant derivative bound. @return Unbounded noise derivative. */
+  constexpr float lipschitz_bound() const { return INFINITY; }
+};
+
 /**
  * @brief Displaces a sphere point along a steered noise tangent.
  * @param input Unit point on the sphere.
@@ -366,13 +441,10 @@ direct_noise(const math::Vector &input, const FastNoiseLite &noise,
              const math::Vector &loop_offset, float strength,
              float direction_cos, float direction_sin,
              bool path_length_required) {
-  if (strength == 0.0f)
-    return {input, 0.0f};
-  const math::Vector q =
-      math::noise_sphere_coordinate(input, scale, loop_offset);
-  const math::Vector tangent = math::sample_direct_tangent(
-      noise, basis, q, input, direction_cos, direction_sin);
-  return finish_step(input, strength * tangent, path_length_required);
+  const DirectNoiseField field{noise,       basis,         scale,
+                               loop_offset, direction_cos, direction_sin};
+  return step_field<DirectNoiseField, Euler>(input, field, strength,
+                                             path_length_required);
 }
 
 /**
@@ -412,16 +484,9 @@ curl_midpoint_step(const math::Vector &input, const FastNoiseLite &noise,
                    math::NoiseBasis basis, math::TangentLimit limit,
                    float scale, const math::Vector &loop_offset, float distance,
                    bool path_length_required) {
-  const math::Vector first =
-      curl_field(input, noise, basis, limit, scale, loop_offset);
-  const math::Vector midpoint =
-      math::sphere_exp_map_half_radian(input, 0.5f * distance * first);
-  const math::Vector midpoint_field =
-      curl_field(midpoint, noise, basis, limit, scale, loop_offset);
-  return finish_step(
-      input,
-      distance * math::parallel_transport(midpoint, input, midpoint_field),
-      path_length_required);
+  const DynamicCurlNoiseField field{noise, basis, limit, scale, loop_offset};
+  return step_field<DynamicCurlNoiseField, Midpoint>(input, field, distance,
+                                                     path_length_required);
 }
 
 /**
@@ -443,24 +508,18 @@ curl_noise(const math::Vector &input, const FastNoiseLite &noise,
            math::TangentLimit limit, float scale,
            const math::Vector &loop_offset, float strength,
            bool path_length_required) {
-  if (strength == 0.0f)
-    return {input, 0.0f};
-  if (integrator == Integrator::EULER)
-    return finish_step(
-        input,
-        strength * curl_field(input, noise, basis, limit, scale, loop_offset),
-        path_length_required);
-  if (integrator == Integrator::MIDPOINT)
-    return curl_midpoint_step(input, noise, basis, limit, scale, loop_offset,
-                              strength, path_length_required);
-  const SurfaceResult first =
-      curl_midpoint_step(input, noise, basis, limit, scale, loop_offset,
-                         0.5f * strength, path_length_required);
-  SurfaceResult second =
-      curl_midpoint_step(first.sphere, noise, basis, limit, scale, loop_offset,
-                         0.5f * strength, path_length_required);
-  second.path_length += first.path_length;
-  return second;
+  const DynamicCurlNoiseField field{noise, basis, limit, scale, loop_offset};
+  switch (integrator) {
+  case Integrator::EULER:
+    return step_field<DynamicCurlNoiseField, Euler>(input, field, strength,
+                                                    path_length_required);
+  case Integrator::MIDPOINT:
+    return step_field<DynamicCurlNoiseField, Midpoint>(input, field, strength,
+                                                       path_length_required);
+  default:
+    return step_field<DynamicCurlNoiseField, Midpoint2>(input, field, strength,
+                                                        path_length_required);
+  }
 }
 
 /**
@@ -569,34 +628,17 @@ struct CurlNoise : PrepareFromState<State> {
   __attribute__((always_inline)) HS_O3_FN static SurfaceResult
   apply(const math::Vector &input, const FrameState &frame,
         const Prepared &prepared) {
-    if constexpr (IntegratorPolicy::VALUE == Integrator::EULER) {
-      const float STRENGTH = State::strength(frame);
-      if (STRENGTH == 0.0f)
-        return {input, 0.0f};
-      math::Vector tangent;
-      if constexpr (Basis == math::NoiseBasis::SIMPLEX &&
-                    OWNED_GRADIENT_PREPARE &&
-                    requires { prepared.unit_default_gradient; }) {
-        if (prepared.unit_default_gradient)
-          tangent =
-              math::sample_unit_simplex_curl_tangent<INLINE_UNIT_GRADIENT>(
-                  State::noise(frame),
-                  math::noise_sphere_coordinate(input, State::scale(frame),
-                                                prepared.loop_offset),
-                  input, Limit);
-        else
-          tangent = curl_field(input, State::noise(frame), Basis, Limit,
-                               State::scale(frame), prepared.loop_offset);
-      } else
-        tangent = curl_field(input, State::noise(frame), Basis, Limit,
-                             State::scale(frame), prepared.loop_offset);
-      return finish_step(input, STRENGTH * tangent,
-                         State::path_length_required(frame));
-    } else
-      return curl_noise(input, State::noise(frame), Basis,
-                        IntegratorPolicy::VALUE, Limit, State::scale(frame),
-                        prepared.loop_offset, State::strength(frame),
-                        State::path_length_required(frame));
+    bool qualified = false;
+    if constexpr (Basis == math::NoiseBasis::SIMPLEX &&
+                  OWNED_GRADIENT_PREPARE &&
+                  requires { prepared.unit_default_gradient; })
+      qualified = prepared.unit_default_gradient;
+    using NoiseField = CurlNoiseField<Basis, Limit, INLINE_UNIT_GRADIENT>;
+    const NoiseField field{State::noise(frame), State::scale(frame),
+                           prepared.loop_offset, qualified};
+    return step_field<NoiseField, IntegratorPolicy>(
+        input, field, State::strength(frame),
+        State::path_length_required(frame));
   }
 };
 
