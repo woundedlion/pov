@@ -130,8 +130,8 @@ struct MobiusGenerator {
  * @param generator Generator matrix.
  * @param t Signed flow duration.
  * @return Determinant-one transform, subject to float rounding. */
-inline MobiusParams mobius_exp(const MobiusGenerator &generator,
-                               float t = 1.0f) {
+HS_FLASH_MEMBER inline MobiusParams mobius_exp(const MobiusGenerator &generator,
+                                               float t = 1.0f) {
   const Complex T(t, 0.0f);
   const Complex square =
       (generator.alpha * generator.alpha + generator.beta * generator.gamma) *
@@ -162,7 +162,7 @@ inline MobiusParams mobius_exp(const MobiusGenerator &generator,
 /** @brief Principal projective logarithm of a nondegenerate Mobius matrix.
  * @param matrix Nondegenerate coefficient matrix.
  * @return Traceless generator of the same projective map. */
-inline MobiusGenerator mobius_log(const MobiusParams &matrix) {
+HS_FLASH_MEMBER inline MobiusGenerator mobius_log(const MobiusParams &matrix) {
   Complex root = csqrt(matrix.a * matrix.d - matrix.b * matrix.c);
   Complex a = matrix.a / root, b = matrix.b / root;
   Complex c = matrix.c / root, d = matrix.d / root;

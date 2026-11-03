@@ -10,6 +10,8 @@
 
 #include <array>
 
+#include "core/platform/platform.h"
+
 namespace math::tangent_field {
 /** @brief Peak correction and normalized covariant derivative bound. */
 struct TermConstants {
@@ -17,7 +19,8 @@ struct TermConstants {
   float lipschitz; ///< Covariant derivative operator-norm bound.
 };
 /** @brief Mode constants indexed by l*(l+1)/2+m. */
-inline constexpr std::array<TermConstants, 45> MODE_CONSTANTS = {{
+inline constexpr std::array<TermConstants, 45> MODE_CONSTANTS HS_PROGMEM_UNIQUE(
+    tangent_mode_constants) = {{
     {0.000000000e+00f, 0.000000000e+00f}, {2.026389521e+00f, 9.910891089e-01f},
     {2.026389521e+00f, 9.910891089e-01f}, {1.046423049e+00f, 1.982178218e+00f},
     {9.062289434e-01f, 1.982178218e+00f}, {9.062289434e-01f, 1.982178218e+00f},
@@ -43,9 +46,10 @@ inline constexpr std::array<TermConstants, 45> MODE_CONSTANTS = {{
     {1.697871446e-01f, 7.928712871e+00f},
 }};
 /** @brief Tetrahedral, octahedral and dodecahedral constants. */
-inline constexpr std::array<TermConstants, 3> INVARIANT_CONSTANTS = {{
-    {6.063093294e-01f, 2.462378911e+00f},
-    {8.822978623e-01f, 3.532720641e+00f},
-    {3.957206171e-01f, 5.430043539e+00f},
-}};
+inline constexpr std::array<TermConstants, 3>
+    INVARIANT_CONSTANTS HS_PROGMEM_UNIQUE(tangent_invariant_constants) = {{
+        {6.063093294e-01f, 2.462378911e+00f},
+        {8.822978623e-01f, 3.532720641e+00f},
+        {3.957206171e-01f, 5.430043539e+00f},
+    }};
 } // namespace math::tangent_field

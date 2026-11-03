@@ -47,7 +47,7 @@ struct ConformalGenerator {
   /** @brief Evaluates the conformal velocity.
    * @param p Unit direction.
    * @return Tangent velocity. */
-  Vector velocity(const Vector &p) const {
+  HS_FLASH_MEMBER Vector velocity(const Vector &p) const {
     return cross(rotation, p) + boost - p * dot(boost, p);
   }
   /** @brief Uniform speed bound.
@@ -258,7 +258,7 @@ public:
   /** @brief Evaluates the assembled tangent velocity.
    * @param p Unit world direction.
    * @return Tangent velocity in world coordinates. */
-  Vector velocity(const Vector &p) const {
+  HS_FLASH_MEMBER Vector velocity(const Vector &p) const {
     const Vector local = oriented ? rotate(p, orientation.conjugate()) : p;
     Vector result(0.0f, 0.0f, 0.0f);
     for (const auto &term : terms) {
