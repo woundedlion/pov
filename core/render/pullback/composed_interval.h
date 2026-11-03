@@ -11,6 +11,27 @@
 
 namespace Pullback {
 
+/** @brief Samples independent spin and wander clocks of a keyed rotation.
+ * @param clock Receives sampled clocks and conjugate.
+ * @param start Previous endpoint.
+ * @param end Current endpoint.
+ * @param fraction Frame progress. */
+HS_HOT_FLASH_MEMBER inline void sample_keyed_rotation(
+    ComposedDetail::ClockState<RotationParams, ResourceKind::ROTATION> &clock,
+    const ComposedDetail::ClockState<RotationParams, ResourceKind::ROTATION>
+        &start,
+    const ComposedDetail::ClockState<RotationParams, ResourceKind::ROTATION>
+        &end,
+    float fraction) {
+  clock.wander =
+      Spacetime::TemporalRotation(start.wander, end.wander).sample(fraction);
+  clock.spin_phase = Spacetime::sample_clock(start.spin_phase, end.spin_phase,
+                                             fraction, math::TWO_PI_F);
+  clock.conjugate =
+      (math::make_rotation(math::Y_AXIS, clock.spin_phase) * clock.wander)
+          .conjugate();
+}
+
 /** @brief Shared preparation for column samples of one frame interval. */
 template <typename Frame> class FrameInterval {
   using Params = decltype(Frame::params);
@@ -235,13 +256,7 @@ public:
       const auto &delta = deltas.template get<Resource::KEY>();
       if constexpr (Resource::KIND == ResourceKind::ROTATION) {
         const auto &end = to.resources.template get<Resource::KEY>();
-        clock.wander = Spacetime::TemporalRotation(start.wander, end.wander)
-                           .sample(fraction);
-        clock.spin_phase = Spacetime::sample_clock(
-            start.spin_phase, end.spin_phase, fraction, math::TWO_PI_F);
-        clock.conjugate =
-            (math::make_rotation(math::Y_AXIS, clock.spin_phase) * clock.wander)
-                .conjugate();
+        sample_keyed_rotation(clock, start, end, fraction);
       } else if constexpr (Resource::KIND == ResourceKind::SOURCE) {
         clock.primary = Spacetime::ClockInterval::apply(
             start.primary, delta.primary, fraction);
