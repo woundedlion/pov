@@ -228,6 +228,15 @@ inline void test_invariants_and_vector_fields_follow_fold_groups() {
     const auto toroidal = single_term(term);
     term.kind = TF::Kind::POLOIDAL;
     const auto poloidal = single_term(term);
+    const auto image_sample = [&](const TF::PotentialField &field,
+                                  math::Vector point, float strength) {
+      const auto tangent = field.velocity(point) * strength;
+      const float arc = tangent.length();
+      const auto warped =
+          arc > 1e-8f ? point * cosf(arc) + tangent * (sinf(arc) / arc) : point;
+      return lenses::polyhedral_kaleidoscope_lens(warped, mirrors[symmetry]);
+    };
+    float reflected_image_difference = 0.0f;
     for (int index = 0; index < 30; ++index) {
       const auto p = direction(index, 30);
       const auto folded =
@@ -244,17 +253,54 @@ inline void test_invariants_and_vector_fields_follow_fold_groups() {
                       4e-5f);
         HS_EXPECT_VEC(toroidal.velocity(gp),
                       apply(g, toroidal.velocity(p)) * determinant, 4e-5f);
+        HS_EXPECT_VEC(image_sample(poloidal, gp, 0.05f),
+                      image_sample(poloidal, p, 0.05f), 5e-5f);
+        HS_EXPECT_VEC(
+            image_sample(toroidal, gp, 0.05f),
+            image_sample(toroidal, p, determinant > 0.0f ? 0.05f : -0.05f),
+            5e-5f);
+        if (determinant < 0.0f)
+          reflected_image_difference += (image_sample(toroidal, gp, 0.05f) -
+                                         image_sample(toroidal, p, 0.05f))
+                                            .length();
       }
     }
+    HS_EXPECT_GT(reflected_image_difference, 0.01f);
   }
   TF::PotentialTerm azimuthal{TF::TermType::MODE, TF::Kind::POLOIDAL, 6, 6,
                               1.0f};
   const auto prepared = TF::prepare_term(azimuthal);
+  const auto azimuthal_poloidal = single_term(azimuthal);
+  azimuthal.kind = TF::Kind::TOROIDAL;
+  const auto azimuthal_toroidal = single_term(azimuthal);
+  const auto image_sample = [](const TF::PotentialField &field,
+                               math::Vector point, float strength) {
+    const auto tangent = field.velocity(point) * strength;
+    const float arc = tangent.length();
+    const auto warped =
+        arc > 1e-8f ? point * cosf(arc) + tangent * (sinf(arc) / arc) : point;
+    return lenses::kaleidoscope_lens(warped);
+  };
+  float reflected_image_difference = 0.0f;
   for (int index = 0; index < 1000; ++index) {
     const auto p = direction(index);
     HS_EXPECT_NEAR(prepared.sample(p).value,
                    prepared.sample(lenses::kaleidoscope_lens(p)).value, 2e-5f);
+    const math::Vector reflected(p.x, p.y, -p.z);
+    const math::Vector rotated(0.5f * p.x + 0.8660254038f * p.z, p.y,
+                               -0.8660254038f * p.x + 0.5f * p.z);
+    HS_EXPECT_VEC(image_sample(azimuthal_poloidal, reflected, 0.05f),
+                  image_sample(azimuthal_poloidal, p, 0.05f), 5e-5f);
+    HS_EXPECT_VEC(image_sample(azimuthal_toroidal, reflected, 0.05f),
+                  image_sample(azimuthal_toroidal, p, -0.05f), 5e-5f);
+    HS_EXPECT_VEC(image_sample(azimuthal_toroidal, rotated, 0.05f),
+                  image_sample(azimuthal_toroidal, p, 0.05f), 5e-5f);
+    reflected_image_difference +=
+        (image_sample(azimuthal_toroidal, reflected, 0.05f) -
+         image_sample(azimuthal_toroidal, p, 0.05f))
+            .length();
   }
+  HS_EXPECT_GT(reflected_image_difference, 0.01f);
 }
 
 inline void test_rossby_haurwitz_matches_spherical_stream_function() {
@@ -313,6 +359,21 @@ inline void test_normalized_terms_have_tight_speed_bounds() {
       const float unsold =
           sqrtf(term.l * (term.l + 1) * (2 * term.l + 1) / (4.0f * math::PI_F));
       HS_EXPECT_LE(peak / correction, unsold);
+      double reference_peak = 0.0;
+      for (int index = 0; index <= 10000; ++index) {
+        const double latitude = index * (3.14159265358979323846 / 20000.0);
+        const double y = std::sin(latitude), radius = std::cos(latitude);
+        const auto q = legendre_reference(term.l, term.m, y);
+        const double power = std::pow(radius, std::max(0, int(term.m) - 1));
+        const double meridional = q.second * std::pow(radius, term.m + 1) -
+                                  term.m * y * q.first * power;
+        const double zonal = term.m * q.first * power;
+        reference_peak = std::max(
+            reference_peak, std::max(std::abs(meridional), std::abs(zonal)));
+      }
+      const double normalized_peak =
+          reference_peak * std::abs(TF::prepare_term(term).scale);
+      HS_EXPECT_NEAR(normalized_peak, 1.0 / 1.01, 1e-4);
     }
   };
   for (int l = 1; l <= 8; ++l)
@@ -372,6 +433,7 @@ inline void test_fold_advisory_precedes_sampled_jacobian_onset() {
     const float advisory =
         TF::fold_strength(field.speed_bound(), field.lipschitz_bound());
     float minimum_at_advisory = 1.0f;
+    float onset = std::numeric_limits<float>::infinity();
     for (int index = 0; index < 500; ++index) {
       const auto p = direction(index, 500);
       const auto u = field.velocity(p);
@@ -395,6 +457,35 @@ inline void test_fold_advisory_precedes_sampled_jacobian_onset() {
                strength * strength * sinc * b * c;
       };
       minimum_at_advisory = std::min(minimum_at_advisory, jacobian(advisory));
+      const float cap = math::PI_F / field.speed_bound();
+      if (speed <= 1e-5f) {
+        const float discriminant = 0.25f * (a - d) * (a - d) + b * c;
+        if (discriminant >= 0.0f) {
+          const float root = sqrtf(discriminant);
+          for (const float eigenvalue :
+               {0.5f * (a + d) - root, 0.5f * (a + d) + root})
+            if (eigenvalue < 0.0f && -1.0f / eigenvalue <= cap)
+              onset = std::min(onset, -1.0f / eigenvalue);
+        }
+      }
+      float previous = 0.0f;
+      for (int scan = 1; scan <= 256; ++scan) {
+        const float strength = cap * scan / 256.0f;
+        if (jacobian(strength) <= 0.0f) {
+          float low = previous, high = strength;
+          for (int iteration = 0; iteration < 18; ++iteration) {
+            const float middle = 0.5f * (low + high);
+            if (jacobian(middle) > 0.0f)
+              low = middle;
+            else
+              high = middle;
+          }
+          onset = std::min(onset, high);
+          break;
+        }
+        previous = strength;
+      }
+
       if (index % 50 == 0) {
         const float strength = advisory * 1.3f;
         const auto transform = [&](math::Vector point) {
@@ -412,6 +503,15 @@ inline void test_fold_advisory_precedes_sampled_jacobian_onset() {
       }
     }
     HS_EXPECT_GT(minimum_at_advisory, 0.0f);
+    HS_EXPECT_TRUE(std::isfinite(onset));
+    HS_EXPECT_LE(advisory, onset);
+    if (terms[0].type == TF::TermType::TETRAHEDRAL &&
+        terms[0].kind == TF::Kind::POLOIDAL) {
+      HS_EXPECT_NEAR(onset, 0.40185f, 0.004f);
+      HS_EXPECT_GT((onset - advisory) / onset, 0.05f);
+      HS_EXPECT_LT((onset - advisory) / onset, 0.08f);
+      std::printf("tetrahedral onset %.6f advisory %.6f\n", onset, advisory);
+    }
   }
   const auto tetrahedral =
       single_term({TF::TermType::TETRAHEDRAL, TF::Kind::POLOIDAL, 0, 0, 1.0f});
