@@ -395,9 +395,9 @@ struct DisplaceSymmetric
                           ? static_cast<TermType>(params.symmetry)
                           : TermType::MODE;
     const uint8_t order = ORDERS[params.symmetry];
-    terms[0] = {
-        type, static_cast<Kind>(params.kind), order, order, params.amplitude,
-        0};
+    const float amplitude = order % 2 ? -params.amplitude : params.amplitude;
+    terms[0] = {type, static_cast<Kind>(params.kind), order, order, amplitude,
+                0};
     return Prepared(terms);
   }
 };

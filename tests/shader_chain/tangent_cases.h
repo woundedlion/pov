@@ -96,6 +96,29 @@ struct RotationTestField {
   float lipschitz_bound() const { return 1.0f; }
 };
 
+/** @brief Symmetric sectoral fields use the positive real-power invariant. */
+inline void test_symmetric_sectoral_phase() {
+  constexpr uint8_t SYMMETRIES[] = {0, 4, 5, 6, 7, 8};
+  constexpr int ORDERS[] = {6, 3, 4, 5, 6, 8};
+  for (size_t i = 0; i < std::size(SYMMETRIES); ++i) {
+    const float longitude = math::PI_F / (2 * ORDERS[i]);
+    const math::Vector p(cosf(longitude), 0, sinf(longitude));
+    const math::Vector azimuth(-p.z, 0, p.x);
+    In::Op::SymmetricDisplaceParams params;
+    params.symmetry = SYMMETRIES[i];
+    for (uint8_t kind = 0; kind < 2; ++kind) {
+      params.kind = kind;
+      const auto field = In::Op::DisplaceSymmetric::field(params, 0);
+      const math::Vector expected =
+          (kind == 0 ? math::Y_AXIS : -azimuth) / 1.01f;
+      const auto velocity = field.velocity(p);
+      HS_EXPECT_NEAR(velocity.x, expected.x, 2e-5f);
+      HS_EXPECT_NEAR(velocity.y, expected.y, 2e-5f);
+      HS_EXPECT_NEAR(velocity.z, expected.z, 2e-5f);
+    }
+  }
+}
+
 /** @brief Every field integrator preserves equatorial rotation and arc length. */
 inline void test_tangent_step_integrators() {
   const RotationTestField field;
