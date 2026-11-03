@@ -272,11 +272,8 @@ struct FieldDisplaceModel : ValueStateModel<StateT> {
    * @param params Authored field controls.
    * @return Null when admitted, otherwise the range diagnostic. */
   static const char *validate(const Params &params) {
-    for (const auto &f : Params::FIELDS)
-      if (!std::isfinite(params.*f.member) || params.*f.member < f.min ||
-          params.*f.member > f.max)
-        return FIELD_RANGE_WARNING;
-    if (params.integrator > 2 || !Derived::valid_terms(params))
+    if (!Fields::valid(params) || params.integrator > 2 ||
+        !Derived::valid_terms(params))
       return FIELD_RANGE_WARNING;
     return nullptr;
   }
