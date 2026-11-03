@@ -120,6 +120,45 @@ inline bool arm_project_op_chain(In::ChainProgram &program, const char *op_id,
       program, chain, frames, set);
 }
 
+/** @brief Source edge fading reaches the center of an S2 face at every scale. */
+inline void test_shader_chain_s2_full_face_edge_fade() {
+  auto fixture = std::make_unique<ProgramFixture>();
+  auto &program = fixture->program;
+  if (!arm_project_op_chain<In::Op::ProjectS2::Params>(
+          program, In::Op::ProjectS2::ID, 0, ValueSet::DEFAULTS))
+    return;
+  auto &projection = param_as<In::Op::ProjectS2::Params>(program, 1);
+  auto &source = param_as<In::Op::GridSampleParams>(program, 2);
+  projection.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
+  source.coverage_mode =
+      static_cast<uint8_t>(In::Op::ProjectionCoverageMode::EDGE_FADE);
+  const auto *width_field = [&]() -> const In::ParamFieldInfo * {
+    for (const auto &field : program.ops()[2].op->schema_span())
+      if (std::string_view(field.id) == "edge-width")
+        return &field;
+    return nullptr;
+  }();
+  HS_EXPECT_TRUE(width_field != nullptr);
+  if (!width_field)
+    return;
+  const auto ctx = shared_resources().context();
+  const math::Vector POINTS[] = {{1, 0, 1}, {1, 0, 5.0f / 12.0f}, {1, 0, 0}};
+  const float COVERAGE[] = {0.0f, 0.5f, 1.0f};
+  for (float scale : {0.25f, 1.0f, 4.0f}) {
+    projection.coordinate_scale = scale;
+    source.edge_width = 0.5f * scale;
+    HS_EXPECT_TRUE(source.edge_width <= width_field->max);
+    program.prepare(ctx);
+    for (size_t index = 0; index < std::size(POINTS); ++index) {
+      const PB::SphereSample seed{POINTS[index].normalized(), 0.0f};
+      const auto plane = run_entry<PB::PlaneSample>(program, ctx, 1, seed);
+      const auto field = run_entry<PB::FieldSample>(program, ctx, 2, plane);
+      HS_EXPECT_NEAR(field.coverage, COVERAGE[index], 1e-6f);
+    }
+  }
+  program.clear();
+}
+
 inline ProjMirrorFrame project_mirror(In::ChainProgram &program,
                                       const In::FrameContext &ctx) {
   ProjMirrorFrame mirror;

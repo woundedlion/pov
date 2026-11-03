@@ -1090,6 +1090,26 @@ export function fixedDerivedBinding(descriptor, parameterId, values) {
  * @returns {Object} Converted document, or the original when already current. */
 export function migrateLegacyShaderDocument(document, catalog) {
   if (!Array.isArray(document?.descriptor?.chain)) return document;
+  const expandedWidths = [];
+  const parameters = Array.isArray(document.descriptor.parameters)
+    ? document.descriptor.parameters : [];
+  for (const [index, parameter] of parameters.entries()) {
+    if (typeof parameter?.id !== 'string' || !parameter.id.endsWith('.edge-width') ||
+        parameter.domain?.minimum !== 0 || parameter.domain?.maximum !== 1) continue;
+    const label = parameter.id.slice(0, -'.edge-width'.length);
+    const slot = document.descriptor.chain.find((entry) => entry?.label === label);
+    const operator = Array.isArray(catalog?.operators)
+      ? catalog.operators.find((entry) => entry.id === slot?.operator) : null;
+    const field = Array.isArray(operator?.params)
+      ? operator.params.find((candidate) => candidate.id === 'edge-width') : null;
+    if (!field?.topology && field?.min === 0 && field.max > 1)
+      expandedWidths.push({ index, maximum: Math.fround(field.max) });
+  }
+  if (expandedWidths.length) {
+    document = structuredClone(document);
+    for (const { index, maximum } of expandedWidths)
+      document.descriptor.parameters[index].domain.maximum = maximum;
+  }
   const legacyIds = new Set(['colorize.generated-palette.v3',
     'modulate.field.v1', 'modulate.hue-shift.v1']);
   const legacy = document.descriptor.chain.filter(

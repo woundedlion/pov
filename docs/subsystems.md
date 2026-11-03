@@ -169,6 +169,9 @@ left to right in the lower row, and 3–5 in the upper row. Coordinates span
 [-1.5, 1.5] × [-1, 1] before scaling. S2's z-up axes correspond to renderer
 (x, z, y); its face numbers and local orientations are preserved.
 All face edges are cuts, with fade distance measured in atlas units.
+On a planar source, select **Coverage Mode → edge-fade** and adjust **Edge Width**
+over 0–16. A width of half the projection's coordinate scale fades from each
+seam to the face center.
 
 A planar source samples this atlas. Periodic planar textures can still jump at
 cube seams because the joined edges reverse or rotate their local axes;

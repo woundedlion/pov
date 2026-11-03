@@ -442,7 +442,7 @@
         "classification": "preset",
         "default": 0.10000000149011612,
         "domain": {
-          "maximum": 1,
+          "maximum": 16,
           "minimum": 0
         },
         "id": "sample.edge-width",

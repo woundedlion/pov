@@ -143,7 +143,7 @@ concat_fields(const std::array<Field<BaseOwner>, N> &base,
 }
 
 /**
- * @brief The shared `edge-width` field: range [0, 1], linear.
+ * @brief The shared `edge-width` field: range [0, 16], linear.
  * @details Uses `FieldGate::ALWAYS`; @p topology_gate limits applicable
  * topology values, and a null @p name leaves the field unregistered.
  * @tparam Owner The family struct the field belongs to.
@@ -156,7 +156,7 @@ template <typename Owner>
 constexpr Field<Owner> edge_width_field(float Owner::*member,
                                         const char *name = "Edge Width",
                                         TopologyGate topology_gate = {}) {
-  return {"edge-width",      member,       name, 0.0f, 1.0f, FieldCurve::LERP,
+  return {"edge-width",      member,       name, 0.0f, 16.0f, FieldCurve::LERP,
           FieldGate::ALWAYS, topology_gate};
 }
 

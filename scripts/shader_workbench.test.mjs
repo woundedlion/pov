@@ -125,6 +125,31 @@ test('retired Twist rate controls are rejected without conversion', () => {
   assert.deepEqual(document, original);
 });
 
+test('legacy edge-width domains expand without changing authored values', () => {
+  const document = example();
+  const slot = document.descriptor.chain.find(({ operator }) => operator === 'sample.grid.v3');
+  const operator = CATALOG.operators.find(({ id }) => id === slot.operator);
+  const field = operator.params.find(({ id }) => id === 'edge-width');
+  const width = declarationFromCatalogField(slot.label, field, operator.id);
+  document.descriptor.parameters.push(width);
+  document.descriptor.serialization.fields.push(width.id);
+  for (const preset of document.preset_bank.presets) preset.values[width.id] = width.default;
+  width.domain = { minimum: 0, maximum: 1 };
+  const before = structuredClone(document);
+  const result = compile(document);
+  assert.equal(result.status, 'VALID', JSON.stringify(result.diagnostics));
+  const current = result.document.descriptor.parameters.find(({ id }) => id === width.id);
+  assert.equal(current.domain.maximum, 16);
+  assert.equal(current.default, width.default);
+  assert.deepEqual(result.document.preset_bank, before.preset_bank);
+  assert.deepEqual(document, before);
+  result.document.preset_bank.presets[0].values[width.id] = 2;
+  assert.equal(compile(result.document).status, 'VALID');
+  assert.deepEqual(compile(result.document).document, result.document);
+  width.domain.maximum = 0.5;
+  assert.equal(compile(document).status, 'INVALID');
+});
+
 test('Mobius generators admit zero and interpolate every component', () => {
   const document = withAdmissionOperator('sphere.lens.mobius.v3', 1);
   assert.equal(compile(document).status, 'VALID');
