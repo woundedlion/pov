@@ -50,7 +50,7 @@ class TestLicenseExceptions(unittest.TestCase):
 
 class TestExpectedMarker(unittest.TestCase):
     def test_effects_are_all_rights_reserved(self):
-        self.assertEqual(lc.expected_marker("effects/Voronoi.h"), lc.RESERVED)
+        self.assertEqual(lc.expected_marker("effects/SphericalHarmonics.h"), lc.RESERVED)
 
     def test_everything_else_is_polyform(self):
         for path in ("core/math/3dmath.h", "hardware/pov_sync.h",
@@ -76,19 +76,19 @@ class TestExpectedMarker(unittest.TestCase):
 class TestHeaderIssue(unittest.TestCase):
     def test_matching_headers_pass(self):
         self.assertIsNone(lc.header_issue("core/math/3dmath.h", POLYFORM_HEADER))
-        self.assertIsNone(lc.header_issue("effects/Voronoi.h", RESERVED_HEADER))
+        self.assertIsNone(lc.header_issue("effects/SphericalHarmonics.h", RESERVED_HEADER))
 
     def test_reserving_rights_LICENSE_grants_is_reported(self):
         issue = lc.header_issue("core/math/noise_field.h", RESERVED_HEADER)
         self.assertIn(lc.POLYFORM, issue)
 
     def test_granting_rights_LICENSE_reserves_is_reported(self):
-        issue = lc.header_issue("effects/Voronoi.h", POLYFORM_HEADER)
+        issue = lc.header_issue("effects/SphericalHarmonics.h", POLYFORM_HEADER)
         self.assertIn(lc.RESERVED, issue)
 
     def test_a_header_carrying_both_markers_is_reported(self):
         both = POLYFORM_HEADER.replace(" */\n", f" * {lc.RESERVED}\n */\n")
-        for path in ("core/math/noise_field.h", "effects/Voronoi.h"):
+        for path in ("core/math/noise_field.h", "effects/SphericalHarmonics.h"):
             self.assertIsNotNone(lc.header_issue(path, both), path)
 
     def test_a_third_party_header_carrying_first_party_terms_is_reported(self):

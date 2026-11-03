@@ -18,7 +18,7 @@ import {
 } from './wasm_smoke_predicates.mjs';
 
 test('every dark pass fails at every window length', () => {
-  const keys = ['RingShower@288x144', 'RingShower@96x20', 'Voronoi@288x144'];
+  const keys = ['RingShower@288x144', 'RingShower@96x20', 'SphericalHarmonics@288x144'];
   for (const frames of [1, 8, 24, 48, 120]) {
     const problems = darknessProblems({ frames, darkKeys: new Set(keys) });
     assert.equal(problems.length, keys.length);

@@ -90,7 +90,6 @@ constexpr std::array IDENTITY_GOLDENS{
     IdentityGolden{"SphericalHarmonics", "SphericalHarmonics",
                    0x9CB01486B8230EFEULL},
     IdentityGolden{"Thrusters", "Thrusters", 0x61547828E9116CB4ULL},
-    IdentityGolden{"Voronoi", "Voronoi", 0xBC5209F3455BC431ULL},
     IdentityGolden{"ShaderChain", "shader-chain", 0x1968066A5CD68D2BULL},
 };
 

@@ -40,7 +40,6 @@ namespace effects_tests {
 #include "tests/effects/galaxies_tests.h"
 #include "tests/effects/displacement_field.h"
 #include "tests/effects/shape_shifter.h"
-#include "tests/effects/voronoi_cases.h"
 #include "tests/effects/islamic_stars.h"
 #include "tests/effects/column_time_parity.h"
 #include "tests/effects/mesh_capture_cases.h"
@@ -187,13 +186,6 @@ inline int run_effects_tests() {
   run_effect_case_dreamballs_retained_history_resets();
   // Both tiers: additional white-box cases.
   run_effect_case_needs_full_frame_gate();
-  run_effect_case_voronoi_axes_use_uniform_sampler();
-  run_effect_case_voronoi_segment_render_matches_full_frame();
-  run_effect_case_voronoi_instantaneous_render_pins();
-  run_effect_case_voronoi_endpoint_pairs_match_brute_force();
-  run_effect_case_voronoi_temporal_toggle();
-  run_effect_case_voronoi_reseed_resets_history();
-  run_effect_case_voronoi_retained_corners_match_search();
   run_effect_case_sh_field_blend_endpoints_and_frame();
   run_effect_case_sh_field_stays_inside_unit_range();
   run_effect_case_sh_polarity_split_and_ao_shaping();
@@ -291,8 +283,6 @@ inline int run_effects_tests() {
 
   // FULL tier only (HS_EFFECTS_FULL=1).
   if (effects_full_suite()) {
-    run_effect_case_voronoi_union_candidates_cover_nearest();
-    run_effect_case_voronoi_column_time_matches_brute_force();
     run_effect_case_sh_pullback_matches_direct_colorize();
     run_effect_case_sh_morph_chain_rearms();
     run_effect_case_gs_evolution_stays_bounded();

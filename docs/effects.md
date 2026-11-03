@@ -14,7 +14,6 @@ All screenshots below were captured from the [live WebAssembly simulator](https:
   - [HankinSolids](#hankinsolids)
   - [SphericalHarmonics](#sphericalharmonics)
   - [MobiusRings](#mobiusrings)
-  - [Voronoi](#voronoi)
   - [PetalFlow](#petalflow)
   - [DreamBalls](#dreamballs)
   - [Comets](#comets)
@@ -143,18 +142,6 @@ Visualizes the real spherical harmonics Yˡₘ(θ, φ) as a colored scalar field
 A latitude-longitude grid that undergoes live Möbius transformation animation via `MobiusWarpCircularTransformer`. Each column draws the grid with the warp, counter-rotation, pole holes and colour interpolated to that column's time.
 
 **Parameters**: Rings, Lines, Alpha
-
-</td></tr></table>
-
-<table border="0"><tr>
-<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Voronoi" target="_blank"><img src="screenshots/Voronoi.png" alt="Voronoi" width="280"></a></td>
-<td valign="top">
-
-### Voronoi
-
-Spherical Voronoi diagram with animated seed positions. Cells are always filled with per-site palette colors (blended across the seam between the nearest two sites when **Sharpness** > 0; 0 gives hard edges, like infinite sharpness); an optional black border seam is painted between neighboring cells when **Border Thick** > 0 (off by default).
-
-**Parameters**: Num Sites, Speed, Sharpness, Border Thick
 
 </td></tr></table>
 

@@ -86,7 +86,6 @@ g2_ship)
   run PetalFlow profile 30 32
   run Raymarch profile 30 32
   run RingSpin profile 60 32
-  run Voronoi profile 30 32
   ;;
 g3_ship)
   run ShapeShifter profile 269 16

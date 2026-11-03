@@ -8,14 +8,14 @@ import {
 } from './check_screenshots.mjs';
 
 test('an exact roster/gallery pairing partitions to nothing', () => {
-  assert.deepEqual(partitionGallery(['Voronoi', 'Thrusters'],
-    ['Thrusters', 'Voronoi']),
+  assert.deepEqual(partitionGallery(['SphericalHarmonics', 'Thrusters'],
+    ['Thrusters', 'SphericalHarmonics']),
   { missing: [], caseMismatch: [], orphan: [] });
 });
 
 test('a registered effect with no PNG is missing', () => {
   const { missing, caseMismatch, orphan } =
-    partitionGallery(['Voronoi', 'Thrusters'], ['Voronoi']);
+    partitionGallery(['SphericalHarmonics', 'Thrusters'], ['SphericalHarmonics']);
   assert.deepEqual(missing, ['Thrusters']);
   assert.deepEqual(caseMismatch, []);
   assert.deepEqual(orphan, []);
@@ -23,7 +23,7 @@ test('a registered effect with no PNG is missing', () => {
 
 test('a PNG naming no registered effect is an orphan', () => {
   const { missing, caseMismatch, orphan } =
-    partitionGallery(['Voronoi'], ['Voronoi', 'Retired']);
+    partitionGallery(['SphericalHarmonics'], ['SphericalHarmonics', 'Retired']);
   assert.deepEqual(missing, []);
   assert.deepEqual(caseMismatch, []);
   assert.deepEqual(orphan, ['Retired']);
@@ -39,15 +39,15 @@ test('a case-only divergence is reported as a case mismatch', () => {
 
 test('a stray case variant beside the exact PNG is reported', () => {
   const { missing, caseMismatch, orphan } =
-    partitionGallery(['Voronoi'], ['voronoi', 'Voronoi']);
+    partitionGallery(['SphericalHarmonics'], ['sphericalharmonics', 'SphericalHarmonics']);
   assert.deepEqual(missing, []);
   assert.deepEqual(orphan, []);
-  assert.deepEqual(caseMismatch, ["voronoi.png vs roster 'Voronoi'"]);
+  assert.deepEqual(caseMismatch, ["sphericalharmonics.png vs roster 'SphericalHarmonics'"]);
 });
 
 test('capture offsets naming an unregistered effect are rejected', () => {
-  assert.deepEqual(invalidCaptureOffsets(['Voronoi'],
-    { Voronoi: 30000, Retired: 30000 }), ['Retired=30000']);
+  assert.deepEqual(invalidCaptureOffsets(['SphericalHarmonics'],
+    { SphericalHarmonics: 30000, Retired: 30000 }), ['Retired=30000']);
 });
 
 test('non-finite and negative capture offsets are rejected', () => {

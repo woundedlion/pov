@@ -117,7 +117,7 @@ Firmware, WebAssembly and native test targets share one engine:
 
 ```text
 C++ codebase
-  effects/ (44 visual algorithms) + workbench/
+  effects/ (43 visual algorithms) + workbench/
               |
   core/                       Rendering engine
     scan / plot / pullback / raycast -> filter pipeline -> Canvas pixel buffer
@@ -329,7 +329,7 @@ The paths fall into two families:
 |---|---|---|---|---|---|
 | [Scan](#53-forward-rendering-scan) | Forward | Analytic shapes and mesh faces with a signed distance | `Scan::Ring`, `Scan::Star`, `Scan::Mesh`, … (`scan.h`, `sdf.h`) | Filter pipeline | IslamicStars, HankinSolids, RingSpin |
 | [Plot](#54-forward-rendering-plot) | Forward | Lines, curves, wireframes and particle trails | `Plot::Line`, `Plot::Multiline`, `Plot::Mesh`, `Plot::ParticleSystem`, … (`plot.h`) | Filter pipeline | HopfFibration, Fishbowl, MeshFeedback |
-| [Full-screen shading](#55-full-screen-shading) | Inverse | A shader evaluated at every pixel's direction | `Scan::Shader::draw*` (`scan.h`) | Replaces canvas pixels | Voronoi, SphericalHarmonics, BZReactionDiffusion |
+| [Full-screen shading](#55-full-screen-shading) | Inverse | A shader evaluated at every pixel's direction | `Scan::Shader::draw*` (`scan.h`) | Replaces canvas pixels | SphericalHarmonics, BZReactionDiffusion |
 | [Pullback](#56-pullback-shading) | Inverse | A typed chain of stages that maps a view direction to a color | `Pullback::Pipeline` (`pullback.h`), `Pullback::ComposedEffect` (`pullback/composed_effect.h`) | Full-screen shading | AlienOcean, the Kaleidoscope family, MobiusGrid |
 | [Raycasting](#57-raycasting-and-raymarching) | Inverse | Rays cast from the display into a 3D scene or 4D slice | `Scan::Volume`, `Raycast::` (`render/ray.h`), `Pullback::RayStage` | Filter pipeline (`Scan::Volume`) or full-screen shading (`Raycast`) | Raymarch, HyperLattice |
 
@@ -399,8 +399,8 @@ The entry points trade generality for speed:
 - `draw(canvas, shader)` — one fragment shader per sample.
 - `draw(canvas, fragment_shader, vertex_shader)` — a vertex shader runs once at the pixel center and the fragment shader once per subsample, so per-pixel work is not repeated.
 - `draw_cached(canvas, shader)` — the same typed draw with its traversal placed in cached flash. Composed effects use it.
-- `draw_grid`, `walk_grid` and `draw_block_coherent` — hand the shader the row's subsample grid or a block classification, for effects that own their sampling (the reaction-diffusion effects and Voronoi).
-- `draw_columns` — prepare a shader once per column for static factored frames (HyperLattice). `draw_column_times` also prepares state once per sweep time for column-time sampling (composed effects, ShaderChain, SphericalHarmonics and the radial-surface renderer). `draw_block_columns` prepares state once per sweep time and a shader once per block of each column (Voronoi).
+- `draw_grid` and `walk_grid` — hand the shader the row's subsample grid, for effects that own their sampling (the reaction-diffusion effects).
+- `draw_columns` — prepare a shader once per column for static factored frames (HyperLattice). `draw_column_times` also prepares state once per sweep time for column-time sampling (composed effects, ShaderChain, SphericalHarmonics and the radial-surface renderer).
 
 `walk_grid`, `walk_object_grid` and `draw_grid` write only the columns an open `TimeWindow` admits: one run of half-turn columns on both arms, inside the clip. `Spacetime::simulate_in_slabs` uses it to shade a simulation one sweep slab at a time between substeps, as BZReactionDiffusion does. `walk_object_grid` shades a turning object in its own space, each column through its `Scan::ObjectBasisTable` frame at its sweep time.
 
@@ -699,7 +699,7 @@ With `{.persist = true}`, `Canvas` copies the previous frame's buffer into the n
 
 Every effect — screenshot, description and parameter list — plus the shader authoring workbench and the legacy roster is documented in [`docs/effects.md`](https://github.com/woundedlion/pov/blob/master/docs/effects.md).
 
-The compile-time roster and tests carry 44 firmware-capable effects. Native and WASM builds add the simulator-only `ShaderChain` interpreter, which opens through its standalone tool rather than the effect sidebar ([§7.5](#75-the-effect-sidebar-sidebarjs)). The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST`) contains 37 effects, including the promoted composed effects; it excludes Dynamo, MobiusRings and Thrusters for their 96×20 display profile and JewelMelt, KaleidoscopeMelt, KaleidoscopeStainedGlass and RingShower by product curation, as recorded by `HS_PHANTASM_EXCLUDED_EFFECTS`. Each entry carries its own on-air duration alongside its name in the 37-entry roster. Current shipping-segment Teensy measurements for all 37 effects, including Galaxies, are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
+The compile-time roster and tests carry 43 firmware-capable effects. Native and WASM builds add the simulator-only `ShaderChain` interpreter, which opens through its standalone tool rather than the effect sidebar ([§7.5](#75-the-effect-sidebar-sidebarjs)). The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST`) contains 36 effects, including the promoted composed effects; it excludes Dynamo, MobiusRings and Thrusters for their 96×20 display profile and JewelMelt, KaleidoscopeMelt, KaleidoscopeStainedGlass and RingShower by product curation, as recorded by `HS_PHANTASM_EXCLUDED_EFFECTS`. Each entry carries its own on-air duration alongside its name in the 36-entry roster. Current shipping-segment Teensy measurements for all 37 effects, including Galaxies, are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
 
 ### 6.7 Fenced Effect Transitions (`control/transition.h`)
 
@@ -1470,7 +1470,7 @@ files define line-ending policy and working-artifact exclusions.
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    44 headers covering 44 effects, all firmware — BZReactionDiffusion.h,
+├── effects/                    43 headers covering 43 effects, all firmware — BZReactionDiffusion.h,
 │                                HopfFibration.h, IslamicStars.h, Raymarch.h, … — plus
 │                                common/ for code two or more effects share (the
 │                                reaction-diffusion base reaction_diffusion.h and the
@@ -1623,7 +1623,6 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── run_effect_cases_roster.cpp Roster case wrappers and focused runner
 │   ├── run_effect_cases_shapeshifter_cases.cpp ShapeShifter case wrappers and focused runner
 │   ├── run_effect_cases_spherical_harmonics.cpp Spherical harmonics case wrappers and focused runner
-│   ├── run_effect_cases_voronoi.cpp Voronoi case wrappers and focused runner
 │   ├── run_render_goldens.cpp  Render regression runner, built native (render_goldens) and as Node-hosted WASM (render_goldens_wasm)
 │   ├── temporal_oracle.h  Shared per-column frozen-reference comparisons
 │   ├── pattern/           Source and cube cases owned by test_pullback.h and test_color.h

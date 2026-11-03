@@ -37,8 +37,8 @@ inline void test_needs_full_frame_gate() {
   // Representative non-stateful effects -> keep band clipping (default false).
   {
     reset();
-    Voronoi<DEFAULT_W, DEFAULT_H> fx;
-    check(fx, false, "Voronoi");
+    SphericalHarmonics<DEFAULT_W, DEFAULT_H> fx;
+    check(fx, false, "SphericalHarmonics");
   }
   {
     reset();

@@ -251,27 +251,6 @@ void run_effect_case_dreamballs_retained_history_resets();
 /** @brief Runs test_needs_full_frame_gate with its case context. */
 void run_effect_case_needs_full_frame_gate();
 
-/** @brief Runs test_voronoi_axes_use_uniform_sampler with its case context. */
-void run_effect_case_voronoi_axes_use_uniform_sampler();
-
-/** @brief Runs test_voronoi_segment_render_matches_full_frame with its case context. */
-void run_effect_case_voronoi_segment_render_matches_full_frame();
-
-/** @brief Runs test_voronoi_instantaneous_render_pins with its case context. */
-void run_effect_case_voronoi_instantaneous_render_pins();
-
-/** @brief Runs test_voronoi_endpoint_pairs_match_brute_force with its case context. */
-void run_effect_case_voronoi_endpoint_pairs_match_brute_force();
-
-/** @brief Runs test_voronoi_temporal_toggle with its case context. */
-void run_effect_case_voronoi_temporal_toggle();
-
-/** @brief Runs test_voronoi_reseed_resets_history with its case context. */
-void run_effect_case_voronoi_reseed_resets_history();
-
-/** @brief Runs test_voronoi_retained_corners_match_search with its case context. */
-void run_effect_case_voronoi_retained_corners_match_search();
-
 /** @brief Runs test_sh_field_blend_endpoints_and_frame with its case context. */
 void run_effect_case_sh_field_blend_endpoints_and_frame();
 
@@ -529,12 +508,6 @@ void run_effect_case_glitch_lens_unit_norm();
 
 /** @brief Runs test_mobius_rings_conformal_and_counter_rotation with its case context. */
 void run_effect_case_mobius_rings_conformal_and_counter_rotation();
-
-/** @brief Runs test_voronoi_union_candidates_cover_nearest with its case context. */
-void run_effect_case_voronoi_union_candidates_cover_nearest();
-
-/** @brief Runs test_voronoi_column_time_matches_brute_force with its case context. */
-void run_effect_case_voronoi_column_time_matches_brute_force();
 
 /** @brief Runs test_sh_pullback_matches_direct_colorize with its case context. */
 void run_effect_case_sh_pullback_matches_direct_colorize();

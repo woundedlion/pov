@@ -253,7 +253,6 @@ inline void check_roster_order_pinned() {
                                               "CosmicEyeball",
                                               "Thrusters",
                                               "KaleidoscopeStainedGlass",
-                                              "Voronoi",
                                               "Galaxies"};
   // Actual roster, expanded straight from the X-macro source of truth.
   static const char *const ACTUAL_ROSTER[] = {

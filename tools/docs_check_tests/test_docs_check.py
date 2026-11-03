@@ -664,37 +664,37 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_effect_roster_reads_definition_line_and_stops_without_continuation(self):
         source = "#define HS_EFFECT_LIST(X) X(Comets)\nX(NotInMacro)\n"
         self.assertEqual(dc.effect_roster(source), {"Comets"})
-        source = "#define HS_EFFECT_LIST(X) X(Comets) " + "\\\n" + "X(Voronoi)\n"
-        self.assertEqual(dc.effect_roster(source), {"Comets", "Voronoi"})
+        source = "#define HS_EFFECT_LIST(X) X(Comets) " + "\\\n" + "X(SphericalHarmonics)\n"
+        self.assertEqual(dc.effect_roster(source), {"Comets", "SphericalHarmonics"})
 
     def test_effect_roster_reads_the_macro_continuation(self):
         source = ("#define HS_EFFECT_COUNT_ADD(name) +1\n"
                   "#define HS_EFFECT_LIST(X)         \\\n"
                   "  X(Comets)                       \\\n"
-                  "  X(Voronoi)\n"
+                  "  X(SphericalHarmonics)\n"
                   "#define HS_PHANTASM_EFFECT_LIST(X) \\\n"
                   "  X(Comets)\n")
-        self.assertEqual(dc.effect_roster(source), {"Comets", "Voronoi"})
+        self.assertEqual(dc.effect_roster(source), {"Comets", "SphericalHarmonics"})
 
     def test_effect_roster_tolerates_whitespace_inside_the_parens(self):
         source = ("#define HS_EFFECT_LIST(X) \\\n"
                   "  X( Comets )             \\\n"
-                  "  X(Voronoi)\n")
-        self.assertEqual(dc.effect_roster(source), {"Comets", "Voronoi"})
+                  "  X(SphericalHarmonics)\n")
+        self.assertEqual(dc.effect_roster(source), {"Comets", "SphericalHarmonics"})
 
     def test_effect_roster_skips_commented_out_rows(self):
         source = ("#define HS_EFFECT_LIST(X) \\\n"
                   "  // X(Retired)           \\\n"
                   "  /* X(AlsoRetired) */    \\\n"
-                  "  X(Voronoi)\n")
-        self.assertEqual(dc.effect_roster(source), {"Voronoi"})
+                  "  X(SphericalHarmonics)\n")
+        self.assertEqual(dc.effect_roster(source), {"SphericalHarmonics"})
 
     def test_effect_roster_skips_a_multi_line_block_comment(self):
         source = ("#define HS_EFFECT_LIST(X) \\\n"
                   "  /* X(Retired)           \\\n"
                   "     X(AlsoRetired) */    \\\n"
-                  "  X(Voronoi)\n")
-        self.assertEqual(dc.effect_roster(source), {"Voronoi"})
+                  "  X(SphericalHarmonics)\n")
+        self.assertEqual(dc.effect_roster(source), {"SphericalHarmonics"})
 
     @staticmethod
     def _diagram(count):
@@ -703,12 +703,12 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_matching_effects_row_is_clean(self):
         entries = {PurePosixPath("effects"),
                    PurePosixPath("effects/Comets.h"),
-                   PurePosixPath("effects/Voronoi.h"),
+                   PurePosixPath("effects/SphericalHarmonics.h"),
                    PurePosixPath("effects/shared_palettes.h")}
         row = ("├── effects/  3 headers covering 2 effects plus the shared\n"
                + self._diagram(2))
         self.assertEqual(
-            dc.effects_row_issues(row, entries, {"Comets", "Voronoi"}), [])
+            dc.effects_row_issues(row, entries, {"Comets", "SphericalHarmonics"}), [])
 
     def test_matching_compact_effects_row_is_clean(self):
         entries = {PurePosixPath("effects"),
@@ -723,11 +723,11 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_effects_row_counts_are_checked_against_tree_and_roster(self):
         entries = {PurePosixPath("effects"),
                    PurePosixPath("effects/Comets.h"),
-                   PurePosixPath("effects/Voronoi.h"),
+                   PurePosixPath("effects/SphericalHarmonics.h"),
                    PurePosixPath("effects/shared_palettes.h")}
         row = ("├── effects/  9 headers covering 7 effects plus the shared\n"
                + self._diagram(2))
-        issues = dc.effects_row_issues(row, entries, {"Comets", "Voronoi"})
+        issues = dc.effects_row_issues(row, entries, {"Comets", "SphericalHarmonics"})
         self.assertEqual([issue.line for issue in issues], [1, 1])
         self.assertIn("claims 9 headers, the tracked tree has 3",
                       issues[0].message)
@@ -809,14 +809,14 @@ class TestDocumentationChecker(unittest.TestCase):
 
     _PLAYLIST_HEADER = ("#define HS_EFFECT_LIST(X) \\\n"
                         "  X(Comets)               \\\n"
-                        "  X(Voronoi)\n"
+                        "  X(SphericalHarmonics)\n"
                         "#define HS_SHADER_PRODUCT_GROUP(X) \\\n"
                         "  X(Comets, 30)                   \\\n"
-                        "  X(Voronoi, 30)\n"
+                        "  X(SphericalHarmonics, 30)\n"
                         "#define HS_PHANTASM_EFFECT_LIST(X) \\\n"
                         "  X(Comets, 120)                  \\\n"
-                        "  X(Voronoi,                      \\\n"
-                        "    hs_preset_window_seconds<Voronoi>())\n")
+                        "  X(SphericalHarmonics,                      \\\n"
+                        "    hs_preset_window_seconds<SphericalHarmonics>())\n")
 
     @staticmethod
     def _roster_prose(roster, playlist, sync):
@@ -844,7 +844,7 @@ class TestDocumentationChecker(unittest.TestCase):
 
     def test_phantasm_roster_reads_literal_and_derived_durations(self):
         self.assertEqual(dc.phantasm_roster(self._PLAYLIST_HEADER),
-                         {"Comets", "Voronoi"})
+                         {"Comets", "SphericalHarmonics"})
 
     def test_matching_roster_prose_is_clean(self):
         self.assertEqual(
@@ -903,22 +903,22 @@ class TestDocumentationChecker(unittest.TestCase):
     def _composed_row(effect_id, effect, presets):
         return f"| `{effect_id}` | `{effect}` | {presets} | — |\n"
 
-    def _composed_issues(self, rows, products=("Comets", "Voronoi")):
+    def _composed_issues(self, rows, products=("Comets", "SphericalHarmonics")):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "effects").mkdir()
             (root / "effects" / "Comets.h").write_text(
                 "static constexpr std::array<std::string_view, 2> "
                 'PRESET_IDS{\n    "comets", "comets-2"};\n', encoding="utf-8")
-            (root / "effects" / "Voronoi.h").write_text(
+            (root / "effects" / "SphericalHarmonics.h").write_text(
                 "// static constexpr std::array<std::string_view, 9> "
                 "PRESET_IDS{};\n"
                 "static constexpr std::array<std::string_view, 1> "
-                'PRESET_IDS{"voronoi"};\n', encoding="utf-8")
+                'PRESET_IDS{"sphericalharmonics"};\n', encoding="utf-8")
             (root / "effects" / "Fishbowl.h").write_text(
                 "struct Fishbowl {};\n", encoding="utf-8")
             entries = {PurePosixPath("effects", name)
-                       for name in ("Comets.h", "Voronoi.h", "Fishbowl.h")}
+                       for name in ("Comets.h", "SphericalHarmonics.h", "Fishbowl.h")}
             return [(issue.line, issue.message)
                     for issue in dc.composed_roster_issues(
                         root, self._COMPOSED_ROSTER + rows, entries,
@@ -926,13 +926,13 @@ class TestDocumentationChecker(unittest.TestCase):
 
     def test_matching_composed_roster_is_clean(self):
         rows = (self._composed_row("comets", "Comets", 2)
-                + self._composed_row("voronoi", "Voronoi", 1))
+                + self._composed_row("sphericalharmonics", "SphericalHarmonics", 1))
         self.assertEqual(self._composed_issues(rows), [])
 
     def test_composed_roster_preset_counts_are_checked_against_preset_ids(
             self):
         rows = (self._composed_row("comets", "Comets", 3)
-                + self._composed_row("voronoi", "Voronoi", 1))
+                + self._composed_row("sphericalharmonics", "SphericalHarmonics", 1))
         self.assertEqual(self._composed_issues(rows), [
             (5, "Comets presets stated as 3, PRESET_IDS holds 2")])
 
@@ -944,7 +944,7 @@ class TestDocumentationChecker(unittest.TestCase):
             (6, "composed roster claims 1 presets for Fishbowl, which "
                 "declares no PRESET_IDS"),
             (7, "composed roster names effects/Ghost.h, which is not tracked"),
-            (1, "composed roster omits Voronoi, which HS_SHADER_PRODUCT_GROUP "
+            (1, "composed roster omits SphericalHarmonics, which HS_SHADER_PRODUCT_GROUP "
                 "names"),
             (6, "composed roster lists Fishbowl, which "
                 "HS_SHADER_PRODUCT_GROUP does not name"),
@@ -955,7 +955,7 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_duplicate_composed_roster_row_is_reported(self):
         rows = (self._composed_row("comets", "Comets", 2)
                 + self._composed_row("comets-2", "Comets", 2)
-                + self._composed_row("voronoi", "Voronoi", 1))
+                + self._composed_row("sphericalharmonics", "SphericalHarmonics", 1))
         self.assertEqual(self._composed_issues(rows), [
             (6, "composed roster lists Comets twice")])
 

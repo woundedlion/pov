@@ -157,7 +157,6 @@ namespace effect_identities {
   X(SphericalHarmonics, "spherical-harmonics", "SphericalHarmonics",           \
     "SphericalHarmonics", "SphericalHarmonics")                                \
   X(Thrusters, "thrusters", "Thrusters", "Thrusters", "Thrusters")             \
-  X(Voronoi, "voronoi", "Voronoi", "Voronoi", "Voronoi")                       \
   X(ShaderChain, "shader-chain", "ShaderChain", "shader-chain", "shader-chain")
 
 /**

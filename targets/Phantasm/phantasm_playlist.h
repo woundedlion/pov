@@ -58,8 +58,7 @@
   X(RingSpin, 60)                                                              \
   X(SphericalHarmonics, hs_preset_window_seconds<SphericalHarmonics>())        \
   X(CosmicEyeball, 60)                                                         \
-  X(KaleidoscopeSmooth, hs_preset_window_seconds<KaleidoscopeSmooth>())        \
-  X(Voronoi, 30)
+  X(KaleidoscopeSmooth, hs_preset_window_seconds<KaleidoscopeSmooth>())
 
 /**
  * @brief Expands to +1 so HS_PHANTASM_EFFECT_LIST sums into an entry count.

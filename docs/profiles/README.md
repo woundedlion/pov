@@ -1,12 +1,12 @@
 # On-device effect profiles — Teensy 4.0, segmented mode
 
-On-device timing for the **37 effects in the Phantasm image**, captured on
+On-device timing for the **36 effects in the Phantasm image**, captured on
 bench-attached Teensy 4.0 boards with the real segmented POV driver
 (`POVSegmented<288, 4, 480>`), DMA LEDs, and live flywheel/DMA ISRs. Each
 effect renders one 288×144 image quadrant (about 10,368 pixels); the 62.5 ms
 display window makes cadence quantize to 16, 8, 5.3 fps, and below.
 
-Shipping reports cover all 37 effects: 37 completed captures.
+Shipping reports cover all 36 effects: 36 completed captures.
 
 Recorded capture revisions retain their original IDs. The
 [source revision crosswalk](source_revisions.json) preserves each one-to-one
@@ -92,7 +92,6 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | [AlienOcean](shipping/profile_alienocean_teensy_2026-10-23.md) / [O3](O3/profile_alienocean_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 24.092 | 44.614 | 🟢 24.98 | 🟢 0/447 (0.00%) | 🟢 0/1088 (0%) | +13,648 B | +11,440 B | ship 2026-10-23 14:07<br>O3 2026-08-26 02:28 |
 | [AlienCore](shipping/profile_aliencore_teensy_2026-10-23.md) / [O3](O3/profile_aliencore_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 21.483 | 38.170 | 🟢 20.10 | 🟢 0/447 (0.00%) | 🟢 0/1088 (0%) | +13,648 B | +11,440 B | ship 2026-10-23 14:08<br>O3 2026-08-26 02:30 |
 | [SphericalHarmonics](shipping/profile_sphericalharmonics_teensy_2026-10-23.md) / [O3](O3/profile_sphericalharmonics_teensy_2026-08-26.md) § | `sh_rasterize` | 🟢 13.296 (24) | 17.983 | 🟢 11.70 (24) | 🟢 0/1503 (0.00%) | 🟢 0/3488 (0%) | +8,016 B | +6,400 B | ship 2026-10-23 13:45<br>O3 2026-08-26 01:57 |
-| [Voronoi](shipping/profile_voronoi_teensy_2026-10-23.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 9.242 | 13.222 | 🟢 7.71 | 🟢 0/447 (0.00%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-10-23 13:33<br>O3 2026-08-26 01:39 |
 
 Millefiori was re-captured on COM3 at `86497f3b02e0e78909a36907b94845a35e34b948`; its ongoing peak is 56.200 ms, with setup separate. Older shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, except IslamicStars, re-captured on COM3 at `e55cab1116daea41a4a9de5b793282040db0ed19`, and HankinSolids and ShapeShifter, re-captured on COM4 at `bda58b65d3fc317f5d6ccbe29888014738a0ee25`. MindSplatter was re-captured on COM3 on October 30 at `c87e96523a1b7cc97e8e7bb5529cc52e78ad1503`; its row uses the 90-second complete-cycle pass, including the wrap (setup separate). Millefiori uses a 130-second capture with `HS_PROFILE_EPOCH_REVS=1200` to validate ongoing animation beyond its 60-second show entry. The remaining captures use their Phantasm show-segment budgets except IslamicStars: its matched shipping/O3 pair uses TS4, and the shipping re-capture runs 210 s with 16-frame windows and `HS_PROFILE_EPOCH_REVS=1920` (the normal show segment is 306 s). Capture times are local raw-log mtimes.
 The October 23 kaleidoscope captures used column strobe off. The October 31

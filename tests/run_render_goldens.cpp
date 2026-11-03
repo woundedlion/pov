@@ -21,7 +21,6 @@ int main() {
   hs_test::composed_effect_tests::test_mobius_grid_instantaneous_pixel_golden();
   hs_test::plot_parity_tests::
       test_filter_pipeline_effects_match_recorded_frames();
-  hs_test::effects_tests::test_voronoi_instantaneous_render_pins();
   hs_test::hyper_lattice_tests::test_instantaneous_render_pins();
   return (fixture.result() != 0 ||
           (hs_test::stats().skipped > 0 && hs_test::skips_are_errors()))

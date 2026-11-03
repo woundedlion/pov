@@ -47,9 +47,9 @@ class TestWarningGate(unittest.TestCase):
 
     def test_toolchain_warning_uses_innermost_first_party_inline_frame(self):
         context = (
-            "In file included from ./effects/Voronoi.h:3:\n"
+            "In file included from ./effects/SphericalHarmonics.h:3:\n"
             "    inlined from 'nearest' at ./core/spatial/kd_tree.h:182:14,\n"
-            "    inlined from 'classify' at ./effects/Voronoi.h:295:28:\n")
+            "    inlined from 'classify' at ./effects/SphericalHarmonics.h:295:28:\n")
         toolchain = "/x/.platformio/packages/toolchain-gccarmnoneeabi-teensy/include/bits/stl_algo.h"
         diagnostic = ":1818:32: warning: array subscript 16 is outside array bounds [-Warray-bounds=]"
         self.assertEqual(tw.extract_warnings(context + toolchain + diagnostic), {

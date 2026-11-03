@@ -39,7 +39,6 @@ predate their merge into ShaderChain.
 | RingShower | 49,152 | 0 | 0 | 49,152 |
 | Comets | 33,256 | 0 | 1,608 | 34,864 |
 | GnomonicStars | 27,112 | 0 | 1,608 | 28,720 |
-| Voronoi | 14,400 | 13,750 | 0 | 28,150 |
 | HankinSolids | 16,216 | 8,208 | 288 | 24,712 |
 | DreamBalls | 14,568 | 6,320 | 2,798 | 23,686 |
 | RingSpin | 18,176 | 0 | 1,608 | 19,784 |

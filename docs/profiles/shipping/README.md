@@ -1,7 +1,7 @@
 # Shipping selective-O3 profiles
 
 Ranked on-device results for the shipping `profile` image, covering the
-37 effects in `HS_PHANTASM_EFFECT_LIST`. All 37 have canonical reports: 37 completed captures. Steady peak is worst-frame render excluding setup frame 1; setup render is listed separately. Steady spilled counts frames whose render exceeded
+36 effects in `HS_PHANTASM_EFFECT_LIST`. All 36 have canonical reports: 36 completed captures. Steady peak is worst-frame render excluding setup frame 1; setup render is listed separately. Steady spilled counts frames whose render exceeded
 the 62.5 ms display window. Rows rank by spill fraction, then steady peak render.
 🟢 zero spill; 🔴 any spill.
 
@@ -43,7 +43,6 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | [AlienOcean](profile_alienocean_teensy_2026-10-23.md) | `fx_shader_draw` | 🟢 24.092 | 44.614 | 🟢 0/447 (0.00%) | 2026-10-23 14:07 |
 | [AlienCore](profile_aliencore_teensy_2026-10-23.md) | `fx_shader_draw` | 🟢 21.483 | 38.170 | 🟢 0/447 (0.00%) | 2026-10-23 14:08 |
 | [SphericalHarmonics](profile_sphericalharmonics_teensy_2026-10-23.md) § | `sh_rasterize` | 🟢 13.296 (24) | 17.983 | 🟢 0/1503 (0.00%) | 2026-10-23 13:45 |
-| [Voronoi](profile_voronoi_teensy_2026-10-23.md) | `vo_shade` | 🟢 9.242 | 13.222 | 🟢 0/447 (0.00%) | 2026-10-23 13:33 |
 
 Millefiori was re-captured on COM3 at `86497f3b02e0e78909a36907b94845a35e34b948`; its ongoing peak is 56.200 ms, with setup separate. Older shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, except IslamicStars, re-captured on COM3 at `e55cab1116daea41a4a9de5b793282040db0ed19`, and HankinSolids and ShapeShifter, re-captured on COM4 at `bda58b65d3fc317f5d6ccbe29888014738a0ee25`. MindSplatter was re-captured on COM3 on October 30 at `c87e96523a1b7cc97e8e7bb5529cc52e78ad1503`; its row uses the 90-second complete-cycle pass, including the wrap (setup separate). Millefiori uses a 130-second capture with `HS_PROFILE_EPOCH_REVS=1200` to validate ongoing animation beyond its 60-second show entry. The remaining captures use their Phantasm show-segment budgets except IslamicStars: its matched shipping/O3 pair uses TS4, and the shipping re-capture runs 210 s with 16-frame windows and `HS_PROFILE_EPOCH_REVS=1920` (the normal show segment is 306 s). Capture times are local raw-log mtimes.
 The October 23 kaleidoscope captures used column strobe off. The October 31

@@ -274,7 +274,7 @@ test('Chromium decoding agrees on malformed short indexed palettes',
   });
 
 test('sample committed gallery PNGs decode at the stored size', async () => {
-  for (const effect of ['IslamicStars', 'Thrusters', 'Voronoi']) {
+  for (const effect of ['IslamicStars', 'Thrusters', 'SphericalHarmonics']) {
     const file = join(REPO_ROOT, 'docs', 'screenshots', `${effect}.png`);
     assert.deepEqual(inspectPng(await readFile(file)),
       { width: GALLERY_WIDTH, height: GALLERY_HEIGHT }, effect);

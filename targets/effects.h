@@ -52,7 +52,6 @@
 #include "effects/ShapeShifter.h"
 #include "effects/SphericalHarmonics.h"
 #include "effects/Thrusters.h"
-#include "effects/Voronoi.h"
 
 /**
  * @brief Single source of truth for the registered effect roster, as an X-macro.
@@ -104,7 +103,6 @@
   X(CosmicEyeball)                                                             \
   X(Thrusters)                                                                 \
   X(KaleidoscopeStainedGlass)                                                  \
-  X(Voronoi)                                                                   \
   X(Galaxies)
 
 /// Phantasm renders one frame per half-revolution, so 480 RPM is 16 fps.

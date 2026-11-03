@@ -587,20 +587,6 @@ inline void case_planar_band_split_short_ring() {
                    Plot::ClipBand<16, 8>{});
 }
 
-/** @brief Death case: the coherent shader rejects a zero block edge. */
-inline void case_scan_block_coherent_zero_block() {
-  constexpr int W = 32, H = 16;
-  DeathEffect fx(W, H);
-  Canvas canvas(fx);
-  const math::Vector position = math::UP;
-  Scan::Shader::draw_block_coherent<W, H, 1>(
-      canvas, opaque(0), &position, scratch_arena_a,
-      [](const math::Vector &) { return Scan::Shader::BlockCell<1>{0}; },
-      [](const math::Vector &, const Scan::Shader::BlockCandidates<1> &) {
-        return Color4{};
-      });
-}
-
 /**
  * @brief Death case: the shader rejects a clip beyond its LUT width.
  * @details Direct construction exercises the downstream guard independently
