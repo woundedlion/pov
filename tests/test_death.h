@@ -146,6 +146,7 @@ template <typename T> inline T opaque(T v) {
 
 #include "tests/death/fixtures.h"
 #include "tests/death/animation_cases.h"
+#include "tests/death/authored_cases.h"
 #include "tests/death/callables_cases.h"
 #include "tests/death/color_cases.h"
 #include "tests/death/modulation_cases.h"
@@ -1931,6 +1932,42 @@ inline const Case *all_cases(int &n) {
        "core/render/pullback/operators/warp.h",
        "(params.harmonic < Warp::MAX_POLAR_HARMONIC) "
        "warp.polar-chart: invalid harmonic"},
+      {"authored_wave_shear_invalid_envelope",
+       case_authored_wave_shear_invalid_envelope,
+       "core/render/pullback/authored_warp.h",
+       "(State::params(frame).envelope <= 2) invalid warp envelope"},
+      {"authored_vector_noise_invalid_basis",
+       case_authored_vector_noise_invalid_basis,
+       "core/render/pullback/authored_warp.h",
+       "(params.basis <= 2 && params.envelope <= 2) invalid vector-noise topology"},
+      {"authored_polar_chart_invalid_mode",
+       case_authored_polar_chart_invalid_mode,
+       "core/render/pullback/authored_warp.h",
+       "(params.mode <= 1 && params.harmonic < MAX_POLAR_HARMONIC) invalid polar-chart topology"},
+      {"authored_curl_flow_invalid_integrator",
+       case_authored_curl_flow_invalid_integrator,
+       "core/render/pullback/authored_warp.h",
+       "(params.basis <= 2 && params.integrator <= 2) invalid curl-flow topology"},
+      {"authored_projected_noise_invalid_basis",
+       case_authored_projected_noise_invalid_basis,
+       "core/render/pullback/authored_source.h",
+       "(State::params(frame).basis <= 2) invalid projected-noise basis"},
+      {"authored_spherical_noise_invalid_basis",
+       case_authored_spherical_noise_invalid_basis,
+       "core/render/pullback/authored_source.h",
+       "(State::params(frame).basis <= 2) invalid spherical-noise basis"},
+      {"authored_tessellation_invalid_kind",
+       case_authored_tessellation_invalid_kind,
+       "core/render/pullback/authored_source.h",
+       "(State::params(frame).kind <= 2) invalid tessellation kind"},
+      {"authored_sample_invalid_weight_mode",
+       case_authored_sample_invalid_weight_mode,
+       "core/render/pullback/authored_sample.h",
+       "(mode <= 1) invalid sample signal weighting"},
+      {"authored_sample_invalid_coverage_mode",
+       case_authored_sample_invalid_coverage_mode,
+       "core/render/pullback/authored_sample.h",
+       "(false) invalid sample projection coverage"},
       {"pullback_operator_invalid_surface_integrator",
        case_pullback_operator_invalid_surface_integrator,
        "core/render/pullback/operators/sphere.h",
@@ -2485,6 +2522,8 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/render/plot/mesh.h", 4},
     {"core/render/plot/raster.h", 3},
     {"core/render/plot/shapes.h", 13},
+    // Palette mode reaches the harmony table only through its admitted enum.
+    {"core/render/pullback/composed_runtime.h", 1},
     {"core/render/pullback/interpreter.h", 12},
     {"core/render/pullback/operators/model.h", 1},
     {"core/render/pullback/operators.h", 1},

@@ -253,12 +253,33 @@ inline void lint_animated_pause(FX &effect, const char *name) {
   if (count == 0)
     return;
 
+  // Modulation recipes restore whole, since their controls gate one another.
+  std::vector<std::function<ParamSetResult()>> restore_recipes;
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+  if constexpr (requires {
+                  effect.visit_document_modulations(
+                      [](std::string_view, const auto &) {});
+                }) {
+    effect.visit_document_modulations([&](std::string_view resource,
+                                          const auto &saved) {
+      restore_recipes.push_back([&effect, resource = std::string(resource),
+                                 saved] {
+        return effect.edit_document_modulation(resource, [&](auto &candidate) {
+          candidate = saved;
+          return ParamSetResult::APPLIED;
+        });
+      });
+    });
+  }
+#endif
+
   constexpr int PAUSE_AUDIT_FRAMES = 500;
   const int frames_per_param =
       std::max(4, static_cast<int>((PAUSE_AUDIT_FRAMES + count - 1) / count));
   bool leaked = false;
   for (size_t index = 0; index < count; ++index) {
     HS_CONTEXT(names[index]);
+    bool batched = false;
 #if HS_ENABLE_CHAIN_INTERPRETER
     if constexpr (requires {
                     effect.update_parameters(
@@ -268,6 +289,17 @@ inline void lint_animated_pause(FX &effect, const char *name) {
       for (size_t item = 0; item < count; ++item)
         restore.push_back({names[item], original[item]});
       HS_EXPECT_EQ(effect.update_parameters(restore), ParamSetResult::APPLIED);
+      batched = true;
+    }
+#endif
+    if (!batched) {
+      for (const auto &restore : restore_recipes)
+        HS_EXPECT_EQ(restore(), ParamSetResult::APPLIED);
+      for (size_t restore = 0; restore < count; ++restore)
+        HS_EXPECT_EQ(effect.updateParameter(names[restore], original[restore]),
+                     ParamSetResult::APPLIED);
+    }
+    if (batched) {
       const std::string_view parameter = names[index];
       const size_t separator = parameter.rfind('.');
       const std::string prefix(parameter.substr(0, separator + 1));
@@ -296,16 +328,18 @@ inline void lint_animated_pause(FX &effect, const char *name) {
         if (field != "pattern-noise-variant")
           set("pattern-noise-variant", 1.0f);
       }
-    } else
-#endif
-    {
-      for (size_t restore = 0; restore < count; ++restore)
-        HS_EXPECT_EQ(effect.updateParameter(names[restore], original[restore]),
-                     ParamSetResult::APPLIED);
     }
     effect.setAnimationsPaused(false);
-    HS_EXPECT_EQ(effect.updateParameter(names[index], target[index]),
-                 ParamSetResult::APPLIED);
+    // A recipe constraint can refuse the probe; halve it toward the original.
+    float probe = target[index];
+    ParamSetResult written = effect.updateParameter(names[index], probe);
+    for (int halving = 0;
+         !batched && written == ParamSetResult::INADMISSIBLE && halving < 8;
+         ++halving) {
+      probe = original[index] + 0.5f * (probe - original[index]);
+      written = effect.updateParameter(names[index], probe);
+    }
+    HS_EXPECT_EQ(written, ParamSetResult::APPLIED);
     HS_EXPECT_TRUE(effect.animations_paused());
     const auto *written_def = effect.getParameters().find(names[index]);
     const float WRITTEN = written_def->get_requested();

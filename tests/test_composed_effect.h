@@ -795,7 +795,8 @@ inline void check_preset_choreography(const char *name) {
  * @brief Pins the parameter interpolation a preset crossfade runs on.
  * @tparam E Composed effect class template.
  * @param name Effect name, for the failure context.
- * @details Both endpoints must come back exactly, and no sample in between may
+ * @details Both endpoints must come back exactly, except that a modulation
+ * topology change takes the target at progress 0, and no sample in between may
  * leave the ranges the snapshot validator enforces.
  */
 template <template <int, int> class E>
@@ -822,7 +823,16 @@ inline void check_preset_interpolation(const char *name) {
       }
       for (float progress : PROGRESS)
         HS_EXPECT_TRUE(FX::valid_params(Pullback::interpolate(a, b, progress)));
-      verify_params_equal(Pullback::interpolate(a, b, 0.0f), a);
+      // A modulation recipe takes the target topology at once.
+      Params start = a;
+      start.visit([&]<typename Resource>(auto &family) {
+        if constexpr (requires { family.modulation; }) {
+          const auto &target = b.template get<Resource::KEY>().modulation;
+          if (!Pullback::Modulation::same_topology(family.modulation, target))
+            family.modulation = target;
+        }
+      });
+      verify_params_equal(Pullback::interpolate(a, b, 0.0f), start);
       verify_params_equal(Pullback::interpolate(a, b, 1.0f), b);
     }
   }

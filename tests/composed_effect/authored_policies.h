@@ -46,11 +46,14 @@ inline void test_authored_interpolation_destination_aliases() {
                    Pattern::SourceKind::DISPLACEMENT);
       HS_EXPECT_EQ(out.template get<"b">().modulation.evaluation,
                    Pattern::Evaluation::DIRECT);
-      HS_EXPECT_NEAR(out.template get<"surface">().orientation_azimuth,
-                     progress == 0.0f   ? 3.0f
-                     : progress == 1.0f ? -3.0f
-                                        : -math::PI_F,
-                     1e-6f);
+      const float azimuth = progress == 0.0f   ? 3.0f
+                            : progress == 1.0f ? -3.0f
+                                               : math::PI_F;
+      HS_EXPECT_NEAR(
+          remainderf(out.template get<"surface">().orientation_azimuth -
+                         azimuth,
+                     math::TWO_PI_F),
+          0.0f, 1e-6f);
       HS_EXPECT_NEAR(out.template get<"surface">().terms[0].amplitude,
                      progress < 1.0f ? 0.25f : 0.75f, 0.0f);
     }
