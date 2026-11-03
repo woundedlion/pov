@@ -1144,10 +1144,10 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
                       {{6821381455ull, 6858841143ull, 7136205680ull},
                        201547592081ull,
                        985847639191ull}},
-                     {0x108d580bf9f3ec58ull,
-                      {{6441042071ull, 6850644753ull, 6909235984ull},
-                       194439400705ull,
-                       956507611724ull}},
+                     {0x6bd619a7a7a37ce2ull,
+                      {{6497496026ull, 6893755336ull, 6961301979ull},
+                       195396223062ull,
+                       964618483879ull}},
                      1e-3,
                      0.01,
                      {0x54b286aedc50e5b7ull,
@@ -1191,6 +1191,10 @@ inline void test_mobius_grid_lens_follows_phase() {
     effect.draw_frame();
     effect.advance_display();
     const auto current = effect.frame_for_test();
+    const auto &endpoint = current.resources.template get<"lens">();
+    const auto expected_endpoint = mobius_grid_b_at(draw + 1.0);
+    HS_EXPECT_NEAR(cosf(endpoint.angle), expected_endpoint.re, 1e-6f);
+    HS_EXPECT_NEAR(-sinf(endpoint.angle), expected_endpoint.im, 1e-6f);
     if (history.initialized) {
       const Pullback::FrameInterval sampler(history.previous, current);
       for (float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
