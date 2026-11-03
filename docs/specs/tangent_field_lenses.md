@@ -703,7 +703,8 @@ variables 313,760 B (unchanged), and FLASH data 781,228 B (+456 B) against the
 baseline. Holosphere and Phantasm both pass size and layout gates.
 
 Windows strict/fast and WASM fast MobiusGrid references are re-recorded.
-A separate Linux render reference is outside the required validation scope.
+Linux fast-math exercises the MobiusGrid sequence with a nonblank-output check;
+a separate render reference is outside the required validation scope.
 
 ## Testing
 
