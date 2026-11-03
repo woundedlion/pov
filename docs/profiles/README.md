@@ -1,12 +1,12 @@
 # On-device effect profiles — Teensy 4.0, segmented mode
 
-On-device timing for the **36 effects in the Phantasm image**, captured on
+On-device timing for the **37 effects in the Phantasm image**, captured on
 bench-attached Teensy 4.0 boards with the real segmented POV driver
 (`POVSegmented<288, 4, 480>`), DMA LEDs, and live flywheel/DMA ISRs. Each
 effect renders one 288×144 image quadrant (about 10,368 pixels); the 62.5 ms
 display window makes cadence quantize to 16, 8, 5.3 fps, and below.
 
-Shipping reports cover all 36 effects: 36 completed captures.
+Shipping reports cover all 37 effects: 37 completed captures.
 
 Recorded capture revisions retain their original IDs. The
 [source revision crosswalk](source_revisions.json) preserves each one-to-one
@@ -70,6 +70,7 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-10-23.md) / [O3](O3/profile_meshfeedback_teensy_2026-08-26.md) § | `mf_feedback_flush` | 🟢 52.652 (12) | 5.659 | 🟢 58.32 (13) | 🟢 0/2863 (0.00%) | 🟢 0/6688 (0%) | +34,144 B | +21,776 B | ship 2026-10-23 13:51<br>O3 2026-08-26 02:10 |
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-11-01.md) / [O3](O3/profile_dreamballs_teensy_2026-08-26.md) § ● | `db_timeline_step` | 🟢 51.563 (10) | 52.168 | 🟢 34.32 (11) | 🟢 0/3647 (0.00%) | 🟢 0/3648 (0%) | — | — | ship 2026-11-01 14:12<br>O3 2026-08-26 02:19 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-10-23.md) / [O3](O3/profile_displacementfield_teensy_2026-09-19.md) § | `df_timeline_step` | 🟢 51.257 (2) | 18.953 | 🟢 57.45 | 🟢 0/1887 (0.00%) | 🟢 0/1088 (0%) | +25,856 B | +22,144 B | ship 2026-10-23 13:23<br>O3 2026-09-19 22:19 |
+| [Involution](shipping/profile_involution_teensy_2026-11-03.md) ● | `fx_shader_draw` | 🟢 48.380 | 84.427 | — | 🟢 0/1087 (0.00%) | — | — | — | ship 2026-11-03 14:44 |
 | [Galaxies](shipping/profile_galaxies_teensy_2026-10-23.md) | `gx_particle_step` | 🟢 45.223 | 1.494 | — | 🟢 0/927 (0.00%) | — | — | — | ship 2026-10-23 13:17 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-10-30.md) / [O3](O3/profile_bzreactiondiffusion_teensy_2026-08-26.md) ● | `bz_render` | 🟢 44.608 | 76.549 | 🟢 48.65 | 🟢 0/2047 (0.00%) | 🟢 0/2048 (0%) | +12,760 B | +10,224 B | ship 2026-10-30 09:46<br>O3 2026-08-26 01:16 |
 | [KaleidoscopeHexOil](shipping/profile_kaleidoscopehexoil_teensy_2026-10-23.md) / [O3](O3/profile_kaleidoscopehexoil_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 43.705 (2) | 69.694 | 🟢 38.94 (3) | 🟢 0/1647 (0.00%) | 🟢 0/2208 (0%) | +13,456 B | +10,608 B | ship 2026-10-23 14:25<br>O3 2026-08-26 02:49 |
@@ -270,3 +271,5 @@ its row uses the 130-second integrated pass with setup separate.
 The historical AshCloud O3 capture uses the prior shader; paired code deltas are omitted.
 
 GridWorms ● was captured 2026-10-31 21:15 on COM3; its setup frame and steady samples are separate.
+
+Involution ● was captured 2026-11-03 14:44 on COM4 at `18601fa2d`; its setup frame and steady samples are separate. Its cycle/wall agreement is 10.8 ppm, a display-phase `micros()` truncation bias; the same shader validated at 3.4 ppm at `83f2548fd`.
