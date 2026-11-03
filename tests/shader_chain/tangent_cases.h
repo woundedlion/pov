@@ -119,6 +119,113 @@ inline void test_symmetric_sectoral_phase() {
   }
 }
 
+/** @brief Symmetric lenses expose one gain spanning the legacy product domain. */
+inline void test_symmetric_single_strength() {
+  using Symmetric = In::Op::DisplaceSymmetric;
+  HS_EXPECT_STREQ(Symmetric::ID, "sphere.displace.symmetric.v2");
+  const auto *op = require_operator(Symmetric::ID);
+  if (!op)
+    return;
+  HS_EXPECT_EQ(op->schema_count, 5);
+  const In::ParamFieldInfo *strength = nullptr;
+  for (const auto &field : op->schema_span()) {
+    HS_EXPECT_FALSE(std::string_view(field.id) == "amplitude");
+    if (std::string_view(field.id) == "strength")
+      strength = &field;
+  }
+  HS_EXPECT_TRUE(strength != nullptr);
+  if (!strength)
+    return;
+  HS_EXPECT_EQ(strength->min, -4.0f * math::PI_F);
+  HS_EXPECT_EQ(strength->max, 4.0f * math::PI_F);
+  HS_EXPECT_EQ(strength->def, 0.05f);
+  for (const float value : {-4.0f * math::PI_F, 0.0f, 4.0f * math::PI_F}) {
+    Symmetric::Params params;
+    params.strength = value;
+    HS_EXPECT_TRUE(Symmetric::validate(params) == nullptr);
+    const auto field = Symmetric::field(params, 0.0f);
+    HS_EXPECT_EQ(field.speed_bound(), 1.0f);
+  }
+  Symmetric::Params outside;
+  outside.strength = std::nextafter(4.0f * math::PI_F, INFINITY);
+  HS_EXPECT_TRUE(Symmetric::validate(outside) != nullptr);
+  reset_globals();
+  ShaderChainWhiteBox::FX effect;
+  effect.init();
+  const In::ChainEntryRequest chain[] = {
+      {"symmetric", Symmetric::ID},
+      {"project", In::Op::ProjectStereographic::ID},
+      {"sample", In::Op::SampleGridV3::ID},
+      {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID}};
+  HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+  HS_EXPECT_TRUE(effect.getParameters().find("symmetric.amplitude") == nullptr);
+  HS_EXPECT_EQ(effect.updateParameter("symmetric.strength", 4.0f * math::PI_F),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(requested_param(effect, "symmetric.strength"),
+               4.0f * math::PI_F);
+  const In::ChainEntryRequest retired[] = {
+      {"symmetric", "sphere.displace.symmetric.v1"},
+      {"project", In::Op::ProjectStereographic::ID},
+      {"sample", In::Op::SampleGridV3::ID},
+      {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID}};
+  HS_EXPECT_EQ(effect.set_chain(retired).code,
+               In::ChainStatus::UNKNOWN_OPERATOR);
+}
+
+/** @brief One Strength reproduces the legacy gain product for every invariant. */
+inline void test_symmetric_legacy_gain_equivalence() {
+  using Symmetric = In::Op::DisplaceSymmetric;
+  using namespace math::tangent_field;
+  struct Invariant {
+    TermType type;
+    uint8_t degree;
+    float sign;
+  };
+  constexpr Invariant INVARIANTS[] = {
+      {TermType::MODE, 6, 1},       {TermType::TETRAHEDRAL, 0, 1},
+      {TermType::OCTAHEDRAL, 0, 1}, {TermType::DODECAHEDRAL, 0, 1},
+      {TermType::MODE, 3, -1},      {TermType::MODE, 4, 1},
+      {TermType::MODE, 5, -1},      {TermType::MODE, 6, 1},
+      {TermType::MODE, 8, 1},
+  };
+  for (uint8_t symmetry = 0; symmetry < std::size(INVARIANTS); ++symmetry)
+    for (uint8_t kind = 0; kind < 2; ++kind)
+      for (uint8_t integrator = 0; integrator < 3; ++integrator)
+        for (const float old_strength : {-math::PI_F, 0.25f, math::PI_F})
+          for (const float old_amplitude : {-4.0f, -1.25f, 0.0f, 0.5f, 4.0f})
+            for (const float phase : {-0.7f, 0.6f}) {
+              const auto &invariant = INVARIANTS[symmetry];
+              std::array<PotentialTerm, 4> terms{};
+              terms[0] = {invariant.type,
+                          static_cast<Kind>(kind),
+                          invariant.degree,
+                          invariant.degree,
+                          invariant.sign * old_amplitude,
+                          0};
+              const PotentialField legacy(
+                  terms, 0.0f, math::make_rotation(math::Y_AXIS, phase));
+              Symmetric::Params params;
+              params.symmetry = symmetry;
+              params.kind = kind;
+              params.integrator = integrator;
+              params.strength = old_strength * old_amplitude;
+              const auto field = Symmetric::field(params, phase);
+              for (int index = 0; index < 3; ++index) {
+                const auto p = math::Vector::from_spherical(
+                    0.31f + index * 1.1f, 0.61f + index * 0.5f);
+                const auto expected =
+                    Symmetric::step(p, legacy, old_strength, integrator);
+                const auto actual =
+                    Symmetric::run({p, 0.2f}, {}, params, field);
+                HS_EXPECT_NEAR(actual.dir.x, expected.sphere.x, 1e-3f);
+                HS_EXPECT_NEAR(actual.dir.y, expected.sphere.y, 1e-3f);
+                HS_EXPECT_NEAR(actual.dir.z, expected.sphere.z, 1e-3f);
+                HS_EXPECT_NEAR(actual.path_length, 0.2f + expected.path_length,
+                               1e-3f);
+              }
+            }
+}
+
 /** @brief Every invariant rotates its field and displacement bodily about y. */
 inline void test_symmetric_frame_rotation() {
   using Symmetric = In::Op::DisplaceSymmetric;
@@ -381,8 +488,7 @@ inline void test_tangent_admitted_domain() {
         params.symmetry = symmetry;
         params.kind = kind;
         params.integrator = integrator;
-        params.strength = math::PI_F;
-        params.amplitude = 4.0f;
+        params.strength = 4.0f * math::PI_F;
         HS_EXPECT_TRUE(In::Op::DisplaceSymmetric::validate(params) == nullptr);
         const auto field = In::Op::DisplaceSymmetric::field(params, 0);
         for (int index = 0; index < 24; ++index) {
@@ -457,22 +563,24 @@ inline void test_tangent_dynamic_advisory() {
   ShaderChain<96, 20> effect;
   effect.init();
   const In::ChainEntryRequest chain[] = {
-      {"field", In::Op::DisplaceSymmetric::ID},
+      {"field", In::Op::DisplacePotential::ID},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v4"}};
   HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
   const std::array replay{
       std::pair<std::string, float>{"field.strength", 0.1f},
-      std::pair<std::string, float>{"field.amplitude", 1.0f}};
+      std::pair<std::string, float>{"field.term-1-amplitude", 1.0f},
+      std::pair<std::string, float>{"field.term-1-l", 6.0f},
+      std::pair<std::string, float>{"field.term-1-m", 6.0f}};
   effect.replay_parameter_writes(replay);
   HS_EXPECT_EQ(requested_param(effect, "field.strength"), 0.1f);
-  HS_EXPECT_EQ(requested_param(effect, "field.amplitude"), 1.0f);
+  HS_EXPECT_EQ(requested_param(effect, "field.term-1-amplitude"), 1.0f);
   float first = 0;
   HS_EXPECT_TRUE(effect.parameter_fold_strength("field.strength", first));
   HS_EXPECT_GT(first, 0.0f);
   HS_EXPECT_LT(first, 1.0f);
-  HS_EXPECT_EQ(effect.updateParameter("field.amplitude", 2.0f),
+  HS_EXPECT_EQ(effect.updateParameter("field.term-1-amplitude", 2.0f),
                ParamSetResult::APPLIED);
   float second = 0;
   HS_EXPECT_TRUE(effect.parameter_fold_strength("field.strength", second));
@@ -482,7 +590,8 @@ inline void test_tangent_dynamic_advisory() {
                ParamSetResult::APPLIED);
   HS_EXPECT_NEAR(requested_param(effect, "field.strength"), beyond, 1e-6f);
   HS_EXPECT_TRUE(effect.parameter_warning("field.strength") == nullptr);
-  HS_EXPECT_FALSE(effect.parameter_fold_strength("field.amplitude", second));
+  HS_EXPECT_FALSE(
+      effect.parameter_fold_strength("field.term-1-amplitude", second));
   HS_EXPECT_EQ(effect.updateParameter("field.strength", math::PI_F),
                ParamSetResult::APPLIED);
   HS_EXPECT_NEAR(requested_param(effect, "field.strength"), math::PI_F, 1e-6f);

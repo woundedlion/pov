@@ -741,7 +741,7 @@ inline void test_shader_chain_catalog_shape() {
       {"sphere.displace.ripple.v2", "Ripple Lens"},
       {"sphere.displace.potential.v1", "Potential Lens"},
       {"sphere.displace.rossby-haurwitz.v1", "Rossby-Haurwitz Lens"},
-      {"sphere.displace.symmetric.v1", "Symmetric Lens"},
+      {"sphere.displace.symmetric.v2", "Symmetric Lens"},
       {"sphere.lens.twist.v2", "Twist Lens"},
       {"sphere.lens.mobius.v3", "Mobius Lens"},
       {"sphere.lens.glitch.v2", "Glitch Fold"},

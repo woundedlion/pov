@@ -210,7 +210,6 @@ struct RossbyHaurwitzParams {
 /** @brief Rotating invariant field controls. */
 struct SymmetricDisplaceParams {
   float strength = 0.05f; ///< Signed fixed-step scale.
-  float amplitude = 1.0f; ///< Peak-speed amplitude.
   float speed = 0.0f;     ///< Frame rotation per frame, radians.
   uint8_t integrator = 0; ///< Integration scheme.
   uint8_t symmetry = 0;   ///< Shared kaleidoscope symmetry.
@@ -218,10 +217,7 @@ struct SymmetricDisplaceParams {
   static constexpr auto FIELDS = std::array{
       Field<SymmetricDisplaceParams>{
           "strength", &SymmetricDisplaceParams::strength, "Strength",
-          -math::PI_F, math::PI_F, FieldCurve::SNAP},
-      Field<SymmetricDisplaceParams>{"amplitude",
-                                     &SymmetricDisplaceParams::amplitude,
-                                     "Amplitude", -4, 4, FieldCurve::SNAP},
+          -4.0f * math::PI_F, 4.0f * math::PI_F, FieldCurve::SNAP},
       Field<SymmetricDisplaceParams>{"speed", &SymmetricDisplaceParams::speed,
                                      "Speed", -0.1f, 0.1f, FieldCurve::LERP}};
   static constexpr auto TOPOLOGY = std::array{
@@ -374,7 +370,7 @@ struct DisplaceRossbyHaurwitz
 /** @brief Rotating toroidal or poloidal invariant displacement. */
 struct DisplaceSymmetric
     : FieldDisplaceModel<DisplaceSymmetric, SymmetricDisplaceParams> {
-  static constexpr const char *ID = "sphere.displace.symmetric.v1";
+  static constexpr const char *ID = "sphere.displace.symmetric.v2";
   static constexpr const char *NAME = "Symmetric Lens";
   static void advance(State &state, const Params &params) {
     state.phase = fmodf(state.phase + params.speed, math::TWO_PI_F);
@@ -397,7 +393,7 @@ struct DisplaceSymmetric
                           ? static_cast<TermType>(params.symmetry)
                           : TermType::MODE;
     const uint8_t order = ORDERS[params.symmetry];
-    const float amplitude = order % 2 ? -params.amplitude : params.amplitude;
+    const float amplitude = order % 2 ? -1.0f : 1.0f;
     terms[0] = {type, static_cast<Kind>(params.kind), order, order, amplitude,
                 0};
     return Prepared(terms, 0.0f, math::make_rotation(math::Y_AXIS, phase));

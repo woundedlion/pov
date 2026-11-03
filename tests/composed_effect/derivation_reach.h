@@ -91,7 +91,7 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"warp.curl-flow.v2", nullptr, {}},
     {"sphere.displace.potential.v1", nullptr, {}},
     {"sphere.displace.rossby-haurwitz.v1", nullptr, {}},
-    {"sphere.displace.symmetric.v1", nullptr, {}},
+    {"sphere.displace.symmetric.v2", nullptr, {}},
     // TransferKind is NONE or ISO_CONTOUR.
     {"field.transfer.ridge.v2", nullptr, {}},
     {"field.transfer.smooth-bands.v2", nullptr, {}},
