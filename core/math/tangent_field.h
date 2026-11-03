@@ -275,6 +275,7 @@ public:
    * @return Tangent velocity in world coordinates. */
   HS_FLASH_MEMBER Vector velocity(const Vector &p) const {
     const Vector local = oriented ? rotate(p, orientation.conjugate()) : p;
+    const float inverse_norm_squared = 1.0f / dot(local, local);
     Vector result(0.0f, 0.0f, 0.0f);
     for (const auto &term : terms) {
       if (term.scale == 0.0f)
@@ -282,7 +283,8 @@ public:
       const Vector gradient = term.gradient(local);
       result += term.term.kind == Kind::TOROIDAL
                     ? cross(local, gradient)
-                    : gradient - local * dot(local, gradient);
+                    : gradient -
+                          local * (dot(local, gradient) * inverse_norm_squared);
     }
     return oriented ? rotate(result, orientation) : result;
   }

@@ -597,6 +597,23 @@ inline void test_potential_drift_rotates_all_terms() {
     }
 }
 
+/** @brief Poloidal fields stay tangent to approximate lens directions. */
+inline void test_potential_near_unit_tangency() {
+  for (const auto type :
+       {TF::TermType::MODE, TF::TermType::TETRAHEDRAL, TF::TermType::OCTAHEDRAL,
+        TF::TermType::DODECAHEDRAL}) {
+    std::array<TF::PotentialTerm, 4> terms{};
+    terms[0] = {type, TF::Kind::POLOIDAL, 6, 3, 1.0f, 0.31f};
+    const TF::PotentialField field(terms, 0.73f,
+                                   math::make_rotation(math::X_AXIS, 0.47f));
+    for (float scale : {0.9985f, 1.0f, 1.0015f})
+      for (int index = 0; index < 128; ++index) {
+        const auto p = direction(index, 128) * scale;
+        HS_EXPECT_NEAR(math::dot(p, field.velocity(p)), 0.0f, 3e-6f);
+      }
+  }
+}
+
 inline int run_tangent_field_tests() {
   hs_test::ModuleFixture fixture("tangent_field");
   HS_RUN(test_horner_values_and_phased_gradients);
@@ -609,6 +626,7 @@ inline int run_tangent_field_tests() {
   HS_RUN(test_rossby_haurwitz_matches_spherical_stream_function);
   HS_RUN(test_normalized_terms_have_tight_speed_bounds);
   HS_RUN(test_potential_drift_rotates_all_terms);
+  HS_RUN(test_potential_near_unit_tangency);
   HS_RUN(test_fold_advisory_precedes_sampled_jacobian_onset);
   return fixture.result();
 }

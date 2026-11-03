@@ -1030,6 +1030,7 @@ inline void test_promoted_document_pipelines() {
 inline int run_composed_effect_tests() {
   ModuleFixture fixture("composed_effect");
   HS_RUN(test_authored_tangent_bindings_match_operators);
+  HS_RUN(test_authored_tangent_fields_after_twist);
   HS_RUN(test_authored_tangent_interval_uses_radians);
   HS_RUN(test_authored_potential_interpolation_and_admission);
   HS_RUN(test_authored_surface_noise_topology);

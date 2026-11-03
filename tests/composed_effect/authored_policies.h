@@ -117,6 +117,37 @@ inline void test_authored_tangent_interval_uses_radians() {
                  math::TWO_PI_F + 0.01f, 1e-6f);
 }
 
+/** @brief Chained polynomial displacements preserve approximate lens norms. */
+inline void test_authored_tangent_fields_after_twist() {
+  using namespace Pullback::Surface;
+  const auto rossby = rossby_haurwitz_field(1.3882353f, 4.0f, 3, 0.0f);
+  const auto symmetric = symmetric_field(3, 1, 0.0f);
+  float worst_norm_error = 0.0f;
+  float worst_tangent_residual = 0.0f;
+  for (uint8_t integrator = 0; integrator < 3; ++integrator)
+    for (int latitude = 1; latitude < 64; ++latitude)
+      for (int longitude = 0; longitude < 128; ++longitude) {
+        const float polar = latitude * math::PI_F / 64;
+        const float azimuth = longitude * math::TWO_PI_F / 128;
+        const math::Vector input(sinf(polar) * cosf(azimuth), cosf(polar),
+                                 sinf(polar) * sinf(azimuth));
+        const auto lensed = lenses::twist_lens(input, -10.259509f, 0.999f);
+        const auto first =
+            step_tangent_field(lensed, rossby, 0.09239978f, integrator, true);
+        const auto second = step_tangent_field(first.sphere, symmetric,
+                                               -1.0657501f, integrator, true);
+        worst_norm_error =
+            std::max(worst_norm_error,
+                     fabsf(math::dot(second.sphere, second.sphere) - 1));
+        worst_tangent_residual = std::max(
+            worst_tangent_residual,
+            fabsf(math::dot(first.sphere, symmetric.velocity(first.sphere))));
+        HS_EXPECT_TRUE(std::isfinite(second.path_length));
+      }
+  HS_EXPECT_LT(worst_norm_error, Pullback::DIRECTION_NORM_SQUARED_TOLERANCE);
+  HS_EXPECT_LT(worst_tangent_residual, 1e-6f);
+}
+
 /** @brief Potential interpolation keeps signed angles and snaps harmonic topology. */
 inline void test_authored_potential_interpolation_and_admission() {
   Pullback::PotentialParams from, to;
