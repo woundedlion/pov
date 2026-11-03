@@ -11,8 +11,10 @@ inline void test_grid_worms_twist_clocks() {
   using Discovery = Pullback::ComposedDetail::DiscoveryBinding;
   static_assert(
       std::is_same_v<typename Leaves::template StageAt<0>,
-                     Pullback::Stage::Lens<Pullback::Lens::AnimatedTwist<
-                         Pullback::TwistProvider<Discovery, "lens1">>>>);
+                     Pullback::Stage::Lens<
+                         Pullback::Lens::AnimatedTwist<
+                             Pullback::TwistProvider<Discovery, "lens1">>,
+                         false>>);
   static_assert(
       std::is_same_v<
           typename Leaves::template StageAt<1>,

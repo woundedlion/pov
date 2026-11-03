@@ -29,6 +29,8 @@
 #include "core/render/pullback/catalog_export.h"
 #include "core/render/pullback/interpreter.h"
 #include "effects/AlienCore.h"
+#include "effects/GridWorms.h"
+#include "effects/MobiusGrid.h"
 #include "tests/composed_frame_fixture.h"
 #include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"
@@ -55,6 +57,7 @@ static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::MIDPOINT4) == 4);
 #include "tests/shader_chain/program_cases.h"
 #include "tests/shader_chain/lifecycle_cases.h"
 #include "tests/shader_chain/sphere_ops.h"
+#include "tests/shader_chain/lens_displacement.h"
 #include "tests/shader_chain/tangent_cases.h"
 #include "tests/shader_chain/warp_ops.h"
 #include "tests/shader_chain/projection_ops.h"
@@ -769,6 +772,13 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_twist_animation);
   HS_RUN(test_shader_chain_parity_lens_ops);
   HS_RUN(test_shader_chain_lens_controls);
+  HS_RUN(test_lens_displacement_metric);
+  HS_RUN(test_twist_displacement_paths);
+  HS_RUN(test_mobius_displacement_paths);
+  HS_RUN(test_fold_displacement_invariance);
+  HS_RUN(test_lens_displacement_composition);
+  HS_RUN(test_lens_displacement_modulation);
+  HS_RUN(test_lens_displacement_metadata);
   HS_RUN(test_shader_chain_parity_project_ops);
   HS_RUN(test_shader_chain_s2_full_face_edge_fade);
   HS_RUN(test_shader_chain_peirce_square_dispatch);

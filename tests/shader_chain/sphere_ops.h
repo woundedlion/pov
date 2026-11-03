@@ -379,7 +379,7 @@ inline void test_shader_chain_parity_lens_ops() {
   program.clear();
 }
 
-/** @brief Lens controls alter direction while preserving path length. */
+/** @brief Lens and fold controls apply their authored direction maps. */
 inline void test_shader_chain_lens_controls() {
   const auto *twist = require_operator(In::Op::LensTwist::ID);
   const auto *glitch = require_operator(In::Op::LensGlitch::ID);
@@ -426,7 +426,9 @@ inline void test_shader_chain_lens_controls() {
                            (input.dir.x * ay - input.dir.y * ax) * s +
                            az * h * (1 - c),
                        2e-3);
-        HS_EXPECT_EQ(result.path_length, input.path_length);
+        const double cosine = std::clamp(h * h + (1.0 - h * h) * c, -1.0, 1.0);
+        HS_EXPECT_NEAR(result.path_length, input.path_length + acos(cosine),
+                       4e-3);
       }
     }
   }
