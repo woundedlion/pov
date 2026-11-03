@@ -885,7 +885,7 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
   {
     (void)frame;
     if (!prepared.lab.low || prepared.fraction <= 0.0f ||
-        prepared.fraction >= 1.0f)
+        prepared.fraction > 1.0f)
       return false;
     apply_shared_base_ready(sample, frame, prepared, output);
     return true;
@@ -897,7 +897,7 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
    * @param frame Frame context.
    * @param prepared Prepared eligible cache view.
    * @param output Receives the cached color carrier.
-   * @pre The base view is active and its fraction is inside (0, 1). */
+   * @pre The base view is active and its fraction is inside (0, 1]. */
   template <typename FrameState>
   HS_HOT_INLINE static void
   apply_shared_base_ready(const FieldSample &sample, const FrameState &frame,

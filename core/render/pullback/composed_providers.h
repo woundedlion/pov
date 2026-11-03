@@ -773,7 +773,8 @@ struct ColorProvider {
  * @tparam Key Modulation instance key.
  * @tparam SourceV Source capability.
  * @tparam EvaluationV Source storage strategy.
- * @tparam PhaseV Whether eligible sources share column-phase evaluation. */
+ * @tparam PhaseV Whether eligible sources share column-phase evaluation.
+ * @tparam DynamicV Whether presets select the source and evaluation. */
 template <typename BindingT, ResourceKey Key, Pattern::SourceKind SourceV,
           Pattern::Evaluation EvaluationV = Pattern::Evaluation::BAKED_CUBE,
           bool PhaseV = false, bool DynamicV = false>
@@ -809,16 +810,19 @@ struct ModulationProvider {
       if constexpr (requires { frame.temporal.phase_compatible; }) {
         if (!frame.temporal.phase_compatible)
           return result;
-        if (config.source != SourceV || config.evaluation != EvaluationV)
+        if (!DynamicV &&
+            (config.source != SourceV || config.evaluation != EvaluationV))
           return result;
         if (config.mechanic.kind != ColorModulation::Mechanic::HUE_ROTATION &&
             config.mechanic.kind !=
                 ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT)
           return result;
-        if constexpr (SourceV == Pattern::SourceKind::DISPLACEMENT)
+        const auto SOURCE = DynamicV ? config.source : SourceV;
+        const bool DIRECT = (DynamicV ? config.evaluation : EvaluationV) ==
+                            Pattern::Evaluation::DIRECT;
+        if (SOURCE == Pattern::SourceKind::DISPLACEMENT)
           result.ready = true;
-        else if constexpr (SourceV == Pattern::SourceKind::NOISE &&
-                           EvaluationV == Pattern::Evaluation::DIRECT) {
+        else if (SOURCE == Pattern::SourceKind::NOISE && DIRECT) {
           if (!resource.modulation || !resource.previous_modulation)
             return result;
           if (!Modulation::phase_compatible(
@@ -856,9 +860,8 @@ struct ModulationProvider {
             }
           result.noise_offset = math::noise_sphere_loop_offset(PHASE);
           result.ready = true;
-        } else if constexpr (SourceV ==
-                                 Pattern::SourceKind::SPHERE_SMOOTH_GRID &&
-                             EvaluationV == Pattern::Evaluation::DIRECT) {
+        } else if (SOURCE == Pattern::SourceKind::SPHERE_SMOOTH_GRID &&
+                   DIRECT) {
           if (!resource.modulation || !resource.previous_modulation)
             return result;
           if (!Modulation::phase_compatible(

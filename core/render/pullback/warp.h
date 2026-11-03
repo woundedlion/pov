@@ -329,11 +329,11 @@ static_assert(field_defaults_in_range<VortexParams>());
 
 /** @brief Affine warp coefficients, with the phase oscillation applied. */
 struct PreparedAffine {
-  float translation_x; /**< Translation along x, in plane units. */
-  float translation_y; /**< Translation along y, in plane units. */
-  float scale_x;       /**< Scale along x at this frame's phase. */
-  float scale_y;       /**< Scale along y at this frame's phase. */
-  float shear;         /**< Shear at this frame's phase. */
+  float translation_x;   /**< Translation along x, in plane units. */
+  float translation_y;   /**< Translation along y, in plane units. */
+  float inverse_scale_x; /**< Reciprocal x scale at this frame's phase. */
+  float inverse_scale_y; /**< Reciprocal y scale at this frame's phase. */
+  float shear;           /**< Shear at this frame's phase. */
 };
 
 /** @brief Mirror warp offsets, with the phase scroll already folded in. */
@@ -470,8 +470,8 @@ HS_FLASH_INLINE inline PreparedAffineSlot prepare(const AffineParams &warp,
   prepared.transform.affine = {
       math::wrap_t(phase) * warp.translation_x * lattice_period,
       math::wrap_t(phase) * warp.translation_y * lattice_period,
-      warp.scale_x == 1.0f ? 1.0f : powf(warp.scale_x, cycle_cos),
-      warp.scale_y == 1.0f ? 1.0f : powf(warp.scale_y, cycle_cos),
+      warp.scale_x == 1.0f ? 1.0f : 1.0f / powf(warp.scale_x, cycle_cos),
+      warp.scale_y == 1.0f ? 1.0f : 1.0f / powf(warp.scale_y, cycle_cos),
       warp.shear * cycle_cos};
   return prepared;
 }
@@ -589,12 +589,12 @@ affine_frame(const math::Complex &input, const Prepared &prepared,
   const auto &affine = prepared.transform.affine;
   const float rx = c * input.re + s * input.im;
   const float ry = -s * input.re + c * input.im;
-  return finish_closed_form(input,
-                            {rx / affine.scale_x -
-                                 affine.shear * ry / affine.scale_y -
-                                 affine.translation_x,
-                             ry / affine.scale_y - affine.translation_y},
-                            path_length_required);
+  const float y = ry * affine.inverse_scale_y;
+  return finish_closed_form(
+      input,
+      {rx * affine.inverse_scale_x - affine.shear * y - affine.translation_x,
+       y - affine.translation_y},
+      path_length_required);
 }
 
 /** @brief Affine coordinates with shortest-repeat displacement length.
@@ -610,9 +610,10 @@ periodic_affine_frame(const math::Complex &input, const Prepared &prepared,
                       float period, bool path_length_required) {
   auto step = affine_frame(input, prepared, false);
   if (path_length_required) {
-    const float DX = std::remainder(step.coords.re - input.re, period);
-    const float DY = std::remainder(step.coords.im - input.im, period);
-    step.path_length = std::hypot(DX, DY);
+    step.path_length = displacement(
+        {math::centered_remainder(step.coords.re - input.re, period),
+         math::centered_remainder(step.coords.im - input.im, period)},
+        true);
   }
   return step;
 }
@@ -921,10 +922,10 @@ template <typename State> struct AffineFrame : PrepareFromState<State> {
         { State::prepare(frame).rotation_cos } -> std::convertible_to<float>;
         { State::prepare(frame).rotation_sin } -> std::convertible_to<float>;
         {
-          State::prepare(frame).transform.affine.scale_x
+          State::prepare(frame).transform.affine.inverse_scale_x
         } -> std::convertible_to<float>;
         {
-          State::prepare(frame).transform.affine.scale_y
+          State::prepare(frame).transform.affine.inverse_scale_y
         } -> std::convertible_to<float>;
         {
           State::prepare(frame).transform.affine.shear

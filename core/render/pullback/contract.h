@@ -1642,6 +1642,29 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
       return false;
   }
 
+  /** @brief Checks a cached shared color base ahead of a phase tail.
+   * @tparam Index Color crossing index.
+   * @tparam Input Carrier entering the color crossing.
+   * @return Whether the crossing can shade one cached base, then the tail. */
+  template <size_t Index, typename Input>
+  static constexpr bool shared_phase_base_supported() {
+    using CurrentNode = NodeAt<Index>;
+    if constexpr (Index + 1 >= NODE_COUNT ||
+                  !requires { CurrentNode::PHASE_BLEND_BASE; })
+      return false;
+    else if constexpr (CurrentNode::PHASE_BLEND_BASE &&
+                       phase_tail_supported<Index + 1>() &&
+                       requires(const Input &input, const FrameState &ctx,
+                                const PreparedTuple &prepared,
+                                ColorSample &result) {
+                         CurrentNode::run_shared_base(
+                             input, ctx, std::get<Index>(prepared), result);
+                       })
+      return true;
+    else
+      return false;
+  }
+
   /** @brief Checks an exact-owned final palette and modulation crossing.
    * @tparam Index Color crossing index.
    * @tparam Input Carrier entering the color crossing.
@@ -1809,6 +1832,16 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                   !std::is_same_v<Input, ColorSample> &&
                   requires { ctx.temporal.fraction; }) {
       const float FRACTION = ctx.temporal.fraction;
+      if constexpr (shared_phase_base_supported<Index, Input>())
+        if (FRACTION > 0.0f && (FRACTION < 1.0f || !previous) &&
+            phase_tail_ready<Index + 1>(prepared)) {
+          ColorSample result;
+          if (CurrentNode::run_shared_base(input, ctx,
+                                           std::get<Index>(prepared), result)) {
+            run_phase_tail<Index + 1>(result, ctx, prepared);
+            return result;
+          }
+        }
       if (FRACTION < 1.0f) {
         if constexpr (requires {
                         CurrentNode::run_pair(input, ctx,
@@ -1831,17 +1864,6 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                           Index + 1 < NODE_COUNT &&
                           phase_tail_supported<Index + 1>())
               if (phase_tail_ready<Index + 1>(prepared)) {
-                ColorSample result;
-                if constexpr (requires {
-                                CurrentNode::run_shared_base(
-                                    input, ctx, std::get<Index>(prepared),
-                                    result);
-                              })
-                  if (CurrentNode::run_shared_base(
-                          input, ctx, std::get<Index>(prepared), result)) {
-                    run_phase_tail<Index + 1>(result, ctx, prepared);
-                    return result;
-                  }
                 auto pair = CurrentNode::run_pair(input, ctx,
                                                   std::get<Index>(prepared));
                 blend_color_samples_in_place(pair.first, pair.second, FRACTION);

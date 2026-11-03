@@ -68,7 +68,8 @@ struct PaletteLabLutBase {
         hs::clamp(value, 0.0f, 1.0f) * (time.value_steps - 1);
     const int LOW_INDEX = std::min(int(POSITION), time.value_steps - 2);
     const float WEIGHT = POSITION - LOW_INDEX;
-    const auto lerp = [](const OKLab &a, const OKLab &b, float fraction) {
+    const auto lerp = [](const OKLab &a, const OKLab &b,
+                         float fraction) HS_HOT_INLINE {
       return OKLab{hs::lerp(a.L, b.L, fraction), hs::lerp(a.a, b.a, fraction),
                    hs::lerp(a.b, b.b, fraction)};
     };

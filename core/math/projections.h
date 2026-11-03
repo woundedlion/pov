@@ -165,31 +165,32 @@ s2_projection(const math::Vector &v, float meridian_cos, float meridian_sin) {
   const uint8_t axis = ax > ay ? (ax > az ? 0 : 2) : (ay > az ? 1 : 2);
   const float dominant = axis == 0 ? x : (axis == 1 ? y : z);
   const uint8_t face = axis + (dominant < 0.0f ? 3 : 0);
+  const float inverse = 1.0f / dominant;
   float u, w;
   switch (face) {
   case 0:
-    u = y / x;
-    w = z / x;
+    u = y * inverse;
+    w = z * inverse;
     break;
   case 1:
-    u = -x / y;
-    w = z / y;
+    u = -x * inverse;
+    w = z * inverse;
     break;
   case 2:
-    u = -x / z;
-    w = -y / z;
+    u = -x * inverse;
+    w = -y * inverse;
     break;
   case 3:
-    u = z / x;
-    w = y / x;
+    u = z * inverse;
+    w = y * inverse;
     break;
   case 4:
-    u = z / y;
-    w = -x / y;
+    u = z * inverse;
+    w = -x * inverse;
     break;
   default:
-    u = -y / z;
-    w = -x / z;
+    u = -y * inverse;
+    w = -x * inverse;
     break;
   }
   // Inverse of S2's quadratic cell-space to cube-space mapping.

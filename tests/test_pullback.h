@@ -1377,10 +1377,10 @@ inline void test_pullback_warp_phase_loop() {
                  affine_1.transform.affine.translation_x, 1e-6f);
   HS_EXPECT_NEAR(affine_0.transform.affine.translation_y,
                  affine_1.transform.affine.translation_y, 1e-6f);
-  HS_EXPECT_NEAR(affine_0.transform.affine.scale_x,
-                 affine_1.transform.affine.scale_x, 1e-6f);
-  HS_EXPECT_NEAR(affine_0.transform.affine.scale_y,
-                 affine_1.transform.affine.scale_y, 1e-6f);
+  HS_EXPECT_NEAR(affine_0.transform.affine.inverse_scale_x,
+                 affine_1.transform.affine.inverse_scale_x, 1e-6f);
+  HS_EXPECT_NEAR(affine_0.transform.affine.inverse_scale_y,
+                 affine_1.transform.affine.inverse_scale_y, 1e-6f);
   HS_EXPECT_NEAR(affine_0.transform.affine.shear,
                  affine_1.transform.affine.shear, 1e-6f);
 }
@@ -3171,9 +3171,9 @@ inline void test_pullback_shared_lab_dispatch() {
         const auto ACTUAL = Core::template run_stage<0>(
             SphereSample{math::Y_AXIS, 0.7f}, frame, PREPARED);
         const bool INTERIOR = fraction > 0.0f && fraction < 1.0f;
-        HS_EXPECT_EQ(ACTUAL.has_cached_lab, active && ready && INTERIOR);
-        HS_EXPECT_EQ(CountingLabPalette::shared_calls,
-                     INTERIOR && ready ? 1 : 0);
+        const bool SHARED = ready && fraction > 0.0f;
+        HS_EXPECT_EQ(ACTUAL.has_cached_lab, active && SHARED);
+        HS_EXPECT_EQ(CountingLabPalette::shared_calls, SHARED ? 1 : 0);
         HS_EXPECT_EQ(CountingLabPalette::pair_calls,
                      INTERIOR && !(active && ready) ? 1 : 0);
         const FieldSample FIELD{0.5f, 0.5f, math::Y_AXIS, 0.7f};
@@ -3186,7 +3186,7 @@ inline void test_pullback_shared_lab_dispatch() {
                          : hs::lerp(PAIR.first.color.alpha,
                                     PAIR.second.color.alpha, fraction));
         HS_EXPECT_NEAR(ACTUAL.pending_hue, 0.14f, 1e-7f);
-        if (!INTERIOR)
+        if (!INTERIOR && !(active && SHARED))
           HS_EXPECT_EQ(ACTUAL.color.color, fraction == 0.0f
                                                ? PAIR.first.color.color
                                                : PAIR.second.color.color);

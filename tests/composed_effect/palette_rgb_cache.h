@@ -185,10 +185,10 @@ void test_palette_rgb_cache_shared_base_endpoints() {
   FX::FrameState frame{};
   Pullback::FieldSample field{.4f, .7f, {0, 1, 0}, .2f};
   Pullback::ColorSample output;
-  for (float endpoint : {0.0f, 1.0f}) {
-    prepared.fraction = endpoint;
-    HS_EXPECT_FALSE(Policy::apply_shared_base(field, frame, prepared, output));
-  }
+  prepared.fraction = 0.0f;
+  HS_EXPECT_FALSE(Policy::apply_shared_base(field, frame, prepared, output));
+  prepared.fraction = 1.0f;
+  HS_EXPECT_TRUE(Policy::apply_shared_base(field, frame, prepared, output));
   prepared.fraction = .5f;
   HS_EXPECT_TRUE(Policy::apply_shared_base(field, frame, prepared, output));
   HS_EXPECT_TRUE(output.cached_rgb == &prepared.lab);
