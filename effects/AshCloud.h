@@ -176,10 +176,12 @@ public:
     value.template get<"value">().cutout_softness = 0.31635937f;
     value.template get<"value">().cutout_threshold = 0.365f;
     value.template get<"displace">().burst_rate = 0.015625f;
+    value.template get<"displace">().burst_size = 3;
     value.template get<"displace">().center_azimuth = 0.0f;
     value.template get<"displace">().center_polar = 1.5707964f;
     value.template get<"displace">().decay = 0.1f;
     value.template get<"displace">().period = 80.0f;
+    value.template get<"displace">().random_center = 1;
     value.template get<"displace">().strength = 0.15f;
     value.template get<"displace">().thickness = 0.7f;
     value.template get<"modulate">().modulation.grid.axis_b.x = 1.0f;

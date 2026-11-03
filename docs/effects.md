@@ -23,6 +23,8 @@ All screenshots below were captured from the [live WebAssembly simulator](https:
   - [AlienCore](#aliencore)
   - [KaleidoscopeMandala](#kaleidoscopemandala)
   - [GridSpace](#gridspace)
+  - [WarpFest](#warpfest)
+  - [GlitchLace](#glitchlace)
   - [GridWorms](#gridworms)
   - [Millefiori](#millefiori)
   - [HyperLattice](#hyperlattice)
@@ -594,6 +596,23 @@ P1 renders a continuous twisted star surface: each pixel takes the color of the 
 
 
 
+### WarpFest
+
+Ripple bursts and a rotating symmetric tangent field feed a dodecahedral fold,
+folded gnomonic projection, wave shear and mirror tiling. Its authored
+`wave-mirror` and `cup-hue` presets retain their camera, grid, displacement,
+palette and modulation settings, including symmetry and color-source changes.
+The imported symmetric lens uses the current single Strength control, equal to
+the authored Strength multiplied by Amplitude.
+
+### GlitchLace
+
+An animated twist precedes Rossby–Haurwitz and poloidal dodecahedral
+fields. An S2 cube atlas and an animated affine frame stretch the primitive
+lattice into a moving lace pattern, colored by a cycling generated palette
+with noise hue modulation. The authored lattice period remains independent of
+its cell scale.
+
 ## Shader Authoring Workbench
 
 The standalone [Shader workbench](https://github.com/woundedlion/daydream/blob/master/tools/shader.html) provides the complete structural vocabulary and its pipeline-strip editor in a dedicated browser tab. The workbench opens current chain documents and offers the composed effects as editable sources. The firmware rosters contain only the promoted effects.
@@ -605,7 +624,16 @@ interprets an arbitrary compiled operator chain and registers parameters as
 batches and complete versioned snapshots. Its operator clocks and generated
 palette advance while the shared authored-preset pause is set. Current snapshots restore atomically; retired effect identities and snapshot formats are rejected.
 
-Shipping composed effects are ordinary concrete `Effect` types. Each names one compile-time `Pullback::Pipeline`, a compact parameter and prepared-frame type, immutable stable preset IDs, and only the resources its graph uses. Its raster loop calls `Derived::shade(view, frame)` directly; there is no per-pixel function-pointer dispatch, topology lookup, family object, or universal Shader parameter block. The shared `Pullback::ComposedEffect` base contains only lifecycle work that is genuinely common: clocks, preset interpolation, parameter registration, palette/LUT ownership, narrow frame preparation, and the typed scan loop; its preset choreography and snapshot machinery come from the engine-level `ChoreographedEffect`. Generated palette evaluation remains in the shared `GenerativePalette` color stage rather than being copied into each effect.
+Shipping composed effects are ordinary concrete `Effect` types. Each names one compile-time `Pullback::Pipeline`, a compact parameter and prepared-frame type, immutable stable preset IDs, and only the resources its graph uses. Its raster loop calls `Derived::shade(view, frame)` directly; there is no per-pixel function-pointer dispatch, family object, or universal Shader parameter block. The shared `Pullback::ComposedEffect` base contains only lifecycle work that is genuinely common: clocks, preset interpolation, parameter registration, palette/LUT ownership, narrow frame preparation, and the typed scan loop; its preset choreography and snapshot machinery come from the engine-level `ChoreographedEffect`. Generated palette evaluation remains in the shared `GenerativePalette` color stage rather than being copied into each effect.
+
+
+Specs with `AUTHORED_TOPOLOGY = true` use authored parameter families for
+catalog selectors. The preset generator retains selector indices, explicit
+affine lattice periods, and source weighting and coverage in those families.
+Each typed stage evaluates its own selector while its position and carrier
+contract remain fixed by the pipeline. Static specializations keep their
+policy selectors in the pipeline types and require them to agree across
+presets. Both forms use versioned parameter snapshots.
 
 Each editable source document lives under `patterns/*.shader.json`. The browser validates and canonicalizes a document before changing the live engine, matches its exact descriptor digest to a composed effect, and selects presets by immutable ID. Open/save preserves exhaustive chain, parameter, transition, and choreography data. Unknown or invalid semantics leave the current preview untouched. The current catalog maps each composed effect to its authoring document.
 
@@ -673,8 +701,10 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `kaleidoscope-flowers` | `KaleidoscopeFlowers` | 3 |
 | `cosmic-eyeball` | `CosmicEyeball` | 1 |
 | `mobius-grid` | `MobiusGrid` | 2 |
+| `warp-fest` | `WarpFest` | 2 |
+| `glitch-lace` | `GlitchLace` | 1 |
 
-These 20 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Millefiori is second in Phantasm for 60 seconds. GridWorms follows GridSpace for 60 seconds. Single-look effects carry a per-entry show window of 30 or 60 seconds in `HS_PHANTASM_EFFECT_LIST`. Multi-preset effects derive their window from the full preset cycle, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Frame budgets convert to show seconds at the nominal 16 fps; slower rendering can leave a cycle unfinished when its show window ends. Kaleidoscope Melt and Kaleidoscope Smooth run document-built chain comparisons in dedicated white-box equivalence suites.
+These 22 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Millefiori is second in Phantasm for 60 seconds. GridWorms follows GridSpace for 60 seconds. Single-look effects carry a per-entry show window of 30 or 60 seconds in `HS_PHANTASM_EFFECT_LIST`. Multi-preset effects derive their window from the full preset cycle, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Frame budgets convert to show seconds at the nominal 16 fps; slower rendering can leave a cycle unfinished when its show window ends. Kaleidoscope Melt and Kaleidoscope Smooth run document-built chain comparisons in dedicated white-box equivalence suites.
 
 The [device profile archive](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md) contains shipping reports for all 37 Phantasm effects: 37 completed selective-O3 captures, including new HankinSolids and ShapeShifter captures after the scratch-arena and uniform flash-walker alignment fixes. It also holds global-O3 reference captures for 34 effects and supplemental variant reports. The shipping sweep reports steady render telemetry (`frame` minus buffer wait) from frame 2 through the last complete counter window under the shipping segment clip; setup frame 1 is separate, and subsequent transitions remain included. GSReactionDiffusion has a steady peak of 48.112 ms with 0/447 spilled frames and a 24.883 ms setup frame; MermaidSkin has a steady peak of 42.073 ms with 0/447 spilled frames and a 70.074 ms setup frame; ChromaticLichen has a steady peak of 40.003 ms with 0/447 spilled frames and a 65.897 ms setup frame; AshCloud has a steady peak of 47.180 ms with 0/927 spilled frames and a 73.108 ms setup frame. GridWorms has a steady peak of 56.505 ms, setup frame 1 of 60.735 ms, and 0/1,087 steady spilled frames in a 70-second capture. The reports identify source, frame scope, trailing exclusions and validator diagnostics. HankinSolids has a steady peak of 31.644 ms, setup frame 1 19.276 ms, and 0/2687 steady spilled frames; ShapeShifter has a steady peak of 57.537 ms, setup frame 1 47.865 ms, and 0/4271 steady spilled frames. GSReactionDiffusion’s global-O3 reference, which predates the October 5 optimization, peaks at 279.686 ms with every frame spilled. AshCloud's global-O3 reference peaks at 79.81 ms with 100% spills. Of the composed effects excluded from the Phantasm image, KaleidoscopeMelt peaks at 46.26 ms, with its 76.53 ms initialization frame recorded separately and excluded from display cadence statistics; JewelMelt peaks at 46.35 ms at softness 0.5, with its full-width initialization draw likewise recorded separately; and KaleidoscopeStainedGlass peaks at 43.00 ms. These measurements apply to the revisions and configurations recorded in those reports. The composed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
 
@@ -800,7 +830,7 @@ operator and palette clocks keep advancing while its authored-preset pause is
 set.
 
 The simulator interprets admitted chains even when they have no promoted
-firmware match. Firmware exposes the 20 promoted fixed descriptors; a
+firmware match. Firmware exposes the 22 promoted fixed descriptors; a
 catalog choice alone does not promise a Teensy specialization.
 
 The gap is per value, not only per combination. The `ComposedEffect` derivation layer in `composed_effect.h` reaches a strict subset of the shipped operator catalog, so the operators classified as unreachable in `DERIVATION_REACH` and further values of the operators it does reach remain workbench-only: every non-simplex noise basis, the non-Euler curl integrators, the clamp curl tangent limit, the non-flat warp envelopes, the logarithmic polar chart and its harmonics 2–16, the front and back gnomonic hemispheres, the None signal weight, and the Bell, Ascending and Descending brightness envelopes. Opaque coverage is supported by the composed layer although no shipped composed effect selects it. Both Noise Contours are reachable. Value Cutout is reachable and selected by Ash Cloud. `tests/composed_effect/derivation_reach.h` pins that set against the live operator table, so a catalog addition stays classified.

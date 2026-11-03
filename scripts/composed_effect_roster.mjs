@@ -6,6 +6,7 @@ export const SHADER_DOCUMENT_EFFECTS = Object.freeze([
   'ash-cloud',
   'chromatic-lichen',
   'cosmic-eyeball',
+  'glitch-lace',
   'grid-space',
   'grid-worms',
   'jewel-melt',
@@ -20,4 +21,5 @@ export const SHADER_DOCUMENT_EFFECTS = Object.freeze([
   'mermaid-skin',
   'millefiori',
   'mobius-grid',
+  'warp-fest',
 ]);

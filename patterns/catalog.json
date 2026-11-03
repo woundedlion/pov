@@ -20,7 +20,9 @@
     "cosmic-eyeball": "cosmic_eyeball.shader.json",
     "mobius-grid": "mobius_grid.shader.json",
     "millefiori": "millefiori.shader.json",
-    "grid-worms": "grid_worms.shader.json"
+    "grid-worms": "grid_worms.shader.json",
+    "warp-fest": "warp_fest.shader.json",
+    "glitch-lace": "glitch_lace.shader.json"
   },
   "product_group": {
     "id": "shader-collection",
@@ -105,6 +107,14 @@
       {
         "effect_id": "grid-worms",
         "display_name": "Grid Worms"
+      },
+      {
+        "effect_id": "warp-fest",
+        "display_name": "WarpFest"
+      },
+      {
+        "effect_id": "glitch-lace",
+        "display_name": "GlitchLace"
       }
     ]
   }

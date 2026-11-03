@@ -2,7 +2,7 @@ import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { exitAfterStderr, isMain } from './exit.mjs';
 import { resolve } from 'node:path';
-import { BAKED_CONSTANT_IDS, LIVE_TOPOLOGY_FIELD, compileShaderDocument, fixedDerivedBinding } from './shader_workbench.mjs';
+import { LIVE_TOPOLOGY_FIELD, compileShaderDocument, fixedDerivedBinding } from './shader_workbench.mjs';
 import { loadOperatorCatalog } from './pattern_documents.mjs';
 import { loadEffectIdentities } from './effect_roster.mjs';
 
@@ -10,10 +10,6 @@ const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const SECTIONS = ['identity', 'params'];
 const GROUPS = { sample: 'source', project: 'projection', warp1: 'outer_warp',
   warp2: 'inner_warp', warp: 'outer_warp', displace: 'displace', surface: 'surface', transfer: 'value', cutout: 'value', colorize: 'color' };
-const RENAMES = { 'sample.angle-speed': 'angle_rate', 'sample.drift': 'secondary_rate',
-  'sample.lattice-shape': 'lattice_shape_blend', 'project.projection-spin-speed': 'spin_rate',
-  'project.projection-wander': 'wander', 'colorize.value-opacity-low': 'opacity_low',
-  'colorize.value-opacity-high': 'opacity_high' };
 const MODULATION_MEMBERS = {
   'modulation-amount': 'mechanic.amount',
   'pattern-scale': 'noise.scale',
@@ -29,6 +25,21 @@ const MODULATION_ENUMS = {
 };
 const catalog = await loadOperatorCatalog();
 const identities = await loadEffectIdentities();
+
+const LIVE_SURFACE_OPERATORS = new Set(['sphere.displace.symmetric.v2', 'sphere.displace.rossby-haurwitz.v1', 'sphere.displace.ripple.v2']);
+
+const liveTopology = (document, id) => {
+  const [label, field] = id.split('.');
+  const slot = document.descriptor.chain.find(slot => slot.label === label);
+  return LIVE_SURFACE_OPERATORS.has(slot?.operator) &&
+    catalog.operators.find(operator => operator.id === slot.operator).params
+      .find(parameter => parameter.id === field)?.topology;
+};
+
+const authoredLiveTopology = (slot, field) => {
+  if (slot.operator.startsWith('sample.')) return ['basis', 'kind', 'weight-mode', 'coverage-mode'].includes(field);
+  return slot.operator !== 'sphere.rotate.v2';
+};
 
 const topologyIds = (document) => new Set(document.descriptor.chain.flatMap((slot) =>
   catalog.operators.find((operator) => operator.id === slot.operator).params
@@ -47,52 +58,114 @@ export function floatLiteral(value) {
   return `${/[.e]/.test(text) ? text : `${text}.0`}f`;
 }
 
-export function presetAssignments(document, values) {
+const groupFor = (slot) => {
+  if (slot.resource_key) return slot.resource_key;
+  if (slot.operator.startsWith('sample.')) return 'source';
+  if (slot.operator.startsWith('project.') || slot.operator === 'sphere.rotate.v2') return 'projection';
+  if (slot.operator.startsWith('colorize.')) return 'color';
+  return GROUPS[slot.label] ?? slot.label;
+};
+
+const scalarMember = (slot, field) => {
+  if (slot.operator === 'sphere.rotate.v2') return field === 'wander' ? 'camera_wander' : null;
+  if (slot.operator.startsWith('sample.')) {
+    const sourceNames = { 'angle-speed': 'angle_rate', drift: 'secondary_rate',
+      'lattice-shape': 'lattice_shape_blend', 'noise-speed': 'noise_time_rate',
+      'fractal-scale': 'scale', 'fractal-iterations': 'iterations',
+      'julia-real': 'julia_re', 'julia-imaginary': 'julia_im',
+      'fractal-contours': 'contours', 'spin-speed': 'spin_rate' };
+    return sourceNames[field] ?? field.replaceAll('-', '_');
+  }
+  if (slot.operator.startsWith('project.'))
+    return ({ 'projection-spin-speed': 'spin_rate', 'projection-wander': 'wander' })[field] ?? field.replaceAll('-', '_');
+  if (slot.operator === 'sphere.lens.twist.v2' && field === 'twist-distribution') return 'distribution';
+  if (slot.operator === 'sphere.displace.potential.v1' && /^term-[1-4]-/.test(field)) {
+    const [, index, ...parts] = field.split('-');
+    return `terms[${Number(index) - 1}].${parts.join('_')}`;
+  }
+  return ({ 'value-opacity-low': 'opacity_low', 'value-opacity-high': 'opacity_high' })[field] ?? field.replaceAll('-', '_');
+};
+
+/** @brief Catalog choices pinned by a concrete pipeline's policy types. */
+export function topologySelections(document, values) {
+  const selections = new Map();
+  for (const slot of document.descriptor.chain) {
+    const operator = catalog.operators.find(operator => operator.id === slot.operator);
+    if (!operator) throw new Error(`Unknown composed operator: ${slot.operator}`);
+    for (const field of operator.params.filter(field => field.topology)) {
+      const id = `${slot.label}.${field.id}`;
+      if (!(id in values)) continue;
+      if (!field.values.includes(values[id])) throw new Error(`Invalid topology selector: ${id}`);
+      selections.set(id, values[id]);
+    }
+  }
+  return selections;
+}
+
+export function presetAssignments(document, values, { authoredTopology = false } = {}) {
   const assignments = new Map();
   const topology = topologyIds(document);
-  const twists = new Map(document.descriptor.chain.filter(
-    (slot) => slot.operator === 'sphere.lens.twist.v2')
-    .map((slot) => [slot.label, slot.resource_key ?? slot.label]));
-  const modulations = new Set(document.descriptor.chain.filter(
-    (slot) => slot.operator === 'color.modulate.v1').map((slot) => slot.label));
+  const slots = new Map(document.descriptor.chain.map(slot => [slot.label, slot]));
   for (const [id, value] of Object.entries(values)) {
     const [label, field] = id.split('.');
+    const slot = slots.get(label);
+    const definition = catalog.operators.find(operator => operator.id === slot?.operator)?.params
+      .find(parameter => parameter.id === field);
+    if (!slot || !definition) throw new Error(`Unmapped composed parameter: ${id}`);
+    const group = groupFor(slot);
     if (field === 'lattice-period') {
-      if (!fixedDerivedBinding(document.descriptor, id, values)?.valid)
-        throw new Error(`Invalid derived binding: ${id}`);
+      if (slot.operator !== 'warp.affine.v3') throw new Error(`Invalid derived binding: ${id}`);
+      if (!authoredTopology && fixedDerivedBinding(document.descriptor, id, values)?.valid) continue;
+      if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0)
+        throw new Error(`Invalid affine lattice period: ${id}`);
+      assignments.set(`${group}.lattice_period`, floatLiteral(value));
       continue;
     }
-    if (modulations.has(label) && field === 'modulation-enabled') {
-      if (!['disabled', 'enabled'].includes(value)) throw new Error(`Invalid modulation state: ${value}`);
-      assignments.set(`${label}.modulation.enabled`, String(value === 'enabled'));
+    if (slot.operator === 'color.modulate.v1') {
+      if (field === 'modulation-enabled') {
+        if (!['disabled', 'enabled'].includes(value)) throw new Error(`Invalid modulation state: ${value}`);
+        assignments.set(`${group}.modulation.enabled`, String(value === 'enabled'));
+        continue;
+      }
+      if (MODULATION_ENUMS[field]) {
+        const [path, type] = MODULATION_ENUMS[field];
+        if (!definition.values.includes(value)) throw new Error(`Invalid modulation selector: ${id}`);
+        assignments.set(`${group}.modulation.${path}`, `${type}::${value.replaceAll('-', '_').toUpperCase()}`);
+        continue;
+      }
+      if (MODULATION_MEMBERS[field]) {
+        assignments.set(`${group}.modulation.${MODULATION_MEMBERS[field]}`, floatLiteral(value));
+        continue;
+      }
+      if (/^(sine|interference|grid)-/.test(field)) {
+        const [source, ...parts] = field.split('-');
+        const path = parts.join('_').replace(/^axis_b_([xyz])$/, 'axis_b.$1').replace(/^axis_([xyz])$/, 'axis.$1');
+        assignments.set(`${group}.modulation.${source}.${path}`, floatLiteral(value));
+        continue;
+      }
+    }
+    if (topology.has(id)) {
+      if (!definition.values.includes(value)) throw new Error(`Invalid topology selector: ${id}`);
+      if (liveTopology(document, id) || (authoredTopology && authoredLiveTopology(slot, field))) {
+        const member = field === 'brightness-envelope' ? 'brightness_envelope' : scalarMember(slot, field);
+        const literal = field === 'brightness-envelope'
+          ? `Pullback::Color::BrightnessEnvelope::${value.replaceAll('-', '_').toUpperCase()}`
+          : String(definition.values.indexOf(value));
+        assignments.set(`${group}.${member}`, literal);
+      }
       continue;
     }
-    if (modulations.has(label) && MODULATION_ENUMS[field]) {
-      const [path, type] = MODULATION_ENUMS[field];
-      if (typeof value !== 'string') throw new Error(`Invalid modulation selector: ${id}`);
-      assignments.set(`${label}.modulation.${path}`, `${type}::${value.replaceAll('-', '_').toUpperCase()}`);
+    if (slot.operator === 'sphere.rotate.v2' && field === 'spin-speed') continue;
+    if (slot.operator.startsWith('sample.') && field === 'edge-width') {
+      if (authoredTopology) {
+        assignments.set(`${group}.edge_width`, floatLiteral(value));
+        continue;
+      }
+      if (!fixedDerivedBinding(document.descriptor, id, values))
+        assignments.set('value.edge_width', floatLiteral(value));
       continue;
     }
-    if (topology.has(id)) continue;
-    if (BAKED_CONSTANT_IDS.has(id)) continue;
-    let member;
-    if (id === 'camera.wander') member = 'projection.camera_wander';
-    else if (id === 'sample.edge-width') {
-      if (fixedDerivedBinding(document.descriptor, id, values)) continue;
-      member = 'value.edge_width';
-    } else if (twists.has(label))
-      member = `${twists.get(label)}.${field === 'twist-distribution' ? 'distribution' : field.replaceAll('-', '_')}`;
-    else if (/^lens\.(spin|push)-[xyz]$/.test(id))
-      member = `lens.${field.replaceAll('-', '_')}`;
-    else if (modulations.has(label) && MODULATION_MEMBERS[field])
-      member = `${label}.modulation.${MODULATION_MEMBERS[field]}`;
-    else if (modulations.has(label) && /^(sine|interference|grid)-/.test(field)) {
-      const [source, ...parts] = field.split('-');
-      let path = parts.join('_');
-      path = path.replace(/^axis_b_([xyz])$/, 'axis_b.$1').replace(/^axis_([xyz])$/, 'axis.$1');
-      member = `${label}.modulation.${source}.${path}`;
-    } else if (GROUPS[label]) member = `${GROUPS[label]}.${RENAMES[id] ?? field.replaceAll('-', '_')}`;
-    else throw new Error(`Unmapped composed parameter: ${id}`);
+    const member = `${group}.${scalarMember(slot, field)}`;
     if (field === 'palette-mapping') {
       if (!['cup', 'bell', 'linear', 'reverse'].includes(value)) throw new Error(`Invalid mapping: ${value}`);
       assignments.set(member, `Pullback::Color::PaletteMapping::${value.toUpperCase()}`);
@@ -127,7 +200,7 @@ export function departureLiteral(bank, presetId, policies) {
   return `Segue::Preset::Lerp{${edge.duration}, ${easing}}`;
 }
 
-export function generatedSections(compiled, metadata) {
+export function generatedSections(compiled, metadata, { authoredTopology = false } = {}) {
   if (compiled.status !== 'VALID') throw new Error(JSON.stringify(compiled.diagnostics));
   const document = compiled.document;
   const bank = document.preset_bank;
@@ -137,10 +210,15 @@ export function generatedSections(compiled, metadata) {
     throw new Error('Composed documents must declare choreography.dwell');
   const dwell = order.map((id) => bank.choreography.dwell[id]);
   if (!dwell.every((value) => value === dwell[0])) throw new Error('Composed dwell must be uniform');
-  const spin = presets.map((preset) => preset.values['camera.spin-speed']);
+  const camera = document.descriptor.chain.find(slot => slot.operator === 'sphere.rotate.v2');
+  const spin = presets.map(preset => camera ? preset.values[`${camera.label}.spin-speed`] : undefined);
   if (!spin.every((value) => value === spin[0])) throw new Error('Composed camera spin must be uniform');
   for (const parameter of document.descriptor.parameters) {
-    if (parameter.storage !== 'enum8' || parameter.id.endsWith(`.${LIVE_TOPOLOGY_FIELD}`)) continue;
+    const [label, field] = parameter.id.split('.');
+    const slot = document.descriptor.chain.find(slot => slot.label === label);
+    if (parameter.storage !== 'enum8' || field === LIVE_TOPOLOGY_FIELD ||
+      liveTopology(document, parameter.id) || slot.operator === 'color.modulate.v1' ||
+      (authoredTopology && authoredLiveTopology(slot, field))) continue;
     const values = presets.map((preset) => preset.values[parameter.id]);
     if (!values.every((value) => value === values[0]))
       throw new Error(`Composed topology must be uniform: ${parameter.id}`);
@@ -167,7 +245,7 @@ export function generatedSections(compiled, metadata) {
       `  static constexpr float CAMERA_SPIN_RATE = ${floatLiteral(spin[0])};`,
     ]),
   ].join('\n');
-  const initial = presetAssignments(document, presets[0].values);
+  const initial = presetAssignments(document, presets[0].values, { authoredTopology });
   const assignment = ([member, literal]) => {
     const [key, ...path] = member.split('.');
     return `    value.template get<"${key}">().${path.join('.')} = ${literal};`;
@@ -192,7 +270,7 @@ export function generatedSections(compiled, metadata) {
     if (!uniform) params.push(`    Segue::Preset::Departure segue = ${departures[0]};`);
     for (let i = 1; i < presets.length; ++i) {
       params.push(`    if (index == ${i}) {`);
-      for (const entry of presetAssignments(document, presets[i].values))
+      for (const entry of presetAssignments(document, presets[i].values, { authoredTopology }))
         if (initial.get(entry[0]) !== entry[1]) params.push(`  ${assignment(entry)}`);
       if (!uniform && departures[i] !== departures[0]) params.push(`      segue = ${departures[i]};`);
       params.push('    }');
@@ -203,7 +281,8 @@ export function generatedSections(compiled, metadata) {
 }
 
 export function updateHeader(source, compiled, metadata) {
-  const sections = generatedSections(compiled, metadata);
+  const authoredTopology = /AUTHORED_TOPOLOGY\s*=\s*true/u.test(source);
+  const sections = generatedSections(compiled, metadata, { authoredTopology });
   for (const section of SECTIONS) {
     const begin = `  // Generated ${section}: scripts/generate_composed_presets.mjs\n  // clang-format off\n`;
     const end = `  // clang-format on\n  // End generated ${section}.`;

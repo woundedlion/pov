@@ -23,9 +23,7 @@ static_assert(DerivableSource<Pullback::GridSourceParams>);
 static_assert(!DerivableSource<Pullback::Source::NoiseSourceParams>);
 static_assert(DerivableSource<Pullback::ProjectedNoiseSourceParams>);
 static_assert(DerivableSource<Pullback::SphericalNoiseSourceParams>);
-// SphericalRings stays chain-only: its policy needs a prepared axis and
-// phase the composed frame does not carry.
-static_assert(!DerivableSource<Pullback::Source::SphericalRingsSourceParams>);
+static_assert(DerivableSource<Pullback::Source::SphericalRingsSourceParams>);
 static_assert(
     std::is_same_v<
         typename Pullback::SourcePolicyFor<Pullback::SphericalNoiseSourceParams,
@@ -75,24 +73,24 @@ struct DerivationReach {
 };
 
 constexpr DerivationReach DERIVATION_REACH[] = {
-    // ProjectionKind has no spelling for these projections.
     {"project.peirce.v3", nullptr, {}},
     {"project.peirce-square-fast.v3", nullptr, {}},
     {"project.bonne.v3", nullptr, {}},
     {"project.airocean.v3", nullptr, {}},
-    {"project.s2.v1", nullptr, {}},
-    // SourcePolicyFor has no policy for these samplers; spherical-rings needs
-    // a prepared axis and phase.
+    {"project.s2.v1", "frame", {{"spin-wander"}}},
     {"sample.rings.v2", nullptr, {}},
     {"sample.spherical-rings.v3", nullptr, {}},
     {"sample.fractal.v2", nullptr, {}},
     {"sample.tessellation.v2", nullptr, {}},
-    // No WarpPolicyFor specialization carries these warp families.
     {"warp.curl-flow.v2", nullptr, {}},
     {"sphere.displace.potential.v1", nullptr, {}},
-    {"sphere.displace.rossby-haurwitz.v1", nullptr, {}},
-    {"sphere.displace.symmetric.v2", nullptr, {}},
-    // TransferKind is NONE or ISO_CONTOUR.
+    {"sphere.displace.rossby-haurwitz.v1", "integrator", {{"euler"}}},
+    {"sphere.displace.rossby-haurwitz.v1", "order", {{"four"}}},
+    {"sphere.displace.symmetric.v2", "integrator", {{"euler"}}},
+    {"sphere.displace.symmetric.v2",
+     "symmetry",
+     {{"azimuthal", "dodecahedral"}}},
+    {"sphere.displace.symmetric.v2", "kind", {{"toroidal", "poloidal"}}},
     {"field.transfer.ridge.v2", nullptr, {}},
     {"field.transfer.smooth-bands.v2", nullptr, {}},
     // ProjectionKind names the folded gnomonic alone.
@@ -134,7 +132,9 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sample.projected-noise.v2", "basis", {}},
     {"sample.spherical-noise.v3", "basis", {}},
     {"sample.lattice.v2", "weight-mode", {{"projection"}}},
-    {"sample.lattice.v2", "coverage-mode", {{"weight", "weight-squared"}}},
+    {"sample.lattice.v2",
+     "coverage-mode",
+     {{"weight", "weight-squared", "edge-fade"}}},
     {"colorize.generated-palette.v4",
      "palette-mode",
      {{"triadic", "complementary", "analogous"}}},
@@ -260,7 +260,7 @@ inline void test_composed_derivation_reach() {
   }
 
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 43u);
-  HS_EXPECT_EQ(unreachable_operators, 15u);
+  HS_EXPECT_EQ(unreachable_operators, 12u);
   HS_EXPECT_EQ(catalog_values, 369u);
-  HS_EXPECT_EQ(unreachable_values, 313u);
+  HS_EXPECT_EQ(unreachable_values, 304u);
 }

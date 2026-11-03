@@ -213,6 +213,8 @@ inline void check_roster_order_pinned() {
                                               "Comets",
                                               "Millefiori",
                                               "GridSpace",
+                                              "WarpFest",
+                                              "GlitchLace",
                                               "GridWorms",
                                               "HyperLattice",
                                               "AshCloud",

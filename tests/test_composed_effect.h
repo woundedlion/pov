@@ -204,6 +204,9 @@ inline void verify_family_equal(const Family &actual, const Family &expected) {
     HS_CONTEXT(field.id);
     HS_EXPECT_EQ(bits(actual.*(field.member)), bits(expected.*(field.member)));
   }
+  if constexpr (requires { Family::TOPOLOGY; })
+    for (const auto &field : Family::TOPOLOGY)
+      HS_EXPECT_EQ(actual.*field.member, expected.*field.member);
   if constexpr (requires { actual.modulation; })
     HS_EXPECT_TRUE(actual.modulation == expected.modulation);
   if constexpr (requires { actual.burst_size; }) {
@@ -869,6 +872,12 @@ inline void test_ash_cloud_document_pipeline() {
 }
 
 #include "tests/composed_effect/authored_policies.h"
+/** @brief Promoted pixels match the authored document-built chains. */
+inline void test_promoted_document_pipelines() {
+  composed_chain_tests::verify_export<WarpFest<SMALL_W, SMALL_H>>(0);
+  composed_chain_tests::verify_export<WarpFest<SMALL_W, SMALL_H>>(1);
+  composed_chain_tests::verify_export<GlitchLace<SMALL_W, SMALL_H>>(0);
+}
 
 /** @brief Module entry point for the composed-effect base contract. */
 inline int run_composed_effect_tests() {
@@ -882,6 +891,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_authored_lens_bindings_match_operators);
   HS_RUN(test_millefiori_radial_table_interval);
   HS_RUN(test_millefiori_document_pipeline);
+  HS_RUN(test_promoted_document_pipelines);
   HS_RUN(test_grid_worms_twist_clocks);
   HS_RUN(test_grid_worms_document_pipeline);
   HS_RUN(test_ash_cloud_document_pipeline);

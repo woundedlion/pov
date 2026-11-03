@@ -16,6 +16,7 @@
 #include "effects/AshCloud.h"
 #include "effects/ChromaticLichen.h"
 #include "effects/CosmicEyeball.h"
+#include "effects/GlitchLace.h"
 #include "effects/GridSpace.h"
 #include "effects/GridWorms.h"
 #include "effects/JewelMelt.h"
@@ -30,3 +31,4 @@
 #include "effects/MermaidSkin.h"
 #include "effects/Millefiori.h"
 #include "effects/MobiusGrid.h"
+#include "effects/WarpFest.h"

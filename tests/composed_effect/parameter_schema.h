@@ -56,6 +56,30 @@ struct ParameterLayoutHash {
     } else if constexpr (std::is_same_v<Member,
                                         Pullback::Color::BrightnessEnvelope>) {
       text("brightness-envelope-enum8");
+    } else if constexpr (requires {
+                           typename Member::value_type;
+                           member.size();
+                           member.data();
+                         }) {
+      text("array");
+      number(member.size());
+      for (size_t index = 0; index < member.size(); ++index)
+        this->member(root, member[index], std::to_string(index));
+    } else if constexpr (requires {
+                           member.type;
+                           member.kind;
+                           member.l;
+                           member.m;
+                           member.amplitude;
+                           member.phase;
+                         }) {
+      text("potential-term");
+      this->member(root, member.type, "type");
+      this->member(root, member.kind, "kind");
+      this->member(root, member.l, "l");
+      this->member(root, member.m, "m");
+      this->member(root, member.amplitude, "amplitude");
+      this->member(root, member.phase, "phase");
     } else if constexpr (Pullback::HasFields<Member>) {
       text("fields");
       number(Member::FIELDS.size());
@@ -74,6 +98,11 @@ struct ParameterLayoutHash {
         this->member(root, member.palette_name_b, "palette-name-b");
         this->member(root, member.brightness_envelope, "brightness-envelope");
       }
+      if constexpr (requires { Member::TOPOLOGY; })
+        for (const auto &field : Member::TOPOLOGY)
+          this->member(root, member.*field.member, field.id);
+      if constexpr (requires { member.terms; })
+        this->member(root, member.terms, "terms");
       if constexpr (requires { member.modulation; })
         this->member(root, member.modulation, "modulation");
       if constexpr (requires { member.burst_size; }) {

@@ -523,6 +523,40 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
   if (value.kind != JsonValue::Kind::STRING)
     return false;
   const std::string_view text = value.text;
+  if (slot.role != SlotRole::COLORIZE) {
+    bool assigned = false;
+    built.visit([&]<typename Resource>(auto &family) {
+      using Family = typename Resource::Family;
+      if constexpr (requires { Family::TOPOLOGY; }) {
+        const bool matches =
+            (slot.role == SlotRole::PROJECT &&
+             Resource::KIND == Pullback::ResourceKind::PROJECTION) ||
+            (slot.role == SlotRole::SAMPLE &&
+             Resource::KIND == Pullback::ResourceKind::SOURCE) ||
+            (slot.role == SlotRole::LENS &&
+             Resource::KEY.view() == slot.label) ||
+            (slot.role == SlotRole::SURFACE &&
+             Resource::KEY.view() == slot.label) ||
+            (slot.role == SlotRole::WARP &&
+             Resource::KEY.view() ==
+                 (slot.warp_side == 0 ? "outer_warp" : "inner_warp"));
+        if (!matches)
+          return;
+        for (const auto &field : Family::TOPOLOGY)
+          if (field_id == field.id)
+            for (const auto &schema :
+                 In::find_operator(slot.operator_id.c_str())->schema_span())
+              if (field_id == schema.id && schema.topology)
+                for (uint8_t index = 0; index < schema.enum_count; ++index)
+                  if (text == schema.enum_ids[index]) {
+                    family.*field.member = index;
+                    assigned = true;
+                  }
+      }
+    });
+    if (assigned)
+      return true;
+  }
   switch (slot.role) {
   case SlotRole::MODULATION: {
     bool assigned = false;
@@ -735,6 +769,9 @@ inline void check_document_values(const char *name) {
     if (slot.role == SlotRole::PROJECT) {
       const char *expected = nullptr;
       switch (FX::Metadata::PROJECTION) {
+      case Pullback::ProjectionKind::S2:
+        expected = "project.s2.v1";
+        break;
       case Pullback::ProjectionKind::STEREOGRAPHIC:
         expected = "project.stereographic.v2";
         break;

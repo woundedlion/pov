@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { SHADER_DOCUMENT_EFFECTS } from './composed_effect_roster.mjs';
-import { departureLiteral, floatLiteral, generate, generatedSections, presetAssignments, updateHeader } from './generate_composed_presets.mjs';
+import { departureLiteral, floatLiteral, generate, generatedSections, presetAssignments, topologySelections, updateHeader } from './generate_composed_presets.mjs';
 import { compileShaderDocument } from './shader_workbench.mjs';
 import { loadOperatorCatalog } from './pattern_documents.mjs';
 import { loadEffectIdentities } from './effect_roster.mjs';
@@ -121,7 +121,7 @@ test('an authored value changes the generated assignment and bank identity', () 
 
 test('derived and unmapped values cannot silently enter composed presets', () => {
   assert.throws(() => presetAssignments(document, { 'unknown.value': 1 }), /Unmapped/);
-  assert.throws(() => presetAssignments(document, { 'warp1.lattice-period': 1 }), /Invalid derived/);
+  assert.throws(() => presetAssignments(document, { 'warp1.lattice-period': 1 }), /Unmapped/);
   assert.throws(() => presetAssignments(document, { 'colorize.palette-mapping': 'unknown' }), /Invalid mapping/);
 });
 
@@ -151,13 +151,13 @@ test('missing departure edges require automatic snap fallback', () => {
 test('composed topology cannot vary between presets', () => {
   const edited = structuredClone(document);
   assert.ok(edited.preset_bank.presets.length >= 2);
-  const id = 'colorize.palette-mode';
+  const id = 'colorize.brightness-envelope';
   const parameter = edited.descriptor.parameters.find((entry) => entry.id === id);
   const first = edited.preset_bank.presets[0].values[id];
   edited.preset_bank.presets[1].values[id] = parameter.domain.values.find((value) => value !== first);
   const compiled = compileShaderDocument(edited, { catalog });
   assert.equal(compiled.status, 'VALID');
-  assert.throws(() => generatedSections(compiled), /topology must be uniform: colorize.palette-mode/);
+  assert.throws(() => generatedSections(compiled), /topology must be uniform: colorize.brightness-envelope/);
 });
 test('a mismatched document identity cannot rewrite its composed header', async (t) => {
   const root = await fixture(t);
@@ -215,4 +215,122 @@ test('GridWorms keeps its authored stage order and keyed twist controls', async 
   const renamed = Object.fromEntries(Object.entries(values).map(([id, value]) =>
     [id.replace(/^lens1\./, 'whorl.'), value]));
   assert.equal(presetAssignments(source, renamed).get('spin.twist_angle'), '-10.259509f');
+});
+
+
+test('every catalog operator retains all scalar values and topology selections', () => {
+  let operators = 0;
+  let selectors = 0;
+  for (const operator of catalog.operators) {
+    const slot = { label: 'authored', operator: operator.id, resource_key: 'instance' };
+    const authored = { descriptor: { chain: [slot] } };
+    const values = Object.fromEntries(operator.params.map(field => [`authored.${field.id}`, field.default]));
+    const assignments = presetAssignments(authored, values);
+    for (const field of operator.params) {
+      const id = `authored.${field.id}`;
+      if (field.topology) {
+        for (const choice of field.values) {
+          const chosen = { ...values, [id]: choice };
+          assert.equal(topologySelections(authored, chosen).get(id), choice, `${operator.id}/${id}/${choice}`);
+          assert.doesNotThrow(() => presetAssignments(authored, chosen));
+          ++selectors;
+        }
+      } else if (!(operator.id === 'sphere.rotate.v2' && field.id === 'spin-speed') && field.id !== 'edge-width') {
+        assert.ok(assignments.size > 0, `${operator.id}/${id}`);
+      }
+    }
+    ++operators;
+  }
+  assert.equal(operators, 43);
+  assert.ok(selectors > 100);
+});
+
+test('operator bindings preserve authored resource keys and native member names', () => {
+  const authored = { descriptor: { chain: [
+    { label: 'fractal', operator: 'sample.fractal.v2' },
+    { label: 'map', operator: 'project.s2.v1' },
+    { label: 'flow', operator: 'sphere.displace.potential.v1', resource_key: 'velocity' },
+    { label: 'slide', operator: 'warp.affine.v3', resource_key: 'plane' },
+  ] } };
+  assert.deepEqual([...presetAssignments(authored, {
+    'fractal.fractal-scale': 2, 'fractal.fractal-iterations': 8,
+    'fractal.julia-real': 0.5, 'fractal.julia-imaginary': -0.25,
+    'fractal.fractal-contours': 3, 'map.coordinate-scale': 4,
+    'flow.term-3-amplitude': 0.75, 'flow.term-3-phase': 0.125,
+    'slide.lattice-period': 1.5,
+  })], [
+    ['source.scale', '2.0f'], ['source.iterations', '8.0f'],
+    ['source.julia_re', '0.5f'], ['source.julia_im', '-0.25f'],
+    ['source.contours', '3.0f'], ['projection.coordinate_scale', '4.0f'],
+    ['velocity.terms[2].amplitude', '0.75f'], ['velocity.terms[2].phase', '0.125f'],
+    ['plane.lattice_period', '1.5f'],
+  ]);
+});
+
+test('WarpFest retains live displacement selectors and per-preset harmony', async () => {
+  const authored = JSON.parse(await readFile(new URL('../patterns/warp_fest.shader.json', import.meta.url), 'utf8'));
+  const compiled = compileShaderDocument(authored, { catalog });
+  assert.equal(compiled.status, 'VALID');
+  const generated = generatedSections(compiled, undefined, { authoredTopology: true });
+  assert.match(generated.params, /get<"color">\(\)\.palette_mode = 2;/);
+  assert.match(generated.params, /get<"displace">\(\)\.symmetry = 3;/);
+  assert.match(generated.params, /get<"displace">\(\)\.strength = 0\.24393544f;/);
+  assert.match(generated.params, /Pattern::SourceKind::DISPLACEMENT/);
+});
+
+
+test('authored topology emits each runtime catalog choice as its stored selector', () => {
+  let checked = 0;
+  for (const operator of catalog.operators) {
+    if (operator.id === 'color.modulate.v1') continue;
+    const authored = { descriptor: { chain: [{ label: 'node', operator: operator.id, resource_key: 'native' }] } };
+    for (const field of operator.params.filter(field => field.topology)) {
+      if (field.id === 'palette-mapping') continue;
+      for (const [index, choice] of field.values.entries()) {
+        const result = [...presetAssignments(authored, { [`node.${field.id}`]: choice }, { authoredTopology: true })];
+        assert.equal(result.length, 1, `${operator.id}/${field.id}/${choice}`);
+        if (field.id === 'brightness-envelope')
+          assert.deepEqual(result[0], ['native.brightness_envelope', `Pullback::Color::BrightnessEnvelope::${choice.toUpperCase()}`]);
+        else
+          assert.equal(result[0][1], String(index), `${operator.id}/${field.id}/${choice}`);
+        ++checked;
+      }
+    }
+  }
+  assert.ok(checked > 100);
+});
+
+test('camera spin binding follows its authored label', async () => {
+  const authored = JSON.parse(await readFile(new URL('../patterns/grid_worms.shader.json', import.meta.url), 'utf8'));
+  const rotate = authored.descriptor.chain.find(slot => slot.operator === 'sphere.rotate.v2');
+  const original = rotate.label;
+  rotate.label = 'view';
+  for (const parameter of authored.descriptor.parameters)
+    if (parameter.id.startsWith(`${original}.`)) parameter.id = parameter.id.replace(`${original}.`, 'view.');
+  authored.descriptor.serialization.fields = authored.descriptor.serialization.fields.map(id => id.replace(`${original}.`, 'view.'));
+  for (const preset of authored.preset_bank.presets) {
+    for (const id of Object.keys(preset.values).filter(id => id.startsWith(`${original}.`))) {
+      preset.values[id.replace(`${original}.`, 'view.')] = preset.values[id];
+      delete preset.values[id];
+    }
+  }
+  const assignments = presetAssignments(authored, { 'view.wander': 0.25 });
+  assert.equal(assignments.get('projection.camera_wander'), '0.25f');
+});
+
+test('authored affine periods and sample coverage retain their independent storage', () => {
+  const authored = { descriptor: { chain: [
+    { label: 'warp', operator: 'warp.affine.v3' },
+    { label: 'sample', operator: 'sample.lattice.v2' },
+  ] } };
+  const assignments = presetAssignments(authored, {
+    'warp.lattice-period': 0.5, 'sample.lattice-cell-scale': 2,
+    'sample.edge-width': 0.25, 'sample.weight-mode': 'projection',
+    'sample.coverage-mode': 'edge-fade',
+  }, { authoredTopology: true });
+  assert.equal(assignments.get('outer_warp.lattice_period'), '0.5f');
+  assert.equal(assignments.get('source.edge_width'), '0.25f');
+  assert.equal(assignments.get('source.coverage_mode'), '3');
+  assert.equal(assignments.get('source.weight_mode'), '1');
+  assert.ok(!assignments.has('value.edge_width'));
 });

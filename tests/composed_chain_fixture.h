@@ -114,14 +114,46 @@ void verify_export(size_t preset, int channel_tolerance,
           }
       });
     } else if (id == "sphere.displace.ripple.v2") {
-      if constexpr (FX::Params::template HAS<"displace">)
-        static_cast<In::RippleClockSnapshot &>(
-            mutable_state<In::Op::RipplePhaseState>(program, index)) =
-            own.resources.template get<"displace">();
-    } else if (id == "warp.vortex.v2") {
-      if constexpr (FX::Params::template HAS<"outer_warp">)
-        mutable_state<In::Op::WarpPhaseState>(program, index).phase =
-            own.resources.template get<"outer_warp">().phase;
+      own.params.visit([&]<typename Resource>(const auto &) {
+        if constexpr (Resource::KIND == Pullback::ResourceKind::SURFACE &&
+                      std::is_same_v<
+                          typename Resource::Family,
+                          Pullback::SphereAnimation::BurstRippleParams>)
+          if (Resource::KEY.view() == op.instance)
+            static_cast<In::RippleClockSnapshot &>(
+                mutable_state<In::Op::RipplePhaseState>(program, index)) =
+                own.resources.template get<Resource::KEY>();
+      });
+    } else if (id == "sphere.displace.symmetric.v2" ||
+               id == "sphere.displace.rossby-haurwitz.v1" ||
+               id == "sphere.displace.potential.v1") {
+      own.params.visit([&]<typename Resource>(const auto &) {
+        if constexpr (Resource::KIND == Pullback::ResourceKind::SURFACE)
+          if (Resource::KEY.view() == op.instance)
+            mutable_state<In::Op::FieldPhaseState>(program, index).phase =
+                own.resources.template get<Resource::KEY>().phase;
+      });
+    } else if (id == "warp.affine.v3" || id == "warp.wave-shear.v2" ||
+               id == "warp.vortex.v2" || id == "warp.mirror-tile.v2") {
+      const auto key = std::string_view(op.instance) == "warp2" ? "inner_warp"
+                       : std::string_view(op.instance) == "warp1" ||
+                               std::string_view(op.instance) == "warp"
+                           ? "outer_warp"
+                           : op.instance;
+      own.params.visit([&]<typename Resource>(const auto &) {
+        if constexpr (Resource::KIND == Pullback::ResourceKind::WARP) {
+          if (Resource::KEY.view() != key)
+            return;
+          const auto &clock = own.resources.template get<Resource::KEY>();
+          if (id == "warp.affine.v3") {
+            if constexpr (requires { clock.rotation; })
+              mutable_state<In::Op::AffineClockState>(program, index) = {
+                  clock.phase, clock.rotation};
+          } else
+            mutable_state<In::Op::WarpPhaseState>(program, index).phase =
+                clock.phase;
+        }
+      });
     } else if (id == "sphere.displace.curl.v2") {
       if constexpr (!std::is_void_v<
                         typename FX::Params::template Family<"surface">>) {
@@ -134,12 +166,6 @@ void verify_export(size_t preset, int channel_tolerance,
       auto &state = mutable_state<In::Op::SourceClockState>(program, index);
       const auto &resource = own.resources.template get<"source">();
       state = {resource.primary, resource.secondary, resource.angle};
-    } else if (id == "warp.mirror-tile.v2") {
-      if constexpr (!std::is_void_v<
-                        typename FX::Params::template Family<"inner_warp">>) {
-        auto &state = mutable_state<In::Op::WarpPhaseState>(program, index);
-        state.phase = own.resources.template get<"inner_warp">().phase;
-      }
     } else if (id == "colorize.generated-palette.v4") {
       mutable_state<In::Op::ColorClockState>(program, index).oscillation_phase =
           own.palette_oscillation_phase;
