@@ -288,10 +288,10 @@ struct WarpProvider {
   __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
     using WarpT = std::remove_cvref_t<decltype(params(frame))>;
     if constexpr (std::is_same_v<WarpT, PeriodicAffineParams>) {
+      const auto windings = Pullback::Warp::cell_windings(params(frame));
       return Pullback::Warp::prepare(
-          Pullback::Warp::cell_windings(params(frame)), phase(frame),
-          frame.resources.template get<Key>().rotation,
-          params(frame).lattice_period);
+          windings, phase(frame), frame.resources.template get<Key>().rotation,
+          windings.lattice_period);
     } else if constexpr (std::is_same_v<WarpT, ExplicitAffineParams>) {
       return Pullback::Warp::prepare(
           params(frame), phase(frame),

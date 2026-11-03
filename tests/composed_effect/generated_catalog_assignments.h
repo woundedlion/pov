@@ -435,6 +435,7 @@ inline void catalog_assignments_warp_affine_periodic_v1() {
   params.scale_y = 1.0f;
   params.shear = 0.0f;
   params.lattice_period = 1.0f;
+  params.repeat_cells = 1.0f;
   (void)params;
 }
 

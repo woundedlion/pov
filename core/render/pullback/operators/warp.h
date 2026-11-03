@@ -187,7 +187,7 @@ struct WarpAffinePeriodic : WarpAffineV3 {
                          const Params &params, const Prepared &prepared) {
     return Kernel::warp(
         input, Warp::periodic_affine_frame(input.coords, prepared,
-                                           params.lattice_period, true));
+                                           Warp::repeat_period(params), true));
   }
 };
 

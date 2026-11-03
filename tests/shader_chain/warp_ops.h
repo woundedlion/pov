@@ -295,6 +295,49 @@ inline void test_shader_chain_affine_periodic_distance() {
       HS_EXPECT_EQ(field.curve, PB::FieldCurve::SNAP);
 }
 
+/** @brief A multi-cell repeat scales the winding reset and the hue modulus. */
+inline void test_shader_chain_affine_periodic_repeat_cells() {
+  using Model = In::Op::WarpAffinePeriodic;
+  const In::FrameContext ctx = shared_resources().context();
+  In::Op::SampleLattice::Params lattice;
+  lattice.lattice_cell_scale = 4.0f;
+  lattice.lattice_shape_blend = 1.0f;
+  lattice.lattice_softness = 0.2f;
+  lattice.weight_mode = 0;
+  lattice.coverage_mode = 0;
+  const In::Op::SampleLattice::Prepared sample{};
+  Model::Params params;
+  params.lattice_period = 0.25f;
+  params.repeat_cells = 2.6f;
+  params.translation_x = 2.0f;
+  params.translation_y = -1.0f;
+  params.rotation_rate = 0.4f;
+  HS_EXPECT_NEAR(PB::Warp::repeat_period(params), 0.75f, 1e-7f);
+  const auto from = Model::prepare(ctx, params, {0.999999f, 0.6f});
+  const auto to = Model::prepare(ctx, params, {0.0f, 0.6f});
+  float longest = 0.0f;
+  for (int index = 0; index < 41; ++index) {
+    PB::PlaneSample input{};
+    input.coords = {0.083f * index - 1.7f, 0.051f * index - 0.9f};
+    input.sphere = math::UP;
+    const auto warped_from = Model::run(input, ctx, params, from);
+    const auto warped_to = Model::run(input, ctx, params, to);
+    HS_EXPECT_NEAR(warped_to.coords.re - warped_from.coords.re, 1.5f, 2e-5f);
+    HS_EXPECT_NEAR(warped_to.coords.im - warped_from.coords.im, -0.75f, 2e-5f);
+    HS_EXPECT_NEAR(
+        In::Op::SampleLattice::run(warped_from, ctx, lattice, sample).value,
+        In::Op::SampleLattice::run(warped_to, ctx, lattice, sample).value,
+        2e-4f);
+    HS_EXPECT_NEAR(warped_from.path_length, warped_to.path_length, 2e-5f);
+    HS_EXPECT_LE(warped_to.path_length, std::sqrt(2.0f) * 0.375f + 1e-6f);
+    longest = std::max(longest, warped_to.path_length);
+  }
+  HS_EXPECT_GT(longest, std::sqrt(2.0f) * 0.125f);
+  for (const auto &field : Model::Params::FIELDS)
+    if (std::string_view(field.id) == "repeat-cells")
+      HS_EXPECT_EQ(field.curve, PB::FieldCurve::SNAP);
+}
+
 /** @brief Both travel directions retain a continuous affine column interval. */
 inline void test_shader_chain_affine_periodic_interval() {
   using Model = In::Op::WarpAffinePeriodic;

@@ -77,6 +77,8 @@ template <typename Family, typename Model> void check_warp() {
     params.rotation_rate = 1.2f;
     clock.rotation = 0.4f;
   }
+  if constexpr (requires { params.repeat_cells; })
+    params.repeat_cells = 3.0f;
   constexpr int BASIS_COUNT = requires { params.basis; } ? 3 : 1;
   constexpr int ENVELOPE_COUNT = requires { params.envelope; } ? 3 : 1;
   constexpr int MODE_COUNT = requires { params.mode; } ? 2 : 1;

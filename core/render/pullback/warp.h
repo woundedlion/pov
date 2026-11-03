@@ -235,13 +235,16 @@ struct ExplicitAffineParams : AffineParams {
 static_assert(field_ids_unique<ExplicitAffineParams>());
 static_assert(field_defaults_in_range<ExplicitAffineParams>());
 
-/** @brief Whole-repeat affine windings over an explicit planar period. */
+/** @brief Whole-repeat affine windings over a whole number of lattice cells. */
 struct PeriodicAffineParams : ExplicitAffineParams {
-  /// Affine controls with discrete cell windings.
+  float repeat_cells = 1.0f; ///< Lattice cells per repeat, rounded to whole.
+  /// Affine controls with discrete windings and repeat size.
   static constexpr auto FIELDS = [] {
     auto fields = concat_fields<PeriodicAffineParams>(
         ExplicitAffineParams::FIELDS,
-        std::array<Field<PeriodicAffineParams>, 0>{});
+        std::array{Field<PeriodicAffineParams>{
+            "repeat-cells", &PeriodicAffineParams::repeat_cells, "Repeat Cells",
+            1.0f, 16.0f, FieldCurve::SNAP}});
     for (auto &field : fields) {
       if (std::string_view(field.id) == "translation-x") {
         field.name = "Repeat Windings X";
@@ -249,8 +252,6 @@ struct PeriodicAffineParams : ExplicitAffineParams {
       } else if (std::string_view(field.id) == "translation-y") {
         field.name = "Repeat Windings Y";
         field.curve = FieldCurve::SNAP;
-      } else if (std::string_view(field.id) == "lattice-period") {
-        field.name = "Repeat Period";
       }
     }
     return fields;
@@ -475,13 +476,21 @@ HS_FLASH_INLINE inline PreparedAffineSlot prepare(const AffineParams &warp,
   return prepared;
 }
 
-/** @brief Affine controls rounded to signed whole-cell windings.
- * @param params Authored translation controls.
- * @return Controls with integral translations. */
+/** @brief Planar repeat of a periodic affine warp.
+ * @param params Authored lattice period and repeat size.
+ * @return Whole lattice cells per repeat times the lattice period. */
+inline float repeat_period(const PeriodicAffineParams &params) {
+  return std::round(params.repeat_cells) * params.lattice_period;
+}
+
+/** @brief Affine controls over the whole repeat, with signed whole windings.
+ * @param params Authored translation and repeat controls.
+ * @return Controls with integral translations and the repeat as the period. */
 inline ExplicitAffineParams cell_windings(const PeriodicAffineParams &params) {
   ExplicitAffineParams rounded = params;
   rounded.translation_x = std::round(params.translation_x);
   rounded.translation_y = std::round(params.translation_y);
+  rounded.lattice_period = repeat_period(params);
   return rounded;
 }
 
@@ -967,7 +976,7 @@ template <typename State> struct PeriodicAffineFrame : AffineFrame<State> {
   apply(const math::Complex &input, const ProjectionProvenance &,
         const FrameState &frame, const Prepared &prepared) {
     return periodic_affine_frame(input, prepared,
-                                 State::params(frame).lattice_period,
+                                 repeat_period(State::params(frame)),
                                  State::path_length_required(frame));
   }
 };
