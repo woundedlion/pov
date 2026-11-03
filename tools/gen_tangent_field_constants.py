@@ -24,15 +24,23 @@ def tetrahedral_axes():
     group = [np.eye(3, dtype=np.float32)]
     for matrix in group:
         for normal in mirrors:
-            candidate = matrix - np.float32(2) * np.outer(normal, normal @ matrix)
+            candidate = matrix.copy()
+            for column in range(3):
+                distance = (matrix[0, column] * normal[0] + matrix[1, column] * normal[1]
+                            + matrix[2, column] * normal[2])
+                for row in range(3):
+                    candidate[row, column] -= np.float32(2) * distance * normal[row]
             if not any(np.max(np.abs(candidate - other)) < 2e-5 for other in group):
                 group.append(candidate)
     axes = []
     for matrix in group:
-        if abs(np.trace(matrix) + 1) > 2e-5 or np.max(np.abs(matrix - matrix.T)) > 2e-5:
+        trace = matrix[0, 0] + matrix[1, 1] + matrix[2, 2]
+        if abs(trace + 1) > 2e-5 or np.max(np.abs(matrix - matrix.T)) > 2e-5:
             continue
         columns = matrix + np.eye(3, dtype=np.float32)
-        axis = columns[:, np.argmax(np.sum(columns * columns, axis=0))]
+        squares = (columns[0] * columns[0] + columns[1] * columns[1]
+                   + columns[2] * columns[2])
+        axis = columns[:, np.argmax(squares)]
         axes.append(axis.astype(float))
     if len(axes) != 3:
         raise ValueError("tetrahedral half-turn extraction failed")
