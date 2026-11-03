@@ -7,6 +7,12 @@
 
 // Animation death cases.
 
+/** @brief Lens clocks reject nonfinite multipliers. */
+inline void case_lens_phase_nonfinite_scale() {
+  float angle = 0.0f, magnitude = 1.0f;
+  Animation::LensPhase phase(angle, magnitude, opaque(NAN), 16);
+}
+
 /**
  * @brief Death case: relocating a retained (pinned) add_get() handle must trap.
  * @details Animation surface — TimelineEvent::move_into traps when the event

@@ -7,6 +7,23 @@
 
 // Math spatial death cases.
 
+/** @brief Harmonic derivatives reject unsupported degrees. */
+inline void case_harmonic_derivative_invalid_degree() {
+  (void)SHMath::reduced_legendre_derivative(opaque(9), 0, 0.0f);
+}
+
+/** @brief Tangent-field preparation rejects unsupported modes. */
+inline void case_tangent_field_invalid_mode() {
+  const math::tangent_field::PotentialTerm term{
+      math::tangent_field::TermType::MODE,
+      math::tangent_field::Kind::TOROIDAL,
+      opaque<uint8_t>(9),
+      0,
+      1.0f,
+      0.0f};
+  (void)math::tangent_field::prepare_term(term);
+}
+
 /**
  * @brief Death case: normalizing a degenerate (zero-length) vector must trap.
  * @details Math-core surface — length below epsilon fires the normalize guard.
