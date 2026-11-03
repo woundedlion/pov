@@ -122,8 +122,9 @@ inline void test_shader_chain_effect_registers_params() {
   if (!coverage)
     return;
   HS_EXPECT_TRUE(coverage->is_enum());
-  HS_EXPECT_EQ(coverage->option_count, 4);
+  HS_EXPECT_EQ(coverage->option_count, 5);
   HS_EXPECT_TRUE(std::string_view(coverage->options[3]) == "edge-fade");
+  HS_EXPECT_TRUE(std::string_view(coverage->options[4]) == "edge-fade-squared");
   HS_EXPECT_EQ(
       static_cast<int>(effect.updateParameter("sample.coverage-mode", 3.0f)),
       static_cast<int>(ParamSetResult::APPLIED));

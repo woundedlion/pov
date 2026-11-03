@@ -614,7 +614,7 @@ inline void test_shader_chain_snapshot_refusals() {
   candidate.parameters.clear();
   candidate.parameters.push_back({"camera.wander", 2.0f});
   refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
-  for (float value : {4.0f, 0.5f}) {
+  for (float value : {5.0f, 0.5f}) {
     candidate = saved;
     candidate.parameters.clear();
     candidate.parameters.push_back({"sample.coverage-mode", value});
