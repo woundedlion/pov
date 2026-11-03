@@ -521,6 +521,63 @@ inline void test_fold_advisory_precedes_sampled_jacobian_onset() {
   HS_EXPECT_LT(advisory, 0.39787f * 1.01f);
 }
 
+/** @brief Drift rotates every scalar family consistently in its local frame. */
+inline void test_potential_drift_rotates_all_terms() {
+  const auto rotate_y = [](const math::Vector &p, double angle) {
+    return math::Vector(cos(angle) * p.x + sin(angle) * p.z, p.y,
+                        -sin(angle) * p.x + cos(angle) * p.z);
+  };
+  constexpr TF::PotentialTerm CASES[] = {
+      {TF::TermType::MODE, TF::Kind::TOROIDAL, 4, 0, 1.0f, 0.31f},
+      {TF::TermType::MODE, TF::Kind::TOROIDAL, 4, 1, 1.0f, 0.31f},
+      {TF::TermType::MODE, TF::Kind::TOROIDAL, 4, 2, 1.0f, 0.31f},
+      {TF::TermType::TETRAHEDRAL, TF::Kind::TOROIDAL, 0, 0, 1.0f},
+      {TF::TermType::OCTAHEDRAL, TF::Kind::TOROIDAL, 0, 0, 1.0f},
+      {TF::TermType::DODECAHEDRAL, TF::Kind::TOROIDAL, 0, 0, 1.0f},
+  };
+  for (auto term : CASES)
+    for (TF::Kind kind : {TF::Kind::TOROIDAL, TF::Kind::POLOIDAL}) {
+      term.kind = kind;
+      std::array<TF::PotentialTerm, 4> terms{};
+      terms[0] = term;
+      const TF::PotentialField base(terms);
+      const auto scalar = TF::prepare_term(term);
+      for (const auto orientation :
+           {math::Quaternion(1, 0, 0, 0),
+            math::make_rotation(math::Y_AXIS,
+                                math::Vector::from_spherical(0.7f, 0.9f))})
+        for (const float phase : {-0.47f, 1.1f}) {
+          const TF::PotentialField field(terms, phase, orientation);
+          const TF::PotentialField stationary(terms, 0, orientation);
+          const auto drifting_scalar = TF::prepare_term(term, phase);
+          float movement = 0;
+          for (int index = 0; index < 64; ++index) {
+            const auto p = direction(index, 64);
+            const auto local = math::rotate(p, orientation.conjugate());
+            const auto lookup = rotate_y(local, phase);
+            const auto expected = math::rotate(
+                rotate_y(base.velocity(lookup), -phase), orientation);
+            HS_EXPECT_VEC(field.velocity(p), expected, 4e-5f);
+            movement += (field.velocity(p) - stationary.velocity(p)).length();
+            const auto sample = drifting_scalar.sample(p);
+            const auto original = scalar.sample(rotate_y(p, phase));
+            HS_EXPECT_NEAR(sample.value, original.value, 4e-5f);
+            HS_EXPECT_VEC(sample.gradient, rotate_y(original.gradient, -phase),
+                          4e-5f);
+          }
+          HS_EXPECT_EQ(field.speed_bound(), base.speed_bound());
+          HS_EXPECT_EQ(field.lipschitz_bound(), base.lipschitz_bound());
+          if (term.type == TF::TermType::MODE && term.m == 0)
+            HS_EXPECT_NEAR(movement, 0.0f, 1e-6f);
+          else
+            HS_EXPECT_GT(movement, 0.01f);
+        }
+      terms[0].amplitude = 0;
+      HS_EXPECT_VEC(TF::PotentialField(terms, 0.7f).velocity(direction(7)),
+                    math::Vector(0, 0, 0), 0.0f);
+    }
+}
+
 inline int run_tangent_field_tests() {
   hs_test::ModuleFixture fixture("tangent_field");
   HS_RUN(test_horner_values_and_phased_gradients);
@@ -531,6 +588,7 @@ inline int run_tangent_field_tests() {
   HS_RUN(test_invariants_and_vector_fields_follow_fold_groups);
   HS_RUN(test_rossby_haurwitz_matches_spherical_stream_function);
   HS_RUN(test_normalized_terms_have_tight_speed_bounds);
+  HS_RUN(test_potential_drift_rotates_all_terms);
   HS_RUN(test_fold_advisory_precedes_sampled_jacobian_onset);
   return fixture.result();
 }

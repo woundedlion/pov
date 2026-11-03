@@ -176,17 +176,16 @@ inline PotentialSample invariant_sample(TermType type, const Vector &p) {
 struct PreparedTerm {
   PotentialTerm term{};      ///< Authored term.
   float scale = 0.0f;        ///< Amplitude times peak normalization.
-  Complex phase{1.0f, 0.0f}; ///< Prepared harmonic phase.
+  Complex phase{1.0f, 0.0f}; ///< Prepared azimuthal phase.
   float lipschitz = 0.0f;    ///< Amplitude-weighted covariant bound.
 
   /** @brief Evaluates the normalized ambient gradient.
    * @param p Unit direction.
    * @return Cartesian gradient including amplitude. */
   Vector gradient(const Vector &p) const {
-    return term.type == TermType::MODE
-               ? SHMath::spherical_harmonic_gradient(term.l, term.m, p, scale,
-                                                     phase)
-               : invariant_sample(term.type, p).gradient * scale;
+    return term.type == TermType::MODE ? SHMath::spherical_harmonic_gradient(
+                                             term.l, term.m, p, scale, phase)
+                                       : sample(p).gradient;
   }
 
   /** @brief Samples the normalized scalar term.
@@ -194,8 +193,19 @@ struct PreparedTerm {
    * @return Scalar value and ambient gradient including amplitude. */
   PotentialSample sample(const Vector &p) const {
     if (term.type != TermType::MODE) {
-      const auto raw = invariant_sample(term.type, p);
-      return {scale * raw.value, raw.gradient * scale};
+      const bool rotated = phase.re != 1.0f || phase.im != 0.0f;
+      const Vector local = rotated
+                               ? Vector(phase.re * p.x - phase.im * p.z, p.y,
+                                        phase.im * p.x + phase.re * p.z)
+                               : p;
+      const auto raw = invariant_sample(term.type, local);
+      const Vector gradient =
+          rotated
+              ? Vector(phase.re * raw.gradient.x + phase.im * raw.gradient.z,
+                       raw.gradient.y,
+                       -phase.im * raw.gradient.x + phase.re * raw.gradient.z)
+              : raw.gradient;
+      return {scale * raw.value, gradient * scale};
     }
     Complex power(1.0f, 0.0f);
     for (int i = 0; i < term.m; ++i)
@@ -227,6 +237,8 @@ inline PreparedTerm prepare_term(const PotentialTerm &term,
   } else {
     constants = INVARIANT_CONSTANTS[static_cast<unsigned>(term.type) - 1];
     result.scale = term.amplitude * constants.scale;
+    if (drift_phase != 0.0f)
+      result.phase = Complex(cosf(drift_phase), -sinf(drift_phase));
   }
   result.lipschitz = fabsf(term.amplitude) * constants.lipschitz;
   return result;

@@ -767,6 +767,7 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_tangent_admitted_domain);
   HS_RUN(test_tangent_mixed_boundaries);
   HS_RUN(test_tangent_phase_clock);
+  HS_RUN(test_potential_invariant_drift_clock);
   HS_RUN(test_tangent_dynamic_advisory);
   HS_RUN(test_shader_chain_parity_displace_curl);
   HS_RUN(test_shader_chain_parity_displace_direct);

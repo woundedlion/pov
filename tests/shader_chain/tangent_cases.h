@@ -557,6 +557,53 @@ inline void test_tangent_phase_clock() {
   HS_EXPECT_NEAR(state.phase, 0.05f, 1e-7f);
 }
 
+/** @brief Potential invariants rotate as the native drift clock advances. */
+inline void test_potential_invariant_drift_clock() {
+  for (uint8_t type = 1; type <= 3; ++type) {
+    reset_globals();
+    ShaderChainWhiteBox::FX effect;
+    effect.init();
+    const In::ChainEntryRequest chain[] = {
+        {"field", In::Op::DisplacePotential::ID},
+        {"project", In::Op::ProjectStereographic::ID},
+        {"sample", In::Op::SampleGridV3::ID},
+        {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID}};
+    HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+    const ShaderChainParameterWrite controls[] = {
+        {"field.term-1-type", float(type)},
+        {"field.term-1-amplitude", 1.0f},
+        {"field.drift", 0.05f}};
+    HS_EXPECT_EQ(effect.update_parameters(controls), ParamSetResult::APPLIED);
+    const auto &program = ShaderChainWhiteBox::program(effect);
+    const auto &params =
+        *reinterpret_cast<const In::Op::PotentialDisplaceParams *>(
+            program.param_block(0));
+    const auto before = In::Op::DisplacePotential::prepare({}, params, {});
+    for (int frame = 0; frame < 3; ++frame)
+      ShaderChainWhiteBox::advance_without_render(effect);
+    const auto &state =
+        *static_cast<const In::Op::FieldPhaseState *>(program.state_block(0));
+    HS_EXPECT_NEAR(state.phase, 0.15f, 1e-7f);
+    const auto after = In::Op::DisplacePotential::prepare({}, params, state);
+    float movement = 0;
+    for (int index = 0; index < 8; ++index) {
+      const auto p = math::Vector::from_spherical(0.3f + index * 0.7f,
+                                                  0.4f + index * 0.3f);
+      movement += (after.velocity(p) - before.velocity(p)).length();
+    }
+    HS_EXPECT_GT(movement, 0.01f);
+    const auto snapshot = effect.snapshot();
+    HS_EXPECT_TRUE(snapshot.runtime.has_value());
+    if (snapshot.runtime) {
+      const auto *clock = std::get_if<In::SourceClockSnapshot>(
+          &snapshot.runtime->front().state);
+      HS_EXPECT_TRUE(clock != nullptr);
+      if (clock)
+        HS_EXPECT_NEAR(clock->primary, 0.15f, 1e-7f);
+    }
+  }
+}
+
 /** @brief The advisory follows the mix and permits strengths beyond its threshold. */
 inline void test_tangent_dynamic_advisory() {
   reset_globals();
