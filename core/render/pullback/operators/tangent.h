@@ -102,6 +102,7 @@ struct PotentialDisplaceParams {
       std::array{TopologyField<PotentialDisplaceParams>{
           "integrator", &PotentialDisplaceParams::integrator,
           SURFACE_INTEGRATOR_IDS, 0}};
+  /// Nested term fields and their mode-only activation gates.
   static constexpr auto EXTRA_SCHEMA = [] {
     std::array<ParamFieldInfo, 24> fields{};
     constexpr const char *IDS[4][6] = {
@@ -242,6 +243,7 @@ struct FieldDisplaceModel : ValueStateModel<StateT> {
   using Input = SphereSample;
   using Output = SphereSample;
   using Prepared = math::tangent_field::PotentialField;
+  /// Interpolation admission contract for the fixed-step arc cap.
   static constexpr const char *ADMISSIBILITY_CONVEXITY =
       "Strength and amplitudes snap together; interpolated orientations and phases preserve speed bounds.";
   static void advance(State &state, const Params &params) {
@@ -255,9 +257,15 @@ struct FieldDisplaceModel : ValueStateModel<StateT> {
     else
       return Derived::field(params, 0.0f);
   }
+  /** @brief Reads the conservative fold threshold.
+   * @param params Authored field controls.
+   * @return Advisory absolute strength, or infinity for a zero field. */
   static float fold_strength(const Params &params) {
     return field_fold_strength(Derived::field(params, 0.0f));
   }
+  /** @brief Checks field domains and the uniform arc cap.
+   * @param params Authored field controls.
+   * @return Null when admitted, otherwise the range diagnostic. */
   static const char *validate(const Params &params) {
     for (const auto &f : Params::FIELDS)
       if (!std::isfinite(params.*f.member) || params.*f.member < f.min ||
@@ -276,6 +284,12 @@ struct FieldDisplaceModel : ValueStateModel<StateT> {
     return Kernel::displace(
         input, step(input.dir, prepared, params.strength, params.integrator));
   }
+  /** @brief Dispatches one fixed field step.
+   * @param p Unit start direction.
+   * @param field Prepared velocity and bounds.
+   * @param strength Signed displacement scale.
+   * @param integrator Integration scheme index.
+   * @return Displaced direction and accumulated arc length. */
   static SurfaceResult step(const math::Vector &p, const Prepared &field,
                             float strength, uint8_t integrator) {
     switch (static_cast<Surface::Integrator>(integrator)) {
@@ -297,6 +311,9 @@ struct DisplacePotential
     : FieldDisplaceModel<DisplacePotential, PotentialDisplaceParams> {
   static constexpr const char *ID = "sphere.displace.potential.v1";
   static constexpr const char *NAME = "Potential Displace";
+  /** @brief Checks the term topology and parameter domains.
+   * @param params Authored field controls.
+   * @return Whether the term configuration is admitted. */
   static bool valid_terms(const Params &params) {
     for (const auto &t : params.terms)
       if (t.type > 3 || t.kind > 1 || !std::isfinite(t.amplitude) ||
@@ -305,6 +322,10 @@ struct DisplacePotential
         return false;
     return true;
   }
+  /** @brief Prepares the normalized field at its drift phase.
+   * @param params Authored field controls.
+   * @param phase Accumulated azimuthal drift, radians.
+   * @return Prepared polynomial tangent field. */
   static Prepared field(const Params &params, float phase) {
     std::array<math::tangent_field::PotentialTerm, 4> terms{};
     for (size_t i = 0; i < 4; ++i) {
@@ -329,7 +350,14 @@ struct DisplaceRossbyHaurwitz
     : FieldDisplaceModel<DisplaceRossbyHaurwitz, RossbyHaurwitzParams> {
   static constexpr const char *ID = "sphere.displace.rossby-haurwitz.v1";
   static constexpr const char *NAME = "Rossby-Haurwitz Displace";
+  /** @brief Checks the term topology and parameter domains.
+   * @param params Authored field controls.
+   * @return Whether the term configuration is admitted. */
   static bool valid_terms(const Params &params) { return params.order < 7; }
+  /** @brief Prepares the normalized field at its drift phase.
+   * @param params Authored field controls.
+   * @param phase Accumulated azimuthal drift, radians.
+   * @return Prepared polynomial tangent field. */
   static Prepared field(const Params &params, float phase) {
     using namespace math::tangent_field;
     std::array<PotentialTerm, 4> terms{};
@@ -350,9 +378,15 @@ struct DisplaceSymmetric
                          EmptyState> {
   static constexpr const char *ID = "sphere.displace.symmetric.v1";
   static constexpr const char *NAME = "Symmetric Displace";
+  /** @brief Checks the term topology and parameter domains.
+   * @param params Authored field controls.
+   * @return Whether the term configuration is admitted. */
   static bool valid_terms(const Params &params) {
     return params.symmetry < 9 && params.kind < 2;
   }
+  /** @brief Prepares the fold-aligned invariant field.
+   * @param params Authored invariant controls.
+   * @return Prepared polynomial tangent field. */
   static Prepared field(const Params &params, float) {
     using namespace math::tangent_field;
     constexpr uint8_t ORDERS[] = {6, 0, 0, 0, 3, 4, 5, 6, 8};
