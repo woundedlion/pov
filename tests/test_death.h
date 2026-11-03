@@ -264,7 +264,7 @@ inline const Case *all_cases(int &n) {
        "core/color/modulation.h", "(false) unknown modulation mechanic"},
       {"modulation_control_index_invalid",
        case_modulation_control_index_invalid,
-       "core/render/pullback/operators.h",
+       "core/render/pullback/modulation.h",
        "(false) invalid modulation field index"},
       {"pattern_direction_invalid", case_pattern_direction_invalid,
        "core/pattern/types.h",

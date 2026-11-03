@@ -668,10 +668,12 @@ template <typename Spec> consteval bool color_gate_open(TopologyGate gate) {
 template <typename Spec, typename Resource>
 consteval size_t resource_parameter_count() {
   using Family = typename Resource::Family;
-  if constexpr (Resource::KIND == ResourceKind::MODULATION)
+  if constexpr (Resource::KIND == ResourceKind::MODULATION) {
+    if constexpr (Family::DYNAMIC)
+      return Modulation::Controls::EXTRA_SCHEMA.size();
     return Resource::Family::SOURCE == Pattern::SourceKind::DISPLACEMENT ? 1
                                                                          : 3;
-  else {
+  } else {
     size_t count = Resource::KIND == ResourceKind::WARP ||
                            Resource::KIND == ResourceKind::COLOR
                        ? 1
@@ -779,6 +781,12 @@ consteval size_t resource_name_bytes() {
   else {
     constexpr size_t PREFIX = Resource::KEY.view().size() + 2;
     if constexpr (Resource::KIND == ResourceKind::MODULATION) {
+      if constexpr (Resource::Family::DYNAMIC) {
+        size_t bytes = 0;
+        for (const auto &field : Modulation::Controls::EXTRA_SCHEMA)
+          bytes += PREFIX + std::string_view(field.id).size();
+        return bytes;
+      }
       size_t bytes = PREFIX + std::string_view("Modulation Amount").size();
       if constexpr (Resource::Family::SOURCE !=
                     Pattern::SourceKind::DISPLACEMENT)

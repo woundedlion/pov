@@ -378,12 +378,14 @@ template <ProjectionKind Kind, typename State>
 struct AuthoredProjection
     : Projection::FrameConjugateFromState<State>,
       Projection::MeridianPrepared<AuthoredProjection<Kind, State>, State> {
+  static_assert(Kind < ProjectionKind::NONE,
+                "authored projection requires a supported projection kind");
   using Binding = typename State::Binding;       ///< Pipeline binding.
   using FrameState = typename State::FrameState; ///< Bound frame.
   using Prepared = Projection::PreparedMeridian; ///< Cached meridian rotation.
   using Projection::MeridianPrepared<AuthoredProjection, State>::project;
   static constexpr bool EDGE_DISTANCE_AVAILABLE =
-      true; ///< Cut distances available.
+      Kind != ProjectionKind::FOLDED_SINUSOIDAL; ///< Cut distances available.
   static constexpr bool APPROXIMATE =
       Kind == ProjectionKind::PEIRCE_SQUARE_FAST;
   static constexpr ApproximationOracleId ORACLE =

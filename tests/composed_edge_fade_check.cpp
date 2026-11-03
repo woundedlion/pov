@@ -4,17 +4,26 @@
  */
 #include "core/render/pullback/composed_effect.h"
 
+template <typename B>
+using EdgeFadeProjection =
+#ifdef HS_EDGE_FADE_AUTHORED
+    Pullback::AuthoredProjection<
+#ifdef HS_EDGE_FADE_NO_DISTANCE
+        Pullback::ProjectionKind::FOLDED_SINUSOIDAL,
+#else
+        Pullback::ProjectionKind::STEREOGRAPHIC,
+#endif
+        Pullback::ProjectionProvider<B, Pullback::AtlasProjectionParams>>;
+#elif defined(HS_EDGE_FADE_NO_DISTANCE)
+    Pullback::Projection::FoldedSinusoidal<Pullback::ProjectionProvider<B>>;
+#else
+    Pullback::Projection::Stereographic<Pullback::ProjectionProvider<B>>;
+#endif
+
 struct EdgeFadeSpec : Pullback::Spec {
   template <typename B>
   using Pipeline = Pullback::Pipeline<
-      B,
-      Pullback::Stage::Project<
-#ifdef HS_EDGE_FADE_NO_DISTANCE
-          Pullback::Projection::FoldedSinusoidal<
-              Pullback::ProjectionProvider<B>>>,
-#else
-          Pullback::Projection::Stereographic<Pullback::ProjectionProvider<B>>>,
-#endif
+      B, Pullback::Stage::Project<EdgeFadeProjection<B>>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
                                   Pullback::GridSourceParams, B>::Type,
                               Pullback::Weight::Projection,

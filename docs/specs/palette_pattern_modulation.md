@@ -43,6 +43,13 @@ admission. A topology change adopts the incoming source instead of sampling
 incompatible retained endpoints. Fixed modulation families continue to reject
 changes outside their declared source and storage strategy.
 
+The canonical modulation control schema lives in `Modulation::Controls`, shared
+by the interpreter and flexible composed resources. Flexible native effects
+register every schema control. Inactive source and noise-variant controls are
+read-only, and their flags refresh after a parameter edit, preset adoption or
+snapshot restore. Registration owns each qualified name once; control changes
+reuse those names. Fixed resources retain their compact control set.
+
 The abstraction has two axes: **pattern source** and **modulation mechanic**.
 Noise plus hue rotation is the existing noise modifier; noise plus positive
 lightness lift is shimmer. Grid plus opacity uses the same protocol.

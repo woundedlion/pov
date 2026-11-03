@@ -380,8 +380,9 @@ struct FrameHistory<Frame, true, Hue> {
     }
     frame.params.visit([&]<typename Resource>(const auto &) {
       if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {
-        if constexpr (Resource::Family::SOURCE !=
-                      Pattern::SourceKind::DISPLACEMENT) {
+        if constexpr (Resource::Family::DYNAMIC ||
+                      Resource::Family::SOURCE !=
+                          Pattern::SourceKind::DISPLACEMENT) {
           auto &owned = resources.template get<Resource::KEY>();
           auto &view = previous.resources.template get<Resource::KEY>();
           view.modulation = Pullback::Modulation::retain(

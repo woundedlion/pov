@@ -467,7 +467,8 @@ public:
         result = editor(candidate);
         if (result != ParamSetResult::APPLIED)
           return;
-        if (!Modulation::same_topology(family.modulation, candidate) ||
+        if ((!Resource::Family::DYNAMIC &&
+             !Modulation::same_topology(family.modulation, candidate)) ||
             !Modulation::admitted(candidate)) {
           result = ParamSetResult::INADMISSIBLE;
           return;
@@ -713,6 +714,7 @@ protected:
     params = target;
     palette_mapping = Pullback::Color::PaletteMappingWeights::single(
         target.template get<"color">().palette_mapping);
+    refresh_modulation_controls();
   }
 
   /** @brief Re-derives the palette mapping weights after a slider write. */
@@ -720,6 +722,7 @@ protected:
     Choreography::parameter_written();
     palette_mapping = Pullback::Color::PaletteMappingWeights::single(
         this->params.template get<"color">().palette_mapping);
+    refresh_modulation_controls();
   }
 
   /** @brief Captures the palette-mapping endpoints of an arming crossfade.
@@ -738,6 +741,7 @@ protected:
     params = Pullback::interpolate(transition.from, transition.to, progress);
     palette_mapping = Pullback::Color::PaletteMappingWeights::lerp(
         mapping_from, mapping_to, progress);
+    refresh_modulation_controls();
   }
 
   /** @brief Starts the lens's repeating phase clock.
@@ -982,6 +986,27 @@ private:
 
   template <typename Resource>
   HS_COLD_MEMBER void register_modulation(ColorModulation::Config &config) {
+    if constexpr (Resource::Family::DYNAMIC) {
+      auto &names = state->resources.template get<Resource::KEY>()
+                        .modulation_control_names;
+      for (size_t index = 0; index < Modulation::Controls::EXTRA_SCHEMA.size();
+           ++index) {
+        const auto &field = Modulation::Controls::EXTRA_SCHEMA[index];
+        const char *name = resource_parameter_name<Resource>(field.id);
+        names[index] = name;
+        void *address = Modulation::Controls::address(config, index);
+        if (field.enum_count)
+          this->register_animated_enum8_param(name,
+                                              static_cast<uint8_t *>(address),
+                                              field.enum_ids, field.enum_count);
+        else
+          register_animated_param(name, static_cast<float *>(address),
+                                  field.min, field.max);
+        set_parameter_stage(ParameterStage::COLORIZE);
+      }
+      refresh_modulation_controls();
+      return;
+    }
     for (const auto &field : Modulation::control_fields(config)) {
       if (!field.value)
         continue;
@@ -989,6 +1014,27 @@ private:
                               field.value, field.min, field.max);
       set_parameter_stage(ParameterStage::COLORIZE);
     }
+  }
+
+  /** @brief Refreshes the active source and variant controls after adoption. */
+  HS_COLD_MEMBER void refresh_modulation_controls() {
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    if (!state)
+      return;
+    this->params.visit([&]<typename Resource>(const auto &family) {
+      if constexpr (Resource::KIND == ResourceKind::MODULATION) {
+        if constexpr (Resource::Family::DYNAMIC) {
+          const auto &names = state->resources.template get<Resource::KEY>()
+                                  .modulation_control_names;
+          if (!names[0])
+            return;
+          for (size_t index = 0; index < names.size(); ++index)
+            this->mark_readonly(names[index], !Modulation::Controls::active(
+                                                  family.modulation, index));
+        }
+      }
+    });
+#endif
   }
 
   /** @brief Whether the current authored projection frame advances.
@@ -1193,8 +1239,9 @@ private:
         auto &clock = clocks.template get<Resource::KEY>().modulation_clock;
         Modulation::synchronize(clock, config);
         resource.modulation_clock = clock;
-        if constexpr (Resource::Family::SOURCE !=
-                      Pattern::SourceKind::DISPLACEMENT)
+        if constexpr (Resource::Family::DYNAMIC ||
+                      Resource::Family::SOURCE !=
+                          Pattern::SourceKind::DISPLACEMENT)
           resource.modulation =
               &state->resources.template get<Resource::KEY>()
                    .modulation_resources.prepare(config, clock);

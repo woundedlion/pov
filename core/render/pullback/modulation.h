@@ -364,6 +364,282 @@ struct Params {
   static constexpr std::array<Field<Params>, 0> FIELDS{}; ///< Nested controls.
 };
 
+/** @brief Controls of one color.modulate.v1 operator. */
+struct Controls {
+  ColorModulation::Config modulation = [] {
+    ColorModulation::Config value;
+    value.seed = HUE_NOISE_SEED;
+    return value;
+  }(); ///< Canonical source and mechanic recipe.
+  static constexpr std::array<Field<Controls>, 0>
+      FIELDS{}; ///< Nested recipe controls.
+  static constexpr std::array<TopologyField<Controls>, 0>
+      TOPOLOGY{}; ///< Nested recipe selectors.
+  /// Modulation enable values.
+  static constexpr const char *ENABLED_IDS[] = {"disabled", "enabled"};
+  /// Pattern source values.
+  static constexpr const char *SOURCE_IDS[] = {
+      "noise", "directional-sine", "sphere-interference", "sphere-smooth-grid",
+      "displacement"};
+  static_assert(std::size(SOURCE_IDS) ==
+                static_cast<size_t>(Pattern::SourceKind::DISPLACEMENT) + 1);
+  /// Pattern evaluation values.
+  static constexpr const char *EVALUATION_IDS[] = {"direct", "baked-cube"};
+  static_assert(std::size(EVALUATION_IDS) ==
+                static_cast<size_t>(Pattern::Evaluation::BAKED_CUBE) + 1);
+  /// Color mechanic values.
+  static constexpr const char *MECHANIC_IDS[] = {
+      "hue-rotation", "positive-lightness-lift", "opacity"};
+  static_assert(std::size(MECHANIC_IDS) ==
+                static_cast<size_t>(ColorModulation::Mechanic::OPACITY) + 1);
+  /// Noise octave formula values.
+  static constexpr const char *BASIS_IDS[] = {"simplex", "fbm3", "ridged3"};
+  /// Noise sampling policy values.
+  static constexpr const char *VARIANT_IDS[] = {"configured-single",
+                                                "octave-contour"};
+  static_assert(std::size(VARIANT_IDS) ==
+                static_cast<size_t>(Pattern::NoiseVariant::OCTAVE_CONTOUR) + 1);
+  /// Modulation parameter schema appended to the palette controls.
+  static constexpr auto EXTRA_SCHEMA = [] {
+    std::array<ParamFieldInfo, 38> out{};
+    const char *ids[] = {"modulation-amount",
+                         "pattern-scale",
+                         "pattern-speed",
+                         "pattern-contrast",
+                         "sine-axis-x",
+                         "sine-axis-y",
+                         "sine-axis-z",
+                         "sine-frequency",
+                         "sine-offset",
+                         "sine-speed",
+                         "interference-axis-x",
+                         "interference-axis-y",
+                         "interference-axis-z",
+                         "interference-frequency",
+                         "interference-offset",
+                         "interference-speed",
+                         "interference-axis-b-x",
+                         "interference-axis-b-y",
+                         "interference-axis-b-z",
+                         "interference-frequency-b",
+                         "interference-offset-b",
+                         "grid-axis-x",
+                         "grid-axis-y",
+                         "grid-axis-z",
+                         "grid-frequency",
+                         "grid-offset",
+                         "grid-speed",
+                         "grid-axis-b-x",
+                         "grid-axis-b-y",
+                         "grid-axis-b-z",
+                         "grid-frequency-b",
+                         "grid-offset-b"};
+    for (size_t i = 0; i < 32; ++i)
+      out[i] = {ids[i], nullptr, -64.0f, 64.0f,   0.0f,    FieldCurve::LERP,
+                false,  0,       0,      nullptr, nullptr, 0};
+    out[0].min = -4.0f;
+    out[0].max = 4.0f;
+    out[1].min = 1.0f / 64.0f;
+    out[1].max = 64.0f;
+    out[1].def = 1.0f;
+    out[1].curve = FieldCurve::LOG_POSITIVE;
+    out[2].min = -Pattern::MAX_NOISE_SPEED;
+    out[2].max = Pattern::MAX_NOISE_SPEED;
+    for (size_t i : {size_t{9}, size_t{15}, size_t{26}}) {
+      out[i].min = -Pattern::MAX_ANALYTIC_SPEED;
+      out[i].max = Pattern::MAX_ANALYTIC_SPEED;
+    }
+    out[3].min = 0.0f;
+    out[3].max = 8.0f;
+    for (size_t i :
+         {size_t{5}, size_t{7}, size_t{11}, size_t{13}, size_t{16}, size_t{19},
+          size_t{22}, size_t{24}, size_t{27}, size_t{30}})
+      out[i].def = 1.0f;
+    for (size_t i : {size_t{7}, size_t{13}, size_t{19}, size_t{24}, size_t{30}})
+      out[i].min = 0.0f;
+    out[32] = {"modulation-enabled",
+               nullptr,
+               0,
+               0,
+               0,
+               FieldCurve::SNAP,
+               true,
+               std::size(ENABLED_IDS),
+               1,
+               ENABLED_IDS,
+               nullptr,
+               0};
+    out[33] = {"modulation-source",
+               nullptr,
+               0,
+               0,
+               0,
+               FieldCurve::SNAP,
+               true,
+               std::size(SOURCE_IDS),
+               0,
+               SOURCE_IDS,
+               nullptr,
+               0};
+    out[34] = {"modulation-evaluation",
+               nullptr,
+               0,
+               0,
+               0,
+               FieldCurve::SNAP,
+               true,
+               std::size(EVALUATION_IDS),
+               1,
+               EVALUATION_IDS,
+               nullptr,
+               0};
+    out[35] = {"modulation-mechanic",
+               nullptr,
+               0,
+               0,
+               0,
+               FieldCurve::SNAP,
+               true,
+               std::size(MECHANIC_IDS),
+               0,
+               MECHANIC_IDS,
+               nullptr,
+               0};
+    out[36] = {"pattern-noise-basis",
+               nullptr,
+               0,
+               0,
+               0,
+               FieldCurve::SNAP,
+               true,
+               std::size(BASIS_IDS),
+               0,
+               BASIS_IDS,
+               nullptr,
+               0};
+    out[37] = {"pattern-noise-variant",
+               nullptr,
+               0,
+               0,
+               0,
+               FieldCurve::SNAP,
+               true,
+               std::size(VARIANT_IDS),
+               0,
+               VARIANT_IDS,
+               nullptr,
+               0};
+    return out;
+  }();
+  /** @brief Mutable canonical control addresses.
+   * @param index Index in the appended schema.
+   * @return Canonical configuration field address. */
+  void *extra_address(size_t index) { return address(modulation, index); }
+  /** @brief Addresses a canonical configuration field.
+   * @param c Live source and mechanic recipe.
+   * @param index Schema index.
+   * @return Address in the supplied recipe. */
+  static void *address(ColorModulation::Config &c, size_t index) {
+    float *addresses[] = {&c.mechanic.amount,
+                          &c.noise.scale,
+                          &c.noise.speed,
+                          &c.noise.contrast,
+                          &c.sine.axis.x,
+                          &c.sine.axis.y,
+                          &c.sine.axis.z,
+                          &c.sine.frequency,
+                          &c.sine.offset,
+                          &c.sine.speed,
+                          &c.interference.axis.x,
+                          &c.interference.axis.y,
+                          &c.interference.axis.z,
+                          &c.interference.frequency,
+                          &c.interference.offset,
+                          &c.interference.speed,
+                          &c.interference.axis_b.x,
+                          &c.interference.axis_b.y,
+                          &c.interference.axis_b.z,
+                          &c.interference.frequency_b,
+                          &c.interference.offset_b,
+                          &c.grid.axis.x,
+                          &c.grid.axis.y,
+                          &c.grid.axis.z,
+                          &c.grid.frequency,
+                          &c.grid.offset,
+                          &c.grid.speed,
+                          &c.grid.axis_b.x,
+                          &c.grid.axis_b.y,
+                          &c.grid.axis_b.z,
+                          &c.grid.frequency_b,
+                          &c.grid.offset_b};
+    if (index < std::size(addresses))
+      return addresses[index];
+    switch (index) {
+    case 32:
+      return &c.enabled;
+    case 33:
+      return &c.source;
+    case 34:
+      return &c.evaluation;
+    case 35:
+      return &c.mechanic.kind;
+    case 36:
+      return &c.noise.basis;
+    case 37:
+      return &c.noise.variant;
+    }
+    HS_CHECK(false, "invalid modulation field index");
+    return nullptr;
+  }
+  /** @brief Whether the current recipe uses a registered control.
+   * @param c Current source and mechanic recipe.
+   * @param index Canonical schema index.
+   * @return Whether the control accepts native parameter writes. */
+  static bool active(const ColorModulation::Config &c, size_t index) {
+    if (index >= EXTRA_SCHEMA.size())
+      return false;
+    if (index == 0 || (index >= 32 && index <= 35))
+      return true;
+    switch (c.source) {
+    case Pattern::SourceKind::NOISE:
+      if (index == 3 || index == 36)
+        return c.noise.variant == Pattern::NoiseVariant::OCTAVE_CONTOUR;
+      return index == 1 || index == 2 || index == 37;
+    case Pattern::SourceKind::DIRECTIONAL_SINE:
+      return index >= 4 && index <= 9;
+    case Pattern::SourceKind::SPHERE_INTERFERENCE:
+      return index >= 10 && index <= 20;
+    case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
+      return index >= 21 && index <= 31;
+    case Pattern::SourceKind::DISPLACEMENT:
+      return false;
+    }
+    return false;
+  }
+
+  /** @brief Interpolates mechanic controls only across matching recipe topology.
+   * @param out Interpolated parameters.
+   * @param a Previous parameters.
+   * @param b Current parameters.
+   * @param t Current weight. */
+  static void sample_extra(Controls &out, const Controls &a, const Controls &b,
+                           float t) {
+    out.modulation = b.modulation;
+    if (Modulation::same_topology(a.modulation, b.modulation))
+      out.modulation.mechanic.amount = hs::lerp(
+          a.modulation.mechanic.amount, b.modulation.mechanic.amount, t);
+  }
+
+  /** @brief Identifies modulation fields excluded from interval eligibility.
+   * @param field Parameter schema index.
+   * @return Whether the field belongs to modulation. */
+  static constexpr bool temporal_hold_field(uint16_t field) {
+    (void)field;
+    return true;
+  }
+};
+static_assert(field_ids_unique<Controls>());
+
 /** @brief One live authored modulation control. */
 struct ControlField {
   const char *name = nullptr; ///< Display label.

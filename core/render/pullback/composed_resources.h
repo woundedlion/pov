@@ -346,15 +346,29 @@ template <typename Family> struct ClockState<Family, ResourceKind::MODULATION> {
 template <typename Resource,
           bool Spatial = Resource::KIND == ResourceKind::MODULATION>
 struct ResourceModulation {};
+/** @brief Optional registered names of a flexible modulation recipe.
+ * @tparam Resource Keyed resource.
+ * @tparam Enabled Whether the recipe permits topology changes. */
+template <typename Resource, bool Enabled> struct ResourceModulationControls {};
+/** @brief Registered names used to refresh active-control flags.
+ * @tparam Resource Flexible modulation resource. */
+template <typename Resource> struct ResourceModulationControls<Resource, true> {
+  std::array<const char *, Modulation::Controls::EXTRA_SCHEMA.size()>
+      modulation_control_names{}; ///< Persistent registered names.
+};
 /** @brief Modulation resource storage.
  * @tparam Resource Authored modulation resource. */
-template <typename Resource> struct ResourceModulation<Resource, true> {
+template <typename Resource>
+struct ResourceModulation<Resource, true>
+    : ResourceModulationControls<Resource, Resource::Family::DYNAMIC> {
   static constexpr bool SPATIAL =
+      Resource::Family::DYNAMIC ||
       Resource::Family::SOURCE !=
-      Pattern::SourceKind::DISPLACEMENT; ///< Spatial capability.
+          Pattern::SourceKind::DISPLACEMENT; ///< Spatial capability.
   std::conditional_t<SPATIAL,
-                     Modulation::Resources<Resource::Family::EVALUATION ==
-                                           Pattern::Evaluation::BAKED_CUBE>,
+                     Modulation::Resources<Resource::Family::DYNAMIC ||
+                                           Resource::Family::EVALUATION ==
+                                               Pattern::Evaluation::BAKED_CUBE>,
                      std::monostate>
       modulation_resources; ///< Source cache.
 };
@@ -375,7 +389,8 @@ template <typename Resource> struct ResourceModulationView<Resource, true> {
 template <typename Resource>
 inline constexpr bool RESOURCE_DIRECT_NOISE = [] {
   if constexpr (Resource::KIND == ResourceKind::MODULATION)
-    return Resource::Family::SOURCE == Pattern::SourceKind::NOISE &&
+    return !Resource::Family::DYNAMIC &&
+           Resource::Family::SOURCE == Pattern::SourceKind::NOISE &&
            Resource::Family::EVALUATION == Pattern::Evaluation::DIRECT;
   return false;
 }();
@@ -412,12 +427,14 @@ struct ResourceModulationHistory {};
  * @tparam Resource Keyed modulation resource. */
 template <typename Resource> struct ResourceModulationHistory<Resource, true> {
   static constexpr bool SPATIAL =
+      Resource::Family::DYNAMIC ||
       Resource::Family::SOURCE !=
-      Pattern::SourceKind::DISPLACEMENT; ///< Source capability.
+          Pattern::SourceKind::DISPLACEMENT; ///< Source capability.
   std::conditional_t<SPATIAL, Modulation::Prepared, std::monostate>
       modulation; ///< Retained inputs.
-  std::array<int8_t, SPATIAL && Resource::Family::EVALUATION ==
-                                    Pattern::Evaluation::BAKED_CUBE
+  std::array<int8_t, SPATIAL && (Resource::Family::DYNAMIC ||
+                                 Resource::Family::EVALUATION ==
+                                     Pattern::Evaluation::BAKED_CUBE)
                          ? Pattern::SphereLutView::SIZE
                          : 0>
       table{}; ///< Retained cube.

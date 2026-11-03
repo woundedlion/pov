@@ -776,7 +776,7 @@ struct ModulationProvider {
   using FrameState = typename Binding::FrameState; ///< Frame context.
   static constexpr bool CACHED_NOISE = [] {
     if constexpr (requires { FrameState::PHASE_NOISE_CACHE; })
-      return FrameState::PHASE_NOISE_CACHE &&
+      return FrameState::PHASE_NOISE_CACHE && !DynamicV &&
              SourceV == Pattern::SourceKind::NOISE &&
              EvaluationV == Pattern::Evaluation::DIRECT;
     return false;

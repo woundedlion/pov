@@ -126,26 +126,7 @@ struct FrameContext {
 
 using Pullback::TopologyField;
 
-/**
- * @brief One entry of an operator's registered parameter schema — the full
- *        union across topology variants, topology enum8s included.
- */
-struct ParamFieldInfo {
-  const char *id;              /**< Stable machine id, kebab-case. */
-  const char *display_name;    /**< Nullable; cosmetic. */
-  float min;                   /**< Float range minimum. */
-  float max;                   /**< Float range maximum. */
-  float def;                   /**< Float default. */
-  FieldCurve curve;            /**< Preset-transition curve. */
-  bool topology;               /**< Whether this is a topology enum8. */
-  uint8_t enum_count;          /**< 0 marks a float field. */
-  uint8_t enum_def;            /**< Default enum value index. */
-  const char *const *enum_ids; /**< Enum value spellings; null for floats. */
-  /** Id of the topology enum8 selecting this field; null when every variant
-      reads it. */
-  const char *gated_by;
-  uint16_t gate_values; /**< Bit per live gating value index. */
-};
+using Pullback::ParamFieldInfo;
 
 /** @brief Size and alignment of one arena-allocated block. */
 struct BlockLayout {

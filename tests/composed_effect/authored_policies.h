@@ -217,6 +217,25 @@ inline void test_authored_dynamic_modulation_storage() {
   HS_EXPECT_TRUE(NOISE.evaluate != nullptr);
   params.modulation.noise.scale = -1.0f;
   HS_EXPECT_FALSE(valid(params));
+  using Minimal = Modulation::Params<Pattern::SourceKind::DISPLACEMENT,
+                                     Pattern::Evaluation::DIRECT, true>;
+  using MinimalResource =
+      ParameterResource<"minimal", Minimal, ResourceKind::MODULATION>;
+  ComposedDetail::ResourceNoise<MinimalResource> flexible;
+  ComposedDetail::ResourceModulationHistory<MinimalResource> retained;
+  Minimal switches;
+  HS_EXPECT_TRUE(valid(switches));
+  switches.modulation.source = Pattern::SourceKind::NOISE;
+  switches.modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
+  HS_EXPECT_TRUE(valid(switches));
+  const auto &BAKED =
+      flexible.modulation_resources.prepare(switches.modulation, {});
+  HS_EXPECT_TRUE(BAKED.cube.active);
+  const auto *COPY =
+      Modulation::retain(&BAKED, retained.modulation, retained.table);
+  HS_EXPECT_TRUE(COPY->cube.data == retained.table.data());
+  HS_EXPECT_TRUE(COPY->cube.data != BAKED.cube.data);
+  HS_EXPECT_EQ(retained.table.size(), size_t(Pattern::SphereLutView::SIZE));
 }
 
 template <Pullback::ProjectionKind Kind, typename Operator>
@@ -348,4 +367,116 @@ inline void test_authored_lens_bindings_match_operators() {
       HS_EXPECT_NEAR(ACTUAL.y, EXPECTED.y, 1e-6f);
       HS_EXPECT_NEAR(ACTUAL.z, EXPECTED.z, 1e-6f);
     }
+}
+
+/** @brief Composed fixture with a flexible modulation recipe. */
+struct DynamicModulationControlsSpec : Pullback::Spec {
+  static constexpr bool ANIMATED_PROJECTION = false;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Displace<Pullback::Surface::PeriodicRipple<
+          Pullback::SurfaceProvider<B, Pullback::PeriodicRippleParams, true>>>,
+      Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+          Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>,
+      Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
+          Pullback::GridSourceParams, B>::Type>,
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "modulation", Pattern::SourceKind::NOISE,
+              Pattern::Evaluation::BAKED_CUBE, false, true>>>>;
+};
+
+/** @brief Native controls and snapshot adoption for flexible modulation. */
+struct DynamicModulationControlsProbe
+    : Pullback::ComposedEffect<8, 8, DynamicModulationControlsProbe,
+                               DynamicModulationControlsSpec,
+                               Control::HookOwnership::INHERITED> {
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr auto PRESETS = [] {
+    std::array<PresetEntry<Params>, 2> rows{};
+    rows[0].params.template get<"modulation">().modulation.mechanic.amount =
+        0.5f;
+    auto &config = rows[1].params.template get<"modulation">().modulation;
+    config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+    config.evaluation = Pattern::Evaluation::DIRECT;
+    return rows;
+  }();
+  /** @brief Live recipe controls.
+   * @return Mutable canonical configuration. */
+  auto &configuration() {
+    return params.template get<"modulation">().modulation;
+  }
+};
+
+/** @brief Dynamic modulation registers canonical controls and refreshes admission. */
+inline void test_authored_dynamic_modulation_controls() {
+  using namespace Pullback;
+  hs_test::reset_globals();
+  DynamicModulationControlsProbe effect;
+  effect.init();
+  for (size_t index = 0; index < Modulation::Controls::EXTRA_SCHEMA.size();
+       ++index) {
+    const auto &field = Modulation::Controls::EXTRA_SCHEMA[index];
+    const auto *parameter = effect.getParameters().find(field.id);
+    HS_EXPECT_TRUE(parameter != nullptr);
+    if (!parameter)
+      continue;
+    HS_EXPECT_TRUE(parameter->target == Modulation::Controls::address(
+                                            effect.configuration(), index));
+    HS_EXPECT_EQ(parameter->option_count, int(field.enum_count));
+    HS_EXPECT_EQ(parameter->readonly,
+                 !Modulation::Controls::active(effect.configuration(), index));
+    HS_EXPECT_TRUE(parameter->animated);
+  }
+  HS_EXPECT_EQ(effect.updateParameter("modulation-evaluation", 0),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("modulation-source", 1),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(effect.getParameters().find("pattern-scale")->readonly);
+  HS_EXPECT_FALSE(effect.getParameters().find("sine-frequency")->readonly);
+  HS_EXPECT_EQ(effect.updateParameter("sine-frequency", 2.3f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_NEAR(effect.configuration().sine.frequency, 2.3f, 1e-6f);
+  HS_EXPECT_EQ(effect.updateParameter("pattern-scale", 2.3f),
+               ParamSetResult::READONLY);
+  HS_EXPECT_EQ(effect.updateParameter("modulation-source", 0),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(effect.getParameters().find("pattern-noise-basis")->readonly);
+  HS_EXPECT_EQ(effect.updateParameter("pattern-noise-variant", 1),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_FALSE(effect.getParameters().find("pattern-noise-basis")->readonly);
+  HS_EXPECT_EQ(effect.updateParameter("pattern-noise-basis", 2),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("pattern-contrast", 0.7f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.configuration().noise.basis,
+               Pattern::NoiseBasis::RIDGED3);
+  HS_EXPECT_EQ(effect.updateParameter("modulation-evaluation", 1),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("modulation-source", 1),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_EQ(effect.configuration().source, Pattern::SourceKind::NOISE);
+  auto snapshot = effect.serialize_parameters();
+  auto &recipe = snapshot.params.template get<"modulation">().modulation;
+  recipe.source = Pattern::SourceKind::SPHERE_INTERFERENCE;
+  recipe.evaluation = Pattern::Evaluation::DIRECT;
+  HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
+  HS_EXPECT_TRUE(effect.getParameters().find("pattern-scale")->readonly);
+  HS_EXPECT_FALSE(
+      effect.getParameters().find("interference-frequency-b")->readonly);
+  HS_EXPECT_EQ(effect.updateParameter("interference-frequency-b", 4.0f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.configuration().interference.frequency_b, 4.0f);
+  HS_EXPECT_TRUE(
+      effect.edit_document_modulation("modulation", [](auto &config) {
+        config.source = Pattern::SourceKind::DISPLACEMENT;
+        return ParamSetResult::APPLIED;
+      }) == ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(
+      effect.getParameters().find("interference-frequency-b")->readonly);
 }
