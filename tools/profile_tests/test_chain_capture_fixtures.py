@@ -62,7 +62,7 @@ class ChainCaptureFixtureTests(unittest.TestCase):
         for record in self.records:
             snapshot = record["snapshot"]
             with self.subTest(name=record["name"]):
-                self.assertEqual(snapshot["schemaVersion"], 4)
+                self.assertEqual(snapshot["schemaVersion"], 5)
                 displacement, spatial = snapshot["modulation"]
                 clocks = {entry["instance"]: entry for entry in snapshot["runtime"]}
                 for entry in (displacement, spatial):
@@ -123,11 +123,11 @@ class ChainCaptureFixtureTests(unittest.TestCase):
             record[field] = value
             with self.subTest(field=field), self.assertRaises(ValueError):
                 generator.generate([record])
-        for version in (0, 1, 2, 3, 5):
+        for version in (0, 1, 2, 3, 4, 6):
             record = copy.deepcopy(self.records[0])
             record["snapshot"]["schemaVersion"] = version
             with self.subTest(version=version), self.assertRaisesRegex(
-                ValueError, "version-four"
+                ValueError, "version-five"
             ):
                 generator.generate([record])
 

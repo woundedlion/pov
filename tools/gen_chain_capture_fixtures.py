@@ -217,8 +217,8 @@ def generate(records):
             if type(value) is not int or not 0 < value <= 2147483647:
                 raise ValueError(f"capture fixture {field} is not a positive int32")
         snapshot = record["snapshot"]
-        if snapshot["schemaVersion"] != 4 or not snapshot["chain"]:
-            raise ValueError("capture fixture requires a version-four chain")
+        if snapshot["schemaVersion"] != 5 or not snapshot["chain"]:
+            raise ValueError("capture fixture requires a version-five chain")
         canonical = json.dumps(snapshot, sort_keys=True, separators=(",", ":"))
         if canonical not in snapshot_indices:
             snapshot_indices[canonical] = len(snapshots)
