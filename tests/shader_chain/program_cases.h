@@ -735,6 +735,23 @@ inline void test_shader_chain_catalog_shape() {
   std::string sample_blocks = "\"blocks\":{\"param\":{\"size\":";
   sample_blocks += std::to_string(sizeof(In::Op::GridSampleParams));
   HS_EXPECT_TRUE(contains(sample_blocks.c_str()));
+  constexpr const char *SPHERE_NAMES[][2] = {
+      {"sphere.displace.curl.v2", "Curl Lens"},
+      {"sphere.displace.direct.v2", "Direct Lens"},
+      {"sphere.displace.ripple.v2", "Ripple Lens"},
+      {"sphere.displace.potential.v1", "Potential Lens"},
+      {"sphere.displace.rossby-haurwitz.v1", "Rossby-Haurwitz Lens"},
+      {"sphere.displace.symmetric.v1", "Symmetric Lens"},
+      {"sphere.lens.twist.v2", "Twist Lens"},
+      {"sphere.lens.mobius.v3", "Mobius Lens"},
+      {"sphere.lens.glitch.v2", "Glitch Fold"},
+      {"sphere.lens.kaleidoscope.v2", "Kaleidoscope Fold"},
+  };
+  for (const auto &entry : SPHERE_NAMES) {
+    const std::string expected = std::string("\"id\":\"") + entry[0] +
+                                 "\",\"name\":\"" + entry[1] + "\"";
+    HS_EXPECT_TRUE(contains(expected.c_str()));
+  }
 }
 
 inline void test_shader_chain_default_chain_renders() {

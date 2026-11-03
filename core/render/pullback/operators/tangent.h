@@ -309,7 +309,7 @@ struct FieldDisplaceModel : ValueStateModel<StateT> {
 struct DisplacePotential
     : FieldDisplaceModel<DisplacePotential, PotentialDisplaceParams> {
   static constexpr const char *ID = "sphere.displace.potential.v1";
-  static constexpr const char *NAME = "Potential Displace";
+  static constexpr const char *NAME = "Potential Lens";
   /** @brief Checks the term topology and parameter domains.
    * @param params Authored field controls.
    * @return Whether the term configuration is admitted. */
@@ -348,7 +348,7 @@ struct DisplacePotential
 struct DisplaceRossbyHaurwitz
     : FieldDisplaceModel<DisplaceRossbyHaurwitz, RossbyHaurwitzParams> {
   static constexpr const char *ID = "sphere.displace.rossby-haurwitz.v1";
-  static constexpr const char *NAME = "Rossby-Haurwitz Displace";
+  static constexpr const char *NAME = "Rossby-Haurwitz Lens";
   /** @brief Checks the term topology and parameter domains.
    * @param params Authored field controls.
    * @return Whether the term configuration is admitted. */
@@ -375,7 +375,7 @@ struct DisplaceRossbyHaurwitz
 struct DisplaceSymmetric
     : FieldDisplaceModel<DisplaceSymmetric, SymmetricDisplaceParams> {
   static constexpr const char *ID = "sphere.displace.symmetric.v1";
-  static constexpr const char *NAME = "Symmetric Displace";
+  static constexpr const char *NAME = "Symmetric Lens";
   static void advance(State &state, const Params &params) {
     state.phase = fmodf(state.phase + params.speed, math::TWO_PI_F);
   }

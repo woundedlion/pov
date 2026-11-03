@@ -75,7 +75,7 @@ struct PreparedDisplace {
 /** @brief SPHERE endomorphism: the length-limited curl-noise displacement. */
 struct DisplaceCurl : PhaseClockModel<NoisePhaseState> {
   static constexpr const char *ID = "sphere.displace.curl.v2";
-  static constexpr const char *NAME = "Curl Displace";
+  static constexpr const char *NAME = "Curl Lens";
   using Input = SphereSample;
   using Output = SphereSample;
   using Params = CurlDisplaceParams;
@@ -131,7 +131,7 @@ struct PreparedDirectDisplace {
 /** @brief SPHERE endomorphism: the direction-steered noise displacement. */
 struct DisplaceDirect : PhaseClockModel<NoisePhaseState> {
   static constexpr const char *ID = "sphere.displace.direct.v2";
-  static constexpr const char *NAME = "Direct Displace";
+  static constexpr const char *NAME = "Direct Lens";
   using Input = SphereSample;
   using Output = SphereSample;
   using Params = DirectDisplaceParams;
@@ -214,7 +214,7 @@ inline void temporal_sample(RipplePhaseState &out,
 /** @brief SPHERE endomorphism: staggered bursts of spherical ripples. */
 struct DisplaceRipple : ValueStateModel<RipplePhaseState> {
   static constexpr const char *ID = "sphere.displace.ripple.v2";
-  static constexpr const char *NAME = "Ripple";
+  static constexpr const char *NAME = "Ripple Lens";
   using Input = SphereSample;
   using Output = SphereSample;
   using Params = RippleChainParams;
@@ -264,7 +264,7 @@ static_assert(field_defaults_in_range<GlitchChainParams>());
 /** @brief SPHERE endomorphism: polar and azimuth angle multiplication. */
 struct LensGlitch : StatelessModel {
   static constexpr const char *ID = "sphere.lens.glitch.v2";
-  static constexpr const char *NAME = "Glitch Lens";
+  static constexpr const char *NAME = "Glitch Fold";
   using Input = SphereSample;
   using Output = SphereSample;
   using Params = GlitchChainParams;
@@ -452,7 +452,7 @@ inline math::Vector kaleidoscope_lens(const math::Vector &input,
     topology. */
 struct LensKaleidoscope : StatelessModel {
   static constexpr const char *ID = "sphere.lens.kaleidoscope.v2";
-  static constexpr const char *NAME = "Kaleidoscope Lens";
+  static constexpr const char *NAME = "Kaleidoscope Fold";
   using Input = SphereSample;
   using Output = SphereSample;
   using Params = KaleidoscopeChainParams;
