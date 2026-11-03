@@ -299,16 +299,15 @@ inline const Case *all_cases(int &n) {
        "!params.modulation.enabled || params.modulation.mechanic.amount == 0.0f) "
        "missing modulation source endpoint"},
       {"shader_palette_invalid_named_index",
-       case_shader_palette_invalid_named_index,
-       "workbench/shader/palette_selection.h",
+       case_shader_palette_invalid_named_index, "core/color/authored_palette.h",
        "(params.palette_name < std::size(COEFFICIENTS) && "
        "params.palette_name_b < std::size(COEFFICIENTS)) invalid named palette index"},
       {"shader_palette_invalid_name", case_shader_palette_invalid_name,
-       "workbench/shader/palette_selection.h",
+       "core/color/authored_palette.h",
        "(params.palette_name < std::size(COEFFICIENTS) && "
        "params.palette_name_b < std::size(COEFFICIENTS)) invalid named palette index"},
       {"shader_palette_invalid_type", case_shader_palette_invalid_type,
-       "workbench/shader/palette_selection.h",
+       "core/color/authored_palette.h",
        "(type == Type::PROCEDURAL) invalid authored palette type"},
       {"direct_sink_wrong_dimensions", case_direct_sink_wrong_dimensions,
        "core/render/filter/screen_direct_aa_sink.h",
