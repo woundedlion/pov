@@ -772,3 +772,23 @@ struct ModulationProvider {
     }
   }
 };
+
+/** @brief Color provider with authored palette selection and value envelope.
+ * @tparam B Frame binding.
+ * @tparam Brightness Fallback envelope for discovery.
+ * @tparam LabCache Whether palette interval caches are exposed.
+ * @tparam Fused Whether final temporal color may be fused. */
+template <typename B,
+          Color::BrightnessEnvelope Brightness =
+              Color::BrightnessEnvelope::NONE,
+          bool LabCache = false, bool Fused = false>
+struct AuthoredColorProvider : ColorProvider<B, Brightness, LabCache, Fused> {
+  using FrameState = typename B::FrameState;
+  /** @brief Current authored brightness envelope.
+   * @param frame Current column state.
+   * @return Selected envelope. */
+  static Color::BrightnessEnvelope
+  brightness_envelope(const FrameState &frame) {
+    return frame.params.template get<"color">().brightness_envelope;
+  }
+};

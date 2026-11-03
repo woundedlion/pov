@@ -104,61 +104,19 @@ inline constexpr const char *BRIGHTNESS_ENVELOPE_IDS[] = {
 static_assert(std::size(BRIGHTNESS_ENVELOPE_IDS) ==
               static_cast<size_t>(EnvelopeMode::DESCENDING) + 1);
 
-/** @brief Palette source selected by the workbench color stage. */
-enum class PaletteType : uint8_t {
-  CYCLING_GENERATED, ///< Animated legacy harmony bank.
-  GENERATED,         ///< Authored perceptual palette.
-  PROCEDURAL,        ///< Named cosine palette.
-  GRADIENT,          ///< Three-stop perceptual gradient.
-  MUTATING           ///< Interpolated cosine coefficients.
-};
+using PaletteType = ::AuthoredPaletteType;
 /// Wire ids of palette source families.
-inline constexpr const char *PALETTE_TYPE_IDS[] = {
-    "cycling-generated", "generated", "procedural", "gradient", "mutating"};
+inline constexpr auto &PALETTE_TYPE_IDS = ::AUTHORED_PALETTE_TYPE_IDS;
 /// Wire ids of perceptual harmony relationships.
-inline constexpr const char *PALETTE_HARMONY_IDS[] = {
-    "monochromatic",       "analogous", "accented-analogous", "complementary",
-    "split-complementary", "triadic",   "tetradic",           "square"};
+inline constexpr auto &PALETTE_HARMONY_IDS = ::AUTHORED_PALETTE_HARMONY_IDS;
 static_assert(std::size(PALETTE_HARMONY_IDS) ==
               static_cast<size_t>(PaletteHarmony::SQUARE) + 1);
 /// Wire ids of lightness profiles supported by the palette controls.
-inline constexpr const char *PALETTE_LIGHTNESS_CURVE_IDS[] = {
-    "constant", "ascending", "descending", "bell", "cup"};
+inline constexpr auto &PALETTE_LIGHTNESS_CURVE_IDS =
+    ::AUTHORED_PALETTE_LIGHTNESS_CURVE_IDS;
 /// Wire ids of the named procedural palette roster.
-inline constexpr const char *PALETTE_NAME_IDS[] = {
-    "dark-rainbow", "blood-stream",   "vintage-sunset", "rich-sunset",
-    "undersea",     "late-sunset",    "mango-peel",     "ice-melt",
-    "lemon-lime",   "algae",          "embers",         "fire-glow",
-    "dark-primary", "mauve-fade",     "lavender-lake",  "desert-rose",
-    "bruised-moss", "bruised-banana", "bright-sunrise", "fire-and-ice",
-    "peach-pop",    "tidal-jade",     "blue-lagoon",    "orange-crush",
-    "plum-sunrise", "coral-blue",     "bruised-mango"};
-/// Authored palette source controls, persisted with the color operator.
-struct PaletteSelection {
-  float palette_hue = 0.0f;             ///< Base hue in turns.
-  float palette_spread = 0.07f;         ///< Harmony spread in turns.
-  float palette_lightness = 0.62f;      ///< Lightness midpoint.
-  float palette_lightness_range = 0.0f; ///< Lightness profile range.
-  float palette_mutation = 0.0f;        ///< Coefficient interpolation weight.
-  float gradient_start_r = 1.0f;        ///< First stop red, sRGB.
-  float gradient_start_g = 0.15f;       ///< First stop green, sRGB.
-  float gradient_start_b = 0.0f;        ///< First stop blue, sRGB.
-  float gradient_middle_r = 0.1f;       ///< Middle stop red, sRGB.
-  float gradient_middle_g = 1.0f;       ///< Middle stop green, sRGB.
-  float gradient_middle_b = 0.4f;       ///< Middle stop blue, sRGB.
-  float gradient_end_r = 0.1f;          ///< Last stop red, sRGB.
-  float gradient_end_g = 0.2f;          ///< Last stop green, sRGB.
-  float gradient_end_b = 1.0f;          ///< Last stop blue, sRGB.
-  uint8_t palette_type = 0;             ///< A PaletteType ordinal.
-  /// Perceptual hue relationship.
-  uint8_t palette_harmony = static_cast<uint8_t>(PaletteHarmony::TRIADIC);
-  uint8_t palette_lightness_curve = 0; ///< Lightness axis profile.
-  uint8_t palette_name = 0;            ///< First named cosine palette.
-  uint8_t palette_name_b = 19;         ///< Second named cosine palette.
-  std::array<uint8_t, 3> reserved{};   ///< Stable serialized base layout.
-  constexpr bool operator==(const PaletteSelection &) const = default;
-};
-static_assert(sizeof(PaletteSelection) == 64);
+inline constexpr auto &PALETTE_NAME_IDS = ::AUTHORED_PALETTE_NAME_IDS;
+using PaletteSelection = ::AuthoredPaletteSelection;
 /// Activation gate for authored perceptual palette controls.
 inline constexpr TopologyGate GENERATED_PALETTE_GATE{
     "palette-type", live_values(PaletteType::GENERATED)};

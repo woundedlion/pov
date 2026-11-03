@@ -52,8 +52,14 @@ class ComposedEffect
 #endif
 
 public:
-  using Params = ParamsT; ///< Keyed parameter storage derived from `SpecT`.
-  using Spec = SpecT;     ///< The effect's ranked stage Spec.
+  using Params = ParamsT; ///< Keyed parameter storage derived from the Spec.
+  using ColorFamily = std::remove_cvref_t<
+      decltype(std::declval<Params &>()
+                   .template get<"color">())>; ///< Color controls.
+  static constexpr bool AUTHORED_PALETTE =
+      std::is_same_v<ColorFamily,
+                     Color::AuthoredColorParams>; ///< Full authored sources.
+  using Spec = SpecT;                  ///< The effect's ranked stage Spec.
   using Metadata = MetadataFor<SpecT>; ///< Topology derived from typed stages.
   /// Whether the effect samples time across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = SpecT::TEMPORAL_SAMPLING;
@@ -751,6 +757,9 @@ private:
     ComposedDetail::ResourceStorage<RuntimeResource,
                                     typename Params::ResourceTypes>
         resources;
+    std::conditional_t<AUTHORED_PALETTE, AuthoredPaletteResources,
+                       std::monostate>
+        authored_palette;
     FastNoiseLite outer_walk_noise;
     FrameState current{};
     std::conditional_t<SpecT::PERSISTENT_PREPARED_FRAME, std::optional<Frame>,
@@ -770,6 +779,7 @@ private:
            ? gamut_lut_bytes(GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS)
            : 0) +
       PaletteCycler::generated_arena_bytes() +
+      (AUTHORED_PALETTE ? BakedPalette::required_arena_bytes() : 0) +
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(State) + alignof(State) +
       (TEMPORAL_SAMPLING ? BakedPalette::required_arena_bytes() : 0) +
       alignof(ParamDef) +
@@ -815,7 +825,8 @@ private:
   template <float Color::ColorControls::*Member>
   HS_COLD_MEMBER void register_color_field(const char *name) {
     constexpr const auto &FIELD = color_descriptor<Member>();
-    if constexpr (ComposedDetail::color_gate_open<SpecT>(FIELD.topology_gate)) {
+    if constexpr (AUTHORED_PALETTE ||
+                  ComposedDetail::color_gate_open<SpecT>(FIELD.topology_gate)) {
       register_animated_param(name,
                               &(this->params.template get<"color">().*Member),
                               FIELD.min, FIELD.max);
@@ -859,6 +870,48 @@ private:
     register_color_field<&ColorParams::brightness_top>("Brightness Top");
     register_color_field<&ColorParams::opacity_low>("Opacity at Value 0");
     register_color_field<&ColorParams::opacity_high>("Opacity at Value 1");
+    if constexpr (AUTHORED_PALETTE) {
+      auto &color = this->params.template get<"color">();
+      static constexpr const char *MODES[] = {"triadic", "complementary",
+                                              "analogous"};
+      static constexpr const char *ENVELOPES[] = {"none", "cup", "bell",
+                                                  "ascending", "descending"};
+      this->register_animated_enum8_param("Palette Mode", &color.palette_mode,
+                                          MODES, std::size(MODES));
+      set_parameter_stage(ParameterStage::COLORIZE);
+      this->register_animated_enum8_param("Palette Type", &color.palette_type,
+                                          AUTHORED_PALETTE_TYPE_IDS,
+                                          std::size(AUTHORED_PALETTE_TYPE_IDS));
+      set_parameter_stage(ParameterStage::COLORIZE);
+      this->register_animated_enum8_param(
+          "Palette Harmony", &color.palette_harmony,
+          AUTHORED_PALETTE_HARMONY_IDS,
+          std::size(AUTHORED_PALETTE_HARMONY_IDS));
+      set_parameter_stage(ParameterStage::COLORIZE);
+      this->register_animated_enum8_param(
+          "Palette Lightness Curve", &color.palette_lightness_curve,
+          AUTHORED_PALETTE_LIGHTNESS_CURVE_IDS,
+          std::size(AUTHORED_PALETTE_LIGHTNESS_CURVE_IDS));
+      set_parameter_stage(ParameterStage::COLORIZE);
+      this->register_animated_enum8_param("Palette Name", &color.palette_name,
+                                          AUTHORED_PALETTE_NAME_IDS,
+                                          std::size(AUTHORED_PALETTE_NAME_IDS));
+      set_parameter_stage(ParameterStage::COLORIZE);
+      this->register_animated_enum8_param(
+          "Palette Name B", &color.palette_name_b, AUTHORED_PALETTE_NAME_IDS,
+          std::size(AUTHORED_PALETTE_NAME_IDS));
+      set_parameter_stage(ParameterStage::COLORIZE);
+      register_animated_param("Brightness Envelope", &color.brightness_envelope,
+                              ENVELOPES, nullptr, std::size(ENVELOPES));
+      set_parameter_stage(ParameterStage::COLORIZE);
+      for (size_t index = ColorParams::FIELDS.size();
+           index < ColorFamily::FIELDS.size(); ++index) {
+        const auto &field = ColorFamily::FIELDS[index];
+        this->register_param(field.name, &(color.*field.member),
+                             field.description().spec);
+        set_parameter_stage(ParameterStage::COLORIZE);
+      }
+    }
     this->params.visit([&]<typename Resource>(auto &family) {
       if constexpr (Resource::KIND == ResourceKind::MODULATION)
         register_modulation<Resource>(family.modulation);
@@ -987,17 +1040,24 @@ private:
    */
   HS_COLD_MEMBER void prepare_frame(FrameState &frame) {
     HS_PROFILE(fx_prepare_frame);
+    const BakedPalette &palette = selected_palette();
+    uint32_t palette_generation = palette_cycler.bake_generation() << 1;
+    if constexpr (AUTHORED_PALETTE)
+      if (params.template get<"color">().palette_type !=
+          static_cast<uint8_t>(AuthoredPaletteType::CYCLING_GENERATED))
+        palette_generation =
+            (state->authored_palette.bake_generation() << 1) | 1U;
     if constexpr (HUE_ROTATION_LUT)
-      if (state->hue_rotation_lut_bake != palette_cycler.bake_generation()) {
+      if (state->hue_rotation_lut_bake != palette_generation) {
         Pullback::Color::prepare_hue_rotation_lut(
             std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
                 state->hue_rotation_lut),
-            palette_cycler.palette());
-        state->hue_rotation_lut_bake = palette_cycler.bake_generation();
+            palette);
+        state->hue_rotation_lut_bake = palette_generation;
       }
     frame.projection_conjugate = this->frame_conjugate();
     frame.outer_conjugate = outer_conjugate;
-    frame.palette = &palette_cycler.palette();
+    frame.palette = &palette;
     frame.hue_rotation_lut = hue_rotation_lut_data();
     frame.palette_lab_lut = nullptr;
     if constexpr (SpecT::CACHE_DODECAHEDRAL_MATRICES)
@@ -1056,10 +1116,49 @@ private:
       frame.temporal = {frame.palette, frame.hue_rotation_lut, 1.0f};
   }
 
+  /** @brief Resolves the current authored or cycling source. @return Palette table. */
+  const BakedPalette &selected_palette() {
+    if constexpr (AUTHORED_PALETTE) {
+      const auto &color = params.template get<"color">();
+      if (color.palette_type !=
+          static_cast<uint8_t>(AuthoredPaletteType::CYCLING_GENERATED))
+        return state->authored_palette.prepare(persistent_arena, color,
+                                               color.palette_chroma);
+    }
+    return palette_cycler.palette();
+  }
+
+  /** @brief Current generated-cycle harmony. @return Selected hue relationship. */
+  PaletteHarmony cycling_harmony() const {
+    if constexpr (AUTHORED_PALETTE) {
+      constexpr PaletteHarmony HARMONIES[] = {PaletteHarmony::TRIADIC,
+                                              PaletteHarmony::COMPLEMENTARY,
+                                              PaletteHarmony::ANALOGOUS};
+      const auto mode = params.template get<"color">().palette_mode;
+      HS_CHECK(mode < std::size(HARMONIES), "invalid cycling palette mode");
+      return HARMONIES[mode];
+    } else
+      return SpecT::HARMONY;
+  }
+
   HS_COLD_MEMBER void update_palette_chroma() {
-    if (palette_chroma == this->params.template get<"color">().palette_chroma)
+    const float chroma = this->params.template get<"color">().palette_chroma;
+    if constexpr (AUTHORED_PALETTE) {
+      const auto harmony = cycling_harmony();
+      if (palette_harmony != harmony) {
+        uint32_t from_hue = palette_hue - GeneratedPaletteBank::HUE_STEP;
+        uint32_t to_hue = palette_hue;
+        GenerativePalette from, to;
+        GeneratedPaletteBank::next_palette(from_hue, 0, harmony, chroma, from);
+        GeneratedPaletteBank::next_palette(to_hue, 0, harmony, chroma, to);
+        palette_cycler.restore_generated(palette_cycler.generated_clock(), from,
+                                         to);
+        palette_harmony = harmony;
+      }
+    }
+    if (palette_chroma == chroma)
       return;
-    palette_chroma = this->params.template get<"color">().palette_chroma;
+    palette_chroma = chroma;
     palette_cycler.set_generated_chroma(palette_chroma);
   }
 
@@ -1075,7 +1174,7 @@ private:
                            GenerativePalette &out) {
     ComposedEffect &effect = *static_cast<ComposedEffect *>(context);
     GeneratedPaletteBank::next_palette(
-        effect.palette_hue, sequence, SpecT::HARMONY,
+        effect.palette_hue, sequence, effect.cycling_harmony(),
         effect.params.template get<"color">().palette_chroma, out);
   }
 
@@ -1109,5 +1208,6 @@ private:
   float palette_oscillation_phase = 0.0f;
   float palette_chroma = -1.0f;
   uint32_t palette_hue = 0;
+  PaletteHarmony palette_harmony = SpecT::HARMONY;
   PaletteCycler palette_cycler;
 };

@@ -998,3 +998,19 @@ sampling; 1,322 reused a retained bake. A separate 3,000-frame palette-step scan
 observed a maximum endpoint Lab component step of 0.00475216 at frame 866.
 These are finite replay observations, not a bound on all admitted controls. The
 cache adds no geometric approximation.
+
+### Authored color stages
+
+`Pullback::AuthoredColorProvider` declares the full
+`Pullback::Color::AuthoredColorParams` resource. Legacy `ColorParams` layouts
+remain available to fixed palettes. Authored color resources retain every
+palette source selector and recipe control, the cycling harmony, palette
+mapping and brightness envelope in preset snapshots. Selector changes snap;
+recipe scalars follow the preset interpolation.
+
+The interpreted and fixed pipelines bake generated, named procedural,
+three-stop gradient and mutating sources through `AuthoredPaletteResources`.
+Its table is allocated once and rebaked when the selection or chroma changes.
+Cycling sources keep the shared generated-cycle clock when changing harmony.
+Temporal frames retain the selected palette endpoint before the next rebake;
+hue-rotation tables track the selected source's bake generation.

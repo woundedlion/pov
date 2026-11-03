@@ -688,6 +688,7 @@ inline void check_preset_interpolation(const char *name) {
 #include "tests/composed_effect/document_values.h"
 #include "tests/composed_effect/roster_contracts.h"
 #include "tests/composed_effect/stage_probes.h"
+#include "tests/composed_effect/authored_palette.h"
 #include "tests/composed_effect/parameter_schema.h"
 
 inline void test_flowers_longitude_seam() {
@@ -908,6 +909,8 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_millefiori_ripple_endpoints);
   HS_RUN(test_composed_strobe_roster);
   HS_RUN(test_composed_analytic_modulation_sliders);
+  HS_RUN(test_composed_authored_palette_sources);
+  HS_RUN(test_composed_authored_palette_harmony_clock);
   HS_RUN(test_composed_analytic_modulation_admission);
   HS_RUN(test_composed_path_modulation_admission);
   HS_RUN(test_temporal_clock_sampling);

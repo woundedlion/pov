@@ -1356,6 +1356,8 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── palette_recipe.h        Palette authoring recipes and diagnostics
 │   │   ├── palette_sources.h       Gradient and procedural palette implementations
 │   │   ├── baked_palette.h         Arena-backed LUTs and palette crossfades
+│   │   ├── authored_palette.h      Shared authored palette source baking and cache
+│   │   ├── palette_selection.h     Serialized authored palette source controls
 │   │   ├── palette_wipe.h          Snapshot transitions and rebake windows
 │   │   ├── composition.h           Palette modifiers + StaticPalette composition
 │   │   ├── layer_composite.h       LayerComposite: front-to-back "over" accumulator for layered coverage

@@ -24,6 +24,7 @@
 
 #include "core/control/choreography.h"
 #include "core/color/palette_cycler.h"
+#include "core/color/authored_palette.h"
 #include "core/control/registry.h"
 #include "core/memory.h"
 #include "core/render/scan.h"

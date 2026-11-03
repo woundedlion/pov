@@ -53,13 +53,27 @@ struct ParameterLayoutHash {
     } else if constexpr (std::is_same_v<Member,
                                         Pullback::Color::PaletteMapping>) {
       text("palette-mapping-enum8");
+    } else if constexpr (std::is_same_v<Member,
+                                        Pullback::Color::BrightnessEnvelope>) {
+      text("brightness-envelope-enum8");
     } else if constexpr (Pullback::HasFields<Member>) {
       text("fields");
       number(Member::FIELDS.size());
       for (const auto &field : Member::FIELDS)
         this->member(root, member.*field.member, field.id);
-      if constexpr (std::is_same_v<Member, Pullback::ColorParams>)
+      if constexpr (std::is_base_of_v<Pullback::ColorParams, Member>)
         this->member(root, member.palette_mapping, "palette-mapping");
+      if constexpr (std::is_same_v<Member,
+                                   Pullback::Color::AuthoredColorParams>) {
+        this->member(root, member.palette_mode, "palette-mode");
+        this->member(root, member.palette_type, "palette-type");
+        this->member(root, member.palette_harmony, "palette-harmony");
+        this->member(root, member.palette_lightness_curve,
+                     "palette-lightness-curve");
+        this->member(root, member.palette_name, "palette-name");
+        this->member(root, member.palette_name_b, "palette-name-b");
+        this->member(root, member.brightness_envelope, "brightness-envelope");
+      }
       if constexpr (requires { member.modulation; })
         this->member(root, member.modulation, "modulation");
       if constexpr (requires { member.burst_size; }) {

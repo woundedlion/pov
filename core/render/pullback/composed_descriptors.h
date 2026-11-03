@@ -235,6 +235,18 @@ struct ColorModesOf<
   static constexpr bool FUSED_TEMPORAL_COLOR =
       Fused; ///< Fuses the final layer.
 };
+/** @brief Authored palette color modes.
+ * @tparam B Declaration binding.
+ * @tparam Brightness Discovery brightness envelope.
+ * @tparam LabCache Whether interval palette bases are exposed.
+ * @tparam Fused Whether temporal color may be fused. */
+template <typename B, Color::BrightnessEnvelope Brightness, bool LabCache,
+          bool Fused>
+struct ColorModesOf<Color::GeneratedPalette<
+    AuthoredColorProvider<B, Brightness, LabCache, Fused>>>
+    : ColorModesOf<Color::GeneratedPalette<
+          ColorProvider<B, Brightness, LabCache, Fused>>> {};
+
 /** @brief Whether a leaf colorizes sampled values. @tparam T Stage descriptor. */
 template <typename T> struct IsColorStage : std::false_type {};
 template <typename P>
@@ -439,6 +451,19 @@ struct PolicyResources<ColorProvider<B, Brightness, LabCache, Fused>> {
       ParameterResource<"color", ColorParams, ResourceKind::COLOR>>;
 };
 
+/** @brief Authored palette controls owned by a color provider.
+ * @tparam B Frame binding.
+ * @tparam Brightness Discovery envelope.
+ * @tparam LabCache Whether palette interval caches are exposed.
+ * @tparam Fused Whether final temporal color may be fused. */
+template <typename B, Color::BrightnessEnvelope Brightness, bool LabCache,
+          bool Fused>
+struct PolicyResources<AuthoredColorProvider<B, Brightness, LabCache, Fused>> {
+  using Type =
+      ResourceList<ParameterResource<"color", Color::AuthoredColorParams,
+                                     ResourceKind::COLOR>>;
+};
+
 /** @brief Resource owned by a modulation provider.
  * @tparam B Frame binding.
  * @tparam Key Layer key.
@@ -534,9 +559,12 @@ consteval size_t resource_parameter_count() {
                            Resource::KIND == ResourceKind::COLOR
                        ? 1
                        : 0;
+    if constexpr (std::is_same_v<Family, Color::AuthoredColorParams>)
+      count += 7;
     for (const auto &field : Family::FIELDS) {
       if constexpr (Resource::KIND == ResourceKind::COLOR) {
-        if (color_gate_open<Spec>(field.topology_gate))
+        if (std::is_same_v<Family, Color::AuthoredColorParams> ||
+            color_gate_open<Spec>(field.topology_gate))
           ++count;
       } else if (field.name != nullptr && field_gate_open<Spec>(field.gate))
         ++count;

@@ -86,6 +86,21 @@ inline bool valid(const ColorParams &p) {
              static_cast<uint8_t>(Pullback::Color::PaletteMapping::REVERSE);
 }
 
+/** @brief Validates authored source controls and selectors.
+ * @param p Authored color family.
+ * @return Whether all controls and selector ordinals are valid. */
+inline bool valid(const Color::AuthoredColorParams &p) {
+  return valid(static_cast<const ColorParams &>(p)) && Fields::valid(p) &&
+         p.palette_type <=
+             static_cast<uint8_t>(AuthoredPaletteType::MUTATING) &&
+         p.palette_mode < 3 &&
+         p.palette_harmony <= static_cast<uint8_t>(PaletteHarmony::SQUARE) &&
+         p.palette_lightness_curve <= static_cast<uint8_t>(AxisCurve::CUP) &&
+         p.palette_name < std::size(AUTHORED_PALETTE_NAME_IDS) &&
+         p.palette_name_b < std::size(AUTHORED_PALETTE_NAME_IDS) &&
+         p.brightness_envelope <= Color::BrightnessEnvelope::DESCENDING;
+}
+
 /**
  * @brief Whether every family of a parameter set is in range.
  * @tparam Resources The set's parameter resources.

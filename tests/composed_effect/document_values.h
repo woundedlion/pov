@@ -551,6 +551,38 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     return assigned;
   }
   case SlotRole::COLORIZE:
+    if constexpr (FX::AUTHORED_PALETTE) {
+      auto &color = built.template get<"color">();
+      const auto assign = [&](uint8_t &member, const auto &ids) {
+        for (uint8_t index = 0; index < std::size(ids); ++index)
+          if (text == ids[index]) {
+            member = index;
+            return true;
+          }
+        return false;
+      };
+      if (field_id == "palette-mode")
+        return assign(color.palette_mode, ChainOp::PALETTE_MODE_IDS);
+      if (field_id == "palette-type")
+        return assign(color.palette_type, AUTHORED_PALETTE_TYPE_IDS);
+      if (field_id == "palette-harmony")
+        return assign(color.palette_harmony, AUTHORED_PALETTE_HARMONY_IDS);
+      if (field_id == "palette-lightness-curve")
+        return assign(color.palette_lightness_curve,
+                      AUTHORED_PALETTE_LIGHTNESS_CURVE_IDS);
+      if (field_id == "palette-name")
+        return assign(color.palette_name, AUTHORED_PALETTE_NAME_IDS);
+      if (field_id == "palette-name-b")
+        return assign(color.palette_name_b, AUTHORED_PALETTE_NAME_IDS);
+      if (field_id == "brightness-envelope") {
+        uint8_t index = 0;
+        if (!assign(index, ChainOp::BRIGHTNESS_ENVELOPE_IDS))
+          return false;
+        color.brightness_envelope =
+            static_cast<Pullback::Color::BrightnessEnvelope>(index);
+        return true;
+      }
+    }
     if (field_id == "palette-type") {
       HS_EXPECT_TRUE(text == "cycling-generated");
       HS_EXPECT_TRUE(
