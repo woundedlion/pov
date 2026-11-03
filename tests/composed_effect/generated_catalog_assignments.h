@@ -540,6 +540,7 @@ inline void catalog_assignments_sample_grid_v3() {
   params.coverage_mode = 1;
   params.coverage_mode = 2;
   params.coverage_mode = 3;
+  params.coverage_mode = 4;
   (void)params;
 }
 
@@ -558,6 +559,7 @@ inline void catalog_assignments_sample_twin_wave_v3() {
   params.coverage_mode = 1;
   params.coverage_mode = 2;
   params.coverage_mode = 3;
+  params.coverage_mode = 4;
   (void)params;
 }
 
@@ -574,6 +576,7 @@ inline void catalog_assignments_sample_rings_v2() {
   params.coverage_mode = 1;
   params.coverage_mode = 2;
   params.coverage_mode = 3;
+  params.coverage_mode = 4;
   (void)params;
 }
 
@@ -602,6 +605,7 @@ inline void catalog_assignments_sample_spiral_v2() {
   params.coverage_mode = 1;
   params.coverage_mode = 2;
   params.coverage_mode = 3;
+  params.coverage_mode = 4;
   (void)params;
 }
 
@@ -620,6 +624,7 @@ inline void catalog_assignments_sample_lattice_v2() {
   params.coverage_mode = 1;
   params.coverage_mode = 2;
   params.coverage_mode = 3;
+  params.coverage_mode = 4;
   (void)params;
 }
 
@@ -642,6 +647,7 @@ inline void catalog_assignments_sample_fractal_v2() {
   params.coverage_mode = 1;
   params.coverage_mode = 2;
   params.coverage_mode = 3;
+  params.coverage_mode = 4;
   (void)params;
 }
 
@@ -661,6 +667,7 @@ inline void catalog_assignments_sample_tessellation_v2() {
   params.coverage_mode = 1;
   params.coverage_mode = 2;
   params.coverage_mode = 3;
+  params.coverage_mode = 4;
   params.kind = 0;
   params.kind = 1;
   params.kind = 2;
@@ -682,6 +689,7 @@ inline void catalog_assignments_sample_projected_noise_v2() {
   params.coverage_mode = 1;
   params.coverage_mode = 2;
   params.coverage_mode = 3;
+  params.coverage_mode = 4;
   params.basis = 0;
   params.basis = 1;
   params.basis = 2;
