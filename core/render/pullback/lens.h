@@ -180,6 +180,8 @@ inline math::Vector twist(const math::Vector &input,
 /** @brief Animated twist policy supplied by a typed provider.
  * @tparam State Parameter and phase provider. */
 template <typename State> struct AnimatedTwist : ApproximationDefaults {
+  /// Deforming lenses contribute to displacement modulation.
+  static constexpr bool CONTRIBUTES_DISPLACEMENT = true;
   using Binding = typename State::Binding;       ///< Provider binding.
   using FrameState = typename State::FrameState; ///< Bound frame.
   using Prepared = TwistPrepared;                ///< Per-frame twist.
@@ -205,6 +207,8 @@ template <typename State> struct AnimatedTwist : ApproximationDefaults {
 
 /** @brief Twist lens: `lenses::twist_lens` at its default angle and distribution. */
 struct Twist : ApproximationDefaults {
+  /// Deforming lenses contribute to displacement modulation.
+  static constexpr bool CONTRIBUTES_DISPLACEMENT = true;
   /**
    * @brief Applies the lens to a sphere direction.
    * @tparam FrameState Frame state type; unused.
@@ -221,6 +225,8 @@ struct Twist : ApproximationDefaults {
 /** @brief Mobius generator lens policy.
  * @tparam State Authored controls and clock provider. */
 template <typename State> struct MobiusGenerator : ApproximationDefaults {
+  /// Deforming lenses contribute to displacement modulation.
+  static constexpr bool CONTRIBUTES_DISPLACEMENT = true;
   using Binding = typename State::Binding;       ///< Provider binding.
   using FrameState = typename State::FrameState; ///< Bound frame.
   using Prepared = math::MobiusParams;           ///< Exponentiated generator.

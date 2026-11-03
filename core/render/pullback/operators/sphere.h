@@ -344,7 +344,7 @@ struct LensTwist : ValueStateModel<TwistOrbitState> {
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &, const Prepared &prepared) {
-    return Kernel::lens(input, Lens::twist(input.dir, prepared));
+    return Kernel::lens(input, Lens::twist(input.dir, prepared), true);
   }
 };
 
@@ -377,7 +377,7 @@ struct LensMobius : StatelessModel {
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &, const Prepared &prepared) {
-    return Kernel::lens(input, Lens::mobius(input.dir, prepared.mobius));
+    return Kernel::lens(input, Lens::mobius(input.dir, prepared.mobius), true);
   }
 };
 

@@ -43,14 +43,18 @@ displace(const SphereSample &input, const SurfaceResult &step) {
 }
 
 /**
- * @brief Replaces the direction with a lensed one; path length is unchanged.
+ * @brief Replaces the direction and optionally accumulates angular displacement.
  * @param input Sphere carrier.
  * @param lensed Lens output direction.
+ * @param track_path Whether the map contributes its shortest angular distance.
  * @return The lensed carrier.
  */
 __attribute__((always_inline)) inline SphereSample
-lens(const SphereSample &input, const math::Vector &lensed) {
-  return {lensed, input.path_length};
+lens(const SphereSample &input, const math::Vector &lensed,
+     bool track_path = false) {
+  return {lensed,
+          input.path_length +
+              (track_path ? math::angle_between(input.dir, lensed) : 0.0f)};
 }
 
 /** @brief The Project crossing assembles the plane carrier: the policy's
@@ -421,13 +425,21 @@ struct Displace
 };
 
 /**
- * @brief SPHERE endomorphism: applies a sphere-to-sphere lens.
+ * @brief SPHERE endomorphism: applies a lens or fold policy.
  * @tparam LensPolicyT Lens policy mapping a direction to a direction.
+ * @tparam TrackPath Whether a deforming lens accumulates angular displacement.
  */
-template <typename LensPolicyT>
-struct Lens : Contract<Lens<LensPolicyT>, SphereSample, SphereSample> {
+template <typename LensPolicyT, bool TrackPath = true>
+struct Lens
+    : Contract<Lens<LensPolicyT, TrackPath>, SphereSample, SphereSample> {
   using Policies = std::tuple<LensPolicyT>; ///< Policies the stage binds.
   using LensPolicy = LensPolicyT;           ///< The lens policy.
+  /// Whether the policy contributes displacement in this pipeline.
+  static constexpr bool PATH_TRACKED = TrackPath && [] {
+    if constexpr (requires { LensPolicyT::CONTRIBUTES_DISPLACEMENT; })
+      return LensPolicyT::CONTRIBUTES_DISPLACEMENT;
+    return false;
+  }();
 
   /**
    * @brief Whether `LensPolicyT::apply` is callable under @p Binding.
@@ -471,7 +483,7 @@ struct Lens : Contract<Lens<LensPolicyT>, SphereSample, SphereSample> {
       lensed = LensPolicyT::apply(input.dir, frame, prepared);
     else
       lensed = LensPolicyT::apply(input.dir, frame);
-    const SphereSample output = Kernel::lens(input, lensed);
+    const SphereSample output = Kernel::lens(input, lensed, PATH_TRACKED);
     Instrumentation::template span<ProfileEvent::LENS>(start);
     return output;
   }

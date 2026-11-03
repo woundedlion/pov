@@ -61,7 +61,8 @@ struct ProjectionCoverageModeOf<ProjectionCoverage::EdgeFade<P>> {
 
 /** @brief Whether @p T is a `Stage::Lens` stage. @tparam T Stage type. */
 template <typename T> struct IsLensStage : std::false_type {};
-template <typename P> struct IsLensStage<Stage::Lens<P>> : std::true_type {};
+template <typename P, bool Track>
+struct IsLensStage<Stage::Lens<P, Track>> : std::true_type {};
 /** @brief Whether @p T is a `Stage::Displace` stage. @tparam T Stage type. */
 template <typename T> struct IsSurfaceStage : std::false_type {};
 template <typename P>
@@ -134,6 +135,12 @@ struct PathTracked<Surface::DirectNoise<Provider, Basis>>
  * @tparam Stage Pipeline stage. */
 template <typename Stage>
 struct StagePathTracked : PathTracked<typename Stage::Policies> {};
+/** @brief Lens path tracking follows the stage's policy and opt-in.
+ * @tparam P Lens policy.
+ * @tparam Track Whether the stage permits path accumulation. */
+template <typename P, bool Track>
+struct StagePathTracked<Stage::Lens<P, Track>>
+    : std::bool_constant<Stage::Lens<P, Track>::PATH_TRACKED> {};
 
 /** @brief Semantic leaves without binding executable stages.
  * @tparam Pipeline Typed pipeline declaration. */
@@ -247,7 +254,7 @@ struct IsDisplacementStage<Stage::Modulate<
 /** @brief Topology derived from normalized typed pipeline entries.
  * @tparam Pipeline Semantic leaf view. */
 template <typename Pipeline> struct PipelineMetadata {
-  /// Whether a warp or surface tracks path length.
+  /// Whether a lens, warp or surface tracks path length.
   static constexpr bool PATH_TRACKED =
       Pipeline::template ANY_STAGE<StagePathTracked>;
   using LensStage = typename Pipeline::template StageMatching<
