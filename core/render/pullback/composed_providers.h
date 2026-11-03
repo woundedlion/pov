@@ -22,6 +22,13 @@ using Lens::MobiusGeneratorParams;
 using Lens::TwistLensParams;
 using Projection::ProjectionParams;
 using Source::GridSourceParams;
+using Source::RingsSourceParams;
+using Source::SphericalRingsSourceParams;
+using Source::FractalSourceParams;
+using Source::TessellationSourceParams;
+using Source::AuthoredTessellationSourceParams;
+using Source::AuthoredProjectedNoiseSourceParams;
+using Source::AuthoredSphericalNoiseSourceParams;
 using Source::LatticeSourceParams;
 using Source::ProjectedNoiseSourceParams;
 using Source::SphericalNoiseSourceParams;
@@ -36,7 +43,14 @@ using Surface::RossbyHaurwitzParams;
 using Surface::SymmetricParams;
 using Surface::PotentialParams;
 using Transfer::IsoValueParams;
+using Transfer::SmoothBandsParams;
 using Warp::AffineParams;
+using Warp::ExplicitAffineParams;
+using Warp::CurlFlowParams;
+using Warp::AuthoredCurlFlowParams;
+using Warp::AuthoredWaveShearParams;
+using Warp::AuthoredVectorNoiseParams;
+using Warp::AuthoredPolarParams;
 using Warp::MirrorParams;
 using Warp::PolarParams;
 using Warp::VectorNoiseParams;
@@ -247,7 +261,12 @@ struct WarpProvider {
    *  `Pullback::NoPrepared` for a polar warp. */
   __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
     using WarpT = std::remove_cvref_t<decltype(params(frame))>;
-    if constexpr (std::is_same_v<WarpT, AffineParams>) {
+    if constexpr (std::is_same_v<WarpT, ExplicitAffineParams>) {
+      return Pullback::Warp::prepare(
+          params(frame), phase(frame),
+          frame.resources.template get<Key>().rotation,
+          params(frame).lattice_period);
+    } else if constexpr (std::is_same_v<WarpT, AffineParams>) {
       static_assert(
           requires {
             frame.params.template get<SourceKey>().lattice_cell_scale;
@@ -482,11 +501,15 @@ struct SourceProvider {
    *  @param frame Current frame.
    *  @return `Pattern::prepare` of the primary, secondary and
    *  angle clocks. */
-  __attribute__((always_inline)) static Pattern::PreparedSource
-  prepare(const FrameState &frame) {
-    return Pattern::prepare(frame.resources.template get<Key>().primary,
-                            frame.resources.template get<Key>().secondary,
-                            frame.resources.template get<Key>().angle);
+  __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
+    if constexpr (std::is_same_v<Family, SphericalRingsSourceParams>) {
+      const auto &clock = frame.resources.template get<Key>();
+      return Pattern::PreparedSphericalRings{
+          math::rotate(math::Y_AXIS, clock.orientation), clock.primary};
+    } else
+      return Pattern::prepare(frame.resources.template get<Key>().primary,
+                              frame.resources.template get<Key>().secondary,
+                              frame.resources.template get<Key>().angle);
   }
   /** @brief The source's noise generator.
    *  @param frame Current frame.
@@ -549,6 +572,20 @@ struct ValueProvider {
         requires { frame.params.template get<Key>().iso_width; },
         "value provider requires iso_width");
     return frame.params.template get<Key>().iso_width;
+  }
+  /** @brief Number of cosine bands.
+   * @param frame Current frame.
+   * @return The family's band count. */
+  __attribute__((always_inline)) static float
+  band_count(const FrameState &frame) {
+    return frame.params.template get<Key>().band_count;
+  }
+  /** @brief Cosine-band phase in radians.
+   * @param frame Current frame.
+   * @return The family's band phase. */
+  __attribute__((always_inline)) static float
+  band_phase(const FrameState &frame) {
+    return frame.params.template get<Key>().band_phase;
   }
   /** @brief Projection edge-fade width.
    *  @param frame Current frame.

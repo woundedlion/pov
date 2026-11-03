@@ -1,0 +1,281 @@
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * Licensed under the PolyForm Noncommercial License 1.0.0
+ */
+#pragma once
+
+/** @file catalog_policies.h
+ * @brief Authored fixed-policy parity with catalog operator models. */
+
+#include "core/render/pullback/composed_effect.h"
+#include "core/render/pullback/operators/table.h"
+#include "tests/test_harness.h"
+
+namespace hs_test::catalog_policy_tests {
+
+namespace Op = Pullback::Interp::Op;
+
+/** @brief Copies matching numeric controls across catalog parameter layouts.
+ * @tparam To Destination family.
+ * @tparam From Source family.
+ * @param to Destination controls.
+ * @param from Source controls. */
+template <typename To, typename From>
+void copy_numeric(To &to, const From &from) {
+  for (const auto &target : To::FIELDS)
+    for (const auto &source : From::FIELDS)
+      if (std::string_view(target.id) == source.id)
+        to.*target.member = from.*source.member;
+}
+
+/** @brief Frame binding for one independently keyed authored stage.
+ * @tparam Family Parameter family.
+ * @tparam Kind Resource kind. */
+template <typename Family, Pullback::ResourceKind Kind,
+          Pullback::ResourceKey Key = "probe">
+struct StageFrame {
+  using Resource = Pullback::ParameterResource<Key, Family, Kind>;
+  using Params = Pullback::ComposedDetail::ParameterSet<
+      Pullback::ComposedDetail::ResourceList<Resource>>;
+  using Frame = Pullback::FrameIntervalState<Params>;
+  using Binding = Pullback::Binding<Frame>;
+};
+
+/** @brief Compares every authored warp selector against its catalog model.
+ * @tparam Family Authored family.
+ * @tparam Model Catalog operator model. */
+template <typename Family, typename Model> void check_warp() {
+  using Fixture = StageFrame<Family, Pullback::ResourceKind::WARP>;
+  using Policy =
+      typename Pullback::WarpPolicyFor<Family, typename Fixture::Binding,
+                                       "probe", true>::Type;
+  using Resources =
+      typename Pullback::ComposedDetail::PolicyResources<Policy>::Type;
+  static_assert(
+      std::is_same_v<Resources, Pullback::ComposedDetail::ResourceList<
+                                    typename Fixture::Resource>>);
+  typename Fixture::Frame frame{};
+  auto &params = frame.params.template get<"probe">();
+  auto &clock = frame.resources.template get<"probe">();
+  clock.phase = 0.23f;
+  if constexpr (requires { params.strength; })
+    params.strength = 0.02f;
+  if constexpr (requires { params.scale; })
+    params.scale = 0.7f;
+  if constexpr (requires { params.frequency; })
+    params.frequency = 1.7f;
+  if constexpr (requires { params.radial_scale; })
+    params.radial_scale = 1.3f;
+  if constexpr (requires { params.radial_phase; })
+    params.radial_phase = 0.2f;
+  if constexpr (requires { params.angular_phase; })
+    params.angular_phase = -0.1f;
+  if constexpr (requires { params.translation_x; }) {
+    params.translation_x = 2.0f;
+    params.translation_y = -1.0f;
+    params.lattice_period = 3.0f;
+    params.rotation_rate = 1.2f;
+    clock.rotation = 0.4f;
+  }
+  constexpr int BASIS_COUNT = requires { params.basis; } ? 3 : 1;
+  constexpr int ENVELOPE_COUNT = requires { params.envelope; } ? 3 : 1;
+  constexpr int MODE_COUNT = requires { params.mode; } ? 2 : 1;
+  constexpr int HARMONIC_COUNT = requires { params.harmonic; } ? 16 : 1;
+  constexpr int INTEGRATOR_COUNT = requires { params.integrator; } ? 3 : 1;
+  for (int basis = 0; basis < BASIS_COUNT; ++basis)
+    for (int envelope = 0; envelope < ENVELOPE_COUNT; ++envelope)
+      for (int mode = 0; mode < MODE_COUNT; ++mode)
+        for (int harmonic = 0; harmonic < HARMONIC_COUNT; ++harmonic)
+          for (int integrator = 0; integrator < INTEGRATOR_COUNT;
+               ++integrator) {
+            typename Model::Params expected_params{};
+            copy_numeric(expected_params, params);
+            if constexpr (requires { params.basis; })
+              params.basis = expected_params.basis =
+                  static_cast<uint8_t>(basis);
+            if constexpr (requires { params.envelope; })
+              params.envelope = expected_params.envelope =
+                  static_cast<uint8_t>(envelope);
+            if constexpr (requires { params.mode; })
+              params.mode = expected_params.mode = static_cast<uint8_t>(mode);
+            if constexpr (requires { params.harmonic; })
+              params.harmonic = expected_params.harmonic =
+                  static_cast<uint8_t>(harmonic);
+            if constexpr (requires { params.integrator; })
+              params.integrator = expected_params.integrator =
+                  static_cast<uint8_t>(integrator);
+            typename Model::State state{};
+            state.phase = clock.phase;
+            if constexpr (requires { state.rotation; })
+              state.rotation = clock.rotation;
+            if constexpr (requires { state.noise; }) {
+              Pullback::init_effect_noise(state.noise, 31);
+              clock.noise = &state.noise;
+            }
+            const auto actual_prepared = Policy::prepare(frame);
+            const auto expected_prepared =
+                Model::prepare({}, expected_params, state);
+            for (const math::Complex point :
+                 {math::Complex{0.17f, 0.23f}, math::Complex{-0.8f, 0.4f},
+                  math::Complex{0x1p21f, 0.2f}}) {
+              Pullback::PlaneSample input{point, {}, math::Y_AXIS, 0.3f};
+              input.provenance.value_weight = 0.4f;
+              input.provenance.fade_edge_distance = 0.03f;
+              const auto actual = Policy::apply(input.coords, input.provenance,
+                                                frame, actual_prepared);
+              const auto expected =
+                  Model::run(input, {}, expected_params, expected_prepared);
+              HS_EXPECT_NEAR(actual.coords.re, expected.coords.re, 1e-6f);
+              HS_EXPECT_NEAR(actual.coords.im, expected.coords.im, 1e-6f);
+              HS_EXPECT_NEAR(actual.path_length + input.path_length,
+                             expected.path_length, 1e-6f);
+            }
+          }
+}
+
+/** @brief Every planar authored selector matches the catalog's observable step. */
+inline void test_authored_warp_catalog_parity() {
+  check_warp<Pullback::Warp::AuthoredWaveShearParams, Op::WarpWaveShear>();
+  check_warp<Pullback::Warp::AuthoredVectorNoiseParams, Op::WarpVectorNoise>();
+  check_warp<Pullback::Warp::AuthoredPolarParams, Op::WarpPolarChart>();
+  check_warp<Pullback::Warp::AuthoredCurlFlowParams, Op::WarpCurlFlow>();
+  check_warp<Pullback::ExplicitAffineParams, Op::WarpAffineV3>();
+}
+
+/** @brief Compares every authored source selector against its catalog model.
+ * @tparam Family Source family.
+ * @tparam Model Catalog operator model. */
+template <typename Family, typename Model> void check_source() {
+  using Fixture = StageFrame<Family, Pullback::ResourceKind::SOURCE, "source">;
+  using Policy =
+      typename Pullback::SourcePolicyFor<Family,
+                                         typename Fixture::Binding>::Type;
+  typename Fixture::Frame frame{};
+  auto &params = frame.params.template get<"source">();
+  auto &clock = frame.resources.template get<"source">();
+  clock.primary = 0.4f;
+  clock.secondary = 0.7f;
+  clock.angle = 0.2f;
+  clock.noise_time = 0.23f;
+  constexpr int BASIS_COUNT = requires { params.basis; } ? 3 : 1;
+  constexpr int KIND_COUNT = requires { params.kind; } ? 3 : 1;
+  for (int basis = 0; basis < BASIS_COUNT; ++basis)
+    for (int kind = 0; kind < KIND_COUNT; ++kind) {
+      typename Model::Params expected_params{};
+      copy_numeric(expected_params, params);
+      if constexpr (requires { expected_params.weight_mode; }) {
+        expected_params.weight_mode = 0;
+        expected_params.coverage_mode = 0;
+      }
+      if constexpr (requires { params.basis; })
+        params.basis = expected_params.basis = static_cast<uint8_t>(basis);
+      if constexpr (requires { params.kind; })
+        params.kind = expected_params.kind = static_cast<uint8_t>(kind);
+      typename Model::State state{};
+      if constexpr (requires { state.primary; }) {
+        state.primary = clock.primary;
+        state.secondary = clock.secondary;
+        state.angle = clock.angle;
+      }
+      if constexpr (requires { state.noise; }) {
+        Pullback::init_effect_noise(state.noise, 31);
+        clock.noise = &state.noise;
+        state.phase = clock.noise_time;
+      }
+      const auto actual_prepared = Policy::prepare(frame);
+      const auto expected_prepared = Model::prepare({}, expected_params, state);
+      for (const math::Complex point :
+           {math::Complex{0.17f, 0.23f}, math::Complex{-0.8f, 0.4f},
+            math::Complex{0x1p21f, 0.2f}}) {
+        typename Model::Input input{};
+        if constexpr (requires { input.coords; }) {
+          input.coords = point;
+          input.sphere = math::Vector(point.re, 0.6f, point.im).normalized();
+        } else
+          input.dir = math::Vector(point.re, 0.6f, point.im).normalized();
+        const float actual = Policy::sample(input, frame, actual_prepared);
+        const auto expected =
+            Model::run(input, {}, expected_params, expected_prepared);
+        HS_EXPECT_NEAR(0.5f + 0.5f * actual, expected.value, 1e-6f);
+      }
+    }
+}
+
+/** @brief Every authored source selector matches the catalog's sampled value. */
+inline void test_authored_source_catalog_parity() {
+  check_source<Pullback::RingsSourceParams, Op::SampleRings>();
+  check_source<Pullback::FractalSourceParams, Op::SampleFractal>();
+  check_source<Pullback::Source::AuthoredTessellationSourceParams,
+               Op::SampleTessellation>();
+  check_source<Pullback::Source::AuthoredProjectedNoiseSourceParams,
+               Op::SampleProjectedNoise>();
+  check_source<Pullback::Source::AuthoredSphericalNoiseSourceParams,
+               Op::SampleSphericalNoise>();
+}
+
+/** @brief Spherical bands retain their axis and phase across column samples. */
+inline void test_authored_spherical_ring_interval() {
+  using Fixture = StageFrame<Pullback::SphericalRingsSourceParams,
+                             Pullback::ResourceKind::SOURCE, "source">;
+  using Policy =
+      typename Pullback::SourcePolicyFor<Pullback::SphericalRingsSourceParams,
+                                         typename Fixture::Binding>::Type;
+  typename Fixture::Frame from{};
+  typename Fixture::Frame to{};
+  auto &start = from.resources.template get<"source">();
+  auto &end = to.resources.template get<"source">();
+  start.primary = 6.2f;
+  end.primary = 0.1f;
+  start.orientation = math::make_rotation(math::X_AXIS, 0.1f);
+  end.orientation = math::make_rotation(math::X_AXIS, 0.5f);
+  Pullback::FrameInterval interval(from, to);
+  for (float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+    const auto frame = interval.at(fraction);
+    const auto prepared = Policy::prepare(frame);
+    const float phase =
+        fraction == 1.0f
+            ? 0.1f
+            : Spacetime::sample_clock(6.2f, 0.1f, fraction, math::TWO_PI_F);
+    const float angle = 0.1f + 0.4f * fraction;
+    const Pattern::PreparedSphericalRings expected{
+        math::Vector(0.0f, cosf(angle), sinf(angle)), phase};
+    HS_EXPECT_NEAR(prepared.axis.x, expected.axis.x, 1e-6f);
+    HS_EXPECT_NEAR(prepared.axis.y, expected.axis.y, 1e-6f);
+    HS_EXPECT_NEAR(prepared.axis.z, expected.axis.z, 1e-6f);
+    HS_EXPECT_NEAR(prepared.phase, expected.phase, 1e-6f);
+    const Pullback::SphereSample input{
+        math::Vector(0.2f, 0.7f, -0.3f).normalized(), 0.0f};
+    const float expected_value = Pattern::spherical_rings(
+        Pattern::SphereDirection::from_unit(input.dir),
+        from.params.template get<"source">(), expected);
+    HS_EXPECT_NEAR(Policy::sample(input, frame, prepared), expected_value,
+                   1e-6f);
+  }
+}
+
+/** @brief Ridge and cosine bands preserve their authored transfer controls. */
+inline void test_authored_transfer_catalog_parity() {
+  using Fixture =
+      StageFrame<Pullback::SmoothBandsParams, Pullback::ResourceKind::VALUE>;
+  using Provider =
+      Pullback::ValueProvider<typename Fixture::Binding,
+                              Pullback::SmoothBandsParams, "probe">;
+  using Policy = Pullback::Transfer::SmoothBands<Provider>;
+  typename Fixture::Frame frame{};
+  for (const float count : {1.0f, 7.0f, 32.0f})
+    for (const float phase : {0.0f, 0.3f, 5.9f}) {
+      auto &params = frame.params.template get<"probe">();
+      params.band_count = count;
+      params.band_phase = phase;
+      for (const float value : {0.0f, 0.19f, 0.5f, 0.91f, 1.0f}) {
+        const Pullback::FieldSample input{value, 0.7f, math::Y_AXIS, 0.0f};
+        const auto expected =
+            Op::TransferSmoothBands::run(input, {}, params, {});
+        HS_EXPECT_NEAR(Policy::apply(value, frame), expected.value, 1e-6f);
+        HS_EXPECT_NEAR(Pullback::Transfer::Ridge::apply(value, frame),
+                       Op::TransferRidge::run(input, {}, {}, {}).value, 1e-6f);
+      }
+    }
+}
+
+} // namespace hs_test::catalog_policy_tests

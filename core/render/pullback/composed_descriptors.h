@@ -215,6 +215,14 @@ template <typename Policy> struct TransferKindOf {
 template <typename P> struct TransferKindOf<Transfer::IsoContour<P>> {
   static constexpr auto VALUE = TransferKind::ISO_CONTOUR; ///< Transfer kind.
 };
+/** @brief Unit-bell ridge transfer. */
+template <> struct TransferKindOf<Transfer::Ridge> {
+  static constexpr auto VALUE = TransferKind::RIDGE; ///< Transfer kind.
+};
+/** @brief Cosine-band transfer. @tparam P Value provider. */
+template <typename P> struct TransferKindOf<Transfer::SmoothBands<P>> {
+  static constexpr auto VALUE = TransferKind::SMOOTH_BANDS; ///< Transfer kind.
+};
 /** @brief Field coverage kind of a typed policy. @tparam Policy Coverage policy. */
 template <typename Policy> struct FieldCoverageKindOf {
   static_assert(!std::is_same_v<Policy, Policy>,
@@ -519,6 +527,23 @@ struct PolicyResources<
 template <typename Provider, Projection::GnomonicHemisphere Hemisphere>
 struct PolicyResources<Projection::Gnomonic<Provider, Hemisphere>>
     : PolicyResources<Provider> {};
+/** @brief Resources of a fixed tessellation.
+ * @tparam Provider Source provider.
+ * @tparam Kind Polygon tessellation. */
+template <typename Provider, Pattern::TessellationKind Kind>
+struct PolicyResources<Source::Tessellation<Provider, Kind>>
+    : PolicyResources<Provider> {};
+
+/** @brief Resources of a fixed planar curl flow.
+ * @tparam Provider Warp provider.
+ * @tparam Basis Noise basis.
+ * @tparam Integrator Integration rule.
+ * @tparam Envelope Amplitude envelope. */
+template <typename Provider, math::NoiseBasis Basis, typename Integrator,
+          typename Envelope>
+struct PolicyResources<Warp::CurlFlow<Provider, Basis, Integrator, Envelope>>
+    : PolicyResources<Provider> {};
+
 template <typename Provider, math::NoiseBasis Basis>
 struct PolicyResources<Source::ProjectedNoise<Provider, Basis>>
     : PolicyResources<Provider> {};

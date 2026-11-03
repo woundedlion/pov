@@ -111,7 +111,8 @@ public:
       } else if constexpr (Resource::KIND == ResourceKind::WARP) {
         delta.phase = Spacetime::ClockInterval::prepare_delta(start.phase,
                                                               end.phase, 1.0f);
-        if constexpr (std::is_same_v<typename Resource::Family, AffineParams>)
+        if constexpr (std::is_base_of_v<AffineParams,
+                                        typename Resource::Family>)
           delta.rotation = Spacetime::ClockInterval::prepare_delta(
               start.rotation, end.rotation, math::TWO_PI_F);
       } else if constexpr (Resource::KIND == ResourceKind::SURFACE &&
@@ -241,10 +242,18 @@ public:
             Spacetime::ClockInterval::apply(start.angle, delta.angle, fraction);
         clock.noise_time = Spacetime::ClockInterval::apply(
             start.noise_time, delta.noise_time, fraction);
+        if constexpr (std::is_same_v<typename Resource::Family,
+                                     Source::SphericalRingsSourceParams>)
+          clock.orientation =
+              Spacetime::TemporalRotation(
+                  start.orientation,
+                  to.resources.template get<Resource::KEY>().orientation)
+                  .sample(fraction);
       } else if constexpr (Resource::KIND == ResourceKind::WARP) {
         clock.phase =
             Spacetime::ClockInterval::apply(start.phase, delta.phase, fraction);
-        if constexpr (std::is_same_v<typename Resource::Family, AffineParams>)
+        if constexpr (std::is_base_of_v<AffineParams,
+                                        typename Resource::Family>)
           clock.rotation = Spacetime::ClockInterval::apply(
               start.rotation, delta.rotation, fraction);
       } else if constexpr (Resource::KIND == ResourceKind::SURFACE) {

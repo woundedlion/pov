@@ -31,6 +31,7 @@
 #include "tests/composed_frame_fixture.h"
 #include "tests/pixel_test_util.h"
 #include "tests/test_harness.h"
+#include "tests/composed_effect/catalog_policies.h"
 #include "tests/vec_test_util.h"
 #include "targets/wasm/document_parameters.h"
 
@@ -966,6 +967,10 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_projection_walk_storage);
   HS_RUN(test_composed_periodic_ripple_surface);
   HS_RUN(test_composed_noise_sources);
+  HS_RUN(hs_test::catalog_policy_tests::test_authored_warp_catalog_parity);
+  HS_RUN(hs_test::catalog_policy_tests::test_authored_source_catalog_parity);
+  HS_RUN(hs_test::catalog_policy_tests::test_authored_transfer_catalog_parity);
+  HS_RUN(hs_test::catalog_policy_tests::test_authored_spherical_ring_interval);
   HS_RUN(test_choreography_fade_departure);
   HS_RUN(test_choreography_lerp_transition_hooks);
   HS_RUN(test_choreography_lerp_pause_policy);

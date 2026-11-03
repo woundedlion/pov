@@ -89,6 +89,22 @@ struct IsoValueParams {
 static_assert(field_ids_unique<IsoValueParams>());
 static_assert(field_defaults_in_range<IsoValueParams>());
 
+/** @brief Cosine-band transfer controls. */
+struct SmoothBandsParams {
+  float band_count = 4.0f; ///< Bands across the unit value.
+  float band_phase = 0.0f; ///< Band offset in radians.
+  /// Numeric controls and interpolation curves.
+  static constexpr auto FIELDS = std::array{
+      Field<SmoothBandsParams>{"band-count", &SmoothBandsParams::band_count,
+                               "Band Count", 1.0f, 32.0f, FieldCurve::SNAP},
+      Field<SmoothBandsParams>{"band-phase", &SmoothBandsParams::band_phase,
+                               "Band Phase", 0.0f, math::TWO_PI_F,
+                               FieldCurve::SHORTEST_PERIODIC},
+  };
+};
+static_assert(field_ids_unique<SmoothBandsParams>());
+static_assert(field_defaults_in_range<SmoothBandsParams>());
+
 /** @brief Transfer peaking at mid-value: `math::unit_bell`. */
 struct Ridge : ApproximationDefaults, TransferRole {
   /**

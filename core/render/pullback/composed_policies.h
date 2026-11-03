@@ -90,6 +90,46 @@ template <typename B> struct SourcePolicyFor<SphericalNoiseSourceParams, B> {
       SourceProvider<B, SphericalNoiseSourceParams>, math::NoiseBasis::SIMPLEX>;
 };
 
+/** @brief Concentric rings source. @tparam B Frame binding. */
+template <typename B> struct SourcePolicyFor<RingsSourceParams, B> {
+  using Type = Pullback::Source::Rings<SourceProvider<B, RingsSourceParams>>;
+};
+/** @brief Wandering spherical bands. @tparam B Frame binding. */
+template <typename B> struct SourcePolicyFor<SphericalRingsSourceParams, B> {
+  using Type = Pullback::Source::SphericalRings<
+      SourceProvider<B, SphericalRingsSourceParams>>;
+};
+/** @brief Quadratic escape fractal. @tparam B Frame binding. */
+template <typename B> struct SourcePolicyFor<FractalSourceParams, B> {
+  using Type =
+      Pullback::Source::EscapeFractal<SourceProvider<B, FractalSourceParams>>;
+};
+/** @brief Triangular tessellation. @tparam B Frame binding. */
+template <typename B> struct SourcePolicyFor<TessellationSourceParams, B> {
+  using Type = Pullback::Source::Tessellation<
+      SourceProvider<B, TessellationSourceParams>,
+      Pattern::TessellationKind::TRIANGULAR>;
+};
+
+/** @brief Authored source topology. @tparam B Frame binding. */
+template <typename B>
+struct SourcePolicyFor<Source::AuthoredProjectedNoiseSourceParams, B> {
+  using Type = Source::ConfiguredProjectedNoise<
+      SourceProvider<B, Source::AuthoredProjectedNoiseSourceParams>>;
+};
+/** @brief Authored source topology. @tparam B Frame binding. */
+template <typename B>
+struct SourcePolicyFor<Source::AuthoredSphericalNoiseSourceParams, B> {
+  using Type = Source::ConfiguredSphericalNoise<
+      SourceProvider<B, Source::AuthoredSphericalNoiseSourceParams>>;
+};
+/** @brief Authored source topology. @tparam B Frame binding. */
+template <typename B>
+struct SourcePolicyFor<Source::AuthoredTessellationSourceParams, B> {
+  using Type = Source::ConfiguredTessellation<
+      SourceProvider<B, Source::AuthoredTessellationSourceParams>>;
+};
+
 /**
  * @brief Maps a warp parameter family to its `Pullback::Warp` policy, exposed
  *        as `Type`.
@@ -144,6 +184,35 @@ template <typename B, ResourceKey K, bool T>
 struct WarpPolicyFor<AffineParams, B, K, T> {
   using Type = Pullback::Warp::AffineFrame<WarpProvider<B, K, AffineParams, T>>;
 };
+/** @brief Affine chart warp with an authored translation unit.
+ * @tparam B Frame binding.
+ * @tparam K Resource key.
+ * @tparam T Whether path length is tracked. */
+template <typename B, ResourceKey K, bool T>
+struct WarpPolicyFor<ExplicitAffineParams, B, K, T> {
+  using Type =
+      Pullback::Warp::AffineFrame<WarpProvider<B, K, ExplicitAffineParams, T>>;
+};
+/** @brief Orbiting vortex warp.
+ * @tparam B Frame binding.
+ * @tparam K Resource key.
+ * @tparam T Whether path length is tracked. */
+template <typename B, ResourceKey K, bool T>
+struct WarpPolicyFor<Warp::VortexParams, B, K, T> {
+  using Type =
+      Pullback::Warp::Vortex<WarpProvider<B, K, Warp::VortexParams, T>>;
+};
+/** @brief Euler simplex curl flow.
+ * @tparam B Frame binding.
+ * @tparam K Resource key.
+ * @tparam T Whether path length is tracked. */
+template <typename B, ResourceKey K, bool T>
+struct WarpPolicyFor<CurlFlowParams, B, K, T> {
+  using Type = Pullback::Warp::CurlFlow<WarpProvider<B, K, CurlFlowParams, T>,
+                                        math::NoiseBasis::SIMPLEX,
+                                        Pullback::Warp::Euler1>;
+};
+
 /**
  * @brief First-harmonic linear polar-chart warp.
  * @tparam B Frame binding.
@@ -154,6 +223,43 @@ template <typename B, ResourceKey K, bool T>
 struct WarpPolicyFor<PolarParams, B, K, T> {
   using Type = Pullback::Warp::PolarChart<WarpProvider<B, K, PolarParams, T>,
                                           Pullback::Warp::LinearPolar, 1>;
+};
+
+/** @brief Authored warp topology.
+ * @tparam B Frame binding.
+ * @tparam K Resource key.
+ * @tparam T Whether path length is tracked. */
+template <typename B, ResourceKey K, bool T>
+struct WarpPolicyFor<Warp::AuthoredWaveShearParams, B, K, T> {
+  using Type = Warp::ConfiguredWaveShear<
+      WarpProvider<B, K, Warp::AuthoredWaveShearParams, T>>;
+};
+/** @brief Authored warp topology.
+ * @tparam B Frame binding.
+ * @tparam K Resource key.
+ * @tparam T Whether path length is tracked. */
+template <typename B, ResourceKey K, bool T>
+struct WarpPolicyFor<Warp::AuthoredVectorNoiseParams, B, K, T> {
+  using Type = Warp::ConfiguredVectorNoise<
+      WarpProvider<B, K, Warp::AuthoredVectorNoiseParams, T>>;
+};
+/** @brief Authored warp topology.
+ * @tparam B Frame binding.
+ * @tparam K Resource key.
+ * @tparam T Whether path length is tracked. */
+template <typename B, ResourceKey K, bool T>
+struct WarpPolicyFor<Warp::AuthoredPolarParams, B, K, T> {
+  using Type = Warp::ConfiguredPolarChart<
+      WarpProvider<B, K, Warp::AuthoredPolarParams, T>>;
+};
+/** @brief Authored warp topology.
+ * @tparam B Frame binding.
+ * @tparam K Resource key.
+ * @tparam T Whether path length is tracked. */
+template <typename B, ResourceKey K, bool T>
+struct WarpPolicyFor<Warp::AuthoredCurlFlowParams, B, K, T> {
+  using Type = Warp::ConfiguredCurlFlow<
+      WarpProvider<B, K, Warp::AuthoredCurlFlowParams, T>>;
 };
 
 /**

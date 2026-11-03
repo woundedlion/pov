@@ -91,6 +91,52 @@ template <Pullback::HasFields T> inline bool valid(const T &value) {
     return Pullback::Fields::valid(value);
 }
 
+/** @brief Validates authored numeric and topology controls.
+ * @param value Authored controls.
+ * @return Whether every control is admitted. */
+inline bool valid(const Source::AuthoredProjectedNoiseSourceParams &value) {
+  return Pullback::Fields::valid(value) && value.basis <= 2;
+}
+/** @brief Validates authored numeric and topology controls.
+ * @param value Authored controls.
+ * @return Whether every control is admitted. */
+inline bool valid(const Source::AuthoredSphericalNoiseSourceParams &value) {
+  return Pullback::Fields::valid(value) && value.basis <= 2;
+}
+/** @brief Validates authored numeric and topology controls.
+ * @param value Authored controls.
+ * @return Whether every control is admitted. */
+inline bool valid(const Source::AuthoredTessellationSourceParams &value) {
+  return Pullback::Fields::valid(value) && value.kind <= 2;
+}
+/** @brief Validates authored numeric and topology controls.
+ * @param value Authored controls.
+ * @return Whether every control is admitted. */
+inline bool valid(const Warp::AuthoredWaveShearParams &value) {
+  return Pullback::Fields::valid(value) && value.envelope <= 2;
+}
+/** @brief Validates authored numeric and topology controls.
+ * @param value Authored controls.
+ * @return Whether every control is admitted. */
+inline bool valid(const Warp::AuthoredVectorNoiseParams &value) {
+  return Pullback::Fields::valid(value) && value.basis <= 2 &&
+         value.envelope <= 2;
+}
+/** @brief Validates authored numeric and topology controls.
+ * @param value Authored controls.
+ * @return Whether every control is admitted. */
+inline bool valid(const Warp::AuthoredPolarParams &value) {
+  return Pullback::Fields::valid(value) && value.mode <= 1 &&
+         value.harmonic < Warp::MAX_POLAR_HARMONIC;
+}
+/** @brief Validates authored numeric and topology controls.
+ * @param value Authored controls.
+ * @return Whether every control is admitted. */
+inline bool valid(const Warp::AuthoredCurlFlowParams &value) {
+  return Pullback::Fields::valid(value) && value.basis <= 2 &&
+         value.integrator <= 2;
+}
+
 /** @brief Validates ripple controls and scheduler topology.
  * @param value Ripple controls.
  * @return Whether the numeric and topology fields are admitted. */
@@ -309,7 +355,7 @@ constexpr bool uses_singularity_fade(ProjectionKind projection) {
 }
 
 /** @brief Optional transfer curve an effect's material stage composes. */
-enum class TransferKind : uint8_t { NONE, ISO_CONTOUR };
+enum class TransferKind : uint8_t { NONE, ISO_CONTOUR, RIDGE, SMOOTH_BANDS };
 
 /** @brief Optional value-dependent coverage stage after sampling. */
 enum class FieldCoverageKind : uint8_t { NONE, VALUE_CUTOUT };

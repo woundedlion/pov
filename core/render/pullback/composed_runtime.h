@@ -176,6 +176,15 @@ public:
                           PARAM_CAPACITY);
     this->params.visit([&]<typename Resource>(auto &) {
       if constexpr (std::is_same_v<typename Resource::Family,
+                                   SphericalRingsSourceParams>) {
+        constexpr uint32_t SEED = fnv1a(
+            "sample.spherical-rings.v3",
+            fnv1a(std::string_view("\0", 1), fnv1a(Resource::KEY.view())));
+        SphereAnimation::init_walk(
+            clocks.template get<Resource::KEY>().source_walk,
+            static_cast<int32_t>(SEED));
+      }
+      if constexpr (std::is_same_v<typename Resource::Family,
                                    SphereAnimation::BurstRippleParams>) {
         state->resources.template get<Resource::KEY>().ripples.seed = fnv1a(
             "sphere.displace.ripple.v2",
@@ -625,7 +634,8 @@ protected:
                        Resource::KIND == ResourceKind::TWIST)
       return ParameterStage::LENS;
     else if constexpr (Resource::KIND == ResourceKind::VALUE)
-      return std::is_same_v<typename Resource::Family, IsoValueParams>
+      return (std::is_same_v<typename Resource::Family, IsoValueParams> ||
+              std::is_same_v<typename Resource::Family, SmoothBandsParams>)
                  ? ParameterStage::VALUE_TRANSFER
                  : ParameterStage::COVERAGE;
     else
@@ -980,6 +990,14 @@ private:
       if constexpr (Resource::KIND == ResourceKind::SOURCE) {
         Pattern::advance_clocks(family, clock.primary, clock.secondary,
                                 clock.angle);
+        if constexpr (std::is_same_v<typename Resource::Family,
+                                     SphericalRingsSourceParams>) {
+          SphereAnimation::advance_walk(clock.source_walk, family.wander,
+                                        family.spin_rate);
+          clock.orientation =
+              math::make_rotation(math::X_AXIS, clock.source_walk.spin_phase) *
+              clock.source_walk.wander;
+        }
         if constexpr (requires { family.noise_time_rate; })
           clock.noise_time =
               Pattern::advance_noise_phase(clock.noise_time, family);
@@ -1006,7 +1024,8 @@ private:
       } else if constexpr (Resource::KIND == ResourceKind::MODULATION) {
         Modulation::advance(clock.modulation_clock, family.modulation);
       } else if constexpr (Resource::KIND == ResourceKind::WARP) {
-        if constexpr (std::is_same_v<typename Resource::Family, AffineParams>)
+        if constexpr (std::is_base_of_v<AffineParams,
+                                        typename Resource::Family>)
           Warp::advance_affine_rotation(clock.rotation, family);
         clock.phase = math::wrap_t(clock.phase + family.speed);
       }

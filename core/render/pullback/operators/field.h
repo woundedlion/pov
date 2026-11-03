@@ -66,21 +66,7 @@ struct TransferIsoContour : FieldEndoModel<IsoContourChainParams> {
 };
 
 /** @brief Parameter family of field.transfer.smooth-bands.v2. */
-struct SmoothBandsChainParams {
-  float band_count = 4.0f; /**< Cosine bands over the unit value. */
-  float band_phase = 0.0f; /**< Band offset, in radians. */
-
-  static constexpr auto FIELDS = std::array{
-      Field<SmoothBandsChainParams>{
-          "band-count", &SmoothBandsChainParams::band_count, "Band Count", 1.0f,
-          32.0f, FieldCurve::SNAP},
-      Field<SmoothBandsChainParams>{
-          "band-phase", &SmoothBandsChainParams::band_phase, "Band Phase", 0.0f,
-          math::TWO_PI_F, FieldCurve::SHORTEST_PERIODIC},
-  };
-};
-static_assert(field_ids_unique<SmoothBandsChainParams>());
-static_assert(field_defaults_in_range<SmoothBandsChainParams>());
+using SmoothBandsChainParams = Transfer::SmoothBandsParams;
 
 /** @brief FIELD endomorphism: the cosine banding transfer. */
 struct TransferSmoothBands : FieldEndoModel<SmoothBandsChainParams> {

@@ -78,14 +78,7 @@ HS_FLASH_INLINE void temporal_sample(WarpPhaseState &out,
 }
 
 /** @brief Parameter family of warp.affine.v3; translations are lattice cells. */
-struct AffineWarpParams : Warp::AffineParams {
-  float lattice_period = 1.0f; /**< Lattice cell size, [1/64, 100]. */
-  static constexpr auto FIELDS = concat_fields<AffineWarpParams>(
-      Warp::AffineParams::FIELDS,
-      std::array{Field<AffineWarpParams>{
-          "lattice-period", &AffineWarpParams::lattice_period, "Lattice Period",
-          1.0f / 64.0f, 100.0f, FieldCurve::LOG_POSITIVE}});
-};
+using AffineWarpParams = Warp::ExplicitAffineParams;
 static_assert(field_ids_unique<AffineWarpParams>());
 static_assert(
     appended_block_size_matches<AffineWarpParams, Warp::AffineParams, 4>(),

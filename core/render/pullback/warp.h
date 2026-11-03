@@ -222,6 +222,19 @@ struct AffineParams {
 static_assert(field_ids_unique<AffineParams>());
 static_assert(field_defaults_in_range<AffineParams>());
 
+/** @brief Affine controls with an independently authored lattice period. */
+struct ExplicitAffineParams : AffineParams {
+  float lattice_period = 1.0f; ///< Translation unit in chart coordinates.
+  /// Numeric controls and interpolation curves.
+  static constexpr auto FIELDS = concat_fields<ExplicitAffineParams>(
+      AffineParams::FIELDS,
+      std::array{Field<ExplicitAffineParams>{
+          "lattice-period", &ExplicitAffineParams::lattice_period,
+          "Lattice Period", 1.0f / 64.0f, 100.0f, FieldCurve::LOG_POSITIVE}});
+};
+static_assert(field_ids_unique<ExplicitAffineParams>());
+static_assert(field_defaults_in_range<ExplicitAffineParams>());
+
 /** @brief Advances the affine frame rotation by one frame.
     @param rotation Accumulated rotation in radians, wrapped into [0, 2pi).
     @param params Speed and rotation rate. */

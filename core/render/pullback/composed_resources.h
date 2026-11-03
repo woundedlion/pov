@@ -16,7 +16,10 @@
 #include "core/render/pullback/lens.h"
 #include "core/render/pullback/chamber_noise_cache.h"
 #include "core/render/pullback/source.h"
+#include "core/render/pullback/authored_source.h"
+#include "core/render/pullback/authored_warp.h"
 #include "core/render/pullback/sphere_animation.h"
+#include "core/render/pullback/spatial_walk.h"
 #include "core/render/pullback/stage.h"
 #include "core/render/pullback/warp.h"
 
@@ -275,17 +278,28 @@ template <typename Family, ResourceKind Kind> struct ClockState {};
 /** @brief Source pattern clocks.
  * @details Values are equivalent modulo their periods; column-time samples
  * may lie outside the canonical ranges. */
-template <typename Family> struct ClockState<Family, ResourceKind::SOURCE> {
+struct SourceClocks {
   float primary = 0.0f;    ///< Primary phase, radians modulo 2pi.
   float secondary = 0.0f;  ///< Secondary phase, radians modulo 2pi.
   float angle = 0.0f;      ///< Pattern rotation, radians modulo 2pi.
   float noise_time = 0.0f; ///< Noise time coordinate modulo 1.
 };
+/** @brief Source pattern clocks. @tparam Family Source control family. */
+template <typename Family>
+struct ClockState<Family, ResourceKind::SOURCE> : SourceClocks {};
+/** @brief Spherical-ring phases and sampled band orientation. */
+template <>
+struct ClockState<Source::SphericalRingsSourceParams, ResourceKind::SOURCE>
+    : SourceClocks {
+  math::Quaternion orientation; ///< Band-axis orientation.
+};
 /** @brief Extra rotation clock of a warp family; empty by default. */
-template <typename Family> struct RotationClock {};
+template <typename Family,
+          bool Affine = std::is_base_of_v<Warp::AffineParams, Family>>
+struct RotationClock {};
 /** @brief The affine warp's accumulated rotation.
  * @details Column-time samples may lie outside [0, 2pi). */
-template <> struct RotationClock<Warp::AffineParams> {
+template <typename Family> struct RotationClock<Family, true> {
   float rotation = 0.0f; ///< Frame rotation, radians modulo 2pi.
 };
 /** @brief Warp phase clock.
@@ -408,11 +422,12 @@ struct ResourceClock : ClockState<typename Resource::Family, Resource::KIND> {};
 /// Whether `Resource`'s family samples a FastNoiseLite field.
 template <typename Resource>
 inline constexpr bool RESOURCE_NOISE =
-    std::is_same_v<typename Resource::Family, Warp::VectorNoiseParams> ||
-    std::is_same_v<typename Resource::Family,
-                   Source::ProjectedNoiseSourceParams> ||
-    std::is_same_v<typename Resource::Family,
-                   Source::SphericalNoiseSourceParams> ||
+    std::is_base_of_v<Warp::VectorNoiseParams, typename Resource::Family> ||
+    std::is_base_of_v<Warp::CurlFlowParams, typename Resource::Family> ||
+    std::is_base_of_v<Source::ProjectedNoiseSourceParams,
+                      typename Resource::Family> ||
+    std::is_base_of_v<Source::SphericalNoiseSourceParams,
+                      typename Resource::Family> ||
     std::is_base_of_v<Surface::SurfaceNoiseParams, typename Resource::Family> ||
     std::is_base_of_v<Surface::DirectSurfaceParams, typename Resource::Family>;
 
@@ -428,13 +443,25 @@ struct ResourceRippleScheduler {};
 template <typename Resource> struct ResourceRippleScheduler<Resource, true> {
   SphereAnimation::RippleState ripples; ///< Active bursts and clock.
 };
+/** @brief Optional spherical-ring random walk.
+ * @tparam Resource Keyed resource.
+ * @tparam Enabled Whether the resource owns a band-axis walk. */
+template <typename Resource,
+          bool Enabled = std::is_same_v<typename Resource::Family,
+                                        Source::SphericalRingsSourceParams>>
+struct SourceWalk {};
+/** @brief Spherical-ring random walk. @tparam Resource Keyed source. */
+template <typename Resource> struct SourceWalk<Resource, true> {
+  SphereAnimation::SpatialWalkState source_walk; ///< Band-axis walk.
+};
+
 /** @brief Member clocks, excluding arena-owned burst schedulers.
  * @tparam Resource Keyed resource.
  * @tparam Arena Whether the clock is arena-owned. */
 template <typename Resource,
           bool Arena = std::is_same_v<typename Resource::Family,
                                       SphereAnimation::BurstRippleParams>>
-struct ResourceRuntimeClock : ResourceClock<Resource> {};
+struct ResourceRuntimeClock : ResourceClock<Resource>, SourceWalk<Resource> {};
 /** @brief Empty member slot of an arena-owned burst scheduler.
  * @tparam Resource Ripple resource. */
 template <typename Resource> struct ResourceRuntimeClock<Resource, true> {};
