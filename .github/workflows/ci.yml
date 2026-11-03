@@ -144,7 +144,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      GENERATED_EXCLUDE: &generated_exclude "^unit_(color_luts|gamut_lut|mindsplatter_replay_form)$"
+      GENERATED_EXCLUDE: &generated_exclude "^unit_(color_luts|gamut_lut|mindsplatter_replay_form|tangent_field_constants)$"
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       CCACHE_MAXSIZE: *ccache_maxsize
     steps:
@@ -314,7 +314,7 @@ jobs:
             skips_are_errors: 1
           - flavor: fastmath
             optimization: -Os -g
-            test_exclude: "^unit_(3dmath|sdf|effects|mindsplatter|shapeshifter_tiles|conway_continuity|partition_seam|mesh|shader_chain|pullback_capture_determinism|pov_sync|color_luts|gamut_lut)$"
+            test_exclude: "^unit_(3dmath|sdf|effects|mindsplatter|shapeshifter_tiles|conway_continuity|partition_seam|mesh|shader_chain|pullback_capture_determinism|pov_sync|color_luts|gamut_lut|tangent_field_constants)$"
             float_flags: -ffast-math -fno-finite-math-only -DHS_TEST_FAST_MATH=1
             test_include: ".*"
             skips_are_errors: 0
