@@ -7,9 +7,11 @@
 #pragma once
 
 #include <array>
+#include <tuple>
 #include <vector>
 
 #include "core/control/choreography.h"
+#include "core/control/fields.h"
 #include "core/control/params.h"
 #include "core/control/presets.h"
 #include "tests/test_fixture.h"
@@ -47,7 +49,38 @@ static_assert(!all_presets_in_ranges(CONST_ENTRIES, id_below_three));
  *        first entry.
  */
 inline void test_all_presets_in_ranges_folds_predicate() {
-  HS_EXPECT_FALSE(all_presets_in_ranges(CONST_ENTRIES, id_above_one));
+  auto entries = CONST_ENTRIES;
+  HS_EXPECT_TRUE(all_presets_in_ranges(entries, id_below_four));
+  HS_EXPECT_FALSE(all_presets_in_ranges(entries, id_below_three));
+  HS_EXPECT_FALSE(all_presets_in_ranges(entries, id_above_one));
+}
+
+/** @brief Field groups accept midpoint and snap for discrete parameters. */
+inline void test_discrete_field_curves() {
+  struct Knobs {
+    bool enabled;
+    float amount;
+  };
+  struct Preset {
+    Knobs knobs;
+  };
+  using Control::Field;
+  using Control::FieldCurve;
+  using Control::FieldGroup;
+  Field<Knobs, bool> enabled{"enabled", &Knobs::enabled, "Enabled", {}};
+  const Field<Knobs, float> amount{"amount", &Knobs::amount, "Amount", {}};
+  const auto supported = [&](FieldCurve curve) {
+    enabled.curve = curve;
+    return Control::curves_supported(
+        std::tuple{FieldGroup{&Preset::knobs, std::tuple{amount, enabled}}});
+  };
+  HS_EXPECT_TRUE(supported(FieldCurve::MIDPOINT));
+  HS_EXPECT_TRUE(supported(FieldCurve::SNAP));
+  HS_EXPECT_FALSE(supported(FieldCurve::LERP));
+  HS_EXPECT_EQ(Control::apply_curve(FieldCurve::MIDPOINT, 2.0f, 4.0f, 0.49f),
+               2.0f);
+  HS_EXPECT_EQ(Control::apply_curve(FieldCurve::MIDPOINT, 2.0f, 4.0f, 0.5f),
+               4.0f);
 }
 
 // --- apply_if_changed -------------------------------------------------------
@@ -560,6 +593,7 @@ inline int run_presets_tests() {
 
   HS_RUN(test_cycle_frames_conservative_departure_slack);
   HS_RUN(test_all_presets_in_ranges_folds_predicate);
+  HS_RUN(test_discrete_field_curves);
   HS_RUN(test_apply_if_changed);
   HS_RUN(test_preset_zero_supplies_startup_params);
   HS_RUN(test_hold_initial_preset_overrides_first_dwell);

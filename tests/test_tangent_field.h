@@ -44,6 +44,16 @@ inline std::pair<double, double> legendre_reference(int l, int m, double y) {
   return {value, derivative};
 }
 
+/** @brief Runtime recurrence reproduces the compiled Legendre table. */
+inline void test_legendre_coefficient_table() {
+  auto *volatile build = &SHMath::make_legendre_coefficients;
+  const auto coefficients = build();
+  for (size_t index = 0; index < coefficients.size(); ++index) {
+    const float expected = SHMath::LEGENDRE_COEFFICIENTS[index];
+    HS_EXPECT_NEAR(coefficients[index], expected, 1e-7f * std::abs(expected));
+  }
+}
+
 inline void test_horner_values_and_phased_gradients() {
   for (int l = 0; l <= 8; ++l)
     for (int m = 0; m <= l; ++m)
@@ -616,6 +626,7 @@ inline void test_potential_near_unit_tangency() {
 
 inline int run_tangent_field_tests() {
   hs_test::ModuleFixture fixture("tangent_field");
+  HS_RUN(test_legendre_coefficient_table);
   HS_RUN(test_horner_values_and_phased_gradients);
   HS_RUN(test_mobius_generator_velocity_and_inverse);
   HS_RUN(test_mobius_exp_log_projective_roundtrip);

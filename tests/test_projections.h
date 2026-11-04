@@ -755,7 +755,9 @@ inline float atlas_tile_distance(const PolyhedralAtlas<F, K, P> &atlas,
 }
 
 template <typename Solid> inline void expect_polyhedral_atlas_sampling() {
-  const auto &atlas = POLYHEDRAL_ATLAS<Solid>;
+  auto *volatile build_atlas = &make_polyhedral_atlas<Solid>;
+  const auto atlas = build_atlas();
+  HS_EXPECT_NEAR(atlas.radius, POLYHEDRAL_ATLAS<Solid>.radius, 2e-6f);
   constexpr size_t F = Solid::face_counts.size();
   constexpr int SAMPLES = 2048;
   for (int index = 0; index < SAMPLES; ++index) {

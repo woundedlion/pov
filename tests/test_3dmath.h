@@ -1843,6 +1843,10 @@ inline void test_twist_lens() {
 
 /** @brief Lookup twist angles preserve winding while redistributing interior spacing. */
 inline void test_twist_lens_lookup_error() {
+  auto *volatile build_mantissa = &lenses::TwistTable::make_log_mantissa;
+  const auto mantissa = build_mantissa();
+  for (size_t index = 0; index < mantissa.size(); ++index)
+    HS_EXPECT_NEAR(mantissa[index], std::log(1.0 + index / 128.0), 4e-8);
   double max_error = 0.0;
   for (int distribution_step = 0; distribution_step <= 64;
        ++distribution_step) {
