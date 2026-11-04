@@ -529,12 +529,20 @@ class TestBudgetSchema(unittest.TestCase):
             "component-over-derived-ceiling", tg.parse_teensy_size(text),
             tg.parse_readelf_symbols(_read("good_readelf_syms.txt")))
 
+    def _overbudget_flash_sizes(self):
+        sizes = tg.parse_teensy_size(_read("good_teensy_size.txt"))
+        flash = sizes["flash"]
+        cap = BUDGETS["phantasm"]["regions"]["flash"]["max_bytes"]
+        extra = cap + 1 - flash["used"]
+        flash["used"] += extra
+        flash["free"] -= extra
+        flash["components"]["code"] += extra
+        return sizes
+
     def test_max_bytes_typo_drops_the_flash_ceiling(self):
-        text = _read("good_teensy_size.txt").replace(
-            "FLASH: code:158788", "FLASH: code:1958788")
         self._assert_typo_disables(
             "phantasm", ("regions", "flash"), "max_bytes", "max_byte",
-            "region-over-budget", tg.parse_teensy_size(text),
+            "region-over-budget", self._overbudget_flash_sizes(),
             tg.parse_readelf_symbols(_read("good_readelf_syms.txt")))
 
     def test_region_typo_drops_the_ocram_placement_invariant(self):
@@ -564,11 +572,9 @@ class TestBudgetSchema(unittest.TestCase):
         self.assertIn(key, str(ctx.exception))
 
     def test_deleting_max_bytes_drops_the_flash_ceiling(self):
-        text = _read("good_teensy_size.txt").replace(
-            "FLASH: code:158788", "FLASH: code:1958788")
         self._assert_deletion_disables(
             "phantasm", ("regions", "flash"), "max_bytes",
-            "region-over-budget", tg.parse_teensy_size(text),
+            "region-over-budget", self._overbudget_flash_sizes(),
             tg.parse_readelf_symbols(_read("good_readelf_syms.txt")))
 
     def test_deleting_region_drops_the_ocram_placement_invariant(self):
