@@ -334,7 +334,7 @@ inline void test_shader_chain_schema_and_field_ids() {
   if (!twist_found)
     return;
   const In::OperatorDescriptor &twist = *twist_found;
-  HS_EXPECT_SIZE_OR_RETURN(twist.schema_span(), 4);
+  HS_EXPECT_SIZE_OR_RETURN(twist.schema_span(), 6);
   HS_EXPECT_TRUE(std::string_view(twist.schema[0].id) == "twist-angle");
   HS_EXPECT_EQ(twist.schema[0].def, math::TWO_PI_F);
   HS_EXPECT_EQ(twist.schema[0].min, -96.0f);
@@ -347,14 +347,22 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(twist.schema[1].def, 0.85f);
   HS_EXPECT_EQ(twist.schema[1].min, 0.0f);
   HS_EXPECT_EQ(twist.schema[1].max, 1.0f);
-  HS_EXPECT_TRUE(std::string_view(twist.schema[2].id) == "speed");
-  HS_EXPECT_EQ(twist.schema[2].def, 0.02f);
+  HS_EXPECT_TRUE(std::string_view(twist.schema[2].id) == "axis-phi");
+  HS_EXPECT_EQ(twist.schema[2].def, 0.0f);
   HS_EXPECT_EQ(twist.schema[2].min, 0.0f);
-  HS_EXPECT_EQ(twist.schema[2].max, 0.05f);
-  HS_EXPECT_TRUE(std::string_view(twist.schema[3].id) == "drift");
-  HS_EXPECT_EQ(twist.schema[3].def, 0.002f);
-  HS_EXPECT_EQ(twist.schema[3].min, 0.0f);
-  HS_EXPECT_EQ(twist.schema[3].max, 0.05f);
+  HS_EXPECT_EQ(twist.schema[2].max, math::PI_F);
+  HS_EXPECT_TRUE(std::string_view(twist.schema[3].id) == "axis-lambda");
+  HS_EXPECT_EQ(twist.schema[3].def, 0.0f);
+  HS_EXPECT_EQ(twist.schema[3].min, -math::PI_F);
+  HS_EXPECT_EQ(twist.schema[3].max, math::PI_F);
+  HS_EXPECT_TRUE(std::string_view(twist.schema[4].id) == "speed");
+  HS_EXPECT_EQ(twist.schema[4].def, 0.02f);
+  HS_EXPECT_EQ(twist.schema[4].min, 0.0f);
+  HS_EXPECT_EQ(twist.schema[4].max, 0.05f);
+  HS_EXPECT_TRUE(std::string_view(twist.schema[5].id) == "drift");
+  HS_EXPECT_EQ(twist.schema[5].def, 0.002f);
+  HS_EXPECT_EQ(twist.schema[5].min, 0.0f);
+  HS_EXPECT_EQ(twist.schema[5].max, 0.05f);
   const auto *kaleidoscope_found =
       require_operator("sphere.lens.kaleidoscope.v2");
   if (!kaleidoscope_found)

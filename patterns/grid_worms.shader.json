@@ -215,6 +215,34 @@
       },
       {
         "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 3.1415927410125732,
+          "minimum": -3.1415927410125732
+        },
+        "id": "lens1.axis-lambda",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "radian"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 3.1415927410125732,
+          "minimum": 0
+        },
+        "id": "lens1.axis-phi",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "radian"
+      },
+      {
+        "classification": "preset",
         "default": 0.0020000000949949026,
         "domain": {
           "maximum": 0.05000000074505806,
@@ -594,6 +622,8 @@
         "colorize.phase-oscillation-speed",
         "colorize.value-opacity-high",
         "colorize.value-opacity-low",
+        "lens1.axis-lambda",
+        "lens1.axis-phi",
         "lens1.drift",
         "lens1.speed",
         "lens1.twist-angle",
@@ -662,6 +692,8 @@
           "colorize.phase-oscillation-speed": 0,
           "colorize.value-opacity-high": 0.9661458134651184,
           "colorize.value-opacity-low": 1,
+          "lens1.axis-lambda": 0,
+          "lens1.axis-phi": 0,
           "lens1.drift": 0.016323529183864594,
           "lens1.speed": 0.027205882593989372,
           "lens1.twist-angle": -10.259509086608887,

@@ -119,8 +119,10 @@ struct Glitch : ApproximationDefaults {
 struct TwistLensParams {
   float twist_angle = lenses::TWIST_ANGLE; ///< Total pole-to-pole radians.
   float distribution = lenses::TWIST_DISTRIBUTION; ///< Polar redistribution.
-  float speed = 0.02f;  ///< Polar rotation per frame, in radians.
-  float drift = 0.002f; ///< Azimuth rotation per frame, in radians.
+  float axis_phi = 0.0f;    ///< Axis polar offset, in radians.
+  float axis_lambda = 0.0f; ///< Axis azimuth offset, in radians.
+  float speed = 0.02f;      ///< Polar rotation per frame, in radians.
+  float drift = 0.002f;     ///< Azimuth rotation per frame, in radians.
   /// Authored twist controls.
   static constexpr auto FIELDS = std::array{
       Field<TwistLensParams>{"twist-angle", &TwistLensParams::twist_angle,
@@ -130,6 +132,12 @@ struct TwistLensParams {
                              &TwistLensParams::distribution,
                              "Twist Distribution", 0.0f,
                              lenses::TWIST_DISTRIBUTION_MAX, FieldCurve::LERP},
+      Field<TwistLensParams>{"axis-phi", &TwistLensParams::axis_phi,
+                             "Axis Phi (rad)", 0.0f, math::PI_F,
+                             FieldCurve::LERP},
+      Field<TwistLensParams>{"axis-lambda", &TwistLensParams::axis_lambda,
+                             "Axis Lambda (rad)", -math::PI_F, math::PI_F,
+                             FieldCurve::LERP},
       Field<TwistLensParams>{"speed", &TwistLensParams::speed, "Speed", 0.0f,
                              0.05f, FieldCurve::LERP},
       Field<TwistLensParams>{"drift", &TwistLensParams::drift, "Drift", 0.0f,
@@ -139,7 +147,7 @@ struct TwistLensParams {
 static_assert(field_ids_unique<TwistLensParams>());
 static_assert(field_defaults_in_range<TwistLensParams>());
 
-/** @brief Twist-axis angles, in radians modulo 2pi. */
+/** @brief Accumulated twist-axis rotation, in radians modulo 2pi. */
 struct TwistPhase {
   float phi = 0.0f;    ///< Polar angle.
   float lambda = 0.0f; ///< Azimuth angle.
@@ -163,12 +171,13 @@ HS_FLASH_INLINE inline void advance_twist(TwistPhase &phase,
 
 /** @brief Prepares the animated twist axis and angular profile.
  * @param params Lens controls.
- * @param phase Accumulated axis angles.
+ * @param phase Accumulated axis rotation, added to the authored axis.
  * @return Per-frame lens state. */
 HS_FLASH_INLINE inline TwistPrepared
 prepare_twist(const TwistLensParams &params, const TwistPhase &phase) {
   return {
-      math::Vector::from_spherical(phase.lambda, phase.phi),
+      math::Vector::from_spherical(params.axis_lambda + phase.lambda,
+                                   params.axis_phi + phase.phi),
       lenses::prepare_twist_profile(params.twist_angle, params.distribution)};
 }
 

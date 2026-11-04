@@ -449,27 +449,34 @@ inline void test_shader_chain_lens_controls() {
   }
 }
 
-/** @brief Twist origin angles circle independently and interpolate across wraps. */
+/** @brief Twist origin angles circle independently from the authored axis and
+ * interpolate across wraps. */
 inline void test_shader_chain_twist_animation() {
   using Twist = In::Op::LensTwist;
   const auto ctx = shared_resources().context();
   const auto expect_axis = [&](const Twist::State &state, double phi,
-                               double lambda) {
-    const auto axis = Twist::prepare(ctx, {}, state).axis;
+                               double lambda,
+                               const Twist::Params &params = {}) {
+    const auto axis = Twist::prepare(ctx, params, state).axis;
     HS_EXPECT_NEAR(axis.x, sin(phi) * cos(lambda), 1e-4);
     HS_EXPECT_NEAR(axis.y, cos(phi), 1e-4);
     HS_EXPECT_NEAR(axis.z, sin(phi) * sin(lambda), 1e-4);
   };
-  for (const float speed : {0.0f, 0.01f, 0.04f}) {
-    for (const float drift : {0.0f, 0.013f}) {
-      Twist::Params params;
-      params.speed = speed;
-      params.drift = drift;
-      Twist::State state{0.8f, 0.3f};
-      for (int frame = 1; frame <= 700; ++frame) {
-        Twist::advance(state, params);
-        expect_axis(state, 0.8f + double(frame) * speed,
-                    0.3f + double(frame) * drift);
+  for (const auto [axis_phi, axis_lambda] :
+       {std::pair{0.0f, 0.0f}, std::pair{1.1f, -2.4f}}) {
+    for (const float speed : {0.0f, 0.01f, 0.04f}) {
+      for (const float drift : {0.0f, 0.013f}) {
+        Twist::Params params;
+        params.axis_phi = axis_phi;
+        params.axis_lambda = axis_lambda;
+        params.speed = speed;
+        params.drift = drift;
+        Twist::State state{0.8f, 0.3f};
+        for (int frame = 1; frame <= 700; ++frame) {
+          Twist::advance(state, params);
+          expect_axis(state, axis_phi + 0.8f + double(frame) * speed,
+                      axis_lambda + 0.3f + double(frame) * drift, params);
+        }
       }
     }
   }

@@ -73,9 +73,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "11a598f728cc31730be5570758bb8fe3f876e6dad11402cb85e100a55a0259db";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "519b519396575340873fef49d5d63fa63c356c3c4c0b59be47c7d71d6f7e7cdd";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "b8ec9545344acef4d19e3672a0a704a7e7fbc4e3bf41dc3724dbf054335f5f10";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "b6c199fa45e0f31cfb56d6d1ced35c5c6e13e0828f7de831c51ef65fe9f15b23";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "grid-worms"
@@ -85,7 +85,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -104,6 +104,8 @@ public:
     value.template get<"color">().phase_oscillation_speed = 0.0f;
     value.template get<"color">().opacity_high = 0.9661458f;
     value.template get<"color">().opacity_low = 1.0f;
+    value.template get<"lens1">().axis_lambda = 0.0f;
+    value.template get<"lens1">().axis_phi = 0.0f;
     value.template get<"lens1">().drift = 0.01632353f;
     value.template get<"lens1">().speed = 0.027205883f;
     value.template get<"lens1">().twist_angle = -10.259509f;

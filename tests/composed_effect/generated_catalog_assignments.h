@@ -258,6 +258,8 @@ inline void catalog_assignments_sphere_lens_twist_v2() {
   Pullback::Lens::TwistLensParams params;
   params.twist_angle = 6.2831855f;
   params.distribution = 0.85f;
+  params.axis_phi = 0.0f;
+  params.axis_lambda = 0.0f;
   params.speed = 0.02f;
   params.drift = 0.002f;
   (void)params;

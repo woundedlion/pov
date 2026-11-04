@@ -264,7 +264,7 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 
 An animated axial twist pulls a primitive lattice into flowing worms before the camera rotates it. A folded gnomonic projection wraps the lattice around the sphere; a maximum-chroma analogous palette uses cup mapping, and a direct directional-sine field shifts hue in the projection frame. Its single `grid-worms` preset preserves the saved shader's lens-before-camera order. GridWorms runs for 60 seconds immediately after GridSpace in the Phantasm playlist and is available in the simulator and effect library.
 
-**Parameters**: Lattice Cell Scale, Lattice Radius, Lattice Shape, Lattice Softness, Camera Wander, Projection Spin Speed, Projection Wander, Singularity Fade, lens1.Twist Angle (rad), lens1.Twist Distribution, lens1.Speed, lens1.Drift, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Frequency, Pattern Speed
+**Parameters**: Lattice Cell Scale, Lattice Radius, Lattice Shape, Lattice Softness, Camera Wander, Projection Spin Speed, Projection Wander, Singularity Fade, lens1.Twist Angle (rad), lens1.Twist Distribution, lens1.Axis Phi (rad), lens1.Axis Lambda (rad), lens1.Speed, lens1.Drift, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Frequency, Pattern Speed
 
 </td></tr></table>
 
@@ -635,8 +635,9 @@ The **Twist Lens** rotates around its animated axis with a fixed total winding:
 its default is 2π, one complete wind. **Twist Distribution** defaults to 0.85 and
 ranges from 0 to 1. Zero gives a linear height profile; increasing it redistributes
 spacing toward the poles while preserving the total winding and the endpoint
-rotations at ±half the Twist Angle. **Speed** and **Drift** animate the axis
-orientation independently. A small flash lookup table and polynomial evaluate
+rotations at ±half the Twist Angle. **Axis Phi (rad)** (0 to π) and **Axis
+Lambda (rad)** (-π to π) set the axis's polar and azimuth angles; **Speed** and
+**Drift** rotate the axis from there independently. A small flash lookup table and polynomial evaluate
 the profile without per-pixel logarithms or inverse hyperbolic functions.
 
 The shader is a *pullback*: it starts at a visible sphere point and walks backward through a chain of stages over four ranked carrier families — Sphere, Plane, Field, Color. A chain is any stage sequence that is non-decreasing in family rank with agreeing adjacent carriers, entering at `SphereSample` and exiting at `Color4`; each family boundary is crossed at most once. Both Shader preview and concrete effects call the same public kernels in `core/render/pullback.h`. Palette mapping is continuous preset state: a transition carries both mapping endpoints and interpolates their coordinates before the single palette sample, so changing Cup/Bell/Linear/Reverse does not require another pipeline or effect.
@@ -728,10 +729,11 @@ cannot follow a projection: that would move backward in carrier rank.
 | **Colorize** | Cycling-generated, generated, procedural, gradient, mutating | Field → Color; palette-source selection, family-gated palette controls, mapping, phase oscillation, brightness envelope and opacity |
 | **Modulation** | Pattern color modulation | Color → Color; ordered displacement, noise, sine, interference or grid layers affecting hue, lightness or opacity |
 
-Twist Lens exposes Twist Angle (rad), Twist Distribution, Speed and Drift. Its origin
-circles continuously in polar angle (phi) at Speed while its azimuth (lambda)
-circles at Drift, both in radians per frame. Zero holds the corresponding angle; both at zero hold the
-origin.
+Twist Lens exposes Twist Angle (rad), Twist Distribution, Axis Phi (rad), Axis
+Lambda (rad), Speed and Drift. Axis Phi and Axis Lambda place its origin; from
+there the polar angle (phi) circles continuously at Speed while the azimuth
+(lambda) circles at Drift, both in radians per frame. Zero holds the
+corresponding angle; both at zero hold the origin at the authored axis.
 
 Ripple emits bursts of one to four waves, staggered by 16 frames. Burst Rate
 sets how often a burst starts; zero stops new bursts after the initial burst.
