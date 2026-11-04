@@ -654,7 +654,7 @@ inline void test_authored_potential_nested_controls() {
   }
 }
 
-/** @brief Spherical source fixture with independently varied resource spelling.
+/** @brief Projected noise source fixture with independently varied resource spelling.
  * @tparam Key Source resource key.
  * @tparam Authored Whether to use authored node identities. */
 template <Pullback::ResourceKey Key, bool Authored>
@@ -663,9 +663,14 @@ struct SourceSeedSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = false;
   template <typename B>
   using Pipeline = Pullback::Pipeline<
-      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
-      Pullback::Stage::SampleSphere<Pullback::Source::SphericalNoise<
-          Pullback::SourceProvider<B, Pullback::SphericalNoiseSourceParams,
+      B,
+      Pullback::Stage::Rotate<
+          Pullback::OuterCameraProvider<B, Pullback::AtlasProjectionParams>>,
+      Pullback::Stage::Project<Pullback::AuthoredProjection<
+          Pullback::ProjectionKind::STEREOGRAPHIC,
+          Pullback::ProjectionProvider<B, Pullback::AtlasProjectionParams>>>,
+      Pullback::Stage::Sample<Pullback::Source::ProjectedNoise<
+          Pullback::SourceProvider<B, Pullback::ProjectedNoiseSourceParams,
                                    Key>,
           math::NoiseBasis::SIMPLEX>>,
       Pullback::Stage::Colorize<
@@ -748,13 +753,13 @@ struct ProjectionSeedProbe
 /** @brief Authored noise seeds depend on node identity while fixed seeds stay stable. */
 inline void test_authored_noise_seed_identity() {
   static_assert(
-      Pullback::instance_hash("authored_source", "sample.spherical-noise.v3") ==
-      0x15F42404u);
+      Pullback::instance_hash("authored_source", "sample.projected-noise.v2") ==
+      0xC4BCAA76u);
   static_assert(Pullback::instance_hash("authored_projection",
                                         "project.stereographic.v2") ==
                 0x2058155Cu);
-  verify_source_seed<"source", true>(0x15F42404u);
-  verify_source_seed<"noisy", true>(0x15F42404u);
+  verify_source_seed<"source", true>(0xC4BCAA76u);
+  verify_source_seed<"noisy", true>(0xC4BCAA76u);
   verify_source_seed<"source", false>(1337u);
   verify_source_seed<"noisy", false>(0x9C442C8Cu);
   hs_test::reset_globals();

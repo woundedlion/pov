@@ -293,65 +293,10 @@ template <typename Family, typename Model> void check_source() {
 /** @brief Every authored source selector matches the catalog's sampled value. */
 inline void test_authored_source_catalog_parity() {
   check_source<Pullback::RingsSourceParams, Op::SampleRings>();
-  check_source<Pullback::FractalSourceParams, Op::SampleFractal>();
   check_source<Pullback::Source::AuthoredTessellationSourceParams,
                Op::SampleTessellation>();
   check_source<Pullback::Source::AuthoredProjectedNoiseSourceParams,
                Op::SampleProjectedNoise>();
-  check_source<Pullback::Source::AuthoredSphericalNoiseSourceParams,
-               Op::SampleSphericalNoise>();
-}
-
-/** @brief Spherical bands retain their axis and phase across column samples. */
-inline void test_authored_spherical_ring_interval() {
-  using Fixture = StageFrame<Pullback::SphericalRingsSourceParams,
-                             Pullback::ResourceKind::SOURCE, "source">;
-  using Policy =
-      typename Pullback::SourcePolicyFor<Pullback::SphericalRingsSourceParams,
-                                         typename Fixture::Binding>::Type;
-  typename Fixture::Frame from{};
-  typename Fixture::Frame to{};
-  auto &start = from.resources.template get<"source">();
-  auto &end = to.resources.template get<"source">();
-  start.primary = 6.2f;
-  end.primary = 0.1f;
-  Op::SampleSphericalRings::State a{}, b{};
-  a.walk.wander = math::make_rotation(math::Y_AXIS, 0.3f);
-  b.walk.wander = math::make_rotation(math::Z_AXIS, 0.8f);
-  a.walk.spin_phase = 6.2f;
-  b.walk.spin_phase = 0.1f;
-  a.phase = start.primary;
-  b.phase = end.primary;
-  start.ring_wander = a.walk.wander;
-  end.ring_wander = b.walk.wander;
-  start.ring_spin = a.walk.spin_phase;
-  end.ring_spin = b.walk.spin_phase;
-  start.orientation =
-      math::make_rotation(math::X_AXIS, start.ring_spin) * start.ring_wander;
-  end.orientation =
-      math::make_rotation(math::X_AXIS, end.ring_spin) * end.ring_wander;
-  const auto oracle_interval = Op::temporal_interval(a, b);
-  Pullback::FrameInterval interval(from, to);
-  for (float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
-    const auto frame = interval.at(fraction);
-    const auto prepared = Policy::prepare(frame);
-    auto oracle = fraction <= 0.0f ? a : b;
-    const auto params = from.params.template get<"source">();
-    if (fraction > 0.0f && fraction < 1.0f)
-      Op::temporal_sample(oracle, oracle_interval, params, fraction);
-    const auto expected = Op::SampleSphericalRings::prepare({}, params, oracle);
-    HS_EXPECT_NEAR(prepared.axis.x, expected.axis.x, 1e-6f);
-    HS_EXPECT_NEAR(prepared.axis.y, expected.axis.y, 1e-6f);
-    HS_EXPECT_NEAR(prepared.axis.z, expected.axis.z, 1e-6f);
-    HS_EXPECT_NEAR(prepared.phase, expected.phase, 1e-6f);
-    const Pullback::SphereSample input{
-        math::Vector(0.2f, 0.7f, -0.3f).normalized(), 0.0f};
-    const float expected_value = Pattern::spherical_rings(
-        Pattern::SphereDirection::from_unit(input.dir),
-        from.params.template get<"source">(), expected);
-    HS_EXPECT_NEAR(Policy::sample(input, frame, prepared), expected_value,
-                   1e-6f);
-  }
 }
 
 /** @brief Runtime signal and coverage selectors preserve the crossing contract. */

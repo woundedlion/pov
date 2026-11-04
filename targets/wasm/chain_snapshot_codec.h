@@ -269,9 +269,6 @@ class ChainSnapshotCodec {
             out.set("oscillationPhase", state.oscillation_phase);
           } else if constexpr (std::is_same_v<State, ModulationClockSnapshot>) {
             out = modulation_clock(state.modulation);
-          } else if constexpr (std::is_same_v<State, SphericalRingsSnapshot>) {
-            out.set("walk", spatial(state.walk));
-            out.set("phase", state.phase);
           } else if constexpr (!std::is_same_v<State, std::monostate>)
             out.set("phase", state.phase);
           return out;
@@ -330,12 +327,6 @@ class ChainSnapshotCodec {
     } else if (kind == "modulation-clock-v1") {
       ModulationClockSnapshot state;
       if (!modulation_clock(value, state.modulation))
-        return false;
-      out = state;
-    } else if (kind == "spherical-rings-v2") {
-      SphericalRingsSnapshot state;
-      if (!spatial(value["walk"], state.walk) ||
-          !number(value, "phase", state.phase))
         return false;
       out = state;
     } else {

@@ -109,7 +109,7 @@ Build one canonical pattern library for both pullback rendering and modulation,
 not a second catalogue. Extract reusable signed kernels, passive parameter records,
 prepared math and source-specific phase math from
 [pullback sources](../../core/render/pullback/source.h): planar rings, spiral,
-interference, coupled grid, sphere rings, noise and other reusable raw kernels.
+interference, coupled grid, noise and other reusable raw kernels.
 Reuse lower-level lattice/SDF kernels where appropriate without relocating those
 subsystems. Keep genuinely different algorithms explicit: PlaneCoupledGrid and
 SphereSmoothGrid are different domain-specific sources, not duplicate names for
@@ -230,8 +230,8 @@ Each source declares bounded passive State, possibly empty, and pure initializat
 advance and prepare operations; stateless operations may be no-ops. SineState has
 one phase in turns. Existing multi-phase sources retain primary/secondary/angle
 state with their declared radian periods, noise retains its loop phase, and other
-inputs remain explicit. Preparation may take additional declared pure-value inputs,
-such as a renderer-supplied sphere-ring axis; it never takes renderer resources.
+inputs remain explicit. Preparation may take additional declared pure-value inputs;
+it never takes renderer resources.
 Camera, spatial walks, projection and provider machinery stay renderer-owned.
 
 The field adapter exposes prepare/sample, wrapping either direct evaluation or

@@ -214,28 +214,6 @@ struct LatticeSourceParams {
   float lattice_radius = 0.25f;     /**< Primitive radius in cell units. */
 };
 
-/** @brief Passive parameters for `SphereRings`. */
-struct SphericalRingsSourceParams {
-  float ring_count = 6.0f;      /**< Number of bands from pole to pole. */
-  float ring_thickness = 0.08f; /**< Band half-width, in radians. */
-  float ring_softness = 0.02f;  /**< Angular width of the antialiased edge. */
-  float speed = 0.0f;           /**< Per-frame advance of the band phase. */
-  float spin_rate = 0.0f;       /**< Per-frame rotation of the band axis. */
-  float wander = 0.0f;          /**< Fraction of the random walk applied. */
-};
-
-/** @brief Passive parameters for `PlaneEscapeFractal`. */
-struct FractalSourceParams {
-  float scale = 0.5f;      /**< Plane-coordinate scale before iteration. */
-  float iterations = 8.0f; /**< Escape iterations in [2,16]. */
-  float julia_mix = 0.0f;  /**< Blend from Mandelbrot at 0 to Julia at 1. */
-  float julia_re = -0.8f;  /**< Julia seed real component. */
-  float julia_im = 0.156f; /**< Julia seed imaginary component. */
-  float contours = 4.0f;   /**< Exterior contour cycles across the orbit. */
-  float speed = 0.0f;      /**< Per-frame rotation of the Julia seed. */
-  float angle_rate = 0.0f; /**< Per-frame rotation of the source plane. */
-};
-
 /** @brief Passive parameters for `PlaneTessellation`. */
 struct TessellationSourceParams {
   float cell_scale = 1.0f;      /**< Tessellation cells per plane unit. */

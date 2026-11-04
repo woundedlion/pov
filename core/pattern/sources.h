@@ -212,41 +212,6 @@ struct PreparedGrid : PreparedSource {
   bool stationary_uncoupled; ///< Identity rotation, zero phases and coupling.
 };
 
-/** @brief Frame-constant quadratic-fractal seed and iteration controls. */
-struct PreparedFractal : PreparedSource {
-  float seed_re;  ///< Julia seed, real part, rotated by `primary`.
-  float seed_im;  ///< Julia seed, imaginary part, rotated by `primary`.
-  float mix;      ///< Julia mix clamped to [0, 1].
-  int iterations; ///< Escape iterations clamped to [2, 16].
-};
-
-/**
- * @brief Resolves the fractal's frame-constant seed and iteration controls.
- * @tparam Params FractalSourceParams-shaped parameter block.
- * @tparam Prepared PreparedSource-shaped per-frame phases.
- * @param params Fractal parameters.
- * @param source This frame's phases; `primary` rotates the Julia seed.
- * @return @p source extended with the seed, mix and iteration count.
- */
-template <typename Params, typename Prepared>
-HS_FLASH_INLINE inline PreparedFractal prepare_fractal(const Params &params,
-                                                       const Prepared &source) {
-  const float seed_cos = math::fast_cosf(source.primary);
-  const float seed_sin = math::fast_sinf(source.primary);
-  return {{source.primary, source.secondary, source.angle, source.angle_cos,
-           source.angle_sin},
-          params.julia_re * seed_cos - params.julia_im * seed_sin,
-          params.julia_re * seed_sin + params.julia_im * seed_cos,
-          hs::clamp(params.julia_mix, 0.0f, 1.0f),
-          static_cast<int>(hs::clamp(params.iterations, 2.0f, 16.0f))};
-}
-
-/** @brief Per-frame axis and phase of the spherical ring source. */
-struct PreparedSphericalRings {
-  math::Vector axis; ///< Unit normal of the rings' equatorial plane.
-  float phase;       /**< Angular band offset, in radians. */
-};
-
 /** @brief Wraps this frame's source phases with the rotation's cosine pair.
     @param primary Primary phase.
     @param secondary Secondary phase.
@@ -287,34 +252,6 @@ HS_HOT_FLASH_MEMBER inline float rings(const PlanePosition &coordinate,
                                        const Prepared &prepared) {
   const auto &input = coordinate.value;
   return math::fast_sinf(input.magnitude() - prepared.primary);
-}
-
-/**
- * @brief Latitude bands about the prepared axis.
- * @tparam Params SphericalRingsSourceParams-shaped parameter block.
- * @param coordinate Unit direction.
- * @param params Band count, thickness and softness.
- * @param prepared Band axis and phase.
- * @return 1 inside a band, -1 outside, ramped across the edge.
- */
-template <typename Params>
-HS_HOT_FLASH_MEMBER inline float
-spherical_rings(const SphereDirection &coordinate, const Params &params,
-                const PreparedSphericalRings &prepared) {
-  const auto &input = coordinate.value();
-  const float axis_height =
-      hs::clamp(math::dot(input, prepared.axis), -1.0f, 1.0f);
-  const float latitude = math::fast_atan2(
-      axis_height, sqrtf(fmaxf(0.0f, 1.0f - axis_height * axis_height)));
-  const float count = fmaxf(params.ring_count, 1.0f);
-  const float cycle =
-      math::wrap_t((count * latitude - prepared.phase) / math::PI_F + 0.5f) -
-      0.5f;
-  const float distance = fabsf(cycle) * math::PI_F / count;
-  const float edge = ::math::smooth_ramp(
-      params.ring_thickness, params.ring_thickness + params.ring_softness,
-      distance);
-  return 1.0f - 2.0f * edge;
 }
 
 /**
@@ -405,45 +342,6 @@ primitive_lattice(const PlanePosition &coordinate, const Params &params) {
   if (params.lattice_shape_blend == 1.0f)
     return evaluate(1.0f);
   return evaluate(params.lattice_shape_blend);
-}
-
-/**
- * @brief Quadratic escape-time fractal, blended from Mandelbrot to Julia.
- * @tparam Params FractalSourceParams-shaped parameter block.
- * @tparam Prepared PreparedFractal-shaped per-frame state.
- * @param coordinate Plane coordinate.
- * @param params Scale and contour count.
- * @param prepared Rotation, seed, mix and iteration count.
- * @return Cosine contour of the escape orbit; 1 for points that never escape.
- */
-template <typename Params, typename Prepared>
-HS_HOT_FLASH_MEMBER inline float escape_fractal(const PlanePosition &coordinate,
-                                                const Params &params,
-                                                const Prepared &prepared) {
-  const auto &input = coordinate.value;
-  const float x = params.scale * (input.re * prepared.angle_cos +
-                                  input.im * prepared.angle_sin);
-  const float y = params.scale * (-input.re * prepared.angle_sin +
-                                  input.im * prepared.angle_cos);
-  float z_re = x * prepared.mix;
-  float z_im = y * prepared.mix;
-  const float c_re = hs::lerp(x, prepared.seed_re, prepared.mix);
-  const float c_im = hs::lerp(y, prepared.seed_im, prepared.mix);
-  const int iterations = prepared.iterations;
-  for (int iteration = 0; iteration < iterations; ++iteration) {
-    const float next_re = z_re * z_re - z_im * z_im + c_re;
-    z_im = 2.0f * z_re * z_im + c_im;
-    z_re = next_re;
-    const float magnitude_squared = z_re * z_re + z_im * z_im;
-    if (magnitude_squared > 4.0f) {
-      const float orbit =
-          (static_cast<float>(iteration) +
-           hs::clamp((magnitude_squared - 4.0f) / 12.0f, 0.0f, 1.0f)) /
-          static_cast<float>(iterations);
-      return math::fast_cosf(math::TWO_PI_F * params.contours * orbit);
-    }
-  }
-  return 1.0f;
 }
 
 /**
@@ -559,23 +457,10 @@ template <class Params> bool valid_source_params(const Params &params) {
         parameter_in_range(params.lattice_shape_blend, 0.0f, 1.0f) &&
         parameter_in_range(params.lattice_softness, 1.0f / 1024.0f, 1.0f) &&
         parameter_in_range(params.lattice_radius, 1.0f / 64.0f, 0.49f);
-  if constexpr (requires { params.julia_mix; })
-    valid &= parameter_in_range(params.scale, 1.0f / 64.0f, 8.0f) &&
-             parameter_in_range(params.iterations, 2.0f, 16.0f) &&
-             parameter_in_range(params.julia_mix, 0.0f, 1.0f) &&
-             parameter_in_range(params.julia_re, -1.5f, 1.5f) &&
-             parameter_in_range(params.julia_im, -1.5f, 1.5f) &&
-             parameter_in_range(params.contours, 0.0f, 16.0f);
   if constexpr (requires { params.cell_scale; })
     valid &= parameter_in_range(params.cell_scale, 1.0f / 64.0f, 8.0f) &&
              parameter_in_range(params.line_thickness, 1.0f / 1024.0f, 0.25f) &&
              parameter_in_range(params.line_softness, 1.0f / 1024.0f, 0.25f);
-  if constexpr (requires { params.ring_count; })
-    valid &= parameter_in_range(params.ring_count, 1.0f, 32.0f) &&
-             parameter_in_range(params.ring_thickness, 1.0f / 512.0f, 0.5f) &&
-             parameter_in_range(params.ring_softness, 1.0f / 1024.0f, 0.25f) &&
-             parameter_in_range(params.spin_rate, -0.05f, 0.05f) &&
-             parameter_in_range(params.wander, 0.0f, 1.0f);
   return valid;
 }
 
@@ -688,30 +573,6 @@ struct PlaneCoupledGrid : RadianSource<GridSourceParams> {
   }
 };
 
-/** @brief Pure quadratic escape-fractal policy. */
-struct PlaneEscapeFractal : RadianSource<FractalSourceParams> {
-  /** @brief Immutable controls and resolved fractal math. */
-  struct Prepared {
-    Params params;          ///< Owned fractal controls.
-    PreparedFractal phases; ///< Rotation, seed and iteration count.
-  };
-  /** @brief Prepares the fractal seed and iteration count.
-   * @param params Source controls.
-   * @param state Explicit source clocks.
-   * @return Immutable source inputs. */
-  static Prepared prepare(const Params &params, const State &state) {
-    const auto BASE = RadianSource<Params>::prepare(params, state);
-    return {params, prepare_fractal(params, BASE.phases)};
-  }
-  /** @brief Evaluates the canonical escape contour.
-   * @param coordinate Plane position.
-   * @param prepared Immutable source inputs.
-   * @return Signed field sample. */
-  static float sample(const Coordinate &coordinate, const Prepared &prepared) {
-    return escape_fractal(coordinate, prepared.params, prepared.phases);
-  }
-};
-
 /** @brief Pure periodic polygon edge policy.
  * @tparam Kind Cell tessellation. */
 template <TessellationKind Kind>
@@ -768,33 +629,6 @@ struct PlanePrimitiveLattice {
    * @return Signed primitive field. */
   static float sample(const Coordinate &coordinate, const Prepared &prepared) {
     return primitive_lattice(coordinate, prepared);
-  }
-};
-
-/** @brief Pure sphere-ring policy with a consumer-supplied axis. */
-struct SphereRings : RadianSource<SphericalRingsSourceParams> {
-  using Coordinate = SphereDirection; ///< Admitted unit sphere direction.
-  /** @brief Complete immutable ring controls, axis and phase. */
-  struct Prepared {
-    Params params;                ///< Owned ring controls.
-    PreparedSphericalRings rings; ///< Admitted axis and radian phase.
-  };
-  /** @brief Resolves the axis supplied by the consumer's spatial walk.
-   * @param params Source controls.
-   * @param state Explicit source clocks.
-   * @param axis Consumer-supplied band axis.
-   * @return Complete immutable ring inputs. */
-  static Prepared prepare(const Params &params, const State &state,
-                          const SphereDirection &axis) {
-    const auto BASE = RadianSource<Params>::prepare(params, state);
-    return {params, {axis.value(), BASE.phases.primary}};
-  }
-  /** @brief Evaluates the canonical latitude-band contour.
-   * @param coordinate Admitted direction.
-   * @param prepared Immutable ring inputs.
-   * @return Signed band field. */
-  static float sample(const Coordinate &coordinate, const Prepared &prepared) {
-    return spherical_rings(coordinate, prepared.params, prepared.rings);
   }
 };
 

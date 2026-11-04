@@ -696,11 +696,8 @@ expressed by that ordering. Camera motion is available on a selected rotation
 operator; projection-frame spin and wander belong to the selected projection.
 There is no universal camera parameter or pair of warp slots.
 
-A sphere source crosses directly from Sphere to Field, omitting projection and
-planar warps. For example, `sample.spherical-noise.v3` followed by
-`colorize.generated-palette.v4` is a complete chain. A planar source consumes
-Plane, so it follows a projection and any selected planar warps. Sphere sources
-cannot follow a projection: that would move backward in carrier rank.
+A planar source consumes Plane, so it follows a projection and any selected
+planar warps.
 
 | Operator family | Options | Input → output and controls |
 |---|---|---|
@@ -709,8 +706,7 @@ cannot follow a projection: that would move backward in carrier rank.
 | **Lens** | Glitch, Twist, Mobius, Kaleidoscope | Sphere → Sphere; lens-specific controls; kaleidoscope selects azimuthal, polyhedral or prism symmetry |
 | **Projection** | Folded Sinusoidal, Stereographic, Gnomonic, Bonne, Peirce Quincuncial, Fast Square Peirce, Dymaxion / Airocean, Equirectangular, Tetrahedral / Cubic / Octahedral / Dodecahedral / Icosahedral Atlas | Sphere → Plane; coordinates, projection provenance, weight and available edge distance; instance-specific frame/layout controls |
 | **Planar warp** | Affine Frame, Wave Shear, Vortex, Vector Noise, Curl Flow, Mirror Tile, Polar Chart | Plane → Plane; independent parameters and clocks for each ordered instance |
-| **Planar source** | Twin Wave, Rings, Spiral, Grid, Projected Noise, Primitive Lattice, Escape Fractal, Tessellation | Plane → Field; source parameters, signal weighting and coverage choices |
-| **Sphere source** | Spherical Noise, Spherical Rings | Sphere → Field; source-specific controls; no projection or planar warp |
+| **Planar source** | Twin Wave, Rings, Spiral, Grid, Projected Noise, Primitive Lattice, Tessellation | Plane → Field; source parameters, signal weighting and coverage choices |
 | **Value transfer** | Ridge, Iso Contour, Smooth Bands | Field → Field; reshapes the normalized value; iso and band controls belong to their operator |
 | **Coverage** | Value Cutout | Field → Field; cutout threshold and softness; projection-based coverage belongs to planar sources |
 | **Colorize** | Cycling-generated, generated, procedural, gradient, mutating | Field → Color; palette-source selection, family-gated palette controls, mapping, phase oscillation, brightness envelope and opacity |

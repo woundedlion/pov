@@ -241,27 +241,27 @@ test('every catalog operator retains all scalar values and topology selections',
     }
     ++operators;
   }
-  assert.equal(operators, 48);
+  assert.equal(operators, 45);
   assert.ok(selectors > 100);
 });
 
 test('operator bindings preserve authored resource keys and native member names', () => {
   const authored = { descriptor: { chain: [
-    { label: 'fractal', operator: 'sample.fractal.v2' },
+    { label: 'lattice', operator: 'sample.lattice.v2' },
     { label: 'map', operator: 'project.cubic.v1' },
     { label: 'flow', operator: 'sphere.displace.potential.v1', resource_key: 'velocity' },
     { label: 'slide', operator: 'warp.affine.v3', resource_key: 'plane' },
   ] } };
   assert.deepEqual([...presetAssignments(authored, {
-    'fractal.fractal-scale': 2, 'fractal.fractal-iterations': 8,
-    'fractal.julia-real': 0.5, 'fractal.julia-imaginary': -0.25,
-    'fractal.fractal-contours': 3, 'map.coordinate-scale': 4,
+    'lattice.lattice-cell-scale': 2, 'lattice.lattice-shape': 0.5,
+    'lattice.lattice-softness': 0.25, 'lattice.lattice-radius': 0.125,
+    'map.coordinate-scale': 4,
     'flow.term-3-amplitude': 0.75, 'flow.term-3-phase': 0.125,
     'slide.lattice-period': 1.5,
   })], [
-    ['source.scale', '2.0f'], ['source.iterations', '8.0f'],
-    ['source.julia_re', '0.5f'], ['source.julia_im', '-0.25f'],
-    ['source.contours', '3.0f'], ['projection.coordinate_scale', '4.0f'],
+    ['source.lattice_cell_scale', '2.0f'], ['source.lattice_shape_blend', '0.5f'],
+    ['source.lattice_softness', '0.25f'], ['source.lattice_radius', '0.125f'],
+    ['projection.coordinate_scale', '4.0f'],
     ['velocity.terms[2].amplitude', '0.75f'], ['velocity.terms[2].phase', '0.125f'],
     ['plane.lattice_period', '1.5f'],
   ]);

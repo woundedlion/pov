@@ -210,17 +210,6 @@ public:
             static_cast<int32_t>(SEED));
       }
       if constexpr (std::is_same_v<typename Resource::Family,
-                                   SphericalRingsSourceParams>) {
-        constexpr auto INSTANCE =
-            AUTHORED_TOPOLOGY ? authored_instance_label(Resource::KEY.view())
-                              : Resource::KEY.view();
-        constexpr uint32_t SEED =
-            instance_hash(INSTANCE, "sample.spherical-rings.v3");
-        SphereAnimation::init_walk(
-            clocks.template get<Resource::KEY>().source_walk,
-            static_cast<int32_t>(SEED));
-      }
-      if constexpr (std::is_same_v<typename Resource::Family,
                                    SphereAnimation::BurstRippleParams>) {
         constexpr auto INSTANCE =
             AUTHORED_TOPOLOGY ? authored_instance_label(Resource::KEY.view())
@@ -1136,16 +1125,6 @@ private:
       } else if constexpr (Resource::KIND == ResourceKind::SOURCE) {
         Pattern::advance_clocks(family, clock.primary, clock.secondary,
                                 clock.angle);
-        if constexpr (std::is_same_v<typename Resource::Family,
-                                     SphericalRingsSourceParams>) {
-          SphereAnimation::advance_walk(clock.source_walk, family.wander,
-                                        family.spin_rate);
-          clock.ring_wander = clock.source_walk.wander;
-          clock.ring_spin = clock.source_walk.spin_phase;
-          clock.orientation =
-              math::make_rotation(math::X_AXIS, clock.ring_spin) *
-              clock.ring_wander;
-        }
         if constexpr (requires { family.noise_time_rate; })
           clock.noise_time =
               Pattern::advance_noise_phase(clock.noise_time, family);

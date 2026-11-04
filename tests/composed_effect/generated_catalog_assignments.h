@@ -650,17 +650,6 @@ inline void catalog_assignments_sample_rings_v2() {
   (void)params;
 }
 
-inline void catalog_assignments_sample_spherical_rings_v3() {
-  Pullback::Source::SphericalRingsSourceParams params;
-  params.ring_count = 6.0f;
-  params.ring_thickness = 0.08f;
-  params.ring_softness = 0.02f;
-  params.speed = 0.0f;
-  params.spin_rate = 0.0f;
-  params.wander = 0.0f;
-  (void)params;
-}
-
 inline void catalog_assignments_sample_spiral_v2() {
   Pullback::Source::AuthoredSpiralSampleParams params;
   params.pattern_freq = 1.0f;
@@ -685,29 +674,6 @@ inline void catalog_assignments_sample_lattice_v2() {
   params.lattice_shape_blend = 0.0f;
   params.lattice_softness = 0.05f;
   params.lattice_radius = 0.25f;
-  params.edge_width = 0.1f;
-  params.weight_mode = 1;
-  params.coverage_mode = 1;
-  params.weight_mode = 0;
-  params.weight_mode = 1;
-  params.coverage_mode = 0;
-  params.coverage_mode = 1;
-  params.coverage_mode = 2;
-  params.coverage_mode = 3;
-  params.coverage_mode = 4;
-  (void)params;
-}
-
-inline void catalog_assignments_sample_fractal_v2() {
-  Pullback::Source::AuthoredFractalSampleParams params;
-  params.scale = 0.5f;
-  params.iterations = 8.0f;
-  params.julia_mix = 0.0f;
-  params.julia_re = -0.8f;
-  params.julia_im = 0.156f;
-  params.contours = 4.0f;
-  params.speed = 0.0f;
-  params.angle_rate = 0.0f;
   params.edge_width = 0.1f;
   params.weight_mode = 1;
   params.coverage_mode = 1;
@@ -760,18 +726,6 @@ inline void catalog_assignments_sample_projected_noise_v2() {
   params.coverage_mode = 2;
   params.coverage_mode = 3;
   params.coverage_mode = 4;
-  params.basis = 0;
-  params.basis = 1;
-  params.basis = 2;
-  (void)params;
-}
-
-inline void catalog_assignments_sample_spherical_noise_v3() {
-  Pullback::Source::AuthoredSphericalNoiseSourceParams params;
-  params.noise_scale = 1.0f;
-  params.noise_contrast = 0.0f;
-  params.noise_time_rate = 0.0f;
-  params.basis = 0;
   params.basis = 0;
   params.basis = 1;
   params.basis = 2;

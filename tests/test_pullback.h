@@ -1222,30 +1222,6 @@ inline void test_pullback_concrete_catalog() {
                      Pattern::PlanePosition{math::Complex(0.2f, 0.1f)}, params),
                  0.38671f, 2e-3f);
 
-  const Pullback::Source::SphericalRingsSourceParams ring_params;
-  const Pattern::PreparedSphericalRings ring_frame{math::Y_AXIS, 0.0f};
-  HS_EXPECT_EQ(
-      Pattern::spherical_rings(Pattern::SphereDirection::from(math::X_AXIS),
-                               ring_params, ring_frame),
-      1.0f);
-  const math::Vector between_rings(0.9659258f, 0.2588190f, 0.0f);
-  HS_EXPECT_EQ(
-      Pattern::spherical_rings(Pattern::SphereDirection::from(between_rings),
-                               ring_params, ring_frame),
-      -1.0f);
-
-  const Pullback::Source::FractalSourceParams fractal_params;
-  const auto fractal_frame = Pattern::prepare_fractal(fractal_params, prepared);
-  HS_EXPECT_EQ(Pattern::escape_fractal(Pattern::PlanePosition{origin},
-                                       fractal_params, fractal_frame),
-               1.0f);
-  // c = 0.6 escapes at loop index 3 of 8 (orbit 0.4219), i.e. 1.6875 cycles
-  // at the default 4 contours.
-  HS_EXPECT_NEAR(
-      Pattern::escape_fractal(Pattern::PlanePosition{math::Complex(1.2f, 0.0f)},
-                              fractal_params, fractal_frame),
-      -0.38298f, 5e-3f);
-
   const Pullback::Source::TessellationSourceParams tessellation_params;
   HS_EXPECT_EQ(
       Pattern::tessellation(Pattern::PlanePosition{math::Complex(0.5f, 0.0f)},

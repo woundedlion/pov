@@ -578,20 +578,14 @@ template <int W, int H>
 using NoHueProbe = NoiseSourceProbe<W, H, Pullback::ProjectedNoiseSourceParams>;
 
 /**
- * @brief Both noise source families reach the derivation path.
- * @details Each source family implies its noise field; the plane-domain
- * and sphere-domain contours light the
- * frame and differ from each other on the same seed and parameters.
+ * @brief The noise source family reaches the derivation path.
+ * @details The source family implies its noise field and lights the frame.
  */
-inline void test_composed_noise_sources() {
+inline void test_composed_noise_source() {
   using Projected =
       NoiseSourceProbe<SMALL_W, SMALL_H, Pullback::ProjectedNoiseSourceParams>;
-  using Spherical =
-      NoiseSourceProbe<SMALL_W, SMALL_H, Pullback::SphericalNoiseSourceParams>;
   static_assert(Projected::HAS_SOURCE_NOISE);
-  static_assert(Spherical::HAS_SOURCE_NOISE);
 
-  std::array<Pixel, SMALL_W * SMALL_H> projected{};
   size_t lit = 0;
   {
     reset_effect_globals();
@@ -603,29 +597,10 @@ inline void test_composed_noise_sources() {
                    nullptr);
     effect.draw_frame();
     effect.advance_display();
-    for (int i = 0; i < SMALL_W * SMALL_H; ++i) {
-      projected[i] = effect.display_buffer()[i];
-      lit += !is_black(projected[i]);
-    }
+    for (int i = 0; i < SMALL_W * SMALL_H; ++i)
+      lit += !is_black(effect.display_buffer()[i]);
   }
   HS_EXPECT_GT(lit, size_t(0));
-
-  size_t spherical_lit = 0;
-  size_t differing = 0;
-  {
-    reset_effect_globals();
-    Spherical effect;
-    effect.init();
-    effect.draw_frame();
-    effect.advance_display();
-    for (int i = 0; i < SMALL_W * SMALL_H; ++i) {
-      const Pixel &pixel = effect.display_buffer()[i];
-      spherical_lit += !is_black(pixel);
-      differing += pixel != projected[i];
-    }
-  }
-  HS_EXPECT_GT(spherical_lit, size_t(0));
-  HS_EXPECT_GT(differing, size_t(0));
 }
 /** @brief Parameter set of the ChoreographedEffect probes: one animated float. */
 struct ChoreoProbeParams {

@@ -579,9 +579,6 @@ struct PolicyResources<Warp::CurlFlow<Provider, Basis, Integrator, Envelope>>
 template <typename Provider, math::NoiseBasis Basis>
 struct PolicyResources<Source::ProjectedNoise<Provider, Basis>>
     : PolicyResources<Provider> {};
-template <typename Provider, math::NoiseBasis Basis>
-struct PolicyResources<Source::SphericalNoise<Provider, Basis>>
-    : PolicyResources<Provider> {};
 template <typename Provider, typename Mode, uint8_t Harmonic>
 struct PolicyResources<Warp::PolarChart<Provider, Mode, Harmonic>>
     : PolicyResources<Provider> {};

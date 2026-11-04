@@ -18,20 +18,10 @@ concept DerivableSource = requires {
 
 // Derivation-side half of the reach table.
 static_assert(DerivableSource<Pullback::GridSourceParams>);
-// The shared noise field group is not itself a family: it carries the fields
-// for both noise sources, so it names no single policy.
+// The shared noise field group is not itself a family, so it names no single
+// policy.
 static_assert(!DerivableSource<Pullback::Source::NoiseSourceParams>);
 static_assert(DerivableSource<Pullback::ProjectedNoiseSourceParams>);
-static_assert(DerivableSource<Pullback::SphericalNoiseSourceParams>);
-static_assert(DerivableSource<Pullback::Source::SphericalRingsSourceParams>);
-static_assert(
-    std::is_same_v<
-        typename Pullback::SourcePolicyFor<Pullback::SphericalNoiseSourceParams,
-                                           ReachBinding>::Type,
-        Pullback::Source::SphericalNoise<
-            Pullback::SourceProvider<ReachBinding,
-                                     Pullback::SphericalNoiseSourceParams>,
-            math::NoiseBasis::SIMPLEX>>);
 static_assert(
     std::is_same_v<
         typename Pullback::SourcePolicyFor<Pullback::ProjectedNoiseSourceParams,
@@ -83,8 +73,6 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"project.dodecahedral.v1", nullptr, {}},
     {"project.icosahedral.v1", nullptr, {}},
     {"sample.rings.v2", nullptr, {}},
-    {"sample.spherical-rings.v3", nullptr, {}},
-    {"sample.fractal.v2", nullptr, {}},
     {"sample.tessellation.v2", nullptr, {}},
     {"warp.curl-flow.v2", nullptr, {}},
     {"warp.affine-periodic.v1", nullptr, {}},
@@ -135,7 +123,6 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sample.projected-noise.v2", "weight-mode", {}},
     {"sample.projected-noise.v2", "coverage-mode", {}},
     {"sample.projected-noise.v2", "basis", {}},
-    {"sample.spherical-noise.v3", "basis", {}},
     {"sample.lattice.v2", "weight-mode", {{"projection"}}},
     {"sample.lattice.v2",
      "coverage-mode",
@@ -266,8 +253,8 @@ inline void test_composed_derivation_reach() {
     }
   }
 
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 48u);
-  HS_EXPECT_EQ(unreachable_operators, 17u);
-  HS_EXPECT_EQ(catalog_values, 385u);
-  HS_EXPECT_EQ(unreachable_values, 318u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 45u);
+  HS_EXPECT_EQ(unreachable_operators, 15u);
+  HS_EXPECT_EQ(catalog_values, 375u);
+  HS_EXPECT_EQ(unreachable_values, 308u);
 }

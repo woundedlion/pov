@@ -517,8 +517,8 @@ inline void test_shader_chain_schema_and_field_ids() {
   // and the weight/coverage topology pair; only projected-noise adds a basis.
   for (const char *id :
        {"sample.grid.v3", "sample.twin-wave.v3", "sample.rings.v2",
-        "sample.spiral.v2", "sample.lattice.v2", "sample.fractal.v2",
-        "sample.tessellation.v2", "sample.projected-noise.v2"}) {
+        "sample.spiral.v2", "sample.lattice.v2", "sample.tessellation.v2",
+        "sample.projected-noise.v2"}) {
     const auto *crossing_found = require_operator(id);
     if (!crossing_found)
       return;
@@ -552,23 +552,6 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_TRUE(projected_basis != nullptr);
   if (projected_basis != nullptr)
     HS_EXPECT_EQ(projected_basis->enum_count, 3);
-
-  for (const char *id :
-       {"sample.spherical-rings.v3", "sample.spherical-noise.v3"}) {
-    const auto *crossing_found = require_operator(id);
-    if (!crossing_found)
-      return;
-    const In::OperatorDescriptor &crossing = *crossing_found;
-    HS_EXPECT_EQ(static_cast<int>(crossing.input),
-                 static_cast<int>(In::CarrierId::SPHERE));
-    HS_EXPECT_EQ(static_cast<int>(crossing.output),
-                 static_cast<int>(In::CarrierId::FIELD));
-    for (uint16_t field = 0; field < crossing.schema_count; ++field) {
-      const std::string_view field_id{crossing.schema[field].id};
-      HS_EXPECT_FALSE(field_id == "edge-width" || field_id == "weight-mode" ||
-                      field_id == "coverage-mode");
-    }
-  }
 
   // Projection batch: the meridian-consuming projections extend the shared
   // family with central-meridian; stereographic, gnomonic, and the fast square
@@ -732,8 +715,6 @@ inline void test_shader_chain_catalog_shape() {
   HS_EXPECT_TRUE(contains("\"id\":\"project.stereographic.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"warp.vortex.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"sample.grid.v3\""));
-  HS_EXPECT_TRUE(contains("\"id\":\"sample.spherical-rings.v3\""));
-  HS_EXPECT_TRUE(contains("\"id\":\"sample.fractal.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"sample.tessellation.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"colorize.generated-palette.v4\""));
   HS_EXPECT_TRUE(contains("\"id\":\"weight-mode\",\"topology\":true,"

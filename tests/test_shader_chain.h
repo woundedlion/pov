@@ -675,11 +675,6 @@ inline void test_shader_chain_snapshot_refusals() {
       affine_state, In::AffineClockSnapshot{1.0f, 0.0f}));
   HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::AffineClockState>::restore(
       affine_state, In::AffineClockSnapshot{0.0f, 7.0f}));
-  In::Op::SphericalRingsState rings_state;
-  const auto walk =
-      std::get<In::SpatialWalkSnapshot>((*saved.runtime)[0].state);
-  HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::SphericalRingsState>::restore(
-      rings_state, In::SphericalRingsSnapshot{walk, 7.0f}));
   candidate = saved;
   candidate.runtime.reset();
   candidate.palette_bank.reset();
@@ -804,16 +799,13 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_parity_sample_variants);
   HS_RUN(test_shader_chain_parity_sample_twin_wave);
   HS_RUN(test_shader_chain_parity_sample_rings);
-  HS_RUN(test_shader_chain_parity_sample_spherical_rings);
   HS_RUN(test_shader_chain_parity_sample_spiral);
   HS_RUN(test_shader_chain_parity_sample_lattice);
-  HS_RUN(test_shader_chain_parity_sample_fractal);
   HS_RUN(test_shader_chain_parity_sample_tessellation);
   HS_RUN(test_shader_chain_large_finite_path_length);
   HS_RUN(test_shader_chain_composed_noise_domain);
   HS_RUN(test_shader_chain_noise_operator_domain);
   HS_RUN(test_shader_chain_parity_sample_projected_noise);
-  HS_RUN(test_shader_chain_parity_sample_spherical_noise);
   HS_RUN(test_shader_chain_parity_colorize_variants);
   HS_RUN(test_shader_chain_palette_selection);
   HS_RUN(test_shader_chain_authored_palette_history);

@@ -261,18 +261,6 @@ public:
             Spacetime::ClockInterval::apply(start.angle, delta.angle, fraction);
         clock.noise_time = Spacetime::ClockInterval::apply(
             start.noise_time, delta.noise_time, fraction);
-        if constexpr (std::is_same_v<typename Resource::Family,
-                                     Source::SphericalRingsSourceParams>) {
-          const auto &end = to.resources.template get<Resource::KEY>();
-          clock.ring_wander =
-              Spacetime::TemporalRotation(start.ring_wander, end.ring_wander)
-                  .sample(fraction);
-          clock.ring_spin = Spacetime::sample_clock(
-              start.ring_spin, end.ring_spin, fraction, math::TWO_PI_F);
-          clock.orientation =
-              math::make_rotation(math::X_AXIS, clock.ring_spin) *
-              clock.ring_wander;
-        }
       } else if constexpr (Resource::KIND == ResourceKind::WARP) {
         clock.phase =
             Spacetime::ClockInterval::apply(start.phase, delta.phase, fraction);

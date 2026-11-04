@@ -10,15 +10,10 @@ struct SampleMirrorFrame {
   const FastNoiseLite *noise = nullptr;
   In::Op::TwinWaveSampleParams twin_wave;
   In::Op::RingsSampleParams rings;
-  In::Op::SphericalRingsSampleParams spherical_rings;
   In::Op::SpiralSampleParams spiral;
   In::Op::LatticeSampleParams lattice;
-  In::Op::FractalSampleParams fractal;
   In::Op::TessellationSampleParams tessellation;
   In::Op::ProjectedNoiseSampleParams projected;
-  In::Op::SphericalNoiseSampleParams spherical;
-  math::Vector ring_axis = math::Y_AXIS;
-  float ring_phase = 0.0f;
   float primary = 0.0f;
   float secondary = 0.0f;
   float angle = 0.0f;
@@ -53,19 +48,6 @@ struct RingsSampleMirror : ClockedSampleMirror {
   }
 };
 
-struct SphericalRingsSampleMirror {
-  using Binding = SampleMirrorBinding;
-  using FrameState = SampleMirrorFrame;
-  static const In::Op::SphericalRingsSampleParams &
-  params(const SampleMirrorFrame &frame) {
-    return frame.spherical_rings;
-  }
-  static Pattern::PreparedSphericalRings
-  prepare(const SampleMirrorFrame &frame) {
-    return {frame.ring_axis, frame.ring_phase};
-  }
-};
-
 struct SpiralSampleMirror : ClockedSampleMirror {
   static const In::Op::SpiralSampleParams &
   params(const SampleMirrorFrame &frame) {
@@ -79,13 +61,6 @@ struct LatticeSampleMirror {
   static const In::Op::LatticeSampleParams &
   params(const SampleMirrorFrame &frame) {
     return frame.lattice;
-  }
-};
-
-struct FractalSampleMirror : ClockedSampleMirror {
-  static const In::Op::FractalSampleParams &
-  params(const SampleMirrorFrame &frame) {
-    return frame.fractal;
   }
 };
 
@@ -110,23 +85,6 @@ struct ProjectedNoiseSampleMirror {
   }
   static float noise_contrast(const SampleMirrorFrame &frame) {
     return frame.projected.noise_contrast;
-  }
-};
-
-struct SphericalNoiseSampleMirror {
-  using Binding = SampleMirrorBinding;
-  using FrameState = SampleMirrorFrame;
-  static const FastNoiseLite &noise(const SampleMirrorFrame &frame) {
-    return *frame.noise;
-  }
-  static float noise_scale(const SampleMirrorFrame &frame) {
-    return frame.spherical.noise_scale;
-  }
-  static float noise_time(const SampleMirrorFrame &frame) {
-    return frame.noise_time;
-  }
-  static float noise_contrast(const SampleMirrorFrame &frame) {
-    return frame.spherical.noise_contrast;
   }
 };
 
@@ -155,52 +113,23 @@ inline bool arm_sample_op_chain(In::ChainProgram &program, const char *op_id,
                                                              frames, set);
 }
 
-template <typename OpParams>
-inline bool arm_spherical_sample_op_chain(In::ChainProgram &program,
-                                          const char *op_id, int frames,
-                                          ValueSet set) {
-  const In::ChainEntryRequest chain[] = {
-      {"camera", "sphere.rotate.v2"},
-      {"source", op_id},
-      {"colorize", "colorize.generated-palette.v4"},
-  };
-  return arm_chain<In::Op::RotateChainParams, OpParams,
-                   In::Op::GeneratedPaletteParams>(program, chain, frames, set);
-}
-
 inline SampleMirrorFrame sample_mirror(In::ChainProgram &program,
                                        size_t source_index = 2) {
   SampleMirrorFrame mirror;
   const In::OperatorDescriptor &op = *program.ops()[source_index].op;
   const std::string_view id{op.operator_id};
-  if (id == In::Op::SampleProjectedNoise::ID ||
-      id == In::Op::SampleSphericalNoise::ID) {
+  if (id == In::Op::SampleProjectedNoise::ID) {
     const auto &state =
         state_as<In::Op::NoisePhaseState>(program, source_index);
     mirror.noise = &state.noise;
     mirror.noise_time = state.phase;
-    if (id == In::Op::SampleProjectedNoise::ID) {
-      mirror.projected =
-          param_as<In::Op::ProjectedNoiseSampleParams>(program, source_index);
-      mirror.edge_width = mirror.projected.edge_width;
-    } else {
-      mirror.spherical =
-          param_as<In::Op::SphericalNoiseSampleParams>(program, source_index);
-    }
+    mirror.projected =
+        param_as<In::Op::ProjectedNoiseSampleParams>(program, source_index);
+    mirror.edge_width = mirror.projected.edge_width;
   } else if (id == In::Op::SampleLattice::ID) {
     mirror.lattice =
         param_as<In::Op::LatticeSampleParams>(program, source_index);
     mirror.edge_width = mirror.lattice.edge_width;
-  } else if (id == In::Op::SampleSphericalRings::ID) {
-    const auto &state =
-        state_as<In::Op::SphericalRingsState>(program, source_index);
-    mirror.spherical_rings =
-        param_as<In::Op::SphericalRingsSampleParams>(program, source_index);
-    const math::Quaternion orientation =
-        math::make_rotation(math::X_AXIS, state.walk.spin_phase) *
-        state.walk.wander;
-    mirror.ring_axis = math::rotate(math::Y_AXIS, orientation);
-    mirror.ring_phase = state.phase;
   } else {
     const auto &state =
         state_as<In::Op::SourceClockState>(program, source_index);
@@ -218,10 +147,6 @@ inline SampleMirrorFrame sample_mirror(In::ChainProgram &program,
       mirror.spiral =
           param_as<In::Op::SpiralSampleParams>(program, source_index);
       mirror.edge_width = mirror.spiral.edge_width;
-    } else if (id == In::Op::SampleFractal::ID) {
-      mirror.fractal =
-          param_as<In::Op::FractalSampleParams>(program, source_index);
-      mirror.edge_width = mirror.fractal.edge_width;
     } else if (id == In::Op::SampleTessellation::ID) {
       mirror.tessellation =
           param_as<In::Op::TessellationSampleParams>(program, source_index);
@@ -229,21 +154,6 @@ inline SampleMirrorFrame sample_mirror(In::ChainProgram &program,
     }
   }
   return mirror;
-}
-
-template <typename SourceP>
-inline void expect_spherical_sample_op_parity(In::ChainProgram &program,
-                                              const In::FrameContext &ctx) {
-  using BoundStage = typename PB::Stage::SampleSphere<SourceP>::template Bind<
-      SampleMirrorBinding>;
-  program.prepare(ctx);
-  expect_op_parity<BoundStage>(
-      program, ctx, 1, sample_mirror(program, 1),
-      [&](const math::Vector &view) {
-        return run_entry<PB::SphereSample>(program, ctx, 0,
-                                           PB::SphereSample{view, 0.0f});
-      },
-      field_identical);
 }
 
 /** Erased-vs-bound parity of the sample crossing at entry 2. */
@@ -354,17 +264,6 @@ inline void test_shader_chain_parity_sample_rings() {
   });
 }
 
-inline void test_shader_chain_parity_sample_spherical_rings() {
-  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    if (!arm_spherical_sample_op_chain<In::Op::SphericalRingsSampleParams>(
-            program, In::Op::SampleSphericalRings::ID, 4, set))
-      return;
-    const In::FrameContext ctx = shared_resources().context();
-    expect_spherical_sample_op_parity<
-        PB::Source::SphericalRings<SphericalRingsSampleMirror>>(program, ctx);
-  });
-}
-
 inline void test_shader_chain_parity_sample_spiral() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     if (!arm_sample_op_chain<In::Op::SpiralSampleParams>(
@@ -382,17 +281,6 @@ inline void test_shader_chain_parity_sample_lattice() {
       return;
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::PrimitiveLattice<LatticeSampleMirror>>(
-        program, ctx);
-  });
-}
-
-inline void test_shader_chain_parity_sample_fractal() {
-  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    if (!arm_sample_op_chain<In::Op::FractalSampleParams>(
-            program, In::Op::SampleFractal::ID, 4, set))
-      return;
-    const In::FrameContext ctx = shared_resources().context();
-    run_sample_op_matrix<PB::Source::EscapeFractal<FractalSampleMirror>>(
         program, ctx);
   });
 }
@@ -624,24 +512,6 @@ inline void test_shader_chain_parity_sample_projected_noise() {
     run_sample_op_matrix<PB::Source::ProjectedNoise<ProjectedNoiseSampleMirror,
                                                     math::NoiseBasis::RIDGED3>>(
         program, ctx);
-  });
-}
-
-inline void test_shader_chain_parity_sample_spherical_noise() {
-  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    if (!arm_spherical_sample_op_chain<In::Op::SphericalNoiseSampleParams>(
-            program, In::Op::SampleSphericalNoise::ID, 4, set))
-      return;
-    const In::FrameContext ctx = shared_resources().context();
-    expect_spherical_sample_op_parity<PB::Source::SphericalNoise<
-        SphericalNoiseSampleMirror, math::NoiseBasis::SIMPLEX>>(program, ctx);
-    auto &params = param_as<In::Op::SphericalNoiseSampleParams>(program, 1);
-    params.basis = static_cast<uint8_t>(math::NoiseBasis::FBM3);
-    expect_spherical_sample_op_parity<PB::Source::SphericalNoise<
-        SphericalNoiseSampleMirror, math::NoiseBasis::FBM3>>(program, ctx);
-    params.basis = static_cast<uint8_t>(math::NoiseBasis::RIDGED3);
-    expect_spherical_sample_op_parity<PB::Source::SphericalNoise<
-        SphericalNoiseSampleMirror, math::NoiseBasis::RIDGED3>>(program, ctx);
   });
 }
 

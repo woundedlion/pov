@@ -537,30 +537,6 @@ inline void test_shader_chain_operator_state_migration() {
   HS_EXPECT_EQ(state_as<In::Op::NoisePhaseState>(program, 5)
                    .noise.GetNoise(0.3f, 0.7f, 1.2f),
                sample);
-  const In::ChainEntryRequest rings[] = {
-      {"rings", "sample.spherical-rings.v3"},
-      {"colorize", "colorize.generated-palette.v4"}};
-  const auto rings_status = program.compile(rings).code;
-  HS_EXPECT_EQ(static_cast<int>(rings_status),
-               static_cast<int>(In::ChainStatus::OK));
-  if (rings_status != In::ChainStatus::OK)
-    return;
-  auto &ring = const_cast<In::Op::SphericalRingsState &>(
-      state_as<In::Op::SphericalRingsState>(program, 0));
-  ring.phase = 0.41f;
-  ring.walk.spin_phase = 0.83f;
-  ring.walk.walk_time = 167;
-  const In::ChainEntryRequest edited_rings[] = {
-      {"camera", "sphere.rotate.v2"}, rings[0], rings[1]};
-  const auto final_status = program.compile(edited_rings).code;
-  HS_EXPECT_EQ(static_cast<int>(final_status),
-               static_cast<int>(In::ChainStatus::OK));
-  if (final_status != In::ChainStatus::OK)
-    return;
-  const auto &after = state_as<In::Op::SphericalRingsState>(program, 1);
-  HS_EXPECT_EQ(after.phase, 0.41f);
-  HS_EXPECT_EQ(after.walk.spin_phase, 0.83f);
-  HS_EXPECT_EQ(after.walk.walk_time, uint32_t{167});
 }
 
 inline void test_shader_chain_determinism() {

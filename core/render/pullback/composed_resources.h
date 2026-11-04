@@ -289,14 +289,6 @@ struct SourceClocks {
 /** @brief Source pattern clocks. @tparam Family Source control family. */
 template <typename Family>
 struct ClockState<Family, ResourceKind::SOURCE> : SourceClocks {};
-/** @brief Spherical-ring phases and sampled band orientation. */
-template <>
-struct ClockState<Source::SphericalRingsSourceParams, ResourceKind::SOURCE>
-    : SourceClocks {
-  math::Quaternion orientation; ///< Band-axis orientation.
-  math::Quaternion ring_wander; ///< Accumulated axis walk.
-  float ring_spin = 0.0f;       ///< Axis spin about X, radians modulo two pi.
-};
 /** @brief Factorized orientation of a keyed sphere rotation. */
 template <typename Family> struct ClockState<Family, ResourceKind::ROTATION> {
   math::Quaternion wander;    ///< Accumulated walk rotation.
@@ -453,8 +445,6 @@ inline constexpr bool RESOURCE_NOISE =
     std::is_base_of_v<Warp::CurlFlowParams, typename Resource::Family> ||
     std::is_base_of_v<Source::ProjectedNoiseSourceParams,
                       typename Resource::Family> ||
-    std::is_base_of_v<Source::SphericalNoiseSourceParams,
-                      typename Resource::Family> ||
     std::is_base_of_v<Surface::SurfaceNoiseParams, typename Resource::Family> ||
     std::is_base_of_v<Surface::DirectSurfaceParams, typename Resource::Family>;
 
@@ -471,9 +461,6 @@ template <typename Family> consteval std::string_view noise_operator_id() {
   else if constexpr (std::is_base_of_v<Source::ProjectedNoiseSourceParams,
                                        Family>)
     return "sample.projected-noise.v2";
-  else if constexpr (std::is_base_of_v<Source::SphericalNoiseSourceParams,
-                                       Family>)
-    return "sample.spherical-noise.v3";
   else if constexpr (std::is_base_of_v<Surface::SurfaceNoiseParams, Family>)
     return "sphere.displace.curl.v2";
   else if constexpr (std::is_base_of_v<Surface::DirectSurfaceParams, Family>)
@@ -494,18 +481,6 @@ struct ResourceRippleScheduler {};
 template <typename Resource> struct ResourceRippleScheduler<Resource, true> {
   SphereAnimation::RippleState ripples; ///< Active bursts and clock.
 };
-/** @brief Optional spherical-ring random walk.
- * @tparam Resource Keyed resource.
- * @tparam Enabled Whether the resource owns a band-axis walk. */
-template <typename Resource,
-          bool Enabled = std::is_same_v<typename Resource::Family,
-                                        Source::SphericalRingsSourceParams>>
-struct SourceWalk {};
-/** @brief Spherical-ring random walk. @tparam Resource Keyed source. */
-template <typename Resource> struct SourceWalk<Resource, true> {
-  SphereAnimation::SpatialWalkState source_walk; ///< Band-axis walk.
-};
-
 /** @brief Optional runtime walk of a keyed rotation.
  * @tparam Resource Keyed resource.
  * @tparam Enabled Whether the resource rotates the sphere. */
@@ -524,7 +499,6 @@ template <typename Resource,
           bool Arena = std::is_same_v<typename Resource::Family,
                                       SphereAnimation::BurstRippleParams>>
 struct ResourceRuntimeClock : ResourceClock<Resource>,
-                              SourceWalk<Resource>,
                               RotationWalk<Resource> {};
 /** @brief Empty member slot of an arena-owned burst scheduler.
  * @tparam Resource Ripple resource. */

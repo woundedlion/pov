@@ -80,12 +80,6 @@ inline void case_authored_projected_noise_invalid_basis() {
       [](auto &params) { params.basis = opaque<uint8_t>(0xff); });
 }
 
-/** @brief Death case: authored spherical noise rejects an unknown basis. */
-inline void case_authored_spherical_noise_invalid_basis() {
-  authored_source_prepare<Pullback::Source::AuthoredSphericalNoiseSourceParams>(
-      [](auto &params) { params.basis = opaque<uint8_t>(0xff); });
-}
-
 /** @brief Death case: an authored tessellation rejects an unknown kind. */
 inline void case_authored_tessellation_invalid_kind() {
   authored_source_prepare<Pullback::Source::AuthoredTessellationSourceParams>(

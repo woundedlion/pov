@@ -24,15 +24,11 @@ using SphereAnimation::RotationParams;
 using Projection::ProjectionParams;
 using Source::GridSourceParams;
 using Source::RingsSourceParams;
-using Source::SphericalRingsSourceParams;
-using Source::FractalSourceParams;
 using Source::TessellationSourceParams;
 using Source::AuthoredTessellationSourceParams;
 using Source::AuthoredProjectedNoiseSourceParams;
-using Source::AuthoredSphericalNoiseSourceParams;
 using Source::LatticeSourceParams;
 using Source::ProjectedNoiseSourceParams;
-using Source::SphericalNoiseSourceParams;
 using Source::SpiralSourceParams;
 using Source::TwinWaveSourceParams;
 using Source::AuthoredGridSourceParams;
@@ -42,7 +38,6 @@ using Source::AuthoredTwinWaveSampleParams;
 using Source::AuthoredRingsSampleParams;
 using Source::AuthoredSpiralSampleParams;
 using Source::AuthoredLatticeSampleParams;
-using Source::AuthoredFractalSampleParams;
 using Source::AuthoredTessellationSampleParams;
 using Source::AuthoredProjectedNoiseSampleParams;
 using Surface::DirectSurfaceParams;
@@ -539,14 +534,9 @@ struct SourceProvider {
    *  @return `Pattern::prepare` of the primary, secondary and
    *  angle clocks. */
   __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
-    if constexpr (std::is_same_v<Family, SphericalRingsSourceParams>) {
-      const auto &clock = frame.resources.template get<Key>();
-      return Pattern::PreparedSphericalRings{
-          math::rotate(math::Y_AXIS, clock.orientation), clock.primary};
-    } else
-      return Pattern::prepare(frame.resources.template get<Key>().primary,
-                              frame.resources.template get<Key>().secondary,
-                              frame.resources.template get<Key>().angle);
+    return Pattern::prepare(frame.resources.template get<Key>().primary,
+                            frame.resources.template get<Key>().secondary,
+                            frame.resources.template get<Key>().angle);
   }
   /** @brief The source's noise generator.
    *  @param frame Current frame.

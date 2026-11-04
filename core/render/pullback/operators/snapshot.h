@@ -339,38 +339,6 @@ template <> struct RuntimeStateCodec<Op::ModulationClockState> {
   }
 };
 
-/** @brief Snapshot codec of Op::SphericalRingsState. */
-template <> struct RuntimeStateCodec<Op::SphericalRingsState> {
-  /**
-   * @brief Captures @p state.
-   * @param state State to capture.
-   * @return A SphericalRingsSnapshot.
-   */
-  static RuntimeSnapshot capture(const Op::SphericalRingsState &state) {
-    return SphericalRingsSnapshot{
-        std::get<SpatialWalkSnapshot>(
-            RuntimeStateCodec<Op::SpatialWalkState>::capture(state.walk)),
-        state.phase};
-  }
-  /**
-   * @brief Restores @p state from a SphericalRingsSnapshot.
-   * @param state State to overwrite.
-   * @param snapshot Captured snapshot.
-   * @return False, leaving @p state untouched, on a wrong kind or
-   *         an out-of-range value.
-   */
-  static bool restore(Op::SphericalRingsState &state,
-                      const RuntimeSnapshot &snapshot) {
-    const auto *value = std::get_if<SphericalRingsSnapshot>(&snapshot);
-    if (value == nullptr || !Detail::snapshot_angle(value->phase) ||
-        !RuntimeStateCodec<Op::SpatialWalkState>::restore(state.walk,
-                                                          value->walk))
-      return false;
-    state.phase = value->phase;
-    return true;
-  }
-};
-
 } // namespace Pullback::Interp
 
 #endif

@@ -267,15 +267,8 @@ inline void test_pattern_extracted_source_protocols() {
     HS_EXPECT_EQ(PlanePrimitiveLattice::sample({{sign * 0.375f, 0.0f}}, SQUARE),
                  -0.3671875f);
   }
-  HS_EXPECT_EQ(
-      PlaneEscapeFractal::sample({{}}, PlaneEscapeFractal::prepare({}, {})),
-      1.0f);
   using Square = PlaneTessellation<TessellationKind::SQUARE>;
   HS_EXPECT_EQ(Square::sample({{}}, Square::prepare({}, {})), -1.0f);
-  const auto AXIS = SphereDirection::from(math::Y_AXIS);
-  const auto DIRECTION = SphereDirection::from(math::X_AXIS);
-  HS_EXPECT_EQ(
-      SphereRings::sample(DIRECTION, SphereRings::prepare({}, {}, AXIS)), 1.0f);
   const FastNoiseLite GENERATOR;
   PlaneNoise::Params noise;
   noise.noise_time_rate = -0.01f;

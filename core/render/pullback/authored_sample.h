@@ -98,8 +98,6 @@ using AuthoredRingsSampleParams = AuthoredSampleParams<RingsSourceParams>;
 using AuthoredSpiralSampleParams = AuthoredSampleParams<SpiralSourceParams>;
 /** @brief Primitive lattice with runtime crossing controls. */
 using AuthoredLatticeSampleParams = AuthoredSampleParams<LatticeSourceParams>;
-/** @brief Escape fractal with runtime crossing controls. */
-using AuthoredFractalSampleParams = AuthoredSampleParams<FractalSourceParams>;
 /** @brief Polygon tessellation with runtime crossing controls. */
 using AuthoredTessellationSampleParams =
     AuthoredSampleParams<AuthoredTessellationSourceParams>;

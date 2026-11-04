@@ -12,7 +12,7 @@ test('native catalog assignment fixture reproduces the complete current schema',
   assert.equal(generated, committed);
   assert.equal([...generated.matchAll(/inline void catalog_assignments_/g)].length, catalog.operators.length);
   assert.match(generated, /params\.terms\[2\]\.amplitude = /);
-  assert.match(generated, /params\.julia_re = /);
+  assert.match(generated, /params\.lattice_radius = /);
 });
 
 test('assignment fixture refuses unclassified or missing operator families', async () => {

@@ -119,7 +119,7 @@ static_assert(field_defaults_in_range<SpiralSourceParams>());
 
 /**
  * @brief Source parameters for the noise-contour sources
- *        (Pullback::Source::ProjectedNoise and SphericalNoise).
+ *        (Pullback::Source::ProjectedNoise).
  */
 struct NoiseSourceParams : Pattern::NoiseSourceParams {
   /** @brief Per-parameter id, member, label, range and curve. */
@@ -146,14 +146,6 @@ static_assert(field_defaults_in_range<NoiseSourceParams>());
 struct ProjectedNoiseSourceParams : NoiseSourceParams {};
 
 /**
- * @brief Source family selecting the sphere-domain noise contour
- *        (Pullback::Source::SphericalNoise): the field is sampled on the
- *        pre-projection direction, so it is seamless and does not carry
- *        the planar projection's distortion.
- */
-struct SphericalNoiseSourceParams : NoiseSourceParams {};
-
-/**
  * @brief Source parameters for the per-cell primitive lattice
  *        (Pullback::Source::PrimitiveLattice).
  */
@@ -178,63 +170,6 @@ static_assert(field_ids_unique<LatticeSourceParams>());
 static_assert(field_defaults_in_range<LatticeSourceParams>());
 
 /** @brief Source parameters for latitude bands on a moving sphere. */
-struct SphericalRingsSourceParams : Pattern::SphericalRingsSourceParams {
-  /** @brief Per-parameter id, member, label, range and curve. */
-  static constexpr auto FIELDS = std::array{
-      Field<SphericalRingsSourceParams>{
-          "ring-count", &SphericalRingsSourceParams::ring_count, "Ring Count",
-          1.0f, 32.0f, FieldCurve::SNAP},
-      Field<SphericalRingsSourceParams>{
-          "ring-thickness", &SphericalRingsSourceParams::ring_thickness,
-          "Ring Thickness", 1.0f / 512.0f, 0.5f, FieldCurve::LOG_POSITIVE},
-      Field<SphericalRingsSourceParams>{
-          "ring-softness", &SphericalRingsSourceParams::ring_softness,
-          "Ring Softness", 1.0f / 1024.0f, 0.25f, FieldCurve::LOG_POSITIVE},
-      Field<SphericalRingsSourceParams>{
-          "speed", &SphericalRingsSourceParams::speed, "Ring Speed", -0.5f,
-          0.5f, FieldCurve::LERP},
-      Field<SphericalRingsSourceParams>{
-          "spin-speed", &SphericalRingsSourceParams::spin_rate,
-          "Ring Spin Speed", -0.05f, 0.05f, FieldCurve::LERP},
-      Field<SphericalRingsSourceParams>{
-          "wander", &SphericalRingsSourceParams::wander, "Ring Wander", 0.0f,
-          1.0f, FieldCurve::LERP},
-  };
-};
-static_assert(field_ids_unique<SphericalRingsSourceParams>());
-static_assert(field_defaults_in_range<SphericalRingsSourceParams>());
-
-/** @brief Source parameters for the quadratic escape-time fractal. */
-struct FractalSourceParams : Pattern::FractalSourceParams {
-  /** @brief Per-parameter id, member, label, range and curve. */
-  static constexpr auto FIELDS = std::array{
-      Field<FractalSourceParams>{"fractal-scale", &FractalSourceParams::scale,
-                                 "Fractal Scale", 1.0f / 64.0f, 8.0f,
-                                 FieldCurve::LOG_POSITIVE},
-      Field<FractalSourceParams>{
-          "fractal-iterations", &FractalSourceParams::iterations,
-          "Fractal Iterations", 2.0f, 16.0f, FieldCurve::SNAP},
-      Field<FractalSourceParams>{"julia-mix", &FractalSourceParams::julia_mix,
-                                 "Julia Mix", 0.0f, 1.0f, FieldCurve::LERP},
-      Field<FractalSourceParams>{"julia-real", &FractalSourceParams::julia_re,
-                                 "Julia Real", -1.5f, 1.5f, FieldCurve::LERP},
-      Field<FractalSourceParams>{
-          "julia-imaginary", &FractalSourceParams::julia_im, "Julia Imaginary",
-          -1.5f, 1.5f, FieldCurve::LERP},
-      Field<FractalSourceParams>{
-          "fractal-contours", &FractalSourceParams::contours,
-          "Fractal Contours", 0.0f, 16.0f, FieldCurve::LERP},
-      Field<FractalSourceParams>{"speed", &FractalSourceParams::speed,
-                                 "Fractal Speed", -0.05f, 0.05f,
-                                 FieldCurve::LERP},
-      Field<FractalSourceParams>{
-          "angle-speed", &FractalSourceParams::angle_rate, "Fractal Spin Speed",
-          -0.05f, 0.05f, FieldCurve::LERP},
-  };
-};
-static_assert(field_ids_unique<FractalSourceParams>());
-static_assert(field_defaults_in_range<FractalSourceParams>());
-
 /** @brief Source parameters for periodic polygon edge tessellations. */
 struct TessellationSourceParams : Pattern::TessellationSourceParams {
   /** @brief Per-parameter id, member, label, range and curve. */
@@ -349,50 +284,6 @@ template <typename State> struct Rings : PrepareFromState<State> {
     return Pattern::rings(
         Pattern::PlanePosition{projections::stereo_pattern_args(
             input.coords, params.pattern_freq)},
-        prepared);
-  }
-};
-
-/**
- * @brief SphericalRings source policy.
- * @tparam State Provider with Binding and FrameState types and
- * params(frame), prepare(frame) accessors.
- */
-template <typename State> struct SphericalRings : PrepareFromState<State> {
-  using Binding = typename State::Binding; ///< Binding of the provider `State`.
-  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
-
-  /**
-   * @brief Whether `State` under @p CandidateBinding supplies the band
-   *        parameters, axis and phase.
-   * @tparam CandidateBinding Binding being checked.
-   */
-  template <typename CandidateBinding>
-  static constexpr bool PROVIDER_VALID =
-      StateProvider<State, CandidateBinding> &&
-      requires(const typename CandidateBinding::FrameState &frame) {
-        { State::params(frame).ring_count } -> std::convertible_to<float>;
-        { State::params(frame).ring_thickness } -> std::convertible_to<float>;
-        { State::params(frame).ring_softness } -> std::convertible_to<float>;
-        { State::prepare(frame).axis } -> std::convertible_to<math::Vector>;
-        { State::prepare(frame).phase } -> std::convertible_to<float>;
-      };
-
-  /// Phases `State::prepare` resolves for the frame.
-  using Prepared = StatePrepared<State>;
-
-  /**
-   * @brief Samples the signed field.
-   * @param input Sphere carrier; its direction is sampled.
-   * @param frame Frame state.
-   * @param prepared This frame's `prepare` result.
-   * @return Field value in [-1, 1].
-   */
-  __attribute__((always_inline)) static float sample(const SphereSample &input,
-                                                     const FrameState &frame,
-                                                     const Prepared &prepared) {
-    return Pattern::spherical_rings(
-        Pattern::SphereDirection::from_unit(input.dir), State::params(frame),
         prepared);
   }
 };
@@ -551,65 +442,6 @@ template <typename State> struct PrimitiveLattice : ApproximationDefaults {
 };
 
 /**
- * @brief EscapeFractal source policy.
- * @tparam State Provider with Binding and FrameState types and
- * params(frame), prepare(frame) accessors.
- */
-template <typename State> struct EscapeFractal : ApproximationDefaults {
-  using Binding = typename State::Binding; ///< Binding of the provider `State`.
-  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
-
-  /**
-   * @brief Whether `State` under @p CandidateBinding supplies the fractal
-   *        parameters and phases.
-   * @tparam CandidateBinding Binding being checked.
-   */
-  template <typename CandidateBinding>
-  static constexpr bool PROVIDER_VALID =
-      StateProvider<State, CandidateBinding> &&
-      requires(const typename CandidateBinding::FrameState &frame) {
-        { State::params(frame).scale } -> std::convertible_to<float>;
-        { State::params(frame).iterations } -> std::convertible_to<float>;
-        { State::params(frame).julia_mix } -> std::convertible_to<float>;
-        { State::params(frame).julia_re } -> std::convertible_to<float>;
-        { State::params(frame).julia_im } -> std::convertible_to<float>;
-        { State::params(frame).contours } -> std::convertible_to<float>;
-        { State::prepare(frame).angle_cos } -> std::convertible_to<float>;
-        { State::prepare(frame).angle_sin } -> std::convertible_to<float>;
-        { State::prepare(frame).primary } -> std::convertible_to<float>;
-        { State::prepare(frame).secondary } -> std::convertible_to<float>;
-        { State::prepare(frame).angle } -> std::convertible_to<float>;
-      };
-
-  /// Frame-constant seed and iteration controls.
-  using Prepared = Pattern::PreparedFractal;
-
-  /**
-   * @brief Resolves the fractal seed and controls for the frame.
-   * @param frame Frame state.
-   * @return `Pattern::prepare_fractal` of `State`'s parameters and phases.
-   */
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return Pattern::prepare_fractal(State::params(frame),
-                                    State::prepare(frame));
-  }
-
-  /**
-   * @brief Samples the signed field.
-   * @param input Plane carrier; its coords are sampled.
-   * @param frame Frame state.
-   * @param prepared This frame's `prepare` result.
-   * @return Field value in [-1, 1].
-   */
-  __attribute__((always_inline)) static float sample(const PlaneSample &input,
-                                                     const FrameState &frame,
-                                                     const Prepared &prepared) {
-    return Pattern::escape_fractal(Pattern::PlanePosition{input.coords},
-                                   State::params(frame), prepared);
-  }
-};
-
-/**
  * @brief Tessellation source policy.
  * @tparam State Provider with Binding and FrameState types and
  * params(frame), prepare(frame) accessors.
@@ -705,71 +537,6 @@ struct ProjectedNoise : ApproximationDefaults {
         State::noise(frame), BasisV,
         math::noise_projected_coordinate(input.coords,
                                          State::noise_scale(frame), prepared),
-        State::noise_contrast(frame));
-  }
-};
-
-/**
- * @brief SphericalNoise source policy.
- * @tparam State Provider with Binding and FrameState types and
- * noise_time(frame), noise(frame), noise_scale(frame),
- * noise_contrast(frame) accessors.
- */
-template <typename State, math::NoiseBasis BasisV>
-struct SphericalNoise : ApproximationDefaults {
-  using Binding = typename State::Binding; ///< Binding of the provider `State`.
-  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
-
-  /**
-   * @brief Whether `State` under @p CandidateBinding supplies what
-   *        `ProjectedNoise` requires.
-   * @tparam CandidateBinding Binding being checked.
-   */
-  template <typename CandidateBinding>
-  static constexpr bool PROVIDER_VALID =
-      ProjectedNoise<State, BasisV>::template PROVIDER_VALID<CandidateBinding>;
-
-  /// Noise-space loop offset for the frame's noise time.
-  using Prepared = math::Vector;
-
-  /**
-   * @brief Resolves the loop offset for the frame's noise time.
-   * @param frame Frame state.
-   * @return Offset added to the noise-space coordinate.
-   */
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return math::noise_sphere_loop_offset(State::noise_time(frame));
-  }
-
-  /** @brief Post-projection form: samples the plane carrier's retained
-      pre-projection point.
-      @param input Plane carrier; its `sphere` point is sampled.
-      @param frame Frame state.
-      @param prepared This frame's `prepare` result.
-      @return Field value in [-1, 1]. */
-  __attribute__((always_inline)) static float sample(const PlaneSample &input,
-                                                     const FrameState &frame,
-                                                     const Prepared &prepared) {
-    return Pattern::noise_contour(
-        State::noise(frame), BasisV,
-        math::noise_sphere_coordinate(input.sphere, State::noise_scale(frame),
-                                      prepared),
-        State::noise_contrast(frame));
-  }
-  /**
-   * @brief Samples the signed field.
-   * @param input Sphere carrier; its direction is sampled.
-   * @param frame Frame state.
-   * @param prepared This frame's `prepare` result.
-   * @return Field value in [-1, 1].
-   */
-  __attribute__((always_inline)) static float sample(const SphereSample &input,
-                                                     const FrameState &frame,
-                                                     const Prepared &prepared) {
-    return Pattern::noise_contour(
-        State::noise(frame), BasisV,
-        math::noise_sphere_coordinate(input.dir, State::noise_scale(frame),
-                                      prepared),
         State::noise_contrast(frame));
   }
 };

@@ -124,25 +124,10 @@ template <typename B> struct SourcePolicyFor<ProjectedNoiseSourceParams, B> {
   using Type = Pullback::Source::ProjectedNoise<
       SourceProvider<B, ProjectedNoiseSourceParams>, math::NoiseBasis::SIMPLEX>;
 };
-/** @brief Spherical simplex-noise source. @tparam B Frame binding. */
-template <typename B> struct SourcePolicyFor<SphericalNoiseSourceParams, B> {
-  using Type = Pullback::Source::SphericalNoise<
-      SourceProvider<B, SphericalNoiseSourceParams>, math::NoiseBasis::SIMPLEX>;
-};
 
 /** @brief Concentric rings source. @tparam B Frame binding. */
 template <typename B> struct SourcePolicyFor<RingsSourceParams, B> {
   using Type = Pullback::Source::Rings<SourceProvider<B, RingsSourceParams>>;
-};
-/** @brief Wandering spherical bands. @tparam B Frame binding. */
-template <typename B> struct SourcePolicyFor<SphericalRingsSourceParams, B> {
-  using Type = Pullback::Source::SphericalRings<
-      SourceProvider<B, SphericalRingsSourceParams>>;
-};
-/** @brief Quadratic escape fractal. @tparam B Frame binding. */
-template <typename B> struct SourcePolicyFor<FractalSourceParams, B> {
-  using Type =
-      Pullback::Source::EscapeFractal<SourceProvider<B, FractalSourceParams>>;
 };
 /** @brief Triangular tessellation. @tparam B Frame binding. */
 template <typename B> struct SourcePolicyFor<TessellationSourceParams, B> {
@@ -156,12 +141,6 @@ template <typename B>
 struct SourcePolicyFor<Source::AuthoredProjectedNoiseSourceParams, B> {
   using Type = Source::ConfiguredProjectedNoise<
       SourceProvider<B, Source::AuthoredProjectedNoiseSourceParams>>;
-};
-/** @brief Authored source topology. @tparam B Frame binding. */
-template <typename B>
-struct SourcePolicyFor<Source::AuthoredSphericalNoiseSourceParams, B> {
-  using Type = Source::ConfiguredSphericalNoise<
-      SourceProvider<B, Source::AuthoredSphericalNoiseSourceParams>>;
 };
 /** @brief Authored source topology. @tparam B Frame binding. */
 template <typename B>

@@ -294,10 +294,6 @@ inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {
           put(static_cast<uint32_t>(version));
           put(phase.phase_turns);
           put(static_cast<uint32_t>(initialized));
-        } else if constexpr (std::is_same_v<T, In::SphericalRingsSnapshot>) {
-          static_assert(sizeof(T) == 15 * sizeof(uint32_t));
-          put_walk(v.walk);
-          put(v.phase);
         } else {
           static_assert(std::is_same_v<T, std::monostate>);
         }

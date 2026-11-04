@@ -118,14 +118,6 @@ def runtime_cpp(entry):
         "ripple-clock-v1": ("RippleClockSnapshot", ["phase"]),
         "affine-clock-v1": ("AffineClockSnapshot", ["phase", "rotation"]),
     }
-    if kind == "spherical-rings-v2":
-        return (
-            "Pullback::Interp::SphericalRingsSnapshot{"
-            + walk_cpp(state["walk"])
-            + ","
-            + float_cpp(state["phase"])
-            + "}"
-        )
     if kind not in names:
         raise ValueError("unknown capture runtime kind")
     typename, fields = names[kind]

@@ -72,10 +72,7 @@ const scalarMember = (slot, field, authoredTopology = false) => {
     return authoredTopology ? field.replaceAll('-', '_') : field === 'wander' ? 'camera_wander' : null;
   if (slot.operator.startsWith('sample.')) {
     const sourceNames = { 'angle-speed': 'angle_rate', drift: 'secondary_rate',
-      'lattice-shape': 'lattice_shape_blend', 'noise-speed': 'noise_time_rate',
-      'fractal-scale': 'scale', 'fractal-iterations': 'iterations',
-      'julia-real': 'julia_re', 'julia-imaginary': 'julia_im',
-      'fractal-contours': 'contours', 'spin-speed': 'spin_rate' };
+      'lattice-shape': 'lattice_shape_blend', 'noise-speed': 'noise_time_rate' };
     return sourceNames[field] ?? field.replaceAll('-', '_');
   }
   if (slot.operator.startsWith('project.'))

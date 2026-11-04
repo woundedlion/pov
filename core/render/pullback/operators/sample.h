@@ -15,7 +15,7 @@
 
 /**
  * @file sample.h
- * @brief PLANE→FIELD and SPHERE→FIELD scalar crossing operator models.
+ * @brief PLANE→FIELD scalar crossing operator models.
  */
 
 namespace Pullback {
@@ -351,81 +351,6 @@ struct SampleRings : SourceClockModel {
   }
 };
 
-/** @brief Parameter family of sample.spherical-rings.v3. */
-using SphericalRingsSampleParams = Source::SphericalRingsSourceParams;
-
-/** @brief Instance state of the animated spherical ring source.
- * @details Band phases are equivalent modulo 2pi; column-time samples may
- * lie outside the canonical range. */
-struct SphericalRingsState {
-  SpatialWalkState walk; ///< Band-axis spin and wander walk.
-  float phase = 0.0f;    ///< Band phase, radians modulo 2pi.
-};
-
-/** @brief Prepared frame clocks of SphericalRingsState. */
-struct SphericalRingsInterval {
-  SpatialWalkInterval walk;       ///< Prepared walk interval.
-  Spacetime::ClockInterval phase; ///< Prepared phase interval.
-};
-
-/** @brief Prepares the clocks between consecutive endpoints.
- * @param from Previous state.
- * @param to Current state.
- * @return Prepared interval. */
-HS_FLASH_INLINE inline SphericalRingsInterval
-temporal_interval(const SphericalRingsState &from,
-                  const SphericalRingsState &to) {
-  return {temporal_interval(from.walk, to.walk),
-          {from.phase, to.phase, math::TWO_PI_F}};
-}
-
-/** @brief Applies the prepared clocks to a column state.
- * @tparam Params Operator parameter block.
- * @param out Copy of the current state.
- * @param interval Prepared frame interval.
- * @param params Column parameter block.
- * @param fraction Frame fraction in [0, 1]. */
-template <typename Params>
-HS_FLASH_INLINE void temporal_sample(SphericalRingsState &out,
-                                     const SphericalRingsInterval &interval,
-                                     const Params &params, float fraction) {
-  temporal_sample(out.walk, interval.walk, params, fraction);
-  out.phase = interval.phase.sample(fraction);
-}
-
-/** @brief SPHERE→FIELD crossing: latitude bands on a wandering, spinning axis. */
-struct SampleSphericalRings : ValueStateModel<SphericalRingsState> {
-  static constexpr const char *ID = "sample.spherical-rings.v3";
-  static constexpr const char *NAME = "Spherical Rings";
-  using Input = SphereSample;
-  using Output = FieldSample;
-  using Params = SphericalRingsSampleParams;
-  using Prepared = Pattern::PreparedSphericalRings;
-
-  static void init(State &state, InstanceId id) {
-    init_walk(state.walk, static_cast<int32_t>(id.stable_hash));
-  }
-  static void advance(State &state, const Params &params) {
-    advance_walk(state.walk, params.wander, params.spin_rate);
-    state.phase = fmodf(state.phase + params.speed, math::TWO_PI_F);
-  }
-  static Prepared prepare(const FrameContext &, const Params &,
-                          const State &state) {
-    const math::Quaternion orientation =
-        math::make_rotation(math::X_AXIS, state.walk.spin_phase) *
-        state.walk.wander;
-    return {math::rotate(math::Y_AXIS, orientation), state.phase};
-  }
-  static FieldSample run(const SphereSample &input, const FrameContext &,
-                         const Params &params, const Prepared &prepared) {
-    const float raw = Pattern::spherical_rings(
-        Pattern::SphereDirection::from_unit(input.dir),
-        static_cast<const Source::SphericalRingsSourceParams &>(params),
-        prepared);
-    return Kernel::sample(input, raw);
-  }
-};
-
 /** @brief Parameter family of sample.spiral.v2. */
 struct SpiralSampleParams : Source::SpiralSourceParams, SampleCrossingParams {
   static constexpr auto FIELDS = concat_fields<SpiralSampleParams>(
@@ -485,41 +410,6 @@ struct SampleLattice : StatelessModel {
     const float raw = Pattern::primitive_lattice(
         Pattern::PlanePosition{input.coords},
         static_cast<const Source::LatticeSourceParams &>(params));
-    return finish_sample(input, raw, params, ctx);
-  }
-};
-
-/** @brief Parameter family of sample.fractal.v2. */
-struct FractalSampleParams : Source::FractalSourceParams, SampleCrossingParams {
-  static constexpr auto FIELDS = concat_fields<FractalSampleParams>(
-      Source::FractalSourceParams::FIELDS,
-      sample_crossing_fields<FractalSampleParams>());
-  static constexpr auto TOPOLOGY =
-      sample_crossing_topology<FractalSampleParams>();
-};
-static_assert(field_ids_unique<FractalSampleParams>());
-static_assert(field_defaults_in_range<FractalSampleParams>());
-
-/** @brief PLANE→FIELD crossing: the animated quadratic escape-time fractal. */
-struct SampleFractal : SourceClockModel {
-  static constexpr const char *ID = "sample.fractal.v2";
-  static constexpr const char *NAME = "Escape Fractal";
-  using Input = PlaneSample;
-  using Output = FieldSample;
-  using Params = FractalSampleParams;
-  using Prepared = Pattern::PreparedFractal;
-
-  static Prepared prepare(const FrameContext &ctx, const Params &params,
-                          const State &state) {
-    return Pattern::prepare_fractal(
-        params, SourceClockModel::prepare(ctx, params, state));
-  }
-
-  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
-                         const Params &params, const Prepared &prepared) {
-    const float raw = Pattern::escape_fractal(
-        Pattern::PlanePosition{input.coords},
-        static_cast<const Source::FractalSourceParams &>(params), prepared);
     return finish_sample(input, raw, params, ctx);
   }
 };
@@ -604,20 +494,6 @@ static_assert(field_ids_unique<ProjectedNoiseSampleParams>());
 static_assert(field_defaults_in_range<ProjectedNoiseSampleParams>());
 static_assert(sample_crossing_defaults_match<ProjectedNoiseSampleParams>());
 
-/** @brief Parameter family of sample.spherical-noise.v3. */
-struct SphericalNoiseSampleParams : Source::NoiseSourceParams {
-  /** math::NoiseBasis topology value. */
-  uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
-
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<SphericalNoiseSampleParams>{
-          "basis", &SphericalNoiseSampleParams::basis, NOISE_BASIS_IDS,
-          static_cast<uint8_t>(math::NoiseBasis::SIMPLEX)},
-  };
-};
-static_assert(field_ids_unique<SphericalNoiseSampleParams>());
-static_assert(field_defaults_in_range<SphericalNoiseSampleParams>());
-
 /** @brief The noise sources' prepared block: the owned noise field plus this
     frame's loop offset. */
 struct PreparedNoiseSource {
@@ -651,32 +527,6 @@ struct SampleProjectedNoise : PhaseClockModel<NoisePhaseState> {
                                          prepared.loop_offset),
         params.noise_contrast);
     return finish_sample(input, raw, params, ctx);
-  }
-};
-
-/** @brief SPHERE→FIELD crossing: the sphere-space noise contour source. */
-struct SampleSphericalNoise : PhaseClockModel<NoisePhaseState> {
-  static constexpr const char *ID = "sample.spherical-noise.v3";
-  static constexpr const char *NAME = "Spherical Noise";
-  using Input = SphereSample;
-  using Output = FieldSample;
-  using Params = SphericalNoiseSampleParams;
-  using Prepared = PreparedNoiseSource;
-
-  static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
-  static Prepared prepare(const FrameContext &, const Params &params,
-                          const State &state) {
-    check_noise_basis(params.basis);
-    return {&state.noise, math::noise_sphere_loop_offset(state.phase)};
-  }
-  static FieldSample run(const SphereSample &input, const FrameContext &,
-                         const Params &params, const Prepared &prepared) {
-    const float raw = Pattern::noise_contour(
-        *prepared.noise, static_cast<math::NoiseBasis>(params.basis),
-        math::noise_sphere_coordinate(input.dir, params.noise_scale,
-                                      prepared.loop_offset),
-        params.noise_contrast);
-    return Kernel::sample(input, raw);
   }
 };
 

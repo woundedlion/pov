@@ -61,11 +61,6 @@ struct ColorClockSnapshot {
 struct ModulationClockSnapshot {
   Modulation::State modulation; ///< Typed source identity and phase.
 };
-/** @brief Captured state of the spherical-rings sampler. */
-struct SphericalRingsSnapshot {
-  SpatialWalkSnapshot walk; ///< Ring-axis walk.
-  float phase = 0;          ///< Ring phase in radians, |value| < 2 pi.
-};
 
 /** @brief Any operator's captured runtime state; `std::monostate` for
     stateless operators. */
@@ -73,7 +68,7 @@ using RuntimeSnapshot =
     std::variant<std::monostate, SpatialWalkSnapshot, SourceClockSnapshot,
                  NoiseClockSnapshot, PhaseClockSnapshot, RippleClockSnapshot,
                  AffineClockSnapshot, ColorClockSnapshot,
-                 SphericalRingsSnapshot, ModulationClockSnapshot>;
+                 ModulationClockSnapshot>;
 
 /**
  * @brief Versioned wire name of the snapshot's alternative.
@@ -89,7 +84,6 @@ inline const char *runtime_snapshot_kind(const RuntimeSnapshot &snapshot) {
                                    "ripple-burst-v1",
                                    "affine-clock-v1",
                                    "color-clock-v3",
-                                   "spherical-rings-v2",
                                    "modulation-clock-v1"};
   static_assert(std::size(KINDS) == std::variant_size_v<RuntimeSnapshot>);
   return KINDS[snapshot.index()];
