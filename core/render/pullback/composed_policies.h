@@ -420,8 +420,10 @@ struct AuthoredProjection
   using Projection::MeridianPrepared<AuthoredProjection, State>::project;
   static constexpr bool EDGE_DISTANCE_AVAILABLE =
       Kind != ProjectionKind::FOLDED_SINUSOIDAL; ///< Cut distances available.
+  /// Whether the projection uses the approximate Peirce kernel.
   static constexpr bool APPROXIMATE =
       Kind == ProjectionKind::PEIRCE_SQUARE_FAST;
+  /// Reference implementation for the approximate kernel.
   static constexpr ApproximationOracleId ORACLE =
       APPROXIMATE ? ApproximationOracleId::PEIRCE_FAST_SQUARE
                   : ApproximationOracleId::NONE;

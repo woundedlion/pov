@@ -301,14 +301,18 @@ template <> struct ProjectionWalkNoise<true> {
 
 /** @brief Shared outer-camera noise storage; empty when unused. */
 template <bool Enabled> struct OuterCameraNoise {};
+/// Noise storage for an enabled outer camera.
 template <> struct OuterCameraNoise<true> {
   FastNoiseLite outer_walk_noise; ///< Noise driving the camera walk.
 };
 
 /** @brief Shared outer-camera clocks; empty when unused. */
 template <bool Enabled> struct OuterCameraState {
+  /// Inverse outer-camera orientation.
+  /// @return Identity rotation.
   math::Quaternion camera_conjugate() const { return {}; }
 };
+/// Clocks and orientation for an enabled outer camera.
 template <> struct OuterCameraState<true> {
   math::Orientation<> outer_walk;       ///< Random-walk orientation.
   math::Quaternion outer_walk_previous; ///< Previous walk orientation.
@@ -316,6 +320,8 @@ template <> struct OuterCameraState<true> {
   math::Quaternion outer_conjugate; ///< Inverse spin-times-wander orientation.
   float camera_spin = 0.0f;         ///< Accumulated Y spin, radians.
 
+  /// Inverse outer-camera orientation.
+  /// @return Conjugate of the accumulated spin and wander.
   math::Quaternion camera_conjugate() const { return outer_conjugate; }
 };
 
@@ -412,6 +418,7 @@ struct AtlasProjectionParams : ProjectionParams {
   uint8_t layout = 1;           ///< Peirce or Airocean layout.
   uint8_t hemisphere = 0;       ///< Gnomonic or Bonne hemisphere.
   uint8_t frame = 1;            ///< Identity or animated projection frame.
+  /// Projection fields and atlas-specific controls.
   static constexpr auto FIELDS = concat_fields<AtlasProjectionParams>(
       ProjectionParams::FIELDS,
       std::array{
@@ -431,10 +438,14 @@ struct AtlasProjectionParams : ProjectionParams {
               "area-correction", &AtlasProjectionParams::area_correction,
               "Area Correction", 0.0f, 1.0f, FieldCurve::LERP,
               FieldGate::AREA_CORRECTION}});
+  /// Catalog ids of the camera frame modes.
   static constexpr const char *FRAME_IDS[] = {"identity", "spin-wander"};
+  /// Catalog ids of the atlas layouts.
   static constexpr const char *LAYOUT_IDS[] = {"diamond", "square",
                                                "horizontal", "vertical"};
+  /// Catalog ids of the hemisphere modes.
   static constexpr const char *HEMISPHERE_IDS[] = {"folded", "front", "back"};
+  /// Frame, layout and hemisphere selectors.
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<AtlasProjectionParams>{
           "frame", &AtlasProjectionParams::frame, FRAME_IDS, 1},

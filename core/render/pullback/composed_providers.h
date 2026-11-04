@@ -959,6 +959,7 @@ template <typename B,
           bool LabCache = ComposedDetail::PALETTE_LAB_CACHE<typename B::Spec>,
           bool Fused = B::Spec::FUSED_TEMPORAL_COLOR>
 struct AuthoredColorProvider : ColorProvider<B, Brightness, LabCache, Fused> {
+  /// Bound column or frame state.
   using FrameState = typename B::FrameState;
   /** @brief Current authored brightness envelope.
    * @param frame Current column state.

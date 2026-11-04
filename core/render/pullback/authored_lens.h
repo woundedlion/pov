@@ -15,6 +15,7 @@ namespace Pullback::Lens {
 struct GlitchParams {
   float polar_multiplier = 2.0f;   ///< Polar-angle multiplier.
   float azimuth_multiplier = 3.0f; ///< Azimuth-angle multiplier.
+  /// Polar and azimuth angle controls.
   static constexpr auto FIELDS = std::array{
       Field<GlitchParams>{"polar-multiplier", &GlitchParams::polar_multiplier,
                           "Polar Multiplier", -12.0f, 12.0f, FieldCurve::LERP},
@@ -26,11 +27,14 @@ struct GlitchParams {
 /** @brief Authored kaleidoscope symmetry. */
 struct KaleidoscopeParams {
   uint8_t symmetry = 0; ///< Shared kaleidoscope symmetry index.
+  /// The kaleidoscope has no scalar controls.
   static constexpr std::array<Field<KaleidoscopeParams>, 0> FIELDS{};
+  /// Catalog ids in symmetry-index order.
   static constexpr const char *SYMMETRY_IDS[] = {
       "azimuthal",        "tetrahedral",      "octahedral",
       "dodecahedral",     "triangular-prism", "square-prism",
       "pentagonal-prism", "hexagonal-prism",  "octagonal-prism"};
+  /// Symmetry selector.
   static constexpr auto TOPOLOGY = std::array{TopologyField<KaleidoscopeParams>{
       "symmetry", &KaleidoscopeParams::symmetry, SYMMETRY_IDS, 0}};
 };

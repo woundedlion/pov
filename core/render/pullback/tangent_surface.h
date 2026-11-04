@@ -37,6 +37,7 @@ struct AuthoredSurfaceNoiseParams : SurfaceNoiseParams {
       static_cast<uint8_t>(math::NoiseBasis::SIMPLEX); ///< Noise basis.
   uint8_t integrator = 0;                              ///< Integration scheme.
   uint8_t limit = 0; ///< Tangent-length limit.
+  /// Noise basis and integration selectors.
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<AuthoredSurfaceNoiseParams>{
           "basis", &AuthoredSurfaceNoiseParams::basis, AUTHORED_NOISE_BASIS_IDS,
@@ -52,6 +53,7 @@ struct AuthoredSurfaceNoiseParams : SurfaceNoiseParams {
 struct AuthoredDirectSurfaceParams : DirectSurfaceParams {
   uint8_t basis =
       static_cast<uint8_t>(math::NoiseBasis::SIMPLEX); ///< Noise basis.
+  /// Noise basis selector.
   static constexpr auto TOPOLOGY =
       std::array{TopologyField<AuthoredDirectSurfaceParams>{
           "basis", &AuthoredDirectSurfaceParams::basis,
@@ -130,6 +132,7 @@ struct PotentialParams {
   float drift = 0.0f;               ///< Azimuthal advance per frame, radians.
   uint8_t integrator = 0;           ///< Integration scheme.
   std::array<PotentialTermParams, 4> terms{}; ///< Authored terms.
+  /// Potential field controls.
   static constexpr auto FIELDS = std::array{
       Pullback::Field<PotentialParams>{"strength", &PotentialParams::strength,
                                        "Strength", -math::PI_F, math::PI_F,
@@ -143,6 +146,7 @@ struct PotentialParams {
           "Orientation Polar", 0.0f, math::PI_F, FieldCurve::LERP},
       Pullback::Field<PotentialParams>{"drift", &PotentialParams::drift,
                                        "Drift", -0.1f, 0.1f, FieldCurve::LERP}};
+  /// Integration selector.
   static constexpr auto TOPOLOGY = std::array{TopologyField<PotentialParams>{
       "integrator", &PotentialParams::integrator, AUTHORED_INTEGRATOR_IDS, 0}};
   /// Nested term fields and their mode-only activation gates.
@@ -237,6 +241,7 @@ struct RossbyHaurwitzParams {
   uint8_t order = 3;      ///< Wave order minus one.
   float drift = 0.0f;     ///< Azimuthal advance per frame, radians.
   uint8_t integrator = 0; ///< Integration scheme.
+  /// Rossby–Haurwitz wave controls.
   static constexpr auto FIELDS =
       std::array{Pullback::Field<RossbyHaurwitzParams>{
                      "strength", &RossbyHaurwitzParams::strength, "Strength",
@@ -250,6 +255,7 @@ struct RossbyHaurwitzParams {
                  Pullback::Field<RossbyHaurwitzParams>{
                      "drift", &RossbyHaurwitzParams::drift, "Drift", -0.1f,
                      0.1f, FieldCurve::LERP}};
+  /// Integration selector.
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<RossbyHaurwitzParams>{"integrator",
                                           &RossbyHaurwitzParams::integrator,
@@ -265,12 +271,14 @@ struct SymmetricParams {
   uint8_t integrator = 0; ///< Integration scheme.
   uint8_t symmetry = 0;   ///< Kaleidoscope symmetry index.
   uint8_t kind = 0;       ///< Toroidal or poloidal component.
+  /// Symmetric flow controls.
   static constexpr auto FIELDS = std::array{
       Pullback::Field<SymmetricParams>{"strength", &SymmetricParams::strength,
                                        "Strength", -4.0f * math::PI_F,
                                        4.0f * math::PI_F, FieldCurve::SNAP},
       Pullback::Field<SymmetricParams>{"speed", &SymmetricParams::speed,
                                        "Speed", -0.1f, 0.1f, FieldCurve::LERP}};
+  /// Integration selector.
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<SymmetricParams>{"integrator", &SymmetricParams::integrator,
                                      AUTHORED_INTEGRATOR_IDS, 0},

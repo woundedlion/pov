@@ -525,6 +525,9 @@ struct ProjectPolyhedralAtlas
   static constexpr const char *ID = PolyhedralAtlasIdentity<Solid>::ID;
   static constexpr const char *NAME = PolyhedralAtlasIdentity<Solid>::NAME;
 
+  /** @brief Bounds the scaled polyhedral atlas coordinates.
+   * @param params Atlas controls.
+   * @return Maximum plane radius. */
   static float plane_bound(const PolyhedralAtlasChainParams &params, float) {
     return 1.001f * projections::POLYHEDRAL_ATLAS<Solid>.radius *
            fabsf(params.coordinate_scale);

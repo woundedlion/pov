@@ -104,6 +104,7 @@ inline constexpr const char *BRIGHTNESS_ENVELOPE_IDS[] = {
 static_assert(std::size(BRIGHTNESS_ENVELOPE_IDS) ==
               static_cast<size_t>(EnvelopeMode::DESCENDING) + 1);
 
+/// Authored palette source family.
 using PaletteType = ::AuthoredPaletteType;
 /// Wire ids of palette source families.
 inline constexpr auto &PALETTE_TYPE_IDS = ::AUTHORED_PALETTE_TYPE_IDS;
@@ -116,6 +117,7 @@ inline constexpr auto &PALETTE_LIGHTNESS_CURVE_IDS =
     ::AUTHORED_PALETTE_LIGHTNESS_CURVE_IDS;
 /// Wire ids of the named procedural palette roster.
 inline constexpr auto &PALETTE_NAME_IDS = ::AUTHORED_PALETTE_NAME_IDS;
+/// Authored palette source and parameters.
 using PaletteSelection = ::AuthoredPaletteSelection;
 /// Activation gate for authored perceptual palette controls.
 inline constexpr TopologyGate GENERATED_PALETTE_GATE{

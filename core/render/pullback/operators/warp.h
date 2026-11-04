@@ -149,6 +149,11 @@ struct WarpAffineV4 : ValueStateModel<AffineClockState> {
     state.phase = math::wrap_t(state.phase + params.speed);
     Warp::advance_affine_rotation(state.rotation, params);
   }
+  /** @brief Bounds the warped coordinates over the affine cycle.
+   * @param params Affine controls.
+   * @param input_bound Maximum input plane radius.
+   * @param lattice Downstream translation symmetry.
+   * @return Maximum warped plane radius. */
   static float plane_bound(const Params &params, float input_bound,
                            const TranslationLattice &lattice) {
     return Warp::plane_bound(params, input_bound, lattice);

@@ -23,7 +23,9 @@ template <typename FX> struct ComposedWhiteBox;
 
 /** @brief Stage spec for `Involution`. */
 struct InvolutionSpec : Pullback::Spec {
+  /// Samples controls at each column's display time.
   static constexpr bool TEMPORAL_SAMPLING = true;
+  /// Resolves stage topology from the authored presets.
   static constexpr bool AUTHORED_TOPOLOGY = true;
   static constexpr bool ANIMATED_PROJECTION = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;

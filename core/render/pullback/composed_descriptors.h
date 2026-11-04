@@ -215,6 +215,9 @@ template <typename P> struct ProjectionKindOf<Projection::FoldedSinusoidal<P>> {
   static constexpr auto VALUE =
       ProjectionKind::FOLDED_SINUSOIDAL; ///< Projection kind.
 };
+/** @brief Retrieves the projection kind of an authored policy.
+ * @tparam Kind Projection algorithm.
+ * @tparam P Parameter provider. */
 template <ProjectionKind Kind, typename P>
 struct ProjectionKindOf<AuthoredProjection<Kind, P>> {
   static constexpr auto VALUE = Kind; ///< Projection algorithm.
@@ -444,6 +447,10 @@ struct PolicyResources<AuthoredProjection<Kind, Provider>>
 template <typename Provider, uint8_t Kind>
 struct PolicyResources<Surface::TangentField<Provider, Kind>>
     : PolicyResources<Provider> {};
+/** @brief Declares a keyed lens parameter resource.
+ * @tparam B Pipeline binding.
+ * @tparam Family Lens parameter family.
+ * @tparam Key Resource key. */
 template <typename B, typename Family, ResourceKey Key>
 struct PolicyResources<KeyedLensProvider<B, Family, Key>> {
   using Type = ResourceList<ParameterResource<Key, Family, ResourceKind::LENS>>;
@@ -956,6 +963,7 @@ consteval bool noise_fields_overlap() {
 /** @brief Whether a fixed noise field mixes its instance key into the seed.
  * @tparam Resource Noise resource.
  * @tparam Resources Present resources.
+ * @param list Resources present in the pipeline.
  * @return Whether the instance has an independent fixed noise seed. */
 template <typename Resource, typename... Resources>
 consteval bool fixed_noise_qualified(ResourceList<Resources...> list) {

@@ -280,6 +280,9 @@ struct SampleGridV4 : SourceClockModel {
   using Output = FieldSample;
   using Params = GridSampleParams;
 
+  /** @brief Translation symmetry of the grid.
+   * @param params Grid controls.
+   * @return The square translation lattice. */
   static TranslationLattice translation_lattice(const Params &params) {
     return Source::translation_lattice(params);
   }
@@ -414,6 +417,9 @@ struct SampleTessellation : StatelessModel {
   using Params = TessellationSampleParams;
   struct Prepared {};
 
+  /** @brief Translation symmetry of the selected tessellation.
+   * @param params Tessellation kind and scale.
+   * @return The translation lattice in plane units. */
   static TranslationLattice translation_lattice(const Params &params) {
     return Source::tessellation_lattice(
         static_cast<Pattern::TessellationKind>(params.kind), params.cell_scale);
