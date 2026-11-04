@@ -18,11 +18,11 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | [IslamicStars](profile_islamicstars_teensy_2026-10-30.md) § ● | `is_timeline_step` | 🟢 53.769 (16) | 18.738 | 🟢 0/3327 (0.00%) | 2026-10-30 17:56 |
 | [RingSpin](profile_ringspin_teensy_2026-10-23.md) | `rs_draw_rings` | 🟢 53.743 | 3.396 | 🟢 0/927 (0.00%) | 2026-10-23 13:32 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-10-30.md) ● | `grd_render` | 🟢 53.504 | 25.722 | 🟢 0/2047 (0.00%) | 2026-10-30 09:50 |
-| [Involution](profile_involution_teensy_2026-11-04.md) ● | `fx_shader_draw` | 🟢 53.399 | 90.534 | 🟢 0/1087 (0.00%) | 2026-11-04 00:15 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-10-23.md) § | `mf_feedback_flush` | 🟢 52.652 (12) | 5.659 | 🟢 0/2863 (0.00%) | 2026-10-23 13:51 |
 | [DreamBalls](profile_dreamballs_teensy_2026-11-01.md) § ● | `db_timeline_step` | 🟢 51.563 (10) | 52.168 | 🟢 0/3647 (0.00%) | 2026-11-01 14:12 |
 | [DisplacementField](profile_displacementfield_teensy_2026-10-23.md) § | `df_timeline_step` | 🟢 51.257 (2) | 18.953 | 🟢 0/1887 (0.00%) | 2026-10-23 13:23 |
 | [Galaxies](profile_galaxies_teensy_2026-10-23.md) | `gx_particle_step` | 🟢 45.223 | 1.494 | 🟢 0/927 (0.00%) | 2026-10-23 13:17 |
+| [Involution](profile_involution_teensy_2026-11-04.md) ● | `fx_shader_draw` | 🟢 44.986 | 82.342 | 🟢 0/1087 (0.00%) | 2026-11-04 08:42 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-10-30.md) ● | `bz_render` | 🟢 44.608 | 76.549 | 🟢 0/2047 (0.00%) | 2026-10-30 09:46 |
 | [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-10-23.md) § | `fx_shader_draw` | 🟢 43.705 (2) | 69.694 | 🟢 0/1647 (0.00%) | 2026-10-23 14:25 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-10-23.md) | `fx_shader_draw` | 🟢 42.073 | 70.074 | 🟢 0/447 (0.00%) | 2026-10-23 14:20 |
@@ -122,4 +122,4 @@ The historical AshCloud O3 capture uses the prior shader; paired code deltas are
 
 GridWorms ● was captured 2026-10-31 21:15 on COM3; its setup frame and steady samples are separate.
 
-Involution ● was captured 2026-11-03 14:44 on COM4 at `18601fa2d`; its setup frame and steady samples are separate. Its cycle/wall agreement is 10.8 ppm, a display-phase `micros()` truncation bias; the same shader validated at 3.4 ppm at `83f2548fd`.
+Involution ● was captured 2026-11-04 08:42 on COM4 at `662de1922`, projecting through the area-corrected cubic atlas; its setup frame and steady samples are separate.
