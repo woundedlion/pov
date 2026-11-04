@@ -388,7 +388,7 @@ inline void test_shader_chain_large_finite_path_length() {
   auto &modulation = param_as<In::Op::ModulationParams>(program, 14).modulation;
   modulation.source = Pattern::SourceKind::DISPLACEMENT;
   modulation.evaluation = Pattern::Evaluation::DIRECT;
-  modulation.mechanic.amount = 1e-20f;
+  modulation.mechanic.amount = 1e-18f;
   auto ctx = shared_resources().context();
   ctx.projection_base = math::Quaternion();
   std::array<Pixel, PB::Color::HueRotationLutView::SIZE> hue;
@@ -397,16 +397,25 @@ inline void test_shader_chain_large_finite_path_length() {
   ctx.hue_rotation_lut = hue.data();
   program.prepare(ctx);
   const PB::SphereSample sphere{math::Vector(1, 0, 1).normalized(), 0.0f};
+  const auto lattice = In::Op::SampleGridV4::translation_lattice(
+      param_as<In::Op::GridSampleParams>(program, 12));
   PB::PlaneSample plane{};
   double expected_path = 0.0;
   for (int index = 0; index < 12; ++index) {
     const PB::PlaneSample next =
         index == 0 ? run_entry<PB::PlaneSample>(program, ctx, 0, sphere)
                    : run_entry<PB::PlaneSample>(program, ctx, index, plane);
-    if (index != 0)
-      expected_path +=
-          std::hypot(static_cast<double>(next.coords.re) - plane.coords.re,
-                     static_cast<double>(next.coords.im) - plane.coords.im);
+    if (index != 0) {
+      const math::Complex delta = next.coords - plane.coords;
+      if (index == 11) {
+        HS_EXPECT_GT(std::abs(delta.re / lattice.a.re), 0x1p31f);
+        expected_path += std::hypot(std::remainder(delta.re, lattice.a.re),
+                                    std::remainder(delta.im, lattice.b.im));
+      } else {
+        expected_path += std::hypot(static_cast<double>(delta.re),
+                                    static_cast<double>(delta.im));
+      }
+    }
     plane = next;
   }
   HS_EXPECT_TRUE(std::isfinite(plane.path_length));
