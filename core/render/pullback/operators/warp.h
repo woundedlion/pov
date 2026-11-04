@@ -77,15 +77,10 @@ HS_FLASH_INLINE void temporal_sample(WarpPhaseState &out,
   out.phase = interval.sample(fraction);
 }
 
-/** @brief Parameter family of warp.affine.v3; translations are lattice cells. */
-using AffineWarpParams = Warp::ExplicitAffineParams;
-static_assert(field_ids_unique<AffineWarpParams>());
-static_assert(
-    appended_block_size_matches<AffineWarpParams, Warp::AffineParams, 4>(),
-    "appended parameter block must have the expected rounded size");
-static_assert(field_defaults_in_range<AffineWarpParams>());
+/** @brief Parameter family of warp.affine.v4. */
+using AffineWarpParams = Warp::AffineParams;
 
-/** @brief Phase clock plus the accumulated frame rotation of warp.affine.v3.
+/** @brief Phase clock plus the accumulated frame rotation of warp.affine.v4.
  * @details Values are equivalent modulo their periods; column-time samples
  * may lie outside the canonical ranges. */
 struct AffineClockState {
@@ -122,10 +117,11 @@ HS_FLASH_INLINE void temporal_sample(AffineClockState &out,
   out.rotation = interval.rotation.sample(fraction);
 }
 
-/** @brief PLANE endomorphism: the oscillating affine frame change. */
-struct WarpAffineV3 : ValueStateModel<AffineClockState> {
-  static constexpr const char *ID = "warp.affine.v3";
-  static constexpr const char *NAME = "Affine Warp Extended Period";
+/** @brief PLANE endomorphism: the oscillating affine frame change, winding
+    along the next stage's translation lattice. */
+struct WarpAffineV4 : ValueStateModel<AffineClockState> {
+  static constexpr const char *ID = "warp.affine.v4";
+  static constexpr const char *NAME = "Affine Warp";
   using Input = PlaneSample;
   using Output = PlaneSample;
   using Params = AffineWarpParams;
@@ -135,59 +131,19 @@ struct WarpAffineV3 : ValueStateModel<AffineClockState> {
     state.phase = math::wrap_t(state.phase + params.speed);
     Warp::advance_affine_rotation(state.rotation, params);
   }
-  /** @brief Diagonal plus shear norm of the frame at its oscillation
-      extreme, plus a full turn of translation.
-      @param params Warp parameters.
-      @param input_bound Bound on the input plane coordinates.
-      @return Bound on the warped coordinates. */
-  static float plane_bound(const Params &params, float input_bound) {
-    const float x_gain = fmaxf(params.scale_x, 1.0f / params.scale_x);
-    const float y_gain = fmaxf(params.scale_y, 1.0f / params.scale_y);
-    return (fmaxf(x_gain, y_gain) + fabsf(params.shear) * y_gain) *
-               input_bound +
-           params.lattice_period *
-               std::hypot(params.translation_x, params.translation_y);
+  static float plane_bound(const Params &params, float input_bound,
+                           const TranslationLattice &lattice) {
+    return Warp::plane_bound(params, input_bound, lattice);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
-                          const State &state) {
-    return Warp::prepare(params, state.phase, state.rotation,
-                         params.lattice_period);
+                          const State &state,
+                          const TranslationLattice &lattice) {
+    return Warp::prepare(params, state.phase, state.rotation, lattice);
   }
   static PlaneSample run(const PlaneSample &input, const FrameContext &,
                          const Params &, const Prepared &prepared) {
     return Kernel::warp(input,
                         Warp::affine_frame(input.coords, prepared, true));
-  }
-};
-
-/** @brief Whole-repeat affine parameter family. */
-using PeriodicAffineWarpParams = Warp::PeriodicAffineParams;
-
-/** @brief Affine translation with periodic displacement coloring.
- * @details The period must be a translation symmetry of the downstream source. */
-struct WarpAffinePeriodic : WarpAffineV3 {
-  static constexpr const char *ID = "warp.affine-periodic.v1";
-  static constexpr const char *NAME = "Periodic Affine";
-  using Params = PeriodicAffineWarpParams;
-
-  /** @brief Resolves signed whole-cell windings.
-   * @param params Authored affine controls.
-   * @return Controls with rounded translations. */
-  static AffineWarpParams cell_windings(const Params &params) {
-    return Warp::cell_windings(params);
-  }
-  static float plane_bound(const Params &params, float input_bound) {
-    return WarpAffineV3::plane_bound(cell_windings(params), input_bound);
-  }
-  static Prepared prepare(const FrameContext &ctx, const Params &params,
-                          const State &state) {
-    return WarpAffineV3::prepare(ctx, cell_windings(params), state);
-  }
-  static PlaneSample run(const PlaneSample &input, const FrameContext &,
-                         const Params &params, const Prepared &prepared) {
-    return Kernel::warp(
-        input, Warp::periodic_affine_frame(input.coords, prepared,
-                                           Warp::repeat_period(params), true));
   }
 };
 

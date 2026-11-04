@@ -1132,49 +1132,15 @@ test('documents can snap an otherwise interpolatable scalar', () => {
 });
 
 
-test('fixed affine period follows the lattice source with float32 rounding', () => {
+test('the affine fallback lattice period is an ordinary authored control', () => {
   const descriptor = { chain: [
-    { label: 'affine', operator: 'warp.affine.v3' },
+    { label: 'affine', operator: 'warp.affine.v4' },
     { label: 'cells', operator: 'sample.lattice.v2' },
   ] };
-  const values = { 'affine.lattice-period': 0.813504159450531,
-    'cells.lattice-cell-scale': 1.2292499542236328 };
-  assert.equal(fixedDerivedBinding(descriptor, 'affine.speed', values), null);
-  const binding = fixedDerivedBinding(descriptor, 'affine.lattice-period', values);
-  assert.equal(binding.sourceId, 'cells.lattice-cell-scale');
-  assert.equal(binding.valid, true);
-  for (const bad of [undefined, NaN, Infinity, 0, -1, 1]) {
-    assert.equal(fixedDerivedBinding(descriptor, 'affine.lattice-period', {
-      ...values, 'cells.lattice-cell-scale': bad,
-    }).valid, false);
-  }
-  assert.equal(fixedDerivedBinding(descriptor, 'affine.lattice-period', {
-    ...values, 'affine.lattice-period': 0.5,
-  }).valid, false);
-});
-
-test('a fixed affine warp without a lattice source has unit period', () => {
-  const descriptor = { chain: [{ label: 'frame', operator: 'warp.affine.v3' }] };
-  const parameter = 'frame.lattice-period';
-  assert.deepEqual(fixedDerivedBinding(descriptor, parameter, { [parameter]: 1 }),
-    { sourceId: null, valid: true, expected: 1 });
-  assert.equal(fixedDerivedBinding(descriptor, parameter, { [parameter]: 0.5 }).valid, false);
-  descriptor.chain[0].operator = 'warp.wave-shear.v2';
-  assert.equal(fixedDerivedBinding(descriptor, parameter, { [parameter]: 1 }), null);
-});
-
-test('periodic affine derives its repeat only from the next lattice source', () => {
-  const descriptor = { chain: [
-    { label: 'repeat', operator: 'warp.affine-periodic.v1' },
-    { label: 'cells', operator: 'sample.lattice.v2' },
-  ] };
-  const values = { 'repeat.lattice-period': 0.25, 'cells.lattice-cell-scale': 4 };
-  assert.deepEqual(fixedDerivedBinding(descriptor, 'repeat.lattice-period', values),
-    { sourceId: 'cells.lattice-cell-scale', valid: true, expected: 0.25 });
-  descriptor.chain.splice(1, 0, { label: 'bend', operator: 'warp.vortex.v2' });
-  assert.equal(fixedDerivedBinding(descriptor, 'repeat.lattice-period', values), null);
+  const values = { 'affine.lattice-period': 0.5, 'cells.lattice-cell-scale': 4 };
+  assert.equal(fixedDerivedBinding(descriptor, 'affine.lattice-period', values), null);
   descriptor.chain = [descriptor.chain[0]];
-  assert.equal(fixedDerivedBinding(descriptor, 'repeat.lattice-period', values), null);
+  assert.equal(fixedDerivedBinding(descriptor, 'affine.lattice-period', values), null);
 });
 
 test('catalog declarations share the compiler label and topology contracts', () => {
@@ -1284,7 +1250,7 @@ test('fixed bindings skip dormant width and noise controls while preserving thei
     'modulation.pattern-speed': -1.0416666782475659e-6 };
   for (const id of ['sample.edge-width', 'modulation.pattern-scale', 'modulation.pattern-speed']) {
     assert.deepEqual(fixedDerivedBinding(descriptor, id, values), {
-      sourceId: null, valid: true, expected: Math.fround(values[id]),
+      valid: true, expected: Math.fround(values[id]),
     });
   }
   assert.equal(fixedDerivedBinding(descriptor, 'modulation.sine-frequency', values), null);

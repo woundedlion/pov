@@ -241,7 +241,7 @@ test('every catalog operator retains all scalar values and topology selections',
     }
     ++operators;
   }
-  assert.equal(operators, 45);
+  assert.equal(operators, 44);
   assert.ok(selectors > 100);
 });
 
@@ -250,7 +250,7 @@ test('operator bindings preserve authored resource keys and native member names'
     { label: 'lattice', operator: 'sample.lattice.v2' },
     { label: 'map', operator: 'project.cubic.v1' },
     { label: 'flow', operator: 'sphere.displace.potential.v1', resource_key: 'velocity' },
-    { label: 'slide', operator: 'warp.affine.v3', resource_key: 'plane' },
+    { label: 'slide', operator: 'warp.affine.v4', resource_key: 'plane' },
   ] } };
   assert.deepEqual([...presetAssignments(authored, {
     'lattice.lattice-cell-scale': 2, 'lattice.lattice-shape': 0.5,
@@ -308,7 +308,7 @@ test('camera spin binding follows its authored label', async () => {
 
 test('authored affine periods and sample coverage retain their independent storage', () => {
   const authored = { descriptor: { chain: [
-    { label: 'warp', operator: 'warp.affine.v3' },
+    { label: 'warp', operator: 'warp.affine.v4' },
     { label: 'sample', operator: 'sample.lattice.v2' },
   ] } };
   const assignments = presetAssignments(authored, {
@@ -349,17 +349,19 @@ test('authored rotations retain independent keys and per-preset spin speeds', as
   assert.throws(() => generatedSections(compiled), /camera spin must be uniform/);
 });
 
-test('periodic affine keeps explicit repeat units and authored winding controls', () => {
+test('affine warp keeps its fallback period, repeat and winding controls', () => {
   const authored = { descriptor: { chain: [
-    { label: 'repeat', resource_key: 'scroll', operator: 'warp.affine-periodic.v1' },
+    { label: 'repeat', resource_key: 'scroll', operator: 'warp.affine.v4' },
     { label: 'sample', operator: 'sample.lattice.v2' },
   ] } };
   for (const authoredTopology of [false, true]) {
     const assignments = presetAssignments(authored, {
       'repeat.lattice-period': 0.5, 'repeat.translation-x': -1.5,
-      'repeat.translation-y': 2.25, 'sample.lattice-cell-scale': 2,
+      'repeat.translation-y': 2.25, 'repeat.repeat-cells': 3,
+      'sample.lattice-cell-scale': 2,
     }, { authoredTopology });
     assert.equal(assignments.get('scroll.lattice_period'), '0.5f');
+    assert.equal(assignments.get('scroll.repeat_cells'), '3.0f');
     assert.equal(assignments.get('scroll.translation_x'), '-1.5f');
     assert.equal(assignments.get('scroll.translation_y'), '2.25f');
   }

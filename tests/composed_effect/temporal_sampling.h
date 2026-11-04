@@ -489,7 +489,8 @@ inline void test_temporal_affine_cycle() {
       warp.scale_x = params[0];
       warp.scale_y = params[1];
       warp.shear = params[2];
-      const auto actual = Pullback::Warp::prepare(warp, phase, 0.3f, 1.2f);
+      const auto actual = Pullback::Warp::prepare(
+          warp, phase, 0.3f, Pullback::square_lattice(1.2f));
       const float CYCLE = cosf(math::TWO_PI_F * math::wrap_t(phase));
       HS_EXPECT_NEAR(
           actual.transform.affine.inverse_scale_x,

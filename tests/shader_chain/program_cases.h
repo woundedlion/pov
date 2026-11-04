@@ -174,8 +174,8 @@ inline void test_shader_chain_table_integrity() {
   for (const auto *id :
        {"project.peirce.v2", "project.peirce-square-fast.v2",
         "project.bonne.v2", "project.airocean.v2", "warp.affine.v2",
-        "sample.grid.v2", "sample.twin-wave.v2",
-        "colorize.generated-palette.v2"})
+        "warp.affine.v3", "warp.affine-periodic.v1", "sample.grid.v2",
+        "sample.twin-wave.v2", "colorize.generated-palette.v2"})
     HS_EXPECT_TRUE(In::find_operator(id) == nullptr);
   HS_EXPECT_TRUE(In::find_operator("sample.grid.v3") != nullptr);
   HS_EXPECT_TRUE(In::find_operator("sample.grid.v1") == nullptr);
@@ -441,7 +441,7 @@ inline void test_shader_chain_schema_and_field_ids() {
   // Warp batch: every op is PLANE->PLANE with "speed" first; the polar chart
   // carries the harmonic list; curl-flow exposes basis and integrator.
   for (const char *id :
-       {"warp.affine.v3", "warp.vortex.v2", "warp.wave-shear.v2",
+       {"warp.affine.v4", "warp.vortex.v2", "warp.wave-shear.v2",
         "warp.vector-noise.v2", "warp.mirror-tile.v2", "warp.polar-chart.v2",
         "warp.curl-flow.v2"}) {
     const auto *warp_found = require_operator(id);

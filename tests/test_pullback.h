@@ -1343,9 +1343,12 @@ inline void test_pullback_warp_phase_loop() {
   affine.scale_x = 1.5f;
   affine.scale_y = 0.75f;
   affine.shear = 0.2f;
-  const auto affine_0 = Pullback::Warp::prepare(affine, 0.0f, 0.6f, 2.0f);
-  const auto affine_1 = Pullback::Warp::prepare(affine, 1.0f, 0.6f, 2.0f);
-  const auto affine_mid = Pullback::Warp::prepare(affine, 0.25f, 0.6f, 2.0f);
+  const auto affine_0 = Pullback::Warp::prepare(affine, 0.0f, 0.6f,
+                                                Pullback::square_lattice(2.0f));
+  const auto affine_1 = Pullback::Warp::prepare(affine, 1.0f, 0.6f,
+                                                Pullback::square_lattice(2.0f));
+  const auto affine_mid = Pullback::Warp::prepare(
+      affine, 0.25f, 0.6f, Pullback::square_lattice(2.0f));
   HS_EXPECT_GT(std::abs(affine_mid.transform.affine.translation_x -
                         affine_0.transform.affine.translation_x),
                0.1f);

@@ -400,6 +400,9 @@ struct SampleLattice : StatelessModel {
   using Params = LatticeSampleParams;
   struct Prepared {};
 
+  static TranslationLattice translation_lattice(const Params &params) {
+    return Source::translation_lattice(params);
+  }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &) {
     check_sample_topology(params.weight_mode, params.coverage_mode);

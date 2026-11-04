@@ -398,7 +398,7 @@ inline void test_shader_chain_snapshot_roundtrip() {
         {"camera", "sphere.rotate.v2"},
         {"project", "project.stereographic.v2"},
         {"noise", "warp.vector-noise.v2"},
-        {"outer", "warp.affine.v3"},
+        {"outer", "warp.affine.v4"},
         {"sample", "sample.grid.v3"},
         {"colorize", "colorize.generated-palette.v4"},
         {"modulation", "color.modulate.v1"}};
@@ -786,10 +786,15 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_parity_project_hemispheres);
   HS_RUN(test_shader_chain_parity_field_ops);
   HS_RUN(test_shader_chain_parity_warp_affine_mirror);
-  HS_RUN(test_shader_chain_affine_periodic_wrap);
-  HS_RUN(test_shader_chain_affine_periodic_distance);
-  HS_RUN(test_shader_chain_affine_periodic_repeat_cells);
-  HS_RUN(test_shader_chain_affine_periodic_interval);
+  HS_RUN(test_shader_chain_affine_lattice_wrap);
+  HS_RUN(test_shader_chain_affine_lattice_distance);
+  HS_RUN(test_shader_chain_affine_fallback_period);
+  HS_RUN(test_shader_chain_affine_hex_lattice);
+  HS_RUN(test_shader_chain_affine_repeat_reduction);
+  HS_RUN(test_shader_chain_affine_repeat_cells);
+  HS_RUN(test_shader_chain_affine_interval);
+  HS_RUN(test_shader_chain_affine_reads_next_lattice);
+  HS_RUN(test_shader_chain_affine_column_lattice);
   HS_RUN(test_shader_chain_parity_warp_wave_shear);
   HS_RUN(test_shader_chain_parity_warp_vortex);
   HS_RUN(test_shader_chain_parity_warp_vector_noise);

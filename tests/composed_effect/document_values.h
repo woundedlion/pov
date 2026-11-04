@@ -787,8 +787,8 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
  * @tparam E Composed effect class template.
  * @param name Effect name, for the failure context.
  * @details Every preset in the effect's shader document is rebuilt into a
- * Params through the engine's field tables and compared both ways. Reciprocal
- * lattice cell scale allows rounding error; other values compare bit-exactly.
+ * Params through the engine's field tables and compared bit-exactly both
+ * ways.
  */
 template <template <int, int> class E>
 inline void check_document_values(const char *name) {
@@ -1060,22 +1060,6 @@ inline void check_document_values(const char *name) {
       HS_EXPECT(slot != nullptr, "value key names a chain instance");
       if (slot == nullptr)
         continue;
-      if constexpr (
-          requires { built.template get<"source">().lattice_cell_scale; } &&
-          !requires(typename Params::template Family<"outer_warp"> &warp) {
-            warp.lattice_period;
-          }) {
-        if (slot->role == SlotRole::WARP && field_id == "lattice-period") {
-          HS_EXPECT_NEAR(static_cast<float>(value.number),
-                         1.0f / preset_params<FX>(index)
-                                    .template get<"source">()
-                                    .lattice_cell_scale,
-                         1e-6f);
-          built.template get<"source">().lattice_cell_scale =
-              1.0f / static_cast<float>(value.number);
-          continue;
-        }
-      }
       HS_EXPECT(apply_document_value<FX>(built, *slot, field_id, value),
                 "document value maps onto the effect");
     }
@@ -1088,15 +1072,6 @@ inline void check_document_values(const char *name) {
       HS_EXPECT_TRUE(camera_spin_present);
     }
     const Params expected = preset_params<FX>(index);
-    if constexpr (!AUTHORED && requires {
-                    built.template get<"source">().lattice_cell_scale;
-                  }) {
-      HS_EXPECT_NEAR(built.template get<"source">().lattice_cell_scale,
-                     expected.template get<"source">().lattice_cell_scale,
-                     1e-6f);
-      built.template get<"source">().lattice_cell_scale =
-          expected.template get<"source">().lattice_cell_scale;
-    }
     verify_params_equal(built, expected);
   }
 }

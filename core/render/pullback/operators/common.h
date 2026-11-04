@@ -50,11 +50,15 @@ namespace Interp {
  *   `dst`; returns Status.
  * - `advance(State &, const Params &)` — steps per-frame clocks.
  * - `prepare(const FrameContext &, const Params &, const State &)` — returns
- *   the frame's `Prepared`.
+ *   the frame's `Prepared`. A model reading the next stage's lattice declares
+ *   it with a trailing `const TranslationLattice &` instead.
  * - `run(const Input &, const FrameContext &, const Params &,
  *   const Prepared &)` — returns the per-sample `Output`.
  * - `plane_bound(const Params &, float input_bound)` — required when `Output`
- *   is PlaneSample: output magnitude bound given the input's.
+ *   is PlaneSample: output magnitude bound given the input's; optionally with
+ *   a trailing `const TranslationLattice &` of the next stage.
+ * - `translation_lattice(const Params &)` — optional; the translation symmetry
+ *   the output reports to the stage before it.
  * - `validate(const Params &)` — optional; admission warning or null. A model
  *   declaring it must SNAP every field or declare `ADMISSIBILITY_CONVEXITY`.
  * - `ADMISSIBILITY_CONVEXITY` — optional non-empty string stating the

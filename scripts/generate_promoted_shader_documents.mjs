@@ -505,7 +505,7 @@ const effects = [
       },
       {
         "label": "warp1",
-        "operator": "warp.affine.v3"
+        "operator": "warp.affine.v4"
       },
       {
         "label": "sample",
@@ -556,6 +556,7 @@ const effects = [
       "transfer.iso-level": 0.5,
       "transfer.iso-width": 0.05000000074505806,
       "warp1.lattice-period": 1,
+      "warp1.repeat-cells": 1,
       "warp1.rotation-rate": 0,
       "warp1.scale-x": 1,
       "warp1.scale-y": 1,
@@ -582,7 +583,6 @@ const effects = [
           "sample.lattice-softness": 0.16082030534744263,
           "transfer.iso-level": 0.1379999965429306,
           "transfer.iso-width": 0.22703418135643005,
-          "warp1.lattice-period": 0.813504159450531,
           "warp1.speed": 0.015625,
           "warp1.translation-x": 4,
           "warp1.translation-y": 4

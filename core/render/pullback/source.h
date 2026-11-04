@@ -12,6 +12,7 @@
 #include "core/math/projection_patterns.h"
 #include "core/render/pullback/contract.h"
 #include "core/render/pullback/fields.h"
+#include "core/render/pullback/translation_lattice.h"
 #include "core/math/3dmath.h"
 
 /**
@@ -150,6 +151,8 @@ struct ProjectedNoiseSourceParams : NoiseSourceParams {};
  *        (Pullback::Source::PrimitiveLattice).
  */
 struct LatticeSourceParams : Pattern::LatticeSourceParams {
+  /// translation_lattice() is axis-aligned for every parameter value.
+  static constexpr bool RECTANGULAR_TRANSLATION_LATTICE = true;
   /** @brief Per-parameter id, member, label, range and curve. */
   static constexpr auto FIELDS = std::array{
       Field<LatticeSourceParams>{
@@ -168,6 +171,14 @@ struct LatticeSourceParams : Pattern::LatticeSourceParams {
 };
 static_assert(field_ids_unique<LatticeSourceParams>());
 static_assert(field_defaults_in_range<LatticeSourceParams>());
+
+/** @brief Square translation symmetry of the primitive lattice.
+    @param params Lattice controls.
+    @return Square lattice of period `1 / lattice_cell_scale`. */
+constexpr TranslationLattice
+translation_lattice(const LatticeSourceParams &params) {
+  return square_lattice(1.0f / params.lattice_cell_scale);
+}
 
 /** @brief Source parameters for latitude bands on a moving sphere. */
 /** @brief Source parameters for periodic polygon edge tessellations. */

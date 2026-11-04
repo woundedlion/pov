@@ -495,7 +495,7 @@ inline void test_shader_chain_operator_state_migration() {
       {"ripple", "sphere.displace.ripple.v2"},
       {"project", "project.stereographic.v2"},
       {"wave", "warp.wave-shear.v2"},
-      {"affine", "warp.affine.v3"},
+      {"affine", "warp.affine.v4"},
       {"sample", "sample.projected-noise.v2"},
       {"colorize", "colorize.generated-palette.v4"}};
   const auto status = program.compile(first).code;

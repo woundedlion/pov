@@ -1036,11 +1036,12 @@ export function exportShaderDocumentJson(document) {
 }
 
 /**
- * Resolves a fixed binding supplied by source parameters or coverage topology.
+ * Resolves a parameter that the selected modulation source or coverage
+ * topology fixes in the compiled effect.
  * @param {object} descriptor Validated chain descriptor.
  * @param {string} parameterId Chain parameter id.
  * @param {object} values Selected preset values.
- * @returns {{sourceId: string|null, valid: boolean, expected: number}|null}
+ * @returns {{valid: boolean, expected: number}|null}
  */
 export function fixedDerivedBinding(descriptor, parameterId, values) {
   if (/\.pattern-(scale|speed|contrast)$/.test(parameterId)) {
@@ -1050,7 +1051,7 @@ export function fixedDerivedBinding(descriptor, parameterId, values) {
         ['directional-sine', 'sphere-interference', 'sphere-smooth-grid', 'displacement']
           .includes(values[`${label}.modulation-source`])) {
       const expected = Math.fround(values[parameterId]);
-      return { sourceId: null, expected, valid: Number.isFinite(expected) };
+      return { expected, valid: Number.isFinite(expected) };
     }
   }
   if (parameterId.endsWith('.edge-width')) {
@@ -1059,31 +1060,10 @@ export function fixedDerivedBinding(descriptor, parameterId, values) {
     if (slot?.operator?.startsWith('sample.') &&
         ['none', 'weight', 'weight-squared'].includes(values[`${label}.coverage-mode`])) {
       const expected = Math.fround(values[parameterId]);
-      return { sourceId: null, expected, valid: Number.isFinite(expected) };
+      return { expected, valid: Number.isFinite(expected) };
     }
   }
-  const suffix = '.lattice-period';
-  if (!parameterId.endsWith(suffix)) return null;
-  const label = parameterId.slice(0, -suffix.length);
-  const index = descriptor?.chain?.findIndex((slot) => slot.label === label
-    && ['warp.affine.v3', 'warp.affine-periodic.v1'].includes(slot.operator)) ?? -1;
-  if (index < 0) return null;
-  const periodic = descriptor.chain[index].operator === 'warp.affine-periodic.v1';
-  const source = periodic
-    ? descriptor.chain[index + 1]
-    : descriptor.chain.find((slot) => slot.operator === 'sample.lattice.v2');
-  if (periodic && source?.operator !== 'sample.lattice.v2') return null;
-  const sourceId = source ? `${source.label}.lattice-cell-scale` : null;
-  const scale = sourceId === null ? 1 : Math.fround(values[sourceId]);
-  const period = Math.fround(values[parameterId]);
-  const expected = Math.fround(1 / scale);
-  // Authoring may round the reciprocal before rounding its source to float32.
-  const tolerance = Math.abs(expected) * 2 ** -23;
-  return {
-    sourceId, expected,
-    valid: Number.isFinite(period) && period > 0 && Number.isFinite(scale) && scale > 0 &&
-      Number.isFinite(expected) && Math.abs(period - expected) <= tolerance,
-  };
+  return null;
 }
 
 /** Expands the original coverage domain without changing authored values.
@@ -1355,7 +1335,7 @@ export function engineControlNames(parameterId, descriptor) {
   }
   if (label === 'warp1' || label === 'warp2') {
     const slot = `Planar Warp ${label === 'warp1' ? 1 : 2} ${words}`;
-    if (['Rotation Rate', 'Translation X', 'Translation Y', 'Scale X', 'Scale Y', 'Shear']
+    if (['Rotation Rate', 'Scale X', 'Scale Y', 'Shear']
       .includes(words)) return [slot, `Affine ${words}`];
     if (['Radial Scale', 'Radial Phase', 'Angular Phase'].includes(words))
       return [slot, `Polar ${words}`];

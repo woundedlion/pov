@@ -1400,6 +1400,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │   ├── authored_sample.h       Runtime signal weighting and projection coverage
 │   │   │   ├── authored_source.h       Source policies with authored topology
 │   │   │   ├── authored_warp.h         Warp policies with authored topology
+│   │   │   ├── translation_lattice.h   Translation symmetry a planar source reports to the warp before it
 │   │   │   ├── spatial_walk.h          Sphere spin and random-walk state
 │   │   │   ├── sphere_animation.h      Ripple burst scheduling
 │   │   │   ├── operators.h             Chain-operator umbrella and camera/color exit adapters

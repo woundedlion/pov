@@ -78,9 +78,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "046ab9dc7b051e72256970c1ac38bb4c16eb0b29788b17c8d85de951727d9206";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "4e73b5864bc634316b1915646fb817bdfdd688d5d2fc16c0a830caf24f716d32";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "78274582242e8c26030356ce8fe180accc40e35c3811f51d5f803ed267680496";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "9eab549b9dfe186c10f9302301a8321ca6730d0b6bab87b796e2b92baf81213b";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "affine-contour"
@@ -90,7 +90,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -125,6 +125,8 @@ public:
     value.template get<"source">().lattice_softness = 0.1608203f;
     value.template get<"value">().iso_level = 0.138f;
     value.template get<"value">().iso_width = 0.22703418f;
+    value.template get<"outer_warp">().lattice_period = 1.0f;
+    value.template get<"outer_warp">().repeat_cells = 1.0f;
     value.template get<"outer_warp">().rotation_rate = 0.0f;
     value.template get<"outer_warp">().scale_x = 1.0f;
     value.template get<"outer_warp">().scale_y = 1.0f;

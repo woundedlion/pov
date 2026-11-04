@@ -241,7 +241,7 @@ A wave-sheared grid moving across a folded gnomonic dodecahedral kaleidoscope, t
 
 An affine primitive lattice rendered as soft iso contours through a folded gnomonic projection. The affine frame scrolls the lattice by whole cell windings, so its drift repeats without a visible seam.
 
-**Parameters**: Lattice Cell Scale, Lattice Shape, Lattice Softness, Lattice Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 1 Speed, Affine Rotation Rate, Affine Translation X, Affine Translation Y, Affine Scale X, Affine Scale Y, Affine Shear, Iso Level, Iso Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Lattice Cell Scale, Lattice Shape, Lattice Softness, Lattice Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 1 Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Iso Level, Iso Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -633,8 +633,8 @@ Shipping composed effects are ordinary concrete `Effect` types. Each names one c
 
 
 Specs with `AUTHORED_TOPOLOGY = true` use authored parameter families for
-catalog selectors. The preset generator retains selector indices, explicit
-affine lattice periods, and source weighting and coverage in those families.
+catalog selectors. The preset generator retains selector indices, affine
+fallback lattice periods, and source weighting and coverage in those families.
 Each typed stage evaluates its own selector while its position and carrier
 contract remain fixed by the pipeline. Static specializations keep their
 policy selectors in the pipeline types and require them to agree across
@@ -733,7 +733,7 @@ planar warps.
 | **Displacement** | Direct Noise, Curl Noise, Ripple | Sphere → Sphere; noise scale/strength/speed/basis, direct direction or curl integrator, or ripple controls |
 | **Lens** | Glitch, Twist, Mobius, Kaleidoscope | Sphere → Sphere; lens-specific controls; kaleidoscope selects azimuthal, polyhedral or prism symmetry |
 | **Projection** | Folded Sinusoidal, Stereographic, Gnomonic, Bonne, Peirce Quincuncial, Fast Square Peirce, Dymaxion / Airocean, Equirectangular, Tetrahedral / Cubic / Octahedral / Dodecahedral / Icosahedral Atlas | Sphere → Plane; coordinates, projection provenance, weight and available edge distance; instance-specific frame/layout controls |
-| **Planar warp** | Affine Frame, Wave Shear, Vortex, Vector Noise, Curl Flow, Mirror Tile, Polar Chart | Plane → Plane; independent parameters and clocks for each ordered instance |
+| **Planar warp** | Affine Warp, Wave Shear, Vortex, Vector Noise, Curl Flow, Mirror Tile, Polar Chart | Plane → Plane; independent parameters and clocks for each ordered instance |
 | **Planar source** | Twin Wave, Rings, Spiral, Grid, Projected Noise, Primitive Lattice, Tessellation | Plane → Field; source parameters, signal weighting and coverage choices |
 | **Value transfer** | Ridge, Iso Contour, Smooth Bands | Field → Field; reshapes the normalized value; iso and band controls belong to their operator |
 | **Coverage** | Value Cutout | Field → Field; cutout threshold and softness; projection-based coverage belongs to planar sources |
@@ -752,31 +752,22 @@ Ripple Duration sets each wave's expansion time. Random Center selects a new
 shared center for each burst and hides Center Azimuth and Center Polar; turning
 it off uses those manual coordinates.
 
-Planar-warp **Speed** advances its wrapped phase in cycles per frame. The chain
-operator `warp.affine.v3` uses its explicit **Lattice Period** (1/64–100 plane
-units) to scale Translation X/Y, which may be fractional. It neither derives
-that period from a downstream source nor rounds translation writes. Rotation
-Rate is in radians per phase cycle over `[-2π, 2π]`; its continuous rate is
-`Speed × Rotation Rate`. Shear oscillates, and Scale X/Y move logarithmically
-between reciprocal extrema.
+Planar-warp **Speed** advances its wrapped phase in cycles per frame.
 
-For a seamless affine phase wrap over an unwarped Primitive Lattice, choose its
-source period `1 / Lattice Cell Scale` and whole-cell translation windings.
-Those are continuity conditions for that arrangement, not a chain admission
-rule. A later warp or path-length hue shift can make the wrap visible.
-
-**Periodic Affine** (`warp.affine-periodic.v1`) repeats over Repeat Cells whole
-lattice cells: the repeat is `round(Repeat Cells) × Lattice Period`. It rounds
-Translation X/Y to signed whole-repeat windings. Its displacement contribution is
-the shortest distance modulo the repeat along both plane axes, so
-displacement-driven hue also reconnects across the phase wrap; more Repeat Cells
-lets hue travel further before it repeats. Repeat windings and Repeat Cells use
-snap interpolation between presets. When the next stage is Primitive Lattice, the
-workbench links Lattice Period to `1 / Lattice Cell Scale`, including imported
-documents and live edits. Other translation-periodic sources can use an explicit
-matching lattice period. This requires equal X/Y periods; radial periodicity
-alone is insufficient. A later nonperiodic warp can still expose the translation
-reset. Existing Affine Warp behavior is unchanged.
+**Affine Warp** (`warp.affine.v4`) translates along the translation lattice of
+the stage immediately after it; Primitive Lattice reports a square lattice of
+period `1 / Lattice Cell Scale`. Each phase turn moves Repeat Windings A and B
+whole basis vectors, times a whole number of Repeat Cells, so the phase wrap is
+seamless over that source. Its displacement contribution is the shortest offset
+modulo that repeat lattice, so displacement-driven hue also reconnects across
+the wrap; more Repeat Cells let hue travel further before it repeats. When the
+next stage reports no lattice, the warp winds a square lattice of **Fallback
+Lattice Period** (1/64–100 plane units) and its displacement is unwrapped.
+Windings and Repeat Cells round to whole numbers and snap between presets.
+Rotation Rate is in radians per phase cycle over `[-2π, 2π]`; its continuous
+rate is `Speed × Rotation Rate`. Shear oscillates, and Scale X/Y move
+logarithmically between reciprocal extrema. A later nonperiodic warp can still
+expose the translation reset.
 
 Mirror Tile scrolls one local X cell while its Y offset remains manual.
 Polar Chart advances Angular Phase by one turn while Radial Phase remains

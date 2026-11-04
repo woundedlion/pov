@@ -20,6 +20,7 @@
 #include "core/render/pullback/fields.h"
 #include "core/render/pullback/runtime_snapshot.h"
 #include "core/render/pullback/runtime_seeds.h"
+#include "core/render/pullback/translation_lattice.h"
 
 /**
  * @file model.h
@@ -139,8 +140,9 @@ struct BlockLayout {
  * every topology variant; `migrate` clones `src` into unconstructed `dst`
  * storage (on failure `dst` is left unconstructed and `src` untouched);
  * `advance` steps per-frame clocks; `prepare` derives the frame's prepared
- * block from context, params and state; `run` placement-constructs the output
- * carrier, licensed by validated adjacency.
+ * block from context, params, state and the next entry's TranslationLattice;
+ * `run` placement-constructs the output carrier, licensed by validated
+ * adjacency.
  */
 struct OperatorRuntime {
   BlockLayout param;    ///< Parameter block layout.
@@ -156,9 +158,10 @@ struct OperatorRuntime {
   void (*destroy)(void *state);
   /** Steps the instance's per-frame clocks. */
   void (*advance)(void *state, const uint8_t *params);
-  /** Constructs the frame's prepared block. */
+  /** Constructs the frame's prepared block given the next entry's lattice. */
   void (*prepare)(const FrameContext &ctx, const uint8_t *params,
-                  const void *state, uint8_t *prepared);
+                  const void *state, uint8_t *prepared,
+                  const TranslationLattice &downstream);
   /** Constructs the output carrier at `out` from the input at `in`. */
   void (*run)(const void *in, void *out, const FrameContext &ctx,
               const uint8_t *params, const uint8_t *prepared);
@@ -171,8 +174,10 @@ struct OperatorRuntime {
   /** Restores instance state from a snapshot; false when not applied. */
   bool (*restore_state)(void *state, const RuntimeSnapshot &snapshot) = nullptr;
   /** Bound on the output plane magnitude over every phase, given a bound on
-      the input's; null unless the output carrier is PLANE. */
-  float (*plane_bound)(const void *params, float input_bound) = nullptr;
+      the input's and the next entry's lattice; null unless the output carrier
+      is PLANE. */
+  float (*plane_bound)(const void *params, float input_bound,
+                       const TranslationLattice &downstream) = nullptr;
   /** Writes the param block at a frame fraction between two endpoints. */
   void (*sample_params)(uint8_t *out, const uint8_t *from, const uint8_t *to,
                         float fraction) = nullptr;
@@ -191,6 +196,9 @@ struct OperatorRuntime {
   bool (*temporal_hold_field)(uint16_t field) = nullptr;
   /** Conservative fold advisory for a field operator, or infinity. */
   float (*fold_strength)(const void *params) = nullptr;
+  /** Translation symmetry the output reports to the previous entry; null for
+      none. */
+  TranslationLattice (*translation_lattice)(const uint8_t *params) = nullptr;
 };
 
 /**
@@ -496,17 +504,26 @@ template <typename Model> struct ErasedAdapter {
   }
 
   /**
-   * @brief Constructs the prepared block from `Model::prepare`.
+   * @brief Constructs the prepared block from `Model::prepare`, passing
+   *        @p downstream when the model declares the lattice overload.
    * @param ctx Frame context.
    * @param params Param block bytes.
    * @param state Constructed state.
    * @param prepared Raw prepared storage.
+   * @param downstream The next entry's lattice.
    */
   static void prepare(const FrameContext &ctx, const uint8_t *params,
-                      const void *state, uint8_t *prepared) {
-    ::new (static_cast<void *>(prepared)) Prepared{Model::prepare(
-        ctx, *std::launder(reinterpret_cast<const Params *>(params)),
-        *std::launder(static_cast<const State *>(state)))};
+                      const void *state, uint8_t *prepared,
+                      const TranslationLattice &downstream) {
+    const Params &block =
+        *std::launder(reinterpret_cast<const Params *>(params));
+    const State &current = *std::launder(static_cast<const State *>(state));
+    if constexpr (requires { Model::prepare(ctx, block, current, downstream); })
+      ::new (static_cast<void *>(prepared))
+          Prepared{Model::prepare(ctx, block, current, downstream)};
+    else
+      ::new (static_cast<void *>(prepared))
+          Prepared{Model::prepare(ctx, block, current)};
   }
 
   /**
@@ -576,14 +593,22 @@ template <typename Model> struct ErasedAdapter {
   }
 
   /**
-   * @brief Forwards to `Model::plane_bound`.
+   * @brief Forwards to `Model::plane_bound`, passing @p downstream when the
+   *        model declares the lattice overload.
    * @param params Param block.
    * @param input_bound Bound on the input plane magnitude.
+   * @param downstream The next entry's lattice.
    * @return Bound on the output plane magnitude.
    */
-  static float plane_bound(const void *params, float input_bound) {
-    return Model::plane_bound(
-        *std::launder(static_cast<const Params *>(params)), input_bound);
+  static float plane_bound(const void *params, float input_bound,
+                           const TranslationLattice &downstream) {
+    const Params &block = *std::launder(static_cast<const Params *>(params));
+    if constexpr (requires {
+                    Model::plane_bound(block, input_bound, downstream);
+                  })
+      return Model::plane_bound(block, input_bound, downstream);
+    else
+      return Model::plane_bound(block, input_bound);
   }
 
   /**
@@ -614,7 +639,7 @@ template <typename Model> struct ErasedAdapter {
  * @return The callback pointer.
  */
 template <typename Model> constexpr auto model_plane_bound() {
-  using PlaneBound = float (*)(const void *, float);
+  using PlaneBound = float (*)(const void *, float, const TranslationLattice &);
   if constexpr (std::is_same_v<typename Model::Output, PlaneSample>)
     return static_cast<PlaneBound>(&ErasedAdapter<Model>::plane_bound);
   else
@@ -679,6 +704,24 @@ template <typename Model> constexpr auto model_modulation_key() {
     });
   else
     return static_cast<Key>(nullptr);
+}
+
+/** @brief Optional reported translation lattice.
+ * @tparam Model Operator model.
+ * @return Erased accessor or null. */
+template <typename Model> constexpr auto model_translation_lattice() {
+  using Lattice = TranslationLattice (*)(const uint8_t *);
+  if constexpr (requires(const typename Model::Params &params) {
+                  {
+                    Model::translation_lattice(params)
+                  } -> std::same_as<TranslationLattice>;
+                })
+    return static_cast<Lattice>(+[](const uint8_t *params) {
+      return Model::translation_lattice(*std::launder(
+          reinterpret_cast<const typename Model::Params *>(params)));
+    });
+  else
+    return static_cast<Lattice>(nullptr);
 }
 
 /** @brief Optional current-topology field policy.
@@ -828,9 +871,14 @@ constexpr OperatorDescriptor make_operator_descriptor() {
       !std::is_same_v<typename Model::Output, PlaneSample> ||
           requires(const Params &params) {
             { Model::plane_bound(params, 0.0f) } -> std::same_as<float>;
+          } ||
+          requires(const Params &params) {
+            {
+              Model::plane_bound(params, 0.0f, TranslationLattice{})
+            } -> std::same_as<float>;
           },
       "operator model: a PLANE-output model must declare "
-      "plane_bound(params, input_bound)");
+      "plane_bound(params, input_bound[, lattice])");
   static_assert(std::is_trivially_copyable_v<Params>,
                 "param blocks are byte-copied by the value channel");
   static_assert(std::is_trivially_destructible_v<Params> &&
@@ -892,6 +940,7 @@ constexpr OperatorDescriptor make_operator_descriptor() {
           Detail::model_modulation_key<Model>(),
           Detail::model_temporal_hold_field<Model>(),
           &Adapter::fold_strength,
+          Detail::model_translation_lattice<Model>(),
       },
       Detail::model_approximate<Model>(),
       Detail::model_oracle<Model>(),

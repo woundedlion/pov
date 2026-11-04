@@ -12,7 +12,7 @@
       },
       {
         "label": "warp",
-        "operator": "warp.affine-periodic.v1"
+        "operator": "warp.affine.v4"
       },
       {
         "label": "sample",
@@ -1469,7 +1469,7 @@
           "sample.lattice-shape": 1,
           "sample.lattice-softness": 0.5,
           "sample.weight-mode": "projection",
-          "warp.lattice-period": 0.25245383381843567,
+          "warp.lattice-period": 1,
           "warp.repeat-cells": 8,
           "warp.rotation-rate": 1.0005351305007935,
           "warp.scale-x": 1,

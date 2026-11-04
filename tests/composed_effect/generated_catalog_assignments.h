@@ -467,8 +467,8 @@ inline void catalog_assignments_project_icosahedral_v1() {
   (void)params;
 }
 
-inline void catalog_assignments_warp_affine_v3() {
-  Pullback::Warp::ExplicitAffineParams params;
+inline void catalog_assignments_warp_affine_v4() {
+  Pullback::Warp::AffineParams params;
   params.speed = 0.0f;
   params.rotation_rate = 0.0f;
   params.translation_x = 0.0f;
@@ -476,21 +476,8 @@ inline void catalog_assignments_warp_affine_v3() {
   params.scale_x = 1.0f;
   params.scale_y = 1.0f;
   params.shear = 0.0f;
-  params.lattice_period = 1.0f;
-  (void)params;
-}
-
-inline void catalog_assignments_warp_affine_periodic_v1() {
-  Pullback::Warp::PeriodicAffineParams params;
-  params.speed = 0.0f;
-  params.rotation_rate = 0.0f;
-  params.translation_x = 0.0f;
-  params.translation_y = 0.0f;
-  params.scale_x = 1.0f;
-  params.scale_y = 1.0f;
-  params.shear = 0.0f;
-  params.lattice_period = 1.0f;
   params.repeat_cells = 1.0f;
+  params.lattice_period = 1.0f;
   (void)params;
 }
 

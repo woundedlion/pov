@@ -278,7 +278,8 @@ inline void test_shader_chain_projection_plane_bound() {
     HS_EXPECT_TRUE(op.runtime.plane_bound != nullptr);
     if (op.runtime.plane_bound == nullptr)
       continue;
-    const float bound = op.runtime.plane_bound(program.param_block(0), 0.0f);
+    const float bound =
+        op.runtime.plane_bound(program.param_block(0), 0.0f, {});
     for (const math::Vector &view : views) {
       const PB::PlaneSample plane = run_entry<PB::PlaneSample>(
           program, ctx, 0, PB::SphereSample{view, 0.0f});
@@ -303,7 +304,7 @@ inline void test_shader_chain_plane_growth_admission() {
     ids[index] = "warp" + std::to_string(index);
     scale_x[index] = ids[index] + ".scale-x";
     scale_y[index] = ids[index] + ".scale-y";
-    chain[index + 1] = {ids[index], In::Op::WarpAffineV3::ID};
+    chain[index + 1] = {ids[index], In::Op::WarpAffineV4::ID};
   }
   chain[WARPS + 1] = {"sample", In::Op::SampleGridV3::ID};
   chain[WARPS + 2] = {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID};
@@ -366,7 +367,7 @@ inline void test_shader_chain_plane_growth_admission() {
   const In::ChainEntryRequest ordinary[] = {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.gnomonic.v2"},
-      {"warp", "warp.affine.v3"},
+      {"warp", "warp.affine.v4"},
       {"polar", "warp.polar-chart.v2"},
       {"sample", "sample.lattice.v2"},
       {"colorize", "colorize.generated-palette.v4"},

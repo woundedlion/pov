@@ -12,7 +12,7 @@ inline void test_shader_chain_parameter_ranges() {
   chain[0] = {"project", In::Op::ProjectStereographic::ID};
   for (int index = 0; index < WARPS; ++index) {
     ids[index] = "warp" + std::to_string(index);
-    chain[index + 1] = {ids[index], In::Op::WarpAffineV3::ID};
+    chain[index + 1] = {ids[index], In::Op::WarpAffineV4::ID};
   }
   chain[WARPS + 1] = {"sample", In::Op::SampleGridV3::ID};
   chain[WARPS + 2] = {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID};

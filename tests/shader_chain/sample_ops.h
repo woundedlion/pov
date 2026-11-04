@@ -370,12 +370,12 @@ inline void test_shader_chain_composed_noise_domain() {
   auto &program = fixture->program;
   const In::ChainEntryRequest chain[] = {
       {"project", In::Op::ProjectStereographic::ID},
-      {"affine-a", In::Op::WarpAffineV3::ID},
-      {"affine-b", In::Op::WarpAffineV3::ID},
-      {"affine-c", In::Op::WarpAffineV3::ID},
-      {"affine-d", In::Op::WarpAffineV3::ID},
-      {"affine-e", In::Op::WarpAffineV3::ID},
-      {"affine-f", In::Op::WarpAffineV3::ID},
+      {"affine-a", In::Op::WarpAffineV4::ID},
+      {"affine-b", In::Op::WarpAffineV4::ID},
+      {"affine-c", In::Op::WarpAffineV4::ID},
+      {"affine-d", In::Op::WarpAffineV4::ID},
+      {"affine-e", In::Op::WarpAffineV4::ID},
+      {"affine-f", In::Op::WarpAffineV4::ID},
       {"sample", In::Op::SampleProjectedNoise::ID},
       {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
   };
@@ -414,7 +414,7 @@ inline void test_shader_chain_large_finite_path_length() {
   chain[0] = {"project", In::Op::ProjectStereographic::ID};
   for (int index = 0; index < 11; ++index) {
     ids[index] = "warp" + std::to_string(index);
-    chain[index + 1] = {ids[index], In::Op::WarpAffineV3::ID};
+    chain[index + 1] = {ids[index], In::Op::WarpAffineV4::ID};
   }
   chain[12] = {"sample", In::Op::SampleGridV3::ID};
   chain[13] = {"color", In::Op::ColorizeGeneratedPaletteV4::ID};

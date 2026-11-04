@@ -205,6 +205,26 @@ public:
   };
 
   /**
+   * @brief The TranslationLattice entry @p index + 1 reports to entry
+   *        @p index.
+   * @param ops Entries in chain order.
+   * @param index Entry whose next stage is read.
+   * @param params_of Maps an entry index to the param block to read.
+   * @return That lattice, or the zero basis when the next entry reports none.
+   */
+  template <typename ParamsOf>
+  static TranslationLattice downstream_lattice(std::span<const ChainOp> ops,
+                                               size_t index,
+                                               ParamsOf &&params_of) {
+    if (index + 1 >= ops.size())
+      return {};
+    const auto lattice = ops[index + 1].op->runtime.translation_lattice;
+    if (lattice == nullptr)
+      return {};
+    return lattice(static_cast<const uint8_t *>(params_of(index + 1)));
+  }
+
+  /**
    * @brief Binds the two program arenas and the operator table.
    * @param block_a First arena block, at least @p block_capacity bytes.
    * @param block_b Second arena block, same size.
@@ -366,10 +386,20 @@ public:
     const Side &side = sides[active];
     for (size_t index = 0; index < side.count; ++index) {
       const ChainOp &op = side.ops[index];
+      op.op->runtime.sample_params(
+          column + op.param_offset, history + op.param_offset,
+          const_block_ptr(active, op.param_offset), fraction);
+    }
+    const std::span<const ChainOp> ops(side.ops, side.count);
+    const auto column_params = [&](size_t index) {
+      return column + side.ops[index].param_offset;
+    };
+    for (size_t index = 0; index < side.count; ++index) {
+      const ChainOp &op = side.ops[index];
       const OperatorRuntime &runtime = op.op->runtime;
       uint8_t *params = column + op.param_offset;
-      runtime.sample_params(params, history + op.param_offset,
-                            const_block_ptr(active, op.param_offset), fraction);
+      const TranslationLattice downstream =
+          downstream_lattice(ops, index, column_params);
       const void *state = const_block_ptr(active, op.state_offset);
       if (runtime.sample_state != nullptr) {
         if (!intervals_prepared)
@@ -383,7 +413,8 @@ public:
       }
       runtime.prepare(
           ctx, params, state,
-          static_cast<uint8_t *>(block_ptr(active, op.prepared_offset)));
+          static_cast<uint8_t *>(block_ptr(active, op.prepared_offset)),
+          downstream);
       if (op.op->output == CarrierId::COLOR) {
         FrameContext previous_color_ctx = previous_ctx;
         Modulation::Endpoint selected{};
@@ -400,7 +431,7 @@ public:
           previous_color_ctx.modulations = std::span(&selected, 1);
         }
         runtime.prepare(previous_color_ctx, params, state,
-                        column + op.prepared_offset);
+                        column + op.prepared_offset, downstream);
       }
     }
     column_states_live = true;
@@ -614,12 +645,17 @@ public:
   void prepare(const FrameContext &ctx) {
     intervals_prepared = false;
     Side &side = sides[active];
+    const std::span<const ChainOp> ops(side.ops, side.count);
+    const auto current_params = [&](size_t index) {
+      return const_block_ptr(active, side.ops[index].param_offset);
+    };
     for (size_t index = 0; index < side.count; ++index) {
       ChainOp &op = side.ops[index];
       op.op->runtime.prepare(
           ctx, const_block_ptr(active, op.param_offset),
           block_ptr(active, op.state_offset),
-          static_cast<uint8_t *>(block_ptr(active, op.prepared_offset)));
+          static_cast<uint8_t *>(block_ptr(active, op.prepared_offset)),
+          downstream_lattice(ops, index, current_params));
     }
     needs_prepare = false;
   }
@@ -862,7 +898,9 @@ int plane_bound_overflow(std::span<const ChainProgram::ChainOp> ops,
     const auto plane_bound = ops[index].op->runtime.plane_bound;
     if (plane_bound == nullptr)
       continue;
-    bound = plane_bound(params_of(index), bound);
+    bound =
+        plane_bound(params_of(index), bound,
+                    ChainProgram::downstream_lattice(ops, index, params_of));
     if (!(bound <= MAX_PLANE_BOUND))
       return static_cast<int>(index);
   }

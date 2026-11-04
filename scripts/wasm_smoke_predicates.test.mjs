@@ -332,23 +332,18 @@ test('the baked topology fields are the catalog flag less the live mapping', () 
 });
 
 
-test('a compiled affine period is derived from the authored lattice scale', () => {
+test('an affine fallback period before a lattice source binds its native control', () => {
   const run = bindings();
   run.documents.push({ document: 'grid_space.shader.json', effect: 'grid-space',
-    parameterIds: ['warp1.lattice-period', 'sample.lattice-cell-scale'],
-    descriptor: { chain: [{label: 'warp1', operator: 'warp.affine.v3'},
+    parameterIds: ['warp1.lattice-period'],
+    descriptor: { chain: [{label: 'warp1', operator: 'warp.affine.v4'},
       {label: 'sample', operator: 'sample.lattice.v2'}] },
-    presets: [{ values: { 'warp1.lattice-period': 0.25, 'sample.lattice-cell-scale': 4 } }],
+    presets: [{ values: { 'warp1.lattice-period': 0.5, 'sample.lattice-cell-scale': 4 } }],
   });
-  run.controls.set('grid-space', new Set(['Lattice Cell Scale']));
+  run.controls.set('grid-space', new Set(['outer_warp.Lattice Period']));
   assert.deepEqual(promotedBindingProblems(run), []);
-  run.documents[1].presets[0].values['warp1.lattice-period'] = 0.5;
-  assert.match(promotedBindingProblems(run)[0], /must match the compiled affine/);
-  run.documents[1].presets[0].values['warp1.lattice-period'] = 0.25;
-  run.documents[1].presets.push({ values: {
-    'warp1.lattice-period': 0.5, 'sample.lattice-cell-scale': 4,
-  } });
-  assert.match(promotedBindingProblems(run)[0], /must match the compiled affine/);
+  run.controls.get('grid-space').clear();
+  assert.match(promotedBindingProblems(run)[0], /"warp1.lattice-period" names no control/);
 });
 
 test('authored bindings resolve keyed surface, warp and repeated rotation controls', () => {
@@ -358,7 +353,7 @@ test('authored bindings resolve keyed surface, warp and repeated rotation contro
     {label: 'second', resource_key: 'world', operator: 'sphere.rotate.v2'},
     {label: 'displace', operator: 'sphere.displace.symmetric.v2'},
     {label: 'bend', resource_key: 'velocity', operator: 'warp.vector-noise.v2'},
-    {label: 'warp', operator: 'warp.affine.v3'},
+    {label: 'warp', operator: 'warp.affine.v4'},
     {label: 'cells', operator: 'sample.lattice.v2'},
   ]};
   const values = {'camera.wander': 0.3, 'camera.spin-speed': 0.02,
@@ -370,7 +365,7 @@ test('authored bindings resolve keyed surface, warp and repeated rotation contro
     parameterIds: Object.keys(values), presets: [{preset_id: 'one', values}]}];
   run.catalog = {operators: [
     {id: 'warp.vector-noise.v2', params: [{id: 'strength', name: 'Warp Strength'}]},
-    {id: 'warp.affine.v3', params: [{id: 'scale-x', name: 'Affine Scale X'}]},
+    {id: 'warp.affine.v4', params: [{id: 'scale-x', name: 'Affine Scale X'}]},
     {id: 'sample.lattice.v2', params: [{id: 'lattice-cell-scale', name: 'Lattice Cell Scale'}]},
   ]};
   run.controls = new Map([['authored', new Set(['camera.Wander', 'camera.Spin Speed',
@@ -379,7 +374,7 @@ test('authored bindings resolve keyed surface, warp and repeated rotation contro
     'outer_warp.Lattice Period', 'Lattice Cell Scale', 'coverage-mode'])]]);
   assert.deepEqual(promotedBindingProblems(run), []);
   run.controls.get('authored').delete('outer_warp.Lattice Period');
-  assert.match(promotedBindingProblems(run)[0], /"warp.lattice-period" must match the compiled affine/);
+  assert.match(promotedBindingProblems(run)[0], /"warp.lattice-period" names no control/);
   run.controls.get('authored').delete('world.Spin Speed');
   assert.ok(promotedBindingProblems(run).some((problem) => /"second.spin-speed" names no control/.test(problem)));
 });
@@ -405,13 +400,13 @@ test('an authored native affine period does not require a lattice sampler', () =
   run.documents.push({document: 'grid.shader.json', effect: 'grid',
     parameterIds: ['slide.lattice-period'],
     descriptor: {chain: [
-      {label: 'slide', resource_key: 'plane', operator: 'warp.affine.v3'},
+      {label: 'slide', resource_key: 'plane', operator: 'warp.affine.v4'},
       {label: 'sample', operator: 'sample.grid.v3'},
     ]}, presets: [{values: {'slide.lattice-period': 2.5}}]});
   run.controls.set('grid', new Set(['plane.Lattice Period']));
   assert.deepEqual(promotedBindingProblems(run), []);
   run.controls.get('grid').clear();
-  assert.match(promotedBindingProblems(run)[0], /"slide.lattice-period" must match the compiled affine/);
+  assert.match(promotedBindingProblems(run)[0], /"slide.lattice-period" names no control/);
 });
 
 test('native warp speed controls follow resource keys rather than authored labels', () => {
@@ -423,7 +418,7 @@ test('native warp speed controls follow resource keys rather than authored label
     const run = bindings();
     run.documents.push({document: 'warp.shader.json', effect: 'warp-study',
       parameterIds: [`${label}.speed`],
-      descriptor: {chain: [{label, resource_key: key, operator: 'warp.affine.v3'}]}});
+      descriptor: {chain: [{label, resource_key: key, operator: 'warp.affine.v4'}]}});
     run.controls.set('warp-study', new Set([name]));
     assert.deepEqual(promotedBindingProblems(run), []);
     run.controls.get('warp-study').clear();

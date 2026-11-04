@@ -51,8 +51,6 @@ using Surface::PotentialParams;
 using Transfer::IsoValueParams;
 using Transfer::SmoothBandsParams;
 using Warp::AffineParams;
-using Warp::ExplicitAffineParams;
-using Warp::PeriodicAffineParams;
 using Warp::CurlFlowParams;
 using Warp::AuthoredCurlFlowParams;
 using Warp::AuthoredWaveShearParams;
@@ -288,7 +286,8 @@ template <typename BindingT, ResourceKey Key> struct TwistProvider {
  * @tparam Key Warp resource key.
  * @tparam Family Warp parameter family.
  * @tparam TrackPath Whether the stage accumulates path length.
- * @tparam SourceKey Source resource supplying affine lattice cell scale. */
+ * @tparam SourceKey Resource of the stage after an affine warp; its family's
+ *         `translation_lattice` overload, if any, sets the translation basis. */
 template <typename BindingT, ResourceKey Key, typename Family,
           bool TrackPath = false, ResourceKey SourceKey = "source">
 struct WarpProvider {
@@ -307,31 +306,54 @@ struct WarpProvider {
    *  `Pullback::NoPrepared` for a polar warp. */
   __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
     using WarpT = std::remove_cvref_t<decltype(params(frame))>;
-    if constexpr (std::is_same_v<WarpT, PeriodicAffineParams>) {
-      const auto windings = Pullback::Warp::cell_windings(params(frame));
-      return Pullback::Warp::prepare(
-          windings, phase(frame), frame.resources.template get<Key>().rotation,
-          windings.lattice_period);
-    } else if constexpr (std::is_same_v<WarpT, ExplicitAffineParams>) {
+    if constexpr (std::is_same_v<WarpT, AffineParams>) {
       return Pullback::Warp::prepare(
           params(frame), phase(frame),
           frame.resources.template get<Key>().rotation,
-          params(frame).lattice_period);
-    } else if constexpr (std::is_same_v<WarpT, AffineParams>) {
-      static_assert(
-          requires {
-            frame.params.template get<SourceKey>().lattice_cell_scale;
-          }, "the affine warp stage translates in lattice cells and requires a "
-             "LatticeSourceParams source");
-      return Pullback::Warp::prepare(
-          params(frame), phase(frame),
-          frame.resources.template get<Key>().rotation,
-          1.0f / frame.params.template get<SourceKey>().lattice_cell_scale);
+          downstream_lattice(frame));
     } else if constexpr (std::is_same_v<WarpT, PolarParams>) {
       return Pullback::NoPrepared{};
     } else {
       return Pullback::Warp::prepare(params(frame), phase(frame));
     }
+  }
+  /** @brief Translation lattice the `SourceKey` stage reports.
+   *  @param frame Current frame.
+   *  @return Its `translation_lattice`, or the zero basis when the family
+   *  declares none or no `SourceKey` resource exists. */
+  __attribute__((always_inline)) static TranslationLattice
+  downstream_lattice(const FrameState &frame) {
+    using Params = std::remove_cvref_t<decltype(frame.params)>;
+    if constexpr (Params::template HAS<SourceKey>) {
+      const auto &source = frame.params.template get<SourceKey>();
+      if constexpr (requires { translation_lattice(source); })
+        return translation_lattice(source);
+      else
+        return {};
+    } else {
+      return {};
+    }
+  }
+  /** @brief Path-length reduction the `SourceKey` family's lattice takes.
+   *  @return RECTANGULAR for a family that declares
+   *  `RECTANGULAR_TRANSLATION_LATTICE`, GENERAL for another lattice family,
+   *  else UNWRAPPED. */
+  static consteval Warp::RepeatReduction repeat_reduction() {
+    using Params = std::remove_cvref_t<
+        decltype(std::declval<const FrameState &>().params)>;
+    using Source = typename Params::template Family<SourceKey>;
+    if constexpr (std::is_void_v<Source>)
+      return Warp::RepeatReduction::UNWRAPPED;
+    else if constexpr (!requires(const Source &source) {
+                         translation_lattice(source);
+                       })
+      return Warp::RepeatReduction::UNWRAPPED;
+    else if constexpr (requires { Source::RECTANGULAR_TRANSLATION_LATTICE; })
+      return Source::RECTANGULAR_TRANSLATION_LATTICE
+                 ? Warp::RepeatReduction::RECTANGULAR
+                 : Warp::RepeatReduction::GENERAL;
+    else
+      return Warp::RepeatReduction::GENERAL;
   }
   /** @brief The warp's phase clock.
    *  @param frame Current frame.

@@ -36,7 +36,7 @@ struct InvolutionSpec : Pullback::Spec {
           Pullback::ProjectionKind::CUBIC,
           Pullback::ProjectionProvider<B, Pullback::AtlasProjectionParams>>>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
-          Pullback::PeriodicAffineParams, B, "outer_warp", true>::Type>,
+          Pullback::AffineParams, B, "outer_warp", true>::Type>,
       Pullback::Stage::Sample<
           typename Pullback::SourcePolicyFor<
               Pullback::Source::AuthoredLatticeSampleParams, B>::Type,
@@ -77,9 +77,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "0a55c10f1d06f120d9f82813273d72554bb24687fa0eaffc83f2d50c96090db2";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "aadb4ef7110a8695878dbb8db963b815e2349337e25d9de0fa517d62712d3959";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "86ef8873531284cfa60182604cf7cbe940828770c9801d6823d57e4335c9a4f8";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "9ddaaa6195b134cfe43ce3211771b0041dbfba8be3509061df7bf102330f7bdd";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "jewel-melt"
@@ -99,7 +99,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot parameter layout version.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -184,7 +184,7 @@ public:
     value.template get<"source">().lattice_shape_blend = 1.0f;
     value.template get<"source">().lattice_softness = 0.5f;
     value.template get<"source">().weight_mode = 1;
-    value.template get<"outer_warp">().lattice_period = 0.25245383f;
+    value.template get<"outer_warp">().lattice_period = 1.0f;
     value.template get<"outer_warp">().repeat_cells = 8.0f;
     value.template get<"outer_warp">().rotation_rate = 1.0005351f;
     value.template get<"outer_warp">().scale_x = 1.0f;

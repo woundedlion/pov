@@ -154,12 +154,11 @@ export function promotedControlNames(parameterId, descriptor, catalog = null) {
     parameterId, field, ...human.filter(Boolean)])];
 }
 
-function liveDerivedControl(binding, parameterId, name, registered) {
+function liveDerivedControl(parameterId, name, registered) {
   if (name === undefined) return false;
   const split = parameterId.indexOf('.');
   const label = parameterId.slice(0, split);
   const field = parameterId.slice(split + 1);
-  if (binding.sourceId !== null || field === 'lattice-period') return true;
   const resource = name.slice(0, name.lastIndexOf('.'));
   return name === field || name.endsWith('.' + field)
     || [label + '.modulation-source', resource + '.modulation-source', 'modulation-source',
@@ -171,8 +170,9 @@ function liveDerivedControl(binding, parameterId, name, registered) {
  * Reports unresolved writable promoted ids and invalid compiled-derived values.
  *
  * Writable parameters apply to the compiled effect by control name. Fixed
- * topology and constants are exempt; derived values validate against their
- * source controls. An unresolved writable id refuses the whole apply.
+ * topology and constants are exempt; values fixed by a modulation source or
+ * coverage topology must be finite. An unresolved writable id refuses the
+ * whole apply.
  *
  * @param {object} run
  * @param {{document: string, effect: string, parameterIds: string[], presets?: object[], descriptor?: object}[]} run.documents
@@ -221,13 +221,11 @@ export function promotedBindingProblems({ documents, controls, bakedFields,
       const name = names.find((candidate) => registered.has(candidate));
       const derived = fixedDerivedBinding(descriptor, parameterId, authored[0]?.values ?? {});
       if (derived) {
-        if (liveDerivedControl(derived, parameterId, name, registered)) continue;
+        if (liveDerivedControl(parameterId, name, registered)) continue;
         if (authored.length === 0 || authored.some(({ values }) =>
-          !fixedDerivedBinding(descriptor, parameterId, values).valid) ||
-            (derived.sourceId !== null && !promotedControlNames(derived.sourceId, descriptor, catalog)
-              .some((name) => registered.has(name)))) {
-          problems.push(`${document}: "${parameterId}" must match the compiled affine ` +
-            'period derived from its source parameters');
+          !fixedDerivedBinding(descriptor, parameterId, values).valid)) {
+          problems.push(`${document}: "${parameterId}" must hold a finite value ` +
+            'fixed by its modulation source or coverage topology');
         }
         continue;
       }

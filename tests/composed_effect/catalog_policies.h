@@ -115,8 +115,16 @@ template <typename Family, typename Model> void check_warp() {
               clock.noise = &state.noise;
             }
             const auto actual_prepared = Policy::prepare(frame);
-            const auto expected_prepared =
-                Model::prepare({}, expected_params, state);
+            const auto expected_prepared = [&] {
+              if constexpr (requires {
+                              Model::prepare({}, expected_params, state,
+                                             Pullback::TranslationLattice{});
+                            })
+                return Model::prepare({}, expected_params, state,
+                                      Pullback::TranslationLattice{});
+              else
+                return Model::prepare({}, expected_params, state);
+            }();
             for (const math::Complex point :
                  {math::Complex{0.17f, 0.23f}, math::Complex{-0.8f, 0.4f},
                   math::Complex{0x1p21f, 0.2f}}) {
@@ -135,21 +143,37 @@ template <typename Family, typename Model> void check_warp() {
           }
 }
 
-/** @brief Whole windings preserve repeat-relative displacement across phase wraps. */
-inline void check_periodic_affine_windings() {
+/** @brief Frame binding of an affine warp keyed "probe" before a lattice
+    source keyed "source". */
+struct LatticeAffineFrame {
+  using Warp = Pullback::ParameterResource<"probe", Pullback::AffineParams,
+                                           Pullback::ResourceKind::WARP>;
+  using Source =
+      Pullback::ParameterResource<"source", Pullback::LatticeSourceParams,
+                                  Pullback::ResourceKind::SOURCE>;
+  using Params = Pullback::ComposedDetail::ParameterSet<
+      Pullback::ComposedDetail::ResourceList<Warp, Source>>;
+  using Frame = Pullback::FrameIntervalState<Params>;
+  using Binding = Pullback::Binding<Frame>;
+};
+
+/** @brief Whole windings of the source lattice preserve repeat-relative
+    displacement across phase wraps. */
+inline void check_affine_lattice_windings() {
   using namespace Pullback;
-  using Fixture = StageFrame<PeriodicAffineParams, ResourceKind::WARP>;
+  using Fixture = LatticeAffineFrame;
   using Tracked =
-      typename WarpPolicyFor<PeriodicAffineParams, typename Fixture::Binding,
-                             "probe", true>::Type;
+      typename WarpPolicyFor<AffineParams, typename Fixture::Binding, "probe",
+                             true>::Type;
   using Untracked =
-      typename WarpPolicyFor<PeriodicAffineParams, typename Fixture::Binding,
-                             "probe", false>::Type;
+      typename WarpPolicyFor<AffineParams, typename Fixture::Binding, "probe",
+                             false>::Type;
   static_assert(Tracked::template PROVIDER_VALID<typename Fixture::Binding>);
   typename Fixture::Frame frame{};
   auto &params = frame.params.template get<"probe">();
   auto &clock = frame.resources.template get<"probe">();
-  params.lattice_period = 0.4f;
+  frame.params.template get<"source">().lattice_cell_scale = 2.5f;
+  params.lattice_period = 7.0f;
   for (const float winding : {-2.51f, -1.5f, -1.49f, 1.49f, 1.5f, 2.51f}) {
     params.translation_x = winding;
     params.translation_y = -winding;
@@ -174,20 +198,16 @@ inline void check_periodic_affine_windings() {
   params.scale_x = 1.3f;
   params.scale_y = 0.7f;
   params.shear = 0.3f;
+  params.repeat_cells = 2.0f;
   clock.rotation = 0.7f;
   const math::Complex point{0.13f, -0.21f};
   clock.phase = 0.999999f;
   const auto before = Tracked::apply(point, {}, frame, Tracked::prepare(frame));
   clock.phase = 0.000001f;
   const auto after = Tracked::apply(point, {}, frame, Tracked::prepare(frame));
-  HS_EXPECT_NEAR(after.coords.re - before.coords.re, 0.8f, 3e-6f);
-  HS_EXPECT_NEAR(after.coords.im - before.coords.im, -0.8f, 3e-6f);
+  HS_EXPECT_NEAR(after.coords.re - before.coords.re, 1.6f, 6e-6f);
+  HS_EXPECT_NEAR(after.coords.im - before.coords.im, -1.6f, 6e-6f);
   HS_EXPECT_NEAR(before.path_length, after.path_length, 3e-6f);
-  for (const auto &field : PeriodicAffineParams::FIELDS) {
-    if (std::string_view(field.id) == "translation-x" ||
-        std::string_view(field.id) == "translation-y")
-      HS_EXPECT_EQ(field.curve, FieldCurve::SNAP);
-  }
   HS_EXPECT_TRUE(valid(params));
   params.lattice_period = 0.0f;
   HS_EXPECT_FALSE(valid(params));
@@ -220,15 +240,63 @@ inline void check_periodic_affine_windings() {
   }
 }
 
+/** @brief The composed affine stage before a lattice source matches the
+    catalog model given that source's lattice. */
+inline void check_affine_lattice_parity() {
+  using namespace Pullback;
+  using Fixture = LatticeAffineFrame;
+  using Policy = typename WarpPolicyFor<AffineParams, typename Fixture::Binding,
+                                        "probe", true>::Type;
+  static_assert(WarpProvider<typename Fixture::Binding, "probe", AffineParams,
+                             true>::repeat_reduction() ==
+                Warp::RepeatReduction::RECTANGULAR);
+  static_assert(
+      WarpProvider<
+          typename StageFrame<AffineParams, ResourceKind::WARP>::Binding,
+          "probe", AffineParams, true>::repeat_reduction() ==
+      Warp::RepeatReduction::UNWRAPPED);
+  typename Fixture::Frame frame{};
+  auto &params = frame.params.template get<"probe">();
+  auto &source = frame.params.template get<"source">();
+  auto &clock = frame.resources.template get<"probe">();
+  source.lattice_cell_scale = 3.0f;
+  params.translation_x = 2.0f;
+  params.translation_y = -1.0f;
+  params.repeat_cells = 3.0f;
+  params.lattice_period = 5.0f;
+  params.rotation_rate = 1.2f;
+  params.scale_x = 1.4f;
+  params.shear = 0.2f;
+  clock.phase = 0.23f;
+  clock.rotation = 0.4f;
+  const Op::WarpAffineV4::State state{clock.phase, clock.rotation};
+  const auto expected_prepared = Op::WarpAffineV4::prepare(
+      {}, params, state, Source::translation_lattice(source));
+  const auto actual_prepared = Policy::prepare(frame);
+  for (const math::Complex point :
+       {math::Complex{0.17f, 0.23f}, math::Complex{-0.8f, 0.4f},
+        math::Complex{3.1f, -2.2f}}) {
+    PlaneSample input{point, {}, math::Y_AXIS, 0.0f};
+    const auto actual =
+        Policy::apply(input.coords, input.provenance, frame, actual_prepared);
+    const auto expected =
+        Op::WarpAffineV4::run(input, {}, params, expected_prepared);
+    HS_EXPECT_NEAR(actual.coords.re, expected.coords.re, 0.0f);
+    HS_EXPECT_NEAR(actual.coords.im, expected.coords.im, 0.0f);
+    HS_EXPECT_NEAR(actual.path_length, expected.path_length, 0.0f);
+    HS_EXPECT_LE(actual.path_length, std::sqrt(2.0f) * 0.5f + 1e-6f);
+  }
+}
+
 /** @brief Every planar authored selector matches the catalog's observable step. */
 inline void test_authored_warp_catalog_parity() {
   check_warp<Pullback::Warp::AuthoredWaveShearParams, Op::WarpWaveShear>();
   check_warp<Pullback::Warp::AuthoredVectorNoiseParams, Op::WarpVectorNoise>();
   check_warp<Pullback::Warp::AuthoredPolarParams, Op::WarpPolarChart>();
   check_warp<Pullback::Warp::AuthoredCurlFlowParams, Op::WarpCurlFlow>();
-  check_warp<Pullback::ExplicitAffineParams, Op::WarpAffineV3>();
-  check_warp<Pullback::PeriodicAffineParams, Op::WarpAffinePeriodic>();
-  check_periodic_affine_windings();
+  check_warp<Pullback::AffineParams, Op::WarpAffineV4>();
+  check_affine_lattice_windings();
+  check_affine_lattice_parity();
 }
 
 /** @brief Compares every authored source selector against its catalog model.

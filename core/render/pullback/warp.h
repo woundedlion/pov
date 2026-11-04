@@ -10,6 +10,7 @@
 
 #include "core/render/pullback/contract.h"
 #include "core/render/pullback/fields.h"
+#include "core/render/pullback/translation_lattice.h"
 #include "core/math/3dmath.h"
 #include "core/math/projection_patterns.h"
 #include <iterator>
@@ -184,19 +185,26 @@ static_assert(field_defaults_in_range<VectorNoiseParams>());
 /**
  * @brief Warp parameters for the affine frame change
  *        (Pullback::Warp::AffineFrame).
- * @details Translation is in lattice cells, scaled to plane units by the
- * lattice period Warp::prepare receives. Only whole windings scroll
- * seamlessly; a fractional translation jumps when the phase wraps.
+ * @details Translation windings count whole basis vectors of the next stage's
+ * TranslationLattice, or of a square `lattice_period` lattice when that stage
+ * reports none, times the whole repeat; the phase wrap is then seamless.
  */
 struct AffineParams {
   float speed = 0.0f;         /**< Per-frame advance of the slot's phase. */
   float rotation_rate = 0.0f; /**< Frame rotation per frame, scaled by speed
                                and accumulated per affine warp instance. */
-  float translation_x = 0.0f; /**< Translation along x per phase turn. */
-  float translation_y = 0.0f; /**< Translation along y per phase turn. */
+  float translation_x = 0.0f; /**< Repeats along the lattice's first basis
+                                   vector per phase turn, rounded to whole. */
+  float translation_y = 0.0f; /**< Repeats along the lattice's second basis
+                                   vector per phase turn, rounded to whole. */
   float scale_x = 1.0f; /**< Scale along x, oscillated over the phase cycle. */
   float scale_y = 1.0f; /**< Scale along y, oscillated over the phase cycle. */
   float shear = 0.0f;   /**< Shear, oscillated over the phase cycle. */
+  float repeat_cells = 1.0f;   /**< Lattice cells per repeat, rounded to
+                                    whole. */
+  float lattice_period = 1.0f; /**< Square lattice period, in plane units,
+                                    used when the next stage reports no
+                                    lattice. */
 
   /** @brief Per-parameter id, member, label, range, curve and gate. */
   static constexpr auto FIELDS = std::array{
@@ -206,59 +214,24 @@ struct AffineParams {
                           "Affine Rotation Rate", -math::TWO_PI_F,
                           math::TWO_PI_F, FieldCurve::LERP},
       Field<AffineParams>{"translation-x", &AffineParams::translation_x,
-                          "Affine Translation X", -4.0f, 4.0f,
-                          FieldCurve::LERP},
+                          "Repeat Windings A", -4.0f, 4.0f, FieldCurve::SNAP},
       Field<AffineParams>{"translation-y", &AffineParams::translation_y,
-                          "Affine Translation Y", -4.0f, 4.0f,
-                          FieldCurve::LERP},
+                          "Repeat Windings B", -4.0f, 4.0f, FieldCurve::SNAP},
       Field<AffineParams>{"scale-x", &AffineParams::scale_x, "Affine Scale X",
                           1.0f / 64.0f, 64.0f, FieldCurve::LOG_POSITIVE},
       Field<AffineParams>{"scale-y", &AffineParams::scale_y, "Affine Scale Y",
                           1.0f / 64.0f, 64.0f, FieldCurve::LOG_POSITIVE},
       Field<AffineParams>{"shear", &AffineParams::shear, "Affine Shear", -4.0f,
                           4.0f, FieldCurve::LERP},
+      Field<AffineParams>{"repeat-cells", &AffineParams::repeat_cells,
+                          "Repeat Cells", 1.0f, 16.0f, FieldCurve::SNAP},
+      Field<AffineParams>{"lattice-period", &AffineParams::lattice_period,
+                          "Fallback Lattice Period", 1.0f / 64.0f, 100.0f,
+                          FieldCurve::LOG_POSITIVE},
   };
 };
 static_assert(field_ids_unique<AffineParams>());
 static_assert(field_defaults_in_range<AffineParams>());
-
-/** @brief Affine controls with an independently authored lattice period. */
-struct ExplicitAffineParams : AffineParams {
-  float lattice_period = 1.0f; ///< Translation unit in chart coordinates.
-  /// Numeric controls and interpolation curves.
-  static constexpr auto FIELDS = concat_fields<ExplicitAffineParams>(
-      AffineParams::FIELDS,
-      std::array{Field<ExplicitAffineParams>{
-          "lattice-period", &ExplicitAffineParams::lattice_period,
-          "Lattice Period", 1.0f / 64.0f, 100.0f, FieldCurve::LOG_POSITIVE}});
-};
-static_assert(field_ids_unique<ExplicitAffineParams>());
-static_assert(field_defaults_in_range<ExplicitAffineParams>());
-
-/** @brief Whole-repeat affine windings over a whole number of lattice cells. */
-struct PeriodicAffineParams : ExplicitAffineParams {
-  float repeat_cells = 1.0f; ///< Lattice cells per repeat, rounded to whole.
-  /// Affine controls with discrete windings and repeat size.
-  static constexpr auto FIELDS = [] {
-    auto fields = concat_fields<PeriodicAffineParams>(
-        ExplicitAffineParams::FIELDS,
-        std::array{Field<PeriodicAffineParams>{
-            "repeat-cells", &PeriodicAffineParams::repeat_cells, "Repeat Cells",
-            1.0f, 16.0f, FieldCurve::SNAP}});
-    for (auto &field : fields) {
-      if (std::string_view(field.id) == "translation-x") {
-        field.name = "Repeat Windings X";
-        field.curve = FieldCurve::SNAP;
-      } else if (std::string_view(field.id) == "translation-y") {
-        field.name = "Repeat Windings Y";
-        field.curve = FieldCurve::SNAP;
-      }
-    }
-    return fields;
-  }();
-};
-static_assert(field_ids_unique<PeriodicAffineParams>());
-static_assert(field_defaults_in_range<PeriodicAffineParams>());
 
 /** @brief Advances the affine frame rotation by one frame.
     @param rotation Accumulated rotation in radians, wrapped into [0, 2pi).
@@ -327,6 +300,26 @@ struct VortexParams {
 static_assert(field_ids_unique<VortexParams>());
 static_assert(field_defaults_in_range<VortexParams>());
 
+/** @brief Reduction an affine step applies to its displacement before
+    measuring its path length. */
+enum class RepeatReduction : uint8_t {
+  UNWRAPPED,   ///< The raw displacement.
+  RECTANGULAR, ///< Centered remainder along each axis.
+  GENERAL,     ///< Closest vector of the reduced repeat basis.
+};
+
+/** @brief Repeat lattice an affine path length is measured modulo. */
+struct PreparedRepeat {
+  math::Complex a;           /**< Reduced basis vector; (period x, 0) under
+                                  RECTANGULAR. */
+  math::Complex b;           /**< Reduced basis vector; (0, period y) under
+                                  RECTANGULAR. */
+  math::Complex dual_a;      /**< Inverse-basis row: the `a` coordinate of d
+                                  is dual_a.re * d.re + dual_a.im * d.im. */
+  math::Complex dual_b;      /**< Inverse-basis row of the `b` coordinate. */
+  RepeatReduction reduction; /**< Reduction applied per sample. */
+};
+
 /** @brief Affine warp coefficients, with the phase oscillation applied. */
 struct PreparedAffine {
   float translation_x;   /**< Translation along x, in plane units. */
@@ -334,6 +327,7 @@ struct PreparedAffine {
   float inverse_scale_x; /**< Reciprocal x scale at this frame's phase. */
   float inverse_scale_y; /**< Reciprocal y scale at this frame's phase. */
   float shear;           /**< Shear at this frame's phase. */
+  PreparedRepeat repeat; /**< Path-length repeat lattice. */
 };
 
 /** @brief Mirror warp offsets, with the phase scroll already folded in. */
@@ -449,49 +443,116 @@ HS_FLASH_INLINE inline PreparedVortexSlot prepare(const VortexParams &warp,
             warp.radius * warp.radius, math::TWO_PI_F * warp.turns}}};
 }
 
+/** @brief Translation basis an affine warp winds along.
+    @param warp The slot's parameters.
+    @param lattice The next stage's lattice; the zero basis selects the square
+    `lattice_period` lattice.
+    @return The basis in plane units. */
+HS_FLASH_INLINE inline TranslationLattice
+affine_basis(const AffineParams &warp, const TranslationLattice &lattice) {
+  return lattice.present() ? lattice : square_lattice(warp.lattice_period);
+}
+
+/** @brief Translation of one phase turn: whole windings of the whole repeat.
+    @param warp The slot's parameters.
+    @param basis Translation basis from affine_basis().
+    @return The translation in plane units. */
+HS_FLASH_INLINE inline math::Complex
+affine_turn_translation(const AffineParams &warp,
+                        const TranslationLattice &basis) {
+  const float repeat = std::round(warp.repeat_cells);
+  const float windings_a = std::round(warp.translation_x);
+  const float windings_b = std::round(warp.translation_y);
+  return {
+      windings_a * (repeat * basis.a.re) + windings_b * (repeat * basis.b.re),
+      windings_a * (repeat * basis.a.im) + windings_b * (repeat * basis.b.im)};
+}
+
+/** @brief Reduces the repeat lattice an affine path length is measured
+    modulo, with Lagrange reduction.
+    @param a First repeat basis vector.
+    @param b Second repeat basis vector, not parallel to @p a.
+    @return The reduced basis, its inverse rows and the per-sample reduction. */
+HS_COLD_MEMBER inline PreparedRepeat prepare_repeat(math::Complex a,
+                                                    math::Complex b) {
+  if (b.squared_magnitude() < a.squared_magnitude())
+    std::swap(a, b);
+  for (;;) {
+    const float mu =
+        std::round((a.re * b.re + a.im * b.im) / a.squared_magnitude());
+    if (mu == 0.0f)
+      break;
+    b = {b.re - mu * a.re, b.im - mu * a.im};
+    if (!(b.squared_magnitude() < a.squared_magnitude()))
+      break;
+    std::swap(a, b);
+  }
+  if (a.re == 0.0f && b.im == 0.0f)
+    std::swap(a, b);
+  const bool rectangular = a.im == 0.0f && b.re == 0.0f;
+  if (rectangular) {
+    a.re = fabsf(a.re);
+    b.im = fabsf(b.im);
+  }
+  const float inverse_det = 1.0f / (a.re * b.im - a.im * b.re);
+  return {a,
+          b,
+          {b.im * inverse_det, -b.re * inverse_det},
+          {-a.im * inverse_det, a.re * inverse_det},
+          rectangular ? RepeatReduction::RECTANGULAR
+                      : RepeatReduction::GENERAL};
+}
+
 /**
- * @brief Affine overload; translation is scaled from lattice cells to plane
- *        units by @p lattice_period.
+ * @brief Affine overload; translation winds along the next stage's lattice.
  * @param warp The slot's parameters.
  * @param phase The slot's phase clock.
  * @param frame_rotation Accumulated frame rotation for the slot.
- * @param lattice_period Plane units per lattice cell.
+ * @param lattice The next stage's TranslationLattice; the zero basis selects
+ *        the square `lattice_period` lattice and unwrapped path length.
  * @return Frame rotation and affine coefficients.
  */
-HS_FLASH_INLINE inline PreparedAffineSlot prepare(const AffineParams &warp,
-                                                  float phase,
-                                                  float frame_rotation,
-                                                  float lattice_period) {
+HS_FLASH_INLINE inline PreparedAffineSlot
+prepare(const AffineParams &warp, float phase, float frame_rotation,
+        const TranslationLattice &lattice) {
   PreparedAffineSlot prepared{cosf(frame_rotation), sinf(frame_rotation), {}};
   const float cycle_cos =
       warp.scale_x == 1.0f && warp.scale_y == 1.0f && warp.shear == 0.0f
           ? 1.0f
           : cosf(math::TWO_PI_F * math::wrap_t(phase));
+  const TranslationLattice basis = affine_basis(warp, lattice);
+  const math::Complex turn = affine_turn_translation(warp, basis);
   prepared.transform.affine = {
-      math::wrap_t(phase) * warp.translation_x * lattice_period,
-      math::wrap_t(phase) * warp.translation_y * lattice_period,
+      math::wrap_t(phase) * turn.re,
+      math::wrap_t(phase) * turn.im,
       warp.scale_x == 1.0f ? 1.0f : 1.0f / powf(warp.scale_x, cycle_cos),
       warp.scale_y == 1.0f ? 1.0f : 1.0f / powf(warp.scale_y, cycle_cos),
-      warp.shear * cycle_cos};
+      warp.shear * cycle_cos,
+      {}};
+  if (lattice.present()) {
+    const float repeat = std::round(warp.repeat_cells);
+    prepared.transform.affine.repeat =
+        prepare_repeat({repeat * basis.a.re, repeat * basis.a.im},
+                       {repeat * basis.b.re, repeat * basis.b.im});
+  }
   return prepared;
 }
 
-/** @brief Planar repeat of a periodic affine warp.
- * @param params Authored lattice period and repeat size.
- * @return Whole lattice cells per repeat times the lattice period. */
-inline float repeat_period(const PeriodicAffineParams &params) {
-  return std::round(params.repeat_cells) * params.lattice_period;
-}
-
-/** @brief Affine controls over the whole repeat, with signed whole windings.
- * @param params Authored translation and repeat controls.
- * @return Controls with integral translations and the repeat as the period. */
-inline ExplicitAffineParams cell_windings(const PeriodicAffineParams &params) {
-  ExplicitAffineParams rounded = params;
-  rounded.translation_x = std::round(params.translation_x);
-  rounded.translation_y = std::round(params.translation_y);
-  rounded.lattice_period = repeat_period(params);
-  return rounded;
+/** @brief Bound on an affine warp's output magnitude over every phase.
+    @param warp The slot's parameters.
+    @param input_bound Bound on the input plane coordinates.
+    @param lattice The next stage's TranslationLattice.
+    @return Diagonal plus shear norm of the frame at its oscillation extreme,
+    times @p input_bound, plus a full turn of translation. */
+HS_COLD_MEMBER inline float plane_bound(const AffineParams &warp,
+                                        float input_bound,
+                                        const TranslationLattice &lattice) {
+  const float x_gain = fmaxf(warp.scale_x, 1.0f / warp.scale_x);
+  const float y_gain = fmaxf(warp.scale_y, 1.0f / warp.scale_y);
+  const math::Complex turn =
+      affine_turn_translation(warp, affine_basis(warp, lattice));
+  return (fmaxf(x_gain, y_gain) + fabsf(warp.shear) * y_gain) * input_bound +
+         std::hypot(turn.re, turn.im);
 }
 
 /** @brief A provider whose `prepare` builds the slot's per-frame state. */
@@ -571,51 +632,126 @@ fixed_envelope(const ProjectionProvenance &provenance, const Params &params) {
     return 1.0f;
 }
 
+/** @brief Shortest representative of @p delta modulo a GENERAL repeat.
+    @param delta Stage displacement.
+    @param repeat Reduced repeat basis.
+    @return @p delta minus the closest repeat lattice vector, taken among the
+    corners of the basis cell containing @p delta. */
+HS_HOT_FLASH_MEMBER inline math::Complex
+closest_repeat_offset(const math::Complex &delta,
+                      const PreparedRepeat &repeat) {
+  const float u =
+      floorf(repeat.dual_a.re * delta.re + repeat.dual_a.im * delta.im);
+  const float v =
+      floorf(repeat.dual_b.re * delta.re + repeat.dual_b.im * delta.im);
+  const math::Complex base{delta.re - u * repeat.a.re - v * repeat.b.re,
+                           delta.im - u * repeat.a.im - v * repeat.b.im};
+  math::Complex best = base;
+  for (const math::Complex &corner :
+       {base - repeat.a, base - repeat.b, base - repeat.a - repeat.b})
+    if (corner.squared_magnitude() < best.squared_magnitude())
+      best = corner;
+  return best;
+}
+
+/** @brief Displacement an affine step measures its path length on, under a
+    reduction fixed at compile time.
+    @tparam Reduction RECTANGULAR for an axis-aligned prepared repeat;
+    GENERAL accepts any.
+    @param delta Stage displacement.
+    @param repeat Prepared repeat lattice.
+    @return @p delta reduced modulo @p repeat. */
+template <RepeatReduction Reduction>
+__attribute__((always_inline)) inline math::Complex
+repeat_offset(const math::Complex &delta, const PreparedRepeat &repeat) {
+  if constexpr (Reduction == RepeatReduction::RECTANGULAR)
+    return {math::centered_remainder(delta.re, repeat.a.re),
+            math::centered_remainder(delta.im, repeat.b.im)};
+  else if constexpr (Reduction == RepeatReduction::GENERAL)
+    return closest_repeat_offset(delta, repeat);
+  else
+    return delta;
+}
+
+/** @brief Displacement an affine step measures its path length on.
+    @param delta Stage displacement.
+    @param repeat Prepared repeat lattice.
+    @return @p delta reduced as `repeat.reduction` selects. */
+__attribute__((always_inline)) inline math::Complex
+repeat_offset(const math::Complex &delta, const PreparedRepeat &repeat) {
+  if (repeat.reduction == RepeatReduction::RECTANGULAR)
+    return repeat_offset<RepeatReduction::RECTANGULAR>(delta, repeat);
+  if (repeat.reduction == RepeatReduction::GENERAL)
+    return repeat_offset<RepeatReduction::GENERAL>(delta, repeat);
+  return delta;
+}
+
 /**
  * @brief Rotates into the affine frame, then undoes its scale and shear and
  *        subtracts its translation.
  * @tparam Prepared PreparedAffineSlot-shaped slot state.
  * @param input Plane coordinate.
  * @param prepared Frame rotation and affine coefficients.
- * @param path_length_required Measure the step's path length; else 0.
- * @return Warped coordinate and path length.
+ * @return Warped coordinate.
  */
 template <typename Prepared>
-__attribute__((always_inline)) inline WarpStepResult
-affine_frame(const math::Complex &input, const Prepared &prepared,
-             bool path_length_required) {
+__attribute__((always_inline)) inline math::Complex
+affine_coords(const math::Complex &input, const Prepared &prepared) {
   const float c = prepared.rotation_cos;
   const float s = prepared.rotation_sin;
   const auto &affine = prepared.transform.affine;
   const float rx = c * input.re + s * input.im;
   const float ry = -s * input.re + c * input.im;
   const float y = ry * affine.inverse_scale_y;
-  return finish_closed_form(
-      input,
-      {rx * affine.inverse_scale_x - affine.shear * y - affine.translation_x,
-       y - affine.translation_y},
-      path_length_required);
+  return {rx * affine.inverse_scale_x - affine.shear * y - affine.translation_x,
+          y - affine.translation_y};
 }
 
-/** @brief Affine coordinates with shortest-repeat displacement length.
- * @tparam Prepared Prepared affine frame.
+/**
+ * @brief Affine frame change whose path length is measured under a reduction
+ *        fixed at compile time.
+ * @tparam Reduction RECTANGULAR for an axis-aligned prepared repeat;
+ *         GENERAL accepts any.
+ * @tparam Prepared PreparedAffineSlot-shaped slot state.
  * @param input Plane coordinate.
- * @param prepared Affine coefficients.
- * @param period Translation symmetry of the downstream source.
- * @param path_length_required Whether to accumulate displacement.
- * @return Warped coordinates and repeat-relative path length. */
+ * @param prepared Frame rotation and affine coefficients.
+ * @param path_length_required Measure the step's path length modulo the
+ *        prepared repeat lattice; else 0.
+ * @return Warped coordinate and path length.
+ */
+template <RepeatReduction Reduction, typename Prepared>
+__attribute__((always_inline)) inline WarpStepResult
+affine_frame(const math::Complex &input, const Prepared &prepared,
+             bool path_length_required) {
+  const math::Complex output = affine_coords(input, prepared);
+  if (!path_length_required)
+    return {output, 0.0f};
+  return {output,
+          displacement(repeat_offset<Reduction>(
+                           output - input, prepared.transform.affine.repeat),
+                       true)};
+}
+
+/**
+ * @brief Affine frame change whose path length is measured under the prepared
+ *        repeat's reduction.
+ * @tparam Prepared PreparedAffineSlot-shaped slot state.
+ * @param input Plane coordinate.
+ * @param prepared Frame rotation and affine coefficients.
+ * @param path_length_required Measure the step's path length modulo the
+ *        prepared repeat lattice; else 0.
+ * @return Warped coordinate and path length.
+ */
 template <typename Prepared>
 __attribute__((always_inline)) inline WarpStepResult
-periodic_affine_frame(const math::Complex &input, const Prepared &prepared,
-                      float period, bool path_length_required) {
-  auto step = affine_frame(input, prepared, false);
-  if (path_length_required) {
-    step.path_length = displacement(
-        {math::centered_remainder(step.coords.re - input.re, period),
-         math::centered_remainder(step.coords.im - input.im, period)},
-        true);
-  }
-  return step;
+affine_frame(const math::Complex &input, const Prepared &prepared,
+             bool path_length_required) {
+  const math::Complex output = affine_coords(input, prepared);
+  if (!path_length_required)
+    return {output, 0.0f};
+  return {output, displacement(repeat_offset(output - input,
+                                             prepared.transform.affine.repeat),
+                               true)};
 }
 
 /**
@@ -952,33 +1088,11 @@ template <typename State> struct AffineFrame : PrepareFromState<State> {
   __attribute__((always_inline)) static WarpStepResult
   apply(const math::Complex &input, const ProjectionProvenance &,
         const FrameState &frame, const Prepared &prepared) {
-    return affine_frame(input, prepared, State::path_length_required(frame));
-  }
-};
-
-/** @brief Whole-repeat affine warp policy.
- * @tparam State Provider with authored repeat period and affine state. */
-template <typename State> struct PeriodicAffineFrame : AffineFrame<State> {
-  using FrameState = typename State::FrameState;
-  using Prepared = typename AffineFrame<State>::Prepared;
-  template <typename CandidateBinding>
-  static constexpr bool PROVIDER_VALID =
-      AffineFrame<State>::template PROVIDER_VALID<CandidateBinding> &&
-      requires(const typename CandidateBinding::FrameState &frame) {
-        { State::params(frame).lattice_period } -> std::convertible_to<float>;
-      };
-
-  /** @brief Applies affine coordinates and repeat-relative path length.
-   * @param input Plane coordinate.
-   * @param frame Bound controls.
-   * @param prepared Prepared affine state.
-   * @return Warped coordinates and displacement length. */
-  __attribute__((always_inline)) static WarpStepResult
-  apply(const math::Complex &input, const ProjectionProvenance &,
-        const FrameState &frame, const Prepared &prepared) {
-    return periodic_affine_frame(input, prepared,
-                                 repeat_period(State::params(frame)),
-                                 State::path_length_required(frame));
+    if constexpr (requires { State::repeat_reduction(); })
+      return affine_frame<State::repeat_reduction()>(
+          input, prepared, State::path_length_required(frame));
+    else
+      return affine_frame(input, prepared, State::path_length_required(frame));
   }
 };
 

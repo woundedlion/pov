@@ -31,8 +31,7 @@ struct AffineMirrorProvider {
     return frame.affine;
   }
   static PB::Warp::PreparedAffineSlot prepare(const FrameState &frame) {
-    return PB::Warp::prepare(frame.affine, frame.phase, frame.rotation,
-                             frame.affine.lattice_period);
+    return PB::Warp::prepare(frame.affine, frame.phase, frame.rotation, {});
   }
   static float phase(const FrameState &frame) { return frame.phase; }
   static bool path_length_required(const FrameState &) { return true; }
@@ -147,7 +146,7 @@ inline WarpMirrorFrame warp_mirror(In::ChainProgram &program) {
   WarpMirrorFrame mirror;
   const In::OperatorDescriptor &op = *program.ops()[2].op;
   const std::string_view id{op.operator_id};
-  if (id == In::Op::WarpAffineV3::ID) {
+  if (id == In::Op::WarpAffineV4::ID) {
     const auto &state = state_as<In::Op::AffineClockState>(program, 2);
     mirror.phase = state.phase;
     mirror.rotation = state.rotation;
@@ -179,7 +178,7 @@ inline void test_shader_chain_parity_warp_affine_mirror() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     const In::FrameContext ctx = shared_resources().context();
     if (!arm_warp_op_chain<In::Op::AffineWarpParams>(
-            program, In::Op::WarpAffineV3::ID, 4, set))
+            program, In::Op::WarpAffineV4::ID, 4, set))
       return;
     using BoundAffine =
         typename PB::Stage::Warp<PB::Warp::AffineFrame<AffineMirrorProvider>>::
@@ -196,9 +195,38 @@ inline void test_shader_chain_parity_warp_affine_mirror() {
   });
 }
 
-/** @brief Lattice winding resets preserve the sampled grid and displacement hue. */
-inline void test_shader_chain_affine_periodic_wrap() {
-  using Model = In::Op::WarpAffinePeriodic;
+/** @brief A model's prepared block, passing @p lattice when it reads one.
+ * @tparam Model Operator model. */
+template <typename Model>
+inline typename Model::Prepared prepare_with_lattice(
+    const In::FrameContext &ctx, const typename Model::Params &params,
+    const typename Model::State &state, const PB::TranslationLattice &lattice) {
+  if constexpr (requires { Model::prepare(ctx, params, state, lattice); })
+    return Model::prepare(ctx, params, state, lattice);
+  else
+    return Model::prepare(ctx, params, state);
+}
+
+/** @brief A model's plane bound, passing @p lattice when it reads one.
+ * @tparam Model Operator model. */
+template <typename Model>
+inline float plane_bound_with_lattice(const typename Model::Params &params,
+                                      float input_bound,
+                                      const PB::TranslationLattice &lattice) {
+  if constexpr (requires { Model::plane_bound(params, input_bound, lattice); })
+    return Model::plane_bound(params, input_bound, lattice);
+  else
+    return Model::plane_bound(params, input_bound);
+}
+
+/** @brief Hexagonal lattice of the given side. */
+inline PB::TranslationLattice hex_lattice(float side) {
+  return {{side, 0.0f}, {0.5f * side, 0.5f * std::sqrt(3.0f) * side}};
+}
+
+/** @brief Lattice winding resets preserve the sampled lattice and displacement hue. */
+inline void test_shader_chain_affine_lattice_wrap() {
+  using Model = In::Op::WarpAffineV4;
   const In::FrameContext ctx = shared_resources().context();
   In::Op::SampleLattice::Params lattice;
   lattice.lattice_cell_scale = 4.0f;
@@ -207,13 +235,15 @@ inline void test_shader_chain_affine_periodic_wrap() {
   lattice.weight_mode = 0;
   lattice.coverage_mode = 0;
   const In::Op::SampleLattice::Prepared sample{};
+  const PB::TranslationLattice downstream =
+      In::Op::SampleLattice::translation_lattice(lattice);
   PB::Color::ModulationState modulation;
   modulation.enabled = true;
   modulation.source = Pattern::SourceKind::DISPLACEMENT;
   modulation.mechanic.amount = 2.0f;
   for (const float direction : {-1.0f, 1.0f}) {
     Model::Params params;
-    params.lattice_period = 0.25f;
+    params.lattice_period = 3.0f;
     params.translation_x = direction * 1.7f;
     params.translation_y = direction * -2.2f;
     params.scale_x = 1.3f;
@@ -221,8 +251,8 @@ inline void test_shader_chain_affine_periodic_wrap() {
     params.shear = 0.3f;
     const Model::State before{0.999999f, 0.73f};
     const Model::State after{0.0f, 0.73f};
-    const auto from = Model::prepare(ctx, params, before);
-    const auto to = Model::prepare(ctx, params, after);
+    const auto from = Model::prepare(ctx, params, before, downstream);
+    const auto to = Model::prepare(ctx, params, after, downstream);
     bool varied = false;
     float first_hue = 0.0f;
     for (int index = 0; index < 21; ++index) {
@@ -260,33 +290,34 @@ inline void test_shader_chain_affine_periodic_wrap() {
   }
 }
 
-/** @brief Periodic displacement remains continuous across its half-cell seam. */
-inline void test_shader_chain_affine_periodic_distance() {
-  using Model = In::Op::WarpAffinePeriodic;
+/** @brief Square-lattice displacement remains continuous across its half-cell
+    seam. */
+inline void test_shader_chain_affine_lattice_distance() {
+  using Model = In::Op::WarpAffineV4;
   const In::FrameContext ctx = shared_resources().context();
+  const PB::TranslationLattice lattice = PB::square_lattice(0.4f);
   Model::Params params;
-  params.lattice_period = 0.4f;
   params.translation_x = 1.0f;
   PB::PlaneSample input{};
   input.sphere = math::UP;
   input.path_length = 0.125f;
   for (float phase : {0.499999f, 0.5f, 0.500001f}) {
-    const auto prepared = Model::prepare(ctx, params, {phase, 0.0f});
+    const auto prepared = Model::prepare(ctx, params, {phase, 0.0f}, lattice);
     const auto output = Model::run(input, ctx, params, prepared);
     HS_EXPECT_NEAR(output.path_length, 0.325f, 1e-6f);
     HS_EXPECT_NEAR(output.coords.re, -0.4f * phase, 1e-7f);
   }
   params.translation_x = 1.51f;
   params.translation_y = -2.51f;
-  const auto prepared = Model::prepare(ctx, params, {0.125f, 0.0f});
+  const auto prepared = Model::prepare(ctx, params, {0.125f, 0.0f}, lattice);
   const auto output = Model::run(input, ctx, params, prepared);
   HS_EXPECT_NEAR(output.coords.re, -0.1f, 1e-7f);
   HS_EXPECT_NEAR(output.coords.im, 0.15f, 1e-7f);
   HS_EXPECT_NEAR(output.path_length, 0.125 + std::sqrt(0.1 * 0.1 + 0.15 * 0.15),
                  1e-7f);
-  const auto end = Model::prepare(ctx, params, {0.999999f, 0.0f});
+  const auto end = Model::prepare(ctx, params, {0.999999f, 0.0f}, lattice);
   const auto end_output = Model::run(input, ctx, params, end);
-  const float bound = Model::plane_bound(params, 0.0f);
+  const float bound = Model::plane_bound(params, 0.0f, lattice);
   HS_EXPECT_NEAR(bound, 0.4 * std::sqrt(13.0), 2e-6f);
   HS_EXPECT_LE(std::hypot(end_output.coords.re, end_output.coords.im), bound);
   for (const auto &field : Model::Params::FIELDS)
@@ -295,9 +326,108 @@ inline void test_shader_chain_affine_periodic_distance() {
       HS_EXPECT_EQ(field.curve, PB::FieldCurve::SNAP);
 }
 
+/** @brief Without a downstream lattice, translation winds the fallback period
+    and the path length is the unwrapped displacement. */
+inline void test_shader_chain_affine_fallback_period() {
+  using Model = In::Op::WarpAffineV4;
+  const In::FrameContext ctx = shared_resources().context();
+  Model::Params params;
+  params.lattice_period = 0.4f;
+  params.repeat_cells = 2.0f;
+  params.translation_x = 1.0f;
+  params.translation_y = -1.0f;
+  PB::PlaneSample input{};
+  input.sphere = math::UP;
+  const auto prepared = Model::prepare(ctx, params, {0.9f, 0.0f}, {});
+  const auto output = Model::run(input, ctx, params, prepared);
+  HS_EXPECT_NEAR(output.coords.re, -0.72f, 1e-6f);
+  HS_EXPECT_NEAR(output.coords.im, 0.72f, 1e-6f);
+  HS_EXPECT_NEAR(output.path_length, 0.72f * std::sqrt(2.0f), 1e-6f);
+  HS_EXPECT_NEAR(Model::plane_bound(params, 0.0f, {}), 0.8f * std::sqrt(2.0f),
+                 1e-6f);
+  const auto lattice =
+      Model::prepare(ctx, params, {0.9f, 0.0f}, PB::square_lattice(0.4f));
+  HS_EXPECT_NEAR(Model::run(input, ctx, params, lattice).path_length,
+                 0.08f * std::sqrt(2.0f), 1e-6f);
+}
+
+/** @brief A hexagonal lattice winds along its basis and measures path length
+    to the closest repeat lattice vector. */
+inline void test_shader_chain_affine_hex_lattice() {
+  using Model = In::Op::WarpAffineV4;
+  const In::FrameContext ctx = shared_resources().context();
+  const PB::TranslationLattice lattice = hex_lattice(0.3f);
+  Model::Params params;
+  params.translation_x = 1.0f;
+  params.translation_y = 2.0f;
+  params.repeat_cells = 2.0f;
+  PB::PlaneSample input{};
+  input.sphere = math::UP;
+  const auto turn = Model::prepare(ctx, params, {0.5f, 0.0f}, lattice);
+  HS_EXPECT_NEAR(turn.transform.affine.translation_x,
+                 0.5f * 2.0f * (0.3f + 2.0f * 0.15f), 1e-6f);
+  HS_EXPECT_NEAR(turn.transform.affine.translation_y,
+                 0.5f * 2.0f * 2.0f * 0.15f * std::sqrt(3.0f), 1e-6f);
+  HS_EXPECT_EQ(turn.transform.affine.repeat.reduction,
+               PB::Warp::RepeatReduction::GENERAL);
+  const PB::TranslationLattice repeat{{0.6f, 0.0f},
+                                      {0.3f, 0.3f * std::sqrt(3.0f)}};
+  for (const float rotation : {0.0f, 0.7f, 2.9f}) {
+    for (const float phase : {0.0f, 0.13f, 0.5f, 0.77f, 0.999f}) {
+      const auto prepared =
+          Model::prepare(ctx, params, {phase, rotation}, lattice);
+      for (int index = 0; index < 37; ++index) {
+        input.coords = {0.173f * index - 3.1f, 0.211f * (index % 11) - 1.2f};
+        const auto output = Model::run(input, ctx, params, prepared);
+        const double dx = output.coords.re - input.coords.re;
+        const double dy = output.coords.im - input.coords.im;
+        double shortest = std::numeric_limits<double>::infinity();
+        for (int i = -40; i <= 40; ++i)
+          for (int j = -40; j <= 40; ++j)
+            shortest = std::min(
+                shortest, std::hypot(dx - i * repeat.a.re - j * repeat.b.re,
+                                     dy - i * repeat.a.im - j * repeat.b.im));
+        HS_EXPECT_NEAR(output.path_length, shortest, 2e-5);
+      }
+    }
+  }
+}
+
+/** @brief Repeat reduction finds the closest vector for unreduced bases; the
+    general reduction also holds for axis-aligned ones. */
+inline void test_shader_chain_affine_repeat_reduction() {
+  const std::array<std::pair<math::Complex, math::Complex>, 4> bases{{
+      {{0.25f, 0.0f}, {0.0f, 0.25f}},
+      {{0.3f, 0.0f}, {1.35f, 0.26f}},
+      {{0.2f, 0.1f}, {-0.7f, 0.45f}},
+      {{0.0f, 0.5f}, {0.3f, 0.0f}},
+  }};
+  for (const auto &[a, b] : bases) {
+    const PB::Warp::PreparedRepeat repeat = PB::Warp::prepare_repeat(a, b);
+    for (int index = 0; index < 61; ++index) {
+      const math::Complex delta{0.37f * index - 9.0f,
+                                0.29f * (index % 13) - 1.9f};
+      const math::Complex reduced = PB::Warp::repeat_offset(delta, repeat);
+      const math::Complex general =
+          PB::Warp::repeat_offset<PB::Warp::RepeatReduction::GENERAL>(delta,
+                                                                      repeat);
+      double shortest = std::numeric_limits<double>::infinity();
+      for (int i = -80; i <= 80; ++i)
+        for (int j = -80; j <= 80; ++j)
+          shortest = std::min(
+              shortest, std::hypot(double{delta.re} - i * a.re - j * b.re,
+                                   double{delta.im} - i * a.im - j * b.im));
+      HS_EXPECT_NEAR(std::hypot(reduced.re, reduced.im), shortest, 2e-5);
+      HS_EXPECT_NEAR(std::hypot(general.re, general.im), shortest, 2e-5);
+    }
+  }
+  HS_EXPECT_EQ(PB::Warp::prepare_repeat({0.0f, 0.5f}, {0.3f, 0.0f}).reduction,
+               PB::Warp::RepeatReduction::RECTANGULAR);
+}
+
 /** @brief A multi-cell repeat scales the winding reset and the hue modulus. */
-inline void test_shader_chain_affine_periodic_repeat_cells() {
-  using Model = In::Op::WarpAffinePeriodic;
+inline void test_shader_chain_affine_repeat_cells() {
+  using Model = In::Op::WarpAffineV4;
   const In::FrameContext ctx = shared_resources().context();
   In::Op::SampleLattice::Params lattice;
   lattice.lattice_cell_scale = 4.0f;
@@ -306,15 +436,16 @@ inline void test_shader_chain_affine_periodic_repeat_cells() {
   lattice.weight_mode = 0;
   lattice.coverage_mode = 0;
   const In::Op::SampleLattice::Prepared sample{};
+  const PB::TranslationLattice downstream =
+      In::Op::SampleLattice::translation_lattice(lattice);
   Model::Params params;
-  params.lattice_period = 0.25f;
   params.repeat_cells = 2.6f;
   params.translation_x = 2.0f;
   params.translation_y = -1.0f;
   params.rotation_rate = 0.4f;
-  HS_EXPECT_NEAR(PB::Warp::repeat_period(params), 0.75f, 1e-7f);
-  const auto from = Model::prepare(ctx, params, {0.999999f, 0.6f});
-  const auto to = Model::prepare(ctx, params, {0.0f, 0.6f});
+  const auto from = Model::prepare(ctx, params, {0.999999f, 0.6f}, downstream);
+  const auto to = Model::prepare(ctx, params, {0.0f, 0.6f}, downstream);
+  HS_EXPECT_NEAR(to.transform.affine.repeat.a.re, 0.75f, 1e-7f);
   float longest = 0.0f;
   for (int index = 0; index < 41; ++index) {
     PB::PlaneSample input{};
@@ -339,16 +470,16 @@ inline void test_shader_chain_affine_periodic_repeat_cells() {
 }
 
 /** @brief Both travel directions retain a continuous affine column interval. */
-inline void test_shader_chain_affine_periodic_interval() {
-  using Model = In::Op::WarpAffinePeriodic;
+inline void test_shader_chain_affine_interval() {
+  using Model = In::Op::WarpAffineV4;
   const In::FrameContext ctx = shared_resources().context();
+  const PB::TranslationLattice lattice = PB::square_lattice(0.25f);
   for (const float speed : {-0.002f, 0.002f}) {
     Model::Params params;
     params.speed = speed;
     params.rotation_rate = 0.7f;
     params.translation_x = 2.0f;
     params.translation_y = -3.0f;
-    params.lattice_period = 0.25f;
     const Model::State before{speed > 0.0f ? 0.999f : 0.001f, 0.71f};
     auto after = before;
     Model::advance(after, params);
@@ -367,13 +498,97 @@ inline void test_shader_chain_affine_periodic_interval() {
       HS_EXPECT_NEAR(state.rotation,
                      before.rotation + speed * params.rotation_rate * fraction,
                      1e-6f);
-      const auto prepared = Model::prepare(ctx, params, state);
+      const auto prepared = Model::prepare(ctx, params, state, lattice);
       const auto output = Model::run(input, ctx, params, prepared);
       if (index > 0)
         HS_EXPECT_LT(fabsf(output.path_length - previous_length), 0.001f);
       previous_length = output.path_length;
     }
   }
+}
+
+/** @brief The interpreter hands each affine entry the lattice of the entry
+    immediately after it. */
+inline void test_shader_chain_affine_reads_next_lattice() {
+  auto fixture = std::make_unique<ProgramFixture>();
+  auto &program = fixture->program;
+  const In::ChainEntryRequest chain[] = {
+      {"project", In::Op::ProjectStereographic::ID},
+      {"far", In::Op::WarpAffineV4::ID},
+      {"near", In::Op::WarpAffineV4::ID},
+      {"sample", In::Op::SampleLattice::ID},
+      {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
+  };
+  HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
+  HS_EXPECT_TRUE(program.ops()[3].op->runtime.translation_lattice != nullptr);
+  HS_EXPECT_TRUE(program.ops()[2].op->runtime.translation_lattice == nullptr);
+  param_as<In::Op::SampleLattice::Params>(program, 3).lattice_cell_scale = 4.0f;
+  for (const size_t index : {size_t{1}, size_t{2}}) {
+    auto &params = param_as<In::Op::AffineWarpParams>(program, index);
+    params.lattice_period = 3.0f;
+    params.translation_x = 1.0f;
+    const_cast<In::Op::AffineClockState &>(
+        state_as<In::Op::AffineClockState>(program, index))
+        .phase = 0.5f;
+  }
+  const In::FrameContext ctx = shared_resources().context();
+  program.prepare(ctx);
+  const auto translation = [&](size_t index) {
+    return reinterpret_cast<const PB::Warp::PreparedAffineSlot *>(
+               program.prepared_block(index))
+        ->transform.affine.translation_x;
+  };
+  HS_EXPECT_NEAR(translation(1), 1.5f, 1e-7f);
+  HS_EXPECT_NEAR(translation(2), 0.125f, 1e-7f);
+  const int overflow = In::plane_bound_overflow(
+      program.ops(), [&](size_t index) { return program.param_block(index); });
+  HS_EXPECT_EQ(overflow, -1);
+  HS_EXPECT_NEAR(
+      program.ops()[2].op->runtime.plane_bound(
+          program.param_block(2), 0.0f,
+          In::ChainProgram::downstream_lattice(
+              program.ops(), 2,
+              [&](size_t index) { return program.param_block(index); })),
+      0.25f, 1e-7f);
+}
+
+/** @brief A column prepares each affine entry from the next entry's
+    column-sampled params. */
+inline void test_shader_chain_affine_column_lattice() {
+  struct TemporalBlocks {
+    alignas(std::max_align_t) uint8_t history[In::CHAIN_ARENA_BYTES];
+    alignas(std::max_align_t) uint8_t column[In::CHAIN_ARENA_BYTES];
+  };
+  auto blocks = std::make_unique<TemporalBlocks>();
+  auto fixture = std::make_unique<ProgramFixture>();
+  auto &program = fixture->program;
+  program.bind_temporal_storage(blocks->history, blocks->column);
+  const In::ChainEntryRequest chain[] = {
+      {"project", In::Op::ProjectStereographic::ID},
+      {"warp", In::Op::WarpAffineV4::ID},
+      {"sample", In::Op::SampleLattice::ID},
+      {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
+  };
+  HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
+  auto &params = param_as<In::Op::AffineWarpParams>(program, 1);
+  params.translation_x = 1.0f;
+  const_cast<In::Op::AffineClockState &>(
+      state_as<In::Op::AffineClockState>(program, 1))
+      .phase = 0.5f;
+  auto &source = param_as<In::Op::SampleLattice::Params>(program, 2);
+  source.lattice_cell_scale = 2.0f;
+  const In::FrameContext ctx = shared_resources().context();
+  program.prepare(ctx);
+  program.capture_history();
+  source.lattice_cell_scale = 8.0f;
+  program.prepare(ctx);
+  HS_EXPECT_TRUE(program.history_continuous());
+  program.prepare_column(ctx, ctx, 0.5f);
+  const auto &prepared =
+      *reinterpret_cast<const PB::Warp::PreparedAffineSlot *>(
+          program.prepared_block(1));
+  HS_EXPECT_NEAR(prepared.transform.affine.translation_x, 0.125f, 1e-6f);
+  program.prepare(ctx);
 }
 
 template <typename Envelope>
@@ -570,16 +785,19 @@ template <typename Model> inline void expect_warp_plane_bound() {
     Model::init(state,
                 {"bound", Model::ID, In::instance_hash("bound", Model::ID)});
   const In::FrameContext ctx = shared_resources().context();
+  PB::TranslationLattice lattice{};
   const auto probe = [&](const Params &params) {
     for (float phase : {0.0f, 0.125f, 0.375f, 0.75f}) {
       state.phase = phase;
-      const int rotations = std::is_same_v<Model, In::Op::WarpAffineV3> ? 8 : 1;
+      const int rotations = std::is_same_v<Model, In::Op::WarpAffineV4> ? 8 : 1;
       for (int rotation = 0; rotation < rotations; ++rotation) {
-        if constexpr (std::is_same_v<Model, In::Op::WarpAffineV3>)
+        if constexpr (std::is_same_v<Model, In::Op::WarpAffineV4>)
           state.rotation = rotation * math::PI_F / 4.0f;
-        const auto prepared = Model::prepare(ctx, params, state);
+        const auto prepared =
+            prepare_with_lattice<Model>(ctx, params, state, lattice);
         for (float input_bound : {0.0f, 0.25f, 1.0f, 4.0f, 32.0f}) {
-          const float bound = Model::plane_bound(params, input_bound);
+          const float bound =
+              plane_bound_with_lattice<Model>(params, input_bound, lattice);
           for (float radius_fraction : {0.0f, 0.5f, 1.0f}) {
             for (int direction = 0; direction < 32; ++direction) {
               const double angle = 2.0 * std::acos(-1.0) * direction / 32;
@@ -638,6 +856,13 @@ template <typename Model> inline void expect_warp_plane_bound() {
           params.integrator = integrator;
           probe(params);
         }
+    } else if constexpr (std::is_same_v<Model, In::Op::WarpAffineV4>) {
+      for (const PB::TranslationLattice candidate :
+           {PB::TranslationLattice{}, hex_lattice(0.3f)}) {
+        lattice = candidate;
+        probe(params);
+      }
+      lattice = {};
     } else {
       probe(params);
     }
@@ -646,7 +871,7 @@ template <typename Model> inline void expect_warp_plane_bound() {
 
 /** @brief Warp bounds contain outputs at parameter extremes. */
 inline void test_shader_chain_warp_plane_bound() {
-  expect_warp_plane_bound<In::Op::WarpAffineV3>();
+  expect_warp_plane_bound<In::Op::WarpAffineV4>();
   expect_warp_plane_bound<In::Op::WarpWaveShear>();
   expect_warp_plane_bound<In::Op::WarpVortex>();
   expect_warp_plane_bound<In::Op::WarpVectorNoise>();
