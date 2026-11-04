@@ -10,6 +10,7 @@ export const SHADER_DOCUMENT_EFFECTS = Object.freeze([
   'grid-warp',
   'grid-worms',
   'involution',
+  'iridescence',
   'jewel-melt',
   'kaleidoscope-flowers',
   'kaleidoscope-hex-bright',

@@ -59,6 +59,7 @@ constexpr std::array IDENTITY_GOLDENS{
     IdentityGolden{"HankinSolids", "HankinSolids", 0x30B3BDF0CC9BF813ULL},
     IdentityGolden{"HopfFibration", "HopfFibration", 0x4D6A1E9746B48E48ULL},
     IdentityGolden{"HyperLattice", "HyperLattice", 0x6954B5B68BA922CEULL},
+    IdentityGolden{"Iridescence", "iridescence", 0x75C1E7D1009C942FULL},
     IdentityGolden{"IslamicStars", "IslamicStars", 0xB085099D2EA92F09ULL},
     IdentityGolden{"JewelMelt", "jewel-melt", 0x59D1DF6060825FE6ULL},
     IdentityGolden{"KaleidoscopeFlowers", "kaleidoscope-flowers",

@@ -101,7 +101,7 @@ export function topologySelections(document, values) {
   return selections;
 }
 
-export function presetAssignments(document, values, { authoredTopology = false } = {}) {
+export function presetAssignments(document, values, { authoredTopology = false, authoredPalette = false } = {}) {
   const assignments = new Map();
   const topology = topologyIds(document);
   const slots = new Map(document.descriptor.chain.map(slot => [slot.label, slot]));
@@ -137,7 +137,8 @@ export function presetAssignments(document, values, { authoredTopology = false }
     }
     if (topology.has(id)) {
       if (!definition.values.includes(value)) throw new Error(`Invalid topology selector: ${id}`);
-      if (liveTopology(document, id) || (authoredTopology && authoredLiveTopology(slot, field))) {
+      if (liveTopology(document, id) || (authoredTopology && authoredLiveTopology(slot, field)) ||
+        (authoredPalette && slot.operator.startsWith('colorize.'))) {
         const member = field === 'brightness-envelope' ? 'brightness_envelope' : scalarMember(slot, field);
         const literal = field === 'brightness-envelope'
           ? `Pullback::Color::BrightnessEnvelope::${value.replaceAll('-', '_').toUpperCase()}`
@@ -191,7 +192,7 @@ export function departureLiteral(bank, presetId, policies) {
   return `Segue::Preset::Lerp{${edge.duration}, ${easing}}`;
 }
 
-export function generatedSections(compiled, metadata, { authoredTopology = false } = {}) {
+export function generatedSections(compiled, metadata, { authoredTopology = false, authoredPalette = false } = {}) {
   if (compiled.status !== 'VALID') throw new Error(JSON.stringify(compiled.diagnostics));
   const document = compiled.document;
   const bank = document.preset_bank;
@@ -209,7 +210,8 @@ export function generatedSections(compiled, metadata, { authoredTopology = false
     const slot = document.descriptor.chain.find(slot => slot.label === label);
     if (parameter.storage !== 'enum8' || field === LIVE_TOPOLOGY_FIELD ||
       liveTopology(document, parameter.id) || slot.operator === 'color.modulate.v1' ||
-      (authoredTopology && authoredLiveTopology(slot, field))) continue;
+      (authoredTopology && authoredLiveTopology(slot, field)) ||
+      (authoredPalette && slot.operator.startsWith('colorize.'))) continue;
     const values = presets.map((preset) => preset.values[parameter.id]);
     if (!values.every((value) => value === values[0]))
       throw new Error(`Composed topology must be uniform: ${parameter.id}`);
@@ -254,7 +256,7 @@ export function generatedSections(compiled, metadata, { authoredTopology = false
       `  static constexpr float CAMERA_SPIN_RATE = ${floatLiteral(spin[0])};`,
     ]),
   ].join('\n');
-  const initial = presetAssignments(document, presets[0].values, { authoredTopology });
+  const initial = presetAssignments(document, presets[0].values, { authoredTopology, authoredPalette });
   const assignment = ([member, literal]) => {
     const [key, ...path] = member.split('.');
     return `    value.template get<"${key}">().${path.join('.')} = ${literal};`;
@@ -279,7 +281,7 @@ export function generatedSections(compiled, metadata, { authoredTopology = false
     if (!uniform) params.push(`    Segue::Preset::Departure segue = ${departures[0]};`);
     for (let i = 1; i < presets.length; ++i) {
       params.push(`    if (index == ${i}) {`);
-      for (const entry of presetAssignments(document, presets[i].values, { authoredTopology }))
+      for (const entry of presetAssignments(document, presets[i].values, { authoredTopology, authoredPalette }))
         if (initial.get(entry[0]) !== entry[1]) params.push(`  ${assignment(entry)}`);
       if (!uniform && departures[i] !== departures[0]) params.push(`      segue = ${departures[i]};`);
       params.push('    }');
@@ -291,7 +293,8 @@ export function generatedSections(compiled, metadata, { authoredTopology = false
 
 export function updateHeader(source, compiled, metadata) {
   const authoredTopology = /AUTHORED_TOPOLOGY\s*=\s*true/u.test(source);
-  const sections = generatedSections(compiled, metadata, { authoredTopology });
+  const authoredPalette = /AuthoredColorProvider/u.test(source);
+  const sections = generatedSections(compiled, metadata, { authoredTopology, authoredPalette });
   for (const section of SECTIONS) {
     const begin = `  // Generated ${section}: scripts/generate_composed_presets.mjs\n  // clang-format off\n`;
     const end = `  // clang-format on\n  // End generated ${section}.`;

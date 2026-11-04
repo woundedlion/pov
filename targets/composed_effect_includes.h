@@ -20,6 +20,7 @@
 #include "effects/GridWarp.h"
 #include "effects/GridWorms.h"
 #include "effects/Involution.h"
+#include "effects/Iridescence.h"
 #include "effects/JewelMelt.h"
 #include "effects/KaleidoscopeFlowers.h"
 #include "effects/KaleidoscopeHexBright.h"

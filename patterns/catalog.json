@@ -22,7 +22,8 @@
     "grid-worms": "grid_worms.shader.json",
     "involution": "involution.shader.json",
     "grid-warp": "grid_warp.shader.json",
-    "liquid-windows": "liquid_windows.shader.json"
+    "liquid-windows": "liquid_windows.shader.json",
+    "iridescence": "iridescence.shader.json"
   },
   "product_group": {
     "id": "shader-collection",
@@ -115,6 +116,10 @@
       {
         "effect_id": "liquid-windows",
         "display_name": "Liquid Windows"
+      },
+      {
+        "effect_id": "iridescence",
+        "display_name": "Iridescence"
       }
     ]
   }

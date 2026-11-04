@@ -441,6 +441,90 @@ inline void check_slider_registration(const char *name) {
       return;
     }
 
+  if constexpr (std::is_same_v<FX, Iridescence<SMALL_W, SMALL_H>>) {
+    constexpr const char *EXPECTED[] = {"source.Pattern Freq",
+                                        "source.Speed",
+                                        "source.Complexity",
+                                        "source.Pattern Mix",
+                                        "source.Drift",
+                                        "source.Source Angle Speed",
+                                        "Singularity Fade",
+                                        "Central Meridian",
+                                        "displace.Strength",
+                                        "displace.Orientation Azimuth",
+                                        "displace.Orientation Polar",
+                                        "displace.Drift",
+                                        "displace.integrator",
+                                        "displace.term-1-type",
+                                        "displace.term-1-kind",
+                                        "displace.term-1-l",
+                                        "displace.term-1-m",
+                                        "displace.term-1-amplitude",
+                                        "displace.term-1-phase",
+                                        "displace.term-2-type",
+                                        "displace.term-2-kind",
+                                        "displace.term-2-l",
+                                        "displace.term-2-m",
+                                        "displace.term-2-amplitude",
+                                        "displace.term-2-phase",
+                                        "displace.term-3-type",
+                                        "displace.term-3-kind",
+                                        "displace.term-3-l",
+                                        "displace.term-3-m",
+                                        "displace.term-3-amplitude",
+                                        "displace.term-3-phase",
+                                        "displace.term-4-type",
+                                        "displace.term-4-kind",
+                                        "displace.term-4-l",
+                                        "displace.term-4-m",
+                                        "displace.term-4-amplitude",
+                                        "displace.term-4-phase",
+                                        "Palette Chroma",
+                                        "Palette Mapping",
+                                        "Mapping Frequency",
+                                        "Mapping Phase",
+                                        "Phase Oscillation Depth",
+                                        "Phase Oscillation Speed",
+                                        "Brightness Bottom",
+                                        "Brightness Top",
+                                        "Opacity at Value 0",
+                                        "Opacity at Value 1",
+                                        "Palette Mode",
+                                        "Palette Type",
+                                        "Palette Harmony",
+                                        "Palette Lightness Curve",
+                                        "Palette Name",
+                                        "Palette Name B",
+                                        "Brightness Envelope",
+                                        "Palette Hue",
+                                        "Palette Spread",
+                                        "Palette Lightness",
+                                        "Palette Lightness Range",
+                                        "Palette Mutation",
+                                        "Gradient Start R",
+                                        "Gradient Start G",
+                                        "Gradient Start B",
+                                        "Gradient Middle R",
+                                        "Gradient Middle G",
+                                        "Gradient Middle B",
+                                        "Gradient End R",
+                                        "Gradient End G",
+                                        "Gradient End B",
+                                        "modulate.Modulation Amount",
+                                        "modulate.Pattern Scale",
+                                        "modulate.Pattern Speed",
+                                        "modulate2.Modulation Amount",
+                                        "modulate2.Pattern Scale",
+                                        "modulate2.Pattern Speed"};
+    for (const char *slider : EXPECTED) {
+      HS_CONTEXT(slider);
+      HS_EXPECT_TRUE(params.find(slider) != nullptr);
+    }
+    HS_EXPECT_EQ(params.size(), std::size(EXPECTED));
+    HS_EXPECT_EQ(params.size(), params.capacity());
+    return;
+  }
+
   if constexpr (std::is_same_v<FX, GridWarp<SMALL_W, SMALL_H>>) {
     constexpr const char *EXPECTED[] = {"source.Pattern Freq",
                                         "source.Speed",
@@ -1145,6 +1229,7 @@ inline void test_promoted_document_pipelines() {
   composed_chain_tests::verify_export<Involution<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<GridWarp<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<LiquidWindows<SMALL_W, SMALL_H>>(0);
+  composed_chain_tests::verify_export<Iridescence<SMALL_W, SMALL_H>>(0);
 }
 
 /** @brief Module entry point for the composed-effect base contract. */

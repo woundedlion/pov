@@ -109,6 +109,7 @@ namespace effect_identities {
   X(HopfFibration, "hopf-fibration", "HopfFibration")                          \
   X(HyperLattice, "hyper-lattice", "HyperLattice")                             \
   X(Involution, "involution", "involution")                                    \
+  X(Iridescence, "iridescence", "iridescence")                                 \
   X(IslamicStars, "islamic-stars", "IslamicStars")                             \
   X(JewelMelt, "jewel-melt", "jewel-melt")                                     \
   X(KaleidoscopeFlowers, "kaleidoscope-flowers", "kaleidoscope-flowers")       \
