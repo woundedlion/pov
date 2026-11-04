@@ -13,7 +13,6 @@ export const SHADER_DOCUMENT_EFFECTS = Object.freeze([
   'kaleidoscope-flowers',
   'kaleidoscope-hex-bright',
   'kaleidoscope-hex-oil',
-  'kaleidoscope-hex-soft',
   'kaleidoscope-mandala',
   'kaleidoscope-melt',
   'kaleidoscope-smooth',

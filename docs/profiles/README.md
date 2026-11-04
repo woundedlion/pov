@@ -1,12 +1,12 @@
 # On-device effect profiles — Teensy 4.0, segmented mode
 
-On-device timing for the **37 effects in the Phantasm image**, captured on
+On-device timing for the **36 effects in the Phantasm image**, captured on
 bench-attached Teensy 4.0 boards with the real segmented POV driver
 (`POVSegmented<288, 4, 480>`), DMA LEDs, and live flywheel/DMA ISRs. Each
 effect renders one 288×144 image quadrant (about 10,368 pixels); the 62.5 ms
 display window makes cadence quantize to 16, 8, 5.3 fps, and below.
 
-Shipping reports cover all 37 effects: 37 completed captures.
+Shipping reports cover all 36 effects: 36 completed captures.
 
 Recorded capture revisions retain their original IDs. The
 [source revision crosswalk](source_revisions.json) preserves each one-to-one
@@ -86,7 +86,6 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | [PetalFlow](shipping/profile_petalflow_teensy_2026-10-23.md) / [O3](O3/profile_petalflow_teensy_2026-08-26.md) | `pf_draw_rings` | 🟢 30.286 | 21.618 | 🟢 10.77 | 🟢 0/447 (0.00%) | 🟢 0/1088 (0%) | +22,272 B | +21,008 B | ship 2026-10-23 13:29<br>O3 2026-08-26 01:32 |
 | [MobiusGrid](shipping/profile_mobiusgrid_teensy_2026-10-23.md) / [O3](O3/profile_mobiusgrid_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 27.761 (2) | 42.938 | 🟢 21.44 (3) | 🟢 0/1647 (0.00%) | 🟢 0/2688 (0%) | +13,448 B | +10,560 B | ship 2026-10-23 13:28<br>O3 2026-08-26 01:30 |
 | [AlienBrain](shipping/profile_alienbrain_teensy_2026-10-23.md) / [O3](O3/profile_alienbrain_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 26.745 (4) | 48.180 | 🟢 27.90 (5) | 🟢 0/3807 (0.00%) | 🟢 0/4768 (0%) | +14,560 B | +11,712 B | ship 2026-10-23 14:05<br>O3 2026-08-26 02:24 |
-| [KaleidoscopeHexSoft](shipping/profile_kaleidoscopehexsoft_teensy_2026-10-23.md) / [O3](O3/profile_kaleidoscopehexsoft_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 26.624 | 42.046 | 🟢 24.58 | 🟢 0/927 (0.00%) | 🟢 0/1088 (0%) | +14,496 B | +11,712 B | ship 2026-10-23 14:06<br>O3 2026-08-26 02:26 |
 | [CosmicEyeball](shipping/profile_cosmiceyeball_teensy_2026-10-23.md) / [O3](O3/profile_cosmiceyeball_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 26.390 | 48.097 | 🟢 22.97 | 🟢 0/927 (0.00%) | 🟢 0/1088 (0%) | +12,552 B | +10,320 B | ship 2026-10-23 14:36<br>O3 2026-08-26 03:05 |
 | [GnomonicStars](shipping/profile_gnomonicstars_teensy_2026-10-23.md) / [O3](O3/profile_gnomonicstars_teensy_2026-08-26.md) | `gn_draw_stars` | 🟢 26.228 | 15.374 | 🟢 26.29 | 🟢 0/447 (0.00%) | 🟢 0/1088 (0%) | +12,184 B | +11,104 B | ship 2026-10-23 13:24<br>O3 2026-08-26 01:22 |
 | [GridSpace](shipping/profile_gridspace_teensy_2026-10-23.md) / [O3](O3/profile_gridspace_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 25.495 | 38.937 | 🟢 25.39 | 🟢 0/927 (0.00%) | 🟢 0/1088 (0%) | +14,424 B | +11,712 B | ship 2026-10-23 14:12<br>O3 2026-08-26 02:33 |

@@ -129,8 +129,6 @@ namespace effect_identities {
     "kaleidoscope-hex-bright", "kaleidoscope-hex-bright")                      \
   X(KaleidoscopeHexOil, "kaleidoscope-hex-oil", "KaleidoscopeHexOil",          \
     "kaleidoscope-hex-oil", "kaleidoscope-hex-oil")                            \
-  X(KaleidoscopeHexSoft, "kaleidoscope-hex-soft", "KaleidoscopeHexSoft",       \
-    "kaleidoscope-hex-soft", "kaleidoscope-hex-soft")                          \
   X(KaleidoscopeMandala, "kaleidoscope-mandala", "KaleidoscopeMandala",        \
     "kaleidoscope-mandala", "kaleidoscope-mandala")                            \
   X(KaleidoscopeSmooth, "kaleidoscope-smooth", "KaleidoscopeSmooth",           \

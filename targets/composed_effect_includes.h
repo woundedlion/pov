@@ -23,7 +23,6 @@
 #include "effects/KaleidoscopeFlowers.h"
 #include "effects/KaleidoscopeHexBright.h"
 #include "effects/KaleidoscopeHexOil.h"
-#include "effects/KaleidoscopeHexSoft.h"
 #include "effects/KaleidoscopeMandala.h"
 #include "effects/KaleidoscopeMelt.h"
 #include "effects/KaleidoscopeSmooth.h"

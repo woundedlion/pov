@@ -1,6 +1,6 @@
 # Global-O3 reference profiles
 
-Ranked captures covering **34 effects** from the Phantasm image.
+Ranked captures covering **33 effects** from the Phantasm image.
 These are single-effect `profile_o3` compiler-reference images built
 with global `-O3 -ffast-math`; they are not a shippable full-roster image.
 
@@ -35,7 +35,6 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 | [GnomonicStars](profile_gnomonicstars_teensy_2026-08-26.md) | `gn_draw_stars` | 🟢 26.29 | 🟢 0/1088 (0%) | 2026-08-26 01:22 |
 | [GridSpace](profile_gridspace_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 25.39 | 🟢 0/1088 (0%) | 2026-08-26 02:33 |
 | [AlienOcean](profile_alienocean_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 24.98 | 🟢 0/1088 (0%) | 2026-08-26 02:28 |
-| [KaleidoscopeHexSoft](profile_kaleidoscopehexsoft_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 24.58 | 🟢 0/1088 (0%) | 2026-08-26 02:26 |
 | [CosmicEyeball](profile_cosmiceyeball_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 22.97 | 🟢 0/1088 (0%) | 2026-08-26 03:05 |
 | [MobiusGrid](profile_mobiusgrid_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 21.44 (3) | 🟢 0/2688 (0%) | 2026-08-26 01:30 |
 | [Fishbowl](profile_fishbowl_teensy_2026-08-26.md) | `fish_build_vertices` | 🟢 21.29 | 🟢 0/1088 (0%) | 2026-08-26 01:18 |

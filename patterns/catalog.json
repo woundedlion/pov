@@ -2,7 +2,6 @@
   "schema_version": 1,
   "source_documents": {
     "alien-brain": "alien_brain.shader.json",
-    "kaleidoscope-hex-soft": "kaleidoscope_hex_soft.shader.json",
     "alien-ocean": "alien_ocean.shader.json",
     "alien-core": "alien_core.shader.json",
     "kaleidoscope-mandala": "kaleidoscope_mandala.shader.json",
@@ -30,10 +29,6 @@
       {
         "effect_id": "alien-brain",
         "display_name": "Alien Brain"
-      },
-      {
-        "effect_id": "kaleidoscope-hex-soft",
-        "display_name": "Kaleidoscope Hex Soft"
       },
       {
         "effect_id": "alien-ocean",

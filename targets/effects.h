@@ -87,7 +87,6 @@
   X(IslamicStars)                                                              \
   X(KaleidoscopeHexBright)                                                     \
   X(AlienOcean)                                                                \
-  X(KaleidoscopeHexSoft)                                                       \
   X(MeshFeedback)                                                              \
   X(MindSplatter)                                                              \
   X(MobiusGrid)                                                                \
@@ -149,7 +148,6 @@ constexpr int hs_preset_window_seconds() {
  * HS_PHANTASM_EFFECT_LIST's. */
 #define HS_SHADER_PRODUCT_GROUP(X)                                             \
   X(AlienBrain, hs_preset_window_seconds<AlienBrain>())                        \
-  X(KaleidoscopeHexSoft, 60)                                                   \
   X(AlienOcean, 30)                                                            \
   X(AlienCore, 30)                                                             \
   X(KaleidoscopeMandala, hs_preset_window_seconds<KaleidoscopeMandala>())      \

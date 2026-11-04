@@ -101,7 +101,6 @@ g4_ship)
   ;;
 g5_ship)
   run AlienBrain profile 240 16
-  run KaleidoscopeHexSoft profile 60 32
   run AlienOcean profile 30 32
   run AlienCore profile 30 32
   run KaleidoscopeMandala profile 105 32

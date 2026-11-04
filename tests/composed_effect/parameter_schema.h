@@ -235,7 +235,6 @@ struct ParameterSchemaPin {
 constexpr ParameterSchemaPin PARAMETER_SCHEMA_PINS[] = {
     {"Involution", 2, 516, 11554418218614487622ULL},
     {"AlienBrain", 4, 256, 1520615164818923855ULL},
-    {"KaleidoscopeHexSoft", 4, 252, 12248859291337775303ULL},
     {"AlienOcean", 4, 264, 10147967365089435384ULL},
     {"AlienCore", 4, 264, 10147967365089435384ULL},
     {"KaleidoscopeMandala", 4, 280, 13820729389425608030ULL},

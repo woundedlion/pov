@@ -1,7 +1,7 @@
 # Shipping selective-O3 profiles
 
 Ranked on-device results for the shipping `profile` image, covering the
-37 effects in `HS_PHANTASM_EFFECT_LIST`. All 37 have canonical reports: 37 completed captures. Steady peak is worst-frame render excluding setup frame 1; setup render is listed separately. Steady spilled counts frames whose render exceeded
+36 effects in `HS_PHANTASM_EFFECT_LIST`. All 36 have canonical reports: 36 completed captures. Steady peak is worst-frame render excluding setup frame 1; setup render is listed separately. Steady spilled counts frames whose render exceeded
 the 62.5 ms display window. Rows rank by spill fraction, then steady peak render.
 🟢 zero spill; 🔴 any spill.
 
@@ -37,7 +37,6 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | [PetalFlow](profile_petalflow_teensy_2026-10-23.md) | `pf_draw_rings` | 🟢 30.286 | 21.618 | 🟢 0/447 (0.00%) | 2026-10-23 13:29 |
 | [MobiusGrid](profile_mobiusgrid_teensy_2026-10-23.md) § | `fx_shader_draw` | 🟢 27.761 (2) | 42.938 | 🟢 0/1647 (0.00%) | 2026-10-23 13:28 |
 | [AlienBrain](profile_alienbrain_teensy_2026-10-23.md) § | `fx_shader_draw` | 🟢 26.745 (4) | 48.180 | 🟢 0/3807 (0.00%) | 2026-10-23 14:05 |
-| [KaleidoscopeHexSoft](profile_kaleidoscopehexsoft_teensy_2026-10-23.md) | `fx_shader_draw` | 🟢 26.624 | 42.046 | 🟢 0/927 (0.00%) | 2026-10-23 14:06 |
 | [CosmicEyeball](profile_cosmiceyeball_teensy_2026-10-23.md) | `fx_shader_draw` | 🟢 26.390 | 48.097 | 🟢 0/927 (0.00%) | 2026-10-23 14:36 |
 | [GnomonicStars](profile_gnomonicstars_teensy_2026-10-23.md) | `gn_draw_stars` | 🟢 26.228 | 15.374 | 🟢 0/447 (0.00%) | 2026-10-23 13:24 |
 | [GridSpace](profile_gridspace_teensy_2026-10-23.md) | `fx_shader_draw` | 🟢 25.495 | 38.937 | 🟢 0/927 (0.00%) | 2026-10-23 14:12 |

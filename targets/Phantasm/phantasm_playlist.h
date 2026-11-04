@@ -52,7 +52,6 @@
   X(HankinSolids, 170)                                                         \
   X(KaleidoscopeHexBright, hs_preset_window_seconds<KaleidoscopeHexBright>())  \
   X(AlienOcean, 30)                                                            \
-  X(KaleidoscopeHexSoft, 60)                                                   \
   X(MobiusGrid, hs_preset_window_seconds<MobiusGrid>())                        \
   X(PetalFlow, 30)                                                             \
   X(KaleidoscopeHexOil, hs_preset_window_seconds<KaleidoscopeHexOil>())        \

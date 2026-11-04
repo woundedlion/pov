@@ -44,10 +44,10 @@ and a bank-owned easing and positive duration.
 
 ## Generated and hand-authored sources
 
-Eleven documents are generated. `node
+Ten documents are generated. `node
 scripts/generate_promoted_shader_documents.mjs` rewrites `alien_ocean`,
 `grid_space`, `cosmic_eyeball`, `kaleidoscope_flowers`, `kaleidoscope_mandala`,
-`alien_core`, `kaleidoscope_hex_bright`, `kaleidoscope_hex_soft`, `mobius_grid`,
+`alien_core`, `kaleidoscope_hex_bright`, `mobius_grid`,
 `alien_brain` and `kaleidoscope_stained_glass` from the effect specs the script holds, so a
 hand edit to those files is lost on the next run — change the spec instead. The specs use current chain IDs and named parameter values.
 
@@ -130,7 +130,6 @@ Every document except `example.shader.json` backs a
 | `kaleidoscope_mandala` | `KaleidoscopeMandala` |
 | `alien_core` | `AlienCore` |
 | `kaleidoscope_hex_bright` | `KaleidoscopeHexBright` |
-| `kaleidoscope_hex_soft` | `KaleidoscopeHexSoft` |
 | `mobius_grid` | `MobiusGrid` |
 | `kaleidoscope_hex_oil` | `KaleidoscopeHexOil` |
 | `alien_brain` | `AlienBrain` |

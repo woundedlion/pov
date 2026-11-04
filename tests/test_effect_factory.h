@@ -66,8 +66,6 @@ constexpr std::array IDENTITY_GOLDENS{
                    0xFD71C050E167C355ULL},
     IdentityGolden{"KaleidoscopeHexOil", "kaleidoscope-hex-oil",
                    0x0DB2472904AF2C50ULL},
-    IdentityGolden{"KaleidoscopeHexSoft", "kaleidoscope-hex-soft",
-                   0x2FA8CC12BC456AEAULL},
     IdentityGolden{"KaleidoscopeMandala", "kaleidoscope-mandala",
                    0xF65DEA98AF8BFB80ULL},
     IdentityGolden{"KaleidoscopeSmooth", "kaleidoscope-smooth",

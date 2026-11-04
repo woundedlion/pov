@@ -213,7 +213,7 @@ inline void test_effect_transition_replacement_pause_and_restore() {
   HS_EXPECT_EQ(controller.request(first), hs::EffectTransitionStatus::OK);
   controller.tick();
   const size_t pre_replacement_envelopes = adapter.envelopes.size();
-  first.effect_id = "kaleidoscope-hex-soft";
+  first.effect_id = "kaleidoscope-hex-bright";
   HS_EXPECT_EQ(controller.request(first), hs::EffectTransitionStatus::OK);
   // Replacing the destination mid-fade writes no envelope of its own: the fade
   // carries on down from where it stood instead of snapping back to full.
@@ -298,7 +298,7 @@ inline void test_effect_transition_shorter_replacement_preserves_progress() {
   HS_EXPECT_NEAR(adapter.envelopes.back(), 0.1f, 1e-6f);
 
   const hs::EffectTransitionRequest replacement{
-      "kaleidoscope-hex-soft", "kaleidoscope-hex-soft",
+      "kaleidoscope-hex-bright", "kaleidoscope-hex-bright",
       hs::EffectTransitionOrigin::AUTOMATIC, 1};
   HS_EXPECT_EQ(controller.request(replacement), hs::EffectTransitionStatus::OK);
   controller.tick();
