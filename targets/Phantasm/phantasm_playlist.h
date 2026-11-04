@@ -23,6 +23,9 @@
  *   HS_EFFECT_LIST.
  */
 #define HS_PHANTASM_EFFECT_LIST(X)                                             \
+  X(LiquidWindows, 60)                                                         \
+  X(GridWarp, 60)                                                              \
+  X(Iridescence, 60)                                                           \
   X(Involution, 60)                                                            \
   X(HopfFibration, 60)                                                         \
   X(Millefiori, 60)                                                            \
@@ -148,8 +151,6 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
  * @brief Roster effects the Phantasm playlist omits.
  * @param X Function-like macro applied to each excluded effect class name.
  * @details Dynamo, MobiusRings and Thrusters are low-resolution only.
- *          GridWarp, Iridescence and LiquidWindows exceed the 62.5 ms
- *          render window.
  *          Other exclusions are product curation.
  */
 #define HS_PHANTASM_EXCLUDED_EFFECTS(X)                                        \
@@ -157,9 +158,6 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
   X(KaleidoscopeStainedGlass)                                                  \
   X(KaleidoscopeMelt)                                                          \
   X(Dynamo)                                                                    \
-  X(GridWarp)                                                                  \
-  X(Iridescence)                                                               \
-  X(LiquidWindows)                                                             \
   X(MobiusRings)                                                               \
   X(RingShower)                                                                \
   X(Thrusters)

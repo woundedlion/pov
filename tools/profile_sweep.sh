@@ -112,6 +112,9 @@ g5_ship)
   run MermaidSkin profile 30 32
   run AshCloud profile 60 32
   run Involution profile 60 32
+  run LiquidWindows profile 60 32
+  run GridWarp profile 60 32
+  run Iridescence profile 60 32
   ;;
 g6_ship)
   run KaleidoscopeHexOil profile 105 16

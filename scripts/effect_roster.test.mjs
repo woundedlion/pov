@@ -118,9 +118,11 @@ test('RingShower remains in the full roster and is excluded from Phantasm', asyn
   assert.ok(!(await loadPhantasmEffectRoster()).includes('RingShower'));
 });
 
-test('Involution opens Phantasm and Millefiori follows HopfFibration for sixty seconds', async () => {
+test('the potential-flow trio opens Phantasm and Millefiori follows HopfFibration for sixty seconds', async () => {
   const phantasm = await loadPhantasmEffectRoster();
-  assert.deepEqual(phantasm.slice(0, 4), ['Involution', 'HopfFibration', 'Millefiori', 'Galaxies']);
+  assert.deepEqual(phantasm.slice(0, 7), [
+    'LiquidWindows', 'GridWarp', 'Iridescence', 'Involution', 'HopfFibration', 'Millefiori', 'Galaxies',
+  ]);
   const source = await readFile(new URL('../targets/Phantasm/phantasm_playlist.h', import.meta.url), 'utf8');
   assert.match(source, /X\(Millefiori, 60\)/);
   assert.equal(phantasm.filter(name => name === 'Galaxies').length, 1);

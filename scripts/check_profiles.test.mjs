@@ -259,12 +259,12 @@ test('profileDirectories reports an unindexed set of reports', async t => {
 test('every Phantasm effect has a canonical shipping capture', async () => {
   const reports = await reportsIn(PROFILES_DIR, 'shipping', []);
   const canonical = reports.filter(report => !report.variant);
-  assert.equal(canonical.length, 36);
+  assert.equal(canonical.length, 39);
   assert.ok(canonical.some(report => report.key === 'galaxies'));
   assert.ok(canonical.some(report => report.key === 'gridworms'));
   assert.ok(canonical.some(report => report.key === 'involution'));
   const result = await checkProfiles();
-  assert.equal(result.phantasmCount, 36);
+  assert.equal(result.phantasmCount, 39);
   assert.deepEqual(result.errors, []);
 });
 
