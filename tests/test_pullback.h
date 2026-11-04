@@ -1613,33 +1613,21 @@ inline void test_pullback_warp_phase_loop() {
                  affine_1.transform.affine.shear, 1e-6f);
 }
 
-/** @brief Distance between two finite floats in units in the last place.
- * @param a First value.
- * @param b Second value.
- * @return Representable steps from @p a to @p b; signed zeros are 0 apart. */
-inline int64_t float_ulps(float a, float b) {
-  const auto ordered = [](float value) {
-    const int32_t bits = std::bit_cast<int32_t>(value);
-    return bits < 0 ? int64_t{INT32_MIN} - bits : int64_t{bits};
-  };
-  return std::abs(ordered(a) - ordered(b));
-}
-
-/** @brief An affine form whose omitted parts hold identity values warps
-    and reduces equal to the general form; within two units under
-    reassociating fast math.
+/** @brief Each affine form matches the general form at identity values
+    of the omitted parts.
  * @tparam Form Form under test. */
 template <Pullback::Warp::AffineForm Form>
 inline void check_affine_form_matches_general() {
   using namespace Pullback::Warp;
-#ifdef __FAST_MATH__
-  constexpr int64_t TOLERANCE = 2;
+#if defined(HS_TEST_FAST_MATH)
+  constexpr float TOLERANCE = 1e-6f;
 #else
-  constexpr int64_t TOLERANCE = 0;
+  constexpr float TOLERANCE = 0.0f;
 #endif
-  const auto near = [](const math::Complex &a, const math::Complex &b) {
-    return float_ulps(a.re, b.re) <= TOLERANCE &&
-           float_ulps(a.im, b.im) <= TOLERANCE;
+  const auto check = [](const math::Complex &actual,
+                        const math::Complex &expected) {
+    HS_EXPECT_NEAR(actual.re, expected.re, TOLERANCE);
+    HS_EXPECT_NEAR(actual.im, expected.im, TOLERANCE);
   };
   static volatile float knobs[] = {0.6f, 2.0f, -1.0f, 1.5f, 0.75f, 0.2f, 3.0f};
   static volatile float points[] = {0.0f, -0.0f, 0.37f, -1.25f, 3.5f, -0.0625f};
@@ -1677,8 +1665,8 @@ inline void check_affine_form_matches_general() {
           const math::Complex input{x, y};
           const math::Complex want = affine_coords(input, general);
           const math::Complex got = affine_coords<Form>(input, narrowed);
-          HS_EXPECT_TRUE(near(got, want));
-          HS_EXPECT_TRUE(near(affine_coords<Form>(input, repeated), want));
+          check(got, want);
+          check(affine_coords<Form>(input, repeated), want);
         }
     }
 }

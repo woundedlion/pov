@@ -624,7 +624,8 @@ add_executable(fastmath_clamp_check
   ${HS_ENGINE_SOURCES})
 target_include_directories(fastmath_clamp_check PRIVATE ${HS_ENGINE_INCLUDES})
 target_link_libraries(fastmath_clamp_check PRIVATE hs_host_abi)
-target_compile_definitions(fastmath_clamp_check PRIVATE HS_ENABLE_TEST_ORACLES=1)
+target_compile_definitions(fastmath_clamp_check PRIVATE
+  HS_ENABLE_TEST_ORACLES=1 HS_TEST_FAST_MATH=1)
 # The WASM release math flags. -fno-finite-math-only MUST follow -ffast-math;
 # core/platform/platform.h #errors without it.
 target_compile_options(fastmath_clamp_check PRIVATE
