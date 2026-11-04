@@ -175,10 +175,23 @@ public:
 
   /** @brief Samples the prepared interval, preserving both endpoints.
    * @param fraction Frame progress in [0, 1].
-   * @return Interpolated context borrowing the endpoint resources. */
-  HS_FLASH_INLINE Frame at(float fraction) const {
+   * @return Interpolated context borrowing the endpoints and interval. */
+  HS_FLASH_INLINE Frame at(float fraction) const & {
     Frame frame;
     at_into(frame, fraction);
+    return frame;
+  }
+
+  /** @brief Samples a temporary interval without borrowing its cache.
+   * @param fraction Frame progress in [0, 1].
+   * @return Interpolated context borrowing the endpoint resources. */
+  HS_FLASH_INLINE Frame at(float fraction) const && {
+    Frame frame = at(fraction);
+    frame.params.visit([&]<typename Resource>(const auto &) {
+      if constexpr (std::is_same_v<typename Resource::Family,
+                                   MobiusGeneratorParams>)
+        frame.resources.template get<Resource::KEY>().mobius_base = nullptr;
+    });
     return frame;
   }
 
