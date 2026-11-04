@@ -223,7 +223,7 @@ inline float spherical_harmonic(int l, int m, const math::Vector &p, float N) {
  * @param N Prepared harmonic scale.
  * @param phase Complex phase multiplying the azimuthal power.
  * @return Ambient gradient of the polynomial extension. */
-HS_FLASH_INLINE inline math::Vector
+HS_HOT_FLASH_MEMBER inline math::Vector
 spherical_harmonic_gradient(int l, int m, const math::Vector &p, float N,
                             math::Complex phase = {1.0f, 0.0f}) {
   math::Complex power(1.0f, 0.0f), previous;

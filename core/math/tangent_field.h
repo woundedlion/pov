@@ -152,8 +152,8 @@ struct PotentialSample {
  * @param type Invariant polynomial family.
  * @param p Cartesian point in the fold frame.
  * @return Scalar value and analytic gradient. */
-HS_FLASH_INLINE inline PotentialSample invariant_sample(TermType type,
-                                                        const Vector &p) {
+HS_HOT_INLINE inline PotentialSample invariant_sample(TermType type,
+                                                      const Vector &p) {
   if (type == TermType::TETRAHEDRAL) {
     const float a = dot(TETRAHEDRAL_AXES[0], p);
     const float b = dot(TETRAHEDRAL_AXES[1], p);
@@ -275,7 +275,7 @@ public:
   /** @brief Evaluates the assembled tangent velocity.
    * @param p Unit world direction.
    * @return Tangent velocity in world coordinates. */
-  HS_FLASH_MEMBER Vector velocity(const Vector &p) const {
+  HS_HOT_FLASH_MEMBER Vector velocity(const Vector &p) const {
     const Vector local = oriented ? rotate(p, orientation.conjugate()) : p;
     const float inverse_norm_squared = 1.0f / dot(local, local);
     Vector result(0.0f, 0.0f, 0.0f);
