@@ -658,10 +658,18 @@ inline void test_temporal_moving_families_interpolate() {
     const auto sampled = SAMPLER.at(fraction).params;
     const auto expected =
         Pullback::interpolate(history.previous.params, moved.params, fraction);
-    HS_EXPECT_NEAR(
-        sampled.template get<"modulation">().modulation.mechanic.amount,
-        expected.template get<"modulation">().modulation.mechanic.amount, 0.0f);
-    HS_EXPECT_TRUE(std::memcmp(&sampled, &expected, sizeof(sampled)) == 0);
+    sampled.visit([&]<typename Resource>(const auto &family) {
+      using Family = typename Resource::Family;
+      const auto &expected_family = expected.template get<Resource::KEY>();
+      for (const auto &field : Family::FIELDS)
+        HS_EXPECT_NEAR(family.*field.member, expected_family.*field.member,
+                       0.0f);
+      if constexpr (requires { Family::TOPOLOGY; })
+        for (const auto &field : Family::TOPOLOGY)
+          HS_EXPECT_EQ(family.*field.member, expected_family.*field.member);
+      if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION)
+        HS_EXPECT_TRUE(family.modulation == expected_family.modulation);
+    });
   }
 }
 

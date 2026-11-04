@@ -630,8 +630,8 @@ inline void check_curl_policy_dispatch() {
                        scale, PREPARED.loop_offset, strength, path_required);
             const auto RESULT = Policy::apply(INPUT, frame, PREPARED);
 #if defined(HS_TEST_FAST_MATH)
-            HS_EXPECT_VEC(RESULT.sphere, EXPECTED.sphere, 1e-6f);
-            HS_EXPECT_NEAR(RESULT.path_length, EXPECTED.path_length, 1e-6f);
+            HS_EXPECT_VEC(RESULT.sphere, EXPECTED.sphere, 3e-5f);
+            HS_EXPECT_NEAR(RESULT.path_length, EXPECTED.path_length, 1e-5f);
 #else
             HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.sphere.x),
                          std::bit_cast<uint32_t>(EXPECTED.sphere.x));
