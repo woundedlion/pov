@@ -375,7 +375,8 @@ Retained palette and hue tables supply two colorizer samples at the same
 interpolated geometry, with their results blended in time. By default
 (`TEMPORAL_COLOR_PHASE`, `PALETTE_LAB_CACHE`), eligible modulation layers
 instead sample one interpolated phase per column over a cached OKLab palette
-base. Noise tables are baked once per frame. Effects without this opt-in retain the frame-wide path
+base, which holds through preset Lerps of mapping, brightness and opacity
+controls. Noise tables are baked once per frame. Effects without this opt-in retain the frame-wide path
 and allocate no temporal history.
 
 

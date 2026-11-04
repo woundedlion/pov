@@ -3,7 +3,8 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 /** @file palette_rgb_cache.h
- * @brief Interval RGB hue-cache interpolation, fallback and ownership tests. */
+ * @brief Interval palette-cache interpolation, admission, fallback and
+ * ownership tests. */
 
 /** @brief Palette, periodic hue and time axes interpolate independently. */
 void test_palette_rgb_cache_axes_and_wrap() {
@@ -378,13 +379,171 @@ inline void test_palette_lab_cache_color_padding() {
   if (base)
     HS_EXPECT_TRUE(base->active);
   auto params = effect.initial_params();
-  params.template get<"color">().mapping_phase += .25f;
+  params.template get<"color">().palette_chroma += .01f;
   ComposedFrameWhiteBox::set_params(effect, params);
   pin_frame_clock(2);
   effect.draw_frame();
   effect.advance_display();
   HS_EXPECT_TRUE(ComposedFrameWhiteBox::current_frame(effect).palette_lab_lut ==
                  nullptr);
+}
+
+/** @brief Checks palette-control classification of every tabled color field.
+ * @tparam Controls Color family type. */
+template <typename Controls> void check_palette_control_fields() {
+  constexpr std::string_view PALETTE_FIELDS[] = {
+      "palette-chroma",    "palette-hue",      "palette-spread",
+      "palette-lightness", "palette-mutation", "palette-lightness-range"};
+  for (size_t index = 0; index < Controls::FIELDS.size(); ++index) {
+    const auto &field = Controls::FIELDS[index];
+    HS_CONTEXT(field.id);
+    const std::string_view ID = field.id;
+    const bool PALETTE =
+        ID.starts_with("gradient-") ||
+        std::find(std::begin(PALETTE_FIELDS), std::end(PALETTE_FIELDS), ID) !=
+            std::end(PALETTE_FIELDS);
+    const Controls BASE{};
+    Controls changed = BASE;
+    float &value = changed.*field.member;
+    const float STEP = .25f * (field.max - field.min);
+    value = value + STEP <= field.max ? value + STEP : value - STEP;
+    HS_EXPECT_EQ(Pullback::Color::same_palette_controls(BASE, changed),
+                 !PALETTE);
+    HS_EXPECT_EQ(Pullback::Color::same_palette_controls(changed, BASE),
+                 !PALETTE);
+  }
+}
+
+/** @brief Palette-cache admission ignores exactly the column-sampled color
+ * controls. */
+inline void test_palette_lab_cache_column_controls() {
+  using Pullback::Color::same_palette_controls;
+  check_palette_control_fields<Pullback::ColorParams>();
+  check_palette_control_fields<Pullback::Color::AuthoredColorParams>();
+  const Pullback::Color::AuthoredColorParams BASE{};
+  for (int change = 0; change < 6; ++change) {
+    HS_CONTEXT("discrete control", change);
+    auto changed = BASE;
+    if (change == 0)
+      changed.palette_mapping = Pullback::Color::PaletteMapping::CUP;
+    else if (change == 1)
+      changed.brightness_envelope = Pullback::Color::BrightnessEnvelope::BELL;
+    else if (change == 2)
+      changed.palette_mode = 1;
+    else if (change == 3)
+      changed.palette_type = 1;
+    else if (change == 4)
+      changed.palette_harmony = 0;
+    else
+      changed.palette_name = 3;
+    HS_EXPECT_EQ(same_palette_controls(BASE, changed), change < 2);
+  }
+}
+
+/** @brief A Lerp of column-sampled color controls keeps the palette cache
+ * within its qualified bounds of canonical shading. */
+inline void test_palette_lab_cache_through_lerp() {
+  using FX = KaleidoscopeHexOil<SMALL_W, SMALL_H>;
+  using WB = ComposedWhiteBox<FX>;
+  using Pipeline = FX::RenderPipeline;
+  using Policy = Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+      typename FX::Binding, Pullback::Color::BrightnessEnvelope::NONE>>;
+  static_assert(Policy::LAB_CACHE);
+  reset_globals();
+  ScopedTemporalSampling temporal(true);
+  pin_frame_clock(0);
+  FX effect;
+  effect.init();
+  effect.draw_frame();
+  effect.advance_display();
+  HS_EXPECT_TRUE(WB::advance_preset(effect));
+  HS_EXPECT_TRUE(WB::transition_active(effect));
+  Spacetime::FrameHistory<FX::FrameState, true, true> history;
+  constexpr int FRAMES = 8;
+  for (int frame = 1; frame <= FRAMES; ++frame) {
+    HS_CONTEXT("lerp frame", frame);
+    history.capture(ComposedFrameWhiteBox::current_frame(effect),
+                    persistent_arena);
+    pin_frame_clock(frame);
+    effect.draw_frame();
+    const auto &current = ComposedFrameWhiteBox::current_frame(effect);
+    HS_EXPECT_TRUE(current.palette_lab_lut && current.palette_lab_lut->active);
+    if (frame < FRAMES)
+      effect.advance_display();
+  }
+  HS_EXPECT_TRUE(WB::transition_active(effect));
+  const auto CURRENT = ComposedFrameWhiteBox::current_frame(effect);
+  HS_EXPECT_TRUE(
+      history.previous.params.template get<"color">().mapping_frequency !=
+      CURRENT.params.template get<"color">().mapping_frequency);
+  uint32_t maximum = 0;
+  uint64_t total = 0;
+  size_t channels = 0;
+  float alpha_error = 0.0f;
+  for (int x = 0; x < SMALL_W; ++x) {
+    const auto CACHED_STATE =
+        Spacetime::sample_frame(history.previous, CURRENT,
+                                Spacetime::SamplingSurface<SMALL_W>::time(x));
+    auto canonical_state = CACHED_STATE;
+    canonical_state.palette_lab_lut = nullptr;
+    const auto CACHED = Pipeline::prepare(CACHED_STATE);
+    const auto CANONICAL = Pipeline::prepare(canonical_state);
+    for (int y = 0; y < SMALL_H; ++y) {
+      const float SIN_PHI = math::TrigLUT<SMALL_W, SMALL_H>::sin_phi[y];
+      const math::Vector VIEW(
+          SIN_PHI * math::TrigLUT<SMALL_W, SMALL_H>::cos_theta(x),
+          math::TrigLUT<SMALL_W, SMALL_H>::cos_phi[y],
+          SIN_PHI * math::TrigLUT<SMALL_W, SMALL_H>::sin_theta[x]);
+      const Color4 ACTUAL = Pipeline::shade(VIEW, CACHED);
+      const Color4 EXPECTED = Pipeline::shade(VIEW, CANONICAL);
+      alpha_error = std::max(alpha_error, fabsf(ACTUAL.alpha - EXPECTED.alpha));
+      for (const uint32_t ERROR :
+           {uint32_t(std::abs(int(ACTUAL.color.r) - int(EXPECTED.color.r))),
+            uint32_t(std::abs(int(ACTUAL.color.g) - int(EXPECTED.color.g))),
+            uint32_t(std::abs(int(ACTUAL.color.b) - int(EXPECTED.color.b)))}) {
+        maximum = std::max(maximum, ERROR);
+        total += ERROR;
+        ++channels;
+      }
+    }
+  }
+  const double MEAN = static_cast<double>(total) / channels;
+  std::printf("  lerp palette cache max=%u mean=%.3f channel codes\n", maximum,
+              MEAN);
+  HS_EXPECT_GT(maximum, 0u);
+  HS_EXPECT_LE(static_cast<float>(maximum), Policy::METRICS[0].limit);
+  HS_EXPECT_LE(MEAN, Policy::METRICS[1].limit);
+  HS_EXPECT_LE(alpha_error, 1e-6f);
+}
+
+/** @brief A palette control step disables the palette cache for one interval.
+ */
+inline void test_palette_lab_cache_palette_control_step() {
+  using FX = KaleidoscopeHexOil<SMALL_W, SMALL_H>;
+  reset_globals();
+  ScopedTemporalSampling temporal(true);
+  pin_frame_clock(0);
+  FX effect;
+  effect.init();
+  effect.draw_frame();
+  effect.advance_display();
+  auto params = effect.initial_params();
+  const auto draw = [&](int frame) {
+    ComposedFrameWhiteBox::set_params(effect, params);
+    pin_frame_clock(frame);
+    effect.draw_frame();
+    effect.advance_display();
+    const auto *base =
+        ComposedFrameWhiteBox::current_frame(effect).palette_lab_lut;
+    return base && base->active;
+  };
+  auto &color = params.template get<"color">();
+  color.mapping_frequency *= 1.5f;
+  color.opacity_low *= .5f;
+  HS_EXPECT_TRUE(draw(1));
+  color.palette_chroma += .01f;
+  HS_EXPECT_FALSE(draw(2));
+  HS_EXPECT_TRUE(draw(3));
 }
 
 /** @brief Compact midpoint rows and retained keys match the generic owner exactly. */

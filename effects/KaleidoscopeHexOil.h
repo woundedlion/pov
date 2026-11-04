@@ -17,6 +17,10 @@
 
 #include "core/render/pullback/composed_effect.h"
 
+namespace hs_test {
+template <typename FX> struct ComposedWhiteBox;
+} // namespace hs_test
+
 /** @brief Stage spec for `KaleidoscopeHexOil`. */
 struct KaleidoscopeHexOilSpec : Pullback::Spec {
   /// Samples animation continuously across each two-arm half-turn.
@@ -66,6 +70,7 @@ template <int W, int H>
 class KaleidoscopeHexOil
     : public Pullback::ComposedEffect<W, H, KaleidoscopeHexOil<W, H>,
                                       KaleidoscopeHexOilSpec> {
+  friend struct ::hs_test::ComposedWhiteBox<KaleidoscopeHexOil<W, H>>;
 
 public:
   using Params = KaleidoscopeHexOilParams; ///< Live parameter struct.

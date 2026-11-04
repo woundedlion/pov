@@ -100,6 +100,20 @@ struct ColorControls {
                            nullptr, 0.0f, 1.0f, FieldCurve::LERP},
   };
 
+  /** @brief Copies the controls both palette endpoints read from the sampled
+   *         column frame.
+   *  @param column Controls supplying mapping, oscillation, brightness and
+   *  opacity. */
+  constexpr void assign_column_controls(const ColorControls &column) {
+    mapping_frequency = column.mapping_frequency;
+    mapping_phase = column.mapping_phase;
+    phase_oscillation_depth = column.phase_oscillation_depth;
+    phase_oscillation_speed = column.phase_oscillation_speed;
+    brightness_bottom = column.brightness_bottom;
+    brightness_top = column.brightness_top;
+    opacity_low = column.opacity_low;
+    opacity_high = column.opacity_high;
+  }
   constexpr bool operator==(const ColorControls &) const = default;
 };
 static_assert(field_ids_unique<ColorControls>());
@@ -111,6 +125,13 @@ struct ColorParams : ColorControls {
   /// The ColorControls fields; `palette_mapping` has no field entry.
   static constexpr auto FIELDS = concat_fields<ColorParams>(
       ColorControls::FIELDS, std::array<Field<ColorParams>, 0>{});
+  /** @brief Copies the controls both palette endpoints read from the sampled
+   *         column frame.
+   *  @param column Controls supplying the column-sampled fields. */
+  constexpr void assign_column_controls(const ColorParams &column) {
+    ColorControls::assign_column_controls(column);
+    palette_mapping = column.palette_mapping;
+  }
   constexpr bool operator==(const ColorParams &) const = default;
 };
 static_assert(field_ids_unique<ColorParams>());
@@ -126,6 +147,13 @@ struct AuthoredColorParams : ColorParams, AuthoredPaletteSelection {
   static const std::array<Field<AuthoredColorParams>,
                           ColorParams::FIELDS.size() + 14>
       FIELDS;
+  /** @brief Copies the controls both palette endpoints read from the sampled
+   *         column frame.
+   *  @param column Controls supplying the column-sampled fields. */
+  constexpr void assign_column_controls(const AuthoredColorParams &column) {
+    ColorParams::assign_column_controls(column);
+    brightness_envelope = column.brightness_envelope;
+  }
   constexpr bool operator==(const AuthoredColorParams &) const = default;
 };
 // ARM GCC needs the complete class for secondary-base member offsets.
@@ -194,6 +222,21 @@ inline constexpr std::array<Field<AuthoredColorParams>,
         });
 static_assert(field_ids_unique<AuthoredColorParams>());
 static_assert(field_defaults_in_range<AuthoredColorParams>());
+
+/** @brief Whether two color families define the same palette endpoints.
+ * @details Controls copied by `assign_column_controls` are excluded; every
+ * other control is compared.
+ * @tparam Controls Color family type.
+ * @param a First family.
+ * @param b Second family.
+ * @return True when the families differ only in column-sampled controls. */
+template <typename Controls>
+HS_FLASH_INLINE constexpr bool same_palette_controls(const Controls &a,
+                                                     const Controls &b) {
+  Controls shared = a;
+  shared.assign_column_controls(b);
+  return shared == b;
+}
 
 /** @brief Blend weights over the PaletteMapping curves. */
 struct PaletteMappingWeights {

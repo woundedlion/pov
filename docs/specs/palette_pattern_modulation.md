@@ -489,7 +489,7 @@ same composed hue, lift, gamut mapping and brightness finish.
 Two effect-owned buffers preserve consecutive frame views. A frame never bakes
 into the buffer borrowed by its previous endpoint. Lab-only carriers copy Lab
 values; the optional final RGB cache borrows a column view through immediate
-finalization. Literal/static draws, changed color-family controls,
+finalization. Literal/static draws, changed palette-defining color controls,
 nonopaque palette alpha, and unsupported/custom color tails retain canonical
 RGB sampling. Opaque palette alpha preserves the common coverage and opacity.
 Derived color policies must explicitly own their
@@ -497,8 +497,12 @@ shared-base contract before the stage can bypass their endpoint operations.
 Cached carriers enter after the sole base blend; interior blending of an
 already cached carrier is outside that internal protocol.
 Eligible phase tails adjust deferred state without reading the carrier's RGB.
-Palette-cache admission compares named color fields by semantic equality;
-padding bytes do not participate.
+Both palette endpoints read the mapping, oscillation, brightness, opacity and
+envelope controls from the sampled column frame, in the cached and canonical
+paths alike. Those controls, named by `assign_column_controls`, may differ
+between endpoints, so the cache holds through a preset Lerp of them.
+`Color::same_palette_controls` compares every other color field by semantic
+equality; padding bytes do not participate.
 
 The `PALETTE_RGB_BLEND_TO_LAB_LUT` oracle compares the cache to RGB-first palette
 sampling, not interpolation of endpoint Lab. Qualification keeps existing hue

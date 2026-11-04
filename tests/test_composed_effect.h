@@ -1285,6 +1285,9 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_palette_rgb_midpoint_only_storage);
   HS_RUN(test_palette_rgb_midpoint_only_fallback);
   HS_RUN(test_palette_lab_cache_color_padding);
+  HS_RUN(test_palette_lab_cache_column_controls);
+  HS_RUN(test_palette_lab_cache_through_lerp);
+  HS_RUN(test_palette_lab_cache_palette_control_step);
   HS_RUN(test_millefiori_palette_lab_lifetime);
   HS_RUN(test_millefiori_ripple_endpoints);
   HS_RUN(test_composed_strobe_roster);

@@ -320,8 +320,9 @@ public:
         if constexpr (PALETTE_LAB_CACHE) {
           if (palette_cache_controls_eligible(current.params) &&
               palette_cache_controls_eligible(history.previous.params) &&
-              history.previous.params.template get<"color">() ==
-                  current.params.template get<"color">()) {
+              Color::same_palette_controls(
+                  history.previous.params.template get<"color">(),
+                  current.params.template get<"color">())) {
             HS_PROFILE(fx_palette_base_bake);
             state->palette_lab_slot ^= 1;
             auto &cache = state->palette_lab_luts[state->palette_lab_slot];
