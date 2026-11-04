@@ -24,7 +24,6 @@ const FAMILIES = {
   'project.peirce-square-fast.v3': 'Pullback::AtlasProjectionParams',
   'project.bonne.v3': 'Pullback::AtlasProjectionParams',
   'project.airocean.v3': 'Pullback::AtlasProjectionParams',
-  'project.s2.v1': 'Pullback::AtlasProjectionParams',
   'project.tetrahedral.v1': 'Pullback::AtlasProjectionParams',
   'project.cubic.v1': 'Pullback::AtlasProjectionParams',
   'project.octahedral.v1': 'Pullback::AtlasProjectionParams',

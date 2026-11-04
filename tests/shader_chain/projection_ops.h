@@ -14,7 +14,6 @@ struct ProjMirrorFrame {
   In::Op::ProjectPeirceV3::Params peirce;
   In::Op::ProjectPeirceSquareFastV3::Params peirce_fast;
   In::Op::ProjectAiroceanV3::Params airocean;
-  In::Op::ProjectS2::Params s2;
   In::Op::PolyhedralAtlasChainParams atlas;
 };
 
@@ -96,15 +95,6 @@ struct AiroceanProjMirror : ProjMirrorBase {
   }
 };
 
-struct S2ProjMirror : ProjMirrorBase {
-  static float central_meridian(const ProjMirrorFrame &frame) {
-    return frame.s2.central_meridian;
-  }
-  static float coordinate_scale(const ProjMirrorFrame &frame) {
-    return frame.s2.coordinate_scale;
-  }
-};
-
 struct AtlasProjMirror : ProjMirrorBase {
   static float central_meridian(const ProjMirrorFrame &frame) {
     return frame.atlas.central_meridian;
@@ -141,14 +131,15 @@ inline bool arm_project_op_chain(In::ChainProgram &program, const char *op_id,
       program, chain, frames, set);
 }
 
-/** @brief Source edge fading reaches the center of an S2 face at every scale. */
-inline void test_shader_chain_s2_full_face_edge_fade() {
+/** @brief Source edge fading reaches the center of a cubic atlas tile at
+    every scale. */
+inline void test_shader_chain_atlas_full_face_edge_fade() {
   auto fixture = std::make_unique<ProgramFixture>();
   auto &program = fixture->program;
-  if (!arm_project_op_chain<In::Op::ProjectS2::Params>(
-          program, In::Op::ProjectS2::ID, 0, ValueSet::DEFAULTS))
+  if (!arm_project_op_chain<In::Op::PolyhedralAtlasChainParams>(
+          program, In::Op::ProjectCubic::ID, 0, ValueSet::DEFAULTS))
     return;
-  auto &projection = param_as<In::Op::ProjectS2::Params>(program, 1);
+  auto &projection = param_as<In::Op::PolyhedralAtlasChainParams>(program, 1);
   auto &source = param_as<In::Op::GridSampleParams>(program, 2);
   projection.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
   source.coverage_mode =
@@ -163,7 +154,13 @@ inline void test_shader_chain_s2_full_face_edge_fade() {
   if (!width_field)
     return;
   const auto ctx = shared_resources().context();
-  const math::Vector POINTS[] = {{1, 0, 1}, {1, 0, 5.0f / 12.0f}, {1, 0, 0}};
+  const auto &atlas = projections::POLYHEDRAL_ATLAS<Solids::Cube>;
+  const math::Vector face = atlas.selectors[0].normalized();
+  math::Vector neighbor = atlas.selectors[1].normalized();
+  for (const math::Vector &selector : atlas.selectors)
+    if (fabsf(math::dot(selector.normalized(), face)) < 1e-4f)
+      neighbor = selector.normalized();
+  const math::Vector POINTS[] = {face + neighbor, face + neighbor * 0.5f, face};
   const float COVERAGE[] = {0.0f, 0.5f, 1.0f};
   for (float scale : {0.25f, 1.0f, 4.0f}) {
     projection.coordinate_scale = scale;
@@ -200,8 +197,6 @@ inline ProjMirrorFrame project_mirror(In::ChainProgram &program,
     mirror.peirce = param_as<In::Op::ProjectPeirceV3::Params>(program, 1);
   } else if (id == In::Op::ProjectAiroceanV3::ID) {
     mirror.airocean = param_as<In::Op::ProjectAiroceanV3::Params>(program, 1);
-  } else if (id == In::Op::ProjectS2::ID) {
-    mirror.s2 = param_as<In::Op::ProjectS2::Params>(program, 1);
   } else if (is_atlas_operator(id)) {
     mirror.atlas = param_as<In::Op::PolyhedralAtlasChainParams>(program, 1);
   } else {
@@ -276,7 +271,6 @@ inline void test_shader_chain_projection_frame_policy() {
   expect_project_frame_policy<In::Op::ProjectPeirceSquareFastV3>();
   expect_project_frame_policy<In::Op::ProjectBonneV3>();
   expect_project_frame_policy<In::Op::ProjectAiroceanV3>();
-  expect_project_frame_policy<In::Op::ProjectS2>();
   expect_project_frame_policy<In::Op::ProjectTetrahedral>();
   expect_project_frame_policy<In::Op::ProjectCubic>();
   expect_project_frame_policy<In::Op::ProjectOctahedral>();
@@ -331,7 +325,6 @@ inline void run_project_parity(const char *op_id, ValueSet set) {
     auto changed = project_mirror(program, ctx);
     changed.peirce_fast.coordinate_scale = 1.0f;
     changed.airocean.coordinate_scale = 1.0f;
-    changed.s2.coordinate_scale = 1.0f;
     changed.atlas.coordinate_scale = 1.0f;
     expect_project_parameter_control<Bound>(program, ctx, changed);
   }
@@ -442,8 +435,6 @@ inline void test_shader_chain_parity_project_ops() {
     run_project_parity<
         PB::Projection::Airocean<AiroceanProjMirror, false, true>,
         In::Op::ProjectAiroceanV3::Params>(In::Op::ProjectAiroceanV3::ID, set);
-    run_project_parity<PB::Projection::S2<S2ProjMirror>,
-                       In::Op::ProjectS2::Params>(In::Op::ProjectS2::ID, set);
     run_atlas_parity<Solids::Tetrahedron>(set);
     run_atlas_parity<Solids::Cube>(set);
     run_atlas_parity<Solids::Octahedron>(set);

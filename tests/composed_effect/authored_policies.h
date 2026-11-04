@@ -409,7 +409,6 @@ inline void test_authored_projection_bindings_match_operators() {
                              ProjectPeirceSquareFastV3>();
   verify_authored_projection<ProjectionKind::BONNE, ProjectBonneV3>();
   verify_authored_projection<ProjectionKind::AIROCEAN, ProjectAiroceanV3>();
-  verify_authored_projection<ProjectionKind::S2, ProjectS2>();
   verify_authored_projection<ProjectionKind::TETRAHEDRAL, ProjectTetrahedral>();
   verify_authored_projection<ProjectionKind::CUBIC, ProjectCubic>();
   verify_authored_projection<ProjectionKind::OCTAHEDRAL, ProjectOctahedral>();

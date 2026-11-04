@@ -586,10 +586,11 @@ P1 renders a continuous twisted star surface: each pixel takes the color of the 
 
 ![Involution](screenshots/Involution.png)
 
-A moving affine frame translates and rotates a primitive lattice over the S2
-cube atlas. A generated palette retains the authored hue, spread, lightness
-and Cup lightness curve. Displacement hue modulation precedes a direct-noise
-lightness layer; their independent controls remain in the authored preset.
+A moving affine frame translates and rotates a primitive lattice over an
+area-corrected cubic atlas. A generated palette retains the authored hue,
+spread, lightness and Cup lightness curve. Displacement hue modulation precedes
+a direct-noise lightness layer; their independent controls remain in the
+authored preset.
 
 ## Shader Authoring Workbench
 
@@ -706,7 +707,7 @@ cannot follow a projection: that would move backward in carrier rank.
 | **Rotation** | Spin + Wander | Sphere → Sphere; the instance's wander and spin speed |
 | **Displacement** | Direct Noise, Curl Noise, Ripple | Sphere → Sphere; noise scale/strength/speed/basis, direct direction or curl integrator, or ripple controls |
 | **Lens** | Glitch, Twist, Mobius, Kaleidoscope | Sphere → Sphere; lens-specific controls; kaleidoscope selects azimuthal, polyhedral or prism symmetry |
-| **Projection** | Folded Sinusoidal, Stereographic, Gnomonic, Bonne, Peirce Quincuncial, Fast Square Peirce, Dymaxion / Airocean, Equirectangular, S2, Tetrahedral / Cubic / Octahedral / Dodecahedral / Icosahedral Atlas | Sphere → Plane; coordinates, projection provenance, weight and available edge distance; instance-specific frame/layout controls |
+| **Projection** | Folded Sinusoidal, Stereographic, Gnomonic, Bonne, Peirce Quincuncial, Fast Square Peirce, Dymaxion / Airocean, Equirectangular, Tetrahedral / Cubic / Octahedral / Dodecahedral / Icosahedral Atlas | Sphere → Plane; coordinates, projection provenance, weight and available edge distance; instance-specific frame/layout controls |
 | **Planar warp** | Affine Frame, Wave Shear, Vortex, Vector Noise, Curl Flow, Mirror Tile, Polar Chart | Plane → Plane; independent parameters and clocks for each ordered instance |
 | **Planar source** | Twin Wave, Rings, Spiral, Grid, Projected Noise, Primitive Lattice, Escape Fractal, Tessellation | Plane → Field; source parameters, signal weighting and coverage choices |
 | **Sphere source** | Spherical Noise, Spherical Rings | Sphere → Field; source-specific controls; no projection or planar warp |

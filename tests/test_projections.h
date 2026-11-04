@@ -739,77 +739,6 @@ inline void test_cylindrical_coordinates() {
   }
 }
 
-/** @brief S2 atlas coordinates invert quadratic cell coordinates on every face. */
-inline void test_s2_quadratic_atlas() {
-  const math::Vector NORMALS[] = {{1, 0, 0},  {0, 0, 1},  {0, 1, 0},
-                                  {-1, 0, 0}, {0, 0, -1}, {0, -1, 0}};
-  const math::Vector U_AXES[] = {{0, 0, 1},  {-1, 0, 0}, {-1, 0, 0},
-                                 {0, -1, 0}, {0, -1, 0}, {0, 0, 1}};
-  const math::Vector V_AXES[] = {{0, 1, 0},  {0, 1, 0}, {0, 0, -1},
-                                 {0, 0, -1}, {1, 0, 0}, {1, 0, 0}};
-  const auto quadratic = [](double s) {
-    return s >= 0.5 ? (4.0 * s * s - 1.0) / 3.0
-                    : (1.0 - 4.0 * (1.0 - s) * (1.0 - s)) / 3.0;
-  };
-  for (uint8_t face = 0; face < 6; ++face) {
-    for (float s : {0.125f, 0.25f, 0.5f, 0.75f, 0.875f}) {
-      for (float t : {0.125f, 0.25f, 0.5f, 0.75f, 0.875f}) {
-        const math::Vector point =
-            (NORMALS[face] + U_AXES[face] * float(quadratic(s)) +
-             V_AXES[face] * float(quadratic(t)))
-                .normalized();
-        for (float meridian : {0.0f, 0.37f}) {
-          const float c = cosf(meridian), sn = sinf(meridian);
-          const math::Vector rotated(point.x * c - point.z * sn, point.y,
-                                     point.z * c + point.x * sn);
-          const auto actual = s2_projection(rotated, c, sn);
-          HS_EXPECT_EQ(actual.region_id, face);
-          HS_EXPECT_NEAR(actual.coords.re, s + float(face % 3) - 1.5f, 1e-6f);
-          HS_EXPECT_NEAR(actual.coords.im, t + float(face / 3) - 1.0f, 1e-6f);
-          HS_EXPECT_NEAR(actual.fade_edge_distance,
-                         std::min({s, 1.0f - s, t, 1.0f - t}), 1e-6f);
-          HS_EXPECT_EQ(actual.traits, projection_traits(ProjectionTrait::CUT));
-          HS_EXPECT_EQ(actual.boundary_flags,
-                       projection_boundary(ProjectionBoundary::CUT));
-          HS_EXPECT_EQ(actual.component_id, 0);
-          HS_EXPECT_EQ(actual.flags, 0);
-          const auto scaled = Pullback::Projection::from_kernel(actual, -2.0f);
-          HS_EXPECT_NEAR(scaled.coords.re, -2.0f * actual.coords.re, 1e-6f);
-          HS_EXPECT_NEAR(scaled.coords.im, -2.0f * actual.coords.im, 1e-6f);
-          HS_EXPECT_NEAR(scaled.provenance.fade_edge_distance,
-                         2.0f * actual.fade_edge_distance, 1e-6f);
-          HS_EXPECT_NEAR(scaled.provenance.value_weight, 1.0f, 0.0f);
-        }
-      }
-    }
-  }
-}
-
-/** @brief S2 cube edges and corners have finite coordinates and zero cut distance. */
-inline void test_s2_face_boundaries() {
-  for (float x : {-1.0f, 0.0f, 1.0f})
-    for (float y : {-1.0f, 0.0f, 1.0f})
-      for (float z : {-1.0f, 0.0f, 1.0f}) {
-        if (fabsf(x) + fabsf(y) + fabsf(z) < 2.0f)
-          continue;
-        const auto actual =
-            s2_projection(math::Vector(x, y, z).normalized(), 1.0f, 0.0f);
-        HS_EXPECT_TRUE(std::isfinite(actual.coords.re));
-        HS_EXPECT_TRUE(std::isfinite(actual.coords.im));
-        HS_EXPECT_LT(actual.region_id, 6);
-        HS_EXPECT_NEAR(actual.fade_edge_distance, 0.0f, 1e-6f);
-        HS_EXPECT_EQ(actual.edge_class / 4, actual.region_id);
-      }
-  const auto left =
-      s2_projection(math::Vector(1, 0.2f, 0.999f).normalized(), 1.0f, 0.0f);
-  const auto right =
-      s2_projection(math::Vector(0.999f, 0.2f, 1).normalized(), 1.0f, 0.0f);
-  HS_EXPECT_EQ(left.region_id, 0);
-  HS_EXPECT_EQ(right.region_id, 1);
-  HS_EXPECT_TRUE(left.fade_edge_distance > 0.0f);
-  HS_EXPECT_TRUE(right.fade_edge_distance > 0.0f);
-}
-
 /** @brief Signed distance from an atlas point to a tile's nearest side.
  *  @return Positive inside the tile. */
 template <size_t F, size_t K>
@@ -1010,8 +939,6 @@ inline int run_projections_tests() {
   HS_RUN(test_wrap_longitude_range);
   HS_RUN(test_wrap_longitude_fmod_contract);
   HS_RUN(test_cylindrical_coordinates);
-  HS_RUN(test_s2_quadratic_atlas);
-  HS_RUN(test_s2_face_boundaries);
   HS_RUN(test_polyhedral_atlas_sampling);
   HS_RUN(test_polyhedral_atlas_tiles);
   HS_RUN(test_polyhedral_atlas_area_correction);

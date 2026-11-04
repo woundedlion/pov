@@ -7,7 +7,7 @@
 
 /**
  * @file Involution.h
- * @brief An affine lattice turns across an S2 cube atlas beneath layered color.
+ * @brief An affine lattice turns across an area-corrected cubic atlas beneath layered color.
  */
 
 #include "core/platform/effect_identity.h"
@@ -36,7 +36,7 @@ struct InvolutionSpec : Pullback::Spec {
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::RotationProvider<B, "camera">>,
       Pullback::Stage::Project<Pullback::AuthoredProjection<
-          Pullback::ProjectionKind::S2,
+          Pullback::ProjectionKind::CUBIC,
           Pullback::ProjectionProvider<B, Pullback::AtlasProjectionParams>>>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
           Pullback::PeriodicAffineParams, B, "outer_warp", true>::Type>,
@@ -63,7 +63,7 @@ struct InvolutionSpec : Pullback::Spec {
 /// Parameter storage derived from `InvolutionSpec`.
 using InvolutionParams = Pullback::ParamsFor<InvolutionSpec>;
 
-/** @brief An affine lattice turns across an S2 cube atlas beneath layered color.
+/** @brief An affine lattice turns across an area-corrected cubic atlas beneath layered color.
  * @tparam W Canvas width.
  * @tparam H Canvas height. */
 template <int W, int H>
@@ -81,9 +81,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "227dd22a2001ed4916416fee05f1dcc61a477c8e0a92f1cc832c686a998bfbe7";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "0a55c10f1d06f120d9f82813273d72554bb24687fa0eaffc83f2d50c96090db2";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "a7fa0edab19400f5f61854d1bd12b1f800bd54b6b177a09b343692dbfc97c801";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "86ef8873531284cfa60182604cf7cbe940828770c9801d6823d57e4335c9a4f8";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "jewel-melt"
@@ -175,6 +175,7 @@ public:
     value.template get<"modulation">().modulation.source = Pattern::SourceKind::DISPLACEMENT;
     value.template get<"modulation">().modulation.noise.scale = 0.14453939f;
     value.template get<"modulation">().modulation.noise.speed = -0.0000010416667f;
+    value.template get<"projection">().area_correction = 0.7f;
     value.template get<"projection">().central_meridian = 0.0f;
     value.template get<"projection">().coordinate_scale = 1.3574561f;
     value.template get<"projection">().frame = 1;

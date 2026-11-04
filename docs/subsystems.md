@@ -157,37 +157,14 @@ The fragment shader receives `pos` set to the closest local-space hit point (in 
 
 `Pullback::Spec` in `core/render/pullback/composed_policies.h` defines the typed `Pipeline<B>` and authored runtime and cache controls. `Pullback::MetadataFor<Spec>` inspects the normalized semantic leaves, including nested placement groups and optional `void` entries. It derives projection, sampling and field coverage, transfer kind, lens policy, surface placement, path tracking and color modes without binding an executable frame. `ComposedEffect::Metadata` exposes that topology to slider registration and optional storage. Authored scalar topology fields are rejected.
 
-### S2 cube projection
-
-`Pullback::Projection::S2` maps sphere directions through Google's quadratic
-[S2 coordinate mapping](https://github.com/google/s2geometry/blob/master/src/s2/s2coords.h).
-The shader tool exposes it as **S2** (`project.s2.v1`),
-with central meridian, coordinate scale, and identity or spin/wander framing.
-
-Each face contributes a unit square to a centered 3×2 atlas: faces 0–2 run
-left to right in the lower row, and 3–5 in the upper row. Coordinates span
-[-1.5, 1.5] × [-1, 1] before scaling. S2's z-up axes correspond to renderer
-(x, z, y); its face numbers and local orientations are preserved.
-All face edges are cuts, with fade distance measured in atlas units.
-On a planar source, select **Coverage Mode → edge-fade** and adjust **Edge Width**
-over 0–16. A width of half the projection's coordinate scale fades from each
-seam to the face center.
-**Edge Fade Squared** applies the square of that attenuation; its edge width
-and the strict-edge step at width zero follow Edge Fade.
-
-A planar source samples this atlas. Periodic planar textures can still jump at
-cube seams because the joined edges reverse or rotate their local axes;
-arbitrary planar translation does not preserve seam matching. Sphere sources
-retain their own spherical coordinates.
-
 ### Polyhedral atlas projection
 
-`projections::polyhedral_atlas_projection` extends the S2 idea to any convex
-solid table in `core/mesh/solid_tables.h`. A direction is centrally projected
-onto the plane of the face its ray crosses, so great circles stay straight
-within a face, and each face becomes a separate tile. Every tile side is a cut,
-as in S2's atlas, so a planar pattern behaves the same way at every seam; edge
-fade measures to the nearest tile side in atlas units.
+`projections::polyhedral_atlas_projection` maps the sphere onto the faces of
+any convex solid table in `core/mesh/solid_tables.h`. A direction is centrally
+projected onto the plane of the face its ray crosses, so great circles stay
+straight within a face, and each face becomes a separate tile. Every tile side
+is a cut, so a planar pattern behaves the same way at every seam; edge fade
+measures to the nearest tile side in atlas units.
 
 `projections::make_polyhedral_atlas` derives the layout at compile time. The
 face nearest the north pole is turned onto the pole, each tile turns north up,
@@ -197,20 +174,18 @@ are in units of the solid's edge length.
 The shader tool exposes each Platonic solid as an atlas operator:
 **Tetrahedral**, **Cubic**, **Octahedral**, **Dodecahedral** and **Icosahedral
 Atlas** (`project.tetrahedral.v1` through `project.icosahedral.v1`). Each has
-central meridian, coordinate scale, and identity or spin/wander framing, and
-matching `Pullback::Projection` aliases and `ProjectionKind` values serve
-authored effects. Cubic Atlas is the unwarped cube; S2 adds its quadratic
-correction and its own face layout.
+central meridian, coordinate scale, area correction, and identity or
+spin/wander framing, and matching `Pullback::Projection` aliases and
+`ProjectionKind` values serve authored effects.
 
-Smaller faces distort less. A dodecahedral pentagon's area scale stays within a
-factor of two from center to corner, close to what S2's quadratic correction
-achieves on the cube, while a tetrahedral tile stretches strongly toward its
-corners. **Area Correction** (0–1, default 0) pulls each point toward its tile
-center: at 1 every tile is its face's Lambert azimuthal equal-area image, so
-area is preserved exactly and the tile sides curve; on the cube, 0.7 matches
-S2's area variation. The edge-fade distance shrinks with the point it measures. In the dodecahedral atlas the upper row holds the north face and the
-five faces around it; the lower row holds the southern ring and the south
-face.
+Central projection magnifies a tile toward its corners, more strongly for
+solids with fewer, larger faces: a dodecahedral pentagon's area scale stays
+within a factor of two from center to corner, a cube face's within about 5.2.
+**Area Correction** (0–1, default 0) pulls each point toward its tile center,
+keeping the central scale there. At 1 every tile is its face's Lambert
+azimuthal equal-area image, so area is preserved exactly and the tile sides
+curve; on the cube, 0.7 leaves about a factor of two. The edge-fade distance
+shrinks with the point it measures.
 
 ### Space-time rendering
 
@@ -1836,7 +1811,7 @@ plot, scan, and pullback paths. They do not own a canvas or effect lifecycle.
 | `core/math/pixel_mapping.h` | Sphere/pixel coordinates using the calibrated LED-center latitude profile. |
 | `core/math/display_geometry.h` | Display latitude profiles, row spacing, and pole-cap geometry. |
 | `core/math/spherical.h` | Canonical axes, sphere generators, tangent frames and bases, and parallel transport. |
-| `core/math/projections.h` | Bonne, Peirce quincuncial, Airocean, S2, folded sinusoidal, and equirectangular sphere-to-plane kernels. |
+| `core/math/projections.h` | Bonne, Peirce quincuncial, Airocean, folded sinusoidal, and equirectangular sphere-to-plane kernels. |
 | `core/math/polyhedral_atlas.h` | Central projection onto a convex solid's faces, laid out as separate tiles. |
 | `core/math/stereographic.h`, `core/math/mobius.h`, `core/math/lenses.h` | Stereographic projections, fractional-linear transforms, and sphere-domain lens kernels. |
 | `core/math/rotate.h`, `core/math/projection_patterns.h` | Angle wrapping, canvas-to-sphere projection, and shared projected-pattern coordinates. |

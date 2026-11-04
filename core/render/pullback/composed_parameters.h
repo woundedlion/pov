@@ -361,7 +361,6 @@ enum class ProjectionKind : uint8_t {
   GNOMONIC_FOLDED,
   EQUIRECTANGULAR,
   FOLDED_SINUSOIDAL,
-  S2,
   PEIRCE_SQUARE_FAST,
   PEIRCE,
   BONNE,
@@ -392,7 +391,6 @@ constexpr bool is_polyhedral_atlas(ProjectionKind projection) {
 constexpr bool uses_central_meridian(ProjectionKind projection) {
   return projection == ProjectionKind::EQUIRECTANGULAR ||
          projection == ProjectionKind::FOLDED_SINUSOIDAL ||
-         projection == ProjectionKind::S2 ||
          projection == ProjectionKind::PEIRCE ||
          projection == ProjectionKind::BONNE ||
          projection == ProjectionKind::AIROCEAN ||

@@ -615,8 +615,7 @@ template <typename Spec> constexpr bool field_gate_open(FieldGate gate) {
   case FieldGate::SINGULARITY_FADE:
     return uses_singularity_fade(MetadataFor<Spec>::PROJECTION);
   case FieldGate::COORDINATE_SCALE:
-    return MetadataFor<Spec>::PROJECTION == ProjectionKind::S2 ||
-           MetadataFor<Spec>::PROJECTION == ProjectionKind::PEIRCE ||
+    return MetadataFor<Spec>::PROJECTION == ProjectionKind::PEIRCE ||
            MetadataFor<Spec>::PROJECTION ==
                ProjectionKind::PEIRCE_SQUARE_FAST ||
            MetadataFor<Spec>::PROJECTION == ProjectionKind::BONNE ||

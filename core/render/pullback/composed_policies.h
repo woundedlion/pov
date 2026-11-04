@@ -70,8 +70,6 @@ constexpr std::string_view projection_operator_id(ProjectionKind projection) {
     return "project.equirectangular.v2";
   case ProjectionKind::FOLDED_SINUSOIDAL:
     return "project.folded-sinusoidal.v2";
-  case ProjectionKind::S2:
-    return "project.s2.v1";
   case ProjectionKind::PEIRCE_SQUARE_FAST:
     return "project.peirce-square-fast.v3";
   case ProjectionKind::PEIRCE:
@@ -506,10 +504,6 @@ struct AuthoredProjection
       return Projection::gnomonic(
           input, params.singularity_fade,
           static_cast<Projection::GnomonicHemisphere>(params.hemisphere));
-    else if constexpr (Kind == ProjectionKind::S2)
-      return Projection::from_kernel(
-          projections::s2_projection(input, prepared.cosine, prepared.sine),
-          params.coordinate_scale);
     else if constexpr (Kind == ProjectionKind::PEIRCE)
       return Projection::peirce(
           input, params.central_meridian, params.layout, params.layout_scroll,
@@ -544,8 +538,7 @@ struct AuthoredProjection
  * @tparam ProjectionV Projection algorithm.
  * @tparam B Pipeline binding. */
 template <ProjectionKind ProjectionV, typename B>
-  requires(ProjectionV == ProjectionKind::S2 ||
-           ProjectionV == ProjectionKind::PEIRCE ||
+  requires(ProjectionV == ProjectionKind::PEIRCE ||
            ProjectionV == ProjectionKind::PEIRCE_SQUARE_FAST ||
            ProjectionV == ProjectionKind::BONNE ||
            ProjectionV == ProjectionKind::AIROCEAN ||

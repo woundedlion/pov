@@ -8,7 +8,7 @@
       },
       {
         "label": "project",
-        "operator": "project.s2.v1"
+        "operator": "project.cubic.v1"
       },
       {
         "label": "warp",
@@ -955,6 +955,20 @@
         "classification": "preset",
         "default": 0,
         "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "project.area-correction",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
           "maximum": 6.2831854820251465,
           "minimum": 0
         },
@@ -1326,6 +1340,7 @@
         "modulation.modulation-source",
         "modulation.pattern-scale",
         "modulation.pattern-speed",
+        "project.area-correction",
         "project.central-meridian",
         "project.coordinate-scale",
         "project.frame",
@@ -1441,6 +1456,7 @@
           "modulation.modulation-source": "displacement",
           "modulation.pattern-scale": 0.14453938603401184,
           "modulation.pattern-speed": -0.0000010416666782475659,
+          "project.area-correction": 0.699999988079071,
           "project.central-meridian": 0,
           "project.coordinate-scale": 1.357456088066101,
           "project.frame": "spin-wander",

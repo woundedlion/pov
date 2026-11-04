@@ -241,14 +241,14 @@ test('every catalog operator retains all scalar values and topology selections',
     }
     ++operators;
   }
-  assert.equal(operators, 49);
+  assert.equal(operators, 48);
   assert.ok(selectors > 100);
 });
 
 test('operator bindings preserve authored resource keys and native member names', () => {
   const authored = { descriptor: { chain: [
     { label: 'fractal', operator: 'sample.fractal.v2' },
-    { label: 'map', operator: 'project.s2.v1' },
+    { label: 'map', operator: 'project.cubic.v1' },
     { label: 'flow', operator: 'sphere.displace.potential.v1', resource_key: 'velocity' },
     { label: 'slide', operator: 'warp.affine.v3', resource_key: 'plane' },
   ] } };

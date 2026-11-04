@@ -815,39 +815,6 @@ struct PeirceSquare : PeirceFastSquare<State>,
   }
 };
 
-/** @brief S2 quadratic cube mapping in a three-column, two-row atlas. */
-template <typename State>
-struct S2 : FrameConjugateFromState<State>, MeridianPrepared<S2<State>, State> {
-  using FrameState = typename State::FrameState; ///< Provider frame state.
-  using Prepared = PreparedMeridian;             ///< Cached meridian rotation.
-  using MeridianPrepared<S2<State>, State>::project;
-  /// Whether cut distances are measured.
-  static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
-
-  /** @brief Whether the provider supplies the projection frame and scale.
-   *  @tparam CandidateBinding Binding being checked. */
-  template <typename CandidateBinding>
-  static constexpr bool PROVIDER_VALID =
-      FrameProvider<State, CandidateBinding> &&
-      requires(const typename CandidateBinding::FrameState &frame) {
-        { State::central_meridian(frame) } -> std::same_as<float>;
-        { State::coordinate_scale(frame) } -> std::same_as<float>;
-      };
-
-  /** @brief Projects a direction in the projection frame.
-   *  @param input Unit direction.
-   *  @param frame Frame state.
-   *  @param prepared Cached meridian rotation.
-   *  @return Scaled atlas coordinates and face provenance. */
-  static ProjectionResult project(const math::Vector &input,
-                                  const FrameState &frame,
-                                  const Prepared &prepared) {
-    return from_kernel(
-        projections::s2_projection(input, prepared.cosine, prepared.sine),
-        State::coordinate_scale(frame));
-  }
-};
-
 /** @brief Central projection onto a solid's faces, laid out as separate
  *         tiles.
  *  @tparam State Frame-state provider.

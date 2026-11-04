@@ -77,9 +77,8 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"project.peirce-square-fast.v3", nullptr, {}},
     {"project.bonne.v3", nullptr, {}},
     {"project.airocean.v3", nullptr, {}},
-    {"project.s2.v1", "frame", {{"spin-wander"}}},
     {"project.tetrahedral.v1", nullptr, {}},
-    {"project.cubic.v1", nullptr, {}},
+    {"project.cubic.v1", "frame", {{"spin-wander"}}},
     {"project.octahedral.v1", nullptr, {}},
     {"project.dodecahedral.v1", nullptr, {}},
     {"project.icosahedral.v1", nullptr, {}},
@@ -267,8 +266,8 @@ inline void test_composed_derivation_reach() {
     }
   }
 
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 49u);
-  HS_EXPECT_EQ(unreachable_operators, 18u);
-  HS_EXPECT_EQ(catalog_values, 387u);
-  HS_EXPECT_EQ(unreachable_values, 320u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 48u);
+  HS_EXPECT_EQ(unreachable_operators, 17u);
+  HS_EXPECT_EQ(catalog_values, 385u);
+  HS_EXPECT_EQ(unreachable_values, 318u);
 }

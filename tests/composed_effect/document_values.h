@@ -828,9 +828,6 @@ inline void check_document_values(const char *name) {
         break;
       case Pullback::ProjectionKind::NONE:
         break;
-      case Pullback::ProjectionKind::S2:
-        expected = "project.s2.v1";
-        break;
       case Pullback::ProjectionKind::TETRAHEDRAL:
         expected = "project.tetrahedral.v1";
         break;

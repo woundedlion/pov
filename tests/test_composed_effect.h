@@ -134,8 +134,7 @@ template <typename FX> constexpr bool gate_open(Pullback::FieldGate gate) {
   case Pullback::FieldGate::SINGULARITY_FADE:
     return Pullback::uses_singularity_fade(FX::Metadata::PROJECTION);
   case Pullback::FieldGate::COORDINATE_SCALE:
-    return FX::Metadata::PROJECTION == Pullback::ProjectionKind::S2 ||
-           FX::Metadata::PROJECTION == Pullback::ProjectionKind::PEIRCE ||
+    return FX::Metadata::PROJECTION == Pullback::ProjectionKind::PEIRCE ||
            FX::Metadata::PROJECTION ==
                Pullback::ProjectionKind::PEIRCE_SQUARE_FAST ||
            FX::Metadata::PROJECTION == Pullback::ProjectionKind::BONNE ||

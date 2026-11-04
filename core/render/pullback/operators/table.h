@@ -21,7 +21,7 @@ namespace Pullback {
 namespace Interp {
 
 /** @brief Every chain operator's descriptor, one per operator model. */
-inline constexpr std::array<OperatorDescriptor, 49> OPERATOR_TABLE{
+inline constexpr std::array<OperatorDescriptor, 48> OPERATOR_TABLE{
     make_operator_descriptor<Op::Rotate>(),
     make_operator_descriptor<Op::DisplaceCurl>(),
     make_operator_descriptor<Op::DisplaceDirect>(),
@@ -41,7 +41,6 @@ inline constexpr std::array<OperatorDescriptor, 49> OPERATOR_TABLE{
     make_operator_descriptor<Op::ProjectPeirceSquareFastV3>(),
     make_operator_descriptor<Op::ProjectBonneV3>(),
     make_operator_descriptor<Op::ProjectAiroceanV3>(),
-    make_operator_descriptor<Op::ProjectS2>(),
     make_operator_descriptor<Op::ProjectTetrahedral>(),
     make_operator_descriptor<Op::ProjectCubic>(),
     make_operator_descriptor<Op::ProjectOctahedral>(),
