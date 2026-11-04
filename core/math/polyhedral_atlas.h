@@ -24,7 +24,7 @@ namespace projections {
 struct AtlasSide {
   float x = 0.0f;      ///< Inward unit normal, x.
   float y = 0.0f;      ///< Inward unit normal, y.
-  float offset = 0.0f; ///< Distance from the side at the origin.
+  float offset = 0.0f; ///< Distance from the side at the tile center.
 };
 
 /**
@@ -32,10 +32,14 @@ struct AtlasSide {
  *        polyhedral_atlas_projection() reads them.
  * @tparam FACES Face count.
  * @tparam MAX_SIDES Side count of the largest face.
+ * @tparam PAIRS Antipodal face pairs: `FACES / 2` for a centrally symmetric
+ *         solid, otherwise 0.
  * @details Coordinates are scaled so the solid's first edge has unit length.
  */
-template <size_t FACES, size_t MAX_SIDES> struct PolyhedralAtlas {
+template <size_t FACES, size_t MAX_SIDES, size_t PAIRS = 0>
+struct PolyhedralAtlas {
   static_assert(FACES * MAX_SIDES <= 256, "edge classes are one byte");
+  static_assert(PAIRS == 0 || 2 * PAIRS == FACES);
   /** Face normal over the face plane's distance from the origin. */
   std::array<math::Vector, FACES> selectors{};
   /** Atlas x coordinate, per face, of a point on the face plane. */
@@ -44,13 +48,15 @@ template <size_t FACES, size_t MAX_SIDES> struct PolyhedralAtlas {
   std::array<math::Vector, FACES> y_axes{};
   /** Atlas position of each face plane's closest point to the origin. */
   std::array<math::Complex, FACES> centers{};
-  /** Reciprocal of each face plane's distance from the origin, in atlas
-   *  units. */
-  std::array<float, FACES> inverse_heights{};
-  /** Each tile's sides; side `k` runs from vertex `k` to vertex `k + 1`. */
+  /** Each face plane's distance from the origin, with unit vertices. */
+  std::array<float, FACES> heights{};
+  /** Each tile's sides; side `k` runs from vertex `k` to vertex `k + 1`.
+   *  Sides past a face's count never bind. */
   std::array<std::array<AtlasSide, MAX_SIDES>, FACES> sides{};
   /** Side count of each face. */
   std::array<uint8_t, FACES> side_counts{};
+  /** Each antipodal pair as {face, opposite face}. */
+  std::array<std::array<uint8_t, 2>, PAIRS> antipodes{};
   /** Largest distance of a tile vertex from the origin. */
   float radius = 0.0f;
 };
@@ -70,6 +76,44 @@ template <typename Solid> constexpr size_t max_sides() {
   for (uint8_t count : Solid::face_counts)
     sides = count > sides ? count : sides;
   return sides;
+}
+
+/** @brief Vertex index of a face corner. @tparam Solid Solid table.
+ *  @param f Face. @param k Corner, taken modulo the face's side count.
+ *  @return Index into `Solid::vertices`. */
+template <typename Solid> constexpr size_t corner(size_t f, size_t k) {
+  size_t first = 0;
+  for (size_t g = 0; g < f; ++g)
+    first += Solid::face_counts[g];
+  return static_cast<size_t>(Solid::faces[first + k % Solid::face_counts[f]]);
+}
+
+/** @brief Outward unit normal of a face. @tparam Solid Solid table.
+ *  @param vertices The solid's vertices in any orientation. @param f Face.
+ *  @return The normal of counter-clockwise face `f`. */
+template <typename Solid, typename Vertices>
+constexpr math::Vector face_normal(const Vertices &vertices, size_t f) {
+  math::Vector sum(0.0f, 0.0f, 0.0f);
+  for (size_t k = 0; k < Solid::face_counts[f]; ++k)
+    sum = sum + math::cross(vertices[corner<Solid>(f, k)],
+                            vertices[corner<Solid>(f, k + 1)]);
+  return unit(sum);
+}
+
+/** @brief Antipodal face pairs of a solid. @tparam Solid Solid table.
+ *  @return Half the face count when every face has an opposite face, else 0. */
+template <typename Solid> constexpr size_t antipodal_pairs() {
+  constexpr size_t F = Solid::face_counts.size();
+  for (size_t f = 0; f < F; ++f) {
+    bool opposed = false;
+    for (size_t g = 0; g < F; ++g)
+      opposed = opposed ||
+                math::dot(face_normal<Solid>(Solid::vertices, f),
+                          face_normal<Solid>(Solid::vertices, g)) < -0.9999f;
+    if (!opposed)
+      return 0;
+  }
+  return F / 2;
 }
 
 /** @brief Monotonic stand-in for an azimuth, in [0, 4).
@@ -100,27 +144,15 @@ template <typename Solid> constexpr auto make_polyhedral_atlas() {
   constexpr size_t F = Solid::face_counts.size();
   constexpr size_t K = max_sides<Solid>();
   constexpr size_t V = Solid::vertices.size();
-  PolyhedralAtlas<F, K> atlas{};
-
-  std::array<size_t, F> first{};
-  for (size_t f = 1; f < F; ++f)
-    first[f] = first[f - 1] + Solid::face_counts[f - 1];
-  const auto index = [&](size_t f, size_t k) {
-    return static_cast<size_t>(
-        Solid::faces[first[f] + k % Solid::face_counts[f]]);
-  };
-  const auto normal_of = [&](const auto &vertices, size_t f) {
-    math::Vector sum(0.0f, 0.0f, 0.0f);
-    for (size_t k = 0; k < Solid::face_counts[f]; ++k)
-      sum = sum + math::cross(vertices[index(f, k)], vertices[index(f, k + 1)]);
-    return unit(sum);
-  };
+  constexpr size_t PAIRS = antipodal_pairs<Solid>();
+  PolyhedralAtlas<F, K, PAIRS> atlas{};
 
   size_t pole = 0;
   for (size_t f = 1; f < F; ++f)
-    if (normal_of(Solid::vertices, f).y > normal_of(Solid::vertices, pole).y)
+    if (face_normal<Solid>(Solid::vertices, f).y >
+        face_normal<Solid>(Solid::vertices, pole).y)
       pole = f;
-  const math::Vector up = normal_of(Solid::vertices, pole);
+  const math::Vector up = face_normal<Solid>(Solid::vertices, pole);
   // Rodrigues rotation of `up` onto +Y; `up.y > 0` for a solid around the origin.
   const math::Vector axis = math::cross(up, math::Vector(0.0f, 1.0f, 0.0f));
   const float tilt = 1.0f / (1.0f + up.y);
@@ -128,7 +160,7 @@ template <typename Solid> constexpr auto make_polyhedral_atlas() {
     const math::Vector k_v = math::cross(axis, v);
     return v + k_v + math::cross(axis, k_v) * tilt;
   };
-  const math::Vector anchor = tilted(Solid::vertices[index(pole, 0)]);
+  const math::Vector anchor = tilted(Solid::vertices[corner<Solid>(pole, 0)]);
   const float anchor_radius =
       math::constexpr_sqrt(anchor.x * anchor.x + anchor.z * anchor.z);
   const float spin_cos = anchor.x / anchor_radius;
@@ -144,19 +176,18 @@ template <typename Solid> constexpr auto make_polyhedral_atlas() {
   std::array<math::Vector, F> e1{};
   std::array<math::Vector, F> e2{};
   std::array<size_t, F> order{};
-  std::array<float, F> heights{};
   float circumradius = 0.0f;
   for (size_t f = 0; f < F; ++f) {
-    normals[f] = normal_of(vertices, f);
-    const float distance = math::dot(normals[f], vertices[index(f, 0)]);
-    heights[f] = distance;
+    normals[f] = face_normal<Solid>(vertices, f);
+    const float distance = math::dot(normals[f], vertices[corner<Solid>(f, 0)]);
+    atlas.heights[f] = distance;
     atlas.selectors[f] = normals[f] / distance;
-    e1[f] = unit(vertices[index(f, 0)] - normals[f] * distance);
+    e1[f] = unit(vertices[corner<Solid>(f, 0)] - normals[f] * distance);
     e2[f] = math::cross(normals[f], e1[f]);
     atlas.side_counts[f] = Solid::face_counts[f];
     order[f] = f;
     for (size_t k = 0; k < Solid::face_counts[f]; ++k) {
-      const math::Vector &v = vertices[index(f, k)];
+      const math::Vector &v = vertices[corner<Solid>(f, k)];
       const float x = math::dot(v, e1[f]), y = math::dot(v, e2[f]);
       const float r = math::constexpr_sqrt(x * x + y * y);
       circumradius = r > circumradius ? r : circumradius;
@@ -169,6 +200,12 @@ template <typename Solid> constexpr auto make_polyhedral_atlas() {
     return pseudo_azimuth(normals[a].x, normals[a].z) <
            pseudo_azimuth(normals[b].x, normals[b].z);
   };
+  size_t pair = 0;
+  for (size_t f = 0; f < F && PAIRS != 0; ++f)
+    for (size_t g = f + 1; g < F; ++g)
+      if (math::dot(normals[f], normals[g]) < -0.9999f)
+        atlas.antipodes[pair++] = {static_cast<uint8_t>(f),
+                                   static_cast<uint8_t>(g)};
   for (size_t i = 1; i < F; ++i)
     for (size_t j = i; j > 0 && before(order[j], order[j - 1]); --j) {
       const size_t swap = order[j];
@@ -176,7 +213,8 @@ template <typename Solid> constexpr auto make_polyhedral_atlas() {
       order[j - 1] = swap;
     }
 
-  const math::Vector edge = vertices[index(0, 1)] - vertices[index(0, 0)];
+  const math::Vector edge =
+      vertices[corner<Solid>(0, 1)] - vertices[corner<Solid>(0, 0)];
   const float scale = 1.0f / math::constexpr_sqrt(math::dot(edge, edge));
   constexpr size_t COLUMNS = (F + 1) / 2;
   for (size_t i = 0; i < F; ++i) {
@@ -195,18 +233,22 @@ template <typename Solid> constexpr auto make_polyhedral_atlas() {
     atlas.x_axes[f] = (e1[f] * c - e2[f] * s) * scale;
     atlas.y_axes[f] = (e1[f] * s + e2[f] * c) * scale;
     atlas.centers[f] = center;
-    atlas.inverse_heights[f] = 1.0f / (heights[f] * scale);
-    for (size_t k = 0; k < Solid::face_counts[f]; ++k) {
-      const math::Vector &a = vertices[index(f, k)];
-      const math::Vector &b = vertices[index(f, k + 1)];
-      const float ax = math::dot(a, atlas.x_axes[f]) + center.re;
-      const float ay = math::dot(a, atlas.y_axes[f]) + center.im;
-      const float dx = math::dot(b, atlas.x_axes[f]) + center.re - ax;
-      const float dy = math::dot(b, atlas.y_axes[f]) + center.im - ay;
+    for (size_t k = 0; k < K; ++k) {
+      if (k >= Solid::face_counts[f]) {
+        atlas.sides[f][k] = {0.0f, 0.0f, NO_EDGE_DISTANCE};
+        continue;
+      }
+      const math::Vector &a = vertices[corner<Solid>(f, k)];
+      const math::Vector &b = vertices[corner<Solid>(f, k + 1)];
+      const float ax = math::dot(a, atlas.x_axes[f]);
+      const float ay = math::dot(a, atlas.y_axes[f]);
+      const float dx = math::dot(b, atlas.x_axes[f]) - ax;
+      const float dy = math::dot(b, atlas.y_axes[f]) - ay;
       const float side_length = math::constexpr_sqrt(dx * dx + dy * dy);
       const float mx = -dy / side_length, my = dx / side_length;
       atlas.sides[f][k] = {mx, my, -(mx * ax + my * ay)};
-      const float r = math::constexpr_sqrt(ax * ax + ay * ay);
+      const float rx = ax + center.re, ry = ay + center.im;
+      const float r = math::constexpr_sqrt(rx * rx + ry * ry);
       atlas.radius = r > atlas.radius ? r : atlas.radius;
     }
   }
@@ -221,6 +263,7 @@ inline constexpr auto POLYHEDRAL_ATLAS = make_polyhedral_atlas<Solid>();
  * @brief Projects a direction onto a solid's atlas tiles.
  * @tparam FACES Face count.
  * @tparam MAX_SIDES Side count of the largest face.
+ * @tparam PAIRS Antipodal face pairs.
  * @param atlas Atlas from make_polyhedral_atlas().
  * @param v Unit direction on the sphere.
  * @param meridian_cos Cosine of the central meridian.
@@ -235,47 +278,61 @@ inline constexpr auto POLYHEDRAL_ATLAS = make_polyhedral_atlas<Solid>();
  * there; at 1 the tile is the face's Lambert azimuthal equal-area image, with
  * curved sides. The side distance shrinks with its point. Every side is a cut.
  */
-template <size_t FACES, size_t MAX_SIDES>
-HS_O3_FN inline ProjectionKernelResult
-polyhedral_atlas_projection(const PolyhedralAtlas<FACES, MAX_SIDES> &atlas,
-                            const math::Vector &v, float meridian_cos,
-                            float meridian_sin, float area_correction) {
+template <size_t FACES, size_t MAX_SIDES, size_t PAIRS>
+HS_O3_FN inline ProjectionKernelResult polyhedral_atlas_projection(
+    const PolyhedralAtlas<FACES, MAX_SIDES, PAIRS> &atlas,
+    const math::Vector &v, float meridian_cos, float meridian_sin,
+    float area_correction) {
   const math::Vector p(v.x * meridian_cos + v.z * meridian_sin, v.y,
                        v.z * meridian_cos - v.x * meridian_sin);
   uint8_t face = 0;
-  float nearest = math::dot(p, atlas.selectors[0]);
-  for (uint8_t candidate = 1; candidate < FACES; ++candidate) {
-    const float d = math::dot(p, atlas.selectors[candidate]);
-    if (d > nearest) {
-      nearest = d;
-      face = candidate;
+  float nearest;
+  if constexpr (PAIRS != 0) {
+    const float first = math::dot(p, atlas.selectors[atlas.antipodes[0][0]]);
+    nearest = fabsf(first);
+    face = atlas.antipodes[0][first < 0.0f];
+    for (size_t pair = 1; pair < PAIRS; ++pair) {
+      const float d = math::dot(p, atlas.selectors[atlas.antipodes[pair][0]]);
+      if (fabsf(d) > nearest) {
+        nearest = fabsf(d);
+        face = atlas.antipodes[pair][d < 0.0f];
+      }
+    }
+  } else {
+    nearest = math::dot(p, atlas.selectors[0]);
+    for (uint8_t candidate = 1; candidate < FACES; ++candidate) {
+      const float d = math::dot(p, atlas.selectors[candidate]);
+      if (d > nearest) {
+        nearest = d;
+        face = candidate;
+      }
     }
   }
-  const float inverse = 1.0f / nearest;
-  const math::Complex &center = atlas.centers[face];
-  const float u = math::dot(p, atlas.x_axes[face]) * inverse;
-  const float w = math::dot(p, atlas.y_axes[face]) * inverse;
-  const float x = u + center.re, y = w + center.im;
+  // Equal-area radius over central radius is cosine * sqrt(2 / (1 + cosine)).
+  const float cosine = nearest * atlas.heights[face];
+  const float rise = 1.0f + cosine;
+  float blend = rise;
+  if (area_correction != 0.0f)
+    blend += area_correction * (cosine * sqrtf(2.0f * rise) - rise);
+  const float reciprocal = 1.0f / (nearest * rise);
+  const float inverse = rise * reciprocal;
+  const float u = math::dot(p, atlas.x_axes[face]);
+  const float w = math::dot(p, atlas.y_axes[face]);
+  const float x = u * inverse, y = w * inverse;
   uint8_t side = 0;
   float distance = NO_EDGE_DISTANCE;
-  for (uint8_t k = 0; k < atlas.side_counts[face]; ++k) {
+  for (size_t k = 0; k < MAX_SIDES; ++k) {
     const AtlasSide &line = atlas.sides[face][k];
     const float d = line.x * x + line.y * y + line.offset;
     if (d < distance) {
       distance = d;
-      side = k;
+      side = static_cast<uint8_t>(k);
     }
   }
-  float shrink = 1.0f;
-  if (area_correction != 0.0f) {
-    const float reciprocal_height = atlas.inverse_heights[face];
-    const float secant =
-        sqrtf(1.0f + (u * u + w * w) * reciprocal_height * reciprocal_height);
-    shrink +=
-        area_correction * (sqrtf(2.0f / (secant * (secant + 1.0f))) - 1.0f);
-  }
-  return {.coords =
-              math::Complex(u * shrink + center.re, w * shrink + center.im),
+  const float scale = blend * reciprocal;
+  const float shrink = scale * nearest;
+  const math::Complex &center = atlas.centers[face];
+  return {.coords = math::Complex(u * scale + center.re, w * scale + center.im),
           .region_id = face,
           .component_id = 0,
           .boundary_flags = projection_boundary(ProjectionBoundary::CUT),

@@ -741,14 +741,15 @@ inline void test_cylindrical_coordinates() {
 
 /** @brief Signed distance from an atlas point to a tile's nearest side.
  *  @return Positive inside the tile. */
-template <size_t F, size_t K>
-inline float atlas_tile_distance(const PolyhedralAtlas<F, K> &atlas,
+template <size_t F, size_t K, size_t P>
+inline float atlas_tile_distance(const PolyhedralAtlas<F, K, P> &atlas,
                                  size_t face, const math::Complex &point) {
+  const math::Complex local = point - atlas.centers[face];
   float distance = NO_EDGE_DISTANCE;
   for (size_t k = 0; k < atlas.side_counts[face]; ++k) {
     const AtlasSide &line = atlas.sides[face][k];
     distance =
-        std::min(distance, line.x * point.re + line.y * point.im + line.offset);
+        std::min(distance, line.x * local.re + line.y * local.im + line.offset);
   }
   return distance;
 }
@@ -843,7 +844,7 @@ template <typename Solid> inline void expect_polyhedral_atlas_correction() {
         fabsf((pb.coords.re - pa.coords.re) * (pc.coords.im - pa.coords.im) -
               (pb.coords.im - pa.coords.im) * (pc.coords.re - pa.coords.re));
     const float spherical = math::cross(b - a, c - a).length();
-    const float height = 1.0f / atlas.inverse_heights[face];
+    const float height = atlas.heights[face] * atlas.x_axes[face].length();
     HS_EXPECT_NEAR(planar / spherical / (height * height), 1.0f, 1e-2f);
   }
 }
