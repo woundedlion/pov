@@ -199,10 +199,10 @@ template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
                                           fabsf(a.b - b.b)}));
       }
       if (delta <= MAX_REUSE_DELTA) {
-        std::copy_n(previous->nodes.data() +
+        std::memcpy(nodes.data() + MIDPOINT_ROW * HueRotationLutView::SIZE,
+                    previous->nodes.data() +
                         MIDPOINT_ROW * HueRotationLutView::SIZE,
-                    HueRotationLutView::SIZE,
-                    nodes.data() + MIDPOINT_ROW * HueRotationLutView::SIZE);
+                    HueRotationLutView::SIZE * sizeof(math::Vector));
         baked_midpoint = previous->baked_midpoint;
         midpoint_active = true;
         base.rgb_nodes = nodes.data();
@@ -229,9 +229,10 @@ template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
                           (PaletteLabLut::TIMES - 1) * PaletteLabLut::VALUES,
                       PaletteLabLut::VALUES * sizeof(OKLab)) == 0;
       if (REUSE)
-        std::copy_n(previous->nodes.data() +
+        std::memcpy(nodes.data(),
+                    previous->nodes.data() +
                         (PaletteLabLut::TIMES - 1) * HueRotationLutView::SIZE,
-                    HueRotationLutView::SIZE, nodes.data());
+                    HueRotationLutView::SIZE * sizeof(math::Vector));
       for (int time = base.rgb_midpoint || REUSE ? 1 : 0;
            time < (base.rgb_midpoint ? 2 : PaletteLabLut::TIMES); ++time)
         for (int value = 0; value < PaletteLabLut::VALUES; ++value)
@@ -243,8 +244,9 @@ template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
     }
     midpoint_active = base.rgb_midpoint;
     if (midpoint_active)
-      std::copy_n(base.nodes.data() + PaletteLabLut::VALUES,
-                  PaletteLabLut::VALUES, baked_midpoint.data());
+      std::memcpy(baked_midpoint.data(),
+                  base.nodes.data() + PaletteLabLut::VALUES,
+                  sizeof(baked_midpoint));
     base.rgb_nodes = nodes.data();
   }
   /** @brief Final hue node with a prepared rotation.

@@ -377,8 +377,8 @@ struct FrameHistory<Frame, true, Hue> {
     previous = frame;
     previous.palette = &palette.view();
     if constexpr (Hue) {
-      std::copy_n(frame.hue_rotation_lut, hue_rotation.size(),
-                  hue_rotation.data());
+      std::memcpy(hue_rotation.data(), frame.hue_rotation_lut,
+                  sizeof(hue_rotation));
       previous.hue_rotation_lut = hue_rotation.data();
     }
     frame.params.visit([&]<typename Resource>(const auto &) {

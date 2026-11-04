@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "core/render/pullback/modulation.h"
+#include <cstring>
 
 /** @file modulation_temporal.h
  * @brief Immutable modulation endpoint retention, equality and completed-color blending. */
@@ -21,7 +22,7 @@ inline const Prepared *retain(const Prepared *source, Prepared &destination,
   if (destination.cube.active) {
     assert(table.size() == Pattern::SphereLutView::SIZE);
     assert(destination.cube.linear_data == nullptr);
-    std::copy_n(destination.cube.data, table.size(), table.data());
+    std::memcpy(table.data(), destination.cube.data, table.size_bytes());
     destination.cube.data = table.data();
   }
   return &destination;
