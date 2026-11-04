@@ -831,6 +831,9 @@ inline void check_document_values(const char *name) {
       case Pullback::ProjectionKind::S2:
         expected = "project.s2.v1";
         break;
+      case Pullback::ProjectionKind::DODECAHEDRAL:
+        expected = "project.dodecahedral.v1";
+        break;
       case Pullback::ProjectionKind::STEREOGRAPHIC:
         expected = "project.stereographic.v2";
         break;

@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include "core/math/polyhedral_atlas.h"
+#include "core/mesh/solid_tables.h"
 #include "core/render/pullback/contract.h"
 #include "core/render/pullback/fields.h"
 
@@ -845,6 +847,50 @@ struct S2 : FrameConjugateFromState<State>, MeridianPrepared<S2<State>, State> {
         State::coordinate_scale(frame));
   }
 };
+
+/** @brief Central projection onto a solid's faces, laid out as separate
+ *         tiles.
+ *  @tparam State Frame-state provider.
+ *  @tparam Solid Solid table read by projections::make_polyhedral_atlas(). */
+template <typename State, typename Solid>
+struct PolyhedralAtlas
+    : FrameConjugateFromState<State>,
+      MeridianPrepared<PolyhedralAtlas<State, Solid>, State> {
+  using FrameState = typename State::FrameState; ///< Provider frame state.
+  using Prepared = PreparedMeridian;             ///< Cached meridian rotation.
+  using MeridianPrepared<PolyhedralAtlas<State, Solid>, State>::project;
+  /// Whether cut distances are measured.
+  static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
+
+  /** @brief Whether the provider supplies the projection frame and scale.
+   *  @tparam CandidateBinding Binding being checked. */
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      FrameProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::central_meridian(frame) } -> std::same_as<float>;
+        { State::coordinate_scale(frame) } -> std::same_as<float>;
+      };
+
+  /** @brief Projects a direction in the projection frame.
+   *  @param input Unit direction.
+   *  @param frame Frame state.
+   *  @param prepared Cached meridian rotation.
+   *  @return Scaled atlas coordinates and face provenance. */
+  static ProjectionResult project(const math::Vector &input,
+                                  const FrameState &frame,
+                                  const Prepared &prepared) {
+    return from_kernel(projections::polyhedral_atlas_projection(
+                           projections::POLYHEDRAL_ATLAS<Solid>, input,
+                           prepared.cosine, prepared.sine),
+                       State::coordinate_scale(frame));
+  }
+};
+
+/** @brief Dodecahedral atlas of twelve pentagonal tiles.
+ *  @tparam State Frame-state provider. */
+template <typename State>
+using Dodecahedral = PolyhedralAtlas<State, Solids::Dodecahedron>;
 
 /** @brief Airocean icosahedral net; `Horizontal` turns the finished net a
     quarter turn and `EdgeDistanceRequired` makes the kernel compute the

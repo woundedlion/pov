@@ -180,6 +180,29 @@ cube seams because the joined edges reverse or rotate their local axes;
 arbitrary planar translation does not preserve seam matching. Sphere sources
 retain their own spherical coordinates.
 
+### Polyhedral atlas projection
+
+`projections::polyhedral_atlas_projection` extends the S2 idea to any convex
+solid table in `core/mesh/solid_tables.h`. A direction is centrally projected
+onto the plane of the face its ray crosses, so great circles stay straight
+within a face, and each face becomes a separate tile. Every tile side is a cut,
+as in S2's atlas, so a planar pattern behaves the same way at every seam; edge
+fade measures to the nearest tile side in atlas units.
+
+`projections::make_polyhedral_atlas` derives the layout at compile time. The
+face nearest the north pole is turned onto the pole, each tile turns north up,
+and tiles fill two rows ordered by latitude and then longitude. Coordinates
+are in units of the solid's edge length.
+
+The shader tool exposes the dodecahedron as **Dodecahedral Atlas**
+(`project.dodecahedral.v1`; `Pullback::Projection::Dodecahedral` and
+`ProjectionKind::DODECAHEDRAL` for authored effects), with central meridian,
+coordinate scale, and identity or spin/wander framing. The upper row holds the
+north face and the five faces around it; the lower row holds the southern ring
+and the south face. Central projection alone keeps a pentagon's area scale
+within a factor of two from center to corner, close to what S2's quadratic
+correction achieves on the cube, so no further warp is applied.
+
 ### Space-time rendering
 
 A POV display lights each column at its own moment. With two opposing arms,
@@ -1805,6 +1828,7 @@ plot, scan, and pullback paths. They do not own a canvas or effect lifecycle.
 | `core/math/display_geometry.h` | Display latitude profiles, row spacing, and pole-cap geometry. |
 | `core/math/spherical.h` | Canonical axes, sphere generators, tangent frames and bases, and parallel transport. |
 | `core/math/projections.h` | Bonne, Peirce quincuncial, Airocean, S2, folded sinusoidal, and equirectangular sphere-to-plane kernels. |
+| `core/math/polyhedral_atlas.h` | Central projection onto a convex solid's faces, laid out as separate tiles. |
 | `core/math/stereographic.h`, `core/math/mobius.h`, `core/math/lenses.h` | Stereographic projections, fractional-linear transforms, and sphere-domain lens kernels. |
 | `core/math/rotate.h`, `core/math/projection_patterns.h` | Angle wrapping, canvas-to-sphere projection, and shared projected-pattern coordinates. |
 | `core/math/noise_field.h`, `core/math/spherical_field.h`, `core/math/spherical_harmonics.h` | Noise sampling, spherical fields, and harmonic evaluation. |

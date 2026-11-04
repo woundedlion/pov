@@ -80,6 +80,8 @@ constexpr std::string_view projection_operator_id(ProjectionKind projection) {
     return "project.bonne.v3";
   case ProjectionKind::AIROCEAN:
     return "project.airocean.v3";
+  case ProjectionKind::DODECAHEDRAL:
+    return "project.dodecahedral.v1";
   case ProjectionKind::NONE:
     return {};
   }
@@ -493,6 +495,12 @@ struct AuthoredProjection
       return Projection::airocean(input, params.layout == 1, true,
                                   params.coordinate_scale, prepared.cosine,
                                   prepared.sine);
+    else if constexpr (Kind == ProjectionKind::DODECAHEDRAL)
+      return Projection::from_kernel(
+          projections::polyhedral_atlas_projection(
+              projections::POLYHEDRAL_ATLAS<Solids::Dodecahedron>, input,
+              prepared.cosine, prepared.sine),
+          params.coordinate_scale);
     else
       return Projection::gnomonic(
           input, params.singularity_fade,
@@ -509,6 +517,7 @@ template <ProjectionKind ProjectionV, typename B>
            ProjectionV == ProjectionKind::PEIRCE_SQUARE_FAST ||
            ProjectionV == ProjectionKind::BONNE ||
            ProjectionV == ProjectionKind::AIROCEAN ||
+           ProjectionV == ProjectionKind::DODECAHEDRAL ||
            ProjectionV == ProjectionKind::GNOMONIC)
 struct ProjectionPolicyFor<ProjectionV, B> {
   using Type = AuthoredProjection<ProjectionV,

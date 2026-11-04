@@ -367,6 +367,7 @@ enum class ProjectionKind : uint8_t {
   BONNE,
   AIROCEAN,
   GNOMONIC,
+  DODECAHEDRAL,
   NONE
 };
 
@@ -379,7 +380,8 @@ constexpr bool uses_central_meridian(ProjectionKind projection) {
          projection == ProjectionKind::S2 ||
          projection == ProjectionKind::PEIRCE ||
          projection == ProjectionKind::BONNE ||
-         projection == ProjectionKind::AIROCEAN;
+         projection == ProjectionKind::AIROCEAN ||
+         projection == ProjectionKind::DODECAHEDRAL;
 }
 
 /** @brief Whether a projection reads singularity attenuation.

@@ -1321,6 +1321,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── noise_basis.h           Octave noise formula selection
 │   │   ├── noise_field.h           Shared scalar/vector noise-field sampling kernels
 │   │   ├── projections.h           Bonne / Peirce quincuncial / Airocean / S2 / folded sinusoidal / equirectangular sphere → plane kernels (Airocean and Peirce coefficients PROJ-derived, MIT)
+│   │   ├── polyhedral_atlas.h      Central projection onto a convex solid's faces, laid out as separate tiles
 │   │   ├── stereographic.h         Stereographic / gnomonic forward and inverse projection kernels
 │   │   ├── mobius.h                Fractional-linear complex transforms and sphere mappings
 │   │   ├── projection_patterns.h   Pole attenuation and bounded pattern coordinates

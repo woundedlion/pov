@@ -493,6 +493,30 @@ struct ProjectS2
   }
 };
 
+/** @brief SPHERE-to-PLANE crossing: central projection onto the twelve
+    faces of a dodecahedron, laid out as separate tiles. */
+struct ProjectDodecahedral
+    : ProjectOpModel<ProjectDodecahedral,
+                     ScaledProjectParams<RegularProjectChainParams>, true> {
+  static constexpr const char *ID = "project.dodecahedral.v1";
+  static constexpr const char *NAME = "Dodecahedral Atlas";
+
+  static float plane_bound(const Params &params, float) {
+    return 1.001f * projections::POLYHEDRAL_ATLAS<Solids::Dodecahedron>.radius *
+           fabsf(params.coordinate_scale);
+  }
+
+  static ProjectionResult project(const math::Vector &local,
+                                  const Params &params,
+                                  const Prepared &prepared) {
+    return Projection::from_kernel(
+        projections::polyhedral_atlas_projection(
+            projections::POLYHEDRAL_ATLAS<Solids::Dodecahedron>, local,
+            prepared.meridian_cos, prepared.meridian_sin),
+        params.coordinate_scale);
+  }
+};
+
 } // namespace Op
 
 } // namespace Interp

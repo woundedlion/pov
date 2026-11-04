@@ -810,6 +810,134 @@ inline void test_s2_face_boundaries() {
   HS_EXPECT_TRUE(right.fade_edge_distance > 0.0f);
 }
 
+/** @brief Signed distance from an atlas point to a tile's nearest side.
+ *  @return Positive inside the tile. */
+template <size_t F, size_t K>
+inline float atlas_tile_distance(const PolyhedralAtlas<F, K> &atlas,
+                                 size_t face, const math::Complex &point) {
+  float distance = NO_EDGE_DISTANCE;
+  for (size_t k = 0; k < atlas.side_counts[face]; ++k) {
+    const AtlasSide &line = atlas.sides[face][k];
+    distance =
+        std::min(distance, line.x * point.re + line.y * point.im + line.offset);
+  }
+  return distance;
+}
+
+template <typename Solid> inline void expect_polyhedral_atlas_sampling() {
+  const auto &atlas = POLYHEDRAL_ATLAS<Solid>;
+  constexpr size_t F = Solid::face_counts.size();
+  constexpr int SAMPLES = 2048;
+  for (int index = 0; index < SAMPLES; ++index) {
+    const float y = 1.0f - 2.0f * (index + 0.5f) / SAMPLES;
+    const float radius = sqrtf(fmaxf(0.0f, 1.0f - y * y));
+    const float angle = 2.39996323f * static_cast<float>(index);
+    const math::Vector v(radius * cosf(angle), y, radius * sinf(angle));
+    const auto actual = polyhedral_atlas_projection(atlas, v, 1.0f, 0.0f);
+    size_t best = 0;
+    for (size_t f = 1; f < F; ++f)
+      if (math::dot(v, atlas.selectors[f]) >
+          math::dot(v, atlas.selectors[best]))
+        best = f;
+    HS_EXPECT_EQ(actual.region_id, best);
+    const float inside =
+        atlas_tile_distance(atlas, actual.region_id, actual.coords);
+    HS_EXPECT_GE(inside, -1e-5f);
+    HS_EXPECT_NEAR(actual.fade_edge_distance, std::max(0.0f, inside), 1e-6f);
+    for (size_t f = 0; f < F; ++f)
+      if (f != actual.region_id)
+        HS_EXPECT_LT(atlas_tile_distance(atlas, f, actual.coords), 1e-5f);
+    HS_EXPECT_LE(std::hypot(actual.coords.re, actual.coords.im),
+                 atlas.radius * (1.0f + 1e-5f));
+    HS_EXPECT_EQ(actual.edge_class / Solid::face_counts[actual.region_id],
+                 actual.region_id);
+    HS_EXPECT_EQ(actual.traits, projection_traits(ProjectionTrait::CUT));
+    HS_EXPECT_EQ(actual.boundary_flags,
+                 projection_boundary(ProjectionBoundary::CUT));
+    const float c = cosf(0.53f), sn = sinf(0.53f);
+    const math::Vector rotated(v.x * c - v.z * sn, v.y, v.z * c + v.x * sn);
+    const auto turned = polyhedral_atlas_projection(atlas, rotated, c, sn);
+    HS_EXPECT_EQ(turned.region_id, actual.region_id);
+    HS_EXPECT_NEAR(turned.coords.re, actual.coords.re, 2e-5f);
+    HS_EXPECT_NEAR(turned.coords.im, actual.coords.im, 2e-5f);
+  }
+}
+
+/** @brief Every direction lands inside the tile of the face its ray crosses,
+ *  outside all other tiles, with its distance to that tile's nearest side. */
+inline void test_polyhedral_atlas_sampling() {
+  expect_polyhedral_atlas_sampling<Solids::Tetrahedron>();
+  expect_polyhedral_atlas_sampling<Solids::Cube>();
+  expect_polyhedral_atlas_sampling<Solids::Octahedron>();
+  expect_polyhedral_atlas_sampling<Solids::Dodecahedron>();
+  expect_polyhedral_atlas_sampling<Solids::Icosahedron>();
+}
+
+template <typename Solid> inline void expect_polyhedral_atlas_tiles() {
+  const auto &atlas = POLYHEDRAL_ATLAS<Solid>;
+  constexpr size_t F = Solid::face_counts.size();
+  constexpr size_t COLUMNS = (F + 1) / 2;
+  const size_t sides = Solid::face_counts[0];
+  const float inradius = 0.5f / tanf(math::PI_F / static_cast<float>(sides));
+  size_t north = F;
+  float upper_south = 1.0f, lower_north = -1.0f;
+  for (size_t f = 0; f < F; ++f) {
+    const math::Vector normal = atlas.selectors[f].normalized();
+    const auto center = polyhedral_atlas_projection(atlas, normal, 1.0f, 0.0f);
+    HS_EXPECT_EQ(center.region_id, f);
+    HS_EXPECT_NEAR(center.coords.re, atlas.centers[f].re, 1e-5f);
+    HS_EXPECT_NEAR(center.coords.im, atlas.centers[f].im, 1e-5f);
+    HS_EXPECT_NEAR(center.fade_edge_distance, inradius, 1e-5f);
+    float &row_extreme = atlas.centers[f].im > 0.0f ? upper_south : lower_north;
+    row_extreme = atlas.centers[f].im > 0.0f ? std::min(row_extreme, normal.y)
+                                             : std::max(row_extreme, normal.y);
+    if (normal.y > 0.999f)
+      north = f;
+    if (fabsf(normal.y) > 0.99f)
+      continue;
+    const math::Vector up =
+        (normal + math::Vector(0.0f, 1.0f, 0.0f) * 0.05f).normalized();
+    const auto above = polyhedral_atlas_projection(atlas, up, 1.0f, 0.0f);
+    HS_EXPECT_EQ(above.region_id, f);
+    HS_EXPECT_NEAR(above.coords.re, center.coords.re, 1e-5f);
+    HS_EXPECT_GT(above.coords.im, center.coords.im);
+  }
+  HS_EXPECT_GE(upper_south, lower_north - 1e-3f);
+  HS_EXPECT_LT(north, F);
+  if (north < F) {
+    const float cell = atlas.centers[north].im * 2.0f;
+    HS_EXPECT_NEAR(atlas.centers[north].re,
+                   -0.5f * cell * static_cast<float>(COLUMNS - 1), 1e-5f);
+  }
+  const math::Vector a = math::Vector(0.3f, 0.1f, 0.2f);
+  const math::Vector b = math::Vector(0.25f, 0.12f, 0.31f);
+  for (size_t f = 0; f < F; ++f) {
+    const math::Vector normal = atlas.selectors[f].normalized();
+    const math::Vector p0 = (normal + a * 0.3f).normalized();
+    const math::Vector p1 = (normal + b * 0.3f).normalized();
+    const math::Vector mid = (p0 + p1).normalized();
+    const auto q0 = polyhedral_atlas_projection(atlas, p0, 1.0f, 0.0f);
+    const auto q1 = polyhedral_atlas_projection(atlas, p1, 1.0f, 0.0f);
+    const auto qm = polyhedral_atlas_projection(atlas, mid, 1.0f, 0.0f);
+    if (q0.region_id != f || q1.region_id != f || qm.region_id != f)
+      continue;
+    const float cross =
+        (q1.coords.re - q0.coords.re) * (qm.coords.im - q0.coords.im) -
+        (q1.coords.im - q0.coords.im) * (qm.coords.re - q0.coords.re);
+    HS_EXPECT_NEAR(cross, 0.0f, 1e-5f);
+  }
+}
+
+/** @brief Atlas tiles have unit sides, sit north up in latitude-ordered rows,
+ *  and keep great circles straight. */
+inline void test_polyhedral_atlas_tiles() {
+  expect_polyhedral_atlas_tiles<Solids::Tetrahedron>();
+  expect_polyhedral_atlas_tiles<Solids::Cube>();
+  expect_polyhedral_atlas_tiles<Solids::Octahedron>();
+  expect_polyhedral_atlas_tiles<Solids::Dodecahedron>();
+  expect_polyhedral_atlas_tiles<Solids::Icosahedron>();
+}
+
 inline int run_projections_tests() {
   hs_test::ModuleFixture fixture("projections");
   HS_RUN(test_wrap_longitude_range);
@@ -817,6 +945,8 @@ inline int run_projections_tests() {
   HS_RUN(test_cylindrical_coordinates);
   HS_RUN(test_s2_quadratic_atlas);
   HS_RUN(test_s2_face_boundaries);
+  HS_RUN(test_polyhedral_atlas_sampling);
+  HS_RUN(test_polyhedral_atlas_tiles);
   HS_RUN(test_bonne_sinusoidal_limit);
   HS_RUN(test_bonne_polar_limit_is_finite);
   HS_RUN(test_peirce_elliptic_integral_shape);
