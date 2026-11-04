@@ -1,0 +1,1662 @@
+{
+  "catalog_version": 2,
+  "descriptor": {
+    "chain": [
+      {
+        "label": "displace",
+        "operator": "sphere.displace.potential.v1"
+      },
+      {
+        "label": "project",
+        "operator": "project.equirectangular.v2"
+      },
+      {
+        "label": "sample",
+        "operator": "sample.grid.v3"
+      },
+      {
+        "label": "colorize",
+        "operator": "colorize.generated-palette.v4"
+      },
+      {
+        "label": "modulate",
+        "operator": "color.modulate.v1"
+      }
+    ],
+    "parameters": [
+      {
+        "classification": "preset",
+        "default": "none",
+        "domain": {
+          "values": [
+            "none",
+            "cup",
+            "bell",
+            "ascending",
+            "descending"
+          ]
+        },
+        "id": "colorize.brightness-envelope",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 32,
+          "minimum": 1
+        },
+        "id": "colorize.mapping-frequency",
+        "interpolation": {
+          "kind": "LOG_POSITIVE"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 1,
+          "minimum": -1
+        },
+        "id": "colorize.mapping-phase",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0.6200000047683716,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.palette-chroma",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "linear",
+        "domain": {
+          "values": [
+            "cup",
+            "bell",
+            "linear",
+            "reverse"
+          ]
+        },
+        "id": "colorize.palette-mapping",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "triadic",
+        "domain": {
+          "values": [
+            "triadic",
+            "complementary",
+            "analogous"
+          ]
+        },
+        "id": "colorize.palette-mode",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "cycling-generated",
+        "domain": {
+          "values": [
+            "cycling-generated",
+            "generated",
+            "procedural",
+            "gradient",
+            "mutating"
+          ]
+        },
+        "id": "colorize.palette-type",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.phase-oscillation-depth",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 0.009999999776482582,
+          "minimum": -0.009999999776482582
+        },
+        "id": "colorize.phase-oscillation-speed",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "turn-per-frame"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.value-opacity-high",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.value-opacity-low",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 0.10000000149011612,
+          "minimum": -0.10000000149011612
+        },
+        "id": "displace.drift",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "euler",
+        "domain": {
+          "values": [
+            "euler",
+            "midpoint",
+            "midpoint-2x"
+          ]
+        },
+        "id": "displace.integrator",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 3.1415927410125732,
+          "minimum": -3.1415927410125732
+        },
+        "id": "displace.orientation-azimuth",
+        "interpolation": {
+          "kind": "SHORTEST_PERIODIC",
+          "period": 6.2831854820251465
+        },
+        "storage": "binary32",
+        "unit": "radian"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 3.1415927410125732,
+          "minimum": 0
+        },
+        "id": "displace.orientation-polar",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0.05000000074505806,
+        "domain": {
+          "maximum": 3.1415927410125732,
+          "minimum": -3.1415927410125732
+        },
+        "id": "displace.strength",
+        "interpolation": {
+          "kind": "SNAP"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 4,
+          "minimum": -4
+        },
+        "id": "displace.term-1-amplitude",
+        "interpolation": {
+          "kind": "SNAP"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "toroidal",
+        "domain": {
+          "values": [
+            "toroidal",
+            "poloidal"
+          ]
+        },
+        "id": "displace.term-1-kind",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "one",
+        "domain": {
+          "values": [
+            "zero",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight"
+          ]
+        },
+        "id": "displace.term-1-l",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "zero",
+        "domain": {
+          "values": [
+            "zero",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight"
+          ]
+        },
+        "id": "displace.term-1-m",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 3.1415927410125732,
+          "minimum": -3.1415927410125732
+        },
+        "id": "displace.term-1-phase",
+        "interpolation": {
+          "kind": "SHORTEST_PERIODIC",
+          "period": 6.2831854820251465
+        },
+        "storage": "binary32",
+        "unit": "radian"
+      },
+      {
+        "classification": "preset",
+        "default": "mode",
+        "domain": {
+          "values": [
+            "mode",
+            "tetrahedral",
+            "octahedral",
+            "dodecahedral"
+          ]
+        },
+        "id": "displace.term-1-type",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 4,
+          "minimum": -4
+        },
+        "id": "displace.term-2-amplitude",
+        "interpolation": {
+          "kind": "SNAP"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "toroidal",
+        "domain": {
+          "values": [
+            "toroidal",
+            "poloidal"
+          ]
+        },
+        "id": "displace.term-2-kind",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "one",
+        "domain": {
+          "values": [
+            "zero",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight"
+          ]
+        },
+        "id": "displace.term-2-l",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "zero",
+        "domain": {
+          "values": [
+            "zero",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight"
+          ]
+        },
+        "id": "displace.term-2-m",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 3.1415927410125732,
+          "minimum": -3.1415927410125732
+        },
+        "id": "displace.term-2-phase",
+        "interpolation": {
+          "kind": "SHORTEST_PERIODIC",
+          "period": 6.2831854820251465
+        },
+        "storage": "binary32",
+        "unit": "radian"
+      },
+      {
+        "classification": "preset",
+        "default": "mode",
+        "domain": {
+          "values": [
+            "mode",
+            "tetrahedral",
+            "octahedral",
+            "dodecahedral"
+          ]
+        },
+        "id": "displace.term-2-type",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 4,
+          "minimum": -4
+        },
+        "id": "displace.term-3-amplitude",
+        "interpolation": {
+          "kind": "SNAP"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "toroidal",
+        "domain": {
+          "values": [
+            "toroidal",
+            "poloidal"
+          ]
+        },
+        "id": "displace.term-3-kind",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "one",
+        "domain": {
+          "values": [
+            "zero",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight"
+          ]
+        },
+        "id": "displace.term-3-l",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "zero",
+        "domain": {
+          "values": [
+            "zero",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight"
+          ]
+        },
+        "id": "displace.term-3-m",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 3.1415927410125732,
+          "minimum": -3.1415927410125732
+        },
+        "id": "displace.term-3-phase",
+        "interpolation": {
+          "kind": "SHORTEST_PERIODIC",
+          "period": 6.2831854820251465
+        },
+        "storage": "binary32",
+        "unit": "radian"
+      },
+      {
+        "classification": "preset",
+        "default": "mode",
+        "domain": {
+          "values": [
+            "mode",
+            "tetrahedral",
+            "octahedral",
+            "dodecahedral"
+          ]
+        },
+        "id": "displace.term-3-type",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 4,
+          "minimum": -4
+        },
+        "id": "displace.term-4-amplitude",
+        "interpolation": {
+          "kind": "SNAP"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "toroidal",
+        "domain": {
+          "values": [
+            "toroidal",
+            "poloidal"
+          ]
+        },
+        "id": "displace.term-4-kind",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "one",
+        "domain": {
+          "values": [
+            "zero",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight"
+          ]
+        },
+        "id": "displace.term-4-l",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "zero",
+        "domain": {
+          "values": [
+            "zero",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight"
+          ]
+        },
+        "id": "displace.term-4-m",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 3.1415927410125732,
+          "minimum": -3.1415927410125732
+        },
+        "id": "displace.term-4-phase",
+        "interpolation": {
+          "kind": "SHORTEST_PERIODIC",
+          "period": 6.2831854820251465
+        },
+        "storage": "binary32",
+        "unit": "radian"
+      },
+      {
+        "classification": "preset",
+        "default": "mode",
+        "domain": {
+          "values": [
+            "mode",
+            "tetrahedral",
+            "octahedral",
+            "dodecahedral"
+          ]
+        },
+        "id": "displace.term-4-type",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.grid-axis-b-x",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.grid-axis-b-y",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.grid-axis-b-z",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.grid-axis-x",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.grid-axis-y",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.grid-axis-z",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": 0
+        },
+        "id": "modulate.grid-frequency",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": 0
+        },
+        "id": "modulate.grid-frequency-b",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.grid-offset",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.grid-offset-b",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 1,
+          "minimum": -1
+        },
+        "id": "modulate.grid-speed",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "turn-per-frame"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.interference-axis-b-x",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.interference-axis-b-y",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.interference-axis-b-z",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.interference-axis-x",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.interference-axis-y",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.interference-axis-z",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": 0
+        },
+        "id": "modulate.interference-frequency",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": 0
+        },
+        "id": "modulate.interference-frequency-b",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.interference-offset",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.interference-offset-b",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 1,
+          "minimum": -1
+        },
+        "id": "modulate.interference-speed",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "turn-per-frame"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 4,
+          "minimum": -4
+        },
+        "id": "modulate.modulation-amount",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "enabled",
+        "domain": {
+          "values": [
+            "disabled",
+            "enabled"
+          ]
+        },
+        "id": "modulate.modulation-enabled",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "baked-cube",
+        "domain": {
+          "values": [
+            "direct",
+            "baked-cube"
+          ]
+        },
+        "id": "modulate.modulation-evaluation",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "hue-rotation",
+        "domain": {
+          "values": [
+            "hue-rotation",
+            "positive-lightness-lift",
+            "opacity"
+          ]
+        },
+        "id": "modulate.modulation-mechanic",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "noise",
+        "domain": {
+          "values": [
+            "noise",
+            "directional-sine",
+            "sphere-interference",
+            "sphere-smooth-grid",
+            "displacement"
+          ]
+        },
+        "id": "modulate.modulation-source",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 8,
+          "minimum": 0
+        },
+        "id": "modulate.pattern-contrast",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "simplex",
+        "domain": {
+          "values": [
+            "simplex",
+            "fbm3",
+            "ridged3"
+          ]
+        },
+        "id": "modulate.pattern-noise-basis",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "configured-single",
+        "domain": {
+          "values": [
+            "configured-single",
+            "octave-contour"
+          ]
+        },
+        "id": "modulate.pattern-noise-variant",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": 0.015625
+        },
+        "id": "modulate.pattern-scale",
+        "interpolation": {
+          "kind": "LOG_POSITIVE"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 0.0010000000474974513,
+          "minimum": -0.0010000000474974513
+        },
+        "id": "modulate.pattern-speed",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "turn-per-frame"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.sine-axis-x",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.sine-axis-y",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.sine-axis-z",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": 0
+        },
+        "id": "modulate.sine-frequency",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 64,
+          "minimum": -64
+        },
+        "id": "modulate.sine-offset",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 1,
+          "minimum": -1
+        },
+        "id": "modulate.sine-speed",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "turn-per-frame"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 6.2831854820251465,
+          "minimum": 0
+        },
+        "id": "project.central-meridian",
+        "interpolation": {
+          "kind": "SHORTEST_PERIODIC",
+          "period": 6.2831854820251465
+        },
+        "storage": "binary32",
+        "unit": "radian"
+      },
+      {
+        "classification": "preset",
+        "default": "spin-wander",
+        "domain": {
+          "values": [
+            "identity",
+            "spin-wander"
+          ]
+        },
+        "id": "project.frame",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 20,
+          "minimum": 1
+        },
+        "id": "project.singularity-fade",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 0.05000000074505806,
+          "minimum": 0
+        },
+        "id": "sample.angle-speed",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "radian-per-frame"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 3,
+          "minimum": 0
+        },
+        "id": "sample.complexity",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "weight",
+        "domain": {
+          "values": [
+            "none",
+            "weight",
+            "weight-squared",
+            "edge-fade",
+            "edge-fade-squared"
+          ]
+        },
+        "id": "sample.coverage-mode",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 2,
+          "minimum": 0
+        },
+        "id": "sample.drift",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0.10000000149011612,
+        "domain": {
+          "maximum": 16,
+          "minimum": 0
+        },
+        "id": "sample.edge-width",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": 0.009999999776482582
+        },
+        "id": "sample.pattern-freq",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "sample.pattern-mix",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 0.5,
+          "minimum": 0
+        },
+        "id": "sample.speed",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "radian-per-frame"
+      },
+      {
+        "classification": "preset",
+        "default": "projection",
+        "domain": {
+          "values": [
+            "none",
+            "projection"
+          ]
+        },
+        "id": "sample.weight-mode",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      }
+    ],
+    "path_policies": [
+      {
+        "id": "parallel",
+        "kind": "PARALLEL"
+      }
+    ],
+    "serialization": {
+      "fields": [
+        "colorize.brightness-envelope",
+        "colorize.mapping-frequency",
+        "colorize.mapping-phase",
+        "colorize.palette-chroma",
+        "colorize.palette-mapping",
+        "colorize.palette-mode",
+        "colorize.palette-type",
+        "colorize.phase-oscillation-depth",
+        "colorize.phase-oscillation-speed",
+        "colorize.value-opacity-high",
+        "colorize.value-opacity-low",
+        "displace.drift",
+        "displace.integrator",
+        "displace.orientation-azimuth",
+        "displace.orientation-polar",
+        "displace.strength",
+        "displace.term-1-amplitude",
+        "displace.term-1-kind",
+        "displace.term-1-l",
+        "displace.term-1-m",
+        "displace.term-1-phase",
+        "displace.term-1-type",
+        "displace.term-2-amplitude",
+        "displace.term-2-kind",
+        "displace.term-2-l",
+        "displace.term-2-m",
+        "displace.term-2-phase",
+        "displace.term-2-type",
+        "displace.term-3-amplitude",
+        "displace.term-3-kind",
+        "displace.term-3-l",
+        "displace.term-3-m",
+        "displace.term-3-phase",
+        "displace.term-3-type",
+        "displace.term-4-amplitude",
+        "displace.term-4-kind",
+        "displace.term-4-l",
+        "displace.term-4-m",
+        "displace.term-4-phase",
+        "displace.term-4-type",
+        "modulate.grid-axis-b-x",
+        "modulate.grid-axis-b-y",
+        "modulate.grid-axis-b-z",
+        "modulate.grid-axis-x",
+        "modulate.grid-axis-y",
+        "modulate.grid-axis-z",
+        "modulate.grid-frequency",
+        "modulate.grid-frequency-b",
+        "modulate.grid-offset",
+        "modulate.grid-offset-b",
+        "modulate.grid-speed",
+        "modulate.interference-axis-b-x",
+        "modulate.interference-axis-b-y",
+        "modulate.interference-axis-b-z",
+        "modulate.interference-axis-x",
+        "modulate.interference-axis-y",
+        "modulate.interference-axis-z",
+        "modulate.interference-frequency",
+        "modulate.interference-frequency-b",
+        "modulate.interference-offset",
+        "modulate.interference-offset-b",
+        "modulate.interference-speed",
+        "modulate.modulation-amount",
+        "modulate.modulation-enabled",
+        "modulate.modulation-evaluation",
+        "modulate.modulation-mechanic",
+        "modulate.modulation-source",
+        "modulate.pattern-contrast",
+        "modulate.pattern-noise-basis",
+        "modulate.pattern-noise-variant",
+        "modulate.pattern-scale",
+        "modulate.pattern-speed",
+        "modulate.sine-axis-x",
+        "modulate.sine-axis-y",
+        "modulate.sine-axis-z",
+        "modulate.sine-frequency",
+        "modulate.sine-offset",
+        "modulate.sine-speed",
+        "project.central-meridian",
+        "project.frame",
+        "project.singularity-fade",
+        "sample.angle-speed",
+        "sample.complexity",
+        "sample.coverage-mode",
+        "sample.drift",
+        "sample.edge-width",
+        "sample.pattern-freq",
+        "sample.pattern-mix",
+        "sample.speed",
+        "sample.weight-mode"
+      ],
+      "schema_version": 1
+    }
+  },
+  "document_id": "liquid-windows",
+  "effect_id": "liquid-windows",
+  "effect_metadata": {
+    "description": "A dodecahedral potential flow folds an equirectangular grid into liquid windows tinted by displacement hue.",
+    "display_name": "Liquid Windows"
+  },
+  "preset_bank": {
+    "absent_edge_fallback": {
+      "authoring": "SNAP",
+      "automatic": "REJECT",
+      "manual": "SNAP",
+      "restore": "SNAP",
+      "synchronized": "SNAP"
+    },
+    "choreography": {
+      "dwell": {
+        "liquid-windows": 600
+      },
+      "generated_order": [
+        "liquid-windows"
+      ]
+    },
+    "edges": [],
+    "presets": [
+      {
+        "display_name": "Liquid Windows",
+        "preset_id": "liquid-windows",
+        "values": {
+          "colorize.brightness-envelope": "none",
+          "colorize.mapping-frequency": 1,
+          "colorize.mapping-phase": 0,
+          "colorize.palette-chroma": 1,
+          "colorize.palette-mapping": "cup",
+          "colorize.palette-mode": "analogous",
+          "colorize.palette-type": "cycling-generated",
+          "colorize.phase-oscillation-depth": 0,
+          "colorize.phase-oscillation-speed": 0,
+          "colorize.value-opacity-high": 1,
+          "colorize.value-opacity-low": 1,
+          "displace.drift": 0.05000000074505806,
+          "displace.integrator": "euler",
+          "displace.orientation-azimuth": 0,
+          "displace.orientation-polar": 0.9886777400970459,
+          "displace.strength": 1.0163975954055786,
+          "displace.term-1-amplitude": 1.0117647647857666,
+          "displace.term-1-kind": "poloidal",
+          "displace.term-1-l": "one",
+          "displace.term-1-m": "one",
+          "displace.term-1-phase": 0.942477822303772,
+          "displace.term-1-type": "dodecahedral",
+          "displace.term-2-amplitude": 0,
+          "displace.term-2-kind": "toroidal",
+          "displace.term-2-l": "one",
+          "displace.term-2-m": "zero",
+          "displace.term-2-phase": 0,
+          "displace.term-2-type": "mode",
+          "displace.term-3-amplitude": 0,
+          "displace.term-3-kind": "toroidal",
+          "displace.term-3-l": "one",
+          "displace.term-3-m": "zero",
+          "displace.term-3-phase": 0,
+          "displace.term-3-type": "mode",
+          "displace.term-4-amplitude": 0,
+          "displace.term-4-kind": "toroidal",
+          "displace.term-4-l": "one",
+          "displace.term-4-m": "zero",
+          "displace.term-4-phase": 0,
+          "displace.term-4-type": "mode",
+          "modulate.grid-axis-b-x": 1,
+          "modulate.grid-axis-b-y": 0,
+          "modulate.grid-axis-b-z": 0,
+          "modulate.grid-axis-x": 0,
+          "modulate.grid-axis-y": 1,
+          "modulate.grid-axis-z": 0,
+          "modulate.grid-frequency": 1,
+          "modulate.grid-frequency-b": 1,
+          "modulate.grid-offset": 0,
+          "modulate.grid-offset-b": 0,
+          "modulate.grid-speed": 0,
+          "modulate.interference-axis-b-x": 1,
+          "modulate.interference-axis-b-y": 0,
+          "modulate.interference-axis-b-z": 0,
+          "modulate.interference-axis-x": 0,
+          "modulate.interference-axis-y": 1,
+          "modulate.interference-axis-z": 0,
+          "modulate.interference-frequency": 1,
+          "modulate.interference-frequency-b": 1,
+          "modulate.interference-offset": 0,
+          "modulate.interference-offset-b": 0,
+          "modulate.interference-speed": 0,
+          "modulate.modulation-amount": 0.8705882430076599,
+          "modulate.modulation-enabled": "enabled",
+          "modulate.modulation-evaluation": "direct",
+          "modulate.modulation-mechanic": "hue-rotation",
+          "modulate.modulation-source": "displacement",
+          "modulate.pattern-contrast": 0,
+          "modulate.pattern-noise-basis": "simplex",
+          "modulate.pattern-noise-variant": "configured-single",
+          "modulate.pattern-scale": 1,
+          "modulate.pattern-speed": 0,
+          "modulate.sine-axis-x": 0,
+          "modulate.sine-axis-y": 1,
+          "modulate.sine-axis-z": 0,
+          "modulate.sine-frequency": 1,
+          "modulate.sine-offset": 0,
+          "modulate.sine-speed": 0,
+          "project.central-meridian": 0,
+          "project.frame": "identity",
+          "project.singularity-fade": 20,
+          "sample.angle-speed": 0,
+          "sample.complexity": 0,
+          "sample.coverage-mode": "weight",
+          "sample.drift": 0,
+          "sample.edge-width": 0.10000000149011612,
+          "sample.pattern-freq": 5.4360527992248535,
+          "sample.pattern-mix": 0,
+          "sample.speed": 0,
+          "sample.weight-mode": "projection"
+        }
+      }
+    ],
+    "schema_version": 1
+  },
+  "schema_version": 2
+}

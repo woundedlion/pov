@@ -67,6 +67,8 @@
   X(GridSpace)                                                                 \
   X(Involution)                                                                \
   X(GridWorms)                                                                 \
+  X(GridWarp)                                                                  \
+  X(LiquidWindows)                                                             \
   X(HyperLattice)                                                              \
   X(AshCloud)                                                                  \
   X(KaleidoscopeMelt)                                                          \
@@ -155,6 +157,8 @@ constexpr int hs_preset_window_seconds() {
   X(GridSpace, 60)                                                             \
   X(Involution, 60)                                                            \
   X(GridWorms, 60)                                                             \
+  X(GridWarp, 60)                                                              \
+  X(LiquidWindows, 60)                                                         \
   X(KaleidoscopeMelt, 30)                                                      \
   X(ChromaticLichen, 30)                                                       \
   X(MermaidSkin, 30)                                                           \

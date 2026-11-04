@@ -20,7 +20,9 @@
     "mobius-grid": "mobius_grid.shader.json",
     "millefiori": "millefiori.shader.json",
     "grid-worms": "grid_worms.shader.json",
-    "involution": "involution.shader.json"
+    "involution": "involution.shader.json",
+    "grid-warp": "grid_warp.shader.json",
+    "liquid-windows": "liquid_windows.shader.json"
   },
   "product_group": {
     "id": "shader-collection",
@@ -105,6 +107,14 @@
       {
         "effect_id": "involution",
         "display_name": "Involution"
+      },
+      {
+        "effect_id": "grid-warp",
+        "display_name": "Grid Warp"
+      },
+      {
+        "effect_id": "liquid-windows",
+        "display_name": "Liquid Windows"
       }
     ]
   }

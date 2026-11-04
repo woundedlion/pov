@@ -102,6 +102,7 @@ namespace effect_identities {
   X(Galaxies, "galaxies", "Galaxies")                                          \
   X(GnomonicStars, "gnomonic-stars", "GnomonicStars")                          \
   X(GridSpace, "grid-space", "grid-space")                                     \
+  X(GridWarp, "grid-warp", "grid-warp")                                        \
   X(GridWorms, "grid-worms", "grid-worms")                                     \
   X(GSReactionDiffusion, "gs-reaction-diffusion", "GSReactionDiffusion")       \
   X(HankinSolids, "hankin-solids", "HankinSolids")                             \
@@ -119,6 +120,7 @@ namespace effect_identities {
   X(KaleidoscopeStainedGlass, "kaleidoscope-stained-glass",                    \
     "kaleidoscope-stained-glass")                                              \
   X(KaleidoscopeMelt, "kaleidoscope-melt", "kaleidoscope-melt")                \
+  X(LiquidWindows, "liquid-windows", "liquid-windows")                         \
   X(MermaidSkin, "mermaid-skin", "mermaid-skin")                               \
   X(MeshFeedback, "mesh-feedback", "MeshFeedback")                             \
   X(Millefiori, "millefiori", "millefiori")                                    \

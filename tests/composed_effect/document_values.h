@@ -381,6 +381,13 @@ inline bool assign_field(Family &family, std::string_view id, float value) {
         return true;
       }
   }
+  if constexpr (requires { family.extra_address(size_t{}); })
+    for (size_t index = 0; index < Family::EXTRA_SCHEMA.size(); ++index)
+      if (id == Family::EXTRA_SCHEMA[index].id &&
+          !Family::EXTRA_SCHEMA[index].topology) {
+        *static_cast<float *>(family.extra_address(index)) = value;
+        return true;
+      }
   if constexpr (requires { family.modulation; }) {
     Pullback::Interp::Op::ModulationParams bridge;
     bridge.modulation = family.modulation;
@@ -581,7 +588,24 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
                     assigned = true;
                   }
       }
+      if constexpr (requires { family.extra_address(size_t{}); }) {
+        if (Resource::KEY.view() != document_resource_key(slot))
+          return;
+        for (size_t index = 0; index < Family::EXTRA_SCHEMA.size(); ++index) {
+          const auto &field = Family::EXTRA_SCHEMA[index];
+          if (field_id != field.id || !field.topology)
+            continue;
+          for (uint8_t option = 0; option < field.enum_count; ++option)
+            if (text == field.enum_ids[option]) {
+              *static_cast<uint8_t *>(family.extra_address(index)) = option;
+              assigned = true;
+            }
+        }
+      }
     });
+    if (assigned)
+      HS_EXPECT_TRUE(
+          derivation_value_reachable(slot.operator_id, field_id, text));
     if (assigned)
       return true;
   }

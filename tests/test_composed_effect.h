@@ -441,6 +441,122 @@ inline void check_slider_registration(const char *name) {
       return;
     }
 
+  if constexpr (std::is_same_v<FX, GridWarp<SMALL_W, SMALL_H>>) {
+    constexpr const char *EXPECTED[] = {"source.Pattern Freq",
+                                        "source.Speed",
+                                        "source.Complexity",
+                                        "source.Pattern Mix",
+                                        "source.Drift",
+                                        "source.Source Angle Speed",
+                                        "Singularity Fade",
+                                        "Camera Wander",
+                                        "Central Meridian",
+                                        "displace.Strength",
+                                        "displace.Orientation Azimuth",
+                                        "displace.Orientation Polar",
+                                        "displace.Drift",
+                                        "displace.integrator",
+                                        "displace.term-1-type",
+                                        "displace.term-1-kind",
+                                        "displace.term-1-l",
+                                        "displace.term-1-m",
+                                        "displace.term-1-amplitude",
+                                        "displace.term-1-phase",
+                                        "displace.term-2-type",
+                                        "displace.term-2-kind",
+                                        "displace.term-2-l",
+                                        "displace.term-2-m",
+                                        "displace.term-2-amplitude",
+                                        "displace.term-2-phase",
+                                        "displace.term-3-type",
+                                        "displace.term-3-kind",
+                                        "displace.term-3-l",
+                                        "displace.term-3-m",
+                                        "displace.term-3-amplitude",
+                                        "displace.term-3-phase",
+                                        "displace.term-4-type",
+                                        "displace.term-4-kind",
+                                        "displace.term-4-l",
+                                        "displace.term-4-m",
+                                        "displace.term-4-amplitude",
+                                        "displace.term-4-phase",
+                                        "Palette Chroma",
+                                        "Palette Mapping",
+                                        "Mapping Frequency",
+                                        "Mapping Phase",
+                                        "Phase Oscillation Depth",
+                                        "Phase Oscillation Speed",
+                                        "Opacity at Value 0",
+                                        "Opacity at Value 1",
+                                        "modulate.Modulation Amount",
+                                        "modulate1.Modulation Amount",
+                                        "modulate1.Pattern Scale",
+                                        "modulate1.Pattern Speed"};
+    for (const char *slider : EXPECTED) {
+      HS_CONTEXT(slider);
+      HS_EXPECT_TRUE(params.find(slider) != nullptr);
+    }
+    HS_EXPECT_EQ(params.size(), std::size(EXPECTED));
+    HS_EXPECT_EQ(params.size(), params.capacity());
+    return;
+  }
+
+  if constexpr (std::is_same_v<FX, LiquidWindows<SMALL_W, SMALL_H>>) {
+    constexpr const char *EXPECTED[] = {"source.Pattern Freq",
+                                        "source.Speed",
+                                        "source.Complexity",
+                                        "source.Pattern Mix",
+                                        "source.Drift",
+                                        "source.Source Angle Speed",
+                                        "Singularity Fade",
+                                        "Central Meridian",
+                                        "displace.Strength",
+                                        "displace.Orientation Azimuth",
+                                        "displace.Orientation Polar",
+                                        "displace.Drift",
+                                        "displace.integrator",
+                                        "displace.term-1-type",
+                                        "displace.term-1-kind",
+                                        "displace.term-1-l",
+                                        "displace.term-1-m",
+                                        "displace.term-1-amplitude",
+                                        "displace.term-1-phase",
+                                        "displace.term-2-type",
+                                        "displace.term-2-kind",
+                                        "displace.term-2-l",
+                                        "displace.term-2-m",
+                                        "displace.term-2-amplitude",
+                                        "displace.term-2-phase",
+                                        "displace.term-3-type",
+                                        "displace.term-3-kind",
+                                        "displace.term-3-l",
+                                        "displace.term-3-m",
+                                        "displace.term-3-amplitude",
+                                        "displace.term-3-phase",
+                                        "displace.term-4-type",
+                                        "displace.term-4-kind",
+                                        "displace.term-4-l",
+                                        "displace.term-4-m",
+                                        "displace.term-4-amplitude",
+                                        "displace.term-4-phase",
+                                        "Palette Chroma",
+                                        "Palette Mapping",
+                                        "Mapping Frequency",
+                                        "Mapping Phase",
+                                        "Phase Oscillation Depth",
+                                        "Phase Oscillation Speed",
+                                        "Opacity at Value 0",
+                                        "Opacity at Value 1",
+                                        "modulate.Modulation Amount"};
+    for (const char *slider : EXPECTED) {
+      HS_CONTEXT(slider);
+      HS_EXPECT_TRUE(params.find(slider) != nullptr);
+    }
+    HS_EXPECT_EQ(params.size(), std::size(EXPECTED));
+    HS_EXPECT_EQ(params.size(), params.capacity());
+    return;
+  }
+
   if constexpr (std::is_same_v<FX, Millefiori<SMALL_W, SMALL_H>>) {
     constexpr const char *EXPECTED[] = {"Lattice Cell Scale",
                                         "Lattice Radius",
@@ -1027,6 +1143,8 @@ inline void test_promoted_document_pipelines() {
   static_assert(Involution<SMALL_W, SMALL_H>::authored_instance("source") ==
                 "sample");
   composed_chain_tests::verify_export<Involution<SMALL_W, SMALL_H>>(0);
+  composed_chain_tests::verify_export<GridWarp<SMALL_W, SMALL_H>>(0);
+  composed_chain_tests::verify_export<LiquidWindows<SMALL_W, SMALL_H>>(0);
 }
 
 /** @brief Module entry point for the composed-effect base contract. */

@@ -76,7 +76,23 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sample.tessellation.v2", nullptr, {}},
     {"warp.curl-flow.v2", nullptr, {}},
     {"warp.affine-periodic.v1", nullptr, {}},
-    {"sphere.displace.potential.v1", nullptr, {}},
+    {"sphere.displace.potential.v1", "integrator", {{"euler"}}},
+    {"sphere.displace.potential.v1", "term-1-type", {{"mode", "dodecahedral"}}},
+    {"sphere.displace.potential.v1", "term-1-kind", {{"toroidal", "poloidal"}}},
+    {"sphere.displace.potential.v1", "term-1-l", {{"one", "eight"}}},
+    {"sphere.displace.potential.v1", "term-1-m", {{"one", "four"}}},
+    {"sphere.displace.potential.v1", "term-2-type", {{"mode"}}},
+    {"sphere.displace.potential.v1", "term-2-kind", {{"toroidal"}}},
+    {"sphere.displace.potential.v1", "term-2-l", {{"one"}}},
+    {"sphere.displace.potential.v1", "term-2-m", {{"zero"}}},
+    {"sphere.displace.potential.v1", "term-3-type", {{"mode"}}},
+    {"sphere.displace.potential.v1", "term-3-kind", {{"toroidal"}}},
+    {"sphere.displace.potential.v1", "term-3-l", {{"one"}}},
+    {"sphere.displace.potential.v1", "term-3-m", {{"zero"}}},
+    {"sphere.displace.potential.v1", "term-4-type", {{"mode"}}},
+    {"sphere.displace.potential.v1", "term-4-kind", {{"toroidal"}}},
+    {"sphere.displace.potential.v1", "term-4-l", {{"one"}}},
+    {"sphere.displace.potential.v1", "term-4-m", {{"zero"}}},
     {"sphere.displace.rossby-haurwitz.v1", "integrator", {{"euler"}}},
     {"sphere.displace.rossby-haurwitz.v1", "order", {{"four"}}},
     {"sphere.displace.symmetric.v2", "integrator", {{"euler"}}},
@@ -90,7 +106,7 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"project.gnomonic.v2", "hemisphere", {{"folded"}}},
     {"project.stereographic.v2", "frame", {{"identity", "spin-wander"}}},
     {"project.folded-sinusoidal.v2", "frame", {{"spin-wander"}}},
-    {"project.equirectangular.v2", "frame", {{"spin-wander"}}},
+    {"project.equirectangular.v2", "frame", {{"identity", "spin-wander"}}},
     {"project.gnomonic.v2", "frame", {{"identity", "spin-wander"}}},
     // The displacement policies pin the basis and the integrator.
     {"sphere.displace.curl.v2", "basis", {{"simplex"}}},
@@ -254,7 +270,7 @@ inline void test_composed_derivation_reach() {
   }
 
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 45u);
-  HS_EXPECT_EQ(unreachable_operators, 15u);
+  HS_EXPECT_EQ(unreachable_operators, 14u);
   HS_EXPECT_EQ(catalog_values, 375u);
-  HS_EXPECT_EQ(unreachable_values, 308u);
+  HS_EXPECT_EQ(unreachable_values, 286u);
 }

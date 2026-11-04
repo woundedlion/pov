@@ -26,7 +26,7 @@ const MODULATION_ENUMS = {
 const catalog = await loadOperatorCatalog();
 const identities = await loadEffectIdentities();
 
-const LIVE_SURFACE_OPERATORS = new Set(['sphere.displace.symmetric.v2', 'sphere.displace.rossby-haurwitz.v1', 'sphere.displace.ripple.v2']);
+const LIVE_SURFACE_OPERATORS = new Set(['sphere.displace.symmetric.v2', 'sphere.displace.rossby-haurwitz.v1', 'sphere.displace.ripple.v2', 'sphere.displace.potential.v1']);
 
 const liveTopology = (document, id) => {
   const [label, field] = id.split('.');

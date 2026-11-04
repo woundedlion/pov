@@ -24,6 +24,8 @@ All screenshots below were captured from the [live WebAssembly simulator](https:
   - [GridSpace](#gridspace)
   - [Involution](#involution)
   - [GridWorms](#gridworms)
+  - [GridWarp](#gridwarp)
+  - [LiquidWindows](#liquidwindows)
   - [Millefiori](#millefiori)
   - [HyperLattice](#hyperlattice)
   - [KaleidoscopeMelt](#kaleidoscopemelt)
@@ -252,6 +254,30 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 An animated axial twist pulls a primitive lattice into flowing worms before the camera rotates it. A folded gnomonic projection wraps the lattice around the sphere; a maximum-chroma analogous palette uses cup mapping, and a direct directional-sine field shifts hue in the projection frame. Its single `grid-worms` preset preserves the saved shader's lens-before-camera order. GridWorms runs for 60 seconds immediately after GridSpace in the Phantasm playlist and is available in the simulator and effect library.
 
 **Parameters**: Lattice Cell Scale, Lattice Radius, Lattice Shape, Lattice Softness, Camera Wander, Projection Spin Speed, Projection Wander, Singularity Fade, lens1.Twist Angle (rad), lens1.Twist Distribution, lens1.Axis Phi (rad), lens1.Axis Lambda (rad), lens1.Speed, lens1.Drift, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Frequency, Pattern Speed
+
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=grid-warp" target="_blank"><img src="screenshots/GridWarp.png" alt="GridWarp" width="280"></a></td>
+<td valign="top">
+
+### GridWarp
+
+A wandering camera turns the sphere beneath a toroidal degree-8, order-4 harmonic potential flow that warps an equirectangular grid. A cycling analogous palette uses cup mapping; displacement-driven hue precedes a baked-cube noise hue layer. Its single `grid-warp` preset is held out of the Phantasm playlist until it renders within the 62.5 ms display window.
+
+**Parameters**: source.Pattern Freq, source.Speed, source.Complexity, source.Pattern Mix, source.Drift, source.Source Angle Speed, Singularity Fade, Camera Wander, Central Meridian, displace.Strength, displace.Orientation Azimuth, displace.Orientation Polar, displace.Drift, displace.integrator, displace.term-1-type, displace.term-1-kind, displace.term-1-l, displace.term-1-m, displace.term-1-amplitude, displace.term-1-phase, displace.term-2-type, displace.term-2-kind, displace.term-2-l, displace.term-2-m, displace.term-2-amplitude, displace.term-2-phase, displace.term-3-type, displace.term-3-kind, displace.term-3-l, displace.term-3-m, displace.term-3-amplitude, displace.term-3-phase, displace.term-4-type, displace.term-4-kind, displace.term-4-l, displace.term-4-m, displace.term-4-amplitude, displace.term-4-phase, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, modulate.Modulation Amount, modulate1.Modulation Amount, modulate1.Pattern Scale, modulate1.Pattern Speed
+
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=liquid-windows" target="_blank"><img src="screenshots/LiquidWindows.png" alt="LiquidWindows" width="280"></a></td>
+<td valign="top">
+
+### LiquidWindows
+
+A dodecahedral poloidal potential flow folds an equirectangular grid into rounded liquid windows. A cycling analogous palette uses cup mapping, and displacement-driven hue tracks the flow's path length. Its single `liquid-windows` preset is held out of the Phantasm playlist until it renders within the 62.5 ms display window.
+
+**Parameters**: source.Pattern Freq, source.Speed, source.Complexity, source.Pattern Mix, source.Drift, source.Source Angle Speed, Singularity Fade, Central Meridian, displace.Strength, displace.Orientation Azimuth, displace.Orientation Polar, displace.Drift, displace.integrator, displace.term-1-type, displace.term-1-kind, displace.term-1-l, displace.term-1-m, displace.term-1-amplitude, displace.term-1-phase, displace.term-2-type, displace.term-2-kind, displace.term-2-l, displace.term-2-m, displace.term-2-amplitude, displace.term-2-phase, displace.term-3-type, displace.term-3-kind, displace.term-3-l, displace.term-3-m, displace.term-3-amplitude, displace.term-3-phase, displace.term-4-type, displace.term-4-kind, displace.term-4-l, displace.term-4-m, displace.term-4-amplitude, displace.term-4-phase, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, modulate.Modulation Amount
 
 </td></tr></table>
 
@@ -681,8 +707,10 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `cosmic-eyeball` | `CosmicEyeball` | 1 |
 | `mobius-grid` | `MobiusGrid` | 2 |
 | `involution` | `Involution` | 1 |
+| `grid-warp` | `GridWarp` | 1 |
+| `liquid-windows` | `LiquidWindows` | 1 |
 
-These 20 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Millefiori is second in Phantasm for 60 seconds. GridWorms follows GridSpace for 60 seconds. Single-look effects carry a per-entry show window of 30 or 60 seconds in `HS_PHANTASM_EFFECT_LIST`. Multi-preset effects derive their window from the full preset cycle, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Frame budgets convert to show seconds at the nominal 16 fps; slower rendering can leave a cycle unfinished when its show window ends. Kaleidoscope Melt and Kaleidoscope Smooth run document-built chain comparisons in dedicated white-box equivalence suites.
+These 22 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Millefiori is second in Phantasm for 60 seconds. GridWorms follows GridSpace for 60 seconds. Single-look effects carry a per-entry show window of 30 or 60 seconds in `HS_PHANTASM_EFFECT_LIST`. Multi-preset effects derive their window from the full preset cycle, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Frame budgets convert to show seconds at the nominal 16 fps; slower rendering can leave a cycle unfinished when its show window ends. Kaleidoscope Melt and Kaleidoscope Smooth run document-built chain comparisons in dedicated white-box equivalence suites.
 
 The [device profile archive](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md) contains shipping reports for all 36 Phantasm effects: 36 completed selective-O3 captures, including new HankinSolids and ShapeShifter captures after the scratch-arena and uniform flash-walker alignment fixes. It also holds global-O3 reference captures for 33 effects and supplemental variant reports. The shipping sweep reports steady render telemetry (`frame` minus buffer wait) from frame 2 through the last complete counter window under the shipping segment clip; setup frame 1 is separate, and subsequent transitions remain included. GSReactionDiffusion has a steady peak of 48.112 ms with 0/447 spilled frames and a 24.883 ms setup frame; MermaidSkin has a steady peak of 42.073 ms with 0/447 spilled frames and a 70.074 ms setup frame; ChromaticLichen has a steady peak of 40.003 ms with 0/447 spilled frames and a 65.897 ms setup frame; AshCloud has a steady peak of 47.180 ms with 0/927 spilled frames and a 73.108 ms setup frame. GridWorms has a steady peak of 56.505 ms, setup frame 1 of 60.735 ms, and 0/1,087 steady spilled frames in a 70-second capture. The reports identify source, frame scope, trailing exclusions and validator diagnostics. HankinSolids has a steady peak of 31.644 ms, setup frame 1 19.276 ms, and 0/2687 steady spilled frames; ShapeShifter has a steady peak of 57.537 ms, setup frame 1 47.865 ms, and 0/4271 steady spilled frames. GSReactionDiffusion’s global-O3 reference, which predates the October 5 optimization, peaks at 279.686 ms with every frame spilled. AshCloud's global-O3 reference peaks at 79.81 ms with 100% spills. Of the composed effects excluded from the Phantasm image, KaleidoscopeMelt peaks at 46.26 ms, with its 76.53 ms initialization frame recorded separately and excluded from display cadence statistics; JewelMelt peaks at 77.64 ms with every display frame spilled, with its full-width initialization draw likewise recorded separately; and KaleidoscopeStainedGlass peaks at 43.00 ms. These measurements apply to the revisions and configurations recorded in those reports. The composed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
 
@@ -806,7 +834,7 @@ operator and palette clocks keep advancing while its authored-preset pause is
 set.
 
 The simulator interprets admitted chains even when they have no promoted
-firmware match. Firmware exposes the 20 promoted fixed descriptors; a
+firmware match. Firmware exposes the 22 promoted fixed descriptors; a
 catalog choice alone does not promise a Teensy specialization.
 
 The gap is per value, not only per combination. The `ComposedEffect` derivation layer in `composed_effect.h` reaches a strict subset of the shipped operator catalog, so the operators classified as unreachable in `DERIVATION_REACH` and further values of the operators it does reach remain workbench-only: every non-simplex noise basis, the non-Euler curl integrators, the clamp curl tangent limit, the non-flat warp envelopes, the logarithmic polar chart and its harmonics 2–16, the front and back gnomonic hemispheres, the None signal weight, and the Bell, Ascending and Descending brightness envelopes. Opaque coverage is supported by the composed layer although no shipped composed effect selects it. Both Noise Contours are reachable. Value Cutout is reachable and selected by Ash Cloud. `tests/composed_effect/derivation_reach.h` pins that set against the live operator table, so a catalog addition stays classified.
