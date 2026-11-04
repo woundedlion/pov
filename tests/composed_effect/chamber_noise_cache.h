@@ -136,19 +136,19 @@ inline void test_chamber_noise_cache_phase_and_fallback() {
   using FX = AshCloud<96, 20>;
   using Provider =
       ModulationProvider<FX::Binding, "modulation", Pattern::SourceKind::NOISE,
-                         Pattern::Evaluation::DIRECT, true>;
+                         Pattern::Evaluation::DIRECT>;
   static_assert(
       std::is_same_v<Provider::Prepared, Color::ChamberPhaseModulationState>);
   using GenericFrame = FrameIntervalState<FX::Params>;
   using GenericProvider =
       ModulationProvider<Binding<GenericFrame>, "modulation",
                          Pattern::SourceKind::NOISE,
-                         Pattern::Evaluation::DIRECT, true>;
+                         Pattern::Evaluation::DIRECT, false, true>;
   static_assert(
       std::is_same_v<GenericProvider::Prepared, Color::PhaseModulationState>);
   using Grid = ModulationProvider<Millefiori<96, 20>::Binding, "field",
                                   Pattern::SourceKind::SPHERE_SMOOTH_GRID,
-                                  Pattern::Evaluation::DIRECT, true>;
+                                  Pattern::Evaluation::DIRECT>;
   static_assert(std::is_same_v<Grid::Prepared, Color::PhaseModulationState>);
   static_assert(Color::Modulate<Provider>::PHASE_NOISE_APPROXIMATION);
   static_assert(!Color::Modulate<Grid>::PHASE_NOISE_APPROXIMATION);

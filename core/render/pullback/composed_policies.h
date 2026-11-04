@@ -12,7 +12,8 @@
 
 /** @brief Authored controls accompanying an explicit typed stage pipeline.
  * @details Derived specs supply `template <typename B> using Pipeline`.
- * Stage topology is exposed by `MetadataFor`. */
+ * Stage topology is exposed by `MetadataFor`. Proven performance paths are on
+ * by default; an effect sets one false only for a constraint it names. */
 struct Spec {
   static constexpr bool AUTHORED_TOPOLOGY =
       false; ///< Uses canonical authored node identities.
@@ -22,14 +23,16 @@ struct Spec {
   static constexpr bool ANIMATED_PROJECTION = true;
   /// Whether columns sample consecutive frame states across a half-turn.
   static constexpr bool TEMPORAL_SAMPLING = false;
-  /// Samples eligible color-source phases once after palette interpolation.
-  static constexpr bool TEMPORAL_COLOR_PHASE = false;
+  /// Samples eligible color-source phases once after palette interpolation;
+  /// effective only with `TEMPORAL_SAMPLING` and without fusion.
+  static constexpr bool TEMPORAL_COLOR_PHASE = true;
   /// Fuses an eligible final temporal color layer.
   static constexpr bool FUSED_TEMPORAL_COLOR = false;
   /// Bakes palette-coordinate by hue-rotation tables.
   static constexpr bool HUE_ROTATION_LUT = true;
-  /// Caches RGB-first interval palette blends in OKLab.
-  static constexpr bool PALETTE_LAB_CACHE = false;
+  /// Caches RGB-first interval palette blends in OKLab; effective only with
+  /// column phase sampling or fused temporal color.
+  static constexpr bool PALETTE_LAB_CACHE = true;
   /// Caches palette colors after hue rotation and gamut mapping.
   static constexpr bool PALETTE_RGB_CACHE = false;
   static constexpr float PALETTE_RGB_CHROMA =
@@ -47,9 +50,9 @@ struct Spec {
   /// Bakes endpoint radial transfer curves for burst ripples.
   static constexpr bool RIPPLE_RADIAL_TABLE = false;
   /// Keeps each prepared shading frame in the runtime arena.
-  static constexpr bool PERSISTENT_PREPARED_FRAME = false;
+  static constexpr bool PERSISTENT_PREPARED_FRAME = true;
   /// Keeps the full-resolution gamut table in device persistent storage.
-  static constexpr bool CACHE_FULL_GAMUT_LUT = false;
+  static constexpr bool CACHE_FULL_GAMUT_LUT = true;
   /// Copies immutable dodecahedral reflection matrices into persistent storage.
   static constexpr bool CACHE_DODECAHEDRAL_MATRICES = false;
   static constexpr bool CACHE_DODECAHEDRAL_FACES =

@@ -108,15 +108,34 @@ struct FrameIntervalState : FrameState<ParamsT, PhaseNoise> {
   Color::TemporalPaletteResources temporal; ///< Previous color resources.
 };
 
+namespace ComposedDetail {
+/** @brief Whether a spec's eligible color modulations sample one phase per
+ * column after palette interpolation.
+ * @tparam SpecT Effect spec. */
+template <typename SpecT>
+inline constexpr bool COLOR_PHASE =
+    SpecT::TEMPORAL_SAMPLING && SpecT::TEMPORAL_COLOR_PHASE &&
+    !SpecT::FUSED_TEMPORAL_COLOR;
+/** @brief Whether a spec's palette exposes interval OKLab base caches.
+ * @tparam SpecT Effect spec. */
+template <typename SpecT>
+inline constexpr bool PALETTE_LAB_CACHE =
+    SpecT::PALETTE_LAB_CACHE && SpecT::TEMPORAL_SAMPLING &&
+    (COLOR_PHASE<SpecT> || SpecT::FUSED_TEMPORAL_COLOR);
+} // namespace ComposedDetail
+
 /**
- * @brief Ties a pullback pipeline to one effect's frame state.
+ * @brief Ties a pullback pipeline to one effect's frame state and spec.
  * @details Composed effects render uninstrumented, so the binding pins
- * Pullback::NoInstrumentation.
+ * Pullback::NoInstrumentation. Providers default their spec-selected policies
+ * from `Spec`.
  * @tparam FrameT The effect's FrameState specialization.
+ * @tparam SpecT The effect's spec.
  */
-template <typename FrameT> struct Binding {
+template <typename FrameT, typename SpecT = Pullback::Spec> struct Binding {
   using FrameState = FrameT;                           ///< Frame type.
   using Instrumentation = Pullback::NoInstrumentation; ///< Uninstrumented.
+  using Spec = SpecT;                                  ///< Effect spec.
 };
 
 /** @brief Supplies the camera orientation to Pullback::Stage::Rotate.
@@ -656,7 +675,9 @@ struct ValueProvider {
  * @tparam FusedV Whether the final temporal color layer may be fused.
  */
 template <typename BindingT, Pullback::Color::BrightnessEnvelope BrightnessV,
-          bool LabCacheV = false, bool FusedV = false>
+          bool LabCacheV =
+              ComposedDetail::PALETTE_LAB_CACHE<typename BindingT::Spec>,
+          bool FusedV = BindingT::Spec::FUSED_TEMPORAL_COLOR>
 struct ColorProvider {
   using Binding = BindingT;                        ///< The effect's Binding.
   using FrameState = typename Binding::FrameState; ///< The effect's frame.
@@ -769,11 +790,12 @@ struct ColorProvider {
  * @tparam Key Modulation instance key.
  * @tparam SourceV Source capability.
  * @tparam EvaluationV Source storage strategy.
- * @tparam PhaseV Whether eligible sources share column-phase evaluation.
- * @tparam DynamicV Whether presets select the source and evaluation. */
+ * @tparam DynamicV Whether presets select the source and evaluation.
+ * @tparam PhaseV Whether eligible sources share column-phase evaluation. */
 template <typename BindingT, ResourceKey Key, Pattern::SourceKind SourceV,
           Pattern::Evaluation EvaluationV = Pattern::Evaluation::BAKED_CUBE,
-          bool PhaseV = false, bool DynamicV = false>
+          bool DynamicV = false,
+          bool PhaseV = ComposedDetail::COLOR_PHASE<typename BindingT::Spec>>
 struct ModulationProvider {
   using Binding = BindingT;                        ///< Pipeline binding.
   using FrameState = typename Binding::FrameState; ///< Frame context.
@@ -907,7 +929,8 @@ struct ModulationProvider {
 template <typename B,
           Color::BrightnessEnvelope Brightness =
               Color::BrightnessEnvelope::NONE,
-          bool LabCache = false, bool Fused = false>
+          bool LabCache = ComposedDetail::PALETTE_LAB_CACHE<typename B::Spec>,
+          bool Fused = B::Spec::FUSED_TEMPORAL_COLOR>
 struct AuthoredColorProvider : ColorProvider<B, Brightness, LabCache, Fused> {
   using FrameState = typename B::FrameState;
   /** @brief Current authored brightness envelope.

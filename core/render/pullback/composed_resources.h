@@ -26,6 +26,8 @@
 
 namespace Pullback {
 
+struct Spec;
+
 /** @brief Compile-time identity of one composed parameter/resource instance. */
 template <size_t N> struct ResourceKey {
   char text[N]; ///< Key characters, including the terminating NUL.
@@ -181,11 +183,15 @@ struct PipelineResources<Pipeline<Binding, Entries...>> {
       typename MergeAll<typename StageResources<Entries>::Type...>::Type;
 };
 
-/** @brief Declaration binding for resource and topology discovery. */
-struct DiscoveryBinding {
+/** @brief Declaration binding for resource and topology discovery.
+ * @tparam SpecT Spec the pipeline's provider defaults resolve from. */
+template <typename SpecT> struct SpecDiscoveryBinding {
   struct FrameState;
   using Instrumentation = NoInstrumentation; ///< Uninstrumented.
+  using Spec = SpecT;                        ///< Effect spec.
 };
+/** @brief Discovery binding resolving the base `Pullback::Spec` defaults. */
+using DiscoveryBinding = SpecDiscoveryBinding<Pullback::Spec>;
 
 /** @brief One keyed parameter family, as a ParameterSet base.
  * @tparam Key Resource key.
@@ -626,6 +632,6 @@ struct ResourceStorage<Storage, ResourceList<Resources...>>
 template <typename Spec>
 using ParamsFor = ComposedDetail::ParameterSet<
     typename ComposedDetail::PipelineResources<typename Spec::template Pipeline<
-        ComposedDetail::DiscoveryBinding>>::Type>;
+        ComposedDetail::SpecDiscoveryBinding<Spec>>>::Type>;
 
 } // namespace Pullback

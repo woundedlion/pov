@@ -728,8 +728,9 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
      * @param sample Color carrier to update.
      * @param frame Frame context.
      * @param prepared Descriptor state. */
-    static void run_phase(ColorSample &sample, const FrameState &frame,
-                          const Prepared &prepared)
+    HS_HOT_INLINE static void run_phase(ColorSample &sample,
+                                        const FrameState &frame,
+                                        const Prepared &prepared)
       requires requires {
         Derived::template run_phase<BindingT>(sample, frame, prepared);
       }
@@ -1783,8 +1784,9 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
    * @param ctx Column frame context.
    * @param prepared Prepared stages. */
   template <size_t Index>
-  static void run_phase_tail(ColorSample &sample, const FrameState &ctx,
-                             const PreparedTuple &prepared) {
+  HS_HOT_INLINE static void run_phase_tail(ColorSample &sample,
+                                           const FrameState &ctx,
+                                           const PreparedTuple &prepared) {
     if constexpr (Index < NODE_COUNT) {
       NodeAt<Index>::run_phase(sample, ctx, std::get<Index>(prepared));
       run_phase_tail<Index + 1>(sample, ctx, prepared);

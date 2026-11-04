@@ -474,7 +474,7 @@ struct DynamicModulationControlsSpec : Pullback::Spec {
       Pullback::Stage::Modulate<
           Pullback::Color::Modulate<Pullback::ModulationProvider<
               B, "modulation", Pattern::SourceKind::NOISE,
-              Pattern::Evaluation::BAKED_CUBE, false, true>>>>;
+              Pattern::Evaluation::BAKED_CUBE, true, false>>>>;
 };
 
 /** @brief Native controls and snapshot adoption for flexible modulation. */

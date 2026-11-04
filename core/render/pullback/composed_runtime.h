@@ -70,24 +70,24 @@ public:
   }(); ///< Whether runtime identities follow authored nodes.
   /// Whether the effect samples time across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = SpecT::TEMPORAL_SAMPLING;
-  static_assert(Metadata::ColorModes::LAB_CACHE == SpecT::PALETTE_LAB_CACHE,
+  /// Whether eligible color modulations sample one phase per column.
+  static constexpr bool COLOR_PHASE = ComposedDetail::COLOR_PHASE<SpecT>;
+  /// Whether the palette retains interval OKLab bases.
+  static constexpr bool PALETTE_LAB_CACHE =
+      ComposedDetail::PALETTE_LAB_CACHE<SpecT>;
+  static_assert(Metadata::ColorModes::LAB_CACHE == PALETTE_LAB_CACHE,
                 "palette base cache policy must match its runtime storage");
   static_assert(Metadata::ColorModes::FUSED_TEMPORAL_COLOR ==
                     SpecT::FUSED_TEMPORAL_COLOR,
                 "temporal color fusion policy must match its spec");
-  static_assert(
-      !SpecT::PALETTE_LAB_CACHE ||
-          (TEMPORAL_SAMPLING &&
-           (SpecT::TEMPORAL_COLOR_PHASE || SpecT::FUSED_TEMPORAL_COLOR)),
-      "palette base caches require phase sampling or fused temporal color");
   static_assert(!SpecT::PALETTE_RGB_CACHE ||
-                    (SpecT::PALETTE_LAB_CACHE &&
+                    (PALETTE_LAB_CACHE &&
                      Metadata::BRIGHTNESS == Color::BrightnessEnvelope::NONE),
                 "final palette caches require unit-brightness interval bases");
   static_assert(!SpecT::PALETTE_RGB_MIDPOINT_ONLY || SpecT::PALETTE_RGB_CACHE,
                 "midpoint-only storage requires an interval RGB cache");
   static_assert(!SpecT::PHASE_NOISE_CACHE ||
-                    (TEMPORAL_SAMPLING && SpecT::TEMPORAL_COLOR_PHASE &&
+                    (COLOR_PHASE &&
                      std::is_base_of_v<Lens::DodecahedralKaleidoscope,
                                        typename Metadata::LensPolicy>),
                 "phase noise cache requires a temporal dodecahedral chamber");
@@ -105,7 +105,7 @@ public:
   using FrameState = std::conditional_t<
       TEMPORAL_SAMPLING, FrameIntervalState<ParamsT, SpecT::PHASE_NOISE_CACHE>,
       Pullback::FrameState<ParamsT, SpecT::PHASE_NOISE_CACHE>>;
-  using Binding = Pullback::Binding<FrameState>; ///< Pipeline binding.
+  using Binding = Pullback::Binding<FrameState, SpecT>; ///< Pipeline binding.
   /// Whether projection controls are present.
   static constexpr bool HAS_FRAME_PARAMS = Params::template HAS<"projection">;
   /// Whether the projection orientation follows a random walk and spin.
@@ -316,7 +316,7 @@ public:
       if (!history.initialized)
         history.capture(current, persistent_arena);
       if (!Spacetime::flat_surface()) {
-        if constexpr (SpecT::PALETTE_LAB_CACHE) {
+        if constexpr (PALETTE_LAB_CACHE) {
           if (palette_cache_controls_eligible(current.params) &&
               palette_cache_controls_eligible(history.previous.params) &&
               history.previous.params.template get<"color">() ==
@@ -870,8 +870,7 @@ private:
       : ProjectionWalkNoise<ANIMATED_PROJECTION>,
         OuterCameraNoise<Metadata::OUTER_CAMERA>,
         OptionalHueRotationLut<HUE_ROTATION_LUT>,
-        OptionalPaletteLabLut<SpecT::PALETTE_LAB_CACHE,
-                              SpecT::PALETTE_LAB_VALUES>,
+        OptionalPaletteLabLut<PALETTE_LAB_CACHE, SpecT::PALETTE_LAB_VALUES>,
         OptionalDodecahedralMatrices<SpecT::CACHE_DODECAHEDRAL_MATRICES>,
         OptionalDodecahedralFaces<SpecT::CACHE_DODECAHEDRAL_FACES>,
         OptionalPaletteRgbLut<SpecT::PALETTE_RGB_CACHE,

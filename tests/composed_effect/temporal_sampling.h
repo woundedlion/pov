@@ -152,9 +152,31 @@ inline std::vector<Pixel> prepared_frame_pixels(bool sampling) {
   return pixels;
 }
 
+/** @brief Specs inherit phase sampling and palette base caches only where legal. */
+inline void test_composed_spec_default_color_paths() {
+  using Temporal = PreparedFrameProbe<false, true>;
+  using Static = PreparedFrameProbe<false, false>;
+  static_assert(Temporal::COLOR_PHASE && Temporal::PALETTE_LAB_CACHE);
+  static_assert(Temporal::Metadata::ColorModes::LAB_CACHE);
+  static_assert(!Static::COLOR_PHASE && !Static::PALETTE_LAB_CACHE);
+  static_assert(!Static::Metadata::ColorModes::LAB_CACHE);
+  using Fused = KaleidoscopeMelt<SMALL_W, SMALL_H>;
+  static_assert(!Fused::COLOR_PHASE && Fused::PALETTE_LAB_CACHE);
+  using Layer =
+      Pullback::ModulationProvider<typename Temporal::Binding, "modulation",
+                                   Pattern::SourceKind::NOISE>;
+  static_assert(std::is_same_v<Layer::Prepared,
+                               Pullback::Color::CubePhaseModulationState>);
+  using StaticLayer =
+      Pullback::ModulationProvider<typename Static::Binding, "modulation",
+                                   Pattern::SourceKind::NOISE>;
+  static_assert(
+      std::is_same_v<StaticLayer::Prepared, Pullback::Color::ModulationState>);
+  HS_EXPECT_TRUE(Temporal::COLOR_PHASE);
+}
+
 inline void test_composed_persistent_prepared_frame() {
-  static_assert(!Pullback::Spec::PERSISTENT_PREPARED_FRAME);
-  static_assert(MillefioriSpec::PERSISTENT_PREPARED_FRAME);
+  static_assert(Pullback::Spec::PERSISTENT_PREPARED_FRAME);
   for (bool sampling : {false, true}) {
     HS_EXPECT_TRUE((prepared_frame_pixels<true, true>(sampling) ==
                     prepared_frame_pixels<false, true>(sampling)));
@@ -875,6 +897,17 @@ inline void test_gridspace_column_basis_geometry() {
   HS_EXPECT_LE(maximum_error, 1e-6f);
 }
 
+/** @brief Current context borrowing the palette base cache of the latest draw.
+ * @tparam FX Composed effect specialization.
+ * @param effect Effect after its latest draw.
+ * @return Frame context shading the drawn interval. */
+template <typename FX> typename FX::FrameState drawn_frame(FX &effect) {
+  auto frame = effect.frame_for_test();
+  frame.palette_lab_lut =
+      ComposedFrameWhiteBox::current_frame(effect).palette_lab_lut;
+  return frame;
+}
+
 /** @brief Product columns preserve canonical colors through gamut boundaries. */
 inline void test_gridspace_canonical_columns() {
   HS_CONTEXT("GridSpace canonical columns");
@@ -897,7 +930,7 @@ inline void test_gridspace_canonical_columns() {
     effect.advance_display();
     if (step >= 8 && step != 46)
       continue;
-    const auto current = effect.frame_for_test();
+    const auto current = drawn_frame(effect);
     for (int x = 0; x < 288; ++x) {
       const float TIME = static_cast<float>(x % 144) / 144;
       const auto frame = Pipeline::prepare(
@@ -948,7 +981,7 @@ inline void test_gridspace_temporal_pixels() {
   effect.set_clip(3, 17, 39, 83);
   effect.draw_frame();
   effect.advance_display();
-  const auto current = effect.frame_for_test();
+  const auto current = drawn_frame(effect);
   const auto frozen = FX::RenderPipeline::prepare(current);
   int changed = 0;
   const auto expect_pixel = [](const Pixel &actual, const Pixel &expected) {
@@ -995,7 +1028,7 @@ inline void test_gridspace_temporal_pixels() {
   Spacetime::set_flat_surface(false);
   effect.draw_frame();
   effect.advance_display();
-  const auto resumed = effect.frame_for_test();
+  const auto resumed = drawn_frame(effect);
   for (int x = 39; x < 83; ++x) {
     const auto frame = FX::RenderPipeline::prepare(Spacetime::sample_frame(
         history.previous, resumed, Spacetime::SamplingSurface<W>::time(x)));
@@ -1391,7 +1424,7 @@ inline void test_millefiori_column_color_phase() {
   using FX = Millefiori<SMALL_W, SMALL_H>;
   using Provider = ModulationProvider<typename FX::Binding, "field",
                                       Pattern::SourceKind::SPHERE_SMOOTH_GRID,
-                                      Pattern::Evaluation::DIRECT, true>;
+                                      Pattern::Evaluation::DIRECT>;
   reset_effect_globals();
   FX effect;
   effect.init();
@@ -1474,7 +1507,7 @@ inline void test_ash_cloud_noise_column_phase() {
   using FX = AshCloud<SMALL_W, SMALL_H>;
   using Provider =
       ModulationProvider<FX::Binding, "modulation", Pattern::SourceKind::NOISE,
-                         Pattern::Evaluation::DIRECT, true>;
+                         Pattern::Evaluation::DIRECT>;
   reset_effect_globals();
   FX effect;
   effect.init();
@@ -1577,7 +1610,7 @@ inline void test_baked_cube_column_phase() {
   using FX = GridWarp<SMALL_W, SMALL_H>;
   using Provider =
       ModulationProvider<FX::Binding, "modulate1", Pattern::SourceKind::NOISE,
-                         Pattern::Evaluation::BAKED_CUBE, true>;
+                         Pattern::Evaluation::BAKED_CUBE>;
   reset_effect_globals();
   FX effect;
   effect.init();

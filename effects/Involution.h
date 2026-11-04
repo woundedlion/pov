@@ -24,11 +24,8 @@ template <typename FX> struct ComposedWhiteBox;
 /** @brief Stage spec for `Involution`. */
 struct InvolutionSpec : Pullback::Spec {
   static constexpr bool TEMPORAL_SAMPLING = true;
-  static constexpr bool PERSISTENT_PREPARED_FRAME = true;
   static constexpr bool AUTHORED_TOPOLOGY = true;
   static constexpr bool ANIMATED_PROJECTION = true;
-  static constexpr bool TEMPORAL_COLOR_PHASE = true; ///< Shared color tail.
-  static constexpr bool PALETTE_LAB_CACHE = true;    ///< Interval OKLab bases.
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   /** @brief Authored sphere, projection, warp, source and color stages.
    * @tparam B Effect binding. */
@@ -49,16 +46,15 @@ struct InvolutionSpec : Pullback::Spec {
               B, Pullback::Source::AuthoredLatticeSampleParams>>>,
       Pullback::Stage::Colorize<
           Pullback::Color::GeneratedPalette<Pullback::AuthoredColorProvider<
-              B, Pullback::Color::BrightnessEnvelope::NONE,
-              PALETTE_LAB_CACHE>>>,
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>,
       Pullback::Stage::Modulate<
           Pullback::Color::Modulate<Pullback::ModulationProvider<
               B, "modulation", Pattern::SourceKind::NOISE,
-              Pattern::Evaluation::BAKED_CUBE, TEMPORAL_COLOR_PHASE, true>>>,
+              Pattern::Evaluation::BAKED_CUBE, true>>>,
       Pullback::Stage::Modulate<
           Pullback::Color::Modulate<Pullback::ModulationProvider<
               B, "modulate", Pattern::SourceKind::NOISE,
-              Pattern::Evaluation::BAKED_CUBE, TEMPORAL_COLOR_PHASE, true>>>>;
+              Pattern::Evaluation::BAKED_CUBE, true>>>>;
 };
 /// Parameter storage derived from `InvolutionSpec`.
 using InvolutionParams = Pullback::ParamsFor<InvolutionSpec>;

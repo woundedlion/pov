@@ -37,13 +37,7 @@ struct MillefioriSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
   static constexpr bool TEMPORAL_SAMPLING = true; ///< Sample column endpoints.
-  static constexpr bool TEMPORAL_COLOR_PHASE = true; ///< Blend deferred color.
-  static constexpr bool PALETTE_LAB_CACHE =
-      true; ///< Cache palette Lab samples.
-  static constexpr bool CACHE_FULL_GAMUT_LUT = true; ///< Retain gamut lookup.
   static constexpr bool RIPPLE_RADIAL_TABLE = true; ///< Cache radial transfers.
-  static constexpr bool PERSISTENT_PREPARED_FRAME =
-      true; ///< Arena-owned frame.
   /** @brief Authored ripple, kaleidoscope and lattice stage chain.
    * @tparam B Frame binding. */
   template <typename B>
@@ -65,17 +59,17 @@ struct MillefioriSpec : Pullback::Spec {
                                   Pullback::LatticeSourceParams, B>::Type,
                               Pullback::Weight::Projection,
                               Pullback::ProjectionCoverage::Weight>,
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::Color::BrightnessEnvelope::BELL,
-                                  PALETTE_LAB_CACHE>>>,
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::BELL>>>,
       Pullback::Stage::Modulate<
           Pullback::Color::Modulate<Pullback::ModulationProvider<
               B, "field", Pattern::SourceKind::SPHERE_SMOOTH_GRID,
-              Pattern::Evaluation::DIRECT, TEMPORAL_COLOR_PHASE>>>,
+              Pattern::Evaluation::DIRECT>>>,
       Pullback::Stage::Modulate<
           Pullback::Color::Modulate<Pullback::ModulationProvider<
               B, "modulate", Pattern::SourceKind::DISPLACEMENT,
-              Pattern::Evaluation::DIRECT, TEMPORAL_COLOR_PHASE>>>>;
+              Pattern::Evaluation::DIRECT>>>>;
 };
 /// Parameter block derived from `MillefioriSpec`.
 using MillefioriParams = Pullback::ParamsFor<MillefioriSpec>;

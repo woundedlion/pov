@@ -413,7 +413,8 @@ then quantizes once to RGB16. A unit gain preserves the unscaled quantization;
 zero gain returns exact black with the original alpha. Hue-table samples retain
 their existing RGB16 brightness scaling.
 
-`Spec::TEMPORAL_COLOR_PHASE` opts eligible authored modulation providers into a
+`Spec::TEMPORAL_COLOR_PHASE`, on by default for temporal specs without fused
+color, moves eligible authored modulation providers to a
 different interior color-time model. Blend the base palette RGB and alpha first,
 sample eligible spatial sources at the shortest interpolated column phase, then
 apply each hue/lift layer once. Smooth grids interpolate their axial phases.
@@ -476,7 +477,8 @@ exposes this additional internal approximation through
 bound its additional chamber-cache error; qualification is finite capture
 coverage, not a universal bound for all future frames and color controls.
 
-`Spec::PALETTE_LAB_CACHE` optionally supplies the eligible shared tail with a
+`Spec::PALETTE_LAB_CACHE`, on by default wherever phase sampling or fused color
+is active, supplies the eligible shared tail with a
 palette-aware base cache. Each node first blends the previous/current RGB16
 palette samples with the canonical Q16 weight, then converts that RGB to OKLab.
 The cache has 64 palette-coordinate nodes and three time rows (zero, half and

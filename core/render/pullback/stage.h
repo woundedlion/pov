@@ -1099,7 +1099,7 @@ struct Modulate : Contract<Modulate<ColorPolicyT>, ColorSample, ColorSample> {
    * @param frame Frame context.
    * @param prepared Layer state. */
   template <typename Binding>
-  static void run_phase(
+  HS_HOT_INLINE static void run_phase(
       ColorSample &sample, const typename Binding::FrameState &frame,
       const Detail::PolicyPrepared<ColorPolicyT, typename Binding::FrameState>
           &prepared)

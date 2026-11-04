@@ -290,9 +290,9 @@ struct IsModulationStage<Stage::Modulate<P>> : std::true_type {};
 /** @brief Whether a color layer reads accumulated displacement. @tparam T Stage descriptor. */
 template <typename T> struct IsDisplacementStage : std::false_type {};
 template <typename B, ResourceKey Key, Pattern::SourceKind Source,
-          Pattern::Evaluation Evaluation, bool Phase, bool Dynamic>
+          Pattern::Evaluation Evaluation, bool Dynamic, bool Phase>
 struct IsDisplacementStage<Stage::Modulate<Color::Modulate<
-    ModulationProvider<B, Key, Source, Evaluation, Phase, Dynamic>>>>
+    ModulationProvider<B, Key, Source, Evaluation, Dynamic, Phase>>>>
     : std::bool_constant<Dynamic ||
                          Source == Pattern::SourceKind::DISPLACEMENT> {};
 
@@ -405,8 +405,8 @@ template <typename Pipeline> struct PipelineMetadata {
  * @tparam Spec Authored pipeline spec. */
 template <typename Spec>
 struct MetadataFor
-    : PipelineMetadata<
-          PipelineLeaves<typename Spec::template Pipeline<DiscoveryBinding>>> {
+    : PipelineMetadata<PipelineLeaves<
+          typename Spec::template Pipeline<SpecDiscoveryBinding<Spec>>>> {
   static_assert(
       !requires { Spec::PROJECTION; } && !requires { Spec::TRANSFER; } &&
           !requires { Spec::COVERAGE; } &&
@@ -546,11 +546,12 @@ struct PolicyResources<AuthoredColorProvider<B, Brightness, LabCache, Fused>> {
  * @tparam Key Layer key.
  * @tparam Source Source capability.
  * @tparam Evaluation Storage strategy.
+ * @tparam Dynamic Whether presets select the source and evaluation.
  * @tparam Phase Whether phases are sampled once per column. */
 template <typename B, ResourceKey Key, Pattern::SourceKind Source,
-          Pattern::Evaluation Evaluation, bool Phase, bool Dynamic>
+          Pattern::Evaluation Evaluation, bool Dynamic, bool Phase>
 struct PolicyResources<
-    ModulationProvider<B, Key, Source, Evaluation, Phase, Dynamic>> {
+    ModulationProvider<B, Key, Source, Evaluation, Dynamic, Phase>> {
   using Type = ResourceList<
       ParameterResource<Key, Modulation::Params<Source, Evaluation, Dynamic>,
                         ResourceKind::MODULATION>>;

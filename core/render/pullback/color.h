@@ -851,10 +851,11 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
         brightness_envelope_gain(sample.value, state.brightness_envelope,
                                  state.brightness_bottom, state.brightness_top);
     if constexpr (LAB_CACHE) {
-      const auto endpoint = [&](const GeneratedPaletteState &endpoint_state) {
-        return apply_cache_fallback_endpoint(sample, endpoint_state, VALUE,
-                                             OPACITY, GAIN);
-      };
+      const auto endpoint =
+          [&](const GeneratedPaletteState &endpoint_state) HS_HOT_INLINE {
+            return apply_cache_fallback_endpoint(sample, endpoint_state, VALUE,
+                                                 OPACITY, GAIN);
+          };
       return {endpoint(prepared.previous), endpoint(state)};
     } else {
       return {apply_palette_endpoint(sample, prepared.previous, VALUE, OPACITY,
@@ -1270,8 +1271,9 @@ template <typename State> struct Modulate : ApproximationDefaults {
    * @param frame Frame context.
    * @param prepared Layer state. */
   template <typename FrameState>
-  static void apply_phase_in_place(ColorSample &sample, const FrameState &frame,
-                                   const Prepared &prepared)
+  HS_HOT_INLINE static void apply_phase_in_place(ColorSample &sample,
+                                                 const FrameState &frame,
+                                                 const Prepared &prepared)
     requires std::is_base_of_v<PhaseModulationState, Prepared>
   {
     (void)frame;

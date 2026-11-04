@@ -29,10 +29,6 @@ struct KaleidoscopeMeltSpec : Pullback::Spec {
   static constexpr bool FUSED_TEMPORAL_COLOR = true;
   /// Disables palette-coordinate hue tables.
   static constexpr bool HUE_ROTATION_LUT = false;
-  /// Caches interval palette blends in OKLab.
-  static constexpr bool PALETTE_LAB_CACHE = true;
-  /// Keeps the full gamut table in persistent storage.
-  static constexpr bool CACHE_FULL_GAMUT_LUT = true;
   /// Palette-coordinate nodes per cached time row.
   static constexpr int PALETTE_LAB_VALUES = 256;
   /// Restricts interval caches to the initial authored controls.
@@ -62,9 +58,9 @@ struct KaleidoscopeMeltSpec : Pullback::Spec {
           Pullback::Weight::Projection,
           typename Pullback::CoveragePolicyFor<
               Pullback::ProjectionCoverageMode::WEIGHT, B, void>::Type>,
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::Color::BrightnessEnvelope::NONE,
-                                  PALETTE_LAB_CACHE, FUSED_TEMPORAL_COLOR>>>,
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>,
       Pullback::Stage::Modulate<
           Pullback::Color::Modulate<Pullback::ModulationProvider<
               B, "modulation", Pattern::SourceKind::NOISE,

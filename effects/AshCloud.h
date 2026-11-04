@@ -56,9 +56,6 @@ struct AshCloudSpec : Pullback::Spec {
       true; ///< Copies cube classifiers into RAM.
   static constexpr bool CACHE_DODECAHEDRAL_MATRICES =
       true; ///< Copies reflection matrices into RAM.
-  static constexpr bool TEMPORAL_COLOR_PHASE = true; ///< Shared color tail.
-  /// Caches interval palette blends in OKLab.
-  static constexpr bool PALETTE_LAB_CACHE = true;
   /// Caches final palette colors by value and hue.
   static constexpr bool PALETTE_RGB_CACHE = true;
   static constexpr float PALETTE_RGB_CHROMA =
@@ -66,12 +63,8 @@ struct AshCloudSpec : Pullback::Spec {
   static constexpr bool PHASE_NOISE_CACHE = true; ///< Cached chamber noise.
   static constexpr bool PALETTE_RGB_MIDPOINT_ONLY =
       true; ///< Uses one admitted RGB midpoint.
-  static constexpr bool CACHE_FULL_GAMUT_LUT =
-      true; ///< Persistent gamut lookup.
   static constexpr bool RIPPLE_RADIAL_TABLE =
       true; ///< Cached ripple transfers.
-  static constexpr bool PERSISTENT_PREPARED_FRAME =
-      true; ///< Arena-owned frame.
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
@@ -104,17 +97,17 @@ struct AshCloudSpec : Pullback::Spec {
                                   Pullback::CutoutValueParams>::Type>,
       Pullback::Stage::ApplyCoverage<Pullback::ValueCoverage::ValueCutout<
           Pullback::ValueProvider<B, Pullback::CutoutValueParams>>>,
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, Pullback::Color::BrightnessEnvelope::NONE,
-                                  PALETTE_LAB_CACHE>>>,
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>,
       Pullback::Stage::Modulate<
           Pullback::Color::Modulate<Pullback::ModulationProvider<
               B, "modulation", Pattern::SourceKind::NOISE,
-              Pattern::Evaluation::DIRECT, TEMPORAL_COLOR_PHASE>>>,
+              Pattern::Evaluation::DIRECT>>>,
       Pullback::Stage::Modulate<
           Pullback::Color::Modulate<Pullback::ModulationProvider<
               B, "modulate", Pattern::SourceKind::DISPLACEMENT,
-              Pattern::Evaluation::DIRECT, TEMPORAL_COLOR_PHASE>>>>;
+              Pattern::Evaluation::DIRECT>>>>;
 };
 /// Parameter block derived from `AshCloudSpec`.
 using AshCloudParams = Pullback::ParamsFor<AshCloudSpec>;
