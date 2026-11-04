@@ -19,6 +19,7 @@
 #include "core/math/geometry.h"
 #include "core/math/interpolate.h"
 #include "core/math/projections.h"
+#include "core/pattern/sphere_lut.h"
 
 /**
  * @file contract.h
@@ -149,6 +150,12 @@ struct ColorSample {
   OKLab cached_lab{};              ///< Shared base before hue and lift.
   bool has_cached_lab = false;     ///< RGB is represented by `cached_lab`.
   const PaletteLabTimeView *cached_rgb = nullptr; ///< Optional final hue cache.
+};
+
+/** @brief Per-pixel lookups shared by the layers of one column phase tail. */
+struct PhaseScratch {
+  Pattern::SphereLutSample cube_tap{}; ///< Cube coordinates of the sample.
+  bool cube_tap_ready = false;         ///< Whether `cube_tap` is resolved.
 };
 
 /** @brief Blends retained deferred state into the current carrier.
@@ -736,6 +743,20 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
       }
     {
       Derived::template run_phase<BindingT>(sample, frame, prepared);
+    }
+    /** @brief Applies an optional shared-phase descriptor with tail scratch.
+     * @param sample Color carrier to update.
+     * @param frame Frame context.
+     * @param prepared Descriptor state.
+     * @param scratch Lookups shared across the phase tail. */
+    HS_HOT_INLINE static void
+    run_phase(ColorSample &sample, const FrameState &frame,
+              const Prepared &prepared, PhaseScratch &scratch)
+      requires requires {
+        Derived::template run_phase<BindingT>(sample, frame, prepared, scratch);
+      }
+    {
+      Derived::template run_phase<BindingT>(sample, frame, prepared, scratch);
     }
 
     static_assert(descriptor_bindable<Derived, BindingT>(),
@@ -1787,9 +1808,29 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
   HS_HOT_INLINE static void run_phase_tail(ColorSample &sample,
                                            const FrameState &ctx,
                                            const PreparedTuple &prepared) {
+    PhaseScratch scratch;
+    run_phase_tail<Index>(sample, ctx, prepared, scratch);
+  }
+  /** @brief Applies each eligible layer once, sharing per-pixel lookups.
+   * @tparam Index First remaining stage.
+   * @param sample Blended base carrier.
+   * @param ctx Column frame context.
+   * @param prepared Prepared stages.
+   * @param scratch Lookups shared across the remaining layers. */
+  template <size_t Index>
+  HS_HOT_INLINE static void
+  run_phase_tail(ColorSample &sample, const FrameState &ctx,
+                 const PreparedTuple &prepared, PhaseScratch &scratch) {
     if constexpr (Index < NODE_COUNT) {
-      NodeAt<Index>::run_phase(sample, ctx, std::get<Index>(prepared));
-      run_phase_tail<Index + 1>(sample, ctx, prepared);
+      if constexpr (requires {
+                      NodeAt<Index>::run_phase(
+                          sample, ctx, std::get<Index>(prepared), scratch);
+                    })
+        NodeAt<Index>::run_phase(sample, ctx, std::get<Index>(prepared),
+                                 scratch);
+      else
+        NodeAt<Index>::run_phase(sample, ctx, std::get<Index>(prepared));
+      run_phase_tail<Index + 1>(sample, ctx, prepared, scratch);
     }
   }
 

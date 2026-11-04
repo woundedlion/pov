@@ -1271,16 +1271,31 @@ template <typename State> struct Modulate : ApproximationDefaults {
    * @param frame Frame context.
    * @param prepared Layer state. */
   template <typename FrameState>
-  HS_HOT_INLINE static void apply_phase_in_place(ColorSample &sample,
-                                                 const FrameState &frame,
-                                                 const Prepared &prepared)
+  HS_HOT_FLASH_MEMBER static void
+  apply_phase_in_place(ColorSample &sample, const FrameState &frame,
+                       const Prepared &prepared, PhaseScratch &scratch)
     requires std::is_base_of_v<PhaseModulationState, Prepared>
   {
     (void)frame;
     if (!prepared.enabled || prepared.mechanic.amount == 0.0f)
       return;
-    apply_perceptual_scalar(sample, sample_phase_scalar(sample.field, prepared),
-                            prepared.mechanic);
+    apply_perceptual_scalar(
+        sample, sample_phase_scalar(sample.field, prepared, scratch),
+        prepared.mechanic);
+  }
+  /** @brief Applies the column's interpolated analytic source once.
+   * @tparam FrameState Frame context.
+   * @param sample Carrier to update.
+   * @param frame Frame context.
+   * @param prepared Layer state. */
+  template <typename FrameState>
+  HS_HOT_INLINE static void apply_phase_in_place(ColorSample &sample,
+                                                 const FrameState &frame,
+                                                 const Prepared &prepared)
+    requires std::is_base_of_v<PhaseModulationState, Prepared>
+  {
+    PhaseScratch scratch;
+    apply_phase_in_place(sample, frame, prepared, scratch);
   }
   /** @brief Samples a prepared column's analytic phase source.
    * @param field Source coordinates and displacement travel.
@@ -1290,14 +1305,31 @@ template <typename State> struct Modulate : ApproximationDefaults {
                                                  const Prepared &prepared)
     requires std::is_base_of_v<PhaseModulationState, Prepared>
   {
+    PhaseScratch scratch;
+    return sample_phase_scalar(field, prepared, scratch);
+  }
+  /** @brief Samples a prepared column's analytic phase source.
+   * @param field Source coordinates and displacement travel.
+   * @param prepared Ready column phase state.
+   * @param scratch Lookups shared with the tail's other layers.
+   * @return Source scalar before the mechanic is applied. */
+  HS_HOT_INLINE static float sample_phase_scalar(const FieldSample &field,
+                                                 const Prepared &prepared,
+                                                 PhaseScratch &scratch)
+    requires std::is_base_of_v<PhaseModulationState, Prepared>
+  {
     float scalar = 0.0f;
     if (prepared.source == Pattern::SourceKind::DISPLACEMENT)
       scalar = field.path_length;
     else if (prepared.source == Pattern::SourceKind::NOISE) {
       if constexpr (std::is_same_v<Prepared, CubePhaseModulationState>)
         if (prepared.cube_current) {
-          const auto TAP = Pattern::prepare_sphere_lut_sample(
-              Pattern::SphereDirection::admit(field.sphere));
+          if (!scratch.cube_tap_ready) {
+            scratch.cube_tap =
+                Pattern::prepare_sphere_lut_sample_unchecked(field.sphere);
+            scratch.cube_tap_ready = true;
+          }
+          const auto &TAP = scratch.cube_tap;
           return hs::lerp(
               Pattern::bounded_scalar(TAP.sample(*prepared.cube_previous)),
               Pattern::bounded_scalar(TAP.sample(*prepared.cube_current)),

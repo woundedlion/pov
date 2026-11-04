@@ -1109,6 +1109,24 @@ struct Modulate : Contract<Modulate<ColorPolicyT>, ColorSample, ColorSample> {
   {
     ColorPolicyT::apply_phase_in_place(sample, frame, prepared);
   }
+  /** @brief Applies a policy's shared-phase operation with tail scratch.
+   * @tparam Binding Pipeline binding.
+   * @param sample Color carrier to update.
+   * @param frame Frame context.
+   * @param prepared Layer state.
+   * @param scratch Lookups shared across the phase tail. */
+  template <typename Binding>
+  HS_HOT_INLINE static void run_phase(
+      ColorSample &sample, const typename Binding::FrameState &frame,
+      const Detail::PolicyPrepared<ColorPolicyT, typename Binding::FrameState>
+          &prepared,
+      PhaseScratch &scratch)
+    requires requires {
+      ColorPolicyT::apply_phase_in_place(sample, frame, prepared, scratch);
+    }
+  {
+    ColorPolicyT::apply_phase_in_place(sample, frame, prepared, scratch);
+  }
 
   /**
    * @brief Whether `ColorPolicyT::apply` is callable under @p Binding.
