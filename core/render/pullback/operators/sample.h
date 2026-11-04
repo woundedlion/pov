@@ -404,7 +404,7 @@ static_assert(field_ids_unique<TessellationSampleParams>());
 static_assert(field_defaults_in_range<TessellationSampleParams>());
 static_assert(sample_crossing_defaults_match<TessellationSampleParams>());
 
-/** @brief PLANEâ†’FIELD crossing: static square, hexagonal or triangular cell
+/** @brief PLANE to FIELD crossing: static square, hexagonal or triangular cell
     primitives or edge bands. */
 struct SampleTessellation : StatelessModel {
   static constexpr const char *ID = "sample.tessellation.v3";

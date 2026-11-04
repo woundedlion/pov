@@ -1312,7 +1312,8 @@ template <typename State> struct Modulate : ApproximationDefaults {
    * @tparam FrameState Frame context.
    * @param sample Carrier to update.
    * @param frame Frame context.
-   * @param prepared Layer state. */
+   * @param prepared Layer state.
+   * @param scratch Cached analytic samples for this phase. */
   template <typename FrameState>
   HS_HOT_FLASH_MEMBER static void
   apply_phase_in_place(ColorSample &sample, const FrameState &frame,
