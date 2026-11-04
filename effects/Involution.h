@@ -36,7 +36,9 @@ struct InvolutionSpec : Pullback::Spec {
           Pullback::ProjectionKind::CUBIC,
           Pullback::ProjectionProvider<B, Pullback::AtlasProjectionParams>>>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
-          Pullback::AffineParams, B, "outer_warp", true>::Type>,
+          Pullback::AffineParams, B, "outer_warp", true,
+          Pullback::AffineForm::ROTATES |
+              Pullback::AffineForm::TRANSLATES>::Type>,
       Pullback::Stage::Sample<
           typename Pullback::SourcePolicyFor<
               Pullback::Source::AuthoredSquareCellsSampleParams, B>::Type,

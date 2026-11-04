@@ -60,7 +60,8 @@ struct KaleidoscopeSmoothSpec : Pullback::Spec {
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
           Pullback::MirrorParams, B, "inner_warp", false>::Type>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
-          Pullback::AffineParams, B, "affine", false>::Type>,
+          Pullback::AffineParams, B, "affine", false,
+          Pullback::AffineForm::ROTATES>::Type>,
       Pullback::Stage::Sample<
           typename Pullback::SourcePolicyFor<Pullback::GridSourceParams,
                                              B>::Type,

@@ -188,8 +188,11 @@ struct SourcePolicyFor<Source::AuthoredSampleParams<Family>, B> {
  * @tparam Binding Frame binding of the effect.
  * @tparam Key Parameter resource key of this warp instance.
  * @tparam TrackPath Whether the warp accumulates path length for hue.
+ * @tparam Form Parts an affine warp evaluates; other families take the
+ *         default.
  */
-template <typename Family, typename Binding, ResourceKey Key, bool TrackPath>
+template <typename Family, typename Binding, ResourceKey Key, bool TrackPath,
+          Warp::AffineForm Form = Warp::AffineForm::GENERAL>
 struct WarpPolicyFor;
 /**
  * @brief Mirror-tile warp.
@@ -230,10 +233,12 @@ struct WarpPolicyFor<VectorNoiseParams, B, K, T> {
  * @tparam B Frame binding.
  * @tparam K Parameter resource key.
  * @tparam T Whether path length is tracked.
+ * @tparam F Parts the warp evaluates.
  */
-template <typename B, ResourceKey K, bool T>
-struct WarpPolicyFor<AffineParams, B, K, T> {
-  using Type = Pullback::Warp::AffineFrame<WarpProvider<B, K, AffineParams, T>>;
+template <typename B, ResourceKey K, bool T, Warp::AffineForm F>
+struct WarpPolicyFor<AffineParams, B, K, T, F> {
+  using Type = Pullback::Warp::AffineFrame<
+      WarpProvider<B, K, AffineParams, T, "source", F>>;
 };
 /** @brief Orbiting vortex warp.
  * @tparam B Frame binding.

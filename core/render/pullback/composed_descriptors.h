@@ -126,8 +126,8 @@ template <template <typename...> class Policy, typename... Arguments>
 struct PathTracked<Policy<Arguments...>>
     : std::disjunction<PathTracked<Arguments>...> {};
 template <typename B, ResourceKey Key, typename Family, bool Track,
-          ResourceKey SourceKey>
-struct PathTracked<WarpProvider<B, Key, Family, Track, SourceKey>>
+          ResourceKey SourceKey, Warp::AffineForm Form>
+struct PathTracked<WarpProvider<B, Key, Family, Track, SourceKey, Form>>
     : std::bool_constant<Track> {};
 template <typename B, typename Family, bool Track, ResourceKey Key>
 struct PathTracked<SurfaceProvider<B, Family, Track, Key>>
@@ -474,10 +474,11 @@ struct PolicyResources<TwistProvider<B, Key>> {
  * @tparam Family Warp parameter family.
  * @tparam Track Whether path length is tracked.
  * @tparam SourceKey Resource key of the source the warp reads.
+ * @tparam Form Parts an affine warp evaluates.
  */
 template <typename B, ResourceKey Key, typename Family, bool Track,
-          ResourceKey SourceKey>
-struct PolicyResources<WarpProvider<B, Key, Family, Track, SourceKey>> {
+          ResourceKey SourceKey, Warp::AffineForm Form>
+struct PolicyResources<WarpProvider<B, Key, Family, Track, SourceKey, Form>> {
   using Type = ResourceList<ParameterResource<Key, Family, ResourceKind::WARP>>;
 };
 /**

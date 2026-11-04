@@ -46,6 +46,7 @@ using Surface::SymmetricParams;
 using Surface::PotentialParams;
 using Transfer::IsoValueParams;
 using Transfer::SmoothBandsParams;
+using Warp::AffineForm;
 using Warp::AffineParams;
 using Warp::CurlFlowParams;
 using Warp::AuthoredCurlFlowParams;
@@ -283,10 +284,15 @@ template <typename BindingT, ResourceKey Key> struct TwistProvider {
  * @tparam Family Warp parameter family.
  * @tparam TrackPath Whether the stage accumulates path length.
  * @tparam SourceKey Resource of the stage after an affine warp; its family's
- *         `translation_lattice` overload, if any, sets the translation basis. */
+ *         `translation_lattice` overload, if any, sets the translation basis.
+ * @tparam Form Parts an affine warp evaluates; GENERAL for any other family. */
 template <typename BindingT, ResourceKey Key, typename Family,
-          bool TrackPath = false, ResourceKey SourceKey = "source">
+          bool TrackPath = false, ResourceKey SourceKey = "source",
+          Warp::AffineForm Form = Warp::AffineForm::GENERAL>
 struct WarpProvider {
+  static_assert(Form == Warp::AffineForm::GENERAL ||
+                    std::is_base_of_v<AffineParams, Family>,
+                "only an affine warp takes an affine form");
   using Binding = BindingT;                        ///< The effect's Binding.
   using FrameState = typename Binding::FrameState; ///< The effect's frame.
   /** @brief The warp instance's parameters.
@@ -303,7 +309,7 @@ struct WarpProvider {
   __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
     using WarpT = std::remove_cvref_t<decltype(params(frame))>;
     if constexpr (std::is_same_v<WarpT, AffineParams>) {
-      return Pullback::Warp::prepare(
+      return Pullback::Warp::prepare<Form, TrackPath>(
           params(frame), phase(frame),
           frame.resources.template get<Key>().rotation,
           downstream_lattice(frame));
@@ -351,6 +357,9 @@ struct WarpProvider {
     else
       return Warp::RepeatReduction::GENERAL;
   }
+  /** @brief Parts an affine warp evaluates.
+   *  @return `Form`. */
+  static consteval Warp::AffineForm affine_form() { return Form; }
   /** @brief The warp's phase clock.
    *  @param frame Current frame.
    *  @return Phase modulo 1; column-time samples may lie outside [0, 1). */

@@ -39,7 +39,8 @@ struct GridSpaceSpec : Pullback::Spec {
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
               Pullback::ProjectionKind::GNOMONIC_FOLDED, B>::Type>>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
-          Pullback::AffineParams, B, "outer_warp", false>::Type>,
+          Pullback::AffineParams, B, "outer_warp", false,
+          Pullback::AffineForm::TRANSLATES>::Type>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
                                   Pullback::SquareCellsParams, B>::Type,
                               Pullback::Weight::Projection,

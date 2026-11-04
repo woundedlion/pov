@@ -8,7 +8,10 @@
 #pragma once
 
 #include <array>
+#include <bit>
 #include <cstddef>
+#include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <type_traits>
 
@@ -1608,6 +1611,93 @@ inline void test_pullback_warp_phase_loop() {
                  affine_1.transform.affine.inverse_scale_y, 1e-6f);
   HS_EXPECT_NEAR(affine_0.transform.affine.shear,
                  affine_1.transform.affine.shear, 1e-6f);
+}
+
+/** @brief Distance between two finite floats in units in the last place.
+ * @param a First value.
+ * @param b Second value.
+ * @return Representable steps from @p a to @p b; signed zeros are 0 apart. */
+inline int64_t float_ulps(float a, float b) {
+  const auto ordered = [](float value) {
+    const int32_t bits = std::bit_cast<int32_t>(value);
+    return bits < 0 ? int64_t{INT32_MIN} - bits : int64_t{bits};
+  };
+  return std::abs(ordered(a) - ordered(b));
+}
+
+/** @brief An affine form whose omitted parts hold identity values warps
+    and reduces equal to the general form; within two units under
+    reassociating fast math.
+ * @tparam Form Form under test. */
+template <Pullback::Warp::AffineForm Form>
+inline void check_affine_form_matches_general() {
+  using namespace Pullback::Warp;
+#ifdef __FAST_MATH__
+  constexpr int64_t TOLERANCE = 2;
+#else
+  constexpr int64_t TOLERANCE = 0;
+#endif
+  const auto near = [](const math::Complex &a, const math::Complex &b) {
+    return float_ulps(a.re, b.re) <= TOLERANCE &&
+           float_ulps(a.im, b.im) <= TOLERANCE;
+  };
+  static volatile float knobs[] = {0.6f, 2.0f, -1.0f, 1.5f, 0.75f, 0.2f, 3.0f};
+  static volatile float points[] = {0.0f, -0.0f, 0.37f, -1.25f, 3.5f, -0.0625f};
+  static volatile float phases[] = {0.0f, 0.3f, 0.999f, 1.25f};
+  AffineParams params;
+  const float rotation = includes(Form, AffineForm::ROTATES) ? knobs[0] : 0.0f;
+  if constexpr (includes(Form, AffineForm::TRANSLATES)) {
+    params.translation_x = knobs[1];
+    params.translation_y = knobs[2];
+  }
+  if constexpr (includes(Form, AffineForm::SCALES_SHEARS)) {
+    params.scale_x = knobs[3];
+    params.scale_y = knobs[4];
+    params.shear = knobs[5];
+  }
+  params.repeat_cells = knobs[6];
+  HS_CONTEXT("form", static_cast<int>(Form));
+  for (const Pullback::TranslationLattice lattice :
+       {Pullback::TranslationLattice{}, Pullback::square_lattice(knobs[3]),
+        Pullback::TranslationLattice{{knobs[3], 0.0f}, {knobs[4], knobs[1]}}})
+    for (const float phase : phases) {
+      const auto general = prepare(params, phase, rotation, lattice);
+      const auto narrowed =
+          prepare<Form, false>(params, phase, rotation, lattice);
+      const auto repeated =
+          prepare<Form, true>(params, phase, rotation, lattice);
+      const auto &expected = general.transform.affine.repeat;
+      const auto &actual = repeated.transform.affine.repeat;
+      HS_EXPECT_TRUE(actual.a == expected.a && actual.b == expected.b &&
+                     actual.dual_a == expected.dual_a &&
+                     actual.dual_b == expected.dual_b &&
+                     actual.reduction == expected.reduction);
+      for (const float x : points)
+        for (const float y : points) {
+          const math::Complex input{x, y};
+          const math::Complex want = affine_coords(input, general);
+          const math::Complex got = affine_coords<Form>(input, narrowed);
+          HS_EXPECT_TRUE(near(got, want));
+          HS_EXPECT_TRUE(near(affine_coords<Form>(input, repeated), want));
+        }
+    }
+}
+
+/** @brief Every affine form matches the general form at identity values of
+    its omitted parts. */
+inline void test_pullback_affine_forms_match_general() {
+  using Pullback::Warp::AffineForm;
+  check_affine_form_matches_general<AffineForm::IDENTITY>();
+  check_affine_form_matches_general<AffineForm::ROTATES>();
+  check_affine_form_matches_general<AffineForm::TRANSLATES>();
+  check_affine_form_matches_general<AffineForm::SCALES_SHEARS>();
+  check_affine_form_matches_general<AffineForm::ROTATES |
+                                    AffineForm::TRANSLATES>();
+  check_affine_form_matches_general<AffineForm::ROTATES |
+                                    AffineForm::SCALES_SHEARS>();
+  check_affine_form_matches_general<AffineForm::TRANSLATES |
+                                    AffineForm::SCALES_SHEARS>();
+  check_affine_form_matches_general<AffineForm::GENERAL>();
 }
 
 /** @brief Supplied centers preserve the periodic wave's other prepared fields. */
@@ -4806,6 +4896,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_no_instrumentation);
   HS_RUN(test_pullback_counting_instrumentation);
   HS_RUN(test_pullback_prepared_stage_policies);
+  HS_RUN(test_pullback_affine_forms_match_general);
   HS_RUN(test_pullback_stage_combinators);
   HS_RUN(test_pullback_provider_contracts);
   HS_RUN(test_pullback_concrete_catalog);

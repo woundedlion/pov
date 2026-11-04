@@ -23,6 +23,15 @@ to signed whole windings of that lattice before preparation; displacement
 coloring measures the shortest repeat-relative offset. Affine phase and
 rotation retain independent column-time clocks.
 
+Each composed affine stage names a `Warp::AffineForm` in its `WarpPolicyFor`:
+the rotation, translation and scale-shear parts it evaluates. Omitted parts
+compile out of both the per-column preparation and the per-sample warp, and
+an untracked stage skips the repeat-lattice reduction. A stage without a form
+is general. The promoted-document check requires each form to be exactly the
+parts some preset of the effect moves away from identity. Sliders for omitted
+parts stay registered and have no effect on the compiled stage; the chain
+interpreter always evaluates the general form.
+
 `TopologyField` in [the field descriptors](../../core/render/pullback/fields.h)
 describes enum-backed controls for both operator models and composed families.
 Those values participate in admission, parameter registration and snapshots;

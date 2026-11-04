@@ -40,7 +40,8 @@ struct AlienOceanSpec : Pullback::Spec {
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
           Pullback::MirrorParams, B, "outer_warp", false>::Type>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
-          Pullback::AffineParams, B, "affine", false>::Type>,
+          Pullback::AffineParams, B, "affine", false,
+          Pullback::AffineForm::TRANSLATES>::Type>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
                                   Pullback::GridSourceParams, B>::Type,
                               Pullback::Weight::Projection,

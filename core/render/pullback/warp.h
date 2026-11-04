@@ -233,6 +233,34 @@ struct AffineParams {
 static_assert(field_ids_unique<AffineParams>());
 static_assert(field_defaults_in_range<AffineParams>());
 
+/** @brief Parts of the affine frame change a stage evaluates, as bit flags;
+    an omitted part is compiled out and behaves as its identity. */
+enum class AffineForm : uint8_t {
+  IDENTITY = 0,      ///< No part: the stage returns its input.
+  ROTATES = 1,       ///< Frame rotation by the accumulated `rotation_rate`.
+  TRANSLATES = 2,    ///< Phase-driven translation along the lattice.
+  SCALES_SHEARS = 4, ///< Phase-oscillated scale and shear.
+  GENERAL = ROTATES | TRANSLATES | SCALES_SHEARS, ///< Every part.
+};
+
+/** @brief Union of two affine forms.
+    @param a First form.
+    @param b Second form.
+    @return The parts of either. */
+constexpr AffineForm operator|(AffineForm a, AffineForm b) {
+  return static_cast<AffineForm>(static_cast<uint8_t>(a) |
+                                 static_cast<uint8_t>(b));
+}
+
+/** @brief Whether @p form evaluates every part of @p part.
+    @param form Stage form.
+    @param part Part or parts to test.
+    @return True when @p form includes @p part. */
+constexpr bool includes(AffineForm form, AffineForm part) {
+  return (static_cast<uint8_t>(form) & static_cast<uint8_t>(part)) ==
+         static_cast<uint8_t>(part);
+}
+
 /** @brief Advances the affine frame rotation by one frame.
     @param rotation Accumulated rotation in radians, wrapped into
     (-2pi, 2pi).
@@ -505,6 +533,9 @@ HS_COLD_MEMBER inline PreparedRepeat prepare_repeat(math::Complex a,
 
 /**
  * @brief Affine overload; translation winds along the next stage's lattice.
+ * @tparam Form Parts to prepare; an omitted part gets its identity
+ *         coefficients.
+ * @tparam Repeat Whether to prepare the path-length repeat lattice.
  * @param warp The slot's parameters.
  * @param phase The slot's phase clock.
  * @param frame_rotation Accumulated frame rotation for the slot.
@@ -512,28 +543,40 @@ HS_COLD_MEMBER inline PreparedRepeat prepare_repeat(math::Complex a,
  *        the square `lattice_period` lattice and unwrapped path length.
  * @return Frame rotation and affine coefficients.
  */
+template <AffineForm Form = AffineForm::GENERAL, bool Repeat = true>
 HS_FLASH_INLINE inline PreparedAffineSlot
 prepare(const AffineParams &warp, float phase, float frame_rotation,
         const TranslationLattice &lattice) {
-  PreparedAffineSlot prepared{cosf(frame_rotation), sinf(frame_rotation), {}};
-  const float cycle_cos =
-      warp.scale_x == 1.0f && warp.scale_y == 1.0f && warp.shear == 0.0f
-          ? 1.0f
-          : cosf(math::TWO_PI_F * math::wrap_t(phase));
-  const TranslationLattice basis = affine_basis(warp, lattice);
-  const math::Complex turn = affine_turn_translation(warp, basis);
-  prepared.transform.affine = {
-      math::wrap_t(phase) * turn.re,
-      math::wrap_t(phase) * turn.im,
-      warp.scale_x == 1.0f ? 1.0f : 1.0f / powf(warp.scale_x, cycle_cos),
-      warp.scale_y == 1.0f ? 1.0f : 1.0f / powf(warp.scale_y, cycle_cos),
-      warp.shear * cycle_cos,
-      {}};
-  if (lattice.present()) {
-    const float repeat = std::round(warp.repeat_cells);
-    prepared.transform.affine.repeat =
-        prepare_repeat({repeat * basis.a.re, repeat * basis.a.im},
-                       {repeat * basis.b.re, repeat * basis.b.im});
+  PreparedAffineSlot prepared{1.0f, 0.0f, {{0.0f, 0.0f, 1.0f, 1.0f, 0.0f, {}}}};
+  if constexpr (includes(Form, AffineForm::ROTATES)) {
+    prepared.rotation_cos = cosf(frame_rotation);
+    prepared.rotation_sin = sinf(frame_rotation);
+  }
+  if constexpr (includes(Form, AffineForm::SCALES_SHEARS)) {
+    const float cycle_cos =
+        warp.scale_x == 1.0f && warp.scale_y == 1.0f && warp.shear == 0.0f
+            ? 1.0f
+            : cosf(math::TWO_PI_F * math::wrap_t(phase));
+    auto &affine = prepared.transform.affine;
+    affine.inverse_scale_x =
+        warp.scale_x == 1.0f ? 1.0f : 1.0f / powf(warp.scale_x, cycle_cos);
+    affine.inverse_scale_y =
+        warp.scale_y == 1.0f ? 1.0f : 1.0f / powf(warp.scale_y, cycle_cos);
+    affine.shear = warp.shear * cycle_cos;
+  }
+  if constexpr (includes(Form, AffineForm::TRANSLATES) || Repeat) {
+    const TranslationLattice basis = affine_basis(warp, lattice);
+    if constexpr (includes(Form, AffineForm::TRANSLATES)) {
+      const math::Complex turn = affine_turn_translation(warp, basis);
+      prepared.transform.affine.translation_x = math::wrap_t(phase) * turn.re;
+      prepared.transform.affine.translation_y = math::wrap_t(phase) * turn.im;
+    }
+    if (Repeat && lattice.present()) {
+      const float repeat = std::round(warp.repeat_cells);
+      prepared.transform.affine.repeat =
+          prepare_repeat({repeat * basis.a.re, repeat * basis.a.im},
+                         {repeat * basis.b.re, repeat * basis.b.im});
+    }
   }
   return prepared;
 }
@@ -689,22 +732,30 @@ repeat_offset(const math::Complex &delta, const PreparedRepeat &repeat) {
 /**
  * @brief Rotates into the affine frame, then undoes its scale and shear and
  *        subtracts its translation.
+ * @tparam Form Parts to evaluate; an omitted part is skipped as identity.
  * @tparam Prepared PreparedAffineSlot-shaped slot state.
  * @param input Plane coordinate.
  * @param prepared Frame rotation and affine coefficients.
  * @return Warped coordinate.
  */
-template <typename Prepared>
+template <AffineForm Form = AffineForm::GENERAL, typename Prepared>
 __attribute__((always_inline)) inline math::Complex
 affine_coords(const math::Complex &input, const Prepared &prepared) {
-  const float c = prepared.rotation_cos;
-  const float s = prepared.rotation_sin;
   const auto &affine = prepared.transform.affine;
-  const float rx = c * input.re + s * input.im;
-  const float ry = -s * input.re + c * input.im;
-  const float y = ry * affine.inverse_scale_y;
-  return {rx * affine.inverse_scale_x - affine.shear * y - affine.translation_x,
-          y - affine.translation_y};
+  math::Complex output = input;
+  if constexpr (includes(Form, AffineForm::ROTATES)) {
+    const float c = prepared.rotation_cos;
+    const float s = prepared.rotation_sin;
+    output = {c * input.re + s * input.im, -s * input.re + c * input.im};
+  }
+  if constexpr (includes(Form, AffineForm::SCALES_SHEARS)) {
+    const float y = output.im * affine.inverse_scale_y;
+    output = {output.re * affine.inverse_scale_x - affine.shear * y, y};
+  }
+  if constexpr (includes(Form, AffineForm::TRANSLATES))
+    output = {output.re - affine.translation_x,
+              output.im - affine.translation_y};
+  return output;
 }
 
 /**
@@ -712,6 +763,7 @@ affine_coords(const math::Complex &input, const Prepared &prepared) {
  *        fixed at compile time.
  * @tparam Reduction RECTANGULAR for an axis-aligned prepared repeat;
  *         GENERAL accepts any.
+ * @tparam Form Parts to evaluate; an omitted part is skipped as identity.
  * @tparam Prepared PreparedAffineSlot-shaped slot state.
  * @param input Plane coordinate.
  * @param prepared Frame rotation and affine coefficients.
@@ -719,11 +771,12 @@ affine_coords(const math::Complex &input, const Prepared &prepared) {
  *        prepared repeat lattice; else 0.
  * @return Warped coordinate and path length.
  */
-template <RepeatReduction Reduction, typename Prepared>
+template <RepeatReduction Reduction, AffineForm Form = AffineForm::GENERAL,
+          typename Prepared>
 __attribute__((always_inline)) inline WarpStepResult
 affine_frame(const math::Complex &input, const Prepared &prepared,
              bool path_length_required) {
-  const math::Complex output = affine_coords(input, prepared);
+  const math::Complex output = affine_coords<Form>(input, prepared);
   if (!path_length_required)
     return {output, 0.0f};
   return {output,
@@ -735,6 +788,7 @@ affine_frame(const math::Complex &input, const Prepared &prepared,
 /**
  * @brief Affine frame change whose path length is measured under the prepared
  *        repeat's reduction.
+ * @tparam Form Parts to evaluate; an omitted part is skipped as identity.
  * @tparam Prepared PreparedAffineSlot-shaped slot state.
  * @param input Plane coordinate.
  * @param prepared Frame rotation and affine coefficients.
@@ -742,11 +796,11 @@ affine_frame(const math::Complex &input, const Prepared &prepared,
  *        prepared repeat lattice; else 0.
  * @return Warped coordinate and path length.
  */
-template <typename Prepared>
+template <AffineForm Form = AffineForm::GENERAL, typename Prepared>
 __attribute__((always_inline)) inline WarpStepResult
 affine_frame(const math::Complex &input, const Prepared &prepared,
              bool path_length_required) {
-  const math::Complex output = affine_coords(input, prepared);
+  const math::Complex output = affine_coords<Form>(input, prepared);
   if (!path_length_required)
     return {output, 0.0f};
   return {output, displacement(repeat_offset(output - input,
@@ -1078,6 +1132,14 @@ template <typename State> struct AffineFrame : PrepareFromState<State> {
   /// Slot state `State::prepare` resolves.
   using Prepared = StatePrepared<State>;
 
+  /// Parts `State::affine_form` declares; GENERAL when it declares none.
+  static constexpr AffineForm FORM = [] {
+    if constexpr (requires { State::affine_form(); })
+      return State::affine_form();
+    else
+      return AffineForm::GENERAL;
+  }();
+
   /**
    * @brief Applies the affine frame change.
    * @param input Plane coordinate.
@@ -1089,10 +1151,11 @@ template <typename State> struct AffineFrame : PrepareFromState<State> {
   apply(const math::Complex &input, const ProjectionProvenance &,
         const FrameState &frame, const Prepared &prepared) {
     if constexpr (requires { State::repeat_reduction(); })
-      return affine_frame<State::repeat_reduction()>(
+      return affine_frame<State::repeat_reduction(), FORM>(
           input, prepared, State::path_length_required(frame));
     else
-      return affine_frame(input, prepared, State::path_length_required(frame));
+      return affine_frame<FORM>(input, prepared,
+                                State::path_length_required(frame));
   }
 };
 

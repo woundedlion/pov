@@ -416,19 +416,48 @@ inline bool assign_mobius(Params &params, std::string_view id, float value) {
 
 namespace ChainOp = Pullback::Interp::Op;
 
-/** @brief Instance key and path tracking of an affine warp stage. */
+/** @brief Instance key, path tracking and form of an affine warp stage. */
 template <typename Stage> struct AffineStageTracking {
   static constexpr bool AFFINE = false; ///< Not an affine warp stage.
 };
 /** @brief An affine warp stage over a keyed warp provider. */
 template <typename B, Pullback::ResourceKey Key, typename Family, bool Track,
-          Pullback::ResourceKey SourceKey>
+          Pullback::ResourceKey SourceKey, Pullback::AffineForm Form>
 struct AffineStageTracking<Pullback::Stage::Warp<Pullback::Warp::AffineFrame<
-    Pullback::WarpProvider<B, Key, Family, Track, SourceKey>>>> {
+    Pullback::WarpProvider<B, Key, Family, Track, SourceKey, Form>>>> {
   static constexpr bool AFFINE = true;                ///< An affine warp stage.
   static constexpr std::string_view KEY = Key.view(); ///< Instance key.
   static constexpr bool TRACK = Track;                ///< Tracks path length.
+  static constexpr Pullback::AffineForm FORM = Form;  ///< Compiled parts.
 };
+
+/** @brief Affine parts one preset's values move away from identity.
+ * @param values The preset's `values` object.
+ * @param label Label of the affine chain instance.
+ * @return ROTATES for a nonzero rotation rate, TRANSLATES for a nonzero
+ * rounded winding, SCALES_SHEARS for a non-unit scale or nonzero shear. */
+inline Pullback::AffineForm document_affine_form(const JsonValue &values,
+                                                 const std::string &label) {
+  const auto number = [&](const char *id, float identity) {
+    const JsonValue *value = values.find(label + "." + id);
+    if (value == nullptr)
+      return identity;
+    HS_EXPECT(value->kind == JsonValue::Kind::NUMBER,
+              "affine value is a number");
+    return static_cast<float>(value->number);
+  };
+  using Form = Pullback::AffineForm;
+  Form form = Form::IDENTITY;
+  if (number("rotation-rate", 0.0f) != 0.0f)
+    form = form | Form::ROTATES;
+  if (std::round(number("translation-x", 0.0f)) != 0.0f ||
+      std::round(number("translation-y", 0.0f)) != 0.0f)
+    form = form | Form::TRANSLATES;
+  if (number("scale-x", 1.0f) != 1.0f || number("scale-y", 1.0f) != 1.0f ||
+      number("shear", 0.0f) != 0.0f)
+    form = form | Form::SCALES_SHEARS;
+  return form;
+}
 
 /** @brief PALETTE_MODE_IDS entry for @p harmony, or null. */
 constexpr const char *palette_mode_id(PaletteHarmony harmony) {
@@ -1037,12 +1066,23 @@ inline void check_document_values(const char *name) {
     for (bool seen : departures)
       HS_EXPECT_TRUE(seen);
 
+  std::vector<std::pair<std::string, Pullback::AffineForm>> affine_forms;
+  for (const DocumentSlot &slot : slots)
+    if (slot.operator_id.starts_with("warp.affine."))
+      affine_forms.emplace_back(std::string(document_resource_key(slot)),
+                                Pullback::AffineForm::IDENTITY);
+
   for (size_t index = 0; index < FX::PRESET_IDS.size(); ++index) {
     HS_CONTEXT("preset", static_cast<int>(index));
     const JsonValue *values = preset_values(*presets, FX::PRESET_IDS[index]);
     HS_EXPECT_TRUE(values != nullptr);
     if (values == nullptr)
       continue;
+    for (auto &[key, form] : affine_forms)
+      for (const DocumentSlot &slot : slots)
+        if (slot.operator_id.starts_with("warp.affine.") &&
+            document_resource_key(slot) == key)
+          form = form | document_affine_form(*values, slot.label);
 
     if constexpr (!FX::ANIMATED_PROJECTION)
       for (const DocumentSlot &slot : slots)
@@ -1138,4 +1178,29 @@ inline void check_document_values(const char *name) {
     const Params expected = preset_params<FX>(index);
     verify_params_equal(built, expected);
   }
+
+  using Leaves = Pullback::ComposedDetail::PipelineLeaves<
+      typename FX::Spec::template Pipeline<
+          Pullback::ComposedDetail::DiscoveryBinding>>;
+  size_t compiled_affine = 0;
+  [&]<size_t... I>(std::index_sequence<I...>) {
+    (
+        [&]<typename Stage>() {
+          using Tracking = AffineStageTracking<Stage>;
+          if constexpr (Tracking::AFFINE) {
+            ++compiled_affine;
+            HS_CONTEXT(Tracking::KEY.data());
+            const auto document = std::find_if(
+                affine_forms.begin(), affine_forms.end(),
+                [](const auto &entry) { return entry.first == Tracking::KEY; });
+            HS_EXPECT(document != affine_forms.end(),
+                      "compiled affine stage has a document instance");
+            if (document != affine_forms.end())
+              HS_EXPECT(document->second == Tracking::FORM,
+                        "compiled affine form is the document's minimal form");
+          }
+        }.template operator()<typename Leaves::template StageAt<I>>(),
+        ...);
+  }(std::make_index_sequence<Leaves::STAGE_COUNT>{});
+  HS_EXPECT_EQ(compiled_affine, affine_forms.size());
 }

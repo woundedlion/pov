@@ -43,7 +43,8 @@ struct KaleidoscopeHexOilSpec : Pullback::Spec {
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
               Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
-          Pullback::AffineParams, B, "affine", false>::Type>,
+          Pullback::AffineParams, B, "affine", false,
+          Pullback::AffineForm::ROTATES>::Type>,
       Pullback::Stage::Sample<
           typename Pullback::SourcePolicyFor<Pullback::SpiralSourceParams,
                                              B>::Type,
