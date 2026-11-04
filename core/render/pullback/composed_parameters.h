@@ -422,9 +422,10 @@ struct AtlasProjectionParams : ProjectionParams {
   float coordinate_scale = 1.0f;               ///< Plane coordinate scale.
   float layout_scroll = 0.0f;                  ///< Peirce strip translation.
   float standard_parallel = math::PI_F / 4.0f; ///< Bonne reference latitude.
-  uint8_t layout = 1;                          ///< Peirce or Airocean layout.
-  uint8_t hemisphere = 0; ///< Gnomonic or Bonne hemisphere.
-  uint8_t frame = 1;      ///< Identity or animated projection frame.
+  float area_correction = 0.0f; ///< Polyhedral atlas blend toward equal area.
+  uint8_t layout = 1;           ///< Peirce or Airocean layout.
+  uint8_t hemisphere = 0;       ///< Gnomonic or Bonne hemisphere.
+  uint8_t frame = 1;            ///< Identity or animated projection frame.
   static constexpr auto FIELDS = concat_fields<AtlasProjectionParams>(
       ProjectionParams::FIELDS,
       std::array{
@@ -439,7 +440,11 @@ struct AtlasProjectionParams : ProjectionParams {
           Field<AtlasProjectionParams>{
               "standard-parallel", &AtlasProjectionParams::standard_parallel,
               "Standard Parallel", 0.0f, math::PI_F / 2.0f, FieldCurve::LERP,
-              FieldGate::STANDARD_PARALLEL}});
+              FieldGate::STANDARD_PARALLEL},
+          Field<AtlasProjectionParams>{
+              "area-correction", &AtlasProjectionParams::area_correction,
+              "Area Correction", 0.0f, 1.0f, FieldCurve::LERP,
+              FieldGate::AREA_CORRECTION}});
   static constexpr const char *FRAME_IDS[] = {"identity", "spin-wander"};
   static constexpr const char *LAYOUT_IDS[] = {"diamond", "square",
                                                "horizontal", "vertical"};

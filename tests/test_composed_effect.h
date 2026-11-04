@@ -145,6 +145,8 @@ template <typename FX> constexpr bool gate_open(Pullback::FieldGate gate) {
     return FX::Metadata::PROJECTION == Pullback::ProjectionKind::PEIRCE;
   case Pullback::FieldGate::STANDARD_PARALLEL:
     return FX::Metadata::PROJECTION == Pullback::ProjectionKind::BONNE;
+  case Pullback::FieldGate::AREA_CORRECTION:
+    return Pullback::is_polyhedral_atlas(FX::Metadata::PROJECTION);
   }
   return false;
 }

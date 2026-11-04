@@ -626,6 +626,8 @@ template <typename Spec> constexpr bool field_gate_open(FieldGate gate) {
     return MetadataFor<Spec>::PROJECTION == ProjectionKind::PEIRCE;
   case FieldGate::STANDARD_PARALLEL:
     return MetadataFor<Spec>::PROJECTION == ProjectionKind::BONNE;
+  case FieldGate::AREA_CORRECTION:
+    return is_polyhedral_atlas(MetadataFor<Spec>::PROJECTION);
   }
   return false;
 }

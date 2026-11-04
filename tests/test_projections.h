@@ -833,7 +833,7 @@ template <typename Solid> inline void expect_polyhedral_atlas_sampling() {
     const float radius = sqrtf(fmaxf(0.0f, 1.0f - y * y));
     const float angle = 2.39996323f * static_cast<float>(index);
     const math::Vector v(radius * cosf(angle), y, radius * sinf(angle));
-    const auto actual = polyhedral_atlas_projection(atlas, v, 1.0f, 0.0f);
+    const auto actual = polyhedral_atlas_projection(atlas, v, 1.0f, 0.0f, 0.0f);
     size_t best = 0;
     for (size_t f = 1; f < F; ++f)
       if (math::dot(v, atlas.selectors[f]) >
@@ -856,11 +856,77 @@ template <typename Solid> inline void expect_polyhedral_atlas_sampling() {
                  projection_boundary(ProjectionBoundary::CUT));
     const float c = cosf(0.53f), sn = sinf(0.53f);
     const math::Vector rotated(v.x * c - v.z * sn, v.y, v.z * c + v.x * sn);
-    const auto turned = polyhedral_atlas_projection(atlas, rotated, c, sn);
+    const auto turned =
+        polyhedral_atlas_projection(atlas, rotated, c, sn, 0.0f);
     HS_EXPECT_EQ(turned.region_id, actual.region_id);
     HS_EXPECT_NEAR(turned.coords.re, actual.coords.re, 2e-5f);
     HS_EXPECT_NEAR(turned.coords.im, actual.coords.im, 2e-5f);
   }
+}
+
+template <typename Solid> inline void expect_polyhedral_atlas_correction() {
+  const auto &atlas = POLYHEDRAL_ATLAS<Solid>;
+  constexpr size_t F = Solid::face_counts.size();
+  constexpr int SAMPLES = 1024;
+  constexpr float STEP = 2e-3f;
+  for (int index = 0; index < SAMPLES; ++index) {
+    const float y = 1.0f - 2.0f * (index + 0.5f) / SAMPLES;
+    const float radius = sqrtf(fmaxf(0.0f, 1.0f - y * y));
+    const float angle = 2.39996323f * static_cast<float>(index);
+    const math::Vector v(radius * cosf(angle), y, radius * sinf(angle));
+    const auto base = polyhedral_atlas_projection(atlas, v, 1.0f, 0.0f, 0.0f);
+    const size_t face = base.region_id;
+    const math::Vector normal = atlas.selectors[face].normalized();
+    const float theta =
+        atan2f(math::cross(v, normal).length(), math::dot(v, normal));
+    const float lambert =
+        theta < 1e-4f ? 1.0f : 2.0f * sinf(0.5f * theta) / tanf(theta);
+    const math::Complex center = atlas.centers[face];
+    for (float correction : {0.35f, 1.0f}) {
+      const auto actual =
+          polyhedral_atlas_projection(atlas, v, 1.0f, 0.0f, correction);
+      const float shrink = 1.0f + correction * (lambert - 1.0f);
+      HS_EXPECT_EQ(actual.region_id, face);
+      HS_EXPECT_NEAR(actual.coords.re - center.re,
+                     (base.coords.re - center.re) * shrink, 2e-5f);
+      HS_EXPECT_NEAR(actual.coords.im - center.im,
+                     (base.coords.im - center.im) * shrink, 2e-5f);
+      HS_EXPECT_NEAR(actual.fade_edge_distance,
+                     base.fade_edge_distance * shrink, 2e-5f);
+      HS_EXPECT_GE(atlas_tile_distance(atlas, face, actual.coords), -1e-5f);
+      for (size_t f = 0; f < F; ++f)
+        if (f != face)
+          HS_EXPECT_LT(atlas_tile_distance(atlas, f, actual.coords), 1e-5f);
+    }
+    const math::Vector east =
+        math::cross(math::Vector(0.0f, 1.0f, 0.0f), v).length() > 0.1f
+            ? math::cross(math::Vector(0.0f, 1.0f, 0.0f), v).normalized()
+            : math::cross(math::Vector(1.0f, 0.0f, 0.0f), v).normalized();
+    const math::Vector north = math::cross(v, east);
+    const math::Vector a = v, b = (v + east * STEP).normalized(),
+                       c = (v + north * STEP).normalized();
+    const auto pa = polyhedral_atlas_projection(atlas, a, 1.0f, 0.0f, 1.0f);
+    const auto pb = polyhedral_atlas_projection(atlas, b, 1.0f, 0.0f, 1.0f);
+    const auto pc = polyhedral_atlas_projection(atlas, c, 1.0f, 0.0f, 1.0f);
+    if (pb.region_id != face || pc.region_id != face)
+      continue;
+    const float planar =
+        fabsf((pb.coords.re - pa.coords.re) * (pc.coords.im - pa.coords.im) -
+              (pb.coords.im - pa.coords.im) * (pc.coords.re - pa.coords.re));
+    const float spherical = math::cross(b - a, c - a).length();
+    const float height = 1.0f / atlas.inverse_heights[face];
+    HS_EXPECT_NEAR(planar / spherical / (height * height), 1.0f, 1e-2f);
+  }
+}
+
+/** @brief Area correction pulls each point toward its tile center by the
+ *  equal-area azimuthal ratio and makes full correction area-preserving. */
+inline void test_polyhedral_atlas_area_correction() {
+  expect_polyhedral_atlas_correction<Solids::Tetrahedron>();
+  expect_polyhedral_atlas_correction<Solids::Cube>();
+  expect_polyhedral_atlas_correction<Solids::Octahedron>();
+  expect_polyhedral_atlas_correction<Solids::Dodecahedron>();
+  expect_polyhedral_atlas_correction<Solids::Icosahedron>();
 }
 
 /** @brief Every direction lands inside the tile of the face its ray crosses,
@@ -883,7 +949,8 @@ template <typename Solid> inline void expect_polyhedral_atlas_tiles() {
   float upper_south = 1.0f, lower_north = -1.0f;
   for (size_t f = 0; f < F; ++f) {
     const math::Vector normal = atlas.selectors[f].normalized();
-    const auto center = polyhedral_atlas_projection(atlas, normal, 1.0f, 0.0f);
+    const auto center =
+        polyhedral_atlas_projection(atlas, normal, 1.0f, 0.0f, 0.0f);
     HS_EXPECT_EQ(center.region_id, f);
     HS_EXPECT_NEAR(center.coords.re, atlas.centers[f].re, 1e-5f);
     HS_EXPECT_NEAR(center.coords.im, atlas.centers[f].im, 1e-5f);
@@ -897,7 +964,7 @@ template <typename Solid> inline void expect_polyhedral_atlas_tiles() {
       continue;
     const math::Vector up =
         (normal + math::Vector(0.0f, 1.0f, 0.0f) * 0.05f).normalized();
-    const auto above = polyhedral_atlas_projection(atlas, up, 1.0f, 0.0f);
+    const auto above = polyhedral_atlas_projection(atlas, up, 1.0f, 0.0f, 0.0f);
     HS_EXPECT_EQ(above.region_id, f);
     HS_EXPECT_NEAR(above.coords.re, center.coords.re, 1e-5f);
     HS_EXPECT_GT(above.coords.im, center.coords.im);
@@ -916,9 +983,9 @@ template <typename Solid> inline void expect_polyhedral_atlas_tiles() {
     const math::Vector p0 = (normal + a * 0.3f).normalized();
     const math::Vector p1 = (normal + b * 0.3f).normalized();
     const math::Vector mid = (p0 + p1).normalized();
-    const auto q0 = polyhedral_atlas_projection(atlas, p0, 1.0f, 0.0f);
-    const auto q1 = polyhedral_atlas_projection(atlas, p1, 1.0f, 0.0f);
-    const auto qm = polyhedral_atlas_projection(atlas, mid, 1.0f, 0.0f);
+    const auto q0 = polyhedral_atlas_projection(atlas, p0, 1.0f, 0.0f, 0.0f);
+    const auto q1 = polyhedral_atlas_projection(atlas, p1, 1.0f, 0.0f, 0.0f);
+    const auto qm = polyhedral_atlas_projection(atlas, mid, 1.0f, 0.0f, 0.0f);
     if (q0.region_id != f || q1.region_id != f || qm.region_id != f)
       continue;
     const float cross =
@@ -947,6 +1014,7 @@ inline int run_projections_tests() {
   HS_RUN(test_s2_face_boundaries);
   HS_RUN(test_polyhedral_atlas_sampling);
   HS_RUN(test_polyhedral_atlas_tiles);
+  HS_RUN(test_polyhedral_atlas_area_correction);
   HS_RUN(test_bonne_sinusoidal_limit);
   HS_RUN(test_bonne_polar_limit_is_finite);
   HS_RUN(test_peirce_elliptic_integral_shape);

@@ -108,6 +108,7 @@ enum class FieldGate : uint8_t {
   COORDINATE_SCALE,    ///< Atlas projections with an authored coordinate scale.
   LAYOUT_SCROLL,       ///< Peirce strip layouts.
   STANDARD_PARALLEL,   ///< Bonne reference latitude.
+  AREA_CORRECTION,     ///< Polyhedral atlas blend toward equal area.
   OUTER_CAMERA         ///< Shared outer-camera stage.
 };
 

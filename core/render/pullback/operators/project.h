@@ -523,8 +523,18 @@ template <> struct PolyhedralAtlasIdentity<Solids::Icosahedron> {
 };
 
 /** @brief Parameter family of the polyhedral atlas operators. */
-using PolyhedralAtlasChainParams =
-    ScaledProjectParams<RegularProjectChainParams>;
+struct PolyhedralAtlasChainParams
+    : ScaledProjectParams<RegularProjectChainParams> {
+  /** Blend toward equal area, [0, 1]. */
+  float area_correction = 0.0f;
+  static constexpr auto FIELDS = concat_fields<PolyhedralAtlasChainParams>(
+      ScaledProjectParams<RegularProjectChainParams>::FIELDS,
+      std::array{Field<PolyhedralAtlasChainParams>{
+          "area-correction", &PolyhedralAtlasChainParams::area_correction,
+          "Area Correction", 0.0f, 1.0f, FieldCurve::LERP}});
+};
+static_assert(field_ids_unique<PolyhedralAtlasChainParams>());
+static_assert(field_defaults_in_range<PolyhedralAtlasChainParams>());
 
 /** @brief SPHERE-to-PLANE crossing: central projection onto a solid's
     faces, laid out as separate tiles.
@@ -544,11 +554,11 @@ struct ProjectPolyhedralAtlas
   static ProjectionResult project(const math::Vector &local,
                                   const PolyhedralAtlasChainParams &params,
                                   const MeridianProjectOrientation &prepared) {
-    return Projection::from_kernel(projections::polyhedral_atlas_projection(
-                                       projections::POLYHEDRAL_ATLAS<Solid>,
-                                       local, prepared.meridian_cos,
-                                       prepared.meridian_sin),
-                                   params.coordinate_scale);
+    return Projection::from_kernel(
+        projections::polyhedral_atlas_projection(
+            projections::POLYHEDRAL_ATLAS<Solid>, local, prepared.meridian_cos,
+            prepared.meridian_sin, params.area_correction),
+        params.coordinate_scale);
   }
 };
 

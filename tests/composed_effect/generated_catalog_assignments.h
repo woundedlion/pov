@@ -420,6 +420,7 @@ inline void catalog_assignments_project_tetrahedral_v1() {
   params.wander = 0.0f;
   params.central_meridian = 0.0f;
   params.coordinate_scale = 1.0f;
+  params.area_correction = 0.0f;
   params.frame = 1;
   params.frame = 0;
   params.frame = 1;
@@ -432,6 +433,7 @@ inline void catalog_assignments_project_cubic_v1() {
   params.wander = 0.0f;
   params.central_meridian = 0.0f;
   params.coordinate_scale = 1.0f;
+  params.area_correction = 0.0f;
   params.frame = 1;
   params.frame = 0;
   params.frame = 1;
@@ -444,6 +446,7 @@ inline void catalog_assignments_project_octahedral_v1() {
   params.wander = 0.0f;
   params.central_meridian = 0.0f;
   params.coordinate_scale = 1.0f;
+  params.area_correction = 0.0f;
   params.frame = 1;
   params.frame = 0;
   params.frame = 1;
@@ -456,6 +459,7 @@ inline void catalog_assignments_project_dodecahedral_v1() {
   params.wander = 0.0f;
   params.central_meridian = 0.0f;
   params.coordinate_scale = 1.0f;
+  params.area_correction = 0.0f;
   params.frame = 1;
   params.frame = 0;
   params.frame = 1;
@@ -468,6 +472,7 @@ inline void catalog_assignments_project_icosahedral_v1() {
   params.wander = 0.0f;
   params.central_meridian = 0.0f;
   params.coordinate_scale = 1.0f;
+  params.area_correction = 0.0f;
   params.frame = 1;
   params.frame = 0;
   params.frame = 1;

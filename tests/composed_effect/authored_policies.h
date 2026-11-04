@@ -339,6 +339,8 @@ inline void verify_authored_projection() {
     params.layout_scroll = chain.layout_scroll = -0.37f;
   if constexpr (requires { chain.standard_parallel; })
     params.standard_parallel = chain.standard_parallel = 0.63f;
+  if constexpr (requires { chain.area_correction; })
+    params.area_correction = chain.area_correction = 0.58f;
   params.frame = chain.frame = 0;
   const int LAYOUTS = Kind == ProjectionKind::PEIRCE     ? 4
                       : Kind == ProjectionKind::AIROCEAN ? 2

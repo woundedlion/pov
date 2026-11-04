@@ -531,7 +531,7 @@ struct AuthoredProjection
       return Projection::from_kernel(
           projections::polyhedral_atlas_projection(
               projections::POLYHEDRAL_ATLAS<typename AtlasSolidFor<Kind>::Type>,
-              input, prepared.cosine, prepared.sine),
+              input, prepared.cosine, prepared.sine, params.area_correction),
           params.coordinate_scale);
     else
       return Projection::gnomonic(

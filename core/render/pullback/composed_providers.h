@@ -201,6 +201,12 @@ struct ProjectionProvider {
   static float standard_parallel(const FrameState &frame) {
     return frame.params.template get<"projection">().standard_parallel;
   }
+  /** @brief Polyhedral atlas area correction.
+   * @param frame Bound frame.
+   * @return Authored blend toward equal area. */
+  static float area_correction(const FrameState &frame) {
+    return frame.params.template get<"projection">().area_correction;
+  }
 };
 
 /** @brief Reads an independently keyed lens family.

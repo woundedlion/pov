@@ -112,6 +112,9 @@ struct AtlasProjMirror : ProjMirrorBase {
   static float coordinate_scale(const ProjMirrorFrame &frame) {
     return frame.atlas.coordinate_scale;
   }
+  static float area_correction(const ProjMirrorFrame &frame) {
+    return frame.atlas.area_correction;
+  }
 };
 
 inline bool is_atlas_operator(std::string_view id) {

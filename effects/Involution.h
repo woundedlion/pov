@@ -103,7 +103,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot parameter layout version.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off

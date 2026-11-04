@@ -862,7 +862,8 @@ struct PolyhedralAtlas
   /// Whether cut distances are measured.
   static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
 
-  /** @brief Whether the provider supplies the projection frame and scale.
+  /** @brief Whether the provider supplies the projection frame, scale and
+   *         area correction.
    *  @tparam CandidateBinding Binding being checked. */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
@@ -870,6 +871,7 @@ struct PolyhedralAtlas
       requires(const typename CandidateBinding::FrameState &frame) {
         { State::central_meridian(frame) } -> std::same_as<float>;
         { State::coordinate_scale(frame) } -> std::same_as<float>;
+        { State::area_correction(frame) } -> std::same_as<float>;
       };
 
   /** @brief Projects a direction in the projection frame.
@@ -882,7 +884,8 @@ struct PolyhedralAtlas
                                   const Prepared &prepared) {
     return from_kernel(projections::polyhedral_atlas_projection(
                            projections::POLYHEDRAL_ATLAS<Solid>, input,
-                           prepared.cosine, prepared.sine),
+                           prepared.cosine, prepared.sine,
+                           State::area_correction(frame)),
                        State::coordinate_scale(frame));
   }
 };

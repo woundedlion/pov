@@ -44,6 +44,9 @@ template <size_t FACES, size_t MAX_SIDES> struct PolyhedralAtlas {
   std::array<math::Vector, FACES> y_axes{};
   /** Atlas position of each face plane's closest point to the origin. */
   std::array<math::Complex, FACES> centers{};
+  /** Reciprocal of each face plane's distance from the origin, in atlas
+   *  units. */
+  std::array<float, FACES> inverse_heights{};
   /** Each tile's sides; side `k` runs from vertex `k` to vertex `k + 1`. */
   std::array<std::array<AtlasSide, MAX_SIDES>, FACES> sides{};
   /** Side count of each face. */
@@ -141,10 +144,12 @@ template <typename Solid> constexpr auto make_polyhedral_atlas() {
   std::array<math::Vector, F> e1{};
   std::array<math::Vector, F> e2{};
   std::array<size_t, F> order{};
+  std::array<float, F> heights{};
   float circumradius = 0.0f;
   for (size_t f = 0; f < F; ++f) {
     normals[f] = normal_of(vertices, f);
     const float distance = math::dot(normals[f], vertices[index(f, 0)]);
+    heights[f] = distance;
     atlas.selectors[f] = normals[f] / distance;
     e1[f] = unit(vertices[index(f, 0)] - normals[f] * distance);
     e2[f] = math::cross(normals[f], e1[f]);
@@ -190,6 +195,7 @@ template <typename Solid> constexpr auto make_polyhedral_atlas() {
     atlas.x_axes[f] = (e1[f] * c - e2[f] * s) * scale;
     atlas.y_axes[f] = (e1[f] * s + e2[f] * c) * scale;
     atlas.centers[f] = center;
+    atlas.inverse_heights[f] = 1.0f / (heights[f] * scale);
     for (size_t k = 0; k < Solid::face_counts[f]; ++k) {
       const math::Vector &a = vertices[index(f, k)];
       const math::Vector &b = vertices[index(f, k + 1)];
@@ -219,17 +225,21 @@ inline constexpr auto POLYHEDRAL_ATLAS = make_polyhedral_atlas<Solid>();
  * @param v Unit direction on the sphere.
  * @param meridian_cos Cosine of the central meridian.
  * @param meridian_sin Sine of the central meridian.
+ * @param area_correction Blend in [0, 1] from central projection toward the
+ *        equal-area azimuthal projection about each face center.
  * @return Atlas coordinates, with `region_id` set to the face, the distance to
  *         its nearest side, and `edge_class` `face * MAX_SIDES + side`.
  * @details Each direction is centrally projected onto the plane of the face
- * its ray crosses, so great circles are straight within a tile. Every side
- * is a cut.
+ * its ray crosses, so great circles are straight within an uncorrected tile.
+ * Correction pulls points toward the tile center, matching the central scale
+ * there; at 1 the tile is the face's Lambert azimuthal equal-area image, with
+ * curved sides. The side distance shrinks with its point. Every side is a cut.
  */
 template <size_t FACES, size_t MAX_SIDES>
 HS_O3_FN inline ProjectionKernelResult
 polyhedral_atlas_projection(const PolyhedralAtlas<FACES, MAX_SIDES> &atlas,
                             const math::Vector &v, float meridian_cos,
-                            float meridian_sin) {
+                            float meridian_sin, float area_correction) {
   const math::Vector p(v.x * meridian_cos + v.z * meridian_sin, v.y,
                        v.z * meridian_cos - v.x * meridian_sin);
   uint8_t face = 0;
@@ -242,10 +252,10 @@ polyhedral_atlas_projection(const PolyhedralAtlas<FACES, MAX_SIDES> &atlas,
     }
   }
   const float inverse = 1.0f / nearest;
-  const float x =
-      math::dot(p, atlas.x_axes[face]) * inverse + atlas.centers[face].re;
-  const float y =
-      math::dot(p, atlas.y_axes[face]) * inverse + atlas.centers[face].im;
+  const math::Complex &center = atlas.centers[face];
+  const float u = math::dot(p, atlas.x_axes[face]) * inverse;
+  const float w = math::dot(p, atlas.y_axes[face]) * inverse;
+  const float x = u + center.re, y = w + center.im;
   uint8_t side = 0;
   float distance = NO_EDGE_DISTANCE;
   for (uint8_t k = 0; k < atlas.side_counts[face]; ++k) {
@@ -256,11 +266,20 @@ polyhedral_atlas_projection(const PolyhedralAtlas<FACES, MAX_SIDES> &atlas,
       side = k;
     }
   }
-  return {.coords = math::Complex(x, y),
+  float shrink = 1.0f;
+  if (area_correction != 0.0f) {
+    const float reciprocal_height = atlas.inverse_heights[face];
+    const float secant =
+        sqrtf(1.0f + (u * u + w * w) * reciprocal_height * reciprocal_height);
+    shrink +=
+        area_correction * (sqrtf(2.0f / (secant * (secant + 1.0f))) - 1.0f);
+  }
+  return {.coords =
+              math::Complex(u * shrink + center.re, w * shrink + center.im),
           .region_id = face,
           .component_id = 0,
           .boundary_flags = projection_boundary(ProjectionBoundary::CUT),
-          .fade_edge_distance = fmaxf(0.0f, distance),
+          .fade_edge_distance = fmaxf(0.0f, distance) * shrink,
           .flags = 0,
           .traits = projection_traits(ProjectionTrait::CUT),
           .edge_class = static_cast<uint8_t>(face * MAX_SIDES + side)};

@@ -205,7 +205,10 @@ correction and its own face layout.
 Smaller faces distort less. A dodecahedral pentagon's area scale stays within a
 factor of two from center to corner, close to what S2's quadratic correction
 achieves on the cube, while a tetrahedral tile stretches strongly toward its
-corners. In the dodecahedral atlas the upper row holds the north face and the
+corners. **Area Correction** (0–1, default 0) pulls each point toward its tile
+center: at 1 every tile is its face's Lambert azimuthal equal-area image, so
+area is preserved exactly and the tile sides curve; on the cube, 0.7 matches
+S2's area variation. The edge-fade distance shrinks with the point it measures. In the dodecahedral atlas the upper row holds the north face and the
 five faces around it; the lower row holds the southern ring and the south
 face.
 
