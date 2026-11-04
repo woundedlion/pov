@@ -87,8 +87,6 @@ SECTIONS
 		*(.text.hot*)
 		/* Authored topology specializations execute from cached flash. */
 		*(.text.*Authored*)
-		*(.text.*WarpFest*)
-		*(.text.*GlitchLace*)
 		*(.text.*Involution*)
 		/* Sections without source-level cold annotations: generated ctors
 		 * (Animation graph nodes, PolyMesh), sort instantiations from

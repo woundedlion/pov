@@ -65,9 +65,7 @@
   X(Comets)                                                                    \
   X(Millefiori)                                                                \
   X(GridSpace)                                                                 \
-  X(WarpFest)                                                                  \
   X(Involution)                                                                \
-  X(GlitchLace)                                                                \
   X(GridWorms)                                                                 \
   X(HyperLattice)                                                              \
   X(AshCloud)                                                                  \
@@ -157,9 +155,7 @@ constexpr int hs_preset_window_seconds() {
   X(KaleidoscopeMandala, hs_preset_window_seconds<KaleidoscopeMandala>())      \
   X(Millefiori, 60)                                                            \
   X(GridSpace, 60)                                                             \
-  X(WarpFest, hs_preset_window_seconds<WarpFest>())                            \
   X(Involution, 60)                                                            \
-  X(GlitchLace, 60)                                                            \
   X(GridWorms, 60)                                                             \
   X(KaleidoscopeMelt, 30)                                                      \
   X(ChromaticLichen, 30)                                                       \

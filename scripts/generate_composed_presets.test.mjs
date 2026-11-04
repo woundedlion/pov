@@ -267,20 +267,6 @@ test('operator bindings preserve authored resource keys and native member names'
   ]);
 });
 
-test('WarpFest retains live displacement selectors and per-preset harmony', async () => {
-  const authored = JSON.parse(await readFile(new URL('../patterns/warp_fest.shader.json', import.meta.url), 'utf8'));
-  const compiled = compileShaderDocument(authored, { catalog });
-  assert.equal(compiled.status, 'VALID');
-  const generated = generatedSections(compiled, undefined, { authoredTopology: true });
-  assert.match(generated.params, /get<"color">\(\)\.palette_mode = 2;/);
-  assert.match(generated.params, /get<"displace">\(\)\.symmetry = 3;/);
-  assert.match(generated.params, /get<"displace">\(\)\.strength = 0\.24393544f;/);
-  assert.match(generated.params, /Pattern::SourceKind::DISPLACEMENT/);
-  assert.match(generated.identity, /if \(resource == "outer_warp"\) return "warp1";/);
-  assert.match(generated.identity, /if \(resource == "source"\) return "sample";/);
-});
-
-
 test('authored topology emits each runtime catalog choice as its stored selector', () => {
   let checked = 0;
   for (const operator of catalog.operators) {
@@ -349,7 +335,7 @@ test('authored rotations retain independent keys and per-preset spin speeds', as
     ['near.wander', '0.25f'], ['near.spin_speed', '0.03125f'],
     ['world.wander', '0.75f'], ['world.spin_speed', '0.015625f'],
   ]);
-  const authored = JSON.parse(await readFile(new URL('../patterns/warp_fest.shader.json', import.meta.url), 'utf8'));
+  const authored = JSON.parse(await readFile(new URL('../patterns/kaleidoscope_mandala.shader.json', import.meta.url), 'utf8'));
   const operator = catalog.operators.find(operator => operator.id === 'sphere.rotate.v2');
   authored.descriptor.parameters.push(declarationFromCatalogField('camera', operator.params.find(field => field.id === 'spin-speed'), operator.id));
   authored.descriptor.serialization.fields.push('camera.spin-speed');

@@ -75,8 +75,6 @@ using TrackedFixture = CosmicEyeball<SMALL_W, SMALL_H>;
 static_assert(TrackedFixture::Metadata::PATH_TRACKED);
 static_assert(CoverageFixture::Metadata::PATH_TRACKED);
 static_assert(CoverageFixture::Metadata::OUTER_CAMERA);
-static_assert(!WarpFest<SMALL_W, SMALL_H>::Metadata::OUTER_CAMERA);
-static_assert(!GlitchLace<SMALL_W, SMALL_H>::Metadata::OUTER_CAMERA);
 static_assert(!Involution<SMALL_W, SMALL_H>::Metadata::OUTER_CAMERA);
 
 template <typename FX> struct TraitsOf {
@@ -1024,15 +1022,8 @@ inline void test_ash_cloud_document_pipeline() {
 #include "tests/composed_effect/authored_policies.h"
 /** @brief Promoted pixels match the authored document-built chains. */
 inline void test_promoted_document_pipelines() {
-  static_assert(WarpFest<SMALL_W, SMALL_H>::authored_instance("outer_warp") ==
-                "warp1");
-  static_assert(GlitchLace<SMALL_W, SMALL_H>::authored_instance("outer_warp") ==
-                "warp");
   static_assert(Involution<SMALL_W, SMALL_H>::authored_instance("source") ==
                 "sample");
-  composed_chain_tests::verify_export<WarpFest<SMALL_W, SMALL_H>>(0);
-  composed_chain_tests::verify_export<WarpFest<SMALL_W, SMALL_H>>(1);
-  composed_chain_tests::verify_export<GlitchLace<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<Involution<SMALL_W, SMALL_H>>(0);
 }
 
