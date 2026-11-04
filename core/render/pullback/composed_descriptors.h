@@ -621,7 +621,7 @@ template <typename Spec> constexpr bool field_gate_open(FieldGate gate) {
                ProjectionKind::PEIRCE_SQUARE_FAST ||
            MetadataFor<Spec>::PROJECTION == ProjectionKind::BONNE ||
            MetadataFor<Spec>::PROJECTION == ProjectionKind::AIROCEAN ||
-           MetadataFor<Spec>::PROJECTION == ProjectionKind::DODECAHEDRAL;
+           is_polyhedral_atlas(MetadataFor<Spec>::PROJECTION);
   case FieldGate::LAYOUT_SCROLL:
     return MetadataFor<Spec>::PROJECTION == ProjectionKind::PEIRCE;
   case FieldGate::STANDARD_PARALLEL:

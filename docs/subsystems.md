@@ -194,14 +194,20 @@ face nearest the north pole is turned onto the pole, each tile turns north up,
 and tiles fill two rows ordered by latitude and then longitude. Coordinates
 are in units of the solid's edge length.
 
-The shader tool exposes the dodecahedron as **Dodecahedral Atlas**
-(`project.dodecahedral.v1`; `Pullback::Projection::Dodecahedral` and
-`ProjectionKind::DODECAHEDRAL` for authored effects), with central meridian,
-coordinate scale, and identity or spin/wander framing. The upper row holds the
-north face and the five faces around it; the lower row holds the southern ring
-and the south face. Central projection alone keeps a pentagon's area scale
-within a factor of two from center to corner, close to what S2's quadratic
-correction achieves on the cube, so no further warp is applied.
+The shader tool exposes each Platonic solid as an atlas operator:
+**Tetrahedral**, **Cubic**, **Octahedral**, **Dodecahedral** and **Icosahedral
+Atlas** (`project.tetrahedral.v1` through `project.icosahedral.v1`). Each has
+central meridian, coordinate scale, and identity or spin/wander framing, and
+matching `Pullback::Projection` aliases and `ProjectionKind` values serve
+authored effects. Cubic Atlas is the unwarped cube; S2 adds its quadratic
+correction and its own face layout.
+
+Smaller faces distort less. A dodecahedral pentagon's area scale stays within a
+factor of two from center to corner, close to what S2's quadratic correction
+achieves on the cube, while a tetrahedral tile stretches strongly toward its
+corners. In the dodecahedral atlas the upper row holds the north face and the
+five faces around it; the lower row holds the southern ring and the south
+face.
 
 ### Space-time rendering
 

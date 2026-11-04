@@ -80,8 +80,16 @@ constexpr std::string_view projection_operator_id(ProjectionKind projection) {
     return "project.bonne.v3";
   case ProjectionKind::AIROCEAN:
     return "project.airocean.v3";
+  case ProjectionKind::TETRAHEDRAL:
+    return "project.tetrahedral.v1";
+  case ProjectionKind::CUBIC:
+    return "project.cubic.v1";
+  case ProjectionKind::OCTAHEDRAL:
+    return "project.octahedral.v1";
   case ProjectionKind::DODECAHEDRAL:
     return "project.dodecahedral.v1";
+  case ProjectionKind::ICOSAHEDRAL:
+    return "project.icosahedral.v1";
   case ProjectionKind::NONE:
     return {};
   }
@@ -414,6 +422,30 @@ struct ProjectionPolicyFor<ProjectionKind::FOLDED_SINUSOIDAL, B> {
   using Type = Pullback::Projection::FoldedSinusoidal<ProjectionProvider<B>>;
 };
 
+/** @brief Solid table of a polyhedral atlas projection, exposed as `Type`.
+ * @tparam Kind Polyhedral atlas projection. */
+template <ProjectionKind Kind> struct AtlasSolidFor;
+/** @brief Tetrahedral atlas solid. */
+template <> struct AtlasSolidFor<ProjectionKind::TETRAHEDRAL> {
+  using Type = Solids::Tetrahedron; ///< Solid table.
+};
+/** @brief Cubic atlas solid. */
+template <> struct AtlasSolidFor<ProjectionKind::CUBIC> {
+  using Type = Solids::Cube; ///< Solid table.
+};
+/** @brief Octahedral atlas solid. */
+template <> struct AtlasSolidFor<ProjectionKind::OCTAHEDRAL> {
+  using Type = Solids::Octahedron; ///< Solid table.
+};
+/** @brief Dodecahedral atlas solid. */
+template <> struct AtlasSolidFor<ProjectionKind::DODECAHEDRAL> {
+  using Type = Solids::Dodecahedron; ///< Solid table.
+};
+/** @brief Icosahedral atlas solid. */
+template <> struct AtlasSolidFor<ProjectionKind::ICOSAHEDRAL> {
+  using Type = Solids::Icosahedron; ///< Solid table.
+};
+
 /** @brief Runtime topology for authored atlas projections.
  * @tparam Kind Projection algorithm.
  * @tparam State Parameter provider. */
@@ -495,11 +527,11 @@ struct AuthoredProjection
       return Projection::airocean(input, params.layout == 1, true,
                                   params.coordinate_scale, prepared.cosine,
                                   prepared.sine);
-    else if constexpr (Kind == ProjectionKind::DODECAHEDRAL)
+    else if constexpr (is_polyhedral_atlas(Kind))
       return Projection::from_kernel(
           projections::polyhedral_atlas_projection(
-              projections::POLYHEDRAL_ATLAS<Solids::Dodecahedron>, input,
-              prepared.cosine, prepared.sine),
+              projections::POLYHEDRAL_ATLAS<typename AtlasSolidFor<Kind>::Type>,
+              input, prepared.cosine, prepared.sine),
           params.coordinate_scale);
     else
       return Projection::gnomonic(
@@ -517,7 +549,7 @@ template <ProjectionKind ProjectionV, typename B>
            ProjectionV == ProjectionKind::PEIRCE_SQUARE_FAST ||
            ProjectionV == ProjectionKind::BONNE ||
            ProjectionV == ProjectionKind::AIROCEAN ||
-           ProjectionV == ProjectionKind::DODECAHEDRAL ||
+           is_polyhedral_atlas(ProjectionV) ||
            ProjectionV == ProjectionKind::GNOMONIC)
 struct ProjectionPolicyFor<ProjectionV, B> {
   using Type = AuthoredProjection<ProjectionV,

@@ -414,7 +414,55 @@ inline void catalog_assignments_project_s2_v1() {
   (void)params;
 }
 
+inline void catalog_assignments_project_tetrahedral_v1() {
+  Pullback::AtlasProjectionParams params;
+  params.spin_rate = 0.0f;
+  params.wander = 0.0f;
+  params.central_meridian = 0.0f;
+  params.coordinate_scale = 1.0f;
+  params.frame = 1;
+  params.frame = 0;
+  params.frame = 1;
+  (void)params;
+}
+
+inline void catalog_assignments_project_cubic_v1() {
+  Pullback::AtlasProjectionParams params;
+  params.spin_rate = 0.0f;
+  params.wander = 0.0f;
+  params.central_meridian = 0.0f;
+  params.coordinate_scale = 1.0f;
+  params.frame = 1;
+  params.frame = 0;
+  params.frame = 1;
+  (void)params;
+}
+
+inline void catalog_assignments_project_octahedral_v1() {
+  Pullback::AtlasProjectionParams params;
+  params.spin_rate = 0.0f;
+  params.wander = 0.0f;
+  params.central_meridian = 0.0f;
+  params.coordinate_scale = 1.0f;
+  params.frame = 1;
+  params.frame = 0;
+  params.frame = 1;
+  (void)params;
+}
+
 inline void catalog_assignments_project_dodecahedral_v1() {
+  Pullback::AtlasProjectionParams params;
+  params.spin_rate = 0.0f;
+  params.wander = 0.0f;
+  params.central_meridian = 0.0f;
+  params.coordinate_scale = 1.0f;
+  params.frame = 1;
+  params.frame = 0;
+  params.frame = 1;
+  (void)params;
+}
+
+inline void catalog_assignments_project_icosahedral_v1() {
   Pullback::AtlasProjectionParams params;
   params.spin_rate = 0.0f;
   params.wander = 0.0f;

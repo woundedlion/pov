@@ -493,29 +493,75 @@ struct ProjectS2
   }
 };
 
-/** @brief SPHERE-to-PLANE crossing: central projection onto the twelve
-    faces of a dodecahedron, laid out as separate tiles. */
-struct ProjectDodecahedral
-    : ProjectOpModel<ProjectDodecahedral,
-                     ScaledProjectParams<RegularProjectChainParams>, true> {
-  static constexpr const char *ID = "project.dodecahedral.v1";
-  static constexpr const char *NAME = "Dodecahedral Atlas";
+/** @brief Catalog identity of a polyhedral atlas operator.
+ *  @tparam Solid Solid table. */
+template <typename Solid> struct PolyhedralAtlasIdentity;
+/** @brief Tetrahedral atlas identity. */
+template <> struct PolyhedralAtlasIdentity<Solids::Tetrahedron> {
+  static constexpr const char *ID = "project.tetrahedral.v1"; ///< Operator id.
+  static constexpr const char *NAME = "Tetrahedral Atlas";    ///< Display name.
+};
+/** @brief Cubic atlas identity. */
+template <> struct PolyhedralAtlasIdentity<Solids::Cube> {
+  static constexpr const char *ID = "project.cubic.v1"; ///< Operator id.
+  static constexpr const char *NAME = "Cubic Atlas";    ///< Display name.
+};
+/** @brief Octahedral atlas identity. */
+template <> struct PolyhedralAtlasIdentity<Solids::Octahedron> {
+  static constexpr const char *ID = "project.octahedral.v1"; ///< Operator id.
+  static constexpr const char *NAME = "Octahedral Atlas";    ///< Display name.
+};
+/** @brief Dodecahedral atlas identity. */
+template <> struct PolyhedralAtlasIdentity<Solids::Dodecahedron> {
+  static constexpr const char *ID = "project.dodecahedral.v1"; ///< Operator id.
+  static constexpr const char *NAME = "Dodecahedral Atlas"; ///< Display name.
+};
+/** @brief Icosahedral atlas identity. */
+template <> struct PolyhedralAtlasIdentity<Solids::Icosahedron> {
+  static constexpr const char *ID = "project.icosahedral.v1"; ///< Operator id.
+  static constexpr const char *NAME = "Icosahedral Atlas";    ///< Display name.
+};
 
-  static float plane_bound(const Params &params, float) {
-    return 1.001f * projections::POLYHEDRAL_ATLAS<Solids::Dodecahedron>.radius *
+/** @brief Parameter family of the polyhedral atlas operators. */
+using PolyhedralAtlasChainParams =
+    ScaledProjectParams<RegularProjectChainParams>;
+
+/** @brief SPHERE-to-PLANE crossing: central projection onto a solid's
+    faces, laid out as separate tiles.
+    @tparam Solid Solid table. */
+template <typename Solid>
+struct ProjectPolyhedralAtlas
+    : ProjectOpModel<ProjectPolyhedralAtlas<Solid>, PolyhedralAtlasChainParams,
+                     true> {
+  static constexpr const char *ID = PolyhedralAtlasIdentity<Solid>::ID;
+  static constexpr const char *NAME = PolyhedralAtlasIdentity<Solid>::NAME;
+
+  static float plane_bound(const PolyhedralAtlasChainParams &params, float) {
+    return 1.001f * projections::POLYHEDRAL_ATLAS<Solid>.radius *
            fabsf(params.coordinate_scale);
   }
 
   static ProjectionResult project(const math::Vector &local,
-                                  const Params &params,
-                                  const Prepared &prepared) {
-    return Projection::from_kernel(
-        projections::polyhedral_atlas_projection(
-            projections::POLYHEDRAL_ATLAS<Solids::Dodecahedron>, local,
-            prepared.meridian_cos, prepared.meridian_sin),
-        params.coordinate_scale);
+                                  const PolyhedralAtlasChainParams &params,
+                                  const MeridianProjectOrientation &prepared) {
+    return Projection::from_kernel(projections::polyhedral_atlas_projection(
+                                       projections::POLYHEDRAL_ATLAS<Solid>,
+                                       local, prepared.meridian_cos,
+                                       prepared.meridian_sin),
+                                   params.coordinate_scale);
   }
 };
+
+/// Tetrahedral atlas operator.
+using ProjectTetrahedral = ProjectPolyhedralAtlas<Solids::Tetrahedron>;
+/// Cubic atlas operator.
+using ProjectCubic = ProjectPolyhedralAtlas<Solids::Cube>;
+/// Octahedral atlas operator.
+using ProjectOctahedral = ProjectPolyhedralAtlas<Solids::Octahedron>;
+/// Dodecahedral atlas operator.
+using ProjectDodecahedral = ProjectPolyhedralAtlas<Solids::Dodecahedron>;
+/// Icosahedral atlas operator.
+using ProjectIcosahedral = ProjectPolyhedralAtlas<Solids::Icosahedron>;
 
 } // namespace Op
 

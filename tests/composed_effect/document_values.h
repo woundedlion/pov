@@ -831,8 +831,20 @@ inline void check_document_values(const char *name) {
       case Pullback::ProjectionKind::S2:
         expected = "project.s2.v1";
         break;
+      case Pullback::ProjectionKind::TETRAHEDRAL:
+        expected = "project.tetrahedral.v1";
+        break;
+      case Pullback::ProjectionKind::CUBIC:
+        expected = "project.cubic.v1";
+        break;
+      case Pullback::ProjectionKind::OCTAHEDRAL:
+        expected = "project.octahedral.v1";
+        break;
       case Pullback::ProjectionKind::DODECAHEDRAL:
         expected = "project.dodecahedral.v1";
+        break;
+      case Pullback::ProjectionKind::ICOSAHEDRAL:
+        expected = "project.icosahedral.v1";
         break;
       case Pullback::ProjectionKind::STEREOGRAPHIC:
         expected = "project.stereographic.v2";

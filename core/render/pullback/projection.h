@@ -887,10 +887,25 @@ struct PolyhedralAtlas
   }
 };
 
+/** @brief Tetrahedral atlas of four triangular tiles.
+ *  @tparam State Frame-state provider. */
+template <typename State>
+using Tetrahedral = PolyhedralAtlas<State, Solids::Tetrahedron>;
+/** @brief Cubic atlas of six square tiles.
+ *  @tparam State Frame-state provider. */
+template <typename State> using Cubic = PolyhedralAtlas<State, Solids::Cube>;
+/** @brief Octahedral atlas of eight triangular tiles.
+ *  @tparam State Frame-state provider. */
+template <typename State>
+using Octahedral = PolyhedralAtlas<State, Solids::Octahedron>;
 /** @brief Dodecahedral atlas of twelve pentagonal tiles.
  *  @tparam State Frame-state provider. */
 template <typename State>
 using Dodecahedral = PolyhedralAtlas<State, Solids::Dodecahedron>;
+/** @brief Icosahedral atlas of twenty triangular tiles.
+ *  @tparam State Frame-state provider. */
+template <typename State>
+using Icosahedral = PolyhedralAtlas<State, Solids::Icosahedron>;
 
 /** @brief Airocean icosahedral net; `Horizontal` turns the finished net a
     quarter turn and `EdgeDistanceRequired` makes the kernel compute the

@@ -140,7 +140,7 @@ template <typename FX> constexpr bool gate_open(Pullback::FieldGate gate) {
                Pullback::ProjectionKind::PEIRCE_SQUARE_FAST ||
            FX::Metadata::PROJECTION == Pullback::ProjectionKind::BONNE ||
            FX::Metadata::PROJECTION == Pullback::ProjectionKind::AIROCEAN ||
-           FX::Metadata::PROJECTION == Pullback::ProjectionKind::DODECAHEDRAL;
+           Pullback::is_polyhedral_atlas(FX::Metadata::PROJECTION);
   case Pullback::FieldGate::LAYOUT_SCROLL:
     return FX::Metadata::PROJECTION == Pullback::ProjectionKind::PEIRCE;
   case Pullback::FieldGate::STANDARD_PARALLEL:

@@ -367,9 +367,24 @@ enum class ProjectionKind : uint8_t {
   BONNE,
   AIROCEAN,
   GNOMONIC,
+  TETRAHEDRAL,
+  CUBIC,
+  OCTAHEDRAL,
   DODECAHEDRAL,
+  ICOSAHEDRAL,
   NONE
 };
+
+/** @brief Whether a projection is a polyhedral atlas.
+ * @param projection Projection kind.
+ * @return Whether the kind tiles the faces of a Platonic solid. */
+constexpr bool is_polyhedral_atlas(ProjectionKind projection) {
+  return projection == ProjectionKind::TETRAHEDRAL ||
+         projection == ProjectionKind::CUBIC ||
+         projection == ProjectionKind::OCTAHEDRAL ||
+         projection == ProjectionKind::DODECAHEDRAL ||
+         projection == ProjectionKind::ICOSAHEDRAL;
+}
 
 /** @brief Whether a projection reads the central meridian.
  * @param projection Projection kind.
@@ -381,7 +396,7 @@ constexpr bool uses_central_meridian(ProjectionKind projection) {
          projection == ProjectionKind::PEIRCE ||
          projection == ProjectionKind::BONNE ||
          projection == ProjectionKind::AIROCEAN ||
-         projection == ProjectionKind::DODECAHEDRAL;
+         is_polyhedral_atlas(projection);
 }
 
 /** @brief Whether a projection reads singularity attenuation.

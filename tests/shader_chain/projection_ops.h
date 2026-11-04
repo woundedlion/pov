@@ -15,7 +15,7 @@ struct ProjMirrorFrame {
   In::Op::ProjectPeirceSquareFastV3::Params peirce_fast;
   In::Op::ProjectAiroceanV3::Params airocean;
   In::Op::ProjectS2::Params s2;
-  In::Op::ProjectDodecahedral::Params dodecahedral;
+  In::Op::PolyhedralAtlasChainParams atlas;
 };
 
 struct ProjMirrorBinding {
@@ -105,14 +105,22 @@ struct S2ProjMirror : ProjMirrorBase {
   }
 };
 
-struct DodecahedralProjMirror : ProjMirrorBase {
+struct AtlasProjMirror : ProjMirrorBase {
   static float central_meridian(const ProjMirrorFrame &frame) {
-    return frame.dodecahedral.central_meridian;
+    return frame.atlas.central_meridian;
   }
   static float coordinate_scale(const ProjMirrorFrame &frame) {
-    return frame.dodecahedral.coordinate_scale;
+    return frame.atlas.coordinate_scale;
   }
 };
+
+inline bool is_atlas_operator(std::string_view id) {
+  return id == In::Op::ProjectTetrahedral::ID ||
+         id == In::Op::ProjectCubic::ID ||
+         id == In::Op::ProjectOctahedral::ID ||
+         id == In::Op::ProjectDodecahedral::ID ||
+         id == In::Op::ProjectIcosahedral::ID;
+}
 
 /** Compiles a chain with one projection at entry 1 and applies the value set
     to every block. */
@@ -191,9 +199,8 @@ inline ProjMirrorFrame project_mirror(In::ChainProgram &program,
     mirror.airocean = param_as<In::Op::ProjectAiroceanV3::Params>(program, 1);
   } else if (id == In::Op::ProjectS2::ID) {
     mirror.s2 = param_as<In::Op::ProjectS2::Params>(program, 1);
-  } else if (id == In::Op::ProjectDodecahedral::ID) {
-    mirror.dodecahedral =
-        param_as<In::Op::ProjectDodecahedral::Params>(program, 1);
+  } else if (is_atlas_operator(id)) {
+    mirror.atlas = param_as<In::Op::PolyhedralAtlasChainParams>(program, 1);
   } else {
     mirror.meridian = param_as<In::Op::MeridianProjectChainParams>(program, 1);
   }
@@ -267,7 +274,11 @@ inline void test_shader_chain_projection_frame_policy() {
   expect_project_frame_policy<In::Op::ProjectBonneV3>();
   expect_project_frame_policy<In::Op::ProjectAiroceanV3>();
   expect_project_frame_policy<In::Op::ProjectS2>();
+  expect_project_frame_policy<In::Op::ProjectTetrahedral>();
+  expect_project_frame_policy<In::Op::ProjectCubic>();
+  expect_project_frame_policy<In::Op::ProjectOctahedral>();
   expect_project_frame_policy<In::Op::ProjectDodecahedral>();
+  expect_project_frame_policy<In::Op::ProjectIcosahedral>();
 }
 
 /** Erased-vs-bound parity of the projection at entry 1. */
@@ -318,10 +329,16 @@ inline void run_project_parity(const char *op_id, ValueSet set) {
     changed.peirce_fast.coordinate_scale = 1.0f;
     changed.airocean.coordinate_scale = 1.0f;
     changed.s2.coordinate_scale = 1.0f;
-    changed.dodecahedral.coordinate_scale = 1.0f;
+    changed.atlas.coordinate_scale = 1.0f;
     expect_project_parameter_control<Bound>(program, ctx, changed);
   }
   program.clear();
+}
+
+template <typename Solid> inline void run_atlas_parity(ValueSet set) {
+  run_project_parity<PB::Projection::PolyhedralAtlas<AtlasProjMirror, Solid>,
+                     In::Op::PolyhedralAtlasChainParams>(
+      In::Op::ProjectPolyhedralAtlas<Solid>::ID, set);
 }
 
 template <projections::PeirceLayout Layout>
@@ -424,9 +441,11 @@ inline void test_shader_chain_parity_project_ops() {
         In::Op::ProjectAiroceanV3::Params>(In::Op::ProjectAiroceanV3::ID, set);
     run_project_parity<PB::Projection::S2<S2ProjMirror>,
                        In::Op::ProjectS2::Params>(In::Op::ProjectS2::ID, set);
-    run_project_parity<PB::Projection::Dodecahedral<DodecahedralProjMirror>,
-                       In::Op::ProjectDodecahedral::Params>(
-        In::Op::ProjectDodecahedral::ID, set);
+    run_atlas_parity<Solids::Tetrahedron>(set);
+    run_atlas_parity<Solids::Cube>(set);
+    run_atlas_parity<Solids::Octahedron>(set);
+    run_atlas_parity<Solids::Dodecahedron>(set);
+    run_atlas_parity<Solids::Icosahedron>(set);
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     if (!arm_project_op_chain<In::Op::ProjectAiroceanV3::Params>(
