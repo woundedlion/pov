@@ -12,6 +12,11 @@ inline void case_harmonic_derivative_invalid_degree() {
   (void)SHMath::reduced_legendre_derivative(opaque(9), 0, 0.0f);
 }
 
+/** @brief Harmonic gradients reject unsupported degrees. */
+inline void case_harmonic_gradient_invalid_degree() {
+  (void)SHMath::spherical_harmonic_gradient(opaque(9), 0, math::Y_AXIS, 1.0f);
+}
+
 /** @brief Tangent-field preparation rejects unsupported modes. */
 inline void case_tangent_field_invalid_mode() {
   const math::tangent_field::PotentialTerm term{

@@ -226,6 +226,8 @@ inline PreparedTerm prepare_term(const PotentialTerm &term,
                                  float drift_phase = 0.0f) {
   PreparedTerm result;
   result.term = term;
+  if (term.amplitude == 0.0f)
+    return result;
   TermConstants constants;
   if (term.type == TermType::MODE) {
     HS_CHECK(term.l <= 8 && term.m <= term.l,

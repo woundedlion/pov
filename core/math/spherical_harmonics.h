@@ -234,9 +234,23 @@ spherical_harmonic_gradient(int l, int m, const math::Vector &p, float N,
   }
   const math::Complex derivative =
       phase * previous * math::Complex(float(m), 0.0f);
-  const float q = reduced_legendre(l, m, p.y);
-  return {N * q * derivative.re,
-          N * reduced_legendre_derivative(l, m, p.y) * (phase * power).re,
+  HS_CHECK(l >= 0 && l <= MAX_POLYNOMIAL_DEGREE && m >= 0 && m <= l,
+           "harmonic gradient: unsupported mode");
+  const int degree = l - m;
+  const int offset = LEGENDRE_OFFSETS[l * (l + 1) / 2 + m];
+  const float x = p.y;
+  const float square = x * x;
+  float series = LEGENDRE_COEFFICIENTS[offset + degree / 2];
+  float series_slope = 0.0f;
+  for (int i = degree / 2 - 1; i >= 0; --i) {
+    series_slope = series_slope * square + series;
+    series = series * square + LEGENDRE_COEFFICIENTS[offset + i];
+  }
+  const bool odd = degree % 2;
+  const float q = odd ? x * series : series;
+  const float dq =
+      odd ? series + 2.0f * square * series_slope : 2.0f * x * series_slope;
+  return {N * q * derivative.re, N * dq * (phase * power).re,
           -N * q * derivative.im};
 }
 
