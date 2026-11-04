@@ -17,24 +17,21 @@ namespace hs {
 /** @brief Resolution-independent machine, display and compatibility identity. */
 struct EffectIdentity {
   std::string_view machine_id;   ///< Canonical kebab-case machine ID.
-  std::string_view display_name; ///< Class/browser name retained for display.
-  std::string_view
-      legacy_id; ///< Compatibility ID; equals machine_id when there is no distinct alias.
+  std::string_view display_name; ///< Class/browser name, also a lookup alias.
   std::string_view rng_seed_key; ///< Immutable key for the effect's RNG stream.
 
-  /** @return Canonical, display and legacy lookup keys. */
-  constexpr std::array<std::string_view, 3> accepted_ids() const {
-    return {machine_id, display_name, legacy_id};
+  /** @return Canonical and display lookup keys. */
+  constexpr std::array<std::string_view, 2> accepted_ids() const {
+    return {machine_id, display_name};
   }
   /**
-   * @brief Matches an exact nonempty machine ID or compatibility alias.
+   * @brief Matches an exact nonempty machine ID or display name.
    * @param candidate Lookup key.
    * @return True when the key names this effect.
    */
   constexpr bool matches(std::string_view candidate) const {
     return !candidate.empty() &&
-           (candidate == machine_id || candidate == display_name ||
-            candidate == legacy_id);
+           (candidate == machine_id || candidate == display_name);
   }
 };
 
@@ -87,88 +84,65 @@ constexpr std::string_view effect_seed_key(std::string_view class_name) {
 namespace effect_identities {
 /**
  * @brief Applies X to each implementation class and its identity fields.
- * @param X Macro invoked as X(ClassName, canonical_id, display_name, legacy_id, rng_key).
+ * @param X Macro invoked as X(ClassName, canonical_id, rng_key).
  */
 #define HS_EFFECT_IDENTITY_LIST(X)                                             \
-  X(AlienBrain, "alien-brain", "AlienBrain", "alien-brain", "alien-brain")     \
-  X(AlienCore, "alien-core", "AlienCore", "alien-core", "alien-core")          \
-  X(AlienOcean, "alien-ocean", "AlienOcean", "alien-ocean", "alien-ocean")     \
-  X(AshCloud, "ash-cloud", "AshCloud", "ash-cloud", "ash-cloud")               \
-  X(BZReactionDiffusion, "bz-reaction-diffusion", "BZReactionDiffusion",       \
-    "BZReactionDiffusion", "BZReactionDiffusion")                              \
-  X(ChromaticLichen, "chromatic-lichen", "ChromaticLichen",                    \
-    "chromatic-lichen", "chromatic-lichen")                                    \
-  X(Comets, "comets", "Comets", "Comets", "Comets")                            \
-  X(CosmicEyeball, "cosmic-eyeball", "CosmicEyeball", "cosmic-eyeball",        \
-    "cosmic-eyeball")                                                          \
-  X(DisplacementField, "displacement-field", "DisplacementField",              \
-    "DisplacementField", "DisplacementField")                                  \
-  X(DreamBalls, "dream-balls", "DreamBalls", "DreamBalls", "DreamBalls")       \
-  X(Dynamo, "dynamo", "Dynamo", "Dynamo", "Dynamo")                            \
-  X(Fishbowl, "fishbowl", "Fishbowl", "Fishbowl", "Fishbowl")                  \
-  X(Galaxies, "galaxies", "Galaxies", "Galaxies", "Galaxies")                  \
-  X(GnomonicStars, "gnomonic-stars", "GnomonicStars", "GnomonicStars",         \
-    "GnomonicStars")                                                           \
-  X(GridSpace, "grid-space", "GridSpace", "grid-space", "grid-space")          \
-  X(GridWorms, "grid-worms", "GridWorms", "grid-worms", "grid-worms")          \
-  X(GSReactionDiffusion, "gs-reaction-diffusion", "GSReactionDiffusion",       \
-    "GSReactionDiffusion", "GSReactionDiffusion")                              \
-  X(HankinSolids, "hankin-solids", "HankinSolids", "HankinSolids",             \
-    "HankinSolids")                                                            \
-  X(HopfFibration, "hopf-fibration", "HopfFibration", "HopfFibration",         \
-    "HopfFibration")                                                           \
-  X(HyperLattice, "hyper-lattice", "HyperLattice", "HyperLattice",             \
-    "HyperLattice")                                                            \
-  X(Involution, "involution", "Involution", "involution", "involution")        \
-  X(IslamicStars, "islamic-stars", "IslamicStars", "IslamicStars",             \
-    "IslamicStars")                                                            \
-  X(JewelMelt, "jewel-melt", "JewelMelt", "jewel-melt", "jewel-melt")          \
-  X(KaleidoscopeFlowers, "kaleidoscope-flowers", "KaleidoscopeFlowers",        \
-    "kaleidoscope-flowers", "kaleidoscope-flowers")                            \
-  X(KaleidoscopeHexBright, "kaleidoscope-hex-bright", "KaleidoscopeHexBright", \
-    "kaleidoscope-hex-bright", "kaleidoscope-hex-bright")                      \
-  X(KaleidoscopeHexOil, "kaleidoscope-hex-oil", "KaleidoscopeHexOil",          \
-    "kaleidoscope-hex-oil", "kaleidoscope-hex-oil")                            \
-  X(KaleidoscopeMandala, "kaleidoscope-mandala", "KaleidoscopeMandala",        \
-    "kaleidoscope-mandala", "kaleidoscope-mandala")                            \
-  X(KaleidoscopeSmooth, "kaleidoscope-smooth", "KaleidoscopeSmooth",           \
-    "kaleidoscope-smooth", "kaleidoscope-smooth")                              \
+  X(AlienBrain, "alien-brain", "alien-brain")                                  \
+  X(AlienCore, "alien-core", "alien-core")                                     \
+  X(AlienOcean, "alien-ocean", "alien-ocean")                                  \
+  X(AshCloud, "ash-cloud", "ash-cloud")                                        \
+  X(BZReactionDiffusion, "bz-reaction-diffusion", "BZReactionDiffusion")       \
+  X(ChromaticLichen, "chromatic-lichen", "chromatic-lichen")                   \
+  X(Comets, "comets", "Comets")                                                \
+  X(CosmicEyeball, "cosmic-eyeball", "cosmic-eyeball")                         \
+  X(DisplacementField, "displacement-field", "DisplacementField")              \
+  X(DreamBalls, "dream-balls", "DreamBalls")                                   \
+  X(Dynamo, "dynamo", "Dynamo")                                                \
+  X(Fishbowl, "fishbowl", "Fishbowl")                                          \
+  X(Galaxies, "galaxies", "Galaxies")                                          \
+  X(GnomonicStars, "gnomonic-stars", "GnomonicStars")                          \
+  X(GridSpace, "grid-space", "grid-space")                                     \
+  X(GridWorms, "grid-worms", "grid-worms")                                     \
+  X(GSReactionDiffusion, "gs-reaction-diffusion", "GSReactionDiffusion")       \
+  X(HankinSolids, "hankin-solids", "HankinSolids")                             \
+  X(HopfFibration, "hopf-fibration", "HopfFibration")                          \
+  X(HyperLattice, "hyper-lattice", "HyperLattice")                             \
+  X(Involution, "involution", "involution")                                    \
+  X(IslamicStars, "islamic-stars", "IslamicStars")                             \
+  X(JewelMelt, "jewel-melt", "jewel-melt")                                     \
+  X(KaleidoscopeFlowers, "kaleidoscope-flowers", "kaleidoscope-flowers")       \
+  X(KaleidoscopeHexBright, "kaleidoscope-hex-bright",                          \
+    "kaleidoscope-hex-bright")                                                 \
+  X(KaleidoscopeHexOil, "kaleidoscope-hex-oil", "kaleidoscope-hex-oil")        \
+  X(KaleidoscopeMandala, "kaleidoscope-mandala", "kaleidoscope-mandala")       \
+  X(KaleidoscopeSmooth, "kaleidoscope-smooth", "kaleidoscope-smooth")          \
   X(KaleidoscopeStainedGlass, "kaleidoscope-stained-glass",                    \
-    "KaleidoscopeStainedGlass", "kaleidoscope-stained-glass",                  \
     "kaleidoscope-stained-glass")                                              \
-  X(KaleidoscopeMelt, "kaleidoscope-melt", "KaleidoscopeMelt",                 \
-    "kaleidoscope-melt", "kaleidoscope-melt")                                  \
-  X(MermaidSkin, "mermaid-skin", "MermaidSkin", "mermaid-skin",                \
-    "mermaid-skin")                                                            \
-  X(MeshFeedback, "mesh-feedback", "MeshFeedback", "MeshFeedback",             \
-    "MeshFeedback")                                                            \
-  X(Millefiori, "millefiori", "Millefiori", "millefiori", "millefiori")        \
-  X(MindSplatter, "mind-splatter", "MindSplatter", "MindSplatter",             \
-    "MindSplatter")                                                            \
-  X(MobiusGrid, "mobius-grid", "MobiusGrid", "mobius-grid", "mobius-grid")     \
-  X(MobiusRings, "mobius-rings", "MobiusRings", "MobiusRings", "MobiusRings")  \
-  X(PetalFlow, "petal-flow", "PetalFlow", "PetalFlow", "PetalFlow")            \
-  X(Raymarch, "raymarch", "Raymarch", "Raymarch", "Raymarch")                  \
-  X(RingShower, "ring-shower", "RingShower", "RingShower", "RingShower")       \
-  X(RingSpin, "ring-spin", "RingSpin", "RingSpin", "RingSpin")                 \
-  X(ShapeShifter, "shape-shifter", "ShapeShifter", "ShapeShifter",             \
-    "ShapeShifter")                                                            \
-  X(SphericalHarmonics, "spherical-harmonics", "SphericalHarmonics",           \
-    "SphericalHarmonics", "SphericalHarmonics")                                \
-  X(Thrusters, "thrusters", "Thrusters", "Thrusters", "Thrusters")             \
-  X(ShaderChain, "shader-chain", "ShaderChain", "shader-chain", "shader-chain")
+  X(KaleidoscopeMelt, "kaleidoscope-melt", "kaleidoscope-melt")                \
+  X(MermaidSkin, "mermaid-skin", "mermaid-skin")                               \
+  X(MeshFeedback, "mesh-feedback", "MeshFeedback")                             \
+  X(Millefiori, "millefiori", "millefiori")                                    \
+  X(MindSplatter, "mind-splatter", "MindSplatter")                             \
+  X(MobiusGrid, "mobius-grid", "mobius-grid")                                  \
+  X(MobiusRings, "mobius-rings", "MobiusRings")                                \
+  X(PetalFlow, "petal-flow", "PetalFlow")                                      \
+  X(Raymarch, "raymarch", "Raymarch")                                          \
+  X(RingShower, "ring-shower", "RingShower")                                   \
+  X(RingSpin, "ring-spin", "RingSpin")                                         \
+  X(ShapeShifter, "shape-shifter", "ShapeShifter")                             \
+  X(SphericalHarmonics, "spherical-harmonics", "SphericalHarmonics")           \
+  X(Thrusters, "thrusters", "Thrusters")                                       \
+  X(ShaderChain, "shader-chain", "shader-chain")
 
 /**
  * @brief Declares one immutable identity and checks its machine ID.
  * @param Name Class/browser name.
  * @param Id Canonical machine ID.
- * @param Display Retained class/browser lookup name.
- * @param Legacy Previously persisted ID.
  * @param Seed Immutable RNG compatibility key.
  */
-#define HS_DECLARE_EFFECT_IDENTITY(Name, Id, Display, Legacy, Seed)            \
+#define HS_DECLARE_EFFECT_IDENTITY(Name, Id, Seed)                             \
   struct Name {                                                                \
-    static constexpr EffectIdentity VALUE{Id, Display, Legacy, Seed};          \
+    static constexpr EffectIdentity VALUE{Id, #Name, Seed};                    \
   };                                                                           \
   static_assert(canonical_effect_id(Id),                                       \
                 "effect machine IDs must be kebab-case");

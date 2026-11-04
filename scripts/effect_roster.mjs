@@ -50,16 +50,16 @@ export function parseEffectIdentities(src) {
   const owners = new Map();
   let body = block[1].trim();
   while (body) {
-    const row = /^X\(\s*(\w+)\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)/u.exec(body);
+    const row = /^X\(\s*(\w+)\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)/u.exec(body);
     if (!row) throw new Error(`Unknown effect identity row: ${body}`);
-    const [, name, id, display_name, legacy, seed_key] = row;
+    const [, name, id, seed_key] = row;
     if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(id))
       throw new Error(`Invalid canonical effect ID: ${id}`);
-    for (const key of new Set([display_name, id, legacy])) {
+    for (const key of new Set([name, id])) {
       if (owners.has(key)) throw new Error(`Effect identity alias collision: ${key}`);
       owners.set(key, name);
     }
-    identities.push({ name, id, display_name, legacy, seed_key });
+    identities.push({ name, id, seed_key });
     body = body.slice(row[0].length).trim();
   }
   if (identities.length === 0) throw new Error('Effect identities parsed to zero rows');

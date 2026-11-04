@@ -106,7 +106,7 @@ constexpr const IdentityGolden *identity_golden(std::string_view name) {
 
 /** @brief Pins canonical ID types and immutable aliases/seeds for every effect. */
 inline void test_identity_contract() {
-#define HS_VERIFY_EFFECT_IDENTITY(Name, Id, Display, Legacy, Seed)             \
+#define HS_VERIFY_EFFECT_IDENTITY(Name, Id, Seed)                              \
   do {                                                                         \
     using E = Name<96, 20>;                                                    \
     static_assert(                                                             \
@@ -118,7 +118,6 @@ inline void test_identity_contract() {
     HS_EXPECT_TRUE(golden != nullptr);                                         \
     if (golden) {                                                              \
       HS_EXPECT_EQ(identity.display_name, golden->name);                       \
-      HS_EXPECT_EQ(identity.legacy_id, golden->seed_key);                      \
       HS_EXPECT_EQ(identity.rng_seed_key, golden->seed_key);                   \
       HS_EXPECT_EQ(hs::stable_effect_seed(identity.rng_seed_key),              \
                    golden->seed);                                              \
@@ -126,20 +125,18 @@ inline void test_identity_contract() {
   } while (false);
   HS_EFFECT_IDENTITY_LIST(HS_VERIFY_EFFECT_IDENTITY)
 #undef HS_VERIFY_EFFECT_IDENTITY
-  constexpr hs::EffectIdentity ALPHA{"alpha", "Alpha", "old-alpha",
-                                     "rng-alpha"};
-  static_assert(ALPHA.matches("alpha") && ALPHA.matches("Alpha") &&
-                ALPHA.matches("old-alpha"));
+  constexpr hs::EffectIdentity ALPHA{"alpha", "Alpha", "rng-alpha"};
+  static_assert(ALPHA.matches("alpha") && ALPHA.matches("Alpha"));
   static_assert(!ALPHA.matches("") && !ALPHA.matches("ALPHA") &&
-                !ALPHA.matches("alph"));
+                !ALPHA.matches("alph") && !ALPHA.matches("rng-alpha"));
   EffectRegistration first{};
   first.identity = ALPHA;
   EffectRegistration second{};
-  second.identity = {"beta", "Beta", "old-beta", "rng-beta"};
+  second.identity = {"beta", "Beta", "rng-beta"};
   HS_EXPECT_TRUE(registration_names_unique(std::array{first, second}));
-  second.identity.legacy_id = "old-alpha";
+  second.identity.display_name = "Alpha";
   HS_EXPECT_FALSE(registration_names_unique(std::array{first, second}));
-  second.identity.legacy_id = "alpha";
+  second.identity.display_name = "alpha";
   HS_EXPECT_FALSE(registration_names_unique(std::array{first, second}));
 }
 

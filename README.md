@@ -597,7 +597,7 @@ Phantasm caps each effect object's size at `HS_PHANTASM_EFFECT_HEAP_BYTES` (`tar
 ### 6.1 Writing an Effect
 
 This scaffold is a `ChoreographedEffect` with one preset built from the default parameters.
-Add `X(MyEffect, "my-effect", "MyEffect", "my-effect", "my-effect")` to
+Add `X(MyEffect, "my-effect", "my-effect")` to
 `HS_EFFECT_IDENTITY_LIST` before using the central identity:
 
 ```cpp
@@ -685,12 +685,12 @@ With `{.persist = true}`, `Canvas` copies the previous frame's buffer into the n
 
 ### 6.4 Registration
 
-`HS_EFFECT_LIST` in `targets/effects.h` generates the constexpr registration array used by the WASM factory (`control/registry.h`). Each entry carries resolution-specific fill functions and a typed `hs::EffectIdentity` from `core/platform/effect_identity.h`. Canonical machine IDs are kebab-case `std::string_view` values; class/browser names and original IDs remain accepted aliases. Compile-time checks reject collisions across that shared lookup namespace. Immutable RNG keys preserve the original stream independently of the canonical ID. Effect headers need no registration initializer. The Phantasm firmware plays its own subset, `HS_PHANTASM_EFFECT_LIST` in `targets/Phantasm/phantasm_playlist.h`.
+`HS_EFFECT_LIST` in `targets/effects.h` generates the constexpr registration array used by the WASM factory (`control/registry.h`). Each entry carries resolution-specific fill functions and a typed `hs::EffectIdentity` from `core/platform/effect_identity.h`. Canonical machine IDs are kebab-case `std::string_view` values; class/browser names remain accepted aliases. Compile-time checks reject collisions across that shared lookup namespace. Immutable RNG keys preserve the original stream independently of the canonical ID. Effect headers need no registration initializer. The Phantasm firmware plays its own subset, `HS_PHANTASM_EFFECT_LIST` in `targets/Phantasm/phantasm_playlist.h`.
 
 ### 6.5 Adding an Effect
 
 1. Choose the base: `Effect` for a custom lifecycle, `ChoreographedEffect` for parameters/presets, or `Pullback::ComposedEffect` for a generated chain. A composed promotion starts with a document under `patterns/` and an effect wrapper defining its `Spec`. Bootstrap both `// Generated identity:` and `// Generated params:` marker pairs (including their `clang-format` guards and `// End generated` markers); the placeholder identity section must reference its central `EFFECT_IDENTITY` record and include a `DESCRIPTOR_DIGEST` declaration. The document's `effect_id` must equal the canonical machine ID. Then run `node scripts/generate_composed_presets.mjs` to refresh the wrapper's generated identity and preset sections, composed header includes, and the simulator's shader-document IDs. Use `node scripts/generate_composed_presets.mjs --check` to verify these artifacts. Keep hand-authored documents as the source; generated promotions follow the [source ownership rules](patterns/README.md#generated-and-hand-authored-sources).
-2. Add the header under `effects/` and a row in `HS_EFFECT_IDENTITY_LIST` in `core/platform/effect_identity.h`. Declare `EFFECT_IDENTITY` from that row and `EFFECT_ID` as its `machine_id`, as in the example. Register its class in `HS_EFFECT_LIST` in `targets/effects.h`; retain canonical IDs, accepted aliases and RNG keys across class renames. The native roster and include tests check registration; `just docs-sync` updates the repository map and counts.
+2. Add the header under `effects/` and a row in `HS_EFFECT_IDENTITY_LIST` in `core/platform/effect_identity.h`. Declare `EFFECT_IDENTITY` from that row and `EFFECT_ID` as its `machine_id`, as in the example. Register its class in `HS_EFFECT_LIST` in `targets/effects.h`; retain canonical IDs and RNG keys across class renames. The native roster and include tests check registration; `just docs-sync` updates the repository map and counts.
 3. Add it to `HS_PHANTASM_EFFECT_LIST`, or explicitly exclude it with `HS_PHANTASM_EXCLUDED_EFFECTS`, in `targets/Phantasm/phantasm_playlist.h`. Compile-time roster assertions check the partition.
 4. Add it to the appropriate favorites in `daydream/src/effects/effect_roster.js`. Optionally add a capture offset to `scripts/screenshot_capture_config.mjs`, capture its PNG with `scripts/capture_screenshots.mjs`, and add its section to `docs/effects.md`. The screenshot and documentation gates check gallery membership, image validity, and documentation structure.
 5. Build Phantasm to check the effect object size budget, then run native tests, the composed generator checks when applicable, and `just teensy-size` for firmware budgets. Add behavior tests appropriate to the effect.

@@ -12,19 +12,19 @@ test('identity metadata covers gallery classes with canonical IDs and original k
   for (const name of await loadEffectRoster())
     assert.ok(identities.some(row => row.name === name));
   assert.deepEqual(identities.find(row => row.name === 'Galaxies'),
-    { name: 'Galaxies', id: 'galaxies', display_name: 'Galaxies', legacy: 'Galaxies', seed_key: 'Galaxies' });
+    { name: 'Galaxies', id: 'galaxies', seed_key: 'Galaxies' });
 });
 
 test('identity parser rejects malformed IDs and cross-effect alias collisions', () => {
   const src = rows => `#define HS_EFFECT_IDENTITY_LIST(X) ${rows}\n`;
-  assert.deepEqual(parseEffectIdentities(src('X(Alpha, "alpha", "Alpha", "Alpha", "rng-alpha")')),
-    [{ name: 'Alpha', id: 'alpha', display_name: 'Alpha', legacy: 'Alpha', seed_key: 'rng-alpha' }]);
+  assert.deepEqual(parseEffectIdentities(src('X(Alpha, "alpha", "rng-alpha")')),
+    [{ name: 'Alpha', id: 'alpha', seed_key: 'rng-alpha' }]);
   for (const id of ['Alpha', '-alpha', 'alpha-', 'alpha--beta', 'alpha_beta'])
-    assert.throws(() => parseEffectIdentities(src(`X(Alpha, "${id}", "Alpha", "Alpha", "rng-alpha")`)), /Invalid canonical/);
+    assert.throws(() => parseEffectIdentities(src(`X(Alpha, "${id}", "rng-alpha")`)), /Invalid canonical/);
   assert.throws(() => parseEffectIdentities(src(
-    'X(Alpha, "alpha", "Alpha", "old-alpha", "rng-alpha") X(Beta, "beta", "Beta", "old-alpha", "rng-beta")')), /alias collision/);
+    'X(Alpha, "alpha", "rng-alpha") X(Beta, "alpha", "rng-beta")')), /alias collision/);
   assert.throws(() => parseEffectIdentities(src(
-    'X(Alpha, "alpha", "Alpha", "beta", "rng-alpha") X(Beta, "beta", "Beta", "Beta", "rng-beta")')), /alias collision/);
+    'X(Alpha, "alpha", "rng-alpha") X(Alpha, "beta", "rng-beta")')), /alias collision/);
   assert.throws(() => parseEffectIdentities(src('')), /zero rows/);
   assert.throws(() => parseEffectIdentities(src('X(Alpha)')), /Unknown effect identity row/);
   assert.throws(() => parseEffectIdentities(''), /Could not locate/);

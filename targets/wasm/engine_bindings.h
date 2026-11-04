@@ -934,11 +934,7 @@ public:
       row.set("display_name", std::string(identity.display_name));
       emscripten::val aliases = emscripten::val::array();
       size_t alias_index = 0;
-      if (!identity.legacy_id.empty() &&
-          identity.legacy_id != identity.machine_id)
-        aliases.set(alias_index++, std::string(identity.legacy_id));
-      if (identity.display_name != identity.machine_id &&
-          identity.display_name != identity.legacy_id)
+      if (identity.display_name != identity.machine_id)
         aliases.set(alias_index++, std::string(identity.display_name));
       row.set("legacy_ids", aliases);
       result.set(index++, row);

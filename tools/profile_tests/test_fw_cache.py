@@ -82,7 +82,7 @@ class FirmwareCacheFixture(unittest.TestCase):
             "/.pio/\n/build/\n/.profile-lock/\n/.profile-lock.guard\n", encoding="utf-8")
         identity = self.repo / "core" / "platform" / "effect_identity.h"
         identity.parent.mkdir(parents=True)
-        identity.write_text('  X(Fx, "fx", "Fx", "fx", "fx")\n', encoding="utf-8")
+        identity.write_text('  X(Fx, "fx", "fx")\n', encoding="utf-8")
         (self.repo / "tools").mkdir()
         shutil.copyfile(REPO / "tools" / "profile_envdump.py",
                         self.repo / "tools" / "profile_envdump.py")
