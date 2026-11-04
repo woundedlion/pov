@@ -530,6 +530,12 @@ inline void test_noise_field_smooth_curl_tangent() {
 inline void test_sphere_exp_map_and_transport() {
   const math::Vector v(0.0f, 1.0f, 0.0f);
   HS_EXPECT_EQ(math::sphere_exp_map(v, math::Vector()), v);
+  for (const float arc : {0.3f, 1.0f, 2.5f, math::PI_F, 4.0f}) {
+    const math::Vector step = arc * math::Vector(1.0f, 0.0f, 0.0f);
+    const math::Vector reached = math::sphere_exp_map(v, step);
+    HS_EXPECT_NEAR(reached.x, sinf(arc), 3e-7f);
+    HS_EXPECT_NEAR(reached.y, cosf(arc), 3e-7f);
+  }
   const math::Vector tangent(0.25f, 0.0f, -0.1f);
   const math::Vector moved = math::sphere_exp_map(v, tangent);
   HS_EXPECT_NEAR(moved.length(), 1.0f, 1e-6f);
@@ -557,7 +563,11 @@ inline void test_half_radian_exp_map_approximation() {
       for (int distance_step = 0; distance_step <= 64; ++distance_step) {
         const math::Vector displacement =
             (0.5f * distance_step / 64.0f) * tangent;
-        const math::Vector exact = math::sphere_exp_map(v, displacement);
+        const float distance = displacement.length();
+        const math::Vector exact =
+            distance == 0.0f ? v
+                             : cosf(distance) * v +
+                                   (sinf(distance) / distance) * displacement;
         const math::Vector approximate =
             math::sphere_exp_map_half_radian(v, displacement);
         max_error =

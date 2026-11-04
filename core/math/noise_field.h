@@ -465,14 +465,22 @@ HS_O3_FN inline math::Vector sample_curl_tangent(const FastNoiseLite &noise,
  * @param v Unit point on the sphere.
  * @param tangent Tangent at @p v; its length is the arc travelled in radians.
  * @return The unit point reached after that arc.
- * @details Exact at any arc length.
+ * @details Arcs up to π use math::poly_sincosf_0_pi; longer arcs use libm.
  */
 inline math::Vector sphere_exp_map(const math::Vector &v,
                                    const math::Vector &tangent) {
   const float distance = tangent.length();
   if (distance == 0.0f)
     return v;
-  return cosf(distance) * v + (sinf(distance) / distance) * tangent;
+  float sine;
+  float cosine;
+  if (distance <= math::PI_F) {
+    math::poly_sincosf_0_pi(distance, sine, cosine);
+  } else {
+    sine = sinf(distance);
+    cosine = cosf(distance);
+  }
+  return cosine * v + (sine / distance) * tangent;
 }
 
 /**
