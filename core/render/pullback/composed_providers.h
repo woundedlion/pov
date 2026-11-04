@@ -784,9 +784,14 @@ struct ModulationProvider {
              EvaluationV == Pattern::Evaluation::DIRECT;
     return false;
   }(); ///< Whether this source borrows chamber patches.
-  using PhasePrepared =
-      std::conditional_t<CACHED_NOISE, Color::ChamberPhaseModulationState,
-                         Color::PhaseModulationState>; ///< Column phase state.
+  /// Whether endpoint noise cubes may share the column color tail.
+  static constexpr bool CUBE_PHASE =
+      !DynamicV && SourceV == Pattern::SourceKind::NOISE &&
+      EvaluationV == Pattern::Evaluation::BAKED_CUBE;
+  using PhasePrepared = std::conditional_t<
+      CACHED_NOISE, Color::ChamberPhaseModulationState,
+      std::conditional_t<CUBE_PHASE, Color::CubePhaseModulationState,
+                         Color::PhaseModulationState>>; ///< Column phase state.
   using Prepared = std::conditional_t<PhaseV, PhasePrepared,
                                       Color::ModulationState>; ///< Layer state.
   /** @brief Prepares endpoint views and mechanic controls.
@@ -818,7 +823,20 @@ struct ModulationProvider {
                             Pattern::Evaluation::DIRECT;
         if (SOURCE == Pattern::SourceKind::DISPLACEMENT)
           result.ready = true;
-        else if (SOURCE == Pattern::SourceKind::NOISE && DIRECT) {
+        else if constexpr (CUBE_PHASE) {
+          if (SOURCE == Pattern::SourceKind::NOISE && !DIRECT) {
+            if (!resource.modulation || !resource.previous_modulation ||
+                !resource.previous_modulation->cube.active ||
+                !resource.modulation->cube.active)
+              return result;
+            result.cube_previous = &resource.previous_modulation->cube;
+            result.cube_current = &resource.modulation->cube;
+            result.cube_fraction = frame.temporal.fraction;
+            result.ready = true;
+            return result;
+          }
+        }
+        if (SOURCE == Pattern::SourceKind::NOISE && DIRECT) {
           if (!resource.modulation || !resource.previous_modulation)
             return result;
           if (!Modulation::phase_compatible(

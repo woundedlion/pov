@@ -158,9 +158,10 @@ inline bool phase_compatible(const Config &a, const Config &b) {
   if (b.source == Pattern::SourceKind::DISPLACEMENT)
     return true;
   if (b.source == Pattern::SourceKind::NOISE)
-    return b.evaluation == Pattern::Evaluation::DIRECT &&
-           b.noise.variant == Pattern::NoiseVariant::CONFIGURED_SINGLE &&
-           a.noise == b.noise && a.seed == b.seed;
+    return b.evaluation == Pattern::Evaluation::BAKED_CUBE ||
+           (b.evaluation == Pattern::Evaluation::DIRECT &&
+            b.noise.variant == Pattern::NoiseVariant::CONFIGURED_SINGLE &&
+            a.noise == b.noise && a.seed == b.seed);
   return b.source == Pattern::SourceKind::SPHERE_SMOOTH_GRID &&
          b.evaluation == Pattern::Evaluation::DIRECT && a.grid == b.grid;
 }

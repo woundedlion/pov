@@ -473,6 +473,13 @@ struct PhaseModulationState : ModulationState {
   math::Vector noise_offset{}; ///< Noise loop at the column phase.
   bool ready = false;          ///< Whether one shared color tail is admitted.
 };
+
+/** @brief Endpoint noise cubes blended by a baked-noise color tail. */
+struct CubePhaseModulationState : PhaseModulationState {
+  const Pattern::SphereLutView *cube_previous = nullptr; ///< Retained cube.
+  const Pattern::SphereLutView *cube_current = nullptr;  ///< Current cube.
+  float cube_fraction = 0.0f; ///< Current cube weight.
+};
 static_assert(sizeof(Pattern::SphereSmoothGrid::Prepared) == 40);
 
 /** @brief Optional chamber patches shared by a direct-noise color tail. */
@@ -1285,6 +1292,15 @@ template <typename State> struct Modulate : ApproximationDefaults {
     if (prepared.source == Pattern::SourceKind::DISPLACEMENT)
       scalar = field.path_length;
     else if (prepared.source == Pattern::SourceKind::NOISE) {
+      if constexpr (std::is_same_v<Prepared, CubePhaseModulationState>)
+        if (prepared.cube_current) {
+          const auto TAP = Pattern::prepare_sphere_lut_sample(
+              Pattern::SphereDirection::admit(field.sphere));
+          return hs::lerp(
+              Pattern::bounded_scalar(TAP.sample(*prepared.cube_previous)),
+              Pattern::bounded_scalar(TAP.sample(*prepared.cube_current)),
+              prepared.cube_fraction);
+        }
       bool cached = false;
       if constexpr (std::is_same_v<Prepared, ChamberPhaseModulationState>)
         if (prepared.noise_previous && prepared.noise_current)

@@ -1177,6 +1177,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_document_modulation_members);
   HS_RUN(test_millefiori_column_color_phase);
   HS_RUN(test_ash_cloud_noise_column_phase);
+  HS_RUN(test_baked_cube_column_phase);
   HS_RUN(test_chamber_noise_cache_bake_lifetime);
   HS_RUN(test_chamber_noise_cache_admission);
   HS_RUN(test_chamber_noise_cache_phase_and_fallback);

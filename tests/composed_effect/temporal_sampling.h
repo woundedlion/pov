@@ -1562,13 +1562,67 @@ inline void test_ash_cloud_noise_column_phase() {
   HS_EXPECT_FALSE(Modulation::phase_compatible(unsupported, unsupported));
   unsupported = config;
   unsupported.evaluation = Pattern::Evaluation::BAKED_CUBE;
-  HS_EXPECT_FALSE(Modulation::phase_compatible(unsupported, unsupported));
+  HS_EXPECT_TRUE(Modulation::phase_compatible(unsupported, unsupported));
   auto missing = FrameInterval(from, to).at(0.5f);
   missing.resources.template get<"modulation">().previous_modulation = nullptr;
   HS_EXPECT_FALSE(Provider::prepare(missing).ready);
   missing = FrameInterval(from, to).at(0.5f);
   missing.resources.template get<"modulation">().modulation = nullptr;
   HS_EXPECT_FALSE(Provider::prepare(missing).ready);
+}
+
+/** @brief Baked noise cubes share one color tail by blending endpoint taps. */
+inline void test_baked_cube_column_phase() {
+  using namespace Pullback;
+  using FX = GridWarp<SMALL_W, SMALL_H>;
+  using Provider =
+      ModulationProvider<FX::Binding, "modulate1", Pattern::SourceKind::NOISE,
+                         Pattern::Evaluation::BAKED_CUBE, true>;
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+  auto from = ComposedFrameWhiteBox::frame(effect);
+  auto to = from;
+  auto config = from.params.template get<"modulate1">().modulation;
+  HS_EXPECT_TRUE(config.evaluation == Pattern::Evaluation::BAKED_CUBE);
+  config.enabled = true;
+  config.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 0.4f};
+  Modulation::Resources<true> previous, current;
+  auto clock = Modulation::init(config);
+  clock.phase.phase_turns = 0.2f;
+  previous.prepare(config, clock);
+  clock.phase.phase_turns = 0.3f;
+  current.prepare(config, clock);
+  HS_EXPECT_TRUE(previous.prepared.cube.active && current.prepared.cube.active);
+  from.params.template get<"modulate1">().modulation = config;
+  to.params.template get<"modulate1">().modulation = config;
+  from.resources.template get<"modulate1">().modulation = &previous.prepared;
+  to.resources.template get<"modulate1">().modulation = &current.prepared;
+  for (const float fraction : {0.25f, 0.5f, 0.75f}) {
+    const auto COLUMN = FrameInterval(from, to).at(fraction);
+    const auto PREPARED = Provider::prepare(COLUMN);
+    HS_EXPECT_TRUE(PREPARED.ready);
+    if (!PREPARED.ready)
+      continue;
+    for (const auto &direction :
+         {math::X_AXIS, math::Y_AXIS, math::Z_AXIS,
+          math::Vector(0.3f, -0.4f, 0.5f).normalized()}) {
+      const auto DIRECTION = Pattern::SphereDirection::admit(direction);
+      const float SCALAR = hs::lerp(
+          Pattern::bounded_scalar(
+              Pattern::sample_sphere_lut(previous.prepared.cube, DIRECTION)),
+          Pattern::bounded_scalar(
+              Pattern::sample_sphere_lut(current.prepared.cube, DIRECTION)),
+          fraction);
+      ColorSample sample{Color4(Pixel(2000, 4000, 6000), 0.37f),
+                         {0.5f, 0.7f, direction, 2.0f}};
+      Color::Modulate<Provider>::apply_phase_in_place(sample, COLUMN, PREPARED);
+      HS_EXPECT_NEAR(sample.pending_hue, math::wrap_t(0.4f * SCALAR), 1e-5f);
+    }
+  }
+  auto unbaked = FrameInterval(from, to).at(0.5f);
+  unbaked.resources.template get<"modulate1">().previous_modulation = nullptr;
+  HS_EXPECT_FALSE(Provider::prepare(unbaked).ready);
 }
 
 /** @brief Palette-base slots preserve the other endpoint and skip changed controls. */
