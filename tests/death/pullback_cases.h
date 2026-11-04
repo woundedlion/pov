@@ -106,7 +106,7 @@ inline void case_pullback_operator_invalid_coverage_mode() {
   params.coverage_mode = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::SourceClockState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::SampleGridV3::prepare(context, params, state)
+  if (Pullback::Interp::Op::SampleGridV4::prepare(context, params, state)
           .primary != 0.0f)
     std::printf("x");
 }
@@ -117,7 +117,7 @@ inline void case_pullback_operator_invalid_weight_mode() {
   params.weight_mode = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::SourceClockState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::SampleGridV3::prepare(context, params, state)
+  if (Pullback::Interp::Op::SampleGridV4::prepare(context, params, state)
           .primary != 0.0f)
     std::printf("x");
 }
@@ -374,7 +374,7 @@ inline void compile_temporal_chain(Pullback::Interp::ChainProgram &program,
     program.bind_temporal_storage(blocks.history, blocks.column);
   const In::ChainEntryRequest request[] = {
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"color", "colorize.generated-palette.v4"}};
   if (program.compile(request).code != In::ChainStatus::OK)
     std::exit(0);
@@ -453,7 +453,7 @@ inline void case_chain_ready_before_prepare() {
   program.bind_storage(block_a, block_b);
   const In::ChainEntryRequest request[] = {
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"color", "colorize.generated-palette.v4"}};
   const auto result = program.compile(request);
   if (result.code != In::ChainStatus::OK)

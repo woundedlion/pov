@@ -9,7 +9,6 @@
 struct SampleMirrorFrame {
   const FastNoiseLite *noise = nullptr;
   In::Op::TwinWaveSampleParams twin_wave;
-  In::Op::RingsSampleParams rings;
   In::Op::SpiralSampleParams spiral;
   In::Op::TessellationSampleParams tessellation;
   In::Op::ProjectedNoiseSampleParams projected;
@@ -40,14 +39,9 @@ struct TwinWaveSampleMirror : ClockedSampleMirror {
   }
 };
 
-struct RingsSampleMirror : ClockedSampleMirror {
-  static const In::Op::RingsSampleParams &
-  params(const SampleMirrorFrame &frame) {
-    return frame.rings;
-  }
-};
-
-struct SpiralSampleMirror : ClockedSampleMirror {
+struct SpiralSampleMirror {
+  using Binding = SampleMirrorBinding;
+  using FrameState = SampleMirrorFrame;
   static const In::Op::SpiralSampleParams &
   params(const SampleMirrorFrame &frame) {
     return frame.spiral;
@@ -122,6 +116,9 @@ inline SampleMirrorFrame sample_mirror(In::ChainProgram &program,
     mirror.tessellation =
         param_as<In::Op::TessellationSampleParams>(program, source_index);
     mirror.edge_width = mirror.tessellation.edge_width;
+  } else if (id == In::Op::SampleSpiralV3::ID) {
+    mirror.spiral = param_as<In::Op::SpiralSampleParams>(program, source_index);
+    mirror.edge_width = mirror.spiral.edge_width;
   } else {
     const auto &state =
         state_as<In::Op::SourceClockState>(program, source_index);
@@ -132,13 +129,6 @@ inline SampleMirrorFrame sample_mirror(In::ChainProgram &program,
       mirror.twin_wave =
           param_as<In::Op::TwinWaveSampleParams>(program, source_index);
       mirror.edge_width = mirror.twin_wave.edge_width;
-    } else if (id == In::Op::SampleRings::ID) {
-      mirror.rings = param_as<In::Op::RingsSampleParams>(program, source_index);
-      mirror.edge_width = mirror.rings.edge_width;
-    } else if (id == In::Op::SampleSpiral::ID) {
-      mirror.spiral =
-          param_as<In::Op::SpiralSampleParams>(program, source_index);
-      mirror.edge_width = mirror.spiral.edge_width;
     }
   }
   return mirror;
@@ -242,20 +232,10 @@ inline void test_shader_chain_parity_sample_twin_wave() {
   });
 }
 
-inline void test_shader_chain_parity_sample_rings() {
-  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    if (!arm_sample_op_chain<In::Op::RingsSampleParams>(
-            program, In::Op::SampleRings::ID, 4, set))
-      return;
-    const In::FrameContext ctx = shared_resources().context();
-    run_sample_op_matrix<PB::Source::Rings<RingsSampleMirror>>(program, ctx);
-  });
-}
-
 inline void test_shader_chain_parity_sample_spiral() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     if (!arm_sample_op_chain<In::Op::SpiralSampleParams>(
-            program, In::Op::SampleSpiral::ID, 4, set))
+            program, In::Op::SampleSpiralV3::ID, 4, set))
       return;
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::Spiral<SpiralSampleMirror>>(program, ctx);
@@ -393,7 +373,7 @@ inline void test_shader_chain_large_finite_path_length() {
     ids[index] = "warp" + std::to_string(index);
     chain[index + 1] = {ids[index], In::Op::WarpAffineV4::ID};
   }
-  chain[12] = {"sample", In::Op::SampleGridV3::ID};
+  chain[12] = {"sample", In::Op::SampleGridV4::ID};
   chain[13] = {"color", In::Op::ColorizeGeneratedPaletteV4::ID};
   chain[14] = {"displacement", In::Op::ModulateColorV1::ID};
   const auto compile_status2 = program.compile(chain).code;
@@ -691,4 +671,136 @@ inline void test_shader_chain_combined_color_admission() {
   }
   HS_EXPECT_EQ(effect.updateParameter("colorize.hue-shift-mode", 1),
                ParamSetResult::UNKNOWN_PARAM);
+}
+
+// --- source motion equivalences --------------------------------------------
+
+/** @brief The grid's reported square lattice translates its field onto
+    itself, and half a period does not. */
+inline void test_shader_chain_grid_lattice_symmetry() {
+  In::Op::GridSampleParams params;
+  params.pattern_freq = 3.7f;
+  params.complexity = 1.4f;
+  params.pattern_mix = 0.3f;
+  const auto lattice = In::Op::SampleGridV4::translation_lattice(params);
+  HS_EXPECT_NEAR(lattice.a.re, math::TWO_PI_F / 3.7f, 1e-7f);
+  HS_EXPECT_EQ(lattice.a.im, 0.0f);
+  HS_EXPECT_EQ(lattice.b.re, 0.0f);
+  HS_EXPECT_NEAR(lattice.b.im, math::TWO_PI_F / 3.7f, 1e-7f);
+  const auto prepared = Pattern::prepare(0.9f, 0.0f, 0.0f);
+  const auto field = [&](math::Complex point) {
+    return Pattern::grid(
+        Pattern::PlanePosition{
+            projections::stereo_pattern_args(point, params.pattern_freq)},
+        params, prepared);
+  };
+  float half_shift = 0.0f;
+  for (const math::Complex point :
+       {math::Complex{0.13f, -0.41f}, math::Complex{-1.7f, 0.6f},
+        math::Complex{2.9f, 3.3f}, math::Complex{-0.05f, 0.02f}}) {
+    for (const math::Complex basis : {lattice.a, lattice.b}) {
+      HS_EXPECT_NEAR(field(point + basis), field(point), 2e-4f);
+      HS_EXPECT_NEAR(field(point - basis), field(point), 2e-4f);
+    }
+    half_shift = std::max(
+        half_shift,
+        std::fabs(field(point + math::Complex{0.5f * lattice.a.re, 0.0f}) -
+                  field(point)));
+  }
+  HS_EXPECT_GT(half_shift, 0.1f);
+}
+
+/** @brief An affine warp winding (-5, 4) grid periods per phase turn and
+    turning at the old source angle, before the stationary-direct grid with
+    phase p + s, reproduces the drifting rotated coupled grid. */
+inline void test_shader_chain_grid_motion_equivalence() {
+  constexpr float FREQ = 4.4f, SPEED = 0.04f, DRIFT = 0.8f, ANGLE_RATE = 0.027f;
+  const auto old_grid = [&](math::Complex point, float complexity, float mix,
+                            float p, float s, float angle) {
+    const auto scaled = projections::stereo_pattern_args(point, FREQ);
+    const float c = std::cos(angle), sn = std::sin(angle);
+    const float x = scaled.re * c + scaled.im * sn;
+    const float y = -scaled.re * sn + scaled.im * c;
+    const float coupled =
+        math::fast_sinf(x + p + complexity * math::fast_sinf(y + p)) *
+        math::fast_cosf(y - s + complexity * math::fast_cosf(x - s));
+    const float direct = math::fast_sinf(x + p) * math::fast_cosf(y - s);
+    return coupled + (direct - coupled) * mix;
+  };
+  In::Op::GridSampleParams grid;
+  grid.pattern_freq = FREQ;
+  grid.speed = SPEED * (1.0f + DRIFT);
+  PB::Warp::AffineParams affine;
+  affine.translation_x = -5.0f;
+  affine.translation_y = 4.0f;
+  affine.speed = SPEED / (5.0f * math::TWO_PI_F);
+  affine.rotation_rate = ANGLE_RATE / affine.speed;
+  const auto lattice = In::Op::SampleGridV4::translation_lattice(grid);
+  float worst = 0.0f;
+  for (const float complexity : {0.0f, 1.7f})
+    for (const float mix : {0.0f, 0.4f, 1.0f})
+      for (const int frame : {1, 7, 60, 333, 784}) {
+        grid.complexity = complexity;
+        grid.pattern_mix = mix;
+        const double steps = frame;
+        const float p = float(std::fmod(steps * SPEED, 2.0 * std::numbers::pi));
+        const float s =
+            float(std::fmod(steps * SPEED * DRIFT, 2.0 * std::numbers::pi));
+        const float angle =
+            float(std::fmod(steps * ANGLE_RATE, 2.0 * std::numbers::pi));
+        const float phase =
+            float(steps * affine.speed - std::floor(steps * affine.speed));
+        const auto prepared = PB::Warp::prepare(affine, phase, angle, lattice);
+        const auto source = Pattern::prepare(
+            float(std::fmod(steps * grid.speed, 2.0 * std::numbers::pi)), 0.0f,
+            0.0f);
+        for (const math::Complex point :
+             {math::Complex{0.21f, -0.37f}, math::Complex{-1.3f, 0.8f},
+              math::Complex{2.4f, 1.9f}}) {
+          const float actual = Pattern::grid(
+              Pattern::PlanePosition{projections::stereo_pattern_args(
+                  PB::Warp::affine_coords(point, prepared), FREQ)},
+              grid, source);
+          worst =
+              std::max(worst, std::fabs(actual - old_grid(point, complexity,
+                                                          mix, p, s, angle)));
+        }
+      }
+  HS_EXPECT_LT(worst, 1e-3f);
+}
+
+/** @brief An affine rotation of -(a + p / 3) before the stationary
+    three-armed spiral reproduces sin(r - 3 (azimuth + a) - p). */
+inline void test_shader_chain_spiral_rotation_equivalence() {
+  PB::Warp::AffineParams affine;
+  float worst = 0.0f;
+  for (const float p : {0.0f, 0.4f, 2.9f})
+    for (const float a : {0.0f, 0.3f, 5.1f}) {
+      const auto prepared = PB::Warp::prepare(affine, 0.0f, -(a + p / 3.0f),
+                                              PB::TranslationLattice{});
+      for (const math::Complex point :
+           {math::Complex{0.6f, 0.25f}, math::Complex{-0.4f, 0.9f},
+            math::Complex{-0.7f, -0.2f}, math::Complex{0.1f, -0.8f}}) {
+        const float expected =
+            std::sin(std::hypot(point.re, point.im) -
+                     3.0f * (std::atan2(point.im, point.re) + a) - p);
+        const float actual = Pattern::spiral(
+            Pattern::PlanePosition{PB::Warp::affine_coords(point, prepared)},
+            3.0f);
+        worst = std::max(worst, std::fabs(actual - expected));
+      }
+    }
+  HS_EXPECT_LT(worst, 0.02f);
+}
+
+/** @brief Zero spiral arms draws the concentric rings sin(r). */
+inline void test_shader_chain_spiral_zero_arms_rings() {
+  for (const math::Complex point :
+       {math::Complex{}, math::Complex{0.6f, 0.25f}, math::Complex{-3.0f, 4.0f},
+        math::Complex{0.0f, -7.5f}})
+    HS_EXPECT_EQ(Pattern::spiral(Pattern::PlanePosition{point}, 0.0f),
+                 math::fast_sinf(point.magnitude()));
+  In::Op::SpiralSampleParams params;
+  params.arms = 0.4f;
+  HS_EXPECT_EQ(In::Op::SampleSpiralV3::prepare({}, params, {}).arms, 0.0f);
 }

@@ -45,7 +45,7 @@ struct KaleidoscopeSmoothSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
-   * @brief Stage chain: camera rotation, dodecahedral kaleidoscope lens, stereographic projection, mirror warp, grid source, generated palette,
+   * @brief Stage chain: camera rotation, dodecahedral kaleidoscope lens, stereographic projection, mirror warp, affine warp, grid source, generated palette,
    *  noise hue modulation.
    * @tparam B The effect's Binding.
    */
@@ -59,6 +59,8 @@ struct KaleidoscopeSmoothSpec : Pullback::Spec {
               Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
           Pullback::MirrorParams, B, "inner_warp", false>::Type>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::AffineParams, B, "affine", false>::Type>,
       Pullback::Stage::Sample<
           typename Pullback::SourcePolicyFor<Pullback::GridSourceParams,
                                              B>::Type,
@@ -98,9 +100,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "b9aa025d436d9d008ad636890a2f9a0e2afe9ce270d6b57b35cb4a63611ade06";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "df3f4cefffd86dace395c4b938e3f976692dc0c6f3e5d3a5679afcfa5dfd079e";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "2814deeda741e2a1860f8111663b7c8701941f73991045b92aa5217afc2cbf8e";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "b93b4b4b80d46fd5e67d35e842671b223bbc76a03c8ca14fa32c1ad02f7ce5a4";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
       "coupled-grid",
@@ -113,7 +115,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 6;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 7;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -123,6 +125,15 @@ public:
    */
   static constexpr Params initial_params() {
     Params value;
+    value.template get<"affine">().lattice_period = 1.0f;
+    value.template get<"affine">().repeat_cells = 1.0f;
+    value.template get<"affine">().rotation_rate = 1.7279999f;
+    value.template get<"affine">().scale_x = 1.0f;
+    value.template get<"affine">().scale_y = 1.0f;
+    value.template get<"affine">().shear = 0.0f;
+    value.template get<"affine">().speed = 0.015625f;
+    value.template get<"affine">().translation_x = 0.0f;
+    value.template get<"affine">().translation_y = 0.0f;
     value.template get<"projection">().camera_wander = 1.0f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
@@ -142,9 +153,7 @@ public:
     value.template get<"projection">().spin_rate = 0.0f;
     value.template get<"projection">().wander = 1.0f;
     value.template get<"projection">().singularity_fade = 3.432f;
-    value.template get<"source">().angle_rate = 0.026999999f;
     value.template get<"source">().complexity = 0.513f;
-    value.template get<"source">().secondary_rate = 0.8f;
     value.template get<"source">().pattern_freq = 2.8263f;
     value.template get<"source">().pattern_mix = 0.0f;
     value.template get<"source">().speed = 0.0f;

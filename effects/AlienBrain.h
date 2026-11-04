@@ -25,7 +25,7 @@ struct AlienBrainSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
    * @brief Stage chain: camera rotation, glitch lens, projection, wave-shear warp,
-   *  grid source, generated palette,
+   *  affine warp, grid source, generated palette,
    *  noise hue modulation.
    * @tparam B The effect's Binding.
    */
@@ -39,6 +39,8 @@ struct AlienBrainSpec : Pullback::Spec {
               Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
           Pullback::WaveShearParams, B, "outer_warp", false>::Type>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::AffineParams, B, "affine", false>::Type>,
       Pullback::Stage::Sample<
           typename Pullback::SourcePolicyFor<Pullback::GridSourceParams,
                                              B>::Type,
@@ -75,9 +77,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "2a0034a9b6963a9178c34f722d25001414fec18b29e366634b92afbcf98087b7";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "1991ee11d6baf8aa816fc5a6726b50178ec42f79d72a3b8d77b54dc10dcf0efd";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "a6c5563d36de26f0020449dfe4ffea806e3b5c4da7a17bf3c830db3d85626f39";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "4fcf68065487dd0f25fe756ca850ef144277b69d69637bb4c1b45b272c8b9015";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
       "alien-brain",
@@ -90,7 +92,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
 
   // Hot entry trampoline.
   /**
@@ -111,6 +113,15 @@ public:
    */
   static constexpr Params initial_params() {
     Params value;
+    value.template get<"affine">().lattice_period = 1.0f;
+    value.template get<"affine">().repeat_cells = 1.0f;
+    value.template get<"affine">().rotation_rate = 0.0f;
+    value.template get<"affine">().scale_x = 1.0f;
+    value.template get<"affine">().scale_y = 1.0f;
+    value.template get<"affine">().shear = 0.0f;
+    value.template get<"affine">().speed = 0.01949648f;
+    value.template get<"affine">().translation_x = -2.0f;
+    value.template get<"affine">().translation_y = 0.0f;
     value.template get<"projection">().camera_wander = 0.8f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
@@ -130,9 +141,7 @@ public:
     value.template get<"projection">().spin_rate = 0.0f;
     value.template get<"projection">().wander = 0.0f;
     value.template get<"projection">().singularity_fade = 1.0f;
-    value.template get<"source">().angle_rate = 0.0f;
     value.template get<"source">().complexity = 0.5f;
-    value.template get<"source">().secondary_rate = 0.0f;
     value.template get<"source">().pattern_freq = 4.439f;
     value.template get<"source">().pattern_mix = 0.0f;
     value.template get<"source">().speed = 0.245f;

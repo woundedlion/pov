@@ -76,9 +76,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "25e7bfac6ef044b851ae7dd74f37c76de3c4bc6ebe50323f1bd6479f25bb9773";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "b056d5dfe0da3a9857354479dceb8a704c727e0347938e43189e5095e85ea4af";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "860180a173bf9b239a1ef6d6d5c75e0ab903b50e37f28ced66172e2e028a1689";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "b6cc3e0be03fe648ce29a8ef1f157d023889f251545012e1924873742caf2210";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "chromatic-lichen"
@@ -88,7 +88,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -117,9 +117,7 @@ public:
     value.template get<"projection">().spin_rate = 0.0f;
     value.template get<"projection">().wander = 1.0f;
     value.template get<"projection">().singularity_fade = 1.0f;
-    value.template get<"source">().angle_rate = 0.0f;
     value.template get<"source">().complexity = 0.0f;
-    value.template get<"source">().secondary_rate = 0.0f;
     value.template get<"source">().pattern_freq = 0.1f;
     value.template get<"source">().pattern_mix = 0.0f;
     value.template get<"source">().speed = 0.0f;

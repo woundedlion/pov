@@ -133,11 +133,6 @@ template <typename B> struct SourcePolicyFor<ProjectedNoiseSourceParams, B> {
       SourceProvider<B, ProjectedNoiseSourceParams>, math::NoiseBasis::SIMPLEX>;
 };
 
-/** @brief Concentric rings source. @tparam B Frame binding. */
-template <typename B> struct SourcePolicyFor<RingsSourceParams, B> {
-  using Type = Pullback::Source::Rings<SourceProvider<B, RingsSourceParams>>;
-};
-
 /** @brief Authored source topology. @tparam B Frame binding. */
 template <typename B>
 struct SourcePolicyFor<Source::AuthoredProjectedNoiseSourceParams, B> {
@@ -170,12 +165,6 @@ struct RebindSource<Source::Tessellation<Old, Kind, Fill>, Provider> {
 };
 } // namespace ComposedDetail
 
-/** @brief Grid source with the full authored drift range. @tparam B Frame binding. */
-template <typename B>
-struct SourcePolicyFor<Source::AuthoredGridSourceParams, B> {
-  using Type =
-      Source::Grid<SourceProvider<B, Source::AuthoredGridSourceParams>>;
-};
 /** @brief Twin-wave source with the full authored drift range. @tparam B Frame binding. */
 template <typename B>
 struct SourcePolicyFor<Source::AuthoredTwinWaveSourceParams, B> {

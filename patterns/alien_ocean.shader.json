@@ -19,8 +19,12 @@
         "operator": "warp.mirror-tile.v2"
       },
       {
+        "label": "affine",
+        "operator": "warp.affine.v4"
+      },
+      {
         "label": "sample",
-        "operator": "sample.grid.v3"
+        "operator": "sample.grid.v4"
       },
       {
         "label": "colorize",
@@ -32,6 +36,148 @@
       }
     ],
     "parameters": [
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 100,
+          "minimum": 0.015625
+        },
+        "id": "affine.lattice-period",
+        "interpolation": {
+          "kind": "LOG_POSITIVE"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "off",
+        "domain": {
+          "values": [
+            "off",
+            "on"
+          ]
+        },
+        "id": "affine.path-length",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 16,
+          "minimum": 1
+        },
+        "id": "affine.repeat-cells",
+        "interpolation": {
+          "kind": "SNAP"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 25.132741928100586,
+          "minimum": -25.132741928100586
+        },
+        "id": "affine.rotation-rate",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": 0.015625
+        },
+        "id": "affine.scale-x",
+        "interpolation": {
+          "kind": "LOG_POSITIVE"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": 0.015625
+        },
+        "id": "affine.scale-y",
+        "interpolation": {
+          "kind": "LOG_POSITIVE"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 4,
+          "minimum": -4
+        },
+        "id": "affine.shear",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 0.019999999552965164,
+          "minimum": -0.019999999552965164
+        },
+        "id": "affine.speed",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "turn-per-frame"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 8,
+          "minimum": -8
+        },
+        "id": "affine.translation-x",
+        "interpolation": {
+          "kind": "SNAP"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 8,
+          "minimum": -8
+        },
+        "id": "affine.translation-y",
+        "interpolation": {
+          "kind": "SNAP"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
       {
         "classification": "preset",
         "default": 0,
@@ -382,20 +528,6 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 0.05000000074505806,
-          "minimum": 0
-        },
-        "id": "sample.angle-speed",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "radian-per-frame"
-      },
-      {
-        "classification": "preset",
-        "default": 0,
-        "domain": {
           "maximum": 3,
           "minimum": 0
         },
@@ -424,20 +556,6 @@
         },
         "storage": "enum8",
         "unit": "mode"
-      },
-      {
-        "classification": "preset",
-        "default": 0,
-        "domain": {
-          "maximum": 2,
-          "minimum": 0
-        },
-        "id": "sample.drift",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
       },
       {
         "classification": "preset",
@@ -605,6 +723,16 @@
     ],
     "serialization": {
       "fields": [
+        "affine.lattice-period",
+        "affine.path-length",
+        "affine.repeat-cells",
+        "affine.rotation-rate",
+        "affine.scale-x",
+        "affine.scale-y",
+        "affine.shear",
+        "affine.speed",
+        "affine.translation-x",
+        "affine.translation-y",
         "camera.wander",
         "colorize.brightness-envelope",
         "colorize.mapping-frequency",
@@ -627,10 +755,8 @@
         "project.frame",
         "project.hemisphere",
         "project.singularity-fade",
-        "sample.angle-speed",
         "sample.complexity",
         "sample.coverage-mode",
-        "sample.drift",
         "sample.edge-width",
         "sample.pattern-freq",
         "sample.pattern-mix",
@@ -674,6 +800,16 @@
         "display_name": "Folded Grid",
         "preset_id": "folded-grid",
         "values": {
+          "affine.lattice-period": 1,
+          "affine.path-length": "off",
+          "affine.repeat-cells": 1,
+          "affine.rotation-rate": 0,
+          "affine.scale-x": 1,
+          "affine.scale-y": 1,
+          "affine.shear": 0,
+          "affine.speed": 0.018700705841183662,
+          "affine.translation-x": -2,
+          "affine.translation-y": 2,
           "camera.wander": 1,
           "colorize.brightness-envelope": "none",
           "colorize.mapping-frequency": 1,
@@ -696,14 +832,12 @@
           "project.frame": "identity",
           "project.hemisphere": "folded",
           "project.singularity-fade": 1.399999976158142,
-          "sample.angle-speed": 0,
           "sample.complexity": 0,
           "sample.coverage-mode": "edge-fade",
-          "sample.drift": 1,
           "sample.edge-width": 0.5,
           "sample.pattern-freq": 3.565000057220459,
           "sample.pattern-mix": 1,
-          "sample.speed": 0.23499999940395355,
+          "sample.speed": 0,
           "sample.weight-mode": "projection",
           "warp1.cell-x": 5.381124973297119,
           "warp1.cell-y": 1,

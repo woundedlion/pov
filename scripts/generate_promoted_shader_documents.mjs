@@ -54,8 +54,12 @@ const effects = [
         "operator": "warp.wave-shear.v2"
       },
       {
+        "label": "affine",
+        "operator": "warp.affine.v4"
+      },
+      {
         "label": "sample",
-        "operator": "sample.grid.v3"
+        "operator": "sample.grid.v4"
       },
       {
         "label": "colorize",
@@ -88,10 +92,8 @@ const effects = [
       "project.projection-spin-speed": 0,
       "project.projection-wander": 0,
       "project.singularity-fade": 1,
-      "sample.angle-speed": 0,
       "sample.complexity": 0,
       "sample.coverage-mode": "weight-squared",
-      "sample.drift": 0,
       "sample.pattern-freq": 1,
       "sample.pattern-mix": 0,
       "sample.speed": 0,
@@ -99,7 +101,17 @@ const effects = [
       "warp1.field-angle": 0,
       "warp1.frequency": 1,
       "warp1.speed": 0,
-      "warp1.strength": 0
+      "warp1.strength": 0,
+      "affine.speed": 0,
+      "affine.rotation-rate": 0,
+      "affine.translation-x": 0,
+      "affine.translation-y": 0,
+      "affine.scale-x": 1,
+      "affine.scale-y": 1,
+      "affine.shear": 0,
+      "affine.repeat-cells": 1,
+      "affine.lattice-period": 1,
+      "affine.path-length": "off"
     },
     "snap": [],
     "presets": [
@@ -116,7 +128,9 @@ const effects = [
           "sample.pattern-freq": 4.439000129699707,
           "sample.speed": 0.24500000476837158,
           "warp1.speed": 0.015625,
-          "warp1.strength": 0.5
+          "warp1.strength": 0.5,
+          "affine.speed": 0.019496480002999306,
+          "affine.translation-x": -2
         }
       },
       {
@@ -132,7 +146,9 @@ const effects = [
           "sample.pattern-freq": 3.144700050354004,
           "sample.speed": 0.24500000476837158,
           "warp1.speed": 0.006906250026077032,
-          "warp1.strength": 2.7200000286102295
+          "warp1.strength": 2.7200000286102295,
+          "affine.speed": 0.019496480002999306,
+          "affine.translation-x": -2
         }
       },
       {
@@ -147,7 +163,9 @@ const effects = [
           "sample.complexity": 1.6979999542236328,
           "sample.pattern-freq": 7.52269983291626,
           "sample.speed": 0.24500000476837158,
-          "warp1.speed": 0.006906250026077032
+          "warp1.speed": 0.006906250026077032,
+          "affine.speed": 0.019496480002999306,
+          "affine.translation-x": -2
         }
       },
       {
@@ -163,7 +181,9 @@ const effects = [
           "sample.pattern-freq": 8.816200256347656,
           "sample.speed": 0.24500000476837158,
           "warp1.speed": 0.005593750160187483,
-          "warp1.strength": 1.3760000467300415
+          "warp1.strength": 1.3760000467300415,
+          "affine.speed": 0.019496480002999306,
+          "affine.translation-x": -2
         }
       }
     ]
@@ -192,8 +212,12 @@ const effects = [
         "operator": "warp.mirror-tile.v2"
       },
       {
+        "label": "affine",
+        "operator": "warp.affine.v4"
+      },
+      {
         "label": "sample",
-        "operator": "sample.grid.v3"
+        "operator": "sample.grid.v4"
       },
       {
         "label": "colorize",
@@ -227,10 +251,8 @@ const effects = [
       "project.frame": "identity",
       "project.hemisphere": "folded",
       "project.singularity-fade": 1,
-      "sample.angle-speed": 0,
       "sample.complexity": 0,
       "sample.coverage-mode": "edge-fade",
-      "sample.drift": 0,
       "sample.edge-width": 0.10000000149011612,
       "sample.pattern-freq": 1,
       "sample.pattern-mix": 0,
@@ -241,7 +263,17 @@ const effects = [
       "warp1.offset-x": 0,
       "warp1.offset-y": 0,
       "warp1.rotation": 0,
-      "warp1.speed": 0
+      "warp1.speed": 0,
+      "affine.speed": 0,
+      "affine.rotation-rate": 0,
+      "affine.translation-x": 0,
+      "affine.translation-y": 0,
+      "affine.scale-x": 1,
+      "affine.scale-y": 1,
+      "affine.shear": 0,
+      "affine.repeat-cells": 1,
+      "affine.lattice-period": 1,
+      "affine.path-length": "off"
     },
     "snap": [],
     "presets": [
@@ -254,15 +286,17 @@ const effects = [
           "modulation.modulation-amount": 0.42399999499320984,
           "colorize.palette-chroma": 0.4000000059604645,
           "project.singularity-fade": 1.399999976158142,
-          "sample.drift": 1,
           "sample.edge-width": 0.5,
           "sample.pattern-freq": 3.565000057220459,
           "sample.pattern-mix": 1,
-          "sample.speed": 0.23499999940395355,
+          "sample.speed": 0,
           "warp1.cell-x": 5.381124973297119,
           "warp1.offset-x": 1.343999981880188,
           "warp1.offset-y": -1.4559999704360962,
-          "warp1.rotation": 0.29530972242355347
+          "warp1.rotation": 0.29530972242355347,
+          "affine.speed": 0.018700705841183662,
+          "affine.translation-x": -2,
+          "affine.translation-y": 2
         }
       }
     ]
@@ -291,8 +325,12 @@ const effects = [
         "operator": "warp.mirror-tile.v2"
       },
       {
+        "label": "affine",
+        "operator": "warp.affine.v4"
+      },
+      {
         "label": "sample",
-        "operator": "sample.grid.v3"
+        "operator": "sample.grid.v4"
       },
       {
         "label": "colorize",
@@ -325,10 +363,8 @@ const effects = [
       "project.frame": "identity",
       "project.hemisphere": "folded",
       "project.singularity-fade": 1,
-      "sample.angle-speed": 0,
       "sample.complexity": 0,
       "sample.coverage-mode": "edge-fade",
-      "sample.drift": 0,
       "sample.edge-width": 0.10000000149011612,
       "sample.pattern-freq": 1,
       "sample.pattern-mix": 0,
@@ -339,7 +375,17 @@ const effects = [
       "warp1.offset-x": 0,
       "warp1.offset-y": 0,
       "warp1.rotation": 0,
-      "warp1.speed": 0
+      "warp1.speed": 0,
+      "affine.speed": 0,
+      "affine.rotation-rate": 0,
+      "affine.translation-x": 0,
+      "affine.translation-y": 0,
+      "affine.scale-x": 1,
+      "affine.scale-y": 1,
+      "affine.shear": 0,
+      "affine.repeat-cells": 1,
+      "affine.lattice-period": 1,
+      "affine.path-length": "off"
     },
     "snap": [],
     "presets": [
@@ -349,15 +395,17 @@ const effects = [
         "values": {
           "camera.wander": 1,
           "project.singularity-fade": 1.399999976158142,
-          "sample.drift": 1,
           "sample.edge-width": 0.5,
           "sample.pattern-freq": 3.565000057220459,
           "sample.pattern-mix": 1,
-          "sample.speed": 0.23499999940395355,
+          "sample.speed": 0,
           "warp1.cell-x": 5.381124973297119,
           "warp1.offset-x": 1.343999981880188,
           "warp1.offset-y": -1.4559999704360962,
-          "warp1.rotation": 0.29530972242355347
+          "warp1.rotation": 0.29530972242355347,
+          "affine.speed": 0.018700705841183662,
+          "affine.translation-x": -2,
+          "affine.translation-y": 2
         }
       }
     ]
@@ -390,8 +438,12 @@ const effects = [
         "operator": "warp.mirror-tile.v2"
       },
       {
+        "label": "affine",
+        "operator": "warp.affine.v4"
+      },
+      {
         "label": "sample",
-        "operator": "sample.grid.v3"
+        "operator": "sample.grid.v4"
       },
       {
         "label": "colorize",
@@ -425,10 +477,8 @@ const effects = [
       "project.frame": "identity",
       "project.hemisphere": "folded",
       "project.singularity-fade": 1,
-      "sample.angle-speed": 0,
       "sample.complexity": 0,
       "sample.coverage-mode": "weight-squared",
-      "sample.drift": 0,
       "sample.pattern-freq": 1,
       "sample.pattern-mix": 0,
       "sample.speed": 0,
@@ -442,7 +492,17 @@ const effects = [
       "warp2.offset-x": 0,
       "warp2.offset-y": 0,
       "warp2.rotation": 0,
-      "warp2.speed": 0
+      "warp2.speed": 0,
+      "affine.speed": 0,
+      "affine.rotation-rate": 0,
+      "affine.translation-x": 0,
+      "affine.translation-y": 0,
+      "affine.scale-x": 1,
+      "affine.scale-y": 1,
+      "affine.shear": 0,
+      "affine.repeat-cells": 1,
+      "affine.lattice-period": 1,
+      "affine.path-length": "off"
     },
     "snap": [],
     "presets": [
@@ -454,15 +514,17 @@ const effects = [
           "modulation.modulation-amount": 0.7210000157356262,
           "colorize.palette-chroma": 1,
           "project.singularity-fade": 2.311000108718872,
-          "sample.angle-speed": 0.027000000700354576,
           "sample.complexity": 1.7039999961853027,
-          "sample.drift": 0.800000011920929,
           "sample.pattern-freq": 6.328700065612793,
-          "sample.speed": 0.03999999910593033,
+          "sample.speed": 0.07199999690055847,
           "warp1.field-angle": 2.2305307388305664,
           "warp1.frequency": 1.4079999923706055,
           "warp1.speed": -0.0032500000670552254,
-          "warp1.strength": -0.17599999904632568
+          "warp1.strength": -0.17599999904632568,
+          "affine.speed": 0.0012732394970953465,
+          "affine.rotation-rate": 21.205751419067383,
+          "affine.translation-x": -5,
+          "affine.translation-y": 4
         }
       },
       {
@@ -475,15 +537,17 @@ const effects = [
           "colorize.palette-chroma": 1,
           "colorize.palette-mapping": "cup",
           "project.singularity-fade": 2.311000108718872,
-          "sample.angle-speed": 0.027000000700354576,
           "sample.complexity": 1.7039999961853027,
-          "sample.drift": 0.800000011920929,
           "sample.pattern-freq": 6.328700065612793,
-          "sample.speed": 0.03999999910593033,
+          "sample.speed": 0.07199999690055847,
           "warp1.field-angle": 2.2305307388305664,
           "warp1.frequency": 1.4079999923706055,
           "warp1.speed": -0.0032500000670552254,
-          "warp1.strength": -0.17599999904632568
+          "warp1.strength": -0.17599999904632568,
+          "affine.speed": 0.0012732394970953465,
+          "affine.rotation-rate": 21.205751419067383,
+          "affine.translation-x": -5,
+          "affine.translation-y": 4
         }
       }
     ]
@@ -565,7 +629,8 @@ const effects = [
       "warp1.shear": 0,
       "warp1.speed": 0,
       "warp1.translation-x": 0,
-      "warp1.translation-y": 0
+      "warp1.translation-y": 0,
+      "warp1.path-length": "off"
     },
     "snap": [],
     "presets": [
@@ -620,8 +685,12 @@ const effects = [
         "operator": "warp.mirror-tile.v2"
       },
       {
+        "label": "affine",
+        "operator": "warp.affine.v4"
+      },
+      {
         "label": "sample",
-        "operator": "sample.grid.v3"
+        "operator": "sample.grid.v4"
       },
       {
         "label": "colorize",
@@ -657,10 +726,8 @@ const effects = [
       "project.frame": "identity",
       "project.hemisphere": "folded",
       "project.singularity-fade": 1,
-      "sample.angle-speed": 0,
       "sample.complexity": 0,
       "sample.coverage-mode": "weight-squared",
-      "sample.drift": 0,
       "sample.pattern-freq": 1,
       "sample.pattern-mix": 0,
       "sample.speed": 0,
@@ -675,7 +742,17 @@ const effects = [
       "warp2.offset-x": 0,
       "warp2.offset-y": 0,
       "warp2.rotation": 0,
-      "warp2.speed": 0
+      "warp2.speed": 0,
+      "affine.speed": 0,
+      "affine.rotation-rate": 0,
+      "affine.translation-x": 0,
+      "affine.translation-y": 0,
+      "affine.scale-x": 1,
+      "affine.scale-y": 1,
+      "affine.shear": 0,
+      "affine.repeat-cells": 1,
+      "affine.lattice-period": 1,
+      "affine.path-length": "off"
     },
     "snap": [],
     "presets": [
@@ -689,14 +766,16 @@ const effects = [
           "colorize.palette-chroma": 1,
           "colorize.palette-mapping": "cup",
           "project.singularity-fade": 2.311000108718872,
-          "sample.angle-speed": 0.027000000700354576,
           "sample.complexity": 1.7039999961853027,
-          "sample.drift": 0.800000011920929,
           "sample.pattern-freq": 4.975500106811523,
-          "sample.speed": 0.03999999910593033,
+          "sample.speed": 0.07199999690055847,
           "warp1.speed": -0.00004999999873689376,
           "warp1.strength": 0.1379999965429306,
-          "warp2.speed": 0.003279999829828739
+          "warp2.speed": 0.003279999829828739,
+          "affine.speed": 0.0012732394970953465,
+          "affine.rotation-rate": 21.205751419067383,
+          "affine.translation-x": -5,
+          "affine.translation-y": 4
         }
       }
     ]
@@ -841,8 +920,12 @@ const effects = [
         "operator": "warp.mirror-tile.v2"
       },
       {
+        "label": "affine",
+        "operator": "warp.affine.v4"
+      },
+      {
         "label": "sample",
-        "operator": "sample.grid.v3"
+        "operator": "sample.grid.v4"
       },
       {
         "label": "colorize",
@@ -877,10 +960,8 @@ const effects = [
       "project.projection-spin-speed": 0,
       "project.projection-wander": 0,
       "project.singularity-fade": 1,
-      "sample.angle-speed": 0,
       "sample.complexity": 0,
       "sample.coverage-mode": "weight-squared",
-      "sample.drift": 0,
       "sample.pattern-freq": 1,
       "sample.pattern-mix": 0,
       "sample.speed": 0,
@@ -890,7 +971,17 @@ const effects = [
       "warp2.offset-x": 0,
       "warp2.offset-y": 0,
       "warp2.rotation": 0,
-      "warp2.speed": 0
+      "warp2.speed": 0,
+      "affine.speed": 0,
+      "affine.rotation-rate": 0,
+      "affine.translation-x": 0,
+      "affine.translation-y": 0,
+      "affine.scale-x": 1,
+      "affine.scale-y": 1,
+      "affine.shear": 0,
+      "affine.repeat-cells": 1,
+      "affine.lattice-period": 1,
+      "affine.path-length": "off"
     },
     "snap": [],
     "presets": [
@@ -906,14 +997,14 @@ const effects = [
           "colorize.palette-mapping": "cup",
           "project.projection-wander": 0.16500000655651093,
           "project.singularity-fade": 2.140000104904175,
-          "sample.angle-speed": 0.026999998837709427,
           "sample.complexity": 3,
-          "sample.drift": 0.800000011920929,
           "sample.pattern-freq": 3.940700054168701,
           "sample.pattern-mix": 1,
           "warp2.cell-x": 1.0471975803375244,
           "warp2.cell-y": 0.9977031350135803,
-          "warp2.speed": 0.00013000000035390258
+          "warp2.speed": 0.00013000000035390258,
+          "affine.speed": 0.015625,
+          "affine.rotation-rate": 1.7279999256134033
         }
       },
       {
@@ -927,14 +1018,14 @@ const effects = [
           "colorize.palette-mapping": "cup",
           "project.projection-wander": 0.16500000655651093,
           "project.singularity-fade": 2.140000104904175,
-          "sample.angle-speed": 0.026999998837709427,
           "sample.complexity": 3,
-          "sample.drift": 0.800000011920929,
           "sample.pattern-freq": 3.940700054168701,
           "sample.pattern-mix": 1,
           "warp2.cell-x": 1.0471975803375244,
           "warp2.cell-y": 0.9977031350135803,
-          "warp2.speed": 0.00013000000035390258
+          "warp2.speed": 0.00013000000035390258,
+          "affine.speed": 0.015625,
+          "affine.rotation-rate": 1.7279999256134033
         }
       },
       {
@@ -949,14 +1040,14 @@ const effects = [
           "colorize.palette-mapping": "cup",
           "project.projection-wander": 0.16500000655651093,
           "project.singularity-fade": 2.140000104904175,
-          "sample.angle-speed": 0.026999998837709427,
           "sample.complexity": 3,
-          "sample.drift": 0.800000011920929,
           "sample.pattern-freq": 0.398499995470047,
           "sample.pattern-mix": 1,
           "warp2.cell-x": 1.0471975803375244,
           "warp2.cell-y": 0.9018906354904175,
-          "warp2.speed": 0.0005799999926239252
+          "warp2.speed": 0.0005799999926239252,
+          "affine.speed": 0.015625,
+          "affine.rotation-rate": 1.7279999256134033
         }
       }
     ]
@@ -985,8 +1076,12 @@ const effects = [
         "operator": "warp.mirror-tile.v2"
       },
       {
+        "label": "affine",
+        "operator": "warp.affine.v4"
+      },
+      {
         "label": "sample",
-        "operator": "sample.grid.v3"
+        "operator": "sample.grid.v4"
       },
       {
         "label": "colorize",
@@ -1012,10 +1107,8 @@ const effects = [
       "colorize.value-opacity-low": 1,
       "project.frame": "identity",
       "project.singularity-fade": 1,
-      "sample.angle-speed": 0,
       "sample.complexity": 0,
       "sample.coverage-mode": "edge-fade",
-      "sample.drift": 0,
       "sample.edge-width": 0.10000000149011612,
       "sample.pattern-freq": 1,
       "sample.pattern-mix": 0,
@@ -1030,7 +1123,17 @@ const effects = [
       "displacement.modulation-enabled": "enabled",
       "displacement.modulation-source": "displacement",
       "displacement.modulation-evaluation": "direct",
-      "displacement.modulation-mechanic": "hue-rotation"
+      "displacement.modulation-mechanic": "hue-rotation",
+      "affine.speed": 0,
+      "affine.rotation-rate": 0,
+      "affine.translation-x": 0,
+      "affine.translation-y": 0,
+      "affine.scale-x": 1,
+      "affine.scale-y": 1,
+      "affine.shear": 0,
+      "affine.repeat-cells": 1,
+      "affine.lattice-period": 1,
+      "affine.path-length": "off"
     },
     "snap": [],
     "presets": [
@@ -1043,14 +1146,16 @@ const effects = [
           "colorize.palette-chroma": 0.2919999957084656,
           "project.singularity-fade": 1.399999976158142,
           "sample.complexity": 1.8539999723434448,
-          "sample.drift": 1,
           "sample.edge-width": 0.5,
           "sample.pattern-freq": 2.5476999282836914,
-          "sample.speed": 0.23499999940395355,
+          "sample.speed": 0.4699999988079071,
           "warp1.cell-x": 5.381124973297119,
           "warp1.offset-x": 1.343999981880188,
           "warp1.offset-y": -1.4559999704360962,
-          "warp1.rotation": 0.29530972242355347
+          "warp1.rotation": 0.29530972242355347,
+          "affine.speed": 0.018700705841183662,
+          "affine.translation-x": -2,
+          "affine.translation-y": 2
         }
       }
     ]

@@ -739,7 +739,7 @@ async function main(probe) {
       const DEFAULT_CHAIN = [
         { instance: 'camera', operator: 'sphere.rotate.v2' },
         { instance: 'project', operator: 'project.stereographic.v2' },
-        { instance: 'sample', operator: 'sample.grid.v3' },
+        { instance: 'sample', operator: 'sample.grid.v4' },
         { instance: 'colorize', operator: 'colorize.generated-palette.v4' },
       ];
 

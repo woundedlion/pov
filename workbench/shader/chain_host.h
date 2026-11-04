@@ -40,7 +40,7 @@ inline constexpr Pullback::Interp::ChainEntryRequest
     SHADER_CHAIN_DEFAULT_CHAIN[] = {
         {"camera", "sphere.rotate.v2"},
         {"project", "project.stereographic.v2"},
-        {"sample", "sample.grid.v3"},
+        {"sample", "sample.grid.v4"},
         {"colorize", "colorize.generated-palette.v4"},
 };
 

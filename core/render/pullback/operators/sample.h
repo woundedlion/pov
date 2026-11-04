@@ -242,7 +242,7 @@ struct SourceClockModel : ValueStateModel<SourceClockState> {
   }
 };
 
-/// `drift` upper bound of the extended-drift sample families.
+/// `drift` upper bound of the extended-drift twin-wave family.
 inline constexpr float EXTENDED_DRIFT_MAX = 2.0f;
 
 /** @brief A source's fields plus the crossing fields, with `drift` widened to
@@ -260,11 +260,12 @@ consteval auto extended_drift_fields() {
   return fields;
 }
 
-/** @brief Parameter family of sample.grid.v3: the grid source fields plus the
+/** @brief Parameter family of sample.grid.v4: the grid source fields plus the
     crossing's union field and topology enum8s. */
 struct GridSampleParams : Source::GridSourceParams, SampleCrossingParams {
-  static constexpr auto FIELDS =
-      extended_drift_fields<GridSampleParams, Source::GridSourceParams>();
+  static constexpr auto FIELDS = concat_fields<GridSampleParams>(
+      Source::GridSourceParams::FIELDS,
+      sample_crossing_fields<GridSampleParams>());
   static constexpr auto TOPOLOGY = sample_crossing_topology<GridSampleParams>();
 };
 static_assert(field_ids_unique<GridSampleParams>());
@@ -272,13 +273,16 @@ static_assert(field_defaults_in_range<GridSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the coupled sine grid source with topology
     weight and coverage modes. */
-struct SampleGridV3 : SourceClockModel {
-  static constexpr const char *ID = "sample.grid.v3";
-  static constexpr const char *NAME = "Grid Extended Drift";
+struct SampleGridV4 : SourceClockModel {
+  static constexpr const char *ID = "sample.grid.v4";
+  static constexpr const char *NAME = "Grid";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = GridSampleParams;
 
+  static TranslationLattice translation_lattice(const Params &params) {
+    return Source::translation_lattice(params);
+  }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
     const float raw = Pattern::grid(
@@ -319,39 +323,7 @@ struct SampleTwinWaveV3 : SourceClockModel {
   }
 };
 
-/** @brief Parameter family of sample.rings.v2. */
-struct RingsSampleParams : Source::RingsSourceParams, SampleCrossingParams {
-  static constexpr auto FIELDS = concat_fields<RingsSampleParams>(
-      Source::RingsSourceParams::FIELDS,
-      sample_crossing_fields<RingsSampleParams>());
-  static constexpr auto TOPOLOGY =
-      sample_crossing_topology<RingsSampleParams>();
-};
-static_assert(field_ids_unique<RingsSampleParams>());
-static_assert(
-    appended_block_size_matches<RingsSampleParams, SampleCrossingParams, 8>(),
-    "appended parameter block must have the expected rounded size");
-static_assert(field_defaults_in_range<RingsSampleParams>());
-
-/** @brief PLANE→FIELD crossing: the expanding concentric ring source. */
-struct SampleRings : SourceClockModel {
-  static constexpr const char *ID = "sample.rings.v2";
-  static constexpr const char *NAME = "Rings";
-  using Input = PlaneSample;
-  using Output = FieldSample;
-  using Params = RingsSampleParams;
-
-  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
-                         const Params &params, const Prepared &prepared) {
-    const float raw =
-        Pattern::rings(Pattern::PlanePosition{projections::stereo_pattern_args(
-                           input.coords, params.pattern_freq)},
-                       prepared);
-    return finish_sample(input, raw, params, ctx);
-  }
-};
-
-/** @brief Parameter family of sample.spiral.v2. */
+/** @brief Parameter family of sample.spiral.v3. */
 struct SpiralSampleParams : Source::SpiralSourceParams, SampleCrossingParams {
   static constexpr auto FIELDS = concat_fields<SpiralSampleParams>(
       Source::SpiralSourceParams::FIELDS,
@@ -360,22 +332,35 @@ struct SpiralSampleParams : Source::SpiralSourceParams, SampleCrossingParams {
       sample_crossing_topology<SpiralSampleParams>();
 };
 static_assert(field_ids_unique<SpiralSampleParams>());
+static_assert(
+    appended_block_size_matches<SpiralSampleParams, SampleCrossingParams, 8>(),
+    "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<SpiralSampleParams>());
 
-/** @brief PLANE→FIELD crossing: the rotating spiral source. */
-struct SampleSpiral : SourceClockModel {
-  static constexpr const char *ID = "sample.spiral.v2";
+/** @brief PLANE→FIELD crossing: the stationary spiral source; zero arms draw
+    concentric rings. */
+struct SampleSpiralV3 : StatelessModel {
+  static constexpr const char *ID = "sample.spiral.v3";
   static constexpr const char *NAME = "Spiral";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = SpiralSampleParams;
+  /** @brief The whole arm count. */
+  struct Prepared {
+    float arms; ///< `arms` rounded to whole.
+  };
 
+  static Prepared prepare(const FrameContext &, const Params &params,
+                          const State &) {
+    check_sample_topology(params.weight_mode, params.coverage_mode);
+    return {std::round(params.arms)};
+  }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
     const float raw =
         Pattern::spiral(Pattern::PlanePosition{projections::stereo_pattern_args(
                             input.coords, params.pattern_freq)},
-                        prepared);
+                        prepared.arms);
     return finish_sample(input, raw, params, ctx);
   }
 };

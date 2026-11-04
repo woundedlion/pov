@@ -159,24 +159,15 @@ struct NoiseParams {
   constexpr bool operator==(const NoiseParams &) const = default;
 };
 
-/** @brief Passive parameters for `PlaneRings`. */
-struct RingsSourceParams {
-  float pattern_freq = 1.0f; /**< Radial pattern frequency. */
-  float speed = 0.0f;        /**< Phase advance per frame, in radians. */
-};
-
 /** @brief Passive parameters for `PlaneCoupledGrid`. */
 struct GridSourceParams {
   float pattern_freq = 1.0f; /**< Scale applied to the warped plane
                                    coordinates before the grid is sampled. */
-  float speed = 0.0f;        /**< Per-frame advance of the primary phase. */
+  float speed = 0.0f;        /**< Per-frame advance of the coupling phase. */
   float complexity = 0.0f;   /**< Amount of cross-axis coupling folded into the
                                    grid coordinates. */
   float pattern_mix = 0.0f;  /**< Blend from the coupled pattern at 0 to the
                                    direct sine product at 1. */
-  float secondary_rate = 0.0f; /**< Secondary phase rate, as a multiple of
-                                    `speed`. */
-  float angle_rate = 0.0f;     /**< Per-frame advance of the source rotation. */
 };
 
 /** @brief Passive parameters for `PlaneInterference`. */
@@ -192,8 +183,8 @@ struct TwinWaveSourceParams {
 /** @brief Passive parameters for `PlaneSpiral`. */
 struct SpiralSourceParams {
   float pattern_freq = 1.0f; /**< Plane-coordinate scale before sampling. */
-  float speed = 0.0f;        /**< Per-frame advance of the primary phase. */
-  float angle_rate = 0.0f;   /**< Per-frame advance of the spiral rotation. */
+  float arms = 3.0f; /**< Spiral arms, rounded to whole; 0 draws concentric
+                          rings. */
 };
 
 /** @brief Passive parameters for `PlaneNoise`. */

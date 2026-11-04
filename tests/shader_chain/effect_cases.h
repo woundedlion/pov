@@ -13,7 +13,7 @@ inline void test_shader_chain_kaleidoscope_strobe() {
   const In::ChainEntryRequest chain[] = {
       {"lens", In::Op::LensKaleidoscope::ID},
       {"project", "project.gnomonic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   const auto status = effect.set_chain(chain).code;
@@ -50,7 +50,8 @@ inline void test_shader_chain_composed_frame_parity() {
       {"lens", "sphere.lens.glitch.v2"},
       {"project", "project.gnomonic.v2"},
       {"warp", "warp.mirror-tile.v2"},
-      {"sample", "sample.grid.v3"},
+      {"affine", "warp.affine.v4"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   const auto compile_status1 = chain.set_chain(topology).code;
@@ -66,7 +67,9 @@ inline void test_shader_chain_composed_frame_parity() {
       params.template get<"projection">().singularity_fade;
   static_cast<PB::MirrorParams &>(param_as<In::Op::MirrorWarpParams>(
       program, 3)) = params.template get<"outer_warp">();
-  auto &source = param_as<In::Op::GridSampleParams>(program, 4);
+  static_cast<PB::AffineParams &>(param_as<In::Op::AffineWarpParams>(
+      program, 4)) = params.template get<"affine">();
+  auto &source = param_as<In::Op::GridSampleParams>(program, 5);
   static_cast<PB::GridSourceParams &>(source) = params.template get<"source">();
   source.edge_width = params.template get<"value">().edge_width;
   source.coverage_mode =
@@ -146,7 +149,7 @@ inline void test_shader_chain_parameter_admission() {
       {"lens", "sphere.lens.mobius.v3"},
       {"project", "project.stereographic.v2"},
       {"warp", "warp.curl-flow.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   const auto compile_status2 = effect.set_chain(chain).code;
@@ -212,7 +215,7 @@ inline void test_shader_chain_edge_distance_admission() {
   const In::ChainEntryRequest chain[] = {
       {"project", "project.folded-sinusoidal.v2"},
       {"warp", "warp.wave-shear.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
@@ -264,7 +267,7 @@ inline void test_shader_chain_projection_plane_bound() {
     auto &program = fixture->program;
     const In::ChainEntryRequest chain[] = {
         {"project", op.operator_id},
-        {"sample", In::Op::SampleGridV3::ID},
+        {"sample", In::Op::SampleGridV4::ID},
         {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
     };
     const auto compile_status4 = program.compile(chain).code;
@@ -306,7 +309,7 @@ inline void test_shader_chain_plane_growth_admission() {
     scale_y[index] = ids[index] + ".scale-y";
     chain[index + 1] = {ids[index], In::Op::WarpAffineV4::ID};
   }
-  chain[WARPS + 1] = {"sample", In::Op::SampleGridV3::ID};
+  chain[WARPS + 1] = {"sample", In::Op::SampleGridV4::ID};
   chain[WARPS + 2] = {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID};
 
   reset_globals();
@@ -392,7 +395,7 @@ inline void test_shader_chain_effect_rebind_generation() {
   const In::ChainEntryRequest edited[] = {
       {"camera2", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   const In::ChainRefusal committed = effect.set_chain(edited);
@@ -477,7 +480,7 @@ inline void test_shader_chain_instantaneous_pixel_golden() {
       {"lens", "sphere.lens.glitch.v2"},
       {"project", "project.gnomonic.v2"},
       {"warp", "warp.mirror-tile.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
       {"modulation", "color.modulate.v1"},
   };

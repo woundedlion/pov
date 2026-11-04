@@ -8,6 +8,7 @@
  * @brief Typed field admission, source formulas and clocks. */
 
 #include <limits>
+#include <numbers>
 #include <type_traits>
 #include "core/pattern/sources.h"
 #include "core/pattern/noise.h"
@@ -169,11 +170,17 @@ inline void test_pattern_source_clocks() {
   }
   GridSourceParams grid;
   grid.speed = -0.2f;
-  grid.secondary_rate = 1.25f;
-  grid.angle_rate = 0.03f;
   float primary = 0.1f, secondary = 0.2f, angle = 0.4f;
   advance_clocks(grid, primary, secondary, angle);
   HS_EXPECT_NEAR(primary, -0.1f, 1.0e-8f);
+  HS_EXPECT_EQ(secondary, 0.2f);
+  HS_EXPECT_EQ(angle, 0.4f);
+  TwinWaveSourceParams waves;
+  waves.speed = -0.2f;
+  waves.secondary_rate = 1.25f;
+  waves.angle_rate = 0.03f;
+  advance_clocks(waves, primary, secondary, angle);
+  HS_EXPECT_NEAR(primary, -0.3f, 1.0e-7f);
   HS_EXPECT_NEAR(secondary, -0.05f, 1.0e-8f);
   HS_EXPECT_NEAR(angle, 0.43f, 1.0e-8f);
 }
@@ -233,16 +240,17 @@ inline void test_pattern_extracted_source_protocols() {
   const float RETAINED = PlaneInterference::sample(POINT, PREPARED);
   waves.pattern_freq = 13.0f;
   HS_EXPECT_EQ(PlaneInterference::sample(POINT, PREPARED), RETAINED);
-  PlaneRings::Params rings_params;
-  HS_EXPECT_NEAR(
-      PlaneRings::sample(POINT,
-                         PlaneRings::prepare(rings_params, {0.2f, 0.0f, 0.0f})),
-      std::sin(0.45f), 0.0018f);
+  static_assert(std::is_empty_v<PlaneSpiral::State>);
   PlaneSpiral::Params spiral_params;
-  HS_EXPECT_NEAR(PlaneSpiral::sample(
-                     {{0.5f, 0.0f}},
-                     PlaneSpiral::prepare(spiral_params, {0.2f, 0.0f, 0.1f})),
-                 0.0f, 0.0018f);
+  spiral_params.arms = 2.6f;
+  const auto SPIRAL = PlaneSpiral::prepare(spiral_params, {});
+  HS_EXPECT_EQ(SPIRAL.arms, 3.0f);
+  HS_EXPECT_NEAR(PlaneSpiral::sample({{0.0f, 0.5f}}, SPIRAL),
+                 std::sin(0.5f - 1.5f * std::numbers::pi_v<float>), 0.012f);
+  spiral_params.arms = 0.0f;
+  HS_EXPECT_NEAR(
+      PlaneSpiral::sample(POINT, PlaneSpiral::prepare(spiral_params, {})),
+      std::sin(0.65f), 0.0018f);
   PlaneCoupledGrid::Params grid_params;
   grid_params.pattern_mix = 1.0f;
   HS_EXPECT_NEAR(PlaneCoupledGrid::sample(

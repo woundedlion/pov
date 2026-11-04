@@ -28,6 +28,7 @@ inline void test_kaleidoscope_smooth_identity_and_presets() {
   HS_EXPECT_EQ(FX::PRESET_IDS.size(), size_t{4});
   static_assert(WB::Params::template HAS<"projection"> &&
                 WB::Params::template HAS<"inner_warp"> &&
+                WB::Params::template HAS<"affine"> &&
                 WB::Params::template HAS<"source"> &&
                 WB::Params::template HAS<"color">);
   static_assert(!WB::Params::template HAS<"lens"> &&
@@ -35,7 +36,8 @@ inline void test_kaleidoscope_smooth_identity_and_presets() {
   static_assert(
       sizeof(WB::Params) ==
       sizeof(Pullback::ProjectionParams) + sizeof(Pullback::MirrorParams) +
-          sizeof(Pullback::GridSourceParams) + sizeof(Pullback::ColorParams) +
+          sizeof(Pullback::AffineParams) + sizeof(Pullback::GridSourceParams) +
+          sizeof(Pullback::ColorParams) +
           sizeof(
               Pullback::Modulation::Params<Pattern::SourceKind::NOISE,
                                            Pattern::Evaluation::BAKED_CUBE>));
@@ -48,8 +50,6 @@ inline void test_kaleidoscope_smooth_identity_and_presets() {
       "Speed",
       "Complexity",
       "Pattern Mix",
-      "Drift",
-      "Source Angle Speed",
       "Singularity Fade",
       "Projection Spin Speed",
       "Projection Wander",
@@ -60,6 +60,15 @@ inline void test_kaleidoscope_smooth_identity_and_presets() {
       "Mirror Cell Y",
       "Mirror Offset X",
       "Mirror Offset Y",
+      "Planar Warp Speed",
+      "Affine Rotation Rate",
+      "Repeat Windings A",
+      "Repeat Windings B",
+      "Affine Scale X",
+      "Affine Scale Y",
+      "Affine Shear",
+      "Repeat Cells",
+      "Fallback Lattice Period",
       "Palette Chroma",
       "Palette Mapping",
       "Mapping Frequency",

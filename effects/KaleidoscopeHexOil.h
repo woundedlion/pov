@@ -24,7 +24,7 @@ struct KaleidoscopeHexOilSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
-   * @brief Stage chain: camera rotation, hexagonal-prism kaleidoscope lens, direct surface displacement, stereographic projection, spiral source, generated palette,
+   * @brief Stage chain: camera rotation, hexagonal-prism kaleidoscope lens, direct surface displacement, stereographic projection, affine warp, spiral source, generated palette,
    *  displacement hue modulation.
    * @tparam B The effect's Binding.
    */
@@ -38,6 +38,8 @@ struct KaleidoscopeHexOilSpec : Pullback::Spec {
               Pullback::DirectSurfaceParams, B, true>::Type>,
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
               Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::AffineParams, B, "affine", false>::Type>,
       Pullback::Stage::Sample<
           typename Pullback::SourcePolicyFor<Pullback::SpiralSourceParams,
                                              B>::Type,
@@ -74,9 +76,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "39bb909f3a13834fd7fc8804fa807568af4b15d14d7da2d33adaceebd5f1c102";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "7ca7e9353ebe5839cff28dc3b0b1a9eb983796597f1ffea0fc11fae401a065b4";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "c1901a4ecb22bd7b39923930d5e5f758baa6a2853db3b4be8e6a3d354ed6cca8";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "dc361a30b43c64c564bbba03ad989618636b5cb476aef0a3d9613ede7d1c76f6";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "kaleidoscope-hex-oil",
@@ -87,7 +89,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -97,6 +99,15 @@ public:
    */
   static constexpr Params initial_params() {
     Params value;
+    value.template get<"affine">().lattice_period = 1.0f;
+    value.template get<"affine">().repeat_cells = 1.0f;
+    value.template get<"affine">().rotation_rate = -4.5866666f;
+    value.template get<"affine">().scale_x = 1.0f;
+    value.template get<"affine">().scale_y = 1.0f;
+    value.template get<"affine">().shear = 0.0f;
+    value.template get<"affine">().speed = 0.015625f;
+    value.template get<"affine">().translation_x = 0.0f;
+    value.template get<"affine">().translation_y = 0.0f;
     value.template get<"projection">().camera_wander = 1.0f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
@@ -114,9 +125,8 @@ public:
     value.template get<"projection">().spin_rate = 0.0f;
     value.template get<"projection">().wander = 1.0f;
     value.template get<"projection">().singularity_fade = 1.627f;
-    value.template get<"source">().angle_rate = 0.03f;
+    value.template get<"source">().arms = 3.0f;
     value.template get<"source">().pattern_freq = 5.5327f;
-    value.template get<"source">().speed = 0.125f;
     value.template get<"surface">().direction = 0.0f;
     value.template get<"surface">().scale = 5.740422f;
     value.template get<"surface">().speed = 0.0f;

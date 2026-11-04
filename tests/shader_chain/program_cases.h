@@ -16,7 +16,7 @@ inline void test_shader_chain_program_lifetime() {
       {"counter", "test.count-a.v2"},
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   const auto compile_status1 = fixture->program.compile(chain).code;
@@ -44,14 +44,14 @@ inline void test_shader_chain_table_behavior() {
     if (op.input != In::CarrierId::SPHERE)
       append("project", "project.stereographic.v2");
     if (op.input == In::CarrierId::FIELD || op.input == In::CarrierId::COLOR)
-      append("sample", "sample.grid.v3");
+      append("sample", "sample.grid.v4");
     if (op.input == In::CarrierId::COLOR)
       append("colorize", "colorize.generated-palette.v4");
     append("subject", op.operator_id);
     if (op.output == In::CarrierId::SPHERE)
       append("project", "project.stereographic.v2");
     if (op.output == In::CarrierId::SPHERE || op.output == In::CarrierId::PLANE)
-      append("sample", "sample.grid.v3");
+      append("sample", "sample.grid.v4");
     if (op.output != In::CarrierId::COLOR)
       append("colorize", "colorize.generated-palette.v4");
     const auto status = fixture->program.compile(
@@ -177,7 +177,7 @@ inline void test_shader_chain_table_integrity() {
         "warp.affine.v3", "warp.affine-periodic.v1", "sample.grid.v2",
         "sample.twin-wave.v2", "colorize.generated-palette.v2"})
     HS_EXPECT_TRUE(In::find_operator(id) == nullptr);
-  HS_EXPECT_TRUE(In::find_operator("sample.grid.v3") != nullptr);
+  HS_EXPECT_TRUE(In::find_operator("sample.grid.v4") != nullptr);
   HS_EXPECT_TRUE(In::find_operator("sample.grid.v1") == nullptr);
   HS_EXPECT_TRUE(In::find_operator("sphere.displace.curl.v2") != nullptr);
   HS_EXPECT_TRUE(In::find_operator("sphere.displace.ripple.v2") != nullptr);
@@ -238,10 +238,10 @@ inline void test_shader_chain_schema_and_field_ids() {
   static_assert(In::schema_ids_unique(In::SCHEMA<In::Op::Rotate>));
   static_assert(
       In::schema_ids_unique(In::SCHEMA<In::Op::ProjectStereographic>));
-  static_assert(In::schema_ids_unique(In::SCHEMA<In::Op::SampleGridV3>));
+  static_assert(In::schema_ids_unique(In::SCHEMA<In::Op::SampleGridV4>));
   static_assert(
       In::schema_ids_unique(In::SCHEMA<In::Op::ColorizeGeneratedPaletteV4>));
-  static_assert(In::topology_wellformed(In::SCHEMA<In::Op::SampleGridV3>));
+  static_assert(In::topology_wellformed(In::SCHEMA<In::Op::SampleGridV4>));
   static_assert(
       In::topology_wellformed(In::SCHEMA<In::Op::ColorizeGeneratedPaletteV4>));
 
@@ -256,7 +256,7 @@ inline void test_shader_chain_schema_and_field_ids() {
 
   // Schema order is the family table then the topology enum8s; defaults come
   // from the default-constructed family.
-  const auto *sample_found = require_operator("sample.grid.v3");
+  const auto *sample_found = require_operator("sample.grid.v4");
   if (!sample_found)
     return;
   const In::OperatorDescriptor &sample = *sample_found;
@@ -516,9 +516,8 @@ inline void test_shader_chain_schema_and_field_ids() {
   // Projected sample batch: every crossing carries the union edge-width field
   // and the weight/coverage topology pair; only projected-noise adds a basis.
   for (const char *id :
-       {"sample.grid.v3", "sample.twin-wave.v3", "sample.rings.v2",
-        "sample.spiral.v2", "sample.tessellation.v3",
-        "sample.projected-noise.v2"}) {
+       {"sample.grid.v4", "sample.twin-wave.v3", "sample.spiral.v3",
+        "sample.tessellation.v3", "sample.projected-noise.v2"}) {
     const auto *crossing_found = require_operator(id);
     if (!crossing_found)
       return;
@@ -728,7 +727,7 @@ inline void test_shader_chain_catalog_shape() {
   HS_EXPECT_TRUE(contains("\"id\":\"sphere.rotate.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"project.stereographic.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"warp.vortex.v2\""));
-  HS_EXPECT_TRUE(contains("\"id\":\"sample.grid.v3\""));
+  HS_EXPECT_TRUE(contains("\"id\":\"sample.grid.v4\""));
   HS_EXPECT_TRUE(contains("\"id\":\"sample.tessellation.v3\""));
   HS_EXPECT_TRUE(contains("\"id\":\"colorize.generated-palette.v4\""));
   HS_EXPECT_TRUE(contains("\"id\":\"weight-mode\",\"topology\":true,"
@@ -791,7 +790,7 @@ inline void test_shader_chain_default_chain_renders() {
 }
 
 inline void test_shader_chain_param_address_channel() {
-  const auto verify_extended_crossing = []<typename Model>() {
+  const auto verify_crossing_address = []<typename Model>() {
     typename Model::Params params;
     const auto before = params;
     const auto *descriptor_found = require_operator(Model::ID);
@@ -805,17 +804,20 @@ inline void test_shader_chain_param_address_channel() {
     HS_EXPECT_EQ(params.coverage_mode, 0);
     for (const auto &field : Model::Params::FIELDS)
       HS_EXPECT_EQ(params.*field.member, before.*field.member);
+  };
+  verify_crossing_address.template operator()<In::Op::SampleGridV4>();
+  verify_crossing_address.template operator()<In::Op::SampleTwinWaveV3>();
+  verify_crossing_address.template operator()<In::Op::SampleSpiralV3>();
+  if (const auto *twin_wave = require_operator(In::Op::SampleTwinWaveV3::ID)) {
     const auto *drift = std::find_if(
-        descriptor.schema, descriptor.schema + descriptor.schema_count,
+        twin_wave->schema, twin_wave->schema + twin_wave->schema_count,
         [](const auto &field) {
           return std::string_view(field.id) == "drift";
         });
-    HS_EXPECT_TRUE(drift != descriptor.schema + descriptor.schema_count);
-    if (drift != descriptor.schema + descriptor.schema_count)
+    HS_EXPECT_TRUE(drift != twin_wave->schema + twin_wave->schema_count);
+    if (drift != twin_wave->schema + twin_wave->schema_count)
       HS_EXPECT_EQ(drift->max, 2.0f);
-  };
-  verify_extended_crossing.template operator()<In::Op::SampleGridV3>();
-  verify_extended_crossing.template operator()<In::Op::SampleTwinWaveV3>();
+  }
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
   if (!arm_default_chain(program, 1, ValueSet::DEFAULTS))

@@ -52,7 +52,7 @@ class ChainCaptureFixtureTests(unittest.TestCase):
         output = generator.generate(self.records)
         self.assertIn("SpatialWalkSnapshot", output)
         self.assertIn("GeneratedPaletteBank::Snapshot", output)
-        self.assertIn('"sample.grid.v3"', output)
+        self.assertIn('"sample.grid.v4"', output)
         self.assertIn("ColorModulation::Config", output)
         self.assertIn("Pullback::Modulation::State", output)
         self.assertIn("Pullback::Interp::ModulationClockSnapshot", output)

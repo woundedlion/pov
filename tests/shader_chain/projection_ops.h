@@ -123,7 +123,7 @@ inline bool arm_project_op_chain(In::ChainProgram &program, const char *op_id,
   const In::ChainEntryRequest chain[] = {
       {"camera", "sphere.rotate.v2"},
       {"project", op_id},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   return arm_chain<In::Op::RotateChainParams, OpParams,

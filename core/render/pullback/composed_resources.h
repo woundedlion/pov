@@ -67,8 +67,9 @@ struct ParameterResource {
   using Family = FamilyT; ///< Parameter family stored for this instance.
   /// Standard instance keys, in canonical storage order.
   static constexpr std::string_view INSTANCE_ORDER[] = {
-      "source", "projection", "outer_warp", "inner_warp",   "surface",
-      "lens",   "value",      "color",      "displacement", "modulation"};
+      "source", "projection",   "outer_warp", "inner_warp",
+      "affine", "surface",      "lens",       "value",
+      "color",  "displacement", "modulation"};
   /// Index of `Key` in `INSTANCE_ORDER`, or its size for a non-standard
   /// key.
   static constexpr size_t ORDER = [] {
@@ -306,7 +307,7 @@ template <typename Family,
           bool Affine = std::is_base_of_v<Warp::AffineParams, Family>>
 struct RotationClock {};
 /** @brief The affine warp's accumulated rotation.
- * @details Column-time samples may lie outside [0, 2pi). */
+ * @details Column-time samples may lie outside (-2pi, 2pi). */
 template <typename Family> struct RotationClock<Family, true> {
   float rotation = 0.0f; ///< Frame rotation, radians modulo 2pi.
 };

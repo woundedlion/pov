@@ -207,11 +207,6 @@ struct PreparedSource {
   float angle_sin; /**< Sine of `angle`. */
 };
 
-/** @brief Grid phases and the stationary uncoupled kernel selection. */
-struct PreparedGrid : PreparedSource {
-  bool stationary_uncoupled; ///< Identity rotation, zero phases and coupling.
-};
-
 /** @brief Wraps this frame's source phases with the rotation's cosine pair.
     @param primary Primary phase.
     @param secondary Secondary phase.
@@ -241,71 +236,47 @@ HS_HOT_FLASH_MEMBER inline float twin_wave(const PlanePosition &coordinate,
 }
 
 /**
- * @brief Concentric rings about the origin, moving outward with `primary`.
- * @tparam Prepared PreparedSource-shaped per-frame phases.
+ * @brief Stationary Archimedean spiral sin(r - arms * azimuth).
  * @param coordinate Pattern-space coordinate.
- * @param prepared Per-frame phases.
+ * @param arms Whole arm count; 0 draws concentric rings.
  * @return Field value in [-1, 1].
  */
-template <typename Prepared>
-HS_HOT_FLASH_MEMBER inline float rings(const PlanePosition &coordinate,
-                                       const Prepared &prepared) {
-  const auto &input = coordinate.value;
-  return math::fast_sinf(input.magnitude() - prepared.primary);
-}
-
-/**
- * @brief Three-armed Archimedean spiral turned by the source angle.
- * @tparam Prepared PreparedSource-shaped per-frame phases.
- * @param coordinate Pattern-space coordinate.
- * @param prepared Per-frame phase and rotation.
- * @return Field value in [-1, 1].
- */
-template <typename Prepared>
 HS_HOT_FLASH_MEMBER inline float spiral(const PlanePosition &coordinate,
-                                        const Prepared &prepared) {
+                                        float arms) {
   const auto &input = coordinate.value;
   const float radius = input.magnitude();
-  const float azimuth = math::fast_atan2(input.im, input.re);
-  return math::fast_sinf(radius - 3.0f * (azimuth + prepared.angle) -
-                         prepared.primary);
+  if (arms == 0.0f)
+    return math::fast_sinf(radius);
+  return math::fast_sinf(radius - arms * math::fast_atan2(input.im, input.re));
 }
 
 /**
- * @brief Coupled sine grid in the rotated frame.
+ * @brief Coupled sine grid sin(x + c sin(y + phase)) cos(y + c cos(x -
+ *        phase)), blended toward the direct product sin(x) cos(y).
  * @tparam Params Parameter block of the source family.
  * @tparam Prepared PreparedSource-shaped per-frame phases.
  * @param coordinate Pattern-space coordinate.
- * @param params Complexity and pattern mix.
- * @param prepared Per-frame phases and rotation.
+ * @param params Complexity c and pattern mix.
+ * @param prepared Per-frame coupling phase.
  * @return Field value in [-1, 1].
  */
 template <typename Params, typename Prepared>
 HS_HOT_ITCM_MEMBER inline float grid(const PlanePosition &coordinate,
                                      const Params &params,
                                      const Prepared &prepared) {
-  const auto &input = coordinate.value;
-  if constexpr (requires { prepared.stationary_uncoupled; })
-    if (prepared.stationary_uncoupled)
-      return math::fast_sinf(input.re) * math::fast_cosf(input.im);
-  const float x = input.re * prepared.angle_cos + input.im * prepared.angle_sin;
-  const float y =
-      -input.re * prepared.angle_sin + input.im * prepared.angle_cos;
-  if (params.pattern_mix == 1.0f)
-    return math::fast_sinf(x + prepared.primary) *
-           math::fast_cosf(y - prepared.secondary);
-  float re = x + prepared.primary;
-  float im = y - prepared.secondary;
-  if (params.complexity != 0.0f) {
-    re += params.complexity * math::fast_sinf(y + prepared.primary);
-    im += params.complexity * math::fast_cosf(x - prepared.secondary);
-  }
-  const float coupled = math::fast_sinf(re) * math::fast_cosf(im);
+  const float x = coordinate.value.re;
+  const float y = coordinate.value.im;
+  if (params.pattern_mix == 1.0f || params.complexity == 0.0f)
+    return math::fast_sinf(x) * math::fast_cosf(y);
+  const float coupled =
+      math::fast_sinf(x + params.complexity *
+                              math::fast_sinf(y + prepared.primary)) *
+      math::fast_cosf(y + params.complexity *
+                              math::fast_cosf(x - prepared.primary));
   if (params.pattern_mix == 0.0f)
     return coupled;
-  const float direct = math::fast_sinf(x + prepared.primary) *
-                       math::fast_cosf(y - prepared.secondary);
-  return hs::lerp(coupled, direct, params.pattern_mix);
+  return hs::lerp(coupled, math::fast_sinf(x) * math::fast_cosf(y),
+                  params.pattern_mix);
 }
 
 /** @brief Signed distance to a centred square, rounded past its corners.
@@ -619,6 +590,8 @@ template <class Params> bool valid_source_params(const Params &params) {
     valid &= parameter_in_range(params.secondary_rate, 0.0f, 2.0f);
   if constexpr (requires { params.angle_rate; })
     valid &= parameter_in_range(params.angle_rate, -0.05f, 0.05f);
+  if constexpr (requires { params.arms; })
+    valid &= parameter_in_range(params.arms, 0.0f, 12.0f);
   if constexpr (requires { params.complexity; })
     valid &= parameter_in_range(params.complexity, 0.0f, 3.0f) &&
              parameter_in_range(params.pattern_mix, 0.0f, 1.0f);
@@ -691,29 +664,58 @@ template <class Parameters> struct RadianSource {
   }
 };
 
-/** @brief Pure plane source policy for the rings kernel. */
-struct PlaneRings : RadianSource<RingsSourceParams> {
-  /** @brief Evaluates the prepared source at a consumer-supplied plane point.
-   * @param coordinate Plane coordinate.
-   * @param prepared Immutable controls and clocks.
-   * @return Signed field value. */
-  static float sample(const Coordinate &coordinate, const Prepared &prepared) {
-    return rings(PlanePosition{projections::stereo_pattern_args(
-                     coordinate.value, prepared.params.pattern_freq)},
-                 prepared.phases);
+/** @brief Pure protocol shared by stationary extracted sources: empty
+    passive state and immutable prepared controls.
+ * @tparam Parameters The source's passive parameter record. */
+template <class Parameters> struct StationarySource {
+  using Coordinate = PlanePosition; ///< Consumer-supplied plane coordinate.
+  using Params = Parameters;        ///< Canonical passive source parameters.
+  using State = EmptyState;         ///< Stationary source state.
+  using Prepared = Params;          ///< Complete immutable source inputs.
+  /** @brief Checks source controls.
+   * @param params Source controls.
+   * @return Whether the controls are admitted. */
+  static bool valid(const Params &params) {
+    return valid_source_params(params);
+  }
+  /** @brief Initializes empty source state.
+   * @param params Source controls.
+   * @return Empty state. */
+  static State init_state(const Params &params) {
+    (void)params;
+    return {};
+  }
+  /** @brief Preserves empty source state.
+   * @param state Previous state.
+   * @param params Source controls.
+   * @return Empty state. */
+  static State advance(const State &state, const Params &params) {
+    (void)params;
+    return state;
   }
 };
 
-/** @brief Pure plane source policy for the spiral kernel. */
-struct PlaneSpiral : RadianSource<SpiralSourceParams> {
+/** @brief Pure plane source policy for the stationary spiral kernel. */
+struct PlaneSpiral : StationarySource<SpiralSourceParams> {
+  /** @brief Owns admitted controls with the arm count rounded to whole.
+   * @param params Source controls.
+   * @param state Empty source state.
+   * @return Immutable source inputs. */
+  static Prepared prepare(const Params &params, const State &state) {
+    (void)state;
+    HS_CHECK(valid(params), "pattern spiral: invalid parameters");
+    Prepared prepared = params;
+    prepared.arms = std::round(params.arms);
+    return prepared;
+  }
   /** @brief Evaluates the prepared source at a consumer-supplied plane point.
    * @param coordinate Plane coordinate.
-   * @param prepared Immutable controls and clocks.
+   * @param prepared Immutable controls.
    * @return Signed field value. */
   static float sample(const Coordinate &coordinate, const Prepared &prepared) {
     return spiral(PlanePosition{projections::stereo_pattern_args(
-                      coordinate.value, prepared.params.pattern_freq)},
-                  prepared.phases);
+                      coordinate.value, prepared.pattern_freq)},
+                  prepared.arms);
   }
 };
 
@@ -747,34 +749,9 @@ struct PlaneCoupledGrid : RadianSource<GridSourceParams> {
  * @tparam Kind Cell shape.
  * @tparam Fill Cell primitives or edge band. */
 template <TessellationKind Kind, TessellationFill Fill>
-struct PlaneTessellation {
+struct PlaneTessellation : StationarySource<TessellationSourceParams> {
   static_assert(Kind <= TessellationKind::HEXAGONAL &&
                 Fill <= TessellationFill::EDGES);
-  using Coordinate = PlanePosition;        ///< Consumer-supplied coordinate.
-  using Params = TessellationSourceParams; ///< Canonical tessellation controls.
-  using State = EmptyState;                ///< Stationary source state.
-  using Prepared = Params;                 ///< Complete immutable inputs.
-  /** @brief Checks tessellation controls.
-   * @param params Source controls.
-   * @return Whether the controls are admitted. */
-  static bool valid(const Params &params) {
-    return valid_source_params(params);
-  }
-  /** @brief Initializes empty source state.
-   * @param params Source controls.
-   * @return Empty state. */
-  static State init_state(const Params &params) {
-    (void)params;
-    return {};
-  }
-  /** @brief Preserves empty source state.
-   * @param state Previous state.
-   * @param params Source controls.
-   * @return Empty state. */
-  static State advance(const State &state, const Params &params) {
-    (void)params;
-    return state;
-  }
   /** @brief Owns admitted tessellation controls.
    * @param params Source controls.
    * @param state Empty source state.

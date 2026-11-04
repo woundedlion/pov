@@ -219,7 +219,7 @@ inline void case_restore_parameters_inadmissible_field() {
                                           "sphere.displace.potential.v1"},
       Pullback::Interp::ChainEntryRequest{"project",
                                           "project.stereographic.v2"},
-      Pullback::Interp::ChainEntryRequest{"sample", "sample.grid.v3"},
+      Pullback::Interp::ChainEntryRequest{"sample", "sample.grid.v4"},
       Pullback::Interp::ChainEntryRequest{"colorize",
                                           "colorize.generated-palette.v4"}};
   effect.set_chain(chain);

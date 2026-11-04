@@ -37,24 +37,13 @@ HS_HOT_INLINE const auto &source_kernel_params(const Params &params) {
     return params;
 }
 
-/** @brief Parameters of the concentric ring source. */
-struct RingsSourceParams : Pattern::RingsSourceParams {
-  /** @brief Per-parameter id, member, label, range and curve. */
-  static constexpr auto FIELDS = std::array{
-      Field<RingsSourceParams>{"pattern-freq", &RingsSourceParams::pattern_freq,
-                               "Pattern Freq", 0.1f, 20.0f, FieldCurve::LERP},
-      Field<RingsSourceParams>{"speed", &RingsSourceParams::speed, "Speed",
-                               0.0f, 0.5f, FieldCurve::LERP},
-  };
-};
-static_assert(field_ids_unique<RingsSourceParams>());
-static_assert(field_defaults_in_range<RingsSourceParams>());
-
 /**
  * @brief Source parameters for the coupled sine grid
  *        (Pullback::Source::Grid).
  */
 struct GridSourceParams : Pattern::GridSourceParams {
+  /// translation_lattice() is axis-aligned for every parameter value.
+  static constexpr bool RECTANGULAR_TRANSLATION_LATTICE = true;
   /** @brief Per-parameter id, member, label, range and curve. */
   static constexpr auto FIELDS = std::array{
       Field<GridSourceParams>{"pattern-freq", &GridSourceParams::pattern_freq,
@@ -65,15 +54,20 @@ struct GridSourceParams : Pattern::GridSourceParams {
                               "Complexity", 0.0f, 3.0f, FieldCurve::LERP},
       Field<GridSourceParams>{"pattern-mix", &GridSourceParams::pattern_mix,
                               "Pattern Mix", 0.0f, 1.0f, FieldCurve::LERP},
-      Field<GridSourceParams>{"drift", &GridSourceParams::secondary_rate,
-                              "Drift", 0.0f, 1.25f, FieldCurve::LERP},
-      Field<GridSourceParams>{"angle-speed", &GridSourceParams::angle_rate,
-                              "Source Angle Speed", 0.0f, 0.05f,
-                              FieldCurve::LERP},
   };
 };
 static_assert(field_ids_unique<GridSourceParams>());
 static_assert(field_defaults_in_range<GridSourceParams>());
+
+/** @brief Square translation symmetry of the coupled grid.
+    @details Holds wherever the frequency-scaled coordinates stay inside
+    `projections::STEREO_PATTERN_ARG_LIMIT`, beyond which the source clamps.
+    @param params Grid controls.
+    @return Square lattice of period `2pi / pattern_freq`. */
+constexpr TranslationLattice
+translation_lattice(const GridSourceParams &params) {
+  return square_lattice(math::TWO_PI_F / params.pattern_freq);
+}
 
 /**
  * @brief Source parameters for the two-wave interference field
@@ -99,7 +93,7 @@ static_assert(field_ids_unique<TwinWaveSourceParams>());
 static_assert(field_defaults_in_range<TwinWaveSourceParams>());
 
 /**
- * @brief Source parameters for the rotating spiral field
+ * @brief Source parameters for the stationary spiral field
  *        (Pullback::Source::Spiral).
  */
 struct SpiralSourceParams : Pattern::SpiralSourceParams {
@@ -108,11 +102,8 @@ struct SpiralSourceParams : Pattern::SpiralSourceParams {
       Field<SpiralSourceParams>{"pattern-freq",
                                 &SpiralSourceParams::pattern_freq,
                                 "Pattern Freq", 0.1f, 20.0f, FieldCurve::LERP},
-      Field<SpiralSourceParams>{"speed", &SpiralSourceParams::speed, "Speed",
-                                0.0f, 0.5f, FieldCurve::LERP},
-      Field<SpiralSourceParams>{"angle-speed", &SpiralSourceParams::angle_rate,
-                                "Source Angle Speed", 0.0f, 0.05f,
-                                FieldCurve::LERP},
+      Field<SpiralSourceParams>{"arms", &SpiralSourceParams::arms,
+                                "Spiral Arms", 0.0f, 12.0f, FieldCurve::SNAP},
   };
 };
 static_assert(field_ids_unique<SpiralSourceParams>());
@@ -331,73 +322,38 @@ template <typename State> struct TwinWave : PrepareFromState<State> {
 };
 
 /**
- * @brief Rings source policy.
+ * @brief Stationary spiral source policy.
  * @tparam State Provider with Binding and FrameState types and
- * params(frame), prepare(frame) accessors.
+ * params(frame) accessors.
  */
-template <typename State> struct Rings : PrepareFromState<State> {
+template <typename State> struct Spiral : ApproximationDefaults {
   using Binding = typename State::Binding; ///< Binding of the provider `State`.
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
   /**
    * @brief Whether `State` under @p CandidateBinding supplies the pattern
-   *        frequency and primary phase.
+   *        frequency and arm count.
    * @tparam CandidateBinding Binding being checked.
    */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
-      StateProvider<State, CandidateBinding> &&
+      Detail::ParamsProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
         { State::params(frame).pattern_freq } -> std::convertible_to<float>;
-        { State::prepare(frame).primary } -> std::convertible_to<float>;
+        { State::params(frame).arms } -> std::convertible_to<float>;
       };
 
-  /// Phases `State::prepare` resolves for the frame.
-  using Prepared = StatePrepared<State>;
+  /** @brief The whole arm count. */
+  struct Prepared {
+    float arms; ///< `arms` rounded to whole.
+  };
 
-  /**
-   * @brief Samples the signed field.
-   * @param input Plane carrier; its coords are sampled.
+  /** @brief Rounds the arm count once per frame.
    * @param frame Frame state.
-   * @param prepared This frame's `prepare` result.
-   * @return Field value in [-1, 1].
-   */
-  __attribute__((always_inline)) static float sample(const PlaneSample &input,
-                                                     const FrameState &frame,
-                                                     const Prepared &prepared) {
-    const auto &params = State::params(frame);
-    return Pattern::rings(
-        Pattern::PlanePosition{projections::stereo_pattern_args(
-            input.coords, params.pattern_freq)},
-        prepared);
+   * @return Whole arm count. */
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return {std::round(State::params(frame).arms)};
   }
-};
-
-/**
- * @brief Spiral source policy.
- * @tparam State Provider with Binding and FrameState types and
- * params(frame), prepare(frame) accessors.
- */
-template <typename State> struct Spiral : PrepareFromState<State> {
-  using Binding = typename State::Binding; ///< Binding of the provider `State`.
-  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
-
-  /**
-   * @brief Whether `State` under @p CandidateBinding supplies the pattern
-   *        frequency, angle and primary phase.
-   * @tparam CandidateBinding Binding being checked.
-   */
-  template <typename CandidateBinding>
-  static constexpr bool PROVIDER_VALID =
-      StateProvider<State, CandidateBinding> &&
-      requires(const typename CandidateBinding::FrameState &frame) {
-        { State::params(frame).pattern_freq } -> std::convertible_to<float>;
-        { State::prepare(frame).angle } -> std::convertible_to<float>;
-        { State::prepare(frame).primary } -> std::convertible_to<float>;
-      };
-
-  /// Phases `State::prepare` resolves for the frame.
-  using Prepared = StatePrepared<State>;
 
   /**
    * @brief Samples the signed field.
@@ -409,11 +365,10 @@ template <typename State> struct Spiral : PrepareFromState<State> {
   __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
-    const auto &params = State::params(frame);
     return Pattern::spiral(
         Pattern::PlanePosition{projections::stereo_pattern_args(
-            input.coords, params.pattern_freq)},
-        prepared);
+            input.coords, State::params(frame).pattern_freq)},
+        prepared.arms);
   }
 };
 
@@ -428,7 +383,7 @@ template <typename State> struct Grid : PrepareFromState<State> {
 
   /**
    * @brief Whether `State` under @p CandidateBinding supplies the grid
-   *        parameters, rotation and both phases.
+   *        parameters and coupling phase.
    * @tparam CandidateBinding Binding being checked.
    */
   template <typename CandidateBinding>
@@ -438,33 +393,11 @@ template <typename State> struct Grid : PrepareFromState<State> {
         { State::params(frame).pattern_freq } -> std::convertible_to<float>;
         { State::params(frame).pattern_mix } -> std::convertible_to<float>;
         { State::params(frame).complexity } -> std::convertible_to<float>;
-        { State::prepare(frame).angle_cos } -> std::convertible_to<float>;
-        { State::prepare(frame).angle_sin } -> std::convertible_to<float>;
         { State::prepare(frame).primary } -> std::convertible_to<float>;
-        { State::prepare(frame).secondary } -> std::convertible_to<float>;
       };
 
-  /// Phase carrier returned by the provider.
-  using Phases = StatePrepared<State>;
-  /// Prepared phases with optional stationary kernel selection.
-  using Prepared =
-      std::conditional_t<std::is_same_v<Phases, Pattern::PreparedSource>,
-                         Pattern::PreparedGrid, Phases>;
-
-  /** @brief Selects the grid kernel from this column's phases and parameters.
-   * @param frame Column frame state.
-   * @return Prepared phases and kernel selection. */
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    if constexpr (std::is_same_v<Prepared, Pattern::PreparedGrid>) {
-      const auto phases = State::prepare(frame);
-      const auto &params = State::params(frame);
-      return {phases, params.complexity == 0.0f && params.pattern_mix == 0.0f &&
-                          phases.primary == 0.0f && phases.secondary == 0.0f &&
-                          phases.angle_cos == 1.0f && phases.angle_sin == 0.0f};
-    } else {
-      return State::prepare(frame);
-    }
-  }
+  /// Phases `State::prepare` resolves for the frame.
+  using Prepared = StatePrepared<State>;
 
   /**
    * @brief Samples the signed field.

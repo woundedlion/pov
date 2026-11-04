@@ -95,7 +95,7 @@ inline bool arm_sphere_op_chain(In::ChainProgram &program, const char *op_id,
       {"camera", "sphere.rotate.v2"},
       {"op", op_id},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   return arm_chain<In::Op::RotateChainParams, OpParams,

@@ -194,7 +194,7 @@ Thickness 0 hides the comet.
 
 Glitch-folded stereographic grids pulled through an animated wave shear. Four presets morph the grid frequency, complexity, shear strength, and speed inside one composed pipeline.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Source Angle Speed, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 1 Speed, Warp Strength, Warp Frequency, Warp Field Angle, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 1 Speed, Warp Strength, Warp Frequency, Warp Field Angle, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -206,7 +206,7 @@ Glitch-folded stereographic grids pulled through an animated wave shear. Four pr
 
 A broad folded gnomonic grid drifting inside a fixed mirror frame and a spherical kaleidoscope. Edge-fade coverage and a generated triadic palette give the field its soft, liquid boundary.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Source Angle Speed, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Edge Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Edge Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -218,7 +218,7 @@ A broad folded gnomonic grid drifting inside a fixed mirror frame and a spherica
 
 A mirrored grid folded by the glitch lens and a folded gnomonic projection. Its high-contrast edge-fade material keeps the discontinuous facets legible while the grid drifts inside a fixed mirror frame.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Source Angle Speed, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Edge Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Edge Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -230,7 +230,7 @@ A mirrored grid folded by the glitch lens and a folded gnomonic projection. Its 
 
 A wave-sheared grid moving across a folded gnomonic dodecahedral kaleidoscope, then repeated through an inner mirror tile.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Source Angle Speed, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Warp Strength, Warp Frequency, Warp Field Angle, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Warp Strength, Warp Frequency, Warp Field Angle, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -266,7 +266,7 @@ An animated axial twist pulls a primitive lattice into flowing worms before the 
 
 A wandering camera turns the sphere beneath a toroidal degree-8, order-4 harmonic potential flow that warps an equirectangular grid. A cycling analogous palette uses cup mapping; displacement-driven hue precedes a baked-cube noise hue layer. Its single `grid-warp` preset is held out of the Phantasm playlist until it renders within the 62.5 ms display window.
 
-**Parameters**: source.Pattern Freq, source.Speed, source.Complexity, source.Pattern Mix, source.Drift, source.Source Angle Speed, Singularity Fade, Camera Wander, Central Meridian, displace.Strength, displace.Orientation Azimuth, displace.Orientation Polar, displace.Drift, displace.integrator, displace.term-1-type, displace.term-1-kind, displace.term-1-l, displace.term-1-m, displace.term-1-amplitude, displace.term-1-phase, displace.term-2-type, displace.term-2-kind, displace.term-2-l, displace.term-2-m, displace.term-2-amplitude, displace.term-2-phase, displace.term-3-type, displace.term-3-kind, displace.term-3-l, displace.term-3-m, displace.term-3-amplitude, displace.term-3-phase, displace.term-4-type, displace.term-4-kind, displace.term-4-l, displace.term-4-m, displace.term-4-amplitude, displace.term-4-phase, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, modulate.Modulation Amount, modulate1.Modulation Amount, modulate1.Pattern Scale, modulate1.Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Camera Wander, Central Meridian, displace.Strength, displace.Orientation Azimuth, displace.Orientation Polar, displace.Drift, displace.integrator, displace.term-1-type, displace.term-1-kind, displace.term-1-l, displace.term-1-m, displace.term-1-amplitude, displace.term-1-phase, displace.term-2-type, displace.term-2-kind, displace.term-2-l, displace.term-2-m, displace.term-2-amplitude, displace.term-2-phase, displace.term-3-type, displace.term-3-kind, displace.term-3-l, displace.term-3-m, displace.term-3-amplitude, displace.term-3-phase, displace.term-4-type, displace.term-4-kind, displace.term-4-l, displace.term-4-m, displace.term-4-amplitude, displace.term-4-phase, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, modulate.Modulation Amount, modulate1.Modulation Amount, modulate1.Pattern Scale, modulate1.Pattern Speed
 
 </td></tr></table>
 
@@ -278,7 +278,7 @@ A wandering camera turns the sphere beneath a toroidal degree-8, order-4 harmoni
 
 A dodecahedral poloidal potential flow folds an equirectangular grid into rounded liquid windows. A cycling analogous palette uses cup mapping, and displacement-driven hue tracks the flow's path length. Its single `liquid-windows` preset is held out of the Phantasm playlist until it renders within the 62.5 ms display window.
 
-**Parameters**: source.Pattern Freq, source.Speed, source.Complexity, source.Pattern Mix, source.Drift, source.Source Angle Speed, Singularity Fade, Central Meridian, displace.Strength, displace.Orientation Azimuth, displace.Orientation Polar, displace.Drift, displace.integrator, displace.term-1-type, displace.term-1-kind, displace.term-1-l, displace.term-1-m, displace.term-1-amplitude, displace.term-1-phase, displace.term-2-type, displace.term-2-kind, displace.term-2-l, displace.term-2-m, displace.term-2-amplitude, displace.term-2-phase, displace.term-3-type, displace.term-3-kind, displace.term-3-l, displace.term-3-m, displace.term-3-amplitude, displace.term-3-phase, displace.term-4-type, displace.term-4-kind, displace.term-4-l, displace.term-4-m, displace.term-4-amplitude, displace.term-4-phase, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, modulate.Modulation Amount
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Central Meridian, displace.Strength, displace.Orientation Azimuth, displace.Orientation Polar, displace.Drift, displace.integrator, displace.term-1-type, displace.term-1-kind, displace.term-1-l, displace.term-1-m, displace.term-1-amplitude, displace.term-1-phase, displace.term-2-type, displace.term-2-kind, displace.term-2-l, displace.term-2-m, displace.term-2-amplitude, displace.term-2-phase, displace.term-3-type, displace.term-3-kind, displace.term-3-l, displace.term-3-m, displace.term-3-amplitude, displace.term-3-phase, displace.term-4-type, displace.term-4-kind, displace.term-4-l, displace.term-4-m, displace.term-4-amplitude, displace.term-4-phase, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, modulate.Modulation Amount
 
 </td></tr></table>
 
@@ -290,7 +290,7 @@ A dodecahedral poloidal potential flow folds an equirectangular grid into rounde
 
 A dodecahedral poloidal potential flow folds an equirectangular grid beneath the procedural embers palette. A baked-cube noise lightness lift precedes a baked-cube noise hue layer. Its single `iridescence` preset is held out of the Phantasm playlist until it renders within the 62.5 ms display window.
 
-**Parameters**: source.Pattern Freq, source.Speed, source.Complexity, source.Pattern Mix, source.Drift, source.Source Angle Speed, Singularity Fade, Central Meridian, displace.Strength, displace.Orientation Azimuth, displace.Orientation Polar, displace.Drift, displace.integrator, displace.term-1-type, displace.term-1-kind, displace.term-1-l, displace.term-1-m, displace.term-1-amplitude, displace.term-1-phase, displace.term-2-type, displace.term-2-kind, displace.term-2-l, displace.term-2-m, displace.term-2-amplitude, displace.term-2-phase, displace.term-3-type, displace.term-3-kind, displace.term-3-l, displace.term-3-m, displace.term-3-amplitude, displace.term-3-phase, displace.term-4-type, displace.term-4-kind, displace.term-4-l, displace.term-4-m, displace.term-4-amplitude, displace.term-4-phase, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Palette Mode, Palette Type, Palette Harmony, Palette Lightness Curve, Palette Name, Palette Name B, Brightness Envelope, Palette Hue, Palette Spread, Palette Lightness, Palette Lightness Range, Palette Mutation, Gradient Start R, Gradient Start G, Gradient Start B, Gradient Middle R, Gradient Middle G, Gradient Middle B, Gradient End R, Gradient End G, Gradient End B, modulate.Modulation Amount, modulate.Pattern Scale, modulate.Pattern Speed, modulate2.Modulation Amount, modulate2.Pattern Scale, modulate2.Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Central Meridian, displace.Strength, displace.Orientation Azimuth, displace.Orientation Polar, displace.Drift, displace.integrator, displace.term-1-type, displace.term-1-kind, displace.term-1-l, displace.term-1-m, displace.term-1-amplitude, displace.term-1-phase, displace.term-2-type, displace.term-2-kind, displace.term-2-l, displace.term-2-m, displace.term-2-amplitude, displace.term-2-phase, displace.term-3-type, displace.term-3-kind, displace.term-3-l, displace.term-3-m, displace.term-3-amplitude, displace.term-3-phase, displace.term-4-type, displace.term-4-kind, displace.term-4-l, displace.term-4-m, displace.term-4-amplitude, displace.term-4-phase, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Palette Mode, Palette Type, Palette Harmony, Palette Lightness Curve, Palette Name, Palette Name B, Brightness Envelope, Palette Hue, Palette Spread, Palette Lightness, Palette Lightness Range, Palette Mutation, Gradient Start R, Gradient Start G, Gradient Start B, Gradient Middle R, Gradient Middle G, Gradient Middle B, Gradient End R, Gradient End G, Gradient End B, modulate.Modulation Amount, modulate.Pattern Scale, modulate.Pattern Speed, modulate2.Modulation Amount, modulate2.Pattern Scale, modulate2.Pattern Speed
 
 </td></tr></table>
 
@@ -348,7 +348,7 @@ A dodecahedral kaleidoscope lens folds a primitive lattice around the sphere. Cu
 
 A max-chroma analogous grid folded around the sphere and rippled by curl noise. Its cup palette mapping and slowly drifting noisy hue shift preserve the iridescent skin captured in the saved workbench preset.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Source Angle Speed, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -372,7 +372,7 @@ An octahedral kaleidoscope lens folds a lattice into jewel-like facets. Curl noi
 
 A glitch-folded gnomonic grid displaced by sphere-space curl noise. An analogous generated palette paints the slow lichen-like branching with shifting chromatic bands.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Source Angle Speed, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -396,7 +396,7 @@ A primitive lattice displaced by sphere-space curl noise, folded through a dodec
 
 A rotating spiral folded through a hexagonal-prism kaleidoscope, projected stereographically, and displaced by direct surface noise whose path length drives the hue rotation.
 
-**Parameters**: Pattern Freq, Speed, Source Angle Speed, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Surface Noise Direction, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount
+**Parameters**: Pattern Freq, Spiral Arms, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Surface Noise Direction, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount
 
 </td></tr></table>
 
@@ -408,7 +408,7 @@ A rotating spiral folded through a hexagonal-prism kaleidoscope, projected stere
 
 A vector-noise grid refracted across folded gnomonic dodecahedral facets and repeated through an inner mirror tile. A cup-shaped palette envelope emphasizes the warped cell interiors.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Source Angle Speed, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Warp Strength, Warp Scale, Warp Vector Angle, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Warp Strength, Warp Scale, Warp Vector Angle, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -420,7 +420,7 @@ A vector-noise grid refracted across folded gnomonic dodecahedral facets and rep
 
 A generated analogous-palette grid folded through a dodecahedral kaleidoscope, then projected stereographically and repeated by an inner mirror tile. Its four presets share one composed pipeline and vary only continuous parameters.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Source Angle Speed, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -444,7 +444,7 @@ A mirrored twin-wave field folded through a hexagonal-prism kaleidoscope and pro
 
 Dodecahedrally folded grids mapped continuously around an equirectangular equator and repeated through an inner mirror tile. Three presets morph density and color mapping without changing structure. Pattern Mix stays at 1, so Complexity does not affect these presets.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Source Angle Speed, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -456,7 +456,7 @@ Dodecahedrally folded grids mapped continuously around an equirectangular equato
 
 A high-contrast mirrored stereographic grid folded by the glitch lens. Hue follows total mirror displacement, producing the concentric color structure around the moving field.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Source Angle Speed, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Edge Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Edge Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount
 
 </td></tr></table>
 
@@ -468,7 +468,7 @@ A high-contrast mirrored stereographic grid folded by the glitch lens. Hue follo
 
 A stereographic twin-wave field folded through an inner mirror tile and a live Möbius lens. The lens follows a continuous 160-frame circular warp cycle while a complementary palette tracks displacement through the fold. Its two presets share the same fixed graph.
 
-**Parameters**: Pattern Freq, Speed, Drift, Source Angle Speed, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Mobius A Re, Mobius A Im, Mobius B Re, Mobius B Im, Mobius C Re, Mobius C Im, Mobius D Re, Mobius D Im, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Modulation Amount
+**Parameters**: Pattern Freq, Speed, Drift, Source Angle Speed, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Spin X, Spin Y, Spin Z, Push X, Push Y, Push Z, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Modulation Amount
 
 </td></tr></table>
 
@@ -748,7 +748,7 @@ planar warps.
 | **Lens** | Glitch, Twist, Mobius, Kaleidoscope | Sphere → Sphere; lens-specific controls; kaleidoscope selects azimuthal, polyhedral or prism symmetry |
 | **Projection** | Folded Sinusoidal, Stereographic, Gnomonic, Bonne, Peirce Quincuncial, Fast Square Peirce, Dymaxion / Airocean, Equirectangular, Tetrahedral / Cubic / Octahedral / Dodecahedral / Icosahedral Atlas | Sphere → Plane; coordinates, projection provenance, weight and available edge distance; instance-specific frame/layout controls |
 | **Planar warp** | Affine Warp, Wave Shear, Vortex, Vector Noise, Curl Flow, Mirror Tile, Polar Chart | Plane → Plane; independent parameters and clocks for each ordered instance |
-| **Planar source** | Twin Wave, Rings, Spiral, Grid, Projected Noise, Tessellation | Plane → Field; source parameters, signal weighting and coverage choices |
+| **Planar source** | Twin Wave, Spiral, Grid, Projected Noise, Tessellation | Plane → Field; source parameters, signal weighting and coverage choices |
 | **Value transfer** | Ridge, Iso Contour, Smooth Bands | Field → Field; reshapes the normalized value; iso and band controls belong to their operator |
 | **Coverage** | Value Cutout | Field → Field; cutout threshold and softness; projection-based coverage belongs to planar sources |
 | **Colorize** | Cycling-generated, generated, procedural, gradient, mutating | Field → Color; palette-source selection, family-gated palette controls, mapping, phase oscillation, brightness envelope and opacity |
@@ -786,7 +786,8 @@ translation come from an Affine Warp before it.
 
 **Affine Warp** (`warp.affine.v4`) translates along the translation lattice of
 the stage immediately after it; Tessellation reports the square or hexagonal
-lattice of its kind. Each phase turn moves Repeat Windings A and B
+lattice of its kind, and Grid a square lattice of period `2π / Pattern Freq`.
+Each phase turn moves Repeat Windings A and B
 whole basis vectors, times a whole number of Repeat Cells, so the phase wrap is
 seamless over that source. Its displacement contribution is the shortest offset
 modulo that repeat lattice, so displacement-driven hue also reconnects across
@@ -794,10 +795,30 @@ the wrap; more Repeat Cells let hue travel further before it repeats. When the
 next stage reports no lattice, the warp winds a square lattice of **Fallback
 Lattice Period** (1/64–100 plane units) and its displacement is unwrapped.
 Windings and Repeat Cells round to whole numbers and snap between presets.
-Rotation Rate is in radians per phase cycle over `[-2π, 2π]`; its continuous
-rate is `Speed × Rotation Rate`. Shear oscillates, and Scale X/Y move
-logarithmically between reciprocal extrema. A later nonperiodic warp can still
-expose the translation reset.
+Windings range over `[-8, 8]`. Rotation Rate is in radians per phase cycle
+over `[-8π, 8π]`; its continuous rate is `Speed × Rotation Rate`. Shear
+oscillates, and Scale X/Y move logarithmically between reciprocal extrema. A
+later nonperiodic warp can still expose the translation reset. **Path Length**
+(`path-length`, on by default) selects whether the step contributes to the
+displacement a colorizer or modulation reads; off reports none. Composed effects
+fix it per affine stage.
+
+Planar sources carry only motion that changes their shape; an Affine Warp
+placed immediately before a source supplies its translation and rotation.
+**Grid** (`sample.grid.v4`) samples
+`sin(x + c·sin(y + φ)) · cos(y + c·cos(x − φ))` at Pattern Freq-scaled
+coordinates, blended by Pattern Mix toward the direct product `sin(x)·cos(y)`;
+Speed advances the coupling phase φ in radians per frame and Complexity sets
+`c`. Zero Complexity or a Pattern Mix of 1 draws the direct product. Its
+translation lattice holds while the scaled coordinates stay inside the source's
+±4096 clamp. **Twin Wave** (`sample.twin-wave.v3`) samples
+`½(sin(x + φ) + sin(x·cos θ + y·sin θ + ψ))`; Speed advances φ, Drift advances
+ψ at Drift × Speed, and Source Angle Speed turns the angle θ between the waves.
+With θ turning, the waves move relative to each other, so these clocks stay in
+the source. It reports no lattice.
+**Spiral** (`sample.spiral.v3`) is the stationary Archimedean spiral
+`sin(r − Arms·azimuth)`; Arms rounds to whole and snaps between presets, and
+zero Arms draws concentric rings.
 
 Mirror Tile scrolls one local X cell while its Y offset remains manual.
 Polar Chart advances Angular Phase by one turn while Radial Phase remains

@@ -325,7 +325,8 @@ struct DocumentSlot {
   std::string resource_key;
   std::string operator_id;
   SlotRole role = SlotRole::UNKNOWN;
-  int warp_side = 0; /**< 0 = outer warp family, 1 = inner warp family. */
+  int warp_side = 0; /**< 0 = outer warp family, 1 = inner warp family,
+                          2 = affine source-motion family. */
 };
 
 /** @brief Native resource addressed by a document chain entry. */
@@ -337,7 +338,9 @@ inline std::string_view document_resource_key(const DocumentSlot &slot) {
   case SlotRole::PROJECT:
     return "projection";
   case SlotRole::WARP:
-    return slot.warp_side == 0 ? "outer_warp" : "inner_warp";
+    return slot.warp_side == 0   ? "outer_warp"
+           : slot.warp_side == 1 ? "inner_warp"
+                                 : "affine";
   case SlotRole::SAMPLE:
     return "source";
   case SlotRole::FIELD:
@@ -412,6 +415,20 @@ inline bool assign_mobius(Params &params, std::string_view id, float value) {
 }
 
 namespace ChainOp = Pullback::Interp::Op;
+
+/** @brief Instance key and path tracking of an affine warp stage. */
+template <typename Stage> struct AffineStageTracking {
+  static constexpr bool AFFINE = false; ///< Not an affine warp stage.
+};
+/** @brief An affine warp stage over a keyed warp provider. */
+template <typename B, Pullback::ResourceKey Key, typename Family, bool Track,
+          Pullback::ResourceKey SourceKey>
+struct AffineStageTracking<Pullback::Stage::Warp<Pullback::Warp::AffineFrame<
+    Pullback::WarpProvider<B, Key, Family, Track, SourceKey>>>> {
+  static constexpr bool AFFINE = true;                ///< An affine warp stage.
+  static constexpr std::string_view KEY = Key.view(); ///< Instance key.
+  static constexpr bool TRACK = Track;                ///< Tracks path length.
+};
 
 /** @brief PALETTE_MODE_IDS entry for @p harmony, or null. */
 constexpr const char *palette_mode_id(PaletteHarmony harmony) {
@@ -510,10 +527,13 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
         if constexpr (FX::Params::template HAS<"outer_warp">)
           return assign_field(built.template get<"outer_warp">(), field_id,
                               number);
-      } else {
+      } else if (slot.warp_side == 1) {
         if constexpr (FX::Params::template HAS<"inner_warp">)
           return assign_field(built.template get<"inner_warp">(), field_id,
                               number);
+      } else {
+        if constexpr (FX::Params::template HAS<"affine">)
+          return assign_field(built.template get<"affine">(), field_id, number);
       }
       return false;
     case SlotRole::SURFACE: {
@@ -787,6 +807,30 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     }
     [[fallthrough]];
   case SlotRole::WARP:
+    if (field_id == "path-length") {
+      using Leaves = Pullback::ComposedDetail::PipelineLeaves<
+          typename FX::Spec::template Pipeline<
+              Pullback::ComposedDetail::DiscoveryBinding>>;
+      const std::string_view key = document_resource_key(slot);
+      const int tracked = [&]<size_t... I>(std::index_sequence<I...>) {
+        int found = -1;
+        (
+            [&]<typename Stage>() {
+              using Tracking = AffineStageTracking<Stage>;
+              if constexpr (Tracking::AFFINE)
+                if (Tracking::KEY == key)
+                  found = Tracking::TRACK ? 1 : 0;
+            }.template operator()<typename Leaves::template StageAt<I>>(),
+            ...);
+        return found;
+      }(std::make_index_sequence<Leaves::STAGE_COUNT>{});
+      HS_EXPECT(tracked >= 0, "path-length names a compiled affine stage");
+      HS_EXPECT(text == (tracked == 1 ? "on" : "off"),
+                "path-length matches the compiled affine TrackPath");
+      HS_EXPECT_TRUE(
+          derivation_value_reachable(slot.operator_id, field_id, text));
+      return tracked >= 0;
+    }
     if (field_id == "basis" || field_id == "integrator" ||
         field_id == "limit" || field_id == "mode" || field_id == "envelope" ||
         field_id == "harmonic") {
@@ -907,6 +951,8 @@ inline void check_document_values(const char *name) {
         slot.warp_side = 0;
       else if (slot.label == "warp2")
         slot.warp_side = 1;
+      else if (slot.label == "affine")
+        slot.warp_side = 2;
       else
         slot.warp_side = warps_seen;
       ++warps_seen;

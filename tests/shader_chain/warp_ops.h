@@ -17,6 +17,7 @@ struct WarpMirrorFrame {
   In::Op::CurlFlowWarpParams curl;
   float phase = 0.0f;
   float rotation = 0.0f;
+  PB::TranslationLattice lattice;
 };
 
 struct WarpMirrorBinding {
@@ -31,7 +32,8 @@ struct AffineMirrorProvider {
     return frame.affine;
   }
   static PB::Warp::PreparedAffineSlot prepare(const FrameState &frame) {
-    return PB::Warp::prepare(frame.affine, frame.phase, frame.rotation, {});
+    return PB::Warp::prepare(frame.affine, frame.phase, frame.rotation,
+                             frame.lattice);
   }
   static float phase(const FrameState &frame) { return frame.phase; }
   static bool path_length_required(const FrameState &) { return true; }
@@ -120,7 +122,7 @@ inline bool arm_warp_op_chain(In::ChainProgram &program, const char *op_id,
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"warp", op_id},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   return arm_chain<In::Op::RotateChainParams, In::Op::ProjectChainParams,
@@ -151,6 +153,8 @@ inline WarpMirrorFrame warp_mirror(In::ChainProgram &program) {
     mirror.phase = state.phase;
     mirror.rotation = state.rotation;
     mirror.affine = param_as<In::Op::AffineWarpParams>(program, 2);
+    mirror.lattice = In::Op::SampleGridV4::translation_lattice(
+        param_as<In::Op::GridSampleParams>(program, 3));
   } else if (id == In::Op::WarpVectorNoise::ID ||
              id == In::Op::WarpCurlFlow::ID) {
     const auto &state = state_as<In::Op::NoisePhaseState>(program, 2);
@@ -699,7 +703,7 @@ inline void test_shader_chain_noise_instances_decorrelate() {
       {"project", "project.stereographic.v2"},
       {"warp-a", In::Op::WarpVectorNoise::ID},
       {"warp-b", In::Op::WarpVectorNoise::ID},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   const In::ChainRefusal refusal =

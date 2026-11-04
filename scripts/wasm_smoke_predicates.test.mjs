@@ -383,7 +383,7 @@ test('native control candidates prefer declared resource fields over legacy came
   const descriptor = {chain: [
     {label: 'camera', operator: 'sphere.rotate.v2'},
     {label: 'flow', resource_key: 'velocity', operator: 'warp.vector-noise.v2'},
-    {label: 'sample', operator: 'sample.grid.v3'},
+    {label: 'sample', operator: 'sample.grid.v4'},
   ]};
   const catalog = {operators: [{id: 'warp.vector-noise.v2',
     params: [{id: 'scale', name: 'Warp Scale'}]}]};
@@ -401,7 +401,7 @@ test('an authored native affine period does not require a lattice sampler', () =
     parameterIds: ['slide.lattice-period'],
     descriptor: {chain: [
       {label: 'slide', resource_key: 'plane', operator: 'warp.affine.v4'},
-      {label: 'sample', operator: 'sample.grid.v3'},
+      {label: 'sample', operator: 'sample.grid.v4'},
     ]}, presets: [{values: {'slide.lattice-period': 2.5}}]});
   run.controls.set('grid', new Set(['plane.Lattice Period']));
   assert.deepEqual(promotedBindingProblems(run), []);

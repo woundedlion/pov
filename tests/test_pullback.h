@@ -1435,7 +1435,7 @@ inline void test_pullback_concrete_catalog() {
   constexpr Prepared shifted{0.7f, 0.3f, 0.0f, 1.0f, 0.0f};
   constexpr Prepared turned{0.0f, 0.0f, math::PI_F * 0.5f, 0.0f, 1.0f};
   constexpr Params params{1.0f, 0.0f, 1.0f, 0.0f, 0.1f, 0.25f};
-  constexpr Params coupled{0.0f, 0.0f, 1.0f, 0.0f, 0.1f, 0.25f};
+  constexpr Params coupled{0.0f, 0.5f, 1.0f, 0.0f, 0.1f, 0.25f};
   const math::Complex origin;
   const math::Complex off(0.6f, 0.25f); // radius 0.65, azimuth atan2(0.25, 0.6)
   HS_EXPECT_EQ(Pattern::twin_wave(Pattern::PlanePosition{origin}, prepared),
@@ -1445,19 +1445,21 @@ inline void test_pullback_concrete_catalog() {
   HS_EXPECT_NEAR(Pattern::twin_wave(Pattern::PlanePosition{off}, turned),
                  0.5f * (math::fast_sinf(0.6f) + math::fast_sinf(0.25f)),
                  2e-3f);
-  HS_EXPECT_EQ(Pattern::rings(Pattern::PlanePosition{origin}, prepared), 0.0f);
-  HS_EXPECT_NEAR(Pattern::rings(Pattern::PlanePosition{off}, shifted),
-                 math::fast_sinf(-0.05f), 2e-3f);
-  HS_EXPECT_NEAR(Pattern::spiral(Pattern::PlanePosition{origin}, prepared),
-                 1.0f, 2e-3f);
-  HS_EXPECT_NEAR(Pattern::spiral(Pattern::PlanePosition{off}, shifted),
-                 math::fast_sinf(-0.05f - 3.0f * math::fast_atan2(0.25f, 0.6f)),
+  HS_EXPECT_EQ(Pattern::spiral(Pattern::PlanePosition{origin}, 0.0f), 0.0f);
+  HS_EXPECT_NEAR(Pattern::spiral(Pattern::PlanePosition{off}, 0.0f),
+                 math::fast_sinf(0.65f), 2e-3f);
+  HS_EXPECT_NEAR(Pattern::spiral(Pattern::PlanePosition{origin}, 3.0f), 1.0f,
+                 2e-3f);
+  HS_EXPECT_NEAR(Pattern::spiral(Pattern::PlanePosition{off}, 3.0f),
+                 math::fast_sinf(0.65f - 3.0f * math::fast_atan2(0.25f, 0.6f)),
                  2e-3f);
   HS_EXPECT_EQ(Pattern::grid(Pattern::PlanePosition{origin}, params, prepared),
                0.0f);
   HS_EXPECT_NEAR(
       Pattern::grid(Pattern::PlanePosition{origin}, coupled, shifted),
-      math::fast_sinf(0.7f) * math::fast_cosf(-0.3f), 2e-3f);
+      math::fast_sinf(0.5f * math::fast_sinf(0.7f)) *
+          math::fast_cosf(0.5f * math::fast_cosf(-0.7f)),
+      2e-3f);
   HS_EXPECT_EQ(Pattern::square_cells(Pattern::PlanePosition{origin}, params),
                1.0f);
   // Cell coordinate (0.2, 0.1) sits inside the softness band, so the edge ramp
@@ -2761,17 +2763,18 @@ inline void test_pullback_custom_grid_preparation() {
   struct State {
     using Binding = TestBinding;  ///< Fixture binding.
     using FrameState = TestFrame; ///< Fixture frame.
-    /** @brief Phases and rotation used by the grid. */
+    /** @brief Coupling phase used by the grid. */
     struct Phases final {
-      float primary = math::PI_F * 0.5f; ///< Primary wave phase.
-      float secondary = 0.0f;            ///< Secondary wave phase.
-      float angle_cos = 1.0f;            ///< Rotation cosine.
-      float angle_sin = 0.0f;            ///< Rotation sine.
+      float primary = math::PI_F * 0.5f; ///< Coupling phase.
     };
-    /** @brief Returns uncoupled grid controls. @return Grid controls. */
+    /** @brief Returns unit-coupling grid controls. @return Grid controls. */
     static const Pullback::Source::GridSourceParams &
     params(const FrameState &) {
-      static constexpr Pullback::Source::GridSourceParams VALUE{};
+      static constexpr Pullback::Source::GridSourceParams VALUE = [] {
+        Pullback::Source::GridSourceParams value{};
+        value.complexity = 1.0f;
+        return value;
+      }();
       return VALUE;
     }
     /** @brief Returns the fixed wave phases. @return Wave phases. */
@@ -2782,7 +2785,7 @@ inline void test_pullback_custom_grid_preparation() {
   const TestFrame FRAME{};
   const auto PREPARED = Grid::prepare(FRAME);
   const Pullback::PlaneSample INPUT{{0.0f, 0.0f}, {}, math::Z_AXIS, 0.0f};
-  HS_EXPECT_NEAR(Grid::sample(INPUT, FRAME, PREPARED), 1.0f, 1e-4f);
+  HS_EXPECT_NEAR(Grid::sample(INPUT, FRAME, PREPARED), std::sin(1.0f), 2e-3f);
 }
 
 /** @brief Hexagonal edge bands agree at corners and shared boundaries. */

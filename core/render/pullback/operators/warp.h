@@ -77,8 +77,26 @@ HS_FLASH_INLINE void temporal_sample(WarpPhaseState &out,
   out.phase = interval.sample(fraction);
 }
 
-/** @brief Parameter family of warp.affine.v4. */
-using AffineWarpParams = Warp::AffineParams;
+/** @brief Path-length topology values: off, on. */
+inline constexpr const char *AFFINE_PATH_LENGTH_IDS[] = {"off", "on"};
+
+/** @brief Parameter family of warp.affine.v4: the affine controls plus whether
+    the step contributes path length. */
+struct AffineWarpParams : Warp::AffineParams {
+  /** 1 measures the step's path length; 0 reports none. */
+  uint8_t path_length = 1;
+
+  static constexpr auto TOPOLOGY = std::array{
+      TopologyField<AffineWarpParams>{"path-length",
+                                      &AffineWarpParams::path_length,
+                                      AFFINE_PATH_LENGTH_IDS, 1},
+  };
+};
+static_assert(field_ids_unique<AffineWarpParams>());
+static_assert(
+    appended_block_size_matches<AffineWarpParams, Warp::AffineParams, 1>(),
+    "appended parameter block must have the expected rounded size");
+static_assert(field_defaults_in_range<AffineWarpParams>());
 
 /** @brief Phase clock plus the accumulated frame rotation of warp.affine.v4.
  * @details Values are equivalent modulo their periods; column-time samples
@@ -141,9 +159,9 @@ struct WarpAffineV4 : ValueStateModel<AffineClockState> {
     return Warp::prepare(params, state.phase, state.rotation, lattice);
   }
   static PlaneSample run(const PlaneSample &input, const FrameContext &,
-                         const Params &, const Prepared &prepared) {
-    return Kernel::warp(input,
-                        Warp::affine_frame(input.coords, prepared, true));
+                         const Params &params, const Prepared &prepared) {
+    return Kernel::warp(input, Warp::affine_frame(input.coords, prepared,
+                                                  params.path_length != 0));
   }
 };
 

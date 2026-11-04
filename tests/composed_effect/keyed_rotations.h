@@ -24,7 +24,7 @@ struct RotationProbeSpec : Pullback::Spec {
       Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
           Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
-          Pullback::RingsSourceParams, B>::Type>,
+          Pullback::SpiralSourceParams, B>::Type>,
       Pullback::Stage::Colorize<
           Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
               B, Pullback::Color::BrightnessEnvelope::NONE>>>>;

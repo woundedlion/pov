@@ -107,7 +107,7 @@ inline const ColorResources &shared_resources() {
 inline constexpr auto &DEFAULT_CHAIN = SHADER_CHAIN_DEFAULT_CHAIN;
 
 static_assert(DEFAULT_CHAIN[0].operator_id == "sphere.rotate.v2");
-static_assert(DEFAULT_CHAIN[2].operator_id == "sample.grid.v3");
+static_assert(DEFAULT_CHAIN[2].operator_id == "sample.grid.v4");
 
 /** @brief Returns direction samples for operator parity sweeps. */
 inline std::array<math::Vector, 14> sweep_views() {

@@ -574,8 +574,9 @@ struct PotentialControlsSpec : Pullback::Spec {
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
-      Pullback::Stage::Displace<Pullback::Surface::Potential<
-          Pullback::SurfaceProvider<B, Pullback::PotentialParams, false>>>,
+      Pullback::Stage::Displace<
+          Pullback::Surface::Potential<Pullback::SurfaceProvider<
+              B, Pullback::PotentialParams, false, "displace">>>,
       Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
           Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
@@ -595,7 +596,7 @@ struct PotentialControlsProbe
   static constexpr std::array<PresetEntry<Params>, 1> PRESETS{};
   /** @brief Live potential controls.
    * @return Mutable polynomial parameter family. */
-  auto &configuration() { return params.template get<"surface">(); }
+  auto &configuration() { return params.template get<"displace">(); }
 };
 
 /** @brief Nested term controls bind native selectors and reject invalid harmonics. */
@@ -608,7 +609,7 @@ inline void test_authored_potential_nested_controls() {
   for (size_t index = 0; index < Family::EXTRA_SCHEMA.size(); ++index) {
     const auto &field = Family::EXTRA_SCHEMA[index];
     const auto *parameter = effect.getParameters().find(
-        (std::string("surface.") + field.id).c_str());
+        (std::string("displace.") + field.id).c_str());
     HS_EXPECT_TRUE(parameter != nullptr);
     if (!parameter)
       continue;
@@ -617,36 +618,36 @@ inline void test_authored_potential_nested_controls() {
     HS_EXPECT_EQ(parameter->option_count, int(field.enum_count));
     HS_EXPECT_TRUE(parameter->animated);
   }
-  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-l", 3),
+  HS_EXPECT_EQ(effect.updateParameter("displace.term-1-l", 3),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-m", 2),
+  HS_EXPECT_EQ(effect.updateParameter("displace.term-1-m", 2),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-amplitude", 1.3f),
+  HS_EXPECT_EQ(effect.updateParameter("displace.term-1-amplitude", 1.3f),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-phase", 2.7f),
+  HS_EXPECT_EQ(effect.updateParameter("displace.term-1-phase", 2.7f),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.configuration().terms[0].l, uint8_t(3));
   HS_EXPECT_EQ(effect.configuration().terms[0].m, uint8_t(2));
   HS_EXPECT_EQ(effect.configuration().terms[0].amplitude, 1.3f);
   HS_EXPECT_EQ(effect.configuration().terms[0].phase, 2.7f);
-  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-l", 1),
+  HS_EXPECT_EQ(effect.updateParameter("displace.term-1-l", 1),
                ParamSetResult::INADMISSIBLE);
   HS_EXPECT_EQ(effect.configuration().terms[0].l, uint8_t(3));
-  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-type", 2),
+  HS_EXPECT_EQ(effect.updateParameter("displace.term-1-type", 2),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-m", 8),
+  HS_EXPECT_EQ(effect.updateParameter("displace.term-1-m", 8),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-type", 0),
+  HS_EXPECT_EQ(effect.updateParameter("displace.term-1-type", 0),
                ParamSetResult::INADMISSIBLE);
   HS_EXPECT_EQ(effect.configuration().terms[0].type, uint8_t(2));
-  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-m", 2),
+  HS_EXPECT_EQ(effect.updateParameter("displace.term-1-m", 2),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(effect.updateParameter("surface.term-1-type", 0),
+  HS_EXPECT_EQ(effect.updateParameter("displace.term-1-type", 0),
                ParamSetResult::APPLIED);
   for (size_t index = 1; index < 4; ++index) {
-    const char *const AMPLITUDE[] = {"surface.term-2-amplitude",
-                                     "surface.term-3-amplitude",
-                                     "surface.term-4-amplitude"};
+    const char *const AMPLITUDE[] = {"displace.term-2-amplitude",
+                                     "displace.term-3-amplitude",
+                                     "displace.term-4-amplitude"};
     const float VALUE = float(index) * -0.7f;
     HS_EXPECT_EQ(effect.updateParameter(AMPLITUDE[index - 1], VALUE),
                  ParamSetResult::APPLIED);

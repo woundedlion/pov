@@ -211,12 +211,12 @@ struct AffineParams {
       Field<AffineParams>{"speed", &AffineParams::speed, nullptr, -0.02f, 0.02f,
                           FieldCurve::LERP},
       Field<AffineParams>{"rotation-rate", &AffineParams::rotation_rate,
-                          "Affine Rotation Rate", -math::TWO_PI_F,
-                          math::TWO_PI_F, FieldCurve::LERP},
+                          "Affine Rotation Rate", -4.0f * math::TWO_PI_F,
+                          4.0f * math::TWO_PI_F, FieldCurve::LERP},
       Field<AffineParams>{"translation-x", &AffineParams::translation_x,
-                          "Repeat Windings A", -4.0f, 4.0f, FieldCurve::SNAP},
+                          "Repeat Windings A", -8.0f, 8.0f, FieldCurve::SNAP},
       Field<AffineParams>{"translation-y", &AffineParams::translation_y,
-                          "Repeat Windings B", -4.0f, 4.0f, FieldCurve::SNAP},
+                          "Repeat Windings B", -8.0f, 8.0f, FieldCurve::SNAP},
       Field<AffineParams>{"scale-x", &AffineParams::scale_x, "Affine Scale X",
                           1.0f / 64.0f, 64.0f, FieldCurve::LOG_POSITIVE},
       Field<AffineParams>{"scale-y", &AffineParams::scale_y, "Affine Scale Y",
@@ -234,13 +234,13 @@ static_assert(field_ids_unique<AffineParams>());
 static_assert(field_defaults_in_range<AffineParams>());
 
 /** @brief Advances the affine frame rotation by one frame.
-    @param rotation Accumulated rotation in radians, wrapped into [0, 2pi).
+    @param rotation Accumulated rotation in radians, wrapped into
+    (-2pi, 2pi).
     @param params Speed and rotation rate. */
 HS_COLD_MEMBER inline void advance_affine_rotation(float &rotation,
                                                    const AffineParams &params) {
-  rotation = math::TWO_PI_F *
-             math::wrap_t((rotation + params.speed * params.rotation_rate) /
-                          math::TWO_PI_F);
+  rotation =
+      fmodf(rotation + params.speed * params.rotation_rate, math::TWO_PI_F);
 }
 
 /** @brief Warp parameters for the polar chart (Pullback::Warp::PolarChart). */

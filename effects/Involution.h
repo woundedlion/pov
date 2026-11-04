@@ -77,9 +77,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "bbb89a43671c8e301529f2d5922b06452d99136e6ed67a398a6d597a64ed0025";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "dda645c7d860a934f341f5a4dd8d2232092b934832331aa4a7fcc2a6193cd8a6";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "ef61a40834515b5a18f520e666287906ef5800ccc115e9260f18b9a9ee6c15a0";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "67ff12b083c4f641ae292fb1c148d5a89ef1c556a043a48c8bc745632c6e958f";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "jewel-melt"

@@ -58,7 +58,7 @@ inline bool arm_field_op_chain(In::ChainProgram &program, const char *op_id,
   const In::ChainEntryRequest chain[] = {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"op", op_id},
       {"colorize", "colorize.generated-palette.v4"},
   };

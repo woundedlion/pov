@@ -86,7 +86,7 @@ inline void case_authored_projected_noise_invalid_basis() {
  * @param corrupt Writes the invalid mode. */
 template <template <typename> class Policy, typename Corrupt>
 inline void authored_sample_apply(Corrupt corrupt) {
-  using Family = Pullback::Source::AuthoredRingsSampleParams;
+  using Family = Pullback::Source::AuthoredSpiralSampleParams;
   using Fixture =
       AuthoredStageFrame<Family, Pullback::ResourceKind::SOURCE, "source">;
   using Provider = Pullback::SourceProvider<typename Fixture::Binding, Family>;

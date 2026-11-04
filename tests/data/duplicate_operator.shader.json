@@ -16,7 +16,7 @@
       },
       {
         "label": "sample",
-        "operator": "sample.grid.v3"
+        "operator": "sample.grid.v4"
       },
       {
         "label": "colorize",

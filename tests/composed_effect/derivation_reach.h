@@ -72,7 +72,6 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"project.octahedral.v1", nullptr, {}},
     {"project.dodecahedral.v1", nullptr, {}},
     {"project.icosahedral.v1", nullptr, {}},
-    {"sample.rings.v2", nullptr, {}},
     {"warp.curl-flow.v2", nullptr, {}},
     {"sphere.displace.potential.v1", "integrator", {{"euler"}}},
     {"sphere.displace.potential.v1", "term-1-type", {{"mode", "dodecahedral"}}},
@@ -117,6 +116,8 @@ constexpr DerivationReach DERIVATION_REACH[] = {
      "symmetry",
      {{"azimuthal", "tetrahedral", "octahedral", "dodecahedral",
        "pentagonal-prism", "hexagonal-prism"}}},
+    // The affine TrackPath flag pins its path length.
+    {"warp.affine.v4", "path-length", {{"off", "on"}}},
     // WarpPolicyFor pins the flat envelope, the simplex basis, the linear
     // polar chart and its first harmonic.
     {"warp.wave-shear.v2", "envelope", {{"flat"}}},
@@ -126,14 +127,14 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"warp.polar-chart.v2", "harmonic", {{"h1"}}},
     // SampleStage pins Weight::Projection; no shipped Spec selects the
     // none coverage.
-    {"sample.grid.v3", "weight-mode", {{"projection"}}},
-    {"sample.grid.v3",
+    {"sample.grid.v4", "weight-mode", {{"projection"}}},
+    {"sample.grid.v4",
      "coverage-mode",
      {{"weight", "weight-squared", "edge-fade"}}},
     {"sample.twin-wave.v3", "weight-mode", {{"projection"}}},
     {"sample.twin-wave.v3", "coverage-mode", {{"weight-squared"}}},
-    {"sample.spiral.v2", "weight-mode", {{"projection"}}},
-    {"sample.spiral.v2", "coverage-mode", {{"weight-squared"}}},
+    {"sample.spiral.v3", "weight-mode", {{"projection"}}},
+    {"sample.spiral.v3", "coverage-mode", {{"weight-squared"}}},
     {"sample.projected-noise.v2", "weight-mode", {}},
     {"sample.projected-noise.v2", "coverage-mode", {}},
     {"sample.projected-noise.v2", "basis", {}},
@@ -270,8 +271,8 @@ inline void test_composed_derivation_reach() {
     }
   }
 
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 43u);
-  HS_EXPECT_EQ(unreachable_operators, 12u);
-  HS_EXPECT_EQ(catalog_values, 370u);
-  HS_EXPECT_EQ(unreachable_values, 277u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 42u);
+  HS_EXPECT_EQ(unreachable_operators, 11u);
+  HS_EXPECT_EQ(catalog_values, 365u);
+  HS_EXPECT_EQ(unreachable_values, 270u);
 }

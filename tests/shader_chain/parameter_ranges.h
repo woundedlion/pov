@@ -14,7 +14,7 @@ inline void test_shader_chain_parameter_ranges() {
     ids[index] = "warp" + std::to_string(index);
     chain[index + 1] = {ids[index], In::Op::WarpAffineV4::ID};
   }
-  chain[WARPS + 1] = {"sample", In::Op::SampleGridV3::ID};
+  chain[WARPS + 1] = {"sample", In::Op::SampleGridV4::ID};
   chain[WARPS + 2] = {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID};
   reset_globals();
   ShaderChainWhiteBox::FX effect;
@@ -104,7 +104,7 @@ inline void test_shader_chain_axis_ranges() {
   effect.init();
   const In::ChainEntryRequest chain[] = {
       {"project", In::Op::ProjectStereographic::ID},
-      {"sample", In::Op::SampleGridV3::ID},
+      {"sample", In::Op::SampleGridV4::ID},
       {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID},
       {"modulation", In::Op::ModulateColorV1::ID},
   };
@@ -160,7 +160,7 @@ inline void test_shader_chain_harmonic_ranges() {
   const In::ChainEntryRequest chain[] = {
       {"field", In::Op::DisplacePotential::ID},
       {"project", In::Op::ProjectStereographic::ID},
-      {"sample", In::Op::SampleGridV3::ID},
+      {"sample", In::Op::SampleGridV4::ID},
       {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID}};
   HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
   const auto range = [&](const char *id) {

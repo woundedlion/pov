@@ -24,7 +24,7 @@ struct KaleidoscopeMandalaSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   static constexpr bool ANIMATED_PROJECTION = false;
   /**
-   * @brief Stage chain: camera rotation, dodecahedral kaleidoscope lens, folded gnomonic projection, wave-shear warp, mirror warp, grid source, generated palette,
+   * @brief Stage chain: camera rotation, dodecahedral kaleidoscope lens, folded gnomonic projection, wave-shear warp, mirror warp, affine warp, grid source, generated palette,
    *  noise hue modulation.
    * @tparam B The effect's Binding.
    */
@@ -40,6 +40,8 @@ struct KaleidoscopeMandalaSpec : Pullback::Spec {
           Pullback::WaveShearParams, B, "outer_warp", false>::Type>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
           Pullback::MirrorParams, B, "inner_warp", false>::Type>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::AffineParams, B, "affine", false>::Type>,
       Pullback::Stage::Sample<
           typename Pullback::SourcePolicyFor<Pullback::GridSourceParams,
                                              B>::Type,
@@ -76,9 +78,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "a6752f72fc3ca1b3fcdf9119ff1c221236bac49503b03c7c2bace9767a09a70e";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "5a5252f76821ff4b145fa5f562ce202adce17add2b5a6d623572b4a2302f0c50";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "64cfb76fbf6fd7a88e833a9ed1fdeb7d03c33e03272ad0ad45113b953fe6fb76";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "4e9b5835e8c4187fd7ee8b4c4b7f6696fa6a82513ff0911490deadf3993dee0a";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "wave-mirror",
@@ -89,7 +91,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
 
   // Hot entry trampoline.
   /**
@@ -111,6 +113,15 @@ public:
    */
   static constexpr Params initial_params() {
     Params value;
+    value.template get<"affine">().lattice_period = 1.0f;
+    value.template get<"affine">().repeat_cells = 1.0f;
+    value.template get<"affine">().rotation_rate = 21.205751f;
+    value.template get<"affine">().scale_x = 1.0f;
+    value.template get<"affine">().scale_y = 1.0f;
+    value.template get<"affine">().shear = 0.0f;
+    value.template get<"affine">().speed = 0.0012732395f;
+    value.template get<"affine">().translation_x = -5.0f;
+    value.template get<"affine">().translation_y = 4.0f;
     value.template get<"projection">().camera_wander = 1.0f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
@@ -128,12 +139,10 @@ public:
     value.template get<"modulation">().modulation.noise.scale = 1.0f;
     value.template get<"modulation">().modulation.noise.speed = 0.0f;
     value.template get<"projection">().singularity_fade = 2.311f;
-    value.template get<"source">().angle_rate = 0.027f;
     value.template get<"source">().complexity = 1.704f;
-    value.template get<"source">().secondary_rate = 0.8f;
     value.template get<"source">().pattern_freq = 6.3287f;
     value.template get<"source">().pattern_mix = 0.0f;
-    value.template get<"source">().speed = 0.04f;
+    value.template get<"source">().speed = 0.072f;
     value.template get<"outer_warp">().field_angle = 2.2305307f;
     value.template get<"outer_warp">().frequency = 1.408f;
     value.template get<"outer_warp">().speed = -0.00325f;

@@ -46,7 +46,7 @@ inline void test_tangent_integer_controls() {
       {"field", In::Op::DisplacePotential::ID},
       {"wave", In::Op::DisplaceRossbyHaurwitz::ID},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"}};
   HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
   for (const char *id : {"field.term-1-l", "field.term-1-m"}) {
@@ -155,7 +155,7 @@ inline void test_symmetric_single_strength() {
   const In::ChainEntryRequest chain[] = {
       {"symmetric", Symmetric::ID},
       {"project", In::Op::ProjectStereographic::ID},
-      {"sample", In::Op::SampleGridV3::ID},
+      {"sample", In::Op::SampleGridV4::ID},
       {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID}};
   HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
   HS_EXPECT_TRUE(effect.getParameters().find("symmetric.amplitude") == nullptr);
@@ -166,7 +166,7 @@ inline void test_symmetric_single_strength() {
   const In::ChainEntryRequest retired[] = {
       {"symmetric", "sphere.displace.symmetric.v1"},
       {"project", In::Op::ProjectStereographic::ID},
-      {"sample", In::Op::SampleGridV3::ID},
+      {"sample", In::Op::SampleGridV4::ID},
       {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID}};
   HS_EXPECT_EQ(effect.set_chain(retired).code,
                In::ChainStatus::UNKNOWN_OPERATOR);
@@ -340,7 +340,7 @@ inline void test_symmetric_snapshot_clock() {
   const In::ChainEntryRequest chain[] = {
       {"symmetric", Symmetric::ID},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"}};
   HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
   HS_EXPECT_EQ(effect.updateParameter("symmetric.speed", -0.04f),
@@ -636,7 +636,7 @@ inline void test_potential_invariant_drift_clock() {
     const In::ChainEntryRequest chain[] = {
         {"field", In::Op::DisplacePotential::ID},
         {"project", In::Op::ProjectStereographic::ID},
-        {"sample", In::Op::SampleGridV3::ID},
+        {"sample", In::Op::SampleGridV4::ID},
         {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID}};
     HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
     const ShaderChainParameterWrite controls[] = {
@@ -682,7 +682,7 @@ inline void test_tangent_dynamic_advisory() {
   const In::ChainEntryRequest chain[] = {
       {"field", In::Op::DisplacePotential::ID},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"}};
   HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
   const std::array replay{

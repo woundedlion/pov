@@ -163,7 +163,8 @@ void verify_export(size_t preset, int channel_tolerance,
                 clock.phase;
         }
       });
-    } else if (id == "sphere.displace.curl.v2") {
+    } else if (id == "sphere.displace.curl.v2" ||
+               id == "sphere.displace.direct.v2") {
       if constexpr (!std::is_void_v<
                         typename FX::Params::template Family<"surface">>) {
         auto &state = mutable_state<In::Op::NoisePhaseState>(program, index);
@@ -171,7 +172,7 @@ void verify_export(size_t preset, int channel_tolerance,
         state.phase = resource.phase;
         state.noise = *resource.noise;
       }
-    } else if (id == "sample.grid.v3") {
+    } else if (id == "sample.grid.v4") {
       auto &state = mutable_state<In::Op::SourceClockState>(program, index);
       const auto &resource = own.resources.template get<"source">();
       state = {resource.primary, resource.secondary, resource.angle};

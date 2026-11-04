@@ -442,12 +442,10 @@ inline void check_slider_registration(const char *name) {
     }
 
   if constexpr (std::is_same_v<FX, Iridescence<SMALL_W, SMALL_H>>) {
-    constexpr const char *EXPECTED[] = {"source.Pattern Freq",
-                                        "source.Speed",
-                                        "source.Complexity",
-                                        "source.Pattern Mix",
-                                        "source.Drift",
-                                        "source.Source Angle Speed",
+    constexpr const char *EXPECTED[] = {"Pattern Freq",
+                                        "Speed",
+                                        "Complexity",
+                                        "Pattern Mix",
                                         "Singularity Fade",
                                         "Central Meridian",
                                         "displace.Strength",
@@ -526,12 +524,10 @@ inline void check_slider_registration(const char *name) {
   }
 
   if constexpr (std::is_same_v<FX, GridWarp<SMALL_W, SMALL_H>>) {
-    constexpr const char *EXPECTED[] = {"source.Pattern Freq",
-                                        "source.Speed",
-                                        "source.Complexity",
-                                        "source.Pattern Mix",
-                                        "source.Drift",
-                                        "source.Source Angle Speed",
+    constexpr const char *EXPECTED[] = {"Pattern Freq",
+                                        "Speed",
+                                        "Complexity",
+                                        "Pattern Mix",
                                         "Singularity Fade",
                                         "Camera Wander",
                                         "Central Meridian",
@@ -586,12 +582,10 @@ inline void check_slider_registration(const char *name) {
   }
 
   if constexpr (std::is_same_v<FX, LiquidWindows<SMALL_W, SMALL_H>>) {
-    constexpr const char *EXPECTED[] = {"source.Pattern Freq",
-                                        "source.Speed",
-                                        "source.Complexity",
-                                        "source.Pattern Mix",
-                                        "source.Drift",
-                                        "source.Source Angle Speed",
+    constexpr const char *EXPECTED[] = {"Pattern Freq",
+                                        "Speed",
+                                        "Complexity",
+                                        "Pattern Mix",
                                         "Singularity Fade",
                                         "Central Meridian",
                                         "displace.Strength",
@@ -739,6 +733,8 @@ inline void check_slider_registration(const char *name) {
       params, "Planar Warp 1 Speed");
   verify_warp_slot<FX, typename Params::template Family<"inner_warp">>(
       params, "Planar Warp 2 Speed");
+  verify_warp_slot<FX, typename Params::template Family<"affine">>(
+      params, "Planar Warp Speed");
 
   size_t twist_sliders = 0;
   typename FX::Params{}.visit([&]<typename Resource>(const auto &) {
@@ -861,6 +857,7 @@ inline void check_slider_registration(const char *name) {
       named_field_count<FX, typename Params::template Family<"value">>() +
       warp_slot_count<FX, typename Params::template Family<"outer_warp">>() +
       warp_slot_count<FX, typename Params::template Family<"inner_warp">>() +
+      warp_slot_count<FX, typename Params::template Family<"affine">>() +
       (mobius ? std::size(MOBIUS_SLIDERS) : size_t{0}) +
       std::size(UNGATED_COLOR_SLIDERS) + (brightness ? size_t{2} : size_t{0}) +
       (spatial_modulation ? size_t{3} : size_t{0}) +
@@ -1230,6 +1227,8 @@ inline void test_promoted_document_pipelines() {
   composed_chain_tests::verify_export<GridWarp<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<LiquidWindows<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<Iridescence<SMALL_W, SMALL_H>>(0);
+  composed_chain_tests::verify_export<CosmicEyeball<SMALL_W, SMALL_H>>(0);
+  composed_chain_tests::verify_export<KaleidoscopeHexOil<SMALL_W, SMALL_H>>(0);
 }
 
 /** @brief Module entry point for the composed-effect base contract. */

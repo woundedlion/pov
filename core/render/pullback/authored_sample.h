@@ -32,23 +32,20 @@ rebind_topology(const TopologyField<Base> &field) {
   return result;
 }
 
-/** @brief Source controls with the catalog's extended drift range.
- * @tparam Family Grid or twin-wave source family. */
-template <typename Family> struct ExtendedDriftParams : Family {
+/** @brief Twin-wave source controls with the catalog's extended drift range.
+ */
+struct AuthoredTwinWaveSourceParams : TwinWaveSourceParams {
   /// Numeric controls with drift through two radians per frame.
   static constexpr auto FIELDS = [] {
-    auto fields = concat_fields<ExtendedDriftParams>(
-        Family::FIELDS, std::array<Field<ExtendedDriftParams>, 0>{});
+    auto fields = concat_fields<AuthoredTwinWaveSourceParams>(
+        TwinWaveSourceParams::FIELDS,
+        std::array<Field<AuthoredTwinWaveSourceParams>, 0>{});
     for (auto &field : fields)
       if (std::string_view(field.id) == "drift")
         field.max = 2.0f;
     return fields;
   }();
 };
-/** @brief Extended-drift coupled-grid source controls. */
-using AuthoredGridSourceParams = ExtendedDriftParams<GridSourceParams>;
-/** @brief Extended-drift twin-wave source controls. */
-using AuthoredTwinWaveSourceParams = ExtendedDriftParams<TwinWaveSourceParams>;
 
 /** @brief A planar source's numeric and runtime crossing controls.
  * @tparam Family Source-specific controls. */
@@ -88,12 +85,10 @@ template <typename Family> struct AuthoredSampleParams : Family {
 };
 
 /** @brief Grid source with runtime crossing controls. */
-using AuthoredGridSampleParams = AuthoredSampleParams<AuthoredGridSourceParams>;
+using AuthoredGridSampleParams = AuthoredSampleParams<GridSourceParams>;
 /** @brief Twin-wave source with runtime crossing controls. */
 using AuthoredTwinWaveSampleParams =
     AuthoredSampleParams<AuthoredTwinWaveSourceParams>;
-/** @brief Concentric rings with runtime crossing controls. */
-using AuthoredRingsSampleParams = AuthoredSampleParams<RingsSourceParams>;
 /** @brief Spiral source with runtime crossing controls. */
 using AuthoredSpiralSampleParams = AuthoredSampleParams<SpiralSourceParams>;
 /** @brief Square-cell tessellation with runtime crossing controls. */

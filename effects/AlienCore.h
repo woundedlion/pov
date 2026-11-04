@@ -24,7 +24,7 @@ struct AlienCoreSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = false;
   /**
    * @brief Stage chain: camera rotation, glitch lens, projection, mirror warp,
-   *  edge-valued grid source, generated palette,
+   *  affine warp, edge-valued grid source, generated palette,
    *  noise hue modulation.
    * @tparam B The effect's Binding.
    */
@@ -38,6 +38,8 @@ struct AlienCoreSpec : Pullback::Spec {
               Pullback::ProjectionKind::GNOMONIC_FOLDED, B>::Type>>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
           Pullback::MirrorParams, B, "outer_warp", false>::Type>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::AffineParams, B, "affine", false>::Type>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
                                   Pullback::GridSourceParams, B>::Type,
                               Pullback::Weight::Projection,
@@ -74,9 +76,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "8fa996bb34df15a0b438a7d25c1e3db3c306789f8fc091dde8d0b24f8fb1d6a8";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "ef25a4a862b6f97f233f525a727be1e4a33f3b2cfb6e20ebbb17537121066637";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "dbbfaa61b11a1360789704059643dd40ff1d7ffe7d8bceec16c0ac8f73c584fa";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "5a6ad357e4b5101f413c46824b3b8d7c078903aa6a46624f47d1c96d0b29c198";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "folded-glitch"
@@ -86,7 +88,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
   /**
@@ -95,6 +97,15 @@ public:
    */
   static constexpr Params initial_params() {
     Params value;
+    value.template get<"affine">().lattice_period = 1.0f;
+    value.template get<"affine">().repeat_cells = 1.0f;
+    value.template get<"affine">().rotation_rate = 0.0f;
+    value.template get<"affine">().scale_x = 1.0f;
+    value.template get<"affine">().scale_y = 1.0f;
+    value.template get<"affine">().shear = 0.0f;
+    value.template get<"affine">().speed = 0.018700706f;
+    value.template get<"affine">().translation_x = -2.0f;
+    value.template get<"affine">().translation_y = 2.0f;
     value.template get<"projection">().camera_wander = 1.0f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
@@ -112,13 +123,11 @@ public:
     value.template get<"modulation">().modulation.noise.scale = 1.0f;
     value.template get<"modulation">().modulation.noise.speed = 0.0f;
     value.template get<"projection">().singularity_fade = 1.4f;
-    value.template get<"source">().angle_rate = 0.0f;
     value.template get<"source">().complexity = 0.0f;
-    value.template get<"source">().secondary_rate = 1.0f;
     value.template get<"value">().edge_width = 0.5f;
     value.template get<"source">().pattern_freq = 3.565f;
     value.template get<"source">().pattern_mix = 1.0f;
-    value.template get<"source">().speed = 0.235f;
+    value.template get<"source">().speed = 0.0f;
     value.template get<"outer_warp">().cell_x = 5.381125f;
     value.template get<"outer_warp">().cell_y = 1.0f;
     value.template get<"outer_warp">().offset_x = 1.344f;

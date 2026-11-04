@@ -16,7 +16,7 @@
       },
       {
         "label": "sample",
-        "operator": "sample.grid.v3"
+        "operator": "sample.grid.v4"
       },
       {
         "label": "colorize",
@@ -351,20 +351,6 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 0.05000000074505806,
-          "minimum": 0
-        },
-        "id": "sample.angle-speed",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "radian-per-frame"
-      },
-      {
-        "classification": "preset",
-        "default": 0,
-        "domain": {
           "maximum": 3,
           "minimum": 0
         },
@@ -393,20 +379,6 @@
         },
         "storage": "enum8",
         "unit": "mode"
-      },
-      {
-        "classification": "preset",
-        "default": 0,
-        "domain": {
-          "maximum": 2,
-          "minimum": 0
-        },
-        "id": "sample.drift",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
       },
       {
         "classification": "preset",
@@ -588,10 +560,8 @@
         "project.central-meridian",
         "project.projection-spin-speed",
         "project.projection-wander",
-        "sample.angle-speed",
         "sample.complexity",
         "sample.coverage-mode",
-        "sample.drift",
         "sample.pattern-freq",
         "sample.pattern-mix",
         "sample.speed",
@@ -655,10 +625,8 @@
           "project.central-meridian": 0,
           "project.projection-spin-speed": 0,
           "project.projection-wander": 0,
-          "sample.angle-speed": 0,
           "sample.complexity": 0,
           "sample.coverage-mode": "weight",
-          "sample.drift": 0,
           "sample.pattern-freq": 0.10000000149011612,
           "sample.pattern-mix": 0,
           "sample.speed": 0,

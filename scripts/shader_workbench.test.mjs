@@ -158,7 +158,7 @@ test('retired modulation operators are rejected without conversion', () => {
 
 test('edge-width domains must match the current catalog', () => {
   const document = example();
-  const slot = document.descriptor.chain.find(({ operator }) => operator === 'sample.grid.v3');
+  const slot = document.descriptor.chain.find(({ operator }) => operator === 'sample.grid.v4');
   const operator = CATALOG.operators.find(({ id }) => id === slot.operator);
   const field = operator.params.find(({ id }) => id === 'edge-width');
   const width = declarationFromCatalogField(slot.label, field, operator.id);

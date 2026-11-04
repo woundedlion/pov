@@ -1192,6 +1192,22 @@
       },
       {
         "classification": "preset",
+        "default": "on",
+        "domain": {
+          "values": [
+            "off",
+            "on"
+          ]
+        },
+        "id": "warp.path-length",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
         "default": 1,
         "domain": {
           "maximum": 16,
@@ -1208,8 +1224,8 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 6.2831854820251465,
-          "minimum": -6.2831854820251465
+          "maximum": 25.132741928100586,
+          "minimum": -25.132741928100586
         },
         "id": "warp.rotation-rate",
         "interpolation": {
@@ -1278,8 +1294,8 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 4,
-          "minimum": -4
+          "maximum": 8,
+          "minimum": -8
         },
         "id": "warp.translation-x",
         "interpolation": {
@@ -1292,8 +1308,8 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 4,
-          "minimum": -4
+          "maximum": 8,
+          "minimum": -8
         },
         "id": "warp.translation-y",
         "interpolation": {
@@ -1389,6 +1405,7 @@
         "sample.kind",
         "sample.weight-mode",
         "warp.lattice-period",
+        "warp.path-length",
         "warp.repeat-cells",
         "warp.rotation-rate",
         "warp.scale-x",
@@ -1507,6 +1524,7 @@
           "sample.kind": "square",
           "sample.weight-mode": "projection",
           "warp.lattice-period": 1,
+          "warp.path-length": "on",
           "warp.repeat-cells": 8,
           "warp.rotation-rate": 1.0005351305007935,
           "warp.scale-x": 1,

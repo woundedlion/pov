@@ -243,7 +243,7 @@ test('every catalog operator retains all scalar values and topology selections',
     }
     ++operators;
   }
-  assert.equal(operators, 43);
+  assert.equal(operators, 42);
   assert.ok(selectors > 100);
 });
 
@@ -280,6 +280,10 @@ test('authored topology emits each runtime catalog choice as its stored selector
         const result = [...presetAssignments(authored, { [`node.${field.id}`]: choice }, { authoredTopology: true })];
         if (operator.id === 'sample.tessellation.v3' && ['kind', 'fill'].includes(field.id)) {
           assert.equal(result.length, 0, `${operator.id}/${field.id}/${choice} is pinned by the source family`);
+          continue;
+        }
+        if (operator.id === 'warp.affine.v4' && field.id === 'path-length') {
+          assert.equal(result.length, 0, `${operator.id}/${field.id}/${choice} is pinned by the stage's TrackPath`);
           continue;
         }
         assert.equal(result.length, 1, `${operator.id}/${field.id}/${choice}`);

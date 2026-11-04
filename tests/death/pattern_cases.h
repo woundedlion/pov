@@ -57,15 +57,21 @@ inline void case_pattern_noise_invalid_prepare() {
   (void)Pattern::SphereNoise::prepare(params, {}, GENERATOR);
 }
 inline void case_pattern_radian_invalid_advance() {
-  Pattern::PlaneRings::Params params;
-  (void)Pattern::PlaneRings::advance({}, params);
+  Pattern::PlaneInterference::Params params;
+  (void)Pattern::PlaneInterference::advance({}, params);
   params.speed = std::numeric_limits<float>::infinity();
-  (void)Pattern::PlaneRings::advance({}, params);
+  (void)Pattern::PlaneInterference::advance({}, params);
 }
 inline void case_pattern_radian_invalid_prepare() {
-  Pattern::PlaneRings::Params params;
-  (void)Pattern::PlaneRings::prepare(params, {});
-  (void)Pattern::PlaneRings::prepare(params, {0.0f, 0.0f, 100.0f});
+  Pattern::PlaneInterference::Params params;
+  (void)Pattern::PlaneInterference::prepare(params, {});
+  (void)Pattern::PlaneInterference::prepare(params, {0.0f, 0.0f, 100.0f});
+}
+inline void case_pattern_spiral_invalid_prepare() {
+  Pattern::PlaneSpiral::Params params;
+  (void)Pattern::PlaneSpiral::prepare(params, {});
+  params.arms = -1.0f;
+  (void)Pattern::PlaneSpiral::prepare(params, {});
 }
 inline void case_pattern_tessellation_invalid_prepare() {
   using Cells = Pattern::PlaneTessellation<Pattern::TessellationKind::SQUARE,

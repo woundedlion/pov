@@ -93,7 +93,7 @@ inline void test_shader_chain_refusal_shape() {
                  ctx, baseline);
 
   const In::ChainEntryRequest bad_entry[] = {
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   expect_refusal(program, bad_entry, In::ChainStatus::ENTRY_FAMILY, 0, ctx,
@@ -102,7 +102,7 @@ inline void test_shader_chain_refusal_shape() {
   const In::ChainEntryRequest bad_exit[] = {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
   };
   expect_refusal(program, bad_exit, In::ChainStatus::EXIT_FAMILY, 2, ctx,
                  baseline);
@@ -111,7 +111,7 @@ inline void test_shader_chain_refusal_shape() {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"camera2", "sphere.rotate.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   expect_refusal(program, mismatch, In::ChainStatus::CARRIER_MISMATCH, 2, ctx,
@@ -179,7 +179,7 @@ inline void test_shader_chain_refusal_budget_overflows() {
       {"camera", "sphere.rotate.v2"},
       {"camera2", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   const In::FrameContext ctx = shared_resources().context();
@@ -204,7 +204,7 @@ inline void test_shader_chain_refusal_budget_overflows() {
       {"fat", "test.fat.v2"},
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   const In::ChainRefusal params_overflow = fat->program.compile(fat_chain);
@@ -238,7 +238,7 @@ inline void test_shader_chain_refusal_budget_overflows() {
   const In::ChainEntryRequest exact_fit_chain[] = {
       {"filler", "test.exact-fit.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   size_t field_total = 0;
@@ -263,7 +263,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
       {"counter", "test.count-a.v2"},
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   const In::ChainRefusal first = program.compile(chain);
@@ -299,7 +299,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
       {"counter", "test.count-a.v2"},
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   const int inits_before = CountLifecycle::inits;
@@ -338,7 +338,7 @@ inline void test_shader_chain_column_states_outlive_evaluation() {
   const In::ChainEntryRequest chain[] = {
       {"life", "test.lifetime.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   const In::FrameContext ctx = shared_resources().context();
@@ -394,7 +394,7 @@ inline void test_shader_chain_state_identity_migration() {
       {"a", "test.count-a.v2"},
       {"b", "test.count-a.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   const auto compile_status1 = program.compile(first).code;
@@ -412,7 +412,7 @@ inline void test_shader_chain_state_identity_migration() {
       {"a", "test.count-a.v2"},
       {"c", "test.count-a.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   const int destroys_before = CountLifecycle::destroys;
@@ -432,7 +432,7 @@ inline void test_shader_chain_state_identity_migration() {
       {"a", "test.count-b.v2"},
       {"c", "test.count-a.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   const int migrates_before = CountLifecycle::migrates;
@@ -463,7 +463,7 @@ inline void test_shader_chain_state_continuity_slice() {
       {"camera", "sphere.rotate.v2"},
       {"camera2", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   const auto compile_status4 = program.compile(edited).code;
@@ -566,7 +566,7 @@ inline void test_shader_chain_determinism() {
   const In::ChainEntryRequest renamed[] = {
       {"camera2", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   const auto compile_status5 = relabeled->program.compile(renamed).code;

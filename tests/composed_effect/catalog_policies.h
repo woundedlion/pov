@@ -273,8 +273,10 @@ inline void check_affine_lattice_parity() {
   clock.phase = 0.23f;
   clock.rotation = 0.4f;
   const Op::WarpAffineV4::State state{clock.phase, clock.rotation};
+  Op::AffineWarpParams expected_params{};
+  static_cast<AffineParams &>(expected_params) = params;
   const auto expected_prepared = Op::WarpAffineV4::prepare(
-      {}, params, state, Source::translation_lattice(source));
+      {}, expected_params, state, Source::translation_lattice(source));
   const auto actual_prepared = Policy::prepare(frame);
   for (const math::Complex point :
        {math::Complex{0.17f, 0.23f}, math::Complex{-0.8f, 0.4f},
@@ -283,7 +285,7 @@ inline void check_affine_lattice_parity() {
     const auto actual =
         Policy::apply(input.coords, input.provenance, frame, actual_prepared);
     const auto expected =
-        Op::WarpAffineV4::run(input, {}, params, expected_prepared);
+        Op::WarpAffineV4::run(input, {}, expected_params, expected_prepared);
     HS_EXPECT_NEAR(actual.coords.re, expected.coords.re, 0.0f);
     HS_EXPECT_NEAR(actual.coords.im, expected.coords.im, 0.0f);
     HS_EXPECT_NEAR(actual.path_length, expected.path_length, 0.0f);
@@ -385,7 +387,9 @@ template <typename Family, typename Model> void check_source() {
 
 /** @brief Every authored source selector matches the catalog's sampled value. */
 inline void test_authored_source_catalog_parity() {
-  check_source<Pullback::RingsSourceParams, Op::SampleRings>();
+  check_source<Pullback::GridSourceParams, Op::SampleGridV4>();
+  check_source<Pullback::TwinWaveSourceParams, Op::SampleTwinWaveV3>();
+  check_source<Pullback::SpiralSourceParams, Op::SampleSpiralV3>();
   using K = Pattern::TessellationKind;
   using F = Pattern::TessellationFill;
   using Pullback::Source::FixedTessellationParams;
@@ -407,7 +411,7 @@ inline void test_authored_source_catalog_parity() {
 
 /** @brief Runtime signal and coverage selectors preserve the crossing contract. */
 inline void test_authored_sample_crossing() {
-  using Family = Pullback::Source::AuthoredRingsSampleParams;
+  using Family = Pullback::Source::AuthoredSpiralSampleParams;
   using Fixture = StageFrame<Family, Pullback::ResourceKind::SOURCE, "source">;
   using Binding = typename Fixture::Binding;
   using Provider = Pullback::SourceProvider<Binding, Family>;
@@ -417,7 +421,7 @@ inline void test_authored_sample_crossing() {
   using Crossing = Pullback::Stage::Sample<Source, Weight, Coverage>;
   typename Fixture::Frame frame{};
   auto &params = frame.params.template get<"source">();
-  frame.resources.template get<"source">().primary = 0.6f;
+  params.arms = 0.0f;
   params.edge_width = 0.1f;
   Pullback::PlaneSample input{{0.17f, 0.23f}, {}, math::Y_AXIS, 0.3f};
   input.provenance.value_weight = 0.4f;
@@ -434,10 +438,10 @@ inline void test_authored_sample_crossing() {
         const auto prepared = Crossing::template prepare<Binding>(frame);
         const auto actual =
             Crossing::template run<Binding>(input, frame, prepared);
-        const float raw = Pattern::rings(
+        const float raw = Pattern::spiral(
             Pattern::PlanePosition{projections::stereo_pattern_args(
                 input.coords, params.pattern_freq)},
-            Pattern::prepare(0.6f, 0.0f, 0.0f));
+            0.0f);
         const float expected_value = 0.5f + 0.5f * raw * (weight ? 0.4f : 1.0f);
         const float expected_coverage[] = {1.0f, 0.4f, 0.16f, FADES[point],
                                            FADES[point] * FADES[point]};
@@ -453,9 +457,9 @@ inline void test_authored_sample_crossing() {
   HS_EXPECT_FALSE(Pullback::valid(params));
   params.coverage_mode = 4;
   HS_EXPECT_TRUE(Pullback::valid(params));
-  Pullback::Source::AuthoredGridSampleParams grid{};
-  grid.secondary_rate = 1.8f;
-  HS_EXPECT_TRUE(Pullback::valid(grid));
+  Pullback::Source::AuthoredTwinWaveSampleParams waves{};
+  waves.secondary_rate = 1.8f;
+  HS_EXPECT_TRUE(Pullback::valid(waves));
 }
 
 /** @brief Static squared edge fade squares coverage without changing source weights. */

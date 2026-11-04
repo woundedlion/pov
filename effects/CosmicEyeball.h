@@ -25,7 +25,7 @@ struct CosmicEyeballSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = false;
   /**
    * @brief Stage chain: camera rotation, glitch lens, projection, mirror warp,
-   *  edge-valued grid source, generated palette,
+   *  affine warp, edge-valued grid source, generated palette,
    *  displacement hue modulation.
    * @tparam B The effect's Binding.
    */
@@ -39,6 +39,8 @@ struct CosmicEyeballSpec : Pullback::Spec {
               Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
           Pullback::MirrorParams, B, "outer_warp", true>::Type>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::AffineParams, B, "affine", false>::Type>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
                                   Pullback::GridSourceParams, B>::Type,
                               Pullback::Weight::Projection,
@@ -75,9 +77,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "736099d82bae140e2c0f059a25770cba52856d0b2ea92019cffb87ddee2902f0";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "64a3c103d30073fdcef898748715bfb6b8ce1bdf78c3315ec77d99ee537dcc06";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "60f476d269e4a4722cb467123bba229bbcc8f32b18fc01ced07db1451a03cc28";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "a9038a15b39de4abe4a0cb466fbb26593801ef7a2a59ea3c40eb5d427e820751";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "mirrored-grid"
@@ -87,7 +89,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
   /**
@@ -96,6 +98,15 @@ public:
    */
   static constexpr Params initial_params() {
     Params value;
+    value.template get<"affine">().lattice_period = 1.0f;
+    value.template get<"affine">().repeat_cells = 1.0f;
+    value.template get<"affine">().rotation_rate = 0.0f;
+    value.template get<"affine">().scale_x = 1.0f;
+    value.template get<"affine">().scale_y = 1.0f;
+    value.template get<"affine">().shear = 0.0f;
+    value.template get<"affine">().speed = 0.018700706f;
+    value.template get<"affine">().translation_x = -2.0f;
+    value.template get<"affine">().translation_y = 2.0f;
     value.template get<"projection">().camera_wander = 1.0f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
@@ -111,13 +122,11 @@ public:
     value.template get<"displacement">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
     value.template get<"displacement">().modulation.source = Pattern::SourceKind::DISPLACEMENT;
     value.template get<"projection">().singularity_fade = 1.4f;
-    value.template get<"source">().angle_rate = 0.0f;
     value.template get<"source">().complexity = 1.854f;
-    value.template get<"source">().secondary_rate = 1.0f;
     value.template get<"value">().edge_width = 0.5f;
     value.template get<"source">().pattern_freq = 2.5477f;
     value.template get<"source">().pattern_mix = 0.0f;
-    value.template get<"source">().speed = 0.235f;
+    value.template get<"source">().speed = 0.47f;
     value.template get<"outer_warp">().cell_x = 5.381125f;
     value.template get<"outer_warp">().cell_y = 1.0f;
     value.template get<"outer_warp">().offset_x = 1.344f;

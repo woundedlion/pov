@@ -580,14 +580,12 @@ inline void catalog_assignments_warp_curl_flow_v2() {
   (void)params;
 }
 
-inline void catalog_assignments_sample_grid_v3() {
+inline void catalog_assignments_sample_grid_v4() {
   Pullback::Source::AuthoredGridSampleParams params;
   params.pattern_freq = 1.0f;
   params.speed = 0.0f;
   params.complexity = 0.0f;
   params.pattern_mix = 0.0f;
-  params.secondary_rate = 0.0f;
-  params.angle_rate = 0.0f;
   params.edge_width = 0.1f;
   params.weight_mode = 1;
   params.coverage_mode = 1;
@@ -620,28 +618,10 @@ inline void catalog_assignments_sample_twin_wave_v3() {
   (void)params;
 }
 
-inline void catalog_assignments_sample_rings_v2() {
-  Pullback::Source::AuthoredRingsSampleParams params;
-  params.pattern_freq = 1.0f;
-  params.speed = 0.0f;
-  params.edge_width = 0.1f;
-  params.weight_mode = 1;
-  params.coverage_mode = 1;
-  params.weight_mode = 0;
-  params.weight_mode = 1;
-  params.coverage_mode = 0;
-  params.coverage_mode = 1;
-  params.coverage_mode = 2;
-  params.coverage_mode = 3;
-  params.coverage_mode = 4;
-  (void)params;
-}
-
-inline void catalog_assignments_sample_spiral_v2() {
+inline void catalog_assignments_sample_spiral_v3() {
   Pullback::Source::AuthoredSpiralSampleParams params;
   params.pattern_freq = 1.0f;
-  params.speed = 0.0f;
-  params.angle_rate = 0.0f;
+  params.arms = 3.0f;
   params.edge_width = 0.1f;
   params.weight_mode = 1;
   params.coverage_mode = 1;

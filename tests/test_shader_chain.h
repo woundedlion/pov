@@ -20,6 +20,7 @@
 #include <cstring>
 #include <memory>
 #include <limits>
+#include <numbers>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -156,7 +157,7 @@ inline void test_shader_chain_modulation_clock_lifecycle() {
   const In::ChainEntryRequest reordered[] = {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
       {"second", "color.modulate.v1"},
       {"first", "color.modulate.v1"}};
@@ -243,7 +244,7 @@ inline void test_shader_chain_modulation_temporal_endpoints() {
   const In::ChainEntryRequest CHAIN[] = {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
       {"lift", "color.modulate.v1"},
       {"hue", "color.modulate.v1"}};
@@ -307,7 +308,7 @@ inline void test_shader_chain_modulation_endpoint_identity() {
   const In::ChainEntryRequest CHAIN[] = {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v3"},
+      {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
       {"first", "color.modulate.v1"},
       {"second", "color.modulate.v1"}};
@@ -399,7 +400,7 @@ inline void test_shader_chain_snapshot_roundtrip() {
         {"project", "project.stereographic.v2"},
         {"noise", "warp.vector-noise.v2"},
         {"outer", "warp.affine.v4"},
-        {"sample", "sample.grid.v3"},
+        {"sample", "sample.grid.v4"},
         {"colorize", "colorize.generated-palette.v4"},
         {"modulation", "color.modulate.v1"}};
     HS_EXPECT_EQ(effect.set_chain(topology).code, In::ChainStatus::OK);
@@ -803,8 +804,11 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_parity_warp_curl_flow);
   HS_RUN(test_shader_chain_parity_sample_variants);
   HS_RUN(test_shader_chain_parity_sample_twin_wave);
-  HS_RUN(test_shader_chain_parity_sample_rings);
   HS_RUN(test_shader_chain_parity_sample_spiral);
+  HS_RUN(test_shader_chain_grid_lattice_symmetry);
+  HS_RUN(test_shader_chain_grid_motion_equivalence);
+  HS_RUN(test_shader_chain_spiral_rotation_equivalence);
+  HS_RUN(test_shader_chain_spiral_zero_arms_rings);
   HS_RUN(test_shader_chain_parity_sample_tessellation);
   HS_RUN(test_shader_chain_large_finite_path_length);
   HS_RUN(test_shader_chain_composed_noise_domain);

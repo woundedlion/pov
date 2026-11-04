@@ -78,9 +78,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "e7ccbdd038bd6766cedde302c221549f9352092bab8ab5259048aaf2638b4b46";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "a50399779ac3125f02fc69a7e945f61716cc17104efab5d323d8180cd3d38fd8";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "5f2099f80f88edd7381c81747f8b26f898f0bac31935752c07ca95b1fc66a867";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "7a7d55aed9dc70847d8226ab715a05a8a4a8e584187dac37c2f7bd6e2ef0b87e";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "affine-contour"

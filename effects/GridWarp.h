@@ -75,9 +75,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "dc6259c1a83cb90a2ed92a5573e03a47515b3748fa8af3349bdd5dc108050e21";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "640b1270d79a225303849dfaffddf3d560f16c89fccf444b83f7c3ffbe7a6a72";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "adb082284af58e0f59f1c1025d881bf9a65657890bb2d107949cff03b223c9e4";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "f3300511d875be224bd49886c699416faf11c696fa31d9ce8a6dc5d743c6e25e";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "grid-warp"
@@ -89,7 +89,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -215,9 +215,7 @@ public:
     value.template get<"modulate1">().modulation.sine.speed = 0.0f;
     value.template get<"projection">().central_meridian = 0.0f;
     value.template get<"projection">().singularity_fade = 20.0f;
-    value.template get<"source">().angle_rate = 0.0f;
     value.template get<"source">().complexity = 0.0f;
-    value.template get<"source">().secondary_rate = 0.0f;
     value.template get<"source">().pattern_freq = 5.436053f;
     value.template get<"source">().pattern_mix = 0.0f;
     value.template get<"source">().speed = 0.0f;

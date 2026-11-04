@@ -70,9 +70,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "bfc059865895fd6f643710535b5b207e756b8eefc80d7d1c161d3b5a0697b875";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "239958eba6ed71c0961be56108388ed0c432d4dfa4de1a85ed7a2d27b4d5f4b5";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "5216306ebf96652b8a710dc21707ea42caa11326461f03e8401a7538b830da91";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "cf4182e6e21cf871c2816a7dc5b61cc1ee37df09ee8efe3a128bc99112fcd5c0";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "liquid-windows"
@@ -82,7 +82,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -169,9 +169,7 @@ public:
     value.template get<"modulate">().modulation.sine.speed = 0.0f;
     value.template get<"projection">().central_meridian = 0.0f;
     value.template get<"projection">().singularity_fade = 20.0f;
-    value.template get<"source">().angle_rate = 0.0f;
     value.template get<"source">().complexity = 0.0f;
-    value.template get<"source">().secondary_rate = 0.0f;
     value.template get<"source">().pattern_freq = 5.436053f;
     value.template get<"source">().pattern_mix = 0.0f;
     value.template get<"source">().speed = 0.0f;

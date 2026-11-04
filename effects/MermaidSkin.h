@@ -72,9 +72,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "b1a6811b3ee8ad27c7a89880617b4f39daae265e5e3f00dfe174415ddd50282f";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "ec1fd72774e76624f4baf770f4c98f0027ab12d630031ee046d61d65ce923fc9";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "45590a3c8ac175a69ff32ec3260ec8a3612065933a61cf3b056845ef6dbef782";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "5e6ae651c1778d1db2c7fcd6ab7de861a71466df1e017c28f6df7aa759c431f3";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "mermaid-skin"
@@ -84,7 +84,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -113,9 +113,7 @@ public:
     value.template get<"projection">().central_meridian = 0.0f;
     value.template get<"projection">().spin_rate = 0.0f;
     value.template get<"projection">().wander = 0.0f;
-    value.template get<"source">().angle_rate = 0.0f;
     value.template get<"source">().complexity = 0.0f;
-    value.template get<"source">().secondary_rate = 0.0f;
     value.template get<"source">().pattern_freq = 0.1f;
     value.template get<"source">().pattern_mix = 0.0f;
     value.template get<"source">().speed = 0.0f;
