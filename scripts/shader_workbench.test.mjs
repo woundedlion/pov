@@ -1133,15 +1133,27 @@ test('documents can snap an otherwise interpolatable scalar', () => {
 });
 
 
-test('the affine fallback lattice period is an ordinary authored control', () => {
+test('an unregistered affine field holds the identity of its compiled-out part', () => {
   const descriptor = { chain: [
     { label: 'affine', operator: 'warp.affine.v4' },
     { label: 'cells', operator: 'sample.tessellation.v3' },
   ] };
-  const values = { 'affine.lattice-period': 0.5, 'cells.cell-scale': 4 };
-  assert.equal(fixedDerivedBinding(descriptor, 'affine.lattice-period', values), null);
-  descriptor.chain = [descriptor.chain[0]];
-  assert.equal(fixedDerivedBinding(descriptor, 'affine.lattice-period', values), null);
+  const values = { 'affine.lattice-period': 0.5, 'affine.rotation-rate': 0,
+    'affine.translation-x': -0.49, 'affine.translation-y': 0.5, 'affine.scale-x': 1,
+    'affine.shear': 0.25, 'cells.cell-scale': 4 };
+  const binding = (id) => fixedDerivedBinding(descriptor, id, values);
+  assert.deepEqual(binding('affine.lattice-period'),
+    { expected: 0.5, valid: true, unregistered: true });
+  assert.deepEqual(binding('affine.rotation-rate'),
+    { expected: 0, valid: true, unregistered: true });
+  assert.equal(binding('affine.translation-x').valid, true);
+  assert.equal(binding('affine.translation-y').valid, false);
+  assert.equal(binding('affine.scale-x').valid, true);
+  assert.deepEqual(binding('affine.shear'), { expected: 0, valid: false, unregistered: true });
+  assert.equal(binding('affine.path-length'), null);
+  assert.equal(binding('cells.cell-scale'), null);
+  values['affine.lattice-period'] = NaN;
+  assert.equal(binding('affine.lattice-period').valid, false);
 });
 
 test('catalog declarations share the compiler label and topology contracts', () => {

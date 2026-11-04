@@ -709,7 +709,7 @@ protected:
   template <typename Resource, typename T>
   HS_SIZE_FLASH_MEMBER void register_fields(T &family) {
     for (const auto &field : T::FIELDS)
-      if (field.name != nullptr && field_gate_open(field.gate)) {
+      if (field.name != nullptr && field_gate_open<Resource>(field.gate)) {
         this->register_param(resource_parameter_name<Resource>(field.name),
                              &(family.*field.member), field.description().spec);
         ParameterStage stage = resource_parameter_stage<Resource>();
@@ -912,9 +912,13 @@ private:
       "Pullback::ComposedEffect persistent footprint exceeds the default "
       "partition");
 
-  /** @brief Whether a gated field's slider exists for this effect. */
+  /** @brief Whether a gated field's slider exists for one resource.
+   *  @tparam Resource Parameter resource the field belongs to.
+   *  @param gate Field gate.
+   *  @return True when the field gets a slider. */
+  template <typename Resource>
   static constexpr bool field_gate_open(Pullback::FieldGate gate) {
-    return ComposedDetail::field_gate_open<SpecT>(gate);
+    return ComposedDetail::field_gate_open<SpecT, Resource>(gate);
   }
 
   template <typename Resource, typename T>
@@ -922,11 +926,13 @@ private:
     static_assert(T::FIELDS[0].member == &T::speed &&
                       T::FIELDS[0].name == nullptr,
                   "warp speed must be the first unnamed descriptor");
-    constexpr const char *SPEED_NAME =
-        ComposedDetail::warp_speed_name(Resource::KEY.view()).data();
-    this->register_param(resource_parameter_name<Resource>(SPEED_NAME),
-                         &warp.speed, T::FIELDS[0].description().spec);
-    set_parameter_stage(resource_parameter_stage<Resource>());
+    if constexpr (ComposedDetail::warp_speed_open<SpecT, Resource>()) {
+      constexpr const char *SPEED_NAME =
+          ComposedDetail::warp_speed_name(Resource::KEY.view()).data();
+      this->register_param(resource_parameter_name<Resource>(SPEED_NAME),
+                           &warp.speed, T::FIELDS[0].description().spec);
+      set_parameter_stage(resource_parameter_stage<Resource>());
+    }
     register_fields<Resource>(warp);
   }
 

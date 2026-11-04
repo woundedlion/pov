@@ -1036,14 +1036,41 @@ export function exportShaderDocumentJson(document) {
 }
 
 /**
+ * Identity value of each affine part field a composed affine stage can
+ * compile out; null for a field it ignores at any finite value.
+ */
+const AFFINE_COMPILED_OUT_IDENTITY = new Map([
+  ['speed', null], ['rotation-rate', 0], ['translation-x', 0], ['translation-y', 0],
+  ['scale-x', 1], ['scale-y', 1], ['shear', 0], ['repeat-cells', null],
+  ['lattice-period', null],
+]);
+
+/**
  * Resolves a parameter that the selected modulation source or coverage
- * topology fixes in the compiled effect.
+ * topology fixes in the compiled effect, or that a composed affine stage
+ * compiles out.
  * @param {object} descriptor Validated chain descriptor.
  * @param {string} parameterId Chain parameter id.
  * @param {object} values Selected preset values.
- * @returns {{valid: boolean, expected: number}|null}
+ * @returns {{valid: boolean, expected: number, unregistered?: true}|null}
+ *   `unregistered` marks a binding that holds only where the compiled build
+ *   registers no control for the parameter.
  */
 export function fixedDerivedBinding(descriptor, parameterId, values) {
+  const dot = parameterId.indexOf('.');
+  const affineSlot = descriptor?.chain?.find((entry) =>
+    entry.label === parameterId.slice(0, dot));
+  const affineField = parameterId.slice(dot + 1);
+  if (dot > 0 && affineSlot?.operator?.startsWith('warp.affine.') &&
+      AFFINE_COMPILED_OUT_IDENTITY.has(affineField)) {
+    const identity = AFFINE_COMPILED_OUT_IDENTITY.get(affineField);
+    const value = Math.fround(values[parameterId]);
+    if (identity === null)
+      return { expected: value, valid: Number.isFinite(value), unregistered: true };
+    const valid = affineField.startsWith('translation-')
+      ? Math.abs(value) < 0.5 : value === identity;
+    return { expected: identity, valid, unregistered: true };
+  }
   if (/\.pattern-(scale|speed|contrast)$/.test(parameterId)) {
     const label = parameterId.slice(0, parameterId.indexOf('.'));
     const slot = descriptor?.chain?.find((entry) => entry.label === label);

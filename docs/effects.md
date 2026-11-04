@@ -194,7 +194,7 @@ Thickness 0 hides the comet.
 
 Glitch-folded stereographic grids pulled through an animated wave shear. Four presets morph the grid frequency, complexity, shear strength, and speed inside one composed pipeline.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 1 Speed, Warp Strength, Warp Frequency, Warp Field Angle, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 1 Speed, Warp Strength, Warp Frequency, Warp Field Angle, Planar Warp Speed, Repeat Windings A, Repeat Windings B, Repeat Cells, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -206,7 +206,7 @@ Glitch-folded stereographic grids pulled through an animated wave shear. Four pr
 
 A broad folded gnomonic grid drifting inside a fixed mirror frame and a spherical kaleidoscope. Edge-fade coverage and a generated triadic palette give the field its soft, liquid boundary.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Edge Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Repeat Windings A, Repeat Windings B, Repeat Cells, Edge Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -218,7 +218,7 @@ A broad folded gnomonic grid drifting inside a fixed mirror frame and a spherica
 
 A mirrored grid folded by the glitch lens and a folded gnomonic projection. Its high-contrast edge-fade material keeps the discontinuous facets legible while the grid drifts inside a fixed mirror frame.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Edge Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Repeat Windings A, Repeat Windings B, Repeat Cells, Edge Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -230,7 +230,7 @@ A mirrored grid folded by the glitch lens and a folded gnomonic projection. Its 
 
 A wave-sheared grid moving across a folded gnomonic dodecahedral kaleidoscope, then repeated through an inner mirror tile.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Warp Strength, Warp Frequency, Warp Field Angle, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Warp Strength, Warp Frequency, Warp Field Angle, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Repeat Cells, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -242,7 +242,7 @@ A wave-sheared grid moving across a folded gnomonic dodecahedral kaleidoscope, t
 
 An affine primitive lattice rendered as soft iso contours through a folded gnomonic projection. The affine frame scrolls the lattice by whole cell windings, so its drift repeats without a visible seam.
 
-**Parameters**: Cell Scale, Cell Shape, Cell Softness, Cell Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 1 Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Iso Level, Iso Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Cell Scale, Cell Shape, Cell Softness, Cell Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 1 Speed, Repeat Windings A, Repeat Windings B, Repeat Cells, Iso Level, Iso Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -254,7 +254,7 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 
 An animated axial twist pulls a primitive lattice into flowing worms before the camera rotates it. A folded gnomonic projection wraps the lattice around the sphere; a maximum-chroma analogous palette uses cup mapping, and a direct directional-sine field shifts hue in the projection frame. Its single `grid-worms` preset preserves the saved shader's lens-before-camera order. GridWorms runs for 60 seconds immediately after GridSpace in the Phantasm playlist and is available in the simulator and effect library.
 
-**Parameters**: Cell Radius, Cell Scale, Cell Shape, Cell Softness, Camera Wander, Projection Spin Speed, Projection Wander, Singularity Fade, lens1.Twist Angle (rad), lens1.Twist Distribution, lens1.Axis Phi (rad), lens1.Axis Lambda (rad), lens1.Speed, lens1.Drift, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Frequency, Pattern Speed
+**Parameters**: Cell Scale, Cell Shape, Cell Softness, Cell Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, lens1.Twist Angle (rad), lens1.Twist Distribution, lens1.Axis Phi (rad), lens1.Axis Lambda (rad), lens1.Speed, lens1.Drift, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Frequency, Pattern Speed
 
 </td></tr></table>
 
@@ -384,7 +384,7 @@ A glitch-folded gnomonic grid displaced by sphere-space curl noise. An analogous
 
 A primitive lattice displaced by sphere-space curl noise, folded through a dodecahedral kaleidoscope and projected stereographically. A value cutout carves the lattice, so coverage follows the field rather than the projection alone.
 
-**Parameters**: Cell Scale, Cell Shape, Cell Softness, Cell Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Cutout Threshold, Cutout Softness, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Cell Scale, Cell Shape, Cell Softness, Cell Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, displace.Ripple Period, displace.Ripple Strength, displace.Ripple Decay, displace.Ripple Thickness, displace.Ripple Center Azimuth, displace.Ripple Center Polar, displace.Burst Rate, Cutout Threshold, Cutout Softness, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, modulation.Modulation Amount, modulation.Pattern Scale, modulation.Pattern Speed, modulate.Modulation Amount
 
 </td></tr></table>
 
@@ -396,7 +396,7 @@ A primitive lattice displaced by sphere-space curl noise, folded through a dodec
 
 A rotating spiral folded through a hexagonal-prism kaleidoscope, projected stereographically, and displaced by direct surface noise whose path length drives the hue rotation.
 
-**Parameters**: Pattern Freq, Spiral Arms, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Surface Noise Direction, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount
+**Parameters**: Pattern Freq, Spiral Arms, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Surface Noise Direction, Planar Warp Speed, Affine Rotation Rate, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount
 
 </td></tr></table>
 
@@ -408,7 +408,7 @@ A rotating spiral folded through a hexagonal-prism kaleidoscope, projected stere
 
 A vector-noise grid refracted across folded gnomonic dodecahedral facets and repeated through an inner mirror tile. A cup-shaped palette envelope emphasizes the warped cell interiors.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Warp Strength, Warp Scale, Warp Vector Angle, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Warp Strength, Warp Scale, Warp Vector Angle, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Repeat Cells, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -420,7 +420,7 @@ A vector-noise grid refracted across folded gnomonic dodecahedral facets and rep
 
 A generated analogous-palette grid folded through a dodecahedral kaleidoscope, then projected stereographically and repeated by an inner mirror tile. Its four presets share one composed pipeline and vary only continuous parameters.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -444,7 +444,7 @@ A mirrored twin-wave field folded through a hexagonal-prism kaleidoscope and pro
 
 Dodecahedrally folded grids mapped continuously around an equirectangular equator and repeated through an inner mirror tile. Three presets morph density and color mapping without changing structure. Pattern Mix stays at 1, so Complexity does not affect these presets.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -456,7 +456,7 @@ Dodecahedrally folded grids mapped continuously around an equirectangular equato
 
 A high-contrast mirrored stereographic grid folded by the glitch lens. Hue follows total mirror displacement, producing the concentric color structure around the moving field.
 
-**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Edge Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Camera Wander, Planar Warp 1 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Planar Warp Speed, Repeat Windings A, Repeat Windings B, Repeat Cells, Edge Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount
 
 </td></tr></table>
 

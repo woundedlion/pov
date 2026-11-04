@@ -312,6 +312,90 @@ inline void test_composed_affine_named_source() {
   HS_EXPECT_NEAR(prepared.transform.affine.translation_y, -1.0f, 1e-6f);
 }
 
+/** @brief A general-form affine warp before a source with no lattice. */
+struct AffineFallbackLatticeSpec : Pullback::Spec {
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::AffineParams, B, "affine", false>::Type>,
+      Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
+          Pullback::SpiralSourceParams, B>::Type>,
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>>;
+};
+
+/** @brief Expects each slider in @p names registered, or each absent.
+ * @param params Registered sliders.
+ * @param names Slider names.
+ * @param present Whether each name is expected. */
+inline void expect_sliders(const ParamList &params,
+                           std::initializer_list<const char *> names,
+                           bool present) {
+  for (const char *name : names) {
+    HS_CONTEXT(name);
+    HS_EXPECT_EQ(params.find(name) != nullptr, present);
+  }
+}
+
+/** @brief Composed affine stages register only the sliders their form reads. */
+inline void test_composed_affine_form_sliders() {
+  using AffineResource =
+      Pullback::ParameterResource<"affine", Pullback::AffineParams,
+                                  Pullback::ResourceKind::WARP>;
+  constexpr auto FALLBACK =
+      Pullback::ComposedDetail::affine_reads<AffineFallbackLatticeSpec,
+                                             AffineResource>();
+  static_assert(FALLBACK.form == Pullback::AffineForm::GENERAL &&
+                FALLBACK.repeat && FALLBACK.fallback_lattice);
+  constexpr auto NAMED =
+      Pullback::ComposedDetail::affine_reads<AffineNamedSourceSpec,
+                                             AffineResource>();
+  static_assert(NAMED.form == Pullback::AffineForm::GENERAL && NAMED.repeat &&
+                !NAMED.fallback_lattice);
+
+  const std::initializer_list<const char *> TRANSLATION = {
+      "Repeat Windings A", "Repeat Windings B", "Repeat Cells"};
+  const std::initializer_list<const char *> SCALE_SHEAR = {
+      "Affine Scale X", "Affine Scale Y", "Affine Shear"};
+  {
+    HS_CONTEXT("KaleidoscopeHexOil");
+    reset_effect_globals();
+    KaleidoscopeHexOil<SMALL_W, SMALL_H> effect;
+    effect.init();
+    const ParamList &params = effect.getParameters();
+    expect_sliders(params, {"Planar Warp Speed", "Affine Rotation Rate"}, true);
+    expect_sliders(params, TRANSLATION, false);
+    expect_sliders(params, SCALE_SHEAR, false);
+    expect_sliders(params, {"Fallback Lattice Period"}, false);
+  }
+  {
+    HS_CONTEXT("AlienCore");
+    reset_effect_globals();
+    AlienCore<SMALL_W, SMALL_H> effect;
+    effect.init();
+    const ParamList &params = effect.getParameters();
+    expect_sliders(params, {"Planar Warp Speed"}, true);
+    expect_sliders(params, TRANSLATION, true);
+    expect_sliders(params, {"Affine Rotation Rate"}, false);
+    expect_sliders(params, SCALE_SHEAR, false);
+  }
+  {
+    HS_CONTEXT("general form");
+    reset_effect_globals();
+    AnalyticModulationProbe effect;
+    effect.init();
+    const ParamList &params = effect.getParameters();
+    expect_sliders(params, {"Planar Warp 1 Speed", "Affine Rotation Rate"},
+                   true);
+    expect_sliders(params, TRANSLATION, true);
+    expect_sliders(params, SCALE_SHEAR, true);
+    expect_sliders(params, {"Fallback Lattice Period"}, false);
+    HS_EXPECT_EQ(params.size(), params.capacity());
+  }
+}
+
 struct RepeatedStagesSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = false;
   template <typename B>

@@ -154,8 +154,9 @@ export function promotedControlNames(parameterId, descriptor, catalog = null) {
     parameterId, field, ...human.filter(Boolean)])];
 }
 
-function liveDerivedControl(parameterId, name, registered) {
+function liveDerivedControl(parameterId, name, registered, binding) {
   if (name === undefined) return false;
+  if (binding.unregistered) return true;
   const split = parameterId.indexOf('.');
   const label = parameterId.slice(0, split);
   const field = parameterId.slice(split + 1);
@@ -171,8 +172,9 @@ function liveDerivedControl(parameterId, name, registered) {
  *
  * Writable parameters apply to the compiled effect by control name. Fixed
  * topology and constants are exempt; values fixed by a modulation source or
- * coverage topology must be finite. An unresolved writable id refuses the
- * whole apply.
+ * coverage topology must be finite, and an affine field without a control
+ * must hold the identity of the part the compiled stage omits. An unresolved
+ * writable id refuses the whole apply.
  *
  * @param {object} run
  * @param {{document: string, effect: string, parameterIds: string[], presets?: object[], descriptor?: object}[]} run.documents
@@ -221,11 +223,14 @@ export function promotedBindingProblems({ documents, controls, bakedFields,
       const name = names.find((candidate) => registered.has(candidate));
       const derived = fixedDerivedBinding(descriptor, parameterId, authored[0]?.values ?? {});
       if (derived) {
-        if (liveDerivedControl(parameterId, name, registered)) continue;
+        if (liveDerivedControl(parameterId, name, registered, derived)) continue;
         if (authored.length === 0 || authored.some(({ values }) =>
           !fixedDerivedBinding(descriptor, parameterId, values).valid)) {
-          problems.push(`${document}: "${parameterId}" must hold a finite value ` +
-            'fixed by its modulation source or coverage topology');
+          problems.push(derived.unregistered
+            ? `${document}: "${parameterId}" moves an affine part "${effect}" ` +
+              'compiles out'
+            : `${document}: "${parameterId}" must hold a finite value ` +
+              'fixed by its modulation source or coverage topology');
         }
         continue;
       }

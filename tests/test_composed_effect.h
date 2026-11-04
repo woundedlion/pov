@@ -120,10 +120,79 @@ constexpr ColorSliderBinding COLOR_SLIDER_BINDINGS[] = {
 
 inline uint32_t bits(float value) { return std::bit_cast<uint32_t>(value); }
 
+/** @brief Instance key, path tracking, next stage and form of an affine warp
+ * stage. */
+template <typename Stage> struct AffineStageTracking {
+  static constexpr bool AFFINE = false; ///< Not an affine warp stage.
+};
+/** @brief An affine warp stage over a keyed warp provider. */
+template <typename B, Pullback::ResourceKey Key, typename Family, bool Track,
+          Pullback::ResourceKey SourceKey, Pullback::AffineForm Form>
+struct AffineStageTracking<Pullback::Stage::Warp<Pullback::Warp::AffineFrame<
+    Pullback::WarpProvider<B, Key, Family, Track, SourceKey, Form>>>> {
+  static constexpr bool AFFINE = true;                ///< An affine warp stage.
+  static constexpr std::string_view KEY = Key.view(); ///< Instance key.
+  static constexpr bool TRACK = Track;                ///< Tracks path length.
+  static constexpr auto SOURCE_KEY = SourceKey;       ///< Next stage's key.
+  static constexpr Pullback::AffineForm FORM = Form;  ///< Compiled parts.
+};
+
+/** @brief Whether @p FX's affine stage keyed @p Key reads field @p id.
+ * @return True for any field of a key no affine stage carries. */
+template <typename FX, Pullback::ResourceKey Key>
+constexpr bool affine_field_read(std::string_view id) {
+  using Leaves = Pullback::ComposedDetail::PipelineLeaves<
+      typename FX::Spec::template Pipeline<
+          Pullback::ComposedDetail::DiscoveryBinding>>;
+  bool read = true;
+  [&]<size_t... I>(std::index_sequence<I...>) {
+    (
+        [&]<typename Stage>() {
+          using Tracking = AffineStageTracking<Stage>;
+          if constexpr (Tracking::AFFINE)
+            if (Tracking::KEY == Key.view()) {
+              using Source =
+                  typename FX::Params::template Family<Tracking::SOURCE_KEY>;
+              constexpr bool LATTICE = [] {
+                if constexpr (std::is_void_v<Source>)
+                  return false;
+                else
+                  return requires(const Source &source) {
+                    translation_lattice(source);
+                  };
+              }();
+              using Form = Pullback::AffineForm;
+              const auto has = [](Form part) {
+                return Pullback::Warp::includes(Tracking::FORM, part);
+              };
+              if (id == "speed")
+                read = Tracking::FORM != Form::IDENTITY;
+              else if (id == "rotation-rate")
+                read = has(Form::ROTATES);
+              else if (id == "translation-x" || id == "translation-y")
+                read = has(Form::TRANSLATES);
+              else if (id == "scale-x" || id == "scale-y" || id == "shear")
+                read = has(Form::SCALES_SHEARS);
+              else if (id == "repeat-cells")
+                read = has(Form::TRANSLATES) || (Tracking::TRACK && LATTICE);
+              else if (id == "lattice-period")
+                read = has(Form::TRANSLATES) && !LATTICE;
+            }
+        }.template operator()<typename Leaves::template StageAt<I>>(),
+        ...);
+  }(std::make_index_sequence<Leaves::STAGE_COUNT>{});
+  return read;
+}
+
 /** @brief Whether @p FX opens a gated field's slider. */
 template <typename FX> constexpr bool gate_open(Pullback::FieldGate gate) {
   switch (gate) {
   case Pullback::FieldGate::ALWAYS:
+  case Pullback::FieldGate::AFFINE_ROTATES:
+  case Pullback::FieldGate::AFFINE_TRANSLATES:
+  case Pullback::FieldGate::AFFINE_SCALES_SHEARS:
+  case Pullback::FieldGate::AFFINE_REPEAT:
+  case Pullback::FieldGate::AFFINE_FALLBACK_LATTICE:
     return true;
   case Pullback::FieldGate::OUTER_CAMERA:
     return FX::Metadata::OUTER_CAMERA;
@@ -159,22 +228,33 @@ inline const Pullback::Field<Family> *find_field(const char *id) {
   return nullptr;
 }
 
+/** @brief Whether @p FX registers a slider for a field of the @p Key
+ * resource. */
+template <typename FX, Pullback::ResourceKey Key, typename Field>
+constexpr bool field_open(const Field &field) {
+  return gate_open<FX>(field.gate) && affine_field_read<FX, Key>(field.id);
+}
+
 /** @brief Sliders a family contributes through register_fields(). */
-template <typename FX, typename Family> constexpr size_t named_field_count() {
+template <typename FX, typename Family, Pullback::ResourceKey Key = "">
+constexpr size_t named_field_count() {
   size_t count = 0;
   if constexpr (Pullback::HasFields<Family>)
     for (const auto &field : Family::FIELDS)
-      if (field.name != nullptr && gate_open<FX>(field.gate))
+      if (field.name != nullptr && field_open<FX, Key>(field))
         ++count;
   return count;
 }
 
 /** @brief Sliders a warp slot contributes: the slot speed plus its own. */
-template <typename FX, typename Family> constexpr size_t warp_slot_count() {
+template <typename FX, Pullback::ResourceKey Key>
+constexpr size_t warp_slot_count() {
+  using Family = typename FX::Params::template Family<Key>;
   if constexpr (std::is_void_v<Family>)
     return 0;
   else
-    return 1 + named_field_count<FX, Family>();
+    return (affine_field_read<FX, Key>("speed") ? 1 : 0) +
+           named_field_count<FX, Family, Key>();
 }
 
 /**
@@ -184,14 +264,14 @@ template <typename FX, typename Family> constexpr size_t warp_slot_count() {
  * @details A named field must own exactly one slider, present on the gate its
  * descriptor names and carrying the descriptor's bounds.
  */
-template <typename FX, typename Family>
+template <typename FX, typename Family, Pullback::ResourceKey Key = "">
 inline void verify_family_sliders(const ParamList &params, bool registered) {
   if constexpr (Pullback::HasFields<Family>)
     for (const auto &field : Family::FIELDS) {
       if (field.name == nullptr)
         continue;
       HS_CONTEXT(field.id);
-      const bool expected = registered && gate_open<FX>(field.gate);
+      const bool expected = registered && field_open<FX, Key>(field);
       const ParamDef *def = params.find(field.name);
       HS_EXPECT_EQ(def != nullptr, expected);
       if (def == nullptr)
@@ -203,18 +283,20 @@ inline void verify_family_sliders(const ParamList &params, bool registered) {
 }
 
 /** @brief Checks a warp slot's speed slider against the slot's descriptor. */
-template <typename FX, typename Family>
+template <typename FX, Pullback::ResourceKey Key>
 inline void verify_warp_slot(const ParamList &params, const char *slot_name) {
+  using Family = typename FX::Params::template Family<Key>;
   HS_CONTEXT(slot_name);
-  constexpr bool expected = !std::is_void_v<Family>;
+  constexpr bool present = !std::is_void_v<Family>;
   const ParamDef *def = params.find(slot_name);
-  HS_EXPECT_EQ(def != nullptr, expected);
-  if constexpr (!std::is_void_v<Family>)
+  constexpr bool speed = present && affine_field_read<FX, Key>("speed");
+  HS_EXPECT_EQ(def != nullptr, speed);
+  if constexpr (present)
     if (def != nullptr) {
       HS_EXPECT_EQ(bits(def->min), bits(Family::FIELDS[0].min));
       HS_EXPECT_EQ(bits(def->max), bits(Family::FIELDS[0].max));
     }
-  verify_family_sliders<FX, Family>(params, expected);
+  verify_family_sliders<FX, Family, Key>(params, present);
 }
 
 /** @brief Bitwise-compares every tabled field of one parameter family. */
@@ -325,7 +407,7 @@ inline void check_authored_slider_registration(const FX &effect) {
       if constexpr (Resource::KIND != Pullback::ResourceKind::COLOR)
         if ((!field.name && !(Resource::KIND == Pullback::ResourceKind::WARP &&
                               std::string_view(field.id) == "speed")) ||
-            !gate_open<FX>(field.gate))
+            !field_open<FX, Resource::KEY>(field))
           continue;
       require_target(&(family.*field.member), field.min, field.max);
     }
@@ -729,12 +811,9 @@ inline void check_slider_registration(const char *name) {
                                                                          true);
   verify_family_sliders<FX, typename Params::template Family<"value">>(params,
                                                                        true);
-  verify_warp_slot<FX, typename Params::template Family<"outer_warp">>(
-      params, "Planar Warp 1 Speed");
-  verify_warp_slot<FX, typename Params::template Family<"inner_warp">>(
-      params, "Planar Warp 2 Speed");
-  verify_warp_slot<FX, typename Params::template Family<"affine">>(
-      params, "Planar Warp Speed");
+  verify_warp_slot<FX, "outer_warp">(params, "Planar Warp 1 Speed");
+  verify_warp_slot<FX, "inner_warp">(params, "Planar Warp 2 Speed");
+  verify_warp_slot<FX, "affine">(params, "Planar Warp Speed");
 
   size_t twist_sliders = 0;
   typename FX::Params{}.visit([&]<typename Resource>(const auto &) {
@@ -855,9 +934,8 @@ inline void check_slider_registration(const char *name) {
       named_field_count<FX, Pullback::ProjectionParams>() +
       named_field_count<FX, typename Params::template Family<"surface">>() +
       named_field_count<FX, typename Params::template Family<"value">>() +
-      warp_slot_count<FX, typename Params::template Family<"outer_warp">>() +
-      warp_slot_count<FX, typename Params::template Family<"inner_warp">>() +
-      warp_slot_count<FX, typename Params::template Family<"affine">>() +
+      warp_slot_count<FX, "outer_warp">() +
+      warp_slot_count<FX, "inner_warp">() + warp_slot_count<FX, "affine">() +
       (mobius ? std::size(MOBIUS_SLIDERS) : size_t{0}) +
       std::size(UNGATED_COLOR_SLIDERS) + (brightness ? size_t{2} : size_t{0}) +
       (spatial_modulation ? size_t{3} : size_t{0}) +
@@ -1336,6 +1414,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_keyed_parameters);
   HS_RUN(test_composed_keyed_value_providers);
   HS_RUN(test_composed_affine_named_source);
+  HS_RUN(test_composed_affine_form_sliders);
   HS_RUN(test_composed_repeated_instances);
   HS_RUN(test_composed_projection_walk_storage);
   HS_RUN(test_composed_periodic_ripple_surface);

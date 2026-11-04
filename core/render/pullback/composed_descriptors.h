@@ -597,16 +597,127 @@ template <typename Provider, math::NoiseBasis Basis>
 struct PolicyResources<Surface::DirectNoise<Provider, Basis>>
     : PolicyResources<Provider> {};
 
+/** @brief Compiled form of a pipeline leaf that is an affine warp stage.
+ * @tparam Stage Pipeline leaf. */
+template <typename Stage> struct AffineStageOf {
+  static constexpr bool AFFINE = false; ///< Not an affine warp stage.
+};
+/** @brief An affine warp stage over a keyed warp provider.
+ * @tparam B Frame binding.
+ * @tparam Key Warp resource key.
+ * @tparam Family Warp parameter family.
+ * @tparam Track Whether path length is tracked.
+ * @tparam SourceKey Resource of the stage after the warp.
+ * @tparam Form Parts the warp evaluates. */
+template <typename B, ResourceKey Key, typename Family, bool Track,
+          ResourceKey SourceKey, Warp::AffineForm Form>
+struct AffineStageOf<Stage::Warp<
+    Warp::AffineFrame<WarpProvider<B, Key, Family, Track, SourceKey, Form>>>> {
+  static constexpr bool AFFINE = true;           ///< An affine warp stage.
+  static constexpr auto KEY = Key;               ///< Warp resource key.
+  static constexpr bool TRACK = Track;           ///< Tracks path length.
+  static constexpr auto SOURCE_KEY = SourceKey;  ///< Next stage's resource.
+  static constexpr Warp::AffineForm FORM = Form; ///< Compiled parts.
+};
+/** @brief Whether a pipeline leaf is the affine warp stage of a key.
+ * @tparam Leaf Pipeline leaf.
+ * @tparam Key Warp resource key.
+ * @return True for an affine warp stage keyed @p Key. */
+template <typename Leaf, ResourceKey Key> consteval bool affine_stage_keyed() {
+  if constexpr (AffineStageOf<Leaf>::AFFINE)
+    return AffineStageOf<Leaf>::KEY.view() == Key.view();
+  else
+    return false;
+}
+/** @brief Stage predicate for `stage_index` over one affine key.
+ * @tparam Key Warp resource key. */
+template <ResourceKey Key> struct AffineStageKeyed {
+  /** @brief Whether @p Leaf is the affine warp stage keyed @p Key.
+   * @tparam Leaf Pipeline leaf. */
+  template <typename Leaf>
+  struct Match : std::bool_constant<affine_stage_keyed<Leaf, Key>()> {};
+};
+
+/** @brief Whether a source family reports a translation lattice.
+ * @tparam Family Source parameter family. */
+template <typename Family>
+concept ReportsTranslationLattice =
+    requires(const Family &family) { translation_lattice(family); };
+
+/** @brief Affine fields one composed warp resource reads. */
+struct AffineReads {
+  Warp::AffineForm form = Warp::AffineForm::GENERAL; ///< Compiled parts.
+  bool repeat = true;                                ///< Reads `repeat_cells`.
+  bool fallback_lattice = true; ///< Reads `lattice_period`.
+};
+
 /**
- * @brief Whether a field gate is live under the derived projection topology.
+ * @brief Affine fields the composed stage keyed like @p Resource reads.
  * @tparam Spec Composed-effect Spec.
+ * @tparam Resource Warp parameter resource.
+ * @return Its stage's form, and whether it reads the repeat and the fallback
+ *         lattice; every field when no affine stage carries the key.
+ */
+template <typename Spec, typename Resource>
+consteval AffineReads affine_reads() {
+  using Pipeline = typename Spec::template Pipeline<SpecDiscoveryBinding<Spec>>;
+  using Leaves = PipelineLeaves<Pipeline>;
+  constexpr size_t INDEX =
+      stage_index<Leaves, AffineStageKeyed<Resource::KEY>::template Match>();
+  if constexpr (INDEX == Leaves::STAGE_COUNT)
+    return {};
+  else {
+    using Affine = AffineStageOf<typename Leaves::template StageAt<INDEX>>;
+    using Source = typename FamilyOf<typename FindResource<
+        Affine::SOURCE_KEY,
+        typename PipelineResources<Pipeline>::Type>::Type>::Type;
+    constexpr bool LATTICE = [] {
+      if constexpr (std::is_void_v<Source>)
+        return false;
+      else
+        return ReportsTranslationLattice<Source>;
+    }();
+    constexpr bool TRANSLATES =
+        Warp::includes(Affine::FORM, Warp::AffineForm::TRANSLATES);
+    return {Affine::FORM, TRANSLATES || (Affine::TRACK && LATTICE),
+            TRANSLATES && !LATTICE};
+  }
+}
+
+/**
+ * @brief Whether a field gate is live for one resource of a composed effect.
+ * @tparam Spec Composed-effect Spec.
+ * @tparam Resource Parameter resource the field belongs to.
  * @param gate Field gate.
  * @return True when the gated field gets a slider.
  */
-template <typename Spec> constexpr bool field_gate_open(FieldGate gate) {
+template <typename Spec, typename Resource>
+constexpr bool field_gate_open(FieldGate gate) {
   switch (gate) {
   case FieldGate::ALWAYS:
     return true;
+  case FieldGate::AFFINE_ROTATES:
+  case FieldGate::AFFINE_TRANSLATES:
+  case FieldGate::AFFINE_SCALES_SHEARS:
+  case FieldGate::AFFINE_REPEAT:
+  case FieldGate::AFFINE_FALLBACK_LATTICE:
+    if constexpr (std::is_base_of_v<Warp::AffineParams,
+                                    typename Resource::Family>) {
+      constexpr AffineReads READS = affine_reads<Spec, Resource>();
+      switch (gate) {
+      case FieldGate::AFFINE_ROTATES:
+        return Warp::includes(READS.form, Warp::AffineForm::ROTATES);
+      case FieldGate::AFFINE_TRANSLATES:
+        return Warp::includes(READS.form, Warp::AffineForm::TRANSLATES);
+      case FieldGate::AFFINE_SCALES_SHEARS:
+        return Warp::includes(READS.form, Warp::AffineForm::SCALES_SHEARS);
+      case FieldGate::AFFINE_REPEAT:
+        return READS.repeat;
+      default:
+        return READS.fallback_lattice;
+      }
+    } else
+      return true;
   case FieldGate::OUTER_CAMERA:
     return MetadataFor<Spec>::OUTER_CAMERA;
   case FieldGate::ANIMATED_PROJECTION:
@@ -630,6 +741,20 @@ template <typename Spec> constexpr bool field_gate_open(FieldGate gate) {
     return is_polyhedral_atlas(MetadataFor<Spec>::PROJECTION);
   }
   return false;
+}
+
+/** @brief Whether a resource registers a warp speed slider.
+ * @tparam Spec Composed-effect Spec.
+ * @tparam Resource Parameter resource.
+ * @return True for a warp, except an affine stage that evaluates no part. */
+template <typename Spec, typename Resource> consteval bool warp_speed_open() {
+  if constexpr (Resource::KIND != ResourceKind::WARP)
+    return false;
+  else if constexpr (std::is_base_of_v<Warp::AffineParams,
+                                       typename Resource::Family>)
+    return affine_reads<Spec, Resource>().form != Warp::AffineForm::IDENTITY;
+  else
+    return true;
 }
 
 /** @brief Whether a resource's runtime topology control applies to its policy.
@@ -688,8 +813,8 @@ consteval size_t resource_parameter_count() {
     return Resource::Family::SOURCE == Pattern::SourceKind::DISPLACEMENT ? 1
                                                                          : 3;
   } else {
-    size_t count = Resource::KIND == ResourceKind::WARP ||
-                           Resource::KIND == ResourceKind::COLOR
+    size_t count = Resource::KIND == ResourceKind::COLOR ||
+                           warp_speed_open<Spec, Resource>()
                        ? 1
                        : 0;
     if constexpr (std::is_same_v<Family, Color::AuthoredColorParams>)
@@ -699,7 +824,8 @@ consteval size_t resource_parameter_count() {
         if (std::is_same_v<Family, Color::AuthoredColorParams> ||
             color_gate_open<Spec>(field.topology_gate))
           ++count;
-      } else if (field.name != nullptr && field_gate_open<Spec>(field.gate))
+      } else if (field.name != nullptr &&
+                 field_gate_open<Spec, Resource>(field.gate))
         ++count;
     }
     if constexpr (requires { Family::TOPOLOGY; })
@@ -873,7 +999,8 @@ consteval size_t resource_name_bytes() {
     } else {
       size_t bytes = 0;
       for (const auto &field : Resource::Family::FIELDS)
-        if (field.name != nullptr && field_gate_open<Spec>(field.gate))
+        if (field.name != nullptr &&
+            field_gate_open<Spec, Resource>(field.gate))
           bytes += PREFIX + std::string_view(field.name).size();
       if constexpr (requires { Resource::Family::TOPOLOGY; })
         for (const auto &field : Resource::Family::TOPOLOGY)
@@ -882,7 +1009,7 @@ consteval size_t resource_name_bytes() {
       if constexpr (requires { Resource::Family::EXTRA_SCHEMA; })
         for (const auto &field : Resource::Family::EXTRA_SCHEMA)
           bytes += PREFIX + std::string_view(field.id).size();
-      if constexpr (Resource::KIND == ResourceKind::WARP) {
+      if constexpr (warp_speed_open<Spec, Resource>()) {
         constexpr std::string_view SPEED_NAME =
             warp_speed_name(Resource::KEY.view());
         bytes += PREFIX + SPEED_NAME.size();

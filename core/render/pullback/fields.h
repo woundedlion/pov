@@ -109,7 +109,14 @@ enum class FieldGate : uint8_t {
   LAYOUT_SCROLL,       ///< Peirce strip layouts.
   STANDARD_PARALLEL,   ///< Bonne reference latitude.
   AREA_CORRECTION,     ///< Polyhedral atlas blend toward equal area.
-  OUTER_CAMERA         ///< Shared outer-camera stage.
+  OUTER_CAMERA,        ///< Shared outer-camera stage.
+  AFFINE_ROTATES,      ///< Composed affine stages that rotate.
+  AFFINE_TRANSLATES,   ///< Composed affine stages that translate.
+  AFFINE_SCALES_SHEARS, ///< Composed affine stages that scale and shear.
+  AFFINE_REPEAT, /**< Composed affine stages that translate, or that measure
+                      path length over the next stage's lattice. */
+  AFFINE_FALLBACK_LATTICE /**< Composed affine stages that translate where
+                               the next stage reports no lattice. */
 };
 
 /**

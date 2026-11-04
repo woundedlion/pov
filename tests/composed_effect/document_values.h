@@ -416,21 +416,6 @@ inline bool assign_mobius(Params &params, std::string_view id, float value) {
 
 namespace ChainOp = Pullback::Interp::Op;
 
-/** @brief Instance key, path tracking and form of an affine warp stage. */
-template <typename Stage> struct AffineStageTracking {
-  static constexpr bool AFFINE = false; ///< Not an affine warp stage.
-};
-/** @brief An affine warp stage over a keyed warp provider. */
-template <typename B, Pullback::ResourceKey Key, typename Family, bool Track,
-          Pullback::ResourceKey SourceKey, Pullback::AffineForm Form>
-struct AffineStageTracking<Pullback::Stage::Warp<Pullback::Warp::AffineFrame<
-    Pullback::WarpProvider<B, Key, Family, Track, SourceKey, Form>>>> {
-  static constexpr bool AFFINE = true;                ///< An affine warp stage.
-  static constexpr std::string_view KEY = Key.view(); ///< Instance key.
-  static constexpr bool TRACK = Track;                ///< Tracks path length.
-  static constexpr Pullback::AffineForm FORM = Form;  ///< Compiled parts.
-};
-
 /** @brief Affine parts one preset's values move away from identity.
  * @param values The preset's `values` object.
  * @param label Label of the affine chain instance.
