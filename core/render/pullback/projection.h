@@ -813,7 +813,7 @@ struct PeirceSquare : PeirceFastSquare<State>,
   }
 };
 
-/** @brief Google S2 quadratic cube mapping in a three-column, two-row atlas. */
+/** @brief S2 quadratic cube mapping in a three-column, two-row atlas. */
 template <typename State>
 struct S2 : FrameConjugateFromState<State>, MeridianPrepared<S2<State>, State> {
   using FrameState = typename State::FrameState; ///< Provider frame state.

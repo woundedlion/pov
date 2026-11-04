@@ -472,12 +472,12 @@ struct ProjectAiroceanV3
   }
 };
 
-/** @brief SPHERE-to-PLANE crossing: Google S2's quadratic cube mapping. */
+/** @brief SPHERE-to-PLANE crossing: S2's quadratic cube mapping. */
 struct ProjectS2
     : ProjectOpModel<ProjectS2, ScaledProjectParams<RegularProjectChainParams>,
                      true> {
   static constexpr const char *ID = "project.s2.v1";
-  static constexpr const char *NAME = "Google S2 Cube-to-Sphere";
+  static constexpr const char *NAME = "S2";
 
   static float plane_bound(const Params &params, float) {
     return 2.0f * fabsf(params.coordinate_scale);

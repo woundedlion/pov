@@ -161,7 +161,7 @@ The fragment shader receives `pos` set to the closest local-space hit point (in 
 
 `Pullback::Projection::S2` maps sphere directions through Google's quadratic
 [S2 coordinate mapping](https://github.com/google/s2geometry/blob/master/src/s2/s2coords.h).
-The shader tool exposes it as **Google S2 Cube-to-Sphere** (`project.s2.v1`),
+The shader tool exposes it as **S2** (`project.s2.v1`),
 with central meridian, coordinate scale, and identity or spin/wander framing.
 
 Each face contributes a unit square to a centered 3×2 atlas: faces 0–2 run

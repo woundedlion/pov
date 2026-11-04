@@ -147,7 +147,7 @@ inline float wrap_longitude(float longitude) {
 }
 
 /**
- * @brief Google S2 quadratic mapping in a centered three-column, two-row atlas.
+ * @brief S2 quadratic mapping in a centered three-column, two-row atlas.
  * @details Faces 0, 1, 2 occupy the lower row and 3, 4, 5 the upper row.
  * S2's z-up frame is (x, z, y) in the renderer's y-up frame. Each face is
  * a unit square with independent cuts on all edges.
