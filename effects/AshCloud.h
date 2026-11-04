@@ -56,10 +56,6 @@ struct AshCloudSpec : Pullback::Spec {
       true; ///< Copies cube classifiers into RAM.
   static constexpr bool CACHE_DODECAHEDRAL_MATRICES =
       true; ///< Copies reflection matrices into RAM.
-  /// Caches final palette colors by value and hue.
-  static constexpr bool PALETTE_RGB_CACHE = true;
-  static constexpr float PALETTE_RGB_CHROMA =
-      .314f;                                      ///< Qualified source chroma.
   static constexpr bool PHASE_NOISE_CACHE = true; ///< Cached chamber noise.
   static constexpr bool PALETTE_RGB_MIDPOINT_ONLY =
       true; ///< Uses one admitted RGB midpoint.

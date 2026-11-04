@@ -26,6 +26,33 @@ void test_palette_rgb_cache_axes_and_wrap() {
   HS_EXPECT_TRUE(base.view(.3f).rgb_high == cache.nodes.data() + 1024);
   HS_EXPECT_TRUE(base.view(.8f).rgb_high == cache.nodes.data() + 2048);
 }
+/** @brief Final hue nodes equal the hue-rotation table of a full-chroma palette. */
+void test_palette_rgb_cache_matches_hue_rotation_table() {
+  const GenerativePalette source(
+      PaletteRecipes::profile(PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC,
+                              AxisCurve::BELL, .37f, 1.0f));
+  alignas(std::max_align_t)
+      uint8_t storage[BakedPalette::required_arena_bytes()];
+  Arena arena(storage, sizeof(storage));
+  BakedPaletteStorage baked;
+  baked.bake(arena, source);
+  const BakedPalette &palette = baked;
+  PaletteLabLut base;
+  base.bake(palette, palette);
+  HS_EXPECT_TRUE(base.active);
+  PaletteRgbHueLut cache;
+  cache.bake(base);
+  HS_EXPECT_TRUE(base.rgb_midpoint);
+  std::array<Pixel, HueRotationLutView::SIZE> table;
+  prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE>(table),
+                           palette);
+  for (size_t node = 0; node < HueRotationLutView::SIZE; ++node) {
+    const math::Vector rgb = cache.nodes[HueRotationLutView::SIZE + node];
+    HS_EXPECT_EQ(rgb.x, float(table[node].r));
+    HS_EXPECT_EQ(rgb.y, float(table[node].g));
+    HS_EXPECT_EQ(rgb.z, float(table[node].b));
+  }
+}
 /** @brief Lift and brightness resolve the deferred Lab base through the ordinary finalizer. */
 void test_palette_rgb_cache_lazy_guards() {
   PaletteLabLut base;
@@ -248,8 +275,8 @@ void test_palette_rgb_cache_midpoint_reuse() {
   }
 }
 
-/** @brief Unqualified palette chroma skips the final RGB bake. */
-void test_palette_rgb_cache_chroma_fallback() {
+/** @brief Every palette chroma bakes the final RGB cache. */
+void test_palette_rgb_cache_any_chroma() {
   reset_globals();
   pin_frame_clock(0);
   AshCloud<96, 20> effect;
@@ -266,7 +293,9 @@ void test_palette_rgb_cache_chroma_fallback() {
   }
   const auto &current = ComposedFrameWhiteBox::current_frame(effect);
   HS_EXPECT_TRUE(current.palette_lab_lut != nullptr);
-  HS_EXPECT_TRUE(current.palette_lab_lut->rgb_nodes == nullptr);
+  if (!current.palette_lab_lut)
+    return;
+  HS_EXPECT_TRUE(current.palette_lab_lut->rgb_nodes != nullptr);
 }
 
 /** @brief Float table interpolation stays within one RGB16 code of Q16 interpolation. */

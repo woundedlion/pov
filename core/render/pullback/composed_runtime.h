@@ -80,11 +80,12 @@ public:
   static_assert(Metadata::ColorModes::FUSED_TEMPORAL_COLOR ==
                     SpecT::FUSED_TEMPORAL_COLOR,
                 "temporal color fusion policy must match its spec");
-  static_assert(!SpecT::PALETTE_RGB_CACHE ||
-                    (PALETTE_LAB_CACHE &&
-                     Metadata::BRIGHTNESS == Color::BrightnessEnvelope::NONE),
-                "final palette caches require unit-brightness interval bases");
-  static_assert(!SpecT::PALETTE_RGB_MIDPOINT_ONLY || SpecT::PALETTE_RGB_CACHE,
+  /// Whether the palette retains final hue colors over its interval bases.
+  static constexpr bool PALETTE_RGB_CACHE =
+      SpecT::PALETTE_RGB_CACHE && PALETTE_LAB_CACHE &&
+      SpecT::PALETTE_LAB_VALUES == HueRotationLutView::VALUE_STEPS &&
+      Metadata::BRIGHTNESS == Color::BrightnessEnvelope::NONE;
+  static_assert(!SpecT::PALETTE_RGB_MIDPOINT_ONLY || PALETTE_RGB_CACHE,
                 "midpoint-only storage requires an interval RGB cache");
   static_assert(!SpecT::PHASE_NOISE_CACHE ||
                     (COLOR_PHASE &&
@@ -325,10 +326,8 @@ public:
             state->palette_lab_slot ^= 1;
             auto &cache = state->palette_lab_luts[state->palette_lab_slot];
             cache.bake(*history.previous.palette, *current.palette);
-            if constexpr (SpecT::PALETTE_RGB_CACHE) {
-              bool hue_only =
-                  current.params.template get<"color">().palette_chroma ==
-                  SpecT::PALETTE_RGB_CHROMA;
+            if constexpr (PALETTE_RGB_CACHE) {
+              bool hue_only = true;
               current.params.visit([&]<typename Resource>(const auto &family) {
                 if constexpr (Resource::KIND == ResourceKind::MODULATION)
                   if (family.modulation.enabled &&
@@ -873,7 +872,7 @@ private:
         OptionalPaletteLabLut<PALETTE_LAB_CACHE, SpecT::PALETTE_LAB_VALUES>,
         OptionalDodecahedralMatrices<SpecT::CACHE_DODECAHEDRAL_MATRICES>,
         OptionalDodecahedralFaces<SpecT::CACHE_DODECAHEDRAL_FACES>,
-        OptionalPaletteRgbLut<SpecT::PALETTE_RGB_CACHE,
+        OptionalPaletteRgbLut<PALETTE_RGB_CACHE,
                               SpecT::PALETTE_RGB_MIDPOINT_ONLY>,
         Spacetime::FrameHistory<FrameState, TEMPORAL_SAMPLING,
                                 HUE_ROTATION_LUT> {

@@ -1020,10 +1020,12 @@ no widened color, gamut, alpha or determinism bounds.
 
 ### Interval final hue RGB cache
 
-`Spec::PALETTE_RGB_CACHE` optionally stores final hue colors for the shared
-RGB-first palette base. It requires `PALETTE_LAB_CACHE`, the NONE brightness
-envelope and source chroma equal to `Spec::PALETTE_RGB_CHROMA` (0.314 for
-AshCloud). The owner holds two 64-value by 16-periodic-hue by 3-time tables storing RGB16 code units as float vectors
+`Spec::PALETTE_RGB_CACHE` stores final hue colors for the shared RGB-first
+palette base and is on by default. It takes effect with a `PALETTE_LAB_CACHE`
+of 64 values and the NONE brightness envelope, for intervals whose active modulations are
+hue-only. Its nodes are the hue-rotation table's: OKLab rotation and gamut
+mapping on the same 64-value by 16-hue grid, sampled bilinearly, at every
+source chroma. The owner holds two 64-value by 16-periodic-hue by 3-time tables storing RGB16 code units as float vectors
 (73,728 bytes of color samples), plus 1,536 bytes of retained Lab midpoint keys.
 `Spec::PALETTE_RGB_MIDPOINT_ONLY` selects one stored row per owner instead; the
 physical midpoint row is zero and the two owners retain 24,576 sample bytes,

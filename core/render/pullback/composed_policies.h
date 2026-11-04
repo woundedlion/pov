@@ -33,10 +33,10 @@ struct Spec {
   /// Caches RGB-first interval palette blends in OKLab; effective only with
   /// column phase sampling or fused temporal color.
   static constexpr bool PALETTE_LAB_CACHE = true;
-  /// Caches palette colors after hue rotation and gamut mapping.
-  static constexpr bool PALETTE_RGB_CACHE = false;
-  static constexpr float PALETTE_RGB_CHROMA =
-      0.0f; ///< Qualified source chroma.
+  /// Caches palette colors after hue rotation and gamut mapping; effective
+  /// only with a palette LAB cache on the hue-rotation table's value grid and
+  /// the NONE brightness envelope.
+  static constexpr bool PALETTE_RGB_CACHE = true;
   /// Caches direct noise over the dodecahedral chamber at temporal endpoints.
   static constexpr bool PHASE_NOISE_CACHE = false;
   static constexpr bool PALETTE_RGB_MIDPOINT_ONLY =
