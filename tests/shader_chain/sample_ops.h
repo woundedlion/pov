@@ -11,7 +11,6 @@ struct SampleMirrorFrame {
   In::Op::TwinWaveSampleParams twin_wave;
   In::Op::RingsSampleParams rings;
   In::Op::SpiralSampleParams spiral;
-  In::Op::LatticeSampleParams lattice;
   In::Op::TessellationSampleParams tessellation;
   In::Op::ProjectedNoiseSampleParams projected;
   float primary = 0.0f;
@@ -55,16 +54,9 @@ struct SpiralSampleMirror : ClockedSampleMirror {
   }
 };
 
-struct LatticeSampleMirror {
+struct TessellationSampleMirror {
   using Binding = SampleMirrorBinding;
   using FrameState = SampleMirrorFrame;
-  static const In::Op::LatticeSampleParams &
-  params(const SampleMirrorFrame &frame) {
-    return frame.lattice;
-  }
-};
-
-struct TessellationSampleMirror : ClockedSampleMirror {
   static const In::Op::TessellationSampleParams &
   params(const SampleMirrorFrame &frame) {
     return frame.tessellation;
@@ -126,10 +118,10 @@ inline SampleMirrorFrame sample_mirror(In::ChainProgram &program,
     mirror.projected =
         param_as<In::Op::ProjectedNoiseSampleParams>(program, source_index);
     mirror.edge_width = mirror.projected.edge_width;
-  } else if (id == In::Op::SampleLattice::ID) {
-    mirror.lattice =
-        param_as<In::Op::LatticeSampleParams>(program, source_index);
-    mirror.edge_width = mirror.lattice.edge_width;
+  } else if (id == In::Op::SampleTessellation::ID) {
+    mirror.tessellation =
+        param_as<In::Op::TessellationSampleParams>(program, source_index);
+    mirror.edge_width = mirror.tessellation.edge_width;
   } else {
     const auto &state =
         state_as<In::Op::SourceClockState>(program, source_index);
@@ -147,10 +139,6 @@ inline SampleMirrorFrame sample_mirror(In::ChainProgram &program,
       mirror.spiral =
           param_as<In::Op::SpiralSampleParams>(program, source_index);
       mirror.edge_width = mirror.spiral.edge_width;
-    } else if (id == In::Op::SampleTessellation::ID) {
-      mirror.tessellation =
-          param_as<In::Op::TessellationSampleParams>(program, source_index);
-      mirror.edge_width = mirror.tessellation.edge_width;
     }
   }
   return mirror;
@@ -271,17 +259,6 @@ inline void test_shader_chain_parity_sample_spiral() {
       return;
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::Spiral<SpiralSampleMirror>>(program, ctx);
-  });
-}
-
-inline void test_shader_chain_parity_sample_lattice() {
-  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    if (!arm_sample_op_chain<In::Op::LatticeSampleParams>(
-            program, In::Op::SampleLattice::ID, 4, set))
-      return;
-    const In::FrameContext ctx = shared_resources().context();
-    run_sample_op_matrix<PB::Source::PrimitiveLattice<LatticeSampleMirror>>(
-        program, ctx);
   });
 }
 
@@ -468,25 +445,33 @@ inline void test_shader_chain_large_finite_path_length() {
   HS_EXPECT_EQ(actual.color.b, 0);
 }
 
+/** Erased-vs-bound parity of every tessellation kind and fill. */
+template <Pattern::TessellationKind Kind, Pattern::TessellationFill Fill>
+inline void run_tessellation_parity(In::ChainProgram &program,
+                                    const In::FrameContext &ctx) {
+  auto &params = param_as<In::Op::TessellationSampleParams>(program, 2);
+  params.kind = static_cast<uint8_t>(Kind);
+  params.fill = static_cast<uint8_t>(Fill);
+  HS_CONTEXT("kind / fill", static_cast<int>(Kind), static_cast<int>(Fill));
+  run_sample_op_matrix<
+      PB::Source::Tessellation<TessellationSampleMirror, Kind, Fill>>(program,
+                                                                      ctx);
+}
+
 inline void test_shader_chain_parity_sample_tessellation() {
+  using K = Pattern::TessellationKind;
+  using F = Pattern::TessellationFill;
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     if (!arm_sample_op_chain<In::Op::TessellationSampleParams>(
             program, In::Op::SampleTessellation::ID, 4, set))
       return;
     const In::FrameContext ctx = shared_resources().context();
-    auto &params = param_as<In::Op::TessellationSampleParams>(program, 2);
-    params.kind = static_cast<uint8_t>(Pattern::TessellationKind::TRIANGULAR);
-    run_sample_op_matrix<PB::Source::Tessellation<
-        TessellationSampleMirror, Pattern::TessellationKind::TRIANGULAR>>(
-        program, ctx);
-    params.kind = static_cast<uint8_t>(Pattern::TessellationKind::SQUARE);
-    run_sample_op_matrix<PB::Source::Tessellation<
-        TessellationSampleMirror, Pattern::TessellationKind::SQUARE>>(program,
-                                                                      ctx);
-    params.kind = static_cast<uint8_t>(Pattern::TessellationKind::HEXAGONAL);
-    run_sample_op_matrix<PB::Source::Tessellation<
-        TessellationSampleMirror, Pattern::TessellationKind::HEXAGONAL>>(
-        program, ctx);
+    run_tessellation_parity<K::TRIANGULAR, F::CELLS>(program, ctx);
+    run_tessellation_parity<K::SQUARE, F::CELLS>(program, ctx);
+    run_tessellation_parity<K::HEXAGONAL, F::CELLS>(program, ctx);
+    run_tessellation_parity<K::TRIANGULAR, F::EDGES>(program, ctx);
+    run_tessellation_parity<K::SQUARE, F::EDGES>(program, ctx);
+    run_tessellation_parity<K::HEXAGONAL, F::EDGES>(program, ctx);
   });
 }
 

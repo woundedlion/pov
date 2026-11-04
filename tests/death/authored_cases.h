@@ -80,12 +80,6 @@ inline void case_authored_projected_noise_invalid_basis() {
       [](auto &params) { params.basis = opaque<uint8_t>(0xff); });
 }
 
-/** @brief Death case: an authored tessellation rejects an unknown kind. */
-inline void case_authored_tessellation_invalid_kind() {
-  authored_source_prepare<Pullback::Source::AuthoredTessellationSourceParams>(
-      [](auto &params) { params.kind = opaque<uint8_t>(0xff); });
-}
-
 /** @brief Applies an authored sample crossing after corrupting one mode.
  * @tparam Policy Crossing policy over a source provider.
  * @tparam Corrupt Mode writer.

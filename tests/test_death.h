@@ -228,9 +228,9 @@ inline const Case *all_cases(int &n) {
       {"pattern_radian_invalid_prepare", case_pattern_radian_invalid_prepare,
        "core/pattern/sources.h",
        "(valid(params) && valid_state(state)) pattern radian source: invalid preparation inputs"},
-      {"pattern_lattice_invalid_prepare", case_pattern_lattice_invalid_prepare,
-       "core/pattern/sources.h",
-       "(valid(params)) pattern lattice: invalid parameters"},
+      {"pattern_tessellation_invalid_prepare",
+       case_pattern_tessellation_invalid_prepare, "core/pattern/sources.h",
+       "(valid(params)) pattern tessellation: invalid parameters"},
       {"pattern_plane_noise_invalid_advance",
        case_pattern_plane_noise_invalid_advance, "core/pattern/noise.h",
        "(valid(params) && finite(state.phase_turns)) pattern plane noise: invalid advance inputs"},
@@ -1955,10 +1955,6 @@ inline const Case *all_cases(int &n) {
        case_authored_projected_noise_invalid_basis,
        "core/render/pullback/authored_source.h",
        "(State::params(frame).basis <= 2) invalid projected-noise basis"},
-      {"authored_tessellation_invalid_kind",
-       case_authored_tessellation_invalid_kind,
-       "core/render/pullback/authored_source.h",
-       "(State::params(frame).kind <= 2) invalid tessellation kind"},
       {"authored_sample_invalid_weight_mode",
        case_authored_sample_invalid_weight_mode,
        "core/render/pullback/authored_sample.h",
@@ -2007,6 +2003,12 @@ inline const Case *all_cases(int &n) {
        "(params.kind <= "
        "static_cast<uint8_t>(Pattern::TessellationKind::HEXAGONAL)) "
        "sample.tessellation: invalid kind"},
+      {"pullback_operator_invalid_tessellation_fill",
+       case_pullback_operator_invalid_tessellation_fill,
+       "core/render/pullback/operators/sample.h",
+       "(params.fill <= "
+       "static_cast<uint8_t>(Pattern::TessellationFill::EDGES)) "
+       "sample.tessellation: invalid fill"},
       {"pullback_operator_invalid_kaleidoscope_symmetry",
        case_pullback_operator_invalid_kaleidoscope_symmetry,
        "core/render/pullback/operators/sphere.h",

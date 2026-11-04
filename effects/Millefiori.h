@@ -56,7 +56,7 @@ struct MillefioriSpec : Pullback::Spec {
       Pullback::Stage::Warp<Pullback::Warp::Vortex<Pullback::WarpProvider<
           B, "outer_warp", Pullback::Warp::VortexParams, true>>>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
-                                  Pullback::LatticeSourceParams, B>::Type,
+                                  Pullback::SquareCellsParams, B>::Type,
                               Pullback::Weight::Projection,
                               Pullback::ProjectionCoverage::Weight>,
       Pullback::Stage::Colorize<
@@ -94,9 +94,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "206a3b5177fdecee1589636b7dbff86472c08814e9dafdf2077992eb0d6c7722";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "d27cfcbab21d7f5bbf265de65c7daba139c7ed02cbeb9b901ce40b0cb1e9d9ee";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "213184535665d47a4b271eaa16e188da62ba24944a1e8efb5a93ca6130e3abc2";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "35001c3569e0a3d1197febf007c98652028fe60ca1d0e72c8d247519dfb67331";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "millefiori"
@@ -106,7 +106,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -182,10 +182,10 @@ public:
     value.template get<"projection">().spin_rate = 0.0f;
     value.template get<"projection">().wander = 0.0f;
     value.template get<"projection">().singularity_fade = 1.0f;
-    value.template get<"source">().lattice_cell_scale = 2.1401224f;
-    value.template get<"source">().lattice_radius = 0.33298188f;
-    value.template get<"source">().lattice_shape_blend = 1.0f;
-    value.template get<"source">().lattice_softness = 0.1608203f;
+    value.template get<"source">().cell_radius = 0.33298188f;
+    value.template get<"source">().cell_scale = 2.1401224f;
+    value.template get<"source">().cell_shape = 1.0f;
+    value.template get<"source">().cell_softness = 0.1608203f;
     value.template get<"outer_warp">().center_orbit_radius = 0.0f;
     value.template get<"outer_warp">().center_x = -3.2705882f;
     value.template get<"outer_warp">().center_y = 0.49411765f;

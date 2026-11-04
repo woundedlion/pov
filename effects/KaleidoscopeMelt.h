@@ -37,7 +37,7 @@ struct KaleidoscopeMeltSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
    * @brief Stage chain: camera rotation, dodecahedral kaleidoscope lens,
-   *  surface-noise displacement, projection, lattice source, generated
+   *  surface-noise displacement, projection, square-cell source, generated
    *  palette,
    *  noise hue modulation.
    * @tparam B The effect's Binding.
@@ -53,7 +53,7 @@ struct KaleidoscopeMeltSpec : Pullback::Spec {
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
               Pullback::ProjectionKind::EQUIRECTANGULAR, B>::Type>>,
       Pullback::Stage::Sample<
-          typename Pullback::SourcePolicyFor<Pullback::LatticeSourceParams,
+          typename Pullback::SourcePolicyFor<Pullback::SquareCellsParams,
                                              B>::Type,
           Pullback::Weight::Projection,
           typename Pullback::CoveragePolicyFor<
@@ -90,9 +90,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "1ebc52d4810ae97313b6b5721344137be6b22b4e7660cbb2a62288c0cb8c0a20";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "01674cf6198cdda3016e9071b0e2711247d376041365aae48cda3a0bfadaabd6";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "49fa23536dc1a8a7472a54fe0071b4cc0da91fd59ac6d18e01aaf075541c8383";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "45d0c285d6ad31ddeb67cb830fe7fbc3a4a01afa6479de7f05843f752b02bd2b";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "kaleidoscope-melt"
@@ -102,7 +102,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -132,10 +132,10 @@ public:
     value.template get<"projection">().spin_rate = 0.0f;
     value.template get<"projection">().wander = 0.0f;
     value.template get<"projection">().singularity_fade = 1.0f;
-    value.template get<"source">().lattice_cell_scale = 3.3299723f;
-    value.template get<"source">().lattice_radius = 0.41414943f;
-    value.template get<"source">().lattice_shape_blend = 1.0f;
-    value.template get<"source">().lattice_softness = 0.5f;
+    value.template get<"source">().cell_radius = 0.41414943f;
+    value.template get<"source">().cell_scale = 3.3299723f;
+    value.template get<"source">().cell_shape = 1.0f;
+    value.template get<"source">().cell_softness = 0.5f;
     value.template get<"surface">().scale = 1.9651489f;
     value.template get<"surface">().speed = -0.00008951823f;
     value.template get<"surface">().strength = 0.15546875f;

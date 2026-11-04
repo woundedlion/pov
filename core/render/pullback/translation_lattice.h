@@ -33,4 +33,11 @@ constexpr TranslationLattice square_lattice(float period) {
   return {{period, 0.0f}, {0.0f, period}};
 }
 
+/** @brief Hexagonal lattice with one basis vector on the x axis.
+    @param period Basis vector length, in plane units.
+    @return Basis (period, 0), (period / 2, period * sqrt(3) / 2). */
+constexpr TranslationLattice hexagonal_lattice(float period) {
+  return {{period, 0.0f}, {0.5f * period, 0.8660254037844386f * period}};
+}
+
 } // namespace Pullback

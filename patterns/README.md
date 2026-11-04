@@ -81,7 +81,7 @@ match the document.
 
 `kaleidoscope_melt.shader.json` is the editable source for the `KaleidoscopeMelt`
 effect. Its single preset combines a dodecahedral kaleidoscope lens, sphere-space
-curl displacement, an equirectangular primitive lattice, and an analogous
+curl displacement, equirectangular square cells, and an analogous
 generated palette.
 
 `chromatic_lichen.shader.json` is the editable source for the
@@ -97,7 +97,7 @@ preserves the saved study's animated twist before camera rotation, folded
 gnomonic lattice, analogous cup palette and direct directional-sine hue shift.
 
 `ash_cloud.shader.json` is the editable source for the `AshCloud` effect. Its
-value cutout follows a primitive lattice displaced by sphere-space curl noise
+value cutout follows square cells displaced by sphere-space curl noise
 and folded through a dodecahedral kaleidoscope, with random ripple bursts
 whose displacement drives hue rotation.
 

@@ -108,12 +108,6 @@ inline bool valid(const Source::AuthoredProjectedNoiseSourceParams &value) {
 /** @brief Validates authored numeric and topology controls.
  * @param value Authored controls.
  * @return Whether every control is admitted. */
-inline bool valid(const Source::AuthoredTessellationSourceParams &value) {
-  return Pullback::Fields::valid(value) && value.kind <= 2;
-}
-/** @brief Validates authored numeric and topology controls.
- * @param value Authored controls.
- * @return Whether every control is admitted. */
 inline bool valid(const Warp::AuthoredWaveShearParams &value) {
   return Pullback::Fields::valid(value) && value.envelope <= 2;
 }

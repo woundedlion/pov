@@ -369,7 +369,7 @@ inline void test_shader_chain_plane_growth_admission() {
       {"project", "project.gnomonic.v2"},
       {"warp", "warp.affine.v4"},
       {"polar", "warp.polar-chart.v2"},
-      {"sample", "sample.lattice.v2"},
+      {"sample", "sample.tessellation.v3"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   HS_EXPECT_EQ(effect.set_chain(ordinary).code, In::ChainStatus::OK);

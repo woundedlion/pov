@@ -517,7 +517,7 @@ inline void test_shader_chain_schema_and_field_ids() {
   // and the weight/coverage topology pair; only projected-noise adds a basis.
   for (const char *id :
        {"sample.grid.v3", "sample.twin-wave.v3", "sample.rings.v2",
-        "sample.spiral.v2", "sample.lattice.v2", "sample.tessellation.v2",
+        "sample.spiral.v2", "sample.tessellation.v3",
         "sample.projected-noise.v2"}) {
     const auto *crossing_found = require_operator(id);
     if (!crossing_found)
@@ -542,11 +542,25 @@ inline void test_shader_chain_schema_and_field_ids() {
     HS_EXPECT_EQ(has_basis,
                  std::string_view(id) == "sample.projected-noise.v2");
   }
+  const In::OperatorDescriptor &tessellation =
+      *In::find_operator("sample.tessellation.v3");
   const In::ParamFieldInfo *tessellation_kind =
-      schema_field(*In::find_operator("sample.tessellation.v2"), "kind");
+      schema_field(tessellation, "kind");
   HS_EXPECT_TRUE(tessellation_kind != nullptr);
   if (tessellation_kind != nullptr)
     HS_EXPECT_EQ(tessellation_kind->enum_count, 3);
+  const In::ParamFieldInfo *tessellation_fill =
+      schema_field(tessellation, "fill");
+  HS_EXPECT_TRUE(tessellation_fill != nullptr);
+  if (tessellation_fill != nullptr)
+    HS_EXPECT_EQ(tessellation_fill->enum_count, 2);
+  for (const char *field : {"cell-shape", "cell-softness", "cell-radius",
+                            "line-thickness", "line-softness"}) {
+    const In::ParamFieldInfo *gated = schema_field(tessellation, field);
+    HS_EXPECT_TRUE(gated != nullptr &&
+                   std::string_view(gated->gated_by) == "fill");
+  }
+  HS_EXPECT_TRUE(schema_field(tessellation, "cell-scale")->gated_by == nullptr);
   const In::ParamFieldInfo *projected_basis =
       schema_field(*In::find_operator("sample.projected-noise.v2"), "basis");
   HS_EXPECT_TRUE(projected_basis != nullptr);
@@ -715,7 +729,7 @@ inline void test_shader_chain_catalog_shape() {
   HS_EXPECT_TRUE(contains("\"id\":\"project.stereographic.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"warp.vortex.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"sample.grid.v3\""));
-  HS_EXPECT_TRUE(contains("\"id\":\"sample.tessellation.v2\""));
+  HS_EXPECT_TRUE(contains("\"id\":\"sample.tessellation.v3\""));
   HS_EXPECT_TRUE(contains("\"id\":\"colorize.generated-palette.v4\""));
   HS_EXPECT_TRUE(contains("\"id\":\"weight-mode\",\"topology\":true,"
                           "\"values\":[\"none\",\"projection\"],"

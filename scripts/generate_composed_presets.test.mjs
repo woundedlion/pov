@@ -199,7 +199,7 @@ test('GridWorms keeps its authored stage order and keyed twist controls', async 
   assert.equal(source.effect_id, 'grid-worms');
   assert.deepEqual(source.descriptor.chain.map(({ operator }) => operator), [
     'sphere.lens.twist.v2', 'sphere.rotate.v2', 'project.gnomonic.v2',
-    'sample.lattice.v2', 'colorize.generated-palette.v4', 'color.modulate.v1',
+    'sample.tessellation.v3', 'colorize.generated-palette.v4', 'color.modulate.v1',
   ]);
   const values = source.preset_bank.presets[0].values;
   const assignments = presetAssignments(source, values);
@@ -207,7 +207,9 @@ test('GridWorms keeps its authored stage order and keyed twist controls', async 
   assert.equal(assignments.get('lens1.distribution'), '0.999f');
   assert.equal(assignments.get('lens1.speed'), '0.027205883f');
   assert.equal(assignments.get('lens1.drift'), '0.01632353f');
-  assert.equal(assignments.get('source.lattice_cell_scale'), '2.420276f');
+  assert.equal(assignments.get('source.cell_scale'), '2.420276f');
+  assert.equal(assignments.has('source.kind'), false);
+  assert.equal(assignments.has('source.fill'), false);
   assert.equal(assignments.get('modulation.modulation.sine.frequency'), '1.0f');
   assert.equal(assignments.has('value.edge_width'), false);
   source.descriptor.chain[0].label = 'whorl';
@@ -241,26 +243,26 @@ test('every catalog operator retains all scalar values and topology selections',
     }
     ++operators;
   }
-  assert.equal(operators, 44);
+  assert.equal(operators, 43);
   assert.ok(selectors > 100);
 });
 
 test('operator bindings preserve authored resource keys and native member names', () => {
   const authored = { descriptor: { chain: [
-    { label: 'lattice', operator: 'sample.lattice.v2' },
+    { label: 'lattice', operator: 'sample.tessellation.v3' },
     { label: 'map', operator: 'project.cubic.v1' },
     { label: 'flow', operator: 'sphere.displace.potential.v1', resource_key: 'velocity' },
     { label: 'slide', operator: 'warp.affine.v4', resource_key: 'plane' },
   ] } };
   assert.deepEqual([...presetAssignments(authored, {
-    'lattice.lattice-cell-scale': 2, 'lattice.lattice-shape': 0.5,
-    'lattice.lattice-softness': 0.25, 'lattice.lattice-radius': 0.125,
+    'lattice.cell-scale': 2, 'lattice.cell-shape': 0.5,
+    'lattice.cell-softness': 0.25, 'lattice.cell-radius': 0.125,
     'map.coordinate-scale': 4,
     'flow.term-3-amplitude': 0.75, 'flow.term-3-phase': 0.125,
     'slide.lattice-period': 1.5,
   })], [
-    ['source.lattice_cell_scale', '2.0f'], ['source.lattice_shape_blend', '0.5f'],
-    ['source.lattice_softness', '0.25f'], ['source.lattice_radius', '0.125f'],
+    ['source.cell_scale', '2.0f'], ['source.cell_shape', '0.5f'],
+    ['source.cell_softness', '0.25f'], ['source.cell_radius', '0.125f'],
     ['projection.coordinate_scale', '4.0f'],
     ['velocity.terms[2].amplitude', '0.75f'], ['velocity.terms[2].phase', '0.125f'],
     ['plane.lattice_period', '1.5f'],
@@ -276,6 +278,10 @@ test('authored topology emits each runtime catalog choice as its stored selector
       if (field.id === 'palette-mapping') continue;
       for (const [index, choice] of field.values.entries()) {
         const result = [...presetAssignments(authored, { [`node.${field.id}`]: choice }, { authoredTopology: true })];
+        if (operator.id === 'sample.tessellation.v3' && ['kind', 'fill'].includes(field.id)) {
+          assert.equal(result.length, 0, `${operator.id}/${field.id}/${choice} is pinned by the source family`);
+          continue;
+        }
         assert.equal(result.length, 1, `${operator.id}/${field.id}/${choice}`);
         if (field.id === 'brightness-envelope')
           assert.deepEqual(result[0], ['native.brightness_envelope', `Pullback::Color::BrightnessEnvelope::${choice.toUpperCase()}`]);
@@ -309,17 +315,19 @@ test('camera spin binding follows its authored label', async () => {
 test('authored affine periods and sample coverage retain their independent storage', () => {
   const authored = { descriptor: { chain: [
     { label: 'warp', operator: 'warp.affine.v4' },
-    { label: 'sample', operator: 'sample.lattice.v2' },
+    { label: 'sample', operator: 'sample.tessellation.v3' },
   ] } };
   const assignments = presetAssignments(authored, {
-    'warp.lattice-period': 0.5, 'sample.lattice-cell-scale': 2,
+    'warp.lattice-period': 0.5, 'sample.cell-scale': 2,
     'sample.edge-width': 0.25, 'sample.weight-mode': 'projection',
-    'sample.coverage-mode': 'edge-fade',
+    'sample.coverage-mode': 'edge-fade', 'sample.kind': 'square',
+    'sample.fill': 'cells',
   }, { authoredTopology: true });
   assert.equal(assignments.get('outer_warp.lattice_period'), '0.5f');
   assert.equal(assignments.get('source.edge_width'), '0.25f');
   assert.equal(assignments.get('source.coverage_mode'), '3');
   assert.equal(assignments.get('source.weight_mode'), '1');
+  assert.ok(!assignments.has('source.kind') && !assignments.has('source.fill'));
   assert.ok(!assignments.has('value.edge_width'));
 });
 
@@ -352,13 +360,13 @@ test('authored rotations retain independent keys and per-preset spin speeds', as
 test('affine warp keeps its fallback period, repeat and winding controls', () => {
   const authored = { descriptor: { chain: [
     { label: 'repeat', resource_key: 'scroll', operator: 'warp.affine.v4' },
-    { label: 'sample', operator: 'sample.lattice.v2' },
+    { label: 'sample', operator: 'sample.tessellation.v3' },
   ] } };
   for (const authoredTopology of [false, true]) {
     const assignments = presetAssignments(authored, {
       'repeat.lattice-period': 0.5, 'repeat.translation-x': -1.5,
       'repeat.translation-y': 2.25, 'repeat.repeat-cells': 3,
-      'sample.lattice-cell-scale': 2,
+      'sample.cell-scale': 2,
     }, { authoredTopology });
     assert.equal(assignments.get('scroll.lattice_period'), '0.5f');
     assert.equal(assignments.get('scroll.repeat_cells'), '3.0f');

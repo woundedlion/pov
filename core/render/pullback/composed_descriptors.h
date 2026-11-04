@@ -562,9 +562,11 @@ struct PolicyResources<Projection::Gnomonic<Provider, Hemisphere>>
     : PolicyResources<Provider> {};
 /** @brief Resources of a fixed tessellation.
  * @tparam Provider Source provider.
- * @tparam Kind Polygon tessellation. */
-template <typename Provider, Pattern::TessellationKind Kind>
-struct PolicyResources<Source::Tessellation<Provider, Kind>>
+ * @tparam Kind Cell shape.
+ * @tparam Fill Fill. */
+template <typename Provider, Pattern::TessellationKind Kind,
+          Pattern::TessellationFill Fill>
+struct PolicyResources<Source::Tessellation<Provider, Kind, Fill>>
     : PolicyResources<Provider> {};
 
 /** @brief Resources of a fixed planar curl flow.

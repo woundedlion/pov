@@ -36,8 +36,7 @@ inline void test_kaleidoscope_melt_identity_and_controls() {
       sizeof(WB::Params) ==
       sizeof(Pullback::ProjectionParams) +
           sizeof(Pullback::SurfaceNoiseParams) +
-          sizeof(Pullback::LatticeSourceParams) +
-          sizeof(Pullback::ColorParams) +
+          sizeof(Pullback::SquareCellsParams) + sizeof(Pullback::ColorParams) +
           sizeof(
               Pullback::Modulation::Params<Pattern::SourceKind::NOISE,
                                            Pattern::Evaluation::BAKED_CUBE>));
@@ -46,17 +45,28 @@ inline void test_kaleidoscope_melt_identity_and_controls() {
   FX effect;
   effect.init();
   static constexpr const char *CONTROL_NAMES[] = {
-      "Lattice Cell Scale",      "Lattice Shape",
-      "Lattice Softness",        "Lattice Radius",
-      "Projection Spin Speed",   "Projection Wander",
-      "Camera Wander",           "Central Meridian",
-      "Surface Noise Scale",     "Surface Noise Strength",
-      "Surface Noise Speed",     "Singularity Fade",
-      "Palette Chroma",          "Palette Mapping",
-      "Mapping Frequency",       "Mapping Phase",
-      "Phase Oscillation Depth", "Phase Oscillation Speed",
-      "Opacity at Value 0",      "Opacity at Value 1",
-      "Modulation Amount",       "Pattern Scale",
+      "Cell Scale",
+      "Cell Shape",
+      "Cell Softness",
+      "Cell Radius",
+      "Projection Spin Speed",
+      "Projection Wander",
+      "Camera Wander",
+      "Central Meridian",
+      "Surface Noise Scale",
+      "Surface Noise Strength",
+      "Surface Noise Speed",
+      "Singularity Fade",
+      "Palette Chroma",
+      "Palette Mapping",
+      "Mapping Frequency",
+      "Mapping Phase",
+      "Phase Oscillation Depth",
+      "Phase Oscillation Speed",
+      "Opacity at Value 0",
+      "Opacity at Value 1",
+      "Modulation Amount",
+      "Pattern Scale",
       "Pattern Speed",
   };
   HS_EXPECT_EQ(effect.getParameters().size(), std::size(CONTROL_NAMES));

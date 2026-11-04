@@ -655,35 +655,17 @@ inline void catalog_assignments_sample_spiral_v2() {
   (void)params;
 }
 
-inline void catalog_assignments_sample_lattice_v2() {
-  Pullback::Source::AuthoredLatticeSampleParams params;
-  params.lattice_cell_scale = 1.0f;
-  params.lattice_shape_blend = 0.0f;
-  params.lattice_softness = 0.05f;
-  params.lattice_radius = 0.25f;
-  params.edge_width = 0.1f;
-  params.weight_mode = 1;
-  params.coverage_mode = 1;
-  params.weight_mode = 0;
-  params.weight_mode = 1;
-  params.coverage_mode = 0;
-  params.coverage_mode = 1;
-  params.coverage_mode = 2;
-  params.coverage_mode = 3;
-  params.coverage_mode = 4;
-  (void)params;
-}
-
-inline void catalog_assignments_sample_tessellation_v2() {
-  Pullback::Source::AuthoredTessellationSampleParams params;
+inline void catalog_assignments_sample_tessellation_v3() {
+  Pullback::Source::AuthoredSampleParams<Pullback::Source::TessellationSourceParams> params;
   params.cell_scale = 1.0f;
+  params.cell_shape = 0.0f;
+  params.cell_softness = 0.05f;
+  params.cell_radius = 0.25f;
   params.line_thickness = 0.04f;
   params.line_softness = 0.02f;
-  params.angle_rate = 0.0f;
   params.edge_width = 0.1f;
   params.weight_mode = 1;
   params.coverage_mode = 1;
-  params.kind = 0;
   params.weight_mode = 0;
   params.weight_mode = 1;
   params.coverage_mode = 0;
@@ -691,9 +673,6 @@ inline void catalog_assignments_sample_tessellation_v2() {
   params.coverage_mode = 2;
   params.coverage_mode = 3;
   params.coverage_mode = 4;
-  params.kind = 0;
-  params.kind = 1;
-  params.kind = 2;
   (void)params;
 }
 

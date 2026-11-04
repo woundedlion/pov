@@ -16,7 +16,7 @@
       },
       {
         "label": "sample",
-        "operator": "sample.lattice.v2"
+        "operator": "sample.tessellation.v3"
       },
       {
         "label": "colorize",
@@ -498,6 +498,62 @@
       },
       {
         "classification": "preset",
+        "default": 0.25,
+        "domain": {
+          "maximum": 0.49000000953674316,
+          "minimum": 0.015625
+        },
+        "id": "sample.cell-radius",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 8,
+          "minimum": 0.015625
+        },
+        "id": "sample.cell-scale",
+        "interpolation": {
+          "kind": "LOG_POSITIVE"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "sample.cell-shape",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0.05000000074505806,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0.0009765625
+        },
+        "id": "sample.cell-softness",
+        "interpolation": {
+          "kind": "LOG_POSITIVE"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
         "default": "weight",
         "domain": {
           "values": [
@@ -531,59 +587,36 @@
       },
       {
         "classification": "preset",
-        "default": 1,
+        "default": "cells",
         "domain": {
-          "maximum": 8,
-          "minimum": 0.015625
+          "values": [
+            "cells",
+            "edges"
+          ]
         },
-        "id": "sample.lattice-cell-scale",
+        "id": "sample.fill",
         "interpolation": {
-          "kind": "LOG_POSITIVE"
+          "kind": "MIXED_ENUM"
         },
-        "storage": "binary32",
-        "unit": "ratio"
+        "storage": "enum8",
+        "unit": "mode"
       },
       {
         "classification": "preset",
-        "default": 0.25,
+        "default": "square",
         "domain": {
-          "maximum": 0.49000000953674316,
-          "minimum": 0.015625
+          "values": [
+            "triangular",
+            "square",
+            "hexagonal"
+          ]
         },
-        "id": "sample.lattice-radius",
+        "id": "sample.kind",
         "interpolation": {
-          "kind": "LINEAR"
+          "kind": "MIXED_ENUM"
         },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": 0,
-        "domain": {
-          "maximum": 1,
-          "minimum": 0
-        },
-        "id": "sample.lattice-shape",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": 0.05000000074505806,
-        "domain": {
-          "maximum": 1,
-          "minimum": 0.0009765625
-        },
-        "id": "sample.lattice-softness",
-        "interpolation": {
-          "kind": "LOG_POSITIVE"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
+        "storage": "enum8",
+        "unit": "mode"
       },
       {
         "classification": "preset",
@@ -641,12 +674,14 @@
         "project.projection-spin-speed",
         "project.projection-wander",
         "project.singularity-fade",
+        "sample.cell-radius",
+        "sample.cell-scale",
+        "sample.cell-shape",
+        "sample.cell-softness",
         "sample.coverage-mode",
         "sample.edge-width",
-        "sample.lattice-cell-scale",
-        "sample.lattice-radius",
-        "sample.lattice-shape",
-        "sample.lattice-softness",
+        "sample.fill",
+        "sample.kind",
         "sample.weight-mode"
       ],
       "schema_version": 1
@@ -711,12 +746,14 @@
           "project.projection-spin-speed": 0,
           "project.projection-wander": 0,
           "project.singularity-fade": 1,
+          "sample.cell-radius": 0.4858388304710388,
+          "sample.cell-scale": 2.420275926589966,
+          "sample.cell-shape": 1,
+          "sample.cell-softness": 0.22006064653396606,
           "sample.coverage-mode": "weight",
           "sample.edge-width": 0.10000000149011612,
-          "sample.lattice-cell-scale": 2.420275926589966,
-          "sample.lattice-radius": 0.4858388304710388,
-          "sample.lattice-shape": 1,
-          "sample.lattice-softness": 0.22006064653396606,
+          "sample.fill": "cells",
+          "sample.kind": "square",
           "sample.weight-mode": "projection"
         }
       }

@@ -377,7 +377,7 @@ inline void test_temporal_clock_sampling() {
   to.palette_oscillation_phase = 0.98f;
   for (int variant = 0; variant < 3; ++variant) {
     if (variant == 1) {
-      to.params.template get<"source">().lattice_cell_scale = 2.7f;
+      to.params.template get<"source">().cell_scale = 2.7f;
       to.params.template get<"outer_warp">().rotation_rate = 0.3f;
       to.params.template get<"color">().palette_mapping =
           Pullback::Color::PaletteMapping::CUP;

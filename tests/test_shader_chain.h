@@ -805,7 +805,6 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_parity_sample_twin_wave);
   HS_RUN(test_shader_chain_parity_sample_rings);
   HS_RUN(test_shader_chain_parity_sample_spiral);
-  HS_RUN(test_shader_chain_parity_sample_lattice);
   HS_RUN(test_shader_chain_parity_sample_tessellation);
   HS_RUN(test_shader_chain_large_finite_path_length);
   HS_RUN(test_shader_chain_composed_noise_domain);

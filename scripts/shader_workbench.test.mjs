@@ -395,7 +395,8 @@ test('the catalog exposes the complete workbench warp and source vocabulary', ()
       .find((parameter) => parameter.id === 'integrator')?.values,
     ['euler-1', 'midpoint-2', 'midpoint-4'],
   );
-  assert.ok(operators.has('sample.tessellation.v2'));
+  assert.ok(operators.has('sample.tessellation.v3'));
+  assert.ok(!operators.has('sample.lattice.v2'));
 });
 
 test('every promoted shader document matches its compiled effect identity', async () => {
@@ -1135,9 +1136,9 @@ test('documents can snap an otherwise interpolatable scalar', () => {
 test('the affine fallback lattice period is an ordinary authored control', () => {
   const descriptor = { chain: [
     { label: 'affine', operator: 'warp.affine.v4' },
-    { label: 'cells', operator: 'sample.lattice.v2' },
+    { label: 'cells', operator: 'sample.tessellation.v3' },
   ] };
-  const values = { 'affine.lattice-period': 0.5, 'cells.lattice-cell-scale': 4 };
+  const values = { 'affine.lattice-period': 0.5, 'cells.cell-scale': 4 };
   assert.equal(fixedDerivedBinding(descriptor, 'affine.lattice-period', values), null);
   descriptor.chain = [descriptor.chain[0]];
   assert.equal(fixedDerivedBinding(descriptor, 'affine.lattice-period', values), null);
@@ -1241,7 +1242,7 @@ test('chain arena reserves shared prepared and interval storage with maximum ali
 
 test('fixed bindings skip dormant width and noise controls while preserving their values', () => {
   const descriptor = { chain: [
-    { label: 'sample', operator: 'sample.lattice.v2' },
+    { label: 'sample', operator: 'sample.tessellation.v3' },
     { label: 'modulation', operator: 'color.modulate.v1' },
   ] };
   const values = { 'sample.edge-width': 0.1, 'sample.coverage-mode': 'weight',

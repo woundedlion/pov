@@ -242,7 +242,7 @@ A wave-sheared grid moving across a folded gnomonic dodecahedral kaleidoscope, t
 
 An affine primitive lattice rendered as soft iso contours through a folded gnomonic projection. The affine frame scrolls the lattice by whole cell windings, so its drift repeats without a visible seam.
 
-**Parameters**: Lattice Cell Scale, Lattice Shape, Lattice Softness, Lattice Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 1 Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Iso Level, Iso Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Cell Scale, Cell Shape, Cell Softness, Cell Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 1 Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Affine Scale X, Affine Scale Y, Affine Shear, Repeat Cells, Fallback Lattice Period, Iso Level, Iso Width, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -254,7 +254,7 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 
 An animated axial twist pulls a primitive lattice into flowing worms before the camera rotates it. A folded gnomonic projection wraps the lattice around the sphere; a maximum-chroma analogous palette uses cup mapping, and a direct directional-sine field shifts hue in the projection frame. Its single `grid-worms` preset preserves the saved shader's lens-before-camera order. GridWorms runs for 60 seconds immediately after GridSpace in the Phantasm playlist and is available in the simulator and effect library.
 
-**Parameters**: Lattice Cell Scale, Lattice Radius, Lattice Shape, Lattice Softness, Camera Wander, Projection Spin Speed, Projection Wander, Singularity Fade, lens1.Twist Angle (rad), lens1.Twist Distribution, lens1.Axis Phi (rad), lens1.Axis Lambda (rad), lens1.Speed, lens1.Drift, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Frequency, Pattern Speed
+**Parameters**: Cell Radius, Cell Scale, Cell Shape, Cell Softness, Camera Wander, Projection Spin Speed, Projection Wander, Singularity Fade, lens1.Twist Angle (rad), lens1.Twist Distribution, lens1.Axis Phi (rad), lens1.Axis Lambda (rad), lens1.Speed, lens1.Drift, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Frequency, Pattern Speed
 
 </td></tr></table>
 
@@ -336,7 +336,7 @@ A flight through periodic wire lattices and curved shells in 3D perspective or a
 
 A dodecahedral kaleidoscope lens folds a primitive lattice around the sphere. Curl noise displaces the folded surface before an equirectangular projection, and a generated analogous palette supplies slowly drifting colors. Its single preset comes from the saved shader-workbench document.
 
-**Parameters**: Lattice Cell Scale, Lattice Shape, Lattice Softness, Lattice Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Cell Scale, Cell Shape, Cell Softness, Cell Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -360,7 +360,7 @@ A max-chroma analogous grid folded around the sphere and rippled by curl noise. 
 
 An octahedral kaleidoscope lens folds a lattice into jewel-like facets. Curl noise displaces the folded sphere before an equirectangular projection, and a generated analogous palette supplies the drifting colors. Its single preset comes from a saved shader-workbench document.
 
-**Parameters**: Lattice Cell Scale, Lattice Shape, Lattice Softness, Lattice Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Cell Scale, Cell Shape, Cell Softness, Cell Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -384,7 +384,7 @@ A glitch-folded gnomonic grid displaced by sphere-space curl noise. An analogous
 
 A primitive lattice displaced by sphere-space curl noise, folded through a dodecahedral kaleidoscope and projected stereographically. A value cutout carves the lattice, so coverage follows the field rather than the projection alone.
 
-**Parameters**: Lattice Cell Scale, Lattice Shape, Lattice Softness, Lattice Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Cutout Threshold, Cutout Softness, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
+**Parameters**: Cell Scale, Cell Shape, Cell Softness, Cell Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Cutout Threshold, Cutout Softness, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Scale, Pattern Speed
 
 </td></tr></table>
 
@@ -748,7 +748,7 @@ planar warps.
 | **Lens** | Glitch, Twist, Mobius, Kaleidoscope | Sphere → Sphere; lens-specific controls; kaleidoscope selects azimuthal, polyhedral or prism symmetry |
 | **Projection** | Folded Sinusoidal, Stereographic, Gnomonic, Bonne, Peirce Quincuncial, Fast Square Peirce, Dymaxion / Airocean, Equirectangular, Tetrahedral / Cubic / Octahedral / Dodecahedral / Icosahedral Atlas | Sphere → Plane; coordinates, projection provenance, weight and available edge distance; instance-specific frame/layout controls |
 | **Planar warp** | Affine Warp, Wave Shear, Vortex, Vector Noise, Curl Flow, Mirror Tile, Polar Chart | Plane → Plane; independent parameters and clocks for each ordered instance |
-| **Planar source** | Twin Wave, Rings, Spiral, Grid, Projected Noise, Primitive Lattice, Tessellation | Plane → Field; source parameters, signal weighting and coverage choices |
+| **Planar source** | Twin Wave, Rings, Spiral, Grid, Projected Noise, Tessellation | Plane → Field; source parameters, signal weighting and coverage choices |
 | **Value transfer** | Ridge, Iso Contour, Smooth Bands | Field → Field; reshapes the normalized value; iso and band controls belong to their operator |
 | **Coverage** | Value Cutout | Field → Field; cutout threshold and softness; projection-based coverage belongs to planar sources |
 | **Colorize** | Cycling-generated, generated, procedural, gradient, mutating | Field → Color; palette-source selection, family-gated palette controls, mapping, phase oscillation, brightness envelope and opacity |
@@ -768,9 +768,25 @@ it off uses those manual coordinates.
 
 Planar-warp **Speed** advances its wrapped phase in cycles per frame.
 
+**Tessellation** (`sample.tessellation.v3`) is a static cell field. **Kind**
+selects square, hexagonal or triangular cells on a lattice of period
+`p = 1 / Cell Scale` plane units. Square cells sit on the axis-aligned square
+lattice; hexagonal cells and the vertices of triangular cells sit on the
+hexagonal lattice with basis `(p, 0)`, `(p/2, p√3/2)`. **Fill** selects what
+each cell draws. **Cells** is +1 inside a primitive centred on each cell and -1
+outside: Cell Shape blends it from a circle at 0 to the cell's own polygon at 1
+(a square, a hexagon with an edge facing each neighbour, or a triangle in the
+cell's orientation), Cell Radius is its inradius and Cell Softness the
+half-width of the symmetric ramp across its boundary. **Edges** is +1 within
+Line Thickness of a cell edge and -1 inside the cells, ramped over Line
+Softness. Lengths are in cell units, one cell inscribed diameter: `p` for
+squares and hexagons and `p/√3` for triangles, so a radius below 0.5 stays
+inside its cell for every kind. The pattern does not move; rotation and
+translation come from an Affine Warp before it.
+
 **Affine Warp** (`warp.affine.v4`) translates along the translation lattice of
-the stage immediately after it; Primitive Lattice reports a square lattice of
-period `1 / Lattice Cell Scale`. Each phase turn moves Repeat Windings A and B
+the stage immediately after it; Tessellation reports the square or hexagonal
+lattice of its kind. Each phase turn moves Repeat Windings A and B
 whole basis vectors, times a whole number of Repeat Cells, so the phase wrap is
 seamless over that source. Its displacement contribution is the shortest offset
 modulo that repeat lattice, so displacement-driven hue also reconnects across
@@ -789,7 +805,7 @@ manual. Wave Shear advances its wave, Vortex orbits its center, and the projecte
 noise warps advance their noise field.
 
 Polar Chart may precede other compatible Plane operators, including Vortex,
-and can feed planar sources other than Grid or Primitive Lattice. An authored
+and can feed planar sources other than Grid or Tessellation. An authored
 pattern's periodicity determines whether its angular seam is continuous; the
 validator does not enforce a whole-period product or a special two-slot order.
 Projected Noise may follow compatible projections, including Bonne, Peirce and

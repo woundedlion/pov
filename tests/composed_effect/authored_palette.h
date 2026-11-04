@@ -12,7 +12,7 @@ struct AuthoredPaletteSpec : Pullback::Spec {
       Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
           Pullback::ProjectionKind::GNOMONIC_FOLDED, B>::Type>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
-          Pullback::LatticeSourceParams, B>::Type>,
+          Pullback::SquareCellsParams, B>::Type>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
           Pullback::AuthoredColorProvider<B>>>>;
 };

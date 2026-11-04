@@ -1119,37 +1119,34 @@ inline void test_pullback_provider_contracts() {
   HS_EXPECT_EQ(carried.path_length, 4.0f);
 }
 
-/** @brief Circle-only lattice evaluation preserves the blended formula. */
-inline void test_pullback_lattice_circle_identity() {
+/** @brief Square cells evaluate the circle-to-box blend formula. */
+inline void test_pullback_square_cells_formula() {
   const auto reference = [](const Pattern::PlanePosition &coordinate,
-                            const Pattern::LatticeSourceParams &params) {
+                            const Pattern::TessellationCellParams &params) {
     const float X =
-        math::wrap_t(params.lattice_cell_scale * coordinate.value.re + 0.5f) -
-        0.5f;
+        math::wrap_t(params.cell_scale * coordinate.value.re + 0.5f) - 0.5f;
     const float Y =
-        math::wrap_t(params.lattice_cell_scale * coordinate.value.im + 0.5f) -
-        0.5f;
-    const float CIRCLE = sqrtf(X * X + Y * Y) - params.lattice_radius;
-    const float BX = fabsf(X) - params.lattice_radius;
-    const float BY = fabsf(Y) - params.lattice_radius;
+        math::wrap_t(params.cell_scale * coordinate.value.im + 0.5f) - 0.5f;
+    const float CIRCLE = sqrtf(X * X + Y * Y) - params.cell_radius;
+    const float BX = fabsf(X) - params.cell_radius;
+    const float BY = fabsf(Y) - params.cell_radius;
     const float SQUARE = sqrtf(fmaxf(BX, 0.0f) * fmaxf(BX, 0.0f) +
                                fmaxf(BY, 0.0f) * fmaxf(BY, 0.0f)) +
                          fminf(fmaxf(BX, BY), 0.0f);
-    return 1.0f -
-           2.0f * math::smooth_ramp(
-                      -params.lattice_softness, params.lattice_softness,
-                      hs::lerp(CIRCLE, SQUARE, params.lattice_shape_blend));
+    return 1.0f - 2.0f * math::smooth_ramp(
+                             -params.cell_softness, params.cell_softness,
+                             hs::lerp(CIRCLE, SQUARE, params.cell_shape));
   };
   uint32_t random = 0x12345678u;
   for (float scale : {1.0f / 64.0f, 0.98971874f, 1.0f, 8.0f})
     for (float radius : {1.0f / 64.0f, 0.25f, 0.37757313f, 0.49f})
       for (float softness : {1.0f / 1024.0f, 0.1f, 0.34563965f, 1.0f})
         for (float blend : {0.0f, 0.00001f, 0.25f, 0.99999f, 1.0f}) {
-          Pattern::LatticeSourceParams params;
-          params.lattice_cell_scale = scale;
-          params.lattice_radius = radius;
-          params.lattice_softness = softness;
-          params.lattice_shape_blend = blend;
+          Pattern::TessellationCellParams params;
+          params.cell_scale = scale;
+          params.cell_radius = radius;
+          params.cell_softness = softness;
+          params.cell_shape = blend;
           for (int sample = 0; sample < 256; ++sample) {
             random = random * 1664525u + 1013904223u;
             const float X = float(int32_t(random)) * (1024.0f / 2147483648.0f);
@@ -1159,7 +1156,7 @@ inline void test_pullback_lattice_circle_identity() {
                 math::Complex(sample < 8 ? float(sample - 4) * 0.5f : X,
                               sample < 8 ? 0.0f : Y)};
             const float EXPECTED = reference(COORDINATE, params);
-            const float ACTUAL = Pattern::primitive_lattice(COORDINATE, params);
+            const float ACTUAL = Pattern::square_cells(COORDINATE, params);
 #if HS_TEST_FAST_MATH
             HS_EXPECT_NEAR(ACTUAL, EXPECTED,
                            8.0f * std::numeric_limits<float>::epsilon());
@@ -1168,6 +1165,253 @@ inline void test_pullback_lattice_circle_identity() {
 #endif
           }
         }
+}
+
+/** @brief Independent double-precision tessellation reference. */
+struct TessellationReference {
+  static constexpr double HALF_TURN = 3.14159265358979323846;
+  Pattern::TessellationKind kind;
+  Pattern::TessellationFill fill;
+  Pattern::TessellationSourceParams params;
+
+  /** @brief Exact signed distance to a regular polygon of inradius @p radius
+      whose first outward edge normal points along @p angle. */
+  static double polygon_distance(double x, double y, int sides, double angle,
+                                 double radius) {
+    const double step = 2.0 * HALF_TURN / sides;
+    double inside = -1e30;
+    for (int edge = 0; edge < sides; ++edge) {
+      const double theta = angle + edge * step;
+      inside =
+          std::max(inside, x * std::cos(theta) + y * std::sin(theta) - radius);
+    }
+    if (inside <= 0.0)
+      return inside;
+    const double circumradius = radius / std::cos(HALF_TURN / sides);
+    double outside = 1e30;
+    for (int edge = 0; edge < sides; ++edge) {
+      const double theta = angle + edge * step;
+      const double ax = circumradius * std::cos(theta - 0.5 * step);
+      const double ay = circumradius * std::sin(theta - 0.5 * step);
+      const double bx = circumradius * std::cos(theta + 0.5 * step);
+      const double by = circumradius * std::sin(theta + 0.5 * step);
+      const double t =
+          std::clamp(((x - ax) * (bx - ax) + (y - ay) * (by - ay)) /
+                         ((bx - ax) * (bx - ax) + (by - ay) * (by - ay)),
+                     0.0, 1.0);
+      outside = std::min(
+          outside, std::hypot(x - ax - t * (bx - ax), y - ay - t * (by - ay)));
+    }
+    return outside;
+  }
+
+  static double ramp(double edge0, double edge1, double value) {
+    const double t = std::clamp((value - edge0) / (edge1 - edge0), 0.0, 1.0);
+    return t * t * (3.0 - 2.0 * t);
+  }
+
+  double operator()(const math::Complex &point) const {
+    using K = Pattern::TessellationKind;
+    const double sqrt3 = std::sqrt(3.0);
+    const double u = double(params.cell_scale) * point.re;
+    const double v = double(params.cell_scale) * point.im;
+    double x = 0.0, y = 0.0, angle = 0.0;
+    int sides = 4;
+    if (kind == K::SQUARE) {
+      x = u - std::round(u);
+      y = v - std::round(v);
+    } else if (kind == K::HEXAGONAL) {
+      sides = 6;
+      const double row = std::round(v / (0.5 * sqrt3));
+      const double column = std::round(u - 0.5 * row);
+      double best = 1e30;
+      for (double j = row - 2; j <= row + 2; ++j)
+        for (double i = column - 2; i <= column + 2; ++i) {
+          const double dx = u - (i + 0.5 * j);
+          const double dy = v - 0.5 * sqrt3 * j;
+          if (dx * dx + dy * dy < best) {
+            best = dx * dx + dy * dy;
+            x = dx;
+            y = dy;
+          }
+        }
+    } else {
+      sides = 3;
+      const double b = v / (0.5 * sqrt3);
+      const double a = u - 0.5 * b;
+      double best = -1e30;
+      for (double j = std::floor(b) - 1; j <= std::floor(b) + 1; ++j)
+        for (double i = std::floor(a) - 1; i <= std::floor(a) + 1; ++i)
+          for (const bool up : {true, false}) {
+            const double third = up ? 1.0 / 3.0 : 2.0 / 3.0;
+            const double cx = (i + third) + 0.5 * (j + third);
+            const double cy = 0.5 * sqrt3 * (j + third);
+            const double dx = sqrt3 * (u - cx);
+            const double dy = sqrt3 * (v - cy);
+            const double facing = up ? -0.5 * HALF_TURN : 0.5 * HALF_TURN;
+            const double depth = -polygon_distance(dx, dy, 3, facing, 0.5);
+            if (depth > best) {
+              best = depth;
+              x = dx;
+              y = up ? dy : -dy;
+            }
+          }
+      angle = -0.5 * HALF_TURN;
+    }
+    if (fill == Pattern::TessellationFill::EDGES) {
+      const double distance = -polygon_distance(x, y, sides, angle, 0.5);
+      return 1.0 -
+             2.0 * ramp(params.line_thickness,
+                        double(params.line_thickness) + params.line_softness,
+                        distance);
+    }
+    const double circle = std::hypot(x, y) - params.cell_radius;
+    const double polygon =
+        polygon_distance(x, y, sides, angle, params.cell_radius);
+    const double distance = circle + (polygon - circle) * params.cell_shape;
+    return 1.0 - 2.0 * ramp(-double(params.cell_softness),
+                            double(params.cell_softness), distance);
+  }
+};
+
+/** @brief Every tessellation kind and fill matches an independent polygon
+    reference. */
+inline void test_pullback_tessellation_reference() {
+  using K = Pattern::TessellationKind;
+  using F = Pattern::TessellationFill;
+  uint32_t random = 0x9e3779b9u;
+  const auto next = [&] {
+    random = random * 1664525u + 1013904223u;
+    return float(int32_t(random)) * (3.0f / 2147483648.0f);
+  };
+  for (const K kind : {K::TRIANGULAR, K::SQUARE, K::HEXAGONAL})
+    for (const F fill : {F::CELLS, F::EDGES})
+      for (const float shape : {0.0f, 0.35f, 1.0f}) {
+        HS_CONTEXT("kind / fill", static_cast<int>(kind),
+                   static_cast<int>(fill));
+        HS_CONTEXT("shape percent", static_cast<int>(shape * 100.0f));
+        TessellationReference reference{kind, fill, {}};
+        reference.params.cell_scale = 1.7f;
+        reference.params.cell_shape = shape;
+        reference.params.cell_radius = 0.3f;
+        reference.params.cell_softness = 0.08f;
+        reference.params.line_thickness = 0.05f;
+        reference.params.line_softness = 0.04f;
+        int inside = 0;
+        int outside = 0;
+        for (int sample = 0; sample < 2000; ++sample) {
+          const math::Complex point(next(), next());
+          const float actual = Pattern::tessellation(
+              Pattern::PlanePosition{point}, reference.params, kind, fill);
+          const double expected = reference(point);
+          HS_EXPECT_NEAR(actual, expected, 2e-4);
+          inside += expected > 0.99;
+          outside += expected < -0.99;
+        }
+        HS_EXPECT_GT(inside, 100);
+        HS_EXPECT_GT(outside, 100);
+      }
+}
+
+/** @brief Hexagonal cells pack circles and hexagons on the hexagonal lattice,
+    with each hexagon's edges facing its six neighbours. */
+inline void test_pullback_hexagonal_cells_pack_hex_lattice() {
+  using K = Pattern::TessellationKind;
+  using F = Pattern::TessellationFill;
+  Pattern::TessellationCellParams params;
+  params.cell_scale = 2.5f;
+  params.cell_radius = 0.4f;
+  params.cell_softness = 0.05f;
+  const float period = 0.4f;
+  const float half_sqrt3 = 0.8660254038f;
+  const auto at = [&](float u, float v) {
+    return Pattern::tessellation<K::HEXAGONAL, F::CELLS>(
+        Pattern::PlanePosition{math::Complex(period * u, period * v)}, params);
+  };
+  for (const float shape : {0.0f, 1.0f}) {
+    HS_CONTEXT("shape", shape);
+    params.cell_shape = shape;
+    for (int j = -3; j <= 3; ++j)
+      for (int i = -3; i <= 3; ++i) {
+        const float u = i + 0.5f * j;
+        const float v = half_sqrt3 * j;
+        HS_EXPECT_EQ(at(u, v), 1.0f);
+        HS_EXPECT_EQ(at(u + 0.5f, v), -1.0f);
+        HS_EXPECT_EQ(at(u + 0.25f, v + 0.5f * half_sqrt3), -1.0f);
+        HS_EXPECT_EQ(at(u - 0.25f, v + 0.5f * half_sqrt3), -1.0f);
+        HS_EXPECT_LT(at(u + 0.42f, v), 0.0f);
+        const float corner = at(u + 0.44f * half_sqrt3, v + 0.44f * 0.5f);
+        if (shape == 0.0f)
+          HS_EXPECT_LT(corner, 0.0f);
+        else
+          HS_EXPECT_GT(corner, 0.0f);
+      }
+  }
+}
+
+/** @brief Field of one fixed tessellation at a plane point. */
+template <Pattern::TessellationKind Kind, Pattern::TessellationFill Fill>
+float fixed_tessellation(
+    const Pullback::Source::FixedTessellationParams<Kind, Fill> &params,
+    const math::Complex &point) {
+  return Pattern::tessellation<Kind, Fill>(Pattern::PlanePosition{point},
+                                           params);
+}
+
+/** @brief One fixed tessellation is invariant under its reported basis and
+    not under half of it. */
+template <Pattern::TessellationKind Kind, Pattern::TessellationFill Fill>
+void check_tessellation_translation_lattice() {
+  HS_CONTEXT("kind / fill", static_cast<int>(Kind), static_cast<int>(Fill));
+  Pullback::Source::FixedTessellationParams<Kind, Fill> params;
+  params.cell_scale = 1.7f;
+  if constexpr (Fill == Pattern::TessellationFill::CELLS) {
+    params.cell_shape = 0.8f;
+    params.cell_radius = 0.35f;
+    params.cell_softness = 0.1f;
+  } else {
+    params.line_thickness = 0.06f;
+    params.line_softness = 0.05f;
+  }
+  const Pullback::TranslationLattice lattice =
+      Pullback::Source::translation_lattice(params);
+  const float period = 1.0f / 1.7f;
+  const bool square = Kind == Pattern::TessellationKind::SQUARE;
+  HS_EXPECT_EQ(lattice.a.re, period);
+  HS_EXPECT_EQ(lattice.a.im, 0.0f);
+  HS_EXPECT_NEAR(lattice.b.re, square ? 0.0f : 0.5f * period, 1e-7f);
+  HS_EXPECT_NEAR(lattice.b.im, square ? period : 0.8660254038f * period, 1e-7f);
+  bool half_differs = false;
+  uint32_t random = 0x2545f491u;
+  for (int sample = 0; sample < 300; ++sample) {
+    random = random * 1664525u + 1013904223u;
+    const float x = float(int32_t(random)) * (2.0f / 2147483648.0f);
+    random = random * 1664525u + 1013904223u;
+    const float y = float(int32_t(random)) * (2.0f / 2147483648.0f);
+    const math::Complex point(x, y);
+    const float base = fixed_tessellation(params, point);
+    for (const math::Complex shift :
+         {lattice.a, lattice.b, lattice.a - lattice.b,
+          math::Complex() - lattice.a - lattice.b})
+      HS_EXPECT_NEAR(fixed_tessellation(params, point + shift), base, 1e-4f);
+    const math::Complex half(0.5f * lattice.a.re, 0.5f * lattice.a.im);
+    half_differs |=
+        fabsf(fixed_tessellation(params, point + half) - base) > 0.5f;
+  }
+  HS_EXPECT_TRUE(half_differs);
+}
+
+/** @brief Each tessellation kind reports a translation lattice that leaves
+    its field unchanged. */
+inline void test_pullback_tessellation_translation_lattice() {
+  using K = Pattern::TessellationKind;
+  using F = Pattern::TessellationFill;
+  check_tessellation_translation_lattice<K::TRIANGULAR, F::CELLS>();
+  check_tessellation_translation_lattice<K::SQUARE, F::CELLS>();
+  check_tessellation_translation_lattice<K::HEXAGONAL, F::CELLS>();
+  check_tessellation_translation_lattice<K::TRIANGULAR, F::EDGES>();
+  check_tessellation_translation_lattice<K::SQUARE, F::EDGES>();
+  check_tessellation_translation_lattice<K::HEXAGONAL, F::EDGES>();
 }
 
 /** @brief Concrete stages evaluate against their independent expected values. */
@@ -1182,10 +1426,10 @@ inline void test_pullback_concrete_catalog() {
   struct Params {
     float pattern_mix;
     float complexity;
-    float lattice_cell_scale;
-    float lattice_shape_blend;
-    float lattice_softness;
-    float lattice_radius;
+    float cell_scale;
+    float cell_shape;
+    float cell_softness;
+    float cell_radius;
   };
   constexpr Prepared prepared{0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
   constexpr Prepared shifted{0.7f, 0.3f, 0.0f, 1.0f, 0.0f};
@@ -1214,24 +1458,24 @@ inline void test_pullback_concrete_catalog() {
   HS_EXPECT_NEAR(
       Pattern::grid(Pattern::PlanePosition{origin}, coupled, shifted),
       math::fast_sinf(0.7f) * math::fast_cosf(-0.3f), 2e-3f);
-  HS_EXPECT_EQ(
-      Pattern::primitive_lattice(Pattern::PlanePosition{origin}, params), 1.0f);
+  HS_EXPECT_EQ(Pattern::square_cells(Pattern::PlanePosition{origin}, params),
+               1.0f);
   // Cell coordinate (0.2, 0.1) sits inside the softness band, so the edge ramp
   // resolves between its saturated ends.
-  HS_EXPECT_NEAR(Pattern::primitive_lattice(
+  HS_EXPECT_NEAR(Pattern::square_cells(
                      Pattern::PlanePosition{math::Complex(0.2f, 0.1f)}, params),
                  0.38671f, 2e-3f);
 
+  using Kind = Pattern::TessellationKind;
+  using Fill = Pattern::TessellationFill;
   const Pullback::Source::TessellationSourceParams tessellation_params;
-  HS_EXPECT_EQ(
-      Pattern::tessellation(Pattern::PlanePosition{math::Complex(0.5f, 0.0f)},
-                            tessellation_params,
-                            Pattern::TessellationKind::SQUARE, prepared),
-      1.0f);
-  HS_EXPECT_EQ(
-      Pattern::tessellation(Pattern::PlanePosition{origin}, tessellation_params,
-                            Pattern::TessellationKind::SQUARE, prepared),
-      -1.0f);
+  HS_EXPECT_EQ((Pattern::tessellation<Kind::SQUARE, Fill::EDGES>(
+                   Pattern::PlanePosition{math::Complex(0.5f, 0.0f)},
+                   tessellation_params)),
+               1.0f);
+  HS_EXPECT_EQ((Pattern::tessellation<Kind::SQUARE, Fill::EDGES>(
+                   Pattern::PlanePosition{origin}, tessellation_params)),
+               -1.0f);
 
   const math::Vector axis = Pullback::Lens::Glitch::apply(
       math::Vector(0.0f, 1.0f, 0.0f), TestFrame{});
@@ -2541,53 +2785,51 @@ inline void test_pullback_custom_grid_preparation() {
   HS_EXPECT_NEAR(Grid::sample(INPUT, FRAME, PREPARED), 1.0f, 1e-4f);
 }
 
-/** @brief Hexagonal edge weights agree at corners and shared boundaries. */
+/** @brief Hexagonal edge bands agree at corners and shared boundaries. */
 inline void test_pullback_hexagonal_edges() {
   using namespace Pullback::Source;
-  const math::Complex vertices[] = {
-      {1.0f, 0.0f},  {0.5f, 0.8660254038f},   {-0.5f, 0.8660254038f},
-      {-1.0f, 0.0f}, {-0.5f, -0.8660254038f}, {0.5f, -0.8660254038f}};
+  constexpr float HALF_SQRT_3 = 0.8660254038f;
+  constexpr float CIRCUMRADIUS = 0.5773502692f;
+  math::Complex vertices[6];
+  for (int vertex = 0; vertex < 6; ++vertex) {
+    const float angle = math::PI_F / 6.0f + vertex * math::PI_F / 3.0f;
+    vertices[vertex] = {CIRCUMRADIUS * std::cos(angle),
+                        CIRCUMRADIUS * std::sin(angle)};
+  }
   for (const math::Complex center :
-       {math::Complex(0.0f, 0.0f), math::Complex(0.0f, 1.7320508076f),
-        math::Complex(1.5f, -0.8660254038f)}) {
+       {math::Complex(0.0f, 0.0f), math::Complex(1.0f, 0.0f),
+        math::Complex(0.5f, HALF_SQRT_3),
+        math::Complex(-1.0f, 2.0f * HALF_SQRT_3)}) {
     for (float scale : {0.5f, 1.0f, 3.0f}) {
-      for (float angle : {0.0f, 0.37f}) {
-        TessellationSourceParams params;
-        params.cell_scale = scale;
-        Pattern::PreparedSource prepared{};
-        prepared.angle_cos = std::cos(angle);
-        prepared.angle_sin = std::sin(angle);
-        auto sample = [&](const math::Complex &point) {
-          const float X = center.re + point.re;
-          const float Y = center.im + point.im;
-          const math::Complex input(
-              (X * prepared.angle_cos - Y * prepared.angle_sin) / scale,
-              (X * prepared.angle_sin + Y * prepared.angle_cos) / scale);
-          return Pattern::tessellation(Pattern::PlanePosition{input}, params,
-                                       Pattern::TessellationKind::HEXAGONAL,
-                                       prepared);
-        };
-        HS_EXPECT_EQ(sample(math::Complex(0.0f, 0.0f)), -1.0f);
-        for (int edge = 0; edge < 6; ++edge) {
-          const math::Complex &a = vertices[edge];
-          const math::Complex &b = vertices[(edge + 1) % 6];
-          const math::Complex midpoint((a.re + b.re) * 0.5f,
-                                       (a.im + b.im) * 0.5f);
-          const float LENGTH = std::hypot(midpoint.re, midpoint.im);
-          const math::Complex normal(midpoint.re / LENGTH,
-                                     midpoint.im / LENGTH);
-          HS_EXPECT_EQ(sample(a), 1.0f);
-          HS_EXPECT_EQ(sample(midpoint), 1.0f);
-          for (float direction : {-1.0f, 1.0f}) {
-            HS_EXPECT_EQ(sample(math::Complex(
-                             midpoint.re + direction * 0.08f * normal.re,
-                             midpoint.im + direction * 0.08f * normal.im)),
-                         -1.0f);
-            HS_EXPECT_NEAR(sample(math::Complex(
-                               midpoint.re + direction * 0.05f * normal.re,
-                               midpoint.im + direction * 0.05f * normal.im)),
-                           0.0f, 1e-4f);
-          }
+      TessellationSourceParams params;
+      params.cell_scale = scale;
+      auto sample = [&](const math::Complex &point) {
+        const math::Complex input((center.re + point.re) / scale,
+                                  (center.im + point.im) / scale);
+        return Pattern::tessellation<Pattern::TessellationKind::HEXAGONAL,
+                                     Pattern::TessellationFill::EDGES>(
+            Pattern::PlanePosition{input}, params);
+      };
+      HS_EXPECT_EQ(sample(math::Complex(0.0f, 0.0f)), -1.0f);
+      for (int edge = 0; edge < 6; ++edge) {
+        const math::Complex &a = vertices[edge];
+        const math::Complex &b = vertices[(edge + 1) % 6];
+        const math::Complex midpoint((a.re + b.re) * 0.5f,
+                                     (a.im + b.im) * 0.5f);
+        const float LENGTH = std::hypot(midpoint.re, midpoint.im);
+        HS_EXPECT_NEAR(LENGTH, 0.5f, 1e-6f);
+        const math::Complex normal(midpoint.re / LENGTH, midpoint.im / LENGTH);
+        HS_EXPECT_EQ(sample(a), 1.0f);
+        HS_EXPECT_EQ(sample(midpoint), 1.0f);
+        for (float direction : {-1.0f, 1.0f}) {
+          HS_EXPECT_EQ(sample(math::Complex(
+                           midpoint.re + direction * 0.08f * normal.re,
+                           midpoint.im + direction * 0.08f * normal.im)),
+                       -1.0f);
+          HS_EXPECT_NEAR(sample(math::Complex(
+                             midpoint.re + direction * 0.05f * normal.re,
+                             midpoint.im + direction * 0.05f * normal.im)),
+                         0.0f, 1e-4f);
         }
       }
     }
@@ -4564,7 +4806,10 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_stage_combinators);
   HS_RUN(test_pullback_provider_contracts);
   HS_RUN(test_pullback_concrete_catalog);
-  HS_RUN(test_pullback_lattice_circle_identity);
+  HS_RUN(test_pullback_square_cells_formula);
+  HS_RUN(test_pullback_tessellation_reference);
+  HS_RUN(test_pullback_hexagonal_cells_pack_hex_lattice);
+  HS_RUN(test_pullback_tessellation_translation_lattice);
   HS_RUN(test_pullback_custom_grid_preparation);
   HS_RUN(test_pullback_hexagonal_edges);
   HS_RUN(test_pullback_displacement_overflow);

@@ -240,11 +240,22 @@ inline void case_pullback_operator_invalid_noise_basis() {
 inline void case_pullback_operator_invalid_tessellation_kind() {
   Pullback::Interp::Op::TessellationSampleParams params;
   params.kind = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::SourceClockState state;
+  Pullback::Interp::Op::SampleTessellation::State state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::SampleTessellation::prepare(context, params, state)
-          .primary != 0.0f)
-    std::printf("x");
+  (void)Pullback::Interp::Op::SampleTessellation::prepare(context, params,
+                                                          state);
+  std::printf("x");
+}
+
+/** @brief Death case: the tessellation source rejects an unknown fill. */
+inline void case_pullback_operator_invalid_tessellation_fill() {
+  Pullback::Interp::Op::TessellationSampleParams params;
+  params.fill = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::SampleTessellation::State state;
+  Pullback::Interp::FrameContext context{};
+  (void)Pullback::Interp::Op::SampleTessellation::prepare(context, params,
+                                                          state);
+  std::printf("x");
 }
 
 /** @brief Death case: the kaleidoscope lens rejects an unknown symmetry. */

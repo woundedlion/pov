@@ -143,14 +143,15 @@ template <typename Family, typename Model> void check_warp() {
           }
 }
 
-/** @brief Frame binding of an affine warp keyed "probe" before a lattice
-    source keyed "source". */
+/** @brief Frame binding of an affine warp keyed "probe" before a
+    tessellation source keyed "source".
+ * @tparam SourceFamily Tessellation source family. */
+template <typename SourceFamily = Pullback::SquareCellsParams>
 struct LatticeAffineFrame {
   using Warp = Pullback::ParameterResource<"probe", Pullback::AffineParams,
                                            Pullback::ResourceKind::WARP>;
-  using Source =
-      Pullback::ParameterResource<"source", Pullback::LatticeSourceParams,
-                                  Pullback::ResourceKind::SOURCE>;
+  using Source = Pullback::ParameterResource<"source", SourceFamily,
+                                             Pullback::ResourceKind::SOURCE>;
   using Params = Pullback::ComposedDetail::ParameterSet<
       Pullback::ComposedDetail::ResourceList<Warp, Source>>;
   using Frame = Pullback::FrameIntervalState<Params>;
@@ -161,7 +162,7 @@ struct LatticeAffineFrame {
     displacement across phase wraps. */
 inline void check_affine_lattice_windings() {
   using namespace Pullback;
-  using Fixture = LatticeAffineFrame;
+  using Fixture = LatticeAffineFrame<>;
   using Tracked =
       typename WarpPolicyFor<AffineParams, typename Fixture::Binding, "probe",
                              true>::Type;
@@ -172,7 +173,7 @@ inline void check_affine_lattice_windings() {
   typename Fixture::Frame frame{};
   auto &params = frame.params.template get<"probe">();
   auto &clock = frame.resources.template get<"probe">();
-  frame.params.template get<"source">().lattice_cell_scale = 2.5f;
+  frame.params.template get<"source">().cell_scale = 2.5f;
   params.lattice_period = 7.0f;
   for (const float winding : {-2.51f, -1.5f, -1.49f, 1.49f, 1.5f, 2.51f}) {
     params.translation_x = winding;
@@ -240,16 +241,18 @@ inline void check_affine_lattice_windings() {
   }
 }
 
-/** @brief The composed affine stage before a lattice source matches the
-    catalog model given that source's lattice. */
+/** @brief The composed affine stage before a tessellation source matches the
+    catalog model given that source's lattice.
+ * @tparam SourceFamily Tessellation source family.
+ * @tparam Reduction Path-length reduction the family's lattice takes. */
+template <typename SourceFamily, Pullback::Warp::RepeatReduction Reduction>
 inline void check_affine_lattice_parity() {
   using namespace Pullback;
-  using Fixture = LatticeAffineFrame;
+  using Fixture = LatticeAffineFrame<SourceFamily>;
   using Policy = typename WarpPolicyFor<AffineParams, typename Fixture::Binding,
                                         "probe", true>::Type;
   static_assert(WarpProvider<typename Fixture::Binding, "probe", AffineParams,
-                             true>::repeat_reduction() ==
-                Warp::RepeatReduction::RECTANGULAR);
+                             true>::repeat_reduction() == Reduction);
   static_assert(
       WarpProvider<
           typename StageFrame<AffineParams, ResourceKind::WARP>::Binding,
@@ -259,7 +262,7 @@ inline void check_affine_lattice_parity() {
   auto &params = frame.params.template get<"probe">();
   auto &source = frame.params.template get<"source">();
   auto &clock = frame.resources.template get<"probe">();
-  source.lattice_cell_scale = 3.0f;
+  source.cell_scale = 3.0f;
   params.translation_x = 2.0f;
   params.translation_y = -1.0f;
   params.repeat_cells = 3.0f;
@@ -288,6 +291,22 @@ inline void check_affine_lattice_parity() {
   }
 }
 
+/** @brief Square cells take the per-axis reduction; hexagonal and triangular
+    tessellations take the general one. */
+inline void check_tessellation_affine_parity() {
+  using Pullback::Source::FixedTessellationParams;
+  using K = Pattern::TessellationKind;
+  using F = Pattern::TessellationFill;
+  using R = Pullback::Warp::RepeatReduction;
+  check_affine_lattice_parity<Pullback::SquareCellsParams, R::RECTANGULAR>();
+  check_affine_lattice_parity<FixedTessellationParams<K::SQUARE, F::EDGES>,
+                              R::RECTANGULAR>();
+  check_affine_lattice_parity<FixedTessellationParams<K::HEXAGONAL, F::CELLS>,
+                              R::GENERAL>();
+  check_affine_lattice_parity<FixedTessellationParams<K::TRIANGULAR, F::EDGES>,
+                              R::GENERAL>();
+}
+
 /** @brief Every planar authored selector matches the catalog's observable step. */
 inline void test_authored_warp_catalog_parity() {
   check_warp<Pullback::Warp::AuthoredWaveShearParams, Op::WarpWaveShear>();
@@ -296,7 +315,7 @@ inline void test_authored_warp_catalog_parity() {
   check_warp<Pullback::Warp::AuthoredCurlFlowParams, Op::WarpCurlFlow>();
   check_warp<Pullback::AffineParams, Op::WarpAffineV4>();
   check_affine_lattice_windings();
-  check_affine_lattice_parity();
+  check_tessellation_affine_parity();
 }
 
 /** @brief Compares every authored source selector against its catalog model.
@@ -314,54 +333,73 @@ template <typename Family, typename Model> void check_source() {
   clock.secondary = 0.7f;
   clock.angle = 0.2f;
   clock.noise_time = 0.23f;
+  if constexpr (requires { params.cell_shape; })
+    params.cell_shape = 0.7f;
   constexpr int BASIS_COUNT = requires { params.basis; } ? 3 : 1;
-  constexpr int KIND_COUNT = requires { params.kind; } ? 3 : 1;
-  for (int basis = 0; basis < BASIS_COUNT; ++basis)
-    for (int kind = 0; kind < KIND_COUNT; ++kind) {
-      typename Model::Params expected_params{};
-      copy_numeric(expected_params, params);
-      if constexpr (requires { expected_params.weight_mode; }) {
-        expected_params.weight_mode = 0;
-        expected_params.coverage_mode = 0;
-      }
-      if constexpr (requires { params.basis; })
-        params.basis = expected_params.basis = static_cast<uint8_t>(basis);
-      if constexpr (requires { params.kind; })
-        params.kind = expected_params.kind = static_cast<uint8_t>(kind);
-      typename Model::State state{};
-      if constexpr (requires { state.primary; }) {
-        state.primary = clock.primary;
-        state.secondary = clock.secondary;
-        state.angle = clock.angle;
-      }
-      if constexpr (requires { state.noise; }) {
-        Pullback::init_effect_noise(state.noise, 31);
-        clock.noise = &state.noise;
-        state.phase = clock.noise_time;
-      }
-      const auto actual_prepared = Policy::prepare(frame);
-      const auto expected_prepared = Model::prepare({}, expected_params, state);
-      for (const math::Complex point :
-           {math::Complex{0.17f, 0.23f}, math::Complex{-0.8f, 0.4f},
-            math::Complex{0x1p21f, 0.2f}}) {
-        typename Model::Input input{};
-        if constexpr (requires { input.coords; }) {
-          input.coords = point;
-          input.sphere = math::Vector(point.re, 0.6f, point.im).normalized();
-        } else
-          input.dir = math::Vector(point.re, 0.6f, point.im).normalized();
-        const float actual = Policy::sample(input, frame, actual_prepared);
-        const auto expected =
-            Model::run(input, {}, expected_params, expected_prepared);
-        HS_EXPECT_NEAR(0.5f + 0.5f * actual, expected.value, 1e-6f);
-      }
+  for (int basis = 0; basis < BASIS_COUNT; ++basis) {
+    typename Model::Params expected_params{};
+    copy_numeric(expected_params, params);
+    if constexpr (requires { expected_params.weight_mode; }) {
+      expected_params.weight_mode = 0;
+      expected_params.coverage_mode = 0;
     }
+    if constexpr (requires { params.basis; })
+      params.basis = expected_params.basis = static_cast<uint8_t>(basis);
+    if constexpr (requires { Family::KIND; }) {
+      expected_params.kind = static_cast<uint8_t>(Family::KIND);
+      expected_params.fill = static_cast<uint8_t>(Family::FILL);
+    }
+    typename Model::State state{};
+    if constexpr (requires { state.primary; }) {
+      state.primary = clock.primary;
+      state.secondary = clock.secondary;
+      state.angle = clock.angle;
+    }
+    if constexpr (requires { state.noise; }) {
+      Pullback::init_effect_noise(state.noise, 31);
+      clock.noise = &state.noise;
+      state.phase = clock.noise_time;
+    }
+    const auto expected_prepared = Model::prepare({}, expected_params, state);
+    for (const math::Complex point :
+         {math::Complex{0.17f, 0.23f}, math::Complex{-0.8f, 0.4f},
+          math::Complex{0.31f, -0.52f}, math::Complex{0x1p21f, 0.2f}}) {
+      typename Model::Input input{};
+      if constexpr (requires { input.coords; }) {
+        input.coords = point;
+        input.sphere = math::Vector(point.re, 0.6f, point.im).normalized();
+      } else
+        input.dir = math::Vector(point.re, 0.6f, point.im).normalized();
+      const float actual = [&] {
+        if constexpr (requires { Policy::prepare(frame); })
+          return Policy::sample(input, frame, Policy::prepare(frame));
+        else
+          return Policy::sample(input, frame);
+      }();
+      const auto expected =
+          Model::run(input, {}, expected_params, expected_prepared);
+      HS_EXPECT_NEAR(0.5f + 0.5f * actual, expected.value, 1e-6f);
+    }
+  }
 }
 
 /** @brief Every authored source selector matches the catalog's sampled value. */
 inline void test_authored_source_catalog_parity() {
   check_source<Pullback::RingsSourceParams, Op::SampleRings>();
-  check_source<Pullback::Source::AuthoredTessellationSourceParams,
+  using K = Pattern::TessellationKind;
+  using F = Pattern::TessellationFill;
+  using Pullback::Source::FixedTessellationParams;
+  check_source<FixedTessellationParams<K::TRIANGULAR, F::CELLS>,
+               Op::SampleTessellation>();
+  check_source<FixedTessellationParams<K::SQUARE, F::CELLS>,
+               Op::SampleTessellation>();
+  check_source<FixedTessellationParams<K::HEXAGONAL, F::CELLS>,
+               Op::SampleTessellation>();
+  check_source<FixedTessellationParams<K::TRIANGULAR, F::EDGES>,
+               Op::SampleTessellation>();
+  check_source<FixedTessellationParams<K::SQUARE, F::EDGES>,
+               Op::SampleTessellation>();
+  check_source<FixedTessellationParams<K::HEXAGONAL, F::EDGES>,
                Op::SampleTessellation>();
   check_source<Pullback::Source::AuthoredProjectedNoiseSourceParams,
                Op::SampleProjectedNoise>();

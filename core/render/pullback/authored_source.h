@@ -22,19 +22,6 @@ struct AuthoredProjectedNoiseSourceParams : ProjectedNoiseSourceParams {
           "basis", &AuthoredProjectedNoiseSourceParams::basis, BASIS_IDS, 0},
   };
 };
-/** @brief Tessellation controls with an authored polygon kind. */
-struct AuthoredTessellationSourceParams : TessellationSourceParams {
-  uint8_t kind = 0; ///< Tessellation-kind catalog index.
-  /// Catalog values of the kind selector.
-  static constexpr const char *KIND_IDS[] = {"triangular", "square",
-                                             "hexagonal"};
-  /// Authored topology selectors.
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<AuthoredTessellationSourceParams>{
-          "kind", &AuthoredTessellationSourceParams::kind, KIND_IDS, 0},
-  };
-};
-
 /** @brief Projected noise with a runtime-selected octave basis.
  * @tparam State Keyed source provider. */
 template <typename State>
@@ -67,37 +54,6 @@ struct ConfiguredProjectedNoise
         math::noise_projected_coordinate(input.coords,
                                          State::noise_scale(frame), prepared),
         State::noise_contrast(frame));
-  }
-};
-
-/** @brief Tessellation with a runtime-selected polygon kind.
- * @tparam State Keyed source provider. */
-template <typename State>
-struct ConfiguredTessellation
-    : Tessellation<State, Pattern::TessellationKind::TRIANGULAR> {
-  using Base = Tessellation<
-      State,
-      Pattern::TessellationKind::TRIANGULAR>;   ///< Static policy contract.
-  using FrameState = typename Base::FrameState; ///< Bound frame.
-  using Prepared = typename Base::Prepared;     ///< Source phases.
-  /** @brief Prepares and validates the selected tessellation kind.
-   * @param frame Current frame.
-   * @return Source phases. */
-  static Prepared prepare(const FrameState &frame) {
-    HS_CHECK(State::params(frame).kind <= 2, "invalid tessellation kind");
-    return State::prepare(frame);
-  }
-  /** @brief Samples the authored tessellation kind.
-   * @param input Projected coordinate.
-   * @param frame Current frame.
-   * @param prepared Source phases.
-   * @return Signed source value. */
-  static float sample(const PlaneSample &input, const FrameState &frame,
-                      const Prepared &prepared) {
-    return Pattern::tessellation(
-        Pattern::PlanePosition{input.coords}, State::params(frame),
-        static_cast<Pattern::TessellationKind>(State::params(frame).kind),
-        prepared);
   }
 };
 

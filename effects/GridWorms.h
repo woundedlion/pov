@@ -39,7 +39,7 @@ struct GridWormsSpec : Pullback::Spec {
       Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
           Pullback::ProjectionKind::GNOMONIC_FOLDED, B>::Type>,
       Pullback::Stage::Sample<
-          typename Pullback::SourcePolicyFor<Pullback::LatticeSourceParams,
+          typename Pullback::SourcePolicyFor<Pullback::SquareCellsParams,
                                              B>::Type,
           Pullback::Weight::Projection,
           typename Pullback::CoveragePolicyFor<
@@ -73,9 +73,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "519b519396575340873fef49d5d63fa63c356c3c4c0b59be47c7d71d6f7e7cdd";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "dab6a6a162b48430c41839d49a4c46d4efa053f0f67a1db427c4d6b9882264f1";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "b6c199fa45e0f31cfb56d6d1ced35c5c6e13e0828f7de831c51ef65fe9f15b23";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "8a1bb10bf172baf8d666885f61bbaa8e251cc78202976ca01c3aa8bdc3495273";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "grid-worms"
@@ -85,7 +85,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -121,10 +121,10 @@ public:
     value.template get<"projection">().spin_rate = 0.0f;
     value.template get<"projection">().wander = 0.0f;
     value.template get<"projection">().singularity_fade = 1.0f;
-    value.template get<"source">().lattice_cell_scale = 2.420276f;
-    value.template get<"source">().lattice_radius = 0.48583883f;
-    value.template get<"source">().lattice_shape_blend = 1.0f;
-    value.template get<"source">().lattice_softness = 0.22006065f;
+    value.template get<"source">().cell_radius = 0.48583883f;
+    value.template get<"source">().cell_scale = 2.420276f;
+    value.template get<"source">().cell_shape = 1.0f;
+    value.template get<"source">().cell_softness = 0.22006065f;
     return value;
   }
   // clang-format on

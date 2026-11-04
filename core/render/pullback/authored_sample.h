@@ -96,11 +96,8 @@ using AuthoredTwinWaveSampleParams =
 using AuthoredRingsSampleParams = AuthoredSampleParams<RingsSourceParams>;
 /** @brief Spiral source with runtime crossing controls. */
 using AuthoredSpiralSampleParams = AuthoredSampleParams<SpiralSourceParams>;
-/** @brief Primitive lattice with runtime crossing controls. */
-using AuthoredLatticeSampleParams = AuthoredSampleParams<LatticeSourceParams>;
-/** @brief Polygon tessellation with runtime crossing controls. */
-using AuthoredTessellationSampleParams =
-    AuthoredSampleParams<AuthoredTessellationSourceParams>;
+/** @brief Square-cell tessellation with runtime crossing controls. */
+using AuthoredSquareCellsSampleParams = AuthoredSampleParams<SquareCellsParams>;
 /** @brief Projected noise with runtime crossing controls. */
 using AuthoredProjectedNoiseSampleParams =
     AuthoredSampleParams<AuthoredProjectedNoiseSourceParams>;

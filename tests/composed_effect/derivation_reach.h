@@ -73,7 +73,6 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"project.dodecahedral.v1", nullptr, {}},
     {"project.icosahedral.v1", nullptr, {}},
     {"sample.rings.v2", nullptr, {}},
-    {"sample.tessellation.v2", nullptr, {}},
     {"warp.curl-flow.v2", nullptr, {}},
     {"sphere.displace.potential.v1", "integrator", {{"euler"}}},
     {"sphere.displace.potential.v1", "term-1-type", {{"mode", "dodecahedral"}}},
@@ -138,10 +137,13 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sample.projected-noise.v2", "weight-mode", {}},
     {"sample.projected-noise.v2", "coverage-mode", {}},
     {"sample.projected-noise.v2", "basis", {}},
-    {"sample.lattice.v2", "weight-mode", {{"projection"}}},
-    {"sample.lattice.v2",
+    {"sample.tessellation.v3", "weight-mode", {{"projection"}}},
+    {"sample.tessellation.v3",
      "coverage-mode",
      {{"weight", "weight-squared", "edge-fade"}}},
+    // Shipped Specs pin square cells.
+    {"sample.tessellation.v3", "kind", {{"square"}}},
+    {"sample.tessellation.v3", "fill", {{"cells"}}},
     {"colorize.generated-palette.v4",
      "palette-mode",
      {{"triadic", "complementary", "analogous"}}},
@@ -268,8 +270,8 @@ inline void test_composed_derivation_reach() {
     }
   }
 
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 44u);
-  HS_EXPECT_EQ(unreachable_operators, 13u);
-  HS_EXPECT_EQ(catalog_values, 375u);
-  HS_EXPECT_EQ(unreachable_values, 284u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 43u);
+  HS_EXPECT_EQ(unreachable_operators, 12u);
+  HS_EXPECT_EQ(catalog_values, 370u);
+  HS_EXPECT_EQ(unreachable_values, 277u);
 }

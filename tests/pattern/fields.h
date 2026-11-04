@@ -248,27 +248,24 @@ inline void test_pattern_extracted_source_protocols() {
   HS_EXPECT_NEAR(PlaneCoupledGrid::sample(
                      POINT, PlaneCoupledGrid::prepare(grid_params, {})),
                  std::sin(0.6f) * std::cos(0.25f), 0.0035f);
-  static_assert(std::is_empty_v<PlanePrimitiveLattice::State>);
-  PlanePrimitiveLattice::Params lattice;
-  const auto EMPTY = PlanePrimitiveLattice::advance(
-      PlanePrimitiveLattice::init_state(lattice), lattice);
-  HS_EXPECT_EQ(PlanePrimitiveLattice::sample(
-                   {{}}, PlanePrimitiveLattice::prepare(lattice, EMPTY)),
-               1.0f);
-  lattice.lattice_shape_blend = 1.0f;
-  lattice.lattice_softness = 0.5f;
-  const auto SQUARE = PlanePrimitiveLattice::prepare(lattice, EMPTY);
-  HS_EXPECT_EQ(PlanePrimitiveLattice::sample({{}}, SQUARE), 0.6875f);
+  using Cells =
+      PlaneTessellation<TessellationKind::SQUARE, TessellationFill::CELLS>;
+  static_assert(std::is_empty_v<Cells::State>);
+  Cells::Params lattice;
+  const auto EMPTY = Cells::advance(Cells::init_state(lattice), lattice);
+  HS_EXPECT_EQ(Cells::sample({{}}, Cells::prepare(lattice, EMPTY)), 1.0f);
+  lattice.cell_shape = 1.0f;
+  lattice.cell_softness = 0.5f;
+  const auto SQUARE = Cells::prepare(lattice, EMPTY);
+  HS_EXPECT_EQ(Cells::sample({{}}, SQUARE), 0.6875f);
   for (float sign : {-1.0f, 1.0f}) {
-    HS_EXPECT_EQ(PlanePrimitiveLattice::sample({{sign * 0.125f, 0.0f}}, SQUARE),
-                 0.3671875f);
-    HS_EXPECT_EQ(PlanePrimitiveLattice::sample({{sign * 0.25f, 0.0f}}, SQUARE),
-                 0.0f);
-    HS_EXPECT_EQ(PlanePrimitiveLattice::sample({{sign * 0.375f, 0.0f}}, SQUARE),
-                 -0.3671875f);
+    HS_EXPECT_EQ(Cells::sample({{sign * 0.125f, 0.0f}}, SQUARE), 0.3671875f);
+    HS_EXPECT_EQ(Cells::sample({{sign * 0.25f, 0.0f}}, SQUARE), 0.0f);
+    HS_EXPECT_EQ(Cells::sample({{sign * 0.375f, 0.0f}}, SQUARE), -0.3671875f);
   }
-  using Square = PlaneTessellation<TessellationKind::SQUARE>;
-  HS_EXPECT_EQ(Square::sample({{}}, Square::prepare({}, {})), -1.0f);
+  using Edges =
+      PlaneTessellation<TessellationKind::SQUARE, TessellationFill::EDGES>;
+  HS_EXPECT_EQ(Edges::sample({{}}, Edges::prepare({}, {})), -1.0f);
   const FastNoiseLite GENERATOR;
   PlaneNoise::Params noise;
   noise.noise_time_rate = -0.01f;

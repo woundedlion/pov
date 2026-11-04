@@ -324,7 +324,7 @@ test('the baked topology fields are the catalog flag less the live mapping', () 
     operators: [{ params: [
       { id: 'symmetry', topology: true },
       { id: 'palette-mapping', topology: true },
-      { id: 'lattice-radius' },
+      { id: 'cell-radius' },
     ] }],
   });
   assert.deepEqual([...fields], ['symmetry']);
@@ -337,8 +337,8 @@ test('an affine fallback period before a lattice source binds its native control
   run.documents.push({ document: 'grid_space.shader.json', effect: 'grid-space',
     parameterIds: ['warp1.lattice-period'],
     descriptor: { chain: [{label: 'warp1', operator: 'warp.affine.v4'},
-      {label: 'sample', operator: 'sample.lattice.v2'}] },
-    presets: [{ values: { 'warp1.lattice-period': 0.5, 'sample.lattice-cell-scale': 4 } }],
+      {label: 'sample', operator: 'sample.tessellation.v3'}] },
+    presets: [{ values: { 'warp1.lattice-period': 0.5, 'sample.cell-scale': 4 } }],
   });
   run.controls.set('grid-space', new Set(['outer_warp.Lattice Period']));
   assert.deepEqual(promotedBindingProblems(run), []);
@@ -354,24 +354,24 @@ test('authored bindings resolve keyed surface, warp and repeated rotation contro
     {label: 'displace', operator: 'sphere.displace.symmetric.v2'},
     {label: 'bend', resource_key: 'velocity', operator: 'warp.vector-noise.v2'},
     {label: 'warp', operator: 'warp.affine.v4'},
-    {label: 'cells', operator: 'sample.lattice.v2'},
+    {label: 'cells', operator: 'sample.tessellation.v3'},
   ]};
   const values = {'camera.wander': 0.3, 'camera.spin-speed': 0.02,
     'second.wander': 0.7, 'second.spin-speed': 0.04, 'displace.strength': 0.2,
     'bend.strength': 0.5, 'bend.basis': 'ridged3', 'bend.edge-width': 0.4,
     'warp.scale-x': 2, 'warp.lattice-period': 0.413,
-    'cells.lattice-cell-scale': 2, 'cells.coverage-mode': 'edge-fade-squared'};
+    'cells.cell-scale': 2, 'cells.coverage-mode': 'edge-fade-squared'};
   run.documents = [{document: 'authored.shader.json', effect: 'authored', descriptor,
     parameterIds: Object.keys(values), presets: [{preset_id: 'one', values}]}];
   run.catalog = {operators: [
     {id: 'warp.vector-noise.v2', params: [{id: 'strength', name: 'Warp Strength'}]},
     {id: 'warp.affine.v4', params: [{id: 'scale-x', name: 'Affine Scale X'}]},
-    {id: 'sample.lattice.v2', params: [{id: 'lattice-cell-scale', name: 'Lattice Cell Scale'}]},
+    {id: 'sample.tessellation.v3', params: [{id: 'cell-scale', name: 'Cell Scale'}]},
   ]};
   run.controls = new Map([['authored', new Set(['camera.Wander', 'camera.Spin Speed',
     'world.Wander', 'world.Spin Speed', 'displace.Strength', 'velocity.Warp Strength',
     'velocity.basis', 'velocity.Warp Edge Width', 'outer_warp.Affine Scale X',
-    'outer_warp.Lattice Period', 'Lattice Cell Scale', 'coverage-mode'])]]);
+    'outer_warp.Lattice Period', 'Cell Scale', 'coverage-mode'])]]);
   assert.deepEqual(promotedBindingProblems(run), []);
   run.controls.get('authored').delete('outer_warp.Lattice Period');
   assert.match(promotedBindingProblems(run)[0], /"warp.lattice-period" names no control/);

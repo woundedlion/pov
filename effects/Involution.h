@@ -39,11 +39,11 @@ struct InvolutionSpec : Pullback::Spec {
           Pullback::AffineParams, B, "outer_warp", true>::Type>,
       Pullback::Stage::Sample<
           typename Pullback::SourcePolicyFor<
-              Pullback::Source::AuthoredLatticeSampleParams, B>::Type,
+              Pullback::Source::AuthoredSquareCellsSampleParams, B>::Type,
           Pullback::Weight::Authored<Pullback::SourceProvider<
-              B, Pullback::Source::AuthoredLatticeSampleParams>>,
+              B, Pullback::Source::AuthoredSquareCellsSampleParams>>,
           Pullback::ProjectionCoverage::Authored<Pullback::SourceProvider<
-              B, Pullback::Source::AuthoredLatticeSampleParams>>>,
+              B, Pullback::Source::AuthoredSquareCellsSampleParams>>>,
       Pullback::Stage::Colorize<
           Pullback::Color::GeneratedPalette<Pullback::AuthoredColorProvider<
               B, Pullback::Color::BrightnessEnvelope::NONE>>>,
@@ -77,9 +77,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "aadb4ef7110a8695878dbb8db963b815e2349337e25d9de0fa517d62712d3959";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "bbb89a43671c8e301529f2d5922b06452d99136e6ed67a398a6d597a64ed0025";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "9ddaaa6195b134cfe43ce3211771b0041dbfba8be3509061df7bf102330f7bdd";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "ef61a40834515b5a18f520e666287906ef5800ccc115e9260f18b9a9ee6c15a0";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "jewel-melt"
@@ -99,7 +99,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot parameter layout version.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -177,12 +177,12 @@ public:
     value.template get<"projection">().frame = 1;
     value.template get<"projection">().spin_rate = 0.0f;
     value.template get<"projection">().wander = 0.0f;
+    value.template get<"source">().cell_radius = 0.2777796f;
+    value.template get<"source">().cell_scale = 3.9611204f;
+    value.template get<"source">().cell_shape = 1.0f;
+    value.template get<"source">().cell_softness = 0.5f;
     value.template get<"source">().coverage_mode = 3;
     value.template get<"source">().edge_width = 0.14035088f;
-    value.template get<"source">().lattice_cell_scale = 3.9611204f;
-    value.template get<"source">().lattice_radius = 0.2777796f;
-    value.template get<"source">().lattice_shape_blend = 1.0f;
-    value.template get<"source">().lattice_softness = 0.5f;
     value.template get<"source">().weight_mode = 1;
     value.template get<"outer_warp">().lattice_period = 1.0f;
     value.template get<"outer_warp">().repeat_cells = 8.0f;

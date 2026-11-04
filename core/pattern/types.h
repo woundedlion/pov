@@ -204,29 +204,44 @@ struct NoiseSourceParams {
                                      coordinate. */
 };
 
-/** @brief Passive parameters for the lattice kernel. */
-struct LatticeSourceParams {
-  float lattice_cell_scale = 1.0f;  /**< Lattice cells per plane unit. */
-  float lattice_shape_blend = 0.0f; /**< Cell primitive, from a circle at 0 to a
-                                         square at 1. */
-  float lattice_softness = 0.05f;   /**< Half-width of the ramp across the
-                                         primitive's boundary. */
-  float lattice_radius = 0.25f;     /**< Primitive radius in cell units. */
-};
-
-/** @brief Passive parameters for `PlaneTessellation`. */
-struct TessellationSourceParams {
-  float cell_scale = 1.0f;      /**< Tessellation cells per plane unit. */
-  float line_thickness = 0.04f; /**< Edge half-width in cell units. */
-  float line_softness = 0.02f;  /**< Width of the antialiased edge. */
-  float angle_rate = 0.0f;      /**< Per-frame rotation of the tessellation. */
-};
-
-/** @brief Cell shape of a `Tessellation` source. */
+/** @brief Cell shape of a `PlaneTessellation`. */
 enum class TessellationKind : uint8_t {
   TRIANGULAR = 0,
   SQUARE = 1,
   HEXAGONAL = 2
+};
+
+/** @brief What a `PlaneTessellation` draws in each cell. */
+enum class TessellationFill : uint8_t {
+  CELLS = 0, ///< A primitive centred on each cell.
+  EDGES = 1  ///< A band along the cell edges.
+};
+
+/** @brief Cell-primitive controls of a tessellation.
+ * @details Lengths are in cell units: one cell inscribed diameter, which is
+ * one lattice period for squares and hexagons and period / sqrt(3) for
+ * triangles. */
+struct TessellationCellParams {
+  float cell_scale = 1.0f;     /**< Lattice periods per plane unit. */
+  float cell_shape = 0.0f;     /**< Primitive, from a circle at 0 to the cell
+                                    polygon at 1. */
+  float cell_softness = 0.05f; /**< Half-width of the ramp across the
+                                    primitive's boundary. */
+  float cell_radius = 0.25f;   /**< Primitive inradius. */
+};
+
+/** @brief Edge-band controls of a tessellation, in cell units. */
+struct TessellationEdgeParams {
+  float cell_scale = 1.0f;      /**< Lattice periods per plane unit. */
+  float line_thickness = 0.04f; /**< Edge half-width. */
+  float line_softness = 0.02f;  /**< Width of the antialiased edge. */
+};
+
+/** @brief Passive parameters for `PlaneTessellation`: the controls of both
+    fills. */
+struct TessellationSourceParams : TessellationCellParams {
+  float line_thickness = 0.04f; /**< Edge half-width in cell units. */
+  float line_softness = 0.02f;  /**< Width of the antialiased edge. */
 };
 
 } // namespace Pattern

@@ -19,7 +19,7 @@ struct AnalyticModulationSpec : Pullback::Spec {
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
           Pullback::AffineParams, B, "outer_warp", false>::Type>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
-                                  Pullback::LatticeSourceParams, B>::Type,
+                                  Pullback::SquareCellsParams, B>::Type,
                               Pullback::Weight::Projection,
                               typename Pullback::CoveragePolicyFor<
                                   Pullback::ProjectionCoverageMode::WEIGHT, B,
@@ -284,8 +284,9 @@ struct AffineNamedSourceSpec : Pullback::Spec {
       B,
       Pullback::Stage::Warp<Pullback::Warp::AffineFrame<Pullback::WarpProvider<
           B, "affine", Pullback::AffineParams, false, "cells">>>,
-      Pullback::Stage::Sample<Pullback::Source::PrimitiveLattice<
-          Pullback::SourceProvider<B, Pullback::LatticeSourceParams, "cells">>>,
+      Pullback::Stage::Sample<Pullback::Source::Tessellation<
+          Pullback::SourceProvider<B, Pullback::SquareCellsParams, "cells">,
+          Pattern::TessellationKind::SQUARE, Pattern::TessellationFill::CELLS>>,
       Pullback::Stage::Colorize<
           Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
               B, Pullback::Color::BrightnessEnvelope::NONE>>>>;
@@ -301,7 +302,7 @@ inline void test_composed_affine_named_source() {
   static_assert(Params::template HAS<"cells"> &&
                 !Params::template HAS<"source">);
   Frame frame{};
-  frame.params.template get<"cells">().lattice_cell_scale = 2.0f;
+  frame.params.template get<"cells">().cell_scale = 2.0f;
   auto &warp = frame.params.template get<"affine">();
   warp.translation_x = 4.0f;
   warp.translation_y = -8.0f;

@@ -67,11 +67,13 @@ inline void case_pattern_radian_invalid_prepare() {
   (void)Pattern::PlaneRings::prepare(params, {});
   (void)Pattern::PlaneRings::prepare(params, {0.0f, 0.0f, 100.0f});
 }
-inline void case_pattern_lattice_invalid_prepare() {
-  Pattern::PlanePrimitiveLattice::Params params;
-  (void)Pattern::PlanePrimitiveLattice::prepare(params, {});
-  params.lattice_radius = -1.0f;
-  (void)Pattern::PlanePrimitiveLattice::prepare(params, {});
+inline void case_pattern_tessellation_invalid_prepare() {
+  using Cells = Pattern::PlaneTessellation<Pattern::TessellationKind::SQUARE,
+                                           Pattern::TessellationFill::CELLS>;
+  Cells::Params params;
+  (void)Cells::prepare(params, {});
+  params.cell_radius = -1.0f;
+  (void)Cells::prepare(params, {});
 }
 inline void case_pattern_plane_noise_invalid_advance() {
   Pattern::PlaneNoise::Params params;

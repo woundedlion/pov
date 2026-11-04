@@ -117,10 +117,15 @@ template <typename B> struct SourcePolicyFor<TwinWaveSourceParams, B> {
 template <typename B> struct SourcePolicyFor<SpiralSourceParams, B> {
   using Type = Pullback::Source::Spiral<SourceProvider<B, SpiralSourceParams>>;
 };
-/** @brief Primitive-lattice source. @tparam B Frame binding. */
-template <typename B> struct SourcePolicyFor<LatticeSourceParams, B> {
-  using Type = Pullback::Source::PrimitiveLattice<
-      SourceProvider<B, LatticeSourceParams>>;
+/** @brief Fixed-kind tessellation source.
+ * @tparam Kind Cell shape.
+ * @tparam Fill Cell primitives or edge band.
+ * @tparam B Frame binding. */
+template <Pattern::TessellationKind Kind, Pattern::TessellationFill Fill,
+          typename B>
+struct SourcePolicyFor<FixedTessellationParams<Kind, Fill>, B> {
+  using Type = Pullback::Source::Tessellation<
+      SourceProvider<B, FixedTessellationParams<Kind, Fill>>, Kind, Fill>;
 };
 /** @brief Planar simplex-noise source. @tparam B Frame binding. */
 template <typename B> struct SourcePolicyFor<ProjectedNoiseSourceParams, B> {
@@ -132,24 +137,12 @@ template <typename B> struct SourcePolicyFor<ProjectedNoiseSourceParams, B> {
 template <typename B> struct SourcePolicyFor<RingsSourceParams, B> {
   using Type = Pullback::Source::Rings<SourceProvider<B, RingsSourceParams>>;
 };
-/** @brief Triangular tessellation. @tparam B Frame binding. */
-template <typename B> struct SourcePolicyFor<TessellationSourceParams, B> {
-  using Type = Pullback::Source::Tessellation<
-      SourceProvider<B, TessellationSourceParams>,
-      Pattern::TessellationKind::TRIANGULAR>;
-};
 
 /** @brief Authored source topology. @tparam B Frame binding. */
 template <typename B>
 struct SourcePolicyFor<Source::AuthoredProjectedNoiseSourceParams, B> {
   using Type = Source::ConfiguredProjectedNoise<
       SourceProvider<B, Source::AuthoredProjectedNoiseSourceParams>>;
-};
-/** @brief Authored source topology. @tparam B Frame binding. */
-template <typename B>
-struct SourcePolicyFor<Source::AuthoredTessellationSourceParams, B> {
-  using Type = Source::ConfiguredTessellation<
-      SourceProvider<B, Source::AuthoredTessellationSourceParams>>;
 };
 
 namespace ComposedDetail {
@@ -164,6 +157,16 @@ template <typename Policy, typename Provider> struct RebindSource;
 template <template <typename> typename Policy, typename Old, typename Provider>
 struct RebindSource<Policy<Old>, Provider> {
   using Type = Policy<Provider>;
+};
+/** @brief Fixed-kind tessellation policy.
+ * @tparam Old Original provider.
+ * @tparam Kind Cell shape.
+ * @tparam Fill Fill.
+ * @tparam Provider Authored crossing provider. */
+template <typename Old, Pattern::TessellationKind Kind,
+          Pattern::TessellationFill Fill, typename Provider>
+struct RebindSource<Source::Tessellation<Old, Kind, Fill>, Provider> {
+  using Type = Source::Tessellation<Provider, Kind, Fill>;
 };
 } // namespace ComposedDetail
 

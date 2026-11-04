@@ -642,10 +642,10 @@ inline void check_slider_registration(const char *name) {
   }
 
   if constexpr (std::is_same_v<FX, Millefiori<SMALL_W, SMALL_H>>) {
-    constexpr const char *EXPECTED[] = {"Lattice Cell Scale",
-                                        "Lattice Radius",
-                                        "Lattice Shape",
-                                        "Lattice Softness",
+    constexpr const char *EXPECTED[] = {"Cell Scale",
+                                        "Cell Radius",
+                                        "Cell Shape",
+                                        "Cell Softness",
                                         "Camera Wander",
                                         "Projection Spin Speed",
                                         "Projection Wander",
@@ -687,10 +687,10 @@ inline void check_slider_registration(const char *name) {
   }
 
   if constexpr (std::is_same_v<FX, AshCloud<SMALL_W, SMALL_H>>) {
-    constexpr const char *EXPECTED[] = {"Lattice Cell Scale",
-                                        "Lattice Radius",
-                                        "Lattice Shape",
-                                        "Lattice Softness",
+    constexpr const char *EXPECTED[] = {"Cell Scale",
+                                        "Cell Radius",
+                                        "Cell Shape",
+                                        "Cell Softness",
                                         "Camera Wander",
                                         "Projection Spin Speed",
                                         "Projection Wander",

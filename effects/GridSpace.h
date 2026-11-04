@@ -26,7 +26,7 @@ struct GridSpaceSpec : Pullback::Spec {
   /// Preserves canonical rotation order at gamut-mapping boundaries.
   static constexpr bool FACTORED_COLUMNS = false;
   /**
-   * @brief Stage chain: camera rotation, projection, affine warp, lattice
+   * @brief Stage chain: camera rotation, projection, affine warp, square-cell
    *  source, iso-contour transfer, generated palette,
    *  noise hue modulation.
    * @tparam B The effect's Binding.
@@ -41,7 +41,7 @@ struct GridSpaceSpec : Pullback::Spec {
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
           Pullback::AffineParams, B, "outer_warp", false>::Type>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
-                                  Pullback::LatticeSourceParams, B>::Type,
+                                  Pullback::SquareCellsParams, B>::Type,
                               Pullback::Weight::Projection,
                               typename Pullback::CoveragePolicyFor<
                                   Pullback::ProjectionCoverageMode::WEIGHT, B,
@@ -78,9 +78,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "4e73b5864bc634316b1915646fb817bdfdd688d5d2fc16c0a830caf24f716d32";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "e7ccbdd038bd6766cedde302c221549f9352092bab8ab5259048aaf2638b4b46";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "9eab549b9dfe186c10f9302301a8321ca6730d0b6bab87b796e2b92baf81213b";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "5f2099f80f88edd7381c81747f8b26f898f0bac31935752c07ca95b1fc66a867";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "affine-contour"
@@ -90,7 +90,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 6;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -119,10 +119,10 @@ public:
     value.template get<"projection">().spin_rate = 0.020879198f;
     value.template get<"projection">().wander = 0.0030917525f;
     value.template get<"projection">().singularity_fade = 1.0f;
-    value.template get<"source">().lattice_cell_scale = 1.22925f;
-    value.template get<"source">().lattice_radius = 0.33298188f;
-    value.template get<"source">().lattice_shape_blend = 1.0f;
-    value.template get<"source">().lattice_softness = 0.1608203f;
+    value.template get<"source">().cell_radius = 0.33298188f;
+    value.template get<"source">().cell_scale = 1.22925f;
+    value.template get<"source">().cell_shape = 1.0f;
+    value.template get<"source">().cell_softness = 0.1608203f;
     value.template get<"value">().iso_level = 0.138f;
     value.template get<"value">().iso_width = 0.22703418f;
     value.template get<"outer_warp">().lattice_period = 1.0f;

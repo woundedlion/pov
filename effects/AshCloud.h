@@ -69,7 +69,7 @@ struct AshCloudSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
    * @brief Stage chain: camera rotation, burst ripples, surface curl,
-   * dodecahedral kaleidoscope lens, projection, lattice source, value cutout,
+   * dodecahedral kaleidoscope lens, projection, square-cell source, value cutout,
    * generated palette, noise and displacement hue modulation.
    * @tparam B The effect's Binding.
    */
@@ -90,7 +90,7 @@ struct AshCloudSpec : Pullback::Spec {
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
               Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
-                                  Pullback::LatticeSourceParams, B>::Type,
+                                  Pullback::SquareCellsParams, B>::Type,
                               Pullback::Weight::Projection,
                               typename Pullback::CoveragePolicyFor<
                                   Pullback::ProjectionCoverageMode::WEIGHT, B,
@@ -133,9 +133,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "f700804691df3ac5cf604ef24497112b45ce8ef6710123935a19c2f88f5a86fa";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "e6e6b685618334425a75a685d33c613de4dcbddc3aa2cf63309e9b774fb8e38c";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "38bddb9ffc08b44f637e3af83ecb9daaeafa83958523e4f94c8abc442c291e62";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "5b142303eb2c244f8af61ddb3d2e5b40ebe69b95260e45739e046ba321a083eb";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "ash-cloud"
@@ -147,7 +147,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 6;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -225,10 +225,10 @@ public:
     value.template get<"projection">().spin_rate = 0.00175f;
     value.template get<"projection">().wander = 0.009f;
     value.template get<"projection">().singularity_fade = 1.0f;
-    value.template get<"source">().lattice_cell_scale = 0.98971874f;
-    value.template get<"source">().lattice_radius = 0.37757313f;
-    value.template get<"source">().lattice_shape_blend = 0.0f;
-    value.template get<"source">().lattice_softness = 0.34563965f;
+    value.template get<"source">().cell_radius = 0.37757313f;
+    value.template get<"source">().cell_scale = 0.98971874f;
+    value.template get<"source">().cell_shape = 0.0f;
+    value.template get<"source">().cell_softness = 0.34563965f;
     value.template get<"surface">().scale = 5.7742186f;
     value.template get<"surface">().speed = 0.00040625f;
     value.template get<"surface">().strength = 0.043f;

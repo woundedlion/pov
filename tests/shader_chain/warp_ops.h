@@ -224,69 +224,86 @@ inline PB::TranslationLattice hex_lattice(float side) {
   return {{side, 0.0f}, {0.5f * side, 0.5f * std::sqrt(3.0f) * side}};
 }
 
-/** @brief Lattice winding resets preserve the sampled lattice and displacement hue. */
+/** @brief Winding resets over each tessellation kind preserve the sampled
+    field and displacement hue. */
 inline void test_shader_chain_affine_lattice_wrap() {
   using Model = In::Op::WarpAffineV4;
+  using Sample = In::Op::SampleTessellation;
   const In::FrameContext ctx = shared_resources().context();
-  In::Op::SampleLattice::Params lattice;
-  lattice.lattice_cell_scale = 4.0f;
-  lattice.lattice_shape_blend = 1.0f;
-  lattice.lattice_softness = 0.2f;
-  lattice.weight_mode = 0;
-  lattice.coverage_mode = 0;
-  const In::Op::SampleLattice::Prepared sample{};
-  const PB::TranslationLattice downstream =
-      In::Op::SampleLattice::translation_lattice(lattice);
-  PB::Color::ModulationState modulation;
-  modulation.enabled = true;
-  modulation.source = Pattern::SourceKind::DISPLACEMENT;
-  modulation.mechanic.amount = 2.0f;
-  for (const float direction : {-1.0f, 1.0f}) {
-    Model::Params params;
-    params.lattice_period = 3.0f;
-    params.translation_x = direction * 1.7f;
-    params.translation_y = direction * -2.2f;
-    params.scale_x = 1.3f;
-    params.scale_y = 0.7f;
-    params.shear = 0.3f;
-    const Model::State before{0.999999f, 0.73f};
-    const Model::State after{0.0f, 0.73f};
-    const auto from = Model::prepare(ctx, params, before, downstream);
-    const auto to = Model::prepare(ctx, params, after, downstream);
-    bool varied = false;
-    float first_hue = 0.0f;
-    for (int index = 0; index < 21; ++index) {
-      PB::PlaneSample input{};
-      input.coords = {0.071f * index - 0.61f, 0.039f * index - 0.17f};
-      input.sphere = math::UP;
-      input.path_length = 0.125f;
-      const auto warped_from = Model::run(input, ctx, params, from);
-      const auto warped_to = Model::run(input, ctx, params, to);
-      HS_EXPECT_NEAR(warped_to.coords.re - warped_from.coords.re,
-                     direction * 0.5f, 2e-6f);
-      HS_EXPECT_NEAR(warped_to.coords.im - warped_from.coords.im,
-                     direction * -0.5f, 2e-6f);
-      PB::ColorSample color_from{};
-      color_from.field =
-          In::Op::SampleLattice::run(warped_from, ctx, lattice, sample);
-      PB::ColorSample color_to{};
-      color_to.field =
-          In::Op::SampleLattice::run(warped_to, ctx, lattice, sample);
-      HS_EXPECT_NEAR(color_from.field.value, color_to.field.value, 5e-5f);
-      HS_EXPECT_NEAR(color_from.field.path_length, color_to.field.path_length,
-                     3e-6f);
-      HS_EXPECT_GE(color_to.field.path_length, input.path_length);
-      HS_EXPECT_LE(color_to.field.path_length,
-                   input.path_length + std::sqrt(2.0f) * 0.125f + 1e-6f);
-      PB::Color::apply_modulation_in_place(color_from, modulation);
-      PB::Color::apply_modulation_in_place(color_to, modulation);
-      HS_EXPECT_NEAR(color_from.pending_hue, color_to.pending_hue, 6e-6f);
-      if (index == 0)
-        first_hue = color_to.pending_hue;
-      else if (fabsf(color_to.pending_hue - first_hue) > 0.01f)
-        varied = true;
+  for (const auto kind :
+       {Pattern::TessellationKind::SQUARE, Pattern::TessellationKind::HEXAGONAL,
+        Pattern::TessellationKind::TRIANGULAR}) {
+    HS_CONTEXT("kind", static_cast<int>(kind));
+    Sample::Params source;
+    source.kind = static_cast<uint8_t>(kind);
+    source.cell_scale = 4.0f;
+    source.cell_shape = 1.0f;
+    source.cell_softness = 0.2f;
+    source.weight_mode = 0;
+    source.coverage_mode = 0;
+    const Sample::Prepared sample{};
+    const PB::TranslationLattice downstream =
+        Sample::translation_lattice(source);
+    const bool square = kind == Pattern::TessellationKind::SQUARE;
+    HS_EXPECT_NEAR(downstream.a.re, 0.25f, 0.0f);
+    HS_EXPECT_NEAR(downstream.a.im, 0.0f, 0.0f);
+    HS_EXPECT_NEAR(downstream.b.re, square ? 0.0f : 0.125f, 0.0f);
+    HS_EXPECT_NEAR(downstream.b.im, square ? 0.25f : 0.2165063509f, 1e-7f);
+    const float longest_reduced =
+        square ? std::sqrt(2.0f) * 0.125f : 0.25f / std::sqrt(3.0f);
+    PB::Color::ModulationState modulation;
+    modulation.enabled = true;
+    modulation.source = Pattern::SourceKind::DISPLACEMENT;
+    modulation.mechanic.amount = 2.0f;
+    for (const float direction : {-1.0f, 1.0f}) {
+      Model::Params params;
+      params.lattice_period = 3.0f;
+      params.translation_x = direction * 1.7f;
+      params.translation_y = direction * -2.2f;
+      params.scale_x = 1.3f;
+      params.scale_y = 0.7f;
+      params.shear = 0.3f;
+      const float wa = direction * 2.0f;
+      const float wb = direction * -2.0f;
+      const math::Complex shift{downstream.a.re * wa + downstream.b.re * wb,
+                                downstream.a.im * wa + downstream.b.im * wb};
+      const Model::State before{0.999999f, 0.73f};
+      const Model::State after{0.0f, 0.73f};
+      const auto from = Model::prepare(ctx, params, before, downstream);
+      const auto to = Model::prepare(ctx, params, after, downstream);
+      bool varied = false;
+      float first_hue = 0.0f;
+      for (int index = 0; index < 21; ++index) {
+        PB::PlaneSample input{};
+        input.coords = {0.071f * index - 0.61f, 0.039f * index - 0.17f};
+        input.sphere = math::UP;
+        input.path_length = 0.125f;
+        const auto warped_from = Model::run(input, ctx, params, from);
+        const auto warped_to = Model::run(input, ctx, params, to);
+        HS_EXPECT_NEAR(warped_to.coords.re - warped_from.coords.re, shift.re,
+                       2e-6f);
+        HS_EXPECT_NEAR(warped_to.coords.im - warped_from.coords.im, shift.im,
+                       2e-6f);
+        PB::ColorSample color_from{};
+        color_from.field = Sample::run(warped_from, ctx, source, sample);
+        PB::ColorSample color_to{};
+        color_to.field = Sample::run(warped_to, ctx, source, sample);
+        HS_EXPECT_NEAR(color_from.field.value, color_to.field.value, 5e-5f);
+        HS_EXPECT_NEAR(color_from.field.path_length, color_to.field.path_length,
+                       3e-6f);
+        HS_EXPECT_GE(color_to.field.path_length, input.path_length);
+        HS_EXPECT_LE(color_to.field.path_length,
+                     input.path_length + longest_reduced + 1e-6f);
+        PB::Color::apply_modulation_in_place(color_from, modulation);
+        PB::Color::apply_modulation_in_place(color_to, modulation);
+        HS_EXPECT_NEAR(color_from.pending_hue, color_to.pending_hue, 6e-6f);
+        if (index == 0)
+          first_hue = color_to.pending_hue;
+        else if (fabsf(color_to.pending_hue - first_hue) > 0.01f)
+          varied = true;
+      }
+      HS_EXPECT_TRUE(varied);
     }
-    HS_EXPECT_TRUE(varied);
   }
 }
 
@@ -429,15 +446,15 @@ inline void test_shader_chain_affine_repeat_reduction() {
 inline void test_shader_chain_affine_repeat_cells() {
   using Model = In::Op::WarpAffineV4;
   const In::FrameContext ctx = shared_resources().context();
-  In::Op::SampleLattice::Params lattice;
-  lattice.lattice_cell_scale = 4.0f;
-  lattice.lattice_shape_blend = 1.0f;
-  lattice.lattice_softness = 0.2f;
+  In::Op::SampleTessellation::Params lattice;
+  lattice.cell_scale = 4.0f;
+  lattice.cell_shape = 1.0f;
+  lattice.cell_softness = 0.2f;
   lattice.weight_mode = 0;
   lattice.coverage_mode = 0;
-  const In::Op::SampleLattice::Prepared sample{};
+  const In::Op::SampleTessellation::Prepared sample{};
   const PB::TranslationLattice downstream =
-      In::Op::SampleLattice::translation_lattice(lattice);
+      In::Op::SampleTessellation::translation_lattice(lattice);
   Model::Params params;
   params.repeat_cells = 2.6f;
   params.translation_x = 2.0f;
@@ -456,8 +473,9 @@ inline void test_shader_chain_affine_repeat_cells() {
     HS_EXPECT_NEAR(warped_to.coords.re - warped_from.coords.re, 1.5f, 2e-5f);
     HS_EXPECT_NEAR(warped_to.coords.im - warped_from.coords.im, -0.75f, 2e-5f);
     HS_EXPECT_NEAR(
-        In::Op::SampleLattice::run(warped_from, ctx, lattice, sample).value,
-        In::Op::SampleLattice::run(warped_to, ctx, lattice, sample).value,
+        In::Op::SampleTessellation::run(warped_from, ctx, lattice, sample)
+            .value,
+        In::Op::SampleTessellation::run(warped_to, ctx, lattice, sample).value,
         2e-4f);
     HS_EXPECT_NEAR(warped_from.path_length, warped_to.path_length, 2e-5f);
     HS_EXPECT_LE(warped_to.path_length, std::sqrt(2.0f) * 0.375f + 1e-6f);
@@ -516,13 +534,13 @@ inline void test_shader_chain_affine_reads_next_lattice() {
       {"project", In::Op::ProjectStereographic::ID},
       {"far", In::Op::WarpAffineV4::ID},
       {"near", In::Op::WarpAffineV4::ID},
-      {"sample", In::Op::SampleLattice::ID},
+      {"sample", In::Op::SampleTessellation::ID},
       {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
   };
   HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
   HS_EXPECT_TRUE(program.ops()[3].op->runtime.translation_lattice != nullptr);
   HS_EXPECT_TRUE(program.ops()[2].op->runtime.translation_lattice == nullptr);
-  param_as<In::Op::SampleLattice::Params>(program, 3).lattice_cell_scale = 4.0f;
+  param_as<In::Op::SampleTessellation::Params>(program, 3).cell_scale = 4.0f;
   for (const size_t index : {size_t{1}, size_t{2}}) {
     auto &params = param_as<In::Op::AffineWarpParams>(program, index);
     params.lattice_period = 3.0f;
@@ -566,7 +584,7 @@ inline void test_shader_chain_affine_column_lattice() {
   const In::ChainEntryRequest chain[] = {
       {"project", In::Op::ProjectStereographic::ID},
       {"warp", In::Op::WarpAffineV4::ID},
-      {"sample", In::Op::SampleLattice::ID},
+      {"sample", In::Op::SampleTessellation::ID},
       {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
   };
   HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
@@ -575,12 +593,12 @@ inline void test_shader_chain_affine_column_lattice() {
   const_cast<In::Op::AffineClockState &>(
       state_as<In::Op::AffineClockState>(program, 1))
       .phase = 0.5f;
-  auto &source = param_as<In::Op::SampleLattice::Params>(program, 2);
-  source.lattice_cell_scale = 2.0f;
+  auto &source = param_as<In::Op::SampleTessellation::Params>(program, 2);
+  source.cell_scale = 2.0f;
   const In::FrameContext ctx = shared_resources().context();
   program.prepare(ctx);
   program.capture_history();
-  source.lattice_cell_scale = 8.0f;
+  source.cell_scale = 8.0f;
   program.prepare(ctx);
   HS_EXPECT_TRUE(program.history_continuous());
   program.prepare_column(ctx, ctx, 0.5f);

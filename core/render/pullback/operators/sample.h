@@ -380,50 +380,17 @@ struct SampleSpiral : SourceClockModel {
   }
 };
 
-/** @brief Parameter family of sample.lattice.v2. */
-struct LatticeSampleParams : Source::LatticeSourceParams, SampleCrossingParams {
-  static constexpr auto FIELDS = concat_fields<LatticeSampleParams>(
-      Source::LatticeSourceParams::FIELDS,
-      sample_crossing_fields<LatticeSampleParams>());
-  static constexpr auto TOPOLOGY =
-      sample_crossing_topology<LatticeSampleParams>();
-};
-static_assert(field_ids_unique<LatticeSampleParams>());
-static_assert(field_defaults_in_range<LatticeSampleParams>());
-
-/** @brief PLANE→FIELD crossing: the per-cell primitive lattice source. */
-struct SampleLattice : StatelessModel {
-  static constexpr const char *ID = "sample.lattice.v2";
-  static constexpr const char *NAME = "Lattice";
-  using Input = PlaneSample;
-  using Output = FieldSample;
-  using Params = LatticeSampleParams;
-  struct Prepared {};
-
-  static TranslationLattice translation_lattice(const Params &params) {
-    return Source::translation_lattice(params);
-  }
-  static Prepared prepare(const FrameContext &, const Params &params,
-                          const State &) {
-    check_sample_topology(params.weight_mode, params.coverage_mode);
-    return {};
-  }
-  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
-                         const Params &params, const Prepared &) {
-    const float raw = Pattern::primitive_lattice(
-        Pattern::PlanePosition{input.coords},
-        static_cast<const Source::LatticeSourceParams &>(params));
-    return finish_sample(input, raw, params, ctx);
-  }
-};
-
 /** @brief Kind topology values, in Pattern::TessellationKind order. */
 inline constexpr const char *TESSELLATION_KIND_IDS[] = {"triangular", "square",
                                                         "hexagonal"};
 static_assert(std::size(TESSELLATION_KIND_IDS) ==
               static_cast<size_t>(Pattern::TessellationKind::HEXAGONAL) + 1);
+/** @brief Fill topology values, in Pattern::TessellationFill order. */
+inline constexpr const char *TESSELLATION_FILL_IDS[] = {"cells", "edges"};
+static_assert(std::size(TESSELLATION_FILL_IDS) ==
+              static_cast<size_t>(Pattern::TessellationFill::EDGES) + 1);
 
-/** @brief Parameter family of sample.tessellation.v2. */
+/** @brief Parameter family of sample.tessellation.v3. */
 struct TessellationSampleParams : Source::TessellationSourceParams {
   /** Edge-fade band width; read only under edge-fade coverage. */
   float edge_width = 0.1f;
@@ -432,7 +399,9 @@ struct TessellationSampleParams : Source::TessellationSourceParams {
   /** ProjectionCoverageMode topology value. */
   uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
   /** Pattern::TessellationKind topology value. */
-  uint8_t kind = static_cast<uint8_t>(Pattern::TessellationKind::TRIANGULAR);
+  uint8_t kind = static_cast<uint8_t>(Pattern::TessellationKind::SQUARE);
+  /** Pattern::TessellationFill topology value. */
+  uint8_t fill = static_cast<uint8_t>(Pattern::TessellationFill::CELLS);
 
   static constexpr auto FIELDS = concat_fields<TessellationSampleParams>(
       Source::TessellationSourceParams::FIELDS,
@@ -441,34 +410,47 @@ struct TessellationSampleParams : Source::TessellationSourceParams {
       sample_crossing_topology<TessellationSampleParams>(
           TopologyField<TessellationSampleParams>{
               "kind", &TessellationSampleParams::kind, TESSELLATION_KIND_IDS,
-              static_cast<uint8_t>(Pattern::TessellationKind::TRIANGULAR)});
+              static_cast<uint8_t>(Pattern::TessellationKind::SQUARE)},
+          TopologyField<TessellationSampleParams>{
+              "fill", &TessellationSampleParams::fill, TESSELLATION_FILL_IDS,
+              static_cast<uint8_t>(Pattern::TessellationFill::CELLS)});
 };
 static_assert(field_ids_unique<TessellationSampleParams>());
 static_assert(field_defaults_in_range<TessellationSampleParams>());
 static_assert(sample_crossing_defaults_match<TessellationSampleParams>());
 
-/** @brief PLANE→FIELD crossing: rotating polygon edge tessellations. */
-struct SampleTessellation : SourceClockModel {
-  static constexpr const char *ID = "sample.tessellation.v2";
+/** @brief PLANEâ†’FIELD crossing: static square, hexagonal or triangular cell
+    primitives or edge bands. */
+struct SampleTessellation : StatelessModel {
+  static constexpr const char *ID = "sample.tessellation.v3";
   static constexpr const char *NAME = "Tessellation";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = TessellationSampleParams;
+  struct Prepared {};
 
-  static Prepared prepare(const FrameContext &ctx, const Params &params,
-                          const State &state) {
-    const Prepared prepared = SourceClockModel::prepare(ctx, params, state);
+  static TranslationLattice translation_lattice(const Params &params) {
+    return Source::tessellation_lattice(
+        static_cast<Pattern::TessellationKind>(params.kind), params.cell_scale);
+  }
+  static Prepared prepare(const FrameContext &, const Params &params,
+                          const State &) {
+    check_sample_topology(params.weight_mode, params.coverage_mode);
     HS_CHECK(params.kind <=
                  static_cast<uint8_t>(Pattern::TessellationKind::HEXAGONAL),
              "sample.tessellation: invalid kind");
-    return prepared;
+    HS_CHECK(params.fill <=
+                 static_cast<uint8_t>(Pattern::TessellationFill::EDGES),
+             "sample.tessellation: invalid fill");
+    return {};
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
-                         const Params &params, const Prepared &prepared) {
+                         const Params &params, const Prepared &) {
     const float raw = Pattern::tessellation(
         Pattern::PlanePosition{input.coords},
         static_cast<const Source::TessellationSourceParams &>(params),
-        static_cast<Pattern::TessellationKind>(params.kind), prepared);
+        static_cast<Pattern::TessellationKind>(params.kind),
+        static_cast<Pattern::TessellationFill>(params.fill));
     return finish_sample(input, raw, params, ctx);
   }
 };

@@ -721,6 +721,24 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
           derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
+    if (field_id == "kind" || field_id == "fill") {
+      using Source = typename FX::Params::template Family<"source">;
+      if constexpr (requires {
+                      Source::KIND;
+                      Source::FILL;
+                    }) {
+        HS_EXPECT_TRUE(
+            text == (field_id == "kind"
+                         ? ChainOp::TESSELLATION_KIND_IDS[static_cast<uint8_t>(
+                               Source::KIND)]
+                         : ChainOp::TESSELLATION_FILL_IDS[static_cast<uint8_t>(
+                               Source::FILL)]));
+        HS_EXPECT_TRUE(
+            derivation_value_reachable(slot.operator_id, field_id, text));
+        return true;
+      }
+      return false;
+    }
     return false;
   case SlotRole::PROJECT:
     if (field_id == "frame") {

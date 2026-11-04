@@ -25,7 +25,7 @@ struct JewelMeltSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
    * @brief Stage chain: camera rotation, octahedral kaleidoscope lens,
-   *  surface-noise displacement, projection, lattice source, generated
+   *  surface-noise displacement, projection, square-cell source, generated
    *  palette,
    *  noise hue modulation.
    * @tparam B The effect's Binding.
@@ -41,7 +41,7 @@ struct JewelMeltSpec : Pullback::Spec {
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
               Pullback::ProjectionKind::EQUIRECTANGULAR, B>::Type>>,
       Pullback::Stage::Sample<
-          typename Pullback::SourcePolicyFor<Pullback::LatticeSourceParams,
+          typename Pullback::SourcePolicyFor<Pullback::SquareCellsParams,
                                              B>::Type,
           Pullback::Weight::Projection,
           typename Pullback::CoveragePolicyFor<
@@ -76,9 +76,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "1c4ec45b37ee74973f512b061d133ce8c0402f6235cc569b56c616c1cbc5eff4";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "54e1d66840ecdc3e6b6ae0f0e1c255b7745aa438e32d5d1cb30c192482c918f0";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "f4f67d5c208fcfcb645e1fece8408f436c3b503c0842e9f3f9e6ed71141b99e4";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "cc232fb7f40888b32d05c2b92ee735a1d06bd8bf05eacc97e80b17ea153fb4d7";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "jewel-melt"
@@ -88,7 +88,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Snapshot schema version; changes with the `Params` layout.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -118,10 +118,10 @@ public:
     value.template get<"projection">().spin_rate = 0.0f;
     value.template get<"projection">().wander = 0.1f;
     value.template get<"projection">().singularity_fade = 1.0f;
-    value.template get<"source">().lattice_cell_scale = 3.041703f;
-    value.template get<"source">().lattice_radius = 0.41414943f;
-    value.template get<"source">().lattice_shape_blend = 1.0f;
-    value.template get<"source">().lattice_softness = 0.2996846f;
+    value.template get<"source">().cell_radius = 0.41414943f;
+    value.template get<"source">().cell_scale = 3.041703f;
+    value.template get<"source">().cell_shape = 1.0f;
+    value.template get<"source">().cell_softness = 0.2996846f;
     value.template get<"surface">().scale = 4.6311646f;
     value.template get<"surface">().speed = 0.00017089843f;
     value.template get<"surface">().strength = 0.038802084f;
