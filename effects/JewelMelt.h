@@ -78,7 +78,7 @@ public:
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "1c4ec45b37ee74973f512b061d133ce8c0402f6235cc569b56c616c1cbc5eff4";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "48c63ac97a69f5568503f00c2dcc7e4bbea50bed90bd4f061f134641b4f13883";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "f4f67d5c208fcfcb645e1fece8408f436c3b503c0842e9f3f9e6ed71141b99e4";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "jewel-melt"
@@ -107,21 +107,21 @@ public:
     value.template get<"color">().phase_oscillation_speed = 0.0f;
     value.template get<"color">().opacity_high = 1.0f;
     value.template get<"color">().opacity_low = 1.0f;
-    value.template get<"modulation">().modulation.mechanic.amount = 1.5958333f;
+    value.template get<"modulation">().modulation.mechanic.amount = 0.552f;
     value.template get<"modulation">().modulation.enabled = true;
     value.template get<"modulation">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
     value.template get<"modulation">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
     value.template get<"modulation">().modulation.source = Pattern::SourceKind::NOISE;
-    value.template get<"modulation">().modulation.noise.scale = 0.14453939f;
-    value.template get<"modulation">().modulation.noise.speed = -0.0000010416667f;
-    value.template get<"projection">().central_meridian = 0.0f;
+    value.template get<"modulation">().modulation.noise.scale = 0.6304219f;
+    value.template get<"modulation">().modulation.noise.speed = 0.00005f;
+    value.template get<"projection">().central_meridian = 1.256637f;
     value.template get<"projection">().spin_rate = 0.0f;
-    value.template get<"projection">().wander = 0.0f;
+    value.template get<"projection">().wander = 0.1f;
     value.template get<"projection">().singularity_fade = 1.0f;
-    value.template get<"source">().lattice_cell_scale = 3.3299723f;
+    value.template get<"source">().lattice_cell_scale = 3.041703f;
     value.template get<"source">().lattice_radius = 0.41414943f;
     value.template get<"source">().lattice_shape_blend = 1.0f;
-    value.template get<"source">().lattice_softness = 0.5f;
+    value.template get<"source">().lattice_softness = 0.2996846f;
     value.template get<"surface">().scale = 4.6311646f;
     value.template get<"surface">().speed = 0.00017089843f;
     value.template get<"surface">().strength = 0.038802084f;
