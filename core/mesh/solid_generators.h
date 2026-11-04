@@ -17,6 +17,7 @@
 #include "core/mesh/hankin.h"
 #include "core/mesh/conway.h"
 #include "core/mesh/relax_bakes_generated.h"
+#include "core/mesh/solid_tables.h"
 #include <cmath>
 
 namespace Solids {
@@ -54,7 +55,28 @@ FLASHMEM static PolyMesh finalize_solid(const PolyMesh &temp, Arena &geom) {
   return final_mesh;
 }
 
-#include "core/mesh/solid_tables.h"
+/**
+ * @brief Materializes a compile-time static mesh into a runtime PolyMesh.
+ * @tparam StaticMeshT Type exposing constexpr vertices/face_counts/faces
+ * arrays.
+ * @param target Arena that backs the returned mesh's storage.
+ * @return A PolyMesh holding copies of the static mesh's data in target.
+ * @details Face indices narrow to uint16_t, trapping past MeshLimits::MAX_VERTEX_INDEX.
+ */
+template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
+  PolyMesh mesh;
+  mesh.vertices.bind(target, StaticMeshT::vertices.size());
+  mesh.vertices.append_bulk(StaticMeshT::vertices.data(),
+                            StaticMeshT::vertices.size());
+  mesh.face_counts.bind(target, StaticMeshT::face_counts.size());
+  mesh.face_counts.append_bulk(StaticMeshT::face_counts.data(),
+                               StaticMeshT::face_counts.size());
+  mesh.faces.bind(target, StaticMeshT::faces.size());
+  for (const auto &f : StaticMeshT::faces)
+    mesh.faces.push_back(MeshOps::narrow_index(static_cast<size_t>(f)));
+  return mesh;
+}
+
 #include "core/mesh/solid_builder.h"
 #include "core/mesh/procedural_solids.h"
 HS_O3_END

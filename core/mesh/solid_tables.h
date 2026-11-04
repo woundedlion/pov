@@ -3,11 +3,19 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by core/mesh/solid_generators.h.
+#pragma once
 
 /** @file solid_tables.h
  * @brief Hardcoded vertex and face tables of the five Platonic solids.
  */
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+
+#include "core/math/3dmath.h"
+
+namespace Solids {
 
 // ==========================================================================================
 // DATA DEFINITIONS (Hardcoded Platonic Solids)
@@ -262,24 +270,4 @@ static_assert(solid_tables_consistent<Icosahedron>(),
 static_assert(solid_tables_consistent<Dodecahedron>(),
               "Dodecahedron tables are inconsistent");
 
-/**
- * @brief Materializes a compile-time static mesh into a runtime PolyMesh.
- * @tparam StaticMeshT Type exposing constexpr vertices/face_counts/faces
- * arrays.
- * @param target Arena that backs the returned mesh's storage.
- * @return A PolyMesh holding copies of the static mesh's data in target.
- * @details Face indices narrow to uint16_t, trapping past MeshLimits::MAX_VERTEX_INDEX.
- */
-template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
-  PolyMesh mesh;
-  mesh.vertices.bind(target, StaticMeshT::vertices.size());
-  mesh.vertices.append_bulk(StaticMeshT::vertices.data(),
-                            StaticMeshT::vertices.size());
-  mesh.face_counts.bind(target, StaticMeshT::face_counts.size());
-  mesh.face_counts.append_bulk(StaticMeshT::face_counts.data(),
-                               StaticMeshT::face_counts.size());
-  mesh.faces.bind(target, StaticMeshT::faces.size());
-  for (const auto &f : StaticMeshT::faces)
-    mesh.faces.push_back(MeshOps::narrow_index(static_cast<size_t>(f)));
-  return mesh;
-}
+} // namespace Solids
