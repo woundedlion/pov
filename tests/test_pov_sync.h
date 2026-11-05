@@ -28,19 +28,19 @@ namespace pov_sync_tests {
 using namespace pov::sync;
 
 struct SyncBoardTestAccess {
-  static Flywheel &flywheel(SyncBoard &b) { return b.flywheel_mut(); }
-  static ContentTracker &content(SyncBoard &b) { return b.content_mut(); }
+  static Flywheel &flywheel(SyncBoard &b) { return b.fly; }
+  static ContentTracker &content(SyncBoard &b) { return b.content_tracker; }
   static SymbolEmitter &emitter(SyncBoard &b) { return b.emitter; }
   static void maybe_schedule_beacon(SyncBoard &b, uint32_t now) {
     int32_t position = -1;
     b.maybe_schedule_beacon(now, position);
   }
-  static const Flywheel &flywheel(const SyncBoard &b) { return b.flywheel(); }
+  static const Flywheel &flywheel(const SyncBoard &b) { return b.fly; }
   static const ContentTracker &content(const SyncBoard &b) {
-    return b.content();
+    return b.content_tracker;
   }
-  static LockState lock(const SyncBoard &b) { return b.lock(); }
-  static const Config &config(const SyncBoard &b) { return b.config(); }
+  static LockState lock(const SyncBoard &b) { return b.fly.lock(); }
+  static const Config &config(const SyncBoard &b) { return b.protocol_config; }
 };
 
 inline Flywheel &flywheel_mut(SyncBoard &b) {

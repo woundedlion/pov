@@ -346,41 +346,6 @@ private:
   friend struct ::hs_test::pov_sync_tests::SyncBoardTestAccess;
 
   /**
-   * @brief Mutable flywheel access (test-only).
-   * @return Mutable reference to the flywheel.
-   * @warning Valid only before the ISRs are attached: the flywheel is ISR-owned
-   * under the spec §8 single-writer model.
-   */
-  Flywheel &flywheel_mut() { return fly; }
-  /**
-   * @brief Mutable content-tracker access (test-only).
-   * @return Mutable reference to the content tracker.
-   * @warning Valid only before the ISRs are attached: the content tracker is
-   * ISR-owned under the spec §8 single-writer model.
-   */
-  ContentTracker &content_mut() { return content_tracker; }
-  /**
-   * @brief Content-layer state (test-only).
-   * @return Const reference to the content tracker.
-   */
-  const ContentTracker &content() const { return content_tracker; }
-  /**
-   * @brief Current lock state (test-only).
-   * @return ACQUIRE or LOCKED.
-   */
-  LockState lock() const { return fly.lock(); }
-  /**
-   * @brief The flywheel timebase (test-only).
-   * @return Const reference to the flywheel.
-   */
-  const Flywheel &flywheel() const { return fly; }
-  /**
-   * @brief Protocol configuration (test-only).
-   * @return Const reference to the config.
-   */
-  const Config &config() const { return protocol_config; }
-
-  /**
    * @brief Recomputes the tick-path bounds derived from protocol_config.
    */
   HS_COLD_MEMBER void cache_config_bounds() {
