@@ -605,15 +605,8 @@ private:
     }
     if (!Spacetime::flat_surface()) {
       draw_timed_all(canvas, count, sides, shape, palette);
-      if (planar_star) {
-        ScratchScope column_guard(scratch_arena_a);
-        const Scan::ColumnBasis column_time =
-            Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
-        Scan::ColumnBasisScope column_scope(canvas, column_time);
-        draw_planar_star_pole_caps(
-            canvas, math::make_basis(orientation.get(), math::X_AXIS), count,
-            sides, palette);
-      }
+      if (planar_star)
+        draw_pole_caps_at_columns(canvas, count, sides, palette);
       return;
     }
     const math::Basis basis = math::make_basis(orientation.get(), math::X_AXIS);
@@ -650,13 +643,25 @@ private:
       dispatch_plot(canvas, basis, shape, radius, sides, shader, contour_phase,
                     shaded_color, i, dense_contours);
     }
-    if (planar_star) {
-      ScratchScope column_guard(scratch_arena_a);
-      const Scan::ColumnBasis column_basis =
-          Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
-      Scan::ColumnBasisScope column_scope(canvas, column_basis);
-      draw_planar_star_pole_caps(canvas, basis, count, sides, palette);
-    }
+    if (planar_star)
+      draw_pole_caps_at_columns(canvas, count, sides, palette);
+  }
+
+  /** @brief Draws planar-star pole caps at their column orientations.
+   * @param canvas Destination frame.
+   * @param count Contour count.
+   * @param sides Star tip count.
+   * @param palette Bound contour palette. */
+  HS_FLASH_MEMBER void draw_pole_caps_at_columns(Canvas &canvas, int count,
+                                                 int sides,
+                                                 const BakedPalette &palette) {
+    ScratchScope column_guard(scratch_arena_a);
+    const Scan::ColumnBasis columns =
+        Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
+    Scan::ColumnBasisScope column_scope(canvas, columns);
+    draw_planar_star_pole_caps(
+        canvas, math::make_basis(orientation.get(), math::X_AXIS), count, sides,
+        palette);
   }
 
   /** @brief Draws the continuous radial star family at each column time. */
@@ -1284,7 +1289,7 @@ private:
   static constexpr bool surface_params(const Params &candidate) {
     return candidate.shape == ShapeType::PLANAR_STAR &&
            hs::clamp(static_cast<int>(candidate.count), 1, DRAW_LIMIT) ==
-               std::min(MAX_SHAPES, DRAW_LIMIT) &&
+               DRAW_LIMIT &&
            hs::clamp(static_cast<int>(candidate.sides),
                      static_cast<int>(SIDES_MIN),
                      static_cast<int>(SIDES_MAX)) == SURFACE_SIDES &&
