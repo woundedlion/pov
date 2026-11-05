@@ -8,6 +8,8 @@ Run:  python -m unittest discover -s tools/teensy_hook_tests
 """
 
 import configparser
+import contextlib
+import io
 import os
 import re
 import sys
@@ -15,6 +17,7 @@ import tempfile
 import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPO = Path(__file__).resolve().parents[2]
 TOOLS = REPO / "tools"
@@ -434,6 +437,32 @@ class TestHotLayoutLink(unittest.TestCase):
             fragment = Path(tmp, "hot_layout", "probe", "phantasm_hot_layout.ld")
             self.assertNotIn("*(", fragment.read_text(encoding="utf-8"))
             self.assertTrue(Path(tmp, "hot_layout", "final").is_dir())
+
+    def test_failing_gate_writes_a_report_and_returns_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            hook, env = self._hook(BUILD_DIR=directory, LINKFLAGS="-Wl,-Map,firmware.map")
+            hook._write_probe_fragment([], [], env)
+            with mock.patch.object(hook, "_toolchain", return_value=None), \
+                    mock.patch.object(hook.hot_layout, "check", return_value=(["gate sentinel"], False)), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(hook._gate(["firmware.elf"], [], env), 1)
+            self.assertEqual(Path(directory, "hot_layout", "report.txt").read_text(), "gate sentinel\n")
+
+    def test_layout_errors_fail_plan_and_gate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            hook, env = self._hook(BUILD_DIR=directory, LINKFLAGS="-Wl,-Map,firmware.map")
+            for action, target in ((hook._gate, "check"), (hook._plan, "write_plan")):
+                with self.subTest(action=target), \
+                        mock.patch.object(hook, "_toolchain", return_value=None), \
+                        mock.patch.object(hook.hot_layout, target, side_effect=hook.hot_layout.LayoutError("sentinel")), \
+                        contextlib.redirect_stdout(io.StringIO()) as output:
+                    self.assertEqual(action(["firmware.elf"], [], env), 2)
+                    self.assertIn("sentinel", output.getvalue())
+
+    def test_final_map_requires_an_explicit_linker_output(self):
+        hook, env = self._hook(LINKFLAGS="-Os")
+        with self.assertRaisesRegex(hook.hot_layout.LayoutError, "no -Wl,-Map"):
+            hook._final_map(env)
 
     def test_expected_effects_follow_the_sketch(self):
         hook, env = self._hook(CPPDEFINES=[("HS_PROFILE_TARGET", "HopfFibration")])

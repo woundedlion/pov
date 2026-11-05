@@ -9,6 +9,7 @@ import sys
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -348,6 +349,22 @@ class Planner(unittest.TestCase):
                       fragment)
         self.assertEqual(hl.planned_end(program, order, {k: 4 for k in order}, 0x60008000),
                          0x60008180)
+
+
+class CheckVerdict(unittest.TestCase):
+    def test_missing_and_overbound_effects_fail_with_a_valid_companion(self):
+        def program(count):
+            return _program([(f"_ZN5Alpha2f{i}Ev", 0x60010000 + i * WAY, 32,
+                              f".text.hot._ZN5Alpha2f{i}Ev", PHANTASM)
+                             for i in range(count)], [])
+        for image, expected, accepted in ((program(1), ["Alpha"], True),
+                                           (program(1), ["Missing"], False),
+                                           (program(3), ["Alpha"], False)):
+            with self.subTest(expected=expected, accepted=accepted), \
+                    mock.patch.object(hl, "load_program", return_value=(image, {})):
+                lines, passed = hl.check(None, "firmware.elf", "firmware.map", ["Alpha"], expected, "fixture")
+                self.assertEqual(passed, accepted)
+                self.assertIn("PASS" if accepted else "FAIL", lines[0])
 
 
 if __name__ == "__main__":
