@@ -44,6 +44,14 @@ struct OKLab {
   float a; ///< Green-red axis; negative is green.
   float b; ///< Blue-yellow axis; negative is blue.
 };
+/** @brief Rotates the OKLab chroma axes while preserving lightness.
+ * @param lab Perceptual color.
+ * @param cosine,sine Prepared angle components.
+ * @return Rotated perceptual color. */
+HS_HOT_INLINE inline OKLab rotate_chroma(OKLab lab, float cosine, float sine) {
+  return {lab.L, lab.a * cosine - lab.b * sine, lab.a * sine + lab.b * cosine};
+}
+
 /**
  * @brief OKLCH polar color: lightness L, chroma C, hue h (radians).
  */
@@ -647,10 +655,8 @@ inline void hue_rotate_lms_matrix(float ca, float sa, float k[9]) {
   for (int i = 0; i < 3; ++i) {
     OKLab lab = lms_to_oklab(i == 0 ? 1.0f : 0.0f, i == 1 ? 1.0f : 0.0f,
                              i == 2 ? 1.0f : 0.0f);
-    float a2 = lab.a * ca - lab.b * sa;
-    float b2 = lab.a * sa + lab.b * ca;
     float l_cbrt, m_cbrt, s_cbrt;
-    oklab_to_lms_cbrt({lab.L, a2, b2}, l_cbrt, m_cbrt, s_cbrt);
+    oklab_to_lms_cbrt(rotate_chroma(lab, ca, sa), l_cbrt, m_cbrt, s_cbrt);
     k[i] = l_cbrt;
     k[3 + i] = m_cbrt;
     k[6 + i] = s_cbrt;
@@ -955,10 +961,7 @@ HS_O3_FN inline void hue_rotate_rgb(float &r, float &g, float &b, float ca,
                                     float sa) {
   OKLab lab = linear_rgb_to_oklab_fast(r, g, b);
 
-  float a2 = lab.a * ca - lab.b * sa;
-  float b2 = lab.a * sa + lab.b * ca;
-
-  oklab_to_linear_rgb_gamut({lab.L, a2, b2}, r, g, b);
+  oklab_to_linear_rgb_gamut(rotate_chroma(lab, ca, sa), r, g, b);
 }
 
 /**
@@ -1039,10 +1042,8 @@ inline Color4 hue_rotate(const HueRotateBase &hb, float amount) {
   float ca, sa;
   turn_to_unit_cos_sin(amount, ca, sa);
 
-  float a2 = hb.lab.a * ca - hb.lab.b * sa;
-  float b2 = hb.lab.a * sa + hb.lab.b * ca;
   float r, g, b;
-  oklab_to_linear_rgb_gamut({hb.lab.L, a2, b2}, r, g, b);
+  oklab_to_linear_rgb_gamut(rotate_chroma(hb.lab, ca, sa), r, g, b);
 
   Color4 result = hb.base;
   result.color = linrgb_to_pixel({r, g, b});
@@ -1109,9 +1110,7 @@ inline void hue_sincos(float turns, float &cosine, float &sine) {
 inline LinRGB hue_rotate_lut_gamut_rgb(OKLab lab, float amount) {
   float cosine, sine;
   hue_sincos(amount, cosine, sine);
-  const float rotated_a = lab.a * cosine - lab.b * sine;
-  const float rotated_b = lab.a * sine + lab.b * cosine;
-  lab = {lab.L, rotated_a, rotated_b};
+  lab = rotate_chroma(lab, cosine, sine);
   return oklab_to_linear_rgb_lut_gamut(lab);
 }
 

@@ -256,8 +256,8 @@ template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
    * @return Gamut-mapped RGB16 node. */
   HS_HOT_INLINE static math::Vector rotate_node(const OKLab &lab, float cosine,
                                                 float sine) {
-    const Pixel RGB_NODE = linrgb_to_pixel(oklab_to_linear_rgb_lut_gamut(
-        {lab.L, lab.a * cosine - lab.b * sine, lab.a * sine + lab.b * cosine}));
+    const Pixel RGB_NODE = linrgb_to_pixel(
+        oklab_to_linear_rgb_lut_gamut(rotate_chroma(lab, cosine, sine)));
     return math::Vector(float(RGB_NODE.r), float(RGB_NODE.g),
                         float(RGB_NODE.b));
   }

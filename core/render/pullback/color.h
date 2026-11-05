@@ -770,7 +770,7 @@ HS_HOT_INLINE inline OKLab rotated_palette_lab(OKLab lab, float hue,
   float cosine;
   float sine;
   hue_sincos(hue, cosine, sine);
-  return {lab.L, lab.a * cosine - lab.b * sine, lab.a * sine + lab.b * cosine};
+  return rotate_chroma(lab, cosine, sine);
 }
 
 /** @brief Tests raw RGB proximity to a discontinuous gamut gate.
