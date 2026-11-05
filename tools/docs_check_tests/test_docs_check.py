@@ -12,6 +12,7 @@ sys.path.insert(0, str(TOOLS))
 
 import build_pins  # noqa: E402
 import docs_check as dc  # noqa: E402
+import docs_sync as ds  # noqa: E402
 from git_test_env import git_run  # noqa: E402
 
 
@@ -650,6 +651,44 @@ class TestDocumentationChecker(unittest.TestCase):
                                   "--skip-checkout", "daydream"])
         self.assertEqual(status, 0, output.getvalue())
         self.assertIn("NOT validated: daydream", output.getvalue())
+
+    def test_main_sync_rewrites_a_stale_repository_row(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _git_repository(root, {
+                "README.md": "<!-- docs-check: tree exhaustive -->\n```\n"
+                "\u251c\u2500\u2500 old.h  Stale source\n"
+                "\u2514\u2500\u2500 new.h  Current source\n```\n",
+                "new.h": "int current_source;\n"})
+            output = io.StringIO()
+            with mock.patch.object(dc, "_REQUIRED_TREES", frozenset()), \
+                    contextlib.redirect_stdout(output):
+                status = dc.main(["--root", str(root), "--sync",
+                                  "--skip-checkout", "daydream"])
+            self.assertEqual(status, 0, output.getvalue())
+            readme = (root / "README.md").read_text(encoding="utf-8")
+            self.assertNotIn("old.h", readme)
+            self.assertIn("new.h  Current source", readme)
+            self.assertIn("[docs-sync] updated README.md", output.getvalue())
+
+    def test_main_auto_checkout_validates_the_discovered_pinned_tree(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory, "engine")
+            checkout = Path(directory, "daydream")
+            _git_repository(root, {
+                "README.md": "<!-- docs-check: tree daydream exhaustive -->\n```\n"
+                "\u2514\u2500\u2500 kept.js  Browser source\n```\n"})
+            _git_repository(checkout, {"kept.js": "export const kept = true;\n"})
+            revision = git_run(checkout, "write-tree").stdout.strip()
+            output = io.StringIO()
+            with mock.patch.object(dc, "_REQUIRED_TREES", frozenset()), \
+                    mock.patch.object(ds, "discover_daydream", return_value=checkout) as discover, \
+                    mock.patch.object(ds, "pinned_daydream", return_value=revision), \
+                    contextlib.redirect_stdout(output):
+                status = dc.main(["--root", str(root), "--auto-checkout"])
+            self.assertEqual(status, 0, output.getvalue())
+            discover.assert_called_once_with(root.resolve())
+            self.assertNotIn("NOT validated", output.getvalue())
 
     def test_missing_checkout_root_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
