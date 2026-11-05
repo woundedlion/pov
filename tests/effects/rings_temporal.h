@@ -3,6 +3,9 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
+/** @file rings_temporal.h
+ * @brief Frozen-column oracles for growing and warped rings. */
+
 /** @brief Requires lit, matching intensity on opposite arms. */
 inline void expect_arm_symmetric(std::span<const float> pixels) {
   float energy = 0;
@@ -14,9 +17,6 @@ inline void expect_arm_symmetric(std::span<const float> pixels) {
     }
   HS_EXPECT_GT(energy, 0.01f);
 }
-
-/** @file rings_temporal.h
- * @brief Frozen-column oracles for growing and warped rings. */
 
 /** @brief Frozen ring geometry and luminance comparisons. */
 struct RingTemporalOracle {
@@ -74,7 +74,7 @@ struct RingTemporalOracle {
    * @param stride Material-grid spacing. */
   template <typename Vertex, typename Shader>
   static void frozen(Canvas &canvas, Vertex vertex, Shader shader, Offset rows,
-                     float fraction, int stride = 1) {
+                     float fraction, int stride) {
     ScratchScope storage(scratch_arena_a);
     const int count = DEFAULT_W / stride;
     auto *points = scratch_arena_a.allocate_n<math::Vector>(DEFAULT_W);
@@ -206,7 +206,7 @@ struct RingTemporalOracle {
 
   /** @brief Captures use two endpoint evaluations per distinct vertex.
    * @param vertices Distinct material vertices. */
-  static void counts(size_t vertices = DEFAULT_W) {
+  static void counts(size_t vertices) {
     HS_EXPECT_EQ(Spacetime::geometry_counters.endpoint_evaluations,
                  2u * vertices);
     HS_EXPECT_EQ(Spacetime::geometry_counters.midpoint_evaluations, 0u);
