@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include "core/platform/platform.h"
+#include "core/color/color_luts.h"
 #include "core/color/srgb_decode.h"
 
 /**
@@ -76,7 +77,9 @@ inline Pixel pixel_blend_add_packed(const Pixel &c1, const Pixel &c2);
  * @param srgb sRGB channel value in [0, 255].
  * @return 16-bit linear channel value.
  */
-inline uint16_t srgb_to_linear(uint8_t srgb);
+inline uint16_t srgb_to_linear(uint8_t srgb) {
+  return srgb_to_linear_lut[srgb];
+}
 
 /**
  * @brief Rounds a linear 16-bit channel to a linear 8-bit channel.
@@ -360,12 +363,6 @@ lut_sample_pixel(const Entry *table, int size, float idx) {
     return lut_entry_pixel(table[size - 1]);
   return lut_entry_pixel(table[lo]).lerp16(lut_entry_pixel(table[lo + 1]),
                                            lut_index_weight(idx, lo));
-}
-
-#include "core/color/color_luts.h"
-
-inline uint16_t srgb_to_linear(uint8_t srgb) {
-  return srgb_to_linear_lut[srgb];
 }
 
 /**
