@@ -102,9 +102,7 @@ static int check_ci_levers(bool effects_invocation) {
     }
   }
   if (effects_invocation) {
-    for (const char *name :
-         {"HS_RING_TEMPORAL_ONLY", "HS_MOBIUSRINGS_ONLY", "HS_DYNAMO_ONLY",
-          "HS_ISLAMICSTARS_ONLY", "HS_MESH_CAPTURE_ONLY"}) {
+    for (const char *name : {"HS_ISLAMICSTARS_ONLY", "HS_MESH_CAPTURE_ONLY"}) {
       const char *value = hs_test::env_var(name);
       if (value && value[0] != '\0') {
         std::fprintf(stderr,

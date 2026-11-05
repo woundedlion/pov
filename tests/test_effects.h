@@ -54,29 +54,8 @@ inline int run_effects_tests() {
   hs_test::ModuleFixture fixture("effects");
   run_effect_case_mesh_seam_dark_sample_guards();
 
-  const char *mobius_only = hs_test::env_var("HS_MOBIUSRINGS_ONLY");
   const char *islamic_only = hs_test::env_var("HS_ISLAMICSTARS_ONLY");
   const char *mesh_only = hs_test::env_var("HS_MESH_CAPTURE_ONLY");
-  const char *rings_only = hs_test::env_var("HS_RING_TEMPORAL_ONLY");
-  const char *dynamo_only = hs_test::env_var("HS_DYNAMO_ONLY");
-  if (rings_only && std::atoi(rings_only) != 0) {
-    run_effect_case_ring_shower_white_box_check_temporal_rings();
-    run_effect_case_thrusters_white_box_check_temporal_rings();
-    return fixture.result();
-  }
-  if (mobius_only && std::atoi(mobius_only) != 0) {
-    run_effect_case_mobius_rings_white_box_check_column_time_oracle();
-    return fixture.result();
-  }
-  if (dynamo_only && std::atoi(dynamo_only) != 0) {
-    run_effect_case_dynamo_column_time_oracle();
-    run_effect_case_dynamo_column_time_first_frame_and_reset();
-    if (std::atoi(dynamo_only) == 1) {
-      run_effect_case_dynamo_emitted_points_counts_ring_seeds();
-      run_effect_case_dynamo_trail_ceiling_bounds_the_ring();
-    }
-    return fixture.result();
-  }
   if (mesh_only && std::atoi(mesh_only) == 3) {
     const char *preset = hs_test::env_var("HS_REPLAY_PRESET");
     const char *speed = hs_test::env_var("HS_REPLAY_TRANS_SPEED");
