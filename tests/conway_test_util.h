@@ -12,9 +12,57 @@
 #include "core/mesh/solids.h"
 #include "effects/HankinSolids.h"
 #include "tests/test_harness.h"
+#include "tests/mesh_test_util.h"
 #include "tests/test_fixture.h"
 
 namespace hs_test {
+
+/** @brief Topology fingerprint of one sweep sample. */
+struct SweepFingerprint {
+  size_t v = 0;        /**< Raw vertex count. */
+  size_t f = 0;        /**< Raw face count. */
+  size_t i = 0;        /**< Raw face-index count. */
+  size_t compiled = 0; /**< Compiled face count. */
+};
+
+/**
+ * @brief Fingerprints a swept mesh and runs the structural checks.
+ * @param swept Sweep sample.
+ * @param a Arena receiving the compiled mesh.
+ * @param b Compile scratch arena.
+ * @param closed Whether the sweep is a closed spherical mesh.
+ * @return The sample's fingerprint.
+ */
+inline SweepFingerprint check_sweep_sample(const PolyMesh &swept, Arena &a,
+                                           Arena &b, bool closed = true) {
+  MeshState compiled;
+  MeshOps::compile(swept, compiled, a, b);
+  check_face_counts_consistent(swept);
+  check_indices_in_range(swept);
+  check_all_unit_vertices(swept, 1e-3f);
+  if (closed)
+    conway_tests::check_euler_characteristic_two(swept);
+  HS_EXPECT_TRUE(!swept.vertices.empty() && !swept.face_counts.empty() &&
+                 !swept.faces.empty());
+  return {swept.vertices.size(), swept.face_counts.size(), swept.faces.size(),
+          compiled.face_counts.size()};
+}
+
+/**
+ * @brief Asserts a sweep sample fingerprint matches the opening one.
+ * @param s Sample fingerprint.
+ * @param first Opening-sample fingerprint.
+ * @return Whether all topology counts match.
+ */
+inline bool expect_same_fingerprint(const SweepFingerprint &s,
+                                    const SweepFingerprint &first) {
+  HS_EXPECT_EQ(s.v, first.v);
+  HS_EXPECT_EQ(s.f, first.f);
+  HS_EXPECT_EQ(s.i, first.i);
+  HS_EXPECT_EQ(s.compiled, first.compiled);
+  return s.v == first.v && s.f == first.f && s.i == first.i &&
+         s.compiled == first.compiled;
+}
 
 /**
  * @brief Applies an IslamicStars budget after resetting the global fixture.

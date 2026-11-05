@@ -46,34 +46,6 @@ using Solids::OpStep;
 // Geometry helpers
 // ---------------------------------------------------------------------------
 
-inline bool sweep_holds_topology(const PolyMesh &swept, Arena &a, Arena &b,
-                                 int sample, size_t &v0, size_t &f0, size_t &i0,
-                                 size_t &compiled0, bool closed = true) {
-  MeshState compiled;
-  MeshOps::compile(swept, compiled, a, b);
-  if (sample == 0) {
-    v0 = swept.vertices.size();
-    f0 = swept.face_counts.size();
-    i0 = swept.faces.size();
-    compiled0 = compiled.face_counts.size();
-    HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
-  } else {
-    HS_EXPECT_EQ(swept.vertices.size(), v0);
-    HS_EXPECT_EQ(swept.face_counts.size(), f0);
-    HS_EXPECT_EQ(swept.faces.size(), i0);
-    HS_EXPECT_EQ(compiled.face_counts.size(), compiled0);
-    if (swept.vertices.size() != v0 || swept.face_counts.size() != f0 ||
-        swept.faces.size() != i0 || compiled.face_counts.size() != compiled0)
-      return false;
-  }
-  check_face_counts_consistent(swept);
-  check_indices_in_range(swept);
-  check_all_unit_vertices(swept, 1e-3f);
-  if (closed)
-    conway_tests::check_euler_characteristic_two(swept);
-  return true;
-}
-
 /** @brief Face-vertex offset table for a PolyMesh, in emission order. */
 inline void face_offsets(const PolyMesh &m, std::vector<size_t> &out) {
   out.assign(m.face_counts.size(), 0);
@@ -277,7 +249,7 @@ inline void test_chamfer_sweep_holds_topology() {
     Arena b(probe_b_buf, sizeof(probe_b_buf));
     const PolyMesh seed = finalize_site_seed(site, persist, a, b);
 
-    size_t v0 = 0, f0 = 0, i0 = 0, compiled0 = 0;
+    SweepFingerprint first;
     std::vector<math::Vector> prev_vertices;
     std::vector<math::Vector> prev_normal;
     std::vector<size_t> off;
@@ -291,7 +263,10 @@ inline void test_chamfer_sweep_holds_topology() {
       ScratchScope fa(a);
       ScratchScope fb(b);
       PolyMesh swept = MeshOps::chamfer(seed, a, b, t);
-      if (!sweep_holds_topology(swept, a, b, s, v0, f0, i0, compiled0, true))
+      const auto fingerprint = check_sweep_sample(swept, a, b, true);
+      if (s == 0)
+        first = fingerprint;
+      else if (!expect_same_fingerprint(fingerprint, first))
         break;
 
       face_offsets(swept, off);
@@ -313,11 +288,11 @@ inline void test_chamfer_sweep_holds_topology() {
     HS_EXPECT_LT(max_step, 0.1f);
     if (hs_test::stats().failed != failed_before)
       std::printf("    [chamfer-sweep] %s failed (raw F=%zu compiled=%zu)\n",
-                  site.name, f0, compiled0);
+                  site.name, first.f, first.compiled);
     else
       std::printf("  [chamfer-sweep] %s: V=%zu F=%zu I=%zu compiled=%zu "
                   "max_step=%.4f min_outward=%.4f min_normal_dot=%.4f\n",
-                  site.name, v0, f0, i0, compiled0,
+                  site.name, first.v, first.f, first.i, first.compiled,
                   static_cast<double>(max_step),
                   static_cast<double>(min_outward),
                   static_cast<double>(min_normal_dot));
@@ -379,7 +354,7 @@ inline void test_truncate001_birth_sweep_holds_topology() {
     Arena b(probe_b_buf, sizeof(probe_b_buf));
     const PolyMesh seed = finalize_site_seed(site, persist, a, b);
 
-    size_t v0 = 0, f0 = 0, i0 = 0, compiled0 = 0;
+    SweepFingerprint first;
     std::vector<math::Vector> prev_normal;
     std::vector<size_t> off;
     float min_area = 1e9f;
@@ -391,7 +366,10 @@ inline void test_truncate001_birth_sweep_holds_topology() {
       ScratchScope fa(a);
       ScratchScope fb(b);
       PolyMesh swept = MeshOps::truncate(seed, a, b, t);
-      if (!sweep_holds_topology(swept, a, b, s, v0, f0, i0, compiled0, true))
+      const auto fingerprint = check_sweep_sample(swept, a, b, true);
+      if (s == 0)
+        first = fingerprint;
+      else if (!expect_same_fingerprint(fingerprint, first))
         break;
 
       face_offsets(swept, off);
@@ -404,14 +382,14 @@ inline void test_truncate001_birth_sweep_holds_topology() {
     HS_EXPECT_TRUE(min_normal_dot > 0.0f);
     if (hs_test::stats().failed != failed_before)
       std::printf("    [truncate001] %s failed (raw F=%zu compiled=%zu)\n",
-                  site.name, f0, compiled0);
+                  site.name, first.f, first.compiled);
     else
       std::printf("  [truncate001] %s: birth=%.4f->%.2f V=%zu F=%zu I=%zu "
                   "compiled=%zu min_area=%.3e min_outward=%.4f "
                   "min_normal_dot=%.4f\n",
                   site.name, static_cast<double>(birth),
-                  static_cast<double>(TRUNCATE001_T_STAR), v0, f0, i0,
-                  compiled0, static_cast<double>(min_area),
+                  static_cast<double>(TRUNCATE001_T_STAR), first.v, first.f,
+                  first.i, first.compiled, static_cast<double>(min_area),
                   static_cast<double>(min_outward),
                   static_cast<double>(min_normal_dot));
   }
@@ -464,7 +442,7 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
     Arena b(probe_b_buf, sizeof(probe_b_buf));
     const PolyMesh seed = finalize_site_seed(site, persist, a, b);
 
-    size_t v0 = 0, f0 = 0, i0 = 0, compiled0 = 0;
+    SweepFingerprint first;
     std::vector<size_t> off;
     float min_area_near = 1e9f;
     for (int s = 0; s < SAMPLES; ++s) {
@@ -480,7 +458,10 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
       ScratchScope fa(a);
       ScratchScope fb(b);
       PolyMesh swept = MeshOps::truncate(seed, a, b, t);
-      if (!sweep_holds_topology(swept, a, b, s, v0, f0, i0, compiled0, false))
+      const auto fingerprint = check_sweep_sample(swept, a, b, false);
+      if (s == 0)
+        first = fingerprint;
+      else if (!expect_same_fingerprint(fingerprint, first))
         break;
       int nonfinite = 0;
       for (size_t i = 0; i < swept.vertices.size(); ++i)
@@ -503,13 +484,13 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
     HS_EXPECT_TRUE(min_area_near > 0.0f);
     if (hs_test::stats().failed != failed_before)
       std::printf("    [truncate50d] %s failed (raw F=%zu compiled=%zu)\n",
-                  site.name, f0, compiled0);
+                  site.name, first.f, first.compiled);
     else
       std::printf("  [truncate50d] %s: birth=%.4f -> %.4f through pinch V=%zu "
                   "F=%zu I=%zu compiled=%zu min_area_near=%.3e\n",
                   site.name, static_cast<double>(birth),
-                  static_cast<double>(TRUNCATE50D_T_STAR), v0, f0, i0,
-                  compiled0, static_cast<double>(min_area_near));
+                  static_cast<double>(TRUNCATE50D_T_STAR), first.v, first.f,
+                  first.i, first.compiled, static_cast<double>(min_area_near));
   }
 }
 

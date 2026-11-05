@@ -86,46 +86,6 @@ inline constexpr StepLegSite RELAX_LEG_SITES[] = {
         "dodecahedron_hk35_ambo_hk62_ambo"),
 };
 
-/** @brief Topology fingerprint of one sweep sample. */
-struct SweepFingerprint {
-  size_t v = 0;        /**< Raw vertex count. */
-  size_t f = 0;        /**< Raw face count. */
-  size_t i = 0;        /**< Raw face-index count. */
-  size_t compiled = 0; /**< Compiled face count. */
-};
-
-/**
- * @brief Fingerprints a swept mesh and runs the structural checks.
- * @param swept Sweep sample.
- * @param a Arena receiving the compiled mesh.
- * @param b Compile scratch arena.
- * @return The sample's fingerprint.
- */
-inline SweepFingerprint check_sweep_sample(const PolyMesh &swept, Arena &a,
-                                           Arena &b) {
-  MeshState compiled;
-  MeshOps::compile(swept, compiled, a, b);
-  check_face_counts_consistent(swept);
-  check_indices_in_range(swept);
-  check_all_unit_vertices(swept, 1e-3f);
-  conway_tests::check_euler_characteristic_two(swept);
-  return {swept.vertices.size(), swept.face_counts.size(), swept.faces.size(),
-          compiled.face_counts.size()};
-}
-
-/**
- * @brief Asserts a sweep sample fingerprint matches the opening one.
- * @param s Sample fingerprint.
- * @param first Opening-sample fingerprint.
- */
-inline void expect_same_fingerprint(const SweepFingerprint &s,
-                                    const SweepFingerprint &first) {
-  HS_EXPECT_EQ(s.v, first.v);
-  HS_EXPECT_EQ(s.f, first.f);
-  HS_EXPECT_EQ(s.i, first.i);
-  HS_EXPECT_EQ(s.compiled, first.compiled);
-}
-
 /**
  * @brief Builds a leg site's seed into a persistent arena.
  * @param site Site whose chain prefix is built.
