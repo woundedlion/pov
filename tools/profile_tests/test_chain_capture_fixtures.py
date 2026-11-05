@@ -57,6 +57,8 @@ class ChainCaptureFixtureTests(unittest.TestCase):
         self.assertIn("Pullback::Modulation::State", output)
         self.assertIn("Pullback::Interp::ModulationClockSnapshot", output)
         self.assertNotIn("reinterpret_cast", output)
+        self.assertIn("ChainSnapshot{5,{", output)
+        self.assertNotIn("ChainSnapshot::SCHEMA_VERSION", output)
 
     def test_corpus_uses_canonical_recipes_and_typed_clocks(self):
         for record in self.records:

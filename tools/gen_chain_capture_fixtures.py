@@ -169,7 +169,9 @@ def snapshot_cpp(snapshot):
         + "}}}"
     )
     return (
-        "ChainSnapshot{ChainSnapshot::SCHEMA_VERSION,{"
+        "ChainSnapshot{"
+        + str(snapshot["schemaVersion"])
+        + ",{"
         + chain
         + "},{"
         + parameters
