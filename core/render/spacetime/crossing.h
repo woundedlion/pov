@@ -54,10 +54,11 @@ HS_HOT_INLINE void crossings(int width, float x0, float x1, float t0, float t1,
       static_cast<int>(floorf((fmaxf(x0, x1) + reach) / HALF - t0));
   for (int branch = first; branch <= last; ++branch) {
     const float raw = (x0 - (branch + t0) * HALF) / approach;
-    if (raw < 0.0f && (!frame_start || x0 < (branch + t0) * HALF - reach))
+    if (raw < 0.0f &&
+        (!frame_start || fabsf(x0 - (branch + t0) * HALF) > reach))
       continue;
     if ((raw >= 1.0f && !frame_end) ||
-        (raw > 1.0f && x1 > (branch + t1) * HALF + reach))
+        (raw > 1.0f && fabsf(x1 - (branch + t1) * HALF) > reach))
       continue;
     const float s = hs::clamp(raw, 0.0f, 1.0f);
     emit(Crossing{t0 + span * s, s, branch});

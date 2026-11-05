@@ -130,6 +130,9 @@ inline void test_arm_passes_match_brute_force() {
  *         its column lies within a column of the frame. */
 inline void test_arm_passes_extend_to_frame_ends() {
   constexpr int W = 288;
+  PassList outruns;
+  Spacetime::crossings<W>(10.0f, 100.0f, 0.0f, 0.5f, true, true, outruns);
+  HS_EXPECT_EQ(outruns.passes.size(), size_t{0});
   PassList without, with;
   Spacetime::crossings<W>(-0.5f, -0.3f, 0.0f, 1.0f, false, true, without);
   Spacetime::crossings<W>(-0.5f, -0.3f, 0.0f, 1.0f, true, true, with);

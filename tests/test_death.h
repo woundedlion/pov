@@ -33,6 +33,7 @@
 #include "tests/effects/fixture.h"
 #include "tests/test_effects.h"
 #include "tests/test_shapeshifter_oracle.h"
+#include "tests/test_shader_chain.h"
 #include "tests/test_harness.h"
 
 #include "core/math/3dmath.h"
@@ -192,6 +193,9 @@ inline bool case_enabled(const Case &entry) {
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
+      {"shader_chain_missing_colorize", case_shader_chain_missing_colorize,
+       "workbench/shader/chain_host.h",
+       "(false) ShaderChain: compiled program has no colorize entry"},
       {"lens_phase_nonfinite_scale", case_lens_phase_nonfinite_scale,
        "core/animation/params.h",
        "(std::isfinite(scale)) Lens phase scale must be finite"},
@@ -2574,7 +2578,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     // Capture-only dispatch receives a validated snapshot recipe.
     {"tools/pullback_capture_native.cpp", 1},
     // Resource and endpoint ceilings follow the admitted parameter budget.
-    {"workbench/shader/chain_host.h", 4},
+    {"workbench/shader/chain_host.h", 3},
 };
 
 /**
@@ -2951,6 +2955,7 @@ inline int run_death_tests() {
     report_guard_coverage(cs, n, lines.data());
     return fixture.result();
   }
+  check_shader_chain_colorize_companion();
   if (shard.role == ShardSpec::Role::SHARD)
     std::remove(shard_record_path(shard.dir, shard.index).c_str());
 

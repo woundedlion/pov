@@ -7,6 +7,21 @@
 
 // Effects death fixtures and guard cases.
 
+inline void check_shader_chain_colorize_companion() {
+  using WB = hs_test::shader_chain_tests::ShaderChainWhiteBox;
+  reset_globals();
+  WB::FX effect;
+  effect.init();
+  HS_EXPECT_EQ(WB::colorize_index(effect), 3);
+  reset_globals();
+}
+
+inline void case_shader_chain_missing_colorize() {
+  using WB = hs_test::shader_chain_tests::ShaderChainWhiteBox;
+  WB::FX effect;
+  (void)WB::colorize_index(effect);
+}
+
 /** @brief PetalFlow traps when every ring slot is occupied. */
 inline void case_petalflow_ring_pool_full() {
   using WB = hs_test::effects_tests::PetalFlowWhiteBox;

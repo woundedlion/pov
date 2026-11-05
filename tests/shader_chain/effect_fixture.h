@@ -13,6 +13,9 @@ struct ShaderChainWhiteBox {
     return effect.program;
   }
   static In::ChainProgram &program(FX &effect) { return effect.program; }
+  static int colorize_index(FX &effect) {
+    return effect.find_colorize_tap().index;
+  }
   static void advance_without_render(FX &effect) { effect.advance_clocks(); }
   static Pixel palette_color(const FX &effect, float value) {
     return effect.generated_palettes.palette(In::Op::PaletteMode::TRIADIC)
