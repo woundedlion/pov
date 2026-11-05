@@ -2435,6 +2435,27 @@ inline void test_pullback_radial_ripple_endpoint_reuse() {
     CHECK(params, reordered);
   }
 
+  for (bool change_shape : {false, true}) {
+    cached.enabled = false;
+    params = {};
+    params.period = 143.0f;
+    reordered = {};
+    reordered.burst_count = 1;
+    reordered.waves[0] = {40.0f, 0};
+    prepare_radial_tables(params, reordered, cached, true);
+    HS_EXPECT_EQ(cached.count, uint8_t{1});
+    constexpr float SENTINEL = 1234.0f;
+    cached.groups[0].current[0].angle = SENTINEL;
+    advance_ripple(reordered, params);
+    if (change_shape)
+      params.strength = 0.125f;
+    prepare_radial_tables(params, reordered, cached, true);
+    if (change_shape)
+      HS_EXPECT_NE(cached.groups[0].previous[0].angle, SENTINEL);
+    else
+      HS_EXPECT_EQ(cached.groups[0].previous[0].angle, SENTINEL);
+  }
+
   RadialCurveKey key{{80.0f, 0.15f, 0.1f, 0.7f}, {20.0f, 4.0f}, 2};
   HS_EXPECT_TRUE(key.matches(key));
   for (size_t scalar = 0; scalar < key.shape.size(); ++scalar) {
