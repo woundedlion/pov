@@ -1933,9 +1933,9 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
    * @param prepared Per-node prepared state.
    * @return The last node's deferred color sample. */
   template <size_t Index, typename Input>
-  HS_HOT_INLINE static ColorSample
-  run_stage(const Input &input, const FrameState &ctx,
-            const PreparedTuple &prepared) {
+  HS_HOT_INLINE static ColorSample run_stage(const Input &input,
+                                             const FrameState &ctx,
+                                             const PreparedTuple &prepared) {
     using CurrentNode = NodeAt<Index>;
     static_assert(std::is_same_v<Input, typename CurrentNode::Input>,
                   "pullback pipeline: stage input mismatch");
