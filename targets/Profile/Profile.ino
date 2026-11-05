@@ -234,6 +234,9 @@ public:
         *this, {corpus.state, corpus.state_size});
     HS_CHECK(particles == corpus.particle_count,
              "MindSplatter replay particle count differs");
+#ifndef HS_MINDSPLATTER_REPLAY_AB
+    ReplayWhiteBox::prime_warp_history(*this);
+#endif
     char hash[21], score[21];
     hs::log("replay corpus: id=%s preset=%d traits=%lu particles=%u bytes=%lu "
             "hash=%s",
@@ -249,10 +252,12 @@ public:
             (unsigned long)corpus.search_adaptive_samples,
             (unsigned long)corpus.search_long_edges);
 #ifdef HS_MINDSPLATTER_REPLAY_AB
-    hs::log("replay compare: candidate vs generic device reference; "
-            "timing=combined");
+    hs::log(
+        "replay compare: candidate vs generic device reference; route=still; "
+        "timing=combined");
 #else
-    hs::log("replay compare: candidate vs host-generated fingerprint");
+    hs::log(
+        "replay compare: candidate vs host-generated fingerprint; route=column-time");
 #endif
   }
 #endif

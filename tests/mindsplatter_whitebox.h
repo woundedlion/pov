@@ -593,6 +593,10 @@ struct MindSplatterWhiteBox {
     HS_CHECK(index < ms.particle_system.active());
     return ms.particle_system.pool[index].color_seed;
   }
+  template <int W, int H>
+  static void prime_warp_history(MindSplatter<W, H> &ms) {
+    ms.warp_history.capture(ms.mobius.b);
+  }
   template <int W, int H> static void draw_particles(MindSplatter<W, H> &ms) {
     Canvas canvas(ms);
     ms.draw_particles(canvas);
