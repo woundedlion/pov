@@ -490,7 +490,8 @@ private:
     return lut_sample_pixel(colors, MINDSPLATTER_PALETTE_LUT_SIZE, index);
   }
 
-  static std::span<const math::Vector> emitter_vertices(BaseMesh base_mesh) {
+  HS_COLD_MEMBER static std::span<const math::Vector>
+  emitter_vertices(BaseMesh base_mesh) {
     switch (base_mesh) {
     case BaseMesh::TETRAHEDRON:
       return Solids::Tetrahedron::vertices;
@@ -508,7 +509,8 @@ private:
     }
   }
 
-  static std::span<const math::Vector> attractor_vertices(BaseMesh base_mesh) {
+  HS_COLD_MEMBER static std::span<const math::Vector>
+  attractor_vertices(BaseMesh base_mesh) {
     switch (base_mesh) {
     case BaseMesh::TETRAHEDRON:
       return Solids::Tetrahedron::vertices;
