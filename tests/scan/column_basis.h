@@ -322,16 +322,10 @@ inline void test_column_basis_segments_and_endpoints() {
   HS_EXPECT_TRUE(compared > 100);
 
   const auto fixed = [&](const math::Quaternion &q) {
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> pipeline;
-    {
-      Canvas canvas(fx);
-      ring(pipeline, canvas, q);
-    }
-    fx.advance_display();
-    std::vector<Pixel> out;
-    capture_frame<W, H>(fx, out);
-    return out;
+    return render_stub_frame<W, H>(
+        [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+          ring(pipeline, canvas, q);
+        });
   };
   auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
   Spacetime::set_flat_surface(true);
@@ -2249,15 +2243,10 @@ inline void test_mesh_wide_face_copies() {
   }
 }
 
-/**
- * @brief Adjacent moving and held faces use coincident shared-edge endpoints.
- * @param rotation Longitude rotating the fixture across the arm boundaries.
- * @details A face scanned alone is read from its copy.
- */
-inline void check_deformed_shared_edges(float rotation) {
-  constexpr int W = 288, H = 144;
-  ScratchScope guard(scratch_arena_a);
-  MeshState mesh;
+/** @brief Builds adjacent triangular faces at the requested longitude.
+ * @param mesh Destination mesh, backed by scratch arena A.
+ * @param rotation Longitude rotation in radians. */
+inline void build_shared_edge_mesh(MeshState &mesh, float rotation) {
   mesh.vertices.bind(scratch_arena_a, 5);
   for (const auto &v : {math::Vector(1, .3f, -.2f), math::Vector(1, -.2f, -.1f),
                         math::Vector(1, .2f, .1f), math::Vector(1, -.3f, .2f),
@@ -2273,6 +2262,18 @@ inline void check_deformed_shared_edges(float rotation) {
   }
   for (uint16_t i : {0, 1, 2, 2, 1, 3, 0, 2, 4})
     mesh.faces.push_back(i);
+}
+
+/**
+ * @brief Adjacent moving and held faces use coincident shared-edge endpoints.
+ * @param rotation Longitude rotating the fixture across the arm boundaries.
+ * @details A face scanned alone is read from its copy.
+ */
+inline void check_deformed_shared_edges(float rotation) {
+  constexpr int W = 288, H = 144;
+  ScratchScope guard(scratch_arena_a);
+  MeshState mesh;
+  build_shared_edge_mesh(mesh, rotation);
   const std::vector<math::Vector> current(mesh.vertices.begin(),
                                           mesh.vertices.end());
   const uint8_t moving[5] = {1, 0, 0, 0, 1};
@@ -2352,20 +2353,7 @@ inline void test_recorded_face_caps_match_measured_columns() {
   constexpr int W = 288, H = 144;
   ScratchScope guard(scratch_arena_a);
   MeshState mesh;
-  mesh.vertices.bind(scratch_arena_a, 5);
-  for (const auto &v : {math::Vector(1, .3f, -.2f), math::Vector(1, -.2f, -.1f),
-                        math::Vector(1, .2f, .1f), math::Vector(1, -.3f, .2f),
-                        math::Vector(1, .5f, .3f)})
-    mesh.vertices.push_back(v.normalized());
-  mesh.face_counts.bind(scratch_arena_a, 3);
-  mesh.face_offsets.bind(scratch_arena_a, 3);
-  mesh.faces.bind(scratch_arena_a, 9);
-  for (int f = 0; f < 3; ++f) {
-    mesh.face_counts.push_back(3);
-    mesh.face_offsets.push_back(3 * f);
-  }
-  for (uint16_t i : {0, 1, 2, 2, 1, 3, 0, 2, 4})
-    mesh.faces.push_back(i);
+  build_shared_edge_mesh(mesh, 0.0f);
   render_window_frame<W, H>(0, W, [&](Pipeline<W, H> &, Canvas &canvas) {
     uint8_t moving[5] = {1, 1, 1, 1, 1};
     uint16_t recorded[6]{}, measured[6]{}, picked[6]{};
