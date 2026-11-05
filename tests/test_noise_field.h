@@ -592,6 +592,9 @@ struct CurlPolicyFrame {
 
 struct CurlPolicyProvider {
   using FrameState = CurlPolicyFrame;
+  struct Binding {
+    using FrameState = CurlPolicyFrame;
+  };
   static const FastNoiseLite &noise(const FrameState &frame) {
     return frame.noise;
   }
@@ -609,41 +612,56 @@ template <math::NoiseBasis Basis, math::TangentLimit Limit, typename Integrator>
 inline void check_curl_policy_dispatch() {
   using Policy = Pullback::Surface::CurlNoise<CurlPolicyProvider, Basis,
                                               Integrator, Limit>;
+  static_assert(Policy::template PROVIDER_VALID<CurlPolicyProvider::Binding>);
   auto *volatile oracle = &Pullback::Surface::curl_noise;
   CurlPolicyFrame frame;
-  for (bool path_required : {false, true})
-    for (float scale : {0.25f, 1.9651489f, 8.0f})
-      for (float strength : {-0.5f, -0.0f, 0.15546875f})
-        for (float phase : {-0.125f, 0.0f, 0.375f}) {
-          frame.path_required = path_required;
-          frame.scale = scale;
-          frame.strength = strength;
-          frame.phase = phase;
-          const auto PREPARED = Policy::prepare(frame);
-          for (int i = 0; i < 12; ++i) {
-            const float Y = -1.0f + (2.0f * i + 1.0f) / 12.0f;
-            const float RADIUS = sqrtf(1.0f - Y * Y);
-            const math::Vector INPUT(RADIUS * cosf(i * 2.39996323f), Y,
-                                     RADIUS * sinf(i * 2.39996323f));
-            const auto EXPECTED =
-                oracle(INPUT, frame.noise, Basis, Integrator::VALUE, Limit,
-                       scale, PREPARED.loop_offset, strength, path_required);
-            const auto RESULT = Policy::apply(INPUT, frame, PREPARED);
+  for (int seed : {41, 1, 1337, -7631}) {
+    frame.noise.SetSeed(seed);
+    for (bool path_required : {false, true})
+      for (float scale : {0.25f, 1.9651489f, 8.0f})
+        for (float strength : {-0.5f, -0.0f, 0.0f, 0.15546875f})
+          for (float phase : {-0.125f, 0.0f, 0.375f}) {
+            frame.path_required = path_required;
+            frame.scale = scale;
+            frame.strength = strength;
+            frame.phase = phase;
+            const auto PREPARED = Policy::prepare(frame);
+            const math::Vector AXES[] = {math::X_AXIS, math::Y_AXIS,
+                                         math::Z_AXIS, -math::X_AXIS};
+            for (int i = 0; i < 16; ++i) {
+              const float Y = -1.0f + (2.0f * i + 1.0f) / 12.0f;
+              const float RADIUS = sqrtf(fmaxf(0.0f, 1.0f - Y * Y));
+              const math::Vector INPUT =
+                  i < 12 ? math::Vector(RADIUS * cosf(i * 2.39996323f), Y,
+                                        RADIUS * sinf(i * 2.39996323f))
+                         : AXES[i - 12];
+              const auto EXPECTED =
+                  oracle(INPUT, frame.noise, Basis, Integrator::VALUE, Limit,
+                         scale, PREPARED.loop_offset, strength, path_required);
+              const auto RESULT = Policy::apply(INPUT, frame, PREPARED);
 #if defined(HS_TEST_FAST_MATH)
-            HS_EXPECT_VEC(RESULT.sphere, EXPECTED.sphere, 3e-5f);
-            HS_EXPECT_NEAR(RESULT.path_length, EXPECTED.path_length, 1e-5f);
+              constexpr float SPHERE_TOLERANCE =
+                  std::is_same_v<Integrator, Pullback::Surface::Euler> ? 1e-6f
+                                                                       : 3e-5f;
+              constexpr float PATH_TOLERANCE =
+                  std::is_same_v<Integrator, Pullback::Surface::Euler> ? 1e-6f
+                                                                       : 1e-5f;
+              HS_EXPECT_VEC(RESULT.sphere, EXPECTED.sphere, SPHERE_TOLERANCE);
+              HS_EXPECT_NEAR(RESULT.path_length, EXPECTED.path_length,
+                             PATH_TOLERANCE);
 #else
-            HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.sphere.x),
-                         std::bit_cast<uint32_t>(EXPECTED.sphere.x));
-            HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.sphere.y),
-                         std::bit_cast<uint32_t>(EXPECTED.sphere.y));
-            HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.sphere.z),
-                         std::bit_cast<uint32_t>(EXPECTED.sphere.z));
-            HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.path_length),
-                         std::bit_cast<uint32_t>(EXPECTED.path_length));
+              HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.sphere.x),
+                           std::bit_cast<uint32_t>(EXPECTED.sphere.x));
+              HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.sphere.y),
+                           std::bit_cast<uint32_t>(EXPECTED.sphere.y));
+              HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.sphere.z),
+                           std::bit_cast<uint32_t>(EXPECTED.sphere.z));
+              HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.path_length),
+                           std::bit_cast<uint32_t>(EXPECTED.path_length));
 #endif
+            }
           }
-        }
+  }
 }
 
 template <math::NoiseBasis Basis, math::TangentLimit Limit>
