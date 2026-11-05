@@ -227,16 +227,13 @@ private:
   HS_COLD_MEMBER static void build(const ::Feedback::Style &style,
                                    float *out_fades, float *out_k) {
     const float fade = style.fade;
-    const float frame_shift =
-        fade == 0.0f ? 0.0f : style.hue_shift * -logf(fade);
+    const float frame_shift = style.frame_hue_shift();
     for (int l = 0; l < LEVELS; ++l) {
       const float elapsed = static_cast<float>(l) / STEPS_PER_FRAME;
       float *k = out_k + l * MATRIX;
       if (l == UNIT_LEVEL) {
         out_fades[l] = fade;
-        const float sc = math::fast_cbrt(fade * Q16_TO_UNIT);
-        for (int i = 0; i < MATRIX; ++i)
-          k[i] = style.hue_k[i] * sc;
+        ::Feedback::scale_hue_matrix(style.hue_k, fade, k);
         continue;
       }
       const float faded = powf(fade, elapsed);
@@ -246,9 +243,7 @@ private:
       if (shift != 0.0f)
         turn_to_unit_cos_sin(shift, ca, sa);
       hue_rotate_lms_matrix(ca, sa, k);
-      const float sc = math::fast_cbrt(faded * Q16_TO_UNIT);
-      for (int i = 0; i < MATRIX; ++i)
-        k[i] *= sc;
+      ::Feedback::scale_hue_matrix(k, faded, k);
     }
   }
 

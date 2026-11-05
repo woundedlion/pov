@@ -655,9 +655,7 @@ private:
     const bool hue_identity =
         feedback_style->hue_ca == 1.0f && feedback_style->hue_sa == 0.0f;
     if (hue_fade && !hue_identity) {
-      const float sc = math::fast_cbrt(fade * Q16_TO_UNIT);
-      for (int i = 0; i < 9; ++i)
-        ctx.hue_k[i] = feedback_style->hue_k[i] * sc;
+      ::Feedback::scale_hue_matrix(feedback_style->hue_k, fade, ctx.hue_k);
       ctx.mode = FlushMode::HUE;
     } else {
       ctx.mode = hue_fade ? FlushMode::PLAIN : FlushMode::GENERAL;

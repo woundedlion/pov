@@ -46,6 +46,17 @@ using SpaceFn = math::Vector (*)(const math::Vector &, const Style &);
  */
 using ColorFn = Pixel (*)(const Pixel &, float fade, const Style &);
 
+/** @brief Scales a hue matrix into the faded Q16 cbrt-LMS domain.
+ * @param k Source rotation matrix; may alias out.
+ * @param fade Brightness multiplier.
+ * @param out Receives the scaled matrix. */
+HS_HOT_INLINE inline void scale_hue_matrix(const float k[9], float fade,
+                                           float out[9]) {
+  const float scale = math::fast_cbrt(fade * Q16_TO_UNIT);
+  for (int i = 0; i < 9; ++i)
+    out[i] = k[i] * scale;
+}
+
 // --- Transform implementations ------------------------------------------------
 
 /**
@@ -148,6 +159,11 @@ struct Style {
     sync_noise();
   }
 
+  /** @return Hue shift in turns for one frame at the current fade. */
+  HS_HOT_INLINE float frame_hue_shift() const {
+    return fade == 0.0f ? 0.0f : hue_shift * -logf(fade);
+  }
+
   /**
    * @brief Precompute the fade-scaled hue rotation into hue_ca/hue_sa and hue_k.
    * @details Each frame applies `hue_shift * -log(fade)` turns, so accumulated
@@ -157,7 +173,7 @@ struct Style {
   void sync_hue() {
     HS_CHECK(fade >= 0.0f && fade <= 1.0f,
              "Feedback::Style::fade must be in [0, 1]");
-    float frame_shift = fade == 0.0f ? 0.0f : hue_shift * -logf(fade);
+    float frame_shift = frame_hue_shift();
     // Exact identity: a fast-math rsqrt would miss the plain-fade path.
     if (frame_shift == 0.0f) {
       hue_ca = 1.0f;
@@ -399,10 +415,8 @@ hue_fade_apply2(const float k[9], float r0, float g0, float b0, float r1,
 // matrix precomputed once per frame by Style::sync_hue.
 HS_FLASH_INLINE inline Pixel hue_fade(const Pixel &p, float fade,
                                       const Style &s) {
-  const float sc = math::fast_cbrt(fade * Q16_TO_UNIT);
   float k[9];
-  for (int i = 0; i < 9; ++i)
-    k[i] = s.hue_k[i] * sc;
+  scale_hue_matrix(s.hue_k, fade, k);
   return hue_fade_apply(k, p.r, p.g, p.b);
 }
 
