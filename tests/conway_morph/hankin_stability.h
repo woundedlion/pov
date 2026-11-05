@@ -8,153 +8,20 @@
 // diagnostics for the hankin legs.
 // ---------------------------------------------------------------------------
 
-/** @brief Branch update_hankin took for one dynamic vertex. */
-enum class HankinBranch : uint8_t {
-  INTERSECT, /**< Contact-plane intersection accepted. */
-  COLLAPSED, /**< is_flat or zero-length edge: snapped to the corner. */
-  FALLBACK, /**< Degenerate or far near-parallel intersection: edge-midpoint mean. */
-  BLENDED, /**< Partial fallback: 0 < fallback_blend < 1. */
-};
+using MeshOps::HankinBranch;
+using MeshOps::HankinSolve;
 
-/** @brief One dynamic vertex's solved position and the branch that made it. */
-struct HankinSolve {
-  math::Vector pos;
-  HankinBranch branch;
-  /** dist^2(star, corner) / max(dist^2(m, corner)); full fallback requires
-   * far_ratio >= STAR_FAR_RATIO_SQ and near-parallel contact planes
-   * (parallel_gate = 1). Zero on degenerate and collapsed branches. */
-  float far_ratio = 0;
-};
-
-/** @brief Mirror of update_hankin's local blend_above (core/mesh/hankin.h). */
-inline float hankin_blend_above(float value, float start, float end) {
-  const float t =
-      std::max(0.0f, std::min(1.0f, (value - start) / (end - start)));
-  return math::quintic_kernel(t);
-}
-
-/**
- * @brief Mirrors MeshOps::update_hankin's per-vertex solve, exposing the
- *        branch each dynamic vertex takes.
- * @param compiled Baked hankin topology.
- * @param angle Contact angle in radians.
- * @param out Filled with one entry per dynamic instruction.
- * @details Reproduces the regularization anchor, the plane_cross_sq parallel
- *   gate and the fallback blend; positions must track update_hankin within HANKIN_MIRROR_TOL.
- */
+/** Solves each dynamic vertex and retains its branch diagnostics. */
 inline void hankin_solve(const CompiledHankin &compiled, float angle,
                          std::vector<HankinSolve> &out) {
   const bool is_flat = std::abs(angle) < math::TOLERANCE;
   const float cos_ha = cosf(angle * 0.5f);
   const float sin_ha = sinf(angle * 0.5f);
-
-  out.assign(compiled.dynamic_instructions.size(), HankinSolve{});
-  for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
-    const HankinInstruction &instr = compiled.dynamic_instructions[i];
-    const math::Vector p_corner = compiled.corner(instr.v_corner);
-    const math::Vector cn = math::normalized_or(p_corner, p_corner);
-
-    if (is_flat) {
-      out[i] = {cn, HankinBranch::COLLAPSED};
-      continue;
-    }
-
-    const math::Vector m1 = compiled.static_vertices[instr.idx_m1];
-    const math::Vector m2 = compiled.static_vertices[instr.idx_m2];
-    const math::Vector cross1 =
-        math::cross(compiled.corner(instr.v_prev), p_corner);
-    const math::Vector cross2 =
-        math::cross(p_corner, compiled.corner(instr.v_next));
-    if (math::dot(cross1, cross1) < math::EPS_CROSS_SQ ||
-        math::dot(cross2, cross2) < math::EPS_CROSS_SQ) {
-      out[i] = {cn, HankinBranch::COLLAPSED};
-      continue;
-    }
-
-    const math::Quaternion q1(cos_ha, sin_ha * m1.x, sin_ha * m1.y,
-                              sin_ha * m1.z);
-    const math::Quaternion q2(cos_ha, -sin_ha * m2.x, -sin_ha * m2.y,
-                              -sin_ha * m2.z);
-    math::Vector intersect = math::cross(math::rotate(cross1.normalized(), q1),
-                                         math::rotate(cross2.normalized(), q2));
-    const float plane_cross_sq = math::dot(intersect, intersect);
-
-    math::Vector fallback = math::normalized_or(m1 + m2, cn);
-    if (math::dot(fallback, p_corner) < 0.0f)
-      fallback = -fallback;
-    const math::Vector oriented_intersect =
-        intersect * math::dot(intersect, p_corner);
-    const math::Vector raw_star =
-        math::normalized_or(oriented_intersect, fallback);
-    const float local_sq = std::max(math::distance_squared(m1, cn),
-                                    math::distance_squared(m2, cn));
-    if (!(local_sq > math::EPS_LEN_SQ)) {
-      out[i] = {fallback, HankinBranch::FALLBACK, 0.0f};
-      continue;
-    }
-
-    const float raw_ratio_sq = math::distance_squared(raw_star, cn) / local_sq;
-    const float conditioned = hankin_blend_above(
-        raw_ratio_sq, MeshOps::HANKIN_CONDITIONED_NEAR_RATIO_SQ,
-        MeshOps::HANKIN_CONDITIONED_FAR_RATIO_SQ);
-    const float anchor =
-        std::max(0.0f,
-                 MeshOps::HANKIN_PARALLEL_REGULARIZATION_SQ - plane_cross_sq) +
-        conditioned * std::max(0.0f, MeshOps::HANKIN_CONDITIONED_CLEAR_SQ -
-                                         plane_cross_sq);
-    intersect =
-        math::normalized_or(oriented_intersect + fallback * anchor, fallback);
-
-    const float far_ratio = math::distance_squared(intersect, cn) / local_sq;
-    const float parallel_gate = hankin_blend_above(
-        -plane_cross_sq, -MeshOps::HANKIN_PARALLEL_GATE_HI_SQ,
-        -MeshOps::HANKIN_PARALLEL_GATE_LO_SQ);
-    const float fallback_blend =
-        hankin_blend_above(far_ratio, MeshOps::STAR_FAR_BLEND_START_RATIO_SQ,
-                           MeshOps::STAR_FAR_RATIO_SQ) *
-        parallel_gate;
-    if (fallback_blend >= 1.0f) {
-      out[i] = {fallback, HankinBranch::FALLBACK, far_ratio};
-      continue;
-    }
-    if (fallback_blend > 0.0f) {
-      out[i] = {math::normalized_or(intersect * (1.0f - fallback_blend) +
-                                        fallback * fallback_blend,
-                                    fallback),
-                HankinBranch::BLENDED, far_ratio};
-      continue;
-    }
-    out[i] = {intersect, HankinBranch::INTERSECT, far_ratio};
-  }
-}
-
-/** Chord tolerance between hankin_solve and MeshOps::update_hankin; the two
- * evaluate identical expressions under independently contracted float
- * arithmetic, so bitwise agreement is not guaranteed. */
-inline constexpr float HANKIN_MIRROR_TOL = 1e-5f;
-
-/**
- * @brief Pins hankin_solve's star points to MeshOps::update_hankin's.
- * @param compiled Baked hankin topology.
- * @param angle Contact angle in radians.
- * @param arena Scratch arena backing the reference mesh; rewound on return.
- * @return Largest chord between a mirrored and a shipping star point.
- */
-inline float hankin_check_mirror(CompiledHankin &compiled, float angle,
-                                 Arena &arena) {
-  ScratchScope guard(arena);
-  std::vector<HankinSolve> mirror;
-  hankin_solve(compiled, angle, mirror);
-  PolyMesh ref;
-  MeshOps::update_hankin(compiled, ref, arena, angle);
-  const size_t base = compiled.static_vertices.size();
-  HS_EXPECT_EQ(ref.vertices.size(), base + mirror.size());
-  float max_chord = 0;
-  for (size_t i = 0; i < mirror.size() && base + i < ref.vertices.size(); ++i)
-    max_chord = hs_test::fold_worst(
-        max_chord, (ref.vertices[base + i] - mirror[i].pos).magnitude());
-  HS_EXPECT_LT(max_chord, HANKIN_MIRROR_TOL);
-  return max_chord;
+  out.clear();
+  out.reserve(compiled.dynamic_instructions.size());
+  for (const auto &instr : compiled.dynamic_instructions)
+    out.push_back(
+        MeshOps::solve_hankin_vertex(compiled, instr, is_flat, cos_ha, sin_ha));
 }
 
 /**
@@ -323,19 +190,6 @@ inline void test_hankin_sweep_vertex_stability() {
     for (const auto &point : arrival)
       packed_arrival.push_back(math::Snorm3::encode(point.pos).decode());
 
-    // Every metric reads hankin_solve; pin it to the shipping solver first.
-    float mirror_chord =
-        std::max(hankin_check_mirror(compiled, 0.0f, b),
-                 hankin_check_mirror(compiled, site.theta_star, b));
-    for (int s = 0; s < SAMPLES; ++s) {
-      const float u = static_cast<float>(s) / (SAMPLES - 1);
-      const float span = site.theta_star - THETA_EPS;
-      mirror_chord = std::max(
-          {mirror_chord, hankin_check_mirror(compiled, THETA_EPS + span * u, b),
-           hankin_check_mirror(
-               compiled, THETA_EPS + span * math::ease_in_out_sin(u), b)});
-    }
-
     // Guard headroom: the far-star guard is scaled by the corner's local edge
     // scale, so on coarse seeds STAR_FAR_RATIO_SQ * local_sq can exceed the
     // 4.0 maximum squared chord, making the guard unreachable for that vertex.
@@ -360,9 +214,6 @@ inline void test_hankin_sweep_vertex_stability() {
                 seed.face_counts.size(), collapsed.size(),
                 compiled.face_counts.size(), unreachable, collapsed.size(),
                 max_local_sq);
-    std::printf(
-        "      mirror vs update_hankin: max chord %.3e over %d angles\n",
-        mirror_chord, 2 * SAMPLES + 2);
 
     Arena leg_arena(morph_aux_buf, sizeof(morph_aux_buf));
     Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
