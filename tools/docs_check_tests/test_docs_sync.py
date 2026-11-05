@@ -57,7 +57,7 @@ class TreeSync(unittest.TestCase):
 
     def test_grouped_names_globs_and_implicit_parents_are_preserved(self):
         text = ("<!-- docs-check: tree exhaustive -->\n```\n"
-                "├── core/\n│   ├── one.h / two.h   Shared description\n"
+                "├── core/\n│   ├── one.h  /  two.h   Shared description\n"
                 "│   └── *.cpp           Sources\n"
                 "└── .github/workflows/  CI\n```\n")
         paths = entries("core/two.h", "core/a.cpp", ".github/workflows/ci.yml")

@@ -41,8 +41,8 @@ def parse_rows(body: list[str]) -> list[Row]:
         names = dc.tree_names(match["rest"])
         if not names or depth > len(stack):
             raise ValueError(f"invalid generated tree row: {line}")
-        name_text = " / ".join(names)
-        row = Row(names, match["rest"][len(name_text):])
+        name_span = re.match(r"\S+(?:\s+/\s+\S+)*", match["rest"])
+        row = Row(names, match["rest"][name_span.end():])
         (roots if depth == 0 else stack[depth - 1].children).append(row)
         stack[depth:] = [row]
     return roots
