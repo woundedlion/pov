@@ -353,6 +353,7 @@ inline void test_pipeline_ref_timed_defaults() {
     HS_EXPECT_EQ(ref->copy_count(), 1);
     HS_EXPECT_FALSE(ref->rigid_world_stages());
     HS_EXPECT_FALSE(ref->dense_screen_safe());
+    HS_EXPECT_FALSE(ref->column_taps_ready());
     ref->select_copy(2);
   }
   const auto world = timed.world_at(canvas, point, 0.375f);
@@ -384,6 +385,11 @@ inline void test_pipeline_ref_timed_defaults() {
 }
 
 struct TimedRefStages : TimedRefRecorder {
+  static constexpr bool any_3d_history = true;
+  int recorded = 0;
+  void record_world_sample(Canvas &, const math::Vector &, float, float) {
+    ++recorded;
+  }
   static constexpr bool world_transform_is_identity = false;
   static constexpr bool has_temporal_motion = false;
   static constexpr bool rigid_world_stages = true;
@@ -432,6 +438,7 @@ inline void test_pipeline_ref_timed_stages() {
   const Pixel color(321, 654, 987);
   HS_EXPECT_FALSE(copy.world_transform_is_identity);
   HS_EXPECT_FALSE(copy.has_temporal_motion);
+  HS_EXPECT_TRUE(copy.column_taps_ready());
   HS_EXPECT_TRUE(copy.rigid_world_stages());
   HS_EXPECT_TRUE(copy.dense_screen_safe());
   HS_EXPECT_EQ(copy.sweep_arc(), 0.125f);
@@ -476,6 +483,16 @@ inline void test_pipeline_ref_timed_stages() {
   HS_EXPECT_EQ(sink.column, 3);
   expect_timed_ref_registers(sink, canvas, color, 4.5f, 0.75f);
   HS_EXPECT_EQ(sink.time, 0.625f);
+  copy.record_world_sample(canvas, point, 0.0f, 0.5f);
+  HS_EXPECT_EQ(sink.recorded, 1);
+  copy.record_world_sample(canvas, point, 0.0f, 0.5f, 3, 3.25f);
+  HS_EXPECT_EQ(sink.recorded, 2);
+  copy.record_world_sample(canvas, point, 0.0f, 0.5f, 4, 3.25f);
+  HS_EXPECT_EQ(sink.recorded, 2);
+  copy.record_world_sample(canvas, point, 0.0f, 0.5f, 0, 8.5f);
+  HS_EXPECT_EQ(sink.recorded, 3);
+  copy.record_world_sample(canvas, point, 0.0f, 0.5f, 7, 8.5f);
+  HS_EXPECT_EQ(sink.recorded, 3);
 }
 
 /**
