@@ -21,7 +21,7 @@ int main() {
   HS_EXPECT_TRUE(
       math::set_display_geometry(.02f * math::PI_F, .98f * math::PI_F));
   math::init_geometry_luts<288, 144>();
-  HS_EXPECT_TRUE((AshCloud<288, 144>::camera_column_admitted()));
+  HS_EXPECT_FALSE((AshCloud<288, 144>::camera_column_admitted()));
   hs_test::composed_effect_tests::test_ash_cloud_shared_camera_qualification();
   return fixture.result() ? 1 : 0;
 }

@@ -298,29 +298,16 @@ public:
      * @return Straight-alpha color. */
     Color4 operator()(float row_sine, float row_cosine) const {
       const math::Vector VIEW(row_sine * cosine, row_cosine, row_sine * sine);
-      if (!shared)
+      if (!shared || !factored)
         return AshCloud::shade(VIEW, *frame);
-      math::Vector rotated;
-      if (factored)
-        rotated = row_sine * equator + row_cosine * up;
-      else
-        rotated = Base::RenderPipeline::template NodeAt<0>::run(
-                      Pullback::SphereSample{VIEW, 0.0f}, frame->ctx,
-                      std::get<0>(frame->prepared))
-                      .dir;
-      return AshCloud::shade_shared_rotated(rotated, *frame);
+      const math::Vector ROTATED = row_sine * equator + row_cosine * up;
+      return AshCloud::shade_shared_rotated(ROTATED, *frame);
     }
   };
 
-  /** @brief Whether the current grid admits factored camera arithmetic.
-   * @return True for the qualified physical display grid. */
-  static bool camera_column_admitted() {
-    return W == 288 && H == 144 &&
-           math::DISPLAY_NORTH_PHI == .02f * math::PI_F &&
-           math::DISPLAY_SOUTH_PHI == .98f * math::PI_F &&
-           math::DisplayGeometry<H>::NORTH_PHI == .02f * math::PI_F &&
-           math::DisplayGeometry<H>::SOUTH_PHI == .98f * math::PI_F;
-  }
+  /** @brief Whether factored camera arithmetic is numerically qualified.
+   * @return False; columns use the canonical camera rotation. */
+  static bool camera_column_admitted() { return false; }
 
   /** @brief Selects the shared shader and factors its camera once per column.
    * @param frame Prepared column.

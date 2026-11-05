@@ -212,17 +212,12 @@ inline void test_ash_cloud_shared_column_fallbacks() {
   }
 }
 
-/** @brief Camera factoring admits only the qualified physical resolution and endpoints. */
+/** @brief Camera columns use canonical rotation for every display geometry. */
 inline void test_ash_cloud_camera_column_admission() {
   using namespace ashcloud_shared_tests;
   HS_EXPECT_FALSE((AshCloud<96, 20>::camera_column_admitted()));
   math::init_geometry_luts<288, 144>();
-  const bool PHYSICAL =
-      math::DISPLAY_NORTH_PHI == .02f * math::PI_F &&
-      math::DISPLAY_SOUTH_PHI == .98f * math::PI_F &&
-      math::DisplayGeometry<144>::NORTH_PHI == .02f * math::PI_F &&
-      math::DisplayGeometry<144>::SOUTH_PHI == .98f * math::PI_F;
-  HS_EXPECT_EQ(FX::camera_column_admitted(), PHYSICAL);
+  HS_EXPECT_FALSE(FX::camera_column_admitted());
 #if HS_RUNTIME_DISPLAY_GEOMETRY && !defined(HS_TEST_H_OFFSET)
   const float SAVED_NORTH = math::DISPLAY_NORTH_PHI;
   const float SAVED_SOUTH = math::DISPLAY_SOUTH_PHI;
@@ -234,12 +229,9 @@ inline void test_ash_cloud_camera_column_admission() {
                   .98f * math::PI_F}}) {
     HS_EXPECT_TRUE(
         math::set_display_geometry(ENDPOINTS.first, ENDPOINTS.second));
-    const bool EXPECTED = ENDPOINTS.first == .02f * math::PI_F &&
-                          ENDPOINTS.second == .98f * math::PI_F;
-    if (!EXPECTED)
-      HS_EXPECT_FALSE(FX::camera_column_admitted());
+    HS_EXPECT_FALSE(FX::camera_column_admitted());
     math::init_geometry_luts<288, 144>();
-    HS_EXPECT_EQ(FX::camera_column_admitted(), EXPECTED);
+    HS_EXPECT_FALSE(FX::camera_column_admitted());
   }
   HS_EXPECT_TRUE(math::set_display_geometry(SAVED_NORTH, SAVED_SOUTH));
   math::init_geometry_luts<288, 144>();
