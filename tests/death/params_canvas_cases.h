@@ -393,15 +393,15 @@ inline void case_set_clip_x_out_of_bounds() {
 inline void case_render_x_window_nested() {
   DeathEffect fx;
   Canvas canvas(fx);
-  TimeWindow outer(canvas, 0, opaque(4));
-  TimeWindow inner(canvas, 4, 8);
+  TimeWindowScope outer(canvas, 0, opaque(4));
+  TimeWindowScope inner(canvas, 4, 8);
 }
 
 /** @brief Death case: a render-x window cannot reach past the half-turn. */
 inline void case_render_x_window_past_half_turn() {
   DeathEffect fx;
   Canvas canvas(fx);
-  TimeWindow window(canvas, 0, opaque(fx.width() / 2 + 1));
+  TimeWindowScope window(canvas, 0, opaque(fx.width() / 2 + 1));
 }
 
 /** @brief A render-x window rejects an invalid arm after valid arms. */
@@ -409,9 +409,9 @@ inline void case_render_x_window_bad_arm() {
   DeathEffect fx;
   Canvas canvas(fx);
   for (int arm : {-1, 0, 1}) {
-    TimeWindow valid(canvas, 0, 4, opaque(arm));
+    TimeWindowScope valid(canvas, 0, 4, opaque(arm));
   }
-  TimeWindow invalid(canvas, 0, 4, opaque(2));
+  TimeWindowScope invalid(canvas, 0, 4, opaque(2));
 }
 
 /**

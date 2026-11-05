@@ -59,7 +59,7 @@ struct EffectConfig {
  */
 class Effect : public PresetHost {
   friend class Canvas;
-  friend class TimeWindow;
+  friend class TimeWindowScope;
 
 public:
   /// Per-frame callback run as a Canvas opens, before the stale-pixel clear.
@@ -409,7 +409,7 @@ private:
   ClipRegion::Key<> render_clip_key{}; ///< Exact cached clip content.
   int render_y_start = 0;
   int render_y_end = 0;
-  Spacetime::TimeWindow time_window{}; /**< Open TimeWindow, if any. */
+  Spacetime::TimeWindow time_window{}; /**< Open TimeWindowScope, if any. */
   bool canvas_active = false; /**< A Canvas is currently drawing a frame. */
 
   /** @brief Refreshes the clip identity and cached render bounds. */
@@ -581,7 +581,7 @@ public:
   }
 
   /**
-   * @brief Gets the window of the open TimeWindow.
+   * @brief Gets the window of the open TimeWindowScope.
    * @return The open window, or an inactive one admitting every column.
    */
   [[nodiscard]] inline const Spacetime::TimeWindow &time_window() const {
@@ -733,7 +733,7 @@ private:
   }
 #endif
 
-  friend class TimeWindow;
+  friend class TimeWindowScope;
 
   Effect &effect; /**< Reference to the owning Effect instance. */
   /// Column-time state installed for this frame's scans; null for none.
@@ -750,7 +750,7 @@ private:
  * @details Leaves the clip and its culls untouched; only windowed walks such as
  * `Scan::Shader::walk_grid` skip the columns outside it. Windows do not nest.
  */
-class TimeWindow {
+class TimeWindowScope {
 public:
   /**
    * @brief Opens the window on a drawing canvas.
@@ -759,7 +759,8 @@ public:
    * @param end One past the last half-turn column, at most half the width.
    * @param arm The one arm admitted, 0 or 1, or -1 for both.
    */
-  HS_FLASH_MEMBER TimeWindow(Canvas &canvas, int begin, int end, int arm = -1)
+  HS_FLASH_MEMBER TimeWindowScope(Canvas &canvas, int begin, int end,
+                                  int arm = -1)
       : effect(canvas.effect) {
     HS_CHECK(!effect.time_window.active, "render-x windows do not nest");
     HS_CHECK(begin >= 0 && begin <= end && 2 * end <= effect.frame_width,
@@ -770,10 +771,10 @@ public:
   }
 
   /** @brief Closes the window, admitting every column again. */
-  ~TimeWindow() { effect.time_window = {}; }
+  ~TimeWindowScope() { effect.time_window = {}; }
 
-  TimeWindow(const TimeWindow &) = delete;
-  TimeWindow &operator=(const TimeWindow &) = delete;
+  TimeWindowScope(const TimeWindowScope &) = delete;
+  TimeWindowScope &operator=(const TimeWindowScope &) = delete;
 
 private:
   Effect &effect; /**< Effect whose frame the window restricts. */

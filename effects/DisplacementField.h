@@ -609,8 +609,8 @@ private:
       for (int k = 0; k < windows; ++k) {
         sweep.middle = force_column_reference ? static_cast<float>(k) / windows
                                               : (k + 0.5f) / windows;
-        TimeWindow window(canvas, k * (W / 2) / windows,
-                          (k + 1) * (W / 2) / windows);
+        TimeWindowScope window(canvas, k * (W / 2) / windows,
+                               (k + 1) * (W / 2) / windows);
         draw_pass<true>(canvas, basis, column_basis, sweep.opacity[1], n_balls,
                         &sweep);
       }
@@ -920,7 +920,7 @@ private:
       for (int k = 0; k < SWEEP_WINDOWS; ++k) {
         if (k)
           apply_second_window(cache);
-        TimeWindow window(canvas, k * W / 4, (k + 1) * W / 4);
+        TimeWindowScope window(canvas, k * W / 4, (k + 1) * W / 4);
         Scan::DistortedRingStack::draw<W, H>(
             filters, canvas, params.num_rings, rings.shapes(), rings.slot_map(),
             rings.size(), *candidates, ring_shader);

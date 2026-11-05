@@ -215,7 +215,7 @@ HS_O3_BEGIN
  * @param projections Per-column projection storage for COLUMN_TIME.
  * @details Under a rotated basis a pole-LOD block's slack grows by the
  * rotation between its first and last columns, and a block straddling an arm
- * boundary is walked per column. Only the columns an open TimeWindow
+ * boundary is walked per column. Only the columns an open TimeWindowScope
  * admits are written.
  */
 template <int W, int H, typename PipelineT, bool MinimalFragment,
@@ -1768,7 +1768,7 @@ HS_O3_BEGIN
  * the callback hoists.
  * canvas.debug() does not tint a mesh. Under the canvas's column-time basis
  * each face's bounds are swept by its arc and every pixel is evaluated along
- * its column's rotated direction. An open TimeWindow limits the scan to its
+ * its column's rotated direction. An open TimeWindowScope limits the scan to its
  * columns; in a deformation scan, Scan::ColumnBasis::mesh.selected_faces
  * selects the faces each pass draws.
  */

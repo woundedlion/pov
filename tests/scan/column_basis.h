@@ -1148,7 +1148,7 @@ inline void test_object_column_basis_matches_rotated_meridian() {
     float worst = 0.0f;
     {
       Canvas canvas(fx);
-      std::optional<TimeWindow> scope;
+      std::optional<TimeWindowScope> scope;
       if (window.active)
         scope.emplace(canvas, window.begin, window.end);
       int y = -1, last = W;
@@ -1214,7 +1214,7 @@ inline void test_ring_stack_honours_render_window() {
       Canvas canvas(fx);
       const Scan::ColumnBasis fixed;
       Scan::ColumnBasisScope time(canvas, rotated ? swept : fixed);
-      std::optional<TimeWindow> scope;
+      std::optional<TimeWindowScope> scope;
       if (window.active)
         scope.emplace(canvas, window.begin, window.end);
       const math::Basis frame =

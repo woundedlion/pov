@@ -1417,7 +1417,7 @@ private:
   /**
    * @brief Shades the B field, each column against the unrotated lattice from
    *        its frame at its sweep time.
-   * @param canvas Destination canvas; an open TimeWindow limits the columns.
+   * @param canvas Destination canvas; an open TimeWindowScope limits the columns.
    * @param basis The frame's per-column lattice frames.
    * @param hot1 One-ring renderable flags.
    * @param hot2 Two-ring renderable flags.

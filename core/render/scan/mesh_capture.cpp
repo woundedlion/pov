@@ -364,7 +364,7 @@ HS_HOT_FLASH_MEMBER void scan_copy(const SweptMesh &d,
   ColumnBasisScope scope(d.canvas, face_time);
   d.selected[copy.face] = Scan::detail::FacePass::ARM_COPY;
   {
-    TimeWindow window(d.canvas, 0, d.canvas.width() / 2, arm);
+    TimeWindowScope window(d.canvas, 0, d.canvas.width() / 2, arm);
     d.callbacks.draw(d.callbacks.scan_context);
   }
   d.selected[copy.face] = Scan::detail::FacePass::SKIPPED;
@@ -651,7 +651,8 @@ HS_HOT_FLASH_MEMBER void scan_swept_faces(const SweptMesh &d) {
   // Faces reaching a pole draw through the two halves of each arm.
   for (int part = 0; polar && part < 2; ++part) {
     if (place_pass(d, tables, POLAR_FACE, part)) {
-      TimeWindow window(d.canvas, part * (half / 2), (part + 1) * (half / 2));
+      TimeWindowScope window(d.canvas, part * (half / 2),
+                             (part + 1) * (half / 2));
       d.callbacks.draw(d.callbacks.scan_context);
 #if HS_ENABLE_TEST_HOOKS
       ++mesh_capture_counters.scans;
@@ -670,7 +671,7 @@ HS_HOT_FLASH_MEMBER void scan_swept_faces(const SweptMesh &d) {
   }
   for (const int arm : {0, 1}) {
     if (place_pass(d, tables, SEAM_FACE, arm)) {
-      TimeWindow window(d.canvas, 0, half, arm);
+      TimeWindowScope window(d.canvas, 0, half, arm);
       d.callbacks.draw(d.callbacks.scan_context);
 #if HS_ENABLE_TEST_HOOKS
       ++mesh_capture_counters.scans;

@@ -350,7 +350,7 @@ private:
   /**
    * @brief Rasterizes the current species with SSAA against the lattice
    *        oriented at the current endpoint.
-   * @param canvas Destination canvas; an open TimeWindow limits the columns.
+   * @param canvas Destination canvas; an open TimeWindowScope limits the columns.
    */
   void shade(Canvas &canvas) {
     auto lattice = [this] {
@@ -377,7 +377,7 @@ private:
   /**
    * @brief Rasterizes the current species with SSAA, each column against the
    *        lattice at its sweep time.
-   * @param canvas Destination canvas; an open TimeWindow limits the columns.
+   * @param canvas Destination canvas; an open TimeWindowScope limits the columns.
    * @param basis The frame's per-column lattice frames.
    */
   HS_HOT_FLASH_MEMBER void shade_columns(Canvas &canvas,

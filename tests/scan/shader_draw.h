@@ -455,7 +455,7 @@ inline void test_shader_render_x_window_matches_predicate() {
               });
       };
       if (window.active) {
-        TimeWindow scope(c, window.begin, window.end);
+        TimeWindowScope scope(c, window.begin, window.end);
         HS_EXPECT_EQ(c.time_window().begin, window.begin);
         HS_EXPECT_EQ(c.time_window().end, window.end);
         draw();

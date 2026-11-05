@@ -167,7 +167,7 @@ constexpr TimeSlab time_slab(int slab, int count, int width) {
  *        the substeps that end its share of the frame.
  * @tparam SUBSTEPS Substeps per frame.
  * @tparam SLABS Slab count, a divisor of `SUBSTEPS`.
- * @param canvas Target canvas; each slab shades under a TimeWindow.
+ * @param canvas Target canvas; each slab shades under a TimeWindowScope.
  * @param advance Callable (int substeps) advancing the simulation.
  * @param shade Callable () shading the current state into the open window.
  * @details With temporal sampling disabled, runs every substep and then one
@@ -185,7 +185,7 @@ HS_HOT_INLINE void simulate_in_slabs(Canvas &canvas, Advance &&advance,
   for (int slab = 0; slab < SLABS; ++slab) {
     advance(SUBSTEPS / SLABS);
     const TimeSlab columns = time_slab(slab, SLABS, canvas.width());
-    ::TimeWindow window(canvas, columns.begin, columns.end);
+    TimeWindowScope window(canvas, columns.begin, columns.end);
     shade();
   }
 }

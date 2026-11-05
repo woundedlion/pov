@@ -313,7 +313,7 @@ reach beyond the shared pass use a `Scan::FaceArmCopy` with its own vertices
 on each arm. Across-cut vertex times continue the incident edges' times.
 
 A face reaching a pole is placed in each half of the arm under a
-`TimeWindow`. A polar or wide face whose motion would make those placements
+`TimeWindowScope`. A polar or wide face whose motion would make those placements
 stray too far instead uses `Scan::PoleFaceSweep`: it retains vertex
 worldlines and is scanned one column pair at a time. The swept face scanner
 prepares edge-plane polynomials and evaluates them at that pair's time.
@@ -430,7 +430,7 @@ its static `sample` function.
 
 #### Stepped simulations
 
-A `TimeWindow` ([canvas.h](../core/render/canvas.h)) restricts window-aware
+A `TimeWindowScope` ([canvas.h](../core/render/canvas.h)) restricts window-aware
 column loops to the half-turn range [begin, end) on both arms, optionally
 restricted to one arm, inside the driver's fixed clip. Windows do not nest;
 closing one admits every column again. `Scan::Shader::walk_grid`,
