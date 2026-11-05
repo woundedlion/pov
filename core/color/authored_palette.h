@@ -154,3 +154,6 @@ private:
   bool initialized = false;
   uint32_t bakes = 0;
 };
+
+static_assert(AuthoredPaletteResources::named_palette_count() ==
+              std::size(AUTHORED_PALETTE_NAME_IDS));
