@@ -1885,7 +1885,8 @@ inline void test_millefiori_radial_table_interval() {
   for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
     const auto FRAME = interval.at(fraction);
     const auto &resource = FRAME.resources.template get<"displace">();
-    HS_EXPECT_EQ(resource.radial_tables, TABLE);
+    if (fraction > 0.0f)
+      HS_EXPECT_EQ(resource.radial_tables, TABLE);
     HS_EXPECT_EQ(resource.radial_fraction,
                  fraction > 0.0f && fraction < 1.0f ? fraction : -1.0f);
     HS_EXPECT_EQ(Provider::radial_tables(FRAME),
@@ -1898,8 +1899,7 @@ inline void test_millefiori_radial_table_interval() {
   skipped.resources.template get<"displace">().frames += 2;
   for (float fraction : {0.0f, 0.5f}) {
     const auto FRAME = Pullback::FrameInterval(previous, skipped).at(fraction);
-    HS_EXPECT_TRUE(FRAME.resources.template get<"displace">().radial_tables ==
-                   nullptr);
+    HS_EXPECT_TRUE(Provider::radial_tables(FRAME) == nullptr);
   }
   previous.params.template get<"displace">().period += 1.0f;
   const auto CHANGED = Pullback::FrameInterval(previous, CURRENT).at(0.5f);

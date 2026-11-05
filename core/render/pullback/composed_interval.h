@@ -202,17 +202,6 @@ public:
     if (fraction <= 0.0f) {
       frame = from;
       to.params.visit([&]<typename Resource>(const auto &family) {
-        if constexpr (std::is_same_v<typename Resource::Family,
-                                     SphereAnimation::BurstRippleParams>) {
-          auto &resource = frame.resources.template get<Resource::KEY>();
-          const auto &end = to.resources.template get<Resource::KEY>();
-          const uint32_t DELTA = end.frames - resource.frames;
-          resource.radial_tables = DELTA <= 1 ? end.radial_tables : nullptr;
-          resource.radial_fraction = -1.0f;
-          if (std::memcmp(&family, &from.params.template get<Resource::KEY>(),
-                          sizeof(family)) != 0)
-            resource.radial_tables = nullptr;
-        }
         if constexpr (Resource::KIND == ResourceKind::MODULATION) {
           if (!Modulation::same_topology(
                   from.params.template get<Resource::KEY>().modulation,
