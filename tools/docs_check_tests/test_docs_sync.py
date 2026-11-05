@@ -70,6 +70,15 @@ class TreeSync(unittest.TestCase):
         self.assertEqual(after, self.sync(after, paths))
         self.assertEqual(dc.check_text(PurePosixPath("README.md"), after, paths), [])
 
+    def test_unresolved_child_group_is_preserved_and_partial_removals_are_logged(self):
+        text = "<!-- docs-check: tree exhaustive -->\n```\n└── core/  Engine (experimental)\n```\n"
+        self.assertEqual(self.sync(text, entries("core")), text)
+        partial = text.replace("experimental", "one, missing")
+        with contextlib.redirect_stdout(io.StringIO()) as messages:
+            after = ds.sync_trees(partial, entries("core/one.h"), {})
+        self.assertIn("(one)", after)
+        self.assertIn("removed absent tree path core/missing", messages.getvalue())
+
     def test_missing_sibling_is_left_untouched(self):
         text = "<!-- docs-check: tree daydream exhaustive -->\n```\n└── old.js   Keep this description\n```\n"
         self.assertEqual(self.sync(text, set()), text)

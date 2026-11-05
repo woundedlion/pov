@@ -82,9 +82,11 @@ def refresh_rows(rows: list[Row], entries: set[PurePosixPath],
                     for path in entries)]
                 listed.update(path for stem in live
                               for path in dc.tree_stem_paths(directory, stem, entries))
-                if live == stems:
+                if not live or live == stems:
                     return match[0]
-                return "(" + ", ".join(live) + ")" if live else ""
+                for removed in set(stems) - set(live):
+                    print(f"[docs-sync] removed absent tree path {directory}/{removed}")
+                return "(" + ", ".join(live) + ")"
             description = dc.TREE_LIST_RE.sub(refresh_list, "\n".join([row.description, *row.continuation]))
             row.description, *row.continuation = description.split("\n")
         if row.children or listed:
