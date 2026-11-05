@@ -573,6 +573,13 @@ inline void test_iterator_random_access() {
   HS_EXPECT_EQ(*it, 20);
   auto end = buf.end();
   HS_EXPECT_EQ(end - buf.begin(), (std::ptrdiff_t)4);
+  HS_EXPECT_EQ(*(buf.end() - 1), 40);
+  HS_EXPECT_EQ(*(2 + buf.begin()), 30);
+  HS_EXPECT_EQ(*(buf.rbegin() + 1), 30);
+  it = buf.begin() + 2;
+  const auto old = it--;
+  HS_EXPECT_EQ(*old, 30);
+  HS_EXPECT_EQ(*it, 20);
 }
 
 /**
