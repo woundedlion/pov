@@ -123,16 +123,6 @@ template <typename StateT> struct PhaseClockModel : ValueStateModel<StateT> {
 };
 
 /**
- * @brief Whether both plane coordinates lie within the noise input domain.
- * @param coords Plane coordinates.
- * @return True when |re| and |im| are at most 2^20.
- */
-__attribute__((always_inline)) inline bool
-noise_plane_in_domain(const math::Complex &coords) {
-  return fabsf(coords.re) <= 0x1p20f && fabsf(coords.im) <= 0x1p20f;
-}
-
-/**
  * @brief Seeds the instance noise field from the instance hash.
  * @param state Noise state to initialise.
  * @param id Chain-entry identity; `stable_hash` becomes the seed.

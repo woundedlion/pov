@@ -19,6 +19,16 @@
 
 namespace math {
 
+/**
+ * @brief Whether both plane coordinates lie within the noise input domain.
+ * @param coords Plane coordinates.
+ * @return True when |re| and |im| are at most 2^20.
+ */
+__attribute__((always_inline)) inline bool
+noise_plane_in_domain(const Complex &coords) {
+  return fabsf(coords.re) <= 0x1p20f && fabsf(coords.im) <= 0x1p20f;
+}
+
 /** @brief Which coordinate the caller hands the lattice. */
 enum class NoiseDomain : uint8_t {
   /** A direction on the sphere. */

@@ -46,7 +46,7 @@ struct ConfiguredProjectedNoise
    * @return Signed source value. */
   static float sample(const PlaneSample &input, const FrameState &frame,
                       const Prepared &prepared) {
-    if (fabsf(input.coords.re) > 0x1p20f || fabsf(input.coords.im) > 0x1p20f)
+    if (!math::noise_plane_in_domain(input.coords))
       return 0.0f;
     return Pattern::noise_contour(
         State::noise(frame),

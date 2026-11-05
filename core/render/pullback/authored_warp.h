@@ -156,7 +156,7 @@ struct ConfiguredVectorNoise
                               const ProjectionProvenance &provenance,
                               const FrameState &frame,
                               const Prepared &prepared) {
-    if (fabsf(input.re) > 0x1p20f || fabsf(input.im) > 0x1p20f)
+    if (!math::noise_plane_in_domain(input))
       return {input, 0.0f};
     const auto &params = State::params(frame);
     return vector_noise(
@@ -222,7 +222,7 @@ struct ConfiguredCurlFlow : CurlFlow<State, math::NoiseBasis::SIMPLEX, Euler1> {
                               const ProjectionProvenance &,
                               const FrameState &frame,
                               const Prepared &prepared) {
-    if (fabsf(input.re) > 0x1p20f || fabsf(input.im) > 0x1p20f)
+    if (!math::noise_plane_in_domain(input))
       return {input, 0.0f};
     const auto &params = State::params(frame);
     return curl_flow(
