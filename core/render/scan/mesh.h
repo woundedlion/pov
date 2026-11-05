@@ -335,15 +335,12 @@ HS_HOT_INLINE inline void rasterize_face_body(
   const float base_reject_rad = PIXEL_WIDTH * 1.0002f;
   const float base_reject_dsq = base_reject_rad * base_reject_rad;
   [[maybe_unused]] const float plane_stretch = report_stretch(shape);
-  float radial_cull = shape.max_dist;
-  {
-    const float shade_reach = (probe_flags & SDF::PreparedFace::PROBE_LINEAR)
-                                  ? PIXEL_WIDTH
-                                  : tanf(PIXEL_WIDTH);
-    radial_cull = shape.radius + shade_reach;
-    if (probe_flags & SDF::PreparedFace::PROBE_HAS_LUT)
-      radial_cull += (shape.lut_q_safe + 1) * shape.lut_dequant;
-  }
+  const float shade_reach = (probe_flags & SDF::PreparedFace::PROBE_LINEAR)
+                                ? PIXEL_WIDTH
+                                : tanf(PIXEL_WIDTH);
+  float radial_cull = shape.radius + shade_reach;
+  if (probe_flags & SDF::PreparedFace::PROBE_HAS_LUT)
+    radial_cull += (shape.lut_q_safe + 1) * shape.lut_dequant;
   const float min_cos = 1.0f / sqrtf(1.0f + radial_cull * radial_cull);
   [[maybe_unused]] float block_min_cos = min_cos;
   if constexpr (pole_lod_blocks<SDF::PreparedFace>) {
