@@ -296,6 +296,116 @@ inline constexpr float HANKIN_PARALLEL_GATE_LO_SQ = 0.05f;
 inline constexpr float HANKIN_PARALLEL_GATE_HI_SQ = 0.30f;
 
 /**
+ * @brief Positions static and angle-dependent Hankin vertices.
+ * @param compiled Baked topology with corner data.
+ * @param vertices Output positions, allocated from target_arena.
+ * @param target_arena Arena backing the vertex vector.
+ * @param angle Finite contact angle in radians.
+ */
+HS_COLD static void solve_hankin_vertices(const CompiledHankin &compiled,
+                                          ArenaVector<math::Vector> &vertices,
+                                          Arena &target_arena, float angle) {
+  bool is_flat = std::abs(angle) < math::TOLERANCE;
+
+  vertices.bind(target_arena, compiled.static_vertices.size() +
+                                  compiled.dynamic_instructions.size());
+  vertices.append_bulk(compiled.static_vertices.data(),
+                       compiled.static_vertices.size());
+
+  float cos_ha = cosf(angle * 0.5f);
+  float sin_ha = sinf(angle * 0.5f);
+  const auto blend_above = [](float value, float start, float end) {
+    const float t = hs::clamp((value - start) / (end - start), 0.0f, 1.0f);
+    return math::quintic_kernel(t);
+  };
+  HS_CHECK(compiled.corner_src.data() != nullptr,
+           "update_hankin needs a compiled topology (corner_src is null after "
+           "CompiledHankin::clear)");
+  for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
+    const auto &instr = compiled.dynamic_instructions[i];
+    math::Vector p_corner = compiled.corner(instr.v_corner);
+
+    if (is_flat) {
+      vertices.push_back(math::normalized_or(p_corner, p_corner));
+      continue;
+    }
+
+    math::Vector m1 = compiled.static_vertices[instr.idx_m1];
+    math::Vector m2 = compiled.static_vertices[instr.idx_m2];
+    math::Vector p_prev = compiled.corner(instr.v_prev);
+    math::Vector p_next = compiled.corner(instr.v_next);
+
+    math::Vector cross1 = math::cross(p_prev, p_corner);
+    math::Vector cross2 = math::cross(p_corner, p_next);
+
+    if (math::dot(cross1, cross1) < math::EPS_CROSS_SQ ||
+        math::dot(cross2, cross2) < math::EPS_CROSS_SQ) {
+      vertices.push_back(math::normalized_or(p_corner, p_corner));
+      continue; // zero length edge
+    }
+
+    math::Vector n_edge1 = cross1.normalized();
+    // Opposite-signed contact angles (+ha about m1, -ha about m2) tilt both
+    // Hankin planes toward the shared corner; m1/m2 are unit, so q1/q2 are too.
+    math::Quaternion q1(cos_ha, sin_ha * m1.x, sin_ha * m1.y, sin_ha * m1.z);
+    math::Vector n_hankin1 = math::rotate(n_edge1, q1);
+
+    math::Vector n_edge2 = cross2.normalized();
+    math::Quaternion q2(cos_ha, -sin_ha * m2.x, -sin_ha * m2.y, -sin_ha * m2.z);
+    math::Vector n_hankin2 = math::rotate(n_edge2, q2);
+
+    math::Vector intersect = math::cross(n_hankin1, n_hankin2);
+    const float plane_cross_sq = math::dot(intersect, intersect);
+    math::Vector cn = math::normalized_or(p_corner, p_corner);
+    math::Vector fallback = math::normalized_or(m1 + m2, cn);
+    if (math::dot(fallback, p_corner) < 0.0f)
+      fallback = -fallback;
+    const math::Vector oriented_intersect =
+        intersect * math::dot(intersect, p_corner);
+    const math::Vector raw_star =
+        math::normalized_or(oriented_intersect, fallback);
+    const float local_sq =
+        fmaxf(math::distance_squared(m1, cn), math::distance_squared(m2, cn));
+    if (!(local_sq > math::EPS_LEN_SQ)) {
+      vertices.push_back(fallback);
+      continue;
+    }
+    const float raw_ratio_sq = math::distance_squared(raw_star, cn) / local_sq;
+    const float conditioned =
+        blend_above(raw_ratio_sq, HANKIN_CONDITIONED_NEAR_RATIO_SQ,
+                    HANKIN_CONDITIONED_FAR_RATIO_SQ);
+    const float anchor =
+        fmaxf(0.0f, HANKIN_PARALLEL_REGULARIZATION_SQ - plane_cross_sq) +
+        conditioned * fmaxf(0.0f, HANKIN_CONDITIONED_CLEAR_SQ - plane_cross_sq);
+    intersect =
+        math::normalized_or(oriented_intersect + fallback * anchor, fallback);
+    // Near-parallel contact planes fling the intersection geodesically far
+    // from the corner, yielding a sliver face that renders as a long line.
+    const float ratio_sq = math::distance_squared(intersect, cn) / local_sq;
+    // parallel_gate: 0 above HI (planes well-separated), 1 below LO
+    // (near-parallel).
+    const float parallel_gate =
+        blend_above(-plane_cross_sq, -HANKIN_PARALLEL_GATE_HI_SQ,
+                    -HANKIN_PARALLEL_GATE_LO_SQ);
+    const float fallback_blend =
+        blend_above(ratio_sq, STAR_FAR_BLEND_START_RATIO_SQ,
+                    STAR_FAR_RATIO_SQ) *
+        parallel_gate;
+    if (fallback_blend > 0.0f) {
+      vertices.push_back(
+          fallback_blend >= 1.0f
+              ? fallback
+              : math::normalized_or(intersect * (1.0f - fallback_blend) +
+                                        fallback * fallback_blend,
+                                    fallback));
+      continue;
+    }
+
+    vertices.push_back(intersect);
+  }
+}
+
+/**
  * @brief Positions the angle-dependent vertices and writes the final mesh.
  * @tparam MeshT MeshLike output mesh type; may optionally provide
  *   face_offsets.
@@ -340,105 +450,7 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
 
   HS_CHECK(std::isfinite(angle), "update_hankin: contact angle must be finite");
 
-  bool is_flat = std::abs(angle) < math::TOLERANCE;
-
-  out_mesh.vertices.bind(target_arena,
-                         compiled.static_vertices.size() +
-                             compiled.dynamic_instructions.size());
-  out_mesh.vertices.append_bulk(compiled.static_vertices.data(),
-                                compiled.static_vertices.size());
-
-  float cos_ha = cosf(angle * 0.5f);
-  float sin_ha = sinf(angle * 0.5f);
-  const auto blend_above = [](float value, float start, float end) {
-    const float t = hs::clamp((value - start) / (end - start), 0.0f, 1.0f);
-    return math::quintic_kernel(t);
-  };
-  HS_CHECK(compiled.corner_src.data() != nullptr,
-           "update_hankin needs a compiled topology (corner_src is null after "
-           "CompiledHankin::clear)");
-  for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
-    const auto &instr = compiled.dynamic_instructions[i];
-    math::Vector p_corner = compiled.corner(instr.v_corner);
-
-    if (is_flat) {
-      out_mesh.vertices.push_back(math::normalized_or(p_corner, p_corner));
-      continue;
-    }
-
-    math::Vector m1 = compiled.static_vertices[instr.idx_m1];
-    math::Vector m2 = compiled.static_vertices[instr.idx_m2];
-    math::Vector p_prev = compiled.corner(instr.v_prev);
-    math::Vector p_next = compiled.corner(instr.v_next);
-
-    math::Vector cross1 = math::cross(p_prev, p_corner);
-    math::Vector cross2 = math::cross(p_corner, p_next);
-
-    if (math::dot(cross1, cross1) < math::EPS_CROSS_SQ ||
-        math::dot(cross2, cross2) < math::EPS_CROSS_SQ) {
-      out_mesh.vertices.push_back(math::normalized_or(p_corner, p_corner));
-      continue; // zero length edge
-    }
-
-    math::Vector n_edge1 = cross1.normalized();
-    // Opposite-signed contact angles (+ha about m1, -ha about m2) tilt both
-    // Hankin planes toward the shared corner; m1/m2 are unit, so q1/q2 are too.
-    math::Quaternion q1(cos_ha, sin_ha * m1.x, sin_ha * m1.y, sin_ha * m1.z);
-    math::Vector n_hankin1 = math::rotate(n_edge1, q1);
-
-    math::Vector n_edge2 = cross2.normalized();
-    math::Quaternion q2(cos_ha, -sin_ha * m2.x, -sin_ha * m2.y, -sin_ha * m2.z);
-    math::Vector n_hankin2 = math::rotate(n_edge2, q2);
-
-    math::Vector intersect = math::cross(n_hankin1, n_hankin2);
-    const float plane_cross_sq = math::dot(intersect, intersect);
-    math::Vector cn = math::normalized_or(p_corner, p_corner);
-    math::Vector fallback = math::normalized_or(m1 + m2, cn);
-    if (math::dot(fallback, p_corner) < 0.0f)
-      fallback = -fallback;
-    const math::Vector oriented_intersect =
-        intersect * math::dot(intersect, p_corner);
-    const math::Vector raw_star =
-        math::normalized_or(oriented_intersect, fallback);
-    const float local_sq =
-        fmaxf(math::distance_squared(m1, cn), math::distance_squared(m2, cn));
-    if (!(local_sq > math::EPS_LEN_SQ)) {
-      out_mesh.vertices.push_back(fallback);
-      continue;
-    }
-    const float raw_ratio_sq = math::distance_squared(raw_star, cn) / local_sq;
-    const float conditioned =
-        blend_above(raw_ratio_sq, HANKIN_CONDITIONED_NEAR_RATIO_SQ,
-                    HANKIN_CONDITIONED_FAR_RATIO_SQ);
-    const float anchor =
-        fmaxf(0.0f, HANKIN_PARALLEL_REGULARIZATION_SQ - plane_cross_sq) +
-        conditioned * fmaxf(0.0f, HANKIN_CONDITIONED_CLEAR_SQ - plane_cross_sq);
-    intersect =
-        math::normalized_or(oriented_intersect + fallback * anchor, fallback);
-    // Near-parallel contact planes fling the intersection geodesically far
-    // from the corner, yielding a sliver face that renders as a long line.
-    const float ratio_sq = math::distance_squared(intersect, cn) / local_sq;
-    // parallel_gate: 0 above HI (planes well-separated), 1 below LO
-    // (near-parallel).
-    const float parallel_gate =
-        blend_above(-plane_cross_sq, -HANKIN_PARALLEL_GATE_HI_SQ,
-                    -HANKIN_PARALLEL_GATE_LO_SQ);
-    const float fallback_blend =
-        blend_above(ratio_sq, STAR_FAR_BLEND_START_RATIO_SQ,
-                    STAR_FAR_RATIO_SQ) *
-        parallel_gate;
-    if (fallback_blend > 0.0f) {
-      out_mesh.vertices.push_back(
-          fallback_blend >= 1.0f
-              ? fallback
-              : math::normalized_or(intersect * (1.0f - fallback_blend) +
-                                        fallback * fallback_blend,
-                                    fallback));
-      continue;
-    }
-
-    out_mesh.vertices.push_back(intersect);
-  }
+  solve_hankin_vertices(compiled, out_mesh.vertices, target_arena, angle);
 
   out_mesh.face_counts.bind(target_arena, compiled.face_counts.size());
 
