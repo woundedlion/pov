@@ -1931,12 +1931,11 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
    * @param input Carrier fed to node @p Index.
    * @param ctx Per-frame state.
    * @param prepared Per-node prepared state.
-   * @param previous Selects the retained temporal endpoint.
    * @return The last node's deferred color sample. */
   template <size_t Index, typename Input>
   __attribute__((always_inline)) static ColorSample
   run_stage(const Input &input, const FrameState &ctx,
-            const PreparedTuple &prepared, bool previous = false) {
+            const PreparedTuple &prepared) {
     using CurrentNode = NodeAt<Index>;
     static_assert(std::is_same_v<Input, typename CurrentNode::Input>,
                   "pullback pipeline: stage input mismatch");
@@ -1960,15 +1959,14 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
         run_color_tail<Index + 1>(result, ctx, prepared, retained);
         return result;
       } else
-        return run_stage<Index + 1>(output, ctx, prepared, retained);
+        return run_stage<Index + 1>(output, ctx, prepared);
     };
     if constexpr (std::is_same_v<typename CurrentNode::Output, ColorSample> &&
                   !std::is_same_v<Input, ColorSample> &&
                   requires { ctx.temporal.fraction; }) {
       const float FRACTION = ctx.temporal.fraction;
       if constexpr (shared_phase_base_supported<Index, Input>())
-        if (FRACTION > 0.0f && (FRACTION < 1.0f || !previous) &&
-            phase_tail_ready<Index + 1>(prepared)) {
+        if (FRACTION > 0.0f && phase_tail_ready<Index + 1>(prepared)) {
           ColorSample result;
           if (CurrentNode::run_shared_base(input, ctx,
                                            std::get<Index>(prepared), result)) {
@@ -2017,12 +2015,12 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
         const ColorSample A = finish(endpoint(true), true);
         if (FRACTION <= 0.0f)
           return A;
-        const auto output = endpoint(previous);
+        const auto output = endpoint(false);
         const ColorSample B = finish(output, false);
         return blend_color_samples(A, B, FRACTION);
       }
     }
-    return finish(endpoint(previous), previous);
+    return finish(endpoint(false), false);
   }
 };
 
