@@ -2,10 +2,6 @@
 cmake_minimum_required(VERSION 3.29)
 project(Holosphere CXX)
 
-set(HS_PULLBACK_CAPTURE_SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH
-    "Checkout whose sources a pullback capture build compiles")
-set(HS_PULLBACK_CAPTURE_PRESET "" CACHE STRING
-    "CMake preset attested by pullback capture provenance")
 
 # Two build modes share this file, selected by the toolchain:
 #   * Emscripten toolchain  -> WASM simulator module (daydream)   [EMSCRIPTEN]
@@ -44,8 +40,6 @@ if(EMSCRIPTEN)
     "-sEXPORTED_FUNCTIONS=_segment_x0,_segment_x1,_segment_y0,_segment_y1")
   set_target_properties(segment_geometry PROPERTIES SUFFIX ".js")
 
-  # Shipping module sources come from CMAKE_CURRENT_SOURCE_DIR, the root its
-  # install provenance records; HS_PULLBACK_CAPTURE_SOURCE_ROOT does not apply.
   set(TARGET_NAME holosphere_wasm)
   add_executable(${TARGET_NAME}
     ${CMAKE_CURRENT_SOURCE_DIR}/targets/wasm/wasm.cpp
@@ -134,14 +128,14 @@ if(EMSCRIPTEN)
   # Node-hosted pullback capture producer; built only on request.
   add_executable(pullback_capture_wasm EXCLUDE_FROM_ALL
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/pullback_capture_native.cpp
-    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/memory.cpp
-    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/static_storage.cpp
-    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/spatial/reaction_graph.cpp
-    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/render/scan/mesh_capture.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/memory.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/engine/static_storage.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/spatial/reaction_graph.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/render/scan/mesh_capture.cpp)
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/chain_capture_fixtures.cmake)
   hs_chain_capture_fixtures(pullback_capture_wasm "${CMAKE_CURRENT_SOURCE_DIR}")
   target_include_directories(pullback_capture_wasm PRIVATE
-    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT})
+    ${CMAKE_CURRENT_SOURCE_DIR})
   hs_capture_feature_defines(pullback_capture_wasm)
   target_compile_definitions(pullback_capture_wasm PRIVATE
     HS_TIMELINE_MAX_ANIM_BYTES=256

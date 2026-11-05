@@ -14,7 +14,7 @@
       "description": "Optimized Emscripten build of the simulator module. Requires the EMSDK env var (run emsdk_env).",
       "inherits": "base",
       "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "HS_PULLBACK_CAPTURE_PRESET": "wasm-release" }
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
     },
     {
       "name": "wasm-debug",
@@ -30,7 +30,7 @@
       "description": "Release-shape diagnostic without fast-math, contraction, or LTO. Requires EMSDK.",
       "inherits": "base",
       "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "PullbackStrictFP", "HS_PULLBACK_CAPTURE_PRESET": "wasm-strict-fp" }
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "PullbackStrictFP" }
     },
     {
       "name": "tests",
@@ -40,8 +40,7 @@
       "toolchainFile": "${sourceDir}/cmake/toolchain-native-clang.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "HS_PULLBACK_CAPTURE_PRESET": "tests"
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     }
   ],

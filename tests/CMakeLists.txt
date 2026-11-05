@@ -21,8 +21,6 @@ cmake_minimum_required(VERSION 3.29)
 # a native root build.
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   project(holosphere_tests CXX)
-  set(HS_PULLBACK_CAPTURE_SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." CACHE PATH
-      "Checkout whose sources a pullback capture build compiles")
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
 endif()
 
@@ -556,17 +554,17 @@ add_test(NAME unit_pullback_manifest COMMAND pullback_manifest_check)
 
 
 set(HS_CAPTURE_ENGINE_SOURCES
-  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/memory.cpp
-  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/static_storage.cpp
-  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/spatial/reaction_graph.cpp
-  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/render/scan/mesh_capture.cpp)
+  ${HS_ROOT}/core/memory.cpp
+  ${HS_ROOT}/core/engine/static_storage.cpp
+  ${HS_ROOT}/core/spatial/reaction_graph.cpp
+  ${HS_ROOT}/core/render/scan/mesh_capture.cpp)
 add_executable(pullback_capture_native
   ${HS_ROOT}/tools/pullback_capture_native.cpp
   ${HS_CAPTURE_ENGINE_SOURCES})
 include(${HS_ROOT}/cmake/chain_capture_fixtures.cmake)
 hs_chain_capture_fixtures(pullback_capture_native "${HS_ROOT}")
 target_include_directories(pullback_capture_native PRIVATE
-  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT})
+  ${HS_ROOT})
 hs_capture_feature_defines(pullback_capture_native)
 target_link_libraries(pullback_capture_native PRIVATE hs_host_storage)
 _hs_warnings(pullback_capture_native)
