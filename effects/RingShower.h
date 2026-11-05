@@ -134,6 +134,21 @@ private:
     int life =
         0; /**< Total visible frames; the slot is free once age >= life. */
 
+    /** @brief Unclamped linear growth at a fractional frame age.
+     * @param age Frames since spawn.
+     * @param life Visible lifetime in frames.
+     * @return Radius as a fraction of a hemisphere. */
+    static HS_HOT_INLINE float radius_for(float age, float life) {
+      return RADIUS_MAX * ((age + 1.0f) / life);
+    }
+
+    /** @brief Fade-in at a fractional frame age.
+     * @param age Frames since spawn.
+     * @return Opacity in [0, 1]. */
+    static HS_HOT_INLINE float fade_for(float age) {
+      return hs::clamp((age + 1.0f) / FADE_IN_FRAMES, 0.0f, 1.0f);
+    }
+
     /**
      * @brief Linear radius for the frame currently being drawn.
      * @return Radius as a fraction of a hemisphere, in [0, RADIUS_MAX].
@@ -143,8 +158,7 @@ private:
      */
     float radius_at() const {
       HS_CHECK(life > 0, "RingShower::Ring::radius_at: life must be > 0");
-      float t = hs::clamp(static_cast<float>(age + 1) / life, 0.0f, 1.0f);
-      return RADIUS_MAX * t;
+      return hs::clamp(radius_for(age, life), 0.0f, RADIUS_MAX);
     }
 
     /**
@@ -157,11 +171,7 @@ private:
      * @return Opacity in [0, 1]: eased fade-in over the first FADE_IN_FRAMES
      *         frames, then a held 1.0; no fade-out.
      */
-    float opacity_at() const {
-      if (age + 1 < FADE_IN_FRAMES)
-        return math::ease_linear(static_cast<float>(age + 1) / FADE_IN_FRAMES);
-      return 1.0f;
-    }
+    float opacity_at() const { return fade_for(age); }
   };
 
   /**
@@ -205,14 +215,13 @@ private:
     const float opacity = ring.opacity_at();
     math::Basis basis = math::make_basis(math::Quaternion(), ring.normal);
     const auto growth = [&](float age) {
-      return Ring::RADIUS_MAX * (age + 1.0f) / ring.life;
+      return Ring::radius_for(age, ring.life);
     };
-    const auto fade = [](float age) {
-      return hs::clamp((age + 1.0f) / Ring::FADE_IN_FRAMES, 0.0f, 1.0f);
-    };
-    const auto shader = [&](const math::Vector &v, Fragment &f, float fade) {
+    const auto fade = [](float age) { return Ring::fade_for(age); };
+    const auto shader = [&](const math::Vector &v, Fragment &f,
+                            float fade_factor) {
       f.color = ring.palette.get(dot_key(v.x));
-      f.color.alpha *= fade * params.alpha;
+      f.color.alpha *= fade_factor * params.alpha;
     };
     const auto bound = [&](float age_span, float) {
       return Spacetime::PathBound::rotation(age_span * math::PI_F / ring.life);

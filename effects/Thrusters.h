@@ -108,9 +108,7 @@ public:
 
       for (size_t i = 0; i < thrusters.size(); ++i) {
         ThrusterContext &ctx = thrusters[i];
-        float progress = static_cast<float>(ctx.age) / ThrusterContext::LIFE;
-        float opacity =
-            1.0f - math::ease_out_expo(hs::clamp(progress, 0.0f, 1.0f));
+        const float opacity = ThrusterContext::fade_for(ctx.age);
         draw_thruster(canvas, ctx, ctx.radius_at(), opacity);
         ctx.previous_age = ctx.age;
         ctx.has_history = true;
@@ -151,6 +149,21 @@ private:
       has_history = false;
     }
 
+    /** @brief Growth at a fractional frame age.
+     * @param age Frames since spawn.
+     * @return Radius as a fraction of a hemisphere. */
+    static HS_HOT_INLINE float radius_for(float age) {
+      return RADIUS_MAX *
+             hs::clamp((age + 1.0f) / RADIUS_GROW_FRAMES, 0.0f, 1.0f);
+    }
+
+    /** @brief Fade-out at a fractional frame age.
+     * @param age Frames since spawn.
+     * @return Opacity in [0, 1]. */
+    static HS_HOT_INLINE float fade_for(float age) {
+      return 1.0f - math::ease_out_expo(hs::clamp(age / LIFE, 0.0f, 1.0f));
+    }
+
     /**
      * @brief Linear ring radius for the frame being drawn.
      * @return Radius as a fraction of a hemisphere, in [0, RADIUS_MAX].
@@ -158,11 +171,7 @@ private:
      *          in rather than radius 0, reaching RADIUS_MAX after
      *          RADIUS_GROW_FRAMES frames.
      */
-    float radius_at() const {
-      float t = hs::clamp(static_cast<float>(age + 1) / RADIUS_GROW_FRAMES,
-                          0.0f, 1.0f);
-      return RADIUS_MAX * t;
-    }
+    float radius_at() const { return radius_for(age); }
 
     /**
      * @brief Whether the slot has outlived LIFE and is recyclable.
@@ -274,19 +283,15 @@ private:
     HS_PROFILE(th_thruster_draw);
     math::Basis basis = math::make_basis(ctx.orientation.get(), ctx.point);
     const auto growth = [](float age) {
-      return ThrusterContext::RADIUS_MAX *
-             hs::clamp((age + 1.0f) / ThrusterContext::RADIUS_GROW_FRAMES, 0.0f,
-                       1.0f);
+      return ThrusterContext::radius_for(age);
     };
-    const auto fade = [](float age) {
-      return 1.0f - math::ease_out_expo(
-                        hs::clamp(age / ThrusterContext::LIFE, 0.0f, 1.0f));
-    };
-    const auto shader = [this](const math::Vector &, Fragment &f, float fade) {
+    const auto fade = [](float age) { return ThrusterContext::fade_for(age); };
+    const auto shader = [this](const math::Vector &, Fragment &f,
+                               float fade_factor) {
       f.color = Color4(CRGB(255, 255, 255));
       // Opacity scales both color and alpha, so the lifetime fade is quadratic.
-      f.color.color = f.color.color * fade;
-      f.color.alpha = fade * params.alpha;
+      f.color.color = f.color.color * fade_factor;
+      f.color.alpha = fade_factor * params.alpha;
     };
     const auto bound = [radius](float, float start_radius) {
       return Spacetime::PathBound::rotation(fabsf(radius - start_radius) *
