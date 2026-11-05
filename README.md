@@ -1473,9 +1473,10 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │   └── swept_bound.h           Swept height and clip bounds
 │   │   └── shading.h               Fragment interpolation + mesh-topology shading helpers
 │   ├── animation/              Timeline scheduler + the animation type families
-│   │   ├── animation.h             IAnimation/AnimationBase + nine animation fragments and orientation; recipe_build and transformer are included directly
+│   │   ├── animation.h             IAnimation/AnimationBase + nine animation fragments and orientation; ripple_motion, recipe_build and transformer are included directly
 │   │   ├── timers.h                RandomTimer / PeriodicTimer callback timers
 │   │   ├── params.h                Parameter-writing animations (Transition, Mutation, Progress, Driver, Lerp, ColorWipe, Mobius*, Ripple, Noise, BallDrop, NoiseProduct)
+│   │   ├── ripple_motion.h          Ripple motion bands and temporal capture kernels
 │   │   ├── orientation.h           Quaternion history for animation and motion blur
 │   │   ├── motion.h                Path/ProceduralPath + the Orientation drivers (Motion, Rotation, RandomWalk)
 │   │   ├── trails.h                OrientationTrail/VectorTrail/QuantizedVectorTrail history + tween/deep_tween traversal

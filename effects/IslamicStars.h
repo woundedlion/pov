@@ -11,6 +11,7 @@
  *        one into the next.
  */
 
+#include "core/animation/ripple_motion.h"
 #include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/animation/animation.h"
@@ -508,50 +509,7 @@ private:
   /// Arc, radians, of one unit of a vertex's recorded model motion.
   static constexpr float MOTION_UNIT = math::PI_F / 65535.0f;
 
-  /** @brief A band about a ripple's front at one end of its step. */
-  struct RippleBand {
-    math::Vector center; ///< Ripple center.
-    float cos_near;      ///< Cosine of the band's inner edge.
-    float cos_far;       ///< Cosine of the band's outer edge.
-    float step;          ///< The ripple's step arc.
-
-    /**
-     * @brief Whether a model vertex stands in the band.
-     * @param v The vertex.
-     * @return True between the band's edges.
-     */
-    HS_HOT_INLINE bool holds(const math::Vector &v) const {
-      const float c = math::dot(v, center);
-      return c <= cos_near && c >= cos_far;
-    }
-  };
-
-  /**
-   * @brief The bands about the active ripples that step this frame, one per
-   *        end of each step, in pairs.
-   * @param leg_arc The model's largest motion (radians).
-   * @param arena Arena receiving the bands, for the caller's scope.
-   * @param count Receives the number of bands.
-   * @return The bands.
-   */
-  HS_FLASH_MEMBER RippleBand *ripple_bands(float leg_arc, Arena &arena,
-                                           int &count) const {
-    RippleBand *bands =
-        arena.allocate_n<RippleBand>(2 * ripple_gen.active_count() + 1);
-    count = 0;
-    for (int k = 0; k < ripple_gen.active_count(); ++k) {
-      const Animation::RippleParams &p = ripple_gen.active_params(k);
-      if (p.step_arc() == 0.0f)
-        continue;
-      for (const float phase : {p.previous_phase, p.phase}) {
-        const float reach = 2.0f * p.half_width() + leg_arc;
-        bands[count++] = {
-            p.center, cosf(hs::clamp(phase - reach, 0.0f, math::PI_F)),
-            cosf(hs::clamp(phase + reach, 0.0f, math::PI_F)), p.step_arc()};
-      }
-    }
-    return bands;
-  }
+  using RippleBand = RippleMotion::RippleBand;
 
   /**
    * @brief Flags the vertices the model or an active ripple's last step can
@@ -575,7 +533,8 @@ private:
                                    const uint8_t *visible = nullptr) const {
     ScratchScope scope(arena);
     int band_count = 0;
-    const RippleBand *bands = ripple_bands(leg_arc, arena, band_count);
+    const RippleBand *bands =
+        RippleMotion::ripple_bands(ripple_gen, leg_arc, arena, band_count);
     const float held_cos = cosf(Scan::HELD_VERTEX_ARC<W>);
     const auto start = path.moment(0.0f);
     const auto end = path.moment(1.0f);
@@ -605,52 +564,19 @@ private:
   static_assert(MAX_BUILD_FACES * sizeof(float) <=
                 MAX_BUILD_FACES + sizeof(SDF::FaceStorage));
 
-  /** @brief One ripple's frame constants and mutable capture sample. */
-  struct MotionRipple {
-    Animation::RippleParams
-        params;                   ///< Sample parameters and previous endpoint.
-    float phase_delta = 0.0f;     ///< Phase change over the frame.
-    float amplitude_delta = 0.0f; ///< Amplitude change over the frame.
-
-    /** @brief Captures the frame's initial wave and interpolation constants. */
-    HS_FLASH_INLINE void prepare(const Animation::RippleParams &p) {
-      params = p.during_step(0.0f);
-      phase_delta = p.phase - p.previous_phase;
-      amplitude_delta = p.amplitude - p.previous_amplitude;
-    }
-
-    /** @brief Includes the final endpoint in the capture rejection band. */
-    HS_HOT_INLINE void widen(const Animation::RippleParams &p) {
-      params.cos_threshold_min =
-          fmaxf(params.cos_threshold_min, p.cos_threshold_min);
-      params.cos_threshold_max =
-          fminf(params.cos_threshold_max, p.cos_threshold_max);
-    }
-
-    /** @brief Applies the wave at a frame fraction after its band test.
-     * @param v Vertex after preceding ripples.
-     * @param u Capture fraction.
-     * @return Displaced vertex. */
-    HS_HOT_INLINE math::Vector transform(const math::Vector &v, float u) {
+  struct MotionCounters {
+    static void candidate() {
 #if HS_ENABLE_TEST_HOOKS
       ++test_ripple_candidates;
 #endif
-      const float cosine = math::dot(v, params.center);
-      if (cosine > params.cos_threshold_min ||
-          cosine < params.cos_threshold_max)
-        return v;
+    }
+    static void interpolated() {
 #if HS_ENABLE_TEST_HOOKS
       ++test_ripple_interpolations;
 #endif
-      params.phase = params.previous_phase + phase_delta * u;
-      params.amplitude = params.previous_amplitude + amplitude_delta * u;
-      if (params.amplitude <= RippleKernel::NEGLIGIBLE_AMPLITUDE)
-        return v;
-      return RippleKernel::transform_at_distance(
-          v, params, math::fast_acos(hs::clamp(cosine, -1.0f, 1.0f)),
-          params.phase);
     }
   };
+  using MotionRipple = RippleMotion::MotionRipple<MotionCounters>;
 #if HS_ENABLE_TEST_HOOKS
   inline static bool test_reference_ripples =
       false; ///< Uses the uncached capture loop.
@@ -726,7 +652,8 @@ private:
     // The stepping ripples' bands, turned with the camera to the scanned
     // mesh.
     int band_count = 0;
-    RippleBand *bands = ripple_bands(bound - ripple_arc(), arena, band_count);
+    RippleBand *bands = RippleMotion::ripple_bands(
+        ripple_gen, bound - ripple_arc(), arena, band_count);
     OrientTransformer camera(orientation);
     for (int b = 0; b < band_count; ++b)
       bands[b].center = camera(bands[b].center);
