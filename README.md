@@ -1758,7 +1758,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── parse_profile.py        Capture-log parser behind the per-window/per-preset reports
 │   ├── generate_pullback_manifest_header.py  Pullback manifest validator and native-test header generator
 │   ├── pullback_operations.def                Shared capture operation codes and preset count
-│   ├── pullback_capture.py / pullback_capture_native.cpp  Canonical producer + native/WASM backend
+│   ├── pullback_capture.py / pullback_capture_native.cpp  Operation generator + binary-metric audit + native/WASM backend
 │   ├── gen_chain_capture_fixtures.py Typed C++ snapshot generator for frozen capture cases
 │   ├── device_lock.sh          Host-global per-board lock every device path takes
 │   ├── device_lock_guard.py    OS file-lock guard for claim creation and removal

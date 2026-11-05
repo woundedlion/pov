@@ -86,43 +86,6 @@ def _replace_framebuffer_maximum(manifest_dir):
         path.write_text(json.dumps(oracle), encoding="utf-8")
 
 
-class CaptureCheckoutState(unittest.TestCase):
-    def test_dirty_checkout_is_refused_before_toolchain_attestation(self):
-        with mock.patch.object(capture, "changed_sources", return_value=["core/changed.h"]), \
-                mock.patch.object(capture, "attest_toolchain") as attest:
-            with self.assertRaisesRegex(capture.CaptureError, "uncommitted or untracked"):
-                capture.produce("native-debug", ROOT, ROOT / "build", MANIFEST_DIR,
-                                ROOT / "capture.json")
-        attest.assert_not_called()
-
-    def test_build_for_another_source_root_is_refused(self):
-        with tempfile.TemporaryDirectory() as directory:
-            other = Path(directory)
-            cache = {"HS_PULLBACK_CAPTURE_SOURCE_ROOT": other.as_posix()}
-            with (
-                mock.patch.object(capture, "changed_sources", return_value=[]),
-                mock.patch.object(capture, "_cache_values", return_value=cache),
-                mock.patch.object(capture, "attest_toolchain") as attest,
-            ):
-                with self.assertRaisesRegex(capture.CaptureError, "different source root"):
-                    capture.produce("native-debug", ROOT, ROOT / "build", MANIFEST_DIR,
-                                    ROOT / "capture.json")
-            attest.assert_not_called()
-
-    def test_build_for_the_checkout_reaches_toolchain_attestation(self):
-        cache = {"HS_PULLBACK_CAPTURE_SOURCE_ROOT": ROOT.as_posix()}
-        with (
-            mock.patch.object(capture, "changed_sources", return_value=[]),
-            mock.patch.object(capture, "_cache_values", return_value=cache),
-            mock.patch.object(capture, "attest_toolchain",
-                              side_effect=capture.CaptureError("attested")) as attest,
-        ):
-            with self.assertRaisesRegex(capture.CaptureError, "attested"):
-                capture.produce("native-debug", ROOT, ROOT / "build", MANIFEST_DIR,
-                                ROOT / "capture.json")
-        attest.assert_called_once()
-
-
 class DuplicateJsonKeys(unittest.TestCase):
     def test_duplicate_keys_are_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -538,11 +501,10 @@ class CaptureBackend(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "capture.bin"
             path.write_bytes(valid)
-            resolution, loaded_records, loaded_metrics = capture.load_backend(
+            resolution, loaded_metrics = capture.load_backend(
                 path, programs, ORACLES
             )
             self.assertEqual(resolution, (16, 16))
-            self.assertEqual(len(loaded_records), len(specs))
             self.assertEqual(set(loaded_metrics), {oracle["oracle_id"] for oracle in ORACLES})
             for name, data in cases.items():
                 with self.subTest(name=name):
@@ -570,20 +532,16 @@ class CaptureBackend(unittest.TestCase):
 
     def test_backend_stream_is_complete(self):
         programs, _ = _test_manifest()
-        specs = capture.operation_specs(programs)
         header, records, metrics = _backend_stream(programs)
         data = header + b"".join(records) + b"".join(metrics)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "capture.bin"
             path.write_bytes(data)
-            resolution, records, metrics = capture.load_backend(
+            resolution, metrics = capture.load_backend(
                 path, programs, ORACLES
             )
         self.assertEqual(resolution, (16, 16))
-        self.assertEqual(len(records), len(specs))
         self.assertEqual(len(metrics), len(ORACLES))
-        pixels = records[(11, "case:interior")]["pixels"]
-        self.assertEqual(pixels, struct.pack("<HHHH", 11, 3, 4, 65535) * 256)
 
 
 if __name__ == "__main__":
