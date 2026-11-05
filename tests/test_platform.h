@@ -425,6 +425,9 @@ inline void test_rand_f_half_open() {
   }
 }
 
+static_assert(hs::epoch_seed(1) == 0xb6a8a9b313caa00bULL);
+static_assert(hs::epoch_seed(2) == 0xcb7f284b67d605c9ULL);
+
 /**
  * @brief Verifies hs::epoch_seed: epoch 0 is the exact identity seed (the
  *        stream is byte-identical to a default Pcg32), and distinct epochs

@@ -63,6 +63,13 @@ private:
   static constexpr uint64_t STREAM_SEQ = 0x14057b7ef767814fULL;
 };
 
+/** Applies the splitmix64 avalanche finalizer. */
+constexpr uint64_t splitmix64_finalize(uint64_t z) {
+  z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+  z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+  return z ^ (z >> 31);
+}
+
 /**
  * @brief Derives the shared-RNG seed for effect epoch @p epoch.
  * @param epoch Roster index of the effect being built (beacon-synchronized on the device).
@@ -73,10 +80,7 @@ private:
 constexpr uint64_t epoch_seed(uint32_t epoch) {
   if (epoch == 0)
     return 1337u;
-  uint64_t z = 1337u + uint64_t{epoch} * 0x9E3779B97F4A7C15ULL;
-  z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
-  z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
-  return z ^ (z >> 31);
+  return splitmix64_finalize(1337u + uint64_t{epoch} * 0x9E3779B97F4A7C15ULL);
 }
 
 /**
@@ -90,10 +94,7 @@ constexpr uint64_t stable_effect_seed(std::string_view effect_id) {
     hash ^= static_cast<uint8_t>(value);
     hash *= 1099511628211ULL;
   }
-  uint64_t z = hash ^ 1337u;
-  z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
-  z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
-  return z ^ (z >> 31);
+  return splitmix64_finalize(hash ^ 1337u);
 }
 
 /**
