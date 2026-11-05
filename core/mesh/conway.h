@@ -372,7 +372,7 @@ inline void transform(const MeshState &mesh, MeshState &transformed,
  * @param transformers Vertex transformers, applied left to right.
  */
 template <typename... Transformers>
-HS_HOT_FLASH_MEMBER HS_O3_FN void
+HS_HOT_FLASH_MEMBER void
 transform_selected_in_place(MeshState &mesh, const uint8_t *bits,
                             const Transformers &...transformers) {
   for (size_t i = 0; i < mesh.vertices.size(); ++i) {
