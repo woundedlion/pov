@@ -11,8 +11,17 @@
 #include <cmath>
 #include <utility>
 #include "core/pattern/types.h"
+#include "core/math/periodic.h"
 
 namespace Pattern {
+/** @brief Advances a wrapped clock by a turn increment.
+ * @param phase Previous phase in turns.
+ * @param turns Increment in turns.
+ * @return Updated phase in [0,1). */
+HS_HOT_INLINE inline float advance_turn_phase(float phase, float turns) {
+  return math::wrap_t(math::wrap_t(phase) + std::fmod(turns, 1.0f));
+}
+
 /** @brief Clamps finite numerical overshoot at the scalar boundary.
  * @param value Raw source sample.
  * @return Sample in [-1, 1]. */
