@@ -223,7 +223,8 @@ class ChainSnapshotCodec {
   static bool modulation_clock(const Val &value,
                                Pullback::Modulation::State &state) {
     uint8_t source;
-    if (!object(value) || !integer(value, "source", source) || source > 4 ||
+    if (!object(value) || !integer(value, "source", source) ||
+        source > static_cast<uint8_t>(Pattern::SourceKind::DISPLACEMENT) ||
         !integer(value, "version", state.version) || state.version != 1 ||
         !number(value, "phaseTurns", state.phase.phase_turns) ||
         state.phase.phase_turns < 0.0f || state.phase.phase_turns >= 1.0f ||
