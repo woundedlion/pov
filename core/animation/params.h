@@ -149,7 +149,7 @@ public:
   Transition(float &mutant, float to, int duration, EasingFn easing_fn,
              const Options &options = {})
       : PausableParamAnimationBase(duration, options.repeat, options.paused),
-        mutant(mutant), from(0.0f), to(to), easing_fn(std::move(easing_fn)),
+        mutant(mutant), from(0.0f), to(to), easing_fn(easing_fn),
         quantized(options.quantized) {
     HS_CHECK(std::isfinite(to), "Transition target must be finite");
   }
@@ -201,7 +201,7 @@ public:
   Mutation(float &mutant, ScalarFn f, int duration, EasingFn easing_fn,
            const Options &options = {})
       : PausableParamAnimationBase(duration, options.repeat, options.paused),
-        mutant(mutant), f(std::move(f)), easing_fn(std::move(easing_fn)) {}
+        mutant(mutant), f(std::move(f)), easing_fn(easing_fn) {}
 
   /**
    * @brief Applies one unpaused frame of the mutation.
@@ -242,7 +242,7 @@ public:
   Progress(StepFn f, int duration, EasingFn easing_fn,
            const Options &options = {})
       : PausableParamAnimationBase(duration, false, options.paused),
-        f(std::move(f)), easing_fn(std::move(easing_fn)) {}
+        f(std::move(f)), easing_fn(easing_fn) {}
 
   /**
    * @brief Invokes the callback once with this frame's eased progress.
@@ -433,8 +433,7 @@ public:
             const GenerativePalette::Snapshot &target, int duration,
             EasingFn easing_fn, const Options &options = {})
       : PausableParamAnimationBase(duration, false, options.paused),
-        palette(palette), start(start), target(target),
-        easing_fn(std::move(easing_fn)) {}
+        palette(palette), start(start), target(target), easing_fn(easing_fn) {}
 
   ColorWipe(GenerativePalette &, const GenerativePalette::Snapshot &&,
             const GenerativePalette::Snapshot &, int, EasingFn,
