@@ -878,7 +878,7 @@ inline void test_screen_balanced_star_stroke_stays_within_visual_budget() {
       MAX_MEAN_ABSOLUTE_ERROR, MAX_ROOT_MEAN_SQUARED_ERROR, MAX_CHANNEL_ERROR);
 }
 
-/** @brief Frozen temporal star strokes preserve the still stroke look. */
+/** @brief Frozen temporal star strokes preserve the still stroke. */
 inline void test_timed_dense_star_stroke_stays_within_visual_budget() {
   OracleState state;
   state.preset_index = 1;
@@ -902,7 +902,7 @@ inline void test_timed_dense_star_stroke_stays_within_visual_budget() {
       std::fabs(double(frame_energy(comparison.candidate)) - double(energy)) /
       double(energy);
   std::printf(
-      "  frozen temporal star stroke look: MAE=%.3f RMSE=%.3f energy_drift=%.6f reference=%f candidate=%f\n",
+      "  frozen temporal star stroke: MAE=%.3f RMSE=%.3f energy_drift=%.6f reference=%f candidate=%f\n",
       comparison.error.mean_absolute_error(),
       comparison.error.root_mean_squared_error(), drift, double(energy),
       double(frame_energy(comparison.candidate)));
@@ -1437,24 +1437,25 @@ inline void test_timed_presets_match_frozen_columns() {
         name.c_str());
     state.orientation =
         math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized();
-    const auto look = compare_renders(
+    const auto frozen_style = compare_renders(
         state, candidate_renderer(), [](OracleEffect &effect, Canvas &canvas) {
           const ScopedTemporalSampling sampling(true);
           ShapeShifterWhiteBox::render_candidate(effect, canvas);
         });
-    const double energy = double(frame_energy(look.reference));
+    const double energy = double(frame_energy(frozen_style.reference));
     const double drift =
-        (double(frame_energy(look.candidate)) - energy) / energy;
+        (double(frame_energy(frozen_style.candidate)) - energy) / energy;
     std::printf(
         "  frozen style preset %zu: MAE=%.3f RMSE=%.3f max=%u energy_drift=%.6f\n",
-        i + 1, look.error.mean_absolute_error(),
-        look.error.root_mean_squared_error(), look.error.max_absolute_error,
-        drift);
+        i + 1, frozen_style.error.mean_absolute_error(),
+        frozen_style.error.root_mean_squared_error(),
+        frozen_style.error.max_absolute_error, drift);
     HS_EXPECT_LT(std::fabs(drift), MAX_PRESET_ENERGY_DRIFT);
-    HS_EXPECT_LT(look.error.mean_absolute_error(), MAX_MEAN_ABSOLUTE_ERROR);
-    HS_EXPECT_LT(look.error.root_mean_squared_error(),
+    HS_EXPECT_LT(frozen_style.error.mean_absolute_error(),
+                 MAX_MEAN_ABSOLUTE_ERROR);
+    HS_EXPECT_LT(frozen_style.error.root_mean_squared_error(),
                  MAX_ROOT_MEAN_SQUARED_ERROR);
-    HS_EXPECT_LT(look.error.max_absolute_error, MAX_CHANNEL_ERROR);
+    HS_EXPECT_LT(frozen_style.error.max_absolute_error, MAX_CHANNEL_ERROR);
   }
 }
 
