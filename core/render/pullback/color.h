@@ -518,11 +518,10 @@ struct PhaseModulationState : ModulationState {
   bool ready = false;          ///< Whether one shared color tail is admitted.
 };
 
-/** @brief One noise cube or blended endpoints for a baked-noise color tail. */
+/** @brief Endpoint noise cubes blended by a baked-noise color tail. */
 struct CubePhaseModulationState : PhaseModulationState {
-  const Pattern::SphereLutView *cube_previous =
-      nullptr; ///< Optional blend source.
-  const Pattern::SphereLutView *cube_current = nullptr; ///< Current cube.
+  const Pattern::SphereLutView *cube_previous = nullptr; ///< Retained cube.
+  const Pattern::SphereLutView *cube_current = nullptr;  ///< Current cube.
   float cube_fraction = 0.0f; ///< Current cube weight.
 };
 static_assert(sizeof(Pattern::SphereSmoothGrid::Prepared) == 40);
@@ -541,16 +540,14 @@ struct ChamberPhaseModulationState : PhaseModulationState {
 
 /** @brief Samples one prepared phase, sharing per-pixel cube coordinates.
  * @tparam Phase Prepared modulation phase type.
- * @tparam Scratch Shared lookup storage.
  * @param field Source coordinates and displacement travel.
  * @param prepared Ready column phase.
  * @param scratch Lookups shared by this phase tail.
  * @return Source scalar before its mechanic. */
-template <typename Phase, bool SinePhase = true,
-          typename Scratch = PhaseScratch>
+template <typename Phase, bool SinePhase = true>
 HS_HOT_INLINE inline float sample_phase_scalar(const FieldSample &field,
                                                const Phase &prepared,
-                                               Scratch &scratch)
+                                               PhaseScratch &scratch)
   requires std::is_base_of_v<PhaseModulationState, Phase>
 {
   float scalar = 0.0f;
@@ -565,13 +562,10 @@ HS_HOT_INLINE inline float sample_phase_scalar(const FieldSample &field,
           scratch.cube_tap_ready = true;
         }
         const auto &TAP = scratch.cube_tap;
-        const float CURRENT =
-            Pattern::bounded_scalar(TAP.sample(*prepared.cube_current));
-        if (!prepared.cube_previous)
-          return CURRENT;
         return hs::lerp(
             Pattern::bounded_scalar(TAP.sample(*prepared.cube_previous)),
-            CURRENT, prepared.cube_fraction);
+            Pattern::bounded_scalar(TAP.sample(*prepared.cube_current)),
+            prepared.cube_fraction);
       }
     bool cached = false;
     if constexpr (std::is_same_v<Phase, ChamberPhaseModulationState>)

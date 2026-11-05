@@ -1342,7 +1342,6 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_grid_worms_sine_column_phase);
   HS_RUN(test_ash_cloud_noise_column_phase);
   HS_RUN(test_baked_cube_column_phase);
-  HS_RUN(test_baked_cube_single_endpoint);
   HS_RUN(test_chamber_noise_cache_bake_lifetime);
   HS_RUN(test_chamber_noise_cache_admission);
   HS_RUN(test_chamber_noise_cache_phase_and_fallback);
