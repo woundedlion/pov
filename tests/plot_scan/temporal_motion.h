@@ -377,6 +377,10 @@ inline void test_vertex_motion_carries_frame_ends() {
       exact_motion.hold(i);
       const math::Vector held = exact_motion.start(i);
       HS_EXPECT_EQ(held.x, exact_motion.end(i).x);
+      HS_EXPECT_EQ(held.y, exact_motion.end(i).y);
+      HS_EXPECT_EQ(held.z, exact_motion.end(i).z);
+      HS_EXPECT_TRUE(exact_motion.interpolant(i) ==
+                     Spacetime::Interpolant::CHORD);
     }
   }
 }
