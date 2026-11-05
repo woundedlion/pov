@@ -79,7 +79,9 @@ inline void check_radial_surface_mask(float padding) {
       }
   }
   HS_EXPECT_EQ(misses, 0u);
-  HS_EXPECT_LT(marked, total);
+  HS_EXPECT_LT(marked, total * 3 / 5);
+  HS_EXPECT_GT(probes, 0u);
+  HS_EXPECT_GT(candidates, 0u);
   HS_EXPECT_LE(candidates, 6u * (3u * INTERVALS + 2u));
   std::printf(
       "  mask %dx%d N=%d pad=%g: probes=%u misses=%u marked=%u/%u candidates=%u pieces=%u row_writes=%u bytes=%zu\n",
