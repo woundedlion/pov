@@ -99,52 +99,6 @@ template <Pullback::HasFields T> inline bool valid(const T &value) {
     return Pullback::Fields::valid(value);
 }
 
-/** @brief Validates authored numeric and topology controls.
- * @param value Authored controls.
- * @return Whether every control is admitted. */
-inline bool valid(const Source::AuthoredProjectedNoiseSourceParams &value) {
-  return Pullback::Fields::valid(value) && value.basis <= 2;
-}
-/** @brief Validates authored numeric and topology controls.
- * @param value Authored controls.
- * @return Whether every control is admitted. */
-inline bool valid(const Warp::AuthoredWaveShearParams &value) {
-  return Pullback::Fields::valid(value) && value.envelope <= 2;
-}
-/** @brief Validates authored numeric and topology controls.
- * @param value Authored controls.
- * @return Whether every control is admitted. */
-inline bool valid(const Warp::AuthoredVectorNoiseParams &value) {
-  return Pullback::Fields::valid(value) && value.basis <= 2 &&
-         value.envelope <= 2;
-}
-/** @brief Validates authored numeric and topology controls.
- * @param value Authored controls.
- * @return Whether every control is admitted. */
-inline bool valid(const Warp::AuthoredPolarParams &value) {
-  return Pullback::Fields::valid(value) && value.mode <= 1 &&
-         value.harmonic < Warp::MAX_POLAR_HARMONIC;
-}
-/** @brief Validates authored numeric and topology controls.
- * @param value Authored controls.
- * @return Whether every control is admitted. */
-inline bool valid(const Warp::AuthoredCurlFlowParams &value) {
-  return Pullback::Fields::valid(value) && value.basis <= 2 &&
-         value.integrator <= 2;
-}
-
-/** @brief Validates runtime source and crossing controls.
- * @tparam Family Source-specific controls.
- * @param value Authored source crossing.
- * @return Whether every numeric and topology field is admitted. */
-template <typename Family>
-inline bool valid(const Source::AuthoredSampleParams<Family> &value) {
-  return valid(static_cast<const Family &>(value)) && Fields::valid(value) &&
-         value.weight_mode <= 1 &&
-         value.coverage_mode <=
-             static_cast<uint8_t>(ProjectionCoverageMode::EDGE_FADE_SQUARED);
-}
-
 /** @brief Validates ripple controls and scheduler topology.
  * @param value Ripple controls.
  * @return Whether the numeric and topology fields are admitted. */
@@ -153,24 +107,11 @@ inline bool valid(const SphereAnimation::BurstRippleParams &value) {
          value.random_center <= 1;
 }
 
-/** @brief Validates Rossby-Haurwitz controls and integration topology.
- * @param value Field controls.
- * @return Whether the controls are admitted. */
-inline bool valid(const RossbyHaurwitzParams &value) {
-  return Fields::valid(value) && value.order < 7 && value.integrator < 3;
-}
-/** @brief Validates invariant-field controls and topology.
- * @param value Field controls.
- * @return Whether the controls are admitted. */
-inline bool valid(const SymmetricParams &value) {
-  return Fields::valid(value) && value.symmetry < 9 && value.kind < 2 &&
-         value.integrator < 3;
-}
 /** @brief Validates arbitrary-potential controls and harmonic domains.
  * @param value Field controls.
  * @return Whether the controls are admitted. */
 inline bool valid(const PotentialParams &value) {
-  if (!Fields::valid(value) || value.integrator >= 3)
+  if (!Fields::valid(value))
     return false;
   for (const auto &term : value.terms)
     if (term.type >= 4 || term.kind >= 2 || term.l > 8 || term.m > 8 ||
@@ -179,26 +120,6 @@ inline bool valid(const PotentialParams &value) {
         fabsf(term.phase) > math::PI_F)
       return false;
   return true;
-}
-
-/** @brief Validates curl-noise numerical topology.
- * @param value Surface controls.
- * @return Whether all fields and topology indices are admitted. */
-inline bool valid(const AuthoredSurfaceNoiseParams &value) {
-  return Fields::valid(value) && value.basis < 3 && value.integrator < 3 &&
-         value.limit < 2;
-}
-/** @brief Validates directed-noise numerical topology.
- * @param value Surface controls.
- * @return Whether all fields and the noise basis are admitted. */
-inline bool valid(const AuthoredDirectSurfaceParams &value) {
-  return Fields::valid(value) && value.basis < 3;
-}
-/** @brief Validates kaleidoscope topology.
- * @param value Lens controls.
- * @return Whether the symmetry is admitted. */
-inline bool valid(const Lens::KaleidoscopeParams &value) {
-  return value.symmetry < 9;
 }
 
 /**
