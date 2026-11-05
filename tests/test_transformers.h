@@ -42,6 +42,11 @@ inline bool vec_bits_equal(const math::Vector &a, const math::Vector &b) {
 // OrientTransformer
 // ============================================================================
 
+static_assert(std::is_constructible_v<OrientTransformer<4>,
+                                      const math::Orientation<4> &>);
+static_assert(!std::is_constructible_v<OrientTransformer<4>,
+                                       const math::Orientation<4> &&>);
+
 /**
  * @brief Verifies an identity orientation leaves every sampled direction
  *        unchanged.

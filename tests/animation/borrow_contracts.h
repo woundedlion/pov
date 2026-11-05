@@ -62,4 +62,21 @@ static_assert(
     !std::is_constructible_v<Animation::MobiusFlow, math::MobiusParams &,
                              const float &, const float &&, int>,
     "MobiusFlow must REJECT a temporary num_lines (would dangle)");
+static_assert(
+    std::is_constructible_v<Animation::BallDrop<16>, Animation::BumpParams &,
+                            const Ori &, const math::Vector &, float, int>);
+static_assert(
+    !std::is_constructible_v<Animation::BallDrop<16>, Animation::BumpParams &,
+                             const Ori &&, const math::Vector &, float, int>);
+
+template <typename T, typename Value>
+concept AcceptsScale = requires(T &target, Value &&value) {
+  target.bind_scale(static_cast<Value &&>(value));
+};
+static_assert(AcceptsScale<Animation::MobiusWarpBase<Animation::MobiusWarp>,
+                           const float &>);
+static_assert(!AcceptsScale<Animation::MobiusWarpBase<Animation::MobiusWarp>,
+                            const float>);
+static_assert(AcceptsScale<Animation::LensPhase, const float &>);
+static_assert(!AcceptsScale<Animation::LensPhase, const float>);
 } // namespace borrow_guard
