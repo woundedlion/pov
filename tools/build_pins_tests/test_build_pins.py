@@ -296,6 +296,20 @@ class InlinePins(unittest.TestCase):
                 path.write_text("", encoding="utf-8")
                 self.assertIn("was not found", bp.check_inline_pins()[0])
 
+    def test_exact_formatter_sentence_is_checked_without_its_period(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "CONTRIBUTING.md"
+            pattern = next(row for row in bp.INLINE_USES if "is pinned to" in row[0])
+            with unittest.mock.patch.object(bp, "ROOT", root), \
+                    unittest.mock.patch.object(bp, "INLINE_SCAN", (path,)), \
+                    unittest.mock.patch.object(bp, "INLINE_USES", (pattern,)), \
+                    unittest.mock.patch.dict(bp.INLINE_PINS, {"clang-format": "22.1.8"}):
+                path.write_text("clang-format is pinned to 22.1.8.\n", encoding="utf-8")
+                self.assertEqual(bp.check_inline_pins(), [])
+                path.write_text("clang-format is pinned to 22.1.9.\n", encoding="utf-8")
+                self.assertIn("written '22.1.9'", bp.check_inline_pins()[0])
+
     def test_the_python_version_input_is_read_in_either_quoting(self):
         pattern = next(p for p, name, _ in bp.INLINE_USES if name == "python")
         for line in ("          python-version: '3.13'",

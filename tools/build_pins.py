@@ -168,6 +168,7 @@ INLINE_USES = (
     (r"\b(?:clang\+\+|clang|llvm)-(\d+)\b", "clang", lambda v: v),
     (r"\bllvm-[\w-]+?-(\d+)\b", "clang", lambda v: v),
     (r"\bclang-format==([\w.]+)", "clang-format", lambda v: v),
+    (r"\bclang-format is pinned to (\d+(?:\.\d+)+)", "clang-format", lambda v: v),
     (r"\bcmake==([\w.]+)", "cmake", lambda v: v),
     (r"\bclang-format-(\d+)\b", "clang-format", lambda v: v.split(".")[0]),
     (r"\bclang-format (\d+)\b", "clang-format", lambda v: v.split(".")[0]),
