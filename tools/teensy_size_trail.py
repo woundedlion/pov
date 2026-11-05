@@ -313,7 +313,7 @@ def _git(args: list[str], cwd: str | Path | None = None, *, env=None) -> str:
     try:
         proc = subprocess.run(["git", *args], cwd=cwd, check=False,
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              text=True, env=env)
+                              text=True, encoding="utf-8", errors="replace", env=env)
     except OSError as exc:
         raise GitError(f"cannot run git: {exc}") from exc
     if proc.returncode != 0:

@@ -533,6 +533,24 @@ class RecordInputs(unittest.TestCase):
             self.assertEqual(tst.read_trail(trail)[0].sizes["itcm"], 17)
 
 
+class GitText(unittest.TestCase):
+    def test_non_ascii_subject_round_trips(self):
+        subject = "size — “quoted” output"
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.dict(os.environ, isolated_env(), clear=True):
+            root = Path(directory)
+            tst._git(["init", "--quiet"], root)
+            tst._git(["commit", "--allow-empty", "-m", subject], root)
+            self.assertEqual(tst.head_stamp(root)[2], subject)
+
+    def test_git_decodes_utf8_with_replacement(self):
+        result = subprocess.CompletedProcess(["git"], 0, "ok\n", "")
+        with mock.patch.object(tst.subprocess, "run", return_value=result) as run:
+            self.assertEqual(tst._git(["version"]), "ok")
+        self.assertEqual(run.call_args.kwargs["encoding"], "utf-8")
+        self.assertEqual(run.call_args.kwargs["errors"], "replace")
+
+
 class DefaultPaths(unittest.TestCase):
     """The trail is shared by every worktree; the pending record is not."""
 
