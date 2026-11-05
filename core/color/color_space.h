@@ -525,19 +525,22 @@ gamut_continuous_chroma_sample(float L, float a, float b) {
                          (ai + 1) % lut.angle_steps};
   const int lightnesses[3] = {std::max(li - 1, 0), li,
                               std::min(li + 1, lut.l_steps - 1)};
-  const auto read_cell_minimum = [&](int l, int a) {
-    return static_cast<float>(lut.table[(l * lut.angle_steps + a) * 2]) *
+  const auto read_cell_minimum = [&](int row, int column) {
+    return static_cast<float>(lut.table[(row * lut.angle_steps + column) * 2]) *
            GAMUT_LUT_INV_SCALE;
   };
 
   float cell_minima[3][3];
-  for (int l = 0; l < 3; ++l)
-    for (int a = 0; a < 3; ++a)
-      cell_minima[l][a] = read_cell_minimum(lightnesses[l], angles[a]);
+  for (int row = 0; row < 3; ++row)
+    for (int column = 0; column < 3; ++column)
+      cell_minima[row][column] =
+          read_cell_minimum(lightnesses[row], angles[column]);
 
-  const auto vertex_minimum = [&](int l, int a) {
-    return std::min(std::min(cell_minima[l][a], cell_minima[l][a + 1]),
-                    std::min(cell_minima[l + 1][a], cell_minima[l + 1][a + 1]));
+  const auto vertex_minimum = [&](int row, int column) {
+    return std::min(
+        std::min(cell_minima[row][column], cell_minima[row][column + 1]),
+        std::min(cell_minima[row + 1][column],
+                 cell_minima[row + 1][column + 1]));
   };
   const float v00 = vertex_minimum(0, 0);
   const float v10 = vertex_minimum(0, 1);
