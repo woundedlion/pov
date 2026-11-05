@@ -394,9 +394,8 @@ inline void test_distorted_ring_stack_matches_sequential() {
     // target_angle is radius * PI/2.
     auto ring_radius = [](int i) { return 2.0f * (i + 1) / (N_RINGS + 1); };
 
-    alignas(SDF::DistortedRing) unsigned char
-        mem[N_RINGS * sizeof(SDF::DistortedRing)];
-    auto *shapes = reinterpret_cast<SDF::DistortedRing *>(mem);
+    DistortedRingArray<N_RINGS> rings;
+    auto *shapes = rings.data();
     int8_t slot_by_ring[N_RINGS];
     Color4 slot_color[N_RINGS];
     int n_slots = 0;
@@ -405,8 +404,8 @@ inline void test_distorted_ring_stack_matches_sequential() {
         slot_by_ring[i] = -1;
         continue;
       }
-      new (&shapes[n_slots]) SDF::DistortedRing(basis, ring_radius(i), ths[i],
-                                                knots[i], LUT_N, 0.0f, nullptr);
+      rings.emplace(n_slots, basis, ring_radius(i), ths[i], knots[i], LUT_N,
+                    0.0f, nullptr);
       slot_color[n_slots] = colors[i];
       slot_by_ring[i] = static_cast<int8_t>(n_slots);
       ++n_slots;
@@ -456,9 +455,6 @@ inline void test_distorted_ring_stack_matches_sequential() {
           [&](int s, const math::Vector &, Fragment &f) { shade(s, f); });
     }
     fused.advance_display();
-
-    for (int s = 0; s < n_slots; ++s)
-      shapes[s].~DistortedRing();
 
 #if defined(HS_TEST_FAST_MATH)
     constexpr int CHANNEL_TOL = N_RINGS; // one 16-bit step per composited blend
@@ -564,14 +560,12 @@ inline void test_fused_walks_ignore_pole_lod() {
   auto draw_stack = [&](std::vector<Pixel> &out) {
     float knots[N][LUT_N + 1];
     build_ring_knots<N, LUT_N>(knots);
-    alignas(
-        SDF::DistortedRing) unsigned char mem[N * sizeof(SDF::DistortedRing)];
-    auto *shapes = reinterpret_cast<SDF::DistortedRing *>(mem);
+    DistortedRingArray<N> rings;
+    auto *shapes = rings.data();
     int8_t slot_by_ring[N];
     for (int i = 0; i < N; ++i) {
-      new (&shapes[i])
-          SDF::DistortedRing(basis, 2.0f * (i + 1) / (N + 1), ths[i], knots[i],
-                             LUT_N, 0.0f, nullptr);
+      rings.emplace(i, basis, 2.0f * (i + 1) / (N + 1), ths[i], knots[i], LUT_N,
+                    0.0f, nullptr);
       slot_by_ring[i] = static_cast<int8_t>(i);
     }
     hs_test::StubEffect fx(W, H);
@@ -583,8 +577,6 @@ inline void test_fused_walks_ignore_pole_lod() {
                                            slot_by_ring, N, table, shader);
     }
     fx.advance_display();
-    for (int i = 0; i < N; ++i)
-      shapes[i].~DistortedRing();
     capture_frame<W, H>(fx, out);
   };
 

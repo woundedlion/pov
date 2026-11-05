@@ -57,6 +57,32 @@ struct ScopedPoleLod {
   ScopedPoleLod &operator=(const ScopedPoleLod &) = delete;
 };
 
+/** @brief Contiguous ring storage that destroys every constructed element. */
+template <size_t N> class DistortedRingArray {
+public:
+  DistortedRingArray() = default;
+  DistortedRingArray(const DistortedRingArray &) = delete;
+  DistortedRingArray &operator=(const DistortedRingArray &) = delete;
+  ~DistortedRingArray() {
+    while (count)
+      data()[--count].~DistortedRing();
+  }
+  template <typename... Args> void emplace(size_t i, Args &&...args) {
+    HS_CHECK(i == count && count < N, "ring fixture construction order");
+    new (storage + i * sizeof(SDF::DistortedRing))
+        SDF::DistortedRing(std::forward<Args>(args)...);
+    ++count;
+  }
+  SDF::DistortedRing *data() {
+    return reinterpret_cast<SDF::DistortedRing *>(storage);
+  }
+
+private:
+  alignas(
+      SDF::DistortedRing) unsigned char storage[N * sizeof(SDF::DistortedRing)];
+  size_t count = 0;
+};
+
 #include "tests/scan/shader_draw.h"
 #include "tests/scan/ring_raster.h"
 #include "tests/scan/region_pole_lod.h"

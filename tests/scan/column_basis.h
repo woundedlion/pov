@@ -264,13 +264,12 @@ inline void test_column_basis_matches_rotated_shapes() {
   const auto stack = [&](Pipeline<W, H> &pipeline, Canvas &canvas,
                          const math::Quaternion &q) {
     const math::Basis basis = math::make_basis(q, math::Vector(0, 0, 1));
-    alignas(SDF::DistortedRing) unsigned char
-        storage[RINGS * sizeof(SDF::DistortedRing)];
-    auto *shapes = reinterpret_cast<SDF::DistortedRing *>(storage);
+    DistortedRingArray<RINGS> rings;
+    auto *shapes = rings.data();
     int8_t slots[RINGS];
     for (int i = 0; i < RINGS; ++i) {
-      new (&shapes[i]) SDF::DistortedRing(basis, 0.2f + 0.1f * i, 0.06f,
-                                          knots[i], LUT_N, 0.0f, nullptr);
+      rings.emplace(i, basis, 0.2f + 0.1f * i, 0.06f, knots[i], LUT_N, 0.0f,
+                    nullptr);
       slots[i] = static_cast<int8_t>(i);
     }
     static Scan::DistortedRingStack::CandidateTable<W, H> table;
@@ -1220,13 +1219,12 @@ inline void test_ring_stack_honours_render_window() {
         scope.emplace(canvas, window.begin, window.end);
       const math::Basis frame =
           math::make_basis(motion.current, math::Vector(0.3f, 0.2f, 1.0f));
-      alignas(SDF::DistortedRing) unsigned char
-          storage[RINGS * sizeof(SDF::DistortedRing)];
-      auto *shapes = reinterpret_cast<SDF::DistortedRing *>(storage);
+      DistortedRingArray<RINGS> rings;
+      auto *shapes = rings.data();
       int8_t slots[RINGS];
       for (int i = 0; i < RINGS; ++i) {
-        new (&shapes[i]) SDF::DistortedRing(frame, 0.4f + 0.3f * i, 0.06f,
-                                            knots[i], LUT_N, 0.0f, nullptr);
+        rings.emplace(i, frame, 0.4f + 0.3f * i, 0.06f, knots[i], LUT_N, 0.0f,
+                      nullptr);
         slots[i] = static_cast<int8_t>(i);
       }
       static Scan::DistortedRingStack::CandidateTable<W, H> table;
