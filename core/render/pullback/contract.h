@@ -1097,7 +1097,7 @@ protected:
    * @param previous Selects the retained temporal endpoint.
    * @return The last child's output. */
   template <size_t Index, typename In>
-  __attribute__((always_inline)) static Output
+  HS_HOT_INLINE static Output
   run_children(const In &input, const FrameState &frame,
                const Prepared &prepared, bool previous = false) {
     using Current = ChildAt<Index>;
@@ -1601,7 +1601,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
    * @param prepared Per-node prepared state.
    * @param previous Selects retained resources. */
   template <size_t Index>
-  __attribute__((always_inline)) static void
+  HS_HOT_INLINE static void
   run_color_tail(ColorSample &sample, const FrameState &ctx,
                  const PreparedTuple &prepared, bool previous) {
     using Current = NodeAt<Index>;
@@ -1646,7 +1646,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
    * @param ctx Frame context.
    * @param prepared Per-node prepared state. */
   template <size_t Index>
-  __attribute__((always_inline)) static void
+  HS_HOT_INLINE static void
   run_color_tail_pair(ColorSample &previous, ColorSample &current,
                       const FrameState &ctx, const PreparedTuple &prepared) {
     if constexpr (paired_tail_supported<Index>()) {
@@ -1933,13 +1933,13 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
    * @param prepared Per-node prepared state.
    * @return The last node's deferred color sample. */
   template <size_t Index, typename Input>
-  __attribute__((always_inline)) static ColorSample
+  HS_HOT_INLINE static ColorSample
   run_stage(const Input &input, const FrameState &ctx,
             const PreparedTuple &prepared) {
     using CurrentNode = NodeAt<Index>;
     static_assert(std::is_same_v<Input, typename CurrentNode::Input>,
                   "pullback pipeline: stage input mismatch");
-    const auto endpoint = [&](bool retained) __attribute__((always_inline)) {
+    const auto endpoint = [&](bool retained) HS_HOT_INLINE {
       if constexpr (requires {
                       CurrentNode::run_endpoint(
                           input, ctx, std::get<Index>(prepared), retained);
@@ -1949,8 +1949,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
       else
         return CurrentNode::run(input, ctx, std::get<Index>(prepared));
     };
-    const auto finish = [&](const auto &output,
-                            bool retained) __attribute__((always_inline)) {
+    const auto finish = [&](const auto &output, bool retained) HS_HOT_INLINE {
       if constexpr (Index + 1 == NODE_COUNT)
         return output;
       else if constexpr (std::is_same_v<std::remove_cvref_t<decltype(output)>,
