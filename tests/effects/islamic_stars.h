@@ -420,8 +420,7 @@ inline void test_islamicstars_burst_size_is_snapshotted_per_spawn() {
 
   IslamicBuildProbe::spawn_entry(effect, entry);
   HS_EXPECT_EQ(IslamicBuildProbe::cached_burst_size(effect), 4);
-  HS_EXPECT_TRUE(IslamicBuildProbe::cached_burst_window(effect) >
-                 single_window);
+  HS_EXPECT_GT(IslamicBuildProbe::cached_burst_window(effect), single_window);
   HS_EXPECT_EQ(IslamicBuildProbe::fire_ripple(effect), 4);
 }
 
@@ -988,8 +987,9 @@ inline void test_islamicstars_opacity_shades_at_column_time() {
         return frame;
       });
   HS_EXPECT_TRUE(from != to);
-  HS_EXPECT_TRUE(expect_frames_within("islamic opacity", drawn, expected,
-                                      ISLAMIC_OPACITY_BOUND) > 200);
+  HS_EXPECT_GT(expect_frames_within("islamic opacity", drawn, expected,
+                                    ISLAMIC_OPACITY_BOUND),
+               200);
 }
 
 /**

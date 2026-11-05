@@ -105,7 +105,7 @@ struct CometsWhiteBox {
         HS_EXPECT_TRUE(is_black(fx.get_pixel(x, y)));
       }
     }
-    HS_EXPECT_TRUE(checked > 0);
+    HS_EXPECT_GT(checked, 0);
   }
 
   /**
@@ -189,8 +189,9 @@ inline void test_comets_wipe_shades_at_column_time() {
         WB::restore_palette(effect, saved);
         return frame;
       });
-  HS_EXPECT_TRUE(expect_frames_within("comets wipe", drawn, expected,
-                                      COMETS_WIPE_BOUND) > 30);
+  HS_EXPECT_GT(
+      expect_frames_within("comets wipe", drawn, expected, COMETS_WIPE_BOUND),
+      30);
 }
 
 /**

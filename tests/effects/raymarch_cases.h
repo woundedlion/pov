@@ -200,8 +200,9 @@ inline void test_raymarch_lighting_and_palette_at_column_time() {
       WB::draw_from(fx, previous_spin, previous_palette);
   const std::vector<Pixel> expected = column_time_oracle<W, H>(
       [&](float u) { return WB::draw_at(fx, u, previous_spin, PALETTE_STEP); });
-  HS_EXPECT_TRUE(expect_frames_within("raymarch columns", drawn, expected,
-                                      RAYMARCH_COLUMN_BOUND) > 100);
+  HS_EXPECT_GT(expect_frames_within("raymarch columns", drawn, expected,
+                                    RAYMARCH_COLUMN_BOUND),
+               100);
 }
 
 /** @brief Largest sRGB8 channel gap a Raymarch arm-boundary column may show

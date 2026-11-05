@@ -343,8 +343,8 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
       std::printf("  HankinSolids arena OVER BUDGET solid[%zu] '%s': "
                   "scratchA=%zu/%zu scratchB=%zu/%zu\n",
                   idx, solids[idx].name, a_peak, SCRATCH_A, b_peak, SCRATCH_B);
-    HS_EXPECT_TRUE(a_peak <= SCRATCH_A);
-    HS_EXPECT_TRUE(b_peak <= SCRATCH_B);
+    HS_EXPECT_LE(a_peak, SCRATCH_A);
+    HS_EXPECT_LE(b_peak, SCRATCH_B);
   }
   configure_arenas_default();
 }
@@ -393,8 +393,9 @@ inline void test_hankinsolids_handoffs_shade_at_column_time() {
           return WB::draw(effect, {weights, weights, strap, strap, false},
                           strap);
         });
-    HS_EXPECT_TRUE(expect_frames_within("hankin handoff", drawn, expected,
-                                        HANKIN_HANDOFF_BOUND) > 100);
+    HS_EXPECT_GT(expect_frames_within("hankin handoff", drawn, expected,
+                                      HANKIN_HANDOFF_BOUND),
+                 100);
   }
 }
 
@@ -470,8 +471,9 @@ inline void test_hankinsolids_conway_crossfade_shades_at_column_time() {
         const float weight = FROM_WEIGHT + (TO_WEIGHT - FROM_WEIGHT) * u;
         return draw(weight, weight, false);
       });
-  HS_EXPECT_TRUE(expect_frames_within("conway crossfade", drawn, expected,
-                                      HANKIN_HANDOFF_BOUND) > 100);
+  HS_EXPECT_GT(expect_frames_within("conway crossfade", drawn, expected,
+                                    HANKIN_HANDOFF_BOUND),
+               100);
 }
 
 /** @brief Hankin sweep frame the seam test draws: handoffs settled at both
