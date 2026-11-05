@@ -137,13 +137,13 @@ template <int W, int H> struct PolarWalk {
         const float x0 = across / (along * math::RADIANS_PER_COLUMN<W>);
         const float x1 =
             (across + ec) / ((along + ea) * math::RADIANS_PER_COLUMN<W>);
-        const float coverage = fabsf(integral(x1) - integral(x0));
+        const float mass = integral(x1) - integral(x0);
+        const float coverage = fabsf(mass);
         if (coverage > 0.0f) {
           auto moment = [](float x) HS_HOT_INLINE {
             x = hs::clamp(x, -1.0f, 1.0f);
             return x * x * (0.5f - fabsf(x) / 3.0f);
           };
-          const float mass = integral(x1) - integral(x0);
           const float mean = (moment(x1) - moment(x0)) / mass;
           const float offset = mean * math::RADIANS_PER_COLUMN<W>;
           const float denominator = ec - offset * ea;
@@ -180,20 +180,29 @@ template <int W, int H> struct PolarWalk {
       restrict(along * tangent + across, ea * tangent + ec);
       if (hi <= lo)
         continue;
-      if (radius > 0.0f && slope <= 1.0f && along > 0.0f && along + ea > 0.0f) {
+      struct SamplePlan {
+        int samples;
+        float inverse;
+        float alpha;
+      };
+      const auto sample_plan = [&](float radial) HS_HOT_INLINE {
         const float angle =
             math::centered_remainder(math::precise_atan2(to.y, to.x) -
                                          math::precise_atan2(from.y, from.x),
                                      math::TWO_PI_F) /
             math::RADIANS_PER_COLUMN<W>;
-        const float radial = sqrtf(to.x * to.x + to.y * to.y) -
-                             sqrtf(from.x * from.x + from.y * from.y);
         const float length = sqrtf(angle * angle + radial * radial);
-        const int samples = std::max(1, static_cast<int>(ceilf(length / step)));
+        const int samples = std::max(static_cast<int>(ceilf(length / step)), 1);
         const float inverse = 1.0f / samples;
         const float ratio = fminf(step, length * inverse) / SCREEN_STEP_PX;
-        const float alpha =
-            stroke_sample_alpha(color.alpha, ratio, density, balanced);
+        return SamplePlan{
+            samples, inverse,
+            stroke_sample_alpha(color.alpha, ratio, density, balanced)};
+      };
+      if (radius > 0.0f && slope <= 1.0f && along > 0.0f && along + ea > 0.0f) {
+        const float radial = sqrtf(to.x * to.x + to.y * to.y) -
+                             sqrtf(from.x * from.x + from.y * from.y);
+        const auto [samples, inverse, alpha] = sample_plan(radial);
         const int begin = std::max(0, static_cast<int>(ceilf(lo * samples)));
         const int end =
             std::min(samples - 1, static_cast<int>(floorf(hi * samples)));
@@ -230,19 +239,11 @@ template <int W, int H> struct PolarWalk {
       const float last_radius = radius_at(1.0f);
       if ((foot <= 0.0f || foot >= 1.0f) &&
           fabsf(last_radius - first_radius) > 1e-6f) {
-        const float angle =
-            math::centered_remainder(math::precise_atan2(to.y, to.x) -
-                                         math::precise_atan2(from.y, from.x),
-                                     math::TWO_PI_F) /
-            math::RADIANS_PER_COLUMN<W>;
         const float dr = last_radius - first_radius;
-        const float length = sqrtf(angle * angle + dr * dr);
-        const int samples = std::max(1, static_cast<int>(ceilf(length / step)));
-        const float inverse = 1.0f / samples;
-        radial_step = fabsf(dr) * inverse;
+        const auto plan = sample_plan(dr);
+        radial_step = fabsf(dr) * plan.inverse;
         radial_phase = first_radius;
-        const float ratio = fminf(step, length * inverse) / SCREEN_STEP_PX;
-        alpha = stroke_sample_alpha(color.alpha, ratio, density, balanced);
+        alpha = plan.alpha;
       }
       for (int row =
                static_cast<int>(ceilf((rmin - radial_phase) / radial_step));
