@@ -334,20 +334,17 @@ inline void test_volume_raymarch_silhouette_and_registers() {
 /**
  * @brief Verifies Volume::draw antialiases a self-occlusion edge over the surface
  *        behind it rather than fading the edge to black.
- * @details Around the foreground silhouette Volume::draw plots the background
- * opaque, then blends the foreground over it by the edge coverage (0<α<1) at the
- * same pixel.
+ * @details Background coverage precedes partial foreground coverage at each
+ * silhouette overlap, including soft corners.
  */
 inline void test_volume_draw_occluded_edge_blends_over_background() {
   constexpr int W = 96, H = 64;
   const math::Vector center(0.0f, 0.0f, 1.0f);
-  const float bounds_radius = 0.50f;
-  const float aa_width = 0.01f;
+  const float bounds_radius = 0.65f;
+  const float aa_width = 0.08f;
 
-  // Small foreground sphere nearer the camera (+Z local); larger background
-  // sphere deeper and wider so it sits behind the whole foreground silhouette.
   TwoSphereSDF shape{math::Vector(0.0f, 0.0f, 0.20f), 0.18f,
-                     math::Vector(0.0f, 0.0f, -0.20f), 0.30f};
+                     math::Vector(0.28f, 0.0f, -0.20f), 0.30f};
   Scan::TransformedVolume vol(shape, center, math::Quaternion());
 
   hs_test::StubEffect fx(W, H);
@@ -359,28 +356,27 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
         [&](const math::Vector &, Fragment &frag) {
           frag.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
         },
-        /*max_steps=*/12, aa_width);
+        /*max_steps=*/40, aa_width);
   }
 
-  // Solid occlusion and soft corner fill both emit background/foreground pairs.
-  // An opaque background distinguishes the solid occluder branch.
   int occ_pairs = 0;
-  float bg_alpha = 0.0f, fg_alpha = 1.0f;
+  int solid_pairs = 0, soft_pairs = 0;
   for (size_t i = 1; i < sink.plotted.size(); ++i) {
     if (sink.plotted[i] == sink.plotted[i - 1]) {
       ++occ_pairs;
-      if (occ_pairs == 1) {
-        bg_alpha = sink.alpha[i - 1];
-        fg_alpha = sink.alpha[i];
-      }
+      const float BG = sink.alpha[i - 1], FG = sink.alpha[i];
+      HS_EXPECT_GT(BG, 0.0f);
+      HS_EXPECT_LE(BG, 1.0f);
+      HS_EXPECT_GT(FG, 0.0f);
+      HS_EXPECT_LT(FG, 1.0f);
+      solid_pairs += BG == 1.0f;
+      soft_pairs += BG < 1.0f;
     }
   }
 
   HS_EXPECT_GT(occ_pairs, 0);
-  // Background laid down opaque; foreground blended over it as a partial edge.
-  HS_EXPECT_EQ(bg_alpha, 1.0f);
-  HS_EXPECT_GT(fg_alpha, 0.0f);
-  HS_EXPECT_LT(fg_alpha, bg_alpha);
+  HS_EXPECT_GT(solid_pairs, 0);
+  HS_EXPECT_GT(soft_pairs, 0);
 }
 
 /**
