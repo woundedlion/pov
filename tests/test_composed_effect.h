@@ -517,6 +517,34 @@ inline void check_authored_slider_registration(const FX &effect) {
 /** @brief Pins the registered controls of one specialization.
  * @tparam E Composed effect template.
  * @param name Effect name. */
+/** @brief Requires exactly the listed registered sliders. */
+inline void expect_exact_sliders(const ParamList &params,
+                                 std::span<const char *const> expected,
+                                 std::span<const char *const> terms = {}) {
+  for (const auto names : {expected, terms})
+    for (const char *slider : names) {
+      HS_CONTEXT(slider);
+      HS_EXPECT_TRUE(params.find(slider) != nullptr);
+    }
+  HS_EXPECT_EQ(params.size(), expected.size() + terms.size());
+  HS_EXPECT_EQ(params.size(), params.capacity());
+}
+
+inline constexpr const char *POTENTIAL_TERM_SLIDERS[] = {
+    "displace.term-1-type",      "displace.term-1-kind",
+    "displace.term-1-l",         "displace.term-1-m",
+    "displace.term-1-amplitude", "displace.term-1-phase",
+    "displace.term-2-type",      "displace.term-2-kind",
+    "displace.term-2-l",         "displace.term-2-m",
+    "displace.term-2-amplitude", "displace.term-2-phase",
+    "displace.term-3-type",      "displace.term-3-kind",
+    "displace.term-3-l",         "displace.term-3-m",
+    "displace.term-3-amplitude", "displace.term-3-phase",
+    "displace.term-4-type",      "displace.term-4-kind",
+    "displace.term-4-l",         "displace.term-4-m",
+    "displace.term-4-amplitude", "displace.term-4-phase",
+};
+
 template <template <int, int> class E>
 inline void check_slider_registration(const char *name) {
   using FX = E<SMALL_W, SMALL_H>;
@@ -557,30 +585,6 @@ inline void check_slider_registration(const char *name) {
                                         "displace.Orientation Polar",
                                         "displace.Drift",
                                         "displace.integrator",
-                                        "displace.term-1-type",
-                                        "displace.term-1-kind",
-                                        "displace.term-1-l",
-                                        "displace.term-1-m",
-                                        "displace.term-1-amplitude",
-                                        "displace.term-1-phase",
-                                        "displace.term-2-type",
-                                        "displace.term-2-kind",
-                                        "displace.term-2-l",
-                                        "displace.term-2-m",
-                                        "displace.term-2-amplitude",
-                                        "displace.term-2-phase",
-                                        "displace.term-3-type",
-                                        "displace.term-3-kind",
-                                        "displace.term-3-l",
-                                        "displace.term-3-m",
-                                        "displace.term-3-amplitude",
-                                        "displace.term-3-phase",
-                                        "displace.term-4-type",
-                                        "displace.term-4-kind",
-                                        "displace.term-4-l",
-                                        "displace.term-4-m",
-                                        "displace.term-4-amplitude",
-                                        "displace.term-4-phase",
                                         "Palette Chroma",
                                         "Palette Mapping",
                                         "Mapping Frequency",
@@ -618,12 +622,7 @@ inline void check_slider_registration(const char *name) {
                                         "modulate2.Modulation Amount",
                                         "modulate2.Pattern Scale",
                                         "modulate2.Pattern Speed"};
-    for (const char *slider : EXPECTED) {
-      HS_CONTEXT(slider);
-      HS_EXPECT_TRUE(params.find(slider) != nullptr);
-    }
-    HS_EXPECT_EQ(params.size(), std::size(EXPECTED));
-    HS_EXPECT_EQ(params.size(), params.capacity());
+    expect_exact_sliders(params, EXPECTED, POTENTIAL_TERM_SLIDERS);
     return;
   }
 
@@ -640,30 +639,6 @@ inline void check_slider_registration(const char *name) {
                                         "displace.Orientation Polar",
                                         "displace.Drift",
                                         "displace.integrator",
-                                        "displace.term-1-type",
-                                        "displace.term-1-kind",
-                                        "displace.term-1-l",
-                                        "displace.term-1-m",
-                                        "displace.term-1-amplitude",
-                                        "displace.term-1-phase",
-                                        "displace.term-2-type",
-                                        "displace.term-2-kind",
-                                        "displace.term-2-l",
-                                        "displace.term-2-m",
-                                        "displace.term-2-amplitude",
-                                        "displace.term-2-phase",
-                                        "displace.term-3-type",
-                                        "displace.term-3-kind",
-                                        "displace.term-3-l",
-                                        "displace.term-3-m",
-                                        "displace.term-3-amplitude",
-                                        "displace.term-3-phase",
-                                        "displace.term-4-type",
-                                        "displace.term-4-kind",
-                                        "displace.term-4-l",
-                                        "displace.term-4-m",
-                                        "displace.term-4-amplitude",
-                                        "displace.term-4-phase",
                                         "Palette Chroma",
                                         "Palette Mapping",
                                         "Mapping Frequency",
@@ -676,12 +651,7 @@ inline void check_slider_registration(const char *name) {
                                         "modulate1.Modulation Amount",
                                         "modulate1.Pattern Scale",
                                         "modulate1.Pattern Speed"};
-    for (const char *slider : EXPECTED) {
-      HS_CONTEXT(slider);
-      HS_EXPECT_TRUE(params.find(slider) != nullptr);
-    }
-    HS_EXPECT_EQ(params.size(), std::size(EXPECTED));
-    HS_EXPECT_EQ(params.size(), params.capacity());
+    expect_exact_sliders(params, EXPECTED, POTENTIAL_TERM_SLIDERS);
     return;
   }
 
@@ -697,30 +667,6 @@ inline void check_slider_registration(const char *name) {
                                         "displace.Orientation Polar",
                                         "displace.Drift",
                                         "displace.integrator",
-                                        "displace.term-1-type",
-                                        "displace.term-1-kind",
-                                        "displace.term-1-l",
-                                        "displace.term-1-m",
-                                        "displace.term-1-amplitude",
-                                        "displace.term-1-phase",
-                                        "displace.term-2-type",
-                                        "displace.term-2-kind",
-                                        "displace.term-2-l",
-                                        "displace.term-2-m",
-                                        "displace.term-2-amplitude",
-                                        "displace.term-2-phase",
-                                        "displace.term-3-type",
-                                        "displace.term-3-kind",
-                                        "displace.term-3-l",
-                                        "displace.term-3-m",
-                                        "displace.term-3-amplitude",
-                                        "displace.term-3-phase",
-                                        "displace.term-4-type",
-                                        "displace.term-4-kind",
-                                        "displace.term-4-l",
-                                        "displace.term-4-m",
-                                        "displace.term-4-amplitude",
-                                        "displace.term-4-phase",
                                         "Palette Chroma",
                                         "Palette Mapping",
                                         "Mapping Frequency",
@@ -730,12 +676,7 @@ inline void check_slider_registration(const char *name) {
                                         "Opacity at Value 0",
                                         "Opacity at Value 1",
                                         "modulate.Modulation Amount"};
-    for (const char *slider : EXPECTED) {
-      HS_CONTEXT(slider);
-      HS_EXPECT_TRUE(params.find(slider) != nullptr);
-    }
-    HS_EXPECT_EQ(params.size(), std::size(EXPECTED));
-    HS_EXPECT_EQ(params.size(), params.capacity());
+    expect_exact_sliders(params, EXPECTED, POTENTIAL_TERM_SLIDERS);
     return;
   }
 
@@ -775,12 +716,7 @@ inline void check_slider_registration(const char *name) {
                                         "field.Pattern Frequency",
                                         "field.Pattern Speed",
                                         "modulate.Modulation Amount"};
-    for (const char *slider : EXPECTED) {
-      HS_CONTEXT(slider);
-      HS_EXPECT_TRUE(params.find(slider) != nullptr);
-    }
-    HS_EXPECT_EQ(params.size(), std::size(EXPECTED));
-    HS_EXPECT_EQ(params.size(), params.capacity());
+    expect_exact_sliders(params, EXPECTED);
     return;
   }
 
@@ -817,12 +753,7 @@ inline void check_slider_registration(const char *name) {
                                         "modulation.Pattern Scale",
                                         "modulation.Pattern Speed",
                                         "modulate.Modulation Amount"};
-    for (const char *slider : EXPECTED) {
-      HS_CONTEXT(slider);
-      HS_EXPECT_TRUE(params.find(slider) != nullptr);
-    }
-    HS_EXPECT_EQ(params.size(), std::size(EXPECTED));
-    HS_EXPECT_EQ(params.size(), params.capacity());
+    expect_exact_sliders(params, EXPECTED);
     return;
   }
 
