@@ -356,7 +356,7 @@ def parse_effect_list(text: str, macro: str) -> list[str]:
     if not head:
         raise LayoutError(f"no #define {macro}(X)")
     body = []
-    for line in text[head.end():].splitlines()[0:]:
+    for line in text[head.end():].splitlines():
         body.append(line)
         if not line.rstrip().endswith("\\"):
             break
@@ -384,7 +384,7 @@ class Program:
         self.kind = {f.address: self._classify(f) for f in self.functions}
         objects = objects or {}
         object_starts = sorted(objects)
-        targets = [(site, target) for site, target in references]
+        targets = list(references)
         for site, address in data:
             index = bisect.bisect_right(object_starts, address) - 1
             if index < 0:
@@ -726,7 +726,7 @@ class _Planner:
                     return False
         return True
 
-    def _shift(self, users: frozenset[str], keys) -> int | None:
+    def _shift(self, keys) -> int | None:
         """Fewest whole lines to advance before the gated code of `keys` fits."""
         lines, _ = self._gated_lines(keys, self.address)
         if not lines:
@@ -802,7 +802,7 @@ class _Planner:
     def run(self) -> list[tuple[Origin, str]]:
         while self.units:
             users, serial, keys = self.units[0]
-            shift = self._shift(users, keys)
+            shift = self._shift(keys)
             if shift is None and len(keys) > 1:
                 half = len(keys) // 2
                 self.units[0:1] = [(users, serial, keys[:half]), (users, serial, keys[half:])]
