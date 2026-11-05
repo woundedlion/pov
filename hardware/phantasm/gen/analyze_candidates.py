@@ -154,6 +154,7 @@ def run_drc(pcb_path):
                             "--format", "json", pcb_path, "-o", rpt],
                            capture_output=True, timeout=120, check=False)
         if r.returncode != 0:
+            sys.stderr.write((r.stderr or b"").decode(errors="replace"))
             return no_drc(DRC_FAILED)
         violations, unconnected_items = fab.read_drc_report(rpt)
     except (subprocess.SubprocessError, OSError, fab.DesignRuleError):

@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import math
 import os
@@ -391,6 +393,18 @@ def track_clearance():
 
 
 class RunDrcReportTests(unittest.TestCase):
+    def test_failed_cli_surfaces_stderr(self):
+        result = subprocess.CompletedProcess(["kicad-cli"], 1, b"", b"cannot load board\n")
+        stderr = io.StringIO()
+        with mock.patch.object(analyze_candidates, "resolve_kicad_cli", return_value="kicad-cli"), \
+                mock.patch.object(analyze_candidates.fab, "validate_project_rules"), \
+                mock.patch.object(analyze_candidates.fab, "validate_zone_geometry"), \
+                mock.patch.object(analyze_candidates.subprocess, "run", return_value=result), \
+                contextlib.redirect_stderr(stderr):
+            self.assertEqual(analyze_candidates.run_drc("board.kicad_pcb")["status"],
+                             analyze_candidates.DRC_FAILED)
+        self.assertEqual(stderr.getvalue(), "cannot load board\n")
+
     """The gate reads kicad-cli's JSON report, so a shape change can't read clean."""
 
     def run_drc(self, report_text):

@@ -615,8 +615,11 @@ PART_BY_LCSC = {
 def run(args, check=True, **kw):
     print("  $", os.path.basename(args[0]), " ".join(args[1:]))
     try:
-        return subprocess.run(args, check=check, capture_output=True, text=True,
-                              **kw)
+        result = subprocess.run(args, check=check, capture_output=True, text=True,
+                                **kw)
+        if result.returncode:
+            sys.stderr.write(result.stderr or "")
+        return result
     except subprocess.CalledProcessError as exc:
         sys.stderr.write(exc.stderr or "")
         raise

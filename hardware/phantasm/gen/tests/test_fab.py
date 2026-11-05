@@ -886,6 +886,14 @@ class PartCatalogTests(unittest.TestCase):
 
 
 class CommandRunTests(unittest.TestCase):
+    def test_nonraising_failure_surfaces_stderr(self):
+        result = subprocess.CompletedProcess(["kicad-cli"], 1, "", "cannot load board\n")
+        stderr = io.StringIO()
+        with mock.patch.object(subprocess, "run", return_value=result), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+            self.assertIs(fab.run(["kicad-cli"], check=False), result)
+        self.assertEqual(stderr.getvalue(), "cannot load board\n")
+
     def invoke(self, error):
         def fake_run(*args, **kw):
             raise error
