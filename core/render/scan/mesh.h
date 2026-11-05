@@ -2769,7 +2769,7 @@ struct Mesh {
    *        aligned to its canonical class shape after construction and the
    *        class distance LUT is bound for the probe loop.
    * @param face_shader_setup Optional callback receiving the face index and
-   *        size, run once before each face. When supplied, the shader is
+   *        size, run once before each drawn face. When supplied, the shader is
    *        invoked directly with only v1 refreshed per pixel, so the index and
    *        size reach it only through what the callback hoists. The fragment
    *        persists across pixels, so the shader must write frag.color
@@ -2865,13 +2865,11 @@ struct Mesh {
       ++mesh_capture_counters.face_setups;
 #endif
 
-      if (window.active &&
-          (shape.y_min > shape.y_max || !face_meets_window(shape, window, cr)))
+      if (shape.y_min > shape.y_max ||
+          (window.active && !face_meets_window(shape, window, cr)))
         continue;
 
-      // Bind the face's congruence-class LUT; culled faces (y_min > y_max) skip
-      // it.
-      if (bake && shape.y_min <= shape.y_max) {
+      if (bake) {
         const MeshOps::FaceClassRec &rec = bake->face_recs[i];
         if (rec.class_id != MeshOps::NO_CLASS) {
           HS_CHECK(rec.class_id < bake->classes.size(),
@@ -2924,7 +2922,7 @@ struct Mesh {
    *        frag.color unconditionally.
    * @param scratch_arena Arena supplying per-face SDF::PreparedFace scratch storage.
    * @param bake Optional congruence-class bake for this mesh.
-   * @param face_shader_setup Non-null callback run once before each face.
+   * @param face_shader_setup Non-null callback run once before each drawn face.
    */
   template <int W, int H, typename PipelineT, typename FragmentShaderT,
             typename FaceShaderSetupT>
