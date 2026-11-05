@@ -89,6 +89,8 @@ def record(line, out, tail):
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--seconds", type=float, default=150.0,
                     help="capture duration (default 150 s: covers a full "

@@ -269,19 +269,17 @@ class TestMain(unittest.TestCase):
         patched.start()
         self.addCleanup(patched.stop)
 
-    def _run(self, serial_port, *extra):
-        """Drive main() over a fake port; returns what it teed to stdout.
-
-        stdout is captured: a cp1252 Windows console cannot print the
-        replacement characters of the undecodable-bytes case.
-        """
+    def _run(self, serial_port, *extra, console=None):
+        """Drive main() over a fake port and capture its console output."""
         argv = ["profile_capture.py", "--out", self.out, "--seconds", "5.0"]
-        stdout = io.StringIO()
+        stdout = console if console is not None else io.StringIO()
         with mock.patch.object(sys, "argv", argv + list(extra)), \
                 mock.patch.object(pc, "open_port", lambda *a: serial_port), \
                 contextlib.redirect_stdout(stdout):
             pc.main()
-        return stdout.getvalue()
+        stdout.flush()
+        return (stdout.getvalue() if hasattr(stdout, "getvalue")
+                else stdout.buffer.getvalue().decode(stdout.encoding))
 
     def test_capture_writes_the_streamed_lines_and_creates_the_directory(self):
         opened = FakeSerial("COM3", [b"phase 1\r\n", b"", b"phase 2\n"], self.clock)
@@ -316,7 +314,8 @@ class TestMain(unittest.TestCase):
 
     def test_undecodable_bytes_do_not_abort_the_capture(self):
         opened = FakeSerial("COM3", [b"\xff\xfe ok\n"], self.clock)
-        self._run(opened)
+        console = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+        self._run(opened, console=console)
         with open(self.out, encoding="utf-8") as handle:
             self.assertIn("ok", handle.read())
 
