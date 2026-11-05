@@ -8,6 +8,9 @@
 
 namespace hs_test::effects_tests {
 
+/** @brief Runs negative and healthy parameter lint companions. */
+void run_effect_case_parameter_lint_failure_guards();
+
 /** @brief Runs dark-coverage and measured-ratio seam companions. */
 void run_effect_case_mesh_seam_dark_sample_guards();
 

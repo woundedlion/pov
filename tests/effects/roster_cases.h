@@ -72,6 +72,65 @@ inline void test_mesh_seam_dark_sample_guards() {
   check_guard(mixed, 2, "steps.arm_ratios / steps.arm_samples");
 }
 
+/** @brief Parameter lints reject overwritten sliders and paused animation leaks. */
+inline void test_parameter_lint_failure_guards() {
+  class SliderEffect : public Effect {
+  public:
+    explicit SliderEffect(bool broken) : Effect(1, 1), broken(broken) {
+      register_param("Value", &value, 0.0f, 1.0f);
+    }
+    void draw_frame() override {
+      Canvas canvas(*this);
+      if (broken)
+        value = 0.0f;
+    }
+    float value = 0.0f;
+    bool broken;
+  };
+  class AnimatedEffect : public Effect {
+  public:
+    explicit AnimatedEffect(bool broken) : Effect(1, 1), broken(broken) {
+      register_animated_param("Value", &value, 0.0f, 1.0f);
+    }
+    void draw_frame() override {
+      Canvas canvas(*this);
+      if (frames++ > 0 && (broken || !animations_paused()))
+        value += 0.0001f;
+    }
+    float value = 0.0f;
+    int frames = 0;
+    bool broken;
+  };
+  const auto check = [](auto lint, int expected, const char *diagnostic) {
+    const auto saved = stats();
+    const auto saved_budget = fail_print_budget();
+    fail_print_budget() = {};
+    int failures = 0;
+    const auto output = capture_stdout([&] {
+      lint();
+      failures = stats().failed - saved.failed;
+    });
+    stats() = saved;
+    fail_print_budget() = saved_budget;
+    HS_EXPECT_TRUE(output.has_value());
+    HS_EXPECT_EQ(failures, expected);
+    if (output && diagnostic)
+      HS_EXPECT_NE(output->find(diagnostic), std::string::npos);
+  };
+  for (bool broken : {false, true}) {
+    reset_effect_globals();
+    {
+      SliderEffect slider(broken);
+      check([&] { lint_dead_sliders(slider, "SliderEffect"); }, int(broken),
+            broken ? "DEAD SLIDER" : nullptr);
+    }
+    reset_effect_globals();
+    AnimatedEffect animated(broken);
+    check([&] { lint_animated_pause(animated, "AnimatedEffect"); }, int(broken),
+          broken ? "PAUSE LEAK" : nullptr);
+  }
+}
+
 /**
  * @brief Checks the full-frame query on four constructed effects.
  * @details MeshFeedback and Dynamo fold any_crosses_segments true; the two
