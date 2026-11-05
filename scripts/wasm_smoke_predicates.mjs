@@ -1,7 +1,7 @@
 // Pure validation predicates for the headless WASM smoke test.
 
-import { BAKED_CONSTANT_IDS, documentModulationBinding, engineControlNames, fixedDerivedBinding } from './shader_workbench.mjs';
-export { BAKED_CONSTANT_IDS, bakedTopologyFields, LIVE_TOPOLOGY_FIELD, engineControlNames } from './shader_workbench.mjs';
+import { BAKED_CONSTANT_IDS, documentModulationBinding, fixedDerivedBinding, promotedControlNames } from './shader_workbench.mjs';
+export { BAKED_CONSTANT_IDS, bakedTopologyFields, LIVE_TOPOLOGY_FIELD, engineControlNames, promotedControlNames } from './shader_workbench.mjs';
 
 /** Fraction of a sub-ceiling stack capacity treated as the creep budget. */
 export const STACK_MAX_FILL = 0.75;
@@ -126,32 +126,6 @@ export function paramStreamProblems(defs, values) {
     }
   }
   return problems;
-}
-
-/** Native control candidates for a document field and its declared resource. */
-export function promotedControlNames(parameterId, descriptor, catalog = null) {
-  const split = parameterId.indexOf('.');
-  if (split < 0) return engineControlNames(parameterId, descriptor);
-  const label = parameterId.slice(0, split);
-  const field = parameterId.slice(split + 1);
-  const slot = descriptor?.chain?.find((entry) => entry.label === label);
-  const operator = catalog?.operators?.find((entry) => entry.id === slot?.operator);
-  const schema = operator?.params?.find((entry) => entry.id === field);
-  const key = slot?.resource_key ?? (slot?.operator?.startsWith('sample.') ? 'source'
-    : slot?.operator?.startsWith('project.') ? 'projection'
-      : slot?.operator?.startsWith('colorize.') ? 'color'
-        : slot?.operator?.startsWith('warp.') && ['warp', 'warp1', 'warp2'].includes(label)
-          ? label === 'warp2' ? 'inner_warp' : 'outer_warp' : label);
-  const title = field.split('-').map((part) => part[0]?.toUpperCase() + part.slice(1)).join(' ');
-  const human = [schema?.name, title];
-  const warpSpeed = field === 'speed' && slot?.operator?.startsWith('warp.')
-    ? `Planar Warp ${key === 'outer_warp' ? '1 ' : key === 'inner_warp' ? '2 ' : ''}Speed` : null;
-  if (warpSpeed) human.unshift(warpSpeed);
-  if (field === 'edge-width' && slot?.operator?.startsWith('warp.')) human.unshift('Warp Edge Width');
-  return [...new Set([`${key}.${field}`,
-    ...human.filter(Boolean).map((name) => `${key}.${name}`),
-    ...(warpSpeed ? [warpSpeed] : []), ...engineControlNames(parameterId, descriptor),
-    parameterId, field, ...human.filter(Boolean)])];
 }
 
 function liveDerivedControl(parameterId, name, registered, binding) {

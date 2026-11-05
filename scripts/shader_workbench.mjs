@@ -1382,6 +1382,32 @@ export function engineControlNames(parameterId, descriptor) {
   return [words];
 }
 
+/** Native control candidates for a document field and its declared resource. */
+export function promotedControlNames(parameterId, descriptor, catalog = null) {
+  const split = parameterId.indexOf('.');
+  if (split < 0) return engineControlNames(parameterId, descriptor);
+  const label = parameterId.slice(0, split);
+  const field = parameterId.slice(split + 1);
+  const slot = descriptor?.chain?.find((entry) => entry.label === label);
+  const operator = catalog?.operators?.find((entry) => entry.id === slot?.operator);
+  const schema = operator?.params?.find((entry) => entry.id === field);
+  const key = slot?.resource_key ?? (slot?.operator?.startsWith('sample.') ? 'source'
+    : slot?.operator?.startsWith('project.') ? 'projection'
+      : slot?.operator?.startsWith('colorize.') ? 'color'
+        : slot?.operator?.startsWith('warp.') && ['warp', 'warp1', 'warp2'].includes(label)
+          ? label === 'warp2' ? 'inner_warp' : 'outer_warp' : label);
+  const title = field.split('-').map((part) => part[0]?.toUpperCase() + part.slice(1)).join(' ');
+  const human = [schema?.name, title];
+  const warpSpeed = field === 'speed' && slot?.operator?.startsWith('warp.')
+    ? `Planar Warp ${key === 'outer_warp' ? '1 ' : key === 'inner_warp' ? '2 ' : ''}Speed` : null;
+  if (warpSpeed) human.unshift(warpSpeed);
+  if (field === 'edge-width' && slot?.operator?.startsWith('warp.')) human.unshift('Warp Edge Width');
+  return [...new Set([`${key}.${field}`,
+    ...human.filter(Boolean).map((name) => `${key}.${name}`),
+    ...(warpSpeed ? [warpSpeed] : []), ...engineControlNames(parameterId, descriptor),
+    parameterId, field, ...human.filter(Boolean)])];
+}
+
 /** Resolves a modulation field to its exact compiled resource identity.
  * @param {object} descriptor Validated chain descriptor.
  * @param {string} parameterId Canonical document parameter id.
