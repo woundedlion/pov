@@ -265,8 +265,9 @@ inline void test_ring_group_matches_sequential() {
   constexpr int N = 4;
   const ScopedPoleLod lod(0.0f);
 
-  auto run_case = [&](const math::Vector &normal, bool partial_clip) {
-    const float ths[N] = {0.08f, 0.04f, 0.04f, 0.08f};
+  auto run_case = [&](const math::Vector &normal, bool partial_clip,
+                      float spin = 0.02f, bool reaches_pole = false) {
+    const float ths[N] = {reaches_pole ? 1.6f : 0.08f, 0.04f, 0.04f, 0.08f};
     const Color4 colors[N] = {Color4(Pixel(60000, 10000, 5000), 0.9f),
                               Color4(Pixel(5000, 60000, 10000), 0.6f),
                               Color4(Pixel(10000, 5000, 60000), 0.4f),
@@ -274,9 +275,13 @@ inline void test_ring_group_matches_sequential() {
     SDF::Ring shapes[N];
     for (int s = 0; s < N; ++s) {
       math::Quaternion q = math::make_rotation(
-          math::Vector(0.2f, 0.5f, 0.8f).normalized(), 0.02f * s);
+          math::Vector(0.2f, 0.5f, 0.8f).normalized(), spin * s);
       shapes[s] = SDF::Ring(math::make_basis(q, normal), 1.0f, ths[s]);
     }
+    if (spin < 0.01f)
+      HS_EXPECT_LT(shapes[N / 2].r_val, SDF::MIN_HORIZONTAL_PROJ);
+    if (reaches_pole)
+      HS_EXPECT_EQ(shapes[0].get_vertical_bounds<H>().y_min, 0);
 
     std::vector<Pixel> expected(W * H);
     {
@@ -338,9 +343,9 @@ inline void test_ring_group_matches_sequential() {
 
   run_case(math::Vector(0.3f, 0.8f, -0.5f).normalized(), false);
   run_case(math::Vector(0.3f, 0.8f, -0.5f).normalized(), true);
-  // Near-pole axis: r_val under the horizontal-projection floor forces the
-  // group's full-row-scan fallback.
-  run_case(math::Vector(0.005f, 1.0f, 0.0f).normalized(), false);
+  const math::Vector POLE_AXIS = math::Vector(0.005f, 1.0f, 0.0f).normalized();
+  run_case(POLE_AXIS, false, 0.002f);
+  run_case(POLE_AXIS, false, 0.002f, true);
 }
 
 /** @brief Distorted rings wholly past a pole add no candidate cells. */
@@ -375,17 +380,17 @@ inline void test_distorted_ring_stack_matches_sequential() {
   constexpr int N_RINGS = 5, LUT_N = 32;
   const ScopedPoleLod lod(0.0f);
 
-  const float ths[N_RINGS] = {0.07f, 0.05f, 0.09f, 0.05f, 0.07f};
   const Color4 colors[N_RINGS] = {Color4(Pixel(60000, 0, 5000), 0.9f),
                                   Color4(Pixel(5000, 0, 10000), 0.6f),
                                   Color4(Pixel(10000, 0, 60000), 0.4f),
                                   Color4(Pixel(30000, 0, 30000), 0.7f),
                                   Color4(Pixel(45000, 0, 20000), 1.0f)};
 
-  auto run_case = [&](const math::Vector &normal, bool partial_clip,
-                      int culled) {
+  auto run_case = [&](const math::Vector &normal, bool partial_clip, int culled,
+                      float spin = 0.3f) {
+    const float ths[N_RINGS] = {0.07f, 0.05f, 0.09f, 0.05f, 0.07f};
     math::Basis basis = math::make_basis(
-        math::make_rotation(math::Vector(0.2f, 0.5f, 0.8f).normalized(), 0.3f),
+        math::make_rotation(math::Vector(0.2f, 0.5f, 0.8f).normalized(), spin),
         normal);
 
     float knots[N_RINGS][LUT_N + 1];
@@ -410,6 +415,8 @@ inline void test_distorted_ring_stack_matches_sequential() {
       slot_by_ring[i] = static_cast<int8_t>(n_slots);
       ++n_slots;
     }
+    if (spin == 0.0f)
+      HS_EXPECT_LT(shapes[N_RINGS / 2].r_val, SDF::MIN_HORIZONTAL_PROJ);
 
     auto shade = [&](int s, Fragment &f) {
       const uint16_t g = static_cast<uint16_t>(math::wrap_t(f.v0) * 60000.0f);
@@ -482,9 +489,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
   run_case(axis, false, -1);
   run_case(axis, true, -1);
   run_case(axis, false, 2);
-  // Near-pole axis: r_val under the horizontal-projection floor forces the
-  // full-row-scan fallback on both paths.
-  run_case(math::Vector(0.005f, 1.0f, 0.0f).normalized(), false, -1);
+  run_case(math::Vector(0.005f, 1.0f, 0.0f).normalized(), false, -1, 0.0f);
 }
 
 /** @brief Empty clips skip distorted ring candidate tables. */
