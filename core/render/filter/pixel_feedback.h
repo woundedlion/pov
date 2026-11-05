@@ -947,7 +947,7 @@ private:
                                              bool deferred) {
     ::Pixel *current = ctx.current + y * W;
     if (!deferred)
-      std::copy_n(current, W, ctx.filtered_row);
+      std::memcpy(ctx.filtered_row, current, W * sizeof(::Pixel));
     const bool opaque = ctx.alpha >= 1.0f;
     const uint16_t alpha = frac_to_q16(ctx.alpha);
     ctx.grid.field.template reconstruct_longitude_row<PixelAccumulator>(
