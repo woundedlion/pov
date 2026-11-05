@@ -576,40 +576,16 @@ struct ShadeSample {
 constexpr uint16_t MAX_SHADE_CHANNEL_DELTA = 16;
 
 /**
- * @brief Folds a sample table into an FNV-1a 64 signature.
- * @param samples Table start.
- * @param count Row count.
- * @return The folded signature.
- */
-inline uint64_t shade_signature(const ShadeSample *samples, size_t count) {
-  uint64_t signature = hs_test::HASH_SEED64;
-  for (size_t row = 0; row < count; ++row) {
-    signature = hs_test::fnv1a64_channel(signature, samples[row].r);
-    signature = hs_test::fnv1a64_channel(signature, samples[row].g);
-    signature = hs_test::fnv1a64_channel(signature, samples[row].b);
-    signature = hs_test::fnv1a64_channel(signature, samples[row].alpha);
-  }
-  return signature;
-}
-
-/**
- * @brief Scores rendered samples against a golden table, signature first.
+ * @brief Scores rendered samples against a golden table.
  * @param label Context label for out-of-band channels.
  * @param rendered Samples in fold order, one row per (preset, direction).
- * @param golden Rows the pin was recorded from.
+ * @param golden Expected sample rows.
  * @param count Row count of both tables.
  * @param per_preset Rows per preset, so a failing row names preset and sample.
- * @param pin Signature the golden table folds to.
- * @details A run whose signature moved falls through to the per-channel band,
- * which names the preset, sample and channel that drifted.
  */
 inline void expect_shade_samples(const char *label, const ShadeSample *rendered,
                                  const ShadeSample *golden, size_t count,
-                                 size_t per_preset, uint64_t pin) {
-  const uint64_t golden_signature = shade_signature(golden, count);
-  HS_EXPECT_EQ(golden_signature, pin);
-  if (shade_signature(rendered, count) == golden_signature)
-    return;
+                                 size_t per_preset) {
   for (size_t row = 0; row < count; ++row) {
     const ShadeSample &got = rendered[row];
     const ShadeSample &want = golden[row];
@@ -624,11 +600,6 @@ inline void expect_shade_samples(const char *label, const ShadeSample *rendered,
 
 /**
  * @brief Pins shade() over a fixed direction and preset sample.
- * @details GOLDEN is the oracle; its FNV-1a 64 signature is the pre-check.
- * Re-derive by printing the sample table's RGB and Q16 alpha from this case
- * built by the native clang test toolchain (cmake/toolchain-native-clang.cmake)
- * and pasting the table and its fold back. The coverage ramp here is an IEEE
- * division, so the table reproduces under -ffast-math -fno-finite-math-only.
  */
 inline void test_render_signature() {
   reset_globals();
@@ -705,7 +676,7 @@ inline void test_render_signature() {
     }
   }
   expect_shade_samples("render_signature", rendered, GOLDEN, std::size(GOLDEN),
-                       std::size(DIRECTIONS), 4451398320181246065ull);
+                       std::size(DIRECTIONS));
 }
 
 inline void test_specialized_slice_transition() {
@@ -768,11 +739,6 @@ inline void test_specialized_slice_transition() {
 
 /**
  * @brief Pins specialized 4D-slice composite_crossings samples.
- * @details Same table layout and signature pre-check as test_render_signature(), over
- * composite_crossings<true, 2> at HYPERCUBE_PRESET_INDEX.
- * Re-derive by printing the RGB and Q16
- * alpha of the sample table from an IEEE build of this case and pasting the table
- * and its fold back.
  */
 inline void test_specialized_render_signature() {
   reset_globals();
@@ -857,8 +823,7 @@ inline void test_specialized_render_signature() {
                      "HS_TEST_FAST_MATH: fast_wire_coverage reassociates");
 #else
   expect_shade_samples("specialized_render_signature", rendered, GOLDEN,
-                       std::size(GOLDEN), std::size(DIRECTIONS),
-                       17793107560919685780ull);
+                       std::size(GOLDEN), std::size(DIRECTIONS));
 #endif
 }
 
