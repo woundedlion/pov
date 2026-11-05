@@ -200,6 +200,35 @@ inline void test_bonne_general_parallel_matches_snyder() {
   }
 }
 
+/** @brief Peirce meridians and strip scroll preserve direction and magnitude. */
+inline void test_peirce_meridian_and_scroll_coordinates() {
+  constexpr float PERIOD = 4.0f * PEIRCE_QUARTER_PERIOD;
+  for (const auto layout : {PeirceLayout::DIAMOND, PeirceLayout::SQUARE,
+                            PeirceLayout::HORIZONTAL, PeirceLayout::VERTICAL})
+    for (float latitude : {-1.0f, -.3f, .4f, 1.1f})
+      for (float longitude : {-2.0f, -.4f, .3f, 1.7f}) {
+        const auto v = direction(latitude, longitude);
+        const auto base = peirce_projection(v, 0.0f, layout, 0.0f);
+        constexpr float MERIDIAN = .23f;
+        const auto shifted = peirce_projection(
+            direction(latitude, longitude + MERIDIAN), MERIDIAN, layout, 0.0f);
+        HS_EXPECT_NEAR(shifted.coords.re, base.coords.re, 1e-5f);
+        HS_EXPECT_NEAR(shifted.coords.im, base.coords.im, 1e-5f);
+        if (layout == PeirceLayout::HORIZONTAL ||
+            layout == PeirceLayout::VERTICAL)
+          for (float scroll : {.125f, .375f}) {
+            const auto moved = peirce_projection(v, 0.0f, layout, scroll);
+            const bool horizontal = layout == PeirceLayout::HORIZONTAL;
+            const float delta = horizontal ? moved.coords.re - base.coords.re
+                                           : moved.coords.im - base.coords.im;
+            HS_EXPECT_NEAR(std::remainder(delta, PERIOD),
+                           std::remainder(scroll * PERIOD, PERIOD), 1e-5f);
+            HS_EXPECT_NEAR(horizontal ? moved.coords.im : moved.coords.re,
+                           horizontal ? base.coords.im : base.coords.re, 1e-5f);
+          }
+      }
+}
+
 /** @brief The elliptic integral is odd, monotone and matches reference endpoint values. */
 inline void test_peirce_elliptic_integral_shape() {
   HS_EXPECT_NEAR(peirce_elliptic_integral(0.25f * math::PI_F),
@@ -1006,6 +1035,7 @@ inline int run_projections_tests() {
   HS_RUN(test_peirce_edge_distance_locates_the_singularities);
   HS_RUN(test_peirce_square_is_the_rotated_diamond);
   HS_RUN(test_peirce_strip_scroll_is_periodic);
+  HS_RUN(test_peirce_meridian_and_scroll_coordinates);
   HS_RUN(test_peirce_strip_tears_the_unglued_equator);
   HS_RUN(test_airocean_cut_masks_match_the_edge_lists);
   HS_RUN(test_airocean_edge_identity_is_the_canonical_half_edge);
