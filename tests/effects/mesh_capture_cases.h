@@ -254,12 +254,10 @@ inline void check_islamicstars_motion_fits_scratch(size_t preset, int frames) {
               scratch_arena_b.get_lifetime_high_water_mark());
 }
 
-/**
- * @brief Preset 6, the scratch arenas' tightest, fits through its next
- *        shape's spawn at frame 151, where scratch A peaks.
- */
+/** @brief A quick preset replay reaches the scratch-heavy build. */
 inline void test_islamicstars_peak_fits_scratch() {
   check_islamicstars_motion_fits_scratch(6, 160);
+  HS_EXPECT_GT(scratch_arena_a.get_lifetime_high_water_mark(), 100u * 1024u);
 }
 
 /**
