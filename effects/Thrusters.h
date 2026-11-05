@@ -350,17 +350,15 @@ private:
     const auto local_frame = Plot::ring_frame(local_basis, params.radius);
     auto vertex = [&](size_t i, float t) {
       const float coordinate = float(i % (W / 2)) / W;
-      auto distortion = [&](float) {
-        if (t == 0.0f)
-          return ring_fn(coordinate, start.phase, start.amplitude, start.frame);
+      auto distortion = [&] {
         if (t == 1.0f)
           return shift(coordinate);
         const float first =
             ring_fn(coordinate, start.phase, start.amplitude, start.frame);
-        return first + (shift(coordinate) - first) * t;
+        return t == 0.0f ? first : first + (shift(coordinate) - first) * t;
       };
       return Plot::ring_vertex<W>(local_frame.basis,
-                                  local_frame.theta_eq + distortion(0.0f), i);
+                                  local_frame.theta_eq + distortion(), i);
     };
     Plot::GeometryCallback geometry{
         vertex, Spacetime::PathBound::rotation(fabsf(start.amplitude) +
