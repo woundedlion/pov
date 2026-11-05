@@ -842,7 +842,7 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
 
 
 def _macro_body(source: str, define: str) -> str:
-    """The continued-line body of a macro definition, comments stripped.
+    """The continued-line body, line-spliced before comments are stripped.
 
     The body runs from the #define to the first line without a trailing
     backslash; the break is decided on the raw lines, so stripping cannot
@@ -859,7 +859,7 @@ def _macro_body(source: str, define: str) -> str:
         body.append(line)
         if not line.rstrip().endswith("\\"):
             break
-    return _COMMENT_RE.sub("", "\n".join(body))
+    return _COMMENT_RE.sub("", re.sub(r"\\[ \t]*\n", " ", "\n".join(body)))
 
 
 def effect_roster(source: str) -> set[str]:
