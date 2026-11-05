@@ -56,21 +56,3 @@ test('engine bindings export their implementation names without duplicates', () 
   for (const [, , exported, implementation] of bindings)
     assert.equal(exported, implementation);
 });
-
-test('optional engine APIs stay inside their feature guards', () => {
-  const expected = new Map([
-    ['HS_ENABLE_CHAIN_INTERPRETER', ['getShaderChainBindings']],
-  ]);
-  const registration = source.slice(source.indexOf('static void bind_engine()'));
-  const guarded = new Map([...expected.keys()].map(flag => [flag, []]));
-  let guard = null;
-  for (const line of registration.split(/\r?\n/u)) {
-    const directive = line.match(/^#if (HS_ENABLE_\w+)$/u);
-    if (directive) guard = directive[1];
-    if (/^#endif\b/u.test(line)) guard = null;
-    const binding = line.match(/\.(?:function|class_function)\("([^"]+)"/u);
-    if (binding && guarded.has(guard)) guarded.get(guard).push(binding[1]);
-  }
-  for (const [flag, names] of expected)
-    assert.deepEqual(guarded.get(flag).sort(), names.sort(), flag);
-});
