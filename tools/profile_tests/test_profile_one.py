@@ -71,7 +71,7 @@ class ProfileEffectIdentity(unittest.TestCase):
 
 def verify_log(text, expected="o3", provenance=True, marker="", *,
                preset="", expected_shape="", msp_marker="", pc_marker="",
-               artifact_present=True, digest_override=None):
+               artifact_present=True, digest_override=None, stale_frame=""):
     with tempfile.TemporaryDirectory() as directory:
         artifact = Path(directory) / "firmware.elf"
         artifact.write_bytes(b"profile firmware")
@@ -93,12 +93,12 @@ def verify_log(text, expected="o3", provenance=True, marker="", *,
             f"{shell_function('file_sha256')}\n"
             'OUT=$1; EFFECT=Fx; TAG=$2; MARKER=$3\n'
             'PROFILE_PRESET=$4; MSP_MARKER=$5; HS_PROFILE_EXPECT_SHAPE=$6\n'
-            'PC_MARKER=$7\n'
+            'PC_MARKER=$7; STALE_FRAME=$8\n'
             "verify\n"
         )
         return subprocess.run(
             ["bash", "-c", script, "profile-test", str(log), expected, marker,
-             preset, msp_marker, expected_shape, pc_marker],
+             preset, msp_marker, expected_shape, pc_marker, str(stale_frame)],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -547,6 +547,11 @@ class ProfileConfigVerification(unittest.TestCase):
         result = verify_log(text)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("STALE IMAGE: first frame 900", result.stdout)
+
+    def test_delayed_enumeration_accepts_a_frame_within_the_connect_budget(self):
+        text = capture_log("o3").replace("f 1 w=100 r=90", "f 900 w=100 r=90")
+        result = verify_log(text, stale_frame=2048)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_platformio_status_propagates_from_build(self):
         for status, expected in ((0, 0), (23, 1)):

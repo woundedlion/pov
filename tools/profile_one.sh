@@ -378,6 +378,7 @@ capture() {
   local connect
   connect=$(hs_device_absent_budget)
   [ "$connect" -ge "$CAPTURE_CONNECT_S" ] || connect=$CAPTURE_CONNECT_S
+  STALE_FRAME=$(((connect + 8) * 16))
   # stderr passes through: a device trap and a peer-held port share an exit code.
   if ! "$_HS_LOCK_PYTHON" tools/profile_capture.py --seconds "$SECONDS_ARG" \
       --connect-timeout "$connect" --out "$OUT" >/dev/null; then
@@ -458,7 +459,7 @@ verify() {
   local first
   first=$(grep -m1 -oE "^f [0-9]+" "$OUT" | awk '{print $2}')
   [ -n "$first" ] || { echo "NO FRAME LINES in $OUT"; return 1; }
-  [ "$first" -lt 600 ] || { echo "STALE IMAGE: first frame $first — the upload did not take"; return 1; }
+  [ "$first" -lt "${STALE_FRAME:-600}" ] || { echo "STALE IMAGE: first frame $first — the upload did not take"; return 1; }
   return 0
 }
 
