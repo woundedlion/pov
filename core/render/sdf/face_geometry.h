@@ -914,6 +914,19 @@ template <int W, int H> float azimuth_pad_at_row(int y) const {
   return face_azimuth_pad(W, math::TrigLUT<W, H>::sin_phi[y]);
 }
 
+/** @brief Squared distance to a clamped packed segment.
+ * @param edge Packed segment; a zero inverse length selects its start.
+ * @param px,py Query point in the tangent plane.
+ * @return Squared point-to-segment distance. */
+HS_HOT_INLINE static float segment_dsq(const EdgePacked &edge, float px,
+                                       float py) {
+  const float wx = px - edge.vx, wy = py - edge.vy;
+  const float t =
+      hs::clamp((wx * edge.ex + wy * edge.ey) * edge.inv_len_sq, 0.0f, 1.0f);
+  const float bx = wx - edge.ex * t, by = wy - edge.ey * t;
+  return bx * bx + by * by;
+}
+
 /**
    * @brief Signed planar distance through convex edge slabs and vertex cones.
    * @param px Gnomonic x of the query point.
@@ -943,13 +956,7 @@ HS_O3_FN float plane_dist_convex(float px, float py,
       const auto &plane = half_planes[winning];
       float squared = FLT_MAX;
       for (int i = plane.first;; i = i + 1 == count ? 0 : i + 1) {
-        const auto &segment = packed_edges[i];
-        const float sx = px - segment.vx, sy = py - segment.vy;
-        const float t =
-            hs::clamp((sx * segment.ex + sy * segment.ey) * segment.inv_len_sq,
-                      0.0f, 1.0f);
-        const float dx = sx - t * segment.ex, dy = sy - t * segment.ey;
-        squared = fminf(squared, dx * dx + dy * dy);
+        squared = fminf(squared, segment_dsq(packed_edges[i], px, py));
         if (i == plane.last)
           break;
       }
@@ -975,12 +982,7 @@ HS_O3_FN float plane_dsq_exact(float px, float py, bool &inside_out) const {
   const uint32_t qk = angle_key(py);
   for (int i = 0; i < count; ++i) {
     const auto &ep = packed_edges[i];
-    float wx = px - ep.vx, wy = py - ep.vy;
-    float t = (wx * ep.ex + wy * ep.ey) * ep.inv_len_sq;
-    float cv = hs::clamp(t, 0.0f, 1.0f);
-    float bx = wx - ep.ex * cv, by = wy - ep.ey * cv;
-    float dsq = bx * bx + by * by;
-    d = __builtin_fminf(dsq, d);
+    d = __builtin_fminf(segment_dsq(ep, px, py), d);
     if ((ep.key_vy > qk) != (ep.key_next_vy > qk)) {
       float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
       if (px < isx)
@@ -1005,12 +1007,7 @@ HS_O3_FN HS_NOINLINE_NOCLONE float plane_dsq_y_walk(float px, float py,
                                                     bool &inside_out) const {
   float d = FLT_MAX;
   auto edge_dsq = [&](int i) {
-    const auto &ep = packed_edges[i];
-    const float wx = px - ep.vx, wy = py - ep.vy;
-    const float t =
-        hs::clamp((wx * ep.ex + wy * ep.ey) * ep.inv_len_sq, 0.0f, 1.0f);
-    const float bx = wx - ep.ex * t, by = wy - ep.ey * t;
-    d = __builtin_fminf(d, bx * bx + by * by);
+    d = __builtin_fminf(d, segment_dsq(packed_edges[i], px, py));
   };
   int lo = -1, hi = count;
   while (lo + 1 < hi) {
@@ -1127,11 +1124,7 @@ HS_O3_FN float plane_dsq_sector(float px, float py, bool &inside_out,
       0.0f;
   float d = inside_out ? FLT_MAX : reject_dsq;
   auto edge_dsq = [&](int idx) {
-    const auto &ep = packed_edges[idx];
-    float wx = px - ep.vx, wy = py - ep.vy;
-    float t = hs::clamp((wx * ep.ex + wy * ep.ey) * ep.inv_len_sq, 0.0f, 1.0f);
-    float bx = wx - ep.ex * t, by = wy - ep.ey * t;
-    d = __builtin_fminf(bx * bx + by * by, d);
+    d = __builtin_fminf(segment_dsq(packed_edges[idx], px, py), d);
   };
   int first = s;
   int last = s + 1 == count ? 0 : s + 1;
