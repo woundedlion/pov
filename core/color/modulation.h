@@ -178,12 +178,12 @@ inline Color4 apply(Color4 color, float scalar, const Params &params) {
 /** @brief Composes any palette, typed scalar field, and color mechanic.
  * @tparam PaletteSource Palette exposing Color4 get(float) const.
  * @tparam Field Immutable typed scalar field.
- * @tparam Mechanic Domain-independent color operation. */
-template <class PaletteSource, class Field, class Mechanic>
+ * @tparam ColorOp Domain-independent color operation. */
+template <class PaletteSource, class Field, class ColorOp>
 struct PatternModulatedPalette {
   const PaletteSource *palette = nullptr; ///< Borrowed base palette.
   typename Field::Prepared field;         ///< Prepared scalar field.
-  typename Mechanic::Prepared mechanic;   ///< Prepared color operation.
+  typename ColorOp::Prepared mechanic;    ///< Prepared color operation.
   /** @brief Samples a modulated palette.
    * @param value Palette lookup coordinate.
    * @param coordinate Typed field coordinate.
@@ -191,11 +191,11 @@ struct PatternModulatedPalette {
   Color4 get(float value, const typename Field::Coordinate &coordinate) const {
     assert(palette != nullptr);
     const Color4 color = palette->get(value);
-    if constexpr (requires { Mechanic::is_identity(mechanic); }) {
-      if (Mechanic::is_identity(mechanic))
+    if constexpr (requires { ColorOp::is_identity(mechanic); }) {
+      if (ColorOp::is_identity(mechanic))
         return color;
     }
-    return Mechanic::apply(color, Field::sample(coordinate, field), mechanic);
+    return ColorOp::apply(color, Field::sample(coordinate, field), mechanic);
   }
 };
 
