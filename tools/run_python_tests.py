@@ -13,7 +13,7 @@ from git_files import git_nul_list
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
-    parser.add_argument("--suite", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument("--suite", type=Path, help="Run only the test*.py files directly in this directory, relative to --root.")
     args = parser.parse_args()
     root = args.root.resolve()
     if args.suite is not None:
