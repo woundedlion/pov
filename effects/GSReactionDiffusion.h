@@ -322,10 +322,10 @@ private:
           for (int k = 0; k < RD_K; ++k)
             incoming += b[i + run.delta[k]] * DIFFUSION;
           float total = retained + incoming;
-          float r = total > 0.0f ? retained / total : 0.0f;
+          float retain_ratio = total > 0.0f ? retained / total : 0.0f;
           float power = 1.0f, scale = 1.0f;
           for (int step = 1; step < PIGMENT_STEPS; ++step) {
-            power *= r;
+            power *= retain_ratio;
             scale += power;
           }
           retained *= power;
@@ -796,18 +796,20 @@ private:
     int i = 0;
     for (unsigned r = 0; r < ReactionGraph::NEIGHBOR_RUN_COUNT; ++r) {
       const auto &run = ReactionGraph::neighbor_runs[r];
-      auto calculate = [&](int i) HS_HOT_INLINE {
-        float a = c_a[i];
-        float b = c_b[i];
+      auto calculate = [&](int node) HS_HOT_INLINE {
+        float a = c_a[node];
+        float b = c_b[node];
 
         float l_a, l_b;
 #if defined(__arm__)
-        l_a = __builtin_fmaf(-static_cast<float>(RD_K), a,
-                             c_a[i + run.delta[0]] + c_a[i + run.delta[1]]);
-        l_b = __builtin_fmaf(-static_cast<float>(RD_K), b,
-                             c_b[i + run.delta[0]] + c_b[i + run.delta[1]]);
+        l_a =
+            __builtin_fmaf(-static_cast<float>(RD_K), a,
+                           c_a[node + run.delta[0]] + c_a[node + run.delta[1]]);
+        l_b =
+            __builtin_fmaf(-static_cast<float>(RD_K), b,
+                           c_b[node + run.delta[0]] + c_b[node + run.delta[1]]);
         for (int k = 2; k < RD_K; ++k) {
-          int ni = i + run.delta[k];
+          int ni = node + run.delta[k];
           l_a += c_a[ni];
           l_b += c_b[ni];
           // Preserve the Cortex-M7 Laplacian's floating-point order.
@@ -818,14 +820,14 @@ private:
         l_a = -RD_K * a;
         l_b = -RD_K * b;
         for (int k = 0; k < RD_K; ++k) {
-          int ni = i + run.delta[k];
+          int ni = node + run.delta[k];
           l_a += c_a[ni];
           l_b += c_b[ni];
         }
 #else
         float sum_a = 0.0f, sum_b = 0.0f;
         for (int k = 0; k < RD_K; ++k) {
-          int ni = i + run.delta[k];
+          int ni = node + run.delta[k];
           sum_a += c_a[ni];
           sum_b += c_b[ni];
         }

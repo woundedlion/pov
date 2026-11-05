@@ -142,10 +142,11 @@ private:
     const ClipRegion &clip = Scan::source_clip<W, H>(filters, canvas);
     const auto cap =
         Plot::make_swept_cap_clip<W, H>(clip, reach, sweep + CULL_DRIFT);
-    const auto warp = [this](const math::Vector &point) HS_O3_FN HS_HOT_INLINE
+    const auto warp_point = [this](const math::Vector &point)
+                                HS_O3_FN HS_HOT_INLINE
         __attribute__((flatten)) { return transformer.transform(point); };
     for (int i = 0; i < points; i++) {
-      math::Vector v = warp(spiral_cache[i]);
+      math::Vector v = warp_point(spiral_cache[i]);
       const math::Vector drawn = drifting ? drawn_centres[i] : v;
       drawn_centres[i] = v;
 
