@@ -508,8 +508,7 @@ HS_HOT_INLINE inline void rasterize_face_body(
         if constexpr (TIMED_SHADER) {
           if (per_column) {
             for (int px = x; px < x + span; ++px) {
-              fragment_shader(p, frag,
-                              static_cast<float>(px - arm_offset) / (W / 2));
+              fragment_shader(p, frag, Spacetime::SamplingSurface<W>::time(px));
               if (frag.color.alpha > MIN_ALPHA)
                 plot_column(px, frag.color.alpha * alpha);
             }
@@ -2240,7 +2239,7 @@ struct Mesh {
           bool shaded = false;
           if constexpr (TIMED_SHADER) {
             if (per_column) {
-              fragment_shader(p, frag, static_cast<float>(x) / (W / 2));
+              fragment_shader(p, frag, Spacetime::SamplingSurface<W>::time(x));
               shaded = true;
             }
           }
