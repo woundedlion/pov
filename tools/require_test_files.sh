@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Fail when a glob-discovered test suite is empty.
+# JavaScript globs must reach every conventionally named test.
 #
 # Discovery should absorb additions without a maintenance edit, while an empty
 # match must never be reported as a passing suite.
@@ -27,14 +28,14 @@ fi
 root=$(dirname "$pattern")
 case "$pattern" in
   *.js|*.mjs|*.cjs|*.ts)
-    family=javascript
+    javascript=1
     if git rev-parse --show-toplevel >/dev/null 2>&1; then
       root=.
     fi
     ;;
-  *) family=other ;;
+  *) javascript=0 ;;
 esac
-if [ "$family" = javascript ]; then
+if [ "$javascript" -eq 1 ]; then
   unreachable=0
   while :; do
     case "$root" in
@@ -47,8 +48,8 @@ if [ "$family" = javascript ]; then
   find "$root" -type d \( -name node_modules -o -name .git -o -name build \) -prune -o -type f -print0 >"$scan"
   while IFS= read -r -d '' candidate; do
     candidate=${candidate#./}
-    case "$family:$candidate" in
-      javascript:*.test.js|javascript:*.test.mjs|javascript:*.test.cjs|javascript:*.test.ts|javascript:*.spec.js|javascript:*.spec.mjs|javascript:*.spec.cjs|javascript:*.spec.ts) ;;
+    case "$candidate" in
+      *.test.js|*.test.mjs|*.test.cjs|*.test.ts|*.spec.js|*.spec.mjs|*.spec.cjs|*.spec.ts) ;;
       *) continue ;;
     esac
     reached=0
