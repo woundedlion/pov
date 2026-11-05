@@ -191,6 +191,7 @@ public:
    * @param count History length, at least 1.
    */
   HS_FLASH_MEMBER void build(const math::Quaternion *history, int count) {
+    HS_CHECK(rows, "PoseTable::build: bind() has not run");
     const int width = 2 * half;
     for_each_time_pose(history, count, width,
                        [&](int c, const math::Quaternion &pose)

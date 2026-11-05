@@ -7,6 +7,13 @@
 
 // Plot filter death cases.
 
+/** @brief Traps when a pose table is built without storage. */
+inline void case_pose_table_build_without_storage() {
+  Spacetime::PoseTable table;
+  const math::Quaternion history[] = {math::Quaternion{}};
+  table.build(history, 1);
+}
+
 /** @brief Traps on scan ring stack too many slots. */
 inline void case_scan_ring_stack_too_many_slots() {
   constexpr int W = 32, H = 16;

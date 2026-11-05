@@ -1479,6 +1479,10 @@ inline const Case *all_cases(int &n) {
        "core/render/filter/world_trails.h",
        "(lifetime > 0 && lifetime <= 255) World::Trails: lifetime 256 outside "
        "[1, 255]"},
+      {"pose_table_build_without_storage",
+       case_pose_table_build_without_storage,
+       "core/render/spacetime/pose_table.h",
+       "(rows) PoseTable::build: bind() has not run"},
       {"screen_trails_plot_without_storage",
        case_screen_trails_plot_without_storage,
        "core/render/filter/screen_trails.h",
