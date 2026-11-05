@@ -1344,6 +1344,11 @@ jobs:
       - name: Build + size + layout gate (shipping targets + compile profiles)
         # Shipping environments enforce budgets; other environments provide compile coverage.
         run: python tools/teensy_size_table.py
+      - name: Compile MindSplatter replay profile
+        env:
+          PLATFORMIO_BUILD_FLAGS: -D HS_PROFILE_TARGET=MindSplatter -D HS_MINDSPLATTER_REPLAY
+          PLATFORMIO_BUILD_DIR: ${{ runner.temp }}/replay-build
+        run: pio run -e profile
       - name: Cap build-object cache
         # Drop the oldest cached objects above 400 MB; config and the signature db stay.
         shell: bash

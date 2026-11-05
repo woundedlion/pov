@@ -10,8 +10,10 @@
 #include "core/animation/orientation.h"
 #include "core/math/mobius.h"
 #include "effects/MindSplatter.h"
+#if !defined(ARDUINO)
 #include "tests/temporal_oracle.h"
 #include "tests/test_fixture.h"
+#endif
 
 #include <array>
 #include <cstdint>
@@ -49,6 +51,7 @@ struct MindSplatterWhiteBox {
     return effect.warp_history.start(end);
   }
 
+#if !defined(ARDUINO)
   /** @brief Renders production column trails or their frozen geometry.
    * @param timed Uses the production temporal draw.
    * @param fraction Frozen frame fraction.
@@ -167,6 +170,7 @@ struct MindSplatterWhiteBox {
     fx.advance_display();
     return capture_luminance<288, 144>(fx);
   }
+#endif
 
   static constexpr uint32_t REPLAY_MAGIC = 0x3152534du;
   static constexpr uint16_t REPLAY_VERSION = 3;
