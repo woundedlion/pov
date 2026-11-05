@@ -124,9 +124,6 @@ endforeach()
 
 foreach(_group IN LISTS _hs_effect_case_groups)
   string(REGEX REPLACE "^effect_cases_" "" _family "${_group}")
-  if(_family STREQUAL "roster")
-    continue()
-  endif()
   if(_family STREQUAL "shapeshifter_cases")
     # ShapeShifter's oracle and tiles share the effect-local case object.
     continue()
