@@ -239,7 +239,13 @@ if(EMSCRIPTEN)
     install(CODE "
       set(HS_MIRROR_SOURCE \"${CMAKE_CURRENT_SOURCE_DIR}/patterns\")
       set(HS_DAYDREAM_DIR \"${DAYDREAM_DIR}\")
-      include(\"${CMAKE_CURRENT_SOURCE_DIR}/cmake/prune_mirrored_patterns.cmake\")")
+      set(HS_MIRROR_KIND patterns)
+      set(HS_MIRROR_ENGINE_MARKER ../CMakeLists.txt)
+      set(HS_MIRROR_SUBDIRECTORY generated/shader/patterns)
+      set(HS_MIRROR_GLOB GLOB)
+      set(HS_MIRROR_PATTERNS *.shader.json catalog.json)
+      set(HS_MIRROR_EXCLUDE example.shader.json)
+      include(\"${CMAKE_CURRENT_SOURCE_DIR}/cmake/prune_mirrored.cmake\")")
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/patterns/"
             DESTINATION "${DAYDREAM_DIR}/generated/shader/patterns"
             FILES_MATCHING
@@ -253,8 +259,14 @@ if(EMSCRIPTEN)
       set(HS_MIRROR_SOURCE
           \"${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots\")
       set(HS_DAYDREAM_DIR \"${DAYDREAM_DIR}\")
+      set(HS_MIRROR_KIND screenshots)
+      set(HS_MIRROR_ENGINE_MARKER ../../CMakeLists.txt)
+      set(HS_MIRROR_SUBDIRECTORY docs/screenshots)
+      set(HS_MIRROR_GLOB GLOB_RECURSE)
+      set(HS_MIRROR_PATTERNS *.png)
+      set(HS_MIRROR_EXCLUDE )
       include(
-        \"${CMAKE_CURRENT_SOURCE_DIR}/cmake/prune_mirrored_screenshots.cmake\")")
+        \"${CMAKE_CURRENT_SOURCE_DIR}/cmake/prune_mirrored.cmake\")")
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots/"
             DESTINATION "${DAYDREAM_DIR}/docs/screenshots"
             FILES_MATCHING PATTERN "*.png")

@@ -1,5 +1,27 @@
 cmake_minimum_required(VERSION 3.29)
 
+macro(configure_mirror kind)
+  if("${kind}" STREQUAL "screenshots")
+    set(HS_MIRROR_KIND screenshots)
+    set(HS_MIRROR_ENGINE_MARKER ../../CMakeLists.txt)
+    set(HS_MIRROR_SUBDIRECTORY docs/screenshots)
+    set(HS_MIRROR_GLOB GLOB_RECURSE)
+    set(HS_MIRROR_PATTERNS *.png)
+    set(HS_MIRROR_EXCLUDE )
+  else()
+    set(HS_MIRROR_KIND patterns)
+    set(HS_MIRROR_ENGINE_MARKER ../CMakeLists.txt)
+    set(HS_MIRROR_SUBDIRECTORY generated/shader/patterns)
+    set(HS_MIRROR_GLOB GLOB)
+    set(HS_MIRROR_PATTERNS *.shader.json catalog.json)
+    set(HS_MIRROR_EXCLUDE example.shader.json)
+  endif()
+  set(_mirror_options)
+  foreach(_setting IN ITEMS KIND ENGINE_MARKER SUBDIRECTORY GLOB EXCLUDE)
+    list(APPEND _mirror_options "-DHS_MIRROR_${_setting}=${HS_MIRROR_${_setting}}")
+  endforeach()
+endmacro()
+
 if(NOT TEST_ROOT MATCHES "mirrored_prune_fixture$")
   message(FATAL_ERROR "Unsafe or missing TEST_ROOT: ${TEST_ROOT}")
 endif()
@@ -23,7 +45,8 @@ file(WRITE "${_daydream}/docs/screenshots/notes.txt" "unrelated")
 
 set(HS_MIRROR_SOURCE "${_source}")
 set(HS_DAYDREAM_DIR "${_daydream}")
-include("${CMAKE_CURRENT_LIST_DIR}/../cmake/prune_mirrored_screenshots.cmake")
+configure_mirror(screenshots)
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/prune_mirrored.cmake")
 
 foreach(_kept IN ITEMS
     "${_daydream}/src/app/daydream.js"
@@ -55,7 +78,8 @@ file(WRITE "${_patterns}/catalog.json" "stale catalog")
 file(WRITE "${_patterns}/notes.json" "unrelated")
 set(HS_MIRROR_SOURCE "${_source}")
 set(HS_DAYDREAM_DIR "${_daydream}")
-include("${CMAKE_CURRENT_LIST_DIR}/../cmake/prune_mirrored_patterns.cmake")
+configure_mirror(patterns)
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/prune_mirrored.cmake")
 if(EXISTS "${_patterns}/stale.shader.json" OR
    EXISTS "${_patterns}/catalog.json")
   message(FATAL_ERROR "Prune retained stale mirrored patterns")
@@ -67,6 +91,7 @@ if(NOT EXISTS "${_patterns}/keep.shader.json" OR
 endif()
 
 foreach(_kind IN ITEMS screenshots patterns)
+  configure_mirror("${_kind}")
   if(_kind STREQUAL "screenshots")
     set(_empty "${TEST_ROOT}/engine/docs/empty")
     set(_retained "${_daydream}/docs/screenshots/keep.png")
@@ -85,7 +110,8 @@ foreach(_kind IN ITEMS screenshots patterns)
   file(WRITE "${_invalid_file}" "must survive")
   execute_process(COMMAND "${CMAKE_COMMAND}"
     "-DHS_MIRROR_SOURCE=${_valid_source}" "-DHS_DAYDREAM_DIR=${_not_daydream}"
-    -P "${CMAKE_CURRENT_LIST_DIR}/../cmake/prune_mirrored_${_kind}.cmake"
+    ${_mirror_options} "-DHS_MIRROR_PATTERNS=${HS_MIRROR_PATTERNS}"
+    -P "${CMAKE_CURRENT_LIST_DIR}/../cmake/prune_mirrored.cmake"
     RESULT_VARIABLE _invalid_result OUTPUT_QUIET ERROR_VARIABLE _invalid_error)
   if(_invalid_result EQUAL 0 OR NOT _invalid_error MATCHES "destination is not a daydream checkout" OR NOT EXISTS "${_invalid_file}")
     message(FATAL_ERROR "${_kind} prune did not safely reject an invalid destination")
@@ -94,7 +120,8 @@ foreach(_kind IN ITEMS screenshots patterns)
   file(MAKE_DIRECTORY "${_not_engine}")
   execute_process(COMMAND "${CMAKE_COMMAND}"
     "-DHS_MIRROR_SOURCE=${_not_engine}" "-DHS_DAYDREAM_DIR=${_daydream}"
-    -P "${CMAKE_CURRENT_LIST_DIR}/../cmake/prune_mirrored_${_kind}.cmake"
+    ${_mirror_options} "-DHS_MIRROR_PATTERNS=${HS_MIRROR_PATTERNS}"
+    -P "${CMAKE_CURRENT_LIST_DIR}/../cmake/prune_mirrored.cmake"
     RESULT_VARIABLE _source_result OUTPUT_QUIET ERROR_VARIABLE _source_error)
   if(_source_result EQUAL 0 OR NOT _source_error MATCHES "Mirror source is not an engine checkout" OR NOT EXISTS "${_retained}")
     message(FATAL_ERROR "${_kind} prune did not safely reject a non-engine source")
@@ -102,7 +129,8 @@ foreach(_kind IN ITEMS screenshots patterns)
   file(MAKE_DIRECTORY "${_empty}")
   execute_process(COMMAND "${CMAKE_COMMAND}"
     "-DHS_MIRROR_SOURCE=${_empty}" "-DHS_DAYDREAM_DIR=${_daydream}"
-    -P "${CMAKE_CURRENT_LIST_DIR}/../cmake/prune_mirrored_${_kind}.cmake"
+    ${_mirror_options} "-DHS_MIRROR_PATTERNS=${HS_MIRROR_PATTERNS}"
+    -P "${CMAKE_CURRENT_LIST_DIR}/../cmake/prune_mirrored.cmake"
     RESULT_VARIABLE _empty_result OUTPUT_QUIET ERROR_VARIABLE _empty_error)
   if(_empty_result EQUAL 0 OR NOT _empty_error MATCHES "Mirror source contains no ${_kind}" OR NOT EXISTS "${_retained}")
     message(FATAL_ERROR "Empty ${_kind} source was not safely rejected")

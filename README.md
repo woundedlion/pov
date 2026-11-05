@@ -1584,10 +1584,9 @@ files define line-ending policy and working-artifact exclusions.
 ├── CMakeLists.txt              Two-mode build: Emscripten WASM (+ daydream install) or native Clang tests + CTest
 ├── CMakePresets.json           Canonical presets: wasm-release, wasm-debug, wasm-strict-fp, tests
 ├── cmake/
-│   ├── prune_mirrored_patterns.cmake     Removes obsolete engine-owned shader documents during install
+│   ├── prune_mirrored.cmake     Removes stale engine-owned shader documents and gallery PNGs during install
 │   ├── chain_capture_fixtures.cmake Typed fixture header generation for capture producers
 │   ├── test_capabilities.cmake Shared feature capabilities for test and capture targets
-│   ├── prune_mirrored_screenshots.cmake  Removes obsolete engine-owned gallery PNGs during install
 │   ├── wasm_cache_key.cmake     Keys the binary URL by its content hash after linking
 │   └── toolchain-native-clang.cmake  Native Clang toolchain behind the tests preset
 ├── platformio.ini              Teensy envs: the two shipping images plus the compile/profiling profiles
