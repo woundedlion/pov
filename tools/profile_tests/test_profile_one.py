@@ -423,6 +423,40 @@ def capture_connect_timeout(**lock_env):
     return args[args.index("--connect-timeout") + 1]
 
 
+class ArtifactRetention(unittest.TestCase):
+    def test_default_override_and_invalid_limits(self):
+        for keep, expected in ((None, 100), ("2", 2), ("0", None)):
+            with self.subTest(keep=keep), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                current = root / "current"
+                current.mkdir()
+                os.utime(current, (1, 1))
+                for index in range(1, 102):
+                    capture = root / f"capture {index:03}"
+                    capture.mkdir()
+                    os.utime(capture, (100 + index, 100 + index))
+                note = root / "note.txt"
+                note.write_text("retain", encoding="utf-8")
+                env = dict(os.environ)
+                env.pop("HS_PROFILE_ARTIFACTS_KEEP", None)
+                if keep is not None:
+                    env["HS_PROFILE_ARTIFACTS_KEEP"] = keep
+                result = subprocess.run(
+                    ["bash", "-c", "set -euo pipefail\n" + shell_function("prune_artifacts")
+                     + '\nprune_artifacts "$1"\n', "retention-test", current.as_posix()],
+                    env=env, capture_output=True, text=True)
+                directories = {path.name for path in root.iterdir() if path.is_dir()}
+                self.assertIn("current", directories)
+                self.assertEqual(note.read_text(encoding="utf-8"), "retain")
+                if expected is None:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(len(directories), 102)
+                else:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(directories, {"current"} | {
+                        f"capture {index:03}" for index in range(103 - expected, 102)})
+
+
 class BuildBeforeDeviceClaim(unittest.TestCase):
     def run_flow(self, *, upload=False, fail_build=False):
         if upload:
@@ -646,6 +680,7 @@ def build_and_attest_calls():
         calls = root / "calls"
         script = (
             "set -e\n"
+            f"{shell_function('prune_artifacts')}\n"
             f"{shell_function('build_and_attest')}\n"
             f"{shell_function('obtain_image')}\n"
             f"{shell_function('envdump')}\n"

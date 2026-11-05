@@ -26,6 +26,7 @@
 #   HS_PIO_JOBS=<n>         `pio run -j` for the builds (tools/fw_cache.sh)
 #   HS_PROFILE_TREE=<path>  checkout to build (default: the one holding this script)
 #   HS_PROFILE_OUT=<path>   capture log path; all per-run artifacts share its stem
+#   HS_PROFILE_ARTIFACTS_KEEP=<n> retain this capture and the newest artifact directories (100)
 #   HS_PROFILE_EXPECT_SHAPE=<name> require "Spawning Shape: <name>" in the capture
 #                           (used by profile_islamic_big.sh for IslamicStars)
 #   HS_PROFILE_MINDSPLATTER=counts|stalls  MindSplatter instrumentation image with
@@ -319,6 +320,28 @@ prebuilt_image() {
   IMAGE_SOURCE=prebuilt:$HS_FW_KEY
 }
 
+prune_artifacts() {
+  local root current keep stale
+  root=$(cd "$(dirname "$1")" && pwd -P)
+  current=$(basename "$1")
+  keep=${HS_PROFILE_ARTIFACTS_KEEP:-100}
+  case $keep in
+    ''|*[!0-9]*) echo "HS_PROFILE_ARTIFACTS_KEEP must be a positive integer" >&2; return 2;;
+  esac
+  keep=$((10#$keep))
+  [ "$keep" -gt 0 ] || { echo "HS_PROFILE_ARTIFACTS_KEEP must be positive" >&2; return 2; }
+  # shellcheck disable=SC2012
+  ls -1t "$root" | while IFS= read -r stale; do
+    if [ "$stale" != "$current" ] && [ -d "$root/$stale" ] && [ ! -L "$root/$stale" ]; then
+      printf '%s\n' "$stale"
+    fi
+  done | tail -n +"$keep" | while IFS= read -r stale; do
+    if [ -d "$root/$stale" ] && [ ! -L "$root/$stale" ]; then
+      rm -rf "${root:?}/$stale"
+    fi
+  done
+}
+
 build_and_attest() {
   local phantasm_source
   mkdir -p "$ATTEST_DIR"
@@ -346,6 +369,7 @@ build_and_attest() {
   phantasm_flags_sha=$(file_sha256 "$PHANTASM_ENVDUMP")
   artifact_dir=${ARTIFACT_BASE}_${source_sha:0:12}_${profile_sha:0:12}
   mkdir -p "$artifact_dir"
+  prune_artifacts "$artifact_dir"
   cp "$PROFILE_ELF" "$artifact_dir/profile.elf"
   cp "$PROFILE_MAP" "$artifact_dir/profile.map"
   cp "$PHANTASM_ELF" "$artifact_dir/phantasm.elf"
