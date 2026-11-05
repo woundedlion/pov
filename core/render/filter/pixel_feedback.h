@@ -61,13 +61,18 @@ template <int W, int H> class Feedback : public Is2DWithHistory {
   using ColumnSource = typename ColumnTime::Source;
   using FadeTable = FeedbackFadeTable;
 
+  /** @brief Constructs the shared spherical field layout.
+   * @param ds Field downsample factor.
+   * @return Matching north/south infill and rectangular column count. */
+  static HS_HOT_INLINE constexpr SphereField field_for(int ds) {
+    return SphereField(ds, ds, ds, W / ds);
+  }
+
   /** @brief Coarse grid downsample the warp cache is sized for (the default
    *  Style's). Other values render uncached. */
   static constexpr int CACHE_DOWNSAMPLE = ::Feedback::Style{}.downsample;
-  static constexpr int CACHE_SOUTH_INFILL = CACHE_DOWNSAMPLE;
   static constexpr int CACHE_COLUMNS = W / CACHE_DOWNSAMPLE;
-  static constexpr SphereField CACHE_FIELD{CACHE_DOWNSAMPLE, CACHE_DOWNSAMPLE,
-                                           CACHE_SOUTH_INFILL, CACHE_COLUMNS};
+  static constexpr SphereField CACHE_FIELD = field_for(CACHE_DOWNSAMPLE);
   /** @brief Cell count of the cached spherical warp field. */
   static constexpr int CACHE_CELLS = CACHE_COLUMNS * CACHE_FIELD.ring_count();
 
@@ -127,7 +132,7 @@ public:
     HS_CHECK(ds > 0 && W % ds == 0,
              "feedback downsample %d must be > 0 and divide width %d", ds, W);
     const int COLUMNS = W / ds;
-    const SphereField FIELD(ds, ds, ds, COLUMNS);
+    const SphereField FIELD = field_for(ds);
     const int RINGS = FIELD.ring_count();
     const PolarRings POLAR = polar_rings(FIELD, RINGS);
     return (2 * RINGS * COLUMNS + 2 * FIELD.sample_count()) * sizeof(int16_t) +
@@ -344,8 +349,7 @@ private:
              "feedback canvas height %d must equal template H %d", cv.height(),
              H);
     const int columns = W / downsample;
-    const int south_infill = downsample;
-    const SphereField field(downsample, downsample, south_infill, columns);
+    const SphereField field = field_for(downsample);
     const int rings = field.ring_count();
     return {downsample, field, columns, rings, polar_rings(field, rings)};
   }
@@ -853,10 +857,8 @@ private:
                                             x + stride + lane_offset + ddx1,
                                             y + ddy1);
                 }
-                const bool black0 = black_skips_color && s0.r < NEAR_BLACK &&
-                                    s0.g < NEAR_BLACK && s0.b < NEAR_BLACK;
-                const bool black1 = black_skips_color && s1.r < NEAR_BLACK &&
-                                    s1.g < NEAR_BLACK && s1.b < NEAR_BLACK;
+                const bool black0 = skip_near_black(s0, black_skips_color);
+                const bool black1 = skip_near_black(s1, black_skips_color);
                 ::Pixel p0(0, 0, 0), p1(0, 0, 0);
                 if (!(black0 && black1)) {
                   HS_PROFILE_DEEP(fb_comp_color);
@@ -894,8 +896,7 @@ private:
                                        x + lane_offset + ddx, y + ddy);
             }
             ::Pixel p(0, 0, 0);
-            if (!(black_skips_color && s.r < NEAR_BLACK && s.g < NEAR_BLACK &&
-                  s.b < NEAR_BLACK)) {
+            if (!(skip_near_black(s, black_skips_color))) {
               HS_PROFILE_DEEP(fb_comp_color);
               if constexpr (PAIR_PIXELS)
                 p = transform_pixel_call(transform_pixel, s.r, s.g, s.b,
@@ -1012,8 +1013,7 @@ private:
         const Sample s = sample_bilinear_prev(grid.field, ctx.previous,
                                               ctx.poles, read.x, read.y);
         ::Pixel p(0, 0, 0);
-        if (!(black_skips_color && s.r < NEAR_BLACK && s.g < NEAR_BLACK &&
-              s.b < NEAR_BLACK))
+        if (!(skip_near_black(s, black_skips_color)))
           p = transform_pixel(s.r, s.g, s.b, level);
         ::Pixel &dst = output[x];
         dst = plain_store ? p : blend(dst, p);
@@ -1116,8 +1116,7 @@ private:
                        });
     };
     auto black = [&](const Sample &s) HS_HOT_INLINE {
-      return ctx.black_skips_color && s.r < NEAR_BLACK && s.g < NEAR_BLACK &&
-             s.b < NEAR_BLACK;
+      return skip_near_black(s, ctx.black_skips_color);
     };
     auto transform = [&](const Sample &s, int level) HS_HOT_INLINE {
       if constexpr (PAIR_PIXELS)
@@ -1320,6 +1319,16 @@ private:
     float g;
     float b;
   };
+
+  /** @brief Whether a near-black sample skips its color transform.
+   * @param sample Unquantized linear sample.
+   * @param enabled Whether near-black samples skip the color transform.
+   * @return True when enabled and all channels are below NEAR_BLACK. */
+  static HS_O3_FN HS_HOT_INLINE bool skip_near_black(const Sample &sample,
+                                                     bool enabled) {
+    return enabled && sample.r < NEAR_BLACK && sample.g < NEAR_BLACK &&
+           sample.b < NEAR_BLACK;
+  }
 
   /**
    * @brief Bilinearly samples the Canvas front buffer (previous frame).
