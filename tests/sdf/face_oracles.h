@@ -720,8 +720,6 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   static int16_t lut_data[64 * 64];
   SDF::ClassLut lut;
   SDF::build_canonical_distance_lut(canon, n_verts, 64, lut_data, lut);
-  // Cell diagonal of the 64x64 grid over this star's box; the sweep tolerance
-  // is a multiple of it.
   HS_EXPECT_GT(lut.safe_dist, 0.0f);
   HS_EXPECT_LT(lut.safe_dist, 0.03f);
 
@@ -759,6 +757,8 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   }
 
   int lut_samples = 0, sign_mismatches = 0;
+  int interior_samples = 0;
+  double interior_error = 0;
   float min_lut_mag = FLT_MAX;
   const float reach = face.max_dist * 0.98f;
   constexpr int G = 96;
@@ -789,9 +789,14 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
         float mag = std::abs(res.raw_dist);
         if (mag < min_lut_mag)
           min_lut_mag = mag;
-        // Bilinear over a sign-pure cell of exact corner samples stays within
-        // ~2 cell diagonals of the 1-Lipschitz field; slack covers the int16
-        // quantization and the fast_atan2 conversion.
+        const float GX = face.lut_ax * px + face.lut_bx * py + face.lut_cx;
+        const float GY = face.lut_ay * px + face.lut_by * py + face.lut_cy;
+        if (GX >= 0 && GX <= face.lut_clamp && GY >= 0 &&
+            GY <= face.lut_clamp) {
+          ++interior_samples;
+          interior_error += std::abs(res.raw_dist - expected);
+        }
+        // Clamped probes may lie outside the canonical LUT box.
         HS_EXPECT_NEAR(res.raw_dist, expected, 3.0f * lut.safe_dist);
       } else {
         HS_EXPECT_NEAR(res.raw_dist, expected, 1e-4f);
@@ -799,6 +804,9 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
     }
   }
   HS_EXPECT_GT(lut_samples, 100);
+  HS_EXPECT_GT(interior_samples, 100);
+  if (interior_samples > 0)
+    HS_EXPECT_LT(interior_error / interior_samples, 0.1f * lut.safe_dist);
   HS_EXPECT_EQ(sign_mismatches, 0);
   // The sign-purity guard keeps every served magnitude a cell diagonal from
   // zero — outside the AA ramp.
