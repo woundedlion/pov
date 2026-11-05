@@ -22,8 +22,14 @@ inline int hankin_star_class_count(const PolyMesh &mesh, Arena &a, Arena &b) {
   MeshOps::update_hankin(ch, hk, a, 0.0f);
   MeshOps::classify_faces_by_topology(hk, b, b, b);
   int classes = 0;
-  for (size_t f = 0; f < mesh.face_counts.size(); ++f)
-    classes = std::max(classes, static_cast<int>(hk.topology[f]) + 1);
+  std::vector<bool> seen(hk.topology.size());
+  for (size_t f = 0; f < mesh.face_counts.size(); ++f) {
+    const size_t id = hk.topology[f];
+    if (!seen[id]) {
+      seen[id] = true;
+      ++classes;
+    }
+  }
   return classes;
 }
 
