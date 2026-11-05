@@ -39,26 +39,7 @@ static_assert(std::size(TANGENT_LIMIT_IDS) ==
               static_cast<size_t>(math::TangentLimit::CLAMP) + 1);
 
 /** @brief Parameter family of sphere.displace.curl.v2. */
-struct CurlDisplaceParams : Surface::SurfaceNoiseParams {
-  /** math::NoiseBasis topology value. */
-  uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
-  /** Surface::Integrator topology value. */
-  uint8_t integrator = static_cast<uint8_t>(Surface::Integrator::EULER);
-  /** math::TangentLimit topology value. */
-  uint8_t limit = static_cast<uint8_t>(math::TangentLimit::SMOOTH);
-
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<CurlDisplaceParams>{
-          "basis", &CurlDisplaceParams::basis, NOISE_BASIS_IDS,
-          static_cast<uint8_t>(math::NoiseBasis::SIMPLEX)},
-      TopologyField<CurlDisplaceParams>{
-          "integrator", &CurlDisplaceParams::integrator, SURFACE_INTEGRATOR_IDS,
-          static_cast<uint8_t>(Surface::Integrator::EULER)},
-      TopologyField<CurlDisplaceParams>{
-          "limit", &CurlDisplaceParams::limit, TANGENT_LIMIT_IDS,
-          static_cast<uint8_t>(math::TangentLimit::SMOOTH)},
-  };
-};
+using CurlDisplaceParams = Surface::AuthoredSurfaceNoiseParams;
 static_assert(field_ids_unique<CurlDisplaceParams>());
 static_assert(appended_block_size_matches<CurlDisplaceParams,
                                           Surface::SurfaceNoiseParams, 3>(),
@@ -105,16 +86,7 @@ struct DisplaceCurl : PhaseClockModel<NoisePhaseState> {
 };
 
 /** @brief Parameter family of sphere.displace.direct.v2. */
-struct DirectDisplaceParams : Surface::DirectSurfaceParams {
-  /** math::NoiseBasis topology value. */
-  uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
-
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<DirectDisplaceParams>{
-          "basis", &DirectDisplaceParams::basis, NOISE_BASIS_IDS,
-          static_cast<uint8_t>(math::NoiseBasis::SIMPLEX)},
-  };
-};
+using DirectDisplaceParams = Surface::AuthoredDirectSurfaceParams;
 static_assert(field_ids_unique<DirectDisplaceParams>());
 static_assert(appended_block_size_matches<DirectDisplaceParams,
                                           Surface::DirectSurfaceParams, 1>(),
@@ -245,19 +217,7 @@ struct DisplaceRipple : ValueStateModel<RipplePhaseState> {
 };
 
 /** @brief Parameter family of sphere.lens.glitch.v2. */
-struct GlitchChainParams {
-  float polar_multiplier = 2.0f;   /**< Polar angle multiplier. */
-  float azimuth_multiplier = 3.0f; /**< Azimuth angle multiplier. */
-
-  static constexpr auto FIELDS = std::array{
-      Field<GlitchChainParams>{
-          "polar-multiplier", &GlitchChainParams::polar_multiplier,
-          "Polar Multiplier", -12.0f, 12.0f, FieldCurve::LERP},
-      Field<GlitchChainParams>{
-          "azimuth-multiplier", &GlitchChainParams::azimuth_multiplier,
-          "Azimuth Multiplier", -12.0f, 12.0f, FieldCurve::LERP},
-  };
-};
+using GlitchChainParams = Lens::GlitchParams;
 static_assert(field_ids_unique<GlitchChainParams>());
 static_assert(field_defaults_in_range<GlitchChainParams>());
 
@@ -402,18 +362,7 @@ static_assert(std::size(KALEIDOSCOPE_SYMMETRY_IDS) ==
 
 /** @brief Parameter family of sphere.lens.kaleidoscope.v2: the symmetry
     topology alone. */
-struct KaleidoscopeChainParams {
-  /** KaleidoscopeSymmetry topology value. */
-  uint8_t symmetry = static_cast<uint8_t>(KaleidoscopeSymmetry::AZIMUTHAL);
-
-  static constexpr std::array<Field<KaleidoscopeChainParams>, 0> FIELDS{};
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<KaleidoscopeChainParams>{
-          "symmetry", &KaleidoscopeChainParams::symmetry,
-          KALEIDOSCOPE_SYMMETRY_IDS,
-          static_cast<uint8_t>(KaleidoscopeSymmetry::AZIMUTHAL)},
-  };
-};
+using KaleidoscopeChainParams = Lens::KaleidoscopeParams;
 static_assert(field_ids_unique<KaleidoscopeChainParams>());
 static_assert(field_defaults_in_range<KaleidoscopeChainParams>());
 

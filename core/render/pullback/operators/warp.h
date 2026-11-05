@@ -9,7 +9,7 @@
 #if HS_ENABLE_CHAIN_INTERPRETER
 
 #include "core/render/pullback/operators/common.h"
-#include "core/render/pullback/warp.h"
+#include "core/render/pullback/authored_warp.h"
 
 /**
  * @file warp.h
@@ -362,31 +362,14 @@ enum class PolarMode : uint8_t {
   LOGARITHMIC = 1 ///< Log radius.
 };
 
-/** @brief Mode topology values, in PolarMode order. */
-inline constexpr const char *POLAR_MODE_IDS[] = {"linear", "logarithmic"};
-static_assert(std::size(POLAR_MODE_IDS) ==
+static_assert(std::size(Warp::AuthoredPolarParams::MODE_IDS) ==
               static_cast<size_t>(PolarMode::LOGARITHMIC) + 1);
 
-/** @brief Harmonic topology values h1..h16, indexed by harmonic - 1. */
-inline constexpr const char *POLAR_HARMONIC_IDS[] = {
-    "h1", "h2",  "h3",  "h4",  "h5",  "h6",  "h7",  "h8",
-    "h9", "h10", "h11", "h12", "h13", "h14", "h15", "h16"};
-static_assert(std::size(POLAR_HARMONIC_IDS) == Warp::MAX_POLAR_HARMONIC);
+static_assert(std::size(Warp::AuthoredPolarParams::HARMONIC_IDS) ==
+              Warp::MAX_POLAR_HARMONIC);
 
 /** @brief Parameter family of warp.polar-chart.v2. */
-struct PolarChartParams : Warp::PolarParams {
-  /** PolarMode topology value. */
-  uint8_t mode = static_cast<uint8_t>(PolarMode::LINEAR);
-  uint8_t harmonic = 0; /**< Harmonic value index; harmonic = index + 1. */
-
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<PolarChartParams>{"mode", &PolarChartParams::mode,
-                                      POLAR_MODE_IDS,
-                                      static_cast<uint8_t>(PolarMode::LINEAR)},
-      TopologyField<PolarChartParams>{"harmonic", &PolarChartParams::harmonic,
-                                      POLAR_HARMONIC_IDS, 0},
-  };
-};
+using PolarChartParams = Warp::AuthoredPolarParams;
 static_assert(field_ids_unique<PolarChartParams>());
 static_assert(
     appended_block_size_matches<PolarChartParams, Warp::PolarParams, 2>(),
@@ -460,27 +443,11 @@ inline constexpr uint8_t curl_intervals(CurlIntegrator integrator) {
   return static_cast<uint8_t>(1U << static_cast<uint8_t>(integrator));
 }
 
-/** @brief Integrator topology values, in CurlIntegrator order. */
-inline constexpr const char *CURL_INTEGRATOR_IDS[] = {"euler-1", "midpoint-2",
-                                                      "midpoint-4"};
-static_assert(std::size(CURL_INTEGRATOR_IDS) ==
+static_assert(std::size(Warp::AuthoredCurlFlowParams::INTEGRATOR_IDS) ==
               static_cast<size_t>(CurlIntegrator::MIDPOINT4) + 1);
 
 /** @brief Parameter family of warp.curl-flow.v2. */
-struct CurlFlowWarpParams : Warp::CurlFlowParams {
-  /** math::NoiseBasis topology value. */
-  uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
-  /** CurlIntegrator topology value. */
-  uint8_t integrator = static_cast<uint8_t>(CurlIntegrator::EULER1);
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<CurlFlowWarpParams>{
-          "basis", &CurlFlowWarpParams::basis, NOISE_BASIS_IDS,
-          static_cast<uint8_t>(math::NoiseBasis::SIMPLEX)},
-      TopologyField<CurlFlowWarpParams>{"integrator",
-                                        &CurlFlowWarpParams::integrator,
-                                        CURL_INTEGRATOR_IDS, 0},
-  };
-};
+using CurlFlowWarpParams = Warp::AuthoredCurlFlowParams;
 static_assert(field_ids_unique<CurlFlowWarpParams>());
 static_assert(
     appended_block_size_matches<CurlFlowWarpParams, Warp::CurlFlowParams, 2>(),
