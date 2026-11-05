@@ -43,7 +43,7 @@ struct MeshFeedbackWhiteBox {
         Plot::Mesh::draw_timed<DEFAULT_W, DEFAULT_H>(
             pipeline, canvas, fx.mesh, fx.edges, shader, MF::MESH_GEOMETRY);
       } else {
-        const auto pose = fx.orientation.get(fraction);
+        const auto pose = fx.orientation.sample(fraction);
         fx.orientation.set(pose);
         if (displacement != 0.0f) {
           for (auto &v : fx.mesh.vertices) {

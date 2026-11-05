@@ -112,7 +112,7 @@ struct MindSplatterWhiteBox {
         math::MobiusParams warp = fx.mobius;
         warp.b = math::Complex(previous_warp.re + warp_step.re * fraction,
                                previous_warp.im + warp_step.im * fraction);
-        const auto pose = fx.orientation.get(fraction);
+        const auto pose = fx.orientation.sample(fraction);
         fx.orientation.set(pose);
         ScratchScope guard(scratch_arena_a);
         constexpr size_t POINTS = 9;

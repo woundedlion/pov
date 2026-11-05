@@ -93,7 +93,7 @@ inline void test_world_orient_follows_history_at_column_times() {
       Canvas canvas(effect);
       for (int c = 0; c < 144; ++c) {
         const float t = Spacetime::SamplingSurface<288>::time(c);
-        const math::Vector want = math::rotate(v, history.get(t));
+        const math::Vector want = math::rotate(v, history.sample(t));
         worst = fmaxf(worst, (orient.at_time(canvas, v, t) - want).magnitude());
         const math::Quaternion slerped =
             math::slerp(history.get(0), history.get(), t);
@@ -124,7 +124,7 @@ inline void test_world_orient_explicit_time() {
       Canvas canvas(effect);
       HS_EXPECT_EQ(canvas.frame_number(), static_cast<uint32_t>(frame + 1));
       for (float t : {0.0f, 0.13f, 0.5f, 0.73f, 1.0f}) {
-        const math::Vector want = math::rotate(v, history.get(t));
+        const math::Vector want = math::rotate(v, history.sample(t));
         int calls = 0;
         orient.plot_at(
             canvas, v, Pixel(1, 2, 3), 7.0f, 0.25f, t,
@@ -178,7 +178,7 @@ inline void test_timed_probe_bypasses_history() {
   for (float t : {0.0f, 0.3f, 0.6f, 1.0f}) {
     const auto got = ref.probe(canvas, v, t);
     const auto want =
-        math::vector_to_pixel<288, 144>(math::rotate(v, history.get(t)));
+        math::vector_to_pixel<288, 144>(math::rotate(v, history.sample(t)));
     HS_EXPECT_NEAR(got.x, want.x, 0.002f);
     HS_EXPECT_NEAR(got.y, want.y, 0.002f);
   }
@@ -271,7 +271,7 @@ inline bool history_edge_lights_clip(const ClipRegion &clip,
                                      const math::Vector &b) {
   constexpr double PI_VALUE = 3.14159265358979323846;
   for (int time = 0; time <= 144; ++time) {
-    const auto pose = history.get(static_cast<float>(time) / 144.0f);
+    const auto pose = history.sample(static_cast<float>(time) / 144.0f);
     for (int sample = 0; sample <= 32; ++sample) {
       const float s = static_cast<float>(sample) / 32.0f;
       const auto v = math::rotate((a * (1.0f - s) + b * s).normalized(), pose);

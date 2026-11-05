@@ -49,7 +49,7 @@ struct PetalFlowWhiteBox {
             previous_rho / fx.spacing() * fx.params.twist_factor;
         const float last_twist = rho / fx.spacing() * fx.params.twist_factor;
         const float twist = first_twist + (last_twist - first_twist) * fraction;
-        const auto pose = fx.orientation.get(fraction);
+        const auto pose = fx.orientation.sample(fraction);
         fx.orientation.set(pose);
         auto *vertices = scratch_arena_a.make_n<math::Vector>(PF::NUM_SAMPLES);
         for (int i = 0; i < PF::NUM_SAMPLES; ++i) {

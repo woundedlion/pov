@@ -1099,7 +1099,7 @@ inline void test_column_basis_follows_history_path() {
     const math::Vector meridian(math::TrigLUT<W, H>::cos_theta(c), 0.0f,
                                 math::TrigLUT<W, H>::sin_theta[c]);
     const math::Quaternion delta =
-        orientation.get() * orientation.get(u).conjugate();
+        orientation.get() * orientation.sample(u).conjugate();
     const math::Vector up = math::rotate(math::Y_AXIS, delta);
     worst = fmaxf(worst, (time.up[c] - up).magnitude());
     worst = fmaxf(
@@ -1563,8 +1563,8 @@ inline void check_history_lit_caps(const char *label,
   for (int c = 0; c < HALF; ++c)
     for (int m = 0; m < HALF; ++m) {
       const math::Quaternion step =
-          orientation.get(Spacetime::surface_time(c, W)) *
-          orientation.get(Spacetime::surface_time(m, W)).conjugate();
+          orientation.sample(Spacetime::surface_time(c, W)) *
+          orientation.sample(Spacetime::surface_time(m, W)).conjugate();
       const float turn =
           2.0f * asinf(fminf(sqrtf(math::dot(step.v, step.v)), 1.0f));
       travel =
@@ -1617,7 +1617,8 @@ inline void check_history_lit_caps(const char *label,
   const std::vector<Pixel> expected = render_state_oracle<W, H>(
       [&](Pipeline<W, H> &pipeline, Canvas &canvas, float u) {
         draw(pipeline, canvas,
-             (orientation.get(u) * orientation.get().conjugate()).normalized(),
+             (orientation.sample(u) * orientation.get().conjugate())
+                 .normalized(),
              true);
       });
   int differing = 0, lit = 0, worst = 0;

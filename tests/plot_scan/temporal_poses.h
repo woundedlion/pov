@@ -124,7 +124,7 @@ inline void test_pose_table_follows_history_path() {
       const math::SlerpArc endpoints(orientation.get(0), orientation.get());
       for (int c = 0; c < half; ++c) {
         const float t = Spacetime::surface_time(c, width);
-        const math::RotationMatrix want(orientation.get(t));
+        const math::RotationMatrix want(orientation.sample(t));
         history_error =
             fold_worst(history_error, matrix_distance(table->at(c), want));
         endpoint_departure = fold_worst(
@@ -235,7 +235,7 @@ inline void test_pose_table_rotates_between_column_times() {
       if (W == 288 && c < W / 2) {
         const float between = (static_cast<float>(c) + 0.37f) / (W / 2);
         worst = fold_worst(worst, (table->rotate(v, between) -
-                                   math::rotate(v, orientation.get(between)))
+                                   math::rotate(v, orientation.sample(between)))
                                       .magnitude());
       }
     }
