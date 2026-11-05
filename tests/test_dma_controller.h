@@ -172,7 +172,7 @@ inline void test_submit_happy_path() {
   bool ok = ctl.submit_frame(/*with_bg=*/false);
 
   HS_EXPECT_TRUE(ok);
-  HS_EXPECT_EQ(ctl.get_transfer_count(), 1u);
+  HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1);
   HS_EXPECT_EQ(ctl.get_overrun_count(), 0u);
   HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1);
   HS_EXPECT_EQ(MockStrip::state().last_len,
@@ -211,7 +211,7 @@ inline void test_double_buffer_flip() {
   MockStrip::state().complete = true;
   HS_EXPECT_TRUE(ctl.submit_frame(false));
   HS_EXPECT_EQ(MockStrip::state().last_data, dma1); // back to the first buffer
-  HS_EXPECT_EQ(ctl.get_transfer_count(), 3u);
+  HS_EXPECT_EQ(MockStrip::state().transmit_calls, 3);
 }
 
 /**
@@ -236,7 +236,7 @@ inline void test_overrun_drop() {
   HS_EXPECT_EQ(hd107s::last_flushed_bytes, 0u);
   HS_EXPECT_FALSE(ok);
   HS_EXPECT_EQ(ctl.get_overrun_count(), 1u);
-  HS_EXPECT_EQ(ctl.get_transfer_count(), 1u);            // unchanged
+  HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1);    // unchanged
   HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1);    // no new transmit
   HS_EXPECT_EQ(MockStrip::state().check_stale_calls, 1); // watchdog consulted
 
@@ -249,7 +249,7 @@ inline void test_overrun_drop() {
   expect_captured_frame(expected);
 }
 
-/** @brief Completion polling preserves the submission and overrun counters. */
+/** @brief Completion polling starts no transfers and preserves the overrun counter. */
 inline void test_transfer_idle_poll() {
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
@@ -258,12 +258,12 @@ inline void test_transfer_idle_poll() {
   HS_EXPECT_FALSE(ctl.transfer_idle());
   HS_EXPECT_EQ(MockStrip::state().check_stale_calls, 1);
   HS_EXPECT_EQ(ctl.get_overrun_count(), 0u);
-  HS_EXPECT_EQ(ctl.get_transfer_count(), 1u);
+  HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1);
   MockStrip::state().complete = true;
   HS_EXPECT_TRUE(ctl.transfer_idle());
   HS_EXPECT_EQ(MockStrip::state().check_stale_calls, 1);
   HS_EXPECT_EQ(ctl.get_overrun_count(), 0u);
-  HS_EXPECT_EQ(ctl.get_transfer_count(), 1u);
+  HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1);
 }
 
 /**

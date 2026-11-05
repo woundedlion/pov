@@ -70,7 +70,7 @@ public:
    * @param clock SPI clock in Hz forwarded to the transport.
    */
   explicit DMALEDController(uint32_t clock = DEFAULT_CLOCK_HZ)
-      : spi(clock), active_buffer(0), transfer_count(0), overrun_count(0) {}
+      : spi(clock), active_buffer(0), overrun_count(0) {}
 
   /**
    * @brief One-time hardware initialization. Call from setup().
@@ -118,18 +118,10 @@ public:
     frames[back].flush(len);
     spi.transmit_async(frames[back].data(), len);
     active_buffer = back;
-    transfer_count.fetch_add(1, std::memory_order_relaxed);
     return true;
   }
 
   // --- Diagnostics ---
-  /**
-   * @brief Returns successful DMA submissions modulo 2^32 since start.
-   * @return Wrapping 32-bit transfer counter (successful submit_frame()s).
-   */
-  uint32_t get_transfer_count() const {
-    return transfer_count.load(std::memory_order_relaxed);
-  }
   /**
    * @brief Counts submit attempts refused while the prior transfer is in flight.
    * @return Wrapping 32-bit refusal counter; retries of the same frame count again.
@@ -189,11 +181,6 @@ private:
    *          or the foreground once the column timer is stopped.
    */
   int active_buffer;
-  /**
-   * @brief Wrapping 32-bit count of successful DMA submissions.
-   * @details Relaxed: an independent counter, not a happens-before signal.
-   */
-  std::atomic<uint32_t> transfer_count;
   std::atomic<uint32_t>
       overrun_count; /**< Refused submit attempts; retries count again. */
 };
