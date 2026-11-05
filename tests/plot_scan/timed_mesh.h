@@ -82,7 +82,7 @@ inline void test_column_polar_arc_coverage() {
             coverage += effect.get_pixel(column, y).r;
           missing += coverage == 0;
         }
-        HS_CONTEXT("polar arc hemisphere", hemisphere);
+        HS_CONTEXT("polar arc hemisphere", static_cast<int>(hemisphere));
         HS_CONTEXT("polar arc reversed", reversed);
         HS_CONTEXT("polar arc timed", timed);
         HS_EXPECT_GT(checked, 32);

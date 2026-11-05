@@ -128,7 +128,7 @@ inline void test_gnomonicstars_stars_drift_from_last_draw() {
   const math::Vector drawn = WB::drawn_centre(fx, 5);
   const math::Quaternion &q = WB::orientation(fx);
   for (const float angle : {1.5f * cull_drift, 0.6f, 1.7f, 3.0f}) {
-    HS_CONTEXT("angle", angle);
+    HS_CONTEXT("angle milliradians", static_cast<int>(angle * 1000.0f));
     const math::Vector jump = math::rotate(
         drawn, math::make_rotation(
                    math::cross(drawn, math::Y_AXIS).normalized(), angle));

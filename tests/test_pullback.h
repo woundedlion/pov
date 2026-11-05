@@ -1332,7 +1332,7 @@ inline void test_pullback_hexagonal_cells_pack_hex_lattice() {
         Pattern::PlanePosition{math::Complex(period * u, period * v)}, params);
   };
   for (const float shape : {0.0f, 1.0f}) {
-    HS_CONTEXT("shape", shape);
+    HS_CONTEXT("shape", static_cast<int>(shape));
     params.cell_shape = shape;
     for (int j = -3; j <= 3; ++j)
       for (int i = -3; i <= 3; ++i) {

@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -266,6 +267,10 @@ public:
   ContextScope(const char *label, long long a, long long b) {
     push(label, a, b, 2);
   }
+  template <std::floating_point T> ContextScope(const char *, T) = delete;
+  template <typename A, typename B>
+    requires(std::floating_point<A> || std::floating_point<B>)
+  ContextScope(const char *, A, B) = delete;
   ~ContextScope() { --context_depth(); }
   ContextScope(const ContextScope &) = delete;
   ContextScope &operator=(const ContextScope &) = delete;

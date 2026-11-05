@@ -654,7 +654,7 @@ inline void test_temporal_moving_families_interpolate() {
   }
   const Pullback::FrameInterval SAMPLER(history.previous, moved);
   for (const float fraction : {0.1f, 0.37f, 0.5f, 0.9f}) {
-    HS_CONTEXT("fraction", static_cast<double>(fraction));
+    HS_CONTEXT("fraction per mille", static_cast<int>(fraction * 1000.0f));
     const auto sampled = SAMPLER.at(fraction).params;
     const auto expected =
         Pullback::interpolate(history.previous.params, moved.params, fraction);

@@ -1295,7 +1295,7 @@ inline void test_displacement_field_turn_follows_large_steps() {
   const math::Quaternion previous =
       math::make_rotation(math::Vector(0.3f, 0.8f, -0.5f).normalized(), 0.4f);
   for (const float angle : {0.1f, 0.6f, 2.0f, 3.0f}) {
-    HS_CONTEXT("angle", angle);
+    HS_CONTEXT("angle milliradians", static_cast<int>(angle * 1000.0f));
     const math::Quaternion current =
         math::make_rotation(math::Vector(0.6f, -0.2f, 0.77f).normalized(),
                             angle) *

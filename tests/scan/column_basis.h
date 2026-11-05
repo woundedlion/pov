@@ -701,7 +701,7 @@ inline void test_rotate_by_matches_exact_rotation() {
   const math::Vector axis = math::Vector(0.3f, -0.7f, 0.5f).normalized();
   const math::Vector p = math::Vector(0.8f, 0.1f, -0.6f).normalized();
   for (const float angle : {0.0f, 0.1f, 0.25f, 0.26f, 0.9f, 2.0f, 3.1f}) {
-    HS_CONTEXT("angle", angle);
+    HS_CONTEXT("angle milliradians", static_cast<int>(angle * 1000.0f));
     HS_EXPECT_VEC(Spacetime::rotate_by(p, axis * angle),
                   math::rotate(p, math::make_rotation(axis, angle)), 2e-6f);
   }
@@ -996,7 +996,7 @@ inline void test_normalized_chord_error_bounds_the_turn() {
           std::atan2(u * std::sin(angle), 1.0 - u + u * std::cos(angle));
       worst = std::max(worst, std::fabs(lead - u * angle));
     }
-    HS_CONTEXT("angle", angle);
+    HS_CONTEXT("angle milliradians", static_cast<int>(angle * 1000.0f));
     HS_EXPECT_LE(worst, bound);
     HS_EXPECT_GE(worst, 0.8 * bound);
   }
@@ -1682,7 +1682,7 @@ inline void test_drift_matches_shape_at_column_centre() {
       math::Vector(0.3f, -0.4f, 0.85f).normalized()};
   const math::Vector axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
   for (const float angle : {3.0f * math::RADIANS_PER_COLUMN<W>, 0.7f}) {
-    HS_CONTEXT("drift", angle);
+    HS_CONTEXT("drift milliradians", static_cast<int>(angle * 1000.0f));
     const auto drifting = [&](auto &&shape) {
       return render_stub_frame<W, H>(
           [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
@@ -1908,7 +1908,7 @@ inline void test_vertex_arc_and_reach_flags() {
   for (const float scale : {1.0f, 1.5f, 0.65f, 0.35f}) {
     for (const float angle :
          {0.0f, 0.01f, 0.3f, 0.9f, 1.0f, 1.2f, 2.0f, 3.0f}) {
-      HS_CONTEXT("angle", angle);
+      HS_CONTEXT("angle milliradians", static_cast<int>(angle * 1000.0f));
       const math::Vector a(2 * scale, 0, 0),
           b(scale * cosf(angle), scale * sinf(angle), 0);
       const double ANGLE = hs_test::small_angle_between(a, b);
@@ -1943,7 +1943,7 @@ inline void test_vertex_arc_and_reach_flags() {
   // A reach level stands for at least the reach, and at most a third of an
   // octave more.
   for (const float reach : {1e-6f, 1e-3f, 0.003f, 0.02f, 0.4f, 1.0f}) {
-    HS_CONTEXT("reach", reach);
+    HS_CONTEXT("reach microradians", static_cast<int>(reach * 1000000.0f));
     const uint8_t flags = Scan::vertex_flags(reach);
     HS_EXPECT_EQ(flags & Scan::VERTEX_MOVES, Scan::VERTEX_MOVES);
     HS_EXPECT_GE(Scan::vertex_reach(flags), reach);
