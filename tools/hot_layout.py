@@ -254,7 +254,8 @@ _WORD = re.compile(r"^0x([0-9a-f]+)")
 _MOVE = re.compile(r"^(\w+), #-?\d+\s+@ 0x([0-9a-f]+)")
 
 
-def parse_references(text: str) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
+def parse_references(text: str, function_starts: set[int] | None = None
+                     ) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
     """(site, target) code and data references in `objdump -d` output.
 
     Branch targets and odd literal-pool words or movw/movt pairs are code
@@ -277,7 +278,8 @@ def parse_references(text: str) -> tuple[list[tuple[int, int]], list[tuple[int, 
             if word:
                 value = int(word.group(1), 16)
                 if value & 1:
-                    references.append((site, value & ~1))
+                    if function_starts is None or (value & ~1) in function_starts:
+                        references.append((site, value & ~1))
                 else:
                     data.append((site, value))
         elif mnemonic.startswith(("b", "cb")):
@@ -293,7 +295,8 @@ def parse_references(text: str) -> tuple[list[tuple[int, int]], list[tuple[int, 
                 elif register in low_halves:
                     full = (value << 16) | low_halves.pop(register)
                     if full & 1:
-                        references.append((site, full & ~1))
+                        if function_starts is None or (full & ~1) in function_starts:
+                            references.append((site, full & ~1))
                     else:
                         data.append((site, full))
     return references, data
@@ -920,7 +923,7 @@ def load_program(tools: Toolchain, elf: str, map_path: str) -> tuple[Program, di
     functions = parse_functions(symbol_table)
     references, data = parse_references(tools.run(
         [tools.objdump, "-d", "--no-show-raw-insn", "-j", FLASH_OUTPUT,
-         "-j", ITCM_OUTPUT, elf]))
+         "-j", ITCM_OUTPUT, elf]), {f.address for f in functions})
     objects = parse_objects(symbol_table)
     words = read_words(Path(elf).read_bytes(), objects)
     contents = {start: (size, words[start]) for start, size in objects if start in words}

@@ -108,6 +108,13 @@ class ParseFunctions(unittest.TestCase):
 
 
 class ParseReferences(unittest.TestCase):
+    def test_literals_require_exact_function_starts_but_branches_allow_interiors(self):
+        text = ("60008000:\t.word\t0x00000105\n"
+                "60008004:\t.word\t0x00000101\n"
+                "60008008:\tbl\t104 <callee+0x4>\n")
+        code, _ = hl.parse_references(text, {0x100})
+        self.assertEqual(code, [(0x60008004, 0x100), (0x60008008, 0x104)])
+
     def test_branches_literals_and_move_pairs_split_code_from_data(self):
         text = (
             "60008000 <_ZN1A4drawEv>:\n"
