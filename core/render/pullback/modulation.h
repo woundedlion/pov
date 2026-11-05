@@ -404,7 +404,7 @@ struct Controls {
   static_assert(std::size(MECHANIC_IDS) ==
                 static_cast<size_t>(ColorModulation::Mechanic::OPACITY) + 1);
   /// Noise octave formula values.
-  static constexpr const char *BASIS_IDS[] = {"simplex", "fbm3", "ridged3"};
+  static constexpr auto &BASIS_IDS = math::NOISE_BASIS_IDS;
   /// Noise sampling policy values.
   static constexpr const char *VARIANT_IDS[] = {"configured-single",
                                                 "octave-contour"};

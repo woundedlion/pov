@@ -25,8 +25,7 @@ struct AuthoredWaveShearParams : WaveShearParams {
     return fields;
   }();
   /// Catalog values of the envelope selector.
-  static constexpr const char *ENVELOPE_IDS[] = {"flat", "projection-weight",
-                                                 "edge-fade"};
+  static constexpr auto &ENVELOPE_IDS = Warp::ENVELOPE_IDS;
   /// Authored topology selectors.
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<AuthoredWaveShearParams>{
@@ -48,10 +47,9 @@ struct AuthoredVectorNoiseParams : VectorNoiseParams {
     return fields;
   }();
   /// Catalog values of the basis selector.
-  static constexpr const char *BASIS_IDS[] = {"simplex", "fbm3", "ridged3"};
+  static constexpr auto &BASIS_IDS = math::NOISE_BASIS_IDS;
   /// Catalog values of the envelope selector.
-  static constexpr const char *ENVELOPE_IDS[] = {"flat", "projection-weight",
-                                                 "edge-fade"};
+  static constexpr auto &ENVELOPE_IDS = Warp::ENVELOPE_IDS;
   /// Authored topology selectors.
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<AuthoredVectorNoiseParams>{
@@ -85,7 +83,7 @@ struct AuthoredCurlFlowParams : CurlFlowParams {
   uint8_t basis = 0;      ///< Noise-basis catalog index.
   uint8_t integrator = 0; ///< Integration substeps are two to this power.
   /// Catalog values of the basis selector.
-  static constexpr const char *BASIS_IDS[] = {"simplex", "fbm3", "ridged3"};
+  static constexpr auto &BASIS_IDS = math::NOISE_BASIS_IDS;
   /// Catalog values of the integrator selector.
   static constexpr const char *INTEGRATOR_IDS[] = {"euler-1", "midpoint-2",
                                                    "midpoint-4"};

@@ -143,7 +143,7 @@ inline void init_noise_phase(NoisePhaseState &state, InstanceId id) {
 }
 
 /** @brief Noise-basis topology values, in math::NoiseBasis order. */
-inline constexpr const char *NOISE_BASIS_IDS[] = {"simplex", "fbm3", "ridged3"};
+inline constexpr auto &NOISE_BASIS_IDS = math::NOISE_BASIS_IDS;
 static_assert(std::size(NOISE_BASIS_IDS) ==
               static_cast<size_t>(math::NoiseBasis::RIDGED3) + 1);
 

@@ -21,4 +21,10 @@ enum class NoiseBasis : uint8_t {
   RIDGED3
 };
 
+/** @brief Serialized noise-basis ids in enumerator order. */
+inline constexpr const char *NOISE_BASIS_IDS[] = {"simplex", "fbm3", "ridged3"};
+static_assert(static_cast<uint8_t>(NoiseBasis::SIMPLEX) == 0 &&
+              static_cast<uint8_t>(NoiseBasis::FBM3) == 1 &&
+              static_cast<uint8_t>(NoiseBasis::RIDGED3) == 2);
+
 } // namespace math

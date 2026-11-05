@@ -5,6 +5,7 @@
 #pragma once
 
 #include "core/render/pullback/surface.h"
+#include "core/render/pullback/authored_lens.h"
 
 /** @file tangent_surface.h
  * @brief Polynomial tangent-field displacement policies. */
@@ -12,18 +13,15 @@
 namespace Pullback::Surface {
 
 /// Catalog noise-basis spellings.
-inline constexpr const char *AUTHORED_NOISE_BASIS_IDS[] = {"simplex", "fbm3",
-                                                           "ridged3"};
+inline constexpr auto &AUTHORED_NOISE_BASIS_IDS = math::NOISE_BASIS_IDS;
 /// Fixed integration scheme spellings.
 inline constexpr const char *AUTHORED_INTEGRATOR_IDS[] = {"euler", "midpoint",
                                                           "midpoint-2x"};
 /// Tangent-length limiter spellings.
 inline constexpr const char *AUTHORED_LIMIT_IDS[] = {"smooth", "clamp"};
 /// Shared symmetry-group spellings.
-inline constexpr const char *AUTHORED_SYMMETRY_IDS[] = {
-    "azimuthal",        "tetrahedral",      "octahedral",
-    "dodecahedral",     "triangular-prism", "square-prism",
-    "pentagonal-prism", "hexagonal-prism",  "octagonal-prism"};
+inline constexpr auto &AUTHORED_SYMMETRY_IDS =
+    Lens::KaleidoscopeParams::SYMMETRY_IDS;
 /// Helmholtz component spellings.
 inline constexpr const char *AUTHORED_FIELD_KIND_IDS[] = {"toroidal",
                                                           "poloidal"};

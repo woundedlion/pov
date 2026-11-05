@@ -15,7 +15,7 @@ namespace Pullback::Source {
 struct AuthoredProjectedNoiseSourceParams : ProjectedNoiseSourceParams {
   uint8_t basis = 0; ///< Noise-basis catalog index.
   /// Catalog values of the basis selector.
-  static constexpr const char *BASIS_IDS[] = {"simplex", "fbm3", "ridged3"};
+  static constexpr auto &BASIS_IDS = math::NOISE_BASIS_IDS;
   /// Authored topology selectors.
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<AuthoredProjectedNoiseSourceParams>{
