@@ -702,6 +702,30 @@ struct ShadingSnapshot {
       colors; /**< Per-face sampled colors. */
 };
 
+/** Captures face ramps and sampled colors, optionally checking ramp bounds. */
+inline auto shading_capture(ShadingSnapshot &snap,
+                            const int *ramp_count = nullptr) {
+  return [&snap, ramp_count](Canvas &, const MeshState &mesh,
+                             const Animation::OpLeg::Shading &sh) {
+    HS_EXPECT_EQ(mesh.face_counts.size(), sh.faces);
+    snap.face_ramp.assign(sh.face_ramp, sh.face_ramp + sh.faces);
+    snap.colors.resize(sh.faces);
+    for (size_t f = 0; f < sh.faces; ++f) {
+      if (ramp_count)
+        HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), *ramp_count);
+      for (int sample = 0; sample < NUM_RAMP_SAMPLES; ++sample)
+        snap.colors[f][sample] =
+            sh.ramps[sh.face_ramp[f]].get(RAMP_SAMPLES[sample]);
+    }
+  };
+}
+
+/** Whether two colors have equal RGB channels. */
+inline bool same_rgb(Color4 a, Color4 b) {
+  return a.color.r == b.color.r && a.color.g == b.color.g &&
+         a.color.b == b.color.b;
+}
+
 /**
  * @brief Asserts equal color channels and alpha values.
  */
@@ -929,17 +953,7 @@ inline void test_crossfade_exact_at_endpoints_emission() {
 
   int ramp_count = 0;
   ShadingSnapshot snap;
-  auto cb = [&](Canvas &, const MeshState &m,
-                const Animation::OpLeg::Shading &sh) {
-    HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
-    snap.face_ramp.assign(sh.face_ramp, sh.face_ramp + sh.faces);
-    snap.colors.resize(sh.faces);
-    for (size_t f = 0; f < sh.faces; ++f) {
-      HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), ramp_count);
-      for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
-        snap.colors[f][s] = sh.ramps[sh.face_ramp[f]].get(RAMP_SAMPLES[s]);
-    }
-  };
+  auto cb = shading_capture(snap, &ramp_count);
 
   constexpr int SWEEP = ConwayGraph::SWEEP_FRAMES;
   Animation::OpLeg anim(
@@ -1029,16 +1043,7 @@ inline void test_palette_mapping_total_all_edges() {
 
     int ramp_count = 0;
     ShadingSnapshot snap;
-    auto cb = [&](Canvas &, const MeshState &,
-                  const Animation::OpLeg::Shading &sh) {
-      snap.face_ramp.assign(sh.face_ramp, sh.face_ramp + sh.faces);
-      snap.colors.resize(sh.faces);
-      for (size_t f = 0; f < sh.faces; ++f) {
-        HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), ramp_count);
-        for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
-          snap.colors[f][s] = sh.ramps[sh.face_ramp[f]].get(RAMP_SAMPLES[s]);
-      }
-    };
+    auto cb = shading_capture(snap, &ramp_count);
 
     hs::random().seed(1000u + static_cast<uint32_t>(ei));
     Animation::OpLeg anim(
@@ -1119,14 +1124,7 @@ inline void test_palette_mapping_deterministic() {
                                                  cube.face_counts.size()};
 
     ShadingSnapshot &snap = snaps[run];
-    auto cb = [&](Canvas &, const MeshState &,
-                  const Animation::OpLeg::Shading &sh) {
-      snap.face_ramp.assign(sh.face_ramp, sh.face_ramp + sh.faces);
-      snap.colors.resize(sh.faces);
-      for (size_t f = 0; f < sh.faces; ++f)
-        for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
-          snap.colors[f][s] = sh.ramps[sh.face_ramp[f]].get(RAMP_SAMPLES[s]);
-    };
+    auto cb = shading_capture(snap);
 
     hs::random().seed(31337u);
     Animation::OpLeg anim(cube,
@@ -1190,8 +1188,7 @@ inline void test_leg_start_seed_frame_continuity() {
     for (int s = 0; s < NUM_RAMP_SAMPLES; ++s) {
       const Color4 a = bank.bank.entries[SEEDFRAME_PAL_A].get(RAMP_SAMPLES[s]);
       const Color4 b = bank.bank.entries[SEEDFRAME_PAL_B].get(RAMP_SAMPLES[s]);
-      if (a.color.r != b.color.r || a.color.g != b.color.g ||
-          a.color.b != b.color.b)
+      if (!same_rgb(a, b))
         differ = true;
     }
     HS_EXPECT_TRUE(differ);
@@ -1289,16 +1286,13 @@ inline void test_leg_start_seed_frame_continuity() {
     // Shading pin: the first frame's w = 0 colors are the departed faces'.
     ShadingSnapshot snap;
     std::vector<math::Vector> drawn_centroids;
-    auto cb = [&](Canvas &, const MeshState &mesh,
+    auto capture = shading_capture(snap);
+    auto cb = [&](Canvas &canvas, const MeshState &mesh,
                   const Animation::OpLeg::Shading &sh) {
       drawn_centroids.resize(mesh.face_counts.size());
       for (size_t f = 0; f < mesh.face_counts.size(); ++f)
         drawn_centroids[f] = poly_face_centroid(mesh, f);
-      snap.face_ramp.assign(sh.face_ramp, sh.face_ramp + sh.faces);
-      snap.colors.resize(sh.faces);
-      for (size_t f = 0; f < sh.faces; ++f)
-        for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
-          snap.colors[f][s] = sh.ramps[sh.face_ramp[f]].get(RAMP_SAMPLES[s]);
+      capture(canvas, mesh, sh);
     };
     {
       Arena leg_arena(cc_leg_buf, sizeof(cc_leg_buf));
@@ -1360,11 +1354,9 @@ inline void test_leg_start_seed_frame_continuity() {
                 bank.bank.entries[SEEDFRAME_PAL_A].get(RAMP_SAMPLES[s]);
             const Color4 b =
                 bank.bank.entries[SEEDFRAME_PAL_B].get(RAMP_SAMPLES[s]);
-            if (got.color.r != a.color.r || got.color.g != a.color.g ||
-                got.color.b != a.color.b)
+            if (!same_rgb(got, a))
               matches_a = false;
-            if (got.color.r != b.color.r || got.color.g != b.color.g ||
-                got.color.b != b.color.b)
+            if (!same_rgb(got, b))
               matches_b = false;
           }
           HS_EXPECT_TRUE(matches_a || matches_b);
