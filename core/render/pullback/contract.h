@@ -782,6 +782,21 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
       return Derived::template run<BindingT>(input, frame, prepared);
     }
 
+    /** @brief Finishes an optional terminal descriptor.
+     * @param input Input carrier.
+     * @param frame Frame context.
+     * @param prepared Prepared descriptor state.
+     * @return Final straight-alpha color. */
+    HS_HOT_INLINE static Color4 run_final(const Input &input,
+                                          const FrameState &frame,
+                                          const Prepared &prepared)
+      requires requires {
+        Derived::template run_final<BindingT>(input, frame, prepared);
+      }
+    {
+      return Derived::template run_final<BindingT>(input, frame, prepared);
+    }
+
     /** @brief Runs one immutable color endpoint.
      * @param input Input carrier.
      * @param frame Frame context.
@@ -1744,7 +1759,17 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
           NODE_COUNT - 2, typename NodeAt<NODE_COUNT - 2>::Input>();
   }
 
-  /** @brief Runs a prefix and finishes an opted-in fused color crossing.
+  /** @brief Whether the terminal descriptor supplies a finished color.
+   * @return Whether deferred color state can be omitted. */
+  static constexpr bool has_direct_final_color() {
+    using Last = NodeAt<NODE_COUNT - 1>;
+    return requires(const typename Last::Input &input, const FrameState &ctx,
+                    const typename Last::Prepared &prepared) {
+      Last::run_final(input, ctx, prepared);
+    };
+  }
+
+  /** @brief Runs a prefix and finishes its color crossing.
    * @tparam Index First node to run.
    * @tparam Input Carrier entering that node.
    * @param input Input carrier.
@@ -1756,7 +1781,12 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                                           const FrameState &ctx,
                                           const PreparedTuple &prepared) {
     using CurrentNode = NodeAt<Index>;
-    if constexpr (fused_color_tail_supported<Index, Input>()) {
+    if constexpr (Index + 1 == NODE_COUNT && requires {
+                    CurrentNode::run_final(input, ctx,
+                                           std::get<Index>(prepared));
+                  }) {
+      return CurrentNode::run_final(input, ctx, std::get<Index>(prepared));
+    } else if constexpr (fused_color_tail_supported<Index, Input>()) {
       if (ctx.temporal.fraction > 0.0f && ctx.temporal.fraction <= 1.0f) {
         using Palette = typename CurrentNode::Descriptor::ColorPolicy;
         using Instrumentation = typename Binding::Instrumentation;
@@ -2122,7 +2152,8 @@ public:
       result = Policy::project(LOCAL, frame.ctx);
     const PlaneSample PLANE{result.coords, result.provenance, LOCAL, 0.0f};
     Instrumentation::template span<ProfileEvent::PROJECTION>(start);
-    if constexpr (Core::has_fused_final_color())
+    if constexpr (Core::has_fused_final_color() ||
+                  Core::has_direct_final_color())
       return Core::template shade_stage<2>(PLANE, frame.ctx, frame.prepared);
     else
       return finish_color_sample(
@@ -2163,7 +2194,8 @@ public:
   __attribute__((always_inline)) static Color4
   evaluate(const math::Vector &view, const FrameState &ctx,
            const PreparedTuple &prepared) {
-    if constexpr (Core::has_fused_final_color())
+    if constexpr (Core::has_fused_final_color() ||
+                  Core::has_direct_final_color())
       return Core::template shade_stage<0>(SphereSample{view, 0.0f}, ctx,
                                            prepared);
     else

@@ -1028,6 +1028,23 @@ struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, ColorSample> {
     else
       return result;
   }
+
+  /** @brief Finishes a terminal policy that returns a complete color.
+   * @tparam Binding Pipeline binding.
+   * @param input Field carrier.
+   * @param frame Frame state.
+   * @param prepared Prepared color policy.
+   * @return Final straight-alpha color. */
+  template <typename Binding>
+  HS_HOT_INLINE static Color4 run_final(
+      const FieldSample &input, const typename Binding::FrameState &frame,
+      const Detail::PolicyPrepared<ColorPolicyT, typename Binding::FrameState>
+          &prepared)
+    requires(Detail::apply_policy_callable<ColorPolicyT, FieldSample, Color4,
+                                           typename Binding::FrameState>())
+  {
+    return run<Binding>(input, frame, prepared).color;
+  }
   /** @brief Selects one immutable color endpoint.
    * @tparam Binding Pipeline binding.
    * @param input Input carrier.
