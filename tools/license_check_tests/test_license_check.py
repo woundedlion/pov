@@ -179,25 +179,23 @@ class TestMain(unittest.TestCase):
         for error in (FileNotFoundError("git"),
                       subprocess.TimeoutExpired("git", 30)):
             with self.subTest(error=type(error).__name__):
-                with mock.patch.object(lc.subprocess, "run", side_effect=error), \
+                with mock.patch.object(lc, "git_nul_list", side_effect=error), \
                         contextlib.redirect_stderr(io.StringIO()) as err:
                     self.assertEqual(lc.main(["--root", "."]), 2)
                 self.assertIn("tooling error", err.getvalue())
 
     def test_a_failed_or_undecodable_listing_is_a_tooling_error(self):
         cases = (
-            (subprocess.CompletedProcess("git", 0, stdout=b"\xff\0", stderr=b""),
-             "tooling error"),
-            (subprocess.CompletedProcess("git", 128, stdout=b"",
-                                         stderr=b"fatal: not a git repository"),
-             "cannot list tracked sources"),
+            UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte"),
+            subprocess.CalledProcessError(128, ["git", "ls-files"],
+                                          stderr=b"fatal: not a git repository"),
         )
-        for listed, message in cases:
-            with self.subTest(returncode=listed.returncode):
-                with mock.patch.object(lc.subprocess, "run", return_value=listed), \
+        for error in cases:
+            with self.subTest(error=type(error).__name__):
+                with mock.patch.object(lc, "git_nul_list", side_effect=error), \
                         contextlib.redirect_stderr(io.StringIO()) as err:
                     self.assertEqual(lc.main(["--root", "."]), 2)
-                self.assertIn(message, err.getvalue())
+                self.assertIn("tooling error", err.getvalue())
 
     def test_missing_tracked_source_and_license(self):
         with tempfile.TemporaryDirectory() as directory:

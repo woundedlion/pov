@@ -15,7 +15,7 @@ import subprocess
 import sys
 from pathlib import Path, PurePosixPath
 
-from git_files import GIT_TIMEOUT_SECONDS, git_command
+from git_files import git_nul_list
 
 NOTICE = "Required Notice: Copyright 2025 Gabriel Levy. All rights reserved."
 POLYFORM = "Licensed under the PolyForm Noncommercial License 1.0.0"
@@ -98,20 +98,11 @@ class ToolingError(Exception):
 
 def tracked_sources(root: Path) -> list[str]:
     """Repo-relative paths of every tracked C/C++ source under root."""
-    # Bytes, not text=True: the text wrapper's locale decode has undefined
-    # bytes, and a decode error here must be a report, not a traceback.
     try:
-        listed = subprocess.run(git_command(root, "ls-files", "-z"),
-                                capture_output=True, timeout=GIT_TIMEOUT_SECONDS)
-        if listed.returncode != 0:
-            detail = (listed.stderr.decode("utf-8", "replace").strip()
-                      or f"git exited {listed.returncode}")
-            raise ToolingError(
-                f"cannot list tracked sources under {root}: {detail}")
-        out = listed.stdout.decode("utf-8")
+        listed = git_nul_list(root, "ls-files", "-z")
     except (OSError, subprocess.SubprocessError, UnicodeError) as error:
         raise ToolingError(f"cannot run git: {error}") from error
-    return sorted(p for p in out.split("\0")
+    return sorted(p for p in listed
                   if p and PurePosixPath(p).suffix in SOURCE_SUFFIXES)
 
 
