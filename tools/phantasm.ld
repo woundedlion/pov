@@ -81,18 +81,30 @@ SECTIONS
 		hs_radial_surface_hot_end = .;
 		ASSERT(hs_radial_surface_hot_end - hs_radial_surface_hot_start <= 32768,
 		       "radial surface hot code exceeds the 32 KiB instruction cache");
-		/* Hopf trail edges, their steady point route and chunk shader share one cache way. */
+		/* Column-time trail edges: the shared steady point-route core sits between
+		 * two effects' per-edge blocks, so each effect's block plus the core fits
+		 * one instruction-cache way. */
 		. = ALIGN(32);
-		hs_hopf_trail_hot_start = .;
+		hs_trail_hot_start = .;
 		*(.text.hot._ZN13HopfFibration*19render_timed_trails*)
 		*(.text.hot._ZN4Plot4Mesh16plot_steady_edge*13HopfFibration*)
 		*(.text.hot._ZNK4Plot10PointRoute*4plot*16plot_steady_edge*13HopfFibration*)
+		*(.text.hot._ZZN4Plot4Mesh11ColumnChunk*13HopfFibration*)
+		hs_trail_core_start = .;
 		*(.text.hot._ZN4Plot14EdgeWorldsheet14steady_lattice*)
 		*(.text.hot._ZN4Plot10PointRoute*12emit_columnsI8Pipeline*EJN6Filter6Screen9AntiAlias*)
-		*(.text.hot._ZZN4Plot4Mesh11ColumnChunk*13HopfFibration*)
-		hs_hopf_trail_hot_end = .;
-		ASSERT(hs_hopf_trail_hot_end - hs_hopf_trail_hot_start <= 16384,
-		       "Hopf trail hot code exceeds one instruction-cache way");
+		hs_trail_core_end = .;
+		*(.text.hot._ZNK4Plot10PointRoute*4plot*16plot_steady_edge*8Fishbowl*)
+		*(.text.hot._ZN4Plot4Mesh16plot_steady_edge*8Fishbowl*)
+		*(.text.hot._ZN8Fishbowl*16draw_timed_trail*)
+		*(.text.hot._ZZN8Fishbowl*16draw_timed_trail*)
+		*(.text.hot._ZZN4Plot4Mesh11ColumnChunk*8Fishbowl*)
+		*(.text.hot._ZN8Fishbowl*12render_trail*)
+		hs_trail_hot_end = .;
+		ASSERT(hs_trail_core_end - hs_trail_hot_start <= 16384,
+		       "HopfFibration trail hot code exceeds one instruction-cache way");
+		ASSERT(hs_trail_hot_end - hs_trail_core_start <= 16384,
+		       "Fishbowl trail hot code exceeds one instruction-cache way");
 		/* HS_COLD_MEMBER (attribute cold) sections. */
 		*(.text.unlikely*)
 		/* Selectively optimized hot leaves intentionally executed from cache. */

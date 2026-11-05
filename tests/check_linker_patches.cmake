@@ -127,28 +127,43 @@ else()
     list(APPEND _missing "radial surface cache window has no 32 KiB bound")
   endif()
 
-  set(_hopf_routes
+  set(_trail_routes
     "*(.text.hot._ZN13HopfFibration*19render_timed_trails*)"
     "*(.text.hot._ZN4Plot4Mesh16plot_steady_edge*13HopfFibration*)"
     "*(.text.hot._ZNK4Plot10PointRoute*4plot*16plot_steady_edge*13HopfFibration*)"
+    "*(.text.hot._ZZN4Plot4Mesh11ColumnChunk*13HopfFibration*)"
+    "hs_trail_core_start = ."
     "*(.text.hot._ZN4Plot14EdgeWorldsheet14steady_lattice*)"
     "*(.text.hot._ZN4Plot10PointRoute*12emit_columnsI8Pipeline*EJN6Filter6Screen9AntiAlias*)"
-    "*(.text.hot._ZZN4Plot4Mesh11ColumnChunk*13HopfFibration*)")
-  string(FIND "${_script}" "hs_hopf_trail_hot_start = .;" _hopf_start)
-  string(FIND "${_script}" "hs_hopf_trail_hot_end = .;" _hopf_end)
-  if(_hopf_start LESS _code_at OR NOT _hopf_start LESS _hopf_end
-      OR NOT _hopf_end LESS _cold_at OR NOT _hopf_end LESS _hot_at)
-    list(APPEND _missing "Hopf trail cache window must precede generic cold and hot routes")
+    "hs_trail_core_end = ."
+    "*(.text.hot._ZNK4Plot10PointRoute*4plot*16plot_steady_edge*8Fishbowl*)"
+    "*(.text.hot._ZN4Plot4Mesh16plot_steady_edge*8Fishbowl*)"
+    "*(.text.hot._ZN8Fishbowl*16draw_timed_trail*)"
+    "*(.text.hot._ZZN8Fishbowl*16draw_timed_trail*)"
+    "*(.text.hot._ZZN4Plot4Mesh11ColumnChunk*8Fishbowl*)"
+    "*(.text.hot._ZN8Fishbowl*12render_trail*)")
+  string(FIND "${_script}" "hs_trail_hot_start = .;" _trail_start)
+  string(FIND "${_script}" "hs_trail_hot_end = .;" _trail_end)
+  if(_trail_start LESS _code_at OR NOT _trail_start LESS _trail_end
+      OR NOT _trail_end LESS _cold_at OR NOT _trail_end LESS _hot_at)
+    list(APPEND _missing "trail cache window must precede generic cold and hot routes")
   endif()
-  foreach(_spec IN LISTS _hopf_routes)
+  set(_previous ${_trail_start})
+  foreach(_spec IN LISTS _trail_routes)
     string(FIND "${_script}" "${_spec}" _spec_at)
-    if(NOT _spec_at GREATER _hopf_start OR NOT _spec_at LESS _hopf_end)
-      list(APPEND _missing "${_spec} is outside the Hopf trail cache window")
+    if(NOT _spec_at GREATER _previous OR NOT _spec_at LESS _trail_end)
+      list(APPEND _missing "${_spec} is out of order in the trail cache window")
+    endif()
+    set(_previous ${_spec_at})
+  endforeach()
+  foreach(_bound IN ITEMS
+      "ASSERT(hs_trail_core_end - hs_trail_hot_start <= 16384,"
+      "ASSERT(hs_trail_hot_end - hs_trail_core_start <= 16384,")
+    string(FIND "${_script}" "${_bound}" _bound_at)
+    if(_bound_at EQUAL -1)
+      list(APPEND _missing "trail cache window lacks ${_bound}")
     endif()
   endforeach()
-  if(NOT _script MATCHES "ASSERT\\(hs_hopf_trail_hot_end - hs_hopf_trail_hot_start <= 16384,")
-    list(APPEND _missing "Hopf trail cache window has no 16 KiB bound")
-  endif()
 
   # Const rodata leaves DTCM.
   set(_rodata "*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.rodata*)))")
