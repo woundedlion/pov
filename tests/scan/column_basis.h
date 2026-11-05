@@ -180,9 +180,10 @@ inline void test_column_basis_matches_rotated_shapes() {
                                   math::make_basis(q, math::Vector(0, 0, 1)),
                                   0.6f, 0.04f, basis_flat_shader);
   };
-  HS_EXPECT_TRUE(
+  HS_EXPECT_GT(
       expect_factored_tolerance("ring", render_column_basis<W, H>(motion, ring),
-                                render_column_oracle<W, H>(motion, ring)) > 40);
+                                render_column_oracle<W, H>(motion, ring)),
+      40);
 
   const auto star = [](Pipeline<W, H> &pipeline, Canvas &canvas,
                        const math::Quaternion &q) {
@@ -190,9 +191,10 @@ inline void test_column_basis_matches_rotated_shapes() {
                                   math::make_basis(q, math::Vector(1, 0, 0)),
                                   0.2f, 5, basis_flat_shader);
   };
-  HS_EXPECT_TRUE(
+  HS_EXPECT_GT(
       expect_factored_tolerance("star", render_column_basis<W, H>(motion, star),
-                                render_column_oracle<W, H>(motion, star)) > 10);
+                                render_column_oracle<W, H>(motion, star)),
+      10);
 
   ScratchScope scope(scratch_arena_a);
   MeshState mesh;
@@ -212,9 +214,10 @@ inline void test_column_basis_matches_rotated_shapes() {
         },
         scratch_arena_b);
   };
-  HS_EXPECT_TRUE(expect_factored_tolerance(
-                     "mesh", render_column_basis<W, H>(motion, solid),
-                     render_column_oracle<W, H>(motion, solid)) > 1000);
+  HS_EXPECT_GT(expect_factored_tolerance(
+                   "mesh", render_column_basis<W, H>(motion, solid),
+                   render_column_oracle<W, H>(motion, solid)),
+               1000);
 
   constexpr int N = 3;
   const auto group = [](Pipeline<W, H> &pipeline, Canvas &canvas,
@@ -233,9 +236,10 @@ inline void test_column_basis_matches_rotated_shapes() {
               0.8f);
         });
   };
-  HS_EXPECT_TRUE(expect_factored_tolerance(
-                     "ring group", render_column_basis<W, H>(motion, group),
-                     render_column_oracle<W, H>(motion, group)) > 100);
+  HS_EXPECT_GT(expect_factored_tolerance(
+                   "ring group", render_column_basis<W, H>(motion, group),
+                   render_column_oracle<W, H>(motion, group)),
+               100);
 
   constexpr int RINGS = 3, LUT_N = 32;
   static float knots[RINGS][LUT_N + 1];
@@ -264,9 +268,10 @@ inline void test_column_basis_matches_rotated_shapes() {
                           math::make_rotation(math::X_AXIS, 0.8f)};
   for (const BasisMotion &frame :
        {swing, BasisMotion{swing.current, swing.previous}})
-    HS_EXPECT_TRUE(expect_factored_tolerance(
-                       "ring stack", render_column_basis<W, H>(frame, stack),
-                       render_column_oracle<W, H>(frame, stack)) > 100);
+    HS_EXPECT_GT(expect_factored_tolerance(
+                     "ring stack", render_column_basis<W, H>(frame, stack),
+                     render_column_oracle<W, H>(frame, stack)),
+                 100);
 }
 
 /**
@@ -293,11 +298,11 @@ inline void test_column_basis_segments_and_endpoints() {
     for (int y = 0; y < H; ++y)
       for (int x = clip.x0; x < clip.x1; ++x) {
         const size_t i = static_cast<size_t>(y) * W + x;
-        HS_EXPECT_TRUE(part[i] == whole[i]);
+        HS_EXPECT_EQ(part[i], whole[i]);
         compared += !is_black(whole[i]);
       }
   }
-  HS_EXPECT_TRUE(compared > 100);
+  HS_EXPECT_GT(compared, 100);
 
   const auto fixed = [&](const math::Quaternion &q) {
     return render_stub_frame<W, H>(
@@ -396,8 +401,8 @@ template <int W, int H> inline void check_column_basis_blocks() {
     const ScopedPoleLod off(0.0f);
     exact = render_column_oracle<W, H>(motion, fan);
   }
-  HS_EXPECT_TRUE(expect_factored_tolerance("pole-LOD mesh", decimated, exact) >
-                 100);
+  HS_EXPECT_GT(expect_factored_tolerance("pole-LOD mesh", decimated, exact),
+               100);
 
   const math::Vector centre = math::Vector(0.05f, 1.0f, 0.08f).normalized();
   const math::Vector dot = math::Vector(-0.2f, 1.0f, 0.1f).normalized();
@@ -415,8 +420,9 @@ template <int W, int H> inline void check_column_basis_blocks() {
     const ScopedPoleLod off(0.0f);
     exact_shapes = render_column_oracle<W, H>(motion, polar);
   }
-  HS_EXPECT_TRUE(expect_factored_tolerance("pole-LOD shapes", decimated_shapes,
-                                           exact_shapes) > 100);
+  HS_EXPECT_GT(expect_factored_tolerance("pole-LOD shapes", decimated_shapes,
+                                         exact_shapes),
+               100);
 }
 
 /**
@@ -513,7 +519,7 @@ template <int W, int H> inline void check_lit_caps(float angle) {
     drawn += !is_black(swept[i]);
   }
   HS_EXPECT_EQ(differing, 0);
-  HS_EXPECT_TRUE(drawn > 4 * SHAPES);
+  HS_EXPECT_GT(drawn, 4 * SHAPES);
 
   auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
   const Scan::ColumnBasis time =
@@ -826,11 +832,11 @@ inline void test_point_birth_skips_earlier_columns() {
         HS_EXPECT_TRUE(is_black(cut[i]));
       } else {
         after += !is_black(whole[i]);
-        HS_EXPECT_TRUE(cut[i] == whole[i]);
+        HS_EXPECT_EQ(cut[i], whole[i]);
       }
     }
-  HS_EXPECT_TRUE(before > 20);
-  HS_EXPECT_TRUE(after > 20);
+  HS_EXPECT_GT(before, 20);
+  HS_EXPECT_GT(after, 20);
   HS_EXPECT_EQ(Spacetime::SamplingSurface<W>::first_column_at(0.4f), 20);
   HS_EXPECT_EQ(Spacetime::SamplingSurface<W>::first_column_at(0.0f), 0);
   HS_EXPECT_EQ(Spacetime::SamplingSurface<W>::first_column_at(1.0f), W / 2);
@@ -880,7 +886,7 @@ inline void test_volume_columns_match_rotated_placements() {
         Scan::Volume::draw<W, H>(pipeline, canvas, at, BOUNDS, volume, shade,
                                  24, 0.02f);
       });
-  HS_EXPECT_TRUE(expect_factored_tolerance("volume", swept, expected) > 30);
+  HS_EXPECT_GT(expect_factored_tolerance("volume", swept, expected), 30);
 }
 
 /**
@@ -950,8 +956,8 @@ inline void check_ring_group_previous_axes(std::initializer_list<float> turns) {
     }
     return draw(axes, nullptr);
   });
-  HS_EXPECT_TRUE(expect_factored_tolerance("previous axes", swept, expected) >
-                 100);
+  HS_EXPECT_GT(expect_factored_tolerance("previous axes", swept, expected),
+               100);
   HS_EXPECT_GT(arcs, 0);
   HS_EXPECT_LT(arcs, N);
 }
@@ -1239,7 +1245,7 @@ inline void test_ring_stack_honours_render_window() {
           const size_t i = static_cast<size_t>(y) * W + x;
           const bool admitted =
               x % HALF >= window.begin && x % HALF < window.end;
-          HS_EXPECT_TRUE(part[i] == (admitted ? whole[i] : Pixel(0, 0, 0)));
+          HS_EXPECT_EQ(part[i], (admitted ? whole[i] : Pixel(0, 0, 0)));
           lit += admitted && !is_black(whole[i]);
         }
       HS_EXPECT_GT(lit, 0);
@@ -1346,9 +1352,9 @@ template <int W, int H> inline void check_timed_shader(float lod) {
     mismatched += !(drawn[i] == expected[i]);
   }
   HS_EXPECT_EQ(mismatched, 0);
-  HS_EXPECT_TRUE(lit > 300);
+  HS_EXPECT_GT(lit, 300);
   const size_t seam = static_cast<size_t>(H / 2) * W + W / 2;
-  HS_EXPECT_TRUE(drawn[seam - 1].r > drawn[seam].r);
+  HS_EXPECT_GT(drawn[seam - 1].r, drawn[seam].r);
 
   Spacetime::set_flat_surface(true);
   const std::vector<Pixel> off = render_stub_frame<W, H>(timed);
@@ -1426,8 +1432,8 @@ template <int W, int H> inline void check_face_palette_motion(float lod) {
         draw(pipeline, canvas, blend, blend, rim_weight, rim_weight, alpha,
              alpha);
       });
-  HS_EXPECT_TRUE(
-      expect_frames_within("face palette shader", moving, expected, 2) > 1000);
+  HS_EXPECT_GT(expect_frames_within("face palette shader", moving, expected, 2),
+               1000);
 }
 
 /**
@@ -1479,8 +1485,7 @@ inline void test_volume_timed_shader_reads_column_sweep_time() {
             },
             24, 0.02f, columns.get());
       });
-  HS_EXPECT_TRUE(expect_factored_tolerance("timed volume", drawn, expected) >
-                 50);
+  HS_EXPECT_GT(expect_factored_tolerance("timed volume", drawn, expected), 50);
 }
 
 /**
@@ -1694,10 +1699,12 @@ inline void test_drift_matches_shape_at_column_centre() {
       Scan::Star::draw<W, H, false>(pipeline, canvas, basis, 0.15f, 5,
                                     basis_flat_shader);
     };
-    HS_EXPECT_TRUE(expect_factored_tolerance("drifting disc", drifting(disc),
-                                             oracle(disc)) > 40);
-    HS_EXPECT_TRUE(expect_factored_tolerance("drifting star", drifting(star),
-                                             oracle(star)) > 40);
+    HS_EXPECT_GT(expect_factored_tolerance("drifting disc", drifting(disc),
+                                           oracle(disc)),
+                 40);
+    HS_EXPECT_GT(expect_factored_tolerance("drifting star", drifting(star),
+                                           oracle(star)),
+                 40);
   }
   const float angle = 3.0f * math::RADIANS_PER_COLUMN<W>;
   HS_EXPECT_NEAR(
@@ -1762,7 +1769,9 @@ inline void test_settled_drift_matches_column_drift() {
   const math::Basis held = seam;
   HS_EXPECT_FALSE(
       settle_shape(time, drift, radius * (math::PI_F / 2.0f), seam));
-  HS_EXPECT_EQ(math::dot(seam.v, held.v), math::dot(held.v, held.v));
+  HS_EXPECT_VEC(seam.u, held.u, 0.0f);
+  HS_EXPECT_VEC(seam.v, held.v, 0.0f);
+  HS_EXPECT_VEC(seam.w, held.w, 0.0f);
   math::Basis fast = math::make_basis(math::Quaternion(), centre);
   HS_EXPECT_FALSE(
       settle_shape(time, drift * 20.0f, radius * (math::PI_F / 2.0f), fast));

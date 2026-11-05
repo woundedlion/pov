@@ -517,7 +517,7 @@ inline void test_shader_render_x_window_matches_predicate() {
             HS_CONTEXT("px", x, y);
             const Pixel expected =
                 admitted(x) ? reference[y * W + x] : Pixel(0, 0, 0);
-            HS_EXPECT_TRUE(got[y * W + x] == expected);
+            HS_EXPECT_EQ(got[y * W + x], expected);
           }
       }
     }
