@@ -1321,7 +1321,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── engine/                 Machinery: callables, rosters, effect support
 │   │   ├── engine.h                Engine API umbrella for handwritten effects; composed wrappers include composed_effect.h
 │   │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spiral, etc.)
-│   │   ├── concepts.h              FunctionRef/StoredFunctionRef borrows, Fn-based aliases, PipelineRef, Plottable/Tweenable, DissolveMask
+│   │   ├── concepts.h              FunctionRef/StoredFunctionRef borrows, Fn-based aliases, Tweenable, DissolveMask
 │   │   └── static_storage.cpp      Framebuffer/timeline statics and fail-fast handlers
 │   ├── memory.h / memory.cpp       Arena and container umbrella, storage and reset definitions
 │   ├── memory/                    Arena, vector, span, scratch, persistence, and generation sections
@@ -1473,6 +1473,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── ray.h                   Spherical ray rendering umbrella
 │   │   ├── ray/                    Ray contracts, camera embeddings, query adapters, shared marching, ordered event tracing and depth/layer shading
 │   │   ├── render_policy.h         Shape ratios and pole shading policy
+│   │   ├── pipeline_ref.h          Borrowed PipelineRef, Plottable, and plot-provider dispatch
 │   │   ├── spacetime.h             Space-time umbrella (surface, worldlines, poses, fields); TemporalRotation, the Timed tag and geometry-callback work counters
 │   │   ├── spacetime/              Space-time geometry and surface-time shading
 │   │   │   ├── surface.h               SamplingSurface, flat-surface selection and simulation time slabs

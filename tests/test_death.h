@@ -1386,11 +1386,11 @@ inline const Case *all_cases(int &n) {
        "(pipeline.prepared_for(canvas)) direct raster pipeline not prepared "
        "for this canvas"},
       {"pipeline_ref_erase_not_prepared", case_pipeline_ref_erase_not_prepared,
-       "core/engine/concepts.h",
+       "core/render/pipeline_ref.h",
        "(t.prepared_for(cv)) direct raster pipeline not prepared for this "
        "canvas"},
       {"pipeline_ref_timed_erase_not_prepared",
-       case_pipeline_ref_timed_erase_not_prepared, "core/engine/concepts.h",
+       case_pipeline_ref_timed_erase_not_prepared, "core/render/pipeline_ref.h",
        "(t.prepared_for(cv)) timed direct raster pipeline not prepared for this "
        "canvas"},
       {"scan_solid_with_column_time", case_scan_solid_with_column_time,
