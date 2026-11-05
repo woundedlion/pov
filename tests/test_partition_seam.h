@@ -131,28 +131,6 @@ struct SeamStats {
 };
 
 /**
- * @brief Screen pixel of a direction, by nearest LUT sample.
- * @param v Unit direction.
- * @param px Receives the column.
- * @param py Receives the row.
- */
-inline void project(const math::Vector &v, int &px, int &py) {
-  float best = -2.0f;
-  px = py = 0;
-  for (int y = 0; y < PS_H; ++y) {
-    for (int x = 0; x < PS_W; ++x) {
-      const math::Vector p = math::pixel_to_vector<PS_W, PS_H>(x, y);
-      const float d = math::dot(p, v);
-      if (d > best) {
-        best = d;
-        px = x;
-        py = y;
-      }
-    }
-  }
-}
-
-/**
  * @brief Compares two captures and reports the seam statistics.
  * @param a Before capture.
  * @param b After capture.
@@ -252,8 +230,9 @@ inline SeamStats compare(const std::vector<Pixel> &a,
 
   std::vector<uint8_t> near_v(n, 0);
   for (const math::Vector &v : verts) {
-    int px = 0, py = 0;
-    project(v, px, py);
+    const auto projected = math::vector_to_pixel<PS_W, PS_H>(v);
+    const int px = static_cast<int>(std::lround(projected.x));
+    const int py = static_cast<int>(std::lround(projected.y));
     for (int dy = -VERT_RADIUS; dy <= VERT_RADIUS; ++dy) {
       const int y = py + dy;
       if (y < 0 || y >= PS_H)
