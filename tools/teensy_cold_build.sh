@@ -27,3 +27,7 @@ acquire_tree_lock || exit "$?"
 export LC_ALL=C
 rm -rf .pio/build_cache .pio/build
 pio run -v 2>&1 | tee "$log"
+PLATFORMIO_BUILD_FLAGS='-D HS_PROFILE_TARGET=MindSplatter -D HS_MINDSPLATTER_REPLAY' \
+  pio run -v -e profile 2>&1 | tee -a "$log"
+PLATFORMIO_BUILD_FLAGS='-D HS_PROFILE_TARGET=MindSplatter -D HS_PROFILE_PC' \
+  pio run -v -e profile 2>&1 | tee -a "$log"

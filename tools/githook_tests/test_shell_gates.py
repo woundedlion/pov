@@ -227,6 +227,31 @@ class ShellGateTests(unittest.TestCase):
         self.assertEqual(sentinel.read_text(encoding="utf-8"), "keep")
         self.assertIn("fixture-build-failure", (self.root / "capture.log").read_text())
 
+    def test_cold_build_gates_profile_variants_and_preserves_their_failures(self):
+        script = self.root / "tools" / "teensy_cold_build.sh"
+        script.parent.mkdir()
+        for name in (script.name, "device_lock.sh", "device_lock_guard.py", "find_python.sh"):
+            shutil.copyfile(REPO / "tools" / name, script.parent / name)
+        self.env["HS_PYTHON"] = sys.executable
+        calls = self.root / "calls.log"
+        for failure in (0, 2, 3):
+            with self.subTest(failure=failure):
+                calls.unlink(missing_ok=True)
+                self.stub("pio", 'test -f .profile-lock/info || exit 99; '
+                          'printf "%s|%s\\n" "${PLATFORMIO_BUILD_FLAGS:-}" "$*" >> calls.log; '
+                          'echo fixture-variant; '
+                          f'[ "$(wc -l < calls.log)" != {failure} ] || exit 7')
+                result = self.gate(script.name, "capture.log", script=script)
+                self.assertEqual(result.returncode, 7 if failure else 0,
+                                 result.stdout + result.stderr)
+                expected = ["|run -v",
+                            "-D HS_PROFILE_TARGET=MindSplatter -D HS_MINDSPLATTER_REPLAY|run -v -e profile",
+                            "-D HS_PROFILE_TARGET=MindSplatter -D HS_PROFILE_PC|run -v -e profile"]
+                self.assertEqual(calls.read_text().splitlines(), expected[:failure or 3])
+                self.assertEqual((self.root / "capture.log").read_text().count("fixture-variant"),
+                                 failure or 3)
+                self.assertFalse((self.root / ".profile-lock").exists())
+
     def test_profile_sweep_detects_a_missing_playlist_member_without_hardware(self):
         tools = self.root / "tools"
         tools.mkdir()
