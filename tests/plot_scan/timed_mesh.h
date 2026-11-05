@@ -9,6 +9,31 @@ struct TimedMeshFixture {
       vertices; /**< Endpoints of two connected edges. */
 };
 
+template <int W, int H> inline TimedMeshFixture chain_mesh() {
+  return {{math::pixel_to_vector<W, H>(40.0f, 60.0f),
+           math::pixel_to_vector<W, H>(50.0f, 65.0f),
+           math::pixel_to_vector<W, H>(60.0f, 70.0f)}};
+}
+
+inline ArenaVector<Plot::Mesh::Edge> chain_edges(Arena &arena) {
+  ArenaVector<Plot::Mesh::Edge> edges(arena, 2);
+  edges.push_back({0, 1});
+  edges.push_back({1, 2});
+  return edges;
+}
+
+template <int W>
+inline bool reaches_band(const math::Vector &p,
+                         const ClipRegion::XClip &columns, float top,
+                         float bottom) {
+  const float column = math::vector_to_theta<W>(p);
+  const int owner = math::fast_wrap(int(floorf(column + 0.5f)), W);
+  return p.y <= top && p.y >= bottom &&
+         (!columns.active || !columns.clipped(owner) ||
+          !columns.clipped(math::fast_wrap(owner + 1, W)) ||
+          !columns.clipped(math::fast_wrap(owner - 1, W)));
+}
+
 /** @brief Pole-floored long edges reach their far endpoint within the budget. */
 inline void test_column_long_polar_edge_finishes() {
   constexpr int W = 288, H = 144;
@@ -177,12 +202,8 @@ inline void test_timed_mesh_endpoint_cache() {
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
     Canvas canvas(effect);
     ScratchScope a(scratch_arena_a), b(scratch_arena_b);
-    const TimedMeshFixture mesh{{math::pixel_to_vector<W, H>(40.0f, 60.0f),
-                                 math::pixel_to_vector<W, H>(50.0f, 65.0f),
-                                 math::pixel_to_vector<W, H>(60.0f, 70.0f)}};
-    ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_b, 2);
-    edges.push_back({0, 1});
-    edges.push_back({1, 2});
+    const TimedMeshFixture mesh = chain_mesh<W, H>();
+    auto edges = chain_edges(scratch_arena_b);
     size_t calls = 0;
     auto at = [&](size_t index, float t) {
       ++calls;
@@ -367,12 +388,8 @@ inline void test_column_single_splat_motion_gate() {
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
     Canvas canvas(effect);
     ScratchScope a(scratch_arena_a), b(scratch_arena_b);
-    TimedMeshFixture mesh{{math::pixel_to_vector<W, H>(40.0f, 60.0f),
-                           math::pixel_to_vector<W, H>(50.0f, 65.0f),
-                           math::pixel_to_vector<W, H>(60.0f, 70.0f)}};
-    ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_b, 2);
-    edges.push_back({0, 1});
-    edges.push_back({1, 2});
+    TimedMeshFixture mesh = chain_mesh<W, H>();
+    auto edges = chain_edges(scratch_arena_b);
     auto at = [&](size_t i, float t) {
       return math::rotate(
           mesh.vertices[i],
@@ -410,12 +427,8 @@ inline void test_stationary_column_mesh_skips_geometry_cache() {
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
   Canvas canvas(effect);
   ScratchScope a(scratch_arena_a), b(scratch_arena_b);
-  TimedMeshFixture mesh{{math::pixel_to_vector<W, H>(40.0f, 60.0f),
-                         math::pixel_to_vector<W, H>(50.0f, 65.0f),
-                         math::pixel_to_vector<W, H>(60.0f, 70.0f)}};
-  ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_b, 2);
-  edges.push_back({0, 1});
-  edges.push_back({1, 2});
+  TimedMeshFixture mesh = chain_mesh<W, H>();
+  auto edges = chain_edges(scratch_arena_b);
   uint32_t callbacks = 0, shaders = 0;
   auto at = [&](size_t i, float) {
     ++callbacks;
@@ -714,12 +727,7 @@ inline void test_column_edge_cull_is_conservative() {
           const auto mb = math::nlerp_unit(b, b1, u);
           for (int k = 0; k <= 32 && !reaches; ++k) {
             const auto p = math::slerp(ma, mb, float(k) / 32.0f);
-            const float column = math::vector_to_theta<W>(p);
-            const int owner = math::fast_wrap(int(floorf(column + 0.5f)), W);
-            reaches = p.y <= top && p.y >= bottom &&
-                      (!columns.active || !columns.clipped(owner) ||
-                       !columns.clipped(math::fast_wrap(owner + 1, W)) ||
-                       !columns.clipped(math::fast_wrap(owner - 1, W)));
+            reaches = reaches_band<W>(p, columns, top, bottom);
           }
         }
         checked += reaches;
@@ -816,12 +824,7 @@ inline void test_column_edge_cull_keeps_padded_point_sets() {
                       ? at
                       : (at + (west * cosf(angle) + north * sinf(angle)) * pad)
                             .normalized();
-              const float column = math::vector_to_theta<W>(p);
-              const int owner = math::fast_wrap(int(floorf(column + 0.5f)), W);
-              reaches = p.y <= top && p.y >= bottom &&
-                        (!columns.active || !columns.clipped(owner) ||
-                         !columns.clipped(math::fast_wrap(owner + 1, W)) ||
-                         !columns.clipped(math::fast_wrap(owner - 1, W)));
+              reaches = reaches_band<W>(p, columns, top, bottom);
             }
           }
         reachable += reaches;
@@ -1043,9 +1046,7 @@ inline void test_column_steady_lattice() {
       }
       effect.advance_display();
       std::vector<Pixel> pixels;
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x)
-          pixels.push_back(effect.get_pixel(x, y));
+      capture_frame<W, H>(effect, pixels);
       return pixels;
     };
     const auto reference = render(false), candidate = render(true);
@@ -1313,12 +1314,8 @@ inline void test_column_capture_reads_vertex_paths() {
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
   Canvas canvas(effect);
   ScratchScope a(scratch_arena_a), b(scratch_arena_b);
-  TimedMeshFixture mesh{{math::pixel_to_vector<W, H>(40.0f, 60.0f),
-                         math::pixel_to_vector<W, H>(50.0f, 65.0f),
-                         math::pixel_to_vector<W, H>(60.0f, 70.0f)}};
-  ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_b, 2);
-  edges.push_back({0, 1});
-  edges.push_back({1, 2});
+  TimedMeshFixture mesh = chain_mesh<W, H>();
+  auto edges = chain_edges(scratch_arena_b);
   auto at = [&](size_t i, float t) {
     return math::rotate(mesh.vertices[i],
                         math::make_rotation(math::Y_AXIS, 0.02f * (1.0f - t)));
