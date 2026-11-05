@@ -947,7 +947,7 @@ inline Color4 composed_modulation_reference(Color4 base, float turns,
 /** @brief Perceptual finishing applies brightness before RGB16 quantization. */
 inline void test_pullback_finish_brightness_quantization() {
   using namespace Pullback;
-  size_t fused_differences = 0;
+  size_t quantization_differences = 0;
   for (uint16_t r : {0, 1, 2, 1000, 32768, 65535})
     for (uint16_t g : {0, 1, 2, 1000, 32768, 65535})
       for (uint16_t b : {0, 1, 2, 1000, 32768, 65535})
@@ -956,7 +956,8 @@ inline void test_pullback_finish_brightness_quantization() {
             if (hue == 0.0f && lift == 0.0f)
               continue;
             const Color4 BASE(Pixel(r, g, b), 0.37f);
-            const auto LEGACY = composed_modulation_reference(BASE, hue, lift);
+            const auto UNDIMMED =
+                composed_modulation_reference(BASE, hue, lift);
             for (float gain : {-1.0f, 0.0f, 0.001f, 0.25f, 1.0f, 2.0f}) {
               ColorSample sample{BASE, {0.5f, 0.7f, math::Y_AXIS, 2.0f}};
               sample.pending_hue = hue;
@@ -967,19 +968,22 @@ inline void test_pullback_finish_brightness_quantization() {
                   composed_modulation_reference(BASE, hue, lift, gain);
               HS_EXPECT_EQ(ACTUAL.color, EXPECTED.color);
               HS_EXPECT_EQ(ACTUAL.alpha, BASE.alpha);
-              const Pixel OLD = LEGACY.color * gain;
-              const int GAP = std::max({std::abs(int(ACTUAL.color.r) - OLD.r),
-                                        std::abs(int(ACTUAL.color.g) - OLD.g),
-                                        std::abs(int(ACTUAL.color.b) - OLD.b)});
+              const Pixel DIMMED_AFTER_QUANTIZATION = UNDIMMED.color * gain;
+              const int GAP = std::max(
+                  {std::abs(int(ACTUAL.color.r) - DIMMED_AFTER_QUANTIZATION.r),
+                   std::abs(int(ACTUAL.color.g) - DIMMED_AFTER_QUANTIZATION.g),
+                   std::abs(int(ACTUAL.color.b) -
+                            DIMMED_AFTER_QUANTIZATION.b)});
               HS_EXPECT_LE(GAP, gain <= 1.0f ? 1 : 2);
               if (gain == 0.0f)
                 HS_EXPECT_EQ(ACTUAL.color, Pixel(0, 0, 0));
               if (gain == 1.0f)
-                HS_EXPECT_EQ(ACTUAL.color, LEGACY.color);
-              fused_differences += ACTUAL.color != OLD;
+                HS_EXPECT_EQ(ACTUAL.color, UNDIMMED.color);
+              quantization_differences +=
+                  ACTUAL.color != DIMMED_AFTER_QUANTIZATION;
             }
           }
-  HS_EXPECT_GT(fused_differences, size_t{0});
+  HS_EXPECT_GT(quantization_differences, size_t{0});
 }
 
 /** @brief Hue layers compose across lightness lift without RGB round trips. */
@@ -1699,10 +1703,11 @@ inline void test_pullback_prepared_cube_pair() {
   using Layer = Color::Modulate<PaletteLayerProvider>;
   using Policy = Color::GeneratedPalette<TemporalPaletteProvider>;
   constexpr size_t ALIGNMENT = alignof(Color::ModulationState);
-  constexpr size_t PREVIOUS_SIZE = (offsetof(Color::ModulationState, enabled) +
-                                    sizeof(bool) + ALIGNMENT - 1) /
-                                   ALIGNMENT * ALIGNMENT;
-  static_assert(sizeof(Color::ModulationState) == PREVIOUS_SIZE);
+  constexpr size_t SIZE_THROUGH_ENABLED =
+      (offsetof(Color::ModulationState, enabled) + sizeof(bool) + ALIGNMENT -
+       1) /
+      ALIGNMENT * ALIGNMENT;
+  static_assert(sizeof(Color::ModulationState) == SIZE_THROUGH_ENABLED);
   std::array<int8_t, Pattern::SphereLutView::SIZE> ac, bc;
   std::array<float, Pattern::SphereLutView::SIZE> linear;
   for (size_t i = 0; i < ac.size(); ++i) {

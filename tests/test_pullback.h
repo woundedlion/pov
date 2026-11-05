@@ -2170,7 +2170,7 @@ inline void test_pullback_radial_cell_validity() {
   HS_EXPECT_EQ(std::memcmp(&actual, &expected, sizeof(actual)), 0);
 }
 
-/** @brief Owned masks match legacy radial output through supported and rejected updates. */
+/** @brief Owned masks match unmasked radial output through supported and rejected updates. */
 inline void test_pullback_radial_validity_lifetime() {
   using namespace Pullback::SphereAnimation;
   static RadialTables tables;
