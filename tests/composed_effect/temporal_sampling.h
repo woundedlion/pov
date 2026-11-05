@@ -971,7 +971,7 @@ inline void test_gridspace_canonical_columns() {
   std::snprintf(location, sizeof(location), "step=%d x=%d y=%d", worst_step,
                 worst_x, worst_y);
   HS_CONTEXT(location);
-  HS_EXPECT_LE(maximum_error, 16);
+  HS_EXPECT_EQ(maximum_error, 0);
   HS_EXPECT_LT(static_cast<double>(error_sum) / channels, 0.05);
 }
 /** @brief GridSpace shades each clipped column at its own sweep time. */
@@ -994,9 +994,9 @@ inline void test_gridspace_temporal_pixels() {
   const auto frozen = FX::RenderPipeline::prepare(current);
   int changed = 0;
   const auto expect_pixel = [](const Pixel &actual, const Pixel &expected) {
-    HS_EXPECT_NEAR(actual.r, expected.r, 16);
-    HS_EXPECT_NEAR(actual.g, expected.g, 16);
-    HS_EXPECT_NEAR(actual.b, expected.b, 16);
+    HS_EXPECT_NEAR(actual.r, expected.r, 2);
+    HS_EXPECT_NEAR(actual.g, expected.g, 2);
+    HS_EXPECT_NEAR(actual.b, expected.b, 2);
   };
   for (int x = 39; x < 83; ++x) {
     const float TIME = static_cast<float>(x % (W / 2)) / (W / 2);
@@ -1064,7 +1064,7 @@ inline void check_temporal_roster_pixels(const char *name) {
   reset_globals();
   constexpr int W = 96;
   constexpr int H = 20;
-  constexpr int TOLERANCE = FX::Spec::FACTORED_COLUMNS ? 16 : 2;
+  constexpr int TOLERANCE = 2;
   FX effect;
   effect.init();
   Spacetime::FrameHistory<typename FX::FrameState, true, FX::HUE_ROTATION_LUT>
