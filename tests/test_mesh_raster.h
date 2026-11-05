@@ -325,7 +325,7 @@ inline void test_face_shader_setup_matches_face_index() {
 // ============================================================================
 
 /**
- * @brief Asserts every lit wireframe pixel lies on some edge arc, for any mesh.
+ * @brief Asserts every edge is lit and every lit pixel lies on an edge arc.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @param mesh Closed mesh whose edges are extracted and drawn.
@@ -350,6 +350,14 @@ inline void check_wireframe_pixels_on_edges(PolyMesh &mesh, Arena &geom,
   fx.advance_display();
 
   const float tol = 4.0f * (math::PI_F / H);
+  for (const auto &edge : edges) {
+    const math::Vector A = mesh.vertices[edge.u], B = mesh.vertices[edge.v];
+    auto point = (A + B).normalized();
+    if (fabsf(point.y) > 0.99f)
+      point = math::slerp(A, B, 0.25f);
+    const auto PIXEL = math::vector_to_pixel<W, H>(point);
+    HS_EXPECT_TRUE((lit_near<W, H>(fx, PIXEL.x, PIXEL.y, 3)));
+  }
   size_t lit = 0, off_arc = 0;
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x) {
