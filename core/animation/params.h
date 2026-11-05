@@ -558,6 +558,45 @@ struct MobiusWarpOptions {
   EasingFn easing = math::ease_in_out_sin; ///< Easing of each cycle.
 };
 
+/** @brief Finite phase timing with a live-bindable, last-finite magnitude.
+ * @tparam Derived Concrete phase animation. */
+template <typename Derived>
+class ScaledPhaseBase : public FiniteParamAnimationBase<Derived> {
+public:
+  /** @brief Binds the magnitude to a value read each frame.
+   * @param live_scale Value that outlives the animation. */
+  void bind_scale(const float &live_scale) { scale_ref = &live_scale; }
+  void bind_scale(const float &&) = delete;
+
+protected:
+  /** @brief Constructs the phase timing and initial magnitude.
+   * @param scale Initial finite magnitude.
+   * @param duration Cycle length in frames.
+   * @param repeat Restarts completed cycles.
+   * @param easing Phase easing. */
+  ScaledPhaseBase(float scale, int duration, bool repeat, EasingFn easing)
+      : FiniteParamAnimationBase<Derived>(duration, repeat), scale(scale),
+        easing(easing) {}
+  /** @return Eased cycle progress. */
+  HS_HOT_INLINE float eased_progress() const {
+    return easing(this->normalized_progress());
+  }
+  /** @return Current magnitude, retaining the last finite live value. */
+  HS_HOT_INLINE float live_scale() {
+    if (scale_ref) {
+      const float next = *scale_ref;
+      if (std::isfinite(next))
+        scale = next;
+    }
+    return scale;
+  }
+
+private:
+  float scale;                      ///< Last finite magnitude.
+  EasingFn easing;                  ///< Phase easing.
+  const float *scale_ref = nullptr; ///< Optional live magnitude source.
+};
+
 /**
  * @brief Shared body of the Mobius warp animations: one easing cycle per
  *        duration driving a live-bindable magnitude into param b.
@@ -565,7 +604,7 @@ struct MobiusWarpOptions {
  *         `static void write_b(MobiusParams &, float scale, float angle)`.
  */
 template <typename Derived>
-class MobiusWarpBase : public FiniteParamAnimationBase<Derived> {
+class MobiusWarpBase : public ScaledPhaseBase<Derived> {
 public:
   using Options = MobiusWarpOptions; ///< Repeat and easing options.
 
@@ -592,20 +631,12 @@ private:
    */
   MobiusWarpBase(math::MobiusParams &params, float scale, int duration,
                  bool repeat, EasingFn easing)
-      : FiniteParamAnimationBase<Derived>(duration, repeat), params(params),
-        scale(scale), easing(easing) {
+      : ScaledPhaseBase<Derived>(scale, duration, repeat, easing),
+        params(params) {
     HS_CHECK(std::isfinite(scale), "Mobius warp scale must be finite");
   }
 
 public:
-  /**
-   * @brief Binds the warp magnitude to a live external float.
-   * @param live_scale The external float to read each frame as the magnitude.
-   * @details The referent is read every frame and must outlive the animation.
-   */
-  void bind_scale(const float &live_scale) { scale_ref = &live_scale; }
-  void bind_scale(const float &&) = delete;
-
   /**
    * @brief Publishes each step's angle and magnitude.
    * @param angle Receives the angle written into b, radians.
@@ -623,14 +654,9 @@ public:
    */
   void step(Canvas &canvas) override {
     FiniteParamAnimationBase<Derived>::step(canvas);
-    float progress = easing(this->normalized_progress());
+    float progress = this->eased_progress();
     float angle = progress * 2 * math::PI_F;
-    float s = scale;
-    if (scale_ref) {
-      float s2 = *scale_ref;
-      if (std::isfinite(s2))
-        scale = s = s2;
-    }
+    const float s = this->live_scale();
     Derived::write_b(params.get(), s, angle);
     if (angle_out != nullptr) {
       *angle_out = angle;
@@ -640,16 +666,13 @@ public:
 
 private:
   std::reference_wrapper<math::MobiusParams>
-      params;                       /**< Mobius params to animate. */
-  float scale;                      /**< Warp magnitude. */
-  EasingFn easing;                  /**< Easing curve. */
-  const float *scale_ref = nullptr; /**< Optional live magnitude source. */
-  float *angle_out = nullptr;       /**< Optional published angle. */
-  float *magnitude_out = nullptr;   /**< Optional published magnitude. */
+      params;                     /**< Mobius params to animate. */
+  float *angle_out = nullptr;     /**< Optional published angle. */
+  float *magnitude_out = nullptr; /**< Optional published magnitude. */
 };
 
 /** @brief Repeating phase and magnitude driver for a lens generator. */
-class LensPhase : public FiniteParamAnimationBase<LensPhase> {
+class LensPhase : public ScaledPhaseBase<LensPhase> {
 public:
   /** @brief Constructs the clock driver.
    * @param angle Receives the phase, radians.
@@ -659,29 +682,21 @@ public:
    * @param easing Phase easing. */
   LensPhase(float &angle, float &magnitude, float scale, int duration,
             EasingFn easing = math::ease_in_out_sin)
-      : FiniteParamAnimationBase(duration, true), angle(angle),
-        magnitude(magnitude), scale(scale), easing(easing) {
+      : ScaledPhaseBase(scale, duration, true, easing), angle(angle),
+        magnitude(magnitude) {
     HS_CHECK(std::isfinite(scale), "Lens phase scale must be finite");
   }
-  /** @brief Binds the multiplier to a live value.
-   * @param value Value that outlives the animation. */
-  void bind_scale(const float &value) { scale_ref = &value; }
-  void bind_scale(const float &&) = delete;
   /** @brief Publishes one clock sample. @param canvas Animation canvas. */
   void step(Canvas &canvas) override {
-    FiniteParamAnimationBase::step(canvas);
-    if (scale_ref && std::isfinite(*scale_ref))
-      scale = *scale_ref;
-    angle.get() = easing(normalized_progress()) * math::TWO_PI_F;
+    ScaledPhaseBase::step(canvas);
+    const float scale = live_scale();
+    angle.get() = eased_progress() * math::TWO_PI_F;
     magnitude.get() = scale;
   }
 
 private:
   std::reference_wrapper<float> angle;     ///< Published phase.
   std::reference_wrapper<float> magnitude; ///< Published multiplier.
-  float scale;                             ///< Horizontal multiplier.
-  EasingFn easing;                         ///< Phase easing.
-  const float *scale_ref = nullptr;        ///< Optional live multiplier.
 };
 
 /**
