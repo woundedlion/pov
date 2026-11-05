@@ -63,6 +63,9 @@ class GSReactionDiffusion
   using typename Base::LatticeBasis;
   using typename Base::FloatRgb;
 
+  /// Color-noise generator seed.
+  static constexpr int COLOR_NOISE_SEED = 6047;
+
 public:
   /// Machine/display identity and compatibility keys.
   static constexpr hs::EffectIdentity EFFECT_IDENTITY =
@@ -127,7 +130,7 @@ public:
     previous_noise_lut =
         persistent_arena.allocate_n<int8_t>(Pattern::SphereLutView::SIZE);
     color_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    color_noise.SetSeed(6047);
+    color_noise.SetSeed(COLOR_NOISE_SEED);
     color_noise.SetFrequency(1.0f);
     refresh_color_noise();
 
@@ -529,8 +532,9 @@ private:
   }
 
   HS_FLASH_INLINE void refresh_color_noise() {
-    const math::NoiseFieldSpec KEY{
-        .seed = 6047, .scale = params.noise_scale, .phase = color_noise_phase};
+    const math::NoiseFieldSpec KEY{.seed = COLOR_NOISE_SEED,
+                                   .scale = params.noise_scale,
+                                   .phase = color_noise_phase};
     const Pattern::NoiseParams INPUTS{.scale = params.noise_scale};
     const auto PREPARED =
         Pattern::SphereNoise::prepare(INPUTS, {color_noise_phase}, color_noise);
@@ -867,7 +871,7 @@ private:
   }
 
   /// Zero words either side of a node bit set; they cover the widest
-  /// neighbour offset, 144 nodes, plus the word a shifted read spills into.
+  /// neighbour offset PHYSICS_NEIGHBOR_REACH plus a shifted read's spill word.
   static constexpr int HOT_GUARD_WORDS = 6;
   /// Words in a node bit set, guards included.
   static constexpr int HOT_WORDS = (RD_N + 31) / 32 + 2 * HOT_GUARD_WORDS;
