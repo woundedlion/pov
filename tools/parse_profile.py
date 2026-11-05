@@ -123,7 +123,7 @@ class Window:
         # owner is stamped per FRAME: a window straddling a preset advance
         # holds frames of both.
         self.frame_rows = []
-        self.counters = {}  # label -> dict(us, pct, calls, cyc, depth)
+        self.counters = {}  # label -> dict(us, calls, cyc, tags)
         self.marker = None  # active preset marker at this window
         self.marker_events = []  # emitted records, never inherited attribution
         self.scan = None  # HS_SCAN_METRICS window totals, when the build has them
@@ -139,10 +139,6 @@ class Window:
     def calls_per_frame(self, label):
         n = self.counters.get(label)
         return None if not n else n["calls"] / self.frames
-
-    def root_us(self):
-        n = self.counters.get("frame")
-        return n["us"] if n else None
 
     def render_ms(self):
         """Per-frame render (frame minus the display-sync wait), averaged.
@@ -296,11 +292,11 @@ def parse_capture(path):
                 continue
             m = COUNTER_RE.match(line)
             if m and cur:
-                indent, label = m.group(1), m.group(2)
+                label = m.group(2)
                 cur.counters[label] = dict(
-                    us=int(m.group(3)), pct=int(m.group(4)),
+                    us=int(m.group(3)),
                     calls=int(m.group(5)), cyc=int(m.group(6)),
-                    depth=len(indent) // 2, tags=tuple(m.group(7).split()))
+                    tags=tuple(m.group(7).split()))
                 continue
             for key, rgx in MARKER_RES:
                 mm = rgx.match(line.strip())
