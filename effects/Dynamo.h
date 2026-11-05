@@ -257,47 +257,30 @@ private:
   Color4 color(const math::Vector &v, float t) {
     if (palette_boundaries.size() == 0)
       return baked_palettes[0].get(t);
-
-    // Sentinel for "no next boundary": `a` is in [0, PI], so any value above PI
-    // makes the `a < next_boundary_lower_edge` test pass.
-    constexpr float NO_NEXT_BOUNDARY = 100.0f;
-    float a =
+    const float a =
         math::fast_acos(hs::clamp(math::dot(v, PALETTE_NORMAL), -1.0f, 1.0f));
-
-    // Assumes non-decreasing palette_boundaries; a live Wipe-Dur change can
-    // transiently invert them, picking a stale palette until wipes drain.
-    for (size_t i = 0; i < palette_boundaries.size(); ++i) {
-      float boundary = palette_boundaries[i];
-      auto lower_edge = boundary - WIPE_BLEND_WIDTH;
-      auto upper_edge = boundary + WIPE_BLEND_WIDTH;
-
-      if (a < lower_edge) {
-        return baked_palettes[i].get(t);
+    size_t first = 0;
+    for (size_t i = palette_boundaries.size(); i > 0; --i)
+      if (a >= palette_boundaries[i - 1] + WIPE_BLEND_WIDTH) {
+        first = i;
+        break;
       }
-
-      if (a >= lower_edge && a <= upper_edge) {
-        auto blend_factor = (a - lower_edge) / (2 * WIPE_BLEND_WIDTH);
-        auto clamped_blend_factor = hs::clamp(blend_factor, 0.0f, 1.0f);
-
-        Color4 c1 = baked_palettes[i].get(t);
-        Color4 c2 = baked_palettes[i + 1].get(t);
-
-        uint16_t fract = float_to_pixel16(clamped_blend_factor);
-        return Color4(c1.color.lerp16(c2.color, fract),
-                      hs::lerp(c1.alpha, c2.alpha, clamped_blend_factor));
-      }
-
-      auto next_boundary_lower_edge =
-          (i + 1 < palette_boundaries.size()
-               ? palette_boundaries[i + 1] - WIPE_BLEND_WIDTH
-               : NO_NEXT_BOUNDARY);
-
-      if (a > upper_edge && a < next_boundary_lower_edge) {
-        return baked_palettes[i + 1].get(t);
-      }
+    Color4 result = baked_palettes[first].get(t);
+    for (size_t i = first; i < palette_boundaries.size(); ++i) {
+      const float blend =
+          hs::clamp((a - (palette_boundaries[i] - WIPE_BLEND_WIDTH)) /
+                        (2 * WIPE_BLEND_WIDTH),
+                    0.0f, 1.0f);
+      if (blend == 0.0f)
+        continue;
+      const Color4 next = baked_palettes[i + 1].get(t);
+      result =
+          blend == 1.0f
+              ? next
+              : Color4(result.color.lerp16(next.color, float_to_pixel16(blend)),
+                       hs::lerp(result.alpha, next.alpha, blend));
     }
-
-    return baked_palettes[0].get(t);
+    return result;
   }
 
   /**

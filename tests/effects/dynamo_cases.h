@@ -69,10 +69,7 @@ struct DynamoWhiteBox {
     }
   }
 
-  /**
-   * @brief Verifies color() picks each band's palette under two ordered
-   *        boundaries and crossfades to the lerp16 midpoint on each boundary.
-   */
+  /** @brief Pins disjoint band colors and overlapping wipe continuity. */
   static void check_wipe_band_colors() {
     reset_effect_globals();
 
@@ -111,6 +108,24 @@ struct DynamoWhiteBox {
           bands[i].lerp16(bands[i + 1], float_to_pixel16(0.5f));
       HS_EXPECT_LE(max_channel_gap(mid, expected), 1);
     }
+
+    struct SolidPalette {
+      Color4 value;
+      Color4 get(float) const { return value; }
+    };
+    effect.baked_palettes[0].rebake(
+        SolidPalette{Color4(Pixel(65535, 0, 0), 1.0f)});
+    effect.baked_palettes[1].rebake(
+        SolidPalette{Color4(Pixel(0, 65535, 0), 0.6f)});
+    effect.baked_palettes[2].rebake(
+        SolidPalette{Color4(Pixel(0, 0, 65535), 0.25f)});
+    effect.palette_boundaries[0] = 1.0f;
+    effect.palette_boundaries[1] = 1.5f;
+    const float edge = effect.palette_boundaries[0] + effect.WIPE_BLEND_WIDTH;
+    const auto before = effect.color(direction(edge - 0.001f), T);
+    const auto after = effect.color(direction(edge + 0.001f), T);
+    HS_EXPECT_LE(max_channel_gap(before.color, after.color), 128);
+    HS_EXPECT_LE(fabsf(before.alpha - after.alpha), 0.005f);
   }
 
   using D = Dynamo<DEFAULT_W, DEFAULT_H>;
