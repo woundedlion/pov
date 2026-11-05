@@ -182,17 +182,7 @@ struct Twist {
    * @return cos(twist * theta).
    */
   float cos_ntheta(const math::Vector &p, Ctx s) const {
-    if (twist == 0 || s <= math::TOLERANCE)
-      return 1.0f;
-    const float inv_s = 1.0f / s;
-    const float two_cos = 2.0f * p.x * inv_s;
-    float prev = 1.0f, cur = p.x * inv_s;
-    for (int k = 1; k < twist; ++k) {
-      const float next = two_cos * cur - prev;
-      prev = cur;
-      cur = next;
-    }
-    return cur;
+    return sincos_ntheta(p, s).cos_n;
   }
 
   /** @brief Both harmonics of twist*theta from one recurrence pass. */
@@ -476,7 +466,7 @@ template <typename Shape, typename WarpT> struct WarpedVolume {
         d *= warp.lipschitz_inv(h.lipschitz_arg);
       return d;
     } else {
-      const float bd = base.distance(p) - warp.bounding_inflation();
+      const float bd = bounding_distance(p);
       if (bd > gate)
         return bd;
 
