@@ -409,8 +409,7 @@ private:
         beacon_index_candidate = -1;
       } else if (content_tracker.construction_opens(protocol_config))
         // Last K revolutions: construct the next effect now.
-        publish_build((content_tracker.effect_index + 1) %
-                      protocol_config.effect_count);
+        publish_next_build();
       else if (!content_tracker.commit_pending &&
                (content_tracker.rev_in_effect %
                 protocol_config.join_grid_revs) == 0)
@@ -503,8 +502,7 @@ private:
       if (content_tracker.on_epoch_symbol(protocol_config)) {
         // A board that heard only the last repeat opens the window at the accept.
         if (content_tracker.construction_opens(protocol_config))
-          publish_build((content_tracker.effect_index + 1) %
-                        protocol_config.effect_count);
+          publish_next_build();
       } else {
         saturating_increment(telemetry_counters.epochs_refractory_ignored);
       }
@@ -589,8 +587,7 @@ private:
         epoch_emits_left = 1 + protocol_config.epoch_repeats;
         if (content_tracker.on_epoch_symbol(protocol_config) &&
             content_tracker.construction_opens(protocol_config))
-          publish_build((content_tracker.effect_index + 1) %
-                        protocol_config.effect_count);
+          publish_next_build();
       }
       if (epoch_emits_left > 0) {
         sym = Symbol::ZERO_EPOCH;
@@ -665,6 +662,11 @@ private:
       saturating_increment(telemetry_counters.beacons_busy_dropped);
       beacon_busy_counted_this_rev = true;
     }
+  }
+
+  /** @brief Publishes the next roster entry's build request. */
+  void publish_next_build() {
+    publish_build(content_tracker.next_index(protocol_config));
   }
 
   /**

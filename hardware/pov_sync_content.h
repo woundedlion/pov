@@ -266,6 +266,15 @@ struct ContentTracker {
   }
 
   /**
+   * @brief Next effect's roster index.
+   * @param cfg Protocol configuration.
+   * @return The following index, wrapped to the roster.
+   */
+  int32_t next_index(const Config &cfg) const {
+    return (effect_index + 1) % cfg.effect_count;
+  }
+
+  /**
    * @brief Advances revolution bookkeeping on a ZERO boundary flip.
    * @param cfg Protocol configuration.
    * @return True when the commit deadline is reached — the board must swap to
@@ -277,7 +286,7 @@ struct ContentTracker {
       --refractory_revs_left;
     if (commit_pending && --commit_in_revs == 0) {
       commit_pending = false;
-      effect_index = (effect_index + 1) % cfg.effect_count;
+      effect_index = next_index(cfg);
       rev_in_effect = 0;
       return true;
     }
