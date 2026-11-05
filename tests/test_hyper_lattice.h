@@ -29,10 +29,49 @@ using Params = HyperLatticeDetail::Params;
 using FrameState = HyperLatticeDetail::FrameState;
 using LatticeMode = HyperLatticeDetail::LatticeMode;
 using ShellCount = HyperLatticeDetail::ShellCount;
-using RenderPipeline = HyperLatticeDetail::RenderPipeline;
-template <uint8_t N>
+/** @brief Pullback binding of the cubic render pipeline. */
+struct Binding {
+  /// Per-frame inputs.
+  using FrameState = HyperLatticeDetail::FrameState;
+  /// No trace counters.
+  using Instrumentation = Pullback::NoInstrumentation;
+};
+
+template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
+  using PreparedTrace = HyperLatticeDetail::PreparedTrace;
+  /**
+   * @brief Prepares the frame's trace.
+   * @param frame Frame state.
+   * @return Frame-constant trace state.
+   */
+  static PreparedTrace prepare(const FrameState &frame) {
+    return HyperLatticeDetail::prepare_trace(frame);
+  }
+  /**
+   * @brief Composites the lattice crossings along one view ray.
+   * @param normal Unit view direction.
+   * @param prepared Frame-constant trace state.
+   * @return Straight-alpha colour.
+   */
+  __attribute__((always_inline)) static Color4
+  shade(const math::Vector &normal, const FrameState &,
+        const PreparedTrace &prepared) {
+    return HyperLatticeDetail::composite_crossings<SLICE_4D, SHELLS>(normal,
+                                                                     prepared)
+        .finish();
+  }
+};
+/// Generic cubic render pipeline.
+using RenderPipeline =
+    Pullback::Pipeline<Binding, Pullback::RayStage<Renderer<>>>;
+/**
+ * @brief Cubic render pipeline specialized for the 4D slice.
+ * @tparam SHELL_COUNT Fixed shell count.
+ */
+template <uint8_t SHELL_COUNT>
 using SpecializedRenderPipeline =
-    HyperLatticeDetail::SpecializedRenderPipeline<N>;
+    Pullback::Pipeline<Binding,
+                       Pullback::RayStage<Renderer<true, SHELL_COUNT>>>;
 using HyperLatticeDetail::pixel_half_angle;
 using namespace SDF::Lattice;
 struct PreparedTrace : SDF::Lattice::PreparedTrace {
@@ -82,7 +121,7 @@ inline TraceHit trace(const math::Vector &normal,
 template <bool SLICE = false, uint8_t SHELLS = 0>
 Color4 shade_mode(const Pullback::SphereSample &input, const FrameState &frame,
                   const PreparedTrace &prepared) {
-  return HyperLatticeDetail::Renderer<SLICE, SHELLS>::shade(
+  return Renderer<SLICE, SHELLS>::shade(
       input.dir, frame, {prepared, prepared.appearance, &crossings});
 }
 inline Color4 shade(const Pullback::SphereSample &input,

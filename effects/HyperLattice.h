@@ -135,14 +135,6 @@ struct FrameEndpoint {
   math::Vec4 center; ///< Traced camera position in world units.
 };
 
-/** @brief Pullback binding of the cubic render pipeline. */
-struct Binding {
-  /// Per-frame inputs.
-  using FrameState = HyperLatticeDetail::FrameState;
-  /// No trace counters.
-  using Instrumentation = Pullback::NoInstrumentation;
-};
-
 /// Frame-constant cubic trace state.
 using PreparedTrace = SDF::Lattice::PreparedShading;
 using SDF::Lattice::composite_crossings;
@@ -316,26 +308,7 @@ private:
  * @tparam SHELLS Fixed shell count, or 0 for the runtime count.
  */
 template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
-  /**
-   * @brief Prepares the frame's trace.
-   * @param frame Frame state.
-   * @return Frame-constant trace state.
-   */
-  static PreparedTrace prepare(const FrameState &frame) {
-    return prepare_trace(frame);
-  }
-  /**
-   * @brief Composites the lattice crossings along one view ray.
-   * @param normal Unit view direction.
-   * @param prepared Frame-constant trace state.
-   * @return Straight-alpha colour.
-   */
-  __attribute__((always_inline)) static Color4
-  shade(const math::Vector &normal, const FrameState &,
-        const PreparedTrace &prepared) {
-    return composite_crossings<SLICE_4D, SHELLS>(normal, prepared).finish();
-  }
-  /** @brief shade() premultiplied by its alpha, without the round trip.
+  /** @brief Composites lattice crossings into premultiplied colour.
    *  @param normal Unit view direction.
    *  @param prepared Frame-constant trace state.
    *  @return Premultiplied colour. */
@@ -346,17 +319,6 @@ template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
         .premultiplied();
   }
 };
-/// Generic cubic render pipeline.
-using RenderPipeline =
-    Pullback::Pipeline<Binding, Pullback::RayStage<Renderer<>>>;
-/**
- * @brief Cubic render pipeline specialized for the 4D slice.
- * @tparam SHELL_COUNT Fixed shell count.
- */
-template <uint8_t SHELL_COUNT>
-using SpecializedRenderPipeline =
-    Pullback::Pipeline<Binding,
-                       Pullback::RayStage<Renderer<true, SHELL_COUNT>>>;
 /** @brief Resolution-independent parameter registration and ranges. */
 struct ParameterDescriptors {
   /// Ray-start distance minimum.
