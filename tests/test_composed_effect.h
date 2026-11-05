@@ -1264,7 +1264,8 @@ inline void test_ash_cloud_document_pipeline() {
                                 true>,
       math::NoiseBasis::SIMPLEX, AshCloudInlineEuler,
       math::TangentLimit::SMOOTH>>;
-  using Lens = Pullback::Stage::Lens<AshCloudDodecahedralLens>;
+  using Lens =
+      Pullback::Stage::Lens<Pullback::Lens::DodecahedralTableKaleidoscope>;
   using Project = Pullback::Stage::Project<Pullback::ProjectionPolicyFor<
       Pullback::ProjectionKind::STEREOGRAPHIC, FX::Binding>::Type>;
   using Leaves = Pullback::ComposedDetail::PipelineLeaves<
@@ -1282,8 +1283,8 @@ inline void test_ash_cloud_document_pipeline() {
                            math::Vector(-0.3f, 0.4f, -0.5f).normalized()}) {
     const auto EXPECTED = lenses::dodecahedral_kaleidoscope_lens(view);
     for (float fraction : {0.0f, 1.0f}) {
-      const auto ACTUAL =
-          AshCloudDodecahedralLens::apply(view, Frame{{fraction}});
+      const auto ACTUAL = Pullback::Lens::DodecahedralTableKaleidoscope::apply(
+          view, Frame{{fraction}});
       HS_EXPECT_EQ(ACTUAL.x, EXPECTED.x);
       HS_EXPECT_EQ(ACTUAL.y, EXPECTED.y);
       HS_EXPECT_EQ(ACTUAL.z, EXPECTED.z);

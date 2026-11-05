@@ -78,18 +78,21 @@ void test_dodecahedral_matrix_cache_lens_binding() {
   frame.dodecahedral_matrices = doubled.data();
   frame.temporal.fraction = .5f;
   const auto input = math::Vector(.1f, 1.0f, .2f).normalized();
-  const auto actual = AshCloudDodecahedralLens::apply(input, frame);
+  const auto actual =
+      Pullback::Lens::DodecahedralTableKaleidoscope::apply(input, frame);
   const auto expected = 2.0f * input;
   HS_EXPECT_EQ(std::memcmp(&actual, &expected, sizeof(actual)), 0);
   const auto canonical = lenses::dodecahedral_kaleidoscope_lens(input);
   for (float endpoint : {0.0f, 1.0f}) {
     frame.temporal.fraction = endpoint;
-    const auto literal = AshCloudDodecahedralLens::apply(input, frame);
+    const auto literal =
+        Pullback::Lens::DodecahedralTableKaleidoscope::apply(input, frame);
     HS_EXPECT_EQ(std::memcmp(&literal, &canonical, sizeof(literal)), 0);
   }
   frame.temporal.fraction = .5f;
   frame.dodecahedral_matrices = nullptr;
-  const auto fallback = AshCloudDodecahedralLens::apply(input, frame);
+  const auto fallback =
+      Pullback::Lens::DodecahedralTableKaleidoscope::apply(input, frame);
   const auto flash = lenses::dodecahedral_table_lens(input);
   HS_EXPECT_EQ(std::memcmp(&fallback, &flash, sizeof(fallback)), 0);
 }
@@ -173,16 +176,19 @@ void test_dodecahedral_face_cache_lens_binding() {
   frame.dodecahedral_faces = rejected.data();
   const auto input = math::Vector(.1f, 1.0f, .2f).normalized();
   const auto canonical = lenses::dodecahedral_kaleidoscope_lens(input);
-  const auto fallback = AshCloudDodecahedralLens::apply(input, frame);
+  const auto fallback =
+      Pullback::Lens::DodecahedralTableKaleidoscope::apply(input, frame);
   HS_EXPECT_EQ(std::memcmp(&fallback, &canonical, sizeof(fallback)), 0);
   frame.dodecahedral_faces = nullptr;
-  const auto flash = AshCloudDodecahedralLens::apply(input, frame);
+  const auto flash =
+      Pullback::Lens::DodecahedralTableKaleidoscope::apply(input, frame);
   const auto expected = 2.0f * input;
   HS_EXPECT_EQ(std::memcmp(&flash, &expected, sizeof(flash)), 0);
   frame.dodecahedral_faces = rejected.data();
   for (float endpoint : {0.0f, 1.0f}) {
     frame.temporal.fraction = endpoint;
-    const auto literal = AshCloudDodecahedralLens::apply(input, frame);
+    const auto literal =
+        Pullback::Lens::DodecahedralTableKaleidoscope::apply(input, frame);
     HS_EXPECT_EQ(std::memcmp(&literal, &canonical, sizeof(literal)), 0);
   }
 }

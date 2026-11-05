@@ -17,31 +17,6 @@
 
 #include "core/render/pullback/composed_effect.h"
 
-/** @brief Canonical dodecahedral lens with validated interior matrix lookup. */
-struct AshCloudDodecahedralLens : Pullback::Lens::DodecahedralKaleidoscope {
-  /** @brief Preserves literal endpoints and validates interior matrix folds.
-   * @tparam FrameState Prepared column context.
-   * @param input Unit view direction.
-   * @param frame Column context.
-   * @return Canonical chamber direction. */
-  template <typename FrameState>
-  HS_HOT_INLINE static math::Vector apply(const math::Vector &input,
-                                          const FrameState &frame) {
-    if constexpr (requires { frame.temporal.fraction; })
-      if (frame.temporal.fraction > 0.0f && frame.temporal.fraction < 1.0f) {
-        const auto *matrices = lenses::DodecahedralTable::GROUP.values.data();
-        const uint8_t *faces = nullptr;
-        if constexpr (requires { frame.dodecahedral_matrices; })
-          if (frame.dodecahedral_matrices)
-            matrices = frame.dodecahedral_matrices;
-        if constexpr (requires { frame.dodecahedral_faces; })
-          faces = frame.dodecahedral_faces;
-        return lenses::dodecahedral_table_lens(input, matrices, faces);
-      }
-    return lenses::dodecahedral_kaleidoscope_lens(input);
-  }
-};
-
 /** @brief Euler integration with an inline qualified gradient core. */
 struct AshCloudInlineEuler : Pullback::Surface::Euler {
   static constexpr bool INLINE_UNIT_GRADIENT =
@@ -82,7 +57,7 @@ struct AshCloudSpec : Pullback::Spec {
               Pullback::SurfaceProvider<B, Pullback::SurfaceNoiseParams, true>,
               math::NoiseBasis::SIMPLEX, AshCloudInlineEuler,
               math::TangentLimit::SMOOTH>>,
-          Pullback::Stage::Lens<AshCloudDodecahedralLens>,
+          Pullback::Stage::Lens<Pullback::Lens::DodecahedralTableKaleidoscope>,
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
               Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<

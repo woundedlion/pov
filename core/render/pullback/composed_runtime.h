@@ -93,11 +93,11 @@ public:
                                        typename Metadata::LensPolicy>),
                 "phase noise cache requires a temporal dodecahedral chamber");
   static_assert(!SpecT::CACHE_DODECAHEDRAL_MATRICES ||
-                    std::is_base_of_v<Lens::DodecahedralKaleidoscope,
+                    std::is_base_of_v<Lens::DodecahedralTableKaleidoscope,
                                       typename Metadata::LensPolicy>,
                 "cached dodecahedral matrices require a dodecahedral lens");
   static_assert(!SpecT::CACHE_DODECAHEDRAL_FACES ||
-                    std::is_base_of_v<Lens::DodecahedralKaleidoscope,
+                    std::is_base_of_v<Lens::DodecahedralTableKaleidoscope,
                                       typename Metadata::LensPolicy>,
                 "cached cube classifiers require a dodecahedral lens");
   static_assert(!TEMPORAL_SAMPLING || (W >= 2 && W % 2 == 0),
