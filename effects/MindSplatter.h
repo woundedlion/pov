@@ -337,10 +337,7 @@ private:
 
   static inline float octahedral_hole_alpha(const math::Vector &p,
                                             float cos_event_horizon) {
-    const float x = fabsf(p.x);
-    const float y = fabsf(p.y);
-    const float yz = std::isnan(y) ? y : fmaxf(y, fabsf(p.z));
-    const float m = std::isnan(x) ? x : fmaxf(x, yz);
+    const float m = fmaxf(fabsf(p.x), fmaxf(fabsf(p.y), fabsf(p.z)));
     if (m < cos_event_horizon) {
       HS_PLOT_RENDER_COUNT(hole_early_outs);
       return 1.0f;
