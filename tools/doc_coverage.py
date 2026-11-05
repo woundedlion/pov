@@ -275,11 +275,11 @@ def run_doxygen(doxygen: str, root: Path, paths: list[str]) -> str:
             "GENERATE_LATEX = NO",
             "GENERATE_XML = NO",
             "HAVE_DOT = NO",
-            f"OUTPUT_DIRECTORY = {Path(scratch).as_posix()}",
-            f"WARN_LOGFILE = {log.as_posix()}",
+            f'OUTPUT_DIRECTORY = "{Path(scratch).as_posix()}"',
+            f'WARN_LOGFILE = "{log.as_posix()}"',
         ]
         if paths:
-            overlay.append("INPUT = " + " ".join(paths))
+            overlay.append("INPUT = " + " ".join(f'"{path}"' for path in paths))
         config = (root / "Doxyfile").read_text(encoding="utf-8")
         config += "\n" + "\n".join(overlay) + "\n"
         subprocess.run([doxygen, "-"], input=config, text=True, cwd=root,

@@ -215,7 +215,7 @@ class TestRunDoxygen(unittest.TestCase):
             (root / "Doxyfile").write_text(
                 "EXTRACT_ALL = YES\nINPUT = core \\\n effects\n",
                 encoding="utf-8")
-            for paths in ([], ["core/a.h"]):
+            for paths in ([], ["core/a.h"], ["core/with space.h"]):
                 with self.subTest(paths=paths):
                     def run(*args, **kwargs):
                         config = kwargs["input"]
