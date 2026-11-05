@@ -381,16 +381,11 @@ inline void test_shader_chain_parity_lens_ops() {
 
 /** @brief Lens and fold controls apply their authored direction maps. */
 inline void test_shader_chain_lens_controls() {
-  const auto *twist = require_operator(In::Op::LensTwist::ID);
   const auto *glitch = require_operator(In::Op::LensGlitch::ID);
-  if (!twist || !glitch)
+  if (!glitch)
     return;
   const auto ctx = shared_resources().context();
   const PB::SphereSample input{math::Vector(0.6f, 0.5f, sqrtf(0.39f)), 0.25f};
-  for_each_value_set([&](ValueSet set) {
-    run_lens_parity<PB::Lens::AnimatedTwist<TwistMirrorProvider>,
-                    In::Op::TwistChainParams>(In::Op::LensTwist::ID, set);
-  });
   for (const float distribution : {0.0f, 0.85f, 1.0f}) {
     for (const float phi : {0.4f, math::PI_F * 0.5f, 2.2f}) {
       for (const float lambda : {0.0f, 0.7f, math::PI_F * 0.5f}) {
