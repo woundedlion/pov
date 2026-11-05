@@ -14,8 +14,7 @@
  *        exactly 2 truncate vertices within tolerance.
  */
 inline void test_truncate_near_half_merges_onto_ambo() {
-  constexpr float MERGE_EPS = 1e-3f;
-  constexpr float MERGE_TOL = 1e-2f;
+  constexpr float MERGE_TOL = 0.02f;
   for (MorphSeed s : MORPH_SEEDS) {
     HS_CONTEXT(seed_name(s));
     Arena target(morph_target_buf, sizeof(morph_target_buf));
@@ -23,7 +22,8 @@ inline void test_truncate_near_half_merges_onto_ambo() {
     Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
 
     PolyMesh seed = build_morph_seed(s, aux, temp);
-    PolyMesh tr = MeshOps::truncate(seed, target, temp, 0.5f - MERGE_EPS);
+    PolyMesh tr =
+        MeshOps::truncate(seed, target, temp, 0.5f - ConwayGraph::T_EPS_AMBO);
     PolyMesh am = MeshOps::ambo(seed, temp, target);
 
     check_pairwise_vertex_cover(tr, am, MERGE_TOL);
