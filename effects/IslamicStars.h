@@ -178,6 +178,10 @@ public:
 
 #ifdef HS_ISLAMICSTARS_PROFILE_SHAPE
     preset_index = HS_ISLAMICSTARS_PROFILE_SHAPE;
+#ifdef HS_PROFILE_ENABLE
+    hs::log("Profile preset: %u/%u", static_cast<unsigned>(preset_index),
+            static_cast<unsigned>(PRESETS.size()));
+#endif
 #else
     // Open on a recipe entry so the op-by-op build is the first thing drawn.
     for (size_t i = 0; i < PRESETS.size(); ++i) {
