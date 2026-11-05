@@ -76,6 +76,8 @@ inline int run_animation_tests() {
 
   HS_RUN(test_mutation_applies_function_of_eased_time);
   HS_RUN(test_mutation_duration_zero_finite);
+  HS_RUN(test_lensphase_retains_last_finite_live_scale);
+  HS_RUN(test_mutation_nonfinite_result_holds_prior_value);
 
   HS_RUN(test_driver_increments_and_wraps);
   HS_RUN(test_driver_no_wrap_accumulates);

@@ -39,3 +39,18 @@ inline void test_mutation_duration_zero_finite() {
   HS_EXPECT_TRUE(std::isfinite(v));
   HS_EXPECT_NEAR(v, 1.0f, 1e-3f);
 }
+
+/** @brief Non-finite mutation results retain the preceding finite value. */
+inline void test_mutation_nonfinite_result_holds_prior_value() {
+  float value = 0.0f;
+  Animation::Mutation mutation(
+      value,
+      [](float t) {
+        return t == 0.5f ? std::numeric_limits<float>::quiet_NaN() : t;
+      },
+      4, math::ease_linear);
+  for (float expected : {0.25f, 0.25f, 0.75f, 1.0f}) {
+    mutation.step(fake_canvas());
+    HS_EXPECT_EQ(value, expected);
+  }
+}

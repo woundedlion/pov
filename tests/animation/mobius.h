@@ -402,3 +402,17 @@ inline void test_mobiusflow_step_preserves_unit_product() {
   }
   HS_EXPECT_GT(std::abs(params.a.im), 1e-3f); // moved off the identity
 }
+
+/** @brief Lens phase publishes a live scale and retains it across non-finite input. */
+inline void test_lensphase_retains_last_finite_live_scale() {
+  float angle = 0.0f, magnitude = 0.0f, scale = 0.25f;
+  Animation::LensPhase phase(angle, magnitude, 0.1f, 4, math::ease_linear);
+  phase.bind_scale(scale);
+  for (float next :
+       {0.25f, 0.75f, std::numeric_limits<float>::quiet_NaN(), 0.5f}) {
+    scale = next;
+    phase.step(fake_canvas());
+    HS_EXPECT_EQ(magnitude, std::isfinite(next) ? next : 0.75f);
+    HS_EXPECT_TRUE(std::isfinite(angle));
+  }
+}
