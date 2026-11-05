@@ -526,10 +526,11 @@ inline void test_radial_surface_fold_visibility() {
                 candidate.a.y + T * (candidate.b.y - candidate.a.y)};
             const auto hit = surface.template sample<false, true, false>(
                 P, Scan::radial_atan2(P.y, P.x));
-            if (!hit.found() ||
-                hit.interval + hit.fraction >= candidate.origin_interval - .01f)
-              any = true;
-            if (any) {
+            const bool VISIBLE =
+                !hit.found() ||
+                hit.interval + hit.fraction >= candidate.origin_interval - .01f;
+            any |= VISIBLE;
+            if (VISIBLE) {
               const float R = hypotf(P.x, P.y);
               max_gap =
                   fmaxf(max_gap, hypotf(knots[candidate.origin_interval].real,
@@ -550,8 +551,8 @@ inline void test_radial_surface_fold_visibility() {
   HS_EXPECT_LE(visible, 630u);
   HS_EXPECT_GE(longest, 0.50f);
   HS_EXPECT_LE(longest, 0.55f);
-  HS_EXPECT_GE(max_gap, 0.69f);
-  HS_EXPECT_LE(max_gap, 0.74f);
+  HS_EXPECT_GE(max_gap, 0.68f);
+  HS_EXPECT_LE(max_gap, 0.70f);
   std::printf(
       "  radial fold visibility: segments=%u visible=%u longest=%g radial_gap=%g\n",
       segments, visible, longest, max_gap);
