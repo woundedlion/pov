@@ -972,7 +972,7 @@ inline std::pair<int, int> face_fringe_misses(const SDF::PreparedFace &face) {
 
 /**
  * @brief Pins the reduction from converting Face's AA reach to azimuth by row.
- * @details Every sampled configuration retains or improves its fringe coverage.
+ * @details Latitude widening covers every paintable fringe sample.
  */
 inline void test_face_latitude_pad_reduces_fringe_drops() {
   constexpr int W = 288, H = 144, HV = H + hs::H_OFFSET;
@@ -988,7 +988,6 @@ inline void test_face_latitude_pad_reduces_fringe_drops() {
       {3, 0.08f, 0.38f},
   };
   int fixed_misses = 0;
-  int widened_misses = 0;
   for (const Cfg &cfg : cfgs) {
     const float theta = 0.31f * cfg.sides + 1.7f * cfg.rho + 0.23f * cfg.phi;
     const math::Vector axis(sinf(cfg.phi) * cosf(theta), cosf(cfg.phi),
@@ -1002,13 +1001,10 @@ inline void test_face_latitude_pad_reduces_fringe_drops() {
                            std::span<const uint16_t>(idx, cfg.sides), scratch,
                            HV, H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
     const auto misses = face_fringe_misses<W, H>(face);
-    HS_EXPECT_LE(misses.second, misses.first);
+    HS_EXPECT_EQ(misses.second, 0);
     fixed_misses += misses.first;
-    widened_misses += misses.second;
   }
   HS_EXPECT_GE(fixed_misses, 64);
-  HS_EXPECT_LT(widened_misses, fixed_misses);
-  HS_EXPECT_LE(widened_misses * 100, fixed_misses * 8);
 }
 
 /**
