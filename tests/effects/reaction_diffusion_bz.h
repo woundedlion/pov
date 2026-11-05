@@ -729,21 +729,14 @@ inline void test_bz_lattice_basis_matches_rotated_lattice() {
   std::vector<Pixel> actual;
   capture_frame<W, H>(bz, actual);
 
-  std::vector<Pixel> expected(static_cast<size_t>(W) * H);
-  std::vector<Pixel> frame;
-  for (int column = 0; column < W / 2; ++column) {
-    const math::Quaternion at =
-        math::slerp(previous, current,
-                    Spacetime::SamplingSurface<W>::time(column))
-            .normalized();
+  const auto expected = column_time_oracle<W, H>([&](float u) {
+    const math::Quaternion at = math::slerp(previous, current, u).normalized();
     WhiteBox::set_orientation(bz, at, at);
     WhiteBox::shade_oriented_frame(bz);
+    std::vector<Pixel> frame;
     capture_frame<W, H>(bz, frame);
-    for (int y = 0; y < H; ++y)
-      for (int x : {column, column + W / 2})
-        expected[static_cast<size_t>(y) * W + x] =
-            frame[static_cast<size_t>(y) * W + x];
-  }
+    return frame;
+  });
   const FrameErrorStats stats = compare_buffers(expected, actual);
   std::printf(
       "  [info] BZ lattice basis: lit=%zu differ=%zu max=%u mean=%.5f\n",

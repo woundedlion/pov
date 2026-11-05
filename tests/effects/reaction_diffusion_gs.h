@@ -2147,20 +2147,11 @@ inline void test_gs_lattice_basis_matches_rotated_lattice() {
   WhiteBox::set_orientation(gs, previous, current);
   const std::vector<Pixel> actual =
       capture([&] { WhiteBox::shade_field(gs, true); });
-  std::vector<Pixel> expected(static_cast<size_t>(W) * H);
-  for (int column = 0; column < W / 2; ++column) {
-    const math::Quaternion at =
-        math::slerp(previous, current,
-                    Spacetime::SamplingSurface<W>::time(column))
-            .normalized();
+  const auto expected = column_time_oracle<W, H>([&](float u) {
+    const math::Quaternion at = math::slerp(previous, current, u).normalized();
     WhiteBox::set_orientation(gs, at, at);
-    const std::vector<Pixel> frame =
-        capture([&] { WhiteBox::shade_field(gs, false); });
-    for (int y = 0; y < H; ++y)
-      for (int x : {column, column + W / 2})
-        expected[static_cast<size_t>(y) * W + x] =
-            frame[static_cast<size_t>(y) * W + x];
-  }
+    return capture([&] { WhiteBox::shade_field(gs, false); });
+  });
   const FrameErrorStats moving = compare_buffers(expected, actual);
   std::printf("  [info] GS lattice basis: rounding mean=%.5f max=%u; still "
               "mean=%.5f max=%u; moving lit=%zu mean=%.5f max=%u\n",
