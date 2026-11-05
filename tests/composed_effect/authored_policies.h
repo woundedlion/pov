@@ -542,6 +542,7 @@ inline void test_authored_dynamic_modulation_controls() {
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.updateParameter("pattern-contrast", 0.7f),
                ParamSetResult::APPLIED);
+  HS_EXPECT_NEAR(effect.configuration().noise.contrast, 0.7f, 1e-6f);
   HS_EXPECT_EQ(effect.configuration().noise.basis,
                Pattern::NoiseBasis::RIDGED3);
   HS_EXPECT_EQ(effect.updateParameter("modulation-evaluation", 1),
@@ -560,6 +561,14 @@ inline void test_authored_dynamic_modulation_controls() {
   HS_EXPECT_EQ(effect.updateParameter("interference-frequency-b", 4.0f),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.configuration().interference.frequency_b, 4.0f);
+  HS_EXPECT_EQ(effect.updateParameter("modulation-source", 3),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("grid-frequency-b", 1.9f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_NEAR(effect.configuration().grid.frequency_b, 1.9f, 1e-6f);
+  HS_EXPECT_EQ(effect.updateParameter("modulation-amount", 0.37f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_NEAR(effect.configuration().mechanic.amount, 0.37f, 1e-6f);
   HS_EXPECT_TRUE(
       effect.edit_document_modulation("modulation", [](auto &config) {
         config.source = Pattern::SourceKind::DISPLACEMENT;

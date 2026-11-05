@@ -377,6 +377,50 @@ struct Params {
 
 /** @brief Controls of one color.modulate.v1 operator. */
 struct Controls {
+private:
+  enum Slot : size_t {
+    MODULATION_AMOUNT,
+    PATTERN_SCALE,
+    PATTERN_SPEED,
+    PATTERN_CONTRAST,
+    SINE_AXIS_X,
+    SINE_AXIS_Y,
+    SINE_AXIS_Z,
+    SINE_FREQUENCY,
+    SINE_OFFSET,
+    SINE_SPEED,
+    INTERFERENCE_AXIS_X,
+    INTERFERENCE_AXIS_Y,
+    INTERFERENCE_AXIS_Z,
+    INTERFERENCE_FREQUENCY,
+    INTERFERENCE_OFFSET,
+    INTERFERENCE_SPEED,
+    INTERFERENCE_AXIS_B_X,
+    INTERFERENCE_AXIS_B_Y,
+    INTERFERENCE_AXIS_B_Z,
+    INTERFERENCE_FREQUENCY_B,
+    INTERFERENCE_OFFSET_B,
+    GRID_AXIS_X,
+    GRID_AXIS_Y,
+    GRID_AXIS_Z,
+    GRID_FREQUENCY,
+    GRID_OFFSET,
+    GRID_SPEED,
+    GRID_AXIS_B_X,
+    GRID_AXIS_B_Y,
+    GRID_AXIS_B_Z,
+    GRID_FREQUENCY_B,
+    GRID_OFFSET_B,
+    MODULATION_ENABLED,
+    MODULATION_SOURCE,
+    MODULATION_EVALUATION,
+    MODULATION_MECHANIC,
+    PATTERN_NOISE_BASIS,
+    PATTERN_NOISE_VARIANT,
+    SLOT_COUNT
+  };
+
+public:
   ColorModulation::Config modulation = [] {
     ColorModulation::Config value;
     value.seed = HUE_NOISE_SEED;
@@ -412,7 +456,7 @@ struct Controls {
                 static_cast<size_t>(Pattern::NoiseVariant::OCTAVE_CONTOUR) + 1);
   /// Modulation parameter schema appended to the palette controls.
   static constexpr auto EXTRA_SCHEMA = [] {
-    std::array<ParamFieldInfo, 38> out{};
+    std::array<ParamFieldInfo, SLOT_COUNT> out{};
     const char *ids[] = {"modulation-amount",
                          "pattern-scale",
                          "pattern-speed",
@@ -445,101 +489,105 @@ struct Controls {
                          "grid-axis-b-z",
                          "grid-frequency-b",
                          "grid-offset-b"};
-    for (size_t i = 0; i < 32; ++i)
+    static_assert(std::size(ids) == MODULATION_ENABLED);
+    for (size_t i = MODULATION_AMOUNT; i < MODULATION_ENABLED; ++i)
       out[i] = {ids[i], nullptr, -64.0f, 64.0f,   0.0f,    FieldCurve::LERP,
                 false,  0,       0,      nullptr, nullptr, 0};
-    out[0].min = -4.0f;
-    out[0].max = 4.0f;
-    out[1].min = 1.0f / 64.0f;
-    out[1].max = 64.0f;
-    out[1].def = 1.0f;
-    out[1].curve = FieldCurve::LOG_POSITIVE;
-    out[2].min = -Pattern::MAX_NOISE_SPEED;
-    out[2].max = Pattern::MAX_NOISE_SPEED;
-    for (size_t i : {size_t{9}, size_t{15}, size_t{26}}) {
+    out[MODULATION_AMOUNT].min = -4.0f;
+    out[MODULATION_AMOUNT].max = 4.0f;
+    out[PATTERN_SCALE].min = 1.0f / 64.0f;
+    out[PATTERN_SCALE].max = 64.0f;
+    out[PATTERN_SCALE].def = 1.0f;
+    out[PATTERN_SCALE].curve = FieldCurve::LOG_POSITIVE;
+    out[PATTERN_SPEED].min = -Pattern::MAX_NOISE_SPEED;
+    out[PATTERN_SPEED].max = Pattern::MAX_NOISE_SPEED;
+    for (size_t i : {SINE_SPEED, INTERFERENCE_SPEED, GRID_SPEED}) {
       out[i].min = -Pattern::MAX_ANALYTIC_SPEED;
       out[i].max = Pattern::MAX_ANALYTIC_SPEED;
     }
-    out[3].min = 0.0f;
-    out[3].max = 8.0f;
-    for (size_t i :
-         {size_t{5}, size_t{7}, size_t{11}, size_t{13}, size_t{16}, size_t{19},
-          size_t{22}, size_t{24}, size_t{27}, size_t{30}})
+    out[PATTERN_CONTRAST].min = 0.0f;
+    out[PATTERN_CONTRAST].max = 8.0f;
+    for (size_t i : {SINE_AXIS_Y, SINE_FREQUENCY, INTERFERENCE_AXIS_Y,
+                     INTERFERENCE_FREQUENCY, INTERFERENCE_AXIS_B_X,
+                     INTERFERENCE_FREQUENCY_B, GRID_AXIS_Y, GRID_FREQUENCY,
+                     GRID_AXIS_B_X, GRID_FREQUENCY_B})
       out[i].def = 1.0f;
-    for (size_t i : {size_t{7}, size_t{13}, size_t{19}, size_t{24}, size_t{30}})
+    for (size_t i :
+         {SINE_FREQUENCY, INTERFERENCE_FREQUENCY, INTERFERENCE_FREQUENCY_B,
+          GRID_FREQUENCY, GRID_FREQUENCY_B})
       out[i].min = 0.0f;
-    out[32] = {"modulation-enabled",
-               nullptr,
-               0,
-               0,
-               0,
-               FieldCurve::SNAP,
-               true,
-               std::size(ENABLED_IDS),
-               1,
-               ENABLED_IDS,
-               nullptr,
-               0};
-    out[33] = {"modulation-source",
-               nullptr,
-               0,
-               0,
-               0,
-               FieldCurve::SNAP,
-               true,
-               std::size(SOURCE_IDS),
-               0,
-               SOURCE_IDS,
-               nullptr,
-               0};
-    out[34] = {"modulation-evaluation",
-               nullptr,
-               0,
-               0,
-               0,
-               FieldCurve::SNAP,
-               true,
-               std::size(EVALUATION_IDS),
-               1,
-               EVALUATION_IDS,
-               nullptr,
-               0};
-    out[35] = {"modulation-mechanic",
-               nullptr,
-               0,
-               0,
-               0,
-               FieldCurve::SNAP,
-               true,
-               std::size(MECHANIC_IDS),
-               0,
-               MECHANIC_IDS,
-               nullptr,
-               0};
-    out[36] = {"pattern-noise-basis",
-               nullptr,
-               0,
-               0,
-               0,
-               FieldCurve::SNAP,
-               true,
-               std::size(BASIS_IDS),
-               0,
-               BASIS_IDS,
-               nullptr,
-               0};
-    out[37] = {"pattern-noise-variant",
-               nullptr,
-               0,
-               0,
-               0,
-               FieldCurve::SNAP,
-               true,
-               std::size(VARIANT_IDS),
-               0,
-               VARIANT_IDS,
-               nullptr,
-               0};
+    out[MODULATION_ENABLED] = {"modulation-enabled",
+                               nullptr,
+                               0,
+                               0,
+                               0,
+                               FieldCurve::SNAP,
+                               true,
+                               std::size(ENABLED_IDS),
+                               1,
+                               ENABLED_IDS,
+                               nullptr,
+                               0};
+    out[MODULATION_SOURCE] = {"modulation-source",
+                              nullptr,
+                              0,
+                              0,
+                              0,
+                              FieldCurve::SNAP,
+                              true,
+                              std::size(SOURCE_IDS),
+                              0,
+                              SOURCE_IDS,
+                              nullptr,
+                              0};
+    out[MODULATION_EVALUATION] = {"modulation-evaluation",
+                                  nullptr,
+                                  0,
+                                  0,
+                                  0,
+                                  FieldCurve::SNAP,
+                                  true,
+                                  std::size(EVALUATION_IDS),
+                                  1,
+                                  EVALUATION_IDS,
+                                  nullptr,
+                                  0};
+    out[MODULATION_MECHANIC] = {"modulation-mechanic",
+                                nullptr,
+                                0,
+                                0,
+                                0,
+                                FieldCurve::SNAP,
+                                true,
+                                std::size(MECHANIC_IDS),
+                                0,
+                                MECHANIC_IDS,
+                                nullptr,
+                                0};
+    out[PATTERN_NOISE_BASIS] = {"pattern-noise-basis",
+                                nullptr,
+                                0,
+                                0,
+                                0,
+                                FieldCurve::SNAP,
+                                true,
+                                std::size(BASIS_IDS),
+                                0,
+                                BASIS_IDS,
+                                nullptr,
+                                0};
+    out[PATTERN_NOISE_VARIANT] = {"pattern-noise-variant",
+                                  nullptr,
+                                  0,
+                                  0,
+                                  0,
+                                  FieldCurve::SNAP,
+                                  true,
+                                  std::size(VARIANT_IDS),
+                                  0,
+                                  VARIANT_IDS,
+                                  nullptr,
+                                  0};
     return out;
   }();
   /** @brief Mutable canonical control addresses.
@@ -586,20 +634,21 @@ struct Controls {
                           &c.grid.axis_b.z,
                           &c.grid.frequency_b,
                           &c.grid.offset_b};
+    static_assert(std::size(addresses) == MODULATION_ENABLED);
     if (index < std::size(addresses))
       return addresses[index];
     switch (index) {
-    case 32:
+    case MODULATION_ENABLED:
       return &c.enabled;
-    case 33:
+    case MODULATION_SOURCE:
       return &c.source;
-    case 34:
+    case MODULATION_EVALUATION:
       return &c.evaluation;
-    case 35:
+    case MODULATION_MECHANIC:
       return &c.mechanic.kind;
-    case 36:
+    case PATTERN_NOISE_BASIS:
       return &c.noise.basis;
-    case 37:
+    case PATTERN_NOISE_VARIANT:
       return &c.noise.variant;
     }
     HS_CHECK(false, "invalid modulation field index");
@@ -613,19 +662,21 @@ struct Controls {
                                     size_t index) {
     if (index >= EXTRA_SCHEMA.size())
       return false;
-    if (index == 0 || (index >= 32 && index <= 35))
+    if (index == MODULATION_AMOUNT ||
+        (index >= MODULATION_ENABLED && index <= MODULATION_MECHANIC))
       return true;
     switch (c.source) {
     case Pattern::SourceKind::NOISE:
-      if (index == 3 || index == 36)
+      if (index == PATTERN_CONTRAST || index == PATTERN_NOISE_BASIS)
         return c.noise.variant == Pattern::NoiseVariant::OCTAVE_CONTOUR;
-      return index == 1 || index == 2 || index == 37;
+      return index == PATTERN_SCALE || index == PATTERN_SPEED ||
+             index == PATTERN_NOISE_VARIANT;
     case Pattern::SourceKind::DIRECTIONAL_SINE:
-      return index >= 4 && index <= 9;
+      return index >= SINE_AXIS_X && index <= SINE_SPEED;
     case Pattern::SourceKind::SPHERE_INTERFERENCE:
-      return index >= 10 && index <= 20;
+      return index >= INTERFERENCE_AXIS_X && index <= INTERFERENCE_OFFSET_B;
     case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
-      return index >= 21 && index <= 31;
+      return index >= GRID_AXIS_X && index <= GRID_OFFSET_B;
     case Pattern::SourceKind::DISPLACEMENT:
       return false;
     }
