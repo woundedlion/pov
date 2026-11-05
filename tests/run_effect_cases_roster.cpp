@@ -62,9 +62,7 @@ int run_roster_tests() {
   run_effect_case_float_dropdown_lint();
   run_effect_case_manual_preset_navigation();
   run_effect_case_needs_full_frame_gate();
-#if defined(_WIN32)
   run_effect_case_column_time_scans_keep_fidelity_off_frames();
-#endif
   run_effect_case_column_time_scans_engage_with_fidelity_on();
   run_effect_case_glitch_lens_unit_norm();
   return fixture.result();

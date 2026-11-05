@@ -420,22 +420,23 @@ inline void render_capture(std::vector<Pixel> &out, int frames,
 }
 
 /**
- * @brief Folds every displayed frame of an effect rendered with temporal
- *        sampling disabled.
+ * @brief Folds every displayed frame at the selected temporal sampling mode.
  * @tparam E Effect class template, instantiated as E<W, H>.
  * @tparam W Render width in pixels.
  * @tparam H Render height in pixels.
  * @param frames Frames to render.
  * @param clip Display band {y0, y1, x0, x1} set before the first frame, or
  *        null for the full canvas.
+ * @param temporal Whether to sample columns at their emission times.
  * @return Hash, RGB totals and brightness moments of the sequence.
  */
 template <template <int, int> class E, int W, int H>
 inline PixelGolden
-untimed_frame_golden(int frames, const std::array<int, 4> *clip = nullptr) {
+untimed_frame_golden(int frames, const std::array<int, 4> *clip = nullptr,
+                     bool temporal = false) {
   reset_effect_globals();
   pin_frame_clock(0);
-  Spacetime::set_flat_surface(true);
+  Spacetime::set_flat_surface(!temporal);
   PixelGolden golden;
   {
     E<W, H> effect;

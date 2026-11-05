@@ -244,9 +244,7 @@ inline int run_effects_tests() {
   run_effect_case_galaxies_white_star_stays_white();
   run_effect_case_galaxies_emission_rate_and_capacity();
   run_effect_case_galaxies_live_particle_count();
-#if defined(_WIN32)
   run_effect_case_column_time_scans_keep_fidelity_off_frames();
-#endif
   run_effect_case_column_time_scans_engage_with_fidelity_on();
   run_effect_case_galaxies_black_hole_core_toggle();
   run_effect_case_galaxies_packed_orbits_match_float();
