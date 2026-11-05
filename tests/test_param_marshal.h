@@ -352,7 +352,6 @@ inline void check_hyper_lattice_pattern_view_dropdowns() {
       HS_EXPECT_EQ(entry.value, 6);
 }
 
-#if HS_ENABLE_PARAM_GUI_BRIDGE
 /** @brief The rendered, requested, and accepted streams retain distinct values. */
 inline void check_distinct_parameter_values() {
   struct MirroredEffect : StubEffect {
@@ -376,7 +375,6 @@ inline void check_distinct_parameter_values() {
   HS_EXPECT_EQ(views[0].requested_value, 2.0f);
   HS_EXPECT_EQ(views[0].accepted_value, 4.0f);
 }
-#endif
 
 inline void check_schema_hook_preserves_written_parameter_identity() {
   struct RebuildingHost : ParamHost {
@@ -756,9 +754,7 @@ inline int run_param_marshal_tests() {
   HS_RUN(check_generation_tracker);
   HS_RUN(check_hyper_lattice_pattern_view_dropdowns);
   HS_RUN(check_integer_float_endpoints);
-#if HS_ENABLE_PARAM_GUI_BRIDGE
   HS_RUN(check_distinct_parameter_values);
-#endif
   HS_RUN(check_schema_hook_preserves_written_parameter_identity);
   // The by-name round-trip skips effects with no editable float param.
   int rt_covered = 0, rt_total = 0, rt_skipped = 0, rt_mismatched = 0;

@@ -17,6 +17,8 @@
 
 #include "core/render/canvas.h" // Effect, Effect::ParamDef
 
+static_assert(HS_ENABLE_PARAM_GUI_BRIDGE);
+
 namespace hs_wasm {
 
 /** @brief Joins engine replacement and effect-local schema changes into one token. */
@@ -117,22 +119,12 @@ inline void collect_param_views(const Effect &effect,
                                 std::vector<ParamView> &out) {
   out.clear();
   for (const auto &def : effect.getParameters()) {
-    out.push_back(ParamView{
-        def.name,
-#if HS_ENABLE_PARAM_GUI_BRIDGE
-        def.group,
-#else
-        nullptr,
-#endif
-        def.get(), def.get_requested(), effect.accepted_parameter_value(def),
-        def.min, def.max, def.is_bool(), def.is_integer() || def.is_enum(),
-        def.animated, def.readonly, def.preset, def.options, def.option_count,
-#if HS_ENABLE_PARAM_GUI_BRIDGE
-        def.export_options,
-#else
-        nullptr,
-#endif
-        def.option_values});
+    out.push_back(
+        ParamView{def.name, def.group, def.get(), def.get_requested(),
+                  effect.accepted_parameter_value(def), def.min, def.max,
+                  def.is_bool(), def.is_integer() || def.is_enum(),
+                  def.animated, def.readonly, def.preset, def.options,
+                  def.option_count, def.export_options, def.option_values});
   }
 }
 
