@@ -137,7 +137,7 @@ inline float max_projected_gap(const std::vector<math::Vector> &points) {
     dx = std::min(dx, static_cast<float>(W) - dx);
     if (a.y < 2.0f || b.y < 2.0f || a.y > H - 3.0f || b.y > H - 3.0f)
       dx = 0.0f;
-    worst = std::max(worst, std::hypot(dx, a.y - b.y));
+    worst = fold_worst(worst, std::hypot(dx, a.y - b.y));
   }
   return worst;
 }

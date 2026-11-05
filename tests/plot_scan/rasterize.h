@@ -688,7 +688,7 @@ inline void test_rasterize_sampling_follows_world_transforms() {
     const float B =
         math::vector_to_pixel<W, H>(rendered[(i + 1) % rendered.size()]).x;
     float gap = fabsf(A - B);
-    max_gap = std::max(max_gap, std::min(gap, W - gap));
+    max_gap = fold_worst(max_gap, std::min(gap, W - gap));
   }
   HS_EXPECT_LT(max_gap, 1.1f);
   HS_EXPECT_EQ(draw(rotated, true), ROTATED);

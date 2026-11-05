@@ -19,7 +19,7 @@ inline float interpolant_departure(const Spacetime::Worldline &path,
   float worst = 0.0f;
   for (int i = 0; i <= 1000; ++i) {
     const float t = static_cast<float>(i) / 1000.0f;
-    worst = fmaxf(worst, (path.at(t) - exact(t)).magnitude());
+    worst = fold_worst(worst, (path.at(t) - exact(t)).magnitude());
   }
   return worst;
 }
@@ -34,7 +34,7 @@ inline float chord_departure(const Spacetime::Worldline &path) {
   for (int i = 0; i <= 1000; ++i) {
     const float t = static_cast<float>(i) / 1000.0f;
     const math::Vector chord = path.start + (path.end - path.start) * t;
-    worst = fmaxf(worst, (path.at(t) - chord).magnitude());
+    worst = fold_worst(worst, (path.at(t) - chord).magnitude());
   }
   return worst;
 }
@@ -395,7 +395,7 @@ inline void test_rotation_chord_bound_covers_unit_vectors() {
     const float r = sqrtf(1.0f - z * z);
     const math::Vector v(r * cosf(u * math::TWO_PI_F), z,
                          r * sinf(u * math::TWO_PI_F));
-    worst = fmaxf(worst, (a.apply(v) - b.apply(v)).magnitude());
+    worst = fold_worst(worst, (a.apply(v) - b.apply(v)).magnitude());
   }
   HS_EXPECT_LE(worst, bound);
   HS_EXPECT_GT(worst, 0.5f * bound);

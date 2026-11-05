@@ -68,8 +68,11 @@ inline void advance_turning_history(math::Orientation<> &orientation, int frame,
 inline float matrix_distance(const math::RotationMatrix &a,
                              const math::RotationMatrix &b) {
   float worst = 0.0f;
-  for (const math::Vector d : {a.r0 - b.r0, a.r1 - b.r1, a.r2 - b.r2})
-    worst = fmaxf(worst, fmaxf(fabsf(d.x), fmaxf(fabsf(d.y), fabsf(d.z))));
+  for (const math::Vector d : {a.r0 - b.r0, a.r1 - b.r1, a.r2 - b.r2}) {
+    worst = fold_worst(worst, fabsf(d.x));
+    worst = fold_worst(worst, fabsf(d.y));
+    worst = fold_worst(worst, fabsf(d.z));
+  }
   return worst;
 }
 
@@ -123,8 +126,8 @@ inline void test_pose_table_follows_history_path() {
         const float t = Spacetime::surface_time(c, width);
         const math::RotationMatrix want(orientation.get(t));
         history_error =
-            fmaxf(history_error, matrix_distance(table->at(c), want));
-        endpoint_departure = fmaxf(
+            fold_worst(history_error, matrix_distance(table->at(c), want));
+        endpoint_departure = fold_worst(
             endpoint_departure,
             matrix_distance(math::RotationMatrix(endpoints.sample(t)), want));
         HS_EXPECT_TRUE(same_matrix(table->column(c), table->at(c)));
@@ -231,9 +234,9 @@ inline void test_pose_table_rotates_between_column_times() {
       }
       if (W == 288 && c < W / 2) {
         const float between = (static_cast<float>(c) + 0.37f) / (W / 2);
-        worst = fmaxf(worst, (table->rotate(v, between) -
-                              math::rotate(v, orientation.get(between)))
-                                 .magnitude());
+        worst = fold_worst(worst, (table->rotate(v, between) -
+                                   math::rotate(v, orientation.get(between)))
+                                      .magnitude());
       }
     }
     HS_EXPECT_LT(worst, 2e-6f);
@@ -256,7 +259,7 @@ inline void test_column_poses_match_endpoint_slerp() {
         ++visited;
         const math::Quaternion want =
             arc.sample(Spacetime::SamplingSurface<W>::time(c));
-        worst = fmaxf(worst, sqrtf((pose - want).squared_magnitude()));
+        worst = fold_worst(worst, sqrtf((pose - want).squared_magnitude()));
       });
   HS_EXPECT_EQ(visited, W / 2);
   HS_EXPECT_LT(worst, 1e-6f);

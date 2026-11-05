@@ -180,8 +180,9 @@ inline void test_column_edge_quality() {
       auto shader = [&](const math::Vector &p, Fragment &f, float) {
         starts += f.v0 == 0.0f;
         ends += f.v0 == 1.0f;
-        geometry_error = fmaxf(geometry_error, fabsf(math::dot(normal, p)) *
-                                                   math::ROWS_PER_RADIAN<H>);
+        geometry_error =
+            fold_worst(geometry_error,
+                       fabsf(math::dot(normal, p)) * math::ROWS_PER_RADIAN<H>);
         f.color = Color4(Pixel(65535, 65535, 65535), 0.5f);
       };
       Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader, {},
