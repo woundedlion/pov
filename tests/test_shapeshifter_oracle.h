@@ -1621,7 +1621,7 @@ inline void write_shapeshifter_preset_hashes() {
     for (size_t preset = 0; preset < ShapeShifterWhiteBox::PRESET_COUNT;
          ++preset) {
       replay_seed();
-      uint64_t hash = 14695981039346656037ull;
+      uint64_t hash = hs_test::HASH_SEED64;
       {
         OracleEffect effect;
         effect.init();
