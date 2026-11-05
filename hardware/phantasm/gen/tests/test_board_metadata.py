@@ -188,6 +188,19 @@ class BoardMetadataTests(unittest.TestCase):
                                     "Edge.Cuts graphics inside footprint: Board:Outline"):
             board_metadata._outline_bounds(root)
 
+    def test_rejects_footprint_level_edge_cuts_curve(self):
+        """Board edges drawn as footprint graphics would under-report bounds."""
+        root = board_metadata.sexp.parse("""
+            (kicad_pcb
+              (gr_rect (start 0 0) (end 4 4) (layer "Edge.Cuts"))
+              (footprint "Board:Outline"
+                (layer "F.Cu")
+                (fp_curve (pts (xy 0 0) (xy 20 0) (xy 40 0) (xy 60 0)) (layer "Edge.Cuts"))))
+        """)[0]
+        with self.assertRaisesRegex(board_metadata.MetadataError,
+                                    "Edge.Cuts graphics inside footprint: Board:Outline"):
+            board_metadata._outline_bounds(root)
+
     def test_footprint_graphics_off_edge_cuts_do_not_reject(self):
         root = board_metadata.sexp.parse("""
             (kicad_pcb

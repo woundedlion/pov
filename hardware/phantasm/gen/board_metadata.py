@@ -87,7 +87,7 @@ def _check_no_footprint_outline(root):
     _outline_bounds() reads top-level gr_* nodes only, so an outline drawn as
     footprint graphics would measure as a smaller board or as none at all.
     """
-    graphics = {"fp_line", "fp_rect", "fp_poly", "fp_arc", "fp_circle"}
+    graphics = {"fp_line", "fp_rect", "fp_poly", "fp_arc", "fp_circle", "fp_curve"}
     offenders = []
     for footprint in F(root, "footprint"):
         name = str(footprint[1]) if len(footprint) > 1 else "?"
