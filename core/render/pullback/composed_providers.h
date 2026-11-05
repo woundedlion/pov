@@ -881,9 +881,20 @@ struct ModulationProvider {
                 !resource.previous_modulation->cube.active ||
                 !resource.modulation->cube.active)
               return result;
-            result.cube_previous = &resource.previous_modulation->cube;
             result.cube_current = &resource.modulation->cube;
-            result.cube_fraction = frame.temporal.fraction;
+            const auto &PREVIOUS = resource.previous_modulation->cube;
+            const auto &CURRENT = resource.modulation->cube;
+            const float FRACTION = frame.temporal.fraction;
+            if (FRACTION == 0.0f)
+              result.cube_current = &PREVIOUS;
+            else if (FRACTION != 1.0f &&
+                     !(PREVIOUS.data == CURRENT.data &&
+                       PREVIOUS.linear_data == CURRENT.linear_data) &&
+                     !Modulation::same_field(*resource.previous_modulation,
+                                             *resource.modulation)) {
+              result.cube_previous = &PREVIOUS;
+              result.cube_fraction = FRACTION;
+            }
             result.ready = true;
             return result;
           }
