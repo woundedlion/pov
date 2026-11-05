@@ -333,11 +333,11 @@ inline void test_pullback_carrier_contract() {
   static_assert(offsetof(Pullback::FieldSample, sphere) == 8);
   static_assert(offsetof(Pullback::FieldSample, path_length) == 20);
 
-  static_assert(Pullback::family_of<Pullback::SphereSample> == 0);
-  static_assert(Pullback::family_of<Pullback::PlaneSample> == 1);
-  static_assert(Pullback::family_of<Pullback::FieldSample> == 2);
-  static_assert(Pullback::family_of<Pullback::ColorSample> == 3);
-  static_assert(Pullback::family_of<NotACarrier> ==
+  static_assert(Pullback::FAMILY_OF<Pullback::SphereSample> == 0);
+  static_assert(Pullback::FAMILY_OF<Pullback::PlaneSample> == 1);
+  static_assert(Pullback::FAMILY_OF<Pullback::FieldSample> == 2);
+  static_assert(Pullback::FAMILY_OF<Pullback::ColorSample> == 3);
+  static_assert(Pullback::FAMILY_OF<NotACarrier> ==
                 Pullback::FOREIGN_FAMILY_RANK);
   static_assert(Pullback::CanonicalCarrier<Pullback::SphereSample>);
   static_assert(Pullback::CanonicalCarrier<Pullback::ColorSample>);
@@ -654,8 +654,8 @@ inline void test_pullback_public_surface() {
   static_assert(std::is_same_v<TestPipeline::FrameState, TestFrame>);
   static_assert(std::is_same_v<TestPipeline::StageAt<0>, EntryStage>);
   static_assert(std::is_same_v<TestPipeline::StageAt<5>, ColorCrossingStage>);
-  static_assert(TestPipeline::any_stage<IsCrossingStage>);
-  static_assert(!TestPipeline::any_stage<NoStageMatches>);
+  static_assert(TestPipeline::ANY_STAGE<IsCrossingStage>);
+  static_assert(!TestPipeline::ANY_STAGE<NoStageMatches>);
   static_assert(std::is_same_v<TestPipeline::StageMatching<IsColorStage>,
                                ColorCrossingStage>);
   static_assert(

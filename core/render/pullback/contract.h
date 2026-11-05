@@ -298,7 +298,7 @@ template <size_t Index, typename... Ts> struct TypeAt<Index, TypeList<Ts...>> {
 using CarrierList =
     Detail::TypeList<SphereSample, PlaneSample, FieldSample, ColorSample>;
 
-/** Sentinel rank of a type outside the carrier set; keeps family_of total. */
+/** Sentinel rank of a type outside the carrier set; keeps FAMILY_OF total. */
 inline constexpr size_t FOREIGN_FAMILY_RANK = static_cast<size_t>(-1);
 
 namespace Detail {
@@ -326,7 +326,7 @@ struct FamilyRank<T, TypeList<Carriers...>> {
  *        Field 2, Color 3. Total: a nonmember yields the sentinel rank.
  */
 template <typename T>
-inline constexpr size_t family_of = Detail::FamilyRank<T, CarrierList>::VALUE;
+inline constexpr size_t FAMILY_OF = Detail::FamilyRank<T, CarrierList>::VALUE;
 
 /** @brief Membership in the closed carrier set. */
 template <typename T>
@@ -2175,10 +2175,10 @@ public:
     using Projection =
         typename Detail::ColumnPrefix<NodeList>::ProjectionLeaf::Type;
     using Policy = typename Projection::ProjectionPolicy;
-    ColumnBasis ROTATED;
-    rotation_column_basis(frame, cosine, sine, ROTATED.equator, ROTATED.up);
-    return {math::rotate(ROTATED.equator, Policy::frame_conjugate(frame.ctx)),
-            math::rotate(ROTATED.up, Policy::frame_conjugate(frame.ctx))};
+    ColumnBasis rotated;
+    rotation_column_basis(frame, cosine, sine, rotated.equator, rotated.up);
+    return {math::rotate(rotated.equator, Policy::frame_conjugate(frame.ctx)),
+            math::rotate(rotated.up, Policy::frame_conjugate(frame.ctx))};
   }
 
   /** @brief Shades a latitude using the factored rotation prefix.
@@ -2295,7 +2295,7 @@ public:
 
   /** @brief Whether any leaf stage satisfies @p Predicate. */
   template <template <typename> class Predicate>
-  static constexpr bool any_stage =
+  static constexpr bool ANY_STAGE =
       Detail::LeafOps<LeafList>::template ANY<Predicate>;
 
   /** @brief The first leaf stage satisfying @p Predicate, or void. */
