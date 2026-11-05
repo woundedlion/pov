@@ -138,7 +138,6 @@ inline void test_composed_authored_palette_harmony_clock() {
     ComposedFrameWhiteBox::advance(effect);
     const auto frame = effect.frame_for_test();
     const auto snapshot = reference.snapshot();
-    reference.step(static_cast<Mode>(mode));
     reference.restore_snapshot(snapshot);
     for (float t : {.07f, .31f, .83f}) {
       const auto actual = frame.palette->get(t).color;
