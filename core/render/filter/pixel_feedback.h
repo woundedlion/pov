@@ -1201,7 +1201,7 @@ private:
     // The last pair's right neighbour wraps onto the first sample, which the
     // loop overwrites first.
     const ::Pixel first = output[begin];
-    ::Pixel previous = full_row ? output[W - 2 + (W & 1)] : first;
+    ::Pixel previous = full_row ? output[W - 2] : first;
     for (int x = begin; x < end; x += 2) {
       const ::Pixel own = output[x];
       const ::Pixel next = x + 2 < end ? output[x + 2] : full_row ? first : own;
