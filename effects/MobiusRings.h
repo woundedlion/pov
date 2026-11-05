@@ -276,18 +276,18 @@ private:
       ScratchScope frag_guard(scratch_arena_a);
       Curve curve = curve_fn(i);
 
-      Fragments m_fragments;
+      Fragments fragments;
       // Polygon::sample emits CURVE_SIDES + 1 points (one closing overlap).
-      m_fragments.bind(scratch_arena_a, CURVE_SIDES + 2);
+      fragments.bind(scratch_arena_a, CURVE_SIDES + 2);
       Plot::Polygon<Plot::GeodesicProjection>::sample(
-          m_fragments, curve.basis, curve.radius, CURVE_SIDES);
+          fragments, curve.basis, curve.radius, CURVE_SIDES);
 
       // Warp the sampled points in place; v0 carries the polyline parameter and
       // the sampler's arc-length/index registers are unused here.
-      size_t n = m_fragments.size();
+      size_t n = fragments.size();
       for (size_t k = 0; k < n; ++k) {
-        math::Vector transformed = mobius_gen.transform(m_fragments[k].pos);
-        Fragment &f = m_fragments[k];
+        math::Vector transformed = mobius_gen.transform(fragments[k].pos);
+        Fragment &f = fragments[k];
         f.pos = math::normalized_or(math::rotate(transformed, q),
                                     math::Vector(1, 0, 0));
         f.v1 = 0.0f;
@@ -300,7 +300,7 @@ private:
 
       // Polygon::sample closes the ring with an overlap vertex, so the seam
       // pixel belongs to the opening segment.
-      Plot::rasterize<W, H>(filters, canvas, m_fragments, fragment_shader,
+      Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader,
                             {.omit_end = true});
     }
   }
@@ -423,12 +423,11 @@ private:
                                0.0f, 1.0f));
     const auto warp_path =
         Spacetime::PathBound::warped_great_circle(0, shift, reach);
-    const float speed = turn + 2.0f * shift;
-    const Spacetime::PathBound bound{warp_path.second + turn * turn +
-                                         4.0f * turn * shift,
-                                     warp_path.third + speed * speed * speed +
-                                         3.0f * turn * warp_path.second};
-    const float displacement = turn + 2.0f * shift;
+    const float motion = turn + 2.0f * shift;
+    const Spacetime::PathBound bound{
+        warp_path.second + turn * turn + 4.0f * turn * shift,
+        warp_path.third + motion * motion * motion +
+            3.0f * turn * warp_path.second};
     const float phase_delta = std::remainder(end.phase - start.phase, 1.0f);
     auto &sink = filters.template after<SouthHole>();
     for (int axis = 0; axis < 2; ++axis) {
@@ -474,7 +473,7 @@ private:
               bound.second + 2.0f * source_path.second,
               bound.third + 4.0f * source_path.third + rate * rate * rate};
           const float curve_displacement =
-              displacement + fabsf(source_rate) * (2.0f + reach * reach);
+              motion + fabsf(source_rate) * (2.0f + reach * reach);
           auto ring_basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
           if (axis == 0 && CONFORMAL_LOG_MIN + last * (CONFORMAL_LOG_MAX -
                                                        CONFORMAL_LOG_MIN) <

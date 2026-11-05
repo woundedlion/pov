@@ -659,8 +659,7 @@ private:
     const Spacetime::PoseTable &poses = *timed_filters.pose_table(canvas);
     const math::RotationMatrix start_pose = poses.at(0);
     const math::RotationMatrix end_pose = poses.at(poses.times());
-    if constexpr (requires { filters.prepare(canvas); })
-      filters.prepare(canvas);
+    filters.prepare(canvas);
     Plot::PointRoute<W, H> points_route;
     points_route.prepare(canvas, stretch * cap + 2.0f * shift + spin);
 
