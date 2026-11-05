@@ -62,23 +62,27 @@ struct DynamoTemporalOracle {
         component(v.z, double(axis.x) * v.y - double(axis.y) * v.x, axis.z)};
   }
 
-  /** @brief Renders the timed draw or independently placed frozen geometry.
+  /** @brief Inputs for a timed draw or independently placed frozen geometry. */
+  struct RenderOptions {
+    bool timed;             /**< Select production column-time rendering. */
+    float fraction = 0;     /**< Reference frame fraction. */
+    float displacement = 0; /**< Reference displacement in physical pixels. */
+    float start = 0;        /**< Source strand's starting column. */
+    float spin = 0.018f;    /**< Frame rotation in radians. */
+    bool replay = false;    /**< Select stored samples instead of live edges. */
+    bool fresh = false;     /**< Hold the frame at its endpoint. */
+    bool clipped = false;   /**< Force a segment clip. */
+    bool reset =
+        false; /**< Draw motion before resetting orientation history. */
+  };
+  /** @brief Renders a strand from explicit scenario inputs.
    * @tparam W,H Display dimensions.
-   * @param timed Selects production column-time rendering.
-   * @param fraction Reference frame fraction.
-   * @param displacement Reference displacement in physical pixels.
-   * @param start Source strand's starting column.
-   * @param spin Frame rotation, radians.
-   * @param replay Selects stored samples instead of live edges.
-   * @param fresh Holds the frame at its endpoint, as on initialization or reset.
-   * @param clipped Forces a segment clip for the reference comparison.
-   * @param reset Draws a moving frame before resetting orientation history.
+   * @param options Scenario inputs.
    * @return Linear framebuffer luminance. */
   template <int W, int H>
-  static std::vector<float> render(bool timed, float fraction,
-                                   float displacement, float start, float spin,
-                                   bool replay, bool fresh = false,
-                                   bool clipped = false, bool reset = false) {
+  static std::vector<float> render(const RenderOptions &options) {
+    const auto &[timed, fraction, displacement, start, spin, replay, fresh,
+                 clipped, reset] = options;
     reset_effect_globals();
     Dynamo<W, H> effect;
     effect.init();
@@ -189,8 +193,12 @@ struct DynamoTemporalOracle {
           HS_CONTEXT("spin_milliradians", std::lround(spin * 1000.0f));
           auto render_scene = [=](bool timed, float fraction,
                                   float displacement) {
-            return render<W, H>(timed, fraction, displacement, start, spin,
-                                replay);
+            return render<W, H>({.timed = timed,
+                                 .fraction = fraction,
+                                 .displacement = displacement,
+                                 .start = start,
+                                 .spin = spin,
+                                 .replay = replay});
           };
           char name[64];
           std::snprintf(name, sizeof(name), "Dynamo %dx%d %s", W, H,
@@ -209,15 +217,28 @@ inline void test_dynamo_column_time_oracle() {
   for (bool replay : {false, true}) {
     auto render = [=](bool timed, float fraction, float displacement) {
       return DynamoTemporalOracle::render<288, 144>(
-          timed, fraction, displacement, 0.0f, 0.018f, replay, false, true);
+          {.timed = timed,
+           .fraction = fraction,
+           .displacement = displacement,
+           .start = 0.0f,
+           .spin = 0.018f,
+           .replay = replay,
+           .fresh = false,
+           .clipped = true});
     };
     hs_test::seam_compare_render<288, 144>(render,
                                            replay ? "Dynamo forced-clip replay"
                                                   : "Dynamo forced-clip live");
   }
   Spacetime::geometry_counters = {};
-  DynamoTemporalOracle::render<288, 144>(true, 1.0f, 0.0f, 0.0f, 0.018f, false,
-                                         false, true);
+  DynamoTemporalOracle::render<288, 144>({.timed = true,
+                                          .fraction = 1.0f,
+                                          .displacement = 0.0f,
+                                          .start = 0.0f,
+                                          .spin = 0.018f,
+                                          .replay = false,
+                                          .fresh = false,
+                                          .clipped = true});
   const auto &work = Spacetime::geometry_counters;
   HS_EXPECT_GT(work.column_history_visits, 0u);
   std::printf("  [Dynamo forced clip] callback evaluations=%u samples=%u "
@@ -246,15 +267,41 @@ inline void expect_frozen_dynamo_frame(std::span<const float> actual,
 /** @brief Initialization and orientation reset hold the strand at the current endpoint. */
 inline void test_dynamo_column_time_first_frame_and_reset() {
   for (bool replay : {false, true}) {
-    const auto expected = DynamoTemporalOracle::render<96, 20>(
-        false, 0.0f, 0.0f, 0.0f, 0.018f, replay, true);
-    const auto actual = DynamoTemporalOracle::render<96, 20>(
-        true, 0.0f, 0.0f, 0.0f, 0.018f, replay, true);
+    const auto expected =
+        DynamoTemporalOracle::render<96, 20>({.timed = false,
+                                              .fraction = 0.0f,
+                                              .displacement = 0.0f,
+                                              .start = 0.0f,
+                                              .spin = 0.018f,
+                                              .replay = replay,
+                                              .fresh = true});
+    const auto actual =
+        DynamoTemporalOracle::render<96, 20>({.timed = true,
+                                              .fraction = 0.0f,
+                                              .displacement = 0.0f,
+                                              .start = 0.0f,
+                                              .spin = 0.018f,
+                                              .replay = replay,
+                                              .fresh = true});
     expect_frozen_dynamo_frame(actual, expected);
   }
-  const auto expected = DynamoTemporalOracle::render<96, 20>(
-      false, 0.0f, 0.0f, 0.0f, 0.018f, false, true);
-  const auto actual = DynamoTemporalOracle::render<96, 20>(
-      true, 0.0f, 0.0f, 0.0f, 0.018f, false, true, false, true);
+  const auto expected =
+      DynamoTemporalOracle::render<96, 20>({.timed = false,
+                                            .fraction = 0.0f,
+                                            .displacement = 0.0f,
+                                            .start = 0.0f,
+                                            .spin = 0.018f,
+                                            .replay = false,
+                                            .fresh = true});
+  const auto actual =
+      DynamoTemporalOracle::render<96, 20>({.timed = true,
+                                            .fraction = 0.0f,
+                                            .displacement = 0.0f,
+                                            .start = 0.0f,
+                                            .spin = 0.018f,
+                                            .replay = false,
+                                            .fresh = true,
+                                            .clipped = false,
+                                            .reset = true});
   expect_frozen_dynamo_frame(actual, expected);
 }
