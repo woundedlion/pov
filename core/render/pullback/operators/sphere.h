@@ -8,6 +8,8 @@
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 
+#include <string_view>
+
 #include "core/math/mobius.h"
 
 #include "core/render/pullback/lens.h"
@@ -134,9 +136,13 @@ struct RippleChainParams : SphereAnimation::BurstRippleParams {
     auto fields = concat_fields<RippleChainParams>(
         SphereAnimation::BurstRippleParams::FIELDS,
         std::array<Field<RippleChainParams>, 0>{});
-    fields[0].name = "Ripple Duration";
-    fields[4].topology_gate = {"random-center", live_values(0)};
-    fields[5].topology_gate = {"random-center", live_values(0)};
+    for (auto &field : fields) {
+      const std::string_view ID = field.id;
+      if (ID == "period")
+        field.name = "Ripple Duration";
+      else if (ID == "center-azimuth" || ID == "center-polar")
+        field.topology_gate = {"random-center", live_values(0)};
+    }
     return fields;
   }();
   /** Ripple count choices. */
