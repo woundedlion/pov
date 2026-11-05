@@ -15,6 +15,8 @@ def mojibake_lines(text: str) -> list[int]:
     """Return line numbers containing a reversible non-ASCII run."""
     lines = []
     for number, line in enumerate(text.splitlines(), 1):
+        if line.isascii():
+            continue
         projected = bytearray()
         for char in line:
             if ord(char) in {0x81, 0x8D, 0x8F, 0x90, 0x9D}:
