@@ -46,7 +46,7 @@ namespace effects_tests {
 /** @brief Runs an effect case from the fixture random stream.
  * @param test Case entry point. */
 inline void run_case(auto test) {
-  hs::random().seed(FIXTURE_SEED);
+  reset_globals();
   test();
 }
 
