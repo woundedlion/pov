@@ -52,6 +52,23 @@ class EncodingCheckTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stderr, b"")
 
+    def test_gate_rejects_invalid_utf8_text_and_skips_binary_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            git_run(root, "init", "-q")
+            (root / "tracked.json").write_bytes(b'{"name": "caf\xe9"}\n')
+            (root / "binary.bin").write_bytes(b"\0\xff")
+            git_run(root, "add", "--", "tracked.json", "binary.bin")
+            result = subprocess.run([sys.executable, str(TOOL), "--root", str(root)],
+                                    capture_output=True, env=isolated_env())
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertEqual(result.stderr.splitlines(), [b"tracked.json:1: not valid UTF-8"])
+            (root / "tracked.json").write_text('{"name": "caf\u00e9"}\n', encoding="utf-8")
+            result = subprocess.run([sys.executable, str(TOOL), "--root", str(root)],
+                                    capture_output=True, env=isolated_env())
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stderr, b"")
+
     def test_gate_reads_only_tracked_text(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

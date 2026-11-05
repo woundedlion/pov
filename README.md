@@ -1730,7 +1730,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── clang_format_gate.sh    Tracked first-party C++ selection + clang-format run behind `just clang-format`
 │   ├── eol_gate.sh             Working-copy line endings against the `eol` attribute `.gitattributes` declares, and LF index blobs (CI, `just lint`)
 │   ├── whitespace_gate.sh      Tracked whitespace check shared by CI and `just lint`
-│   ├── encoding_check.py       Rejects reversible cp1252 mojibake in tracked UTF-8 text (`just lint`)
+│   ├── encoding_check.py       Rejects invalid UTF-8 and reversible cp1252 mojibake in tracked text (`just lint`)
 │   ├── encoding_tests/         Encoding gate regression tests
 │   ├── commit_checks.sh        The pre-commit hook's checks, over the index or a commit range's net change
 │   ├── teensy_gate.py          Size + memory-layout gate parser/classifier (toolchain-free)

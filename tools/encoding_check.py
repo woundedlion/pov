@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reject reversible cp1252 mojibake in tracked UTF-8 text."""
+"""Reject invalid UTF-8 and reversible cp1252 mojibake in tracked text."""
 
 from __future__ import annotations
 
@@ -52,6 +52,8 @@ def main() -> int:
         try:
             text = data.decode("utf-8")
         except UnicodeDecodeError:
+            print(f"{name}:1: not valid UTF-8", file=sys.stderr)
+            failed = True
             continue
         for line in mojibake_lines(text):
             print(f"{name}:{line}: reversible cp1252 mojibake", file=sys.stderr)
