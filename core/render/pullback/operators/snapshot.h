@@ -162,8 +162,8 @@ template <> struct RuntimeStateCodec<Op::FieldPhaseState> {
   static bool restore(Op::FieldPhaseState &state,
                       const RuntimeSnapshot &snapshot) {
     const auto *value = std::get_if<SourceClockSnapshot>(&snapshot);
-    if (!value || !std::isfinite(value->primary) ||
-        fabsf(value->primary) >= math::TWO_PI_F)
+    if (!value || !Detail::snapshot_angle(value->primary) ||
+        value->secondary != 0.0f || value->angle != 0.0f)
       return false;
     state.phase = value->primary;
     return true;

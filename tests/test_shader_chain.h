@@ -666,6 +666,13 @@ inline void test_shader_chain_snapshot_refusals() {
   In::Op::WarpPhaseState warp_state;
   HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::WarpPhaseState>::restore(
       warp_state, In::PhaseClockSnapshot{1.0f}));
+  for (const auto &value : {In::SourceClockSnapshot{0.25f, 1.0f, 0.0f},
+                            In::SourceClockSnapshot{0.25f, 0.0f, 1.0f}}) {
+    In::Op::FieldPhaseState field_state{.phase = 0.5f};
+    HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::FieldPhaseState>::restore(
+        field_state, value));
+    HS_EXPECT_EQ(field_state.phase, 0.5f);
+  }
   In::Op::RipplePhaseState ripple_state;
   HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::RipplePhaseState>::restore(
       ripple_state, In::RippleClockSnapshot{-1.0f}));
