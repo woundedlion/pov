@@ -67,6 +67,19 @@ inline math::Vector configured_kaleidoscope(const math::Vector &input,
   }
 }
 
+/** @brief Folds a direction by authored angular multipliers.
+ * @param input Unit direction.
+ * @param params Angular multipliers.
+ * @return Folded direction. */
+inline math::Vector configured_glitch(const math::Vector &input,
+                                      const GlitchParams &params) {
+  if (params.polar_multiplier == 2.0f && params.azimuth_multiplier == 3.0f)
+    return lenses::glitch_lens(input);
+  return math::Vector::from_spherical(
+      atan2f(input.z, input.x) * params.azimuth_multiplier,
+      acosf(hs::clamp(input.y, -1.0f, 1.0f)) * params.polar_multiplier);
+}
+
 /** @brief Glitch lens with authored angular multipliers.
  * @tparam State Keyed lens provider. */
 template <typename State> struct ConfiguredGlitch : ApproximationDefaults {
@@ -76,12 +89,7 @@ template <typename State> struct ConfiguredGlitch : ApproximationDefaults {
    * @return Folded direction. */
   static math::Vector apply(const math::Vector &input,
                             const typename State::FrameState &frame) {
-    const auto &params = State::params(frame);
-    if (params.polar_multiplier == 2.0f && params.azimuth_multiplier == 3.0f)
-      return lenses::glitch_lens(input);
-    return math::Vector::from_spherical(
-        atan2f(input.z, input.x) * params.azimuth_multiplier,
-        acosf(hs::clamp(input.y, -1.0f, 1.0f)) * params.polar_multiplier);
+    return configured_glitch(input, State::params(frame));
   }
 };
 

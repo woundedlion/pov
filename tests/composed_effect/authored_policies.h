@@ -418,45 +418,6 @@ inline void test_authored_projection_bindings_match_operators() {
   verify_authored_projection<ProjectionKind::ICOSAHEDRAL, ProjectIcosahedral>();
 }
 
-/** @brief Keyed lenses preserve every symmetry and authored angle multiplier. */
-inline void test_authored_lens_bindings_match_operators() {
-  using namespace Pullback;
-  using Params = ComposedDetail::ParameterSet<ComposedDetail::ResourceList<
-      ParameterResource<"glitch", Lens::GlitchParams, ResourceKind::LENS>,
-      ParameterResource<"symmetry", Lens::KaleidoscopeParams,
-                        ResourceKind::LENS>>>;
-  using Frame = FrameState<Params>;
-  using Glitch = Lens::ConfiguredGlitch<
-      KeyedLensProvider<Binding<Frame>, Lens::GlitchParams, "glitch">>;
-  using Kaleidoscope = Lens::ConfiguredKaleidoscope<
-      KeyedLensProvider<Binding<Frame>, Lens::KaleidoscopeParams, "symmetry">>;
-  Frame frame{};
-  const auto INPUT = math::Vector(0.39f, -0.57f, 0.72f).normalized();
-  for (uint8_t symmetry = 0; symmetry < 9; ++symmetry) {
-    frame.params.template get<"symmetry">().symmetry = symmetry;
-    const auto ACTUAL = Kaleidoscope::apply(INPUT, frame);
-    const auto EXPECTED = Interp::Op::kaleidoscope_lens(INPUT, symmetry);
-    HS_EXPECT_NEAR(ACTUAL.x, EXPECTED.x, 1e-6f);
-    HS_EXPECT_NEAR(ACTUAL.y, EXPECTED.y, 1e-6f);
-    HS_EXPECT_NEAR(ACTUAL.z, EXPECTED.z, 1e-6f);
-  }
-  for (float polar : {2.0f, -1.5f})
-    for (float azimuth : {3.0f, 4.25f}) {
-      auto &params = frame.params.template get<"glitch">();
-      params.polar_multiplier = polar;
-      params.azimuth_multiplier = azimuth;
-      const auto ACTUAL = Glitch::apply(INPUT, frame);
-      Interp::Op::GlitchChainParams reference;
-      reference.polar_multiplier = polar;
-      reference.azimuth_multiplier = azimuth;
-      const auto EXPECTED =
-          Interp::Op::LensGlitch::run({INPUT, 0}, {}, reference, {}).dir;
-      HS_EXPECT_NEAR(ACTUAL.x, EXPECTED.x, 1e-6f);
-      HS_EXPECT_NEAR(ACTUAL.y, EXPECTED.y, 1e-6f);
-      HS_EXPECT_NEAR(ACTUAL.z, EXPECTED.z, 1e-6f);
-    }
-}
-
 /** @brief Composed fixture with a flexible modulation recipe. */
 struct DynamicModulationControlsSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = false;

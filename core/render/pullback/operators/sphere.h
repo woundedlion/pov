@@ -236,13 +236,7 @@ struct LensGlitch : StatelessModel {
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &params, const Prepared &) {
-    if (params.polar_multiplier == 2.0f && params.azimuth_multiplier == 3.0f)
-      return Kernel::lens(input, lenses::glitch_lens(input.dir));
-    const float polar =
-        acosf(hs::clamp(input.dir.y, -1.0f, 1.0f)) * params.polar_multiplier;
-    const float azimuth =
-        atan2f(input.dir.z, input.dir.x) * params.azimuth_multiplier;
-    return Kernel::lens(input, math::Vector::from_spherical(azimuth, polar));
+    return Kernel::lens(input, Lens::configured_glitch(input.dir, params));
   }
 };
 
@@ -366,35 +360,6 @@ using KaleidoscopeChainParams = Lens::KaleidoscopeParams;
 static_assert(field_ids_unique<KaleidoscopeChainParams>());
 static_assert(field_defaults_in_range<KaleidoscopeChainParams>());
 
-/** @brief The symmetry switch over the shared kaleidoscope lens kernels.
- *  @param input Unit sphere direction.
- *  @param symmetry Checked `KaleidoscopeSymmetry` value.
- *  @return The folded direction. */
-inline math::Vector kaleidoscope_lens(const math::Vector &input,
-                                      uint8_t symmetry) {
-  switch (static_cast<KaleidoscopeSymmetry>(symmetry)) {
-  case KaleidoscopeSymmetry::TETRAHEDRAL:
-    return Lens::TetrahedralKaleidoscope::apply(input, 0);
-  case KaleidoscopeSymmetry::OCTAHEDRAL:
-    return Lens::OctahedralKaleidoscope::apply(input, 0);
-  case KaleidoscopeSymmetry::DODECAHEDRAL:
-    return lenses::dodecahedral_kaleidoscope_lens(input);
-  case KaleidoscopeSymmetry::TRIANGULAR_PRISM:
-    return Lens::TriangularPrismKaleidoscope::apply(input, 0);
-  case KaleidoscopeSymmetry::SQUARE_PRISM:
-    return Lens::SquarePrismKaleidoscope::apply(input, 0);
-  case KaleidoscopeSymmetry::PENTAGONAL_PRISM:
-    return Lens::PentagonalPrismKaleidoscope::apply(input, 0);
-  case KaleidoscopeSymmetry::HEXAGONAL_PRISM:
-    return Lens::HexagonalPrismKaleidoscope::apply(input, 0);
-  case KaleidoscopeSymmetry::OCTAGONAL_PRISM:
-    return Lens::OctagonalPrismKaleidoscope::apply(input, 0);
-  case KaleidoscopeSymmetry::AZIMUTHAL:
-    break;
-  }
-  return lenses::kaleidoscope_lens(input);
-}
-
 /** @brief SPHERE endomorphism: the kaleidoscope lens under a symmetry
     topology. */
 struct LensKaleidoscope : StatelessModel {
@@ -414,7 +379,8 @@ struct LensKaleidoscope : StatelessModel {
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &params, const Prepared &) {
-    return Kernel::lens(input, kaleidoscope_lens(input.dir, params.symmetry));
+    return Kernel::lens(
+        input, Lens::configured_kaleidoscope(input.dir, params.symmetry));
   }
 };
 

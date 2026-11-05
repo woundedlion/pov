@@ -1299,7 +1299,6 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_authored_surface_noise_topology);
   HS_RUN(test_authored_dynamic_modulation_storage);
   HS_RUN(test_authored_projection_bindings_match_operators);
-  HS_RUN(test_authored_lens_bindings_match_operators);
   HS_RUN(test_authored_dynamic_modulation_controls);
   HS_RUN(test_authored_potential_nested_controls);
   HS_RUN(test_authored_noise_seed_identity);
