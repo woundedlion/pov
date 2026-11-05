@@ -315,6 +315,17 @@ class InlinePins(unittest.TestCase):
 class UnreadableScannedFile(unittest.TestCase):
     """A renamed scanned path is an error line, not a traceback out of the hook."""
 
+    def test_non_utf8_scanned_source_is_reported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "bad.yml"
+            source.write_bytes(b"# caf\xe9\n")
+            errors = []
+            with unittest.mock.patch.object(bp, "ROOT", root):
+                self.assertIsNone(bp.read_scanned(source, errors))
+            self.assertEqual(len(errors), 1)
+            self.assertTrue(errors[0].startswith("bad.yml: cannot be read"))
+
     def test_a_missing_inline_scan_entry_is_reported(self):
         missing = bp.ROOT / "no-such-build-file.yml"
         with unittest.mock.patch.object(bp, "INLINE_SCAN", (missing,)):

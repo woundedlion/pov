@@ -60,7 +60,7 @@ def check_includes(root: Path, files: list[str]) -> list[str]:
         path = root / name
         try:
             text = path.read_text(encoding="utf-8")
-        except OSError as exc:
+        except (OSError, UnicodeError) as exc:
             diagnostics.append(f"{name}:1: cannot read source ({exc})")
             continue
         text = COMMENTS.sub(lambda match: "\n" * match.group().count("\n"), text)

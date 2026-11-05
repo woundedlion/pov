@@ -142,6 +142,12 @@ class IncludePathsTests(unittest.TestCase):
         path.write_text('/* INCLUDE tests/forbidden.ld */\n', encoding="utf-8")
         self.assertEqual(include_paths.check_includes(self.root, files), [])
 
+    def test_non_utf8_tracked_source_is_diagnosed(self):
+        (self.root / "effects/sample.h").write_bytes(b"// caf\xe9\n")
+        diagnostics = include_paths.check_includes(self.root, self.files)
+        self.assertEqual(len(diagnostics), 1)
+        self.assertTrue(diagnostics[0].startswith("effects/sample.h:1: cannot read source"))
+
     def test_missing_tracked_source_is_diagnosed(self):
         diagnostics = include_paths.check_includes(self.root, self.files)
         self.assertEqual(len(diagnostics), 1)

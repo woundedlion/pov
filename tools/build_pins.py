@@ -321,7 +321,7 @@ def read_scanned(path: Path, errors: list[str]) -> str | None:
     """Read scanned text, or return None and record the read failure in errors."""
     try:
         return path.read_text(encoding="utf-8")
-    except OSError as error:
+    except (OSError, UnicodeError) as error:
         errors.append(f"{path.relative_to(ROOT)}: cannot be read ({error})")
         return None
 
