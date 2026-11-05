@@ -197,27 +197,29 @@ class CommittedSchematicTests(BypassConnectionChecks, unittest.TestCase):
 
     def test_teensy_control_pins_match_the_firmware(self):
         firmware = (GEN.parents[1] / "pov_segmented.h").read_text(encoding="utf-8")
-        board_rev = board.B.REVISION.replace(".", "")
 
-        def firmware_pin(name):
+        def firmware_pin(name, revision):
             m = re.search(rf"static constexpr int {name} =\s*([^;]+);", firmware)
             self.assertIsNotNone(m, f"{name} not found in hardware/pov_segmented.h")
             expr = m[1].strip()
             by_rev = re.fullmatch(r"HS_PHANTASM_BOARD_REV == (\d+) \? (\d+) : (\d+)", expr)
             if by_rev:
-                return by_rev[2] if by_rev[1] == board_rev else by_rev[3]
+                return by_rev[2] if by_rev[1] == revision.replace(".", "") else by_rev[3]
             self.assertRegex(expr, r"^\d+$", f"{name} = {expr} is not a pin number")
             return expr
 
-        positions = pin_positions(self.root)
-        named, wires, _ = shorts.geometry(self.root)
-        for net, constant in (("ID0", "PIN_ID0"), ("ID1", "PIN_ID1"), ("ID2", "PIN_ID2"),
-                              ("FRAME_SYNC", "PIN_SYNC_RX"), ("SYNC_TX", "PIN_SYNC_TX"),
-                              ("MASTER_EN", "PIN_MASTER_EN")):
-            with self.subTest(net=net):
-                pad = positions["U_MCU", firmware_pin(constant)]
-                ends = {b if a == pad else a for a, b in wires if pad in (a, b)}
-                self.assertIn(net, set().union(*(named.get(end, set()) for end in ends)))
+        for revision in ("1.1", "1.2"):
+            root = sexp.parse_one((GEN.parent / revision / "phantasm.kicad_sch").read_text(encoding="utf-8"))
+            positions = pin_positions(root)
+            named, wires, _ = shorts.geometry(root)
+            tx_net = "FRAME_SYNC" if revision == "1.1" else "SYNC_TX"
+            for net, constant in (("ID0", "PIN_ID0"), ("ID1", "PIN_ID1"), ("ID2", "PIN_ID2"),
+                                  ("FRAME_SYNC", "PIN_SYNC_RX"), (tx_net, "PIN_SYNC_TX"),
+                                  ("MASTER_EN", "PIN_MASTER_EN")):
+                with self.subTest(revision=revision, net=net):
+                    pad = positions["U_MCU", firmware_pin(constant, revision)]
+                    ends = {b if a == pad else a for a, b in wires if pad in (a, b)}
+                    self.assertIn(net, set().union(*(named.get(end, set()) for end in ends)))
 
 
 @unittest.skipUnless(STOCK_SYMBOLS,
