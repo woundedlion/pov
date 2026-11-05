@@ -232,14 +232,14 @@ prepare_radial_tables(const Params &params, const RippleState &state,
         continue;
       if (wave.age >= 0.0f && wave.age < params.period) {
         current_key.ages[current_count] = wave.age;
-        current[current_count++] =
-            Surface::prepare_ripple(params, wave.age / params.period);
+        current[current_count++] = Surface::prepare_ripple(
+            params, wave.age / params.period, math::Y_AXIS);
       }
       const float PREVIOUS_AGE = wave.age - 1.0f;
       if (PREVIOUS_AGE >= 0.0f && PREVIOUS_AGE < params.period) {
         previous_key.ages[previous_count] = PREVIOUS_AGE;
-        previous[previous_count++] =
-            Surface::prepare_ripple(params, PREVIOUS_AGE / params.period);
+        previous[previous_count++] = Surface::prepare_ripple(
+            params, PREVIOUS_AGE / params.period, math::Y_AXIS);
       }
     }
     if (!previous_count && !current_count)
