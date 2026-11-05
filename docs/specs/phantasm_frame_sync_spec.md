@@ -274,8 +274,11 @@ x_target = (x_boundary + ((now_cycles - epoch_cycles) · (W/2))
 
 with a 64-bit intermediate (the product is about 5.4 × 10⁹ over one
 half-revolution at nominal speed, and 86.4 × 10⁹ across the 16-half-revolution
-coast window). One long multiply
-and divide per 8× column wake at 18432 Hz for W=288 and 480 RPM.
+coast window). The implementation caches
+`floor(2^32 * (W/2) / cycles_per_half_rev)` when the period changes. Each wake
+uses a 32×32→64 multiply, a shift and a remainder correction to obtain the
+exact floor quotient; it performs no 64-bit division in the ISR. The period
+must exceed `W/2` so the cached reciprocal fits in 32 bits.
 
 ### 4.2 Boundary-snap discipline (baseline)
 

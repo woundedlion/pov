@@ -20,18 +20,6 @@ namespace sync {
 // ── Small integer helpers (signed-correct division/modulo) ─────────────────
 
 /**
- * @brief Floor division: rounds toward -inf, unlike C++ truncation.
- * @param a Dividend.
- * @param b Divisor (nonzero).
- * @return floor(a / b).
- */
-constexpr int64_t floor_div(int64_t a, int64_t b) {
-  const int64_t q = a / b;
-  const int64_t r = a % b;
-  return (r != 0 && ((r < 0) != (b < 0))) ? q - 1 : q;
-}
-
-/**
  * @brief Non-negative modulo.
  * @param a Value to reduce.
  * @param m Modulus (positive).

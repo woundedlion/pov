@@ -1609,7 +1609,8 @@ inline const Case *all_cases(int &n) {
        "(registration_names_unique(entries)) duplicate effect registration identity"},
       {"flywheel_period_zero", case_flywheel_period_zero,
        "hardware/pov_sync_flywheel.h",
-       "(p > 0 && p <= static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS) "
+       "(p > static_cast<uint32_t>(w / 2) && p <= "
+       "static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS) "
        "Flywheel: cycles_per_half_rev outside the range position()'s int32 "
        "elapsed window holds for MIN_SAFE_HALF_REVS of coast"},
       {"latitude_geometry_degenerate_height",

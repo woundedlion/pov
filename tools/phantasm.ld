@@ -8,8 +8,7 @@
  * effect factories, const rodata, spawn-time init/setup_presets,
  * cold-attribute and hot-leaf sections, cold
  * constructors/destructors and mesh builders, and framework one-time setup.
- * The hot flywheel libgcc divmod also uses cached flash, retaining ITCM capacity
- * at the cost of cache-dependent latency.
+ * Libgcc arithmetic helpers use cached flash, retaining ITCM capacity.
  * The Teensy core USB/serial stack and one-time setup objects also use flash.
  * .fini is placed explicitly. Function/data sections allow individual matches
  * before the ITCM catch-all; _etext and _itcm_block_count exclude .ARM.exidx.
@@ -55,7 +54,7 @@ SECTIONS
 		hs_hot_layout_start = .;
 		INCLUDE phantasm_hot_layout.ld
 		hs_hot_layout_end = .;
-		/* Libraries (including hot libgcc divmod) and factories use flash. */
+		/* Libraries and factories use flash. */
 		*libm.a:*(.text .text.*)
 		*libc_nano.a:*(.text .text.*)
 		*libstdc++_nano.a:*(.text .text.*)

@@ -43,8 +43,8 @@ struct Crossing {
  *
  *   x = (x_boundary + (now − epoch_cycles)·(W/2) / cycles_per_half_rev) mod W
  *
- * with a 64-bit intermediate. `epoch_cycles` is folded forward by exactly
- * cycles_per_half_rev at every locally-crossed boundary (the rebase rule); a
+ * using a cached fixed-point reciprocal. `epoch_cycles` is folded forward by
+ * exactly cycles_per_half_rev at every locally-crossed boundary (the rebase rule); a
  * full unattended counter wrap loses revolution history. A snap re-bases the
  * epoch to a symbol's first-edge timestamp, so late classification still
  * yields the time-correct column (spec §5.2).
@@ -58,7 +58,7 @@ public:
   explicit Flywheel(const Config &cfg)
       : period(cfg.cycles_per_half_rev), w(cfg.W), gate_cols(cfg.gate_cols),
         reject_fallback(cfg.reject_fallback) {
-    check_period(period);
+    set_cycles_per_half_rev(period);
   }
 
   /**
@@ -94,11 +94,14 @@ public:
         (elapsed < static_cast<uint32_t>(MIN_SAFE_HALF_REVS) * period ||
          elapsed >= 0u - static_cast<uint32_t>(MIN_SAFE_HALF_REVS) * period) &&
         "Flywheel::position: timestamp outside the signed-safe coast window");
-    const int64_t delta = static_cast<int32_t>(elapsed);
-    // |cols| <= MIN_SAFE_HALF_REVS*(W/2) under the window assert, so the
-    // narrowing is exact and the reduction stays a 32-bit sdiv.
-    const int32_t cols =
-        static_cast<int32_t>(floor_div(delta * (w / 2), period));
+    const uint32_t HALF_W = static_cast<uint32_t>(w / 2);
+    const uint32_t U = elapsed + MIN_SAFE_HALF_REVS * period;
+    uint32_t q =
+        static_cast<uint32_t>((static_cast<uint64_t>(U) * reciprocal) >> 32);
+    // The modular subtraction preserves the remainder even when both products wrap.
+    if (U * HALF_W - q * period >= period)
+      ++q;
+    const int32_t cols = static_cast<int32_t>(q - MIN_SAFE_HALF_REVS * HALF_W);
     return floor_mod(boundary_column(boundary, w) + cols, w);
   }
 
@@ -205,22 +208,25 @@ public:
   void set_cycles_per_half_rev(uint32_t c) {
     check_period(c);
     period = c;
+    reciprocal =
+        static_cast<uint32_t>((static_cast<uint64_t>(w / 2) << 32) / c);
   }
 
 private:
   /**
    * @brief Traps a half-rev period position()'s arithmetic cannot carry.
    * @param p Candidate cycles_per_half_rev.
-   * @details Valid range is (0, INT32_MAX / MIN_SAFE_HALF_REVS].
+   * @details Valid range is (W/2, INT32_MAX / MIN_SAFE_HALF_REVS].
    */
-  static void check_period(uint32_t p) {
-    HS_CHECK(p > 0 &&
+  void check_period(uint32_t p) const {
+    HS_CHECK(p > static_cast<uint32_t>(w / 2) &&
                  p <= static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS,
              "Flywheel: cycles_per_half_rev outside the range position()'s "
              "int32 elapsed window holds for MIN_SAFE_HALF_REVS of coast");
   }
 
   uint32_t period; /**< cycles_per_half_rev (optionally trimmed). */
+  uint32_t reciprocal;
   int32_t w;
   int32_t gate_cols;
   int32_t reject_fallback;

@@ -17,9 +17,6 @@ inline void expect_rejects(const Config &config, const char *clause) {
  *        validation boundaries.
  */
 inline void test_helpers() {
-  HS_EXPECT_EQ(floor_div(7, 2), 3);
-  HS_EXPECT_EQ(floor_div(-7, 2), -4);
-  HS_EXPECT_EQ(floor_div(-4, 2), -2);
   HS_EXPECT_EQ(floor_mod(-1, 288), 287);
   HS_EXPECT_EQ(floor_mod(288, 288), 0);
   HS_EXPECT_EQ(circ_dist(287, 0, 288), 1);
@@ -985,6 +982,38 @@ inline void test_flywheel_position() {
     f.seed(5000000u);
     HS_EXPECT_EQ(f.position(5000000u - COL), 287);
     HS_EXPECT_EQ(f.position(5000000u - 3 * COL - COL / 2), 284);
+  }
+
+  for (int32_t width : {2, 96, 288, 4096}) {
+    Config config = cfg;
+    config.W = width;
+    Flywheel flywheel(config);
+    for (uint32_t period :
+         {static_cast<uint32_t>(width / 2 + 1), PERIOD, PERIOD - 1500,
+          static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS}) {
+      flywheel.set_cycles_per_half_rev(period);
+      constexpr uint32_t EPOCH = UINT32_MAX - 100;
+      flywheel.seed(EPOCH);
+      uint32_t random = 0x9e3779b9;
+      for (int i = 0; i < 4096; ++i) {
+        random = random * 1664525u + 1013904223u;
+        const int64_t LIMIT = static_cast<int64_t>(MIN_SAFE_HALF_REVS) * period;
+        const int64_t DELTA =
+            static_cast<int64_t>(random) % (2 * LIMIT) - LIMIT;
+        const int64_t NUMERATOR = DELTA * (width / 2);
+        const int64_t QUOTIENT = NUMERATOR / period - (NUMERATOR % period < 0);
+        const int32_t EXPECTED =
+            static_cast<int32_t>((QUOTIENT % width + width) % width);
+        HS_EXPECT_EQ(flywheel.position(EPOCH + static_cast<uint32_t>(DELTA)),
+                     EXPECTED);
+      }
+      for (int64_t half = -static_cast<int64_t>(MIN_SAFE_HALF_REVS);
+           half < MIN_SAFE_HALF_REVS; ++half) {
+        const int64_t DELTA = half * period;
+        HS_EXPECT_EQ(flywheel.position(EPOCH + static_cast<uint32_t>(DELTA)),
+                     half % 2 == 0 ? 0 : width / 2);
+      }
+    }
   }
 
   // Fold cadence: exactly one crossing per half-rev, boundaries alternate,
