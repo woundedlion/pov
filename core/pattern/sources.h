@@ -591,7 +591,7 @@ template <class Params> bool valid_source_params(const Params &params) {
   if constexpr (requires { params.angle_rate; })
     valid &= parameter_in_range(params.angle_rate, -0.05f, 0.05f);
   if constexpr (requires { params.angle; })
-    valid &= parameter_in_range(params.angle, -math::PI_F, math::PI_F);
+    valid &= parameter_in_range(params.angle, 0.0f, math::TWO_PI_F);
   if constexpr (requires { params.arms; })
     valid &= parameter_in_range(params.arms, 0.0f, 12.0f);
   if constexpr (requires { params.complexity; })

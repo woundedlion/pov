@@ -253,6 +253,23 @@ inline void test_shader_chain_parity_sample_bands() {
       return;
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::Bands<BandsSampleMirror>>(program, ctx);
+    constexpr size_t BLOCKS = In::CHAIN_ARENA_BYTES / sizeof(std::max_align_t);
+    std::vector<std::max_align_t> history(BLOCKS), column(BLOCKS);
+    program.bind_temporal_storage(reinterpret_cast<uint8_t *>(history.data()),
+                                  reinterpret_cast<uint8_t *>(column.data()));
+    auto &params = param_as<In::Op::BandsSampleParams>(program, 2);
+    for (const auto angles : {std::pair{5.5f, 5.6f}, std::pair{3.0f, 3.3f}}) {
+      params.angle = angles.first;
+      HS_EXPECT_TRUE(PB::Fields::valid(params));
+      program.prepare(ctx);
+      program.capture_history();
+      params.angle = angles.second;
+      program.prepare(ctx);
+      program.prepare_column(ctx, ctx, 0.5f);
+      const auto result = program.evaluate_column(math::X_AXIS, ctx, ctx, 0.5f);
+      HS_EXPECT_TRUE(std::isfinite(result.alpha));
+    }
+    program.clear();
   });
 }
 

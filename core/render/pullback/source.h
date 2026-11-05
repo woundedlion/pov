@@ -99,7 +99,7 @@ struct BandsSourceParams : Pattern::BandsSourceParams {
       Field<BandsSourceParams>{"pattern-freq", &BandsSourceParams::pattern_freq,
                                "Pattern Freq", 0.01f, 64.0f, FieldCurve::LERP},
       Field<BandsSourceParams>{"angle", &BandsSourceParams::angle, "Angle",
-                               -math::PI_F, math::PI_F,
+                               0.0f, math::TWO_PI_F,
                                FieldCurve::SHORTEST_PERIODIC},
   };
 };
