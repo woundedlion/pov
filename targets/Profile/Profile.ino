@@ -273,6 +273,9 @@ public:
       hs::SampledCycleScope frame_scope(frame_counter);
       const auto begin = sample_clocks();
       {
+#ifdef HS_PROFILE_PC
+        hs::PcSampleGate render_gate(true);
+#endif
 #ifdef HS_MINDSPLATTER_REPLAY
 #ifdef HS_MINDSPLATTER_REPLAY_AB
         Canvas canvas(*this);
@@ -293,9 +296,6 @@ public:
         pixels = canvas.data();
 #endif
 #else
-#ifdef HS_PROFILE_PC
-        hs::PcSampleGate render_gate(true);
-#endif
         HS_PROFILE_TARGET<W, H>::draw_frame();
 #endif
       }
