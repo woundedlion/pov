@@ -187,13 +187,7 @@ inline void test_sh_pullback_matches_direct_colorize() {
             const Color4 direct =
                 WB::shade_direct(fx, direct_field.sample(point), amplitude);
             const Color4 pullback = WB::shade_pipeline(point, frame);
-            const int red = std::abs(static_cast<int>(direct.color.r) -
-                                     static_cast<int>(pullback.color.r));
-            const int green = std::abs(static_cast<int>(direct.color.g) -
-                                       static_cast<int>(pullback.color.g));
-            const int blue = std::abs(static_cast<int>(direct.color.b) -
-                                      static_cast<int>(pullback.color.b));
-            const int delta = std::max({red, green, blue});
+            const int delta = max_channel_gap(direct.color, pullback.color);
             max_channel_delta = std::max(max_channel_delta, delta);
             differing_pixels += static_cast<int>(delta != 0);
             HS_EXPECT_EQ(direct.alpha, pullback.alpha);
