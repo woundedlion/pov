@@ -60,7 +60,7 @@ class ParserTests(unittest.TestCase):
             '(footprint "B"))'
         )
 
-        found = analyze_candidates.blocks(source, "footprint")
+        found = kicad_common.F(analyze_candidates.sexp.parse_one(source), "footprint")
 
         self.assertEqual([str(block[1]) for block in found], ["A", "B"])
 

@@ -67,13 +67,6 @@ CRIT = SPI + SYNC
 PAIRS = [("DATA", "CLK"), ("DATA_IN", "CLK_IN")]
 
 
-def blocks(root, kind):
-    """Return top-level blocks of `kind` from a parsed tree or source text."""
-    if isinstance(root, str):
-        root = sexp.parse(root)[0]
-    return F(root, kind)
-
-
 def field(b, name):
     value = sexp.val(b, name, [])
     return str(value[0]) if value else None
@@ -178,7 +171,7 @@ def run_drc(pcb_path):
 def analyze(path):
     with open(path, encoding="utf-8") as fh:
         root = sexp.parse(fh.read())[0]
-    title = blocks(root, "title_block")
+    title = F(root, "title_block")
     revision = field(title[0], "rev") if title else None
     if not revision:
         raise ValueError(f"{path}: no title_block rev")
@@ -187,9 +180,9 @@ def analyze(path):
     if revision not in ("1.1", "1.2"):
         raise ValueError(f"unsupported board revision: {revision}")
     required = CRIT if revision == "1.2" else [n for n in CRIT if n != "SYNC_TX"]
-    segs = blocks(root, "segment")
-    arcs = blocks(root, "arc")
-    vias = blocks(root, "via")
+    segs = F(root, "segment")
+    arcs = F(root, "arc")
+    vias = F(root, "via")
 
     netlen, netseg, netlayers = {}, {}, {}
     total_len = 0.0
@@ -248,7 +241,7 @@ def analyze(path):
 
     # footprint positions for ergonomics
     pos = {}
-    for b in blocks(root, "footprint"):
+    for b in F(root, "footprint"):
         ref = property_value(b, "Reference")
         at = xy(b, "at")
         if ref and at:
