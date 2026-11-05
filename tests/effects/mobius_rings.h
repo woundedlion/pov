@@ -179,6 +179,7 @@ struct MobiusRingsWhiteBox {
   /** @brief Warps, pole fades and colour follow both arm cuts in both directions. */
   static void check_column_time_oracle() {
     for (float direction : {-1.0f, 1.0f}) {
+      HS_CONTEXT("direction", static_cast<long long>(direction));
       seam_compare_render<96, 20>(
           [&](bool timed, float t, float shift) {
             return render<96, 20>(timed, t, shift, direction);
@@ -191,6 +192,7 @@ struct MobiusRingsWhiteBox {
           "MobiusRings 288x144");
     }
     for (float direction : {-1.0f, 1.0f}) {
+      HS_CONTEXT("direction", static_cast<long long>(direction));
       seam_compare_render<96, 20>(
           [&](bool timed, float t, float shift) {
             return render<96, 20>(timed, t, shift, direction, false, false,
@@ -205,6 +207,7 @@ struct MobiusRingsWhiteBox {
           "MobiusRings wrap 288x144");
     }
     for (int count_change : {-1, 1}) {
+      HS_CONTEXT("count_change", count_change);
       seam_compare_render<96, 20>(
           [&](bool timed, float t, float shift) {
             return render<96, 20>(timed, t, shift, 1.0f, false, false, false,

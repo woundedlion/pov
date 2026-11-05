@@ -9,6 +9,7 @@
 inline void test_fishbowl_temporal_trail_oracle() {
   const ScopedTemporalSampling temporal_sampling(true);
   for (bool full : {false, true}) {
+    HS_CONTEXT("full", full);
     auto render = [full](bool timed, float fraction, float displacement) {
       return FishbowlWhiteBox::render_temporal_trail(timed, fraction,
                                                      displacement, full);

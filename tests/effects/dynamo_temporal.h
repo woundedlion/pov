@@ -185,6 +185,8 @@ struct DynamoTemporalOracle {
     for (bool replay : {false, true})
       for (float start : {0.0f, float(W / 2)})
         for (float spin : {-0.018f, 0.018f}) {
+          HS_CONTEXT("start", static_cast<long long>(start));
+          HS_CONTEXT("spin_milliradians", std::lround(spin * 1000.0f));
           auto render_scene = [=](bool timed, float fraction,
                                   float displacement) {
             return render<W, H>(timed, fraction, displacement, start, spin,

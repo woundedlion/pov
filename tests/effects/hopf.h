@@ -204,6 +204,7 @@ inline void test_hopf_trail_trim_keeps_a_segment() {
 inline void test_hopf_temporal_trail_oracle() {
   const ScopedTemporalSampling temporal_sampling(true);
   for (float start : {-15.0f, 125.0f}) {
+    HS_CONTEXT("start", static_cast<long long>(start));
     auto render = [start](bool timed, float fraction, float displacement) {
       return HopfWhiteBox::render_temporal_trail(timed, fraction, displacement,
                                                  start);
