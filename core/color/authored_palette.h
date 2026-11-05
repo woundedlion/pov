@@ -24,8 +24,7 @@ public:
    * @return Palette view, valid until the next source change. */
   HS_SIZE_FLASH_MEMBER __attribute__((flatten)) const BakedPalette &
   prepare(Arena &arena, const AuthoredPaletteSelection &params, float chroma) {
-    const auto &selection = params;
-    if (!initialized || !(selection == previous) || chroma != previous_chroma) {
+    if (!initialized || !(params == previous) || chroma != previous_chroma) {
       ScratchScope scratch(scratch_arena_a);
       Source *source = scratch_arena_a.make<Source>();
       using Type = AuthoredPaletteType;
@@ -75,7 +74,7 @@ public:
                                     chroma});
         }
       }
-      previous = selection;
+      previous = params;
       previous_chroma = chroma;
       initialized = true;
       ++bakes;
