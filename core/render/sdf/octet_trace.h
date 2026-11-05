@@ -388,14 +388,13 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
                         const std::array<Pair, CLASSES>
                             &pairs) __attribute__((always_inline)) {
     // Only the largest-coordinate sum can be parallel in the canonical unit frame.
-    uint32_t owned = (1u << CLASSES) - 1u;
     if constexpr (CLASSES == 1) {
       const auto &PAIR = pairs[0];
       const float ALONG = components[PAIR.i] + sign * components[PAIR.j];
       const float DENOMINATOR = 1.0f - 0.5f * ALONG * ALONG;
       uint32_t bits;
       std::memcpy(&bits, &DENOMINATOR, sizeof(bits));
-      owned = static_cast<uint32_t>(bits - 1 < 0x7F7FFFFFu);
+      const bool owned = bits - 1 < 0x7F7FFFFFu;
       if (!owned)
         return true;
     }
@@ -501,7 +500,7 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
         float rl = residual[PAIR.l];
         // A class the plane bound clears cannot reach the support, and
         // neither can a farther class it would otherwise have beaten.
-        if (!(owned & (1u << c)) || bounds[c] > THRESHOLD)
+        if (bounds[c] > THRESHOLD)
           continue;
         const float ALONG = components[PAIR.i] + sign * components[PAIR.j];
         const float DENOMINATOR = 1.0f - 0.5f * ALONG * ALONG;
