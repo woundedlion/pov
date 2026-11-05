@@ -753,6 +753,14 @@ inline math::Vector poly_face_centroid(const PolyMesh &m, size_t fi) {
   return face_centroid_unit(m, off, m.face_counts[fi]);
 }
 
+/** @brief Unit-sphere vertex-average centroid of a compiled face. */
+inline math::Vector poly_face_centroid(const MeshState &m, size_t fi) {
+  math::Vector c(0, 0, 0);
+  for (size_t k = 0; k < m.face_counts[fi]; ++k)
+    c = c + m.vertices[m.faces[m.face_offsets[fi] + k]];
+  return c.normalized();
+}
+
 /**
  * @brief Verifies the closing bookend's target keying is symmetric with the
  *        opening one: on a reverse leg into a seed node, every face that
@@ -1276,55 +1284,16 @@ inline void test_leg_start_seed_frame_continuity() {
                                              .prev_faces = prev_faces,
                                              .prev_face_centroid = cents};
 
-    // The mesh the first morph frame draws.
-    const float t_start =
-        ConwayGraph::clamp_edge_endpoint(e, reverse ? e.t_to : e.t_from);
-    const float tw_start = reverse ? e.twist_to : e.twist_from;
-    PolyMesh start_raw =
-        run_edge_op(e, leg_seed, work, temp, t_start, tw_start);
-    PolyMesh start_rel;
-    if (e.settle && reverse)
-      start_rel = MeshOps::relax(start_raw, work, temp,
-                                 ConwayGraph::SETTLE_RELAX_ITERATIONS);
-    const PolyMesh &start = (e.settle && reverse) ? start_rel : start_raw;
-    const size_t total = start.face_counts.size();
     const size_t primary = leg_seed.face_counts.size();
-
-    // Geometric pin: every start face overlies a departed face (full legs:
-    // a bijection) — the seed-frame continuity contract.
-    int match_of[128];
-    bool used[128] = {};
-    HS_EXPECT_LE(total, (size_t)128);
-    if (total > 128)
-      return;
-    for (size_t f = 0; f < total; ++f) {
-      const math::Vector c = poly_face_centroid(start, f);
-      size_t best = 0;
-      float best_d = 1e9f;
-      for (size_t g = 0; g < prev_faces; ++g) {
-        const math::Vector d = c - cents[g];
-        const float dsq = math::dot(d, d);
-        if (dsq < best_d) {
-          best_d = dsq;
-          best = g;
-        }
-      }
-      match_of[f] = static_cast<int>(best);
-      if (prev_faces == total) {
-        HS_EXPECT_LT(best_d, TOL_SQ);
-        HS_EXPECT_TRUE(!used[best]);
-        used[best] = true;
-      } else if (f < primary) {
-        // Seed departures: primaries still overlie their own faces.
-        HS_EXPECT_LT(best_d, TOL_SQ);
-        HS_EXPECT_EQ(match_of[f], (int)f);
-      }
-    }
 
     // Shading pin: the first frame's w = 0 colors are the departed faces'.
     ShadingSnapshot snap;
-    auto cb = [&](Canvas &, const MeshState &,
+    std::vector<math::Vector> drawn_centroids;
+    auto cb = [&](Canvas &, const MeshState &mesh,
                   const Animation::OpLeg::Shading &sh) {
+      drawn_centroids.resize(mesh.face_counts.size());
+      for (size_t f = 0; f < mesh.face_counts.size(); ++f)
+        drawn_centroids[f] = poly_face_centroid(mesh, f);
       snap.face_ramp.assign(sh.face_ramp, sh.face_ramp + sh.faces);
       snap.colors.resize(sh.faces);
       for (size_t f = 0; f < sh.faces; ++f)
@@ -1341,6 +1310,39 @@ inline void test_leg_start_seed_frame_continuity() {
                                 .settle_frames = e.settle ? SETTLE_FRAMES : 0},
                             leg_arena, cb, handoff);
       step_and_snapshot(anim, fx, snap);
+      const size_t total = drawn_centroids.size();
+      // Geometric pin: every start face overlies a departed face (full legs:
+      // a bijection) — the seed-frame continuity contract.
+      int match_of[128];
+      bool used[128] = {};
+      HS_EXPECT_GT(total, size_t{0});
+      HS_EXPECT_LE(total, (size_t)128);
+      if (total > 128)
+        return;
+      for (size_t f = 0; f < total; ++f) {
+        const math::Vector c = drawn_centroids[f];
+        size_t best = 0;
+        float best_d = 1e9f;
+        for (size_t g = 0; g < prev_faces; ++g) {
+          const math::Vector d = c - cents[g];
+          const float dsq = math::dot(d, d);
+          if (dsq < best_d) {
+            best_d = dsq;
+            best = g;
+          }
+        }
+        match_of[f] = static_cast<int>(best);
+        if (prev_faces == total) {
+          HS_EXPECT_LT(best_d, TOL_SQ);
+          HS_EXPECT_TRUE(!used[best]);
+          used[best] = true;
+        } else if (f < primary) {
+          // Seed departures: primaries still overlie their own faces.
+          HS_EXPECT_LT(best_d, TOL_SQ);
+          HS_EXPECT_EQ(match_of[f], (int)f);
+        }
+      }
+
       HS_EXPECT_SIZE_OR_RETURN(snap.colors, total);
       for (size_t f = 0; f < snap.colors.size(); ++f) {
         if (prev_faces == total || f < primary) {
