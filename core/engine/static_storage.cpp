@@ -8,12 +8,31 @@
 #include "core/render/canvas.h"
 
 #include "core/engine/concepts.h"
+#include "core/math/lenses.h"
 #include "core/platform/inplace_function.h"
 
 /**
  * @file static_storage.cpp
  * @brief Engine storage and fail-fast handlers.
  */
+
+namespace lenses::DodecahedralTable {
+constinit const std::array<uint8_t, FACE_STEPS * FACE_STEPS>
+    FACE_0 HS_PROGMEM_UNIQUE(dodecahedral_fold_face0) = make_face<0>();
+constinit const std::array<uint8_t, FACE_STEPS * FACE_STEPS>
+    FACE_1 HS_PROGMEM_UNIQUE(dodecahedral_fold_face1) = make_face<1>();
+constinit const std::array<uint8_t, FACE_STEPS * FACE_STEPS>
+    FACE_2 HS_PROGMEM_UNIQUE(dodecahedral_fold_face2) = make_face<2>();
+constinit const std::array<uint8_t, FACE_STEPS * FACE_STEPS>
+    FACE_3 HS_PROGMEM_UNIQUE(dodecahedral_fold_face3) = make_face<3>();
+constinit const std::array<uint8_t, FACE_STEPS * FACE_STEPS>
+    FACE_4 HS_PROGMEM_UNIQUE(dodecahedral_fold_face4) = make_face<4>();
+constinit const std::array<uint8_t, FACE_STEPS * FACE_STEPS>
+    FACE_5 HS_PROGMEM_UNIQUE(dodecahedral_fold_face5) = make_face<5>();
+constinit const std::array<const uint8_t *, 6> FACES HS_PROGMEM_UNIQUE(
+    dodecahedral_fold_faces) = {FACE_0.data(), FACE_1.data(), FACE_2.data(),
+                                FACE_3.data(), FACE_4.data(), FACE_5.data()};
+} // namespace lenses::DodecahedralTable
 
 /** @brief NOLOAD DMAMEM storage; Timeline clears every slot at runtime. */
 DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];

@@ -539,27 +539,19 @@ template <int Face> constexpr auto make_face() {
   return make_face<Face>(std::make_index_sequence<FACE_STEPS>{});
 }
 /** @brief Classifier map on the +X cube face. */
-inline constexpr auto
-    FACE_0 HS_PROGMEM_UNIQUE(dodecahedral_fold_face0) = make_face<0>();
+extern const std::array<uint8_t, FACE_STEPS * FACE_STEPS> FACE_0;
 /** @brief Classifier map on the -X cube face. */
-inline constexpr auto
-    FACE_1 HS_PROGMEM_UNIQUE(dodecahedral_fold_face1) = make_face<1>();
+extern const std::array<uint8_t, FACE_STEPS * FACE_STEPS> FACE_1;
 /** @brief Classifier map on the +Y cube face. */
-inline constexpr auto
-    FACE_2 HS_PROGMEM_UNIQUE(dodecahedral_fold_face2) = make_face<2>();
+extern const std::array<uint8_t, FACE_STEPS * FACE_STEPS> FACE_2;
 /** @brief Classifier map on the -Y cube face. */
-inline constexpr auto
-    FACE_3 HS_PROGMEM_UNIQUE(dodecahedral_fold_face3) = make_face<3>();
+extern const std::array<uint8_t, FACE_STEPS * FACE_STEPS> FACE_3;
 /** @brief Classifier map on the +Z cube face. */
-inline constexpr auto
-    FACE_4 HS_PROGMEM_UNIQUE(dodecahedral_fold_face4) = make_face<4>();
+extern const std::array<uint8_t, FACE_STEPS * FACE_STEPS> FACE_4;
 /** @brief Classifier map on the -Z cube face. */
-inline constexpr auto
-    FACE_5 HS_PROGMEM_UNIQUE(dodecahedral_fold_face5) = make_face<5>();
+extern const std::array<uint8_t, FACE_STEPS * FACE_STEPS> FACE_5;
 /** @brief Classifier maps in cube-face orientation order. */
-inline constexpr std::array<const uint8_t *, 6> FACES HS_PROGMEM_UNIQUE(
-    dodecahedral_fold_faces) = {FACE_0.data(), FACE_1.data(), FACE_2.data(),
-                                FACE_3.data(), FACE_4.data(), FACE_5.data()};
+extern const std::array<const uint8_t *, 6> FACES;
 } // namespace DodecahedralTable
 
 /** @brief Attempts a chamber-validated reflection matrix from a coarse cube cell.
