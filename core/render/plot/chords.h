@@ -175,8 +175,8 @@ public:
     for (int edge = 0; edge < edges; ++edge) {
       const math::Vector &a = ring[edge].pos;
       const math::Vector &b = ring[edge + 1].pos;
-      if (math::dot(a, planar_basis.v) < -COS_PLANAR_ANTIPODE ||
-          math::dot(b, planar_basis.v) < -COS_PLANAR_ANTIPODE) {
+      if (at_planar_antipode(a, planar_basis) ||
+          at_planar_antipode(b, planar_basis)) {
         push(b, true);
         continue;
       }
