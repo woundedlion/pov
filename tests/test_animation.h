@@ -116,6 +116,7 @@ inline int run_animation_tests() {
   HS_RUN(test_timeline_cancel_before_start);
   HS_RUN(test_timeline_compaction_preserves_later_events);
   HS_RUN(test_timeline_then_chains_follow_up_event);
+  HS_RUN(test_timeline_overlapping_midstep_compaction);
   HS_RUN(test_repeating_timer_fires_then_each_cycle);
   HS_RUN(test_repeating_timer_canceled_in_callback_fires_then_once);
   HS_RUN(test_timer_then_self_cancellation_completes_once);

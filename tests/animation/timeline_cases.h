@@ -1043,3 +1043,27 @@ inline void test_periodic_timer_set_period_unchanged_does_not_defer() {
   }
   HS_EXPECT_EQ(st.fires, 2);
 }
+
+/** @brief Mid-step additions survive overlapping compaction beside an active event. */
+inline void test_timeline_overlapping_midstep_compaction() {
+  Timeline timeline;
+  float completed = 0.0f, survivor = 0.0f;
+  float added[3] = {};
+  timeline.add(
+      0, Animation::Transition(completed, 1.0f, 1, math::ease_linear).then([&] {
+        for (float &value : added)
+          timeline.add(
+              0, Animation::Transition(value, 1.0f, 2, math::ease_linear));
+      }));
+  timeline.add(0, Animation::Transition(survivor, 1.0f, 3, math::ease_linear));
+  timeline.step(fake_canvas());
+  HS_EXPECT_EQ(timeline.event_count(), 4);
+  HS_EXPECT_NEAR(survivor, 1.0f / 3.0f, 1e-6f);
+  for (float value : added)
+    HS_EXPECT_EQ(value, 0.0f);
+  timeline.step(fake_canvas());
+  HS_EXPECT_EQ(timeline.event_count(), 4);
+  HS_EXPECT_NEAR(survivor, 2.0f / 3.0f, 1e-6f);
+  for (float value : added)
+    HS_EXPECT_EQ(value, 0.5f);
+}
