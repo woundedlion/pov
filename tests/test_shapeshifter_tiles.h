@@ -40,6 +40,39 @@ inline constexpr OracleClip QUADRANTS[] = {
     {ORACLE_H / 2, ORACLE_H, 0, ORACLE_W / 2},
     {ORACLE_H / 2, ORACLE_H, ORACLE_W / 2, ORACLE_W}};
 
+/** @brief Timed shipping contours agree across segment clips. */
+inline void test_timed_tiles_match_full_frame() {
+  ScopedPoleRunSplit split(false);
+  for (size_t i = 1; i < ShapeShifterWhiteBox::PRESET_COUNT; ++i) {
+    HS_CONTEXT("preset", static_cast<int>(i + 1));
+    const auto &preset = ShapeShifterWhiteBox::preset_params(i);
+    OracleState state;
+    state.shape = preset.shape;
+    state.function = preset.function;
+    state.alpha_falloff = preset.alpha_falloff;
+    state.spacing = preset.spacing;
+    state.count = static_cast<int>(preset.count);
+    state.sides = static_cast<int>(preset.sides);
+    state.amplitude = preset.amplitude;
+    state.opposite = preset.opposite;
+    state.phase = 0.37f;
+    state.alpha = 0.274f;
+    const float STEP = fminf(preset.speed / preset.amplitude, 0.5f);
+    const auto FULL = render_timed_contours(state, STEP, true, 1.0f, 0.0f);
+    double energy = 0;
+    for (float luminance : FULL)
+      energy += luminance;
+    HS_EXPECT_GT(energy, 0.0);
+    for (const auto &clip : QUADRANTS) {
+      state.clip = clip;
+      const auto TILE = render_timed_contours(state, STEP, true, 1.0f, 0.0f);
+      for (int y = clip.y0; y < clip.y1; ++y)
+        for (int x = clip.x0; x < clip.x1; ++x)
+          HS_EXPECT_NEAR(TILE[y * ORACLE_W + x], FULL[y * ORACLE_W + x], 1e-5f);
+    }
+  }
+}
+
 template <typename Render>
 inline void expect_mosaic_matches(OracleState state, Render render,
                                   std::span<const OracleClip> clips,
@@ -173,6 +206,7 @@ inline int run_shapeshifter_tiles_tests() {
   HS_RUN(test_segment_tiles_reconstruct_full_frame);
   HS_RUN(test_star_azimuthal_cull_spans_narrow_columns);
   HS_RUN(test_split_pole_runs_tiles_within_energy_budget);
+  HS_RUN(test_timed_tiles_match_full_frame);
   return fixture.result();
 }
 
