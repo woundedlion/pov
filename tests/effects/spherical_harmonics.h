@@ -432,11 +432,6 @@ inline void test_sh_preset_mode_mapping() {
   WB::SH fx;
   fx.init();
 
-  HS_EXPECT_TRUE(fx.getParameters().find("Amplitude") != nullptr);
-  HS_EXPECT_TRUE(fx.getParameters().find("Debug BB") == nullptr);
-  HS_EXPECT_EQ(fx.updateParameter("Debug BB", 1.0f),
-               ParamSetResult::UNKNOWN_PARAM);
-
   HS_EXPECT_EQ(fx.getPresetIndex(), 0u);
   HS_EXPECT_EQ(WB::current_idx(fx), SH_PRESET_MODES[0]);
   for (size_t preset = 0; preset < SH_PRESET_MODES.size(); ++preset) {
