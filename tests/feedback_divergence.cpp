@@ -32,6 +32,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <iterator>
 #include <vector>
 
 namespace {
@@ -126,10 +127,12 @@ struct Run {
   }
 };
 
-const Feedback::Style presets[] = {Feedback::Style::Smoke(),
-                                   Feedback::Style::LooseWormhole()};
-const char *preset_names[] = {"Smoke", "LooseWormhole"};
-constexpr int NPRESET = 2;
+const struct {
+  const char *name;
+  Feedback::Style style;
+} PRESETS[] = {{"Smoke", Feedback::Style::Smoke()},
+               {"LooseWormhole", Feedback::Style::LooseWormhole()}};
+constexpr int NPRESET = static_cast<int>(std::size(PRESETS));
 
 int fail_dump(FILE *f, const char *path, const char *operation) {
   fprintf(stderr, "%s: cannot %s divergence dump\n", path, operation);
@@ -160,7 +163,7 @@ int dump(const char *path, int frames) {
     constexpr size_t SCRATCH_BYTES = 32 * 1024;
     configure_arenas(GLOBAL_ARENA_SIZE - 2 * SCRATCH_BYTES, SCRATCH_BYTES,
                      SCRATCH_BYTES);
-    Run r(presets[p]);
+    Run r(PRESETS[p].style);
     r.seed();
     for (int i = 0; i < frames; ++i) {
       r.step(i);
@@ -179,7 +182,7 @@ int dump(const char *path, int frames) {
   if (fclose(f) != 0)
     return fail_dump(nullptr, path, "finalize");
   for (int p = 0; p < NPRESET; ++p)
-    printf("dumped %s: %d frames\n", preset_names[p], frames);
+    printf("dumped %s: %d frames\n", PRESETS[p].name, frames);
   return 0;
 }
 
@@ -234,7 +237,7 @@ int compare(const char *pa, const char *pb) {
   const bool equal = a == b;
 
   for (int p = 0; p < na; ++p) {
-    printf("\n=== %s: %d frames ===\n", preset_names[p], fa);
+    printf("\n=== %s: %d frames ===\n", PRESETS[p].name, fa);
     printf("%6s %12s %10s %10s\n", "frame", "differing", "max|d|", "mean|d|");
     int worst = 0, worst_frame = 0;
     long worst_count = 0, spikes = 0, spike_chans = 0;
