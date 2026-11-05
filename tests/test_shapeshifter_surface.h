@@ -193,7 +193,7 @@ inline void surface_mask_case(OracleEffect &effect, const char *name,
               static_cast<unsigned long long>(stats.mask_pieces),
               static_cast<unsigned long long>(stats.mask_row_writes));
           HS_EXPECT_GT(stats.mask_hits, 0ull);
-          HS_EXPECT_LT(stats.mask_hits, stats.pixels);
+          HS_EXPECT_LE(stats.mask_hits * 5, stats.pixels * 3);
           HS_EXPECT_GT(stats.edge_pixels, 0ull);
           if (write_images)
             write_oracle_ppm(images[mask],
