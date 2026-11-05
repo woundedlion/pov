@@ -94,17 +94,8 @@ public:
                                    math::TrigLUT<W, H>::sin_phi[H - 1]) -
                                  math::RADIANS_PER_ROW<H> - ROW_SLACK);
     constexpr float INF = std::numeric_limits<float>::infinity();
-    y_max =
-        first_row > 0
-            ? cosf(fmaxf(math::y_to_phi<H>(float(first_row - 1)) - ROW_SLACK,
-                         0.0f)) +
-                  reach
-            : INF;
-    y_min = last_row < H
-                ? cosf(fminf(math::y_to_phi<H>(float(last_row)) + ROW_SLACK,
-                             math::PI_F)) -
-                      reach
-                : -INF;
+    y_max = first_row > 0 ? north_limit + reach : INF;
+    y_min = last_row < H ? south_limit - reach : -INF;
 
     // Tap columns floor(x) and floor(x) + 1 reach [first, last) for x in
     // [first - 1, last), widened by fast_atan2's error.
