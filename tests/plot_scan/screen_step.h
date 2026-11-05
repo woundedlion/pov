@@ -15,10 +15,9 @@
  */
 inline void test_screen_step_matches_analytic_unclamped() {
   constexpr int W = 288, H = 144;
-  constexpr int H_VIRT = H + hs::H_OFFSET;
   constexpr float base_step = (2.0f * math::PI_F) / W;
   const float KX = W / (2.0f * math::PI_F);
-  const float KY = (H_VIRT - 1) / math::PI_F;
+  const float KY = math::DisplayGeometry<H>::ROWS_PER_RADIAN;
 
   auto screen_speed = [&](const math::Vector &pos, const math::Vector &tan) {
     const float ds = 1e-4f;
@@ -163,7 +162,7 @@ inline void test_antialiased_dot_clip_footprint() {
 inline void test_geodesic_edge_gate_keeps_upper_antialias_tap() {
   constexpr int W = 96, H = 48;
   constexpr float EDGE_ROW = 10.25f;
-  const float phi = math::y_to_phi_virtual(EDGE_ROW, H + hs::H_OFFSET);
+  const float phi = math::DisplayGeometry<H>::row_to_phi(EDGE_ROW);
   const float sp = sinf(phi);
   const float cp = cosf(phi);
   const float theta = 0.2f;

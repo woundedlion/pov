@@ -201,7 +201,8 @@ inline void test_planar_chords_match_rasterize_brightness() {
     const auto chords = render_planar_chord_star<W, H>(fx, star, true);
     HS_EXPECT_GT(frame_energy(reference), uint64_t{0});
     expect_covered_within_one_pixel<W, H>(reference, chords, 0, H, 0, W, 0,
-                                          0.026);
+                                          HS_DISPLAY_PROFILE == 0 ? 0.026
+                                                                  : 0.027);
   }
 }
 

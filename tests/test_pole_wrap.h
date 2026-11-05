@@ -16,7 +16,9 @@
 namespace hs_test {
 namespace pole_wrap_tests {
 
+#if HS_DISPLAY_PROFILE == 0
 static_assert(hs::H_OFFSET != 0 || math::DisplayGeometry<64>::HAS_SOUTH_POLE);
+#endif
 
 /**
  * @brief Verifies in-range taps pass through pole_wrap untouched.

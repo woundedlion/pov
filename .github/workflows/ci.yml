@@ -93,6 +93,16 @@ jobs:
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
 
+      - name: Test physical display plot and scan
+        env:
+          HS_SMOKE_FRAMES: *deep_smoke_frames
+          HS_SKIPS_ARE_ERRORS: 1
+          HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
+        run: |
+          cmake --preset tests -B build/tests-p1 -DHS_INSTALL_GIT_HOOKS=OFF -DHS_NATIVE_DISPLAY_PROFILE=1
+          cmake --build build/tests-p1 --target test_engine
+          build/tests-p1/tests/test_engine plot_scan
+
       - name: Compare native render fingerprints
         shell: bash
         env:

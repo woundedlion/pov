@@ -584,8 +584,10 @@ inline void test_point_route_small_chord_certificate() {
 inline void test_point_route_physical_speed_covers_equator_cell() {
   const auto check = []<int W, int H>() {
     math::TrigLUT<W, H>::init();
-    const float EQUATOR = (H - 1) * 0.5f;
-    const float EXPECTED = 0.25f + 2.0f * (H - 1) / W;
+    const float EQUATOR =
+        math::DisplayGeometry<H>::phi_to_row(math::PI_F * 0.5f);
+    const float EXPECTED =
+        0.25f + math::TWO_PI_F * math::DisplayGeometry<H>::ROWS_PER_RADIAN / W;
     HS_EXPECT_NEAR((Plot::PointRoute<W, H>::physical_speed(
                        -1.0f, 0.25f, EQUATOR - 0.1f, EQUATOR + 0.1f)),
                    EXPECTED, 1e-6f);
