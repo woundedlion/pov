@@ -103,7 +103,8 @@ jobs:
           cmake --build build/tests-p1 --target test_engine
           build/tests-p1/tests/test_engine plot_scan
 
-      - name: Compare native render fingerprints
+      - &render_fingerprints
+        name: Compare native render fingerprints
         shell: bash
         env:
           HS_SKIPS_ARE_ERRORS: 1
@@ -209,13 +210,7 @@ jobs:
           ctest --preset tests --output-on-failure --no-tests=error
           -E "${{ env.GENERATED_EXCLUDE }}"
 
-      - name: Compare native render fingerprints
-        shell: bash
-        env:
-          HS_SKIPS_ARE_ERRORS: 1
-        run: |
-          cmake --build --preset tests --target render_goldens
-          build/tests/tests/render_goldens | tee build/tests/render-goldens.log
+      - *render_fingerprints
 
       - name: Upload native render comparison log
         if: always()
@@ -393,13 +388,7 @@ jobs:
           -R "${{ matrix.test_include }}"
           -E "${{ matrix.test_exclude }}"
 
-      - name: Compare native render fingerprints
-        shell: bash
-        env:
-          HS_SKIPS_ARE_ERRORS: 1
-        run: |
-          cmake --build --preset tests --target render_goldens
-          build/tests/tests/render_goldens | tee build/tests/render-goldens.log
+      - *render_fingerprints
 
       - name: Upload native render comparison log
         if: always()
@@ -474,13 +463,7 @@ jobs:
           LLVM_PROFILE_FILE: ${{ github.workspace }}/cov/run_tests-%p.profraw
         run: build/tests/tests/run_tests
 
-      - name: Compare native render fingerprints
-        shell: bash
-        env:
-          HS_SKIPS_ARE_ERRORS: 1
-        run: |
-          cmake --build --preset tests --target render_goldens
-          build/tests/tests/render_goldens | tee build/tests/render-goldens.log
+      - *render_fingerprints
 
       - name: Build coverage reports and enforce the floors
         # Explicit bash enables pipefail. The 1% directory floors check presence.
@@ -597,13 +580,7 @@ jobs:
           ctest --preset tests --output-on-failure --no-tests=error
           -E "${{ env.TEST_EXCLUDE }}"
 
-      - name: Compare native render fingerprints
-        shell: bash
-        env:
-          HS_SKIPS_ARE_ERRORS: 1
-        run: |
-          cmake --build --preset tests --target render_goldens
-          build/tests/tests/render_goldens | tee build/tests/render-goldens.log
+      - *render_fingerprints
 
       - name: Upload native render comparison log
         if: always()
