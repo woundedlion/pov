@@ -283,11 +283,10 @@ inline void check_parameter_schema_pin(const char *name) {
  * until it is pinned.
  */
 inline void test_composed_parameter_schema_pins() {
-#define HS_COMPOSED_SCHEMA_PIN(name, seconds)                                  \
-  check_parameter_schema_pin<name>(#name);
+#define HS_COMPOSED_SCHEMA_PIN(name) check_parameter_schema_pin<name>(#name);
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_SCHEMA_PIN)
 #undef HS_COMPOSED_SCHEMA_PIN
-#define HS_COMPOSED_ROSTER_ONE(name, seconds) +1
+#define HS_COMPOSED_ROSTER_ONE(name) +1
   constexpr size_t roster = 0 HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_ROSTER_ONE);
 #undef HS_COMPOSED_ROSTER_ONE
   HS_EXPECT_EQ(std::size(PARAMETER_SCHEMA_PINS), roster);

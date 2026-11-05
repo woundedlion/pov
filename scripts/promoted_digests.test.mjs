@@ -46,7 +46,7 @@ test('every promoted effect has a document and product group entry', async () =>
   const roster = stripComments(await readFile(resolve(ROOT, 'targets/effects.h'), 'utf8'));
   const group = /^#define HS_SHADER_PRODUCT_GROUP\(X\)(.*)$/m.exec(roster);
   assert.ok(group, 'missing shader product group');
-  const names = [...group[1].matchAll(/X\(\s*(\w+)\s*,/g)].map(match => match[1]);
+  const names = [...group[1].matchAll(/X\(\s*(\w+)\s*\)/g)].map(match => match[1]);
   const promoted = [...headers.values()].flatMap(header => header.types);
   assert.equal(names.length, new Set(names).size, 'duplicate product group effect');
   assert.deepEqual(names.sort(), promoted.sort(), 'product group differs from digest-carrying effects');

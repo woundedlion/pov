@@ -146,7 +146,7 @@ class RepositorySync(unittest.TestCase):
         header = self.root / dc.EFFECT_ROSTER_SOURCE
         header.parent.mkdir(parents=True)
         header.write_text("#define HS_EFFECT_LIST(X) \\\n    X(One) \\\n    X(Two)\n"
-                          "#define HS_SHADER_PRODUCT_GROUP(X) \\\n    X(One, 10) \\\n    X(Two, 10)\n",
+                          "#define HS_SHADER_PRODUCT_GROUP(X) \\\n    X(One) \\\n    X(Two)\n",
                           encoding="utf-8")
         playlist = self.root / dc.PHANTASM_PLAYLIST_SOURCE
         playlist.parent.mkdir(parents=True)

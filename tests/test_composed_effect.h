@@ -1229,7 +1229,7 @@ inline void test_palette_mapping_crossfade() {
 
 /** @brief Every composed effect defaults to blanking displayed columns. */
 inline void test_composed_strobe_roster() {
-#define HS_COMPOSED_STROBE(name, seconds)                                      \
+#define HS_COMPOSED_STROBE(name)                                               \
   {                                                                            \
     HS_CONTEXT(#name);                                                         \
     reset_effect_globals();                                                    \

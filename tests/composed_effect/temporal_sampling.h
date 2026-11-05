@@ -1143,7 +1143,7 @@ inline void check_temporal_roster_pixels(const char *name) {
 
 /** @brief The compatible composed roster uses column-time rendering. */
 inline void test_composed_temporal_roster() {
-#define HS_COMPOSED_TEMPORAL(name, seconds)                                    \
+#define HS_COMPOSED_TEMPORAL(name)                                             \
   check_temporal_roster_pixels<name<96, 20>>(#name);
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_TEMPORAL)
 #undef HS_COMPOSED_TEMPORAL

@@ -150,29 +150,29 @@ constexpr int hs_preset_window_seconds() {
 /** Shader promotion product group; the device show order is
  * HS_PHANTASM_EFFECT_LIST's. */
 #define HS_SHADER_PRODUCT_GROUP(X)                                             \
-  X(AlienBrain, hs_preset_window_seconds<AlienBrain>())                        \
-  X(AlienOcean, 30)                                                            \
-  X(AlienCore, 30)                                                             \
-  X(KaleidoscopeMandala, hs_preset_window_seconds<KaleidoscopeMandala>())      \
-  X(Millefiori, 60)                                                            \
-  X(GridSpace, 60)                                                             \
-  X(Involution, 60)                                                            \
-  X(GridWorms, 60)                                                             \
-  X(GridWarp, 60)                                                              \
-  X(LiquidWindows, 60)                                                         \
-  X(Iridescence, 60)                                                           \
-  X(KaleidoscopeMelt, 30)                                                      \
-  X(ChromaticLichen, 30)                                                       \
-  X(MermaidSkin, 30)                                                           \
-  X(JewelMelt, 30)                                                             \
-  X(AshCloud, 60)                                                              \
-  X(KaleidoscopeHexOil, hs_preset_window_seconds<KaleidoscopeHexOil>())        \
-  X(KaleidoscopeStainedGlass, 30)                                              \
-  X(KaleidoscopeSmooth, hs_preset_window_seconds<KaleidoscopeSmooth>())        \
-  X(KaleidoscopeHexBright, hs_preset_window_seconds<KaleidoscopeHexBright>())  \
-  X(KaleidoscopeFlowers, hs_preset_window_seconds<KaleidoscopeFlowers>())      \
-  X(CosmicEyeball, 60)                                                         \
-  X(MobiusGrid, hs_preset_window_seconds<MobiusGrid>())
+  X(AlienBrain)                                                                \
+  X(AlienOcean)                                                                \
+  X(AlienCore)                                                                 \
+  X(KaleidoscopeMandala)                                                       \
+  X(Millefiori)                                                                \
+  X(GridSpace)                                                                 \
+  X(Involution)                                                                \
+  X(GridWorms)                                                                 \
+  X(GridWarp)                                                                  \
+  X(LiquidWindows)                                                             \
+  X(Iridescence)                                                               \
+  X(KaleidoscopeMelt)                                                          \
+  X(ChromaticLichen)                                                           \
+  X(MermaidSkin)                                                               \
+  X(JewelMelt)                                                                 \
+  X(AshCloud)                                                                  \
+  X(KaleidoscopeHexOil)                                                        \
+  X(KaleidoscopeStainedGlass)                                                  \
+  X(KaleidoscopeSmooth)                                                        \
+  X(KaleidoscopeHexBright)                                                     \
+  X(KaleidoscopeFlowers)                                                       \
+  X(CosmicEyeball)                                                             \
+  X(MobiusGrid)
 
 /**
  * @brief Expands to +1 so HS_EFFECT_LIST can be summed into an entry count.
@@ -216,7 +216,7 @@ constexpr bool hs_in_effect_list(const char *name) {
  * @return Number of matching entries.
  */
 constexpr int hs_shader_product_group_count(const char *name) {
-#define HS_SHADER_PRODUCT_NAME_COUNT(cls, duration_seconds)                    \
+#define HS_SHADER_PRODUCT_NAME_COUNT(cls)                                      \
   +(hs_effect_name_eq(name, #cls) ? 1 : 0)
   return 0 HS_SHADER_PRODUCT_GROUP(HS_SHADER_PRODUCT_NAME_COUNT);
 #undef HS_SHADER_PRODUCT_NAME_COUNT
@@ -227,7 +227,7 @@ constexpr int hs_shader_product_group_count(const char *name) {
  * @return True when every entry is distinct.
  */
 constexpr bool hs_shader_product_group_is_distinct() {
-#define HS_SHADER_PRODUCT_NAME_ONCE(cls, duration_seconds)                     \
+#define HS_SHADER_PRODUCT_NAME_ONCE(cls)                                       \
   &&(hs_shader_product_group_count(#cls) == 1)
   return true HS_SHADER_PRODUCT_GROUP(HS_SHADER_PRODUCT_NAME_ONCE);
 #undef HS_SHADER_PRODUCT_NAME_ONCE
@@ -238,8 +238,7 @@ constexpr bool hs_shader_product_group_is_distinct() {
  * @return True when the group is a roster subset.
  */
 constexpr bool hs_shader_product_group_is_subset() {
-#define HS_SHADER_PRODUCT_NAME_ON_ROSTER(cls, duration_seconds)                \
-  &&hs_in_effect_list(#cls)
+#define HS_SHADER_PRODUCT_NAME_ON_ROSTER(cls) &&hs_in_effect_list(#cls)
   return true HS_SHADER_PRODUCT_GROUP(HS_SHADER_PRODUCT_NAME_ON_ROSTER);
 #undef HS_SHADER_PRODUCT_NAME_ON_ROSTER
 }

@@ -975,7 +975,7 @@ def phantasm_roster(source: str) -> set[str]:
 
 def shader_product_group(source: str) -> set[str]:
     """Returns the effect names in HS_SHADER_PRODUCT_GROUP."""
-    return set(_NAMED_ROSTER_ENTRY_RE.findall(
+    return set(_EFFECT_ROSTER_ENTRY_RE.findall(
         _macro_body(source, _PRODUCT_GROUP_DEFINE)))
 
 

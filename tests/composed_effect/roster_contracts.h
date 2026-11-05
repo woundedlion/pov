@@ -9,8 +9,7 @@
 
 /** @brief Sweeps the registered slider set over every specialization. */
 inline void test_composed_slider_registration() {
-#define HS_COMPOSED_SLIDERS(name, seconds)                                     \
-  check_slider_registration<name>(#name);
+#define HS_COMPOSED_SLIDERS(name) check_slider_registration<name>(#name);
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_SLIDERS)
 #undef HS_COMPOSED_SLIDERS
 }
@@ -106,16 +105,14 @@ inline void test_mobius_generator_interpolation() {
 
 /** @brief Sweeps the parameter snapshot contract over every specialization. */
 inline void test_composed_snapshot_contract() {
-#define HS_COMPOSED_SNAPSHOT(name, seconds)                                    \
-  check_snapshot_contract<name>(#name);
+#define HS_COMPOSED_SNAPSHOT(name) check_snapshot_contract<name>(#name);
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_SNAPSHOT)
 #undef HS_COMPOSED_SNAPSHOT
 }
 
 /** @brief Sweeps the preset choreography over every specialization. */
 inline void test_composed_preset_choreography() {
-#define HS_COMPOSED_PRESETS(name, seconds)                                     \
-  check_preset_choreography<name>(#name);
+#define HS_COMPOSED_PRESETS(name) check_preset_choreography<name>(#name);
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_PRESETS)
 #undef HS_COMPOSED_PRESETS
 }
@@ -136,15 +133,14 @@ inline void test_composed_log_positive_curve() {
 
 /** @brief Sweeps the crossfade interpolation over every specialization. */
 inline void test_composed_preset_interpolation() {
-#define HS_COMPOSED_INTERP(name, seconds)                                      \
-  check_preset_interpolation<name>(#name);
+#define HS_COMPOSED_INTERP(name) check_preset_interpolation<name>(#name);
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_INTERP)
 #undef HS_COMPOSED_INTERP
 }
 
 /** @brief Sweeps the shader-document value pin over every specialization. */
 inline void test_composed_document_values() {
-#define HS_COMPOSED_DOCUMENTS(name, seconds) check_document_values<name>(#name);
+#define HS_COMPOSED_DOCUMENTS(name) check_document_values<name>(#name);
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_DOCUMENTS)
 #undef HS_COMPOSED_DOCUMENTS
 }

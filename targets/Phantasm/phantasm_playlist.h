@@ -215,21 +215,6 @@ static_assert(!hs_in_phantasm_effect_list("ShaderChain") &&
               "HS_PHANTASM_EFFECT_LIST must exclude ShaderChain and "
               "every HS_PHANTASM_EXCLUDED_EFFECTS entry");
 
-/**
- * @brief Static-asserts that a product-group duration mirrors the Phantasm
- *        playlist.
- * @param cls Effect class name.
- * @param duration_seconds HS_SHADER_PRODUCT_GROUP show duration in seconds.
- */
-#define HS_SHADER_GROUP_DURATION_MATCHES(cls, duration_seconds)                \
-  static_assert(!hs_in_phantasm_effect_list(#cls) ||                           \
-                    hs_phantasm_duration_seconds(#cls) == (duration_seconds),  \
-                #cls                                                           \
-                " duration disagrees between HS_SHADER_PRODUCT_GROUP and "     \
-                "HS_PHANTASM_EFFECT_LIST");
-HS_SHADER_PRODUCT_GROUP(HS_SHADER_GROUP_DURATION_MATCHES)
-#undef HS_SHADER_GROUP_DURATION_MATCHES
-
 static_assert(
     static_cast<size_t>(hs_phantasm_duration_seconds("HankinSolids")) ==
     (HankinSolids<HS_PRESET_WINDOW_W, HS_PRESET_WINDOW_H>::FULL_CYCLE_FRAMES +
