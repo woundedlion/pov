@@ -3,6 +3,9 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Host render micro-benchmark: per-frame wall time for every effect.
+ * Usage: perf_bench [--galaxies-draw on|off full|segment]
+ *        perf_bench --temporal-sample EFFECT on|off full|segment
+ *        perf_bench --temporal-cost
  *
  * Build the two targets (perf_bench_Os at -Os = the Phantasm size config,
  * perf_bench_O3 at -O3) and diff to see what optimization buys the render. Host
@@ -144,13 +147,33 @@ struct GalaxiesWhiteBox {
 } // namespace hs_test::effects_tests
 
 int main(int argc, char **argv) {
-  if (argc == 4 && std::strcmp(argv[1], "--galaxies-draw") == 0) {
+  const auto usage = [] {
+    std::fprintf(
+        stderr,
+        "usage: perf_bench\n"
+        "       perf_bench --galaxies-draw on|off full|segment\n"
+        "       perf_bench --temporal-sample EFFECT on|off full|segment\n"
+        "       perf_bench --temporal-cost\n"
+        "effects: PetalFlow MeshFeedback Comets RingSpin HopfFibration Galaxies\n");
+    return 2;
+  };
+  const auto valid_modes = [](const char *temporal, const char *clip) {
+    return (std::strcmp(temporal, "on") == 0 ||
+            std::strcmp(temporal, "off") == 0) &&
+           (std::strcmp(clip, "full") == 0 ||
+            std::strcmp(clip, "segment") == 0);
+  };
+  if (argc > 1 && std::strcmp(argv[1], "--galaxies-draw") == 0) {
+    if (argc != 4 || !valid_modes(argv[2], argv[3]))
+      return usage();
     std::printf("%.3f\n", hs_test::effects_tests::GalaxiesWhiteBox::draw_us(
                               std::strcmp(argv[2], "on") == 0,
                               std::strcmp(argv[3], "segment") == 0));
     return 0;
   }
-  if (argc == 5 && std::strcmp(argv[1], "--temporal-sample") == 0) {
+  if (argc > 1 && std::strcmp(argv[1], "--temporal-sample") == 0) {
+    if (argc != 5 || !valid_modes(argv[3], argv[4]))
+      return usage();
     const bool temporal = std::strcmp(argv[3], "on") == 0;
     const bool clipped = std::strcmp(argv[4], "segment") == 0;
 #define HS_TEMPORAL_SAMPLE(Effect)                                             \
@@ -165,9 +188,12 @@ int main(int argc, char **argv) {
     HS_TEMPORAL_SAMPLE(HopfFibration)
     HS_TEMPORAL_SAMPLE(Galaxies)
 #undef HS_TEMPORAL_SAMPLE
-    return 2;
+    std::fprintf(stderr, "unknown temporal effect '%s'\n", argv[2]);
+    return usage();
   }
   if (argc > 1 && std::strcmp(argv[1], "--temporal-cost") == 0) {
+    if (argc != 2)
+      return usage();
     std::puts("effect,clip,off_min_us,off_median_us,on_min_us,on_median_us");
     temporal_cost<PetalFlow<W, H>>("PetalFlow");
     temporal_cost<MeshFeedback<W, H>>("MeshFeedback");
@@ -177,6 +203,8 @@ int main(int argc, char **argv) {
     temporal_cost<Galaxies<W, H>>("Galaxies");
     return 0;
   }
+  if (argc != 1)
+    return usage();
 #ifdef __OPTIMIZE_SIZE__
   const char *opt = "-Os";
 #else
