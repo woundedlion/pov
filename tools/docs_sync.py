@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ast
 import fnmatch
 import os
 import posixpath
@@ -202,16 +201,13 @@ def sync_repository(root: Path, checkout_roots: dict[str, Path],
             print(f"[docs-sync] updated {relative}")
 
 
+def pinned_daydream() -> str:
+    import build_pins
+    return build_pins.PINS["daydream"]
+
+
 def checkout_revisions(checkout_roots: dict[str, Path]) -> dict[str, str]:
-    source = Path(__file__).with_name("build_pins.py").read_text(encoding="utf-8")
-    for node in ast.parse(source).body:
-        if isinstance(node, ast.Assign) and any(
-                isinstance(target, ast.Name) and target.id == "PINS" for target in node.targets):
-            for key, value in zip(node.value.keys, node.value.values, strict=True):
-                if isinstance(key, ast.Constant) and key.value == "daydream":
-                    revision = ast.literal_eval(value)
-                    return {"daydream": revision} if "daydream" in checkout_roots else {}
-    raise ValueError("build_pins.py has no literal daydream pin")
+    return {"daydream": pinned_daydream()} if "daydream" in checkout_roots else {}
 
 
 def discover_daydream(root: Path) -> Path | None:
@@ -220,7 +216,7 @@ def discover_daydream(root: Path) -> Path | None:
         text=True, timeout=30).strip()
     candidates = [Path(os.environ["DAYDREAM_DIR"])] if os.environ.get("DAYDREAM_DIR") else [
         root / "daydream", Path(common).parent.parent / "daydream"]
-    revision = checkout_revisions({"daydream": root})["daydream"]
+    revision = pinned_daydream()
     for candidate in candidates:
         if candidate.is_dir():
             result = subprocess.run(["git", "-C", str(candidate), "cat-file", "-e", f"{revision}^{{tree}}"],

@@ -175,13 +175,10 @@ class RepositorySync(unittest.TestCase):
 
 
 class DiscoveryAndCounts(unittest.TestCase):
-    def test_checkout_revisions_reads_the_literal_pin(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / "build_pins.py").write_text("PINS = {'other': 'x', 'daydream': 'abc123'}\n", encoding="utf-8")
-            with mock.patch.object(ds, "__file__", str(root / "docs_sync.py")):
-                self.assertEqual(ds.checkout_revisions({"daydream": root}), {"daydream": "abc123"})
-                self.assertEqual(ds.checkout_revisions({}), {})
+    def test_checkout_revisions_uses_the_canonical_pin(self):
+        with mock.patch.object(ds, "pinned_daydream", return_value="abc123"):
+            self.assertEqual(ds.checkout_revisions({"daydream": Path(".")}), {"daydream": "abc123"})
+            self.assertEqual(ds.checkout_revisions({}), {})
 
     def test_discovery_order_override_and_pinned_tree_probe(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -196,12 +193,12 @@ class DiscoveryAndCounts(unittest.TestCase):
             git_run(candidates[1], 'add', '--', 'unique.txt')
             git_run(candidates[1], 'commit', '-q', '-m', 'pinned tree')
             revision = git_run(candidates[1], 'rev-parse', 'HEAD^{tree}').stdout.strip()
-            with mock.patch.object(ds, "checkout_revisions", return_value={"daydream": revision}):
+            with mock.patch.object(ds, "pinned_daydream", return_value=revision):
                 with mock.patch.dict(ds.os.environ, {"DAYDREAM_DIR": ""}):
                     self.assertEqual(ds.discover_daydream(root), candidates[1].resolve())
                 with mock.patch.dict(ds.os.environ, {"DAYDREAM_DIR": str(candidates[0])}):
                     self.assertIsNone(ds.discover_daydream(root))
-                with mock.patch.object(ds, "checkout_revisions", return_value={"daydream": "0" * 40}):
+                with mock.patch.object(ds, "pinned_daydream", return_value="0" * 40):
                     self.assertIsNone(ds.discover_daydream(root))
 
     def test_auto_checkout_failure_reports_the_missing_pin(self):
