@@ -241,9 +241,9 @@ inline void check_affine_lattice_windings() {
   }
 }
 
-/** @brief The composed affine stage before a tessellation source matches the
+/** @brief The composed affine stage before a planar source matches the
     catalog model given that source's lattice.
- * @tparam SourceFamily Tessellation source family.
+ * @tparam SourceFamily Planar source family.
  * @tparam Reduction Path-length reduction the family's lattice takes. */
 template <typename SourceFamily, Pullback::Warp::RepeatReduction Reduction>
 inline void check_affine_lattice_parity() {
@@ -262,7 +262,12 @@ inline void check_affine_lattice_parity() {
   auto &params = frame.params.template get<"probe">();
   auto &source = frame.params.template get<"source">();
   auto &clock = frame.resources.template get<"probe">();
-  source.cell_scale = 3.0f;
+  if constexpr (requires { source.cell_scale; })
+    source.cell_scale = 3.0f;
+  else {
+    source.pattern_freq = 3.0f;
+    source.angle = 0.7f;
+  }
   params.translation_x = 2.0f;
   params.translation_y = -1.0f;
   params.repeat_cells = 3.0f;
@@ -270,6 +275,15 @@ inline void check_affine_lattice_parity() {
   params.rotation_rate = 1.2f;
   params.scale_x = 1.4f;
   params.shear = 0.2f;
+  const float MAX_PATH_LENGTH = [&] {
+    if constexpr (std::is_same_v<SourceFamily, Source::BandsSourceParams>) {
+      const float PERIOD = math::TWO_PI_F / source.pattern_freq *
+                           std::round(params.repeat_cells);
+      HS_EXPECT_TRUE(std::isfinite(PERIOD) && PERIOD > 0.0f);
+      return std::sqrt(2.0f) * 0.5f * PERIOD + 1e-6f;
+    } else
+      return std::sqrt(2.0f) * 0.5f + 1e-6f;
+  }();
   clock.phase = 0.23f;
   clock.rotation = 0.4f;
   const Op::WarpAffineV4::State state{clock.phase, clock.rotation};
@@ -294,17 +308,19 @@ inline void check_affine_lattice_parity() {
     HS_EXPECT_NEAR(actual.coords.re, expected.coords.re, TOLERANCE);
     HS_EXPECT_NEAR(actual.coords.im, expected.coords.im, TOLERANCE);
     HS_EXPECT_NEAR(actual.path_length, expected.path_length, TOLERANCE);
-    HS_EXPECT_LE(actual.path_length, std::sqrt(2.0f) * 0.5f + 1e-6f);
+    HS_EXPECT_LE(actual.path_length, MAX_PATH_LENGTH);
   }
 }
 
-/** @brief Square cells take the per-axis reduction; hexagonal and triangular
-    tessellations take the general one. */
+/** @brief Square cells take the per-axis reduction; bands, hexagonal and
+    triangular tessellations take the general one. */
 inline void check_tessellation_affine_parity() {
   using Pullback::Source::FixedTessellationParams;
   using K = Pattern::TessellationKind;
   using F = Pattern::TessellationFill;
   using R = Pullback::Warp::RepeatReduction;
+  check_affine_lattice_parity<Pullback::Source::BandsSourceParams,
+                              R::GENERAL>();
   check_affine_lattice_parity<Pullback::SquareCellsParams, R::RECTANGULAR>();
   check_affine_lattice_parity<FixedTessellationParams<K::SQUARE, F::EDGES>,
                               R::RECTANGULAR>();

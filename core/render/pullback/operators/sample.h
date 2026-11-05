@@ -349,6 +349,13 @@ struct SampleBands : StatelessModel {
   using Params = BandsSampleParams;
   using Prepared = Pattern::PlaneBands::Prepared;
 
+  /** @brief Translation symmetry of the bands.
+   * @param params Band controls.
+   * @return The oriented translation lattice. */
+  static TranslationLattice translation_lattice(const Params &params) {
+    return Source::translation_lattice(params);
+  }
+
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &) {
     check_sample_topology(params.weight_mode, params.coverage_mode);

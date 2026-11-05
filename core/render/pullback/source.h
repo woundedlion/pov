@@ -106,6 +106,15 @@ struct BandsSourceParams : Pattern::BandsSourceParams {
 static_assert(field_ids_unique<BandsSourceParams>());
 static_assert(field_defaults_in_range<BandsSourceParams>());
 
+/** @brief Translation symmetry of parallel bands within the unclamped source domain.
+ * @param params Band frequency and orientation.
+ * @return A rotated square lattice with one band-normal period. */
+inline TranslationLattice translation_lattice(const BandsSourceParams &params) {
+  const float PERIOD = math::TWO_PI_F / params.pattern_freq;
+  const float COSINE = cosf(params.angle), SINE = sinf(params.angle);
+  return {{PERIOD * COSINE, PERIOD * SINE}, {-PERIOD * SINE, PERIOD * COSINE}};
+}
+
 /**
  * @brief Source parameters for the stationary spiral field
  *        (Pullback::Source::Spiral).
