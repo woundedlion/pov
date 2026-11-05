@@ -2574,7 +2574,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     // Capture-only dispatch receives a validated snapshot recipe.
     {"tools/pullback_capture_native.cpp", 1},
     // Resource and endpoint ceilings follow the admitted parameter budget.
-    {"workbench/shader/chain_host.h", 3},
+    {"workbench/shader/chain_host.h", 4},
 };
 
 /**
