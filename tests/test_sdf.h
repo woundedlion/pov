@@ -110,6 +110,7 @@ inline int run_sdf_tests() {
   HS_RUN(test_inverted_fill_scans_full_sphere);
 
   HS_RUN(test_line_on_arc_is_inside);
+  HS_RUN(test_line_on_arc_sweep);
   HS_RUN(test_line_endpoint_is_on_line);
   HS_RUN(test_line_perpendicular_off);
   HS_RUN(test_line_just_above_cross_threshold);

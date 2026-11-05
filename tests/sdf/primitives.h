@@ -978,6 +978,24 @@ inline void test_line_on_arc_is_inside() {
   HS_EXPECT_NEAR(r.raw_dist, 0.0f, 5e-4f);
 }
 
+/** @brief Arc interiors stay on the stroke across endpoint separations. */
+inline void test_line_on_arc_sweep() {
+  const math::Vector A(1, 0, 0);
+  for (float angle : {0.05f, 0.5f, 1.644f, 1.7f, 2.2f, 2.4f, 3.1f}) {
+    const math::Vector B(cosf(angle), 0, sinf(angle));
+    const SDF::Line LINE(A, B, 0.1f);
+    for (int i = 1; i < 256; ++i) {
+      const float PHASE = angle * i / 256;
+      const math::Vector P(cosf(PHASE), 0, sinf(PHASE));
+      const auto RESULT = SDF::distance_of(LINE, P);
+      HS_EXPECT_NEAR(RESULT.raw_dist, 0.0f, 1e-6f);
+      HS_EXPECT_NEAR(RESULT.dist, -0.1f, 1e-6f);
+    }
+    const auto POLE = SDF::distance_of(LINE, LINE.n);
+    HS_EXPECT_NEAR(POLE.raw_dist, math::PI_F / 2, 2e-4f);
+  }
+}
+
 /** @brief Verifies an endpoint counts as on the line (raw_dist 0, dist = -thickness). */
 inline void test_line_endpoint_is_on_line() {
   math::Vector a(1, 0, 0);

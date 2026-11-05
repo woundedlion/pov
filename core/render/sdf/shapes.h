@@ -642,10 +642,12 @@ struct Line {
   math::Vector b;  ///< Second arc endpoint (unit vector).
   float thickness; /**< Half-width of the stroke (radians). */
 
-  math::Vector n; /**< Great-circle plane normal of the arc. */
-  float len;      /**< Arc length (radians). */
-  float phi_min;  ///< Lower colatitude bound (radians).
-  float phi_max;  ///< Upper colatitude bound (radians).
+  math::Vector n;      /**< Great-circle plane normal of the arc. */
+  math::Vector edge_a; ///< Inward arc-start half-plane normal.
+  math::Vector edge_b; ///< Inward arc-end half-plane normal.
+  float len;           /**< Arc length (radians). */
+  float phi_min;       ///< Lower colatitude bound (radians).
+  float phi_max;       ///< Upper colatitude bound (radians).
 
   // Bounding-cap geometry, precomputed in the ctor.
   math::Vector mid;       /**< Arc midpoint axis (bounding-cap center). */
@@ -693,6 +695,8 @@ struct Line {
     } else {
       n = cr.normalized();
     }
+    edge_a = math::cross(n, a);
+    edge_b = math::cross(b, n);
 
     // A great-circle arc bulges toward a pole between its endpoints, so its
     // peak latitude can lie outside [phi_a, phi_b]; extend by the interior
@@ -704,8 +708,8 @@ struct Line {
     // The latitude turns inside the arc iff the forward tangent's y-component
     // (cross(n, p).y) flips sign between endpoints; the extremum is
     // ±sqrt(1-n.y²).
-    float t0 = math::cross(n, a).y;
-    float t1 = math::cross(n, b).y;
+    float t0 = edge_a.y;
+    float t1 = -edge_b.y;
     if ((t0 > 0.0f) != (t1 > 0.0f)) {
       float peak = sqrtf(std::max(0.0f, 1.0f - n.y * n.y));
       float phi_ext = acosf(t0 > 0.0f ? peak : -peak);
@@ -778,29 +782,11 @@ struct Line {
       return;
     }
 
-    float d_plane = math::dot(p, n);
-    math::Vector p_proj_plane = p - n * d_plane;
-    float proj_mag = p_proj_plane.magnitude();
-
-    if (proj_mag < 1e-6f) {
-      float d_a = math::angle_between(p, a);
-      float d_b = math::angle_between(p, b);
-      float dist = fminf(d_a, d_b);
-      res = DistanceResult(dist - thickness, 0.0f, dist, 0.0f, thickness);
-      return;
-    }
-
-    math::Vector p_proj = p_proj_plane / proj_mag;
-    float ang_a = math::angle_between(a, p_proj);
-    float ang_b = math::angle_between(b, p_proj);
-
     float dist_seg = 0.0f;
-    // Two geodesic metrics, C0-continuous at the join: in-segment the foot lies
-    // on the arc so asinf(|d_plane|) is exact; past an endpoint the closest
-    // point is that cap (asinf(|d_plane|) alone would measure the whole great
-    // circle).
-    if (ang_a + ang_b <= len + 1e-4f) {
-      dist_seg = asinf(std::abs(d_plane));
+    if (len > math::PI_F ||
+        (math::dot(p, edge_a) >= 0.0f && math::dot(p, edge_b) >= 0.0f)) {
+      const float D_PLANE = math::dot(p, n);
+      dist_seg = asinf(fminf(fabsf(D_PLANE), 1.0f));
     } else {
       float d_a = math::angle_between(p, a);
       float d_b = math::angle_between(p, b);
