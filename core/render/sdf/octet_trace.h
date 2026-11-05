@@ -28,11 +28,7 @@ struct CrossingStorage {
 };
 
 /** @brief Premultiplied ray color and how its traversal ended. */
-struct Sample {
-  Pixel color; ///< Premultiplied composited color.
-  /// Why the traversal stopped.
-  Raycast::TraceStatus status = Raycast::TraceStatus::RANGE_COMPLETE;
-};
+using Sample = Raycast::TraceSample;
 
 /**
  * @brief Composites an octet adapter's plane crossings front to back.

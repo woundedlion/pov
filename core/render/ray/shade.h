@@ -76,6 +76,12 @@ struct Appearance {
   }
 };
 
+/** @brief Premultiplied ray color and traversal status. */
+struct TraceSample {
+  Pixel color; ///< Premultiplied composited color.
+  TraceStatus status = TraceStatus::RANGE_COMPLETE; ///< Traversal status.
+};
+
 /** @brief Covered crossings sorted and composited in first-distance merge groups.
  *  @tparam N Maximum crossings in the borrowed storage.
  *  @tparam Storage Borrowed array reference or float pointer. */

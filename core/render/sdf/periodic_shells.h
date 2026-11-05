@@ -119,11 +119,7 @@ prepare_periodic_shells(const Raycast::PreparedCamera &camera, float cell_size,
 }
 
 /** @brief Premultiplied shell color and how its traversal ended. */
-struct ShellSample {
-  Pixel color; ///< Premultiplied composited color.
-  /// Why the traversal stopped.
-  Raycast::TraceStatus status = Raycast::TraceStatus::RANGE_COMPLETE;
-};
+using ShellSample = Raycast::TraceSample;
 
 /** @brief Layers trace_periodic_shells_march() sorts per ray; the caller owns it. */
 struct ShellLayerStorage {

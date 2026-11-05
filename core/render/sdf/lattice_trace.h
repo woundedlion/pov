@@ -193,7 +193,7 @@ HS_HOT_FLASH_MEMBER Sample shade_shells(const math::Vector &direction,
     sample = SDF::trace_periodic_shells_march<DIMENSIONS, true, true>(
         shells, prepared.camera, direction, prepared.limits,
         prepared.appearance, *prepared.shell_layers);
-  return {sample.color, sample.status};
+  return sample;
 }
 
 /**
