@@ -166,6 +166,7 @@ inline int run_filter_tests() {
   HS_RUN(test_feedback_flush_blends_prev_frame);
   HS_RUN(test_feedback_translucent_flush_matches_opaque_blend);
   HS_RUN(test_feedback_custom_color_receives_elapsed_fade);
+  HS_RUN(test_feedback_x_clips_match_full_frame);
   HS_RUN(test_feedback_north_pole_uses_single_physical_sample);
   HS_RUN(test_feedback_south_pole_uses_single_physical_sample);
   HS_RUN(test_feedback_polar_rows_use_spherical_footprint);
