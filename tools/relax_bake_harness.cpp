@@ -9,15 +9,15 @@
  * asserted against the committed payload.
  *
  * New bakes go in core/mesh/relax_bake_specs.h; main() must reach their
- * generator, and MIN_RELAX_BAKES_VERIFIED rises by one per added step.
+ * generator, and RELAX_BAKES_VERIFIED rises by one per added step.
  */
 #include <cstdint>
 #include <cstdio>
 #include "core/mesh/solids.h"
 
 #if defined(HS_RELAX_BAKE_VERIFY)
-// Floor on relax_baked() steps reached; without it a sweep reaching none passes.
-static constexpr int MIN_RELAX_BAKES_VERIFIED = 22;
+// Exact count of relax_baked() steps reached by the registry sweep.
+static constexpr int RELAX_BAKES_VERIFIED = 22;
 #endif
 
 int main() {
@@ -35,11 +35,12 @@ int main() {
     for (const auto &e : reg)
       run(e);
 #if defined(HS_RELAX_BAKE_VERIFY)
-  if (Solids::relax_bakes_verified < MIN_RELAX_BAKES_VERIFIED) {
-    std::printf("relax bake verify: reached %d relax_baked() steps of %d — a "
-                "recipe dropped one, so its committed payload is pinned to "
-                "nothing; see tools/relax_bake_harness.cpp\n",
-                Solids::relax_bakes_verified, MIN_RELAX_BAKES_VERIFIED);
+  if (Solids::relax_bakes_verified != RELAX_BAKES_VERIFIED) {
+    std::printf(
+        "relax bake verify: reached %d relax_baked() steps; expected %d. "
+        "A recipe or the coverage count changed; see "
+        "tools/relax_bake_harness.cpp\n",
+        Solids::relax_bakes_verified, RELAX_BAKES_VERIFIED);
     return 1;
   }
   std::printf("relax bake verify: %d relax_baked() steps re-derived\n",
