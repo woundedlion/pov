@@ -4,7 +4,9 @@
 Run:  python -m unittest discover -s tools/hot_layout_tests
 """
 
+import os
 import struct
+import subprocess
 import sys
 import unittest
 from dataclasses import replace
@@ -329,12 +331,21 @@ class Planner(unittest.TestCase):
                          {"Alpha": True, "Beta": True, "Gamma": True})
 
     def test_plan_is_deterministic(self):
+        script = (
+            "from test_hot_layout import Planner, hl\n"
+            "program = Planner()._shared_program()\n"
+            "hot_sets = program.hot_sets(['Alpha', 'Beta', 'Gamma'])\n"
+            "alignments = {s.key: 4 for s in program.sections}\n"
+            "print(hl.plan(program, hot_sets, alignments, 0x60008010))\n"
+        )
         orders = []
-        for _ in range(2):
-            program = self._shared_program()
-            hot_sets = program.hot_sets(["Alpha", "Beta", "Gamma"])
-            alignments = {s.key: 4 for s in program.sections}
-            orders.append(hl.plan(program, hot_sets, alignments, 0x60008010))
+        for seed in ("1", "2"):
+            result = subprocess.run(
+                [sys.executable, "-c", script], cwd=Path(__file__).parent,
+                env=dict(os.environ, PYTHONHASHSEED=seed),
+                capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            orders.append(result.stdout)
         self.assertEqual(orders[0], orders[1])
 
     def test_fragment_names_archive_members_and_checks_the_end(self):
