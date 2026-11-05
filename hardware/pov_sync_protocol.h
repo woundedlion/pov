@@ -55,6 +55,12 @@ constexpr int32_t circ_dist(int32_t a, int32_t b, int32_t w) {
  */
 constexpr uint32_t MIN_SAFE_HALF_REVS = 16;
 
+constexpr int32_t BEACON_DIGITS = 5;        /**< Digits in one beacon frame. */
+constexpr uint8_t BEACON_MAX_DIGIT = 7;     /**< Largest base-8 digit. */
+constexpr uint32_t BEACON_FIELD_MASK = 63u; /**< Two-digit field mask. */
+constexpr int32_t MAX_SYMBOL_PULSE_GAPS =
+    4; /**< Gaps in the widest boundary symbol. */
+
 /**
  * @brief All protocol constants, in columns and cycle-counter cycles.
  *
@@ -180,9 +186,10 @@ struct Config {
    * opens; a real burst always ends on the gap first.
    */
   constexpr uint32_t max_burst_cycles() const {
-    const int32_t span = 4 * pulse_pitch_cols > 7 * beacon_pitch_cols
-                             ? 4 * pulse_pitch_cols
-                             : 7 * beacon_pitch_cols;
+    const int32_t span = MAX_SYMBOL_PULSE_GAPS * pulse_pitch_cols >
+                                 BEACON_MAX_DIGIT * beacon_pitch_cols
+                             ? MAX_SYMBOL_PULSE_GAPS * pulse_pitch_cols
+                             : BEACON_MAX_DIGIT * beacon_pitch_cols;
     return col_cycles(span + gap_timeout_cols + 1);
   }
   /**
@@ -213,13 +220,16 @@ struct Config {
    * @details Mirrors SymbolEmitter::schedule_beacon's per-digit advance.
    */
   constexpr int32_t beacon_span_cols(int32_t digit_sum) const {
-    return digit_sum * beacon_pitch_cols + 4 * (gap_timeout_cols + 1);
+    return digit_sum * beacon_pitch_cols +
+           (BEACON_DIGITS - 1) * (gap_timeout_cols + 1);
   }
   /**
    * @brief Worst-case beacon frame span (first to last pulse), in columns.
    * @return Columns spanned by five base-8 digit bursts of value 7.
    */
-  constexpr int32_t beacon_span_cols() const { return beacon_span_cols(35); }
+  constexpr int32_t beacon_span_cols() const {
+    return beacon_span_cols(BEACON_DIGITS * BEACON_MAX_DIGIT);
+  }
   /**
    * @brief Columns a beacon frame occupies from its first pulse to the earliest
    * instant a boundary burst may follow it.
@@ -235,7 +245,9 @@ struct Config {
    * @brief Worst-case columns a beacon frame occupies.
    * @return beacon_frame_cols() for the widest encodable payload.
    */
-  constexpr int32_t beacon_frame_cols() const { return beacon_frame_cols(35); }
+  constexpr int32_t beacon_frame_cols() const {
+    return beacon_frame_cols(BEACON_DIGITS * BEACON_MAX_DIGIT);
+  }
 
   /**
    * @brief Revolutions from a roster entry's last beacon to the first beacon
@@ -316,7 +328,7 @@ struct Config {
     if (!(glitch_filter_cycles < beacon_pitch_cycles() - late_censor_cycles()))
       return "glitch_filter_cycles < beacon_pitch - late_censor";
     // A boundary gate must not claim the widest beacon digit burst.
-    if (!(7 * beacon_pitch_cols + 1 > gate_cols))
+    if (!(BEACON_MAX_DIGIT * beacon_pitch_cols + 1 > gate_cols))
       return "7*beacon_pitch_cols + 1 > gate_cols";
     // The frame and tail quiet must fit between W/4 and HALF, with lateness slack.
     if (!(beacon_frame_cols() < W / 4))
@@ -324,7 +336,7 @@ struct Config {
     // Acquisition quiet must cover the worst-case digit advance: inter-burst gap,
     // widest digit burst and terminating gap.
     if (!(acquire_quiet_cols >=
-          2 * gap_timeout_cols + 7 * beacon_pitch_cols + 1))
+          2 * gap_timeout_cols + BEACON_MAX_DIGIT * beacon_pitch_cols + 1))
       return "acquire_quiet_cols >= 2*gap_timeout + 7*beacon_pitch + 1";
     // The poll-path stale-frame reset must be tighter than BeaconParser's.
     if (!(acquire_quiet_cols + gap_timeout_cols <

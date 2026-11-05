@@ -552,7 +552,7 @@ private:
       publish_build(idx);
     } else {
       beacon_index_candidate = -1;
-      if (f.rev_count != (content_tracker.rev_in_effect & 63u)) {
+      if (f.rev_count != (content_tracker.rev_in_effect & BEACON_FIELD_MASK)) {
         // Resync a slipped rev counter via the signed mod-64 difference, which
         // recovers any slip under 32 revolutions.
         saturating_increment(telemetry_counters.beacon_rev_mismatches);
@@ -638,12 +638,12 @@ private:
     position = fly.position(now);
     if (position < protocol_config.W / 4)
       return;
-    uint8_t digits[5];
+    uint8_t digits[BEACON_DIGITS];
     encode_beacon_digits(content_tracker.effect_index, rev, digits);
     // The frame, receiver tail quiet and emission lateness must fit before HALF.
     // Measure from this tick, including its sub-column offset.
     int32_t digit_sum = 0;
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < BEACON_DIGITS; ++i)
       digit_sum += digits[i];
     const uint32_t frame_cycles =
         protocol_config.col_cycles(

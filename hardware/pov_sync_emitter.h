@@ -67,20 +67,20 @@ public:
    * @param cfg Protocol configuration.
    * @return False when another emission is still active.
    */
-  bool schedule_beacon(const uint8_t digits[5], uint32_t now,
+  bool schedule_beacon(const uint8_t digits[BEACON_DIGITS], uint32_t now,
                        const Config &cfg) {
     if (pulses_left > 0 || queue_pos < queue_len)
       return false;
     uint32_t start = now;
     const uint32_t col = cfg.cycles_per_column();
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < BEACON_DIGITS; ++i) {
       queue[i] = {start, static_cast<uint32_t>(digits[i]) + 1u};
       // Next burst starts after this one's span (digits[i] pitches) plus a
       // gap the decoder is guaranteed to see as burst-terminating.
       start += digits[i] * cfg.beacon_pitch_cycles() +
                static_cast<uint32_t>(cfg.gap_timeout_cols + 1) * col;
     }
-    queue_len = 5;
+    queue_len = BEACON_DIGITS;
     queue_pos = 0;
     return true;
   }
@@ -154,7 +154,7 @@ private:
     uint32_t start_cycles = 0; /**< When the burst should begin, in cycles. */
     uint32_t pulses = 0;       /**< Number of pulses in the burst. */
   };
-  PendingBurst queue[5] = {};
+  PendingBurst queue[BEACON_DIGITS] = {};
   int32_t queue_len = 0;
   int32_t queue_pos = 0;
   uint32_t pulses_left = 0;

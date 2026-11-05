@@ -86,13 +86,13 @@ struct BeaconFrame {
  * @details Each digit is transmitted as a burst of (digit+1) pulses.
  */
 constexpr void encode_beacon_digits(int32_t effect_index, uint32_t rev_count,
-                                    uint8_t out[5]) {
-  const uint32_t idx = static_cast<uint32_t>(effect_index) & 63u;
-  const uint32_t rev = rev_count & 63u;
+                                    uint8_t out[BEACON_DIGITS]) {
+  const uint32_t idx = static_cast<uint32_t>(effect_index) & BEACON_FIELD_MASK;
+  const uint32_t rev = rev_count & BEACON_FIELD_MASK;
   out[0] = static_cast<uint8_t>(idx >> 3);
-  out[1] = static_cast<uint8_t>(idx & 7u);
+  out[1] = static_cast<uint8_t>(idx & BEACON_MAX_DIGIT);
   out[2] = static_cast<uint8_t>(rev >> 3);
-  out[3] = static_cast<uint8_t>(rev & 7u);
+  out[3] = static_cast<uint8_t>(rev & BEACON_MAX_DIGIT);
   out[4] = out[0] ^ out[1] ^ out[2] ^ out[3];
 }
 
@@ -109,10 +109,12 @@ constexpr void encode_beacon_digits(int32_t effect_index, uint32_t rev_count,
  */
 constexpr int32_t beacon_rev_resync_delta(uint32_t beacon_rev_count,
                                           uint32_t current) {
-  return ((static_cast<int32_t>(beacon_rev_count & 63u) -
-           static_cast<int32_t>(current & 63u) + 96) %
-          64) -
-         32;
+  constexpr int32_t MODULUS = static_cast<int32_t>(BEACON_FIELD_MASK + 1);
+  return ((static_cast<int32_t>(beacon_rev_count & BEACON_FIELD_MASK) -
+           static_cast<int32_t>(current & BEACON_FIELD_MASK) +
+           3 * (MODULUS / 2)) %
+          MODULUS) -
+         MODULUS / 2;
 }
 
 /**
@@ -138,7 +140,7 @@ public:
       n = 0; // stale partial frame: a new frame may start with this burst
       *rejected = true;
     }
-    if (s.count < 1 || s.count > 8) {
+    if (s.count < 1 || s.count > BEACON_MAX_DIGIT + 1) {
       if (n > 0)
         *rejected = true;
       n = 0;
@@ -146,15 +148,16 @@ public:
     }
     last_first_cycles = s.first_cycles;
     digits[n++] = static_cast<uint8_t>(s.count - 1);
-    if (n < 5)
+    if (n < BEACON_DIGITS)
       return false;
     n = 0;
     if ((digits[0] ^ digits[1] ^ digits[2] ^ digits[3]) != digits[4]) {
       *rejected = true;
       return false;
     }
-    out->effect_index = digits[0] * 8 + digits[1];
-    out->rev_count = static_cast<uint32_t>(digits[2]) * 8u + digits[3];
+    out->effect_index = digits[0] * (BEACON_MAX_DIGIT + 1) + digits[1];
+    out->rev_count =
+        static_cast<uint32_t>(digits[2]) * (BEACON_MAX_DIGIT + 1u) + digits[3];
     return true;
   }
 
@@ -170,7 +173,7 @@ public:
 
 private:
   int32_t n = 0;
-  uint8_t digits[5] = {};
+  uint8_t digits[BEACON_DIGITS] = {};
   uint32_t last_first_cycles = 0;
 };
 
