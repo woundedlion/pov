@@ -673,8 +673,15 @@ REVISION_LAYOUTS = {
     },
     "1.3": {
         "edge_placements": TERMINAL_EDGE_PLACEMENTS_1_3,
+        "fixed_overrides": {
+            "C_IN": (15.5, 27.0, 0),
+            "U1": (26.8, 25.92, 180),
+            "R_D1": (31.6, 27.5, 90),
+            "R_D2": (31.6, 23.6, 90),
+            "C_DEC2": (22.3, 29.7, 90),
+        },
         "fixed_refs": frozenset(("JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD",
-                                 "C_IN", "U_MCU", "C_DEC1")),
+                                 "C_IN", "U_MCU", "C_DEC1", "U1", "R_D1", "R_D2", "C_DEC2")),
         "local_route_count": 1,
         "ground_route_count": 1,
         "sync_marks": "ABGH",
@@ -694,6 +701,8 @@ def fixed_placements(comps):
     layout = REVISION_LAYOUTS[_GENERATION.get()[0]]
     fixed = {ref: placement for ref, placement in TERMINAL_FIXED.items()
              if ref in comps and ref in layout["fixed_refs"]}
+    fixed.update({ref: placement for ref, placement in layout.get("fixed_overrides", {}).items()
+                  if ref in comps})
     fixed.update({ref: placement for ref, placement in layout["edge_placements"].items()
                   if ref in comps and comps[ref][1] == layout["terminal_by_ref"][ref]})
     return fixed
