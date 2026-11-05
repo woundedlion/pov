@@ -12,7 +12,7 @@ set(child_env
   HS_DEATH_CHILD=harness HS_DEATH_CASE=__spawn_check__)
 
 function(expect_dispatch expected diagnostic)
-  cmake_parse_arguments(CASE "" "" "ENV;ARGS" ${ARGN})
+  cmake_parse_arguments(CASE "QUIET_STDOUT" "" "ENV;ARGS" ${ARGN})
   execute_process(
     COMMAND "${CMAKE_COMMAND}" -E env ${child_env} ${CASE_ENV}
             "${TEST_BIN}" ${CASE_ARGS}
@@ -24,6 +24,9 @@ function(expect_dispatch expected diagnostic)
   if(NOT "${diagnostic}" STREQUAL "" AND NOT "${error}" MATCHES "${diagnostic}")
     message(FATAL_ERROR "missing diagnostic '${diagnostic}': ${output}${error}")
   endif()
+  if(CASE_QUIET_STDOUT AND NOT "${output}" STREQUAL "")
+    message(FATAL_ERROR "unexpected module output before rejection: ${output}")
+  endif()
 endfunction()
 
 expect_dispatch(0 "")
@@ -34,6 +37,8 @@ expect_dispatch(1 "HS_SMOKE_FRAMES" ENV HS_SMOKE_FRAMES=8)
 expect_dispatch(1 "QUICK tier" ENV HS_DEATH_CHILD= HS_EFFECTS_FULL=0 HS_REQUIRE_EFFECTS_FULL=1 ARGS effects)
 expect_dispatch(2 "invalid death-child invocation" ARGS death)
 expect_dispatch(2 "unknown module" ENV HS_DEATH_CHILD= ARGS __unknown_module__)
+expect_dispatch(2 "unknown module" QUIET_STDOUT ENV HS_DEATH_CHILD=
+  ARGS wasm_predicates __unknown_module__)
 expect_dispatch(1 "HS_EFFECTS_FULL and HS_REQUIRE_EFFECTS_FULL" ENV HS_DEATH_CHILD=)
 expect_dispatch(1 "HS_EFFECTS_FULL and HS_REQUIRE_EFFECTS_FULL" ENV HS_DEATH_CHILD= ARGS effects)
 

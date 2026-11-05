@@ -233,7 +233,6 @@ int main(int argc, char **argv) {
 
   int failures = 0;
   if (argc > 1) {
-    // Filtered run: execute only the named modules; an unknown name exits 2.
     for (int i = 1; i < argc; ++i) {
       const hs_test::TestModule *match = nullptr;
       for (const hs_test::TestModule &m : test_suite().modules) {
@@ -248,8 +247,13 @@ int main(int argc, char **argv) {
         print_modules(stderr);
         return 2;
       }
-      failures += match->run();
     }
+    for (int i = 1; i < argc; ++i)
+      for (const hs_test::TestModule &m : test_suite().modules)
+        if (std::strcmp(m.name, argv[i]) == 0) {
+          failures += m.run();
+          break;
+        }
   } else {
     for (const hs_test::TestModule &m : test_suite().modules)
       failures += m.run();
