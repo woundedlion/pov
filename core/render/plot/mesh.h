@@ -483,7 +483,7 @@ struct Mesh {
    * @details Without carry a moving vertex's start is evaluated. Its
    * interpolant is the chord when the chord's error bound, projected at the
    * vertex's least distance from the polar axis, stays within
-   * MAX_VERTEX_ERROR_PX, and otherwise the parabola through its middle
+   * GeometryCallback::capture_error, and otherwise the parabola through its middle
    * position. */
   template <int W, typename Stored, typename MeshT>
   HS_HOT_FLASH_MEMBER static void
@@ -491,7 +491,6 @@ struct Mesh {
                    const MeshT &mesh, const GeometryCallback &geometry,
                    const Spacetime::PoseTable *poses, float callback_bound,
                    float world_bound) {
-    const float MAX_VERTEX_ERROR_PX = geometry.capture_error;
     const size_t count = mesh.vertices.size();
     const bool moving = geometry.evaluate && callback_bound > 0.0f;
     const bool per_vertex = static_cast<bool>(geometry.vertex_path);
@@ -520,9 +519,9 @@ struct Mesh {
       const float rho = fminf(sqrtf(start.x * start.x + start.z * start.z),
                               sqrtf(end.x * end.x + end.z * end.z)) -
                         callback_bound - world_bound;
-      const float tolerance =
-          rho > 0.0f ? MAX_VERTEX_ERROR_PX * math::RADIANS_PER_COLUMN<W> * rho
-                     : 0.0f;
+      const float tolerance = rho > 0.0f ? geometry.capture_error *
+                                               math::RADIANS_PER_COLUMN<W> * rho
+                                         : 0.0f;
       if (motion.choose(i, per_vertex ? geometry.vertex_path(i) : geometry.path,
                         tolerance,
                         false) == Spacetime::Interpolant::QUADRATIC) {
