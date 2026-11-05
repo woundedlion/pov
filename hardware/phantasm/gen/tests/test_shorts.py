@@ -24,14 +24,10 @@ LIB = {name: f'(symbol "{name}" (power global))'
        for name in ("power:GND", "power:+5V", "power:PWR_FLAG")}
 
 
-def sym(lib_id, ref, x, y, rot=0, mirror=None, unit=1, value=None):
-    return dict(lib_id=lib_id, ref=ref, x=x, y=y, rot=rot, mirror=mirror,
-                unit=unit, value=value)
-
-
-def power(lib_id, x, y, rot=0):
+def power(lib_id, x, y, rot=0, mirror=None):
     """A power/flag symbol: its Value is the net it names."""
-    return sym(lib_id, "#PWR", x, y, rot=rot, value=lib_id.split(":")[1])
+    return dict(lib_id=lib_id, ref="#PWR", x=x, y=y, rot=rot, mirror=mirror,
+                value=lib_id.split(":")[1])
 
 
 def build(symbols=(), wires=(), labels=(), global_labels=(),
@@ -63,7 +59,7 @@ def build(symbols=(), wires=(), labels=(), global_labels=(),
                    f'(at {s["x"]} {s["y"]} {s["rot"]})')
         if s["mirror"]:
             out.append(f'(mirror {s["mirror"]})')
-        out.append(f'(unit {s["unit"]})')
+        out.append('(unit 1)')
         out.append(f'(property "Reference" "{s["ref"]}" (at 0 0 0))')
         out.append(f'(property "Value" "{s["value"] or s["ref"]}" (at 0 0 0))')
         out.append(")")
@@ -76,6 +72,16 @@ def conflicts(**kwargs):
 
 
 class PowerFlagTests(unittest.TestCase):
+    def test_rotated_mirrored_power_names_anchor_at_placed_origin(self):
+        for rotation, mirror in ((90, "x"), (270, "y")):
+            with self.subTest(rotation=rotation, mirror=mirror):
+                found = conflicts(
+                    symbols=[power("power:GND", 100, 100),
+                             power("power:+5V", 120, 100, rot=rotation, mirror=mirror)],
+                    wires=[((100, 100), (120, 100))])
+                self.assertEqual([nets for nets, _ in found], [["+5V", "GND"]])
+                self.assertIn(("+5V", (120, 100)), found[0][1])
+
     def test_flag_on_a_single_rail_passes(self):
         """A PWR_FLAG shares its rail's net by design -- not a short."""
         self.assertEqual(conflicts(
