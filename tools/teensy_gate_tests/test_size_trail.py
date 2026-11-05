@@ -626,6 +626,36 @@ class TrailStorage(unittest.TestCase):
 
 
 class RegressionClassifier(unittest.TestCase):
+    def test_interleaved_branches_compare_to_their_own_predecessor(self):
+        rows = [_row("a", "phantasm", date="2026-08-01", itcm=180000),
+                _row("b", "phantasm", date="2026-08-02", itcm=170000),
+                _row("c", "phantasm", date="2026-08-03", itcm=180100)]
+        def related(previous, current):
+            return (previous, current) == ("a", "c")
+        deltas = tst.compute_deltas(rows, related)
+        self.assertTrue(deltas[1].first)
+        self.assertEqual(deltas[2].changes["itcm"], 100)
+        self.assertEqual([(r.sha, r.delta) for r in tst.find_regressions(
+            rows, region="itcm", is_ancestor=related)], [("c", 100)])
+        for command in ("show", "regressions"):
+            with self.subTest(command=command), \
+                 mock.patch.object(tst, "read_trail", return_value=rows), \
+                 mock.patch.object(tst, "ancestry_checker", return_value=related), \
+                 contextlib.redirect_stdout(io.StringIO()) as output:
+                args = tst.build_parser().parse_args([command, "--trail", "unused"])
+                self.assertEqual(args.func(args), 0)
+                self.assertIn("+100", output.getvalue())
+                self.assertNotIn("+10,100", output.getvalue())
+
+    def test_ancestry_queries_cache_success_and_missing_objects(self):
+        for error, expected in ((None, True), (tst.GitError("unknown object"), False)):
+            with self.subTest(expected=expected), \
+                 mock.patch.object(tst, "_git", return_value="", side_effect=error) as git:
+                related = tst.ancestry_checker()
+                self.assertEqual(related("a", "b"), expected)
+                self.assertEqual(related("a", "b"), expected)
+                git.assert_called_once_with(["merge-base", "--is-ancestor", "a", "b"], None)
+
     def test_new_regions_have_no_delta_until_they_have_a_predecessor(self):
         rows = [tst.TrailRow("a", "2026-08-01", "phantasm", {"itcm": 100}, "s"),
                 tst.TrailRow("b", "2026-08-02", "phantasm", {"itcm": 110, "bss": 50}, "s"),

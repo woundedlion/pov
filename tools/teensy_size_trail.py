@@ -22,6 +22,7 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import cache
 from pathlib import Path
 
 from teensy_warnings import CaptureError, declared_environments
@@ -222,7 +223,7 @@ def append_rows(path: str | Path, rows: list[TrailRow]) -> None:
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class Delta:
-    """One row's byte change per region against the previous row of its env."""
+    """One row's byte change per region against its chosen predecessor."""
 
     row: TrailRow
     changes: dict[str, int]   # region -> signed delta; empty for a first row
@@ -245,22 +246,25 @@ def instant(date: str) -> datetime:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
-def compute_deltas(rows: list[TrailRow]) -> list[Delta]:
+def compute_deltas(rows: list[TrailRow], is_ancestor=lambda previous, current: True) -> list[Delta]:
     """Annotate trail rows with per-region deltas, comparing within an env.
 
     Rows are stably sorted by parsed committer instant, not append order and
     not the raw `%cI` string (which compares wall clocks across UTC offsets).
+    The predicate selects eligible predecessors from earlier rows of the env.
     """
     rows = sorted(rows, key=lambda r: instant(r.date))
-    previous: dict[str, TrailRow] = {}
+    previous: dict[str, list[TrailRow]] = {}
     out: list[Delta] = []
     for row in rows:
-        prev = previous.get(row.env)
+        history = previous.setdefault(row.env, [])
+        prev = next((candidate for candidate in reversed(history)
+                     if is_ancestor(candidate.sha, row.sha)), None)
         changes = ({r: row.sizes[r] - prev.sizes[r]
                     for r in REGIONS if r in row.sizes and r in prev.sizes}
                    if prev else {})
         out.append(Delta(row=row, changes=changes))
-        previous[row.env] = row
+        history.append(row)
     return out
 
 
@@ -278,14 +282,15 @@ class Regression:
 
 
 def find_regressions(rows: list[TrailRow], *, min_delta: int = 1,
-                     region: str | None = None) -> list[Regression]:
+                     region: str | None = None,
+                     is_ancestor=lambda previous, current: True) -> list[Regression]:
     """Every (commit, env, region) whose size grew by >= min_delta, largest first.
 
-    A first row for an env has no predecessor and so is never a regression.
+    A row without an eligible predecessor has no delta.
     """
     wanted = REGIONS if region is None else (region,)
     out: list[Regression] = []
-    for delta in compute_deltas(rows):
+    for delta in compute_deltas(rows, is_ancestor):
         for name in wanted:
             grew = delta.changes.get(name, 0)
             if grew >= min_delta:
@@ -314,6 +319,18 @@ def _git(args: list[str], cwd: str | Path | None = None, *, env=None) -> str:
     if proc.returncode != 0:
         raise GitError(f"git {' '.join(args)}: {proc.stderr.strip()}")
     return proc.stdout.strip()
+
+
+def ancestry_checker(cwd: str | Path | None = None):
+    """Memoized ancestry queries; unavailable objects are unrelated."""
+    @cache
+    def is_ancestor(previous: str, current: str) -> bool:
+        try:
+            _git(["merge-base", "--is-ancestor", previous, current], cwd)
+        except GitError:
+            return False
+        return True
+    return is_ancestor
 
 
 def git_common_dir(cwd: str | Path | None = None) -> Path:
@@ -472,9 +489,10 @@ def _fmt_delta(value: int) -> str:
     return f"{value:+,}" if value else "."
 
 
-def render_show(rows: list[TrailRow], last: int | None = None) -> str:
+def render_show(rows: list[TrailRow], last: int | None = None, *,
+                is_ancestor=lambda previous, current: True) -> str:
     """Render the trail with per-row deltas, oldest first."""
-    deltas = compute_deltas(rows)
+    deltas = compute_deltas(rows, is_ancestor)
     if last and last > 0:
         deltas = deltas[-last:]
     if not deltas:
@@ -502,7 +520,7 @@ def cmd_show(args) -> int:
     if not rows:
         print(f"[size-trail] {trail}: no rows yet.")
         return 0
-    print(render_show(rows, args.last))
+    print(render_show(rows, args.last, is_ancestor=ancestry_checker()))
     return 0
 
 
@@ -529,7 +547,8 @@ def cmd_regressions(args) -> int:
               f"(known: {', '.join(REGIONS)})", file=sys.stderr)
         return 2
     print(render_regressions(find_regressions(
-        read_trail(trail), min_delta=args.min_delta, region=args.region)))
+        read_trail(trail), min_delta=args.min_delta, region=args.region,
+        is_ancestor=ancestry_checker())))
     return 0
 
 
