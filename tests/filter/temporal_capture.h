@@ -327,9 +327,11 @@ inline void test_oriented_cull_keeps_visible_history_edges() {
   int visible = 0, rejected = 0;
   for (int trial = 0; trial < 160; ++trial) {
     math::Orientation<> history;
-    for (int step = 1; step <= 3; ++step)
-      history.push(math::make_rotation(rand_unit(), hs::rand_f(-0.3f, 0.3f)) *
-                   history.get());
+    for (int step = 1; step <= 3; ++step) {
+      const math::Vector axis = rand_unit();
+      const float angle = hs::rand_f(-0.3f, 0.3f);
+      history.push(math::make_rotation(axis, angle) * history.get());
+    }
     const auto from = rand_unit();
     const auto to = (from + rand_unit() * 0.3f).normalized();
     Pipeline<288, 144, Filter::World::Orient> pipeline{
