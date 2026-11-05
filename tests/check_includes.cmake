@@ -85,16 +85,12 @@ foreach(_function IN LISTS _roster_functions)
   endif()
 endforeach()
 
-# Headers that are not roster modules.
-include("${TESTS_DIR}/off_roster_headers.cmake")
-set(NON_MODULE_HEADERS ${HS_OFF_ROSTER_HEADER_NAMES})
-
 file(GLOB_RECURSE _headers RELATIVE "${TESTS_DIR}"
   "${TESTS_DIR}/*.h"
   "${TESTS_DIR}/*.hpp")
 set(_orphans "")
 foreach(_hdr IN LISTS _headers)
-  if(_hdr MATCHES "^[A-Za-z0-9_]+/" OR _hdr IN_LIST NON_MODULE_HEADERS)
+  if(_hdr MATCHES "^[A-Za-z0-9_]+/" OR _hdr IN_LIST HS_OFF_ROSTER_HEADER_NAMES)
     continue()
   endif()
   if(NOT _include_text MATCHES "#include \"tests/${_hdr}\"")
@@ -131,7 +127,7 @@ foreach(_src IN LISTS _sources)
 endforeach()
 
 set(_dead_exempt "")
-foreach(_hdr IN LISTS NON_MODULE_HEADERS)
+foreach(_hdr IN LISTS HS_OFF_ROSTER_HEADER_NAMES)
   if(NOT _hdr IN_LIST _included_headers)
     list(APPEND _dead_exempt ${_hdr})
   endif()
