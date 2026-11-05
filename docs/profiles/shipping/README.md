@@ -8,10 +8,10 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | Effect | Dominant scope | Peak steady ms | Setup frame 1 ms | Spilled | Captured |
 |---|---|--:|--:|--:|---|
 | [IslamicStars](profile_islamicstars_teensy_2026-11-05.md) § ● | `is_timeline_step` | 🟢 59.311 (16) | 16.664 | 🟢 0/4863 (0.00%) | 2026-11-04 23:39 |
+| [AshCloud](profile_ashcloud_teensy_2026-11-05.md) ● | `fx_shader_draw` | 🟢 58.057 | 80.859 | 🟢 0/927 (0.00%) | 2026-11-05 08:38 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-11-05.md) § ● | `msp_draw_particles` | 🟢 57.896 (8) | 0.389 | 🟢 0/1247 (0.00%) | 2026-11-04 23:16 |
 | [HopfFibration](profile_hopffibration_teensy_2026-11-05.md) ● | `hf_render_trails` | 🟢 57.199 | 0.646 | 🟢 0/927 (0.00%) | 2026-11-04 23:01 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-11-05.md) § ● | `ss_draw_all` | 🟢 57.031 (9) | 78.200 | 🟢 0/4271 (0.00%) | 2026-11-04 23:13 |
-| [AshCloud](profile_ashcloud_teensy_2026-11-05.md) ● | `fx_shader_draw` | 🟢 56.969 | 81.521 | 🟢 0/927 (0.00%) | 2026-11-05 00:10 |
 | [RingSpin](profile_ringspin_teensy_2026-11-05.md) ● | `rs_draw_rings` | 🟢 53.875 | 3.399 | 🟢 0/927 (0.00%) | 2026-11-04 23:07 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-11-05.md) § ● | `hl_shader_draw` | 🟢 53.649 (9) | 43.112 | 🟢 0/4767 (0.00%) | 2026-11-05 00:03 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-11-05.md) § ● | `mf_feedback_flush` | 🟢 53.505 (12) | 6.712 | 🟢 0/2863 (0.00%) | 2026-11-04 23:32 |
