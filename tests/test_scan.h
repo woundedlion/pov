@@ -164,6 +164,7 @@ inline int run_scan_tests() {
   HS_RUN(test_lit_caps_follow_history_rate);
   HS_RUN(test_swept_proxies_keep_lit_pixels);
   HS_RUN(test_rotate_by_matches_exact_rotation);
+  HS_RUN(test_moved_proxy_intervals_follow_centre);
   HS_RUN(test_swept_cap_clip_keeps_lit_clips);
   HS_RUN(test_volume_columns_match_rotated_placements);
   HS_RUN(test_ring_group_previous_axes_match_column_rings);

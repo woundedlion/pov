@@ -784,8 +784,8 @@ template <int W, int H> inline void check_swept_cap_clip() {
   HS_EXPECT_GT(ruled_out, SHAPES);
 }
 
-/** @brief Swept cap culling keeps every clip a swept star or disc lights. */
-inline void test_swept_cap_clip_keeps_lit_clips() {
+/** @brief Moved shape intervals cover their current center azimuth. */
+inline void test_moved_proxy_intervals_follow_centre() {
   constexpr int W = 288, H = 144;
   const auto check = [](const auto &shape) {
     const auto proxy =
@@ -801,6 +801,10 @@ inline void test_swept_cap_clip_keeps_lit_clips() {
   check(SDF::Ring(basis, 0.2f, 0.03f));
   const auto star_basis = math::get_antipode(basis, 0.2f);
   check(SDF::Star(star_basis.first, star_basis.second, 5, 0.0f));
+}
+
+/** @brief Swept cap culling keeps every clip a swept star or disc lights. */
+inline void test_swept_cap_clip_keeps_lit_clips() {
   check_swept_cap_clip<96, 20>();
   check_swept_cap_clip<96, 48>();
   check_swept_cap_clip<288, 144>();
