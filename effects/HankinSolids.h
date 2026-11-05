@@ -702,7 +702,7 @@ private:
   HS_COLD_MEMBER void start_morph_cycle() {
     using namespace ConwayGraph;
 #ifdef HS_PROFILE_ORDERED_CYCLE
-    cur_edge = pick_next_edge_ordered(node, cur_edge, leg_counter++);
+    cur_edge = pick_next_edge_ordered(leg_counter++);
     dest = static_cast<uint8_t>(edge_other_end(cur_edge, node));
 #else
     if (node == dest)

@@ -628,15 +628,10 @@ static_assert(ordered_tour_covers_heavy_legs());
 /**
  * @brief Deterministic edge choice for HS_PROFILE_ORDERED_CYCLE builds: one
  * pass of ORDERED_TOUR, then the cycle repeats.
- * @param node Current node id; unused (the tour is positional).
- * @param prev_edge Edge the walk arrived on; unused.
  * @param leg_index Monotonic leg counter.
  * @return Index into EDGES of the tour's next leg.
  */
-constexpr int pick_next_edge_ordered(int node, int prev_edge,
-                                     uint32_t leg_index) {
-  (void)node;
-  (void)prev_edge;
+constexpr int pick_next_edge_ordered(uint32_t leg_index) {
   return ORDERED_TOUR[leg_index % static_cast<uint32_t>(ORDERED_TOUR_LEN)];
 }
 

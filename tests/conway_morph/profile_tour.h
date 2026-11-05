@@ -14,14 +14,13 @@ inline void test_ordered_tour_full_coverage_and_wrap() {
   using namespace ConwayGraph;
   int node = TETRAHEDRON;
   int held = TETRAHEDRON;
-  int prev = -1;
   bool seen[NUM_NODES] = {};
   int seen_count = 1;
   int coverage_leg = -1;
   seen[node] = true;
 
   for (uint32_t leg = 0; leg < 2u * ORDERED_TOUR_LEN; ++leg) {
-    const int e = pick_next_edge_ordered(node, prev, leg);
+    const int e = pick_next_edge_ordered(leg);
     HS_EXPECT_TRUE(edge_touches(e, node));
 
     reconcile_seed(e, node, held);
@@ -31,7 +30,6 @@ inline void test_ordered_tour_full_coverage_and_wrap() {
     if (ConwayGraph::adopts_seed(EDGES[e], arrived, !reverse))
       held = arrived;
     node = arrived;
-    prev = e;
     if (!seen[node]) {
       seen[node] = true;
       if (++seen_count == NUM_NODES)
