@@ -76,16 +76,16 @@
 #endif
 #endif
 
-#ifdef HS_PARAM_EXTERNAL_STORAGE
+#ifdef HS_PARAMS_USE_ARENA_STORAGE
 #error                                                                         \
-    "HS_PARAM_EXTERNAL_STORAGE is derived; configure HS_EXTERNAL_PARAM_STORAGE instead"
+    "HS_PARAMS_USE_ARENA_STORAGE is derived; configure HS_EXTERNAL_PARAM_STORAGE instead"
 #endif
 
 /// External ParamDef storage covers the GUI bridge and builds that opt in.
 #if HS_ENABLE_PARAM_GUI_BRIDGE || HS_EXTERNAL_PARAM_STORAGE
-#define HS_PARAM_EXTERNAL_STORAGE 1
+#define HS_PARAMS_USE_ARENA_STORAGE 1
 #else
-#define HS_PARAM_EXTERNAL_STORAGE 0
+#define HS_PARAMS_USE_ARENA_STORAGE 0
 #endif
 
 /** @brief Slot count of ParamList's default inline ParamDef storage. */

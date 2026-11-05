@@ -197,7 +197,7 @@ protected:
              "use_parameter_storage: parameters already registered");
     HS_CHECK(storage != nullptr && capacity > 0,
              "use_parameter_storage: invalid external storage");
-#if HS_PARAM_EXTERNAL_STORAGE
+#if HS_PARAMS_USE_ARENA_STORAGE
 #ifndef NDEBUG
     parameter_storage_stamp.clear();
 #endif
@@ -723,7 +723,7 @@ private:
   ArenaBlockStamp parameter_storage_stamp;
 #endif
   void check_parameter_storage() const {
-#if HS_PARAM_EXTERNAL_STORAGE
+#if HS_PARAMS_USE_ARENA_STORAGE
     HS_ASSERT_BLOCK_ALIVE(parameter_storage_stamp, parameters.external_elements,
                           parameters.external_capacity * sizeof(ParamDef),
                           "ParamHost");

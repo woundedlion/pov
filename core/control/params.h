@@ -240,7 +240,7 @@ struct ParamList {
 
   /** @return The active descriptor array, inline or external. */
   const ParamDef *data() const {
-#if HS_PARAM_EXTERNAL_STORAGE
+#if HS_PARAMS_USE_ARENA_STORAGE
     return external_elements != nullptr ? external_elements : elements.data();
 #else
     return elements.data();
@@ -248,7 +248,7 @@ struct ParamList {
   }
   /** @return Slot count of the active descriptor array. */
   size_t capacity() const {
-#if HS_PARAM_EXTERNAL_STORAGE
+#if HS_PARAMS_USE_ARENA_STORAGE
     return external_elements != nullptr ? external_capacity : elements.size();
 #else
     return elements.size();
@@ -297,14 +297,14 @@ struct ParamList {
 private:
   std::array<ParamDef, FIXED_CAPACITY>
       elements; /**< Default fixed-capacity storage. */
-#if HS_PARAM_EXTERNAL_STORAGE
+#if HS_PARAMS_USE_ARENA_STORAGE
   ParamDef *external_elements = nullptr;
   size_t external_capacity = 0;
 #endif
   size_t count = 0; /**< Number of registered parameters. */
 
   ParamDef *data() {
-#if HS_PARAM_EXTERNAL_STORAGE
+#if HS_PARAMS_USE_ARENA_STORAGE
     return external_elements != nullptr ? external_elements : elements.data();
 #else
     return elements.data();
