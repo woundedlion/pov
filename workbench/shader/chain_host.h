@@ -148,12 +148,9 @@ public:
     for (size_t index = 0; index < ops.size(); ++index) {
       const auto &op = ops[index];
       out.chain.push_back({op.instance, op.op->operator_id});
-      const bool modulated = std::string_view(op.op->operator_id) ==
-                             Pullback::Interp::Op::ModulateColorV1::ID;
+      const bool modulated = is_modulation(op);
       if (modulated) {
-        const auto &params =
-            *reinterpret_cast<const Pullback::Interp::Op::ModulationParams *>(
-                program.param_block(index));
+        const auto &params = modulation_params(index);
         out.modulation.push_back({op.instance, params.modulation});
       }
       for (uint16_t field = 0; field < op.op->schema_count; ++field) {
@@ -172,9 +169,7 @@ public:
       if (modulated) {
         auto &clock =
             std::get<Pullback::Interp::ModulationClockSnapshot>(state);
-        const auto &params =
-            *reinterpret_cast<const Pullback::Interp::Op::ModulationParams *>(
-                program.param_block(index));
+        const auto &params = modulation_params(index);
         Pullback::Modulation::synchronize(clock.modulation, params.modulation);
       }
       if (!std::holds_alternative<std::monostate>(state))
@@ -225,8 +220,7 @@ public:
                     reinterpret_cast<const char *>(
                         base + op.name_offset + field * PER_PARAM_NAME_BYTES))
                   continue;
-                if (std::string_view(op.op->operator_id) ==
-                    Op::ModulateColorV1::ID)
+                if (is_modulation(op))
                   return false;
                 if (!field_in_schema(info, write.value))
                   return false;
@@ -253,8 +247,7 @@ public:
           for (size_t index = 0; index < ops.size(); ++index) {
             const auto &op = ops[index];
             void *params = base + op.param_offset;
-            if (std::string_view(op.op->operator_id) ==
-                Op::ModulateColorV1::ID) {
+            if (is_modulation(op)) {
               const ChainSnapshot::ModulationRecipe *selected = nullptr;
               for (const auto &recipe : snapshot.modulation)
                 if (recipe.instance == op.instance) {
@@ -265,8 +258,7 @@ public:
               if (selected == nullptr ||
                   !Pullback::Modulation::admitted(selected->recipe))
                 return false;
-              static_cast<Op::ModulationParams *>(params)->modulation =
-                  selected->recipe;
+              modulation_params(params).modulation = selected->recipe;
               ++modulation_count;
             }
             if (admission_refusal(ops, index, params))
@@ -287,10 +279,8 @@ public:
             if (selected == nullptr ||
                 !op.op->runtime.restore_state(state, selected->state))
               return false;
-            if (std::string_view(op.op->operator_id) ==
-                Op::ModulateColorV1::ID) {
-              const auto &config =
-                  static_cast<const Op::ModulationParams *>(params)->modulation;
+            if (is_modulation(op)) {
+              const auto &config = modulation_params(params).modulation;
               const auto &clock =
                   static_cast<const Op::ModulationClockState *>(state)
                       ->modulation;
@@ -506,6 +496,21 @@ public:
 #endif
 
 private:
+  using ModulationParams = Pullback::Interp::Op::ModulationParams;
+
+  static bool is_modulation(const Pullback::Interp::ChainProgram::ChainOp &op) {
+    return op.op->runtime.modulation_key != nullptr;
+  }
+
+  static ModulationParams &modulation_params(void *block) {
+    return *static_cast<ModulationParams *>(block);
+  }
+
+  const ModulationParams &modulation_params(size_t index) const {
+    return *reinterpret_cast<const ModulationParams *>(
+        program.param_block(index));
+  }
+
   static bool field_in_schema(const Pullback::Interp::ParamFieldInfo &info,
                               float value) {
     if (info.enum_count > 0)
@@ -651,8 +656,7 @@ private:
     for (auto &layer : resources->layers) {
       bool present = false;
       for (size_t index = 0; index < program.ops().size(); ++index)
-        if (std::string_view(program.ops()[index].op->operator_id) ==
-                Pullback::Interp::Op::ModulateColorV1::ID &&
+        if (is_modulation(program.ops()[index]) &&
             static_cast<const Pullback::Interp::Op::ModulationClockState *>(
                 program.state_block(index))
                     ->key == layer.key)
@@ -875,22 +879,20 @@ private:
     const auto ops = program.ops();
     for (size_t index = 0; index < ops.size(); ++index) {
       const auto key = ops[index].op->runtime.modulation_key;
-      if (key == nullptr)
+      if (!is_modulation(ops[index]))
         continue;
-      const auto &params =
-          *reinterpret_cast<const Pullback::Interp::Op::ModulationParams *>(
-              program.param_block(index));
+      const auto &params = modulation_params(index);
       auto &clock = *static_cast<Pullback::Interp::Op::ModulationClockState *>(
           program.state_block(index));
       Pullback::Modulation::synchronize(clock.modulation, params.modulation);
       HS_CHECK(count < MAX_MODULATION_LAYERS,
                "ShaderChain: modulation endpoint capacity exceeded");
       const Pullback::Modulation::Prepared *prepared = nullptr;
+      auto &layer = modulation_resources(key(&clock));
       if (params.modulation.source != Pattern::SourceKind::DISPLACEMENT)
-        prepared = &modulation_resources(clock.key).modulation.prepare(
-            params.modulation, clock.modulation);
-      resources->endpoints[count++] = {modulation_resources(key(&clock)).key,
-                                       prepared};
+        prepared =
+            &layer.modulation.prepare(params.modulation, clock.modulation);
+      resources->endpoints[count++] = {layer.key, prepared};
       hue_active |= params.modulation.enabled &&
                     params.modulation.mechanic.kind ==
                         ColorModulation::Mechanic::HUE_ROTATION &&
