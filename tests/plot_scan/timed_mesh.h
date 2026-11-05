@@ -9,6 +9,58 @@ struct TimedMeshFixture {
       vertices; /**< Endpoints of two connected edges. */
 };
 
+/** @brief Pole-floored long edges reach their far endpoint within the budget. */
+inline void test_column_long_polar_edge_finishes() {
+  constexpr int W = 288, H = 144;
+  const ScopedTemporalSampling sampling(true);
+  const math::Vector MID(sinf(0.02f), cosf(0.02f), 0);
+  const float HALF_LENGTH = math::PI_F / 4;
+  const math::Vector A =
+      MID * cosf(HALF_LENGTH) - math::Z_AXIS * sinf(HALF_LENGTH);
+  const math::Vector B =
+      MID * cosf(HALF_LENGTH) + math::Z_AXIS * sinf(HALF_LENGTH);
+  for (bool reversed : {false, true}) {
+    hs_test::StubEffect effect(W, H);
+    Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
+    TimedMeshFixture mesh{{reversed ? B : A, reversed ? A : B, {}}};
+    const auto ARC =
+        Plot::EdgeWorldsheet::arc(mesh.vertices[0], mesh.vertices[1]);
+    HS_EXPECT_GT((Plot::EdgeWorldsheet::pieces_of<W, H>(ARC)),
+                 2 * Plot::rasterize_step_budget<W>());
+    Spacetime::geometry_counters = {};
+    hs::g_scan_metrics = {};
+    uint32_t ends = 0;
+    {
+      Canvas canvas(effect);
+      ScratchScope a(scratch_arena_a), b(scratch_arena_b);
+      ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_b, 1);
+      edges.push_back({0, 1});
+      auto at = [&](size_t vertex, float) { return mesh.vertices[vertex]; };
+      auto shade = [&](const math::Vector &, Fragment &f, float) {
+        ends += f.v0 == 1.0f;
+        f.color = Color4(Pixel(65535, 65535, 65535), 0.5f);
+      };
+      const Plot::GeometryCallback geometry{at, {}, false};
+      Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shade,
+                                   geometry);
+    }
+    effect.advance_display();
+    const auto PIXEL = math::vector_to_pixel<W, H>(mesh.vertices[1]);
+    uint64_t far_energy = 0;
+    for (int y = int(PIXEL.y) - 1; y <= int(PIXEL.y) + 2; ++y)
+      for (int x = int(PIXEL.x) - 1; x <= int(PIXEL.x) + 2; ++x)
+        far_energy += effect.get_pixel((x + W) % W, std::clamp(y, 0, H - 1)).r;
+    HS_EXPECT_GT(ends, 0u);
+    HS_EXPECT_GT(far_energy, uint64_t{0});
+    HS_EXPECT_LT(Spacetime::geometry_counters.column_generated_samples,
+                 2 * Plot::rasterize_step_budget<W>());
+    HS_EXPECT_EQ(hs::g_scan_metrics.plot_backstop_hits, uint64_t{0});
+    std::printf("  long polar edge reversed=%d samples=%u far_energy=%llu\n",
+                reversed, Spacetime::geometry_counters.column_generated_samples,
+                static_cast<unsigned long long>(far_energy));
+  }
+}
+
 /** @brief Polar arcs cover their independently intersected meridians. */
 inline void test_column_polar_arc_coverage() {
   constexpr int W = 288, H = 144;

@@ -104,6 +104,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_timed_mesh_endpoint_cache);
   HS_RUN(test_column_edge_quality);
   HS_RUN(test_column_polar_arc_coverage);
+  HS_RUN(test_column_long_polar_edge_finishes);
   HS_RUN(test_column_crossing_parameter_bound);
   HS_RUN(test_quadratic_screen_capture_meets_surface);
   HS_RUN(test_column_basis_crossing_orientation);

@@ -1216,8 +1216,11 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
         for (int k = first; k <= last; ++k) {
           Spacetime::count_geometry<
               &Spacetime::GeometryCounters::column_generated_samples>();
-          if (!local_lattice && ++sample_count > 2 * rasterize_step_budget<W>())
+          if (!local_lattice &&
+              ++sample_count > 2 * rasterize_step_budget<W>()) {
+            HS_SCAN_METRIC(hs::g_scan_metrics.plot_backstop_hits++);
             break;
+          }
           const float s = k >= count ? 1.0f : float(k) * lattice_step;
           float sine = 0.0f, cosine = 1.0f;
           if (k > 0 && k < count)
@@ -1413,7 +1416,9 @@ rasterize_column_edges_impl(PipelineRef &pipeline, Canvas &canvas,
                                 (EdgeWorldsheet::needs_local_lattice<W, H>(
                                      frame.bases[0], frame.pieces[0]) ||
                                  EdgeWorldsheet::needs_local_lattice<W, H>(
-                                     frame.bases[1], frame.pieces[1])));
+                                     frame.bases[1], frame.pieces[1]) ||
+                                 fmaxf(frame.pieces[0], frame.pieces[1]) >
+                                     2 * rasterize_step_budget<W>()));
     const int direction =
         frame.bases[1].v1.x * frame.bases[1].v_perp.z -
                     frame.bases[1].v1.z * frame.bases[1].v_perp.x >=
