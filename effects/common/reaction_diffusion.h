@@ -80,8 +80,8 @@ protected:
    * @param pixel Per-pixel shader.
    */
   template <typename VertexFn, typename PixelFn>
-  __attribute__((always_inline)) void
-  rasterize_lattice(Canvas &canvas, VertexFn &&vertex, PixelFn &&pixel) {
+  HS_HOT_INLINE void rasterize_lattice(Canvas &canvas, VertexFn &&vertex,
+                                       PixelFn &&pixel) {
     auto vertex_shader = [&](Fragment &frag) {
       seed_face_lut(frag);
       vertex(frag);
@@ -108,7 +108,7 @@ protected:
    * @return Q16 value in [0, 65535], rounded to nearest.
    * @details clamp bounds the input so 65535.5 -> 65535 with no overflow.
    */
-  static __attribute__((always_inline)) inline uint16_t to_q16(float v) {
+  static HS_HOT_INLINE inline uint16_t to_q16(float v) {
     return frac_to_q16(v);
   }
 
@@ -147,8 +147,8 @@ protected:
    * lies inside the support radius.
    */
   template <typename OnWeight>
-  static __attribute__((always_inline)) void
-  with_biweight_weight(float d2, OnWeight &&on_weight) {
+  static HS_HOT_INLINE void with_biweight_weight(float d2,
+                                                 OnWeight &&on_weight) {
     with_biweight_u(1.0f - d2 * INV_R2, on_weight);
   }
 
@@ -159,8 +159,7 @@ protected:
    * @param on_weight Callable invoked with the weight inside the support.
    */
   template <typename OnWeight>
-  static __attribute__((always_inline)) void
-  with_biweight_u(float u, OnWeight &&on_weight) {
+  static HS_HOT_INLINE void with_biweight_u(float u, OnWeight &&on_weight) {
     if (u > 0.0f)
       on_weight(u * u);
   }
@@ -174,7 +173,7 @@ protected:
    * @param nodes Reaction-graph node positions indexed by the neighbor runs.
    * @param on_node Callable (slot, node) returning a (sample, weight) callback. */
   template <typename Grid, typename OnNode>
-  static __attribute__((always_inline)) void
+  static HS_HOT_INLINE void
   accumulate_stencil_ssaa2x2(const Grid &grid, int x, int center,
                              const math::Vector *nodes, OnNode &&on_node) {
     static_assert(Grid::SAMPLES == 4);
@@ -210,9 +209,8 @@ protected:
         for (int col = 0; col < 2; ++col) {
           const int sample = 2 * row + col;
           const float u = col == 0 ? base_u - cross : base_u + cross;
-          with_biweight_u(u, [&](float weight) __attribute__((always_inline)) {
-            on_weight(sample, weight);
-          });
+          with_biweight_u(u, [&](float weight)
+                                 HS_HOT_INLINE { on_weight(sample, weight); });
         }
       }
     }
@@ -353,9 +351,9 @@ protected:
    * attribute would keep GCC from inlining this into the -O3 shader body.
    */
   template <typename OnSlot>
-  static __attribute__((always_inline)) void
-  gather_stencil(const math::Vector *nodes, int center, math::Vector *positions,
-                 OnSlot &&on_slot) {
+  static HS_HOT_INLINE void gather_stencil(const math::Vector *nodes,
+                                           int center, math::Vector *positions,
+                                           OnSlot &&on_slot) {
     positions[0] = nodes[center];
     on_slot(0, center);
     int k = 1;
@@ -377,13 +375,12 @@ protected:
    * out of line, GCC spends extra ITCM in the BZ shader.
    */
   template <typename OnWeight>
-  static __attribute__((always_inline)) void
-  accumulate_stencil(const math::Vector &rv, const math::Vector *positions,
-                     OnWeight &&on_weight) {
+  static HS_HOT_INLINE void accumulate_stencil(const math::Vector &rv,
+                                               const math::Vector *positions,
+                                               OnWeight &&on_weight) {
     for (int j = 0; j < RD_K + 1; ++j)
-      with_biweight_weight(
-          dist2(rv, positions[j]),
-          [&](float w) __attribute__((always_inline)) { on_weight(j, w); });
+      with_biweight_weight(dist2(rv, positions[j]),
+                           [&](float w) HS_HOT_INLINE { on_weight(j, w); });
   }
 
   /**

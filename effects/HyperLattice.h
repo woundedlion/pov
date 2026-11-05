@@ -312,7 +312,7 @@ template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
    *  @param normal Unit view direction.
    *  @param prepared Frame-constant trace state.
    *  @return Premultiplied colour. */
-  __attribute__((always_inline)) static Pixel
+  HS_HOT_INLINE static Pixel
   shade_premultiplied(const math::Vector &normal,
                       const PreparedTrace &prepared) {
     return composite_crossings<SLICE_4D, SHELLS>(normal, prepared)
@@ -915,7 +915,7 @@ private:
    * @param draw Template callable taking <bool SLICE_4D, uint8_t SHELLS>.
    */
   template <typename Draw>
-  __attribute__((always_inline)) void dispatch_cubic(Draw &&draw) const {
+  HS_HOT_INLINE void dispatch_cubic(Draw &&draw) const {
     static_assert(
         uses_specialized_slice(preset(HYPERCUBE_PRESET_INDEX).params),
         "the hypercube preset no longer selects the specialized slice trace");
@@ -933,11 +933,10 @@ private:
   draw_cubic(Canvas &canvas, const HyperLatticeDetail::FrameState &context) {
     const auto prepared = HyperLatticeDetail::prepare_trace(context);
     HS_PROFILE(hl_shader_draw);
-    dispatch_cubic([&]<bool SLICE_4D, uint8_t SHELLS>()
-                       __attribute__((always_inline)) {
-                         Scan::Shader::draw_cached<W, H, 1>(
-                             canvas, CubicRay<SLICE_4D, SHELLS>{&prepared});
-                       });
+    dispatch_cubic([&]<bool SLICE_4D, uint8_t SHELLS>() HS_HOT_INLINE {
+      Scan::Shader::draw_cached<W, H, 1>(canvas,
+                                         CubicRay<SLICE_4D, SHELLS>{&prepared});
+    });
   }
 
   /**
@@ -959,13 +958,11 @@ private:
                           HyperLatticeDetail::prepare_trace(interval.sample(
                               Spacetime::SamplingSurface<W>::time(x))));
     }
-    dispatch_cubic(
-        [&]<bool SLICE_4D, uint8_t SHELLS>() __attribute__((always_inline)) {
-          Scan::Shader::draw_columns<W, H>(
-              canvas, [states](int x) __attribute__((always_inline)) {
-                return CubicRay<SLICE_4D, SHELLS>{states + x % COLUMN_TIMES};
-              });
-        });
+    dispatch_cubic([&]<bool SLICE_4D, uint8_t SHELLS>() HS_HOT_INLINE {
+      Scan::Shader::draw_columns<W, H>(canvas, [states](int x) HS_HOT_INLINE {
+        return CubicRay<SLICE_4D, SHELLS>{states + x % COLUMN_TIMES};
+      });
+    });
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -1131,7 +1128,7 @@ private:
           effect->unfinished_rays += 1;
         return result.color;
       } else {
-        const auto result = [&]() __attribute__((always_inline)) {
+        const auto result = [&]() HS_HOT_INLINE {
           if constexpr (PATH == TracePath::SINGLE_SHELLS)
             return SDF::trace_periodic_shells_3d<true>(
                 frame.periodic_shells, frame.camera, view, frame.limits,
@@ -1159,8 +1156,8 @@ private:
    * @param draw Template callable taking <TracePath PATH, bool SLICE_4D>.
    */
   template <typename Draw>
-  __attribute__((always_inline)) static void
-  dispatch_traced(TracePath path, bool slice, Draw &&draw) {
+  HS_HOT_INLINE static void dispatch_traced(TracePath path, bool slice,
+                                            Draw &&draw) {
     switch (path) {
     case TracePath::SINGLE_SHELLS:
       draw.template operator()<TracePath::SINGLE_SHELLS, false>();
@@ -1215,26 +1212,25 @@ private:
       for (int x = 0; x < COLUMN_TIMES && path != TracePath::GENERIC; ++x)
         if (trace_path(states[x]) != path)
           path = TracePath::GENERIC;
-    dispatch_traced(
-        path, params.mode == LatticeMode::FOUR_D_SLICE,
-        [&]<TracePath PATH, bool SLICE_4D>() __attribute__((always_inline)) {
-          Scan::Shader::draw_columns<W, H>(
-              canvas, [states, this](int x) __attribute__((always_inline)) {
-                return TracedRay<PATH, SLICE_4D>{states + x % COLUMN_TIMES,
-                                                 this};
-              });
-        });
+    dispatch_traced(path, params.mode == LatticeMode::FOUR_D_SLICE,
+                    [&]<TracePath PATH, bool SLICE_4D>() HS_HOT_INLINE {
+                      Scan::Shader::draw_columns<W, H>(
+                          canvas, [states, this](int x) HS_HOT_INLINE {
+                            return TracedRay<PATH, SLICE_4D>{
+                                states + x % COLUMN_TIMES, this};
+                          });
+                    });
   }
 
   HS_FLASH_MEMBER void
   draw_traced(Canvas &canvas, const HyperLatticeDetail::FrameState &context) {
     const auto prepared = prepare_traced(context, trace_center);
-    dispatch_traced(
-        trace_path(prepared), params.mode == LatticeMode::FOUR_D_SLICE,
-        [&]<TracePath PATH, bool SLICE_4D>() __attribute__((always_inline)) {
-          Scan::Shader::draw_cached<W, H, 1>(
-              canvas, TracedRay<PATH, SLICE_4D>{&prepared, this});
-        });
+    dispatch_traced(trace_path(prepared),
+                    params.mode == LatticeMode::FOUR_D_SLICE,
+                    [&]<TracePath PATH, bool SLICE_4D>() HS_HOT_INLINE {
+                      Scan::Shader::draw_cached<W, H, 1>(
+                          canvas, TracedRay<PATH, SLICE_4D>{&prepared, this});
+                    });
   }
 
   math::Vec4 trace_center{{.255f, .465f, .645f, .375f}};

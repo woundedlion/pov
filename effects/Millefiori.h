@@ -26,8 +26,8 @@ struct MillefioriTetrahedralLens : Pullback::Lens::TetrahedralKaleidoscope {
    * @return Direction in the tetrahedral chamber.
    */
   template <typename FrameState>
-  __attribute__((always_inline)) static math::Vector
-  apply(const math::Vector &input, const FrameState &) {
+  HS_HOT_INLINE static math::Vector apply(const math::Vector &input,
+                                          const FrameState &) {
     return lenses::tetrahedral_from_dodecahedral_chamber(input);
   }
 };

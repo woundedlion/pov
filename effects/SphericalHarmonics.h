@@ -304,14 +304,14 @@ private:
               source.m2, source.blend, source.orientation};
     }
 
-    __attribute__((always_inline)) static float
-    sample(const Pullback::SphereSample &input, const HarmonicFrameState &,
-           const Prepared &field) {
+    HS_HOT_INLINE static float sample(const Pullback::SphereSample &input,
+                                      const HarmonicFrameState &,
+                                      const Prepared &field) {
       return field.sample(input.dir);
     }
   };
 
-  __attribute__((always_inline)) static Color4
+  HS_HOT_INLINE static Color4
   colorize_harmonic(float val, const HarmonicMaterialState &material) {
     const float abs_val = std::abs(val);
     Color4 pos =
@@ -336,9 +336,8 @@ private:
   }
 
   struct HarmonicColorPolicy : Pullback::ApproximationDefaults {
-    __attribute__((always_inline)) static Color4
-    apply(const Pullback::FieldSample &sample,
-          const HarmonicFrameState &frame) {
+    HS_HOT_INLINE static Color4 apply(const Pullback::FieldSample &sample,
+                                      const HarmonicFrameState &frame) {
       return colorize_harmonic(sample.value * 2.0f - 1.0f, frame.material);
     }
   };

@@ -263,9 +263,8 @@ private:
    * @details Culled chunks bake no columns, so the precompute decision
    * amortizes the table over the visible chunks' columns rather than lut_n.
    */
-  __attribute__((always_inline)) HueMode select_hue_mode(int lut_n,
-                                                         uint32_t visible,
-                                                         float hue_extent) {
+  HS_HOT_INLINE HueMode select_hue_mode(int lut_n, uint32_t visible,
+                                        float hue_extent) {
     HueMode mode;
     mode.use_table = params.hue_scale != 0.0f && lut_n > 2 * HUE_TABLE_SIZE;
 #if HS_ENABLE_TEST_ORACLES
@@ -277,8 +276,8 @@ private:
     Plot::for_each_chunk_span<BAKE_CHUNKS>(
         lut_n, visible,
         [&](int begin, int end)
-            __attribute__((always_inline)) { visible_samples += end - begin; },
-        [](int, int) __attribute__((always_inline)) {});
+            HS_HOT_INLINE { visible_samples += end - begin; },
+        [](int, int) HS_HOT_INLINE {});
     mode.precompute = visible_samples > 2 * HUE_TABLE_SIZE;
     mode.cyclic = std::fabs(hue_extent) > 1.0f;
     mode.domain = mode.cyclic ? std::copysign(1.0f, hue_extent) : hue_extent;
@@ -829,11 +828,11 @@ private:
         float max_shift = 0.0f;
         Plot::for_each_chunk_span<BAKE_CHUNKS>(
             lut_n, visible,
-            [&](int begin, int end) __attribute__((always_inline)) {
+            [&](int begin, int end) HS_HOT_INLINE {
               for (int x = begin; x < end; ++x)
                 max_shift = fmaxf(max_shift, std::fabs(slut[x]));
             },
-            [&](int begin, int end) __attribute__((always_inline)) {
+            [&](int begin, int end) HS_HOT_INLINE {
               for (int x = begin; x < end; ++x)
                 slut[x] = 0.0f;
             });
@@ -866,11 +865,11 @@ private:
 
         Plot::for_each_chunk_span<BAKE_CHUNKS>(
             lut_n, visible,
-            [&](int begin, int end) __attribute__((always_inline)) {
+            [&](int begin, int end) HS_HOT_INLINE {
               for (int x = begin; x < end; ++x)
                 hlut[x] = hue_for_shift(slut[x]);
             },
-            [](int, int) __attribute__((always_inline)) {});
+            [](int, int) HS_HOT_INLINE {});
         slut[lut_n] = slut[0];
         hlut[lut_n] = hlut[0];
       }
@@ -940,8 +939,7 @@ private:
    * @param lut_n Knot count.
    * @param visible Chunk mask from Plot::visible_chunk_mask.
    */
-  __attribute__((always_inline)) void mark_visible_knots(int lut_n,
-                                                         uint32_t visible) {
+  HS_HOT_INLINE void mark_visible_knots(int lut_n, uint32_t visible) {
     int x = 0;
     for (int c = 0; c < BAKE_CHUNKS; ++c) {
       const int x_end = Plot::chunk_end<BAKE_CHUNKS>(c, lut_n);
@@ -1090,14 +1088,14 @@ private:
     float sin_a = 0.0f;       /**< Sine of the current knot's azimuth. */
 
     /** @brief Unit position of the current knot. */
-    __attribute__((always_inline)) math::Vector position() const {
+    HS_HOT_INLINE math::Vector position() const {
       return ((basis.v * cos_t) +
               ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t)
           .normalized();
     }
 
     /** @brief Moves to the next knot. */
-    __attribute__((always_inline)) void advance() {
+    HS_HOT_INLINE void advance() {
       const float next_cos = cos_a * cos_d - sin_a * sin_d;
       sin_a = sin_a * cos_d + cos_a * sin_d;
       cos_a = next_cos;
@@ -1727,7 +1725,7 @@ private:
     }
 
     /** @brief The next free slot's rows; repeated calls return the same rows. */
-    __attribute__((always_inline)) Pending next() const {
+    HS_HOT_INLINE Pending next() const {
       HS_CHECK(count < SLOTS, "DisplacementField: ring pool is full");
       return {shift_rows + count * ROW, hue_rows + count * ROW};
     }
@@ -1792,17 +1790,13 @@ private:
     /** @brief The committed rings. */
     ShapeView shapes() const { return {storage, this}; }
     /** @brief Hue row of slot @p s. */
-    __attribute__((always_inline)) const Pixel *hue_row(int s) const {
+    HS_HOT_INLINE const Pixel *hue_row(int s) const {
       return hue_rows + s * ROW;
     }
     /** @brief Bake column count of slot @p s. */
-    __attribute__((always_inline)) float lut_columns(int s) const {
-      return columns[s];
-    }
+    HS_HOT_INLINE float lut_columns(int s) const { return columns[s]; }
     /** @brief Fragment alpha of slot @p s. */
-    __attribute__((always_inline)) float frag_alpha(int s) const {
-      return alphas[s];
-    }
+    HS_HOT_INLINE float frag_alpha(int s) const { return alphas[s]; }
 
   public:
     SweepCache *cache = nullptr; ///< Current frame's alternate shifts.
@@ -1843,8 +1837,8 @@ private:
      * @param s Slot of the ring lighting the fragment.
      * @param f Fragment to shade; v0 is the ring azimuth in [0, 1).
      */
-    __attribute__((always_inline)) void operator()(int s, const math::Vector &,
-                                                   Fragment &f) const {
+    HS_HOT_INLINE void operator()(int s, const math::Vector &,
+                                  Fragment &f) const {
       const Pixel *hue = pool->hue_row(s);
       float x = f.v0 * pool->lut_columns(s);
       int j = static_cast<int>(x);
@@ -1903,8 +1897,8 @@ private:
      * @param hue_domain Hue-turn interval the knots span.
      * @param wraps Whether amounts past the domain wrap.
      */
-    __attribute__((always_inline)) void bind(const HueRotateBase &ring_base,
-                                             float hue_domain, bool wraps) {
+    HS_HOT_INLINE void bind(const HueRotateBase &ring_base, float hue_domain,
+                            bool wraps) {
       base = &ring_base;
       domain = hue_domain;
       cyclic = wraps;

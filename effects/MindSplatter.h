@@ -201,7 +201,7 @@ public:
   }
 
 private:
-  __attribute__((always_inline)) void step_state(Canvas &canvas) {
+  HS_HOT_INLINE void step_state(Canvas &canvas) {
     {
       HS_PROFILE(msp_timeline_step);
       timeline.step(canvas);
@@ -481,8 +481,8 @@ private:
   bool reference_hole_kernel = false;
 #endif
 
-  __attribute__((always_inline)) static Pixel
-  sample_trail_palette(const Pixel *colors, float t) {
+  HS_HOT_INLINE static Pixel sample_trail_palette(const Pixel *colors,
+                                                  float t) {
     const float index =
         t * static_cast<float>(MINDSPLATTER_PALETTE_LUT_SIZE - 1);
     if (index <= 0.0f)

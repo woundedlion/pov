@@ -463,15 +463,15 @@ private:
   }
 
   /** @brief Edge array the woven scene draws for @p solid. */
-  __attribute__((always_inline)) static const ArenaVector<Plot::Mesh::Edge> &
+  HS_HOT_INLINE static const ArenaVector<Plot::Mesh::Edge> &
   woven_edges(const SolidData &solid, bool medial) {
     return medial && solid.four_regular ? solid.medial_edges
                                         : solid.automatic_edges;
   }
 
   /** @brief Vertex count the woven scene's edges index into. */
-  __attribute__((always_inline)) static size_t
-  woven_vertex_count(const SolidData &solid, bool medial) {
+  HS_HOT_INLINE static size_t woven_vertex_count(const SolidData &solid,
+                                                 bool medial) {
     return medial ? solid.original_edges.size()
                   : solid.mesh_state.vertices.size();
   }
@@ -677,7 +677,7 @@ private:
    * @param phase Orbit angle in radians.
    * @return The unit offset direction at that phase.
    */
-  __attribute__((always_inline)) static math::Vector
+  HS_HOT_INLINE static math::Vector
   tangent_orbit_offset(const math::Vector &base, const math::Vector &u,
                        float phase) {
     return u * math::fast_cosf(phase) +
@@ -726,7 +726,7 @@ private:
   }
 
   /** @brief Applies the frame's global orientation in place. */
-  __attribute__((always_inline)) void orient_mesh(MeshState &mesh) {
+  HS_HOT_INLINE void orient_mesh(MeshState &mesh) {
     HS_PROFILE(db_orient);
     for (auto &vertex : mesh.vertices)
       vertex = global_orientation.orient(vertex);

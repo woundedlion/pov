@@ -176,23 +176,21 @@ private:
       int mass;   ///< First palette's share, in [0, FULL_MASS].
     };
 
-    __attribute__((always_inline)) static constexpr uint16_t
-    pack(int first, int second, int mass) {
+    HS_HOT_INLINE static constexpr uint16_t pack(int first, int second,
+                                                 int mass) {
       return static_cast<uint16_t>(first | (second << ID_BITS) |
                                    (mass << MASS_SHIFT));
     }
-    __attribute__((always_inline)) static constexpr Unpacked
-    unpack(uint16_t pigment) {
+    HS_HOT_INLINE static constexpr Unpacked unpack(uint16_t pigment) {
       return {pigment & ID_MASK, (pigment >> ID_BITS) & ID_MASK,
               pigment >> MASS_SHIFT};
     }
     /** @brief The first palette's share of a pigment with `mass`, in [0, 1]. */
-    __attribute__((always_inline)) static constexpr float first_mass(int mass) {
+    HS_HOT_INLINE static constexpr float first_mass(int mass) {
       return static_cast<float>(mass) * (1.0f / FULL_MASS);
     }
     /** @brief Quantizes `first` as a share of `total`. */
-    __attribute__((always_inline)) static int quantize_mass(float first,
-                                                            float total) {
+    HS_HOT_INLINE static int quantize_mass(float first, float total) {
       return static_cast<int>(static_cast<float>(FULL_MASS) * first / total +
                               0.5f);
     }
@@ -348,11 +346,11 @@ private:
           continue;
         }
         uint32_t touched = 0;
-        auto add = [&](int id, float mass) __attribute__((always_inline)) {
+        auto add = [&](int id, float mass) HS_HOT_INLINE {
           weights[id] += mass;
           touched |= 1u << id;
         };
-        auto gather = [&](int node, float mass) __attribute__((always_inline)) {
+        auto gather = [&](int node, float mass) HS_HOT_INLINE {
           const auto PIGMENT = Pigment::unpack(state.pigment[node]);
           float first = Pigment::first_mass(PIGMENT.mass);
           add(PIGMENT.first, mass * first);
@@ -365,7 +363,7 @@ private:
         }
         int first = 0, second = 1;
         // Nonnegative IEEE-754 weights sort by their unsigned representations.
-        auto weight_bits = [&](int id) __attribute__((always_inline)) {
+        auto weight_bits = [&](int id) HS_HOT_INLINE {
           return std::bit_cast<uint32_t>(weights[id]) & 0x7fffffffu;
         };
         uint32_t first_bits = weight_bits(0);
@@ -462,8 +460,8 @@ private:
      * @param bake Source color for (seed, t, hue shift, lightness).
      */
     template <typename Bake>
-    __attribute__((always_inline)) void refresh(float hue, float shimmer,
-                                                bool complete, Bake &&bake) {
+    HS_HOT_INLINE void refresh(float hue, float shimmer, bool complete,
+                               Bake &&bake) {
       enabled = hue != 0.0f || shimmer != 0.0f;
       exact = !enabled || fabsf(hue) > CACHED_HUE_LIMIT ||
               shimmer > CACHED_SHIMMER_LIMIT;
@@ -497,15 +495,14 @@ private:
 
     /** @brief The noise row pair below `position`, and whether to shade it
      * exactly. */
-    __attribute__((always_inline)) Selection selection(float position) const {
+    HS_HOT_INLINE Selection selection(float position) const {
       const int ROW =
           std::min(static_cast<int>(position), COLOR_NOISE_STEPS - 2);
       return {ROW, !valid || (rows & (3u << ROW)) != (3u << ROW) || exact};
     }
 
     /** @brief The baked colors of `seed` at noise row `noise_row`. */
-    __attribute__((always_inline)) const FloatRgb *row(int seed,
-                                                       int noise_row) const {
+    HS_HOT_INLINE const FloatRgb *row(int seed, int noise_row) const {
       return palettes +
              (seed * COLOR_NOISE_STEPS + noise_row) * COLOR_VALUE_STEPS;
     }
@@ -526,10 +523,9 @@ private:
   HS_HOT_FLASH_MEMBER void refresh_color_palettes(bool complete = false) {
     shimmer_cache.refresh(
         params.hue_shift, params.shimmer, complete,
-        [this](int seed, float t, float shift, float lightness)
-            __attribute__((always_inline)) {
-              return modified_palette_color(seed, t, shift, lightness);
-            });
+        [this](int seed, float t, float shift, float lightness) HS_HOT_INLINE {
+          return modified_palette_color(seed, t, shift, lightness);
+        });
   }
 
   HS_FLASH_INLINE void refresh_color_noise() {
@@ -572,7 +568,7 @@ private:
     return Pattern::sample_sphere_lut({color_noise_lut, true}, direction);
   }
 
-  HS_O3_FN __attribute__((always_inline)) float sample_color_noise(
+  HS_O3_FN HS_HOT_INLINE float sample_color_noise(
       const ReactionGraph::CubemapLUT::Projection &projection) const {
     const int FACE = projection.face;
     const float U = FACE < 2 ? -projection.u : projection.u;
@@ -592,7 +588,7 @@ private:
    * @param phase Dissolve progress in [0, 1].
    * @return Fraction of the node's departure from rest to retain.
    */
-  __attribute__((always_inline)) float dissolve_keep(int i, float phase) const {
+  HS_HOT_INLINE float dissolve_keep(int i, float phase) const {
     const float h =
         math::hash01(static_cast<uint32_t>(i), transition.dissolve_seed);
     if (h < phase)
@@ -630,8 +626,7 @@ private:
    * @param b The node's Q16 B before the conversion.
    * @return The converted B.
    */
-  __attribute__((always_inline)) uint16_t dissolved_b(int i, float phase,
-                                                      uint16_t b) const {
+  HS_HOT_INLINE uint16_t dissolved_b(int i, float phase, uint16_t b) const {
     const float keep = dissolve_keep(i, phase);
     return keep < 1.0f
                ? static_cast<uint16_t>(static_cast<float>(b) * keep + 0.5f)
@@ -663,7 +658,7 @@ private:
    * @brief Plants the clusters a staged reseed deferred and latches edits made
    * while it was pending.
    */
-  __attribute__((always_inline)) void finish_reseed() {
+  HS_HOT_INLINE void finish_reseed() {
     seed_reaction(transition.next_seed, NUM_SEED_CLUSTERS);
     transition.next_seed = NUM_SEED_CLUSTERS;
     reaction_edited();
@@ -801,7 +796,7 @@ private:
     int i = 0;
     for (unsigned r = 0; r < ReactionGraph::NEIGHBOR_RUN_COUNT; ++r) {
       const auto &run = ReactionGraph::neighbor_runs[r];
-      auto calculate = [&](int i) __attribute__((always_inline)) {
+      auto calculate = [&](int i) HS_HOT_INLINE {
         float a = c_a[i];
         float b = c_b[i];
 
@@ -968,7 +963,7 @@ private:
 
 #if HS_ENABLE_TEST_ORACLES
   template <typename Grid, typename OnNode>
-  static __attribute__((always_inline)) void
+  static HS_HOT_INLINE void
   accumulate_render_stencil(const Grid &grid, int x, int center,
                             const math::Vector *nodes, OnNode &&on_node) {
     accumulate_column_stencil(grid, meridian_column<Grid>(x), center, nodes,
@@ -976,9 +971,9 @@ private:
   }
 #endif
 
-  HS_O3_FN __attribute__((always_inline))
-  Pixel shade_pigment(uint16_t pigment, float t, float scale,
-                      float noise_value) const {
+  HS_O3_FN HS_HOT_INLINE Pixel shade_pigment(uint16_t pigment, float t,
+                                             float scale,
+                                             float noise_value) const {
     HS_PROFILE_DEEP(grd_shader_palette);
     const auto PIGMENT = Pigment::unpack(pigment);
     const float FIRST_MASS = Pigment::first_mass(PIGMENT.mass);
@@ -1060,14 +1055,12 @@ private:
         return Pixel(0, 0, 0);
       pigment = state.pigment[center];
       accumulate_column_stencil(
-          grid, column, center, nodes,
-          [&](int, int node) __attribute__((always_inline)) {
+          grid, column, center, nodes, [&](int, int node) HS_HOT_INLINE {
             float b = state.B[node];
-            return [&, b](int sample, float weight)
-                       __attribute__((always_inline)) {
-                         weights[sample] += weight;
-                         weighted_b[sample] += b * weight;
-                       };
+            return [&, b](int sample, float weight) HS_HOT_INLINE {
+              weights[sample] += weight;
+              weighted_b[sample] += b * weight;
+            };
           });
     }
     int covered = 0;
@@ -1109,8 +1102,7 @@ private:
   }
 #endif
 
-  template <typename Grid>
-  static __attribute__((always_inline)) float render_support_limit() {
+  template <typename Grid> static HS_HOT_INLINE float render_support_limit() {
     return Base::KERNEL_R * 0.99f -
            0.25f * (math::RADIANS_PER_COLUMN<Grid::WIDTH> +
                     math::RADIANS_PER_ROW<Grid::HEIGHT>);
