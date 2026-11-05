@@ -23,8 +23,7 @@ using Surface::POTENTIAL_KIND_IDS;
 /** @brief Harmonic degree and order values, indexed by the integer value. */
 using Surface::HARMONIC_ORDER_IDS;
 /** @brief Rossby wave-order values; the stored index represents R = index + 1. */
-inline constexpr const char *ROSSBY_ORDER_IDS[] = {
-    "one", "two", "three", "four", "five", "six", "seven"};
+inline constexpr auto &ROSSBY_ORDER_IDS = Surface::AUTHORED_ROSSBY_ORDER_IDS;
 /** @brief Rejected field configuration diagnostic. */
 inline constexpr const char *FIELD_RANGE_WARNING =
     "Field parameters must be finite and within their scalar and harmonic domains.";
@@ -71,54 +70,10 @@ using PotentialTermParams = Surface::PotentialTermParams;
 using PotentialDisplaceParams = Surface::PotentialParams;
 
 /** @brief Rossby-Haurwitz field controls. */
-struct RossbyHaurwitzParams {
-  float strength = 0.05f; ///< Signed fixed-step scale.
-  float omega = 0.0f;     ///< Zonal peak-speed amplitude.
-  float wave = 1.0f;      ///< Wave peak-speed amplitude.
-  uint8_t order = 3;      ///< Wave order R = order + 1.
-  float drift = 0.0f;     ///< Drift phase advance per frame.
-  uint8_t integrator = 0; ///< Integration scheme.
-  static constexpr auto FIELDS = std::array{
-      Field<RossbyHaurwitzParams>{"strength", &RossbyHaurwitzParams::strength,
-                                  "Strength", -math::PI_F, math::PI_F,
-                                  FieldCurve::SNAP},
-      Field<RossbyHaurwitzParams>{"omega", &RossbyHaurwitzParams::omega,
-                                  "Zonal Amplitude", -4, 4, FieldCurve::SNAP},
-      Field<RossbyHaurwitzParams>{"wave", &RossbyHaurwitzParams::wave,
-                                  "Wave Amplitude", -4, 4, FieldCurve::SNAP},
-      Field<RossbyHaurwitzParams>{"drift", &RossbyHaurwitzParams::drift,
-                                  "Drift", -0.1f, 0.1f, FieldCurve::LERP}};
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<RossbyHaurwitzParams>{"integrator",
-                                          &RossbyHaurwitzParams::integrator,
-                                          SURFACE_INTEGRATOR_IDS, 0},
-      TopologyField<RossbyHaurwitzParams>{"order", &RossbyHaurwitzParams::order,
-                                          ROSSBY_ORDER_IDS, 3}};
-};
+using RossbyHaurwitzParams = Surface::RossbyHaurwitzParams;
 
 /** @brief Rotating invariant field controls. */
-struct SymmetricDisplaceParams {
-  float strength = 0.05f; ///< Signed fixed-step scale.
-  float speed = 0.0f;     ///< Frame rotation per frame, radians.
-  uint8_t integrator = 0; ///< Integration scheme.
-  uint8_t symmetry = 0;   ///< Shared kaleidoscope symmetry.
-  uint8_t kind = 0;       ///< Helmholtz component.
-  static constexpr auto FIELDS = std::array{
-      Field<SymmetricDisplaceParams>{
-          "strength", &SymmetricDisplaceParams::strength, "Strength",
-          -4.0f * math::PI_F, 4.0f * math::PI_F, FieldCurve::SNAP},
-      Field<SymmetricDisplaceParams>{"speed", &SymmetricDisplaceParams::speed,
-                                     "Speed", -0.1f, 0.1f, FieldCurve::LERP}};
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<SymmetricDisplaceParams>{
-          "integrator", &SymmetricDisplaceParams::integrator,
-          SURFACE_INTEGRATOR_IDS, 0},
-      TopologyField<SymmetricDisplaceParams>{"symmetry",
-                                             &SymmetricDisplaceParams::symmetry,
-                                             KALEIDOSCOPE_SYMMETRY_IDS, 0},
-      TopologyField<SymmetricDisplaceParams>{
-          "kind", &SymmetricDisplaceParams::kind, POTENTIAL_KIND_IDS, 0}};
-};
+using SymmetricDisplaceParams = Surface::SymmetricParams;
 
 /** @brief Shared operator lifecycle over a fixed-step field.
  * @tparam Derived Concrete field operator.
@@ -173,17 +128,7 @@ struct FieldDisplaceModel : ValueStateModel<StateT> {
    * @return Displaced direction and accumulated arc length. */
   static SurfaceResult step(const math::Vector &p, const Prepared &field,
                             float strength, uint8_t integrator) {
-    switch (static_cast<Surface::Integrator>(integrator)) {
-    case Surface::Integrator::EULER:
-      return Surface::step_field<Prepared, Surface::Euler>(p, field, strength,
-                                                           true);
-    case Surface::Integrator::MIDPOINT:
-      return Surface::step_field<Prepared, Surface::Midpoint>(p, field,
-                                                              strength, true);
-    default:
-      return Surface::step_field<Prepared, Surface::Midpoint2>(p, field,
-                                                               strength, true);
-    }
+    return Surface::step_tangent_field(p, field, strength, integrator, true);
   }
 };
 

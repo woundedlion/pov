@@ -12,7 +12,7 @@
 
 #include "core/render/pullback/lens.h"
 #include "core/render/pullback/operators/common.h"
-#include "core/render/pullback/surface.h"
+#include "core/render/pullback/tangent_surface.h"
 #include "core/render/pullback/sphere_animation.h"
 
 /**
@@ -28,13 +28,13 @@ namespace Interp {
 namespace Op {
 
 /** @brief Integrator topology values, in Surface::Integrator order. */
-inline constexpr const char *SURFACE_INTEGRATOR_IDS[] = {"euler", "midpoint",
-                                                         "midpoint-2x"};
+inline constexpr auto &SURFACE_INTEGRATOR_IDS =
+    Surface::AUTHORED_INTEGRATOR_IDS;
 static_assert(std::size(SURFACE_INTEGRATOR_IDS) ==
               static_cast<size_t>(Surface::Integrator::MIDPOINT_2X) + 1);
 
 /** @brief Limit topology values, in math::TangentLimit order. */
-inline constexpr const char *TANGENT_LIMIT_IDS[] = {"smooth", "clamp"};
+inline constexpr auto &TANGENT_LIMIT_IDS = Surface::AUTHORED_LIMIT_IDS;
 static_assert(std::size(TANGENT_LIMIT_IDS) ==
               static_cast<size_t>(math::TangentLimit::CLAMP) + 1);
 
@@ -395,10 +395,8 @@ enum class KaleidoscopeSymmetry : uint8_t {
 };
 
 /** @brief Symmetry topology values, in KaleidoscopeSymmetry order. */
-inline constexpr const char *KALEIDOSCOPE_SYMMETRY_IDS[] = {
-    "azimuthal",        "tetrahedral",      "octahedral",
-    "dodecahedral",     "triangular-prism", "square-prism",
-    "pentagonal-prism", "hexagonal-prism",  "octagonal-prism"};
+inline constexpr auto &KALEIDOSCOPE_SYMMETRY_IDS =
+    Surface::AUTHORED_SYMMETRY_IDS;
 static_assert(std::size(KALEIDOSCOPE_SYMMETRY_IDS) ==
               static_cast<size_t>(KaleidoscopeSymmetry::OCTAGONAL_PRISM) + 1);
 
