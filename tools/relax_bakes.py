@@ -57,11 +57,17 @@ def parse_dump(text: str) -> list[dict]:
     meta: dict | None = None
     words: list[int] = []
     grid: tuple[int, int, int] | None = None
+    complete = False
     for lineno, line in enumerate(text.splitlines(), 1):
         parts = line.split()
         if not parts:
             continue
-        if parts[0] == "RELAX_BAKE_BEGIN":
+        if parts[0] == "RELAX_BAKE_COMPLETE":
+            if meta is not None:
+                raise unterminated_block(meta, words)
+            complete = True
+        elif parts[0] == "RELAX_BAKE_BEGIN":
+            complete = False
             if meta is not None:
                 raise unterminated_block(meta, words)
             if len(parts) != 13:
@@ -118,6 +124,8 @@ def parse_dump(text: str) -> list[dict]:
         raise unterminated_block(meta, words)
     if not order:
         raise ValueError("no RELAX_BAKE blocks found in dump")
+    if not complete:
+        raise ValueError("dump missing RELAX_BAKE_COMPLETE: harness did not finish")
     parsed = [bakes[name] for name in order]
     peer_hashes: dict[tuple[int, ...], dict[int, str]] = {}
     for bake in parsed:

@@ -30,7 +30,7 @@ def make_dump(name, iterations, verts, topology_hash, source_hash=0x1234ABCD,
     ]
     for x, y, z in verts:
         lines.append(f"RELAX_BAKE_DATA {x:08x} {y:08x} {z:08x}")
-    lines.append("RELAX_BAKE_END")
+    lines.extend(("RELAX_BAKE_END", "RELAX_BAKE_COMPLETE"))
     return "\n".join(lines), out
 
 
@@ -108,6 +108,17 @@ class ParseDump(unittest.TestCase):
     def test_empty_dump_raises(self):
         with self.assertRaises(ValueError):
             relax_bakes.parse_dump("no blocks here\n")
+
+    def test_rejects_dump_truncated_after_complete_block(self):
+        dump, _ = make_dump("foo", 8, [(1, 1, 1)], 0x1)
+        with self.assertRaisesRegex(ValueError, "missing RELAX_BAKE_COMPLETE"):
+            relax_bakes.parse_dump(dump.rsplit("\n", 1)[0])
+
+    def test_rejects_later_sweep_without_completion(self):
+        first, _ = make_dump("foo", 8, [(1, 1, 1)], 0x1)
+        second, _ = make_dump("bar", 8, [(2, 2, 2)], 0x2)
+        with self.assertRaisesRegex(ValueError, "missing RELAX_BAKE_COMPLETE"):
+            relax_bakes.parse_dump(first + "\n" + second.rsplit("\n", 1)[0])
 
     def test_rejects_unterminated_block(self):
         # Harness died mid-block: the partial bake must not be dropped.
@@ -210,6 +221,14 @@ class Check(unittest.TestCase):
         self.asset.write_text(text, encoding="utf-8", newline="\n")
         self.args.dump = str(Path(self.tmp.name) / "dump.txt")
         Path(self.args.dump).write_text(self.dump, encoding="utf-8")
+
+    def test_emit_preserves_asset_when_dump_ends_between_blocks(self):
+        self.write_asset("existing asset\n")
+        self.dump = self.dump.rsplit("\n", 1)[0]
+        with unittest.mock.patch.object(relax_bakes, "read_dump", return_value=self.dump):
+            with self.assertRaisesRegex(ValueError, "missing RELAX_BAKE_COMPLETE"):
+                relax_bakes.emit(self.args)
+        self.assertEqual(self.asset.read_text(encoding="utf-8"), "existing asset\n")
 
     def test_accepts_a_matching_asset(self):
         self.write_asset(relax_bakes.emit_header(relax_bakes.parse_dump(self.dump)))

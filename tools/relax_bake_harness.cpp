@@ -45,5 +45,8 @@ int main() {
   std::printf("relax bake verify: %d relax_baked() steps re-derived\n",
               Solids::relax_bakes_verified);
 #endif
+#if defined(HS_RELAX_BAKE_EXTRACT)
+  std::puts("RELAX_BAKE_COMPLETE");
+#endif
   return 0;
 }
