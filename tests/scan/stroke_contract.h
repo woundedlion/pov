@@ -255,24 +255,24 @@ inline void test_csg_stroke_aa_uses_winning_child_thickness() {
   hs_test::StubEffect fx(W, H);
   Canvas c(fx);
 
-  const float thin = 0.05f, thick = 0.30f;
+  const float THIN = 0.05f, THICK = 0.30f;
   // Thin line: equatorial arc +X -> +Z (great circle in the y=0 plane).
-  SDF::Line thin_line(math::Vector(1, 0, 0), math::Vector(0, 0, 1), thin);
+  SDF::Line thin_line(math::Vector(1, 0, 0), math::Vector(0, 0, 1), THIN);
   // The distant thick sibling makes sibling-max AA width observable while
   // the Union selects the thin line.
-  SDF::Line thick_line(math::Vector(-1, 0, 0), math::Vector(0, 0, -1), thick);
+  SDF::Line thick_line(math::Vector(-1, 0, 0), math::Vector(0, 0, -1), THICK);
   SDF::Union<SDF::Line, SDF::Line> u(thin_line, thick_line);
   // Same geometry as `thin_line` but standalone, for the contrast check.
-  SDF::Line thick_solo(math::Vector(1, 0, 0), math::Vector(0, 0, 1), thick);
+  SDF::Line thick_solo(math::Vector(1, 0, 0), math::Vector(0, 0, 1), THICK);
 
   static_assert(!SDF::Union<SDF::Line, SDF::Line>::is_solid,
                 "a Union of strokes is not solid");
 
   // Point at geodesic distance 0.025 (half the thin thickness) north of the
   // thin arc, projecting to azimuth 45 deg (well inside the arc).
-  const float dist = 0.025f;
-  math::Vector p(cosf(dist) * cosf(math::PI_F / 4), sinf(dist),
-                 cosf(dist) * sinf(math::PI_F / 4));
+  const float DIST = 0.025f;
+  math::Vector p(cosf(DIST) * cosf(math::PI_F / 4), sinf(DIST),
+                 cosf(DIST) * sinf(math::PI_F / 4));
 
   int n_union = 0, n_bare = 0;
   float a_union = scan_alpha_at<W, H>(u, p, c, &n_union);
@@ -297,18 +297,18 @@ inline void test_stroke_aa_is_monotone_ramp() {
   hs_test::StubEffect fx(W, H);
   Canvas c(fx);
 
-  const float radius = 0.5f;     // centerline at polar PI/4
-  const float thickness = 0.10f; // band half-width in radians
-  const float target = radius * (math::PI_F / 2.0f);
+  const float RADIUS = 0.5f;     // centerline at polar PI/4
+  const float THICKNESS = 0.10f; // band half-width in radians
+  const float target = RADIUS * (math::PI_F / 2.0f);
   math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
-  SDF::Ring ring(basis, radius, thickness);
+  SDF::Ring ring(basis, RADIUS, THICKNESS);
 
   // March outward from the centerline along the az=0 meridian.
   const int N = 12;
   float prev = 1.0f;
   bool saw_one = false, saw_zero = false, saw_mid = false;
   for (int i = 0; i < N; ++i) {
-    float delta = (thickness * 1.4f) * i / (N - 1); // 0 .. 1.4*thickness
+    float delta = (THICKNESS * 1.4f) * i / (N - 1); // 0 .. 1.4*thickness
     float ph = target + delta;
     math::Vector p(sinf(ph), cosf(ph), 0.0f); // az=0, polar angle ph
     int count = 0;

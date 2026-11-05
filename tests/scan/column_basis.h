@@ -1729,10 +1729,10 @@ inline void test_settled_drift_matches_column_drift() {
   const math::Vector axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
   const math::Vector drift = axis * (0.3f * math::RADIANS_PER_COLUMN<W>);
   const math::Vector centre = math::Vector(0.3f, -0.4f, 0.85f).normalized();
-  const float radius = 0.15f;
+  const float RADIUS = 0.15f;
   const auto star = [&](Pipeline<W, H> &pipeline, Canvas &canvas,
                         const math::Basis &basis) {
-    Scan::Star::draw<W, H, false>(pipeline, canvas, basis, radius, 5,
+    Scan::Star::draw<W, H, false>(pipeline, canvas, basis, RADIUS, 5,
                                   basis_flat_shader);
   };
   const auto render = [&](bool settle) {
@@ -1745,7 +1745,7 @@ inline void test_settled_drift_matches_column_drift() {
           math::Basis shape = math::make_basis(math::Quaternion(), centre);
           if (settle)
             HS_EXPECT_TRUE(
-                settle_shape(time, drift, radius * (math::PI_F / 2.0f), shape));
+                settle_shape(time, drift, RADIUS * (math::PI_F / 2.0f), shape));
           else
             time.drift = drift;
           star(pipeline, canvas, shape);
@@ -1771,11 +1771,11 @@ inline void test_settled_drift_matches_column_drift() {
       math::Quaternion(), math::Vector(-1.0f, 0.1f, 0.02f).normalized());
   const math::Basis held = seam;
   HS_EXPECT_FALSE(
-      settle_shape(time, drift, radius * (math::PI_F / 2.0f), seam));
+      settle_shape(time, drift, RADIUS * (math::PI_F / 2.0f), seam));
   HS_EXPECT_VEC(seam.u, held.u, 0.0f);
   HS_EXPECT_VEC(seam.v, held.v, 0.0f);
   HS_EXPECT_VEC(seam.w, held.w, 0.0f);
   math::Basis fast = math::make_basis(math::Quaternion(), centre);
   HS_EXPECT_FALSE(
-      settle_shape(time, drift * 20.0f, radius * (math::PI_F / 2.0f), fast));
+      settle_shape(time, drift * 20.0f, RADIUS * (math::PI_F / 2.0f), fast));
 }

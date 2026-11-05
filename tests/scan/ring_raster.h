@@ -14,14 +14,14 @@
  */
 inline void test_ring_rasterize_produces_bounded_output() {
   constexpr int W = 64, H = 48;
-  constexpr float radius = 0.5f, thickness = 0.4f;
+  constexpr float RADIUS = 0.5f, THICKNESS = 0.4f;
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe; // bare 2D sink (no filters)
 
   {
     Canvas c(fx);
     math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
-    Scan::Ring::draw<W, H, false>(pipe, c, basis, radius, thickness,
+    Scan::Ring::draw<W, H, false>(pipe, c, basis, RADIUS, THICKNESS,
                                   [](const math::Vector &, Fragment &f) {
                                     f.color = Color4(Pixel(60000, 60000, 60000),
                                                      1.0f);
@@ -29,12 +29,12 @@ inline void test_ring_rasterize_produces_bounded_output() {
   }
   fx.advance_display();
 
-  const float target = radius * (math::PI_F / 2.0f); // ring-centre polar angle
+  const float target = RADIUS * (math::PI_F / 2.0f); // ring-centre polar angle
   const float row = math::PI_F / (H - 1); // angular height of one row
   // Two rows of quantization either side of the nominal stroke: inside the
   // inner bound the ring is solid, outside the outer one it is clear.
-  const float core = thickness - 2.0f * row;
-  const float band = thickness + 2.0f * row;
+  const float core = THICKNESS - 2.0f * row;
+  const float band = THICKNESS + 2.0f * row;
   size_t plotted = 0, solid = 0;
   float widest_lit = 0.0f, nearest_dark = math::PI_F;
   for (int y = 0; y < H; ++y)
@@ -58,7 +58,7 @@ inline void test_ring_rasterize_produces_bounded_output() {
   std::printf("  [ring mask] lit %zu/%d, core %zu, widest lit %.4f, nearest "
               "dark %.4f of half-width %.4f\n",
               plotted, W * H, solid, (double)widest_lit, (double)nearest_dark,
-              (double)thickness);
+              (double)THICKNESS);
   HS_EXPECT_GT(solid, (size_t)0);
   HS_EXPECT_LT(plotted, (size_t)(W * H));
 }
@@ -69,7 +69,7 @@ inline void test_ring_rasterize_produces_bounded_output() {
  */
 inline void test_ring_long_radius_azimuth_unflipped() {
   constexpr int W = 96, H = 64;
-  constexpr float radius = 1.4f, thickness = 0.15f;
+  constexpr float RADIUS = 1.4f, THICKNESS = 0.15f;
   const math::Basis basis = math::make_basis(
       math::Quaternion(), math::Vector(0.3f, 0.8f, -0.5f).normalized());
 
@@ -79,7 +79,7 @@ inline void test_ring_long_radius_azimuth_unflipped() {
   {
     Canvas c(fx);
     Scan::Ring::draw<W, H>(
-        pipe, c, basis, radius, thickness,
+        pipe, c, basis, RADIUS, THICKNESS,
         [&](const math::Vector &p, Fragment &f) {
           const double u = static_cast<double>(p.x) * basis.u.x +
                            static_cast<double>(p.y) * basis.u.y +

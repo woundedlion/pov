@@ -286,11 +286,11 @@ inline void test_transformed_volume_world_local_roundtrip() {
 inline void test_volume_raymarch_silhouette_and_registers() {
   constexpr int W = 96, H = 64;
   const math::Vector center(0.0f, 0.0f, 1.0f); // bounds centre in LED space
-  const float bounds_radius = 0.35f;
-  const float sphere_r = 0.28f; // < bounds so the SDF fits the cull sphere
-  const float aa_width = 0.01f;
+  const float BOUNDS_RADIUS = 0.35f;
+  const float SPHERE_R = 0.28f; // < bounds so the SDF fits the cull sphere
+  const float AA_WIDTH = 0.01f;
 
-  SphereSDF sphere{sphere_r};
+  SphereSDF sphere{SPHERE_R};
   Scan::TransformedVolume vol(sphere, center, math::Quaternion());
 
   hs_test::StubEffect fx(W, H);
@@ -303,17 +303,17 @@ inline void test_volume_raymarch_silhouette_and_registers() {
   {
     Canvas c(fx);
     Scan::Volume::draw<W, H>(
-        sink, c, center, bounds_radius, vol,
+        sink, c, center, BOUNDS_RADIUS, vol,
         [&](const math::Vector &loc, Fragment &frag) {
           ++hits;
           HS_EXPECT_VEC(frag.pos, loc, 0.0f);
           max_surf_err =
-              fold_worst(max_surf_err, std::fabs(frag.pos.length() - sphere_r));
+              fold_worst(max_surf_err, std::fabs(frag.pos.length() - SPHERE_R));
           max_reg_d = fold_worst(max_reg_d, std::fabs(frag.size));
           centroid_sum = centroid_sum + loc;
           frag.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
         },
-        /*max_steps=*/24, aa_width);
+        /*max_steps=*/24, AA_WIDTH);
   }
 
   // Real silhouette: some fragments, never the whole canvas; plotted ⊆ shaded.
@@ -323,8 +323,8 @@ inline void test_volume_raymarch_silhouette_and_registers() {
   HS_EXPECT_LE(sink.plotted.size(), (size_t)hits);
 
   // Every shaded fragment is a genuine surface hit inside the AA band.
-  HS_EXPECT_LE(max_surf_err, aa_width + 1e-3f);
-  HS_EXPECT_LE(max_reg_d, aa_width);
+  HS_EXPECT_LE(max_surf_err, AA_WIDTH + 1e-3f);
+  HS_EXPECT_LE(max_reg_d, AA_WIDTH);
 
   // The hit centroid is on the camera-facing (+Z) cap.
   math::Vector centroid = centroid_sum * (1.0f / static_cast<float>(hits));
@@ -340,8 +340,8 @@ inline void test_volume_raymarch_silhouette_and_registers() {
 inline void test_volume_draw_occluded_edge_blends_over_background() {
   constexpr int W = 96, H = 64;
   const math::Vector center(0.0f, 0.0f, 1.0f);
-  const float bounds_radius = 0.65f;
-  const float aa_width = 0.08f;
+  const float BOUNDS_RADIUS = 0.65f;
+  const float AA_WIDTH = 0.08f;
 
   TwoSphereSDF shape{math::Vector(0.0f, 0.0f, 0.20f), 0.18f,
                      math::Vector(0.28f, 0.0f, -0.20f), 0.30f};
@@ -352,11 +352,11 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
   {
     Canvas c(fx);
     Scan::Volume::draw<W, H>(
-        sink, c, center, bounds_radius, vol,
+        sink, c, center, BOUNDS_RADIUS, vol,
         [&](const math::Vector &, Fragment &frag) {
           frag.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
         },
-        /*max_steps=*/40, aa_width);
+        /*max_steps=*/40, AA_WIDTH);
   }
 
   int occ_pairs = 0;
@@ -388,7 +388,7 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
  * independent of the step budget.
  */
 inline void test_volume_trace_closest_stops_at_first_graze() {
-  const float aa_width = 0.01f;
+  const float AA_WIDTH = 0.01f;
   TwoSphereSDF shape{math::Vector(0.0f, 0.0f, 0.20f), 0.18f,
                      math::Vector(0.0f, 0.0f, -0.20f), 0.30f};
 
@@ -400,7 +400,7 @@ inline void test_volume_trace_closest_stops_at_first_graze() {
   for (int max_steps : {14, 40}) {
     math::Vector closest_local;
     float closest_d = Scan::Volume::trace_closest(
-        shape, ro, vd, 0.5f, max_steps, aa_width, closest_local);
+        shape, ro, vd, 0.5f, max_steps, AA_WIDTH, closest_local);
     HS_EXPECT_GT(closest_d, 0.003f);
     HS_EXPECT_LT(closest_d, 0.0075f);
     HS_EXPECT_GT(closest_local.z, 0.1f);
@@ -416,8 +416,8 @@ inline void test_volume_trace_closest_stops_at_first_graze() {
  * sphere's edge (negative z).
  */
 inline void test_volume_probe_occluder_reports_background_graze_point() {
-  const float aa_width = 0.01f;
-  const float hit_threshold = aa_width * 0.1f;
+  const float AA_WIDTH = 0.01f;
+  const float HIT_THRESHOLD = AA_WIDTH * 0.1f;
   TwoSphereSDF shape{math::Vector(0.0f, 0.0f, 0.20f), 0.18f,
                      math::Vector(0.28f, 0.0f, -0.20f), 0.30f};
 
@@ -427,13 +427,13 @@ inline void test_volume_probe_occluder_reports_background_graze_point() {
 
   math::Vector closest_local;
   float closest_d = Scan::Volume::trace_closest(shape, ro, vd, 0.6f, 40,
-                                                aa_width, closest_local);
-  HS_EXPECT_GT(closest_d, hit_threshold);
-  HS_EXPECT_LT(closest_d, aa_width);
+                                                AA_WIDTH, closest_local);
+  HS_EXPECT_GT(closest_d, HIT_THRESHOLD);
+  HS_EXPECT_LT(closest_d, AA_WIDTH);
   HS_EXPECT_GT(closest_local.z, 0.1f);
 
   auto occ = Scan::Volume::probe_occluder(shape, closest_local, vd, 0.6f,
-                                          hit_threshold, aa_width);
+                                          HIT_THRESHOLD, AA_WIDTH);
   HS_EXPECT_FALSE(occ.solid);
   // The ray passes 0.0033 outside the background sphere, so the analytic
   // coverage is quintic(1 - (0.0033 - 0.001)/0.009) ~= 0.89.
@@ -453,38 +453,38 @@ inline void test_volume_probe_occluder_reports_background_graze_point() {
 inline void test_volume_trace_closest_overrelax_never_skips_surface() {
   SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{{0.45f, 0.14f},
                                                         {2, 0.35f, 0.45f}};
-  const float bounds_radius = 0.72f;
-  const float aa_width = 0.07f;
+  const float BOUNDS_RADIUS = 0.72f;
+  const float AA_WIDTH = 0.07f;
   const math::Vector vd(0.0f, 0.0f, -1.0f);
 
   int covered = 0, hits = 0;
   for (int iy = -14; iy <= 14; ++iy) {
     for (int ix = -14; ix <= 14; ++ix) {
-      math::Vector ro(ix * 0.045f, iy * 0.045f, bounds_radius);
+      math::Vector ro(ix * 0.045f, iy * 0.045f, BOUNDS_RADIUS);
 
       math::Vector closest_local;
       float closest_d = Scan::Volume::trace_closest(
-          torus, ro, vd, bounds_radius, 18, aa_width, closest_local);
+          torus, ro, vd, BOUNDS_RADIUS, 18, AA_WIDTH, closest_local);
 
       // Dense reference: minimum march-safe distance along the ray segment.
       float ref_min = FLT_MAX;
       for (int s = 0; s <= 4000; ++s) {
-        math::Vector p(ro.x, ro.y, ro.z - s * (2.0f * bounds_radius / 4000.0f));
+        math::Vector p(ro.x, ro.y, ro.z - s * (2.0f * BOUNDS_RADIUS / 4000.0f));
         float d = torus.distance(p);
         if (d < ref_min)
           ref_min = d;
       }
 
-      if (closest_d < aa_width) {
+      if (closest_d < AA_WIDTH) {
         ++hits;
         // The dense scan of the same distance must corroborate the hit.
-        HS_EXPECT_LT(ref_min, aa_width);
+        HS_EXPECT_LT(ref_min, AA_WIDTH);
       }
       // Rays grazing the band edge may legitimately land either side of it;
       // anything this far inside is unambiguous coverage the march owes.
-      if (ref_min < aa_width * 0.9f) {
+      if (ref_min < AA_WIDTH * 0.9f) {
         ++covered;
-        HS_EXPECT_LT(closest_d, aa_width);
+        HS_EXPECT_LT(closest_d, AA_WIDTH);
       }
     }
   }

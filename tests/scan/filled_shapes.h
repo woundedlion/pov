@@ -292,7 +292,7 @@ inline void test_overlapping_fills_composite_blend() {
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe;
 
-  constexpr uint16_t red = 60000, green = 50000;
+  constexpr uint16_t RED = 60000, GREEN = 50000;
   {
     Canvas c(fx);
     math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
@@ -300,20 +300,20 @@ inline void test_overlapping_fills_composite_blend() {
     Scan::PlanarPolygon::draw<W, H, false>(
         pipe, c, basis, /*radius=*/0.6f, /*sides=*/6,
         [](const math::Vector &, Fragment &f) {
-          f.color = Color4(Pixel(red, 0, 0), 0.5f);
+          f.color = Color4(Pixel(RED, 0, 0), 0.5f);
         });
     // Second fill: green at half alpha over the red -> red*0.25 + green*0.5.
     Scan::PlanarPolygon::draw<W, H, false>(
         pipe, c, basis, /*radius=*/0.6f, /*sides=*/6,
         [](const math::Vector &, Fragment &f) {
-          f.color = Color4(Pixel(0, green, 0), 0.5f);
+          f.color = Color4(Pixel(0, GREEN, 0), 0.5f);
         });
   }
   fx.advance_display();
 
   // Pole row: both fills fully covered, so plot alpha is frag.alpha.
   const Pixel &p = fx.get_pixel(W / 2, 0);
-  HS_EXPECT_NEAR((int)p.r, (int)(red * 0.25f), 2);
-  HS_EXPECT_NEAR((int)p.g, (int)(green * 0.5f), 2);
+  HS_EXPECT_NEAR((int)p.r, (int)(RED * 0.25f), 2);
+  HS_EXPECT_NEAR((int)p.g, (int)(GREEN * 0.5f), 2);
   HS_EXPECT_EQ((int)p.b, 0);
 }
