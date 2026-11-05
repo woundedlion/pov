@@ -16,11 +16,12 @@ struct CometsWhiteBox {
    *          and the snap must stay positive.
    */
   static void check_paths_close() {
-    using C = Comets<DEFAULT_W, DEFAULT_H>;
+    using FullComets = Comets<DEFAULT_W, DEFAULT_H>;
     int idx = 0;
-    for (const PresetEntry<math::LissajousParams> &entry : C::PRESETS) {
+    for (const PresetEntry<math::LissajousParams> &entry :
+         FullComets::PRESETS) {
       const math::LissajousParams &cfg = entry.params;
-      const float cd = C::closing_domain(cfg);
+      const float cd = FullComets::closing_domain(cfg);
       HS_EXPECT_GT(cd, 0.0f); // floor-at-1 keeps the head moving
       // m2*domain >= PI keeps the floor from rewriting an authored domain.
       HS_EXPECT_GE(cfg.m2 * cfg.domain, math::PI_F);

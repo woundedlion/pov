@@ -399,9 +399,9 @@ inline void test_bz_perturb_scales_with_timestep() {
   }
   {
     constexpr float DT = 0.35f;
-    constexpr int full = BZWhiteBox::perturb_amount();
-    constexpr int step = static_cast<int>(full * DT);
-    static_assert(step > 0 && full > step);
+    constexpr int FULL = BZWhiteBox::perturb_amount();
+    constexpr int STEP = static_cast<int>(FULL * DT);
+    static_assert(STEP > 0 && FULL > STEP);
 
     BZWhiteBox::BZ bz;
     BZWhiteBox::set_params(bz, /*alpha*/ 3.0f, /*D*/ 0.05f, DT);
@@ -417,13 +417,13 @@ inline void test_bz_perturb_scales_with_timestep() {
           continue;
         ++touched;
         total += v;
-        if (v % step != 0)
+        if (v % STEP != 0)
           ++malformed;
       }
     HS_EXPECT_GT(touched, 0);
     HS_EXPECT_EQ(malformed, 0);
     HS_EXPECT_EQ(total, static_cast<int64_t>(PASSES) *
-                            BZWhiteBox::num_perturbations() * step);
+                            BZWhiteBox::num_perturbations() * STEP);
   }
 }
 

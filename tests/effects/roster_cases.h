@@ -174,17 +174,17 @@ inline void test_needs_full_frame_gate() {
 }
 
 template <typename EffectT> inline void check_manual_preset_navigation() {
-  constexpr size_t expected_count = EffectT::authored_preset_count();
-  HS_EXPECT_GT(expected_count, size_t(1));
+  constexpr size_t EXPECTED_COUNT = EffectT::authored_preset_count();
+  HS_EXPECT_GT(EXPECTED_COUNT, size_t(1));
   reset_globals();
   EffectT effect;
   effect.init();
-  HS_EXPECT_EQ(effect.getPresetCount(), expected_count);
+  HS_EXPECT_EQ(effect.getPresetCount(), EXPECTED_COUNT);
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t(0));
-  HS_EXPECT_FALSE(effect.selectPreset(expected_count));
+  HS_EXPECT_FALSE(effect.selectPreset(EXPECTED_COUNT));
   HS_EXPECT_FALSE(effect.animations_paused());
   HS_EXPECT_TRUE(effect.previousPreset());
-  HS_EXPECT_EQ(effect.getPresetIndex(), expected_count - 1);
+  HS_EXPECT_EQ(effect.getPresetIndex(), EXPECTED_COUNT - 1);
   HS_EXPECT_TRUE(effect.nextPreset());
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(effect.animations_paused());

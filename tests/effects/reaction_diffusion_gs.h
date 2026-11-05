@@ -1351,12 +1351,12 @@ inline void test_gs_shared_stencil_error_is_bounded() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
   gs.init();
-  constexpr int probe_frames[] = {4, 16, 40};
+  constexpr int PROBE_FRAMES[] = {4, 16, 40};
   int next_probe = 0;
-  for (int frame = 1; frame <= probe_frames[2]; ++frame) {
+  for (int frame = 1; frame <= PROBE_FRAMES[2]; ++frame) {
     gs.draw_frame();
     gs.advance_display();
-    if (frame != probe_frames[next_probe])
+    if (frame != PROBE_FRAMES[next_probe])
       continue;
     auto error = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
         gs, {.center_pigment = true, .full_kernel = true});
@@ -1650,14 +1650,14 @@ inline void test_gs_dissolve_frontier_fades_before_clear() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
   gs.init();
-  constexpr float phase = 0.5f;
-  constexpr uint32_t seed = 0x7b31d2a5u;
+  constexpr float PHASE = 0.5f;
+  constexpr uint32_t SEED = 0x7b31d2a5u;
   int cleared = -1, fading = -1;
   for (int i = 0; i < GSWhiteBox::N; ++i) {
-    float h = GSWhiteBox::dissolve_hash(i, seed);
-    if (cleared < 0 && h < phase)
+    float h = GSWhiteBox::dissolve_hash(i, SEED);
+    if (cleared < 0 && h < PHASE)
       cleared = i;
-    float fade = (h - phase) / GSWhiteBox::DISSOLVE_FADE_FRACTION;
+    float fade = (h - PHASE) / GSWhiteBox::DISSOLVE_FADE_FRACTION;
     if (fading < 0 && fade > 0.25f && fade < 0.75f)
       fading = i;
   }
@@ -1667,7 +1667,7 @@ inline void test_gs_dissolve_frontier_fades_before_clear() {
     return;
   GSWhiteBox::set_node(gs, cleared, 0, 65535);
   GSWhiteBox::set_node(gs, fading, 0, 65535);
-  GSWhiteBox::convert(gs, phase, seed);
+  GSWhiteBox::convert(gs, PHASE, SEED);
   HS_EXPECT_EQ(GSWhiteBox::a_field(gs)[cleared], (uint16_t)65535);
   HS_EXPECT_EQ(GSWhiteBox::b_field(gs)[cleared], (uint16_t)0);
   HS_EXPECT(GSWhiteBox::a_field(gs)[fading] > 0 &&
