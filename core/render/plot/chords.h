@@ -295,8 +295,8 @@ public:
   static constexpr size_t storage_bytes(int max_vertices) {
     return static_cast<size_t>(max_vertices + 1) *
                (2 * sizeof(float) + sizeof(math::PixelCoords)) +
-           (MAX_ANCHOR_INTERVALS + MAX_RADIAL_INTERVALS + 2) *
-               sizeof(math::PixelCoords) +
+           (MAX_ANCHOR_INTERVALS + 1) * sizeof(math::PixelCoords) +
+           (MAX_RADIAL_INTERVALS + 1) * sizeof(RadialCoefficient) +
            4 * alignof(math::PixelCoords) +
            PlanarBandSplit<W, H>::storage_bytes(POLE_RUN_POINTS);
   }
@@ -322,7 +322,7 @@ public:
     pixels = arena.allocate_n<math::PixelCoords>(max_vertices + 1);
     anchors = arena.allocate_n<math::PixelCoords>(MAX_ANCHOR_INTERVALS + 1);
     radial_coefficients =
-        arena.allocate_n<math::PixelCoords>(MAX_RADIAL_INTERVALS + 1);
+        arena.allocate_n<RadialCoefficient>(MAX_RADIAL_INTERVALS + 1);
 
     pole_split.init_storage(arena, POLE_RUN_POINTS);
   }
@@ -851,9 +851,9 @@ public:
         const auto &coefficient = radial_coefficients[profile];
         const float x = x_chart[edge] + dx * t;
         const float y = y_chart[edge] + dy * t;
-        return newton_unit(planar_basis.v * coefficient.y +
+        return newton_unit(planar_basis.v * coefficient.cosine +
                            (planar_basis.u * x + planar_basis.w * y) *
-                               coefficient.x);
+                               coefficient.sinc);
       };
       math::Vector from = points[edge].pos;
       math::PixelCoords end_from = pixels[edge];
@@ -952,6 +952,13 @@ public:
   }
 
 private:
+  /** @brief Radial projection factors. */
+  struct RadialCoefficient {
+    float sinc;   ///< Sine divided by radius.
+    float cosine; ///< Cosine of the radius.
+  };
+  static_assert(sizeof(RadialCoefficient) == 2 * sizeof(float));
+
   /** @brief Checks that a closed polyline includes its repeated first vertex.
    * @param points Polyline storage.
    * @param vertices Distinct vertex count. */
@@ -1020,7 +1027,7 @@ private:
   float *chart_y_storage = nullptr;
   math::PixelCoords *pixels = nullptr;
   math::PixelCoords *anchors = nullptr;
-  math::PixelCoords *radial_coefficients =
+  RadialCoefficient *radial_coefficients =
       nullptr;        ///< Shared radial anchor factors.
   float reach = 0.0f; ///< Bound on a point's motion over the frame.
   int capacity = 0;
