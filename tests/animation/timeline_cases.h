@@ -447,6 +447,13 @@ inline void test_timeline_repeating_canceled_in_callback_fires_then_once() {
   HS_EXPECT_EQ(tl.event_count(), 0);
 }
 
+/** @brief Counts redraws while an event is paused. */
+struct PausedProbe : Animation::AnimationBase<PausedProbe> {
+  int *draws;
+  explicit PausedProbe(int &count) : draws(&count) {}
+  void step_paused(Canvas &) override { ++*draws; }
+};
+
 /** @brief Cancellation suppresses due timer callbacks and paused drawing. */
 inline void test_timeline_cancel_suppresses_step_side_effects() {
   {
@@ -465,11 +472,6 @@ inline void test_timeline_cancel_suppresses_step_side_effects() {
     HS_EXPECT_EQ(tl.event_count(), 0);
   }
   {
-    struct PausedProbe : Animation::AnimationBase<PausedProbe> {
-      int *draws;
-      explicit PausedProbe(int &count) : draws(&count) {}
-      void step_paused(Canvas &) override { ++*draws; }
-    };
     Timeline tl;
     int draws = 0;
     bool paused = true;
@@ -489,11 +491,6 @@ inline void test_timeline_cancel_suppresses_step_side_effects() {
  * start frame; delays 0 and 1 both start on the next step().
  */
 inline void test_timeline_paused_event_redraws_from_start_frame() {
-  struct PausedProbe : Animation::AnimationBase<PausedProbe> {
-    int *draws;
-    explicit PausedProbe(int &count) : draws(&count) {}
-    void step_paused(Canvas &) override { ++*draws; }
-  };
   for (int delay : {0, 1}) {
     Timeline tl;
     int draws = 0;
