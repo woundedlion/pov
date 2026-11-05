@@ -86,8 +86,8 @@ if os.path.basename(env.subst("$LDSCRIPT_PATH")) == "phantasm.ld":
             report.write("\n".join(lines) + "\n")
         print("\n".join(lines))
         if not passed:
-            print(f"::error::hot-layout: {env['PIOENV']} has instruction-cache sets "
-                  f"over {hot_layout.MAX_LINES_PER_SET} lines; see {_DIR}/report.txt")
+            print(f"::error::hot-layout: {env['PIOENV']} failed the hot-layout gate; "
+                  f"see {_DIR}/report.txt")
             return 1
         return 0
 
