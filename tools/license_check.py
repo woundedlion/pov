@@ -33,7 +33,7 @@ SOURCE_SUFFIXES = (".h", ".hpp", ".c", ".cc", ".cpp", ".def", ".inl",
 HEAD_BYTES = 600
 
 # Paths LICENSE names as carrying their own terms, each with the marker its
-# header must hold. A directory prefix covers everything beneath it.
+# header must hold.
 EXCEPTIONS = {
     "core/engine/effects_legacy.h": RESERVED,
     "core/math/projections.h": MIT_GRANT,
@@ -117,10 +117,7 @@ def tracked_sources(root: Path) -> list[str]:
 
 def expected_marker(path: str) -> str:
     """The header marker a path must carry."""
-    for prefix, marker in EXCEPTIONS.items():
-        if path == prefix or (prefix.endswith("/") and path.startswith(prefix)):
-            return marker
-    return RESERVED if path.startswith("effects/") else POLYFORM
+    return EXCEPTIONS.get(path) or (RESERVED if path.startswith("effects/") else POLYFORM)
 
 
 def header_issue(path: str, head: str) -> str | None:
@@ -171,7 +168,7 @@ def main(argv=None) -> int:
         return 2
 
     issues = license_exception_issues(license_text)
-    stale = []
+    stale = set(EXCEPTIONS) - set(sources)
     for path in sources:
         # A tracked source can be absent from a sparse or interrupted checkout.
         try:
@@ -182,11 +179,6 @@ def main(argv=None) -> int:
         issue = header_issue(path, head.decode("utf-8", errors="replace"))
         if issue:
             issues.append(f"{path}:1: {issue}")
-    for prefix in EXCEPTIONS:
-        if not any(p == prefix or (prefix.endswith("/") and p.startswith(prefix))
-                   for p in sources):
-            stale.append(prefix)
-
     if stale:
         issues.append("EXCEPTIONS names paths with no tracked C/C++ source: "
                       + ", ".join(sorted(stale)))
