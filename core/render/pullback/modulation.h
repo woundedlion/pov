@@ -148,6 +148,14 @@ inline bool same_topology(const Config &a, const Config &b) {
          a.version == b.version && a.evaluation == b.evaluation &&
          a.mechanic.kind == b.mechanic.kind;
 }
+/** @brief Checks an unchanged directional sine recipe.
+ * @param a Previous recipe.
+ * @param b Current recipe.
+ * @return Whether both endpoints share every wave control. */
+HS_FLASH_MEMBER inline bool sine_phase_compatible(const Config &a,
+                                                  const Config &b) {
+  return b.evaluation == Pattern::Evaluation::DIRECT && a.sine == b.sine;
+}
 /** @brief Checks recipes admitted by column-phase color sampling.
  * @param a Previous recipe.
  * @param b Current recipe.
@@ -162,6 +170,8 @@ inline bool phase_compatible(const Config &a, const Config &b) {
            (b.evaluation == Pattern::Evaluation::DIRECT &&
             b.noise.variant == Pattern::NoiseVariant::CONFIGURED_SINGLE &&
             a.noise == b.noise && a.seed == b.seed);
+  if (b.source == Pattern::SourceKind::DIRECTIONAL_SINE)
+    return sine_phase_compatible(a, b);
   return b.source == Pattern::SourceKind::SPHERE_SMOOTH_GRID &&
          b.evaluation == Pattern::Evaluation::DIRECT && a.grid == b.grid;
 }

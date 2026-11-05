@@ -510,7 +510,8 @@ struct ModulationState {
 
 /** @brief Eligible spatial source prepared at the column phase. */
 struct PhaseModulationState : ModulationState {
-  Pattern::SphereSmoothGrid::Prepared grid{}; ///< Interpolated axial phases.
+  /// Interpolated axial phases; a directional sine uses the first wave.
+  Pattern::SphereSmoothGrid::Prepared grid{};
   const Pattern::SphereNoise::Prepared *noise =
       nullptr;                 ///< Retained generator.
   math::Vector noise_offset{}; ///< Noise loop at the column phase.
@@ -1275,6 +1276,12 @@ template <typename State> struct Modulate : ApproximationDefaults {
       std::is_same_v<Prepared, ChamberPhaseModulationState>;
   static constexpr bool FUSED_ENDPOINTS =
       std::same_as<Prepared, ModulationState>; ///< Canonical endpoint mode.
+  static constexpr bool SINE_PHASE = [] {
+    if constexpr (requires { State::SINE_PHASE; })
+      return State::SINE_PHASE;
+    else
+      return false;
+  }(); ///< Whether the column phase may carry a directional sine.
   /** @brief Checks the modulation provider contract.
    * @tparam Binding Frame binding. */
   template <typename Binding>
@@ -1397,9 +1404,14 @@ template <typename State> struct Modulate : ApproximationDefaults {
         scalar =
             Pattern::bounded_scalar(noise.noise.GetNoiseSingle(q.x, q.y, q.z));
       }
-    } else
+    } else {
+      if constexpr (SINE_PHASE)
+        if (prepared.source == Pattern::SourceKind::DIRECTIONAL_SINE)
+          return Pattern::DirectionalSine::sample(
+              Pattern::SphereDirection::admit(field.sphere), prepared.grid.a);
       scalar = Pattern::SphereSmoothGrid::sample(
           Pattern::SphereDirection::admit(field.sphere), prepared.grid);
+    }
     return scalar;
   }
   /** @brief Modulates one endpoint.

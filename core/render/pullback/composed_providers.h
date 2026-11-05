@@ -843,6 +843,9 @@ struct ModulationProvider {
                          Color::PhaseModulationState>>; ///< Column phase state.
   using Prepared = std::conditional_t<PhaseV, PhasePrepared,
                                       Color::ModulationState>; ///< Layer state.
+  /// Whether a directional sine may share the column color tail.
+  static constexpr bool SINE_PHASE =
+      PhaseV && (DynamicV || SourceV == Pattern::SourceKind::DIRECTIONAL_SINE);
   /** @brief Prepares endpoint views and mechanic controls.
    * @param frame Frame context.
    * @return Immutable layer state. */
@@ -942,9 +945,37 @@ struct ModulationProvider {
                   .sample(frame.temporal.fraction);
           result.ready = true;
         }
+        if constexpr (SINE_PHASE)
+          if (SOURCE == Pattern::SourceKind::DIRECTIONAL_SINE && DIRECT)
+            prepare_sine_phase(result, resource, frame.temporal.fraction);
       }
       return result;
     }
+  }
+
+private:
+  /** @brief Interpolates an unchanged directional sine at the column phase.
+   * @tparam Resource Endpoint modulation views.
+   * @param result Column state receiving the wave.
+   * @param resource Retained and current prepared sources.
+   * @param fraction Column frame fraction. */
+  template <typename Resource>
+  HS_FLASH_MEMBER static void prepare_sine_phase(PhasePrepared &result,
+                                                 const Resource &resource,
+                                                 float fraction)
+    requires SINE_PHASE
+  {
+    if (!resource.modulation || !resource.previous_modulation ||
+        !Modulation::phase_compatible(resource.previous_modulation->config,
+                                      resource.modulation->config))
+      return;
+    const auto &a = std::get<1>(resource.previous_modulation->source);
+    const auto &b = std::get<1>(resource.modulation->source);
+    result.grid.a = b;
+    result.grid.a.phase_turns =
+        Spacetime::ClockInterval(a.phase_turns, b.phase_turns, 1.0f)
+            .sample(fraction);
+    result.ready = true;
   }
 };
 

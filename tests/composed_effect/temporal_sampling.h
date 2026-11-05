@@ -1510,6 +1510,83 @@ inline void test_millefiori_column_color_phase() {
   }
 }
 
+/** @brief GridWorms samples its directional sine phase along the shortest arc
+ * and rejects changed wave recipes. */
+inline void test_grid_worms_sine_column_phase() {
+  using namespace Pullback;
+  using FX = GridWorms<SMALL_W, SMALL_H>;
+  using Provider = ModulationProvider<typename FX::Binding, "modulation",
+                                      Pattern::SourceKind::DIRECTIONAL_SINE,
+                                      Pattern::Evaluation::DIRECT>;
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+  auto from = ComposedFrameWhiteBox::frame(effect);
+  auto to = from;
+  auto config = from.params.template get<"modulation">().modulation;
+  HS_EXPECT_TRUE(config.source == Pattern::SourceKind::DIRECTIONAL_SINE);
+  config.enabled = true;
+  config.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 0.35f};
+  config.sine.axis = math::Z_AXIS;
+  config.sine.frequency = 2.0f;
+  config.sine.offset = 0.25f;
+  Modulation::Resources<false> previous, current;
+  auto clock = Modulation::init(config);
+  clock.phase.phase_turns = 0.99f;
+  previous.prepare(config, clock);
+  clock.phase.phase_turns = 0.01f;
+  current.prepare(config, clock);
+  from.params.template get<"modulation">().modulation = config;
+  to.params.template get<"modulation">().modulation = config;
+  from.resources.template get<"modulation">().modulation = &previous.prepared;
+  to.resources.template get<"modulation">().modulation = &current.prepared;
+  HS_EXPECT_TRUE(Modulation::phase_compatible(config, config));
+  for (const float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+    const auto COLUMN = FrameInterval(from, to).at(fraction);
+    const auto PREPARED = Provider::prepare(COLUMN);
+    HS_EXPECT_EQ(PREPARED.ready, fraction > 0.0f && fraction < 1.0f);
+    if (!PREPARED.ready)
+      continue;
+    HS_EXPECT_NEAR(PREPARED.grid.a.phase_turns, 0.24f + 0.02f * fraction,
+                   1e-6f);
+    for (const auto &direction :
+         {math::X_AXIS, math::Y_AXIS, math::Z_AXIS,
+          math::Vector(0.3f, 0.4f, 0.5f).normalized()}) {
+      const auto ADMITTED = Pattern::SphereDirection::admit(direction).value();
+      const float SCALAR = math::sinf_0_2pi(
+          math::TWO_PI_F *
+          math::wrap_t(2.0f * ADMITTED.z + 0.24f + 0.02f * fraction));
+      ColorSample sample{Color4(Pixel(2000, 4000, 6000), 0.37f),
+                         {0.5f, 0.7f, direction, 2.0f}};
+      Color::Modulate<Provider>::apply_phase_in_place(sample, COLUMN, PREPARED);
+      HS_EXPECT_NEAR(sample.pending_hue, math::wrap_t(0.35f * SCALAR), 1e-6f);
+      HS_EXPECT_EQ(sample.color.alpha, 0.37f);
+    }
+  }
+  for (int change = 0; change < 7; ++change) {
+    auto changed = to;
+    auto &recipe = changed.params.template get<"modulation">().modulation;
+    if (change == 0)
+      recipe.sine.frequency += 0.1f;
+    if (change == 1)
+      recipe.sine.axis = math::X_AXIS;
+    if (change == 2)
+      recipe.sine.offset += 0.1f;
+    if (change == 3)
+      recipe.sine.speed += 0.1f;
+    if (change == 4)
+      recipe.enabled = false;
+    if (change == 5)
+      recipe.mechanic.kind = ColorModulation::Mechanic::OPACITY;
+    if (change == 6)
+      recipe.source = Pattern::SourceKind::DISPLACEMENT;
+    HS_EXPECT_FALSE(Modulation::phase_compatible(config, recipe));
+    const auto COLUMN = FrameInterval(from, changed).at(0.5f);
+    HS_EXPECT_FALSE(COLUMN.temporal.phase_compatible);
+    HS_EXPECT_FALSE(Provider::prepare(COLUMN).ready);
+  }
+}
+
 /** @brief AshCloud noise phases cross the loop seam and reject changed recipes. */
 inline void test_ash_cloud_noise_column_phase() {
   using namespace Pullback;
