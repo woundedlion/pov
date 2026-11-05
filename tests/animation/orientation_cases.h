@@ -41,7 +41,7 @@ inline void test_orientation_upsample_then_collapse() {
 }
 
 /**
- * @brief `Orientation::get(float)` hits every history frame at its fraction,
+ * @brief `Orientation::sample(float)` hits every history frame at its fraction,
  *        slerps between them, and returns the lone frame of a still history.
  */
 inline void test_orientation_get_fraction_follows_history() {
@@ -49,16 +49,16 @@ inline void test_orientation_get_fraction_follows_history() {
   o.push(math::make_rotation(math::Y_AXIS, 0.35f));
   o.push(math::make_rotation(math::Y_AXIS, 0.75f));
   for (int i = 0; i < o.length(); ++i)
-    HS_EXPECT_NEAR(std::fabs(math::dot(o.get(0.5f * i), o.get(i))), 1.0f,
+    HS_EXPECT_NEAR(std::fabs(math::dot(o.sample(0.5f * i), o.get(i))), 1.0f,
                    1e-5f);
-  const math::Quaternion mid = o.get(0.75f);
+  const math::Quaternion mid = o.sample(0.75f);
   const math::Quaternion want = math::make_rotation(math::Y_AXIS, 0.55f);
   HS_EXPECT_NEAR(std::fabs(math::dot(mid, want)), 1.0f, 1e-5f);
-  const math::Quaternion early = o.get(0.25f);
+  const math::Quaternion early = o.sample(0.25f);
   const math::Quaternion early_want = math::make_rotation(math::Y_AXIS, 0.30f);
   HS_EXPECT_NEAR(std::fabs(math::dot(early, early_want)), 1.0f, 1e-5f);
 
   const math::Orientation<> still(math::make_rotation(math::X_AXIS, 0.3f));
-  HS_EXPECT_NEAR(std::fabs(math::dot(still.get(0.4f), still.get())), 1.0f,
+  HS_EXPECT_NEAR(std::fabs(math::dot(still.sample(0.4f), still.get())), 1.0f,
                  1e-6f);
 }

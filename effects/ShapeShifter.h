@@ -874,8 +874,8 @@ private:
     const float spin = timed_filters.sweep_arc();
     const Spacetime::PoseTable &poses = *timed_filters.pose_table(canvas);
     const math::RotationMatrix end_pose = poses.at(poses.times());
-    const math::Quaternion start_orientation = orientation.get(0.0f);
-    const math::Quaternion middle_orientation = orientation.get(0.5f);
+    const math::Quaternion start_orientation = orientation.sample(0.0f);
+    const math::Quaternion middle_orientation = orientation.sample(0.5f);
     const math::Quaternion end_orientation = orientation.get();
     const math::Basis world_basis =
         math::make_basis(end_orientation, math::X_AXIS);

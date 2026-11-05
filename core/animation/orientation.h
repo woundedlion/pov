@@ -147,13 +147,16 @@ public:
     return orientations[i];
   }
 
+  /** @brief Rejects fractional access through the history-index getter. */
+  Quaternion get(float) const = delete;
+
   /**
    * @brief Samples the sub-frame path at a fraction of the frame.
    * @param t Frame fraction in [0, 1]: 0 is the oldest frame (the previous
    *        frame's end pose), 1 the current one.
    * @return Slerp between the two history frames bracketing @p t.
    */
-  Quaternion get(float t) const {
+  Quaternion sample(float t) const {
     const int last = num_frames - 1;
     if (last == 0)
       return orientations[0];

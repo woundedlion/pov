@@ -171,7 +171,8 @@ private:
     const auto &frame = trail.get(record);
     if (record > 0 && frame.length() > 1) {
       const float fraction = static_cast<float>(sub) / (frame.length() - 1);
-      return math::make_basis(trail.get(record - 1).get(fraction), math::Y_AXIS)
+      return math::make_basis(trail.get(record - 1).sample(fraction),
+                              math::Y_AXIS)
           .v;
     }
     return math::make_basis(frame.get(static_cast<int>(sub)), math::Y_AXIS).v;

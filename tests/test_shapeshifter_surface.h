@@ -80,7 +80,7 @@ inline SurfaceMotionCase surface_replay_pose(bool reset, int frame_number) {
     for (int frame = 1; frame <= frame_number; ++frame) {
       replay_frame(effect, frame);
     }
-    pose.start = ShapeShifterWhiteBox::orientation(effect).get(0.0f);
+    pose.start = ShapeShifterWhiteBox::orientation(effect).sample(0.0f);
     pose.end = ShapeShifterWhiteBox::orientation(effect).get();
     pose.phase = ShapeShifterWhiteBox::phase(effect);
     pose.step = ShapeShifterWhiteBox::twist_step(effect);
@@ -108,7 +108,7 @@ inline std::vector<float> surface_kernel_motion(const SurfaceMotionCase &pose,
     orientation.push(pose.end);
     ShapeShifterWhiteBox::set_twist(effect, pose.phase, pose.step);
     if (!timed) {
-      const auto frozen = orientation.get(fraction);
+      const auto frozen = orientation.sample(fraction);
       orientation.set(frozen);
       ShapeShifterWhiteBox::set_twist(
           effect, pose.phase - pose.step * (1 - fraction), 0);
@@ -556,7 +556,7 @@ inline void test_surface_footprint_darkening() {
       effect.set_clip(0, 72, 0, 144);
       replay_frame(effect, frame);
       if (frame == 273) {
-        const auto a = ShapeShifterWhiteBox::orientation(effect).get(0.0f);
+        const auto a = ShapeShifterWhiteBox::orientation(effect).sample(0.0f);
         const auto b = ShapeShifterWhiteBox::orientation(effect).get();
         std::printf(
             "DARK_POSE frame=273 start={%.9g,%.9g,%.9g,%.9g} end={%.9g,%.9g,%.9g,%.9g} phase=%.9g step=%.9g\n",

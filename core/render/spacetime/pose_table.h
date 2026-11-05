@@ -45,7 +45,7 @@ inline bool history_stationary(const math::Quaternion *history, int count) {
  * @param count History length, at least 1.
  * @param width Even canvas width.
  * @param fn Receives each column `c` in [0, width / 2) with the pose at
- *        `surface_time(c, width)` as math::Orientation::get(float) samples
+ *        `surface_time(c, width)` as math::Orientation::sample(float) samples
  *        it, up to rounding; consecutive poses share a hemisphere.
  * @details Each history interval is a slerp, over the columns whose times
  * fall in it. Sines of evenly spaced angles obey
