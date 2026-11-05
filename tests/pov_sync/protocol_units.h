@@ -346,15 +346,13 @@ inline void test_flip_gate() {
 }
 
 /**
- * @brief Verifies edge mailbox burst accumulation and the glitch filter:
- *        sub-window spikes are rejected without resetting the filter
- *        reference, burst_complete fires only after the gap, and claim()
- *        snapshots count + first/last edge.
+ * @brief Claims terminated edge bursts and rejects glitch-window spikes.
  */
 inline void test_mailbox() {
   const uint32_t GLITCH = 60000u;
   EdgeMailbox m;
-  HS_EXPECT_FALSE(burst_complete(m, 0, 4 * COL));
+  BurstSnapshot claimed{};
+  HS_EXPECT_FALSE(m.try_claim(0, 4 * COL, UINT32_MAX, &claimed));
   m.on_edge(1000, GLITCH);
   m.on_edge(1000 + 2 * COL, GLITCH);
   m.on_edge(1000 + 4 * COL, GLITCH);
@@ -362,16 +360,18 @@ inline void test_mailbox() {
   m.on_edge(1000 + 4 * COL + GLITCH / 2, GLITCH);
   m.on_edge(1000 + 4 * COL + GLITCH + 1, GLITCH);
   m.on_edge(1000 + 6 * COL, GLITCH);
-  HS_EXPECT_FALSE(burst_complete(m, 1000 + 7 * COL, 4 * COL));
-  HS_EXPECT_TRUE(burst_complete(m, 1000 + 10 * COL + 1, 4 * COL));
-  const BurstSnapshot s = claim(m);
+  HS_EXPECT_FALSE(m.try_claim(1000 + 7 * COL, 4 * COL, UINT32_MAX, &claimed));
+  HS_EXPECT_TRUE(
+      m.try_claim(1000 + 10 * COL + 1, 4 * COL, UINT32_MAX, &claimed));
+  const BurstSnapshot s = claimed;
   HS_EXPECT_EQ(s.count, 5u);
   HS_EXPECT_EQ(s.first_cycles, 1000u);
   HS_EXPECT_EQ(s.last_cycles, 1000u + 6 * COL);
   // Claim resets; the glitch filter still applies across bursts.
-  HS_EXPECT_FALSE(burst_complete(m, 1000 + 10 * COL + 2, 4 * COL));
+  HS_EXPECT_FALSE(
+      m.try_claim(1000 + 10 * COL + 2, 4 * COL, UINT32_MAX, &claimed));
   m.on_edge(1000 + 6 * COL + GLITCH - 1, GLITCH); // too close: rejected
-  HS_EXPECT_FALSE(burst_complete(m, 1000 + 20 * COL, 4 * COL));
+  HS_EXPECT_FALSE(m.try_claim(1000 + 20 * COL, 4 * COL, UINT32_MAX, &claimed));
 
   EdgeMailbox tc;
   BurstSnapshot out;
@@ -441,11 +441,12 @@ inline void test_mailbox_prior_staleness() {
   // arrives before a poll has aged the prior is still suppressed.
   {
     EdgeMailbox m;
+    BurstSnapshot claimed{};
     m.on_edge(1000, GLITCH);
     m.age_prior(1000 + GLITCH / 2, GLITCH);   // still within the window: kept
     m.on_edge(1000 + GLITCH / 2 + 1, GLITCH); // too close to 1000: rejected
-    HS_EXPECT_TRUE(burst_complete(m, 1000 + 100 * GLITCH, 1));
-    HS_EXPECT_EQ(claim(m).count, 1u);
+    HS_EXPECT_TRUE(m.try_claim(1000 + 100 * GLITCH, 1, UINT32_MAX, &claimed));
+    HS_EXPECT_EQ(claimed.count, 1u);
   }
 
   // After the wire goes quiet the prior is retired, so a later edge whose
@@ -453,18 +454,19 @@ inline void test_mailbox_prior_staleness() {
   // is still accepted.
   {
     EdgeMailbox m;
+    BurstSnapshot claimed{};
     const uint32_t prior = 1000u;
     m.on_edge(prior, GLITCH); // a one-edge burst…
-    HS_EXPECT_TRUE(burst_complete(m, prior + 10 * COL, COL));
-    HS_EXPECT_EQ(claim(m).count, 1u); // …claimed; the prior persists across it.
+    HS_EXPECT_TRUE(m.try_claim(prior + 10 * COL, COL, UINT32_MAX, &claimed));
+    HS_EXPECT_EQ(claimed.count, 1u); // …claimed; the prior persists across it.
     // A poll during the silence retires the stale reference (COL > GLITCH).
     m.age_prior(prior + 11 * COL, GLITCH);
     // A real edge after the counter has wrapped: its modular distance to the
     // old prior is only GLITCH/2, which the un-aged filter would reject.
     const uint32_t wrapped = prior + GLITCH / 2;
     m.on_edge(wrapped, GLITCH);
-    HS_EXPECT_TRUE(burst_complete(m, wrapped + 10 * COL, COL));
-    HS_EXPECT_EQ(claim(m).count, 1u); // accepted as a fresh one-edge burst.
+    HS_EXPECT_TRUE(m.try_claim(wrapped + 10 * COL, COL, UINT32_MAX, &claimed));
+    HS_EXPECT_EQ(claimed.count, 1u); // accepted as a fresh one-edge burst.
   }
 }
 
@@ -481,17 +483,19 @@ inline void test_mailbox_rejects_backward_clock() {
   const uint32_t skew = 40u; // edge accepted after `now` was sampled
 
   EdgeMailbox m;
+  BurstSnapshot claimed{};
   BurstSnapshot out{};
   m.on_edge(now + skew, GLITCH);
-  HS_EXPECT_FALSE(burst_complete(m, now, 4 * COL));
+  HS_EXPECT_FALSE(m.try_claim(now, 4 * COL, UINT32_MAX, &claimed));
   HS_EXPECT_FALSE(
       m.try_claim(now, 4 * COL, test_config().max_burst_cycles(), &out));
 
   m.age_prior(now, GLITCH);
   // The reference survived, so a spike inside the window is still suppressed.
   m.on_edge(now + skew + GLITCH / 2, GLITCH);
-  HS_EXPECT_TRUE(burst_complete(m, now + skew + 100 * GLITCH, 1));
-  HS_EXPECT_EQ(claim(m).count, 1u);
+  HS_EXPECT_TRUE(
+      m.try_claim(now + skew + 100 * GLITCH, 1, UINT32_MAX, &claimed));
+  HS_EXPECT_EQ(claimed.count, 1u);
 }
 
 /**

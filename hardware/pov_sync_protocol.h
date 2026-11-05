@@ -14,12 +14,6 @@
 
 #include "core/platform/platform.h"
 
-namespace hs_test {
-namespace pov_sync_tests {
-struct EdgeMailboxTestAccess;
-} // namespace pov_sync_tests
-} // namespace hs_test
-
 namespace pov {
 namespace sync {
 
@@ -613,29 +607,6 @@ public:
   }
 
 private:
-  friend struct ::hs_test::pov_sync_tests::EdgeMailboxTestAccess;
-
-  /**
-   * @brief Consumer (test-only): has a burst terminated?
-   * @param now Current timestamp, in cycles.
-   * @param gap_timeout_cycles Quiet time that terminates a burst, in cycles.
-   * @return True if a burst exists and the wire has been quiet past the timeout.
-   */
-  bool burst_complete(uint32_t now, uint32_t gap_timeout_cycles) const {
-    return count > 0 && (now - last_cycles) >= gap_timeout_cycles &&
-           static_cast<int32_t>(now - last_cycles) > 0;
-  }
-
-  /**
-   * @brief Consumer (test-only): take the burst and reset for the next one.
-   * @return A snapshot of the terminated burst.
-   */
-  BurstSnapshot claim() {
-    const BurstSnapshot s{count, first_cycles, last_cycles};
-    count = 0;
-    return s;
-  }
-
   // Ordered against the edge ISR by the consumer's interrupt-save memory
   // clobber, not by volatile.
   uint32_t count = 0;

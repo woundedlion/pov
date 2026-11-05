@@ -286,7 +286,10 @@ inline void test_emitter() {
         mailbox.on_edge(LATE, cfg.glitch_filter_cycles);
       HS_EXPECT_TRUE(aborted);
       HS_EXPECT_TRUE(e.idle());
-      const auto burst = claim(mailbox);
+      BurstSnapshot burst{};
+      HS_EXPECT_TRUE(mailbox.try_claim(LATE + cfg.gap_timeout_cycles(),
+                                       cfg.gap_timeout_cycles(),
+                                       cfg.max_burst_cycles(), &burst));
       HS_EXPECT_EQ(classify_count(burst.count), Symbol::INVALID);
     }
   }
@@ -342,6 +345,7 @@ inline void test_emitter() {
   {
     SymbolEmitter e;
     EdgeMailbox m;
+    BurstSnapshot claimed{};
     BeaconParser p;
     uint8_t d[5];
     encode_beacon_digits(13, 22, d);
@@ -352,9 +356,9 @@ inline void test_emitter() {
     for (uint32_t t = t0; t < t0 + 100 * COL; t += COL / 8) {
       if (e.tick(t, cfg, &aborted))
         m.on_edge(t, cfg.glitch_filter_cycles);
-      if (burst_complete(m, t, cfg.gap_timeout_cycles())) {
+      if (m.try_claim(t, cfg.gap_timeout_cycles(), UINT32_MAX, &claimed)) {
         bool r = false;
-        if (p.feed(claim(m), cfg, &f, &r))
+        if (p.feed(claimed, cfg, &f, &r))
           got = true;
         rejected = rejected || r;
       }

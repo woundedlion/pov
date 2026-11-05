@@ -27,20 +27,6 @@ namespace pov_sync_tests {
 
 using namespace pov::sync;
 
-struct EdgeMailboxTestAccess {
-  static bool burst_complete(const EdgeMailbox &m, uint32_t now, uint32_t gap) {
-    return m.burst_complete(now, gap);
-  }
-  static BurstSnapshot claim(EdgeMailbox &m) { return m.claim(); }
-};
-
-inline bool burst_complete(const EdgeMailbox &m, uint32_t now, uint32_t gap) {
-  return EdgeMailboxTestAccess::burst_complete(m, now, gap);
-}
-inline BurstSnapshot claim(EdgeMailbox &m) {
-  return EdgeMailboxTestAccess::claim(m);
-}
-
 struct SyncBoardTestAccess {
   static Flywheel &flywheel(SyncBoard &b) { return b.flywheel_mut(); }
   static ContentTracker &content(SyncBoard &b) { return b.content_mut(); }
