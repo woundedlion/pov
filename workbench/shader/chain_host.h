@@ -73,11 +73,11 @@ public:
   /// Compile status code.
   using ChainStatus = Pullback::Interp::ChainStatus;
 
-  HS_COLD_MEMBER ShaderChain() : Effect(W, H, {.strobe = true}) {}
+  ShaderChain() : Effect(W, H, {.strobe = true}) {}
 
   /** @brief Allocates chain storage and color resources, compiles the default
       chain, and registers its parameters. */
-  HS_COLD_MEMBER void init() override {
+  void init() override {
     use_parameter_storage(persistent_arena,
                           persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
@@ -111,8 +111,7 @@ public:
    * stale definition snapshot. A refusal leaves the previous program, its
    * registered definitions, and all live instance state untouched.
    */
-  HS_COLD_MEMBER ChainRefusal
-  set_chain(std::span<const ChainEntryRequest> request) {
+  ChainRefusal set_chain(std::span<const ChainEntryRequest> request) {
     const ChainRefusal refusal = program.compile(request);
     if (refusal.code == ChainStatus::OK) {
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -183,8 +182,7 @@ public:
    * @param snapshot State from snapshot().
    * @return APPLIED on commit; otherwise the refusal, with prior state kept.
    */
-  HS_COLD_MEMBER ChainSnapshotRestoreResult
-  restore_snapshot(const ChainSnapshot &snapshot) {
+  ChainSnapshotRestoreResult restore_snapshot(const ChainSnapshot &snapshot) {
     using Result = ChainSnapshotRestoreResult;
     using namespace Pullback::Interp;
     if (snapshot.schema_version != ChainSnapshot::SCHEMA_VERSION)
@@ -327,7 +325,7 @@ public:
    * field draw the current endpoint in every column, except fields the
    * operator's `temporal_hold_field` policy admits.
    */
-  HS_FLASH_MEMBER void draw_frame() override {
+  void draw_frame() override {
     Canvas canvas(*this);
     advance_clocks();
     const ColorizeTap &tap = colorize;
@@ -519,7 +517,7 @@ private:
     return value >= info.min && value <= info.max;
   }
 
-  HS_COLD_MEMBER uint8_t *allocate_chain_block() {
+  uint8_t *allocate_chain_block() {
     return reinterpret_cast<uint8_t *>(
         persistent_arena.allocate_n<std::max_align_t>(
             Pullback::Interp::CHAIN_ARENA_BYTES / sizeof(std::max_align_t)));
@@ -531,8 +529,7 @@ private:
    * @param canvas Destination canvas.
    * @param ctx Current frame context.
    */
-  HS_FLASH_MEMBER void draw_columns(Canvas &canvas,
-                                    const Pullback::Interp::FrameContext &ctx) {
+  void draw_columns(Canvas &canvas, const Pullback::Interp::FrameContext &ctx) {
     const Pullback::Interp::FrameContext &previous =
         resources->context.previous;
     Scan::Shader::draw_column_times<W, H>(
@@ -554,8 +551,7 @@ private:
    *        tables as the previous endpoint.
    * @param ctx Frame context the frame was drawn with.
    */
-  HS_FLASH_MEMBER void
-  capture_history(const Pullback::Interp::FrameContext &ctx) {
+  void capture_history(const Pullback::Interp::FrameContext &ctx) {
     program.capture_history();
     Pullback::Interp::FrameContext previous = ctx;
     for (size_t index = 0; index < ctx.palettes.size(); ++index) {
@@ -598,7 +594,7 @@ private:
     const Pullback::Interp::ChainProgram *program;
     const Pullback::Interp::FrameContext *ctx;
 
-    HS_FLASH_MEMBER Color4 operator()(const math::Vector &view) const {
+    Color4 operator()(const math::Vector &view) const {
       return program->evaluate(view, *ctx);
     }
   };
@@ -666,7 +662,7 @@ private:
     }
   }
 
-  HS_COLD_MEMBER ColorizeTap find_colorize_tap() {
+  ColorizeTap find_colorize_tap() {
     const auto ops = program.ops();
     for (size_t index = ops.size(); index-- > 0;)
       if (std::string_view(ops[index].op->operator_id) ==
@@ -687,7 +683,7 @@ private:
    * the compile that produced the program reset the loser arena holding the
    * previously registered names.
    */
-  HS_COLD_MEMBER void rebind_chain_parameters() {
+  void rebind_chain_parameters() {
     reset_parameters();
     const auto ops = program.ops();
     for (size_t index = 0; index < ops.size(); ++index) {
@@ -861,8 +857,7 @@ private:
 #endif
 
   /** @brief Builds the per-frame snapshot, baking hue LUTs when active. */
-  HS_FLASH_MEMBER Pullback::Interp::FrameContext
-  make_frame_context(const ColorizeTap &tap) {
+  Pullback::Interp::FrameContext make_frame_context(const ColorizeTap &tap) {
     Pullback::Interp::FrameContext ctx;
     ctx.projection_base = Pullback::projection_base_orientation();
     using PaletteMode = Pullback::Interp::Op::PaletteMode;
@@ -914,7 +909,7 @@ private:
         static_cast<Pullback::Interp::Op::PaletteMode>(visible_mode));
   }
 
-  HS_COLD_MEMBER void update_palette_chroma(float chroma) {
+  void update_palette_chroma(float chroma) {
     generated_palettes.set_chroma(chroma);
   }
 
