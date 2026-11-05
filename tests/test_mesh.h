@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/mesh/mesh.h and core/containers/triangular_bitset.h.
+ * Unit tests for mesh storage, topology and triangular bitsets.
  */
 #pragma once
 
@@ -964,6 +964,384 @@ inline void test_tribitset_all_pairs_independent() {
 // Runner
 // ---------------------------------------------------------------------------
 
+// ============================================================================
+// MeshState
+// ============================================================================
+
+/**
+ * @brief Verifies a default-constructed MeshState owns no arena storage.
+ * @details It is unbound with zero vertices and zero faces.
+ */
+inline void test_meshstate_default_unbound() {
+  MeshState m;
+  HS_EXPECT_FALSE(m.is_bound());
+  HS_EXPECT_EQ(m.num_vertices(), (size_t)0);
+  HS_EXPECT_EQ(m.num_faces(), (size_t)0);
+}
+
+/**
+ * @brief Verifies clone() deep-copies vertices, face counts, faces, and
+ *        topology into the destination arena.
+ * @details The copy is value-equal yet backed by separate storage.
+ */
+inline void test_meshstate_clone_deep_copies() {
+  Arena src_arena(mesh_arena_a, sizeof(mesh_arena_a));
+  Arena dst_arena(mesh_arena_b, sizeof(mesh_arena_b));
+
+  MeshState src;
+  src.vertices.bind(src_arena, 3);
+  src.vertices.push_back(math::Vector(1, 0, 0));
+  src.vertices.push_back(math::Vector(0, 1, 0));
+  src.vertices.push_back(math::Vector(0, 0, 1));
+
+  src.face_counts.bind(src_arena, 1);
+  src.face_counts.push_back(3);
+
+  src.faces.bind(src_arena, 3);
+  src.faces.push_back(0);
+  src.faces.push_back(1);
+  src.faces.push_back(2);
+
+  src.face_offsets.bind(src_arena, 1);
+  src.face_offsets.push_back(0);
+  src.topology_key = 0x1234u;
+
+  src.topology.bind(src_arena, 1);
+  src.topology.push_back(7);
+
+  MeshState dst;
+  MeshState::clone(src, dst, dst_arena);
+
+  HS_EXPECT_SIZE_OR_RETURN(dst.vertices, 3);
+  HS_EXPECT_VEC(dst.vertices[0], math::Vector(1, 0, 0), 1e-6f);
+  HS_EXPECT_VEC(dst.vertices[2], math::Vector(0, 0, 1), 1e-6f);
+
+  HS_EXPECT_SIZE_OR_RETURN(dst.face_counts, 1);
+  HS_EXPECT_EQ(dst.face_counts[0], (uint8_t)3);
+  HS_EXPECT_SIZE_OR_RETURN(dst.faces, 3);
+  HS_EXPECT_EQ(dst.faces[0], (uint16_t)0);
+  HS_EXPECT_EQ(dst.faces[1], (uint16_t)1);
+  HS_EXPECT_EQ(dst.faces[2], (uint16_t)2);
+
+  HS_EXPECT_SIZE_OR_RETURN(dst.topology, 1);
+  HS_EXPECT_EQ(dst.topology[0], (uint16_t)7);
+
+  HS_EXPECT_SIZE_OR_RETURN(dst.face_offsets, 1);
+  HS_EXPECT_EQ(dst.face_offsets[0], uint16_t{0});
+  HS_EXPECT_EQ(dst.topology_key, src.topology_key);
+  HS_EXPECT_TRUE(dst.face_offsets.data() != src.face_offsets.data());
+  HS_EXPECT_TRUE(dst.vertices.data() != src.vertices.data());
+  HS_EXPECT_TRUE(dst.topology.data() != src.topology.data());
+
+  MeshState borrowed;
+  borrowed.vertices.bind(src_arena, 3);
+  for (const math::Vector &vertex : src.vertices)
+    borrowed.vertices.push_back(vertex);
+  borrowed.set_borrowed(ArenaSpan<uint8_t>(src.face_counts),
+                        ArenaSpan<uint16_t>(src.faces),
+                        ArenaSpan<uint16_t>(src.face_offsets),
+                        ArenaSpan<uint16_t>(src.topology), src.topology_key);
+  MeshState owned;
+  MeshState::clone(borrowed, owned, dst_arena);
+  HS_EXPECT_TRUE(owned.face_counts.is_bound());
+  HS_EXPECT_TRUE(owned.faces.is_bound());
+  HS_EXPECT_TRUE(owned.face_offsets.is_bound());
+  HS_EXPECT_TRUE(owned.topology.is_bound());
+  HS_EXPECT_SIZE_OR_RETURN(owned.vertices, 3);
+  HS_EXPECT_SIZE_OR_RETURN(owned.face_counts, 1);
+  HS_EXPECT_SIZE_OR_RETURN(owned.faces, 3);
+  HS_EXPECT_SIZE_OR_RETURN(owned.face_offsets, 1);
+  HS_EXPECT_SIZE_OR_RETURN(owned.topology, 1);
+  for (size_t i = 0; i < owned.vertices.size(); ++i)
+    HS_EXPECT_VEC(owned.vertices[i], borrowed.vertices[i], 1e-6f);
+  HS_EXPECT_EQ(owned.face_counts[0], src.face_counts[0]);
+  for (size_t i = 0; i < owned.faces.size(); ++i)
+    HS_EXPECT_EQ(owned.faces[i], src.faces[i]);
+  HS_EXPECT_EQ(owned.face_offsets[0], src.face_offsets[0]);
+  HS_EXPECT_EQ(owned.topology[0], src.topology[0]);
+  HS_EXPECT_EQ(owned.topology_key, borrowed.topology_key);
+  HS_EXPECT_TRUE(owned.get_face_counts_data() !=
+                 borrowed.get_face_counts_data());
+  HS_EXPECT_TRUE(owned.get_faces_data() != borrowed.get_faces_data());
+  HS_EXPECT_TRUE(owned.get_face_offsets_data() !=
+                 borrowed.get_face_offsets_data());
+  HS_EXPECT_TRUE(owned.get_topology_data() != borrowed.get_topology_data());
+}
+
+/**
+ * @brief Verifies clear() empties owned storage, drops views and resets topology.
+ */
+inline void test_meshstate_clear_resets_views() {
+  Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
+  MeshState m;
+  m.vertices.bind(arena, 1);
+  m.vertices.push_back(math::Vector(1, 1, 1));
+  m.face_counts.bind(arena, 1);
+  m.face_counts.push_back(1);
+  HS_EXPECT_EQ(m.num_vertices(), (size_t)1);
+  HS_EXPECT_EQ(m.num_faces(), (size_t)1);
+
+  m.clear();
+  HS_EXPECT_EQ(m.num_vertices(), (size_t)0);
+  HS_EXPECT_EQ(m.num_faces(), (size_t)0);
+
+  MeshState source;
+  source.face_counts.bind(arena, 1);
+  source.face_counts.push_back(1);
+  source.faces.bind(arena, 1);
+  source.faces.push_back(0);
+  source.face_offsets.bind(arena, 1);
+  source.face_offsets.push_back(0);
+  source.topology.bind(arena, 1);
+  source.topology.push_back(3);
+  m.set_borrowed(ArenaSpan<uint8_t>(source.face_counts),
+                 ArenaSpan<uint16_t>(source.faces),
+                 ArenaSpan<uint16_t>(source.face_offsets),
+                 ArenaSpan<uint16_t>(source.topology), 0xABCD);
+  HS_EXPECT_EQ(m.get_face_counts_size(), size_t{1});
+  HS_EXPECT_EQ(m.get_faces_size(), size_t{1});
+  HS_EXPECT_EQ(m.get_face_offsets_size(), size_t{1});
+  HS_EXPECT_EQ(m.get_topology_size(), size_t{1});
+  HS_EXPECT_EQ(m.topology_key, 0xABCDu);
+  m.clear();
+  HS_EXPECT_EQ(m.get_face_counts_size(), size_t{0});
+  HS_EXPECT_EQ(m.get_faces_size(), size_t{0});
+  HS_EXPECT_EQ(m.get_face_offsets_size(), size_t{0});
+  HS_EXPECT_EQ(m.get_topology_size(), size_t{0});
+  HS_EXPECT_TRUE(m.get_face_counts_data() == nullptr);
+  HS_EXPECT_TRUE(m.get_faces_data() == nullptr);
+  HS_EXPECT_TRUE(m.get_face_offsets_data() == nullptr);
+  HS_EXPECT_TRUE(m.get_topology_data() == nullptr);
+  HS_EXPECT_EQ(m.topology_key, 0u);
+}
+
+/**
+ * @brief Verifies move-constructing a MeshState transfers ownership.
+ * @details The destination holds the data and the source is left unbound and
+ *          empty.
+ */
+inline void test_meshstate_move_invalidates_source() {
+  Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
+  MeshState src;
+  src.vertices.bind(arena, 2);
+  src.vertices.push_back(math::Vector(1, 2, 3));
+  src.vertices.push_back(math::Vector(4, 5, 6));
+
+  MeshState dst(std::move(src));
+  HS_EXPECT_FALSE(src.vertices.is_bound());
+  HS_EXPECT_EQ(src.num_vertices(), (size_t)0);
+  HS_EXPECT_SIZE_OR_RETURN(dst.vertices, 2);
+  HS_EXPECT_VEC(dst.vertices[1], math::Vector(4, 5, 6), 1e-6f);
+}
+
+/**
+ * @brief Verifies the unified accessors fall through to the external view.
+ * @details When the owned face_counts vector is unbound but a borrowed view is
+ *          installed, accessors read from the external view.
+ */
+inline void test_meshstate_view_fallback() {
+  Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
+  ArenaVector<uint8_t> owner(arena, 2);
+  owner.push_back(3);
+  owner.push_back(4);
+  ArenaVector<uint16_t> face_owner(arena, 7);
+  for (uint16_t i = 0; i < 7; ++i)
+    face_owner.push_back(i);
+
+  MeshState m;
+  m.set_borrowed(ArenaSpan<uint8_t>(owner), ArenaSpan<uint16_t>(face_owner),
+                 {});
+
+  HS_EXPECT_EQ(m.get_face_counts_size(), (size_t)2);
+  if (m.get_face_counts_size() != 2)
+    return;
+  HS_EXPECT_EQ(m.get_face_counts_data()[0], (uint8_t)3);
+  HS_EXPECT_EQ(m.get_face_counts_data()[1], (uint8_t)4);
+  HS_EXPECT_EQ(m.num_faces(), (size_t)2);
+}
+
+/**
+ * @brief Verifies set_borrowed() switches to borrowed mode by dropping the
+ *        owned face arrays, so they cannot shadow the installed views.
+ * @details The installed topology key survives and the owned vertices are
+ *          untouched.
+ */
+inline void test_meshstate_set_borrowed_drops_owned() {
+  Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
+
+  MeshState m;
+  m.vertices.bind(arena, 1);
+  m.vertices.push_back(math::Vector(1, 0, 0));
+  m.face_counts.bind(arena, 1);
+  m.face_counts.push_back(3);
+  m.faces.bind(arena, 3);
+  for (uint16_t i = 0; i < 3; ++i)
+    m.faces.push_back(i);
+  m.face_offsets.bind(arena, 1);
+  m.face_offsets.push_back(0);
+  m.topology.bind(arena, 1);
+  m.topology.push_back(9);
+  HS_EXPECT_TRUE(m.get_face_counts_data() == m.face_counts.data());
+
+  ArenaVector<uint8_t> view_counts(arena, 2);
+  view_counts.push_back(4);
+  view_counts.push_back(3);
+  ArenaVector<uint16_t> view_faces(arena, 7);
+  for (uint16_t i = 0; i < 7; ++i)
+    view_faces.push_back(static_cast<uint16_t>(10 + i));
+  ArenaVector<uint16_t> view_offsets(arena, 2);
+  view_offsets.push_back(0);
+  view_offsets.push_back(4);
+  ArenaVector<uint16_t> view_topology(arena, 2);
+  view_topology.push_back(5);
+  view_topology.push_back(6);
+
+  m.set_borrowed(ArenaSpan<uint8_t>(view_counts),
+                 ArenaSpan<uint16_t>(view_faces),
+                 ArenaSpan<uint16_t>(view_offsets),
+                 ArenaSpan<uint16_t>(view_topology), 0xABCDu);
+
+  HS_EXPECT_EQ(m.topology_key, (uint32_t)0xABCDu);
+  HS_EXPECT_FALSE(m.face_counts.is_bound());
+  HS_EXPECT_FALSE(m.faces.is_bound());
+  HS_EXPECT_FALSE(m.face_offsets.is_bound());
+  HS_EXPECT_FALSE(m.topology.is_bound());
+  HS_EXPECT_EQ(m.face_counts.size(), (size_t)0);
+  HS_EXPECT_EQ(m.faces.size(), (size_t)0);
+  HS_EXPECT_EQ(m.face_offsets.size(), (size_t)0);
+  HS_EXPECT_EQ(m.topology.size(), (size_t)0);
+
+  HS_EXPECT_TRUE(m.get_face_counts_data() == view_counts.data());
+  HS_EXPECT_TRUE(m.get_faces_data() == view_faces.data());
+  HS_EXPECT_TRUE(m.get_face_offsets_data() == view_offsets.data());
+  HS_EXPECT_TRUE(m.get_topology_data() == view_topology.data());
+  HS_EXPECT_EQ(m.get_face_counts_size(), (size_t)2);
+  if (m.get_face_counts_size() != 2)
+    return;
+  HS_EXPECT_EQ(m.get_faces_size(), (size_t)7);
+  if (m.get_faces_size() != 7)
+    return;
+  HS_EXPECT_EQ(m.get_face_offsets_size(), (size_t)2);
+  HS_EXPECT_EQ(m.get_topology_size(), (size_t)2);
+  if (m.get_topology_size() != 2)
+    return;
+  HS_EXPECT_EQ(m.num_faces(), (size_t)2);
+  HS_EXPECT_EQ(m.get_faces_data()[6], (uint16_t)16);
+  HS_EXPECT_EQ(m.get_topology_data()[1], (uint16_t)6);
+
+  HS_EXPECT_TRUE(m.vertices.is_bound());
+  HS_EXPECT_EQ(m.num_vertices(), (size_t)1);
+}
+
+/**
+ * @brief Verifies set_borrowed() accepts an empty face-offsets span.
+ * @details An empty offsets span skips the offset checks; face counts must
+ * still sum to the flat face list, and the offsets accessor reads empty.
+ */
+inline void test_meshstate_set_borrowed_empty_offsets() {
+  Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
+
+  ArenaVector<uint8_t> view_counts(arena, 1);
+  view_counts.push_back(3);
+  ArenaVector<uint16_t> view_faces(arena, 3);
+  for (uint16_t i = 0; i < 3; ++i)
+    view_faces.push_back(i);
+
+  MeshState m;
+  m.set_borrowed(ArenaSpan<uint8_t>(view_counts),
+                 ArenaSpan<uint16_t>(view_faces), ArenaSpan<uint16_t>());
+
+  HS_EXPECT_EQ(m.get_face_counts_size(), (size_t)1);
+  HS_EXPECT_EQ(m.get_faces_size(), (size_t)3);
+  HS_EXPECT_EQ(m.get_face_offsets_size(), (size_t)0);
+  HS_EXPECT_TRUE(m.get_face_offsets_data() == nullptr);
+}
+
+/**
+ * @brief Verifies set_owned() drops the borrowed views so they cannot shadow
+ *        the owned arrays.
+ * @details With the owned arrays unbound, the accessors read empty.
+ */
+inline void test_meshstate_set_owned_drops_views() {
+  Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
+
+  ArenaVector<uint8_t> view_counts(arena, 1);
+  view_counts.push_back(3);
+  ArenaVector<uint16_t> view_faces(arena, 3);
+  for (uint16_t i = 0; i < 3; ++i)
+    view_faces.push_back(i);
+  ArenaVector<uint16_t> view_offsets(arena, 1);
+  view_offsets.push_back(0);
+  ArenaVector<uint16_t> view_topology(arena, 1);
+  view_topology.push_back(2);
+
+  MeshState m;
+  m.set_borrowed(
+      ArenaSpan<uint8_t>(view_counts), ArenaSpan<uint16_t>(view_faces),
+      ArenaSpan<uint16_t>(view_offsets), ArenaSpan<uint16_t>(view_topology));
+  HS_EXPECT_EQ(m.num_faces(), (size_t)1);
+
+  m.set_owned();
+
+  HS_EXPECT_EQ(m.get_face_counts_size(), (size_t)0);
+  HS_EXPECT_EQ(m.get_faces_size(), (size_t)0);
+  HS_EXPECT_EQ(m.get_face_offsets_size(), (size_t)0);
+  HS_EXPECT_EQ(m.get_topology_size(), (size_t)0);
+  HS_EXPECT_EQ(m.num_faces(), (size_t)0);
+  HS_EXPECT_TRUE(m.get_face_counts_data() == nullptr);
+  HS_EXPECT_TRUE(m.get_faces_data() == nullptr);
+  HS_EXPECT_TRUE(m.get_face_offsets_data() == nullptr);
+  HS_EXPECT_TRUE(m.get_topology_data() == nullptr);
+}
+
+/**
+ * @brief Verifies moving a borrowed-mode MeshState hands the views to the
+ *        destination and clears them in the source.
+ * @details Covers both the move constructor and move assignment.
+ */
+inline void test_meshstate_move_clears_source_views() {
+  Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
+
+  ArenaVector<uint8_t> view_counts(arena, 1);
+  view_counts.push_back(3);
+  ArenaVector<uint16_t> view_faces(arena, 3);
+  for (uint16_t i = 0; i < 3; ++i)
+    view_faces.push_back(i);
+  ArenaVector<uint16_t> view_offsets(arena, 1);
+  view_offsets.push_back(0);
+  ArenaVector<uint16_t> view_topology(arena, 1);
+  view_topology.push_back(2);
+
+  MeshState src;
+  src.set_borrowed(
+      ArenaSpan<uint8_t>(view_counts), ArenaSpan<uint16_t>(view_faces),
+      ArenaSpan<uint16_t>(view_offsets), ArenaSpan<uint16_t>(view_topology));
+
+  MeshState moved(std::move(src));
+  HS_EXPECT_TRUE(moved.get_face_counts_data() == view_counts.data());
+  HS_EXPECT_TRUE(moved.get_faces_data() == view_faces.data());
+  HS_EXPECT_TRUE(moved.get_face_offsets_data() == view_offsets.data());
+  HS_EXPECT_TRUE(moved.get_topology_data() == view_topology.data());
+  HS_EXPECT_EQ(moved.num_faces(), (size_t)1);
+  HS_EXPECT_EQ(src.get_face_counts_size(), (size_t)0);
+  HS_EXPECT_EQ(src.get_faces_size(), (size_t)0);
+  HS_EXPECT_EQ(src.get_face_offsets_size(), (size_t)0);
+  HS_EXPECT_EQ(src.get_topology_size(), (size_t)0);
+  HS_EXPECT_TRUE(src.get_face_counts_data() == nullptr);
+
+  MeshState assigned;
+  assigned = std::move(moved);
+  HS_EXPECT_TRUE(assigned.get_faces_data() == view_faces.data());
+  HS_EXPECT_TRUE(assigned.get_topology_data() == view_topology.data());
+  HS_EXPECT_EQ(assigned.num_faces(), (size_t)1);
+  HS_EXPECT_EQ(moved.get_face_counts_size(), (size_t)0);
+  HS_EXPECT_EQ(moved.get_faces_size(), (size_t)0);
+  HS_EXPECT_EQ(moved.get_face_offsets_size(), (size_t)0);
+  HS_EXPECT_EQ(moved.get_topology_size(), (size_t)0);
+  HS_EXPECT_TRUE(moved.get_faces_data() == nullptr);
+  HS_EXPECT_TRUE(moved.get_topology_data() == nullptr);
+}
+
 /**
  * @brief Runs every mesh test case in order.
  * @return The module's failure count.
@@ -1005,6 +1383,16 @@ inline int run_mesh_tests() {
   HS_RUN(test_tribitset_test_and_set);
   HS_RUN(test_tribitset_index_uniqueness);
   HS_RUN(test_tribitset_all_pairs_independent);
+
+  HS_RUN(test_meshstate_default_unbound);
+  HS_RUN(test_meshstate_clone_deep_copies);
+  HS_RUN(test_meshstate_clear_resets_views);
+  HS_RUN(test_meshstate_move_invalidates_source);
+  HS_RUN(test_meshstate_view_fallback);
+  HS_RUN(test_meshstate_set_borrowed_drops_owned);
+  HS_RUN(test_meshstate_set_borrowed_empty_offsets);
+  HS_RUN(test_meshstate_set_owned_drops_views);
+  HS_RUN(test_meshstate_move_clears_source_views);
 
   return fixture.result();
 }
