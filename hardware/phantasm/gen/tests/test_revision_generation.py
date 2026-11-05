@@ -163,6 +163,27 @@ class RevisionGenerationTests(unittest.TestCase):
         generate(cls.prototype, unplaced=True, revision="1.3")
         generate(cls.rev_12, unplaced=True, revision="1.2")
 
+    def test_inner_planes_pass_between_teensy_header_pads(self):
+        for project in (self.rev_12, self.prototype):
+            root = sexp.parse_one((project / "phantasm.kicad_pcb").read_text(encoding="utf-8"))
+            teensy = next(fp for fp in F(root, "footprint")
+                          if any(p[1:3] == ["Reference", "U_MCU"] for p in F(fp, "property")))
+            rows = {}
+            for pad in F(teensy, "pad"):
+                x, y = map(float, sexp.val(pad, "at")[:2])
+                rows.setdefault(y, []).append((x, float(sexp.val(pad, "size")[0])))
+            for zone in F(root, "zone"):
+                if sexp.val(zone, "layer") not in (["In1.Cu"], ["In2.Cu"]):
+                    continue
+                clearance = float(sexp.val(F(zone, "connect_pads")[0], "clearance")[0])
+                thickness = float(sexp.val(zone, "min_thickness")[0])
+                for pads in rows.values():
+                    pads.sort()
+                    for (x0, width0), (x1, width1) in zip(pads, pads[1:]):
+                        with self.subTest(revision=project.name, layer=sexp.val(zone, "layer")):
+                            self.assertGreaterEqual(x1 - x0 - (width0 + width1) / 2
+                                                    - 2 * clearance, thickness)
+
     def test_rev_12_output_is_byte_identical_after_revision_switch(self):
         for path in GENERATED_PROJECT_FILES:
             actual = (self.rev_12 / path).read_bytes()
