@@ -879,6 +879,30 @@ inline void test_transformer_live_edit_preserves_instance_phase_and_seed() {
   expected.sync();
   HS_EXPECT_EQ(active.noise.GetNoise(0.3f, 0.7f, 1.2f),
                expected.noise.GetNoise(0.3f, 0.7f, 1.2f));
+  RippleTransformer<1> ripple(timeline);
+  ripple.init_storage(persistent_arena);
+  HS_EXPECT_TRUE(ripple.spawn(0, math::Y_AXIS, 0.4f, 24) != nullptr);
+  StubEffect effect(8, 8);
+  Canvas canvas(effect);
+  for (int frame = 0; frame < 5; ++frame)
+    timeline.step(canvas);
+  const auto before = ripple.active_params(0);
+  ripple.template_params.amplitude = 0.9f;
+  ripple.template_params.decay = 2.0f;
+  ripple.template_params.thickness = 0.3f;
+  ripple.prepare_frame();
+  const auto &refreshed = ripple.active_params(0);
+  HS_EXPECT_EQ(refreshed.decay, 2.0f);
+  HS_EXPECT_EQ(refreshed.thickness, 0.3f);
+  HS_EXPECT_EQ(refreshed.amplitude, before.amplitude);
+  HS_EXPECT_EQ(refreshed.phase, before.phase);
+  HS_EXPECT_TRUE(vec_bits_equal(refreshed.center, before.center));
+  auto expected_ripple = before;
+  expected_ripple.decay = 2.0f;
+  expected_ripple.thickness = 0.3f;
+  expected_ripple.sync();
+  HS_EXPECT_EQ(refreshed.cos_threshold_min, expected_ripple.cos_threshold_min);
+  HS_EXPECT_EQ(refreshed.cos_threshold_max, expected_ripple.cos_threshold_max);
 }
 
 /** @brief A pinned repeating warp retains its slot across cycles until cancellation. */
