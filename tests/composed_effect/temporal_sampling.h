@@ -673,9 +673,9 @@ inline void test_temporal_moving_families_interpolate() {
   }
 }
 
-/** @brief Retained color tables survive subsequent bakes. */
+/** @brief Retained resources survive bakes and topology intervals select current endpoints. */
 inline void test_temporal_owned_resources() {
-  HS_CONTEXT("temporal owned modulation resources");
+  HS_CONTEXT("temporal owned resources and interval endpoints");
   reset_globals();
   using FX = GridSpace<96, 20>;
   FX effect;
@@ -770,6 +770,13 @@ inline void test_temporal_owned_resources() {
         COLUMN.params.template get<"modulation">().modulation.mechanic.amount,
         0.8f, 0.0f);
   }
+}
+
+/** @brief Modulation recipes enforce admission and clock synchronization. */
+inline void test_temporal_modulation_admission() {
+  using namespace Pullback;
+  Modulation::Config config;
+  auto clock = Modulation::init(config);
   config = {};
   config.enabled = false;
   config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
@@ -821,6 +828,13 @@ inline void test_temporal_owned_resources() {
   HS_EXPECT_TRUE(Modulation::valid(config));
   config.evaluation = Pattern::Evaluation::BAKED_CUBE;
   HS_EXPECT_TRUE(Modulation::valid(config));
+}
+
+/** @brief Modulation cube generations follow source changes and resets. */
+inline void test_temporal_modulation_bake_generation() {
+  using namespace Pullback;
+  Modulation::Config config;
+  auto clock = Modulation::init(config);
   config = {};
   config.enabled = true;
   config.mechanic.amount = 0.4f;
