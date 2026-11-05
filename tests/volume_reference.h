@@ -124,8 +124,6 @@ struct VolumeScalarRegression {
       } else if (closest_d < aa_width) {
         break;
       }
-      if (d < -aa_width)
-        break;
       step_len = std::max(d * 0.9f * omega, 1e-5f);
       local_p = math::Vector(local_p.x + local_vd.x * step_len,
                              local_p.y + local_vd.y * step_len,
@@ -133,12 +131,7 @@ struct VolumeScalarRegression {
     }
     return closest_d;
   }
-  struct Occluder {
-    bool solid;
-    math::Vector behind;
-    float distance;
-    float soft;
-  };
+  using Occluder = Scan::Volume::Occluder;
   template <typename Shape>
   static Occluder
   probe_occluder(const Shape &shape, const math::Vector &closest_local,
