@@ -63,6 +63,34 @@ class ReleaseTests(unittest.TestCase):
                 release.record_order(self.destination, "digest", [], self.root / "order.json")
             verify.assert_not_called()
 
+    def test_candidate_check_forbids_final_directories(self):
+        self.status()
+        stderr = io.StringIO()
+        with mock.patch.object(release, "CANDIDATE", self.project), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+            self.assertIsNone(release.main(["check-candidates"]))
+            (self.project.parent / "final").mkdir()
+            with self.assertRaises(SystemExit) as caught:
+                release.main(["check-candidates"])
+        self.assertEqual(caught.exception.code, 1)
+        self.assertIn("final directories are forbidden", stderr.getvalue())
+
+    def test_preflight_rejects_real_copper_open(self):
+        project = self.root / "copper-open"
+        release.snapshot(Path(release.__file__).resolve().parents[1] / "1.1", project)
+        release.preflight(project, "1.1")
+        path = project / "phantasm.kicad_pcb"
+        board = fab.read_board(path)
+        net_name = release.net_name_resolver(board)
+        tracks = [node for node in board if isinstance(node, list) and node
+                  and node[0] in ("segment", "arc") and net_name(node) == "DATA"]
+        self.assertTrue(tracks)
+        for node in tracks:
+            board.remove(node)
+        path.write_text(release.pcb.sexp.dumps(board), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "OPEN DATA"):
+            release.preflight(project, "1.1")
+
     def test_snapshot_includes_libraries_and_rules_excludes_history(self):
         library = self.project / "phantasm.pretty"
         library.mkdir()
@@ -143,8 +171,11 @@ class ReleaseTests(unittest.TestCase):
             if fail == "gate":
                 (Path(fab.OUT) / "phantasm-drc.json").write_text("failed DRC")
                 raise SystemExit("injected gate failure")
-            if fail == "source_change":
-                (self.project / "phantasm.kicad_pro").write_text("edit", encoding="utf-8")
+            changed = {"source_change": self.project,
+                       "evaluated_change": Path(fab.PROJ),
+                       "snapshot_change": Path(fab.PROJ).parent / "source"}.get(fail)
+            if changed is not None:
+                (changed / "phantasm.kicad_pro").write_text(f"edit-{fail}", encoding="utf-8")
             if not validate_only:
                 self.write_package()
         for name, replacement in (("preflight", preflight), ("fabrication_options", lambda *args: {"finish": "ENIG"})):
@@ -184,7 +215,7 @@ class ReleaseTests(unittest.TestCase):
                 self.assertEqual("finish_stackup" in record["validation"], revision == "1.2")
 
     def test_failures_never_publish(self):
-        for failure in ("copper", "gate", "source_change"):
+        for failure in ("copper", "gate", "source_change", "evaluated_change", "snapshot_change"):
             with self.subTest(failure=failure), contextlib.ExitStack() as stack:
                 self.pipeline(stack, fail=failure)
                 with self.assertRaisesRegex((ValueError, SystemExit), "injected|sources changed"):
@@ -271,6 +302,17 @@ class ReleaseTests(unittest.TestCase):
         details = {"vendor": "fixture", "order_id": "123", "ordered_at": "2026-10-13",
                    "assembly_preview_reviewed": True, "mechanical_access_reviewed": True,
                    "fabrication_options": {"finish": "ENIG"}}
+        output = self.root / "order.json"
+        for field in ("vendor", "order_id", "ordered_at", "assembly_preview_reviewed",
+                      "mechanical_access_reviewed"):
+            invalid = details.copy()
+            if field.endswith("_reviewed"):
+                invalid[field] = False
+            else:
+                del invalid[field]
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, f"require {field}"):
+                release.record_order(self.destination, digest, invalid, output)
+            self.assertFalse(output.exists())
         with self.assertRaisesRegex(ValueError, "outside the release"):
             release.record_order(self.destination, digest, details, self.destination / "order.json")
         output = self.root / "order.json"
@@ -324,6 +366,10 @@ class ReleaseTests(unittest.TestCase):
             release.fabrication_options(self.project, "1.2")
         board.write_text(original.replace('(thickness 1.6)', '(thickness 0.8)'), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "stackup"):
+            release.fabrication_options(self.project, "1.2")
+        board.write_text(original.replace('(thickness 0.2104)', '(thickness 0.2105)', 1),
+                         encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "dielectric stackup"):
             release.fabrication_options(self.project, "1.2")
 
 
