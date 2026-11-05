@@ -63,6 +63,16 @@ inline void test_ash_cloud_shared_color_identity() {
         const auto ACTUAL = unfactored_shared(VIEW, *frame);
         HS_EXPECT_TRUE(ACTUAL.color == EXPECTED.color);
         HS_EXPECT_EQ(bits(ACTUAL.alpha), bits(EXPECTED.alpha));
+        const auto COLUMN = SHADER(math::TrigLUT<288, 144>::sin_phi[y],
+                                   math::TrigLUT<288, 144>::cos_phi[y]);
+#if HS_TEST_FAST_MATH
+        HS_EXPECT_LE(std::abs(int(COLUMN.color.r) - int(ACTUAL.color.r)), 1);
+        HS_EXPECT_LE(std::abs(int(COLUMN.color.g) - int(ACTUAL.color.g)), 1);
+        HS_EXPECT_LE(std::abs(int(COLUMN.color.b) - int(ACTUAL.color.b)), 1);
+#else
+        HS_EXPECT_TRUE(COLUMN.color == ACTUAL.color);
+#endif
+        HS_EXPECT_EQ(bits(COLUMN.alpha), bits(ACTUAL.alpha));
       }
     }
   }

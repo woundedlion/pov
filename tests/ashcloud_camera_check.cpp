@@ -23,5 +23,7 @@ int main() {
   math::init_geometry_luts<288, 144>();
   HS_EXPECT_FALSE((AshCloud<288, 144>::camera_column_admitted()));
   hs_test::composed_effect_tests::test_ash_cloud_shared_camera_qualification();
+  hs_test::composed_effect_tests::test_ash_cloud_shared_color_identity();
+  hs_test::composed_effect_tests::test_ash_cloud_shared_column_fallbacks();
   return fixture.result() ? 1 : 0;
 }

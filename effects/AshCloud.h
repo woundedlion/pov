@@ -218,18 +218,19 @@ public:
     return Base::RenderPipeline::evaluate(view, frame.ctx, frame.prepared);
   }
 
-  /** @brief Shades a column admitted to the shared cached color path.
-   * @param rotated Camera-rotated unit direction.
+  /** @brief Shades a view admitted to the shared cached color path.
+   * @param view Unit view direction.
    * @param frame Prepared eligible column.
    * @return Straight-alpha pixel color. */
   HS_HOT_ITCM_MEMBER static Color4
-  shade_shared_rotated(const math::Vector &rotated,
-                       const typename Base::Frame &frame) {
+  shade_shared(const math::Vector &view, const typename Base::Frame &frame) {
     using Pipeline = typename Base::RenderPipeline;
     static_assert(Pipeline::NODE_COUNT == 8);
+    const auto ROTATED = Pipeline::template NodeAt<0>::run(
+        Pullback::SphereSample{view, 0.0f}, frame.ctx,
+        std::get<0>(frame.prepared));
     const auto RIPPLED = Pipeline::template NodeAt<1>::run(
-        Pullback::SphereSample{rotated, 0.0f}, frame.ctx,
-        std::get<1>(frame.prepared));
+        ROTATED, frame.ctx, std::get<1>(frame.prepared));
     const auto PROJECTED = Pipeline::template NodeAt<2>::run(
         RIPPLED, frame.ctx, std::get<2>(frame.prepared));
     const auto SAMPLED = Pipeline::template NodeAt<3>::run(
@@ -268,10 +269,9 @@ public:
      * @return Straight-alpha color. */
     Color4 operator()(float row_sine, float row_cosine) const {
       const math::Vector VIEW(row_sine * cosine, row_cosine, row_sine * sine);
-      if (!shared || !factored)
+      if (!shared)
         return AshCloud::shade(VIEW, *frame);
-      const math::Vector ROTATED = row_sine * equator + row_cosine * up;
-      return AshCloud::shade_shared_rotated(ROTATED, *frame);
+      return AshCloud::shade_shared(VIEW, *frame);
     }
   };
 

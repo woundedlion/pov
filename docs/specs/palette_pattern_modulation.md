@@ -533,22 +533,15 @@ states select the canonical FLASH pipeline. The runtime's optional
 `prepare_column_shader(frame, x)` factory leaves other effects on their existing
 shader selection.
 
-The selected camera path rotates the column's equatorial and polar basis once,
-then combines those directions at each full-resolution latitude. This changes
-floating-point association rather than sample resolution. Factoring admits only
-288-by-144 geometry with latitude endpoints exactly 0.02*pi and 0.98*pi.
-Other resolutions and latitude endpoints retain the canonical per-pixel camera
-rotation while keeping the eligible shared color tail. Runtime endpoint changes
-undergo the same admission. Its separate default
-600-frame, 16-column, 144-row qualification permits RGB16 error at most 256,
-premultiplied RGB16 error at most 128, alpha error at most 0.002 and camera
-vector error at most 1e-6. The final fast-math maxima were 59, 34, 5.371e-5
-and 3.875e-7 respectively. These are finite default-control
-qualification results, not universal bounds or changes to an existing oracle.
-The scalar color tail retains bitwise RGB16 and alpha parity with the canonical
-shared-color path when fed identical field coordinates. Separate geometry calls
-can differ in floating-point rounding under fast math. Unsupported columns call
-the canonical pipeline.
+The shared shader performs the canonical per-pixel camera rotation inside its
+ITCM kernel for every display geometry. Camera factoring is disabled independently
+of shared-color admission. The 600-frame, 16-column, 144-row qualification
+requires bitwise RGB16 and alpha parity in strict math. Fast math retains the
+existing limits of 16 RGB16 codes, 8 premultiplied codes and 1e-5 alpha error;
+camera vector error is zero. The column dispatch also compares against the
+independent scalar shared-color path, with bitwise alpha parity and at most one
+RGB16 code of rounding under fast math. These are finite default-control
+qualification bounds. Unsupported color columns call the canonical pipeline.
 
 A source kind/custom recipe version, evaluation strategy, mechanic kind or
 enabled-state change is a topology change for that layer. Hold that layer
