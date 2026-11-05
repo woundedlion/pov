@@ -1202,3 +1202,109 @@ inline void test_feedback_flush_straddled_taps_stay_on_branch() {
     }
   HS_EXPECT_LT(max_err, 2.0f);
 }
+
+/** @brief Translucent feedback blends every resolved and infill pixel over its background. */
+inline void test_feedback_translucent_flush_matches_opaque_blend() {
+  constexpr int W = 32, H = 16;
+  constexpr Pixel BACKGROUND(7000, 11000, 17000);
+  const auto render = [&](float alpha) {
+    reset_globals();
+    const ScopedTemporalSampling sampling(false);
+    ScopedArenaSplit split(4096, 131072, 131072);
+    StubEffect effect(W, H);
+    ::Feedback::Style style{};
+    style.fade = 0.83f;
+    style.downsample = 4;
+    style.pole_half_res = 0;
+    Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipeline{
+        Filter::Pixel::Feedback<W, H>(style)};
+    {
+      Canvas canvas(effect);
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          canvas(x, y) = Pixel(1000 + 900 * x, 2000 + 1100 * y,
+                               3000 + 700 * ((x + y) % 13));
+    }
+    effect.advance_display();
+    {
+      Canvas canvas(effect);
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          canvas(x, y) = BACKGROUND;
+      (void)pipeline.begin_frame(canvas, alpha);
+    }
+    effect.advance_display();
+    std::vector<Pixel> frame;
+    capture_frame<W, H>(effect, frame);
+    return frame;
+  };
+  const auto opaque = render(1.0f);
+  const auto translucent = render(0.5f);
+  HS_EXPECT_SIZE_OR_RETURN(translucent, opaque.size());
+  for (size_t i = 0; i < opaque.size(); ++i) {
+    const Pixel expected = BACKGROUND.lerp16(opaque[i], frac_to_q16(0.5f));
+    HS_EXPECT_EQ(translucent[i], expected);
+  }
+}
+
+/** @brief Captures custom feedback fades under a four-column rotation. */
+struct FeedbackFadeProbe {
+  static inline std::vector<float> fades;
+  static math::Vector warp(const math::Vector &point,
+                           const ::Feedback::Style &) {
+    const math::Spherical coordinates(point);
+    return math::Vector(
+        math::Spherical(coordinates.theta + math::PI_F / 4, coordinates.phi));
+  }
+  static Pixel color(const Pixel &, float fade, const ::Feedback::Style &) {
+    fades.push_back(fade);
+    const auto encoded = frac_to_q16(fade);
+    return Pixel(encoded, encoded, encoded);
+  }
+};
+
+/** @brief Custom feedback color receives the fade raised to source-read elapsed time. */
+inline void test_feedback_custom_color_receives_elapsed_fade() {
+  constexpr int W = 32, H = 16;
+  using Table = Filter::Pixel::FeedbackFadeTable;
+  for (bool temporal : {false, true}) {
+    reset_globals();
+    ScopedArenaSplit split(4096, 131072, 131072);
+    const ScopedTemporalSampling sampling(temporal);
+    StubEffect effect(W, H);
+    ::Feedback::Style style{};
+    style.fade = 0.8f;
+    style.downsample = 4;
+    style.pole_half_res = 0;
+    style.space_fn = &FeedbackFadeProbe::warp;
+    style.color_fn = &FeedbackFadeProbe::color;
+    Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipeline{
+        Filter::Pixel::Feedback<W, H>(style)};
+    {
+      Canvas canvas(effect);
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          canvas(x, y) = Pixel(30000, 30000, 30000);
+    }
+    effect.advance_display();
+    FeedbackFadeProbe::fades.clear();
+    {
+      Canvas canvas(effect);
+      (void)pipeline.begin_frame(canvas, 1.0f);
+    }
+    effect.advance_display();
+    HS_EXPECT_GT(FeedbackFadeProbe::fades.size(), size_t{0});
+    const float elapsed = 16.0f / (16.0f + 4.0f);
+    const float quantized =
+        std::round(elapsed * Table::STEPS_PER_FRAME) / Table::STEPS_PER_FRAME;
+    const float expected =
+        temporal ? std::pow(style.fade, quantized) : style.fade;
+    HS_EXPECT_TRUE(std::any_of(
+        FeedbackFadeProbe::fades.begin(), FeedbackFadeProbe::fades.end(),
+        [&](float value) { return std::fabs(value - expected) < 1e-6f; }));
+    HS_EXPECT_NEAR(effect.get_pixel(4, H / 2).r, frac_to_q16(expected), 1);
+    if (!temporal)
+      for (float value : FeedbackFadeProbe::fades)
+        HS_EXPECT_EQ(value, style.fade);
+  }
+}
