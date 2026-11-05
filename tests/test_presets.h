@@ -584,6 +584,89 @@ inline void test_cycle_frames_conservative_departure_slack() {
   probe.template operator()<FadePresetEffect>();
 }
 
+/** @brief Counts target adoption separately from blend completion. */
+template <bool Fades>
+struct FinishBlendProbe
+    : ChoreographedEffect<FinishBlendProbe<Fades>, HoldParams> {
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{"first",
+                                                              "second"};
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 8;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  int adoptions = 0;
+  int finishes = 0;
+  FinishBlendProbe()
+      : ChoreographedEffect<FinishBlendProbe<Fades>, HoldParams>(8, 8) {}
+  static constexpr PresetEntry<HoldParams> preset(size_t index) {
+    const HoldParams value{index == 0 ? 1.0f : 2.0f};
+    if constexpr (Fades)
+      return {value, Segue::Preset::Fade{4}};
+    else
+      return {value, Segue::Preset::Lerp{4, math::ease_linear}};
+  }
+  static constexpr bool valid_params(const HoldParams &) { return true; }
+  void draw_frame() override {}
+  void arm() {
+    this->begin_choreography();
+    adoptions = finishes = 0;
+  }
+  bool attempt() { return this->advance_preset(); }
+  void progress(float value) { this->run_transition(value); }
+  void adopt_params(const HoldParams &value) {
+    this->params = value;
+    ++adoptions;
+  }
+  void finish_blend(const HoldParams &value) {
+    this->params = value;
+    ++finishes;
+  }
+  void blend_params(float value) {
+    this->params.value =
+        this->transition.from.value +
+        (this->transition.to.value - this->transition.from.value) * value;
+  }
+  void set_preset_opacity(float) {}
+  static consteval auto choreography_hooks() {
+    using Kind = Control::ChoreographyHook;
+    return Control::HookSet<
+        FinishBlendProbe,
+        Control::HookBinding<Kind::PRESET_ROW, &FinishBlendProbe::preset>,
+        Control::HookBinding<Kind::VALID_PARAMS,
+                             &FinishBlendProbe::valid_params>,
+        Control::HookBinding<Kind::ADOPT_PARAMS,
+                             &FinishBlendProbe::adopt_params>,
+        Control::HookBinding<Kind::FINISH_BLEND,
+                             &FinishBlendProbe::finish_blend>,
+        Control::HookBinding<Kind::BLEND_PARAMS,
+                             &FinishBlendProbe::blend_params>,
+        Control::HookBinding<Kind::PRESET_OPACITY,
+                             &FinishBlendProbe::set_preset_opacity>>{};
+  }
+};
+
+/** @brief Automatic Lerp/Fade completion uses FINISH_BLEND; manual snaps adopt. */
+inline void test_finish_blend_dispatch() {
+  const auto probe = []<bool Fades>() {
+    hs_test::reset_globals();
+    FinishBlendProbe<Fades> effect;
+    effect.arm();
+    HS_EXPECT_TRUE(effect.attempt());
+    effect.progress(0.25f);
+    HS_EXPECT_EQ(effect.finishes, 0);
+    effect.progress(0.5f);
+    HS_EXPECT_EQ(effect.finishes, Fades ? 1 : 0);
+    effect.progress(0.75f);
+    effect.progress(1.0f);
+    HS_EXPECT_EQ(effect.finishes, 1);
+    HS_EXPECT_EQ(effect.adoptions, 0);
+    effect.finishes = 0;
+    HS_EXPECT_TRUE(effect.selectPreset(0));
+    HS_EXPECT_EQ(effect.adoptions, 1);
+    HS_EXPECT_EQ(effect.finishes, 0);
+  };
+  probe.template operator()<false>();
+  probe.template operator()<true>();
+}
+
 /**
  * @brief Runs the preset choreography test cases.
  * @return The module's failure count.
@@ -591,6 +674,7 @@ inline void test_cycle_frames_conservative_departure_slack() {
 inline int run_presets_tests() {
   hs_test::ModuleFixture fixture("presets");
 
+  HS_RUN(test_finish_blend_dispatch);
   HS_RUN(test_cycle_frames_conservative_departure_slack);
   HS_RUN(test_all_presets_in_ranges_folds_predicate);
   HS_RUN(test_discrete_field_curves);
