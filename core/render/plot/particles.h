@@ -139,12 +139,7 @@ struct ParticleSystem {
         if constexpr (sample_stride == 1) {
           return false;
         } else {
-          // A max_life lowered below a live particle's remaining life would
-          // underflow this uint16_t subtraction.
-          const uint16_t age =
-              p.life < system.max_life ? system.max_life - p.life : 0;
-          // Complement of the recorder's stride test (core/animation/sprites.h).
-          return age != 0 && (age - 1) % sample_stride != 0;
+          return system.appends_live_tip(p);
         }
       }();
       const size_t point_count = trail_len + (append_live_tip ? 1 : 0);

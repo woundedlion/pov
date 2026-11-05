@@ -715,10 +715,7 @@ private:
       if (p.life == 0)
         continue;
       const int trail_len = static_cast<int>(p.history.length());
-      const uint16_t age = p.life < particle_system.max_life
-                               ? particle_system.max_life - p.life
-                               : 0;
-      const bool live_tip = age != 0 && (age - 1) % TRAIL_SAMPLE_STRIDE != 0;
+      const bool live_tip = particle_system.appends_live_tip(p);
       const int points = trail_len + (live_tip ? 1 : 0);
       if (points < 2)
         continue;

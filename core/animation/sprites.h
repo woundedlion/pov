@@ -397,6 +397,15 @@ public:
 
   static constexpr int TRAIL_SAMPLE_STRIDE = STRIDE; ///< Frames per anchor.
 
+  /** @brief Whether a trail needs its current position after stored anchors.
+   * @param particle Particle whose age selects the anchor stride.
+   * @return True when the current position is not a stored anchor. */
+  bool appends_live_tip(const ParticleType &particle) const {
+    const uint16_t age =
+        particle.life < max_life ? max_life - particle.life : 0;
+    return age != 0 && (age - 1) % TRAIL_SAMPLE_STRIDE != 0;
+  }
+
   ArenaVector<ParticleType> pool; /**< Backing pool of particles. */
 
   /**
@@ -774,15 +783,8 @@ private:
 
     if constexpr (TRAIL_LEN > 0) {
       if (active) {
-        // Lowering max_life below a live particle's remaining life would underflow
-        // this uint16_t subtraction. Age 0 is tested on its own because (age - 1)
-        // promotes to -1, which no stride divides.
-        const uint16_t age = p.life < max_life ? max_life - p.life : 0;
-        if constexpr (STRIDE == 1) {
+        if (!appends_live_tip(p))
           p.history.record(p.get_position());
-        } else if (age == 0 || (age - 1) % STRIDE == 0) {
-          p.history.record(p.get_position());
-        }
       }
     }
     return !active;
