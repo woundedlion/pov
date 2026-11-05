@@ -13,7 +13,6 @@
 #include "core/math/3dmath.h"
 #include "core/math/pixel_mapping.h"
 #include "core/platform/attributes.h"
-#include "core/render/spacetime/surface.h"
 #include <cmath>
 #include <utility>
 

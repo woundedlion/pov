@@ -8,7 +8,6 @@
  * @brief The two-arm sampling surface and simulation time windows.
  */
 
-#include "core/animation/orientation.h"
 #include "core/math/3dmath.h"
 #include "core/platform/attributes.h"
 #include "core/render/canvas.h"
