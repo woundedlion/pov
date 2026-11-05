@@ -83,10 +83,10 @@ public:
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "dda645c7d860a934f341f5a4dd8d2232092b934832331aa4a7fcc2a6193cd8a6";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "67ff12b083c4f641ae292fb1c148d5a89ef1c556a043a48c8bc745632c6e958f";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "add6a794ad2c364eb058cbb38669b8988d1e1a4f52935ce833750a6b0e378573";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
-      "jewel-melt"
+      "involution"
   };
   /// Frames each preset holds before advancing.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;

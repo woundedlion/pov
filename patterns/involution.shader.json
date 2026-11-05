@@ -1434,17 +1434,17 @@
     },
     "choreography": {
       "dwell": {
-        "jewel-melt": 600
+        "involution": 600
       },
       "generated_order": [
-        "jewel-melt"
+        "involution"
       ]
     },
     "edges": [],
     "presets": [
       {
-        "display_name": "Jewel Melt",
-        "preset_id": "jewel-melt",
+        "display_name": "Involution",
+        "preset_id": "involution",
         "values": {
           "camera.wander": 1,
           "colorize.brightness-envelope": "none",
