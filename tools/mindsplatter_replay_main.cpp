@@ -21,6 +21,11 @@ constexpr int REPLAY_FRAMES = 3;
 using ReplayEffect = MindSplatter<WIDTH, HEIGHT>;
 using WhiteBox = hs_test::effects_tests::MindSplatterWhiteBox;
 
+struct PassResult {
+  bool accepted;
+  uint64_t framebuffer_hash;
+};
+
 /**
  * @brief Visual bounds for the two replay oracles.
  * @details Reference terms bound the candidate against a same-binary reference
@@ -96,11 +101,12 @@ uint64_t rehash_corpus(const mindsplatter_replay::Corpus &corpus) {
  * @param label Pass label for the emitted line.
  * @param whole_frame True when the clip covers the whole frame; only then are
  *        the expanded corpus pixels checked against the recorded hash.
- * @return True when every bound holds.
+ * @return Bound-check outcome and candidate framebuffer hash.
  */
-bool run_pass(ReplayEffect &effect, const mindsplatter_replay::Corpus &corpus,
-              std::vector<Pixel> &reference, const char *label,
-              bool whole_frame) {
+PassResult run_pass(ReplayEffect &effect,
+                    const mindsplatter_replay::Corpus &corpus,
+                    std::vector<Pixel> &reference, const char *label,
+                    bool whole_frame) {
   mindsplatter_replay::ReferenceStats stats;
   mindsplatter_replay::FrameStats host_stats;
   ClipRegion clip;
@@ -173,7 +179,7 @@ bool run_pass(ReplayEffect &effect, const mindsplatter_replay::Corpus &corpus,
                 static_cast<unsigned long long>(corpus.framebuffer_hash));
     gate.accepted = false;
   }
-  return gate.accepted;
+  return {gate.accepted, stats.framebuffer_hash};
 }
 
 } // namespace
@@ -219,18 +225,31 @@ int main() {
     accepted = false;
   }
   std::vector<Pixel> reference(static_cast<size_t>(WIDTH) * HEIGHT);
+  uint64_t first_hash = 0;
   for (int frame = 0; frame < REPLAY_FRAMES; ++frame) {
     char label[16];
     std::snprintf(label, sizeof(label), "frame=%d", frame + 1);
-    accepted = run_pass(effect, corpus, reference, label, true) && accepted;
+    const PassResult RESULT = run_pass(effect, corpus, reference, label, true);
+    accepted = RESULT.accepted && accepted;
+    if (frame == 0) {
+      first_hash = RESULT.framebuffer_hash;
+    } else if (RESULT.framebuffer_hash != first_hash) {
+      std::fprintf(stderr,
+                   "replay %s changed without advancing simulation: "
+                   "hash=%llu first=%llu\n",
+                   label,
+                   static_cast<unsigned long long>(RESULT.framebuffer_hash),
+                   static_cast<unsigned long long>(first_hash));
+      accepted = false;
+    }
   }
 
   // Replay the corpus's peak quadrant clip to render the clip-boundary splats.
   const ClipRegion peak =
       mindsplatter_replay::search_clip<WIDTH, HEIGHT>(corpus.peak_clip);
   effect.set_clip(peak.y_start, peak.y_end, peak.x_start, peak.x_end);
-  accepted =
-      run_pass(effect, corpus, reference, "peak_clip", false) && accepted;
+  accepted = run_pass(effect, corpus, reference, "peak_clip", false).accepted &&
+             accepted;
   effect.set_clip(0, HEIGHT, 0, WIDTH);
 
   return accepted ? 0 : 1;
