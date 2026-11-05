@@ -513,7 +513,9 @@ jobs:
             --min-directory core/spatial=1 \
             --min-directory core/platform=1 \
             --min-directory hardware=1 \
-            --min-directory targets=1
+            --min-directory targets=1 \
+            --min-directory effects=1 \
+            --min-directory workbench=1
           {
             echo '## Native suite coverage'
             echo
