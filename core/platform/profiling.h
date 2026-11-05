@@ -80,6 +80,15 @@ struct PullbackProjectionCounts {
   uint32_t polyhedral_max_reflections =
       0; /**< Peak reflections for one pixel. */
 
+  /** @brief Records one pixel's polyhedral fold.
+   * @param reflections Reflection iterations for the pixel. */
+  void note_fold(uint32_t reflections) {
+    ++polyhedral_pixels;
+    polyhedral_reflections += reflections;
+    if (reflections > polyhedral_max_reflections)
+      polyhedral_max_reflections = reflections;
+  }
+
   /** @brief Zeroes every reflection count. */
   void reset() { *this = {}; }
 };

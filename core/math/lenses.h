@@ -251,15 +251,7 @@ polyhedral_kaleidoscope_lens(math::Vector v,
     }
     if (inside) {
       HS_PULLBACK_PROJECTION_COUNT(
-          ++hs::g_pullback_projection_counts.polyhedral_pixels);
-      HS_PULLBACK_PROJECTION_COUNT(
-          hs::g_pullback_projection_counts.polyhedral_reflections +=
-          reflections);
-      HS_PULLBACK_PROJECTION_COUNT(
-          hs::g_pullback_projection_counts.polyhedral_max_reflections =
-              std::max(
-                  hs::g_pullback_projection_counts.polyhedral_max_reflections,
-                  reflections));
+          hs::g_pullback_projection_counts.note_fold(reflections));
       return v;
     }
   }
@@ -295,15 +287,8 @@ tetrahedral_from_dodecahedral_chamber(math::Vector v) {
     v.y -= 2.0f * DISTANCE * NORMAL.y;
     v.z -= 2.0f * DISTANCE * NORMAL.z;
   }
-  HS_PULLBACK_PROJECTION_COUNT(
-      ++hs::g_pullback_projection_counts.polyhedral_pixels);
-  HS_PULLBACK_PROJECTION_COUNT(
-      hs::g_pullback_projection_counts.polyhedral_reflections +=
-      DISTANCE < -POLYHEDRAL_MIRROR_EPS ? 1 : 0);
-  HS_PULLBACK_PROJECTION_COUNT(
-      hs::g_pullback_projection_counts.polyhedral_max_reflections =
-          std::max(hs::g_pullback_projection_counts.polyhedral_max_reflections,
-                   uint32_t(DISTANCE < -POLYHEDRAL_MIRROR_EPS ? 1 : 0)));
+  HS_PULLBACK_PROJECTION_COUNT(hs::g_pullback_projection_counts.note_fold(
+      DISTANCE < -POLYHEDRAL_MIRROR_EPS ? 1 : 0));
   return v;
 }
 
@@ -335,15 +320,7 @@ dodecahedral_kaleidoscope_lens(math::Vector v) {
       v.z = -v.z;
     } else {
       HS_PULLBACK_PROJECTION_COUNT(
-          ++hs::g_pullback_projection_counts.polyhedral_pixels);
-      HS_PULLBACK_PROJECTION_COUNT(
-          hs::g_pullback_projection_counts.polyhedral_reflections +=
-          reflections);
-      HS_PULLBACK_PROJECTION_COUNT(
-          hs::g_pullback_projection_counts.polyhedral_max_reflections =
-              std::max(
-                  hs::g_pullback_projection_counts.polyhedral_max_reflections,
-                  reflections));
+          hs::g_pullback_projection_counts.note_fold(reflections));
       return v;
     }
     HS_PULLBACK_PROJECTION_COUNT(++reflections);
