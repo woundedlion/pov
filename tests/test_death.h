@@ -1416,10 +1416,6 @@ inline const Case *all_cases(int &n) {
        "core/render/scan/radial_surface.h",
        "(fabsf(knots[i].phase - knots[i - 1].phase) < sector) "
        "RadialSurface: interval crosses multiple sectors"},
-      {"radial_surface_descending_root_denominator",
-       case_radial_surface_descending_root_denominator,
-       "core/render/scan/radial_surface.h",
-       "(DENOMINATOR > 0.0f) RadialSurface: descending root denominator"},
       {"radial_surface_mask_unbound", case_radial_surface_mask_unbound,
        "core/render/scan/radial_surface_candidate_mask.h",
        "(rows != nullptr) RadialSurfaceCandidateMask: unbound mask"},

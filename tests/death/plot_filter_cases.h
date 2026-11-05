@@ -1109,34 +1109,6 @@ inline void case_radial_surface_interval_crosses_sectors() {
   surface.prepare(scratch_arena_a, 4, 0.1f, KNOTS);
 }
 
-/**
- * @brief Traps when the descending root's denominator rounds to zero.
- * @details A fast-growing, rotating spiky star sweeps over a point just
- *          outside its first edge. There the predicate rises before it falls,
- *          so its start value vanishes against the squared slope and the
- *          rounded discriminant root equals the slope. The scan walks the
- *          point outward one ulp at a time from inside the start star; the
- *          first point the scan places outside must trap.
- */
-inline void case_radial_surface_descending_root_denominator() {
-  ScratchScope scope(scratch_arena_a);
-  DeathRadialSurface surface;
-  const float PHASE = opaque(-0.3f);
-  const DeathRadialSurface::Knot KNOTS[2] = {
-      {1, 0, 0}, {30 * cosf(PHASE), 30 * sinf(PHASE), PHASE}};
-  surface.prepare(scratch_arena_a, 4, 0.01f, KNOTS);
-  const auto VERTEX = surface.vertex(0);
-  const auto EDGE = surface.edge(0);
-  DeathRadialSurface::Point p{VERTEX.x + 0.5f * EDGE.x,
-                              VERTEX.y + 0.5f * EDGE.y};
-  for (int i = 0; i < 64; ++i)
-    p.x = nextafterf(p.x, 0.0f);
-  for (int i = 0; i < 256; ++i) {
-    (void)surface.sample<false, false, false>(p, atan2f(p.y, p.x));
-    p.x = nextafterf(p.x, 2.0f);
-  }
-}
-
 /** @brief Traps when an unbound candidate mask is prepared. */
 inline void case_radial_surface_mask_unbound() {
   ScratchScope scope(scratch_arena_a);

@@ -169,6 +169,47 @@ inline void test_radial_surface_tip_sweep() {
   HS_EXPECT_LT(hit.fraction, .5f);
 }
 
+/** @brief A descending root survives cancellation at the start edge. */
+inline void test_radial_surface_descending_root_cancellation() {
+  ScratchScope scope(scratch_arena_a);
+  Surface surface;
+  const float PHASE = -0.3f;
+  const std::array KNOTS{
+      Surface::Knot{1, 0, 0},
+      Surface::Knot{30 * cosf(PHASE), 30 * sinf(PHASE), PHASE}};
+  surface.prepare(scratch_arena_a, 4, 0.01f, KNOTS);
+  const auto VERTEX = surface.vertex(0);
+  const auto EDGE = surface.edge(0);
+  Surface::Point p{VERTEX.x + 0.5f * EDGE.x, VERTEX.y + 0.5f * EDGE.y};
+  const ReferencePoint DELTA{double(KNOTS[1].real) - 1, KNOTS[1].imag};
+  const ReferencePoint EDGE_DELTA{DELTA.x * EDGE.x - DELTA.y * EDGE.y,
+                                  DELTA.y * EDGE.x + DELTA.x * EDGE.y};
+  const double DETERMINANT =
+      reference_cross({VERTEX.x, VERTEX.y}, {EDGE.x, EDGE.y});
+  const double QUADRATIC =
+      DETERMINANT * (DELTA.x * DELTA.x + DELTA.y * DELTA.y);
+  for (int i = 0; i < 64; ++i)
+    p.x = nextafterf(p.x, 0.0f);
+  int descending = 0;
+  for (int i = 0; i < 256; ++i) {
+    const auto hit = surface.sample<false, false, false>(p, atan2f(p.y, p.x));
+    HS_EXPECT_TRUE(hit.found());
+    if (hit.fraction > 0.001f) {
+      const double VALUE =
+          reference_cross({p.x, p.y}, {EDGE.x, EDGE.y}) - DETERMINANT;
+      const double LINEAR =
+          reference_cross({p.x, p.y}, EDGE_DELTA) - 2 * DETERMINANT * DELTA.x;
+      const double EXPECTED =
+          (LINEAR + std::sqrt(LINEAR * LINEAR + 4 * QUADRATIC * VALUE)) /
+          (2 * QUADRATIC);
+      HS_EXPECT_NEAR(hit.fraction, EXPECTED, 1e-6);
+      ++descending;
+    }
+    p.x = nextafterf(p.x, 2.0f);
+  }
+  HS_EXPECT_GT(descending, 0);
+}
+
 /** @brief Static and zero-scale intervals retain their solid membership. */
 inline void test_radial_surface_degenerate_intervals() {
   ScratchScope scope(scratch_arena_a);
@@ -1078,6 +1119,7 @@ inline void test_radial_surface_footprint_colours() {
 /** @brief Runs the generic point and edge-coverage oracles. */
 inline void run_radial_surface_checks() {
   HS_RUN(test_radial_surface_tip_sweep);
+  HS_RUN(test_radial_surface_descending_root_cancellation);
   HS_RUN(test_radial_surface_degenerate_intervals);
   HS_RUN(test_radial_surface_block_bounds);
   HS_RUN(test_radial_surface_matches_all_edges);

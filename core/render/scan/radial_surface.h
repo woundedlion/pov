@@ -537,9 +537,9 @@ private:
         radial_cross(p, radial_multiply(PIECE.delta, edges[edge_index])) -
         PIECE.radial_linear - 2.0f * PIECE.quadratic * low;
     const float ROOT = sqrtf(LINEAR * LINEAR + 4.0f * PIECE.quadratic * value);
-    const float DENOMINATOR = ROOT - LINEAR;
-    HS_CHECK(DENOMINATOR > 0.0f, "RadialSurface: descending root denominator");
-    const float T = low + 2.0f * value / DENOMINATOR;
+    const float T =
+        low + (LINEAR > 0.0f ? (LINEAR + ROOT) / (2.0f * PIECE.quadratic)
+                             : 2.0f * value / (ROOT - LINEAR));
     return finish<DERIVATIVES>(p, i, std::clamp(T, low, high), edge_index);
   }
   /** @param p Chart point.
