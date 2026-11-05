@@ -396,13 +396,6 @@ constexpr int SMALL_W = 96;
 constexpr int SMALL_H = 20;
 
 /**
- * @brief Resets the process-global effect state to a clean per-effect baseline.
- * @details Forwards to hs_test::reset_globals(), which also releases the mock
- *          clock.
- */
-inline void reset_effect_globals() { hs_test::reset_globals(); }
-
-/**
  * @brief Params from a choreographed effect's production preset row.
  * @tparam E The effect type.
  * @param index Preset index.

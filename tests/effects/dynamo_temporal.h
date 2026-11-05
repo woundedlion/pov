@@ -18,7 +18,7 @@ struct DynamoTemporalOracle {
   /** @brief Live source history records each edge endpoint before fan-out. */
   static void check_live_history_fanout() {
     constexpr int W = 288, H = 144;
-    reset_effect_globals();
+    reset_globals();
     Dynamo<W, H> effect;
     effect.init();
     effect.baked_palettes[0].rebake(WhitePalette{});
@@ -83,7 +83,7 @@ struct DynamoTemporalOracle {
   static std::vector<float> render(const RenderOptions &options) {
     const auto &[timed, fraction, displacement, start, spin, replay, fresh,
                  clipped, reset] = options;
-    reset_effect_globals();
+    reset_globals();
     Dynamo<W, H> effect;
     effect.init();
     effect.baked_palettes[0].rebake(WhitePalette{});

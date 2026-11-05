@@ -27,7 +27,7 @@ struct ThrustersWhiteBox {
    *          the opposition is in azimuth about the ring axis, not antipodality.
    */
   static void check_fire_spawns_opposed_pair() {
-    reset_effect_globals();
+    reset_globals();
     FX effect;
     effect.init();
 
@@ -48,7 +48,7 @@ struct ThrustersWhiteBox {
    *          below EPS_NORMALIZE_SQ. Reaching the assertions is the check.
    */
   static void check_collapsed_ring_falls_back_to_a_spin_axis() {
-    reset_effect_globals();
+    reset_globals();
     FX effect;
     effect.init();
 
@@ -65,7 +65,7 @@ struct ThrustersWhiteBox {
    * @brief Verifies the slot pool saturates and evicts whole fires in order.
    */
   static void check_fifo_evicts_the_oldest_pair() {
-    reset_effect_globals();
+    reset_globals();
     FX effect;
     effect.init();
 
@@ -90,7 +90,7 @@ struct ThrustersWhiteBox {
    * @brief Verifies draw_frame retires the expired prefix and ages the rest.
    */
   static void check_expired_slots_retire_by_pair() {
-    reset_effect_globals();
+    reset_globals();
     FX effect;
     effect.init();
 

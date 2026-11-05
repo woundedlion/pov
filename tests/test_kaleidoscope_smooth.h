@@ -14,7 +14,6 @@
 namespace hs_test {
 namespace kaleidoscope_smooth_tests {
 
-using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;
 
@@ -42,7 +41,7 @@ inline void test_kaleidoscope_smooth_identity_and_presets() {
               Pullback::Modulation::Params<Pattern::SourceKind::NOISE,
                                            Pattern::Evaluation::BAKED_CUBE>));
 
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.init();
   static constexpr const char *CONTROL_NAMES[] = {

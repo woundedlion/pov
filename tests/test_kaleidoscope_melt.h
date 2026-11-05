@@ -14,7 +14,6 @@
 namespace hs_test {
 namespace kaleidoscope_melt_tests {
 
-using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;
 using KaleidoscopeMeltWhiteBox =
@@ -41,7 +40,7 @@ inline void test_kaleidoscope_melt_identity_and_controls() {
               Pullback::Modulation::Params<Pattern::SourceKind::NOISE,
                                            Pattern::Evaluation::BAKED_CUBE>));
 
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.init();
   static constexpr const char *CONTROL_NAMES[] = {
@@ -86,7 +85,7 @@ inline void test_kaleidoscope_melt_chain_equivalence() {
 
 inline void test_kaleidoscope_melt_cache_controls() {
   using FX = KaleidoscopeMeltWhiteBox::FX;
-  reset_effect_globals();
+  reset_globals();
   ScopedTemporalSampling temporal(true);
   pin_frame_clock(0);
   FX effect;

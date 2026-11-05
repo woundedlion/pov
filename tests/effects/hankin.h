@@ -237,7 +237,7 @@ inline constexpr int HANKIN_HANDOFF_BOUND = 2;
 
 /** @brief Verifies a manual Angle edit freezes an in-flight Conway morph. */
 inline void test_hankinsolids_manual_pause_holds_morph() {
-  reset_effect_globals();
+  reset_globals();
   HankinSolidsWhiteBox::EffectT effect;
   effect.init();
 
@@ -372,7 +372,7 @@ lerp_shape_weights(const HankinSolidsDetail::ShapeWeights &from,
  */
 inline void test_hankinsolids_handoffs_shade_at_column_time() {
   using WB = HankinSolidsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   WB::EffectT effect;
   effect.init();
   WB::set_angle(effect, 0.6f);
@@ -405,7 +405,7 @@ inline void test_hankinsolids_handoffs_shade_at_column_time() {
  */
 inline void test_hankinsolids_handoff_history() {
   using WB = HankinSolidsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   WB::EffectT effect;
   effect.init();
   HS_EXPECT_EQ(WB::drawn_cycle_frame(effect), -1);
@@ -435,7 +435,7 @@ inline void test_hankinsolids_handoff_history() {
 inline void test_hankinsolids_conway_crossfade_shades_at_column_time() {
   using WB = HankinSolidsWhiteBox;
   using Shading = Animation::OpLeg::Shading;
-  reset_effect_globals();
+  reset_globals();
   WB::EffectT effect;
   effect.init();
   WB::set_angle(effect, 0.6f);
@@ -496,7 +496,7 @@ inline void test_hankinsolids_interlace_motion_is_seam_free() {
 inline void test_hankinsolids_seam_copies_are_one_polygon() {
   using WB = HankinSolidsWhiteBox;
   constexpr int W = 288, H = 144;
-  reset_effect_globals();
+  reset_globals();
   pin_frame_clock(0);
   HankinSolids<W, H> effect;
   effect.init();
@@ -552,7 +552,7 @@ inline void test_hankinsolids_seam_copies_are_one_polygon() {
  */
 inline void test_hankinsolids_morph_draws_carry_previous_vertices() {
   using WB = HankinSolidsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   WB::EffectT effect;
   effect.init();
   WB::ConwayRecorder recorder;
@@ -592,7 +592,7 @@ inline void test_hankinsolids_morph_draws_carry_previous_vertices() {
 inline void test_hankinsolids_morph_motion_is_seam_free() {
   using WB = HankinSolidsWhiteBox;
   using Shading = Animation::OpLeg::Shading;
-  reset_effect_globals();
+  reset_globals();
   WB::EffectT effect;
   effect.init();
   constexpr float FROM = 0.5f, TO = 0.7f;

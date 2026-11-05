@@ -118,13 +118,13 @@ inline void test_parameter_lint_failure_guards() {
       HS_EXPECT_NE(output->find(diagnostic), std::string::npos);
   };
   for (bool broken : {false, true}) {
-    reset_effect_globals();
+    reset_globals();
     {
       SliderEffect slider(broken);
       check([&] { lint_dead_sliders(slider, "SliderEffect"); }, int(broken),
             broken ? "DEAD SLIDER" : nullptr);
     }
-    reset_effect_globals();
+    reset_globals();
     AnimatedEffect animated(broken);
     check([&] { lint_animated_pause(animated, "AnimatedEffect"); }, int(broken),
           broken ? "PAUSE LEAK" : nullptr);
@@ -139,7 +139,7 @@ inline void test_parameter_lint_failure_guards() {
 inline void test_needs_full_frame_gate() {
   // Each effect aliases the same static double buffer, so construct one at a
   // time.
-  auto reset = [] { reset_effect_globals(); };
+  auto reset = [] { reset_globals(); };
   auto check = [&](Effect &fx, bool expected, const char *name) {
     fx.init();
     if (fx.needs_full_frame() != expected)
@@ -176,7 +176,7 @@ inline void test_needs_full_frame_gate() {
 template <typename EffectT> inline void check_manual_preset_navigation() {
   constexpr size_t expected_count = EffectT::authored_preset_count();
   HS_EXPECT_GT(expected_count, size_t(1));
-  reset_effect_globals();
+  reset_globals();
   EffectT effect;
   effect.init();
   HS_EXPECT_EQ(effect.getPresetCount(), expected_count);

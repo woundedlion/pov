@@ -43,7 +43,7 @@ struct MobiusRingsWhiteBox {
                                    float direction, bool clipped = false,
                                    bool hold = false, bool wrap = false,
                                    int count_change = 0) {
-    reset_effect_globals();
+    reset_globals();
     Spacetime::geometry_counters = {};
     pin_frame_clock(0);
     using FX = MobiusRings<W, H>;

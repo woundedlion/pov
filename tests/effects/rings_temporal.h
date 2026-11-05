@@ -218,7 +218,7 @@ inline void RingShowerWhiteBox::check_temporal_rings() {
   using FX = RingShower<DEFAULT_W, DEFAULT_H>;
   const ScopedTemporalSampling temporal_sampling(true);
   {
-    reset_effect_globals();
+    reset_globals();
     FX effect;
     effect.init();
     auto &ring = effect.rings[0];
@@ -242,7 +242,7 @@ inline void RingShowerWhiteBox::check_temporal_rings() {
         continue;
       auto render = [=](bool timed, float t, RingTemporalOracle::Offset rows,
                         int segment) {
-        reset_effect_globals();
+        reset_globals();
         hs::random().seed(137);
         FX effect;
         effect.init();
@@ -305,7 +305,7 @@ inline void RingShowerWhiteBox::check_temporal_rings() {
 inline void ThrustersWhiteBox::check_temporal_rings() {
   const ScopedTemporalSampling temporal_sampling(true);
   for (bool main : {false, true}) {
-    reset_effect_globals();
+    reset_globals();
     FX effect;
     effect.init();
     effect.ring_vec = math::Y_AXIS;
@@ -328,7 +328,7 @@ inline void ThrustersWhiteBox::check_temporal_rings() {
     expect_arm_symmetric(pixels);
   }
   {
-    reset_effect_globals();
+    reset_globals();
     FX effect;
     effect.init();
     effect.on_fire_thruster();
@@ -350,7 +350,7 @@ inline void ThrustersWhiteBox::check_temporal_rings() {
         continue;
       auto render = [=](bool timed, float t, RingTemporalOracle::Offset rows,
                         int segment) {
-        reset_effect_globals();
+        reset_globals();
         hs::random().seed(137);
         FX effect;
         effect.init();

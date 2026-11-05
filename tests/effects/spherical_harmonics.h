@@ -156,7 +156,7 @@ inline void test_sh_field_stays_inside_unit_range() {
 /** @brief Bounds color drift from the signed-to-unit carrier round trip. */
 inline void test_sh_pullback_matches_direct_colorize() {
   using WB = SphericalHarmonicsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   WB::SH fx;
   fx.init();
 
@@ -211,7 +211,7 @@ inline void test_sh_pullback_matches_direct_colorize() {
 template <typename FnT>
 inline void sh_render_pinned_mode(int idx, float amplitude, FnT &&inspect) {
   using WB = SphericalHarmonicsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   pin_frame_clock(0);
   WB::SH fx;
   fx.init();
@@ -342,7 +342,7 @@ inline void test_sh_polarity_split_and_ao_shaping() {
  */
 inline void test_sh_morph_chain_rearms() {
   using WB = SphericalHarmonicsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   pin_frame_clock(0);
   WB::SH fx;
   fx.init();
@@ -400,7 +400,7 @@ inline void test_sh_morph_chain_rearms() {
 /** @brief A mode cycle visits every preset once before returning to its seed. */
 inline void test_sh_cycle_covers_every_mode() {
   using WB = SphericalHarmonicsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   WB::SH fx;
   fx.init();
   const int SEED = WB::current_idx(fx);
@@ -428,7 +428,7 @@ inline void test_sh_cycle_covers_every_mode() {
 /** @brief Maps every runtime preset to its stable harmonic mode. */
 inline void test_sh_preset_mode_mapping() {
   using WB = SphericalHarmonicsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   WB::SH fx;
   fx.init();
 
@@ -446,7 +446,7 @@ inline void test_sh_preset_mode_mapping() {
 /** @brief Keeps a manual harmonic selection past the automatic leg it replaces. */
 inline void test_sh_manual_preset_replaces_inflight_morph() {
   using WB = SphericalHarmonicsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   pin_frame_clock(0);
   WB::SH fx;
   fx.init();
@@ -502,7 +502,7 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
  */
 template <int W, int H, typename Schedule>
 inline PixelGolden sh_instantaneous_golden(int frames, Schedule &&schedule) {
-  reset_effect_globals();
+  reset_globals();
   const ScopedTemporalSampling instantaneous(false);
   HS_EXPECT_TRUE(Spacetime::flat_surface());
   SphericalHarmonics<W, H> fx;
@@ -658,7 +658,7 @@ inline constexpr int SH_TIME_TOLERANCE = 4;
  *  mode-chain wrap, matching an independent time evaluator across the seam. */
 inline void test_sh_columns_follow_sweep_time() {
   using WB = SphericalHarmonicsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   WB::SH fx;
   fx.init();
   WB::pin_mode(fx, WB::max_mode_idx());
@@ -703,7 +703,7 @@ inline void test_sh_segmented_columns_match_single_engine() {
       {{0, 40, 0}, {40, 60, 0}, {60, SMALL_W, 0}, {0, 8, 4}}};
   constexpr int DRAWS = 70;
   const auto render = [](const Segment &segment, auto &&inspect) {
-    reset_effect_globals();
+    reset_globals();
     WB::SH engine;
     engine.init();
     engine.set_clip(0, SMALL_H, segment.x0, segment.x1);
@@ -742,7 +742,7 @@ inline void test_sh_segmented_columns_match_single_engine() {
  *  interpolate. */
 inline void test_sh_manual_preset_resets_morph_history() {
   using WB = SphericalHarmonicsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   WB::SH fx;
   fx.init();
   for (int draw = 0; draw < 20; ++draw) {
@@ -788,7 +788,7 @@ inline void test_sh_manual_preset_resets_morph_history() {
  *  history advances, so re-enabling samples from the last drawn frame. */
 inline void test_sh_fidelity_toggle_keeps_history() {
   using WB = SphericalHarmonicsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   WB::SH fx;
   fx.init();
   const ShTimeEvaluator evaluator;

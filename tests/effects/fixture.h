@@ -96,7 +96,7 @@ inline void lint_animated_pause(FX &effect, const char *name);
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void smoke_one(const char *name) {
   HS_CONTEXT(name);
-  reset_effect_globals();
+  reset_globals();
   const uint32_t dropped_before = Timeline::dropped_events();
   pin_frame_clock(0);
 
@@ -393,7 +393,7 @@ template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void render_capture(std::vector<Pixel> &out, int frames,
                            uint64_t *frame_fold = nullptr,
                            bool *lit = nullptr) {
-  reset_effect_globals();
+  reset_globals();
   // Pre-init epoch, so construction sees the same clock on both runs.
   pin_frame_clock(0);
 
@@ -434,7 +434,7 @@ template <template <int, int> class E, int W, int H>
 inline PixelGolden
 untimed_frame_golden(int frames, const std::array<int, 4> *clip = nullptr,
                      bool temporal = false) {
-  reset_effect_globals();
+  reset_globals();
   pin_frame_clock(0);
   Spacetime::set_flat_surface(!temporal);
   PixelGolden golden;
@@ -561,7 +561,7 @@ inline void clip_clear_parity_one(
   constexpr int S = H * 2;
 
   auto render = [&](int segment_id, bool full_clear) {
-    reset_effect_globals();
+    reset_globals();
     pin_frame_clock(0);
     std::vector<Pixel> displayed;
     E<W, H> effect;
@@ -733,7 +733,7 @@ using FaceCopies = std::array<std::map<size_t, FaceCopy>, 2>;
  * @return Accumulated seam and interior steps. */
 template <template <int, int> class E, int W, int H>
 inline MeshSeamSteps mesh_seam_steps(int frames) {
-  reset_effect_globals();
+  reset_globals();
   pin_frame_clock(0);
   E<W, H> effect;
   effect.init();
@@ -1148,7 +1148,7 @@ template <typename FX>
 inline void expect_slab_bands_match_full_frame(int warmup) {
   constexpr int W = SMALL_W, H = SMALL_H, FRAMES = 3;
   auto render = [warmup](int x0, int x1) {
-    reset_effect_globals();
+    reset_globals();
     pin_frame_clock(0);
     FX fx;
     fx.init();

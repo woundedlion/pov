@@ -27,7 +27,7 @@ struct PetalFlowWhiteBox {
   static std::vector<float> render_temporal_ring(bool timed, float fraction,
                                                  float displacement,
                                                  float rho) {
-    reset_effect_globals();
+    reset_globals();
     PF fx;
     fx.init();
     const float previous_rho = rho - fx.move_dist();
@@ -104,7 +104,7 @@ struct PetalFlowWhiteBox {
 
 /** @brief PetalFlow can spawn into the final free ring slot. */
 inline void test_petalflow_last_free_slot() {
-  reset_effect_globals();
+  reset_globals();
   using WB = PetalFlowWhiteBox;
   WB::PF effect;
   effect.init();
@@ -122,7 +122,7 @@ inline void test_petalflow_last_free_slot() {
  */
 inline void test_petalflow_spawn_gap_bounded() {
   using WB = PetalFlowWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   WB::PF pf;
   pf.init();
   HS_EXPECT_NEAR(WB::youngest_rho(pf) - WB::start_rho(), WB::gap(pf), 1e-5f);

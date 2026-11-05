@@ -215,7 +215,7 @@ struct BZWhiteBox {
 
 /** @brief Pins the authored BZ species colors. */
 inline void test_bz_authored_palette() {
-  reset_effect_globals();
+  reset_globals();
   BZWhiteBox::BZ bz;
   bz.init();
   const auto expect_color = [&](float position, const Pixel &expected) {
@@ -373,7 +373,7 @@ inline void test_bz_perturb_state_draw_count_pinned() {
     // Off-by-one in either direction would have landed at a different output.
     HS_EXPECT_EQ(hs::random()(), ref());
   }
-  reset_effect_globals();
+  reset_globals();
 }
 
 /**
@@ -593,7 +593,7 @@ inline void test_bz_render_center_matches_reference() {
     HS_EXPECT_GT(error.refined_seeds, 0);
     HS_EXPECT_EQ(error.center_mismatches, 0);
   }
-  reset_effect_globals();
+  reset_globals();
 }
 
 /**
@@ -649,7 +649,7 @@ inline void test_bz_slabs_shade_the_field_after_their_substep() {
   constexpr bool TOGGLED[] = {true, true, false, false, true};
   int earlier = 0;
   auto run = [&](bool check) {
-    reset_effect_globals();
+    reset_globals();
     WhiteBox::BZ bz;
     bz.init();
     for (int f = 0; f < static_cast<int>(std::size(TOGGLED)); ++f) {
@@ -710,7 +710,7 @@ inline void test_bz_segmented_slabs_match_full_frame() {
 inline void test_bz_lattice_basis_matches_rotated_lattice() {
   using WhiteBox = BZWhiteBox;
   constexpr int W = SMALL_W, H = SMALL_H;
-  reset_effect_globals();
+  reset_globals();
   WhiteBox::BZ bz;
   bz.init();
   for (int f = 0; f < 12; ++f) {

@@ -29,7 +29,7 @@ struct HopfWhiteBox {
   static std::vector<float> render_temporal_trail(bool timed, float fraction,
                                                   float displacement,
                                                   float start_column) {
-    reset_effect_globals();
+    reset_globals();
     HF fx;
     fx.init();
     for (size_t i = 0; i < HF::ACTUAL_FIBERS; ++i)
@@ -97,7 +97,7 @@ struct HopfWhiteBox {
  *          double-precision reference.
  */
 inline void test_hopf_projection_math() {
-  reset_effect_globals();
+  reset_globals();
   using WB = HopfWhiteBox;
 
   HopfFibration<DEFAULT_W, DEFAULT_H> fx;

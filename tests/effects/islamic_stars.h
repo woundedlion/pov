@@ -386,7 +386,7 @@ inline constexpr Solids::Entry NEEDLE_ENTRY = {
  *        fade-in and starts its build at the full-opacity boundary.
  */
 inline void test_islamicstars_seed_sprite_fade_in() {
-  reset_effect_globals();
+  reset_globals();
   IslamicBuildProbe::IS effect;
   effect.init();
 
@@ -404,7 +404,7 @@ inline void test_islamicstars_seed_sprite_fade_in() {
 }
 
 inline void test_islamicstars_burst_size_is_snapshotted_per_spawn() {
-  reset_effect_globals();
+  reset_globals();
   IslamicBuildProbe::IS effect;
   effect.init();
   const auto entry = Solids::Collections::get_islamic_solids().front();
@@ -435,7 +435,7 @@ inline void test_islamicstars_smooth_recipe_completion() {
   for (const Case &c :
        {Case{Solids::Op::DUAL, 8, 1}, Case{Solids::Op::NEEDLE, 24, 1},
         Case{Solids::Op::KIS, 24, 2}, Case{Solids::Op::ZIP, 14, 3}}) {
-    reset_effect_globals();
+    reset_globals();
     const Solids::OpStep steps[] = {{c.op}};
     const Solids::Recipe recipe = Solids::make_recipe(1, steps);
     HS_EXPECT_TRUE(
@@ -493,7 +493,7 @@ inline size_t first_recipe_entry() {
 
 /** @brief The shipping cycle budget includes every shape's planned build. */
 inline void test_islamicstars_default_cycle_frames() {
-  reset_effect_globals();
+  reset_globals();
   using IS = IslamicBuildProbe::IS;
   HS_EXPECT_EQ(IS::cycle_frames(), 4896u);
   HS_EXPECT_EQ(IslamicBuildProbe::runtime_cycle_frames(), IS::cycle_frames());
@@ -504,7 +504,7 @@ inline void test_islamicstars_default_cycle_frames() {
  *        mapping, and which controls are preset-scoped versus global.
  */
 inline void test_islamicstars_presets_cover_roster() {
-  reset_effect_globals();
+  reset_globals();
   IslamicBuildProbe::IS effect;
   effect.init();
   constexpr std::string_view EXPECTED_NAMES[] = {
@@ -549,7 +549,7 @@ inline void test_islamicstars_presets_cover_roster() {
  *        segues in and builds while paused.
  */
 inline void test_islamicstars_manual_select_cuts_build() {
-  reset_effect_globals();
+  reset_globals();
   IslamicBuildProbe::IS effect;
   IslamicBuildProbe::set_trans_speed(effect, 8.0f);
   effect.init();
@@ -586,7 +586,7 @@ inline void test_islamicstars_manual_select_cuts_build() {
  *        unpausing resumes advances.
  */
 inline void test_islamicstars_pause_holds_shape() {
-  reset_effect_globals();
+  reset_globals();
   IslamicBuildProbe::IS effect;
   IslamicBuildProbe::set_trans_speed(effect, 8.0f);
   IslamicBuildProbe::set_burst_size(effect, 1);
@@ -639,7 +639,7 @@ inline void test_islamicstars_pause_holds_shape() {
  *        display, and lit frames once entry 2 starts.
  */
 inline void test_islamicstars_recipe_build_smoke() {
-  reset_effect_globals();
+  reset_globals();
   IslamicBuildProbe::IS effect;
   IslamicBuildProbe::set_trans_speed(effect, 8.0f);
   effect.init();
@@ -702,7 +702,7 @@ inline void test_islamicstars_recipe_build_smoke() {
  *          so it is measured separately.
  */
 inline void test_islamicstars_roster_cycle_fits_budget() {
-  reset_effect_globals();
+  reset_globals();
   // Host scratch uses the device caps; persistent usage is checked against the
   // live per-shape device budget. Resplitting rebases scratch high-water marks.
   {
@@ -780,7 +780,7 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
 
   // The needle build. Trans Speed 2, not the roster's 8: a compressed stage can
   // drop the closing bridge leg before it runs, which is the peak.
-  reset_effect_globals();
+  reset_globals();
   size_t na_peak = 0, nb_peak = 0, np_peak = 0;
   int needle_frames = 0;
   bool needle_built = false;
@@ -827,7 +827,7 @@ inline void islamic_frames_match_reference(size_t preset, Setup &&setup,
   using P = IslamicBuildProbe;
   std::vector<uint64_t> reference;
   for (int mode = 0; mode < 2; ++mode) {
-    reset_effect_globals();
+    reset_globals();
     pin_frame_clock(0);
     P::IS effect;
     P::set_trans_speed(effect, 4.0f);
@@ -927,7 +927,7 @@ inline void test_islamicstars_endpoint_groups() {
  *          whose scratch must not co-reside with the leg's own arrival mesh.
  */
 inline void test_islamicstars_dual_bridge_fits_budget() {
-  reset_effect_globals();
+  reset_globals();
   IslamicStars<288, 144> effect;
   IslamicBuildProbe::set_trans_speed(effect, 2.0f);
   effect.init();
@@ -968,7 +968,7 @@ inline void test_islamicstars_dual_bridge_fits_budget() {
  */
 inline void test_islamicstars_opacity_shades_at_column_time() {
   using P = IslamicBuildProbe;
-  reset_effect_globals();
+  reset_globals();
   P::IS effect;
   effect.init();
   constexpr float PREVIOUS = 0.35f, PHASE = 0.55f;
@@ -999,7 +999,7 @@ inline void test_islamicstars_opacity_shades_at_column_time() {
  */
 inline void test_islamicstars_opacity_history() {
   using P = IslamicBuildProbe;
-  reset_effect_globals();
+  reset_globals();
   P::IS effect;
   effect.init();
   const int front = P::front_slot(effect);
@@ -1032,7 +1032,7 @@ inline void test_islamicstars_opacity_history() {
 inline void test_islamicstars_ripple_motion_is_seam_free() {
   using P = IslamicBuildProbe;
   constexpr int W = 288, H = 144;
-  reset_effect_globals();
+  reset_globals();
   IslamicStars<W, H> effect;
   effect.init();
   HS_EXPECT_GT(P::fire_ripple(effect), 0);
@@ -1071,7 +1071,7 @@ inline void test_islamicstars_ripple_motion_is_seam_free() {
 inline void test_islamicstars_seam_copies_are_one_polygon() {
   using P = IslamicBuildProbe;
   constexpr int W = 288, H = 144;
-  reset_effect_globals();
+  reset_globals();
   IslamicStars<W, H> effect;
   effect.init();
   Solids::Entry entry{};
@@ -1153,7 +1153,7 @@ inline void test_islamicstars_playback_motion_is_seam_free() {
  */
 inline void test_islamicstars_build_legs_hand_their_path() {
   using P = IslamicBuildProbe;
-  reset_effect_globals();
+  reset_globals();
   P::IS effect;
   effect.init();
   P::BuildRecorder recorder;

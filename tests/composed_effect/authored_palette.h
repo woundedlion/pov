@@ -38,7 +38,7 @@ struct AuthoredPaletteProbe
 
 /** @brief Fixed color providers bake every authored source as its direct recipe. */
 inline void test_composed_authored_palette_sources() {
-  reset_effect_globals();
+  reset_globals();
   AuthoredPaletteProbe effect;
   effect.init();
   AuthoredPaletteProbe::Params params{};
@@ -122,7 +122,7 @@ inline void test_composed_authored_palette_sources() {
 
 /** @brief Switching cycling harmonies preserves their elapsed fade time. */
 inline void test_composed_authored_palette_harmony_clock() {
-  reset_effect_globals();
+  reset_globals();
   AuthoredPaletteProbe effect;
   effect.init();
   GeneratedPaletteBank reference;

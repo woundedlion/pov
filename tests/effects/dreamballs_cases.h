@@ -34,7 +34,7 @@ struct DreamBallsWhiteBox {
                         bool woven, bool newborn = false,
                         bool frozen_geometry = false, float spin = 0.012f) {
     using FX = DreamBalls<DEFAULT_W, DEFAULT_H>;
-    reset_effect_globals();
+    reset_globals();
     FX fx;
     fx.init();
     auto p = fx.params;
@@ -294,7 +294,7 @@ struct DreamBallsWhiteBox {
  */
 inline void test_dreamballs_preset_cycle_bookkeeping() {
   using WB = DreamBallsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
 
   WB::DB db;
   db.init(); // runs spawn_sprite() at preset 0
@@ -379,7 +379,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
 /** @brief Verifies the Base Mesh dropdown covers every simple solid family. */
 inline void test_dreamballs_base_mesh_selector() {
   using WB = DreamBallsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
 
   WB::DB db;
   db.init();
@@ -424,7 +424,7 @@ inline void test_dreamballs_base_mesh_selector() {
  */
 inline void test_dreamballs_max_edge_solid_render() {
   using WB = DreamBallsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
 
   WB::DB db;
   db.init();
@@ -465,7 +465,7 @@ inline void test_dreamballs_max_edge_solid_render() {
 /** @brief Verifies automatic, forced-medial, and defect weave topology. */
 inline void test_dreamballs_weave_topology() {
   using WB = DreamBallsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
 
   WB::DB db;
   db.init();
@@ -612,7 +612,7 @@ inline void test_dreamballs_weave_topology() {
 inline void test_dreamballs_defect_weave_renders() {
   using WB = DreamBallsWhiteBox;
   auto render_defects = [](float weave_gap) {
-    reset_effect_globals();
+    reset_globals();
     WB::DB defects;
     defects.init();
     HS_EXPECT_EQ(defects.updateParameter("Base Mesh", 0.0f),
@@ -637,7 +637,7 @@ inline void test_dreamballs_defect_weave_renders() {
  */
 inline void test_dreamballs_respawn_fires_and_honors_pause() {
   using WB = DreamBallsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   WB::DB db;
   db.init();
   const int held_bake = WB::active_bake(db);
@@ -660,7 +660,7 @@ inline void test_dreamballs_respawn_fires_and_honors_pause() {
  */
 inline void check_dreamballs_select_mid_fade(int lead_frames, bool respawned) {
   using WB = DreamBallsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   WB::DB db;
   db.init();
   db.setAnimationsPaused(false);
@@ -747,7 +747,7 @@ inline void test_dreamballs_column_work_is_bounded() {
   HS_EXPECT_GT(spun.endpoint_evaluations, 0u);
   HS_EXPECT_LE(spun.midpoint_evaluations, spun.endpoint_evaluations);
   for (size_t preset : {size_t(8), size_t(0), size_t(2)}) {
-    reset_effect_globals();
+    reset_globals();
     DreamBalls<DEFAULT_W, DEFAULT_H> fx;
     fx.init();
     HS_EXPECT_TRUE(fx.selectPreset(preset));
@@ -777,7 +777,7 @@ inline void test_dreamballs_column_work_is_bounded() {
 /** @brief DreamBalls clears pose continuity at manual cuts and sprite replacement. */
 inline void test_dreamballs_retained_history_resets() {
   using WB = DreamBallsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   WB::DB effect;
   effect.init();
   HS_EXPECT_FALSE(WB::history_ready(effect));

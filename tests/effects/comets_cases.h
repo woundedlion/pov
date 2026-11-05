@@ -60,7 +60,7 @@ struct CometsWhiteBox {
   static void check_births_skip_earlier_columns() {
     constexpr int W = 288, H = 144;
     using F = Comets<W, H>;
-    reset_effect_globals();
+    reset_globals();
     pin_frame_clock(0);
     F fx;
     fx.init();
@@ -168,7 +168,7 @@ inline bool same_palette_entries(const BakedPalette &a, const BakedPalette &b) {
  */
 inline void test_comets_wipe_shades_at_column_time() {
   using WB = CometsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   WB::C effect;
   effect.init();
   hs_test::run_frames(effect, 24);
@@ -199,7 +199,7 @@ inline void test_comets_wipe_shades_at_column_time() {
  */
 inline void test_comets_wipe_history() {
   using WB = CometsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   WB::C effect;
   effect.init();
   hs_test::run_frames(effect, 4);
@@ -246,7 +246,7 @@ inline bool palette_snapshots_equal(const GenerativePalette::Snapshot &a,
  */
 inline void test_comets_rollover_skipped_mid_wipe() {
   using WB = CometsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
 
   WB::C effect;
   effect.init();
@@ -272,7 +272,7 @@ inline void test_comets_rollover_skipped_mid_wipe() {
 /** @brief Manual Comets selection restarts the authored path deterministically. */
 inline void test_comets_manual_preset_restarts_path() {
   using WB = CometsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
 
   WB::C effect;
   effect.init();

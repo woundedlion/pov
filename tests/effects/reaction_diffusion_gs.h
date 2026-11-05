@@ -2115,7 +2115,7 @@ inline void test_gs_untimed_frames_are_pinned() {
 inline void test_gs_lattice_basis_matches_rotated_lattice() {
   using WhiteBox = GSWhiteBox;
   constexpr int W = SMALL_W, H = SMALL_H;
-  reset_effect_globals();
+  reset_globals();
   WhiteBox::GS gs;
   gs.init();
   for (int f = 0; f < 120; ++f) {
@@ -2187,7 +2187,7 @@ inline void test_gs_slabs_shade_the_field_after_their_substep() {
   int earlier = 0, earlier_pigment = 0, earlier_dissolve = 0, masked = 0,
       black = 0, reseeded = 0;
   auto run = [&](bool check) {
-    reset_effect_globals();
+    reset_globals();
     WhiteBox::GS gs;
     gs.init();
     Spacetime::set_flat_surface(!check);
@@ -2289,7 +2289,7 @@ inline void test_gs_slabs_shade_the_field_after_their_substep() {
  */
 inline void test_gs_slab_noise_keeps_the_previous_bake() {
   using WhiteBox = GSWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   WhiteBox::GS gs;
   gs.init();
   for (int f = 0; f < 3; ++f) {

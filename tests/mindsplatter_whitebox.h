@@ -74,7 +74,7 @@ struct MindSplatterWhiteBox {
                                                    float turn, float shift,
                                                    float spacing,
                                                    uint32_t *setups = nullptr) {
-    reset_effect_globals();
+    reset_globals();
     MS fx;
     fx.init();
     fx.particle_system.attractors.clear();

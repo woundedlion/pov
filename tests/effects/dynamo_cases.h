@@ -12,7 +12,7 @@
 struct DynamoWhiteBox {
   /** @brief Lowering the gap closes slack toward the nearest leader column. */
   static void check_gap_reduction_uses_shortest_path() {
-    reset_effect_globals();
+    reset_globals();
     Dynamo<DEFAULT_W, DEFAULT_H> effect;
     effect.params.gap = 2;
     for (int direction : {-1, 1}) {
@@ -35,7 +35,7 @@ struct DynamoWhiteBox {
    */
   static void check_overlapping_wipes_stay_in_range() {
     // init() bakes from persistent_arena and schedules on the global timeline.
-    reset_effect_globals();
+    reset_globals();
 
     Dynamo<DEFAULT_W, DEFAULT_H> effect;
     effect.init();
@@ -71,7 +71,7 @@ struct DynamoWhiteBox {
 
   /** @brief Pins disjoint band colors and overlapping wipe continuity. */
   static void check_wipe_band_colors() {
-    reset_effect_globals();
+    reset_globals();
 
     Dynamo<DEFAULT_W, DEFAULT_H> effect;
     effect.init();
@@ -152,7 +152,7 @@ struct DynamoWhiteBox {
  */
 inline void test_dynamo_trail_ceiling_bounds_the_ring() {
   using WB = DynamoWhiteBox;
-  reset_effect_globals();
+  reset_globals();
 
   WB::D effect;
   effect.init();
@@ -184,7 +184,7 @@ inline void test_dynamo_trail_ceiling_bounds_the_ring() {
  */
 inline void test_dynamo_emitted_points_counts_ring_seeds() {
   using WB = DynamoWhiteBox;
-  reset_effect_globals();
+  reset_globals();
 
   WB::D effect;
   effect.init();

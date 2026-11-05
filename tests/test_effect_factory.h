@@ -209,7 +209,7 @@ template <int W, int H> inline void verify_factory_lookup() {
 template <int W, int H> inline void drive_factory_lifecycle() {
   std::printf("  -- factory create/render/destroy @ %dx%d --\n", W, H);
   for (const FactoryEntry &entry : hs_wasm::get_factory<W, H>()) {
-    effects_tests::reset_effect_globals();
+    hs_test::reset_globals();
 
     pin_frame_clock(0);
     std::unique_ptr<Effect> effect = entry.creator();

@@ -32,13 +32,13 @@ inline void test_ringspin_strobe_configuration_preserves_rendering() {
   bool lit = false;
   render_capture<RingSpin, SMALL_W, SMALL_H>(expected, 2, nullptr, &lit);
   HS_EXPECT_TRUE(lit);
-  reset_effect_globals();
+  reset_globals();
   pin_frame_clock(0);
   {
     RingSpin<SMALL_W, SMALL_H> roster_effect;
     HS_EXPECT_TRUE(roster_effect.strobe_columns());
   }
-  reset_effect_globals();
+  reset_globals();
   pin_frame_clock(0);
   RingSpin<SMALL_W, SMALL_H> firmware_effect(
       RingSpin<SMALL_W, SMALL_H>::Strobe::DISABLED);
@@ -63,7 +63,7 @@ inline void test_ringspin_strobe_configuration_preserves_rendering() {
  *          ring's equator. Alpha 0 must then blank the frame.
  */
 inline void test_ringspin_trail_hugs_its_great_circles() {
-  reset_effect_globals();
+  reset_globals();
   pin_frame_clock(0);
   using WB = RingSpinWhiteBox;
   WB::RS fx;

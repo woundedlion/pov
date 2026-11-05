@@ -38,7 +38,7 @@ inline void test_mindsplatter_warp_history() {
   using WB = MindSplatterWhiteBox;
   const ScopedTemporalSampling timed(true);
   for (int instance = 0; instance < 2; ++instance) {
-    reset_effect_globals();
+    reset_globals();
     MindSplatter<SMALL_W, SMALL_H> effect;
     effect.init();
     HS_EXPECT_FALSE(WB::warp_ready(effect));
@@ -67,7 +67,7 @@ inline void test_mindsplatter_warp_history() {
 }
 
 inline void test_mindsplatter_profile_selects_initialized_preset() {
-  reset_effect_globals();
+  reset_globals();
   using MS = MindSplatter<96, 20>;
   MS effect;
   effect.init();
@@ -93,7 +93,7 @@ template <int W, int H, int FRAMES, typename Toggle>
 std::array<FrameRun, 2> render_toggled(Toggle toggle) {
   std::array<FrameRun, 2> runs;
   for (int reference = 0; reference < 2; ++reference) {
-    reset_effect_globals();
+    reset_globals();
     hs::set_mock_time(0, 0);
     auto &run = runs[reference];
     run.pixels.reserve(static_cast<size_t>(W) * H * FRAMES);
@@ -119,7 +119,7 @@ std::array<FrameRun, 2> render_toggled(Toggle toggle) {
 inline void test_mindsplatter_base_mesh_selector() {
   using MS = MindSplatter<SMALL_W, SMALL_H>;
   using WB = MindSplatterWhiteBox;
-  reset_effect_globals();
+  reset_globals();
 
   MS effect;
   effect.init();
@@ -167,7 +167,7 @@ inline void test_mindsplatter_whitebox_geometry_replay() {
   std::vector<unsigned char> state;
 
   {
-    reset_effect_globals();
+    reset_globals();
     MS effect;
     effect.init();
     WB::select_preset(effect, 5);
@@ -179,7 +179,7 @@ inline void test_mindsplatter_whitebox_geometry_replay() {
     state = WB::serialize_render(WB::capture(effect));
   }
 
-  reset_effect_globals();
+  reset_globals();
   MS replay;
   replay.init();
   WB::restore_render(replay, state);
@@ -195,7 +195,7 @@ inline constexpr int SATURATED_WARMUP_FRAMES = 160;
 /** @brief Captures a frozen particle pool after warming and filling its capacity. */
 template <int W, int H> inline auto saturated_snapshot() {
   using WB = MindSplatterWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   hs::set_mock_time(0, 0);
   MindSplatter<W, H> effect;
   effect.init();
@@ -230,7 +230,7 @@ inline void test_mindsplatter_replay_snapshot_exact() {
     bool restored_exactly = false;
   };
   auto replay = [&]() {
-    reset_effect_globals();
+    reset_globals();
     hs_test::pin_frame_clock(SATURATED_WARMUP_FRAMES);
     Replay result;
     MS effect;
@@ -286,7 +286,7 @@ inline void test_mindsplatter_saturated_quadrant_sink_parity() {
   };
 
   for (const Quadrant &quadrant : quadrants) {
-    reset_effect_globals();
+    reset_globals();
     MS effect;
     effect.init();
     WB::restore(effect, source);
@@ -474,7 +474,7 @@ inline void test_mindsplatter_rotation_matrix_framebuffer_error() {
 inline void test_mindsplatter_particle_gradients_follow_emission_order() {
   using MS = MindSplatter<SMALL_W, SMALL_H>;
   using WB = MindSplatterWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   MS effect;
   effect.init();
   WB::step_physics(effect);
@@ -494,7 +494,7 @@ inline void test_mindsplatter_manual_preset_survives_unpause() {
   using MS = MindSplatter<SMALL_W, SMALL_H>;
   constexpr int BLEND_FRAMES = MS::DEPARTURE.frames;
   using WB = MindSplatterWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   MS effect;
   effect.init();
 
@@ -522,7 +522,7 @@ inline void test_mindsplatter_manual_preset_survives_unpause() {
 inline void test_mindsplatter_show_window_covers_final_dwell() {
   using MS = MindSplatter<SMALL_W, SMALL_H>;
   using WB = MindSplatterWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   MS effect;
   effect.init();
   bool visited_last = false;
@@ -542,7 +542,7 @@ inline void test_mindsplatter_show_window_covers_final_dwell() {
 inline void test_mindsplatter_full_timeline_retries_transition() {
   using MS = MindSplatter<SMALL_W, SMALL_H>;
   using WB = MindSplatterWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   MS effect;
   effect.init();
   float sink = 0.0f;
@@ -732,7 +732,7 @@ inline void test_mindsplatter_octahedral_hole_alpha_equivalence() {
 inline void test_mindsplatter_attractor_hole_alpha_equivalence() {
   using MS = MindSplatter<SMALL_W, SMALL_H>;
   using WB = MindSplatterWhiteBox;
-  reset_effect_globals();
+  reset_globals();
 
   MS effect;
   effect.init();
@@ -773,7 +773,7 @@ inline void test_mindsplatter_attractor_hole_alpha_equivalence() {
  */
 inline void test_mindsplatter_emit_phase_wrapped() {
   using WB = MindSplatterWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   WB::MS ms;
   ms.init();
   HS_EXPECT_EQ(ms.updateParameter("Ang Spd", 1.0f), ParamSetResult::APPLIED);

@@ -15,7 +15,7 @@
  *          selection, and every row is a distinct parameter vector.
  */
 inline void test_shapeshifter_preset_defaults() {
-  reset_effect_globals();
+  reset_globals();
   ShapeShifter<DEFAULT_W, DEFAULT_H> ss;
   ss.init();
 
@@ -133,7 +133,7 @@ inline void test_shapeshifter_slider_selections_render() {
   using SS = ShapeShifter<SMALL_W, SMALL_H>;
 
   auto render = [](const char *slider, int selection) {
-    reset_effect_globals();
+    reset_globals();
     SS ss;
     ss.init();
     ss.setAnimationsPaused(true);

@@ -13,7 +13,7 @@ inline void test_ash_cloud_value_cutout_gates_the_frame() {
   using FX = AshCloud<SMALL_W, SMALL_H>;
 
   auto lit_pixels = [](float threshold) {
-    reset_effect_globals();
+    reset_globals();
     FX effect;
     effect.init();
 

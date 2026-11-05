@@ -185,7 +185,7 @@ inline constexpr int RAYMARCH_COLUMN_BOUND = 2;
 inline void test_raymarch_lighting_and_palette_at_column_time() {
   using WB = RaymarchWhiteBox;
   constexpr int W = SMALL_W, H = SMALL_H;
-  reset_effect_globals();
+  reset_globals();
   Raymarch<W, H> fx;
   fx.init();
   hs_test::run_frames(fx, 6);
@@ -218,7 +218,7 @@ inline constexpr float RAYMARCH_NOISE_MEAN_BOUND = 2.0f;
 inline void test_raymarch_hue_noise_at_column_time() {
   using WB = RaymarchWhiteBox;
   constexpr int W = SMALL_W, H = SMALL_H;
-  reset_effect_globals();
+  reset_globals();
   Raymarch<W, H> fx;
   fx.init();
   hs_test::run_frames(fx, 6);
@@ -265,7 +265,7 @@ inline void test_raymarch_hue_noise_at_column_time() {
  * @brief Verifies every Raymarch volume receives its own live RandomWalk.
  */
 inline void test_raymarch_volume_random_walks_are_independent() {
-  reset_effect_globals();
+  reset_globals();
   Raymarch<SMALL_W, SMALL_H> effect;
   effect.init();
   const int count = RaymarchWhiteBox::volume_count(effect);
@@ -288,7 +288,7 @@ inline void test_raymarch_volume_random_walks_are_independent() {
 /** @brief Pins Raymarch's named preset and selectable placement solids. */
 inline void test_raymarch_preset_and_placement_solids() {
   using RM = Raymarch<SMALL_W, SMALL_H>;
-  reset_effect_globals();
+  reset_globals();
   RM effect;
   effect.init();
 

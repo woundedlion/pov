@@ -62,7 +62,6 @@ static_assert(
         CollidingWarpNames>());
 
 using effects_tests::preset_params;
-using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;
 
@@ -552,7 +551,7 @@ inline void check_slider_registration(const char *name) {
   using Traits = TraitsOf<FX>;
   HS_CONTEXT(name);
 
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.init();
   const ParamList &params = effect.getParameters();
@@ -912,7 +911,7 @@ inline void check_snapshot_contract(const char *name) {
   using FX = E<SMALL_W, SMALL_H>;
   HS_CONTEXT(name);
 
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.init();
 
@@ -1002,7 +1001,7 @@ inline void check_preset_choreography(const char *name) {
   HS_EXPECT_GT(FX::PRESET_IDS.size(), size_t{0});
   HS_EXPECT_TRUE(FX::valid_params(FX::initial_params()));
 
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.init();
   HS_EXPECT_EQ(effect.getPresetCount(), FX::PRESET_IDS.size());
@@ -1104,7 +1103,7 @@ inline void test_flowers_longitude_seam() {
  */
 inline void test_alien_brain_preset_dwell() {
   using FX = AlienBrain<SMALL_W, SMALL_H>;
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.init();
 
@@ -1122,7 +1121,7 @@ inline void test_alien_brain_preset_dwell() {
 
 inline void test_mobius_grid_circular_animation() {
   using FX = MobiusGrid<SMALL_W, SMALL_H>;
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.init();
   const auto authored = effect.serialize_parameters().params;
@@ -1189,7 +1188,7 @@ inline void test_composed_strobe_roster() {
 #define HS_COMPOSED_STROBE(name)                                               \
   {                                                                            \
     HS_CONTEXT(#name);                                                         \
-    reset_effect_globals();                                                    \
+    reset_globals();                                                           \
     name<SMALL_W, SMALL_H> effect;                                             \
     HS_EXPECT_TRUE(effect.strobe_columns());                                   \
   }

@@ -20,7 +20,7 @@ inline void test_grid_worms_twist_clocks() {
           typename Leaves::template StageAt<1>,
           Pullback::Stage::Rotate<Pullback::OuterCameraProvider<Discovery>>>);
   static_assert(!FX::factored_columns());
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.setAnimationsPaused(true);
   effect.init();

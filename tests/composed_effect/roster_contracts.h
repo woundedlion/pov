@@ -23,7 +23,7 @@ struct MobiusFrameProbe : MobiusGrid<SMALL_W, SMALL_H> {
 /** @brief Mobius preset departures adopt authored generators. */
 inline void test_mobius_automatic_departures_interpolate_generator() {
   for (bool fade : {false, true}) {
-    reset_effect_globals();
+    reset_globals();
     MobiusFrameProbe effect;
     effect.init();
     effect.params.template get<"lens">().spin_x = 2.0f;
@@ -45,7 +45,7 @@ inline void test_mobius_automatic_departures_interpolate_generator() {
 /** @brief Captured generator sliders replay exactly. */
 inline void test_mobius_captured_parameter_restore() {
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  reset_effect_globals();
+  reset_globals();
   MobiusFrameProbe effect;
   effect.init();
   effect.params.template get<"lens">().spin_x = 1.25f;
@@ -63,7 +63,7 @@ inline void test_mobius_captured_parameter_restore() {
 
 /** @brief Snapshot admission rejects generators outside their ranges. */
 inline void test_mobius_frame_admission() {
-  reset_effect_globals();
+  reset_globals();
   MobiusFrameProbe effect;
   effect.init();
   const auto captured = effect.serialize_parameters();

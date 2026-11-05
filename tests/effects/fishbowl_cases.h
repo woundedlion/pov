@@ -17,7 +17,7 @@ struct FishbowlWhiteBox {
                                                   float displacement,
                                                   bool full) {
     using FX = Fishbowl<DEFAULT_W, DEFAULT_H>;
-    reset_effect_globals();
+    reset_globals();
     FX fx;
     fx.init();
     fx.node->trail.clear();
@@ -158,7 +158,7 @@ struct FishbowlWhiteBox {
 
 /** @brief Verifies Fishbowl's preset, snapshot admission, palette duty, phase and midpoint contracts. */
 inline void test_fishbowl_preset_and_fire_duty_cycle() {
-  reset_effect_globals();
+  reset_globals();
   using WB = FishbowlWhiteBox;
   WB::EffectType fx;
   fx.init();
@@ -250,7 +250,7 @@ inline void test_fishbowl_scratch_estimate_covers_peak() {
   using EffectType = WB::EffectType;
   const ScopedTemporalSampling temporal_sampling(!Spacetime::flat_surface());
   for (const bool timed : {false, true}) {
-    reset_effect_globals();
+    reset_globals();
     Spacetime::set_flat_surface(!timed);
     EffectType fx;
     fx.init();

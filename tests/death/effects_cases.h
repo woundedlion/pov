@@ -246,7 +246,7 @@ inline void case_dreamballs_woven_owner_edge_oob() {
 /** @brief Death case: a Raymarch placement-solid index past its table traps. */
 inline void case_raymarch_placement_solid_oob() {
   using WB = effects_tests::RaymarchWhiteBox;
-  effects_tests::reset_effect_globals();
+  hs_test::reset_globals();
   Raymarch<effects_tests::SMALL_W, effects_tests::SMALL_H> effect;
   WB::set_base_solid(effect, RaymarchPlacementSolid::COUNT);
   WB::build_points(effect);
@@ -255,7 +255,7 @@ inline void case_raymarch_placement_solid_oob() {
 /** @brief Death case: a harmonic morph cannot synchronize an invalid mode. */
 inline void case_spherical_harmonics_invalid_morph_mode() {
   using WB = effects_tests::SphericalHarmonicsWhiteBox;
-  effects_tests::reset_effect_globals();
+  hs_test::reset_globals();
   WB::SH effect;
   effect.init();
   WB::set_next_idx(effect, WB::max_mode_idx() + 1);
@@ -267,7 +267,7 @@ inline void case_spherical_harmonics_invalid_morph_mode() {
 /** @brief Traps on hankinsolids missing topology. */
 inline void case_hankinsolids_missing_topology() {
   using WB = effects_tests::HankinSolidsWhiteBox;
-  effects_tests::reset_effect_globals();
+  hs_test::reset_globals();
   WB::EffectT effect;
   effect.init();
   WB::draw_without_topology(effect);
@@ -290,7 +290,7 @@ inline void case_islamicstars_bridge_continuation() {
 /** @brief Death case: a Hankin step has no eagerly generated endpoint. */
 inline void case_islamicstars_hankin_eager_endpoint() {
   using WB = effects_tests::IslamicBuildProbe;
-  effects_tests::reset_effect_globals();
+  hs_test::reset_globals();
   WB::IS effect;
   static uint8_t a_buf[64];
   static uint8_t b_buf[64];

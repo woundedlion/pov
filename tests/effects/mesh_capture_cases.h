@@ -67,7 +67,7 @@ inline void measure_mesh_capture_work() {
        {ConwayGraph::TRUNCATED_ICOSIDODECAHEDRON,
         ConwayGraph::TRUNCATED_ICOSAHEDRON, ConwayGraph::CUBOCTAHEDRON,
         ConwayGraph::TETRAHEDRON}) {
-    reset_effect_globals();
+    reset_globals();
     pin_frame_clock(0);
     HankinSolids<W, H> effect;
     effect.init();
@@ -89,7 +89,7 @@ inline void measure_mesh_capture_work() {
     });
   }
   for (int shape : {6, 8}) {
-    reset_effect_globals();
+    reset_globals();
     pin_frame_clock(0);
     IslamicStars<W, H> effect;
     IslamicBuildProbe::set_trans_speed(effect, 4.0f);
@@ -135,7 +135,7 @@ inline constexpr int PROFILE_REPLAY_FRAMES = 280;
 inline size_t replay_islamicstars_profile(size_t preset, float trans_speed,
                                           int frames, bool report = true) {
   constexpr int W = 288, H = 144, WINDOW = 16;
-  reset_effect_globals();
+  reset_globals();
   pin_frame_clock(0);
   hs::seed_effect_stream<IslamicStars<W, H>>();
   IslamicStars<W, H> effect;

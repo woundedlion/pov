@@ -118,7 +118,7 @@ public:
 
 template <bool Persistent, bool Temporal>
 inline std::vector<Pixel> prepared_frame_pixels(bool sampling) {
-  reset_effect_globals();
+  reset_globals();
   const ScopedTemporalSampling mode(sampling);
   using FX = PreparedFrameProbe<Persistent, Temporal>;
   FX effect;
@@ -192,7 +192,7 @@ inline void test_composed_document_modulation_members() {
       HS_EXPECT_TRUE(std::string_view(Document::enum_id(field, index)) ==
                      field.enum_ids[index]);
   }
-  reset_effect_globals();
+  reset_globals();
   Millefiori<SMALL_W, SMALL_H> effect;
   effect.init();
   const auto read = [&] {
@@ -1167,7 +1167,7 @@ inline void test_composed_temporal_roster() {
  *  render through a Lerp departure, clips and a manual preset. */
 inline void test_mobius_grid_instantaneous_pixel_golden() {
   using FX = MobiusGrid<SMALL_W, SMALL_H>;
-  reset_effect_globals();
+  reset_globals();
   const ScopedTemporalSampling instantaneous(false);
   HS_EXPECT_TRUE(Spacetime::flat_surface());
   FX effect;
@@ -1448,7 +1448,7 @@ inline void test_millefiori_column_color_phase() {
   using Provider = ModulationProvider<typename FX::Binding, "field",
                                       Pattern::SourceKind::SPHERE_SMOOTH_GRID,
                                       Pattern::Evaluation::DIRECT>;
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.init();
   auto from = ComposedFrameWhiteBox::frame(effect);
@@ -1532,7 +1532,7 @@ inline void test_grid_worms_sine_column_phase() {
   using Provider = ModulationProvider<typename FX::Binding, "modulation",
                                       Pattern::SourceKind::DIRECTIONAL_SINE,
                                       Pattern::Evaluation::DIRECT>;
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.init();
   auto from = ComposedFrameWhiteBox::frame(effect);
@@ -1608,7 +1608,7 @@ inline void test_ash_cloud_noise_column_phase() {
   using Provider =
       ModulationProvider<FX::Binding, "modulation", Pattern::SourceKind::NOISE,
                          Pattern::Evaluation::DIRECT>;
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.init();
   auto from = ComposedFrameWhiteBox::frame(effect);
@@ -1711,7 +1711,7 @@ inline void test_baked_cube_column_phase() {
   using Provider =
       ModulationProvider<FX::Binding, "modulate1", Pattern::SourceKind::NOISE,
                          Pattern::Evaluation::BAKED_CUBE>;
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.init();
   auto from = ComposedFrameWhiteBox::frame(effect);
@@ -1761,7 +1761,7 @@ inline void test_baked_cube_column_phase() {
 /** @brief Palette-base slots preserve the other endpoint and skip changed controls. */
 inline void test_millefiori_palette_lab_lifetime() {
   using FX = Millefiori<SMALL_W, SMALL_H>;
-  reset_effect_globals();
+  reset_globals();
   Spacetime::set_flat_surface(false);
   pin_frame_clock(0);
   FX effect;
@@ -1841,7 +1841,7 @@ inline void test_millefiori_palette_lab_lifetime() {
 /** @brief Millefiori retains ripple endpoints and samples wave ages continuously. */
 inline void test_millefiori_ripple_endpoints() {
   using FX = Millefiori<SMALL_W, SMALL_H>;
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.init();
   ComposedFrameWhiteBox::advance(effect);
@@ -1962,7 +1962,7 @@ inline void test_composed_default_gradient_preparation() {
                                    AshCloudInlineEuler,
                                    math::TangentLimit::SMOOTH>;
   static_assert(!ForeignPolicy::OWNED_GRADIENT_PREPARE);
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.init();
   auto frame = ComposedFrameWhiteBox::frame(effect);

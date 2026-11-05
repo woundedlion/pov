@@ -22,7 +22,7 @@ struct MeshFeedbackWhiteBox {
   static std::vector<float> render_temporal_source(
       bool timed, float fraction, float displacement, float motion = 0.012f,
       std::vector<Pixel> *pixels = nullptr, bool still_route = false) {
-    reset_effect_globals();
+    reset_globals();
     MeshFeedback<DEFAULT_W, DEFAULT_H> fx;
     fx.init();
     const math::Vector axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
@@ -106,7 +106,7 @@ struct MeshFeedbackWhiteBox {
  */
 inline void meshfeedback_capture(std::vector<Pixel> &out, int frames,
                                  bool feedback) {
-  reset_effect_globals();
+  reset_globals();
   pin_frame_clock(0);
 
   MeshFeedbackWhiteBox::MF fx;
@@ -164,7 +164,7 @@ inline void test_meshfeedback_flush_precedes_mesh_draw() {
 inline void test_meshfeedback_preset_rotation_syncs_noise() {
   using WB = MeshFeedbackWhiteBox;
   using MF = WB::MF;
-  reset_effect_globals();
+  reset_globals();
   pin_frame_clock(0);
 
   MF fx;
@@ -224,7 +224,7 @@ inline void test_meshfeedback_preset_rotation_syncs_noise() {
 inline void test_meshfeedback_base_mesh_selector() {
   using WB = MeshFeedbackWhiteBox;
   using MF = WB::MF;
-  reset_effect_globals();
+  reset_globals();
 
   MF effect;
   effect.init();
@@ -263,7 +263,7 @@ inline void test_meshfeedback_base_mesh_selector() {
 inline void test_meshfeedback_preset_export_arity() {
   using WB = MeshFeedbackWhiteBox;
   using MF = WB::MF;
-  reset_effect_globals();
+  reset_globals();
 
   MF effect;
   effect.init();
@@ -281,7 +281,7 @@ inline void test_meshfeedback_preset_export_arity() {
 inline void test_meshfeedback_mesh_rebuild_reuses_storage() {
   using WB = MeshFeedbackWhiteBox;
   using MF = WB::MF;
-  reset_effect_globals();
+  reset_globals();
 
   MF effect;
   effect.init();
@@ -350,7 +350,7 @@ inline void test_meshfeedback_trails_arm_cut_seam() {
   const ScopedTemporalSampling column_basis(true);
   double across = 0.0, beside = 0.0;
   for (size_t preset : {1u, 4u, 9u, 10u}) {
-    reset_effect_globals();
+    reset_globals();
     pin_frame_clock(0);
     MeshFeedback<W, H> fx;
     fx.init();

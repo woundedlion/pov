@@ -104,7 +104,7 @@ inline void test_galaxies_core_fade() {
 /** @brief Successive galaxies reverse both stellar orbits and arm rotation. */
 inline void test_galaxies_alternate_orbits_and_arm_spin() {
   using WB = GalaxiesWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
   fx.init();
   const auto *speed = fx.getParameters().find("Orbit Spd");
@@ -164,7 +164,7 @@ inline void test_galaxies_star_color_mix() {
 /** @brief A white star remains neutral while fading with age. */
 inline void test_galaxies_white_star_stays_white() {
   using WB = GalaxiesWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
   fx.init();
   fx.updateParameter("Black Hole", 1.0f);
@@ -195,7 +195,7 @@ inline void test_galaxies_white_star_stays_white() {
 
 /** @brief The core toggle removes the core glow and restores it. */
 inline void test_galaxies_black_hole_core_toggle() {
-  reset_effect_globals();
+  reset_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
   fx.init();
   const auto *toggle = fx.getParameters().find("Black Hole");
@@ -240,7 +240,7 @@ inline void test_galaxies_black_hole_core_toggle() {
 /** @brief Stars span logarithmic arms with tangential orbital velocities. */
 inline void test_galaxies_spawn_along_spiral_with_orbital_velocity() {
   using WB = GalaxiesWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   Galaxies<SMALL_W, SMALL_H> fx;
   fx.init();
   WB::set_arms(fx, 3);
@@ -299,7 +299,7 @@ inline void test_galaxies_spawn_along_spiral_with_orbital_velocity() {
 /** @brief A rotating spiral lights young stars; old stars stay dim. */
 inline void test_galaxies_arm_contrast_and_age_fade() {
   using WB = GalaxiesWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
   fx.init();
   WB::set_pitch(fx, 0.5f);
@@ -335,7 +335,7 @@ inline void test_galaxies_arm_contrast_and_age_fade() {
 /** @brief Arm Sharpness narrows or widens each arm's cosine lobe; 0 is flat. */
 inline void test_galaxies_arm_sharpness() {
   using WB = GalaxiesWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
   fx.init();
   const auto *sharpness = fx.getParameters().find("Arm Sharpness");
@@ -369,7 +369,7 @@ inline void test_galaxies_arm_sharpness() {
 /** @brief Emission consumes whole credits and discards births while full. */
 inline void test_galaxies_emission_rate_and_capacity() {
   using WB = GalaxiesWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   Galaxies<SMALL_W, SMALL_H> fx;
   fx.init();
   bool found = false;
@@ -432,7 +432,7 @@ inline void test_galaxies_emission_rate_and_capacity() {
 /** @brief Packed stellar orbits stay within an eighth-column of float orbits. */
 inline void test_galaxies_packed_orbits_match_float() {
   using WB = GalaxiesWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
   fx.init();
   fx.updateParameter("Orbit Spd", 0.0124f);
@@ -494,7 +494,7 @@ inline void test_galaxies_packed_orbits_match_float() {
 /** @brief Live particle telemetry follows births and deaths with alpha zero. */
 inline void test_galaxies_live_particle_count() {
   using WB = GalaxiesWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   Galaxies<SMALL_W, SMALL_H> fx;
   fx.init();
   const auto *count = fx.getParameters().find("Particles");

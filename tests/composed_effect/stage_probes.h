@@ -77,7 +77,7 @@ inline void test_composed_analytic_modulation_admission() {
 
 /** @brief Analytic frequency and speed sliders write the selected source. */
 inline void test_composed_analytic_modulation_sliders() {
-  reset_effect_globals();
+  reset_globals();
   AnalyticModulationProbe effect;
   effect.init();
   HS_EXPECT_TRUE(effect.getParameters().find("Pattern Scale") == nullptr);
@@ -361,7 +361,7 @@ inline void test_composed_affine_form_sliders() {
       "Affine Scale X", "Affine Scale Y", "Affine Shear"};
   {
     HS_CONTEXT("KaleidoscopeHexOil");
-    reset_effect_globals();
+    reset_globals();
     KaleidoscopeHexOil<SMALL_W, SMALL_H> effect;
     effect.init();
     const ParamList &params = effect.getParameters();
@@ -372,7 +372,7 @@ inline void test_composed_affine_form_sliders() {
   }
   {
     HS_CONTEXT("AlienCore");
-    reset_effect_globals();
+    reset_globals();
     AlienCore<SMALL_W, SMALL_H> effect;
     effect.init();
     const ParamList &params = effect.getParameters();
@@ -383,7 +383,7 @@ inline void test_composed_affine_form_sliders() {
   }
   {
     HS_CONTEXT("general form");
-    reset_effect_globals();
+    reset_globals();
     AnalyticModulationProbe effect;
     effect.init();
     const ParamList &params = effect.getParameters();
@@ -472,7 +472,7 @@ inline void test_composed_repeated_instances() {
                     sizeof(Pullback::WaveShearParams) +
                     2 * sizeof(Pullback::MobiusGeneratorParams) +
                     sizeof(Pullback::ColorParams));
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.init();
   const auto captured = effect.serialize_parameters();
@@ -555,7 +555,7 @@ struct ProjectionWalkFootprint {
 
 template <bool AnimatedProjection>
 ProjectionWalkFootprint measure_projection_walk_footprint() {
-  reset_effect_globals();
+  reset_globals();
   RippleProbe<SMALL_W, SMALL_H, AnimatedProjection> effect;
   effect.init();
   return {persistent_arena.get_offset(), Timeline::event_count()};
@@ -572,7 +572,7 @@ inline void test_composed_projection_frame_identity() {
     HS_EXPECT_NEAR(actual.y, expected.y, 1e-6f);
     HS_EXPECT_NEAR(actual.z, expected.z, 1e-6f);
   };
-  reset_effect_globals();
+  reset_globals();
   pin_frame_clock(0);
   FX effect;
   effect.init();
@@ -626,7 +626,7 @@ inline void test_composed_periodic_ripple_surface() {
   static_assert(!FX::HAS_SURFACE_NOISE);
 
   const auto RENDER = [](float strength) {
-    reset_effect_globals();
+    reset_globals();
     pin_frame_clock(0);
     FX effect;
     effect.init();
@@ -717,7 +717,7 @@ inline void test_composed_noise_source() {
 
   size_t lit = 0;
   {
-    reset_effect_globals();
+    reset_globals();
     Projected effect;
     effect.init();
     HS_EXPECT_TRUE(effect.getParameters().find("Source Noise Scale") !=
@@ -888,7 +888,7 @@ inline void test_choreography_fade_departure() {
   constexpr int DWELL = FX::PRESET_DWELL_FRAMES;
   constexpr int FADE = FX::DEPARTURE.frames;
 
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.init();
   HS_EXPECT_EQ(effect.getPresetCount(), size_t{3});
@@ -940,7 +940,7 @@ inline void test_choreography_fade_departure() {
 inline void test_choreography_lerp_transition_hooks() {
   const auto check = []<bool Animated>() {
     using FX = LerpChoreoProbe<SMALL_W, SMALL_H, Animated>;
-    reset_effect_globals();
+    reset_globals();
     FX effect;
     effect.init();
     HS_EXPECT_EQ(effect.armed_count, 0);
@@ -975,7 +975,7 @@ inline void test_choreography_lerp_transition_hooks() {
 /** @brief Pausing holds an in-flight preset blend and permits manual tuning. */
 inline void test_choreography_lerp_pause_policy() {
   using FX = LerpChoreoProbe<SMALL_W, SMALL_H>;
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.init();
   effect.setAnimationsPaused(true);

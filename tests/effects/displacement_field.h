@@ -386,7 +386,7 @@ struct DisplacementFieldWhiteBox {
  * @brief Verifies lazy table endpoints and outputs match eager construction.
  */
 inline void test_displacement_field_lazy_hue_table_matches_eager() {
-  reset_effect_globals();
+  reset_globals();
   DisplacementField<SMALL_W, SMALL_H> effect;
   effect.init();
   GenerativePalette palette(PaletteRecipes::profile(PaletteDomain::MIRROR,
@@ -441,7 +441,7 @@ inline void test_displacement_field_lazy_hue_table_matches_eager() {
  *        lazy samples already baked.
  */
 inline void test_displacement_field_hue_table_bind_clears_knots() {
-  reset_effect_globals();
+  reset_globals();
   DisplacementField<SMALL_W, SMALL_H> effect;
   effect.init();
   GenerativePalette palette(PaletteRecipes::profile(PaletteDomain::MIRROR,
@@ -486,7 +486,7 @@ inline float oklab_delta_e(const Pixel &a, const Pixel &b) {
  * sRGB8 bounds are looser because the encode is non-linear.
  */
 inline void test_displacement_field_hue_table_fidelity() {
-  reset_effect_globals();
+  reset_globals();
   DisplacementField<SMALL_W, SMALL_H> effect;
   effect.init();
 
@@ -550,7 +550,7 @@ inline DisplacementHueFrame render_displacement_hue_frame(bool exact) {
   constexpr int W = 192;
   constexpr int H = 40;
   constexpr int FRAMES = 64;
-  reset_effect_globals();
+  reset_globals();
   pin_frame_clock(0);
   DisplacementField<W, H> effect;
   effect.init();
@@ -606,7 +606,7 @@ inline void test_displacement_field_hue_table_frame_fidelity() {
 inline void test_displacement_field_octave_bake_tracks_noise() {
   constexpr int W = DEFAULT_W;
   constexpr int H = DEFAULT_H;
-  reset_effect_globals();
+  reset_globals();
   DisplacementField<W, H> effect;
   effect.init();
   Animation::NoiseProductParams np;
@@ -656,7 +656,7 @@ inline void test_displacement_field_octave_bake_tracks_noise() {
 inline void test_displacement_field_zero_hue_scale_is_exact() {
   constexpr int W = 256;
   constexpr int H = 40;
-  reset_effect_globals();
+  reset_globals();
   pin_frame_clock(0);
   DisplacementField<W, H> effect;
   effect.init();
@@ -692,7 +692,7 @@ inline void test_displacement_field_clip_tiles_full() {
 
   size_t lit = 0;
   auto capture_region = [&](bool clip, const Quad &q, bool widest) {
-    reset_effect_globals();
+    reset_globals();
     pin_frame_clock(0);
     DisplacementField<DEFAULT_W, DEFAULT_H> fx;
     fx.init();
@@ -739,7 +739,7 @@ inline void test_displacement_field_clip_tiles_full() {
 }
 
 inline void test_displacement_field_ball_spans_and_lifecycle() {
-  reset_effect_globals();
+  reset_globals();
   pin_frame_clock(0);
   DisplacementField<SMALL_W, SMALL_H> effect;
   effect.init();
@@ -774,7 +774,7 @@ inline void test_displacement_field_ball_spans_and_lifecycle() {
  */
 inline void test_displacement_field_ring_pool_abandoned_slot() {
   using WB = DisplacementFieldWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   DisplacementField<SMALL_W, SMALL_H> effect;
   effect.init();
   auto &pool = WB::ring_pool(effect);
@@ -813,7 +813,7 @@ inline void test_displacement_field_ring_pool_abandoned_slot() {
  */
 inline void test_displacement_field_ring_pool_capacity_release() {
   using WB = DisplacementFieldWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   DisplacementField<SMALL_W, SMALL_H> effect;
   effect.init();
   auto &pool = WB::ring_pool(effect);
@@ -838,7 +838,7 @@ inline void test_displacement_field_ring_pool_capacity_release() {
 
 /** @brief Verifies FOOTPRINT_BYTES covers every persistent allocation. */
 inline void test_displacement_field_footprint_covers_init() {
-  reset_effect_globals();
+  reset_globals();
   const size_t before = persistent_arena.get_offset();
   DisplacementField<DEFAULT_W, DEFAULT_H> effect;
   effect.init();
@@ -851,7 +851,7 @@ inline void test_displacement_field_footprint_covers_init() {
 inline void test_displacement_field_pause_holds_phase_only() {
   using WB = DisplacementFieldWhiteBox;
   for (bool fade_out : {false, true}) {
-    reset_effect_globals();
+    reset_globals();
     DisplacementField<SMALL_W, SMALL_H> effect;
     effect.init();
     if (fade_out)
@@ -887,7 +887,7 @@ inline void test_displacement_field_pause_holds_phase_only() {
 inline void test_displacement_field_presets() {
   using FX = DisplacementField<SMALL_W, SMALL_H>;
   using WB = DisplacementFieldWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   FX effect;
   effect.init();
   HS_EXPECT_EQ(effect.getPresetCount(), size_t{2});
@@ -944,7 +944,7 @@ inline void test_displacement_field_presets() {
 /** @brief Editing a departing noise preset restores its tuned field and dwell. */
 inline void test_displacement_field_edit_cancels_departure() {
   using WB = DisplacementFieldWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   DisplacementField<SMALL_W, SMALL_H> effect;
   effect.init();
   hs_test::run_frames(effect, WB::fade_frames<SMALL_W, SMALL_H>() + 1);
@@ -966,7 +966,7 @@ inline void test_displacement_field_edit_cancels_departure() {
 /** @brief A paused Balls preset renders its tuned deformation. */
 inline void test_displacement_field_paused_balls_deform_render() {
   const auto render = [](float amplitude) {
-    reset_effect_globals();
+    reset_globals();
     pin_frame_clock(0);
     DisplacementField<DEFAULT_W, DEFAULT_H> effect;
     effect.init();
@@ -991,7 +991,7 @@ inline void test_displacement_field_paused_balls_deform_render() {
 /** @brief Preset pause holds the Balls window while falls and spawning continue. */
 inline void test_displacement_field_paused_balls_keep_moving() {
   using WB = DisplacementFieldWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   DisplacementField<SMALL_W, SMALL_H> effect;
   effect.init();
   HS_EXPECT_TRUE(effect.selectPreset(1));
@@ -1050,7 +1050,7 @@ inline void test_displacement_field_knot_walk_unit_near_ball() {
 inline void test_displacement_field_startup_writes_preserve_entry() {
   using WB = DisplacementFieldWhiteBox;
   for (float amplitude : {0.2f, 0.6f}) {
-    reset_effect_globals();
+    reset_globals();
     DisplacementField<SMALL_W, SMALL_H> effect;
     effect.init();
     HS_EXPECT_EQ(WB::gain(effect), 0.0f);
@@ -1072,7 +1072,7 @@ inline void test_displacement_field_startup_writes_preserve_entry() {
 
 /** @brief The default cycle budget covers the last ball draining before Noise returns. */
 inline void test_displacement_field_default_cycle_frames() {
-  reset_effect_globals();
+  reset_globals();
   using DF = DisplacementField<SMALL_W, SMALL_H>;
   DF effect;
   effect.init();
@@ -1120,7 +1120,7 @@ inline DisplacementFieldEndpoints displacement_field_endpoints(int frames,
                                                                Setup &&setup) {
   DisplacementFieldEndpoints out;
   for (bool enabled : {false, true}) {
-    reset_effect_globals();
+    reset_globals();
     pin_frame_clock(0);
     Spacetime::set_flat_surface(!enabled);
     DisplacementField<W, H> effect;
@@ -1223,7 +1223,7 @@ inline void test_displacement_field_single_pass_reference() {
     std::vector<Pixel> images[3];
     const int frames = balls ? 40 : 200;
     for (int mode = 0; mode < 3; ++mode) {
-      reset_effect_globals();
+      reset_globals();
       pin_frame_clock(0);
       DisplacementField<W, H> effect;
       effect.init();
@@ -1279,7 +1279,7 @@ inline void test_displacement_field_single_pass_reference() {
  */
 inline void test_displacement_field_turn_follows_large_steps() {
   constexpr int W = SMALL_W, H = SMALL_H;
-  reset_effect_globals();
+  reset_globals();
   DisplacementField<W, H> effect;
   effect.init();
   for (int f = 0; f < 60; ++f) {
@@ -1316,7 +1316,7 @@ inline void test_displacement_field_alternate_groups_match_windows() {
   std::vector<Pixel> images[2];
   int flushes = 0;
   for (int mode = 0; mode < 2; ++mode) {
-    reset_effect_globals();
+    reset_globals();
     pin_frame_clock(0);
     DisplacementField<W, H> effect;
     effect.init();
@@ -1352,7 +1352,7 @@ inline void test_displacement_field_boundary_stencil() {
   primary.reserve(FRAMES * W * H);
   int worst = 0, lit = 0;
   for (int mode = 0; mode < 2; ++mode) {
-    reset_effect_globals();
+    reset_globals();
     pin_frame_clock(0);
     DisplacementField<W, H> effect;
     effect.init();
@@ -1385,7 +1385,7 @@ inline void test_displacement_field_boundary_stencil() {
 
 /** @brief Manual preset cuts discard DisplacementField draw history. */
 inline void test_displacement_field_retained_history_resets() {
-  reset_effect_globals();
+  reset_globals();
   DisplacementField<SMALL_W, SMALL_H> effect;
   effect.init();
   HS_EXPECT_FALSE(DisplacementFieldWhiteBox::history_ready(effect));

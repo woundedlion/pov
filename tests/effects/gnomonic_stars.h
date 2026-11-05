@@ -88,7 +88,7 @@ inline bool same_mobius(const math::MobiusParams &a,
 inline void test_gnomonicstars_stars_drift_from_last_draw() {
   using WB = GnomonicStarsWhiteBox;
   constexpr int W = SMALL_W, H = SMALL_H;
-  reset_effect_globals();
+  reset_globals();
   GnomonicStars<W, H> fx;
   fx.init();
   HS_EXPECT_FALSE(WB::warp_drawn(fx));
@@ -148,7 +148,7 @@ inline void test_gnomonicstars_stars_drift_from_last_draw() {
  */
 inline void test_gnomonicstars_spiral_cache_invalidation() {
   using WB = GnomonicStarsWhiteBox;
-  reset_effect_globals();
+  reset_globals();
   GnomonicStars<SMALL_W, SMALL_H> fx;
   fx.init();
 
