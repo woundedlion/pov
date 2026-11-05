@@ -237,11 +237,6 @@ public:
     const auto COVERED = Pipeline::template NodeAt<4>::run(
         SAMPLED, frame.ctx, std::get<4>(frame.prepared));
     const auto &BASE = std::get<5>(frame.prepared);
-    const auto &STATE = BASE.current;
-    const float VALUE = Pullback::Color::palette_mapping_coordinate(
-        COVERED.value, STATE.mapping, STATE.mapping_frequency,
-        STATE.mapping_offset);
-    const float OPACITY = Pullback::Color::palette_opacity(COVERED, STATE);
     float hue = 0.0f;
     const auto apply_hue = [&]<size_t Index>() HS_HOT_INLINE {
       const auto &PREPARED = std::get<Index>(frame.prepared);
@@ -254,7 +249,7 @@ public:
     };
     apply_hue.template operator()<6>();
     apply_hue.template operator()<7>();
-    return Color4(PaletteRgbHueLut::sample(BASE.lab, VALUE, hue), OPACITY);
+    return Pullback::Color::cached_phase_color(COVERED, BASE, hue);
   }
 
   /** @brief Column shader with a camera-rotated meridian basis. */

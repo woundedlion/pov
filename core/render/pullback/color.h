@@ -612,15 +612,26 @@ accumulate_hue(float hue, float scalar,
  * @param prepared Cached interval base and palette controls.
  * @param hue Accumulated hue in turns.
  * @return Final straight-alpha color. */
-HS_HOT_FLASH_MEMBER inline Color4
-finish_cached_phase(const FieldSample &sample,
-                    const TemporalGeneratedPaletteState &prepared, float hue) {
+HS_HOT_INLINE inline Color4
+cached_phase_color(const FieldSample &sample,
+                   const TemporalGeneratedPaletteState &prepared, float hue) {
   const auto &state = prepared.current;
   const float VALUE =
       palette_mapping_coordinate(sample.value, state.mapping,
                                  state.mapping_frequency, state.mapping_offset);
   return Color4(PaletteRgbHueLut::sample(prepared.lab, VALUE, hue),
                 palette_opacity(sample, state));
+}
+
+/** @brief Samples a cached RGB palette with the accumulated phase hue.
+ * @param sample Field coordinates and coverage.
+ * @param prepared Cached interval base and palette controls.
+ * @param hue Accumulated hue in turns.
+ * @return Final straight-alpha color. */
+HS_HOT_FLASH_MEMBER inline Color4
+finish_cached_phase(const FieldSample &sample,
+                    const TemporalGeneratedPaletteState &prepared, float hue) {
+  return cached_phase_color(sample, prepared, hue);
 }
 
 /** @brief Finishes a cached RGB palette through one prepared phase.
