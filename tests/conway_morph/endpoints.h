@@ -18,28 +18,14 @@ enum class EndRegime {
   PAIR_COVER,   /**< Jitterbug octa end: vertices merge pairwise onto the node
                      mesh's. */
   BAKED_RELAX,  /**< Registry node ends in relax_baked: identical topology, and
-                     vertices within the relax convergence gate. */
+                     vertices within the relax convergence gate. The bake holds host-IEEE
+                     relax bits, which require matching float semantics for bitwise agreement. */
 };
-
-/**
- * @brief Whether a simple-registry node's generator ends in relax_baked.
- * @param node Simple-registry index.
- * @return True for the nodes carrying a flash bake.
- * @details The baked mesh holds host-IEEE relax() bits; a live relax agrees
- *   bitwise only under matching float semantics.
- */
-inline bool is_relax_baked_node(uint8_t node) {
-  return node == ConwayGraph::TRUNCATED_CUBOCTAHEDRON ||
-         node == ConwayGraph::SNUB_CUBE ||
-         node == ConwayGraph::RHOMBICOSIDODECAHEDRON ||
-         node == ConwayGraph::SNUB_DODECAHEDRON ||
-         node == ConwayGraph::TRUNCATED_ICOSIDODECAHEDRON;
-}
 
 /**
  * @brief Comparison regime of an edge's to_node end.
  * @param e Edge to classify.
- * @return EXACT when op(seed, t_to) [+ relax] is the to_node registry chain;
+ * @return EXACT when op(seed, t_to) is the to_node registry chain;
  *         BAKED_RELAX when that chain ends in a flash bake rather than the live
  *         relax the leg runs; VERTEX_MATCH for arrivals off the registry seed
  *         (dual-family ambo, the other bridges); REGULAR for the tetra -> icosa
@@ -58,7 +44,7 @@ inline EndRegime to_end_regime(const ConwayGraph::EdgeSpec &e) {
   if (e.bridge)
     return e.to_node == ICOSAHEDRON ? EndRegime::REGULAR
                                     : EndRegime::VERTEX_MATCH;
-  if (e.settle && is_relax_baked_node(e.to_node))
+  if (e.settle)
     return EndRegime::BAKED_RELAX;
   return EndRegime::EXACT;
 }
