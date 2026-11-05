@@ -125,31 +125,16 @@ public:
                                         PassFnT &pass) {
     assert(age >= 0.0f && alpha >= 0.0f);
     const SplatTaps t = splat_taps<W, H>(x, y);
-    if constexpr (W > 1) {
-      if (column != t.x0 && column != t.x1)
-        return;
-      const float TOP = column == t.x0 ? t.v00 : t.v10;
-      const float BOTTOM = column == t.x0 ? t.v01 : t.v11;
-      if (t.y0_physical && TOP > SPLAT_TAP_CUTOFF)
-        pass(static_cast<float>(column), static_cast<float>(t.y0), c, age,
-             alpha * TOP);
-      if (t.y1_physical && BOTTOM > SPLAT_TAP_CUTOFF)
-        pass(static_cast<float>(column), static_cast<float>(t.y1), c, age,
-             alpha * BOTTOM);
+    if (column != t.x0 && column != t.x1)
       return;
-    }
-    if (t.y0_physical && t.x0 == column && t.v00 > SPLAT_TAP_CUTOFF)
-      pass(static_cast<float>(t.x0), static_cast<float>(t.y0), c, age,
-           alpha * t.v00);
-    if (t.y0_physical && t.x1 == column && t.v10 > SPLAT_TAP_CUTOFF)
-      pass(static_cast<float>(t.x1), static_cast<float>(t.y0), c, age,
-           alpha * t.v10);
-    if (t.y1_physical && t.x0 == column && t.v01 > SPLAT_TAP_CUTOFF)
-      pass(static_cast<float>(t.x0), static_cast<float>(t.y1), c, age,
-           alpha * t.v01);
-    if (t.y1_physical && t.x1 == column && t.v11 > SPLAT_TAP_CUTOFF)
-      pass(static_cast<float>(t.x1), static_cast<float>(t.y1), c, age,
-           alpha * t.v11);
+    const float TOP = column == t.x0 ? t.v00 : t.v10;
+    const float BOTTOM = column == t.x0 ? t.v01 : t.v11;
+    if (t.y0_physical && TOP > SPLAT_TAP_CUTOFF)
+      pass(static_cast<float>(column), static_cast<float>(t.y0), c, age,
+           alpha * TOP);
+    if (t.y1_physical && BOTTOM > SPLAT_TAP_CUTOFF)
+      pass(static_cast<float>(column), static_cast<float>(t.y1), c, age,
+           alpha * BOTTOM);
   }
 
   /** @brief column_taps() out of line.
