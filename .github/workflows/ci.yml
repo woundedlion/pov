@@ -1349,6 +1349,27 @@ jobs:
           PLATFORMIO_BUILD_FLAGS: -D HS_PROFILE_TARGET=MindSplatter -D HS_MINDSPLATTER_REPLAY
           PLATFORMIO_BUILD_DIR: ${{ runner.temp }}/replay-build
         run: pio run -e profile
+      - name: Compile composed profiling knobs
+        env:
+          PLATFORMIO_BUILD_FLAGS: >-
+            -D HS_PROFILE_TARGET=GridWarp -D HS_PROBE_BREAKDOWN -D HS_PLOT_COUNTS
+            -D HS_PROFILE_PLOT_RENDER_COUNTS -D HS_PROFILE_PULLBACK_PROJECTION
+            -D HS_PROFILE_PC -D HS_PROFILE_MODULATION_SOURCE=1
+            -D HS_PROFILE_MODULATION_MECHANIC=0 -D HS_SCAN_METRICS
+          PLATFORMIO_BUILD_DIR: ${{ runner.temp }}/composed-profile-build
+        run: pio run -e profile
+      - name: Compile MindSplatter replay comparison
+        env:
+          PLATFORMIO_BUILD_FLAGS: >-
+            -D HS_PROFILE_TARGET=MindSplatter -D HS_MINDSPLATTER_REPLAY
+            -D HS_MINDSPLATTER_REPLAY_AB
+          PLATFORMIO_BUILD_DIR: ${{ runner.temp }}/replay-comparison-build
+        run: pio run -e profile
+      - name: Compile MindSplatter stall attribution
+        env:
+          PLATFORMIO_BUILD_FLAGS: -D HS_PROFILE_TARGET=MindSplatter -D HS_PROFILE_PLOT_STALLS
+          PLATFORMIO_BUILD_DIR: ${{ runner.temp }}/plot-stalls-build
+        run: pio run -e profile
       - name: Cap build-object cache
         # Drop the oldest cached objects above 400 MB; config and the signature db stay.
         shell: bash

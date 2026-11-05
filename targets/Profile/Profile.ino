@@ -171,7 +171,7 @@ public:
                   HS_PROFILE_MODULATION_SOURCE <= 3);
     static_assert(HS_PROFILE_MODULATION_MECHANIC >= 0 &&
                   HS_PROFILE_MODULATION_MECHANIC <= 2);
-    auto &config = this->params.template get<"color">().modulation;
+    auto &config = this->params.template get<"modulate">().modulation;
     config.enabled = true;
     config.source =
         static_cast<Pattern::SourceKind>(HS_PROFILE_MODULATION_SOURCE);
