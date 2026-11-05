@@ -146,6 +146,20 @@ inline void test_arm_passes_extend_to_frame_ends() {
   Spacetime::crossings<W>(-1.5f, -1.3f, 0.0f, 1.0f, true, true, far);
   for (const auto &pass : far.passes)
     HS_EXPECT_NE(pass.arm, 0);
+  PassList no_end, with_end, past_end;
+  Spacetime::crossings<W>(144.0f, 144.2f, 0.0f, 1.0f, true, false, no_end);
+  Spacetime::crossings<W>(144.0f, 144.2f, 0.0f, 1.0f, true, true, with_end);
+  HS_EXPECT_EQ(no_end.passes.size(), size_t{1});
+  HS_EXPECT_EQ(no_end.passes[0].arm, 1);
+  HS_EXPECT_EQ(no_end.passes[0].time, 0.0f);
+  HS_EXPECT_EQ(with_end.passes.size(), size_t{2});
+  bool end_extended = false;
+  for (const auto &pass : with_end.passes)
+    end_extended |= pass.arm == 0 && pass.time == 1.0f;
+  HS_EXPECT_TRUE(end_extended);
+  Spacetime::crossings<W>(144.0f, 145.5f, 0.0f, 1.0f, true, true, past_end);
+  for (const auto &pass : past_end.passes)
+    HS_EXPECT_NE(pass.arm, 0);
 }
 
 /** @brief Piecewise tracks emit each pass once, inner knots included. */
