@@ -1465,6 +1465,32 @@ private:
                   HS_HOT_INLINE { return dissolved_b(i, dissolve, q); });
   }
 
+  /** @brief Loads Q16 chemistry into the simulation fields.
+   * @param cur_a,cur_b Per-node float concentrations. */
+  HS_HOT_INLINE void load_fields(float *cur_a, float *cur_b) const {
+    for (int i = 0; i < RD_N; ++i) {
+      cur_a[i] = from_q16(state.A[i]);
+      cur_b[i] = from_q16(state.B[i]);
+    }
+  }
+
+  /** @brief Quantizes chemistry and measures its B-field movement.
+   * @param cur_a,cur_b Per-node float concentrations.
+   * @param before_b Initial B values; may alias state.B.
+   * @return Mean absolute B delta. */
+  HS_HOT_INLINE float store_fields(const float *cur_a, const float *cur_b,
+                                   const uint16_t *before_b) {
+    uint32_t db_sum_q16 = 0;
+    for (int i = 0; i < RD_N; ++i) {
+      state.A[i] = to_q16(cur_a[i]);
+      uint16_t next_b = to_q16(cur_b[i]);
+      int db = static_cast<int>(next_b) - before_b[i];
+      db_sum_q16 += static_cast<uint32_t>(db < 0 ? -db : db);
+      state.B[i] = next_b;
+    }
+    return static_cast<float>(db_sum_q16) * (Q16_INV / RD_N);
+  }
+
   /**
    * @brief Advances the sim and shades it in sweep slabs, one per substep.
    * @param canvas Destination canvas to draw the sphere into.
@@ -1504,10 +1530,7 @@ private:
       refresh_color_palettes();
     float *cur_a = scratch_arena_a.allocate_n<float>(RD_N);
     float *cur_b = scratch_arena_a.allocate_n<float>(RD_N);
-    for (int i = 0; i < RD_N; i++) {
-      cur_a[i] = from_q16(state.A[i]);
-      cur_b[i] = from_q16(state.B[i]);
-    }
+    load_fields(cur_a, cur_b);
     uint16_t *next_pigment = scratch_arena_a.allocate_n<uint16_t>(RD_N);
     step_pigment<STEPS_PER_FRAME>(cur_a, cur_b, next_pigment);
     float *pending_a = scratch_arena_a.allocate_n<float>(PHYSICS_HISTORY_SIZE);
@@ -1540,17 +1563,10 @@ private:
           shade();
         });
     slab_noise = {};
-    uint32_t db_sum_q16 = 0;
-    for (int i = 0; i < RD_N; i++) {
-      state.A[i] = to_q16(cur_a[i]);
-      uint16_t next_b = to_q16(cur_b[i]);
-      int db = static_cast<int>(next_b) - start_b[i];
-      db_sum_q16 += static_cast<uint32_t>(db < 0 ? -db : db);
-      state.B[i] = next_b;
-    }
+    const float MEAN_DB = store_fields(cur_a, cur_b, start_b);
     if (PLAN.dissolve >= 0.0f)
       convert_below(PLAN.dissolve);
-    finish_transition(PLAN, static_cast<float>(db_sum_q16) * (Q16_INV / RD_N));
+    finish_transition(PLAN, MEAN_DB);
   }
 
   /**
@@ -1587,24 +1603,14 @@ private:
         float *pending_b =
             scratch_arena_a.allocate_n<float>(PHYSICS_HISTORY_SIZE);
 
-        for (int i = 0; i < RD_N; i++) {
-          cur_a[i] = from_q16(state.A[i]);
-          cur_b[i] = from_q16(state.B[i]);
-        }
+        load_fields(cur_a, cur_b);
         step_pigment<STEPS_PER_FRAME>(cur_a, cur_b, next_pigment);
         std::memcpy(state.pigment, next_pigment, RD_N * sizeof(*next_pigment));
         for (int step = 0; step < STEPS_PER_FRAME; ++step) {
           step_physics_inplace(cur_a, cur_b, pending_a, pending_b);
         }
-        uint32_t db_sum_q16 = 0;
-        for (int i = 0; i < RD_N; i++) {
-          state.A[i] = to_q16(cur_a[i]);
-          uint16_t next_b = to_q16(cur_b[i]);
-          int db = static_cast<int>(next_b) - state.B[i];
-          db_sum_q16 += static_cast<uint32_t>(db < 0 ? -db : db);
-          state.B[i] = next_b;
-        }
-        mean_db = static_cast<float>(db_sum_q16) * (Q16_INV / RD_N);
+        const float MEAN_DB = store_fields(cur_a, cur_b, state.B);
+        mean_db = MEAN_DB;
       }
       advance_transition(mean_db);
       if (transition.reseed_pending())
