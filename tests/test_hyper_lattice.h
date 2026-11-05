@@ -2097,7 +2097,9 @@ inline void test_traced_presets() {
       const auto *unfinished = required_param(effect, "Unfinished Rays");
       if (!unfinished)
         return;
-      HS_EXPECT_LE(unfinished->get(), unfinished->max);
+      std::printf("  traced preset %zu draw %d unfinished=%g\n", i, draw,
+                  unfinished->get());
+      HS_EXPECT_EQ(unfinished->get(), 0.0f);
     }
     const auto target = selected.params;
     HL::Params blend;
