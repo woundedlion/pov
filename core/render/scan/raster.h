@@ -1643,7 +1643,6 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
   scan_region_column_time<W, H>(
       y_lo, y_hi,
       [&](int y, auto &&out) {
-        prepare_probe_row<W, H>(probe, shape, y, debug);
         if (full_rows)
           return false;
         if constexpr (SAME_TYPE) {
