@@ -118,6 +118,7 @@ inline constexpr int PROFILE_REPLAY_FRAMES = 280;
  * @param trans_speed The image's Trans Speed (HS_PROFILE_TRANS_SPEED).
  * @param frames Frames to draw, the first the full-width prime.
  * @param report Whether to print the work.
+ * @return Total deformation scans across the run.
  * @details Mirrors the segmented driver on segment 0: the effect stream is
  * seeded from the effect's identity, the effect is built with its Trans
  * Speed, initialized, pinned and paused at @p preset, primed full width over
@@ -131,8 +132,8 @@ inline constexpr int PROFILE_REPLAY_FRAMES = 280;
  * visibility when present. HS_FACE_AUDIT_IMAGES names a binary output for
  * every frame: native uint32_t frame index followed by W * H raw Pixels.
  */
-inline void replay_islamicstars_profile(size_t preset, float trans_speed,
-                                        int frames, bool report = true) {
+inline size_t replay_islamicstars_profile(size_t preset, float trans_speed,
+                                          int frames, bool report = true) {
   constexpr int W = 288, H = 144, WINDOW = 16;
   reset_effect_globals();
   pin_frame_clock(0);
@@ -167,6 +168,7 @@ inline void replay_islamicstars_profile(size_t preset, float trans_speed,
       std::fwrite(record, sizeof(record), 1, audit_sink);
     };
   Scan::MeshCaptureCounters window;
+  size_t deformations = 0;
   [[maybe_unused]] size_t probes = 0;
   for (int frame = 1; frame <= frames; ++frame) {
     if (frame == 1)
@@ -191,6 +193,7 @@ inline void replay_islamicstars_profile(size_t preset, float trans_speed,
       std::fwrite(effect.display_buffer(), sizeof(Pixel), W * H, images);
     }
     const auto &w = Scan::mesh_capture_counters;
+    deformations += w.deformations;
     HS_SCAN_METRIC(probes += hs::g_scan_metrics.pixels_tested);
     if (report)
       std::printf(
@@ -236,6 +239,7 @@ inline void replay_islamicstars_profile(size_t preset, float trans_speed,
   if (audit)
     std::fclose(audit);
   hs::clear_mock_time();
+  return deformations;
 }
 
 /**
@@ -248,10 +252,13 @@ inline void check_islamicstars_motion_fits_scratch(size_t preset, int frames) {
   HS_CONTEXT("preset", static_cast<int>(preset));
   scratch_arena_a.reset_peak_tracking();
   scratch_arena_b.reset_peak_tracking();
-  replay_islamicstars_profile(preset, 4.0f, frames, false);
-  std::printf("  [islamic scratch, preset %zu] peak a %zu, b %zu\n", preset,
-              scratch_arena_a.get_lifetime_high_water_mark(),
-              scratch_arena_b.get_lifetime_high_water_mark());
+  const size_t DEFORMATIONS =
+      replay_islamicstars_profile(preset, 4.0f, frames, false);
+  HS_EXPECT_GT(DEFORMATIONS, size_t{0});
+  std::printf(
+      "  [islamic scratch, preset %zu] deformations %zu, peak a %zu, b %zu\n",
+      preset, DEFORMATIONS, scratch_arena_a.get_lifetime_high_water_mark(),
+      scratch_arena_b.get_lifetime_high_water_mark());
 }
 
 /** @brief A quick preset replay reaches the scratch-heavy build. */
