@@ -433,7 +433,7 @@ public:
    *   saturates to the ring's seam.
    * @return Absolute sample indices (ring.offset applied) and their mix.
    */
-  constexpr Longitude longitude(const Ring &ring, float x) const {
+  Longitude longitude(const Ring &ring, float x) const {
     // fmod turns either infinity into NaN, which wrap() passes through; the
     // clamp saturates it before the cast, which would otherwise be UB.
     const float wrapped_x = math::wrap(x, static_cast<float>(W));
