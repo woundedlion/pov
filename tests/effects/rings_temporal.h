@@ -3,6 +3,18 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
+/** @brief Requires lit, matching intensity on opposite arms. */
+inline void expect_arm_symmetric(std::span<const float> pixels) {
+  float energy = 0;
+  for (int y = 0; y < DEFAULT_H; ++y)
+    for (int x = 0; x < DEFAULT_W / 2; ++x) {
+      energy += pixels[y * DEFAULT_W + x];
+      HS_EXPECT_NEAR(pixels[y * DEFAULT_W + x],
+                     pixels[y * DEFAULT_W + x + DEFAULT_W / 2], 3e-5f);
+    }
+  HS_EXPECT_GT(energy, 0.01f);
+}
+
 /** @file rings_temporal.h
  * @brief Frozen-column oracles for growing and warped rings. */
 
@@ -222,14 +234,7 @@ inline void RingShowerWhiteBox::check_temporal_rings() {
       effect.draw_ring(canvas, ring);
     }
     const auto pixels = RingTemporalOracle::pixels(effect);
-    float energy = 0;
-    for (int y = 0; y < DEFAULT_H; ++y)
-      for (int x = 0; x < DEFAULT_W / 2; ++x) {
-        energy += pixels[y * DEFAULT_W + x];
-        HS_EXPECT_NEAR(pixels[y * DEFAULT_W + x],
-                       pixels[y * DEFAULT_W + x + DEFAULT_W / 2], 3e-5f);
-      }
-    HS_EXPECT_GT(energy, 0.01f);
+    expect_arm_symmetric(pixels);
   }
   for (int scenario = 0; scenario < 6; ++scenario)
     for (float direction : {-1.0f, 1.0f}) {
@@ -320,14 +325,7 @@ inline void ThrustersWhiteBox::check_temporal_rings() {
         effect.draw_thruster(canvas, slot, slot.radius_at(), 0.5f);
     }
     const auto pixels = RingTemporalOracle::pixels(effect);
-    float energy = 0;
-    for (int y = 0; y < DEFAULT_H; ++y)
-      for (int x = 0; x < DEFAULT_W / 2; ++x) {
-        energy += pixels[y * DEFAULT_W + x];
-        HS_EXPECT_NEAR(pixels[y * DEFAULT_W + x],
-                       pixels[y * DEFAULT_W + x + DEFAULT_W / 2], 3e-5f);
-      }
-    HS_EXPECT_GT(energy, 0.01f);
+    expect_arm_symmetric(pixels);
   }
   {
     reset_effect_globals();

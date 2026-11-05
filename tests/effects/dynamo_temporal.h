@@ -227,6 +227,22 @@ inline void test_dynamo_column_time_oracle() {
               work.column_edges_culled);
 }
 
+/** @brief Requires a lit frozen strand and equivalent temporal intensities. */
+inline void expect_frozen_dynamo_frame(std::span<const float> actual,
+                                       std::span<const float> expected) {
+  float error = 0.0f;
+  int lit = 0;
+  HS_EXPECT_EQ(actual.size(), expected.size());
+  if (actual.size() != expected.size())
+    return;
+  for (size_t i = 0; i < actual.size(); ++i) {
+    error += fabsf(actual[i] - expected[i]);
+    lit += actual[i] > 0.0f;
+  }
+  HS_EXPECT_GT(lit, 60);
+  HS_EXPECT_LT(error, 0.01f);
+}
+
 /** @brief Initialization and orientation reset hold the strand at the current endpoint. */
 inline void test_dynamo_column_time_first_frame_and_reset() {
   for (bool replay : {false, true}) {
@@ -234,27 +250,11 @@ inline void test_dynamo_column_time_first_frame_and_reset() {
         false, 0.0f, 0.0f, 0.0f, 0.018f, replay, true);
     const auto actual = DynamoTemporalOracle::render<96, 20>(
         true, 0.0f, 0.0f, 0.0f, 0.018f, replay, true);
-    float error = 0.0f;
-    int lit = 0;
-    for (size_t i = 0; i < actual.size(); ++i) {
-      error += fabsf(actual[i] - expected[i]);
-      lit += actual[i] > 0.0f;
-    }
-    std::printf("  Dynamo first frame replay=%d lit=%d\n", int(replay), lit);
-    HS_EXPECT_GT(lit, 60);
-    HS_EXPECT_LT(error, 0.01f);
+    expect_frozen_dynamo_frame(actual, expected);
   }
   const auto expected = DynamoTemporalOracle::render<96, 20>(
       false, 0.0f, 0.0f, 0.0f, 0.018f, false, true);
   const auto actual = DynamoTemporalOracle::render<96, 20>(
       true, 0.0f, 0.0f, 0.0f, 0.018f, false, true, false, true);
-  float error = 0.0f;
-  int lit = 0;
-  for (size_t i = 0; i < actual.size(); ++i) {
-    error += fabsf(actual[i] - expected[i]);
-    lit += actual[i] > 0.0f;
-  }
-  std::printf("  Dynamo orientation reset lit=%d error=%g\n", lit, error);
-  HS_EXPECT_GT(lit, 60);
-  HS_EXPECT_LT(error, 0.01f);
+  expect_frozen_dynamo_frame(actual, expected);
 }

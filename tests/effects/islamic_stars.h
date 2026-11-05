@@ -820,107 +820,97 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
   HS_EXPECT_GT(na_peak, 120u * 1024u);
 }
 
-/** @brief Early shape-8 preparation preserves every build frame and fits its arena. */
-inline void test_islamicstars_prepared_build() {
+/** @brief Compares two configurations over the same preset frame sequence. */
+template <typename Setup, typename Inspect>
+inline void islamic_frames_match_reference(size_t preset, Setup &&setup,
+                                           Inspect &&inspect) {
   using P = IslamicBuildProbe;
   std::vector<uint64_t> reference;
-  std::array<int, 3> counts{};
   for (int mode = 0; mode < 2; ++mode) {
     reset_effect_globals();
     pin_frame_clock(0);
     P::IS effect;
     P::set_trans_speed(effect, 4.0f);
     effect.init();
-    P::preparation(effect, mode != 0);
-    P::spawn_entry(effect, *P::presets()[8].params);
-    bool saw_build = false, completed = false;
+    setup(effect, mode);
+    P::spawn_entry(effect, *P::presets()[preset].params);
     for (int frame = 0; frame < 120; ++frame) {
       pin_frame_clock(frame);
       effect.draw_frame();
-      saw_build = saw_build || P::build_active(effect);
-      completed = completed || (saw_build && !P::build_active(effect));
+      inspect(effect, mode, frame);
       effect.advance_display();
-      HS_EXPECT_LE(persistent_arena.get_offset(), P::persistent_budget(effect));
       const uint64_t hash = frame_hash<SMALL_W, SMALL_H>(effect);
       if (mode == 0)
         reference.push_back(hash);
       else
         HS_EXPECT_EQ(hash, reference[frame]);
     }
-    if (mode == 0) {
-      HS_EXPECT_TRUE(saw_build);
-      HS_EXPECT_TRUE(completed);
-    }
-    counts = P::preparations(effect);
-    for (const int count : counts)
-      HS_EXPECT_EQ(count, mode);
   }
-
   hs::clear_mock_time();
+}
+
+/** @brief Early shape-8 preparation preserves every build frame and fits its arena. */
+inline void test_islamicstars_prepared_build() {
+  using P = IslamicBuildProbe;
+  bool saw_build = false, completed = false;
+  islamic_frames_match_reference(
+      8,
+      [&](auto &effect, int mode) {
+        saw_build = completed = false;
+        P::preparation(effect, mode != 0);
+      },
+      [&](auto &effect, int mode, int frame) {
+        saw_build = saw_build || P::build_active(effect);
+        completed = completed || (saw_build && !P::build_active(effect));
+        HS_EXPECT_LE(persistent_arena.get_offset(),
+                     P::persistent_budget(effect));
+        if (frame == 119) {
+          if (mode == 0) {
+            HS_EXPECT_TRUE(saw_build);
+            HS_EXPECT_TRUE(completed);
+          }
+          for (const int count : P::preparations(effect))
+            HS_EXPECT_EQ(count, mode);
+        }
+      });
 }
 
 /** @brief Prepared shape-6 ripples preserve frames while rejecting interpolation work. */
 inline void test_islamicstars_prepared_ripples() {
   using P = IslamicBuildProbe;
-  std::vector<uint64_t> reference;
   std::array<size_t, 3> counts[2];
-  for (int mode = 0; mode < 2; ++mode) {
-    reset_effect_globals();
-    pin_frame_clock(0);
-    P::IS effect;
-    P::set_trans_speed(effect, 4.0f);
-    effect.init();
-    P::set_burst_size(effect, 8);
-    P::reference_ripples(mode == 0);
-    P::spawn_entry(effect, *P::presets()[6].params);
-    for (int frame = 0; frame < 120; ++frame) {
-      pin_frame_clock(frame);
-      effect.draw_frame();
-      effect.advance_display();
-      const uint64_t hash = frame_hash<SMALL_W, SMALL_H>(effect);
-      if (mode == 0)
-        reference.push_back(hash);
-      else
-        HS_EXPECT_EQ(hash, reference[frame]);
-    }
-    counts[mode] = P::ripple_counts();
-  }
+  islamic_frames_match_reference(
+      6,
+      [](auto &effect, int mode) {
+        P::set_burst_size(effect, 8);
+        P::reference_ripples(mode == 0);
+      },
+      [&](auto &, int mode, int frame) {
+        if (frame == 119)
+          counts[mode] = P::ripple_counts();
+      });
   HS_EXPECT_GT(counts[0][0], size_t{0});
   HS_EXPECT_EQ(counts[0][0], counts[1][0]);
   HS_EXPECT_EQ(counts[0][1], counts[1][1]);
   HS_EXPECT_LT(counts[1][2], counts[0][2]);
-
   P::reference_ripples(false);
-  hs::clear_mock_time();
 }
 
 /** @brief Group rejection preserves shape-6 and shape-8 frames. */
 inline void test_islamicstars_endpoint_groups() {
   using P = IslamicBuildProbe;
   for (const int shape : {6, 8}) {
-    std::vector<uint64_t> reference;
     std::array<size_t, 2> counts[2];
-    for (int mode = 0; mode < 2; ++mode) {
-      reset_effect_globals();
-      pin_frame_clock(0);
-      P::IS effect;
-      P::set_trans_speed(effect, 4.0f);
-      effect.init();
-      P::set_burst_size(effect, 8);
-      P::reference_endpoints(mode == 0);
-      P::spawn_entry(effect, *P::presets()[shape].params);
-      for (int frame = 0; frame < 120; ++frame) {
-        pin_frame_clock(frame);
-        effect.draw_frame();
-        effect.advance_display();
-        const uint64_t hash = frame_hash<SMALL_W, SMALL_H>(effect);
-        if (mode == 0)
-          reference.push_back(hash);
-        else
-          HS_EXPECT_EQ(hash, reference[frame]);
-      }
-      counts[mode] = P::endpoint_counts();
-    }
+    islamic_frames_match_reference(
+        shape,
+        [](auto &effect, int mode) {
+          P::set_burst_size(effect, 8);
+          P::reference_endpoints(mode == 0);
+        },
+        [&](auto &, int mode, int frame) {
+          if (frame == 119)
+            counts[mode] = P::endpoint_counts();
+        });
     HS_EXPECT_GT(counts[1][0], size_t{0});
     HS_EXPECT_LT(counts[1][1], counts[0][1]);
     std::printf(
@@ -928,7 +918,6 @@ inline void test_islamicstars_endpoint_groups() {
         shape, counts[0][1], counts[1][1], counts[1][0]);
   }
   P::reference_endpoints(false);
-  hs::clear_mock_time();
 }
 
 /**
