@@ -1363,7 +1363,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── solid_tables.h          Static mesh tables and their consistency checks
 │   │   ├── solid_builder.h         Fluent Conway and Hankin mesh builder
 │   │   ├── procedural_solids.h     Named procedural solid generators
-│   │   ├── solids.h                Solid registries, Recipe mirrors, and the name/index lookups
+│   │   ├── solids.h                Solid registries, authored Recipes, and the name/index lookups
 │   │   ├── relax_bake.h             Relax payload and source identity checks
 │   │   ├── relax_bakes_generated.h Baked relaxed-mesh vertices (from tools/relax_bakes.py)
 │   │   └── relax_bake_specs.h      Authored relax-bake names and iteration budgets

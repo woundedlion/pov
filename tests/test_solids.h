@@ -516,7 +516,7 @@ inline void test_solid_builder_reclaims_intermediates() {
 }
 
 // ---------------------------------------------------------------------------
-// Recipe tables: bitwise replay parity.
+// Recipe tables and lowered replay.
 // ---------------------------------------------------------------------------
 
 /** Single-step META recipe step. */
@@ -526,39 +526,6 @@ constexpr Solids::OpStep META_STEP = {Solids::Op::META};
 constexpr size_t MAX_LOWERED_STEPS =
     std::max(Solids::max_lowered_step_count(Solids::islamic_registry),
              Solids::lowered_step_count(Solids::Recipe{0, &META_STEP, 1}));
-
-/**
- * @brief Verifies build_recipe replays every non-null recipe bitwise-identical
- *        to its entry's generator, across all three registries.
- */
-inline void test_recipes_match_generators_bitwise() {
-  size_t checked = 0;
-  for (std::span<const Solids::Entry> reg : Solids::all_registries()) {
-    for (const Solids::Entry &e : reg) {
-      if (!e.recipe)
-        continue;
-      Arena geom1(solids_geom_a, sizeof(solids_geom_a));
-      PolyMesh gen;
-      {
-        Arena a(solids_scratch_a, sizeof(solids_scratch_a));
-        Arena b(solids_scratch_b, sizeof(solids_scratch_b));
-        gen = Solids::finalize_solid(e.generate(a, b), geom1);
-      }
-      Arena geom2(solids_geom_b, sizeof(solids_geom_b));
-      PolyMesh rec;
-      {
-        Arena a(solids_scratch_a, sizeof(solids_scratch_a));
-        Arena b(solids_scratch_b, sizeof(solids_scratch_b));
-        rec = Solids::finalize_solid(Solids::build_recipe(*e.recipe, a, b),
-                                     geom2);
-      }
-      check_bitwise_equal_meshes(gen, rec);
-      ++checked;
-    }
-  }
-  // Guards against a vacuous pass if the recipe pointers are dropped.
-  HS_EXPECT_EQ(checked, Solids::Collections::get_islamic_solids().size());
-}
 
 inline void check_lowered_replay(const Solids::Recipe &recipe);
 
@@ -742,7 +709,6 @@ inline int run_solids_tests() {
   HS_RUN(test_determinism_archimedean_with_conway_ops);
   HS_RUN(test_determinism_complex_islamic);
 
-  HS_RUN(test_recipes_match_generators_bitwise);
   HS_RUN(test_recipe_lowered_replay_matches_authored);
   HS_RUN(test_shipping_recipe_lowering_is_identity);
   HS_RUN(test_composite_lowering_matches_composites);

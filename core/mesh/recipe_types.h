@@ -63,8 +63,8 @@ struct OpStep {
 };
 
 /**
- * @brief Declarative op chain mirroring a registry generator.
- * @details The generators are the source of truth for shipping geometry.
+ * @brief Declarative op chain for a registry generator.
+ * @details Authored recipes are the source of truth for Islamic star-pattern geometry.
  */
 struct Recipe {
   uint8_t seed;        /**< simple_registry index of the base solid. */
