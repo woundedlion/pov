@@ -31,35 +31,15 @@ inline const char *enum_id(const Pullback::Interp::ParamFieldInfo &field,
  * @param index Field index in the operator schema.
  * @return Active source, inactive source, inactive variant or fixed topology. */
 inline const char *reason(const ColorModulation::Config &config, size_t index) {
-  if (index >= Params::EXTRA_SCHEMA.size())
-    return "inactive-source";
   const auto &field = Params::EXTRA_SCHEMA[index];
   if (field.enum_count || field.topology)
     return "fixed-topology";
-  const std::string_view id = field.id;
-  if (id == "modulation-amount")
+  if (Params::active(config, index))
     return "active-source";
-  bool active = false;
-  switch (config.source) {
-  case Pattern::SourceKind::NOISE:
-    active = id.starts_with("pattern-");
-    if (active && id == "pattern-contrast" &&
-        config.noise.variant != Pattern::NoiseVariant::OCTAVE_CONTOUR)
-      return "inactive-variant";
-    break;
-  case Pattern::SourceKind::DIRECTIONAL_SINE:
-    active = id.starts_with("sine-");
-    break;
-  case Pattern::SourceKind::SPHERE_INTERFERENCE:
-    active = id.starts_with("interference-");
-    break;
-  case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
-    active = id.starts_with("grid-");
-    break;
-  case Pattern::SourceKind::DISPLACEMENT:
-    break;
-  }
-  return active ? "active-source" : "inactive-source";
+  return config.source == Pattern::SourceKind::NOISE &&
+                 std::string_view(field.id) == "pattern-contrast"
+             ? "inactive-variant"
+             : "inactive-source";
 }
 
 /** @brief Whether a canonical numeric field belongs to the selected recipe.
