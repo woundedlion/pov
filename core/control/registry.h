@@ -19,7 +19,6 @@
 #include "core/platform/platform.h"
 #include <array>
 #include <string_view>
-#include <functional>
 #include <memory>
 
 class Effect;
@@ -53,11 +52,11 @@ template <typename T> constexpr const void *effect_type_key() {
 struct FactoryEntry {
   /// Maps a preset index to its stable preset ID.
   using PresetIdFn = std::string_view (*)(size_t);
+  using CreatorFn = std::unique_ptr<Effect> (*)();
 
   hs::EffectIdentity
       identity; /**< Canonical IDs, aliases and immutable RNG key. */
-  std::function<std::unique_ptr<Effect>()>
-      creator; /**< Allocates a new effect instance. */
+  CreatorFn creator = nullptr; /**< Allocates a new effect instance. */
   const void *type_key =
       nullptr;     /**< effect_type_key() of the type creator() builds. */
   size_t size = 0; /**< sizeof the effect at this resolution, in bytes. */
