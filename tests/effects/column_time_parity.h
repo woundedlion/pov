@@ -20,7 +20,6 @@ template <template <int, int> class E, int W, int H, int FRAMES,
           bool ENABLED = false>
 inline uint64_t column_time_parity_hash() {
   reset_effect_globals();
-  hs::random().seed(1337u);
   pin_frame_clock(0);
   Spacetime::set_flat_surface(!ENABLED);
   uint64_t hash = HASH_SEED64;

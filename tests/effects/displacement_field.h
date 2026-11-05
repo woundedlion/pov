@@ -1121,7 +1121,6 @@ inline DisplacementFieldEndpoints displacement_field_endpoints(int frames,
   DisplacementFieldEndpoints out;
   for (bool enabled : {false, true}) {
     reset_effect_globals();
-    hs::random().seed(1337u);
     pin_frame_clock(0);
     Spacetime::set_flat_surface(!enabled);
     DisplacementField<W, H> effect;
@@ -1225,9 +1224,7 @@ inline void test_displacement_field_single_pass_reference() {
     const int frames = balls ? 40 : 200;
     for (int mode = 0; mode < 3; ++mode) {
       reset_effect_globals();
-      hs::random().seed(1337u);
       pin_frame_clock(0);
-      Spacetime::set_flat_surface(false);
       DisplacementField<W, H> effect;
       effect.init();
       if (balls)
@@ -1283,8 +1280,6 @@ inline void test_displacement_field_single_pass_reference() {
 inline void test_displacement_field_turn_follows_large_steps() {
   constexpr int W = SMALL_W, H = SMALL_H;
   reset_effect_globals();
-  hs::random().seed(1337u);
-  Spacetime::set_flat_surface(false);
   DisplacementField<W, H> effect;
   effect.init();
   for (int f = 0; f < 60; ++f) {
@@ -1322,9 +1317,7 @@ inline void test_displacement_field_alternate_groups_match_windows() {
   int flushes = 0;
   for (int mode = 0; mode < 2; ++mode) {
     reset_effect_globals();
-    hs::random().seed(1337u);
     pin_frame_clock(0);
-    Spacetime::set_flat_surface(false);
     DisplacementField<W, H> effect;
     effect.init();
     for (int f = 0; f < 200 + FRAMES; ++f) {
@@ -1360,9 +1353,7 @@ inline void test_displacement_field_boundary_stencil() {
   int worst = 0, lit = 0;
   for (int mode = 0; mode < 2; ++mode) {
     reset_effect_globals();
-    hs::random().seed(1337u);
     pin_frame_clock(0);
-    Spacetime::set_flat_surface(false);
     DisplacementField<W, H> effect;
     effect.init();
     DisplacementFieldWhiteBox::sweep_mode(effect, mode);

@@ -45,7 +45,6 @@ struct MobiusRingsWhiteBox {
                                    int count_change = 0) {
     reset_effect_globals();
     Spacetime::geometry_counters = {};
-    hs::random().seed(1337u);
     pin_frame_clock(0);
     using FX = MobiusRings<W, H>;
     FX fx;

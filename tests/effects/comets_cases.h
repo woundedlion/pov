@@ -61,7 +61,6 @@ struct CometsWhiteBox {
     constexpr int W = 288, H = 144;
     using F = Comets<W, H>;
     reset_effect_globals();
-    hs::random().seed(1337u);
     pin_frame_clock(0);
     F fx;
     fx.init();
