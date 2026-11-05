@@ -2565,7 +2565,7 @@ inline void check_polar_face_sweep(size_t points, float notch, bool north,
   };
   const math::Quaternion to =
       math::make_rotation(math::Vector(0.3f, 0.2f, 0.9f).normalized(), turn);
-  const float reach = SPIN * sinf(TIP) + WOBBLE;
+  const float reach = grow ? TIP + SPIN * sinf(TIP) : SPIN * sinf(TIP) + WOBBLE;
   PolarFaceCase test(count, reach, to, position);
   const std::vector<Pixel> drawn = test.draw([](Canvas &canvas) {
     HS_EXPECT_TRUE(canvas.column_basis()->mesh.face_sweep != nullptr);
