@@ -963,6 +963,23 @@ inline void test_transformer_spawn_pausable_freezes_start_delay() {
 // Transformer<> non-pinned slot recycling survives timeline compaction
 // ============================================================================
 
+/** @brief A full timeline releases a rejected transformer's pool slot. */
+inline void test_transformer_full_timeline_releases_slot() {
+  Timeline tl;
+  hs_test::StubEffect effect(8, 8);
+  Canvas canvas(effect);
+  RippleTransformer<1> transformer(tl);
+  transformer.init_storage(persistent_arena);
+  float value = 0.0f;
+  for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
+    tl.add(0, Animation::Transition(value, 1.0f, 2, math::ease_linear));
+  HS_EXPECT_TRUE(transformer.spawn(0, math::Y_AXIS, 0.2f, 4) == nullptr);
+  HS_EXPECT_EQ(transformer.active_count(), 0);
+  tl.step(canvas);
+  tl.step(canvas);
+  HS_EXPECT_TRUE(transformer.spawn(0, math::Y_AXIS, 0.2f, 4) != nullptr);
+}
+
 /**
  * @brief Verifies a non-pinned spawned transform's pool slot is reclaimed after
  *        the timeline relocates its event during compaction.
@@ -1905,6 +1922,7 @@ inline int run_transformers_tests() {
   HS_RUN(test_transformer_pinned_repeat_retains_slot);
   HS_RUN(test_transformer_spawn_pausable_freezes_start_delay);
   HS_RUN(test_transformer_nonpinned_slot_reclaimed_after_compaction);
+  HS_RUN(test_transformer_full_timeline_releases_slot);
   HS_RUN(test_transformer_callback_after_pool_destroyed);
   HS_RUN(test_transformed_angle_rejects_nonfinite_directions);
   HS_RUN(test_ripple_step_keeps_its_previous_endpoint);
