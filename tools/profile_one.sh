@@ -181,6 +181,9 @@ case " $CYCLERS " in *" $EFFECT "*)
     *) MARKER="Preset:";;
   esac ;;
 esac
+if [ -n "$PC_MARKER" ]; then
+  MARKER=""
+fi
 if [ -n "$PROFILE_PRESET" ]; then
   MARKER="Profile preset:"
 fi

@@ -312,6 +312,26 @@ class PcSamplerFlags(unittest.TestCase):
         self.assertIn("HS_PROFILE_PC needs more than 10 seconds", result.stderr)
 
 
+class CaptureMarkers(unittest.TestCase):
+    def test_pc_capture_uses_dump_marker_without_a_preset_advance(self):
+        source = PROFILE_ONE.read_text(encoding="utf-8")
+        block = source[source.index('CYCLERS='):source.index('\n\nbuild_image()')]
+        for pc, preset, replay, expected in (
+                ("", "", "", "Preset:"),
+                ("pc profile end", "", "", ""),
+                ("pc profile end", "3", "", "Profile preset:"),
+                ("pc profile end", "", "_replay", "replay corpus:")):
+            with self.subTest(pc=pc, preset=preset, replay=replay):
+                result = subprocess.run(
+                    ["bash", "-c", 'set -eu\nEFFECT=DisplacementField\n'
+                     + 'PC_MARKER=$1; PROFILE_PRESET=$2; REPLAY_SUFFIX=$3\n'
+                     + block + '\nprintf "%s" "$MARKER"',
+                     "marker-test", pc, preset, replay],
+                    capture_output=True, text=True, encoding="utf-8")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, expected)
+
+
 class ArtifactPaths(unittest.TestCase):
     """HS_PROFILE_OUT selects paths for the complete capture artifact set."""
 
