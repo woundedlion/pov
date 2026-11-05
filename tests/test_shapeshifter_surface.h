@@ -188,6 +188,55 @@ inline void test_surface_seams() {
         pose.name, {.bidirectional = true});
 }
 
+/** @brief Writes and scores a full-area surface reference.
+ * @param effect Live fixture effect.
+ * @param name Diagnostic pose name.
+ * @param timed Selects temporal rendering.
+ * @param image Masked full-frame output. */
+inline void write_surface_area_report(OracleEffect &effect, const char *name,
+                                      bool timed, const OracleFrame &image) {
+  {
+    Canvas canvas(effect);
+    ShapeShifterWhiteBox::surface_full_area(effect, canvas, timed);
+  }
+  effect.advance_display();
+  OracleFrame reference;
+  for (int y = 0; y < 144; ++y)
+    for (int x = 0; x < 288; ++x)
+      reference.pixels.push_back(effect.get_pixel(x, y));
+  write_oracle_ppm(reference, std::string(shapeshifter_image_prefix()) + "/" +
+                                  name + (timed ? "-timed" : "-frozen") +
+                                  "-full-reference.ppm");
+  for (bool window : {false, true}) {
+    uint64_t absolute = 0;
+    int maximum = 0;
+    const int width = window ? 144 : 288, height = window ? 72 : 144;
+    for (int y = 0; y < height; ++y)
+      for (int x = 0; x < width; ++x) {
+        const auto a = image.pixels[y * 288 + x];
+        const auto b = reference.pixels[y * 288 + x];
+        const uint16_t A[3]{a.r, a.g, a.b}, B[3]{b.r, b.g, b.b};
+        for (int c = 0; c < 3; ++c) {
+          const int error =
+              std::abs(int(linear_to_srgb8(A[c])) - int(linear_to_srgb8(B[c])));
+          absolute += error;
+          maximum = std::max(maximum, error);
+        }
+      }
+    std::printf("AREA pose=%s timed=%d window=%d mae=%.12f max=%d\n", name,
+                int(timed), int(window),
+                double(absolute) / (width * height * 3), maximum);
+  }
+  // Refill both display buffers before the next clipped comparison.
+  for (int i = 0; i < 2; ++i) {
+    {
+      Canvas canvas(effect);
+      ShapeShifterWhiteBox::surface_kernel(effect, canvas, timed);
+    }
+    effect.advance_display();
+  }
+}
+
 inline void surface_mask_case(OracleEffect &effect, const char *name,
                               bool write_images) {
   for (bool timed : {false, true})
@@ -231,48 +280,8 @@ inline void surface_mask_case(OracleEffect &effect, const char *name,
                                  (board ? "-board.ppm" : "-full.ppm"));
         }
       }
-      if (write_images && !board) {
-        {
-          Canvas canvas(effect);
-          ShapeShifterWhiteBox::surface_full_area(effect, canvas, timed);
-        }
-        effect.advance_display();
-        OracleFrame reference;
-        for (int y = 0; y < 144; ++y)
-          for (int x = 0; x < 288; ++x)
-            reference.pixels.push_back(effect.get_pixel(x, y));
-        write_oracle_ppm(reference, std::string(shapeshifter_image_prefix()) +
-                                        "/" + name +
-                                        (timed ? "-timed" : "-frozen") +
-                                        "-full-reference.ppm");
-        for (bool board : {false, true}) {
-          uint64_t absolute = 0;
-          int maximum = 0;
-          const int width = board ? 144 : 288, height = board ? 72 : 144;
-          for (int y = 0; y < height; ++y)
-            for (int x = 0; x < width; ++x) {
-              const auto a = images[1].pixels[y * 288 + x];
-              const auto b = reference.pixels[y * 288 + x];
-              const uint16_t A[3]{a.r, a.g, a.b}, B[3]{b.r, b.g, b.b};
-              for (int c = 0; c < 3; ++c) {
-                const int error = std::abs(int(linear_to_srgb8(A[c])) -
-                                           int(linear_to_srgb8(B[c])));
-                absolute += error;
-                maximum = std::max(maximum, error);
-              }
-            }
-          std::printf("AREA pose=%s timed=%d board=%d mae=%.12f max=%d\n", name,
-                      int(timed), int(board),
-                      double(absolute) / (width * height * 3), maximum);
-        }
-        for (int i = 0; i < 2; ++i) {
-          {
-            Canvas canvas(effect);
-            ShapeShifterWhiteBox::surface_kernel(effect, canvas, timed);
-          }
-          effect.advance_display();
-        }
-      }
+      if (write_images && !board)
+        write_surface_area_report(effect, name, timed, images[1]);
       const auto difference =
           compare_buffers(images[0].pixels, images[1].pixels);
       std::printf("SURFACE_MASK_DIFF %s timed=%d board=%d pixels=%zu\n", name,
