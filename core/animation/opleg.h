@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <cstring>
+
 #ifndef HS_ANIMATION_INTERNAL
 #error internal fragment of animation.h; include "animation.h" instead
 #endif
@@ -964,7 +966,8 @@ private:
       PolyMesh prior;
       swept_at(tr, tr.drawn_frame, prior);
       if (prior.vertices.size() == tr.drawn_vertices)
-        std::copy_n(prior.vertices.data(), tr.drawn_vertices, drawn);
+        std::memcpy(drawn, prior.vertices.data(),
+                    tr.drawn_vertices * sizeof(math::Vector));
       else
         drawn = nullptr;
     }

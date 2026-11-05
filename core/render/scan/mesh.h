@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <cstring>
+
 #include <algorithm>
 #include <cstddef>
 #include <span>
@@ -161,7 +163,7 @@ HS_HOT_INLINE inline size_t window_runs(ColumnRun *runs, size_t count,
         kept[kept_count++] = {a, b};
     }
   HS_CHECK(kept_count <= CAPACITY, "rasterize_face: run buffer overflow");
-  std::copy_n(kept, kept_count, runs);
+  std::memcpy(runs, kept, kept_count * sizeof(ColumnRun));
   return kept_count;
 }
 
