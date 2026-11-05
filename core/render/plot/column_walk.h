@@ -1486,27 +1486,27 @@ rasterize_column_edges_impl(PipelineRef &pipeline, Canvas &canvas,
     };
     const bool split = radians != 0.0f && !frame.known;
     const ColumnWalk<W> walk{
-        pipeline,
-        canvas,
-        points,
-        shader,
-        frame,
-        segments,
-        segment_count,
-        band,
-        direction,
-        radians,
-        single_time,
-        velocity,
-        source_positions,
-        batch.chained,
-        local_lattice ||
-            (split && !(sense(frame.bases[0]) * sense(frame.bases[1]) >
-                        4.0f * frame.deviation * frame.deviation)),
-        walk_top_y,
-        bottom_y,
-        local_lattice ? full_sine : half_sine,
-        local_lattice ? full_cosine : half_cosine};
+        .pipeline = pipeline,
+        .canvas = canvas,
+        .points = points,
+        .shader = shader,
+        .frame = frame,
+        .segments = segments,
+        .segment_count = segment_count,
+        .band = band,
+        .direction = direction,
+        .radians = radians,
+        .single_time = single_time,
+        .velocity = velocity,
+        .source_positions = source_positions,
+        .chained = batch.chained,
+        .turning = local_lattice ||
+                   (split && !(sense(frame.bases[0]) * sense(frame.bases[1]) >
+                               4.0f * frame.deviation * frame.deviation)),
+        .top_y = walk_top_y,
+        .bottom_y = bottom_y,
+        .half_sine = local_lattice ? full_sine : half_sine,
+        .half_cosine = local_lattice ? full_cosine : half_cosine};
     if (batch.uniform_color) {
       if (local_lattice)
         walk_uniform_edge_columns<W, H, Cfg, false, true, RECORD_WORLD>(walk);

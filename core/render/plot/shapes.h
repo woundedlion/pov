@@ -553,8 +553,13 @@ draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
                             f.v0 = f.v2 / W;
                             Spacetime::shade_at_time(shader, t, p, f);
                           };
-  const EdgeBatch batch{edge_count, prepare, vertices, motion,
-                        edges,      true,    true};
+  const EdgeBatch batch{.count = edge_count,
+                        .prepare = prepare,
+                        .vertices = vertices,
+                        .motion = motion,
+                        .pairs = edges,
+                        .chained = true,
+                        .rigid_lattice = true};
   if constexpr (requires { requires PipelineT::any_3d_history; })
     rasterize_recording_column_edges<
         W, H, {.timed = true, .column_edge_lengths = true}>(

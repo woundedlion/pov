@@ -708,15 +708,15 @@ struct Mesh {
                             float t) HS_HOT_INLINE {
       Spacetime::shade_at_time(shader, t, position, fragment);
     };
-    const EdgeBatch batch{edges.size(),
-                          &prepare_timed_edge,
-                          mesh.vertices.data(),
-                          motion,
-                          edges.data(),
-                          geometry.chained,
-                          geometry.rigid_lattice,
-                          geometry.uniform_color,
-                          age};
+    const EdgeBatch batch{.count = edges.size(),
+                          .prepare = &prepare_timed_edge,
+                          .vertices = mesh.vertices.data(),
+                          .motion = motion,
+                          .pairs = edges.data(),
+                          .chained = geometry.chained,
+                          .rigid_lattice = geometry.rigid_lattice,
+                          .uniform_color = geometry.uniform_color,
+                          .age = age};
     const float raster_sweep =
         prepared_poses ? prepared_sweep : erased.sweep_arc();
     if constexpr (requires { requires PipelineT::any_3d_history; })

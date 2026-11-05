@@ -1185,8 +1185,14 @@ inline void test_column_uniform_color_preserves_age() {
                                               : Pixel(16384, 32768, 65535),
                            0.3f);
         };
-        const Plot::EdgeBatch batch{1,     prepare, vertices, motion,
-                                    &pair, false,   false,    uniform};
+        const Plot::EdgeBatch batch{.count = 1,
+                                    .prepare = prepare,
+                                    .vertices = vertices,
+                                    .motion = motion,
+                                    .pairs = &pair,
+                                    .chained = false,
+                                    .rigid_lattice = false,
+                                    .uniform_color = uniform};
         PipelineRef erased(pipeline, Spacetime::Timed{});
         Plot::rasterize_column_edges<W, H, {.timed = true}>(
             erased, canvas, points, TimedShaderFn(shader), batch, &poses, 0.0f,
