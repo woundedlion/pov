@@ -143,6 +143,7 @@ inline int run_animation_tests() {
   HS_RUN(test_particle_system_signed_axis_trajectory);
 
   HS_RUN(test_sprite_fade_in_plateau_fade_out_envelope);
+  HS_RUN(test_sprite_one_frame_and_eased_fade_out);
   HS_RUN(test_sprite_clamps_overshooting_fade_in);
   HS_RUN(test_sprite_overlapping_fades_stay_continuous);
   HS_RUN(test_sprite_scaled_fade_in_dims_first_frame);

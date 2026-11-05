@@ -187,3 +187,23 @@ inline void test_sprite_scaled_fade_out_dims_penultimate_frame() {
   HS_EXPECT_NEAR(opacity[1], 0.5f, 1e-6f);
   HS_EXPECT_NEAR(opacity[2], 0.0f, 1e-6f);
 }
+
+/** @brief One-frame sprites stay opaque and fade-out uses its easing. */
+inline void test_sprite_one_frame_and_eased_fade_out() {
+  for (int duration : {0, 1}) {
+    float opacity = -1.0f;
+    Animation::Sprite sprite([&](Canvas &, float o) { opacity = o; }, duration,
+                             {.fade_out = {4}});
+    sprite.step(fake_canvas());
+    HS_EXPECT_EQ(opacity, 1.0f);
+    HS_EXPECT_TRUE(sprite.done());
+  }
+  float opacity = -1.0f;
+  Animation::Sprite sprite([&](Canvas &, float o) { opacity = o; }, 4,
+                           {.fade_out = {2, math::ease_in_cubic}});
+  for (float expected : {1.0f, 1.0f, 0.875f, 0.0f}) {
+    sprite.step(fake_canvas());
+    HS_EXPECT_EQ(opacity, expected);
+  }
+  HS_EXPECT_TRUE(sprite.done());
+}
