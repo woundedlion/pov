@@ -527,7 +527,7 @@ struct SurfaceFootprintAudit {
     if (actual + 3 < minimum) {
       ++audit.count;
       ++audit.paths[sample.path];
-      if (audit.records && *audit.records)
+      if (audit.records && audit.records->is_open())
         *audit.records << audit.frame << ',' << sample.path << ',' << actual
                        << ',' << minimum << ',' << minimum - actual << ','
                        << p.x << ',' << p.y << '\n';
@@ -547,6 +547,7 @@ inline void test_surface_footprint_darkening() {
     records.open(std::string(directory) + "/pixels.csv");
     records << "frame,path,energy,minimum,deficit,p_x,p_y\n";
     images.open(std::string(directory) + "/frames.rgb16", std::ios::binary);
+    HS_EXPECT_TRUE(records.is_open() && images.is_open());
   }
   {
     OracleEffect effect;
@@ -578,7 +579,7 @@ inline void test_surface_footprint_darkening() {
       SurfaceFootprintAudit::AA::observer = nullptr;
       SurfaceFootprintAudit::AA::observer_data = nullptr;
       effect.advance_display();
-      if (images)
+      if (images.is_open())
         for (int y = 0; y < 144; ++y)
           for (int x = 0; x < 288; ++x) {
             const auto pixel = effect.get_pixel(x, y);
