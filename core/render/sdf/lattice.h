@@ -86,16 +86,16 @@ inline PreparedTrace prepare(const Settings &settings, const math::Vec4 &origin,
 /** @brief One ray's covered plane crossings, sorted by distance. */
 struct CrossingList {
   /// Maximum crossings: one per shell on every axis.
-  static constexpr int CAPACITY = DIMENSIONS * SDF::Lattice::MAX_SHELLS;
+  static constexpr int CAPACITY = DIMENSIONS * MAX_SHELLS;
   std::array<float, CAPACITY> distances; ///< Crossing ray distances.
   std::array<float, CAPACITY> coverages; ///< Coverage of each crossing.
 };
 
 /** @brief Frame state for composite_crossings(). */
 struct PreparedShading {
-  SDF::Lattice::PreparedTrace lattice; ///< Lattice trace state.
-  Raycast::Appearance appearance;      ///< Depth fade and palette.
-  CrossingList *crossings = nullptr;   ///< Required per-ray sort scratch.
+  PreparedTrace lattice;             ///< Lattice trace state.
+  Raycast::Appearance appearance;    ///< Depth fade and palette.
+  CrossingList *crossings = nullptr; ///< Required per-ray sort scratch.
 };
 
 /** @brief Wire coverage of one plane crossing. */
@@ -490,7 +490,7 @@ template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0> struct Events {
 };
 /**
  * @brief Composites one ray's plane crossings front to back.
- * @details Matches Raycast::shade_events over SDF::Lattice::Events. Only
+ * @details Matches Raycast::shade_events over Events. Only
  * covered crossings enter the distance-ordered layer list; each run within the
  * relative tolerance of its first distance composites as one layer at that
  * distance with the run's largest coverage.
@@ -506,7 +506,6 @@ composite_crossings(const math::Vector &normal,
                     const PreparedShading &prepared) {
   static_assert(SHELLS <= MAX_SHELLS);
   HS_PROFILE_DEEP(hl_shade);
-  using SDF::Lattice::DIRECTION_EPSILON;
   static_assert(CrossingList::CAPACITY <= Raycast::TraceLimits{}.max_layers);
   const auto &lattice = prepared.lattice;
   const math::Vec4 direction =
@@ -537,18 +536,16 @@ composite_crossings(const math::Vector &normal,
       if (other != axis && magnitude[other] >= DIRECTION_EPSILON)
         step *= magnitude[other];
     float distance =
-        SDF::Lattice::next_plane_offset(origin[axis], direction[axis] > 0) *
-        step;
+        next_plane_offset(origin[axis], direction[axis] > 0) * step;
     for (uint8_t shell = 0;
          shell < SHELL_COUNT && distance < lattice.far_distance;
          ++shell, distance += step) {
       HS_PROFILE_DEEP(hl_event_step);
       const float COVERAGE =
-          SDF::Lattice::trace_plane<SLICE_4D>(origin, direction, axis, distance,
-                                              step, lattice)
+          trace_plane<SLICE_4D>(origin, direction, axis, distance, step,
+                                lattice)
               .coverage *
-          SDF::Lattice::shell_horizon_coverage(shell, SHELL_COUNT, distance,
-                                               magnitude[axis]);
+          shell_horizon_coverage(shell, SHELL_COUNT, distance, magnitude[axis]);
       if (!(COVERAGE > 0.0f))
         continue;
       covered.insert(distance, COVERAGE);
