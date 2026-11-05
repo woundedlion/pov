@@ -1209,8 +1209,7 @@ private:
                                          interval.center(FRACTION)));
       }
     }
-    TracePath path =
-        trace_path(prepare_traced(interval.current(), trace_center));
+    TracePath path = trace_path(states[0]);
     if (!interval.params_constant())
       for (int x = 0; x < COLUMN_TIMES && path != TracePath::GENERIC; ++x)
         if (trace_path(states[x]) != path)
