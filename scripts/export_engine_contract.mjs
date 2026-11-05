@@ -34,7 +34,7 @@ export const FPS = ${module.SHOW_FRAMES_PER_SECOND};
 export const NUMERIC_ENUMS = ${JSON.stringify(numericEnums, null, 2)};
 /** @type {Record<string, string[]>} */
 export const CLASS_METHODS = ${JSON.stringify(classMethods, null, 2)};
-/** @type {Array<{id: string, display_name: string, legacy_ids: string[]}>} */
+/** @type {Array<{id: string, display_name: string}>} */
 export const EFFECT_IDENTITIES = ${JSON.stringify(effectIdentities, null, 2)};
 `);
 

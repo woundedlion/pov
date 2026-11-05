@@ -34,7 +34,7 @@ class Engine {}
 Engine.prototype.getBufferLength = function() {};
 Engine.prototype.getParameterAdvisories = function() { return []; };
 Engine.prototype.getEffectIdentities = function() {
-  return [{id: 'future-effect', display_name: 'FutureEffect', legacy_ids: ['OldFuture']}];
+  return [{id: 'future-effect', display_name: 'FutureEffect'}];
 };
 ${extra ? 'Engine.prototype.futureMethod = function() {};' : ''}
 class Result { constructor(value) { this.value = value; } }
@@ -61,7 +61,7 @@ export default async function() {
   assert.match(first.bindings, /getParameterAdvisories\(\): \{name: string; foldStrength: number\}\[\];/);
   assert.match(first.contract, /"FutureResult": \{\s*"APPLIED": 0/);
   assert.match(first.contract, /"id": "future-effect"/);
-  assert.match(first.contract, /"OldFuture"/);
+  assert.doesNotMatch(first.contract, /legacy_ids/);
   const changed = generate(true);
   assert.match(changed.bindings, /futureMethod\(_0: number\): number;/);
   assert.match(changed.contract, /"futureMethod"/);

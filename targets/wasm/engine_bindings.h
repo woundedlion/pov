@@ -906,8 +906,8 @@ public:
   }
 
   /**
-   * @brief Returns canonical identities and the display-name lookup alias.
-   * @return JS array of {id, display_name, legacy_ids}; RNG keys stay internal.
+   * @brief Returns canonical identities and their class/browser names.
+   * @return JS array of {id, display_name}; RNG keys stay internal.
    */
   EffectIdentitiesValue getEffectIdentities() const {
     emscripten::val result = emscripten::val::array();
@@ -917,11 +917,6 @@ public:
       emscripten::val row = emscripten::val::object();
       row.set("id", std::string(identity.machine_id));
       row.set("display_name", std::string(identity.display_name));
-      emscripten::val aliases = emscripten::val::array();
-      size_t alias_index = 0;
-      if (identity.display_name != identity.machine_id)
-        aliases.set(alias_index++, std::string(identity.display_name));
-      row.set("legacy_ids", aliases);
       result.set(index++, row);
     }
     return result;

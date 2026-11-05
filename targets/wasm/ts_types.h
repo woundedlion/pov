@@ -121,6 +121,5 @@ inline void bind_ts_types() {
       "ProceduralPalettesValue",
       R"({name: string; a: [number,number,number]; b: [number,number,number]; c: [number,number,number]; d: [number,number,number]}[])");
   emscripten::register_type<EffectIdentitiesValue>(
-      "EffectIdentitiesValue",
-      R"({id: string; display_name: string; legacy_ids: string[]}[])");
+      "EffectIdentitiesValue", R"({id: string; display_name: string}[])");
 }
