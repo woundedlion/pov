@@ -886,6 +886,13 @@ class PartCatalogTests(unittest.TestCase):
 
 
 class CommandRunTests(unittest.TestCase):
+    def test_netlist_export_checks_annotation(self):
+        result = subprocess.CompletedProcess(["kicad-cli"], 0, "", "")
+        with mock.patch.object(fab, "run", return_value=result), \
+                mock.patch.object(fab, "require_annotated_export") as annotated:
+            self.assertIs(fab.run_export("netlist", ["kicad-cli", "source.kicad_sch"]), result)
+        annotated.assert_called_once_with(result, "source.kicad_sch")
+
     def test_nonraising_failure_surfaces_stderr(self):
         result = subprocess.CompletedProcess(["kicad-cli"], 1, "", "cannot load board\n")
         stderr = io.StringIO()
@@ -1208,6 +1215,35 @@ class ZoneRefillTests(unittest.TestCase):
                     str(Path(directory) / "phantasm-drc.json"), refill=refill)
                 fab.run_parity.assert_called_once_with(
                     str(Path(directory) / "phantasm-parity.json"), refill=refill)
+
+
+class FabricationWiringTests(unittest.TestCase):
+    def fabricate(self, schematic_revision="1.1", board=TITLED_BOARD, comps=None):
+        with tempfile.TemporaryDirectory() as directory, contextlib.ExitStack() as stack:
+            def export(stage, args):
+                target = Path(args[args.index("-o") + 1])
+                if stage == "netlist":
+                    target.write_text('(export (design (sheet (name "/") '
+                                      f'(title_block (rev "{schematic_revision}")))))', encoding="utf-8")
+                elif stage == "centroid":
+                    target.write_text("Ref,PosX,PosY,Rot,Side\n", encoding="utf-8")
+            patch_fab_run(stack, Path(directory), export, read_board=board,
+                          parse_components=comps or {})
+            fab.fabricate(validate_only=True)
+
+    def test_fabricate_rejects_foreign_schematic_revision(self):
+        self.fabricate()
+        with self.assertRaisesRegex(SystemExit, "schematic revision does not match"):
+            self.fabricate(schematic_revision="1.2")
+
+    def test_fabricate_rejects_assembled_board_exclusion(self):
+        comps = {"R1": {"value": "33R", "footprint": "Resistor_SMD:R_0805", "dnp": False}}
+        self.fabricate(comps=comps)
+        board = sexp.parse_one('(kicad_pcb (title_block (rev "1.1")) '
+                               '(footprint "Resistor_SMD:R_0805" '
+                               '(property "Reference" "R1") (attr exclude_from_bom)))')
+        with self.assertRaisesRegex(SystemExit, "assembled parts the board excludes.*R1"):
+            self.fabricate(board=board, comps=comps)
 
 
 class PackagePromotionTests(unittest.TestCase):
