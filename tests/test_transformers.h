@@ -804,7 +804,6 @@ inline void test_transformer_no_entities_is_identity() {
  */
 inline void test_transformer_spawn_applies_and_composes() {
   Timeline tl;
-  global_timeline_t = 0;
   NoiseTransformer<4> nt(tl);
   nt.init_storage(persistent_arena);
   nt.template_params.amplitude = 0.6f;
@@ -853,7 +852,6 @@ inline void test_transformer_spawn_applies_and_composes() {
 /** @brief Pins transformer live edit preserves instance phase and seed. */
 inline void test_transformer_live_edit_preserves_instance_phase_and_seed() {
   Timeline timeline;
-  global_timeline_t = 0;
   NoiseTransformer<4> transformer(timeline);
   transformer.init_storage(persistent_arena);
   transformer.template_params.time = 3.0f;
@@ -908,7 +906,6 @@ inline void test_transformer_live_edit_preserves_instance_phase_and_seed() {
 /** @brief A pinned repeating warp retains its slot across cycles until cancellation. */
 inline void test_transformer_pinned_repeat_retains_slot() {
   Timeline timeline;
-  global_timeline_t = 0;
   StubEffect effect(8, 8);
   Canvas canvas(effect);
   MobiusWarpTransformer<1> transformer(timeline);
@@ -949,7 +946,6 @@ inline void test_transformer_pinned_repeat_retains_slot() {
  */
 inline void test_transformer_spawn_pausable_freezes_start_delay() {
   Timeline tl;
-  global_timeline_t = 0;
   hs_test::StubEffect fx(8, 8);
   Canvas cv(fx);
 
@@ -1017,7 +1013,6 @@ inline void test_transformer_full_timeline_releases_slot() {
  */
 inline void test_transformer_nonpinned_slot_reclaimed_after_compaction() {
   Timeline tl;
-  global_timeline_t = 0;
   hs_test::StubEffect fx(8, 8);
   Canvas cv(fx);
 
@@ -1117,7 +1112,6 @@ inline void test_ripple_step_keeps_its_previous_endpoint() {
  */
 inline void test_transformer_substitute_params_compose_in_spawn_order() {
   Timeline tl;
-  global_timeline_t = 0;
   hs_test::StubEffect fx(8, 8);
   Canvas cv(fx);
   RippleTransformer<4> rt(tl);
@@ -1153,7 +1147,6 @@ inline void test_transformer_substitute_params_compose_in_spawn_order() {
 inline void test_transformer_callback_after_pool_destroyed() {
   using Pool = RippleTransformer<1>;
   Timeline tl;
-  global_timeline_t = 0;
   hs_test::StubEffect fx(8, 8);
   Canvas cv(fx);
 
@@ -1190,7 +1183,6 @@ inline void test_transformer_callback_after_pool_destroyed() {
  */
 inline void test_transformer_slots_released_by_timeline_clear() {
   Timeline tl;
-  global_timeline_t = 0;
 
   RippleTransformer<2> rt(tl);
   rt.init_storage(persistent_arena);
@@ -1252,7 +1244,6 @@ struct TagAnim : public Animation::AnimationBase<TagAnim> {
  */
 inline void test_transformer_recycled_slot_composes_in_spawn_order() {
   Timeline tl;
-  global_timeline_t = 0;
   hs_test::StubEffect fx(8, 8);
   Canvas cv(fx);
 
@@ -1337,7 +1328,6 @@ inline void test_field_transformer_no_entities_is_zero() {
  */
 inline void test_field_transformer_sums_and_bounds() {
   Timeline tl;
-  global_timeline_t = 0;
   TestFieldTransformer ft(tl);
   ft.init_storage(persistent_arena);
 
@@ -1357,7 +1347,6 @@ inline void test_field_transformer_sums_and_bounds() {
  */
 inline void test_field_transformer_active_params_spawn_order() {
   Timeline tl;
-  global_timeline_t = 0;
   TestFieldTransformer ft(tl);
   ft.init_storage(persistent_arena);
 
@@ -1375,7 +1364,6 @@ inline void test_field_transformer_active_params_spawn_order() {
  */
 inline void test_field_transformer_slot_reclaimed() {
   Timeline tl;
-  global_timeline_t = 0;
   hs_test::StubEffect fx(8, 8);
   Canvas cv(fx);
   TestFieldTransformer ft(tl);
@@ -1402,7 +1390,6 @@ inline void test_field_transformer_slot_reclaimed() {
  */
 inline void test_field_transformer_storage_survives_arena_rewind() {
   Timeline tl;
-  global_timeline_t = 0;
   const size_t mark = persistent_arena.get_offset();
   TestFieldTransformer ft(tl);
   ft.init_storage(persistent_arena);
@@ -1840,7 +1827,6 @@ inline void test_noise_product_field_bound_is_conservative() {
  */
 inline void test_ball_drop_traverses_and_reclaims() {
   Timeline tl;
-  global_timeline_t = 0;
   hs_test::StubEffect fx(8, 8);
   Canvas cv(fx);
 
