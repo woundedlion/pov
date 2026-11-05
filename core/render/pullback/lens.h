@@ -185,8 +185,8 @@ prepare_twist(const TwistLensParams &params, const TwistPhase &phase) {
  * @param input Unit direction.
  * @param prepared Axis and angular profile.
  * @return Twisted direction. */
-HS_FLASH_INLINE inline math::Vector twist(const math::Vector &input,
-                                          const TwistPrepared &prepared) {
+HS_HOT_FLASH_MEMBER inline math::Vector twist(const math::Vector &input,
+                                              const TwistPrepared &prepared) {
   if (prepared.axis.y == 1.0f)
     return lenses::twist_lens(input, prepared.profile);
   const float height = math::dot(input, prepared.axis);
