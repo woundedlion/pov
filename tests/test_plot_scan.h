@@ -146,6 +146,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_pose_table_rotates_between_column_times);
   HS_RUN(test_column_poses_match_endpoint_slerp);
   HS_RUN(test_interpolants_bound_rotation);
+  HS_RUN(test_interpolants_bound_turning);
   HS_RUN(test_interpolants_bound_meridian);
   HS_RUN(test_interpolants_bound_orbit);
   HS_RUN(test_interpolants_bound_curved_path);

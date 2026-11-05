@@ -102,6 +102,32 @@ inline void test_interpolants_bound_rotation() {
   }
 }
 
+/** @brief Variable-rate rotation stays within its turning bounds. */
+inline void test_interpolants_bound_turning() {
+  struct Motion {
+    float amplitude, frequency;
+  };
+  for (const Motion motion :
+       {Motion{0.05f, 1.0f}, Motion{0.02f, 6.0f}, Motion{0.4f, 2.0f}})
+    for (const float phase : {0.0f, 0.5f, 1.3f})
+      for (const float radius : {0.2f, 0.8f, 1.0f}) {
+        const auto exact = [&](float t) {
+          const float angle =
+              motion.amplitude * sinf(motion.frequency * t + phase);
+          return math::Vector(radius * cosf(angle),
+                              sqrtf(1.0f - radius * radius),
+                              radius * sinf(angle));
+        };
+        const float rate = motion.amplitude * motion.frequency;
+        const float acceleration = rate * motion.frequency;
+        check_interpolants(
+            exact,
+            Spacetime::PathBound::turning(
+                rate, acceleration, acceleration * motion.frequency, radius),
+            nullptr, false);
+      }
+}
+
 /** @brief A meridian at a constant rate is a great arc the ARC interpolant
  *         reproduces without an axis. */
 inline void test_interpolants_bound_meridian() {
