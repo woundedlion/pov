@@ -540,6 +540,7 @@ struct ChamberPhaseModulationState : PhaseModulationState {
 
 /** @brief Samples one prepared phase, sharing per-pixel cube coordinates.
  * @tparam Phase Prepared modulation phase type.
+ * @tparam SinePhase Whether to sample directional-sine phase sources.
  * @param field Source coordinates and displacement travel.
  * @param prepared Ready column phase.
  * @param scratch Lookups shared by this phase tail.

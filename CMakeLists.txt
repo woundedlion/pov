@@ -356,7 +356,8 @@ else()
   enable_testing()
   add_subdirectory(tests)
 
-  # Point git at the fast staged-file pre-commit checks once tests are configured.
+  # Point git at staged pre-commit checks and a fast-forward-only master guard
+  # once tests are configured.
   # Disable the auto-enable entirely with -DHS_INSTALL_GIT_HOOKS=OFF.
   option(HS_INSTALL_GIT_HOOKS "Auto-enable the local git hooks (core.hooksPath)" ON)
   if(HS_INSTALL_GIT_HOOKS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git"
@@ -366,7 +367,7 @@ else()
       RESULT_VARIABLE _hs_hook_rc OUTPUT_QUIET ERROR_QUIET)
     if(_hs_hook_rc EQUAL 0)
       message(STATUS "Local git hooks enabled (core.hooksPath=.githooks). "
-                     "Bypass once: --no-verify; disable: git config --unset core.hooksPath "
+                     "Bypass pre-commit once: --no-verify; disable: git config --unset core.hooksPath "
                      "(and configure with -DHS_INSTALL_GIT_HOOKS=OFF to keep it off).")
     endif()
   endif()

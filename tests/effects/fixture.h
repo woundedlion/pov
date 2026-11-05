@@ -75,7 +75,7 @@ using hs_test::effects_full_suite;
 inline void lint_dead_sliders(Effect &effect, const char *name);
 
 /**
- * @brief Forward declaration of the animated-param pause lint.
+ * @brief Checks that animated parameter edits pause automatic preset advancement.
  * @param effect Effect instance whose automated params are probed.
  * @param name Effect name used in diagnostic output.
  */

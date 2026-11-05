@@ -72,7 +72,7 @@ constexpr std::string_view stable_effect_id(std::string_view class_name) {
  * @brief Returns the immutable RNG key for an effect type.
  * @tparam EffectType Concrete effect type.
  * @param class_name Fallback for an unregistered type.
- * @return The declared identity's RNG key, or the type's original ID fallback.
+ * @return The declared identity's RNG key, otherwise the type's stable effect id.
  */
 template <typename EffectType>
 constexpr std::string_view effect_seed_key(std::string_view class_name) {
@@ -153,7 +153,7 @@ HS_EFFECT_IDENTITY_LIST(HS_DECLARE_EFFECT_IDENTITY)
 #undef HS_DECLARE_EFFECT_IDENTITY
 } // namespace effect_identities
 /**
- * @brief Resets an effect's RNG without changing its historical seed key.
+ * @brief Resets an effect's RNG from its immutable seed key.
  * @param identity Canonical effect and compatibility identity.
  */
 inline void seed_effect_stream(const EffectIdentity &identity) {

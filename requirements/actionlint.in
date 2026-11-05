@@ -1,1 +1,2 @@
+# The hash lock covers the sdist only; isolated build dependencies are not hash-locked.
 actionlint-py==1.7.12.24

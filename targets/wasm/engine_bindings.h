@@ -312,7 +312,7 @@ public:
   /**
    * @brief Tears down the current effect and instantiates the named one at the
    *        active resolution.
-   * @param name Canonical machine ID, legacy ID or class/browser name to instantiate.
+   * @param name Canonical machine ID or class/browser name to instantiate.
    * @return INSTALLED iff an effect was actually instantiated, else the
    *         rejection reason — UNKNOWN_EFFECT for an unknown/stale effect name
    *         or UNSUPPORTED_RESOLUTION.
@@ -917,7 +917,7 @@ public:
   }
 
   /**
-   * @brief Returns canonical identities and accepted legacy lookup aliases.
+   * @brief Returns canonical identities and the display-name lookup alias.
    * @return JS array of {id, display_name, legacy_ids}; RNG keys stay internal.
    */
   EffectIdentitiesValue getEffectIdentities() const {

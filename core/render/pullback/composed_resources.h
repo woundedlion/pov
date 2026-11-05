@@ -319,9 +319,11 @@ struct ClockState<Family, ResourceKind::WARP> : RotationClock<Family> {
 };
 /** @brief Surface phase clock.
  * @details Values are equivalent modulo their periods; non-ripple column-time
- * samples may lie outside [0, 1). */
+ * samples may lie outside their canonical phase ranges. */
 template <typename Family> struct ClockState<Family, ResourceKind::SURFACE> {
-  float phase = 0.0f; ///< Phase modulo 1; ripple frame count in [0, period).
+  /** Phase modulo 2pi for Rossby-Haurwitz, Symmetric and Potential; modulo 1
+   * otherwise, except ripple frame counts in [0, period). */
+  float phase = 0.0f;
 };
 /** @brief Phase and horizontal magnitude of a Mobius generator. */
 template <> struct ClockState<Lens::MobiusGeneratorParams, ResourceKind::LENS> {

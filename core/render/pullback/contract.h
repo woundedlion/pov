@@ -252,8 +252,6 @@ static_assert(std::is_trivially_copyable_v<PlaneSample>);
 static_assert(std::is_trivially_copyable_v<FieldSample>);
 static_assert(std::is_trivially_copyable_v<ColorSample>);
 
-// Color finalization precedes Scan::Shader premultiplication.
-
 /** @brief The surface policy protocol: a displaced point plus its step length. */
 struct SurfaceResult {
   math::Vector sphere; ///< Displaced sphere point.

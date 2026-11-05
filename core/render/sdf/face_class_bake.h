@@ -129,7 +129,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
       continue;
 
     // Gnomonic projection about the face's own centroid; matches
-    // Face::setup_frame_and_polygon up to an in-plane rotation (+ reflection).
+    // PreparedFace::setup_frame_and_polygon up to an in-plane rotation (+ reflection).
     HS_CHECK(static_cast<size_t>(fo[f]) + count <= fi_size,
              "mesh face span exceeds face index array");
     const uint16_t *idx = fi + fo[f];

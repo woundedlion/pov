@@ -7,13 +7,9 @@
 
 /**
  * @file face_geometry.h
- * @brief Face member functions: construction, per-frame binding, bounds and
+ * @brief PreparedFace member functions: construction, per-frame binding, bounds and
  * distance queries.
  */
-
-// ---------------------------------------------------------------------------
-// Face construction, per-frame binding, bounds and distance queries.
-// ---------------------------------------------------------------------------
 
 /**
  * @brief Latitude-band reject for the face.

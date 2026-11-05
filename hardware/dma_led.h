@@ -32,7 +32,7 @@
  * @brief Manages a single DMA channel wired to LPSPI4 (SPI) for async
  *        byte-stream transmission.
  *
- * Usage (never spin on completion; see transmit_async's @pre):
+ * Usage (never spin from the column ISR; see transmit_async's @pre):
  *   if (spi.is_complete())
  *     spi.transmit_async(buffer, length);  // returns immediately
  *   else
@@ -92,8 +92,9 @@ public:
    * @param len  Number of bytes to transmit.
    * @pre The caller has cleaned the buffer from cache; this method does not
    *      flush.
-   * @pre No transfer is in flight (is_complete()). Callers must test and skip,
-   *      never spin: the DMA-completion ISR cannot preempt the column ISR.
+   * @pre No transfer is in flight (is_complete()). Never spin from the column
+   *      ISR, which the DMA-completion ISR cannot preempt; a foreground wait
+   *      with the column timer stopped is safe.
    */
   void transmit_async(const uint8_t *data, size_t len) {
     HS_CHECK(transfer_complete.load(std::memory_order_relaxed),

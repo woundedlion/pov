@@ -242,9 +242,8 @@ struct Twist {
    * @param s Precomputed context (radial distance in the XZ plane).
    * @return Angular-max bound (>= 1), with the radial factor
    * clamped at 1/max(s, R/2).
-   * @note Precondition: the composed torus keeps r <= R/2, so its surface never
-   * reaches s < R/2, where the clamp under-reports the true norm and a sphere
-   * trace would step through.
+   * @note The radial clamp can under-report the norm near the polar axis.
+    * At twist 1, the corrected distance can over-report exterior clearance.
    */
   float lipschitz(const math::Vector & /*p*/, Ctx s) const {
     return lipschitz(1.0f / fmaxf(s, R * 0.5f));
@@ -452,11 +451,11 @@ template <typename Shape, typename WarpT> struct WarpedVolume {
   }
 
   /**
-   * @brief March-safe distance with bounding fast-path and Lipschitz
-   * correction.
+   * @brief Distance with bounding fast-path and Lipschitz correction.
    * @param p Query point in Cartesian ray-space.
-   * @return Exterior values are Lipschitz-corrected lower bounds. Interior
-   * values are the uncorrected warped base distance, not safe interior clearance.
+   * @return Lipschitz-corrected exterior distance; twist 1 can over-report
+    * clearance near the polar axis. Interior values are the uncorrected
+    * warped base distance, not safe interior clearance.
    */
   float distance(const math::Vector &p) const {
     const float gate =

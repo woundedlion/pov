@@ -761,7 +761,7 @@ ripple_transform(const math::Vector &v, const Animation::RippleWave &params) {
  * @param params Noise field, scale, amplitude and time.
  * @return The displaced unit vector.
  * @details Projects a three-channel noise displacement onto the tangent plane
- * at v, soft-caps the slide, and renormalizes.
+ * at v, clamps the slide length, and renormalizes.
  */
 inline math::Vector noise_transform(const math::Vector &v,
                                     const Animation::NoiseParams &params) {
@@ -791,7 +791,7 @@ inline math::Vector noise_transform(const math::Vector &v,
   float inward_pull = math::dot(raw_noise, v);
   math::Vector surface_distortion = raw_noise - (v * inward_pull);
 
-  // Soft-cap the slide distance to prevent cross-hemisphere grabs.
+  // Clamp the slide distance to prevent cross-hemisphere grabs.
   constexpr float MAX_SLIDE = 0.5f;
   float sd_len_sq = math::dot(surface_distortion, surface_distortion);
   if (sd_len_sq > MAX_SLIDE * MAX_SLIDE) {

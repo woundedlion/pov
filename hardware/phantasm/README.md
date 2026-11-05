@@ -14,7 +14,7 @@ opening it in KiCad 10. Every upload must use the board and schematic from the
 same revision directory. Rev 1.2 requires placement, routing, and validation
 before fabrication.
 
-The upload board fixes **J1 power at the left edge** and **J2 LED, J3A SYNC IN,
+The rev 1.2 upload board fixes **J1 power at the left edge** and **J2 LED, J3A SYNC IN,
 J3B SYNC OUT in a column at the right end**, in that top-to-bottom order.
 The column sits inboard of the right mounting holes, in the rev 1.1 connector
 area. Their wire openings face left toward the hub. Keepouts reserve each
@@ -25,11 +25,13 @@ retain the rev 1.1 coordinates. The Teensy shifts 3.5 mm left to clear the
 terminal bodies; D_BUS is released for placement outside their keepouts.
 
 J2/J3A/J3B in revisions 1.2 and 1.3 have no wire-access reservation.
-The right-column connectors' wire openings sit about 1.5 mm from the Teensy PCB edge. Before fabrication,
-verify harness insertion at the module's mounted height, including any ferrules.
-If the harness cannot be inserted with the Teensy seated, land the J2/J3A/J3B
-wires before seating it or use a socket tall enough for the harness to clear;
-the placement and DRC gates do not check this.
+Rev 1.2's right-column wire openings sit about 1.5 mm from the Teensy PCB edge.
+On rev 1.3, J3B pin 3 has a 1.9 mm slot between the Teensy and J2, while
+pin 4 faces J2's rear wall across a 4.9 mm gap. Before fabrication, trial-fit
+the harness at the module's mounted height, including ferrules, particularly
+J3B pins 3 and 4. Wiring before seating the Teensy or using a taller socket
+can clear the Teensy obstruction; neither clears pin 4's soldered J2 wall.
+The placement and DRC gates do not check harness insertion.
 
 Rev 1.2 omits the J4 debug header and SERIAL1_TX connection; Teensy pin 1 is
 unconnected. R_MEN and MASTER_EN remain part of the sync control circuit.

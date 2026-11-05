@@ -68,7 +68,6 @@ inline std::vector<TruePass> brute_force_passes(Column &&column, double t0,
 
 /**
  * @brief Collects a solver's passes.
- * @return The passes in emission order.
  */
 struct PassList {
   std::vector<Spacetime::Crossing> passes; ///< Emitted passes.

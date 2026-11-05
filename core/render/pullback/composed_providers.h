@@ -454,8 +454,9 @@ struct SurfaceProvider {
   }
   /** @brief The surface's phase.
    *  @param frame Current frame.
-   *  @return Ripple: the cycle in [0, 1); others: phase modulo 1,
-   *  with column-time samples possibly outside [0, 1). */
+   *  @return Ripple: cycle in [0, 1); Rossby-Haurwitz, Symmetric and Potential:
+   *  radians modulo 2pi; otherwise phase modulo 1. Non-ripple column-time
+   *  samples may lie outside the canonical phase range. */
   __attribute__((always_inline)) static float phase(const FrameState &frame) {
     using SurfaceParams = Family;
     if constexpr (std::is_same_v<SurfaceParams, PeriodicRippleParams>)

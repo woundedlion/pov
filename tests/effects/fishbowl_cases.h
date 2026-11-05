@@ -156,7 +156,7 @@ struct FishbowlWhiteBox {
   }
 };
 
-/** @brief Verifies Fishbowl's sole preset and fire-palette duty window. */
+/** @brief Verifies Fishbowl's preset, snapshot admission, palette duty, phase and midpoint contracts. */
 inline void test_fishbowl_preset_and_fire_duty_cycle() {
   reset_effect_globals();
   using WB = FishbowlWhiteBox;

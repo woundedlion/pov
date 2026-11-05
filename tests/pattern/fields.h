@@ -134,7 +134,7 @@ inline void test_pattern_sphere_formulas() {
   }
 }
 
-/** @brief Turn clocks and legacy radian clocks preserve their declared rates. */
+/** @brief Turn clocks and radian clocks preserve their declared rates. */
 inline void test_pattern_source_clocks() {
   using namespace Pattern;
   SineParams sine;
@@ -252,7 +252,7 @@ inline void test_pattern_plane_bands() {
   HS_EXPECT_TRUE(!Source::valid(params));
 }
 
-/** @brief Extracted sources expose pure clocks and immutable prepared controls. */
+/** @brief Sources expose pure clocks and immutable prepared controls. */
 inline void test_pattern_extracted_source_protocols() {
   using namespace Pattern;
   PlaneInterference::Params waves;

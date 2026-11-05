@@ -207,7 +207,7 @@ struct PreparedSource {
   float angle_sin; /**< Sine of `angle`. */
 };
 
-/** @brief Wraps this frame's source phases with the rotation's cosine pair.
+/** @brief Bundles this frame's source phases with the rotation's cosine pair.
     @param primary Primary phase.
     @param secondary Secondary phase.
     @param angle Source rotation, in radians.
@@ -576,8 +576,8 @@ inline bool parameter_in_range(float value, float low, float high) {
   return finite(value) && value >= low && value <= high;
 }
 
-/** @brief Validates the extracted source catalogue's passive parameters.
- * @tparam Params Extracted source parameter record.
+/** @brief Validates a source parameter record's declared controls.
+ * @tparam Params Source parameter record.
  * @param params Source controls.
  * @return Whether all declared controls are admitted. */
 template <class Params> bool valid_source_params(const Params &params) {
@@ -609,7 +609,7 @@ template <class Params> bool valid_source_params(const Params &params) {
   return valid;
 }
 
-/** @brief Pure radian-clock protocol shared by extracted analytic sources.
+/** @brief Pure radian-clock protocol shared by analytic sources.
  * @tparam Parameters The source's passive parameter record. */
 template <class Parameters> struct RadianSource {
   using Coordinate =
@@ -634,7 +634,7 @@ template <class Parameters> struct RadianSource {
     (void)params;
     return {};
   }
-  /** @brief Advances the declared clocks with their original rate coupling.
+  /** @brief Advances the declared clocks; the secondary rate scales with speed.
    * @param state Previous clocks.
    * @param params Source controls.
    * @return Wrapped next clocks. */
@@ -666,7 +666,7 @@ template <class Parameters> struct RadianSource {
   }
 };
 
-/** @brief Pure protocol shared by stationary extracted sources: empty
+/** @brief Pure protocol shared by stationary sources: empty
     passive state and immutable prepared controls.
  * @tparam Parameters The source's passive parameter record. */
 template <class Parameters> struct StationarySource {

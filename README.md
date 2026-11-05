@@ -400,7 +400,7 @@ The entry points trade generality for speed:
 - `draw(canvas, fragment_shader, vertex_shader)` — a vertex shader runs once at the pixel center and the fragment shader once per subsample, so per-pixel work is not repeated.
 - `draw_cached(canvas, shader)` — the same typed draw with its traversal placed in cached flash. Composed effects use it.
 - `draw_grid` and `walk_grid` — hand the shader the row's subsample grid, for effects that own their sampling (the reaction-diffusion effects).
-- `draw_columns` — prepare a shader once per column for static factored frames (HyperLattice). `draw_column_times` also prepares state once per sweep time for column-time sampling (composed effects, ShaderChain, SphericalHarmonics and the radial-surface renderer).
+- `draw_columns` — prepare a shader once per column: composed effects' factored static frames and HyperLattice's column-time frames, whose trace states are prepared up front. `draw_column_times` also prepares state once per sweep time for column-time sampling (composed effects, ShaderChain, SphericalHarmonics and the radial-surface renderer).
 
 `walk_grid`, `walk_object_grid` and `draw_grid` write only the columns an open `TimeWindow` admits: one run of half-turn columns on both arms, inside the clip. `Spacetime::simulate_in_slabs` uses it to shade a simulation one sweep slab at a time between substeps, as BZReactionDiffusion does. `walk_object_grid` shades a turning object in its own space, each column through its `Scan::ObjectBasisTable` frame at its sweep time.
 
@@ -669,7 +669,7 @@ register_animated_param("Speed", &params.speed, 0.0f, 2.0f);  // animation-drive
 register_readonly_param("Particles", &params.active_count, 0.0f, 1024.0f);  // engine-written telemetry
 ```
 
-The enum overload takes an array of option labels that must outlive the effect (string literals). `register_animated_param` marks the param as written by the animation system, so the GUI renders it as an auto-pausing slider that engages "Pause Presets" when touched; `register_readonly_param` marks it engine-written, so the GUI shows the live value but disables editing. The readonly flag can also be applied to an already-registered param via `mark_readonly(name)`, and `mark_global(name)` marks an already-registered param a global control rather than part of the effect's look, clearing the `preset` flag so preset exports skip it.
+The enum overload takes an array of option labels that must outlive the effect (string literals). `register_animated_param` marks the param as written by the animation system, so the GUI renders it as an auto-pausing slider that engages "Pause Presets" when touched; `register_readonly_param` marks it engine-written, so the GUI shows the live value but disables editing. The readonly flag can also be applied to an already-registered param via `mark_readonly(name)`, and `mark_global(name)` marks an already-registered param a global control rather than part of the effect's presets, clearing the `preset` flag so preset exports skip it.
 
 The parameter list (`ParamList`) is accessible via `getParameters()`, and `updateParameter(name, float)` sets values at runtime. Its default storage is a fixed array of `HS_INLINE_PARAM_CAPACITY` entries; an effect that needs more calls `use_parameter_storage()` to swap in an arena-allocated array, as `ShaderChain` (`MAX_CHAIN_PARAMS`) and every `Pullback::ComposedEffect` (sized from its spec) do. Either way the capacity is fixed, which preserves the no-realloc memory-view invariant the WASM bridge depends on. Each `ParamDef` holds a plain `void *` target tagged by a `TargetType`: `FLOAT`, `BOOL`, or one of the signed and unsigned 8-, 16- and 32-bit integer widths. Every write arrives as a float and is converted on store, with bools thresholded at 0.5. The animation system can also write these parameters, so effects can animate their own exposed controls.
 
@@ -774,15 +774,19 @@ conversion.
 | `ShaderChainBindings.setShaderChain(entries)` → `{status, code, entryIndex}` | Program the loaded `ShaderChain` effect with an ordered `[{instance, operator}]` array — the chain's shape and nothing else, no values and no family tags. The result is a plain JS object whose primary `status` is a `Module.ChainStatus` enum member (`OK` on commit). `code` is its compatibility string (`"APPLIED"` on commit, otherwise the refusal name), with `entryIndex` naming the offending entry and `-1` a whole-chain refusal. `APPLIED` has already rebuilt the parameter definitions (named `instance.field-id`) and bumped `getParamGeneration()` by the time it returns, so the caller applies preset values by name straight after. A refusal commits no program, definition, generation, or instance-state changes; side effects of caller accessors during payload cloning are not rolled back |
 | `ShaderChainBindings.setShaderChainParameters(entries)` → `ParamSetResult` | Atomically apply `[{name, value}]` after final-state validation. Returns `APPLIED`, or `MALFORMED_PAYLOAD`, `TOO_LONG`, `NO_EFFECT`, `UNKNOWN_PARAM`, `READONLY`, `NON_FINITE`, or `INADMISSIBLE`; a refusal commits no values |
 | `ShaderChainBindings.getShaderChainCatalog()` → `string` | *(static)* The chain interpreter's operator catalog as one JSON string — budgets, carriers and every operator-table entry. It matches the catalog the native suite pins as its golden, which keeps an editor's stage library in step with the operator table the engine resolves against. The one difference is per-operator block sizes: this module reports the wasm32 figures it actually allocates from, and pointer-bearing `prepared` blocks are narrower there than in the LP64 golden. `scripts/shader_workbench.test.mjs` checks that nothing else differs |
+| `ShaderChainBindings.getShaderChainParameterRanges()` | Read admitted numeric slider intervals as `[{name, min, max}]` with inclusive bounds; empty for a stale handle. |
 | `getShaderChainBindings()` | Acquire the loaded chain's authoring capability, or null for a fixed effect. Release it with `delete()` after use. |
 | `ShaderChainBindings.isValid()` → `bool` | Whether the handle still addresses the live chain incarnation. |
 | `ShaderChainBindings.getProgram()` | Read back the ordered chain entries as `[{instance, operator}]`. |
-| `ShaderChainBindings.getSnapshot()` | Capture the schema-4 program, named parameters, required per-modulation-stage recipes (schema 3 is migrated on decode), typed clocks/noise/walk state, generated palette bank and pause flag. Modulation fields travel in `modulation`, not named parameters; sending them as parameters returns `INVALID_VALUE`. |
+| `ShaderChainBindings.getSnapshot()` | Capture the schema-5 snapshot: program, named parameters, required per-modulation-stage recipes, typed clocks/noise/walk state, generated palette bank and pause flag; `restoreSnapshot` refuses any other `schemaVersion` with `UNSUPPORTED_VERSION`. Modulation fields travel in `modulation`, not named parameters; sending them as parameters returns `INVALID_VALUE`. |
 | `ShaderChainBindings.restoreSnapshot(snapshot)` | Restore atomically; a refusal commits no restoration writes. Side effects of caller accessors during payload cloning are not rolled back. Returns `Module.ChainSnapshotRestoreResult`. |
 | `getPixels()` | Return a zero-copy `Uint16Array` view into WASM linear memory, spanning the active resolution's prefix of the fixed backing buffer |
 | `getBufferLength()` → `int` | Length of the pixel buffer (`W × H × 3`) for sizing the view, and the staleness test for a cached one: a `setResolution` moves this length without detaching the outstanding view |
 | `getEffectPresetCounts()` → `object` | Map from every effect name available at the active resolution to its preset count; returns an empty object when the resolution is unsupported or uninitialized |
 | `setParameter(name, value)` → `ParamSetResult` | Update a live effect parameter; returns `Module.ParamSetResult.APPLIED` on success, else the rejection reason (`NO_EFFECT`, `UNKNOWN_PARAM`, `READONLY`, `NON_FINITE`, or `INADMISSIBLE`). Compare against the enum values — never by truthiness. An `APPLIED` float may still have been clamped to the param's `[min, max]`; read the effective value back via `getParamValues()`. An `APPLIED` write to an *animated* param also engages the preset pause (the animation would otherwise overwrite the value on the next frame), and that pause survives `setEffect` — check `getAnimationsPaused()` afterwards |
+| `getDocumentParameterDefinitions()` | Read exact compiled modulation fields, including fixed fields, as `[{resource, id, value, readonly, reason}]`. Reasons are `active-source`, `inactive-source`, `inactive-variant` and `fixed-topology`; only active numeric source fields accept writes. |
+| `setDocumentParameter(resource, id, value)` → `ParamSetResult` | Write one active numeric compiled-document modulation field. Fixed or inactive fields return `READONLY`; non-finite values return `NON_FINITE`; out-of-range or inadmissible values return `INADMISSIBLE` without clamping or committing a value. Unknown fields return `UNKNOWN_PARAM`; no live effect returns `NO_EFFECT`. |
+| `getParameterAdvisories()` | Read conservative field-fold thresholds as `[{name, foldStrength}]` without changing rendered parameters. |
 | `setAnimationsPaused(paused)` | Pause/resume preset advancement (the GUI "Pause Presets" toggle); DisplacementField exposes Noise and Balls as presets and holds their advancement and noise departure fades; entry fades continue to reveal the effect. `ShaderChain` has no authored preset animation, so its operator clocks and generated palette continue advancing while this state is set |
 | `getAnimationsPaused()` → `bool` | Whether preset advancement is currently paused. The engine is the owner of this state — an `APPLIED` `setParameter` on an animated param engages the pause by itself — so read it back rather than mirroring the rule in JS |
 | `getPresetCount()` → `uint32` | Number of presets the current effect exposes for manual navigation; `0` when no effect is set or the effect authored none, which is how a GUI decides whether to offer preset controls at all |
@@ -815,7 +819,7 @@ The bridge also exposes a `MeshOps` class for the `solids.html` geometry tool. I
 - **Saturated arguments.** A call that *succeeds* can still have moved what it was given: the fraction operators, `snub` and `relax` saturate a finite out-of-domain argument into the operator's domain and render from the saturated value, leaving `getLastResult()` at `OK`. `MeshOps.getLastAdjusted()` reports that when the call returned a mesh, until the next checked mesh operation. A tool that exports the argument it passed must check it, or the exported value carries an out-of-domain bound into a firmware assert.
 - **Table reads.** `MeshOps.getRegistry()` lists every registered solid as `{name, category}`, and `MeshOps.getRecipe(name)` returns one entry's authored op chain as `{seed, ops: [{op, param, twist}]}` in engine-native units, or `null` for an unknown name or a recipe-less entry. Neither touches the arenas. `getRegistry()` sits outside the `getLastResult()` contract; `getRecipe()` clears the channel on entry and records `UNKNOWN_NAME` for an unknown name, so read the preceding operator's result before calling it.
 
-The bridge also exposes a `PaletteOps` class with versioned `compileAndBakeV4(recipe)` and `inspectV4(recipe)` methods. Both compile a V4 perceptual recipe and return `{status, canonicalRecipe, lut}`, with `lut` a zero-copy view over a 256-entry sRGB LUT, or `{status}` alone on rejection. Inspection also returns `diagnostics` and `fallback`, including the engine's `L`, `C`, `q`, gamut-boundary and hue-path diagnostics. These views share the same read-before-next-call lifetime contract as `getPixels`. Recipe compilation is deterministic and does not touch global RNG. `effectPresetsV4()` completes the class: it returns the authored recipe behind each of the engine's own palette-driven effects as `[{name, randomHue, recipe}]`, which the palette tuner offers as starting points; `randomHue` marks the presets whose effect varies the base hue at runtime, randomly or by sequence, so the recipe's own hue is only one sample of the look.
+The bridge also exposes a `PaletteOps` class with versioned `compileAndBakeV4(recipe)` and `inspectV4(recipe)` methods. Both compile a V4 perceptual recipe and return `{status, canonicalRecipe, lut}`, with `lut` a zero-copy view over a 256-entry sRGB LUT, or `{status}` alone on rejection. Inspection also returns `diagnostics` and `fallback`, including the engine's `L`, `C`, `q`, gamut-boundary and hue-path diagnostics. These views share the same read-before-next-call lifetime contract as `getPixels`. Recipe compilation is deterministic and does not touch global RNG. `effectPresetsV4()` completes the class: it returns the authored recipe behind each of the engine's own palette-driven effects as `[{name, randomHue, recipe}]`, which the palette tuner offers as starting points; `randomHue` marks the presets whose effect varies the base hue at runtime, randomly or by sequence, so the recipe's own hue is only one sample of the preset's hues.
 
 It likewise exports the engine's color, procedural-palette, and geometry math as free functions so JavaScript tools can cross-check the real implementation: `srgb_to_linear_float`, `linear_to_srgb_float`, `srgb_to_linear_interp`, `linear_rgb_to_oklab`, `oklab_to_linear_rgb`, `hsv_to_rgb`, `procedural_palette_linear`, `named_procedural_palettes`, `lissajous`, `mobius_transform`, and `gamut_max_chroma` (returns NaN for non-finite arguments).
 
@@ -879,13 +883,18 @@ The `Daydream` class owns the entire render side. Features:
 
 ### 7.4 Application State (`state.js`)
 
-Daydream uses a tiny pub/sub state container plus a URL-syncing wrapper:
+Daydream uses a tiny pub/sub state container plus a URL-syncing wrapper. An exact canonical shader-document ID without `view=simulator` redirects to the [shader workbench](https://woundedlion.github.io/daydream/tools/shader.html); PascalCase aliases and `view=simulator` stay in the simulator:
 
 ```js
-const appState = new AppState({ effect: 'IslamicStars', resolution: 'Phantasm (288x144)' });
-const urlSync = new URLSync(appState, ['effect', 'resolution'], {
-  effect: (v) => knownEffects.has(v),                 // per-key validators gate
-  resolution: (v) => Object.hasOwn(resolutionPresets, v),  // the initial URL read
+const appState = new AppState({
+  effect: canonicalEffectId(DEFAULT_EFFECT),
+  view: null,
+  resolution: 'Phantasm (288x144)',
+});
+const urlSync = new URLSync(appState, ['effect', 'resolution', 'view'], {
+  effect: (v) => knownEffects.has(canonicalEffectId(v)),
+  resolution: (v) => Object.hasOwn(resolutionPresets, v),
+  view: (v) => v === 'simulator',
 });
 
 appState.subscribe((key, value, old) => {
@@ -923,7 +932,7 @@ params.forEach(p => {
 
 `getParamValues()` is polled after simulation steps and on invalidated frames to sync the GUI with parameter values that the animation system has changed autonomously. While paused, the panel continues reconciling on each animation frame. The sync skips any control the user is currently interacting with to avoid fighting the slider. A per-effect **Reset** rebuilds the GUI from defaults, and **Export** copies the current preset-exportable values as a positional C++ brace-init list (`{ 0.85f, 4, true }`) suitable for `PRESETS` tables. If a segmented-render parameter snapshot is temporarily unavailable after an edit, Export uses the values displayed by the current parameter schema. A chain exports the complete `ShaderChainBindings.getSnapshot()` as JSON. An effect that reports presets also gets a **Preset** dropdown over the zero-indexed live index — a live control, not a readout: choosing an entry selects that preset — flanked by **Previous Preset** / **Next Preset** buttons that step it, and each sync mirrors the live preset into the engine that owns the definitions before reconciling the resulting schema. A failed mirror skips subsequent value synchronization.
 
-Three behaviours the definitions loop above does not show. **Stage folders**: pullback-shaded effects are grouped rather than listed flat — the panel matches the registered names against a per-effect stage assignment and builds one folder per pipeline stage, in pullback order; a parameter no stage claims is still built, at the panel's top level, and the orphan is logged. **Warnings**: a definition carrying a `warning` — the engine's answer to a value it accepted as a request but will not render — renders that text into a node beside the control (a node, not a `title` attribute, which would be mouse-only), and the panel re-reads the warning set after each edit and rebuilds once the engine's warnings have moved off the ones it was built from. **Persistence**: ordinary effects store accepted named values. Chains store complete typed snapshots and restore them atomically; imports accept current snapshots only and preserve refused links.
+Three behaviours the definitions loop above does not show. **Stage folders**: pullback-shaded effects are grouped rather than listed flat — the panel groups parameters by the `group` each one registers and builds one folder per group, ordered by `group.order`; a parameter with no group is still built, at the panel's top level, and logged. **Warnings**: a definition carrying a `warning` — the engine's answer to a value it accepted as a request but will not render — renders that text into a node beside the control (a node, not a `title` attribute, which would be mouse-only), and the panel re-reads the warning set after each edit and rebuilds once the engine's warnings have moved off the ones it was built from. **Persistence**: ordinary effects store accepted named values. Chains store complete typed snapshots and restore them atomically; imports accept current snapshots only and preserve refused links.
 
 ### 7.7 Segmented POV Workers (`segment_worker.js`)
 
@@ -972,13 +981,12 @@ is Chromium-only — Firefox and Safari ignore the key entirely, so SRI is no
 coverage at all there. A `Content-Security-Policy` meta tag, carried by
 `index.html` and each tool page, bounds this on every browser
 by origin: script loads are restricted to `'self'` plus the CDN origins that
-page actually uses. It is an origin boundary, not an XSS one — every page
-carries `'unsafe-inline'`, required by the `<script type="importmap">` that
-`vendor-importmap.js` injects on `index.html` and the tool pages that load
-it, by the inline classic `<script>` on `index.html` that registers the
-module SyntaxError overlay, by the entry script's inline `onerror` fallback, and by
-the inline `onerror` fallback on each tool page's self-hosted-font
-`<link>` — the only inline code on `palettes.html`, which loads no import map.
+page actually uses. Every page except `palettes.html` carries `'unsafe-inline'`,
+required by the `<script type="importmap">` that `vendor-importmap.js` injects
+on the pages that load it, by the inline classic `<script>` on `index.html`
+that registers the module SyntaxError overlay, and by the entry script's
+inline `onerror` fallback. These pages enforce an origin boundary, rather
+than an XSS boundary; `palettes.html` loads no import map or inline script.
 No page carries an inline module block. Pages that load the WASM engine need `'wasm-unsafe-eval'`
 for the module instantiation itself, but not the far broader `'unsafe-eval'`:
 the module is linked `-sDYNAMIC_EXECUTION=0 -sEMBIND_AOT=1`, so embind's
@@ -1018,7 +1026,7 @@ Each tool is a standalone HTML page. All but `palettes.html`, which draws on 2D 
 | `shader.html` | Authors pullback shaders against the complete stage vocabulary with the live sphere preview. The chain is a pipeline strip of stage chips banded by carrier family, each stage tuned by parameters inline on its own chip; a band's `+` inserts the operator directly when its gap admits only one, otherwise opens a popup listing the operators the gap accepts. It opens current shader documents and is absent from the normal effect-card roster. |
 | `solids.html` | Conway operator playground — chain `truncate`, `kis`, `ambo`, `dual`, etc. on Platonic / Archimedean / Catalan / Islamic-pattern seeds and visualize the result. Backed by the WASM `MeshOps` bridge with dedicated tooling arenas, separate from the engine arena. |
 
-The Three.js pages reuse `vendor-importmap.js`, so they resolve from the CDN by default or from the local `three.js/` after `npm run importmap:local`. `palettes.html` imports only page-relative modules, so it carries no importmap script and its CSP `script-src` drops the `https://cdn.jsdelivr.net` origin the other pages allow, keeping `'self' 'unsafe-inline' 'wasm-unsafe-eval'`; its `style-src` and `font-src` still name the Google Fonts origins the self-hosted-font fallback needs.
+The Three.js pages reuse `vendor-importmap.js`, so they resolve from the CDN by default or from the local `three.js/` after `npm run importmap:local`. `palettes.html` imports only page-relative modules, so it carries no importmap script and its CSP `script-src` drops the `https://cdn.jsdelivr.net` origin the other pages allow, keeping `'self' 'wasm-unsafe-eval'`; its `style-src` and `font-src` name the Google Fonts origins used directly by the tool pages.
 
 ---
 
@@ -1162,8 +1170,9 @@ below are for Holosphere:
 
 Build Phantasm with `pio run -e phantasm` from the repository root. This uses
 `tools/phantasm.ld`, `-Os`, and newlib-nano (`--specs=nano.specs`) through
-`tools/teensy_nano.py`, matching the gated shipping image. An IDE build needs
-these same settings to reproduce that image. The default environment defines
+`tools/teensy_nano.py`, matching the gated shipping image. The Phantasm image links only through PlatformIO:
+`tools/phantasm.ld` includes a layout fragment generated by
+`tools/teensy_hot_layout.py`. The default environment defines
 `HS_PHANTASM_BOARD_REV` from `[phantasm_common] board_revision = 11`; build rev 1.2
 with `pio run -e phantasm_rev12`. Rev 1.3 requires separate
 firmware support.
@@ -1475,7 +1484,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── animation/              Timeline scheduler + the animation type families
 │   │   ├── animation.h             IAnimation/AnimationBase + nine animation fragments and orientation; ripple_motion, recipe_build and transformer are included directly
 │   │   ├── timers.h                RandomTimer / PeriodicTimer callback timers
-│   │   ├── params.h                Parameter-writing animations (Transition, Mutation, Progress, Driver, Lerp, ColorWipe, Mobius*, Ripple, Noise, BallDrop, NoiseProduct)
+│   │   ├── params.h                Parameter-writing animations (Transition, Mutation, Progress, Driver, Lerp, ColorWipe, LensPhase, Mobius*, Ripple, Noise, BallDrop, NoiseProduct)
 │   │   ├── ripple_motion.h          Ripple motion bands and temporal capture kernels
 │   │   ├── orientation.h           Quaternion history for animation and motion blur
 │   │   ├── motion.h                Path/ProceduralPath + the Orientation drivers (Motion, Rotation, RandomWalk)
@@ -1588,7 +1597,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── run_conway_effect_tests.cpp Conway effect integration cases for Hankin and Islamic meshes
 │   ├── run_hyper_lattice_tests.cpp HyperLattice effect tests
 │   ├── run_mindsplatter_tests.cpp MindSplatter effect cases and oracles
-│   ├── run_plot_parity_tests.cpp All-effects render fingerprint tests
+│   ├── run_plot_parity_tests.cpp Plot and scan effect render fingerprint tests
 │   ├── run_registry_tests.cpp Roster, composed effects and marshaling tests
 │   ├── run_shader_chain_tests.cpp ShaderChain and AlienCore cases
 │   ├── run_shapeshifter_tests.cpp ShapeShifter oracle and tile modules
@@ -1831,7 +1840,7 @@ for module ownership and local validation commands.
 │   │   ├── geometry.js         Pixel-to-spherical mapping matching the engine's pixel_to_vector
 │   │   ├── pixel_view.js       Liveness test and re-fetch for the zero-copy WASM pixel view
 │   │   ├── pole_lod.js         Pole LOD control binding, replayed once the engine loads
-│   │   └── pov_sweep.js        Swept POV response and calibrated display geometry
+│   │   └── pov_sweep.js        Swept two-arm POV emission and visual response model
 │   ├── effects/                Effect roster, sequencing, persistence, and parameters
 │   │   ├── effect_identity.js  Canonical effect identities and compatibility alias lookup
 │   │   ├── effect_persistence.js URL storage and replay of engine-accepted parameters and chain snapshots

@@ -166,6 +166,10 @@ Rev 1.3 retains the 58.28 x 32 mm outline and mounting-hole centers.
 The two four-position sync terminals need a different arrangement from
 rev 1.2's three-connector column. Review the generated fixed placements,
 terminal body keepouts, and hub-facing wire access before routing.
+J3B pin 3 has a 1.9 mm slot between the Teensy and J2; pin 4 faces J2
+across a 4.9 mm gap. Trial-fit both pins with the intended wires and ferrules
+at mounted height. Prewiring before seating the Teensy or raising its socket
+does not clear pin 4: its obstruction is the soldered J2 terminal body.
 The fixed terminal origins are J2 at (36.6, 23.97), J3A at (48, 3.96),
 and J3B at (48, 16.52), in millimeters. C_IN is fixed at (15.5, 27),
 opening the slot for U1 at (26.8, 25.92), rotated 180 degrees with its outputs

@@ -379,8 +379,8 @@ inline constexpr int GAMUT_FALLBACK_BRACKET_STEPS = 5;
 /**
  * @brief Refines a sampled gamut crossing inside a bracketed scale range.
  * @param L Lightness held fixed along the ray.
- * @param a OKLab a of the input, unnormalized; the ray is u * (a, b).
- * @param b OKLab b of the input, unnormalized.
+ * @param a Unit OKLab a of the hue direction; the ray is u * (a, b).
+ * @param b Unit OKLab b of the hue direction. Brackets and result are chroma.
  * @param lo Bracket lower bound; probed, not assumed to be in gamut.
  * @param hi Bracket upper bound; probed, and returned only if it is in gamut.
  * @return The refined scale, in gamut by construction.

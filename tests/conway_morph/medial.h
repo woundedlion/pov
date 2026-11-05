@@ -609,8 +609,7 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
     }
     snap(snaps[0]);
 
-    // Leg-3 handoff, exactly as schedule_dual_untruncate builds it: departed
-    // centroids and palettes cached by leg 2.
+    // Leg 3 departs from leg 2's landed palettes; centroids derive the seam permutation.
     std::vector<uint8_t> pal3(nf);
     std::vector<math::Vector> cen3(nf);
     const PolyMesh &arrival = *landing2.arrival_topology;

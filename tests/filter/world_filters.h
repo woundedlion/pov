@@ -632,7 +632,7 @@ inline void test_replicate_three_planar_basis_copies() {
 inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
   constexpr int W = 32, H = 16;
   const math::Quaternion q = math::make_rotation(math::X_AXIS, math::PI_F / 2);
-  math::Orientation<> ori(q); // one frame -> a single tween step
+  math::Orientation<> ori(q);
   Pipeline<W, H, Filter::World::Orient, Filter::World::Replicate<W>> pipe(ori,
                                                                           2);
 
@@ -656,7 +656,7 @@ inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
         return false;
       });
   HS_EXPECT_FALSE(hit);
-  // Orient's one tween step x Replicate's two copies.
+  // Orient's one endpoint pose x Replicate's two copies.
   HS_EXPECT_EQ(n, 2);
   HS_EXPECT_NEAR(seen_a[0].x, head_a.x, 1e-4f);
   HS_EXPECT_NEAR(seen_a[0].y, head_a.y, 1e-4f);

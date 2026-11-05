@@ -232,7 +232,7 @@ public:
       (Plot::Mesh::column_scratch_b_bytes(COLUMN_CHUNK_VERTICES) + 15) / 16 *
       16;
 
-  // Persistent allocations: the noise transformer pool and the Node.
+  // Persistent allocations: the noise transformer pool, the Node and the warp cache.
   /// Pool entry of the trail noise transformer.
   using NoiseEntity = typename NoiseTransformer<1>::Entity;
   /// Persistent arena demand, in bytes, alignment included.

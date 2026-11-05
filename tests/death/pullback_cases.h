@@ -7,8 +7,6 @@
 
 // Pullback death cases.
 
-/** @brief Traps on pullback mobius degenerate. */
-
 /** @brief Death case: the generated-palette operator rejects an unknown
     brightness envelope. */
 inline void case_pullback_operator_invalid_brightness_envelope() {

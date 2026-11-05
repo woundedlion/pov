@@ -134,7 +134,7 @@ struct DistortedRingStack {
 
   /**
    * @brief Caller-owned map from a pixel's (polar, azimuth) cell to the range
-   *        of stack rings that can light it, rebuilt by every draw.
+   *        of stack rings that can light it; rebuilt unless the range reports ready.
    * @tparam W Canvas width; sets the azimuth chunk count.
    * @tparam H Canvas height; sets the polar bin count.
    * @details Each cell holds the lowest and highest ring index whose stroke can
@@ -298,6 +298,9 @@ struct DistortedRingStack {
    * @tparam RingShaderT Per-ring shader: shader(int slot, const Vector &p,
    *         Fragment &f), with f populated as by process_pixel (v0 = azimuth
    *         t in [0, 1), v1 = raw distance, v2 = stroke coverage).
+   * @tparam ShapeRange Indexable ring shapes; optional knot_range(slot, knot,
+   *         lo, hi) widens knot bounds, and table_ready()/table_built() retain
+   *         the candidate table across draws.
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param n_rings Stack size; at most CandidateTable::MAX_RINGS.
@@ -307,7 +310,7 @@ struct DistortedRingStack {
    * @param slot_by_ring n_rings signed entries mapping ring index -> slot in
    *        shapes, -1 for culled rings.
    * @param n_slots Number of shapes, in [1, 127].
-   * @param table Candidate map storage, rebuilt here.
+   * @param table Candidate map storage; rebuilt unless the range reports ready.
    * @param shader Per-ring fragment shader (see RingShaderT).
    * @details The per-pixel frame (axis dot, fast_acos, fast_atan2) is computed
    * once; the candidate table names the rings that can reach the pixel, each

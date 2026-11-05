@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Pixel parity of every filter-pipeline effect against recorded frame hashes.
+ * Pixel parity of the plot and scan effects listed in PARITY_HASHES.
  */
 #pragma once
 
@@ -566,7 +566,7 @@ inline ParityRenders render_hashes(const char *name) {
 }
 
 /**
- * @brief Every filter-pipeline effect matches its recorded frame hashes.
+ * @brief Each listed effect matches its recorded frame hashes.
  */
 inline void test_filter_pipeline_effects_match_recorded_frames() {
   const ParityRenders computed[] = {

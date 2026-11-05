@@ -247,7 +247,23 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=grid-worms" target="_blank"><img src="screenshots/GridWorms.png" alt="GridWorms" width="280"></a></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Involution" target="_blank"><img src="screenshots/Involution.png" alt="Involution" width="280"></a></td>
+<td valign="top">
+
+### Involution
+
+A moving affine frame translates and rotates a primitive lattice over an
+area-corrected cubic atlas. A generated palette retains the authored hue,
+spread, lightness and Cup lightness curve. Displacement hue modulation precedes
+a direct-noise lightness layer; their independent controls remain in the
+authored preset.
+
+**Parameters**: camera.Wander, camera.Spin Speed, Cell Scale, Cell Shape, Cell Softness, Cell Radius, Edge Width, weight-mode, coverage-mode, Projection Spin Speed, Projection Wander, Central Meridian, Coordinate Scale, Area Correction, frame, Planar Warp 1 Speed, Affine Rotation Rate, Repeat Windings A, Repeat Windings B, Repeat Cells, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Palette Mode, Palette Type, Palette Harmony, Palette Lightness Curve, Palette Name, Palette Name B, Brightness Envelope, Palette Hue, Palette Spread, Palette Lightness, Palette Lightness Range, Palette Mutation, Gradient Start R, Gradient Start G, Gradient Start B, Gradient Middle R, Gradient Middle G, Gradient Middle B, Gradient End R, Gradient End G, Gradient End B, modulation.modulation-amount, modulation.pattern-scale, modulation.pattern-speed, modulation.pattern-contrast, modulation.sine-axis-x, modulation.sine-axis-y, modulation.sine-axis-z, modulation.sine-frequency, modulation.sine-offset, modulation.sine-speed, modulation.interference-axis-x, modulation.interference-axis-y, modulation.interference-axis-z, modulation.interference-frequency, modulation.interference-offset, modulation.interference-speed, modulation.interference-axis-b-x, modulation.interference-axis-b-y, modulation.interference-axis-b-z, modulation.interference-frequency-b, modulation.interference-offset-b, modulation.grid-axis-x, modulation.grid-axis-y, modulation.grid-axis-z, modulation.grid-frequency, modulation.grid-offset, modulation.grid-speed, modulation.grid-axis-b-x, modulation.grid-axis-b-y, modulation.grid-axis-b-z, modulation.grid-frequency-b, modulation.grid-offset-b, modulation.modulation-enabled, modulation.modulation-source, modulation.modulation-evaluation, modulation.modulation-mechanic, modulation.pattern-noise-basis, modulation.pattern-noise-variant, modulate.modulation-amount, modulate.pattern-scale, modulate.pattern-speed, modulate.pattern-contrast, modulate.sine-axis-x, modulate.sine-axis-y, modulate.sine-axis-z, modulate.sine-frequency, modulate.sine-offset, modulate.sine-speed, modulate.interference-axis-x, modulate.interference-axis-y, modulate.interference-axis-z, modulate.interference-frequency, modulate.interference-offset, modulate.interference-speed, modulate.interference-axis-b-x, modulate.interference-axis-b-y, modulate.interference-axis-b-z, modulate.interference-frequency-b, modulate.interference-offset-b, modulate.grid-axis-x, modulate.grid-axis-y, modulate.grid-axis-z, modulate.grid-frequency, modulate.grid-offset, modulate.grid-speed, modulate.grid-axis-b-x, modulate.grid-axis-b-y, modulate.grid-axis-b-z, modulate.grid-frequency-b, modulate.grid-offset-b, modulate.modulation-enabled, modulate.modulation-source, modulate.modulation-evaluation, modulate.modulation-mechanic, modulate.pattern-noise-basis, modulate.pattern-noise-variant
+
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=GridWorms" target="_blank"><img src="screenshots/GridWorms.png" alt="GridWorms" width="280"></a></td>
 <td valign="top">
 
 ### GridWorms
@@ -259,7 +275,7 @@ An animated axial twist pulls a primitive lattice into flowing worms before the 
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=grid-warp" target="_blank"><img src="screenshots/GridWarp.png" alt="GridWarp" width="280"></a></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=GridWarp" target="_blank"><img src="screenshots/GridWarp.png" alt="GridWarp" width="280"></a></td>
 <td valign="top">
 
 ### GridWarp
@@ -271,7 +287,7 @@ A wandering camera turns the sphere beneath a toroidal degree-8, order-4 harmoni
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=liquid-windows" target="_blank"><img src="screenshots/LiquidWindows.png" alt="LiquidWindows" width="280"></a></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=LiquidWindows" target="_blank"><img src="screenshots/LiquidWindows.png" alt="LiquidWindows" width="280"></a></td>
 <td valign="top">
 
 ### LiquidWindows
@@ -283,7 +299,7 @@ A dodecahedral poloidal potential flow folds an equirectangular grid into rounde
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=iridescence" target="_blank"><img src="screenshots/Iridescence.png" alt="Iridescence" width="280"></a></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Iridescence" target="_blank"><img src="screenshots/Iridescence.png" alt="Iridescence" width="280"></a></td>
 <td valign="top">
 
 ### Iridescence
@@ -300,7 +316,9 @@ A dodecahedral poloidal potential flow folds an equirectangular grid beneath the
 
 ### Millefiori
 
-Spherical ripple bursts feed dodecahedral and tetrahedral kaleidoscopes, a folded gnomonic projection and a planar vortex over a soft primitive lattice. An analogous palette uses a bell brightness envelope, smooth-grid lightness modulation and displacement-based hue rotation. Its single `millefiori` preset carries the effect's authored configuration. Millefiori opens by default in the simulator and plays second in Phantasm for 60 seconds.
+Spherical ripple bursts feed dodecahedral and tetrahedral kaleidoscopes, a folded gnomonic projection and a planar vortex over a soft primitive lattice. An analogous palette uses a bell brightness envelope, smooth-grid lightness modulation and displacement-based hue rotation. Its single `millefiori` preset carries the effect's authored configuration. Millefiori opens by default in the simulator and plays for 60 seconds in Phantasm.
+
+**Parameters**: Cell Scale, Cell Shape, Cell Softness, Cell Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, displace.Ripple Period, displace.Ripple Strength, displace.Ripple Decay, displace.Ripple Thickness, displace.Ripple Center Azimuth, displace.Ripple Center Polar, displace.Burst Rate, Planar Warp 1 Speed, Vortex Center X, Vortex Center Y, Vortex Radius, Vortex Turns, Vortex Center Orbit, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, field.Modulation Amount, field.Pattern Frequency, field.Pattern Speed, modulate.Modulation Amount
 
 </td></tr></table>
 
@@ -621,15 +639,6 @@ P1 renders a continuous twisted star surface: each pixel takes the color of the 
 
 
 
-### Involution
-
-![Involution](screenshots/Involution.png)
-
-A moving affine frame translates and rotates a primitive lattice over an
-area-corrected cubic atlas. A generated palette retains the authored hue,
-spread, lightness and Cup lightness curve. Displacement hue modulation precedes
-a direct-noise lightness layer; their independent controls remain in the
-authored preset.
 
 ## Shader Authoring Workbench
 
@@ -724,9 +733,9 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `liquid-windows` | `LiquidWindows` | 1 |
 | `iridescence` | `Iridescence` | 1 |
 
-These 23 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Millefiori is second in Phantasm for 60 seconds. GridWorms follows GridSpace for 60 seconds. Single-look effects carry a per-entry show window of 30 or 60 seconds in `HS_PHANTASM_EFFECT_LIST`. Multi-preset effects derive their window from the full preset cycle, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Frame budgets convert to show seconds at the nominal 16 fps; slower rendering can leave a cycle unfinished when its show window ends. Kaleidoscope Melt and Kaleidoscope Smooth run document-built chain comparisons in dedicated white-box equivalence suites.
+These 23 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Millefiori plays for 60 seconds in Phantasm. GridWorms follows GridSpace for 60 seconds. Single-preset effects carry a per-entry show window of 30 or 60 seconds in `HS_PHANTASM_EFFECT_LIST`. Multi-preset effects derive their window from the full preset cycle, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Frame budgets convert to show seconds at the nominal 16 fps; slower rendering can leave a cycle unfinished when its show window ends. Kaleidoscope Melt and Kaleidoscope Smooth run document-built chain comparisons in dedicated white-box equivalence suites.
 
-The [device profile archive](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md) contains shipping reports for all 39 Phantasm effects: 39 completed selective-O3 captures, including new HankinSolids and ShapeShifter captures after the scratch-arena and uniform flash-walker alignment fixes. It also holds global-O3 reference captures for 33 effects and supplemental variant reports. The shipping sweep reports steady render telemetry (`frame` minus buffer wait) from frame 2 through the last complete counter window under the shipping segment clip; setup frame 1 is separate, and subsequent transitions remain included. GSReactionDiffusion has a steady peak of 48.112 ms with 0/447 spilled frames and a 24.883 ms setup frame; MermaidSkin has a steady peak of 42.073 ms with 0/447 spilled frames and a 70.074 ms setup frame; ChromaticLichen has a steady peak of 40.003 ms with 0/447 spilled frames and a 65.897 ms setup frame; AshCloud has a steady peak of 47.180 ms with 0/927 spilled frames and a 73.108 ms setup frame. GridWorms has a steady peak of 56.505 ms, setup frame 1 of 60.735 ms, and 0/1,087 steady spilled frames in a 70-second capture. The reports identify source, frame scope, trailing exclusions and validator diagnostics. HankinSolids has a steady peak of 31.644 ms, setup frame 1 19.276 ms, and 0/2687 steady spilled frames; ShapeShifter has a steady peak of 57.537 ms, setup frame 1 47.865 ms, and 0/4271 steady spilled frames. GSReactionDiffusion’s global-O3 reference, which predates the October 5 optimization, peaks at 279.686 ms with every frame spilled. AshCloud's global-O3 reference peaks at 79.81 ms with 100% spills. Of the composed effects excluded from the Phantasm image, KaleidoscopeMelt peaks at 46.26 ms, with its 76.53 ms initialization frame recorded separately and excluded from display cadence statistics; JewelMelt peaks at 77.64 ms with every display frame spilled, with its full-width initialization draw likewise recorded separately; and KaleidoscopeStainedGlass peaks at 43.00 ms. These measurements apply to the revisions and configurations recorded in those reports. The composed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
+The [device profile archive](profiles/README.md) and its indexes contain shipping captures, global-O3 references and supplemental variant reports. The shipping sweep reports steady render telemetry (`frame` minus buffer wait) from frame 2 through the last complete counter window under the shipping segment clip; setup frame 1 is separate, and subsequent transitions remain included. The reports identify source, frame scope, trailing exclusions and validator diagnostics. Measurements apply to the revisions and configurations recorded in those reports. The composed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
 
 ### Authoring vocabulary
 
@@ -744,7 +753,7 @@ planar warps.
 | Operator family | Options | Input → output and controls |
 |---|---|---|
 | **Rotation** | Spin + Wander | Sphere → Sphere; the instance's wander and spin speed |
-| **Displacement** | Direct Noise, Curl Noise, Ripple | Sphere → Sphere; noise scale/strength/speed/basis, direct direction or curl integrator, or ripple controls |
+| **Displacement** | Direct Noise, Curl Noise, Ripple, Potential, Rossby-Haurwitz, Symmetric | Sphere → Sphere; noise scale/strength/speed/basis, direct direction or curl integrator; ripple controls; potential terms (type, kind, l, m, amplitude, phase), drift and integrator; Rossby-Haurwitz omega, wave, drift, integrator and order; Symmetric speed, integrator, symmetry and kind |
 | **Lens** | Glitch, Twist, Mobius, Kaleidoscope | Sphere → Sphere; lens-specific controls; kaleidoscope selects azimuthal, polyhedral or prism symmetry |
 | **Projection** | Folded Sinusoidal, Stereographic, Gnomonic, Bonne, Peirce Quincuncial, Fast Square Peirce, Dymaxion / Airocean, Equirectangular, Tetrahedral / Cubic / Octahedral / Dodecahedral / Icosahedral Atlas | Sphere → Plane; coordinates, projection provenance, weight and available edge distance; instance-specific frame/layout controls |
 | **Planar warp** | Affine Warp, Wave Shear, Vortex, Vector Noise, Curl Flow, Mirror Tile, Polar Chart | Plane → Plane; independent parameters and clocks for each ordered instance |

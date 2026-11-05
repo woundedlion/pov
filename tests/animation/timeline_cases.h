@@ -163,10 +163,10 @@ inline void test_timeline_collapse_past_id_cache() {
 }
 
 /**
- * @brief Verifies Timeline schedules events by start frame and removes
+ * @brief Verifies Timeline schedules events by delay and removes
  * completed one-shots so later events can run after earlier ones finish.
- * @details An event added with in_frames > 0 stays dormant until t reaches its
- * start, then steps.
+ * @details An event added with in_frames > 0 stays dormant until its delay
+ * elapses, then steps.
  */
 inline void test_timeline_sequences_events_by_start_frame() {
   Timeline tl;
@@ -182,7 +182,7 @@ inline void test_timeline_sequences_events_by_start_frame() {
 
   tl.step(fake_canvas()); // t=2: a completes and is removed
   HS_EXPECT_NEAR(a, 10.0f, 1e-3f);
-  HS_EXPECT_NEAR(b, 0.0f, 1e-6f); // still dormant (start=3)
+  HS_EXPECT_NEAR(b, 0.0f, 1e-6f); // still dormant (delay 3)
   HS_EXPECT_EQ(tl.event_count(), 1);
 
   tl.step(fake_canvas()); // t=3: b starts
@@ -243,7 +243,7 @@ inline void test_timeline_pausable_event_uses_active_time() {
 }
 
 /**
- * @brief Verifies the latest representable start frame remains schedulable.
+ * @brief A delay ending as the frame counter reaches its maximum runs normally.
  */
 inline void test_timeline_accepts_maximum_start_frame() {
   Timeline tl;

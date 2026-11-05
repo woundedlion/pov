@@ -187,7 +187,9 @@ struct PixelGolden {
   RenderFingerprint fingerprint{};
 };
 
-/** @brief Reference sequences for strict and fast floating-point modes. */
+/** @brief References for strict and fast floating-point modes.
+ * @details Fast-math hashes are diagnostic only; channel totals and brightness
+ * centroids are the checked fast-math references. */
 struct RecordedGolden {
   PixelGolden ieee;
   PixelGolden fastmath;
@@ -307,7 +309,7 @@ inline void print_pixel_golden(const char *name, const PixelGolden &golden) {
               static_cast<unsigned long long>(f.column));
 }
 
-/** @brief Checks a render fingerprint on every build and its exact recording hash.
+/** @brief Checks fingerprints, plus exact hashes in the recording environment.
  * @param name Scenario label.
  * @param actual Computed sequence.
  * @param recorded References for the supported floating-point modes.
@@ -500,13 +502,13 @@ inline std::vector<Pixel> column_time_oracle(RenderFn &&render) {
  *  keeps. */
 inline constexpr double MOTION_SEAM_RATIO = 0.4;
 
-/** @brief Smallest channel error a held frame must show at its seam columns
+/** @brief Smallest summed RGB error of one pixel a held frame must show at its seam columns
  *  for a seam comparison to bite. */
 inline constexpr int MOTION_SEAM_FLOOR = 8192;
 
 /**
- * @brief First-arm columns a seam check compares: the first and last columns
- *        of the arm, where held state is a whole frame off, and the middle.
+ * @brief First-arm columns a seam check compares: the first columns, where
+ *        held state is a whole frame off, plus the middle and last columns.
  * @tparam W Frame width.
  */
 template <int W>

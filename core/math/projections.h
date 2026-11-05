@@ -118,8 +118,10 @@ struct ProjectionKernelResult {
   /** ProjectionBoundary mask for the edge `fade_edge_distance` measures to. */
   uint8_t boundary_flags = 0;
   /** Nearest-cut metric: along-parallel arc radians for Bonne, spherical
-   *  distance radians for Peirce, and plane units for Airocean. NO_EDGE_DISTANCE when skipped or no cut exists. Applying
-   *  a plane scale preserves this kernel-dependent fade-width convention. */
+   *  distance radians for Peirce, plane units for Airocean, and plane units
+   *  shrunk with the point for the polyhedral atlas. NO_EDGE_DISTANCE when
+   *  skipped or no cut exists. Applying a plane scale preserves this
+   *  kernel-dependent fade-width convention. */
   float fade_edge_distance = NO_EDGE_DISTANCE;
   /** Kernel-specific per-point flags. */
   uint8_t flags = 0;

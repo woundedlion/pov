@@ -933,8 +933,7 @@ consteval bool resource_names_overlap(ResourceList<Resources...>) {
 }
 
 /**
- * @brief Whether a resource's slider names and noise seed carry its instance
- *        key.
+ * @brief Whether a resource's slider names carry its instance key.
  * @tparam Resource Parameter resource.
  * @tparam List The effect's resource list.
  * @return True for a non-standard key, a repeated family or a field-name

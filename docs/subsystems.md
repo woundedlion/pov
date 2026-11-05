@@ -9,7 +9,9 @@ The engine subsystem reference for the [Holosphere README](https://github.com/wo
   - [Shader Signatures](#shader-signatures)
   - [Register Conventions by Rasterizer](#register-conventions-by-rasterizer)
   - [Composed pullback metadata](#composed-pullback-metadata)
-  - [Column-time sampling](#space-time-rendering)
+  - [Polyhedral atlas projection](#polyhedral-atlas-projection)
+  - [Space-time rendering](#space-time-rendering)
+  - [Motion, worldlines and poses](#motion-worldlines-and-poses)
   - [Spherical ray rendering](#spherical-ray-rendering)
 - [SDF Shapes and the Scan Rasterizer](#sdf-shapes-sdfh-and-the-scan-rasterizer-scanh)
   - [SDF Shape Primitives](#sdf-shape-primitives-sdfh)
@@ -509,7 +511,7 @@ An `Appearance` needs finite, nonnegative `inv_far` and must keep
 
 [RayStage](../core/render/pullback/ray.h) binds a frame-prepared renderer to the
 existing `SphereSample -> Color4` contract. HyperLattice owns presets, palettes,
-wrapped legacy flight animation, and its admitted tuple table; reusable geometry,
+wrapped analytic camera flight, and its admitted tuple table; reusable geometry,
 event traversal, shading, and composition reside in core. Curved periodic fields
 and marched lattice/volume adapters remain explicit experiments pending resource
 admission; merely including their templates emits no registered firmware effect.
@@ -831,7 +833,7 @@ Preset pause holds automatic preset and phase progression while rendering and am
 | Header | Subject | Contents |
 |---|---|---|
 | `timers.h` | Callbacks on a clock | `RandomTimer`, `PeriodicTimer` |
-| [params.h](../core/animation/params.h) | A caller-owned parameter, written each frame | `Transition`, `Mutation`, `Progress`, `Driver`, `Lerp`, `ColorWipe`, the `Mobius*` family, `Ripple`, `Noise`, `BallDrop`, `NoiseProduct` |
+| [params.h](../core/animation/params.h) | A caller-owned parameter, written each frame | `Transition`, `Mutation`, `Progress`, `Driver`, `Lerp`, `ColorWipe`, `LensPhase`, the `Mobius*` family, `Ripple`, `Noise`, `BallDrop`, `NoiseProduct` |
 | [motion.h](../core/animation/motion.h) | An `Orientation` driven through space | `Path`/`ProceduralPath`, `Motion`, `Rotation`, `RandomWalk` |
 | `core/animation/trails.h` | Recorded history | `Trail` and its `OrientationTrail`/`VectorTrail` aliases — index 0 is the oldest snapshot and `length()-1` the newest, the ordering the JS simulator mirrors — plus `QuantizedVectorTrail`, the `TrailBody` per-body aggregate, and the `tween`/`deep_tween` traversals |
 | `core/animation/sprites.h` | Visible things | `Sprite`, `Particle`/`ParticleSystem` |
@@ -859,6 +861,7 @@ The fragments compile only inside `animation.h` (a direct include fails with an 
 | `Lerp` | Type-erased interpolation between any `T` that implements `lerp(start, target, t)`. The caller owns start, subject, and target data; Lerp holds pointers and a type-erased lerp function. |
 | `ColorWipe` | Smoothly interpolates a `GenerativePalette` between caller-owned start and target snapshots that must remain unchanged and outlive the animation |
 | `ParticleSystem<W, CAPACITY>` | Physics simulation with emitters, attractors, friction, gravity. The default `Particle<TRAIL_LEN>` storage has `QuantizedVectorTrail` history for trail rendering. The trailing storage policy can select `PointParticle` with `TRAIL_LEN=0`: 24 bytes per star, two-float octahedral direction, float velocity, color seed and lifetime, without history. |
+| `LensPhase` | Repeating eased phase and magnitude clock for a lens generator; publishes to caller-owned floats |
 | `Ripple` | Animates a `RippleParams` to expand a Ricker wavelet across the sphere |
 | `MobiusWarp` | Animates `MobiusParams` to apply and release a Möbius transformation |
 | `MobiusWarpCircular` | Animates `MobiusParams` for a circular warp that stays warped throughout, suitable for repeating effects |
@@ -1116,7 +1119,7 @@ DMA HD107S output <- adaptive 5-bit brightness + 8-bit BGR pack
 |---|---|
 | `ProceduralPalette` | Cosine palette: `a + b*cos(2π*(c*t + d))` per channel. Defined by 4 vec3 coefficients. |
 | `Gradient` | OKLCH interpolation between a sorted list of (position, color) stops. |
-| `GenerativePalette` | Procedurally generated palette from harmony rules (triadic, analogous, etc.) combined with brightness/saturation profiles. Supports snapshot/lerp for animated transitions. |
+| `GenerativePalette` | Procedurally generated palette from harmony rules (triadic, analogous, etc.) combined with lightness and chroma axes. Supports snapshot/lerp for animated transitions. |
 
 Twenty-seven named `ProceduralPalette` instances are pre-defined in the `Palettes` namespace: `DARK_RAINBOW`, `BLOOD_STREAM`, `VINTAGE_SUNSET`, `RICH_SUNSET`, `UNDERSEA`, `LATE_SUNSET`, `MANGO_PEEL`, `ICE_MELT`, `LEMON_LIME`, `ALGAE`, `EMBERS`, `FIRE_GLOW`, `DARK_PRIMARY`, `MAUVE_FADE`, `LAVENDER_LAKE`, `DESERT_ROSE`, `BRUISED_MOSS`, `BRUISED_BANANA`, `BRIGHT_SUNRISE`, `FIRE_AND_ICE`, `PEACH_POP`, `TIDAL_JADE`, `BLUE_LAGOON`, `ORANGE_CRUSH`, `PLUM_SUNRISE`, `CORAL_BLUE`, and `BRUISED_MANGO`. Six of them — `EMBERS`, `RICH_SUNSET`, `BRIGHT_SUNRISE`, `BRUISED_MOSS`, `LAVENDER_LAKE`, `TIDAL_JADE` — are the slots of `MeshPaletteBank`, the shared baked bank the mesh effects draw from.
 
@@ -1477,7 +1480,7 @@ auto mesh = hs::generate(persistent_arena, Solids::get_by_name, std::string_view
 
 ## The Preset System (`control/choreography.h`)
 
-`ChoreographedEffect<Derived, Params>` provides the runtime preset lifecycle: an `Effect` base owning the effect's live parameter set, its preset table, and the choreography that moves between presets. `Derived` declares its presets — a `PRESETS` table (`std::array<PresetEntry<Params>, N>`) or a bound static `preset(index)` returning one entry with `PRESET_IDS` naming its rows; a `PRESETS` table may also supply `PRESET_IDS` — plus a dwell, a parameter schema version, and either `parameter_fields()` (from which the base derives `valid_params()` and `blend_params()`; a `Params::FIELDS` table supplies it) or its own `valid_params()`. Each entry pairs a parameter set with its departure, the `Segue::Preset::Departure` that carries the effect from that preset to the next:
+`ChoreographedEffect<Derived, Params>` provides the runtime preset lifecycle: an `Effect` base owning the effect's live parameter set, its preset table, and the choreography that moves between presets. `Derived` declares its presets — a `PRESETS` table (`std::array<PresetEntry<Params>, N>`) or a bound static `preset(index)` returning one entry with `PRESET_IDS` naming its rows; a `PRESETS` table may also supply `PRESET_IDS` — plus a dwell, a parameter schema version, and parameter descriptions through a `PARAMETER_FIELDS` hook binding or `Params::FIELDS` (from which the base derives validation and blending), or validation through a `VALID_PARAMS` hook binding. Each entry pairs a parameter set with its departure, the `Segue::Preset::Departure` that carries the effect from that preset to the next:
 
 ```cpp
 static constexpr Segue::Preset::Fade DEPARTURE{16};
@@ -1485,6 +1488,11 @@ static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 static constexpr uint16_t PRESET_DWELL_FRAMES = 224;
 static constexpr std::array<PresetEntry<Params>, 12> PRESETS = {{{..., DEPARTURE}, ...}};
 static bool valid_params(const Params &p);
+static consteval auto choreography_hooks() {
+  return Control::HookSet<Derived,
+      Control::HookBinding<Control::ChoreographyHook::VALID_PARAMS,
+                           &Derived::valid_params>>{};
+}
 ```
 
 The effect calls `begin_choreography()` once from `init()`, which configures the engine preset controller from the presets (or `PRESET_IDS`), and `step_choreography()` every frame, which retires the dwell and starts the departure to the next preset. `cycle_frames()` conservatively sums every `PRESET_DWELL_FRAMES` dwell and every departure but the last preset's. A Lerp or Fade completing frame also consumes the next dwell's first frame, so the actual departure-to-departure period is dwell + departure - 1. The show budget carries one slack frame per included Lerp or Fade before rounding up to seconds; Snap adds no slack. A departure must be shorter than the dwell. A single-preset effect compiles the dwell countdown out. An effect that clocks its own advancement (DreamBalls' sprite hand-off chain, IslamicStars' per-shape segue) skips the per-frame tick and calls `advance_preset()` from its own schedule instead.
@@ -1644,7 +1652,7 @@ x = ( x_boundary + (now − epoch) · (W/2) / cycles_per_half_rev )  mod W
 | `MASTER_EN` | pin 5 (drive LOW) | pin 5 (drive HIGH) | 3.3 V CMOS, gates the external sync-out buffer | per-board strap out |
 | `ID` straps | pins 21–23 (ID0–ID2 as required) | pins 21–23 (ID0–ID2 as required) | active-low, internal pull-ups; `ID_STRAPS = log2(N)` read | strap (board identity) |
 
-The ID straps select the board: the build reads `ID_STRAPS = log2(N)` active-low bits and decodes `(~raw) & (N-1)`. N=4 reads ID0/pin 21 and ID1/pin 22; N=8 also reads ID2/pin 23. All-floating selects segment 0/master. On rev 1.1, `SYNC` uses pin 3 — the master drives it and downstream boards receive on its rising edge; `MASTER_EN` (pin 5) gates an external level shifter so only the master drives the shared bus. `SYNC` is the only inter-board connection. Rev 1.1 leaves pin 4 unused. Rev 1.2 transmits from pin 4 through U1 and receives on pin 3 on every board; downstream boards hold pin 4 LOW. It is assumed physically reliable; a severed wire is out of scope (boards free-run and precess apart at crystal rate, a slow smear, never an instant break).
+The ID straps select the board: the build reads `ID_STRAPS = log2(N)` active-low bits and decodes `(~raw) & (N-1)`. N=4 reads ID0/pin 21 and ID1/pin 22; N=8 also reads ID2/pin 23. All-floating selects segment 0/master. On rev 1.1, `SYNC` uses pin 3 — the master drives it and downstream boards receive on its rising edge; `MASTER_EN` (pin 5) gates an external level shifter so only the master drives the shared bus. `SYNC` is the only inter-board connection. Rev 1.1 leaves pin 4 unused. Rev 1.2 transmits from pin 4 through U1 and receives on pin 3 on every board; downstream boards hold pin 4 LOW. With a severed sync wire, downstream boards hold their current effect through its fade-out and then stay dark while the master continues its playlist. Their timing free-runs and precesses apart at crystal rate.
 
 **Signal levels & symbol waveforms.** The wire idles LOW.  A **symbol** is a burst of short active-high pulses at a fixed pitch; **the meaning is the count of rising edges — pulse width carries no information.**  The pin is driven HIGH by the flywheel tick that schedules the pulse, not at ISR entry, and the rising edge is the only timed event.  A wake that also renders drops the pin before it returns, for a ~8–13 µs pulse — the usual lit-column path, since pulses fall on column boundaries.  A wake that renders nothing holds the pin across the ISR boundary and drops it at the head of the next wake, ~54 µs later.  Pulses are drawn narrow, to scale against the ~868 µs pitch:
 
@@ -1793,7 +1801,7 @@ With absolute synchronized revolution counts, the construction window is identic
 | 1 board renders slow (drops a frame) | — | shows prior frame for 1 period | frame counters can remain offset until the next epoch; beacons resync only `rev_in_effect` |
 | 1 dropped epoch symbol | — | — | R repeats; missed-all-R requires two confirming beacons (within 4 s; spec section 9.1) |
 | Board reboots mid-show | re-acquires phase from next valid symbol | resumes flipping once LOCKED | rejoins correct effect via beacon, ≤ 25 revs (~3.1 s); dark until then |
-| Sync wire severed (out of scope) | free-runs on own crystal; precesses ≥ 1 col in ~10–20 s | keeps flipping locally | holds last effect; slow drift, never an instant break |
+| Sync wire severed (out of scope) | free-runs on own crystal; precesses ≥ 1 col in ~10–20 s | keeps flipping locally | holds the current effect through fade-out, then stays dark while the master continues its playlist |
 
 The flywheel ISR maintains telemetry counters (symbols accepted / gate-rejected / discarded, beacons ok / rejected, index corrections, epochs refractory-ignored, lock transitions, flips, emissions censored / aborted, longest coast) that the foreground reports behind `hs::debug` at ≤ 1 Hz — so any degradation the protocol absorbs silently is still visible at a glance.
 

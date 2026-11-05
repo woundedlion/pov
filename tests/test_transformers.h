@@ -1458,7 +1458,7 @@ inline void test_dominant_field_strongest_wins_without_stacking() {
  * @brief Verifies the blend crosses an opposite-signed cancellation smoothly
  *        rather than jumping the way a hard max by magnitude would.
  * @details A fixed +1 field is swept against a partner from -1.5 to -0.5,
- *          across which a hard max would step by 2.5. Every consecutive step
+ *          across which a hard max would step by 2. Every consecutive step
  *          must stay far below that, the output must change sign, and it must
  *          move substantially overall.
  */

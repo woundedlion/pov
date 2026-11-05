@@ -17,6 +17,7 @@ struct MeshFeedbackWhiteBox {
    * @param displacement Vertical frozen-reference offset in pixels.
    * @param motion Frame rotation angle in radians.
    * @param pixels Optional exact RGB framebuffer output.
+   * @param still_route Uses the still mesh route for a frozen reference.
    * @return Row-major linear luminance. */
   static std::vector<float> render_temporal_source(
       bool timed, float fraction, float displacement, float motion = 0.012f,

@@ -522,12 +522,17 @@ inline auto candidate_renderer() {
   };
 }
 
-/** @brief Frame energy. */
+/** @brief Sums linear RGB channels across the frame.
+ * @param frame Rendered oracle frame.
+ * @return Total linear RGB energy. */
 inline uint64_t frame_energy(const OracleFrame &frame) {
   return hs_test::frame_energy(frame.pixels);
 }
 
-/** @brief Row energy. */
+/** @brief Sums linear RGB channels along one frame row.
+ * @param frame Rendered oracle frame.
+ * @param y Row index.
+ * @return Total linear RGB energy on the row. */
 inline uint64_t row_energy(const OracleFrame &frame, int y) {
   uint64_t energy = 0;
   for (int x = 0; x < ORACLE_W; ++x) {
@@ -950,7 +955,11 @@ inline void test_high_count_uniform_star_covers_north_pole() {
   HS_EXPECT_EQ(uncovered_pole_pixels, size_t{0});
 }
 
-/** @brief Minimum energy around. */
+/** @brief Lowest RGB sum within a pixel radius of a direction.
+ * @param frame Rendered oracle frame.
+ * @param position Unit direction at the search center.
+ * @param radius_px Search radius in pixels, wrapping horizontally.
+ * @return Lowest pixel RGB sum, or UINT32_MAX when the disk contains no pixel. */
 inline uint32_t minimum_energy_around(const OracleFrame &frame,
                                       const math::Vector &position,
                                       float radius_px) {
@@ -1101,7 +1110,7 @@ inline void test_alpha_falloff_fades_to_equator() {
   }
 }
 
-/** @brief Opposite halves direction. */
+/** @brief Opposite flips contour phase across the equator and star phase across hemispheres. */
 inline void test_opposite_halves_direction() {
   reset_globals();
   {

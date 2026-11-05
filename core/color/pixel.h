@@ -245,8 +245,7 @@ inline constexpr float MIN_VISIBLE_ALPHA = 1.0f / 255.0f;
  * @details The simulator and operator CRGB use linear_to_srgb8, whose first
  * nonzero integer input is 10 of 65535. Per-channel rounding can lift a peak
  * in [9.5, 10) to that input. LED output uses linear PWM: HD107S floors vary
- * by channel gains and brightness (5, 14 and 33 for red, green and blue
- * at full brightness with the shipped gains); FastLED rounding starts at 129.
+ * by channel gains and brightness; FastLED rounding starts at 129.
  */
 inline constexpr float MIN_ENCODABLE_ALPHA = 10.0f / 65535.0f;
 

@@ -53,7 +53,7 @@ The `real/*` fixtures are verbatim output from actual `[env:holosphere]` and
 `pio run -v`), so the parsers are exercised against exact toolchain formatting
 alongside the hand-built pass path.
 
-The current Phantasm quartet was captured on 2026-10-10 from a pre-landing
+The Phantasm quartet was captured on 2026-10-10 from a pre-landing
 working tree; the ELF SHA256 below identifies the image.
 ELF SHA256:
 

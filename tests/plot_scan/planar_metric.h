@@ -8,8 +8,7 @@
 // ============================================================================
 
 /**
- * @brief Full-precision azimuthal unprojection (libm), an oracle independent of
- *        plot.h's LUT-based fast-trig path.
+ * @brief Full-precision azimuthal unprojection (libm).
  */
 inline math::Vector az_unproject_exact(float Px, float Py,
                                        const math::Basis &b) {

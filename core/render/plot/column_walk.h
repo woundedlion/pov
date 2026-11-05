@@ -3,6 +3,8 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
+// Included by core/render/plot/raster.h.
+
 /** @file column_walk.h
  * @brief Geometry callbacks and the column-time edge walk.
  */

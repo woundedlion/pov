@@ -51,9 +51,10 @@ scripts/generate_promoted_shader_documents.mjs` rewrites `alien_ocean`,
 `alien_brain` and `kaleidoscope_stained_glass` from the effect specs the script holds, so a
 hand edit to those files is lost on the next run — change the spec instead. The specs use current chain IDs and named parameter values.
 
-Ten documents are authored directly in this directory: `ash_cloud`,
+Fourteen documents are authored directly in this directory: `ash_cloud`,
 `chromatic_lichen`, `mermaid_skin`, `example`, `kaleidoscope_hex_oil`,
-`kaleidoscope_smooth`, `kaleidoscope_melt`, `jewel_melt`, `millefiori` and `grid_worms`. Edit these version 2 documents here.
+`kaleidoscope_smooth`, `kaleidoscope_melt`, `jewel_melt`, `millefiori`, `grid_worms`,
+`grid_warp`, `involution`, `iridescence` and `liquid_windows`. Edit these version 2 documents here.
 
 After editing any document, run `node scripts/generate_composed_presets.mjs`
 to refresh its effect header. Documents use canonical serialization: sorted
@@ -117,6 +118,10 @@ Every document except `example.shader.json` backs a
 | --- | --- |
 | `alien_ocean` | `AlienOcean` |
 | `grid_space` | `GridSpace` |
+| `grid_warp` | `GridWarp` |
+| `involution` | `Involution` |
+| `iridescence` | `Iridescence` |
+| `liquid_windows` | `LiquidWindows` |
 | `grid_worms` | `GridWorms` |
 | `millefiori` | `Millefiori` |
 | `cosmic_eyeball` | `CosmicEyeball` |

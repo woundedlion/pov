@@ -54,7 +54,7 @@ HS_FLASH_INLINE inline void log_fragment(const char *msg, ...) {
   Serial.print(buf);
 }
 
-/** @brief Blocks until pending Serial output has drained. */
+/** @brief Queues any buffered Serial output for transmission. */
 inline void flush_log() { Serial.flush(); }
 } // namespace hs
 

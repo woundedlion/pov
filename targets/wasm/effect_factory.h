@@ -55,7 +55,7 @@ template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
  * @brief Looks up a canonical ID or compatibility alias in the (W,H) factory.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @param name Canonical machine ID, legacy ID or class/browser name to look up.
+ * @param name Canonical machine ID or class/browser name to look up.
  * @return Pointer to the matching entry, or null if the class name or ID is
  *         unknown. The entry belongs to the static per-(W,H) table and stays
  *         valid for the module's lifetime.

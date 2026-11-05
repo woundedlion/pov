@@ -123,7 +123,7 @@ private:
   static constexpr float PHASE_STEP = math::PI_F / ACTUAL_FIBERS;
 
   // Persistent allocations: frame poses, palette LUT, one Spherical and one
-  // trail per fiber.
+  // trail and one retired tail node per fiber.
   static constexpr size_t FOOTPRINT_BYTES =
       Filter::World::Orient::storage_bytes(W) +
       BakedPalette::required_arena_bytes() +

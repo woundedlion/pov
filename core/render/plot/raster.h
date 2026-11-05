@@ -166,7 +166,7 @@ struct RasterConfig {
   bool interpolate_registers = true;
   /** Adaptive screen-space sample density. */
   RasterSamplingPolicy sampling_policy = RasterSamplingPolicy::DEFAULT;
-  /** Compile the column-time geometry walk. */
+  /** Marks a column-walk configuration; rasterize() rejects it. */
   bool timed = false;
   /** Recompute deforming edge lengths at each column's time. */
   bool column_edge_lengths = false;

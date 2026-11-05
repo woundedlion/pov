@@ -288,7 +288,8 @@ vertex_at(const SweptMesh &d, const FaceTables &tables, size_t i, float time) {
  * the polar axis: every column pair's meridian can cross it. A face is near
  * an arm boundary when that arc meets one. A seam face's vertices lie within
  * half a frame of the boundary, each within a quarter frame of its capture
- * centre.
+ * centre. A face whose lowest vertex is within d.pad of the polar axis,
+ * and which the polar tests did not take, draws as a cross face.
  */
 HS_HOT_FLASH_MEMBER FaceKind classify_face(const SweptMesh &d, size_t face,
                                            const FaceTables &tables,
