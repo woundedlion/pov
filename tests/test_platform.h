@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <climits>
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
@@ -191,6 +192,18 @@ inline void test_random_degenerate_range() {
     HS_EXPECT_GE(v, 3);
     HS_EXPECT_LE(v, 6);
   }
+}
+
+/** Pins empty-range draw consumption and unsigned wide-span arithmetic. */
+inline void test_rand_int_contract() {
+  hs::random().seed(1337u);
+  HS_EXPECT_EQ(hs::rand_int(5, 5), 5);
+  HS_EXPECT_EQ(hs::rand_int(9, 4), 9);
+  HS_EXPECT_EQ(hs::random()(), 0x4127FA43u);
+
+  hs::random().seed(1337u);
+  HS_EXPECT_EQ(hs::rand_int(INT_MIN, INT_MAX), static_cast<int>(0xC127FA43u));
+  hs::random().seed(1337u);
 }
 
 /**
@@ -575,6 +588,7 @@ inline int run_platform_tests() {
   HS_RUN(test_map_rounds_like_the_device);
   HS_RUN(test_addmod8_wraps_before_reducing);
   HS_RUN(test_random_degenerate_range);
+  HS_RUN(test_rand_int_contract);
   HS_RUN(test_rand_f_half_open);
   HS_RUN(test_epoch_seed);
   HS_RUN(test_stable_effect_seed);
