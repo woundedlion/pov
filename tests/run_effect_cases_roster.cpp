@@ -16,6 +16,10 @@ namespace hs_test::effects_tests {
 #include "tests/effects/column_time_parity.h"
 #include "tests/effects/lens_cases.h"
 
+void run_effect_case_mesh_seam_dark_sample_guards() {
+  HS_RUN(run_case, test_mesh_seam_dark_sample_guards);
+}
+
 void run_effect_case_parameter_probe_targets() {
   HS_RUN(run_case, test_parameter_probe_targets);
 }
@@ -53,6 +57,7 @@ namespace hs_test::module_runners {
 int run_roster_tests() {
   using namespace effects_tests;
   ModuleFixture fixture("effects");
+  run_effect_case_mesh_seam_dark_sample_guards();
   run_effect_case_parameter_probe_targets();
   run_effect_case_float_dropdown_lint();
   run_effect_case_manual_preset_navigation();

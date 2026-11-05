@@ -16,6 +16,7 @@
 #include "workbench/shader/chain_host.h"
 #endif
 #include "tests/mesh_test_util.h"
+#include "tests/fd_capture_util.h"
 #include "tests/pixel_test_util.h"
 #include "tests/vec_test_util.h"
 #include "tests/test_fixture.h"
@@ -620,7 +621,9 @@ struct MeshSeamSteps {
   double mean_arm_ratios = 0.0; ///< Sum of mean arm-boundary ratios.
   double arm_ratios = 0.0; ///< Sum of the larger arm-boundary ratio per frame.
   double interior_ratios = 0.0; ///< Sum of the mid-arm ratios.
-  int frames = 0;               ///< Consecutive frame pairs measured.
+  int frames = 0;               ///< Consecutive frame pairs attempted.
+  int arm_samples = 0; ///< Frame pairs with both arm boundaries measurable.
+  int interior_samples = 0; ///< Frame pairs with measurable mid-arm neighbors.
 
   /**
    * @brief Accumulates one pair of consecutive frames.
@@ -642,7 +645,8 @@ struct MeshSeamSteps {
       }
       return sum;
     };
-    double arm = 0.0, interior = 0.0, interior_neighbors = 0.0;
+    double arm = 0.0, mean_arm = 0.0, interior = 0.0, interior_neighbors = 0.0;
+    int arm_boundaries = 0;
     for (int boundary : {0, width / 2}) {
       double neighbors = 0.0;
       for (int j = 1; j <= 4; ++j) {
@@ -656,7 +660,8 @@ struct MeshSeamSteps {
       if (neighbors > 0.0) {
         const double ratio = seam / (neighbors / 8.0);
         arm = std::max(arm, ratio);
-        mean_arm_ratios += ratio * 0.5;
+        mean_arm += ratio;
+        ++arm_boundaries;
       }
       const int middle = boundary + width / 4;
       interior += column_difference(current, middle - 1, current, middle);
@@ -664,9 +669,15 @@ struct MeshSeamSteps {
         interior_neighbors +=
             column_difference(current, middle - 1 + j, current, middle + j);
     }
-    arm_ratios += arm;
-    if (interior_neighbors > 0.0)
+    if (arm_boundaries == 2) {
+      arm_ratios += arm;
+      mean_arm_ratios += mean_arm * 0.5;
+      ++arm_samples;
+    }
+    if (interior_neighbors > 0.0) {
       interior_ratios += interior / (interior_neighbors / 4.0);
+      ++interior_samples;
+    }
     ++frames;
   }
 };
@@ -685,15 +696,23 @@ inline void expect_mesh_seam_continuous(const MeshSeamSteps &steps,
                                         double arm_bound = 1.15,
                                         double interior_bound = 1.06) {
   HS_CONTEXT(label);
-  std::printf("  [%s] mean seam step %.3f x neighbors; mid-arm %.3f\n", label,
-              steps.arm_ratios / steps.frames,
-              steps.interior_ratios / steps.frames);
-  std::printf("  mean across arms %.3f\n",
-              steps.mean_arm_ratios / steps.frames);
   HS_EXPECT_GT(steps.frames, 0);
-  HS_EXPECT_LE(steps.mean_arm_ratios / steps.frames, mean_bound);
-  HS_EXPECT_LE(steps.arm_ratios / steps.frames, arm_bound);
-  HS_EXPECT_LE(steps.interior_ratios / steps.frames, interior_bound);
+  HS_EXPECT_GE(steps.arm_samples * 4, steps.frames * 3);
+  HS_EXPECT_GE(steps.interior_samples * 4, steps.frames * 3);
+  HS_EXPECT_GT(steps.arm_samples, 0);
+  HS_EXPECT_GT(steps.interior_samples, 0);
+  if (steps.arm_samples == 0 || steps.interior_samples == 0)
+    return;
+  std::printf(
+      "  [%s] mean seam step %.3f x neighbors; mid-arm %.3f; samples %d/%d and %d/%d\n",
+      label, steps.arm_ratios / steps.arm_samples,
+      steps.interior_ratios / steps.interior_samples, steps.arm_samples,
+      steps.frames, steps.interior_samples, steps.frames);
+  std::printf("  mean across arms %.3f\n",
+              steps.mean_arm_ratios / steps.arm_samples);
+  HS_EXPECT_LE(steps.mean_arm_ratios / steps.arm_samples, mean_bound);
+  HS_EXPECT_LE(steps.arm_ratios / steps.arm_samples, arm_bound);
+  HS_EXPECT_LE(steps.interior_ratios / steps.interior_samples, interior_bound);
 }
 
 /** @brief One arm side's copy of a face in a mesh deformation scan. */

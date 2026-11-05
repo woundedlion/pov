@@ -8,6 +8,9 @@
 
 namespace hs_test::effects_tests {
 
+/** @brief Runs dark-coverage and measured-ratio seam companions. */
+void run_effect_case_mesh_seam_dark_sample_guards();
+
 /** @brief Runs RingShowerWhiteBox check_temporal_rings with its case context. */
 void run_effect_case_ring_shower_white_box_check_temporal_rings();
 

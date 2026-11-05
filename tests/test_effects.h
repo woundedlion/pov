@@ -52,6 +52,7 @@ namespace effects_tests {
  */
 inline int run_effects_tests() {
   hs_test::ModuleFixture fixture("effects");
+  run_effect_case_mesh_seam_dark_sample_guards();
 
   const char *mobius_only = hs_test::env_var("HS_MOBIUSRINGS_ONLY");
   const char *islamic_only = hs_test::env_var("HS_ISLAMICSTARS_ONLY");
