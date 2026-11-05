@@ -804,17 +804,17 @@ inline void test_column_edge_cull_keeps_padded_point_sets() {
           for (int k = 0; k <= 16 && !reaches; ++k) {
             const math::Vector at =
                 math::slerp(points[i], points[i + 1], float(k) / 16.0f);
-            const math::Vector east =
+            const math::Vector west =
                 math::cross(math::Y_AXIS, at).magnitude() > 1e-4f
                     ? math::cross(math::Y_AXIS, at).normalized()
                     : math::X_AXIS;
-            const math::Vector north = math::cross(at, east);
+            const math::Vector north = math::cross(at, west);
             for (int d = 0; d <= 8 && !reaches; ++d) {
               const float angle = math::TWO_PI_F * float(d) / 8.0f;
               const math::Vector p =
                   d == 8
                       ? at
-                      : (at + (east * cosf(angle) + north * sinf(angle)) * pad)
+                      : (at + (west * cosf(angle) + north * sinf(angle)) * pad)
                             .normalized();
               const float column = math::vector_to_theta<W>(p);
               const int owner = math::fast_wrap(int(floorf(column + 0.5f)), W);
@@ -957,10 +957,10 @@ inline void test_column_steady_lattice() {
     const math::Vector a = math::pixel_to_vector<W, H>(column, row);
     const float heading = hs::rand_f(0.0f, math::TWO_PI_F);
     const float length = hs::rand_f(0.002f, 0.12f);
-    const math::Vector east = math::cross(math::Y_AXIS, a).normalized();
-    const math::Vector north = math::cross(a, east);
+    const math::Vector west = math::cross(math::Y_AXIS, a).normalized();
+    const math::Vector north = math::cross(a, west);
     const math::Vector b = math::rotate(
-        a, math::make_rotation(east * sinf(heading) - north * cosf(heading),
+        a, math::make_rotation(west * sinf(heading) - north * cosf(heading),
                                length));
     const auto motion = math::make_rotation(
         math::Vector(0.3f, 1.0f, 0.2f).normalized(), hs::rand_f(-0.03f, 0.03f));

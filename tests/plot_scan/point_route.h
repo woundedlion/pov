@@ -63,7 +63,7 @@ struct PointRoutePath {
 
 /** @brief Builds a path ending at a pixel.
  * @param x,y Pixel the path reaches at t = 1.
- * @param heading Direction of the object-space step, radians from east.
+ * @param heading Direction of the object-space step, radians from east toward north.
  * @param angle Object-space step angle, radians.
  * @param spin Orientation turn over the frame, radians.
  * @param spin_axis Unit axis of the orientation turn.
@@ -76,11 +76,11 @@ inline PointRoutePath point_route_path(float x, float y, float heading,
   path.previous = math::make_rotation(spin_axis, 0.3f);
   path.current = math::make_rotation(spin_axis, 0.3f + spin);
   const math::Vector world = math::pixel_to_vector<W, H>(x, y);
-  // Increasing column and increasing row at the world position.
+  // Increasing column and decreasing row at the world position.
   const math::Vector east = math::Vector(-world.z, 0.0f, world.x).normalized();
-  const math::Vector south = math::cross(east, world);
+  const math::Vector north = math::cross(east, world);
   const math::Vector direction = math::rotate(
-      east * cosf(heading) + south * sinf(heading), path.current.conjugate());
+      east * cosf(heading) + north * sinf(heading), path.current.conjugate());
   const math::Vector end = math::rotate(world, path.current.conjugate());
   path.axis = math::cross(end, direction).normalized();
   path.angle = angle;
