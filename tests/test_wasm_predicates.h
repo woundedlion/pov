@@ -541,18 +541,20 @@ inline void test_mesh_op_growth_factors() {
 
   struct Boundary {
     const char *name;
-    size_t degree, valence;
+    size_t elements, degree, valence;
   };
   constexpr Boundary BOUNDARIES[] = {
-      {"kis", 0, 0},  {"dual", 0, 1},  {"ambo", 1, 1},     {"needle", 0, 1},
-      {"meta", 1, 1}, {"gyro", 1, 1},  {"chamfer", 1, 0},  {"expand", 1, 1},
-      {"snub", 1, 1}, {"relax", 1, 0}, {"truncate", 2, 1}, {"bevel", 2, 2},
-      {"zip", 1, 2},  {"hankin", 2, 2}};
+      {"kis", 3, 0, 0},     {"dual", 1, 0, 1},     {"ambo", 2, 1, 1},
+      {"needle", 3, 0, 1},  {"meta", 6, 1, 1},     {"gyro", 5, 1, 1},
+      {"chamfer", 4, 1, 0}, {"expand", 4, 1, 1},   {"snub", 5, 1, 1},
+      {"relax", 1, 1, 0},   {"truncate", 3, 2, 1}, {"bevel", 6, 2, 2},
+      {"zip", 3, 1, 2},     {"hankin", 4, 2, 2}};
   for (const auto &expected : BOUNDARIES) {
     const auto *row = hs_wasm::find_mesh_op_bounds(expected.name);
     HS_EXPECT_TRUE(row != nullptr);
     if (!row)
       continue;
+    HS_EXPECT_EQ(row->bounds.elements, expected.elements);
     for (bool degree : {true, false}) {
       const size_t FACTOR = degree ? expected.degree : expected.valence;
       if (!FACTOR) {
