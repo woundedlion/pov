@@ -629,6 +629,13 @@ private:
     math::Vector half_w;       ///< Blinn-Phong half-vector.
     float scroll;              ///< Palette scroll still to come, negated.
   };
+  static_assert(sizeof(Scan::VolumeColumns<W>) +
+                        (W / 2) *
+                            (sizeof(ColumnShading) + sizeof(math::Quaternion)) +
+                        alignof(Scan::VolumeColumns<W>) +
+                        alignof(ColumnShading) + alignof(math::Quaternion) <=
+                    DEFAULT_SCRATCH_A_SIZE,
+                "Raymarch column tables exceed scratch arena A");
 
   /**
    * @brief Allocates the frame's volume placements and shading tables and
