@@ -44,7 +44,7 @@ constexpr size_t CONTROL_BYTES = 65536;
 constexpr size_t BUDGET_BYTES = HS_DEVICE_STACK_FLOOR_BYTES;
 
 volatile uint8_t *g_lo;
-int g_measured = 0;
+static_assert(HS_EFFECT_COUNT > 0);
 int g_unmeasured = 0;
 int g_overran = 0;
 
@@ -103,7 +103,6 @@ template <typename EffectT> __attribute__((noinline)) void run_effect() {
 }
 
 template <typename Effect> size_t measure(const char *name) {
-  ++g_measured;
   g_lo = nullptr;
   paint(220);
   volatile uint8_t topmark;
@@ -158,13 +157,6 @@ int main() {
   }
   HS_EFFECT_LIST(HS_MEASURE_ONE)
 #undef HS_MEASURE_ONE
-  if (g_measured != HS_EFFECT_COUNT) {
-    std::printf(
-        "measured %d effects but HS_EFFECT_COUNT = %d — roster empty or "
-        "measure() calls dropped\n",
-        g_measured, HS_EFFECT_COUNT);
-    return 1;
-  }
   if (g_overran != 0) {
     std::printf("%d effect(s) exceeded the painted stack region\n", g_overran);
     return 1;

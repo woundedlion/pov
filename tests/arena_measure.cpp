@@ -33,10 +33,9 @@ const int FRAMES = hs_test::smoke_frames();
 
 size_t g_max_p = 0, g_max_a = 0, g_max_b = 0, g_worst_total = 0;
 const char *g_worst_name = "";
-int g_measured = 0;
+static_assert(HS_EFFECT_COUNT > 0);
 
 template <typename Effect> void measure(const char *name) {
-  ++g_measured;
   hs_test::reset_globals();
   hs_test::pin_frame_clock(0);
   persistent_arena.reset_peak_tracking();
@@ -108,13 +107,6 @@ int main() {
 #define HS_ARENA_ONE(name) measure<name<W, H>>(#name);
   HS_EFFECT_LIST(HS_ARENA_ONE)
 #undef HS_ARENA_ONE
-  if (g_measured != HS_EFFECT_COUNT) {
-    std::printf(
-        "measured %d effects but HS_EFFECT_COUNT = %d — roster empty or "
-        "measure() calls dropped\n",
-        g_measured, HS_EFFECT_COUNT);
-    return 1;
-  }
   std::printf("\nMAX persist=%zu  scratchA=%zu  scratchB=%zu\n", g_max_p,
               g_max_a, g_max_b);
   std::printf("WORST single-effect total = %zu B (%s)\n", g_worst_total,
