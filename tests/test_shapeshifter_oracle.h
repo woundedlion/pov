@@ -1345,12 +1345,7 @@ inline std::vector<float> render_timed_contours(const OracleState &state,
       ShapeShifterWhiteBox::orientation(effect).push(end_pose);
       const math::Quaternion pose =
           ShapeShifterWhiteBox::orientation(effect).get(fraction);
-      int column = 0;
-      for (int c = 1; c < ORACLE_W / 2; ++c)
-        if (fabsf(Spacetime::SamplingSurface<ORACLE_W>::time(c) - fraction) <
-            fabsf(Spacetime::SamplingSurface<ORACLE_W>::time(column) -
-                  fraction))
-          column = c;
+      const int column = Spacetime::surface_column(fraction, ORACLE_W);
       const math::Vector meridian = math::pixel_to_vector<ORACLE_W, ORACLE_H>(
           static_cast<float>(column), ORACLE_H / 2.0f);
       const math::Vector across =
