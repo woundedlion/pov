@@ -22,6 +22,13 @@ namespace Pullback {
 
 namespace Color {
 
+/// Palette harmony mode wire values.
+inline constexpr const char *PALETTE_MODE_IDS[] = {"triadic", "complementary",
+                                                   "analogous"};
+/// Brightness envelope wire values.
+inline constexpr const char *BRIGHTNESS_ENVELOPE_IDS[] = {
+    "none", "cup", "bell", "ascending", "descending"};
+
 /** @brief Applies sinusoidal oscillation to a mapping phase.
  *  @param phase Base mapping phase.
  *  @param depth Oscillation amplitude.

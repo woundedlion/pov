@@ -1002,12 +1002,9 @@ private:
     register_color_field<&ColorParams::opacity_high>("Opacity at Value 1");
     if constexpr (AUTHORED_PALETTE) {
       auto &color = this->params.template get<"color">();
-      static constexpr const char *MODES[] = {"triadic", "complementary",
-                                              "analogous"};
-      static constexpr const char *ENVELOPES[] = {"none", "cup", "bell",
-                                                  "ascending", "descending"};
       this->register_animated_enum8_param("Palette Mode", &color.palette_mode,
-                                          MODES, std::size(MODES));
+                                          Color::PALETTE_MODE_IDS,
+                                          std::size(Color::PALETTE_MODE_IDS));
       set_parameter_stage(ParameterStage::COLORIZE);
       this->register_animated_enum8_param("Palette Type", &color.palette_type,
                                           AUTHORED_PALETTE_TYPE_IDS,
@@ -1032,7 +1029,8 @@ private:
           std::size(AUTHORED_PALETTE_NAME_IDS));
       set_parameter_stage(ParameterStage::COLORIZE);
       register_animated_param("Brightness Envelope", &color.brightness_envelope,
-                              ENVELOPES, nullptr, std::size(ENVELOPES));
+                              Color::BRIGHTNESS_ENVELOPE_IDS, nullptr,
+                              std::size(Color::BRIGHTNESS_ENVELOPE_IDS));
       set_parameter_stage(ParameterStage::COLORIZE);
       for (size_t index = ColorParams::FIELDS.size();
            index < ColorFamily::FIELDS.size(); ++index) {

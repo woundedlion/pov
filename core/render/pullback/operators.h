@@ -87,8 +87,7 @@ enum class PaletteMode : uint8_t {
 using EnvelopeMode = Color::BrightnessEnvelope;
 
 /// Wire ids of `PaletteMode`, by enumerator value.
-inline constexpr const char *PALETTE_MODE_IDS[] = {"triadic", "complementary",
-                                                   "analogous"};
+inline constexpr auto &PALETTE_MODE_IDS = Color::PALETTE_MODE_IDS;
 static_assert(std::size(PALETTE_MODE_IDS) ==
               static_cast<size_t>(PaletteMode::ANALOGOUS) + 1);
 static_assert(std::size(PALETTE_MODE_IDS) == FrameContext{}.palettes.size(),
@@ -99,8 +98,7 @@ inline constexpr const char *PALETTE_MAPPING_IDS[] = {"cup", "bell", "linear",
 static_assert(std::size(PALETTE_MAPPING_IDS) ==
               static_cast<size_t>(Color::PaletteMapping::REVERSE) + 1);
 /// Wire ids of `EnvelopeMode`, by enumerator value.
-inline constexpr const char *BRIGHTNESS_ENVELOPE_IDS[] = {
-    "none", "cup", "bell", "ascending", "descending"};
+inline constexpr auto &BRIGHTNESS_ENVELOPE_IDS = Color::BRIGHTNESS_ENVELOPE_IDS;
 static_assert(std::size(BRIGHTNESS_ENVELOPE_IDS) ==
               static_cast<size_t>(EnvelopeMode::DESCENDING) + 1);
 
