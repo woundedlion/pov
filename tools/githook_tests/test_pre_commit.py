@@ -35,7 +35,7 @@ class PreCommitHook(unittest.TestCase):
             "print('TRACKED', tracked.stdout.split())\n"
             "raise SystemExit('BROKEN' in (root / 'README.md').read_text())\n",
             encoding="utf-8")
-        for name in ["docs_images.py", "build_pins.py", "license_check.py", "include_paths.py"]:
+        for name in ["docs_images.py", "build_pins.py", "license_check.py", "include_paths.py", "encoding_check.py"]:
             (tools / name).write_text(
                 "import os\n"
                 f"print('GATE {name}')\n"
@@ -73,7 +73,7 @@ class PreCommitHook(unittest.TestCase):
     def test_gate_failures_propagate(self):
         (self.repo / "README.md").write_bytes(b"valid updated\n")
         self.git("add", "README.md")
-        for gate in ("docs_images", "build_pins", "license_check", "include_paths"):
+        for gate in ("docs_images", "build_pins", "license_check", "include_paths", "encoding_check"):
             with self.subTest(gate=gate):
                 clean = self.run_hook()
                 self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)

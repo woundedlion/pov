@@ -110,7 +110,8 @@ protected branch's `CI green` status is the authoritative correctness gate.
   first-party C++ with clang-format, and runs ruff/eslint on staged
   Python/JavaScript. It then runs `tools/docs_check.py` (without `--sync`),
   `tools/docs_images.py`, `tools/build_pins.py --check` and
-  `tools/license_check.py` and `tools/include_paths.py` against an isolated checkout of the index, so the
+  `tools/license_check.py`, `tools/include_paths.py`, and `tools/encoding_check.py`
+  against an isolated checkout of the index, so the
   verdict is on what is being committed rather than on the working tree. A
   required tool missing for an applicable change fails the commit rather than
   skipping the check. Configuring the `tests` preset points `core.hooksPath` at

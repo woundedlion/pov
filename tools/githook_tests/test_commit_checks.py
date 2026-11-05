@@ -31,7 +31,7 @@ class CommitRangeChecks(unittest.TestCase):
             "root = pathlib.Path(sys.argv[sys.argv.index('--root') + 1])\n"
             "raise SystemExit('BROKEN' in (root / 'README.md').read_text())\n",
             encoding="utf-8")
-        for name in ["docs_images.py", "build_pins.py", "license_check.py", "include_paths.py"]:
+        for name in ["docs_images.py", "build_pins.py", "license_check.py", "include_paths.py", "encoding_check.py"]:
             (tools / name).write_text("raise SystemExit(0)\n", encoding="utf-8")
         (self.repo / ".clang-format").write_bytes(b"BasedOnStyle: LLVM\n")
         self.formatter = Path(tmp.name) / "clang-format"
