@@ -1421,6 +1421,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── scan/                   Per-family scan headers (raster, shapes, mesh,
 │   │   │                            shader, volume, column_basis)
 │   │   │   ├── mesh_capture.cpp    Per-face column-time capture of deforming meshes
+│   │   │   ├── swept_face.h      Column-time polygon sweep state and meridian crossings
 │   │   │   ├── radial_surface.h  Bounded first-arrival star-family queries
 │   │   │   ├── radial_surface_boundary.h  Canonical first-arrival boundary candidates
 │   │   │   ├── radial_surface_candidate_mask.h  Candidate interval groups per chart cell
