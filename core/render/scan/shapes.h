@@ -77,18 +77,18 @@ struct DistortedRing {
    * @param amplitude Modulation amplitude (radians); must upper-bound
    *        |shift_fn|.
    * @param fragment_shader Shader invoked per covered pixel.
-   * @param phase Angular phase offset in radians.
-   * @param debug_bb When true, renders the bounding box for debugging.
+   * @param options Phase, debug bounding box and pole-fill settings.
    */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
                    float radius, float thickness, ScalarFn shift_fn,
                    float amplitude, FragmentShaderFn fragment_shader,
-                   float phase = 0, bool debug_bb = false) {
+                   const RingDrawOptions &options = {}) {
     SDF::DistortedRing shape(basis, radius, thickness, shift_fn, amplitude,
-                             phase);
+                             options.phase);
+    shape.suppress_pole_fill = options.suppress_pole_fill;
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
-                                      debug_bb);
+                                      options.debug_bb);
   }
 
   /**

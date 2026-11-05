@@ -603,3 +603,48 @@ inline void test_fused_walks_ignore_pole_lod() {
   expect_knob_independent("ring group", draw_group);
   expect_knob_independent("distorted ring stack", draw_stack);
 }
+
+/** @brief Scalar-function rings forward phase, debug and pole-fill options. */
+inline void test_scalar_ring_draw_options() {
+  constexpr int W = 96, H = 48;
+  const auto RENDER = [](const Scan::RingDrawOptions &options) {
+    StubEffect effect(W, H);
+    Pipeline<W, H> pipeline;
+    {
+      Canvas canvas(effect);
+      const auto BASIS = math::make_basis(math::Quaternion(), math::X_AXIS);
+      const auto SHIFT = [](float t) {
+        return .08f * sinf(2 * math::TWO_PI_F * t);
+      };
+      Scan::DistortedRing::draw<W, H>(
+          pipeline, canvas, BASIS, 1.0f, .02f, SHIFT, .08f,
+          [](const math::Vector &, Fragment &fragment) {
+            fragment.color = Color4(Pixel(25000, 15000, 5000), 1.0f);
+          },
+          options);
+    }
+    effect.advance_display();
+    std::vector<Pixel> pixels;
+    capture_frame<W, H>(effect, pixels);
+    return pixels;
+  };
+  const auto DEFAULT = RENDER({});
+  size_t lit = 0;
+  for (const Pixel &pixel : DEFAULT)
+    lit += !is_black(pixel);
+  HS_EXPECT_GT(lit, size_t{0});
+  HS_EXPECT_FALSE(compare_buffers(DEFAULT, RENDER({.phase = .7f})).exact());
+  HS_EXPECT_FALSE(compare_buffers(DEFAULT, RENDER({.debug_bb = true})).exact());
+  const auto SUPPRESSED = RENDER({.suppress_pole_fill = true});
+  size_t suppressed_lit = 0;
+  for (const Pixel &pixel : SUPPRESSED)
+    suppressed_lit += !is_black(pixel);
+  if (fabsf(math::TrigLUT<W, H>::sin_phi[0]) < 1e-8f) {
+    HS_EXPECT_LT(suppressed_lit, lit);
+    for (int x = 0; x < W; ++x) {
+      HS_EXPECT_FALSE(is_black(DEFAULT[x]));
+      HS_EXPECT_TRUE(is_black(SUPPRESSED[x]));
+    }
+  } else
+    HS_EXPECT_EQ(suppressed_lit, lit);
+}

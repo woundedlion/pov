@@ -104,6 +104,7 @@ inline int run_scan_tests() {
   hs_test::ModuleFixture fixture("scan");
 
   HS_RUN(test_replicated_clip_matches_full_frame);
+  HS_RUN(test_scalar_ring_draw_options);
   HS_RUN(test_bounding_sphere_initializes_trig);
   HS_RUN(test_min_alpha_boundary);
   HS_RUN(test_scan_epilogue_contract);
