@@ -757,6 +757,126 @@ struct GSWhiteBox {
     bool full_kernel = false;
   };
 
+  template <typename Grid>
+  static Pixel
+  per_sample_reference(GS &gs, Grid &grid, int x, int seed, int shared_center,
+                       math::Vector *world_nodes, float noise, float shift,
+                       float lightness, ShaderError &error,
+                       SharedShaderOptions options) {
+    const auto [fixed_stencil, direct_color, aggregate_color, center_pigment,
+                full_kernel] = options;
+    Pixel expected(0, 0, 0);
+    for (int i = 0; i < 4; ++i) {
+      math::Vector sample_v = grid.at(x, i);
+      ++error.stencil_samples;
+      if (gs.refine_center(sample_v, world_nodes, seed) != shared_center)
+        ++error.stencil_changes;
+      float b;
+      if (fixed_stencil) {
+        float tw = 0.0f, wb = 0.0f;
+        gs.kernel_accumulate(sample_v, world_nodes, shared_center,
+                             [&](int ni, float w) {
+                               wb += gs.state.B[ni] * w;
+                               tw += w;
+                             });
+        b = tw <= GS::KERNEL_MIN_TOTAL_WEIGHT ? 0.0f : wb * (GS::Q16_INV / tw);
+      } else {
+        b = interpolate_b(gs, sample_v, seed, world_nodes);
+      }
+      if (b < GS::B_CULL_THRESHOLD)
+        continue;
+      float t =
+          hs::clamp((b - GS::B_COLOR_FLOOR) * GS::B_COLOR_SCALE, 0.0f, 1.0f);
+      float mass = 0.0f, rgb[3] = {};
+      int center = fixed_stencil
+                       ? shared_center
+                       : gs.refine_center(sample_v, world_nodes, seed);
+      gs.kernel_accumulate(sample_v, world_nodes, center, [&](int ni, float w) {
+        float weight = gs.state.B[ni] * w;
+        Pixel color = mix_pigment(gs.state.pigment[ni], [&](int id) {
+          return direct_color
+                     ? gs.modified_palette_color(id, t, shift, lightness)
+                     : cached_palette_color(gs, id, t, noise);
+        });
+        mass += weight;
+        rgb[0] += color.r * weight;
+        rgb[1] += color.g * weight;
+        rgb[2] += color.b * weight;
+      });
+      if (mass > 0.0f)
+        expected += Pixel(round_linear_channel(rgb[0] / (mass * 4)),
+                          round_linear_channel(rgb[1] / (mass * 4)),
+                          round_linear_channel(rgb[2] / (mass * 4)));
+    }
+    return expected;
+  }
+
+  template <typename Grid>
+  static Pixel aggregate_reference(GS &gs, Grid &grid, int x, int seed,
+                                   int shared_center, math::Vector *world_nodes,
+                                   float noise, float shift, float lightness,
+                                   ShaderError &error,
+                                   SharedShaderOptions options) {
+    const auto [fixed_stencil, direct_color, aggregate_color, center_pigment,
+                full_kernel] = options;
+    Pixel expected(0, 0, 0);
+    double palette_mass[1 << Pigment::ID_BITS] = {};
+    double total_mass = 0.0, concentration = 0.0;
+    int covered = 0;
+    for (int i = 0; i < 4; ++i) {
+      const math::Vector SAMPLE = grid.at(x, i);
+      int center = fixed_stencil ? shared_center
+                                 : gs.refine_center(SAMPLE, world_nodes, seed);
+      ++error.stencil_samples;
+      error.stencil_changes += center != shared_center;
+      float tw = 0.0f, wb = 0.0f;
+      gs.kernel_accumulate(SAMPLE, world_nodes, center, [&](int node, float w) {
+        const float MASS = gs.state.B[node] * w;
+        tw += w;
+        wb += MASS;
+        const auto PIGMENT = Pigment::unpack(gs.state.pigment[node]);
+        const double FIRST_FRACTION = first_weight16(PIGMENT.mass) / 65535.0;
+        palette_mass[PIGMENT.first] += MASS * FIRST_FRACTION;
+        palette_mass[PIGMENT.second] += MASS * (1.0 - FIRST_FRACTION);
+        total_mass += MASS;
+      });
+      float b =
+          tw <= GS::KERNEL_MIN_TOTAL_WEIGHT ? 0.0f : wb * (GS::Q16_INV / tw);
+      if (b >= GS::B_CULL_THRESHOLD) {
+        ++covered;
+        concentration +=
+            hs::clamp((b - GS::B_COLOR_FLOOR) * GS::B_COLOR_SCALE, 0.0f, 1.0f);
+      }
+    }
+    if (center_pigment) {
+      std::fill(std::begin(palette_mass), std::end(palette_mass), 0.0);
+      const auto PIGMENT = Pigment::unpack(gs.state.pigment[shared_center]);
+      const double FIRST_FRACTION = first_weight16(PIGMENT.mass) / 65535.0;
+      palette_mass[PIGMENT.first] += FIRST_FRACTION;
+      palette_mass[PIGMENT.second] += 1.0 - FIRST_FRACTION;
+      total_mass = 1.0;
+    }
+    if (covered && total_mass > 0.0) {
+      float t = static_cast<float>(concentration / covered);
+      double rgb[3] = {};
+      for (int palette = 0; palette < GS::NUM_SEED_CLUSTERS; ++palette) {
+        Pixel color =
+            direct_color
+                ? gs.modified_palette_color(palette, t, shift, lightness)
+                : cached_palette_color(gs, palette, t, noise);
+        const double WEIGHT =
+            palette_mass[palette] * covered / (4 * total_mass);
+        rgb[0] += color.r * WEIGHT;
+        rgb[1] += color.g * WEIGHT;
+        rgb[2] += color.b * WEIGHT;
+      }
+      expected =
+          Pixel(round_linear_channel(rgb[0]), round_linear_channel(rgb[1]),
+                round_linear_channel(rgb[2]));
+    }
+    return expected;
+  }
+
   template <int W, int H>
   static ShaderError shared_shader_error(GS &gs, SharedShaderOptions options) {
     const auto [fixed_stencil, direct_color, aggregate_color, center_pigment,
@@ -793,115 +913,14 @@ struct GSWhiteBox {
         float shift = noise * gs.params.hue_shift;
         float lightness = std::max(0.0f, noise) * gs.params.shimmer;
 
-        Pixel expected(0, 0, 0);
-        if (!aggregate_color)
-          for (int i = 0; i < 4; ++i) {
-            math::Vector sample_v = grid.at(x, i);
-            ++error.stencil_samples;
-            if (gs.refine_center(sample_v, world_nodes, seed) != shared_center)
-              ++error.stencil_changes;
-            float b;
-            if (fixed_stencil) {
-              float tw = 0.0f, wb = 0.0f;
-              gs.kernel_accumulate(sample_v, world_nodes, shared_center,
-                                   [&](int ni, float w) {
-                                     wb += gs.state.B[ni] * w;
-                                     tw += w;
-                                   });
-              b = tw <= GS::KERNEL_MIN_TOTAL_WEIGHT ? 0.0f
-                                                    : wb * (GS::Q16_INV / tw);
-            } else {
-              b = interpolate_b(gs, sample_v, seed, world_nodes);
-            }
-            if (b < GS::B_CULL_THRESHOLD)
-              continue;
-            float t = hs::clamp((b - GS::B_COLOR_FLOOR) * GS::B_COLOR_SCALE,
-                                0.0f, 1.0f);
-            float mass = 0.0f, rgb[3] = {};
-            int center = fixed_stencil
-                             ? shared_center
-                             : gs.refine_center(sample_v, world_nodes, seed);
-            gs.kernel_accumulate(
-                sample_v, world_nodes, center, [&](int ni, float w) {
-                  float weight = gs.state.B[ni] * w;
-                  Pixel color = mix_pigment(gs.state.pigment[ni], [&](int id) {
-                    return direct_color
-                               ? gs.modified_palette_color(id, t, shift,
-                                                           lightness)
-                               : cached_palette_color(gs, id, t, noise);
-                  });
-                  mass += weight;
-                  rgb[0] += color.r * weight;
-                  rgb[1] += color.g * weight;
-                  rgb[2] += color.b * weight;
-                });
-            if (mass > 0.0f)
-              expected += Pixel(round_linear_channel(rgb[0] / (mass * 4)),
-                                round_linear_channel(rgb[1] / (mass * 4)),
-                                round_linear_channel(rgb[2] / (mass * 4)));
-          }
-        if (aggregate_color) {
-          double palette_mass[1 << Pigment::ID_BITS] = {};
-          double total_mass = 0.0, concentration = 0.0;
-          int covered = 0;
-          for (int i = 0; i < 4; ++i) {
-            const math::Vector SAMPLE = grid.at(x, i);
-            int center = fixed_stencil
-                             ? shared_center
-                             : gs.refine_center(SAMPLE, world_nodes, seed);
-            ++error.stencil_samples;
-            error.stencil_changes += center != shared_center;
-            float tw = 0.0f, wb = 0.0f;
-            gs.kernel_accumulate(
-                SAMPLE, world_nodes, center, [&](int node, float w) {
-                  const float MASS = gs.state.B[node] * w;
-                  tw += w;
-                  wb += MASS;
-                  const auto PIGMENT = Pigment::unpack(gs.state.pigment[node]);
-                  const double FIRST_FRACTION =
-                      first_weight16(PIGMENT.mass) / 65535.0;
-                  palette_mass[PIGMENT.first] += MASS * FIRST_FRACTION;
-                  palette_mass[PIGMENT.second] += MASS * (1.0 - FIRST_FRACTION);
-                  total_mass += MASS;
-                });
-            float b = tw <= GS::KERNEL_MIN_TOTAL_WEIGHT
-                          ? 0.0f
-                          : wb * (GS::Q16_INV / tw);
-            if (b >= GS::B_CULL_THRESHOLD) {
-              ++covered;
-              concentration += hs::clamp(
-                  (b - GS::B_COLOR_FLOOR) * GS::B_COLOR_SCALE, 0.0f, 1.0f);
-            }
-          }
-          if (center_pigment) {
-            std::fill(std::begin(palette_mass), std::end(palette_mass), 0.0);
-            const auto PIGMENT =
-                Pigment::unpack(gs.state.pigment[shared_center]);
-            const double FIRST_FRACTION =
-                first_weight16(PIGMENT.mass) / 65535.0;
-            palette_mass[PIGMENT.first] += FIRST_FRACTION;
-            palette_mass[PIGMENT.second] += 1.0 - FIRST_FRACTION;
-            total_mass = 1.0;
-          }
-          if (covered && total_mass > 0.0) {
-            float t = static_cast<float>(concentration / covered);
-            double rgb[3] = {};
-            for (int palette = 0; palette < GS::NUM_SEED_CLUSTERS; ++palette) {
-              Pixel color =
-                  direct_color
-                      ? gs.modified_palette_color(palette, t, shift, lightness)
-                      : cached_palette_color(gs, palette, t, noise);
-              const double WEIGHT =
-                  palette_mass[palette] * covered / (4 * total_mass);
-              rgb[0] += color.r * WEIGHT;
-              rgb[1] += color.g * WEIGHT;
-              rgb[2] += color.b * WEIGHT;
-            }
-            expected = Pixel(round_linear_channel(rgb[0]),
-                             round_linear_channel(rgb[1]),
-                             round_linear_channel(rgb[2]));
-          }
-        }
+        const Pixel expected =
+            aggregate_color
+                ? aggregate_reference(gs, grid, x, seed, shared_center,
+                                      world_nodes, noise, shift, lightness,
+                                      error, options)
+                : per_sample_reference(gs, grid, x, seed, shared_center,
+                                       world_nodes, noise, shift, lightness,
+                                       error, options);
         const int dr = channel_gap(got.r, expected.r);
         const int dg = channel_gap(got.g, expected.g);
         const int db = channel_gap(got.b, expected.b);
@@ -1570,7 +1589,7 @@ inline void test_gs_nearest_pigment_shader_fidelity() {
       for (float shimmer : {0.0f, 0.4f, 1.0f}) {
         GSWhiteBox::set_color_params(gs, CONTROLS[0], CONTROLS[1], hue,
                                      shimmer);
-        GSWhiteBox::cached_palette(gs, 0, 0.0f, 0.0f);
+        GSWhiteBox::refresh_color_palettes(gs);
         const auto EXTREME =
             GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
                 gs, {.fixed_stencil = true,
