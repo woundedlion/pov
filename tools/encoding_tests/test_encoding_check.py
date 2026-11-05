@@ -30,6 +30,11 @@ class EncodingCheckTests(unittest.TestCase):
                               else bytes([value]).decode("cp1252") for value in raw)
             self.assertEqual(encoding_check.mojibake_lines(corrupt), [1])
             self.assertEqual(encoding_check.mojibake_lines(corrupt + "\u2192"), [1])
+        for text, suffix in (("\u00b0", "\u2014"), ("\u2014", "\u201d"),
+                             ("\u00e9", "\u00b0"), ("\u2014", "\u00b0")):
+            with self.subTest(text=text, suffix=suffix):
+                corrupt = text.encode("utf-8").decode("cp1252") + suffix
+                self.assertEqual(encoding_check.mojibake_lines(corrupt), [1])
 
     def test_correct_unicode_is_accepted(self):
         self.assertEqual(encoding_check.mojibake_lines("ASCII \u2014 \u2192 \u00b1 \u00b0 \u00d7 caf\u00e9"), [])

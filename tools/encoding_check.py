@@ -24,7 +24,9 @@ def mojibake_lines(text: str) -> list[int]:
                     projected.extend(char.encode("cp1252"))
                 except UnicodeError:
                     projected.append(0)
-        for match in re.finditer(rb"[\xc2-\xf4][\x80-\xbf]+", projected):
+        for match in re.finditer(
+                rb"[\xc2-\xdf][\x80-\xbf]|[\xe0-\xef][\x80-\xbf]{2}|[\xf0-\xf4][\x80-\xbf]{3}",
+                projected):
             try:
                 match[0].decode("utf-8")
             except UnicodeError:
