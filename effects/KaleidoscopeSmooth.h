@@ -34,7 +34,7 @@ struct KaleidoscopeSmoothSpec : Pullback::Spec {
     if (group == "Projection")
       return "Stereographic";
     if (group == "Planar Warp 2")
-      return "Mirror Tile";
+      return "Mirror + Affine";
     if (group == "Function")
       return "Grid";
     if (group == "Colorize")
