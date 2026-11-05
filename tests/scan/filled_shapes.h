@@ -156,92 +156,66 @@ inline void test_solid_color_path_matches_generic() {
 
   for (SolidShape shape : shapes) {
     for (bool debug_bb : {false, true}) {
-      std::vector<Pixel> generic_pixels;
-      generic_pixels.reserve(W * H);
-
-      {
-        hs_test::StubEffect generic_fx(W, H);
-        Pipeline<W, H> generic_pipeline;
-        {
-          Canvas canvas(generic_fx);
-          math::Basis basis = math::make_basis(
-              math::make_rotation(math::Vector(0.3f, 0.7f, 0.2f).normalized(),
-                                  0.4f),
-              math::Y_AXIS);
-          auto shader = [&](const math::Vector &, Fragment &f) {
-            f.color = color;
-          };
-          switch (shape) {
-          case SolidShape::PLANAR_POLYGON:
-            Scan::PlanarPolygon::draw<W, H, false>(generic_pipeline, canvas,
-                                                   basis, RADIUS, SIDES, shader,
-                                                   PHASE, debug_bb);
-            break;
-          case SolidShape::SPHERICAL_POLYGON:
-            Scan::SphericalPolygon::draw<W, H, false>(generic_pipeline, canvas,
-                                                      basis, RADIUS, SIDES,
-                                                      shader, PHASE, debug_bb);
-            break;
-          case SolidShape::FLOWER:
-            Scan::Flower::draw<W, H, false>(generic_pipeline, canvas, basis,
-                                            RADIUS, SIDES, shader, PHASE,
-                                            debug_bb);
-            break;
-          case SolidShape::STAR:
-            Scan::Star::draw<W, H, false>(generic_pipeline, canvas, basis,
+      const auto GENERIC = render_stub_frame<W, H>([&](auto &generic_pipeline,
+                                                       Canvas &canvas) {
+        math::Basis basis = math::make_basis(
+            math::make_rotation(math::Vector(0.3f, 0.7f, 0.2f).normalized(),
+                                0.4f),
+            math::Y_AXIS);
+        auto shader = [&](const math::Vector &, Fragment &f) {
+          f.color = color;
+        };
+        switch (shape) {
+        case SolidShape::PLANAR_POLYGON:
+          Scan::PlanarPolygon::draw<W, H, false>(generic_pipeline, canvas,
+                                                 basis, RADIUS, SIDES, shader,
+                                                 PHASE, debug_bb);
+          break;
+        case SolidShape::SPHERICAL_POLYGON:
+          Scan::SphericalPolygon::draw<W, H, false>(generic_pipeline, canvas,
+                                                    basis, RADIUS, SIDES,
+                                                    shader, PHASE, debug_bb);
+          break;
+        case SolidShape::FLOWER:
+          Scan::Flower::draw<W, H, false>(generic_pipeline, canvas, basis,
                                           RADIUS, SIDES, shader, PHASE,
                                           debug_bb);
-            break;
-          }
+          break;
+        case SolidShape::STAR:
+          Scan::Star::draw<W, H, false>(generic_pipeline, canvas, basis, RADIUS,
+                                        SIDES, shader, PHASE, debug_bb);
+          break;
         }
-        generic_fx.advance_display();
-        // Guard against both paths drawing nothing.
-        const size_t generic_lit = count_lit_region<W, H>(generic_fx);
-        HS_EXPECT_GT(generic_lit, (size_t)0);
-        capture_frame<W, H>(generic_fx, generic_pixels);
-      }
-
-      {
-        hs_test::StubEffect solid_fx(W, H);
-        Pipeline<W, H> solid_pipeline;
-        {
-          Canvas canvas(solid_fx);
-          math::Basis basis = math::make_basis(
-              math::make_rotation(math::Vector(0.3f, 0.7f, 0.2f).normalized(),
-                                  0.4f),
-              math::Y_AXIS);
-          switch (shape) {
-          case SolidShape::PLANAR_POLYGON:
-            Scan::PlanarPolygon::draw_solid<W, H>(solid_pipeline, canvas, basis,
-                                                  RADIUS, SIDES, color, PHASE,
-                                                  debug_bb);
-            break;
-          case SolidShape::SPHERICAL_POLYGON:
-            Scan::SphericalPolygon::draw_solid<W, H>(solid_pipeline, canvas,
-                                                     basis, RADIUS, SIDES,
-                                                     color, PHASE, debug_bb);
-            break;
-          case SolidShape::FLOWER:
-            Scan::Flower::draw_solid<W, H>(solid_pipeline, canvas, basis,
-                                           RADIUS, SIDES, color, PHASE,
-                                           debug_bb);
-            break;
-          case SolidShape::STAR:
-            Scan::Star::draw_solid<W, H>(solid_pipeline, canvas, basis, RADIUS,
+      });
+      const auto SOLID = render_stub_frame<W, H>([&](auto &solid_pipeline,
+                                                     Canvas &canvas) {
+        math::Basis basis = math::make_basis(
+            math::make_rotation(math::Vector(0.3f, 0.7f, 0.2f).normalized(),
+                                0.4f),
+            math::Y_AXIS);
+        switch (shape) {
+        case SolidShape::PLANAR_POLYGON:
+          Scan::PlanarPolygon::draw_solid<W, H>(solid_pipeline, canvas, basis,
+                                                RADIUS, SIDES, color, PHASE,
+                                                debug_bb);
+          break;
+        case SolidShape::SPHERICAL_POLYGON:
+          Scan::SphericalPolygon::draw_solid<W, H>(solid_pipeline, canvas,
+                                                   basis, RADIUS, SIDES, color,
+                                                   PHASE, debug_bb);
+          break;
+        case SolidShape::FLOWER:
+          Scan::Flower::draw_solid<W, H>(solid_pipeline, canvas, basis, RADIUS,
                                          SIDES, color, PHASE, debug_bb);
-            break;
-          }
+          break;
+        case SolidShape::STAR:
+          Scan::Star::draw_solid<W, H>(solid_pipeline, canvas, basis, RADIUS,
+                                       SIDES, color, PHASE, debug_bb);
+          break;
         }
-        solid_fx.advance_display();
-        for (int y = 0; y < H; ++y)
-          for (int x = 0; x < W; ++x) {
-            const Pixel &generic = generic_pixels[y * W + x];
-            const Pixel &solid = solid_fx.get_pixel(x, y);
-            HS_EXPECT_EQ(generic.r, solid.r);
-            HS_EXPECT_EQ(generic.g, solid.g);
-            HS_EXPECT_EQ(generic.b, solid.b);
-          }
-      }
+      });
+      HS_EXPECT_GT(
+          expect_frames_within("solid-color scan path", SOLID, GENERIC, 0), 0);
     }
   }
 }

@@ -83,6 +83,27 @@ private:
   size_t count = 0;
 };
 
+/**
+ * @brief Renders a draw into a fresh stub frame.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param draw Callable `(Pipeline<W, H> &, Canvas &)`.
+ * @return Displayed frame.
+ */
+template <int W, int H, typename DrawFn>
+inline std::vector<Pixel> render_stub_frame(DrawFn &&draw) {
+  hs_test::StubEffect fx(W, H);
+  Pipeline<W, H> pipeline;
+  {
+    Canvas canvas(fx);
+    draw(pipeline, canvas);
+  }
+  fx.advance_display();
+  std::vector<Pixel> out;
+  capture_frame<W, H>(fx, out);
+  return out;
+}
+
 #include "tests/scan/shader_draw.h"
 #include "tests/scan/ring_raster.h"
 #include "tests/scan/region_pole_lod.h"

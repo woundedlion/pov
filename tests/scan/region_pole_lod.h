@@ -66,18 +66,10 @@ inline void test_face_rasterize_matches_scan_region() {
     hs_test::StubEffect fused(W, H);
     draw(fused, true);
 
-    for (int y = 0; y < H; ++y) {
-      for (int x = 0; x < W; ++x) {
-        const Pixel &a = expected[y * W + x];
-        const Pixel &b = fused.get_pixel(x, y);
-        HS_CONTEXT("px", x, y);
-        HS_EXPECT_EQ(static_cast<int>(a.r), static_cast<int>(b.r));
-        HS_EXPECT_EQ(static_cast<int>(a.g), static_cast<int>(b.g));
-        HS_EXPECT_EQ(static_cast<int>(a.b), static_cast<int>(b.b));
-      }
-    }
-    // Guard against both paths drawing nothing.
-    HS_EXPECT_GT(count_lit(expected), (size_t)40);
+    std::vector<Pixel> actual;
+    capture_frame<W, H>(fused, actual);
+    HS_EXPECT_GT(expect_frames_within("face scan parity", actual, expected, 0),
+                 40);
   };
 
   // Mid-latitude hexagon, whose azimuth wedge sits around column 80.
@@ -300,18 +292,10 @@ inline void test_pole_lod_shading_matches_undecimated() {
     return out;
   };
 
-  auto compare = [&](const std::vector<Pixel> &plain,
-                     const std::vector<Pixel> &decimated) {
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x) {
-        const Pixel &a = plain[y * W + x];
-        const Pixel &b = decimated[y * W + x];
-        HS_CONTEXT("px", x, y);
-        HS_EXPECT_EQ(static_cast<int>(a.r), static_cast<int>(b.r));
-        HS_EXPECT_EQ(static_cast<int>(a.g), static_cast<int>(b.g));
-        HS_EXPECT_EQ(static_cast<int>(a.b), static_cast<int>(b.b));
-      }
-    HS_EXPECT_GT(count_lit(plain), (size_t)40);
+  const auto compare = [](const std::vector<Pixel> &plain,
+                          const std::vector<Pixel> &decimated) {
+    HS_EXPECT_GT(expect_frames_within("pole LOD parity", decimated, plain, 0),
+                 40);
   };
 
   // Axis just off the canvas pole: the stroke crosses decimated rows.
