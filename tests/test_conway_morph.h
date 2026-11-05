@@ -8,11 +8,9 @@
 
 #include <algorithm>
 #include <bit>
-#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <string_view>
 #include <vector>
 #include "core/color/palettes.h"
 #include "core/mesh/conway.h"
