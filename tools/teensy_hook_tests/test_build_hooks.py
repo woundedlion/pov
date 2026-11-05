@@ -383,6 +383,55 @@ class TestLinkerMap(unittest.TestCase):
             ["-Wl,-Map," + os.path.join(".pio", "build", "phantasm") + "/firmware.map"])
 
 
+class TestHotLayoutLink(unittest.TestCase):
+    """teensy_hot_layout.py: a phantasm.ld link becomes probe, plan, link."""
+
+    HOOK = "pre:tools/teensy_hot_layout.py"
+
+    def _hook(self, **kw):
+        kw.setdefault("BUILD_DIR", os.path.join(".pio", "build", "phantasm"))
+        env = FakeEnv(PIOENV="phantasm", PROJECT_DIR=str(REPO),
+                      LDSCRIPT_PATH="tools/phantasm.ld", **kw)
+        return load_hook("teensy_hot_layout.py", env=env), env
+
+    def test_exactly_the_phantasm_script_envs_wire_the_hook(self):
+        cfg = _pio_config()
+        for name in _pio_envs():
+            with self.subTest(env=name):
+                script = _option_lines(cfg, f"env:{name}", "board_build.ldscript")
+                wired = self.HOOK in _option_lines(cfg, f"env:{name}", "extra_scripts")
+                self.assertEqual(wired, script == ["tools/phantasm.ld"])
+
+    def test_link_runs_probe_plan_and_final_link(self):
+        _, env = self._hook()
+        steps = env["LINKCOM"]
+        self.assertEqual([step[0] == "action" for step in steps],
+                         [True, False, True, False])
+        probe, final = steps[1], steps[3]
+        for part in ("-o $HS_HOT_LAYOUT_PROBE_ELF", "-L$HS_HOT_LAYOUT_PROBE_DIR",
+                     "-Wl,-Map,$HS_HOT_LAYOUT_PROBE_MAP"):
+            self.assertIn(part, probe)
+        self.assertIn("-o $TARGET", final)
+        self.assertIn("-L$HS_HOT_LAYOUT_FINAL_DIR", final)
+        self.assertNotIn("PROBE", final)
+        depends = {Path(d).name for _, deps in env.dependencies for d in deps}
+        self.assertLessEqual({"hot_layout.py", "teensy_hot_layout.py"}, depends)
+
+    def test_other_linker_scripts_keep_their_link(self):
+        env = FakeEnv(PIOENV="holosphere", PROJECT_DIR=str(REPO),
+                      LDSCRIPT_PATH="imxrt1062.ld", LINKCOM="link")
+        load_hook("teensy_hot_layout.py", env=env)
+        self.assertEqual(env["LINKCOM"], "link")
+
+    def test_probe_link_reads_an_empty_fragment(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, env = self._hook(BUILD_DIR=tmp)
+            self.assertEqual(env["LINKCOM"][0][1]([], [], env), 0)
+            fragment = Path(tmp, "hot_layout", "probe", "phantasm_hot_layout.ld")
+            self.assertNotIn("*(", fragment.read_text(encoding="utf-8"))
+            self.assertTrue(Path(tmp, "hot_layout", "final").is_dir())
+
+
 class TestNanoSpecs(unittest.TestCase):
     """teensy_nano.py: --specs=nano.specs must reach the LINK step, and appear
     exactly once per command (gcc fatals on a repeated spec)."""

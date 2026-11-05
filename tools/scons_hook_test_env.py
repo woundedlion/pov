@@ -41,6 +41,9 @@ class FakeEnv(dict):
     def Depends(self, target, dependency):
         self.dependencies.append((target, dependency))
 
+    def Action(self, function, strfunction=None):
+        return ("action", function, strfunction)
+
     def File(self, path):
         return path
 

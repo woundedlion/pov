@@ -4,8 +4,9 @@
  * Custom Teensy 4.0 linker script for the Phantasm environments.
  * FORKED FROM: framework-arduinoteensy 1.162.0
  *
- * FLASH routing covers cold libraries and effect factories, const rodata,
- * spawn-time init/setup_presets, cold-attribute and hot-leaf sections, cold
+ * FLASH routing covers the generated hot-code layout, cold libraries and
+ * effect factories, const rodata, spawn-time init/setup_presets,
+ * cold-attribute and hot-leaf sections, cold
  * constructors/destructors and mesh builders, and framework one-time setup.
  * The hot flywheel libgcc divmod also uses cached flash, retaining ITCM capacity
  * at the cost of cache-dependent latency.
@@ -48,6 +49,12 @@ SECTIONS
 		*(.text._ZN8TimelineC*Ev*)
 		*(.text._ZN8TimelineD*Ev*)
 		*(.text._ZN8Timeline14destroy_eventsEv*)
+		/* Hot flash code and the library code it calls, in the instruction-cache
+		 * order tools/teensy_hot_layout.py plans from a probe link. */
+		. = ALIGN(32);
+		hs_hot_layout_start = .;
+		INCLUDE phantasm_hot_layout.ld
+		hs_hot_layout_end = .;
 		/* Libraries (including hot libgcc divmod) and factories use flash. */
 		*libm.a:*(.text .text.*)
 		*libc_nano.a:*(.text .text.*)
@@ -58,53 +65,6 @@ SECTIONS
 		/* Effect spawn-time setup: init()/setup_presets(). */
 		*(.text._ZN*4initEv)
 		*(.text._ZN*13setup_presetsEv)
-		/* Radial-surface pixels and hemisphere preparation share one cache window. */
-		. = ABSOLUTE(ALIGN(ABSOLUTE(.) - 0x2800, 16384) + 0x2800);
-		hs_radial_surface_hot_start = .;
-		ASSERT((ABSOLUTE(hs_radial_surface_hot_start) & 0x3fff) == 0x2800,
-		       "radial surface hot code has an invalid cache-way phase");
-		*(.text.hot._ZNK4Scan13RadialSurface*6sample*)
-		*(.text.hot._ZN4Scan19RadialSurfaceEdgeAA*11hidden_only*)
-		*(.text.hot._ZN4Scan19RadialSurfaceEdgeAA*8Detector*)
-		*(.text.hot._ZNK4Scan19RadialSurfaceEdgeAA*6sample*)
-		*(.text.hot._ZN4Scan6Shader17draw_column_times*12ShapeShifter*16draw_surface_all*)
-		. = ALIGN(256);
-		*(.text.hot._ZN4Scan19draw_radial_surface*12ShapeShifter*16draw_surface_all*)
-		*(.text.hot._ZN12ShapeShifter*16draw_surface_all*)
-		*(.text.hot._ZZN12ShapeShifter*16draw_surface_all*)
-		*(.text.unlikely._ZN4Scan13RadialSurface*9set_knots*)
-		*(SORT_BY_NAME(.text.hot._ZN*4Scan13RadialSurface*))
-		*(SORT_BY_NAME(.text.hot._ZN*4Scan19RadialSurfaceEdgeAA*))
-		*(SORT_BY_NAME(.text.hot._ZN*4Scan26RadialSurfaceCandidateMask*))
-		*(SORT_BY_NAME(.text.hot._ZZN4Scan26RadialSurfaceCandidateMask*))
-		*(SORT_BY_NAME(.text.hot._ZN4Scan31RadialSurfaceBoundaryCandidates*))
-		hs_radial_surface_hot_end = .;
-		ASSERT(hs_radial_surface_hot_end - hs_radial_surface_hot_start <= 32768,
-		       "radial surface hot code exceeds the 32 KiB instruction cache");
-		/* Column-time trail edges: the shared steady point-route core sits between
-		 * two effects' per-edge blocks, so each effect's block plus the core fits
-		 * one instruction-cache way. */
-		. = ALIGN(32);
-		hs_trail_hot_start = .;
-		*(.text.hot._ZN13HopfFibration*19render_timed_trails*)
-		*(.text.hot._ZN4Plot4Mesh16plot_steady_edge*13HopfFibration*)
-		*(.text.hot._ZNK4Plot10PointRoute*4plot*16plot_steady_edge*13HopfFibration*)
-		*(.text.hot._ZZN4Plot4Mesh11ColumnChunk*13HopfFibration*)
-		hs_trail_core_start = .;
-		*(.text.hot._ZN4Plot14EdgeWorldsheet14steady_lattice*)
-		*(.text.hot._ZN4Plot10PointRoute*12emit_columnsI8Pipeline*EJN6Filter6Screen9AntiAlias*)
-		hs_trail_core_end = .;
-		*(.text.hot._ZNK4Plot10PointRoute*4plot*16plot_steady_edge*8Fishbowl*)
-		*(.text.hot._ZN4Plot4Mesh16plot_steady_edge*8Fishbowl*)
-		*(.text.hot._ZN8Fishbowl*16draw_timed_trail*)
-		*(.text.hot._ZZN8Fishbowl*16draw_timed_trail*)
-		*(.text.hot._ZZN4Plot4Mesh11ColumnChunk*8Fishbowl*)
-		*(.text.hot._ZN8Fishbowl*12render_trail*)
-		hs_trail_hot_end = .;
-		ASSERT(hs_trail_core_end - hs_trail_hot_start <= 16384,
-		       "HopfFibration trail hot code exceeds one instruction-cache way");
-		ASSERT(hs_trail_hot_end - hs_trail_core_start <= 16384,
-		       "Fishbowl trail hot code exceeds one instruction-cache way");
 		/* HS_COLD_MEMBER (attribute cold) sections. */
 		*(.text.unlikely*)
 		/* Selectively optimized hot leaves intentionally executed from cache. */

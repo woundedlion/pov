@@ -11,6 +11,7 @@ ignore = ["E702", "E731", "E741"]
 # globals, so every use reads as undefined to a static scan.
 "tools/pio_ccache.py" = ["F821"]
 "tools/teensy_gate_extra.py" = ["F821"]
+"tools/teensy_hot_layout.py" = ["F821"]
 "tools/teensy_isystem.py" = ["F821"]
 "tools/teensy_map.py" = ["F821"]
 "tools/teensy_nano.py" = ["F821"]
