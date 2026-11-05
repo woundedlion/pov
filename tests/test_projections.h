@@ -626,6 +626,37 @@ inline void test_airocean_projection_stays_inside_its_face() {
         return;
       HS_EXPECT_TRUE(airocean_contains(airocean_axes(v), face));
       HS_EXPECT_EQ(airocean_outside_score(airocean_axes(v), face), 0.0f);
+      const auto expected = airocean_unfold(face, airocean_axes(v));
+      HS_EXPECT_NEAR(net.coords.re, expected.x, 1e-5f);
+      HS_EXPECT_NEAR(net.coords.im, expected.y, 1e-5f);
+      const auto horizontal = airocean_projection_meridian(v, 0.0f, true);
+      HS_EXPECT_EQ(horizontal.region_id, net.region_id);
+      HS_EXPECT_NEAR(horizontal.coords.re, AIROCEAN_NET_HEIGHT - net.coords.im,
+                     1e-5f);
+      HS_EXPECT_NEAR(horizontal.coords.im, net.coords.re, 1e-5f);
+      constexpr float MERIDIAN = .37f;
+      const math::Vector rotated(v.x * cosf(MERIDIAN) - v.z * sinf(MERIDIAN),
+                                 v.y,
+                                 v.x * sinf(MERIDIAN) + v.z * cosf(MERIDIAN));
+      const auto shifted =
+          airocean_projection_meridian(rotated, MERIDIAN, false);
+      HS_EXPECT_EQ(shifted.region_id, net.region_id);
+      HS_EXPECT_NEAR(shifted.coords.re, net.coords.re, 1e-5f);
+      HS_EXPECT_NEAR(shifted.coords.im, net.coords.im, 1e-5f);
+      if (AIROCEAN_CUT_MASKS[face]) {
+        float cut_distance = INFINITY;
+        for (uint8_t edge = 0; edge < 3; ++edge)
+          if (AIROCEAN_CUT_MASKS[face] & (1u << edge)) {
+            const auto a = planar_vertex(face, edge);
+            const auto b = face == 14 && edge == 0
+                               ? AIROCEAN_PLANAR_FACES[18][1]
+                               : planar_vertex(face, edge + 1);
+            cut_distance = std::min(
+                cut_distance,
+                point_segment_distance({net.coords.re, net.coords.im}, a, b));
+          }
+        HS_EXPECT_NEAR(net.fade_edge_distance, cut_distance, 1e-5f);
+      }
       const AiroceanPoint point{net.coords.re, net.coords.im};
       for (size_t edge = 0; edge < 3; ++edge)
         HS_EXPECT_LE(planar_cross(planar_vertex(face, edge),
