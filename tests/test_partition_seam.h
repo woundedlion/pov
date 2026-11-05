@@ -393,12 +393,7 @@ inline void png_chunk(std::vector<uint8_t> &out, const char type[5],
 /**
  * @brief Dump directory named by HS_SEAM_DUMP, or nullptr when unset.
  */
-inline const char *seam_dump_dir() {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  return std::getenv("HS_SEAM_DUMP");
-#pragma clang diagnostic pop
-}
+inline const char *seam_dump_dir() { return hs_test::env_var("HS_SEAM_DUMP"); }
 
 /**
  * @brief Writes a capture to <HS_SEAM_DUMP>/<name>.png; no-op when unset.

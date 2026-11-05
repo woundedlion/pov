@@ -2163,21 +2163,18 @@ inline char *child_output() {
 inline const char *child_capture_path() {
   static char path[512];
   if (path[0] == '\0') {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #if defined(_WIN32)
-    const char *dir = std::getenv("TEMP");
+    const char *dir = hs_test::env_var("TEMP");
     if (!dir || dir[0] == '\0')
       dir = ".";
     std::snprintf(path, sizeof(path), "%s\\hs_death_%d.out", dir, _getpid());
 #else
-    const char *dir = std::getenv("TMPDIR");
+    const char *dir = hs_test::env_var("TMPDIR");
     if (!dir || dir[0] == '\0')
       dir = "/tmp";
     std::snprintf(path, sizeof(path), "%s/hs_death_%d.out", dir,
                   static_cast<int>(getpid()));
 #endif
-#pragma clang diagnostic pop
   }
   return path;
 }
@@ -2757,11 +2754,8 @@ struct ShardSpec {
  *          shard k of N and "census/N" the merge of N shard records.
  */
 inline bool shard_spec_from_env(ShardSpec &out) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *spec = std::getenv("HS_DEATH_SHARD");
-  const char *dir = std::getenv("HS_DEATH_SHARD_DIR");
-#pragma clang diagnostic pop
+  const char *spec = hs_test::env_var("HS_DEATH_SHARD");
+  const char *dir = hs_test::env_var("HS_DEATH_SHARD_DIR");
   out = ShardSpec{};
   if (!spec || spec[0] == '\0')
     return true;

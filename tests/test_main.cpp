@@ -63,13 +63,11 @@ static int check_ci_levers(bool effects_invocation) {
     return 0;
 
   int missing = 0;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *effects_full = std::getenv("HS_EFFECTS_FULL");
-  const char *require_effects_full = std::getenv("HS_REQUIRE_EFFECTS_FULL");
-  const char *watchdog = std::getenv("HS_BUFFER_FREE_WATCHDOG_US");
-  const char *skip_policy = std::getenv("HS_SKIPS_ARE_ERRORS");
-#pragma clang diagnostic pop
+  const char *effects_full = hs_test::env_var("HS_EFFECTS_FULL");
+  const char *require_effects_full =
+      hs_test::env_var("HS_REQUIRE_EFFECTS_FULL");
+  const char *watchdog = hs_test::env_var("HS_BUFFER_FREE_WATCHDOG_US");
+  const char *skip_policy = hs_test::env_var("HS_SKIPS_ARE_ERRORS");
   if (!skip_policy || skip_policy[0] == '\0') {
     std::fprintf(stderr,
                  "run_tests: CI=on but HS_SKIPS_ARE_ERRORS carries no explicit "
@@ -95,10 +93,7 @@ static int check_ci_levers(bool effects_invocation) {
         "HS_SURFACE_LOBE_DIAGNOSTICS", "HS_SHAPESHIFTER_PRESET_HASHES",
         "HS_SHAPESHIFTER_IMAGES", "HS_SHAPESHIFTER_SURFACE_ONLY",
         "HS_SURFACE_DARK_FRAMES", "HS_SURFACE_DARK_DIAGNOSTICS"}) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    const char *value = std::getenv(name);
-#pragma clang diagnostic pop
+    const char *value = hs_test::env_var(name);
     if (value != nullptr) {
       std::fprintf(
           stderr, "run_tests: CI=on but %s narrows the run because it is set\n",
@@ -110,10 +105,7 @@ static int check_ci_levers(bool effects_invocation) {
     for (const char *name :
          {"HS_RING_TEMPORAL_ONLY", "HS_MOBIUSRINGS_ONLY", "HS_DYNAMO_ONLY",
           "HS_ISLAMICSTARS_ONLY", "HS_MESH_CAPTURE_ONLY"}) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-      const char *value = std::getenv(name);
-#pragma clang diagnostic pop
+      const char *value = hs_test::env_var(name);
       if (value && value[0] != '\0') {
         std::fprintf(stderr,
                      "run_tests: CI=on but %s narrows the run because "
@@ -207,11 +199,8 @@ int main(int argc, char **argv) {
   if (test_suite().set_death_self_exe)
     test_suite().set_death_self_exe((argc > 0) ? argv[0] : nullptr);
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *death_child = std::getenv("HS_DEATH_CHILD");
-  const char *death_case = std::getenv("HS_DEATH_CASE");
-#pragma clang diagnostic pop
+  const char *death_child = hs_test::env_var("HS_DEATH_CHILD");
+  const char *death_case = hs_test::env_var("HS_DEATH_CASE");
   const bool IS_DEATH_CHILD =
       death_child && std::strcmp(death_child, "harness") == 0;
   if (IS_DEATH_CHILD && (argc > 1 || !death_case || death_case[0] == '\0')) {

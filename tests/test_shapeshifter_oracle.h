@@ -107,10 +107,7 @@ struct OracleFrame {
 /** @brief Image-dump path prefix, or null when disabled.
  * @return Value of HS_SHAPESHIFTER_IMAGES. */
 static inline const char *shapeshifter_image_prefix() {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  return std::getenv("HS_SHAPESHIFTER_IMAGES");
-#pragma clang diagnostic pop
+  return hs_test::env_var("HS_SHAPESHIFTER_IMAGES");
 }
 
 /** @brief Writes an oracle frame as a gamma-encoded P6 image.
@@ -1648,25 +1645,22 @@ inline void write_shapeshifter_preset_hashes() {
 /** @brief Runs shapeshifter oracle tests. */
 inline int run_shapeshifter_oracle_tests() {
   ModuleFixture fixture("shapeshifter_oracle");
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  if (std::getenv("HS_SHAPESHIFTER_SURFACE_CENSUS")) {
+  if (hs_test::env_var("HS_SHAPESHIFTER_SURFACE_CENSUS")) {
     test_surface_natural_census();
     return fixture.result();
   }
-  if (std::getenv("HS_SURFACE_DARK_DIAGNOSTICS")) {
+  if (hs_test::env_var("HS_SURFACE_DARK_DIAGNOSTICS")) {
     HS_RUN(test_surface_footprint_darkening);
     return fixture.result();
   }
-  if (std::getenv("HS_SURFACE_LOBE_DIAGNOSTICS")) {
+  if (hs_test::env_var("HS_SURFACE_LOBE_DIAGNOSTICS")) {
     test_surface_lobe_outliers();
     return fixture.result();
   }
-  if (std::getenv("HS_SHAPESHIFTER_PRESET_HASHES")) {
+  if (hs_test::env_var("HS_SHAPESHIFTER_PRESET_HASHES")) {
     write_shapeshifter_preset_hashes();
     return fixture.result();
   }
-#pragma clang diagnostic pop
   if (shapeshifter_image_prefix()) {
     test_surface_images();
     return fixture.result();
@@ -1679,11 +1673,8 @@ inline int run_shapeshifter_oracle_tests() {
   HS_RUN(test_surface_mask_parity);
   HS_RUN(test_surface_preset_dispatch);
   HS_RUN(test_surface_max_amplitude);
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  if (std::getenv("HS_SHAPESHIFTER_SURFACE_ONLY"))
+  if (hs_test::env_var("HS_SHAPESHIFTER_SURFACE_ONLY"))
     return fixture.result();
-#pragma clang diagnostic pop
   HS_RUN(test_chart_edge_rotation_radius);
   HS_RUN(test_polar_walk_matches_rotated_chart);
   HS_RUN(test_timed_contours_match_frozen_columns);

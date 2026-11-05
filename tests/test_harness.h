@@ -21,12 +21,19 @@
 
 namespace hs_test {
 
-/** @brief Reports whether a skipped case must fail the run. */
-inline bool skips_are_errors() {
+/** @brief Reads a process environment variable.
+ * @param name NUL-terminated variable name.
+ * @return Borrowed value, or null when unset. */
+inline const char *env_var(const char *name) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *lever = std::getenv("HS_SKIPS_ARE_ERRORS");
+  return std::getenv(name);
 #pragma clang diagnostic pop
+}
+
+/** @brief Reports whether a skipped case must fail the run. */
+inline bool skips_are_errors() {
+  const char *lever = hs_test::env_var("HS_SKIPS_ARE_ERRORS");
   return lever && std::atoi(lever) != 0;
 }
 

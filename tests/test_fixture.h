@@ -120,10 +120,7 @@ constexpr int CI_MIN_SMOKE_FRAMES = 120;
  * @return HS_SMOKE_FRAMES if set to a positive int, else DEFAULT_SMOKE_FRAMES.
  */
 inline int smoke_frames() {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  if (const char *e = std::getenv("HS_SMOKE_FRAMES")) {
-#pragma clang diagnostic pop
+  if (const char *e = hs_test::env_var("HS_SMOKE_FRAMES")) {
     int n = std::atoi(e);
     if (n > 0)
       return n;
@@ -138,29 +135,20 @@ inline int smoke_frames() {
  * @details HS_EFFECTS_FULL=1 selects the FULL tier; QUICK is the default.
  */
 inline bool effects_full_suite() {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  if (const char *e = std::getenv("HS_EFFECTS_FULL"))
-#pragma clang diagnostic pop
+  if (const char *e = hs_test::env_var("HS_EFFECTS_FULL"))
     return std::atoi(e) != 0;
   return false;
 }
 
 /** @brief Reports whether the CI environment variable is set and non-empty. */
 inline bool runs_in_ci() {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *ci = std::getenv("CI");
-#pragma clang diagnostic pop
+  const char *ci = hs_test::env_var("CI");
   return ci && ci[0] != '\0';
 }
 
 /** @brief Rejects a shallow roster window when running under CI. */
 inline bool require_ci_smoke_frames() {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *frames = std::getenv("HS_SMOKE_FRAMES");
-#pragma clang diagnostic pop
+  const char *frames = hs_test::env_var("HS_SMOKE_FRAMES");
   if (!runs_in_ci() || (frames && std::atoi(frames) >= CI_MIN_SMOKE_FRAMES))
     return true;
   std::fprintf(stderr,

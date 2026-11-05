@@ -24,10 +24,7 @@ struct RingTemporalOracle {
    * @param scenario Scenario number.
    * @return Whether this scenario is selected. */
   static bool selected(int scenario) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    const char *filter = std::getenv("HS_RING_TEMPORAL_SCENARIO");
-#pragma clang diagnostic pop
+    const char *filter = hs_test::env_var("HS_RING_TEMPORAL_SCENARIO");
     return !filter || std::atoi(filter) == scenario;
   }
 

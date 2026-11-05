@@ -523,11 +523,8 @@ inline void test_surface_footprint_darkening() {
   hs::seed_effect_stream(hs::effect_seed_key<OracleEffect>("ShapeShifter"));
   hs::set_mock_time(0, 0);
   size_t total = 0;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *directory = std::getenv("HS_SURFACE_DARK_IMAGES");
-  const char *limit = std::getenv("HS_SURFACE_DARK_FRAMES");
-#pragma clang diagnostic pop
+  const char *directory = hs_test::env_var("HS_SURFACE_DARK_IMAGES");
+  const char *limit = hs_test::env_var("HS_SURFACE_DARK_FRAMES");
   const int frames = limit ? std::atoi(limit) : 471;
   std::ofstream records, images;
   if (directory) {

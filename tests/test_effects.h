@@ -53,14 +53,11 @@ namespace effects_tests {
 inline int run_effects_tests() {
   hs_test::ModuleFixture fixture("effects");
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *mobius_only = std::getenv("HS_MOBIUSRINGS_ONLY");
-  const char *islamic_only = std::getenv("HS_ISLAMICSTARS_ONLY");
-  const char *mesh_only = std::getenv("HS_MESH_CAPTURE_ONLY");
-  const char *rings_only = std::getenv("HS_RING_TEMPORAL_ONLY");
-  const char *dynamo_only = std::getenv("HS_DYNAMO_ONLY");
-#pragma clang diagnostic pop
+  const char *mobius_only = hs_test::env_var("HS_MOBIUSRINGS_ONLY");
+  const char *islamic_only = hs_test::env_var("HS_ISLAMICSTARS_ONLY");
+  const char *mesh_only = hs_test::env_var("HS_MESH_CAPTURE_ONLY");
+  const char *rings_only = hs_test::env_var("HS_RING_TEMPORAL_ONLY");
+  const char *dynamo_only = hs_test::env_var("HS_DYNAMO_ONLY");
   if (rings_only && std::atoi(rings_only) != 0) {
     run_effect_case_ring_shower_white_box_check_temporal_rings();
     run_effect_case_thrusters_white_box_check_temporal_rings();
@@ -80,12 +77,9 @@ inline int run_effects_tests() {
     return fixture.result();
   }
   if (mesh_only && std::atoi(mesh_only) == 3) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    const char *preset = std::getenv("HS_REPLAY_PRESET");
-    const char *speed = std::getenv("HS_REPLAY_TRANS_SPEED");
-    const char *frames = std::getenv("HS_REPLAY_FRAMES");
-#pragma clang diagnostic pop
+    const char *preset = hs_test::env_var("HS_REPLAY_PRESET");
+    const char *speed = hs_test::env_var("HS_REPLAY_TRANS_SPEED");
+    const char *frames = hs_test::env_var("HS_REPLAY_FRAMES");
     replay_islamicstars_profile(
         preset ? std::atoi(preset) : 6, speed ? std::atof(speed) : 4.0f,
         frames ? std::atoi(frames) : PROFILE_REPLAY_FRAMES);

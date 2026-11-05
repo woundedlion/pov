@@ -112,10 +112,7 @@ inline void test_column_time_scans_keep_fidelity_off_frames() {
        column_time_parity_hash<Raymarch, 288, 144, PARITY_FULL_FRAMES>,
        0x87e2793afac1a37full},
   };
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *print = std::getenv("HS_PRINT_PARITY_HASHES");
-#pragma clang diagnostic pop
+  const char *print = hs_test::env_var("HS_PRINT_PARITY_HASHES");
   for (const auto &c : CASES) {
     HS_CONTEXT(c.name);
     const uint64_t hash = c.hash();
