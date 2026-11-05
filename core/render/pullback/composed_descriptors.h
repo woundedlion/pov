@@ -144,6 +144,11 @@ template <typename Provider, math::NoiseBasis Basis, typename Envelope>
 struct PathTracked<Warp::VectorNoise<Provider, Basis, Envelope>>
     : PathTracked<Provider> {};
 template <typename Provider, math::NoiseBasis Basis, typename Integrator,
+          typename Envelope>
+struct PathTracked<Warp::CurlFlow<Provider, Basis, Integrator, Envelope>>
+    : PathTracked<Provider> {};
+
+template <typename Provider, math::NoiseBasis Basis, typename Integrator,
           math::TangentLimit Limit>
 struct PathTracked<Surface::CurlNoise<Provider, Basis, Integrator, Limit>>
     : PathTracked<Provider> {};

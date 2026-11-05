@@ -4,6 +4,15 @@
  */
 #include "core/render/pullback/composed_effect.h"
 
+static_assert(
+    Pullback::ComposedDetail::PathTracked<Pullback::Warp::CurlFlow<
+        Pullback::WarpProvider<void, "warp", Pullback::CurlFlowParams, true>,
+        math::NoiseBasis::SIMPLEX, void>>::value);
+static_assert(
+    !Pullback::ComposedDetail::PathTracked<Pullback::Warp::CurlFlow<
+        Pullback::WarpProvider<void, "warp", Pullback::CurlFlowParams, false>,
+        math::NoiseBasis::SIMPLEX, void>>::value);
+
 struct UnknownCoverage {};
 struct MetadataSpec : Pullback::Spec {
 #ifdef HS_METADATA_REDUNDANT_SCALAR
