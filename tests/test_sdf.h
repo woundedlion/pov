@@ -131,7 +131,7 @@ inline int run_sdf_tests() {
   HS_RUN(test_twist_axis_threshold_siblings_agree);
   HS_RUN(test_warped_volume_distance_is_sphere_trace_safe);
   HS_RUN(test_warped_volume_distance_matches_lipschitz_correction);
-  HS_RUN(test_twist_correct_normal_unit_length);
+  HS_RUN(test_twist_correct_normal_matches_field_gradient);
 
   HS_RUN(test_union_picks_closest_shape);
 

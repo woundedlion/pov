@@ -308,7 +308,7 @@ inline void test_warped_volume_distance_matches_lipschitz_correction() {
  * @brief Verifies Twist::correct_normal returns a unit vector, is identity at
  *        twist 0, and reproduces the gradient of the warped field.
  */
-inline void test_twist_correct_normal_unit_length() {
+inline void test_twist_correct_normal_matches_field_gradient() {
   math::Vector base_n = math::Vector(0.6f, 0.8f, 0.0f); // already unit
 
   SDF::Warp::Twist flat{0, 0.3f, 1.0f};
