@@ -406,6 +406,7 @@ private:
                             t * (PALETTE_SIZE - 1));
   }
 
+#if HS_ENABLE_TEST_ORACLES
   struct SeedPalette {
     const Pixel *colors;
 
@@ -414,6 +415,7 @@ private:
           lut_sample_pixel(colors, PALETTE_SIZE, t * (PALETTE_SIZE - 1)), 1.0f);
     }
   };
+#endif
 
   HS_HOT_FLASH_MEMBER Pixel modified_palette_color(int seed, float t,
                                                    float shift,
@@ -963,6 +965,7 @@ private:
     }
   }
 
+#if HS_ENABLE_TEST_ORACLES
   template <typename Grid, typename OnNode>
   static __attribute__((always_inline)) void
   accumulate_render_stencil(const Grid &grid, int x, int center,
@@ -970,9 +973,11 @@ private:
     accumulate_column_stencil(grid, meridian_column<Grid>(x), center, nodes,
                               on_node);
   }
+#endif
 
-  HS_O3_FN __attribute__((always_inline)) Pixel shade_pigment(
-      uint16_t pigment, float t, float scale, float noise_value) const {
+  HS_O3_FN __attribute__((always_inline))
+  Pixel shade_pigment(uint16_t pigment, float t, float scale,
+                      float noise_value) const {
     HS_PROFILE_DEEP(grd_shader_palette);
     const auto PIGMENT = Pigment::unpack(pigment);
     const float FIRST_MASS = Pigment::first_mass(PIGMENT.mass);
@@ -1092,6 +1097,7 @@ private:
                         center_rv, projection);
   }
 
+#if HS_ENABLE_TEST_ORACLES
   template <typename Grid>
   Pixel shade_pixel_full(
       int seed, const math::Vector &center_rv, const math::Vector *world_nodes,
@@ -1100,6 +1106,7 @@ private:
     return shade_column_full(seed, center_rv, world_nodes, grid,
                              meridian_column<Grid>(x), hot_flags, projection);
   }
+#endif
 
   template <typename Grid>
   static __attribute__((always_inline)) float render_support_limit() {
