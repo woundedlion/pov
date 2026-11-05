@@ -145,22 +145,14 @@ public:
                        params.num_lines};
     const Endpoint start = history.start(end);
     history.capture(end);
+    HS_PROFILE(mr_draw_grid);
     if (!Spacetime::flat_surface()) {
       draw_timed_grid(canvas, start, end);
       return;
     }
 
-    {
-      HS_PROFILE(mr_draw_grid);
-      {
-        HS_PROFILE(mr_rings_draw);
-        draw_axis_rings(canvas, math::Y_AXIS, params.num_rings, phase, q);
-      }
-      {
-        HS_PROFILE(mr_lines_draw);
-        draw_longitudes(canvas, params.num_lines, phase, q);
-      }
-    }
+    draw_axis_rings(canvas, math::Y_AXIS, params.num_rings, phase, q);
+    draw_longitudes(canvas, params.num_lines, phase, q);
   }
 
 private:
