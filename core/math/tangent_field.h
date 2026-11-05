@@ -184,9 +184,10 @@ struct PreparedTerm {
    * @param p Unit direction.
    * @return Cartesian gradient including amplitude. */
   Vector gradient(const Vector &p) const {
-    return term.type == TermType::MODE ? SHMath::spherical_harmonic_gradient(
-                                             term.l, term.m, p, scale, phase)
-                                       : sample(p).gradient;
+    return term.type == TermType::MODE
+               ? SHMath::spherical_harmonic_gradient_unchecked(term.l, term.m,
+                                                               p, scale, phase)
+               : sample(p).gradient;
   }
 
   /** @brief Samples the normalized scalar term.
@@ -211,10 +212,10 @@ struct PreparedTerm {
     Complex power(1.0f, 0.0f);
     for (int i = 0; i < term.m; ++i)
       power = power * Complex(p.x, p.z);
-    return {
-        scale * SHMath::reduced_legendre(term.l, term.m, p.y) *
-            (phase * power).re,
-        SHMath::spherical_harmonic_gradient(term.l, term.m, p, scale, phase)};
+    return {scale * SHMath::reduced_legendre(term.l, term.m, p.y) *
+                (phase * power).re,
+            SHMath::spherical_harmonic_gradient_unchecked(term.l, term.m, p,
+                                                          scale, phase)};
   }
 };
 

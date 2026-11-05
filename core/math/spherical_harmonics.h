@@ -11,6 +11,7 @@
  */
 
 #include <cmath>
+#include <cassert>
 #include <array>
 #include <cstdlib>
 #include <utility>
@@ -216,16 +217,11 @@ inline float spherical_harmonic(int l, int m, const math::Vector &p, float N) {
   return N * Q * ((m < 0) ? im : re);
 }
 
-/** @brief Cartesian gradient of a phased real harmonic.
- * @param l Degree in [0, 8].
- * @param m Nonnegative order in [0, l].
- * @param p Cartesian point.
- * @param N Prepared harmonic scale.
- * @param phase Complex phase multiplying the azimuthal power.
- * @return Ambient gradient of the polynomial extension. */
+/** Evaluates the gradient for an admitted harmonic mode. */
 HS_HOT_FLASH_MEMBER inline math::Vector
-spherical_harmonic_gradient(int l, int m, const math::Vector &p, float N,
-                            math::Complex phase = {1.0f, 0.0f}) {
+spherical_harmonic_gradient_unchecked(int l, int m, const math::Vector &p,
+                                      float N, math::Complex phase) {
+  assert(l >= 0 && l <= MAX_POLYNOMIAL_DEGREE && m >= 0 && m <= l);
   math::Complex power(1.0f, 0.0f), previous;
   const math::Complex W(p.x, p.z);
   for (int i = 0; i < m; ++i) {
@@ -234,8 +230,6 @@ spherical_harmonic_gradient(int l, int m, const math::Vector &p, float N,
   }
   const math::Complex derivative =
       phase * previous * math::Complex(float(m), 0.0f);
-  HS_CHECK(l >= 0 && l <= MAX_POLYNOMIAL_DEGREE && m >= 0 && m <= l,
-           "harmonic gradient: unsupported mode");
   const int degree = l - m;
   const int offset = LEGENDRE_OFFSETS[l * (l + 1) / 2 + m];
   const float x = p.y;
@@ -252,6 +246,21 @@ spherical_harmonic_gradient(int l, int m, const math::Vector &p, float N,
       odd ? series + 2.0f * square * series_slope : 2.0f * x * series_slope;
   return {N * q * derivative.re, N * dq * (phase * power).re,
           -N * q * derivative.im};
+}
+
+/** @brief Cartesian gradient of a phased real harmonic.
+ * @param l Degree in [0, 8].
+ * @param m Nonnegative order in [0, l].
+ * @param p Cartesian point.
+ * @param N Prepared harmonic scale.
+ * @param phase Complex phase multiplying the azimuthal power.
+ * @return Ambient gradient of the polynomial extension. */
+inline math::Vector
+spherical_harmonic_gradient(int l, int m, const math::Vector &p, float N,
+                            math::Complex phase = {1.0f, 0.0f}) {
+  HS_CHECK(l >= 0 && l <= MAX_POLYNOMIAL_DEGREE && m >= 0 && m <= l,
+           "harmonic gradient: unsupported mode");
+  return spherical_harmonic_gradient_unchecked(l, m, p, N, phase);
 }
 
 /**
