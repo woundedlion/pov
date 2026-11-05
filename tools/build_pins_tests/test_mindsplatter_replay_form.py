@@ -15,6 +15,7 @@ FORM = """// Canonical form fixture.
 inline const unsigned char HEAVY_SEARCH_V1_STATE[] PROGMEM = {0};
 inline const unsigned short HEAVY_SEARCH_V1_FRAMEBUFFER[] PROGMEM = {0};
 inline const Corpus HEAVY_SEARCH_V1 = {"msp-heavy-search-v1"};
+inline const char *SOURCE = "seed=1337 presets=0..7 frames=136..384/8";
 inline const Corpus *const CORPUS_MANIFEST[] = {&HEAVY_SEARCH_V1};
 """ + "// payload padding\n" * 6000
 
@@ -75,6 +76,16 @@ class MindSplatterReplayForm(unittest.TestCase):
         result = self.run_checker(generated=FORM.replace("Canonical form", "Changed form"))
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("preamble differs from generated form", result.stderr)
+
+    def test_changed_search_provenance_is_rejected(self):
+        result = self.run_checker(generated=FORM.replace("presets=0..7", "presets=0..8"))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("provenance drift", result.stderr)
+
+    def test_missing_search_provenance_is_rejected(self):
+        result = self.run_checker(generated=FORM.replace("seed=1337", "origin=1337"))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("omits search provenance", result.stderr)
 
     def test_changed_revision_is_rejected(self):
         result = self.run_checker(generated=FORM.replace("msp-heavy-search-v1", "msp-heavy-search-v2"))

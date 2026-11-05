@@ -66,8 +66,17 @@ if(NOT _committed_preamble STREQUAL _generated_preamble)
     "regenerate with cmake --build --preset tests --target regenerate_mindsplatter_replay")
 endif()
 
-# Only form and revision are portable: the replay payload depends on libm
-# low bits under -ffast-math.
+foreach(_source IN ITEMS _committed _generated)
+  string(REGEX MATCH "\"seed=[^\"]+\"" ${_source}_provenance "${${_source}}")
+  if(${_source}_provenance STREQUAL "")
+    message(FATAL_ERROR "MindSplatter replay corpus omits search provenance")
+  endif()
+endforeach()
+if(NOT _committed_provenance STREQUAL _generated_provenance)
+  message(FATAL_ERROR "MindSplatter replay corpus provenance drift")
+endif()
+
+# Form, revision and search provenance are portable; payload low bits depend on libm.
 foreach(_symbol IN ITEMS
     "HEAVY_SEARCH_V1_STATE"
     "HEAVY_SEARCH_V1_FRAMEBUFFER"
