@@ -167,17 +167,36 @@ inline void test_bonne_sinusoidal_limit() {
   }
 }
 
-/** @brief Both polar standard parallels produce finite coordinates and nonnegative edge distance. */
-inline void test_bonne_polar_limit_is_finite() {
-  for (float standard_parallel : {0.5f * math::PI_F, -0.5f * math::PI_F}) {
-    for (int step = -8; step <= 8; ++step) {
-      const math::Vector v = direction(step * (0.5f * math::PI_F / 8.0f), 0.7f);
-      const ProjectionKernelResult werner =
-          bonne_projection(v, 0.0f, standard_parallel);
-      HS_EXPECT_TRUE(std::isfinite(werner.coords.re));
-      HS_EXPECT_TRUE(std::isfinite(werner.coords.im));
-      HS_EXPECT_GE(werner.fade_edge_distance, 0.0f);
-    }
+/** @brief General and polar Bonne coordinates match Snyder’s equations. */
+inline void test_bonne_general_parallel_matches_snyder() {
+  for (float parallel : {0.4f, -0.4f, 0.7f, -0.7f, 1.2f, -1.2f,
+                         math::PI_F * .5f, -math::PI_F * .5f}) {
+    for (float latitude : {-1.3f, -.6f, .2f, 1.1f})
+      for (float longitude : {-2.4f, -.7f, .4f, 2.2f}) {
+        const auto v = direction(latitude, longitude);
+        const auto actual = bonne_projection(v, 0.0f, parallel);
+        const double cot = fabsf(parallel) == math::PI_F * .5f
+                               ? 0.0
+                               : 1.0 / std::tan(double(parallel));
+        const double rho = cot + parallel - latitude;
+        const double angle = longitude * std::cos(double(latitude)) / rho;
+        HS_EXPECT_NEAR(actual.coords.re, rho * std::sin(angle), 1e-5);
+        HS_EXPECT_NEAR(actual.coords.im, cot - rho * std::cos(angle), 1e-5);
+        HS_EXPECT_NEAR(actual.fade_edge_distance,
+                       std::cos(double(latitude)) *
+                           (math::PI_F - std::abs(double(longitude))),
+                       1e-5);
+        HS_EXPECT_EQ(actual.region_id, static_cast<uint32_t>(longitude < 0));
+        constexpr float MERIDIAN = .37f;
+        const auto shifted = bonne_projection(
+            direction(latitude, longitude + MERIDIAN), MERIDIAN, parallel);
+        HS_EXPECT_NEAR(shifted.coords.re, actual.coords.re, 1e-5);
+        HS_EXPECT_NEAR(shifted.coords.im, actual.coords.im, 1e-5);
+      }
+    const auto origin =
+        bonne_projection(direction(parallel, 0.0f), 0.0f, parallel);
+    HS_EXPECT_NEAR(origin.coords.re, 0.0f, 1e-5f);
+    HS_EXPECT_NEAR(origin.coords.im, 0.0f, 1e-5f);
   }
 }
 
@@ -946,7 +965,7 @@ inline int run_projections_tests() {
   HS_RUN(test_polyhedral_atlas_tiles);
   HS_RUN(test_polyhedral_atlas_area_correction);
   HS_RUN(test_bonne_sinusoidal_limit);
-  HS_RUN(test_bonne_polar_limit_is_finite);
+  HS_RUN(test_bonne_general_parallel_matches_snyder);
   HS_RUN(test_peirce_elliptic_integral_shape);
   HS_RUN(test_peirce_sector_longitude_snapping);
   HS_RUN(test_peirce_fast_square_matches_exact);
