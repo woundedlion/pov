@@ -451,8 +451,12 @@ struct ShapeShifterWhiteBox {
                                         prepare, ensure, lower_bound, shade);
   }
   static int preset_frames() { return OracleEffect::PRESET_FRAMES; }
-  static int preset_dwell_frames() { return OracleEffect::PRESET_DWELL_FRAMES; }
-  static int preset_segue_frames() { return OracleEffect::DEPARTURE.frames; }
+  static constexpr int preset_dwell_frames() {
+    return OracleEffect::PRESET_DWELL_FRAMES;
+  }
+  static constexpr int preset_segue_frames() {
+    return OracleEffect::DEPARTURE.frames;
+  }
 };
 
 /** @brief Captures one renderer callable from a fresh deterministic effect.
@@ -1610,13 +1614,13 @@ inline void test_polar_walk_matches_rotated_chart() {
   std::printf("  polar exact intersection max error: %.6f px\n", worst);
 }
 
+#include "tests/test_shapeshifter_surface.h"
+
 inline void write_shapeshifter_preset_hashes() {
   for (bool temporal : {false, true})
     for (size_t preset = 0; preset < ShapeShifterWhiteBox::PRESET_COUNT;
          ++preset) {
-      reset_globals();
-      hs::seed_effect_stream(hs::effect_seed_key<OracleEffect>("ShapeShifter"));
-      hs::set_mock_time(0, 0);
+      replay_seed();
       uint64_t hash = 14695981039346656037ull;
       {
         OracleEffect effect;
@@ -1625,7 +1629,7 @@ inline void write_shapeshifter_preset_hashes() {
         effect.set_clip(0, 72, 0, 144);
         const ScopedTemporalSampling sampling(temporal);
         for (int frame = 0; frame < 8; ++frame) {
-          hs::set_mock_time(frame * 62500ul / 1000, frame * 62500ul);
+          replay_time(frame + 1);
           effect.draw_frame();
           effect.advance_display();
           for (int y = 0; y < 72; ++y)
@@ -1644,8 +1648,6 @@ inline void write_shapeshifter_preset_hashes() {
     }
   hs::clear_mock_time();
 }
-
-#include "tests/test_shapeshifter_surface.h"
 
 /** @brief Runs shapeshifter oracle tests. */
 inline int run_shapeshifter_oracle_tests() {

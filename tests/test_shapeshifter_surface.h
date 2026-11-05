@@ -7,6 +7,42 @@
 /** @file test_shapeshifter_surface.h
  * @brief Column-time and edge-mask parity for the continuous star preset. */
 
+/** @brief Seeds the natural ShapeShifter replay and its clock. */
+inline void replay_seed() {
+  reset_globals();
+  hs::seed_effect_stream(hs::effect_seed_key<OracleEffect>("ShapeShifter"));
+  hs::set_mock_time(0, 0);
+}
+/** @brief Sets a one-based frame's 62.5 ms replay clock. @param frame Frame number. */
+inline void replay_time(int frame) {
+  hs::set_mock_time((frame - 1) * 62500ul / 1000, (frame - 1) * 62500ul);
+}
+/** @brief Advances replay state and renders an optional frozen view.
+ * @tparam Draw Frozen-view callback.
+ * @param effect Replay effect.
+ * @param frame One-based replay frame.
+ * @param draw Receives the live frame canvas. */
+template <typename Draw>
+inline void replay_frame(OracleEffect &effect, int frame, Draw draw) {
+  replay_time(frame);
+  {
+    Canvas canvas(effect);
+    ShapeShifterWhiteBox::replay_step(effect, canvas);
+    draw(canvas);
+  }
+  effect.advance_display();
+}
+/** @brief Advances one replay frame without rendering a view.
+ * @param effect Replay effect.
+ * @param frame One-based replay frame. */
+inline void replay_frame(OracleEffect &effect, int frame) {
+  replay_frame(effect, frame, [](Canvas &) {});
+}
+/** @brief Last frame belonging to the complete natural first-preset visit. */
+inline constexpr int NATURAL_P1_FRAMES =
+    ShapeShifterWhiteBox::preset_dwell_frames() +
+    ShapeShifterWhiteBox::preset_segue_frames() / 2 - 1;
+
 struct SurfaceMotionCase {
   math::Quaternion start;               ///< Frame-start orientation.
   math::Quaternion end;                 ///< Frame-end orientation.
@@ -33,9 +69,7 @@ inline OracleState surface_state() {
  * @param frame_number Last replay frame.
  * @return Captured frame endpoints and waveform phase. */
 inline SurfaceMotionCase surface_replay_pose(bool reset, int frame_number) {
-  reset_globals();
-  hs::seed_effect_stream(hs::effect_seed_key<OracleEffect>("ShapeShifter"));
-  hs::set_mock_time(0, 0);
+  replay_seed();
   SurfaceMotionCase pose;
   {
     OracleEffect effect;
@@ -44,12 +78,7 @@ inline SurfaceMotionCase surface_replay_pose(bool reset, int frame_number) {
       effect.profile_select_preset(0);
     effect.set_clip(0, 72, 0, 144);
     for (int frame = 1; frame <= frame_number; ++frame) {
-      hs::set_mock_time((frame - 1) * 62500ul / 1000, (frame - 1) * 62500ul);
-      {
-        Canvas canvas(effect);
-        ShapeShifterWhiteBox::replay_step(effect, canvas);
-      }
-      effect.advance_display();
+      replay_frame(effect, frame);
     }
     pose.start = ShapeShifterWhiteBox::orientation(effect).get(0.0f);
     pose.end = ShapeShifterWhiteBox::orientation(effect).get();
@@ -279,9 +308,7 @@ inline void surface_mask_cases(bool write_images) {
   }
   Timeline().clear();
   for (bool reset : {false, true}) {
-    reset_globals();
-    hs::seed_effect_stream(hs::effect_seed_key<OracleEffect>("ShapeShifter"));
-    hs::set_mock_time(0, 0);
+    replay_seed();
     {
       OracleEffect effect;
       effect.init();
@@ -289,12 +316,7 @@ inline void surface_mask_cases(bool write_images) {
         effect.profile_select_preset(0);
       const int last = reset ? 77 : 410;
       for (int frame = 1; frame <= last; ++frame) {
-        hs::set_mock_time((frame - 1) * 62500ul / 1000, (frame - 1) * 62500ul);
-        {
-          Canvas canvas(effect);
-          ShapeShifterWhiteBox::replay_step(effect, canvas);
-        }
-        effect.advance_display();
+        replay_frame(effect, frame);
       }
       surface_mask_case(effect, reset ? "reset-77" : "shipping-410",
                         write_images);
@@ -347,24 +369,18 @@ inline void test_surface_preset_dispatch() {
 
 /** @brief Samples board work throughout the complete natural P1 visit. */
 inline void test_surface_natural_census() {
-  reset_globals();
-  hs::seed_effect_stream(hs::effect_seed_key<OracleEffect>("ShapeShifter"));
-  hs::set_mock_time(0, 0);
+  replay_seed();
   int samples = 0;
   {
     OracleEffect effect;
     effect.init();
     effect.set_clip(0, 72, 0, 144);
-    for (int frame = 1; frame <= 471; ++frame) {
-      hs::set_mock_time((frame - 1) * 62500ul / 1000, (frame - 1) * 62500ul);
+    for (int frame = 1; frame <= NATURAL_P1_FRAMES; ++frame) {
       Scan::SurfaceAreaStats stats;
-      {
-        Canvas canvas(effect);
-        ShapeShifterWhiteBox::replay_step(effect, canvas);
+      replay_frame(effect, frame, [&](Canvas &canvas) {
         HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{0});
         ShapeShifterWhiteBox::surface_kernel(effect, canvas, true, &stats);
-      }
-      effect.advance_display();
+      });
       ++samples;
       HS_EXPECT_GE(stats.pixels, uint64_t{144 * 72});
       HS_EXPECT_GT(stats.mask_prepares, uint64_t{0});
@@ -388,25 +404,18 @@ inline void test_surface_natural_census() {
   }
   Timeline().clear();
   hs::clear_mock_time();
-  HS_EXPECT_EQ(samples, 471);
+  HS_EXPECT_EQ(samples, NATURAL_P1_FRAMES);
 }
 
 /** @brief Locates isolated dark pixels throughout the natural P1 visit. */
 inline void test_surface_lobe_outliers() {
   size_t outliers = 0;
-  reset_globals();
-  hs::seed_effect_stream(hs::effect_seed_key<OracleEffect>("ShapeShifter"));
-  hs::set_mock_time(0, 0);
+  replay_seed();
   {
     OracleEffect effect;
     effect.init();
-    for (int frame = 1; frame <= 471; ++frame) {
-      hs::set_mock_time((frame - 1) * 62500ul / 1000, (frame - 1) * 62500ul);
-      {
-        Canvas canvas(effect);
-        ShapeShifterWhiteBox::replay_step(effect, canvas);
-      }
-      effect.advance_display();
+    for (int frame = 1; frame <= NATURAL_P1_FRAMES; ++frame) {
+      replay_frame(effect, frame);
       for (bool timed : {false, true}) {
         OracleFrame full;
         for (int tile = -1; tile < 4; ++tile) {
@@ -519,13 +528,11 @@ struct SurfaceFootprintAudit {
 
 /** @brief Checks production AA across the full natural P1 visit. */
 inline void test_surface_footprint_darkening() {
-  reset_globals();
-  hs::seed_effect_stream(hs::effect_seed_key<OracleEffect>("ShapeShifter"));
-  hs::set_mock_time(0, 0);
+  replay_seed();
   size_t total = 0;
   const char *directory = hs_test::env_var("HS_SURFACE_DARK_IMAGES");
   const char *limit = hs_test::env_var("HS_SURFACE_DARK_FRAMES");
-  const int frames = limit ? std::atoi(limit) : 471;
+  const int frames = limit ? std::atoi(limit) : NATURAL_P1_FRAMES;
   std::ofstream records, images;
   if (directory) {
     records.open(std::string(directory) + "/pixels.csv");
@@ -537,12 +544,7 @@ inline void test_surface_footprint_darkening() {
     effect.init();
     for (int frame = 1; frame <= frames; ++frame) {
       effect.set_clip(0, 72, 0, 144);
-      hs::set_mock_time((frame - 1) * 62500ul / 1000, (frame - 1) * 62500ul);
-      {
-        Canvas canvas(effect);
-        ShapeShifterWhiteBox::replay_step(effect, canvas);
-      }
-      effect.advance_display();
+      replay_frame(effect, frame);
       if (frame == 273) {
         const auto a = ShapeShifterWhiteBox::orientation(effect).get(0.0f);
         const auto b = ShapeShifterWhiteBox::orientation(effect).get();
