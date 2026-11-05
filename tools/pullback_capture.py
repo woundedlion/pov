@@ -19,14 +19,74 @@ from generate_pullback_manifest_header import (
     load_and_validate,
     manifest_sha256,
 )
-from pullback_crosscheck import (
-    _selected_pixel, corpus_operations, expected_toolchain, framebuffer_metric,
-)
 from engine_source_state import changed_sources
 
 
 class CaptureError(RuntimeError):
     """A capture backend, corpus, or toolchain attestation is invalid."""
+
+
+CASE_OPERATIONS = {
+    "default": "CASE_DEFAULT",
+    "endpoint_min": "CASE_ENDPOINT_MIN",
+    "endpoint_max": "CASE_ENDPOINT_MAX",
+    "interior": "CASE_INTERIOR",
+}
+
+
+def corpus_operations(programs: dict):
+    """Yield the canonical preset, parameter-case and probe operations."""
+    mappings = programs["corpus"]["probe_operations"]
+    for program in programs["programs"]:
+        for preset in program["presets"]:
+            for case in program["parameter_cases"]:
+                case_id = case["id"]
+                yield {"program": program["id"], "preset": preset, "case": case_id,
+                       "probe": "steady", "name": f"case:{case_id}",
+                       "mapping": CASE_OPERATIONS[case_id]}
+            for category, probes in program["probes"].items():
+                for probe in probes:
+                    name = f"{category}:{probe}"
+                    yield {"program": program["id"], "preset": preset, "case": "default",
+                           "probe": name, "name": name, "mapping": mappings[name]}
+
+
+def framebuffer_metric(oracle: dict) -> dict:
+    """Return the maximum framebuffer metric from an oracle manifest."""
+    return next(metric for metric in oracle["metrics"]
+                if metric["domain"] == "FRAMEBUFFER" and metric["aggregation"] == "MAXIMUM")
+
+
+def _selected_pixel(mapping: str, x: int, y: int, width: int, height: int) -> bool:
+    if mapping == "COLUMN_ZERO":
+        return x == 0
+    if mapping == "WRAP_COLUMNS":
+        return x in (0, width - 1)
+    if mapping == "NORTH_ROW":
+        return y == 0
+    if mapping == "SOUTH_ROW":
+        return y == height - 1
+    if mapping == "POLE_BANDS":
+        return y < 2 or y >= height - 2
+    if mapping == "HORIZON_COLUMNS":
+        return x in (width // 4, 3 * width // 4)
+    if mapping == "OCTANT_COLUMNS":
+        return x in (width // 8, 3 * width // 8, 5 * width // 8, 7 * width // 8)
+    if mapping == "MIRROR_GRID":
+        return x % (width // 8) == 0 or y in (
+            height // 4,
+            height // 2,
+            3 * height // 4,
+        )
+    if mapping == "CARDINAL_POINTS":
+        return y == height // 2 and x % (width // 4) == 0
+    if mapping == "FRAME_PERIMETER":
+        return x in (0, width - 1) or y in (0, height - 1)
+    if mapping == "EQUATOR_ROW":
+        return y == height // 2
+    if mapping == "FRONT_AXIS_POINT":
+        return x == 0 and y == height // 2
+    raise CaptureError(f"unknown spatial probe mapping {mapping}")
 
 
 def _read_u16(data: bytes, offset: int) -> tuple[int, int]:
@@ -266,7 +326,7 @@ def _first_line(command: list[str]) -> str:
     return lines[0]
 
 
-def attest_toolchain(build_dir: Path, configuration: str, programs: dict) -> dict:
+def attest_toolchain(build_dir: Path, configuration: str) -> dict:
     cache = _cache_values(build_dir)
     compiler, clang_version = _compiler_metadata(build_dir)
     cmake = cache.get("CMAKE_COMMAND", "cmake")
@@ -297,11 +357,6 @@ def attest_toolchain(build_dir: Path, configuration: str, programs: dict) -> dic
         "cmake_preset": cache.get("HS_PULLBACK_CAPTURE_PRESET", ""),
         "configuration": cache.get("CMAKE_BUILD_TYPE", ""),
     }
-    expected = expected_toolchain(programs, configuration)
-    if observed != expected:
-        raise CaptureError(
-            f"observed toolchain differs from manifest pin: {observed} != {expected}"
-        )
     return observed
 
 
@@ -391,7 +446,7 @@ def produce(
     if source_root is None or Path(source_root).resolve() != checkout.resolve():
         raise CaptureError("capture build was configured for a different source root")
     programs, oracles, schema = load_and_validate(manifest_dir)
-    toolchain = attest_toolchain(build_dir, configuration, programs)
+    toolchain = attest_toolchain(build_dir, configuration)
     checkout_sha = subprocess.run(
         ["git", "-C", str(checkout), "rev-parse", "HEAD"],
         check=True,

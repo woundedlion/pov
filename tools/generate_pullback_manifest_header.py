@@ -28,7 +28,7 @@ CASE_IDS = {"default", "endpoint_min", "endpoint_max", "interior"}
 PROTOCOL_DEFINITION = Path(__file__).with_name("pullback_operations.def")
 SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 SCHEMA_ROOT_REFS = {"#/$defs/programManifest", "#/$defs/oracleManifest"}
-SCHEMA_CLOSED_DEFS = ("toolchains", "topologyKey", "parameterCase", "probes",
+SCHEMA_CLOSED_DEFS = ("topologyKey", "parameterCase", "probes",
                       "program", "programManifest", "metric",
                       "resolutionBaselines", "oracleManifest")
 SCHEMA_DEFS = ("sha", *SCHEMA_CLOSED_DEFS)
@@ -213,13 +213,6 @@ def _validate_common(document: dict, path: Path) -> None:
              f"{path}: schema_version must be 1")
     _require(SHA_RE.fullmatch(document.get("base_sha", "")) is not None,
              f"{path}: base_sha must be a full lowercase Git SHA")
-    toolchains = document.get("toolchains")
-    _require(isinstance(toolchains, dict), f"{path}: toolchains must be an object")
-    for name in ("native", "wasm", "teensy"):
-        _require(isinstance(toolchains.get(name), dict),
-                 f"{path}: toolchains.{name} must be an object")
-        _require(bool(toolchains[name].get("compiler")),
-                 f"{path}: toolchains.{name}.compiler is required")
 
 
 def _validate_programs(document: dict, path: Path) -> None:
@@ -465,8 +458,6 @@ def load_and_validate(directory: Path) -> tuple[dict, list[dict], dict]:
     for oracle in oracles:
         _require(oracle["base_sha"] == programs["base_sha"],
                  f"{directory}: all manifests must use the same base_sha")
-        _require(oracle["toolchains"] == programs["toolchains"],
-                 f"{directory}: all manifests must use the same toolchain pins")
     return programs, oracles, schema
 
 

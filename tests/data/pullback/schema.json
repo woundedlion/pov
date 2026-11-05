@@ -8,45 +8,6 @@
   ],
   "$defs": {
     "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
-    "toolchains": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["native", "wasm", "teensy"],
-      "properties": {
-        "native": {
-          "type": "object", "additionalProperties": false,
-          "required": ["compiler", "cmake", "cmake_preset", "configuration"],
-          "properties": {
-            "compiler": { "type": "string", "minLength": 1 },
-            "cmake": { "type": "string", "minLength": 1 },
-            "cmake_preset": { "type": "string", "minLength": 1 },
-            "configuration": { "type": "string", "minLength": 1 }
-          }
-        },
-        "wasm": {
-          "type": "object", "additionalProperties": false,
-          "required": ["compiler", "cmake", "cmake_preset", "configuration", "strict_cmake_preset", "strict_configuration"],
-          "properties": {
-            "compiler": { "type": "string", "minLength": 1 },
-            "cmake": { "type": "string", "minLength": 1 },
-            "cmake_preset": { "type": "string", "minLength": 1 },
-            "configuration": { "type": "string", "minLength": 1 },
-            "strict_cmake_preset": { "type": "string", "minLength": 1 },
-            "strict_configuration": { "type": "string", "minLength": 1 }
-          }
-        },
-        "teensy": {
-          "type": "object", "additionalProperties": false,
-          "required": ["compiler", "platformio", "platform", "cpu_hz"],
-          "properties": {
-            "compiler": { "type": "string", "minLength": 1 },
-            "platformio": { "type": "string", "minLength": 1 },
-            "platform": { "type": "string", "minLength": 1 },
-            "cpu_hz": { "type": "integer", "minimum": 1 }
-          }
-        }
-      }
-    },
     "topologyKey": {
       "type": "object", "additionalProperties": false,
       "required": [
@@ -137,11 +98,10 @@
     },
     "programManifest": {
       "type": "object", "additionalProperties": false,
-      "required": ["schema_version", "kind", "base_sha", "capture_sha", "toolchains", "corpus", "measurement_status", "programs"],
+      "required": ["schema_version", "kind", "base_sha", "capture_sha", "corpus", "measurement_status", "programs"],
       "properties": {
         "schema_version": { "const": 1 }, "kind": { "const": "pullback-programs" },
         "base_sha": { "$ref": "#/$defs/sha" }, "capture_sha": { "$ref": "#/$defs/sha" },
-        "toolchains": { "$ref": "#/$defs/toolchains" },
         "corpus": {
           "type": "object", "additionalProperties": false,
           "required": ["generator", "version", "resolutions", "configurations", "sample_count", "seed", "probe_operations"],
@@ -207,11 +167,11 @@
     },
     "oracleManifest": {
       "type": "object", "additionalProperties": false,
-      "required": ["schema_version", "kind", "oracle_id", "base_sha", "toolchains", "exact_callable", "optimized_callable", "non_floating_fields_exact", "corpus", "metrics"],
+      "required": ["schema_version", "kind", "oracle_id", "base_sha", "exact_callable", "optimized_callable", "non_floating_fields_exact", "corpus", "metrics"],
       "properties": {
         "schema_version": { "const": 1 }, "kind": { "const": "pullback-oracle" },
         "oracle_id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" }, "base_sha": { "$ref": "#/$defs/sha" },
-        "toolchains": { "$ref": "#/$defs/toolchains" }, "exact_callable": { "type": "string", "minLength": 1 }, "optimized_callable": { "type": "string", "minLength": 1 },
+        "exact_callable": { "type": "string", "minLength": 1 }, "optimized_callable": { "type": "string", "minLength": 1 },
         "non_floating_fields_exact": { "const": true },
         "corpus": {
           "type": "object", "additionalProperties": false,
