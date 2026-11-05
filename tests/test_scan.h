@@ -91,6 +91,7 @@ private:
 #include "tests/scan/volume_march.h"
 #include "tests/scan/circle_point.h"
 #include "tests/scan/column_basis.h"
+#include "tests/scan/mesh_capture.h"
 
 // ============================================================================
 // Runner
