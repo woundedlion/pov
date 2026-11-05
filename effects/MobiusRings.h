@@ -239,6 +239,17 @@ private:
   }
 
   static constexpr int CURVE_SIDES = W / 4;
+  static_assert(CURVE_SIDES *
+                            (sizeof(math::Vector) + sizeof(Plot::Mesh::Edge)) +
+                        alignof(math::Vector) + alignof(Plot::Mesh::Edge) +
+                        Plot::Mesh::column_scratch_a_bytes() <=
+                    SCRATCH_A_BYTES,
+                "MobiusRings temporal edge staging exceeds scratch_a");
+  static_assert((W / 2 + 1) * (sizeof(NorthHole) + sizeof(SouthHole)) +
+                        alignof(NorthHole) + alignof(SouthHole) +
+                        Plot::Mesh::column_scratch_b_bytes(CURVE_SIDES) <=
+                    SCRATCH_B_BYTES,
+                "MobiusRings temporal poles and paths exceed scratch_b");
 
   /**
    * @brief A single Möbius-warped curve to draw.
