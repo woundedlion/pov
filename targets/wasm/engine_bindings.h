@@ -98,10 +98,9 @@ static size_t init_stack_peak = 0;
 /// Bound on one effect's exposed parameters.
 inline constexpr size_t MAX_PARAMS = hs_wasm::ParamStreams::CAPACITY;
 
-#if HS_ENABLE_CHAIN_INTERPRETER
+static_assert(HS_ENABLE_CHAIN_INTERPRETER);
 static_assert(MAX_PARAMS >= Pullback::Interp::MAX_CHAIN_PARAMS,
               "MAX_PARAMS must cover the full chain parameter schema");
-#endif
 
 static_assert(MAX_PARAMS >= Effect::ParamList::FIXED_CAPACITY,
               "MAX_PARAMS must cover ParamList's default array size");
@@ -206,10 +205,8 @@ public:
    *          engine arenas, so their metrics report the released state.
    */
   ~HolosphereEngine() {
-#if HS_ENABLE_CHAIN_INTERPRETER
     HS_CHECK(!payload_decode_active,
              "delete() from a caller accessor during engine decode");
-#endif
     teardown_effect();
     binding_state->alive = false;
     engine_alive = false;
@@ -959,7 +956,6 @@ public:
     return counts;
   }
 
-#if HS_ENABLE_CHAIN_INTERPRETER
   /**
    * @brief Acquires a chain authoring handle, or null for other effects.
    * @return Shared handle, or null.
@@ -967,7 +963,6 @@ public:
   std::shared_ptr<ShaderChainBindings> getShaderChainBindings() const {
     return acquire_shader_chain_bindings(binding_state);
   }
-#endif
 
   /**
    * @brief Enumerates the resolutions the factory can build.
@@ -1019,10 +1014,8 @@ private:
         parameters.emplace_back(parameter.name, parameter.get_requested());
 
     WorkbenchBindings::RebuildRestore restore_workbench;
-#if HS_ENABLE_CHAIN_INTERPRETER
     if (auto bindings = getShaderChainBindings())
       restore_workbench = bindings->capture_rebuild_state();
-#endif
 
     teardown_effect();
     apply_display_geometry(north, south);
@@ -1124,7 +1117,6 @@ static void bind_engine() {
       .value("INSTALLED", EffectSetResult::INSTALLED)
       .value("UNKNOWN_EFFECT", EffectSetResult::UNKNOWN_EFFECT);
 
-#if HS_ENABLE_CHAIN_INTERPRETER
   emscripten::enum_<Pullback::Interp::ChainStatus>("ChainStatus")
       .value("OK", Pullback::Interp::ChainStatus::OK)
       .value("NOT_CHAIN_EFFECT",
@@ -1146,7 +1138,6 @@ static void bind_engine() {
       .value("ARENA_OVERFLOW", Pullback::Interp::ChainStatus::ARENA_OVERFLOW)
       .value("PARAM_OVERFLOW", Pullback::Interp::ChainStatus::PARAM_OVERFLOW)
       .value("MIGRATE_FAILED", Pullback::Interp::ChainStatus::MIGRATE_FAILED);
-#endif
 
   emscripten::class_<HolosphereEngine>("HolosphereEngine")
       .constructor<>()
@@ -1186,10 +1177,8 @@ static void bind_engine() {
       .function("getEffectSizes", &HolosphereEngine::getEffectSizes)
       .function("getEffectPresetCounts",
                 &HolosphereEngine::getEffectPresetCounts)
-#if HS_ENABLE_CHAIN_INTERPRETER
       .function("getShaderChainBindings",
                 &HolosphereEngine::getShaderChainBindings)
-#endif
       .class_function("getSupportedResolutions",
                       &HolosphereEngine::getSupportedResolutions)
       .class_function("isLive", &HolosphereEngine::isLive)

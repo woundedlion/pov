@@ -13,16 +13,14 @@
 #include "targets/wasm/effect_factory.h"
 #include "targets/wasm/payload_clone.h"
 #include "targets/wasm/param_marshal.h"
-#if HS_ENABLE_CHAIN_INTERPRETER
+static_assert(HS_ENABLE_CHAIN_INTERPRETER);
 #include "core/render/pullback/catalog_export.h"
 #include "targets/wasm/chain_snapshot_codec.h"
-#endif
 #include <functional>
 #include <memory>
 #include <span>
 #include <vector>
 
-#if HS_ENABLE_CHAIN_INTERPRETER
 // Caller property access can re-enter embind, including delete().
 /// True while any caller payload is being decoded.
 static bool payload_decode_active = false;
@@ -46,7 +44,6 @@ struct PayloadDecodeGuard {
     payload_decode_active = false;
   }
 };
-#endif
 
 /** @brief False once the module aborted or was marked dead. */
 // clang-format off
@@ -89,7 +86,6 @@ public:
 
 protected:
   std::shared_ptr<WorkbenchBindingState> state; ///< Engine-shared incarnation.
-#if HS_ENABLE_CHAIN_INTERPRETER
   /**
    * @brief Runs a callback when the live effect has the requested factory
    *        type.
@@ -112,7 +108,6 @@ protected:
         });
     return invoked;
   }
-#endif
 
   /**
    * @brief JS `Array.isArray`.
@@ -126,7 +121,6 @@ protected:
 private:
   const uint64_t generation;
 };
-#if HS_ENABLE_CHAIN_INTERPRETER
 /** @brief JS handle for program and snapshot access on a ShaderChain effect. */
 class ShaderChainBindings : public WorkbenchBindings {
 public:
@@ -375,7 +369,6 @@ private:
     return result;
   }
 };
-#endif
 
 /**
  * @brief Creates a handle if the live effect is an EffectT instantiation.
@@ -400,7 +393,6 @@ std::shared_ptr<Bindings> acquire_workbench_bindings(
   return result;
 }
 
-#if HS_ENABLE_CHAIN_INTERPRETER
 /**
  * @brief ShaderChain handle for the live effect.
  * @param state Engine-shared incarnation state.
@@ -410,11 +402,9 @@ inline std::shared_ptr<ShaderChainBindings> acquire_shader_chain_bindings(
     const std::shared_ptr<WorkbenchBindingState> &state) {
   return acquire_workbench_bindings<ShaderChain, ShaderChainBindings>(state);
 }
-#endif
 
 /** @brief Registers the workbench adapter enums and classes with embind. */
 static void bind_workbench_adapters() {
-#if HS_ENABLE_CHAIN_INTERPRETER
   emscripten::enum_<ChainSnapshotRestoreResult>("ChainSnapshotRestoreResult")
       .value("APPLIED", ChainSnapshotRestoreResult::APPLIED)
       .value("NOT_SHADER_CHAIN", ChainSnapshotRestoreResult::NOT_SHADER_CHAIN)
@@ -437,5 +427,4 @@ static void bind_workbench_adapters() {
       .function("getProgram", &ShaderChainBindings::getProgram)
       .class_function("getShaderChainCatalog",
                       &ShaderChainBindings::getShaderChainCatalog);
-#endif
 }
