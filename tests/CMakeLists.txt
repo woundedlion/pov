@@ -875,7 +875,8 @@ target_include_directories(noise_golden_gen PRIVATE ${HS_ENGINE_INCLUDES})
 target_link_libraries(noise_golden_gen PRIVATE hs_host_abi)
 _hs_warnings(noise_golden_gen)
 
-add_executable(sdf_periodic_benchmark periodic_surface_benchmark.cpp)
+# Measures query budgets for Raycast::surface_search on periodic surfaces.
+add_executable(sdf_periodic_benchmark EXCLUDE_FROM_ALL periodic_surface_benchmark.cpp)
 target_include_directories(sdf_periodic_benchmark PRIVATE ${HS_ENGINE_INCLUDES})
 target_compile_options(sdf_periodic_benchmark PRIVATE -O3 -ffast-math -fno-finite-math-only)
 _hs_warnings(sdf_periodic_benchmark)
