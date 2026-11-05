@@ -100,6 +100,42 @@ inline void test_feedback_column_time_reads() {
                  1e-5f);
 }
 
+/** @brief Persistent fade tables rebuild for fade, hue and storage changes. */
+inline void test_feedback_fade_table_invalidates_stored_entries() {
+  using Table = Filter::Pixel::FeedbackFadeTable;
+  alignas(std::max_align_t)
+      std::array<uint8_t, 2 * Table::BYTES + 4 * alignof(float)>
+          storage{};
+  Arena arena(storage.data(), storage.size());
+  ScratchScope scratch(scratch_arena_a);
+  Table table;
+  auto style = ::Feedback::Style::ArcingLightning();
+  style.sync_hue();
+  table.init_storage(arena);
+  const auto first = table.acquire(style, scratch.get_arena());
+  style.fade = 0.8f;
+  style.sync_hue();
+  const auto faded = table.acquire(style, scratch.get_arena());
+  HS_EXPECT_EQ(faded.fades, first.fades);
+  HS_EXPECT_EQ(faded.hue_k, first.hue_k);
+  HS_EXPECT_EQ(faded.fades[Table::UNIT_LEVEL], style.fade);
+  style.hue_shift += 0.25f;
+  style.sync_hue();
+  const auto turned = table.acquire(style, scratch.get_arena());
+  HS_EXPECT_EQ(turned.hue_k, first.hue_k);
+  const float SCALE = math::fast_cbrt(style.fade * Q16_TO_UNIT);
+  for (int i = 0; i < Table::MATRIX; ++i)
+    HS_EXPECT_EQ(turned.hue_k[Table::UNIT_LEVEL * Table::MATRIX + i],
+                 style.hue_k[i] * SCALE);
+  table.init_storage(arena);
+  const auto rebound = table.acquire(style, scratch.get_arena());
+  HS_EXPECT_NE(rebound.fades, first.fades);
+  HS_EXPECT_EQ(rebound.fades[Table::UNIT_LEVEL], style.fade);
+  for (int i = 0; i < Table::MATRIX; ++i)
+    HS_EXPECT_EQ(rebound.hue_k[Table::UNIT_LEVEL * Table::MATRIX + i],
+                 style.hue_k[i] * SCALE);
+}
+
 /**
  * @brief Verifies the fade table's entries apply their elapsed frames.
  * @details The one-frame entry is the per-frame transform bit for bit; the

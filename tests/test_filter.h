@@ -183,6 +183,7 @@ inline int run_filter_tests() {
   HS_RUN(test_feedback_flush_straddled_taps_stay_on_branch);
   HS_RUN(test_feedback_column_time_reads);
   HS_RUN(test_feedback_fade_table_entries);
+  HS_RUN(test_feedback_fade_table_invalidates_stored_entries);
   HS_RUN(test_feedback_warp_cache_keys_column_time);
   HS_RUN(test_feedback_column_time_oracle);
 
