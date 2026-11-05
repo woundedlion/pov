@@ -519,6 +519,10 @@ private:
     initialize(recipe);
   }
 
+  static PaletteRecipeField indexed_field(PaletteRecipeField first, int index) {
+    return static_cast<PaletteRecipeField>(static_cast<uint8_t>(first) + index);
+  }
+
   static uint64_t field_bit(PaletteRecipeField field) {
     static_assert(static_cast<uint8_t>(PaletteRecipeField::COUNT) <=
                       8 * sizeof(PaletteAdjustments::wrapped_fields),
@@ -626,11 +630,8 @@ private:
       return false;
     const uint8_t key_count = control_key_count(recipe);
     for (int i = 0; recipe.hue.mode == HueMode::CUSTOM && i < key_count; ++i) {
-      if (!finite(
-              recipe.hue.custom_turns[i],
-              static_cast<PaletteRecipeField>(
-                  static_cast<uint8_t>(PaletteRecipeField::CUSTOM_TURNS_0) + i),
-              status))
+      if (!finite(recipe.hue.custom_turns[i],
+                  indexed_field(PaletteRecipeField::CUSTOM_TURNS_0, i), status))
         return false;
     }
     if (recipe.lightness.curve != AxisCurve::CUSTOM &&
@@ -641,12 +642,9 @@ private:
       return false;
     for (int i = 0;
          recipe.lightness.curve == AxisCurve::CUSTOM && i < key_count; ++i) {
-      if (!finite(
-              recipe.lightness.custom[i],
-              static_cast<PaletteRecipeField>(
-                  static_cast<uint8_t>(PaletteRecipeField::LIGHTNESS_CUSTOM_0) +
-                  i),
-              status))
+      if (!finite(recipe.lightness.custom[i],
+                  indexed_field(PaletteRecipeField::LIGHTNESS_CUSTOM_0, i),
+                  status))
         return false;
     }
     if (recipe.chroma.axis.curve != AxisCurve::CUSTOM &&
@@ -657,12 +655,9 @@ private:
       return false;
     for (int i = 0;
          recipe.chroma.axis.curve == AxisCurve::CUSTOM && i < key_count; ++i) {
-      if (!finite(
-              recipe.chroma.axis.custom[i],
-              static_cast<PaletteRecipeField>(
-                  static_cast<uint8_t>(PaletteRecipeField::CHROMA_CUSTOM_0) +
-                  i),
-              status))
+      if (!finite(recipe.chroma.axis.custom[i],
+                  indexed_field(PaletteRecipeField::CHROMA_CUSTOM_0, i),
+                  status))
         return false;
     }
     return (recipe.chroma.basis == ChromaBasis::ABSOLUTE ||
@@ -719,10 +714,9 @@ private:
                          PaletteRecipeField::SWEEP_TURNS);
     for (int i = recipe.hue.mode == HueMode::CUSTOM ? key_count : 0;
          i < PALETTE_MAX_KEYS; ++i)
-      canonicalize_field(
-          recipe.hue.custom_turns[i], defaults.hue.custom_turns[i],
-          static_cast<PaletteRecipeField>(
-              static_cast<uint8_t>(PaletteRecipeField::CUSTOM_TURNS_0) + i));
+      canonicalize_field(recipe.hue.custom_turns[i],
+                         defaults.hue.custom_turns[i],
+                         indexed_field(PaletteRecipeField::CUSTOM_TURNS_0, i));
     if (recipe.lightness.curve == AxisCurve::CONSTANT)
       canonicalize_field(recipe.lightness.range, defaults.lightness.range,
                          PaletteRecipeField::LIGHTNESS_RANGE);
@@ -736,9 +730,7 @@ private:
          i < PALETTE_MAX_KEYS; ++i)
       canonicalize_field(
           recipe.lightness.custom[i], defaults.lightness.custom[i],
-          static_cast<PaletteRecipeField>(
-              static_cast<uint8_t>(PaletteRecipeField::LIGHTNESS_CUSTOM_0) +
-              i));
+          indexed_field(PaletteRecipeField::LIGHTNESS_CUSTOM_0, i));
     if (recipe.chroma.axis.curve == AxisCurve::CONSTANT)
       canonicalize_field(recipe.chroma.axis.range, defaults.chroma.axis.range,
                          PaletteRecipeField::CHROMA_RANGE);
@@ -750,10 +742,9 @@ private:
     }
     for (int i = recipe.chroma.axis.curve == AxisCurve::CUSTOM ? key_count : 0;
          i < PALETTE_MAX_KEYS; ++i)
-      canonicalize_field(
-          recipe.chroma.axis.custom[i], defaults.chroma.axis.custom[i],
-          static_cast<PaletteRecipeField>(
-              static_cast<uint8_t>(PaletteRecipeField::CHROMA_CUSTOM_0) + i));
+      canonicalize_field(recipe.chroma.axis.custom[i],
+                         defaults.chroma.axis.custom[i],
+                         indexed_field(PaletteRecipeField::CHROMA_CUSTOM_0, i));
     if (recipe.domain != PaletteDomain::FALLOFF)
       canonicalize_field(recipe.falloff_start, defaults.falloff_start,
                          PaletteRecipeField::FALLOFF_START);
@@ -781,27 +772,22 @@ private:
 
     for (int i = 0; recipe.hue.mode == HueMode::CUSTOM && i < key_count; ++i) {
       if (fabsf(recipe.hue.custom_turns[i]) > MAX_CUSTOM_ABS_INPUT)
-        return fail(
-            status, PaletteCompileCode::HUE_LIMIT,
-            static_cast<PaletteRecipeField>(
-                static_cast<uint8_t>(PaletteRecipeField::CUSTOM_TURNS_0) + i));
+        return fail(status, PaletteCompileCode::HUE_LIMIT,
+                    indexed_field(PaletteRecipeField::CUSTOM_TURNS_0, i));
     }
     const float custom_offset = floorf(recipe.hue.custom_turns[0]);
     if (custom_offset != 0.0f) {
       for (int i = 0; i < key_count; ++i) {
         recipe.hue.custom_turns[i] -= custom_offset;
         status.adjustments.canonicalized_fields |=
-            field_bit(static_cast<PaletteRecipeField>(
-                static_cast<uint8_t>(PaletteRecipeField::CUSTOM_TURNS_0) + i));
+            field_bit(indexed_field(PaletteRecipeField::CUSTOM_TURNS_0, i));
       }
     }
     for (int i = 1; i < key_count; ++i) {
       if (fabsf(recipe.hue.custom_turns[i] - recipe.hue.custom_turns[i - 1]) >
           MAX_CUSTOM_DELTA)
-        return fail(
-            status, PaletteCompileCode::HUE_LIMIT,
-            static_cast<PaletteRecipeField>(
-                static_cast<uint8_t>(PaletteRecipeField::CUSTOM_TURNS_0) + i));
+        return fail(status, PaletteCompileCode::HUE_LIMIT,
+                    indexed_field(PaletteRecipeField::CUSTOM_TURNS_0, i));
     }
 
     clamp_field(recipe.lightness.center, 0.0f, 1.0f,
@@ -809,11 +795,9 @@ private:
     clamp_field(recipe.lightness.range, 0.0f, 1.0f,
                 PaletteRecipeField::LIGHTNESS_RANGE, status);
     for (int i = 0; i < PALETTE_MAX_KEYS; ++i) {
-      clamp_field(
-          recipe.lightness.custom[i], 0.0f, 1.0f,
-          static_cast<PaletteRecipeField>(
-              static_cast<uint8_t>(PaletteRecipeField::LIGHTNESS_CUSTOM_0) + i),
-          status);
+      clamp_field(recipe.lightness.custom[i], 0.0f, 1.0f,
+                  indexed_field(PaletteRecipeField::LIGHTNESS_CUSTOM_0, i),
+                  status);
     }
 
     clamp_field(recipe.chroma.axis.center, 0.0f, MAX_CHROMA_CONTROL,
@@ -821,11 +805,9 @@ private:
     clamp_field(recipe.chroma.axis.range, 0.0f, MAX_CHROMA_CONTROL,
                 PaletteRecipeField::CHROMA_RANGE, status);
     for (int i = 0; i < PALETTE_MAX_KEYS; ++i) {
-      clamp_field(
-          recipe.chroma.axis.custom[i], 0.0f, MAX_CHROMA_CONTROL,
-          static_cast<PaletteRecipeField>(
-              static_cast<uint8_t>(PaletteRecipeField::CHROMA_CUSTOM_0) + i),
-          status);
+      clamp_field(recipe.chroma.axis.custom[i], 0.0f, MAX_CHROMA_CONTROL,
+                  indexed_field(PaletteRecipeField::CHROMA_CUSTOM_0, i),
+                  status);
     }
     if (recipe.chroma.basis != ChromaBasis::ABSOLUTE)
       clamp_field(recipe.chroma.headroom, 0.0f, 1.0f,
