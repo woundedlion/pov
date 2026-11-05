@@ -462,12 +462,11 @@ make_geodesic_edge_span(const math::Vector &a, const math::Vector &b) {
   es.antipodal = pole_len_sq < EPS_ARC_POLE_SQ;
   if (es.antipodal) {
     es.axis = stable_perpendicular_axis(a);
-    es.azimuth_bounded = std::abs(es.axis.y) >= AXIS_Y_EPS;
   } else {
     HS_PLOT_COUNT(normalizations);
     es.axis = pole * (1.0f / sqrtf(pole_len_sq));
-    es.azimuth_bounded = std::abs(es.axis.y) >= AXIS_Y_EPS;
   }
+  es.azimuth_bounded = std::abs(es.axis.y) >= AXIS_Y_EPS;
   es.have_axis = true;
   return es;
 }
