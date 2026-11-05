@@ -11,6 +11,9 @@
 #include <array>
 #include "core/math/3dmath.h"
 
+/** @brief Neutral chroma shared by authored palette controls. */
+inline constexpr float PALETTE_DEFAULT_CHROMA = 0.62f;
+
 /** @brief How key hues are generated: harmony offsets, an even sweep, or
  *  per-key custom turns. */
 enum class HueMode : uint8_t { HARMONY, SWEEP, CUSTOM };
@@ -95,11 +98,14 @@ struct AxisControls {
   bool operator==(const AxisControls &) const = default;
 
   AxisCurve curve = AxisCurve::CONSTANT; ///< Profile across the keys.
-  float center = 0.62f; ///< Axis midpoint in [0, 1]; the value when CONSTANT.
-  float range = 0.0f;   ///< Full low-to-high width in [0, 1] about `center`.
+  float center =
+      PALETTE_DEFAULT_CHROMA; ///< Axis midpoint in [0, 1]; the value when CONSTANT.
+  float range = 0.0f; ///< Full low-to-high width in [0, 1] about `center`.
   /// Per-key values in [0, 1], read only when `curve` is CUSTOM.
   std::array<float, PALETTE_MAX_KEYS> custom{};
 };
+
+static_assert(AxisControls{}.center == PALETTE_DEFAULT_CHROMA);
 
 /** @brief Chroma axis controls and the basis they are measured in. */
 struct ChromaControls {

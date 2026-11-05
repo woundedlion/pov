@@ -729,5 +729,5 @@ private:
   uint32_t triadic_hue = 0;
   uint32_t complementary_hue = 0;
   uint32_t analogous_hue = 0;
-  float chroma = 0.62f;
+  float chroma = PALETTE_DEFAULT_CHROMA;
 };

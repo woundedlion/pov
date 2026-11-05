@@ -64,7 +64,8 @@ inline constexpr TopologyGate BRIGHTNESS_ENVELOPE_GATE{
 
 /** @brief Continuous palette and hue controls. */
 struct ColorControls {
-  float palette_chroma = 0.62f; /**< Chroma the generated palettes are baked
+  float palette_chroma =
+      PALETTE_DEFAULT_CHROMA; /**< Chroma the generated palettes are baked
                                       at. */
   /** Palette repeats across the value range. */
   float mapping_frequency = 1.0f;

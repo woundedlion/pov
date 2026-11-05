@@ -1310,7 +1310,8 @@ private:
   std::array<ControlKey, PALETTE_MAX_KEYS> keys{};
   uint8_t key_count = 3;
   AxisState lightness_axis{0.62f, 0.62f, AxisCurve::CONSTANT};
-  AxisState chroma_axis{0.62f, 0.62f, AxisCurve::CONSTANT};
+  AxisState chroma_axis{PALETTE_DEFAULT_CHROMA, PALETTE_DEFAULT_CHROMA,
+                        AxisCurve::CONSTANT};
   float closing_hue = 0.0f;
   float headroom = 0.94f;
   float hue_torsion = 0.0f;
@@ -1382,7 +1383,7 @@ inline PaletteRecipe balanced_analogous(float base_turns = 0.0f) {
  */
 inline PaletteRecipe profile(PaletteDomain domain, PaletteHarmony harmony,
                              AxisCurve lightness_curve, float base_turns,
-                             float chroma = 0.62f) {
+                             float chroma = PALETTE_DEFAULT_CHROMA) {
   PaletteRecipe recipe = PaletteRecipes::harmony(domain, harmony, base_turns);
   recipe.lightness.curve = lightness_curve;
   if (lightness_curve != AxisCurve::CONSTANT) {
@@ -1401,10 +1402,10 @@ inline PaletteRecipe profile(PaletteDomain domain, PaletteHarmony harmony,
  * @param chroma Chroma axis center.
  * @return The recipe.
  */
-HS_FLASH_MEMBER inline PaletteRecipe random_profile(PaletteDomain domain,
-                                                    PaletteHarmony harmony,
-                                                    AxisCurve lightness_curve,
-                                                    float chroma = 0.62f) {
+HS_FLASH_MEMBER inline PaletteRecipe
+random_profile(PaletteDomain domain, PaletteHarmony harmony,
+               AxisCurve lightness_curve,
+               float chroma = PALETTE_DEFAULT_CHROMA) {
   return profile(domain, harmony, lightness_curve, random_base_turns(), chroma);
 }
 

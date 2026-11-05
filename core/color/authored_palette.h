@@ -108,10 +108,9 @@ private:
      * @return Source color with adjusted chroma. */
     Color4 get(float t) const {
       Color4 color = source.get(t);
-      constexpr float DEFAULT_CHROMA = 0.62f;
-      if (chroma != DEFAULT_CHROMA) {
+      if (chroma != PALETTE_DEFAULT_CHROMA) {
         OKLCH lch = pixel_to_oklch(color.color);
-        lch.C *= chroma / DEFAULT_CHROMA;
+        lch.C *= chroma / PALETTE_DEFAULT_CHROMA;
         color.color = oklch_to_pixel(lch);
       }
       return color;
