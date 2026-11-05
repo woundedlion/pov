@@ -148,7 +148,7 @@ inline void test_arm_passes_extend_to_frame_ends() {
   PassList no_end, with_end, past_end;
   Spacetime::crossings<W>(144.0f, 144.2f, 0.0f, 1.0f, true, false, no_end);
   Spacetime::crossings<W>(144.0f, 144.2f, 0.0f, 1.0f, true, true, with_end);
-  HS_EXPECT_EQ(no_end.passes.size(), size_t{1});
+  HS_EXPECT_SIZE_OR_RETURN(no_end.passes, 1);
   HS_EXPECT_EQ(no_end.passes[0].arm, 1);
   HS_EXPECT_EQ(no_end.passes[0].time, 0.0f);
   HS_EXPECT_EQ(with_end.passes.size(), size_t{2});
