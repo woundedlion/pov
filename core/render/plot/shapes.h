@@ -458,6 +458,9 @@ draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
                   const GeometryCallback &geometry, ShaderT shader,
                   const Spacetime::PoseTable *poses = nullptr,
                   float spin = 0.0f, int stride = 1) {
+  static_assert(
+      PipelineT::column_taps_ready,
+      "the column walk splats through an anti-aliasing first screen stage");
   ScratchScope storage(scratch_arena_b);
   const size_t count = W / stride;
   Spacetime::Worldlines<> motion;
