@@ -187,7 +187,6 @@ inline constexpr float HANKIN_FLAT_FACE = 1e-4f;
 
 /** @brief Per-step stability metrics of one sweep sample. */
 struct HankinStepStats {
-  float theta = 0; /**< Contact angle of this sample, radians. */
   int branch_flips =
       0; /**< Vertices whose branch changed vs the previous step. */
   float max_disp = 0;  /**< Largest single-vertex chord vs the previous step. */
@@ -206,7 +205,7 @@ struct HankinStepStats {
  * @param prev_normals Previous step's face normals.
  * @param curr Current step's solve.
  * @param curr_normals Current step's face normals.
- * @param stats Metrics to fill; theta must already be set.
+ * @param stats Metrics to fill.
  */
 inline void hankin_step_stats(const CompiledHankin &compiled,
                               const std::vector<HankinSolve> &prev,
@@ -420,7 +419,6 @@ inline void test_hankin_sweep_vertex_stability() {
                                        arrival.size());
           const float shipping_k =
               Animation::OpLeg::K_EPS + (1.0f - Animation::OpLeg::K_EPS) * k;
-          row.theta = site.theta_star;
           curr.assign(arrival.size(), HankinSolve{});
           for (size_t i = 0; i < arrival.size(); ++i) {
             curr[i] = {shipping_k >= 1.0f
@@ -434,8 +432,8 @@ inline void test_hankin_sweep_vertex_stability() {
                                 (curr[i].pos - resolve_pos[s][i]).magnitude());
           }
         } else {
-          row.theta = THETA_EPS + (site.theta_star - THETA_EPS) * k;
-          hankin_solve(compiled, row.theta, curr);
+          const float theta = THETA_EPS + (site.theta_star - THETA_EPS) * k;
+          hankin_solve(compiled, theta, curr);
           if (mode == 1) {
             resolve_pos[s].resize(curr.size());
             for (size_t i = 0; i < curr.size(); ++i)
