@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -96,6 +97,20 @@ class ReleaseTests(unittest.TestCase):
                              {("lib_footprint_mismatch", "J1"): 1})
         self.assertIs(fab.KNOWN_PARITY_WARNING_COUNTS, original)
         self.assertIs(fab.OPTIONAL_PARITY_WARNING_MAX, original_optional)
+
+    @unittest.skipUnless(GENERATES, GENERATES_REASON)
+    def test_real_revision_11_release_exports_and_verifies_package(self):
+        stage = self.root / "stage"
+        release.snapshot(Path(release.__file__).resolve().parents[1] / "1.1", stage)
+        package = self.root / "real-package"
+        self.assertIsNone(release.main([
+            "release", "--revision", "1.1", "--project", str(stage),
+            "--output", str(package),
+        ]))
+        release.verify(package)
+        with zipfile.ZipFile(package / "output" / "jlc" / fab.ARCHIVE) as archive:
+            self.assertEqual(set(archive.namelist()),
+                             fab.board_zip_members(fab.read_board(stage / "phantasm.kicad_pcb")))
 
     def write_package(self):
         jlc = Path(fab.JLC)
