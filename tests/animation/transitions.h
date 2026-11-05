@@ -66,6 +66,7 @@ inline void test_transition_quantized_floors_result() {
                            {.quantized = true});
   for (int i = 0; i < duration; ++i) {
     tr.step(fake_canvas());
+    HS_EXPECT_EQ(v, static_cast<float>(i));
   }
   // 3.7 floored to 3.0.
   HS_EXPECT_NEAR(v, 3.0f, 1e-5f);
