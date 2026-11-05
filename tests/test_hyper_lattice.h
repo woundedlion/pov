@@ -168,6 +168,10 @@ struct HyperLatticeWhiteBox {
             effect.preset_gain,
             effect.crossing_list};
   }
+  static Trace::Prepared prepare_traced(const Effect &effect,
+                                        const HL::FrameState &frame) {
+    return effect.prepare_traced(frame, trace_center(effect));
+  }
   static void step_depth_palette(Effect &effect) {
     effect.depth_palette.step();
   }

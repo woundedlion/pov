@@ -1080,6 +1080,7 @@ private:
     settings.crossings = crossing_storage;
     settings.shell_layers = shell_layers;
     auto prepared = HyperLatticeDetail::Trace::prepare(settings);
+    HS_CHECK(prepared.valid, "HyperLattice: trace settings rejected");
     const auto &configuration =
         CONFIGURATIONS[configuration_index(context.params)];
     prepared.limits.max_candidates = configuration.max_candidates;

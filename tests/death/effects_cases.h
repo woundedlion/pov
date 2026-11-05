@@ -101,6 +101,37 @@ inline void case_hyperlattice_cubic_trace_geometry() {
   (void)HyperLatticeDetail::trace_settings(frame, {});
 }
 
+inline HyperLatticeDetail::FrameState hyperlattice_octet_frame(
+    const hs_test::hyper_lattice_tests::HyperLatticeWhiteBox::Effect &effect) {
+  using WB = hs_test::hyper_lattice_tests::HyperLatticeWhiteBox;
+  auto frame = WB::frame(effect);
+  frame.params =
+      WB::Effect::pattern_defaults(HyperLatticeDetail::Pattern::OCTET,
+                                   HyperLatticeDetail::LatticeMode::THREE_D);
+  return frame;
+}
+
+inline void check_hyperlattice_trace_companion() {
+  using WB = hs_test::hyper_lattice_tests::HyperLatticeWhiteBox;
+  reset_globals();
+  {
+    WB::Effect effect;
+    effect.init();
+    HS_EXPECT_TRUE(
+        WB::prepare_traced(effect, hyperlattice_octet_frame(effect)).valid);
+  }
+  reset_globals();
+}
+
+inline void case_hyperlattice_invalid_trace_settings() {
+  using WB = hs_test::hyper_lattice_tests::HyperLatticeWhiteBox;
+  WB::Effect effect;
+  effect.init();
+  auto frame = hyperlattice_octet_frame(effect);
+  frame.pixel_half_angle = opaque(-1.0f);
+  (void)WB::prepare_traced(effect, frame);
+}
+
 /** @brief Traps on mindsplatter profile preset oob. */
 inline void case_mindsplatter_profile_preset_oob() {
   MindSplatter<96, 20> effect;

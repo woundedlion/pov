@@ -34,6 +34,7 @@
 #include "tests/test_effects.h"
 #include "tests/test_shapeshifter_oracle.h"
 #include "tests/test_shader_chain.h"
+#include "tests/test_hyper_lattice.h"
 #include "tests/test_harness.h"
 
 #include "core/math/3dmath.h"
@@ -436,6 +437,9 @@ inline const Case *all_cases(int &n) {
       {"hyperlattice_pattern_defaults_invalid",
        case_hyperlattice_pattern_defaults_invalid, "effects/HyperLattice.h",
        "(false) HyperLattice: unsupported pattern"},
+      {"hyperlattice_invalid_trace_settings",
+       case_hyperlattice_invalid_trace_settings, "effects/HyperLattice.h",
+       "(prepared.valid) HyperLattice: trace settings rejected"},
       {"hyperlattice_frame_without_crossings",
        case_hyperlattice_frame_without_crossings, "effects/HyperLattice.h",
        "(frame.crossings) HyperLattice: frame has no crossing list"},
@@ -2988,6 +2992,7 @@ inline int run_death_tests() {
     return fixture.result();
   }
   check_shader_chain_colorize_companion();
+  check_hyperlattice_trace_companion();
   if (shard.role == ShardSpec::Role::SHARD)
     std::remove(shard_record_path(shard.dir, shard.index).c_str());
 
