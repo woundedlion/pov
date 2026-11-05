@@ -283,10 +283,7 @@ inline void test_symmetric_rotation_clock() {
     return;
   HS_EXPECT_TRUE(op->runtime.sample_state != nullptr);
   HS_EXPECT_TRUE(op->runtime.prepare_interval != nullptr);
-  const In::ParamFieldInfo *speed = nullptr;
-  for (const auto &field : op->schema_span())
-    if (std::string_view(field.id) == "speed")
-      speed = &field;
+  const auto *speed = schema_field(*op, "speed");
   HS_EXPECT_TRUE(speed != nullptr);
   if (!speed)
     return;

@@ -577,10 +577,6 @@ inline void test_shader_chain_affine_reads_next_lattice() {
 /** @brief A column prepares each affine entry from the next entry's
     column-sampled params. */
 inline void test_shader_chain_affine_column_lattice() {
-  struct TemporalBlocks {
-    alignas(std::max_align_t) uint8_t history[In::CHAIN_ARENA_BYTES];
-    alignas(std::max_align_t) uint8_t column[In::CHAIN_ARENA_BYTES];
-  };
   auto blocks = std::make_unique<TemporalBlocks>();
   auto fixture = std::make_unique<ProgramFixture>();
   auto &program = fixture->program;

@@ -39,6 +39,21 @@ struct MismatchedTopologyDefaults {
   };
 };
 
+/** Schema field of @p op with id @p field_id, or null. */
+inline const In::ParamFieldInfo *schema_field(const In::OperatorDescriptor &op,
+                                              std::string_view field_id) {
+  for (const In::ParamFieldInfo &field : op.schema_span())
+    if (std::string_view(field.id) == field_id)
+      return &field;
+  return nullptr;
+}
+
+/** @brief Storage for a program's history and sampled-column states. */
+struct TemporalBlocks {
+  alignas(std::max_align_t) uint8_t history[In::CHAIN_ARENA_BYTES];
+  alignas(std::max_align_t) uint8_t column[In::CHAIN_ARENA_BYTES];
+};
+
 /** Two program arenas plus the program bound over them. */
 struct ProgramFixture {
   alignas(std::max_align_t) uint8_t block_a[In::CHAIN_ARENA_BYTES];

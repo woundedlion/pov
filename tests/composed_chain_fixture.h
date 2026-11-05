@@ -210,10 +210,6 @@ void verify_export(size_t preset, int channel_tolerance,
   }
   HS_EXPECT_GT(visible, 0u);
   if constexpr (std::is_same_v<FX, GridWorms<SMALL_W, SMALL_H>>) {
-    struct TemporalBlocks {
-      alignas(std::max_align_t) uint8_t history[In::CHAIN_ARENA_BYTES];
-      alignas(std::max_align_t) uint8_t column[In::CHAIN_ARENA_BYTES];
-    };
     auto blocks = std::make_unique<TemporalBlocks>();
     program.bind_temporal_storage(blocks->history, blocks->column);
     program.prepare(context);

@@ -325,10 +325,6 @@ inline void test_shader_chain_refusal_migrate_failed() {
 /** @brief Sampled column states outlive column evaluation and are destroyed
     on reuse, history capture, recompile, clear and program destruction. */
 inline void test_shader_chain_column_states_outlive_evaluation() {
-  struct TemporalBlocks {
-    alignas(std::max_align_t) uint8_t history[In::CHAIN_ARENA_BYTES];
-    alignas(std::max_align_t) uint8_t column[In::CHAIN_ARENA_BYTES];
-  };
   LifetimeRegistry::reset();
   auto blocks = std::make_unique<TemporalBlocks>();
   auto fixture =

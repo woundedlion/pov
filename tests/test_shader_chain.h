@@ -235,12 +235,10 @@ inline void test_shader_chain_modulation_combinations() {
 
 /** @brief Temporal columns finish one blend of deferred color endpoints. */
 inline void test_shader_chain_modulation_temporal_endpoints() {
-  constexpr size_t BLOCKS = In::CHAIN_ARENA_BYTES / sizeof(std::max_align_t);
-  std::vector<std::max_align_t> history(BLOCKS), column(BLOCKS);
+  auto blocks = std::make_unique<TemporalBlocks>();
   auto fixture = std::make_unique<ProgramFixture>();
   auto &program = fixture->program;
-  program.bind_temporal_storage(reinterpret_cast<uint8_t *>(history.data()),
-                                reinterpret_cast<uint8_t *>(column.data()));
+  program.bind_temporal_storage(blocks->history, blocks->column);
   const In::ChainEntryRequest CHAIN[] = {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},

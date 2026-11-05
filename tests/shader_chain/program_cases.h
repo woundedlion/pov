@@ -218,15 +218,6 @@ inline void test_shader_chain_table_integrity() {
   HS_EXPECT_EQ(approximate_count, 2u);
 }
 
-/** Schema field of @p op with id @p field_id, or null. */
-inline const In::ParamFieldInfo *schema_field(const In::OperatorDescriptor &op,
-                                              std::string_view field_id) {
-  for (const In::ParamFieldInfo &field : op.schema_span())
-    if (std::string_view(field.id) == field_id)
-      return &field;
-  return nullptr;
-}
-
 inline void test_shader_chain_schema_and_field_ids() {
   static_assert(std::is_same_v<In::Op::ProjectionCoverageMode,
                                PB::ProjectionCoverageMode>);
@@ -586,10 +577,7 @@ inline void test_shader_chain_schema_and_field_ids() {
     HS_EXPECT_EQ(static_cast<int>(projection.output),
                  static_cast<int>(In::CarrierId::PLANE));
     bool has_meridian = false;
-    const In::ParamFieldInfo *frame_policy = nullptr;
-    for (const In::ParamFieldInfo &field : projection.schema_span())
-      if (std::string_view(field.id) == "frame")
-        frame_policy = &field;
+    const auto *frame_policy = schema_field(projection, "frame");
     HS_EXPECT_TRUE(frame_policy != nullptr);
     if (frame_policy != nullptr) {
       HS_EXPECT_TRUE(frame_policy->topology);
@@ -811,13 +799,9 @@ inline void test_shader_chain_param_address_channel() {
   verify_crossing_address.template operator()<In::Op::SampleSpiralV3>();
   verify_crossing_address.template operator()<In::Op::SampleBands>();
   if (const auto *twin_wave = require_operator(In::Op::SampleTwinWaveV3::ID)) {
-    const auto *drift = std::find_if(
-        twin_wave->schema, twin_wave->schema + twin_wave->schema_count,
-        [](const auto &field) {
-          return std::string_view(field.id) == "drift";
-        });
-    HS_EXPECT_TRUE(drift != twin_wave->schema + twin_wave->schema_count);
-    if (drift != twin_wave->schema + twin_wave->schema_count)
+    const auto *drift = schema_field(*twin_wave, "drift");
+    HS_EXPECT_TRUE(drift != nullptr);
+    if (drift)
       HS_EXPECT_EQ(drift->max, 2.0f);
   }
   auto fixture = std::make_unique<ProgramFixture>();

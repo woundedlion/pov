@@ -144,12 +144,7 @@ inline void test_shader_chain_atlas_full_face_edge_fade() {
   projection.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
   source.coverage_mode =
       static_cast<uint8_t>(In::Op::ProjectionCoverageMode::EDGE_FADE);
-  const auto *width_field = [&]() -> const In::ParamFieldInfo * {
-    for (const auto &field : program.ops()[2].op->schema_span())
-      if (std::string_view(field.id) == "edge-width")
-        return &field;
-    return nullptr;
-  }();
+  const auto *width_field = schema_field(*program.ops()[2].op, "edge-width");
   HS_EXPECT_TRUE(width_field != nullptr);
   if (!width_field)
     return;
