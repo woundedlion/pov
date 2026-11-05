@@ -14,6 +14,7 @@ SUFFIX=""
 if [ -n "${HS_PROFILE_DEEP:-}" ] && [ "${HS_PROFILE_DEEP:-}" != "0" ]; then
   SUFFIX="_deep"
 fi
+[ -z "${HS_PROFILE_PC:-}" ] || [ "$HS_PROFILE_PC" = 0 ] || SUFFIX="${SUFFIX}_pc"
 
 export HS_PROFILE_OUT="build/prof/islamicstars_big_ship${SUFFIX}.log"
 export HS_PROFILE_EXPECT_SHAPE=truncatedIcosidodecahedron_truncate50d_ambo_dual
