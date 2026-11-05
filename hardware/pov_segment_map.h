@@ -212,6 +212,16 @@ struct SegmentClip {
 };
 
 /**
+ * @brief Whether a segment sweeps the canvas's left half.
+ * @param m Segment arm mapping.
+ * @param arm_a_left Whether arm A sweeps its left half this window.
+ * @return True when the segment sweeps columns [0, w/2).
+ */
+constexpr bool segment_sweeps_left(const SegmentMap &m, bool arm_a_left) {
+  return m.arm_b ? !arm_a_left : arm_a_left;
+}
+
+/**
  * @brief Canvas sub-rectangle a segment renders for the upcoming display window.
  * @param m Segment vertical mapping (arm side and strip direction).
  * @param arm_a_left True if the window this frame displays in sweeps arm-A
@@ -229,7 +239,7 @@ constexpr SegmentClip segment_clip(const SegmentMap &m, bool arm_a_left, int S,
                                    int N, int w) {
   const int pps = S / N;
   const int y0 = m.y_step > 0 ? m.y_base : m.y_base - (pps - 1);
-  const bool left = m.arm_b ? !arm_a_left : arm_a_left;
+  const bool left = segment_sweeps_left(m, arm_a_left);
   const int x0 = left ? 0 : w / 2;
   return SegmentClip{x0, x0 + w / 2, y0, y0 + pps};
 }

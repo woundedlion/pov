@@ -51,7 +51,7 @@ inline void advance_segment_display(Effect &effect, const SegmentMap &segment,
     const ClipRegion &clip = effect.clip();
     if (clip.x_start == 0 && clip.x_end == effect.width())
       return true;
-    const bool LEFT = segment.arm_b ? !window_left : window_left;
+    const bool LEFT = segment_sweeps_left(segment, window_left);
     return clip.x_start == (LEFT ? 0 : effect.width() / 2);
   });
 }
