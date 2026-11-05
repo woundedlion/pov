@@ -1257,6 +1257,11 @@ inline void test_ash_cloud_document_pipeline() {
 #include "tests/composed_effect/authored_policies.h"
 /** @brief Promoted pixels match the authored document-built chains. */
 inline void test_promoted_document_pipelines() {
+#if HS_TEST_FAST_MATH
+  constexpr int CHANNEL_TOLERANCE = 2;
+#else
+  constexpr int CHANNEL_TOLERANCE = 1;
+#endif
   static_assert(Involution<SMALL_W, SMALL_H>::authored_instance("source") ==
                 "sample");
   composed_chain_tests::verify_export<Involution<SMALL_W, SMALL_H>>(0);
@@ -1265,6 +1270,22 @@ inline void test_promoted_document_pipelines() {
   composed_chain_tests::verify_export<Iridescence<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<CosmicEyeball<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<KaleidoscopeHexOil<SMALL_W, SMALL_H>>(0);
+  composed_chain_tests::verify_export<AlienBrain<SMALL_W, SMALL_H>>(
+      0, CHANNEL_TOLERANCE);
+  composed_chain_tests::verify_export<AlienOcean<SMALL_W, SMALL_H>>(
+      0, CHANNEL_TOLERANCE);
+  composed_chain_tests::verify_export<KaleidoscopeMandala<SMALL_W, SMALL_H>>(
+      0, CHANNEL_TOLERANCE);
+  composed_chain_tests::verify_export<GridSpace<SMALL_W, SMALL_H>>(
+      0, CHANNEL_TOLERANCE);
+  composed_chain_tests::verify_export<ChromaticLichen<SMALL_W, SMALL_H>>(
+      0, CHANNEL_TOLERANCE);
+  composed_chain_tests::verify_export<MermaidSkin<SMALL_W, SMALL_H>>(
+      0, CHANNEL_TOLERANCE);
+  composed_chain_tests::verify_export<JewelMelt<SMALL_W, SMALL_H>>(
+      0, CHANNEL_TOLERANCE);
+  composed_chain_tests::verify_export<KaleidoscopeFlowers<SMALL_W, SMALL_H>>(
+      0, CHANNEL_TOLERANCE);
 }
 
 /** @brief Module entry point for the composed-effect base contract. */
