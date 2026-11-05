@@ -707,6 +707,21 @@ inline void case_opleg_no_event_slot() {
   Animation::OpLeg::require_event_slot();
 }
 
+/** @brief Traps on a nonfinite captured ripple peak. */
+inline void case_ripple_nonfinite_peak() {
+  Animation::RippleParams params;
+  params.amplitude = opaque(std::numeric_limits<float>::quiet_NaN());
+  Animation::Ripple ripple(params, math::Y_AXIS, 0.2f, 4);
+}
+
+/** @brief Traps on an infinite ball-drop radius. */
+inline void case_ball_drop_nonfinite_radius() {
+  Animation::BumpParams params;
+  params.radius = opaque(std::numeric_limits<float>::infinity());
+  math::Orientation<4> orientation;
+  Animation::BallDrop drop(params, orientation, math::Y_AXIS, 0.0f, 4);
+}
+
 /** @brief Rejects non-finite ball-drop azimuth. */
 inline void case_ball_drop_nonfinite_azimuth() {
   Animation::BumpParams params;

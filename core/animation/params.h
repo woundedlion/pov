@@ -1008,6 +1008,8 @@ public:
         peak_amplitude(params.amplitude) {
     HS_CHECK(duration >= 2, "Ripple duration must be >= 2");
     HS_CHECK(std::isfinite(speed), "Ripple speed must be finite");
+    HS_CHECK(std::isfinite(params.amplitude),
+             "Ripple peak amplitude must be finite");
     this->params.get().center = center.normalized();
     this->params.get().phase = 0.0f;
     // Start at 0 to prevent 1-frame singularity before first step()
@@ -1248,7 +1250,8 @@ public:
         orientation(&orientation), normal(normal), azimuth(azimuth) {
     HS_CHECK(duration >= 2, "BallDrop duration must be >= 2");
     HS_CHECK(std::isfinite(azimuth), "BallDrop azimuth must be finite");
-    HS_CHECK(params.radius > 0.0f, "BallDrop needs a positive bump radius");
+    HS_CHECK(std::isfinite(params.radius) && params.radius > 0.0f,
+             "BallDrop needs a finite positive bump radius");
     params.envelope = 0.0f;
     params.sync();
   }
