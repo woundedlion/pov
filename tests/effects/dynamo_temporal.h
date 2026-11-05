@@ -140,7 +140,7 @@ struct DynamoTemporalOracle {
                                             effect.NUM_NODES - 1);
         for (size_t i = 1; i < effect.NUM_NODES; ++i)
           edges.push_back({uint16_t(i - 1), uint16_t(i)});
-        auto &sink = effect.filters.next.next.next;
+        auto &sink = effect.filters.template after<Filter::World::Orient>();
         const Color4 color = effect.color(source[0], 0.0f);
         const auto shader = [&](const math::Vector &, Fragment &f) {
           f.color = color;

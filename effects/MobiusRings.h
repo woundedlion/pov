@@ -438,7 +438,7 @@ private:
                                          3.0f * turn * warp_path.second};
     const float displacement = turn + 2.0f * shift;
     const float phase_delta = std::remainder(end.phase - start.phase, 1.0f);
-    auto &sink = filters.next.next;
+    auto &sink = filters.template after<SouthHole>();
     for (int axis = 0; axis < 2; ++axis) {
       const float first_num = axis == 0 ? start.rings : start.lines;
       const float num = axis == 0 ? end.rings : end.lines;

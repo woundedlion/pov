@@ -166,7 +166,7 @@ struct MobiusRingsWhiteBox {
           geometry.chained = true;
           geometry.rigid_lattice = true;
           Plot::Mesh::draw_column_edges<W, H>(
-              fx.filters.next.next, canvas,
+              fx.filters.template after<typename FX::SouthHole>(), canvas,
               Plot::Mesh::VertexSpan{{vertices, FX::CURVE_SIDES}}, edges,
               shader, geometry, 0);
         }

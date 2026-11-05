@@ -131,4 +131,13 @@ inline void test_pipeline_get_returns_correct_filter() {
   static_assert(Pipeline<W, H, AA, Blur, CS>::stage_count<Blur> == 1);
   static_assert(Pipeline<W, H, AA, Blur, CS>::stage_count<Absent> == 0);
   static_assert(Pipeline<W, H, Blur, Blur, CS>::stage_count<Blur> == 2);
+  using Suffix = Pipeline<W, H, CS>;
+  using Stack = Pipeline<W, H, AA, Blur, CS>;
+  using Extended = Pipeline<W, H, Filter::World::Hole, AA, Blur, CS>;
+  static_assert(
+      std::is_same_v<decltype(std::declval<Stack &>().template after<Blur>()),
+                     Suffix &>);
+  static_assert(std::is_same_v<
+                decltype(std::declval<Extended &>().template after<Blur>()),
+                Suffix &>);
 }

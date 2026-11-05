@@ -499,6 +499,14 @@ template <int W, int H> struct Pipeline<W, H> {
   /** @brief Occurrences of stage type T in this pipeline (base case: none). */
   template <typename T> static constexpr int stage_count = 0;
 
+  /** @brief Rejects suffix lookup for an absent stage.
+   * @tparam T Stage type.
+   * @return Never returns; instantiation is a hard error. */
+  template <typename T> HS_HOT_INLINE auto &after() {
+    static_assert(!sizeof(T *), "Filter type T not found in Pipeline");
+    return *this;
+  }
+
   /**
    * @brief Type-safe filter accessor (base case: T not found).
    * @tparam T Filter type being looked up.
@@ -926,6 +934,18 @@ struct Pipeline<W, H, Head, Tail...>
 
   /** @brief Default-constructs every stage in the pipeline. */
   Pipeline() = default;
+
+  /** @brief Returns the pipeline suffix following a unique stage.
+   * @tparam T Stage type, occurring exactly once.
+   * @return Reference to the pipeline after T. */
+  template <typename T> HS_HOT_INLINE auto &after() {
+    static_assert(stage_count<T> == 1,
+                  "after<T>() requires exactly one matching Pipeline stage");
+    if constexpr (std::is_same_v<Head, T>)
+      return next;
+    else
+      return next.template after<T>();
+  }
 
   /**
    * @brief Type-safe filter accessor: finds the stage of type T.

@@ -373,7 +373,7 @@ private:
       const auto start = copy_poses.rotate(v, 0.0f);
       const auto middle = copy_poses.rotate(v, 0.5f);
       point.plot(
-          filters.next.next.next, canvas, end,
+          filters.template after<Filter::World::Orient>(), canvas, end,
           [&]() HS_HOT_INLINE { return start; },
           [&]() HS_HOT_INLINE {
             Color4 c = color(v, 0.0f);
@@ -404,7 +404,7 @@ private:
               const auto end = filters.next.world_at(canvas, v, 1.0f);
               const auto middle = filters.next.world_at(canvas, v, 0.5f);
               route.plot(
-                  filters.next.next.next, canvas, end,
+                  filters.template after<Filter::World::Orient>(), canvas, end,
                   [&]() HS_HOT_INLINE { return start; },
                   [&]() HS_HOT_INLINE { return Color4(pixel, alpha); },
                   middle - (start + end) * 0.5f);
