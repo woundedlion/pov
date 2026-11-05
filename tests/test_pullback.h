@@ -3330,6 +3330,97 @@ inline void test_pullback_fused_rgb_carrier_finish() {
     }
 }
 
+struct CachedSinePhaseProvider : PhaseLayerProvider {
+  static constexpr bool SINE_PHASE = true;
+};
+
+/** @brief Direct cached phase shading matches deferred finishing and its guards. */
+inline void test_pullback_cached_phase_finish() {
+  using namespace Pullback;
+  using Policy = Color::GeneratedPalette<LabPaletteProvider>;
+  using Layer = Color::Modulate<CachedSinePhaseProvider>;
+  using Pipeline =
+      Pullback::Pipeline<PaletteBinding, PaletteSampleStage,
+                         Stage::Colorize<Policy>, Stage::Modulate<Layer>>;
+  using Core =
+      Detail::PipelineCore<true, PaletteBinding, typename Pipeline::NodeList>;
+  static_assert(Core::has_direct_final_color());
+  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> bytes{};
+  Arena arena(bytes.data(), bytes.size());
+  BakedPaletteStorage a, b;
+  a.bake(arena, ConstantPalette{Color4(Pixel(12000, 8000, 4000), 1.0f)});
+  b.bake(arena, ConstantPalette{Color4(Pixel(7000, 15000, 19000), 1.0f)});
+  PaletteLabLut cache;
+  cache.bake(a.view(), b.view());
+  PaletteRgbHueLut rgb;
+  rgb.bake(cache);
+  PaletteFrame frame;
+  frame.palette = &b.view();
+  frame.temporal.palette = &a.view();
+  frame.lab = &cache;
+  Color::PhaseModulationState modulation;
+  modulation.source = Pattern::SourceKind::DISPLACEMENT;
+  modulation.enabled = true;
+  frame.phase = &modulation;
+  modulation.grid.a = {math::Y_AXIS, 2.1f, 0.37f};
+  Modulation::Prepared sine{};
+  sine.config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+  sine.source = modulation.grid.a;
+  sine.evaluate = [](const Modulation::Prepared &prepared,
+                     const Pattern::SphereDirection &direction) {
+    return Pattern::DirectionalSine::sample(
+        direction,
+        std::get<Pattern::DirectionalSine::Prepared>(prepared.source));
+  };
+  modulation.current = modulation.previous = &sine;
+  for (auto source : {Pattern::SourceKind::DISPLACEMENT,
+                      Pattern::SourceKind::DIRECTIONAL_SINE}) {
+    modulation.source = source;
+    for (float fraction : {0.0f, 0.125f, 0.5f, 0.875f, 1.0f})
+      for (float amount : {-3.7f, -0.2f, 0.0f, 0.65f})
+        for (bool ready : {false, true})
+          for (auto kind :
+               {ColorModulation::Mechanic::HUE_ROTATION,
+                ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT}) {
+            if (kind == ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT &&
+                amount < 0.0f)
+              continue;
+            modulation.ready = ready;
+            modulation.mechanic = {kind, amount};
+            frame.temporal.fraction = fraction;
+            const auto PREPARED = Pipeline::prepare_stages(frame);
+            const SphereSample INPUT{math::Y_AXIS, 0.7f};
+            const auto EXPECTED = finish_color_sample(
+                Core::template run_stage<0>(INPUT, frame, PREPARED));
+            const auto ACTUAL =
+                Core::template shade_stage<0>(INPUT, frame, PREPARED);
+            HS_EXPECT_EQ(ACTUAL.color, EXPECTED.color);
+            HS_EXPECT_EQ(ACTUAL.alpha, EXPECTED.alpha);
+            const auto PALETTE = Policy::prepare(frame);
+            for (float value : {0.0f, 0.01f, 0.5f, 0.99f, 1.0f}) {
+              const FieldSample FIELD{value, 0.5f, math::Y_AXIS, 0.7f};
+              ColorSample carrier;
+              const bool SHARED =
+                  Policy::apply_shared_base(FIELD, frame, PALETTE, carrier);
+              Color4 direct;
+              const bool FINISHED = Policy::template shade_cached_phase<Layer>(
+                  FIELD, PALETTE, modulation, direct);
+              HS_EXPECT_EQ(
+                  FINISHED,
+                  SHARED && ready &&
+                      (amount == 0.0f ||
+                       kind == ColorModulation::Mechanic::HUE_ROTATION));
+              if (FINISHED) {
+                Layer::apply_phase_in_place(carrier, frame, modulation);
+                const auto REFERENCE = finish_color_sample(carrier);
+                HS_EXPECT_EQ(direct.color, REFERENCE.color);
+                HS_EXPECT_EQ(direct.alpha, REFERENCE.alpha);
+              }
+            }
+          }
+  }
+}
+
 /** @brief Consecutive analogous cycle bakes meet cached channel bounds. */
 inline void test_pullback_palette_lab_qualification() {
   using namespace Pullback;
@@ -4925,6 +5016,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_palette_lab_nodes);
   HS_RUN(test_pullback_palette_lab_owned_copy);
   HS_RUN(test_pullback_fused_rgb_carrier_finish);
+  HS_RUN(test_pullback_cached_phase_finish);
   HS_RUN(test_pullback_cached_lab_finish);
   HS_RUN(test_pullback_palette_lab_qualification);
   HS_RUN(test_pullback_shared_lab_dispatch);

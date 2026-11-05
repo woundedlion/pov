@@ -1759,14 +1759,66 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
           NODE_COUNT - 2, typename NodeAt<NODE_COUNT - 2>::Input>();
   }
 
+  /** @brief Checks a canonical cached palette and final phase layer.
+   * @tparam Index Palette crossing index.
+   * @tparam Input Carrier entering the crossing.
+   * @return Whether the crossing can finish cached RGB directly. */
+  template <size_t Index, typename Input>
+  static constexpr bool cached_phase_tail_supported() {
+    if constexpr (Index + 2 != NODE_COUNT ||
+                  !std::same_as<typename Binding::Instrumentation,
+                                NoInstrumentation>)
+      return false;
+    else if constexpr (requires {
+                         typename NodeAt<Index>::Descriptor::FusedStageOwner;
+                         typename NodeAt<Index +
+                                         1>::Descriptor::FusedStageOwner;
+                         typename NodeAt<Index>::Descriptor::ColorPolicy;
+                         typename NodeAt<Index + 1>::Descriptor::ColorPolicy;
+                       }) {
+      using PaletteStage = typename NodeAt<Index>::Descriptor;
+      using LayerStage = typename NodeAt<Index + 1>::Descriptor;
+      using Palette = typename PaletteStage::ColorPolicy;
+      using Layer = typename LayerStage::ColorPolicy;
+      if constexpr (requires {
+                      typename Palette::SharedBaseOwner;
+                      typename Palette::CachedPhaseOwner;
+                      typename Layer::PairedOwner;
+                    })
+      return std::same_as<PaletteStage,
+                          typename PaletteStage::FusedStageOwner> &&
+             std::same_as<LayerStage, typename LayerStage::FusedStageOwner> &&
+             std::same_as<Palette, typename Palette::SharedBaseOwner> &&
+             std::same_as<Palette, typename Palette::CachedPhaseOwner> &&
+             std::same_as<Layer, typename Layer::PairedOwner> &&
+               requires(const Input &input, const FrameState &ctx,
+                        const PreparedTuple &prepared, Color4 &output)
+      {
+        ctx.temporal.fraction;
+        Palette::template shade_cached_phase<Layer>(
+            input, std::get<Index>(prepared), std::get<Index + 1>(prepared),
+            output);
+      };
+      else return false;
+    } else
+      return false;
+  }
+
   /** @brief Whether the terminal descriptor supplies a finished color.
    * @return Whether deferred color state can be omitted. */
   static constexpr bool has_direct_final_color() {
     using Last = NodeAt<NODE_COUNT - 1>;
-    return requires(const typename Last::Input &input, const FrameState &ctx,
-                    const typename Last::Prepared &prepared) {
-      Last::run_final(input, ctx, prepared);
-    };
+    constexpr bool TERMINAL =
+        requires(const typename Last::Input &input, const FrameState &ctx,
+                 const typename Last::Prepared &prepared) {
+          Last::run_final(input, ctx, prepared);
+        };
+    if constexpr (NODE_COUNT < 2)
+      return TERMINAL;
+    else
+      return TERMINAL ||
+             cached_phase_tail_supported<
+                 NODE_COUNT - 2, typename NodeAt<NODE_COUNT - 2>::Input>();
   }
 
   /** @brief Runs a prefix and finishes its color crossing.
@@ -1786,7 +1838,18 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                                            std::get<Index>(prepared));
                   }) {
       return CurrentNode::run_final(input, ctx, std::get<Index>(prepared));
-    } else if constexpr (fused_color_tail_supported<Index, Input>()) {
+    }
+    if constexpr (cached_phase_tail_supported<Index, Input>()) {
+      using Palette = typename CurrentNode::Descriptor::ColorPolicy;
+      using Layer = typename NodeAt<Index + 1>::Descriptor::ColorPolicy;
+      Color4 result;
+      if (ctx.temporal.fraction > 0.0f && ctx.temporal.fraction <= 1.0f &&
+          Palette::template shade_cached_phase<Layer>(
+              input, std::get<Index>(prepared), std::get<Index + 1>(prepared),
+              result))
+        return result;
+    }
+    if constexpr (fused_color_tail_supported<Index, Input>()) {
       if (ctx.temporal.fraction > 0.0f && ctx.temporal.fraction <= 1.0f) {
         using Palette = typename CurrentNode::Descriptor::ColorPolicy;
         using Instrumentation = typename Binding::Instrumentation;

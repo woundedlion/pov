@@ -538,6 +538,64 @@ struct ChamberPhaseModulationState : PhaseModulationState {
   bool lazy_noise_offset = false;    ///< Resolve the loop offset on fallback.
 };
 
+/** @brief Samples one prepared phase, sharing per-pixel cube coordinates.
+ * @tparam Phase Prepared modulation phase type.
+ * @param field Source coordinates and displacement travel.
+ * @param prepared Ready column phase.
+ * @param scratch Lookups shared by this phase tail.
+ * @return Source scalar before its mechanic. */
+template <typename Phase, bool SinePhase = true>
+HS_HOT_INLINE inline float sample_phase_scalar(const FieldSample &field,
+                                               const Phase &prepared,
+                                               PhaseScratch &scratch)
+  requires std::is_base_of_v<PhaseModulationState, Phase>
+{
+  float scalar = 0.0f;
+  if (prepared.source == Pattern::SourceKind::DISPLACEMENT)
+    scalar = field.path_length;
+  else if (prepared.source == Pattern::SourceKind::NOISE) {
+    if constexpr (std::is_same_v<Phase, CubePhaseModulationState>)
+      if (prepared.cube_current) {
+        if (!scratch.cube_tap_ready) {
+          scratch.cube_tap =
+              Pattern::prepare_sphere_lut_sample_unchecked(field.sphere);
+          scratch.cube_tap_ready = true;
+        }
+        const auto &TAP = scratch.cube_tap;
+        return hs::lerp(
+            Pattern::bounded_scalar(TAP.sample(*prepared.cube_previous)),
+            Pattern::bounded_scalar(TAP.sample(*prepared.cube_current)),
+            prepared.cube_fraction);
+      }
+    bool cached = false;
+    if constexpr (std::is_same_v<Phase, ChamberPhaseModulationState>)
+      if (prepared.noise_previous && prepared.noise_current)
+        cached = Modulation::sample_chamber_noise(
+            field.sphere, prepared.noise_to_chamber, *prepared.noise_previous,
+            *prepared.noise_current, prepared.noise_fraction, scalar);
+    if (!cached) {
+      const auto &noise = *prepared.noise;
+      auto noise_offset = prepared.noise_offset;
+      if constexpr (std::is_same_v<Phase, ChamberPhaseModulationState>)
+        if (prepared.lazy_noise_offset)
+          noise_offset = math::noise_sphere_loop_offset(prepared.noise_phase);
+      const auto q = math::noise_sphere_coordinate(
+          Pattern::SphereDirection::admit(field.sphere).value(), noise.scale,
+          noise_offset);
+      scalar =
+          Pattern::bounded_scalar(noise.noise.GetNoiseSingle(q.x, q.y, q.z));
+    }
+  } else {
+    if constexpr (SinePhase)
+      if (prepared.source == Pattern::SourceKind::DIRECTIONAL_SINE)
+        return Pattern::DirectionalSine::sample(
+            Pattern::SphereDirection::admit(field.sphere), prepared.grid.a);
+    scalar = Pattern::SphereSmoothGrid::sample(
+        Pattern::SphereDirection::admit(field.sphere), prepared.grid);
+  }
+  return scalar;
+}
+
 /** @brief Accumulates one deferred hue rotation.
  * @param hue Prior hue in turns.
  * @param scalar Source value.
@@ -547,6 +605,54 @@ HS_HOT_INLINE inline float
 accumulate_hue(float hue, float scalar,
                const ColorModulation::Params &mechanic) {
   return math::wrap_t(hue + math::wrap_t(mechanic.amount * scalar));
+}
+
+/** @brief Samples a cached RGB palette with the accumulated phase hue.
+ * @param sample Field coordinates and coverage.
+ * @param prepared Cached interval base and palette controls.
+ * @param hue Accumulated hue in turns.
+ * @return Final straight-alpha color. */
+HS_HOT_FLASH_MEMBER inline Color4
+finish_cached_phase(const FieldSample &sample,
+                    const TemporalGeneratedPaletteState &prepared, float hue) {
+  const auto &state = prepared.current;
+  const float VALUE =
+      palette_mapping_coordinate(sample.value, state.mapping,
+                                 state.mapping_frequency, state.mapping_offset);
+  return Color4(PaletteRgbHueLut::sample(prepared.lab, VALUE, hue),
+                palette_opacity(sample, state));
+}
+
+/** @brief Finishes a cached RGB palette through one prepared phase.
+ * @tparam Phase Prepared modulation phase type.
+ * @param sample Shared field coordinates.
+ * @param prepared Prepared palette endpoints.
+ * @param modulation Ready column phase.
+ * @param output Receives the final straight-alpha color.
+ * @return Whether this phase and RGB cache admit direct finishing. */
+template <typename Phase>
+HS_HOT_FLASH_MEMBER inline bool
+shade_cached_phase(const FieldSample &sample,
+                   const TemporalGeneratedPaletteState &prepared,
+                   const Phase &modulation, Color4 &output)
+  requires std::is_base_of_v<PhaseModulationState, Phase>
+{
+  if (!prepared.lab.low || !prepared.lab.rgb_low || !prepared.lab.rgb_high ||
+      prepared.fraction <= 0.0f || prepared.fraction > 1.0f ||
+      prepared.current.brightness_envelope != BrightnessEnvelope::NONE ||
+      !modulation.ready ||
+      (modulation.enabled && modulation.mechanic.amount != 0.0f &&
+       modulation.mechanic.kind != ColorModulation::Mechanic::HUE_ROTATION))
+    return false;
+  PhaseScratch scratch;
+  const float HUE =
+      modulation.enabled && modulation.mechanic.amount != 0.0f
+          ? accumulate_hue(
+                0.0f, Color::sample_phase_scalar(sample, modulation, scratch),
+                modulation.mechanic)
+          : 0.0f;
+  output = finish_cached_phase(sample, prepared, HUE);
+  return true;
 }
 
 /** @brief Accumulates one deferred positive lightness lift.
@@ -761,8 +867,9 @@ inline constexpr std::array<ApproximationMetric, 3> MODULATION_LUT_METRICS{{
 /** @brief Generated-palette policy with retained immutable endpoints.
  * @tparam State Palette resource provider. */
 template <typename State> struct GeneratedPalette : ApproximationDefaults {
-  using SharedBaseOwner = GeneratedPalette<State>; ///< Cache-contract owner.
-  static constexpr bool PHASE_BLEND_BASE = true;   ///< Common field controls.
+  using SharedBaseOwner = GeneratedPalette<State>;  ///< Cache-contract owner.
+  using CachedPhaseOwner = GeneratedPalette<State>; ///< Direct finish owner.
+  static constexpr bool PHASE_BLEND_BASE = true;    ///< Common field controls.
   /** @brief Checks the generated-palette provider contract.
    * @tparam Binding Frame binding. */
   template <typename Binding>
@@ -820,6 +927,22 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
   using Prepared =
       std::conditional_t<TEMPORAL, TemporalGeneratedPaletteState,
                          GeneratedPaletteState>; ///< Endpoint state.
+  /** @brief Finishes an eligible cached phase without a deferred carrier.
+   * @tparam Layer Canonical phase modulation policy.
+   * @param sample Shared field coordinates.
+   * @param prepared Prepared palette endpoints.
+   * @param modulation Prepared column phase.
+   * @param output Receives the final straight-alpha color.
+   * @return Whether the RGB cache supplied the final color. */
+  template <typename Layer>
+  HS_HOT_INLINE static bool
+  shade_cached_phase(const FieldSample &sample, const Prepared &prepared,
+                     const typename Layer::Prepared &modulation, Color4 &output)
+    requires(TEMPORAL && LAB_CACHE &&
+             std::is_base_of_v<PhaseModulationState, typename Layer::Prepared>)
+  {
+    return Color::shade_cached_phase(sample, prepared, modulation, output);
+  }
   /** @brief Prepares immutable endpoint controls.
    * @tparam FrameState Frame context.
    * @param frame Current frame.
@@ -1369,50 +1492,8 @@ template <typename State> struct Modulate : ApproximationDefaults {
                                                  PhaseScratch &scratch)
     requires std::is_base_of_v<PhaseModulationState, Prepared>
   {
-    float scalar = 0.0f;
-    if (prepared.source == Pattern::SourceKind::DISPLACEMENT)
-      scalar = field.path_length;
-    else if (prepared.source == Pattern::SourceKind::NOISE) {
-      if constexpr (std::is_same_v<Prepared, CubePhaseModulationState>)
-        if (prepared.cube_current) {
-          if (!scratch.cube_tap_ready) {
-            scratch.cube_tap =
-                Pattern::prepare_sphere_lut_sample_unchecked(field.sphere);
-            scratch.cube_tap_ready = true;
-          }
-          const auto &TAP = scratch.cube_tap;
-          return hs::lerp(
-              Pattern::bounded_scalar(TAP.sample(*prepared.cube_previous)),
-              Pattern::bounded_scalar(TAP.sample(*prepared.cube_current)),
-              prepared.cube_fraction);
-        }
-      bool cached = false;
-      if constexpr (std::is_same_v<Prepared, ChamberPhaseModulationState>)
-        if (prepared.noise_previous && prepared.noise_current)
-          cached = Modulation::sample_chamber_noise(
-              field.sphere, prepared.noise_to_chamber, *prepared.noise_previous,
-              *prepared.noise_current, prepared.noise_fraction, scalar);
-      if (!cached) {
-        const auto &noise = *prepared.noise;
-        auto noise_offset = prepared.noise_offset;
-        if constexpr (std::is_same_v<Prepared, ChamberPhaseModulationState>)
-          if (prepared.lazy_noise_offset)
-            noise_offset = math::noise_sphere_loop_offset(prepared.noise_phase);
-        const auto q = math::noise_sphere_coordinate(
-            Pattern::SphereDirection::admit(field.sphere).value(), noise.scale,
-            noise_offset);
-        scalar =
-            Pattern::bounded_scalar(noise.noise.GetNoiseSingle(q.x, q.y, q.z));
-      }
-    } else {
-      if constexpr (SINE_PHASE)
-        if (prepared.source == Pattern::SourceKind::DIRECTIONAL_SINE)
-          return Pattern::DirectionalSine::sample(
-              Pattern::SphereDirection::admit(field.sphere), prepared.grid.a);
-      scalar = Pattern::SphereSmoothGrid::sample(
-          Pattern::SphereDirection::admit(field.sphere), prepared.grid);
-    }
-    return scalar;
+    return Color::sample_phase_scalar<Prepared, SINE_PHASE>(field, prepared,
+                                                            scratch);
   }
   /** @brief Modulates one endpoint.
    * @tparam FrameState Frame context.
