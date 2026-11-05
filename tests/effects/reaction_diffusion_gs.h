@@ -913,11 +913,6 @@ struct GSWhiteBox {
         error.total_channel += dr + dg + db;
       }
     }
-    Pixel culled = gs.shade_pixel(-1, math::Vector(), world_nodes, grid, 0);
-    if (culled != Pixel(0, 0, 0)) {
-      ++error.different;
-      ++error.above_rounding;
-    }
     return error;
   }
 };

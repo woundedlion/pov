@@ -1044,9 +1044,6 @@ private:
       int seed, const math::Vector &center_rv, const math::Vector *nodes,
       const Grid &grid, const Column &column, const Flags &hot_flags,
       const ReactionGraph::CubemapLUT::Projection *projection) const {
-    if (seed < 0)
-      return Pixel(0, 0, 0);
-
     constexpr uint32_t SAMPLES = Grid::SAMPLES;
     float weights[SAMPLES] = {}, weighted_b[SAMPLES] = {};
     uint16_t pigment;
@@ -1116,7 +1113,7 @@ private:
    * @tparam Grid Scan::Shader::SsaaGrid type supplying the sub-pixel offsets.
    * @tparam Column MeridianColumn or LatticeColumn.
    * @tparam Flags `const uint8_t *` or HotBits.
-   * @param seed Cubemap-LUT seed node id, or -1 for a culled pixel.
+   * @param seed Cubemap-LUT seed node id.
    * @param center_rv Direction at the pixel center, in the frame of @p nodes.
    * @param nodes Lattice node positions in the frame of @p column.
    * @param grid Row's SSAA sub-pixel grid.
@@ -1136,9 +1133,6 @@ private:
       int seed, const math::Vector &center_rv, const math::Vector *nodes,
       const Grid &grid, const Column &column, const Flags &hot_flags,
       const ReactionGraph::CubemapLUT::Projection *projection) const {
-    if (seed < 0)
-      return Pixel(0, 0, 0);
-
     static_assert(B_CULL_THRESHOLD == B_COLOR_FLOOR);
     constexpr uint32_t SAMPLES = Grid::SAMPLES;
     float w00 = 0, w11 = 0;
@@ -1242,7 +1236,7 @@ private:
   /**
    * @brief Shades one pixel against the oriented lattice at the fixed meridian.
    * @tparam Grid Scan::Shader::SsaaGrid type supplying the sub-pixel offsets.
-   * @param seed Cubemap-LUT seed node id, or -1 for a culled pixel.
+   * @param seed Cubemap-LUT seed node id.
    * @param center_rv World-space direction at the pixel center.
    * @param world_nodes Oriented lattice node positions.
    * @param grid Row's SSAA sub-pixel grid.
@@ -1266,7 +1260,7 @@ private:
    * @brief Shades one pixel against the unrotated lattice from its column's
    *        frame at its sweep time.
    * @tparam Grid Scan::Shader::SsaaGrid type supplying the sub-pixel offsets.
-   * @param seed Cubemap-LUT seed node id, or -1 for a culled pixel.
+   * @param seed Cubemap-LUT seed node id.
    * @param center Lattice-space direction at the pixel center.
    * @param grid Row's SSAA sub-pixel grid.
    * @param frame The pixel column's lattice-space frame.
