@@ -17,6 +17,16 @@ struct GSWhiteBox {
   static constexpr int N = GS::RD_N;
   static constexpr float RENDER_MIN_WEIGHT = GS::KERNEL_MIN_TOTAL_WEIGHT;
 
+  /** @brief Packs byte-reference flags into a guarded node bit set. */
+  static std::vector<uint32_t>
+  pack_hot_flags(const std::vector<uint8_t> &flags) {
+    std::vector<uint32_t> bits(GS::HOT_WORDS);
+    for (size_t i = 0; i < flags.size(); ++i)
+      if (flags[i])
+        bits[GS::HOT_GUARD_WORDS + (i >> 5)] |= uint32_t{1} << (i & 31);
+    return bits;
+  }
+
   template <int Width, int Height> static float render_support_weight_floor() {
     using Grid = Scan::Shader::SsaaGrid<Width, Height>;
     math::PhiLUT<Height>::init();
@@ -150,7 +160,9 @@ struct GSWhiteBox {
       std::vector<math::Vector> world(N);
       for (int i = 0; i < N; ++i)
         world[i] = m.apply(gs.nodes[i]);
-      gs.draw_lattice(canvas, world.data(), hot1.data(), hot2.data());
+      const auto BITS1 = pack_hot_flags(hot1), BITS2 = pack_hot_flags(hot2);
+      gs.draw_lattice(canvas, world.data(), gs.hot_bits(BITS1.data()),
+                      gs.hot_bits(BITS2.data()));
     }
     gs.advance_display();
   }
@@ -258,7 +270,9 @@ struct GSWhiteBox {
                                 GS::hot_bits(bits2.data()));
       } else {
         auto lattice = gs.orient_lattice();
-        gs.draw_lattice(canvas, lattice.get(), hot1.data(), hot2.data());
+        const auto BITS1 = pack_hot_flags(hot1), BITS2 = pack_hot_flags(hot2);
+        gs.draw_lattice(canvas, lattice.get(), gs.hot_bits(BITS1.data()),
+                        gs.hot_bits(BITS2.data()));
       }
     }
     gs.advance_display();
@@ -389,7 +403,9 @@ struct GSWhiteBox {
           }
         fewest_lit = std::min(fewest_lit, lit);
         clear();
-        gs.draw_lattice(canvas, lattice.get(), hot1.data(), hot2.data());
+        const auto BITS1 = pack_hot_flags(hot1), BITS2 = pack_hot_flags(hot2);
+        gs.draw_lattice(canvas, lattice.get(), gs.hot_bits(BITS1.data()),
+                        gs.hot_bits(BITS2.data()));
         for (int y = 0; y < Height; ++y)
           for (int x = 0; x < Width; ++x)
             compare(canvas(x, y), expected[y * Width + x]);

@@ -89,7 +89,7 @@ public:
         2u * RD_N * sizeof(float) + RD_N * sizeof(uint16_t) +
         2u * PHYSICS_HISTORY_SIZE * sizeof(float);
     constexpr size_t RASTER_SCRATCH_BYTES =
-        RD_N * sizeof(math::Vector) + 2u * RD_N * sizeof(uint8_t);
+        RD_N * sizeof(math::Vector) + 3u * HOT_WORDS * sizeof(uint32_t);
     // Slab tenants: basis, marked, hot1, hot2, cur_a, cur_b, next_pigment,
     // pending_a, pending_b and start_b.
     constexpr size_t SLAB_SCRATCH_BYTES =
@@ -1242,11 +1242,22 @@ private:
    * @param grid Row's SSAA sub-pixel grid.
    * @param x Pixel column.
    * @param hot_flags Per-node flags; a pixel whose center node is unflagged
-   *        shades black. Null shades every pixel.
+   *        shades black.
    * @param projection Pixel's precomputed cubemap projection for color noise,
    *        or null to project `center_rv`.
    * @return The finished alpha-premultiplied pixel.
    */
+  template <typename Grid>
+  HS_O3_FN Pixel shade_pixel(
+      int seed, const math::Vector &center_rv, const math::Vector *world_nodes,
+      const Grid &grid, int x, HotBits hot_flags,
+      const ReactionGraph::CubemapLUT::Projection *projection = nullptr) const {
+    return shade_column_pixel(seed, center_rv, world_nodes, grid,
+                              meridian_column<Grid>(x), hot_flags, projection);
+  }
+
+#if HS_ENABLE_TEST_ORACLES
+  /** @brief Byte-flag reference entry; null flags disable culling. */
   template <typename Grid>
   HS_O3_FN Pixel shade_pixel(
       int seed, const math::Vector &center_rv, const math::Vector *world_nodes,
@@ -1255,6 +1266,7 @@ private:
     return shade_column_pixel(seed, center_rv, world_nodes, grid,
                               meridian_column<Grid>(x), hot_flags, projection);
   }
+#endif
 
   /**
    * @brief Shades one pixel against the unrotated lattice from its column's
@@ -1278,6 +1290,7 @@ private:
                               LatticeColumn{frame}, hot_flags, projection);
   }
 
+#if HS_ENABLE_TEST_ORACLES
   /**
    * @brief Builds per-node two-ring "renderable" flags for the B field.
    * @param b Per-node B concentrations, Q16.
@@ -1324,6 +1337,7 @@ private:
   static HS_HOT_INLINE bool culled(const uint8_t *flags, int node) {
     return flags && !flags[node];
   }
+#endif
   /** @brief Whether a bit set culls a node. */
   static HS_HOT_INLINE bool culled(const HotBits &flags, int node) {
     return !flags[node];
@@ -1392,7 +1406,7 @@ private:
   }
 
   HS_O3_FN void draw_lattice(Canvas &canvas, const math::Vector *world_nodes,
-                             const uint8_t *hot1, const uint8_t *hot2) const {
+                             HotBits hot1, HotBits hot2) const {
     Scan::Shader::walk_grid<W, H>(
         canvas, [&](const math::Vector &center, const auto &grid, int x) {
           const math::Vector object_direction =
@@ -1625,16 +1639,19 @@ private:
       return orient_lattice();
     }();
     math::Vector *world_nodes = lattice.get();
-    uint8_t *hot1 = scratch_arena_a.allocate_n<uint8_t>(RD_N);
-    uint8_t *hot2 = scratch_arena_a.allocate_n<uint8_t>(RD_N);
+    uint32_t *marked = scratch_arena_a.allocate_n<uint32_t>(HOT_WORDS);
+    uint32_t *hot1 = scratch_arena_a.allocate_n<uint32_t>(HOT_WORDS);
+    uint32_t *hot2 = scratch_arena_a.allocate_n<uint32_t>(HOT_WORDS);
     {
       HS_PROFILE(grd_cull_flags);
-      fill_hot_flags(state.B, hot1, hot2, RD_N, to_q16(B_CULL_THRESHOLD));
+      mark_hot_bits(state.B, marked, to_q16(B_CULL_THRESHOLD));
+      dilate_hot_bits(marked, hot1);
+      dilate_hot_bits(hot1, hot2);
     }
 
     {
       HS_PROFILE(grd_shader_draw);
-      draw_lattice(canvas, world_nodes, hot1, hot2);
+      draw_lattice(canvas, world_nodes, hot_bits(hot1), hot_bits(hot2));
     }
   }
 
