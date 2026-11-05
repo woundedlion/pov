@@ -281,11 +281,10 @@ public:
         replay_stats = mindsplatter_replay::compare_frame_reference<W>(
             pixels, replay_clip, replay_reference_pixels, reference_count);
 #else
-        ReplayWhiteBox::draw_particles_inspect(
-            *this, [&](Canvas &canvas, const ClipRegion &clip) {
-              pixels = &canvas(0, 0);
-              replay_clip = clip;
-            });
+        Canvas canvas(*this);
+        replay_clip = canvas.clip();
+        ReplayWhiteBox::draw_particles_candidate(*this, canvas);
+        pixels = canvas.data();
 #endif
 #else
 #ifdef HS_PROFILE_PC
