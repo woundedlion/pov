@@ -283,7 +283,7 @@ bool render_instruction(const Instruction &instruction,
                                      instruction.preset, instruction.operation);
   if (!fixture)
     return false;
-  hs_test::effects_tests::reset_effect_globals();
+  hs_test::reset_globals();
   ShaderChain<W, H> effect;
   effect.init();
   if (effect.restore_snapshot(ChainCaptureFixtures::snapshot(
@@ -490,7 +490,7 @@ int capture(const char *operations_path, const char *output_path) {
       metrics.push_back({instruction.oracle});
       metric = metrics.end() - 1;
     }
-    hs_test::effects_tests::reset_effect_globals();
+    hs_test::reset_globals();
     ShaderChain<W, H> effect;
     effect.init();
     if (!measure_oracle<W, H>(effect, instruction, metric->maximum,
