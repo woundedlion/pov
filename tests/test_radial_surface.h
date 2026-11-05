@@ -10,7 +10,6 @@
 #include <array>
 #include <bit>
 #include <cfloat>
-#include <vector>
 #include <cmath>
 #include "core/render/scan/radial_surface.h"
 #include "core/render/scan/radial_surface_edge_aa.h"
@@ -501,9 +500,7 @@ inline void test_radial_surface_edge_aa() {
           P, Scan::radial_atan2(P.y, P.x));
       const double POINT = center.found() ? shade(center).r : 0;
       const float ERROR = float(std::abs(color.r - reference));
-      if (x == 8 && y == -18)
-        std::printf("  corner replay: aa=%g center=%g reference=%g\n", color.r,
-                    POINT, reference);
+
       aa_error += ERROR;
       point_error += std::abs(POINT - reference);
       worse += ERROR > std::abs(POINT - reference) + .02;
@@ -721,14 +718,7 @@ inline void test_radial_surface_fixture_edge_trace() {
     const float Q = (h.interval + h.fraction) / 64;
     return Scan::SurfaceColor{Q, Q, Q};
   };
-  std::array<Surface::Hit, 2> hits{};
-  int count = 0;
-  auto capture = [&](const Surface::Hit &h) {
-    if (count < 2)
-      hits[count++] = h;
-    return shade(h);
-  };
-  const auto result = aa.sample(surface, P, DX, DY, -2.15354013f, 23, capture);
+  const auto result = aa.sample(surface, P, DX, DY, -2.15354013f, 23, shade);
   const auto zero = aa.sample(surface, P, DX, DY, -2.15354013f, 0, shade);
   const float RADIUS = sqrtf(P.x * P.x + P.y * P.y);
   const float EXTENT = .5f * (sqrtf(DX.x * DX.x + DX.y * DX.y) +
@@ -745,10 +735,8 @@ inline void test_radial_surface_fixture_edge_trace() {
   const double reference = area_reference(surface, P, DX, DY, 32, shade);
   HS_EXPECT_GT(result.r, 0.0f);
   HS_EXPECT_NEAR(result.r, reference, 0.005);
-  std::printf(
-      "  fixture edge trace: q=%.8f first0=%.8f reference=%.8f calls=%d h0=%.8f h1=%.8f\n",
-      result.r, zero.r, reference, count, hits[0].interval + hits[0].fraction,
-      hits[1].interval + hits[1].fraction);
+  std::printf("  fixture edge trace: q=%.8f first0=%.8f reference=%.8f\n",
+              result.r, zero.r, reference);
   HS_EXPECT_NEAR(result.r, zero.r, 1e-6);
 }
 
