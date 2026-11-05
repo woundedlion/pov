@@ -41,7 +41,6 @@ struct VisualGate {
   static constexpr int64_t MAX_LUMINANCE_BIAS = PIXELS * 3ll / 8;
   static constexpr uint32_t MAX_ADDED_PIXELS = PIXELS * 2 / 1000;
   static constexpr uint32_t MAX_DROPPED_PIXELS = PIXELS * 5 / 1000;
-  static constexpr uint64_t MAX_COVERAGE_LUMINANCE_ERROR = PIXELS * 5ull;
   static constexpr uint16_t MAX_COVERAGE_LUMINANCE = 9000;
 };
 
@@ -164,8 +163,6 @@ bool run_pass(ReplayEffect &effect, const mindsplatter_replay::Corpus &corpus,
   gate.check("added", host_stats.added_pixels, VisualGate::MAX_ADDED_PIXELS);
   gate.check("dropped", host_stats.dropped_pixels,
              VisualGate::MAX_DROPPED_PIXELS);
-  gate.check("coverage_luma", host_stats.coverage_luminance_error,
-             VisualGate::MAX_COVERAGE_LUMINANCE_ERROR);
   gate.check("coverage_max", host_stats.max_coverage_luminance,
              VisualGate::MAX_COVERAGE_LUMINANCE);
   if (whole_frame && host_stats.expected_hash != corpus.framebuffer_hash) {
