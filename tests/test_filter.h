@@ -127,6 +127,7 @@ inline int run_filter_tests() {
   HS_RUN(test_chromatic_shift_fanout);
 
   HS_RUN(test_feedback_style_binding);
+  HS_RUN(test_feedback_cache_storage_matches_lattice_samples);
   HS_RUN(test_feedback_plot_is_passthrough);
   HS_RUN(test_feedback_warp_cache_valid_only_after_fill);
 

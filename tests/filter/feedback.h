@@ -127,3 +127,24 @@ inline void test_feedback_warp_cache_valid_only_after_fill() {
   HS_EXPECT_EQ(a.x_offsets[0], 2);
   HS_EXPECT_TRUE(cache.holds(second));
 }
+
+/** @brief Persistent feedback allocation follows lattice samples rather than rectangular cells. */
+inline void test_feedback_cache_storage_matches_lattice_samples() {
+  reset_globals();
+  ScopedArenaSplit split(65536, 131072, 131072);
+  using Feedback = Filter::Pixel::Feedback<288, 144>;
+  using Layout = hs::SphericalFieldLayout<288, 144>;
+  constexpr int DOWNSAMPLE = ::Feedback::Style{}.downsample;
+  constexpr Layout FIELD(DOWNSAMPLE, DOWNSAMPLE, DOWNSAMPLE, 288 / DOWNSAMPLE);
+  constexpr int CELLS = (288 / DOWNSAMPLE) * FIELD.ring_count();
+  HS_EXPECT_LT(FIELD.sample_count(), CELLS);
+  HS_EXPECT_EQ(Feedback::CACHE_ORIGIN_SAMPLES, FIELD.sample_count());
+  ::Feedback::Style style{};
+  Feedback feedback(style);
+  const size_t before = persistent_arena.get_offset();
+  feedback.init_storage(persistent_arena);
+  HS_EXPECT_EQ(persistent_arena.get_offset() - before, Feedback::STORAGE_BYTES);
+  std::printf("  feedback origins: cells=%d samples=%d saved=%zu bytes\n",
+              CELLS, FIELD.sample_count(),
+              (CELLS - FIELD.sample_count()) * sizeof(Layout::Coordinates));
+}

@@ -68,9 +68,7 @@ template <int W, int H> class Feedback : public Is2DWithHistory {
   static constexpr int CACHE_COLUMNS = W / CACHE_DOWNSAMPLE;
   static constexpr SphereField CACHE_FIELD{CACHE_DOWNSAMPLE, CACHE_DOWNSAMPLE,
                                            CACHE_SOUTH_INFILL, CACHE_COLUMNS};
-  /** @brief Cell count of the cached spherical warp field; also bounds its
-   *  lattice samples, since no ring carries more samples than the grid has
-   *  columns. */
+  /** @brief Cell count of the cached spherical warp field. */
   static constexpr int CACHE_CELLS = CACHE_COLUMNS * CACHE_FIELD.ring_count();
 
 public:
@@ -1398,12 +1396,19 @@ public:
       polar_rings(CACHE_FIELD, CACHE_FIELD.ring_count()).rows() * CACHE_COLUMNS;
 #endif
 
+  /** @brief Lattice-origin budget; runtime geometry reserves the cell upper bound. */
+#if HS_RUNTIME_DISPLAY_GEOMETRY
+  static constexpr int CACHE_ORIGIN_SAMPLES = CACHE_CELLS;
+#else
+  static constexpr int CACHE_ORIGIN_SAMPLES = CACHE_FIELD.sample_count();
+#endif
+
   /** @brief Persistent bytes init_storage() reserves over CACHE_CELLS: two
    *  int16 warp fields, the lattice's projected origins, the polar cells'
    *  int16 cap-plane offsets, and the fade table. */
   static constexpr size_t STORAGE_BYTES =
-      CACHE_CELLS *
-          (2 * sizeof(int16_t) + sizeof(typename SphereField::Coordinates)) +
+      CACHE_CELLS * 2 * sizeof(int16_t) +
+      CACHE_ORIGIN_SAMPLES * sizeof(typename SphereField::Coordinates) +
       CACHE_CAP_CELLS * 2 * sizeof(int16_t) + FadeTable::BYTES;
 };
 

@@ -79,11 +79,12 @@ public:
             !stamp.block_alive(column_offsets, CELL_COUNT * sizeof(int16_t)),
         "feedback filter: storage already initialized");
     stamped_cells = CELL_COUNT;
+    stamped_origin_samples = field.sample_count();
     stamped_cap_cells = cap_cells;
 #endif
     column_offsets = arena.allocate_n<int16_t>(CELL_COUNT);
     row_offsets = arena.allocate_n<int16_t>(CELL_COUNT);
-    origin_points = arena.allocate_n<Coordinates>(CELL_COUNT);
+    origin_points = arena.allocate_n<Coordinates>(field.sample_count());
     cap_field =
         cap_cells > 0 ? arena.allocate_n<CapOffset>(cap_cells) : nullptr;
     valid = false;
@@ -159,7 +160,7 @@ public:
     HS_ASSERT_BLOCK_ALIVE(stamp, row_offsets, stamped_cells * sizeof(int16_t),
                           "Pixel::Feedback warp cache");
     HS_ASSERT_BLOCK_ALIVE(stamp, origin_points,
-                          stamped_cells * sizeof(Coordinates),
+                          stamped_origin_samples * sizeof(Coordinates),
                           "Pixel::Feedback warp cache");
     if (cap_field) {
       HS_ASSERT_BLOCK_ALIVE(stamp, cap_field,
@@ -183,7 +184,8 @@ private:
 #ifndef NDEBUG
   ArenaBlockStamp stamp; /**< Arena state when the buffers were allocated. */
   int stamped_cells = 0; /**< Cells in each per-cell buffer. */
-  int stamped_cap_cells = 0; /**< Cells in the cap-offset buffer. */
+  int stamped_origin_samples = 0; /**< Samples in the origin block. */
+  int stamped_cap_cells = 0;      /**< Cells in the cap-offset buffer. */
 #endif
 };
 
