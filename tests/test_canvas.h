@@ -820,8 +820,8 @@ inline void test_parameter_display_mirror() {
   fx.add_float("Global", &fx.speed, 0.0f, 10.0f);
   fx.mirror_display(requested, displayed);
   for (const char *name : {"Speed", "Mode", "Global"}) {
-    HS_EXPECT_TRUE(fx.getParameters().find(name) != nullptr);
-    if (!fx.getParameters().find(name))
+    const auto *parameter = required_param(fx, name);
+    if (!parameter)
       return;
   }
 
@@ -956,8 +956,7 @@ inline void test_typed_enum_storage_widths() {
 
   for (const char *name : {"I8", "U8", "I16", "U16", "U32"}) {
     HS_EXPECT_EQ(fx.updateParameter(name, 2.0f), ParamSetResult::APPLIED);
-    const auto *PARAMETER = fx.getParameters().find(name);
-    HS_EXPECT_TRUE(PARAMETER);
+    const auto *PARAMETER = required_param(fx, name);
     if (!PARAMETER)
       return;
     HS_EXPECT_EQ(PARAMETER->get(), 2.0f);
@@ -1010,24 +1009,19 @@ inline void test_typed_parameter_specs() {
   HS_EXPECT_EQ(parameters.size(), size_t(7));
   if (parameters.size() != 7)
     return;
-  const auto *COUNT_PARAM = parameters.find("Count");
-  HS_EXPECT_TRUE(COUNT_PARAM);
+  const auto *COUNT_PARAM = required_param(fx, "Count");
   if (!COUNT_PARAM)
     return;
-  const auto *MODE_PARAM = parameters.find("Mode");
-  HS_EXPECT_TRUE(MODE_PARAM);
+  const auto *MODE_PARAM = required_param(fx, "Mode");
   if (!MODE_PARAM)
     return;
-  const auto *MODE8_PARAM = parameters.find("Mode8");
-  HS_EXPECT_TRUE(MODE8_PARAM);
+  const auto *MODE8_PARAM = required_param(fx, "Mode8");
   if (!MODE8_PARAM)
     return;
-  const auto *ENABLED_PARAM = parameters.find("Enabled");
-  HS_EXPECT_TRUE(ENABLED_PARAM);
+  const auto *ENABLED_PARAM = required_param(fx, "Enabled");
   if (!ENABLED_PARAM)
     return;
-  const auto *LARGE_COUNT_PARAM = parameters.find("LargeCount");
-  HS_EXPECT_TRUE(LARGE_COUNT_PARAM);
+  const auto *LARGE_COUNT_PARAM = required_param(fx, "LargeCount");
   if (!LARGE_COUNT_PARAM)
     return;
   HS_EXPECT_TRUE(COUNT_PARAM->readonly);

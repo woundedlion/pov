@@ -114,7 +114,10 @@ inline void test_sparse_parameter_specs() {
                                      .options = LABELS,
                                      .option_count = 3,
                                      .option_values = IDS});
-  HS_EXPECT_TRUE(fx.getParameters().find("Sparse")->option_values == IDS);
+  const auto *parameter = required_param(fx, "Sparse");
+  if (!parameter)
+    return;
+  HS_EXPECT_TRUE(parameter->option_values == IDS);
   for (float gap : {2.0f, 3.0f, 4.0f, 5.0f}) {
     HS_EXPECT_EQ(fx.updateParameter("Sparse", gap),
                  ParamSetResult::INADMISSIBLE);
