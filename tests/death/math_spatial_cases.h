@@ -97,6 +97,25 @@ inline void case_spatial_knn_over_max() {
     std::printf("x");
 }
 
+/** @brief A non-finite source coordinate must trap before tree construction. */
+inline void case_spatial_kdtree_nonfinite_point() {
+  static uint8_t storage[512];
+  Arena arena(storage, sizeof(storage));
+  const math::Vector points[] = {
+      {0.0f, 0.0f, opaque(std::numeric_limits<float>::quiet_NaN())}};
+  KDTree tree(arena, std::span(points));
+  (void)tree;
+}
+
+/** @brief A source span past the child-index limit must trap. */
+inline void case_spatial_kdtree_too_many_points() {
+  static uint8_t storage[512];
+  static math::Vector points[KDTree::MAX_POINTS + 1];
+  Arena arena(storage, sizeof(storage));
+  KDTree tree(arena, std::span(points));
+  (void)tree;
+}
+
 /**
  * @brief Death case: a lattice index outside [0, RD_N) must trap.
  * @details Spatial surface — node()'s index maps affinely onto the sphere, so an
