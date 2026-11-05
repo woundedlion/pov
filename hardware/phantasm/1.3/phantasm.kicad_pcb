@@ -3458,14 +3458,14 @@
 			(size 1.95 0.6)
 			(layers "F.Cu" "F.Mask" "F.Paste")
 			(roundrect_rratio 0.25)
-			(net 10 "/DATA_IN")
+			(net 7 "/CLK_IN")
 		)
 		(pad "3" smd roundrect
 			(at -2.475 -1.27 180)
 			(size 1.95 0.6)
 			(layers "F.Cu" "F.Mask" "F.Paste")
 			(roundrect_rratio 0.25)
-			(net 11 "/DATA_SRC")
+			(net 8 "/CLK_SRC")
 		)
 		(pad "4" smd roundrect
 			(at -2.475 0 180)
@@ -3479,14 +3479,14 @@
 			(size 1.95 0.6)
 			(layers "F.Cu" "F.Mask" "F.Paste")
 			(roundrect_rratio 0.25)
-			(net 7 "/CLK_IN")
+			(net 10 "/DATA_IN")
 		)
 		(pad "6" smd roundrect
 			(at -2.475 2.54 180)
 			(size 1.95 0.6)
 			(layers "F.Cu" "F.Mask" "F.Paste")
 			(roundrect_rratio 0.25)
-			(net 8 "/CLK_SRC")
+			(net 11 "/DATA_SRC")
 		)
 		(pad "7" smd roundrect
 			(at -2.475 3.81 180)
@@ -3559,7 +3559,7 @@
 	)
 	(footprint "Resistor_SMD:R_0805_2012Metric"
 		(locked yes)
-		(at 31.6 27.5 90)
+		(at 31.6 23.6 90)
 		(uuid "17acbd1b-6e54-58ec-9e71-82b721ee9ddf")
 		(path "/0861a938-a9a7-5906-af4d-3d48d7ad861a")
 		(layer "F.Cu")
@@ -3676,7 +3676,7 @@
 	)
 	(footprint "Resistor_SMD:R_0805_2012Metric"
 		(locked yes)
-		(at 31.6 23.6 90)
+		(at 31.6 27.5 90)
 		(uuid "c97872a0-143f-5614-9234-c1855f6aeca9")
 		(path "/1029b670-2823-5746-aeec-7e5d344a83fe")
 		(layer "F.Cu")

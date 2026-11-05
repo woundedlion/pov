@@ -75,8 +75,10 @@ EXPECT_REV_1_3["+3V3"].update({"R_TX", "U_SYNC.8", "C_DEC3", "C_BULK3"})
 EXPECT_REV_1_3["FRAME_SYNC"] = {"U_MCU.3", "U_SYNC.1"}
 EXPECT_REV_1_3["MASTER_EN"] = {"U_MCU.5", "U_SYNC.3", "R_MEN"}
 EXPECT_REV_1_3["SYNC_TX"] = {"U_MCU.4", "U_SYNC.4", "R_TX"}
-EXPECT_REV_1_3["DATA_IN"].add("R_DATA_PD")
-EXPECT_REV_1_3["CLK_IN"].add("R_CLK_PD")
+EXPECT_REV_1_3["DATA_IN"] = {"U_MCU.11", "U1.5", "R_DATA_PD"}
+EXPECT_REV_1_3["CLK_IN"] = {"U_MCU.13", "U1.2", "R_CLK_PD"}
+EXPECT_REV_1_3["DATA_SRC"] = {"U1.6", "R_D1"}
+EXPECT_REV_1_3["CLK_SRC"] = {"U1.3", "R_D2"}
 EXPECT_REV_1_3["SHIELD"] = {"J3A.4", "J3B.4", "JP_SHLD"}
 EXPECT_REV_1_3["GND"].difference_update({"C_SYNC", "D_BUS.2", "J3A.2", "J3B.2", "R2", "R_TX"})
 EXPECT_REV_1_3["GND"].update({"J3A.3", "J3B.3", "R_MEN", "U1.9", "U_SYNC.2", "U_SYNC.5",

@@ -63,6 +63,15 @@ class PrototypeContractTests(unittest.TestCase):
     def test_committed_board_matches_differential_electrical_partition(self):
         self.assertTrue(check.check(committed_board_nets("1.3"), "1.3"))
 
+    def test_led_data_resistor_precedes_clock_along_j2(self):
+        footprints = {next(p[2] for p in F(fp, "property") if p[1] == "Reference"): fp
+                      for fp in F(self.board, "footprint")}
+        data_y = float(sexp.val(footprints["R_D1"], "at")[1])
+        clock_y = float(sexp.val(footprints["R_D2"], "at")[1])
+        self.assertLess(data_y, clock_y)
+        self.assertIn("U1.6", committed_board_nets("1.3")["DATA_SRC"])
+        self.assertIn("U1.3", committed_board_nets("1.3")["CLK_SRC"])
+
     def test_sync_parts_have_orderable_manufacturer_fields(self):
         expected = {
             "U_SYNC": "THVD2410DR",

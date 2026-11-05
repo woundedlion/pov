@@ -4249,32 +4249,32 @@
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "10fe6173-373c-54b1-9d5f-5c434339a7b9")
 	)
-	(label "DATA_IN"
+	(label "CLK_IN"
 		(at 140.97 137.16 0)
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "4fe3293a-d67a-5c6f-bec4-f6dc574ae380")
 	)
-	(label "DATA"
+	(label "CLK"
 		(at 185.42 137.16 0)
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "9f6e9470-ae99-5dc2-929a-5e0300a93dbf")
 	)
-	(label "DATA_SRC"
+	(label "CLK_SRC"
 		(at 160.02 137.16 0)
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "38d9b233-8388-5c26-84a2-fb5adb7b12f6")
 	)
-	(label "CLK_IN"
+	(label "DATA_IN"
 		(at 140.97 167.64 0)
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "b6b633ed-e1d6-5667-af8f-e7c01672041c")
 	)
-	(label "CLK"
+	(label "DATA"
 		(at 185.42 167.64 0)
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "19a3da52-c07f-52e8-a59c-e5d32e154d7a")
 	)
-	(label "CLK_SRC"
+	(label "DATA_SRC"
 		(at 160.02 167.64 0)
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "eac595a2-e606-528e-9213-c02aa8f543cd")
@@ -5259,7 +5259,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 177.8 137.16 270)
+		(at 177.8 167.64 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5267,19 +5267,19 @@
 		(dnp no)
 		(uuid "0861a938-a9a7-5906-af4d-3d48d7ad861a")
 		(property "Reference" "R_D1"
-			(at 177.8 132.08 0)
+			(at 177.8 162.56 0)
 			(effects (font (size 1.27 1.27)))
 		)
 		(property "Value" "33R"
-			(at 177.8 142.24 0)
+			(at 177.8 172.72 0)
 			(effects (font (size 1.27 1.27)))
 		)
 		(property "Footprint" "Resistor_SMD:R_0805_2012Metric"
-			(at 177.8 144.78 0)
+			(at 177.8 175.26 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Datasheet" ""
-			(at 177.8 137.16 0)
+			(at 177.8 167.64 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(pin "1" (uuid "405340b6-fc4c-5e00-8e07-de761f3b7f07"))
@@ -5294,7 +5294,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 177.8 167.64 270)
+		(at 177.8 137.16 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5302,19 +5302,19 @@
 		(dnp no)
 		(uuid "1029b670-2823-5746-aeec-7e5d344a83fe")
 		(property "Reference" "R_D2"
-			(at 177.8 162.56 0)
+			(at 177.8 132.08 0)
 			(effects (font (size 1.27 1.27)))
 		)
 		(property "Value" "33R"
-			(at 177.8 172.72 0)
+			(at 177.8 142.24 0)
 			(effects (font (size 1.27 1.27)))
 		)
 		(property "Footprint" "Resistor_SMD:R_0805_2012Metric"
-			(at 177.8 175.26 0)
+			(at 177.8 144.78 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Datasheet" ""
-			(at 177.8 167.64 0)
+			(at 177.8 137.16 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(pin "1" (uuid "dd5f89ef-8cfb-52ce-8d61-54b20379a6c8"))

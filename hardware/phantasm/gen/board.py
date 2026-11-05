@@ -405,14 +405,17 @@ def main(force=False, revision=B.REVISION, output_dir=None):
                 fp="Package_SO:SOIC-14_3.9x8.7mm_P1.27mm")
     U1E = place("74xx:74AHCT125", "U1", "74AHCT125", 215.9, 137.16, unit=5,
                 fp="Package_SO:SOIC-14_3.9x8.7mm_P1.27mm")
-    RD1 = place("Device:R", "R_D1", "33R", 177.8, 137.16, rot=270, fp=SMD08)
-    RD2 = place("Device:R", "R_D2", "33R", 177.8, 167.64, rot=270, fp=SMD08)
+    data_y, clock_y = (167.64, 137.16) if revision == "1.3" else (137.16, 167.64)
+    RD1 = place("Device:R", "R_D1", "33R", 177.8, data_y, rot=270, fp=SMD08)
+    RD2 = place("Device:R", "R_D2", "33R", 177.8, clock_y, rot=270, fp=SMD08)
     if revision == "1.2":
         RS = place("Device:R", "R_S", "100R", 177.8, 198.12, rot=270, fp=SMD08_HAND)
-    # ch A (DATA) — source stub (U1->R_D1) named DATA_SRC; post-term net is DATA
-    to_label(U1A, "2", "DATA_IN"); to_power(U1A, "1", GND); series_wire(U1A, "3", RD1, "DATA", "DATA_SRC")
-    # ch B (CLK)
-    to_label(U1B, "5", "CLK_IN"); to_power(U1B, "4", GND); series_wire(U1B, "6", RD2, "CLK", "CLK_SRC")
+    channel_a, channel_b = ("CLK", "DATA") if revision == "1.3" else ("DATA", "CLK")
+    resistor_a, resistor_b = (RD2, RD1) if revision == "1.3" else (RD1, RD2)
+    to_label(U1A, "2", f"{channel_a}_IN"); to_power(U1A, "1", GND)
+    series_wire(U1A, "3", resistor_a, channel_a, f"{channel_a}_SRC")
+    to_label(U1B, "5", f"{channel_b}_IN"); to_power(U1B, "4", GND)
+    series_wire(U1B, "6", resistor_b, channel_b, f"{channel_b}_SRC")
     if revision == "1.3":
         for ref, net, y in (("R_DATA_PD", "DATA_IN", 127.0), ("R_CLK_PD", "CLK_IN", 157.48)):
             pull = place("Device:R", ref, "10k", 111.76, y, fp=SMD06)

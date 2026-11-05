@@ -361,7 +361,9 @@ electrical contracts remain independently usable.
   and D_BUS protection from this revision.
   Fit 100 nF and 1 µF X7R local bypass capacitors on the transceiver's supply.
   R_DATA_PD and R_CLK_PD are 10 kΩ pull-downs on the AHCT125 LED inputs to
-  define DATA/CLK during Teensy reset. Manufacturer part selections are in the
+  define DATA/CLK during Teensy reset. DATA uses U1 channel B (pins 5/6)
+  and CLK channel A (pins 2/3), with R_D1/R_D2 aligned to J2's pin order.
+  Manufacturer part selections are in the
   [revision BOM](../../hardware/phantasm/1.3/README.md#selected-components)
   and the generated schematic fields.
 - **R-SYNC-13-2 — Timing and initialization.** Drive idle HIGH and active
