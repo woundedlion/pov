@@ -343,6 +343,12 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
                     tuple(round(value, 3) for value in found[ref]),
                     tuple(round(value, 3) for value in rect))
 
+    def test_back_silkscreen_marks_the_required_teensy_power_cut(self):
+        labels = [node for node in F(self.root, "gr_text")
+                  if str(node[1]) == "CUT TEENSY VIN-VUSB"]
+        self.assertEqual(len(labels), 1)
+        self.assertEqual(str(sexp.val(labels[0], "layer")[0]), "B.SilkS")
+
     def test_stamps_the_revision_on_the_back_silkscreen(self):
         texts = [str(node[1]) for node in F(self.root, "gr_text")
                  if str(sexp.val(node, "layer")[0]) == "B.SilkS"]

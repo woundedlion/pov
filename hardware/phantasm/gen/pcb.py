@@ -1126,6 +1126,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         ("2   OPEN  GND   B-NORTH", 13.0, 0.9),
         ("3   GND   GND   B-SOUTH", 15.0, 0.9),
         ("N8 ID2 OPEN=0-3 GND=4-7; M=OPEN; SHLD=M", 17.0, 0.8),
+        ("CUT TEENSY VIN-VUSB", 21.3, 0.8),
         ("BOARD ID: ____", 23.5, 2.0),
         (silk_revision(selected), 29.5, 1.0),
     ]

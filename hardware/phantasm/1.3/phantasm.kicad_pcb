@@ -208,8 +208,9 @@
 	(gr_text "2   OPEN  GND   B-NORTH" (at 25.5 13 0) (layer "B.SilkS") (uuid "eb40f97b-9203-50ce-9649-b00158fa0ac1") (effects (font (size 0.9 0.9) (thickness 0.15)) (justify mirror)))
 	(gr_text "3   GND   GND   B-SOUTH" (at 25.5 15 0) (layer "B.SilkS") (uuid "c021914b-41d1-5e7c-a937-11d8a311c451") (effects (font (size 0.9 0.9) (thickness 0.15)) (justify mirror)))
 	(gr_text "N8 ID2 OPEN=0-3 GND=4-7; M=OPEN; SHLD=M" (at 25.5 17 0) (layer "B.SilkS") (uuid "cbd78234-e4fd-5b56-90d4-9b5ac4c8139b") (effects (font (size 0.8 0.8) (thickness 0.15)) (justify mirror)))
-	(gr_text "BOARD ID: ____" (at 20 23.5 0) (layer "B.SilkS") (uuid "70e07c97-ed14-5d7f-9f20-d4881006300a") (effects (font (size 2 2) (thickness 0.3)) (justify mirror)))
-	(gr_text "Phantasm Rev 1.3" (at 25.5 29.5 0) (layer "B.SilkS") (uuid "9ce062e1-3ff0-5014-91e6-f345dfc0cfac") (effects (font (size 1 1) (thickness 0.15)) (justify mirror)))
+	(gr_text "CUT TEENSY VIN-VUSB" (at 25.5 21.3 0) (layer "B.SilkS") (uuid "70e07c97-ed14-5d7f-9f20-d4881006300a") (effects (font (size 0.8 0.8) (thickness 0.15)) (justify mirror)))
+	(gr_text "BOARD ID: ____" (at 20 23.5 0) (layer "B.SilkS") (uuid "9ce062e1-3ff0-5014-91e6-f345dfc0cfac") (effects (font (size 2 2) (thickness 0.3)) (justify mirror)))
+	(gr_text "Phantasm Rev 1.3" (at 25.5 29.5 0) (layer "B.SilkS") (uuid "73d4a51a-420e-53f0-aa02-4d6888f28fd1") (effects (font (size 1 1) (thickness 0.15)) (justify mirror)))
 	(footprint "phantasm:TerminalBlock_GCT_TBC05-02-1-G-G"
 		(locked yes)
 		(at 3.25 18.9 0)
