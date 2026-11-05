@@ -76,18 +76,18 @@ private:
 
   /**
    * @brief Debug-only use-after-free check against the source arena.
-   * @details Asserts if the source arena was reset out from under this vector,
+   * @details Traps if the source arena was reset out from under this vector,
    * or rewound (set_offset/ScratchScope) below the backing block — a rewind
    * reclaims the bytes without bumping the generation.
    */
   void check_alive() const {
     const size_t bytes = element_capacity * sizeof(T);
-    assert(!stamp.arena_reset() && "ArenaVector use-after-free!");
-    assert(!stamp.block_uncovered(elements, bytes) &&
-           "ArenaVector use-after-free (arena rewound below block)!");
-    assert(!stamp.block_reissued(elements, bytes) &&
-           "ArenaVector use-after-free (block reclaimed by a rewind and "
-           "reissued)!");
+    HS_CHECK(!stamp.arena_reset(), "ArenaVector use-after-free!");
+    HS_CHECK(!stamp.block_uncovered(elements, bytes),
+             "ArenaVector use-after-free (arena rewound below block)!");
+    HS_CHECK(!stamp.block_reissued(elements, bytes),
+             "ArenaVector use-after-free (block reclaimed by a rewind and "
+             "reissued)!");
   }
 #else
   /**

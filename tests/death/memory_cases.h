@@ -320,3 +320,79 @@ inline void case_triangular_bitset_unordered_pair() {
   if (hit)
     std::printf("x");
 }
+
+/** @brief Traps when an arena vector is reset. */
+inline void case_arena_vector_reset() {
+  alignas(int) uint8_t storage[64]{};
+  Arena arena(storage, sizeof(storage));
+  ArenaVector<int> vector(arena, 2);
+  vector.push_back(7);
+  arena.reset();
+  (void)vector.data();
+}
+
+/** @brief Traps when an arena vector is rewound. */
+inline void case_arena_vector_rewound() {
+  alignas(int) uint8_t storage[64]{};
+  Arena arena(storage, sizeof(storage));
+  ArenaVector<int> vector(arena, 2);
+  vector.push_back(7);
+  arena.set_offset(0);
+  (void)vector.data();
+}
+
+/** @brief Traps when an arena vector is reissued. */
+inline void case_arena_vector_reissued() {
+  alignas(int) uint8_t storage[64]{};
+  Arena arena(storage, sizeof(storage));
+  ArenaVector<int> vector(arena, 2);
+  vector.push_back(7);
+  arena.set_offset(0);
+  arena.allocate_n<int>(2);
+  (void)vector.data();
+}
+
+/** @brief Traps when an arena span is reset. */
+inline void case_arena_span_reset() {
+  alignas(int) uint8_t storage[64]{};
+  Arena arena(storage, sizeof(storage));
+  ArenaVector<int> vector(arena, 2);
+  vector.push_back(7);
+  ArenaSpan<int> view(vector);
+  arena.reset();
+  (void)view.size();
+}
+
+/** @brief Traps when an arena span is cleared. */
+inline void case_arena_span_cleared() {
+  alignas(int) uint8_t storage[64]{};
+  Arena arena(storage, sizeof(storage));
+  ArenaVector<int> vector(arena, 2);
+  vector.push_back(7);
+  ArenaSpan<int> view(vector);
+  vector.clear();
+  (void)view.size();
+}
+
+/** @brief Traps when an arena span is rewound. */
+inline void case_arena_span_rewound() {
+  alignas(int) uint8_t storage[64]{};
+  Arena arena(storage, sizeof(storage));
+  ArenaVector<int> vector(arena, 2);
+  vector.push_back(7);
+  ArenaSpan<int> view(vector);
+  arena.set_offset(0);
+  (void)view.size();
+}
+
+/** @brief Traps when an arena span is reissued. */
+inline void case_arena_span_reissued() {
+  alignas(int) uint8_t storage[64]{};
+  Arena arena(storage, sizeof(storage));
+  ArenaVector<int> vector(arena, 2);
+  vector.push_back(7);
+  ArenaSpan<int> view(vector);
+  arena.set_offset(0);
+  arena.allocate_n<int>(2);
+  (void)view.size();
+}

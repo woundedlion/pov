@@ -36,20 +36,21 @@ template <typename T> class ArenaSpan {
 
   /**
    * @brief Debug-only stale-span check against arena and vector stamps.
-   * @details Asserts on arena reset, source-vector re-grow, a rewind below the
+   * @details Traps on arena reset, source-vector re-grow, a rewind below the
    * borrowed block, or reclamation and reissue of that block.
    */
   void check_alive() const {
     const size_t bytes = element_count * sizeof(T);
-    assert(!stamp.arena_reset() && "ArenaSpan use-after-free!");
-    assert((!source_vec ||
-            source_vec->rebind_generation == source_rebind_generation) &&
-           "ArenaSpan source vector re-grown out from under span!");
-    assert(!stamp.block_uncovered(elements, bytes) &&
-           "ArenaSpan use-after-free (arena rewound below span)!");
-    assert(!stamp.block_reissued(elements, bytes) &&
-           "ArenaSpan use-after-free (borrowed block reclaimed by a rewind and "
-           "reissued)!");
+    HS_CHECK(!stamp.arena_reset(), "ArenaSpan use-after-free!");
+    HS_CHECK(!source_vec ||
+                 source_vec->rebind_generation == source_rebind_generation,
+             "ArenaSpan source vector re-grown out from under span!");
+    HS_CHECK(!stamp.block_uncovered(elements, bytes),
+             "ArenaSpan use-after-free (arena rewound below span)!");
+    HS_CHECK(
+        !stamp.block_reissued(elements, bytes),
+        "ArenaSpan use-after-free (borrowed block reclaimed by a rewind and "
+        "reissued)!");
   }
 #else
   /**
