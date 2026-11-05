@@ -2,6 +2,7 @@
 
 import argparse
 import contextlib
+from datetime import datetime
 from decimal import Decimal
 import json
 from pathlib import Path
@@ -233,6 +234,10 @@ def record_order(package, expected_hash, details, output):
     for field in ("vendor", "order_id", "ordered_at"):
         if not isinstance(details.get(field), str) or not details[field].strip():
             raise ValueError(f"order details require {field}")
+    try:
+        datetime.fromisoformat(details["ordered_at"])
+    except ValueError as exc:
+        raise ValueError("order details require ISO ordered_at") from exc
     for field in ("assembly_preview_reviewed", "mechanical_access_reviewed"):
         if details.get(field) is not True:
             raise ValueError(f"order details require {field}=true")

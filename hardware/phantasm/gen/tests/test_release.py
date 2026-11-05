@@ -264,6 +264,10 @@ class ReleaseTests(unittest.TestCase):
         self.assertFalse(output.exists())
         with self.assertRaisesRegex(ValueError, "options differ"):
             release.record_order(self.destination, digest, {**details, "fabrication_options": {}}, output)
+        with self.assertRaisesRegex(ValueError, "require ISO ordered_at"):
+            release.record_order(self.destination, digest,
+                                 {**details, "ordered_at": "last Tuesday"}, output)
+        self.assertFalse(output.exists())
         release.record_order(self.destination, digest, details, output)
         self.assertEqual(json.loads(output.read_text())["release_sha256"], digest)
         with self.assertRaises(FileExistsError):
