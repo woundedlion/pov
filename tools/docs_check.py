@@ -24,7 +24,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
 from doc_coverage import doxyfile_entries
-from git_files import GIT_TIMEOUT_SECONDS, git_command, git_nul_list
+from git_files import git_nul_list
 
 
 @dataclass(frozen=True, order=True)
@@ -1098,8 +1098,8 @@ def composed_roster_issues(root: Path, effects_text: str,
     return issues
 
 
-# Every backticked symbol in a C/C++ comment must occur in tracked code, here
-# or in a supplied checkout. Generated, vendored and script comments are not
+# Every backticked symbol in a C/C++ comment must occur in this repository's
+# tracked code. Generated, vendored and script comments are not
 # scanned; generated and vendored code is still indexed.
 SYMBOL_COMMENT_SUFFIXES = frozenset({".c", ".cc", ".cpp", ".h", ".hpp", ".inl",
                                      ".ino"})
@@ -1211,43 +1211,22 @@ def span_symbols(span: str) -> list[str]:
     return names
 
 
-def _read_tracked(root: Path, revision: str | None,
-                  paths: list[PurePosixPath]) -> dict[PurePosixPath, str]:
-    """Tracked text by path, from the working tree or from revision."""
+def _read_tracked(root: Path, paths: list[PurePosixPath]) -> dict[PurePosixPath, str]:
+    """Tracked text by path from the working tree."""
     texts = {}
-    if revision is None:
-        for relative in paths:
-            try:
-                texts[relative] = root.joinpath(*relative.parts).read_text(
-                    encoding="utf-8-sig", errors="replace")
-            except OSError:
-                continue
-        return texts
-    request = "".join(f"{revision}:{path.as_posix()}\n" for path in paths)
-    result = subprocess.run(
-        git_command(root, "cat-file", "--batch"),
-        input=request.encode("utf-8"), check=True,
-        stdout=subprocess.PIPE, timeout=GIT_TIMEOUT_SECONDS)
-    output = result.stdout
-    offset = 0
     for relative in paths:
-        header_end = output.index(b"\n", offset)
-        header = output[offset:header_end].split()
-        offset = header_end + 1
-        if len(header) != 3 or header[1] != b"blob":
+        try:
+            texts[relative] = root.joinpath(*relative.parts).read_text(
+                encoding="utf-8-sig", errors="replace")
+        except OSError:
             continue
-        size = int(header[2])
-        texts[relative] = output[offset:offset + size].decode(
-            "utf-8-sig", errors="replace")
-        offset += size + 1
     return texts
 
 
-def symbol_sources(root: Path, entries: set[PurePosixPath],
-                   revision: str | None = None) -> dict[PurePosixPath, str]:
+def symbol_sources(root: Path, entries: set[PurePosixPath]) -> dict[PurePosixPath, str]:
     """The tracked files whose words count as code, read from root."""
     directories = {parent for entry in entries for parent in entry.parents}
-    return _read_tracked(root, revision, sorted(
+    return _read_tracked(root, sorted(
         entry for entry in entries - directories
         if entry.suffix in SYMBOL_COMMENT_SUFFIXES | SCRIPT_SUFFIXES
         | _SYMBOL_INDEX_SUFFIXES or entry.name in _SYMBOL_INDEX_NAMES))
@@ -1491,17 +1470,12 @@ def check_repository(
                     sorted(entry for entry in entries
                            if entry.suffix in _DOXYGEN_SOURCE_SUFFIXES),
                     {name for _, name in predefined})))
-    issues.extend(repository_symbol_issues(root, entries, checkout_roots or {},
-                                           checkouts, checkout_revisions or {}))
+    issues.extend(repository_symbol_issues(root, entries))
     return markdown, sorted(issues), _stale_allowances(entries, used, checkouts)
 
 
-def repository_symbol_issues(root: Path, entries: set[PurePosixPath],
-                             checkout_roots: dict[str, Path],
-                             checkouts: dict[str, set[PurePosixPath]],
-                             checkout_revisions: dict[str, str]) -> list[Issue]:
-    """Checks this repository's comment names against its own code and that
-    of every supplied checkout."""
+def repository_symbol_issues(root: Path, entries: set[PurePosixPath]) -> list[Issue]:
+    """Checks this repository's comment names against its own code."""
     sources = symbol_sources(root, entries)
     selected = [relative for relative in sources
                 if relative.suffix in SYMBOL_COMMENT_SUFFIXES]
@@ -1512,12 +1486,7 @@ def repository_symbol_issues(root: Path, entries: set[PurePosixPath],
                       "every tracked C/C++ source is excluded from the comment "
                       "symbol scan, so its references go unchecked")]
     words, spans = scan_symbols(sources)
-    for name, checkout_root in checkout_roots.items():
-        words |= scan_symbols(symbol_sources(
-            checkout_root, checkouts[name], checkout_revisions.get(name)),
-            comments=False)[0]
-    return symbol_reference_issues(spans, words,
-                                   [entries, *checkouts.values()])
+    return symbol_reference_issues(spans, words, [entries])
 
 
 def retired_term_issues(root: Path, terms: list[str]) -> list[Issue]:

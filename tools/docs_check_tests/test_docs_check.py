@@ -1125,7 +1125,7 @@ class TestCommentSymbols(unittest.TestCase):
                 "core/ring.h:1: comment names `draw_ring`, which no code "
                 "spells"])
 
-    def test_checkout_code_resolves_names_at_its_revision(self):
+    def test_checkout_code_does_not_resolve_repository_comment_names(self):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             engine = Path(directory, "engine").resolve()
             checkout = Path(directory, "daydream").resolve()
@@ -1135,23 +1135,26 @@ class TestCommentSymbols(unittest.TestCase):
             _git_repository(checkout, {
                 "src/engine.js": "export function renderFrame() {}\n"})
             revision = git_run(checkout, 'write-tree').stdout.strip()
-            (checkout / "src/engine.js").write_text("// renderFrame\n",
-                                                    encoding="utf-8")
-            _, entries = dc.tracked_entries(engine)
-            checkouts = {"daydream": dc.tracked_entries(checkout, revision)[1]}
-            self.assertEqual(dc.repository_symbol_issues(
-                engine, entries, {"daydream": checkout}, checkouts,
-                {"daydream": revision}), [])
-            issues = dc.repository_symbol_issues(engine, entries, {}, {}, {})
-            self.assertEqual([str(issue) for issue in issues], [
-                "bind.h:1: comment names `renderFrame`, which no code spells"])
+            for roots, revisions in (({}, {}), ({"daydream": checkout}, {}),
+                                     ({"daydream": checkout}, {"daydream": revision})):
+                with self.subTest(roots=roots, revisions=revisions), \
+                        mock.patch.object(dc, "_REQUIRED_TREES", frozenset()):
+                    issues = dc.check_repository(engine, roots, checkout_revisions=revisions)[1]
+                    self.assertEqual([str(issue) for issue in issues], [
+                        "bind.h:1: comment names `renderFrame`, which no code spells"])
+                    (engine / "bind.h").write_text(
+                        "// Exported as `renderFrame`.\nvoid renderFrame();\n", encoding="utf-8")
+                    self.assertEqual(dc.check_repository(
+                        engine, roots, checkout_revisions=revisions)[1], [])
+                    (engine / "bind.h").write_text(
+                        "// Exported as `renderFrame`.\nint x;\n", encoding="utf-8")
 
     def test_excluding_every_source_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             _git_repository(root, {"core/vendor/lib.h": "// `gone_name`\n"})
             _, entries = dc.tracked_entries(root)
-            issues = dc.repository_symbol_issues(root, entries, {}, {}, {})
+            issues = dc.repository_symbol_issues(root, entries)
         self.assertEqual(len(issues), 1)
         self.assertIn("excluded from the comment symbol scan", issues[0].message)
 
