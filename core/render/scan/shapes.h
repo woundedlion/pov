@@ -527,14 +527,7 @@ struct DistortedRingStack {
             continue;
           // The walk visits only clip-admitted columns of render rows.
           const float a = frag.color.alpha * alpha;
-          if constexpr (requires {
-                          pipeline.plot_in_bounds(
-                              canvas, x, y, frag.color.color, frag.age, a);
-                        })
-            pipeline.plot_in_bounds(canvas, x, y, frag.color.color, frag.age,
-                                    a);
-          else
-            pipeline.plot(canvas, x, y, frag.color.color, frag.age, a);
+          plot_admitted(pipeline, canvas, x, y, frag.color.color, frag.age, a);
         }
       });
     }

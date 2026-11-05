@@ -495,15 +495,7 @@ HS_HOT_INLINE inline void rasterize_face_body(
           frag.age = 0;
         }
         const auto plot_column = [&](int px, float a) HS_HOT_INLINE {
-          if constexpr (requires {
-                          pipeline.plot_in_bounds(
-                              canvas, px, y, frag.color.color, frag.age, a);
-                        }) {
-            pipeline.plot_in_bounds(canvas, px, y, frag.color.color, frag.age,
-                                    a);
-          } else {
-            pipeline.plot(canvas, px, y, frag.color.color, frag.age, a);
-          }
+          plot_admitted(pipeline, canvas, px, y, frag.color.color, frag.age, a);
         };
         const auto shade_once = [&]() HS_HOT_INLINE {
           fragment_shader(p, frag);
@@ -2737,15 +2729,8 @@ struct Mesh {
           if (frag.color.alpha <= MIN_ALPHA)
             continue;
           const float a = frag.color.alpha * alpha;
-          if constexpr (requires {
-                          pipeline.plot_in_bounds(
-                              canvas, column, y, frag.color.color, frag.age, a);
-                        }) {
-            pipeline.plot_in_bounds(canvas, column, y, frag.color.color,
-                                    frag.age, a);
-          } else {
-            pipeline.plot(canvas, column, y, frag.color.color, frag.age, a);
-          }
+          plot_admitted(pipeline, canvas, column, y, frag.color.color, frag.age,
+                        a);
         }
       }
     }

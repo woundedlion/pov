@@ -30,6 +30,27 @@
  */
 namespace Scan {
 
+/** @brief Plots an admitted sample through the sink's unchecked entry when available.
+ * @tparam PipelineT Plotting sink type.
+ * @param pipeline Plotting sink.
+ * @param canvas Destination canvas.
+ * @param x Admitted column.
+ * @param y Admitted row.
+ * @param color Sample color.
+ * @param age Sample age.
+ * @param alpha Sample coverage. */
+template <typename PipelineT>
+HS_HOT_INLINE inline void plot_admitted(PipelineT &pipeline, Canvas &canvas,
+                                        int x, int y, const Pixel &color,
+                                        float age, float alpha) {
+  if constexpr (requires {
+                  pipeline.plot_in_bounds(canvas, x, y, color, age, alpha);
+                })
+    pipeline.plot_in_bounds(canvas, x, y, color, age, alpha);
+  else
+    pipeline.plot(canvas, x, y, color, age, alpha);
+}
+
 /** @brief Coverage/alpha at or below which a fragment is dropped unplotted. */
 inline constexpr float MIN_ALPHA = 0.001f;
 
