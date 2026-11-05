@@ -172,9 +172,8 @@ opening the slot for U1 at (26.8, 25.92), rotated 180 degrees with its outputs
 facing J2. R_D1 and R_D2 occupy the strip between U1 and J2; C_DEC2 sits
 beside U1 pin 14. The removed receive divider and C_SYNC require no local
 filter traces.
-The back silkscreen carries the ID truth table, N=8 line and revision stamp,
-but omits R-ID-4's writable board-ID field: its rev 1.1/1.2 position overlaps
-the relocated J2. Mark boards by other means until the field is re-placed.
+The back silkscreen carries the ID truth table, N=8 line, revision stamp
+and writable board-ID field centered at x=20mm to clear J2.
 
 Route J3A to J3B as an uninterrupted pair over a continuous ground plane.
 Keep the connector-to-transceiver branch at most 20 mm and untwisted cable

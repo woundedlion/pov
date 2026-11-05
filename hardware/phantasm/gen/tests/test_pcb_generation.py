@@ -348,6 +348,17 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
                  if str(sexp.val(node, "layer")[0]) == "B.SilkS"]
         self.assertIn(pcb.silk_revision(builder.REVISION), texts)
 
+    def test_rev13_board_id_has_large_legible_digits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = read(generate(directory, unplaced=True, revision="1.3"))
+        labels = [node for node in F(root, "gr_text") if str(node[1]) == "BOARD ID: ____"]
+        self.assertEqual(len(labels), 1)
+        label = labels[0]
+        self.assertEqual(str(sexp.val(label, "layer")[0]), "B.SilkS")
+        font = F(F(label, "effects")[0], "font")[0]
+        self.assertEqual([float(v) for v in sexp.val(font, "size")], [2.0, 2.0])
+        self.assertEqual([float(v) for v in sexp.val(label, "at")[:2]], [20.0, 23.5])
+
     def test_board_id_has_large_legible_digits(self):
         labels = [node for node in F(self.root, "gr_text")
                   if str(node[1]) == "BOARD ID: ____"]

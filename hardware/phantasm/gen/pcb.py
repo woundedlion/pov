@@ -669,7 +669,7 @@ REVISION_LAYOUTS = {
             **dict.fromkeys(("J2", "J3A", "J3B"), TERMINAL_LIBIDS[1]),
         },
         "part_properties": {},
-        "show_board_id": True,
+        "board_id_x": 25.5,
     },
     "1.3": {
         "edge_placements": TERMINAL_EDGE_PLACEMENTS_1_3,
@@ -692,7 +692,7 @@ REVISION_LAYOUTS = {
             **dict.fromkeys(("J3A", "J3B"), TERMINAL_LIBIDS[2]),
         },
         "part_properties": REV13_PARTS,
-        "show_board_id": False,
+        "board_id_x": 20.0,
     },
 }
 
@@ -1131,9 +1131,8 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     ]
     legend_x = PLACE["U_MCU"][0]
     for text, y, size in back_silk:
-        if not layout["show_board_id"] and text == "BOARD ID: ____":
-            continue
-        lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(legend_x)} {fmt(y)} 0)'
+        text_x = layout["board_id_x"] if text == "BOARD ID: ____" else legend_x
+        lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(text_x)} {fmt(y)} 0)'
                      f' (layer "B.SilkS") (uuid "{uid()}") '
                      f'(effects (font (size {fmt(size)} {fmt(size)})'
                      f' (thickness {fmt(max(0.15, size*0.15))})) (justify mirror)))')
