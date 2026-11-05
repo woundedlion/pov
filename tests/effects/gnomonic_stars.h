@@ -48,10 +48,6 @@ struct GnomonicStarsWhiteBox {
     return fx.transformer.active_params(0);
   }
   template <int W, int H>
-  static const math::Vector &spiral(const GnomonicStars<W, H> &fx, int i) {
-    return fx.spiral_cache[i];
-  }
-  template <int W, int H>
   static math::Vector warped(const GnomonicStars<W, H> &fx, int i) {
     return fx.transformer.transform(fx.spiral_cache[i]);
   }
@@ -110,7 +106,7 @@ inline void test_gnomonicstars_stars_drift_from_last_draw() {
     const math::Quaternion &q = WB::orientation(fx);
     for (int i = 0; i < 600; i += 37) {
       HS_EXPECT_VEC(WB::drawn_centre(fx, i), WB::warped(fx, i), 0.0f);
-      const math::Vector point = WB::spiral(fx, i);
+      const math::Vector point = WB::cache_at(fx, i);
       const math::Vector drawn =
           math::gnomonic_mobius_transform(point, previous);
       const math::Vector before = math::rotate(drawn, q);

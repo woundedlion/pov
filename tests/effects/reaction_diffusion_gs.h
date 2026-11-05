@@ -154,7 +154,6 @@ struct GSWhiteBox {
     }
     gs.advance_display();
   }
-  static constexpr int STEPS = GS::STEPS_PER_FRAME;
   /** @brief Persistent per-node state and lifecycle of a GS instance. */
   struct Snapshot {
     std::vector<uint16_t> a, b, pigment;
@@ -642,12 +641,6 @@ struct GSWhiteBox {
       nA[i] = GS::to_q16(gA[i]);
       nB[i] = GS::to_q16(gB[i]);
     }
-  }
-
-  // Float-domain substep, without step()'s clamping Q16 edges.
-  static void step_float(GS &gs, const float *cA, const float *cB, float *nA,
-                         float *nB) {
-    step_physics(gs, cA, cB, nA, nB);
   }
 
   static void step_float_inplace(GS &gs, float *a, float *b) {
@@ -1904,7 +1897,7 @@ inline void test_gs_rest_state_is_fixed_point() {
       na(GSWhiteBox::N), nb(GSWhiteBox::N);
   GSWhiteBox::GS gs;
   GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, 2.5f); // defaults
-  GSWhiteBox::step_float(gs, a.data(), b.data(), na.data(), nb.data());
+  GSWhiteBox::step_physics(gs, a.data(), b.data(), na.data(), nb.data());
   int moved = 0;
   for (int i = 0; i < GSWhiteBox::N; ++i)
     if (na[i] != 1.0f || nb[i] != 0.0f)
@@ -1925,7 +1918,7 @@ inline void test_gs_substep_matches_scalar_reference() {
   }
   GSWhiteBox::GS gs;
   GSWhiteBox::set_params(gs, 0.037f, 0.061f, 0.019f, 0.013f, 2.3f);
-  GSWhiteBox::step_float(gs, a.data(), b.data(), gotA.data(), gotB.data());
+  GSWhiteBox::step_physics(gs, a.data(), b.data(), gotA.data(), gotB.data());
   GSWhiteBox::step_float_reference(gs, a.data(), b.data(), refA.data(),
                                    refB.data());
   HS_EXPECT(
@@ -1958,8 +1951,8 @@ inline void test_gs_inplace_frame_matches_jacobi() {
     std::vector<float> ref_a = a, ref_b = b;
     std::vector<float> next_a(GSWhiteBox::N), next_b(GSWhiteBox::N);
     for (int step = 0; step < GSWhiteBox::STEPS_PER_FRAME; ++step) {
-      GSWhiteBox::step_float(gs, ref_a.data(), ref_b.data(), next_a.data(),
-                             next_b.data());
+      GSWhiteBox::step_physics(gs, ref_a.data(), ref_b.data(), next_a.data(),
+                               next_b.data());
       ref_a.swap(next_a);
       ref_b.swap(next_b);
       GSWhiteBox::step_float_inplace(gs, a.data(), b.data());
@@ -1983,7 +1976,8 @@ inline void test_gs_substep_signs_and_clamp() {
   b[SEED] = 1.0f;
   GSWhiteBox::GS gs;
   GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, 2.5f);
-  GSWhiteBox::step_float(gs, a.data(), b.data(), next_a.data(), next_b.data());
+  GSWhiteBox::step_physics(gs, a.data(), b.data(), next_a.data(),
+                           next_b.data());
 
   HS_EXPECT_EQ(next_a[SEED], 0.0f);
   int spread = 0;
@@ -2041,7 +2035,7 @@ inline void test_gs_reaction_corner_stays_bounded() {
                          3.0f); // joint slider-box corner
   float *cA = a.data(), *cB = b.data(), *nA = sa.data(), *nB = sb.data();
   for (int s = 0; s < 256; ++s) {
-    GSWhiteBox::step_float(gs, cA, cB, nA, nB);
+    GSWhiteBox::step_physics(gs, cA, cB, nA, nB);
     std::swap(cA, nA);
     std::swap(cB, nB);
   }
@@ -2176,7 +2170,7 @@ inline void test_gs_lattice_basis_matches_rotated_lattice() {
  */
 inline void test_gs_slabs_shade_the_field_after_their_substep() {
   using WhiteBox = GSWhiteBox;
-  constexpr int W = SMALL_W, H = SMALL_H, STEPS = WhiteBox::STEPS;
+  constexpr int W = SMALL_W, H = SMALL_H, STEPS = WhiteBox::STEPS_PER_FRAME;
   constexpr int N = WhiteBox::N, GROW = 40;
   constexpr bool TOGGLED[] = {true, false, true, true, true, true, true, true};
   // Frames 0 and 1 convert halfway through a dissolve; frame 2 starts the last
@@ -2231,8 +2225,8 @@ inline void test_gs_slabs_shade_the_field_after_their_substep() {
         }
         std::vector<uint16_t> q(N);
         for (int k = 0; k < STEPS; ++k) {
-          WhiteBox::step_float(gs, a.data(), b.data(), next_a.data(),
-                               next_b.data());
+          WhiteBox::step_physics(gs, a.data(), b.data(), next_a.data(),
+                                 next_b.data());
           a.swap(next_a);
           b.swap(next_b);
           for (int i = 0; i < N; ++i)
