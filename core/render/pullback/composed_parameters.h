@@ -111,15 +111,7 @@ inline bool valid(const SphereAnimation::BurstRippleParams &value) {
  * @param value Field controls.
  * @return Whether the controls are admitted. */
 inline bool valid(const PotentialParams &value) {
-  if (!Fields::valid(value))
-    return false;
-  for (const auto &term : value.terms)
-    if (term.type >= 4 || term.kind >= 2 || term.l > 8 || term.m > 8 ||
-        (term.type == 0 && term.m > term.l) || !std::isfinite(term.amplitude) ||
-        fabsf(term.amplitude) > 4 || !std::isfinite(term.phase) ||
-        fabsf(term.phase) > math::PI_F)
-      return false;
-  return true;
+  return Fields::valid(value) && Surface::valid_terms(value);
 }
 
 /**

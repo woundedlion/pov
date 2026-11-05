@@ -133,7 +133,7 @@ template <typename B, typename Family, bool Track, ResourceKey Key>
 struct PathTracked<SurfaceProvider<B, Family, Track, Key>>
     : std::bool_constant<Track> {};
 
-template <typename Provider, uint8_t Kind>
+template <typename Provider, Surface::TangentFieldKind Kind>
 struct PathTracked<Surface::TangentField<Provider, Kind>>
     : PathTracked<Provider> {};
 
@@ -449,7 +449,7 @@ template <ProjectionKind Kind, typename Provider>
 struct PolicyResources<AuthoredProjection<Kind, Provider>>
     : PolicyResources<Provider> {};
 
-template <typename Provider, uint8_t Kind>
+template <typename Provider, Surface::TangentFieldKind Kind>
 struct PolicyResources<Surface::TangentField<Provider, Kind>>
     : PolicyResources<Provider> {};
 /** @brief Declares a keyed lens parameter resource.

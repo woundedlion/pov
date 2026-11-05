@@ -141,34 +141,14 @@ struct DisplacePotential
    * @param params Authored field controls.
    * @return Whether the term configuration is admitted. */
   static bool valid_terms(const Params &params) {
-    for (const auto &t : params.terms)
-      if (t.type > 3 || t.kind > 1 || !std::isfinite(t.amplitude) ||
-          fabsf(t.amplitude) > 4 || !std::isfinite(t.phase) ||
-          fabsf(t.phase) > math::PI_F || t.l > 8 || t.m > 8 ||
-          (t.type == 0 && t.m > t.l))
-        return false;
-    return true;
+    return Surface::valid_terms(params);
   }
   /** @brief Prepares the normalized field at its drift phase.
    * @param params Authored field controls.
    * @param phase Accumulated azimuthal drift, radians.
    * @return Prepared polynomial tangent field. */
   static Prepared field(const Params &params, float phase) {
-    std::array<math::tangent_field::PotentialTerm, 4> terms{};
-    for (size_t i = 0; i < 4; ++i) {
-      const auto &t = params.terms[i];
-      terms[i] = {static_cast<math::tangent_field::TermType>(t.type),
-                  static_cast<math::tangent_field::Kind>(t.kind),
-                  static_cast<uint8_t>(t.l),
-                  static_cast<uint8_t>(t.m),
-                  t.amplitude,
-                  t.phase};
-    }
-    return Prepared(
-        terms, phase,
-        math::make_rotation(math::Y_AXIS, math::Vector::from_spherical(
-                                              params.orientation_azimuth,
-                                              params.orientation_polar)));
+    return Surface::potential_field(params, phase);
   }
 };
 

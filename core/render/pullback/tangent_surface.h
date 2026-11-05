@@ -286,6 +286,43 @@ struct SymmetricParams {
                                      AUTHORED_FIELD_KIND_IDS, 0}};
 };
 
+/** @brief Checks the scalar-potential term domains.
+ * @param params Authored field controls.
+ * @return Whether all terms are admitted. */
+HS_COLD_MEMBER inline bool valid_terms(const PotentialParams &params) {
+  for (const auto &term : params.terms)
+    if (term.type >= 4 || term.kind >= 2 || term.l > 8 || term.m > 8 ||
+        (term.type == 0 && term.m > term.l) || !std::isfinite(term.amplitude) ||
+        fabsf(term.amplitude) > 4 || !std::isfinite(term.phase) ||
+        fabsf(term.phase) > math::PI_F)
+      return false;
+  return true;
+}
+
+/** @brief Prepares the oriented scalar-potential field.
+ * @param params Authored field controls.
+ * @param phase Accumulated azimuthal drift, radians.
+ * @return Normalized field. */
+HS_COLD_MEMBER inline math::tangent_field::PotentialField
+potential_field(const PotentialParams &params, float phase) {
+  using namespace math::tangent_field;
+  std::array<PotentialTerm, 4> terms{};
+  for (size_t i = 0; i < terms.size(); ++i) {
+    const auto &term = params.terms[i];
+    terms[i] = {static_cast<TermType>(term.type),
+                static_cast<Kind>(term.kind),
+                term.l,
+                term.m,
+                term.amplitude,
+                term.phase};
+  }
+  return PotentialField(
+      terms, phase,
+      math::make_rotation(math::Y_AXIS, math::Vector::from_spherical(
+                                            params.orientation_azimuth,
+                                            params.orientation_polar)));
+}
+
 /** @brief Prepares a Rossby-Haurwitz velocity field.
  * @param omega Zonal peak-speed amplitude.
  * @param wave Wave peak-speed amplitude.
@@ -347,10 +384,17 @@ step_tangent_field(const math::Vector &input,
   }
 }
 
+/** @brief Polynomial tangent-field family. */
+enum class TangentFieldKind : uint8_t {
+  ROSSBY_HAURWITZ, ///< Zonal and travelling-wave field.
+  SYMMETRIC,       ///< Symmetry-invariant field.
+  POTENTIAL        ///< Authored scalar-potential terms.
+};
+
 /** @brief Fixed-step field policy shared by polynomial displacements.
  * @tparam State Parameter and clock provider.
  * @tparam KindV Field kind: Rossby-Haurwitz, symmetric or arbitrary potential. */
-template <typename State, uint8_t KindV>
+template <typename State, TangentFieldKind KindV>
 struct TangentField : ApproximationDefaults {
   using Binding = typename State::Binding;              ///< Pipeline binding.
   using FrameState = typename State::FrameState;        ///< Bound frame.
@@ -360,29 +404,13 @@ struct TangentField : ApproximationDefaults {
    * @return Normalized field. */
   static Prepared prepare(const FrameState &frame) {
     const auto &params = State::params(frame);
-    if constexpr (KindV == 1)
+    if constexpr (KindV == TangentFieldKind::SYMMETRIC)
       return symmetric_field(params.symmetry, params.kind, State::phase(frame));
-    else if constexpr (KindV == 0)
+    else if constexpr (KindV == TangentFieldKind::ROSSBY_HAURWITZ)
       return rossby_haurwitz_field(params.omega, params.wave, params.order,
                                    State::phase(frame));
-    else {
-      using namespace math::tangent_field;
-      std::array<PotentialTerm, 4> terms{};
-      for (size_t i = 0; i < terms.size(); ++i) {
-        const auto &term = params.terms[i];
-        terms[i] = {static_cast<TermType>(term.type),
-                    static_cast<Kind>(term.kind),
-                    term.l,
-                    term.m,
-                    term.amplitude,
-                    term.phase};
-      }
-      return Prepared(
-          terms, State::phase(frame),
-          math::make_rotation(math::Y_AXIS, math::Vector::from_spherical(
-                                                params.orientation_azimuth,
-                                                params.orientation_polar)));
-    }
+    else
+      return potential_field(params, State::phase(frame));
   }
   /** @brief Applies the authored integrator to a direction.
    * @param input Unit direction.
@@ -399,10 +427,13 @@ struct TangentField : ApproximationDefaults {
 };
 
 /** @brief Rossby-Haurwitz displacement. @tparam State Field provider. */
-template <typename State> using RossbyHaurwitz = TangentField<State, 0>;
+template <typename State>
+using RossbyHaurwitz = TangentField<State, TangentFieldKind::ROSSBY_HAURWITZ>;
 /** @brief Rotating invariant displacement. @tparam State Field provider. */
-template <typename State> using Symmetric = TangentField<State, 1>;
+template <typename State>
+using Symmetric = TangentField<State, TangentFieldKind::SYMMETRIC>;
 /** @brief Arbitrary potential displacement. @tparam State Field provider. */
-template <typename State> using Potential = TangentField<State, 2>;
+template <typename State>
+using Potential = TangentField<State, TangentFieldKind::POTENTIAL>;
 
 } // namespace Pullback::Surface
