@@ -24,6 +24,13 @@ class EncodingCheckTests(unittest.TestCase):
                 corrupt = text.encode("utf-8").decode("cp1252")
                 self.assertEqual(encoding_check.mojibake_lines("clean\n" + corrupt), [2])
 
+    def test_undefined_cp1252_bytes_and_mixed_unicode_are_rejected(self):
+        for raw in (b"\xe2\x86\x90", b"\xe2\x80\x9d", b"\xcf\x81"):
+            corrupt = "".join(chr(value) if value in {0x81, 0x8D, 0x8F, 0x90, 0x9D}
+                              else bytes([value]).decode("cp1252") for value in raw)
+            self.assertEqual(encoding_check.mojibake_lines(corrupt), [1])
+            self.assertEqual(encoding_check.mojibake_lines(corrupt + "\u2192"), [1])
+
     def test_correct_unicode_is_accepted(self):
         self.assertEqual(encoding_check.mojibake_lines("ASCII \u2014 \u2192 \u00b1 \u00b0 \u00d7 caf\u00e9"), [])
 

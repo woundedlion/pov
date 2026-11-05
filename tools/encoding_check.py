@@ -15,14 +15,22 @@ def mojibake_lines(text: str) -> list[int]:
     """Return line numbers containing a reversible non-ASCII run."""
     lines = []
     for number, line in enumerate(text.splitlines(), 1):
-        for match in re.finditer(r"[^\x00-\x7f]+", line):
+        projected = bytearray()
+        for char in line:
+            if ord(char) in {0x81, 0x8D, 0x8F, 0x90, 0x9D}:
+                projected.append(ord(char))
+            else:
+                try:
+                    projected.extend(char.encode("cp1252"))
+                except UnicodeError:
+                    projected.append(0)
+        for match in re.finditer(rb"[\xc2-\xf4][\x80-\xbf]+", projected):
             try:
-                repaired = match[0].encode("cp1252").decode("utf-8")
+                match[0].decode("utf-8")
             except UnicodeError:
                 continue
-            if repaired != match[0]:
-                lines.append(number)
-                break
+            lines.append(number)
+            break
     return lines
 
 
