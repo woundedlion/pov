@@ -341,10 +341,6 @@ public:
 
     teardown_effect();
 
-    hs_wasm::dispatch_resolution(pixel_width, pixel_height, []<int W, int H>() {
-      math::init_geometry_luts<W,
-                               H>(); // eager-fill LUTs before the first frame
-    });
     // Teardown may draw from the shared stream; reseed afterward.
     hs::seed_effect_stream(entry->identity);
     current_effect = entry->creator();
