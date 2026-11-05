@@ -47,7 +47,8 @@ inline const char *reason(const ColorModulation::Config &config, size_t index) {
  * @param index Field index in the operator schema.
  * @return Whether the field accepts document writes. */
 inline bool writable(const ColorModulation::Config &config, size_t index) {
-  return std::string_view(reason(config, index)) == "active-source";
+  const auto &field = Params::EXTRA_SCHEMA[index];
+  return !field.enum_count && !field.topology && Params::active(config, index);
 }
 
 /** @brief Writes one active numeric member through the canonical schema.
