@@ -376,7 +376,6 @@ build_and_attest() {
 
 capture() {
   echo "=== $EFFECT [$ENV] board=${HS_TEENSY_PORT:-auto} window=$WINDOW seconds=$SECONDS_ARG deep=${DEEP:-off} extra='$EXTRA'"
-  build_and_attest
   hs_teensy_flash "$PROFILE_DIR"
   local connect
   connect=$(hs_device_absent_budget)
@@ -513,12 +512,14 @@ if [ "$MODE" = build-only ]; then
   exit 0
 fi
 
+build_and_attest
 hs_device_acquire "$EFFECT" "$ENV" $((SECONDS_ARG * 2 + 900)) || exit $?
 
 capture
 if ! verify; then
   echo ">>> verify failed; wiping the $ENV build and retrying with an isolated cache"
   prepare_retry
+  build_and_attest
   capture
   verify || { echo "FAILED after clean rebuild: $OUT"; exit 1; }
 fi

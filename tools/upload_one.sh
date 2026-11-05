@@ -16,6 +16,6 @@ cleanup() {
 }
 hs_exit_traps cleanup
 acquire_tree_lock || exit "$?"
-hs_device_acquire upload "$ENV" 900 || exit "$?"
 hs_fw_cache_build "$ENV"
+hs_device_acquire upload "$ENV" 900 || exit "$?"
 hs_teensy_flash "$HS_FW_IMAGE"

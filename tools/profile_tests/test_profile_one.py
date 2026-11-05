@@ -405,7 +405,7 @@ def capture_connect_timeout(**lock_env):
         f'. "{(REPO / "tools" / "device_lock.sh").as_posix()}"\n'
         f"{constant}\n"
         f"{shell_function('capture')}\n"
-        "build_and_attest() { :; }; hs_teensy_flash() { :; }\n"
+        "hs_teensy_flash() { :; }\n"
         'capture_py() { shift; printf "%s\\n" "$@" >&2; }\n'
         "_HS_LOCK_PYTHON=capture_py; EFFECT=Fx; ENV=profile; WINDOW=1\n"
         "SECONDS_ARG=20; DEEP=; EXTRA=; OUT=/dev/null; PROVENANCE_OUT=/dev/null\n"
@@ -421,6 +421,53 @@ def capture_connect_timeout(**lock_env):
         raise AssertionError(result.stdout + result.stderr)
     args = result.stderr.split("\n")
     return args[args.index("--connect-timeout") + 1]
+
+
+class BuildBeforeDeviceClaim(unittest.TestCase):
+    def run_flow(self, *, upload=False, fail_build=False):
+        if upload:
+            source = (REPO / "tools" / "upload_one.sh").read_text(encoding="utf-8")
+            flow = source[source.index("acquire_tree_lock ||"):]
+        else:
+            source = PROFILE_ONE.read_text(encoding="utf-8")
+            flow = source[source.index('if [ "$MODE" = build-only ]; then\n'):]
+            flow = flow.split("NWIN=", 1)[0]
+        script = (
+            "set -euo pipefail\n"
+            "MODE=capture; EFFECT=Fx; ENV=profile; SECONDS_ARG=20; OUT=/dev/null\n"
+            "HS_FW_IMAGE=unused; attempts=0\n"
+            "build_and_attest() { echo event:build; "
+            + ("return 7;" if fail_build else ":;") + " }\n"
+            "hs_fw_cache_build() { build_and_attest; }\n"
+            "acquire_tree_lock() { :; }\n"
+            "hs_device_acquire() { echo event:claim; }\n"
+            "capture() { echo event:capture; }\n"
+            "hs_teensy_flash() { capture; }\n"
+            "prepare_retry() { echo event:retry; }\n"
+            'verify() { attempts=$((attempts + 1)); [ "$attempts" -gt 1 ]; }\n'
+            + flow
+        )
+        return subprocess.run(["bash", "-c", script], capture_output=True,
+                              text=True, env=isolated_env())
+
+    def test_build_precedes_claim_and_retry_rebuilds(self):
+        for upload in (False, True):
+            with self.subTest(upload=upload):
+                result = self.run_flow(upload=upload)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                events = [line for line in result.stdout.splitlines()
+                          if line.startswith("event:")]
+                expected = ["event:build", "event:claim", "event:capture"]
+                if not upload:
+                    expected += ["event:retry", "event:build", "event:capture"]
+                self.assertEqual(events, expected)
+
+    def test_failed_build_never_claims_a_board(self):
+        for upload in (False, True):
+            with self.subTest(upload=upload):
+                result = self.run_flow(upload=upload, fail_build=True)
+                self.assertEqual(result.returncode, 7, result.stderr)
+                self.assertEqual(result.stdout, "event:build\n")
 
 
 class CaptureConnectWindow(unittest.TestCase):
