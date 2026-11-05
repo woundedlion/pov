@@ -198,6 +198,34 @@ inline void test_deep_tween_interior_motionless_frame_no_gap() {
   HS_EXPECT_SIZE_OR_RETURN(gts, 5);
   for (size_t i = 0; i < gts.size(); ++i)
     HS_EXPECT_NEAR(gts[i], expected[i], 1e-6f);
+  constexpr size_t RECORDS[] = {0, 2};
+  constexpr size_t FIRST[] = {0, 1};
+  constexpr size_t SAMPLE_RECORDS[] = {0, 0, 0, 2, 2};
+  constexpr size_t SAMPLE_SUBS[] = {0, 1, 2, 1, 2};
+  size_t frame_index = 0;
+  deep_tween_frames(trail,
+                    [&](size_t record, size_t first, const math::Quaternion *,
+                        const float *, int count) {
+                      HS_EXPECT_LT(frame_index, std::size(RECORDS));
+                      if (frame_index < std::size(RECORDS)) {
+                        HS_EXPECT_EQ(record, RECORDS[frame_index]);
+                        HS_EXPECT_EQ(first, FIRST[frame_index]);
+                        HS_EXPECT_EQ(count, frame_index == 0 ? 3 : 2);
+                      }
+                      ++frame_index;
+                    });
+  HS_EXPECT_EQ(frame_index, std::size(RECORDS));
+  size_t sample_index = 0;
+  deep_tween(trail,
+             [&](size_t record, size_t sub, const math::Quaternion &, float) {
+               HS_EXPECT_LT(sample_index, std::size(SAMPLE_RECORDS));
+               if (sample_index < std::size(SAMPLE_RECORDS)) {
+                 HS_EXPECT_EQ(record, SAMPLE_RECORDS[sample_index]);
+                 HS_EXPECT_EQ(sub, SAMPLE_SUBS[sample_index]);
+               }
+               ++sample_index;
+             });
+  HS_EXPECT_EQ(sample_index, std::size(SAMPLE_RECORDS));
 }
 
 /** @brief Verifies a motionless oldest frame occupies its age slot endpoint. */
