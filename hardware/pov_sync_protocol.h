@@ -43,17 +43,6 @@ constexpr int32_t floor_mod(int32_t a, int32_t m) {
 }
 
 /**
- * @brief Non-negative modulo of a 64-bit value.
- * @param a Value to reduce.
- * @param m Modulus (positive).
- * @return a mod m in [0, m).
- */
-constexpr int32_t floor_mod(int64_t a, int32_t m) {
-  const int32_t r = static_cast<int32_t>(a % m);
-  return r < 0 ? r + m : r;
-}
-
-/**
  * @brief Circular distance between two columns on a ring.
  * @param a First column index.
  * @param b Second column index.
@@ -116,12 +105,6 @@ struct Config {
   constexpr void set_effect_revolutions(const uint32_t (&durations)[N]) {
     effect_revolutions = durations;
     effect_revolutions_count = N;
-  }
-  /** @brief Drops the borrowed duration table; every effect then uses
-   *  `revs_per_effect`. */
-  constexpr void clear_effect_revolutions() {
-    effect_revolutions = nullptr;
-    effect_revolutions_count = 0;
   }
 
   int32_t epoch_repeats = 3;     /**< EPOCH redundancy repeats (spec §6.3). */

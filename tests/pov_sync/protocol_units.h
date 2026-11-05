@@ -22,8 +22,6 @@ inline void test_helpers() {
   HS_EXPECT_EQ(floor_div(-4, 2), -2);
   HS_EXPECT_EQ(floor_mod(-1, 288), 287);
   HS_EXPECT_EQ(floor_mod(288, 288), 0);
-  HS_EXPECT_EQ(floor_mod(int64_t{2147483649}, 288), 129);
-  HS_EXPECT_EQ(floor_mod(int64_t{-2147483649}, 288), 159);
   HS_EXPECT_EQ(circ_dist(287, 0, 288), 1);
   HS_EXPECT_EQ(circ_dist(0, 144, 288), 144);
   HS_EXPECT_EQ(circ_dist(10, 280, 288), 18);
@@ -93,12 +91,12 @@ inline void test_helpers() {
   expect_rejects(rd, "rejoin_bound_revs() <= rejoin_budget_revs");
   // One such entry in a roster is enough.
   const uint32_t mixed[4] = {48, 64, 49, 32};
+  Config plain = rd;
   rd.set_effect_revolutions(mixed);
   expect_rejects(rd, "rejoin_bound_revs() <= rejoin_budget_revs");
   // The boot repeats are the last beacon when the cadence never fires.
-  rd.revs_per_effect = 17;
-  rd.clear_effect_revolutions();
-  HS_EXPECT_EQ(rd.commit_beacon_gap_revs(0), 20u);
+  plain.revs_per_effect = 17;
+  HS_EXPECT_EQ(plain.commit_beacon_gap_revs(0), 20u);
 
   // Demarcation: a wire timeout below the beacon's worst-case per-digit advance
   // splits a real digit train into isolated boundary symbols. The shipped
