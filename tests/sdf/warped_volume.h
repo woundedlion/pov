@@ -176,10 +176,10 @@ inline void test_warped_volume_distance_is_sphere_trace_safe() {
     double R, r, A;
     int n;
   };
-  const Case cases[] = {{1.0, 0.3, 0.2, 3},    {1.0, 0.3, 0.0, 3},
-                        {1.0, 0.3, 0.2, 0},    {1.0, 0.31, 2.5, 5},
-                        {0.45, 0.14, 0.35, 2}, {0.45, 0.14, 0.35, 8},
-                        {2.0, 0.05, 0.9, 7}};
+  const Case cases[] = {
+      {1.0, 0.3, 0.2, 3},  {1.0, 0.3, 0.0, 3},    {1.0, 0.3, 0.2, 0},
+      {1.0, 0.31, 2.5, 5}, {0.45, 0.14, 0.35, 2}, {0.45, 0.14, 0.35, 8},
+      {2.0, 0.05, 0.9, 7}, {1.0, 0.5, 0.5, 2},    {1.0, 0.5, 0.8, 8}};
   hs::Pcg32 rng(0x51afeu);
   int correction_needed = 0;
   for (const Case &c : cases) {
@@ -187,22 +187,29 @@ inline void test_warped_volume_distance_is_sphere_trace_safe() {
         SDF::Torus{static_cast<float>(c.R), static_cast<float>(c.r)},
         SDF::Warp::Twist{c.n, static_cast<float>(c.A),
                          static_cast<float>(c.R)}};
-    for (int i = 0; i < 96; ++i) {
-      const double theta = rand_uniform(rng, 0.0f, 2.0f * math::PI_F);
-      const double phi = rand_uniform(rng, 0.0f, 2.0f * math::PI_F);
-      const double radius = c.r * rand_uniform(rng, 1.01f, 1.8f);
-      const double radial = c.R + radius * std::cos(phi);
-      const math::Vector p(static_cast<float>(radial * std::cos(theta)),
-                           static_cast<float>(radius * std::sin(phi) +
-                                              c.A * std::sin(c.n * theta)),
-                           static_cast<float>(radial * std::sin(theta)));
-      const double truth = twisted_torus_distance(p, c.R, c.r, c.n, c.A, 20000);
-      const float distance = volume.distance(p);
-      HS_EXPECT_TRUE(std::isfinite(distance));
-      HS_EXPECT_GT(distance, 0.0f);
-      HS_EXPECT_LE(distance, truth + 1e-4);
-      correction_needed += volume.raw_distance(p) > truth + 1e-4;
-    }
+    for (int kind = 0; kind < 2; ++kind)
+      for (int i = 0; i < 96; ++i) {
+        const double theta = rand_uniform(rng, 0.0f, 2.0f * math::PI_F);
+        const double phi = rand_uniform(rng, 0.0f, 2.0f * math::PI_F);
+        const double radius = c.r * rand_uniform(rng, 1.01f, 1.8f);
+        const double radial = kind == 0 ? c.R + radius * std::cos(phi)
+                                        : rand_uniform(rng, 0.0f, 0.6f * c.R);
+        const double y =
+            kind == 0 ? radius * std::sin(phi) + c.A * std::sin(c.n * theta)
+                      : rand_uniform(rng, -(c.A + c.r), c.A + c.r);
+        const math::Vector p(static_cast<float>(radial * std::cos(theta)),
+                             static_cast<float>(y),
+                             static_cast<float>(radial * std::sin(theta)));
+        const double truth =
+            twisted_torus_distance(p, c.R, c.r, c.n, c.A, 20000);
+        const float distance = volume.distance(p);
+        HS_EXPECT_TRUE(std::isfinite(distance));
+        if (kind == 0)
+          HS_EXPECT_GT(distance, 0.0f);
+        if (kind == 0 || distance > 0.0f)
+          HS_EXPECT_LE(distance, truth + 1e-4);
+        correction_needed += volume.raw_distance(p) > truth + 1e-4;
+      }
   }
   HS_EXPECT_GT(correction_needed, 0);
 }
