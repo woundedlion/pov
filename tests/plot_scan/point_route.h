@@ -539,6 +539,10 @@ inline void test_point_route_polar_sweep_support() {
           sink.plot_column_at(canvas, {72.0f + velocity * (time - 0.5f), 0.0f},
                               column, color.color, 0.0f, color.alpha, time);
         }
+        uint64_t energy = 0;
+        for (int i = 0; i < W * H; ++i)
+          energy += canvas.data()[i].r;
+        HS_EXPECT_GT(energy, uint64_t{0});
         for (int i = 0; i < W * H; ++i)
           HS_EXPECT_LE(abs(int(actual[i].r) - int(canvas.data()[i].r)), 257);
       } else {

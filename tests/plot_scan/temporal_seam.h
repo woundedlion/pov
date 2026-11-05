@@ -70,6 +70,7 @@ struct ProjectedTapRecorder : Filter::Is2D {
 /** @brief Projected typed and erased entries bypass world stages and retain tap timing. */
 inline void test_timed_projected_entry_bypasses_world() {
   constexpr int W = 288, H = 144;
+  size_t expected_taps = 0;
   for (bool erased : {false, true})
     for (float column : {40.3f, 143.6f, 287.6f})
       for (float time : {0.0f, 1.0f}) {
@@ -90,6 +91,7 @@ inline void test_timed_projected_entry_bypasses_world() {
             [&](float x, float y, const Pixel &c, float age, float alpha) {
               expected.push_back({x, y, c, age, alpha});
             });
+        expected_taps += expected.size();
         counts.world = 0;
         const math::PixelCoords point{column, 45.1f};
         const float landed =
@@ -110,4 +112,5 @@ inline void test_timed_projected_entry_bypasses_world() {
           HS_EXPECT_NEAR(actual[i].alpha, expected[i].alpha, 0.000002f);
         }
       }
+  HS_EXPECT_GT(expected_taps, size_t{0});
 }
