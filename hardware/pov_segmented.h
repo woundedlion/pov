@@ -268,10 +268,6 @@ public:
            const uint32_t (*effect_revolutions)[R] = nullptr,
            const uint64_t (*stable_effect_seeds)[R] = nullptr,
            bool standalone = false) {
-    effect_factories = factories;
-    effect_seed_identities =
-        stable_effect_seeds ? &(*stable_effect_seeds)[0] : nullptr;
-
     // F_CPU_ACTUAL, not F_CPU: the flywheel timebase counts ARM_DWT_CYCCNT
     // ticks, which run at the clock the core actually booted to.
     pov::sync::Config cfg =
@@ -342,23 +338,23 @@ public:
               HS_CHECK(effect_index >= 0 && effect_index < R,
                        "sync published an out-of-roster effect index");
               hs::seed_effect_stream(
-                  effect_seed_identities
-                      ? effect_seed_identities[effect_index]
+                  stable_effect_seeds
+                      ? (*stable_effect_seeds)[effect_index]
                       : hs::epoch_seed(static_cast<uint32_t>(effect_index)));
-              cur = effect_factories[effect_index]();
+              Effect *effect = factories[effect_index]();
               HS_CHECK(
-                  cur->height() == ROWS,
+                  effect->height() == ROWS,
                   "POVSegmented: effect canvas height must equal S/2 (ROWS)");
-              HS_CHECK(cur->width() == CANVAS_W,
+              HS_CHECK(effect->width() == CANVAS_W,
                        "POVSegmented: effect canvas width must equal CANVAS_W");
               HS_CHECK(
-                  !cur->overrides_get_pixel(),
+                  !effect->overrides_get_pixel(),
                   "POVSegmented: effect must not override get_pixel(); the "
                   "segmented pack_column path bypasses it");
               pov::prime_segment_frame(
-                  *cur, pov::segment_clip(segment, true, S, N, CANVAS_W),
+                  *effect, pov::segment_clip(segment, true, S, N, CANVAS_W),
                   prepare_segment_clip);
-              return cur;
+              return effect;
             },
             [&](auto publish) {
               const uint32_t primask = hs::save_disable_interrupts();
@@ -632,8 +628,6 @@ private:
   static pov::sync::SyncBoard sync;
   static IntervalTimer timer; /**< Flywheel wake-up timer (PIT channel).   */
   /** @brief Roster of effect constructors (HS_PHANTASM_EFFECT_LIST order). */
-  static const EffectFactory *effect_factories;
-  static const uint64_t *effect_seed_identities;
 
   /**
    * @brief Effect handoff state machine between the foreground and the ISR.
@@ -665,13 +659,6 @@ template <int S, int N, int RPM>
 pov::sync::SyncBoard POVSegmented<S, N, RPM>::sync{pov::sync::Config{}};
 
 template <int S, int N, int RPM> IntervalTimer POVSegmented<S, N, RPM>::timer;
-
-template <int S, int N, int RPM>
-const typename POVSegmented<S, N, RPM>::EffectFactory
-    *POVSegmented<S, N, RPM>::effect_factories = nullptr;
-
-template <int S, int N, int RPM>
-const uint64_t *POVSegmented<S, N, RPM>::effect_seed_identities = nullptr;
 
 template <int S, int N, int RPM>
 pov::EffectHandoff<Effect> POVSegmented<S, N, RPM>::handoff;
