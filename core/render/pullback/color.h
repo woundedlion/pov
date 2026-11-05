@@ -1143,6 +1143,17 @@ private:
     return accumulate_hue(0.0f, scalar, {.amount = amount});
   }
 
+  /** @brief Blends wrapped endpoint hues along their shortest path.
+   * @param previous Retained endpoint hue.
+   * @param current Current endpoint hue.
+   * @param fraction Current endpoint weight.
+   * @return Blended hue in turns. */
+  HS_HOT_INLINE static float blend_fused_hue(float previous, float current,
+                                             float fraction) {
+    return previous == current ? previous
+                               : blend_unit_hue(previous, current, fraction);
+  }
+
   /** @brief Resolves the canonical shortest-path endpoint hue blend.
    * @param scalars Previous and current source scalars.
    * @param amount Hue turns per source unit.
@@ -1153,8 +1164,7 @@ private:
                     float fraction) {
     const float PREVIOUS = fused_endpoint_hue(scalars.first, amount);
     const float CURRENT = fused_endpoint_hue(scalars.second, amount);
-    return PREVIOUS == CURRENT ? PREVIOUS
-                               : blend_unit_hue(PREVIOUS, CURRENT, fraction);
+    return blend_fused_hue(PREVIOUS, CURRENT, fraction);
   }
 
   /** @brief Blends palette and modulation endpoints into one color carrier.
@@ -1236,10 +1246,7 @@ private:
     result.color =
         Color4(previous.color.lerp16(current.color, frac_to_q16(fraction)),
                hs::lerp(previous.alpha, current.alpha, fraction));
-    result.pending_hue = previous_hue == current_hue
-                             ? previous_hue
-                             : interp::shortest_periodic(
-                                   previous_hue, current_hue, fraction, 1.0f);
+    result.pending_hue = blend_fused_hue(previous_hue, current_hue, fraction);
     result.pending_lift = hs::lerp(previous_lift, current_lift, fraction);
     if (!SAME_BASE)
       result.hue_rotation = nullptr;
