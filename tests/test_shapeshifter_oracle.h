@@ -1664,7 +1664,7 @@ inline int run_shapeshifter_oracle_tests() {
     return fixture.result();
   }
   if (hs_test::env_var("HS_SURFACE_LOBE_DIAGNOSTICS")) {
-    test_surface_lobe_outliers();
+    HS_RUN(test_surface_lobe_outliers);
     return fixture.result();
   }
   if (hs_test::env_var("HS_SHAPESHIFTER_PRESET_HASHES")) {

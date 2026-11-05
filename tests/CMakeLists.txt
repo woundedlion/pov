@@ -419,6 +419,10 @@ add_test(NAME unit_shapeshifter_footprint COMMAND test_shapeshifter shapeshifter
 set_tests_properties(unit_shapeshifter_footprint PROPERTIES
     TIMEOUT ${_hs_test_timeout} ENVIRONMENT "HS_SURFACE_DARK_DIAGNOSTICS=1;CI=")
 
+add_test(NAME unit_shapeshifter_lobes COMMAND test_shapeshifter shapeshifter_oracle)
+set_tests_properties(unit_shapeshifter_lobes PROPERTIES
+    TIMEOUT ${_hs_test_timeout} ENVIRONMENT "HS_SURFACE_LOBE_DIAGNOSTICS=1;CI=")
+
 set_tests_properties(unit_canvas PROPERTIES
     ENVIRONMENT "HS_BUFFER_FREE_WATCHDOG_US=30000000")
 
