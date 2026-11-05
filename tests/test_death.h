@@ -2921,6 +2921,10 @@ inline void compare_determinism_folds() {
   const std::string fold_a = child_output();
   const int determinism_b = spawn_child(DETERMINISM_PROBE_CASE, TIMEOUT_MS);
   const std::string fold_b = child_output();
+  if (!child_exited_clean(determinism_a))
+    std::printf("  determinism child A logged: %s\n", fold_a.c_str());
+  if (!child_exited_clean(determinism_b))
+    std::printf("  determinism child B logged: %s\n", fold_b.c_str());
   HS_EXPECT_TRUE(child_exited_clean(determinism_a));
   HS_EXPECT_TRUE(child_exited_clean(determinism_b));
   constexpr size_t EFFECT_COUNT = static_cast<size_t>(HS_EFFECT_COUNT);
@@ -3070,7 +3074,7 @@ inline int run_death_tests() {
     HS_EXPECT_TRUE(at_guard);
     std::printf("  [%s] trap fires: %-26s (child rc=%d)\n",
                 trapped && at_guard ? "ok" : "FAIL", cs[i].name, rc);
-    if (trapped && !at_guard)
+    if (!(trapped && at_guard))
       std::printf("      expected %s: %s\n      child logged: %s\n",
                   cs[i].guard_file, cs[i].guard_text, child_output());
   }
