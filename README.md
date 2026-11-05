@@ -1651,6 +1651,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── plot_scan/         Sections included by test_plot_scan.h
 │   │   ├── temporal_seam.h Projected-entry world bypass and tap timing
 │   │   └── timed_mesh.h    Timed source-mesh geometry and shader checks
+│   ├── pullback/          Sections included by test_pullback.h
 │   ├── pov_sync/          Sections included by test_pov_sync.h
 │   ├── ray_events/        Sections included by test_ray_events.h
 │   ├── scan/              Sections included by test_scan.h
