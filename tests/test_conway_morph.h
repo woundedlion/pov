@@ -129,7 +129,7 @@ inline int run_conway_morph_tests() {
 
   HS_RUN(test_truncate_leg_on_recipe_seeds_holds_topology);
   HS_RUN(test_snub_leg_on_recipe_seeds_holds_topology);
-  HS_RUN(test_relax_leg_on_recipe_seeds_holds_topology);
+  HS_RUN(test_relax_recipe_seeds_preserve_vertex_order);
   HS_RUN(test_medial_dual_bridge_wellformed);
   HS_RUN(test_medial_face_area_rejects_collapsed_faces);
   HS_RUN(test_opleg_medial_leg_smoke);

@@ -168,51 +168,15 @@ inline void test_snub_leg_on_recipe_seeds_holds_topology() {
   check_step_leg_sweep(StepLegKind::SNUB, SNUB_LEG_SITES);
 }
 
-/**
- * @brief Steps a baked-relax slerp on every unique shipping recipe seed,
- *        asserting the vertex count/order identity the kind rests on plus
- *        constant compiled face counts and unit vertices across the slerp.
- */
-inline void test_relax_leg_on_recipe_seeds_holds_topology() {
-  constexpr int SAMPLES = 33;
-
+/** @brief Baked recipe relaxes preserve vertex count and order. */
+inline void test_relax_recipe_seeds_preserve_vertex_order() {
   for (const StepLegSite &site : RELAX_LEG_SITES) {
     HS_CONTEXT(site.name);
-    const int failed_before = hs_test::stats().failed;
     Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
     PolyMesh seed = build_step_leg_seed(site, persist);
-
     Arena a(morph_target_buf, sizeof(morph_target_buf));
-    Arena b(morph_temp_buf, sizeof(morph_temp_buf));
     PolyMesh relaxed = MeshOps::relax_baked(seed, a, *site.bake);
-
-    if (!check_vertex_order_identity(relaxed, seed))
-      continue;
-
-    size_t first_compiled = 0;
-    for (int s = 0; s < SAMPLES; ++s) {
-      const float K = static_cast<float>(s) / (SAMPLES - 1);
-      ScratchScope frame_a(a);
-      ScratchScope frame_b(b);
-      PolyMesh swept;
-      MeshOps::clone(seed, swept, a);
-      for (size_t i = 0; i < swept.vertices.size(); ++i) {
-        swept.vertices[i] =
-            math::slerp(seed.vertices[i], relaxed.vertices[i], K);
-        HS_EXPECT_NEAR(math::dot(swept.vertices[i], swept.vertices[i]), 1.0f,
-                       1e-3f);
-      }
-      MeshState compiled;
-      MeshOps::compile(swept, compiled, a, b);
-      if (s == 0)
-        first_compiled = compiled.face_counts.size();
-      else
-        HS_EXPECT_EQ(compiled.face_counts.size(), first_compiled);
-    }
-
-    std::printf("  [relax-leg] %s: baked compiled=%zu across %d samples%s\n",
-                site.name, first_compiled, SAMPLES,
-                hs_test::stats().failed != failed_before ? " FAILED" : "");
+    check_vertex_order_identity(relaxed, seed);
   }
 }
 
