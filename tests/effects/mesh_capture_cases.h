@@ -155,6 +155,8 @@ inline size_t replay_islamicstars_profile(size_t preset, float trans_speed,
       report ? hs_test::env_var("HS_FACE_AUDIT_IMAGES") : nullptr;
   FILE *images = image_path ? std::fopen(image_path, "wb") : nullptr;
   FILE *audit = audit_path ? std::fopen(audit_path, "wb") : nullptr;
+  HS_EXPECT(!image_path || images, "image audit path must open");
+  HS_EXPECT(!audit_path || audit, "pixel audit path must open");
 #pragma clang diagnostic pop
   static FILE *audit_sink = nullptr;
   audit_sink = audit;
