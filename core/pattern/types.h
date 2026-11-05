@@ -180,6 +180,12 @@ struct TwinWaveSourceParams {
                                 waves. */
 };
 
+/** @brief Passive parameters for `PlaneBands`. */
+struct BandsSourceParams {
+  float pattern_freq = 1.0f; ///< Radians per plane-coordinate unit.
+  float angle = 0.0f; ///< Band angle counterclockwise from horizontal, radians.
+};
+
 /** @brief Passive parameters for `PlaneSpiral`. */
 struct SpiralSourceParams {
   float pattern_freq = 1.0f; /**< Plane-coordinate scale before sampling. */

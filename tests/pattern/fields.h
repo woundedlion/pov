@@ -218,6 +218,40 @@ inline void test_pattern_noise_formulas() {
   HS_EXPECT_TRUE(!SphereNoise::valid(params));
 }
 
+/** @brief Plane bands preserve frequency and rotate counterclockwise. */
+inline void test_pattern_plane_bands() {
+  using Source = Pattern::PlaneBands;
+  static_assert(std::is_empty_v<Source::State>);
+  Source::Params params;
+  params.pattern_freq = 2.0f;
+  const auto horizontal = Source::prepare(params, {});
+  for (const float x : {-2.0f, 0.0f, 1.3f}) {
+    HS_EXPECT_NEAR(Source::sample({{x, 0.3f}}, horizontal), std::sin(0.6f),
+                   0.0018f);
+    HS_EXPECT_NEAR(Source::sample({{x, -0.4f}}, horizontal), std::sin(-0.8f),
+                   0.0018f);
+  }
+  params.angle = 0.5f * math::PI_F;
+  const auto vertical = Source::prepare(params, {});
+  for (const float y : {-1.1f, 0.0f, 0.7f})
+    HS_EXPECT_NEAR(Source::sample({{0.4f, y}}, vertical), std::sin(-0.8f),
+                   0.0018f);
+  params.angle = 0.6f;
+  const auto diagonal = Source::prepare(params, {});
+  HS_EXPECT_NEAR(
+      Source::sample({{0.4f, -0.7f}}, diagonal),
+      std::sin(2.0f * (-0.7f * std::cos(0.6f) - 0.4f * std::sin(0.6f))),
+      0.0018f);
+  params.angle = 0.0f;
+  params.pattern_freq = 9.0f;
+  HS_EXPECT_NEAR(
+      Source::sample({{0.4f, -0.7f}}, diagonal),
+      std::sin(2.0f * (-0.7f * std::cos(0.6f) - 0.4f * std::sin(0.6f))),
+      0.0018f);
+  params.angle = std::numeric_limits<float>::quiet_NaN();
+  HS_EXPECT_TRUE(!Source::valid(params));
+}
+
 /** @brief Extracted sources expose pure clocks and immutable prepared controls. */
 inline void test_pattern_extracted_source_protocols() {
   using namespace Pattern;

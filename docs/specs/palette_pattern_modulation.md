@@ -122,7 +122,7 @@ OKLab lightness over positive lobes, preserving alpha: another source/mechanic p
 Build one canonical pattern library for both pullback rendering and modulation,
 not a second catalogue. Extract reusable signed kernels, passive parameter records,
 prepared math and source-specific phase math from
-[pullback sources](../../core/render/pullback/source.h): planar rings, spiral,
+[pullback sources](../../core/render/pullback/source.h): planar bands, rings, spiral,
 interference, coupled grid, noise and other reusable raw kernels.
 Reuse lower-level lattice/SDF kernels where appropriate without relocating those
 subsystems. Keep genuinely different algorithms explicit: PlaneCoupledGrid and

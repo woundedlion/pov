@@ -92,6 +92,20 @@ struct TwinWaveSourceParams : Pattern::TwinWaveSourceParams {
 static_assert(field_ids_unique<TwinWaveSourceParams>());
 static_assert(field_defaults_in_range<TwinWaveSourceParams>());
 
+/** @brief Source parameters for parallel plane bands. */
+struct BandsSourceParams : Pattern::BandsSourceParams {
+  /** @brief Numeric source controls. */
+  static constexpr auto FIELDS = std::array{
+      Field<BandsSourceParams>{"pattern-freq", &BandsSourceParams::pattern_freq,
+                               "Pattern Freq", 0.01f, 64.0f, FieldCurve::LERP},
+      Field<BandsSourceParams>{"angle", &BandsSourceParams::angle, "Angle",
+                               -math::PI_F, math::PI_F,
+                               FieldCurve::SHORTEST_PERIODIC},
+  };
+};
+static_assert(field_ids_unique<BandsSourceParams>());
+static_assert(field_defaults_in_range<BandsSourceParams>());
+
 /**
  * @brief Source parameters for the stationary spiral field
  *        (Pullback::Source::Spiral).
@@ -318,6 +332,45 @@ template <typename State> struct TwinWave : PrepareFromState<State> {
         Pattern::PlanePosition{projections::stereo_pattern_args(
             input.coords, params.pattern_freq)},
         prepared);
+  }
+};
+
+/** @brief Parallel bands in the projection plane.
+ * @tparam State Provider with Binding, FrameState and params(frame). */
+template <typename State> struct Bands : ApproximationDefaults {
+  using Binding = typename State::Binding;       ///< Provider binding.
+  using FrameState = typename State::FrameState; ///< Provider frame state.
+  using Prepared =
+      Pattern::PlaneBands::Prepared; ///< Frequency and orientation.
+
+  /** @brief Whether the provider supplies band controls.
+   * @tparam CandidateBinding Binding being checked. */
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ParamsProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::params(frame).pattern_freq } -> std::convertible_to<float>;
+        { State::params(frame).angle } -> std::convertible_to<float>;
+      };
+
+  /** @brief Prepares band orientation.
+   * @param frame Frame state.
+   * @return Immutable band inputs. */
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    const auto &params = State::params(frame);
+    return Pattern::PlaneBands::prepare({params.pattern_freq, params.angle},
+                                        {});
+  }
+  /** @brief Samples the projected plane.
+   * @param input Plane carrier.
+   * @param frame Frame state.
+   * @param prepared Immutable band inputs.
+   * @return Signed field value in [-1, 1]. */
+  __attribute__((always_inline)) static float sample(const PlaneSample &input,
+                                                     const FrameState &frame,
+                                                     const Prepared &prepared) {
+    (void)frame;
+    return Pattern::PlaneBands::sample({input.coords}, prepared);
   }
 };
 

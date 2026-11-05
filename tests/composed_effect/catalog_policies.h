@@ -394,6 +394,7 @@ template <typename Family, typename Model> void check_source() {
 inline void test_authored_source_catalog_parity() {
   check_source<Pullback::GridSourceParams, Op::SampleGridV4>();
   check_source<Pullback::TwinWaveSourceParams, Op::SampleTwinWaveV3>();
+  check_source<Pullback::BandsSourceParams, Op::SampleBands>();
   check_source<Pullback::SpiralSourceParams, Op::SampleSpiralV3>();
   using K = Pattern::TessellationKind;
   using F = Pattern::TessellationFill;

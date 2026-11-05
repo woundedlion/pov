@@ -89,6 +89,8 @@ using AuthoredGridSampleParams = AuthoredSampleParams<GridSourceParams>;
 /** @brief Twin-wave source with runtime crossing controls. */
 using AuthoredTwinWaveSampleParams =
     AuthoredSampleParams<AuthoredTwinWaveSourceParams>;
+/** @brief Bands source with runtime crossing controls. */
+using AuthoredBandsSampleParams = AuthoredSampleParams<BandsSourceParams>;
 /** @brief Spiral source with runtime crossing controls. */
 using AuthoredSpiralSampleParams = AuthoredSampleParams<SpiralSourceParams>;
 /** @brief Square-cell tessellation with runtime crossing controls. */

@@ -618,6 +618,23 @@ inline void catalog_assignments_sample_twin_wave_v3() {
   (void)params;
 }
 
+inline void catalog_assignments_sample_bands_v1() {
+  Pullback::Source::AuthoredBandsSampleParams params;
+  params.pattern_freq = 1.0f;
+  params.angle = 0.0f;
+  params.edge_width = 0.1f;
+  params.weight_mode = 1;
+  params.coverage_mode = 1;
+  params.weight_mode = 0;
+  params.weight_mode = 1;
+  params.coverage_mode = 0;
+  params.coverage_mode = 1;
+  params.coverage_mode = 2;
+  params.coverage_mode = 3;
+  params.coverage_mode = 4;
+  (void)params;
+}
+
 inline void catalog_assignments_sample_spiral_v3() {
   Pullback::Source::AuthoredSpiralSampleParams params;
   params.pattern_freq = 1.0f;

@@ -748,7 +748,7 @@ planar warps.
 | **Lens** | Glitch, Twist, Mobius, Kaleidoscope | Sphere → Sphere; lens-specific controls; kaleidoscope selects azimuthal, polyhedral or prism symmetry |
 | **Projection** | Folded Sinusoidal, Stereographic, Gnomonic, Bonne, Peirce Quincuncial, Fast Square Peirce, Dymaxion / Airocean, Equirectangular, Tetrahedral / Cubic / Octahedral / Dodecahedral / Icosahedral Atlas | Sphere → Plane; coordinates, projection provenance, weight and available edge distance; instance-specific frame/layout controls |
 | **Planar warp** | Affine Warp, Wave Shear, Vortex, Vector Noise, Curl Flow, Mirror Tile, Polar Chart | Plane → Plane; independent parameters and clocks for each ordered instance |
-| **Planar source** | Twin Wave, Spiral, Grid, Projected Noise, Tessellation | Plane → Field; source parameters, signal weighting and coverage choices |
+| **Planar source** | Bands, Twin Wave, Spiral, Grid, Projected Noise, Tessellation | Plane → Field; source parameters, signal weighting and coverage choices |
 | **Value transfer** | Ridge, Iso Contour, Smooth Bands | Field → Field; reshapes the normalized value; iso and band controls belong to their operator |
 | **Coverage** | Value Cutout | Field → Field; cutout threshold and softness; projection-based coverage belongs to planar sources |
 | **Colorize** | Cycling-generated, generated, procedural, gradient, mutating | Field → Color; palette-source selection, family-gated palette controls, mapping, phase oscillation, brightness envelope and opacity |
@@ -816,9 +816,19 @@ translation lattice holds while the scaled coordinates stay inside the source's
 ψ at Drift × Speed, and Source Angle Speed turns the angle θ between the waves.
 With θ turning, the waves move relative to each other, so these clocks stay in
 the source. It reports no lattice.
+**Bands** (`sample.bands.v1`) draws parallel sine bands in the projection plane:
+`sin(Pattern Freq * (y * cos(Angle) - x * sin(Angle)))`. Angle is in radians,
+measured counterclockwise from horizontal. At zero Angle the bands vary only
+along plane Y, so Equirectangular with an identity projection frame and no plane
+warps produces latitude rings. Other projections bend the same straight bands
+according to their charts. Use an Affine Warp to translate or rotate them over
+time; the source itself has no clock.
+
 **Spiral** (`sample.spiral.v3`) is the stationary Archimedean spiral
 `sin(r − Arms·azimuth)`; Arms rounds to whole and snaps between presets, and
-zero Arms draws concentric rings.
+zero Arms draws concentric rings around the plane origin. Spiral uses plane
+radius and azimuth; it does not interpret equirectangular coordinates as latitude
+and longitude.
 
 Mirror Tile scrolls one local X cell while its Y offset remains manual.
 Polar Chart advances Angular Phase by one turn while Radial Phase remains

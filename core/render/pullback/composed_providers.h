@@ -28,6 +28,8 @@ using Source::FixedTessellationParams;
 using Source::SquareCellsParams;
 using Source::AuthoredProjectedNoiseSourceParams;
 using Source::ProjectedNoiseSourceParams;
+using Source::BandsSourceParams;
+using Source::AuthoredBandsSampleParams;
 using Source::SpiralSourceParams;
 using Source::TwinWaveSourceParams;
 using Source::AuthoredTwinWaveSourceParams;

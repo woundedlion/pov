@@ -113,6 +113,10 @@ template <typename B> struct SourcePolicyFor<TwinWaveSourceParams, B> {
   using Type =
       Pullback::Source::TwinWave<SourceProvider<B, TwinWaveSourceParams>>;
 };
+/** @brief Plane bands source. @tparam B Frame binding. */
+template <typename B> struct SourcePolicyFor<BandsSourceParams, B> {
+  using Type = Pullback::Source::Bands<SourceProvider<B, BandsSourceParams>>;
+};
 /** @brief Spiral source. @tparam B Frame binding. */
 template <typename B> struct SourcePolicyFor<SpiralSourceParams, B> {
   using Type = Pullback::Source::Spiral<SourceProvider<B, SpiralSourceParams>>;

@@ -9,6 +9,7 @@
 struct SampleMirrorFrame {
   const FastNoiseLite *noise = nullptr;
   In::Op::TwinWaveSampleParams twin_wave;
+  In::Op::BandsSampleParams bands;
   In::Op::SpiralSampleParams spiral;
   In::Op::TessellationSampleParams tessellation;
   In::Op::ProjectedNoiseSampleParams projected;
@@ -36,6 +37,15 @@ struct TwinWaveSampleMirror : ClockedSampleMirror {
   static const In::Op::TwinWaveSampleParams &
   params(const SampleMirrorFrame &frame) {
     return frame.twin_wave;
+  }
+};
+
+struct BandsSampleMirror {
+  using Binding = SampleMirrorBinding;
+  using FrameState = SampleMirrorFrame;
+  static const In::Op::BandsSampleParams &
+  params(const SampleMirrorFrame &frame) {
+    return frame.bands;
   }
 };
 
@@ -116,6 +126,9 @@ inline SampleMirrorFrame sample_mirror(In::ChainProgram &program,
     mirror.tessellation =
         param_as<In::Op::TessellationSampleParams>(program, source_index);
     mirror.edge_width = mirror.tessellation.edge_width;
+  } else if (id == In::Op::SampleBands::ID) {
+    mirror.bands = param_as<In::Op::BandsSampleParams>(program, source_index);
+    mirror.edge_width = mirror.bands.edge_width;
   } else if (id == In::Op::SampleSpiralV3::ID) {
     mirror.spiral = param_as<In::Op::SpiralSampleParams>(program, source_index);
     mirror.edge_width = mirror.spiral.edge_width;
@@ -230,6 +243,54 @@ inline void test_shader_chain_parity_sample_twin_wave() {
     run_sample_op_matrix<PB::Source::TwinWave<TwinWaveSampleMirror>>(program,
                                                                      ctx);
   });
+}
+
+/** @brief Band source parity across signal and coverage selectors. */
+inline void test_shader_chain_parity_sample_bands() {
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
+    if (!arm_sample_op_chain<In::Op::BandsSampleParams>(
+            program, In::Op::SampleBands::ID, 4, set))
+      return;
+    const In::FrameContext ctx = shared_resources().context();
+    run_sample_op_matrix<PB::Source::Bands<BandsSampleMirror>>(program, ctx);
+  });
+}
+
+/** @brief Equirectangular bands at angle zero depend only on latitude. */
+inline void test_shader_chain_bands_latitudes() {
+  auto fixture = std::make_unique<ProgramFixture>();
+  In::ChainProgram &program = fixture->program;
+  const In::ChainEntryRequest chain[] = {
+      {"project", "project.equirectangular.v2"},
+      {"source", "sample.bands.v1"},
+      {"colorize", "colorize.generated-palette.v4"},
+  };
+  if (!arm_chain<In::Op::MeridianProjectChainParams, In::Op::BandsSampleParams,
+                 In::Op::GeneratedPaletteParams>(program, chain, 0,
+                                                 ValueSet::DEFAULTS))
+    return;
+  auto &projection = param_as<In::Op::MeridianProjectChainParams>(program, 0);
+  projection.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
+  auto &bands = param_as<In::Op::BandsSampleParams>(program, 1);
+  bands.pattern_freq = 4.0f;
+  bands.weight_mode = static_cast<uint8_t>(In::Op::WeightMode::NONE);
+  bands.coverage_mode =
+      static_cast<uint8_t>(In::Op::ProjectionCoverageMode::NONE);
+  const auto ctx = shared_resources().context();
+  program.prepare(ctx);
+  for (const float latitude : {-0.9f, -0.3f, 0.0f, 0.4f, 1.1f}) {
+    const float expected = 0.5f + 0.5f * std::sin(4.0f * latitude);
+    for (const float longitude : {-2.7f, -1.2f, 0.0f, 0.8f, 2.9f}) {
+      const math::Vector view{std::cos(latitude) * std::cos(longitude),
+                              std::sin(latitude),
+                              std::cos(latitude) * std::sin(longitude)};
+      const auto plane = run_entry<PB::PlaneSample>(
+          program, ctx, 0, PB::SphereSample{view, 0.0f});
+      const auto actual = run_entry<PB::FieldSample>(program, ctx, 1, plane);
+      HS_EXPECT_NEAR(actual.value, expected, 0.004f);
+      HS_EXPECT_EQ(actual.coverage, 1.0f);
+    }
+  }
 }
 
 inline void test_shader_chain_parity_sample_spiral() {

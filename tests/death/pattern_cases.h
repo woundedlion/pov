@@ -67,6 +67,12 @@ inline void case_pattern_radian_invalid_prepare() {
   (void)Pattern::PlaneInterference::prepare(params, {});
   (void)Pattern::PlaneInterference::prepare(params, {0.0f, 0.0f, 100.0f});
 }
+inline void case_pattern_bands_invalid_prepare() {
+  Pattern::PlaneBands::Params params;
+  (void)Pattern::PlaneBands::prepare(params, {});
+  params.angle = std::numeric_limits<float>::infinity();
+  (void)Pattern::PlaneBands::prepare(params, {});
+}
 inline void case_pattern_spiral_invalid_prepare() {
   Pattern::PlaneSpiral::Params params;
   (void)Pattern::PlaneSpiral::prepare(params, {});

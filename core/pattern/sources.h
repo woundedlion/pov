@@ -590,6 +590,8 @@ template <class Params> bool valid_source_params(const Params &params) {
     valid &= parameter_in_range(params.secondary_rate, 0.0f, 2.0f);
   if constexpr (requires { params.angle_rate; })
     valid &= parameter_in_range(params.angle_rate, -0.05f, 0.05f);
+  if constexpr (requires { params.angle; })
+    valid &= parameter_in_range(params.angle, -math::PI_F, math::PI_F);
   if constexpr (requires { params.arms; })
     valid &= parameter_in_range(params.arms, 0.0f, 12.0f);
   if constexpr (requires { params.complexity; })
@@ -692,6 +694,37 @@ template <class Parameters> struct StationarySource {
   static State advance(const State &state, const Params &params) {
     (void)params;
     return state;
+  }
+};
+
+/** @brief Parallel sine bands in the consumer's projection plane. */
+struct PlaneBands : StationarySource<BandsSourceParams> {
+  /** @brief Immutable frequency and band orientation. */
+  struct Prepared {
+    float pattern_freq; ///< Radians per plane-coordinate unit.
+    float angle_cos;    ///< Cosine of the band angle.
+    float angle_sin;    ///< Sine of the band angle.
+  };
+  /** @brief Prepares the band's frequency and orientation.
+   * @param params Source controls.
+   * @param state Empty source state.
+   * @return Immutable source inputs. */
+  static Prepared prepare(const Params &params, const State &state) {
+    (void)state;
+    HS_CHECK(valid(params), "pattern bands: invalid parameters");
+    return {params.pattern_freq, std::cos(params.angle),
+            std::sin(params.angle)};
+  }
+  /** @brief Samples parallel sine bands; angle zero varies along Y.
+   * @param coordinate Plane coordinate.
+   * @param prepared Immutable controls.
+   * @return Signed field value. */
+  HS_HOT_FLASH_MEMBER static float sample(const Coordinate &coordinate,
+                                          const Prepared &prepared) {
+    const auto point = projections::stereo_pattern_args(coordinate.value,
+                                                        prepared.pattern_freq);
+    return math::fast_sinf(point.im * prepared.angle_cos -
+                           point.re * prepared.angle_sin);
   }
 };
 

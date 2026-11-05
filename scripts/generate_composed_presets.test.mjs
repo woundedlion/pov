@@ -243,7 +243,7 @@ test('every catalog operator retains all scalar values and topology selections',
     }
     ++operators;
   }
-  assert.equal(operators, 42);
+  assert.equal(operators, 43);
   assert.ok(selectors > 100);
 });
 

@@ -38,6 +38,7 @@ const FAMILIES = {
   'warp.curl-flow.v2': 'Pullback::Warp::AuthoredCurlFlowParams',
   'sample.grid.v4': 'Pullback::Source::AuthoredGridSampleParams',
   'sample.twin-wave.v3': 'Pullback::Source::AuthoredTwinWaveSampleParams',
+  'sample.bands.v1': 'Pullback::Source::AuthoredBandsSampleParams',
   'sample.spiral.v3': 'Pullback::Source::AuthoredSpiralSampleParams',
   'sample.tessellation.v3': 'Pullback::Source::AuthoredSampleParams<Pullback::Source::TessellationSourceParams>',
   'sample.projected-noise.v2': 'Pullback::Source::AuthoredProjectedNoiseSampleParams',

@@ -326,6 +326,41 @@ struct SampleTwinWaveV3 : SourceClockModel {
   }
 };
 
+/** @brief Parameter family of sample.bands.v1. */
+struct BandsSampleParams : Source::BandsSourceParams, SampleCrossingParams {
+  static constexpr auto FIELDS = concat_fields<BandsSampleParams>(
+      Source::BandsSourceParams::FIELDS,
+      sample_crossing_fields<BandsSampleParams>());
+  static constexpr auto TOPOLOGY =
+      sample_crossing_topology<BandsSampleParams>();
+};
+static_assert(field_ids_unique<BandsSampleParams>());
+static_assert(
+    appended_block_size_matches<BandsSampleParams, SampleCrossingParams, 8>(),
+    "appended parameter block must have the expected rounded size");
+static_assert(field_defaults_in_range<BandsSampleParams>());
+
+/** @brief Plane-to-field crossing: parallel sine bands in the projection plane. */
+struct SampleBands : StatelessModel {
+  static constexpr const char *ID = "sample.bands.v1";
+  static constexpr const char *NAME = "Bands";
+  using Input = PlaneSample;
+  using Output = FieldSample;
+  using Params = BandsSampleParams;
+  using Prepared = Pattern::PlaneBands::Prepared;
+
+  static Prepared prepare(const FrameContext &, const Params &params,
+                          const State &) {
+    check_sample_topology(params.weight_mode, params.coverage_mode);
+    return Pattern::PlaneBands::prepare(params, {});
+  }
+  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
+                         const Params &params, const Prepared &prepared) {
+    const float raw = Pattern::PlaneBands::sample({input.coords}, prepared);
+    return finish_sample(input, raw, params, ctx);
+  }
+};
+
 /** @brief Parameter family of sample.spiral.v3. */
 struct SpiralSampleParams : Source::SpiralSourceParams, SampleCrossingParams {
   static constexpr auto FIELDS = concat_fields<SpiralSampleParams>(
