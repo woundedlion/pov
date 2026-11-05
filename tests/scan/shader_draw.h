@@ -533,7 +533,7 @@ inline void test_simulate_in_slabs_orders_substeps_and_columns() {
   constexpr int W = 48, H = 4, SUBSTEPS = 6, SLABS = 3;
   for (bool enabled : {true, false}) {
     HS_CONTEXT("temporal sampling", enabled);
-    Spacetime::set_flat_surface(!enabled);
+    const ScopedTemporalSampling sampling(enabled);
     hs_test::StubEffect fx(W, H);
     fx.set_clip(0, H, 5, 43);
     const ClipRegion::XClip xc = fx.clip().x_clip();
@@ -565,5 +565,4 @@ inline void test_simulate_in_slabs_orders_substeps_and_columns() {
         HS_EXPECT_EQ(static_cast<int>(fx.get_pixel(x, y).r), expected);
     }
   }
-  Spacetime::set_flat_surface(false);
 }

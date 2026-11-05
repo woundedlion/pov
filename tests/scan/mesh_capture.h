@@ -649,9 +649,10 @@ inline void test_mesh_motion_activation() {
   HS_EXPECT_TRUE(Scan::mesh_motion_active<W>(0.51f * PIXEL));
   HS_EXPECT_TRUE(Scan::mesh_motion_active<W>(7.9f * PIXEL));
   HS_EXPECT_FALSE(Scan::mesh_motion_active<W>(8.1f * PIXEL));
-  Spacetime::set_flat_surface(true);
-  HS_EXPECT_FALSE(Scan::mesh_motion_active<W>(3.4f * PIXEL));
-  Spacetime::set_flat_surface(false);
+  {
+    const ScopedTemporalSampling sampling(false);
+    HS_EXPECT_FALSE(Scan::mesh_motion_active<W>(3.4f * PIXEL));
+  }
 }
 
 /// Largest channel difference between a swept pole face and its per-column

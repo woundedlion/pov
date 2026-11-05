@@ -311,9 +311,10 @@ inline void test_column_basis_segments_and_endpoints() {
         });
   };
   auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
-  Spacetime::set_flat_surface(true);
-  const Scan::ColumnBasis off = basis->prepare(motion.previous, motion.current);
-  Spacetime::set_flat_surface(false);
+  const Scan::ColumnBasis off = [&] {
+    const ScopedTemporalSampling sampling(false);
+    return basis->prepare(motion.previous, motion.current);
+  }();
   HS_EXPECT_TRUE(off.azimuth == nullptr);
   HS_EXPECT_TRUE(basis->prepare(motion.current, motion.current).azimuth ==
                  nullptr);
@@ -1356,9 +1357,10 @@ template <int W, int H> inline void check_timed_shader(float lod) {
   const size_t seam = static_cast<size_t>(H / 2) * W + W / 2;
   HS_EXPECT_GT(drawn[seam - 1].r, drawn[seam].r);
 
-  Spacetime::set_flat_surface(true);
-  const std::vector<Pixel> off = render_stub_frame<W, H>(timed);
-  Spacetime::set_flat_surface(false);
+  const std::vector<Pixel> off = [&] {
+    const ScopedTemporalSampling sampling(false);
+    return render_stub_frame<W, H>(timed);
+  }();
   const std::vector<Pixel> endpoint =
       render_stub_frame<W, H>([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
         held(pipeline, canvas, 1.0f);
@@ -1514,9 +1516,10 @@ inline void test_column_basis_prepares_for_moving_state() {
   const Scan::ColumnBasis forced = basis->prepare(q, q, true);
   HS_EXPECT_TRUE(forced.azimuth != nullptr);
   HS_EXPECT_TRUE(forced.sweep_arc > 0.0f && forced.sweep_arc < 1e-3f);
-  Spacetime::set_flat_surface(true);
-  HS_EXPECT_TRUE(basis->prepare(q, q, true).azimuth == nullptr);
-  Spacetime::set_flat_surface(false);
+  {
+    const ScopedTemporalSampling sampling(false);
+    HS_EXPECT_TRUE(basis->prepare(q, q, true).azimuth == nullptr);
+  }
   ScratchScope scope(scratch_arena_a);
   const Scan::ColumnBasis still =
       Scan::prepare_column_basis<W, H>(scratch_arena_a, q, q);
