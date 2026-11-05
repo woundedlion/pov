@@ -268,10 +268,12 @@ inline void test_octet_events_ties_and_limits() {
   const Raycast::Ray OBLIQUE{
       {0.2f, -0.3f, 0.4f}, math::Vector{-1, 2, -3}.normalized(), {0.3f, 4}};
   SDF::OctetEvents slanted(OCTET, OBLIQUE, {0.05f, 0.1f});
+  size_t slanted_hits = 0;
   float previous = OBLIQUE.interval.near;
   limits.max_layers = 32;
   const auto SLANTED = Raycast::trace_events(slanted, OBLIQUE.interval, limits,
                                              [&](const auto &hit) {
+                                               ++slanted_hits;
                                                HS_EXPECT_GE(hit.t, previous);
                                                HS_EXPECT_GE(hit.coverage, 0.0f);
                                                HS_EXPECT_LE(hit.coverage, 1.0f);
@@ -280,6 +282,7 @@ inline void test_octet_events_ties_and_limits() {
                                                return true;
                                              });
   HS_EXPECT_EQ(SLANTED.status, Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_GT(slanted_hits, size_t{1});
 }
 
 /** @brief Octet struts have one angle correct coverage layer. */
