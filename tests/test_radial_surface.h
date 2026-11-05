@@ -729,10 +729,41 @@ inline void test_radial_surface_edge_pair_corner() {
   HS_EXPECT_LT(color.r, HALF_PLANE - .1f);
 }
 
+/** @brief Checks a terminal-boundary overlap against subpixel area.
+ * @param knots Surface contour.
+ * @param p Pixel center.
+ * @param dx,dy Pixel frame.
+ * @param theta Pixel azimuth.
+ * @param lower_bound First candidate interval.
+ * @param tolerance Maximum color error.
+ * @param label Diagnostic label. */
+inline void check_terminal_overlap(std::span<const Surface::Knot> knots,
+                                   Surface::Point p, Surface::Point dx,
+                                   Surface::Point dy, float theta,
+                                   uint16_t lower_bound, double tolerance,
+                                   const char *label) {
+  HS_CONTEXT(label);
+  ScratchScope scope(scratch_arena_a);
+  Surface surface;
+  surface.prepare(scratch_arena_a, 7, Plot::STAR_INNER_RATIO, knots);
+  Scan::RadialSurfaceEdgeAA<Surface> aa;
+  const auto shade = [&](const Surface::Hit &h) {
+    const float Q = (h.interval + h.fraction) / (knots.size() - 1);
+    return Scan::SurfaceColor{Q, Q, Q};
+  };
+  Scan::SurfaceAreaStats stats;
+  const auto result =
+      aa.sample(surface, p, dx, dy, theta, lower_bound, shade, &stats);
+  const double reference = area_reference(surface, p, dx, dy, 128, shade);
+  HS_EXPECT_EQ(stats.clips, 1u);
+  HS_EXPECT_NEAR(result.r, reference, tolerance);
+  std::printf("  terminal overlap %s: aa=%g reference=%g\n", label, result.r,
+              reference);
+}
+
 /** @brief Checks overlapping early and terminal boundaries against subpixel area. */
 inline void test_radial_surface_terminal_background() {
   {
-    ScratchScope scope(scratch_arena_a);
     const std::array KNOTS{
         Surface::Knot{float(0), float(0), float(0.72896862)},
         Surface::Knot{float(0.075755164), float(0.0556274317),
@@ -781,27 +812,13 @@ inline void test_radial_surface_terminal_background() {
         Surface::Knot{float(1.04834688), float(-1.10584521),
                       float(-0.812083423)},
         Surface::Knot{float(1.171597), float(-1.0463084), float(-0.728968561)}};
-    Surface surface;
-    surface.prepare(scratch_arena_a, 7, Plot::STAR_INNER_RATIO, KNOTS);
     const Surface::Point P{float(0.126707062), float(-0.879523873)};
     const Surface::Point DX{float(0.0154463407), float(-0.00674017007)};
     const Surface::Point DY{float(0.0113697099), float(0.0190199912)};
-    Scan::RadialSurfaceEdgeAA<Surface> aa;
-    auto shade = [](const Surface::Hit &h) {
-      const float Q = (h.interval + h.fraction) / 24;
-      return Scan::SurfaceColor{Q, Q, Q};
-    };
-    Scan::SurfaceAreaStats stats;
-    const auto RESULT =
-        aa.sample(surface, P, DX, DY, float(-1.42771757), 10, shade, &stats);
-    const double reference = area_reference(surface, P, DX, DY, 128, shade);
-    HS_EXPECT_EQ(stats.clips, 1u);
-    HS_EXPECT_LT(fabs(RESULT.r - reference), 0.08);
-    std::printf("  terminal overlap 20,34: aa=%g reference=%g\n", RESULT.r,
-                reference);
+    check_terminal_overlap(KNOTS, P, DX, DY, float(-1.42771757), 10, 0.08,
+                           "20,34");
   }
   {
-    ScratchScope scope(scratch_arena_a);
     const std::array KNOTS{
         Surface::Knot{float(0), float(0), float(0.368096858)},
         Surface::Knot{float(0.0912108868), float(0.0226678196),
@@ -852,27 +869,13 @@ inline void test_radial_surface_terminal_background() {
                       float(-0.48630923)},
         Surface::Knot{float(1.46557486), float(-0.565235972),
                       float(-0.368096769)}};
-    Surface surface;
-    surface.prepare(scratch_arena_a, 7, Plot::STAR_INNER_RATIO, KNOTS);
     const Surface::Point P{float(-0.349607706), float(-0.830267727)};
     const Surface::Point DX{float(0.0242360439), float(0.00149365724)};
     const Surface::Point DY{float(-0.00394339021), float(0.0215454288)};
-    Scan::RadialSurfaceEdgeAA<Surface> aa;
-    auto shade = [](const Surface::Hit &h) {
-      const float Q = (h.interval + h.fraction) / 24;
-      return Scan::SurfaceColor{Q, Q, Q};
-    };
-    Scan::SurfaceAreaStats stats;
-    const auto RESULT =
-        aa.sample(surface, P, DX, DY, float(-1.96934056), 10, shade, &stats);
-    const double reference = area_reference(surface, P, DX, DY, 128, shade);
-    HS_EXPECT_EQ(stats.clips, 1u);
-    HS_EXPECT_LT(fabs(RESULT.r - reference), 0.13);
-    std::printf("  terminal overlap 53,74: aa=%g reference=%g\n", RESULT.r,
-                reference);
+    check_terminal_overlap(KNOTS, P, DX, DY, float(-1.96934056), 10, 0.13,
+                           "53,74");
   }
   {
-    ScratchScope scope(scratch_arena_a);
     const std::array KNOTS{Surface::Knot{float(0), float(0), float(0.99361074)},
                            Surface::Knot{float(0.0507930592),
                                          float(0.0790779442),
@@ -923,24 +926,11 @@ inline void test_radial_surface_terminal_background() {
                                          float(-0.970378935)},
                            Surface::Knot{float(0.857132673), float(-1.31633019),
                                          float(-0.99361074)}};
-    Surface surface;
-    surface.prepare(scratch_arena_a, 7, Plot::STAR_INNER_RATIO, KNOTS);
     const Surface::Point P{float(0.851393998), float(0.705435812)};
     const Surface::Point DX{float(0.0215828046), float(-0.0114967246)};
     const Surface::Point DY{float(0.0069451537), float(0.0210930854)};
-    Scan::RadialSurfaceEdgeAA<Surface> aa;
-    auto shade = [](const Surface::Hit &h) {
-      const float Q = (h.interval + h.fraction) / 24;
-      return Scan::SurfaceColor{Q, Q, Q};
-    };
-    Scan::SurfaceAreaStats stats;
-    const auto RESULT =
-        aa.sample(surface, P, DX, DY, float(0.691918015), 13, shade, &stats);
-    const double reference = area_reference(surface, P, DX, DY, 128, shade);
-    HS_EXPECT_EQ(stats.clips, 1u);
-    HS_EXPECT_LT(fabs(RESULT.r - reference), 0.04);
-    std::printf("  terminal overlap 89,88: aa=%g reference=%g\n", RESULT.r,
-                reference);
+    check_terminal_overlap(KNOTS, P, DX, DY, float(0.691918015), 13, 0.04,
+                           "89,88");
   }
 }
 
