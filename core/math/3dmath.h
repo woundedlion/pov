@@ -717,9 +717,6 @@ HS_O3_FN inline void fast_cbrt6(const float x[6], float o[6]) {
 
 // Forward declarations
 inline float fast_acos(float x);
-inline float fast_sinf(float x);
-inline float fast_cosf(float x);
-inline float fast_expf(float x);
 
 inline Spherical::Spherical(const Vector &v) {
   Vector n(v);
