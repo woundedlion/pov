@@ -11,6 +11,7 @@
  */
 
 #include "core/platform/effect_identity.h"
+#include <cstring>
 #include <algorithm>
 #include <bit>
 #include <cmath>
@@ -563,8 +564,8 @@ private:
     noise_history = color_noise_cache.identity.phase == previous_phase &&
                     color_noise_cache.identity.scale == params.noise_scale;
     if (noise_history)
-      std::copy_n(color_noise_lut, Pattern::SphereLutView::SIZE,
-                  previous_noise_lut);
+      std::memcpy(previous_noise_lut, color_noise_lut,
+                  Pattern::SphereLutView::SIZE * sizeof(*previous_noise_lut));
   }
 
   float sample_color_noise(const math::Vector &direction) const {
@@ -1520,7 +1521,7 @@ private:
     float *pending_a = scratch_arena_a.allocate_n<float>(PHYSICS_HISTORY_SIZE);
     float *pending_b = scratch_arena_a.allocate_n<float>(PHYSICS_HISTORY_SIZE);
     uint16_t *start_b = scratch_arena_a.allocate_n<uint16_t>(RD_N);
-    std::copy_n(state.B, RD_N, start_b);
+    std::memcpy(start_b, state.B, RD_N * sizeof(*start_b));
     int slab = 0;
     Spacetime::simulate_in_slabs<STEPS_PER_FRAME, STEPS_PER_FRAME>(
         canvas,
@@ -1531,7 +1532,8 @@ private:
         [&]() HS_HOT_INLINE {
           const int ENDS = ++slab;
           if (ENDS == STEPS_PER_FRAME / 2 + 1)
-            std::copy_n(next_pigment, RD_N, state.pigment);
+            std::memcpy(state.pigment, next_pigment,
+                        RD_N * sizeof(*next_pigment));
           if (PLAN.reseed)
             return;
           const float dissolve =
@@ -1598,7 +1600,7 @@ private:
           cur_b[i] = from_q16(state.B[i]);
         }
         step_pigment<STEPS_PER_FRAME>(cur_a, cur_b, next_pigment);
-        std::copy_n(next_pigment, RD_N, state.pigment);
+        std::memcpy(state.pigment, next_pigment, RD_N * sizeof(*next_pigment));
         for (int step = 0; step < STEPS_PER_FRAME; ++step) {
           step_physics_inplace(cur_a, cur_b, pending_a, pending_b);
         }
