@@ -11,17 +11,7 @@
 
 namespace Raycast {
 
-/**
- * @brief Bitwise finiteness test, immune to fast-math folding.
- * @param value Value to test.
- * @return False for infinities and NaNs.
- */
-inline bool finite(float value) {
-  uint32_t bits;
-  static_assert(sizeof(bits) == sizeof(value));
-  std::memcpy(&bits, &value, sizeof(bits));
-  return (bits & 0x7f800000u) != 0x7f800000u;
-}
+using hs::finite;
 
 /** @brief Ray-parameter range [near, far] in world units. */
 struct Interval {

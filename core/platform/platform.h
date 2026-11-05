@@ -73,9 +73,19 @@
 #define HS_AUDIT_CHECK(cond, ...) ((void)0)
 #endif
 
+#include <bit>
 #include <type_traits>
 #include <cstdint>
 #include <cstring>
+
+namespace hs {
+/** @brief Tests IEEE-754 finiteness independently of floating-point mode.
+ * @param value Candidate scalar.
+ * @return Whether the scalar has a finite exponent. */
+inline bool finite(float value) {
+  return (std::bit_cast<uint32_t>(value) & 0x7f800000u) != 0x7f800000u;
+}
+} // namespace hs
 
 #include "core/platform/attributes.h"
 #include "core/platform/diagnostics.h"

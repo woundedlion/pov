@@ -8,7 +8,6 @@
  * @brief Passive pattern coordinates, recipes and source state. */
 
 #include <cmath>
-#include <bit>
 #include <cstdint>
 
 #include "core/math/3dmath.h"
@@ -16,12 +15,7 @@
 
 namespace Pattern {
 
-/** @brief Tests IEEE-754 finiteness independently of floating-point mode.
- * @param value Candidate scalar.
- * @return Whether the scalar has a finite exponent. */
-inline bool finite(float value) {
-  return (std::bit_cast<uint32_t>(value) & 0x7f800000u) != 0x7f800000u;
-}
+using hs::finite;
 
 /** @brief One-dimensional pattern coordinate. */
 struct ScalarCoordinate {
