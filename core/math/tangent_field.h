@@ -102,7 +102,7 @@ struct PotentialTerm {
  * @return Three columns of the half-turn matrices plus identity. */
 constexpr auto make_tetrahedral_axes() {
   constexpr auto GROUP =
-      lenses::DodecahedralTable::make_group(lenses::TETRAHEDRAL_MIRRORS);
+      lenses::ReflectionGroup::make_group(lenses::TETRAHEDRAL_MIRRORS);
   static_assert(GROUP.count == 24);
   std::array<Vector, 3> axes{};
   size_t count = 0;
