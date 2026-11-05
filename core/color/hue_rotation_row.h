@@ -8,6 +8,7 @@
  * @brief Eager and lazy hue-rotation rows over a bound color. */
 
 #include "core/color/color_space.h"
+#include "core/math/periodic.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
