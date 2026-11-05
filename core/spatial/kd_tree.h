@@ -293,18 +293,14 @@ private:
       return a.d_sq != b.d_sq ? a.d_sq < b.d_sq
                               : a.original_index < b.original_index;
     };
-    if constexpr (MAX_K <= 16) {
-      for (size_t i = 1; i < count; ++i) {
-        const Neighbor value = best[i];
-        size_t j = i;
-        while (j > 0 && before(value, best[j - 1])) {
-          best[j] = best[j - 1];
-          --j;
-        }
-        best[j] = value;
+    for (size_t i = 1; i < count; ++i) {
+      const Neighbor value = best[i];
+      size_t j = i;
+      while (j > 0 && before(value, best[j - 1])) {
+        best[j] = best[j - 1];
+        --j;
       }
-    } else {
-      std::sort(best, best + count, before);
+      best[j] = value;
     }
     return result;
   }
