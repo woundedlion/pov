@@ -1,6 +1,7 @@
 """Revision selection, electrical partitions and current revision generator provenance."""
 import contextlib
 import io
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -14,6 +15,7 @@ sys.path.insert(0, str(GEN))
 import analyze_candidates  # noqa: E402
 import board  # noqa: E402
 import check  # noqa: E402
+import fab  # noqa: E402
 import pcb  # noqa: E402
 import sexp  # noqa: E402
 import shorts  # noqa: E402
@@ -171,6 +173,16 @@ class RevisionGenerationTests(unittest.TestCase):
         cls.before = {path: (cls.rev_12 / path).read_bytes() for path in GENERATED_PROJECT_FILES}
         generate(cls.prototype, unplaced=True, revision="1.3")
         generate(cls.rev_12, unplaced=True, revision="1.2")
+
+    def test_current_schematics_pass_real_erc(self):
+        for revision in ("1.2", "1.3"):
+            with self.subTest(revision=revision), tempfile.TemporaryDirectory() as directory:
+                project = Path(directory) / revision
+                shutil.copytree(GEN.parent / revision, project,
+                                ignore=shutil.ignore_patterns("routed", "candidates"))
+                report = str(Path(directory) / "erc.json")
+                with mock.patch.object(fab, "SCH", str(project / "phantasm.kicad_sch")):
+                    self.assertEqual(fab.run_erc(report), 0)
 
     def test_inner_planes_pass_between_teensy_header_pads(self):
         for project in (self.rev_12, self.prototype):
