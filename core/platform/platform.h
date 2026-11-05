@@ -413,37 +413,14 @@ check_fail(const char *site, const char *fmt, ...) {
 
 } // namespace hs
 
-// ---------------------------------------------------------------------------
-// Fn<Sig, Cap> — platform-aware heap-free callable wrapper.
-//   Teensy:     teensy::inplace_function
-//   Host/WASM:  hs::inplace_function
-//
-// Cap is an inline byte budget; overflowing it is a compile error. A pointer
-// capture is wider on the 64-bit host.
-//
-// Invoking an unbound Fn differs by platform: hs::inplace_function traps
-// (noreturn), while teensy::inplace_function returns static_cast<R>(0), so on
-// device R must be constructible from 0.
-// ---------------------------------------------------------------------------
-#ifdef ARDUINO
-#include <inplace_function.h>
+#include "core/platform/inplace_function.h"
 /**
- * @brief Platform-aware callable wrapper (Teensy: heap-free inplace_function).
+ * @brief Heap-free callable whose empty invocation traps.
  * @tparam Sig Call signature, e.g. void(int).
- * @tparam Cap Inline storage capacity in bytes for the captured state.
- */
-template <typename Sig, size_t Cap = 16>
-using Fn = teensy::inplace_function<Sig, Cap>;
-#else
-#include "core/platform/inplace_function.h" // hs::inplace_function
-/**
- * @brief Platform-aware callable wrapper (host/WASM: heap-free inplace_function).
- * @tparam Sig Call signature, e.g. void(int).
- * @tparam Cap Inline storage capacity in bytes for the captured state.
+ * @tparam Cap Inline storage capacity in bytes for captured state.
  */
 template <typename Sig, size_t Cap = 16>
 using Fn = hs::inplace_function<Sig, Cap>;
-#endif
 
 // Detect x86 / x64 architecture (Desktop/Simulator)
 #if defined(__x86_64__) || defined(__i386__)
