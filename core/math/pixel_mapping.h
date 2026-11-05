@@ -154,8 +154,7 @@ template <int W, int H> struct TrigLUT {
                 "cos_theta is recovered as sin_theta[x + W/4]; W must be a "
                 "multiple of 4 for the quarter-turn offset to be exact");
   /// Phi table rows: H plus any virtual test rows.
-  static constexpr int H_VIRT =
-      H + (DisplayGeometry<H>::OFFSET > 0 ? DisplayGeometry<H>::OFFSET : 0);
+  static constexpr int H_VIRT = PhiLUT<H>::H_VIRT;
   // W/4 extra trailing entries: cos(theta) reads back as sin_theta[x + W/4].
   /// Length of `sin_theta`: W columns plus a quarter-turn overrun.
   static constexpr int W_EXT = W + W / 4;
