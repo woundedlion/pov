@@ -361,7 +361,7 @@ private:
     int first = 0;
     for (int k = 0; k < ripple_gen.active_count(); ++k) {
       const auto &p = ripple_gen.active_params(k);
-      if (p.amplitude <= 0.001f)
+      if (p.amplitude <= RippleKernel::NEGLIGIBLE_AMPLITUDE)
         continue;
       RippleKernel::append_endpoint(result.waves, result.count, first, p);
     }
@@ -391,7 +391,8 @@ private:
         MeshOps::transform(base_state, transformed_state, scratch_arena_a,
                            ripple_gen, camera);
         for (int k = 0; k < ripple_gen.active_count(); ++k)
-          if (ripple_gen.active_params(k).amplitude > 0.001f)
+          if (ripple_gen.active_params(k).amplitude >
+              RippleKernel::NEGLIGIBLE_AMPLITUDE)
             test_endpoint_bands += base_state.vertices.size();
       } else
 #endif
@@ -643,7 +644,7 @@ private:
 #endif
       params.phase = params.previous_phase + phase_delta * u;
       params.amplitude = params.previous_amplitude + amplitude_delta * u;
-      if (params.amplitude <= 0.001f)
+      if (params.amplitude <= RippleKernel::NEGLIGIBLE_AMPLITUDE)
         return v;
       return RippleKernel::transform_at_distance(
           v, params, math::fast_acos(hs::clamp(cosine, -1.0f, 1.0f)),
@@ -971,7 +972,8 @@ private:
       if (test_reference_endpoints) {
         MeshOps::transform_in_place(mesh, ripple_gen, camera);
         for (int k = 0; k < ripple_gen.active_count(); ++k)
-          if (ripple_gen.active_params(k).amplitude > 0.001f)
+          if (ripple_gen.active_params(k).amplitude >
+              RippleKernel::NEGLIGIBLE_AMPLITUDE)
             test_endpoint_bands += mesh.vertices.size();
       } else
 #endif

@@ -12,6 +12,9 @@
 
 namespace RippleKernel {
 
+/** @brief Wave amplitudes at or below this threshold have no displacement. */
+inline constexpr float NEGLIGIBLE_AMPLITUDE = 0.001f;
+
 /** @brief Instantaneous wave parameters and cached cosine support. */
 struct Wave {
   math::Vector center;    ///< Unit source direction.
@@ -129,7 +132,7 @@ HS_HOT_INLINE inline math::Vector transform_at_distance(const math::Vector &v,
  * @return Displaced direction. */
 HS_HOT_INLINE inline math::Vector transform(const math::Vector &v,
                                             const Wave &wave) {
-  if (wave.amplitude <= 0.001f)
+  if (wave.amplitude <= NEGLIGIBLE_AMPLITUDE)
     return v;
   float cos_d = math::dot(v, wave.center);
   if (!contains(wave, cos_d))
@@ -155,7 +158,8 @@ HS_HOT_INLINE inline bool radial_step(const Wave &wave, float &distance,
                                       float &angle, float &path,
                                       bool track_path) {
   const float HALF_WIDTH = wave.half_width();
-  if (wave.amplitude <= 0.001f || distance < wave.phase - 2.0f * HALF_WIDTH ||
+  if (wave.amplitude <= NEGLIGIBLE_AMPLITUDE ||
+      distance < wave.phase - 2.0f * HALF_WIDTH ||
       distance > wave.phase + 2.0f * HALF_WIDTH)
     return true;
   const float THETA = angle_at_distance(wave, distance, wave.phase);
