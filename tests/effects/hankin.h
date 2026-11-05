@@ -482,24 +482,8 @@ inline constexpr int HANKIN_SEAM_FRAME = 25;
  * @brief The tetrahedron sweep and following morph leg have no excess seam step.
  */
 inline void test_hankinsolids_interlace_motion_is_seam_free() {
-  constexpr int W = 288, H = 144;
-  reset_effect_globals();
-  pin_frame_clock(0);
-  HankinSolids<W, H> effect;
-  effect.init();
-  std::vector<Pixel> previous, current;
-  MeshSeamSteps steps;
-  for (int f = 0; f < 120; ++f) {
-    pin_frame_clock(f);
-    effect.draw_frame();
-    effect.advance_display();
-    capture_frame<W, H>(effect, current);
-    if (f > 0)
-      steps.add(previous, current, W, H);
-    previous.swap(current);
-  }
+  const auto steps = mesh_seam_steps<HankinSolids, 288, 144>(120);
   expect_mesh_seam_continuous(steps, "hankin interlace");
-  hs::clear_mock_time();
 }
 
 /**

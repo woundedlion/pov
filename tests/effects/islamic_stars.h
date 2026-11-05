@@ -1143,24 +1143,8 @@ inline void test_islamicstars_seam_copies_are_one_polygon() {
  * maximum bound these steps.
  */
 inline void test_islamicstars_playback_motion_is_seam_free() {
-  constexpr int W = 288, H = 144;
-  reset_effect_globals();
-  pin_frame_clock(0);
-  IslamicStars<W, H> effect;
-  effect.init();
-  std::vector<Pixel> previous, current;
-  MeshSeamSteps steps;
-  for (int f = 0; f < 240; ++f) {
-    pin_frame_clock(f);
-    effect.draw_frame();
-    effect.advance_display();
-    capture_frame<W, H>(effect, current);
-    if (f > 0)
-      steps.add(previous, current, W, H);
-    previous.swap(current);
-  }
+  const auto steps = mesh_seam_steps<IslamicStars, 288, 144>(240);
   expect_mesh_seam_continuous(steps, "islamic playback", 1.025, 1.062);
-  hs::clear_mock_time();
 }
 
 /**

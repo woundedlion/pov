@@ -726,6 +726,32 @@ struct FaceCopy {
 /** @brief A deformation scan's face copies: first arm, then second, by face. */
 using FaceCopies = std::array<std::map<size_t, FaceCopy>, 2>;
 
+/** @brief Measures successive frame seam steps for a pinned effect playback.
+ * @tparam E Effect template.
+ * @tparam W,H Display dimensions.
+ * @param frames Number of frames to render.
+ * @return Accumulated seam and interior steps. */
+template <template <int, int> class E, int W, int H>
+inline MeshSeamSteps mesh_seam_steps(int frames) {
+  reset_effect_globals();
+  pin_frame_clock(0);
+  E<W, H> effect;
+  effect.init();
+  std::vector<Pixel> previous, current;
+  MeshSeamSteps steps;
+  for (int f = 0; f < frames; ++f) {
+    pin_frame_clock(f);
+    effect.draw_frame();
+    effect.advance_display();
+    capture_frame<W, H>(effect, current);
+    if (f > 0)
+      steps.add(previous, current, W, H);
+    previous.swap(current);
+  }
+  hs::clear_mock_time();
+  return steps;
+}
+
 /// Largest extrapolation of a nonpolar face's contiguous capture branch.
 inline constexpr float SEAM_EXTRAPOLATION = 1.0f;
 
