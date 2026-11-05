@@ -92,6 +92,14 @@ class TestWarningGate(unittest.TestCase):
 
         self.assertEqual(tw.normalize("cc1.exe: warning: C++ option ignored"),
                          "cc1: warning: C++ option ignored")
+        for tool in ("gcc", "g++", "arm-none-eabi-gcc", "arm-none-eabi-g++",
+                     "collect2", "lto1", "cc1", "cc1plus", "ld"):
+            for prefix in ("", "/opt/a toolchain/bin/", "C:\\a toolchain\\bin\\"):
+                for suffix in ("", ".exe"):
+                    with self.subTest(tool=tool, prefix=prefix, suffix=suffix):
+                        line = f"{prefix}{tool}{suffix}: warning: unsupported switch"
+                        self.assertEqual(tw.normalize(line),
+                                         f"{tool}: warning: unsupported switch")
 
     def test_library_warning_excluded(self):
         self.assertIsNone(tw.normalize(

@@ -17,7 +17,8 @@ THIRD_PARTY = ("lib/", "libdeps/", ".platformio/", "packages/")
 # gcc: "<path>:<line>[:<col>]: warning: <message> [-Wflag]"
 _WARNING_RE = re.compile(r"^(.*?):(\d+):(?:\d+:)?\s*warning:\s*(.*)$")
 _FILELESS_WARNING_RE = re.compile(
-    r"^(<command-line>|(?:\S*[/\\])?(?:cc1plus|cc1|ld)(?:\.exe)?):\s*warning:\s*(.*)$")
+    r"^(<command-line>|(?:.*[/\\])?(?:cc1plus|cc1|ld|collect2|lto1|"
+    r"(?:arm-none-eabi-)?(?:gcc|g\+\+))(?:\.exe)?):\s*warning:\s*(.*)$")
 
 # PlatformIO's non-verbose step line: "Compiling <object>" (absent under -v).
 _PIO_STEP_RE = re.compile(r"^\s*Compiling\s+(\S+)")
