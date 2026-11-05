@@ -72,8 +72,7 @@ public:
       return;
     }
     float c = math::dot(v, origin);
-    float m1 = math::dot(v, v);
-    float norm_sq = m1;
+    const float norm_sq = math::dot(v, v);
     float threshold_sq = cos_radius * cos_radius * norm_sq;
     bool outside = cos_radius >= 0.0f ? c <= 0.0f || c * c <= threshold_sq
                                       : c < 0.0f && c * c >= threshold_sq;
