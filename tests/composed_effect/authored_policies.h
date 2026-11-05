@@ -245,6 +245,7 @@ inline void test_authored_surface_noise_topology() {
         PREPARED.direction_sin, true);
     HS_EXPECT_NEAR(ACTUAL.sphere.x, EXPECTED.sphere.x, 1e-6f);
     HS_EXPECT_NEAR(ACTUAL.sphere.y, EXPECTED.sphere.y, 1e-6f);
+    HS_EXPECT_NEAR(ACTUAL.sphere.z, EXPECTED.sphere.z, 1e-6f);
     HS_EXPECT_NEAR(ACTUAL.path_length, EXPECTED.path_length, 1e-6f);
     for (uint8_t integrator = 0; integrator < 3; ++integrator)
       for (uint8_t limit = 0; limit < 2; ++limit) {
