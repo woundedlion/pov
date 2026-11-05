@@ -300,6 +300,12 @@ target_compile_options(mindsplatter_replay_gen PRIVATE
 _hs_warnings(mindsplatter_replay_gen)
 _hs_sanitize(mindsplatter_replay_gen)
 
+add_custom_target(regenerate_mindsplatter_replay
+  COMMAND $<TARGET_FILE:mindsplatter_replay_gen>
+          ${HS_ROOT}/tests/mindsplatter_replay_corpus.h
+  DEPENDS mindsplatter_replay_gen
+  VERBATIM)
+
 add_test(NAME unit_mindsplatter_replay_form COMMAND ${CMAKE_COMMAND}
   -DGENERATOR=$<TARGET_FILE:mindsplatter_replay_gen>
   -DCOMMITTED=${HS_ROOT}/tests/mindsplatter_replay_corpus.h

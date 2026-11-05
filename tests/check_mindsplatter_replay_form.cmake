@@ -62,7 +62,8 @@ foreach(_source IN ITEMS _committed _generated)
   string(SUBSTRING "${${_source}}" 0 ${_state_offset} ${_source}_preamble)
 endforeach()
 if(NOT _committed_preamble STREQUAL _generated_preamble)
-  message(FATAL_ERROR "MindSplatter replay corpus preamble differs from generated form")
+  message(FATAL_ERROR "MindSplatter replay corpus preamble differs from generated form; "
+    "regenerate with cmake --build --preset tests --target regenerate_mindsplatter_replay")
 endif()
 
 # Only form and revision are portable: the replay payload depends on libm

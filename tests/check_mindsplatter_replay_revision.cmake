@@ -5,12 +5,14 @@ function(check_mindsplatter_replay_revision committed generated)
   if(_committed_revision STREQUAL "" OR _generated_revision STREQUAL "")
     message(FATAL_ERROR
       "MindSplatter replay revision missing: committed ${_committed_revision}, "
-      "generated ${_generated_revision}")
+      "generated ${_generated_revision}; regenerate with "
+      "cmake --build --preset tests --target regenerate_mindsplatter_replay")
   endif()
   if(NOT _committed_revision STREQUAL _generated_revision)
     message(FATAL_ERROR
       "MindSplatter replay revision drift: committed ${_committed_revision}, "
-      "generated ${_generated_revision}")
+      "generated ${_generated_revision}; regenerate with "
+      "cmake --build --preset tests --target regenerate_mindsplatter_replay")
   endif()
   set(MINDSPLATTER_REPLAY_REVISION "${_generated_revision}" PARENT_SCOPE)
 endfunction()
