@@ -315,6 +315,28 @@ inline void verify_family_equal(const Family &actual, const Family &expected) {
     HS_EXPECT_EQ(actual.burst_size, expected.burst_size);
     HS_EXPECT_EQ(actual.random_center, expected.random_center);
   }
+  if constexpr (requires { actual.terms; }) {
+    for (size_t i = 0; i < actual.terms.size(); ++i) {
+      const auto &a = actual.terms[i];
+      const auto &b = expected.terms[i];
+      HS_EXPECT_EQ(a.type, b.type);
+      HS_EXPECT_EQ(a.kind, b.kind);
+      HS_EXPECT_EQ(a.l, b.l);
+      HS_EXPECT_EQ(a.m, b.m);
+      HS_EXPECT_EQ(bits(a.amplitude), bits(b.amplitude));
+      HS_EXPECT_EQ(bits(a.phase), bits(b.phase));
+    }
+  }
+  if constexpr (std::is_same_v<Family, Pullback::Color::AuthoredColorParams>) {
+    HS_EXPECT_EQ(actual.palette_mode, expected.palette_mode);
+    HS_EXPECT_EQ(actual.palette_type, expected.palette_type);
+    HS_EXPECT_EQ(actual.palette_harmony, expected.palette_harmony);
+    HS_EXPECT_EQ(actual.palette_lightness_curve,
+                 expected.palette_lightness_curve);
+    HS_EXPECT_EQ(actual.palette_name, expected.palette_name);
+    HS_EXPECT_EQ(actual.palette_name_b, expected.palette_name_b);
+    HS_EXPECT_EQ(actual.brightness_envelope, expected.brightness_envelope);
+  }
 }
 
 /** @brief Bitwise-compares a whole parameter set, family by family. */
@@ -976,6 +998,12 @@ inline void check_snapshot_contract(const char *name) {
   moved.params.visit([&]<typename Resource>(auto &family) {
     if constexpr (Pullback::HasFields<typename Resource::Family>)
       move_off_captured(family, captured.params.template get<Resource::KEY>());
+    if constexpr (requires { family.terms; })
+      family.terms[0].amplitude =
+          family.terms[0].amplitude == 0.125f ? 0.25f : 0.125f;
+    if constexpr (std::is_same_v<typename Resource::Family,
+                                 Pullback::Color::AuthoredColorParams>)
+      family.palette_mode = (family.palette_mode + 1) % 3;
   });
   constexpr size_t MAPPINGS =
       std::size(Pullback::Interp::Op::PALETTE_MAPPING_IDS);
@@ -1021,8 +1049,6 @@ inline void check_snapshot_contract(const char *name) {
   mapping.params.template get<"color">().palette_mapping =
       static_cast<Pullback::Color::PaletteMapping>(MAPPINGS);
   HS_EXPECT_FALSE(effect.restore_parameters(mapping));
-  verify_params_equal(effect.serialize_parameters().params, captured.params);
-
   verify_params_equal(effect.serialize_parameters().params, captured.params);
 }
 
