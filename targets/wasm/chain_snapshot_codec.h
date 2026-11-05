@@ -29,9 +29,6 @@ class ChainSnapshotCodec {
   static bool array_type(const Val &value) {
     return Val::global("Array").call<bool>("isArray", value);
   }
-  static bool array(const Val &value, size_t max_count) {
-    return array_type(value) && value["length"].as<size_t>() <= max_count;
-  }
   static bool object(const Val &value) {
     return !value.isNull() && !value.isUndefined() &&
            value.typeOf().as<std::string>() == "object";
@@ -43,9 +40,7 @@ class ChainSnapshotCodec {
     out = value.as<float>();
     return std::isfinite(out);
   }
-  template <typename T>
-  static bool integer(const Val &object, const char *key, T &out) {
-    const auto value = object[key];
+  template <typename T> static bool integer(const Val &value, T &out) {
     if (!value.isNumber())
       return false;
     const double number = value.as<double>();
@@ -55,6 +50,10 @@ class ChainSnapshotCodec {
       return false;
     out = static_cast<T>(number);
     return true;
+  }
+  template <typename T>
+  static bool integer(const Val &object, const char *key, T &out) {
+    return integer(object[key], out);
   }
   static bool boolean(const Val &object, const char *key, bool &out) {
     const auto value = object[key];
@@ -87,7 +86,7 @@ class ChainSnapshotCodec {
   }
   template <size_t N>
   static bool floats(const Val &value, std::array<float, N> &out) {
-    if (!array(value, N) || value["length"].as<size_t>() != N)
+    if (!array_type(value) || value["length"].as<size_t>() != N)
       return false;
     for (size_t index = 0; index < N; ++index) {
       if (!value[index].isNumber())
@@ -305,8 +304,7 @@ class ChainSnapshotCodec {
       if (!number(value, "phase", state.phase) ||
           !integer(value, "seed", state.seed) ||
           !integer(value, "burstCount", state.burst_count) ||
-          !integer(value, "frames", state.frames) ||
-          !Val::global("Array").call<bool>("isArray", waves) ||
+          !integer(value, "frames", state.frames) || !array_type(waves) ||
           waves["length"].as<unsigned>() != state.waves.size())
         return false;
       for (unsigned i = 0; i < state.waves.size(); ++i)
@@ -330,14 +328,13 @@ class ChainSnapshotCodec {
       if (!modulation_clock(value, state.modulation))
         return false;
       out = state;
-    } else {
+    } else if (kind == "phase-clock-v1") {
       float phase;
       if (!number(value, "phase", phase))
         return false;
-      if (kind == "phase-clock-v1")
-        out = PhaseClockSnapshot{phase};
-      else
-        return false;
+      out = PhaseClockSnapshot{phase};
+    } else {
+      return false;
     }
     return true;
   }
@@ -503,12 +500,10 @@ public:
           palette["cycles"]["length"].as<size_t>() != 3)
         return Result::INVALID_LENGTH;
       for (size_t index = 0; index < 3; ++index) {
-        auto holder = Val::object();
-        holder.set("value", palette["hues"][index]);
         auto &clock = bank.cycles[index];
         const auto cycle = palette["cycles"][index];
-        if (!integer(holder, "value", bank.hues[index]) || !object(cycle) ||
-            !integer(cycle, "frame", clock.frame) ||
+        if (!integer(palette["hues"][index], bank.hues[index]) ||
+            !object(cycle) || !integer(cycle, "frame", clock.frame) ||
             !integer(cycle, "nextSequence", clock.next_sequence) ||
             !boolean(cycle, "fadeActive", clock.fade_active) ||
             !boolean(cycle, "displayDirty", clock.display_dirty))
