@@ -657,9 +657,6 @@ private:
                                  .duty_cycle = 0.5f};
   static constexpr std::array<PresetEntry<Params>, 1> PRESETS{
       {{PRESET, DEPARTURE}}};
-  static_assert(all_presets_in_ranges(PRESETS, [](const Params &p) {
-    return Control::valid_fields(p, parameter_fields());
-  }));
 
   ScaleModifier scale_mod{
       &params.scale_factor}; /**< Palette scale coordinate modifier. */

@@ -119,3 +119,28 @@ void construct_hook_companions() {
   AuthoredHookFixture authored;
   InheritedHookFixture inherited;
 }
+
+#ifdef HS_HOOK_ROW_FIELDS
+struct RowParams {
+  float value = 0;
+  static constexpr auto FIELDS = std::tuple{Control::Field<RowParams>{
+      "value", &RowParams::value, "Value", {0.0f, 1.0f}}};
+};
+struct RowFixture : ChoreographedEffect<RowFixture, RowParams> {
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 8;
+  static constexpr std::array<PresetEntry<Params>, 1> PRESETS{{
+#ifdef HS_HOOK_ROW_OUT_OF_RANGE
+      {{2.0f}},
+#else
+      {{0.5f}},
+#endif
+  }};
+  RowFixture() : ChoreographedEffect(8, 8) {}
+  void draw_frame() override {}
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<RowFixture>{};
+  }
+};
+[[maybe_unused]] RowFixture row_fixture;
+#endif

@@ -433,14 +433,6 @@ private:
   /** @brief The committed preset's palette; spawns bake from this. */
   const Palette *live_palette = nullptr;
 
-  static constexpr bool preset_in_ranges(const Params &p) {
-    return Control::valid_fields(p, parameter_fields());
-  }
-
-  static_assert(all_presets_in_ranges(PRESETS, preset_in_ranges),
-                "a DreamBalls preset drives a param outside its registered "
-                "slider range; widen the range to accommodate the preset");
-
   HS_COLD_MEMBER static bool source_is_four_regular(const MeshState &mesh,
                                                     Arena &scratch) {
     ScratchScope guard(scratch);

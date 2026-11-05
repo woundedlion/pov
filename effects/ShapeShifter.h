@@ -1331,14 +1331,6 @@ private:
   }};
   static_assert(surface_params(PRESETS[0].params));
 
-  /** @brief Authored bounds; Count is clamped to the canvas-specific DRAW_LIMIT. */
-  static constexpr bool preset_in_ranges(const Params &preset) {
-    return Control::valid_fields(preset, parameter_fields());
-  }
-
-  static_assert(all_presets_in_ranges(PRESETS, preset_in_ranges),
-                "ShapeShifter preset exceeds authored parameter bounds");
-
   FastNoiseLite noise;
   math::Orientation<> orientation;
   Filter::Screen::DirectAntiAliasSink<W, H> plot_filters;

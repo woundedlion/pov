@@ -377,9 +377,6 @@ private:
     return alpha;
   }
 #endif
-  static constexpr bool preset_in_ranges(const Params &p) {
-    return Control::valid_fields(p, parameter_fields());
-  }
 
   // well_strength is pre-scaled by the preset's own friction because the
   // integrator applies v <- friction*v + impulse, dragging velocity before the
@@ -437,10 +434,6 @@ private:
         .warp_scale = 0.0f},
        DEPARTURE},
   }};
-  static_assert(all_presets_in_ranges(PRESETS, preset_in_ranges),
-                "a MindSplatter preset drives a param outside its registered "
-                "slider range; widen the range to accommodate the preset (the "
-                "range exposes the presets, it does not clamp them)");
 
   // orientation/noise/mobius are borrowed by timeline-resident animations.
   math::Orientation<> orientation;

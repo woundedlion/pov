@@ -152,14 +152,6 @@ public:
                                                       .animated = true}}}}};
   }
 
-  /**
-   * @brief Whether every field of @p p lies in its declared range.
-   * @param p Parameters to check.
-   * @return True if all fields are valid.
-   */
-  static constexpr bool preset_in_ranges(const Params &p) {
-    return Control::valid_fields(p, parameter_fields());
-  }
   static constexpr size_t PRESET_COUNT = 12; ///< Number of style presets.
   /// Preset rows: solid, style and departure.
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
@@ -177,12 +169,6 @@ public:
       {{BaseMesh::PENTAGONAL_HEXECONTAHEDRON, Style::WigglingWormhole()},
        DEPARTURE},
   }};
-
-  static_assert(
-      all_presets_in_ranges(PRESETS, preset_in_ranges),
-      "a MeshFeedback preset drives a style field outside its "
-      "registered slider range; widen the range to accommodate the "
-      "preset (the range exposes the presets, it does not clamp them)");
 
   /**
    * @brief Wires up noise, orientation, and the filter pipeline.

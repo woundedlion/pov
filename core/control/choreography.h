@@ -370,6 +370,11 @@ protected:
     if constexpr (has_parameter_fields())
       static_assert(Control::curves_supported(parameter_fields_of()),
                     "discrete fields require MIDPOINT or SNAP curves");
+    if constexpr (has_parameter_fields() &&
+                  !has_hook<Control::ChoreographyHook::VALID_PARAMS>() &&
+                  !has_hook<Control::ChoreographyHook::PRESET_PARAMS>())
+      static_assert(preset_rows_are_valid(),
+                    "preset row is outside its parameter fields");
     static_assert(departures_are_supported(),
                   "a preset's departure outlasts PRESET_DWELL_FRAMES, or its "
                   "effect lacks the departure's hook (blend_params for Lerp, "
@@ -574,6 +579,15 @@ protected:
   }
 
 private:
+  /** @brief Whether authored preset rows satisfy the described fields. */
+  static consteval bool preset_rows_are_valid() {
+    for (size_t index = 0; index < preset_count_of(); ++index)
+      if (!Control::valid_fields(preset_row(index).params,
+                                 parameter_fields_of()))
+        return false;
+    return true;
+  }
+
   /** @brief Whether every departure fits inside the dwell and the effect takes
       each departure's hook: blend_params for a Lerp, set_preset_opacity for a
       Fade. */
