@@ -1389,6 +1389,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── gamut_lut.h             Generated sRGB gamut-boundary chroma table for OKLab clipping
 │   │   ├── generative_palette.h    GenerativePalette + PaletteRecipe compilation
 │   │   ├── hue_rotation_lut.h      Palette-coordinate by hue-rotation acceleration
+│   │   ├── hue_rotation_row.h      Eager and lazy hue-rotation rows over a bound color
 │   │   ├── palette_lab_lut.h       RGB-first temporal palette bases cached in OKLab
 │   │   ├── modulation_types.h      Passive source recipes and mechanic controls
 │   │   ├── modulation.h            Generic scalar-field palette composition and color mechanics

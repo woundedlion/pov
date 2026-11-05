@@ -11,6 +11,7 @@
  *        displacement-field stack.
  */
 
+#include "core/color/hue_rotation_row.h"
 #include "core/platform/effect_identity.h"
 #include <numeric>
 #include <bit>
@@ -1867,106 +1868,7 @@ private:
       nullptr; /**< cos of each bake chunk's mid-azimuth; baked once at init. */
   float *chunk_sin =
       nullptr; /**< sin of each bake chunk's mid-azimuth; baked once at init. */
-  /**
-   * @brief One ring's hue-rotation table: HUE_TABLE_SIZE cells over a bound
-   * hue-turn domain, baked up front or knot by knot on demand.
-   * @details bind() starts each ring and clears knot validity, so no sample
-   * reads a knot baked for an earlier ring.
-   */
-  struct HueTable {
-    static constexpr int KNOTS = HUE_TABLE_SIZE + 1; /**< Knots per table. */
-    /** @brief Persistent bytes of the knot storage, alignment included. */
-    static constexpr size_t BYTES = KNOTS * sizeof(Pixel) + alignof(Pixel);
-    Pixel *knots = nullptr; /**< KNOTS hue-rotated colors of the bound ring. */
-    uint64_t valid[(HUE_TABLE_SIZE + 64) / 64] =
-        {}; /**< Knots sample_lazy() has baked since the last bind(). */
-    const HueRotateBase *base = nullptr; /**< Bound ring color. */
-    float domain = 0.0f; /**< Hue-turn interval the knots span. */
-    bool cyclic = false; /**< Amounts past the domain wrap. */
-
-    /**
-     * @brief Binds the table to one ring and clears knot validity.
-     * @param ring_base Ring color's precomputed OKLab base; must outlive
-     * the ring's samples.
-     * @param hue_domain Hue-turn interval the knots span.
-     * @param wraps Whether amounts past the domain wrap.
-     */
-    HS_HOT_INLINE void bind(const HueRotateBase &ring_base, float hue_domain,
-                            bool wraps) {
-      base = &ring_base;
-      domain = hue_domain;
-      cyclic = wraps;
-      for (uint64_t &word : valid)
-        word = 0;
-    }
-
-    /**
-     * @brief Counts the knots a sample at or below @p max_amount can read.
-     * @param max_amount Largest hue offset (turns) any sample asks for.
-     * @return Knots 0..count - 1 are the only ones sample() reads.
-     * @details A wrapping lookup that can reach a full turn, or a domain that
-     * is not positive, reads anywhere.
-     */
-    int cells(float max_amount) const {
-      if (!(domain > 0.0f) || (cyclic && max_amount >= domain))
-        return KNOTS;
-      const float x =
-          hs::clamp(max_amount / domain, 0.0f, 1.0f) * HUE_TABLE_SIZE;
-      return std::min(static_cast<int>(x) + 2, KNOTS);
-    }
-
-    /**
-     * @brief Bakes the first @p count knots for the bound ring.
-     * @param count Knots to bake, at most KNOTS.
-     */
-    HS_HOT_FLASH_MEMBER void prepare(int count = KNOTS) {
-      for (int i = 0; i < count; ++i)
-        knots[i] =
-            hue_rotate(*base, domain * (static_cast<float>(i) / HUE_TABLE_SIZE))
-                .color;
-    }
-
-    /** @brief Samples knots already baked by prepare(). */
-    HS_O3_FN Pixel sample(float amount) const {
-      return sample_with(amount, [](int) {});
-    }
-
-    /** @brief Samples the table, baking each knot it reads on first use. */
-    HS_O3_FN Pixel sample_lazy(float amount) {
-      return sample_with(amount, [&](int index) HS_HOT_INLINE {
-        const uint64_t bit = uint64_t{1} << (index & 63);
-        uint64_t &word = valid[index >> 6];
-        if (!(word & bit)) {
-          knots[index] = hue_rotate(*base, domain * (static_cast<float>(index) /
-                                                     HUE_TABLE_SIZE))
-                             .color;
-          word |= bit;
-        }
-      });
-    }
-
-  private:
-    /**
-     * @brief Interpolates the table at a hue offset.
-     * @param amount Hue offset in turns.
-     * @param ensure Called with every knot index read, before the read.
-     */
-    template <typename Ensure>
-    Pixel sample_with(float amount, Ensure ensure) const {
-      assert(base && "DisplacementField::HueTable sampled before bind()");
-      float t = amount / domain;
-      t = cyclic ? math::wrap_t(t) : hs::clamp(t, 0.0f, 1.0f);
-      float x = t * HUE_TABLE_SIZE;
-      if (x >= HUE_TABLE_SIZE) {
-        ensure(HUE_TABLE_SIZE);
-        return knots[HUE_TABLE_SIZE];
-      }
-      int i = static_cast<int>(x);
-      ensure(i);
-      ensure(i + 1);
-      return knots[i].lerp16(knots[i + 1], frac_to_q16(x - i));
-    }
-  };
+  using HueTable = HueRotationRow<HUE_TABLE_SIZE>;
   HueTable hue_table; /**< Hue table of the ring being baked. */
   float *ball_colat =
       nullptr; /**< MAX_BALLS active-ball center colatitudes about the stack axis (radians), rebuilt per frame. */
