@@ -103,6 +103,15 @@ class TreeSync(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.sync(text, entries("file.h"))
 
+    def test_underindented_continuation_fails_without_truncating_text(self):
+        text = ("<!-- docs-check: tree exhaustive -->\n```\n"
+                "└── core/\n    └── file.h   Keep this description\n"
+                "│  under-indented words that matter\n```\n")
+        with self.assertRaisesRegex(ValueError, "tree continuation is indented less than its row"):
+            self.sync(text, entries("core/file.h"))
+        valid = text.replace("│  under-indented", "        under-indented")
+        self.assertEqual(self.sync(valid, entries("core/file.h")), valid)
+
 
 class RepositorySync(unittest.TestCase):
     def setUp(self):

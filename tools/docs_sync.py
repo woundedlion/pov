@@ -31,6 +31,8 @@ def parse_rows(body: list[str]) -> list[Row]:
             if not stack and line.strip():
                 raise ValueError(f"unexpected tree preamble: {line}")
             if stack and line.strip("│ "):
+                if line[:len(stack) * 4].strip("│ "):
+                    raise ValueError(f"tree continuation is indented less than its row: {line}")
                 stack[-1].continuation.append(line[len(stack) * 4:])
             elif stack:
                 depth = max(0, (len(line.rstrip()) - 1) // 4)
