@@ -327,6 +327,53 @@ class PreCommitHook(unittest.TestCase):
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("node_modules is missing", done.stdout + done.stderr)
 
+    def eslint_stub(self):
+        path = self.repo / "node_modules" / ".bin" / "eslint"
+        path.parent.mkdir(parents=True)
+        path.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$ESLINT_LOG"\n'
+                        'last=; for arg do last=$arg; done\n'
+                        '[ "$last" != . ] || exit "${ESLINT_TREE_FAIL:-0}"\n'
+                        'if grep -q ESLINT_REJECT; then exit 1; fi\nexit 0\n',
+                        encoding="utf-8", newline="\n")
+        path.chmod(0o755)
+        return self.repo / "eslint.log"
+
+    def test_javascript_lint_reads_the_staged_blob(self):
+        log = self.eslint_stub()
+        source = self.repo / "sample.mjs"
+        source.write_text("ESLINT_REJECT\n", encoding="utf-8", newline="\n")
+        self.git("add", "sample.mjs")
+        source.write_text("export const value = 1;\n", encoding="utf-8", newline="\n")
+        self.assertNotEqual(self.run_hook(ESLINT_LOG=log.as_posix()).returncode, 0)
+        self.git("add", "sample.mjs")
+        source.write_text("ESLINT_REJECT\n", encoding="utf-8", newline="\n")
+        done = self.run_hook(ESLINT_LOG=log.as_posix())
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+
+    def test_eslint_configuration_change_lints_the_whole_snapshot(self):
+        log = self.eslint_stub()
+        (self.repo / "eslint.config.mjs").write_text("export default [];\n", encoding="utf-8", newline="\n")
+        self.git("add", "eslint.config.mjs")
+        failed = self.run_hook(ESLINT_LOG=log.as_posix(), ESLINT_TREE_FAIL="7")
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertTrue(any(line == "." for line in log.read_text().splitlines()))
+        passed = self.run_hook(ESLINT_LOG=log.as_posix())
+        self.assertEqual(passed.returncode, 0, passed.stdout + passed.stderr)
+
+    def test_ruff_configuration_change_lints_an_unchanged_source(self):
+        require_tool(self, "ruff")
+        config = self.repo / "ruff.toml"
+        config.write_text('lint.ignore = ["F401"]\n', encoding="utf-8", newline="\n")
+        (self.repo / "sample.py").write_text("import os\n", encoding="utf-8", newline="\n")
+        self.git("add", "ruff.toml", "sample.py")
+        self.git("commit", "--quiet", "-m", "source and permissive config")
+        config.write_text('lint.select = ["F401"]\n', encoding="utf-8", newline="\n")
+        self.git("add", "ruff.toml")
+        config.write_text('lint.ignore = ["F401"]\n', encoding="utf-8", newline="\n")
+        failed = self.run_hook()
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertIn("F401", failed.stdout + failed.stderr)
+
     def test_shell_lint_reads_the_index(self):
         require_tool(self, "shellcheck")
         script = self.repo / "sample.sh"
