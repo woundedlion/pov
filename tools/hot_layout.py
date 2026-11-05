@@ -39,6 +39,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from teensy_gate import parse_readelf_symbols
+
 #: Instruction-cache line size in bytes.
 CACHE_LINE_BYTES = 32
 #: Instruction-cache sets.
@@ -235,16 +237,14 @@ def parse_section_alignments(text: str, path: str) -> dict[tuple[Origin, str], i
 def parse_functions(text: str) -> list[Function]:
     """FUNC symbols from `readelf -sW`, one per address (largest size)."""
     by_address: dict[int, Function] = {}
-    for line in text.splitlines():
-        parts = line.split()
-        if len(parts) < 8 or parts[3] != "FUNC":
+    for symbol in parse_readelf_symbols(text):
+        if symbol.type != "FUNC":
             continue
-        address = int(parts[1], 16) & ~1
-        size = int(parts[2], 0)
+        address = symbol.value & ~1
         known = by_address.get(address)
-        if known is None or size > known.size or (
-                size == known.size and parts[7] < known.name):
-            by_address[address] = Function(parts[7], address, size)
+        if known is None or symbol.size > known.size or (
+                symbol.size == known.size and symbol.name < known.name):
+            by_address[address] = Function(symbol.name, address, symbol.size)
     return sorted(by_address.values(), key=lambda f: f.address)
 
 
@@ -304,14 +304,9 @@ def parse_references(text: str, function_starts: set[int] | None = None
 
 def parse_objects(text: str) -> list[tuple[int, int]]:
     """(address, size) of every sized flash OBJECT symbol in `readelf -sW`."""
-    objects = set()
-    for line in text.splitlines():
-        parts = line.split()
-        if len(parts) >= 8 and parts[3] == "OBJECT":
-            address, size = int(parts[1], 16), int(parts[2], 0)
-            if size >= 4 and address >= FLASH_START:
-                objects.add((address, size))
-    return sorted(objects)
+    return sorted({(symbol.value, symbol.size) for symbol in parse_readelf_symbols(text)
+                   if symbol.type == "OBJECT" and symbol.size >= 4
+                   and symbol.value >= FLASH_START})
 
 
 def read_words(elf: bytes, ranges: list[tuple[int, int]]) -> dict[int, list[int]]:
