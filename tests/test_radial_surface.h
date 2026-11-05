@@ -475,6 +475,9 @@ inline void test_radial_surface_edge_aa() {
   HS_EXPECT_GT(stats.edge_pixels, 0u);
   HS_EXPECT_GT(stats.clips, 0u);
   HS_EXPECT_LT(worst_error, .1f);
+  HS_EXPECT_LT(aa_error, point_error);
+  HS_EXPECT_LT(aa_error / 1681, 0.005);
+  HS_EXPECT_LE(worse, 10u);
   std::printf(
       "  radial edge quality: aa_mae=%.8f point_mae=%.8f worst=%.6f at=(%.4f,%.4f) worse=%u\n",
       aa_error / 1681, point_error / 1681, worst_error, worst_x, worst_y,
