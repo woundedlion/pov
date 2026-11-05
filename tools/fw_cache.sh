@@ -231,7 +231,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
       shift
       [ "$#" -gt 0 ] || usage
       # shellcheck source-path=SCRIPTDIR source=device_lock.sh
-      . "$(dirname "$0")/device_lock.sh"
+      . "$PWD/tools/device_lock.sh"
       TREE=$PWD
       hs_exit_traps
       acquire_tree_lock || exit "$?"
