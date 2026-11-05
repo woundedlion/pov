@@ -96,19 +96,29 @@ inline void test_lattice_reference_and_lipschitz() {
   }
 }
 
-/** @brief Framework geometry and plane events match the reference streams. */
+/** @brief Framework distances, normals, features and plane events match its geometry. */
 inline void test_framework_geometry_and_plane_streams() {
   SDF::TriangularFramework framework;
   HS_EXPECT_TRUE(framework.valid());
   const float H = SDF::TriangularFramework::TRIANGLE_HEIGHT;
   HS_EXPECT_NEAR(framework.distance({0.5f, H, 0.37f}), -0.05f, 1e-6f);
   HS_EXPECT_NEAR(framework.distance({0.25f, 0.5f * H, 0.0f}), -0.05f, 1e-6f);
-  HS_EXPECT_GT(framework.distance({0.5f, H / 3.0f, 0.5f}), 0.2f);
+  HS_EXPECT_NEAR(framework.distance({0.5f, H / 3.0f, 0.5f}),
+                 sqrtf(1.0f / 3.0f) - 0.05f, 1e-6f);
+  HS_EXPECT_NEAR(framework.distance({0.5f, 0.0f, 0.3f}), 0.25f, 1e-6f);
+  HS_EXPECT_EQ(framework.sample({0.5f, 0.0f, 0.3f}).feature, 0u);
+  HS_EXPECT_EQ(framework.sample({0.5f, H, 0.37f}).feature, 3u);
+  HS_EXPECT_NEAR(framework.distance({0.1f, 0.1f, 0.4f}), sqrtf(0.02f) - 0.05f,
+                 1e-6f);
+  HS_EXPECT_EQ(framework.sample({0.1f, 0.1f, 0.4f}).feature, 3u);
   const math::Vector P{0.23f, 0.19f, 0.17f};
+  check_distance_normal(framework, P);
   HS_EXPECT_NEAR(framework.distance(P),
                  framework.distance(P + math::Vector{0.5f, H, 1.0f}), 1e-6f);
   const auto FAMILIES = framework.plane_families();
   HS_EXPECT_NEAR(math::dot(FAMILIES[0].normal, FAMILIES[1].normal), 0.5f,
+                 1e-6f);
+  HS_EXPECT_NEAR(math::dot(FAMILIES[1].normal, FAMILIES[2].normal), -0.5f,
                  1e-6f);
   Raycast::Ray ray{{0.2f, 0.1f, 0.3f}, {0.0f, 0.0f, -1.0f}, {0.0f, 4.0f}};
   SDF::FrameworkEvents events(framework, ray);
