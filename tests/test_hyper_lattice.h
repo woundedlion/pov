@@ -29,14 +29,6 @@ using Params = HyperLatticeDetail::Params;
 using FrameState = HyperLatticeDetail::FrameState;
 using LatticeMode = HyperLatticeDetail::LatticeMode;
 using ShellCount = HyperLatticeDetail::ShellCount;
-/** @brief Pullback binding of the cubic render pipeline. */
-struct Binding {
-  /// Per-frame inputs.
-  using FrameState = HyperLatticeDetail::FrameState;
-  /// No trace counters.
-  using Instrumentation = Pullback::NoInstrumentation;
-};
-
 template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
   using PreparedTrace = HyperLatticeDetail::PreparedTrace;
   /**
@@ -61,17 +53,6 @@ template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
         .finish();
   }
 };
-/// Generic cubic render pipeline.
-using RenderPipeline =
-    Pullback::Pipeline<Binding, Pullback::RayStage<Renderer<>>>;
-/**
- * @brief Cubic render pipeline specialized for the 4D slice.
- * @tparam SHELL_COUNT Fixed shell count.
- */
-template <uint8_t SHELL_COUNT>
-using SpecializedRenderPipeline =
-    Pullback::Pipeline<Binding,
-                       Pullback::RayStage<Renderer<true, SHELL_COUNT>>>;
 using HyperLatticeDetail::pixel_half_angle;
 using namespace SDF::Lattice;
 struct PreparedTrace : SDF::Lattice::PreparedTrace {
@@ -786,9 +767,9 @@ inline void test_specialized_slice_transition() {
 }
 
 /**
- * @brief Pins the specialized 4D-slice pipeline over the same style of sample.
+ * @brief Pins specialized 4D-slice composite_crossings samples.
  * @details Same table layout and signature pre-check as test_render_signature(), over
- * SpecializedRenderPipeline<2>'s prepare/evaluate pair at HYPERCUBE_PRESET_INDEX.
+ * composite_crossings<true, 2> at HYPERCUBE_PRESET_INDEX.
  * Re-derive by printing the RGB and Q16
  * alpha of the sample table from an IEEE build of this case and pasting the table
  * and its fold back.
@@ -860,10 +841,10 @@ inline void test_specialized_render_signature() {
         1.0f,
         &HL::crossings,
     };
-    const auto frame = HL::SpecializedRenderPipeline<2>::prepare(context);
+    const auto prepared = HL::prepare_trace(context);
     for (size_t sample = 0; sample < std::size(DIRECTIONS); ++sample) {
-      const Color4 color = HL::SpecializedRenderPipeline<2>::evaluate(
-          DIRECTIONS[sample], frame.ctx, frame.prepared);
+      const Color4 color = HL::shade_mode<true, 2>({DIRECTIONS[sample], 0.0f},
+                                                   context, prepared);
       rendered[row++] = {color.color.r, color.color.g, color.color.b,
                          frac_to_q16(color.alpha)};
     }
@@ -1426,10 +1407,6 @@ inline void test_frame_equality_ignores_padding() {
 
 inline void test_presets_and_pipeline() {
   using Effect = HyperLattice<96, 20>;
-  static_assert(HL::RenderPipeline::STAGE_COUNT == 1);
-  static_assert(HL::RenderPipeline::Validation::MONOTONE);
-  static_assert(HL::RenderPipeline::Validation::ENTRY);
-  static_assert(HL::RenderPipeline::Validation::EXIT);
   for (size_t index = 0; index < Effect::PRESET_IDS.size(); ++index)
     HS_EXPECT_TRUE(Effect::valid_params(Effect::preset(index).params));
   static_assert(Effect::PRESET_IDS.size() == Effect::SHELL_4D_PRESET_INDEX + 1);
