@@ -151,8 +151,8 @@ inline int expect_factored_tolerance(const char *label,
       ++channels;
     }
   }
-  HS_EXPECT_TRUE(maximum_error <= 16);
-  HS_EXPECT_TRUE(static_cast<double>(error_sum) / channels < 0.05);
+  HS_EXPECT_LE(maximum_error, 16);
+  HS_EXPECT_LT(static_cast<double>(error_sum) / channels, 0.05);
   return lit;
 }
 
