@@ -5,7 +5,7 @@
  * FORKED FROM: framework-arduinoteensy 1.162.0
  *
  * FLASH routing covers the generated hot-code layout, cold libraries and
- * effect factories, const rodata, spawn-time init/setup_presets,
+ * effect factories, const rodata, spawn-time init,
  * cold-attribute and hot-leaf sections, cold
  * constructors/destructors and mesh builders, and framework one-time setup.
  * Libgcc arithmetic helpers use cached flash, retaining ITCM capacity.
@@ -61,9 +61,8 @@ SECTIONS
 		*libg_nano.a:*(.text .text.*)
 		*libgcc.a:*(.text .text.*)
 		*(.text.*construct_effect*)
-		/* Effect spawn-time setup: init()/setup_presets(). */
+		/* Effect spawn-time setup: init(). */
 		*(.text._ZN*4initEv)
-		*(.text._ZN*13setup_presetsEv)
 		/* HS_COLD_MEMBER (attribute cold) sections. */
 		*(.text.unlikely*)
 		/* Selectively optimized hot leaves intentionally executed from cache. */
@@ -73,7 +72,7 @@ SECTIONS
 		*(.text.*Involution*)
 		/* Sections without source-level cold annotations: generated ctors
 		 * (Animation graph nodes, PolyMesh), sort instantiations from
-		 * classify_faces_impl, setup_presets/compile_hankin inner lambdas
+		 * classify_faces_impl and compile_hankin inner lambdas
 		 * (preset/geometry builders only -- stored draw callbacks must not
 		 * be defined inside them), and framework one-time setup. */
 		*(.text._ZN9Animation*C1E*)
@@ -93,8 +92,6 @@ SECTIONS
 		*(.text._ZN7PersistI*D2Ev*)
 		*(.text._ZN*ILi288ELi144E*ED[012]Ev*)
 		*(.text.*classify_faces_impl*)
-		*(.text.*KDTree5build*)
-		*(.text._ZZN*13setup_presetsEv*)
 		*(.text.*compile_hankin*)
 		*(.text._ZN14CompiledHankin*)
 		*(.text._ZN8Timeline7add_getI*)
@@ -121,7 +118,6 @@ SECTIONS
 		/* Per-face projection, edge setup and conservative vertical bounds. */
 		*(.text._ZN3SDF4FaceC1E*)
 		*(.text._ZN3SDF4FaceC2E*)
-		*(.text._ZN3SDF4Face19compute_full_boundsE*)
 		/* Composed-effect arena state and temporal history initialization. */
 		*(.text._ZN5Arena4makeIN8Pullback14ComposedEffectI*5StateE*)
 		*(.text._ZN8Pullback14ComposedEffectI*5StateC1Ev)
@@ -187,7 +183,6 @@ SECTIONS
 		/* Frame bookkeeping. */
 		*(.text._ZZN12POVSegmentedI*8run_showI*)
 		*(.text.*ProfiledEffect*10draw_frameEv*)
-		*(.text._ZN6Effect18update_render_clipEv*)
 		*(.text._ZN6Effect8set_clipE*)
 		*(.text._ZN13IntervalTimer11beginCycles*)
 		*(.text._ZN10DMAChannel5begin*)
