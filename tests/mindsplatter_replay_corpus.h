@@ -25978,6 +25978,4 @@ inline const Corpus HEAVY_SEARCH_V1 = {
     3267554680119907341ull,
     10173892364697769529ull};
 
-inline const Corpus *const CORPUS_MANIFEST[] = {&HEAVY_SEARCH_V1};
-
 } // namespace mindsplatter_replay

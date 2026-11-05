@@ -30,9 +30,6 @@ constexpr uint32_t SEARCH_SEED = 1337;
 constexpr uint64_t ADAPTIVE_SCORE_WEIGHT = 64;
 constexpr uint64_t LONG_EDGE_SCORE_WEIGHT = 512;
 constexpr uint64_t SHADER_SCORE_WEIGHT = 8;
-constexpr uint32_t TRAIT_SATURATED = 1u << 0;
-constexpr uint32_t TRAIT_LONG_EDGE = 1u << 3;
-constexpr uint32_t TRAIT_MEASURED_WORST = 1u << 5;
 
 using ReplayEffect = MindSplatter<WIDTH, HEIGHT>;
 using WhiteBox = hs_test::effects_tests::MindSplatterWhiteBox;
@@ -64,12 +61,7 @@ struct SearchResult {
   uint8_t peak_clip = 0;
 };
 
-struct GoldenPixel {
-  uint16_t index;
-  uint16_t r;
-  uint16_t g;
-  uint16_t b;
-};
+using mindsplatter_replay::GoldenPixel;
 static_assert(static_cast<size_t>(WIDTH) * HEIGHT <= 65536,
               "GoldenPixel::index is uint16_t");
 
@@ -274,12 +266,13 @@ int main(int argc, char **argv) {
                 std::to_string(ADAPTIVE_SCORE_WEIGHT) + "*adaptive+" +
                 std::to_string(LONG_EDGE_SCORE_WEIGHT) + "*long+" +
                 std::to_string(SHADER_SCORE_WEIGHT) + "*shader+taps";
-  uint32_t traits = refresh ? frozen.traits : TRAIT_MEASURED_WORST;
+  uint32_t traits =
+      refresh ? frozen.traits : mindsplatter_replay::CORPUS_MEASURED_WORST;
   if (selected->aggregate.long_edges > 0)
-    traits |= TRAIT_LONG_EDGE;
+    traits |= mindsplatter_replay::CORPUS_LONG_EDGE;
   if (selected->snapshot.particles.size() ==
       WhiteBox::particle_capacity(effect))
-    traits |= TRAIT_SATURATED;
+    traits |= mindsplatter_replay::CORPUS_SATURATED;
 
   std::ofstream out(argv[1], std::ios::binary | std::ios::trunc);
   if (!out) {
@@ -347,7 +340,6 @@ int main(int argc, char **argv) {
       << "    " << selected->aggregate.long_edges << ",\n"
       << "    " << corpus_hash << "ull,\n"
       << "    " << framebuffer_hash << "ull};\n\n"
-      << "inline const Corpus *const CORPUS_MANIFEST[] = {&HEAVY_SEARCH_V1};\n\n"
       << "} // namespace mindsplatter_replay\n";
   hs::clear_mock_time();
   // Closed explicitly: the destructor's flush swallows its own failure, and a

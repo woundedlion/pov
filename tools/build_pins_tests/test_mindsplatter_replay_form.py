@@ -16,7 +16,6 @@ inline const unsigned char HEAVY_SEARCH_V1_STATE[] PROGMEM = {0};
 inline const unsigned short HEAVY_SEARCH_V1_FRAMEBUFFER[] PROGMEM = {0};
 inline const Corpus HEAVY_SEARCH_V1 = {"msp-heavy-search-v1"};
 inline const char *SOURCE = "seed=1337 presets=0..7 frames=136..384/8";
-inline const Corpus *const CORPUS_MANIFEST[] = {&HEAVY_SEARCH_V1};
 """ + "// payload padding\n" * 6000
 
 
@@ -66,11 +65,6 @@ class MindSplatterReplayForm(unittest.TestCase):
         result = self.run_checker(generated="HEAVY_SEARCH_V1_STATE[]")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("generator emitted only", result.stderr)
-
-    def test_missing_manifest_is_rejected(self):
-        result = self.run_checker(generated=FORM.replace("CORPUS_MANIFEST", "OTHER_MANIFEST"))
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("generator omitted CORPUS_MANIFEST", result.stderr)
 
     def test_changed_preamble_is_rejected(self):
         result = self.run_checker(generated=FORM.replace("Canonical form", "Changed form"))

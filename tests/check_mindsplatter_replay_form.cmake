@@ -80,8 +80,7 @@ endif()
 foreach(_symbol IN ITEMS
     "HEAVY_SEARCH_V1_STATE"
     "HEAVY_SEARCH_V1_FRAMEBUFFER"
-    "Corpus HEAVY_SEARCH_V1"
-    "CORPUS_MANIFEST[] = {&HEAVY_SEARCH_V1}")
+    "Corpus HEAVY_SEARCH_V1")
   string(FIND "${_generated}" "${_symbol}" _symbol_offset)
   if(_symbol_offset EQUAL -1)
     message(FATAL_ERROR
