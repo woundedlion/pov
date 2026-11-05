@@ -862,5 +862,5 @@ inline void test_sh_frame_sampler_rollover_and_sign() {
                unrelated.source.blend);
   Frame snapped = to;
   snapped.source.morph_epoch = 1;
-  HS_EXPECT_EQ(Spacetime::sample_frame(from, snapped, 0.5f).source.l1, lb);
+  HS_EXPECT_EQ(Spacetime::sample_frame(from, snapped, 0.25f).source.l1, lb);
 }
