@@ -380,16 +380,15 @@ private:
   };
   Spacetime::Retained<Endpoint> history; ///< Previous animation endpoint.
 
-  /** @brief Blends the coefficients of two plane transformations.
+  /** @brief Blends the animated translation between frame endpoints.
    * @param a,b Frame endpoints.
    * @param t Frame fraction.
    * @return Coefficients at t. */
   static math::MobiusParams warp_at(const Endpoint &a, const Endpoint &b,
                                     float t) {
-    return {a.warp.a + (b.warp.a - a.warp.a) * math::Complex(t, 0),
-            a.warp.b + (b.warp.b - a.warp.b) * math::Complex(t, 0),
-            a.warp.c + (b.warp.c - a.warp.c) * math::Complex(t, 0),
-            a.warp.d + (b.warp.d - a.warp.d) * math::Complex(t, 0)};
+    math::MobiusParams warp = b.warp;
+    warp.b = a.warp.b + (b.warp.b - a.warp.b) * math::Complex(t, 0);
+    return warp;
   }
 
   /** @brief Draws the warped grid through column-time vertex captures.
@@ -414,13 +413,8 @@ private:
           math::rotate(math::mobius_transform(-math::Y_AXIS, warp), q),
           math::X_AXIS));
     }
-    const auto difference = end.warp.b - start.warp.b;
-    const float shift =
-        sqrtf(difference.re * difference.re + difference.im * difference.im);
-    const float reach = fmaxf(
-        sqrtf(start.warp.b.re * start.warp.b.re +
-              start.warp.b.im * start.warp.b.im),
-        sqrtf(end.warp.b.re * end.warp.b.re + end.warp.b.im * end.warp.b.im));
+    const float shift = (end.warp.b - start.warp.b).magnitude();
+    const float reach = fmaxf(start.warp.b.magnitude(), end.warp.b.magnitude());
     const float turn =
         2.0f * acosf(hs::clamp(fabsf(math::dot(start.rotation, end.rotation)),
                                0.0f, 1.0f));
