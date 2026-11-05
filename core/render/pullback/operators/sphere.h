@@ -138,9 +138,7 @@ struct RippleChainParams : SphereAnimation::BurstRippleParams {
         std::array<Field<RippleChainParams>, 0>{});
     for (auto &field : fields) {
       const std::string_view ID = field.id;
-      if (ID == "period")
-        field.name = "Ripple Duration";
-      else if (ID == "center-azimuth" || ID == "center-polar")
+      if (ID == "center-azimuth" || ID == "center-polar")
         field.topology_gate = {"random-center", live_values(0)};
     }
     return fields;
