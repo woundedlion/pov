@@ -280,15 +280,6 @@ def main(force=False, revision=B.REVISION, output_dir=None):
         b.junction((t[0], yrail))
 
 
-    def to_gnd_down(s, num, yrail, span):
-        """Drop a (bottom) pin straight down onto a GND rail at yrail."""
-        rail_drop(s, num, yrail, span)
-
-
-    def to_rail_up(s, num, yrail, span):
-        """Drop a (top) pin straight up onto a rail at yrail."""
-        rail_drop(s, num, yrail, span)
-
 
     def series_wire(src_sym, src_pin, r_sym, far_label, src_label=None):
         """Wire src pin to the NEARER terminal of r_sym; label the far terminal.
@@ -358,15 +349,15 @@ def main(force=False, revision=B.REVISION, output_dir=None):
     # C_IN: the card's only electrolytic, on the logic feed (R-PWR-3/6, spec 10).
     CIN = place("Device:C_Polarized", "C_IN", "100uF", 88.9, 78.74, in_bom=False,
                 fp="Capacitor_THT:CP_Radial_D8.0mm_P3.50mm")
-    to_rail_up(CIN, "1", Y_LOG, LOG_SPAN)
-    to_gnd_down(CIN, "2", Y_GND, GND_SPAN)
+    rail_drop(CIN, "1", Y_LOG, LOG_SPAN)
+    rail_drop(CIN, "2", Y_GND, GND_SPAN)
     # R_LF + C_LF bead-LC damper (R-PWR-5): LOG -> R_LF -> CLF_NODE -> C_LF -> GND
     RLF = place("Device:R", "R_LF", "1R5", 109.22, 71.12, fp=SMD08)
     CLF = place("Device:C", "C_LF", "22uF", 109.22, 86.36, fp="Capacitor_SMD:C_1206_3216Metric")
-    to_rail_up(RLF, "1", Y_LOG, LOG_SPAN)
+    rail_drop(RLF, "1", Y_LOG, LOG_SPAN)
     b.wire(RLF.pin("2"), CLF.pin("1"))   # CLF_NODE
     b.label(CLF.pin("1"), "LF_DAMP")
-    to_gnd_down(CLF, "2", Y_GND, GND_SPAN)
+    rail_drop(CLF, "2", Y_GND, GND_SPAN)
 
     # --- GND rail spanning the cap drops + its GND symbol at the right end ---
     hw(GND_L, GND_R, Y_GND)
