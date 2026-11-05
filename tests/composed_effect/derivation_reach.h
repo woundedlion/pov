@@ -90,13 +90,8 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sphere.displace.potential.v1", "term-4-kind", {{"toroidal"}}},
     {"sphere.displace.potential.v1", "term-4-l", {{"one"}}},
     {"sphere.displace.potential.v1", "term-4-m", {{"zero"}}},
-    {"sphere.displace.rossby-haurwitz.v1", "integrator", {{"euler"}}},
-    {"sphere.displace.rossby-haurwitz.v1", "order", {{"four"}}},
-    {"sphere.displace.symmetric.v2", "integrator", {{"euler"}}},
-    {"sphere.displace.symmetric.v2",
-     "symmetry",
-     {{"azimuthal", "dodecahedral"}}},
-    {"sphere.displace.symmetric.v2", "kind", {{"toroidal", "poloidal"}}},
+    {"sphere.displace.rossby-haurwitz.v1", nullptr, {}},
+    {"sphere.displace.symmetric.v2", nullptr, {}},
     {"field.transfer.ridge.v2", nullptr, {}},
     {"field.transfer.smooth-bands.v2", nullptr, {}},
     // ProjectionKind names the folded gnomonic alone.
@@ -115,16 +110,14 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sphere.lens.kaleidoscope.v2",
      "symmetry",
      {{"azimuthal", "tetrahedral", "octahedral", "dodecahedral",
-       "pentagonal-prism", "hexagonal-prism"}}},
+       "hexagonal-prism"}}},
     // The affine TrackPath flag pins its path length.
     {"warp.affine.v4", "path-length", {{"off", "on"}}},
-    // WarpPolicyFor pins the flat envelope, the simplex basis, the linear
-    // polar chart and its first harmonic.
+    // WarpPolicyFor pins the flat envelope and simplex basis.
     {"warp.wave-shear.v2", "envelope", {{"flat"}}},
     {"warp.vector-noise.v2", "basis", {{"simplex"}}},
     {"warp.vector-noise.v2", "envelope", {{"flat"}}},
-    {"warp.polar-chart.v2", "mode", {{"linear"}}},
-    {"warp.polar-chart.v2", "harmonic", {{"h1"}}},
+    {"warp.polar-chart.v2", nullptr, {}},
     // SampleStage pins Weight::Projection; no shipped Spec selects the
     // none coverage.
     {"sample.grid.v4", "weight-mode", {{"projection"}}},
@@ -140,9 +133,7 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sample.projected-noise.v2", "coverage-mode", {}},
     {"sample.projected-noise.v2", "basis", {}},
     {"sample.tessellation.v3", "weight-mode", {{"projection"}}},
-    {"sample.tessellation.v3",
-     "coverage-mode",
-     {{"weight", "weight-squared", "edge-fade"}}},
+    {"sample.tessellation.v3", "coverage-mode", {{"weight", "edge-fade"}}},
     // Shipped Specs pin square cells.
     {"sample.tessellation.v3", "kind", {{"square"}}},
     {"sample.tessellation.v3", "fill", {{"cells"}}},
@@ -152,10 +143,12 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"colorize.generated-palette.v4",
      "palette-type",
      {{"cycling-generated", "generated", "procedural"}}},
-    {"colorize.generated-palette.v4", "palette-harmony", {}},
-    {"colorize.generated-palette.v4", "palette-lightness-curve", {{"cup"}}},
+    {"colorize.generated-palette.v4", "palette-harmony", {{"triadic"}}},
+    {"colorize.generated-palette.v4",
+     "palette-lightness-curve",
+     {{"cup", "constant"}}},
     {"colorize.generated-palette.v4", "palette-name", {{"embers"}}},
-    {"colorize.generated-palette.v4", "palette-name-b", {}},
+    {"colorize.generated-palette.v4", "palette-name-b", {{"fire-and-ice"}}},
     {"colorize.generated-palette.v4",
      "palette-mapping",
      {{"cup", "bell", "linear"}}},
@@ -273,7 +266,7 @@ inline void test_composed_derivation_reach() {
   }
 
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 43u);
-  HS_EXPECT_EQ(unreachable_operators, 12u);
+  HS_EXPECT_EQ(unreachable_operators, 15u);
   HS_EXPECT_EQ(catalog_values, 372u);
-  HS_EXPECT_EQ(unreachable_values, 277u);
+  HS_EXPECT_EQ(unreachable_values, 285u);
 }

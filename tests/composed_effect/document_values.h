@@ -676,6 +676,8 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
       const auto assign = [&](uint8_t &member, const auto &ids) {
         for (uint8_t index = 0; index < std::size(ids); ++index)
           if (text == ids[index]) {
+            HS_EXPECT_TRUE(
+                derivation_value_reachable(slot.operator_id, field_id, text));
             member = index;
             return true;
           }
