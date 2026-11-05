@@ -189,34 +189,40 @@ inline void test_mindsplatter_whitebox_geometry_replay() {
   HS_EXPECT_EQ(WB::active_attractors(replay), static_cast<size_t>(12));
 }
 
+/** @brief Frame count used to warm the saturated replay fixture. */
+inline constexpr int SATURATED_WARMUP_FRAMES = 160;
+
+/** @brief Captures a frozen particle pool after warming and filling its capacity. */
+template <int W, int H> inline auto saturated_snapshot() {
+  using WB = MindSplatterWhiteBox;
+  reset_effect_globals();
+  hs::set_mock_time(0, 0);
+  MindSplatter<W, H> effect;
+  effect.init();
+  for (int frame = 0; frame < SATURATED_WARMUP_FRAMES; ++frame) {
+    hs_test::pin_frame_clock(frame);
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  WB::fill_particle_capacity(effect);
+  auto snapshot = WB::capture(effect);
+  HS_EXPECT_EQ(snapshot.particles.size(), WB::particle_capacity(effect));
+  return snapshot;
+}
+
 /**
  * @brief Replays one frozen saturated state with exact particle and frame output.
  */
 inline void test_mindsplatter_replay_snapshot_exact() {
   constexpr int W = SMALL_W;
   constexpr int H = SMALL_H;
-  constexpr int WARMUP_FRAMES = 160;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
   using Snapshot = WB::ReplaySnapshot<W, H>;
   static_assert(WB::trail_length() == 8);
 
-  Snapshot source;
-  {
-    reset_effect_globals();
-    hs::set_mock_time(0, 0);
-    MS effect;
-    effect.init();
-    HS_EXPECT_EQ(WB::particle_capacity(effect), static_cast<size_t>(1672));
-    for (int frame = 0; frame < WARMUP_FRAMES; ++frame) {
-      hs_test::pin_frame_clock(frame);
-      effect.draw_frame();
-      effect.advance_display();
-    }
-    WB::fill_particle_capacity(effect);
-    source = WB::capture(effect);
-    HS_EXPECT_EQ(source.particles.size(), WB::particle_capacity(effect));
-  }
+  const Snapshot source = saturated_snapshot<W, H>();
+  HS_EXPECT_EQ(source.particles.size(), size_t{1672});
 
   struct Replay {
     std::vector<Pixel> framebuffer;
@@ -225,7 +231,7 @@ inline void test_mindsplatter_replay_snapshot_exact() {
   };
   auto replay = [&]() {
     reset_effect_globals();
-    hs_test::pin_frame_clock(WARMUP_FRAMES);
+    hs_test::pin_frame_clock(SATURATED_WARMUP_FRAMES);
     Replay result;
     MS effect;
     effect.init();
@@ -263,26 +269,11 @@ inline void test_mindsplatter_replay_snapshot_exact() {
 inline void test_mindsplatter_saturated_quadrant_sink_parity() {
   constexpr int W = SMALL_W;
   constexpr int H = SMALL_H;
-  constexpr int WARMUP_FRAMES = 160;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
   using Snapshot = WB::ReplaySnapshot<W, H>;
 
-  Snapshot source;
-  {
-    reset_effect_globals();
-    hs::set_mock_time(0, 0);
-    MS source_effect;
-    source_effect.init();
-    for (int frame = 0; frame < WARMUP_FRAMES; ++frame) {
-      hs_test::pin_frame_clock(frame);
-      source_effect.draw_frame();
-      source_effect.advance_display();
-    }
-    WB::fill_particle_capacity(source_effect);
-    source = WB::capture(source_effect);
-    HS_EXPECT_EQ(source.particles.size(), WB::particle_capacity(source_effect));
-  }
+  const Snapshot source = saturated_snapshot<W, H>();
 
   struct Quadrant {
     int x0, x1, y0, y1;
