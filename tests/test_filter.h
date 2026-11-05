@@ -101,6 +101,7 @@ inline int run_filter_tests() {
   HS_RUN(test_trait_member_values);
   HS_RUN(test_filter_trait_inheritance);
   HS_RUN(test_crosses_segments_trait_and_fold);
+  HS_RUN(test_pipeline_config_widens_requirements);
   HS_RUN(test_history_domain_folds);
 
   HS_RUN(test_replacing_terminal_without_history_flushes);

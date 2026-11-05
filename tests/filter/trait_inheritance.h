@@ -232,3 +232,24 @@ inline void test_history_domain_folds() {
   HS_EXPECT_FALSE(Direct::any_2d_history);
   HS_EXPECT_FALSE(Direct::any_3d_history);
 }
+
+/** @brief Pipeline configuration widens requirements and retains explicit effect flags. */
+inline void test_pipeline_config_widens_requirements() {
+  using Plain = Pipeline<32, 16, Filter::Screen::AntiAlias<32, 16>,
+                         Filter::Pixel::ChromaticShift<32>>;
+  using Stateful = Pipeline<32, 16, Filter::Pixel::Feedback<32, 16>>;
+  constexpr auto WIDENED = pipeline_config<Plain>();
+  static_assert(WIDENED.margin == Plain::total_segment_margin);
+  static_assert(WIDENED.required_margin == Plain::total_segment_margin);
+  constexpr auto HISTORY = pipeline_config<Stateful>();
+  static_assert(HISTORY.full_frame && HISTORY.reads_outside_band);
+  constexpr auto RETAINED = pipeline_config<Plain>({.strobe = false,
+                                                    .full_frame = true,
+                                                    .reads_outside_band = true,
+                                                    .margin = 9,
+                                                    .required_margin = 7});
+  static_assert(RETAINED.margin == 9 && RETAINED.required_margin == 7);
+  static_assert(RETAINED.full_frame && RETAINED.reads_outside_band);
+  static_assert(!RETAINED.strobe);
+  static_assert(pipeline_config<Plain>({.strobe = true}).strobe);
+}
