@@ -114,6 +114,11 @@ class AnalyzeTests(unittest.TestCase):
         self.assertEqual(r["small_vias"], 0)
         self.assertEqual(r["pos"]["R1"], (10.0, 20.0))
 
+    def test_arc_length_uses_both_midpoint_chords(self):
+        source = SYNTHETIC_BOARD.replace(
+            '(segment (start 0 0) (end 10 0)', '(arc (start 0 0) (mid 1 1) (end 2 0)')
+        self.assertAlmostEqual(self.analyze_source(source)["netlen"]["DATA"], 2 * math.sqrt(2))
+
     def test_flags_undersized_via(self):
         source = SYNTHETIC_BOARD.replace("(size 0.6) (drill 0.3)",
                                          "(size 0.4) (drill 0.15)")
@@ -188,6 +193,17 @@ class AnalyzeTests(unittest.TestCase):
 
 
 class ScoreTests(unittest.TestCase):
+    def test_fast_net_vias_reduce_score_with_spi_weighted_higher(self):
+        base = {"crit_len": 90.0, "spi_vias": 0, "sync_vias": 0}
+        clean = analyze_candidates.score(base)
+        spi = analyze_candidates.score({**base, "spi_vias": 1})
+        sync = analyze_candidates.score({**base, "sync_vias": 1})
+        self.assertLess(spi, clean)
+        self.assertLess(sync, clean)
+        self.assertLess(spi, sync)
+        self.assertLess(analyze_candidates.score({**base, "spi_vias": 2}), spi)
+        self.assertLess(analyze_candidates.score({**base, "sync_vias": 2}), sync)
+
     def test_fully_routed_candidates_keep_the_shorter_copper_ordering(self):
         base = {
             "spi_vias": 0,
