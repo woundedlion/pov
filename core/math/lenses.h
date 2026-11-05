@@ -368,22 +368,6 @@ struct Group {
 constexpr Matrix identity() {
   return {{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
 }
-/** @brief Reflects each transform column through one chamber mirror.
- * @param matrix Transform to reflect.
- * @param mirror Chamber-mirror index.
- * @return Reflected transform. */
-constexpr Matrix reflect(Matrix matrix, int mirror) {
-  const auto normal = DODECAHEDRAL_MIRRORS[mirror];
-  const float n[] = {normal.x, normal.y, normal.z};
-  for (int column = 0; column < 3; ++column) {
-    const float distance = matrix[0][column] * n[0] + matrix[1][column] * n[1] +
-                           matrix[2][column] * n[2];
-    for (int row = 0; row < 3; ++row)
-      matrix[row][column] -= 2.0f * distance * n[row];
-  }
-  return matrix;
-}
-
 /** @brief Reflects transform columns through an arbitrary unit mirror.
  * @param matrix Transform to reflect.
  * @param normal Unit mirror normal.
@@ -398,6 +382,15 @@ constexpr Matrix reflect(Matrix matrix, const math::Vector &normal) {
   }
   return matrix;
 }
+
+/** @brief Reflects each transform column through one chamber mirror.
+ * @param matrix Transform to reflect.
+ * @param mirror Chamber-mirror index.
+ * @return Reflected transform. */
+constexpr Matrix reflect(Matrix matrix, int mirror) {
+  return reflect(matrix, DODECAHEDRAL_MIRRORS[mirror]);
+}
+
 /** @brief Compares transform coefficients within the group-generation tolerance.
  * @param a First transform.
  * @param b Second transform.
