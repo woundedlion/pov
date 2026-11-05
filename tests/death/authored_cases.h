@@ -80,7 +80,7 @@ inline void case_authored_projected_noise_invalid_basis() {
       [](auto &params) { params.basis = opaque<uint8_t>(0xff); });
 }
 
-/** @brief Applies an authored sample crossing after corrupting one mode.
+/** @brief Validates an authored sample crossing after corrupting one mode.
  * @tparam Policy Crossing policy over a source provider.
  * @tparam Corrupt Mode writer.
  * @param corrupt Writes the invalid mode. */
@@ -93,13 +93,13 @@ inline void authored_sample_apply(Corrupt corrupt) {
   typename Fixture::Frame frame{};
   corrupt(frame.params.template get<"source">());
   Pullback::ProjectionProvenance provenance{};
-  float result;
-  if constexpr (requires { Policy<Provider>::apply(provenance, frame); })
-    result = Policy<Provider>::apply(provenance, frame);
-  else
-    result = Policy<Provider>::apply(1.0f, provenance, frame);
-  if (result != 0.0f)
-    std::printf("x");
+  if constexpr (requires { Policy<Provider>::prepare(frame); })
+    (void)Policy<Provider>::prepare(frame);
+  else {
+    const float RESULT = Policy<Provider>::apply(provenance, frame);
+    if (RESULT != 0.0f)
+      std::printf("x");
+  }
 }
 
 /** @brief Death case: authored signal weighting rejects an unknown mode. */

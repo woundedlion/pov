@@ -7,6 +7,7 @@
 /** @file authored_sample.h
  * @brief Authored planar source crossing and material selectors. */
 
+#include <cassert>
 #include <tuple>
 
 #include "core/render/pullback/authored_source.h"
@@ -106,6 +107,18 @@ namespace Pullback::Weight {
 /** @brief Runtime signal weighting over an authored source crossing.
  * @tparam Provider Keyed source control provider. */
 template <typename Provider> struct Authored : ApproximationDefaults {
+  using Prepared = NoPrepared; ///< Empty validated preparation.
+
+  /** @brief Validates the signal weighting selector.
+   * @tparam Frame Provider frame state.
+   * @param frame Current frame.
+   * @return Empty preparation. */
+  template <typename Frame> static NoPrepared prepare(const Frame &frame) {
+    const uint8_t mode = Provider::params(frame).weight_mode;
+    HS_CHECK(mode <= 1, "invalid sample signal weighting");
+    return {};
+  }
+
   /** @brief Applies the selected raw-signal weight.
    * @tparam Frame Provider frame state.
    * @param field Signed source value.
@@ -114,9 +127,9 @@ template <typename Provider> struct Authored : ApproximationDefaults {
    * @return Weighted signed source value. */
   template <typename Frame>
   static float apply(float field, const ProjectionProvenance &provenance,
-                     const Frame &frame) {
+                     const Frame &frame, const NoPrepared &) {
     const uint8_t mode = Provider::params(frame).weight_mode;
-    HS_CHECK(mode <= 1, "invalid sample signal weighting");
+    assert(mode <= 1);
     return mode == 0 ? field : field * provenance.value_weight;
   }
 };

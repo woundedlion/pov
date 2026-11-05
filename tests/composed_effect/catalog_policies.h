@@ -441,6 +441,7 @@ inline void test_authored_sample_crossing() {
   using Weight = Pullback::Weight::Authored<Provider>;
   using Coverage = Pullback::ProjectionCoverage::Authored<Provider>;
   using Crossing = Pullback::Stage::Sample<Source, Weight, Coverage>;
+  static_assert(Crossing::template MATERIAL_PREPARES<Binding>);
   typename Fixture::Frame frame{};
   auto &params = frame.params.template get<"source">();
   params.arms = 0.0f;
