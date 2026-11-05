@@ -537,6 +537,41 @@ inline math::Vector edge_midpoint(const HalfEdgeMesh &he_mesh,
 }
 
 /**
+ * @brief Emit one output vertex per undirected edge at its normalized midpoint,
+ *   mapping both half-edges to it.
+ * @tparam EdgeFn Callable (const HalfEdge &) invoked once per emitted vertex.
+ * @param he_mesh Half-edge connectivity to walk.
+ * @param mesh Source mesh supplying the endpoint positions.
+ * @param out_vertices Destination midpoint vertices.
+ * @param edge_to_vert Caller-allocated uint16_t[I] map, pre-filled with HE_NONE
+ *   and filled here for both halves of each edge.
+ * @param edge_fn Per-edge hook for a caller carrying a parallel payload; runs
+ *   after the midpoint vertex is pushed and mapped into edge_to_vert.
+ * @details The degenerate (antipodal) midpoint falls back to an endpoint.
+ *   Requires a closed manifold; an unpaired half-edge traps.
+ */
+template <typename EdgeFn>
+HS_FLASH_INLINE inline void
+emit_edge_midpoints(const HalfEdgeMesh &he_mesh, const PolyMesh &mesh,
+                    ArenaVector<math::Vector> &out_vertices,
+                    uint16_t *edge_to_vert, EdgeFn &&edge_fn) {
+  for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
+    if (edge_to_vert[i] != HE_NONE)
+      continue;
+    const HalfEdge &he = he_mesh.half_edges[i];
+    HS_CHECK(he.pair != HE_NONE, "emit_edge_midpoints: unpaired half-edge");
+
+    out_vertices.push_back(
+        edge_midpoint(he_mesh, mesh, static_cast<uint16_t>(i)));
+
+    uint16_t new_idx = narrow_index(out_vertices.size() - 1);
+    edge_to_vert[i] = new_idx;
+    edge_to_vert[he.pair] = new_idx;
+    edge_fn(he);
+  }
+}
+
+/**
  * @brief Trap if the mesh has a boundary (any unpaired half-edge) or a vertex
  * whose incident half-edges split into more than one fan.
  * @param he_mesh Half-edge connectivity to validate.

@@ -205,40 +205,6 @@ inline void emit_shrunk_face(const HalfEdgeMesh &he_mesh, PolyMesh &out_mesh,
 }
 
 /**
- * @brief Emit one output vertex per undirected edge at its normalized midpoint,
- *   mapping both half-edges to it.
- * @tparam EdgeFn Callable (const HalfEdge &) invoked once per emitted vertex.
- * @param he_mesh Half-edge connectivity to walk.
- * @param mesh Source mesh supplying the endpoint positions.
- * @param out_mesh Destination mesh receiving the midpoint vertices.
- * @param edge_to_vert Caller-allocated uint16_t[I] map, pre-filled with HE_NONE
- *   and filled here for both halves of each edge.
- * @param edge_fn Per-edge hook for a caller carrying a parallel payload; runs
- *   after the midpoint vertex is pushed and mapped into edge_to_vert.
- * @details The degenerate (antipodal) midpoint falls back to an endpoint.
- *   Requires a closed manifold; an unpaired half-edge traps.
- */
-template <typename EdgeFn>
-inline void emit_edge_midpoints(const HalfEdgeMesh &he_mesh,
-                                const PolyMesh &mesh, PolyMesh &out_mesh,
-                                uint16_t *edge_to_vert, EdgeFn &&edge_fn) {
-  for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-    if (edge_to_vert[i] != HE_NONE)
-      continue;
-    const HalfEdge &he = he_mesh.half_edges[i];
-    HS_CHECK(he.pair != HE_NONE, "emit_edge_midpoints: unpaired half-edge");
-
-    out_mesh.vertices.push_back(
-        edge_midpoint(he_mesh, mesh, static_cast<uint16_t>(i)));
-
-    uint16_t new_idx = narrow_index(out_mesh.vertices.size() - 1);
-    edge_to_vert[i] = new_idx;
-    edge_to_vert[he.pair] = new_idx;
-    edge_fn(he);
-  }
-}
-
-/**
  * @brief Rebuild one shrunk primary face per source face from an existing
  *   per-half-edge vertex map.
  * @tparam EmitFn Callable (uint16_t he_idx) pushing that half-edge's output
@@ -620,7 +586,8 @@ ambo_impl(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh, Arena &target,
 
     uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
 
-    emit_edge_midpoints(he_mesh, mesh, out_mesh, edge_to_vert, on_edge);
+    emit_edge_midpoints(he_mesh, mesh, out_mesh.vertices, edge_to_vert,
+                        on_edge);
 
     emit_primary_faces(he_mesh, mesh, out_mesh, 1, [&](uint16_t he_idx) {
       out_mesh.faces.push_back(edge_to_vert[he_idx]);

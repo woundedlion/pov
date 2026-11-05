@@ -183,17 +183,8 @@ compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
     uint16_t *he_to_dynamic_idx = temp_arena.allocate_n<uint16_t>(I);
     std::fill_n(he_to_dynamic_idx, I, HE_NONE);
 
-    // One shared midpoint per undirected edge, cached under both halves, so
-    // every entry of he_to_midpoint_idx is populated from here on.
-    for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-      const uint16_t he_idx = static_cast<uint16_t>(i);
-      if (he_to_midpoint_idx[he_idx] != HE_NONE)
-        continue;
-      compiled.static_vertices.push_back(edge_midpoint(he_mesh, mesh, he_idx));
-      const uint16_t idx = narrow_index(compiled.static_vertices.size() - 1);
-      he_to_midpoint_idx[he_idx] = idx;
-      he_to_midpoint_idx[he_mesh.half_edges[he_idx].pair] = idx;
-    }
+    emit_edge_midpoints(he_mesh, mesh, compiled.static_vertices,
+                        he_to_midpoint_idx, [](const HalfEdge &) {});
 
     compiled.static_offset = static_cast<int>(compiled.static_vertices.size());
 
