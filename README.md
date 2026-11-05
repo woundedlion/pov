@@ -1189,9 +1189,10 @@ Every environment linked by `tools/phantasm.ld` links twice
 which derives each effect's hot flash code from the probe's call graph and
 writes the linker-script fragment `phantasm.ld` INCLUDEs. The fragment orders
 that code so each effect's first 20 KiB of it maps at most two lines to any set
-of the 2-way, 32 KiB instruction cache, and the final link uses it. The fragment
-lives in the build directory and is never committed; a new effect needs no
-linker edits.
+of the 2-way, 32 KiB instruction cache. The final link uses the fragment, and
+the hot-layout gate fails the build when an effect exceeds two lines in a set,
+naming the effect and functions. The fragment lives in the build directory and
+is never committed; a new effect needs no linker edits.
 
 The `bench` environment runs the stationary colour diagnostic. `just bench` builds
 and uploads it under the per-board device lock; set `HS_TEENSY_PORT=COMn` to
@@ -1729,9 +1730,9 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── teensy_pre.py / teensy_isystem.py / teensy_map.py / teensy_nano.py  PlatformIO build hooks
 │   ├── pio_ccache.py           PlatformIO hook that compiles firmware through ccache when it is on PATH
 │   ├── phantasm.ld             Phantasm linker script (memory-region layout)
-│   ├── hot_layout.py           Instruction-cache layout planner for hot flash code
-│   ├── hot_layout_tests/       Hot-code layout planner tests
-│   ├── teensy_hot_layout.py    PlatformIO hook: probe link, layout plan, final link
+│   ├── hot_layout.py           Instruction-cache layout planner and per-effect set-occupancy gate for hot flash code
+│   ├── hot_layout_tests/       Hot-code layout planner and gate tests
+│   ├── teensy_hot_layout.py    PlatformIO hook: probe link, layout plan, final link, hot-layout gate
 │   ├── profile_one.sh / profile_sweep.sh  On-device HS_PROFILE flash + capture runs
 │   ├── profile_islamic_big.sh  Focused profiling loop for IslamicStars' largest mesh
 │   ├── profile_capture.py      Serial capture of the profiling image's readout

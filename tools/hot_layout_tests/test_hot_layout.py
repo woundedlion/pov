@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Host tests for the hot-code cache layout planner (tools/hot_layout.py).
+"""Host tests for the hot-code cache layout planner and gate (tools/hot_layout.py).
 
 Run:  python -m unittest discover -s tools/hot_layout_tests
 """
@@ -248,6 +248,33 @@ class HotSets(unittest.TestCase):
 
     def test_effect_without_code_has_no_hot_set(self):
         self.assertEqual(self.program.hot_sets(["Alpha", "Missing"]).keys(), {"Alpha"})
+
+
+class Gate(unittest.TestCase):
+    def test_three_lines_in_one_set_fail_and_name_the_functions(self):
+        program = _program([
+            (f"_ZN4Beta{len(n)}{n}Ev", 0x60010000 + i * WAY, 64, f".text.hot._ZN4Beta{len(n)}{n}Ev",
+             PHANTASM) for i, n in enumerate(("aa", "bb", "cc"))], [])
+        hot_sets = program.hot_sets(["Beta"])
+        report, = hl.evaluate(program, hot_sets)
+        self.assertEqual((report.worst, report.over_sets, report.passed), (3, 2, False))
+        self.assertEqual(report.offenders, ["_ZN4Beta2aaEv", "_ZN4Beta2bbEv", "_ZN4Beta2ccEv"])
+        lines = hl.format_reports("phantasm", [report], [])
+        self.assertIn("FAIL", lines[0])
+        self.assertTrue(any("_ZN4Beta2ccEv" in line for line in lines))
+
+    def test_two_lines_per_set_pass(self):
+        program = _program([
+            (f"_ZN4Beta{len(n)}{n}Ev", 0x60010000 + i * WAY, 64, f".text.hot._ZN4Beta{len(n)}{n}Ev",
+             PHANTASM) for i, n in enumerate(("aa", "bb"))], [])
+        report, = hl.evaluate(program, program.hot_sets(["Beta"]))
+        self.assertTrue(report.passed)
+        self.assertEqual(report.worst, 2)
+
+    def test_missing_expected_effect_fails(self):
+        lines = hl.format_reports("profile", [], ["HopfFibration"])
+        self.assertIn("FAIL", lines[0])
+        self.assertIn("HopfFibration", lines[1])
 
 
 def _worst(program, keys):

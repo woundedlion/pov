@@ -384,7 +384,7 @@ class TestLinkerMap(unittest.TestCase):
 
 
 class TestHotLayoutLink(unittest.TestCase):
-    """teensy_hot_layout.py: a phantasm.ld link becomes probe, plan, link."""
+    """teensy_hot_layout.py: a phantasm.ld link becomes probe, plan, link, gate."""
 
     HOOK = "pre:tools/teensy_hot_layout.py"
 
@@ -402,11 +402,11 @@ class TestHotLayoutLink(unittest.TestCase):
                 wired = self.HOOK in _option_lines(cfg, f"env:{name}", "extra_scripts")
                 self.assertEqual(wired, script == ["tools/phantasm.ld"])
 
-    def test_link_runs_probe_plan_and_final_link(self):
+    def test_link_runs_probe_plan_final_link_and_gate(self):
         _, env = self._hook()
         steps = env["LINKCOM"]
         self.assertEqual([step[0] == "action" for step in steps],
-                         [True, False, True, False])
+                         [True, False, True, False, True])
         probe, final = steps[1], steps[3]
         for part in ("-o $HS_HOT_LAYOUT_PROBE_ELF", "-L$HS_HOT_LAYOUT_PROBE_DIR",
                      "-Wl,-Map,$HS_HOT_LAYOUT_PROBE_MAP"):
@@ -430,6 +430,15 @@ class TestHotLayoutLink(unittest.TestCase):
             fragment = Path(tmp, "hot_layout", "probe", "phantasm_hot_layout.ld")
             self.assertNotIn("*(", fragment.read_text(encoding="utf-8"))
             self.assertTrue(Path(tmp, "hot_layout", "final").is_dir())
+
+    def test_expected_effects_follow_the_sketch(self):
+        hook, env = self._hook(CPPDEFINES=[("HS_PROFILE_TARGET", "HopfFibration")])
+        sources = lambda sketch: [os.path.join("src", "targets", sketch, sketch + ".ino.cpp.o")]
+        self.assertEqual(hook._expected(env, sources("Profile")), ["HopfFibration"])
+        self.assertEqual(hook._expected(env, sources("Phantasm")),
+                         hook.hot_layout.phantasm_playlist(str(REPO)))
+        self.assertEqual(hook._expected(env, sources("Bench")), [])
+        self.assertEqual(hook._expected(FakeEnv(), sources("Profile")), ["DisplacementField"])
 
 
 class TestNanoSpecs(unittest.TestCase):

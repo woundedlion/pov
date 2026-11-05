@@ -8,8 +8,8 @@ cache has ways.
 
 `plan` reads a probe link (ELF, linker map and object section tables), derives
 each effect's hot set and writes the linker-script fragment tools/phantasm.ld
-INCLUDEs, ordered so each effect's gated set maps at most `MAX_LINES_PER_SET`
-lines to any set.
+INCLUDEs. `check` measures the per-set occupancy of every effect's hot set in a
+linked image and fails when any effect exceeds `MAX_LINES_PER_SET`.
 
 An effect's roots are the functions whose mangled names name its class or its
 `<Class>Spec`, plus the POVSegmented driver. Its hot set is the transitive
@@ -22,7 +22,7 @@ calls. Members rank by call
 depth from the roots, then by depth-first call order; the gated set takes them in rank order, skipping any that
 would exceed `GATED_BYTES`.
 
-Run:  python tools/hot_layout.py plan --elf probe.elf --map probe.map --fragment out.ld
+Run:  python tools/hot_layout.py check --elf firmware.elf --map firmware.map
 """
 
 from __future__ import annotations
@@ -548,12 +548,96 @@ class Program:
 
 
 # ---------------------------------------------------------------------------
-# Cache lines
+# Occupancy and the gate
 # ---------------------------------------------------------------------------
 def lines_of(address: int, size: int) -> range:
     """Cache-line indices a byte range touches."""
     return range(address // CACHE_LINE_BYTES,
                  (address + max(size, 1) - 1) // CACHE_LINE_BYTES + 1)
+
+
+def occupancy(sections: list[Section]) -> dict[int, list[int]]:
+    """Distinct lines per cache set, keyed by set index."""
+    lines: set[int] = set()
+    for section in sections:
+        lines.update(lines_of(section.address, section.size))
+    per_set: dict[int, list[int]] = {}
+    for line in sorted(lines):
+        per_set.setdefault(line % CACHE_SETS, []).append(line)
+    return per_set
+
+
+@dataclass
+class EffectReport:
+    """Gate result for one effect."""
+
+    effect: str
+    gated_bytes: int
+    overflow_bytes: int
+    worst: int
+    full_worst: int
+    over_sets: int
+    offenders: list[str]
+
+    @property
+    def passed(self) -> bool:
+        """True when no set holds more than `MAX_LINES_PER_SET` gated lines."""
+        return self.worst <= MAX_LINES_PER_SET
+
+
+def evaluate(program: Program, hot_sets: dict[str, EffectHotSet]) -> list[EffectReport]:
+    """Per-effect occupancy of the gated and full hot sets in `program`."""
+    reports = []
+    for effect, hot in hot_sets.items():
+        gated = [program.by_key[key] for key in hot.gated]
+        full = gated + [program.by_key[key] for key in hot.overflow]
+        per_set = occupancy(gated)
+        worst = max((len(lines) for lines in per_set.values()), default=0)
+        over = [s for s, lines in per_set.items() if len(lines) > MAX_LINES_PER_SET]
+        offenders: list[str] = []
+        if over:
+            worst_set = min(s for s, lines in per_set.items() if len(lines) == worst)
+            touched = set(per_set[worst_set])
+            for section in gated:
+                if touched & set(lines_of(section.address, section.size)):
+                    offenders.append(_function_label(section))
+        reports.append(EffectReport(
+            effect, sum(s.size for s in gated),
+            sum(program.by_key[k].size for k in hot.overflow), worst,
+            max((len(v) for v in occupancy(full).values()), default=0),
+            len(over), offenders))
+    return reports
+
+
+def _function_label(section: Section) -> str:
+    name = section.name
+    for prefix in (".text.hot.", ".text."):
+        if name.startswith(prefix):
+            name = name[len(prefix):]
+            break
+    if section.origin.member:
+        return f"{section.origin.archive}:{section.origin.member}({name})"
+    return name
+
+
+def format_reports(env: str, reports: list[EffectReport], missing: list[str]) -> list[str]:
+    """Gate lines: one per effect, offenders under a failing one."""
+    failed = [r for r in reports if not r.passed]
+    verdict = "FAIL" if failed or missing else "PASS"
+    lines = [f"[hot-layout] {env}: {verdict} - {len(reports)} effects, at most "
+             f"{MAX_LINES_PER_SET} lines per instruction-cache set over each "
+             f"effect's first {GATED_BYTES // 1024} KiB of hot code"]
+    for effect in missing:
+        lines.append(f"  FAIL {effect}: no code in the image names this effect")
+    for report in sorted(reports, key=lambda r: (r.passed, -r.worst, r.effect)):
+        status = "ok  " if report.passed else "FAIL"
+        lines.append(
+            f"  {status} {report.effect:<24} worst {report.worst} lines/set "
+            f"({report.over_sets} sets over)  gated {report.gated_bytes:>6,} B  "
+            f"overflow {report.overflow_bytes:>6,} B  full-set worst {report.full_worst}")
+        for offender in report.offenders:
+            lines.append(f"         {offender}")
+    return lines
 
 
 # ---------------------------------------------------------------------------
@@ -876,29 +960,59 @@ def write_plan(tools: Toolchain, elf: str, map_path: str, effects: list[str],
     return program, hot_sets
 
 
+def check(tools: Toolchain, elf: str, map_path: str, effects: list[str],
+          expected: list[str], env: str) -> tuple[list[str], bool]:
+    """Gate lines for a linked image and whether it passes."""
+    program, _ = load_program(tools, elf, map_path)
+    hot_sets = program.hot_sets(effects)
+    missing = [e for e in expected if e not in hot_sets]
+    reports = evaluate(program, hot_sets)
+    return (format_reports(env, reports, missing),
+            not missing and all(r.passed for r in reports))
+
+
 def roster(root: str) -> list[str]:
     """Every effect class in core/platform/effect_identity.h."""
     text = Path(root, "core/platform/effect_identity.h").read_text(encoding="utf-8")
     return parse_effect_list(text, "HS_EFFECT_IDENTITY_LIST")
 
 
+def phantasm_playlist(root: str) -> list[str]:
+    """Effect classes of the Phantasm device playlist."""
+    text = Path(root, "targets/Phantasm/phantasm_playlist.h").read_text(encoding="utf-8")
+    return parse_effect_list(text, "HS_PHANTASM_EFFECT_LIST")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("command", choices=("plan",))
+    parser.add_argument("command", choices=("check", "plan"))
     parser.add_argument("--elf", required=True)
     parser.add_argument("--map", required=True)
     parser.add_argument("--compiler", default="arm-none-eabi-gcc",
                         help="gcc whose sibling binutils to run")
     parser.add_argument("--root", default=str(Path(__file__).resolve().parents[1]))
-    parser.add_argument("--fragment", required=True, help="fragment path to write")
+    parser.add_argument("--expect", action="append", default=[],
+                        help="effect that must have code in the image; "
+                             "'playlist' expands to the Phantasm playlist")
+    parser.add_argument("--fragment", help="plan: fragment path to write")
     args = parser.parse_args(argv)
     try:
-        write_plan(Toolchain.beside(args.compiler), args.elf, args.map,
-                   roster(args.root), args.fragment, args.root)
+        tools = Toolchain.beside(args.compiler)
+        expected = []
+        for name in args.expect:
+            expected.extend(phantasm_playlist(args.root) if name == "playlist" else [name])
+        if args.command == "plan":
+            if not args.fragment:
+                parser.error("plan needs --fragment")
+            write_plan(tools, args.elf, args.map, roster(args.root), args.fragment, args.root)
+            return 0
+        lines, passed = check(tools, args.elf, args.map, roster(args.root), expected,
+                              Path(args.elf).stem)
     except LayoutError as exc:
         print(f"hot_layout: {exc}", file=sys.stderr)
         return 2
-    return 0
+    print("\n".join(lines))
+    return 0 if passed else 1
 
 
 if __name__ == "__main__":

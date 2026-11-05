@@ -1350,7 +1350,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: teensy-firmware
-          path: .pio/build/*/firmware.*
+          path: |
+            .pio/build/*/firmware.*
+            .pio/build/*/hot_layout/report.txt
           if-no-files-found: warn
 
   teensy-warnings:

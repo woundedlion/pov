@@ -1,12 +1,13 @@
 """PlatformIO pre-build hook: two-pass link that lays out hot flash code.
 
 For an env linked by tools/phantasm.ld, the link becomes: a probe link with an
-empty tools/hot_layout.py fragment, the layout plan written from the probe, and
-the final link with that fragment. The probe never reads a previous plan, so
-one source tree always yields one layout.
+empty tools/hot_layout.py fragment, the layout plan written from the probe, the
+final link with that fragment, and the hot-layout gate on the final image. The
+probe never reads a previous plan, so one source tree always yields one layout.
 """
 
 import os
+import re
 import sys
 
 Import("env")
@@ -28,6 +29,32 @@ if os.path.basename(env.subst("$LDSCRIPT_PATH")) == "phantasm.ld":
     def _toolchain(env):
         return hot_layout.Toolchain.beside(env.subst("$CC"), env["ENV"].get("PATH"))
 
+    def _final_map(env):
+        for flag in env.subst("$LINKFLAGS").split():
+            if flag.startswith("-Wl,-Map,"):
+                return flag[len("-Wl,-Map,"):]
+        raise hot_layout.LayoutError("the final link writes no -Wl,-Map")
+
+    def _sketch(source):
+        for node in source:
+            match = re.search(r"([A-Za-z]+)\.ino\.cpp\.o$", str(node))
+            if match:
+                return match.group(1)
+        return ""
+
+    def _expected(env, source):
+        sketch = _sketch(source)
+        if sketch == "Phantasm":
+            return hot_layout.phantasm_playlist(_ROOT)
+        if sketch == "Profile":
+            for define in env.get("CPPDEFINES", []):
+                if isinstance(define, (list, tuple)) and define[0] == "HS_PROFILE_TARGET":
+                    return [str(define[1])]
+            text = open(os.path.join(_ROOT, "targets/Profile/Profile.ino"),
+                        encoding="utf-8").read()
+            return re.findall(r"#define HS_PROFILE_TARGET (\w+)", text)[:1]
+        return []
+
     def _write_probe_fragment(target, source, env):
         for directory in (_PROBE_DIR, _FINAL_DIR):
             os.makedirs(directory, exist_ok=True)
@@ -47,6 +74,23 @@ if os.path.basename(env.subst("$LDSCRIPT_PATH")) == "phantasm.ld":
             return 2
         return 0
 
+    def _gate(target, source, env):
+        try:
+            lines, passed = hot_layout.check(
+                _toolchain(env), str(target[0]), _final_map(env),
+                hot_layout.roster(_ROOT), _expected(env, source), env["PIOENV"])
+        except hot_layout.LayoutError as exc:
+            print(f"::error::hot-layout: {exc}")
+            return 2
+        with open(os.path.join(_DIR, "report.txt"), "w", encoding="utf-8") as report:
+            report.write("\n".join(lines) + "\n")
+        print("\n".join(lines))
+        if not passed:
+            print(f"::error::hot-layout: {env['PIOENV']} has instruction-cache sets "
+                  f"over {hot_layout.MAX_LINES_PER_SET} lines; see {_DIR}/report.txt")
+            return 1
+        return 0
+
     _LINK_ARGS = "$LINKFLAGS {extra} $__RPATH $SOURCES $_LIBDIRFLAGS $_LIBFLAGS"
     env.Replace(LINKCOM=[
         env.Action(_write_probe_fragment, None),
@@ -58,6 +102,7 @@ if os.path.basename(env.subst("$LDSCRIPT_PATH")) == "phantasm.ld":
         "${TEMPFILE('$LINK -o $TARGET "
         + _LINK_ARGS.format(extra="-L$HS_HOT_LAYOUT_FINAL_DIR")
         + "','$LINKCOMSTR')}",
+        env.Action(_gate, "Checking hot code layout"),
     ])
     env.Depends("$BUILD_DIR/${PROGNAME}.elf",
                 [os.path.join(_ROOT, "tools", name)
