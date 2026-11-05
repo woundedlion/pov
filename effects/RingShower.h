@@ -204,10 +204,8 @@ private:
   void draw_ring(Canvas &canvas, const Ring &ring) {
     const float opacity = ring.opacity_at();
     math::Basis basis = math::make_basis(math::Quaternion(), ring.normal);
-    const auto growth = [&](float age, bool start) {
-      if (start)
-        return Ring::RADIUS_MAX * (age + 1.0f) / ring.life;
-      return Ring::RADIUS_MAX * hs::clamp((age + 1.0f) / ring.life, 0.0f, 1.0f);
+    const auto growth = [&](float age) {
+      return Ring::RADIUS_MAX * (age + 1.0f) / ring.life;
     };
     const auto fade = [](float age) {
       return hs::clamp((age + 1.0f) / Ring::FADE_IN_FRAMES, 0.0f, 1.0f);

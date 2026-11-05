@@ -273,7 +273,7 @@ private:
       return;
     HS_PROFILE(th_thruster_draw);
     math::Basis basis = math::make_basis(ctx.orientation.get(), ctx.point);
-    const auto growth = [](float age, bool) {
+    const auto growth = [](float age) {
       return ThrusterContext::RADIUS_MAX *
              hs::clamp((age + 1.0f) / ThrusterContext::RADIUS_GROW_FRAMES, 0.0f,
                        1.0f);

@@ -645,7 +645,7 @@ struct Ring {
    * @param has_history Whether a retained age exists.
    * @param radius Current radius in hemisphere units.
    * @param opacity Current fade.
-   * @param growth Radius at an age; the second argument selects frame start.
+   * @param growth Radius at an age.
    * @param fade Fade at an intermediate age.
    * @param shader Shades a fragment with its resolved fade.
    * @param bound Motion bound from age span and frame-start radius. */
@@ -666,10 +666,10 @@ struct Ring {
       shader(point, f, time == 1.0f ? opacity : fade(age_at(time)));
     };
     const auto vertex = [&](size_t i, float time) {
-      const float polar = growth(age_at(time), false) * (math::PI_F * 0.5f);
+      const float polar = growth(age_at(time)) * (math::PI_F * 0.5f);
       return ring_vertex<W>(basis, polar, i);
     };
-    const float START_RADIUS = growth(start_age, true);
+    const float START_RADIUS = growth(start_age);
     GeometryCallback geometry{vertex,
                               bound(float(age) - start_age, START_RADIUS)};
     draw_timed<W, H>(pipeline, canvas, basis, radius, fragment, geometry,
