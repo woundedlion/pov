@@ -497,7 +497,7 @@ inline void test_opleg_medial_leg_smoke() {
  * @details The closing leg's face list is block-transposed against the
  * medial's ([D-faces][D-vertex orbits] vs [P-faces][P-vertex orbits]); the
  * closing leg's from-palettes must follow the permutation, and the rendered
- * seam must stay near one in-leg step.
+ * changed-pixel count stays comparable to one in-leg step.
  */
 inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
   using Animation::OpLeg;
@@ -505,6 +505,7 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
   constexpr int RW = 288, RH = 144;
   constexpr float SEAM_MATCH_TOL = 0.02f;
   constexpr long long SEAM_SUMABS_MAX = 1100000ll;
+  constexpr long long PRESERVED_SEAM_SUMABS_MAX = 1300000ll;
 
   static Pipeline<RW, RH> filters;
 
@@ -791,8 +792,8 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
     const float quiet_ratio =
         static_cast<float>(seam_quiet) / static_cast<float>(ctrl_quiet);
     HS_EXPECT_GT(quiet_ratio, site.seam_quiet_ratio);
-    if (!preserve_palettes)
-      HS_EXPECT_LT(seam_sum, SEAM_SUMABS_MAX);
+    HS_EXPECT_LT(seam_sum, preserve_palettes ? PRESERVED_SEAM_SUMABS_MAX
+                                             : SEAM_SUMABS_MAX);
 
     if (preserve_palettes) {
       rasterize_at = -1;
