@@ -125,9 +125,10 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_missing_image_and_reference_targets_are_reported(self):
         text = (FIXTURES / "missing_targets.txt").read_text(encoding="utf-8")
         issues = dc.check_text(PurePosixPath("docs/readme.md"), text, set())
-        self.assertEqual(len(issues), 2)
-        self.assertIn("docs/missing.svg", issues[0].message)
-        self.assertIn("docs/missing.md", issues[1].message)
+        self.assertEqual(len(issues), 3)
+        self.assertTrue(any("docs/missing.svg" in issue.message for issue in issues))
+        self.assertTrue(any("docs/missing.md" in issue.message for issue in issues))
+        self.assertTrue(any("docs/nested-missing.svg" in issue.message for issue in issues))
 
     def test_missing_anchors_are_reported(self):
         text = (FIXTURES / "anchors.txt").read_text(encoding="utf-8")

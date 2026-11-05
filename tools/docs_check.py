@@ -442,6 +442,9 @@ def _inline_links(line: str) -> tuple[list[str], list[str]]:
                 destination = _destination(line[next_index + 1:end])
                 if destination is not None:
                     destinations.append(destination)
+                nested_destinations, nested_references = _inline_links(label)
+                destinations.extend(nested_destinations)
+                references.extend(nested_references)
                 index = end + 1
                 continue
         elif next_index < len(line) and line[next_index] == "[":
@@ -449,6 +452,9 @@ def _inline_links(line: str) -> tuple[list[str], list[str]]:
             if ref_close != -1:
                 reference = line[next_index + 1:ref_close] or label
                 references.append(_normalize_label(reference))
+                nested_destinations, nested_references = _inline_links(label)
+                destinations.extend(nested_destinations)
+                references.extend(nested_references)
                 index = ref_close + 1
                 continue
         index = close + 1

@@ -2,3 +2,5 @@
 [missing reference][guide]
 
 [guide]: missing.md
+
+[![nested missing image](nested-missing.svg)](https://example.test/)
