@@ -866,58 +866,56 @@ face_corner_angle_deg(const math::Vector &prev, const math::Vector &curr,
 }
 
 /**
- * @brief Colors faces based on their vertex count and neighbor topology.
- * @tparam MeshT Mesh type exposing the unified accessors and a topology array.
- * @param mesh Mesh to classify; its topology array is filled with class ids.
- * @param scratch_a Scratch arena for hashes, per-face data, and the node sort.
- * @param scratch_b Scratch arena for the half-edge pairing records.
- * @param persistent Arena backing the mesh topology array when it must grow.
- * @details Hashes each face by side count and interior angles, folds in
- * neighbor hashes via the half-edge pairing, then sorts and assigns a dense
- * topology id per distinct hash. Traps if the flat face lengths disagree or the
- * half-edge or face count exceeds the 16-bit index range. All three arenas may
- * be the same object.
+ * @brief Colors faces by vertex count, interior angles and neighbor topology.
+ * @param face_counts Flat per-face vertex counts.
+ * @param face_count Number of faces.
+ * @param faces Flat vertex-index stream.
+ * @param index_count Number of flat vertex indices.
+ * @param vertices Source vertex positions.
+ * @param topology Destination face classes.
+ * @param key Destination connectivity key.
+ * @param scratch_a Scratch arena for hashes, face data and sorting.
+ * @param scratch_b Scratch arena for half-edge pairing records.
+ * @param persistent Arena backing the topology array.
+ * @details All three arenas may alias. Topology is bound before scratch scopes.
  */
-template <typename MeshT>
-__attribute__((always_inline)) inline void
-classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
-                    Arena &persistent) {
-  // Topology via accessors (borrowed-mode safe); vertices/topology are direct.
-  size_t F = mesh.get_face_counts_size();
-  const uint8_t *face_counts = mesh.get_face_counts_data();
-  const uint16_t *faces = mesh.get_faces_data();
-  size_t I = mesh.get_faces_size();
+[[maybe_unused]] HS_COLD static void
+classify_faces_impl(const uint8_t *face_counts, size_t face_count,
+                    const uint16_t *faces, size_t index_count,
+                    const ArenaVector<math::Vector> &vertices,
+                    ArenaVector<uint16_t> &topology, uint32_t &key,
+                    Arena &scratch_a, Arena &scratch_b, Arena &persistent) {
   // Validate before publishing topology_key.
-  require_flat_face_length(face_counts, F, I);
+  require_flat_face_length(face_counts, face_count, index_count);
 
   // Bound before the scratch guard: persistent may alias scratch_a.
-  mesh.topology.bind(persistent, F);
+  topology.bind(persistent, face_count);
   // A face-less mesh has nothing to classify, and the half-edge and node
   // allocations below reject zero-size requests.
-  if (F == 0) {
-    mesh.topology_key = 0;
+  if (face_count == 0) {
+    key = 0;
     return;
   }
-  mesh.topology_key = connectivity_key(face_counts, F, faces, I);
-  for (size_t i = 0; i < F; ++i) {
-    mesh.topology.push_back(0);
+  key = connectivity_key(face_counts, face_count, faces, index_count);
+  for (size_t i = 0; i < face_count; ++i) {
+    topology.push_back(0);
   }
 
   ScratchScope scratch_a_guard(scratch_a);
 
   // All faces zero-sided: no edges to hash, and the half-edge allocations below
   // reject zero-size requests. Every face keeps the class 0 pushed above.
-  if (I == 0)
+  if (index_count == 0)
     return;
 
   ArenaVector<uint32_t> face_hashes;
-  face_hashes.bind(scratch_a, F);
+  face_hashes.bind(scratch_a, face_count);
 
   ArenaVector<uint32_t> final_hashes;
-  final_hashes.bind(scratch_a, F);
+  final_hashes.bind(scratch_a, face_count);
 
   int max_count = 0;
-  for (size_t i = 0; i < F; ++i) {
+  for (size_t i = 0; i < face_count; ++i) {
     int c = face_counts[i];
     if (c > max_count)
       max_count = c;
@@ -925,9 +923,9 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
 
   int *angles = scratch_a.allocate_n<int>(max_count);
 
-  const size_t vertex_count = mesh.vertices.size();
+  const size_t vertex_count = vertices.size();
   size_t offset = 0;
-  for (size_t i = 0; i < F; ++i) {
+  for (size_t i = 0; i < face_count; ++i) {
     int count = face_counts[i];
 
     // Pre-fold hash: count + sorted whole-degree interior angles. Degenerate
@@ -940,9 +938,9 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       for (int k = 0; k < count; ++k) {
         const int prev_k = k == 0 ? count - 1 : k - 1;
         const int next_k = k + 1 == count ? 0 : k + 1;
-        const math::Vector &prev = mesh.vertices[faces[offset + prev_k]];
-        const math::Vector &curr = mesh.vertices[faces[offset + k]];
-        const math::Vector &next = mesh.vertices[faces[offset + next_k]];
+        const math::Vector &prev = vertices[faces[offset + prev_k]];
+        const math::Vector &curr = vertices[faces[offset + k]];
+        const math::Vector &next = vertices[faces[offset + next_k]];
         angles[k] = static_cast<int>(
             std::round(face_corner_angle_deg(prev, curr, next)));
       }
@@ -963,21 +961,23 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   {
     ScratchScope temp_topo(scratch_a);
 
-    HS_CHECK(mesh.vertices.size() <= MeshLimits::MAX_VERTICES &&
-                 I <= MeshLimits::MAX_HALF_EDGES && F <= MeshLimits::MAX_FACES,
+    HS_CHECK(vertices.size() <= MeshLimits::MAX_VERTICES &&
+                 index_count <= MeshLimits::MAX_HALF_EDGES &&
+                 face_count <= MeshLimits::MAX_FACES,
              "classify_faces_by_topology exceeds 16-bit index range");
 
-    uint16_t *he_to_face = scratch_a.allocate_n<uint16_t>(I);
-    uint16_t *pair_array = scratch_a.allocate_n<uint16_t>(I);
-    std::fill_n(pair_array, I, HE_NONE);
+    uint16_t *he_to_face = scratch_a.allocate_n<uint16_t>(index_count);
+    uint16_t *pair_array = scratch_a.allocate_n<uint16_t>(index_count);
+    std::fill_n(pair_array, index_count, HE_NONE);
 
     {
       ScratchScope temp_records(scratch_b);
-      HalfEdgePairRecord *records = scratch_b.allocate_n<HalfEdgePairRecord>(I);
+      HalfEdgePairRecord *records =
+          scratch_b.allocate_n<HalfEdgePairRecord>(index_count);
 
       size_t he_idx = 0;
       size_t face_offset = 0;
-      for (size_t fi = 0; fi < F; ++fi) {
+      for (size_t fi = 0; fi < face_count; ++fi) {
         int count = face_counts[fi];
         if (count < 3) {
           // Reserve a degenerate face's half-edge slots with the never-pair
@@ -1002,7 +1002,7 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
         face_offset += count;
       }
 
-      pair_half_edges(records, I, [&](uint16_t a, uint16_t b) {
+      pair_half_edges(records, index_count, [&](uint16_t a, uint16_t b) {
         pair_array[a] = b;
         pair_array[b] = a;
       });
@@ -1011,7 +1011,7 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
     // The wrapping sum makes class identity the multiset of neighbour hashes,
     // not their cyclic order.
     offset = 0;
-    for (size_t fi = 0; fi < F; ++fi) {
+    for (size_t fi = 0; fi < face_count; ++fi) {
       int count = face_counts[fi];
       uint32_t neighbor_acc = 0;
       for (int k = 0; k < count; ++k) {
@@ -1033,24 +1033,24 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
     uint32_t hash;     /**< Final topology hash for the face. */
     int original_face; /**< Index of the face in the original mesh order. */
   };
-  HashNode *nodes = scratch_a.allocate_n<HashNode>(F);
+  HashNode *nodes = scratch_a.allocate_n<HashNode>(face_count);
 
-  for (size_t fi = 0; fi < F; ++fi) {
+  for (size_t fi = 0; fi < face_count; ++fi) {
     nodes[fi] = {final_hashes[fi], static_cast<int>(fi)};
   }
 
   auto hash_greater = [](const HashNode &a, const HashNode &b) {
     return a.hash > b.hash;
   };
-  std::sort(nodes, nodes + F, hash_greater);
+  std::sort(nodes, nodes + face_count, hash_greater);
 
   int current_id = 0;
-  mesh.topology[nodes[0].original_face] = 0;
-  for (size_t i = 1; i < F; ++i) {
+  topology[nodes[0].original_face] = 0;
+  for (size_t i = 1; i < face_count; ++i) {
     if (nodes[i].hash != nodes[i - 1].hash) {
       current_id++;
     }
-    mesh.topology[nodes[i].original_face] = static_cast<uint16_t>(current_id);
+    topology[nodes[i].original_face] = static_cast<uint16_t>(current_id);
   }
 }
 
@@ -1064,7 +1064,10 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
 [[maybe_unused]] HS_COLD static void
 classify_faces_by_topology(PolyMesh &mesh, Arena &scratch_a, Arena &scratch_b,
                            Arena &persistent) {
-  classify_faces_impl(mesh, scratch_a, scratch_b, persistent);
+  classify_faces_impl(mesh.get_face_counts_data(), mesh.get_face_counts_size(),
+                      mesh.get_faces_data(), mesh.get_faces_size(),
+                      mesh.vertices, mesh.topology, mesh.topology_key,
+                      scratch_a, scratch_b, persistent);
 }
 /**
  * @brief Classifies a MeshState's faces by topology (see classify_faces_impl).
@@ -1076,7 +1079,10 @@ classify_faces_by_topology(PolyMesh &mesh, Arena &scratch_a, Arena &scratch_b,
 [[maybe_unused]] HS_COLD static void
 classify_faces_by_topology(MeshState &mesh, Arena &scratch_a, Arena &scratch_b,
                            Arena &persistent) {
-  classify_faces_impl(mesh, scratch_a, scratch_b, persistent);
+  classify_faces_impl(mesh.get_face_counts_data(), mesh.get_face_counts_size(),
+                      mesh.get_faces_data(), mesh.get_faces_size(),
+                      mesh.vertices, mesh.topology, mesh.topology_key,
+                      scratch_a, scratch_b, persistent);
 }
 
 HS_O3_END
