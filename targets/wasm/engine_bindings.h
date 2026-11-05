@@ -139,17 +139,14 @@ enum class ResolutionSetResult {
 
 /**
  * @brief Outcome of a HolosphereEngine::setEffect() call.
- * @details Both rejections keep the prior effect. UNSUPPORTED_RESOLUTION means
- *          no name can succeed until a supported setResolution(). Exposed to JS
- *          as the Module.EffectSetResult embind enum.
+ * @details UNKNOWN_EFFECT keeps the prior effect. Exposed to JS as the
+ *          Module.EffectSetResult embind enum.
  */
 enum class EffectSetResult {
-  INSTALLED,              /**< Fresh effect instantiated at default parameters
+  INSTALLED,      /**< Fresh effect instantiated at default parameters
                                and the full-canvas clip. */
-  UNKNOWN_EFFECT,         /**< Name not registered at the active resolution;
+  UNKNOWN_EFFECT, /**< Name not registered at the active resolution;
                                prior effect kept. */
-  UNSUPPORTED_RESOLUTION, /**< Active resolution has no factory; prior state
-                               kept. */
 };
 
 /// True while a HolosphereEngine is constructed-but-not-deleted. The engine is
@@ -313,9 +310,8 @@ public:
    * @brief Tears down the current effect and instantiates the named one at the
    *        active resolution.
    * @param name Canonical machine ID or class/browser name to instantiate.
-   * @return INSTALLED iff an effect was actually instantiated, else the
-   *         rejection reason — UNKNOWN_EFFECT for an unknown/stale effect name
-   *         or UNSUPPORTED_RESOLUTION.
+   * @return INSTALLED iff an effect was instantiated, else UNKNOWN_EFFECT for
+   *         an unknown or stale effect name.
    * @details A rejected name keeps the prior effect. INSTALLED resets the clip
    *          to the full canvas and parameters to defaults; re-apply setClip()
    *          and setParameter(). The preset pause state is retained.
@@ -326,12 +322,8 @@ public:
         pixel_width, pixel_height, [&]<int W, int H>() {
           entry = hs_wasm::find_factory_entry<W, H>(name);
         });
-    if (!dispatched) {
-      hs::log("WASM: setEffect at unsupported resolution %dx%d — keeping "
-              "current effect",
-              pixel_width, pixel_height);
-      return EffectSetResult::UNSUPPORTED_RESOLUTION;
-    }
+    HS_CHECK(dispatched,
+             "WASM effect dispatch requires a supported resolution");
 
     if (!entry) {
       hs::log("WASM: setEffect unknown effect '%s' — keeping current effect",
@@ -940,8 +932,8 @@ public:
 
   /**
    * @brief Returns the effect-size map for the active resolution.
-   * @return JS object mapping each effect name to its sizeof, in bytes, at the current
-   *         resolution; empty map if unsupported/uninitialized.
+   * @return JS object mapping each effect name to its sizeof, in bytes, at the
+   *         current resolution.
    */
   SizesValue getEffectSizes() const {
     emscripten::val sizes = emscripten::val::object();
@@ -953,8 +945,8 @@ public:
 
   /**
    * @brief Returns the authored preset counts for the active resolution.
-   * @return JS object mapping every effect name to its preset count; empty map
-   *         if unsupported or uninitialized.
+   * @return JS object mapping every effect name to its preset count at the
+   *         current resolution.
    */
   SizesValue getEffectPresetCounts() const {
     emscripten::val counts = emscripten::val::object();
@@ -1130,8 +1122,7 @@ static void bind_engine() {
 
   emscripten::enum_<EffectSetResult>("EffectSetResult")
       .value("INSTALLED", EffectSetResult::INSTALLED)
-      .value("UNKNOWN_EFFECT", EffectSetResult::UNKNOWN_EFFECT)
-      .value("UNSUPPORTED_RESOLUTION", EffectSetResult::UNSUPPORTED_RESOLUTION);
+      .value("UNKNOWN_EFFECT", EffectSetResult::UNKNOWN_EFFECT);
 
 #if HS_ENABLE_CHAIN_INTERPRETER
   emscripten::enum_<Pullback::Interp::ChainStatus>("ChainStatus")

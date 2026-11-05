@@ -345,7 +345,7 @@ async function main(probe) {
   for (const outcome of ['RESIZED', 'ALREADY_ACTIVE', 'UNSUPPORTED']) {
     if (!RS || RS[outcome] === undefined) fail(`Module.ResolutionSetResult.${outcome} is not bound`);
   }
-  for (const outcome of ['INSTALLED', 'UNKNOWN_EFFECT', 'UNSUPPORTED_RESOLUTION']) {
+  for (const outcome of ['INSTALLED', 'UNKNOWN_EFFECT']) {
     if (!ES || ES[outcome] === undefined) fail(`Module.EffectSetResult.${outcome} is not bound`);
   }
   if (!RS || !ES) {
