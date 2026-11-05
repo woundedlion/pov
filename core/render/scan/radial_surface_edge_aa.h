@@ -164,12 +164,12 @@ public:
     } else {
       Point other;
       if (detector.paired && !detector.terminal_back && !center_front) {
-        if (!detector.corner(.01f, .01f, other))
+        if (!detector.corner(SIDE_OFFSET, SIDE_OFFSET, other))
           other = p;
       } else {
         const float U = copysignf(1.0f, detector.a),
                     V = copysignf(1.0f, detector.b);
-        const float ALONG = center_front ? -.01f : .01f;
+        const float ALONG = center_front ? -SIDE_OFFSET : SIDE_OFFSET;
         other = detector.side(detector.boundary, ALONG * U, ALONG * V);
       }
       typename Surface::Stats outside_work;
@@ -193,19 +193,21 @@ public:
         (back_interval < 0 || back_interval + 1 == surface.interval_count())) {
       typename Surface::Stats terminal_work, background_work;
       Point outside;
-      if (!detector.corner(-.01f, -.01f, outside))
-        outside = detector.side(detector.second_boundary,
-                                -.01f * copysignf(1.0f, detector.second_a),
-                                -.01f * copysignf(1.0f, detector.second_b));
+      if (!detector.corner(-SIDE_OFFSET, -SIDE_OFFSET, outside))
+        outside =
+            detector.side(detector.second_boundary,
+                          -SIDE_OFFSET * copysignf(1.0f, detector.second_a),
+                          -SIDE_OFFSET * copysignf(1.0f, detector.second_b));
       const auto background_hit =
           query(outside, radial_atan2(outside.y, outside.x),
                 std::max(0, first - 1), background_work);
       if (!background_hit.found()) {
         Point inside;
-        if (!detector.corner(-.01f, .01f, inside))
-          inside = detector.side(detector.second_boundary,
-                                 .01f * copysignf(1.0f, detector.second_a),
-                                 .01f * copysignf(1.0f, detector.second_b));
+        if (!detector.corner(-SIDE_OFFSET, SIDE_OFFSET, inside))
+          inside =
+              detector.side(detector.second_boundary,
+                            SIDE_OFFSET * copysignf(1.0f, detector.second_a),
+                            SIDE_OFFSET * copysignf(1.0f, detector.second_b));
         const auto terminal_hit =
             query(inside, radial_atan2(inside.y, inside.x),
                   std::max(0, first - 1), terminal_work);
@@ -246,6 +248,11 @@ public:
   }
 
 private:
+  static constexpr float SIDE_OFFSET = .01f;
+  static constexpr float SAME_SHEET_BIRTHS = .75f;
+  static constexpr float PAIRED_SHEET_BIRTHS = .25f;
+  static constexpr float MIN_LINE_SINE_SQ = .0975f;
+
   /** @brief Shades one first arrival on an edge sample.
    * @tparam Shade First-arrival color callable.
    * @param shade First-arrival shader.
@@ -410,11 +417,12 @@ private:
     HS_HOT_INLINE bool compatible(float x, float y, float z, float u, float v,
                                   float w) const {
       const float DET = x * v - y * u;
-      if (DET * DET <= .0975f * (x * x + y * y) * (u * u + v * v))
+      if (DET * DET <= MIN_LINE_SINE_SQ * (x * x + y * y) * (u * u + v * v))
         return false;
       return 2 * fabsf(y * w - v * z) <= fabsf(DET) &&
              2 * fabsf(u * z - x * w) <= fabsf(DET);
     }
+    /** @brief Retains nearest compatible boundary lines in the pixel footprint. */
     HS_HOT_FLASH_MEMBER void record(Point A, Point B, float first_birth,
                                     float last_birth, float front_sign = 1,
                                     bool is_tip = false,
@@ -488,7 +496,7 @@ private:
       const float NEW_A = front_sign * LA, NEW_B = front_sign * LB,
                   NEW_C = front_sign * LC;
       const float NEW_BIRTH = first_birth + T * (last_birth - first_birth);
-      if (is_terminal && found && NEW_BIRTH > birth + .75f) {
+      if (is_terminal && found && NEW_BIRTH > birth + SAME_SHEET_BIRTHS) {
         second_boundary = {A.x + T * E.x, A.y + T * E.y};
         second_a = NEW_A;
         second_b = NEW_B;
@@ -497,7 +505,8 @@ private:
         terminal_back = true;
         return;
       }
-      const bool MATCH = found && fabsf(NEW_BIRTH - birth) <= .75f &&
+      const bool MATCH = found &&
+                         fabsf(NEW_BIRTH - birth) <= SAME_SHEET_BIRTHS &&
                          compatible(a, b, c, NEW_A, NEW_B, NEW_C);
       if (found && distance >= best_distance) {
         if (MATCH) {
@@ -513,7 +522,7 @@ private:
         second_b = b;
         second_c = c;
         paired = true;
-      } else if (!(paired && fabsf(NEW_BIRTH - birth) <= .25f &&
+      } else if (!(paired && fabsf(NEW_BIRTH - birth) <= PAIRED_SHEET_BIRTHS &&
                    compatible(NEW_A, NEW_B, NEW_C, second_a, second_b,
                               second_c)))
         paired = false;
