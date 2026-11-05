@@ -817,7 +817,8 @@ private:
 
       {
         HS_PROFILE(db_mesh_plot);
-        const Plot::GeometryCallback geometry{at, orbit_path, false};
+        const Plot::GeometryCallback geometry{
+            .evaluate = at, .path = orbit_path, .source_positions = false};
         if (timed)
           Plot::Mesh::draw_timed<W, H>(timed_filters, canvas, framed_mesh,
                                        framed_edges, woven_shader, geometry,
@@ -889,7 +890,8 @@ private:
 
       {
         HS_PROFILE(db_mesh_plot);
-        const Plot::GeometryCallback geometry{at, orbit_path, false};
+        const Plot::GeometryCallback geometry{
+            .evaluate = at, .path = orbit_path, .source_positions = false};
         if (timed)
           Plot::Mesh::draw_timed<W, H>(timed_filters, canvas, target,
                                        solid.original_edges, fragment_shader,
