@@ -1152,16 +1152,24 @@ inline HandoffRun run_concurrent_handoff(int generations) {
 
   for (int g = 1; g <= generations && !result.timed_out; ++g) {
     const uint32_t gen = static_cast<uint32_t>(g);
-    cell.gen = gen;
-    cell.check = handoff_check(gen);
-    wire_gen.store(gen, std::memory_order_relaxed);
-    handoff.publish(&cell, gen);
-
+    const auto deadline =
+        std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    pov::rebuild_effect(
+        handoff, gen,
+        [&] {
+          HS_CHECK(std::chrono::steady_clock::now() < deadline,
+                   "concurrent handoff release timed out");
+          std::this_thread::yield();
+        },
+        [] {},
+        [&] {
+          cell.gen = gen;
+          cell.check = handoff_check(gen);
+          wire_gen.store(gen, std::memory_order_relaxed);
+          return &cell;
+        },
+        [](auto &&publish) { publish(); });
     spin_until([&] { return handoff.consumed(gen); });
-
-    handoff.request_release();
-    spin_until([&] { return handoff.release_complete(); });
-    handoff.clear_pending();
   }
 
   stop.store(true, std::memory_order_relaxed);
