@@ -1447,7 +1447,6 @@ inline void test_dominant_field_strongest_wins_without_stacking() {
   const float blended = acc.value();
   HS_EXPECT_LT(blended, 3.0f); // not the plain max
   HS_EXPECT_GT(blended, 2.0f); // but far nearer the strong field
-  HS_EXPECT_GT(blended, 1.0f);
 
   DominantFieldAccumulator lopsided;
   lopsided.add(10.0f);
