@@ -1,6 +1,6 @@
 # GridSpace on-device profile — Teensy 4.0, segmented mode (2026-10-29, **selective -O3**)
 
-Palette-pattern recipe qualification at upper spec-admitted bounds (noise scale 8 baked; analytic frequency 64, chain interpreter only). These overrides are separate from the [normal GridSpace shipping profile](profile_gridspace_teensy_2026-10-23.md). They do not replace its ranked measurement.
+Palette-pattern recipe qualification at upper spec-admitted bounds (noise scale 8 baked; analytic frequency 64, chain interpreter only). These overrides are separate from the [normal GridSpace shipping profile](profile_gridspace_teensy_2026-11-05.md). They do not replace its ranked measurement.
 
 ## Setup
 
