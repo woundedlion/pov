@@ -174,7 +174,6 @@ inline void test_submit_happy_path() {
   HS_EXPECT_TRUE(ok);
   HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1);
   HS_EXPECT_EQ(ctl.get_overrun_count(), 0u);
-  HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1);
   HS_EXPECT_EQ(MockStrip::state().last_len,
                static_cast<size_t>(Frame::BUFFER_SIZE));
   HS_EXPECT_TRUE(MockStrip::state().last_data != nullptr);
@@ -236,8 +235,7 @@ inline void test_overrun_drop() {
   HS_EXPECT_EQ(hd107s::last_flushed_bytes, 0u);
   HS_EXPECT_FALSE(ok);
   HS_EXPECT_EQ(ctl.get_overrun_count(), 1u);
-  HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1);    // unchanged
-  HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1);    // no new transmit
+  HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1);
   HS_EXPECT_EQ(MockStrip::state().check_stale_calls, 1); // watchdog consulted
 
   const uint8_t *back_after =
