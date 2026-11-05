@@ -176,8 +176,8 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
   HS_EXPECT_TRUE(fx.restore_parameters(snapshot));
 
   auto value = [&](const char *name) {
-    const auto *def = fx.getParameters().find(name);
-    HS_EXPECT(def != nullptr, "Fishbowl parameter is missing");
+    const auto *def = required_param(fx, name);
+
     return def ? def->get() : -1.0f;
   };
 

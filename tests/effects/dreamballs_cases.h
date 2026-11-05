@@ -384,8 +384,8 @@ inline void test_dreamballs_base_mesh_selector() {
   WB::DB db;
   db.init();
 
-  const auto *base_mesh = db.getParameters().find("Base Mesh");
-  HS_EXPECT_TRUE(base_mesh != nullptr);
+  const auto *base_mesh = required_param(db, "Base Mesh");
+
   if (!base_mesh)
     return;
 
@@ -470,10 +470,9 @@ inline void test_dreamballs_weave_topology() {
   WB::DB db;
   db.init();
 
-  const auto *topology = db.getParameters().find("Weave Topology");
-  const auto *gap = db.getParameters().find("Weave Gap");
-  HS_EXPECT_TRUE(topology != nullptr);
-  HS_EXPECT_TRUE(gap != nullptr);
+  const auto *topology = required_param(db, "Weave Topology");
+  const auto *gap = required_param(db, "Weave Gap");
+
   if (!topology || !gap)
     return;
 

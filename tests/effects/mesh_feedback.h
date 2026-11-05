@@ -229,8 +229,8 @@ inline void test_meshfeedback_base_mesh_selector() {
   MF effect;
   effect.init();
 
-  const auto *base_mesh = effect.getParameters().find("Base Mesh");
-  HS_EXPECT_TRUE(base_mesh != nullptr);
+  const auto *base_mesh = required_param(effect, "Base Mesh");
+
   if (!base_mesh)
     return;
 

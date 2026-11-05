@@ -107,8 +107,8 @@ inline void test_galaxies_alternate_orbits_and_arm_spin() {
   reset_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
   fx.init();
-  const auto *speed = fx.getParameters().find("Orbit Spd");
-  HS_EXPECT(speed != nullptr, "Orbit Spd is registered");
+  const auto *speed = required_param(fx, "Orbit Spd");
+
   if (speed)
     HS_EXPECT_EQ(speed->get(), 0.0134f);
   WB::set_emission_rate(fx, 1.0f);
@@ -198,8 +198,8 @@ inline void test_galaxies_black_hole_core_toggle() {
   reset_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
   fx.init();
-  const auto *toggle = fx.getParameters().find("Black Hole");
-  HS_EXPECT(toggle != nullptr, "Black Hole is registered");
+  const auto *toggle = required_param(fx, "Black Hole");
+
   if (!toggle)
     return;
   HS_EXPECT(toggle->is_bool(), "Black Hole is a toggle");
@@ -338,8 +338,8 @@ inline void test_galaxies_arm_sharpness() {
   reset_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
   fx.init();
-  const auto *sharpness = fx.getParameters().find("Arm Sharpness");
-  HS_EXPECT(sharpness != nullptr, "Arm Sharpness is registered");
+  const auto *sharpness = required_param(fx, "Arm Sharpness");
+
   if (!sharpness)
     return;
   HS_EXPECT_EQ(sharpness->get(), 0.8f);
@@ -497,8 +497,8 @@ inline void test_galaxies_live_particle_count() {
   reset_globals();
   Galaxies<SMALL_W, SMALL_H> fx;
   fx.init();
-  const auto *count = fx.getParameters().find("Particles");
-  HS_EXPECT(count != nullptr, "Particles telemetry is registered");
+  const auto *count = required_param(fx, "Particles");
+
   if (!count)
     return;
   HS_EXPECT(count->readonly, "Particles telemetry is read-only");

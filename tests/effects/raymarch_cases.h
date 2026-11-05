@@ -293,8 +293,8 @@ inline void test_raymarch_preset_and_placement_solids() {
   effect.init();
 
   auto value = [&](const char *name) {
-    const auto *def = effect.getParameters().find(name);
-    HS_EXPECT(def != nullptr, "Raymarch parameter is missing");
+    const auto *def = required_param(effect, name);
+
     return def ? def->get() : -1.0f;
   };
 
@@ -304,8 +304,8 @@ inline void test_raymarch_preset_and_placement_solids() {
 
   hs_test::expect_params_in_range(effect, "Raymarch preset");
 
-  const auto *base_solid = effect.getParameters().find("Base Solid");
-  HS_EXPECT_TRUE(base_solid != nullptr);
+  const auto *base_solid = required_param(effect, "Base Solid");
+
   if (!base_solid)
     return;
   HS_EXPECT_TRUE(base_solid->animated);

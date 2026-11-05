@@ -257,8 +257,8 @@ inline void test_hankinsolids_manual_pause_holds_morph() {
   hs_test::run_frames(effect, 300);
   HS_EXPECT_TRUE(HankinSolidsWhiteBox::morph_active(effect));
   HS_EXPECT_EQ(HankinSolidsWhiteBox::node(effect), held_node);
-  const auto *angle = effect.getParameters().find("Angle");
-  HS_EXPECT_TRUE(angle != nullptr);
+  const auto *angle = required_param(effect, "Angle");
+
   if (!angle)
     return;
   HS_EXPECT_NEAR(angle->get(), 0.7f, 1e-6f);
