@@ -667,7 +667,8 @@ inline void test_shader_chain_snapshot_refusals() {
   HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::WarpPhaseState>::restore(
       warp_state, In::PhaseClockSnapshot{1.0f}));
   for (const auto &value : {In::SourceClockSnapshot{0.25f, 1.0f, 0.0f},
-                            In::SourceClockSnapshot{0.25f, 0.0f, 1.0f}}) {
+                            In::SourceClockSnapshot{0.25f, 0.0f, 1.0f},
+                            In::SourceClockSnapshot{7.0f}}) {
     In::Op::FieldPhaseState field_state{.phase = 0.5f};
     HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::FieldPhaseState>::restore(
         field_state, value));
@@ -676,6 +677,31 @@ inline void test_shader_chain_snapshot_refusals() {
   In::Op::RipplePhaseState ripple_state;
   HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::RipplePhaseState>::restore(
       ripple_state, In::RippleClockSnapshot{-1.0f}));
+  In::RippleClockSnapshot valid_ripple{0.25f, 23, 5, 17};
+  valid_ripple.waves[0] = {12.0f, 3};
+  HS_EXPECT_TRUE(In::RuntimeStateCodec<In::Op::RipplePhaseState>::restore(
+      ripple_state, valid_ripple));
+  for (const float AGE :
+       {std::numeric_limits<float>::quiet_NaN(), -50.0f, 1001.0f}) {
+    auto invalid_ripple = valid_ripple;
+    invalid_ripple.waves[0].age = AGE;
+    HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::RipplePhaseState>::restore(
+        ripple_state, invalid_ripple));
+    HS_EXPECT_EQ(ripple_state.phase, valid_ripple.phase);
+    HS_EXPECT_EQ(ripple_state.seed, valid_ripple.seed);
+    HS_EXPECT_EQ(ripple_state.burst_count, valid_ripple.burst_count);
+    HS_EXPECT_EQ(ripple_state.frames, valid_ripple.frames);
+    for (size_t i = 0; i < valid_ripple.waves.size(); ++i) {
+      HS_EXPECT_EQ(ripple_state.waves[i].age, valid_ripple.waves[i].age);
+      HS_EXPECT_EQ(ripple_state.waves[i].burst, valid_ripple.waves[i].burst);
+    }
+  }
+  In::Op::ColorClockState color_state;
+  HS_EXPECT_TRUE(In::RuntimeStateCodec<In::Op::ColorClockState>::restore(
+      color_state, In::ColorClockSnapshot{0.25f}));
+  HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::ColorClockState>::restore(
+      color_state, In::ColorClockSnapshot{1.0f}));
+  HS_EXPECT_EQ(color_state.oscillation_phase, 0.25f);
   In::Op::AffineClockState affine_state;
   HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::AffineClockState>::restore(
       affine_state, In::AffineClockSnapshot{1.0f, 0.0f}));
