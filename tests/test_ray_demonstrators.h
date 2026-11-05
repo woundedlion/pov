@@ -19,10 +19,20 @@
 #include "tests/test_fixture.h"
 #include "tests/pixel_test_util.h"
 
+#include <array>
 #include <utility>
 #include <vector>
 
 namespace hs_test::ray_demonstrator_tests {
+
+template <typename Source> struct PaletteFixture {
+  alignas(
+      Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()> buffer;
+  Arena arena{buffer.data(), buffer.size()};
+  BakedPaletteStorage palette;
+
+  PaletteFixture() { palette.bake(arena, Source{}); }
+};
 
 /** @brief Palette sampling requires the appearance to cover the ray interval. */
 inline void test_appearance_palette_interval() {
@@ -357,11 +367,8 @@ void check_placed_volume_stage(const Shape &shape,
 
 /** @brief Placed torus stages preserve direct trace shading and respond to pose changes. */
 inline void test_torus_and_warped_volume_spherical_stage() {
-  alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
-      buffer;
-  Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage palette;
-  palette.bake(arena, ConstantPalette{});
+  PaletteFixture<ConstantPalette> fixture;
+  auto &palette = fixture.palette;
   const SDF::Torus TORUS{1.0f, 0.25f};
   check_placed_volume_stage(TORUS, palette.view());
   const SDF::WarpedVolume WARPED{TORUS, SDF::Warp::Twist{3, 0.15f, 1.0f},
@@ -442,11 +449,8 @@ inline void test_periodic_shell_roots_and_slices() {
 
 /** @brief Shell traversal clips intervals, respects budgets and projects slice antialias coverage. */
 inline void test_periodic_shell_traversal_budgets() {
-  alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
-      buffer;
-  Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage palette;
-  palette.bake(arena, ConstantPalette{});
+  PaletteFixture<ConstantPalette> fixture;
+  auto &palette = fixture.palette;
   const Raycast::Appearance APPEARANCE{.1f, 0, 1, &palette.view()};
   Raycast::PreparedCamera camera;
   camera.center = {{-.5f, 0, 0, 0}};
@@ -526,11 +530,8 @@ inline void test_periodic_shell_traversal_budgets() {
 
 /** @brief Prepared shell hits match analytic roots with unit normals and reject invalid embeddings. */
 inline void test_prepared_shells_match_sphere_roots() {
-  alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
-      buffer;
-  Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage palette;
-  palette.bake(arena, ConstantPalette{});
+  PaletteFixture<ConstantPalette> fixture;
+  auto &palette = fixture.palette;
   const Raycast::Appearance APPEARANCE{.1f, 0, 1, &palette.view()};
   static_assert(sizeof(SDF::PreparedPeriodicShells) <= 28);
   for (int sample = 0; sample < 120; ++sample) {
@@ -622,11 +623,8 @@ inline void compare_shell_march(const ShellMarchCase (&cases)[Count],
                                 uint32_t seed, int frames,
                                 CameraSetup camera_setup,
                                 CheckPrepared check_prepared, Trace trace) {
-  alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
-      buffer;
-  Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage palette;
-  palette.bake(arena, GradientPalette{});
+  PaletteFixture<GradientPalette> fixture;
+  auto &palette = fixture.palette;
   hs::Pcg32 random{seed};
   int compared = 0, hits = 0, mismatched = 0;
   for (const auto &settings : cases) {
@@ -908,11 +906,8 @@ composite_shells(const std::vector<ShellContribution> &found, size_t count,
  *        through the lattice trace.
  */
 inline void test_wide_shell_footprint_gathers_neighbor_rows() {
-  alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
-      buffer;
-  Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage palette;
-  palette.bake(arena, GradientPalette{});
+  PaletteFixture<GradientPalette> fixture;
+  auto &palette = fixture.palette;
   SDF::ShellLayerStorage layers;
   SDF::LatticeTrace::Settings settings;
   settings.geometry = SDF::LatticeTrace::Geometry::SHELLS;
@@ -950,11 +945,8 @@ inline void test_wide_shell_footprint_gathers_neighbor_rows() {
  *        layer behind the interval start.
  */
 inline void test_wide_shell_march_gathers_layers_behind_start() {
-  alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
-      buffer;
-  Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage palette;
-  palette.bake(arena, GradientPalette{});
+  PaletteFixture<GradientPalette> fixture;
+  auto &palette = fixture.palette;
   const math::Vector VIEW = math::Vector{1, 1, 1}.normalized();
   const math::Vector START{-.49f, -.3415f, -.3415f};
   const Raycast::Footprint FOOTPRINT{.1f, 8};
@@ -990,11 +982,8 @@ inline void test_wide_shell_march_gathers_layers_behind_start() {
  *          prefix of the neighborhood.
  */
 inline void test_wide_shell_march_matches_neighborhood() {
-  alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
-      buffer;
-  Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage palette;
-  palette.bake(arena, GradientPalette{});
+  PaletteFixture<GradientPalette> fixture;
+  auto &palette = fixture.palette;
   const ShellMarchCase CASES[] = {{1, .32f, 8, 1, .1f, 0},
                                   {.25f, .32f, 6, 1, .0218f, .5f},
                                   {.5f, .2f, 10, 2, .06f, 0},
@@ -1061,11 +1050,8 @@ inline void test_wide_shell_march_matches_neighborhood() {
 
 /** @brief Sphere shading darkens color without weakening occlusion. */
 inline void test_shell_shading_preserves_opacity() {
-  alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
-      buffer;
-  Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage palette;
-  palette.bake(arena, ConstantPalette{});
+  PaletteFixture<ConstantPalette> fixture;
+  auto &palette = fixture.palette;
   const Raycast::Appearance APPEARANCE{0, 0, 100, &palette.view()};
   for (const auto domain : {Raycast::SamplingDomain::SPATIAL_3D,
                             Raycast::SamplingDomain::SLICE_4D}) {
