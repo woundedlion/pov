@@ -260,7 +260,8 @@ constexpr bool is_jitterbug_edge(const EdgeSpec &e) {
  * @param t Endpoint param.
  * @return Clamped param.
  */
-constexpr float clamp_edge_endpoint(const EdgeSpec &edge, float t) {
+HS_FLASH_MEMBER constexpr float clamp_edge_endpoint(const EdgeSpec &edge,
+                                                    float t) {
   t = std::max(t, T_EPS);
   if (edge.op == MorphOp::TRUNCATE)
     t = std::min(t, .5f - T_EPS_AMBO);

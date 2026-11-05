@@ -61,8 +61,8 @@ inline math::Vector face_centroid(const HalfEdgeMesh &he_mesh,
  * @param face Face index.
  * @return Unit-length dual vertex for `face`.
  */
-inline math::Vector dual_vertex(const HalfEdgeMesh &he_mesh,
-                                const PolyMesh &mesh, size_t face) {
+HS_COLD_MEMBER inline math::Vector
+dual_vertex(const HalfEdgeMesh &he_mesh, const PolyMesh &mesh, size_t face) {
   int count;
   const math::Vector centroid = face_centroid(he_mesh, mesh, face, count);
   HS_CHECK(he_mesh.faces[face].half_edge != HE_NONE, "dual vertex: empty face");
