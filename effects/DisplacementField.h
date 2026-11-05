@@ -99,8 +99,8 @@ public:
     candidates = persistent_arena.allocate_n<CandidateTable>(1);
     octave1 = persistent_arena.allocate_n<float>(W + 1);
     octave2 = persistent_arena.allocate_n<float>(W + 1);
-    alternate_num = persistent_arena.allocate_n<float>(W + 1);
-    alternate_den = persistent_arena.allocate_n<float>(W + 1);
+    alternate_a = persistent_arena.allocate_n<float>(W + 1);
+    alternate_b = persistent_arena.allocate_n<float>(W + 1);
     knot_visible = persistent_arena.allocate_n<uint8_t>(W + 1);
     knot_pos = persistent_arena.allocate_n<math::Vector>(W + 1);
     knot_near = persistent_arena.allocate_n<uint8_t>(W + 1);
@@ -1169,8 +1169,8 @@ private:
           if (g2)
             octave2[x] = np.octave2(q, time);
           if (sweep->cache && (g1 || g2)) {
-            knot_pos[x].x = g1 ? octave1[x] : 0.0f;
-            knot_pos[x].y = g2 ? octave2[x] : 0.0f;
+            alternate_a[x] = g1 ? octave1[x] : 0.0f;
+            alternate_b[x] = g2 ? octave2[x] : 0.0f;
             if (sweep->cache->boundary[x] && (t < 0.25f || t >= 0.75f)) {
 #if HS_ENABLE_TEST_HOOKS
               alternate_noise_samples +=
@@ -1183,9 +1183,9 @@ private:
                   sweep->noise_time[0] +
                   (sweep->noise_time[1] - sweep->noise_time[0]) * other;
               if (g1)
-                knot_pos[x].x = np.octave1(aq, at);
+                alternate_a[x] = np.octave1(aq, at);
               if (g2)
-                knot_pos[x].y = np.octave2(aq, at);
+                alternate_b[x] = np.octave2(aq, at);
             }
           }
           if (vis)
@@ -1202,12 +1202,13 @@ private:
     }
 
     bool late = false;
-    auto sample = [&](const float *oct, int d, int k) HS_HOT_INLINE {
+    auto sample = [&](const float *oct, const float *alternate, int d,
+                      int k) HS_HOT_INLINE {
       auto value = [&](int index) HS_HOT_INLINE {
         if constexpr (SWEPT) {
           if (sweep->cache && ((late && knot_times[index] < 0.25f) ||
                                (!late && knot_times[index] >= 0.75f)))
-            return oct == octave1 ? knot_pos[index].x : knot_pos[index].y;
+            return alternate[index];
         }
         return oct[index];
       };
@@ -1235,8 +1236,9 @@ private:
                         knot_times[x];
       if constexpr (SWEPT)
         late = knot_times[x] >= 0.5f;
-      const float primary =
-          slut[x] + amplitude * sample(octave1, D1, x) * sample(octave2, D2, x);
+      const float primary = slut[x] + amplitude *
+                                          sample(octave1, alternate_a, D1, x) *
+                                          sample(octave2, alternate_b, D2, x);
       if constexpr (SWEPT) {
         if (sweep->cache && sweep->cache->boundary[x]) {
           late = !late;
@@ -1250,7 +1252,8 @@ private:
                                       n_local, theta, other)
                       : 0.0f;
           const float alternate =
-              ball + amp * sample(octave1, D1, x) * sample(octave2, D2, x);
+              ball + amp * sample(octave1, alternate_a, D1, x) *
+                         sample(octave2, alternate_b, D2, x);
           retain_alternate(x, primary, alternate, t, slut, *sweep->cache);
           continue;
         }
@@ -1303,7 +1306,7 @@ private:
         den[x] = 0.0f;
         if constexpr (SWEPT) {
           if (sweep->cache)
-            alternate_num[x] = alternate_den[x] = 0.0f;
+            alternate_a[x] = alternate_b[x] = 0.0f;
         }
       }
     }
@@ -1351,8 +1354,8 @@ private:
               const float other = t < 0.5f ? 1.0f : 0.0f;
               const float alternate =
                   ball_at(knot_pos[xi], bp, ball_paths[k], theta, other);
-              DominantFieldAccumulator::accumulate(
-                  alternate_num[xi], alternate_den[xi], alternate);
+              DominantFieldAccumulator::accumulate(alternate_a[xi],
+                                                   alternate_b[xi], alternate);
             }
           }
         }
@@ -1370,7 +1373,7 @@ private:
           if (sweep->cache && sweep->cache->boundary[x] &&
               (t < 0.25f || t >= 0.75f)) {
             const float alternate = DominantFieldAccumulator::resolve(
-                                        alternate_num[x], alternate_den[x]) +
+                                        alternate_a[x], alternate_b[x]) +
                                     noise_field.field(knot_pos[x]);
             retain_alternate(x, slut[x], alternate, t, slut, *sweep->cache);
           }
@@ -1844,9 +1847,10 @@ private:
       nullptr; /**< W + 1 envelope-octave samples on its knot grid. */
   float *octave2 =
       nullptr; /**< W + 1 detail-octave samples on its knot grid. */
-  float *alternate_num = nullptr; ///< Alternate-window ball numerator per knot.
-  float *alternate_den =
-      nullptr; ///< Alternate-window ball denominator per knot.
+  float *alternate_a =
+      nullptr; ///< Alternate-window octave 1 or ball numerator per knot.
+  float *alternate_b =
+      nullptr; ///< Alternate-window octave 2 or ball denominator per knot.
   uint8_t *knot_visible =
       nullptr; /**< W + 1 flags: knot lies in a visible bake chunk. */
   math::Vector *knot_pos =
