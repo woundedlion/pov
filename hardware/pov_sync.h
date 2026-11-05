@@ -481,8 +481,7 @@ private:
     }
     const Boundary b = symbol_boundary(sym);
     const bool was_locked = fly.lock() == LockState::LOCKED;
-    int32_t err = 0;
-    const Flywheel::SnapOutcome r = fly.snap(b, s.first_cycles, &err);
+    const Flywheel::SnapOutcome r = fly.snap(b, s.first_cycles, nullptr);
     if (r != Flywheel::SnapOutcome::ACCEPTED) {
       saturating_increment(telemetry_counters.symbols_rejected_gate);
       if (r == Flywheel::SnapOutcome::REJECTED_FELL_BACK)
