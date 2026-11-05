@@ -106,12 +106,14 @@ struct FieldDisplaceModel : ValueStateModel<StateT> {
   static float fold_strength(const Params &params) {
     return field_fold_strength(Derived::field(params, 0.0f));
   }
+  /** @brief Admits field families without nested potential terms.
+   * @return True. */
+  static constexpr bool valid_terms(const Params &) { return true; }
   /** @brief Checks field scalar and harmonic domains.
    * @param params Authored field controls.
    * @return Null when admitted, otherwise the range diagnostic. */
   static const char *validate(const Params &params) {
-    if (!Fields::valid(params) || params.integrator > 2 ||
-        !Derived::valid_terms(params))
+    if (!Fields::valid(params) || !Derived::valid_terms(params))
       return FIELD_RANGE_WARNING;
     return nullptr;
   }
@@ -157,10 +159,6 @@ struct DisplaceRossbyHaurwitz
     : FieldDisplaceModel<DisplaceRossbyHaurwitz, RossbyHaurwitzParams> {
   static constexpr const char *ID = "sphere.displace.rossby-haurwitz.v1";
   static constexpr const char *NAME = "Rossby-Haurwitz Lens";
-  /** @brief Checks the term topology and parameter domains.
-   * @param params Authored field controls.
-   * @return Whether the term configuration is admitted. */
-  static bool valid_terms(const Params &params) { return params.order < 7; }
   /** @brief Prepares the normalized field at its drift phase.
    * @param params Authored field controls.
    * @param phase Accumulated azimuthal drift, radians.
@@ -178,12 +176,6 @@ struct DisplaceSymmetric
   static constexpr const char *NAME = "Symmetric Lens";
   static void advance(State &state, const Params &params) {
     state.phase = fmodf(state.phase + params.speed, math::TWO_PI_F);
-  }
-  /** @brief Checks the term topology and parameter domains.
-   * @param params Authored field controls.
-   * @return Whether the term configuration is admitted. */
-  static bool valid_terms(const Params &params) {
-    return params.symmetry < 9 && params.kind < 2;
   }
   /** @brief Prepares the rotated invariant field.
    * @param params Authored invariant controls.
