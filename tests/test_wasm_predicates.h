@@ -573,8 +573,10 @@ inline void test_mesh_op_growth_factors() {
   }
 }
 
+/** @brief Checks actual mesh growth near the uint16_t element ceiling. */
 inline void test_mesh_op_growth_near_capacity() {
-  constexpr size_t MAX_ELEMENTS = 65532;
+  constexpr size_t MAX_ELEMENTS = 65532; // Ceiling minus one triangle.
+  constexpr size_t MIN_ELEMENTS = 65000; // Whole-seed rounding floor.
   constexpr size_t SCRATCH_BYTES =
       hs_wasm::TOOLING_SCRATCH_BYTES_PER_MESH_ELEMENT * MAX_ELEMENTS;
   std::vector<uint8_t> input_bytes(SCRATCH_BYTES), target_bytes(SCRATCH_BYTES),
@@ -606,8 +608,7 @@ inline void test_mesh_op_growth_near_capacity() {
         mesh.faces.push_back(
             static_cast<uint16_t>(copy * Seed::NUM_VERTS + index));
     }
-    HS_EXPECT_GT(mesh.get_faces_size() * bounds->bounds.elements,
-                 size_t{65000});
+    HS_EXPECT_GT(mesh.get_faces_size() * bounds->bounds.elements, MIN_ELEMENTS);
     check_mesh_op_growth(probe, mesh, target, temp, finalized);
   }
 }
@@ -633,6 +634,10 @@ inline void test_hankin_angle_domain() {
   HS_EXPECT_TRUE(hs_wasm::hankin_angle_out_of_range(12.0f, MAX));
   HS_EXPECT_TRUE(hs_wasm::hankin_angle_out_of_range(1e300, MAX));
   HS_EXPECT_TRUE(hs_wasm::hankin_angle_out_of_range(-1e300, MAX));
+}
+
+/** @brief Finite doubles clamp to the float range. */
+inline void test_finite_float_clamp() {
   HS_EXPECT_EQ(hs_wasm::clamp_finite_float(1e300),
                std::numeric_limits<float>::max());
   HS_EXPECT_EQ(hs_wasm::clamp_finite_float(-1e300),
@@ -659,6 +664,7 @@ inline int run_wasm_predicates_tests() {
   HS_RUN(test_mesh_op_growth_factors);
   HS_RUN(test_mesh_op_growth_near_capacity);
   HS_RUN(test_hankin_angle_domain);
+  HS_RUN(test_finite_float_clamp);
   return fixture.result();
 }
 
