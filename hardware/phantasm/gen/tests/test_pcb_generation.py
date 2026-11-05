@@ -535,6 +535,17 @@ class CommittedTerminalEdgeTests(TerminalEdgePlacementChecks, unittest.TestCase)
             layout = pcb.REVISION_LAYOUTS[revision]
             marks = [(str(node[1]), node) for node in F(root, "gr_text")]
             reserves = pcb.mounting_reserve_rects(pcb.QUILTER_LENGTH)
+            x, y, _ = layout["edge_placements"]["J1"]
+            for pin, label in enumerate(("+", "-")):
+                hits = [node for text, node in marks if text == label
+                        and str(sexp.val(node, "layer")[0]) == "B.SilkS"]
+                self.assertTrue(hits, f"J1 {label} back legend")
+                node = min(hits, key=lambda node: abs(float(sexp.val(node, "at")[1]) - y - pin * 2.54))
+                px, py, angle = map(float, sexp.val(node, "at"))
+                self.assertAlmostEqual(px, x + 2)
+                self.assertAlmostEqual(py, y + pin * 2.54)
+                self.assertEqual(angle, 0)
+                self.assertEqual(sexp.val(F(node, "effects")[0], "justify"), ["mirror"])
             for ref, labels in (("J2", "DGC"), ("J3A", layout["sync_marks"]),
                                 ("J3B", layout["sync_marks"])):
                 x, y, _ = layout["edge_placements"][ref]

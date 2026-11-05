@@ -1090,6 +1090,10 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                         label_x = x + 2.5
                         layer = "B.SilkS"
                     silk_marks.append((mark, label_x, label_y, 0, layer))
+        if fixed.get("J1") == edge_placements["J1"]:
+            x, y, _ = fixed["J1"]
+            silk_marks.extend((mark, x + 2, y + pin * 2.54, 0, "B.SilkS")
+                              for pin, mark in enumerate(("+", "-")))
         for text, x, y, angle, layer in silk_marks:
             justify = " (justify mirror)" if layer == "B.SilkS" else ""
             lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(x)} {fmt(y)} {angle})'
@@ -1100,7 +1104,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
             if fixed.get(ref) != edge_placements[ref]:
                 continue
             x, y, _ = fixed[ref]
-            label_x = x + 2 if ref == "J1" else x - 2
+            label_x = x + 3.2 if ref == "J1" else x - 2
             label_y = y + (1.27 if ref == "J1" else 2.54)
             lines.append(f'\t(gr_text {sexp.quote(label)} '
                          f'(at {fmt(label_x)} {fmt(label_y)} 90) '
