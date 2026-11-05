@@ -905,11 +905,8 @@ inline float noise_product_field(const math::Vector &v,
                                  const Animation::NoiseProductParams &params) {
   if (std::fabs(params.amplitude) <= 0.001f)
     return 0.0f;
-  float n1 = params.noise.GetNoise(v.x * params.scale1, v.y * params.scale1,
-                                   v.z * params.scale1 + params.time);
-  float n2 = params.noise.GetNoise(
-      v.x * params.scale2 + Animation::NoiseProductParams::OCTAVE2_OFFSET,
-      v.y * params.scale2, v.z * params.scale2 + params.time);
+  float n1 = params.octave1(v, params.time);
+  float n2 = params.octave2(v, params.time);
   return params.amplitude * n1 * n2;
 }
 

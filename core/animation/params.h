@@ -1320,6 +1320,24 @@ struct NoiseProductParams {
   /** @brief Spatial offset decorrelating octave 2 from octave 1 at equal scales. */
   static constexpr float OCTAVE2_OFFSET = 50.0f;
 
+  /** @brief Samples the envelope octave.
+   * @param p Spatial sample point.
+   * @param sample_time Noise time coordinate.
+   * @return Envelope value. */
+  HS_HOT_INLINE float octave1(const math::Vector &p, float sample_time) const {
+    return noise.GetNoise(p.x * scale1, p.y * scale1,
+                          p.z * scale1 + sample_time);
+  }
+
+  /** @brief Samples the detail octave.
+   * @param p Spatial sample point.
+   * @param sample_time Noise time coordinate.
+   * @return Detail value. */
+  HS_HOT_INLINE float octave2(const math::Vector &p, float sample_time) const {
+    return noise.GetNoise(p.x * scale2 + OCTAVE2_OFFSET, p.y * scale2,
+                          p.z * scale2 + sample_time);
+  }
+
   /** @brief Carries prepare_frame()'s refresh_from() hook. */
   static constexpr bool NEEDS_REFRESH_FROM = true;
   /** @brief No derived state, so no prepare_frame() sync() hook. */

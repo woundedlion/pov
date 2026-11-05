@@ -1165,12 +1165,9 @@ private:
           const float time = sweep->noise_time[0] +
                              (sweep->noise_time[1] - sweep->noise_time[0]) * t;
           if (g1)
-            octave1[x] = np.noise.GetNoise(q.x * np.scale1, q.y * np.scale1,
-                                           q.z * np.scale1 + time);
+            octave1[x] = np.octave1(q, time);
           if (g2)
-            octave2[x] = np.noise.GetNoise(
-                q.x * np.scale2 + Animation::NoiseProductParams::OCTAVE2_OFFSET,
-                q.y * np.scale2, q.z * np.scale2 + time);
+            octave2[x] = np.octave2(q, time);
           if (sweep->cache && (g1 || g2)) {
             knot_pos[x].x = g1 ? octave1[x] : 0.0f;
             knot_pos[x].y = g2 ? octave2[x] : 0.0f;
@@ -1186,25 +1183,18 @@ private:
                   sweep->noise_time[0] +
                   (sweep->noise_time[1] - sweep->noise_time[0]) * other;
               if (g1)
-                knot_pos[x].x = np.noise.GetNoise(
-                    aq.x * np.scale1, aq.y * np.scale1, aq.z * np.scale1 + at);
+                knot_pos[x].x = np.octave1(aq, at);
               if (g2)
-                knot_pos[x].y = np.noise.GetNoise(
-                    aq.x * np.scale2 +
-                        Animation::NoiseProductParams::OCTAVE2_OFFSET,
-                    aq.y * np.scale2, aq.z * np.scale2 + at);
+                knot_pos[x].y = np.octave2(aq, at);
             }
           }
           if (vis)
             slut[x] = ball_field_at(p, ball_local, n_local, theta, t);
         } else {
           if (g1)
-            octave1[x] = np.noise.GetNoise(p.x * np.scale1, p.y * np.scale1,
-                                           p.z * np.scale1 + np.time);
+            octave1[x] = np.octave1(p, np.time);
           if (g2)
-            octave2[x] = np.noise.GetNoise(
-                p.x * np.scale2 + Animation::NoiseProductParams::OCTAVE2_OFFSET,
-                p.y * np.scale2, p.z * np.scale2 + np.time);
+            octave2[x] = np.octave2(p, np.time);
           if (vis)
             slut[x] = ball_field(p, ball_local, n_local, theta);
         }
