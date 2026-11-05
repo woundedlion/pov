@@ -415,7 +415,11 @@ class TestHotLayoutLink(unittest.TestCase):
         self.assertIn("-L$HS_HOT_LAYOUT_FINAL_DIR", final)
         self.assertNotIn("PROBE", final)
         depends = {Path(d).name for _, deps in env.dependencies for d in deps}
-        self.assertLessEqual({"hot_layout.py", "teensy_hot_layout.py"}, depends)
+        self.assertLessEqual(
+            {"hot_layout.py", "teensy_hot_layout.py", "phantasm.ld"}, depends)
+        for target, _ in env.dependencies:
+            self.assertEqual(target, "$BUILD_DIR/firmware.elf")
+            self.assertNotIn("PROGNAME", target)
 
     def test_other_linker_scripts_keep_their_link(self):
         env = FakeEnv(PIOENV="holosphere", PROJECT_DIR=str(REPO),

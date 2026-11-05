@@ -104,6 +104,6 @@ if os.path.basename(env.subst("$LDSCRIPT_PATH")) == "phantasm.ld":
         + "','$LINKCOMSTR')}",
         env.Action(_gate, "Checking hot code layout"),
     ])
-    env.Depends("$BUILD_DIR/${PROGNAME}.elf",
+    env.Depends("$BUILD_DIR/firmware.elf",
                 [os.path.join(_ROOT, "tools", name)
-                 for name in ("hot_layout.py", "teensy_hot_layout.py")])
+                 for name in ("hot_layout.py", "teensy_hot_layout.py", "phantasm.ld")])
