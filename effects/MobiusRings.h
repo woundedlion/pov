@@ -59,7 +59,7 @@ public:
   HS_COLD_MEMBER MobiusRings()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         palette(EffectPaletteRecipes::mobius_rings(
-            EffectPaletteRecipes::random_base_turns())),
+            PaletteRecipes::random_base_turns())),
         mobius_gen(timeline),
         filters(NorthHole(math::Y_AXIS, 1.2f), SouthHole(-math::Y_AXIS, 1.2f),
                 Filter::World::Orient(orientation),
@@ -223,7 +223,7 @@ private:
   HS_COLD_MEMBER void wipe_palette() {
     wipe.arm(palette,
              GenerativePalette{EffectPaletteRecipes::mobius_rings(
-                                   EffectPaletteRecipes::random_base_turns())}
+                                   PaletteRecipes::random_base_turns())}
                  .snapshot(),
              WIPE_FRAMES);
     timeline.add(0, Animation::ColorWipe(palette, wipe.start, wipe.target,

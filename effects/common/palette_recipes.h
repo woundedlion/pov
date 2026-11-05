@@ -222,12 +222,6 @@ struct Preset {
   PaletteRecipe recipe; /**< The recipe at its preview hue. */
 };
 
-/** @brief A base hue drawn from the 256-step hue wheel.
- *  @return The base hue in turns. */
-HS_FLASH_MEMBER inline float random_base_turns() {
-  return PaletteRecipes::random_base_turns();
-}
-
 /** @brief The preset roster, every recipe at a fixed preview hue.
  *  @return The roster rows. */
 HS_FLASH_MEMBER inline auto presets() {

@@ -151,8 +151,9 @@ public:
   HS_COLD_MEMBER Comets()
       : Choreography(W, H,
                      pipeline_config<decltype(filters)>({.strobe = true})),
-        palette(EffectPaletteRecipes::comets(
-            EffectPaletteRecipes::random_base_turns())) {}
+        palette(
+            EffectPaletteRecipes::comets(PaletteRecipes::random_base_turns())) {
+  }
 
   /**
    * @brief Allocates state and wires up the animation timeline.
@@ -369,7 +370,7 @@ private:
       return;
     wipe.arm(palette,
              GenerativePalette{EffectPaletteRecipes::comets(
-                                   EffectPaletteRecipes::random_base_turns())}
+                                   PaletteRecipes::random_base_turns())}
                  .snapshot(),
              WIPE_FRAMES);
     timeline.add(0, Animation::ColorWipe(palette, wipe.start, wipe.target,

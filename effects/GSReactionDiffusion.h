@@ -247,7 +247,7 @@ private:
 
   HS_COLD_MEMBER static GenerativePalette make_palette() {
     return GenerativePalette{EffectPaletteRecipes::gs_reaction_diffusion(
-        EffectPaletteRecipes::random_base_turns())};
+        PaletteRecipes::random_base_turns())};
   }
 
   static void add_pigment(float *weights, uint16_t pigment, float mass) {

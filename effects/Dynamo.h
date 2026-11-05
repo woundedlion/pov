@@ -168,8 +168,8 @@ private:
    * @brief The effect's canonical generative-palette recipe.
    */
   static GenerativePalette make_palette() {
-    return GenerativePalette{EffectPaletteRecipes::dynamo(
-        EffectPaletteRecipes::random_base_turns())};
+    return GenerativePalette{
+        EffectPaletteRecipes::dynamo(PaletteRecipes::random_base_turns())};
   }
 
   /**

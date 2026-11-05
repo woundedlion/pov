@@ -181,7 +181,7 @@ private:
    */
   static GenerativePalette make_palette() {
     return GenerativePalette{EffectPaletteRecipes::displacement_field(
-        EffectPaletteRecipes::random_base_turns())};
+        PaletteRecipes::random_base_turns())};
   }
 
   /**
