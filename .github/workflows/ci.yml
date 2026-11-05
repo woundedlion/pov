@@ -99,7 +99,7 @@ jobs:
           HS_SKIPS_ARE_ERRORS: 1
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
         run: |
-          cmake --preset tests -B build/tests-p1 -DHS_INSTALL_GIT_HOOKS=OFF -DHS_NATIVE_DISPLAY_PROFILE=1
+          cmake --preset tests -B build/tests-p1 -DHS_INSTALL_GIT_HOOKS=OFF -DHS_NATIVE_DISPLAY_PROFILE=1 -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
           cmake --build build/tests-p1 --target test_engine
           build/tests-p1/tests/test_engine plot_scan
 
