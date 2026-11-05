@@ -89,6 +89,7 @@ inline int run_sdf_tests() {
   HS_RUN(test_distorted_ring_frame_distance_matches_distance);
 
   HS_RUN(test_polygon_at_center_inside);
+  HS_RUN(test_polygon_edge_and_vertex_on_boundary);
   HS_RUN(test_polygon_far_point_outside);
 
   HS_RUN(test_spherical_polygon_center_inside);

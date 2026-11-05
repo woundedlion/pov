@@ -606,6 +606,34 @@ inline void test_polygon_at_center_inside() {
   HS_EXPECT_NEAR(r.dist, -apothem, 1e-3f);
 }
 
+/** @brief Polygon edges and vertices retain their boundary under phase rotation. */
+inline void test_polygon_edge_and_vertex_on_boundary() {
+  const math::Basis basis = equator_basis();
+  constexpr float CIRCUMRADIUS = 0.6f;
+  constexpr float TOLERANCE =
+      math::FAST_ACOS_MAX_ERROR + CIRCUMRADIUS * math::FAST_ATAN2_MAX_ERROR;
+  for (int sides : {3, 6, 9})
+    for (float phase : {0.0f, 0.21f}) {
+      const SDF::PlanarPolygon polygon(
+          basis, CIRCUMRADIUS / (math::PI_F * 0.5f), sides, phase);
+      const float apothem = CIRCUMRADIUS * cosf(math::PI_F / sides);
+      const auto distance = [&](float polar, float local) {
+        const float azimuth = local - phase;
+        const math::Vector point =
+            basis.v * cosf(polar) +
+            (basis.u * cosf(azimuth) + basis.w * sinf(azimuth)) * sinf(polar);
+        return SDF::distance_of(polygon, point).dist;
+      };
+      for (int sector = 0; sector < sides; ++sector) {
+        const float angle = sector * math::TWO_PI_F / sides;
+        HS_EXPECT_NEAR(distance(apothem, angle), 0.0f, TOLERANCE);
+        HS_EXPECT_NEAR(distance(CIRCUMRADIUS, angle + math::PI_F / sides), 0.0f,
+                       TOLERANCE);
+        HS_EXPECT_GT(distance(1.05f * apothem, angle), 0.0f);
+      }
+    }
+}
+
 /** @brief Verifies the antipode of the polygon center is outside (positive dist). */
 inline void test_polygon_far_point_outside() {
   math::Basis b = equator_basis();
