@@ -459,7 +459,7 @@ HS_HOT_INLINE inline void rasterize_face_body(
           if (stride > 1 && x == next_block) {
             next_block += stride;
             if (block_fits && pole_lod_settle_with_slack<true>(
-                                  d, PIXEL_WIDTH, block_slack, shape, &p) !=
+                                  d, PIXEL_WIDTH, block_slack, shape) !=
                                   BlockSettle::PER_COLUMN)
               span = stride;
           }

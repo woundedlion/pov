@@ -160,6 +160,7 @@ inline int run_scan_tests() {
   HS_RUN(test_pole_lod_shading_matches_undecimated);
   HS_RUN(test_pole_lod_concave_face_matches_undecimated);
   HS_RUN(test_report_stretch_forwards_through_csg);
+  HS_RUN(test_face_cull_sentinel_respects_static_margin);
   HS_RUN(test_prepared_face_reports_match_unprepared);
   HS_RUN(test_convex_face_pole_fringe_matches_undecimated);
   HS_RUN(test_csg_stroke_aa_uses_winning_child_thickness);

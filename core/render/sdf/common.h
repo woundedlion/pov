@@ -339,7 +339,7 @@ inline constexpr bool blends_smoothly<Subtract<A, B>> =
  * jump that says nothing about a neighbouring probe, so a walk that vouches for
  * a run of columns from one probe may do so only while the clearance it tests
  * stays under this margin. Leaf specializations or a REJECT_MARGIN member
- * supply the bound; Face further checks its runtime supports_distance_report().
+ * supply the bound.
  * FLT_MAX means no substitution. A combinator takes the
  * tightest of its children. */
 template <typename T>
@@ -367,7 +367,7 @@ template <> inline constexpr float reject_margin<Ring> = 0.0f;
 template <> inline constexpr float reject_margin<DistortedRing> = 0.0f;
 /// FlatDistortedRing may substitute FAR_SENTINEL anywhere off its stroke.
 template <> inline constexpr float reject_margin<FlatDistortedRing> = 0.0f;
-/// Upper bound for Face's per-instance cull-disk report band.
+/// Face cull-disk report band.
 template <>
 inline constexpr float reject_margin<Face> =
     BOUNDS_MARGIN_WIDE -

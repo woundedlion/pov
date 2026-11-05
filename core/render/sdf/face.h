@@ -595,15 +595,6 @@ public:
                 float reject_dsq = FLT_MAX) const {
     prepared().template distance<ComputeUVs>(p, res, reject_dsq);
   }
-
-  /** @brief Certifies a distance report's clearance.
-   * @param threshold Required clearance.
-   * @param point Optional unit query direction.
-   * @return Whether the report bounds the required clearance. */
-  bool supports_distance_report(float threshold,
-                                const math::Vector *point = nullptr) const {
-    return prepared().supports_distance_report(threshold, point);
-  }
 };
 
 static_assert(sizeof(Face) == 2 * sizeof(void *));

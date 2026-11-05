@@ -259,40 +259,6 @@ report_stretch(const SDF::AngularRepeat<Shape> &shape) {
 }
 
 /**
- * @brief Whether the current geometry supports a distance-report threshold.
- * @tparam ShapeT Shape type.
- * @param shape Shape whose report is tested.
- * @param threshold Nonnegative threshold within the static reject margin.
- * @param point Optional query direction, forwarded through binary CSG.
- * @return True when sentinel substitution preserves the threshold.
- */
-template <typename ShapeT>
-__attribute__((always_inline)) inline bool
-supports_distance_report(const ShapeT &shape, float threshold,
-                         const math::Vector *point = nullptr) {
-  if constexpr (requires { shape.supports_distance_report(threshold, point); })
-    return shape.supports_distance_report(threshold, point);
-  else if constexpr (requires {
-                       shape.a;
-                       shape.b;
-                       requires SDF::SDFShape<
-                           std::remove_cvref_t<decltype(shape.a)>>;
-                       requires SDF::SDFShape<
-                           std::remove_cvref_t<decltype(shape.b)>>;
-                     })
-    return supports_distance_report(shape.a, threshold, point) &&
-           supports_distance_report(shape.b, threshold, point);
-  else if constexpr (requires {
-                       shape.shape;
-                       requires SDF::SDFShape<
-                           std::remove_cvref_t<decltype(shape.shape)>>;
-                     })
-    return supports_distance_report(shape.shape, threshold);
-  else
-    return true;
-}
-
-/**
  * @brief Whether a walk over a shape may settle a whole pole-LOD block from one
  *        probe of it.
  * @tparam ShapeT Shape the probe reads distance() from.
@@ -316,8 +282,7 @@ inline constexpr bool pole_lod_blocks =
  *         every column in the block.
  * @details Past its reject band (SDF::reject_margin) a shape may report
  * FAR_SENTINEL, which bounds nothing; the block test holds only where the
- * widened threshold sits inside the static margin. Generic settling further
- * narrows it with supports_distance_report(shape, threshold).
+ * widened threshold sits inside the static margin.
  */
 template <typename ShapeT>
 __attribute__((always_inline)) inline bool
@@ -373,26 +338,14 @@ enum class BlockSettle : uint8_t {
  * @param threshold Clearance the walk tests the probe against.
  * @param block_slack Prepared clearance for the offered block.
  * @param shape Shape the probe read.
- * @param point Optional query direction for per-leaf cull checks.
  * @param probe Optional prepared distance and row certificate.
  * @return The side the probe settles the block on, or PER_COLUMN.
  */
 template <bool Solid, typename ShapeT, typename Probe = SDF::DirectDistance>
-__attribute__((always_inline)) inline BlockSettle pole_lod_settle_with_slack(
-    float d, float threshold, float block_slack, const ShapeT &shape,
-    const math::Vector *point = nullptr, const Probe &probe = {}) {
-  const auto report_bounded = [&] {
-    if constexpr (std::is_same_v<std::remove_cvref_t<ShapeT>,
-                                 SDF::PreparedFace> ||
-                  std::is_same_v<std::remove_cvref_t<ShapeT>, SDF::Face>) {
-      if (d != SDF::FAR_SENTINEL)
-        return true;
-    }
-    if constexpr (requires { probe.supports(shape, point); })
-      return probe.supports(shape, point);
-    else
-      return supports_distance_report(shape, threshold + block_slack, point);
-  };
+__attribute__((always_inline)) inline BlockSettle
+pole_lod_settle_with_slack(float d, float threshold, float block_slack,
+                           [[maybe_unused]] const ShapeT &shape,
+                           const Probe &probe = {}) {
   const auto settles = [&](float clearance) {
     if constexpr (requires {
                     probe.block_allowed;
@@ -403,11 +356,9 @@ __attribute__((always_inline)) inline BlockSettle pole_lod_settle_with_slack(
       return pole_lod_block_settles<ShapeT>(clearance, threshold, block_slack);
   };
   if (settles(d))
-    return report_bounded() ? BlockSettle::CLEAR : BlockSettle::PER_COLUMN;
-  // A sentineled subtrahend loses Subtract's max, so an inside report is
-  // bounded no further than a clear one.
+    return BlockSettle::CLEAR;
   if (Solid && settles(-d))
-    return report_bounded() ? BlockSettle::INTERIOR : BlockSettle::PER_COLUMN;
+    return BlockSettle::INTERIOR;
   return BlockSettle::PER_COLUMN;
 }
 
@@ -421,16 +372,14 @@ __attribute__((always_inline)) inline BlockSettle pole_lod_settle_with_slack(
  * @param run Block width in columns.
  * @param p_y Probe's y coordinate.
  * @param shape Shape the probe read.
- * @param point Optional query direction for per-leaf cull checks.
  * @return The side the probe settles the block on, or PER_COLUMN.
  */
 template <int W, bool Solid, typename ShapeT>
 __attribute__((always_inline)) inline BlockSettle
 pole_lod_settle_block(float d, float threshold, int run, float p_y,
-                      const ShapeT &shape,
-                      const math::Vector *point = nullptr) {
+                      const ShapeT &shape) {
   return pole_lod_settle_with_slack<Solid>(
-      d, threshold, pole_lod_block_slack<W>(run, p_y, shape), shape, point);
+      d, threshold, pole_lod_block_slack<W>(run, p_y, shape), shape);
 }
 
 /**
@@ -542,14 +491,12 @@ __attribute__((always_inline)) inline float solid_coverage(float d,
 
 /**
  * @brief Distance state captured for one generic raster call.
- * @details Row preparation records the widened clearance and whether a block
- * can be certified without consulting its query direction. Geometry and LUT
+ * @details Row preparation records the widened clearance and block eligibility. Geometry and LUT
  * bindings remain fixed for the evaluator's lifetime.
  */
 template <typename Shape> struct PreparedDistance : SDF::DirectDistance {
   static constexpr bool HAS_FACE = false; ///< Contains an untransformed Face.
   float threshold = 0.0f;     ///< Shading threshold plus block clearance.
-  bool row_supported = true;  ///< All row queries have bounded reports.
   bool block_allowed = false; ///< Row supports block settlement.
   /** @brief Captures distance state from the shape. */
   explicit PreparedDistance(const Shape &) {}
@@ -558,19 +505,10 @@ template <typename Shape> struct PreparedDistance : SDF::DirectDistance {
    * @param shape Shape captured by this evaluator.
    * @param widened_threshold Shading threshold plus block clearance.
    */
-  void prepare_row(const Shape &shape, float widened_threshold, float, float) {
+  void prepare_row([[maybe_unused]] const Shape &shape, float widened_threshold,
+                   float, float) {
     threshold = widened_threshold;
-    row_supported = supports_distance_report(shape, threshold);
     block_allowed = threshold <= SDF::reject_margin<Shape>;
-  }
-  /**
-   * @brief Whether the query report supports the prepared clearance.
-   * @param shape Shape captured by this evaluator.
-   * @param point Optional unit query direction.
-   * @return Whether the report certifies the offered block.
-   */
-  bool supports(const Shape &shape, const math::Vector *point) const {
-    return supports_distance_report(shape, threshold, point);
   }
 };
 
@@ -580,7 +518,6 @@ template <> struct PreparedDistance<SDF::PreparedFace> {
   float min_cos;              ///< Cosine of the radial cull boundary.
   uint32_t flags;             ///< Face distance dispatch flags.
   float horizontal_radius;    ///< Center projection onto the equatorial plane.
-  bool row_supported = true;  ///< All row queries have bounded reports.
   bool block_allowed = false; ///< Row supports block settlement.
   float threshold = 0.0f;     ///< Shading threshold plus block clearance.
 
@@ -627,22 +564,6 @@ template <> struct PreparedDistance<SDF::PreparedFace> {
     // A uniform row has no sentinel boundary, including beyond the static band.
     block_allowed =
         uniform || threshold <= SDF::reject_margin<SDF::PreparedFace>;
-    row_supported = uniform || shape.supports_distance_report(threshold);
-  }
-  /**
-   * @brief Whether the query report supports the prepared clearance.
-   * @param shape Shape captured by this evaluator.
-   * @param point Optional unit query direction.
-   * @return Whether the report certifies the offered block.
-   */
-  bool supports(const SDF::PreparedFace &shape,
-                const math::Vector *point) const {
-    if (row_supported)
-      return true;
-    if (!point)
-      return false;
-    const float cos_angle = math::dot(*point, shape.center);
-    return cos_angle >= min_cos || cos_angle + threshold < min_cos;
   }
 };
 
@@ -675,14 +596,6 @@ struct PreparedDistance<SDF::Face> : PreparedDistance<SDF::PreparedFace> {
     PreparedDistance<SDF::PreparedFace>::prepare_row(*geometry, threshold, sp,
                                                      cp);
   }
-  /** @brief Tests the prepared report's clearance.
-   * @param face Captured face handle.
-   * @param point Optional unit query direction.
-   * @return Whether the report certifies the clearance. */
-  bool supports([[maybe_unused]] const SDF::Face &face,
-                const math::Vector *point) const {
-    return PreparedDistance<SDF::PreparedFace>::supports(*geometry, point);
-  }
 };
 
 /** @brief Prepared child probes for hard CSG combinations. */
@@ -698,7 +611,6 @@ struct PreparedDistance<Csg<A, B>> {
   PreparedDistance<std::remove_cvref_t<A>> a; ///< First child evaluator.
   PreparedDistance<std::remove_cvref_t<B>> b; ///< Second child evaluator.
   float threshold = 0.0f;     ///< Shading threshold plus block clearance.
-  bool row_supported = true;  ///< All row queries have bounded reports.
   bool block_allowed = false; ///< Row supports block settlement.
 
   /**
@@ -742,18 +654,7 @@ struct PreparedDistance<Csg<A, B>> {
     threshold = widened_threshold;
     a.prepare_row(shape.a, threshold, sin_phi, cos_phi);
     b.prepare_row(shape.b, threshold, sin_phi, cos_phi);
-    row_supported = a.row_supported && b.row_supported;
     block_allowed = a.block_allowed && b.block_allowed;
-  }
-  /**
-   * @brief Whether the query report supports the prepared clearance.
-   * @param shape Shape captured by this evaluator.
-   * @param point Optional unit query direction.
-   * @return Whether the report certifies the offered block.
-   */
-  bool supports(const Csg<A, B> &shape, const math::Vector *point) const {
-    return row_supported ||
-           (a.supports(shape.a, point) && b.supports(shape.b, point));
   }
 };
 
@@ -864,7 +765,7 @@ inline int process_pixel(int x, int y, const math::Vector &p,
                      report_stretch(shape);
       }();
       const BlockSettle settle = pole_lod_settle_with_slack<SOLID>(
-          d, threshold, block_slack, shape, &p, probe);
+          d, threshold, block_slack, shape, probe);
       if (settle == BlockSettle::CLEAR)
         return max_run;
       if (settle == BlockSettle::INTERIOR)
@@ -1893,10 +1794,10 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
               if constexpr (std::is_same_v<decltype(probe),
                                            SDF::DirectDistance>)
                 return pole_lod_settle_block<W, true>(d, PIXEL_WIDTH, max_run,
-                                                      p.y, shape, &p);
+                                                      p.y, shape);
               else
                 return pole_lod_settle_with_slack<true>(d, PIXEL_WIDTH, 0.0f,
-                                                        shape, &p, probe);
+                                                        shape, probe);
             }();
             if (settle == BlockSettle::CLEAR)
               return max_run;

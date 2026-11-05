@@ -677,7 +677,7 @@ inline void test_prepared_face_reports_match_unprepared() {
                                      nullptr, SDF::BOUNDS_MARGIN);
         Scan::PreparedDistance<SDF::PreparedFace> prepared(face);
         for (int y = 0; y < H; ++y) {
-          prepared.prepare_row(face, .08f, math::TrigLUT<W, H>::sin_phi[y],
+          prepared.prepare_row(face, .11f, math::TrigLUT<W, H>::sin_phi[y],
                                math::TrigLUT<W, H>::cos_phi[y]);
           bool all_finite = true, all_culled = true;
           for (int x = 0; x < W; ++x) {
@@ -698,7 +698,7 @@ inline void test_prepared_face_reports_match_unprepared() {
             all_finite &= ordinary.dist != SDF::FAR_SENTINEL;
             all_culled &= ordinary.dist == SDF::FAR_SENTINEL;
           }
-          if (prepared.row_supported && !face.supports_distance_report(.08f)) {
+          if (prepared.block_allowed) {
             HS_EXPECT_TRUE(all_finite || all_culled);
             ++certified_rows;
           }
@@ -802,4 +802,48 @@ inline void test_convex_face_pole_fringe_matches_undecimated() {
   check(intersection);
   check(carved);
   check(nested);
+}
+
+/** @brief Culled face probes lie outside the static report margin. */
+inline void test_face_cull_sentinel_respects_static_margin() {
+  constexpr int H = 144;
+  const auto BASIS = math::make_basis(
+      math::Quaternion(), math::Vector(.3f, .8f, -.4f).normalized());
+  for (const float RADIUS : {.03f, .3f, 1.2f}) {
+    for (const float SQUISH : {.05f, 1.0f}) {
+      math::Vector vertices[3];
+      const uint16_t INDICES[3] = {0, 1, 2};
+      for (int i = 0; i < 3; ++i) {
+        const float ANGLE = math::TWO_PI_F * i / 3;
+        vertices[i] = (BASIS.v + RADIUS * (BASIS.u * cosf(ANGLE) +
+                                           BASIS.w * (SQUISH * sinf(ANGLE))))
+                          .normalized();
+      }
+      SDF::FaceScratchBuffer scratch;
+      const SDF::PreparedFace FACE(vertices, INDICES, scratch,
+                                   math::LatitudeGeometry(H), H, nullptr,
+                                   nullptr, SDF::BOUNDS_MARGIN);
+      std::array<OraclePoint2D, 3> polygon;
+      for (int i = 0; i < 3; ++i)
+        polygon[i] = {FACE.poly_2d[i].x, FACE.poly_2d[i].y};
+      SDF::DistanceResult report;
+      FACE.distance<false>(FACE.center, report);
+      HS_EXPECT_LT(report.dist, 0.0f);
+      const float PLANE_RADIUS = FACE.max_dist + 1e-4f;
+      for (int i = 0; i < 32; ++i) {
+        const float ANGLE = math::TWO_PI_F * i / 32;
+        const OraclePoint2D QUERY{PLANE_RADIUS * cosf(ANGLE),
+                                  PLANE_RADIUS * sinf(ANGLE)};
+        const auto DIRECTION = (FACE.center + FACE.basis_u * float(QUERY.x) +
+                                FACE.basis_w * float(QUERY.y))
+                                   .normalized();
+        FACE.distance<false>(DIRECTION, report);
+        HS_EXPECT_EQ(report.dist, SDF::FAR_SENTINEL);
+        const double EXACT = polygon_distance_oracle(polygon, QUERY);
+        HS_EXPECT_GE(EXACT, double(SDF::BOUNDS_MARGIN_WIDE));
+        HS_EXPECT_GE(std::atan(EXACT),
+                     double(SDF::reject_margin<SDF::PreparedFace>));
+      }
+    }
+  }
 }

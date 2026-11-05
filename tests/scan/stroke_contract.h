@@ -156,14 +156,15 @@ inline void test_report_stretch_forwards_through_csg() {
                                 large_scratch, HV, H, nullptr, nullptr,
                                 SDF::BOUNDS_MARGIN);
 
-  HS_EXPECT_TRUE(Scan::supports_distance_report(small, .049f));
-  HS_EXPECT_FALSE(Scan::supports_distance_report(small, .051f));
   HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(SDF::FAR_SENTINEL, .06f,
                                                       2, 1.0f, small)),
-               Scan::BlockSettle::PER_COLUMN);
+               Scan::BlockSettle::CLEAR);
   HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(SDF::FAR_SENTINEL, .02f,
                                                       2, 1.0f, small)),
                Scan::BlockSettle::CLEAR);
+  HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(SDF::FAR_SENTINEL, .11f,
+                                                      2, 1.0f, small)),
+               Scan::BlockSettle::PER_COLUMN);
   HS_EXPECT_EQ(
       (Scan::pole_lod_settle_block<96, true>(.07f, .06f, 2, 1.0f, small)),
       Scan::BlockSettle::CLEAR);
@@ -171,35 +172,15 @@ inline void test_report_stretch_forwards_through_csg() {
       (Scan::pole_lod_settle_block<96, true>(-.07f, .06f, 2, 1.0f, small)),
       Scan::BlockSettle::INTERIOR);
   const SDF::Union<SDF::PreparedFace, SDF::PreparedFace> combined{small, large};
-  HS_EXPECT_TRUE(Scan::supports_distance_report(combined, .049f));
-  HS_EXPECT_FALSE(Scan::supports_distance_report(combined, .051f));
   HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(SDF::FAR_SENTINEL, .06f,
                                                       2, 1.0f, combined)),
-               Scan::BlockSettle::PER_COLUMN);
-
+               Scan::BlockSettle::CLEAR);
   HS_EXPECT_EQ(
       (Scan::pole_lod_settle_block<96, true>(.07f, .06f, 2, 1.0f, combined)),
-      Scan::BlockSettle::PER_COLUMN);
+      Scan::BlockSettle::CLEAR);
   HS_EXPECT_EQ(
       (Scan::pole_lod_settle_block<96, true>(-.07f, .06f, 2, 1.0f, combined)),
-      Scan::BlockSettle::PER_COLUMN);
-
-  const SDF::Line line(math::X_AXIS, math::Y_AXIS, .01f);
-  HS_EXPECT_TRUE(Scan::supports_distance_report(line, .1f));
-
-  HS_EXPECT_TRUE(Scan::supports_distance_report(combined, .06f, &small.center));
-  const auto antipode = -small.center;
-  HS_EXPECT_TRUE(Scan::supports_distance_report(combined, .06f, &antipode));
-  const auto just_culled =
-      (small.center + small.basis_u * (small.max_dist + .0001f)).normalized();
-  HS_EXPECT_FALSE(Scan::supports_distance_report(small, .06f, &just_culled));
-  const SDF::AngularRepeat<SDF::PreparedFace> repeat(small, 3, basis.v);
-  HS_EXPECT_FALSE(Scan::supports_distance_report(repeat, .06f, &small.center));
-  Scan::PreparedDistance<SDF::AngularRepeat<SDF::PreparedFace>> prepared_repeat(
-      repeat);
-  prepared_repeat.prepare_row(repeat, .06f, 0.0f, 1.0f);
-  HS_EXPECT_FALSE(prepared_repeat.row_supported);
-  HS_EXPECT_FALSE(prepared_repeat.supports(repeat, &small.center));
+      Scan::BlockSettle::INTERIOR);
 
   const float small_stretch = Scan::report_stretch(small);
   const float large_stretch = Scan::report_stretch(large);
