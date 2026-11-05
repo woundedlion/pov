@@ -1792,9 +1792,11 @@ private:
     /** @brief Fragment alpha of slot @p s. */
     HS_HOT_INLINE float frag_alpha(int s) const { return alphas[s]; }
 
-  public:
+  private:
     SweepCache *cache = nullptr; ///< Current frame's alternate shifts.
     int ring_by_slot[SLOTS]{};   ///< Authored ring index of each slot.
+
+  public:
     /** @brief Replaces one slot's fragment alpha. */
     void set_alpha(int slot, float alpha) { alphas[slot] = alpha; }
     /** @return Writable shift row of a committed slot. */
