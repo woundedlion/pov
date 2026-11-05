@@ -269,8 +269,6 @@ inline void test_shader_chain_bands_latitudes() {
                  In::Op::GeneratedPaletteParams>(program, chain, 0,
                                                  ValueSet::DEFAULTS))
     return;
-  auto &projection = param_as<In::Op::MeridianProjectChainParams>(program, 0);
-  projection.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
   auto &bands = param_as<In::Op::BandsSampleParams>(program, 1);
   bands.pattern_freq = 4.0f;
   bands.weight_mode = static_cast<uint8_t>(In::Op::WeightMode::NONE);

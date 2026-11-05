@@ -1417,6 +1417,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_affine_named_source);
   HS_RUN(test_composed_affine_form_sliders);
   HS_RUN(test_composed_repeated_instances);
+  HS_RUN(test_composed_projection_frame_identity);
   HS_RUN(test_composed_projection_walk_storage);
   HS_RUN(test_composed_periodic_ripple_surface);
   HS_RUN(test_composed_noise_source);

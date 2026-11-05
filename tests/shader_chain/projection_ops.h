@@ -217,8 +217,15 @@ template <typename Model> inline void expect_project_frame_policy() {
   program.prepare(ctx);
   const auto &prepared = *reinterpret_cast<const typename Model::Prepared *>(
       program.prepared_block(1));
-  const math::Quaternion base = ctx.projection_base.conjugate();
+  const math::Quaternion base;
+  HS_EXPECT_TRUE(ctx.projection_base == base);
   HS_EXPECT_TRUE(prepared.conjugate == base);
+  for (const auto &axis : {math::X_AXIS, math::Y_AXIS, math::Z_AXIS}) {
+    const auto actual = math::rotate(axis, prepared.conjugate);
+    HS_EXPECT_NEAR(actual.x, axis.x, 1e-6f);
+    HS_EXPECT_NEAR(actual.y, axis.y, 1e-6f);
+    HS_EXPECT_NEAR(actual.z, axis.z, 1e-6f);
+  }
   params.spin_rate = 0.03f;
   params.wander = 1.0f;
   for (int frame = 0; frame < 4; ++frame)

@@ -847,7 +847,7 @@ inline void test_shader_chain_param_address_channel() {
   // The write is visible to the render: identical view, different coverage.
   const In::FrameContext ctx = shared_resources().context();
   program.prepare(ctx);
-  const math::Vector view = math::Vector(0, 0, -1);
+  const math::Vector view = math::Y_AXIS;
   const Color4 faded = program.evaluate(view, ctx);
   *coverage_mode = static_cast<uint8_t>(In::Op::ProjectionCoverageMode::NONE);
   program.prepare(ctx);

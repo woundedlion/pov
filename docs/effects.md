@@ -766,6 +766,12 @@ Ripple Duration sets each wave's expansion time. Random Center selects a new
 shared center for each burst and hides Center Azimuth and Center Polar; turning
 it off uses those manual coordinates.
 
+Projection **Frame** selects Identity or Spin/Wander. Both start aligned with
+the sphere axes, with +Y at the north pole. Identity stays fixed; Spin/Wander
+advances from that alignment at Projection Spin Speed and Projection Wander.
+With both rates zero from startup, Spin/Wander matches Identity. Setting both
+rates back to zero holds the accumulated orientation.
+
 Planar-warp **Speed** advances its wrapped phase in cycles per frame.
 
 **Tessellation** (`sample.tessellation.v3`) is a static cell field. **Kind**
@@ -819,8 +825,8 @@ the source. It reports no lattice.
 **Bands** (`sample.bands.v1`) draws parallel sine bands in the projection plane:
 `sin(Pattern Freq * (y * cos(Angle) - x * sin(Angle)))`. Angle is in radians,
 measured counterclockwise from horizontal. At zero Angle the bands vary only
-along plane Y, so Equirectangular with an identity projection frame and no plane
-warps produces latitude rings. Other projections bend the same straight bands
+along plane Y, so Equirectangular with the default frame, zero motion rates
+and no plane warps produces latitude rings. Other projections bend the same straight bands
 according to their charts. Use an Affine Warp to translate or rotate them over
 time; the source itself has no clock.
 

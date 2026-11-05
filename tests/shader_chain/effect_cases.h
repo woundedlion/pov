@@ -508,14 +508,14 @@ inline void test_shader_chain_instantaneous_pixel_golden() {
   hs::clear_mock_time();
   expect_pixel_golden(
       "ShaderChain 96x20", golden,
-      RecordedGolden{{0x8218c82b269c111dull,
-                      {{620985525ull, 951321767ull, 429444811ull},
-                       19016706305ull,
-                       79956650308ull}},
-                     {0x6a3bf6437900ea91ull,
-                      {{620986389ull, 951322415ull, 429446116ull},
-                       19016766545ull,
-                       79956889819ull}}});
+      RecordedGolden{{0xae8a9e380cd30644ull,
+                      {{803364825ull, 1325847065ull, 695806200ull},
+                       32202584149ull,
+                       133549047437ull}},
+                     {0x3a3c526d27e98ee8ull,
+                      {{803364904ull, 1325847147ull, 695806441ull},
+                       32202588902ull,
+                       133549067178ull}}});
 }
 
 /** @brief View direction the scan shades for a 96x20 pixel.

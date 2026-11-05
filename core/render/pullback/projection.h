@@ -17,9 +17,9 @@
 namespace Pullback {
 
 /** @brief Canonical base orientation of a projection.
-    @return Rotation taking -Z onto -Y. */
+    @return Identity rotation; spin and wander start in the sphere frame. */
 inline math::Quaternion projection_base_orientation() {
-  return math::make_rotation(math::Vector(0, 0, -1), math::Vector(0, -1, 0));
+  return math::Quaternion();
 }
 
 namespace Projection {

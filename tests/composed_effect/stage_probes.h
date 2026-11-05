@@ -561,6 +561,50 @@ ProjectionWalkFootprint measure_projection_walk_footprint() {
   return {persistent_arena.get_offset(), Timeline::event_count()};
 }
 
+/** @brief Animated projection frames start at identity and respond to both rates. */
+inline void test_composed_projection_frame_identity() {
+  using FX = RippleProbe<SMALL_W, SMALL_H, true>;
+  const auto expect_rotation = [](const math::Quaternion &rotation,
+                                  const math::Vector &axis,
+                                  const math::Vector &expected) {
+    const auto actual = math::rotate(axis, rotation);
+    HS_EXPECT_NEAR(actual.x, expected.x, 1e-6f);
+    HS_EXPECT_NEAR(actual.y, expected.y, 1e-6f);
+    HS_EXPECT_NEAR(actual.z, expected.z, 1e-6f);
+  };
+  reset_effect_globals();
+  pin_frame_clock(0);
+  FX effect;
+  effect.init();
+  auto params = FX::initial_params();
+  ComposedFrameWhiteBox::set_params(effect, params);
+  for (int frame = 0; frame < 4; ++frame) {
+    ComposedFrameWhiteBox::advance(effect);
+    const auto current = effect.frame_for_test();
+    for (const auto &axis : {math::X_AXIS, math::Y_AXIS, math::Z_AXIS})
+      expect_rotation(current.projection_conjugate, axis, axis);
+  }
+  params.template get<"projection">().spin_rate = 0.03f;
+  ComposedFrameWhiteBox::set_params(effect, params);
+  ComposedFrameWhiteBox::advance(effect);
+  const auto spinning = effect.frame_for_test();
+  expect_rotation(spinning.projection_conjugate, math::X_AXIS,
+                  math::Vector(std::cos(0.03f), 0.0f, std::sin(0.03f)));
+  expect_rotation(spinning.projection_conjugate, math::Y_AXIS, math::Y_AXIS);
+  params.template get<"projection">().spin_rate = 0.0f;
+  params.template get<"projection">().wander = 1.0f;
+  ComposedFrameWhiteBox::set_params(effect, params);
+  for (int frame = 1; frame <= 8; ++frame) {
+    pin_frame_clock(frame);
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  const auto wandering = effect.frame_for_test();
+  const auto north = math::rotate(math::Y_AXIS, wandering.projection_conjugate);
+  HS_EXPECT_GT((north - math::Y_AXIS).magnitude(), 1e-5f);
+  hs::clear_mock_time();
+}
+
 /** @brief Projection walk state remains in its declared persistent storage. */
 inline void test_composed_projection_walk_storage() {
   using Static = RippleProbe<SMALL_W, SMALL_H, false>;
