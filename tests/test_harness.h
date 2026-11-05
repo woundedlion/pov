@@ -25,10 +25,14 @@ namespace hs_test {
  * @param name NUL-terminated variable name.
  * @return Borrowed value, or null when unset. */
 inline const char *env_var(const char *name) {
+#if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
   return std::getenv(name);
+#if defined(__clang__)
 #pragma clang diagnostic pop
+#endif
 }
 
 /** @brief Reports whether a skipped case must fail the run. */
