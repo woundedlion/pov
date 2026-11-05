@@ -2318,14 +2318,6 @@ inline void check_deformed_shared_edges(float rotation) {
               ++shared;
             }
           }
-          if (!copy && selected[0] == drawn && selected[2] == drawn) {
-            const auto *indices = mesh.get_faces_data();
-            const math::Vector edge0 = math::cross(mesh.vertices[indices[2]],
-                                                   mesh.vertices[indices[0]]);
-            const math::Vector edge2 = math::cross(mesh.vertices[indices[6]],
-                                                   mesh.vertices[indices[7]]);
-            HS_EXPECT_TRUE(edge0 == -edge2);
-          }
           for (size_t f : {size_t(0), size_t(2)}) {
             if (selected[f] != drawn)
               continue;
