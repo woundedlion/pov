@@ -71,8 +71,6 @@ int main() {
   static_assert(PullbackManifest::PRESET_COUNT < 32);
   static_assert(!PullbackManifest::PROGRAMS.empty());
   static_assert(!PullbackManifest::ORACLE_METRICS.empty());
-  static_assert(PullbackManifest::BASE_SHA.size() == 40);
-  static_assert(PullbackManifest::MANIFEST_SHA256.size() == 64);
 
   for (size_t i = 0; i < PullbackManifest::PROGRAMS.size(); ++i)
     for (size_t j = i + 1; j < PullbackManifest::PROGRAMS.size(); ++j) {

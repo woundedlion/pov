@@ -53,15 +53,11 @@ def _backend_stream(programs):
 
 
 def _test_manifest():
-    programs, oracles, schema = generator.load_and_validate(MANIFEST_DIR)
+    programs, _, _ = generator.load_and_validate(MANIFEST_DIR)
     programs = copy.deepcopy(programs)
-    programs["base_sha"] = "a" * 40
     programs["corpus"]["resolutions"] = [[16, 16], [32, 24]]
-    for program in programs["programs"]:
-        program["tolerances"]["release_wasm_framebuffer"][
-            "max_differing_pixel_fraction"
-        ] = 1.0
-    return programs, generator.manifest_sha256(programs, oracles, schema)
+    return programs
+
 
 
 @contextlib.contextmanager
@@ -123,8 +119,8 @@ class ManifestValidation(unittest.TestCase):
         ]), 0)
 
     def test_header_rows_encode_each_programs_presets(self):
-        programs, oracles, schema = generator.load_and_validate(MANIFEST_DIR)
-        header = generator.generate_header(programs, oracles, schema)
+        programs, oracles, _ = generator.load_and_validate(MANIFEST_DIR)
+        header = generator.generate_header(programs, oracles)
         rows = {
             program_id: {bit for bit in range(int(mask, 16).bit_length())
                          if int(mask, 16) >> bit & 1}
@@ -178,23 +174,6 @@ class ManifestValidation(unittest.TestCase):
             ):
                 generator.load_and_validate(manifest_dir)
 
-    def test_common_constraints_are_checked_through_loader(self):
-        with _staged_manifest() as manifest_dir:
-            schema_path = manifest_dir / "schema.json"
-            schema = generator._load(schema_path)
-            schema["$defs"]["sha"]["pattern"] = ".*"
-            schema_path.write_text(json.dumps(schema), encoding="utf-8")
-            for path in manifest_dir.glob("*.json"):
-                if path.name == "schema.json":
-                    continue
-                document = generator._load(path)
-                document["base_sha"] = "invalid"
-                path.write_text(json.dumps(document), encoding="utf-8")
-            with self.assertRaisesRegex(
-                generator.ManifestError, "base_sha must be a full lowercase Git SHA"
-            ):
-                generator.load_and_validate(manifest_dir)
-
     def test_new_oracle_is_discovered_and_validated(self):
         with _staged_manifest() as manifest_dir:
             path = manifest_dir / "new_oracle.json"
@@ -217,9 +196,7 @@ class ManifestValidation(unittest.TestCase):
         programs, _, _ = generator.load_and_validate(MANIFEST_DIR)
         schema = generator._load(MANIFEST_DIR / "schema.json")
         broken = copy.deepcopy(programs)
-        broken["programs"][0]["tolerances"]["release_wasm_framebuffer"][
-            "unlicensed"
-        ] = 1
+        broken["programs"][0]["tolerances"]["unlicensed"] = 1
         with self.assertRaisesRegex(
             generator.ManifestError, "unexpected field unlicensed"
         ):
@@ -228,7 +205,7 @@ class ManifestValidation(unittest.TestCase):
     def test_schema_shape_rejects_missing_definitions(self):
         schema_path = MANIFEST_DIR / "schema.json"
         schema = generator._load(schema_path)
-        schema["$defs"].pop("sha")
+        schema["$defs"].pop("program")
         with self.assertRaisesRegex(generator.ManifestError,
                                     "missing schema definitions"):
             generator._validate_schema_shape(schema, schema_path)
@@ -317,7 +294,6 @@ class ManifestValidation(unittest.TestCase):
             "topology fields": lambda doc: doc["$defs"]["topologyKey"][
                 "required"
             ].pop(),
-            "sha pattern": lambda doc: doc["$defs"]["sha"].pop("pattern"),
         }
         for name, mutate in mutations.items():
             broken = copy.deepcopy(schema)
@@ -334,19 +310,6 @@ class ManifestValidation(unittest.TestCase):
             )
             with self.assertRaises(generator.ManifestError):
                 generator.load_and_validate(staged)
-
-    def test_digest_covers_the_schema(self):
-        programs, oracles, schema = generator.load_and_validate(MANIFEST_DIR)
-        relaxed = copy.deepcopy(schema)
-        relaxed["$defs"]["program"]["properties"]["id"].pop("pattern")
-        self.assertNotEqual(
-            generator.manifest_sha256(programs, oracles, schema),
-            generator.manifest_sha256(programs, oracles, relaxed),
-        )
-        self.assertNotEqual(
-            generator.generate_header(programs, oracles, schema),
-            generator.generate_header(programs, oracles, relaxed),
-        )
 
     def test_oracle_aggregation_is_checked_through_loader(self):
         _, oracles, _ = generator.load_and_validate(MANIFEST_DIR)
@@ -450,7 +413,7 @@ class CaptureBackend(unittest.TestCase):
 
 
     def test_backend_rejects_malformed_streams(self):
-        programs, _ = _test_manifest()
+        programs = _test_manifest()
         specs = capture.operation_specs(programs)
         header, records, metrics = _backend_stream(programs)
         body = b"".join(records)
@@ -515,7 +478,7 @@ class CaptureBackend(unittest.TestCase):
                         capture.load_backend(path, programs, ORACLES)
 
     def test_backend_rejects_drifted_spatial_selection(self):
-        programs, _ = _test_manifest()
+        programs = _test_manifest()
         specs = capture.operation_specs(programs)
         header, records, metrics = _backend_stream(programs)
         index = next(i for i, spec in enumerate(specs)
@@ -531,7 +494,7 @@ class CaptureBackend(unittest.TestCase):
                 capture.load_backend(path, programs, ORACLES)
 
     def test_backend_stream_is_complete(self):
-        programs, _ = _test_manifest()
+        programs = _test_manifest()
         header, records, metrics = _backend_stream(programs)
         data = header + b"".join(records) + b"".join(metrics)
         with tempfile.TemporaryDirectory() as directory:

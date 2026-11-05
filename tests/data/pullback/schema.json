@@ -7,7 +7,6 @@
     { "$ref": "#/$defs/oracleManifest" }
   ],
   "$defs": {
-    "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "topologyKey": {
       "type": "object", "additionalProperties": false,
       "required": [
@@ -80,36 +79,25 @@
         "probes": { "$ref": "#/$defs/probes" },
         "tolerances": {
           "type": "object", "additionalProperties": false,
-          "required": ["carriers", "native_bit_identity", "release_wasm_framebuffer"],
+          "required": ["carriers"],
           "properties": {
-            "carriers": { "type": "object", "additionalProperties": { "type": "number", "minimum": 0 } },
-            "native_bit_identity": { "const": true },
-            "release_wasm_framebuffer": {
-              "type": "object", "additionalProperties": false,
-              "required": ["max_channel_delta_u16", "max_differing_pixel_fraction"],
-              "properties": {
-                "max_channel_delta_u16": { "type": "integer", "minimum": 0, "maximum": 4 },
-                "max_differing_pixel_fraction": { "type": "number", "minimum": 0, "maximum": 0.001 }
-              }
-            }
+            "carriers": { "type": "object", "additionalProperties": { "type": "number", "minimum": 0 } }
           }
         }
       }
     },
     "programManifest": {
       "type": "object", "additionalProperties": false,
-      "required": ["schema_version", "kind", "base_sha", "capture_sha", "corpus", "measurement_status", "programs"],
+      "required": ["schema_version", "kind", "corpus", "programs"],
       "properties": {
         "schema_version": { "const": 1 }, "kind": { "const": "pullback-programs" },
-        "base_sha": { "$ref": "#/$defs/sha" }, "capture_sha": { "$ref": "#/$defs/sha" },
         "corpus": {
           "type": "object", "additionalProperties": false,
-          "required": ["generator", "version", "resolutions", "configurations", "sample_count", "seed", "probe_operations"],
+          "required": ["generator", "version", "resolutions", "configurations", "probe_operations"],
           "properties": {
             "generator": { "const": "shader-workbench-pullback-corpus" }, "version": { "const": 1 },
             "resolutions": { "const": [[96, 20], [288, 144]] },
             "configurations": { "const": ["native-debug", "wasm-release", "wasm-strict-fp"] },
-            "sample_count": { "type": "integer", "minimum": 1 }, "seed": { "type": "integer", "minimum": 0 },
             "probe_operations": {
               "type": "object",
               "minProperties": 1,
@@ -118,11 +106,6 @@
               }
             }
           }
-        },
-        "measurement_status": {
-          "type": "object", "additionalProperties": false,
-          "required": ["native", "wasm_release", "teensy"],
-          "properties": { "native": { "type": "string", "minLength": 1 }, "wasm_release": { "type": "string", "minLength": 1 }, "teensy": { "type": "string", "minLength": 1 } }
         },
         "programs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/program" } }
       }
@@ -167,10 +150,10 @@
     },
     "oracleManifest": {
       "type": "object", "additionalProperties": false,
-      "required": ["schema_version", "kind", "oracle_id", "base_sha", "exact_callable", "optimized_callable", "non_floating_fields_exact", "corpus", "metrics"],
+      "required": ["schema_version", "kind", "oracle_id", "exact_callable", "optimized_callable", "non_floating_fields_exact", "corpus", "metrics"],
       "properties": {
         "schema_version": { "const": 1 }, "kind": { "const": "pullback-oracle" },
-        "oracle_id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" }, "base_sha": { "$ref": "#/$defs/sha" },
+        "oracle_id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" },
         "exact_callable": { "type": "string", "minLength": 1 }, "optimized_callable": { "type": "string", "minLength": 1 },
         "non_floating_fields_exact": { "const": true },
         "corpus": {

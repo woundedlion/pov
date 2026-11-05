@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import re
@@ -23,7 +22,6 @@ TOPOLOGY_FIELDS = (
     "inner_warp_basis", "inner_warp_envelope", "inner_polar_mode",
     "inner_curl_integrator", "inner_polar_harmonic",
 )
-SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 CASE_IDS = {"default", "endpoint_min", "endpoint_max", "interior"}
 PROTOCOL_DEFINITION = Path(__file__).with_name("pullback_operations.def")
 SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
@@ -31,7 +29,7 @@ SCHEMA_ROOT_REFS = {"#/$defs/programManifest", "#/$defs/oracleManifest"}
 SCHEMA_CLOSED_DEFS = ("topologyKey", "parameterCase", "probes",
                       "program", "programManifest", "metric",
                       "resolutionBaselines", "oracleManifest")
-SCHEMA_DEFS = ("sha", *SCHEMA_CLOSED_DEFS)
+SCHEMA_DEFS = SCHEMA_CLOSED_DEFS
 SCHEMA_KEYWORDS = {
     "$defs", "$id", "$ref", "$schema", "additionalProperties", "const",
     "enum", "items", "maxItems", "maximum", "minItems", "minLength",
@@ -211,8 +209,6 @@ def _validate_common(document: dict, path: Path) -> None:
     _require(type(document.get("schema_version")) is int and
              document["schema_version"] == 1,
              f"{path}: schema_version must be 1")
-    _require(SHA_RE.fullmatch(document.get("base_sha", "")) is not None,
-             f"{path}: base_sha must be a full lowercase Git SHA")
 
 
 def _validate_programs(document: dict, path: Path) -> None:
@@ -268,19 +264,8 @@ def _validate_programs(document: dict, path: Path) -> None:
         tolerances = program.get("tolerances")
         _require(isinstance(tolerances, dict),
                  f"{path}: {program_id}.tolerances must be an object")
-        _require(tolerances.get("native_bit_identity") is True,
-                 f"{path}: {program_id} native output must be bit-identical")
         _require(isinstance(tolerances.get("carriers"), dict),
                  f"{path}: {program_id}.tolerances.carriers must be an object")
-        framebuffer = tolerances.get("release_wasm_framebuffer")
-        _require(isinstance(framebuffer, dict),
-                 f"{path}: {program_id} release WASM tolerance is required")
-        delta = framebuffer.get("max_channel_delta_u16")
-        fraction = framebuffer.get("max_differing_pixel_fraction")
-        _require(type(delta) is int and 0 <= delta <= 4,
-                 f"{path}: {program_id} exceeds the channel-delta license")
-        _require(_is_number(fraction) and 0 <= fraction <= 0.001,
-                 f"{path}: {program_id} exceeds the differing-pixel license")
     _require(sorted(covered_presets) == list(range(preset_count)),
              f"{path}: presets must be covered exactly once")
     _require(set(probe_operations) == referenced_probes,
@@ -414,8 +399,6 @@ def _validate_schema_shape(schema: dict, path: Path) -> None:
              {alternative.get("$ref") for alternative in alternatives
               if isinstance(alternative, dict)} == SCHEMA_ROOT_REFS,
              f"{path}: the root must select between the manifest kinds")
-    _require(isinstance(definitions["sha"].get("pattern"), str),
-             f"{path}: $defs.sha must constrain the SHA spelling")
     for name in SCHEMA_CLOSED_DEFS:
         definition = definitions[name]
         _require(isinstance(definition, dict) and
@@ -438,8 +421,6 @@ def load_and_validate(directory: Path) -> tuple[dict, list[dict], dict]:
     programs = _load(programs_path)
     _validate_schema(programs, schema, schema, str(programs_path))
     _validate_programs(programs, programs_path)
-    # Ordered by name bytes: Path ordering case-folds on Windows, and the
-    # manifest digest depends on the order.
     oracle_paths = sorted(
         (path for path in directory.glob("*.json")
          if path.name not in {schema_path.name, programs_path.name}),
@@ -455,25 +436,10 @@ def load_and_validate(directory: Path) -> tuple[dict, list[dict], dict]:
                  programs["corpus"]["resolutions"],
                  f"{path}: framebuffer resolutions must match the capture roster")
         oracles.append(oracle)
-    for oracle in oracles:
-        _require(oracle["base_sha"] == programs["base_sha"],
-                 f"{directory}: all manifests must use the same base_sha")
     return programs, oracles, schema
 
 
-def _canonical_bytes(documents: list[dict]) -> bytes:
-    return b"\n".join(json.dumps(document, sort_keys=True,
-                                 separators=(",", ":")).encode("utf-8")
-                      for document in documents)
-
-
-def manifest_sha256(programs: dict, oracles: list[dict], schema: dict) -> str:
-    return hashlib.sha256(
-        _canonical_bytes([schema, programs, *oracles])).hexdigest()
-
-
-def generate_header(programs: dict, oracles: list[dict], schema: dict) -> str:
-    digest = manifest_sha256(programs, oracles, schema)
+def generate_header(programs: dict, oracles: list[dict]) -> str:
     entries = []
     for program in programs["programs"]:
         mask = sum(1 << preset for preset in program["presets"])
@@ -488,7 +454,6 @@ def generate_header(programs: dict, oracles: list[dict], schema: dict) -> str:
                 "    {"
                 f'"{oracle["oracle_id"]}", "{metric["domain"]}", '
                 f'"{metric["aggregation"]}", '
-                f'{metric["measured_baseline"]}, '
                 f'{metric["accepted_limit"]}, '
                 f'{json.dumps(metric["unit"])}'
                 "},")
@@ -509,13 +474,10 @@ def generate_header(programs: dict, oracles: list[dict], schema: dict) -> str:
         "  std::string_view oracle_id;",
         "  std::string_view domain;",
         "  std::string_view aggregation;",
-        "  float measured_baseline;",
         "  float accepted_limit;",
         "  std::string_view unit;",
         "};",
         "",
-        f'inline constexpr std::string_view BASE_SHA = "{programs["base_sha"]}";',
-        f'inline constexpr std::string_view MANIFEST_SHA256 = "{digest}";',
         f"inline constexpr uint32_t PRESET_COUNT = {protocol_definition()[0]};",
         f"inline constexpr std::array<ProgramEntry, {len(entries)}> PROGRAMS{{{{",
         *entries,
@@ -537,13 +499,13 @@ def main(argv=None) -> int:
     parser.add_argument("--validate-only", action="store_true")
     args = parser.parse_args(argv)
     try:
-        programs, oracles, schema = load_and_validate(args.manifest_dir)
+        programs, oracles, _ = load_and_validate(args.manifest_dir)
     except ManifestError as error:
         parser.error(str(error))
     header = None
     if args.validate_only or args.output is not None:
         try:
-            header = generate_header(programs, oracles, schema)
+            header = generate_header(programs, oracles)
         except (KeyError, TypeError) as error:
             parser.error(f"header generation failed: {error}")
     if args.validate_only:

@@ -2,7 +2,6 @@
   "schema_version": 1,
   "kind": "pullback-oracle",
   "oracle_id": "PEIRCE_FAST_SQUARE",
-  "base_sha": "77dc34b9b812364ffb9c200140440fad6fd3cb70",
   "exact_callable": "projections::peirce_projection(input, 0.0f, projections::PeirceLayout::SQUARE, 0.0f, true)",
   "optimized_callable": "projections::peirce_projection_fast_square(input)",
   "non_floating_fields_exact": true,
@@ -62,7 +61,7 @@
       "accepted_limit": 256,
       "unit": "channel code",
       "limit_provenance": "a 256-code ceiling above the AlienBrain palette-adjusted 147-code maximum",
-      "measurement_provenance": "repo-owned native Debug capture with the composed AlienBrain bank plus release/strict-FP WASM captures at base_sha, both roster resolutions and named preset-4 probes"
+      "measurement_provenance": "repo-owned native Debug capture with the composed AlienBrain bank plus release/strict-FP WASM captures at revision 77dc34b9b812364ffb9c200140440fad6fd3cb70, both roster resolutions and named preset-4 probes"
     }
   ]
 }

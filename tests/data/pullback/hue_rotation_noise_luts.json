@@ -2,7 +2,6 @@
   "schema_version": 1,
   "kind": "pullback-oracle",
   "oracle_id": "HUE_ROTATION_AND_NOISE_LUTS",
-  "base_sha": "77dc34b9b812364ffb9c200140440fad6fd3cb70",
   "exact_callable": "tools/pullback_capture_native.cpp exact_colorize through ShaderChainWhiteBox",
   "optimized_callable": "ShaderChainWhiteBox::program(effect).evaluate(view, ctx)",
   "non_floating_fields_exact": true,
@@ -60,7 +59,7 @@
       "accepted_limit": 3066,
       "unit": "channel code",
       "limit_provenance": "worst recorded configuration/resolution baseline 2810 plus 256 channel codes of margin (3066)",
-      "measurement_provenance": "repo-owned native Debug capture with the composed AlienBrain bank plus release/strict-FP WASM captures at base_sha, both roster resolutions and named preset-6/7/10 probes"
+      "measurement_provenance": "repo-owned native Debug capture with the composed AlienBrain bank plus release/strict-FP WASM captures at revision 77dc34b9b812364ffb9c200140440fad6fd3cb70, both roster resolutions and named preset-6/7/10 probes"
     }
   ]
 }
