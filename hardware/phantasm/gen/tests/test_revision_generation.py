@@ -74,6 +74,11 @@ class PrototypeContractTests(unittest.TestCase):
         self.assertIn("U1.6", committed_board_nets("1.3")["DATA_SRC"])
         self.assertIn("U1.3", committed_board_nets("1.3")["CLK_SRC"])
 
+    def test_termination_legend_is_revision_specific(self):
+        self.assertIn("TERM=CABLE ENDS", [text[1] for text in F(self.board, "gr_text")])
+        legacy = sexp.parse_one((GEN.parent / "1.2" / "phantasm.kicad_pcb").read_text(encoding="utf-8"))
+        self.assertNotIn("TERM=CABLE ENDS", [text[1] for text in F(legacy, "gr_text")])
+
     def test_sync_parts_have_orderable_manufacturer_fields(self):
         expected = {
             "U_SYNC": "THVD2410DR",

@@ -1130,6 +1130,8 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         ("BOARD ID: ____", 23.5, 2.0),
         (silk_revision(selected), 29.5, 1.0),
     ]
+    if selected == "1.3":
+        back_silk.insert(0, ("TERM=CABLE ENDS", 5.6, 0.8))
     legend_x = PLACE["U_MCU"][0]
     for text, y, size in back_silk:
         text_x = layout["board_id_x"] if text == "BOARD ID: ____" else legend_x
