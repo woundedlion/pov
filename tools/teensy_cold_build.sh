@@ -22,7 +22,7 @@ esac
 TREE=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 cd "$TREE"
 hs_exit_traps
-acquire_tree_lock
+acquire_tree_lock || exit "$?"
 
 export LC_ALL=C
 rm -rf .pio/build_cache .pio/build

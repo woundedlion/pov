@@ -564,6 +564,14 @@ class BoardSelection(unittest.TestCase):
         self.assertIn("Every attached Teensy is in use", r.stderr)
         self.assertNotIn("UNREACHED", r.stdout)
 
+    def test_info_less_claims_reach_guidance_under_pipefail(self):
+        self.lock_dir("COM3").mkdir()
+        self.lock_dir("COM4").mkdir()
+        r = run_lock('set -euo pipefail; hs_device_acquire E profile 60 || exit "$?"',
+                     self.base, env={"HS_DEVICE_STALE_GRACE": "999999"})
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("Every attached Teensy is in use", r.stderr)
+
     def test_release_survives_errexit(self):
         # Under a caller's `set -e`, a declined release must not abort
         # mid-teardown.
