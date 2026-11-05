@@ -264,6 +264,16 @@ if(EMSCRIPTEN)
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots/"
             DESTINATION "${DAYDREAM_DIR}/docs/screenshots"
             FILES_MATCHING PATTERN "*.png")
+    install(CODE "
+      execute_process(
+        COMMAND node
+          \"${CMAKE_CURRENT_SOURCE_DIR}/scripts/export_engine_catalog.mjs\"
+          \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.js\"
+          \"${DAYDREAM_DIR}/generated/shader/engine_catalog.json\"
+        RESULT_VARIABLE HS_CATALOG_RC)
+      if(NOT HS_CATALOG_RC EQUAL 0)
+        message(FATAL_ERROR \"Failed to export the installed WASM operator catalog\")
+      endif()")
     # Record the engine commit, the .wasm and .js content hashes, and the
     # toolchain that produced them.
     install(CODE "
@@ -321,16 +331,6 @@ if(EMSCRIPTEN)
         message(WARNING \"git unavailable or not a working tree (rc=\${HS_GIT_RC}); removed ${TARGET_NAME} provenance markers (.sha / .wasm.sha256 / .toolchain). Install completes without local provenance; deployment uses only CI-published bundles.\")
       endif()
     ")
-    install(CODE "
-      execute_process(
-        COMMAND node
-          \"${CMAKE_CURRENT_SOURCE_DIR}/scripts/export_engine_catalog.mjs\"
-          \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.js\"
-          \"${DAYDREAM_DIR}/generated/shader/engine_catalog.json\"
-        RESULT_VARIABLE HS_CATALOG_RC)
-      if(NOT HS_CATALOG_RC EQUAL 0)
-        message(FATAL_ERROR \"Failed to export the installed WASM operator catalog\")
-      endif()")
   elseif(EXISTS "${DAYDREAM_DIR}")
     # An existing destination without the marker is a wrong path, not a missing
     # checkout: fail the install rather than write into it.
