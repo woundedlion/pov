@@ -166,17 +166,11 @@ public:
     const PayloadDecodeGuard guard(&decoding);
     if (!isValid())
       return Result::NOT_SHADER_CHAIN;
-    const uint64_t owner_generation = state->generation;
-    const auto schema_generation =
-        state->effect->getParameterSchemaGeneration();
-    const Effect *const owner = state->effect;
-    ChainSnapshot snapshot;
-    const auto result = hs_wasm::ChainSnapshotCodec::decode(
-        clone_payload(caller_input), snapshot);
-    if (!isValid() || state->generation != owner_generation ||
-        state->effect != owner ||
-        state->effect->getParameterSchemaGeneration() != schema_generation)
+    const emscripten::val input = clone_payload(caller_input);
+    if (!isValid())
       return Result::NOT_SHADER_CHAIN;
+    ChainSnapshot snapshot;
+    const auto result = hs_wasm::ChainSnapshotCodec::decode(input, snapshot);
     if (result != Result::APPLIED)
       return result;
     Result restored = Result::NOT_SHADER_CHAIN;
@@ -227,10 +221,9 @@ public:
     if (!with_effect<ShaderChain>([]<typename SC>(SC &) {}))
       return chain_result(ChainStatus::NOT_CHAIN_EFFECT, -1);
     // Payload cloning can invoke getters that replace the addressed chain.
-    const uint64_t owner_generation = state->generation;
-    const Effect *const owner = state->effect;
-    const void *const owner_type_key = state->entry->type_key;
     const emscripten::val entries = clone_payload(caller_entries);
+    if (!isValid())
+      return chain_result(ChainStatus::NOT_CHAIN_EFFECT, -1);
     if (!is_array(entries))
       return chain_result(ChainStatus::MALFORMED_PAYLOAD, -1);
     const size_t count = entries["length"].as<size_t>();
@@ -253,9 +246,6 @@ public:
       instances[index] = instance.as<std::string>();
       operators[index] = operator_id.as<std::string>();
     }
-    if (state->generation != owner_generation || state->effect != owner ||
-        state->entry->type_key != owner_type_key)
-      return chain_result(ChainStatus::NOT_CHAIN_EFFECT, -1);
     std::vector<Pullback::Interp::ChainEntryRequest> request(count);
     for (size_t index = 0; index < count; ++index)
       request[index] = {instances[index], operators[index]};
@@ -283,11 +273,9 @@ public:
     const PayloadDecodeGuard decode_guard(&decoding);
     if (!with_effect<ShaderChain>([]<typename SC>(SC &) {}))
       return ParamSetResult::NO_EFFECT;
-    const uint64_t owner_generation = state->generation;
-    const Effect *const owner = state->effect;
-    const auto schema_generation =
-        state->effect->getParameterSchemaGeneration();
     const emscripten::val entries = clone_payload(caller_entries);
+    if (!isValid())
+      return ParamSetResult::NO_EFFECT;
     if (!is_array(entries))
       return ParamSetResult::MALFORMED_PAYLOAD;
     const size_t count = entries["length"].as<size_t>();
@@ -310,9 +298,6 @@ public:
         return ParamSetResult::UNKNOWN_PARAM;
       values[index] = value.as<float>();
     }
-    if (state->generation != owner_generation || state->effect != owner ||
-        state->effect->getParameterSchemaGeneration() != schema_generation)
-      return ParamSetResult::NO_EFFECT;
     std::vector<ShaderChainParameterWrite> writes(count);
     for (size_t index = 0; index < count; ++index)
       writes[index] = {names[index].c_str(), values[index]};
