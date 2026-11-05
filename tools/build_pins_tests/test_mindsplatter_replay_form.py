@@ -28,7 +28,7 @@ class MindSplatterReplayForm(unittest.TestCase):
         self.root = Path(temporary.name)
 
     def run_checker(self, generated=FORM, compiler="Clang", version="23.0.0",
-                    required=True):
+                    required=True, refresh=False):
         committed = self.root / "committed.h"
         committed.write_text(FORM, encoding="utf-8")
         output = self.root / "generated.py"
@@ -41,6 +41,7 @@ class MindSplatterReplayForm(unittest.TestCase):
             f"-DCOMMITTED={committed}", f"-DGENERATED={output}",
             f"-DCOMPILER_ID={compiler}", f"-DCOMPILER_VERSION={version}",
             f"-DREQUIRE_COMPILER_MATCH={'ON' if required else 'OFF'}",
+            f"-DREFRESH_ONLY={'ON' if refresh else 'OFF'}",
             "-DSKIP_CODE=77", "-P", str(CHECKER),
         ], capture_output=True, text=True, check=False)
 
@@ -50,6 +51,23 @@ class MindSplatterReplayForm(unittest.TestCase):
                 result = self.run_checker(version=version)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn("msp-heavy-search-v1 in canonical form", result.stdout)
+
+    def test_refresh_accepts_identical_state(self):
+        result = self.run_checker(refresh=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("refresh preserves captured state", result.stdout)
+
+    def test_refresh_rejects_changed_state(self):
+        result = self.run_checker(generated=FORM.replace("STATE[] PROGMEM = {0}",
+                                                       "STATE[] PROGMEM = {1}"), refresh=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("refresh changed the captured state", result.stderr)
+
+    def test_refresh_rejects_missing_state(self):
+        result = self.run_checker(generated=FORM.replace("HEAVY_SEARCH_V1_STATE", "OTHER_STATE"),
+                                  refresh=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("refresh changed the captured state", result.stderr)
 
     def test_required_unsupported_compiler_is_rejected(self):
         result = self.run_checker(compiler="GNU", version="14.2.0")
