@@ -78,17 +78,16 @@ inline void test_ash_cloud_shared_color_identity() {
   }
 }
 
-/** @brief Factored camera columns stay within their independent numeric qualification. */
-inline void test_ash_cloud_shared_camera_qualification() {
+/** @brief Shared column colors match canonical colors within each math tier. */
+inline void test_ash_cloud_shared_column_qualification() {
   using namespace ashcloud_shared_tests;
   reset_globals();
   pin_frame_clock(0);
   FX effect;
   effect.init();
-  uint64_t samples = 0, sum = 0, factored_samples = 0,
-           unfactored_mismatches = 0;
+  uint64_t samples = 0, sum = 0, mismatches = 0;
   int maximum_rgb = 0, maximum_premultiplied = 0;
-  float maximum_alpha = 0.0f, maximum_direction = 0.0f;
+  float maximum_alpha = 0.0f;
   for (int frame_index = 1; frame_index <= 600; ++frame_index) {
     pin_frame_clock(frame_index);
     effect.draw_frame();
@@ -107,10 +106,8 @@ inline void test_ash_cloud_shared_camera_qualification() {
         const auto VIEW = direction(x, SINE, COSINE);
         const auto EXPECTED = FX::shade(VIEW, *frame);
         const auto ACTUAL = SHADER(SINE, COSINE);
-        factored_samples += SHADER.factored;
-        if (!SHADER.factored)
-          unfactored_mismatches += ACTUAL.color != EXPECTED.color ||
-                                   bits(ACTUAL.alpha) != bits(EXPECTED.alpha);
+        mismatches += ACTUAL.color != EXPECTED.color ||
+                      bits(ACTUAL.alpha) != bits(EXPECTED.alpha);
         const Pixel EXPECTED_PREMULTIPLIED = EXPECTED.color * EXPECTED.alpha;
         const Pixel ACTUAL_PREMULTIPLIED = ACTUAL.color * ACTUAL.alpha;
         const auto check = [&](int expected, int actual,
@@ -131,46 +128,27 @@ inline void test_ash_cloud_shared_camera_qualification() {
               ACTUAL_PREMULTIPLIED.b);
         maximum_alpha =
             std::max(maximum_alpha, fabsf(EXPECTED.alpha - ACTUAL.alpha));
-        const auto ROTATED =
-            Pipeline::NodeAt<0>::run(Pullback::SphereSample{VIEW, 0.0f},
-                                     frame->ctx, std::get<0>(frame->prepared));
-        const auto ACTUAL_ROTATED =
-            SHADER.factored ? SINE * SHADER.equator + COSINE * SHADER.up
-                            : ROTATED.dir;
-        const auto DELTA = ACTUAL_ROTATED - ROTATED.dir;
-        maximum_direction = std::max(maximum_direction, DELTA.length());
         ++samples;
       }
     }
   }
   HS_EXPECT_EQ(samples, uint64_t{599 * 16 * 144});
-  HS_EXPECT_EQ(factored_samples, FX::camera_column_admitted() ? samples : 0);
-#if !HS_TEST_FAST_MATH
-  HS_EXPECT_EQ(unfactored_mismatches, uint64_t{0});
-#endif
-  if (!FX::camera_column_admitted()) {
 #if HS_TEST_FAST_MATH
-    // Full-shader fusion changes floating-point reassociation before color sampling.
-    HS_EXPECT_LE(maximum_rgb, 16);
-    HS_EXPECT_LE(maximum_premultiplied, 8);
-    HS_EXPECT_LE(maximum_alpha, 1e-5f);
+  HS_EXPECT_LE(maximum_rgb, 16);
+  HS_EXPECT_LE(maximum_premultiplied, 8);
+  HS_EXPECT_LE(maximum_alpha, 1e-5f);
 #else
-    HS_EXPECT_EQ(maximum_rgb, 0);
-    HS_EXPECT_EQ(maximum_premultiplied, 0);
-    HS_EXPECT_EQ(maximum_alpha, 0.0f);
+  HS_EXPECT_EQ(mismatches, uint64_t{0});
+  HS_EXPECT_EQ(maximum_rgb, 0);
+  HS_EXPECT_EQ(maximum_premultiplied, 0);
+  HS_EXPECT_EQ(maximum_alpha, 0.0f);
 #endif
-    HS_EXPECT_EQ(maximum_direction, 0.0f);
-  }
-  HS_EXPECT_LE(maximum_rgb, 256);
-  HS_EXPECT_LE(maximum_premultiplied, 128);
-  HS_EXPECT_LE(maximum_alpha, .002f);
-  HS_EXPECT_LE(maximum_direction, 1e-6f);
   std::printf(
-      "  AshCloud camera samples=%llu unfactored mismatches=%llu RGB max=%d mean=%.9g premultiplied=%d alpha=%.9g direction=%.9g\n",
+      "  AshCloud shared samples=%llu mismatches=%llu RGB max=%d mean=%.9g premultiplied=%d alpha=%.9g\n",
       static_cast<unsigned long long>(samples),
-      static_cast<unsigned long long>(unfactored_mismatches), maximum_rgb,
-      double(sum) / (samples * 3), maximum_premultiplied, double(maximum_alpha),
-      double(maximum_direction));
+      static_cast<unsigned long long>(mismatches), maximum_rgb,
+      double(sum) / (samples * 3), maximum_premultiplied,
+      double(maximum_alpha));
 }
 
 /** @brief Endpoints and unready color caches select the canonical shader exactly. */
@@ -220,30 +198,4 @@ inline void test_ash_cloud_shared_column_fallbacks() {
       }
     }
   }
-}
-
-/** @brief Camera columns use canonical rotation for every display geometry. */
-inline void test_ash_cloud_camera_column_admission() {
-  using namespace ashcloud_shared_tests;
-  HS_EXPECT_FALSE((AshCloud<96, 20>::camera_column_admitted()));
-  math::init_geometry_luts<288, 144>();
-  HS_EXPECT_FALSE(FX::camera_column_admitted());
-#if HS_RUNTIME_DISPLAY_GEOMETRY && !defined(HS_TEST_H_OFFSET)
-  const float SAVED_NORTH = math::DISPLAY_NORTH_PHI;
-  const float SAVED_SOUTH = math::DISPLAY_SOUTH_PHI;
-  for (const auto ENDPOINTS :
-       {std::pair{0.0f, math::PI_F},
-        std::pair{.02f * math::PI_F, .98f * math::PI_F},
-        std::pair{.01f * math::PI_F, .99f * math::PI_F},
-        std::pair{std::nextafter(.02f * math::PI_F, math::PI_F),
-                  .98f * math::PI_F}}) {
-    HS_EXPECT_TRUE(
-        math::set_display_geometry(ENDPOINTS.first, ENDPOINTS.second));
-    HS_EXPECT_FALSE(FX::camera_column_admitted());
-    math::init_geometry_luts<288, 144>();
-    HS_EXPECT_FALSE(FX::camera_column_admitted());
-  }
-  HS_EXPECT_TRUE(math::set_display_geometry(SAVED_NORTH, SAVED_SOUTH));
-  math::init_geometry_luts<288, 144>();
-#endif
 }

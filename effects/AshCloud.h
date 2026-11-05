@@ -253,15 +253,12 @@ public:
     return Pullback::Color::cached_phase_color(COVERED, BASE, hue);
   }
 
-  /** @brief Column shader with a camera-rotated meridian basis. */
+  /** @brief Column shader with canonical camera rotation. */
   struct ColumnShader {
     const typename Base::Frame *frame; ///< Borrowed prepared column.
-    math::Vector equator;              ///< Rotated equatorial direction.
-    math::Vector up;                   ///< Rotated polar direction.
     float cosine;                      ///< Column azimuth cosine.
     float sine;                        ///< Column azimuth sine.
-    bool shared;   ///< Whether the column admits the shared cache.
-    bool factored; ///< Whether the physical camera grid was qualified.
+    bool shared; ///< Whether the column admits the shared cache.
 
     /** @brief Shades one latitude with its selected color path.
      * @param row_sine Sine of the row polar angle.
@@ -275,11 +272,7 @@ public:
     }
   };
 
-  /** @brief Whether factored camera arithmetic is numerically qualified.
-   * @return False; columns use the canonical camera rotation. */
-  static bool camera_column_admitted() { return false; }
-
-  /** @brief Selects the shared shader and factors its camera once per column.
+  /** @brief Selects the shared or canonical color shader for one column.
    * @param frame Prepared column.
    * @param x Absolute column index.
    * @return Shader borrowing this column's frame. */
@@ -301,18 +294,8 @@ public:
         Pipeline::template NodeAt<6>::phase_ready(
             std::get<6>(frame.prepared)) &&
         Pipeline::template NodeAt<7>::phase_ready(std::get<7>(frame.prepared));
-    ColumnShader shader{&frame,
-                        {},
-                        {},
-                        math::TrigLUT<W, H>::cos_theta(x),
-                        math::TrigLUT<W, H>::sin_theta[x],
-                        SHARED,
-                        SHARED && camera_column_admitted()};
-    if (shader.factored) {
-      Pipeline::rotation_column_basis(frame, shader.cosine, shader.sine,
-                                      shader.equator, shader.up);
-    }
-    return shader;
+    return {&frame, math::TrigLUT<W, H>::cos_theta(x),
+            math::TrigLUT<W, H>::sin_theta[x], SHARED};
   }
 
   /** @brief Explicit choreography customization bindings.

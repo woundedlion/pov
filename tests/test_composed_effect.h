@@ -1309,8 +1309,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_grid_worms_document_pipeline);
   HS_RUN(test_ash_cloud_document_pipeline);
   HS_RUN(test_ash_cloud_shared_color_identity);
-  HS_RUN(test_ash_cloud_camera_column_admission);
-  HS_RUN(test_ash_cloud_shared_camera_qualification);
+  HS_RUN(test_ash_cloud_shared_column_qualification);
   HS_RUN(test_ash_cloud_shared_column_fallbacks);
   HS_RUN(test_composed_default_gradient_preparation);
   HS_RUN(test_composed_spec_default_color_paths);
