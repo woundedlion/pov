@@ -505,7 +505,6 @@ struct MindSplatterWhiteBox {
                                        const math::Quaternion &orientation) {
     return math::rotate(math::mobius_transform(v, mobius), orientation);
   }
-  static constexpr int trail_length() { return MS::TRAIL_LEN; }
   template <int W, int H>
   static void use_reference_orientation(MindSplatter<W, H> &ms, bool enabled) {
     ms.reference_orientation = enabled;

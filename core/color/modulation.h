@@ -6,7 +6,6 @@
 
 #include "core/color/color_space.h"
 #include "core/color/modulation_types.h"
-#include "core/color/hue_rotation_lut.h"
 #include <cmath>
 
 /** @file modulation.h

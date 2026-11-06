@@ -161,7 +161,6 @@ public:
   // clang-format on
   // End generated params.
 
-public:
   /** @brief Explicit choreography customization bindings.
    * @return Type-only hook list. */
   static consteval auto choreography_hooks() {

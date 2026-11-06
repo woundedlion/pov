@@ -22,10 +22,9 @@ public:
    * @return The color at t.
    */
   virtual Color4 get(float t) const = 0;
-  /**
-   * @brief Virtual destructor for polymorphic deletion.
-   */
-  virtual ~Palette() = default;
+
+protected:
+  ~Palette() = default;
 };
 
 /**

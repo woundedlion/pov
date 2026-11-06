@@ -188,57 +188,7 @@ inline void test_surface_seams() {
         pose.name, {.bidirectional = true});
 }
 
-/** @brief Writes and scores a full-area surface reference.
- * @param effect Live fixture effect.
- * @param name Diagnostic pose name.
- * @param timed Selects temporal rendering.
- * @param image Masked full-frame output. */
-inline void write_surface_area_report(OracleEffect &effect, const char *name,
-                                      bool timed, const OracleFrame &image) {
-  {
-    Canvas canvas(effect);
-    ShapeShifterWhiteBox::surface_full_area(effect, canvas, timed);
-  }
-  effect.advance_display();
-  OracleFrame reference;
-  for (int y = 0; y < 144; ++y)
-    for (int x = 0; x < 288; ++x)
-      reference.pixels.push_back(effect.get_pixel(x, y));
-  write_oracle_ppm(reference, std::string(shapeshifter_image_prefix()) + "/" +
-                                  name + (timed ? "-timed" : "-frozen") +
-                                  "-full-reference.ppm");
-  for (bool window : {false, true}) {
-    uint64_t absolute = 0;
-    int maximum = 0;
-    const int width = window ? 144 : 288, height = window ? 72 : 144;
-    for (int y = 0; y < height; ++y)
-      for (int x = 0; x < width; ++x) {
-        const auto a = image.pixels[y * 288 + x];
-        const auto b = reference.pixels[y * 288 + x];
-        const uint16_t A[3]{a.r, a.g, a.b}, B[3]{b.r, b.g, b.b};
-        for (int c = 0; c < 3; ++c) {
-          const int error =
-              std::abs(int(linear_to_srgb8(A[c])) - int(linear_to_srgb8(B[c])));
-          absolute += error;
-          maximum = std::max(maximum, error);
-        }
-      }
-    std::printf("AREA pose=%s timed=%d window=%d mae=%.12f max=%d\n", name,
-                int(timed), int(window),
-                double(absolute) / (width * height * 3), maximum);
-  }
-  // Refill both display buffers before the next clipped comparison.
-  for (int i = 0; i < 2; ++i) {
-    {
-      Canvas canvas(effect);
-      ShapeShifterWhiteBox::surface_kernel(effect, canvas, timed);
-    }
-    effect.advance_display();
-  }
-}
-
-inline void surface_mask_case(OracleEffect &effect, const char *name,
-                              bool write_images) {
+inline void surface_mask_case(OracleEffect &effect, const char *name) {
   for (bool timed : {false, true})
     for (bool board : {false, true}) {
       effect.set_clip(0, board ? 72 : 144, 0, board ? 144 : 288);
@@ -273,15 +223,8 @@ inline void surface_mask_case(OracleEffect &effect, const char *name,
           HS_EXPECT_GT(stats.mask_hits, 0ull);
           HS_EXPECT_LE(stats.mask_hits * 5, stats.pixels * 3);
           HS_EXPECT_GT(stats.edge_pixels, 0ull);
-          if (write_images)
-            write_oracle_ppm(images[mask],
-                             std::string(shapeshifter_image_prefix()) + "/" +
-                                 name + (timed ? "-timed" : "-frozen") +
-                                 (board ? "-board.ppm" : "-full.ppm"));
         }
       }
-      if (write_images && !board)
-        write_surface_area_report(effect, name, timed, images[1]);
       const auto difference =
           compare_buffers(images[0].pixels, images[1].pixels);
       std::printf("SURFACE_MASK_DIFF %s timed=%d board=%d pixels=%zu\n", name,
@@ -297,7 +240,7 @@ inline void surface_mask_case(OracleEffect &effect, const char *name,
     }
 }
 
-inline void surface_mask_cases(bool write_images) {
+inline void surface_mask_cases() {
   reset_globals();
   {
     OracleEffect effect;
@@ -313,7 +256,7 @@ inline void surface_mask_cases(bool write_images) {
         math::make_rotation(math::Vector(.2f, 1, .1f).normalized(), .03f) *
         start);
     ShapeShifterWhiteBox::set_twist(effect, .37f, .016f);
-    surface_mask_case(effect, "fixture", write_images);
+    surface_mask_case(effect, "fixture");
   }
   Timeline().clear();
   for (bool reset : {false, true}) {
@@ -327,8 +270,7 @@ inline void surface_mask_cases(bool write_images) {
       for (int frame = 1; frame <= last; ++frame) {
         replay_frame(effect, frame);
       }
-      surface_mask_case(effect, reset ? "reset-77" : "shipping-410",
-                        write_images);
+      surface_mask_case(effect, reset ? "reset-77" : "shipping-410");
     }
     Timeline().clear();
   }
@@ -336,10 +278,7 @@ inline void surface_mask_cases(bool write_images) {
 }
 
 /** @brief Mask pruning preserves every rendered channel at all three poses. */
-inline void test_surface_mask_parity() { surface_mask_cases(false); }
-
-/** @brief Writes the surface comparison fixtures. */
-inline void test_surface_images() { surface_mask_cases(true); }
+inline void test_surface_mask_parity() { surface_mask_cases(); }
 
 /** @brief P1 dispatch reaches the continuous surface renderer. */
 inline void test_surface_preset_dispatch() {
@@ -374,46 +313,6 @@ inline void test_surface_preset_dispatch() {
   HS_EXPECT_GT(compare_buffers(comparison.candidate.pixels, frozen.pixels)
                    .different_pixels,
                size_t{0});
-}
-
-/** @brief Samples board work throughout the complete natural P1 visit. */
-inline void test_surface_natural_census() {
-  replay_seed();
-  int samples = 0;
-  {
-    OracleEffect effect;
-    effect.init();
-    effect.set_clip(0, 72, 0, 144);
-    for (int frame = 1; frame <= NATURAL_P1_FRAMES; ++frame) {
-      Scan::SurfaceAreaStats stats;
-      replay_frame(effect, frame, [&](Canvas &canvas) {
-        HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{0});
-        ShapeShifterWhiteBox::surface_kernel(effect, canvas, true, &stats);
-      });
-      ++samples;
-      HS_EXPECT_GE(stats.pixels, uint64_t{144 * 72});
-      HS_EXPECT_GT(stats.mask_prepares, uint64_t{0});
-      std::printf(
-          "SURFACE_CENSUS frame=%d pixels=%llu hits=%llu edges=%llu "
-          "hidden=%llu point=%llu outside=%llu intervals=%llu max=%d maxpoint=%d "
-          "prepares=%llu candidates=%llu pieces=%llu writes=%llu\n",
-          frame, static_cast<unsigned long long>(stats.pixels),
-          static_cast<unsigned long long>(stats.mask_hits),
-          static_cast<unsigned long long>(stats.edge_pixels),
-          static_cast<unsigned long long>(stats.hidden_pixels),
-          static_cast<unsigned long long>(stats.point_intervals),
-          static_cast<unsigned long long>(stats.outside_intervals),
-          static_cast<unsigned long long>(stats.intervals), stats.max_intervals,
-          stats.max_point_intervals,
-          static_cast<unsigned long long>(stats.mask_prepares),
-          static_cast<unsigned long long>(stats.mask_candidates),
-          static_cast<unsigned long long>(stats.mask_pieces),
-          static_cast<unsigned long long>(stats.mask_row_writes));
-    }
-  }
-  Timeline().clear();
-  hs::clear_mock_time();
-  HS_EXPECT_EQ(samples, NATURAL_P1_FRAMES);
 }
 
 /** @brief Locates isolated dark pixels throughout the natural P1 visit. */
@@ -491,8 +390,6 @@ struct SurfaceFootprintAudit {
   size_t count = 0;                              ///< Out-of-range pixels.
   size_t samples = 0;                            ///< Observed AA pixels.
   size_t paths[16]{};                            ///< Out-of-range color paths.
-  int frame = 0;                                 ///< Natural frame.
-  std::ofstream *records = nullptr;              ///< Optional records.
 
   /** @brief Compares an actual production pixel with dense first arrivals.
    * @param sample Prepared family, shader and output.
@@ -527,10 +424,6 @@ struct SurfaceFootprintAudit {
     if (actual + 3 < minimum) {
       ++audit.count;
       ++audit.paths[sample.path];
-      if (audit.records && audit.records->is_open())
-        *audit.records << audit.frame << ',' << sample.path << ',' << actual
-                       << ',' << minimum << ',' << minimum - actual << ','
-                       << p.x << ',' << p.y << '\n';
     }
   }
 };
@@ -539,20 +432,10 @@ struct SurfaceFootprintAudit {
 inline void test_surface_footprint_darkening() {
   replay_seed();
   size_t total = 0;
-  const char *directory = hs_test::env_var("HS_SURFACE_DARK_IMAGES");
-  const char *limit = hs_test::env_var("HS_SURFACE_DARK_FRAMES");
-  const int frames = limit ? std::atoi(limit) : NATURAL_P1_FRAMES;
-  std::ofstream records, images;
-  if (directory) {
-    records.open(std::string(directory) + "/pixels.csv");
-    records << "frame,path,energy,minimum,deficit,p_x,p_y\n";
-    images.open(std::string(directory) + "/frames.rgb16", std::ios::binary);
-    HS_EXPECT_TRUE(records.is_open() && images.is_open());
-  }
   {
     OracleEffect effect;
     effect.init();
-    for (int frame = 1; frame <= frames; ++frame) {
+    for (int frame = 1; frame <= NATURAL_P1_FRAMES; ++frame) {
       effect.set_clip(0, 72, 0, 144);
       replay_frame(effect, frame);
       if (frame == 273) {
@@ -567,8 +450,6 @@ inline void test_surface_footprint_darkening() {
       HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{0});
       effect.set_clip(0, 144, 0, 288);
       SurfaceFootprintAudit audit;
-      audit.frame = frame;
-      audit.records = &records;
       SurfaceFootprintAudit::AA::observer = &SurfaceFootprintAudit::inspect;
       SurfaceFootprintAudit::AA::observer_data = &audit;
       {
@@ -579,13 +460,6 @@ inline void test_surface_footprint_darkening() {
       SurfaceFootprintAudit::AA::observer = nullptr;
       SurfaceFootprintAudit::AA::observer_data = nullptr;
       effect.advance_display();
-      if (images.is_open())
-        for (int y = 0; y < 144; ++y)
-          for (int x = 0; x < 288; ++x) {
-            const auto pixel = effect.get_pixel(x, y);
-            for (uint16_t c : {pixel.r, pixel.g, pixel.b})
-              images.write(reinterpret_cast<const char *>(&c), sizeof(c));
-          }
       std::printf(
           "DARK_FRAME %d %zu tip=%zu corner=%zu offset=%zu terminal=%zu\n",
           frame, audit.count, audit.paths[1], audit.paths[2], audit.paths[4],
@@ -596,7 +470,7 @@ inline void test_surface_footprint_darkening() {
   }
   Timeline().clear();
   hs::clear_mock_time();
-  std::printf("DARK_TOTAL %zu frames=%d\n", total, frames);
+  std::printf("DARK_TOTAL %zu frames=%d\n", total, NATURAL_P1_FRAMES);
   HS_EXPECT_EQ(total, size_t{0});
 }
 

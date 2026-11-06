@@ -386,7 +386,6 @@ class CaptureBackend(unittest.TestCase):
                 "value": framebuffer["resolution_baselines"]["native-debug"][
                     "96x20"
                 ],
-                "sample_count": 3,
             }
         metrics["HUE_ROTATION_AND_NOISE_LUTS"]["value"] += 1
         capture.validate_backend_oracles(
@@ -402,7 +401,6 @@ class CaptureBackend(unittest.TestCase):
                     if metric["domain"] == "FRAMEBUFFER"
                 )["accepted_limit"]
                 + 1,
-                "sample_count": 3,
             }
             for oracle in ORACLES
         }

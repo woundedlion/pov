@@ -50,7 +50,6 @@ inline void test_feedback_column_time_reads() {
       const float actual = Model::lit_time(column);
       if constexpr (W == 256) {
         HS_EXPECT_EQ(actual, EXPECTED);
-        HS_EXPECT_NEAR(actual, EXPECTED, 1e-6);
       } else {
         const double OFFSET = column < 0 ? H : column >= H ? -H : 0;
         const double IN_ARM = double(column) + OFFSET;

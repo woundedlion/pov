@@ -69,7 +69,7 @@ jobs:
       - name: Configure
         run: >
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON
-          -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
+          -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Build
         run: cmake --build --preset tests
@@ -99,7 +99,7 @@ jobs:
           HS_SKIPS_ARE_ERRORS: 1
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
         run: |
-          cmake --preset tests -B build/tests-p1 -DHS_INSTALL_GIT_HOOKS=OFF -DHS_NATIVE_DISPLAY_PROFILE=1 -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
+          cmake --preset tests -B build/tests-p1 -DHS_INSTALL_GIT_HOOKS=OFF -DHS_NATIVE_DISPLAY_PROFILE=1 -DCMAKE_CXX_COMPILER=clang++-22
           cmake --build build/tests-p1 --target test_engine
           build/tests-p1/tests/test_engine plot_scan
 
@@ -189,7 +189,7 @@ jobs:
         run: >
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON -DHS_SANITIZE=ON
           -DCMAKE_BUILD_TYPE=RelWithDebInfo "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-O1 -g"
-          -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
+          -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Build
         run: cmake --build --preset tests
@@ -278,7 +278,7 @@ jobs:
       - name: Configure
         run: >
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON -DHS_TSAN=ON
-          -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
+          -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Build
         run: cmake --build --preset tests --target run_tests
@@ -366,7 +366,7 @@ jobs:
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
           "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=${{ matrix.optimization }} ${{ matrix.float_flags }}"
-          -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
+          -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Build
         run: cmake --build --preset tests
@@ -447,7 +447,7 @@ jobs:
       - name: Configure
         run: >
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON -DHS_COVERAGE=ON
-          -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
+          -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Build
         run: cmake --build --preset tests --target run_tests
@@ -966,7 +966,7 @@ jobs:
       - name: Build the generator
         run: |
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON \
-            -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
+            -DCMAKE_CXX_COMPILER=clang++-22
           cmake --build --preset tests --target srgb_decode_gen
 
       - name: Regenerate the decode tables and diff the full header

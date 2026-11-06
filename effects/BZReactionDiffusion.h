@@ -363,15 +363,13 @@ private:
     const FloatRgb &cb = color_b;
     const FloatRgb &cc = color_c;
 
-    auto vertex_shader = [](Fragment &) {};
-
     auto pixel_shader = [&](Fragment &frag, const auto &grid, int x) -> Pixel {
       return shade_pixel(static_cast<int>(frag.v0), frag.pos, world_nodes, grid,
                          x, ca, cb, cc);
     };
 
     HS_PROFILE(bz_raster);
-    rasterize_lattice(canvas, vertex_shader, pixel_shader);
+    rasterize_lattice(canvas, pixel_shader);
   }
 
   /**

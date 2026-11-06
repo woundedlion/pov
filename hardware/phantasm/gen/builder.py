@@ -92,7 +92,6 @@ class Builder:
         ext = sexp.val(node, "extends")
         if ext:
             base = self.resolve(lib, ext[0])
-            base = copy.deepcopy(base)
             rename_subsymbols(base, ext[0], name)
             base[1] = name
             overlay_props(base, node)

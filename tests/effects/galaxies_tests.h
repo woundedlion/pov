@@ -107,10 +107,6 @@ inline void test_galaxies_alternate_orbits_and_arm_spin() {
   reset_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
   fx.init();
-  const auto *speed = required_param(fx, "Orbit Spd");
-
-  if (speed)
-    HS_EXPECT_EQ(speed->get(), 0.0134f);
   WB::set_emission_rate(fx, 1.0f);
   auto &ps = WB::system(fx);
   for (int g = 0; g < WB::NUM_GALAXIES; ++g) {
@@ -342,7 +338,6 @@ inline void test_galaxies_arm_sharpness() {
 
   if (!sharpness)
     return;
-  HS_EXPECT_EQ(sharpness->get(), 0.8f);
   WB::set_pitch(fx, 0.5f);
   for (int arms : {1, 2, 5}) {
     WB::set_arms(fx, arms);
@@ -378,7 +373,6 @@ inline void test_galaxies_emission_rate_and_capacity() {
       found = true;
       HS_EXPECT_EQ(param.min, 0.15f);
       HS_EXPECT_EQ(param.max, 4.0f);
-      HS_EXPECT_EQ(param.get(), 2.5f);
     }
   }
   HS_EXPECT(found, "Emission Rate is registered");

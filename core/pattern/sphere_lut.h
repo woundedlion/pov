@@ -247,23 +247,16 @@ template <class Source> struct BakedSphereField {
 /** @brief Cache for a complete caller-supplied source and layout identity.
  * @tparam Identity Equality-comparable record of every prepared source input. */
 template <class Identity> struct SphereBakeCache {
-  static constexpr uint16_t LAYOUT_VERSION =
-      SphereLutView::LAYOUT_VERSION; ///< Cube layout and quantization version.
-  Identity identity{};               ///< Complete source identity.
+  Identity identity{};                 ///< Complete source identity.
   const int8_t *destination = nullptr; ///< Storage associated with this bake.
-  uint16_t layout_version = 0; ///< Baked layout version; zero when invalid.
   /** @brief Invalidates retained derived storage. */
-  void reset() {
-    destination = nullptr;
-    layout_version = 0;
-  }
+  void reset() { destination = nullptr; }
   /** @brief Whether the table matches a complete source identity.
   * @param output Destination address.
   * @param key Complete prepared-input identity.
   * @return True if no rebake is needed. */
   bool holds(const int8_t *output, const Identity &key) const {
-    return destination == output && layout_version == LAYOUT_VERSION &&
-           identity == key;
+    return destination && destination == output && identity == key;
   }
   /** @brief Rebakes after any identity or ownership change.
   * @tparam Source Typed sphere source policy.
@@ -279,7 +272,6 @@ template <class Identity> struct SphereBakeCache {
     prepare_sphere_lut<Source>(output, source);
     identity = key;
     destination = output.data();
-    layout_version = LAYOUT_VERSION;
     return true;
   }
 };

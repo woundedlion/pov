@@ -157,7 +157,6 @@ public:
     this->start_lens_phase(1.0f / 0.416f, 160);
   }
 
-public:
   /** @brief Explicit choreography customization bindings.
    * @return Type-only hook list. */
   static consteval auto choreography_hooks() {

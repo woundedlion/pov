@@ -102,7 +102,6 @@ SECTIONS
 		*(.text._ZN8Timeline3addIN9Animation*)
 		*(.text._ZNO9Animation13AnimationBaseINS_5OpLeg*)
 		*(.text._ZN9MeshStateaSEOS_*)
-		*(.text._ZN11ArenaVectorIiEaSEOS0_*)
 		/* Per-frame animation state updates and orientation path preparation. */
 		*(.text._ZN9Animation6MotionI*4stepER6Canvas)
 		*(.text._ZNK9Animation6MotionI*10path_frameEf)

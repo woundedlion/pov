@@ -73,19 +73,13 @@ protected:
 
   /**
    * @brief Scans the full canvas, seeding each fragment's lattice node first.
-   * @tparam VertexFn Callable `(Fragment &)` run after the node seed.
    * @tparam PixelFn Pixel shader passed to `Scan::Shader::draw_grid`.
    * @param canvas Target canvas.
-   * @param vertex Per-fragment vertex stage; frag.v0 holds the seeded node id.
    * @param pixel Per-pixel shader.
    */
-  template <typename VertexFn, typename PixelFn>
-  HS_HOT_INLINE void rasterize_lattice(Canvas &canvas, VertexFn &&vertex,
-                                       PixelFn &&pixel) {
-    auto vertex_shader = [&](Fragment &frag) {
-      seed_face_lut(frag);
-      vertex(frag);
-    };
+  template <typename PixelFn>
+  HS_HOT_INLINE void rasterize_lattice(Canvas &canvas, PixelFn &&pixel) {
+    auto vertex_shader = [this](Fragment &frag) { seed_face_lut(frag); };
     Scan::Shader::draw_grid<W, H>(canvas, vertex_shader, pixel);
   }
 

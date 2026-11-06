@@ -24,12 +24,10 @@
 #include "effects/common/palette_recipes.h"
 #include "core/render/sdf/lattice.h"
 #include "core/render/ray/shade.h"
-#include "core/render/pullback/ray.h"
 #include "core/render/spacetime/field.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
 #include "core/math/4dmath.h"
-#include "core/render/pullback.h"
 #include "core/render/sdf/lattice_trace.h"
 #include "core/render/spacetime.h"
 

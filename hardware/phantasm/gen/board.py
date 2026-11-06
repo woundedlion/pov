@@ -183,7 +183,8 @@ def main(force=False, revision=B.REVISION, output_dir=None):
                       ("Connector_Generic", "Conn_01x02"),
                       ("Connector_Generic", "Conn_01x03"),
                       ("Jumper", "SolderJumper_2_Open"), ("74xx", "74AHCT125")]:
-        b.ensure_lib(lib, name)
+        if revision != "1.3" or name != "D_Zener":
+            b.ensure_lib(lib, name)
 
     if revision == "1.3":
         b.ensure_lib("Connector_Generic", "Conn_01x04")

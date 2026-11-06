@@ -14,7 +14,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <fstream>
 #include <string>
 #include <cstring>
 #include <span>
@@ -103,27 +102,6 @@ struct OracleFrame {
     return pixels[static_cast<size_t>(y) * ORACLE_W + x];
   }
 };
-
-/** @brief Image-dump path prefix, or null when disabled.
- * @return Value of HS_SHAPESHIFTER_IMAGES. */
-static inline const char *shapeshifter_image_prefix() {
-  return hs_test::env_var("HS_SHAPESHIFTER_IMAGES");
-}
-
-/** @brief Writes an oracle frame as a gamma-encoded P6 image.
- * @param frame Frame to write.
- * @param path Output image path. */
-static inline void write_oracle_ppm(const OracleFrame &frame,
-                                    const std::string &path) {
-  std::ofstream file(path, std::ios::binary);
-  HS_EXPECT_TRUE(file.good());
-  if (!file)
-    return;
-  file << "P6\n" << ORACLE_W << " " << ORACLE_H << "\n255\n";
-  for (const Pixel &pixel : frame.pixels)
-    for (auto value : {pixel.r, pixel.g, pixel.b})
-      file.put(char(int(255.0f * sqrtf(value / 65535.0f) + 0.5f)));
-}
 
 /** @brief Test-only access to ShapeShifter's pinned state and shipping renderer. */
 struct ShapeShifterWhiteBox {
@@ -363,92 +341,6 @@ struct ShapeShifterWhiteBox {
     else
       e.template draw_surface_all<true, false>(canvas, e.selected_palette(),
                                                timed, stats, displacement);
-  }
-  /** @brief Renders the matched N24 family with a 32 by 32 area quadrature.
-   * @param e Prepared effect pose and palette.
-   * @param canvas Destination.
-   * @param timed Uses each column's authored time. */
-  static void surface_full_area(OracleEffect &e, Canvas &canvas, bool timed) {
-    using Surface = OracleEffect::Surface;
-    constexpr int N = 24;
-    constexpr int SAMPLES = 32;
-    e.prepare_count(288);
-    const auto &palette = e.selected_palette();
-    ScratchScope scope_a(scratch_arena_a), scope_b(scratch_arena_b);
-    const auto columns = timed ? Scan::prepare_column_basis<288, 144>(
-                                     scratch_arena_a, e.orientation, true)
-                               : Scan::ColumnBasis{};
-    const auto basis = math::make_basis(e.orientation.get(), math::X_AXIS);
-    Surface near, far;
-    near.bind(scratch_arena_a, 7, Plot::STAR_INNER_RATIO, N);
-    far.bind(scratch_arena_a, 7, Plot::STAR_INNER_RATIO, N);
-    auto *knots = scratch_arena_b.allocate_n<Surface::Knot>(N + 1);
-    auto *colors = scratch_arena_b.allocate_n<Scan::SurfaceColor>(N + 1);
-    for (int i = 0; i <= N; ++i) {
-      const auto COLOR = palette.get(1 - .5f * i / N);
-      const float OPACITY = COLOR.alpha * e.alpha * e.preset_opacity;
-      colors[i] = {COLOR.color.r * OPACITY, COLOR.color.g * OPACITY,
-                   COLOR.color.b * OPACITY};
-    }
-    float sine = 0, cosine = 1;
-    auto prepare = [&](int column) {
-      const float TIME =
-          timed ? Spacetime::SamplingSurface<288>::time(column) : 1;
-      const float ANGLE =
-          math::TWO_PI_F * (e.phase - e.twist_step * (1 - TIME));
-      sine = sinf(ANGLE);
-      cosine = cosf(ANGLE);
-    };
-    auto ensure = [&](int side) {
-      for (int i = 0; i <= N; ++i) {
-        const float Q = .5f * i / N;
-        const float RADIUS = math::PI_F * e.screen_balanced_radius_t(Q);
-        const float S = sinf(math::TWO_PI_F * Q), C = cosf(math::TWO_PI_F * Q);
-        const float WAVE = side ? sine * C - cosine * S : sine * C + cosine * S;
-        const float TURN =
-            (side && !e.params.opposite ? -1 : 1) * e.params.amplitude * WAVE;
-        float angle = TURN - floorf(TURN / math::TWO_PI_F) * math::TWO_PI_F;
-        const float SIGN = angle > math::PI_F ? -1.0f : 1.0f;
-        if (angle > math::PI_F)
-          angle -= math::PI_F;
-        float turn_sine, turn_cosine;
-        math::poly_sincosf_0_pi(angle, turn_sine, turn_cosine);
-        knots[i] = {RADIUS * turn_cosine * SIGN, RADIUS * turn_sine * SIGN,
-                    TURN};
-      }
-      (side ? far : near).set_knots({knots, N + 1});
-    };
-    auto shade = [&](const Surface::Hit &hit) {
-      const auto A = colors[hit.interval], B = colors[hit.interval + 1];
-      return Scan::SurfaceColor{A.r + (B.r - A.r) * hit.fraction,
-                                A.g + (B.g - A.g) * hit.fraction,
-                                A.b + (B.b - A.b) * hit.fraction};
-    };
-    auto area = [&](const Surface &surface, auto p, float, float,
-                    auto &footprint, auto &, auto &, auto *) {
-      const auto query = footprint();
-      const auto dx = query.dx, dy = query.dy;
-      Scan::SurfaceColor color;
-      for (int y = 0; y < SAMPLES; ++y)
-        for (int x = 0; x < SAMPLES; ++x) {
-          const float U = (x + .5f) / SAMPLES - .5f,
-                      V = (y + .5f) / SAMPLES - .5f;
-          const Surface::Point Q{p.x + U * dx.x + V * dy.x,
-                                 p.y + U * dx.y + V * dy.y};
-          const auto HIT = surface.sample<false, true, false>(
-              Q, Scan::radial_atan2(Q.y, Q.x));
-          if (HIT.found()) {
-            const auto C = shade(HIT);
-            color.r += C.r / (SAMPLES * SAMPLES);
-            color.g += C.g / (SAMPLES * SAMPLES);
-            color.b += C.b / (SAMPLES * SAMPLES);
-          }
-        }
-      return color;
-    };
-    auto lower_bound = [](float) { return 0; };
-    Scan::draw_radial_surface<288, 144>(canvas, near, far, area, basis, columns,
-                                        prepare, ensure, lower_bound, shade);
   }
   static int preset_frames() { return OracleEffect::PRESET_FRAMES; }
   static constexpr int preset_dwell_frames() {
@@ -1616,60 +1508,15 @@ inline void test_polar_walk_matches_rotated_chart() {
 
 #include "tests/test_shapeshifter_surface.h"
 
-inline void write_shapeshifter_preset_hashes() {
-  for (bool temporal : {false, true})
-    for (size_t preset = 0; preset < ShapeShifterWhiteBox::PRESET_COUNT;
-         ++preset) {
-      replay_seed();
-      uint64_t hash = hs_test::HASH_SEED64;
-      {
-        OracleEffect effect;
-        effect.init();
-        effect.profile_select_preset(preset);
-        effect.set_clip(0, 72, 0, 144);
-        const ScopedTemporalSampling sampling(temporal);
-        for (int frame = 0; frame < 8; ++frame) {
-          replay_time(frame + 1);
-          effect.draw_frame();
-          effect.advance_display();
-          for (int y = 0; y < 72; ++y)
-            for (int x = 0; x < 144; ++x) {
-              const auto p = effect.get_pixel(x, y);
-              for (const uint16_t channel : {p.r, p.g, p.b})
-                hash = hs_test::fnv1a64_channel(hash, channel);
-            }
-        }
-      }
-      Timeline().clear();
-      HS_EXPECT_NE(hash, uint64_t{0});
-      std::printf(
-          "SHAPESHIFTER_PRESET_HASH preset=%zu temporal=%d frames=8 hash=0x%016llx\n",
-          preset + 1, int(temporal), static_cast<unsigned long long>(hash));
-    }
-  hs::clear_mock_time();
-}
-
 /** @brief Runs shapeshifter oracle tests. */
 inline int run_shapeshifter_oracle_tests() {
   ModuleFixture fixture("shapeshifter_oracle");
-  if (hs_test::env_var("HS_SHAPESHIFTER_SURFACE_CENSUS")) {
-    test_surface_natural_census();
-    return fixture.result();
-  }
   if (hs_test::env_var("HS_SURFACE_DARK_DIAGNOSTICS")) {
     HS_RUN(test_surface_footprint_darkening);
     return fixture.result();
   }
   if (hs_test::env_var("HS_SURFACE_LOBE_DIAGNOSTICS")) {
     HS_RUN(test_surface_lobe_outliers);
-    return fixture.result();
-  }
-  if (hs_test::env_var("HS_SHAPESHIFTER_PRESET_HASHES")) {
-    write_shapeshifter_preset_hashes();
-    return fixture.result();
-  }
-  if (shapeshifter_image_prefix()) {
-    test_surface_images();
     return fixture.result();
   }
   HS_RUN(radial_surface_tests::run_radial_surface_checks);
@@ -1680,8 +1527,6 @@ inline int run_shapeshifter_oracle_tests() {
   HS_RUN(test_surface_mask_parity);
   HS_RUN(test_surface_preset_dispatch);
   HS_RUN(test_surface_max_amplitude);
-  if (hs_test::env_var("HS_SHAPESHIFTER_SURFACE_ONLY"))
-    return fixture.result();
   HS_RUN(test_chart_edge_rotation_radius);
   HS_RUN(test_polar_walk_matches_rotated_chart);
   HS_RUN(test_timed_contours_match_frozen_columns);

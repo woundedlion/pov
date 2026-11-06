@@ -4,11 +4,9 @@
  */
 
 // ---------------------------------------------------------------------------
-// Hankin-sweep stability probe: per-step branch, displacement and face-normal
-// diagnostics for the hankin legs.
+// Hankin-sweep displacement and face-normal bounds.
 // ---------------------------------------------------------------------------
 
-using MeshOps::HankinBranch;
 using MeshOps::HankinSolve;
 
 /** Solves each dynamic vertex and retains its branch diagnostics. */
@@ -54,14 +52,11 @@ inline constexpr float HANKIN_FLAT_FACE = 1e-4f;
 
 /** @brief Per-step stability metrics of one sweep sample. */
 struct HankinStepStats {
-  int branch_flips =
-      0; /**< Vertices whose branch changed vs the previous step. */
   float max_disp = 0;  /**< Largest single-vertex chord vs the previous step. */
   float mean_disp = 0; /**< Mean dynamic-vertex chord vs the previous step. */
   int normal_flips =
       0;              /**< Non-degenerate faces whose Newell normal reversed. */
   int flat_faces = 0; /**< Faces below HANKIN_FLAT_FACE this step. */
-  float max_far_ratio = 0;    /**< Largest far_ratio this step. */
   float max_corner_chord = 0; /**< Largest chord(star point, its corner). */
 };
 
@@ -81,8 +76,6 @@ inline void hankin_step_stats(const CompiledHankin &compiled,
                               const std::vector<math::Vector> &curr_normals,
                               HankinStepStats &stats) {
   for (size_t i = 0; i < curr.size(); ++i) {
-    stats.max_far_ratio =
-        hs_test::fold_worst(stats.max_far_ratio, curr[i].far_ratio);
     const math::Vector cn = math::normalized_or(
         compiled.corner(compiled.dynamic_instructions[i].v_corner),
         curr[i].pos);
@@ -96,8 +89,6 @@ inline void hankin_step_stats(const CompiledHankin &compiled,
     return;
   double sum = 0;
   for (size_t i = 0; i < curr.size(); ++i) {
-    if (curr[i].branch != prev[i].branch)
-      ++stats.branch_flips;
     const float d = (curr[i].pos - prev[i].pos).magnitude();
     sum += d;
     stats.max_disp = hs_test::fold_worst(stats.max_disp, d);
@@ -114,15 +105,11 @@ inline void hankin_step_stats(const CompiledHankin &compiled,
 
 /** @brief Sweep-wide roll-up of the per-step metrics. */
 struct HankinSweepSummary {
-  int total_branch_flips = 0;
   int total_normal_flips = 0;
-  int steps_with_normal_flips = 0;
   float worst_max_disp = 0;
   float worst_mean_disp = 0;
-  int worst_step = 0;        /**< Step index owning worst_max_disp. */
-  float spike_ratio = 0;     /**< worst_max_disp / mean_disp at that step. */
-  int worst_flat_faces = 0;  /**< Most sub-HANKIN_FLAT_FACE faces in a step. */
-  float worst_far_ratio = 0; /**< Largest far_ratio over the sweep. */
+  float spike_ratio = 0;    /**< worst_max_disp / mean_disp at that step. */
+  int worst_flat_faces = 0; /**< Most sub-HANKIN_FLAT_FACE faces in a step. */
   float worst_corner_chord =
       0; /**< Largest chord(star point, corner) over the sweep. */
 };
@@ -137,22 +124,16 @@ hankin_summarize(const std::vector<HankinStepStats> &table) {
   HankinSweepSummary sum;
   for (const HankinStepStats &r : table) {
     sum.worst_flat_faces = std::max(sum.worst_flat_faces, r.flat_faces);
-    sum.worst_far_ratio =
-        hs_test::fold_worst(sum.worst_far_ratio, r.max_far_ratio);
     sum.worst_corner_chord =
         hs_test::fold_worst(sum.worst_corner_chord, r.max_corner_chord);
   }
   for (size_t s = 1; s < table.size(); ++s) {
-    sum.total_branch_flips += table[s].branch_flips;
     sum.total_normal_flips += table[s].normal_flips;
-    if (table[s].normal_flips > 0)
-      ++sum.steps_with_normal_flips;
     sum.worst_mean_disp =
         hs_test::fold_worst(sum.worst_mean_disp, table[s].mean_disp);
     if (std::isnan(table[s].max_disp) ||
         table[s].max_disp > sum.worst_max_disp) {
       sum.worst_max_disp = table[s].max_disp;
-      sum.worst_step = static_cast<int>(s);
       sum.spike_ratio = table[s].mean_disp > 0
                             ? table[s].max_disp / table[s].mean_disp
                             : 0.0f;
@@ -165,14 +146,12 @@ hankin_summarize(const std::vector<HankinStepStats> &table) {
  * @brief Measures sweep stability over the sampled dodecahedron,
  *        dodecahedron_hk62_ambo, octahedron and octahedron_hk17_ambo prefixes
  *        under the shipping slerp-from-corner parameterization.
- * @details Re-solve modes are diagnostic comparisons. The slerp gates bound
- * displacement and face-normal reversals using snorm16 arrival vertices and
- * the production K_EPS opening fraction.
+ * @details The slerp gates bound displacement and face-normal reversals using
+ * snorm16 arrival vertices and the production K_EPS opening fraction.
  */
 inline void test_hankin_sweep_vertex_stability() {
   const auto split = islamic_split(IslamicStars<288, 144>::GENERATED_BUDGET);
   constexpr int SAMPLES = 32;
-  constexpr float THETA_EPS = Animation::OpLeg::THETA_EPS;
 
   for (const HankinSweepSite &site : HANKIN_SWEEP_SITES) {
     Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
@@ -189,31 +168,6 @@ inline void test_hankin_sweep_vertex_stability() {
     std::vector<math::Vector> packed_arrival;
     for (const auto &point : arrival)
       packed_arrival.push_back(math::Snorm3::encode(point.pos).decode());
-
-    // Guard headroom: the far-star guard is scaled by the corner's local edge
-    // scale, so on coarse seeds STAR_FAR_RATIO_SQ * local_sq can exceed the
-    // 4.0 maximum squared chord, making the guard unreachable for that vertex.
-    int unreachable = 0;
-    float max_local_sq = 0;
-    for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
-      const HankinInstruction &instr = compiled.dynamic_instructions[i];
-      const math::Vector cn = math::normalized_or(
-          compiled.corner(instr.v_corner), compiled.corner(instr.v_corner));
-      const float local_sq = std::max(
-          math::distance_squared(compiled.static_vertices[instr.idx_m1], cn),
-          math::distance_squared(compiled.static_vertices[instr.idx_m2], cn));
-      max_local_sq = std::max(max_local_sq, local_sq);
-      if (MeshOps::STAR_FAR_RATIO_SQ * local_sq >= 4.0f)
-        ++unreachable;
-    }
-
-    std::printf("  [hankin-stability] %s: theta* = %.1f deg, base F=%zu, "
-                "dyn V=%zu, hankin F=%zu, guard-unreachable %d/%zu "
-                "(max local_sq %.4f)\n",
-                site.name, site.theta_star * 180.0f / math::PI_F,
-                seed.face_counts.size(), collapsed.size(),
-                compiled.face_counts.size(), unreachable, collapsed.size(),
-                max_local_sq);
 
     Arena leg_arena(morph_aux_buf, sizeof(morph_aux_buf));
     Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
@@ -251,78 +205,42 @@ inline void test_hankin_sweep_vertex_stability() {
     }
     HS_EXPECT_SIZE_OR_RETURN(drawn_frames, static_cast<size_t>(SAMPLES));
 
-    // Three parameterizations over the same sample grid.
-    std::vector<HankinStepStats> tables[3];
-    std::vector<std::vector<math::Vector>> resolve_pos(SAMPLES);
-    float path_dev = 0;
-    const char *mode_name[3] = {"resolve-uniform", "resolve-eased",
-                                "slerp-eased    "};
-    for (int mode = 0; mode < 3; ++mode) {
-      std::vector<HankinSolve> prev, curr;
-      std::vector<math::Vector> prev_normals, curr_normals;
-      for (int s = 0; s < SAMPLES; ++s) {
-        const float u = static_cast<float>(s) / (SAMPLES - 1);
-        const float k = mode == 0 ? u : math::ease_in_out_sin(u);
-        HankinStepStats row;
-        if (mode == 2) {
-          HS_EXPECT_SIZE_OR_RETURN(drawn_frames[s],
-                                   compiled.static_vertices.size() +
-                                       arrival.size());
-          const float shipping_k =
-              Animation::OpLeg::K_EPS + (1.0f - Animation::OpLeg::K_EPS) * k;
-          curr.assign(arrival.size(), HankinSolve{});
-          for (size_t i = 0; i < arrival.size(); ++i) {
-            curr[i] = {shipping_k >= 1.0f
-                           ? packed_arrival[i].normalized()
-                           : math::slerp(collapsed[i].pos.normalized(),
-                                         packed_arrival[i], shipping_k),
-                       arrival[i].branch, 0.0f};
-            HS_EXPECT_VEC(drawn_frames[s][compiled.static_vertices.size() + i],
-                          curr[i].pos, 1e-6f);
-            path_dev = std::max(path_dev,
-                                (curr[i].pos - resolve_pos[s][i]).magnitude());
-          }
-        } else {
-          const float theta = THETA_EPS + (site.theta_star - THETA_EPS) * k;
-          hankin_solve(compiled, theta, curr);
-          if (mode == 1) {
-            resolve_pos[s].resize(curr.size());
-            for (size_t i = 0; i < curr.size(); ++i)
-              resolve_pos[s][i] = curr[i].pos;
-          }
-        }
-        hankin_face_normals(compiled, curr, curr_normals);
-        hankin_step_stats(compiled, prev, prev_normals, curr, curr_normals,
-                          row);
-        tables[mode].push_back(row);
-        prev = curr;
-        prev_normals = curr_normals;
+    std::vector<HankinStepStats> table;
+    std::vector<HankinSolve> prev, curr;
+    std::vector<math::Vector> prev_normals, curr_normals;
+    for (int sample = 0; sample < SAMPLES; ++sample) {
+      const float u = static_cast<float>(sample) / (SAMPLES - 1);
+      const float k = math::ease_in_out_sin(u);
+      HS_EXPECT_SIZE_OR_RETURN(drawn_frames[sample],
+                               compiled.static_vertices.size() +
+                                   arrival.size());
+      const float shipping_k =
+          Animation::OpLeg::K_EPS + (1.0f - Animation::OpLeg::K_EPS) * k;
+      curr.assign(arrival.size(), HankinSolve{});
+      for (size_t i = 0; i < arrival.size(); ++i) {
+        curr[i] = {shipping_k >= 1.0f
+                       ? packed_arrival[i].normalized()
+                       : math::slerp(collapsed[i].pos.normalized(),
+                                     packed_arrival[i], shipping_k),
+                   arrival[i].branch, 0.0f};
+        HS_EXPECT_VEC(drawn_frames[sample][compiled.static_vertices.size() + i],
+                      curr[i].pos, 1e-6f);
       }
+      hankin_face_normals(compiled, curr, curr_normals);
+      HankinStepStats row;
+      hankin_step_stats(compiled, prev, prev_normals, curr, curr_normals, row);
+      table.push_back(row);
+      prev = curr;
+      prev_normals = curr_normals;
     }
-
-    for (int mode = 0; mode < 3; ++mode) {
-      const HankinSweepSummary sum = hankin_summarize(tables[mode]);
-      std::printf("      %s  branch_flips=%d normal_flips=%d (in %d steps) "
-                  "worst_max=%.5f @s%d spike=%.1fx worst_mean=%.5f "
-                  "flat<=%d far<=%.1f corner<=%.3f\n",
-                  mode_name[mode], sum.total_branch_flips,
-                  sum.total_normal_flips, sum.steps_with_normal_flips,
-                  sum.worst_max_disp, sum.worst_step, sum.spike_ratio,
-                  sum.worst_mean_disp, sum.worst_flat_faces,
-                  sum.worst_far_ratio, sum.worst_corner_chord);
-      if (mode == 2) {
-        HS_CONTEXT(site.name, mode);
-        HS_EXPECT_EQ(sum.total_normal_flips, 0);
-        HS_EXPECT_LE(sum.worst_max_disp, 0.05f);
-        HS_EXPECT_LE(sum.worst_mean_disp, 0.03f);
-        HS_EXPECT_LE(sum.spike_ratio, 1.5f);
-        HS_EXPECT_EQ(sum.worst_flat_faces, 0);
-        HS_EXPECT_LE(sum.worst_corner_chord, 0.50f);
-      }
-    }
-
-    std::printf("      path deviation slerp vs resolve at equal k: max=%.5f\n",
-                path_dev);
+    const HankinSweepSummary sum = hankin_summarize(table);
+    HS_CONTEXT(site.name, 2);
+    HS_EXPECT_EQ(sum.total_normal_flips, 0);
+    HS_EXPECT_LE(sum.worst_max_disp, 0.05f);
+    HS_EXPECT_LE(sum.worst_mean_disp, 0.03f);
+    HS_EXPECT_LE(sum.spike_ratio, 1.5f);
+    HS_EXPECT_EQ(sum.worst_flat_faces, 0);
+    HS_EXPECT_LE(sum.worst_corner_chord, 0.50f);
 
     PolyMesh bookend;
     Animation::OpLeg::arrival_mesh(leg.landing(), bookend, b);
@@ -335,20 +253,13 @@ inline void test_hankin_sweep_vertex_stability() {
       HS_EXPECT_LE(
           (packed_arrival[i].normalized() - arrival[i].pos).magnitude(), 3e-5f);
 
-    // Opening bookend: the K_EPS slerp frame and its chord from the collapsed
-    // form, in sphere radii.
+    // Opening bookend at the K_EPS slerp fraction.
     std::vector<HankinSolve> probe(arrival.size());
-    float opening_chord = 0;
     for (size_t i = 0; i < arrival.size(); ++i) {
       probe[i] = {math::slerp(collapsed[i].pos, arrival[i].pos,
                               Animation::OpLeg::K_EPS),
                   arrival[i].branch, 0.0f};
-      opening_chord = std::max(opening_chord,
-                               (probe[i].pos - collapsed[i].pos).magnitude());
     }
-    std::printf("      k_eps=%.3f opening chord max=%.6f radii "
-                "(%.3f px at r=64)\n",
-                Animation::OpLeg::K_EPS, opening_chord, opening_chord * 64.0f);
     std::vector<math::Vector> probe_normals;
     hankin_face_normals(compiled, probe, probe_normals);
     for (const math::Vector &normal : probe_normals)

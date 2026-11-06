@@ -25,10 +25,7 @@
 #include <FastLED.h>
 #endif
 #include "core/render/canvas.h"
-#include "core/math/geometry.h"
-#include "core/memory.h"
 #include <utility>
-#include <new>
 
 /**
  * @brief Manages the display loop for a single-Teensy POV rig.

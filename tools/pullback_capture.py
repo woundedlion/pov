@@ -219,7 +219,7 @@ def load_backend(
         samples, offset = _read_u32(data, offset)
         if oracle in metrics or oracle not in expected_oracles or samples == 0:
             raise CaptureError(f"invalid capture backend oracle metric {oracle}")
-        metrics[oracle] = {"value": maximum, "sample_count": samples}
+        metrics[oracle] = {"value": maximum}
     if (
         offset != len(data)
         or metrics.keys() != expected_oracles
@@ -271,7 +271,7 @@ def main() -> int:
                 parser.error("backend audit requires --configuration")
             programs, oracles, _ = load_and_validate(args.manifest_dir.resolve())
             metrics = {
-                oracle["oracle_id"]: {"value": 0, "sample_count": 0}
+                oracle["oracle_id"]: {"value": 0}
                 for oracle in oracles
             }
             resolutions = set()
@@ -287,7 +287,6 @@ def main() -> int:
                     metrics[oracle]["value"] = max(
                         metrics[oracle]["value"], metric["value"]
                     )
-                    metrics[oracle]["sample_count"] += metric["sample_count"]
             expected_resolutions = {
                 tuple(resolution) for resolution in programs["corpus"]["resolutions"]
             }

@@ -65,34 +65,6 @@ public:
    */
   FunctionRef(std::nullptr_t) {}
 
-  // Explicit copy/move — prevent the generic Callable template from matching.
-
-  /**
-   * @brief Copy-constructs a reference to the same callable.
-   * @param other Source FunctionRef to copy.
-   */
-  FunctionRef(const FunctionRef &other) noexcept = default;
-
-  /**
-   * @brief Move-constructs a reference to the same callable.
-   * @param other Source FunctionRef to move from.
-   */
-  FunctionRef(FunctionRef &&other) noexcept = default;
-
-  /**
-   * @brief Copy-assigns to refer to the same callable as other.
-   * @param other Source FunctionRef to copy.
-   * @return Reference to this FunctionRef.
-   */
-  FunctionRef &operator=(const FunctionRef &other) noexcept = default;
-
-  /**
-   * @brief Move-assigns to refer to the same callable as other.
-   * @param other Source FunctionRef to move from.
-   * @return Reference to this FunctionRef.
-   */
-  FunctionRef &operator=(FunctionRef &&other) noexcept = default;
-
   /**
    * @brief Wraps a plain function pointer.
    * @param func Function pointer with signature Ret(Args...); stored in ctx.

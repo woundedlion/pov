@@ -14,6 +14,7 @@
 #include "core/animation/orientation.h"
 #include "effects/common/palette_recipes.h"
 #include "core/color/modulation.h"
+#include "core/color/hue_rotation_lut.h"
 #include "core/pattern/noise.h"
 #include "core/pattern/sphere_lut.h"
 #include "core/control/choreography.h"

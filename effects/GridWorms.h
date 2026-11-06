@@ -25,8 +25,6 @@ struct GridWormsSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   /// Projection-frame spin and wander.
   static constexpr bool ANIMATED_PROJECTION = true;
-  /// Lens precedes camera rotation.
-  static constexpr bool FACTORED_COLUMNS = false;
   /** @brief Twist, camera, folded projection, lattice, palette and sine hue.
    * @tparam B Effect binding. */
   template <typename B>
@@ -130,7 +128,6 @@ public:
   // clang-format on
   // End generated params.
 
-public:
   /** @brief Explicit choreography customization bindings.
    * @return Type-only hook list. */
   static consteval auto choreography_hooks() {

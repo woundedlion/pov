@@ -93,22 +93,10 @@ consteval bool operator_names_unique() {
   return true;
 }
 
-/** Every table operator is monotone, so any adjacent chain of them is too.
-    @return False when an operator's output carrier ranks below its input. */
-consteval bool operator_table_monotone() {
-  for (const OperatorDescriptor &op : OPERATOR_TABLE)
-    if (static_cast<uint8_t>(op.input) > static_cast<uint8_t>(op.output))
-      return false;
-  return true;
-}
-
 static_assert(operator_ids_unique(),
               "chain operator table: duplicate operator id");
 static_assert(operator_names_unique(),
               "chain operator table: duplicate operator name");
-static_assert(operator_table_monotone(),
-              "chain operator table: an operator may not decrease its family "
-              "rank");
 
 /** @brief The table entry named @p operator_id, or null.
  *  @param operator_id Operator id to look up.

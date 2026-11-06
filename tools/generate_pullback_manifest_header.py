@@ -29,7 +29,6 @@ SCHEMA_ROOT_REFS = {"#/$defs/programManifest", "#/$defs/oracleManifest"}
 SCHEMA_CLOSED_DEFS = ("topologyKey", "parameterCase", "probes",
                       "program", "programManifest", "metric",
                       "resolutionBaselines", "oracleManifest")
-SCHEMA_DEFS = SCHEMA_CLOSED_DEFS
 SCHEMA_KEYWORDS = {
     "$defs", "$id", "$ref", "$schema", "additionalProperties", "const",
     "enum", "items", "maxItems", "maximum", "minItems", "minLength",
@@ -392,7 +391,7 @@ def _validate_schema_shape(schema: dict, path: Path) -> None:
              f"{path}: unsupported JSON Schema draft")
     definitions = schema.get("$defs")
     _require(isinstance(definitions, dict), f"{path}: $defs must be an object")
-    missing = sorted(set(SCHEMA_DEFS) - definitions.keys())
+    missing = sorted(set(SCHEMA_CLOSED_DEFS) - definitions.keys())
     _require(not missing, f"{path}: missing schema definitions {missing}")
     alternatives = schema.get("oneOf")
     _require(isinstance(alternatives, list) and

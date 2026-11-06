@@ -134,7 +134,6 @@ inline void test_shader_chain_state_restore_values() {
 
 inline void test_shader_chain_table_integrity() {
   static_assert(In::operator_ids_unique());
-  static_assert(In::operator_table_monotone());
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
     HS_EXPECT_TRUE(op.operator_id != nullptr && op.display_name != nullptr);
     HS_EXPECT_LE(static_cast<int>(op.input), static_cast<int>(op.output));

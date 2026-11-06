@@ -8,7 +8,6 @@ import subprocess
 import sys
 import tempfile
 import unittest
-import unittest.mock
 from unittest import mock
 import zipfile
 from pathlib import Path
@@ -844,9 +843,9 @@ class DesignRuleTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "drc.json"
-            with unittest.mock.patch.object(
+            with mock.patch.object(
                     fab, "kicad_cli", return_value="kicad-cli"), \
-                    unittest.mock.patch.object(fab, "run", fake_run):
+                    mock.patch.object(fab, "run", fake_run):
                 with self.assertRaisesRegex(
                         fab.DesignRuleError, "kicad-cli drc exited 5"):
                     fab.run_drc(path)
@@ -878,7 +877,7 @@ class PartCatalogTests(unittest.TestCase):
             ref: {"lcsc": lcsc}
             for ref, lcsc in fab.LCSC_BY_REF.items()
         }
-        with unittest.mock.patch.object(fab, "PART_BY_LCSC", catalog):
+        with mock.patch.object(fab, "PART_BY_LCSC", catalog):
             with self.assertRaisesRegex(
                     fab.PartCatalogError,
                     "LCSC C999999999: catalog entry no reference is assigned"):
@@ -907,7 +906,7 @@ class CommandRunTests(unittest.TestCase):
 
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout), \
-                unittest.mock.patch.object(subprocess, "run", fake_run):
+                mock.patch.object(subprocess, "run", fake_run):
             with self.assertRaises(SystemExit) as caught:
                 fab.run(["kicad-cli", "version"])
         return str(caught.exception.code)
@@ -1064,7 +1063,7 @@ class TimestampNormalizationTests(unittest.TestCase):
 
     def test_a_respelled_banner_cannot_report_a_clean_run(self):
         directory, _ = self.export("2026-08-12T17:25:19", "2026-08-12 17:25:19")
-        with unittest.mock.patch.object(fab, "TIMESTAMP_SUBSTITUTIONS", ()):
+        with mock.patch.object(fab, "TIMESTAMP_SUBSTITUTIONS", ()):
             with self.assertRaises(fab.TimestampNormalizationError) as caught:
                 fab.normalize_fab_timestamps(directory)
         for name in sorted(path.name for path in directory.iterdir()):
@@ -1367,7 +1366,7 @@ class PackagePromotionTests(unittest.TestCase):
 
                 patch_fab_run(stack, out, export)
                 if replacement == "archive-failure":
-                    stack.enter_context(unittest.mock.patch.object(
+                    stack.enter_context(mock.patch.object(
                         fab, "write_upload_zip", side_effect=OSError("injected archive failure")))
                 with self.assertRaisesRegex((SystemExit, OSError),
                                             "phantasm-In1_Cu.g1|unexpected-In1_Cu.g1|injected archive failure|recover previous package"):

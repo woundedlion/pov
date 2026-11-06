@@ -136,6 +136,7 @@ inline void test_sphere_bake_cache() {
   };
   Identity key{1337, 1.0f, 0.0f, 1, 1};
   Pattern::SphereBakeCache<Identity> cache;
+  HS_EXPECT_FALSE(cache.holds(nullptr, {}));
   FastNoiseLite noise;
   noise.SetFrequency(1.0f);
   const auto prepared = Pattern::SphereNoise::prepare({}, {}, noise);

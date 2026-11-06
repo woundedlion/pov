@@ -544,7 +544,7 @@ private:
   template <typename... Args>
   T &construct_in_place(uint32_t idx, Args &&...args) {
     T *slot = &buffer[idx];
-    slot->~T();
+    slot->T::~T();
     return *std::launder(::new (static_cast<void *>(slot))
                              T(std::forward<Args>(args)...));
   }

@@ -197,7 +197,6 @@ public:
   // clang-format on
   // End generated params.
 
-public:
   /** @brief Evaluates the composed pixel pipeline from ITCM.
    * @param view Unit view direction.
    * @param frame Prepared column state.

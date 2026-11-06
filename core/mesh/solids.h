@@ -25,8 +25,6 @@
 
 namespace Solids {
 
-HS_O3_BEGIN
-
 /**
  * @brief Solids-page family tag: COMPLEX exactly on islamic_registry, SIMPLE
  * elsewhere.
@@ -412,8 +410,6 @@ inline constexpr OpStep ICOSAHEDRON_TRUNCATE25_HK60_AMBO_RELAX100_HK60_STEPS[] =
 inline constexpr Recipe ICOSAHEDRON_TRUNCATE25_HK60_AMBO_RELAX100_HK60_RECIPE =
     make_recipe(SEED_ICOSAHEDRON,
                 ICOSAHEDRON_TRUNCATE25_HK60_AMBO_RELAX100_HK60_STEPS);
-
-HS_O3_END
 
 /**
  * @brief Which step ops apply_step accepts.

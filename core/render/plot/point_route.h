@@ -243,12 +243,7 @@ private:
       return c;
     };
     const float dx = b.x - a.x, dy = b.y - a.y;
-#if HS_RUNTIME_DISPLAY_GEOMETRY
     const float PHYSICAL_GAIN = (1.0f + math::PI_F) * math::ROWS_PER_RADIAN<H>;
-#else
-    constexpr float PHYSICAL_GAIN =
-        (1.0f + math::PI_F) * math::ROWS_PER_RADIAN<H>;
-#endif
     const float norm2 = 1.0f - 0.25f * math::dot(end - origin, end - origin);
     const float offset2 = math::dot(offset, offset);
     bool chord_holds = offset2 == 0.0f && small_chord(origin, end);

@@ -23,8 +23,6 @@ struct GridSpaceSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = true;
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
-  /// Preserves canonical rotation order at gamut-mapping boundaries.
-  static constexpr bool FACTORED_COLUMNS = false;
   /**
    * @brief Stage chain: camera rotation, projection, affine warp, square-cell
    *  source, iso-contour transfer, generated palette,
@@ -140,7 +138,6 @@ public:
   // clang-format on
   // End generated params.
 
-public:
   /** @brief Explicit choreography customization bindings.
    * @return Type-only hook list. */
   static consteval auto choreography_hooks() {

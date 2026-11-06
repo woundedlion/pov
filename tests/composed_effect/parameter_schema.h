@@ -153,14 +153,6 @@ struct ParameterLayoutHash {
       this->member(root, member.y, "y");
       this->member(root, member.z, "z");
 
-    } else if constexpr (std::is_same_v<Member, math::MobiusParams>) {
-      this->member(root, member.a, "a");
-      this->member(root, member.b, "b");
-      this->member(root, member.c, "c");
-      this->member(root, member.d, "d");
-    } else if constexpr (std::is_same_v<Member, math::Complex>) {
-      this->member(root, member.re, "re");
-      this->member(root, member.im, "im");
     } else {
       static_assert(std::is_same_v<Member, void>, "unhashed parameter type");
     }

@@ -26,8 +26,7 @@ class RevisionProjectTests(unittest.TestCase):
             if not numbers:
                 continue
             properties = {prop[1]: prop[2] for prop in F(footprint, "property")}
-            reference = properties.get("Reference") or next(
-                text[2] for text in F(footprint, "fp_text") if text[1] == "reference")
+            reference = properties["Reference"]
             pads[reference] = numbers
         self.assertEqual(len(pins), 28)
         self.assertNotIn("J4", pins)

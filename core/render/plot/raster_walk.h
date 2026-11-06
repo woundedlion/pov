@@ -156,6 +156,7 @@ public:
         return out;
       arc_cache.bind(scratch_arena_a, count);
       seam_cache.bind(scratch_arena_a, count);
+      float total_arc = 0.0f;
       for (size_t i = 0; i < count; i++) {
         const math::Vector &a = points[i].pos;
         const math::Vector &b = segment_next(i).pos;
@@ -208,7 +209,6 @@ public:
 private:
   ArenaVector<float> arc_cache;
   ArenaVector<uint8_t> seam_cache;
-  float total_arc = 0.0f;
   float cumul = 0.0f;
   const math::Basis *planar_basis = nullptr;
 };

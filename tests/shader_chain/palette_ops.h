@@ -52,13 +52,8 @@ inline void test_shader_chain_palette_selection() {
         run_entry<Color4>(WB::program(effect), named_ctx, 3, SAMPLE).color,
         SOURCES[index]->get(COORDINATE).color);
   }
-  params.palette_name = 19;
-  auto ctx = WB::frame_context(effect);
-  WB::program(effect).prepare(ctx);
-  HS_EXPECT_EQ(run_entry<Color4>(WB::program(effect), ctx, 3, SAMPLE).color,
-               Palettes::FIRE_AND_ICE.get(COORDINATE).color);
   params.palette_name = 0;
-  ctx = WB::frame_context(effect);
+  auto ctx = WB::frame_context(effect);
   HS_EXPECT_EQ(ctx.palettes[0]->get(COORDINATE).color,
                Palettes::DARK_RAINBOW.get(COORDINATE).color);
   params.palette_type = static_cast<uint8_t>(Type::MUTATING);

@@ -49,7 +49,6 @@ protected:
   size_t build_step_count = 0;                /**< Lowered step count. */
   size_t build_step = 0;                      /**< Current leg index. */
   int build_leg_frames[MAX_BUILD_STEPS] = {}; /**< Per-leg frame budget. */
-  int build_total_frames = 0;                 /**< Sum of leg frames. */
   PolyMesh build_seed;                        /**< Leg-k seed (persistent). */
   PolyMesh build_next_seed; /**< Clean endpoint seed_{k+1}: built eagerly at
                                  leg start, or from the leg's own topology at
@@ -281,8 +280,7 @@ protected:
     std::copy(timing.legs.begin(), timing.legs.end(), build_leg_frames);
     build_macro_sweep_frames = timing.sweep;
     build_reconcile_frames = timing.reconcile;
-    build_total_frames = timing.total;
-    return build_total_frames;
+    return timing.total;
   }
 
   /**

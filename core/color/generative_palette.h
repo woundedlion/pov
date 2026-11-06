@@ -1308,21 +1308,20 @@ private:
   }
 
   std::array<ControlKey, PALETTE_MAX_KEYS> keys{};
-  uint8_t key_count = 3;
-  AxisState lightness_axis{0.62f, 0.62f, AxisCurve::CONSTANT};
-  AxisState chroma_axis{PALETTE_DEFAULT_CHROMA, PALETTE_DEFAULT_CHROMA,
-                        AxisCurve::CONSTANT};
-  float closing_hue = 0.0f;
-  float headroom = 0.94f;
-  float hue_torsion = 0.0f;
-  float falloff_start = 0.90f;
-  float input_offset = 0.0f;
-  float input_span = 1.0f;
-  PaletteDomain domain = PaletteDomain::STRAIGHT;
-  SegmentEase easing = SegmentEase::COSINE;
-  ColorPath color_path = ColorPath::OKLCH_ARC;
-  ChromaBasis chroma_basis = ChromaBasis::LOCAL_GAMUT;
-  bool complementary_harmony = false;
+  uint8_t key_count{};
+  AxisState lightness_axis{};
+  AxisState chroma_axis{};
+  float closing_hue{};
+  float headroom{};
+  float hue_torsion{};
+  float falloff_start{};
+  float input_offset{};
+  float input_span{};
+  PaletteDomain domain{};
+  SegmentEase easing{};
+  ColorPath color_path{};
+  ChromaBasis chroma_basis{};
+  bool complementary_harmony{};
 };
 
 static_assert(sizeof(GenerativePalette) <= 160);

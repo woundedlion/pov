@@ -915,7 +915,7 @@ deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
   time.mesh.selection_face_count = mesh.num_faces();
   time.mesh.selection_vertex_count = mesh.vertices.size();
   time.mesh.selected_faces = selected;
-  const float sweep = time.azimuth ? time.sweep_arc : 0.0f;
+  const float sweep = time.sweep_arc;
   const auto pads = FacePadTables::prepare<W, H>(scratch, &time);
   time.mesh.face_pads = pads.full;
   time.mesh.compact_face_pads = pads.compact;
@@ -1495,9 +1495,7 @@ struct Mesh {
     const Spacetime::TimeWindow &window = canvas.time_window();
     const FaceClipPlanes<W, H> clip_planes(cr, bounds_margin +
                                                    SDF::MOVED_AXIS_SLACK);
-    const uint8_t *selected_faces =
-        canvas.column_basis() ? canvas.column_basis()->mesh.selected_faces
-                              : nullptr;
+    const uint8_t *selected_faces = time ? time->mesh.selected_faces : nullptr;
     const uint8_t drawn_face = window.active ? Scan::detail::FacePass::ARM_COPY
                                              : Scan::detail::FacePass::SHARED;
     for (size_t i = 0; i < num_f; ++i) {

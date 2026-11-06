@@ -100,7 +100,6 @@ struct GeometryCounters {
   /** @brief Meridian intersections found. */
   uint32_t column_crossings = 0;
   /** @brief Columns receiving multiple coverage samples. */
-  uint32_t column_span_fills = 0;
   /** @brief Source vertices evaluated at half-frame. */
   uint32_t midpoint_evaluations = 0;
   /** @brief Source vertices evaluated at the frame's start. */

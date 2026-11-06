@@ -66,11 +66,6 @@ public:
     for (int i = 0; i < NUM_SAMPLES; ++i)
       ring_edges.push_back({static_cast<uint16_t>(i),
                             static_cast<uint16_t>((i + 1) % NUM_SAMPLES)});
-    for (int i = 0; i < MAX_RINGS; ++i) {
-      rings[i].active = false;
-    }
-    next_hue = 0.0f;
-    history_ready = false;
 
     build_shift_table();
     init_timeline();
@@ -180,8 +175,7 @@ private:
   float exp_shift[NUM_SAMPLES];
   float gap_accumulator =
       0.0f; /**< Accumulated path travel awaiting the next spawn, in rho units. */
-  float next_hue =
-      0.0f; /**< Per-instance hue cursor, advanced per spawn; reset in init(). */
+  float next_hue = 0.0f; /**< Per-instance hue cursor, advanced per spawn. */
 
 #if HS_ENABLE_TEST_HOOKS
   int spawns = 0; /**< Rings placed into a free slot, cumulative. */
@@ -226,7 +220,6 @@ private:
     timeline.add(
         0, Animation::Rotation<W>(orientation, math::UP, math::PI_F / 4.0f, 160,
                                   math::ease_linear, {.repeat = true}));
-    gap_accumulator = 0.0f;
     timeline.add(
         0, Animation::PeriodicTimer(
                1, [this](Canvas &) { this->check_spawn(); }, {.repeat = true}));

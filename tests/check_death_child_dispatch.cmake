@@ -49,11 +49,8 @@ foreach(lever IN ITEMS HS_ISLAMICSTARS_ONLY HS_MESH_CAPTURE_ONLY)
     ARGS effects)
 endforeach()
 
-foreach(lever IN ITEMS HS_RING_TEMPORAL_SCENARIO HS_SHAPESHIFTER_SURFACE_CENSUS
-                       HS_SURFACE_LOBE_DIAGNOSTICS
-                       HS_SHAPESHIFTER_PRESET_HASHES
-                       HS_SHAPESHIFTER_IMAGES HS_SHAPESHIFTER_SURFACE_ONLY
-                       HS_SURFACE_DARK_FRAMES HS_SURFACE_DARK_DIAGNOSTICS)
+foreach(lever IN ITEMS HS_RING_TEMPORAL_SCENARIO HS_SURFACE_LOBE_DIAGNOSTICS
+                       HS_SURFACE_DARK_DIAGNOSTICS)
   foreach(value IN ITEMS "" "1")
     expect_dispatch(1 "${lever} narrows the run because it is set"
       ENV HS_DEATH_CHILD= "${lever}=${value}" ARGS shapeshifter_oracle)

@@ -817,7 +817,7 @@ private:
           if (k < RD_K - 1)
             asm("" : "+t"(l_a), "+t"(l_b));
         }
-#elif defined(__FAST_MATH__) || (defined(_M_FP_FAST) && _M_FP_FAST)
+#elif defined(__FAST_MATH__)
         l_a = -RD_K * a;
         l_b = -RD_K * b;
         for (int k = 0; k < RD_K; ++k) {

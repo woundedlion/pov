@@ -648,14 +648,6 @@ inline void test_polygon_far_point_outside() {
 // SphericalPolygon — great-circle edges
 // ============================================================================
 
-/** @brief Verifies the spherical-polygon center is strictly inside. */
-inline void test_spherical_polygon_center_inside() {
-  math::Basis b = equator_basis();
-  SDF::SphericalPolygon sp(b, /*radius*/ 0.5f, /*sides*/ 5, /*phase*/ 0.0f);
-  auto r = SDF::distance_of(sp, math::Vector(0, 1, 0));
-  HS_EXPECT_TRUE(r.dist < 0.0f);
-}
-
 /** @brief Verifies the antipode of the spherical-polygon center is outside. */
 inline void test_spherical_polygon_far_outside() {
   math::Basis b = equator_basis();

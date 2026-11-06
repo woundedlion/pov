@@ -89,10 +89,8 @@ static int check_ci_levers(bool effects_invocation) {
     ++missing;
   }
   for (const char *name :
-       {"HS_RING_TEMPORAL_SCENARIO", "HS_SHAPESHIFTER_SURFACE_CENSUS",
-        "HS_SURFACE_LOBE_DIAGNOSTICS", "HS_SHAPESHIFTER_PRESET_HASHES",
-        "HS_SHAPESHIFTER_IMAGES", "HS_SHAPESHIFTER_SURFACE_ONLY",
-        "HS_SURFACE_DARK_FRAMES", "HS_SURFACE_DARK_DIAGNOSTICS"}) {
+       {"HS_RING_TEMPORAL_SCENARIO", "HS_SURFACE_LOBE_DIAGNOSTICS",
+        "HS_SURFACE_DARK_DIAGNOSTICS"}) {
     const char *value = hs_test::env_var(name);
     if (value != nullptr) {
       std::fprintf(

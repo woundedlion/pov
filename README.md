@@ -1000,8 +1000,6 @@ built with `new Function` at module-creation time, and the shipped glue
 generates no code at runtime (asserted by `wasm_smoke.mjs`). `font-src` allows
 `data:` for the woff2 lil-gui inlines in its stylesheet.
 
-A page can add its own local imports by setting `window.daydreamExtraImports` to a `{ specifier: url }` map before the helper script; no page currently does.
-
 ### 7.9 Video Recording (`recorder.js`)
 
 A `VideoRecorder` wraps `MediaRecorder` over an offscreen capture canvas's `captureStream(0)`. A capture is due on a tick that advanced the simulation, and the driver issues at most one `recorder.captureFrame()` — which blits the source canvas into the offscreen canvas and requests a frame from the stream — per repaint, because several `requestFrame()` calls in one task carry a single timestamp and the stream cannot emit them as separate video frames. When a detached instance-color alias sends the repaint round again, the due capture joins a `heldCaptures` backlog that drains one frame per subsequent repaint. Manual requests select when images are offered to the track; encoded timing follows real elapsed time, not the effect's fixed simulation timestep. The segmented path captures only ticks where `captureReady()` reports that a composite landed, so a pool overrun can omit a captured image. Browsers without track `requestFrame()` use a wall-clock capture timer. A deterministic simulated image sequence does not guarantee a fixed-rate encoded timeline or byte-identical recordings; browser scheduling, codec behavior, and encoding metadata can differ.

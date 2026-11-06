@@ -14,12 +14,10 @@
  * @param fraction Fraction of one frame, in [0, 1].
  * @return Column context with resources borrowed from the endpoints. */
 template <typename Frame>
-HS_FLASH_INLINE Frame sample_frame_reference(const Frame &from, const Frame &to,
-                                             float fraction) {
-  if (fraction <= 0.0f) {
-    Frame frame = from;
-    return frame;
-  }
+inline Frame sample_frame_reference(const Frame &from, const Frame &to,
+                                    float fraction) {
+  if (fraction <= 0.0f)
+    return from;
   if (fraction >= 1.0f)
     return to;
   Frame frame = to;
@@ -776,13 +774,11 @@ inline void test_temporal_owned_resources() {
 inline void test_temporal_modulation_admission() {
   using namespace Pullback;
   Modulation::Config config;
-  auto clock = Modulation::init(config);
-  config = {};
   config.enabled = false;
   config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
   config.evaluation = Pattern::Evaluation::DIRECT;
   config.sine.speed = -0.125f;
-  clock = Modulation::init(config);
+  auto clock = Modulation::init(config);
   Modulation::advance(clock, config);
   HS_EXPECT_NEAR(clock.phase.phase_turns, 0.875f, 0.0f);
   config.mechanic.kind = ColorModulation::Mechanic::OPACITY;
@@ -834,12 +830,10 @@ inline void test_temporal_modulation_admission() {
 inline void test_temporal_modulation_bake_generation() {
   using namespace Pullback;
   Modulation::Config config;
-  auto clock = Modulation::init(config);
-  config = {};
   config.enabled = true;
   config.mechanic.amount = 0.4f;
   Modulation::Resources<> cube;
-  clock = Modulation::init(config);
+  auto clock = Modulation::init(config);
   cube.prepare(config, clock);
   HS_EXPECT_EQ(cube.bake_generation, uint32_t{1});
   const auto SCALAR_TABLE = cube.table;

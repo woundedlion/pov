@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest import mock
 
 GEN = Path(__file__).resolve().parent.parent
-REPO_ROOT = GEN.parents[2]
 sys.path.insert(0, str(GEN))
 
 from kicad_env import committed_board_nets  # noqa: E402

@@ -7,16 +7,22 @@
 // OKLab / OKLCH round-trips
 // ============================================================================
 
-/** Allowed absolute error of an OKLab/OKLCH round trip in 8-bit sRGB levels. */
-inline constexpr float ROUNDTRIP_TOL255 = 1.0f;
+/** @brief Checks linear RGB recovery within 1e-5 of an sRGB input.
+ * @param r,g,b Source sRGB channels.
+ * @param r2,g2,b2 Recovered linear channels. */
+inline void expect_linear_roundtrip(uint8_t r, uint8_t g, uint8_t b, float r2,
+                                    float g2, float b2) {
+  HS_EXPECT_NEAR(r2, srgb_to_linear_float(r / 255.0f), 1e-5f);
+  HS_EXPECT_NEAR(g2, srgb_to_linear_float(g / 255.0f), 1e-5f);
+  HS_EXPECT_NEAR(b2, srgb_to_linear_float(b / 255.0f), 1e-5f);
+}
 
 /**
  * @brief Round-trips one sRGB color through OKLab and asserts recovery.
  * @param r Source red channel in [0, 255].
  * @param g Source green channel in [0, 255].
  * @param b Source blue channel in [0, 255].
- * @details Path: sRGB[0-255] -> linear float -> OKLab -> linear float ->
- *          sRGB[0-255].
+ * @details Linear RGB channels recover within 1e-5.
  */
 inline void roundtrip_oklab(uint8_t r, uint8_t g, uint8_t b) {
   float rf = srgb_to_linear_float(r / 255.0f);
@@ -27,22 +33,11 @@ inline void roundtrip_oklab(uint8_t r, uint8_t g, uint8_t b) {
   float r2, g2, b2;
   oklab_to_linear_rgb(lab, r2, g2, b2);
 
-  HS_EXPECT_NEAR(r2, srgb_to_linear_float(r / 255.0f), 1e-5f);
-  HS_EXPECT_NEAR(g2, srgb_to_linear_float(g / 255.0f), 1e-5f);
-  HS_EXPECT_NEAR(b2, srgb_to_linear_float(b / 255.0f), 1e-5f);
-  float rs = linear_to_srgb_float(hs::clamp(r2, 0.0f, 1.0f)) * 255.0f;
-  float gs = linear_to_srgb_float(hs::clamp(g2, 0.0f, 1.0f)) * 255.0f;
-  float bs = linear_to_srgb_float(hs::clamp(b2, 0.0f, 1.0f)) * 255.0f;
-
-  HS_EXPECT_NEAR(rs, static_cast<float>(r), ROUNDTRIP_TOL255);
-  HS_EXPECT_NEAR(gs, static_cast<float>(g), ROUNDTRIP_TOL255);
-  HS_EXPECT_NEAR(bs, static_cast<float>(b), ROUNDTRIP_TOL255);
+  expect_linear_roundtrip(r, g, b, r2, g2, b2);
 }
 
 /**
- * @brief Verifies sRGB -> OKLab -> sRGB recovers a spread of colors.
- * @details Recovers grays, primaries/secondaries, and an arbitrary color to
- *          within ROUNDTRIP_TOL255 of the original 8-bit value.
+ * @brief Verifies an OKLab round trip recovers linear RGB within 1e-5.
  */
 inline void test_oklab_roundtrip() {
   // Grays
@@ -65,25 +60,17 @@ inline void test_oklab_roundtrip() {
  * @param r Source red channel in [0, 255].
  * @param g Source green channel in [0, 255].
  * @param b Source blue channel in [0, 255].
- * @details Path: sRGB[0-255] -> OKLCH -> OKLab -> linear -> sRGB[0-255].
+ * @details Linear RGB channels recover within 1e-5.
  */
 inline void roundtrip_oklch(uint8_t r, uint8_t g, uint8_t b) {
   OKLCH lch = srgb_to_oklch(r, g, b);
   float r2, g2, b2;
   oklab_to_linear_rgb(oklch_to_oklab(lch), r2, g2, b2);
-  HS_EXPECT_NEAR(r2, srgb_to_linear_float(r / 255.0f), 1e-5f);
-  HS_EXPECT_NEAR(g2, srgb_to_linear_float(g / 255.0f), 1e-5f);
-  HS_EXPECT_NEAR(b2, srgb_to_linear_float(b / 255.0f), 1e-5f);
-  float rs = linear_to_srgb_float(hs::clamp(r2, 0.0f, 1.0f)) * 255.0f;
-  float gs = linear_to_srgb_float(hs::clamp(g2, 0.0f, 1.0f)) * 255.0f;
-  float bs = linear_to_srgb_float(hs::clamp(b2, 0.0f, 1.0f)) * 255.0f;
-  HS_EXPECT_NEAR(rs, static_cast<float>(r), ROUNDTRIP_TOL255);
-  HS_EXPECT_NEAR(gs, static_cast<float>(g), ROUNDTRIP_TOL255);
-  HS_EXPECT_NEAR(bs, static_cast<float>(b), ROUNDTRIP_TOL255);
+  expect_linear_roundtrip(r, g, b, r2, g2, b2);
 }
 
 /**
- * @brief Verifies sRGB -> OKLCH -> sRGB recovers grays, primaries, and a sample.
+ * @brief Verifies an OKLCH round trip recovers linear RGB within 1e-5.
  */
 inline void test_oklch_roundtrip() {
   roundtrip_oklch(0, 0, 0);

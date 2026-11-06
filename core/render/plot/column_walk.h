@@ -1070,7 +1070,6 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
       Spacetime::count_geometry<
           &Spacetime::GeometryCounters::column_path_evaluations>();
       bool lit = radians == 0.0f, finished = false;
-      size_t emitted = 0;
       float cut = 1.0f;
       math::Vector turn;
       if (SPLIT) {
@@ -1240,7 +1239,6 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           const auto p = math::vector_to_pixel<W, H>(world);
           if (radians == 0.0f && !local_lattice)
             t = Spacetime::SamplingSurface<W>::time(p.x);
-          ++emitted;
           if (plain)
             Spacetime::count_geometry<
                 &Spacetime::GeometryCounters::column_single_samples>();
@@ -1298,9 +1296,6 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
         continue;
       }
       seen = true;
-      if (emitted > 1)
-        Spacetime::count_geometry<
-            &Spacetime::GeometryCounters::column_span_fills>();
       if (!local_lattice && sample_count > 2 * rasterize_step_budget<W>())
         break;
       if (finished && !turning)

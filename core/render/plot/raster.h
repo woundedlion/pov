@@ -817,7 +817,7 @@ HS_HOT_INLINE inline bool edge_spans_one_dot(const uint8_t *edge_flags,
  * @tparam Cfg Compile-time behavior selection; see RasterConfig.
  * @tparam PipelineT Pipeline type.
  * @tparam FragmentShaderT Fragment shader type for direct raster pipelines.
- * @param source_pipeline Render pipeline that plots fragments.
+ * @param pipeline Render pipeline that plots fragments.
  * @param canvas Target canvas (supplies the active clip band).
  * @param points Fragment polyline to rasterize.
  * @param fragment_shader Per-fragment shader applied before plotting; must be
@@ -828,7 +828,7 @@ HS_HOT_INLINE inline bool edge_spans_one_dot(const uint8_t *edge_flags,
 template <int W, int H, RasterConfig Cfg = {}, typename PipelineT = PipelineRef,
           typename FragmentShaderT = FragmentShaderFn>
   requires(!Cfg.timed)
-static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
+static void rasterize(PipelineT &pipeline, Canvas &canvas,
                       const Fragments &points, FragmentShaderT fragment_shader,
                       RasterOptions opts = {}) {
   static_assert(Cfg.single_pass ||
@@ -850,8 +850,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
            "canvas size differs from the plot's W/H");
   // A direct-raster sink writes through a cached framebuffer base; the canvas
   // double-buffers, so a stale base is the buffer the display is scanning out.
-  if constexpr (requires { source_pipeline.prepared_for(canvas); })
-    HS_CHECK(source_pipeline.prepared_for(canvas),
+  if constexpr (requires { pipeline.prepared_for(canvas); })
+    HS_CHECK(pipeline.prepared_for(canvas),
              "direct raster pipeline not prepared for this canvas");
   // Erasure collapses pipeline and shader; the erased call matches neither
   // clause so recursion ends.
@@ -859,14 +859,14 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                 (!std::same_as<std::decay_t<PipelineT>, PipelineRef> ||
                  !std::same_as<std::decay_t<FragmentShaderT>,
                                FragmentShaderFn>)) {
-    PipelineRef erased(source_pipeline);
+    PipelineRef erased(pipeline);
     FragmentShaderFn erased_shader(fragment_shader);
     rasterize<W, H, Cfg>(erased, canvas, points, erased_shader, opts);
     return;
   }
   const bool world_identity = [&] {
-    if constexpr (requires { source_pipeline.world_transform_is_identity; })
-      return source_pipeline.world_transform_is_identity;
+    if constexpr (requires { pipeline.world_transform_is_identity; })
+      return pipeline.world_transform_is_identity;
     else
       return true;
   }();
@@ -883,7 +883,6 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       SAMPLING_POLICY == RasterSamplingPolicy::BALANCED ||
       (SAMPLING_POLICY == RasterSamplingPolicy::SELECTABLE &&
        opts.balanced_sampling);
-  auto &pipeline = source_pipeline;
   const ScreenStepAxes step_axes =
       world_identity ? ScreenStepAxes{} : screen_step_axes(pipeline);
   size_t len = points.size();

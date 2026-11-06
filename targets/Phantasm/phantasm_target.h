@@ -24,10 +24,7 @@
 
 #include <FastLED.h>
 #include <SPI.h>
-#include <new>
 
-#include "core/math/geometry.h"
-#include "core/memory.h"
 #include "hardware/pov_segmented.h"
 #include "hardware/device_effect.h"
 #include "targets/effects.h"

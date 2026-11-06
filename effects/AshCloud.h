@@ -208,7 +208,6 @@ public:
   // clang-format on
   // End generated params.
 
-public:
   /** @brief Evaluates the canonical composed pixel pipeline.
    * @param view Unit view direction.
    * @param frame Prepared column state.

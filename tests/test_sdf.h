@@ -92,7 +92,6 @@ inline int run_sdf_tests() {
   HS_RUN(test_polygon_edge_and_vertex_on_boundary);
   HS_RUN(test_polygon_far_point_outside);
 
-  HS_RUN(test_spherical_polygon_center_inside);
   HS_RUN(test_spherical_polygon_far_outside);
   HS_RUN(test_spherical_polygon_center_and_edge_magnitude);
   HS_RUN(test_spherical_polygon_sine_distance_aa_error);

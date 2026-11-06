@@ -8,6 +8,7 @@
 #pragma once
 
 #include "effects/HyperLattice.h"
+#include "core/render/pullback/contract.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/pixel_test_util.h"
@@ -2162,7 +2163,6 @@ inline void test_regular_patterns() {
   static_assert(static_cast<uint8_t>(Effect::Pattern::CUBIC_WIRE) == 0);
   static_assert(static_cast<uint8_t>(Effect::Pattern::OCTET) == 1);
   static_assert(static_cast<uint8_t>(Effect::Pattern::SHELLS) == 6);
-  static_assert(Effect::PARAMETER_SCHEMA_VERSION == 16);
   reset_globals();
   Effect effect;
   effect.init();
