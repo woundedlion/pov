@@ -185,7 +185,9 @@ hs_fw_cache_store() {
     printf 'elf_sha256 %s\n' "$(sha256sum "$tmp/firmware.elf" | cut -d' ' -f1)"
   } >"$tmp/meta"
   entry=$root/$HS_FW_KEY
-  [ -z "$replace" ] || rm -rf "$entry"
+  if [ -n "$replace" ] || ! hs_fw_cache_check_entry "$entry" "$HS_FW_KEY"; then
+    rm -rf "$entry"
+  fi
   if ! mv -T "$tmp" "$entry" 2>/dev/null; then
     rm -rf "$tmp"
     hs_fw_cache_check_entry "$entry" "$HS_FW_KEY" || return 2

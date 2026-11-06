@@ -190,6 +190,10 @@ class CacheStore(FirmwareCacheFixture):
         self.assertEqual(self.fw("hs_fw_cache_lookup profile").returncode, 0)
         (Path(stored.stdout.strip()) / "firmware.elf").write_text("tampered\n", encoding="utf-8")
         self.assertEqual(self.fw("hs_fw_cache_lookup profile").returncode, 1)
+        repaired = self.build_and_store()
+        self.assertEqual(repaired.returncode, 0, repaired.stdout + repaired.stderr)
+        self.assertEqual(Path(repaired.stdout.strip()), Path(stored.stdout.strip()))
+        self.assertEqual(self.fw("hs_fw_cache_lookup profile").returncode, 0)
 
     def test_a_tree_change_during_the_build_is_not_stored(self):
         result = self.fw(
