@@ -852,7 +852,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   // double-buffers, so a stale base is the buffer the display is scanning out.
   if constexpr (requires { pipeline.prepared_for(canvas); })
     HS_CHECK(pipeline.prepared_for(canvas),
-             "direct raster pipeline not prepared for this canvas");
+             "plot raster pipeline not prepared for this canvas");
   // Erasure collapses pipeline and shader; the erased call matches neither
   // clause so recursion ends.
   if constexpr (!pipeline_direct_raster_path<PipelineT>() &&
