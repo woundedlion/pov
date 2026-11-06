@@ -148,7 +148,8 @@ exports run locally through `../gen/fab.py` when the package is regenerated.
   §11.1 geometry — see the lands note below. KiCad's `lib_footprint_mismatch` warning count also detects
   that edit — the widened pads keep the stock footprint id. The same file pins
   J1's footprint on both artifacts, which the assembly gate cannot see because
-  `EXCLUDE_FP_SUBSTR` excludes every hand-soldered connector spelling.
+  `EXCLUDE_FP_SUBSTR` excludes the board's hand-soldered terminal blocks and
+  pin headers.
 - **Count-floor ratchets:** `../gen/fab.py` rejects a board carrying fewer than
   99 vias or fewer than 2 copper pours — floors pinned to what the committed
   routed board holds (both counts are in the facts block below; the pours are
@@ -282,7 +283,7 @@ every step below is performed by whoever builds the card.
 ## Hand-build BOM (the through-hole half)
 
 `../gen/fab.py` emits `phantasm-BOM.csv` for the **assembled SMD** parts only:
-`constraints.EXCLUDE_FP_SUBSTR` / `EXCLUDE_VAL_SUBSTR` drop every hand-soldered part, and
+`constraints.EXCLUDE_FP_SUBSTR` / `EXCLUDE_VAL_SUBSTR` drop the board's hand-soldered parts, and
 `fab.PART_BY_LCSC` carries manufacturer + MPN for the assembled half alone. Nothing
 below reaches either. **The part numbers are not sourced** — the last column records
 what the netlist, the footprint and spec §9 constrain, not a catalogue match; fill it

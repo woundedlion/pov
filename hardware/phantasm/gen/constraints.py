@@ -62,7 +62,7 @@ UNPLACED_DEFAULT_CLASS = {
 
 # Assembly policy: JLC reflows only top-side SMD. Exclude hand-soldered
 # through-hole (connectors, electrolytic, Teensy) and solder jumpers.
-EXCLUDE_FP_SUBSTR = ("TerminalBlock", "PinHeader", "JST_", "Molex_KK-254", "SolderJumper", "CP_Radial")
+EXCLUDE_FP_SUBSTR = ("TerminalBlock", "PinHeader", "SolderJumper", "CP_Radial")
 EXCLUDE_VAL_SUBSTR = ("Teensy",)
 
 
