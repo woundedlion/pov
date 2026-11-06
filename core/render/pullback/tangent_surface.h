@@ -112,6 +112,16 @@ inline constexpr auto &POTENTIAL_KIND_IDS = AUTHORED_FIELD_KIND_IDS;
 inline constexpr const char *HARMONIC_ORDER_IDS[] = {
     "zero", "one", "two", "three", "four", "five", "six", "seven", "eight"};
 
+static_assert(std::size(POTENTIAL_TERM_IDS) ==
+              static_cast<size_t>(math::tangent_field::TermType::DODECAHEDRAL) +
+                  1);
+static_assert(std::size(POTENTIAL_KIND_IDS) ==
+              static_cast<size_t>(math::tangent_field::Kind::POLOIDAL) + 1);
+/// Schema fields per scalar-potential term.
+inline constexpr size_t POTENTIAL_TERM_FIELDS = 6;
+/// Maximum absolute authored term amplitude.
+inline constexpr float POTENTIAL_AMPLITUDE_LIMIT = 4.0f;
+
 /** @brief One authored scalar-potential term. */
 struct PotentialTermParams {
   uint8_t type = 0;       ///< Scalar potential topology.
@@ -149,8 +159,10 @@ struct PotentialParams {
       "integrator", &PotentialParams::integrator, AUTHORED_INTEGRATOR_IDS, 0}};
   /// Nested term fields and their mode-only activation gates.
   static constexpr auto EXTRA_SCHEMA = [] {
-    std::array<ParamFieldInfo, 24> fields{};
-    constexpr const char *IDS[4][6] = {
+    std::array<ParamFieldInfo,
+               std::tuple_size_v<decltype(terms)> * POTENTIAL_TERM_FIELDS>
+        fields{};
+    constexpr const char *IDS[][POTENTIAL_TERM_FIELDS] = {
         {"term-1-type", "term-1-kind", "term-1-l", "term-1-m",
          "term-1-amplitude", "term-1-phase"},
         {"term-2-type", "term-2-kind", "term-2-l", "term-2-m",
@@ -159,28 +171,50 @@ struct PotentialParams {
          "term-3-amplitude", "term-3-phase"},
         {"term-4-type", "term-4-kind", "term-4-l", "term-4-m",
          "term-4-amplitude", "term-4-phase"}};
-    for (size_t i = 0; i < 4; ++i) {
-      fields[6 * i] = {IDS[i][0], "Term Type",        0,       0,
-                       0,         FieldCurve::SNAP,   true,    4,
-                       0,         POTENTIAL_TERM_IDS, nullptr, 0};
-      fields[6 * i + 1] = {IDS[i][1],        "Kind", 0, 0, 0,
-                           FieldCurve::SNAP, true,   2, 0, POTENTIAL_KIND_IDS,
-                           nullptr,          0};
-      fields[6 * i + 2] = {
-          IDS[i][2], "Degree",           0,         0,
-          0,         FieldCurve::SNAP,   true,      9,
-          1,         HARMONIC_ORDER_IDS, IDS[i][0], live_values(0)};
-      fields[6 * i + 3] = {
-          IDS[i][3],        "Order",       0, 0, 0,
-          FieldCurve::SNAP, true,          9, 0, HARMONIC_ORDER_IDS,
-          IDS[i][0],        live_values(0)};
-      fields[6 * i + 4] = {IDS[i][4], "Amplitude",      -4,      4,
-                           0,         FieldCurve::SNAP, false,   0,
-                           0,         nullptr,          nullptr, 0};
-      fields[6 * i + 5] = {IDS[i][5],  "Phase",   -math::PI_F,
-                           math::PI_F, 0,         FieldCurve::SHORTEST_PERIODIC,
-                           false,      0,         0,
-                           nullptr,    IDS[i][0], live_values(0)};
+    static_assert(std::size(IDS) == std::tuple_size_v<decltype(terms)>);
+    for (size_t i = 0; i < std::size(IDS); ++i) {
+      fields[POTENTIAL_TERM_FIELDS * i] = {
+          IDS[i][0], "Term Type",        0,       0,
+          0,         FieldCurve::SNAP,   true,    std::size(POTENTIAL_TERM_IDS),
+          0,         POTENTIAL_TERM_IDS, nullptr, 0};
+      fields[POTENTIAL_TERM_FIELDS * i + 1] = {
+          IDS[i][1], "Kind",
+          0,         0,
+          0,         FieldCurve::SNAP,
+          true,      std::size(POTENTIAL_KIND_IDS),
+          0,         POTENTIAL_KIND_IDS,
+          nullptr,   0};
+      fields[POTENTIAL_TERM_FIELDS * i + 2] = {
+          IDS[i][2], "Degree",
+          0,         0,
+          0,         FieldCurve::SNAP,
+          true,      std::size(HARMONIC_ORDER_IDS),
+          1,         HARMONIC_ORDER_IDS,
+          IDS[i][0], live_values(0)};
+      fields[POTENTIAL_TERM_FIELDS * i + 3] = {
+          IDS[i][3], "Order",
+          0,         0,
+          0,         FieldCurve::SNAP,
+          true,      std::size(HARMONIC_ORDER_IDS),
+          0,         HARMONIC_ORDER_IDS,
+          IDS[i][0], live_values(0)};
+      fields[POTENTIAL_TERM_FIELDS * i + 4] = {IDS[i][4],
+                                               "Amplitude",
+                                               -POTENTIAL_AMPLITUDE_LIMIT,
+                                               POTENTIAL_AMPLITUDE_LIMIT,
+                                               0,
+                                               FieldCurve::SNAP,
+                                               false,
+                                               0,
+                                               0,
+                                               nullptr,
+                                               nullptr,
+                                               0};
+      fields[POTENTIAL_TERM_FIELDS * i + 5] = {
+          IDS[i][5],  "Phase",   -math::PI_F,
+          math::PI_F, 0,         FieldCurve::SHORTEST_PERIODIC,
+          false,      0,         0,
+          nullptr,    IDS[i][0], live_values(0)};
     }
     return fields;
   }();
@@ -190,8 +224,8 @@ struct PotentialParams {
    * @return Parameter storage. */
   HS_COLD_MEMBER void *extra_address(size_t index) {
     auto &params = *this;
-    auto &term = params.terms[index / 6];
-    switch (index % 6) {
+    auto &term = params.terms[index / POTENTIAL_TERM_FIELDS];
+    switch (index % POTENTIAL_TERM_FIELDS) {
     case 0:
       return &term.type;
     case 1:
@@ -216,7 +250,7 @@ struct PotentialParams {
                            const PotentialParams &to, float fraction) {
     if (out.orientation_azimuth > math::PI_F)
       out.orientation_azimuth -= math::TWO_PI_F;
-    for (size_t i = 0; i < 4; ++i) {
+    for (size_t i = 0; i < out.terms.size(); ++i) {
       out.terms[i] = fraction < 1.0f ? from.terms[i] : to.terms[i];
       if (from.terms[i].type == to.terms[i].type &&
           from.terms[i].l == to.terms[i].l &&
@@ -291,10 +325,13 @@ struct SymmetricParams {
  * @return Whether all terms are admitted. */
 HS_COLD_MEMBER inline bool valid_terms(const PotentialParams &params) {
   for (const auto &term : params.terms)
-    if (term.type >= 4 || term.kind >= 2 || term.l > 8 || term.m > 8 ||
+    if (term.type >= std::size(POTENTIAL_TERM_IDS) ||
+        term.kind >= std::size(POTENTIAL_KIND_IDS) ||
+        term.l >= std::size(HARMONIC_ORDER_IDS) ||
+        term.m >= std::size(HARMONIC_ORDER_IDS) ||
         (term.type == 0 && term.m > term.l) || !std::isfinite(term.amplitude) ||
-        fabsf(term.amplitude) > 4 || !std::isfinite(term.phase) ||
-        fabsf(term.phase) > math::PI_F)
+        fabsf(term.amplitude) > POTENTIAL_AMPLITUDE_LIMIT ||
+        !std::isfinite(term.phase) || fabsf(term.phase) > math::PI_F)
       return false;
   return true;
 }
@@ -369,6 +406,7 @@ symmetric_field(uint8_t symmetry, uint8_t kind, float phase) {
     orders[static_cast<size_t>(Symmetry::OCTAGONAL_PRISM)] = 8;
     return orders;
   }();
+  static_assert(ORDERS.size() == std::size(AUTHORED_SYMMETRY_IDS));
   std::array<PotentialTerm, 4> terms{};
   const auto TYPE =
       symmetry >= static_cast<uint8_t>(Symmetry::TETRAHEDRAL) &&
