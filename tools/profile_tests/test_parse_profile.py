@@ -22,6 +22,13 @@ import parse_profile as pp   # noqa: E402
 W = pp.DISPLAY_WINDOW_US     # 62_500 us = one display window at 480 RPM
 
 
+def parse_log(text):
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "capture.log"
+        path.write_text(text, encoding="utf-8")
+        return pp.parse_capture(path)
+
+
 def _window(renders=(), wall_sum=None, frames=None):
     """A Window carrying per-frame renders (us), or only a wall sum.
 
@@ -86,10 +93,7 @@ class PresetAttribution(unittest.TestCase):
                          for frame in range(start, start + 4))
             lines.append(f"=== profile Fx [288x144] frames {start}-{start + 3} "
                          "window=250000 us ===")
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "capture.log"
-            path.write_text("\n".join(lines), encoding="utf-8")
-            windows, _ = pp.parse_capture(path)[:2]
+        windows, _ = parse_log("\n".join(lines))
         self.assertTrue(all(row[3] is not None for row in windows[1].frame_rows))
         self.assertEqual([row[3] for row in windows[2].frame_rows], [None] * 4)
 
@@ -152,10 +156,7 @@ class ShortFrameRows(unittest.TestCase):
     def _parse(self, drop=None):
         text = "\n".join(line for line in self.LOG.splitlines()
                          if line != drop) + "\n"
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "capture.log"
-            path.write_text(text, encoding="utf-8")
-            return pp.parse_capture(path)[:2]
+        return parse_log(text)
 
     def test_complete_rows_count_the_spill(self):
         self.assertEqual(pp.spilled_frames(self._parse()[0][0]), 1)
@@ -251,7 +252,7 @@ class RenderIsWall(unittest.TestCase):
                 self.assertEqual(output.getvalue().splitlines()[1].split()[-1], expected)
 
 
-def _synth_log(path, shapes, per_window=4):
+def _synth_log(shapes, per_window=4):
     """A capture where each shape advances mid-window.
 
     `shapes` is [(name, F, [render_us, ...])]. As on the device, each marker
@@ -276,17 +277,14 @@ def _synth_log(path, shapes, per_window=4):
                 lines.append(f"frame                  1 us (100%)  "
                              f"{per_window} calls  1 cyc")
                 rows = []
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    return path
+    return "\n".join(lines) + "\n"
 
 
 class StraddleWindowAttribution(unittest.TestCase):
     """A window spanning a shape advance attributes each frame to its own shape."""
 
     def _buckets(self, shapes):
-        with tempfile.TemporaryDirectory() as d:
-            p = _synth_log(Path(d) / "cap.log", shapes)
-            windows, _ = pp.parse_capture(p)[:2]
+        windows, _ = parse_log(_synth_log(shapes))
         out = {}
         for w in windows:
             for f in w.frame_rows:
@@ -323,11 +321,8 @@ class StraddleWindowAttribution(unittest.TestCase):
     def test_clean_hold_skips_a_window_two_shapes_share(self):
         # 6 frames each over windows of 4: the window at frames 5-8 holds two
         # frames of "cheap" and two of "expensive" at an equal draw-call count.
-        with tempfile.TemporaryDirectory() as d:
-            p = _synth_log(Path(d) / "cap.log",
-                           [("cheap", 182, [10_000] * 6),
-                            ("expensive", 1082, [90_000] * 6)])
-            windows, _ = pp.parse_capture(p)[:2]
+        windows, _ = parse_log(_synth_log(
+            [("cheap", 182, [10_000] * 6), ("expensive", 1082, [90_000] * 6)]))
         rows = {row[0]: row for row in pp.clean_hold_rows(windows, "frame", None)}
         self.assertEqual(rows["cheap"][1], 2)
         self.assertEqual(rows["cheap"][2], 1)
@@ -339,7 +334,7 @@ class ScanMetricsLines(unittest.TestCase):
     SCAN = ("scan totals: tested=800 culled=200 lut=300 convex=200 "
             "sector=80 walk=20 cand=64 backstop=0")
 
-    def _log(self, path, scan_line=SCAN, shade_calls=32):
+    def _log(self, scan_line=SCAN, shade_calls=32):
         lines = [
             "=== profile Fx [288x144] frames 1-4 window=1000000 us ===",
             "frame wall us: min=0 avg=0 max=0 sum=0 (4 frames)",
@@ -349,12 +344,10 @@ class ScanMetricsLines(unittest.TestCase):
         ]
         if scan_line:
             lines.append(scan_line)
-        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        return path
+        return "\n".join(lines) + "\n"
 
     def _parse(self, **kw):
-        with tempfile.TemporaryDirectory() as d:
-            windows, _ = pp.parse_capture(self._log(Path(d) / "cap.log", **kw))[:2]
+        windows, _ = parse_log(self._log(**kw))
         return windows
 
     def test_totals_are_parsed(self):
@@ -427,7 +420,7 @@ class ProbeBreakdownLines(unittest.TestCase):
     CNT = ("probe counts: probe=100 cull_r=6 lut=0 convex=20 "
            "sector=30 exact=40 alpha=50")
 
-    def _log(self, path, cyc=CYC, cnt=CNT):
+    def _log(self, cyc=CYC, cnt=CNT):
         lines = [
             "=== profile Fx [288x144] frames 1-4 window=1000000 us ===",
             "frame wall us: min=0 avg=0 max=0 sum=0 (4 frames)",
@@ -435,12 +428,10 @@ class ProbeBreakdownLines(unittest.TestCase):
             "frame                  1 us (100%)  4 calls  1 cyc",
         ]
         lines += [x for x in (cyc, cnt) if x]
-        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        return path
+        return "\n".join(lines) + "\n"
 
     def _parse(self, **kw):
-        with tempfile.TemporaryDirectory() as d:
-            windows, _ = pp.parse_capture(self._log(Path(d) / "cap.log", **kw))[:2]
+        windows, _ = parse_log(self._log(**kw))
         return windows
 
     def test_both_lines_merge_into_one_dict(self):
@@ -503,7 +494,7 @@ class PlotCountLines(unittest.TestCase):
     PLOT = ("plot counts: r=8,e=40,p=16,g=12,d=2,o=6,t=40,c=4,"
             "s=200,y=160,u=240,a=80,n=320,h=120,x=120,k=11,b=1")
 
-    def _log(self, path, plot_line=PLOT):
+    def _log(self, plot_line=PLOT):
         lines = [
             "=== profile Fx [288x144] frames 1-4 window=1000000 us ===",
             "frame wall us: min=0 avg=0 max=0 sum=0 (4 frames)",
@@ -512,12 +503,10 @@ class PlotCountLines(unittest.TestCase):
         ]
         if plot_line:
             lines.append(plot_line)
-        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        return path
+        return "\n".join(lines) + "\n"
 
     def _parse(self, **kw):
-        with tempfile.TemporaryDirectory() as d:
-            windows, _ = pp.parse_capture(self._log(Path(d) / "cap.log", **kw))[:2]
+        windows, _ = parse_log(self._log(**kw))
         return windows
 
     def test_counts_are_parsed(self):
@@ -568,10 +557,7 @@ class MindSplatterInstrumentationLines(unittest.TestCase):
     ]) + "\n"
 
     def _parse(self):
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "capture.log"
-            path.write_text(self.LOG, encoding="utf-8")
-            return pp.parse_capture(path)[:2][0]
+        return parse_log(self.LOG)[0]
 
     def test_count_sections_merge_and_do_not_become_cycle_counters(self):
         window = self._parse()[0]
@@ -653,10 +639,7 @@ class ValidateRequiresData(unittest.TestCase):
         ])
 
     def _validate(self, text, scope="frame"):
-        with tempfile.TemporaryDirectory() as d:
-            log = Path(d) / "prof.log"
-            log.write_text(text, encoding="utf-8")
-            windows, effect = pp.parse_capture(str(log))[:2]
+        windows, effect = parse_log(text)
         with contextlib.redirect_stdout(io.StringIO()) as out:
             ok = pp.cmd_validate(windows, effect, scope)
         return ok, out.getvalue()
@@ -757,10 +740,7 @@ class ValidateCaptureIdentity(unittest.TestCase):
             self.WINDOW.format(name=name, w=w, h=h,
                                start=1 + 10 * i, end=10 + 10 * i)
             for i, (name, w, h) in enumerate(headers)) + "\n"
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "capture.log"
-            path.write_text(text, encoding="utf-8")
-            windows, effect = pp.parse_capture(path)[:2]
+        windows, effect = parse_log(text)
         with contextlib.redirect_stdout(io.StringIO()) as out:
             ok = pp.cmd_validate(windows, effect, "frame")
         return ok, out.getvalue()
@@ -827,7 +807,7 @@ class TruncatedTrailingWindow(unittest.TestCase):
     It must not be read as a window.
     """
 
-    def _log(self, path, windows=3, truncated=False):
+    def _log(self, windows=3, truncated=False):
         lines = []
         n = 0
         for _ in range(windows):
@@ -848,14 +828,11 @@ class TruncatedTrailingWindow(unittest.TestCase):
             lines.append(f"=== profile Fx [288x144] frames {n - 3}-{n} "
                          f"window=250000 us ===")
             lines.append("frame wall us: min=55000 avg=550")  # cut mid-line
-        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        return path
+        return "\n".join(lines) + "\n"
 
     def _parse(self, **kw):
-        with tempfile.TemporaryDirectory() as d:
-            path = self._log(Path(d) / "cap.log", **kw)
-            with contextlib.redirect_stderr(io.StringIO()) as err:
-                windows, _ = pp.parse_capture(path)[:2]
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            windows, _ = parse_log(self._log(**kw))
         return windows, err.getvalue()
 
     def _windows_view(self, **kw):
@@ -883,14 +860,10 @@ class TruncatedTrailingWindow(unittest.TestCase):
     def test_a_capture_that_never_dumps_counters_keeps_its_last_window(self):
         # Only a window that differs from its peers is a cut dump; a build
         # whose windows all carry no counter tree is not truncated.
-        with tempfile.TemporaryDirectory() as d:
-            path = Path(d) / "cap.log"
-            path.write_text("\n".join(
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            parsed, _ = parse_log("\n".join(
                 f"=== profile Fx [288x144] frames {i * 4 + 1}-{i * 4 + 4} "
-                f"window=250000 us ===" for i in range(3)) + "\n",
-                encoding="utf-8")
-            with contextlib.redirect_stderr(io.StringIO()) as err:
-                parsed, _ = pp.parse_capture(path)[:2]
+                f"window=250000 us ===" for i in range(3)) + "\n")
         self.assertEqual(len(parsed), 3)
         self.assertEqual(err.getvalue(), "")
 
@@ -905,10 +878,7 @@ class HeaderFrameRange(unittest.TestCase):
             "frame wall us: min=100 avg=100 max=100 sum=1000 (10 frames)",
             "frame                 1000 us (100%)  10 calls  600000 cyc",
         ]) + "\n"
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "capture.log"
-            path.write_text(text, encoding="utf-8")
-            return pp.parse_capture(path)[:2]
+        return parse_log(text)
 
     def test_a_forward_range_parses(self):
         self.assertEqual(self._parse(1, 10)[0][0].frames, 10)
@@ -961,10 +931,7 @@ class BucketOrdering(unittest.TestCase):
                      f"{frames} calls  1 cyc")
         lines.append(f"  fx_buffer_wait {5_000 * frames} us (10%)  "
                      f"{frames} calls  1 cyc")
-        with tempfile.TemporaryDirectory() as d:
-            path = Path(d) / "cap.log"
-            path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-            windows, _ = pp.parse_capture(path)[:2]
+        windows, _ = parse_log("\n".join(lines) + "\n")
         with contextlib.redirect_stderr(io.StringIO()) as err:
             with contextlib.redirect_stdout(io.StringIO()) as out:
                 status = pp.cmd_buckets(windows, scope, None)
@@ -1011,10 +978,7 @@ class TaggedCounterRows(unittest.TestCase):
     ]) + "\n"
 
     def _parse(self, text=None):
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "capture.log"
-            path.write_text(text or self.LOG, encoding="utf-8")
-            return pp.parse_capture(path)[:2]
+        return parse_log(text or self.LOG)
 
     def _validate(self, scope, text=None):
         windows, effect = self._parse(text)
