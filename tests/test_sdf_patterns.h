@@ -565,7 +565,7 @@ inline void test_octet4_nearest_edge_matches_line_search() {
   for (int sample = 0; sample < 10000; ++sample) {
     math::Vec4 point;
     for (int axis = 0; axis < 4; ++axis) {
-      point[axis] = rand_uniform(random, -10, 10);
+      point[axis] = rand_uniform(random, -10.0f, 10.0f);
     }
     VERIFY.template operator()<false>(point);
   }
@@ -644,13 +644,13 @@ inline void test_octet4_owned_struts_match_ray_line_oracle() {
       math::Vec4 direction;
       float length2 = 0.0f;
       for (int k = 0; k < 4; ++k) {
-        direction[k] = rand_uniform(random, -1, 1);
+        direction[k] = rand_uniform(random, -1.0f, 1.0f);
         length2 += direction[k] * direction[k];
       }
       math::Vec4 origin;
       for (int k = 0; k < 4; ++k) {
         direction[k] /= sqrtf(length2);
-        const float offset = rand_uniform(random, -1, 1);
+        const float offset = rand_uniform(random, -1.0f, 1.0f);
         origin[k] = geometry.origin[k] + 3.0f * cell_size * offset;
       }
       const float NEAR = static_cast<float>(ray % 3) * 0.37f * cell_size;

@@ -302,8 +302,8 @@ inline void test_face_asymmetric_sector_matches_oracle() {
 
 /** @brief Face randomized sector matches oracle. */
 inline void test_face_randomized_sector_matches_oracle() {
-  uint32_t state = 0x4a39b70du;
-  auto random = [&]() { return lcg_uniform(state, 0.0f, 1.0f); };
+  hs::Pcg32 state(0x4a39b70du);
+  auto random = [&]() { return rand_uniform(state, 0.0f, 1.0f); };
   OracleStats stats;
   size_t admitted = 0;
   for (int count = 10; count <= SDF::FaceScratchBuffer::MAX_VERTS; ++count) {
@@ -370,8 +370,8 @@ inline void test_face_randomized_sector_matches_oracle() {
 
 /** @brief Face randomized backtracking matches oracle. */
 inline void test_face_randomized_backtracking_matches_oracle() {
-  uint32_t state = 0x39be4207u;
-  auto random = [&]() { return lcg_uniform(state, 0.0f, 1.0f); };
+  hs::Pcg32 state(0x39be4207u);
+  auto random = [&]() { return rand_uniform(state, 0.0f, 1.0f); };
   OracleStats stats;
   for (int count = 10; count <= SDF::FaceScratchBuffer::MAX_VERTS; ++count)
     for (int variant = 0; variant < 8; ++variant) {

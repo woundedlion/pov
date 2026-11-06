@@ -506,16 +506,16 @@ inline void test_point_particle_step_start_recovers_previous_position() {
       ps;
   ps.init(arena, 0.99965f, 0.001f, 800.0f);
   add_signed_axis_attractors(ps, 0.1f, 0.008f, 0.0f);
-  uint32_t state = 3u;
+  hs::Pcg32 state(3u);
   for (int i = 0; i < COUNT; ++i) {
-    const float px = lcg_uniform(state, -1.0f, 1.0f);
-    const float py = lcg_uniform(state, -1.0f, 1.0f);
-    const float pz = lcg_uniform(state, -1.0f, 1.0f);
+    const float px = rand_uniform(state, -1.0f, 1.0f);
+    const float py = rand_uniform(state, -1.0f, 1.0f);
+    const float pz = rand_uniform(state, -1.0f, 1.0f);
     const math::Vector p = math::Vector(px, py, pz).normalized();
-    const float vx = lcg_uniform(state, -1.0f, 1.0f);
-    const float vy = lcg_uniform(state, -1.0f, 1.0f);
-    const float vz = lcg_uniform(state, -1.0f, 1.0f);
-    const float speed = lcg_uniform(state, 0.005f, 0.05f);
+    const float vx = rand_uniform(state, -1.0f, 1.0f);
+    const float vy = rand_uniform(state, -1.0f, 1.0f);
+    const float vz = rand_uniform(state, -1.0f, 1.0f);
+    const float speed = rand_uniform(state, 0.005f, 0.05f);
     const math::Vector v = math::Vector(vx, vy, vz) * speed;
     ps.spawn(p, v, uint16_t(i));
   }

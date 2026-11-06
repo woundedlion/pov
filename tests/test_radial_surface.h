@@ -442,8 +442,8 @@ inline void test_radial_surface_footprint_witness() {
               {1e-7f, 0}, {0, 1e-7f});
       }
   }
-  uint32_t random = 0x42da5819;
-  auto coordinate = [&] { return lcg_uniform(random, -1.0f, 1.0f); };
+  hs::Pcg32 random(0x42da5819);
+  auto coordinate = [&] { return rand_uniform(random, -1.0f, 1.0f); };
   for (int i = 0; i < 20000; ++i) {
     const Surface::Point P{coordinate(), coordinate()};
     const Surface::Point DX{.05f * coordinate(), .05f * coordinate()};

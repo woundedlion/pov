@@ -228,11 +228,11 @@ inline void test_point_route_matches_column_oracle() {
         mass += pixel.r / 65535.0f;
     return mass;
   };
-  uint32_t state = 17u;
+  hs::Pcg32 state(17u);
   for (int i = 0; i < 400; ++i) {
-    const float x = lcg_uniform(state, 0.0f, float(W));
-    const float y = lcg_uniform(state, 16.0f, 128.0f);
-    const float heading = lcg_uniform(state, 0.0f, math::TWO_PI_F);
+    const float x = rand_uniform(state, 0.0f, float(W));
+    const float y = rand_uniform(state, 16.0f, 128.0f);
+    const float heading = rand_uniform(state, 0.0f, math::TWO_PI_F);
     for (float spin : {0.0f, 0.02f}) {
       for (float angle : {0.0134f, 0.04f})
         check(point_route_path(x, y, heading, angle, spin, tilted), interior);
@@ -252,10 +252,10 @@ inline void test_point_route_matches_column_oracle() {
         check(path, cut);
       }
   for (int i = 0; i < 400; ++i) {
-    const float x = lcg_uniform(state, 0.0f, float(W));
-    const float row = lcg_uniform(state, 0.5f, 8.0f);
+    const float x = rand_uniform(state, 0.0f, float(W));
+    const float row = rand_uniform(state, 0.5f, 8.0f);
     const float y = (i & 1) ? row : 143.0f - row;
-    const float heading = lcg_uniform(state, 0.0f, math::TWO_PI_F);
+    const float heading = rand_uniform(state, 0.0f, math::TWO_PI_F);
     for (float angle : {0.0134f, 0.04f}) {
       const auto path = point_route_path(x, y, heading, angle, 0.01f, tilted);
       const float mass = check(path, polar, true);
@@ -298,14 +298,14 @@ inline void test_point_route_matches_column_oracle() {
 inline void test_point_route_gate_keeps_visible_taps() {
   constexpr int W = 288, H = 144;
   const math::Vector tilted = math::Vector(0.3f, 1.0f, -0.2f).normalized();
-  uint32_t state = 5u;
+  hs::Pcg32 state(5u);
   std::vector<PointRoutePath> paths;
   for (int i = 0; i < 3000; ++i) {
-    const float x = lcg_uniform(state, 0.0f, float(W));
-    const float y = lcg_uniform(state, 0.0f, float(H - 1));
-    const float theta = lcg_uniform(state, 0.0f, math::TWO_PI_F);
-    const float extent = lcg_uniform(state, 0.0f, 0.06f);
-    const float bend = lcg_uniform(state, 0.0f, 0.03f);
+    const float x = rand_uniform(state, 0.0f, float(W));
+    const float y = rand_uniform(state, 0.0f, float(H - 1));
+    const float theta = rand_uniform(state, 0.0f, math::TWO_PI_F);
+    const float extent = rand_uniform(state, 0.0f, 0.06f);
+    const float bend = rand_uniform(state, 0.0f, 0.03f);
     paths.push_back(point_route_path(x, y, theta, extent, bend, tilted));
   }
   // Every path into one frame through the route, or through a plain
@@ -380,12 +380,12 @@ inline void test_point_route_shades_at_pass_time() {
   Filter::Screen::DirectAntiAliasSink<W, H> sink;
   sink.prepare(canvas);
   Plot::PointRoute<W, H> route;
-  uint32_t state = 11u;
+  hs::Pcg32 state(11u);
   int passes = 0;
   for (int i = 0; i < 500; ++i) {
-    const float x = lcg_uniform(state, 0.0f, float(W));
-    const float y = lcg_uniform(state, 24.0f, 120.0f);
-    const float theta = lcg_uniform(state, 0.0f, math::TWO_PI_F);
+    const float x = rand_uniform(state, 0.0f, float(W));
+    const float y = rand_uniform(state, 24.0f, 120.0f);
+    const float theta = rand_uniform(state, 0.0f, math::TWO_PI_F);
     const PointRoutePath path =
         point_route_path(x, y, theta, 0.02f, 0.01f, tilted);
     const math::Vector end = path.at(1.0f);

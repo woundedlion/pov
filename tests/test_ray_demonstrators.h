@@ -590,18 +590,18 @@ inline Raycast::PreparedCamera shell_camera(const ShellMarchCase &settings,
                                             Raycast::SamplingDomain domain) {
   Raycast::PreparedCamera camera;
   camera.domain = domain;
-  const float x = rand_uniform(random, -2, 2);
-  const float y = rand_uniform(random, -2, 2);
-  const float z = rand_uniform(random, -2, 2);
+  const float x = rand_uniform(random, -2.0f, 2.0f);
+  const float y = rand_uniform(random, -2.0f, 2.0f);
+  const float z = rand_uniform(random, -2.0f, 2.0f);
   camera.center = {{x, y, z, 0}};
   const int dimensions = domain == Raycast::SamplingDomain::SLICE_4D ? 4 : 3;
   if (dimensions == 4)
-    camera.center[3] = rand_uniform(random, -2, 2);
+    camera.center[3] = rand_uniform(random, -2.0f, 2.0f);
   camera.radial_start = settings.radial_start;
   camera.interval = {0, settings.far};
   for (int a = 0; a < dimensions; ++a)
     for (int b = a + 1; b < dimensions; ++b) {
-      const float angle = rand_uniform(random, 0, 6.3f);
+      const float angle = rand_uniform(random, 0.0f, 6.3f);
       math::rotate_plane(camera.embedding, a, b, angle);
     }
   return camera;
@@ -639,9 +639,9 @@ inline void compare_shell_march(const ShellMarchCase (&cases)[Count],
       const Raycast::TraceLimits limits;
       SDF::ShellLayerStorage layers;
       for (int ray = 0; ray < 200; ++ray) {
-        const float x = rand_uniform(random, -1, 1);
-        const float y = rand_uniform(random, -1, 1);
-        const float z = rand_uniform(random, -1, 1);
+        const float x = rand_uniform(random, -1.0f, 1.0f);
+        const float y = rand_uniform(random, -1.0f, 1.0f);
+        const float z = rand_uniform(random, -1.0f, 1.0f);
         const math::Vector direction = math::Vector{x, y, z}.normalized();
         const auto cells = SDF::detail::reference::shade_periodic_shells(
             prepared, camera, direction, limits, appearance);
@@ -1007,9 +1007,9 @@ inline void test_wide_shell_march_matches_neighborhood() {
         limits.max_steps = 256;
         SDF::ShellLayerStorage layers;
         for (int ray = 0; ray < 40; ++ray) {
-          const float x = rand_uniform(random, -1, 1);
-          const float y = rand_uniform(random, -1, 1);
-          const float z = rand_uniform(random, -1, 1);
+          const float x = rand_uniform(random, -1.0f, 1.0f);
+          const float y = rand_uniform(random, -1.0f, 1.0f);
+          const float z = rand_uniform(random, -1.0f, 1.0f);
           const math::Vector direction = math::Vector{x, y, z}.normalized();
           const auto found = shell_neighborhood(
               camera, direction, settings.cell, settings.radius, FOOTPRINT);

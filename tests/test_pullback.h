@@ -1186,7 +1186,7 @@ inline void test_pullback_square_cells_formula() {
                              -params.cell_softness, params.cell_softness,
                              hs::lerp(CIRCLE, SQUARE, params.cell_shape));
   };
-  uint32_t random = 0x12345678u;
+  hs::Pcg32 random(0x12345678u);
   for (float scale : {1.0f / 64.0f, 0.98971874f, 1.0f, 8.0f})
     for (float radius : {1.0f / 64.0f, 0.25f, 0.37757313f, 0.49f})
       for (float softness : {1.0f / 1024.0f, 0.1f, 0.34563965f, 1.0f})
@@ -1197,8 +1197,8 @@ inline void test_pullback_square_cells_formula() {
           params.cell_softness = softness;
           params.cell_shape = blend;
           for (int sample = 0; sample < 256; ++sample) {
-            const float X = lcg_uniform(random, -1024.0f, 1024.0f);
-            const float Y = lcg_uniform(random, -1024.0f, 1024.0f);
+            const float X = rand_uniform(random, -1024.0f, 1024.0f);
+            const float Y = rand_uniform(random, -1024.0f, 1024.0f);
             const Pattern::PlanePosition COORDINATE{
                 math::Complex(sample < 8 ? float(sample - 4) * 0.5f : X,
                               sample < 8 ? 0.0f : Y)};
@@ -1326,8 +1326,8 @@ struct TessellationReference {
 inline void test_pullback_tessellation_reference() {
   using K = Pattern::TessellationKind;
   using F = Pattern::TessellationFill;
-  uint32_t random = 0x9e3779b9u;
-  const auto next = [&] { return lcg_uniform(random, -3.0f, 3.0f); };
+  hs::Pcg32 random(0x9e3779b9u);
+  const auto next = [&] { return rand_uniform(random, -3.0f, 3.0f); };
   for (const K kind : {K::TRIANGULAR, K::SQUARE, K::HEXAGONAL})
     for (const F fill : {F::CELLS, F::EDGES})
       for (const float shape : {0.0f, 0.35f, 1.0f}) {
@@ -1428,10 +1428,10 @@ void check_tessellation_translation_lattice() {
   HS_EXPECT_NEAR(lattice.b.re, square ? 0.0f : 0.5f * period, 1e-7f);
   HS_EXPECT_NEAR(lattice.b.im, square ? period : 0.8660254038f * period, 1e-7f);
   bool half_differs = false;
-  uint32_t random = 0x2545f491u;
+  hs::Pcg32 random(0x2545f491u);
   for (int sample = 0; sample < 300; ++sample) {
-    const float x = lcg_uniform(random, -2.0f, 2.0f);
-    const float y = lcg_uniform(random, -2.0f, 2.0f);
+    const float x = rand_uniform(random, -2.0f, 2.0f);
+    const float y = rand_uniform(random, -2.0f, 2.0f);
     const math::Complex point(x, y);
     const float base = fixed_tessellation(params, point);
     for (const math::Complex shift :

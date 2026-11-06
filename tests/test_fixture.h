@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <concepts>
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
@@ -249,31 +250,19 @@ inline void reset_globals() {
 }
 
 /**
- * @brief Draws one uniform float in [lo, hi] from a locally seeded generator.
+ * @brief Draws one uniform value in [lo, hi] from a locally seeded generator.
+ * @tparam T Floating-point result and arithmetic type.
  * @param rng Generator private to the test, so the draw stream is reproducible
  * without disturbing the process-wide hs::random().
  * @param lo Lower bound (inclusive).
  * @param hi Upper bound (inclusive through rounding).
- * @return A float in [lo, hi], bit-identical on every platform.
+ * @return A value in [lo, hi].
  * @details Draw one component at a time: argument evaluation order is
  * unspecified, so a multi-argument call reorders the stream per compiler.
  */
-inline float rand_uniform(hs::Pcg32 &rng, float lo, float hi) {
-  return lo + hs::random_to_unit(rng()) * (hi - lo);
-}
-
-/**
- * @brief Draws a uniform value from a locally seeded linear congruential stream.
- * @tparam T Floating-point result and arithmetic type.
- * @param state Generator state, advanced by one draw.
- * @param lo Lower bound.
- * @param hi Upper bound.
- * @return A value in [lo, hi], inclusive through rounding.
- * @details Draw one component at a time; argument evaluation order is unspecified.
- */
-template <typename T> inline T lcg_uniform(uint32_t &state, T lo, T hi) {
-  state = state * 1664525u + 1013904223u;
-  return lo + (hi - lo) * T(state >> 8) * (T(1) / T(16777216));
+template <std::floating_point T>
+inline T rand_uniform(hs::Pcg32 &rng, T lo, T hi) {
+  return lo + static_cast<T>(hs::random_to_unit(rng())) * (hi - lo);
 }
 
 /**

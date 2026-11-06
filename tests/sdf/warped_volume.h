@@ -205,8 +205,10 @@ inline void test_warped_volume_distance_is_sphere_trace_safe() {
           const double theta = rand_uniform(rng, 0.0f, 2.0f * math::PI_F);
           const double phi = rand_uniform(rng, 0.0f, 2.0f * math::PI_F);
           const double radius = c.r * rand_uniform(rng, 1.01f, 1.8f);
-          const double radial = kind == 0 ? c.R + radius * std::cos(phi)
-                                          : rand_uniform(rng, 0.0f, 0.6f * c.R);
+          const double radial =
+              kind == 0
+                  ? c.R + radius * std::cos(phi)
+                  : rand_uniform(rng, 0.0f, static_cast<float>(0.6f * c.R));
           const double y =
               kind == 0 ? radius * std::sin(phi) + c.A * std::sin(c.n * theta)
                         : rand_uniform(rng, -(c.A + c.r), c.A + c.r);
