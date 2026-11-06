@@ -647,7 +647,7 @@ inline void test_shader_chain_slot_and_hash_contract() {
   HS_EXPECT_EQ(static_cast<int>(In::carrier_id_of<PB::ColorSample>()),
                static_cast<int>(In::CarrierId::COLOR));
   constexpr uint32_t HASH = In::instance_hash("camera", "sphere.rotate.v2");
-  static_assert(HASH == In::instance_hash("camera", "sphere.rotate.v2"));
+  static_assert(HASH == 0x220a459au);
   HS_EXPECT_NE(HASH, In::instance_hash("camera2", "sphere.rotate.v2"));
   HS_EXPECT_NE(HASH, In::instance_hash("camera", "project.stereographic.v2"));
   // The separator keeps ("ab", "c") and ("a", "bc") distinct.
