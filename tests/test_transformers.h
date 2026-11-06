@@ -31,22 +31,6 @@ static_assert(!std::is_convertible_v<Timeline &, RippleTransformer<8>>);
 static_assert(std::is_constructible_v<BallDropTransformer<8>, Timeline &>);
 static_assert(!std::is_convertible_v<Timeline &, BallDropTransformer<8>>);
 
-/**
- * @brief Tests whether two vectors are bit-for-bit identical.
- * @param a,b Vectors to compare.
- * @return True when every component shares the exact IEEE-754 bit pattern.
- * @details Compares raw bits, so a NaN component matches itself.
- */
-inline bool vec_bits_equal(const math::Vector &a, const math::Vector &b) {
-  auto bits = [](float f) {
-    uint32_t u;
-    std::memcpy(&u, &f, sizeof u);
-    return u;
-  };
-  return bits(a.x) == bits(b.x) && bits(a.y) == bits(b.y) &&
-         bits(a.z) == bits(b.z);
-}
-
 // ============================================================================
 // OrientTransformer
 // ============================================================================
@@ -527,7 +511,7 @@ inline void test_ripple_kernel_endpoint_order() {
       const auto ACTUAL = sequential_groups(
           INPUT, groups.data(), count, [&] { ++visited_groups; },
           [&] { ++visited_waves; });
-      HS_EXPECT_TRUE(vec_bits_equal(ACTUAL, expected));
+      HS_EXPECT_TRUE(vec_identical(ACTUAL, expected));
     }
   HS_EXPECT_EQ(visited_groups, size_t{19 * 23 * 3});
   HS_EXPECT_GT(visited_waves, size_t{0});
@@ -660,7 +644,7 @@ inline void test_ripple_threshold_collapses_past_pi() {
   for (int i = 1; i < 64; ++i) {
     const float d = math::PI_F * static_cast<float>(i) / 64.0f;
     const math::Vector v(std::sin(d), std::cos(d), 0.0f);
-    HS_EXPECT_TRUE(vec_bits_equal(ripple_transform(v, p), v));
+    HS_EXPECT_TRUE(vec_identical(ripple_transform(v, p), v));
   }
 }
 
@@ -680,20 +664,20 @@ inline void test_transforms_nonfinite_passes_through_identity() {
   for (const math::Vector &v : bad) {
     Animation::RippleParams rp;
     rp.amplitude = 0.0f;
-    HS_EXPECT_TRUE(vec_bits_equal(ripple_transform(v, rp), v));
+    HS_EXPECT_TRUE(vec_identical(ripple_transform(v, rp), v));
     Animation::RippleParams active;
     active.center = math::Vector(0.0f, 1.0f, 0.0f);
     active.amplitude = 0.5f;
     active.phase = math::PI_F * 0.5f;
     active.thickness = 1.0f;
     active.decay = 0.0f;
-    HS_EXPECT_TRUE(vec_bits_equal(ripple_transform(v, active), v));
+    HS_EXPECT_TRUE(vec_identical(ripple_transform(v, active), v));
     Animation::NoiseParams np;
     np.amplitude = 0.0f;
-    HS_EXPECT_TRUE(vec_bits_equal(noise_transform(v, np), v));
+    HS_EXPECT_TRUE(vec_identical(noise_transform(v, np), v));
     Timeline tl;
     RippleTransformer<4> rt(tl);
-    HS_EXPECT_TRUE(vec_bits_equal(rt.transform(v), v));
+    HS_EXPECT_TRUE(vec_identical(rt.transform(v), v));
   }
 }
 
@@ -903,7 +887,7 @@ inline void test_transformer_live_edit_preserves_instance_phase_and_seed() {
   HS_EXPECT_EQ(refreshed.thickness, 0.3f);
   HS_EXPECT_EQ(refreshed.amplitude, before.amplitude);
   HS_EXPECT_EQ(refreshed.phase, before.phase);
-  HS_EXPECT_TRUE(vec_bits_equal(refreshed.center, before.center));
+  HS_EXPECT_TRUE(vec_identical(refreshed.center, before.center));
   auto expected_ripple = before;
   expected_ripple.decay = 2.0f;
   expected_ripple.thickness = 0.3f;

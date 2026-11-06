@@ -2,18 +2,30 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Geodesic arc-distance oracle, tolerant-equality predicates, and assertions for Vector,
+ * Geodesic arc-distance oracle, equality predicates, and assertions for Vector,
  * Quaternion and Complex.
  */
 #pragma once
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 #include "core/math/3dmath.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
+
+/** @brief Compares floating-point representations exactly. */
+inline bool float_identical(float a, float b) {
+  return std::memcmp(&a, &b, sizeof(float)) == 0;
+}
+
+/** @brief Compares vector components by their floating-point representations. */
+inline bool vec_identical(const math::Vector &a, const math::Vector &b) {
+  return float_identical(a.x, b.x) && float_identical(a.y, b.y) &&
+         float_identical(a.z, b.z);
+}
 
 /** @brief Whether every vector component is finite.
  * @param v Vector to inspect.

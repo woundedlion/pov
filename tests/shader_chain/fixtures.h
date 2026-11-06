@@ -181,11 +181,6 @@ inline bool color4_identical(const Color4 &a, const Color4 &b) {
          std::memcmp(&a.alpha, &b.alpha, sizeof(float)) == 0;
 }
 
-/** @brief Compares floating-point representations exactly. */
-inline bool float_identical(float a, float b) {
-  return std::memcmp(&a, &b, sizeof(float)) == 0;
-}
-
 // Member-wise: struct padding bytes are not compared.
 /** @brief Compares sphere carriers exactly. */
 inline bool sphere_identical(const PB::SphereSample &a,
