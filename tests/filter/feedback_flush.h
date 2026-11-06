@@ -7,6 +7,27 @@
 // Feedback rendering and spherical-field interpolation
 // ============================================================================
 
+/** @brief Flushes one feedback frame and advances its display buffer. */
+inline void flush_once(hs_test::StubEffect &fx, auto &pipe) {
+  {
+    Canvas canvas(fx);
+    (void)pipe.begin_frame(canvas, 1.0f);
+  }
+  fx.advance_display();
+}
+
+/** @brief Seeds and publishes a red intensity ramp across canvas rows. */
+template <int W, int H>
+inline void seed_row_ramp(hs_test::StubEffect &fx, float scale) {
+  {
+    Canvas canvas(fx);
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        canvas(x, y) = Pixel(static_cast<uint16_t>(y * scale), 0, 0);
+  }
+  fx.advance_display();
+}
+
 /**
  * @brief Verifies the Pixel::Feedback::flush warp-field path.
  * @details A Smoke style with no bound NoiseParams makes noise_warp an identity
@@ -30,11 +51,7 @@ inline void test_feedback_flush_blends_prev_frame() {
   fx.advance_display();
 
   // Frame 2: empty buffer; flush warps+blends the prev band into it.
-  {
-    Canvas c(fx);
-    (void)pipe.begin_frame(c, 1.0f);
-  }
-  fx.advance_display();
+  flush_once(fx, pipe);
 
   const Pixel &band = fx.get_pixel(W / 2, 8);
   HS_EXPECT_FALSE(is_black(band));
@@ -43,11 +60,7 @@ inline void test_feedback_flush_blends_prev_frame() {
 
   // Disabled feedback short-circuits flush: a fresh frame stays black.
   pipe.get<Filter::Pixel::Feedback<W, H>>().set_enabled(false);
-  {
-    Canvas c(fx);
-    (void)pipe.begin_frame(c, 1.0f);
-  }
-  fx.advance_display();
+  flush_once(fx, pipe);
   HS_EXPECT_TRUE(is_black(fx.get_pixel(W / 2, 8)));
 }
 
@@ -70,68 +83,36 @@ inline void expect_pole_row_collapsed(hs_test::StubEffect &fx, int w, int y,
   }
 }
 
-/**
- * @brief Verifies the aliased north-pole row retains a lone physical sample.
- */
-inline void test_feedback_north_pole_uses_single_physical_sample() {
+/** @brief Checks a pole row retains a lone sample and leaves its neighbor dark. */
+inline void check_feedback_pole_sample(int row) {
   constexpr int W = 32, H = 16;
   constexpr Pixel POLE(12000, 30000, 50000);
   hs_test::StubEffect fx(W, H);
-
   ::Feedback::Style style{};
-  style.noise = nullptr; // unbound noise_warp is the identity
+  style.noise = nullptr;
   style.fade = 1.0f;
   style.downsample = 4;
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
-
   {
-    Canvas c(fx);
-    c(W / 3, 0) = POLE;
+    Canvas canvas(fx);
+    canvas(W / 3, row) = POLE;
   }
   fx.advance_display();
-  {
-    Canvas c(fx);
-    (void)pipe.begin_frame(c, 1.0f);
-  }
-  fx.advance_display();
-
-  expect_pole_row_collapsed(fx, W, 0, POLE);
+  flush_once(fx, pipe);
+  expect_pole_row_collapsed(fx, W, row, POLE);
   for (int x = 0; x < W; ++x)
-    HS_EXPECT_TRUE(is_black(fx.get_pixel(x, 1)));
+    HS_EXPECT_TRUE(is_black(fx.get_pixel(x, row == 0 ? 1 : H - 2)));
 }
 
-/**
- * @brief Verifies the aliased south-pole row retains a lone physical sample.
- * @details Row H-1 collapses to the south pole in the ideal display profile
- *          with H_OFFSET == 0.
- */
+/** @brief Verifies the aliased north pole retains a lone physical sample. */
+inline void test_feedback_north_pole_uses_single_physical_sample() {
+  check_feedback_pole_sample(0);
+}
+
+/** @brief Verifies the aliased south pole retains a lone physical sample. */
 inline void test_feedback_south_pole_uses_single_physical_sample() {
-  constexpr int W = 32, H = 16;
-  constexpr Pixel POLE(12000, 30000, 50000);
-  hs_test::StubEffect fx(W, H);
-
-  ::Feedback::Style style{};
-  style.noise = nullptr; // unbound noise_warp is the identity
-  style.fade = 1.0f;
-  style.downsample = 4;
-  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
-      Filter::Pixel::Feedback<W, H>(style)};
-
-  {
-    Canvas c(fx);
-    c(W / 3, H - 1) = POLE;
-  }
-  fx.advance_display();
-  {
-    Canvas c(fx);
-    (void)pipe.begin_frame(c, 1.0f);
-  }
-  fx.advance_display();
-
-  expect_pole_row_collapsed(fx, W, H - 1, POLE);
-  for (int x = 0; x < W; ++x)
-    HS_EXPECT_TRUE(is_black(fx.get_pixel(x, H - 2)));
+  check_feedback_pole_sample(15);
 }
 
 /**
@@ -167,11 +148,7 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
     }
   }
   fx.advance_display();
-  {
-    Canvas c(fx);
-    (void)pipe.begin_frame(c, 1.0f);
-  }
-  fx.advance_display();
+  flush_once(fx, pipe);
 
   auto expect_reconstructed = [&](int y) {
     uint16_t polar_min = 65535;
@@ -208,11 +185,7 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
       c(x, 4) = Pixel((x & 1) ? 60000 : 0, 0, 0);
   }
   fx.advance_display();
-  {
-    Canvas c(fx);
-    (void)pipe.begin_frame(c, 1.0f);
-  }
-  fx.advance_display();
+  flush_once(fx, pipe);
   expect_stripe(4);
 }
 
@@ -243,11 +216,7 @@ inline void test_feedback_flush_respects_clip() {
   fx.set_clip(8, 12, 0, W);
 
   // Frame 2: empty buffer; clipped flush warps+blends only within the band.
-  {
-    Canvas c(fx);
-    (void)pipe.begin_frame(c, 1.0f);
-  }
-  fx.advance_display();
+  flush_once(fx, pipe);
 
   // Inside the band: carried over and faded.
   HS_EXPECT_FALSE(is_black(fx.get_pixel(W / 2, 9)));
@@ -296,11 +265,7 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
   fx.advance_display();
 
   // Frame 2: empty buffer; the melt flush warps + blends the band into it.
-  {
-    Canvas c(fx);
-    (void)pipe.begin_frame(c, 1.0f);
-  }
-  fx.advance_display();
+  flush_once(fx, pipe);
 
   // Oracle: the output row that samples source row R. by(y) = warped source row
   // for output row y, computed with the production helpers (x-independent, so use
@@ -347,21 +312,22 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
   HS_EXPECT_LT(row_sum(R), peak / 4);
 }
 
+inline math::Vector cap_rotation(const math::Vector &v, float angle) {
+  const float c = std::cos(angle);
+  const float s = std::sin(angle);
+  return math::Vector(c * v.x - s * v.y, s * v.x + c * v.y, v.z);
+}
+
 inline math::Vector north_cap_rotation_warp(const math::Vector &v,
                                             const ::Feedback::Style &) {
-  constexpr float ANGLE = 0.1f;
-  const float c = std::cos(ANGLE);
-  const float s = std::sin(ANGLE);
-  return math::Vector(c * v.x - s * v.y, s * v.x + c * v.y, v.z);
+  return cap_rotation(v, 0.1f);
 }
 
 inline float animated_cap_rotation_angle = 0.0f;
 
 inline math::Vector animated_cap_rotation_warp(const math::Vector &v,
                                                const ::Feedback::Style &) {
-  const float c = std::cos(animated_cap_rotation_angle);
-  const float s = std::sin(animated_cap_rotation_angle);
-  return math::Vector(c * v.x - s * v.y, s * v.x + c * v.y, v.z);
+  return cap_rotation(v, animated_cap_rotation_angle);
 }
 
 struct FloatRowAccumulator {
@@ -417,19 +383,9 @@ inline void test_feedback_north_cap_uses_exact_control_rows() {
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
 
-  {
-    Canvas c(fx);
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        c(x, y) = Pixel(static_cast<uint16_t>(y * ROW_SCALE), 0, 0);
-  }
-  fx.advance_display();
+  seed_row_ramp<W, H>(fx, ROW_SCALE);
 
-  {
-    Canvas c(fx);
-    (void)pipe.begin_frame(c, 1.0f);
-  }
-  fx.advance_display();
+  flush_once(fx, pipe);
 
   float first_offset = 0.0f;
   bool offsets_vary = false;
@@ -471,19 +427,9 @@ inline void test_feedback_animated_cap_controls_match_compositor_lattice() {
 
   for (float angle : {0.15f, 0.35f, -0.25f}) {
     animated_cap_rotation_angle = angle;
-    {
-      Canvas c(fx);
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x)
-          c(x, y) = Pixel(static_cast<uint16_t>(y * ROW_SCALE), 0, 0);
-    }
-    fx.advance_display();
+    seed_row_ramp<W, H>(fx, ROW_SCALE);
 
-    {
-      Canvas c(fx);
-      (void)pipe.begin_frame(c, 1.0f);
-    }
-    fx.advance_display();
+    flush_once(fx, pipe);
 
     for (int y = 1; y < DOWNSAMPLE; ++y) {
       const auto expected =
@@ -516,11 +462,7 @@ inline void test_feedback_poles_resolve_one_source_longitude() {
         c(x, y) = Pixel(static_cast<uint16_t>(x * 900 + 1000), 0, 0);
   }
   fx.advance_display();
-  {
-    Canvas c(fx);
-    (void)pipe.begin_frame(c, 1.0f);
-  }
-  fx.advance_display();
+  flush_once(fx, pipe);
 
   for (int y : {0, H - 1}) {
     const uint16_t expected = fx.get_pixel(0, y).r;
@@ -557,11 +499,7 @@ inline void test_feedback_half_res_warp_uses_pair_midpoint() {
                           static_cast<uint16_t>(y * 1500), 0);
     }
     fx.advance_display();
-    {
-      Canvas c(fx);
-      (void)pipe.begin_frame(c, 1.0f);
-    }
-    fx.advance_display();
+    flush_once(fx, pipe);
     if (!half_res) {
       for (int x = 0; x < W; ++x)
         full[x] = fx.get_pixel(x, 8);
@@ -608,19 +546,9 @@ inline void test_feedback_spherical_ring_control_rows() {
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
 
-  {
-    Canvas c(fx);
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        c(x, y) = Pixel(static_cast<uint16_t>(y * ROW_SCALE), 0, 0);
-  }
-  fx.advance_display();
+  seed_row_ramp<W, H>(fx, ROW_SCALE);
 
-  {
-    Canvas c(fx);
-    (void)pipe.begin_frame(c, 1.0f);
-  }
-  fx.advance_display();
+  flush_once(fx, pipe);
 
   constexpr hs::SphericalFieldLayout<W, H> layout(DOWNSAMPLE, DOWNSAMPLE,
                                                   DOWNSAMPLE, W / DOWNSAMPLE);
@@ -865,21 +793,11 @@ inline void test_feedback_seam_warp_keeps_its_latitude_row() {
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
 
-  {
-    Canvas c(fx);
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        c(x, y) = Pixel(static_cast<uint16_t>(y * ROW_SCALE), 0, 0);
-  }
-  fx.advance_display();
+  seed_row_ramp<W, H>(fx, ROW_SCALE);
 
   fx.set_margin(0);
   fx.set_clip(0, H, 0, W);
-  {
-    Canvas c(fx);
-    (void)pipe.begin_frame(c, 1.0f);
-  }
-  fx.advance_display();
+  flush_once(fx, pipe);
 
   // Polar rows interpolate cap-plane offsets rather than column offsets, and
   // this warp's alternating half-turns put their targets across the pole.
@@ -921,15 +839,6 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
   pipe.get<Filter::Pixel::Feedback<W, H>>().init_storage(persistent_arena);
-  auto seed_rows = [&]() {
-    {
-      Canvas c(fx);
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x)
-          c(x, y) = Pixel(static_cast<uint16_t>(y * ROW_SCALE), 0, 0);
-    }
-    fx.advance_display();
-  };
   // The reference is the exact target row; the lattice interpolates it.
   // Column 0 sits on a polar sample; other columns interpolate between the
   // ring's sparser samples.
@@ -944,22 +853,14 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
   };
 
   fx.set_margin(0);
-  seed_rows();
+  seed_row_ramp<W, H>(fx, ROW_SCALE);
   fx.set_clip(0, 2, 0, W);
-  {
-    Canvas c(fx);
-    (void)pipe.begin_frame(c, 1.0f);
-  }
-  fx.advance_display();
+  flush_once(fx, pipe);
   expect_rows(0, 2);
 
-  seed_rows();
+  seed_row_ramp<W, H>(fx, ROW_SCALE);
   fx.set_clip(2, 4, 0, W);
-  {
-    Canvas c(fx);
-    (void)pipe.begin_frame(c, 1.0f);
-  }
-  fx.advance_display();
+  flush_once(fx, pipe);
   expect_rows(2, 4);
 }
 
@@ -1002,11 +903,7 @@ inline void test_feedback_polar_rows_hit_their_targets() {
       }
   }
   fx.advance_display();
-  {
-    Canvas c(fx);
-    (void)pipe.begin_frame(c, 1.0f);
-  }
-  fx.advance_display();
+  flush_once(fx, pipe);
 
   float worst = 0.0f;
   int compared = 0;
@@ -1148,7 +1045,6 @@ inline math::Vector antipodal_ripple_warp(const math::Vector &v,
 inline void test_feedback_flush_straddled_taps_stay_on_branch() {
   constexpr int W = 32, H = 16; // both divisible by the downsample (4)
   const ScopedTemporalSampling one_frame(false);
-  constexpr float TWO_PI = 2.0f * math::PI_F;
   hs_test::StubEffect fx(W, H);
 
   ::Feedback::Style style{};
@@ -1165,7 +1061,7 @@ inline void test_feedback_flush_straddled_taps_stay_on_branch() {
     Canvas c(fx);
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x) {
-        float th = TWO_PI * x / W;
+        float th = math::TWO_PI_F * x / W;
         c(x, y) = Pixel(
             static_cast<uint16_t>((std::cos(th) * 0.5f + 0.5f) * 65535.0f),
             static_cast<uint16_t>((std::sin(th) * 0.5f + 0.5f) * 65535.0f), 0);
@@ -1174,11 +1070,7 @@ inline void test_feedback_flush_straddled_taps_stay_on_branch() {
   fx.advance_display();
 
   // Frame 2: empty buffer; flush pulls the warped prev frame into it.
-  {
-    Canvas c(fx);
-    (void)pipe.begin_frame(c, 1.0f);
-  }
-  fx.advance_display();
+  flush_once(fx, pipe);
 
   // Decode each pixel's sampled longitude and compare with the warp evaluated
   // directly. Interior rows dodge the pole rows' vertical clamp; the 2px
@@ -1190,9 +1082,10 @@ inline void test_feedback_flush_straddled_taps_stay_on_branch() {
       const Pixel &p = fx.get_pixel(x, y);
       float c = p.r / 65535.0f * 2.0f - 1.0f;
       float s = p.g / 65535.0f * 2.0f - 1.0f;
-      float decoded_x = std::atan2(s, c) / TWO_PI * W;
-      float th = TWO_PI * x / W;
-      float expected_x = (th + math::PI_F + 0.3f * std::sin(th)) / TWO_PI * W;
+      float decoded_x = std::atan2(s, c) / math::TWO_PI_F * W;
+      float th = math::TWO_PI_F * x / W;
+      float expected_x =
+          (th + math::PI_F + 0.3f * std::sin(th)) / math::TWO_PI_F * W;
       float d = std::fmod(decoded_x - expected_x, static_cast<float>(W));
       if (d > W * 0.5f)
         d -= W;
