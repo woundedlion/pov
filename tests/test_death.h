@@ -1812,8 +1812,21 @@ inline const Case *all_cases(int &n) {
        "(has_program) ChainProgram::capture_history without a program"},
       {"chain_column_without_history", case_chain_column_without_history,
        "core/render/pullback/interpreter.h",
-       "(history_continuous()) ChainProgram::prepare_column without "
+       "(intervals_prepared || history_continuous()) ChainProgram::prepare_column without "
        "continuous history"},
+      {"chain_column_after_advance", case_chain_column_after_advance,
+       "core/render/pullback/interpreter.h",
+       "(intervals_prepared || history_continuous()) "
+       "ChainProgram::prepare_column without continuous history"},
+      {"chain_column_after_prepare", case_chain_column_after_prepare,
+       "core/render/pullback/interpreter.h",
+       "(intervals_prepared || history_continuous()) "
+       "ChainProgram::prepare_column without continuous history"},
+      {"chain_column_after_clear_history",
+       case_chain_column_after_clear_history,
+       "core/render/pullback/interpreter.h",
+       "(intervals_prepared || history_continuous()) "
+       "ChainProgram::prepare_column without continuous history"},
       {"chain_table_rank_decreases", case_chain_table_rank_decreases,
        "core/render/pullback/interpreter.h",
        "(entry.input <= entry.output) ChainProgram::bind_storage: operator "

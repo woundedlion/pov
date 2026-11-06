@@ -436,6 +436,59 @@ inline void case_chain_column_without_history() {
   program.prepare_column(ctx, ctx, 0.5f);
 }
 
+/** @brief Frame lifecycle changes invalidate cached column continuity. */
+template <int Reset> inline void chain_column_rechecks_history() {
+  static ChainTemporalBlocks blocks;
+  static Pullback::Interp::ChainProgram program;
+  compile_temporal_chain(program, blocks, true);
+  BakedPalette palette;
+  Pullback::Interp::FrameContext ctx{};
+  ctx.palettes.fill(&palette);
+  program.prepare(ctx);
+  program.capture_history();
+  program.prepare_column(ctx, ctx, 0.5f);
+  if constexpr (Reset == 2) {
+    program.clear_history();
+  } else {
+    bool changed = false;
+    const auto ops = program.ops();
+    for (size_t index = 0; index < ops.size() && !changed; ++index) {
+      const auto &op = ops[index];
+      for (uint16_t field = 0; field < op.op->schema_count; ++field) {
+        if (op.op->schema[field].enum_count > 1 &&
+            (op.op->runtime.temporal_hold_field == nullptr ||
+             !op.op->runtime.temporal_hold_field(field))) {
+          auto *value = static_cast<uint8_t *>(
+              op.op->runtime.param_address(program.param_block(index), field));
+          *value = static_cast<uint8_t>((*value + 1) %
+                                        op.op->schema[field].enum_count);
+          changed = true;
+          break;
+        }
+      }
+    }
+    if (!changed)
+      std::exit(0);
+    if constexpr (Reset == 0)
+      program.advance();
+    else
+      program.prepare(ctx);
+  }
+  program.prepare_column(ctx, ctx, 0.75f);
+}
+
+inline void case_chain_column_after_advance() {
+  chain_column_rechecks_history<0>();
+}
+
+inline void case_chain_column_after_prepare() {
+  chain_column_rechecks_history<1>();
+}
+
+inline void case_chain_column_after_clear_history() {
+  chain_column_rechecks_history<2>();
+}
+
 /** @brief Readiness requires a committed chain. */
 inline void case_chain_ready_without_program() {
   Pullback::Interp::ChainProgram program;

@@ -382,7 +382,7 @@ public:
    */
   void prepare_column(const FrameContext &ctx, const FrameContext &previous_ctx,
                       float fraction) {
-    HS_CHECK(history_continuous(),
+    HS_CHECK(intervals_prepared || history_continuous(),
              "ChainProgram::prepare_column without continuous history");
     const Side &side = sides[active];
     for (size_t index = 0; index < side.count; ++index) {
