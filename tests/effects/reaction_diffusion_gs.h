@@ -255,20 +255,17 @@ struct GSWhiteBox {
     {
       ScratchScope guard(scratch_arena_a);
       Canvas canvas(gs);
-      std::vector<uint8_t> hot1(N), hot2(N);
-      gs.fill_hot_flags(gs.state.B, hot1.data(), hot2.data(), N,
-                        GS::to_q16(GS::B_CULL_THRESHOLD));
       if (columns) {
-        std::vector<uint32_t> marked(GS::HOT_WORDS), bits1(GS::HOT_WORDS),
-            bits2(GS::HOT_WORDS);
-        GS::mark_hot_bits(gs.state.B, marked.data(),
-                          GS::to_q16(GS::B_CULL_THRESHOLD));
-        GS::dilate_hot_bits(marked.data(), bits1.data());
-        GS::dilate_hot_bits(bits1.data(), bits2.data());
+        std::vector<uint32_t> bits1(GS::HOT_WORDS), bits2(GS::HOT_WORDS);
+        fill_hot_bits(gs.state.B, GS::to_q16(GS::B_CULL_THRESHOLD),
+                      bits1.data(), bits2.data());
         gs.draw_lattice_columns(canvas, *gs.prepare_lattice_basis(),
                                 GS::hot_bits(bits1.data()),
                                 GS::hot_bits(bits2.data()));
       } else {
+        std::vector<uint8_t> hot1(N), hot2(N);
+        gs.fill_hot_flags(gs.state.B, hot1.data(), hot2.data(), N,
+                          GS::to_q16(GS::B_CULL_THRESHOLD));
         auto lattice = gs.orient_lattice();
         const auto BITS1 = pack_hot_flags(hot1), BITS2 = pack_hot_flags(hot2);
         gs.draw_lattice(canvas, lattice.get(), gs.hot_bits(BITS1.data()),
@@ -528,12 +525,9 @@ struct GSWhiteBox {
     return gs.sample_color_noise(direction);
   }
   static bool noise_bake_matches_reference(GS &gs, float scale, float phase) {
-    std::array<int8_t, Pattern::SphereLutView::SIZE> expected;
-    Pattern::prepare_sphere_lut<Pattern::SphereNoise>(
-        expected, Pattern::SphereNoise::prepare({.scale = scale}, {phase},
-                                                gs.color_noise));
     gs.params.noise_scale = scale;
     gs.color_noise_phase = phase;
+    const auto expected = bake_noise(gs, phase);
     gs.refresh_color_noise();
     return std::equal(expected.begin(), expected.end(), gs.color_noise_lut);
   }
