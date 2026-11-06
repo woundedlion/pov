@@ -45,19 +45,8 @@ inline void test_timed_tiles_match_full_frame() {
   ScopedPoleRunSplit split(false);
   for (size_t i = 1; i < ShapeShifterWhiteBox::PRESET_COUNT; ++i) {
     HS_CONTEXT("preset", static_cast<int>(i + 1));
-    const auto &preset = ShapeShifterWhiteBox::preset_params(i);
-    OracleState state;
-    state.shape = preset.shape;
-    state.function = preset.function;
-    state.alpha_falloff = preset.alpha_falloff;
-    state.spacing = preset.spacing;
-    state.count = static_cast<int>(preset.count);
-    state.sides = static_cast<int>(preset.sides);
-    state.amplitude = preset.amplitude;
-    state.opposite = preset.opposite;
-    state.phase = 0.37f;
-    state.alpha = 0.274f;
-    const float STEP = fminf(preset.speed / preset.amplitude, 0.5f);
+    OracleState state = preset_state(i);
+    const float STEP = preset_phase_step(i);
     const auto FULL = render_timed_contours(state, STEP, true, 1.0f, 0.0f);
     double energy = 0;
     for (float luminance : FULL)

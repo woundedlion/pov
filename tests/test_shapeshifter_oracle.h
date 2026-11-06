@@ -108,6 +108,7 @@ struct ShapeShifterWhiteBox {
   /** @brief Kernel family used by footprint oracles. */
   using Surface = OracleEffect::Surface;
   static constexpr size_t PRESET_COUNT = OracleEffect::PRESETS.size();
+  static constexpr float NYQUIST_PHASE_STEP = OracleEffect::NYQUIST_PHASE_STEP;
   static constexpr size_t SURFACE_SCRATCH_A_BYTES =
       OracleEffect::SURFACE_SCRATCH_A_BYTES;
   static constexpr size_t SURFACE_SCRATCH_B_BYTES =
@@ -350,6 +351,44 @@ struct ShapeShifterWhiteBox {
     return OracleEffect::DEPARTURE.frames;
   }
 };
+
+inline OracleState preset_state(size_t i) {
+  const auto &preset = ShapeShifterWhiteBox::preset_params(i);
+  OracleState state;
+  state.shape = preset.shape;
+  state.function = preset.function;
+  state.alpha_falloff = preset.alpha_falloff;
+  state.spacing = preset.spacing;
+  state.count = static_cast<int>(preset.count);
+  state.sides = static_cast<int>(preset.sides);
+  state.amplitude = preset.amplitude;
+  state.opposite = preset.opposite;
+  state.phase = 0.37f;
+  state.alpha = 0.274f;
+  return state;
+}
+
+inline float preset_phase_step(size_t i) {
+  const auto &preset = ShapeShifterWhiteBox::preset_params(i);
+  return fminf(preset.speed / preset.amplitude,
+               ShapeShifterWhiteBox::NYQUIST_PHASE_STEP);
+}
+
+inline OracleState dense_star_state() {
+  OracleState state;
+  state.preset_index = 1;
+  state.shape = OracleEffect::ShapeType::PLANAR_STAR;
+  state.function = OracleEffect::PhaseFunction::SINE;
+  state.alpha_falloff = OracleEffect::AlphaFalloff::TOWARD_EQUATOR;
+  state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
+  state.count = 288;
+  state.sides = 7;
+  state.phase = 0.249f;
+  state.alpha = 0.274f;
+  state.orientation =
+      math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized();
+  return state;
+}
 
 /** @brief Captures one renderer callable from a fresh deterministic effect.
  * @details Temporal sampling is off: these oracles judge the shapes' still
@@ -762,18 +801,7 @@ inline void test_high_count_uniform_star_stays_within_visual_budget() {
 
 /** @brief Screen-balanced star strokes stay within their visual budget. */
 inline void test_screen_balanced_star_stroke_stays_within_visual_budget() {
-  OracleState state;
-  state.preset_index = 1;
-  state.shape = OracleEffect::ShapeType::PLANAR_STAR;
-  state.function = OracleEffect::PhaseFunction::SINE;
-  state.alpha_falloff = OracleEffect::AlphaFalloff::TOWARD_EQUATOR;
-  state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
-  state.count = 288;
-  state.sides = 7;
-  state.phase = 0.249f;
-  state.alpha = 0.274f;
-  state.orientation =
-      math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized();
+  const OracleState state = dense_star_state();
   expect_candidate_within_visual_budget(
       state, MAX_HIGH_COUNT_STAR_ENERGY_DRIFT, MAX_STAR_HIGH_ERROR_PIXELS,
       MAX_MEAN_ABSOLUTE_ERROR, MAX_ROOT_MEAN_SQUARED_ERROR, MAX_CHANNEL_ERROR);
@@ -781,18 +809,7 @@ inline void test_screen_balanced_star_stroke_stays_within_visual_budget() {
 
 /** @brief Frozen temporal star strokes preserve the still stroke. */
 inline void test_timed_dense_star_stroke_stays_within_visual_budget() {
-  OracleState state;
-  state.preset_index = 1;
-  state.shape = OracleEffect::ShapeType::PLANAR_STAR;
-  state.function = OracleEffect::PhaseFunction::SINE;
-  state.alpha_falloff = OracleEffect::AlphaFalloff::TOWARD_EQUATOR;
-  state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
-  state.count = 288;
-  state.sides = 7;
-  state.phase = 0.249f;
-  state.alpha = 0.274f;
-  state.orientation =
-      math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized();
+  const OracleState state = dense_star_state();
   const auto comparison = compare_renders(
       state, candidate_renderer(), [](OracleEffect &effect, Canvas &canvas) {
         const ScopedTemporalSampling sampling(true);
@@ -1314,19 +1331,8 @@ inline void test_timed_contours_match_frozen_columns() {
 /** @brief Shipping presets match their frozen columns at the authored speed. */
 inline void test_timed_presets_match_frozen_columns() {
   for (size_t i = 1; i < ShapeShifterWhiteBox::PRESET_COUNT; ++i) {
-    const auto &preset = ShapeShifterWhiteBox::preset_params(i);
-    OracleState state;
-    state.shape = preset.shape;
-    state.function = preset.function;
-    state.alpha_falloff = preset.alpha_falloff;
-    state.spacing = preset.spacing;
-    state.count = static_cast<int>(preset.count);
-    state.sides = static_cast<int>(preset.sides);
-    state.amplitude = preset.amplitude;
-    state.opposite = preset.opposite;
-    state.phase = 0.37f;
-    state.alpha = 0.274f;
-    const float step = fminf(preset.speed / preset.amplitude, 0.5f);
+    OracleState state = preset_state(i);
+    const float step = preset_phase_step(i);
     const std::string name = "preset " + std::to_string(i + 1);
     HS_CONTEXT("preset", static_cast<int>(i + 1));
     hs_test::seam_compare_render<ORACLE_W, ORACLE_H>(
