@@ -252,11 +252,13 @@ def silent_declarations(path: str, text: str) -> list[Undocumented]:
             continue
         before = text[:match.start()].rstrip()
         last = before.rpartition("\n")[2].lstrip()
-        if before.endswith("*/"):
-            if before[before.rfind("/*"):][:3] in ("/**", "/*!"):
+        gap = text[len(before):match.start()]
+        if gap.count("\n") <= 1:
+            if before.endswith("*/"):
+                if before[before.rfind("/*"):][:3] in ("/**", "/*!"):
+                    continue
+            elif last.startswith(("///", "//!")):
                 continue
-        elif last.startswith(("///", "//!")):
-            continue
         trailing = text[match.end():].partition("\n")[0]
         if "///<" in trailing or "//!<" in trailing:
             continue

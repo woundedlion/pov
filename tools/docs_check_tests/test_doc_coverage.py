@@ -349,6 +349,17 @@ def silent(text):
 
 
 class TestSilentDeclarations(unittest.TestCase):
+    def test_blank_line_detaches_documentation_from_empty_declarations(self):
+        for comment in ("/** @file x.h */", "/** @brief A. */", "/*! @brief A. */",
+                        "/// @brief A.", "//! @brief A."):
+            for declaration, expected in (
+                ("struct Empty {};\n", (3, "Empty", "empty struct")),
+                ("template <typename T> concept C = true;\n", (3, "C", "concept")),
+            ):
+                with self.subTest(comment=comment, declaration=declaration):
+                    self.assertEqual(silent(comment + "\n" + declaration), [])
+                    self.assertEqual(silent(comment + "\n\n" + declaration), [expected])
+
     def test_undocumented_empty_struct_and_concept_are_reported(self):
         self.assertEqual(silent(
             "struct Tag {};\n"
