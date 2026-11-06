@@ -1362,14 +1362,22 @@ private:
 
   static_assert(SAMPLED_RASTER_CONFIG.single_pass &&
                 !SAMPLED_RASTER_CONFIG.derive_planar_arc_registers);
-  /** @brief Bound on chunk storage plus the nested column walk. */
+  static constexpr size_t SURFACE_SCRATCH_A_BYTES = 32 * 1024;
+  static constexpr size_t SURFACE_SCRATCH_B_BYTES = 32 * 1024;
+  /** @brief Bound on chunk storage and its nested raster storage. */
   static constexpr size_t TIMED_SCRATCH_A_BYTES =
       COLUMN_CHUNK_VERTICES *
           (sizeof(math::Vector) + sizeof(uint16_t) + sizeof(Plot::Mesh::Edge)) +
       COLUMN_CHUNK_CONTOURS * sizeof(TimedContour) +
       (STAR_VERTICES + 2) * (sizeof(math::Vector) + sizeof(Fragment)) +
-      Plot::Mesh::column_scratch_a_bytes() + 128;
-  static_assert(TIMED_SCRATCH_A_BYTES <= DEFAULT_SCRATCH_A_SIZE,
+      std::max(Plot::Mesh::column_scratch_a_bytes(),
+               Plot::PlanarChords<W, H>::scratch_a_bytes() +
+                   (Plot::PLANAR_LEN_SAMPLES + 1 +
+                    Plot::PlanarChords<W, H>::MAX_RADIAL_INTERVALS) *
+                       sizeof(float) +
+                   2 * alignof(float)) +
+      128;
+  static_assert(TIMED_SCRATCH_A_BYTES <= SURFACE_SCRATCH_A_BYTES,
                 "ShapeShifter column storage exceeds scratch_a");
   static constexpr size_t SCRATCH_A_PEAK_BYTES = std::max(
       (2 * static_cast<size_t>(SIDES_MAX) + 2) * sizeof(Fragment) +
@@ -1377,10 +1385,8 @@ private:
       (2 * static_cast<size_t>(SIDES_MAX) + 1 + FLOWER_MAX_POINTS) *
               sizeof(Fragment) +
           2 * alignof(Fragment));
-  static_assert(SCRATCH_A_PEAK_BYTES <= DEFAULT_SCRATCH_A_SIZE,
+  static_assert(SCRATCH_A_PEAK_BYTES <= SURFACE_SCRATCH_A_BYTES,
                 "ShapeShifter nested contour buffers exceed scratch_a");
-  static constexpr size_t SURFACE_SCRATCH_A_BYTES = 32 * 1024;
-  static constexpr size_t SURFACE_SCRATCH_B_BYTES = 32 * 1024;
   static constexpr int SURFACE_MAX_INTERVALS = 240;
   using Surface = Scan::RadialSurface<SURFACE_MAX_INTERVALS, 16>;
   static_assert(2 * Surface::storage_bytes(SURFACE_SIDES,
