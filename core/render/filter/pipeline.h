@@ -8,6 +8,7 @@
 #include <type_traits>
 #include <cmath>
 #include <cassert>
+#include <limits>
 
 #include <algorithm>
 #include "core/math/geometry.h"
