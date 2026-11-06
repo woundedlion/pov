@@ -820,10 +820,7 @@ template <typename Solid> inline void expect_polyhedral_atlas_sampling() {
   constexpr size_t F = Solid::face_counts.size();
   constexpr int SAMPLES = 2048;
   for (int index = 0; index < SAMPLES; ++index) {
-    const float y = 1.0f - 2.0f * (index + 0.5f) / SAMPLES;
-    const float radius = sqrtf(fmaxf(0.0f, 1.0f - y * y));
-    const float angle = 2.39996323f * static_cast<float>(index);
-    const math::Vector v(radius * cosf(angle), y, radius * sinf(angle));
+    const math::Vector v = math::fib_spiral(SAMPLES, 0.5f, index);
     const auto actual = polyhedral_atlas_projection(atlas, v, 1.0f, 0.0f, 0.0f);
     size_t best = 0;
     for (size_t f = 1; f < F; ++f)
@@ -861,10 +858,7 @@ template <typename Solid> inline void expect_polyhedral_atlas_correction() {
   constexpr int SAMPLES = 1024;
   constexpr float STEP = 2e-3f;
   for (int index = 0; index < SAMPLES; ++index) {
-    const float y = 1.0f - 2.0f * (index + 0.5f) / SAMPLES;
-    const float radius = sqrtf(fmaxf(0.0f, 1.0f - y * y));
-    const float angle = 2.39996323f * static_cast<float>(index);
-    const math::Vector v(radius * cosf(angle), y, radius * sinf(angle));
+    const math::Vector v = math::fib_spiral(SAMPLES, 0.5f, index);
     const auto base = polyhedral_atlas_projection(atlas, v, 1.0f, 0.0f, 0.0f);
     const size_t face = base.region_id;
     const math::Vector normal = atlas.selectors[face].normalized();

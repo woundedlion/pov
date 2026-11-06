@@ -2077,11 +2077,7 @@ inline void test_pullback_grouped_ripple_parameter_grid() {
             advance_ripple(state, params);
             const auto PREPARED = prepare_ripples(params, state);
             for (int i = 0; i < 24; ++i) {
-              const float Y = -1.0f + (2.0f * i + 1.0f) / 24.0f;
-              const float AZIMUTH = i * 2.39996323f;
-              const float RADIUS = sqrtf(1.0f - Y * Y);
-              const math::Vector VIEW(RADIUS * cosf(AZIMUTH), Y,
-                                      RADIUS * sinf(AZIMUTH));
+              const math::Vector VIEW = math::fib_spiral(24, 0.5f, i);
               const auto RESULT = grouped_ripples(VIEW, PREPARED, true);
               const auto UNTRACKED = grouped_ripples(VIEW, PREPARED, false);
               float support_margin = math::PI_F;
@@ -2672,11 +2668,7 @@ inline void test_pullback_radial_ripple_geometry() {
         wave.age -= 1.0f - fraction;
       auto prepared = prepare_ripples(params, sampled);
       for (int i = 0; i < 32; ++i) {
-        const float Y = -1.0f + (2.0f * i + 1.0f) / 32.0f;
-        const float AZIMUTH = i * 2.39996323f;
-        const float RADIUS = sqrtf(1.0f - Y * Y);
-        const math::Vector VIEW(RADIUS * cosf(AZIMUTH), Y,
-                                RADIUS * sinf(AZIMUTH));
+        const math::Vector VIEW = math::fib_spiral(32, 0.5f, i);
         const auto EXPECTED = grouped_ripples(VIEW, prepared, true);
         const auto RESULT =
             radial_ripples(VIEW, prepared, true, &tables, fraction);
