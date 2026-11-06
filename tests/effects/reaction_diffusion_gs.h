@@ -2013,6 +2013,7 @@ inline void test_gs_substep_signs_and_clamp() {
                            next_b.data());
 
   HS_EXPECT_EQ(next_a[SEED], 0.0f);
+  HS_EXPECT_EQ(next_b[SEED], 1.0f);
   int spread = 0;
   for (int k = 0; k < ReactionGraph::RD_K; ++k) {
     int nb = ReactionGraph::neighbors[SEED][k];
