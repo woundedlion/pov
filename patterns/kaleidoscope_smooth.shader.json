@@ -749,7 +749,7 @@
         "warp2.rotation",
         "warp2.speed"
       ],
-      "schema_version": 3
+      "schema_version": 1
     }
   },
   "document_id": "kaleidoscope-smooth-v1",
