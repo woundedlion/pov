@@ -3,6 +3,20 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
+/** @brief Equal virtual and physical heights retain exact pole-to-pole spacing. */
+inline void test_virtual_grid_equal_height_geometry() {
+  for (int height = 2; height <= 512; ++height) {
+    const auto geometry = SDF::virtual_grid_geometry(height, height);
+    HS_EXPECT_EQ(geometry.radians_per_row(), math::PI_F / (height - 1));
+    HS_EXPECT_EQ(geometry.row_to_phi(0.0f), 0.0f);
+    HS_EXPECT_NEAR(geometry.row_to_phi(float(height - 1)), math::PI_F, 1e-6f);
+    const auto bounds =
+        SDF::phi_bounds_to_rows(0.0f, math::PI_F, height, height);
+    HS_EXPECT_EQ(bounds.y_min, 0);
+    HS_EXPECT_EQ(bounds.y_max, height - 1);
+  }
+}
+
 // ============================================================================
 // fold_phi
 // ============================================================================

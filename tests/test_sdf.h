@@ -63,6 +63,7 @@ inline int run_sdf_tests() {
   hs_test::ModuleFixture fixture("sdf");
 
   HS_RUN(test_fold_phi_in_range);
+  HS_RUN(test_virtual_grid_equal_height_geometry);
   HS_RUN(test_fold_phi_negative_reflects);
   HS_RUN(test_fold_phi_above_pi_reflects);
   HS_RUN(test_fold_phi_full_range);

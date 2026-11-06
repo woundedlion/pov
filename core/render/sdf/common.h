@@ -982,8 +982,11 @@ inline Bounds phi_bounds_to_rows(float phi_min, float phi_max,
  */
 inline math::LatitudeGeometry virtual_grid_geometry(int virtual_height,
                                                     int height) {
-  return math::LatitudeGeometry(
-      height, 0.0f, math::PI_F * (height - 1) / (virtual_height - 1));
+  return math::LatitudeGeometry(height, 0.0f,
+                                virtual_height == height
+                                    ? math::PI_F
+                                    : math::PI_F * (height - 1) /
+                                          (virtual_height - 1));
 }
 
 /**
