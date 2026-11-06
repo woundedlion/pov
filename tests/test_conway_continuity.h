@@ -101,21 +101,14 @@ inline void render_faces(std::vector<Pixel> &out, const MeshState &mesh,
 }
 
 /**
- * @brief Whether a pixel exactly carries a flat fill color.
- */
-inline bool color_eq(const Pixel &p, const Color4 &c) {
-  return p.r == c.color.r && p.g == c.color.g && p.b == c.color.b;
-}
-
-/**
  * @brief Whether a pixel is "flat": black background or an exact member of the
  *        render's fill palette (i.e. a face interior, not a boundary AA blend).
  */
 inline bool is_flat(const Pixel &p, const std::vector<Color4> &palette) {
-  if (p.r == 0 && p.g == 0 && p.b == 0)
+  if (p == Pixel())
     return true;
   for (const Color4 &c : palette)
-    if (color_eq(p, c))
+    if (p == c.color)
       return true;
   return false;
 }
@@ -151,9 +144,9 @@ inline DiffStats diff_stats(const std::vector<Pixel> &a,
   HS_EXPECT_EQ(a.size(), b.size());
   DiffStats st;
   for (size_t i = 0; i < a.size() && i < b.size(); ++i) {
-    if (a[i].r == b[i].r && a[i].g == b[i].g && a[i].b == b[i].b)
+    if (a[i] == b[i])
       continue;
-    if (sentinel && color_eq(b[i], *sentinel))
+    if (sentinel && b[i] == sentinel->color)
       ++st.newborn;
     else if (is_flat(a[i], flat_a) && is_flat(b[i], flat_b))
       ++st.flat;
@@ -721,12 +714,6 @@ inline auto shading_capture(ShadingSnapshot &snap,
   };
 }
 
-/** Whether two colors have equal RGB channels. */
-inline bool same_rgb(Color4 a, Color4 b) {
-  return a.color.r == b.color.r && a.color.g == b.color.g &&
-         a.color.b == b.color.b;
-}
-
 /**
  * @brief Asserts equal color channels and alpha values.
  */
@@ -829,13 +816,9 @@ inline void test_collapsing_faces_land_on_host_palette() {
       continue;
     uint8_t pal[MAX_FACES];
     math::Vector cen[MAX_FACES];
-    for (size_t f = 0, off = 0; f < dep_faces; ++f) {
+    for (size_t f = 0; f < dep_faces; ++f) {
       pal[f] = static_cast<uint8_t>(departed.face_counts[f] % PALETTES);
-      math::Vector c(0.0f, 0.0f, 0.0f);
-      for (int k = 0; k < departed.face_counts[f]; ++k)
-        c = c + departed.vertices[departed.faces[off + k]];
-      cen[f] = c.normalized();
-      off += departed.face_counts[f];
+      cen[f] = poly_face_centroid(departed, f);
     }
     Animation::OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
                                              .prev_face_palette = pal,
@@ -965,7 +948,6 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   const Animation::OpLeg::Landing &landing = anim.landing();
   ramp_count = landing.blend_pairs;
   HS_EXPECT_EQ(landing.primary_faces, cube.face_counts.size());
-  HS_EXPECT_LE(landing.primary_faces, cube.face_counts.size());
   if (landing.primary_faces > cube.face_counts.size())
     return;
 
@@ -1189,7 +1171,7 @@ inline void test_leg_start_seed_frame_continuity() {
     for (int s = 0; s < NUM_RAMP_SAMPLES; ++s) {
       const Color4 a = bank.bank.entries[SEEDFRAME_PAL_A].get(RAMP_SAMPLES[s]);
       const Color4 b = bank.bank.entries[SEEDFRAME_PAL_B].get(RAMP_SAMPLES[s]);
-      if (!same_rgb(a, b))
+      if (a.color != b.color)
         differ = true;
     }
     HS_EXPECT_TRUE(differ);
@@ -1355,9 +1337,9 @@ inline void test_leg_start_seed_frame_continuity() {
                 bank.bank.entries[SEEDFRAME_PAL_A].get(RAMP_SAMPLES[s]);
             const Color4 b =
                 bank.bank.entries[SEEDFRAME_PAL_B].get(RAMP_SAMPLES[s]);
-            if (!same_rgb(got, a))
+            if (got.color != a.color)
               matches_a = false;
-            if (!same_rgb(got, b))
+            if (got.color != b.color)
               matches_b = false;
           }
           HS_EXPECT_TRUE(matches_a || matches_b);
@@ -1854,9 +1836,7 @@ inline void test_star_midpoint_dissolve() {
   long long e_plain = 0, e_shaped = 0;
   size_t star_px = 0;
   for (size_t i = 0; i < sliver_plain.size(); ++i) {
-    if (sliver_plain[i].r == sliver_shaped[i].r &&
-        sliver_plain[i].g == sliver_shaped[i].g &&
-        sliver_plain[i].b == sliver_shaped[i].b)
+    if (sliver_plain[i] == sliver_shaped[i])
       continue;
     ++star_px;
     e_plain += std::abs((int)sliver_plain[i].r - sliver_target[i].r) +
