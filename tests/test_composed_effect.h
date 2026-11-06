@@ -45,6 +45,12 @@ void verify_export(size_t preset, int channel_tolerance = 1,
 namespace hs_test {
 namespace composed_effect_tests {
 
+#if HS_TEST_FAST_MATH
+inline constexpr int DOCUMENT_CHANNEL_TOLERANCE = 2;
+#else
+inline constexpr int DOCUMENT_CHANNEL_TOLERANCE = 1;
+#endif
+
 using CollidingWarpNames = Pullback::ComposedDetail::ResourceList<
     Pullback::ParameterResource<"outer_warp", Pullback::WaveShearParams,
                                 Pullback::ResourceKind::WARP>,
@@ -1263,12 +1269,8 @@ inline void test_composed_strobe_roster() {
 
 /** @brief Millefiori pixels match its document-built operator chain. */
 inline void test_millefiori_document_pipeline() {
-#if HS_TEST_FAST_MATH
-  composed_chain_tests::verify_export<Millefiori<SMALL_W, SMALL_H>>(0, 2,
-                                                                    1e-6f);
-#else
-  composed_chain_tests::verify_export<Millefiori<SMALL_W, SMALL_H>>(0);
-#endif
+  composed_chain_tests::verify_export<Millefiori<SMALL_W, SMALL_H>>(
+      0, DOCUMENT_CHANNEL_TOLERANCE);
 }
 
 /** @brief AshCloud pixels match its document-built operator chain. */
@@ -1309,21 +1311,12 @@ inline void test_ash_cloud_document_pipeline() {
       HS_EXPECT_EQ(ACTUAL.z, EXPECTED.z);
     }
   }
-#if HS_TEST_FAST_MATH
-  composed_chain_tests::verify_export<FX>(0, 2, 1e-6f);
-#else
-  composed_chain_tests::verify_export<FX>(0);
-#endif
+  composed_chain_tests::verify_export<FX>(0, DOCUMENT_CHANNEL_TOLERANCE);
 }
 
 #include "tests/composed_effect/authored_policies.h"
 /** @brief Promoted pixels match the authored document-built chains. */
 inline void test_promoted_document_pipelines() {
-#if HS_TEST_FAST_MATH
-  constexpr int CHANNEL_TOLERANCE = 2;
-#else
-  constexpr int CHANNEL_TOLERANCE = 1;
-#endif
   static_assert(Involution<SMALL_W, SMALL_H>::authored_instance("source") ==
                 "sample");
   composed_chain_tests::verify_export<Involution<SMALL_W, SMALL_H>>(0);
@@ -1333,21 +1326,21 @@ inline void test_promoted_document_pipelines() {
   composed_chain_tests::verify_export<CosmicEyeball<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<KaleidoscopeHexOil<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<AlienBrain<SMALL_W, SMALL_H>>(
-      0, CHANNEL_TOLERANCE);
+      0, DOCUMENT_CHANNEL_TOLERANCE);
   composed_chain_tests::verify_export<AlienOcean<SMALL_W, SMALL_H>>(
-      0, CHANNEL_TOLERANCE);
+      0, DOCUMENT_CHANNEL_TOLERANCE);
   composed_chain_tests::verify_export<KaleidoscopeMandala<SMALL_W, SMALL_H>>(
-      0, CHANNEL_TOLERANCE);
+      0, DOCUMENT_CHANNEL_TOLERANCE);
   composed_chain_tests::verify_export<GridSpace<SMALL_W, SMALL_H>>(
-      0, CHANNEL_TOLERANCE);
+      0, DOCUMENT_CHANNEL_TOLERANCE);
   composed_chain_tests::verify_export<ChromaticLichen<SMALL_W, SMALL_H>>(
-      0, CHANNEL_TOLERANCE);
+      0, DOCUMENT_CHANNEL_TOLERANCE);
   composed_chain_tests::verify_export<MermaidSkin<SMALL_W, SMALL_H>>(
-      0, CHANNEL_TOLERANCE);
+      0, DOCUMENT_CHANNEL_TOLERANCE);
   composed_chain_tests::verify_export<JewelMelt<SMALL_W, SMALL_H>>(
-      0, CHANNEL_TOLERANCE);
+      0, DOCUMENT_CHANNEL_TOLERANCE);
   composed_chain_tests::verify_export<KaleidoscopeFlowers<SMALL_W, SMALL_H>>(
-      0, CHANNEL_TOLERANCE);
+      0, DOCUMENT_CHANNEL_TOLERANCE);
 }
 
 /** @brief Module entry point for the composed-effect base contract. */
