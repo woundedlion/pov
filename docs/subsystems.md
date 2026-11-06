@@ -322,6 +322,8 @@ A face reaching a pole is placed in each half of the arm under a
 stray too far instead uses `Scan::PoleFaceSweep`: it retains vertex
 worldlines and is scanned one column pair at a time. The swept face scanner
 prepares edge-plane polynomials and evaluates them at that pair's time.
+Its row bounds include each edge clipped to the meridian's antialiasing
+strip; a strip crossing the pole extends the bounds to the pole on both arms.
 This classification accounts for the face's azimuth span, motion and reach
 toward a pole.
 

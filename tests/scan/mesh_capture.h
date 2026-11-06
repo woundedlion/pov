@@ -797,10 +797,69 @@ inline void check_polar_face_sweep(size_t points, float notch, bool north,
       tilt != 0.0f ? W : W * 4);
 }
 
+/** @brief Swept row bounds include the near-pole fringe of almost-meridian edges. */
+inline void test_swept_face_rows_cover_near_pole_fringe() {
+  constexpr int W = 288, H = 144;
+  math::init_geometry_luts<W, H>();
+  Scan::ColumnBasisTable<W, H> table;
+  const auto time = table.prepare(math::Quaternion(), math::Quaternion(), true);
+  const auto point = [](float phi, float theta) {
+    return math::Vector(sinf(phi) * cosf(theta), cosf(phi),
+                        sinf(phi) * sinf(theta));
+  };
+  for (bool north : {true, false})
+    for (float turn : {0.0f, 0.11f, 0.57f}) {
+      std::array<math::Vector, 3> vertices{
+          point(math::PI_F / 180.0f, 0.01f + turn), point(0.5f, 0.2f + turn),
+          point(0.4f, -0.2f + turn)};
+      if (!north)
+        for (auto &vertex : vertices)
+          vertex.y = -vertex.y;
+      std::array<Spacetime::Worldline, 3> paths;
+      for (size_t k = 0; k < paths.size(); ++k)
+        paths[k] = Spacetime::Worldline::chord(vertices[k], vertices[k]);
+      std::array<uint8_t, 1024> storage;
+      Arena arena(storage.data(), storage.size());
+      const Scan::PoleFaceSweep sweep{0, paths.data(), paths.size(), north};
+      Scan::SweptFace<W, H> face(sweep, arena);
+      SDF::FaceScratchBuffer scratch;
+      const std::array<uint16_t, 3> indices{0, 1, 2};
+      SDF::PreparedFace reference(vertices, indices, scratch,
+                                  math::LatitudeGeometry(H), H, nullptr,
+                                  nullptr, math::TWO_PI_F / W);
+      size_t lit = 0, missing = 0, bounded = 0;
+      for (int x = 0; x < W / 2; ++x) {
+        SDF::Bounds rows[2];
+        face.column(time, x, 3, rows);
+        for (int arm = 0; arm < 2; ++arm) {
+          if (rows[arm].y_min <= rows[arm].y_max)
+            bounded += rows[arm].y_max - rows[arm].y_min + 1;
+          for (int y = 0; y < H; ++y) {
+            const float sp =
+                (arm ? -1.0f : 1.0f) * math::TrigLUT<W, H>::sin_phi[y];
+            const auto p = time.azimuth[x] * sp +
+                           time.up[x] * math::TrigLUT<W, H>::cos_phi[y];
+            SDF::DistanceResult result;
+            reference.distance<false>(p, result);
+            if (Scan::solid_coverage(result.dist, math::TWO_PI_F / W) <=
+                Scan::MIN_ALPHA)
+              continue;
+            ++lit;
+            missing += y < rows[arm].y_min || y > rows[arm].y_max;
+          }
+        }
+      }
+      HS_EXPECT_GT(lit, size_t{W});
+      HS_EXPECT_EQ(missing, size_t{0});
+      HS_EXPECT_LT(bounded, size_t{W * H / 4});
+    }
+}
+
 /** @brief Faces around or reaching either pole draw each column pair at its
  *  own time: convex, starred, turning convex during the frame, growing from a
  *  point or tipped off the pole, under a still or a turning camera. */
 inline void test_mesh_polar_face_sweep() {
+  test_swept_face_rows_cover_near_pole_fringe();
   check_polar_face_sweep(6, 0.12f, true, 0.0f);
   check_polar_face_sweep(6, 0.12f, false, 0.02f);
   check_polar_face_sweep(3, 0.05f, true, 0.02f);

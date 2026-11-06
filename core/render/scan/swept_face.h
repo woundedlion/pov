@@ -31,9 +31,9 @@ inline constexpr float SWEEP_ROW_REACH = 1.25f * math::TWO_PI_F / W;
  * an odd number of edges on the way to it; its distance is SDF::PreparedFace's:
  * signed nearest-edge distance, with convex interior half-plane distances, in
  * radians for a face whose size is. Its rows are those within
- * SWEEP_ROW_REACH of the crossings and of the vertices near the meridian, on
- * either arm and past either pole, and from the pole on when the face holds
- * it.
+ * SWEEP_ROW_REACH of the edges clipped to the meridian's antialiasing strip,
+ * on either arm and past either pole, and from the pole on when the face
+ * holds it.
  */
 template <int W, int H> class SweptFace {
 public:
@@ -174,6 +174,13 @@ public:
     // Each edge's extent along the line, by the projection on its direction.
     along_x = -lb;
     along_y = la;
+    const float pole_depth = math::dot(axis, up);
+    const float pole_along = pole_depth != 0.0f
+                                 ? (along_x * math::dot(basis_u, up) +
+                                    along_y * math::dot(basis_w, up)) /
+                                       pole_depth
+                                 : FLT_MAX;
+    bool touches_pole = false;
     float from_line = la * edges[0].x + lb * edges[0].y + le;
     float from_along = along_x * edges[0].x + along_y * edges[0].y;
     for (int k = 0; k < count; ++k) {
@@ -182,9 +189,9 @@ public:
       const float to_line = la * next.x + lb * next.y + le;
       const float to_along = along_x * next.x + along_y * next.y;
       span[k] = {fminf(from_along, to_along), fmaxf(from_along, to_along)};
-      from_along = to_along;
       if (fabsf(from_line) <= REACH)
         include(e.x, e.y);
+      float inv_delta = 0.0f;
       // No pixel of the pair, on the meridian's line, comes nearer the edge
       // than its nearer end, unless the edge crosses the line.
       if ((from_line > 0.0f) == (to_line > 0.0f)) {
@@ -192,11 +199,34 @@ public:
         line2[k] = apart * apart;
       } else {
         line2[k] = 0.0f;
-        const float s = from_line / (from_line - to_line);
+        inv_delta = 1.0f / (from_line - to_line);
+        const float s = from_line * inv_delta;
         const auto [arm, c] = include(e.x + e.ex * s, e.y + e.ey * s);
         crossings[arm][crossed[arm]++] = c;
       }
+      if (line2[k] <= REACH * REACH) {
+        float begin = 0.0f, end = 1.0f;
+        const bool from_outside = fabsf(from_line) > REACH;
+        const bool to_outside = fabsf(to_line) > REACH;
+        if (from_outside || to_outside) {
+          if (inv_delta == 0.0f)
+            inv_delta = 1.0f / (from_line - to_line);
+          if (from_outside) {
+            begin = (from_line - copysignf(REACH, from_line)) * inv_delta;
+            include(e.x + e.ex * begin, e.y + e.ey * begin);
+          }
+          if (to_outside) {
+            end = (from_line - copysignf(REACH, to_line)) * inv_delta;
+            include(e.x + e.ex * end, e.y + e.ey * end);
+          }
+        }
+        const float first = from_along + (to_along - from_along) * begin;
+        const float last = from_along + (to_along - from_along) * end;
+        touches_pole |= pole_along >= fminf(first, last) &&
+                        pole_along <= fmaxf(first, last);
+      }
       from_line = to_line;
+      from_along = to_along;
     }
     // The edges nearest the line first; the order holds from the last pair,
     // so the insertion sort runs over nearly sorted keys.
@@ -208,9 +238,8 @@ public:
         order[j] = order[j - 1];
       order[j] = k;
     }
-    // The pole nearer the face lies inside it when the walk from the other
-    // crosses the first arm's edges an odd number of times.
-    if (crossed[0] & 1) {
+    // The pole is covered by the interior or by an edge's antialiasing strip.
+    if ((crossed[0] & 1) || touches_pole) {
       for (int arm = 0; arm < 2; ++arm) {
         if (north)
           hi[arm] = 1.0f;
