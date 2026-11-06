@@ -724,6 +724,15 @@ struct ProjectionSeedProbe
 
 /** @brief Authored noise seeds depend on node identity while fixed seeds stay stable. */
 inline void test_authored_noise_seed_identity() {
+  static_assert(Pullback::ComposedDetail::noise_operator_id<
+                    Pullback::Warp::AuthoredCurlFlowParams>() ==
+                "warp.curl-flow.v2");
+  static_assert(Pullback::ComposedDetail::noise_operator_id<
+                    Pullback::Source::SphericalNoiseSourceParams>() ==
+                "sample.spherical-noise.v1");
+  static_assert(Pullback::ComposedDetail::noise_operator_id<
+                    Pullback::Source::SphericalCellsSourceParams>() ==
+                "sample.spherical-cells.v1");
   static_assert(
       Pullback::instance_hash("authored_source", "sample.projected-noise.v2") ==
       0xC4BCAA76u);

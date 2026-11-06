@@ -78,8 +78,6 @@ struct AuthoredPolarParams : PolarParams {
 };
 /** @brief Curl-flow controls with runtime basis and integrator. */
 struct AuthoredCurlFlowParams : CurlFlowParams {
-  /// Catalog id of the curl-flow warp.
-  static constexpr std::string_view OPERATOR_ID = "warp.curl-flow.v2";
   uint8_t basis = 0;      ///< Noise-basis catalog index.
   uint8_t integrator = 0; ///< Integration substeps are two to this power.
   /// Catalog values of the basis selector.
