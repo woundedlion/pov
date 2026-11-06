@@ -1250,6 +1250,9 @@ class PackagePromotionTests(unittest.TestCase):
     def test_success_promotes_bom_cpl_archive_and_manifest(self):
         with tempfile.TemporaryDirectory() as directory, contextlib.ExitStack() as stack:
             out = Path(directory)
+            stale = out / (fab.STAGE_PREFIX + "stale")
+            stale.mkdir()
+            (stale / "aborted-export.gbr").write_bytes(b"stranded export")
             jlc = out / "jlc"
             jlc.mkdir()
             (jlc / "previous.txt").write_text("previous package", encoding="utf-8")
