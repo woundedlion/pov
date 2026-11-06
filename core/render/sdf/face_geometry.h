@@ -162,7 +162,7 @@ compute_inradius(const FaceScratchBuffer &scratch,
       __builtin_fmaxf(0.0f, min_edge_dist - radius * 1e-5f);
   sector_min_radius_sq = min_radius * min_radius;
   size = __builtin_fmaxf(min_edge_dist, radius * MIN_SIZE_RADIUS_RATIO);
-  linear_dist = size < 0.2f;
+  linear_dist = size < LINEAR_FACE_SIZE;
   // distance() reports radians for a large face; the same fast_atan2 keeps
   // dist/size exactly 1 at the inradius.
   if (!linear_dist)

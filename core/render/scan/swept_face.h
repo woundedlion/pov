@@ -91,7 +91,7 @@ public:
                        sqrtf(radius2) * SDF::MIN_SIZE_RADIUS_RATIO);
     }
     convex = convex_at[0] && convex_at[1] && convex_at[2];
-    linear = sizes[1] < LINEAR_SIZE;
+    linear = sizes[1] < SDF::LINEAR_FACE_SIZE;
     for (int j = 0; j < 3; ++j)
       if (!linear)
         sizes[j] = math::fast_atan2(sizes[j], 1.0f);
@@ -357,7 +357,6 @@ public:
 private:
   /// Size, in plane units, below which a face reports plane distances, as
   /// SDF::PreparedFace does.
-  static constexpr float LINEAR_SIZE = 0.2f;
 
   /** @brief A quadratic in time through values at t = 0, 1/2 and 1. */
   struct Quadratic {

@@ -47,6 +47,8 @@ inline constexpr float STAR_INNER_RATIO = Render::STAR_INNER_RATIO;
 /** Minimum inradius-to-circumradius ratio used to floor PreparedFace::size,
  *  preventing degenerate near-zero inradii from collapsing AA. */
 inline constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
+/** Gnomonic face size below which the tangent-plane distance metric is used. */
+inline constexpr float LINEAR_FACE_SIZE = 0.2f;
 /** Distance reported in place of a true one past a shape's reject band, far
  *  enough that no AA reach or CSG blend reads it as near-surface. */
 inline constexpr float FAR_SENTINEL = 100.0f;
