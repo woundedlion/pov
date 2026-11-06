@@ -63,7 +63,7 @@ inline void test_timeline_completed_rotation_compaction_and_owner_cancel() {
   HS_EXPECT_EQ(completions, 1);
 }
 
-/** @brief A repeating rotation finished in its callback collapses once; cancellation retires it immediately. */
+/** @brief Finishing or canceling a repeating rotation keeps one final history collapse. */
 inline void test_timeline_repeating_rotation_callback_retires_once() {
   struct EndingRotation : Animation::Rotation<96, 16> {
     explicit EndingRotation(math::Orientation<16> &o)
@@ -85,13 +85,33 @@ inline void test_timeline_repeating_rotation_callback_retires_once() {
     });
     tl.step(fake_canvas());
     HS_EXPECT_EQ(completions, 1);
-    HS_EXPECT_EQ(tl.event_count(), FINISH ? 1 : 0);
+    HS_EXPECT_EQ(tl.event_count(), 1);
+    HS_EXPECT_GT(o.length(), 1);
     tl.step(fake_canvas());
     HS_EXPECT_EQ(completions, 1);
     HS_EXPECT_EQ(tl.event_count(), 0);
-    if (FINISH)
-      HS_EXPECT_EQ(o.length(), 1);
+    HS_EXPECT_EQ(o.length(), 1);
   }
+}
+
+/** @brief A retired running rotation leaves its former target untouched. */
+inline void test_timeline_running_rotation_owner_retirement_skips_collapse() {
+  math::Orientation<16> orientation;
+  Timeline timeline;
+  int owner = 0;
+  timeline.add_get(0,
+                   Animation::Rotation<96, 16>(orientation, math::Z_AXIS,
+                                               math::PI_F, 10,
+                                               math::ease_linear),
+                   Timeline::Pin::UNPINNED, nullptr, &owner);
+  timeline.step(fake_canvas());
+  HS_EXPECT_GT(orientation.length(), 1);
+  timeline.cancel_owner(&owner);
+  orientation.set(math::Quaternion());
+  orientation.push(math::make_rotation(math::X_AXIS, math::PI_F / 4));
+  timeline.step(fake_canvas());
+  HS_EXPECT_EQ(orientation.length(), 2);
+  HS_EXPECT_EQ(timeline.event_count(), 0);
 }
 
 /**

@@ -31,6 +31,7 @@ struct TimelineEvent {
    */
   bool pinned = false;
   bool completed = false; /**< Final orientation history awaits collapse. */
+  bool retired = false;   /**< Lifetime owner has retired. */
   const bool *paused = nullptr; /**< Optional event-level pause gate. */
   const void *owner = nullptr;  /**< Optional lifetime owner. */
   alignas(std::max_align_t) uint8_t storage[MAX_ANIM_SIZE]; /**< Inline
@@ -72,6 +73,7 @@ struct TimelineEvent {
     // event, and this slot may be recycling one.
     dst.pinned = false;
     dst.completed = completed;
+    dst.retired = retired;
     dst.paused = paused;
     dst.owner = owner;
     dst.manager = manager;
@@ -285,6 +287,7 @@ public:
     e.remaining_delay = delay;
     e.pinned = (pin == Pin::PINNED);
     e.completed = false;
+    e.retired = false;
     e.paused = paused;
     e.owner = owner;
     auto *ptr = new (e.storage) A(std::move(animation));
@@ -322,6 +325,7 @@ public:
       auto &event = global_timeline_events[i];
       if (event.owner == owner && event.animation()) {
         static_cast<Animation::AnimationCommon *>(event.animation())->cancel();
+        event.retired = true;
         event.paused = nullptr;
         event.owner = nullptr;
       }
@@ -431,7 +435,7 @@ public:
             HS_CHECK(!e.pinned || anim->is_canceled(),
                      "pinned animation completed while paused; only cancel() "
                      "may destroy a pinned event");
-            e.completed = !anim->is_canceled() && anim->orientation_id();
+            e.completed = !e.retired && !e.pinned && anim->orientation_id();
             if (!e.completed) {
               e.destroy();
               continue;
@@ -488,7 +492,7 @@ public:
         HS_CHECK(!e.pinned || anim->is_canceled(),
                  "pinned animation completed; only cancel() may destroy a "
                  "pinned event");
-        e.completed = !anim->is_canceled() && anim->orientation_id();
+        e.completed = !e.retired && !e.pinned && anim->orientation_id();
         if (e.completed) {
           if (i != write_idx)
             e.move_into(global_timeline_events[write_idx]);
@@ -546,9 +550,11 @@ private:
 
   /// Orientation id of an event due to step this frame, nullptr otherwise.
   static const void *event_orientation_id(TimelineEvent &event) {
+    if (event.retired)
+      return nullptr;
     IAnimation *anim = event.animation();
     if (event.completed)
-      return anim && !anim->is_canceled() ? anim->orientation_id() : nullptr;
+      return anim ? anim->orientation_id() : nullptr;
     if (event_paused(event) || event.remaining_delay > 1)
       return nullptr;
     return anim ? anim->orientation_id() : nullptr;
@@ -589,6 +595,7 @@ private:
       event.remaining_delay = 0;
       event.pinned = false;
       event.completed = false;
+      event.retired = false;
       event.paused = nullptr;
       event.owner = nullptr;
       event.manager = nullptr;
