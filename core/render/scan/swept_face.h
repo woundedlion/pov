@@ -172,39 +172,46 @@ public:
     };
     crossed[0] = crossed[1] = 0;
     // Each edge's extent along the line, by the projection on its direction.
-    along_x = -lb;
-    along_y = la;
+    const float ALONG_X = -lb, ALONG_Y = la;
+    if (!convex) {
+      along_x = ALONG_X;
+      along_y = ALONG_Y;
+    }
     const float pole_depth = math::dot(axis, up);
     const float pole_along = pole_depth != 0.0f
-                                 ? (along_x * math::dot(basis_u, up) +
-                                    along_y * math::dot(basis_w, up)) /
+                                 ? (ALONG_X * math::dot(basis_u, up) +
+                                    ALONG_Y * math::dot(basis_w, up)) /
                                        pole_depth
                                  : FLT_MAX;
     bool touches_pole = false;
     float from_line = la * edges[0].x + lb * edges[0].y + le;
-    float from_along = along_x * edges[0].x + along_y * edges[0].y;
+    float from_along = ALONG_X * edges[0].x + ALONG_Y * edges[0].y;
     for (int k = 0; k < count; ++k) {
       Edge &e = edges[k];
       const Edge &next = edges[k + 1 == count ? 0 : k + 1];
       const float to_line = la * next.x + lb * next.y + le;
-      const float to_along = along_x * next.x + along_y * next.y;
-      span[k] = {fminf(from_along, to_along), fmaxf(from_along, to_along)};
+      const float to_along = ALONG_X * next.x + ALONG_Y * next.y;
+      if (!convex)
+        span[k] = {fminf(from_along, to_along), fmaxf(from_along, to_along)};
       if (fabsf(from_line) <= REACH)
         include(e.x, e.y);
-      float inv_delta = 0.0f;
+      float inv_delta = 0.0f, line_distance2 = 0.0f;
       // No pixel of the pair, on the meridian's line, comes nearer the edge
       // than its nearer end, unless the edge crosses the line.
       if ((from_line > 0.0f) == (to_line > 0.0f)) {
         const float apart = fminf(fabsf(from_line), fabsf(to_line));
-        line2[k] = apart * apart;
+        line_distance2 = apart * apart;
       } else {
-        line2[k] = 0.0f;
         inv_delta = 1.0f / (from_line - to_line);
         const float s = from_line * inv_delta;
         const auto [arm, c] = include(e.x + e.ex * s, e.y + e.ey * s);
-        crossings[arm][crossed[arm]++] = c;
+        if (!convex)
+          crossings[arm][crossed[arm]] = c;
+        ++crossed[arm];
       }
-      if (line2[k] <= REACH * REACH) {
+      if (!convex)
+        line2[k] = line_distance2;
+      if (line_distance2 <= REACH * REACH) {
         float begin = 0.0f, end = 1.0f;
         const bool from_outside = fabsf(from_line) > REACH;
         const bool to_outside = fabsf(to_line) > REACH;
@@ -228,15 +235,17 @@ public:
       from_line = to_line;
       from_along = to_along;
     }
-    // The edges nearest the line first; the order holds from the last pair,
-    // so the insertion sort runs over nearly sorted keys.
-    for (int i = 1; i < count; ++i) {
-      const uint8_t k = order[i];
-      const float key = line2[k];
-      int j = i;
-      for (; j > 0 && line2[order[j - 1]] > key; --j)
-        order[j] = order[j - 1];
-      order[j] = k;
+    if (!convex) {
+      // The edges nearest the line first; the order holds from the last pair,
+      // so the insertion sort runs over nearly sorted keys.
+      for (int i = 1; i < count; ++i) {
+        const uint8_t k = order[i];
+        const float key = line2[k];
+        int j = i;
+        for (; j > 0 && line2[order[j - 1]] > key; --j)
+          order[j] = order[j - 1];
+        order[j] = k;
+      }
     }
     // The pole is covered by the interior or by an edge's antialiasing strip.
     if ((crossed[0] & 1) || touches_pole) {
