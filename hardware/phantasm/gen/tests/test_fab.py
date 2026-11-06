@@ -4,6 +4,8 @@ import hashlib
 import io
 import json
 import os
+import re
+from decimal import Decimal
 import subprocess
 import sys
 import tempfile
@@ -18,6 +20,7 @@ sys.path.insert(0, str(GEN))
 import fab  # noqa: E402
 import sexp  # noqa: E402
 from constraints import NEW_LAYOUT_RULES  # noqa: E402
+from kicad_common import property_value  # noqa: E402
 
 
 TITLED_BOARD = sexp.parse_one('(kicad_pcb (title_block (rev "1.1")))')
@@ -870,6 +873,36 @@ class DesignRuleTests(unittest.TestCase):
 
 
 class PartCatalogTests(unittest.TestCase):
+    def test_passive_catalog_values_match_committed_schematics(self):
+        def normalized(value):
+            token = value.split()[0].removesuffix("ohm").removesuffix("F")
+            match = re.fullmatch(r"(\d+(?:\.\d+)?)([RkMpun]?)(\d*)", token)
+            self.assertIsNotNone(match, value)
+            whole, prefix, fraction = match.groups()
+            number = Decimal(whole + "." + fraction if fraction else whole)
+            return number * {"": Decimal(1), "R": Decimal(1), "k": Decimal("1e3"),
+                             "M": Decimal("1e6"), "p": Decimal("1e-12"),
+                             "n": Decimal("1e-9"), "u": Decimal("1e-6")}[prefix]
+
+        for value, expected in (("1R5", "1.5"), ("10k", "10000"),
+                                ("0.1uF", "1e-7"), ("100nF", "1e-7")):
+            self.assertEqual(normalized(value), Decimal(expected))
+        expected_refs = {ref for ref in fab.LCSC_BY_REF if ref.startswith(("R", "C"))}
+        for revision in ("1.1", "1.2"):
+            schematic = GEN.parent / revision / "phantasm.kicad_sch"
+            root = sexp.parse_one(schematic.read_text(encoding="utf-8"))
+            checked = set()
+            for symbol in fab.F(root, "symbol"):
+                ref = property_value(symbol, "Reference", "")
+                if ref not in expected_refs:
+                    continue
+                checked.add(ref)
+                value = property_value(symbol, "Value")
+                part = fab.PART_BY_LCSC[fab.LCSC_BY_REF[ref]]
+                with self.subTest(revision=revision, ref=ref, value=value, lcsc=fab.LCSC_BY_REF[ref]):
+                    self.assertEqual(normalized(value), normalized(part["description"]))
+            self.assertTrue({"R1", "R2"} <= checked, revision)
+
     def test_accepts_every_assigned_part(self):
         metadata = {
             ref: {"lcsc": lcsc}
