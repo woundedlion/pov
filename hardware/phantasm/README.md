@@ -110,7 +110,8 @@ planes, with the supply rails routed on the outer layers.
 The generator emits 0.25 mm minimum pour thickness, 0.5 mm thermal gaps, and
 0.5 mm thermal spokes. Check downloaded routed boards before selecting a
 candidate; the candidate analyzer rejects zone settings below the fabrication
-floors even if KiCad DRC reports no errors:
+floors even if KiCad DRC reports no errors. It also rejects footprints outside
+the front copper layer, including hand-assembled connectors:
 
 ```sh
 python hardware/phantasm/gen/heal_zones.py path/to/routed.kicad_pcb --check

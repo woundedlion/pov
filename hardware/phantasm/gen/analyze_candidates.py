@@ -242,8 +242,11 @@ def analyze(path):
 
     # footprint positions for ergonomics
     pos = {}
+    back_footprints = []
     for b in F(root, "footprint"):
         ref = property_value(b, "Reference")
+        if field(b, "layer") != "F.Cu":
+            back_footprints.append(ref or "(unnamed)")
         at = xy(b, "at")
         if ref and at:
             pos[ref] = at
@@ -266,6 +269,7 @@ def analyze(path):
         crit_len=sum(netlen.get(n, 0) for n in CRIT),
         crit_vias=len(crit_via_pts), crit_vias_stitched=near,
         gnd_vias=len(gnd_pts), small_vias=len(small_vias), pos=pos, ergo=ergo,
+        back_footprints=back_footprints,
     )
 
 
@@ -280,6 +284,7 @@ def score(r):
 
 
 GATE_TEXT = {
+    "BACK": "BACK-SIDE FOOTPRINTS",
     "VIA": "SMALL VIAS",
     "?": "NOT GATED (no usable kicad-cli)",
     "FAILED": "NOT GATED (DRC run failed)",
@@ -291,7 +296,9 @@ GATE_TEXT = {
 
 
 def gate_tag(result):
-    """Return the candidate's combined via/DRC eligibility tag."""
+    """Return the candidate's combined placement/via/DRC eligibility tag."""
+    if result["back_footprints"]:
+        return "BACK"
     if result["small_vias"]:
         return "VIA"
     dc = result["drc"]

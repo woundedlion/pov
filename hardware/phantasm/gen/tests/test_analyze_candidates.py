@@ -85,6 +85,7 @@ SYNTHETIC_BOARD = """
   (segment (start 0 9) (end 1 9) (width 0.25) (layer "F.Cu") (net "/SYNC_TX"))
   (via (at 3 4) (size 0.6) (drill 0.3) (layers "F.Cu" "B.Cu") (net "GND"))
   (footprint "Resistor_SMD:R_0402"
+    (layer "F.Cu")
     (at 10 20)
     (property "Reference" "R1" (at 0 0 0))
     (property "Value" "10k" (at 0 0 0)))
@@ -113,6 +114,15 @@ class AnalyzeTests(unittest.TestCase):
         self.assertEqual(r["gnd_vias"], 1)
         self.assertEqual(r["small_vias"], 0)
         self.assertEqual(r["pos"]["R1"], (10.0, 20.0))
+
+    def test_records_every_non_front_footprint(self):
+        for layer in ('(layer "B.Cu")', ''):
+            with self.subTest(layer=layer):
+                source = SYNTHETIC_BOARD.replace(
+                    '(footprint "Resistor_SMD:R_0402"\n    (layer "F.Cu")',
+                    '(footprint "Resistor_SMD:R_0402"\n    ' + layer)
+                self.assertEqual(self.analyze_source(source)["back_footprints"], ["R1"])
+        self.assertEqual(self.analyze_source(SYNTHETIC_BOARD)["back_footprints"], [])
 
     def test_arc_length_uses_both_midpoint_chords(self):
         source = SYNTHETIC_BOARD.replace(
@@ -259,6 +269,20 @@ class MainTests(unittest.TestCase):
         self.assertIn("SMALL VIAS", output)
         self.assertIn(">> best by signal integrity: Candidate 1", output)
         self.assertIn("top geometric scorer Candidate 2 was ineligible: VIA -- skipped", output)
+
+    def test_clean_drc_does_not_recommend_back_side_parts(self):
+        clean = {"status": analyze_candidates.DRC_OK,
+                 "errors": 0, "real": 0, "unconnected": 0}
+        for footprint in ('Resistor_SMD:R_0402', 'TerminalBlock_GCT_TBC05'):
+            with self.subTest(footprint=footprint):
+                back = SYNTHETIC_BOARD.replace("(end 10 0)", "(end 2 0)").replace(
+                    '(footprint "Resistor_SMD:R_0402"\n    (layer "F.Cu")',
+                    f'(footprint "{footprint}"\n    (layer "B.Cu")')
+                result, output = self.rank_sources([SYNTHETIC_BOARD, back], [clean, clean])
+                self.assertEqual(result, 0)
+                self.assertIn("BACK-SIDE FOOTPRINTS", output)
+                self.assertIn(">> best by signal integrity: Candidate 1", output)
+                self.assertIn("Candidate 2 was ineligible: BACK -- skipped", output)
 
     def test_project_rules_refusal_names_the_rules_gate(self):
         clean = {"status": analyze_candidates.DRC_OK,
