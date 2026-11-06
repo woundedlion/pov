@@ -346,9 +346,11 @@ inline void verify_authored_projection() {
   const int LAYOUTS = Kind == ProjectionKind::PEIRCE     ? 4
                       : Kind == ProjectionKind::AIROCEAN ? 2
                                                          : 1;
-  const int HEMISPHERES = Kind == ProjectionKind::GNOMONIC_FOLDED ? 3
-                          : Kind == ProjectionKind::BONNE         ? 2
-                                                                  : 1;
+  const int HEMISPHERES = Kind == ProjectionKind::GNOMONIC ||
+                                  Kind == ProjectionKind::GNOMONIC_FOLDED
+                              ? 3
+                          : Kind == ProjectionKind::BONNE ? 2
+                                                          : 1;
   for (int layout = 0; layout < LAYOUTS; ++layout)
     for (int hemisphere = 0; hemisphere < HEMISPHERES; ++hemisphere) {
       params.layout = static_cast<uint8_t>(layout);
@@ -405,6 +407,7 @@ inline void test_authored_projection_bindings_match_operators() {
                              ProjectEquirectangular>();
   verify_authored_projection<ProjectionKind::GNOMONIC_FOLDED,
                              ProjectGnomonic>();
+  verify_authored_projection<ProjectionKind::GNOMONIC, ProjectGnomonic>();
   verify_authored_projection<ProjectionKind::PEIRCE, ProjectPeirceV3>();
   verify_authored_projection<ProjectionKind::PEIRCE_SQUARE_FAST,
                              ProjectPeirceSquareFastV3>();

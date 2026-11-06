@@ -481,7 +481,8 @@ struct AuthoredProjection
     else if constexpr (Kind == ProjectionKind::EQUIRECTANGULAR)
       return Projection::equirectangular(input, params.central_meridian,
                                          params.singularity_fade);
-    else if constexpr (Kind == ProjectionKind::GNOMONIC_FOLDED)
+    else if constexpr (Kind == ProjectionKind::GNOMONIC ||
+                       Kind == ProjectionKind::GNOMONIC_FOLDED)
       return Projection::gnomonic(
           input, params.singularity_fade,
           static_cast<Projection::GnomonicHemisphere>(params.hemisphere));
@@ -509,9 +510,7 @@ struct AuthoredProjection
               input, prepared.cosine, prepared.sine, params.area_correction),
           params.coordinate_scale);
     else
-      return Projection::gnomonic(
-          input, params.singularity_fade,
-          static_cast<Projection::GnomonicHemisphere>(params.hemisphere));
+      static_assert(false, "unsupported authored projection kind");
   }
 };
 
