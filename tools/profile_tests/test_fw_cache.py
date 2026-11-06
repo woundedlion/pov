@@ -317,8 +317,7 @@ class ProfileOneCache(FirmwareCacheFixture):
         self.assertEqual(reused["profile_image"], "cache:" + built["profile_image"][6:])
         self.assertEqual(reused["phantasm_image"], "cache:" + built["phantasm_image"][6:])
         for field in ("version", "source_sha", "compiler", "profile_elf_sha256",
-                      "phantasm_elf_sha256", "profile_envdump_sha256",
-                      "phantasm_envdump_sha256", "artifact_dir"):
+                      "phantasm_elf_sha256", "artifact_dir"):
             with self.subTest(field=field):
                 self.assertEqual(reused[field], built[field])
         self.assertEqual(reused["source_sha"], self.git("rev-parse", "HEAD").stdout.strip())

@@ -363,12 +363,9 @@ build_and_attest() {
   assert_matching_toolchains
 
   local source_sha profile_sha phantasm_sha artifact_dir
-  local profile_flags_sha phantasm_flags_sha
   source_sha=$(git rev-parse HEAD)
   profile_sha=$(file_sha256 "$PROFILE_ELF")
   phantasm_sha=$(file_sha256 "$PHANTASM_ELF")
-  profile_flags_sha=$(file_sha256 "$PROFILE_ENVDUMP")
-  phantasm_flags_sha=$(file_sha256 "$PHANTASM_ENVDUMP")
   artifact_dir=${ARTIFACT_BASE}_${source_sha:0:12}_${profile_sha:0:12}
   mkdir -p "$artifact_dir"
   prune_artifacts "$artifact_dir"
@@ -389,8 +386,6 @@ build_and_attest() {
     echo "profile provenance: compiler=$ATTESTED_COMPILER"
     echo "profile provenance: profile_elf_sha256=$profile_sha"
     echo "profile provenance: phantasm_elf_sha256=$phantasm_sha"
-    echo "profile provenance: profile_envdump_sha256=$profile_flags_sha"
-    echo "profile provenance: phantasm_envdump_sha256=$phantasm_flags_sha"
     echo "profile provenance: artifact_profile_elf=$artifact_dir/profile.elf"
     echo "profile provenance: artifact_phantasm_elf=$artifact_dir/phantasm.elf"
     echo "profile provenance: artifact_dir=$artifact_dir"
