@@ -164,11 +164,13 @@ _doxygen-theme sha=`%quoted_py% tools/build_pins.py doxygen-awesome`:
 _doxyfile-local:
     cp Doxyfile Doxyfile.local
     cat docs/doxygen-theme.cfg >> Doxyfile.local
+    {{ python_command }} tools/doc_coverage.py --linker-filter >> Doxyfile.local
 
 [windows]
 _doxyfile-local:
     copy /y Doxyfile Doxyfile.local
     type docs\doxygen-theme.cfg >> Doxyfile.local
+    {{ python_command }} tools/doc_coverage.py --linker-filter >> Doxyfile.local
 
 # Build, smoke-test, and install WASM into ../daydream.
 install: smoke

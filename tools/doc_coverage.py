@@ -261,11 +261,19 @@ def silent_declarations(path: str, text: str) -> list[Undocumented]:
     return found
 
 
+def linker_filter_setting() -> str:
+    """Return the Doxygen linker filter using this Python interpreter."""
+    interpreter = Path(sys.executable).as_posix().replace('"', '\\"')
+    prefix = "call " if os.name == "nt" else ""
+    return f'FILTER_PATTERNS = "*.ld={prefix}\\"{interpreter}\\" tools/doc_coverage.py --linker-source"'
+
+
 def run_doxygen(doxygen: str, root: Path, paths: list[str]) -> str:
     """Run doxygen over the Doxyfile inputs and return its warning log."""
     with tempfile.TemporaryDirectory() as scratch:
         log = Path(scratch) / "warnings.txt"
         overlay = [
+            linker_filter_setting(),
             "EXTRACT_ALL = NO",
             "WARN_IF_UNDOCUMENTED = YES",
             "WARN_NO_PARAMDOC = YES",
@@ -305,7 +313,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--linker-source", type=Path,
                         help="emit a linker script as verbatim Doxygen input")
+    parser.add_argument("--linker-filter", action="store_true",
+                        help="emit the Doxygen linker-filter setting for this interpreter")
     args = parser.parse_args(argv)
+    if args.linker_filter:
+        print(linker_filter_setting())
+        return 0
     if args.linker_source is not None:
         print(linker_documentation(args.linker_source), end="")
         return 0

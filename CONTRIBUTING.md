@@ -180,6 +180,8 @@ protected branch's `CI green` status is the authoritative correctness gate.
   `screenshot-gallery` checks capture membership and images. `docs-doxygen`
   builds the API reference with warnings treated as errors. These complement
   the Markdown and image-reference checks below.
+  Local Doxygen recipes and the coverage gate use the selected Python
+  interpreter for the linker-script filter, including `HS_PYTHON` in `just`.
 - **Host-Python tool suites:** `just python-test` and the CI `python-tests`
   job run `python tools/run_python_tests.py` across all tracked Python suites,
   including firmware gates, profiling tools, build checks and PCB generators.

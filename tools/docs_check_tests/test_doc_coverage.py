@@ -219,6 +219,7 @@ class TestRunDoxygen(unittest.TestCase):
                 with self.subTest(paths=paths):
                     def run(*args, **kwargs):
                         config = kwargs["input"]
+                        self.assertIn(cov.linker_filter_setting() + "\n", config)
                         self.assertEqual(cov.doxyfile_setting(config, "EXTRACT_ALL"), ["NO"])
                         self.assertEqual(cov.doxyfile_setting(config, "WARN_IF_UNDOCUMENTED"),
                                          ["YES"])
@@ -230,6 +231,18 @@ class TestRunDoxygen(unittest.TestCase):
                         self.assertEqual(cov.run_doxygen("doxygen", root, paths),
                                          "sentinel warning\n")
                     runner.assert_called_once()
+
+    def test_linker_filter_quotes_selected_interpreter_and_cli_matches(self):
+        for platform, prefix in (("nt", "call "), ("posix", "")):
+            with self.subTest(platform=platform), \
+                 mock.patch.object(cov.sys, "executable", "C:/Python With Spaces/python.exe"), \
+                 mock.patch.object(cov.os, "name", platform):
+                expected = (f'FILTER_PATTERNS = "*.ld={prefix}\\"C:/Python With Spaces/python.exe\\" '
+                            'tools/doc_coverage.py --linker-source"')
+                self.assertEqual(cov.linker_filter_setting(), expected)
+                with contextlib.redirect_stdout(io.StringIO()) as output:
+                    self.assertEqual(cov.main(["--linker-filter"]), 0)
+                self.assertEqual(output.getvalue(), expected + "\n")
 
 
 class TestMain(unittest.TestCase):
