@@ -426,6 +426,13 @@ Each stage consumes and produces one of four typed **carriers**, ranked in a fix
 
 A stage either transforms a carrier in place (an *endomorphism*: sphere lenses and displacements, plane warps, field transfers) or crosses to the next rank (projection: sphere → plane; sampling: plane → field; coloring: field → color). Ranks never decrease along a chain, and `Pullback::Pipeline` checks that at compile time. The finished `Color4` goes to `Scan::Shader`, which premultiplies it into the canvas.
 
+Spherical sources cross directly from Sphere to Field, skipping projection and
+planar warps. Field describes the sampled scalar and coverage independently of
+the source's coordinate domain. Spherical Noise samples the shared sphere-noise
+kernel; Spherical Cells evaluates spherical Voronoi borders, center falloff or
+stable per-cell values using canonical solid vertices, Fibonacci spacing or
+deterministic scattered seeds. Both feed the same field transfers and palettes.
+
 Pullback chains reach the screen two ways:
 
 - **Composed effects.** A shader document under `patterns/` (`*.shader.json`) describes a chain: its ordered operators, parameters and presets; [source ownership](patterns/README.md#generated-and-hand-authored-sources) distinguishes authored studies from generated promotions. A `Pullback::ComposedEffect` wrapper in `effects/` compiles that chain into a typed pipeline, with generated identity and preset sections ([§6.5](#65-adding-an-effect)). These are ordinary firmware effects.

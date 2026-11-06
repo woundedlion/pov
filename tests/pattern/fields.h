@@ -12,6 +12,7 @@
 #include <type_traits>
 #include "core/pattern/sources.h"
 #include "core/pattern/noise.h"
+#include "core/pattern/sphere_cells.h"
 #include "tests/test_harness.h"
 
 namespace hs_test::pattern_tests {
@@ -319,6 +320,167 @@ inline void test_pattern_extracted_source_protocols() {
       POINT.value, noise.noise_scale, CLOCK.phase_turns);
   HS_EXPECT_EQ(PlaneNoise::sample(POINT, NOISE),
                noise_contour(GENERATOR, math::NoiseBasis::FBM3, Q, 0.0f));
+}
+
+/** @brief Spherical cells use the engine's canonical seed layouts. */
+inline void test_pattern_sphere_cell_layouts() {
+  using namespace Pattern;
+  struct LayoutCase {
+    SphereCellLayout layout;
+    std::span<const math::Vector> vertices;
+  };
+  const LayoutCase CASES[] = {
+      {SphereCellLayout::TETRAHEDRON, Solids::Tetrahedron::vertices},
+      {SphereCellLayout::CUBE, Solids::Cube::vertices},
+      {SphereCellLayout::OCTAHEDRON, Solids::Octahedron::vertices},
+      {SphereCellLayout::DODECAHEDRON, Solids::Dodecahedron::vertices},
+      {SphereCellLayout::ICOSAHEDRON, Solids::Icosahedron::vertices}};
+  SphereCellsParams params;
+  for (const auto &entry : CASES) {
+    params.layout = static_cast<uint8_t>(entry.layout);
+    const auto PREPARED = SphereCells::prepare(params);
+    HS_EXPECT_EQ(PREPARED.count, entry.vertices.size());
+    for (size_t index = 0; index < entry.vertices.size(); ++index) {
+      HS_EXPECT_EQ(PREPARED.centers[index].x, entry.vertices[index].x);
+      HS_EXPECT_EQ(PREPARED.centers[index].y, entry.vertices[index].y);
+      HS_EXPECT_EQ(PREPARED.centers[index].z, entry.vertices[index].z);
+    }
+  }
+  params.layout = static_cast<uint8_t>(SphereCellLayout::FIBONACCI);
+  params.count = 9.6f;
+  const auto TEN = SphereCells::prepare(params);
+  HS_EXPECT_EQ(TEN.count, 10u);
+  for (size_t index = 0; index < TEN.count; ++index) {
+    const auto EXPECTED = math::fib_spiral(10, 0.5f, static_cast<int>(index));
+    HS_EXPECT_EQ(TEN.centers[index].x, EXPECTED.x);
+    HS_EXPECT_EQ(TEN.centers[index].y, EXPECTED.y);
+    HS_EXPECT_EQ(TEN.centers[index].z, EXPECTED.z);
+  }
+  params.count = 24.0f;
+  const auto DENSER = SphereCells::prepare(params);
+  HS_EXPECT_EQ(DENSER.count, 24u);
+  HS_EXPECT_TRUE(DENSER.centers[0].y != TEN.centers[0].y);
+  HS_EXPECT_GT(DENSER.distance_scale, TEN.distance_scale);
+  params.count = static_cast<float>(SphereCells::MAX_CELLS);
+  HS_EXPECT_EQ(SphereCells::prepare(params).count, SphereCells::MAX_CELLS);
+}
+
+/** @brief Scattered cells are reproducible without consuming the effect RNG. */
+inline void test_pattern_sphere_cell_seed_isolation() {
+  using namespace Pattern;
+  SphereCellsParams params;
+  params.layout = static_cast<uint8_t>(SphereCellLayout::SCATTERED);
+  params.count = 31.0f;
+  params.seed = 917.0f;
+  auto expected_rng = hs::random();
+  const auto FIRST = SphereCells::prepare(params);
+  const auto AGAIN = SphereCells::prepare(params);
+  ++params.seed;
+  const auto OTHER = SphereCells::prepare(params);
+  auto actual_rng = hs::random();
+  HS_EXPECT_EQ(actual_rng(), expected_rng());
+  bool changed = false;
+  for (size_t index = 0; index < FIRST.count; ++index) {
+    HS_EXPECT_EQ(FIRST.centers[index].x, AGAIN.centers[index].x);
+    HS_EXPECT_EQ(FIRST.centers[index].y, AGAIN.centers[index].y);
+    HS_EXPECT_EQ(FIRST.centers[index].z, AGAIN.centers[index].z);
+    HS_EXPECT_NEAR(math::dot(FIRST.centers[index], FIRST.centers[index]), 1.0f,
+                   3.0e-7f);
+    changed |= FIRST.centers[index].x != OTHER.centers[index].x;
+  }
+  HS_EXPECT_TRUE(changed);
+  params.layout = static_cast<uint8_t>(SphereCellLayout::OCTAHEDRON);
+  params.output = static_cast<uint8_t>(SphereCellOutput::CELL_VALUE);
+  const auto A = SphereCells::prepare(params);
+  ++params.seed;
+  const auto B = SphereCells::prepare(params);
+  const auto POINT = SphereDirection::from_unit(math::X_AXIS);
+  HS_EXPECT_TRUE(SphereCells::sample(POINT, A) !=
+                 SphereCells::sample(POINT, B));
+}
+
+/** @brief Cell borders, center falloff and labels match known octahedral cells. */
+inline void test_pattern_sphere_cell_outputs() {
+  using namespace Pattern;
+  SphereCellsParams params;
+  params.layout = static_cast<uint8_t>(SphereCellLayout::OCTAHEDRON);
+  params.line_thickness = 0.1f;
+  params.line_softness = 0.2f;
+  auto prepared = SphereCells::prepare(params);
+  const auto X = SphereDirection::from_unit(math::X_AXIS);
+  const auto BOUNDARY = SphereDirection::from({1.0f, 1.0f, 0.0f});
+  HS_EXPECT_EQ(SphereCells::sample(X, prepared), -1.0f);
+  HS_EXPECT_EQ(SphereCells::sample(BOUNDARY, prepared), 1.0f);
+  const float SCALE = std::sqrt(6.0f / (4.0f * std::numbers::pi_v<float>));
+  const float OFFSET = 0.2f / SCALE;
+  for (float side : {-1.0f, 1.0f}) {
+    const float ANGLE = std::numbers::pi_v<float> / 4.0f + side * OFFSET;
+    const auto POINT =
+        SphereDirection::from({std::cos(ANGLE), std::sin(ANGLE), 0});
+    HS_EXPECT_NEAR(SphereCells::sample(POINT, prepared), 0.0f, 2.0e-6f);
+  }
+  prepared.output = SphereCellOutput::CENTERS;
+  HS_EXPECT_NEAR(SphereCells::sample(X, prepared), 1.0f, 1.0e-6f);
+  for (float angle : {0.2f, 0.5f}) {
+    const auto POINT =
+        SphereDirection::from({std::cos(angle), std::sin(angle), 0});
+    HS_EXPECT_NEAR(SphereCells::sample(POINT, prepared),
+                   1.0f - 2.0f * angle * SCALE, 5.0e-4f);
+  }
+  prepared.output = SphereCellOutput::CELL_VALUE;
+  prepared.seed = 391;
+  HS_EXPECT_EQ(SphereCells::sample(X, prepared),
+               2.0f * math::hash01(0, 391) - 1.0f);
+  HS_EXPECT_EQ(SphereCells::sample(BOUNDARY, prepared),
+               2.0f * math::hash01(0, 391) - 1.0f);
+  HS_EXPECT_EQ(
+      SphereCells::sample(SphereDirection::from_unit(math::Y_AXIS), prepared),
+      2.0f * math::hash01(2, 391) - 1.0f);
+}
+
+/** @brief The closest cell border can belong to a seed beyond the nearest two. */
+inline void test_pattern_sphere_cell_all_bisectors() {
+  using namespace Pattern;
+  SphereCells::Prepared prepared;
+  prepared.count = 4;
+  prepared.distance_scale = 1.0f;
+  prepared.line_thickness = 0.0f;
+  prepared.line_softness = 0.1f;
+  const float ANGLES[] = {0.2f, 0.21f, -0.3f, 2.0f};
+  for (size_t index = 0; index < prepared.count; ++index)
+    prepared.centers[index] = {std::sin(ANGLES[index]), std::cos(ANGLES[index]),
+                               0};
+  const auto POINT = SphereDirection::from_unit(math::Y_AXIS);
+  HS_EXPECT_NEAR(SphereCells::sample(POINT, prepared), 0.0f, 2.0e-6f);
+}
+
+/** @brief Cell recipes accept finite endpoints and reject invalid controls. */
+inline void test_pattern_sphere_cell_admission() {
+  using namespace Pattern;
+  SphereCellsParams params;
+  params.count = 4.0f;
+  params.seed = 65535.0f;
+  params.line_thickness = 0.0f;
+  params.line_softness = 1.0f / 1024.0f;
+  HS_EXPECT_TRUE(SphereCells::valid(params));
+  for (auto member : {&SphereCellsParams::count, &SphereCellsParams::seed,
+                      &SphereCellsParams::line_thickness,
+                      &SphereCellsParams::line_softness}) {
+    for (float invalid : {std::numeric_limits<float>::quiet_NaN(),
+                          std::numeric_limits<float>::infinity(), -1.0f}) {
+      auto rejected = params;
+      rejected.*member = invalid;
+      HS_EXPECT_TRUE(!SphereCells::valid(rejected));
+    }
+  }
+  params.count = 129.0f;
+  HS_EXPECT_TRUE(!SphereCells::valid(params));
+  params.count = 42.0f;
+  params.layout = 255;
+  HS_EXPECT_TRUE(!SphereCells::valid(params));
+  params.layout = 0;
+  params.output = 255;
+  HS_EXPECT_TRUE(!SphereCells::valid(params));
 }
 
 } // namespace hs_test::pattern_tests

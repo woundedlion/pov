@@ -64,6 +64,7 @@ static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::MIDPOINT4) == 4);
 #include "tests/shader_chain/projection_ops.h"
 #include "tests/shader_chain/field_ops.h"
 #include "tests/shader_chain/sample_ops.h"
+#include "tests/shader_chain/spherical_sources.h"
 #include "tests/shader_chain/palette_ops.h"
 #include "tests/shader_chain/effect_cases.h"
 #include "tests/shader_chain/parameter_ranges.h"
@@ -849,6 +850,10 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_composed_noise_domain);
   HS_RUN(test_shader_chain_noise_operator_domain);
   HS_RUN(test_shader_chain_parity_sample_projected_noise);
+  HS_RUN(test_shader_chain_spherical_noise_policy);
+  HS_RUN(test_shader_chain_spherical_cells_policy);
+  HS_RUN(test_shader_chain_spherical_source_pipeline);
+  HS_RUN(test_shader_chain_spherical_noise_lifecycle);
   HS_RUN(test_shader_chain_parity_colorize_variants);
   HS_RUN(test_shader_chain_palette_selection);
   HS_RUN(test_shader_chain_authored_palette_history);

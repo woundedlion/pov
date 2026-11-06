@@ -15,7 +15,7 @@
 
 /**
  * @file sample.h
- * @brief PLANE→FIELD scalar crossing operator models.
+ * @brief Scalar source crossing operator models.
  */
 
 namespace Pullback {
@@ -545,6 +545,55 @@ struct SampleProjectedNoise : PhaseClockModel<NoisePhaseState> {
                                          prepared.loop_offset),
         params.noise_contrast);
     return finish_sample(input, raw, params, ctx);
+  }
+};
+
+/** @brief SPHERE→FIELD crossing using the canonical spherical noise kernel. */
+struct SampleSphericalNoise : PhaseClockModel<NoisePhaseState> {
+  static constexpr const char *ID =
+      Source::SphericalNoiseSourceParams::OPERATOR_ID;
+  static constexpr const char *NAME = "Spherical Noise";
+  using Input = SphereSample;
+  using Output = FieldSample;
+  using Params = Source::SphericalNoiseSourceParams;
+  using Prepared = Pattern::SphereNoise::Prepared;
+
+  static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
+  static Prepared prepare(const FrameContext &, const Params &params,
+                          const State &state) {
+    return Pattern::SphereNoise::prepare(
+        {params.noise_scale, params.noise_time_rate,
+         static_cast<math::NoiseBasis>(params.basis), params.noise_contrast,
+         Pattern::NoiseVariant::OCTAVE_CONTOUR},
+        {state.phase}, state.noise);
+  }
+  static FieldSample run(const SphereSample &input, const FrameContext &,
+                         const Params &, const Prepared &prepared) {
+    return Kernel::sample(
+        input, Pattern::SphereNoise::sample(
+                   Pattern::SphereDirection::admit(input.dir), prepared));
+  }
+};
+
+/** @brief SPHERE→FIELD crossing using the canonical spherical cell kernel. */
+struct SampleSphericalCells : StatelessModel {
+  static constexpr const char *ID =
+      Source::SphericalCellsSourceParams::OPERATOR_ID;
+  static constexpr const char *NAME = "Spherical Cells";
+  using Input = SphereSample;
+  using Output = FieldSample;
+  using Params = Source::SphericalCellsSourceParams;
+  using Prepared = Pattern::SphereCells::Prepared;
+
+  static Prepared prepare(const FrameContext &, const Params &params,
+                          const State &) {
+    return Pattern::SphereCells::prepare(params);
+  }
+  static FieldSample run(const SphereSample &input, const FrameContext &,
+                         const Params &, const Prepared &prepared) {
+    return Kernel::sample(
+        input, Pattern::SphereCells::sample(
+                   Pattern::SphereDirection::admit(input.dir), prepared));
   }
 };
 

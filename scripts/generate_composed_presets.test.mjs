@@ -14,6 +14,20 @@ const catalog = await loadOperatorCatalog();
 const identities = await loadEffectIdentities();
 const document = JSON.parse(await readFile(new URL('../patterns/kaleidoscope_smooth.shader.json', import.meta.url), 'utf8'));
 
+test('authored spherical source selectors remain live in generated presets', () => {
+  for (const id of ['sample.spherical-noise.v1', 'sample.spherical-cells.v1']) {
+    const source = { descriptor: { chain: [{ label: 'sample', operator: id }] } };
+    const operator = catalog.operators.find((entry) => entry.id === id);
+    assert.ok(operator);
+    for (const field of operator.params.filter((field) => field.topology)) {
+      for (const [index, value] of field.values.entries()) {
+        const assignments = presetAssignments(source, { [`sample.${field.id}`]: value }, { authoredTopology: true });
+        assert.equal(assignments.get(`source.${field.id.replaceAll('-', '_')}`), String(index));
+      }
+    }
+  }
+});
+
 test('composed preset headers reproduce their document values and digests', async () => {
   const effects = new URL('../effects/', import.meta.url);
   const headers = (await readdir(effects)).filter(name => name.endsWith('.h'));
@@ -243,7 +257,7 @@ test('every catalog operator retains all scalar values and topology selections',
     }
     ++operators;
   }
-  assert.equal(operators, 43);
+  assert.equal(operators, 45);
   assert.ok(selectors > 100);
 });
 

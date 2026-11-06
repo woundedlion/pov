@@ -396,7 +396,35 @@ test('the catalog exposes the complete workbench warp and source vocabulary', ()
     ['euler-1', 'midpoint-2', 'midpoint-4'],
   );
   assert.ok(operators.has('sample.tessellation.v3'));
+  for (const id of ['sample.spherical-noise.v1', 'sample.spherical-cells.v1']) {
+    assert.equal(operators.get(id)?.input, 'sphere');
+    assert.equal(operators.get(id)?.output, 'field');
+    assert.ok(!operators.get(id).params.some((field) => field.id === 'coverage-mode'));
+  }
   assert.ok(!operators.has('sample.lattice.v2'));
+});
+
+test('spherical source documents compile and round-trip without a planar stage', () => {
+  for (const source of ['sample.spherical-noise.v1', 'sample.spherical-cells.v1']) {
+    const document = example();
+    const chain = [
+      { label: 'source', operator: source },
+      { label: 'palette', operator: 'colorize.generated-palette.v4' },
+    ];
+    document.descriptor.chain = chain;
+    document.descriptor.parameters = chain.flatMap((entry) => CATALOG.operators
+      .find((operator) => operator.id === entry.operator).params
+      .map((field) => declarationFromCatalogField(entry.label, field, entry.operator)));
+    document.descriptor.serialization.fields = document.descriptor.parameters.map(({ id }) => id);
+    for (const preset of document.preset_bank.presets)
+      preset.values = Object.fromEntries(document.descriptor.parameters.map((field) => [field.id, field.default]));
+    const compiled = compile(document);
+    assert.equal(compiled.status, 'VALID', JSON.stringify(compiled.diagnostics));
+    const restored = compile(JSON.parse(exportShaderDocumentJson(compiled.document)));
+    assert.equal(restored.status, 'VALID', JSON.stringify(restored.diagnostics));
+    assert.equal(restored.descriptor_digest, compiled.descriptor_digest);
+    assert.deepEqual(restored.document.descriptor.chain, chain);
+  }
 });
 
 test('every promoted shader document matches its compiled effect identity', async () => {

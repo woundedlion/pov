@@ -38,6 +38,7 @@ const liveTopology = (document, id) => {
 };
 
 const authoredLiveTopology = (slot, field) => {
+  if (slot.operator === 'sample.spherical-noise.v1' || slot.operator === 'sample.spherical-cells.v1') return true;
   if (slot.operator.startsWith('sample.')) return ['basis', 'weight-mode', 'coverage-mode'].includes(field);
   if (slot.operator === 'warp.affine.v4') return field !== 'path-length';
   return slot.operator !== 'sphere.rotate.v2';

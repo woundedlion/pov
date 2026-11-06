@@ -148,6 +148,22 @@ source's single parameter record rather than duplicate its fields.
 chosen mapping only when its consumer starts with sphere coordinates. Pullback
 already supplies plane coordinates; sphere sources take directions directly.
 Projection stays in the renderer's coordinate pipeline, not the shared kernel.
+The workbench exposes Spherical Noise and Spherical Cells as Sphere-to-Field
+crossings. They skip the Plane carrier and share downstream field and color
+stages with planar sources. Source changes replace the complete planar route,
+including its warps, transactionally; undo restores that route. No dormant
+projection settings are stored in spherical chains.
+
+Spherical Cells is a shared pure source with frame-prepared unit seeds. Solid
+layouts borrow the engine's canonical vertex tables; generated layouts use its
+Fibonacci spiral or explicitly seeded random-direction generator. Preparation
+does not consume global randomness. Nearest regions use spherical Voronoi cells;
+border distance considers every rival bisector, center output uses angular
+distance, and cell values use the shared deterministic hash. Count and seed
+snap between presets. Distance controls use the square root of mean cell area
+as their unit. The bounded fixed seed storage is owned by the prepared source,
+without JavaScript geometry or a projection dependency.
+
 The library supports PlanePosition and SphereDirection now for existing consumers.
 Directional modulation binds SphereDirection; displacement binds accumulated
 path length. FieldSample does not retain warped plane coordinates. Supporting a planar modulation source

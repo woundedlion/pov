@@ -454,6 +454,8 @@ inline constexpr bool RESOURCE_NOISE =
     std::is_base_of_v<Warp::CurlFlowParams, typename Resource::Family> ||
     std::is_base_of_v<Source::ProjectedNoiseSourceParams,
                       typename Resource::Family> ||
+    std::is_base_of_v<Source::SphericalNoiseSourceParams,
+                      typename Resource::Family> ||
     std::is_base_of_v<Surface::SurfaceNoiseParams, typename Resource::Family> ||
     std::is_base_of_v<Surface::DirectSurfaceParams, typename Resource::Family>;
 
@@ -470,6 +472,9 @@ template <typename Family> consteval std::string_view noise_operator_id() {
   else if constexpr (std::is_base_of_v<Source::ProjectedNoiseSourceParams,
                                        Family>)
     return "sample.projected-noise.v2";
+  else if constexpr (std::is_base_of_v<Source::SphericalNoiseSourceParams,
+                                       Family>)
+    return "sample.spherical-noise.v1";
   else if constexpr (std::is_base_of_v<Surface::SurfaceNoiseParams, Family>)
     return "sphere.displace.curl.v2";
   else if constexpr (std::is_base_of_v<Surface::DirectSurfaceParams, Family>)

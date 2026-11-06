@@ -700,6 +700,39 @@ inline void catalog_assignments_sample_projected_noise_v2() {
   (void)params;
 }
 
+inline void catalog_assignments_sample_spherical_noise_v1() {
+  Pullback::Source::SphericalNoiseSourceParams params;
+  params.noise_scale = 1.0f;
+  params.noise_contrast = 0.0f;
+  params.noise_time_rate = 0.0f;
+  params.basis = 0;
+  params.basis = 0;
+  params.basis = 1;
+  params.basis = 2;
+  (void)params;
+}
+
+inline void catalog_assignments_sample_spherical_cells_v1() {
+  Pullback::Source::SphericalCellsSourceParams params;
+  params.count = 42.0f;
+  params.seed = 0.0f;
+  params.line_thickness = 0.06f;
+  params.line_softness = 0.025f;
+  params.layout = 4;
+  params.output = 0;
+  params.layout = 0;
+  params.layout = 1;
+  params.layout = 2;
+  params.layout = 3;
+  params.layout = 4;
+  params.layout = 5;
+  params.layout = 6;
+  params.output = 0;
+  params.output = 1;
+  params.output = 2;
+  (void)params;
+}
+
 inline void catalog_assignments_field_transfer_ridge_v2() {
   Pullback::Lens::NoLensParams params;
   (void)params;

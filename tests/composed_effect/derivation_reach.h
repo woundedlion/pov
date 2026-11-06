@@ -22,6 +22,8 @@ static_assert(DerivableSource<Pullback::GridSourceParams>);
 // policy.
 static_assert(!DerivableSource<Pullback::Source::NoiseSourceParams>);
 static_assert(DerivableSource<Pullback::ProjectedNoiseSourceParams>);
+static_assert(DerivableSource<Pullback::Source::SphericalNoiseSourceParams>);
+static_assert(DerivableSource<Pullback::Source::SphericalCellsSourceParams>);
 static_assert(
     std::is_same_v<
         typename Pullback::SourcePolicyFor<Pullback::ProjectedNoiseSourceParams,
@@ -131,6 +133,8 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sample.spiral.v3", "coverage-mode", {{"weight-squared"}}},
     {"sample.spiral.v3", "coordinate-system", {{"plane"}}},
     {"sample.projected-noise.v2", nullptr, {}},
+    {"sample.spherical-noise.v1", nullptr, {}},
+    {"sample.spherical-cells.v1", nullptr, {}},
     {"sample.tessellation.v3", "weight-mode", {{"projection"}}},
     {"sample.tessellation.v3", "coverage-mode", {{"weight", "edge-fade"}}},
     // Shipped Specs pin square cells.
@@ -264,8 +268,8 @@ inline void test_composed_derivation_reach() {
     }
   }
 
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 43u);
-  HS_EXPECT_EQ(unreachable_operators, 16u);
-  HS_EXPECT_EQ(catalog_values, 374u);
-  HS_EXPECT_EQ(unreachable_values, 286u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 45u);
+  HS_EXPECT_EQ(unreachable_operators, 18u);
+  HS_EXPECT_EQ(catalog_values, 387u);
+  HS_EXPECT_EQ(unreachable_values, 299u);
 }

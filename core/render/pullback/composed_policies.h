@@ -137,6 +137,20 @@ template <typename B> struct SourcePolicyFor<ProjectedNoiseSourceParams, B> {
       SourceProvider<B, ProjectedNoiseSourceParams>, math::NoiseBasis::SIMPLEX>;
 };
 
+/** @brief Spherical noise source. @tparam B Frame binding. */
+template <typename B>
+struct SourcePolicyFor<Source::SphericalNoiseSourceParams, B> {
+  using Type = Source::SphericalNoise<
+      SourceProvider<B, Source::SphericalNoiseSourceParams>>;
+};
+
+/** @brief Spherical cell source. @tparam B Frame binding. */
+template <typename B>
+struct SourcePolicyFor<Source::SphericalCellsSourceParams, B> {
+  using Type = Source::SphericalCells<
+      SourceProvider<B, Source::SphericalCellsSourceParams>>;
+};
+
 /** @brief Authored source topology. @tparam B Frame binding. */
 template <typename B>
 struct SourcePolicyFor<Source::AuthoredProjectedNoiseSourceParams, B> {

@@ -42,6 +42,8 @@ const FAMILIES = {
   'sample.spiral.v3': 'Pullback::Source::AuthoredSpiralSampleParams',
   'sample.tessellation.v3': 'Pullback::Source::AuthoredSampleParams<Pullback::Source::TessellationSourceParams>',
   'sample.projected-noise.v2': 'Pullback::Source::AuthoredProjectedNoiseSampleParams',
+  'sample.spherical-noise.v1': 'Pullback::Source::SphericalNoiseSourceParams',
+  'sample.spherical-cells.v1': 'Pullback::Source::SphericalCellsSourceParams',
   'field.transfer.ridge.v2': 'Pullback::Lens::NoLensParams',
   'field.transfer.iso-contour.v2': 'Pullback::Transfer::IsoValueParams',
   'field.transfer.smooth-bands.v2': 'Pullback::Transfer::SmoothBandsParams',

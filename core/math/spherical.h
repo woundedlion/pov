@@ -52,14 +52,15 @@ HS_FLASH_MEMBER inline Vector fib_spiral(int n, float eps, int i) {
 
 /**
  * @brief Generates a uniformly distributed 3D unit vector (direction) from the
- * deterministic global RNG using Marsaglia's method.
+ * supplied RNG using Marsaglia's method.
+ * @param random Generator supplying the random draws.
  * @return A normalized random Vector.
  */
-inline Vector random_vector() {
+inline Vector random_vector(hs::Pcg32 &random) {
   float v1, v2, s;
   do {
-    v1 = 2.0f * hs::rand_f() - 1.0f;
-    v2 = 2.0f * hs::rand_f() - 1.0f;
+    v1 = 2.0f * hs::random_to_unit(random()) - 1.0f;
+    v2 = 2.0f * hs::random_to_unit(random()) - 1.0f;
     s = v1 * v1 + v2 * v2;
   } while (s >= 1.0f || s == 0.0f);
 
@@ -67,6 +68,10 @@ inline Vector random_vector() {
   return Vector(2.0f * v1 * sqrt_one_minus_s, 2.0f * v2 * sqrt_one_minus_s,
                 1.0f - 2.0f * s);
 }
+
+/** @brief Generates a uniform unit direction from the global RNG.
+ * @return A normalized random vector. */
+inline Vector random_vector() { return random_vector(hs::random()); }
 
 /**
  * @brief Parameters defining a Lissajous curve.

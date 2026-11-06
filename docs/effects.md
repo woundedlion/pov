@@ -752,6 +752,24 @@ There is no universal camera parameter or pair of warp slots.
 A planar source consumes Plane, so it follows a projection and any selected
 planar warps.
 
+A spherical source consumes Sphere directly. Selecting Spherical Noise or
+Spherical Cells in the workbench replaces projection, planar warps and the planar
+source; the skipped planar section is hidden. Sphere transforms remain before
+the source, and field transfers, cutouts, palettes and modulation remain after
+it. Undo restores the previous chain, including its planar controls. Selecting a
+planar source again inserts a projection and planar source with catalog defaults.
+
+Spherical Noise shares the engine's animated spherical noise kernel and octave
+bases. Spherical Cells uses nearest-seed regions on the unit sphere. Its layout
+selector offers the five Platonic solids' vertex sets, Fibonacci spacing and
+deterministic scattered points. Count controls the generated layouts; the solid
+layouts use their canonical vertex counts. Output selects borders, center
+falloff or stable per-cell palette values. Border thickness and softness use
+mean cell spacing as their unit. Border distance checks all rival bisector
+planes. Seed changes scattered positions and cell values without consuming the
+engine's global random stream. Fibonacci is a near-uniform layout, not a
+geodesic subdivision.
+
 | Operator family | Options | Input → output and controls |
 |---|---|---|
 | **Rotation** | Spin + Wander | Sphere → Sphere; the instance's wander and spin speed |
@@ -760,6 +778,7 @@ planar warps.
 | **Projection** | Folded Sinusoidal, Stereographic, Gnomonic, Bonne, Peirce Quincuncial, Fast Square Peirce, Dymaxion / Airocean, Equirectangular, Tetrahedral / Cubic / Octahedral / Dodecahedral / Icosahedral Atlas | Sphere → Plane; coordinates, projection provenance, weight and available edge distance; instance-specific frame/layout controls |
 | **Planar warp** | Affine Warp, Wave Shear, Vortex, Vector Noise, Curl Flow, Mirror Tile, Polar Chart | Plane → Plane; independent parameters and clocks for each ordered instance |
 | **Planar source** | Bands, Twin Wave, Spiral, Grid, Projected Noise, Tessellation | Plane → Field; source parameters, signal weighting and coverage choices |
+| **Spherical source** | Spherical Noise, Spherical Cells | Sphere → Field; noise scale, speed, contrast and basis; cell layout, count, seed, output and border controls |
 | **Value transfer** | Ridge, Iso Contour, Smooth Bands | Field → Field; reshapes the normalized value; iso and band controls belong to their operator |
 | **Coverage** | Value Cutout | Field → Field; cutout threshold and softness; projection-based coverage belongs to planar sources |
 | **Colorize** | Cycling-generated, generated, procedural, gradient, mutating | Field → Color; palette-source selection, family-gated palette controls, mapping, phase oscillation, brightness envelope and opacity |

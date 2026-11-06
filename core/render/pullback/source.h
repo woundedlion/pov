@@ -7,6 +7,7 @@
 #include <cmath>
 
 #include "core/pattern/noise.h"
+#include "core/pattern/sphere_cells.h"
 #include "core/pattern/sources.h"
 
 #include "core/math/projection_patterns.h"
@@ -177,6 +178,70 @@ static_assert(field_defaults_in_range<NoiseSourceParams>());
  *        projected chart, so it carries the projection's distortion.
  */
 struct ProjectedNoiseSourceParams : NoiseSourceParams {};
+
+/** @brief Sphere-domain octave noise controls. */
+struct SphericalNoiseSourceParams : NoiseSourceParams {
+  uint8_t basis =
+      static_cast<uint8_t>(math::NoiseBasis::SIMPLEX); ///< Octave basis.
+  static constexpr const char *OPERATOR_ID =
+      "sample.spherical-noise.v1"; ///< Catalog identity.
+  /// Noise basis selector.
+  static constexpr auto TOPOLOGY =
+      std::array{TopologyField<SphericalNoiseSourceParams>{
+          "basis", &SphericalNoiseSourceParams::basis, math::NOISE_BASIS_IDS,
+          0}};
+};
+static_assert(field_ids_unique<SphericalNoiseSourceParams>());
+static_assert(field_defaults_in_range<SphericalNoiseSourceParams>());
+
+/** @brief Spherical cell layout and scalar controls. */
+struct SphericalCellsSourceParams : Pattern::SphereCellsParams {
+  static constexpr const char *OPERATOR_ID =
+      "sample.spherical-cells.v1"; ///< Catalog identity.
+  /// Canonical seed layouts.
+  static constexpr const char *LAYOUT_IDS[] = {
+      "tetrahedron", "cube",      "octahedron", "dodecahedron",
+      "icosahedron", "fibonacci", "scattered"};
+  /// Scalar output choices.
+  static constexpr const char *OUTPUT_IDS[] = {"borders", "centers",
+                                               "cell-value"};
+  /// Activation of variable-density layouts.
+  static constexpr TopologyGate COUNT_GATE{
+      "layout", live_values(Pattern::SphereCellLayout::FIBONACCI,
+                            Pattern::SphereCellLayout::SCATTERED)};
+  /// Activation of border-width controls.
+  static constexpr TopologyGate BORDER_GATE{
+      "output", live_values(Pattern::SphereCellOutput::BORDERS)};
+  /// Numeric source controls.
+  static constexpr auto FIELDS = std::array{
+      Field<SphericalCellsSourceParams>{
+          "count", &SphericalCellsSourceParams::count, "Cell Count", 4.0f,
+          static_cast<float>(Pattern::SphereCells::MAX_CELLS), FieldCurve::SNAP,
+          FieldGate::ALWAYS, COUNT_GATE},
+      Field<SphericalCellsSourceParams>{
+          "seed", &SphericalCellsSourceParams::seed, "Seed", 0.0f, 65535.0f,
+          FieldCurve::SNAP},
+      Field<SphericalCellsSourceParams>{
+          "line-thickness", &SphericalCellsSourceParams::line_thickness,
+          "Line Thickness", 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+          BORDER_GATE},
+      Field<SphericalCellsSourceParams>{
+          "line-softness", &SphericalCellsSourceParams::line_softness,
+          "Line Softness", 1.0f / 1024.0f, 1.0f, FieldCurve::LOG_POSITIVE,
+          FieldGate::ALWAYS, BORDER_GATE},
+  };
+  /// Seed layout and output selectors.
+  static constexpr auto TOPOLOGY = std::array{
+      TopologyField<SphericalCellsSourceParams>{
+          "layout", &SphericalCellsSourceParams::layout, LAYOUT_IDS,
+          static_cast<uint8_t>(Pattern::SphereCellLayout::ICOSAHEDRON)},
+      TopologyField<SphericalCellsSourceParams>{
+          "output", &SphericalCellsSourceParams::output, OUTPUT_IDS,
+          static_cast<uint8_t>(Pattern::SphereCellOutput::BORDERS)},
+  };
+};
+static_assert(field_ids_unique<SphericalCellsSourceParams>());
+static_assert(field_defaults_in_range<SphericalCellsSourceParams>());
 
 /** @brief Fill topology gate of the cell-primitive controls. */
 inline constexpr TopologyGate TESSELLATION_CELLS_GATE{
@@ -597,6 +662,87 @@ struct ProjectedNoise : ApproximationDefaults {
         math::noise_projected_coordinate(input.coords,
                                          State::noise_scale(frame), prepared),
         State::noise_contrast(frame));
+  }
+};
+
+/** @brief Sphere-domain noise using the shared immutable noise kernel.
+ * @tparam State Provider of parameters, generator and loop phase. */
+template <typename State> struct SphericalNoise : ApproximationDefaults {
+  using Binding = typename State::Binding;         ///< Bound pipeline.
+  using FrameState = typename State::FrameState;   ///< Current frame.
+  using Prepared = Pattern::SphereNoise::Prepared; ///< Immutable sphere noise.
+
+  /** @brief Whether the provider supplies the sphere-noise inputs.
+   * @tparam CandidateBinding Binding being checked. */
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ParamsProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::noise(frame) } -> std::same_as<const FastNoiseLite &>;
+        { State::noise_time(frame) } -> std::same_as<float>;
+        { State::params(frame).noise_scale } -> std::convertible_to<float>;
+        { State::params(frame).noise_contrast } -> std::convertible_to<float>;
+        { State::params(frame).basis } -> std::convertible_to<uint8_t>;
+      };
+
+  /** @brief Resolves the source's immutable noise recipe.
+   * @param frame Current frame.
+   * @return Prepared noise source. */
+  static Prepared prepare(const FrameState &frame) {
+    const auto &params = State::params(frame);
+    return Pattern::SphereNoise::prepare(
+        {params.noise_scale, params.noise_time_rate,
+         static_cast<math::NoiseBasis>(params.basis), params.noise_contrast,
+         Pattern::NoiseVariant::OCTAVE_CONTOUR},
+        {State::noise_time(frame)}, State::noise(frame));
+  }
+
+  /** @brief Samples the signed spherical noise field.
+   * @param input Sphere direction.
+   * @param frame Current frame.
+   * @param prepared Immutable source recipe.
+   * @return Scalar in [-1, 1]. */
+  static float sample(const SphereSample &input, const FrameState &frame,
+                      const Prepared &prepared) {
+    (void)frame;
+    return Pattern::SphereNoise::sample(
+        Pattern::SphereDirection::admit(input.dir), prepared);
+  }
+};
+
+/** @brief Spherical cells using the shared seed and Voronoi kernel.
+ * @tparam State Provider of spherical cell parameters. */
+template <typename State> struct SphericalCells : ApproximationDefaults {
+  using Binding = typename State::Binding;         ///< Bound pipeline.
+  using FrameState = typename State::FrameState;   ///< Current frame.
+  using Prepared = Pattern::SphereCells::Prepared; ///< Immutable cell pattern.
+
+  /** @brief Whether the provider supplies the canonical cell recipe.
+   * @tparam CandidateBinding Binding being checked. */
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ParamsProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        static_cast<const Pattern::SphereCellsParams &>(State::params(frame));
+      };
+
+  /** @brief Builds the source's seed layout.
+   * @param frame Current frame.
+   * @return Immutable cell pattern. */
+  static Prepared prepare(const FrameState &frame) {
+    return Pattern::SphereCells::prepare(State::params(frame));
+  }
+
+  /** @brief Samples the signed cell field.
+   * @param input Sphere direction.
+   * @param frame Current frame.
+   * @param prepared Immutable cell pattern.
+   * @return Scalar in [-1, 1]. */
+  static float sample(const SphereSample &input, const FrameState &frame,
+                      const Prepared &prepared) {
+    (void)frame;
+    return Pattern::SphereCells::sample(
+        Pattern::SphereDirection::admit(input.dir), prepared);
   }
 };
 
