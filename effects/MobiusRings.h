@@ -17,8 +17,7 @@
 #include "core/engine/engine.h"
 #include <memory>
 
-// Unit-test accessor for the conformal-radius pole branch and the
-// counter-rotation singularity guard.
+// Numeric geometry test accessor.
 namespace hs_test {
 namespace effects_tests {
 struct MobiusRingsWhiteBox;
@@ -180,6 +179,8 @@ private:
 
   static constexpr float CONFORMAL_LOG_MIN = -2.5f;
   static constexpr float CONFORMAL_LOG_MAX = 2.5f;
+  static constexpr float CONFORMAL_LOG_RANGE =
+      CONFORMAL_LOG_MAX - CONFORMAL_LOG_MIN;
   static constexpr int SCROLL_PERIOD =
       120; /**< Frames per full grid-scroll cycle. */
 
@@ -197,6 +198,14 @@ private:
     return math::Quaternion();
   }
 
+  /** @brief Maps a conformal ring coordinate to its polar angle.
+   * @param coordinate Position in the conformal log range.
+   * @return Polar angle in radians. */
+  HS_HOT_INLINE static float ring_polar(float coordinate) {
+    return 2.0f *
+           atanf(expf(-CONFORMAL_LOG_MIN - coordinate * CONFORMAL_LOG_RANGE));
+  }
+
   /**
    * @brief Maps a longitude height to its scrolled conformal-radius palette
    *        coordinate.
@@ -211,8 +220,7 @@ private:
     if (1.0f - fabsf(y) < POLE_EPS)
       return 1.0f;
     float log_r = 0.5f * logf((1.0f + y) / (1.0f - y));
-    float t =
-        (log_r - CONFORMAL_LOG_MIN) / (CONFORMAL_LOG_MAX - CONFORMAL_LOG_MIN);
+    float t = (log_r - CONFORMAL_LOG_MIN) / CONFORMAL_LOG_RANGE;
     return math::wrap(t - phase, 1.0f);
   }
 
@@ -318,16 +326,13 @@ private:
    */
   void draw_axis_rings(Canvas &canvas, const math::Vector &normal, float num,
                        float phase, const math::Quaternion &q) {
-    const float range = CONFORMAL_LOG_MAX - CONFORMAL_LOG_MIN;
-
     const math::Basis ring_basis = math::make_basis(math::Quaternion(), normal);
 
     draw_curves(
         canvas, num, q,
         [&](int i) -> Curve {
           float t = math::wrap((static_cast<float>(i) / num) + phase, 1.0f);
-          float r_val = expf(CONFORMAL_LOG_MIN + t * range);
-          float radius = (4.0f / math::PI_F) * atanf(1.0f / r_val);
+          float radius = ring_polar(t) / (math::PI_F / 2.0f);
           return {ring_basis, radius};
         },
         [&](int i, float opacity) {
@@ -463,8 +468,7 @@ private:
           first = initial + offset;
           last = final + offset;
           const float source_rate =
-              (last - first) *
-              (axis == 0 ? CONFORMAL_LOG_MAX - CONFORMAL_LOG_MIN : math::PI_F);
+              (last - first) * (axis == 0 ? CONFORMAL_LOG_RANGE : math::PI_F);
           const auto source_path = Spacetime::PathBound::warped_great_circle(
               source_rate, shift, reach);
           const float rate =
@@ -475,9 +479,8 @@ private:
           const float curve_displacement =
               motion + fabsf(source_rate) * (2.0f + reach * reach);
           auto ring_basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
-          if (axis == 0 && CONFORMAL_LOG_MIN + last * (CONFORMAL_LOG_MAX -
-                                                       CONFORMAL_LOG_MIN) <
-                               0.0f)
+          if (axis == 0 &&
+              CONFORMAL_LOG_MIN + last * CONFORMAL_LOG_RANGE < 0.0f)
             ring_basis.u = -ring_basis.u;
           auto evaluate = [&](size_t vertex, float t) HS_HOT_INLINE {
             const float coordinate = first + (last - first) * t;
@@ -485,10 +488,7 @@ private:
                                 math::PI_F / CURVE_SIDES;
             math::Vector source;
             if (axis == 0) {
-              const float radius =
-                  2.0f * atanf(expf(-CONFORMAL_LOG_MIN -
-                                    coordinate * (CONFORMAL_LOG_MAX -
-                                                  CONFORMAL_LOG_MIN)));
+              const float radius = ring_polar(coordinate);
               source =
                   ring_basis.v * cosf(radius) +
                   (ring_basis.u * cosf(theta) + ring_basis.w * sinf(theta)) *

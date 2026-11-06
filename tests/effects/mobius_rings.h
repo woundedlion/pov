@@ -5,9 +5,12 @@
 /** @file
  * @brief MobiusRings white-box cases. */
 
-/** @brief White-box accessor for MobiusRings' singular numeric branches. */
+/** @brief White-box accessor for MobiusRings' numeric geometry. */
 struct MobiusRingsWhiteBox {
   using MR = MobiusRings<DEFAULT_W, DEFAULT_H>;
+  static float ring_polar(float coordinate) {
+    return MR::ring_polar(coordinate);
+  }
   /** @brief Independent double-precision homogeneous plane translation.
    * @param v Source unit vector.
    * @param real,imag Translation coefficients.
@@ -261,6 +264,19 @@ struct MobiusRingsWhiteBox {
 
 inline void test_mobius_rings_conformal_and_counter_rotation() {
   using WB = MobiusRingsWhiteBox;
+
+  float previous = math::PI_F;
+  for (int i = -512; i <= 1536; ++i) {
+    const float coordinate = static_cast<float>(i) / 1024.0f;
+    const float polar = WB::ring_polar(coordinate);
+    const double log_radius = -2.5 + 5.0 * coordinate;
+    const double radius_squared = std::exp(2.0 * log_radius);
+    const double sphere_y = (radius_squared - 1.0) / (radius_squared + 1.0);
+    HS_EXPECT_NEAR(std::cos(static_cast<double>(polar)), sphere_y, 5e-7);
+    HS_EXPECT_LT(polar, previous);
+    previous = polar;
+  }
+  HS_EXPECT_NEAR(WB::ring_polar(0.5f), math::PI_F / 2.0f, 1e-7f);
 
   const float zs[] = {-1.0f, -0.999999f, -0.5f, 0.0f, 0.5f, 0.999999f, 1.0f};
   for (float z : zs) {
