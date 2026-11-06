@@ -5,6 +5,22 @@
 
 // Orientation upsampling and collapse.
 
+template <typename Index>
+concept OrientationAtIndex = requires(const math::Orientation<> &orientation,
+                                      Index index) { orientation.at(index); };
+template <typename Index>
+concept OrientationOrientIndex =
+    requires(const math::Orientation<> &orientation, const math::Vector &point,
+             Index index) { orientation.orient(point, index); };
+template <typename Index>
+concept OrientationUnorientIndex =
+    requires(const math::Orientation<> &orientation, const math::Vector &point,
+             Index index) { orientation.unorient(point, index); };
+static_assert(OrientationAtIndex<int> && !OrientationAtIndex<float>);
+static_assert(OrientationOrientIndex<int> && !OrientationOrientIndex<float>);
+static_assert(OrientationUnorientIndex<int> &&
+              !OrientationUnorientIndex<float>);
+
 /**
  * @brief Verifies Orientation::upsample SLERP-interpolates the recorded
  * sub-frames up to a target count (preserving endpoints) and collapse()

@@ -103,6 +103,9 @@ public:
     return rotate(v, orientations[i]);
   }
 
+  /** @brief Rejects fractional history indices. */
+  Vector orient(const Vector &, float) const = delete;
+
   /**
    * @brief Rotates a vector backward by the inverse of the current (latest)
    * orientation.
@@ -126,6 +129,9 @@ public:
              "Orientation::unorient: frame index out of range");
     return rotate(v, orientations[i].conjugate());
   }
+
+  /** @brief Rejects fractional history indices. */
+  Vector unorient(const Vector &, float) const = delete;
 
   /**
    * @brief Gets the current (latest) quaternion.
@@ -211,6 +217,9 @@ public:
    * @return The const Quaternion reference.
    */
   const Quaternion &at(int i) const { return get(i); }
+
+  /** @brief Rejects fractional history indices. */
+  const Quaternion &at(float) const = delete;
 
   /**
    * @brief Replaces a quaternion at a specific historical frame index.
