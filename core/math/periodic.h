@@ -26,13 +26,15 @@ namespace math {
  */
 template <typename T> inline T wrap_positive(T value, T period) {
   T result;
+  if constexpr (!std::is_floating_point_v<T>) {
+    result = static_cast<T>(value % period);
+    return result < 0 ? static_cast<T>(result + period) : result;
+  }
   // Strict bounds retain fmod's signed zero at exact multiples.
   if constexpr (std::is_floating_point_v<T>)
     result = std::isfinite(period) && value > -period && value < period
                  ? value
                  : std::fmod(value, period);
-  else
-    result = static_cast<T>(value % period);
   if (result < 0)
     result += period;
   return result >= period ? T{0} : result;
@@ -83,8 +85,7 @@ __attribute__((always_inline)) inline float wrap_t(float t) {
 inline int wrap(int x, int m) {
   if (m <= 0)
     return x;
-  int r = x % m;
-  return r < 0 ? r + m : r;
+  return wrap_positive(x, m);
 }
 
 /**

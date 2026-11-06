@@ -47,8 +47,7 @@ HS_HOT_INLINE inline int radial_floor_int(float value) {
  * @param count Positive index count.
  * @return Index in [0, count). */
 HS_HOT_INLINE inline int radial_wrap_index(int value, int count) {
-  const int REMAINDER = value % count;
-  return REMAINDER < 0 ? REMAINDER + count : REMAINDER;
+  return math::wrap_positive(value, count);
 }
 
 /** @brief Evaluates atan2 with an octant-reduced degree-9 polynomial.
