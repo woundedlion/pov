@@ -279,6 +279,33 @@ def score(r):
     return max(0.0, min(10.0, si))
 
 
+GATE_TEXT = {
+    "VIA": "SMALL VIAS",
+    "?": "NOT GATED (no usable kicad-cli)",
+    "FAILED": "NOT GATED (DRC run failed)",
+    "RULES": "RULES (project/zone floor refusal)",
+    "ok": "clean",
+    "refill": "refill-fixable (zone)",
+    "REAL": "REAL FAULTS",
+}
+
+
+def gate_tag(result):
+    """Return the candidate's combined via/DRC eligibility tag."""
+    if result["small_vias"]:
+        return "VIA"
+    dc = result["drc"]
+    if dc["status"] == DRC_MISSING:
+        return "?"
+    if dc["status"] == DRC_FAILED:
+        return "FAILED"
+    if dc["status"] == DRC_RULES:
+        return "RULES"
+    if dc["errors"] == 0 and dc["unconnected"] == 0:
+        return "ok"
+    return "REAL" if (dc["real"] or dc["unconnected"]) else "refill"
+
+
 def candidate_board(path):
     if path.endswith(".kicad_pcb"):
         if os.path.isfile(path):
@@ -350,21 +377,11 @@ def main(argv=None):
         )
         if drc_ran:
             dc = r["drc"]
+            flag = GATE_TEXT[gate_tag(r)]
             if dc["status"] != DRC_OK:
-                flag = ("NOT GATED (no usable kicad-cli)" if dc["status"] == DRC_MISSING
-                        else "RULES (project/zone floor refusal)" if dc["status"] == DRC_RULES
-                        else "NOT GATED (DRC run failed)")
                 line += f" {'?':>7} {'?':>6}  {flag}"
             else:
-                err, unc, real = dc["errors"], dc["unconnected"], dc["real"]
-                if r["small_vias"]:
-                    flag = "SMALL VIAS"
-                elif err == 0 and unc == 0:
-                    flag = "clean"
-                elif real == 0 and unc == 0:
-                    flag = "refill-fixable (zone)"   # only clearance/hole vs zones
-                else:
-                    flag = "REAL FAULTS"             # shorts/crossings/unconnected
+                err, unc = dc["errors"], dc["unconnected"]
                 line += f" {err:>7} {unc:>6}  {flag}"
         print(line)
     if drc_ran:
@@ -429,18 +446,7 @@ def main(argv=None):
         ranked.append((score(R[k]), k))
 
     def drc_tag(k):
-        if R[k]["small_vias"]:
-            return "VIA"
-        dc = R[k]["drc"]
-        if dc["status"] == DRC_MISSING:
-            return "?"
-        if dc["status"] == DRC_FAILED:
-            return "FAILED"
-        if dc["status"] == DRC_RULES:
-            return "RULES"
-        if dc["errors"] == 0 and dc["unconnected"] == 0:
-            return "ok"
-        return "REAL" if (dc["real"] or dc["unconnected"]) else "refill"
+        return gate_tag(R[k])
 
     for si, k in sorted(ranked, reverse=True):
         print(f"{k:>6} {si:>12.1f}  {drc_tag(k)}")

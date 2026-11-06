@@ -270,6 +270,16 @@ class MainTests(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertIn("top geometric scorer Candidate 2 was ineligible: RULES -- skipped", output)
 
+    def test_via_and_rules_failure_has_one_classification_in_both_tables(self):
+        small = SYNTHETIC_BOARD.replace(
+            "(size 0.6) (drill 0.3)", "(size 0.4) (drill 0.15)")
+        result, output = self.rank_sources(
+            [small], [analyze_candidates.no_drc(analyze_candidates.DRC_RULES)])
+        self.assertEqual(result, 1)
+        self.assertIn("SMALL VIAS", output)
+        self.assertIn("Candidate 1: VIA", output)
+        self.assertNotIn("RULES (project/zone floor refusal)", output)
+
     def test_refill_only_candidate_remains_eligible(self):
         refill = {"status": analyze_candidates.DRC_OK,
                   "errors": 2, "real": 0, "unconnected": 0}
