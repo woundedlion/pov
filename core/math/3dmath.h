@@ -1413,13 +1413,11 @@ inline constexpr double FAST_ACOS_MAX_ERROR = 1e-4;
 /**
  * @brief Fast acos using the Abramowitz & Stegun polynomial approximation.
  * @param x Input value, expected in [-1, 1] (clamped internally).
- * @return The arc cosine in radians.
+ * @return The arc cosine in radians; zero for NaN.
  * @details Peak abs error ~5.0e-5 rad.
  */
 __attribute__((always_inline)) inline float fast_acos(float x) {
-  float ax = std::abs(x);
-  if (ax > 1.0f)
-    ax = 1.0f;
+  const float ax = fminf(std::abs(x), 1.0f);
   float result =
       sqrtf(1.0f - ax) *
       (1.5707963f + ax * (-0.2132209f + ax * (0.0777570f + ax * -0.0215124f)));

@@ -255,8 +255,7 @@ inline void test_fast_rsqrt() {
 }
 
 /**
- * @brief Verifies fast_acos at endpoints, out-of-range clamping to [0,pi], and
- *        across a sweep against std::acos.
+ * @brief Checks fast_acos's clamped approximation and NaN result.
  */
 inline void test_fast_acos() {
   HS_EXPECT_NEAR(math::fast_acos(1.0f), 0.0f, 2e-4f);
@@ -265,6 +264,7 @@ inline void test_fast_acos() {
 
   HS_EXPECT_NEAR(math::fast_acos(1.5f), 0.0f, 2e-4f);
   HS_EXPECT_NEAR(math::fast_acos(-1.5f), math::PI_F, 2e-4f);
+  HS_EXPECT_EQ(math::fast_acos(std::numeric_limits<float>::quiet_NaN()), 0.0f);
 
   for (int i = 0; i <= 32; ++i) {
     float x = -1.0f + (i / 16.0f);
