@@ -5,6 +5,25 @@
 /** @file
  * @brief Cross-effect control cases. */
 
+/** @brief Captures a probe's failures and diagnostics, restoring harness state. */
+inline void expect_probe_failures(auto &&probe, int expected,
+                                  const char *diagnostic) {
+  const auto saved = stats();
+  const auto saved_budget = fail_print_budget();
+  fail_print_budget() = {};
+  int failures = 0;
+  const auto output = capture_stdout([&] {
+    probe();
+    failures = stats().failed - saved.failed;
+  });
+  stats() = saved;
+  fail_print_budget() = saved_budget;
+  HS_EXPECT_TRUE(output.has_value());
+  HS_EXPECT_EQ(failures, expected);
+  if (output && diagnostic)
+    HS_EXPECT_NE(output->find(diagnostic), std::string::npos);
+}
+
 /** @brief Seam guards reject dark coverage and retain measured-frame ratios. */
 inline void test_mesh_seam_dark_sample_guards() {
   constexpr int W = 16, H = 2;
@@ -16,22 +35,11 @@ inline void test_mesh_seam_dark_sample_guards() {
       lit[y * W + x] =
           Pixel(static_cast<uint16_t>(1000 + 1000 * triangle), 0, 0);
     }
-  const auto check_guard = [](const MeshSeamSteps &steps, int expected_failures,
+  const auto check_guard = [](const MeshSeamSteps &steps, int expected,
                               const char *diagnostic) {
-    const auto saved = stats();
-    const auto saved_budget = fail_print_budget();
-    fail_print_budget() = {};
-    int failures = 0;
-    const auto output = capture_stdout([&] {
-      expect_mesh_seam_continuous(steps, "coverage companion");
-      failures = stats().failed - saved.failed;
-    });
-    stats() = saved;
-    fail_print_budget() = saved_budget;
-    HS_EXPECT_TRUE(output.has_value());
-    HS_EXPECT_EQ(failures, expected_failures);
-    if (output && diagnostic)
-      HS_EXPECT_NE(output->find(diagnostic), std::string::npos);
+    expect_probe_failures(
+        [&] { expect_mesh_seam_continuous(steps, "coverage companion"); },
+        expected, diagnostic);
   };
 
   MeshSeamSteps measured;
@@ -101,33 +109,19 @@ inline void test_parameter_lint_failure_guards() {
     int frames = 0;
     bool broken;
   };
-  const auto check = [](auto lint, int expected, const char *diagnostic) {
-    const auto saved = stats();
-    const auto saved_budget = fail_print_budget();
-    fail_print_budget() = {};
-    int failures = 0;
-    const auto output = capture_stdout([&] {
-      lint();
-      failures = stats().failed - saved.failed;
-    });
-    stats() = saved;
-    fail_print_budget() = saved_budget;
-    HS_EXPECT_TRUE(output.has_value());
-    HS_EXPECT_EQ(failures, expected);
-    if (output && diagnostic)
-      HS_EXPECT_NE(output->find(diagnostic), std::string::npos);
-  };
+
   for (bool broken : {false, true}) {
     reset_globals();
     {
       SliderEffect slider(broken);
-      check([&] { lint_dead_sliders(slider, "SliderEffect"); }, int(broken),
-            broken ? "DEAD SLIDER" : nullptr);
+      expect_probe_failures([&] { lint_dead_sliders(slider, "SliderEffect"); },
+                            int(broken), broken ? "DEAD SLIDER" : nullptr);
     }
     reset_globals();
     AnimatedEffect animated(broken);
-    check([&] { lint_animated_pause(animated, "AnimatedEffect"); }, int(broken),
-          broken ? "PAUSE LEAK" : nullptr);
+    expect_probe_failures(
+        [&] { lint_animated_pause(animated, "AnimatedEffect"); }, int(broken),
+        broken ? "PAUSE LEAK" : nullptr);
   }
 }
 
