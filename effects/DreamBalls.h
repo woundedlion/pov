@@ -724,6 +724,45 @@ private:
       vertex = global_orientation.orient(vertex);
   }
 
+  /** @brief Computes scene fade and woven-gap edge opacity.
+   * @param p Scene controls.
+   * @param opacity Frame-end scene opacity.
+   * @param progress Edge coordinate.
+   * @param t Frame fraction.
+   * @return Edge alpha multiplier. */
+  HS_HOT_INLINE float edge_alpha(const Params &p, float opacity, float progress,
+                                 float t) const {
+    const float fade =
+        t == 1.0f ? opacity : opacity_start + (opacity - opacity_start) * t;
+    return p.alpha * fade * under_gap_alpha(progress, p.weave_gap);
+  }
+
+  /** @brief Orients and plots one scene mesh at its sweep times.
+   * @tparam Edges Edge collection.
+   * @tparam Shader Scene shader.
+   * @tparam At Vertex path evaluator.
+   * @param canvas Destination.
+   * @param mesh Frame-end vertices.
+   * @param edges Mesh edges.
+   * @param shader Edge shader.
+   * @param at Vertex position at a frame fraction. */
+  template <typename Edges, typename Shader, typename At>
+  HS_HOT_INLINE void plot_scene(Canvas &canvas, MeshState &mesh,
+                                const Edges &edges, Shader &shader, At &at) {
+    const bool timed = !Spacetime::flat_surface();
+    if (!timed)
+      orient_mesh(mesh);
+    HS_PROFILE(db_mesh_plot);
+    const Plot::GeometryCallback geometry{
+        .evaluate = at, .path = orbit_path, .source_positions = false};
+    if (timed)
+      Plot::Mesh::draw_timed<W, H>(timed_filters, canvas, mesh, edges, shader,
+                                   geometry, motion_bound);
+    else
+      Plot::Mesh::draw_timed<W, H>(filters, canvas, mesh, edges, shader,
+                                   geometry, motion_bound);
+  }
+
   HS_HOT_FLASH_MEMBER void draw_woven_scene(Canvas &canvas, const Params &p,
                                             const SolidData &solid, bool medial,
                                             float opacity,
@@ -747,9 +786,7 @@ private:
     auto woven_shader = [&](const math::Vector &, Fragment &f,
                             float t) HS_HOT_INLINE {
       Color4 c = baked.get(f.v0);
-      const float fade =
-          t == 1.0f ? opacity : opacity_start + (opacity - opacity_start) * t;
-      c.alpha *= p.alpha * fade * under_gap_alpha(f.v0, p.weave_gap);
+      c.alpha *= edge_alpha(p, opacity, f.v0, t);
       if (f.v0 == 0.0f) {
         const size_t edge_index = static_cast<size_t>(f.v2);
         if (!owns_woven_start_sample(edges, start_owners, edge_index))
@@ -785,10 +822,6 @@ private:
         }
       }
 
-      const bool timed = !Spacetime::flat_surface();
-      if (!timed)
-        orient_mesh(framed_mesh);
-
       auto at = [&](size_t vertex, float t) HS_HOT_INLINE {
         if (t == 1.0f)
           return framed_mesh.vertices[vertex];
@@ -807,19 +840,7 @@ private:
         return math::normalized_or(to + offset * p.offset_radius, to);
       };
 
-      {
-        HS_PROFILE(db_mesh_plot);
-        const Plot::GeometryCallback geometry{
-            .evaluate = at, .path = orbit_path, .source_positions = false};
-        if (timed)
-          Plot::Mesh::draw_timed<W, H>(timed_filters, canvas, framed_mesh,
-                                       framed_edges, woven_shader, geometry,
-                                       motion_bound);
-        else
-          Plot::Mesh::draw_timed<W, H>(filters, canvas, framed_mesh,
-                                       framed_edges, woven_shader, geometry,
-                                       motion_bound);
-      }
+      plot_scene(canvas, framed_mesh, framed_edges, woven_shader, at);
     }
   }
 
@@ -863,10 +884,6 @@ private:
                               offset);
       }
 
-      const bool timed = !Spacetime::flat_surface();
-      if (!timed)
-        orient_mesh(target);
-
       auto at = [&](size_t vertex, float t) HS_HOT_INLINE {
         if (t == 1.0f)
           return target.vertices[vertex];
@@ -880,19 +897,7 @@ private:
             base);
       };
 
-      {
-        HS_PROFILE(db_mesh_plot);
-        const Plot::GeometryCallback geometry{
-            .evaluate = at, .path = orbit_path, .source_positions = false};
-        if (timed)
-          Plot::Mesh::draw_timed<W, H>(timed_filters, canvas, target,
-                                       solid.original_edges, fragment_shader,
-                                       geometry, motion_bound);
-        else
-          Plot::Mesh::draw_timed<W, H>(filters, canvas, target,
-                                       solid.original_edges, fragment_shader,
-                                       geometry, motion_bound);
-      }
+      plot_scene(canvas, target, solid.original_edges, fragment_shader, at);
     }
   }
 
@@ -927,14 +932,12 @@ private:
     orbit_path = bounds.path;
 
     if (p.weave_topology == WeaveTopology::ORIGINAL_WITH_DEFECTS) {
-      auto fragment_shader = [&](const math::Vector &, Fragment &f,
-                                 float t) HS_HOT_INLINE {
-        Color4 c = baked.get(f.v0);
-        const float fade =
-            t == 1.0f ? opacity : opacity_start + (opacity - opacity_start) * t;
-        c.alpha *= p.alpha * fade * under_gap_alpha(f.v0, p.weave_gap);
-        f.color = c;
-      };
+      auto fragment_shader = [&](const math::Vector &, Fragment &f, float t)
+                                 HS_HOT_INLINE {
+                                   Color4 c = baked.get(f.v0);
+                                   c.alpha *= edge_alpha(p, opacity, f.v0, t);
+                                   f.color = c;
+                                 };
       draw_original_scene(canvas, p, solid, fragment_shader);
     } else {
       const bool medial =
