@@ -35,6 +35,7 @@ struct BZWhiteBox {
   }
   static uint16_t to_q16(float v) { return BZ::to_q16(v); }
   static float from_q16(uint16_t v) { return BZ::from_q16(v); }
+  static float dt(const BZ &bz) { return bz.params.dt; }
   static void set_params(BZ &bz, float alpha, float D, float dt) {
     bz.params.alpha = alpha;
     bz.params.diffusion = D;
@@ -255,7 +256,12 @@ inline void test_bz_q16_roundtrip() {
  */
 inline void test_bz_min_diffusion_step_survives_quantization() {
   BZWhiteBox::BZ bz;
-  BZWhiteBox::set_params(bz, /*alpha*/ 3.0f, /*D*/ 0.001f, /*dt*/ 0.35f);
+  const float DT = BZWhiteBox::dt(bz);
+  bz.init();
+  const auto *diffusion = required_param(bz, "Diff");
+  if (!diffusion)
+    return;
+  BZWhiteBox::set_params(bz, 3.0f, diffusion->min, DT);
   // Cold node, one saturated neighbour out of RD_K: lap = 1, reaction term 0.
   HS_EXPECT_GT((int)BZWhiteBox::advance_species(bz, 0.0f, 0.0f, /*lap*/ 1.0f),
                0);
