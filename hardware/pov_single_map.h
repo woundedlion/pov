@@ -24,6 +24,7 @@
 
 #include <cstdint>
 #include "hardware/dma_led_core.h"
+#include "hardware/pov_segment_map.h"
 
 namespace pov {
 
@@ -67,7 +68,9 @@ constexpr int strip_bottom_led(int y, int S) { return S / 2 + y; }
  * @details The bottom half paints the opposite half of the image; the top half
  *          samples column x directly.
  */
-constexpr int strip_opposite_col(int x, int w) { return (x + w / 2) % w; }
+constexpr int strip_opposite_col(int x, int w) {
+  return segment_x_col(true, x, w);
+}
 
 /**
  * @brief Column-sweep timer period, in µs.
