@@ -9,6 +9,35 @@ struct TimedMeshFixture {
       vertices; /**< Endpoints of two connected edges. */
 };
 
+/** @brief Timed edge registers collapse rounded-zero arcs to their origin. */
+inline void test_timed_edge_endpoint_registers() {
+  reset_globals();
+  ScratchScope scope(scratch_arena_a);
+  Fragments points;
+  points.bind(scratch_arena_a, 2);
+  const math::Vector near(1.0f, 1e-8f, 0.0f);
+  Plot::prepare_timed_edge(points, math::X_AXIS, near, 7, 0.0f);
+  HS_EXPECT_EQ(points.size(), 2u);
+  HS_EXPECT_EQ(points[0].pos, math::X_AXIS);
+  HS_EXPECT_EQ(points[1].pos, math::X_AXIS);
+  HS_EXPECT_EQ(points[0].v0, 0.0f);
+  HS_EXPECT_EQ(points[1].v0, 0.0f);
+  HS_EXPECT_EQ(points[0].v2, 7.0f);
+  HS_EXPECT_EQ(points[1].v2, 7.0f);
+  HS_EXPECT_EQ(points[1].v1, 0.0f);
+
+  Plot::prepare_timed_edge(points, math::X_AXIS, math::Z_AXIS, 3,
+                           math::PI_F / 2.0f);
+  HS_EXPECT_EQ(points.size(), 2u);
+  HS_EXPECT_EQ(points[0].pos, math::X_AXIS);
+  HS_EXPECT_EQ(points[1].pos, math::Z_AXIS);
+  HS_EXPECT_EQ(points[0].v0, 0.0f);
+  HS_EXPECT_EQ(points[1].v0, 1.0f);
+  HS_EXPECT_EQ(points[0].v2, 3.0f);
+  HS_EXPECT_EQ(points[1].v2, 3.0f);
+  HS_EXPECT_EQ(points[1].v1, math::PI_F / 2.0f);
+}
+
 /** @brief Creates three vertices for two connected timed-mesh edges. */
 template <int W, int H> inline TimedMeshFixture chain_mesh() {
   return {{math::pixel_to_vector<W, H>(40.0f, 60.0f),

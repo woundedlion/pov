@@ -128,6 +128,25 @@ struct EdgeBatch {
   float age = 0.0f; ///< Age offset added to the prepared endpoint registers.
 };
 
+/** @brief Prepares endpoint fragments for a timed edge.
+ * @param points Bound two-fragment output buffer.
+ * @param from,to Endpoint vertices.
+ * @param edge_index Edge register value.
+ * @param length Prepared frame-end edge length, radians. */
+FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE inline void
+prepare_timed_edge(Fragments &points, const math::Vector &from,
+                   const math::Vector &to, size_t edge_index, float length) {
+  points.clear();
+  Fragment a, b;
+  a.pos = from;
+  b.pos = length > 0.0f ? to : from;
+  a.v2 = b.v2 = static_cast<float>(edge_index);
+  b.v0 = length > 0.0f ? 1.0f : 0.0f;
+  b.v1 = length;
+  points.push_back(a);
+  points.push_back(b);
+}
+
 /** @brief Rejects edges whose swept arcs miss a draw's rows and columns.
  * @tparam W Display width.
  * @details Rows use the column walk's own sample cut; columns use the render

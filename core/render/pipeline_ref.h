@@ -651,3 +651,17 @@ public:
     return sampling(ctx, a, b, pb, pred);
   }
 };
+
+/** @brief Erases a pipeline for timed edge rasterization.
+ * @tparam PipelineT Typed pipeline or direct raster sink.
+ * @param pipeline Pipeline to retain by reference.
+ * @param canvas Destination required by direct raster sinks.
+ * @return Timed pipeline reference. */
+template <typename PipelineT>
+HS_HOT_INLINE inline PipelineRef timed_pipeline_ref(PipelineT &pipeline,
+                                                    Canvas &canvas) {
+  if constexpr (pipeline_direct_raster_path<PipelineT>())
+    return PipelineRef(pipeline, canvas, Spacetime::Timed{});
+  else
+    return PipelineRef(pipeline, Spacetime::Timed{});
+}

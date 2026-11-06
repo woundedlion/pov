@@ -449,25 +449,6 @@ struct Mesh {
                       static_cast<int>(ei), cb, fragment_shader, vertex_shader);
     }
   }
-  /** @brief Prepares endpoint fragments for a timed mesh edge.
-   * @param points Bound two-fragment output buffer.
-   * @param from,to Endpoint vertices.
-   * @param edge_index Edge register value.
-   * @param length Prepared frame-end edge length, radians. */
-  FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE static void
-  prepare_timed_edge(Fragments &points, const math::Vector &from,
-                     const math::Vector &to, size_t edge_index, float length) {
-    points.clear();
-    Fragment a, b;
-    a.pos = from;
-    b.pos = length > 0.0f ? to : from;
-    a.v2 = b.v2 = static_cast<float>(edge_index);
-    b.v0 = length > 0.0f ? 1.0f : 0.0f;
-    b.v1 = length;
-    points.push_back(a);
-    points.push_back(b);
-  }
-
   /** @brief Captures a mesh's vertex paths for one frame.
    * @tparam W Canvas width.
    * @tparam Stored Capture storage.
@@ -696,12 +677,7 @@ struct Mesh {
     ScratchScope edge_storage(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, 2);
-    PipelineRef erased = [&]() HS_HOT_INLINE {
-      if constexpr (pipeline_direct_raster_path<PipelineT>())
-        return PipelineRef(pipeline, canvas, Spacetime::Timed{});
-      else
-        return PipelineRef(pipeline, Spacetime::Timed{});
-    }();
+    PipelineRef erased = timed_pipeline_ref(pipeline, canvas);
     erased.select_copy(copy);
     auto timed_shader = [&](const math::Vector &position, Fragment &fragment,
                             float t) HS_HOT_INLINE {

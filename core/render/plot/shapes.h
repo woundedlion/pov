@@ -529,25 +529,7 @@ draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
   ScratchScope registers(scratch_arena_a);
   Fragments points;
   points.bind(scratch_arena_a, 2);
-  auto prepare = [](Fragments &out, const math::Vector &a,
-                    const math::Vector &b, size_t index, float length)
-                     HS_HOT_INLINE {
-                       out.clear();
-                       Fragment first, last;
-                       first.pos = a;
-                       last.pos = b;
-                       last.v0 = 1.0f;
-                       first.v2 = last.v2 = float(index);
-                       last.v1 = length;
-                       out.push_back(first);
-                       out.push_back(last);
-                     };
-  PipelineRef erased = [&]() HS_HOT_INLINE {
-    if constexpr (pipeline_direct_raster_path<PipelineT>())
-      return PipelineRef(pipeline, canvas, Spacetime::Timed{});
-    else
-      return PipelineRef(pipeline, Spacetime::Timed{});
-  }();
+  PipelineRef erased = timed_pipeline_ref(pipeline, canvas);
   erased.select_copy(0);
   auto timed_shader = [&](const math::Vector &p, Fragment &f, float t)
                           HS_HOT_INLINE {
@@ -557,7 +539,7 @@ draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
                             Spacetime::shade_at_time(shader, t, p, f);
                           };
   const EdgeBatch batch{.count = edge_count,
-                        .prepare = prepare,
+                        .prepare = &prepare_timed_edge,
                         .vertices = vertices,
                         .motion = motion,
                         .pairs = edges,
