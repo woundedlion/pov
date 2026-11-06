@@ -14,6 +14,9 @@
 /** @brief Neutral chroma shared by authored palette controls. */
 inline constexpr float PALETTE_DEFAULT_CHROMA = 0.62f;
 
+/** @brief Default recipe lightness. */
+inline constexpr float PALETTE_DEFAULT_LIGHTNESS = 0.62f;
+
 /** @brief How key hues are generated: harmony offsets, an even sweep, or
  *  per-key custom turns. */
 enum class HueMode : uint8_t { HARMONY, SWEEP, CUSTOM };
@@ -137,8 +140,9 @@ struct PaletteRecipe {
   SegmentEase easing = SegmentEase::COSINE;       ///< Per-segment easing.
   ColorPath color_path = ColorPath::OKLCH_ARC;    ///< Interpolation space.
   HueControls hue;                                ///< Key hues.
-  AxisControls lightness;                         ///< Key lightness profile.
-  ChromaControls chroma;                          ///< Key chroma profile.
+  AxisControls lightness{
+      .center = PALETTE_DEFAULT_LIGHTNESS}; ///< Key lightness profile.
+  ChromaControls chroma;                    ///< Key chroma profile.
   /// Hue offset per unit of lightness away from 0.5, radians.
   float hue_torsion = 0.0f;
   /// FALLOFF-domain coordinate where visibility reaches 0, in (2/3, 1).

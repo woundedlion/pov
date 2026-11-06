@@ -21,9 +21,9 @@ enum class AuthoredPaletteType : uint8_t {
 };
 /// Authored palette source controls, persisted with the color operator.
 struct AuthoredPaletteSelection {
-  float palette_hue = 0.0f;             ///< Base hue in turns.
-  float palette_spread = 0.07f;         ///< Harmony spread in turns.
-  float palette_lightness = 0.62f;      ///< Lightness midpoint.
+  float palette_hue = 0.0f;     ///< Base hue in turns.
+  float palette_spread = 0.07f; ///< Harmony spread in turns.
+  float palette_lightness = PALETTE_DEFAULT_LIGHTNESS; ///< Lightness midpoint.
   float palette_lightness_range = 0.0f; ///< Lightness profile range.
   float palette_mutation = 0.0f;        ///< Coefficient interpolation weight.
   float gradient_start_r = 1.0f;        ///< First stop red, sRGB.
