@@ -43,12 +43,11 @@ constexpr int SOAK_LEG_BOUND = [] {
   return legs;
 }();
 
-/** Extra legs run past full coverage so late-arriving leaf states also get
- * revisit (steady-state) checks. */
-constexpr int SOAK_EXTRA_LEGS = 8;
+/** Two complete ordered tours, including every sweep-arrival revisit. */
+constexpr int SOAK_LEGS = 2 * SOAK_LEG_BOUND;
 
 /** Frame ceiling backstopping the leg bound. */
-constexpr int SOAK_FRAME_CAP = (SOAK_LEG_BOUND + SOAK_EXTRA_LEGS) * 140;
+constexpr int SOAK_FRAME_CAP = SOAK_LEGS * 140;
 
 /** Per-leg minimum lit pixels in a sampled frame. */
 constexpr int SOAK_MIN_LIT_PIXELS = SOAK_W * SOAK_H * 3 / 4;
@@ -82,6 +81,7 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
   // A pass-through arrival also starts the next leg in the same frame, whose
   // seed fix depends on the seed held over the completed leg.
   std::map<uint32_t, size_t> post_offset;
+  std::map<uint32_t, int> sweep_arrivals;
   std::set<uint32_t> transition_seen;
 
   int prev_node = HankinWalkProbe::node(fx);
@@ -99,7 +99,7 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
   size_t leg_hw = persistent_arena.get_high_water_mark();
   size_t leg_scratch_a_hw = scratch_arena_a.get_high_water_mark();
   size_t leg_scratch_b_hw = scratch_arena_b.get_high_water_mark();
-  while (frames < SOAK_FRAME_CAP && legs < SOAK_LEG_BOUND + SOAK_EXTRA_LEGS) {
+  while (frames < SOAK_FRAME_CAP && legs < SOAK_LEGS) {
     const int leg_sid = HankinWalkProbe::seed_identity(fx);
     fx.draw_frame();
     fx.advance_display();
@@ -156,6 +156,8 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
                   ConwayGraph::DODECAHEDRON < 8 &&
                   ConwayGraph::ICOSAHEDRON < 8);
     const uint32_t arrival_key = (start * 32u + node) * 8u + sid;
+    if (swept)
+      ++sweep_arrivals[arrival_key];
 
     // A repeated directed transition with the same arrival key cannot raise
     // arena peaks.
@@ -183,12 +185,16 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
         legs_at_coverage = legs;
         frames_at_coverage = frames;
       }
-      if (legs >= legs_at_coverage + SOAK_EXTRA_LEGS)
-        break;
     }
   }
 
   HS_EXPECT_EQ(visited_count, ConwayGraph::NUM_NODES);
+  HS_EXPECT_EQ(legs, SOAK_LEGS);
+  HS_EXPECT_FALSE(sweep_arrivals.empty());
+  for (const auto &[key, count] : sweep_arrivals) {
+    HS_CONTEXT("sweep arrival", key);
+    HS_EXPECT_GE(count, 2);
+  }
   HS_EXPECT_GT(legs_at_coverage, 0);
   HS_EXPECT_LE(legs_at_coverage, SOAK_LEG_BOUND);
 
