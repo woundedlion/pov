@@ -383,16 +383,19 @@ template <typename Fn> void for_each_value_set_program(Fn &&fn) {
   });
 }
 
+/** @brief Expects successful compilation and reports whether it succeeded. */
+inline bool expect_compiled(const In::ChainRefusal &result) {
+  HS_EXPECT_EQ(result.code, In::ChainStatus::OK);
+  return result.code == In::ChainStatus::OK;
+}
+
 /** @brief Compiles and initializes each typed block, then advances the chain.
  * @return True when compilation succeeds; false after reporting a refusal. */
 template <typename... Params>
 bool arm_chain(In::ChainProgram &program,
                std::span<const In::ChainEntryRequest> chain, int frames,
                ValueSet set) {
-  const In::ChainRefusal refusal = program.compile(chain);
-  HS_EXPECT_EQ(static_cast<int>(refusal.code),
-               static_cast<int>(In::ChainStatus::OK));
-  if (refusal.code != In::ChainStatus::OK)
+  if (!expect_compiled(program.compile(chain)))
     return false;
   size_t index = 0;
   (apply_value_set(param_as<Params>(program, index++), set), ...);

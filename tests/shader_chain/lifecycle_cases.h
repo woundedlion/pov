@@ -37,7 +37,7 @@ inline void expect_refusal(In::ChainProgram &program,
                            const In::FrameContext &ctx,
                            const SweepColors &baseline) {
   const In::ChainRefusal refusal = program.compile(request);
-  HS_EXPECT_EQ(static_cast<int>(refusal.code), static_cast<int>(expected));
+  HS_EXPECT_EQ(refusal.code, expected);
   HS_EXPECT_EQ(refusal.entry_index, expected_index);
   HS_EXPECT_SIZE_OR_RETURN(program.ops(), 4);
   SweepColors after;
@@ -162,15 +162,13 @@ inline void test_shader_chain_refusal_budget_overflows() {
   auto exact = std::make_unique<ProgramFixture>(needed);
   const In::ChainRefusal fits = exact->program.compile(
       std::span<const In::ChainEntryRequest>(DEFAULT_CHAIN));
-  HS_EXPECT_EQ(static_cast<int>(fits.code),
-               static_cast<int>(In::ChainStatus::OK));
+  expect_compiled(fits);
   HS_EXPECT_EQ(exact->program.used_bytes(), needed);
 
   auto small = std::make_unique<ProgramFixture>(needed - 1);
   const In::ChainRefusal overflow = small->program.compile(
       std::span<const In::ChainEntryRequest>(DEFAULT_CHAIN));
-  HS_EXPECT_EQ(static_cast<int>(overflow.code),
-               static_cast<int>(In::ChainStatus::ARENA_OVERFLOW));
+  HS_EXPECT_EQ(overflow.code, In::ChainStatus::ARENA_OVERFLOW);
   HS_EXPECT_EQ(overflow.entry_index, -1);
   HS_EXPECT_FALSE(small->program.compiled());
 
@@ -188,8 +186,7 @@ inline void test_shader_chain_refusal_budget_overflows() {
   snapshot_render(exact->program, ctx, baseline);
   expect_sweep_live(baseline);
   const In::ChainRefusal rejected = exact->program.compile(longer);
-  HS_EXPECT_EQ(static_cast<int>(rejected.code),
-               static_cast<int>(In::ChainStatus::ARENA_OVERFLOW));
+  HS_EXPECT_EQ(rejected.code, In::ChainStatus::ARENA_OVERFLOW);
   HS_EXPECT_EQ(exact->program.ops().size(), 4u);
   SweepColors after;
   snapshot_render(exact->program, ctx, after);
@@ -208,8 +205,7 @@ inline void test_shader_chain_refusal_budget_overflows() {
       {"colorize", "colorize.generated-palette.v4"},
   };
   const In::ChainRefusal params_overflow = fat->program.compile(fat_chain);
-  HS_EXPECT_EQ(static_cast<int>(params_overflow.code),
-               static_cast<int>(In::ChainStatus::PARAM_OVERFLOW));
+  HS_EXPECT_EQ(params_overflow.code, In::ChainStatus::PARAM_OVERFLOW);
   HS_EXPECT_EQ(params_overflow.entry_index, -1);
   HS_EXPECT_FALSE(fat->program.compiled());
   // Refused before layout: no lifecycle callback ran.
@@ -228,8 +224,7 @@ inline void test_shader_chain_refusal_budget_overflows() {
   for (size_t index = 0; index < TAIL; ++index)
     at_cap[at_cap.size() - TAIL + index] = DEFAULT_CHAIN[1 + index];
   const In::ChainRefusal ops_fit = longest->program.compile(at_cap);
-  HS_EXPECT_EQ(static_cast<int>(ops_fit.code),
-               static_cast<int>(In::ChainStatus::OK));
+  expect_compiled(ops_fit);
   HS_EXPECT_EQ(longest->program.ops().size(), In::MAX_CHAIN_OPS);
   longest->program.clear();
 
@@ -248,8 +243,7 @@ inline void test_shader_chain_refusal_budget_overflows() {
         field_total += op.schema_count;
   HS_EXPECT_EQ(field_total, In::MAX_CHAIN_PARAMS);
   const In::ChainRefusal params_fit = widest->program.compile(exact_fit_chain);
-  HS_EXPECT_EQ(static_cast<int>(params_fit.code),
-               static_cast<int>(In::ChainStatus::OK));
+  expect_compiled(params_fit);
   HS_EXPECT_TRUE(widest->program.compiled());
   widest->program.clear();
 }
@@ -267,8 +261,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
       {"colorize", "colorize.generated-palette.v4"},
   };
   const In::ChainRefusal first = program.compile(chain);
-  HS_EXPECT_EQ(static_cast<int>(first.code),
-               static_cast<int>(In::ChainStatus::OK));
+  expect_compiled(first);
   HS_EXPECT_EQ(CountLifecycle::inits, 1);
   program.advance();
   program.advance();
@@ -282,8 +275,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
   CountLifecycle::fail_migrate = true;
   const int destroys_before = CountLifecycle::destroys;
   const In::ChainRefusal failed = program.compile(chain);
-  HS_EXPECT_EQ(static_cast<int>(failed.code),
-               static_cast<int>(In::ChainStatus::MIGRATE_FAILED));
+  HS_EXPECT_EQ(failed.code, In::ChainStatus::MIGRATE_FAILED);
   HS_EXPECT_EQ(failed.entry_index, 0);
   // The live program is untouched: no state destroyed, phase and render kept.
   HS_EXPECT_EQ(CountLifecycle::destroys, destroys_before);
@@ -306,8 +298,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
   const int migrates_before = CountLifecycle::migrates;
   const int deep_destroys_before = CountLifecycle::destroys;
   const In::ChainRefusal deep = program.compile(deep_chain);
-  HS_EXPECT_EQ(static_cast<int>(deep.code),
-               static_cast<int>(In::ChainStatus::MIGRATE_FAILED));
+  HS_EXPECT_EQ(deep.code, In::ChainStatus::MIGRATE_FAILED);
   HS_EXPECT_EQ(deep.entry_index, 1);
   // The fresh candidate was constructed then torn down; the live program
   // keeps its state.
@@ -345,7 +336,7 @@ inline void test_shader_chain_column_states_outlive_evaluation() {
       program.evaluate_column(view, ctx, ctx, fraction);
   };
   const auto arm = [&] {
-    HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
+    expect_compiled(program.compile(chain));
     program.prepare(ctx);
     program.capture_history();
     program.advance();
@@ -366,7 +357,7 @@ inline void test_shader_chain_column_states_outlive_evaluation() {
   program.advance();
   program.prepare(ctx);
   render_column(0.5f);
-  HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
+  expect_compiled(program.compile(chain));
   HS_EXPECT_EQ(LifetimeRegistry::live.size(), 1u);
 
   arm();
@@ -393,9 +384,7 @@ inline void test_shader_chain_state_identity_migration() {
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  const auto compile_status1 = program.compile(first).code;
-  HS_EXPECT_EQ(compile_status1, In::ChainStatus::OK);
-  if (compile_status1 != In::ChainStatus::OK)
+  if (!expect_compiled(program.compile(first)))
     return;
   HS_EXPECT_EQ(CountLifecycle::inits, 2);
   program.advance();
@@ -412,9 +401,7 @@ inline void test_shader_chain_state_identity_migration() {
       {"colorize", "colorize.generated-palette.v4"},
   };
   const int destroys_before = CountLifecycle::destroys;
-  const auto compile_status2 = program.compile(second).code;
-  HS_EXPECT_EQ(compile_status2, In::ChainStatus::OK);
-  if (compile_status2 != In::ChainStatus::OK)
+  if (!expect_compiled(program.compile(second)))
     return;
   HS_EXPECT_EQ(CountLifecycle::migrates, 1);
   HS_EXPECT_EQ(CountLifecycle::inits, 3);
@@ -432,9 +419,7 @@ inline void test_shader_chain_state_identity_migration() {
       {"colorize", "colorize.generated-palette.v4"},
   };
   const int migrates_before = CountLifecycle::migrates;
-  const auto compile_status3 = program.compile(third).code;
-  HS_EXPECT_EQ(compile_status3, In::ChainStatus::OK);
-  if (compile_status3 != In::ChainStatus::OK)
+  if (!expect_compiled(program.compile(third)))
     return;
   HS_EXPECT_EQ(state_as<CountingState>(program, 0).accumulator, 0.0f);
   // "a" re-inits under the new operator; "c" migrates.
@@ -462,9 +447,7 @@ inline void test_shader_chain_state_continuity_slice() {
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  const auto compile_status4 = program.compile(edited).code;
-  HS_EXPECT_EQ(compile_status4, In::ChainStatus::OK);
-  if (compile_status4 != In::ChainStatus::OK)
+  if (!expect_compiled(program.compile(edited)))
     return;
   // An unchanged pair keeps its accumulated walk and clocks across an edit
   // elsewhere; the new instance starts fresh.
@@ -494,9 +477,7 @@ inline void test_shader_chain_operator_state_migration() {
       {"affine", "warp.affine.v4"},
       {"sample", "sample.projected-noise.v2"},
       {"colorize", "colorize.generated-palette.v4"}};
-  const auto status = program.compile(first).code;
-  HS_EXPECT_EQ(static_cast<int>(status), static_cast<int>(In::ChainStatus::OK));
-  if (status != In::ChainStatus::OK)
+  if (!expect_compiled(program.compile(first)))
     return;
   state_as<In::Op::RipplePhaseState>(program, 0).phase = 0.37f;
   state_as<In::Op::WarpPhaseState>(program, 2).phase = 0.59f;
@@ -514,10 +495,7 @@ inline void test_shader_chain_operator_state_migration() {
                                           first[3],
                                           first[4],
                                           first[5]};
-  const auto edited_status = program.compile(edited).code;
-  HS_EXPECT_EQ(static_cast<int>(edited_status),
-               static_cast<int>(In::ChainStatus::OK));
-  if (edited_status != In::ChainStatus::OK)
+  if (!expect_compiled(program.compile(edited)))
     return;
   HS_EXPECT_EQ(state_as<In::Op::RipplePhaseState>(program, 1).phase, 0.37f);
   HS_EXPECT_EQ(state_as<In::Op::WarpPhaseState>(program, 3).phase, 0.59f);
@@ -559,9 +537,7 @@ inline void test_shader_chain_determinism() {
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  const auto compile_status5 = relabeled->program.compile(renamed).code;
-  HS_EXPECT_EQ(compile_status5, In::ChainStatus::OK);
-  if (compile_status5 != In::ChainStatus::OK)
+  if (!expect_compiled(relabeled->program.compile(renamed)))
     return;
   apply_value_set(param_as<In::Op::RotateChainParams>(relabeled->program, 0),
                   ValueSet::MAXIMUMS);

@@ -34,9 +34,7 @@ inline void test_shader_chain_composed_frame_parity() {
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  const auto compile_status1 = chain.set_chain(topology).code;
-  HS_EXPECT_EQ(compile_status1, In::ChainStatus::OK);
-  if (compile_status1 != In::ChainStatus::OK)
+  if (!expect_compiled(chain.set_chain(topology)))
     return;
   auto &program = ShaderChainWhiteBox::program(chain);
   param_as<In::Op::RotateChainParams>(program, 0).wander =
@@ -132,9 +130,7 @@ inline void test_shader_chain_parameter_admission() {
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  const auto compile_status2 = effect.set_chain(chain).code;
-  HS_EXPECT_EQ(compile_status2, In::ChainStatus::OK);
-  if (compile_status2 != In::ChainStatus::OK)
+  if (!expect_compiled(effect.set_chain(chain)))
     return;
   ShaderChainWhiteBox::ensure_modulation(effect);
   HS_EXPECT_EQ(effect.updateParameter("modulation.modulation-evaluation", 0.0f),
@@ -198,7 +194,7 @@ inline void test_shader_chain_edge_distance_admission() {
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+  expect_compiled(effect.set_chain(chain));
   HS_EXPECT_EQ(effect.updateParameter("sample.coverage-mode", 3),
                ParamSetResult::INADMISSIBLE);
   HS_EXPECT_TRUE(effect.parameter_warning("sample.coverage-mode") != nullptr);
@@ -250,9 +246,7 @@ inline void test_shader_chain_projection_plane_bound() {
         {"sample", In::Op::SampleGridV4::ID},
         {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
     };
-    const auto compile_status4 = program.compile(chain).code;
-    HS_EXPECT_EQ(compile_status4, In::ChainStatus::OK);
-    if (compile_status4 != In::ChainStatus::OK)
+    if (!expect_compiled(program.compile(chain)))
       return;
     param_as<In::Op::ProjectChainParams>(program, 0).frame =
         static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
@@ -295,7 +289,7 @@ inline void test_shader_chain_plane_growth_admission() {
   reset_globals();
   WB::FX effect;
   effect.init();
-  HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+  expect_compiled(effect.set_chain(chain));
   std::vector<ShaderChainParameterWrite> all;
   for (int index = 0; index < WARPS; ++index) {
     all.push_back({scale_x[index].c_str(), MIN_SCALE});
@@ -355,7 +349,7 @@ inline void test_shader_chain_plane_growth_admission() {
       {"sample", "sample.tessellation.v3"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  HS_EXPECT_EQ(effect.set_chain(ordinary).code, In::ChainStatus::OK);
+  expect_compiled(effect.set_chain(ordinary));
   const ShaderChainParameterWrite extreme[] = {
       {"warp.scale-x", MIN_SCALE},    {"warp.scale-y", 64.0f},
       {"warp.shear", -4.0f},          {"warp.translation-x", 4.0f},
@@ -379,8 +373,7 @@ inline void test_shader_chain_effect_rebind_generation() {
       {"colorize", "colorize.generated-palette.v4"},
   };
   const In::ChainRefusal committed = effect.set_chain(edited);
-  HS_EXPECT_EQ(static_cast<int>(committed.code),
-               static_cast<int>(In::ChainStatus::OK));
+  expect_compiled(committed);
   // set_chain rebinds before returning: fresh generation, fresh names.
   HS_EXPECT_NE(effect.getParameterSchemaGeneration(), initial);
   HS_EXPECT_TRUE(effect.getParameters().find("camera2.wander") != nullptr);
@@ -400,8 +393,7 @@ inline void test_shader_chain_effect_refusal_keeps_schema() {
       {"warp", "warp.unknown.v2"},
   };
   const In::ChainRefusal refusal = effect.set_chain(unknown);
-  HS_EXPECT_EQ(static_cast<int>(refusal.code),
-               static_cast<int>(In::ChainStatus::UNKNOWN_OPERATOR));
+  HS_EXPECT_EQ(refusal.code, In::ChainStatus::UNKNOWN_OPERATOR);
   HS_EXPECT_EQ(refusal.entry_index, 1);
   // Definitions, generation, and the committed program survive, and the
   // effect still renders.
@@ -419,10 +411,10 @@ inline void test_shader_chain_pause_semantics() {
   reset_globals();
   WB::FX effect;
   effect.init();
-  HS_EXPECT_EQ(static_cast<int>(effect.updateParameter("sample.speed", 0.05f)),
-               static_cast<int>(ParamSetResult::APPLIED));
-  HS_EXPECT_EQ(static_cast<int>(effect.updateParameter("camera.wander", 1.0f)),
-               static_cast<int>(ParamSetResult::APPLIED));
+  HS_EXPECT_EQ(effect.updateParameter("sample.speed", 0.05f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("camera.wander", 1.0f),
+               ParamSetResult::APPLIED);
   effect.setAnimationsPaused(true);
   const In::Op::SourceClockState source_before =
       state_as<In::Op::SourceClockState>(WB::program(effect), 2);
@@ -478,7 +470,7 @@ inline void test_shader_chain_instantaneous_pixel_golden() {
       chain.set_clip(0, H, 0, W);
     }
     if (frame == 60) {
-      HS_EXPECT_EQ(chain.set_chain(topology).code, In::ChainStatus::OK);
+      expect_compiled(chain.set_chain(topology));
       WB::modulation_params(chain).modulation.mechanic.amount = 0.3f;
     }
     chain.draw_frame();

@@ -541,7 +541,7 @@ inline void test_shader_chain_affine_reads_next_lattice() {
       {"sample", In::Op::SampleTessellation::ID},
       {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
   };
-  HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
+  expect_compiled(program.compile(chain));
   HS_EXPECT_TRUE(program.ops()[3].op->runtime.translation_lattice != nullptr);
   HS_EXPECT_TRUE(program.ops()[2].op->runtime.translation_lattice == nullptr);
   param_as<In::Op::SampleTessellation::Params>(program, 3).cell_scale = 4.0f;
@@ -584,7 +584,7 @@ inline void test_shader_chain_affine_column_lattice() {
       {"sample", In::Op::SampleTessellation::ID},
       {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
   };
-  HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
+  expect_compiled(program.compile(chain));
   auto &params = param_as<In::Op::AffineWarpParams>(program, 1);
   params.translation_x = 1.0f;
   state_as<In::Op::AffineClockState>(program, 1).phase = 0.5f;
@@ -697,9 +697,7 @@ inline void test_shader_chain_noise_instances_decorrelate() {
   };
   const In::ChainRefusal refusal =
       program.compile(std::span<const In::ChainEntryRequest>(chain));
-  HS_EXPECT_EQ(static_cast<int>(refusal.code),
-               static_cast<int>(In::ChainStatus::OK));
-  if (refusal.code != In::ChainStatus::OK)
+  if (!expect_compiled(refusal))
     return;
   const auto &first = state_as<In::Op::NoisePhaseState>(program, 2);
   const auto &second = state_as<In::Op::NoisePhaseState>(program, 3);

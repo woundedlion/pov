@@ -19,9 +19,7 @@ inline void test_shader_chain_program_lifetime() {
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  const auto compile_status1 = fixture->program.compile(chain).code;
-  HS_EXPECT_EQ(compile_status1, In::ChainStatus::OK);
-  if (compile_status1 != In::ChainStatus::OK)
+  if (!expect_compiled(fixture->program.compile(chain)))
     return;
   HS_EXPECT_EQ(CountLifecycle::inits, 1);
   HS_EXPECT_EQ(CountLifecycle::destroys, 0);
@@ -56,9 +54,7 @@ inline void test_shader_chain_table_behavior() {
       append("colorize", "colorize.generated-palette.v4");
     const auto status = fixture->program.compile(
         std::span<const In::ChainEntryRequest>(chain.data(), count));
-    HS_EXPECT_EQ(static_cast<int>(status.code),
-                 static_cast<int>(In::ChainStatus::OK));
-    if (status.code != In::ChainStatus::OK)
+    if (!expect_compiled(status))
       continue;
     for (int frame = 0; frame < 3; ++frame) {
       fixture->program.advance();
@@ -181,14 +177,14 @@ inline void test_shader_chain_table_integrity() {
   HS_EXPECT_TRUE(In::find_operator("sphere.displace.curl.v2") != nullptr);
   HS_EXPECT_TRUE(In::find_operator("sphere.displace.ripple.v2") != nullptr);
   HS_EXPECT_TRUE(In::find_operator("sphere.lens.kaleidoscope.v2") != nullptr);
-  const auto *required_op2 = require_operator("sphere.rotate.v2");
-  if (!required_op2)
+  const auto *rotate_operator = require_operator("sphere.rotate.v2");
+  if (!rotate_operator)
     return;
-  HS_EXPECT_FALSE(required_op2->approximate);
-  const auto *required_op3 = require_operator("project.peirce.v3");
-  if (!required_op3)
+  HS_EXPECT_FALSE(rotate_operator->approximate);
+  const auto *peirce_operator = require_operator("project.peirce.v3");
+  if (!peirce_operator)
     return;
-  HS_EXPECT_FALSE(required_op3->approximate);
+  HS_EXPECT_FALSE(peirce_operator->approximate);
   const auto *colorize_found =
       require_operator("colorize.generated-palette.v4");
   if (!colorize_found)
@@ -208,8 +204,8 @@ inline void test_shader_chain_table_integrity() {
     return;
   const In::OperatorDescriptor &peirce_fast = *peirce_fast_found;
   HS_EXPECT_TRUE(peirce_fast.approximate);
-  HS_EXPECT_EQ(static_cast<int>(peirce_fast.oracle),
-               static_cast<int>(PB::ApproximationOracleId::PEIRCE_FAST_SQUARE));
+  HS_EXPECT_EQ(peirce_fast.oracle,
+               PB::ApproximationOracleId::PEIRCE_FAST_SQUARE);
   HS_EXPECT_EQ(peirce_fast.metric_count, 3);
   size_t approximate_count = 0;
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE)
@@ -306,14 +302,14 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_STREQ(rotate.schema[1].id, "spin-speed");
   HS_EXPECT_EQ(rotate.schema[1].max, 0.05f);
 
-  const auto *required_op4 = require_operator("sphere.lens.glitch.v2");
-  if (!required_op4)
+  const auto *glitch_operator = require_operator("sphere.lens.glitch.v2");
+  if (!glitch_operator)
     return;
-  HS_EXPECT_SIZE_OR_RETURN(required_op4->schema_span(), 2);
-  HS_EXPECT_STREQ(required_op4->schema[0].id, "polar-multiplier");
-  HS_EXPECT_EQ(required_op4->schema[0].def, 2.0f);
-  HS_EXPECT_STREQ(required_op4->schema[1].id, "azimuth-multiplier");
-  HS_EXPECT_EQ(required_op4->schema[1].def, 3.0f);
+  HS_EXPECT_SIZE_OR_RETURN(glitch_operator->schema_span(), 2);
+  HS_EXPECT_STREQ(glitch_operator->schema[0].id, "polar-multiplier");
+  HS_EXPECT_EQ(glitch_operator->schema[0].def, 2.0f);
+  HS_EXPECT_STREQ(glitch_operator->schema[1].id, "azimuth-multiplier");
+  HS_EXPECT_EQ(glitch_operator->schema[1].def, 3.0f);
   const auto *twist_found = require_operator("sphere.lens.twist.v2");
   if (!twist_found)
     return;
@@ -415,10 +411,8 @@ inline void test_shader_chain_schema_and_field_ids() {
     if (!warp_found)
       return;
     const In::OperatorDescriptor &warp = *warp_found;
-    HS_EXPECT_EQ(static_cast<int>(warp.input),
-                 static_cast<int>(In::CarrierId::PLANE));
-    HS_EXPECT_EQ(static_cast<int>(warp.output),
-                 static_cast<int>(In::CarrierId::PLANE));
+    HS_EXPECT_EQ(warp.input, In::CarrierId::PLANE);
+    HS_EXPECT_EQ(warp.output, In::CarrierId::PLANE);
     HS_EXPECT_STREQ(warp.schema[0].id, "speed");
   }
   const auto *polar_found = require_operator("warp.polar-chart.v2");
@@ -485,10 +479,8 @@ inline void test_shader_chain_schema_and_field_ids() {
     if (!crossing_found)
       return;
     const In::OperatorDescriptor &crossing = *crossing_found;
-    HS_EXPECT_EQ(static_cast<int>(crossing.input),
-                 static_cast<int>(In::CarrierId::PLANE));
-    HS_EXPECT_EQ(static_cast<int>(crossing.output),
-                 static_cast<int>(In::CarrierId::FIELD));
+    HS_EXPECT_EQ(crossing.input, In::CarrierId::PLANE);
+    HS_EXPECT_EQ(crossing.output, In::CarrierId::FIELD);
     bool has_edge_width = false;
     bool has_weight = false;
     bool has_coverage = false;
@@ -547,10 +539,8 @@ inline void test_shader_chain_schema_and_field_ids() {
     if (!projection_found)
       return;
     const In::OperatorDescriptor &projection = *projection_found;
-    HS_EXPECT_EQ(static_cast<int>(projection.input),
-                 static_cast<int>(In::CarrierId::SPHERE));
-    HS_EXPECT_EQ(static_cast<int>(projection.output),
-                 static_cast<int>(In::CarrierId::PLANE));
+    HS_EXPECT_EQ(projection.input, In::CarrierId::SPHERE);
+    HS_EXPECT_EQ(projection.output, In::CarrierId::PLANE);
     bool has_meridian = false;
     const auto *frame_policy = schema_field(projection, "frame");
     HS_EXPECT_TRUE(frame_policy != nullptr);
@@ -590,10 +580,10 @@ inline void test_shader_chain_schema_and_field_ids() {
 
   // Field batch: ridge is schema-free; iso-contour, smooth-bands and the value
   // cutout carry their own families.
-  const auto *required_op5 = require_operator("field.transfer.ridge.v2");
-  if (!required_op5)
+  const auto *ridge_operator = require_operator("field.transfer.ridge.v2");
+  if (!ridge_operator)
     return;
-  HS_EXPECT_EQ(required_op5->schema_count, 0);
+  HS_EXPECT_EQ(ridge_operator->schema_count, 0);
   const auto *iso_found = require_operator("field.transfer.iso-contour.v2");
   if (!iso_found)
     return;
@@ -642,10 +632,8 @@ inline void test_shader_chain_slot_and_hash_contract() {
   static_assert(In::SLOT_SIZE >= sizeof(Color4));
   HS_EXPECT_EQ(In::SLOT_SIZE, sizeof(void *) == 8 ? 88u : 76u);
   HS_EXPECT_EQ(In::SLOT_ALIGN, alignof(void *));
-  HS_EXPECT_EQ(static_cast<int>(In::carrier_id_of<PB::SphereSample>()),
-               static_cast<int>(In::CarrierId::SPHERE));
-  HS_EXPECT_EQ(static_cast<int>(In::carrier_id_of<PB::ColorSample>()),
-               static_cast<int>(In::CarrierId::COLOR));
+  HS_EXPECT_EQ(In::carrier_id_of<PB::SphereSample>(), In::CarrierId::SPHERE);
+  HS_EXPECT_EQ(In::carrier_id_of<PB::ColorSample>(), In::CarrierId::COLOR);
   constexpr uint32_t HASH = In::instance_hash("camera", "sphere.rotate.v2");
   static_assert(HASH == 0x220a459au);
   HS_EXPECT_NE(HASH, In::instance_hash("camera2", "sphere.rotate.v2"));

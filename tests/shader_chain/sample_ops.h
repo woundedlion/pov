@@ -506,9 +506,7 @@ inline void test_shader_chain_composed_noise_domain() {
       {"sample", In::Op::SampleProjectedNoise::ID},
       {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
   };
-  const auto compile_status1 = program.compile(chain).code;
-  HS_EXPECT_EQ(compile_status1, In::ChainStatus::OK);
-  if (compile_status1 != In::ChainStatus::OK)
+  if (!expect_compiled(program.compile(chain)))
     return;
   auto &projection = param_as<In::Op::ProjectChainParams>(program, 0);
   projection.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
@@ -546,9 +544,7 @@ inline void test_shader_chain_large_finite_path_length() {
   chain[12] = {"sample", In::Op::SampleGridV4::ID};
   chain[13] = {"color", In::Op::ColorizeGeneratedPaletteV4::ID};
   chain[14] = {"displacement", In::Op::ModulateColorV1::ID};
-  const auto compile_status2 = program.compile(chain).code;
-  HS_EXPECT_EQ(compile_status2, In::ChainStatus::OK);
-  if (compile_status2 != In::ChainStatus::OK)
+  if (!expect_compiled(program.compile(chain)))
     return;
   for (int index = 1; index <= 11; ++index) {
     auto &params = param_as<In::Op::AffineWarpParams>(program, index);
