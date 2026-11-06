@@ -2,24 +2,65 @@
   "schema_version": 1,
   "kind": "pullback-oracle",
   "oracle_id": "HUE_ROTATION_AND_NOISE_LUTS",
-  "exact_callable": "tools/pullback_capture_native.cpp exact_colorize through ShaderChainWhiteBox",
-  "optimized_callable": "ShaderChainWhiteBox::program(effect).evaluate(view, ctx)",
+  "exact_callable": "unit_pullback ColorModulation::apply and procedural endpoint-pair hue modulation; framebuffer exact_shade(HUE_ROTATION_AND_NOISE_LUTS) in tools/pullback_capture_native.cpp",
+  "optimized_callable": "unit_pullback finish_color_sample after prepared hue modulation; ShaderChain compiled framebuffer shade callables",
   "non_floating_fields_exact": true,
   "corpus": {
-    "generator": "shader-workbench-prepared-hue-grid",
+    "generator": "unit-pullback-hue-grids-and-preset-framebuffer",
     "version": 1,
     "deterministic": true,
-    "presets": [6, 7, 10],
+    "presets": [
+      6,
+      7,
+      10
+    ],
     "framebuffer": {
-      "resolutions": [[96, 20], [288, 144]],
+      "resolutions": [
+        [
+          96,
+          20
+        ],
+        [
+          288,
+          144
+        ]
+      ],
       "sampling": "pixel centers",
       "aggregation": "maximum absolute premultiplied linear-u16 channel delta",
       "exact_callable": "tools/pullback_capture_native.cpp exact_shade(HUE_ROTATION_AND_NOISE_LUTS), using hs_test::shader_chain_tests::ShaderChainWhiteBox",
       "optimized_callable": "ShaderChain compiled preset-6/7/10 shade callables",
       "probes": [
-        { "preset": 6, "hue_noise_phase": 1.781, "operations": ["FULL_FRAME", "OCTANT_COLUMNS", "HORIZON_COLUMNS", "EQUATOR_ROW"] },
-        { "preset": 7, "hue_noise_phase": 1.918, "operations": ["FULL_FRAME", "WRAP_COLUMNS", "NORTH_ROW", "SOUTH_ROW", "POLE_BANDS"] },
-        { "preset": 10, "hue_noise_phase": 2.329, "operations": ["FULL_FRAME", "OCTANT_COLUMNS", "MIRROR_GRID", "HORIZON_COLUMNS"] }
+        {
+          "preset": 6,
+          "hue_noise_phase": 1.781,
+          "operations": [
+            "FULL_FRAME",
+            "OCTANT_COLUMNS",
+            "HORIZON_COLUMNS",
+            "EQUATOR_ROW"
+          ]
+        },
+        {
+          "preset": 7,
+          "hue_noise_phase": 1.918,
+          "operations": [
+            "FULL_FRAME",
+            "WRAP_COLUMNS",
+            "NORTH_ROW",
+            "SOUTH_ROW",
+            "POLE_BANDS"
+          ]
+        },
+        {
+          "preset": 10,
+          "hue_noise_phase": 2.329,
+          "operations": [
+            "FULL_FRAME",
+            "OCTANT_COLUMNS",
+            "MIRROR_GRID",
+            "HORIZON_COLUMNS"
+          ]
+        }
       ]
     }
   },
@@ -27,30 +68,43 @@
     {
       "domain": "COLOR_CHANNEL",
       "aggregation": "MAXIMUM",
-      "measured_baseline": 6893,
+      "measured_baseline": 5449,
       "accepted_limit": 7000,
       "unit": "channel code",
-      "limit_provenance": "AlienBrain CUP-mapping prepared-hue stage budget",
-      "measurement_provenance": "unit_shader_chain direct-versus-prepared hue corpus with the composed AlienBrain bank"
+      "limit_provenance": "Color::MODULATION_LUT_METRICS channel budget, unchanged",
+      "measurement_provenance": "registered unit_pullback test_pullback_modulation_lut_qualification and test_pullback_cached_hue_qualification at0afb0a264056787674e0cb43ab332fdce8872975: maximum over samples and maximum per-case mean respectively; full corpus/configuration in docs/hue_lut_qualification.json registered_channel_corpus"
     },
     {
       "domain": "COLOR_CHANNEL",
       "aggregation": "MEAN",
-      "measured_baseline": 213,
+      "measured_baseline": 84.871482772,
       "accepted_limit": 256,
       "unit": "channel code",
-      "limit_provenance": "ShaderChain combined prepared-hue stage budget",
-      "measurement_provenance": "unit_shader_chain direct-versus-prepared hue corpus with the composed AlienBrain bank"
+      "limit_provenance": "Color::MODULATION_LUT_METRICS channel budget, unchanged",
+      "measurement_provenance": "registered unit_pullback test_pullback_modulation_lut_qualification and test_pullback_cached_hue_qualification at0afb0a264056787674e0cb43ab332fdce8872975: maximum over samples and maximum per-case mean respectively; full corpus/configuration in docs/hue_lut_qualification.json registered_channel_corpus"
     },
     {
       "domain": "FRAMEBUFFER",
       "aggregation": "MAXIMUM",
       "measured_baseline": 2810,
-      "configuration_baselines": { "native-debug": 2810, "wasm-release": 2189, "wasm-strict-fp": 2188 },
+      "configuration_baselines": {
+        "native-debug": 2810,
+        "wasm-release": 2189,
+        "wasm-strict-fp": 2188
+      },
       "resolution_baselines": {
-        "native-debug": { "96x20": 2688, "288x144": 2810 },
-        "wasm-release": { "96x20": 2099, "288x144": 2189 },
-        "wasm-strict-fp": { "96x20": 2099, "288x144": 2188 }
+        "native-debug": {
+          "96x20": 2688,
+          "288x144": 2810
+        },
+        "wasm-release": {
+          "96x20": 2099,
+          "288x144": 2189
+        },
+        "wasm-strict-fp": {
+          "96x20": 2099,
+          "288x144": 2188
+        }
       },
       "accepted_limit": 3066,
       "unit": "channel code",

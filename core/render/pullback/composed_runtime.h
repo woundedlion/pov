@@ -1219,6 +1219,13 @@ private:
       return nullptr;
   }
 
+  const HueRotationGamutMask *hue_rotation_gamut_data() const {
+    if constexpr (HUE_ROTATION_LUT)
+      return &state->hue_rotation_gamut;
+    else
+      return nullptr;
+  }
+
   /** @brief Checks the authored cache qualification domain.
    * @param value Frame parameters.
    * @return Whether the color controls admit interval caching. */
@@ -1257,13 +1264,14 @@ private:
         Pullback::Color::prepare_hue_rotation_lut(
             std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
                 state->hue_rotation_lut),
-            palette);
+            palette, &state->hue_rotation_gamut);
         state->hue_rotation_lut_bake = palette_generation;
       }
     frame.projection_conjugate = this->frame_conjugate();
     frame.outer_conjugate = this->camera_conjugate();
     frame.palette = &palette;
     frame.hue_rotation_lut = hue_rotation_lut_data();
+    frame.hue_rotation_gamut = hue_rotation_gamut_data();
     frame.palette_lab_lut = nullptr;
     if constexpr (SpecT::CACHE_DODECAHEDRAL_MATRICES)
       frame.dodecahedral_matrices = state->dodecahedral_matrices.data();
@@ -1318,8 +1326,10 @@ private:
         }
       }
     });
-    if constexpr (TEMPORAL_SAMPLING)
+    if constexpr (TEMPORAL_SAMPLING) {
       frame.temporal = {frame.palette, frame.hue_rotation_lut, 1.0f};
+      frame.temporal.hue_rotation_gamut = frame.hue_rotation_gamut;
+    }
   }
 
   /** @brief Resolves the current authored or cycling source. @return Palette table. */

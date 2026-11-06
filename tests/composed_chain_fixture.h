@@ -184,6 +184,7 @@ void verify_export(size_t preset, int channel_tolerance,
   In::FrameContext context;
   context.palettes.fill(own.palette);
   context.hue_rotation_lut = own.hue_rotation_lut;
+  context.hue_rotation_gamut = own.hue_rotation_gamut;
   std::vector<Pullback::Modulation::Endpoint> endpoints;
   own.params.visit([&]<typename Resource>(const auto &) {
     if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {

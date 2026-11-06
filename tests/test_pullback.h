@@ -2964,6 +2964,7 @@ inline void test_pullback_runtime_seed_contract() {
 }
 
 #include "tests/pullback/color.h"
+#include "tests/pullback/hue_qualification.h"
 
 /** @brief Runs pullback tests. */
 inline int run_pullback_tests() {
@@ -3038,6 +3039,8 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_cached_phase_finish);
   HS_RUN(test_pullback_cached_lab_finish);
   HS_RUN(test_pullback_palette_lab_qualification);
+  HS_RUN(test_pullback_modulation_lut_qualification);
+  HS_RUN(test_pullback_cached_hue_qualification);
   HS_RUN(test_pullback_shared_lab_dispatch);
   HS_RUN(test_pullback_paired_color_dispatch);
   HS_RUN(test_pullback_paired_palette_controls);

@@ -80,6 +80,7 @@ template <typename ParamsT, bool PhaseNoise = false> struct FrameState {
   const BakedPalette *palette; /**< The cycler's current bake. */
   /** Current palette hue table. */
   const Pixel *hue_rotation_lut;
+  const HueRotationGamutMask *hue_rotation_gamut = nullptr;
   ParamsT params; /**< The frame's parameter values, already interpolated if a
                        preset transition is in flight. */
   /** Palette mapping weights, blended across a preset transition. */
@@ -777,7 +778,8 @@ struct ColorProvider {
    *  @return The frame's palette hue table. */
   __attribute__((always_inline)) static Pullback::Color::HueRotationLutView
   hue_rotation(const FrameState &frame) {
-    return {frame.hue_rotation_lut, frame.hue_rotation_lut != nullptr};
+    return {frame.hue_rotation_lut, frame.hue_rotation_lut != nullptr, nullptr,
+            frame.hue_rotation_gamut};
   }
   /** @brief Brightness envelope.
    *  @return `BrightnessV`. */

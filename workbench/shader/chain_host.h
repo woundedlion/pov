@@ -566,6 +566,10 @@ private:
       std::copy_n(ctx.hue_rotation_lut, resources->previous_hue_rotation.size(),
                   resources->previous_hue_rotation.data());
       previous.hue_rotation_lut = resources->previous_hue_rotation.data();
+      if (ctx.hue_rotation_gamut) {
+        resources->previous_hue_rotation_gamut = *ctx.hue_rotation_gamut;
+        previous.hue_rotation_gamut = &resources->previous_hue_rotation_gamut;
+      }
     }
     for (size_t index = 0; index < ctx.modulations.size(); ++index) {
       const auto &endpoint = ctx.modulations[index];
@@ -615,6 +619,7 @@ private:
   /** @brief Engine-owned shared resources the FrameContext borrows. */
   struct Resources {
     std::array<Pixel, HueRotationLutView::SIZE> hue_rotation_lut{};
+    HueRotationGamutMask hue_rotation_gamut;
     std::array<LayerResources, MAX_MODULATION_LAYERS> layers;
     std::array<Pullback::Modulation::Endpoint, MAX_MODULATION_LAYERS> endpoints;
     std::array<Pullback::Modulation::Endpoint, MAX_MODULATION_LAYERS>
@@ -623,6 +628,7 @@ private:
     std::array<BakedPaletteStorage, 3> previous_palettes;
     ShaderPaletteResources palette_selection;
     std::array<Pixel, HueRotationLutView::SIZE> previous_hue_rotation{};
+    HueRotationGamutMask previous_hue_rotation_gamut;
   };
 
   /** @brief The committed program's colorize entry. */
@@ -898,8 +904,10 @@ private:
       const size_t palette_index = tap.params->palette_mode;
       prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE>(
                                    resources->hue_rotation_lut),
-                               *ctx.palettes[palette_index]);
+                               *ctx.palettes[palette_index],
+                               &resources->hue_rotation_gamut);
       ctx.hue_rotation_lut = resources->hue_rotation_lut.data();
+      ctx.hue_rotation_gamut = &resources->hue_rotation_gamut;
     }
     return ctx;
   }

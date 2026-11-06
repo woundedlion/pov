@@ -150,6 +150,8 @@ struct ColorSample {
   OKLab cached_lab{};              ///< Shared base before hue and lift.
   bool has_cached_lab = false;     ///< RGB is represented by `cached_lab`.
   const PaletteLabTimeView *cached_rgb = nullptr; ///< Optional final hue cache.
+  const HueRotationGamutMask *hue_rotation_gamut =
+      nullptr; ///< Direct-hue cells.
 };
 
 /** @brief Per-pixel lookups shared by the layers of one column phase tail. */
@@ -174,6 +176,7 @@ blend_color_samples_in_place(const ColorSample &a, ColorSample &b,
   assert(!a.has_cached_lab && !b.has_cached_lab);
   const bool SAME_BASE = a.color.color == b.color.color &&
                          a.hue_rotation == b.hue_rotation &&
+                         a.hue_rotation_gamut == b.hue_rotation_gamut &&
                          a.palette_coordinate == b.palette_coordinate;
   b.color = Color4(a.color.color.lerp16(b.color.color, frac_to_q16(fraction)),
                    hs::lerp(a.color.alpha, b.color.alpha, fraction));
@@ -183,8 +186,10 @@ blend_color_samples_in_place(const ColorSample &a, ColorSample &b,
                                                   fraction, 1.0f);
   b.pending_lift = hs::lerp(a.pending_lift, b.pending_lift, fraction);
   b.brightness_gain = hs::lerp(a.brightness_gain, b.brightness_gain, fraction);
-  if (!SAME_BASE)
+  if (!SAME_BASE) {
     b.hue_rotation = nullptr;
+    b.hue_rotation_gamut = nullptr;
+  }
 }
 
 /** @brief Blends deferred color state before perceptual finalization.
@@ -218,8 +223,14 @@ finish_color_sample(const ColorSample &sample) {
                   color.alpha);
   if (sample.brightness_gain == 0.0f)
     return Color4(Pixel(0, 0, 0), color.alpha);
+  const bool GUARDED_HUE =
+      !sample.has_cached_lab && sample.pending_hue != 0.0f &&
+      sample.hue_rotation && sample.hue_rotation_gamut &&
+      sample.hue_rotation_gamut->requires_direct(
+          HueRotationValueSample(sample.palette_coordinate).low,
+          HueRotationHueSample(sample.pending_hue).low);
   if (sample.has_cached_lab || sample.pending_lift != 0.0f ||
-      (sample.pending_hue != 0.0f && !sample.hue_rotation)) {
+      (sample.pending_hue != 0.0f && (!sample.hue_rotation || GUARDED_HUE))) {
     OKLab lab = sample.cached_rgb
                     ? PaletteLabLut::sample(*sample.cached_rgb,
                                             sample.palette_coordinate)

@@ -13,9 +13,11 @@ void test_palette_rgb_cache_axes_and_wrap() {
   PaletteRgbHueLut cache;
   for (int t = 0; t < 3; ++t)
     for (int v = 0; v < 64; ++v)
-      for (int h = 0; h < 16; ++h)
-        cache.nodes[t * 1024 + v * 16 + h] = math::Vector(
-            v * 100 + t * 1000, h * 200 + t * 100, t * 1000 + v * 20 + h * 10);
+      for (int h = 0; h < HueRotationLutView::HUE_STEPS; ++h)
+        cache.nodes[t * HueRotationLutView::SIZE +
+                    v * HueRotationLutView::HUE_STEPS + h] =
+            Pixel(v * 100 + t * 1000, h * 200 + t * 100,
+                  t * 1000 + v * 20 + h * 10);
   base.rgb_nodes = cache.nodes.data();
   const auto time = base.view(.3f);
   const Pixel result = PaletteRgbHueLut::sample(time, .375f, .98f);
@@ -24,9 +26,71 @@ void test_palette_rgb_cache_axes_and_wrap() {
   HS_EXPECT_NEAR(result.b, 1120.5f, 1.0f);
   const Pixel wrapped = PaletteRgbHueLut::sample(time, .375f, -.02f);
   HS_EXPECT_EQ(result, wrapped);
-  HS_EXPECT_TRUE(base.view(.3f).rgb_high == cache.nodes.data() + 1024);
-  HS_EXPECT_TRUE(base.view(.8f).rgb_high == cache.nodes.data() + 2048);
+  HS_EXPECT_TRUE(base.view(.3f).rgb_high ==
+                 cache.nodes.data() + HueRotationLutView::SIZE);
+  HS_EXPECT_TRUE(base.view(.8f).rgb_high ==
+                 cache.nodes.data() + 2 * HueRotationLutView::SIZE);
 }
+/** @brief Column views omit only an identical upper gamut mask. */
+void test_palette_rgb_cache_guard_mask_aliasing() {
+  PaletteLabLut base;
+  PaletteRgbHueLut cache;
+  base.active = true;
+  base.rgb_nodes = cache.nodes.data();
+  base.rgb_masks = cache.masks.data();
+  base.rgb_midpoint = true;
+  base.rgb_midpoint_row = 1;
+  cache.nodes.fill(Pixel(1111, 2222, 3333));
+  cache.masks[1].mark_cell(0, 0);
+  const auto shared = base.view(.3f);
+  HS_EXPECT_TRUE(shared.rgb_mask_low == &cache.masks[1]);
+  HS_EXPECT_TRUE(shared.rgb_mask_high == nullptr);
+  HS_EXPECT_EQ(PaletteRgbHueLut::sample(shared, .005f, .01f),
+               PaletteLabLutBase::direct_hue_color(shared, .005f, .01f));
+  HS_EXPECT_NE(PaletteRgbHueLut::sample(shared, .005f, .01f),
+               Pixel(1111, 2222, 3333));
+
+  base.rgb_midpoint = false;
+  auto distinct = base.view(.3f);
+  HS_EXPECT_TRUE(distinct.rgb_mask_low == &cache.masks[0]);
+  HS_EXPECT_TRUE(distinct.rgb_mask_high == &cache.masks[1]);
+  distinct.rgb_high = distinct.rgb_low;
+  HS_EXPECT_EQ(PaletteRgbHueLut::sample(distinct, .005f, .01f),
+               PaletteLabLutBase::direct_hue_color(distinct, .005f, .01f));
+  HS_EXPECT_NE(PaletteRgbHueLut::sample(distinct, .005f, .01f),
+               Pixel(1111, 2222, 3333));
+}
+/** @brief Replay caches retain their original canonical palette endpoints. */
+void test_palette_lab_reference_endpoint_lifetime() {
+  reset_globals();
+  struct Source {
+    Pixel color;
+    Color4 get(float) const { return {color, 1.0f}; }
+  };
+  const Pixel START(1000, 50000, 500);
+  const Pixel END(50000, 2000, 8000);
+  BakedPaletteStorage from, to, retained;
+  from.bake(persistent_arena, Source{START});
+  to.bake(persistent_arena, Source{END});
+  retained.clone_from(from.view(), persistent_arena);
+  PaletteLabLut base;
+  base.bake(from.view(), to.view());
+  PaletteLabLut reference = base;
+  reference.palette_from = &retained.view();
+  reference.palette_to = &to.view();
+  from.rebake_copy(to.view());
+  constexpr float FRACTION = 0.25f;
+  constexpr float HUE = 0.137f;
+  const Pixel RGB = START.lerp16(END, frac_to_q16(FRACTION));
+  const Pixel EXPECTED =
+      ColorModulation::HueRotation::apply(Color4(RGB, 1.0f), HUE, {1.0f}).color;
+  float cosine, sine;
+  hue_sincos(HUE, cosine, sine);
+  const Pixel ACTUAL = PaletteLabLutBase::canonical_hue_color(
+      reference.view(FRACTION), 0.37f, cosine, sine);
+  HS_EXPECT_EQ(ACTUAL, EXPECTED);
+}
+
 /** @brief Final hue nodes equal the hue-rotation table of a full-chroma palette. */
 void test_palette_rgb_cache_matches_hue_rotation_table() {
   const GenerativePalette source(
@@ -48,11 +112,25 @@ void test_palette_rgb_cache_matches_hue_rotation_table() {
   prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE>(table),
                            palette);
   for (size_t node = 0; node < HueRotationLutView::SIZE; ++node) {
-    const math::Vector rgb = cache.nodes[HueRotationLutView::SIZE + node];
-    HS_EXPECT_EQ(rgb.x, float(table[node].r));
-    HS_EXPECT_EQ(rgb.y, float(table[node].g));
-    HS_EXPECT_EQ(rgb.z, float(table[node].b));
+    const Pixel rgb = cache.nodes[HueRotationLutView::SIZE + node];
+    HS_EXPECT_EQ(rgb.r, table[node].r);
+    HS_EXPECT_EQ(rgb.g, table[node].g);
+    HS_EXPECT_EQ(rgb.b, table[node].b);
   }
+  HueRotationGamutMask reference;
+  HueRotationGamutBuilder builder(&reference);
+  for (int value = 0; value < HueRotationLutView::VALUE_STEPS; ++value)
+    for (int hue = 0; hue < HueRotationLutView::HUE_STEPS; ++hue) {
+      float cosine, sine;
+      hue_sincos(float(hue) / HueRotationLutView::HUE_STEPS, cosine, sine);
+      const auto &node =
+          cache.nodes[HueRotationLutView::SIZE +
+                      value * HueRotationLutView::HUE_STEPS + hue];
+      mark_hue_gamut_node(builder, value, hue,
+                          base.nodes[PaletteLabLut::VALUES + value], cosine,
+                          sine, node);
+    }
+  HS_EXPECT_EQ(cache.masks[1].bits, reference.bits);
 }
 /** @brief Lift and brightness resolve the deferred Lab base through the ordinary finalizer. */
 void test_palette_rgb_cache_lazy_guards() {
@@ -62,7 +140,7 @@ void test_palette_rgb_cache_lazy_guards() {
     lab = {.7f, .1f, .05f};
   PaletteRgbHueLut cache;
   for (auto &pixel : cache.nodes)
-    pixel = math::Vector(1111, 2222, 3333);
+    pixel = Pixel(1111, 2222, 3333);
   base.rgb_nodes = cache.nodes.data();
   const auto time = base.view(.3f);
   Pullback::ColorSample sample{Color4(Pixel(0, 0, 0), .37f),
@@ -106,11 +184,11 @@ void test_palette_rgb_cache_runtime_lifetime() {
   HS_EXPECT_TRUE(first.palette_lab_lut && first.palette_lab_lut->rgb_nodes);
   if (!first.palette_lab_lut || !first.palette_lab_lut->rgb_nodes)
     return;
-  const math::Vector *previous = first.palette_lab_lut->rgb_nodes;
+  const Pixel *previous = first.palette_lab_lut->rgb_nodes;
   constexpr size_t RGB_SIZE =
       PaletteRgbHueLutImpl<AshCloudSpec::PALETTE_RGB_MIDPOINT_ONLY>::RGB_TIMES *
       HueRotationLutView::SIZE;
-  std::array<math::Vector, RGB_SIZE> saved;
+  std::array<Pixel, RGB_SIZE> saved;
   std::copy_n(previous, RGB_SIZE, saved.begin());
   pin_frame_clock(2);
   effect.draw_frame();
@@ -163,11 +241,14 @@ void test_palette_rgb_cache_bake_reuse() {
     for (int value : {0, 31, 63})
       for (int hue : {0, 1, 7, 15}) {
         const auto expected = linrgb_to_pixel(hue_rotate_lut_gamut_rgb(
-            current.nodes[time * 64 + value], float(hue) / 16));
-        const auto actual = reused.nodes[time * 1024 + value * 16 + hue];
-        HS_EXPECT_EQ(actual.x, float(expected.r));
-        HS_EXPECT_EQ(actual.y, float(expected.g));
-        HS_EXPECT_EQ(actual.z, float(expected.b));
+            current.nodes[time * 64 + value],
+            float(hue) / HueRotationLutView::HUE_STEPS));
+        const auto actual =
+            reused.nodes[time * HueRotationLutView::SIZE +
+                         value * HueRotationLutView::HUE_STEPS + hue];
+        HS_EXPECT_EQ(actual.r, expected.r);
+        HS_EXPECT_EQ(actual.g, expected.g);
+        HS_EXPECT_EQ(actual.b, expected.b);
       }
   current.nodes[0].L += .03f;
   reference_base = current;
@@ -181,10 +262,10 @@ void test_palette_rgb_cache_bake_reuse() {
   reference.bake(reference_base);
   PaletteRgbHueLut wrong_binding;
   for (auto &pixel : wrong_binding.nodes)
-    pixel = math::Vector(1000, 0, 0);
+    pixel = Pixel(1000, 0, 0);
   previous.rgb_nodes = wrong_binding.nodes.data();
   for (auto &pixel : old_rgb.nodes)
-    pixel = math::Vector(0, 1000, 0);
+    pixel = Pixel(0, 1000, 0);
   reused.bake(current, &previous, &old_rgb);
   HS_EXPECT_EQ(std::memcmp(reference.nodes.data(), reused.nodes.data(),
                            sizeof(reference.nodes)),
@@ -245,34 +326,36 @@ void test_palette_rgb_cache_midpoint_reuse() {
   HS_EXPECT_TRUE(original.rgb_midpoint);
   HS_EXPECT_TRUE(first.midpoint_active);
   HS_EXPECT_TRUE(original.view(.1f).rgb_low == original.view(.9f).rgb_high);
-  HS_EXPECT_TRUE(original.view(.1f).rgb_low == first.nodes.data() + 1024);
+  HS_EXPECT_TRUE(original.view(.1f).rgb_low ==
+                 first.nodes.data() + HueRotationLutView::SIZE);
   const auto old_pixels = first.nodes;
   auto next = make_base(.0008f, .001f);
   PaletteRgbHueLut second;
   second.bake(next, &original, &first);
-  HS_EXPECT_TRUE(std::equal(old_pixels.begin() + 1024,
-                            old_pixels.begin() + 2048,
-                            second.nodes.begin() + 1024));
+  HS_EXPECT_TRUE(std::equal(old_pixels.begin() + HueRotationLutView::SIZE,
+                            old_pixels.begin() + 2 * HueRotationLutView::SIZE,
+                            second.nodes.begin() + HueRotationLutView::SIZE));
   HS_EXPECT_EQ(second.baked_midpoint[0].L, .6f);
   auto shifted = make_base(.0016f, .001f);
   PaletteRgbHueLut third;
   third.bake(shifted, &next, &second);
   HS_EXPECT_EQ(third.baked_midpoint[0].L, shifted.nodes[64].L);
-  HS_EXPECT_FALSE(std::equal(old_pixels.begin() + 1024,
-                             old_pixels.begin() + 2048,
-                             third.nodes.begin() + 1024));
+  HS_EXPECT_FALSE(std::equal(old_pixels.begin() + HueRotationLutView::SIZE,
+                             old_pixels.begin() + 2 * HueRotationLutView::SIZE,
+                             third.nodes.begin() + HueRotationLutView::SIZE));
   auto discontinuous = make_base(0.0f, .003f);
   third.bake(discontinuous, &shifted, &third);
   HS_EXPECT_FALSE(discontinuous.rgb_midpoint);
   HS_EXPECT_FALSE(third.midpoint_active);
   for (int time : {0, 1, 2}) {
     const auto lab = discontinuous.nodes[time * 64 + 31];
-    const auto expected =
-        linrgb_to_pixel(hue_rotate_lut_gamut_rgb(lab, .3125f));
-    const auto actual = third.nodes[time * 1024 + 31 * 16 + 5];
-    HS_EXPECT_EQ(actual.x, float(expected.r));
-    HS_EXPECT_EQ(actual.y, float(expected.g));
-    HS_EXPECT_EQ(actual.z, float(expected.b));
+    const auto expected = linrgb_to_pixel(
+        hue_rotate_lut_gamut_rgb(lab, 5.f / HueRotationLutView::HUE_STEPS));
+    const auto actual = third.nodes[time * HueRotationLutView::SIZE +
+                                    31 * HueRotationLutView::HUE_STEPS + 5];
+    HS_EXPECT_EQ(actual.r, expected.r);
+    HS_EXPECT_EQ(actual.g, expected.g);
+    HS_EXPECT_EQ(actual.b, expected.b);
   }
 }
 
@@ -299,7 +382,7 @@ void test_palette_rgb_cache_any_chroma() {
   HS_EXPECT_TRUE(current.palette_lab_lut->rgb_nodes != nullptr);
 }
 
-/** @brief Float table interpolation stays within one RGB16 code of Q16 interpolation. */
+/** @brief Linear table interpolation stays within one RGB16 code of Q16 interpolation. */
 void test_palette_rgb_cache_q16_compatibility() {
   uint32_t random = 0x728f1ab5;
   const auto next = [&]() {
@@ -312,25 +395,27 @@ void test_palette_rgb_cache_q16_compatibility() {
   PaletteLabLut base;
   base.active = true;
   PaletteRgbHueLut cache;
-  std::array<Pixel, 3072> reference;
+  std::array<Pixel, 3 * HueRotationLutView::SIZE> reference;
   base.rgb_nodes = cache.nodes.data();
   for (int table = 0; table < 8; ++table) {
     for (size_t i = 0; i < reference.size(); ++i) {
       reference[i] =
           Pixel(uint16_t(next()), uint16_t(next()), uint16_t(next()));
-      cache.nodes[i] = math::Vector(
-          float(reference[i].r), float(reference[i].g), float(reference[i].b));
+      cache.nodes[i] = reference[i];
     }
     for (int sample = 0; sample < 2048; ++sample) {
       const float VALUE = float(next() & 0xffff) / 65535.0f * 1.5f - .25f;
       const float HUE = float(next() & 0xffff) / 65535.0f * 8 - 4;
       const float TIME = float(next() & 0xffff) / 65535.0f;
       const auto view = base.view(TIME);
-      const size_t LOW_ROW = (view.rgb_low - cache.nodes.data()) / 1024;
+      const size_t LOW_ROW =
+          (view.rgb_low - cache.nodes.data()) / HueRotationLutView::SIZE;
       const auto a = sample_hue_rotation_lut(
-          {reference.data() + LOW_ROW * 1024, true}, VALUE, HUE);
+          {reference.data() + LOW_ROW * HueRotationLutView::SIZE, true}, VALUE,
+          HUE);
       const auto b = sample_hue_rotation_lut(
-          {reference.data() + (LOW_ROW + 1) * 1024, true}, VALUE, HUE);
+          {reference.data() + (LOW_ROW + 1) * HueRotationLutView::SIZE, true},
+          VALUE, HUE);
       const auto expected = a.lerp16(b, frac_to_q16(view.weight));
       const auto actual = PaletteRgbHueLut::sample(view, VALUE, HUE);
       maximum =
@@ -552,7 +637,7 @@ void test_palette_rgb_midpoint_only_storage() {
   static_assert(AshCloudSpec::PALETTE_RGB_MIDPOINT_ONLY);
   static_assert(sizeof(Pullback::OptionalPaletteRgbLut<true>) -
                     sizeof(Pullback::OptionalPaletteRgbLut<true, true>) ==
-                49152);
+                25080);
   std::array<PaletteRgbHueLut, 2> generic;
   std::array<PaletteRgbHueLutImpl<true>, 2> compact;
   std::array<PaletteLabLut, 2> full_bases, small_bases;
@@ -572,10 +657,11 @@ void test_palette_rgb_midpoint_only_storage() {
                        frame ? &compact[PREVIOUS] : nullptr);
     const auto &b = small_bases[SLOT];
     HS_EXPECT_EQ(b.rgb_midpoint_row, 0);
-    HS_EXPECT_EQ(std::memcmp(generic[SLOT].nodes.data() + 1024,
-                             compact[SLOT].nodes.data(),
-                             1024 * sizeof(math::Vector)),
-                 0);
+    HS_EXPECT_EQ(
+        std::memcmp(generic[SLOT].nodes.data() + HueRotationLutView::SIZE,
+                    compact[SLOT].nodes.data(),
+                    HueRotationLutView::SIZE * sizeof(Pixel)),
+        0);
     HS_EXPECT_EQ(std::memcmp(generic[SLOT].baked_midpoint.data(),
                              compact[SLOT].baked_midpoint.data(),
                              sizeof(generic[SLOT].baked_midpoint)),

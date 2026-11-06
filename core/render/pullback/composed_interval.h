@@ -214,6 +214,7 @@ public:
       });
       frame.temporal = {from.palette, from.hue_rotation_lut, 0.0f,
                         same_palette};
+      frame.temporal.hue_rotation_gamut = from.hue_rotation_gamut;
       bind_mobius_intervals(frame);
       return;
     }
@@ -335,6 +336,7 @@ public:
     frame.temporal = {from.palette, from.hue_rotation_lut,
                       same_palette && same_sources ? 1.0f : fraction,
                       same_palette, phase_compatible};
+    frame.temporal.hue_rotation_gamut = from.hue_rotation_gamut;
   }
 };
 
@@ -357,7 +359,7 @@ HS_FLASH_INLINE Frame sample_frame(const Frame &from, const Frame &to,
 /** @brief Owned palette and hue tables for the previous frame endpoint. */
 template <typename Frame, bool Hue>
   requires BorrowsColorResources<Frame>
-struct FrameHistory<Frame, true, Hue> {
+struct FrameHistory<Frame, true, Hue> : HueRotationGamutStorage<Hue> {
   Frame previous{};            ///< Retained endpoint.
   BakedPaletteStorage palette; ///< Owned palette entries.
   std::array<Pixel, Hue ? Pullback::Color::HueRotationLutView::SIZE : 0>
@@ -381,6 +383,10 @@ struct FrameHistory<Frame, true, Hue> {
       std::memcpy(hue_rotation.data(), frame.hue_rotation_lut,
                   sizeof(hue_rotation));
       previous.hue_rotation_lut = hue_rotation.data();
+      if (frame.hue_rotation_gamut) {
+        this->retained_hue_rotation_gamut = *frame.hue_rotation_gamut;
+        previous.hue_rotation_gamut = &this->retained_hue_rotation_gamut;
+      }
     }
     frame.params.visit([&]<typename Resource>(const auto &) {
       if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {
@@ -399,6 +405,7 @@ struct FrameHistory<Frame, true, Hue> {
       }
     });
     previous.temporal = {previous.palette, previous.hue_rotation_lut, 1.0f};
+    previous.temporal.hue_rotation_gamut = previous.hue_rotation_gamut;
     initialized = true;
   }
 };

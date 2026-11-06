@@ -401,6 +401,7 @@ struct TemporalPaletteResources {
   bool same_palette = false; ///< Identical endpoint palette entries.
   bool phase_compatible =
       false; ///< Stable modulation recipes across the interval.
+  const HueRotationGamutMask *hue_rotation_gamut = nullptr;
 };
 /** @brief Prepared generated-palette endpoint pair. */
 struct TemporalGeneratedPaletteState {
@@ -422,13 +423,15 @@ apply_palette_endpoint_impl(const FieldSample &sample,
                             float opacity, float gain) {
   Color4 color = state.palette->get(value);
   color.alpha *= opacity;
-  return ColorSample{
+  ColorSample result{
       color,
       sample,
       state.hue_rotation.active ? state.hue_rotation.data : nullptr,
       value,
       0.0f,
       gain};
+  result.hue_rotation_gamut = state.hue_rotation.gamut_mask;
+  return result;
 }
 /** @brief Samples a canonical endpoint from ITCM.
  * @param sample Shared field coordinates.
@@ -464,14 +467,16 @@ apply_generated_palette(const FieldSample &sample,
                                  state.mapping_frequency, state.mapping_offset);
   Color4 color = state.palette->get(VALUE);
   color.alpha *= palette_opacity(sample, state);
-  return {color,
-          sample,
-          state.hue_rotation.active ? state.hue_rotation.data : nullptr,
-          VALUE,
-          0.0f,
-          brightness_envelope_gain(sample.value, state.brightness_envelope,
-                                   state.brightness_bottom,
-                                   state.brightness_top)};
+  ColorSample result{
+      color,
+      sample,
+      state.hue_rotation.active ? state.hue_rotation.data : nullptr,
+      VALUE,
+      0.0f,
+      brightness_envelope_gain(sample.value, state.brightness_envelope,
+                               state.brightness_bottom, state.brightness_top)};
+  result.hue_rotation_gamut = state.hue_rotation.gamut_mask;
+  return result;
 }
 /** @brief Completes deferred color adjustments.
  * @param sample Color carrier.
@@ -776,7 +781,8 @@ inline ColorSample apply_modulation(const ColorSample &input,
 }
 
 /// Linear-RGB distance from a gamut gate requiring the canonical palette base.
-inline constexpr float PALETTE_LAB_GAMUT_GUARD_WIDTH = 0.001f;
+inline constexpr float PALETTE_LAB_GAMUT_GUARD_WIDTH =
+    PaletteLabLutBase::GAMUT_GUARD_WIDTH;
 
 /** @brief Resolves lightness and hue into rotated perceptual coordinates.
  * @param lab Base perceptual color.
@@ -796,11 +802,7 @@ HS_HOT_INLINE inline OKLab rotated_palette_lab(OKLab lab, float hue,
  * @param raw Hue-rotated linear RGB before gamut mapping.
  * @return Whether the canonical palette base is required. */
 HS_HOT_INLINE inline bool near_palette_gamut_gate(const LinRGB &raw) {
-  const float LEAST = __builtin_fminf(__builtin_fminf(raw.r, raw.g), raw.b);
-  const float MOST = __builtin_fmaxf(__builtin_fmaxf(raw.r, raw.g), raw.b);
-  return !(fabsf(LEAST - LINEAR_RGB_GAMUT_MIN) >
-               PALETTE_LAB_GAMUT_GUARD_WIDTH &&
-           fabsf(MOST - LINEAR_RGB_GAMUT_MAX) > PALETTE_LAB_GAMUT_GUARD_WIDTH);
+  return PaletteLabLutBase::near_gamut_gate(raw);
 }
 
 /** @brief Restores a cached base whose raw RGB can cross the gamut gate.
@@ -882,6 +884,8 @@ inline constexpr std::array<ApproximationMetric, 3> MODULATION_LUT_METRICS{{
     {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,
      3066.0f, "channel code"},
 }};
+static_assert(HueRotationGamutMask::MAX_CHANNEL_SPAN ==
+              2 * MODULATION_LUT_METRICS[0].limit);
 
 /** @brief Generated-palette policy with retained immutable endpoints.
  * @tparam State Palette resource provider. */
@@ -986,6 +990,7 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
       auto previous = current;
       previous.palette = resources.palette;
       previous.hue_rotation.data = resources.hue_rotation;
+      previous.hue_rotation.gamut_mask = resources.hue_rotation_gamut;
       TemporalGeneratedPaletteState result{current, previous,
                                            resources.fraction};
       if constexpr (LAB_CACHE)
@@ -1224,6 +1229,7 @@ private:
           state.hue_rotation.active ? state.hue_rotation.data : nullptr;
       result.field = sample;
       result.hue_rotation = current_table;
+      result.hue_rotation_gamut = prepared.current.hue_rotation.gamut_mask;
       result.palette_coordinate = VALUE;
       result.brightness_gain = brightness_envelope_gain(
           sample.value, state.brightness_envelope, state.brightness_bottom,
@@ -1278,6 +1284,9 @@ private:
                                      : nullptr;
     result.color.color = A.lerp16(B, frac_to_q16(fraction));
     result.hue_rotation = A == B && A_TABLE == B_TABLE ? B_TABLE : nullptr;
+    result.hue_rotation_gamut = result.hue_rotation
+                                    ? prepared.current.hue_rotation.gamut_mask
+                                    : nullptr;
   }
 
 public:
@@ -1355,6 +1364,7 @@ public:
               canonical.pending_hue = HUE;
               canonical.hue_rotation =
                   state.hue_rotation.active ? state.hue_rotation.data : nullptr;
+              canonical.hue_rotation_gamut = state.hue_rotation.gamut_mask;
               return finish_color_sample(canonical);
             });
       }

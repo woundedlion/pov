@@ -1385,6 +1385,8 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_dodecahedral_face_cache_fold_parity);
   HS_RUN(test_dodecahedral_face_cache_lens_binding);
   HS_RUN(test_palette_rgb_cache_axes_and_wrap);
+  HS_RUN(test_palette_rgb_cache_guard_mask_aliasing);
+  HS_RUN(test_palette_lab_reference_endpoint_lifetime);
   HS_RUN(test_palette_rgb_cache_matches_hue_rotation_table);
   HS_RUN(test_palette_rgb_cache_lazy_guards);
   HS_RUN(test_palette_rgb_cache_runtime_lifetime);

@@ -5,6 +5,7 @@
 #pragma once
 
 #include "core/color/color_space.h"
+#include <array>
 #include <span>
 
 /** @file hue_rotation_lut.h
@@ -13,6 +14,8 @@
 /** @brief Largest float below 1: the top of the half-open palette coordinate
  *  the hue-rotation LUT is baked over and sampled at. */
 inline constexpr float UNIT_OPEN_MAX = 0x1.fffffep-1f;
+
+struct HueRotationGamutMask;
 
 /** @brief View over palette-coordinate by hue-rotation colors. */
 struct HueRotationLutView {
@@ -25,19 +28,104 @@ struct HueRotationLutView {
   /// Borrowed table, indexed `value_index * HUE_STEPS + hue_index`.
   const Pixel *data;
   bool active; ///< Whether `data` holds a baked table to sample.
-  const math::Vector *linear_data = nullptr; ///< Optional float copy of RGB16.
+  const Pixel *linear_data =
+      nullptr; ///< Optional RGB16 nodes for linear interpolation.
+  const HueRotationGamutMask *gamut_mask =
+      nullptr; ///< Cells needing direct hue.
 };
+
+/** @brief Cells crossing gamut classes or the qualified RGB corner span. */
+struct HueRotationGamutMask {
+  static constexpr int MAX_CHANNEL_SPAN =
+      14000; ///< Qualified RGB16 corner span.
+  static constexpr int CELLS =
+      (HueRotationLutView::VALUE_STEPS - 1) * HueRotationLutView::HUE_STEPS;
+  std::array<uint8_t, (CELLS + 7) / 8> bits{};
+
+  void clear() { bits.fill(0); }
+  void mark_cell(int value, int hue) {
+    const int CELL = value * HueRotationLutView::HUE_STEPS + hue;
+    bits[CELL / 8] |= uint8_t(1u << (CELL % 8));
+  }
+  bool requires_direct(int value, int hue) const {
+    const int CELL = std::min(value, HueRotationLutView::VALUE_STEPS - 2) *
+                         HueRotationLutView::HUE_STEPS +
+                     hue;
+    return (bits[CELL / 8] & uint8_t(1u << (CELL % 8))) != 0;
+  }
+};
+
+/** @brief Accumulates differing corner classes in value-major node order. */
+struct HueRotationGamutBuilder {
+  HueRotationGamutMask *mask;
+  std::array<uint8_t, HueRotationLutView::HUE_STEPS> previous{}, current{};
+  std::array<Pixel, HueRotationLutView::HUE_STEPS> previous_rgb{},
+      current_rgb{};
+
+  explicit HueRotationGamutBuilder(HueRotationGamutMask *destination)
+      : mask(destination) {}
+
+  void append(int value, int hue, const LinRGB &rgb, const Pixel &node) {
+    current_rgb[hue] = node;
+    current[hue] = uint8_t((rgb.r < 0.0f ? 1 : 0) | (rgb.r > 1.0f ? 2 : 0) |
+                           (rgb.g < 0.0f ? 4 : 0) | (rgb.g > 1.0f ? 8 : 0) |
+                           (rgb.b < 0.0f ? 16 : 0) | (rgb.b > 1.0f ? 32 : 0));
+    if (hue != HueRotationLutView::HUE_STEPS - 1)
+      return;
+    if (value != 0)
+      for (int column = 0; column < HueRotationLutView::HUE_STEPS; ++column) {
+        const int NEXT = (column + 1) & (HueRotationLutView::HUE_STEPS - 1);
+        const uint8_t FIRST = previous[column];
+        const auto span = [&](auto channel) {
+          const int A = channel(previous_rgb[column]);
+          const int B = channel(previous_rgb[NEXT]);
+          const int C = channel(current_rgb[column]);
+          const int D = channel(current_rgb[NEXT]);
+          return std::max({A, B, C, D}) - std::min({A, B, C, D});
+        };
+        if (FIRST != previous[NEXT] || FIRST != current[column] ||
+            FIRST != current[NEXT] ||
+            (FIRST != 0 && (span([](Pixel p) { return p.r; }) >
+                                HueRotationGamutMask::MAX_CHANNEL_SPAN ||
+                            span([](Pixel p) { return p.g; }) >
+                                HueRotationGamutMask::MAX_CHANNEL_SPAN ||
+                            span([](Pixel p) { return p.b; }) >
+                                HueRotationGamutMask::MAX_CHANNEL_SPAN)))
+          mask->mark_cell(value - 1, column);
+      }
+    previous = current;
+    previous_rgb = current_rgb;
+  }
+};
+
+template <bool Enabled> struct HueRotationGamutStorage {};
+template <> struct HueRotationGamutStorage<true> {
+  HueRotationGamutMask retained_hue_rotation_gamut;
+};
+
+/** @brief Appends one raw hue node to a cell classifier. */
+inline void mark_hue_gamut_node(HueRotationGamutBuilder &builder, int value,
+                                int hue, const OKLab &base, float cosine,
+                                float sine, const Pixel &node) {
+  const auto RAW = oklab_to_linear_rgb(rotate_chroma(base, cosine, sine));
+  builder.append(value, hue, RAW, node);
+}
 
 /**
  * @brief Bakes all palette-coordinate and hue-rotation combinations.
  * @tparam Source Palette source exposing Color4 get(float) const.
  * @param output Destination LUT.
  * @param palette Palette source to hue-rotate.
+ * @param gamut_mask Optional cell mask owned alongside the destination table.
  */
 template <typename Source>
 HS_FLASH_INLINE __attribute__((aligned(32))) inline void
 prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE> output,
-                         const Source &palette) {
+                         const Source &palette,
+                         HueRotationGamutMask *gamut_mask = nullptr) {
+  if (gamut_mask)
+    gamut_mask->clear();
+  HueRotationGamutBuilder builder(gamut_mask);
   for (int value_index = 0; value_index < HueRotationLutView::VALUE_STEPS;
        ++value_index) {
     const float value =
@@ -47,8 +135,14 @@ prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE> output,
          ++hue_index) {
       const float amount =
           static_cast<float>(hue_index) / HueRotationLutView::HUE_STEPS;
-      output[value_index * HueRotationLutView::HUE_STEPS + hue_index] =
-          hue_rotate_lut_gamut(base, amount).color;
+      const Pixel NODE = hue_rotate_lut_gamut(base, amount).color;
+      if (gamut_mask) {
+        float cosine, sine;
+        hue_sincos(amount, cosine, sine);
+        mark_hue_gamut_node(builder, value_index, hue_index, base.lab, cosine,
+                            sine, NODE);
+      }
+      output[value_index * HueRotationLutView::HUE_STEPS + hue_index] = NODE;
     }
   }
 }
@@ -142,13 +236,13 @@ sample_hue_rotation_linear(const HueRotationLutView &view,
                            const HueRotationHueSample &hue) {
   const auto row = [&](int index) {
     if (view.linear_data) {
-      const math::Vector &a =
+      const Pixel &a =
           view.linear_data[index * HueRotationLutView::HUE_STEPS + hue.low];
-      const math::Vector &b =
+      const Pixel &b =
           view.linear_data[index * HueRotationLutView::HUE_STEPS + hue.high];
-      return math::Vector(hs::lerp(a.x, b.x, hue.linear_weight),
-                          hs::lerp(a.y, b.y, hue.linear_weight),
-                          hs::lerp(a.z, b.z, hue.linear_weight));
+      return math::Vector(hs::lerp(float(a.r), float(b.r), hue.linear_weight),
+                          hs::lerp(float(a.g), float(b.g), hue.linear_weight),
+                          hs::lerp(float(a.b), float(b.b), hue.linear_weight));
     }
     const Pixel &a = view.data[index * HueRotationLutView::HUE_STEPS + hue.low];
     const Pixel &b =

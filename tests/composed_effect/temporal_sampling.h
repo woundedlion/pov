@@ -78,6 +78,7 @@ inline Frame sample_frame_reference(const Frame &from, const Frame &to,
     }
   });
   frame.temporal = {from.palette, from.hue_rotation_lut, fraction};
+  frame.temporal.hue_rotation_gamut = from.hue_rotation_gamut;
   return frame;
 }
 
@@ -947,7 +948,16 @@ inline void test_gridspace_canonical_columns() {
     effect.advance_display();
     if (step >= 8 && step != 46)
       continue;
-    const auto current = drawn_frame(effect);
+    auto current = drawn_frame(effect);
+    using Cache = PaletteLabLutStorage<FX::Spec::PALETTE_LAB_VALUES>;
+    std::optional<Cache> reference_cache;
+    if (current.palette_lab_lut) {
+      reference_cache.emplace(
+          *static_cast<const Cache *>(current.palette_lab_lut));
+      reference_cache->palette_from = history.previous.palette;
+      reference_cache->palette_to = current.palette;
+      current.palette_lab_lut = &*reference_cache;
+    }
     for (int x = 0; x < 288; ++x) {
       const float TIME = static_cast<float>(x % 144) / 144;
       const auto frame = Pipeline::prepare(
@@ -1115,7 +1125,16 @@ inline void check_temporal_roster_pixels(const char *name) {
     Spacetime::set_flat_surface(!enabled);
     effect.draw_frame();
     effect.advance_display();
-    const auto current = ComposedFrameWhiteBox::current_frame(effect);
+    auto current = ComposedFrameWhiteBox::current_frame(effect);
+    using Cache = PaletteLabLutStorage<FX::Spec::PALETTE_LAB_VALUES>;
+    std::optional<Cache> reference_cache;
+    if (current.palette_lab_lut) {
+      reference_cache.emplace(
+          *static_cast<const Cache *>(current.palette_lab_lut));
+      reference_cache->palette_from = history.previous.palette;
+      reference_cache->palette_to = current.palette;
+      current.palette_lab_lut = &*reference_cache;
+    }
     const auto instantaneous = FX::RenderPipeline::prepare(current);
     const auto previous = FX::RenderPipeline::prepare(history.previous);
     const auto start = FX::RenderPipeline::prepare(
@@ -1192,20 +1211,20 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
   hs::clear_mock_time();
   expect_pixel_golden(
       "MobiusGrid 96x20", golden,
-      RecordedGolden{{0x38b1b48b3f675c78ull,
-                      {{5454539144ull, 5160239955ull, 5474384052ull},
-                       169834625799ull,
-                       779156174954ull}},
+      RecordedGolden{{0xec466ec3f770a0f1ull,
+                      {{5453470685ull, 5160590333ull, 5474686332ull},
+                       169829811319ull,
+                       779137450792ull}},
                      {0x3f7cc88cb3bc27faull,
                       {{6402480035ull, 6020902134ull, 6475982785ull},
                        189985757464ull,
                        898283260641ull}},
                      1e-3,
                      0.01,
-                     {0x3189ad4987125104ull,
-                      {{6387995723ull, 5994362008ull, 6281000211ull},
-                       183139927931ull,
-                       903207660667ull}},
+                     {0x73f317719147d0b5ull,
+                      {{6387104319ull, 5994654944ull, 6281234980ull},
+                       183136212019ull,
+                       903193587020ull}},
                      {0x377bb7dd310c8633ull,
                       {{6352957965ull, 5821662016ull, 6185281849ull},
                        176979319400ull,

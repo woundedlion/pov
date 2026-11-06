@@ -186,7 +186,7 @@ inline void test_pullback_palette_lab_owned_copy() {
     PaletteLabLutStorage<Values> source;
     for (size_t i = 0; i < source.nodes.size(); ++i)
       source.nodes[i] = {float(i) / source.nodes.size(), 0.1f, -0.2f};
-    std::array<math::Vector, HueRotationLutView::SIZE> rgb{};
+    std::array<Pixel, HueRotationLutView::SIZE> rgb{};
     source.active = true;
     source.rgb_nodes = rgb.data();
     source.rgb_midpoint = true;
@@ -551,6 +551,78 @@ inline void test_pullback_palette_lab_qualification() {
   HS_EXPECT_GT(maximum, 0u);
   HS_EXPECT_LE(static_cast<float>(maximum), Policy::METRICS[0].limit);
   HS_EXPECT_LE(MEAN, Policy::METRICS[1].limit);
+}
+
+/** @brief Prepared hue modulation meets channel limits across cycling palettes. */
+inline void test_pullback_modulation_lut_qualification() {
+  using namespace Pullback;
+  struct Provider : PaletteLayerProvider {
+    static Color::ModulationState prepare(const PaletteFrame &frame) {
+      auto prepared = PaletteLayerProvider::prepare(frame);
+      prepared.source = Pattern::SourceKind::DISPLACEMENT;
+      return prepared;
+    }
+  };
+  using Layer = Color::Modulate<Provider>;
+  std::array<uint8_t, GeneratedPaletteBank::required_arena_bytes()> buffer{};
+  Arena arena(buffer.data(), buffer.size());
+  GeneratedPaletteBank bank;
+  bank.init(arena, 0.788f, math::ease_in_out_sin);
+  enum class Cycle { TRIADIC, COMPLEMENTARY, ANALOGOUS };
+  std::array<Pixel, HueRotationLutView::SIZE> table;
+  HueRotationGamutMask mask;
+  PaletteFrame frame;
+  frame.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 1.0f};
+  const auto PREPARED = Layer::prepare(frame);
+  uint32_t maximum = 0;
+  int worst_frame = 0, worst_value = 0, worst_hue = 0;
+  uint64_t total = 0;
+  size_t channels = 0;
+  int elapsed = 0;
+  for (const int target : {0, 1, 150, 300, 600, 900, 1200, 1800}) {
+    while (elapsed < target) {
+      bank.step(Cycle::TRIADIC);
+      ++elapsed;
+    }
+    const auto &palette = bank.palette(Cycle::TRIADIC);
+    prepare_hue_rotation_lut(std::span(table), palette, &mask);
+    constexpr int VALUES = 512, HUES = 128;
+    for (int value = 0; value < VALUES; ++value) {
+      const float COORDINATE = (value + 0.5f) / VALUES;
+      const auto BASE = palette.get(COORDINATE);
+      for (int hue = 0; hue < HUES; ++hue) {
+        const float SCALAR = 2.0f * (hue + 0.5f) / HUES - 1.0f;
+        ColorSample input{BASE, {COORDINATE, 0.75f, math::Y_AXIS, SCALAR}};
+        input.hue_rotation = table.data();
+        input.hue_rotation_gamut = &mask;
+        input.palette_coordinate = COORDINATE;
+        const auto ACTUAL =
+            finish_color_sample(Layer::apply(input, frame, PREPARED));
+        const auto EXPECTED =
+            ColorModulation::apply(BASE, SCALAR, frame.mechanic);
+        HS_EXPECT_EQ(ACTUAL.alpha, EXPECTED.alpha);
+        for (const uint32_t ERROR :
+             {channel_gap(ACTUAL.color.r, EXPECTED.color.r),
+              channel_gap(ACTUAL.color.g, EXPECTED.color.g),
+              channel_gap(ACTUAL.color.b, EXPECTED.color.b)}) {
+          if (ERROR > maximum) {
+            maximum = ERROR;
+            worst_frame = target;
+            worst_value = value;
+            worst_hue = hue;
+          }
+          total += ERROR;
+          ++channels;
+        }
+      }
+    }
+  }
+  const double MEAN = static_cast<double>(total) / channels;
+  std::printf("  modulation LUT max=%u mean=%.3f channels=%zu worst=%d/%d/%d\n",
+              maximum, MEAN, channels, worst_frame, worst_value, worst_hue);
+  HS_EXPECT_GT(maximum, 0u);
+  HS_EXPECT_LE(static_cast<float>(maximum), Layer::METRICS[0].limit);
+  HS_EXPECT_LE(MEAN, Layer::METRICS[1].limit);
 }
 
 /** @brief Shared cached bases skip both palette endpoints and preserve alpha. */

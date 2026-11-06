@@ -68,6 +68,7 @@ inline void test_shader_chain_composed_frame_parity() {
     auto reference = references[static_cast<size_t>(frame - 1)];
     reference.palette = ctx.palettes[color.palette_mode];
     reference.hue_rotation_lut = ctx.hue_rotation_lut;
+    reference.hue_rotation_gamut = ctx.hue_rotation_gamut;
     const auto prepared = FX::RenderPipeline::prepare(reference);
     for (const math::Vector &view : sweep_views()) {
       const Color4 expected = FX::shade(view, prepared);
@@ -480,14 +481,14 @@ inline void test_shader_chain_instantaneous_pixel_golden() {
   hs::clear_mock_time();
   expect_pixel_golden(
       "ShaderChain 96x20", golden,
-      RecordedGolden{{0xae8a9e380cd30644ull,
-                      {{803364825ull, 1325847065ull, 695806200ull},
-                       32202584149ull,
-                       133549047437ull}},
-                     {0x3a3c526d27e98ee8ull,
-                      {{803364904ull, 1325847147ull, 695806441ull},
-                       32202588902ull,
-                       133549067178ull}}});
+      RecordedGolden{{0x0324eb38920115baull,
+                      {{801885175ull, 1326441393ull, 695705304ull},
+                       32193214977ull,
+                       133503798733ull}},
+                     {0x8e0c6df8da926bddull,
+                      {{801885166ull, 1326441488ull, 695705573ull},
+                       32193218958ull,
+                       133503815717ull}}});
 }
 
 /** @brief View direction the scan shades for a 96x20 pixel.

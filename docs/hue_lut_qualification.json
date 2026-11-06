@@ -1,0 +1,1451 @@
+{
+  "schema_version": 1,
+  "status": "Accurate colors selected with unchanged 7000/256 budgets. Work elimination qualified against its accurate control. Final merged gates and original-to-final peak/spill comparisons pending.",
+  "performance_criteria": {
+    "primary": [
+      "observed peak frame time",
+      "spilled frames"
+    ],
+    "mean_role": "Diagnostic of repeated work and paired variation; not the sole acceptance criterion.",
+    "limits": "An isolated observed peak is not a worst-case guarantee for all settings."
+  },
+  "budgets": {
+    "max_channel_error": 7000,
+    "mean_channel_error": 256,
+    "itcm_bytes": 196608,
+    "wasm_stack_bytes": 2048
+  },
+  "implementation": {
+    "grid_value_by_hue": [
+      64,
+      16
+    ],
+    "cell_corner_span_guard": 14000,
+    "gamut_admission_boundary": 0.001,
+    "cached_storage": "RGB16 Pixel nodes; existing Q16 value/hue/time interpolation",
+    "fallback": "Cell classification mask and canonical RGB-first base restoration remain active.",
+    "optimization": "Reuse fresh node pre-mapping RGB for classification; normalize identical mask views once per column.",
+    "retained_table_aliasing": "Separate finding/qualification; excluded from measured dedup images."
+  },
+  "historical_accuracy_control": {
+    "commit": "0afb0a264056787674e0cb43ab332fdce8872975",
+    "source_base": "5a5cd76fb467b970db5c951b0346bbdd2410c8c3",
+    "runtime_patch_sha256": "274d9c3b42e210bf16071e1710783b2a23bba1b0108d5826228b1abb1c09da3e",
+    "source_sha256": {
+      "core/color/hue_rotation_lut.h": "ff7218a4eb223ac409d7f27b02fa2555ae3213fbc868a0dc7ffbd397d1225eb4",
+      "core/color/palette_lab_lut.h": "e86133c7afb1566d9498d495166ec05ac0fbb50b454ceae0efa66f52d262fdaa",
+      "core/render/pullback/color.h": "de7c76c57ee8e85d25984cabe7f59a44d6b260cede5014cdb6b9c09f5598b82e",
+      "core/render/pullback/composed_interval.h": "9261e67a695eab3359b5f2c056b486ca14da492f8d6a8615172ace4464ccb002",
+      "core/render/pullback/composed_parameters.h": "b2f16c9d3056ccf6fd5353f02f38642e76a8857c2ce452bbe738a3430ce26e2b",
+      "core/render/pullback/composed_providers.h": "3eb8a27add2a2988681066256931af3c7fb4141774de1436c185db24487d64c8",
+      "core/render/pullback/composed_runtime.h": "66189ede72c5ecc4692592381388d0fcff7c59ff375e506f2f5d172dec638e82",
+      "core/render/pullback/contract.h": "9308f803e447f9477e8abcb2ebf73a2c0e72e1968d955847f253533fcd3e9794",
+      "core/render/pullback/operators.h": "2315dc38e0296524e9f1b408c004fce7265eb1f1e9cdee487afaaa00b3d05d72",
+      "core/render/pullback/operators/model.h": "941ebcaf8a729792ee2879660ea6744f9bec5e5e33f81eebda28b6eb59faec28",
+      "tests/composed_effect/palette_rgb_cache.h": "e7fc76efb159ceddfb7aab83de6b82751873934b92ba4e2dd369a540622bd3f5",
+      "tests/pullback/color.h": "1dd7b6adf632dc740c2a1b45901337cc222c9b43645e1b4dfeff4fefc56c2b3c",
+      "workbench/shader/chain_host.h": "da31ea5976fff17df3b5aea8739165c7fb4a18d0c7af8d5a0b69b64f293b30f0"
+    },
+    "source_hash_scope": "Exact frozen checkout bytes, including original line endings; Git may normalize them. Additional maintained tests and docs are outside this runtime manifest.",
+    "memory": {
+      "baseline": {
+        "RAM1_code": 192216,
+        "RAM1_variables": 313760,
+        "FLASH_code": 1173688,
+        "FLASH_data": 791624,
+        "DTCM_stack_free": 13920
+      },
+      "candidate": {
+        "RAM1_code": 193656,
+        "RAM1_variables": 313760,
+        "FLASH_code": 1178960,
+        "FLASH_data": 791624,
+        "DTCM_stack_free": 13920
+      },
+      "delta": {
+        "RAM1_code": 1440,
+        "RAM1_variables": 0,
+        "FLASH_code": 5272,
+        "FLASH_data": 0,
+        "DTCM_stack_free": 0
+      },
+      "candidate_ITCM_headroom": 2952,
+      "native_composed_minimum_headroom": 45986,
+      "wasm_draw_peaks": [
+        464,
+        964,
+        464
+      ],
+      "wasm_init_peak": 1120
+    },
+    "device": {
+      "compiler": "Arm GNU Toolchain15.2.Rel1 GCC15.2.1 20251203",
+      "setup": "Teensy4.0 600MHz, segmented288x144, foursegments,480RPM, segment0 synchronized, Profile selectiveO3 shipping flags, fixed preset0,70s/window32",
+      "effects": {
+        "AlienBrain": {
+          "frames_per_image": 1088,
+          "board_serial": 6362410,
+          "canonical_validator": "Exit0 and finalVALID for eachimage; richest-window5ppm rule unchanged.",
+          "measurements": {
+            "baseline": {
+              "frames": 1088,
+              "render_total_ms": 29232.212,
+              "render_mean_ms": 26.867841911764707,
+              "render_median_ms": 26.415,
+              "render_peak_ms": 52.495,
+              "wall_total_ms": 67861.834,
+              "spilled": 0
+            },
+            "candidate": {
+              "frames": 1088,
+              "render_total_ms": 33485.867,
+              "render_mean_ms": 30.777451286764705,
+              "render_median_ms": 31.0835,
+              "render_peak_ms": 60.374,
+              "wall_total_ms": 67861.817,
+              "spilled": 0
+            },
+            "render_total_delta_ms": 4253.654999999999,
+            "render_mean_delta_percent": 14.551259412048601,
+            "paired_delta_mean_us": 3909.609375,
+            "paired_delta_median_us": 3927.5,
+            "paired_delta_min_us": 2146,
+            "paired_delta_max_us": 7879
+          },
+          "clock_diagnostics": {},
+          "captures": {
+            "baseline": {
+              "log_sha256": "58b7d0915d06dcc1dc96be6bead662e5509655d52583f3c64a97d194d8f46ccc",
+              "source_commit": "d95b6412b159f7df645476148b4d9f752a7547c0",
+              "profile_elf_sha256": "30d82da5443e86a618908d08d5860c9e4373c1ada2055fe1e374438e50f3e801",
+              "shipping_elf_sha256": "6e121dbb138ac3f39c9ecf44bee6900b7126fbc8322056281c60bc4f6647f48e",
+              "provenance_sha256": "294596b9af7b4a7f9ae03d4dc7aa5847334f21e152f4843d55dad616a1c16d83"
+            },
+            "candidate": {
+              "log_sha256": "50207a3b6913f1189bec37459b674d882816f3e8261ec0d58161c8495b030695",
+              "source_commit": "5a5cd76fb467b970db5c951b0346bbdd2410c8c3",
+              "profile_elf_sha256": "0107fbf29a77e70060f7d86ad342ccda4ee977a4982946cf555111651f773671",
+              "shipping_elf_sha256": "859452814ee2a393343094fb15d0cdaa304c6f79335bce8504f9f6cad28bb671",
+              "provenance_sha256": "e99f739f87ed05c8109ac0f391b38baa32250f97d23aa80f7e325e0899342cd7"
+            }
+          }
+        },
+        "AshCloud": {
+          "frames_per_image": 1088,
+          "board_serial": 6362390,
+          "canonical_validator": "Exit0 and finalVALID for eachimage; richest-window5ppm rule unchanged.",
+          "measurements": {
+            "baseline": {
+              "frames": 1088,
+              "render_total_ms": 53307.618,
+              "render_mean_ms": 48.99597242647059,
+              "render_median_ms": 49.068,
+              "render_peak_ms": 83.198,
+              "wall_total_ms": 67846.828,
+              "spilled": 1
+            },
+            "candidate": {
+              "frames": 1088,
+              "render_total_ms": 54898.637,
+              "render_mean_ms": 50.45830606617647,
+              "render_median_ms": 50.6545,
+              "render_peak_ms": 86.729,
+              "wall_total_ms": 67861.752,
+              "spilled": 1
+            },
+            "render_total_delta_ms": 1591.0190000000002,
+            "render_mean_delta_percent": 2.9845996870466074,
+            "paired_delta_mean_us": 1462.3336397058824,
+            "paired_delta_median_us": 1343.0,
+            "paired_delta_min_us": 343,
+            "paired_delta_max_us": 5556
+          },
+          "clock_diagnostics": {
+            "baseline": {
+              "worst_ppm": 2.833625128294572,
+              "outliers_over5ppm": []
+            },
+            "candidate": {
+              "worst_ppm": 3.072516055718821,
+              "outliers_over5ppm": []
+            }
+          },
+          "captures": {
+            "baseline": {
+              "log_sha256": "31c4fc54327a1e01553cf38a8a9b947ad722ea0d63f416e5bf858dc6c67c1787",
+              "source_commit": "d95b6412b159f7df645476148b4d9f752a7547c0",
+              "profile_elf_sha256": "ea6e4ff01193261987218413a1308b0e7948733c38a5c018c9844172b2b39243",
+              "shipping_elf_sha256": "67d602cefb2e5bf584ee07661b848f070096d90202ea52477df6e618f372747d",
+              "provenance_sha256": "8dad40c2f52582274ab4ad94c4d8335609fe0b0e8ccb13a3e23fe35cc3c6fbaf"
+            },
+            "candidate": {
+              "log_sha256": "093324e2e05190fd97816d81ebe1af4b49172ce201e12bd1d82cde3710785165",
+              "source_commit": "5a5cd76fb467b970db5c951b0346bbdd2410c8c3",
+              "profile_elf_sha256": "f7c7ee4d2c958500924a31245416bd2b383933ded9ac827a53581731e113e7d5",
+              "shipping_elf_sha256": "d10bebf64056e50d53fef87e6c7743e8d3c473630edca5541e570d0f4df59213",
+              "provenance_sha256": "4480daad8f7487c238cd7d76640e589dcd5ff41d8c56e40cf68bc3455422939c"
+            }
+          }
+        },
+        "JewelMelt": {
+          "frames_per_image": 1088,
+          "board_serial": 6362390,
+          "canonical_validator": "Exit0 and finalVALID for eachimage; richest-window5ppm rule unchanged.",
+          "measurements": {
+            "baseline": {
+              "frames": 1088,
+              "render_total_ms": 45389.3,
+              "render_mean_ms": 41.71810661764705,
+              "render_median_ms": 41.297,
+              "render_peak_ms": 73.935,
+              "wall_total_ms": 67897.35,
+              "spilled": 1
+            },
+            "candidate": {
+              "frames": 1088,
+              "render_total_ms": 48544.903,
+              "render_mean_ms": 44.618477022058826,
+              "render_median_ms": 44.014,
+              "render_peak_ms": 78.517,
+              "wall_total_ms": 67869.2,
+              "spilled": 1
+            },
+            "render_total_delta_ms": 3155.6029999999955,
+            "render_mean_delta_percent": 6.952305939946224,
+            "paired_delta_mean_us": 2900.370404411765,
+            "paired_delta_median_us": 2533.0,
+            "paired_delta_min_us": 304,
+            "paired_delta_max_us": 6774
+          },
+          "clock_diagnostics": {
+            "baseline": {
+              "worst_ppm": 1.7726623568327886,
+              "outliers_over5ppm": []
+            },
+            "candidate": {
+              "worst_ppm": 3.618772125761988,
+              "outliers_over5ppm": []
+            }
+          },
+          "captures": {
+            "baseline": {
+              "log_sha256": "887fb370739849d0778ba6088bb51f0fd9bae06da4292219eb8425a36077d5cc",
+              "source_commit": "d95b6412b159f7df645476148b4d9f752a7547c0",
+              "profile_elf_sha256": "b9b57d93c2501004debbd9db94439ee9f5fcee26217a27783c2d8a0658a16559",
+              "shipping_elf_sha256": "67d602cefb2e5bf584ee07661b848f070096d90202ea52477df6e618f372747d",
+              "provenance_sha256": "83f447350801e993986edf447e1cc9eeef799ac1bdb0dbac1a38e8225c3dec3f"
+            },
+            "candidate": {
+              "log_sha256": "24f76e8f8fd7391fa196e0af0701b8f5ac6cd3a89211583db9695e5bc9cee6ca",
+              "source_commit": "5a5cd76fb467b970db5c951b0346bbdd2410c8c3",
+              "profile_elf_sha256": "29ac1c09ff81f2b3b1060c6105cf24f9175f045eea7aba93eb367da8e6dbe989",
+              "shipping_elf_sha256": "c0afbcb1d3772d74748b743257ff16c1329fc3eb3f9dd0dfc433ac282101b72f",
+              "provenance_sha256": "f00c23ae16f975c468200da6859739183221b8ef3884445ee066ec83c0d06aa8"
+            }
+          }
+        }
+      }
+    },
+    "maintained_tests": {
+      "qualification_assertions_per_config": 78382751,
+      "configurations": [
+        "Clang23 -O2",
+        "Clang23 -O2 -ffast-math -fno-finite-math-only",
+        "Clang23 -O2 -DNDEBUG"
+      ],
+      "cache_contract_assertions_NDEBUG": 3642,
+      "all_failures": 0
+    },
+    "scope": "Frozen 5a-derived original-to-accurate study, not final merged source. Preserve each original same-board pair separately from the fresh optimization study.",
+    "evidence": {
+      "artifact": "hue134-integer16-device/full-three-effect-qualification.json",
+      "sha256": "ea2d8be1857bfcdd8b29091af86dd9769fdee781a9f1a45bf338f92b7fe67fa3"
+    }
+  },
+  "registered_channel_corpus": {
+    "registered_test": "unit_pullback",
+    "source_commit": "0afb0a264056787674e0cb43ab332fdce8872975",
+    "ordinary": {
+      "callable": "hs_test::pullback_tests::test_pullback_modulation_lut_qualification",
+      "source": "tests/pullback/color.h",
+      "chroma": 0.788,
+      "harmony": "TRIADIC",
+      "frame_targets": [
+        0,
+        1,
+        150,
+        300,
+        600,
+        900,
+        1200,
+        1800
+      ],
+      "value_samples": 512,
+      "hue_samples": 128,
+      "channels": 1572864,
+      "measured_max": 2184,
+      "frame_target_cases": 8,
+      "RGB_samples": 524288
+    },
+    "cached": {
+      "callable": "hs_test::pullback_tests::test_pullback_cached_hue_qualification",
+      "source": "tests/pullback/hue_qualification.h",
+      "sequence_offsets": [
+        0,
+        17,
+        83
+      ],
+      "chroma": [
+        0.314,
+        0.718,
+        0.788,
+        1
+      ],
+      "harmonies": [
+        "TRIADIC",
+        "COMPLEMENTARY",
+        "ANALOGOUS"
+      ],
+      "frame_targets": [
+        0,
+        1,
+        150,
+        300,
+        600,
+        899,
+        900,
+        901,
+        902,
+        1200,
+        1800
+      ],
+      "time_fractions": [
+        0.17,
+        0.5,
+        0.83
+      ],
+      "value_samples": 256,
+      "hue_samples": 128,
+      "channels": 116785152,
+      "measured_max": 5449,
+      "maximum_case_mean": 84.871482772,
+      "RGB_samples": 38928384
+    },
+    "configuration": "Clang23 strict IEEE, fast-math with finite-math-only disabled, and NDEBUG; direct unpremultiplied RGB16 channel differences. Budgets unchanged. Framebuffer records below retain their separately named source provenance."
+  },
+  "accuracy_control_checks": {
+    "cached": {
+      "cases": 36,
+      "channels": 116785152,
+      "strict_max": 5449,
+      "strict_max_case_mean": 84.870813235,
+      "fastmath_max": 5449,
+      "fastmath_max_case_mean": 84.871482772,
+      "matching_float_interpolation_max_delta": 1
+    },
+    "negative_controls": {
+      "disabled_cell_masks_max_error": 17641,
+      "disabled_canonical_base_guard_max_error": 7914
+    },
+    "dense_ordinary_diagnostic_max": 6280,
+    "limits": "Finite qualification corpora, not a proof over all floating-point inputs."
+  },
+  "broader_diagnostic": {
+    "source": {
+      "current_tree": "C:/work/temp/Holosphere-reviewfix-20261105-hue134-current",
+      "current_commit": "bff455775a525ead45dbceda2345d8a088ad9e30",
+      "best_commit": "0afb0a264056787674e0cb43ab332fdce8872975",
+      "compiler": "clang version 23.0.0git (https:/github.com/llvm/llvm-project 358db292cc6a9a8a5448a296f643312289f328d7)",
+      "flags": "-std=gnu++20 -O2 strict IEEE; no fastmath; hostdiagnostic. Same probe, best adds HS_VISUAL_BEST to supply matchingmasks.",
+      "integrity_assertions_per_variant": 110,
+      "failures": 0,
+      "reproduce": "python build.py current; run the emitted executable with current_selected.json and selected_ids.txt; python build.py best --run. This uses the local pinned Clang/support-object paths captured in native_probe.py; no runtime files are edited."
+    },
+    "corpus": {
+      "ordinary": "72cases:3restorable sequence offsets0/17/83 x8chroma0/.05/.15/.314/.5/.718/.788/1 x3harmonies;17targets0/1/17/75/150/225/300/450/600/750/899/900/901/1050/1200/1500/1800;512valuecenters x128huecenters.",
+      "cached": "36cases:3offsets x4chroma.314/.718/.788/1 x3harmonies;11targets0/1/150/300/600/899/900/901/902/1200/1800;3fractions.17/.5/.83;256valuecenters x128huecenters.",
+      "snapshot": "For eachbankcycle snapshot.next_sequence=2+offset; snapshot.hue=(1+offset)*GeneratedPaletteBank::HUE_STEP; valid_snapshotasserted before restore. ease_in_out_sin. Palette state is valid/restorable; exact forward-float trajectory oractualpreset pixelnot claimed.",
+      "mechanic": "HUE_ROTATION amount1; syntheticDISPLACEMENTsource; field axisY,coverage.75; ordinary directColorModulation::apply; cached endpointpair blending then same proceduralmodulation.",
+      "frequency_warning": "Uniform test axes. Percentages are frequencies within this corpus, NOT fractionof actualrenderedframes/pixels or userperceptualimpact.",
+      "narrow_original_11040": "Earlier11040was initial-bank .788 TRIADIC8target512x128ordinaryqualification. That scope doesnot bound this broader restoredsequence/multi-harmony/highchroma corpus."
+    },
+    "measurements": {
+      "pre_fix_bff455775": {
+        "ordinary": {
+          "RGB_samples": 80216064,
+          "RGB_channels": 240648192,
+          "mean_absolute_channel_gap": 71.6969389822,
+          "maximum_absolute_channel_gap": 18152,
+          "RGB_samples_with_any_channel_over7000": 15110,
+          "RGB_sample_over7000_percent": 0.018836626040390114,
+          "individual_channels_over7000": 15112,
+          "channel_over7000_percent": 0.0062797064355255994,
+          "sample_max_gap_percentiles": {
+            "0.5": 33,
+            "0.9": 318,
+            "0.99": 1418,
+            "0.999": 4231,
+            "0.9999": 8129
+          },
+          "channel_gap_percentiles": {
+            "0.5": 14,
+            "0.9": 175,
+            "0.99": 824,
+            "0.999": 2822,
+            "0.9999": 6140
+          }
+        },
+        "cached": {
+          "RGB_samples": 38928384,
+          "RGB_channels": 116785152,
+          "mean_absolute_channel_gap": 119.229579938,
+          "maximum_absolute_channel_gap": 17641,
+          "RGB_samples_with_any_channel_over7000": 13762,
+          "RGB_sample_over7000_percent": 0.035352096814499155,
+          "individual_channels_over7000": 13762,
+          "channel_over7000_percent": 0.01178403227149972,
+          "sample_max_gap_percentiles": {
+            "0.5": 96,
+            "0.9": 483,
+            "0.99": 2099,
+            "0.999": 5141,
+            "0.9999": 9375
+          },
+          "channel_gap_percentiles": {
+            "0.5": 38,
+            "0.9": 283,
+            "0.99": 1228,
+            "0.999": 3680,
+            "0.9999": 7361
+          }
+        }
+      },
+      "accurate_0afb": {
+        "ordinary": {
+          "RGB_samples": 80216064,
+          "RGB_channels": 240648192,
+          "mean_absolute_channel_gap": 43.8674515618,
+          "maximum_absolute_channel_gap": 5975,
+          "RGB_samples_with_any_channel_over7000": 0,
+          "RGB_sample_over7000_percent": 0.0,
+          "individual_channels_over7000": 0,
+          "channel_over7000_percent": 0.0,
+          "sample_max_gap_percentiles": {
+            "0.5": 21,
+            "0.9": 232,
+            "0.99": 606,
+            "0.999": 1036,
+            "0.9999": 1533
+          },
+          "channel_gap_percentiles": {
+            "0.5": 9,
+            "0.9": 127,
+            "0.99": 441,
+            "0.999": 824,
+            "0.9999": 1298
+          }
+        },
+        "cached": {
+          "RGB_samples": 38928384,
+          "RGB_channels": 116785152,
+          "mean_absolute_channel_gap": 68.2655193359,
+          "maximum_absolute_channel_gap": 5449,
+          "RGB_samples_with_any_channel_over7000": 0,
+          "RGB_sample_over7000_percent": 0.0,
+          "individual_channels_over7000": 0,
+          "channel_over7000_percent": 0.0,
+          "sample_max_gap_percentiles": {
+            "0.5": 60,
+            "0.9": 328,
+            "0.99": 721,
+            "0.999": 1140,
+            "0.9999": 1772
+          },
+          "channel_gap_percentiles": {
+            "0.5": 23,
+            "0.9": 190,
+            "0.99": 541,
+            "0.999": 943,
+            "0.9999": 1441
+          }
+        }
+      }
+    },
+    "maximum_per_case_means": {
+      "strict": {
+        "ordinary": {
+          "max": 18152,
+          "maximum_per_case_mean": 184.830776439,
+          "max_mean_case": {
+            "offset": 17,
+            "chroma": 1,
+            "harmony": 0,
+            "samples": 1114112,
+            "channels": 3342336,
+            "mean_channel_gap": 184.830776439,
+            "maximum_channel_gap": 18152
+          }
+        },
+        "cached": {
+          "max": 17641,
+          "maximum_per_case_mean": 182.884892011,
+          "max_mean_case": {
+            "offset": 0,
+            "chroma": 1,
+            "harmony": 1,
+            "samples": 1081344,
+            "channels": 3244032,
+            "mean_channel_gap": 182.884892011,
+            "maximum_channel_gap": 13639
+          }
+        }
+      },
+      "fast": {
+        "ordinary": {
+          "max": 18152,
+          "maximum_per_case_mean": 184.823757994,
+          "max_mean_case": {
+            "offset": 17,
+            "chroma": 1,
+            "harmony": 0,
+            "samples": 1114112,
+            "channels": 3342336,
+            "mean_channel_gap": 184.823757994,
+            "maximum_channel_gap": 18152
+          }
+        },
+        "cached": {
+          "max": 17641,
+          "maximum_per_case_mean": 182.885905564,
+          "max_mean_case": {
+            "offset": 0,
+            "chroma": 1,
+            "harmony": 1,
+            "samples": 1081344,
+            "channels": 3244032,
+            "mean_channel_gap": 182.885905564,
+            "maximum_channel_gap": 13638
+          }
+        }
+      },
+      "ndebug": {
+        "ordinary": {
+          "max": 18152,
+          "maximum_per_case_mean": 184.830776439,
+          "max_mean_case": {
+            "offset": 17,
+            "chroma": 1,
+            "harmony": 0,
+            "samples": 1114112,
+            "channels": 3342336,
+            "mean_channel_gap": 184.830776439,
+            "maximum_channel_gap": 18152
+          }
+        },
+        "cached": {
+          "max": 17641,
+          "maximum_per_case_mean": 182.884892011,
+          "max_mean_case": {
+            "offset": 0,
+            "chroma": 1,
+            "harmony": 1,
+            "samples": 1081344,
+            "channels": 3244032,
+            "mean_channel_gap": 182.884892011,
+            "maximum_channel_gap": 13639
+          }
+        }
+      }
+    },
+    "narrow_previous_maximum": {
+      "ordinary_max": 11040,
+      "scope": "Initial bank, chroma .788, TRIADIC, eight frame targets,512 value centers x128 hue centers. This does not bound the broader restored-state/multi-harmony/high-chroma corpus."
+    },
+    "metric": "Absolute unpremultiplied linear RGB16 channel-code difference; not a perceptual color-distance metric.",
+    "frequency_scope": "Uniform constructed axes of valid/restorable snapshots; not observed preset pixel frequencies or proof of identical forward-float trajectories.",
+    "evidence": [
+      {
+        "artifact": "hue134-visual/comparison.json",
+        "sha256": "bd6dd7a05d659ab7f35f1052c2e51737d4d682d67052cdbaf72426c714defbb4"
+      },
+      {
+        "artifact": "hue134-visual/completed-diagnostic-case-means.json",
+        "sha256": "68228a359b6d89c1779524bacc6f2d1864590bd0866e5aae498327643768a484"
+      }
+    ]
+  },
+  "optimization_study": {
+    "control_commit": "0afb0a264056787674e0cb43ab332fdce8872975",
+    "candidate_commit": "5fa946f9539a4cb6916b8a5a12aee80c56d8bbb9",
+    "compiler": "GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203",
+    "setup": "All six fresh captures on same COM3/serial6362410/usb-2-1,70seconds/window32/P0; supported profile_one.sh, synchronized real segmented driver, default epoch960. Actual canonical subprocess exit0+finalVALID for every log. All1088 frame owners match per pair.",
+    "effects": {
+      "AlienBrain": {
+        "frames": {
+          "baseline": {
+            "frames": 1088,
+            "render_total_ms": 33483.781,
+            "render_mean_ms": 30.77553400735294,
+            "render_median_ms": 31.063,
+            "render_peak_ms": 60.395,
+            "wall_total_ms": 67861.323,
+            "spilled": 0
+          },
+          "candidate": {
+            "frames": 1088,
+            "render_total_ms": 32995.911,
+            "render_mean_ms": 30.327124080882353,
+            "render_median_ms": 30.614,
+            "render_peak_ms": 59.726,
+            "wall_total_ms": 67860.909,
+            "spilled": 0
+          },
+          "render_total_delta_ms": -487.8700000000026,
+          "render_mean_delta_percent": -1.4570337800262179,
+          "paired_delta_mean_us": -448.40992647058823,
+          "paired_delta_median_us": -475.0,
+          "paired_delta_min_us": -785,
+          "paired_delta_max_us": -71
+        },
+        "steady": {
+          "baseline": {
+            "frames": 1087,
+            "render_total_ms": 33423.386,
+            "render_mean_ms": 30.748285188592458,
+            "render_median_ms": 31.03,
+            "render_peak_ms": 36.627,
+            "wall_total_ms": 67800.894,
+            "spilled": 0
+          },
+          "candidate": {
+            "frames": 1087,
+            "render_total_ms": 32936.185,
+            "render_mean_ms": 30.300078196872125,
+            "render_median_ms": 30.599,
+            "render_peak_ms": 35.842,
+            "wall_total_ms": 67801.179,
+            "spilled": 0
+          },
+          "render_total_delta_ms": -487.20100000000093,
+          "render_mean_delta_percent": -1.4576650013855663,
+          "paired_delta_mean_us": -448.2069917203312,
+          "paired_delta_median_us": -475,
+          "paired_delta_min_us": -785,
+          "paired_delta_max_us": -71
+        },
+        "paired_mean_intervals": {
+          "frames": 1088,
+          "mean_us": -448.40992647058823,
+          "owner_run_lengths": [
+            1088
+          ],
+          "method": "10000 deterministic cyclic moving-block resamples inside each contiguous matched-owner run, preserving all run weights.",
+          "limits": "Single pair; intervals describe observed paired-frame block variation, not independent-run/thermal drift. No equivalence threshold.",
+          "results": [
+            {
+              "block_frames": 16,
+              "percentile95_us": [
+                -469.18014705882354,
+                -427.63327205882354
+              ]
+            },
+            {
+              "block_frames": 64,
+              "percentile95_us": [
+                -486.98713235294116,
+                -409.29411764705884
+              ]
+            },
+            {
+              "block_frames": 256,
+              "percentile95_us": [
+                -499.86672794117646,
+                -400.46875
+              ]
+            }
+          ]
+        },
+        "canonical_validation": {
+          "baseline": {
+            "returncode": 0,
+            "final_line": "VALID: AlienBrain"
+          },
+          "candidate": {
+            "returncode": 0,
+            "final_line": "VALID: AlienBrain"
+          }
+        }
+      },
+      "JewelMelt": {
+        "frames": {
+          "baseline": {
+            "frames": 1088,
+            "render_total_ms": 48542.269,
+            "render_mean_ms": 44.61605606617647,
+            "render_median_ms": 43.981,
+            "render_peak_ms": 78.431,
+            "wall_total_ms": 67869.25,
+            "spilled": 1
+          },
+          "candidate": {
+            "frames": 1088,
+            "render_total_ms": 48118.033,
+            "render_mean_ms": 44.226133272058824,
+            "render_median_ms": 43.695,
+            "render_peak_ms": 77.689,
+            "wall_total_ms": 67868.144,
+            "spilled": 1
+          },
+          "render_total_delta_ms": -424.23599999999715,
+          "render_mean_delta_percent": -0.8739517306041056,
+          "paired_delta_mean_us": -389.9227941176471,
+          "paired_delta_median_us": -402.5,
+          "paired_delta_min_us": -943,
+          "paired_delta_max_us": 66
+        },
+        "steady": {
+          "baseline": {
+            "frames": 1087,
+            "render_total_ms": 48463.838,
+            "render_mean_ms": 44.58494756209751,
+            "render_median_ms": 43.936,
+            "render_peak_ms": 52.015,
+            "wall_total_ms": 67790.816,
+            "spilled": 0
+          },
+          "candidate": {
+            "frames": 1087,
+            "render_total_ms": 48040.344,
+            "render_mean_ms": 44.19534866605336,
+            "render_median_ms": 43.674,
+            "render_peak_ms": 51.352,
+            "wall_total_ms": 67790.452,
+            "spilled": 0
+          },
+          "render_total_delta_ms": -423.49400000000605,
+          "render_mean_delta_percent": -0.8738350437701436,
+          "paired_delta_mean_us": -389.5988960441582,
+          "paired_delta_median_us": -402,
+          "paired_delta_min_us": -943,
+          "paired_delta_max_us": 66
+        },
+        "paired_mean_intervals": {
+          "frames": 1088,
+          "mean_us": -389.9227941176471,
+          "owner_run_lengths": [
+            1088
+          ],
+          "method": "10000 deterministic cyclic moving-block resamples inside each contiguous matched-owner run, preserving all run weights.",
+          "limits": "Single pair; intervals describe observed paired-frame block variation, not independent-run/thermal drift. No equivalence threshold.",
+          "results": [
+            {
+              "block_frames": 16,
+              "percentile95_us": [
+                -411.15992647058823,
+                -369.11764705882354
+              ]
+            },
+            {
+              "block_frames": 64,
+              "percentile95_us": [
+                -426.125,
+                -352.7591911764706
+              ]
+            },
+            {
+              "block_frames": 256,
+              "percentile95_us": [
+                -438.69025735294116,
+                -344.1939338235294
+              ]
+            }
+          ]
+        },
+        "canonical_validation": {
+          "baseline": {
+            "returncode": 0,
+            "final_line": "VALID: JewelMelt"
+          },
+          "candidate": {
+            "returncode": 0,
+            "final_line": "VALID: JewelMelt"
+          }
+        }
+      },
+      "AshCloud": {
+        "frames": {
+          "baseline": {
+            "frames": 1088,
+            "render_total_ms": 54895.258,
+            "render_mean_ms": 50.45520036764706,
+            "render_median_ms": 50.6655,
+            "render_peak_ms": 86.774,
+            "wall_total_ms": 67862.115,
+            "spilled": 1
+          },
+          "candidate": {
+            "frames": 1088,
+            "render_total_ms": 54382.885,
+            "render_mean_ms": 49.98426930147059,
+            "render_median_ms": 50.103,
+            "render_peak_ms": 86.14,
+            "wall_total_ms": 67855.965,
+            "spilled": 1
+          },
+          "render_total_delta_ms": -512.3729999999996,
+          "render_mean_delta_percent": -0.9333647726002092,
+          "paired_delta_mean_us": -470.9310661764706,
+          "paired_delta_median_us": -437.5,
+          "paired_delta_min_us": -2551,
+          "paired_delta_max_us": 194
+        },
+        "steady": {
+          "baseline": {
+            "frames": 1087,
+            "render_total_ms": 54808.484,
+            "render_mean_ms": 50.42178840846366,
+            "render_median_ms": 50.662,
+            "render_peak_ms": 57.943,
+            "wall_total_ms": 67775.304,
+            "spilled": 0
+          },
+          "candidate": {
+            "frames": 1087,
+            "render_total_ms": 54296.745,
+            "render_mean_ms": 49.95100735970561,
+            "render_median_ms": 50.098,
+            "render_peak_ms": 57.097,
+            "wall_total_ms": 67769.824,
+            "spilled": 0
+          },
+          "render_total_delta_ms": -511.7389999999941,
+          "render_mean_delta_percent": -0.9336857410615518,
+          "paired_delta_mean_us": -470.7810487580497,
+          "paired_delta_median_us": -436,
+          "paired_delta_min_us": -2551,
+          "paired_delta_max_us": 194
+        },
+        "paired_mean_intervals": {
+          "frames": 1088,
+          "mean_us": -470.9310661764706,
+          "owner_run_lengths": [
+            1088
+          ],
+          "method": "10000 deterministic cyclic moving-block resamples inside each contiguous matched-owner run, preserving all run weights.",
+          "limits": "Single pair; intervals describe observed paired-frame block variation, not independent-run/thermal drift. No equivalence threshold.",
+          "results": [
+            {
+              "block_frames": 16,
+              "percentile95_us": [
+                -538.4742647058823,
+                -405.67371323529414
+              ]
+            },
+            {
+              "block_frames": 64,
+              "percentile95_us": [
+                -579.4852941176471,
+                -361.671875
+              ]
+            },
+            {
+              "block_frames": 256,
+              "percentile95_us": [
+                -604.1700367647059,
+                -324.53400735294116
+              ]
+            }
+          ]
+        },
+        "canonical_validation": {
+          "baseline": {
+            "returncode": 0,
+            "final_line": "VALID: AshCloud"
+          },
+          "candidate": {
+            "returncode": 0,
+            "final_line": "VALID: AshCloud"
+          }
+        }
+      }
+    },
+    "captures": {
+      "baseline_alienbrain": {
+        "raw_log_sha256": "44db8c0a02ea62fdc1aa275ad6f5dbe931598705dbf9bcec0be10430fb19cab4",
+        "provenance_sha256": "592b35871b50fe651194ad44fe5072cbcfa11e5fc6173c310f82d1c8210c84dd",
+        "source_commit": "0afb0a264056787674e0cb43ab332fdce8872975",
+        "profile_elf_sha256": "bc6ee4a488451ce2194c734c167805501b9d0ffe581b991df8724ffc10ea3429",
+        "shipping_elf_sha256": "2c95b6bc24fb9f80b7cea2c2382c695a0506b4311eb7c629651b53420e6d73f4",
+        "profile_flags_sha256": "87ed3ffd1a81b93f73f956df29a0d8cff4a1509b8f17d6aaa7bad18dec4f8fec",
+        "shipping_flags_sha256": "cdfec15c0709230bb95f5559bae9e4118435fe319bea279e65b76e8f614ca512",
+        "board_serial": "6362410"
+      },
+      "candidate_alienbrain": {
+        "raw_log_sha256": "d3cc3ebeb51d473419266aba4ce6202a2d60fd97d90bb274b7a4dbe557a6b76d",
+        "provenance_sha256": "6a1cc15a7edf24e173fdea0a8f53f41f95b2ae0d042eff2dda5023cab8a27710",
+        "source_commit": "5fa946f9539a4cb6916b8a5a12aee80c56d8bbb9",
+        "profile_elf_sha256": "2d120e30b94f1c04b993daf9ce371d3eb933d8f046fd3eea7fcf7e92eec295a7",
+        "shipping_elf_sha256": "4fda367adadd00e985e5ccbcc1318c9b18a1ca033e7dfb7ccd8ee122421a12e7",
+        "profile_flags_sha256": "aad070444b8d6921865db7d8234df41d659d6c11f76ff810488f96f79b97d539",
+        "shipping_flags_sha256": "346180392aa031235a0210171b2a2613a03fb94c5a4e89e3db187355eb529780",
+        "board_serial": "6362410"
+      },
+      "baseline_jewelmelt": {
+        "raw_log_sha256": "dc4cd6f04bb3501ad2064865d764c7a638c0081fa1cbb2fb99d617cb15f50627",
+        "provenance_sha256": "fc4ccd612e89302f96959734c150b0b465b358f788836c5d334ca3c733daee71",
+        "source_commit": "0afb0a264056787674e0cb43ab332fdce8872975",
+        "profile_elf_sha256": "2fb6b68bf4f9c08721bfbfdade8e1276a4c2cb5f9b07ab013887d91c5f7c3d9f",
+        "shipping_elf_sha256": "8aec25f7e173ea544981fa1ce0ceafe853f1daef0e1c991ce3fefdf251e0a766",
+        "profile_flags_sha256": "95271cacc4a5f5b3f82ec54e562e620b48869b32c1a550441047fc8e8b2de71c",
+        "shipping_flags_sha256": "d26c0ff4cd2e723f4ceabbab017aa4c365c11d58af71c0d6d472c0f43c4f105b",
+        "board_serial": "6362410"
+      },
+      "candidate_jewelmelt": {
+        "raw_log_sha256": "d976266498203d250958f4187899490629b7719ad5acbe55490170af1e44f2cd",
+        "provenance_sha256": "5df063636cccbcaf8382eb21d5037c7c69d0dbb5f5c47b0b85dd4d8669cea6a9",
+        "source_commit": "5fa946f9539a4cb6916b8a5a12aee80c56d8bbb9",
+        "profile_elf_sha256": "a3b9b3c81ed968641ec875874279e042922a7d1a5bcaf4a7ccb14856c2afc57f",
+        "shipping_elf_sha256": "f16b51020971e1680efb42edbd4a909d37f6dd1cbbb266ffdece1a98dd18e87e",
+        "profile_flags_sha256": "ee9573da59bf0fe60eda59f41576116105573f53889b71f1d86c3dac80e5d499",
+        "shipping_flags_sha256": "8d22614460ea1412fccb7c53f8075752ed82a1def4213f98c3d70108fc0e949f",
+        "board_serial": "6362410"
+      },
+      "baseline_ashcloud": {
+        "raw_log_sha256": "3a9911a63d792b2459c67410020445a84ed6fc8f4b044d79981e2e011dfe3d23",
+        "provenance_sha256": "ebb88b383639a0467919f3399e45519048f8f22bbe23bd2c8411a858143e1691",
+        "source_commit": "0afb0a264056787674e0cb43ab332fdce8872975",
+        "profile_elf_sha256": "03726aa956f26434582cdfdcbd6bb7adbcbd1c543d8cbdb047094d8fcb69f182",
+        "shipping_elf_sha256": "d1dab30ef7d77c2bb5802dee781bed85cd3afb1ae3c0ed6f087927c5aa47555a",
+        "profile_flags_sha256": "d830161a3ce02854e61201f24b6289fefd3e51828a3a211a89672b220239955b",
+        "shipping_flags_sha256": "28ac305b136439cac4a23c20ef6967206defac00b87bcce11c2b041115ab57f4",
+        "board_serial": "6362410"
+      },
+      "candidate_ashcloud": {
+        "raw_log_sha256": "ab1d282520071897d3164b96be612ed5ae20c8f6ce0024b74c87ba495d130e68",
+        "provenance_sha256": "fc9a15dff2f3bdd7a406235454b4ce3a912128b20edce7e989beacbbbeac4088",
+        "source_commit": "5fa946f9539a4cb6916b8a5a12aee80c56d8bbb9",
+        "profile_elf_sha256": "ca7fd0283b07b5813a0a233cc0fcfde59cea913458e5a616db3c5f52bb54e3c5",
+        "shipping_elf_sha256": "39955df5db4f8c815c203c39693a55b0772b976c5b88b8122137aadb9b0db226",
+        "profile_flags_sha256": "296966738763ecb38319b4ba757c594121e62a7b29f7f67f6017247e65b5b7a0",
+        "shipping_flags_sha256": "42e54f6c2fe76a6a66712bf6e30e403e1987876fa86d50ba51afda2ceb9def38",
+        "board_serial": "6362410"
+      }
+    },
+    "source_manifests": {
+      "control": {
+        "commit": "0afb0a264056787674e0cb43ab332fdce8872975",
+        "verified_tracked_hashes_after_captures": 1265,
+        "evidence": {
+          "artifact": "hue134-dedup-device/control-source-frozen.json",
+          "sha256": "4dcd01dc5356e7f4a07711d830415f6a183125bb91e5314d7af5014be2d3a46e"
+        }
+      },
+      "candidate": {
+        "commit": "5fa946f9539a4cb6916b8a5a12aee80c56d8bbb9",
+        "verified_tracked_hashes_after_captures": 1265,
+        "evidence": {
+          "artifact": "hue134-dedup-device/candidate-source-frozen.json",
+          "sha256": "1196d29bed3167b8a6e6053b7b11db03ffa6f3b2c9b8b439048f22411f3ba560"
+        }
+      }
+    },
+    "all_window_clock_diagnostic": [
+      {
+        "log": "C:\\work\\temp\\reviewfix-20261105\\hue134-dedup-device\\baseline_alienbrain.log",
+        "effect": "AlienBrain",
+        "windows": 34,
+        "max_ppm": 2.9337816445911007,
+        "outliers_over_5ppm": []
+      },
+      {
+        "log": "C:\\work\\temp\\reviewfix-20261105\\hue134-dedup-device\\candidate_alienbrain.log",
+        "effect": "AlienBrain",
+        "windows": 34,
+        "max_ppm": 2.3159124970644247,
+        "outliers_over_5ppm": []
+      },
+      {
+        "log": "C:\\work\\temp\\reviewfix-20261105\\hue134-dedup-device\\baseline_jewelmelt.log",
+        "effect": "JewelMelt",
+        "windows": 34,
+        "max_ppm": 3.162979862583987,
+        "outliers_over_5ppm": []
+      },
+      {
+        "log": "C:\\work\\temp\\reviewfix-20261105\\hue134-dedup-device\\candidate_jewelmelt.log",
+        "effect": "JewelMelt",
+        "windows": 34,
+        "max_ppm": 2.765256152079019,
+        "outliers_over_5ppm": []
+      },
+      {
+        "log": "C:\\work\\temp\\reviewfix-20261105\\hue134-dedup-device\\baseline_ashcloud.log",
+        "effect": "AshCloud",
+        "windows": 34,
+        "max_ppm": 3.1738308138342073,
+        "outliers_over_5ppm": []
+      },
+      {
+        "log": "C:\\work\\temp\\reviewfix-20261105\\hue134-dedup-device\\candidate_ashcloud.log",
+        "effect": "AshCloud",
+        "windows": 34,
+        "max_ppm": 3.331660832883283,
+        "outliers_over_5ppm": []
+      }
+    ],
+    "memory_delta_against_accurate_control": {
+      "RAM1_code": 1840,
+      "RAM1_variables": 0,
+      "FLASH_code": 1840,
+      "FLASH_data": 0,
+      "DTCM_free": 13920,
+      "RAM2_variables": 0,
+      "FLASH_headers": 208,
+      "FLASH_free_for_files": -2048,
+      "RAM1_code_headroom_after": 1112,
+      "DTCM_free_delta": 0
+    },
+    "isolated_memory_after": {
+      "RAM1_code": 195496,
+      "RAM1_variables": 313760,
+      "FLASH_code": 1180800,
+      "FLASH_data": 791624,
+      "DTCM_stack_free": 13920
+    },
+    "accuracy": {
+      "assertions_per_mode": 78383939,
+      "modes": [
+        "Windows Clang23 strict -O2",
+        "Windows Clang23 fast-math -O2, finite-math-only disabled"
+      ],
+      "strict_cached_RGB_samples_identical": 38928384,
+      "fastmath_changed_channels": 12372,
+      "fastmath_maximum_change": 1,
+      "alpha_bit_changes": 0,
+      "negative_controls": "Distinct-mask and raw-classification controls fail as intended.",
+      "native_footprint_rows_pass": 46,
+      "allocation_size_changes": 0
+    },
+    "limits": "Comparisons isolate dedup vs accurate0afb only. No original inaccurate-renderer timing claim or global combined-tip cost claim. Single paired captures do not measure independent-run drift.",
+    "evidence": {
+      "artifact": "hue134-dedup-device/finding134-dedup-device-evidence.json",
+      "sha256": "a43fb821cd363a721d03d68df3ebd1c79f9c7b9d418ac1140151ab66b7c15ebe"
+    }
+  },
+  "deep_scope_restoration": {
+    "source_commit": "5fa946f9539a4cb6916b8a5a12aee80c56d8bbb9",
+    "shipping_all_9_allocated_sections_identical": true,
+    "normal_profiles": {
+      "alienbrain": {
+        "before_full_elf_sha256": "2d120e30b94f1c04b993daf9ce371d3eb933d8f046fd3eea7fcf7e92eec295a7",
+        "after_full_elf_sha256": "d6fdf6f623b94915e67548240679a5f6fbc69256229b73ab2e150b13c42db7e9",
+        "all_9_allocated_bytes_addresses_sizes_identical": true,
+        "flags_identical_to_capture": true,
+        "only_full_ELF_difference": "Nonallocated absolute __rtc_localtime symbol value."
+      },
+      "jewelmelt": {
+        "before_full_elf_sha256": "a3b9b3c81ed968641ec875874279e042922a7d1a5bcaf4a7ccb14856c2afc57f",
+        "after_full_elf_sha256": "eb87442350e1968bf74f1a88108fd9d7f57c0e9adbf86e9d9af06de44469acd2",
+        "all_9_allocated_bytes_addresses_sizes_identical": true,
+        "flags_identical_to_capture": true,
+        "only_full_ELF_difference": "Nonallocated absolute __rtc_localtime symbol value."
+      },
+      "ashcloud": {
+        "before_full_elf_sha256": "ca7fd0283b07b5813a0a233cc0fcfde59cea913458e5a616db3c5f52bb54e3c5",
+        "after_full_elf_sha256": "1c31c02547c7c436903475cc5ac29d959ea61a8ac082b665e4bd62ef09ff4524",
+        "all_9_allocated_bytes_addresses_sizes_identical": true,
+        "flags_identical_to_capture": true,
+        "only_full_ELF_difference": "Nonallocated absolute __rtc_localtime symbol value."
+      }
+    },
+    "deep_build": {
+      "profile_sha256": "fe25854f316a284e4472b5b0f5d0e031ae82eda60151b21e11276c0859c46a90",
+      "static_counter_registration_and_bake_branch_reach_proved": true,
+      "observed_device_counter_counts": false,
+      "limits": "Static target-code reachability only; build-only task performs no device execution and observes no counter counts. Existing five color_space gamut_clip labels remain, so duplicate labels are not globally disambiguated."
+    },
+    "evidence": [
+      {
+        "artifact": "hue134-deep-scope-device/finding134-deep-scope-proof.json",
+        "sha256": "30c8f201e090e986886e0973ff86cd6ad2eba6b76cbc67221f39eb3ceadffcc0"
+      },
+      {
+        "artifact": "hue134-deep-scope-ship-comparison.json",
+        "sha256": "ad00b5622baded447ceeddf9d57355697601ef50b1767c7395c6c666a34ee6cc"
+      }
+    ]
+  },
+  "priority_effect_reach": {
+    "native_source": "bff455775a525ead45dbceda2345d8a088ad9e30",
+    "native_counts_from_raw_REACH_lines": [
+      {
+        "effect": "HankinSolids",
+        "frames": 4000,
+        "hue_bakes": 0,
+        "hue_samples": 0,
+        "RGB_bakes": 0,
+        "RGB_samples": 0
+      },
+      {
+        "effect": "IslamicStars",
+        "frames": 4000,
+        "hue_bakes": 0,
+        "hue_samples": 0,
+        "RGB_bakes": 0,
+        "RGB_samples": 0
+      },
+      {
+        "effect": "AlienBrain positivecontrol",
+        "frames": 2,
+        "hue_bakes": 1,
+        "hue_samples": 3840,
+        "RGB_bakes": 2,
+        "RGB_samples": 3760
+      }
+    ],
+    "native_assertions": 11,
+    "native_failures": 0,
+    "actual_target_profiles": {
+      "hankin": {
+        "frames": 3648,
+        "actual_target_profile_scope_calls": {
+          "fx_prepare_frame": 0,
+          "fx_palette_rgb_bake": 0,
+          "fx_shader_draw": 0,
+          "hk_timeline_step": 3648,
+          "is_timeline_step": 0
+        },
+        "source_prefix": "a03a2fdc1f6c490f405c75ef1a0e4c7995be6abb",
+        "raw_log_sha256": "648c1e224f8dabe24b2ba77e4b58fa9d44a89508dbb5b8f73a2b051805221180"
+      },
+      "islamic": {
+        "frames": 3328,
+        "actual_target_profile_scope_calls": {
+          "fx_prepare_frame": 0,
+          "fx_palette_rgb_bake": 0,
+          "fx_shader_draw": 0,
+          "hk_timeline_step": 0,
+          "is_timeline_step": 3328
+        },
+        "source_prefix": "a03a2fdc1f6c490f405c75ef1a0e4c7995be6abb",
+        "raw_log_sha256": "ea44464710b88ae61a7c10630399633a7e2fb29893d1db268cac3df4c5526f81"
+      }
+    },
+    "source_route": {
+      "HankinSolids": "Effect subclass; draw_hankin/draw_morph configureFacePaletteShader using MeshPaletteBank BakedPalette endpoints.",
+      "IslamicStars": "Choreography subclass; draw_shape/OpLeg shading use perface BakedPalette ramps.",
+      "FacePaletteShader": "core/render/shading.h operatorssampleBakedPalette::get_color_unit andQ16blend, withoutPullbackhue-lut/cachedPaletteRgb paths."
+    },
+    "limits": "Neither priorityeffect invokes the hue-LUT/cached-palette runtime paths in these compilednative fullsequences or targetprofile captures. This doesnot prove zero timingcost from a global #134 integration: globalcodeplacement,cache/state/memory changes can affectother functions; finalmergedHankin/Islamic devicequalification remainsrequired.",
+    "evidence": [
+      {
+        "artifact": "hue134-visual/reach-build.log",
+        "sha256": "476fd384fae35488a71a31ab6040daf493cd55a23a8181bad82b6b8256e8da71"
+      },
+      {
+        "artifact": "hue134-visual/priority-effect-reach.json",
+        "sha256": "484ba73052e1cfaafc894e9800d2e1b687ef380c40d05cb15808bbf6fd6d0135"
+      }
+    ],
+    "extraction_note": "The original reach summary has an empty native_counts array; exact rows above are parsed from its preserved raw log."
+  },
+  "exact_node_controls": {
+    "compiler": "Windows emsdk Clang23",
+    "CI_comparison": "Canonical fast CI LinuxClang22 -Os -g -ffast-math -fno-finite-math-only -DHS_TEST_FAST_MATH=1. These controls match optimization/math/define but not compiler/platform/whole CMake driver. No final CI pass claim.",
+    "outcome": "Exact O2 three failures and Os seven failures reproduce in original pre-review0ba and exact current503; accurate0afb/dedup add no Os failure. No tolerance or assertion changed.",
+    "source_verification": {
+      "0ba616d4fe71": {
+        "source": "C:\\work\\temp\\reviewfix-20261105\\build225-evidence\\original0ba-source",
+        "files_checked": 1262,
+        "mismatches": [],
+        "archive_sha256": "ca494f3daefd220841ff9b23b10ff1581e6258ee64f385db9f44c73551d8de44"
+      },
+      "503de9323": {
+        "source": "C:\\work\\temp\\reviewfix-20261105\\hue134-dedup\\exact-node-provenance\\source503de9323",
+        "files_checked": 1269,
+        "mismatches": [],
+        "archive_sha256": "3fb9f81449a496fdd913f2146187a028a3e213838b53b574da6c5ec8462550ff"
+      }
+    },
+    "rows": [
+      {
+        "source": "original0ba",
+        "flags": [
+          "-O2",
+          "-ffast-math",
+          "-fno-finite-math-only",
+          "-DHS_TEST_FAST_MATH=1",
+          "-DHS_PROMOTED_PATTERNS_DIR=\"C:/work/temp/reviewfix-20261105/build225-evidence/original0ba-source/patterns\""
+        ],
+        "returncode": 3,
+        "failure_values": [
+          [
+            "22417",
+            "22416"
+          ],
+          [
+            "57762",
+            "57761"
+          ],
+          [
+            "32297",
+            "32298"
+          ]
+        ],
+        "summary": "=== exact-node-provenance: 3071 passed, 3 failed ===",
+        "test": "test_palette_rgb_cache_matches_hue_rotation_table"
+      },
+      {
+        "source": "original0ba",
+        "flags": [
+          "-Os",
+          "-ffast-math",
+          "-fno-finite-math-only",
+          "-DHS_TEST_FAST_MATH=1",
+          "-DHS_PROMOTED_PATTERNS_DIR=\"C:/work/temp/reviewfix-20261105/build225-evidence/original0ba-source/patterns\""
+        ],
+        "returncode": 7,
+        "failure_values": [
+          [
+            "2224",
+            "2225"
+          ],
+          [
+            "3889",
+            "3890"
+          ],
+          [
+            "1718",
+            "1719"
+          ],
+          [
+            "19698",
+            "19699"
+          ],
+          [
+            "39951",
+            "39950"
+          ],
+          [
+            "57762",
+            "57761"
+          ],
+          [
+            "42636",
+            "42637"
+          ]
+        ],
+        "summary": "=== exact-node-provenance: 3067 passed, 7 failed ===",
+        "test": "test_palette_rgb_cache_matches_hue_rotation_table"
+      },
+      {
+        "source": "current503",
+        "flags": [
+          "-O2",
+          "-ffast-math",
+          "-fno-finite-math-only",
+          "-DHS_TEST_FAST_MATH=1",
+          "-DHS_PROMOTED_PATTERNS_DIR=\"C:/work/temp/reviewfix-20261105/hue134-dedup/exact-node-provenance/source503de9323/patterns\""
+        ],
+        "returncode": 3,
+        "failure_values": [
+          [
+            "22417",
+            "22416"
+          ],
+          [
+            "57762",
+            "57761"
+          ],
+          [
+            "32297",
+            "32298"
+          ]
+        ],
+        "summary": "=== exact-node-provenance: 3071 passed, 3 failed ===",
+        "test": "test_palette_rgb_cache_matches_hue_rotation_table"
+      },
+      {
+        "source": "current503",
+        "flags": [
+          "-Os",
+          "-ffast-math",
+          "-fno-finite-math-only",
+          "-DHS_TEST_FAST_MATH=1",
+          "-DHS_PROMOTED_PATTERNS_DIR=\"C:/work/temp/reviewfix-20261105/hue134-dedup/exact-node-provenance/source503de9323/patterns\""
+        ],
+        "returncode": 7,
+        "failure_values": [
+          [
+            "2224",
+            "2225"
+          ],
+          [
+            "3889",
+            "3890"
+          ],
+          [
+            "1718",
+            "1719"
+          ],
+          [
+            "19698",
+            "19699"
+          ],
+          [
+            "39951",
+            "39950"
+          ],
+          [
+            "57762",
+            "57761"
+          ],
+          [
+            "42636",
+            "42637"
+          ]
+        ],
+        "summary": "=== exact-node-provenance: 3067 passed, 7 failed ===",
+        "test": "test_palette_rgb_cache_matches_hue_rotation_table"
+      },
+      {
+        "source": "accurate0afb",
+        "flags": [
+          "-Os",
+          "-ffast-math",
+          "-fno-finite-math-only",
+          "-DHS_TEST_FAST_MATH=1",
+          "-DHS_PROMOTED_PATTERNS_DIR=\"C:/work/temp/Holosphere-reviewfix-20261105-hue134-dedup-baseline/patterns\""
+        ],
+        "returncode": 7,
+        "failure_values": [
+          [
+            "2224",
+            "2225"
+          ],
+          [
+            "3889",
+            "3890"
+          ],
+          [
+            "1718",
+            "1719"
+          ],
+          [
+            "19698",
+            "19699"
+          ],
+          [
+            "39951",
+            "39950"
+          ],
+          [
+            "57762",
+            "57761"
+          ],
+          [
+            "42636",
+            "42637"
+          ]
+        ],
+        "summary": "=== exact-node-provenance: 3067 passed, 7 failed ===",
+        "test": "test_palette_rgb_cache_matches_hue_rotation_table"
+      },
+      {
+        "source": "dedup5fa",
+        "flags": [
+          "-Os",
+          "-ffast-math",
+          "-fno-finite-math-only",
+          "-DHS_TEST_FAST_MATH=1",
+          "-DHS_PROMOTED_PATTERNS_DIR=\"C:/work/temp/Holosphere-reviewfix-20261105-hue134-dedup/patterns\""
+        ],
+        "returncode": 7,
+        "failure_values": [
+          [
+            "2224",
+            "2225"
+          ],
+          [
+            "3889",
+            "3890"
+          ],
+          [
+            "1718",
+            "1719"
+          ],
+          [
+            "19698",
+            "19699"
+          ],
+          [
+            "39951",
+            "39950"
+          ],
+          [
+            "57762",
+            "57761"
+          ],
+          [
+            "42636",
+            "42637"
+          ]
+        ],
+        "summary": "=== exact-node-provenance: 3068 passed, 7 failed ===",
+        "test": "test_palette_rgb_cache_matches_hue_rotation_table"
+      }
+    ],
+    "Linux_Clang22_CI": "Pending final canonical run; no local Windows pass or tolerance change inferred.",
+    "evidence": {
+      "artifact": "hue134-dedup/exact-node-provenance/report.json",
+      "sha256": "5b63864373fa236b33f4dfbf2449fc37152cc7014adf6a0a3ea4d42bdac71735"
+    }
+  },
+  "merged_integration": {
+    "runtime_patch_sha256": "625d7a28b37bca6d5d670ad6a0ff88f63d6ab813250f1891dac771a4e64fcd5f",
+    "runtime_patch_hash_status": "SHA256 of LF git diff against the pre-color production paths; excludes Profile instrumentation and finding 78.",
+    "source_compatibility": "Preserves current HS_FLASH_MEMBER spelling and peer changes.",
+    "catalog_generation": {
+      "status": "Regenerated from merged source; paired module/catalog qualification still pending.",
+      "operator": "colorize.generated-palette.v4",
+      "only_prepared_ABI_size_change": {
+        "native": {
+          "before": 88,
+          "after": 96
+        },
+        "WASM32": {
+          "before": 64,
+          "after": 68
+        }
+      }
+    },
+    "pending": [
+      "Final combined native suite and Release WASM module/catalog smoke",
+      "Final combined firmware memory/layout gates",
+      "Canonical CI platform and math-mode matrix",
+      "Same-board original-to-final AlienBrain, JewelMelt and AshCloud peak/spill comparisons"
+    ],
+    "limits": "No subtraction across historical and causal studies, no cross-board cost estimate, and no addition of isolated memory deltas to infer current headroom.",
+    "runtime_source_sha256": {
+      "core/color/hue_rotation_lut.h": "ff7218a4eb223ac409d7f27b02fa2555ae3213fbc868a0dc7ffbd397d1225eb4",
+      "core/color/palette_lab_lut.h": "22dc34cc4294fb2e88163cfd3bffe9e0ab3eab172911f06895436bccaa69e7ed",
+      "core/render/pullback/color.h": "d4981d6ff50e960855e1c7988f29b054fce69d0fbf40e5529199f7b74383dcbc",
+      "core/render/pullback/composed_interval.h": "89e472ee0c63d3f113cbe1080cf4ae26de14b624bd05ed7f38c359b1f86fd876",
+      "core/render/pullback/composed_parameters.h": "b2f16c9d3056ccf6fd5353f02f38642e76a8857c2ce452bbe738a3430ce26e2b",
+      "core/render/pullback/composed_providers.h": "3eb8a27add2a2988681066256931af3c7fb4141774de1436c185db24487d64c8",
+      "core/render/pullback/composed_runtime.h": "38ae7326d5b81bca40f1092ee3f3509624835833e6d685a4c39862e39c7cddc3",
+      "core/render/pullback/contract.h": "9308f803e447f9477e8abcb2ebf73a2c0e72e1968d955847f253533fcd3e9794",
+      "core/render/pullback/operators.h": "ed2a2297c692424c45ea0abe3395f8510ad384d123b0b37af921411e0a7c5568",
+      "core/render/pullback/operators/model.h": "1b07b10a8d9e10ad665a572b10919036fb60eacb6a0e6a2725b1a312f77d0b4f",
+      "workbench/shader/chain_host.h": "da31ea5976fff17df3b5aea8739165c7fb4a18d0c7af8d5a0b69b64f293b30f0"
+    },
+    "local_integration_checks": {
+      "source_prefix": "d1dba8e17 plus the recorded color payload",
+      "native_engine": "Pass; includes 81054732 pullback assertions with unchanged accuracy budgets.",
+      "wasm_release_smoke": "Pass; 120 frames for all 47 effects at both resolutions, unchanged 2048-byte stack ceiling.",
+      "adapter_regressions": "Masks propagated to manual contexts; post-draw replay owns canonical endpoints. Focused replay 173638/0; omitted endpoint-rebind control fails.",
+      "goldens": "Only two color fixtures re-recorded from observed IEEE/fast references; tolerances unchanged. Final run pending."
+    }
+  },
+  "artifact_archive_note": "External qualification artifact names and SHA256 digests identify preserved source/capture evidence; Profile sampler and reach instrumentation are excluded from the production runtime patch."
+}

@@ -17,6 +17,7 @@ struct MirrorFrame {
   float oscillation_phase = 0.0f;
   const BakedPalette *palette = nullptr;
   const Pixel *hue_rotation_lut = nullptr;
+  const HueRotationGamutMask *hue_rotation_gamut = nullptr;
 };
 
 struct MirrorBinding {
@@ -87,7 +88,8 @@ template <PB::Color::BrightnessEnvelope BrightV> struct MirrorColor {
     return *frame.palette;
   }
   static PB::Color::HueRotationLutView hue_rotation(const MirrorFrame &frame) {
-    return {frame.hue_rotation_lut, frame.hue_rotation_lut != nullptr};
+    return {frame.hue_rotation_lut, frame.hue_rotation_lut != nullptr, nullptr,
+            frame.hue_rotation_gamut};
   }
   static PB::Color::BrightnessEnvelope
   brightness_envelope(const MirrorFrame &) {
@@ -139,6 +141,7 @@ inline MirrorFrame mirror_from(In::ChainProgram &program,
   frame.oscillation_phase = clock.oscillation_phase;
   frame.palette = ctx.palettes[frame.color.palette_mode];
   frame.hue_rotation_lut = ctx.hue_rotation_lut;
+  frame.hue_rotation_gamut = ctx.hue_rotation_gamut;
   return frame;
 }
 

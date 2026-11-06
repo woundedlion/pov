@@ -630,7 +630,7 @@ inline void test_shader_chain_slot_and_hash_contract() {
   static_assert(In::SLOT_SIZE == sizeof(PB::ColorSample));
   static_assert(In::SLOT_ALIGN == alignof(PB::ColorSample));
   static_assert(In::SLOT_SIZE >= sizeof(Color4));
-  HS_EXPECT_EQ(In::SLOT_SIZE, sizeof(void *) == 8 ? 88u : 76u);
+  HS_EXPECT_EQ(In::SLOT_SIZE, sizeof(void *) == 8 ? 96u : 76u);
   HS_EXPECT_EQ(In::SLOT_ALIGN, alignof(void *));
   HS_EXPECT_EQ(In::carrier_id_of<PB::SphereSample>(), In::CarrierId::SPHERE);
   HS_EXPECT_EQ(In::carrier_id_of<PB::ColorSample>(), In::CarrierId::COLOR);
