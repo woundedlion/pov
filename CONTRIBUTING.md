@@ -159,6 +159,14 @@ protected branch's `CI green` status is the authoritative correctness gate.
   all images. CI uploads native and WASM comparison logs. The explicit
   `render_goldens` and `render_goldens_wasm` targets reuse these cases under the
   native and WASM presets without entering their default builds.
+- **Approximation captures:** the fast Peirce framebuffer oracle keeps preset 4's
+  restored projection, field and palette path, with hue-modulation amounts set to
+  zero before preparation. Its 256-code ceiling isolates projection error; it
+  does not bound the authored preset's final hue-shifted color. The full production
+  hue oracle retains its separate 3066-code ceiling. Native and WASM capture
+  producers also report the authored-hue Peirce comparison as a coupled diagnostic:
+  a small projection perturbation can cross the canonical gamut mapping's
+  discontinuity. These diagnostics have no isolated projection pass/fail claim.
 - **Node script suite:** `npm test` runs every `scripts/*.test.mjs` — the
   shader-workbench schema and digest contracts, the WASM smoke predicates, the
   engine bindings contract, the profile roster and the PNG probe. CI runs it as

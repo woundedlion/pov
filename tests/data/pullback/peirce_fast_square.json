@@ -14,8 +14,8 @@
       "resolutions": [[96, 20], [288, 144]],
       "sampling": "pixel centers",
       "aggregation": "maximum absolute premultiplied linear-u16 channel delta",
-      "exact_callable": "tools/pullback_capture_native.cpp exact_shade(PEIRCE_FAST_SQUARE), using hs_test::shader_chain_tests::ShaderChainWhiteBox",
-      "optimized_callable": "ShaderChain compiled preset-4 shade callable",
+      "exact_callable": "tools/pullback_capture_native.cpp exact_shade(PEIRCE_FAST_SQUARE), same preset-4 snapshot with hue-modulation amounts held at zero before prepare",
+      "optimized_callable": "ShaderChain compiled preset-4 shade callable with hue-modulation amounts held at zero before prepare",
       "probes": [
         {
           "preset": 4,
@@ -47,17 +47,17 @@
     {
       "domain": "FRAMEBUFFER",
       "aggregation": "MAXIMUM",
-      "measured_baseline": 147,
-      "configuration_baselines": { "native-debug": 147, "wasm-release": 147, "wasm-strict-fp": 147 },
+      "measured_baseline": 106,
+      "configuration_baselines": { "native-debug": 106, "wasm-release": 100, "wasm-strict-fp": 100 },
       "resolution_baselines": {
-        "native-debug": { "96x20": 93, "288x144": 147 },
-        "wasm-release": { "96x20": 100, "288x144": 147 },
-        "wasm-strict-fp": { "96x20": 93, "288x144": 147 }
+        "native-debug": { "96x20": 91, "288x144": 106 },
+        "wasm-release": { "96x20": 100, "288x144": 97 },
+        "wasm-strict-fp": { "96x20": 100, "288x144": 97 }
       },
       "accepted_limit": 256,
       "unit": "channel code",
-      "limit_provenance": "a 256-code ceiling above the AlienBrain palette-adjusted 147-code maximum",
-      "measurement_provenance": "repo-owned native Debug capture with the composed AlienBrain bank plus release/strict-FP WASM captures at revision 9aeaabebaabb42ad7fbc65f812dbf9e7dbfa5693, both roster resolutions and named preset-4 probes"
+      "limit_provenance": "unchanged 256-code projection ceiling, isolated from the independently qualified hue approximation by neutral hue modulation",
+      "measurement_provenance": "native Debug and release/strict-FP WASM captures on facc9a852 with neutral-hue projection isolation, both roster resolutions and named preset-4 probes; authored-hue coupled maxima remain diagnostic: native 100/1534 and both WASM modes 158/697 at 96x20/288x144; the unchanged full-production hue oracle retains its separate 3066-code ceiling"
     }
   ]
 }

@@ -403,14 +403,20 @@ Color4 exact_shade(const ShaderChain<W, H> &effect, const math::Vector &view,
 template <int W, int H>
 bool measure_oracle(ShaderChain<W, H> &effect,
                     const OracleInstruction &instruction, uint16_t &maximum,
-                    uint32_t &samples) {
+                    uint32_t &samples, bool isolate_projection = true) {
   using WB = hs_test::shader_chain_tests::ShaderChainWhiteBox;
   const auto *fixture =
       find_fixture("oracle", instruction.oracle, W, H, instruction.preset,
                    instruction.operation, instruction.hue_noise_phase);
-  if (!fixture ||
-      effect.restore_snapshot(ChainCaptureFixtures::snapshot(
-          fixture->snapshot_index)) != ChainSnapshotRestoreResult::APPLIED)
+  if (!fixture)
+    return false;
+  auto snapshot = ChainCaptureFixtures::snapshot(fixture->snapshot_index);
+  if (isolate_projection && instruction.oracle == "PEIRCE_FAST_SQUARE")
+    for (auto &modulation : snapshot.modulation)
+      if (modulation.recipe.mechanic.kind ==
+          ColorModulation::Mechanic::HUE_ROTATION)
+        modulation.recipe.mechanic.amount = 0.0f;
+  if (effect.restore_snapshot(snapshot) != ChainSnapshotRestoreResult::APPLIED)
     return false;
   WB::oracle_phase(effect, instruction.hue_noise_phase);
   const auto ctx = WB::context(effect);
@@ -481,6 +487,7 @@ int capture(const char *operations_path, const char *output_path) {
     return 2;
   }
   std::vector<OracleMetric> metrics;
+  OracleMetric coupled_peirce{"PEIRCE_FAST_SQUARE"};
   for (const OracleInstruction &instruction : operations.oracles) {
     auto metric = std::find_if(metrics.begin(), metrics.end(),
                                [&](const OracleMetric &candidate) {
@@ -502,7 +509,15 @@ int capture(const char *operations_path, const char *output_path) {
           static_cast<unsigned>(instruction.operation));
       return 3;
     }
+    if (instruction.oracle == "PEIRCE_FAST_SQUARE" &&
+        !measure_oracle<W, H>(effect, instruction, coupled_peirce.maximum,
+                              coupled_peirce.samples, false))
+      return 3;
   }
+  if (coupled_peirce.samples != 0)
+    std::printf("pullback diagnostic: %dx%d Peirce with authored hue "
+                "maximum=%u (coupled, outside isolated projection gate)\n",
+                W, H, coupled_peirce.maximum);
   std::unique_ptr<FILE, decltype(&std::fclose)> output(
       open_file(output_path, "wb"), &std::fclose);
   if (output == nullptr) {
