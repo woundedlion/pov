@@ -86,7 +86,7 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
       float px = -reach + (2.0f * reach) * gi / G;
       float py = -reach + (2.0f * reach) * gj / G;
       math::Vector p =
-          (face.basis_v + face.basis_u * px + face.basis_w * py).normalized();
+          (face.center + face.basis_u * px + face.basis_w * py).normalized();
 
       hs::g_scan_metrics.exact_hits = 0;
       SDF::DistanceResult res = SDF::distance_of(face, p);
@@ -765,7 +765,7 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
       float px = -reach + (2.0f * reach) * gi / G;
       float py = -reach + (2.0f * reach) * gj / G;
       math::Vector p =
-          (face.basis_v + face.basis_u * px + face.basis_w * py).normalized();
+          (face.center + face.basis_u * px + face.basis_w * py).normalized();
 
       hs::g_scan_metrics.lut_hits = 0;
       hs::g_scan_metrics.exact_hits = 0;

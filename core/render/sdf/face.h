@@ -150,7 +150,6 @@ struct PreparedFace {
   static constexpr float AZIMUTH_ERROR =
       2e-5f;                ///< Vertex azimuth error, radians.
   math::Vector center;      /**< Normalized face centroid (projection axis). */
-  math::Vector basis_v;     ///< Frame axis equal to center.
   math::Vector basis_u;     ///< Gnomonic x axis, perpendicular to center.
   math::Vector basis_w;     ///< Gnomonic y axis, cross(center, basis_u).
   int count;                /**< Vertex/edge count; 0 if culled. */

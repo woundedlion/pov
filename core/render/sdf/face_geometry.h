@@ -67,7 +67,6 @@ setup_frame_and_polygon(std::span<const math::Vector> vertices,
   }
   center.normalize();
 
-  basis_v = center;
   basis_u = math::perpendicular_axis(center);
   basis_w = math::cross(center, basis_u).normalized();
 
@@ -79,7 +78,7 @@ setup_frame_and_polygon(std::span<const math::Vector> vertices,
     // Gnomonic projection divides by d = cos(angle from face center),
     // singular at 90 degrees from the center; clamp d away from zero,
     // sign-preserving.
-    float d = math::dot(v, basis_v);
+    float d = math::dot(v, center);
     if (fabsf(d) < math::TOLERANCE)
       d = copysignf(math::TOLERANCE, d);
     float px = math::dot(v, basis_u) / d;
