@@ -561,7 +561,6 @@ struct RandomWalkDelta {
 
 /**
  * @brief Advances a random-walk cursor one frame across the unit sphere.
- * @tparam STABLE_ROTATION Use the rotation helper with stable floating-point evaluation order.
  * @param position Current forward direction; advanced in place.
  * @param direction Current pivoting direction, orthogonal to @p position;
  *   advanced in place.
@@ -572,7 +571,6 @@ struct RandomWalkDelta {
  * @param t Frame counter, incremented by the caller before this call.
  * @return The axis the step advanced about and the rotation it applied.
  */
-template <bool STABLE_ROTATION>
 __attribute__((always_inline)) inline RandomWalkDelta
 step_random_walk(math::Vector &position, math::Vector &direction,
                  float &angular_velocity, FastNoiseLite &noise,
@@ -587,29 +585,19 @@ step_random_walk(math::Vector &position, math::Vector &direction,
       options.pivot_strength;
   angular_velocity = angular_velocity * options.smoothing +
                      target_pivot * (1.0f - options.smoothing);
-  if constexpr (STABLE_ROTATION) {
-    direction =
-        math::rotate(direction,
-                     Detail::make_stable_rotation(position, angular_velocity))
-            .normalized();
-  } else {
-    direction =
-        math::rotate(direction, math::make_rotation(position, angular_velocity))
-            .normalized();
-  }
+  direction =
+      math::rotate(direction,
+                   Detail::make_stable_rotation(position, angular_velocity))
+          .normalized();
   // If position and direction drift near-parallel the cross collapses to zero;
   // fall back to a deterministic perpendicular of position.
   const math::Vector walk_axis = math::normalized_or(
       math::cross(position, direction), math::perpendicular_axis(position));
-  math::Quaternion walk_q;
-  if constexpr (STABLE_ROTATION) {
-    walk_q = Detail::make_stable_rotation(walk_axis, options.speed);
-  } else {
-    walk_q = math::make_rotation(walk_axis, options.speed);
-  }
-  position = math::rotate(position, walk_q).normalized();
-  direction = math::rotate(direction, walk_q).normalized();
-  return {walk_axis, walk_q};
+  const math::Quaternion WALK_Q =
+      Detail::make_stable_rotation(walk_axis, options.speed);
+  position = math::rotate(position, WALK_Q).normalized();
+  direction = math::rotate(direction, WALK_Q).normalized();
+  return {walk_axis, WALK_Q};
 }
 
 /**
@@ -714,8 +702,8 @@ public:
   void step(Canvas &canvas) override {
     AnimationBase<RandomWalk<W, CAP>>::step(canvas);
     const RandomWalkDelta delta =
-        step_random_walk<true>(v, direction, angular_velocity,
-                               noise_generator.get(), options, this->t);
+        step_random_walk(v, direction, angular_velocity, noise_generator.get(),
+                         options, this->t);
     Rotation<W, CAP>::animate(canvas, orientation, delta.axis, options.speed,
                               math::ease_linear);
   }

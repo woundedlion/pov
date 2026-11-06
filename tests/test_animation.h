@@ -231,7 +231,6 @@ inline int run_animation_tests() {
   HS_RUN(test_noise_loop_preserves_finite_duration);
 
   HS_RUN(test_random_walk_stays_unit_and_travels);
-  HS_RUN(test_random_walk_stable_rotation_matches_same_state);
 
   HS_RUN(test_random_timer_fires_within_range);
   HS_RUN(test_one_shot_timer_ends_by_completion_not_cancel);

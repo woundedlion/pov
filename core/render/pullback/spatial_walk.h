@@ -74,7 +74,7 @@ HS_FLASH_MEMBER inline void advance_walk(SpatialWalkState &state, float wander,
   ++state.walk_time;
   auto options = WALK_OPTIONS;
   options.speed = speed;
-  const Animation::RandomWalkDelta delta = Animation::step_random_walk<false>(
+  const Animation::RandomWalkDelta delta = Animation::step_random_walk(
       state.position, state.direction, state.angular_velocity, state.walk_noise,
       options, state.walk_time);
   state.wander =
