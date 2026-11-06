@@ -466,14 +466,14 @@ inline void test_volume_trace_closest_overrelax_never_skips_surface() {
       float closest_d = Scan::Volume::trace_closest(
           torus, ro, vd, BOUNDS_RADIUS, 18, AA_WIDTH, closest_local);
 
-      // Dense reference: minimum march-safe distance along the ray segment.
       float ref_min = FLT_MAX;
-      for (int s = 0; s <= 4000; ++s) {
-        math::Vector p(ro.x, ro.y, ro.z - s * (2.0f * BOUNDS_RADIUS / 4000.0f));
-        float d = torus.distance(p);
-        if (d < ref_min)
-          ref_min = d;
-      }
+      VolumeReference::march(
+          torus, ro, vd, BOUNDS_RADIUS,
+          [&](VolumeReference::Sample sample) {
+            ref_min = std::min(ref_min, sample.distance);
+            return true;
+          },
+          4000);
 
       if (closest_d < AA_WIDTH) {
         ++hits;

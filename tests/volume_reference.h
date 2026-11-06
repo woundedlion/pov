@@ -25,11 +25,11 @@ struct VolumeReference {
   /** @brief Visits dense fixed-step samples until the visitor stops. */
   template <typename Shape, typename Visit>
   static void march(const Shape &shape, const math::Vector &origin,
-                    const math::Vector &direction, float radius, Visit visit) {
-    constexpr int STEPS = 16384;
+                    const math::Vector &direction, float radius, Visit visit,
+                    int steps = 16384) {
     const float END = radius - math::dot(origin, direction);
-    for (int i = 0; i <= STEPS; ++i) {
-      const float T = END * static_cast<float>(i) / STEPS;
+    for (int i = 0; i <= steps; ++i) {
+      const float T = END * static_cast<float>(i) / steps;
       const math::Vector P(origin.x + direction.x * T,
                            origin.y + direction.y * T,
                            origin.z + direction.z * T);
