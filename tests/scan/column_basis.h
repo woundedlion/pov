@@ -318,18 +318,11 @@ inline void test_column_basis_segments_and_endpoints() {
   HS_EXPECT_TRUE(off.azimuth == nullptr);
   HS_EXPECT_TRUE(basis->prepare(motion.current, motion.current).azimuth ==
                  nullptr);
-  std::vector<Pixel> drawn;
-  {
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> pipeline;
-    {
-      Canvas canvas(fx);
-      Scan::ColumnBasisScope scope(canvas, off);
-      ring(pipeline, canvas, motion.current);
-    }
-    fx.advance_display();
-    capture_frame<W, H>(fx, drawn);
-  }
+  const std::vector<Pixel> drawn =
+      render_stub_frame<W, H>([&](auto &pipeline, Canvas &canvas) {
+        Scan::ColumnBasisScope scope(canvas, off);
+        ring(pipeline, canvas, motion.current);
+      });
   HS_EXPECT_TRUE(drawn == fixed(motion.current));
   HS_EXPECT_TRUE(whole != fixed(motion.current));
 }
@@ -804,21 +797,14 @@ inline void test_point_birth_skips_earlier_columns() {
   constexpr int W = 96, H = 48;
   const math::Vector centre = math::Vector(0.0f, 0.2f, 1.0f).normalized();
   const auto draw = [&](const Scan::ColumnBasis *time) {
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> pipeline;
-    {
-      Canvas canvas(fx);
+    return render_stub_frame<W, H>([&](auto &pipeline, Canvas &canvas) {
       if (time)
         canvas.set_column_basis(time);
       Scan::Point::draw<W, H>(pipeline, canvas, centre, 0.5f,
                               basis_flat_shader);
       Scan::Point::draw<W, H>(pipeline, canvas, -centre, 0.5f,
                               basis_flat_shader);
-    }
-    fx.advance_display();
-    std::vector<Pixel> out;
-    capture_frame<W, H>(fx, out);
-    return out;
+    });
   };
   const std::vector<Pixel> whole = draw(nullptr);
   Scan::ColumnBasis born;
@@ -915,10 +901,7 @@ inline void check_ring_group_previous_axes(std::initializer_list<float> turns) {
     ++s;
   }
   const auto draw = [&](const math::Vector *axes, const math::Vector *before) {
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> pipeline;
-    {
-      Canvas canvas(fx);
+    return render_stub_frame<W, H>([&](auto &pipeline, Canvas &canvas) {
       SDF::Ring shapes[N];
       for (int s = 0; s < N; ++s)
         shapes[s] = SDF::Ring(math::make_basis(math::Quaternion(), axes[s]),
@@ -931,11 +914,7 @@ inline void check_ring_group_previous_axes(std::initializer_list<float> turns) {
                 0.8f);
           },
           false, before);
-    }
-    fx.advance_display();
-    std::vector<Pixel> out;
-    capture_frame<W, H>(fx, out);
-    return out;
+    });
   };
   const std::vector<Pixel> swept = draw(current, previous);
   int arcs = 0;

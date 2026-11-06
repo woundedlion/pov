@@ -286,12 +286,6 @@ inline void test_pole_lod_shading_matches_undecimated() {
   const ScopedPoleLod scoped_lod(0.0f);
   const Color4 color(Pixel(60000, 45000, 30000), 1.0f);
 
-  auto readback = [](hs_test::StubEffect &fx) {
-    std::vector<Pixel> out(W * H);
-    capture_frame<W, H>(fx, out);
-    return out;
-  };
-
   const auto compare = [](const std::vector<Pixel> &plain,
                           const std::vector<Pixel> &decimated) {
     HS_EXPECT_GT(expect_frames_within("pole LOD parity", decimated, plain, 0),
@@ -301,17 +295,12 @@ inline void test_pole_lod_shading_matches_undecimated() {
   // Axis just off the canvas pole: the stroke crosses decimated rows.
   auto draw_ring = [&](float lod, const math::Vector &axis, float radius) {
     Render::pole_lod_aggressiveness = lod;
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> pipe;
-    {
-      Canvas c(fx);
+    return render_stub_frame<W, H>([&](auto &pipe, Canvas &c) {
       math::Basis basis = math::make_basis(math::Quaternion(), axis);
       Scan::Ring::draw<W, H, false>(
           pipe, c, basis, radius, /*thickness=*/0.05f,
           [&](const math::Vector &, Fragment &f) { f.color = color; });
-    }
-    fx.advance_display();
-    return readback(fx);
+    });
   };
 
   auto draw_face = [&](float lod, float tilt, float rho, int sides, float phase,
@@ -322,10 +311,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
     math::Vector verts[8];
     uint16_t idx[8];
     build_regular_face(basis, sides, rho, 0.0f, verts, idx, phase);
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> pipe;
-    {
-      Canvas canvas(fx);
+    return render_stub_frame<W, H>([&](auto &pipe, Canvas &canvas) {
       SDF::FaceScratchBuffer scratch;
       SDF::PreparedFace face(std::span<const math::Vector>(verts, sides),
                              std::span<const uint16_t>(idx, sides), scratch, HV,
@@ -335,19 +321,14 @@ inline void test_pole_lod_shading_matches_undecimated() {
         Scan::rasterize_face<W, H, Pipeline<W, H>>(pipe, canvas, face, shader);
       else
         Scan::rasterize<W, H, false>(pipe, canvas, face, shader);
-    }
-    fx.advance_display();
-    return readback(fx);
+    });
   };
 
   auto draw_folded = [&](auto tag, float lod, const math::Vector &axis,
                          float radius, int sides, bool typed) {
     using ShapeT = typename decltype(tag)::type;
     Render::pole_lod_aggressiveness = lod;
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> pipe;
-    {
-      Canvas c(fx);
+    return render_stub_frame<W, H>([&](auto &pipe, Canvas &c) {
       math::Basis basis = math::make_basis(math::Quaternion(), axis);
       if (typed)
         ShapeT::template draw_solid<W, H>(pipe, c, basis, radius, sides, color);
@@ -355,18 +336,13 @@ inline void test_pole_lod_shading_matches_undecimated() {
         ShapeT::template draw<W, H, false>(
             pipe, c, basis, radius, sides,
             [&](const math::Vector &, Fragment &f) { f.color = color; });
-    }
-    fx.advance_display();
-    return readback(fx);
+    });
   };
 
   // A ring carved out of a polygon; an ungated splat paints the carve shut.
   auto draw_carved = [&](float lod, bool typed) {
     Render::pole_lod_aggressiveness = lod;
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> pipe;
-    {
-      Canvas c(fx);
+    return render_stub_frame<W, H>([&](auto &pipe, Canvas &c) {
       const math::Basis poly_basis =
           math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
       const math::Vector ring_axis =
@@ -386,19 +362,14 @@ inline void test_pole_lod_shading_matches_undecimated() {
         Scan::rasterize<W, H, false>(
             pipe, c, carved,
             [&](const math::Vector &, Fragment &f) { f.color = color; });
-    }
-    fx.advance_display();
-    return readback(fx);
+    });
   };
 
   // A polygon repeated about the canvas pole, centred on a sector boundary;
   // boundaries converge at the pole, so decimated blocks span them.
   auto draw_repeat = [&](float lod, bool typed, int reps) {
     Render::pole_lod_aggressiveness = lod;
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> pipe;
-    {
-      Canvas c(fx);
+    return render_stub_frame<W, H>([&](auto &pipe, Canvas &c) {
       // Azimuth in the fold's own perpendicular frame, where the sector
       // boundaries sit at +/- PI / reps.
       const float rho = 0.30f;
@@ -417,9 +388,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
         Scan::rasterize<W, H, false>(
             pipe, c, rep,
             [&](const math::Vector &, Fragment &f) { f.color = color; });
-    }
-    fx.advance_display();
-    return readback(fx);
+    });
   };
 
   // A sliver on the plane-distance path, posed so its projection stretches
@@ -438,10 +407,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
       verts[i] = (basis.v + basis.u * rx + basis.w * ry).normalized();
       idx[i] = static_cast<uint16_t>(i);
     }
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> pipe;
-    {
-      Canvas canvas(fx);
+    return render_stub_frame<W, H>([&](auto &pipe, Canvas &canvas) {
       SDF::FaceScratchBuffer scratch;
       SDF::PreparedFace face(std::span<const math::Vector>(verts, 3),
                              std::span<const uint16_t>(idx, 3), scratch, HV, H,
@@ -453,9 +419,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
         Scan::rasterize_face<W, H, Pipeline<W, H>>(pipe, canvas, face, shader);
       else
         Scan::rasterize<W, H, false>(pipe, canvas, face, shader);
-    }
-    fx.advance_display();
-    return readback(fx);
+    });
   };
 
   // The rows the draws reach must actually be decimated, or the comparison is
