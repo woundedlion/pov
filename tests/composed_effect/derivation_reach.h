@@ -49,8 +49,8 @@ static_assert(std::is_same_v<
 
 /**
  * @brief Catalog vocabulary emitted by shipped ComposedEffect specializations.
- * @details A null `topology_id` marks an operator no Spec or parameter family
- * selects, so none of its topology values are reachable either. Otherwise
+ * @details A null `topology_id` marks an operator no shipped Spec selects,
+ * so none of its topology values are reachable either. Otherwise
  * `reachable` lists values emitted by a shipped specialization through a
  * policy pin, Spec choice or authored preset. Selecting another value extends
  * its row and updates the unreachable-count pin.
@@ -130,9 +130,7 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sample.spiral.v3", "weight-mode", {{"projection"}}},
     {"sample.spiral.v3", "coverage-mode", {{"weight-squared"}}},
     {"sample.spiral.v3", "coordinate-system", {{"plane"}}},
-    {"sample.projected-noise.v2", "weight-mode", {}},
-    {"sample.projected-noise.v2", "coverage-mode", {}},
-    {"sample.projected-noise.v2", "basis", {}},
+    {"sample.projected-noise.v2", nullptr, {}},
     {"sample.tessellation.v3", "weight-mode", {{"projection"}}},
     {"sample.tessellation.v3", "coverage-mode", {{"weight", "edge-fade"}}},
     // Shipped Specs pin square cells.
@@ -267,7 +265,7 @@ inline void test_composed_derivation_reach() {
   }
 
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 43u);
-  HS_EXPECT_EQ(unreachable_operators, 15u);
+  HS_EXPECT_EQ(unreachable_operators, 16u);
   HS_EXPECT_EQ(catalog_values, 374u);
   HS_EXPECT_EQ(unreachable_values, 286u);
 }
