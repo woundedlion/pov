@@ -83,6 +83,16 @@ inline void case_plot_mesh_vertex_over_capacity() {
   }); // index 130 -> trap
 }
 
+/** @brief Timed mesh edges reject a start index outside the vertex pool. */
+inline void case_plot_column_edge_start_out_of_range() {
+  plot_column_edge_index_fixture(true);
+}
+
+/** @brief Timed mesh edges reject an end index outside the vertex pool. */
+inline void case_plot_column_edge_end_out_of_range() {
+  plot_column_edge_index_fixture(false);
+}
+
 /** @brief An open face dual cannot supply a complete wireframe. */
 inline void case_plot_four_regular_open_mesh() {
   configure_arenas_default();

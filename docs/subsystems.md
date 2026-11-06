@@ -274,7 +274,9 @@ within the sample footprint; other edges retain the detailed spacing check
 and use column-local sampling where needed.
 `Plot::Mesh::draw_timed` routes table-compatible world stages through
 `draw_columns` and `rasterize_column_edges`, with an optional
-`Plot::GeometryCallback` for vertex motion. Pipelines with source history use
+`Plot::GeometryCallback` for vertex motion. The column walk checks each edge's
+endpoints against the captured vertex count before reading their positions.
+Pipelines with source history use
 `rasterize_recording_column_edges`; other pipelines compile out recording.
 The still selection uses the ordinary mesh raster. Other timed plotted
 configurations retain their

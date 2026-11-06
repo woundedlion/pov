@@ -1498,6 +1498,15 @@ inline const Case *all_cases(int &n) {
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity,
        "core/render/plot/mesh.h",
        "(large < DEDUP_CAPACITY) Mesh edge dedup: vertex index "},
+      {"plot_column_edge_start_out_of_range",
+       case_plot_column_edge_start_out_of_range,
+       "core/render/plot/column_walk.h",
+       "(pair.u < batch.motion.size() && pair.v < batch.motion.size()) "
+       "column walk: edge"},
+      {"plot_column_edge_end_out_of_range",
+       case_plot_column_edge_end_out_of_range, "core/render/plot/column_walk.h",
+       "(pair.u < batch.motion.size() && pair.v < batch.motion.size()) "
+       "column walk: edge"},
       {"plot_four_regular_open_mesh", case_plot_four_regular_open_mesh,
        "core/render/plot/mesh.h",
        "(he.pair != HE_NONE) extract_four_regular_edges: mesh is not closed"},

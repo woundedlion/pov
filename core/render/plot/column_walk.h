@@ -116,7 +116,8 @@ struct EdgeBatch {
                   float); /**< Writes an edge's endpoint registers into the
                                 walk's fragments from its frame-end
                                 vertices and index. */
-  const math::Vector *vertices; /**< Frame-end vertex positions. */
+  const math::Vector
+      *vertices; /**< Frame-end positions for motion.size() vertices. */
   const Spacetime::Worldlines<>
       &motion;                /**< Source captures and interpolants of the
                               vertices this frame. */
@@ -1402,6 +1403,9 @@ rasterize_column_edges_impl(PipelineRef &pipeline, Canvas &canvas,
   auto &frame = *scratch_arena_a.make<EdgeWorldsheet>();
   for (size_t edge = 0; edge < batch.count; ++edge) {
     const MeshEdge &pair = batch.pairs[edge];
+    HS_CHECK(pair.u < batch.motion.size() && pair.v < batch.motion.size(),
+             "column walk: edge (%d, %d) outside vertex count %d", pair.u,
+             pair.v, static_cast<int>(batch.motion.size()));
     if (!frame.prepare<W, H>(batch.motion, pair.u, pair.v, poses, spin,
                              source_positions, !batch.rigid_lattice, &cull)) {
       Spacetime::count_geometry<

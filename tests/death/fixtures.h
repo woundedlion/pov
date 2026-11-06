@@ -376,6 +376,32 @@ inline void scan_selector_index_fixture(bool visibility, uint16_t bad_index) {
   select();
 }
 
+/** @brief Draws valid timed edges before rejecting an out-of-range endpoint. */
+inline void plot_column_edge_index_fixture(bool bad_start) {
+  constexpr int W = 32, H = 16;
+  DeathEffect fx(W, H);
+  Canvas canvas(fx);
+  Filter::Screen::DirectAntiAliasSink<W, H> sink;
+  sink.prepare(canvas);
+  const math::Vector vertices[] = {math::X_AXIS,
+                                   math::Vector(1, 0.2f, 0.1f).normalized()};
+  const Plot::Mesh::VertexSpan mesh{{vertices, std::size(vertices)}};
+  ScratchScope guard(scratch_arena_a);
+  ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_a, 1);
+  const auto shader = [](const math::Vector &, Fragment &fragment) {
+    fragment.color = Color4(Pixel(1, 0, 0), 1.0f);
+  };
+  Plot::Mesh::draw_column_edges<W, H>(sink, canvas, mesh, edges, shader, {},
+                                      0.0f);
+  edges.push_back({0, 1});
+  Plot::Mesh::draw_column_edges<W, H>(sink, canvas, mesh, edges, shader, {},
+                                      0.0f);
+  edges[0] = bad_start ? Plot::Mesh::Edge{opaque<uint16_t>(2), 1}
+                       : Plot::Mesh::Edge{0, opaque<uint16_t>(2)};
+  Plot::Mesh::draw_column_edges<W, H>(sink, canvas, mesh, edges, shader, {},
+                                      0.0f);
+}
+
 /**
  * @brief Minimal duck-typed mesh: one 2-gon face whose second index (130)
  *        exceeds the TriangularBitset<128> capacity.
