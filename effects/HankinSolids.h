@@ -13,6 +13,8 @@
 #include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
+#include <cstring>
+#include <type_traits>
 
 namespace hs_test {
 namespace conway_soak_tests {
@@ -438,7 +440,9 @@ private:
         Scan::flag_vertex_reaches<W>(previous, mesh.vertices.data(), count,
                                      moving);
         current = scratch_arena_b.allocate_n<math::Vector>(count);
-        std::copy_n(rotated_mesh.vertices.data(), count, current);
+        static_assert(std::is_trivially_copyable_v<math::Vector>);
+        std::memcpy(current, rotated_mesh.vertices.data(),
+                    count * sizeof(math::Vector));
         start = scratch_arena_b.allocate_n<uint16_t>(count);
         for (size_t i = 0; i < count; ++i) {
           previous[i] = camera(previous[i]);
