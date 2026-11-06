@@ -33,7 +33,7 @@
 			(type solid)
 		)
 		(fill none)
-		(layer "F.SilkS")
+		(layer "F.Fab")
 	)
 	(fp_rect
 		(start -18.5 -9.5)

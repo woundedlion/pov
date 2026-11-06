@@ -36,16 +36,6 @@
 		(layer "F.Fab")
 	)
 	(fp_rect
-		(start -3.37 -1.59)
-		(end 3.37 9.21)
-		(stroke
-			(width 0.12)
-			(type solid)
-		)
-		(fill none)
-		(layer "F.SilkS")
-	)
-	(fp_rect
 		(start -3.75 -1.97)
 		(end 3.75 9.59)
 		(stroke
@@ -111,6 +101,33 @@
 				(xy -3.75 9.59)
 			)
 		)
+	)
+	(fp_line
+		(start -3.22 -1.59)
+		(end 3.37 -1.59)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+	)
+	(fp_line
+		(start 3.37 -1.59)
+		(end 3.37 9.21)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+	)
+	(fp_line
+		(start 3.37 9.21)
+		(end -3.22 9.21)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
 	)
 	(zone (layer "F.Cu") (uuid "70bf9e04-ade5-5080-af71-0b1b2aa51bb2") (name "Terminal wire access pin 1") (hatch full 0.5) (connect_pads (clearance 0)) (min_thickness 0.25) (keepout (tracks allowed) (vias allowed) (pads allowed) (copperpour allowed) (footprints not_allowed)) (placement (enabled no) (sheetname "")) (fill (thermal_gap 0.3) (thermal_bridge_width 0.4)) (polygon (pts (xy -13.25 -1.2) (xy -3.25 -1.2) (xy -3.25 1.2) (xy -13.25 1.2))))
 	(zone (layer "F.Cu") (uuid "01fa1440-5b89-5cd1-9679-e56c5ebe2179") (name "Terminal wire access pin 2") (hatch full 0.5) (connect_pads (clearance 0)) (min_thickness 0.25) (keepout (tracks allowed) (vias allowed) (pads allowed) (copperpour allowed) (footprints not_allowed)) (placement (enabled no) (sheetname "")) (fill (thermal_gap 0.3) (thermal_bridge_width 0.4)) (polygon (pts (xy -13.25 1.34) (xy -3.25 1.34) (xy -3.25 3.74) (xy -13.25 3.74))))

@@ -361,7 +361,7 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
         self.assertEqual(str(sexp.val(label, "layer")[0]), "B.SilkS")
         font = F(F(label, "effects")[0], "font")[0]
         self.assertEqual([float(v) for v in sexp.val(font, "size")], [2.0, 2.0])
-        self.assertEqual([float(v) for v in sexp.val(label, "at")[:2]], [20.0, 23.5])
+        self.assertEqual([float(v) for v in sexp.val(label, "at")[:2]], [20.0, 14.8])
 
     def test_board_id_has_large_legible_digits(self):
         labels = [node for node in F(self.root, "gr_text")
@@ -543,48 +543,31 @@ class CommittedTerminalEdgeTests(TerminalEdgePlacementChecks, unittest.TestCase)
 
 
     def test_terminal_pin_legends_are_visible_and_readable(self):
+        layers = {"1.2": {"J1": "B.SilkS", "J2": "B.SilkS", "J3A": "F.SilkS", "J3B": "B.SilkS"},
+                  "1.3": dict.fromkeys(("J1", "J2", "J3A", "J3B"), "B.SilkS")}
         for revision in ("1.2", "1.3"):
             root = read(GEN.parent / revision / pcb.PCB_FILE)
-            layout = pcb.REVISION_LAYOUTS[revision]
+            footprints = footprints_by_ref(root)
             marks = [(str(node[1]), node) for node in F(root, "gr_text")]
-            reserves = pcb.mounting_reserve_rects(pcb.QUILTER_LENGTH)
-            x, y, _ = layout["edge_placements"]["J1"]
-            for pin, label in enumerate(("+", "-")):
-                hits = [node for text, node in marks if text == label
-                        and str(sexp.val(node, "layer")[0]) == "B.SilkS"]
-                self.assertTrue(hits, f"J1 {label} back legend")
-                node = min(hits, key=lambda node: abs(float(sexp.val(node, "at")[1]) - y - pin * 2.54))
-                px, py, angle = map(float, sexp.val(node, "at"))
-                self.assertAlmostEqual(px, x + 2)
-                self.assertAlmostEqual(py, y + pin * 2.54)
-                self.assertEqual(angle, 0)
-                self.assertEqual(sexp.val(F(node, "effects")[0], "justify"), ["mirror"])
-            for ref, labels in (("J2", "DGC"), ("J3A", layout["sync_marks"]),
-                                ("J3B", layout["sync_marks"])):
-                x, y, _ = layout["edge_placements"][ref]
+            for ref, labels in (("J1", "+-"), ("J2", "DGC"),
+                                ("J3A", "SGH" if revision == "1.2" else "ABGH"),
+                                ("J3B", "SGH" if revision == "1.2" else "ABGH")):
+                x, y, rotation = map(float, sexp.val(footprints[ref], "at"))
+                layer = layers[revision][ref]
+                offset = 2.2 if revision == "1.3" else (2 if ref == "J1" else (2.5 if layer == "B.SilkS" else 4.5))
                 for pin, label in enumerate(labels):
-                    row = y + pin * 2.54
-                    relocated = any(x0 <= x + 4.5 <= x1 and y0 <= row <= y1
-                                    for x0, y0, x1, y1 in reserves.values())
-                    expected_layer = "B.SilkS" if relocated else "F.SilkS"
+                    dx, dy = rotate_point((offset, pin * 2.54), rotation)
+                    hits = [node for text, node in marks if text == label
+                            and math.dist(tuple(map(float, sexp.val(node, "at")[:2])), (x + dx, y + dy)) < 1e-6]
                     with self.subTest(revision=revision, ref=ref, pin=pin, label=label):
-                        hits = [node for text, node in marks if text == label]
-                        self.assertTrue(hits, label)
-                        node = min(hits, key=lambda node: math.hypot(
-                            float(sexp.val(node, "at")[0]) - x,
-                            float(sexp.val(node, "at")[1]) - row))
-                        label_x, label_y, angle = map(float, sexp.val(node, "at"))
-                        self.assertAlmostEqual(label_y, row, delta=1e-6)
-                        self.assertEqual(angle, 0)
-                        self.assertEqual(str(sexp.val(node, "layer")[0]), expected_layer)
-                        effects = F(node, "effects")[0]
-                        self.assertEqual(sexp.val(effects, "justify"),
-                                         ["mirror"] if relocated else None)
-                        if not relocated:
-                            self.assertGreater(abs(label_x - x), 3.37)
-                        self.assertAlmostEqual(label_x, x + (2.5 if relocated else 4.5))
-                        for hole, (x0, y0, x1, y1) in reserves.items():
-                            self.assertFalse(x0 <= label_x <= x1 and y0 <= label_y <= y1,
+                        self.assertEqual(len(hits), 1)
+                        node = hits[0]
+                        self.assertEqual(str(sexp.val(node, "layer")[0]), layer)
+                        self.assertEqual(float(sexp.val(node, "at")[2]), 0)
+                        self.assertEqual(sexp.val(F(node, "effects")[0], "justify"),
+                                         ["mirror"] if layer == "B.SilkS" else None)
+                        for hole, (x0, y0, x1, y1) in pcb.mounting_reserve_rects(58.28).items():
+                            self.assertFalse(x0 <= x + dx <= x1 and y0 <= y + dy <= y1,
                                              f"{ref} {label} inside {hole} reservation")
 
 

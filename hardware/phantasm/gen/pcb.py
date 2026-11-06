@@ -331,8 +331,9 @@ def teensy_footprint():
     for i, nm in enumerate(BOTTOM):
         pads.append(f'\t(pad "{nm}" thru_hole oval (at {fmt(x0 + i*2.54)} 7.62) '
                     f'(size 1.7 1.7) (drill 1.0) (layers "*.Cu" "*.Mask"))')
+    outline_layer = 'F.Fab' if _GENERATION.get()[0] == '1.3' else 'F.SilkS'
     body = ('\t(fp_rect (start -18.5 -9.5) (end 18.5 9.5) (stroke (width 0.12) (type solid))'
-            ' (fill none) (layer "F.SilkS"))\n'
+            f' (fill none) (layer "{outline_layer}"))\n'
             '\t(fp_rect (start -18.5 -9.5) (end 18.5 9.5) (stroke (width 0.05) (type solid))'
             ' (fill none) (layer "F.CrtYd"))\n'
             '\t(fp_rect (start -30 -5) (end -18.5 5) (stroke (width 0.25) (type dash))'
@@ -545,9 +546,9 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
     return node
 
 
-def trim_power_terminal_silkscreen(node):
-    """Open the terminal outline where its left edge meets the board edge."""
-    x = float(sexp.val(node, "at")[0])
+def trim_terminal_silkscreen(node, edge_distance):
+    """Open the local -X outline at the adjacent board edge."""
+    x = edge_distance
     for rectangle in list(F(node, "fp_rect")):
         if sexp.val(rectangle, "layer") != ["F.SilkS"]:
             continue
@@ -568,6 +569,22 @@ def trim_power_terminal_silkscreen(node):
                          [sexp.Sym("start"), *(sexp.Sym(fmt(v)) for v in start)],
                          [sexp.Sym("end"), *(sexp.Sym(fmt(v)) for v in end)],
                          copy.deepcopy(stroke), [sexp.Sym("layer"), "F.SilkS"]])
+
+
+def move_clipped_silkscreen_to_fab(node, length):
+    """Keep component geometry that crosses the silk margin on the fab layer."""
+    x, y, angle = map(float, sexp.val(node, "at"))
+    for kind in ("fp_line", "fp_arc", "fp_circle", "fp_rect", "fp_poly"):
+        for graphic in F(node, kind):
+            if sexp.val(graphic, "layer") != ["F.SilkS"]:
+                continue
+            bounds = fp_bbox([sexp.Sym("footprint"), graphic], graphic_layers=("F.SilkS",))
+            x0, y0, x1, y1 = _rot_bb(bounds, angle)
+            stroke = float(sexp.val(F(graphic, "stroke")[0], "width")[0])
+            margin = NEW_LAYOUT_RULES["min_silk_clearance"] + stroke / 2
+            if (x + x0 < margin - 1e-6 or y + y0 < margin - 1e-6
+                    or x + x1 > length - margin + 1e-6 or y + y1 > PCB_W - margin + 1e-6):
+                F(graphic, "layer")[0][1] = "F.Fab"
 
 
 # ---------------------------------------------------------------- layout
@@ -1063,8 +1080,11 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                                 hand_assembled=is_hand_assembled(fp, val),
                                 hide_reference=lock,
                                 consumed=consumed))
-        if unplaced and ref == "J1" and selected == "1.2":
-            trim_power_terminal_silkscreen(foot_nodes[-1])
+        if unplaced and ref in layout["edge_placements"]:
+            if selected == "1.3" or ref == "J1":
+                trim_terminal_silkscreen(foot_nodes[-1], y if rot == 270 else x)
+        if selected == "1.3":
+            move_clipped_silkscreen_to_fab(foot_nodes[-1], L)
     for ref, (x, y) in HOLES.items():
         foot_nodes.append(embed(MOUNTING_HOLE_FOOTPRINT, ref, "M2.5",
                                 x, y, 0, pad_net, netid, locked=unplaced,
@@ -1158,30 +1178,31 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         lines.append(f'\t(gr_text {sexp.quote("USB PLUG KEEP-OUT")} (at 5.3 11.5 90)'
                      f' (layer "Dwgs.User") (uuid "{uid()}") '
                      '(effects (font (size 0.8 0.8) (thickness 0.15))))')
-        silk_marks = [
-            ("ID0", 54.3, 8.9, 90, "F.SilkS"),
-            ("ID1", 54.3, 11.9, 90, "F.SilkS"),
-            ("ID2", 54.3, 15.3, 90, "F.SilkS"),
-            ("SHLD", 54.3, 19.0, 90, "F.SilkS"),
-        ]
+        if selected == "1.3":
+            silk_marks = [(label, fixed[ref][0], 8.93, 0, "B.SilkS")
+                          for ref, label in (("JP_ID0", "ID0"), ("JP_ID1", "ID1"),
+                                             ("JP_ID2", "ID2"), ("JP_SHLD", "SHLD"))]
+        else:
+            silk_marks = [
+                ("ID0", 54.3, 8.9, 90, "F.SilkS"),
+                ("ID1", 54.3, 11.9, 90, "F.SilkS"),
+                ("ID2", 54.3, 15.3, 90, "F.SilkS"),
+                ("SHLD", 54.3, 19.0, 90, "F.SilkS"),
+            ]
         edge_placements = layout["edge_placements"]
-        sync_marks = layout["sync_marks"]
-        for ref, pin_marks in (("J2", "DGC"), ("J3A", sync_marks), ("J3B", sync_marks)):
-            if fixed.get(ref) == edge_placements[ref]:
-                x, y, _ = fixed[ref]
-                for pin, mark in enumerate(pin_marks):
-                    label_y = y + pin * 2.54
-                    label_x = x + 4.5
-                    layer = "F.SilkS"
-                    if any(x0 <= label_x <= x1 and y0 <= label_y <= y1
-                           for x0, y0, x1, y1 in mounting_reserve_rects(L).values()):
-                        label_x = x + 2.5
-                        layer = "B.SilkS"
-                    silk_marks.append((mark, label_x, label_y, 0, layer))
-        if fixed.get("J1") == edge_placements["J1"]:
-            x, y, _ = fixed["J1"]
-            silk_marks.extend((mark, x + 2, y + pin * 2.54, 0, "B.SilkS")
-                              for pin, mark in enumerate(("+", "-")))
+        for ref, pin_marks in (("J1", "+-"), ("J2", "DGC"),
+                               ("J3A", layout["sync_marks"]), ("J3B", layout["sync_marks"])):
+            if fixed.get(ref) != edge_placements[ref]:
+                continue
+            x, y, rot = fixed[ref]
+            back = ref == "J1" or selected == "1.3" or any(
+                x0 <= x + 4.5 <= x1 and y0 <= y + pin * 2.54 <= y1
+                for pin in range(len(pin_marks))
+                for x0, y0, x1, y1 in mounting_reserve_rects(L).values())
+            offset = 2.2 if selected == "1.3" else (2 if ref == "J1" else (2.5 if back else 4.5))
+            for pin, mark in enumerate(pin_marks):
+                dx, dy = rotate_point((offset, pin * 2.54), rot)
+                silk_marks.append((mark, x + dx, y + dy, 0, "B.SilkS" if back else "F.SilkS"))
         for text, x, y, angle, layer in silk_marks:
             justify = " (justify mirror)" if layer == "B.SilkS" else ""
             lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(x)} {fmt(y)} {angle})'
@@ -1191,11 +1212,17 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                            ("J3A", "SYNC IN"), ("J3B", "SYNC OUT")):
             if fixed.get(ref) != edge_placements[ref]:
                 continue
-            x, y, _ = fixed[ref]
-            label_x = x + 3.2 if ref == "J1" else x - 2
-            label_y = y + (1.27 if ref == "J1" else 2.54)
+            x, y, rot = fixed[ref]
+            if selected == "1.3":
+                pins = len(F(next(fn for fn in foot_nodes
+                                  if connectivity.footprint_reference(fn) == ref), "pad"))
+                label_x, label_y, angle = x - (pins - 1) * 1.27, 1.2, 0
+            else:
+                label_x = x + 3.2 if ref == "J1" else x - 2
+                label_y = y + (1.27 if ref == "J1" else 2.54)
+                angle = 90
             lines.append(f'\t(gr_text {sexp.quote(label)} '
-                         f'(at {fmt(label_x)} {fmt(label_y)} 90) '
+                         f'(at {fmt(label_x)} {fmt(label_y)} {angle}) '
                          f'(layer "B.SilkS") (uuid "{uid()}") '
                          '(effects (font (size 0.8 0.8) (thickness 0.15)) (justify mirror)))')
     back_silk = [
@@ -1210,7 +1237,18 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         (silk_revision(selected), 29.5, 1.0),
     ]
     if selected == "1.3":
-        back_silk.insert(0, ("TERM=CABLE ENDS", 5.6, 0.8))
+        back_silk = [
+            ("TERM=CABLE ENDS", 7.0, 0.8),
+            ("ID  ID0   ID1   ROLE(N4)", 17.0, 0.9),
+            ("0   OPEN  OPEN  MASTER", 19.0, 0.9),
+            ("1   GND   OPEN  A-SOUTH", 21.0, 0.9),
+            ("2   OPEN  GND   B-NORTH", 23.0, 0.9),
+            ("3   GND   GND   B-SOUTH", 25.0, 0.9),
+            ("N8 ID2 OPEN=0-3 GND=4-7; M=OPEN; SHLD=M", 29.5, 0.8),
+            ("CUT TEENSY VIN-VUSB", 10.6, 0.8),
+            ("BOARD ID: ____", 14.8, 2.0),
+            (silk_revision(selected), 31.0, 0.8),
+        ]
     legend_x = PLACE["U_MCU"][0]
     for text, y, size in back_silk:
         text_x = layout["board_id_x"] if text == "BOARD ID: ____" else legend_x
@@ -1260,6 +1298,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
             with open(source, encoding="utf-8") as f:
                 terminal = sexp.parse_one(f.read())
             reserve_terminal_wire_access(terminal)
+            trim_terminal_silkscreen(terminal, next(iter(layout["edge_placements"].values()))[1])
             atomic_write_text(destination, sexp.dumps(terminal) + "\n")
         elif os.path.abspath(source) != os.path.abspath(destination):
             with open(source, encoding="utf-8") as f:

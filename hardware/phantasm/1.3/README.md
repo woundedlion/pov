@@ -214,7 +214,11 @@ reset pull-down connections, filtered rail and signal paths still need
 routing over the preserved inner ground planes. The removed receive divider
 and C_SYNC require no local filter traces.
 The back silkscreen carries the ID truth table, N=8 line, revision stamp
-and writable board-ID field. Legend placement remains a separate layout gate.
+and writable board-ID field. Each top-bank connector has its complete pin
+legend and title on the back, with labels aligned to the rotated physical pads.
+The Teensy module outline is on the fab layer. Component graphics that cross
+the board-edge silk margin are retained on the fab layer rather than printed
+off-board; their pads and courtyards are unchanged.
 
 Route J3A to J3B as an uninterrupted pair over a continuous ground plane.
 Keep the connector-to-transceiver branch at most 20 mm and untwisted cable
