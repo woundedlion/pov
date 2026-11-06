@@ -141,6 +141,7 @@ inline int run_animation_tests() {
   HS_RUN(test_particle_system_reclaims_at_life_expiry);
   HS_RUN(test_particle_system_attractor_kills_within_radius);
   HS_RUN(test_particle_system_attractor_kill_radius_boundary);
+  HS_RUN(test_particle_surface_motion_contract);
   HS_RUN(test_particle_system_signed_axis_one_step_equivalence);
   HS_RUN(test_particle_system_signed_axis_boundaries);
   HS_RUN(test_particle_system_signed_axis_trajectory);

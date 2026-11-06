@@ -757,33 +757,19 @@ private:
       }
 
       if (active) {
-        if constexpr (SIGNED_AXIS_ATTRACTORS) {
-          HS_PLOT_STALL_START(axis_motion_start);
-          const float speed_sq = math::dot(p.velocity, p.velocity);
-          math::Vector axis = math::cross(pos, p.velocity);
-          const float axis_sq = math::dot(axis, axis);
-          constexpr float MOTION_MIN_SQ = MOTION_MIN_SPEED * MOTION_MIN_SPEED;
-          if (speed_sq > MOTION_MIN_SQ && axis_sq > MOTION_MIN_SQ) {
-            const float speed = fminf(sqrtf(speed_sq), max_delta);
-            axis *= 1.0f / sqrtf(axis_sq);
-            const math::Quaternion dq = math::make_rotation(axis, speed);
-            p.velocity = math::rotate(p.velocity, dq);
-            p.set_position(math::rotate(pos, dq));
-          }
-          HS_PLOT_STALL_STOP(signed_axis_physics, axis_motion_start);
-        } else {
-          // cross(pos, velocity) vanishes for a radial velocity; skip it.
-          float speed = p.velocity.magnitude();
-          math::Vector axis = math::cross(pos, p.velocity);
-          if (speed > MOTION_MIN_SPEED && axis.magnitude() > MOTION_MIN_SPEED) {
-            // Cap surface advance at one equatorial column's angular pitch;
-            // velocity keeps its full magnitude.
-            speed = fminf(speed, max_delta);
-            math::Quaternion dq = math::make_rotation(axis.normalized(), speed);
-            p.velocity = math::rotate(p.velocity, dq);
-            p.set_position(math::rotate(pos, dq));
-          }
+        HS_PLOT_STALL_START(axis_motion_start);
+        const float speed_sq = math::dot(p.velocity, p.velocity);
+        math::Vector axis = math::cross(pos, p.velocity);
+        const float axis_sq = math::dot(axis, axis);
+        constexpr float MOTION_MIN_SQ = MOTION_MIN_SPEED * MOTION_MIN_SPEED;
+        if (speed_sq > MOTION_MIN_SQ && axis_sq > MOTION_MIN_SQ) {
+          const float speed = fminf(sqrtf(speed_sq), max_delta);
+          axis *= 1.0f / sqrtf(axis_sq);
+          const math::Quaternion dq = math::make_rotation(axis, speed);
+          p.velocity = math::rotate(p.velocity, dq);
+          p.set_position(math::rotate(pos, dq));
         }
+        HS_PLOT_STALL_STOP(signed_axis_physics, axis_motion_start);
       }
     }
 

@@ -219,6 +219,44 @@ inline void add_signed_axis_attractors(PS &ps, float strength = 0.85f,
     ps.add_attractor(axis, strength, kill_radius, event_horizon);
 }
 
+/** @brief Surface motion preserves the tangent speed and caps its angular advance. */
+inline void test_particle_surface_motion_contract() {
+  const auto check = []<bool SignedAxis>() {
+    for (float cap : {0.001f, 0.02f}) {
+      for (float speed : {0.0f, 0.5e-6f, 1e-6f, 2e-6f, 0.005f, 0.1f, 2.0f}) {
+        uint8_t bytes[2048];
+        Arena arena(bytes, sizeof(bytes));
+        Animation::ParticleSystem<288, 1, 1, 1, 6, SignedAxis> particles;
+        particles.init(arena, 1.0f, 0.0f, 20.0f);
+        particles.set_signed_axis_attractors(false);
+        particles.motion_cap = cap;
+        particles.spawn(math::X_AXIS, {0.0f, speed, 0.0f}, 17);
+        particles.step(fake_canvas());
+        const auto &particle = particles.pool[0];
+        const float ANGLE = speed > 1e-6f ? std::min(speed, cap) : 0.0f;
+        HS_EXPECT_EQ(particles.active(), 1);
+        HS_EXPECT_EQ(particle.life, 19);
+        HS_EXPECT_NEAR(particle.position.x, cosf(ANGLE), 3e-7f);
+        HS_EXPECT_NEAR(particle.position.y, sinf(ANGLE), 3e-7f);
+        HS_EXPECT_EQ(particle.position.z, 0.0f);
+        HS_EXPECT_NEAR(particle.velocity.x, -speed * sinf(ANGLE), 5e-7f);
+        HS_EXPECT_NEAR(particle.velocity.y, speed * cosf(ANGLE), 5e-7f);
+      }
+    }
+    uint8_t bytes[2048];
+    Arena arena(bytes, sizeof(bytes));
+    Animation::ParticleSystem<288, 1, 1, 1, 6, SignedAxis> particles;
+    particles.init(arena, 1.0f, 0.0f, 20.0f);
+    particles.set_signed_axis_attractors(false);
+    particles.spawn(math::X_AXIS, math::X_AXIS, 17);
+    particles.step(fake_canvas());
+    HS_EXPECT_EQ(particles.pool[0].position, math::X_AXIS);
+    HS_EXPECT_EQ(particles.pool[0].velocity, math::X_AXIS);
+  };
+  check.template operator()<false>();
+  check.template operator()<true>();
+}
+
 /** @brief Bounds one-step signed-axis physics against the generic path. */
 inline void test_particle_system_signed_axis_one_step_equivalence() {
   constexpr int COUNT = 256;
