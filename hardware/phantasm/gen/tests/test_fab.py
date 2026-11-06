@@ -57,6 +57,7 @@ class ProjectRulesTests(unittest.TestCase):
                 fab.validate_project_rules(project)
         self.assertIn("min_clearance", str(caught.exception))
         self.assertIn("heal_clearance.py", str(caught.exception))
+        self.assertIn("on a working copy of the project, then retry", str(caught.exception))
 
     def test_rejects_relaxed_default_net_class(self):
         with tempfile.TemporaryDirectory() as directory:

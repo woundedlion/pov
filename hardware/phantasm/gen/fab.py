@@ -743,7 +743,7 @@ def validate_project_rules(project_path):
             for field, current, required in shortfalls)
         raise ProjectRulesError(
             f"{project_path} would compute DRC under relaxed constraints: "
-            f"{summary}. Run gen/heal_clearance.py before fab.py.")
+            f"{summary}. Run gen/heal_clearance.py on a working copy of the project, then retry.")
     return len(checks)
 
 
