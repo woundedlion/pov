@@ -19,17 +19,6 @@
 namespace hs_test {
 namespace interpolate_tests {
 
-/** @brief Seeded bit-pattern stream for periodic arithmetic probes. */
-struct Xorshift32 {
-  uint32_t state;
-  uint32_t operator()() {
-    state ^= state << 13;
-    state ^= state >> 17;
-    state ^= state << 5;
-    return state;
-  }
-};
-
 /** @brief Progress saturates to endpoints and passes NaN through. */
 inline void test_clamp_progress() {
   static_assert(interp::clamp_progress(-1.0f) == 0.0f);
@@ -226,7 +215,7 @@ inline void test_periodic_wrap_fmod_parity() {
   };
   check.template operator()<float>();
   check.template operator()<double>();
-  Xorshift32 next{0x72ec5217U};
+  hs::Pcg32 next(0x72ec5217U);
   for (int sample = 0; sample < 32768; ++sample) {
     const float VALUE = std::bit_cast<float>(next());
     const float PERIOD = std::bit_cast<float>(next() & 0x7fffffffU);
@@ -285,7 +274,7 @@ inline void test_shortest_periodic_fmod_parity() {
       }
     }
   }
-  Xorshift32 next{0xb4572e1dU};
+  hs::Pcg32 next(0xb4572e1dU);
   for (int sample = 0; sample < 32768; ++sample) {
     const float START = std::bit_cast<float>(next());
     const float END = std::bit_cast<float>(next());
