@@ -28,10 +28,7 @@ inline void test_row_span_covers_arc_bulge() {
     const math::Basis *pb = nullptr;
 
     if (planar) {
-      const float cx = hs::rand_f(-1, 1);
-      const float cy = hs::rand_f(-1, 1);
-      const float cz = hs::rand_f(-1, 1);
-      math::Vector center(cx, cy, cz);
+      math::Vector center = rand_cube_vector();
       if (center.length() < 0.1f)
         continue;
       basis = math::make_basis(math::Quaternion(), center.normalized());
@@ -42,14 +39,8 @@ inline void test_row_span_covers_arc_bulge() {
           math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
         continue;
     } else {
-      const float rax = hs::rand_f(-1, 1);
-      const float ray = hs::rand_f(-1, 1);
-      const float raz = hs::rand_f(-1, 1);
-      const float rbx = hs::rand_f(-1, 1);
-      const float rby = hs::rand_f(-1, 1);
-      const float rbz = hs::rand_f(-1, 1);
-      math::Vector ra(rax, ray, raz);
-      math::Vector rb(rbx, rby, rbz);
+      math::Vector ra = rand_cube_vector();
+      math::Vector rb = rand_cube_vector();
       if (ra.length() < 0.1f || rb.length() < 0.1f)
         continue;
       a = ra.normalized();
@@ -107,10 +98,7 @@ inline void test_row_span_covers_arc_bulge() {
   // Exact-antipodal geodesic edges: ground truth is the semicircle about
   // stable_perpendicular_axis.
   for (int trial = 0; trial < 500; ++trial) {
-    const float rax = hs::rand_f(-1, 1);
-    const float ray = hs::rand_f(-1, 1);
-    const float raz = hs::rand_f(-1, 1);
-    math::Vector ra(rax, ray, raz);
+    math::Vector ra = rand_cube_vector();
     if (ra.length() < 0.1f)
       continue;
     math::Vector a = ra.normalized();
@@ -163,10 +151,7 @@ inline void test_cap_may_touch_clip_is_conservative() {
     cr.margin = bounds[4];
 
     for (int trial = 0; trial < 300; ++trial) {
-      const float dx = hs::rand_f(-1, 1);
-      const float dy = hs::rand_f(-1, 1);
-      const float dz = hs::rand_f(-1, 1);
-      math::Vector d(dx, dy, dz);
+      math::Vector d = rand_cube_vector();
       if (d.length() < 0.1f)
         continue;
       const math::Vector dir = d.normalized();

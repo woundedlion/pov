@@ -95,10 +95,7 @@ inline void test_edge_fits_one_dot_is_conservative() {
     } else {
       a = rand_unit();
     }
-    const float raw_x = hs::rand_f(-1, 1);
-    const float raw_y = hs::rand_f(-1, 1);
-    const float raw_z = hs::rand_f(-1, 1);
-    math::Vector raw(raw_x, raw_y, raw_z);
+    math::Vector raw = rand_cube_vector();
     math::Vector t = raw - a * math::dot(raw, a);
     if (t.length() < 1e-3f)
       continue;

@@ -300,10 +300,7 @@ inline void test_planar_sampler_from_cull_parity() {
   constexpr float PARITY_TOL = 1e-4f;
   hs::random().seed(0xC0115A9u);
   for (int trial = 0; trial < 400; ++trial) {
-    const float normal_x = hs::rand_f(-1.0f, 1.0f);
-    const float normal_y = hs::rand_f(-1.0f, 1.0f);
-    const float normal_z = hs::rand_f(-1.0f, 1.0f);
-    math::Vector normal(normal_x, normal_y, normal_z);
+    math::Vector normal = rand_cube_vector();
     if (normal.length() < 0.01f)
       normal = math::Y_AXIS;
     const math::Basis basis =
