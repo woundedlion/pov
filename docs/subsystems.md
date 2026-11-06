@@ -1018,6 +1018,11 @@ Transformers integrate with the `MeshOps::transform()` pipeline and can be chain
 
 `FieldTransformer<ParamsT, AnimT, FieldFunc, CAPACITY>` is the scalar counterpart: entities superpose by summation instead of composing as warps, so an effect can feed the summed field into a displacement path (e.g. a `DistortedRing` shift LUT). `field(p)` sums the active entities; `field_bound()` returns a per-frame upper bound on `|field()|` for sizing conservative culls. Where overlapping bodies must dominate instead of stacking, feed the per-entity values through `DominantFieldAccumulator`, which blends them magnitude-weighted (`sum(s³)/sum(s²)`).
 
+`DisplacementField` shades every knot of the late sweep window, preserving hue
+cells used by edge interpolation. Within one ring it evaluates the exact
+zero-turn hue once and reuses it whenever the hue amount is exactly zero,
+including culled chunks. Nonzero hue amounts retain their individual evaluation.
+
 | Field | Effect |
 |---|---|
 | `BallDropTransformer` | Spherical-cap bumps that fall pole-to-pole through a frame, bowing the surface away from each cap |

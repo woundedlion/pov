@@ -1054,12 +1054,23 @@ private:
       const HueRotateBase base = make_hue_rotate_base(cache.colors[i]);
       if (mode.use_table)
         hue_table.bind(base, mode.domain, mode.cyclic);
+      Pixel zero_hue;
+      bool zero_ready = false;
       for (int k = 0; k < n; ++k) {
         if (mask[k / 32] & (uint32_t{1} << (k % 32)))
           row[k] = cache.values[index++];
         const float amount = std::fabs(row[k]) * params.hue_scale;
-        hues[k] = mode.use_table ? hue_table.sample_lazy(amount)
-                                 : hue_rotate(base, amount).color;
+        if (amount == 0.0f) {
+          if (!zero_ready) {
+            zero_hue = mode.use_table ? hue_table.sample_lazy(amount)
+                                      : hue_rotate(base, amount).color;
+            zero_ready = true;
+          }
+          hues[k] = zero_hue;
+        } else {
+          hues[k] = mode.use_table ? hue_table.sample_lazy(amount)
+                                   : hue_rotate(base, amount).color;
+        }
       }
       row[n] = row[0];
       hues[n] = hues[0];
