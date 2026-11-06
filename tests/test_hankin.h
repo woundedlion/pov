@@ -13,6 +13,7 @@
 #include "core/mesh/hankin.h"
 #include "core/mesh/solids.h"
 #include "tests/mesh_test_util.h"
+#include "tests/vec_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -51,9 +52,7 @@ inline void check_compile_hankin_invariants(size_t edges) {
 
   HS_EXPECT_EQ(compiled.base_vertices.size(), base.vertices.size());
   for (size_t i = 0; i < base.vertices.size(); ++i) {
-    HS_EXPECT_NEAR(compiled.base_vertices[i].x, base.vertices[i].x, 1e-6f);
-    HS_EXPECT_NEAR(compiled.base_vertices[i].y, base.vertices[i].y, 1e-6f);
-    HS_EXPECT_NEAR(compiled.base_vertices[i].z, base.vertices[i].z, 1e-6f);
+    HS_EXPECT_VEC(compiled.base_vertices[i], base.vertices[i], 1e-6f);
   }
 
   HS_EXPECT_EQ(compiled.static_vertices.size(), edges);
@@ -149,12 +148,8 @@ inline void test_compile_hankin_static_vertices_are_edge_midpoints() {
     const math::Vector got_m1 = compiled.static_vertices[ins.idx_m1];
     const math::Vector got_m2 = compiled.static_vertices[ins.idx_m2];
 
-    HS_EXPECT_NEAR(got_m1.x, exp_m1.x, 1e-5f);
-    HS_EXPECT_NEAR(got_m1.y, exp_m1.y, 1e-5f);
-    HS_EXPECT_NEAR(got_m1.z, exp_m1.z, 1e-5f);
-    HS_EXPECT_NEAR(got_m2.x, exp_m2.x, 1e-5f);
-    HS_EXPECT_NEAR(got_m2.y, exp_m2.y, 1e-5f);
-    HS_EXPECT_NEAR(got_m2.z, exp_m2.z, 1e-5f);
+    HS_EXPECT_VEC(got_m1, exp_m1, 1e-5f);
+    HS_EXPECT_VEC(got_m2, exp_m2, 1e-5f);
   }
 }
 
@@ -260,9 +255,7 @@ inline void test_update_hankin_flat_collapses_to_corners() {
     const auto &ins = compiled.dynamic_instructions[i];
     math::Vector expected = compiled.base_vertices[ins.v_corner].normalized();
     const math::Vector got = out.vertices[compiled.static_offset + i];
-    HS_EXPECT_NEAR(got.x, expected.x, 1e-4f);
-    HS_EXPECT_NEAR(got.y, expected.y, 1e-4f);
-    HS_EXPECT_NEAR(got.z, expected.z, 1e-4f);
+    HS_EXPECT_VEC(got, expected, 1e-4f);
   }
 }
 
@@ -297,9 +290,7 @@ inline void test_update_hankin_degenerate_edge_collapses_to_corner() {
 
   const math::Vector corner = compiled.base_vertices[ins.v_corner].normalized();
   const math::Vector got = out.vertices[compiled.static_offset + idx];
-  HS_EXPECT_NEAR(got.x, corner.x, 1e-4f);
-  HS_EXPECT_NEAR(got.y, corner.y, 1e-4f);
-  HS_EXPECT_NEAR(got.z, corner.z, 1e-4f);
+  HS_EXPECT_VEC(got, corner, 1e-4f);
 
   // Stays finite and unit-length — never NaN from normalising a zero.
   HS_EXPECT_TRUE(std::isfinite(got.x) && std::isfinite(got.y) &&
@@ -725,9 +716,7 @@ inline void test_compiled_hankin_clone_deep_copies() {
   HS_EXPECT_TRUE(dst.static_vertices.data() != src.static_vertices.data());
 
   for (size_t i = 0; i < src.base_vertices.size(); ++i) {
-    HS_EXPECT_NEAR(dst.base_vertices[i].x, src.base_vertices[i].x, 1e-6f);
-    HS_EXPECT_NEAR(dst.base_vertices[i].y, src.base_vertices[i].y, 1e-6f);
-    HS_EXPECT_NEAR(dst.base_vertices[i].z, src.base_vertices[i].z, 1e-6f);
+    HS_EXPECT_VEC(dst.base_vertices[i], src.base_vertices[i], 1e-6f);
   }
   for (size_t i = 0; i < src.faces.size(); ++i) {
     HS_EXPECT_EQ(dst.faces[i], src.faces[i]);
@@ -740,9 +729,7 @@ inline void test_compiled_hankin_clone_deep_copies() {
   MeshOps::update_hankin(dst, actual, temp, 0.4f);
   HS_EXPECT_EQ(actual.vertices.size(), expected.vertices.size());
   for (size_t i = 0; i < expected.vertices.size(); ++i) {
-    HS_EXPECT_NEAR(actual.vertices[i].x, expected.vertices[i].x, 1e-6f);
-    HS_EXPECT_NEAR(actual.vertices[i].y, expected.vertices[i].y, 1e-6f);
-    HS_EXPECT_NEAR(actual.vertices[i].z, expected.vertices[i].z, 1e-6f);
+    HS_EXPECT_VEC(actual.vertices[i], expected.vertices[i], 1e-6f);
   }
 }
 
