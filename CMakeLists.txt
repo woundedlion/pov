@@ -19,6 +19,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/engine_sources.cmake)
 
 if(EMSCRIPTEN)
   # ===========================================================================
@@ -43,10 +44,7 @@ if(EMSCRIPTEN)
   set(TARGET_NAME holosphere_wasm)
   add_executable(${TARGET_NAME}
     ${CMAKE_CURRENT_SOURCE_DIR}/targets/wasm/wasm.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/memory.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/engine/static_storage.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/spatial/reaction_graph.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/render/scan/mesh_capture.cpp)
+    ${HS_ENGINE_SOURCES})
 
   target_include_directories(${TARGET_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR})
@@ -65,7 +63,7 @@ if(EMSCRIPTEN)
   target_compile_definitions(${TARGET_NAME} PRIVATE
     HS_RUNTIME_DISPLAY_GEOMETRY=1
     HS_DISPLAY_PROFILE=0
-    HS_GLOBAL_ARENA_BYTES=524288)
+    HS_GLOBAL_ARENA_BYTES=${HS_WASM_ARENA_BYTES})
 
   # Not -Werror: emscripten system headers ride this compile line.
   target_compile_options(${TARGET_NAME} PRIVATE "-Wall" "-Wextra" "-fno-exceptions")
@@ -128,10 +126,7 @@ if(EMSCRIPTEN)
   # Node-hosted pullback capture producer; built only on request.
   add_executable(pullback_capture_wasm EXCLUDE_FROM_ALL
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/pullback_capture_native.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/memory.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/engine/static_storage.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/spatial/reaction_graph.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/render/scan/mesh_capture.cpp)
+    ${HS_ENGINE_SOURCES})
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/chain_capture_fixtures.cmake)
   hs_chain_capture_fixtures(pullback_capture_wasm "${CMAKE_CURRENT_SOURCE_DIR}")
   target_include_directories(pullback_capture_wasm PRIVATE
@@ -139,7 +134,7 @@ if(EMSCRIPTEN)
   hs_capture_feature_defines(pullback_capture_wasm)
   target_compile_definitions(pullback_capture_wasm PRIVATE
     HS_TIMELINE_MAX_ANIM_BYTES=256
-    HS_GLOBAL_ARENA_BYTES=524288)
+    HS_GLOBAL_ARENA_BYTES=${HS_WASM_ARENA_BYTES})
   target_compile_options(pullback_capture_wasm PRIVATE "-Wall" "-Wextra" "-g0")
   target_link_options(pullback_capture_wasm PRIVATE
     "-g0"
@@ -164,13 +159,12 @@ if(EMSCRIPTEN)
 
   add_executable(render_goldens_wasm EXCLUDE_FROM_ALL
     tests/run_render_goldens.cpp
-    core/memory.cpp core/engine/static_storage.cpp
-    core/spatial/reaction_graph.cpp core/render/scan/mesh_capture.cpp)
+    ${HS_ENGINE_SOURCES})
   target_include_directories(render_goldens_wasm PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
   target_compile_definitions(render_goldens_wasm PRIVATE
     ${HS_TEST_CAPABILITY_DEFINITIONS}
     HS_DISPLAY_PROFILE=0 HS_ENABLE_STRUCTURAL_AUDITS=1
-    HS_GLOBAL_ARENA_BYTES=524288
+    HS_GLOBAL_ARENA_BYTES=${HS_WASM_ARENA_BYTES}
     HS_TIMELINE_MAX_ANIM_BYTES=256 HS_SCAN_METRICS
     "HS_SHADER_CHAIN_CATALOG_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/data/shader_chain_catalog.json\""
     "HS_PROMOTED_PATTERNS_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/patterns\"")

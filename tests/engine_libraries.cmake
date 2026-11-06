@@ -37,7 +37,7 @@ endfunction()
 
 function(hs_share_test_engines)
   set(engine_sources)
-  foreach(source IN LISTS HS_ENGINE_SOURCES HS_CAPTURE_ENGINE_SOURCES)
+  foreach(source IN LISTS HS_ENGINE_SOURCES)
     file(REAL_PATH "${source}" absolute)
     list(APPEND engine_sources "${absolute}")
   endforeach()

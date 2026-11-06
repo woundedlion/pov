@@ -50,11 +50,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION
 endif()
 
 set(HS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
-set(HS_ENGINE_SOURCES
-  ${HS_ROOT}/core/memory.cpp
-  ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/spatial/reaction_graph.cpp
-  ${HS_ROOT}/core/render/scan/mesh_capture.cpp)
+include(${HS_ROOT}/cmake/engine_sources.cmake)
 set(HS_ENGINE_INCLUDES ${HS_ROOT})
 
 # The host configuration widens inline/arena budgets because 64-bit pointers
@@ -279,9 +275,7 @@ add_executable(render_goldens EXCLUDE_FROM_ALL
   ${HS_ENGINE_SOURCES})
 target_include_directories(render_goldens PRIVATE ${HS_ENGINE_INCLUDES})
 target_link_libraries(render_goldens PRIVATE hs_test_support)
-target_compile_definitions(render_goldens PRIVATE HS_SCAN_METRICS
-  "HS_SHADER_CHAIN_CATALOG_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/shader_chain_catalog.json\""
-  "HS_PROMOTED_PATTERNS_DIR=\"${HS_ROOT}/patterns\"")
+target_compile_definitions(render_goldens PRIVATE ${_hs_module_definitions})
 _hs_warnings(render_goldens)
 _hs_sanitize(render_goldens)
 
@@ -553,14 +547,9 @@ _hs_sanitize(pullback_manifest_check)
 add_test(NAME unit_pullback_manifest COMMAND pullback_manifest_check)
 
 
-set(HS_CAPTURE_ENGINE_SOURCES
-  ${HS_ROOT}/core/memory.cpp
-  ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/spatial/reaction_graph.cpp
-  ${HS_ROOT}/core/render/scan/mesh_capture.cpp)
 add_executable(pullback_capture_native
   ${HS_ROOT}/tools/pullback_capture_native.cpp
-  ${HS_CAPTURE_ENGINE_SOURCES})
+  ${HS_ENGINE_SOURCES})
 include(${HS_ROOT}/cmake/chain_capture_fixtures.cmake)
 hs_chain_capture_fixtures(pullback_capture_native "${HS_ROOT}")
 target_include_directories(pullback_capture_native PRIVATE
