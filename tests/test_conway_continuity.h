@@ -235,8 +235,7 @@ inline void test_no_empty_frame_across_cycle_joins() {
   HankinSolids<CW, CH> fx;
   fx.init();
 
-  // Two full cycles and change, so both joins are crossed more than once.
-  constexpr int FRAMES = 300;
+  constexpr int FRAMES = HankinSolids<CW, CH>::FULL_CYCLE_FRAMES;
   int empty_frames = 0;
   int first_empty = -1;
   size_t min_lit = static_cast<size_t>(CW) * CH;
