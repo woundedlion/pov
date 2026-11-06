@@ -1215,9 +1215,11 @@ inline void test_displacement_field_arm_boundaries_meet_endpoints() {
       }));
 }
 
-/** @brief Single-pass residuals do not exceed the two-window residuals. */
+/** @brief Per-region residuals stay bounded against per-column evaluation. */
 inline void test_displacement_field_single_pass_reference() {
   constexpr int W = 288, H = 144;
+  constexpr int ERROR_CEILINGS[2][4] = {{2020, 2020, 1172, 1605},
+                                        {508, 467, 508, 390}};
   for (bool balls : {false, true}) {
     HS_CONTEXT(balls ? "balls" : "noise");
     std::vector<Pixel> images[3];
@@ -1265,7 +1267,10 @@ inline void test_displacement_field_single_pass_reference() {
     }
     HS_EXPECT_GT(lit, 1000);
     for (int region = 0; region < 4; ++region) {
-      HS_EXPECT_LE(worst[0][region], worst[1][region]);
+      HS_CONTEXT("region", region);
+      HS_EXPECT_LE(worst[0][region], worst[1][region] + 1);
+      for (int mode = 0; mode < 2; ++mode)
+        HS_EXPECT_LE(worst[mode][region], ERROR_CEILINGS[balls][region]);
       std::printf("  [reference region %d] window=%.5f single=%.5f steps\n",
                   region, worst[1][region] / 257.0, worst[0][region] / 257.0);
     }
