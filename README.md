@@ -1173,7 +1173,7 @@ Each hardware target has its own `.ino` entry point in `targets/`. Install
 PlatformIO from `requirements/platformio.txt`, then build Holosphere with
 `pio run -e holosphere` from the repository root. The environment selects
 GNU C++20, the 96-by-20 canvas, Teensy 4.0 and its 600 MHz CPU clock.
-Use the shared-device upload workflow in [CONTRIBUTING.md](CONTRIBUTING.md#on-device-uploads)
+Use the shared-device upload workflow in [CONTRIBUTING.md](https://github.com/woundedlion/pov/blob/master/CONTRIBUTING.md#on-device-uploads)
 for upload and capture.
 
 Build Phantasm with `pio run -e phantasm` from the repository root. This uses
@@ -1910,6 +1910,7 @@ for module ownership and local validation commands.
 │   │   ├── kb_format.js        Byte count to kilobyte string
 │   │   ├── labels.js           Kebab-case to title case
 │   │   ├── layout.js           Mobile layout breakpoint shared with styles/index.css
+│   │   ├── module_load_guard.js Reports module-load syntax errors through the loading overlay
 │   │   ├── page_lifecycle.js   Per-frame scheduler, media-query watch, and page teardown hooks
 │   │   ├── pointer_drag.js     Pointer-capture drag on one element and its padding-box rect
 │   │   ├── slider.js           Labelled range slider with live readout, and a keyboard ARIA proxy for painted sliders
