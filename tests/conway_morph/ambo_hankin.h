@@ -52,6 +52,11 @@ inline PolyMesh probe_ticosa_hk54(Arena &a, Arena &b) {
   return recipe_step_seed<Solids::TRUNCATED_ICOSAHEDRON_HK54_AMBO_HK72_RECIPE,
                           Solids::Op::AMBO, 0>(a, b);
 }
+inline PolyMesh probe_icosa_truncate25_hk60(Arena &a, Arena &b) {
+  return recipe_step_seed<
+      Solids::ICOSAHEDRON_TRUNCATE25_HK60_AMBO_RELAX100_HK60_RECIPE,
+      Solids::Op::AMBO, 0>(a, b);
+}
 
 inline constexpr HankinAmboSite HANKIN_AMBO_SITES[] = {
     {"dodecahedron_hk62", probe_dodeca_hk62},
@@ -63,6 +68,7 @@ inline constexpr HankinAmboSite HANKIN_AMBO_SITES[] = {
     {"octahedron_hk34", probe_octa_hk34},
     {"rhombicuboctahedron_hk63", probe_rhombicubocta_hk63},
     {"truncatedIcosahedron_hk54", probe_ticosa_hk54},
+    {"icosahedron_truncate25_hk60", probe_icosa_truncate25_hk60},
 };
 
 /**
