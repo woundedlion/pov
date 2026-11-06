@@ -38,7 +38,9 @@ _SHDR_SIZE = 40
 
 
 def make_elf(sections, *, ei_class=tst._ELFCLASS32, ei_data=tst._ELFDATA2LSB,
-             magic=tst._ELF_MAGIC, shstrndx=None, shnum=None):
+             magic=tst._ELF_MAGIC, shstrndx=None, shnum=None, shoff=None,
+             shentsize=_SHDR_SIZE, strtab_offset=None, name_offset=None,
+             terminate_names=True):
     """Assemble a minimal ELF32 image carrying `sections` = {name: sh_size}.
 
     A sequence of (name, sh_size) pairs also works, for an image that carries a
@@ -51,21 +53,26 @@ def make_elf(sections, *, ei_class=tst._ELFCLASS32, ei_data=tst._ELFDATA2LSB,
     for name in names:
         offsets[name] = len(strtab)
         strtab += name.encode() + b"\0"
+    if not terminate_names:
+        strtab.pop()
 
     str_off = _EHDR_SIZE
-    shoff = str_off + len(strtab)
-    shoff += -shoff % 4
+    table_offset = str_off + len(strtab)
+    table_offset += -table_offset % 4
 
     headers = [b"\0" * _SHDR_SIZE]                       # SHN_UNDEF
     for name, size in items:
-        headers.append(struct.pack(tst._SHDR32, offsets[name], 1, 0x3, 0, 0,
+        headers.append(struct.pack(tst._SHDR32, offsets[name] if name_offset is None else name_offset,
+                                   1, 0x3, 0, 0,
                                    size, 0, 0, 4, 0))
     headers.append(struct.pack(tst._SHDR32, offsets[".shstrtab"], 3, 0, 0,
-                               str_off, len(strtab), 0, 0, 1, 0))
+                               str_off if strtab_offset is None else strtab_offset,
+                               len(strtab), 0, 0, 1, 0))
 
     out = bytearray(magic + bytes([ei_class, ei_data, 1, 0]) + b"\0" * 8)
-    out += struct.pack(tst._EHDR32, 2, 40, 1, 0, 0, shoff, 0, _EHDR_SIZE, 0, 0,
-                       _SHDR_SIZE,
+    out += struct.pack(tst._EHDR32, 2, 40, 1, 0, 0,
+                       table_offset if shoff is None else shoff, 0, _EHDR_SIZE, 0, 0,
+                       shentsize,
                        len(headers) if shnum is None else shnum,
                        len(headers) - 1 if shstrndx is None else shstrndx)
     assert len(out) == _EHDR_SIZE
@@ -125,8 +132,20 @@ class ElfParser(unittest.TestCase):
         self.assertEqual(regions["itcm"], 12)
 
     def test_rejects_non_elf(self):
-        with self.assertRaises(tst.ElfFormatError):
-            tst.parse_elf_section_sizes(b"MZ\x90\x00" + b"\0" * 512)
+        self.assertEqual(tst.parse_elf_section_sizes(make_elf({".text.itcm": 8}))[".text.itcm"], 8)
+        with self.assertRaisesRegex(tst.ElfFormatError, "bad ELF magic"):
+            tst.parse_elf_section_sizes(make_elf(FIRMWARE, magic=b"MZ\x90\x00"))
+
+    def test_rejects_malformed_section_tables_and_names(self):
+        self.assertEqual(tst.parse_elf_section_sizes(make_elf({".text.itcm": 8}))[".text.itcm"], 8)
+        for options, diagnostic in (
+                ({"shoff": 0}, "no section header table"),
+                ({"shentsize": _SHDR_SIZE - 1}, "section header entry size 39 too small"),
+                ({"strtab_offset": 1_000_000}, "section-name string table runs past end of file"),
+                ({"name_offset": 1_000_000}, "section name offset 1000000 outside the string table"),
+                ({"terminate_names": False}, "unterminated section name")):
+            with self.subTest(options=options), self.assertRaisesRegex(tst.ElfFormatError, diagnostic):
+                tst.parse_elf_section_sizes(make_elf(FIRMWARE, **options))
 
     def test_rejects_elf64(self):
         with self.assertRaises(tst.ElfFormatError):
