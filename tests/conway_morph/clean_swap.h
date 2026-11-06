@@ -41,41 +41,33 @@ inline void test_truncate_near_half_merges_onto_ambo() {
 inline void test_ops_at_t_eps_primary_faces_match_seed() {
   for (MorphSeed s : MORPH_SEEDS) {
     HS_CONTEXT(seed_name(s));
-    {
+    auto check = [&](auto op, int corners, float tolerance) {
       Arena target(morph_target_buf, sizeof(morph_target_buf));
       Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
       Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
-      PolyMesh seed = build_morph_seed(s, aux, temp);
-      PolyMesh out = MeshOps::truncate(seed, target, temp, T_EPS);
-      check_primary_faces_match_seed(seed, out, /*corners_per_source*/ 2,
-                                     PRIMARY_CORNER_TOL_TRUNCATE);
-    }
-    {
-      Arena target(morph_target_buf, sizeof(morph_target_buf));
-      Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
-      Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
-      PolyMesh seed = build_morph_seed(s, aux, temp);
-      PolyMesh out = MeshOps::expand(seed, target, temp, T_EPS);
-      check_primary_faces_match_seed(seed, out, /*corners_per_source*/ 1,
-                                     PRIMARY_CORNER_TOL_SINGLE);
-    }
-    {
-      Arena target(morph_target_buf, sizeof(morph_target_buf));
-      Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
-      Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
-      PolyMesh seed = build_morph_seed(s, aux, temp);
-      PolyMesh out = MeshOps::snub(seed, target, temp, T_EPS, 0.0f);
-      check_primary_faces_match_seed(seed, out, /*corners_per_source*/ 1,
-                                     PRIMARY_CORNER_TOL_SINGLE);
-    }
-    {
-      Arena target(morph_target_buf, sizeof(morph_target_buf));
-      Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
-      Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
-      PolyMesh seed = build_morph_seed(s, aux, temp);
-      PolyMesh out = MeshOps::chamfer(seed, target, temp, T_EPS);
-      check_primary_faces_match_seed(seed, out, /*corners_per_source*/ 1,
-                                     PRIMARY_CORNER_TOL_SINGLE);
-    }
+      const PolyMesh seed = build_morph_seed(s, aux, temp);
+      const PolyMesh out = op(seed, target, temp);
+      check_primary_faces_match_seed(seed, out, corners, tolerance);
+    };
+    check(
+        [](const PolyMesh &seed, Arena &target, Arena &temp) {
+          return MeshOps::truncate(seed, target, temp, T_EPS);
+        },
+        2, PRIMARY_CORNER_TOL_TRUNCATE);
+    check(
+        [](const PolyMesh &seed, Arena &target, Arena &temp) {
+          return MeshOps::expand(seed, target, temp, T_EPS);
+        },
+        1, PRIMARY_CORNER_TOL_SINGLE);
+    check(
+        [](const PolyMesh &seed, Arena &target, Arena &temp) {
+          return MeshOps::snub(seed, target, temp, T_EPS, 0.0f);
+        },
+        1, PRIMARY_CORNER_TOL_SINGLE);
+    check(
+        [](const PolyMesh &seed, Arena &target, Arena &temp) {
+          return MeshOps::chamfer(seed, target, temp, T_EPS);
+        },
+        1, PRIMARY_CORNER_TOL_SINGLE);
   }
 }
