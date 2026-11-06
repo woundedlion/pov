@@ -223,6 +223,25 @@ inline void test_callable_return_constraints() {
   static_assert(!std::is_constructible_v<Fn<int(int), 24>, Fn<int(int), 16>>);
   static_assert(!std::is_assignable_v<Fn<int(int), 24> &, Fn<int(int), 16>>);
 
+  struct Members {
+    int value = 7;
+    int call(int offset) const { return value + offset; }
+  };
+  using MemberFunction = decltype(&Members::call);
+  using MemberData = decltype(&Members::value);
+  static_assert(std::is_invocable_r_v<int, MemberFunction, Members &, int>);
+  static_assert(std::is_invocable_r_v<int, MemberData, Members &>);
+  static_assert(
+      !std::is_constructible_v<Fn<int(Members &, int)>, MemberFunction>);
+  static_assert(
+      !std::is_assignable_v<Fn<int(Members &, int)> &, MemberFunction>);
+  static_assert(!std::is_constructible_v<Fn<int(Members &)>, MemberData>);
+  static_assert(!std::is_assignable_v<Fn<int(Members &)> &, MemberData>);
+  Fn<int(const Members &)> read_member = [](const Members &object) {
+    return object.value;
+  };
+  HS_EXPECT_EQ(read_member(Members{}), 7);
+
   int called_with = 0;
   auto returns_int = [&called_with](int value) {
     called_with = value;

@@ -159,11 +159,13 @@ public:
 
   /**
    * @brief Constructs from any compatible callable, stored inline.
-   * @param c Callable invocable as R(Args...); copied/moved into the buffer.
+   * @param c Callable invoked as c(args...); member pointers are unsupported.
+   * Copied/moved into the buffer.
    */
   template <typename C,
             typename = std::enable_if_t<
                 !detail::is_inplace_function<std::decay_t<C>>::value &&
+                !std::is_member_pointer_v<std::decay_t<C>> &&
                 std::is_invocable_r_v<R, std::decay_t<C> &, Args...>>>
   inplace_function(C &&c) {
     using D = std::decay_t<C>;
@@ -193,7 +195,7 @@ public:
                   "Store only nothrow-copyable callables — any qualifying type "
                   "is accepted (in practice lambdas capturing PODs/pointers, "
                   "which are trivially so).");
-    if constexpr (std::is_pointer_v<D> || std::is_member_pointer_v<D>) {
+    if constexpr (std::is_pointer_v<D>) {
       if (c == nullptr)
         return;
     }
@@ -235,6 +237,7 @@ public:
   template <typename C,
             typename = std::enable_if_t<
                 !detail::is_inplace_function<std::decay_t<C>>::value &&
+                !std::is_member_pointer_v<std::decay_t<C>> &&
                 std::is_invocable_r_v<R, std::decay_t<C> &, Args...>>>
   inplace_function &operator=(C &&c) {
     *this = inplace_function(std::forward<C>(c));
