@@ -216,6 +216,8 @@ class TestParsers(unittest.TestCase):
         self.assertEqual(syms["_ZN6Effect8buffer_aE"].value, 0x20200000)
         self.assertEqual(syms["_ZN6Effect8buffer_aE"].region, "OCRAM")
         self.assertEqual(syms["_ZL18global_arena_block"].size, 305152)
+        self.assertEqual(syms["_ZL18global_arena_block"].ndx, "5")
+        self.assertEqual(syms["_ZN6Effect8buffer_aE"].ndx, "6")
 
 
 class TestGoodBuildPasses(unittest.TestCase):
@@ -230,6 +232,15 @@ class TestGoodBuildPasses(unittest.TestCase):
 
 class TestLayoutInvariantsFail(unittest.TestCase):
     """One deliberately-broken fixture per invariant; each must turn the gate red."""
+
+    def test_symbol_size_limits_include_the_boundaries(self):
+        budget = {"symbols": {"arena": {"name": "arena", "min_bytes": 8, "max_bytes": 16}}}
+        for size, codes in ((7, ["symbol-too-small"]), (8, []),
+                            (16, []), (17, ["symbol-too-large"])):
+            with self.subTest(size=size):
+                symbol = tg.Symbol(num=1, value=0x20000000, size=size, type="OBJECT",
+                                   bind="LOCAL", ndx="5", name="arena")
+                self.assertEqual(_codes(tg.evaluate("fixture", budget, {}, [symbol], {})), codes)
 
     def test_arena_below_its_minimum_fails(self):
         sizes = tg.parse_teensy_size(_read("good_teensy_size.txt"))
@@ -260,6 +271,7 @@ class TestLayoutInvariantsFail(unittest.TestCase):
         self.assertFalse(result.passed)
         self.assertIn("symbol-wrong-region", _codes(result))
         self.assertTrue(any("framebuffer" in v.message for v in result.violations))
+        self.assertTrue(any("section .bss" in v.message for v in result.violations))
 
     def test_reaction_graph_dropped_const_lands_in_ram(self):
         result = _eval("phantasm", "good_teensy_size.txt",
@@ -310,13 +322,11 @@ class TestLayoutInvariantsFail(unittest.TestCase):
         self.assertIn("symbol-not-found", _codes(result))
 
     def test_und_reference_row_does_not_trip_magnitude_or_region(self):
-        # A same-named UND row (size 0, addr 0) must not fire symbol-too-small or
-        # symbol-wrong-region.
         sizes = tg.parse_teensy_size(_read("good_teensy_size.txt"))
         sections = tg.parse_readelf_sections(_read("good_readelf_secs.txt"))
         symbols = tg.parse_readelf_symbols(_read("good_readelf_syms.txt"))
         symbols.append(tg.Symbol(
-            num=9999, value=0, size=0, type="NOTYPE", bind="GLOBAL",
+            num=9999, value=0, size=1, type="NOTYPE", bind="GLOBAL",
             ndx="UND", name="_ZL18global_arena_block"))
         result = tg.evaluate("holosphere", BUDGETS["holosphere"], sizes,
                              symbols, sections)
@@ -771,6 +781,14 @@ class TestComponentCeilings(unittest.TestCase):
 
     _STATIC_BUDGET = {"regions": {"ram1": {
         "components": {"code": {"max_bytes": 100000}}}}}
+
+    def test_static_component_ceiling_includes_the_limit(self):
+        cap = self._STATIC_BUDGET["regions"]["ram1"]["components"]["code"]["max_bytes"]
+        for value, codes in ((cap, []), (cap + 1, ["component-over-budget"])):
+            with self.subTest(value=value):
+                sizes = tg.parse_teensy_size(_read("good_teensy_size.txt"))
+                sizes["ram1"]["components"]["code"] = value
+                self.assertEqual(_codes(tg.evaluate("fixture", self._STATIC_BUDGET, sizes, [], {})), codes)
 
     def test_code_component_over_static_ceiling_fails(self):
         # Static max_bytes form: only the component fires, nothing regional.
@@ -1378,6 +1396,15 @@ class TestGateExtra(unittest.TestCase):
         cands = self.ge._teensy_size_candidates(self._env("/pkg/tool-teensy"))
         self.assertEqual(cands[0], os.path.join("/pkg/tool-teensy", "teensy_size"))
         self.assertEqual(cands[-2:], ["teensy_size", "teensy_size.exe"])
+
+    def test_candidates_include_the_project_packages_directory(self):
+        env = self._env("/pkg/tool-teensy")
+        env["PROJECT_PACKAGES_DIR"] = os.path.join("/project", "packages")
+        cands = self.ge._teensy_size_candidates(env)
+        for name in ("teensy_size", "teensy_size.exe"):
+            candidate = os.path.join(env["PROJECT_PACKAGES_DIR"], "tool-teensy", name)
+            self.assertIn(candidate, cands)
+            self.assertLess(cands.index(candidate), cands.index(name))
 
     def test_candidates_include_the_default_core_dir(self):
         # No PlatformIO platform object (plain SCons env): the gate still probes
