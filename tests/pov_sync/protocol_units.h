@@ -6,10 +6,7 @@
 // ── Pure helpers ────────────────────────────────────────────────────────────
 
 inline void expect_rejects(const Config &config, const char *clause) {
-  const char *reason = config.valid();
-  HS_EXPECT_TRUE(reason != nullptr);
-  if (reason)
-    HS_EXPECT_EQ(std::strcmp(reason, clause), 0);
+  HS_EXPECT_STREQ(config.valid(), clause);
 }
 
 /**
