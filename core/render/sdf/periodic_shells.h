@@ -10,6 +10,10 @@
 #include "core/render/ray/camera.h"
 #include "core/render/ray/shade.h"
 #include "core/render/sdf/framework.h"
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <utility>
 
 namespace SDF {
 

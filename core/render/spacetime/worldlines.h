@@ -13,10 +13,8 @@
 #include "core/render/spacetime/motion.h"
 #include "core/memory.h"
 #include "core/platform/attributes.h"
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <utility>
 
 namespace Spacetime {
 
