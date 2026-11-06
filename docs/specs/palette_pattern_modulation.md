@@ -295,8 +295,11 @@ source and the planar/sphere catalogue extracted for pullback:
 | Displacement | Direct accumulated path length from the incoming color carrier. No direction normalization, cube, frequency or moving source phase. |
 
 New sphere sine/interference/grid phases use turns per engine update, including
-negative speeds, and repeat after one turn. Existing source clocks keep their
-own units, periods and rate coupling; do not force them into one float clock.
+negative speeds, and repeat after one turn. Turn-valued noise and
+`PhaseClockModel` clocks use `advance_turn_phase`, which reduces noncanonical
+phases and large increments independently before addition.
+Existing source clocks keep their own units, periods and rate coupling; do not
+force them into one float clock.
 Modulation speed controls share noise limits of +/-0.001 turns per update and
 analytic limits of +/-1 turn per update across workbench schemas and composed
 sliders. Composed unit-mechanic amount sliders use [0, 1]; the workbench amount

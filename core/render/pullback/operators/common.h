@@ -123,7 +123,7 @@ template <typename StateT> struct PhaseClockModel : ValueStateModel<StateT> {
     if constexpr (requires { params.noise_time_rate; })
       state.phase = Pattern::advance_noise_phase(state.phase, params);
     else
-      state.phase = math::wrap_t(state.phase + params.speed);
+      state.phase = Pattern::advance_turn_phase(state.phase, params.speed);
   }
 };
 

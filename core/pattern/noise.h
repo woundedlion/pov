@@ -102,7 +102,7 @@ struct SphereNoise {
  * @param params Noise source controls.
  * @return Wrapped next phase. */
 inline float advance_noise_phase(float phase, const NoiseSourceParams &params) {
-  return math::wrap_t(phase + params.noise_time_rate);
+  return advance_turn_phase(phase, params.noise_time_rate);
 }
 
 /** @brief Pure projected-plane octave noise with a turn-valued loop clock. */

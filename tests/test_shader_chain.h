@@ -873,6 +873,7 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_large_finite_path_length);
   HS_RUN(test_shader_chain_composed_noise_domain);
   HS_RUN(test_shader_chain_noise_operator_domain);
+  HS_RUN(test_shader_chain_turn_clock_reduction);
   HS_RUN(test_shader_chain_parity_sample_projected_noise);
   HS_RUN(test_shader_chain_spherical_noise_policy);
   HS_RUN(test_shader_chain_spherical_cells_policy);
