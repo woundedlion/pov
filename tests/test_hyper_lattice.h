@@ -1371,7 +1371,7 @@ inline void test_frame_equality_ignores_padding() {
   HS_EXPECT_FALSE(from == to);
 }
 
-inline void test_presets_and_pipeline() {
+inline void test_presets_are_valid_and_distinct() {
   using Effect = HyperLattice<96, 20>;
   for (size_t index = 0; index < Effect::PRESET_IDS.size(); ++index)
     HS_EXPECT_TRUE(Effect::valid_params(Effect::preset(index).params));
@@ -1530,7 +1530,8 @@ inline void test_family_segues() {
   HS_EXPECT_EQ(effect.getPresetIndex(), Effect::WIDE_PRESET_INDEX);
 }
 
-inline void test_dimension_dropdown_and_mode_lerp() {
+/** @brief Near Fade exposes live controls and interpolates linearly. */
+inline void test_near_fade_control() {
   reset_globals();
   using Effect = HyperLatticeWhiteBox::Effect;
   Effect effect;
@@ -1552,6 +1553,13 @@ inline void test_dimension_dropdown_and_mode_lerp() {
     fade_blended.near_fade = invalid;
     HS_EXPECT_FALSE(Effect::valid_params(fade_blended));
   }
+}
+
+inline void test_dimension_dropdown_and_mode_lerp() {
+  reset_globals();
+  using Effect = HyperLatticeWhiteBox::Effect;
+  Effect effect;
+  effect.init();
   const auto *cell_size = required_param(effect, "Cell Size");
   if (!cell_size)
     return;
@@ -2390,8 +2398,9 @@ inline int run_hyper_lattice_tests() {
   HS_RUN(test_column_time_toggle);
   HS_RUN(test_column_time_parameter_motion);
   HS_RUN(test_frame_equality_ignores_padding);
-  HS_RUN(test_presets_and_pipeline);
+  HS_RUN(test_presets_are_valid_and_distinct);
   HS_RUN(test_configuration_adoption_and_snapshots);
+  HS_RUN(test_near_fade_control);
   HS_RUN(test_dimension_dropdown_and_mode_lerp);
   HS_RUN(test_single_shell);
   HS_RUN(test_family_segues);
