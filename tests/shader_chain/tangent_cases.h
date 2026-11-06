@@ -66,11 +66,13 @@ inline void test_tangent_integer_controls() {
     HS_EXPECT_EQ(order->get_requested(), 3.0f);
   }
   const auto *op = require_operator(In::Op::DisplacePotential::ID);
+  if (!op)
+    return;
   for (const auto &field : op->schema_span())
     if (std::string_view(field.id) == "term-1-l" ||
         std::string_view(field.id) == "term-1-m") {
       HS_EXPECT_TRUE(field.topology);
-      HS_EXPECT_EQ(std::string_view(field.gated_by), "term-1-type");
+      HS_EXPECT_STREQ(field.gated_by, "term-1-type");
       HS_EXPECT_EQ(field.gate_values, 1);
     }
   HS_EXPECT_EQ(effect.updateParameter("field.term-1-l", 3.0f),

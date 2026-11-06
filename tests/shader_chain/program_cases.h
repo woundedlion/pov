@@ -529,10 +529,14 @@ inline void test_shader_chain_schema_and_field_ids() {
   for (const char *field : {"cell-shape", "cell-softness", "cell-radius",
                             "line-thickness", "line-softness"}) {
     const In::ParamFieldInfo *gated = schema_field(tessellation, field);
-    HS_EXPECT_TRUE(gated != nullptr &&
-                   std::string_view(gated->gated_by) == "fill");
+    HS_EXPECT_TRUE(gated != nullptr);
+    if (gated)
+      HS_EXPECT_STREQ(gated->gated_by, "fill");
   }
-  HS_EXPECT_TRUE(schema_field(tessellation, "cell-scale")->gated_by == nullptr);
+  const auto *cell_scale = schema_field(tessellation, "cell-scale");
+  HS_EXPECT_TRUE(cell_scale != nullptr);
+  if (cell_scale)
+    HS_EXPECT_EQ(cell_scale->gated_by, nullptr);
   const In::ParamFieldInfo *projected_basis =
       schema_field(*In::find_operator("sample.projected-noise.v2"), "basis");
   HS_EXPECT_TRUE(projected_basis != nullptr);
