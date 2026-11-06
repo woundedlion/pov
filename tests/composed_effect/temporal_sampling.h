@@ -491,12 +491,12 @@ inline void test_temporal_affine_cycle() {
           warp, phase, 0.3f, Pullback::square_lattice(1.2f));
       const float CYCLE = cosf(math::TWO_PI_F * math::wrap_t(phase));
       HS_EXPECT_NEAR(
-          actual.transform.affine.inverse_scale_x,
+          actual.affine.inverse_scale_x,
           warp.scale_x == 1.0f ? 1.0f : 1.0f / powf(warp.scale_x, CYCLE), 0.0f);
       HS_EXPECT_NEAR(
-          actual.transform.affine.inverse_scale_y,
+          actual.affine.inverse_scale_y,
           warp.scale_y == 1.0f ? 1.0f : 1.0f / powf(warp.scale_y, CYCLE), 0.0f);
-      HS_EXPECT_NEAR(actual.transform.affine.shear, warp.shear * CYCLE, 0.0f);
+      HS_EXPECT_NEAR(actual.affine.shear, warp.shear * CYCLE, 0.0f);
     }
   }
 }

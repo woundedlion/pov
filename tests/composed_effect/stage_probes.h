@@ -308,8 +308,8 @@ inline void test_composed_affine_named_source() {
   warp.translation_y = -8.0f;
   frame.resources.template get<"affine">().phase = 0.25f;
   const auto prepared = Provider::prepare(frame);
-  HS_EXPECT_NEAR(prepared.transform.affine.translation_x, 0.5f, 1e-6f);
-  HS_EXPECT_NEAR(prepared.transform.affine.translation_y, -1.0f, 1e-6f);
+  HS_EXPECT_NEAR(prepared.affine.translation_x, 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(prepared.affine.translation_y, -1.0f, 1e-6f);
 }
 
 /** @brief A general-form affine warp before a source with no lattice. */

@@ -385,11 +385,11 @@ inline void test_shader_chain_affine_hex_lattice() {
   PB::PlaneSample input{};
   input.sphere = math::UP;
   const auto turn = Model::prepare(ctx, params, {0.5f, 0.0f}, lattice);
-  HS_EXPECT_NEAR(turn.transform.affine.translation_x,
-                 0.5f * 2.0f * (0.3f + 2.0f * 0.15f), 1e-6f);
-  HS_EXPECT_NEAR(turn.transform.affine.translation_y,
+  HS_EXPECT_NEAR(turn.affine.translation_x, 0.5f * 2.0f * (0.3f + 2.0f * 0.15f),
+                 1e-6f);
+  HS_EXPECT_NEAR(turn.affine.translation_y,
                  0.5f * 2.0f * 2.0f * 0.15f * std::sqrt(3.0f), 1e-6f);
-  HS_EXPECT_EQ(turn.transform.affine.repeat.reduction,
+  HS_EXPECT_EQ(turn.affine.repeat.reduction,
                PB::Warp::RepeatReduction::GENERAL);
   const PB::TranslationLattice repeat{{0.6f, 0.0f},
                                       {0.3f, 0.3f * std::sqrt(3.0f)}};
@@ -466,7 +466,7 @@ inline void test_shader_chain_affine_repeat_cells() {
   params.rotation_rate = 0.4f;
   const auto from = Model::prepare(ctx, params, {0.999999f, 0.6f}, downstream);
   const auto to = Model::prepare(ctx, params, {0.0f, 0.6f}, downstream);
-  HS_EXPECT_NEAR(to.transform.affine.repeat.a.re, 0.75f, 1e-7f);
+  HS_EXPECT_NEAR(to.affine.repeat.a.re, 0.75f, 1e-7f);
   float longest = 0.0f;
   for (int index = 0; index < 41; ++index) {
     PB::PlaneSample input{};
@@ -558,7 +558,7 @@ inline void test_shader_chain_affine_reads_next_lattice() {
   const auto translation = [&](size_t index) {
     return reinterpret_cast<const PB::Warp::PreparedAffineSlot *>(
                program.prepared_block(index))
-        ->transform.affine.translation_x;
+        ->affine.translation_x;
   };
   HS_EXPECT_NEAR(translation(1), 1.5f, 1e-7f);
   HS_EXPECT_NEAR(translation(2), 0.125f, 1e-7f);
@@ -605,7 +605,7 @@ inline void test_shader_chain_affine_column_lattice() {
   const auto &prepared =
       *reinterpret_cast<const PB::Warp::PreparedAffineSlot *>(
           program.prepared_block(1));
-  HS_EXPECT_NEAR(prepared.transform.affine.translation_x, 0.125f, 1e-6f);
+  HS_EXPECT_NEAR(prepared.affine.translation_x, 0.125f, 1e-6f);
   program.prepare(ctx);
 }
 

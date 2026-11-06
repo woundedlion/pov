@@ -1542,29 +1542,25 @@ inline void test_pullback_warp_phase_loop() {
   const auto mirror_0 = Pullback::Warp::prepare(mirror, 0.0f);
   const auto mirror_1 = Pullback::Warp::prepare(mirror, 1.0f);
   const auto mirror_mid = Pullback::Warp::prepare(mirror, 0.25f);
-  HS_EXPECT_GT(std::abs(mirror_mid.transform.mirror.offset_x -
-                        mirror_0.transform.mirror.offset_x),
+  HS_EXPECT_GT(std::abs(mirror_mid.mirror.offset_x - mirror_0.mirror.offset_x),
                0.1f);
-  HS_EXPECT_NEAR(mirror_0.transform.mirror.offset_x,
-                 mirror_1.transform.mirror.offset_x, 1e-6f);
-  HS_EXPECT_NEAR(mirror_0.transform.mirror.offset_y,
-                 mirror_1.transform.mirror.offset_y, 1e-6f);
+  HS_EXPECT_NEAR(mirror_0.mirror.offset_x, mirror_1.mirror.offset_x, 1e-6f);
+  HS_EXPECT_NEAR(mirror_0.mirror.offset_y, mirror_1.mirror.offset_y, 1e-6f);
 
   Pullback::Warp::VectorNoiseParams vector;
   vector.vector_angle = 0.4f;
   const auto vector_0 = Pullback::Warp::prepare(vector, 0.0f);
   const auto vector_1 = Pullback::Warp::prepare(vector, 1.0f);
   const auto vector_mid = Pullback::Warp::prepare(vector, 0.25f);
-  HS_EXPECT_GT((vector_mid.transform.noise_loop.offset -
-                vector_0.transform.noise_loop.offset)
-                   .length(),
-               0.1f);
-  HS_EXPECT_NEAR(vector_0.transform.noise_loop.offset.x,
-                 vector_1.transform.noise_loop.offset.x, 1e-6f);
-  HS_EXPECT_NEAR(vector_0.transform.noise_loop.offset.y,
-                 vector_1.transform.noise_loop.offset.y, 1e-6f);
-  HS_EXPECT_NEAR(vector_0.transform.noise_loop.offset.z,
-                 vector_1.transform.noise_loop.offset.z, 1e-6f);
+  HS_EXPECT_GT(
+      (vector_mid.noise_loop.offset - vector_0.noise_loop.offset).length(),
+      0.1f);
+  HS_EXPECT_NEAR(vector_0.noise_loop.offset.x, vector_1.noise_loop.offset.x,
+                 1e-6f);
+  HS_EXPECT_NEAR(vector_0.noise_loop.offset.y, vector_1.noise_loop.offset.y,
+                 1e-6f);
+  HS_EXPECT_NEAR(vector_0.noise_loop.offset.z, vector_1.noise_loop.offset.z,
+                 1e-6f);
   const math::Vector curl_0 = math::noise_projected_loop_offset(0.0f);
   const math::Vector curl_1 = math::noise_projected_loop_offset(1.0f);
   HS_EXPECT_GT((math::noise_projected_loop_offset(0.25f) - curl_0).length(),
@@ -1580,13 +1576,10 @@ inline void test_pullback_warp_phase_loop() {
   const auto vortex_0 = Pullback::Warp::prepare(vortex, 0.0f);
   const auto vortex_1 = Pullback::Warp::prepare(vortex, 1.0f);
   const auto vortex_mid = Pullback::Warp::prepare(vortex, 0.25f);
-  HS_EXPECT_GT(std::abs(vortex_mid.transform.vortex.center_x -
-                        vortex_0.transform.vortex.center_x),
+  HS_EXPECT_GT(std::abs(vortex_mid.vortex.center_x - vortex_0.vortex.center_x),
                0.1f);
-  HS_EXPECT_NEAR(vortex_0.transform.vortex.center_x,
-                 vortex_1.transform.vortex.center_x, 1e-6f);
-  HS_EXPECT_NEAR(vortex_0.transform.vortex.center_y,
-                 vortex_1.transform.vortex.center_y, 1e-6f);
+  HS_EXPECT_NEAR(vortex_0.vortex.center_x, vortex_1.vortex.center_x, 1e-6f);
+  HS_EXPECT_NEAR(vortex_0.vortex.center_y, vortex_1.vortex.center_y, 1e-6f);
 
   Pullback::Warp::AffineParams affine;
   affine.translation_x = 2.0f;
@@ -1600,19 +1593,18 @@ inline void test_pullback_warp_phase_loop() {
                                                 Pullback::square_lattice(2.0f));
   const auto affine_mid = Pullback::Warp::prepare(
       affine, 0.25f, 0.6f, Pullback::square_lattice(2.0f));
-  HS_EXPECT_GT(std::abs(affine_mid.transform.affine.translation_x -
-                        affine_0.transform.affine.translation_x),
-               0.1f);
-  HS_EXPECT_NEAR(affine_0.transform.affine.translation_x,
-                 affine_1.transform.affine.translation_x, 1e-6f);
-  HS_EXPECT_NEAR(affine_0.transform.affine.translation_y,
-                 affine_1.transform.affine.translation_y, 1e-6f);
-  HS_EXPECT_NEAR(affine_0.transform.affine.inverse_scale_x,
-                 affine_1.transform.affine.inverse_scale_x, 1e-6f);
-  HS_EXPECT_NEAR(affine_0.transform.affine.inverse_scale_y,
-                 affine_1.transform.affine.inverse_scale_y, 1e-6f);
-  HS_EXPECT_NEAR(affine_0.transform.affine.shear,
-                 affine_1.transform.affine.shear, 1e-6f);
+  HS_EXPECT_GT(
+      std::abs(affine_mid.affine.translation_x - affine_0.affine.translation_x),
+      0.1f);
+  HS_EXPECT_NEAR(affine_0.affine.translation_x, affine_1.affine.translation_x,
+                 1e-6f);
+  HS_EXPECT_NEAR(affine_0.affine.translation_y, affine_1.affine.translation_y,
+                 1e-6f);
+  HS_EXPECT_NEAR(affine_0.affine.inverse_scale_x,
+                 affine_1.affine.inverse_scale_x, 1e-6f);
+  HS_EXPECT_NEAR(affine_0.affine.inverse_scale_y,
+                 affine_1.affine.inverse_scale_y, 1e-6f);
+  HS_EXPECT_NEAR(affine_0.affine.shear, affine_1.affine.shear, 1e-6f);
 }
 
 /** @brief Each affine form matches the general form at identity values
@@ -1656,8 +1648,8 @@ inline void check_affine_form_matches_general() {
           prepare<Form, false>(params, phase, rotation, lattice);
       const auto repeated =
           prepare<Form, true>(params, phase, rotation, lattice);
-      const auto &expected = general.transform.affine.repeat;
-      const auto &actual = repeated.transform.affine.repeat;
+      const auto &expected = general.affine.repeat;
+      const auto &actual = repeated.affine.repeat;
       HS_EXPECT_TRUE(actual.a == expected.a && actual.b == expected.b &&
                      actual.dual_a == expected.dual_a &&
                      actual.dual_b == expected.dual_b &&

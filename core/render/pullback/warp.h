@@ -396,36 +396,28 @@ struct PreparedVortex {
 
 /** @brief Mirror slot state: the rotation pair plus the fold offsets. */
 struct PreparedMirrorSlot {
-  float rotation_cos; ///< Cosine of the fold-lattice rotation.
-  float rotation_sin; ///< Sine of the fold-lattice rotation.
-  struct {
-    PreparedMirror mirror;
-  } transform; ///< Fold offsets.
+  float rotation_cos;    ///< Cosine of the fold-lattice rotation.
+  float rotation_sin;    ///< Sine of the fold-lattice rotation.
+  PreparedMirror mirror; ///< Fold offsets.
 };
 
 /** @brief Affine slot state: the rotation pair plus the frame coefficients. */
 struct PreparedAffineSlot {
-  float rotation_cos; ///< Cosine of the frame rotation.
-  float rotation_sin; ///< Sine of the frame rotation.
-  struct {
-    PreparedAffine affine;
-  } transform; ///< Frame coefficients.
+  float rotation_cos;    ///< Cosine of the frame rotation.
+  float rotation_sin;    ///< Sine of the frame rotation.
+  PreparedAffine affine; ///< Frame coefficients.
 };
 
 /** @brief Vector-noise slot state: the rotation pair plus the loop point. */
 struct PreparedVectorNoiseSlot {
-  float rotation_cos; ///< Cosine of the vector rotation.
-  float rotation_sin; ///< Sine of the vector rotation.
-  struct {
-    PreparedNoiseLoop noise_loop;
-  } transform; ///< Noise-loop point.
+  float rotation_cos;           ///< Cosine of the vector rotation.
+  float rotation_sin;           ///< Sine of the vector rotation.
+  PreparedNoiseLoop noise_loop; ///< Noise-loop point.
 };
 
 /** @brief Vortex slot state: the vortex coefficients; no slot rotation. */
 struct PreparedVortexSlot {
-  struct {
-    PreparedVortex vortex;
-  } transform; ///< Vortex coefficients.
+  PreparedVortex vortex; ///< Vortex coefficients.
 };
 
 /**
@@ -447,9 +439,9 @@ HS_FLASH_INLINE inline PreparedRotation prepare(const WaveShearParams &warp,
 HS_FLASH_INLINE inline PreparedMirrorSlot prepare(const MirrorParams &warp,
                                                   float phase) {
   PreparedMirrorSlot prepared{cosf(warp.rotation), sinf(warp.rotation), {}};
-  prepared.transform.mirror = {
-      math::wrap_t(warp.offset_x / warp.cell_x + phase) * warp.cell_x,
-      math::wrap_t(warp.offset_y / warp.cell_y) * warp.cell_y};
+  prepared.mirror = {math::wrap_t(warp.offset_x / warp.cell_x + phase) *
+                         warp.cell_x,
+                     math::wrap_t(warp.offset_y / warp.cell_y) * warp.cell_y};
   return prepared;
 }
 
@@ -463,7 +455,7 @@ HS_FLASH_INLINE inline PreparedVectorNoiseSlot
 prepare(const VectorNoiseParams &warp, float phase) {
   PreparedVectorNoiseSlot prepared{
       cosf(warp.vector_angle), sinf(warp.vector_angle), {}};
-  prepared.transform.noise_loop = {math::noise_projected_loop_offset(phase)};
+  prepared.noise_loop = {math::noise_projected_loop_offset(phase)};
   return prepared;
 }
 
@@ -476,9 +468,9 @@ prepare(const VectorNoiseParams &warp, float phase) {
 HS_FLASH_INLINE inline PreparedVortexSlot prepare(const VortexParams &warp,
                                                   float phase) {
   const float orbit = math::TWO_PI_F * math::wrap_t(phase);
-  return {{{warp.center_x + warp.center_orbit_radius * cosf(orbit),
-            warp.center_y + warp.center_orbit_radius * sinf(orbit),
-            warp.radius * warp.radius, math::TWO_PI_F * warp.turns}}};
+  return {{warp.center_x + warp.center_orbit_radius * cosf(orbit),
+           warp.center_y + warp.center_orbit_radius * sinf(orbit),
+           warp.radius * warp.radius, math::TWO_PI_F * warp.turns}};
 }
 
 /** @brief Translation basis an affine warp winds along.
@@ -557,7 +549,7 @@ template <AffineForm Form = AffineForm::GENERAL, bool Repeat = true>
 HS_FLASH_INLINE inline PreparedAffineSlot
 prepare(const AffineParams &warp, float phase, float frame_rotation,
         const TranslationLattice &lattice) {
-  PreparedAffineSlot prepared{1.0f, 0.0f, {{0.0f, 0.0f, 1.0f, 1.0f, 0.0f, {}}}};
+  PreparedAffineSlot prepared{1.0f, 0.0f, {0.0f, 0.0f, 1.0f, 1.0f, 0.0f, {}}};
   if constexpr (includes(Form, AffineForm::ROTATES)) {
     prepared.rotation_cos = cosf(frame_rotation);
     prepared.rotation_sin = sinf(frame_rotation);
@@ -567,7 +559,7 @@ prepare(const AffineParams &warp, float phase, float frame_rotation,
         warp.scale_x == 1.0f && warp.scale_y == 1.0f && warp.shear == 0.0f
             ? 1.0f
             : cosf(math::TWO_PI_F * math::wrap_t(phase));
-    auto &affine = prepared.transform.affine;
+    auto &affine = prepared.affine;
     affine.inverse_scale_x =
         warp.scale_x == 1.0f ? 1.0f : 1.0f / powf(warp.scale_x, cycle_cos);
     affine.inverse_scale_y =
@@ -578,12 +570,12 @@ prepare(const AffineParams &warp, float phase, float frame_rotation,
     const TranslationLattice basis = affine_basis(warp, lattice);
     if constexpr (includes(Form, AffineForm::TRANSLATES)) {
       const math::Complex turn = affine_turn_translation(warp, basis);
-      prepared.transform.affine.translation_x = math::wrap_t(phase) * turn.re;
-      prepared.transform.affine.translation_y = math::wrap_t(phase) * turn.im;
+      prepared.affine.translation_x = math::wrap_t(phase) * turn.re;
+      prepared.affine.translation_y = math::wrap_t(phase) * turn.im;
     }
     if (Repeat && lattice.present()) {
       const float repeat = std::round(warp.repeat_cells);
-      prepared.transform.affine.repeat =
+      prepared.affine.repeat =
           prepare_repeat({repeat * basis.a.re, repeat * basis.a.im},
                          {repeat * basis.b.re, repeat * basis.b.im});
     }
@@ -762,7 +754,7 @@ repeat_offset(const math::Complex &delta, const PreparedRepeat &repeat) {
 template <AffineForm Form = AffineForm::GENERAL, typename Prepared>
 __attribute__((always_inline)) inline math::Complex
 affine_coords(const math::Complex &input, const Prepared &prepared) {
-  const auto &affine = prepared.transform.affine;
+  const auto &affine = prepared.affine;
   math::Complex output = input;
   if constexpr (includes(Form, AffineForm::ROTATES)) {
     const float c = prepared.rotation_cos;
@@ -800,10 +792,9 @@ affine_frame(const math::Complex &input, const Prepared &prepared,
   const math::Complex output = affine_coords<Form>(input, prepared);
   if (!path_length_required)
     return {output, 0.0f};
-  return {output,
-          displacement(repeat_offset<Reduction>(
-                           output - input, prepared.transform.affine.repeat),
-                       true)};
+  return {output, displacement(repeat_offset<Reduction>(output - input,
+                                                        prepared.affine.repeat),
+                               true)};
 }
 
 /**
@@ -824,9 +815,9 @@ affine_frame(const math::Complex &input, const Prepared &prepared,
   const math::Complex output = affine_coords<Form>(input, prepared);
   if (!path_length_required)
     return {output, 0.0f};
-  return {output, displacement(repeat_offset(output - input,
-                                             prepared.transform.affine.repeat),
-                               true)};
+  return {output,
+          displacement(repeat_offset(output - input, prepared.affine.repeat),
+                       true)};
 }
 
 /**
@@ -878,8 +869,8 @@ mirror_tile_coords(const math::Complex &input, const Params &params,
                    const Prepared &prepared) {
   const float c = prepared.rotation_cos;
   const float s = prepared.rotation_sin;
-  const float offset_x = prepared.transform.mirror.offset_x;
-  const float offset_y = prepared.transform.mirror.offset_y;
+  const float offset_x = prepared.mirror.offset_x;
+  const float offset_y = prepared.mirror.offset_y;
   const float x = c * input.re + s * input.im + offset_x;
   const float y = -s * input.re + c * input.im + offset_y;
   const float folded_x =
@@ -922,7 +913,7 @@ template <typename Prepared>
 __attribute__((always_inline)) inline WarpStepResult
 vortex(const math::Complex &input, const Prepared &prepared,
        bool path_length_required) {
-  const auto &vortex = prepared.transform.vortex;
+  const auto &vortex = prepared.vortex;
   const float x = input.re - vortex.center_x;
   const float y = input.im - vortex.center_y;
   const float r_sq = x * x + y * y;
@@ -1061,7 +1052,7 @@ vector_noise_fixed(const math::Complex &input, const Params &params,
   if (params.strength == 0.0f)
     return {input, 0.0f};
   const math::Vector q = math::noise_projected_coordinate(
-      input, params.scale, prepared.transform.noise_loop.offset);
+      input, params.scale, prepared.noise_loop.offset);
   float nx;
   float ny;
   if constexpr (BasisV == math::NoiseBasis::SIMPLEX) {
@@ -1133,19 +1124,17 @@ template <typename State> struct AffineFrame : PrepareFromState<State> {
         { State::prepare(frame).rotation_cos } -> std::convertible_to<float>;
         { State::prepare(frame).rotation_sin } -> std::convertible_to<float>;
         {
-          State::prepare(frame).transform.affine.inverse_scale_x
+          State::prepare(frame).affine.inverse_scale_x
         } -> std::convertible_to<float>;
         {
-          State::prepare(frame).transform.affine.inverse_scale_y
+          State::prepare(frame).affine.inverse_scale_y
+        } -> std::convertible_to<float>;
+        { State::prepare(frame).affine.shear } -> std::convertible_to<float>;
+        {
+          State::prepare(frame).affine.translation_x
         } -> std::convertible_to<float>;
         {
-          State::prepare(frame).transform.affine.shear
-        } -> std::convertible_to<float>;
-        {
-          State::prepare(frame).transform.affine.translation_x
-        } -> std::convertible_to<float>;
-        {
-          State::prepare(frame).transform.affine.translation_y
+          State::prepare(frame).affine.translation_y
         } -> std::convertible_to<float>;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       };
@@ -1254,17 +1243,13 @@ template <typename State> struct Vortex : PrepareFromState<State> {
   static constexpr bool PROVIDER_VALID =
       PreparedProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
+        { State::prepare(frame).vortex.center_x } -> std::convertible_to<float>;
+        { State::prepare(frame).vortex.center_y } -> std::convertible_to<float>;
         {
-          State::prepare(frame).transform.vortex.center_x
+          State::prepare(frame).vortex.angle_numerator
         } -> std::convertible_to<float>;
         {
-          State::prepare(frame).transform.vortex.center_y
-        } -> std::convertible_to<float>;
-        {
-          State::prepare(frame).transform.vortex.angle_numerator
-        } -> std::convertible_to<float>;
-        {
-          State::prepare(frame).transform.vortex.radius_sq
+          State::prepare(frame).vortex.radius_sq
         } -> std::convertible_to<float>;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       };
@@ -1308,12 +1293,8 @@ template <typename State> struct MirrorTile : PrepareFromState<State> {
         { State::params(frame).cell_y } -> std::convertible_to<float>;
         { State::prepare(frame).rotation_cos } -> std::convertible_to<float>;
         { State::prepare(frame).rotation_sin } -> std::convertible_to<float>;
-        {
-          State::prepare(frame).transform.mirror.offset_x
-        } -> std::convertible_to<float>;
-        {
-          State::prepare(frame).transform.mirror.offset_y
-        } -> std::convertible_to<float>;
+        { State::prepare(frame).mirror.offset_x } -> std::convertible_to<float>;
+        { State::prepare(frame).mirror.offset_y } -> std::convertible_to<float>;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       };
 
@@ -1406,7 +1387,7 @@ struct VectorNoise : PrepareFromState<State> {
         { State::prepare(frame).rotation_cos } -> std::convertible_to<float>;
         { State::prepare(frame).rotation_sin } -> std::convertible_to<float>;
         {
-          State::prepare(frame).transform.noise_loop.offset
+          State::prepare(frame).noise_loop.offset
         } -> std::convertible_to<math::Vector>;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       } &&
