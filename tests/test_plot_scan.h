@@ -198,6 +198,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_clip_arcs_overlap);
   HS_RUN(test_col_span_rejects_ill_conditioned_pole);
   HS_RUN(test_col_span_covers_arc);
+  HS_RUN(test_bilinear_clip_tap_oracle_companions);
   HS_RUN(test_edge_visible_in_clip_is_conservative);
   HS_RUN(test_rasterize_column_cull_pixel_parity);
   HS_RUN(test_mesh_edge_gate_pixel_parity);

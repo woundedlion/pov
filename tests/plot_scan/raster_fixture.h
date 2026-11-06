@@ -7,6 +7,19 @@
 // Headless rasterize() harness.
 // ---------------------------------------------------------------------------
 
+/** @brief Whether any bilinear screen tap of a world point reaches the clip. */
+template <int W, int H>
+inline bool taps_in_clip(const ClipRegion &clip, const math::Vector &point) {
+  const auto screen = math::vector_to_pixel<W, H>(point);
+  const int x = static_cast<int>(floorf(screen.x));
+  const int y = static_cast<int>(floorf(screen.y));
+  for (int dy = 0; dy <= 1; ++dy)
+    for (int dx = 0; dx <= 1; ++dx)
+      if (clip.contains_y(y + dy) && clip.contains_x((x + dx + W) % W))
+        return true;
+  return false;
+}
+
 /**
  * @brief Pipeline stub: records each plotted position; ignores color/age.
  * @details Carries both plot() overloads so it can also back a type-erased

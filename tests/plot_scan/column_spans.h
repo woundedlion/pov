@@ -7,6 +7,24 @@
 // Column-arc clipping, raster windows, and render-band parity tests
 // ============================================================================
 
+/** @brief The bilinear oracle reaches each tap, wraps X, and rejects misses. */
+inline void test_bilinear_clip_tap_oracle_companions() {
+  constexpr int W = 16, H = 8;
+  const auto point = math::pixel_to_vector<W, H>(7.75f, 3.25f);
+  for (int dy = 0; dy <= 1; ++dy)
+    for (int dx = 0; dx <= 1; ++dx) {
+      const ClipRegion clip{3 + dy, 4 + dy, 7 + dx, 8 + dx, 0, W, H};
+      HS_EXPECT_TRUE((taps_in_clip<W, H>(clip, point)));
+    }
+  const ClipRegion missed_x{3, 5, 9, 10, 0, W, H};
+  const ClipRegion missed_y{5, 6, 7, 9, 0, W, H};
+  HS_EXPECT_FALSE((taps_in_clip<W, H>(missed_x, point)));
+  HS_EXPECT_FALSE((taps_in_clip<W, H>(missed_y, point)));
+  const ClipRegion wrapped{3, 5, 0, 1, 0, W, H};
+  HS_EXPECT_TRUE((
+      taps_in_clip<W, H>(wrapped, math::pixel_to_vector<W, H>(15.75f, 3.25f))));
+}
+
 /**
  * @brief Draws a near-meridian great circle: axis y in [-0.05, 0.05], x and z
  *        in [-1, 1].
@@ -250,16 +268,6 @@ inline void test_edge_visible_in_clip_is_conservative() {
     const ClipRegion cr{bd[0], bd[1], bd[2], bd[3], 1, TW, TH};
     const auto xc = cr.x_clip();
     constexpr int SAMPLES = 512;
-    auto taps_in_clip = [&](const math::Vector &p) {
-      const auto screen = math::vector_to_pixel<TW, TH>(p);
-      const int x = static_cast<int>(floorf(screen.x));
-      const int y = static_cast<int>(floorf(screen.y));
-      for (int dy = 0; dy <= 1; ++dy)
-        for (int dx = 0; dx <= 1; ++dx)
-          if (cr.contains_y(y + dy) && cr.contains_x((x + dx + TW) % TW))
-            return true;
-      return false;
-    };
 
     for (int trial = 0; trial < 2000; ++trial) {
       math::Vector a = rand_unit();
@@ -289,12 +297,13 @@ inline void test_edge_visible_in_clip_is_conservative() {
       const bool got =
           Plot::edge_visible_in_clip<TW, TH>(sink, cr, xc, a, b, nullptr);
       const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a, b);
-      bool reached = taps_in_clip(a);
+      bool reached = taps_in_clip<TW, TH>(cr, a);
       if (es.have_axis) {
         const math::Vector tangent = math::cross(es.axis, a);
         for (int k = 1; k <= SAMPLES && !reached; ++k) {
           const float angle = es.total * (static_cast<float>(k) / SAMPLES);
-          reached = taps_in_clip(a * cosf(angle) + tangent * sinf(angle));
+          reached =
+              taps_in_clip<TW, TH>(cr, a * cosf(angle) + tangent * sinf(angle));
         }
       }
       HS_EXPECT_TRUE(got || !reached);
@@ -317,8 +326,9 @@ inline void test_edge_visible_in_clip_is_conservative() {
       bool reached = false;
       for (int k = 0; k <= SAMPLES && !reached; ++k) {
         const float t = static_cast<float>(k) / SAMPLES;
-        reached = taps_in_clip(Plot::azimuthal_unproject(
-            ps.p1.first + ps.dx * t, ps.p1.second + ps.dy * t, basis));
+        reached = taps_in_clip<TW, TH>(
+            cr, Plot::azimuthal_unproject(ps.p1.first + ps.dx * t,
+                                          ps.p1.second + ps.dy * t, basis));
       }
       HS_EXPECT_TRUE(got || !reached);
       (got ? visible : culled)++;
@@ -988,14 +998,7 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
           for (int sample = 0; sample <= 4096; ++sample) {
             const float angle = span.total * (sample / 4096.0f);
             const auto p = a * cosf(angle) + tangent * sinf(angle);
-            const auto screen = math::vector_to_pixel<W, H>(p);
-            const int x = static_cast<int>(floorf(screen.x));
-            const int y = static_cast<int>(floorf(screen.y));
-            for (int dy = 0; dy <= 1; ++dy)
-              for (int dx = 0; dx <= 1; ++dx) {
-                const int wx = (x + dx + W) % W;
-                HS_EXPECT_FALSE(cr.contains_y(y + dy) && cr.contains_x(wx));
-              }
+            HS_EXPECT_FALSE((taps_in_clip<W, H>(cr, p)));
           }
         }
       }
