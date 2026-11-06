@@ -65,6 +65,24 @@ inline bool pipeline_could_intersect_clip(PipelineT &pipeline,
   }
 }
 
+/** @brief Visits still-raster sampling poses with a caller-supplied fallback.
+ * @param pipeline Rendering pipeline.
+ * @param a,b Source position and tangent.
+ * @param pb Optional source basis.
+ * @param pred Sampling-pose visitor.
+ * @param fallback Zero-argument clip-query fallback.
+ * @return The visitor's combined verdict. */
+template <typename PipelineT, typename Pred, typename Fallback>
+HS_HOT_INLINE inline bool
+pipeline_sampling_edge(PipelineT &pipeline, const math::Vector &a,
+                       const math::Vector &b, const math::Basis *pb,
+                       Pred &&pred, Fallback &&fallback) {
+  if constexpr (requires { pipeline.sampling_edge(a, b, pb, pred); })
+    return pipeline.sampling_edge(a, b, pb, pred);
+  else
+    return fallback();
+}
+
 /** @brief Visits the poses used to space a still raster's samples.
  * @param pipeline Rendering pipeline.
  * @param a,b Source position and tangent.
@@ -75,10 +93,9 @@ template <typename PipelineT, typename Pred>
 inline bool pipeline_sampling_edge(PipelineT &pipeline, const math::Vector &a,
                                    const math::Vector &b, const math::Basis *pb,
                                    Pred &&pred) {
-  if constexpr (requires { pipeline.sampling_edge(a, b, pb, pred); })
-    return pipeline.sampling_edge(a, b, pb, pred);
-  else
+  return pipeline_sampling_edge(pipeline, a, b, pb, pred, [&] {
     return pipeline_could_intersect_clip(pipeline, a, b, pb, pred);
+  });
 }
 
 /**
@@ -197,10 +214,9 @@ class PipelineRef {
   HS_HOT_FLASH_MEMBER static bool
   sampling_entry(void *pipeline, const math::Vector &a, const math::Vector &b,
                  const math::Basis *pb, CullEdgePredRef pred) {
-    if constexpr (requires(T &p) { p.sampling_edge(a, b, pb, pred); })
-      return static_cast<T *>(pipeline)->sampling_edge(a, b, pb, pred);
-    else
-      return still_cull_entry<T>(pipeline, a, b, pb, pred);
+    return pipeline_sampling_edge(
+        *static_cast<T *>(pipeline), a, b, pb, pred,
+        [&] { return still_cull_entry<T>(pipeline, a, b, pb, pred); });
   }
 
   /** @brief Evaluates an erased pipeline's world stages.

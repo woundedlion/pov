@@ -155,6 +155,7 @@ inline int run_filter_tests() {
   HS_RUN(test_world_vertex_replicate_cull_edge_mirrors_plot);
   HS_RUN(test_replicate_three_planar_basis_copies);
   HS_RUN(test_pipeline_could_intersect_clip_forwards_through_stages);
+  HS_RUN(test_pipeline_sampling_edge_preserves_fallback_and_visitor);
   HS_RUN(test_world_mobius_identity_and_transform);
 
   HS_RUN(test_pipeline_sink_2d_plot_writes_wraps_clips);

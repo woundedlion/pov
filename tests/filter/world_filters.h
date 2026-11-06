@@ -710,6 +710,51 @@ inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
   HS_EXPECT_VEC(tail_normal, expected_normal, 1e-4f);
 }
 
+/** @brief Sampling dispatch keeps lvalue visitors and a lazy fallback. */
+inline void test_pipeline_sampling_edge_preserves_fallback_and_visitor() {
+  struct Visitor {
+    int calls = 0;
+    Visitor() = default;
+    Visitor(const Visitor &) = delete;
+    bool operator()(const math::Vector &, const math::Vector &,
+                    const math::Basis *) & {
+      ++calls;
+      return true;
+    }
+  } visitor;
+  struct Bare {
+  } bare;
+  struct Sampling {
+    int calls = 0;
+    bool
+    sampling_edge(const math::Vector &a, const math::Vector &b,
+                  const math::Basis *basis,
+                  FunctionRef<bool(const math::Vector &, const math::Vector &,
+                                   const math::Basis *)>
+                      predicate) {
+      ++calls;
+      return predicate(a, b, basis);
+    }
+  } sampling;
+  int fallbacks = 0;
+  auto fallback = [&] {
+    ++fallbacks;
+    return false;
+  };
+  HS_EXPECT_FALSE(pipeline_sampling_edge(bare, math::X_AXIS, math::Y_AXIS,
+                                         nullptr, visitor, fallback));
+  HS_EXPECT_EQ(fallbacks, 1);
+  HS_EXPECT_EQ(visitor.calls, 0);
+  HS_EXPECT_TRUE(pipeline_sampling_edge(sampling, math::X_AXIS, math::Y_AXIS,
+                                        nullptr, visitor, fallback));
+  HS_EXPECT_EQ(sampling.calls, 1);
+  HS_EXPECT_EQ(visitor.calls, 1);
+  HS_EXPECT_EQ(fallbacks, 1);
+  HS_EXPECT_TRUE(pipeline_sampling_edge(bare, math::X_AXIS, math::Y_AXIS,
+                                        nullptr, visitor));
+  HS_EXPECT_EQ(visitor.calls, 2);
+}
+
 /**
  * @brief Verifies Mobius warps via stereographic -> Mobius -> inverse
  *        stereographic, with the default identity map and a non-identity map.
