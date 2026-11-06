@@ -508,6 +508,18 @@ inline void test_apply_wake_sequence() {
     HS_EXPECT_EQ(h.live(), &e2);
   }
 
+  {
+    EffectHandoff<FakeEffect> h;
+    h.adopt(&e1, 41);
+    h.publish(&e2, 42);
+    const auto w = h.apply_wake({.commit = true, .dark = true, .wire_gen = 42});
+    HS_EXPECT_TRUE(w.commit_ok);
+    HS_EXPECT_TRUE(w.adopted);
+    HS_EXPECT_EQ(w.live, &e2);
+    HS_EXPECT_EQ(h.live(), &e2);
+    HS_EXPECT_TRUE(w.dark);
+  }
+
   // Commit deadline with nothing committable: no adopt, caller traps.
   {
     EffectHandoff<FakeEffect> h;
