@@ -227,6 +227,7 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
 
   reference.step(fake_canvas());
   specialized.step(fake_canvas());
+  HS_EXPECT_EQ(reference.active(), COUNT);
   HS_EXPECT_EQ(reference.active(), specialized.active());
   float max_position_error = 0.0f;
   float max_velocity_error = 0.0f;
@@ -386,10 +387,12 @@ inline void test_particle_system_signed_axis_trajectory() {
   float max_norm_drift = 0.0f;
   int active_mismatches = 0;
   int color_seed_mismatches = 0;
+  size_t compared_particle_steps = 0;
   for (int step = 0; step < STEPS; ++step) {
     reference.step(fake_canvas());
     specialized.step(fake_canvas());
     active_mismatches += reference.active() != specialized.active();
+    compared_particle_steps += reference.active();
     for (size_t i = 0; i < reference.active(); ++i) {
       const auto &a = reference.pool[i];
       const auto &b = specialized.pool[i];
@@ -406,12 +409,14 @@ inline void test_particle_system_signed_axis_trajectory() {
           max_norm_drift, std::abs(math::dot(b.position, b.position) - 1.0f));
     }
   }
-  std::printf("axis trajectory steps=%d particles=%u pos=%.9g vel=%.9g "
-              "angle=%.9g norm=%.9g\n",
-              STEPS, reference.active(), max_position_error, max_velocity_error,
-              max_angle_error, max_norm_drift);
+  std::printf(
+      "axis trajectory steps=%d particles=%u compared=%zu pos=%.9g vel=%.9g "
+      "angle=%.9g norm=%.9g\n",
+      STEPS, reference.active(), compared_particle_steps, max_position_error,
+      max_velocity_error, max_angle_error, max_norm_drift);
   HS_EXPECT_EQ(active_mismatches, 0);
   HS_EXPECT_EQ(color_seed_mismatches, 0);
+  HS_EXPECT_GE(compared_particle_steps, size_t{2000});
   constexpr float COMPONENT_BOUND = 1e-5f;
   const double ANGLE_BOUND = 2.0 * std::sqrt(3.0) * COMPONENT_BOUND;
   HS_EXPECT_LE(max_position_error, COMPONENT_BOUND);
