@@ -17,11 +17,49 @@
 
 namespace SDF {
 
+/** @brief Cap bounds shared by solid leaves.
+ * @tparam Derived Leaf carrying cap and sign. */
+template <typename Derived> struct CapBoundedLeaf {
+  /** @brief Maps the cap latitude band to inclusive rows.
+   * @tparam H Canvas height.
+   * @return Padded row bounds. */
+  template <int H> Bounds get_vertical_bounds() const {
+    const auto &cap = static_cast<const Derived &>(*this).cap;
+    return phi_bounds_to_rows<H>(cap.phi_min, cap.phi_max);
+  }
+
+  /** @brief Copies the leaf with bounds covering an angular sweep.
+   * @param arc Largest point displacement in radians.
+   * @return Leaf with expanded cap bounds. */
+  Derived swept(float arc) const {
+    const auto &leaf = static_cast<const Derived &>(*this);
+    Derived out = leaf;
+    out.cap = swept_cap(leaf.cap, arc);
+    return out;
+  }
+
+  /** @brief Emits one padded bounding-cap row interval.
+   * @tparam W Canvas width.
+   * @tparam H Canvas height.
+   * @tparam OutputIt Interval sink.
+   * @param y Row index.
+   * @param out Sink accepting start and end.
+   * @return True for a handled row; false requests a full scan. */
+  template <int W, int H, typename OutputIt>
+  bool get_horizontal_intervals(int y, OutputIt out) const {
+    const auto &leaf = static_cast<const Derived &>(*this);
+    const auto &cap = leaf.cap;
+    return emit_padded_cap_row<W, H>(leaf.sign, cap.cos_radius, cap.sin_radius,
+                                     cap.ny, cap.r_val, cap.alpha_angle, y,
+                                     out);
+  }
+};
+
 /**
  * @brief Calculates signed distance to a planar polygon.
  * @details Register semantics: the DistanceResult table (row: PlanarPolygon).
  */
-struct PlanarPolygon {
+struct PlanarPolygon : CapBoundedLeaf<PlanarPolygon> {
   const math::Basis
       &basis;         /**< Orientation frame (v = polygon axis); retained by
                          reference, so it must outlive the shape. */
@@ -73,45 +111,6 @@ struct PlanarPolygon {
   PlanarPolygon(const math::Basis &&, float, int, float, bool = false) = delete;
 
   /**
-   * @brief Maps the polygon's latitude band to its inclusive row range.
-   * @tparam H Canvas height in rows.
-   * @return Row bounds covering the polygon plus margin.
-   */
-  template <int H> Bounds get_vertical_bounds() const {
-    return phi_bounds_to_rows<H>(cap.phi_min, cap.phi_max);
-  }
-
-  /**
-   * @brief Bounds proxy covering the polygon swept by an arc.
-   * @param arc Largest arc any point of the polygon moves (radians).
-   * @return Copy whose bounds and intervals cover the swept polygon.
-   */
-  PlanarPolygon swept(float arc) const {
-    PlanarPolygon out = *this;
-    out.cap = swept_cap(cap, arc);
-    return out;
-  }
-
-  /**
-   * @brief Emits the bounding-cap interval for one scanline row.
-   * @tparam W Canvas width in columns.
-   * @tparam H Canvas height in rows.
-   * @tparam OutputIt Sink type invoked as out(float start, float end).
-   * @param y The row index.
-   * @param out Sink accepting (float start, float end).
-   * @return True if the row was handled; false requests a full scan.
-   * @details Covers the polygon body and its whole AA fringe: distance()
-   *   clamps against the circumscribed disc, so nothing past circumradius +
-   *   pixel_width shades.
-   */
-  template <int W, int H, typename OutputIt>
-  bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H>(sign, cap.cos_radius, cap.sin_radius,
-                                     cap.ny, cap.r_val, cap.alpha_angle, y,
-                                     out);
-  }
-
-  /**
    * @brief Signed distance to the planar polygon edge, writing into res.
    * @tparam ComputeUVs When true, also computes the normalized radial t.
    * @param p Point on sphere (normalized).
@@ -125,6 +124,7 @@ struct PlanarPolygon {
    *       The disc term `polar - circumradius` is a lower bound of the true
    *       distance; the max of the two is not, so it is for scanline shading,
    *       not a march-safe metric.
+   * @note The circumscribed cap includes the disc-clamped AA fringe.
    */
   template <bool ComputeUVs = true>
   void distance(const math::Vector &p, DistanceResult &res) const {
@@ -153,7 +153,7 @@ struct PlanarPolygon {
  * lower bound; see distance().
  * Register semantics: the DistanceResult table (row: SphericalPolygon).
  */
-struct SphericalPolygon {
+struct SphericalPolygon : CapBoundedLeaf<SphericalPolygon> {
   const math::Basis &basis; /**< Orientation frame (v = polygon axis); retained
                               by reference, so it must outlive the shape. */
   int sides;                /**< Number of polygon sides. */
@@ -236,45 +236,6 @@ struct SphericalPolygon {
                    bool = false) = delete;
 
   /**
-   * @brief Maps the polygon's latitude band to its inclusive row range.
-   * @tparam H Canvas height in rows.
-   * @return Row bounds covering the polygon plus margin.
-   */
-  template <int H> Bounds get_vertical_bounds() const {
-    return phi_bounds_to_rows<H>(cap.phi_min, cap.phi_max);
-  }
-
-  /**
-   * @brief Bounds proxy covering the polygon swept by an arc.
-   * @param arc Largest arc any point of the polygon moves (radians).
-   * @return Copy whose bounds and intervals cover the swept polygon.
-   */
-  SphericalPolygon swept(float arc) const {
-    SphericalPolygon out = *this;
-    out.cap = swept_cap(cap, arc);
-    return out;
-  }
-
-  /**
-   * @brief Emits the bounding-cap interval for one scanline row.
-   * @tparam W Canvas width in columns.
-   * @tparam H Canvas height in rows.
-   * @tparam OutputIt Sink type invoked as out(float start, float end).
-   * @param y The row index.
-   * @param out Sink accepting (float start, float end).
-   * @return True if the row was handled; false requests a full scan.
-   * @details Covers the polygon body and its whole AA fringe: distance()
-   *   clamps against the circumscribed disc, so nothing past circumradius +
-   *   pixel_width shades.
-   */
-  template <int W, int H, typename OutputIt>
-  bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H>(sign, cap.cos_radius, cap.sin_radius,
-                                     cap.ny, cap.r_val, cap.alpha_angle, y,
-                                     out);
-  }
-
-  /**
    * @brief Signed distance to the spherical polygon, writing into res.
    * @tparam ComputeUVs When true, also computes the normalized radial t.
    * @param p Point on sphere (normalized).
@@ -286,6 +247,7 @@ struct SphericalPolygon {
    *       gradient of cos(PI/sides). The circumscribed-disc distance
    *       `polar - circumradius` is the tighter bound out there; both are lower
    *       bounds of the true distance, so the max of the two is too.
+   * @note The circumscribed cap includes the disc-clamped AA fringe.
    */
   template <bool ComputeUVs = true>
   void distance(const math::Vector &p, DistanceResult &res) const {
@@ -336,7 +298,7 @@ struct SphericalPolygon {
  * @brief Calculates signed distance to a star shape.
  * @details Register semantics: the DistanceResult table (row: Star).
  */
-struct Star {
+struct Star : CapBoundedLeaf<Star> {
   const math::Basis &basis; /**< Orientation frame (v = star axis); retained by
                               reference, so it must outlive the shape. */
   int sides;                /**< Number of star points. */
@@ -402,26 +364,6 @@ struct Star {
   Star(const math::Basis &&, float, int, float, bool = false) = delete;
 
   /**
-   * @brief Maps the star's latitude band to its inclusive row range.
-   * @tparam H Canvas height in rows.
-   * @return Row bounds covering the star plus margin.
-   */
-  template <int H> Bounds get_vertical_bounds() const {
-    return phi_bounds_to_rows<H>(cap.phi_min, cap.phi_max);
-  }
-
-  /**
-   * @brief Bounds proxy covering the star swept by an arc.
-   * @param arc Largest arc any point of the star moves (radians).
-   * @return Copy whose bounds and intervals cover the swept star.
-   */
-  Star swept(float arc) const {
-    Star out = *this;
-    out.cap = swept_cap(cap, arc);
-    return out;
-  }
-
-  /**
    * @brief Cap bounding the star, for bounds re-centred on another axis.
    * @param axis Receives the cap axis.
    * @param radius Receives the cap's angular radius (radians).
@@ -448,25 +390,6 @@ struct Star {
   }
 
   /**
-   * @brief Emits the bounding-circle interval for one scanline row.
-   * @tparam W Canvas width in columns.
-   * @tparam H Canvas height in rows.
-   * @tparam OutputIt Sink type invoked as out(float start, float end).
-   * @param y The row index.
-   * @param out Sink accepting (float start, float end).
-   * @return True if the row was handled; false requests a full scan.
-   * @details Covers the star body and its whole AA fringe: distance() clamps
-   *   against the circumscribed disc, so nothing past circumradius +
-   *   pixel_width shades.
-   */
-  template <int W, int H, typename OutputIt>
-  bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H>(sign, cap.cos_radius, cap.sin_radius,
-                                     cap.ny, cap.r_val, cap.alpha_angle, y,
-                                     out);
-  }
-
-  /**
    * @brief Signed distance to the star, writing into res.
    * @tparam ComputeUVs When true, also stores the normalized azimuth t.
    * @param p Point on sphere (normalized).
@@ -479,6 +402,7 @@ struct Star {
    *       over-reports beyond the disc. The disc term is a lower bound of the
    *       true distance; the max of the two is not, so it is for scanline
    *       shading, not a march-safe metric.
+   * @note The circumscribed cap includes the disc-clamped AA fringe.
    */
   template <bool ComputeUVs = true>
   void distance(const math::Vector &p, DistanceResult &res) const {
@@ -507,7 +431,7 @@ struct Star {
  * @brief Calculates signed distance to a flower shape.
  * @details Register semantics: the DistanceResult table (row: Flower).
  */
-struct Flower {
+struct Flower : CapBoundedLeaf<Flower> {
   const math::Basis
       &basis;   /**< Orientation frame (-v = flower center); retained by
                               reference, so it must outlive the shape. */
@@ -563,52 +487,13 @@ struct Flower {
   Flower(const math::Basis &&, float, int, float, bool = false) = delete;
 
   /**
-   * @brief Maps the flower's latitude band to its inclusive row range.
-   * @tparam H Canvas height in rows.
-   * @return Row bounds covering the flower plus margin.
-   */
-  template <int H> Bounds get_vertical_bounds() const {
-    return phi_bounds_to_rows<H>(cap.phi_min, cap.phi_max);
-  }
-
-  /**
-   * @brief Bounds proxy covering the flower swept by an arc.
-   * @param arc Largest arc any point of the flower moves (radians).
-   * @return Copy whose bounds and intervals cover the swept flower.
-   */
-  Flower swept(float arc) const {
-    Flower out = *this;
-    out.cap = swept_cap(cap, arc);
-    return out;
-  }
-
-  /**
-   * @brief Emits the bounding-circle interval for one scanline row.
-   * @tparam W Canvas width in columns.
-   * @tparam H Canvas height in rows.
-   * @tparam OutputIt Sink type invoked as out(float start, float end).
-   * @param y The row index.
-   * @param out Sink accepting (float start, float end).
-   * @return True if the row was handled; false requests a full scan.
-   * @details A petal tip is the shape's radial extreme and its gradient there
-   *   is 1, so the fringe reaches one pixel_width past the tip and the cap pad
-   *   covers it with no disc clamp. The cap is centred on the antipode, where
-   *   the fill sits.
-   */
-  template <int W, int H, typename OutputIt>
-  bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H>(sign, cap.cos_radius, cap.sin_radius,
-                                     cap.ny, cap.r_val, cap.alpha_angle, y,
-                                     out);
-  }
-
-  /**
    * @brief Signed distance to the flower, writing into res.
    * @tparam ComputeUVs When true, also computes the normalized scan-distance t.
    * @param p Point on sphere (normalized).
    * @param res Output result; dist = signed distance from the petal edge,
    *        raw_dist = scan distance from the antipode, t =
    *        scan_dist/circumradius when ComputeUVs.
+   * @note The antipodal cap includes the unit-gradient petal-tip AA fringe.
    */
   template <bool ComputeUVs = true>
   void distance(const math::Vector &p, DistanceResult &res) const {
