@@ -139,35 +139,32 @@ inline void test_parameter_lint_failure_guards() {
 inline void test_needs_full_frame_gate() {
   // Each effect aliases the same static double buffer, so construct one at a
   // time.
-  auto reset = [] { reset_globals(); };
   auto check = [&](Effect &fx, bool expected, const char *name) {
+    HS_CONTEXT(name);
     fx.init();
-    if (fx.needs_full_frame() != expected)
-      std::printf("  [FAIL] %s needs_full_frame()=%d expected=%d\n", name,
-                  fx.needs_full_frame(), expected);
     HS_EXPECT_EQ(fx.needs_full_frame(), expected);
   };
 
   // Cross-segment stateful effects -> full-frame.
   {
-    reset();
+    reset_globals();
     MeshFeedback<DEFAULT_W, DEFAULT_H> fx;
     check(fx, true, "MeshFeedback");
   }
   {
-    reset();
+    reset_globals();
     Dynamo<DEFAULT_W, DEFAULT_H> fx;
     check(fx, true, "Dynamo");
   }
 
   // Representative non-stateful effects -> keep band clipping (default false).
   {
-    reset();
+    reset_globals();
     SphericalHarmonics<DEFAULT_W, DEFAULT_H> fx;
     check(fx, false, "SphericalHarmonics");
   }
   {
-    reset();
+    reset_globals();
     RingSpin<DEFAULT_W, DEFAULT_H> fx;
     check(fx, false, "RingSpin");
   }
