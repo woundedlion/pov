@@ -924,7 +924,6 @@ inline void test_typed_enum_and_global_param_metadata() {
   const auto *speed_def = required_param(fx, "Speed");
   if (!mode_def)
     return;
-  HS_EXPECT_TRUE(speed_def != nullptr);
   if (!speed_def)
     return;
   HS_EXPECT_EQ(mode_def->get(), 1.0f);
@@ -1165,11 +1164,11 @@ inline void test_clip_content_key_is_exact() {
       &ClipRegion::x_end,   &ClipRegion::margin, &ClipRegion::w,
       &ClipRegion::h};
   HS_EXPECT_FALSE(BASE.content_key() == ClipRegion::Key<>{});
+  HS_EXPECT_EQ(BASE.content_key(), ClipRegion(BASE).content_key());
   for (const auto FIELD : FIELDS) {
     ClipRegion changed = BASE;
     ++(changed.*FIELD);
     HS_EXPECT_FALSE(BASE.content_key() == changed.content_key());
-    HS_EXPECT_EQ(BASE.content_key(), ClipRegion(BASE).content_key());
   }
   constexpr ClipRegion WIDE{.y_start = 2,
                             .y_end = 280,
