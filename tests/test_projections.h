@@ -860,7 +860,7 @@ template <typename Solid> inline void expect_polyhedral_atlas_sampling() {
         HS_EXPECT_LT(atlas_tile_distance(atlas, f, actual.coords), 1e-5f);
     HS_EXPECT_LE(std::hypot(actual.coords.re, actual.coords.im),
                  atlas.radius * (1.0f + 1e-5f));
-    HS_EXPECT_EQ(actual.edge_class / Solid::face_counts[actual.region_id],
+    HS_EXPECT_EQ(actual.edge_class / atlas.sides[actual.region_id].size(),
                  actual.region_id);
     HS_EXPECT_EQ(actual.traits, projection_traits(ProjectionTrait::CUT));
     HS_EXPECT_EQ(actual.boundary_flags,
@@ -950,6 +950,34 @@ inline void test_polyhedral_atlas_sampling() {
   expect_polyhedral_atlas_sampling<Solids::Icosahedron>();
 }
 
+/** @brief A truncated tetrahedron has unequal-height antipodal face planes. */
+struct TruncatedTetrahedronAtlasFixture {
+  static constexpr auto vertices = [] {
+    std::array<math::Vector, 12> result{};
+    size_t index = 0;
+    for (size_t from = 0; from < 4; ++from)
+      for (size_t to = 0; to < 4; ++to)
+        if (from != to)
+          result[index++] = polyhedral_atlas_detail::unit(
+              Solids::Tetrahedron::vertices[from] * 2.0f +
+              Solids::Tetrahedron::vertices[to]);
+    return result;
+  }();
+  static constexpr std::array<uint8_t, 8> face_counts{3, 3, 3, 3, 6, 6, 6, 6};
+  static constexpr std::array<int, 36> faces{
+      1, 2, 0, 5,  4, 3, 7, 8, 6, 11, 10, 9, 2, 9,  10, 5, 3, 0,
+      1, 6, 8, 11, 9, 2, 0, 3, 4, 7,  6,  1, 5, 10, 11, 8, 7, 4};
+};
+
+/** @brief Unequal antipodal face heights select the full face scan. */
+inline void test_polyhedral_atlas_unequal_antipodal_heights() {
+  static_assert(polyhedral_atlas_detail::antipodal_pairs<
+                    TruncatedTetrahedronAtlasFixture>() == 0);
+  HS_EXPECT_EQ(
+      POLYHEDRAL_ATLAS<TruncatedTetrahedronAtlasFixture>.antipodes.size(), 0u);
+  expect_polyhedral_atlas_sampling<TruncatedTetrahedronAtlasFixture>();
+}
+
 template <typename Solid> inline void expect_polyhedral_atlas_tiles() {
   const auto &atlas = POLYHEDRAL_ATLAS<Solid>;
   constexpr size_t F = Solid::face_counts.size();
@@ -1022,6 +1050,7 @@ inline int run_projections_tests() {
   HS_RUN(test_wrap_longitude_fmod_contract);
   HS_RUN(test_cylindrical_coordinates);
   HS_RUN(test_polyhedral_atlas_sampling);
+  HS_RUN(test_polyhedral_atlas_unequal_antipodal_heights);
   HS_RUN(test_polyhedral_atlas_tiles);
   HS_RUN(test_polyhedral_atlas_area_correction);
   HS_RUN(test_bonne_sinusoidal_limit);

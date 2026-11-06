@@ -100,16 +100,22 @@ constexpr math::Vector face_normal(const Vertices &vertices, size_t f) {
   return unit(sum);
 }
 
-/** @brief Antipodal face pairs of a solid. @tparam Solid Solid table.
- *  @return Half the face count when every face has an opposite face, else 0. */
+/** @brief Equal-height antipodal face pairs of a solid. @tparam Solid Solid table.
+ *  @return Half the face count when each face has an equal-height opposite, else 0. */
 template <typename Solid> constexpr size_t antipodal_pairs() {
   constexpr size_t F = Solid::face_counts.size();
   for (size_t f = 0; f < F; ++f) {
     bool opposed = false;
-    for (size_t g = 0; g < F; ++g)
-      opposed = opposed ||
-                math::dot(face_normal<Solid>(Solid::vertices, f),
-                          face_normal<Solid>(Solid::vertices, g)) < -0.9999f;
+    const auto normal = face_normal<Solid>(Solid::vertices, f);
+    const float height =
+        math::dot(normal, Solid::vertices[corner<Solid>(f, 0)]);
+    for (size_t g = 0; g < F; ++g) {
+      const auto opposite = face_normal<Solid>(Solid::vertices, g);
+      const float difference =
+          math::dot(opposite, Solid::vertices[corner<Solid>(g, 0)]) - height;
+      opposed = opposed || (math::dot(normal, opposite) < -0.9999f &&
+                            difference > -1e-4f && difference < 1e-4f);
+    }
     if (!opposed)
       return 0;
   }
