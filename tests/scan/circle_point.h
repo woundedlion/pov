@@ -108,7 +108,7 @@ inline void test_pole_centred_cap_takes_the_full_row_scan() {
       ++full_scan_rows;
   HS_EXPECT_EQ(full_scan_rows, rows.y_max - rows.y_min + 1);
 
-  // An equatorial cap of the same size answers with intervals on most rows.
+  // An equatorial cap of the same size answers with intervals on every row.
   const math::Basis equator =
       math::make_basis(math::Quaternion(), math::Vector(1.0f, 0.0f, 0.0f));
   const SDF::Ring ordinary(equator, 0.0f, 0.35f);
@@ -117,7 +117,7 @@ inline void test_pole_centred_cap_takes_the_full_row_scan() {
   for (int y = eq_rows.y_min; y <= eq_rows.y_max; ++y)
     if (!ordinary.needs_full_row_scan(math::TrigLUT<W, H>::sin_phi[y]))
       ++interval_rows;
-  HS_EXPECT_GT(interval_rows, 0);
+  HS_EXPECT_EQ(interval_rows, eq_rows.y_max - eq_rows.y_min + 1);
 }
 
 /** @brief Circle and point scans retain exact pixel centers. */
