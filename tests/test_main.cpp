@@ -208,7 +208,8 @@ int main(int argc, char **argv) {
     if (std::strcmp(argv[1], "--list") == 0 ||
         std::strcmp(argv[1], "-h") == 0 ||
         std::strcmp(argv[1], "--help") == 0) {
-      std::printf("usage: run_tests [module...]\nmodules:\n");
+      std::printf("usage: run_tests [module...] | --list | --check-modules "
+                  "<module...> | -h | --help\nmodules:\n");
       print_modules(stdout);
       return 0;
     }
