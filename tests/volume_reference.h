@@ -82,6 +82,10 @@ struct VolumeReference {
 
 /** @brief Vector-accumulating baseline for scalar ray-state regressions. */
 struct VolumeScalarRegression {
+  static constexpr float STEP_SAFETY = Raycast::STEP_SAFETY;
+  static constexpr float HIT_FRACTION = Raycast::HIT_FRACTION;
+  static constexpr float MIN_STEP = Raycast::MIN_STEP;
+
   static constexpr float OVERRELAX_OMEGA = Scan::Volume::OVERRELAX_OMEGA;
   static constexpr int PROBE_STEPS = Scan::Volume::PROBE_STEPS;
   static constexpr int PROBE_NEAR_STEPS = Scan::Volume::PROBE_NEAR_STEPS;
@@ -119,12 +123,12 @@ struct VolumeScalarRegression {
       if (d < closest_d) {
         closest_d = d;
         closest_local = local_p;
-        if (closest_d <= aa_width * 0.02f)
+        if (closest_d <= aa_width * HIT_FRACTION)
           break;
       } else if (closest_d < aa_width) {
         break;
       }
-      step_len = std::max(d * 0.9f * omega, 1e-5f);
+      step_len = std::max(d * STEP_SAFETY * omega, MIN_STEP);
       local_p = math::Vector(local_p.x + local_vd.x * step_len,
                              local_p.y + local_vd.y * step_len,
                              local_p.z + local_vd.z * step_len);
