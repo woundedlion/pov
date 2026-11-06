@@ -597,12 +597,12 @@ private:
           Plot::Star<Plot::PlanarProjection>::step_trig(sides);
       prepared_planar_star_sides = sides;
     }
-    const PhaseFunction function = selected_function();
-    prepare_waveform(function, count);
     if (this->getPresetIndex() == 0 && surface_params(params)) {
       draw_surface_all(canvas, palette, !Spacetime::flat_surface());
       return;
     }
+    const PhaseFunction function = selected_function();
+    prepare_waveform(function, count);
     if (!Spacetime::flat_surface()) {
       draw_timed_all(canvas, count, sides, shape, palette);
       if (planar_star)
