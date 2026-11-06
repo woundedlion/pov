@@ -296,9 +296,12 @@ first-arm meridians for both arms.
 
 `Plot::PlanarChords` strokes closed polylines that are straight in an
 azimuthal-equidistant chart. Its timed `draw_closed` draws a contour turning
-rigidly over the frame. It takes the frame-end vertices, the rotations from the
-frame end to the frame start and to mid-frame, and a bound on the contour's
-angular speed. `prepare` first records the frame's motion bound. Screen anchors
+rigidly over the frame. It takes the frame-end vertices and a `TimedMotion`
+record owning the frame-end-to-start and frame-end-to-middle rotations. The
+record also names the interval cap, alternating-radius and reference-chord
+policies, and contour angular-speed bound; callers use designated initializers.
+`draw_closed` borrows the record for the duration of the call. `prepare` first
+records the frame's motion bound. Screen anchors
 along each edge carry quadratic motion through the frame start, middle and end.
 Coherent chord samples solve their column crossing directly; other chords emit
 each column they reach at that column's time. An anchor interval takes a

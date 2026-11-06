@@ -1012,18 +1012,19 @@ private:
         flush();
         star_chords.draw_closed(
             plot_filters, canvas, ring, corners, *chart, shaded_color,
-            math::RotationMatrix(start_turn),
-            shape == ShapeType::PLANAR_STAR
-                ? Plot::PlanarChords<W, H>::MAX_ANCHOR_INTERVALS
-                : FLOWER_ANCHOR_INTERVALS,
-            shape == ShapeType::PLANAR_STAR,
-            math::RotationMatrix(
-                middle_orientation *
-                math::make_rotation(contour.axis, contour.turn_at(0.5f)) *
-                end_orientation.conjugate()),
-            shape == ShapeType::PLANAR_STAR &&
-                float(count) >= DENSE_CONTOUR_COUNT,
-            contour_speed);
+            {.start = math::RotationMatrix(start_turn),
+             .middle = math::RotationMatrix(
+                 middle_orientation *
+                 math::make_rotation(contour.axis, contour.turn_at(0.5f)) *
+                 end_orientation.conjugate()),
+             .max_intervals =
+                 shape == ShapeType::PLANAR_STAR
+                     ? Plot::PlanarChords<W, H>::MAX_ANCHOR_INTERVALS
+                     : FLOWER_ANCHOR_INTERVALS,
+             .alternating_radii = shape == ShapeType::PLANAR_STAR,
+             .reference_chords = shape == ShapeType::PLANAR_STAR &&
+                                 float(count) >= DENSE_CONTOUR_COUNT,
+             .contour_speed = contour_speed});
         continue;
       }
       if (geodesic_flower)

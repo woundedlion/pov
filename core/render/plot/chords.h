@@ -290,6 +290,17 @@ public:
    *  balanced adaptive walk's at TARGET_STEP. */
   static constexpr float ALPHA_GAIN = 1.028f;
 
+  /** @brief Motion and sampling policy for a timed closed contour. */
+  struct TimedMotion {
+    math::RotationMatrix start;  ///< Frame-end to frame-start rotation.
+    math::RotationMatrix middle; ///< Frame-end to mid-frame rotation.
+    int max_intervals; ///< Anchor interval cap, bounded by MAX_RADIAL_INTERVALS.
+    bool alternating_radii; ///< Reverse the radial profile on adjacent edges.
+    bool
+        reference_chords; ///< Use TARGET_STEP, unit density and balanced opacity.
+    float contour_speed; ///< Contour angular speed bound, radians per frame.
+  };
+
   /**
    * @brief Arena bytes init_storage() takes for polylines of up to
    *        @p max_vertices vertices.
@@ -551,18 +562,11 @@ public:
    * coordinates in @p planar_basis.
    * @param planar_basis Azimuthal-equidistant chart the edges are straight in.
    * @param color Stroke color; its alpha is balanced against the step taken.
-   * @param start Rotation taking a frame-end point to its frame-start
-   * position; no point moves farther than prepare()'s motion.
-   * @param max_intervals Maximum anchor intervals, capped at MAX_RADIAL_INTERVALS.
-   * Target spacing is RADIAL_ANCHOR_ARC, or MAX_ANCHOR_ARC when
-   * alternating_radii is set; the interval cap can widen that spacing.
-   * @param alternating_radii Adjacent edges reverse the radial anchor profile.
-   * @param middle Rotation from frame end to mid-frame.
-   * @param reference_chords Match the still chord walk: TARGET_STEP spacing,
-   * unit density and balanced opacity; otherwise match the adaptive arc-table
-   * rasterizer: BALANCED_SCREEN_STEP_PX spacing, arc-table density and linear
-   * opacity below the default step.
-   * @param contour_speed Bound on angular speed over the contour, radians per frame.
+   * @param motion Endpoint rotations and contour sampling policy. No point moves
+   * farther than prepare()'s motion. Anchor spacing is MAX_ANCHOR_ARC for
+   * alternating radii and RADIAL_ANCHOR_ARC otherwise, widened by the interval
+   * cap. Without reference chords, use BALANCED_SCREEN_STEP_PX spacing,
+   * arc-table density and linear opacity below the default step.
    * @details Edges share the first edge's radial profile, reversed on alternating
    * edges. Screen anchors carry quadratic motion between frame start, middle
    * and end. Coherent samples solve their column crossing directly; other
@@ -573,14 +577,16 @@ public:
   HS_HOT_FLASH_MEMBER void
   draw_closed(PipelineT &pipeline, Canvas &canvas, const Fragments &points,
               int vertices, const math::Basis &planar_basis,
-              const Color4 &color, const math::RotationMatrix &start,
-              int max_intervals, bool alternating_radii,
-              const math::RotationMatrix &middle, bool reference_chords,
-              float contour_speed) {
+              const Color4 &color, const TimedMotion &motion) {
+    const math::RotationMatrix &start = motion.start, &middle = motion.middle;
+    const int MAX_INTERVALS = motion.max_intervals;
+    const bool ALTERNATING_RADII = motion.alternating_radii;
+    const bool REFERENCE_CHORDS = motion.reference_chords;
+    const float CONTOUR_SPEED = motion.contour_speed;
     HS_CHECK(motion_prepared,
              "PlanarChords: timed draw requires motion preparation");
     const float target_step =
-        reference_chords ? TARGET_STEP : BALANCED_SCREEN_STEP_PX;
+        REFERENCE_CHORDS ? TARGET_STEP : BALANCED_SCREEN_STEP_PX;
     using Geometry = math::DisplayGeometry<H>;
     require_closed(pipeline, canvas, points, vertices);
     ScratchScope length_scope(scratch_arena_a);
@@ -600,10 +606,10 @@ public:
     const float first_dy = y_chart[1] - y_chart[0];
     const float edge_arc = sqrtf(first_dx * first_dx + first_dy * first_dy);
     const int anchor_intervals =
-        hs::clamp(static_cast<int>(ceilf(edge_arc / (alternating_radii
+        hs::clamp(static_cast<int>(ceilf(edge_arc / (ALTERNATING_RADII
                                                          ? MAX_ANCHOR_ARC
                                                          : RADIAL_ANCHOR_ARC))),
-                  1, std::min(max_intervals, MAX_RADIAL_INTERVALS));
+                  1, std::min(MAX_INTERVALS, MAX_RADIAL_INTERVALS));
     const float inv_intervals = 1.0f / static_cast<float>(anchor_intervals);
     planar_arc_cumul({x_chart[0], y_chart[0]}, first_dx, first_dy, planar_basis,
                      arc_cumul);
@@ -627,10 +633,10 @@ public:
       const float slope =
           PLANAR_LEN_SAMPLES * (arc_cumul[j + 1] - arc_cumul[j]);
       reference_density[k] =
-          reference_chords || !(speed > 0.0f) ? 1.0f : slope / speed;
+          REFERENCE_CHORDS || !(speed > 0.0f) ? 1.0f : slope / speed;
     }
     const float radial_bend =
-        alternating_radii ? edge_arc * edge_arc * inv_intervals *
+        ALTERNATING_RADII ? edge_arc * edge_arc * inv_intervals *
                                 inv_intervals * math::ROWS_PER_RADIAN<H> / 8.0f
                           : 0.0f;
     for (int k = 1; k < anchor_intervals; ++k) {
@@ -644,7 +650,7 @@ public:
           radius > math::EPS_GEOMETRIC ? sine / radius : 1.0f, cosine};
     }
 
-    const float velocity = contour_speed * math::ROWS_PER_RADIAN<H>;
+    const float velocity = CONTOUR_SPEED * math::ROWS_PER_RADIAN<H>;
     auto walk_segment = [&](const math::PixelCoords &from0,
                             const math::PixelCoords &to0,
                             const math::PixelCoords &from1,
@@ -654,7 +660,7 @@ public:
                             float curve_bend) __attribute__((always_inline)) {
       auto sample_alpha = [&](float ratio) HS_HOT_INLINE {
         return stroke_sample_alpha(color.alpha, ratio, density,
-                                   reference_chords);
+                                   REFERENCE_CHORDS);
       };
       const math::PixelCoords from_curve{
           2.0f * (from0.x + from1.x - 2.0f * from_mid.x),
@@ -851,7 +857,7 @@ public:
           return points[edge + 1].pos;
         const float t = static_cast<float>(k) * inv_intervals;
         const int profile =
-            alternating_radii && (edge & 1) ? anchor_intervals - k : k;
+            ALTERNATING_RADII && (edge & 1) ? anchor_intervals - k : k;
         const auto &coefficient = radial_coefficients[profile];
         const float x = x_chart[edge] + dx * t;
         const float y = y_chart[edge] + dy * t;
@@ -910,7 +916,7 @@ public:
                                     fmaxf(0.0f, pole_distance - row_margin))),
             0, H - 1);
         const float sine = fmaxf(0.001f, math::TrigLUT<W, H>::sin_phi[row]);
-        const float bend = contour_speed * contour_speed *
+        const float bend = CONTOUR_SPEED * CONTOUR_SPEED *
                            math::ROWS_PER_RADIAN<H> / (8.0f * sine);
         const bool polar = pole_distance < POLE_PIECE_ROWS + row_margin ||
                            bend > POLAR_TIME_ERROR_PX ||
@@ -918,7 +924,7 @@ public:
         if (!polar) {
           polar_from_ready = false;
           walk_segment(start_from, start_to, end_from, end_to, mid_from, mid_to,
-                       reference_density[alternating_radii && (edge & 1)
+                       reference_density[ALTERNATING_RADII && (edge & 1)
                                              ? anchor_intervals - 1 - k
                                              : k],
                        bend);
@@ -937,8 +943,8 @@ public:
               capture(start_world_to, mid_world_to, to);
           PolarWalk<W, H>::draw(
               pipeline, canvas, polar_from, polar_to, north, color, target_step,
-              reference_chords,
-              reference_density[alternating_radii && (edge & 1)
+              REFERENCE_CHORDS,
+              reference_density[ALTERNATING_RADII && (edge & 1)
                                     ? anchor_intervals - 1 - k
                                     : k]);
           polar_from = polar_to;

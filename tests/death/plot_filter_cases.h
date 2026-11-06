@@ -435,8 +435,12 @@ inline void draw_timed_planar_chords(int mode) {
     chords.prepare(canvas.clip());
   chords.draw_closed(sink, canvas, points, VERTICES, plane,
                      Color4(Pixel(65535, 65535, 65535), 0.5f),
-                     math::RotationMatrix{}, 2, true, math::RotationMatrix{},
-                     false, 0.0f);
+                     {.start = math::RotationMatrix{},
+                      .middle = math::RotationMatrix{},
+                      .max_intervals = 2,
+                      .alternating_radii = true,
+                      .reference_chords = false,
+                      .contour_speed = 0.0f});
 }
 
 /** @brief A timed chord draw rejects clip-only preparation. */
