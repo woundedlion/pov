@@ -642,21 +642,6 @@ struct GSWhiteBox {
   static constexpr float BULK_CERTIFIED_D2 = GS::BULK_CERTIFIED_D2;
   static constexpr float POLE_CERTIFIED_D2 = GS::POLE_CERTIFIED_D2;
 
-  static void step(GS &gs, const uint16_t *cA, const uint16_t *cB, uint16_t *nA,
-                   uint16_t *nB) {
-    // The production substep is float-resident; convert Q16 at the edges.
-    std::vector<float> fA(N), fB(N), gA(N), gB(N);
-    for (int i = 0; i < N; ++i) {
-      fA[i] = GS::from_q16(cA[i]);
-      fB[i] = GS::from_q16(cB[i]);
-    }
-    step_physics(gs, fA.data(), fB.data(), gA.data(), gB.data());
-    for (int i = 0; i < N; ++i) {
-      nA[i] = GS::to_q16(gA[i]);
-      nB[i] = GS::to_q16(gB[i]);
-    }
-  }
-
   static void step_float_inplace(GS &gs, float *a, float *b) {
     ScratchScope guard(scratch_arena_a);
     float *pending_a =
@@ -2031,23 +2016,21 @@ inline void test_gs_substep_signs_and_clamp() {
  *          decays is regime-dependent and not asserted.
  */
 inline void test_gs_evolution_stays_bounded() {
-  std::vector<uint16_t> a(GSWhiteBox::N, 65535), b(GSWhiteBox::N, 0),
+  std::vector<float> a(GSWhiteBox::N, 1.0f), b(GSWhiteBox::N, 0.0f),
       sa(GSWhiteBox::N), sb(GSWhiteBox::N);
   for (int s : {500, 2500, 4500, 6500})
-    b[s] = 65535;
+    b[s] = 1.0f;
   GSWhiteBox::GS gs;
   GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.03f, 0.03f, 3.0f);
-  uint16_t *cA = a.data(), *cB = b.data(), *nA = sa.data(), *nB = sb.data();
+  float *cA = a.data(), *cB = b.data(), *nA = sa.data(), *nB = sb.data();
   for (int s = 0; s < 256; ++s) {
-    GSWhiteBox::step(gs, cA, cB, nA, nB);
+    GSWhiteBox::step_physics(gs, cA, cB, nA, nB);
     std::swap(cA, nA);
     std::swap(cB, nB);
   }
-  // No blow-up: an unstable oscillation would clamp a large fraction of nodes
-  // at the upper rail.
   int saturated = 0;
   for (int i = 0; i < GSWhiteBox::N; ++i)
-    if (cB[i] == 65535)
+    if (cB[i] >= 1.0f)
       ++saturated;
   HS_EXPECT_LT(saturated, GSWhiteBox::N / 20);
 }
