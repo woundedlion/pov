@@ -62,6 +62,8 @@ enum class ResourceKind {
 /** @brief The storage required by one provider instance. */
 template <ResourceKey Key, typename FamilyT, ResourceKind KindV>
 struct ParameterResource {
+  static_assert(field_curves_supported<FamilyT>(),
+                "composed resource: unsupported registered field curve");
   static constexpr auto KEY = Key;            ///< Instance key.
   static constexpr ResourceKind KIND = KindV; ///< Pipeline role.
   using Family = FamilyT; ///< Parameter family stored for this instance.

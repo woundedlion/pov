@@ -130,7 +130,7 @@ inline void test_composed_preset_choreography() {
 /** @brief Positive logarithmic parameters interpolate within their declared domain. */
 inline void test_composed_log_positive_curve() {
   using Pullback::FieldCurve;
-  using Pullback::Fields::apply_curve;
+  using Control::apply_curve;
   HS_EXPECT_EQ(apply_curve(FieldCurve::LOG_POSITIVE, 1.0f, 81.0f, 0.0f), 1.0f);
   HS_EXPECT_EQ(apply_curve(FieldCurve::LOG_POSITIVE, 1.0f, 81.0f, 1.0f), 81.0f);
   HS_EXPECT_NEAR(apply_curve(FieldCurve::LOG_POSITIVE, 1.0f, 81.0f, 0.25f),

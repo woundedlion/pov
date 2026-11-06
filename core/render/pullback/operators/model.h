@@ -260,6 +260,8 @@ namespace Detail {
  */
 template <typename Model> consteval auto make_schema() {
   using Params = typename Model::Params;
+  static_assert(field_curves_supported<Params>(),
+                "operator schema: unsupported registered field curve");
   static_assert(topology_defaults_match<Params>());
   constexpr auto TOPOLOGY = topology_of<Params>();
   constexpr size_t FIELD_COUNT = Params::FIELDS.size();

@@ -48,15 +48,8 @@ template <typename Owner> struct TopologyField {
   }
 };
 
-/** @brief How a field moves across a preset transition. */
-enum class FieldCurve : uint8_t {
-  LERP,              /**< Linear, exact at both endpoints. */
-  LOG_POSITIVE,      /**< Geometric, for positive scales. */
-  SHORTEST_PERIODIC, /**< Shortest arc on a 2*pi period. */
-  SHORTEST_TURN,     /**< Shortest arc on a unit period, for fields in
-                          turns. */
-  SNAP               /**< Holds the start value until progress reaches 1. */
-};
+/** @brief Interpolation curves shared with described controls. */
+using FieldCurve = Control::FieldCurve;
 
 /**
  * @brief One entry of an operator's registered parameter schema — the full
@@ -78,25 +71,6 @@ struct ParamFieldInfo {
   const char *gated_by;
   uint16_t gate_values; /**< Bit per live gating value index. */
 };
-
-/** @brief Maps a pullback curve to its `Control::FieldCurve` equivalent.
- * @param curve Curve to map.
- * @return The same-named control curve. */
-constexpr Control::FieldCurve control_curve(FieldCurve curve) {
-  switch (curve) {
-  case FieldCurve::LERP:
-    return Control::FieldCurve::LERP;
-  case FieldCurve::LOG_POSITIVE:
-    return Control::FieldCurve::LOG_POSITIVE;
-  case FieldCurve::SHORTEST_PERIODIC:
-    return Control::FieldCurve::SHORTEST_PERIODIC;
-  case FieldCurve::SHORTEST_TURN:
-    return Control::FieldCurve::SHORTEST_TURN;
-  case FieldCurve::SNAP:
-    return Control::FieldCurve::SNAP;
-  }
-  return Control::FieldCurve::SNAP;
-}
 
 /** @brief When a field's slider is registered. */
 enum class FieldGate : uint8_t {
@@ -172,7 +146,7 @@ template <typename Owner> struct Field {
             .member = member,
             .name = name,
             .spec = {.min = min, .max = max, .animated = true},
-            .curve = control_curve(curve)};
+            .curve = curve};
   }
 };
 
@@ -225,6 +199,32 @@ constexpr Field<Owner> edge_width_field(float Owner::*member,
 template <typename T>
 concept HasFields = requires { T::FIELDS; };
 
+/** @brief Whether numeric and extra schema rows use registered pullback curves.
+ * @tparam Family Parameter family with a field table.
+ * @return False for midpoint, extrapolating or unknown curves. */
+template <HasFields Family> consteval bool field_curves_supported() {
+  const auto supported = [](const auto &fields) {
+    for (const auto &field : fields)
+      switch (field.curve) {
+      case FieldCurve::LERP:
+      case FieldCurve::LOG_POSITIVE:
+      case FieldCurve::SHORTEST_PERIODIC:
+      case FieldCurve::SHORTEST_TURN:
+      case FieldCurve::SNAP:
+        break;
+      default:
+        return false;
+      }
+    return true;
+  };
+  if (!supported(Family::FIELDS))
+    return false;
+  if constexpr (requires { Family::EXTRA_SCHEMA; })
+    if (!supported(Family::EXTRA_SCHEMA))
+      return false;
+  return true;
+}
+
 /** @brief Whether every tabled field id is non-null and unique in the family.
  *  @tparam Family Parameter family.
  *  @return True when the ids are valid. */
@@ -254,17 +254,6 @@ template <HasFields Family> consteval bool field_defaults_in_range() {
 }
 
 namespace Fields {
-
-/** @brief Interpolates @p from to @p to along @p curve.
- * @param curve Transition curve.
- * @param from Value at @p t = 0.
- * @param to Value at @p t = 1.
- * @param t Progress in [0, 1].
- * @return The interpolated value. */
-HS_FLASH_INLINE inline float apply_curve(FieldCurve curve, float from, float to,
-                                         float t) {
-  return Control::apply_curve(control_curve(curve), from, to, t);
-}
 
 /**
  * @brief Interpolates every tabled field of a family.

@@ -706,6 +706,8 @@ public:
   }
 };
 static_assert(field_ids_unique<Controls>());
+static_assert(field_curves_supported<Controls>(),
+              "modulation schema: unsupported registered field curve");
 
 /** @brief One live authored modulation control. */
 struct ControlField {

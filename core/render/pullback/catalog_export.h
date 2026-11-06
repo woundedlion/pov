@@ -71,9 +71,13 @@ inline const char *curve_name(FieldCurve curve) {
   case FieldCurve::SHORTEST_TURN:
     return "shortest-turn";
   case FieldCurve::SNAP:
+    return "snap";
+  case FieldCurve::MIDPOINT:
+  case FieldCurve::RAW_LINEAR:
     break;
   }
-  return "snap";
+  HS_CHECK(false, "unsupported registered field curve");
+  return nullptr;
 }
 
 /** @brief Appends `"name":{"size":N,"align":N}` for one runtime block.

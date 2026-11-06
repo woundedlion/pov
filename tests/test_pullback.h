@@ -352,6 +352,51 @@ inline void test_pullback_carrier_contract() {
   HS_EXPECT_EQ(static_cast<uint8_t>(Pullback::ProjectionBoundary::SINGULAR), 2);
 }
 
+/** @brief Schema probe placing one curve in numeric or extra rows.
+ * @tparam Curve Curve under test.
+ * @tparam Extra Whether the extra row carries the curve. */
+template <Pullback::FieldCurve Curve, bool Extra> struct CurveSubsetProbe {
+  float value = 0.5f; ///< In-range numeric value.
+  /// Numeric field table.
+  static constexpr auto FIELDS = std::array{Pullback::Field<CurveSubsetProbe>{
+      "value", &CurveSubsetProbe::value, nullptr, 0.1f, 1.0f,
+      Extra ? Pullback::FieldCurve::LERP : Curve}};
+  /// Extra schema row.
+  static constexpr auto EXTRA_SCHEMA = [] {
+    Pullback::ParamFieldInfo field{};
+    field.id = "extra";
+    field.min = 0.1f;
+    field.max = 1.0f;
+    field.def = 0.5f;
+    field.curve = Extra ? Curve : Pullback::FieldCurve::LERP;
+    return std::array{field};
+  }();
+};
+
+/** @brief Registered pullback fields reject midpoint and extrapolating curves. */
+inline void test_pullback_registered_curve_subset() {
+  using Pullback::FieldCurve;
+  static_assert(std::is_same_v<FieldCurve, Control::FieldCurve>);
+  HS_EXPECT_TRUE((Pullback::field_curves_supported<
+                  CurveSubsetProbe<FieldCurve::LERP, false>>()));
+  HS_EXPECT_TRUE((Pullback::field_curves_supported<
+                  CurveSubsetProbe<FieldCurve::LOG_POSITIVE, false>>()));
+  HS_EXPECT_TRUE((Pullback::field_curves_supported<
+                  CurveSubsetProbe<FieldCurve::SHORTEST_PERIODIC, false>>()));
+  HS_EXPECT_TRUE((Pullback::field_curves_supported<
+                  CurveSubsetProbe<FieldCurve::SHORTEST_TURN, false>>()));
+  HS_EXPECT_TRUE((Pullback::field_curves_supported<
+                  CurveSubsetProbe<FieldCurve::SNAP, false>>()));
+  HS_EXPECT_FALSE((Pullback::field_curves_supported<
+                   CurveSubsetProbe<FieldCurve::MIDPOINT, false>>()));
+  HS_EXPECT_FALSE((Pullback::field_curves_supported<
+                   CurveSubsetProbe<FieldCurve::RAW_LINEAR, false>>()));
+  HS_EXPECT_FALSE((Pullback::field_curves_supported<
+                   CurveSubsetProbe<FieldCurve::MIDPOINT, true>>()));
+  HS_EXPECT_FALSE((Pullback::field_curves_supported<
+                   CurveSubsetProbe<FieldCurve::RAW_LINEAR, true>>()));
+}
+
 /** @brief Projection traits preserve their declared branch and cut semantics. */
 inline void test_pullback_projection_traits() {
   using projections::ProjectionTrait;
@@ -2753,7 +2798,7 @@ struct FieldSnapParams {
  */
 inline void test_pullback_field_curves() {
   using Pullback::FieldCurve;
-  using Pullback::Fields::apply_curve;
+  using Control::apply_curve;
   HS_EXPECT_NEAR(apply_curve(FieldCurve::SHORTEST_TURN, 0.9f, 0.1f, 0.25f),
                  0.95f, 1e-6f);
   HS_EXPECT_NEAR(apply_curve(FieldCurve::LERP, 0.9f, 0.1f, 0.25f), 0.7f, 1e-6f);
@@ -2938,6 +2983,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_modulation_field_identity);
   HS_RUN(test_pullback_modulation_field_equality);
   HS_RUN(test_pullback_carrier_contract);
+  HS_RUN(test_pullback_registered_curve_subset);
   HS_RUN(test_pullback_projection_traits);
   HS_RUN(test_pullback_validation_predicates);
   HS_RUN(test_pullback_evaluation_order);

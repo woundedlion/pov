@@ -55,6 +55,10 @@ family. Native registration, the interpreter and document snapshots address
 the same degree, order, component, amplitude and phase members. Native writes
 validate the complete harmonic configuration before changing a member.
 
+Pullback numeric fields use `Control::FieldCurve` directly. Registered numeric
+and extra schema rows accept linear, positive-log, shortest-radian, shortest-turn
+and snap curves; midpoint and extrapolating curves are rejected at compile time.
+
 Control names are qualified by their resource key when any registered scalar,
 topology or nested name collides with another resource. Authored noise identity
 is independent of control names: it hashes the exact descriptor node label, a
