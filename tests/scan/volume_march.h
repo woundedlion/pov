@@ -69,7 +69,7 @@ inline void test_volume_scalar_state_differential() {
     math::Vector reference_p, actual_p;
     float reference_d = VolumeScalarRegression::trace_closest(
         counted, ro, vd, radius, steps, aa, reference_p);
-    limited += counted.samples == steps;
+    limited += steps > 1 && counted.samples == steps;
     float actual_d =
         Scan::Volume::trace_closest(shape, ro, vd, radius, steps, aa, actual_p);
     ++rays;
@@ -139,7 +139,7 @@ inline void test_volume_scalar_state_differential() {
       "position %.9g, probe coverage %.9g, solid changes %d\n",
       rays, limited, halos, background_grazes, max_distance, max_position,
       max_coverage, max_probe_position, max_probe_coverage, solid_changes);
-  HS_EXPECT_GT(limited, 1000);
+  HS_EXPECT_GE(limited, 10000);
   HS_EXPECT_GT(halos, 1000);
   HS_EXPECT_GT(background_grazes, 100);
   HS_EXPECT_LT(max_distance, 1e-5f);
