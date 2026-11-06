@@ -148,7 +148,7 @@ public:
         ++composited;
       }
       const float T = distances[index];
-      const float GROUP_END = T + RELATIVE_TOLERANCE * fmaxf(1.0f, T);
+      const float GROUP_END = merge_window_end(T, RELATIVE_TOLERANCE);
       float coverage = coverages[index];
       for (++index; index < count && distances[index] <= GROUP_END; ++index)
         coverage = fmaxf(coverage, coverages[index]);

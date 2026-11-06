@@ -110,7 +110,7 @@ trace_events(const Events &events, Raycast::Interval interval,
         pending = true;
         pending_t = T;
         pending_coverage = COVERAGE;
-        group_end = T + RELATIVE_TOLERANCE * fmaxf(1.0f, T);
+        group_end = Raycast::merge_window_end(T, RELATIVE_TOLERANCE);
       } else if (COVERAGE > pending_coverage) {
         pending_coverage = COVERAGE;
       }

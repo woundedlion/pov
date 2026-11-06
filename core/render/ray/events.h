@@ -16,6 +16,14 @@ namespace Raycast {
 /// Default merge window as a fraction of max(1, t).
 inline constexpr float MERGE_RELATIVE_TOLERANCE = 1.0e-4f;
 
+/** @brief Inclusive end of a relative hit-merge window.
+ * @param t First hit distance.
+ * @param tolerance Relative merge tolerance.
+ * @return Last distance merged with the first hit. */
+HS_HOT_INLINE inline float merge_window_end(float t, float tolerance) {
+  return t + tolerance * fmaxf(1.0f, t);
+}
+
 /**
  * @brief Merges bounded strictly increasing candidate streams in deterministic order.
  * @details Adapter::GROUP_CAPACITY optionally bounds distinct merge identities
@@ -110,7 +118,7 @@ trace_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
       }
       if (candidate.coverage > 0) {
         if (!grouped)
-          group_end = nearest + relative_tolerance * fmaxf(1.0f, nearest);
+          group_end = merge_window_end(nearest, relative_tolerance);
         size_t slot = 0;
         while (slot < grouped &&
                (group[slot].merge_identity != candidate.merge_identity ||
