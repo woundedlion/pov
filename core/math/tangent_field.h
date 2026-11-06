@@ -193,7 +193,7 @@ struct PreparedTerm {
   /** @brief Samples the normalized scalar term.
    * @param p Unit direction.
    * @return Scalar value and ambient gradient including amplitude. */
-  PotentialSample sample(const Vector &p) const {
+  HS_ITCM_MEMBER PotentialSample sample(const Vector &p) const {
     if (term.type != TermType::MODE) {
       const bool rotated = phase.re != 1.0f || phase.im != 0.0f;
       const Vector local = rotated
