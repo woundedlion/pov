@@ -63,7 +63,9 @@ private:
   static constexpr uint64_t STREAM_SEQ = 0x14057b7ef767814fULL;
 };
 
-/** Applies the splitmix64 avalanche finalizer. */
+/** @brief Applies the splitmix64 avalanche finalizer.
+ * @param z Word to avalanche.
+ * @return Mixed 64-bit value. */
 constexpr uint64_t splitmix64_finalize(uint64_t z) {
   z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
   z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;

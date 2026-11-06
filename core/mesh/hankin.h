@@ -300,14 +300,20 @@ enum class HankinBranch : uint8_t { INTERSECT, COLLAPSED, FALLBACK, BLENDED };
 
 /** Position and conditioning diagnostics for one dynamic Hankin vertex. */
 struct HankinSolve {
-  math::Vector pos;
-  HankinBranch branch;
+  math::Vector pos;    ///< Solved vertex position.
+  HankinBranch branch; ///< Conditioning path used for the position.
   /** Squared star-to-corner chord divided by the largest midpoint-to-corner
    * squared chord; zero on degenerate and collapsed branches. */
   float far_ratio = 0;
 };
 
-/** Solves one dynamic vertex using the contact angle's precomputed half-angle. */
+/** @brief Solves one dynamic vertex using the prepared contact half-angle.
+ * @param compiled Static vertices and corner lookup data.
+ * @param instr Midpoint and corner indices for this vertex.
+ * @param is_flat Collapse the vertex to its corner direction.
+ * @param cos_ha Cosine of half the contact angle.
+ * @param sin_ha Sine of half the contact angle.
+ * @return Position and conditioning diagnostics. */
 HS_HOT_INLINE inline HankinSolve
 solve_hankin_vertex(const CompiledHankin &compiled,
                     const HankinInstruction &instr, bool is_flat, float cos_ha,

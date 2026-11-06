@@ -522,7 +522,11 @@ FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
 
 HS_O3_BEGIN
 
-/** Builds the authored chain for one registry recipe. */
+/** @brief Builds the authored chain for one registry recipe.
+ * @tparam R Authored recipe to replay.
+ * @param a Output arena for even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return Rebuilt mesh with the arena ownership of build_recipe(). */
 template <const Recipe &R>
 HS_FLASH_INLINE inline PolyMesh generate_recipe(Arena &a, Arena &b) {
   return build_recipe(R, a, b);

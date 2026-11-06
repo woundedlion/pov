@@ -52,6 +52,7 @@ template <typename T> constexpr const void *effect_type_key() {
 struct FactoryEntry {
   /// Maps a preset index to its stable preset ID.
   using PresetIdFn = std::string_view (*)(size_t);
+  /// Allocates one registered effect instance.
   using CreatorFn = std::unique_ptr<Effect> (*)();
 
   hs::EffectIdentity

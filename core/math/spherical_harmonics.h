@@ -217,7 +217,13 @@ inline float spherical_harmonic(int l, int m, const math::Vector &p, float N) {
   return N * Q * ((m < 0) ? im : re);
 }
 
-/** Evaluates the gradient for an admitted harmonic mode. */
+/** @brief Evaluates the gradient for an admitted harmonic mode.
+ * @param l Degree in [0, MAX_POLYNOMIAL_DEGREE].
+ * @param m Nonnegative order in [0, l].
+ * @param p Cartesian point.
+ * @param N Prepared harmonic scale.
+ * @param phase Complex phase multiplying the azimuthal power.
+ * @return Ambient gradient of the polynomial extension. */
 HS_HOT_FLASH_MEMBER inline math::Vector
 spherical_harmonic_gradient_unchecked(int l, int m, const math::Vector &p,
                                       float N, math::Complex phase) {
