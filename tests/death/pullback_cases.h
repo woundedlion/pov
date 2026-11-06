@@ -7,6 +7,37 @@
 
 // Pullback death cases.
 
+/** @brief Registered field curves retain their catalog spellings. */
+inline void check_catalog_field_curve_companion() {
+  using Curve = Control::FieldCurve;
+  const std::pair<Curve, const char *> curves[] = {
+      {Curve::LERP, "lerp"},
+      {Curve::LOG_POSITIVE, "log-positive"},
+      {Curve::SHORTEST_PERIODIC, "shortest-periodic"},
+      {Curve::SHORTEST_TURN, "shortest-turn"},
+      {Curve::SNAP, "snap"}};
+  for (const auto &[curve, name] : curves)
+    HS_EXPECT(std::strcmp(Pullback::Interp::Detail::curve_name(curve), name) ==
+                  0,
+              "registered field curve spelling");
+}
+
+/** @brief Catalog export rejects model-only midpoint curves. */
+inline void case_catalog_curve_midpoint() {
+  (void)Pullback::Interp::Detail::curve_name(Control::FieldCurve::MIDPOINT);
+}
+
+/** @brief Catalog export rejects model-only raw-linear curves. */
+inline void case_catalog_curve_raw_linear() {
+  (void)Pullback::Interp::Detail::curve_name(Control::FieldCurve::RAW_LINEAR);
+}
+
+/** @brief Catalog export rejects unknown field curves. */
+inline void case_catalog_curve_unknown() {
+  (void)Pullback::Interp::Detail::curve_name(
+      static_cast<Control::FieldCurve>(opaque<uint8_t>(0xff)));
+}
+
 /** @brief Death case: the generated-palette operator rejects an unknown
     brightness envelope. */
 inline void case_pullback_operator_invalid_brightness_envelope() {

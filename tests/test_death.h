@@ -61,6 +61,7 @@
 #include "core/mesh/recipe.h"
 #include "core/render/plot.h"
 #include "core/render/pullback/interpreter.h"
+#include "core/render/pullback/catalog_export.h"
 #include "core/render/scan.h"
 #include "core/render/scan/radial_surface.h"
 #include "core/render/scan/radial_surface_candidate_mask.h"
@@ -195,6 +196,15 @@ inline bool case_enabled(const Case &entry) {
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
+      {"catalog_curve_midpoint", case_catalog_curve_midpoint,
+       "core/render/pullback/catalog_export.h",
+       "(false) unsupported registered field curve"},
+      {"catalog_curve_raw_linear", case_catalog_curve_raw_linear,
+       "core/render/pullback/catalog_export.h",
+       "(false) unsupported registered field curve"},
+      {"catalog_curve_unknown", case_catalog_curve_unknown,
+       "core/render/pullback/catalog_export.h",
+       "(false) unsupported registered field curve"},
       {"shader_chain_missing_colorize", case_shader_chain_missing_colorize,
        "workbench/shader/chain_host.h",
        "(false) ShaderChain: compiled program has no colorize entry"},
@@ -3037,6 +3047,7 @@ inline int run_death_tests() {
   }
   check_shader_chain_colorize_companion();
   check_hyperlattice_trace_companion();
+  check_catalog_field_curve_companion();
   if (shard.role == ShardSpec::Role::SHARD)
     std::remove(shard_record_path(shard.dir, shard.index).c_str());
 
