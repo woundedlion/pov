@@ -418,6 +418,12 @@ inline constexpr Recipe ICOSAHEDRON_TRUNCATE25_HK60_AMBO_RELAX100_HK60_RECIPE =
  */
 enum class StepSet : uint8_t { PRIMITIVE_ONLY, ALLOW_COMPOSITE };
 
+/** @brief Requires composite replay permission.
+ * @param allow_composite Whether composite steps are permitted. */
+HS_HOT_INLINE inline void require_composite(bool allow_composite) {
+  HS_CHECK(allow_composite, "apply_step: non-primitive op");
+}
+
 /**
  * @brief Applies one step to a builder.
  * @param builder Builder the step runs on.
@@ -473,24 +479,24 @@ FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
     builder.ambo();
     break;
   case Op::BEVEL:
-    HS_CHECK(allow_composite, "apply_step: non-primitive op");
+    require_composite(allow_composite);
     HS_CHECK(step.param > 0.0f, "apply_step: BEVEL step has no depth");
     builder.bevel(step.param);
     break;
   case Op::GYRO:
-    HS_CHECK(allow_composite, "apply_step: non-primitive op");
+    require_composite(allow_composite);
     builder.gyro();
     break;
   case Op::META:
-    HS_CHECK(allow_composite, "apply_step: non-primitive op");
+    require_composite(allow_composite);
     builder.meta();
     break;
   case Op::NEEDLE:
-    HS_CHECK(allow_composite, "apply_step: non-primitive op");
+    require_composite(allow_composite);
     builder.needle();
     break;
   case Op::ZIP:
-    HS_CHECK(allow_composite, "apply_step: non-primitive op");
+    require_composite(allow_composite);
     builder.zip();
     break;
   }

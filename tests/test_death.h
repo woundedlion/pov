@@ -330,6 +330,9 @@ inline const Case *all_cases(int &n) {
        "(cv.width() == W && cv.height() == H) DirectAntiAliasSink: framebuffer dimensions do not match"},
       {"recipe_bake_wrong_op", case_recipe_bake_wrong_op, "core/mesh/solids.h",
        "(!step.bake || step.op == Op::RELAX) apply_step: only RELAX accepts a bake"},
+      {"recipe_composite_in_primitive_steps",
+       case_recipe_composite_in_primitive_steps, "core/mesh/solids.h",
+       "(allow_composite) apply_step: non-primitive op"},
       {"vertex_replicate_short_input", case_vertex_replicate_short_input,
        "core/render/filter/world_vertex_replicate.h",
        "(std::size(vertices) >= static_cast<size_t>(N)) VertexReplicate: "
@@ -2601,7 +2604,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/mesh/mesh_state.h", 2},
     {"core/mesh/recipe.h", 2},
     {"core/mesh/solid_builder.h", 5},
-    {"core/mesh/solids.h", 12},
+    {"core/mesh/solids.h", 7},
     {"core/render/canvas.h", 4},
     {"core/render/filter/pixel_feedback.h", 7},
     {"core/render/filter/screen_trails.h", 2},

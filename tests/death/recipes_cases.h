@@ -33,6 +33,11 @@ inline void case_recipe_twist_wrong_op() {
   run_invalid_recipe_step({Solids::Op::AMBO, 0.0f, opaque(0.1f)});
 }
 
+/** @brief Composite steps trap in primitive-only replay. */
+inline void case_recipe_composite_in_primitive_steps() {
+  run_invalid_recipe_step({Solids::Op::GYRO});
+}
+
 /** @brief Traps on recipe bake live iterations. */
 inline void case_recipe_bake_live_iterations() {
   const MeshOps::RelaxBake bake{};
