@@ -236,7 +236,7 @@ class ShellGateTests(unittest.TestCase):
             shutil.copyfile(REPO / "tools" / name, script.parent / name)
         self.env["HS_PYTHON"] = sys.executable
         calls = self.root / "calls.log"
-        for failure in (0, 2, 3):
+        for failure in (0, 2, 3, 4, 5, 6):
             with self.subTest(failure=failure):
                 calls.unlink(missing_ok=True)
                 self.stub("pio", 'test -f .profile-lock/info || exit 99; '
@@ -248,10 +248,17 @@ class ShellGateTests(unittest.TestCase):
                                  result.stdout + result.stderr)
                 expected = ["|run -v",
                             "-D HS_PROFILE_TARGET=MindSplatter -D HS_MINDSPLATTER_REPLAY|run -v -e profile",
-                            "-D HS_PROFILE_TARGET=MindSplatter -D HS_PROFILE_PC|run -v -e profile"]
-                self.assertEqual(calls.read_text().splitlines(), expected[:failure or 3])
+                            "-D HS_PROFILE_TARGET=MindSplatter -D HS_PROFILE_PC|run -v -e profile",
+                            "-D HS_PROFILE_TARGET=GridWarp -D HS_PROBE_BREAKDOWN -D HS_PLOT_COUNTS "
+                            "-D HS_PROFILE_PLOT_RENDER_COUNTS -D HS_PROFILE_PULLBACK_PROJECTION "
+                            "-D HS_PROFILE_PC -D HS_PROFILE_MODULATION_SOURCE=1 "
+                            "-D HS_PROFILE_MODULATION_MECHANIC=0 -D HS_SCAN_METRICS|run -v -e profile",
+                            "-D HS_PROFILE_TARGET=MindSplatter -D HS_MINDSPLATTER_REPLAY "
+                            "-D HS_MINDSPLATTER_REPLAY_AB|run -v -e profile",
+                            "-D HS_PROFILE_TARGET=MindSplatter -D HS_PROFILE_PLOT_STALLS|run -v -e profile"]
+                self.assertEqual(calls.read_text().splitlines(), expected[:failure or len(expected)])
                 self.assertEqual((self.root / "capture.log").read_text().count("fixture-variant"),
-                                 failure or 3)
+                                 failure or len(expected))
                 self.assertFalse((self.root / ".profile-lock").exists())
 
     def test_profile_sweep_detects_a_missing_playlist_member_without_hardware(self):

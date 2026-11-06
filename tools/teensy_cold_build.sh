@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cold `pio run -v` over every platformio.ini environment, teed to
+# Cold `pio run -v` over every environment and profiling variant, teed to
 # teensy_build.log for tools/teensy_warnings.py.
 #
 # A cached translation unit emits no warnings, so the object cache and
@@ -30,4 +30,10 @@ pio run -v 2>&1 | tee "$log"
 PLATFORMIO_BUILD_FLAGS='-D HS_PROFILE_TARGET=MindSplatter -D HS_MINDSPLATTER_REPLAY' \
   pio run -v -e profile 2>&1 | tee -a "$log"
 PLATFORMIO_BUILD_FLAGS='-D HS_PROFILE_TARGET=MindSplatter -D HS_PROFILE_PC' \
+  pio run -v -e profile 2>&1 | tee -a "$log"
+PLATFORMIO_BUILD_FLAGS='-D HS_PROFILE_TARGET=GridWarp -D HS_PROBE_BREAKDOWN -D HS_PLOT_COUNTS -D HS_PROFILE_PLOT_RENDER_COUNTS -D HS_PROFILE_PULLBACK_PROJECTION -D HS_PROFILE_PC -D HS_PROFILE_MODULATION_SOURCE=1 -D HS_PROFILE_MODULATION_MECHANIC=0 -D HS_SCAN_METRICS' \
+  pio run -v -e profile 2>&1 | tee -a "$log"
+PLATFORMIO_BUILD_FLAGS='-D HS_PROFILE_TARGET=MindSplatter -D HS_MINDSPLATTER_REPLAY -D HS_MINDSPLATTER_REPLAY_AB' \
+  pio run -v -e profile 2>&1 | tee -a "$log"
+PLATFORMIO_BUILD_FLAGS='-D HS_PROFILE_TARGET=MindSplatter -D HS_PROFILE_PLOT_STALLS' \
   pio run -v -e profile 2>&1 | tee -a "$log"
