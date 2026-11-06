@@ -390,6 +390,12 @@ struct GeodesicEdgeSampler {
   math::Vector v_perp; /**< Unit vector perpendicular to v1 in the arc plane. */
   float total_dist;    /**< The edge's on-sphere length (radians). */
 
+  /** @brief Signed longitude derivative numerator along the arc.
+   * @return Longitude rate per arc angle times squared horizontal radius. */
+  HS_HOT_INLINE float longitude_rate_numerator() const {
+    return v1.x * v_perp.z - v1.z * v_perp.x;
+  }
+
   /** @brief Position at arc fraction t in [0,1].
    *  @param t Arc fraction.
    *  @return Near-unit sphere point. */

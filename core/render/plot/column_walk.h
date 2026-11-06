@@ -497,8 +497,7 @@ public:
     if (basis.total_dist * basis.total_dist * max_rate2 <=
         SUPPORT * SUPPORT * count * count)
       return false;
-    const float cross_y =
-        basis.v1.x * basis.v_perp.z - basis.v1.z * basis.v_perp.x;
+    const float cross_y = basis.longitude_rate_numerator();
     if constexpr (CERTIFIED) {
       constexpr float ROUNDING_PAD = 8e-6f;
       constexpr float RSQRT_MIN = 0.9988f;
@@ -1184,8 +1183,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           const float y = sampler.v1.y * cosine + sampler.v_perp.y * sine;
           const float tangent_y =
               sampler.v_perp.y * cosine - sampler.v1.y * sine;
-          const float cross_y =
-              sampler.v1.x * sampler.v_perp.z - sampler.v1.z * sampler.v_perp.x;
+          const float cross_y = sampler.longitude_rate_numerator();
           pieces =
               total / screen_step_components<W, H>(y, tangent_y, cross_y,
                                                    math::RADIANS_PER_COLUMN<W>);
@@ -1421,11 +1419,7 @@ rasterize_column_edges_impl(PipelineRef &pipeline, Canvas &canvas,
                                  fmaxf(frame.pieces[0], frame.pieces[1]) >
                                      2 * rasterize_step_budget<W>()));
     const int direction =
-        frame.bases[1].v1.x * frame.bases[1].v_perp.z -
-                    frame.bases[1].v1.z * frame.bases[1].v_perp.x >=
-                0.0f
-            ? 1
-            : -1;
+        frame.bases[1].longitude_rate_numerator() >= 0.0f ? 1 : -1;
     detail::ColumnSegment segments[2];
     int segment_count = 1;
     float velocity[4] = {};
@@ -1483,7 +1477,7 @@ rasterize_column_edges_impl(PipelineRef &pipeline, Canvas &canvas,
           &Spacetime::GeometryCounters::column_shader_calls>();
     }
     const auto sense = [&](const GeodesicEdgeSampler &basis) HS_HOT_INLINE {
-      return basis.v1.x * basis.v_perp.z - basis.v1.z * basis.v_perp.x;
+      return basis.longitude_rate_numerator();
     };
     const bool split = radians != 0.0f && !frame.known;
     const ColumnWalk<W> walk{
