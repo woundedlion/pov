@@ -405,16 +405,6 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(ripple.schema[3].min, 0.7f);
   HS_EXPECT_EQ(ripple.schema[3].def, 0.7f);
   HS_EXPECT_STREQ(ripple.schema[5].id, "center-polar");
-  In::Op::RipplePhaseState ripple_state;
-  In::Op::RippleChainParams ripple_params;
-  for (int frame = 0; frame < 40; ++frame)
-    In::Op::DisplaceRipple::advance(ripple_state, ripple_params);
-  HS_EXPECT_EQ(ripple_state.waves[0].age, 40.0f);
-  for (int frame = 0; frame < 40; ++frame)
-    In::Op::DisplaceRipple::advance(ripple_state, ripple_params);
-  HS_EXPECT_EQ(ripple_state.waves[0].age, 80.0f);
-  HS_EXPECT_EQ(ripple_state.burst_count, 1U);
-
   // Warp batch: every op is PLANE->PLANE with "speed" first; the polar chart
   // carries the harmonic list; curl-flow exposes basis and integrator.
   for (const char *id :

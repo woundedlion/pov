@@ -228,6 +228,16 @@ inline void test_shader_chain_parity_displace_ripple() {
 /** @brief Ripple bursts retain their stagger, cadence and shared centers. */
 inline void test_shader_chain_ripple_bursts() {
   using Ripple = In::Op::DisplaceRipple;
+  Ripple::State default_state;
+  Ripple::Params default_params;
+  for (int frame = 0; frame < 40; ++frame)
+    Ripple::advance(default_state, default_params);
+  HS_EXPECT_EQ(default_state.waves[0].age, 40.0f);
+  for (int frame = 0; frame < 40; ++frame)
+    Ripple::advance(default_state, default_params);
+  HS_EXPECT_EQ(default_state.waves[0].age, 80.0f);
+  HS_EXPECT_EQ(default_state.burst_count, 1U);
+
   Ripple::Params params;
   params.burst_rate = 1.0f / 64.0f;
   Ripple::State state;
