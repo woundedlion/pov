@@ -45,6 +45,7 @@
 #include "core/color/color.h"
 #include "core/color/modulation.h"
 #include "core/pattern/noise.h"
+#include "core/pattern/sphere_cells.h"
 #include "core/pattern/sphere_lut.h"
 #include "core/math/geometry.h"
 #include "core/render/filter.h"
@@ -227,6 +228,9 @@ inline const Case *all_cases(int &n) {
       {"pattern_sine_invalid_axis", case_pattern_sine_invalid_axis,
        "core/pattern/sources.h",
        "(valid(params) && finite(state.phase_turns)) pattern sine: invalid parameters"},
+      {"pattern_sphere_cells_invalid_prepare",
+       case_pattern_sphere_cells_invalid_prepare, "core/pattern/sphere_cells.h",
+       "(valid(params)) sphere cells: invalid parameters"},
       {"pattern_radian_invalid_advance", case_pattern_radian_invalid_advance,
        "core/pattern/sources.h",
        "(valid(params) && valid_state(state)) pattern radian source: invalid advance inputs"},

@@ -4,6 +4,13 @@
  */
 // Pattern parameter and state admission traps.
 
+inline void case_pattern_sphere_cells_invalid_prepare() {
+  Pattern::SphereCells::Params params;
+  (void)Pattern::SphereCells::prepare(params);
+  params.layout = 255;
+  (void)Pattern::SphereCells::prepare(params);
+}
+
 inline void case_pattern_sine_invalid_axis() {
   Pattern::SineParams params;
   (void)Pattern::DirectionalSine::prepare(params, {});
