@@ -68,6 +68,28 @@ class UploaderSetupTests(unittest.TestCase):
         self.assertEqual(setup.install(self.destination), self.destination / "tycmd.exe")
         self.download.assert_not_called()
 
+    def test_metadata_write_failure_does_not_mark_install_complete(self):
+        replace = setup.os.replace
+        for name in ("LICENSE.txt", "README.md", "provenance.json"):
+            with self.subTest(name=name):
+                destination = self.destination / name.replace(".", "_")
+
+                def fail_metadata(source, target):
+                    if Path(target).name == name:
+                        raise OSError("metadata write failed")
+                    return replace(source, target)
+
+                with mock.patch.object(setup.os, "replace", side_effect=fail_metadata):
+                    with self.assertRaisesRegex(OSError, "metadata write failed"):
+                        setup.install(destination)
+                self.assertFalse((destination / "tycmd.exe").exists())
+                self.assertFalse(any(path.name.startswith(".") for path in destination.iterdir()))
+                self.download.return_value.__enter__.return_value = io.BytesIO(self.release)
+                self.assertEqual(setup.install(destination).read_bytes(), self.executable)
+                for required in ("LICENSE.txt", "README.md", "provenance.json"):
+                    self.assertTrue((destination / required).is_file())
+                self.download.return_value.__enter__.return_value = io.BytesIO(self.release)
+
     def test_existing_different_tool_is_not_overwritten(self):
         self.destination.mkdir()
         target = self.destination / "tycmd.exe"

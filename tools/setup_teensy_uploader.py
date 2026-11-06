@@ -37,7 +37,8 @@ def install(directory: Path) -> Path:
         "archive_sha256": TYTOOLS_ARCHIVE_SHA256, "executable_sha256": TYCMD_SHA256,
     }, indent=2) + "\n").encode("utf-8")
     directory.mkdir(parents=True, exist_ok=True)
-    for name, data in files.items():
+    for name in ("LICENSE.txt", "README.md", "provenance.json", "tycmd.exe"):
+        data = files[name]
         descriptor, temporary = tempfile.mkstemp(prefix=f".{name}.", dir=directory)
         try:
             with os.fdopen(descriptor, "wb") as output:
