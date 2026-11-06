@@ -349,16 +349,21 @@ peirce_projection(const math::Vector &v, float central_meridian,
     else
       region = 4;
     if (folded_layout) {
-      if (longitude < -0.75f * math::PI_F) {
+      switch (region) {
+      case 1:
         projected_y = SHIFT - projected_y;
-      } else if (longitude < -0.25f * math::PI_F) {
+        break;
+      case 2:
         x = -SHIFT - x;
-      } else if (longitude < 0.25f * math::PI_F) {
+        break;
+      case 3:
         projected_y = -SHIFT - projected_y;
-      } else if (longitude < 0.75f * math::PI_F) {
+        break;
+      case 4:
         x = SHIFT - x;
-      } else {
-        projected_y = SHIFT - projected_y;
+        break;
+      default:
+        break;
       }
     }
   }
