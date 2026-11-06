@@ -91,7 +91,7 @@ struct FieldDisplaceModel : ValueStateModel<StateT> {
       "Scalar fields retain their declared domains; harmonic topology snaps.";
   static void advance(State &state, const Params &params) {
     if constexpr (requires { params.drift; })
-      state.phase = fmodf(state.phase + params.drift, math::TWO_PI_F);
+      state.phase = Surface::advance_field_phase(state.phase, params.drift);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
@@ -175,7 +175,7 @@ struct DisplaceSymmetric
   static constexpr const char *ID = "sphere.displace.symmetric.v2";
   static constexpr const char *NAME = "Symmetric Lens";
   static void advance(State &state, const Params &params) {
-    state.phase = fmodf(state.phase + params.speed, math::TWO_PI_F);
+    state.phase = Surface::advance_field_phase(state.phase, params.speed);
   }
   /** @brief Prepares the rotated invariant field.
    * @param params Authored invariant controls.

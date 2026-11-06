@@ -1143,10 +1143,10 @@ private:
                                           RossbyHaurwitzParams> ||
                            std::is_same_v<typename Resource::Family,
                                           PotentialParams>)
-          clock.phase = fmodf(clock.phase + family.drift, math::TWO_PI_F);
+          clock.phase = Surface::advance_field_phase(clock.phase, family.drift);
         else if constexpr (std::is_same_v<typename Resource::Family,
                                           SymmetricParams>)
-          clock.phase = fmodf(clock.phase + family.speed, math::TWO_PI_F);
+          clock.phase = Surface::advance_field_phase(clock.phase, family.speed);
         else
           clock.phase = math::wrap_t(clock.phase + family.speed);
       } else if constexpr (Resource::KIND == ResourceKind::TWIST) {

@@ -183,8 +183,7 @@ template <typename Params>
 inline void temporal_sample(RipplePhaseState &out,
                             const RipplePhaseInterval &interval, const Params &,
                             float fraction) {
-  for (auto &wave : out.waves)
-    wave.age -= interval.frames * (1.0f - fraction);
+  SphereAnimation::rewind_wave_ages(out.waves, interval.frames, fraction);
 }
 
 /** @brief SPHERE endomorphism: staggered bursts of spherical ripples. */

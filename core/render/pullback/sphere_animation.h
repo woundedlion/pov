@@ -46,6 +46,18 @@ struct RippleState {
   std::array<RippleWave, 16> waves{}; ///< Scheduled ripple waves.
 };
 
+/** @brief Rewinds wave ages from a frame endpoint to its sampled time.
+ * @tparam Waves Scheduled wave collection.
+ * @param waves Wave ages to update.
+ * @param frames Frames between endpoints.
+ * @param fraction Fraction elapsed between endpoints. */
+template <typename Waves>
+HS_HOT_INLINE inline void rewind_wave_ages(Waves &waves, uint32_t frames,
+                                           float fraction) {
+  for (auto &wave : waves)
+    wave.age -= frames * (1.0f - fraction);
+}
+
 /** @brief Advances the scheduler by one frame.
  * @tparam Params Ripple controls.
  * @param state Scheduler state.

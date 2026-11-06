@@ -121,6 +121,14 @@ inline void advance_ripple_phase(float &phase,
   phase = fmodf(phase + 1.0f, params.period);
 }
 
+/** @brief Advances a polynomial field's angular phase.
+ * @param phase Current phase in radians.
+ * @param rate Angular advance per frame.
+ * @return Advanced phase modulo two pi. */
+HS_HOT_INLINE inline float advance_field_phase(float phase, float rate) {
+  return fmodf(phase + rate, math::TWO_PI_F);
+}
+
 /** @brief Converts the ripple clock in frames to a normalized cycle.
  *  @param phase Ripple clock in frames.
  *  @param params Ripple parameters supplying the period.

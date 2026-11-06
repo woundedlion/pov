@@ -275,8 +275,7 @@ public:
                                      SphereAnimation::BurstRippleParams>) {
           const auto &end = to.resources.template get<Resource::KEY>();
           const uint32_t DELTA = end.frames - start.frames;
-          for (auto &wave : clock.waves)
-            wave.age -= DELTA * (1.0f - fraction);
+          SphereAnimation::rewind_wave_ages(clock.waves, DELTA, fraction);
           clock.radial_fraction = DELTA == 1 ? fraction : 1.0f;
           if (DELTA > 1 ||
               std::memcmp(&family, &to.params.template get<Resource::KEY>(),
