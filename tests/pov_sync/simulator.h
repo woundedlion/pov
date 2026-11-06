@@ -5,6 +5,9 @@
 
 // ── Multi-board simulator ───────────────────────────────────────────────────
 
+/** Maximum post-recovery board phase error, in columns. */
+inline constexpr double RECOVERY_PHASE_ERROR = 0.08;
+
 struct SimEffect {
   uint64_t frames = 0;
   void advance_display() { ++frames; }
@@ -868,7 +871,7 @@ inline void test_sim_emi() {
   HS_EXPECT_GE(tm2.symbols_discarded_invalid, 2u); // corrupted bursts dropped
   HS_EXPECT_GE(
       sim.boards[3].board.telemetry_snapshot().symbols_discarded_invalid, 1u);
-  HS_EXPECT_LE(sim.max_phase_err(), 2);
+  HS_EXPECT_LE(sim.max_phase_err(), RECOVERY_PHASE_ERROR);
   for (int i = 1; i < 4; ++i) {
     HS_EXPECT_EQ(lock(sim.boards[i].board), LockState::LOCKED);
     HS_EXPECT_EQ(sim.boards[i].live_index, sim.boards[0].live_index);
@@ -900,7 +903,7 @@ inline void test_sim_drops_and_missed_epoch() {
   HS_EXPECT_EQ(lock(sim.boards[1].board), LockState::LOCKED);
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
-  HS_EXPECT_LE(sim.max_phase_err(), 2);
+  HS_EXPECT_LE(sim.max_phase_err(), RECOVERY_PHASE_ERROR);
 
   // Board 3 loses its wire for the entire EPOCH train; two consecutive index
   // beacons correct it (§6.3.2, §6.3.4).
@@ -974,7 +977,7 @@ inline void test_sim_reboot(const Config &cfg) {
   HS_EXPECT_EQ(b2.live_index, sim.boards[0].live_index);
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
-  HS_EXPECT_LE(sim.max_phase_err(), 2);
+  HS_EXPECT_LE(sim.max_phase_err(), RECOVERY_PHASE_ERROR);
   HS_EXPECT_EQ(content(b2.board).rev_in_effect & 63,
                content(sim.boards[0].board).rev_in_effect & 63);
 }
@@ -1175,7 +1178,7 @@ inline void test_sim_rev_wrap_within_effect() {
     HS_EXPECT_TRUE(
         sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
     const uint32_t rev = content(sim.boards[0].board).rev_in_effect;
-    HS_EXPECT_LE(sim.max_phase_err(), 2);
+    HS_EXPECT_LE(sim.max_phase_err(), 0.13);
     for (int i = 0; i < 4; ++i) {
       HS_EXPECT_EQ(sim.boards[i].live_index, 0);
       HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);

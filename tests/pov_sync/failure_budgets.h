@@ -80,7 +80,7 @@ inline void test_budget_lost_symbol() {
   const uint32_t acc_before =
       sim.boards[1].board.telemetry_snapshot().symbols_accepted;
 
-  HS_EXPECT_LE(max_err_over(sim, 1.5), 1); // sub-column through coast+re-snap
+  HS_EXPECT_LE(max_err_over(sim, 1.5), RECOVERY_PHASE_ERROR);
   HS_EXPECT_EQ(lock(sim.boards[1].board), LockState::LOCKED);
   const Telemetry tm = sim.boards[1].board.telemetry_snapshot();
   HS_EXPECT_GE(tm.max_coast_halves, 2u);             // it did coast…
@@ -119,7 +119,7 @@ inline void test_budget_emi_accepted_seam() {
   HS_EXPECT_LE(seam, cfg.gate_cols);
   // The next real boundary symbol re-snaps.
   sim.run_revs(0.45);
-  HS_EXPECT_LE(sim.max_phase_err(), 1);
+  HS_EXPECT_LE(sim.max_phase_err(), RECOVERY_PHASE_ERROR);
   HS_EXPECT_EQ(lock(sim.boards[1].board), LockState::LOCKED);
   // The forged HALF's flip dedupes against the crossing: content stays equal.
   HS_EXPECT_TRUE(
@@ -294,7 +294,7 @@ inline void test_budget_beacon_corruption() {
   HS_EXPECT_EQ(sim.boards[1].live_index, sim.boards[0].live_index);
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
-  HS_EXPECT_LE(sim.max_phase_err(), 2);
+  HS_EXPECT_LE(sim.max_phase_err(), RECOVERY_PHASE_ERROR);
   HS_EXPECT_EQ(sim.boards[1].t, sim.boards[0].t);
 }
 
