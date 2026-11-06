@@ -465,7 +465,13 @@ cap_may_touch_clip(const ClipRegion &cr, const Columns &columns,
   const float beta = math::fast_acos(hs::clamp(dir.y, -1.0f, 1.0f));
   return cap_may_touch_clip_rows<H>(
       cr, beta, half_angle, [&](float t2) HS_HOT_INLINE {
-        if (!cr.x_clip().active || beta <= t2 + CAP_ACOS_PAD ||
+        const bool COLUMNS_ACTIVE = [&] {
+          if constexpr (requires { columns.active; })
+            return columns.active;
+          else
+            return cr.x_clip().active;
+        }();
+        if (!COLUMNS_ACTIVE || beta <= t2 + CAP_ACOS_PAD ||
             math::PI_F - beta <= t2 + CAP_ACOS_PAD)
           return true;
         return cap_may_touch_clip_columns(cap_column_center(columns, dir, beta),
