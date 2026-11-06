@@ -30,7 +30,7 @@ inline void test_ring_rasterize_produces_bounded_output() {
   fx.advance_display();
 
   const float target = RADIUS * (math::PI_F / 2.0f); // ring-centre polar angle
-  const float row = math::PI_F / (H - 1); // angular height of one row
+  const float row = math::RADIANS_PER_ROW<H>;
   // Two rows of quantization either side of the nominal stroke: inside the
   // inner bound the ring is solid, outside the outer one it is clear.
   const float core = THICKNESS - 2.0f * row;

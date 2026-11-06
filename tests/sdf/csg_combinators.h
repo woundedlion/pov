@@ -193,7 +193,7 @@ inline void test_subtract_star_notch_columns_survive_the_carve() {
   HS_EXPECT_TRUE(SDF::distance_of(s, p).dist < 0.0f);
 
   float phi = std::acos(hs::clamp(p.y, -1.0f, 1.0f));
-  int y = static_cast<int>(phi * (H + hs::H_OFFSET - 1) / math::PI_F + 0.5f);
+  int y = static_cast<int>(math::phi_to_y<H>(phi) + 0.5f);
   float theta = std::atan2(p.z, p.x);
   if (theta < 0.0f)
     theta += math::TWO_PI_F;
