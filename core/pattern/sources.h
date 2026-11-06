@@ -134,40 +134,8 @@ struct SphereInterference {
 };
 
 /** @brief Product of two independently oriented directional waves. */
-struct SphereSmoothGrid {
-  using Coordinate = SphereDirection; ///< Admitted unit direction.
-  using Params = GridParams;          ///< Smooth grid controls.
-  using State = PhaseState;           ///< Shared loop phase in turns.
-  using Prepared = SphereInterference::Prepared; ///< Prepared wave pair.
-  /** @brief Checks both axes and wave controls.
-   * @param params Source controls.
-   * @return Whether the grid recipe is admitted. */
-  static bool valid(const Params &params) {
-    return SphereInterference::valid(params);
-  }
-  /** @brief Initializes the shared turn clock.
-   * @param params Source controls.
-   * @return Zero phase. */
-  static State init_state(const Params &params) {
-    (void)params;
-    return {};
-  }
-  /** @brief Advances the shared turn clock.
-   * @param state Previous phase.
-   * @param params Source controls.
-   * @return Wrapped phase. */
-  static State advance(const State &state, const Params &params) {
-    HS_CHECK(valid(params), "pattern grid: invalid advance parameters");
-    return SphereInterference::advance(state, params);
-  }
-  /** @brief Prepares the independently normalized waves.
-   * @param params Source controls.
-   * @param state Explicit source clock.
-   * @return Immutable wave pair. */
-  static Prepared prepare(const Params &params, const State &state) {
-    HS_CHECK(valid(params), "pattern grid: invalid preparation parameters");
-    return SphereInterference::prepare(params, state);
-  }
+struct SphereSmoothGrid : SphereInterference {
+  using Params = GridParams; ///< Smooth grid controls.
   /** @brief Samples the smooth sine product.
    * @param coordinate Admitted unit direction.
    * @param prepared Immutable wave pair.
