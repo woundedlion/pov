@@ -139,7 +139,7 @@ constexpr int PROFILE_SEGMENT_ID =
 static_assert(PROFILE_SEGMENT_ID >= -1 && PROFILE_SEGMENT_ID < NUM_SEGMENTS,
               "HS_PROFILE_SEGMENT_ID must be -1 or a valid segment ID");
 
-hs::ProfileClockSample sample_clocks() {
+HS_ITCM_MEMBER hs::ProfileClockSample sample_clocks() {
   return hs::sample_profile_clocks(
       [] { return micros(); }, [] { return HS_OS_CYCLES(); },
       [] { return hs::save_disable_interrupts(); },

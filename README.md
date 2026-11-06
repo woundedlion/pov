@@ -1256,6 +1256,8 @@ to the vendor loader.
 
 The profile harness records frame wall time from `micros()` and root cycles
 from paired DWT samples taken in the same order at both frame boundaries.
+The non-inlined clock sampler resides in ITCM and restores its incoming
+interrupt mask after both reads.
 Counter registration and nesting setup occur before the samples; aggregation
 occurs afterward. The wall clock remains independent of the cycle total, and
 `tools/parse_profile.py` retains its 5 ppm cycle/wall validation threshold.
