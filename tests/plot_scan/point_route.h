@@ -10,10 +10,10 @@
 /** @brief Projected chord curvature bounds physical departure. */
 inline void test_point_route_physical_curvature_bound() {
   constexpr int W = 288, H = 144;
-  for (float latitude : {0.001f, 0.01f, 0.1f, 0.7f, 1.4f}) {
+  for (float colatitude : {0.001f, 0.01f, 0.1f, 0.7f, 1.4f}) {
     for (float turn : {0.001f, 0.01f, 0.08f}) {
       for (float heading : {0.0f, 0.7f, 1.57f}) {
-        const math::Vector a(sinf(latitude), cosf(latitude), 0.0f);
+        const math::Vector a(sinf(colatitude), cosf(colatitude), 0.0f);
         const math::Vector axis(cosf(heading), 0.0f, sinf(heading));
         const math::Vector b = math::rotate(a, math::make_rotation(axis, turn));
         const float bound =

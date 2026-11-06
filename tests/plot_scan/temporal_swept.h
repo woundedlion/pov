@@ -8,16 +8,16 @@
 inline void test_swept_bounds_cover_moving_edges() {
   int bulging = 0;
   int beyond_hits = 0;
-  for (const float lat : {-0.5f, 0.1f, 0.5f, 0.8f}) {
+  for (const float height : {-0.5f, 0.1f, 0.5f, 0.8f}) {
     for (const float span : {0.2f, 1.0f}) {
       for (const float angle : {0.02f, 0.25f}) {
-        HS_CONTEXT("lat, span x100", std::llround(lat * 100.0f),
+        HS_CONTEXT("height, span x100", std::llround(height * 100.0f),
                    std::llround(span * 100.0f));
         HS_CONTEXT("angle x100", std::llround(angle * 100.0f));
-        const float r = sqrtf(1.0f - lat * lat);
-        const math::Vector a0(r * cosf(-0.5f * span), lat,
+        const float r = sqrtf(1.0f - height * height);
+        const math::Vector a0(r * cosf(-0.5f * span), height,
                               r * sinf(-0.5f * span));
-        const math::Vector b0(r * cosf(0.5f * span), lat,
+        const math::Vector b0(r * cosf(0.5f * span), height,
                               r * sinf(0.5f * span));
         const math::Vector axis = math::Vector(0.6f, 0.2f, 0.77f).normalized();
         const auto at = [&](const math::Vector &p, float t) {
