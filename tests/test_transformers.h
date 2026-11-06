@@ -1700,7 +1700,7 @@ inline void test_noise_params_seed_mirrors_generator() {
  * @brief Verifies amplitude linearity, rank-1 separability and the near-zero
  *        amplitude short-circuit.
  */
-inline void test_noise_product_field_parity() {
+inline void test_noise_product_field_is_linear_and_separable() {
   Animation::NoiseProductParams p;
   p.amplitude = 0.25f;
   p.scale1 = 1.5f;
@@ -1951,7 +1951,7 @@ inline int run_transformers_tests() {
   HS_RUN(test_bump_field_envelope_gates);
   HS_RUN(test_bump_field_bound_is_conservative);
   HS_RUN(test_noise_params_seed_mirrors_generator);
-  HS_RUN(test_noise_product_field_parity);
+  HS_RUN(test_noise_product_field_is_linear_and_separable);
   HS_RUN(test_noise_product_field_bound_is_conservative);
   HS_RUN(test_ball_drop_traverses_and_reclaims);
   HS_RUN(test_noise_product_integrates_time);
