@@ -736,17 +736,13 @@ inline void test_register_float_and_bool_params() {
   const auto &params = fx.getParameters();
   HS_EXPECT_SIZE_OR_RETURN(params, 2);
 
-  const auto *sp = required_param(fx, "Speed");
-  if (!sp)
-    return;
+  HS_REQUIRED_PARAM(sp, fx, "Speed");
   HS_EXPECT_FALSE(sp->is_bool());
   HS_EXPECT_NEAR(sp->get(), 1.5f, 1e-6f);
   HS_EXPECT_NEAR(sp->min, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(sp->max, 10.0f, 1e-6f);
 
-  const auto *fl = required_param(fx, "Flag");
-  if (!fl)
-    return;
+  HS_REQUIRED_PARAM(fl, fx, "Flag");
   HS_EXPECT_TRUE(fl->is_bool());
   HS_EXPECT_NEAR(fl->get(), 1.0f, 1e-6f);
   HS_EXPECT_TRUE(fx.flag);
@@ -820,9 +816,7 @@ inline void test_parameter_display_mirror() {
   fx.add_float("Global", &fx.speed, 0.0f, 10.0f);
   fx.mirror_display(requested, displayed);
   for (const char *name : {"Speed", "Mode", "Global"}) {
-    const auto *parameter = required_param(fx, name);
-    if (!parameter)
-      return;
+    HS_REQUIRED_PARAM(parameter, fx, name);
   }
 
   HS_EXPECT_EQ(fx.getParameters().find("Speed")->get(), 4.0f);
@@ -871,9 +865,7 @@ inline void test_register_and_update_enum_param() {
   float mode = 1.0f;
   fx.add_enum("Mode", &mode, MODES, 3);
 
-  const auto *def = required_param(fx, "Mode");
-  if (!def)
-    return;
+  HS_REQUIRED_PARAM(def, fx, "Mode");
   HS_EXPECT_TRUE(def->is_enum());
   HS_EXPECT_FALSE(def->is_bool());
   HS_EXPECT_EQ(def->option_count, 3);
@@ -899,9 +891,7 @@ inline void test_register_and_update_enum_param() {
 
   // Plain params stay non-enum.
   fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
-  const auto *speed = required_param(fx, "Speed");
-  if (!speed)
-    return;
+  HS_REQUIRED_PARAM(speed, fx, "Speed");
   HS_EXPECT_FALSE(speed->is_enum());
 }
 
@@ -920,12 +910,8 @@ inline void test_typed_enum_and_global_param_metadata() {
   fx.mark_global("Speed");
   HS_EXPECT_EQ(fx.getParameterSchemaGeneration(), before_global + 1);
 
-  const auto *mode_def = required_param(fx, "Mode");
-  const auto *speed_def = required_param(fx, "Speed");
-  if (!mode_def)
-    return;
-  if (!speed_def)
-    return;
+  HS_REQUIRED_PARAM(mode_def, fx, "Mode");
+  HS_REQUIRED_PARAM(speed_def, fx, "Speed");
   HS_EXPECT_EQ(mode_def->get(), 1.0f);
   HS_EXPECT_EQ(mode_def->export_options, EXPORT_MODES);
   HS_EXPECT_TRUE(mode_def->preset);
@@ -955,9 +941,7 @@ inline void test_typed_enum_storage_widths() {
 
   for (const char *name : {"I8", "U8", "I16", "U16", "U32"}) {
     HS_EXPECT_EQ(fx.updateParameter(name, 2.0f), ParamSetResult::APPLIED);
-    const auto *PARAMETER = required_param(fx, name);
-    if (!PARAMETER)
-      return;
+    HS_REQUIRED_PARAM(PARAMETER, fx, name);
     HS_EXPECT_EQ(PARAMETER->get(), 2.0f);
   }
   HS_EXPECT_EQ(i8, TestModeI8::SPARKLE);
@@ -1008,21 +992,11 @@ inline void test_typed_parameter_specs() {
   HS_EXPECT_EQ(parameters.size(), size_t(7));
   if (parameters.size() != 7)
     return;
-  const auto *COUNT_PARAM = required_param(fx, "Count");
-  if (!COUNT_PARAM)
-    return;
-  const auto *MODE_PARAM = required_param(fx, "Mode");
-  if (!MODE_PARAM)
-    return;
-  const auto *MODE8_PARAM = required_param(fx, "Mode8");
-  if (!MODE8_PARAM)
-    return;
-  const auto *ENABLED_PARAM = required_param(fx, "Enabled");
-  if (!ENABLED_PARAM)
-    return;
-  const auto *LARGE_COUNT_PARAM = required_param(fx, "LargeCount");
-  if (!LARGE_COUNT_PARAM)
-    return;
+  HS_REQUIRED_PARAM(COUNT_PARAM, fx, "Count");
+  HS_REQUIRED_PARAM(MODE_PARAM, fx, "Mode");
+  HS_REQUIRED_PARAM(MODE8_PARAM, fx, "Mode8");
+  HS_REQUIRED_PARAM(ENABLED_PARAM, fx, "Enabled");
+  HS_REQUIRED_PARAM(LARGE_COUNT_PARAM, fx, "LargeCount");
   HS_EXPECT_TRUE(COUNT_PARAM->readonly);
   HS_EXPECT_TRUE(COUNT_PARAM->animated);
   HS_EXPECT_FALSE(COUNT_PARAM->preset);
@@ -1066,9 +1040,7 @@ inline void test_parameter_spec_preserves_requested_float() {
                        .animated = true,
                        .initial_value =
                            ParamInitialValue::PRESERVE_REQUESTED_FLOAT});
-  const auto *def = required_param(fx, "Requested");
-  if (!def)
-    return;
+  HS_REQUIRED_PARAM(def, fx, "Requested");
   HS_EXPECT_EQ(requested, 7.0f);
   HS_EXPECT_EQ(def->get_requested(), 7.0f);
   HS_EXPECT_EQ(def->max, 1.0f);

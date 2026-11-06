@@ -107,6 +107,12 @@ inline const ParamDef *required_param(Effect &effect, const char *name) {
   return parameter;
 }
 
+/** @brief Declares a required parameter and returns from a void caller if absent. */
+#define HS_REQUIRED_PARAM(var, effect, name)                                   \
+  const auto *var = hs_test::required_param((effect), (name));                 \
+  if (!(var))                                                                  \
+  return
+
 /**
  * @brief Default per-effect frame count returned by smoke_frames().
  * @details Overridden by HS_SMOKE_FRAMES; CI requires at least
