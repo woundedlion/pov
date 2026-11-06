@@ -149,7 +149,7 @@ public:
    * @brief Constructs a pool bound to a timeline.
    * @param tl Timeline used to schedule spawned animations; retained by reference.
    */
-  HS_COLD_MEMBER TransformerPool(Timeline &tl)
+  HS_COLD_MEMBER explicit TransformerPool(Timeline &tl)
       : timeline(tl), pool_serial(next_pool_serial++) {
     next_live = live_head;
     live_head = this;

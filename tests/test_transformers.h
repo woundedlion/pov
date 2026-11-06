@@ -22,6 +22,15 @@
 namespace hs_test {
 namespace transformers_tests {
 
+using RipplePool =
+    TransformerPool<Animation::RippleParams, Animation::Ripple, 8>;
+static_assert(std::is_constructible_v<RipplePool, Timeline &>);
+static_assert(!std::is_convertible_v<Timeline &, RipplePool>);
+static_assert(std::is_constructible_v<RippleTransformer<8>, Timeline &>);
+static_assert(!std::is_convertible_v<Timeline &, RippleTransformer<8>>);
+static_assert(std::is_constructible_v<BallDropTransformer<8>, Timeline &>);
+static_assert(!std::is_convertible_v<Timeline &, BallDropTransformer<8>>);
+
 /**
  * @brief Tests whether two vectors are bit-for-bit identical.
  * @param a,b Vectors to compare.
