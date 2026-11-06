@@ -282,6 +282,10 @@ public:
   static constexpr float TARGET_STEP = 1.2f;
   /** @brief Physical temporal departure selecting the polar chart, row pitches. */
   static constexpr float POLAR_TIME_ERROR_PX = 0.2f;
+  /** @brief Maximum crossing-time bend error on the chord fast path, pixels. */
+  static constexpr float CHORD_TIME_BEND_PX = 0.002f;
+  /** @brief Radial chord bend selecting the polar route, row pitches. */
+  static constexpr float POLAR_RADIAL_BEND_PX = 0.05f;
   /** @brief Empirical trim holding the chord walk's stroke brightness on the
    *  balanced adaptive walk's at TARGET_STEP. */
   static constexpr float ALPHA_GAIN = 1.028f;
@@ -731,7 +735,7 @@ public:
               : std::numeric_limits<float>::infinity();
       if (low - x_pad > arm_start + 1.0f &&
           high + x_pad < arm_start + HALF - 1.0f &&
-          (velocity + 4.0f * curve_bend) * time_bend <= 0.002f &&
+          (velocity + 4.0f * curve_bend) * time_bend <= CHORD_TIME_BEND_PX &&
           steady_count) {
         Spacetime::count_geometry<
             &Spacetime::GeometryCounters::chord_capture_solves>(2);
@@ -909,7 +913,8 @@ public:
         const float bend = contour_speed * contour_speed *
                            math::ROWS_PER_RADIAN<H> / (8.0f * sine);
         const bool polar = pole_distance < POLE_PIECE_ROWS + row_margin ||
-                           bend > POLAR_TIME_ERROR_PX || radial_bend > 0.05f;
+                           bend > POLAR_TIME_ERROR_PX ||
+                           radial_bend > POLAR_RADIAL_BEND_PX;
         if (!polar) {
           polar_from_ready = false;
           walk_segment(start_from, start_to, end_from, end_to, mid_from, mid_to,
