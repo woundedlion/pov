@@ -583,6 +583,57 @@ inline void test_classify_faces_tetrahedron_uniform_topology() {
     HS_EXPECT_EQ(tet.topology[i], 0);
 }
 
+/** @brief Owned and borrowed mesh formats share connectivity and classification. */
+inline void test_mesh_like_storage_parity() {
+  Arena owned_arena(mesh_arena_a, sizeof(mesh_arena_a));
+  Arena borrowed_arena(mesh_arena_b, sizeof(mesh_arena_b));
+  Arena scratch_a(mesh_arena_c, sizeof(mesh_arena_c) / 2);
+  Arena scratch_b(mesh_arena_c + sizeof(mesh_arena_c) / 2,
+                  sizeof(mesh_arena_c) / 2);
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, borrowed_arena);
+  PolyMesh owned = MeshOps::truncate(cube, owned_arena, scratch_a, 0.25f);
+  MeshState borrowed;
+  borrowed.vertices.bind(borrowed_arena, owned.vertices.size());
+  for (const auto &vertex : owned.vertices)
+    borrowed.vertices.push_back(vertex);
+  borrowed.set_borrowed(ArenaSpan<uint8_t>(owned.face_counts),
+                        ArenaSpan<uint16_t>(owned.faces), {});
+  HS_EXPECT_TRUE(borrowed.face_counts.is_empty());
+  HalfEdgeMesh owned_edges(scratch_a, owned);
+  HalfEdgeMesh borrowed_edges(scratch_b, borrowed);
+  HS_EXPECT_SIZE_OR_RETURN(borrowed_edges.faces, owned_edges.faces.size());
+  HS_EXPECT_SIZE_OR_RETURN(borrowed_edges.half_edges,
+                           owned_edges.half_edges.size());
+  for (size_t i = 0; i < owned_edges.faces.size(); ++i)
+    HS_EXPECT_EQ(borrowed_edges.faces[i].half_edge,
+                 owned_edges.faces[i].half_edge);
+  for (size_t i = 0; i < owned_edges.half_edges.size(); ++i) {
+    const auto &a = owned_edges.half_edges[i];
+    const auto &b = borrowed_edges.half_edges[i];
+    HS_EXPECT_EQ(a.vertex, b.vertex);
+    HS_EXPECT_EQ(a.face, b.face);
+    HS_EXPECT_EQ(a.next, b.next);
+    HS_EXPECT_EQ(a.prev, b.prev);
+    HS_EXPECT_EQ(a.pair, b.pair);
+  }
+  HS_EXPECT_TRUE(owned.topology.is_empty());
+  HS_EXPECT_TRUE(borrowed.topology.is_empty());
+  MeshOps::classify_faces_by_topology(owned, scratch_a, scratch_b, owned_arena);
+  MeshOps::classify_faces_by_topology(borrowed, scratch_a, scratch_b,
+                                      borrowed_arena);
+  HS_EXPECT_SIZE_OR_RETURN(owned.topology, owned.face_counts.size());
+  HS_EXPECT_SIZE_OR_RETURN(borrowed.topology, owned.topology.size());
+  uint16_t largest = 0;
+  for (size_t i = 0; i < owned.topology.size(); ++i) {
+    HS_EXPECT_EQ(borrowed.topology[i], owned.topology[i]);
+    largest = std::max(largest, owned.topology[i]);
+  }
+  HS_EXPECT_EQ(largest, 1);
+  HS_EXPECT_EQ(borrowed.topology_key, owned.topology_key);
+  HS_EXPECT_NE(owned.topology_key, 0u);
+}
+
 /**
  * @brief Verifies classify_faces_by_topology accepts one arena in all three
  *        roles, matching the three-arena classification exactly.
@@ -1371,6 +1422,7 @@ inline int run_mesh_tests() {
   HS_RUN(test_classify_faces_uncompiled_degenerate);
   HS_RUN(test_degenerate_edge_records_never_pair);
   HS_RUN(test_classify_faces_tetrahedron_uniform_topology);
+  HS_RUN(test_mesh_like_storage_parity);
   HS_RUN(test_classify_faces_aliased_arenas);
   HS_RUN(test_classify_faces_truncated_cube_distinct_topology);
   HS_RUN(test_classify_faces_roster_hash_collision_free);

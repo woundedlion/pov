@@ -289,28 +289,12 @@ public:
   ArenaVector<HalfEdge>
       half_edges; /**< Directed half-edges with next/prev/pair links. */
 
-  /**
-   * @brief Builds the half-edge connectivity from a PolyMesh.
-   * @param arena Arena supplying storage for the half-edge arrays and the
-   * transient edge-pairing records.
-   * @param mesh Source mesh whose owned vertices/face_counts/faces are read.
-   * @details The transient pairing records are LIFO-rewound before the
-   * constructor returns.
-   */
-  explicit HalfEdgeMesh(Arena &arena, const PolyMesh &mesh) {
-    build_half_edge_mesh(*this, arena, mesh.vertices.size(),
-                         mesh.get_face_counts_data(),
-                         mesh.get_face_counts_size(), mesh.get_faces_data(),
-                         mesh.get_faces_size());
-  }
-
-  /**
-   * @brief Builds the half-edge connectivity from a MeshState.
-   * @param arena Arena supplying storage for the half-edge arrays and the
-   * transient edge-pairing records; same footprint as the PolyMesh constructor.
-   * @param mesh Source mesh; vertices are owned but face connectivity may be borrowed.
-   */
-  explicit HalfEdgeMesh(Arena &arena, const MeshState &mesh) {
+  /** @brief Builds half-edge connectivity from a mesh's flat face lists.
+   * @tparam M MeshLike source type.
+   * @param arena Storage for half-edge arrays and transient pairing records.
+   * @param mesh Source vertices and connectivity, which may be borrowed.
+   * @details Transient pairing records are rewound before return. */
+  template <MeshLike M> explicit HalfEdgeMesh(Arena &arena, const M &mesh) {
     build_half_edge_mesh(*this, arena, mesh.vertices.size(),
                          mesh.get_face_counts_data(),
                          mesh.get_face_counts_size(), mesh.get_faces_data(),
@@ -1089,30 +1073,15 @@ classify_faces_impl(const uint8_t *face_counts, size_t face_count,
   }
 }
 
-/**
- * @brief Classifies a PolyMesh's faces by topology (see classify_faces_impl).
- * @param mesh Mesh to classify; its topology array is filled with class ids.
- * @param scratch_a Scratch arena for hashes, per-face data, and the node sort.
- * @param scratch_b Scratch arena for the half-edge pairing records.
- * @param persistent Arena backing the mesh topology array when it must grow.
- */
-[[maybe_unused]] HS_COLD static void
-classify_faces_by_topology(PolyMesh &mesh, Arena &scratch_a, Arena &scratch_b,
-                           Arena &persistent) {
-  classify_faces_impl(mesh.get_face_counts_data(), mesh.get_face_counts_size(),
-                      mesh.get_faces_data(), mesh.get_faces_size(),
-                      mesh.vertices, mesh.topology, mesh.topology_key,
-                      scratch_a, scratch_b, persistent);
-}
-/**
- * @brief Classifies a MeshState's faces by topology (see classify_faces_impl).
- * @param mesh Mesh to classify; its topology array is filled with class ids.
- * @param scratch_a Scratch arena for hashes, per-face data, and the node sort.
- * @param scratch_b Scratch arena for the half-edge pairing records.
- * @param persistent Arena backing the mesh topology array when it must grow.
- */
-[[maybe_unused]] HS_COLD static void
-classify_faces_by_topology(MeshState &mesh, Arena &scratch_a, Arena &scratch_b,
+/** @brief Classifies mesh faces by topology (see classify_faces_impl).
+ * @tparam M MeshLike source type.
+ * @param mesh Mesh whose topology array and key receive the classification.
+ * @param scratch_a Scratch for hashes, face data and sorting.
+ * @param scratch_b Scratch for half-edge pairing records.
+ * @param persistent Storage for the topology array when it must grow. */
+template <MeshLike M>
+[[maybe_unused]] HS_FLASH_MEMBER static void
+classify_faces_by_topology(M &mesh, Arena &scratch_a, Arena &scratch_b,
                            Arena &persistent) {
   classify_faces_impl(mesh.get_face_counts_data(), mesh.get_face_counts_size(),
                       mesh.get_faces_data(), mesh.get_faces_size(),
