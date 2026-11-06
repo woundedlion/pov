@@ -232,7 +232,7 @@ inline int run_color_tests() {
   HS_RUN(test_generative_palette_snapshot_lerp);
   HS_RUN(test_generative_palette_lerp_accumulates_segment_deltas);
   HS_RUN(test_generative_palette_snapshot_keeps_faint_chroma_chromatic);
-  HS_RUN(test_generative_palette_snapshot_keeps_absolute_gray_achromatic);
+  HS_RUN(test_generative_palette_morph_gray_key_is_continuous);
   HS_RUN(test_generative_palette_lerp_gray_key_keeps_neighbor_hue);
   HS_RUN(test_generative_palette_lerp_target_aliases_this);
   HS_RUN(test_generative_palette_snapshot_lerp_closes_loop);

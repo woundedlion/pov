@@ -376,7 +376,7 @@ private:
       from_keys[i] = snapshot_key(from, i);
       to_keys[i] = snapshot_key(to, i);
     }
-    int anchor = -1;
+    int anchor = 0;
     for (int i = 0; i < key_count; ++i) {
       if (is_chromatic(from_keys[i]) && is_chromatic(to_keys[i])) {
         anchor = i;
@@ -385,33 +385,20 @@ private:
     }
 
     const float anchor_delta =
-        anchor >= 0 ? wrap_angle_pi(to_keys[anchor].h - from_keys[anchor].h)
-                    : 0.0f;
+        wrap_angle_pi(to_keys[anchor].h - from_keys[anchor].h);
     // Accumulate wrapped per-segment deltas: wrapping a whole anchor-to-key
     // difference folds chains past half a turn onto the opposite arc.
     std::array<float, PALETTE_MAX_KEYS> relative{};
-    if (anchor >= 0) {
-      auto segment_delta = [&](int i) {
-        return wrap_angle_pi((to_keys[i].h - to_keys[i - 1].h) -
-                             (from_keys[i].h - from_keys[i - 1].h));
-      };
-      for (int i = anchor + 1; i < key_count; ++i)
-        relative[i] = relative[i - 1] + segment_delta(i);
-      for (int i = anchor - 1; i >= 0; --i)
-        relative[i] = relative[i + 1] - segment_delta(i + 1);
-    }
+    auto segment_delta = [&](int i) {
+      return wrap_angle_pi((to_keys[i].h - to_keys[i - 1].h) -
+                           (from_keys[i].h - from_keys[i - 1].h));
+    };
+    for (int i = anchor + 1; i < key_count; ++i)
+      relative[i] = relative[i - 1] + segment_delta(i);
+    for (int i = anchor - 1; i >= 0; --i)
+      relative[i] = relative[i + 1] - segment_delta(i + 1);
     for (int i = 0; i < key_count; ++i) {
-      const bool from_chromatic = is_chromatic(from_keys[i]);
-      const bool to_chromatic = is_chromatic(to_keys[i]);
-      float hue = 0.0f;
-      if (from_chromatic == to_chromatic) {
-        const float delta = anchor_delta + relative[i];
-        hue = from_keys[i].h + delta * amount;
-      } else if (from_chromatic) {
-        hue = from_keys[i].h;
-      } else if (to_chromatic) {
-        hue = to_keys[i].h;
-      }
+      const float hue = from_keys[i].h + (anchor_delta + relative[i]) * amount;
       keys[i] = {from_keys[i].L + (to_keys[i].L - from_keys[i].L) * amount,
                  from_keys[i].chroma +
                      (to_keys[i].chroma - from_keys[i].chroma) * amount,

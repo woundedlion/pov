@@ -561,8 +561,8 @@ inline void test_generative_palette_snapshot_keeps_faint_chroma_chromatic() {
   HS_EXPECT_LT(chroma, 1e-3f);
 }
 
-/** @brief Generative palette snapshot keeps absolute gray achromatic. */
-inline void test_generative_palette_snapshot_keeps_absolute_gray_achromatic() {
+/** @brief A one-sided gray key morphs continuously at both palette endpoints. */
+inline void test_generative_palette_morph_gray_key_is_continuous() {
   const GenerativePalette from(PaletteRecipes::from_colors(
       PaletteDomain::STRAIGHT, CPixel(255, 255, 255), CPixel(255, 0, 0),
       CPixel(0, 0, 255)));
@@ -572,11 +572,21 @@ inline void test_generative_palette_snapshot_keeps_absolute_gray_achromatic() {
   HS_EXPECT_TRUE(from.morph_compatible(to));
   HS_EXPECT_LT(GenerativePalette::snapshot_key(from.snapshot(), 0).chroma,
                OKLCH_ACHROMATIC_C);
-  for (const float progress : {0.25f, 0.5f, 0.75f}) {
-    GenerativePalette morph;
-    morph.morph_palettes(from, to, progress);
-    HS_EXPECT_NEAR(morph.resolved_oklch_key(0).h, to.resolved_oklch_key(0).h,
-                   1e-4f);
+  for (const bool reverse : {false, true}) {
+    const auto &start = reverse ? to : from;
+    const auto &finish = reverse ? from : to;
+    for (const float progress : {0.001f, 0.999f}) {
+      GenerativePalette morph;
+      morph.morph_palettes(start, finish, progress);
+      const auto &endpoint = progress < 0.5f ? start : finish;
+      for (const float coordinate : {0.125f, 0.25f, 0.375f, 0.625f, 0.75f}) {
+        const auto expected = endpoint.diagnose(coordinate);
+        const auto actual = morph.diagnose(coordinate);
+        HS_EXPECT_GT(expected.C, 0.01f);
+        HS_EXPECT_NEAR(wrap_angle_pi(actual.h_path - expected.h_path), 0.0f,
+                       0.02f);
+      }
+    }
   }
 }
 
