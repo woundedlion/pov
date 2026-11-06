@@ -164,10 +164,15 @@ inline void test_galaxies_white_star_stays_white() {
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
   fx.init();
   fx.updateParameter("Black Hole", 1.0f);
+  WB::set_pitch(fx, 0.5f);
   auto &ps = WB::system(fx);
   const auto &galaxy = WB::galaxy(fx, 0);
-  ps.spawn(galaxy.core * cosf(0.35f) + galaxy.u * sinf(0.35f), math::Vector(),
-           0xc000);
+  constexpr float RING = 0.35f;
+  const float ANGLE =
+      galaxy.phase - galaxy.spin * logf(RING / 0.58f) / tanf(0.5f);
+  ps.spawn(galaxy.core * cosf(RING) +
+               (galaxy.u * cosf(ANGLE) + galaxy.w * sinf(ANGLE)) * sinf(RING),
+           math::Vector(), 0xc000);
   std::array<std::array<uint64_t, 3>, 3> colors{};
   const int AGES[] = {80, 520, 640};
   for (int stage = 0; stage < 3; ++stage) {
@@ -187,6 +192,8 @@ inline void test_galaxies_white_star_stays_white() {
     HS_EXPECT_EQ(color[0], color[1]);
     HS_EXPECT_EQ(color[1], color[2]);
   }
+  HS_EXPECT_GT(colors[0][0], colors[1][0]);
+  HS_EXPECT_GT(colors[1][0], colors[2][0]);
 }
 
 /** @brief The core toggle removes the core glow and restores it. */
