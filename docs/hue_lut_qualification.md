@@ -203,6 +203,29 @@ WASM draw peaks are 432/812/432 bytes for AlienBrain/AshCloud/JewelMelt at both
 supported resolutions over 120 frames each; initialization peaks at 1120 bytes.
 All stay below the unchanged 2048-byte budget. Canonical CI remains required.
 
+## Rejected mixed-cell admission screens
+
+Two follow-on screens admitted mixed gamut-class cells with mapped RGB16
+corner spans up to 3500 or 7000, preserving the uniform-class 14000 rule. Both
+passed strict/fast ordinary and cached qualification, including the denser
+1024-by-512 ordinary control (max 6280), without changing 7000/256 error limits.
+Removing cell guards or canonical restoration still failed the negative
+companions. These are distinct from the earlier gamut-admission-bit hybrid.
+
+| Screen | Effect | ABI peak ms | Trial peak ms | Trial mean ms |
+| --- | --- | ---: | ---: | ---: |
+| 3500 | AlienBrain | 35.495 | 35.065 | 29.378326 |
+| 3500 | JewelMelt | 50.844 | 51.549 | 43.749592 |
+| 3500 | AshCloud | 56.568 | 57.215 | 49.828172 |
+| 7000 | JewelMelt | 50.844 | 51.363 | 43.648877 |
+
+Each pair uses the same board, preset 0 and 1087 live frames with zero steady
+spills. Setup remains separate in the machine-readable record. The 3500
+screen worsens JewelMelt and AshCloud peaks; the 7000 screen also loses on
+JewelMelt and stops there. Neither change is retained. Mean gains do not
+compensate for these peak regressions. Source diffs, ELF hashes, captures and
+qualification logs remain in the recorded artifact paths.
+
 ## Historical original-to-accurate study
 
 The earlier six-capture study compared the original `5a5cd76f` runtime with

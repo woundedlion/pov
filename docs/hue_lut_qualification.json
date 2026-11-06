@@ -1867,5 +1867,254 @@
         }
       ]
     }
+  },
+  "rejected_mixed_span_admission_20261106": {
+    "status": "Rejected; production mask policy unchanged from ABI-only optimization.",
+    "algorithm": "Uniform class keeps 14000 span. Mixed classes admit only cells with every mapped RGB16 corner span at most 3500 or 7000. No gamut-admission bit 64 and no class-dependent 7000/14000 hybrid.",
+    "baseline_commit": "82e10c828a2342d9907c4d834e0397ac1e1dc904",
+    "accuracy": {
+      "lowspan_dense_fast": {
+        "path": "C:\\work\\temp\\hue-opt-20261106\\lowspan_dense_fast.log",
+        "sha256": "4b8155299c66ef7b2f9a1025ddff552e7546df783c37dc4784caa83d5cdabd4b",
+        "passed": 213909576,
+        "failed": 0,
+        "maximum_channel_error": 6280,
+        "maximum_group_mean": 81.632
+      },
+      "lowspan_dense_strict": {
+        "path": "C:\\work\\temp\\hue-opt-20261106\\lowspan_dense_strict.log",
+        "sha256": "7d629a9dff59753ac954bd76df1fc23331b4986c6182d644daef5ac3e906dd1d",
+        "passed": 213909576,
+        "failed": 0,
+        "maximum_channel_error": 6280,
+        "maximum_group_mean": 81.631
+      },
+      "lowspan_fast_ordinary_expanded": {
+        "path": "C:\\work\\temp\\hue-opt-20261106\\lowspan_fast_ordinary_expanded.log",
+        "sha256": "2819ff07c479a6e663101e8c4a8a1af84cc54602d339b47a514817ddb606d6bb",
+        "passed": 80216352,
+        "failed": 0,
+        "maximum_channel_error": 5975,
+        "maximum_group_mean": 83.496
+      },
+      "lowspan_fast_qualification": {
+        "path": "C:\\work\\temp\\hue-opt-20261106\\lowspan_fast_qualification.log",
+        "sha256": "299b9485810358aa7569d66b0674c013f1cd164151dddac517e4c5fa9c5a6c52",
+        "passed": 78383939,
+        "failed": 0,
+        "maximum_channel_error": 5449,
+        "maximum_group_mean": 90.666328815
+      },
+      "lowspan_noguard_qualification": {
+        "path": "C:\\work\\temp\\hue-opt-20261106\\lowspan_noguard_qualification.log",
+        "sha256": "0c1829edd044612bb428b053bfe0ba34dd67d0f7b02fc449244150551c1199c0",
+        "passed": 78383913,
+        "failed": 26,
+        "maximum_channel_error": 17641,
+        "maximum_group_mean": 182.887077563
+      },
+      "lowspan_norestore_qualification": {
+        "path": "C:\\work\\temp\\hue-opt-20261106\\lowspan_norestore_qualification.log",
+        "sha256": "fcc4d9618d617d5730eaec7ebebe430e76f0f5c5436ffd20ab46a2d34c512f13",
+        "passed": 78383937,
+        "failed": 2,
+        "maximum_channel_error": 7914,
+        "maximum_group_mean": 90.800371883
+      },
+      "lowspan_strict_ordinary_expanded": {
+        "path": "C:\\work\\temp\\hue-opt-20261106\\lowspan_strict_ordinary_expanded.log",
+        "sha256": "3a302969585fc0e4d75702b848ae2c848eacbce022596884b72862908eccfc99",
+        "passed": 80216352,
+        "failed": 0,
+        "maximum_channel_error": 5975,
+        "maximum_group_mean": 83.496
+      },
+      "lowspan_strict_qualification": {
+        "path": "C:\\work\\temp\\hue-opt-20261106\\lowspan_strict_qualification.log",
+        "sha256": "c998816c271a91099558193393e319950e63b1940b7bd50dcb28830c7bbe8785",
+        "passed": 78383939,
+        "failed": 0,
+        "maximum_channel_error": 5449,
+        "maximum_group_mean": 90.665548922
+      },
+      "mixed7000_dense_fast": {
+        "path": "C:\\work\\temp\\hue-opt-20261106\\mixed7000_dense_fast.log",
+        "sha256": "5a469ab2886d936175229f4b8585bc091f9a4cdb23e15d9a113ad6ef9d0df00c",
+        "passed": 213909576,
+        "failed": 0,
+        "maximum_channel_error": 6280,
+        "maximum_group_mean": 89.652
+      },
+      "mixed7000_dense_strict": {
+        "path": "C:\\work\\temp\\hue-opt-20261106\\mixed7000_dense_strict.log",
+        "sha256": "4914afc5e8171181e0abeb90c0f3f6d314a1974301d3a050903a1a9860ba2ee4",
+        "passed": 213909576,
+        "failed": 0,
+        "maximum_channel_error": 6280,
+        "maximum_group_mean": 89.652
+      },
+      "mixed7000_noguard": {
+        "path": "C:\\work\\temp\\hue-opt-20261106\\mixed7000_noguard.log",
+        "sha256": "0c1829edd044612bb428b053bfe0ba34dd67d0f7b02fc449244150551c1199c0",
+        "passed": 78383913,
+        "failed": 26,
+        "maximum_channel_error": 17641,
+        "maximum_group_mean": 182.887077563
+      },
+      "mixed7000_norestore": {
+        "path": "C:\\work\\temp\\hue-opt-20261106\\mixed7000_norestore.log",
+        "sha256": "6c46d916ab3f9d928fa7be9c13ce9e80449ad634780013cf9b8ca4a5791ff24f",
+        "passed": 78383937,
+        "failed": 2,
+        "maximum_channel_error": 7914,
+        "maximum_group_mean": 98.227636472
+      },
+      "mixed7000_ordinary_expanded": {
+        "path": "C:\\work\\temp\\hue-opt-20261106\\mixed7000_ordinary_expanded.log",
+        "sha256": "9c5ca8d8762077d8c05d7a4f72b7f6a5e5a2995cf1df8c21825df324ade55244",
+        "passed": 80216352,
+        "failed": 0,
+        "maximum_channel_error": 6060,
+        "maximum_group_mean": 91.69
+      },
+      "mixed7000_ordinary_expanded_fast": {
+        "path": "C:\\work\\temp\\hue-opt-20261106\\mixed7000_ordinary_expanded_fast.log",
+        "sha256": "07b0a33ac535ad81952fc09e16268488c266e0d06d01563ad3d2d36f7c95bb98",
+        "passed": 80216352,
+        "failed": 0,
+        "maximum_channel_error": 6060,
+        "maximum_group_mean": 91.691
+      },
+      "mixed7000_qualification": {
+        "path": "C:\\work\\temp\\hue-opt-20261106\\mixed7000_qualification.log",
+        "sha256": "c5ba8d2bb0c1235053a84da0bee7491376da4ba402527e5730387fd61b1892d2",
+        "passed": 78383939,
+        "failed": 0,
+        "maximum_channel_error": 5449,
+        "maximum_group_mean": 98.108985978
+      },
+      "mixed7000_qualification_fast": {
+        "path": "C:\\work\\temp\\hue-opt-20261106\\mixed7000_qualification_fast.log",
+        "sha256": "1d9c3b89e062675f699ec5b8bb96a24857b2a5edbf56c98e43a73032acedd751",
+        "passed": 78383939,
+        "failed": 0,
+        "maximum_channel_error": 5449,
+        "maximum_group_mean": 98.109765872
+      }
+    },
+    "captures": {
+      "lowspan_alienbrain": {
+        "role": "bounded mixed-cell span",
+        "path": "C:\\work\\temp\\hue-opt-20261106\\lowspan_alienbrain.log",
+        "sha256": "257350950a7215405f07f88394e03c82bfeb33220c717a1a82290bb8b3d1828e",
+        "source": "82e10c828a2342d9907c4d834e0397ac1e1dc904",
+        "artifact_dir": "C:\\work\\temp\\hue-opt-20261106\\artifacts\\lowspan_alienbrain_82e10c828a23_60a5ff21e0fd",
+        "source_diff_sha256": "0b09e63ff8608e8da8c3ccad4759b3b080fa4534a6a5c39440a113a15b116fb1",
+        "profile_elf_sha256": "60a5ff21e0fdb390c485c217e43f0c260de9c556f9c77a5766478f9bc0e4cf1d",
+        "board": "COM3 serial6362410",
+        "preset": 0,
+        "window": 32,
+        "seconds": 70,
+        "setup_frame1_us": 55914,
+        "live_frames": 1087,
+        "live_peak_us": 35065,
+        "peak_frame": 381,
+        "live_mean_us": 29378.32566697332,
+        "live_spills": 0,
+        "validator_exit": 0,
+        "validator_output": "effect=AlienBrain  windows=34\n  [PASS] captured >=3 windows (34)\n  [PASS] every window names one effect and resolution (AlienBrain 288x144)\n  [PASS] frame numbers monotonic (no epoch reset) (0 resets)\n  [PASS] fixed profile preset 0/4\n  [PASS] per-frame render is render, not wall (0 of 34 windows have render == wall)\n  [PASS] per-frame rows cover every frame of their window (0 of 34 windows are short)\n  [PASS] scope 'fx_shader_draw' appears in at least one window\n  [PASS] richest window carries a root 'frame' counter and a wall sum\n  [PASS] root cyc/600 vs wall sum within 5 ppm (1.6 ppm, frames 833-864)\n\nVALID: AlienBrain\n",
+        "shipping_gate_pass": true,
+        "RAM1_variables": 313760,
+        "RAM1_code": 192392,
+        "DTCM_free": 13920,
+        "FLASH_code": 1180752,
+        "FLASH_data": 790784
+      },
+      "lowspan_jewelmelt": {
+        "role": "bounded mixed-cell span",
+        "path": "C:\\work\\temp\\hue-opt-20261106\\lowspan_jewelmelt.log",
+        "sha256": "ffd34e65d62af5eb61da57e893dd70b7cea51b32cc88ac022f6a9127dca44690",
+        "source": "82e10c828a2342d9907c4d834e0397ac1e1dc904",
+        "artifact_dir": "C:\\work\\temp\\hue-opt-20261106\\artifacts\\lowspan_jewelmelt_82e10c828a23_7f9356649ce3",
+        "source_diff_sha256": "0b09e63ff8608e8da8c3ccad4759b3b080fa4534a6a5c39440a113a15b116fb1",
+        "profile_elf_sha256": "7f9356649ce3b01b6aa7f7e6bc93c7a94a3fd26c2a46c6722b877ee10f1a90a9",
+        "board": "COM4 serial6362390",
+        "preset": 0,
+        "window": 32,
+        "seconds": 70,
+        "setup_frame1_us": 77203,
+        "live_frames": 1087,
+        "live_peak_us": 51549,
+        "peak_frame": 321,
+        "live_mean_us": 43749.59153633854,
+        "live_spills": 0,
+        "validator_exit": 0,
+        "validator_output": "effect=JewelMelt  windows=34\n  [PASS] captured >=3 windows (34)\n  [PASS] every window names one effect and resolution (JewelMelt 288x144)\n  [PASS] frame numbers monotonic (no epoch reset) (0 resets)\n  [PASS] fixed profile preset 0/1\n  [PASS] per-frame render is render, not wall (0 of 34 windows have render == wall)\n  [PASS] per-frame rows cover every frame of their window (0 of 34 windows are short)\n  [PASS] scope 'fx_shader_draw' appears in at least one window\n  [PASS] richest window carries a root 'frame' counter and a wall sum\n  [PASS] root cyc/600 vs wall sum within 5 ppm (1.7 ppm, frames 1057-1088)\n\nVALID: JewelMelt\n",
+        "shipping_gate_pass": true,
+        "RAM1_variables": 313760,
+        "RAM1_code": 192392,
+        "DTCM_free": 13920,
+        "FLASH_code": 1180752,
+        "FLASH_data": 790784
+      },
+      "lowspan_ashcloud": {
+        "role": "bounded mixed-cell span",
+        "path": "C:\\work\\temp\\hue-opt-20261106\\lowspan_ashcloud.log",
+        "sha256": "b21d7bf7e86d4532974867f9d0b6e0adf35ea760e6216a97c55220f545c78711",
+        "source": "82e10c828a2342d9907c4d834e0397ac1e1dc904",
+        "artifact_dir": "C:\\work\\temp\\hue-opt-20261106\\artifacts\\lowspan_ashcloud_82e10c828a23_eea8834d9d7a",
+        "source_diff_sha256": "0b09e63ff8608e8da8c3ccad4759b3b080fa4534a6a5c39440a113a15b116fb1",
+        "profile_elf_sha256": "eea8834d9d7a91797b33dc7a060cc7b00234f0cb55fa894f7f6b1a30c1f9265e",
+        "board": "COM3 serial6362410",
+        "preset": 0,
+        "window": 32,
+        "seconds": 70,
+        "setup_frame1_us": 88013,
+        "live_frames": 1087,
+        "live_peak_us": 57215,
+        "peak_frame": 920,
+        "live_mean_us": 49828.17203311867,
+        "live_spills": 0,
+        "validator_exit": 0,
+        "validator_output": "effect=AshCloud  windows=34\n  [PASS] captured >=3 windows (34)\n  [PASS] every window names one effect and resolution (AshCloud 288x144)\n  [PASS] frame numbers monotonic (no epoch reset) (0 resets)\n  [PASS] fixed profile preset 0/1\n  [PASS] per-frame render is render, not wall (0 of 34 windows have render == wall)\n  [PASS] per-frame rows cover every frame of their window (0 of 34 windows are short)\n  [PASS] scope 'fx_shader_draw' appears in at least one window\n  [PASS] richest window carries a root 'frame' counter and a wall sum\n  [PASS] root cyc/600 vs wall sum within 5 ppm (0.3 ppm, frames 897-928)\n\nVALID: AshCloud\n",
+        "shipping_gate_pass": true,
+        "RAM1_variables": 313760,
+        "RAM1_code": 192392,
+        "DTCM_free": 13920,
+        "FLASH_code": 1180752,
+        "FLASH_data": 790784
+      },
+      "mixed7000_jewelmelt": {
+        "role": "mixed-cell span7000",
+        "path": "C:\\work\\temp\\hue-opt-20261106\\mixed7000_jewelmelt.log",
+        "sha256": "dda7b42d2137c435ce6e81e3cf515bbec0f49fb6a2cee032e8bd5366c5e04158",
+        "source": "82e10c828a2342d9907c4d834e0397ac1e1dc904",
+        "artifact_dir": "C:\\work\\temp\\hue-opt-20261106\\artifacts\\mixed7000_jewelmelt_82e10c828a23_4c01a66cb27f",
+        "source_diff_sha256": "dbc6e5aa34b89e7cc53f314cc2ef4384bb1b341a7142b5fcf908fa2c5b5971af",
+        "profile_elf_sha256": "4c01a66cb27fa12438951a89d50007fe3ba9962d47c20b0d91f28c33820db48e",
+        "board": "COM4 serial6362390",
+        "preset": 0,
+        "window": 32,
+        "seconds": 70,
+        "setup_frame1_us": 77213,
+        "live_frames": 1087,
+        "live_peak_us": 51363,
+        "peak_frame": 321,
+        "live_mean_us": 43648.876724931004,
+        "live_spills": 0,
+        "validator_exit": 0,
+        "validator_output": "effect=JewelMelt  windows=34\n  [PASS] captured >=3 windows (34)\n  [PASS] every window names one effect and resolution (JewelMelt 288x144)\n  [PASS] frame numbers monotonic (no epoch reset) (0 resets)\n  [PASS] fixed profile preset 0/1\n  [PASS] per-frame render is render, not wall (0 of 34 windows have render == wall)\n  [PASS] per-frame rows cover every frame of their window (0 of 34 windows are short)\n  [PASS] scope 'fx_shader_draw' appears in at least one window\n  [PASS] richest window carries a root 'frame' counter and a wall sum\n  [PASS] root cyc/600 vs wall sum within 5 ppm (0.8 ppm, frames 1057-1088)\n\nVALID: JewelMelt\n",
+        "shipping_gate_pass": true,
+        "RAM1_variables": 313760,
+        "RAM1_code": 192392,
+        "DTCM_free": 13920,
+        "FLASH_code": 1180752,
+        "FLASH_data": 790784
+      }
+    },
+    "reason": "3500 worsens Jewel and Ash peak; 7000 worsens Jewel peak. Improved means do not qualify a live-peak regression.",
+    "dense_ordinary_scope": "1024 palette coordinates x 512 hues x 17 frames x 8 chroma settings x 3 harmonies; 213909504 RGB samples. Strict and fastmath companions.",
+    "preserved_scratch": "C:\\work\\temp\\hue-opt-20261106",
+    "limits": "All production accuracy, actual gamut, restoration, stack and memory budgets unchanged. 7000 screen stops after Jewel; no Alien/Ash speedup inferred."
   }
 }
