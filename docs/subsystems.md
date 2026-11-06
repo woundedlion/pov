@@ -886,7 +886,8 @@ The fragments compile only inside `animation.h` (a direct include fails with an 
 | `OpLeg` | Animates one leg of a mesh operator chain: a Conway-operator parameter sweep along a `ConwayGraph` edge or recipe step, a hankin contact-angle sweep on a fixed seed, a relax or medial slerp, or a gated partition swap. Each frame it rebuilds the swept mesh in scratch, compiles it, checks the compiled face count against the hoisted classification, maps faces to pre-blended ramps via the leg's hoisted topology classification, and hands the mesh and per-face ramp table (`Shading`) to a draw callback — exactly one mesh drawn per frame. Each leg's `.then()` completion handler schedules the next, so a run of legs walks a whole morph path. |
 | `MeshCarousel<SegueT>` | Owns two mesh states and schedules the selected segue. The effect builds the back slot, calls `set_front`, then `schedule_segue`; the schedule forwards the preset pause gate. Shipping rendering supports `Segue::TerminatorSweep` in IslamicStars and standalone `Segue::Crossfade` in DreamBalls (with zero overlap). The other seven policies are library prototypes without production render consumers: IrisBloom, Lace, Shockwave, Breakdown, SpinFlip, GoldConvergence and Dissolve. Their `warp`, `reorder`, `mask_pair`, and fragment hooks require a matching effect draw path; changing the policy alone does not wire those hooks. |
 
-Noise and NoiseProduct use a double-precision phase with a 4096-unit period.
+`Noise` and `NoiseProduct` share `advance_noise_clock` for their finite-speed
+updates. Each owns a double-precision phase with a 4096-unit period.
 Their published time coordinate stays linear over the initial phase range
 [-960, 960], then reverses through C2 turns at coordinate extrema ±1000.
 The field eventually retraces its trajectory. Constructors interpret the

@@ -1166,6 +1166,18 @@ struct NoiseParams {
   }
 };
 
+/** @brief Publishes finite, nonzero-speed noise-clock samples.
+ * @tparam P Parameter block exposing speed and time.
+ * @param params Live noise parameters.
+ * @param clock Bounded phase state. */
+template <typename P>
+HS_HOT_INLINE inline void advance_noise_clock(std::reference_wrapper<P> params,
+                                              NoiseTimeLoop &clock) {
+  const float SPEED = params.get().speed;
+  if (std::isfinite(SPEED) && SPEED != 0.0f)
+    params.get().time = clock.advance(SPEED);
+}
+
 /**
  * @brief Animates noise parameters along a bounded, smoothly reversing loop.
  * @details Captures time as the initial loop phase; later writes to time do not
@@ -1189,9 +1201,7 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
-    const float speed = params.get().speed;
-    if (std::isfinite(speed) && speed != 0.0f)
-      params.get().time = clock.advance(speed);
+    advance_noise_clock(params, clock);
   }
 
 private:
@@ -1408,9 +1418,7 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
-    const float speed = params.get().speed;
-    if (std::isfinite(speed) && speed != 0.0f)
-      params.get().time = clock.advance(speed);
+    advance_noise_clock(params, clock);
   }
 
 private:
