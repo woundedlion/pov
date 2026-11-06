@@ -1284,6 +1284,17 @@ class PackagePromotionTests(unittest.TestCase):
                           validate_assembly_metadata=metadata)
             fab.main()
 
+            for name in FAB_GATES:
+                with self.subTest(gate=name):
+                    getattr(fab, name).assert_called()
+            fab.validate_via_geometry.assert_called_once_with(
+                fab.PCB, min_vias=fab.MIN_BOARD_VIAS, board=TITLED_BOARD)
+            fab.normalize_fab_timestamps.assert_called_once()
+            staged = Path(fab.normalize_fab_timestamps.call_args.args[0])
+            self.assertEqual(staged.parent, out)
+            self.assertTrue(staged.name.startswith(fab.STAGE_PREFIX))
+            fab.validate_fab_content.assert_called_once_with(str(staged), TITLED_BOARD)
+
             expected_files = set(ZipMembershipTests.EXPORTED) | {
                 "phantasm-BOM.csv", "phantasm-CPL.csv", fab.ARCHIVE, fab.SUMS_FILE}
             self.assertEqual({path.name for path in jlc.iterdir()}, expected_files)
