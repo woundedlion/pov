@@ -454,10 +454,14 @@ inline void dump_png(const char *name, const std::vector<Pixel> &px) {
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
   FILE *f = std::fopen(path, "wb");
 #pragma clang diagnostic pop
-  if (f) {
-    std::fwrite(png.data(), 1, png.size(), f);
-    std::fclose(f);
+  if (!f) {
+    std::perror(path);
+    return;
   }
+  if (std::fwrite(png.data(), 1, png.size(), f) != png.size())
+    std::perror(path);
+  if (std::fclose(f) != 0)
+    std::perror(path);
 }
 
 // ---------------------------------------------------------------------------
