@@ -450,14 +450,37 @@ inline void check_authored_slider_registration(const FX &effect) {
                        static_cast<float>(options - 1), true);
       }
     if constexpr (Resource::KIND == Pullback::ResourceKind::COLOR) {
-      require_target(&family.palette_mapping, 0.0f, 3.0f, true);
-      require_target(&family.palette_mode, 0.0f, 2.0f, true);
-      require_target(&family.palette_type, 0.0f, 4.0f, true);
-      require_target(&family.palette_harmony, 0.0f, 7.0f, true);
-      require_target(&family.palette_lightness_curve, 0.0f, 4.0f, true);
-      require_target(&family.palette_name, 0.0f, 26.0f, true);
-      require_target(&family.palette_name_b, 0.0f, 26.0f, true);
-      require_target(&family.brightness_envelope, 0.0f, 4.0f, true);
+      require_target(
+          &family.palette_mapping, 0.0f,
+          static_cast<float>(
+              std::size(Pullback::Interp::Op::PALETTE_MAPPING_IDS) - 1),
+          true);
+      require_target(
+          &family.palette_mode, 0.0f,
+          static_cast<float>(std::size(Pullback::Color::PALETTE_MODE_IDS) - 1),
+          true);
+      require_target(
+          &family.palette_type, 0.0f,
+          static_cast<float>(std::size(AUTHORED_PALETTE_TYPE_IDS) - 1), true);
+      require_target(
+          &family.palette_harmony, 0.0f,
+          static_cast<float>(std::size(AUTHORED_PALETTE_HARMONY_IDS) - 1),
+          true);
+      require_target(&family.palette_lightness_curve, 0.0f,
+                     static_cast<float>(
+                         std::size(AUTHORED_PALETTE_LIGHTNESS_CURVE_IDS) - 1),
+                     true);
+      require_target(
+          &family.palette_name, 0.0f,
+          static_cast<float>(std::size(AUTHORED_PALETTE_NAME_IDS) - 1), true);
+      require_target(
+          &family.palette_name_b, 0.0f,
+          static_cast<float>(std::size(AUTHORED_PALETTE_NAME_IDS) - 1), true);
+      require_target(
+          &family.brightness_envelope, 0.0f,
+          static_cast<float>(
+              std::size(Pullback::Color::BRIGHTNESS_ENVELOPE_IDS) - 1),
+          true);
     }
     if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {
       const auto &config = family.modulation;
@@ -867,8 +890,9 @@ inline void check_slider_registration(const char *name) {
     const ParamDef *speed = params.find("Pattern Speed");
     HS_EXPECT_TRUE(speed != nullptr);
     if (speed != nullptr) {
-      const float MAXIMUM =
-          config.source == Pattern::SourceKind::NOISE ? 0.001f : 1.0f;
+      const float MAXIMUM = config.source == Pattern::SourceKind::NOISE
+                                ? Pattern::MAX_NOISE_SPEED
+                                : Pattern::MAX_ANALYTIC_SPEED;
       HS_EXPECT_EQ(speed->min, -MAXIMUM);
       HS_EXPECT_EQ(speed->max, MAXIMUM);
       for (const auto &field : Fields::EXTRA_SCHEMA)
