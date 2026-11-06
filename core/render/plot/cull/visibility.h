@@ -402,6 +402,16 @@ cap_may_touch_clip_rows(const ClipRegion &cr, float beta, float half_angle,
   return columns(t2);
 }
 
+/** @brief Longitude half-width of a cap that excludes both poles.
+ * @param sin_half_angle Sine of the cap's angular radius.
+ * @param sin_beta Sine of the center's colatitude.
+ * @return Longitude half-width, radians. */
+HS_HOT_INLINE inline float cap_longitude_half_width(float sin_half_angle,
+                                                    float sin_beta) {
+  return math::PI_F / 2.0f -
+         math::fast_acos(hs::clamp(sin_half_angle / sin_beta, 0.0f, 1.0f));
+}
+
 /**
  * @brief Conservatively tests a cap against its precomputed longitude wedge.
  * @param center Data derived from the same clip and cap center.
@@ -414,9 +424,7 @@ inline bool cap_may_touch_clip_columns(const CapCenter &center, float t2,
   if (!center.columns_active || center.beta <= t2 + CAP_ACOS_PAD ||
       math::PI_F - center.beta <= t2 + CAP_ACOS_PAD)
     return true;
-  const float dlam =
-      math::PI_F / 2.0f -
-      math::fast_acos(hs::clamp(sin_half_angle / center.sin_beta, 0.0f, 1.0f));
+  const float dlam = cap_longitude_half_width(sin_half_angle, center.sin_beta);
   return center.column_distance <=
          dlam + center.column_half_width + CAP_ACOS_PAD + CAP_ATAN2_PAD;
 }
@@ -647,9 +655,8 @@ cap_may_touch_window(const Spacetime::TimeWindow &window,
   const float beta = math::fast_acos(y);
   if (beta <= t2 + CAP_ACOS_PAD || math::PI_F - beta <= t2 + CAP_ACOS_PAD)
     return true;
-  const float dlam = math::PI_F / 2.0f -
-                     math::fast_acos(hs::clamp(
-                         sin_half_angle / sqrtf(1.0f - y * y), 0.0f, 1.0f));
+  const float dlam =
+      cap_longitude_half_width(sin_half_angle, sqrtf(1.0f - y * y));
   constexpr float COLUMN = math::TWO_PI_F / W;
   const float half_width =
       (static_cast<float>(window.end - window.begin) * 0.5f + 1.0f) * COLUMN;
