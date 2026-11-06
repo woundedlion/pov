@@ -45,6 +45,8 @@ namespace Plot {
  * of arc at colatitude `phi`. Departure and tap error are measured in
  * physical row-pitch pixels: azimuth displacement is scaled by sin(phi).
  * Paths exceeding BEND_PIXELS are projected in analytically sized pieces.
+ * Captured quadratic paths reaching a displayed pole row are evaluated at
+ * each column's own time.
  */
 template <int W, int H> class PointRoute {
 public:
@@ -152,7 +154,9 @@ public:
    * @param end World endpoint.
    * @param start World frame-start evaluator.
    * @param shade Sample color evaluator.
-   * @param middle_offset Mid-frame departure from the endpoint chord. */
+   * @param middle_offset Mid-frame departure from the endpoint chord.
+   * @details The world path is the normalized endpoint chord plus
+   * `4 t (1 - t) middle_offset` at frame fraction t. */
   template <typename Sink, typename Start, typename Shade, bool CURVED = true>
   HS_HOT_FLASH_MEMBER void
   plot(Sink &sink, Canvas &canvas, const math::Vector &end, Start &&start,
@@ -242,6 +246,14 @@ private:
       }
       return c;
     };
+    if constexpr (CURVED) {
+      if ((math::DisplayGeometry<H>::HAS_NORTH_POLE ||
+           math::DisplayGeometry<H>::HAS_SOUTH_POLE) &&
+          reaches_pole_row(origin, end, offset)) {
+        plot_pole_columns(sink, canvas, origin, end, offset, shade_once);
+        return;
+      }
+    }
     const float dx = b.x - a.x, dy = b.y - a.y;
     const float PHYSICAL_GAIN = (1.0f + math::PI_F) * math::ROWS_PER_RADIAN<H>;
     const float norm2 = 1.0f - 0.25f * math::dot(end - origin, end - origin);
@@ -357,6 +369,63 @@ public:
   }
 
 private:
+  /** @brief Whether a captured curve can reach a pole row's angular support.
+   * @param origin,end Unit world endpoints.
+   * @param offset Mid-frame departure from the endpoint chord.
+   * @return Whether the horizontal-norm bound reaches the pole support. */
+  static bool reaches_pole_row(const math::Vector &origin,
+                               const math::Vector &end,
+                               const math::Vector &offset) {
+    const math::Vector delta = end - origin;
+    const float horizontal2 = delta.x * delta.x + delta.z * delta.z;
+    const float at =
+        horizontal2 > 0.0f
+            ? hs::clamp(-(origin.x * delta.x + origin.z * delta.z) /
+                            horizontal2,
+                        0.0f, 1.0f)
+            : 0.0f;
+    const float x = origin.x + delta.x * at;
+    const float z = origin.z + delta.z * at;
+    const float departure = sqrtf(offset.x * offset.x + offset.z * offset.z);
+    const float support =
+        sinf(math::RADIANS_PER_ROW<H>) * (1.0f + offset.magnitude());
+    return x * x + z * z <= (support + departure) * (support + departure);
+  }
+
+  /** @brief Emits a captured polar curve at each column's own frame time.
+   * @tparam Sink,Shade Screen sink and timed color callable.
+   * @param sink,canvas Destination.
+   * @param origin,end Unit world endpoints.
+   * @param offset Mid-frame departure from the endpoint chord.
+   * @param shade Returns color and opacity at the frame fraction. */
+  template <typename Sink, typename Shade>
+  HS_FLASH_MEMBER static void
+  plot_pole_columns(Sink &sink, Canvas &canvas, const math::Vector &origin,
+                    const math::Vector &end, const math::Vector &offset,
+                    Shade &shade) {
+    using Splat = Filter::Screen::AntiAlias<W, H>;
+    auto pass = [&](float x, float y, const Pixel &color, float age,
+                    float alpha) {
+      sink.plot(canvas, static_cast<int>(x), static_cast<int>(y), color, age,
+                alpha);
+    };
+    for (int column = 0; column < W; ++column) {
+      const float t = Spacetime::SamplingSurface<W>::time(column);
+      const auto point =
+          (origin + (end - origin) * t + offset * (4.0f * t * (1.0f - t)))
+              .normalized();
+      const auto position = math::vector_to_pixel<W, H>(point);
+      const auto taps =
+          Filter::Screen::splat_taps<W, H>(position.x, position.y);
+      if ((column != taps.x0 && column != taps.x1) ||
+          (!taps.y0_physical && !taps.y1_physical))
+        continue;
+      const auto &color = shade(t);
+      Splat::column_taps(position.x, position.y, color.color, 0.0f, color.alpha,
+                         column, pass);
+    }
+  }
+
   /// Arc added to the gated rows for fast_acos's error.
   static constexpr float ROW_SLACK =
       2.0f * static_cast<float>(math::FAST_ACOS_MAX_ERROR);

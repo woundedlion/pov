@@ -158,6 +158,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_point_route_physical_curvature_bound);
   HS_RUN(test_point_route_curved_cap_enters_clip);
   HS_RUN(test_point_route_matches_column_oracle);
+  HS_RUN(test_point_route_curved_poles_preserve_support);
   HS_RUN(test_point_route_gate_keeps_visible_taps);
   HS_RUN(test_point_route_shades_at_pass_time);
   HS_RUN(test_steady_edge_plots_lattice_points);

@@ -126,16 +126,18 @@ inline PointRoutePath point_route_path(float x, float y, float heading,
 
 /** @brief Per-column oracle: each column splats the point frozen at the
  *         fraction that column is lit.
- * @param path Point motion.
+ * @tparam Position Callable evaluating the unit world position at a frame fraction.
+ * @param position Point motion.
  * @param alpha Point opacity.
  * @return Weight per pixel, row-major. */
-inline std::vector<float> point_route_oracle(const PointRoutePath &path,
+template <typename Position>
+inline std::vector<float> point_route_oracle(const Position &position,
                                              float alpha) {
   constexpr int W = 288, H = 144;
   std::vector<float> weights(W * H, 0.0f);
   for (int column = 0; column < W; ++column) {
     const math::PixelCoords p = math::vector_to_pixel<W, H>(
-        path.at(Spacetime::SamplingSurface<W>::time(column)));
+        position(Spacetime::SamplingSurface<W>::time(column)));
     const Filter::Screen::SplatTaps t =
         Filter::Screen::splat_taps<W, H>(p.x, p.y);
     const bool left = t.x0 == column;
@@ -150,17 +152,19 @@ inline std::vector<float> point_route_oracle(const PointRoutePath &path,
 }
 
 /** @brief Arm passes of a path, by exhaustive search of its true column.
- * @param path Point motion.
+ * @tparam Position Callable evaluating a unit world position.
+ * @param position Point motion.
  * @return Integer crossings of `column / (W / 2) - t` over the frame. */
-inline int point_route_true_passes(const PointRoutePath &path) {
+template <typename Position>
+inline int point_route_true_passes(const Position &position) {
   constexpr int W = 288, N = 4000;
   auto relative = [&](float t, float &unwrapped, float &previous) {
-    const float column = math::vector_to_pixel<W, 144>(path.at(t)).x;
+    const float column = math::vector_to_pixel<W, 144>(position(t)).x;
     unwrapped += std::remainder(column - previous, float(W));
     previous = column;
     return unwrapped / (W / 2.0f) - t;
   };
-  float previous = math::vector_to_pixel<W, 144>(path.at(0.0f)).x;
+  float previous = math::vector_to_pixel<W, 144>(position(0.0f)).x;
   float unwrapped = previous;
   const float r0 = relative(0.0f, unwrapped, previous);
   float r = r0;
@@ -174,20 +178,27 @@ inline int point_route_true_passes(const PointRoutePath &path) {
  * @param path Point motion.
  * @param alpha Point opacity.
  * @param motion Motion bound handed to the route.
+ * @param curved Whether the route receives the path's midpoint departure.
  * @return Frame pixels. */
 inline std::vector<Pixel> point_route_render(Canvas &canvas,
                                              const PointRoutePath &path,
-                                             float alpha, float motion) {
+                                             float alpha, float motion,
+                                             bool curved) {
   constexpr int W = 288, H = 144;
   std::fill_n(canvas.data(), W * H, Pixel{});
   Filter::Screen::DirectAntiAliasSink<W, H> sink;
   sink.prepare(canvas);
   Plot::PointRoute<W, H> route;
   route.prepare(canvas, motion);
+  const math::Vector start = path.at(0.0f);
   const math::Vector end = path.at(1.0f);
-  route.plot(
-      sink, canvas, end, [&] { return path.at(0.0f); },
-      [&] { return Color4(Pixel(65535, 65535, 65535), alpha); });
+  const auto shade = [&] { return Color4(Pixel(65535, 65535, 65535), alpha); };
+  if (curved)
+    route.plot(
+        sink, canvas, end, [&] { return start; }, shade,
+        path.at(0.5f) - (start + end) * 0.5f);
+  else
+    route.plot(sink, canvas, end, [&] { return start; }, shade);
   return std::vector<Pixel>(canvas.data(), canvas.data() + W * H);
 }
 
@@ -232,9 +243,9 @@ inline PointRouteError point_route_error(const std::vector<Pixel> &got,
   return error;
 }
 
-/** @brief Points land in the column lit when they pass it, as the per-column
- *         oracle shows them, across the frame, the arm cut and the poles.
- * @details Away from the poles the render matches the oracle pixel by pixel.
+/** @brief Straight and midpoint-captured points match their per-column motion
+ *         oracles across the frame, arm cut and poles.
+ * @details Away from the poles, per-pixel weight differences are bounded.
  * Near a pole, columns are a small fraction of a pixel of arc, so the
  * comparison is of each arm's weighted centroid, in arc, and total weight;
  * a point moving with or against the sweep at a speed comparable to the arm's
@@ -251,18 +262,39 @@ inline void test_point_route_matches_column_oracle() {
   int polar_passes = 0;
   auto check = [&](const PointRoutePath &path, PointRouteError &worst,
                    bool measure_mass = false) {
-    const auto want = point_route_oracle(path, 1.0f);
-    const auto got = point_route_render(
-        canvas, path, 1.0f, (path.at(1.0f) - path.at(0.0f)).magnitude());
-    const PointRouteError e = point_route_error(got, want);
-    worst.weight = fmaxf(worst.weight, e.weight);
-    worst.arc = fmaxf(worst.arc, e.arc);
-    worst.mass = fmaxf(worst.mass, e.mass);
-    float mass = 0.0f;
-    if (measure_mass)
-      for (const Pixel &pixel : got)
-        mass += pixel.r / 65535.0f;
-    return mass;
+    const math::Vector start = path.at(0.0f), end = path.at(1.0f);
+    const math::Vector offset = path.at(0.5f) - (start + end) * 0.5f;
+    for (bool curved : {false, true}) {
+      const auto position = [&](float t) {
+        return (start + (end - start) * t +
+                (curved ? offset * (4.0f * t * (1.0f - t)) : math::Vector{}))
+            .normalized();
+      };
+      const auto want = point_route_oracle(position, 1.0f);
+      const auto got = point_route_render(canvas, path, 1.0f,
+                                          (end - start).magnitude(), curved);
+      const PointRouteError e = point_route_error(got, want);
+      worst.weight = fmaxf(worst.weight, e.weight);
+      worst.arc = fmaxf(worst.arc, e.arc);
+      worst.mass = fmaxf(worst.mass, e.mass);
+      if (curved) {
+        const auto rotational =
+            point_route_oracle([&](float t) { return path.at(t); }, 1.0f);
+        const PointRouteError rotation_error =
+            point_route_error(got, rotational);
+        worst.weight = fmaxf(worst.weight, rotation_error.weight);
+        worst.arc = fmaxf(worst.arc, rotation_error.arc);
+        worst.mass = fmaxf(worst.mass, rotation_error.mass);
+      }
+      if (measure_mass && point_route_true_passes(position) >= 1) {
+        float mass = 0.0f;
+        for (const Pixel &pixel : got)
+          mass += pixel.r / 65535.0f;
+        ++polar_passes;
+        polar_min_mass = fminf(polar_min_mass, mass);
+        HS_EXPECT_GT(mass, 0.01f);
+      }
+    }
   };
   hs::Pcg32 state(17u);
   for (int i = 0; i < 400; ++i) {
@@ -284,7 +316,8 @@ inline void test_point_route_matches_column_oracle() {
         const PointRoutePath path = point_route_path(
             x, 71.7f, 0.0f, columns * math::RADIANS_PER_COLUMN<W>, 0.0f,
             tilted);
-        ++passes[std::min(point_route_true_passes(path), 2)];
+        ++passes[std::min(
+            point_route_true_passes([&](float t) { return path.at(t); }), 2)];
         check(path, cut);
       }
   for (int i = 0; i < 400; ++i) {
@@ -294,12 +327,7 @@ inline void test_point_route_matches_column_oracle() {
     const float heading = rand_uniform(state, 0.0f, math::TWO_PI_F);
     for (float angle : {0.0134f, 0.04f}) {
       const auto path = point_route_path(x, y, heading, angle, 0.01f, tilted);
-      const float mass = check(path, polar, true);
-      if (point_route_true_passes(path) >= 1) {
-        ++polar_passes;
-        polar_min_mass = fminf(polar_min_mass, mass);
-        HS_EXPECT_GT(mass, 0.01f);
-      }
+      check(path, polar, true);
     }
   }
   std::printf("  polar point passes=%d minimum route mass=%.9f\n", polar_passes,
@@ -326,6 +354,42 @@ inline void test_point_route_matches_column_oracle() {
   HS_EXPECT_LE(cut.mass, 0.04f);
   HS_EXPECT_LE(polar.arc, 0.2f);
   HS_EXPECT_LE(polar.mass, 1.0f);
+}
+
+/** @brief Captured polar curves retain their independently sampled support. */
+inline void test_point_route_curved_poles_preserve_support() {
+  constexpr int W = 288, H = 144;
+  struct Case {
+    float x, y, heading;
+  };
+  const Case CASES[] = {{177.752762f, 1.15020704f, 4.37689495f},
+                        {153.5625f, 141.378403f, 1.76257789f}};
+  const auto tilted = math::Vector(0.3f, 1.0f, -0.2f).normalized();
+  hs_test::StubEffect effect(W, H);
+  Canvas canvas(effect);
+  for (const auto &entry : CASES) {
+    const auto path =
+        point_route_path(entry.x, entry.y, entry.heading, 0.04f, 0.01f, tilted);
+    const auto start = path.at(0.0f), end = path.at(1.0f);
+    const auto offset = path.at(0.5f) - (start + end) * 0.5f;
+    const auto position = [&](float t) {
+      return (start + (end - start) * t + offset * (4.0f * t * (1.0f - t)))
+          .normalized();
+    };
+    const auto want = point_route_oracle(position, 1.0f);
+    const auto got =
+        point_route_render(canvas, path, 1.0f, (end - start).magnitude(), true);
+    float expected_mass = 0.0f, actual_mass = 0.0f;
+    for (size_t i = 0; i < want.size(); ++i) {
+      expected_mass += want[i];
+      actual_mass += got[i].r / 65535.0f;
+    }
+    HS_EXPECT_GT(expected_mass, 0.01f);
+    HS_EXPECT_GT(actual_mass, 0.01f);
+    const auto error = point_route_error(got, want);
+    HS_EXPECT_LE(error.arc, 0.2f);
+    HS_EXPECT_LE(error.mass, 1.0f);
+  }
 }
 
 /** @brief The clip gate drops only points that write no visible tap: a
