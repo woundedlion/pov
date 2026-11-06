@@ -20,13 +20,14 @@ struct MobiusFrameProbe : MobiusGrid<SMALL_W, SMALL_H> {
   using MobiusGrid<SMALL_W, SMALL_H>::transition;
 };
 
-/** @brief Mobius preset departures adopt authored generators. */
+/** @brief Mobius departures interpolate generators or hold them during fades. */
 inline void test_mobius_automatic_departures_interpolate_generator() {
   for (bool fade : {false, true}) {
     reset_globals();
     MobiusFrameProbe effect;
     effect.init();
     effect.params.template get<"lens">().spin_x = 2.0f;
+    const auto from = effect.params;
     const auto target = preset_params<MobiusFrameProbe>(1);
     effect.transition.from = effect.params;
     effect.transition.to = target;
@@ -35,7 +36,16 @@ inline void test_mobius_automatic_departures_interpolate_generator() {
     effect.transition.fades = fade;
     effect.transition.adopted = false;
     effect.transition.active = true;
-    for (const float progress : {0.25f, 0.5f, 1.0f})
+    effect.run_transition(0.25f);
+    if (fade)
+      verify_params_equal(effect.params, from);
+    else
+      HS_EXPECT_NEAR(effect.params.template get<"lens">().spin_x,
+                     Pullback::interpolate(from, target, 0.25f)
+                         .template get<"lens">()
+                         .spin_x,
+                     1e-6f);
+    for (const float progress : {0.5f, 1.0f})
       effect.run_transition(progress);
     verify_params_equal(effect.params, target);
     HS_EXPECT_FALSE(effect.transition.active);
