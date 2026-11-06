@@ -1699,6 +1699,37 @@ class PackageVerificationTests(unittest.TestCase):
                                     "no committed digest baseline"):
             fab.verify_package(str(directory), str(baseline))
 
+    def test_rejects_a_baseline_missing_an_artifact(self):
+        directory, baseline = self.package()
+        fab.verify_package(str(directory), str(baseline))
+        lines = baseline.read_text(encoding="utf-8").splitlines()
+        baseline.write_text("\n".join(line for line in lines
+                                      if not line.endswith("phantasm-BOM.csv")) + "\n",
+                            encoding="utf-8")
+        with self.assertRaisesRegex(fab.PackageVerificationError,
+                                    r"phantasm-BOM.csv: [0-9a-f]{64} is not the ordered absent"):
+            fab.verify_package(str(directory), str(baseline))
+
+    def test_rejects_a_baseline_with_an_extra_artifact(self):
+        directory, baseline = self.package()
+        fab.verify_package(str(directory), str(baseline))
+        digest = "0" * 64
+        baseline.write_text(baseline.read_text(encoding="utf-8")
+                            + f"{digest}  obsolete.txt\n", encoding="utf-8")
+        with self.assertRaisesRegex(fab.PackageVerificationError,
+                                    f"obsolete.txt: absent is not the ordered {digest}"):
+            fab.verify_package(str(directory), str(baseline))
+
+    def test_rejects_a_manifest_with_an_uncovered_artifact(self):
+        directory, _ = self.package()
+        fab.verify_package(str(directory), None)
+        manifest = directory / fab.SUMS_FILE
+        manifest.write_text(manifest.read_text(encoding="utf-8")
+                            + f"{'0' * 64}  extra.txt\n", encoding="utf-8")
+        with self.assertRaisesRegex(fab.PackageVerificationError,
+                                    "records artifacts the package does not hold: extra.txt"):
+            fab.verify_package(str(directory), None)
+
     def test_checks_the_package_alone_without_a_baseline(self):
         directory, _ = self.package()
         self.assertEqual(fab.verify_package(str(directory), None),
