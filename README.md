@@ -1936,6 +1936,7 @@ for module ownership and local validation commands.
 │           ├── solid_op_rows.js DOM construction for one op-chain row
 │           ├── solid_registry_codegen.js Generates the solids.h registry entry, OpStep table, and authored Recipe
 │           ├── solid_render.js Builds face, vertex, edge, normal, and index-label scene objects from a mesh
+│           ├── solid_saved_cards.js Saved-card DOM, safe text/thumbnail metadata, and injected restore/delete/copy/warning actions
 │           ├── solid_saved_store.js Saved-solid storage, rejected backups, import merging, and thumbnail capacity
 │           ├── solids_page.js  Page module for tools/solids.html
 │           └── solid_validation.js Sacrificial-module chain validation, add-op gate, and commit queue
