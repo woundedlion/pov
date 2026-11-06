@@ -37,6 +37,18 @@ def cmake_jobs_missing_checks(workflow):
 
 
 class AuthorityPresence(unittest.TestCase):
+    def test_stale_kicad_minor_is_rejected(self):
+        path = bp.ROOT / "hardware/phantasm/gen/sexp.py"
+        read = bp.read_scanned
+        def changed(candidate, errors):
+            text = read(candidate, errors)
+            if candidate == path:
+                return re.sub(r"KICAD_MINOR = \d+", "KICAD_MINOR = 99", text)
+            return text
+        with unittest.mock.patch.object(bp, "read_scanned", side_effect=changed):
+            errors = bp.check_inline_pins()
+        self.assertTrue(any("kicad-full pinned" in error and "99" in error for error in errors))
+
     def test_missing_spelling_in_one_authority_is_rejected(self):
         for check, relative, original, replacement in (
                 (bp.check_shared_literals, 'tools/commit_checks.sh',

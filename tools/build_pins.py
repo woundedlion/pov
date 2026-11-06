@@ -193,6 +193,7 @@ INLINE_USES = (
     (r"kicad-(\d+\.\d+\.\d+)-", "kicad-full", lambda v: v),
     (r"kicad-source-mirror/releases/download/(\d+\.\d+\.\d+)/", "kicad-full", lambda v: v),
     (r"KICAD_MAJOR = (\d+)", "kicad", lambda v: v),
+    (r"KICAD_MINOR = (\d+)", "kicad-full", lambda v: v.split(".")[1]),
     (r"\bKiCad (\d+)\b", "kicad", lambda v: v),
 )
 

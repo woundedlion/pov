@@ -20,7 +20,7 @@ KICAD_MAJOR = 10
 KICAD_MINOR = 0
 
 # The (generator_version) string stamped into every file the generators emit.
-GENERATOR_VERSION = f"{KICAD_MAJOR}.0"
+GENERATOR_VERSION = f"{KICAD_MAJOR}.{KICAD_MINOR}"
 
 # (version) epochs, one per file format. KiCad revises each format on its own
 # schedule, so these differ from each other and cannot be derived from
