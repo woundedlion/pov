@@ -118,7 +118,8 @@ struct FrameContext {
   /** Generated palette bakes, indexed by the colorize palette-mode value. */
   std::array<const BakedPalette *, 3> palettes{};
   const Pixel *hue_rotation_lut = nullptr; ///< Hue-rotation lookup table.
-  const HueRotationGamutMask *hue_rotation_gamut = nullptr;
+  const HueRotationGamutMask *hue_rotation_gamut =
+      nullptr; ///< Hue table cell flags.
   std::span<const Modulation::Endpoint>
       modulations; ///< Keyed immutable sources.
 };

@@ -38,15 +38,24 @@ struct HueRotationLutView {
 struct HueRotationGamutMask {
   static constexpr int MAX_CHANNEL_SPAN =
       14000; ///< Qualified RGB16 corner span.
+  /** @brief Number of palette-coordinate by hue cells. */
   static constexpr int CELLS =
       (HueRotationLutView::VALUE_STEPS - 1) * HueRotationLutView::HUE_STEPS;
-  std::array<uint8_t, (CELLS + 7) / 8> bits{};
+  std::array<uint8_t, (CELLS + 7) / 8> bits{}; ///< Value-major cell flags.
 
+  /** @brief Clears all direct-sampling flags. */
   void clear() { bits.fill(0); }
+  /** @brief Marks a cell for direct hue evaluation.
+   * @param value Lower palette-coordinate node index.
+   * @param hue Lower hue node index. */
   void mark_cell(int value, int hue) {
     const int CELL = value * HueRotationLutView::HUE_STEPS + hue;
     bits[CELL / 8] |= uint8_t(1u << (CELL % 8));
   }
+  /** @brief Tests the cell containing a pair of lower node indices.
+   * @param value Lower palette-coordinate node index.
+   * @param hue Lower hue node index.
+   * @return Whether direct hue evaluation is required. */
   bool requires_direct(int value, int hue) const {
     const int CELL = std::min(value, HueRotationLutView::VALUE_STEPS - 2) *
                          HueRotationLutView::HUE_STEPS +
@@ -57,14 +66,24 @@ struct HueRotationGamutMask {
 
 /** @brief Accumulates differing corner classes in value-major node order. */
 struct HueRotationGamutBuilder {
-  HueRotationGamutMask *mask;
-  std::array<uint8_t, HueRotationLutView::HUE_STEPS> previous{}, current{};
-  std::array<Pixel, HueRotationLutView::HUE_STEPS> previous_rgb{},
-      current_rgb{};
+  HueRotationGamutMask *mask; ///< Destination cell flags.
+  std::array<uint8_t, HueRotationLutView::HUE_STEPS>
+      previous{}, ///< Previous row raw gamut classes.
+      current{};  ///< Current row raw gamut classes.
+  std::array<Pixel, HueRotationLutView::HUE_STEPS>
+      previous_rgb{}, ///< Previous row mapped RGB16 nodes.
+      current_rgb{};  ///< Current row mapped RGB16 nodes.
 
+  /** @brief Binds the destination mask.
+   * @param destination Cell flags populated by appended rows. */
   explicit HueRotationGamutBuilder(HueRotationGamutMask *destination)
       : mask(destination) {}
 
+  /** @brief Appends a node in value-major order.
+   * @param value Palette-coordinate node index.
+   * @param hue Hue node index.
+   * @param rgb Unmapped linear RGB.
+   * @param node Gamut-mapped RGB16. */
   void append(int value, int hue, const LinRGB &rgb, const Pixel &node) {
     current_rgb[hue] = node;
     current[hue] = uint8_t((rgb.r < 0.0f ? 1 : 0) | (rgb.r > 1.0f ? 2 : 0) |
@@ -98,12 +117,22 @@ struct HueRotationGamutBuilder {
   }
 };
 
+/** @brief Conditional retained hue-mask storage.
+ * @tparam Enabled Whether retained hue sampling is enabled. */
 template <bool Enabled> struct HueRotationGamutStorage {};
+/** @brief Retained hue mask for enabled hue sampling. */
 template <> struct HueRotationGamutStorage<true> {
-  HueRotationGamutMask retained_hue_rotation_gamut;
+  HueRotationGamutMask retained_hue_rotation_gamut; ///< Prior frame cell flags.
 };
 
-/** @brief Appends one raw hue node to a cell classifier. */
+/** @brief Appends one raw hue node to a cell classifier.
+ * @param builder Destination row classifier.
+ * @param value Palette-coordinate node index.
+ * @param hue Hue node index.
+ * @param base Unrotated perceptual color.
+ * @param cosine Prepared hue cosine.
+ * @param sine Prepared hue sine.
+ * @param node Gamut-mapped RGB16 node. */
 inline void mark_hue_gamut_node(HueRotationGamutBuilder &builder, int value,
                                 int hue, const OKLab &base, float cosine,
                                 float sine, const Pixel &node) {

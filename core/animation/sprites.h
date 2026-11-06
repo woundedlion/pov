@@ -150,7 +150,9 @@ private:
                                     timer advance, still draws) when set. */
 };
 
-/** @brief Clamps finite lifetimes to [0, 65535]; non-finite values expire. */
+/** @brief Clamps finite lifetimes to [0, 65535]; non-finite values expire.
+ * @param life Lifetime in frames.
+ * @return Bounded frame count. */
 HS_HOT_INLINE inline uint16_t particle_life_frames(float life) {
   return std::isfinite(life)
              ? static_cast<uint16_t>(hs::clamp(life, 0.0f, 65535.0f))

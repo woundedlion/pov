@@ -738,11 +738,12 @@ static inline float screen_step(const math::Vector &pos,
 inline size_t g_step_budget_override = 0;
 #endif
 
-/** @brief Compiles the exact screen-step selection hook. */
 #ifndef HS_REFERENCE_SCREEN_STEP_HOOK
 #if HS_ENABLE_TEST_ORACLES || defined(HS_MINDSPLATTER_REPLAY)
+/** @brief Compiles the exact screen-step selection hook. */
 #define HS_REFERENCE_SCREEN_STEP_HOOK 1
 #else
+/** @brief Compiles the exact screen-step selection hook. */
 #define HS_REFERENCE_SCREEN_STEP_HOOK 0
 #endif
 #endif

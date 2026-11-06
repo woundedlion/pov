@@ -25,10 +25,12 @@ struct PaletteLabTimeView {
   int value_steps = 64;            ///< Nodes in each borrowed row.
   const Pixel *rgb_low = nullptr;  ///< Optional lower hue table.
   const Pixel *rgb_high = nullptr; ///< Optional upper hue table.
-  const HueRotationGamutMask *rgb_mask_low = nullptr;
-  const HueRotationGamutMask *rgb_mask_high = nullptr;
-  const PaletteLabLutBase *canonical_base = nullptr;
-  float fraction = 0.0f;
+  const HueRotationGamutMask *rgb_mask_low = nullptr; ///< Lower RGB row flags.
+  const HueRotationGamutMask *rgb_mask_high =
+      nullptr; ///< Distinct upper row flags.
+  const PaletteLabLutBase *canonical_base =
+      nullptr;           ///< Borrowed endpoint owner.
+  float fraction = 0.0f; ///< Frame progress within the interval.
 };
 
 /** @brief Borrowed palette-coordinate by frame-time base-color cache. */
@@ -39,13 +41,15 @@ struct PaletteLabLutBase {
   int value_steps = 64;             ///< Nodes in each time row.
   bool active = false;              ///< Whether both palettes are opaque.
   const Pixel *rgb_nodes = nullptr; ///< Optional final hue table.
-  const HueRotationGamutMask *rgb_masks = nullptr;
+  const HueRotationGamutMask *rgb_masks = nullptr; ///< RGB row cell flags.
   bool rgb_midpoint = false; ///< Shares the interval midpoint for every column.
   uint8_t rgb_midpoint_row = 1; ///< Physical RGB row containing the midpoint.
   const BakedPalette *palette_from = nullptr; ///< Immutable interval start.
   const BakedPalette *palette_to = nullptr;   ///< Immutable interval end.
 
-  /** @brief Whether raw RGB is near a discontinuous gamut gate. */
+  /** @brief Whether raw RGB is near a discontinuous gamut gate.
+   * @param raw Unmapped linear RGB.
+   * @return Whether canonical-base restoration is required. */
   HS_HOT_INLINE static bool near_gamut_gate(const LinRGB &raw) {
     const float LEAST = __builtin_fminf(__builtin_fminf(raw.r, raw.g), raw.b);
     const float MOST = __builtin_fmaxf(__builtin_fmaxf(raw.r, raw.g), raw.b);
@@ -53,7 +57,12 @@ struct PaletteLabLutBase {
              fabsf(MOST - LINEAR_RGB_GAMUT_MAX) > GAMUT_GUARD_WIDTH);
   }
 
-  /** @brief Finishes the immutable RGB-first base through a prepared hue. */
+  /** @brief Finishes the immutable RGB-first base through a prepared hue.
+   * @param time Borrowed endpoint palettes and interval progress.
+   * @param value Palette coordinate.
+   * @param cosine Prepared hue cosine.
+   * @param sine Prepared hue sine.
+   * @return Gamut-mapped RGB16. */
   HS_HOT_FLASH_MEMBER static Pixel
   canonical_hue_color(const PaletteLabTimeView &time, float value, float cosine,
                       float sine) {
@@ -124,7 +133,11 @@ struct PaletteLabLutBase {
                 time.weight);
   }
 
-  /** @brief Finishes a marked hue cell from its perceptual base. */
+  /** @brief Finishes a marked hue cell from its perceptual base.
+   * @param time Borrowed neighboring base rows.
+   * @param value Palette coordinate.
+   * @param hue Rotation in turns.
+   * @return Gamut-mapped RGB16. */
   HS_HOT_FLASH_MEMBER static Pixel
   direct_hue_color(const PaletteLabTimeView &time, float value, float hue) {
     float cosine, sine;
@@ -227,7 +240,8 @@ template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
       true; ///< Samples a trilinear color table.
   std::array<Pixel, RGB_TIMES * HueRotationLutView::SIZE>
       nodes{}; ///< Quantized RGB16 code units by time, value and hue.
-  std::array<HueRotationGamutMask, RGB_TIMES> masks{};
+  std::array<HueRotationGamutMask, RGB_TIMES>
+      masks{}; ///< Direct cells by time row.
   /** @brief Bakes hue colors, reusing exact base rows or midpoint rows within
    * `MAX_REUSE_DELTA` of their original baked key.
    * @param base Interval base receiving this cache binding.

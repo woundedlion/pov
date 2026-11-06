@@ -80,7 +80,8 @@ template <typename ParamsT, bool PhaseNoise = false> struct FrameState {
   const BakedPalette *palette; /**< The cycler's current bake. */
   /** Current palette hue table. */
   const Pixel *hue_rotation_lut;
-  const HueRotationGamutMask *hue_rotation_gamut = nullptr;
+  const HueRotationGamutMask *hue_rotation_gamut =
+      nullptr;    ///< Current hue cell flags.
   ParamsT params; /**< The frame's parameter values, already interpolated if a
                        preset transition is in flight. */
   /** Palette mapping weights, blended across a preset transition. */

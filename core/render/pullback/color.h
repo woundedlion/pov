@@ -401,7 +401,8 @@ struct TemporalPaletteResources {
   bool same_palette = false; ///< Identical endpoint palette entries.
   bool phase_compatible =
       false; ///< Stable modulation recipes across the interval.
-  const HueRotationGamutMask *hue_rotation_gamut = nullptr;
+  const HueRotationGamutMask *hue_rotation_gamut =
+      nullptr; ///< Previous hue cell flags.
 };
 /** @brief Prepared generated-palette endpoint pair. */
 struct TemporalGeneratedPaletteState {

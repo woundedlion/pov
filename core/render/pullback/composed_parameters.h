@@ -203,7 +203,7 @@ template <> struct OptionalHueRotationLut<true> {
   /** Palette bake the resident table was built from; 0 matches no bake,
       forcing the first build. */
   uint32_t hue_rotation_lut_bake = 0;
-  HueRotationGamutMask hue_rotation_gamut;
+  HueRotationGamutMask hue_rotation_gamut; ///< Resident hue table cell flags.
 };
 
 /** @brief Projection-walk noise storage; empty when disabled. */
