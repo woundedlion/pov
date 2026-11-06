@@ -211,7 +211,10 @@ inline void test_point_route_matches_column_oracle() {
   const math::Vector tilted = math::Vector(0.3f, 1.0f, -0.2f).normalized();
   std::array<int, 3> passes{};
   PointRouteError interior, rapid, cut, polar;
-  auto check = [&](const PointRoutePath &path, PointRouteError &worst) {
+  float polar_min_mass = 65535.0f;
+  int polar_passes = 0;
+  auto check = [&](const PointRoutePath &path, PointRouteError &worst,
+                   bool measure_mass = false) {
     const auto want = point_route_oracle(path, 1.0f);
     const auto got = point_route_render(
         canvas, path, 1.0f, (path.at(1.0f) - path.at(0.0f)).magnitude());
@@ -219,6 +222,11 @@ inline void test_point_route_matches_column_oracle() {
     worst.weight = fmaxf(worst.weight, e.weight);
     worst.arc = fmaxf(worst.arc, e.arc);
     worst.mass = fmaxf(worst.mass, e.mass);
+    float mass = 0.0f;
+    if (measure_mass)
+      for (const Pixel &pixel : got)
+        mass += pixel.r / 65535.0f;
+    return mass;
   };
   uint32_t state = 17u;
   for (int i = 0; i < 400; ++i) {
@@ -248,9 +256,19 @@ inline void test_point_route_matches_column_oracle() {
     const float row = lcg_uniform(state, 0.5f, 8.0f);
     const float y = (i & 1) ? row : 143.0f - row;
     const float heading = lcg_uniform(state, 0.0f, math::TWO_PI_F);
-    for (float angle : {0.0134f, 0.04f})
-      check(point_route_path(x, y, heading, angle, 0.01f, tilted), polar);
+    for (float angle : {0.0134f, 0.04f}) {
+      const auto path = point_route_path(x, y, heading, angle, 0.01f, tilted);
+      const float mass = check(path, polar, true);
+      if (point_route_true_passes(path) >= 1) {
+        ++polar_passes;
+        polar_min_mass = fminf(polar_min_mass, mass);
+        HS_EXPECT_GT(mass, 0.01f);
+      }
+    }
   }
+  std::printf("  polar point passes=%d minimum route mass=%.9f\n", polar_passes,
+              polar_min_mass);
+  HS_EXPECT_GT(polar_passes, 0);
   std::printf("  point route oracle (weight/arc/mass): interior %.4f/%.4f/%.4f "
               "rapid %.4f/%.4f/%.4f cut %.4f/%.4f/%.4f polar %.4f/%.4f/%.4f "
               "cut passes 0/1/2=%d/%d/%d\n",
