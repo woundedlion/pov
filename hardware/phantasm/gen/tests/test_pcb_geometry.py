@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pcb
 import sexp
+from kicad_env import footprints_by_ref
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -23,18 +24,6 @@ def _child(node, key):
         child[1:]
         for child in node
         if isinstance(child, list) and child and child[0] == key
-    )
-
-
-def _footprint(board, ref):
-    return next(
-        node
-        for node in board
-        if isinstance(node, list) and node and node[0] == "footprint"
-        and any(isinstance(child, list) and child
-                and child[0] == "property"
-                and child[1:3] == ["Reference", ref]
-                for child in node)
     )
 
 
@@ -132,15 +121,7 @@ class CathodeMarkTests(unittest.TestCase):
     def test_d_bus_carries_a_silk_bar_beside_its_cathode(self):
         board_path = ROUTED
         board = sexp.parse(board_path.read_text(encoding="utf-8"))[0]
-        footprint, = [
-            node
-            for node in board
-            if isinstance(node, list) and node and node[0] == "footprint"
-            and any(isinstance(child, list) and child
-                    and child[0] == "property" and child[1:3] == ["Reference",
-                                                                  "D_BUS"]
-                    for child in node)
-        ]
+        footprint = footprints_by_ref(board)["D_BUS"]
         cathode_x, = [
             float(_child(pad, "at")[0])
             for pad in footprint
@@ -169,7 +150,7 @@ class IdStrapSilkscreenTests(unittest.TestCase):
     def test_every_id_strap_has_the_same_outline(self):
         for path, board in self.boards.items():
             expected = [_without_uuids(node)
-                        for node in _silk_outline(_footprint(board, "JP_ID0"))]
+                        for node in _silk_outline(footprints_by_ref(board)["JP_ID0"])]
             self.assertEqual(
                 [node[0] for node in expected].count("fp_line"), 4)
             self.assertEqual(
@@ -177,13 +158,13 @@ class IdStrapSilkscreenTests(unittest.TestCase):
             for ref in ("JP_ID1", "JP_ID2", "JP_SHLD"):
                 with self.subTest(board=path.name, ref=ref):
                     actual = [_without_uuids(node) for node in
-                              _silk_outline(_footprint(board, ref))]
+                              _silk_outline(footprints_by_ref(board)[ref])]
                     self.assertEqual(actual, expected)
 
     def test_generator_keeps_jp_id2_outline_on_silkscreen(self):
         fixture_root = self.enterContext(tempfile.TemporaryDirectory())
         self.enterContext(mock.patch.object(pcb, "FP_DIR", fixture_root))
-        source = _footprint(self.boards[ROUTED], "JP_ID0")
+        source = footprints_by_ref(self.boards[ROUTED])["JP_ID0"]
         libid = "Test:Jumper"
         with mock.patch.dict(pcb._MOD_CACHE, {(os.path.join(pcb.FP_DIR, "Test.pretty"), libid): source}):
             generated = pcb.embed(libid, "JP_ID2", "Jumper", 0, 0, 0,

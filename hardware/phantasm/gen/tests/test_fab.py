@@ -21,6 +21,7 @@ import fab  # noqa: E402
 import sexp  # noqa: E402
 from constraints import NEW_LAYOUT_RULES  # noqa: E402
 from kicad_common import property_value  # noqa: E402
+from kicad_env import footprints_by_ref  # noqa: E402
 
 
 TITLED_BOARD = sexp.parse_one('(kicad_pcb (title_block (rev "1.1")))')
@@ -592,12 +593,7 @@ class AssemblyPolicyTests(unittest.TestCase):
     def test_board_marks_hand_soldered_parts_as_excluded(self):
         root = fab.read_board(fab.PCB)
         attrs_by_ref = {}
-        for footprint in fab.F(root, "footprint"):
-            ref = next(
-                (prop[2] for prop in fab.F(footprint, "property")
-                 if prop[1] == "Reference"),
-                None,
-            )
+        for ref, footprint in footprints_by_ref(root).items():
             if ref in self.NATIVE_EXCLUDED_REFS:
                 attrs_by_ref[ref] = {
                     str(value) for value in fab.sexp.val(footprint, "attr", [])
@@ -640,10 +636,7 @@ class AssemblyPolicyTests(unittest.TestCase):
             fab.validate_rotation_refs(assembled)
 
     def test_d_bus_exports_committed_rotation_and_cathode_net(self):
-        footprint, = [
-            fp for fp in fab.F(fab.read_board(fab.PCB), "footprint")
-            if fab.footprint_reference(fp) == "D_BUS"
-        ]
+        footprint = footprints_by_ref(fab.read_board(fab.PCB))["D_BUS"]
         rotation = float(fab.sexp.val(footprint, "at")[2])
         self.assertEqual(rotation, 90)
         self.assertEqual(fab.cpl_rotation("D_BUS", rotation), 90)

@@ -8,7 +8,7 @@ sys.path.insert(0, str(GEN_DIR))
 import pcb  # noqa: E402
 from rev11_placements import QUILTER_FIXED  # noqa: E402
 import sexp  # noqa: E402
-from kicad_common import F  # noqa: E402
+from kicad_env import footprints_by_ref  # noqa: E402
 
 ROUTED = GEN_DIR.parent / "1.1" / pcb.PCB_FILE
 
@@ -17,12 +17,10 @@ def placements(path):
     """ref -> (x, y, rotation) for every referenced footprint on a board."""
     root = sexp.parse(path.read_text(encoding="utf-8"))[0]
     out = {}
-    for node in F(root, "footprint"):
+    for ref, node in footprints_by_ref(root).items():
         at = sexp.val(node, "at")
-        for prop in F(node, "property"):
-            if prop[1] == "Reference":
-                out[prop[2]] = (float(at[0]), float(at[1]),
-                                float(at[2]) if len(at) > 2 else 0.0)
+        out[ref] = (float(at[0]), float(at[1]),
+                    float(at[2]) if len(at) > 2 else 0.0)
     return out
 
 

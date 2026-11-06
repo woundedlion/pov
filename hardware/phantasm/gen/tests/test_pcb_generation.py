@@ -28,7 +28,7 @@ import connectivity     # noqa: E402
 import pcb              # noqa: E402
 from rev11_placements import QUILTER_FIXED, QUILTER_FIXED_FOOTPRINTS  # noqa: E402
 import sexp             # noqa: E402
-from kicad_env import GENERATES, GENERATES_REASON, generate, read  # noqa: E402
+from kicad_env import GENERATES, GENERATES_REASON, generate, read, footprints_by_ref  # noqa: E402
 from courtyard_bounds import courtyard_box  # noqa: E402
 from kicad_common import F, export_netlist, is_copper_pour, kicad_cli, rotate_point  # noqa: E402
 
@@ -37,10 +37,10 @@ COMMITTED_PCB = GEN.parent / "1.1" / pcb.PCB_FILE
 def assembly_exclusions(root):
     """{ref: sorted attr flags} for every footprint kept off the assembly."""
     excluded = {}
-    for footprint in F(root, "footprint"):
+    for ref, footprint in footprints_by_ref(root).items():
         flags = [str(flag) for attr in F(footprint, "attr") for flag in attr[1:]]
         if "exclude_from_bom" in flags:
-            excluded[connectivity.footprint_reference(footprint)] = sorted(flags)
+            excluded[ref] = sorted(flags)
     return excluded
 
 
@@ -51,7 +51,7 @@ def zone_polygon(zone):
 
 class TerminalBodyChecks:
     def test_terminal_bodies_have_component_reservations(self):
-        footprints = {connectivity.footprint_reference(fp): fp for fp in F(self.root, "footprint")}
+        footprints = footprints_by_ref(self.root)
         for ref, count in (("J1", 2), ("J2", 3), ("J3A", 3), ("J3B", 3)):
             with self.subTest(ref=ref):
                 fp = footprints[ref]
@@ -176,7 +176,7 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
 
     def test_drc_rejects_a_component_under_the_terminal_body(self):
         root = read(self.path)
-        footprints = {connectivity.footprint_reference(fp): fp for fp in F(root, "footprint")}
+        footprints = footprints_by_ref(root)
         terminal = footprints["J1"]
         resistor = footprints["R_MEN"]
         x, y = map(float, sexp.val(terminal, "at")[:2])
@@ -261,8 +261,7 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
 
     def test_sync_transmit_is_isolated_and_pulled_low_on_every_board(self):
         nets = {}
-        for footprint in F(self.root, "footprint"):
-            ref = connectivity.footprint_reference(footprint)
+        for ref, footprint in footprints_by_ref(self.root).items():
             for pad in F(footprint, "pad"):
                 name = sexp.val(pad, "net")
                 if name:
@@ -272,8 +271,7 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
         self.assertEqual(nets["SYNC_TX"], {"U_MCU.4", "U1.9", "R_TX"})
         self.assertIn("R_TX", nets["GND"])
         self.assertEqual(nets["MASTER_EN"], check.EXPECT["MASTER_EN"])
-        resistor = next(fp for fp in F(self.root, "footprint")
-                        if connectivity.footprint_reference(fp) == "R_TX")
+        resistor = footprints_by_ref(self.root)["R_TX"]
         self.assertIn(["property", "Value", "10k"],
                       [p[:3] for p in F(resistor, "property")])
         self.assertNotIn("R_TX", assembly_exclusions(self.root))
@@ -387,10 +385,10 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
 
     def test_no_two_courtyards_overlap(self):
         boxes = {}
-        for footprint in F(self.root, "footprint"):
+        for ref, footprint in footprints_by_ref(self.root).items():
             box = courtyard_box(footprint)
-            self.assertIsNotNone(box, connectivity.footprint_reference(footprint))
-            boxes[connectivity.footprint_reference(footprint)] = box
+            self.assertIsNotNone(box, ref)
+            boxes[ref] = box
         refs = sorted(boxes)
         overlaps = [f"{a}/{b}"
                     for index, a in enumerate(refs) for b in refs[index + 1:]
@@ -415,21 +413,21 @@ class TerminalEdgePlacementChecks:
         return length
 
     def test_vin_bypass_has_a_direct_locked_connection(self):
-        footprints = {connectivity.footprint_reference(fp): fp for fp in F(self.root, "footprint")}
+        footprints = footprints_by_ref(self.root)
         self.assertLess(self.locked_front_track_length(footprints, "C_DEC1", "1"), 3.0)
         groups = connectivity.opens(self.root)["+5V_LOGIC"]
         self.assertTrue(any({("C_DEC1", "1"), ("U_MCU", "VIN")} <= set(group)
                             for group in groups), groups)
 
     def test_receive_filter_is_locked_and_prerouted_at_d3(self):
-        footprints = {connectivity.footprint_reference(fp): fp for fp in F(self.root, "footprint")}
+        footprints = footprints_by_ref(self.root)
         for ref in ("R1", "R2", "C_SYNC"):
             self.assertEqual(sexp.val(footprints[ref], "locked"), ["yes"], ref)
         self.assertNotIn("FRAME_SYNC", connectivity.opens(self.root))
         self.assertLess(self.locked_front_track_length(footprints, "C_SYNC", "1"), 10.0)
 
     def test_locked_decouplers_are_within_three_mm_of_supply_pins(self):
-        footprints = {connectivity.footprint_reference(fp): fp for fp in F(self.root, "footprint")}
+        footprints = footprints_by_ref(self.root)
 
         def pad_center(fp, number):
             pad = next(p for p in F(fp, "pad") if p[1] == number)
@@ -446,7 +444,7 @@ class TerminalEdgePlacementChecks:
                                           pad_center(footprints[parent], pin)), 3.0)
 
     def test_debug_header_and_serial_connection_are_absent(self):
-        footprints = {connectivity.footprint_reference(fp): fp for fp in F(self.root, "footprint")}
+        footprints = footprints_by_ref(self.root)
         self.assertNotIn("J4", footprints)
         nets = {sexp.val(pad, "net")[-1]
                 for fp in footprints.values() for pad in F(fp, "pad")
@@ -459,7 +457,7 @@ class TerminalEdgePlacementChecks:
                              for fp in footprints.values() for pad in F(fp, "pad")), 1)
 
     def test_connectors_are_locked_inside_the_outline(self):
-        footprints = {connectivity.footprint_reference(fp): fp for fp in F(self.root, "footprint")}
+        footprints = footprints_by_ref(self.root)
         edge = F(self.root, "gr_rect")[0]
         length, width = map(float, sexp.val(edge, "end"))
         self.assertEqual((length, width), (58.28, 32.0))
@@ -499,16 +497,14 @@ class TerminalEdgePlacementChecks:
             self.assertGreaterEqual(second[1] - first[2], 0.4)
 
     def test_mounting_centers_match_the_routed_revision(self):
-        routed = {connectivity.footprint_reference(fp): sexp.val(fp, "at")[:2]
-                  for fp in F(read(COMMITTED_PCB), "footprint")}
-        current = {connectivity.footprint_reference(fp): sexp.val(fp, "at")[:2]
-                   for fp in F(self.root, "footprint")}
+        routed = {ref: sexp.val(fp, "at")[:2] for ref, fp in footprints_by_ref(read(COMMITTED_PCB)).items()}
+        current = {ref: sexp.val(fp, "at")[:2] for ref, fp in footprints_by_ref(self.root).items()}
         for ref in ("H1", "H2", "H3", "H4"):
             self.assertEqual(list(map(float, current[ref])),
                              list(map(float, routed[ref])), ref)
 
     def test_terminal_body_and_wire_access_keepouts_are_clear(self):
-        footprints = {connectivity.footprint_reference(fp): fp for fp in F(self.root, "footprint")}
+        footprints = footprints_by_ref(self.root)
         boxes = {ref: courtyard_box(fp) for ref, fp in footprints.items()}
         for ref in ("J1", "J2", "J3A", "J3B"):
             zones = {sexp.val(zone, "name")[0]: zone
@@ -606,8 +602,7 @@ class UnplacedBoardTests(TerminalBodyChecks, TerminalEdgePlacementChecks, unitte
         placed = {}
         comps = {}
         locked = set()
-        for footprint in F(self.root, "footprint"):
-            ref = connectivity.footprint_reference(footprint)
+        for ref, footprint in footprints_by_ref(self.root).items():
             comps[ref] = (ref, str(footprint[1]), "", False)
             if sexp.val(footprint, "locked", []) == ["yes"]:
                 locked.add(ref)

@@ -1,4 +1,4 @@
-"""Shared KiCad prerequisites, generated boards and committed net fixtures."""
+"""Shared KiCad prerequisites, generators and board fixtures."""
 
 import contextlib
 import io
@@ -71,14 +71,24 @@ def read(path):
     return sexp.parse(Path(path).read_text(encoding="utf-8"))[0]
 
 
+def footprints_by_ref(root):
+    """Referenced board footprints, rejecting missing or duplicate identities."""
+    footprints = {}
+    for footprint in F(root, "footprint"):
+        reference = footprint_reference(footprint)
+        if not reference or reference == "?":
+            raise AssertionError("footprint has no reference")
+        if reference in footprints:
+            raise AssertionError(f"duplicate footprint reference: {reference}")
+        footprints[reference] = footprint
+    return footprints
+
+
 def committed_board_nets(revision="1.1"):
     path = REPO_ROOT / "hardware" / "phantasm" / revision / "phantasm.kicad_pcb"
     root = sexp.parse(path.read_text(encoding="utf-8"))[0]
     nets = {}
-    for footprint in F(root, "footprint"):
-        reference = footprint_reference(footprint)
-        if reference == "?":
-            continue
+    for reference, footprint in footprints_by_ref(root).items():
         for pad in F(footprint, "pad"):
             name = kicad_common.net_name(pad)
             if reference and name:

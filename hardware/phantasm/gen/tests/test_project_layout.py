@@ -7,6 +7,27 @@ sys.path.insert(0, str(GEN))
 
 import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
+from kicad_env import footprints_by_ref  # noqa: E402
+
+
+class FootprintLookupTests(unittest.TestCase):
+    def test_lookup_uses_reference_properties_and_retains_nodes(self):
+        resistor = sexp.parse_one('(footprint "R_0603" (property "Reference" "R1"))')
+        connector = sexp.parse_one('(footprint "Terminal" (property "Reference" "J1"))')
+        root = ['kicad_pcb', ['gr_text', 'ignored', ['property', 'Reference', 'TEXT']],
+                resistor, connector]
+        found = footprints_by_ref(root)
+        self.assertEqual(set(found), {"R1", "J1"})
+        self.assertIs(found["R1"], resistor)
+        self.assertIs(found["J1"], connector)
+
+    def test_missing_and_duplicate_references_fail_loudly(self):
+        for nodes, message in ((['(footprint "R_0603")'], 'footprint has no reference'),
+                               (['(footprint "R_0603" (property "Reference" "R1"))',
+                                 '(footprint "R_0805" (property "Reference" "R1"))'],
+                                'duplicate footprint reference: R1')):
+            with self.subTest(message=message), self.assertRaisesRegex(AssertionError, message):
+                footprints_by_ref(['kicad_pcb', *(sexp.parse_one(node) for node in nodes)])
 
 
 class RevisionProjectTests(unittest.TestCase):
@@ -21,12 +42,10 @@ class RevisionProjectTests(unittest.TestCase):
                 pins.setdefault(properties["Reference"], set()).update(
                     str(pin[1]) for pin in F(symbol, "pin"))
         pads = {}
-        for footprint in F(board, "footprint"):
+        for reference, footprint in footprints_by_ref(board).items():
             numbers = {str(pad[1]) for pad in F(footprint, "pad") if pad[1]}
             if not numbers:
                 continue
-            properties = {prop[1]: prop[2] for prop in F(footprint, "property")}
-            reference = properties["Reference"]
             pads[reference] = numbers
         self.assertEqual(len(pins), 28)
         self.assertNotIn("J4", pins)

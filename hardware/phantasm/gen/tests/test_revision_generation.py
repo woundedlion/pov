@@ -22,7 +22,7 @@ import shorts  # noqa: E402
 from kicad_common import F, export_netlist, kicad_cli  # noqa: E402
 from courtyard_bounds import courtyard_box  # noqa: E402
 from pin_landing import dangling_pins  # noqa: E402
-from kicad_env import committed_board_nets, generate  # noqa: E402
+from kicad_env import committed_board_nets, generate, footprints_by_ref  # noqa: E402
 from kicad_env import GENERATES, GENERATES_REASON  # noqa: E402
 
 PROTOTYPE = GEN.parent / "1.3"
@@ -66,8 +66,7 @@ class PrototypeContractTests(unittest.TestCase):
         self.assertTrue(check.check(committed_board_nets("1.3"), "1.3"))
 
     def test_led_data_resistor_precedes_clock_along_j2(self):
-        footprints = {next(p[2] for p in F(fp, "property") if p[1] == "Reference"): fp
-                      for fp in F(self.board, "footprint")}
+        footprints = footprints_by_ref(self.board)
         data_y = float(sexp.val(footprints["R_D1"], "at")[1])
         clock_y = float(sexp.val(footprints["R_D2"], "at")[1])
         self.assertLess(data_y, clock_y)
@@ -92,8 +91,8 @@ class PrototypeContractTests(unittest.TestCase):
         }
         symbols = {props["Reference"]: props for symbol in F(self.schematic, "symbol")
                    if (props := {p[1]: p[2] for p in F(symbol, "property")})}
-        footprints = {props["Reference"]: props for footprint in F(self.board, "footprint")
-                      if (props := {p[1]: p[2] for p in F(footprint, "property")})}
+        footprints = {ref: {p[1]: p[2] for p in F(footprint, "property")}
+                      for ref, footprint in footprints_by_ref(self.board).items()}
         for ref, mpn in expected.items():
             self.assertEqual(symbols[ref]["MPN"], mpn, ref)
             self.assertTrue(symbols[ref]["Manufacturer"], ref)
@@ -129,10 +128,9 @@ class PrototypeContractTests(unittest.TestCase):
 
     def test_locked_courtyards_clear_each_other_and_mounting_reservations(self):
         positions, bounds, courtyards = {}, {}, {}
-        for footprint in F(self.board, "footprint"):
+        for ref, footprint in footprints_by_ref(self.board).items():
             if sexp.val(footprint, "locked") != ["yes"]:
                 continue
-            ref = next(str(p[2]) for p in F(footprint, "property") if p[1] == "Reference")
             if ref.startswith("H"):
                 continue
             positions[ref] = tuple(map(float, sexp.val(footprint, "at")))
@@ -192,8 +190,7 @@ class RevisionGenerationTests(unittest.TestCase):
     def test_inner_planes_pass_between_teensy_header_pads(self):
         for project in (self.rev_12, self.prototype):
             root = sexp.parse_one((project / "phantasm.kicad_pcb").read_text(encoding="utf-8"))
-            teensy = next(fp for fp in F(root, "footprint")
-                          if any(p[1:3] == ["Reference", "U_MCU"] for p in F(fp, "property")))
+            teensy = footprints_by_ref(root)["U_MCU"]
             rows = {}
             for pad in F(teensy, "pad"):
                 x, y = map(float, sexp.val(pad, "at")[:2])
