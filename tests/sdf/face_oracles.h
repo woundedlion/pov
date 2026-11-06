@@ -54,7 +54,7 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
                                        const math::Vector &axis,
                                        float rho_inner = 0.0f, int stride = 1) {
   constexpr int H = 144;
-  constexpr int HV = H + hs::H_OFFSET;
+  const math::LatitudeGeometry GEOMETRY(H);
   math::Basis basis = math::make_basis(math::Quaternion(), axis);
   math::Vector verts3d[16];
   uint16_t idx[16];
@@ -71,8 +71,8 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
 
   SDF::FaceScratchBuffer scratch;
   SDF::PreparedFace face(std::span<const math::Vector>(verts3d, n_verts),
-                         std::span<const uint16_t>(idx, n_verts), scratch, HV,
-                         H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
+                         std::span<const uint16_t>(idx, n_verts), scratch,
+                         GEOMETRY, H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
   HS_EXPECT_EQ(face.convex, rho_inner <= 0.0f && stride == 1);
   const uint32_t probe_flags = face.probe_flags();
 
@@ -124,7 +124,7 @@ inline void test_face_sector_backtrack_sign() {
     SDF::FaceScratchBuffer scratch;
     SDF::PreparedFace face(std::span<const math::Vector>(vertices, 12),
                            std::span<const uint16_t>(indices, 12), scratch,
-                           144 + hs::H_OFFSET, 144, nullptr, nullptr,
+                           math::LatitudeGeometry(144), 144, nullptr, nullptr,
                            SDF::BOUNDS_MARGIN);
     HS_EXPECT_EQ(face.sector_ok, bend >= 0.0f);
     if (!face.sector_ok) {
@@ -683,7 +683,7 @@ inline void test_face_convex_rejection_cutoff() {
 inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
                                  float rot_angle) {
   constexpr int H = 144;
-  constexpr int HV = H + hs::H_OFFSET;
+  const math::LatitudeGeometry GEOMETRY(H);
   constexpr int sides = 6, n_verts = 2 * sides;
   constexpr float rho = 0.40f, rho_inner = 0.20f;
   const math::Vector axis(0.4f, 0.3f, 1.0f);
@@ -699,7 +699,7 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   SDF::FaceScratchBuffer canon_scratch;
   SDF::PreparedFace canon_face(std::span<const math::Vector>(orig, n_verts),
                                std::span<const uint16_t>(canon_idx, n_verts),
-                               canon_scratch, HV, H, nullptr, nullptr,
+                               canon_scratch, GEOMETRY, H, nullptr, nullptr,
                                SDF::BOUNDS_MARGIN);
   HS_EXPECT_TRUE(!canon_face.convex);
   float canon[2 * n_verts];
@@ -739,7 +739,7 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   SDF::FaceScratchBuffer scratch;
   SDF::PreparedFace face(std::span<const math::Vector>(verts, n_verts),
                          std::span<const uint16_t>(canon_idx, n_verts), scratch,
-                         HV, H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
+                         GEOMETRY, H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
   HS_EXPECT_TRUE(face.bind_class_lut(&lut, canon, off, reflected));
   const uint32_t probe_flags = face.probe_flags();
 
@@ -749,7 +749,7 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
     static const float zeros[2 * n_verts] = {};
     SDF::PreparedFace reject_face(std::span<const math::Vector>(verts, n_verts),
                                   std::span<const uint16_t>(canon_idx, n_verts),
-                                  reject_scratch, HV, H, nullptr, nullptr,
+                                  reject_scratch, GEOMETRY, H, nullptr, nullptr,
                                   SDF::BOUNDS_MARGIN);
     HS_EXPECT_TRUE(!reject_face.bind_class_lut(&lut, zeros, 0, false));
   }

@@ -709,7 +709,7 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
                                           const math::Vector &axis) {
   HS_CONTEXT("face fringe sides / rho mrad", sides,
              static_cast<int>(rho * 1000));
-  constexpr int HV = H + hs::H_OFFSET;
+  const math::LatitudeGeometry GEOMETRY(H);
   math::Basis basis = math::make_basis(math::Quaternion(), axis);
   math::Vector verts3d[8];
   uint16_t idx[8];
@@ -719,8 +719,8 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
     math::TrigLUT<W, H>::init();
   SDF::FaceScratchBuffer scratch;
   SDF::PreparedFace face(std::span<const math::Vector>(verts3d, sides),
-                         std::span<const uint16_t>(idx, sides), scratch, HV, H,
-                         nullptr, nullptr, SDF::BOUNDS_MARGIN);
+                         std::span<const uint16_t>(idx, sides), scratch,
+                         GEOMETRY, H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
 
   const auto bounds = face.get_vertical_bounds<H>();
   for (int y : {bounds.y_min - 1, bounds.y_max + 1}) {
@@ -738,7 +738,8 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
 
 /** @brief Clipped face construction preserves every paintable render-row pixel. */
 inline void test_face_hemisphere_clip_covers_fringe() {
-  constexpr int W = 288, H = 144, HV = H + hs::H_OFFSET;
+  constexpr int W = 288, H = 144;
+  const math::LatitudeGeometry GEOMETRY(H);
   const float pixel_width = math::TWO_PI_F / W;
   const float bounds_margin = std::max(SDF::BOUNDS_MARGIN, pixel_width);
   if (!math::TrigLUT<W, H>::initialized)
@@ -759,8 +760,9 @@ inline void test_face_hemisphere_clip_covers_fringe() {
         const auto verts = std::span<const math::Vector>(vertices, sides);
         const auto idx = std::span<const uint16_t>(indices, sides);
         SDF::FaceScratchBuffer reference_scratch;
-        const SDF::PreparedFace reference(verts, idx, reference_scratch, HV, H,
-                                          nullptr, nullptr, bounds_margin);
+        const SDF::PreparedFace reference(verts, idx, reference_scratch,
+                                          GEOMETRY, H, nullptr, nullptr,
+                                          bounds_margin);
         std::vector<uint8_t> reference_visited;
         cull_visited<W, H>(reference, reference_visited);
         std::vector<float> distances(W * H);
@@ -779,8 +781,9 @@ inline void test_face_hemisphere_clip_covers_fringe() {
                                   .w = W,
                                   .h = H};
             SDF::FaceScratchBuffer clipped_scratch;
-            const SDF::PreparedFace clipped(verts, idx, clipped_scratch, HV, H,
-                                            &clip, nullptr, bounds_margin);
+            const SDF::PreparedFace clipped(verts, idx, clipped_scratch,
+                                            GEOMETRY, H, &clip, nullptr,
+                                            bounds_margin);
             const bool early_rejected = reference.phi_band_rejects(
                 verts, idx, reference.build_geometry, H, bounds_margin, &clip);
             early_rejects += early_rejected;
@@ -973,7 +976,8 @@ inline std::pair<int, int> face_fringe_misses(const SDF::PreparedFace &face) {
  * @details Latitude widening covers every paintable fringe sample.
  */
 inline void test_face_latitude_pad_reduces_fringe_drops() {
-  constexpr int W = 288, H = 144, HV = H + hs::H_OFFSET;
+  constexpr int W = 288, H = 144;
+  const math::LatitudeGeometry GEOMETRY(H);
   struct Cfg {
     int sides;
     float rho;
@@ -997,7 +1001,7 @@ inline void test_face_latitude_pad_reduces_fringe_drops() {
     SDF::FaceScratchBuffer scratch;
     SDF::PreparedFace face(std::span<const math::Vector>(verts, cfg.sides),
                            std::span<const uint16_t>(idx, cfg.sides), scratch,
-                           HV, H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
+                           GEOMETRY, H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
     const auto misses = face_fringe_misses<W, H>(face);
     HS_EXPECT_EQ(misses.second, 0);
     fixed_misses += misses.first;
@@ -1018,7 +1022,7 @@ inline void test_face_latitude_pad_reduces_fringe_drops() {
  */
 template <int W, int H>
 inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
-  constexpr int HV = H + hs::H_OFFSET;
+  const math::LatitudeGeometry GEOMETRY(H);
   constexpr int N_VERTS = 4;
   const float rho = 0.7f;
 
@@ -1035,8 +1039,8 @@ inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
 
   SDF::FaceScratchBuffer scratch;
   SDF::PreparedFace face(std::span<const math::Vector>(verts, N_VERTS),
-                         std::span<const uint16_t>(idx, N_VERTS), scratch, HV,
-                         H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
+                         std::span<const uint16_t>(idx, N_VERTS), scratch,
+                         GEOMETRY, H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
   // Pins the setup on the BOUNDARY branch: !full_width alone also holds for a
   // face that misses the pole entirely.
   const float inv_c = 1.0f / std::abs(face.center.y);

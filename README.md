@@ -1131,8 +1131,9 @@ just test-target mobiusrings effects
 The native suite defaults to latitude profile 0. Configure with
 `cmake --preset tests -DHS_NATIVE_DISPLAY_PROFILE=1`, build `test_engine`, and
 run its `plot_scan` module to exercise the physical latitude profile held green
-in CI. The remaining modules are qualified under profile 0; restore `0` for
-the default suite.
+in CI. The full `sdf` module also supports both profiles; build `run_tests` and
+run `run_tests sdf` to check it. Other modules are qualified under profile 0;
+restore `0` for the default suite.
 
 
 On Windows, the executables have an `.exe` suffix. With no module arguments, a local runner executes all its own tests; `--list` shows its modules. The per-effect white-box runners expose their portion of the existing `effects` module, including its `HS_EFFECTS_FULL` tier.
