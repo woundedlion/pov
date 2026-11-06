@@ -125,7 +125,6 @@ inline void test_shader_chain_parameter_admission() {
   reset_globals();
   ShaderChain<96, 20> effect;
   effect.init();
-  ShaderChainWhiteBox::modulation_params(effect);
   const In::ChainEntryRequest chain[] = {
       {"lens", "sphere.lens.mobius.v3"},
       {"project", "project.stereographic.v2"},
@@ -137,7 +136,7 @@ inline void test_shader_chain_parameter_admission() {
   HS_EXPECT_EQ(compile_status2, In::ChainStatus::OK);
   if (compile_status2 != In::ChainStatus::OK)
     return;
-  ShaderChainWhiteBox::modulation_params(effect);
+  ShaderChainWhiteBox::ensure_modulation(effect);
   HS_EXPECT_EQ(effect.updateParameter("modulation.modulation-evaluation", 0.0f),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.updateParameter("modulation.modulation-source", 3.0f),

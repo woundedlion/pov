@@ -77,8 +77,8 @@ inline void test_shader_chain_modulation_bake_cache() {
   reset_globals();
   WB::FX effect;
   effect.init();
-  WB::modulation_params(effect, "mod-56428");
-  WB::modulation_params(effect, "mod-207280");
+  WB::ensure_modulation(effect, "mod-56428");
+  WB::ensure_modulation(effect, "mod-207280");
   auto &first = WB::modulation_params(effect, "mod-56428").modulation;
   auto &second = WB::modulation_params(effect, "mod-207280").modulation;
   first.mechanic.amount = .5f;
@@ -131,8 +131,8 @@ inline void test_shader_chain_modulation_clock_lifecycle() {
   reset_globals();
   WB::FX effect;
   effect.init();
-  WB::modulation_params(effect, "first");
-  WB::modulation_params(effect, "second");
+  WB::ensure_modulation(effect, "first");
+  WB::ensure_modulation(effect, "second");
   auto &first = WB::modulation_params(effect, "first").modulation;
   auto &second = WB::modulation_params(effect, "second").modulation;
   first.source = second.source = Pattern::SourceKind::DIRECTIONAL_SINE;
@@ -387,6 +387,27 @@ inline void test_shader_chain_status_names() {
   }
 }
 
+/** @brief Existing modulation lookups preserve bound parameter addresses. */
+inline void test_shader_chain_modulation_accessor_keeps_parameters() {
+  using WB = ShaderChainWhiteBox;
+  reset_globals();
+  WB::FX effect;
+  effect.init();
+  WB::ensure_modulation(effect, "first");
+  WB::ensure_modulation(effect, "second");
+  auto *first = &WB::modulation_params(effect, "first");
+  auto *second = &WB::modulation_params(effect, "second");
+  const size_t count = WB::program(effect).ops().size();
+  first->modulation.mechanic.amount = 0.37f;
+  second->modulation.mechanic.amount = 0.61f;
+  WB::ensure_modulation(effect, "first");
+  HS_EXPECT_EQ(WB::program(effect).ops().size(), count);
+  HS_EXPECT_TRUE(&WB::modulation_params(effect, "first") == first);
+  HS_EXPECT_TRUE(&WB::modulation_params(effect, "second") == second);
+  HS_EXPECT_EQ(first->modulation.mechanic.amount, 0.37f);
+  HS_EXPECT_EQ(second->modulation.mechanic.amount, 0.61f);
+}
+
 inline void test_shader_chain_snapshot_roundtrip() {
   using WB = ShaderChainWhiteBox;
   ChainSnapshot saved;
@@ -474,7 +495,7 @@ inline void test_shader_chain_snapshot_refusals() {
   reset_globals();
   WB::FX effect;
   effect.init();
-  WB::modulation_params(effect);
+  WB::ensure_modulation(effect);
   const auto live = effect.snapshot();
   // Candidates derive from a state that differs from the live one in every
   // section, so any section committed before a refusal is observable.
@@ -722,6 +743,7 @@ inline void test_shader_chain_modulation_snapshot_identity() {
   reset_globals();
   WB::FX effect;
   effect.init();
+  WB::ensure_modulation(effect);
   auto &controls = WB::modulation_params(effect);
   controls.modulation.noise.speed = .000125f;
   WB::advance_without_render(effect);
@@ -895,6 +917,7 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_modulation_temporal_endpoints);
   HS_RUN(test_shader_chain_modulation_endpoint_identity);
   HS_RUN(test_shader_chain_status_names);
+  HS_RUN(test_shader_chain_modulation_accessor_keeps_parameters);
   HS_RUN(test_shader_chain_snapshot_roundtrip);
   HS_RUN(test_shader_chain_snapshot_refusals);
   HS_RUN(test_shader_chain_modulation_snapshot_identity);

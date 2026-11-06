@@ -812,8 +812,8 @@ inline void test_shader_chain_combined_color_admission() {
   reset_globals();
   WB::FX effect;
   effect.init();
-  WB::modulation_params(effect, "displacement");
-  WB::modulation_params(effect, "modulation");
+  WB::ensure_modulation(effect, "displacement");
+  WB::ensure_modulation(effect, "modulation");
   HS_EXPECT_EQ(effect.updateParameter("displacement.modulation-evaluation", 0),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.updateParameter("displacement.modulation-source", 4),

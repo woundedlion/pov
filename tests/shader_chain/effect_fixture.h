@@ -36,18 +36,20 @@ struct ShaderChainWhiteBox {
     HS_CHECK(false, "missing test modulation node");
     return 0;
   }
+  /** @brief Appends a named modulation node if absent. */
+  static void ensure_modulation(FX &effect, const char *label = "modulation") {
+    for (const auto &op : effect.program.ops())
+      if (std::string_view(op.instance) == label)
+        return;
+    std::vector<In::ChainEntryRequest> chain;
+    for (const auto &op : effect.program.ops())
+      chain.push_back({op.instance, op.op->operator_id});
+    chain.push_back({label, In::Op::ModulateColorV1::ID});
+    HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+  }
+  /** @brief Existing node's parameter block; traps when absent. */
   static In::Op::ModulationParams &
   modulation_params(FX &effect, const char *label = "modulation") {
-    bool present = false;
-    for (const auto &op : effect.program.ops())
-      present |= std::string_view(op.instance) == label;
-    if (!present) {
-      std::vector<In::ChainEntryRequest> chain;
-      for (const auto &op : effect.program.ops())
-        chain.push_back({op.instance, op.op->operator_id});
-      chain.push_back({label, In::Op::ModulateColorV1::ID});
-      HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
-    }
     return *reinterpret_cast<In::Op::ModulationParams *>(
         effect.program.param_block(modulation_index(effect, label)));
   }
