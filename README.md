@@ -1320,6 +1320,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── profiling.h             Cycle counters + HS_PROFILE / scan-metric macros
 │   │   ├── cycle_counting.h        Cycle counters and scopes (DWT CYCCNT on Teensy; 0 elsewhere)
 │   │   ├── inplace_function.h      Fixed-capacity in-place callable storage behind Fn
+│   │   ├── hash_constants.h        Shared 32-bit FNV-1a basis and prime
 │   │   ├── effect_identity.h       Canonical effect IDs, compatibility aliases and RNG keys
 │   │   ├── rng.h                   Deterministic random number generation
 │   │   ├── arduino_mocks.h         Host-side FastLED / Arduino mock surface

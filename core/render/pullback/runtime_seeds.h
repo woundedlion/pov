@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <string_view>
+#include "core/platform/hash_constants.h"
 #include "core/vendor/FastNoiseLite.h"
 
 /**
@@ -19,9 +20,10 @@ namespace Pullback {
  *  @param text Bytes to hash.
  *  @param hash Running hash; defaults to the FNV-1a offset basis.
  *  @return The updated hash. */
-constexpr uint32_t fnv1a(std::string_view text, uint32_t hash = 2166136261u) {
+constexpr uint32_t fnv1a(std::string_view text,
+                         uint32_t hash = hs::FNV1A_32_BASIS) {
   for (char c : text)
-    hash = (hash ^ static_cast<uint8_t>(c)) * 16777619u;
+    hash = (hash ^ static_cast<uint8_t>(c)) * hs::FNV1A_32_PRIME;
   return hash;
 }
 

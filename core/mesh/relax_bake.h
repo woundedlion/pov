@@ -8,6 +8,7 @@
  * @brief Relax bake payloads and platform-independent mesh identity checks.
  */
 #include "core/mesh/mesh.h"
+#include "core/platform/hash_constants.h"
 
 namespace MeshOps {
 HS_O3_BEGIN
@@ -30,7 +31,7 @@ struct RelaxBake {
   uint16_t iterations;    ///< Relax iterations the payload was baked at.
   uint32_t source_hash;   ///< relax_source_hash() of the source mesh.
   uint32_t topology_hash; ///< relax_topology_hash() of the source mesh.
-  uint32_t output_hash;   ///< FNV-1a hash of `vertex_bits`.
+  uint32_t output_hash; ///< Word hash of `vertex_bits`, one round per uint32_t.
 };
 
 /**
@@ -69,16 +70,16 @@ inline int32_t relax_source_coordinate(float coordinate) {
 }
 
 /** @brief FNV-1a 32-bit offset basis, seeding every relax hash. */
-inline constexpr uint32_t FNV1A_BASIS = 2166136261u;
+inline constexpr uint32_t FNV1A_BASIS = hs::FNV1A_32_BASIS;
 
 /**
- * @brief One FNV-1a 32-bit round.
+ * @brief One round per 32-bit word using FNV-1a constants.
  * @param hash Accumulator, seeded from FNV1A_BASIS.
  * @param word Word mixed into the accumulator.
  * @return The updated accumulator.
  */
 inline uint32_t fnv1a_step(uint32_t hash, uint32_t word) {
-  return (hash ^ word) * 16777619u;
+  return (hash ^ word) * hs::FNV1A_32_PRIME;
 }
 
 /**
@@ -97,7 +98,7 @@ inline uint32_t relax_output_hash(uint32_t hash, uint32_t x, uint32_t y,
 /**
  * @brief Hashes platform-independent relax topology and dimensions.
  * @param mesh Mesh to hash.
- * @return FNV-1a hash of the counts and face indices.
+ * @return Word hash of the counts and face indices, one round per uint32_t.
  */
 inline uint32_t relax_topology_hash(const PolyMesh &mesh) {
   uint32_t hash = FNV1A_BASIS;
@@ -118,7 +119,7 @@ inline uint32_t relax_topology_hash(const PolyMesh &mesh) {
  * retaining vertex order and parameterized geometry in the identity. The grid
  * phase keeps generated sources clear of rounding boundaries.
  * @param mesh Source mesh.
- * @return FNV-1a hash of the quantized vertices.
+ * @return Word hash of the quantized vertices, one round per uint32_t.
  */
 inline uint32_t relax_source_hash(const PolyMesh &mesh) {
   uint32_t hash = FNV1A_BASIS;
