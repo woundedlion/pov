@@ -68,6 +68,9 @@ or standard-parallel values. The identity frame bypasses accumulated projection
 motion. Projection provenance and edge distances come from the same kernels as
 the catalog crossings. Spherical samplers may cross directly to the field
 carrier without a projection; planar samplers require a projection crossing.
+The grid, twin-wave, bands and spiral interpreter crossings use the authored
+Sample parameter families. Weight and coverage ids, the edge-fade activation gate
+and the extended twin-wave drift bound are defined in `material.h`.
 The shared outer-camera walk, storage and Camera Wander control exist only when
 a typed rotation stage reads the outer-camera provider. Keyed rotations own
 their motion independently and retain an identity shared camera frame. The

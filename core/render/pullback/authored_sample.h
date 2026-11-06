@@ -43,7 +43,7 @@ struct AuthoredTwinWaveSourceParams : TwinWaveSourceParams {
         std::array<Field<AuthoredTwinWaveSourceParams>, 0>{});
     for (auto &field : fields)
       if (std::string_view(field.id) == "drift")
-        field.max = 2.0f;
+        field.max = EXTENDED_DRIFT_MAX;
     return fields;
   }();
 };
@@ -55,18 +55,14 @@ template <typename Family> struct AuthoredSampleParams : Family {
   uint8_t weight_mode = 1;   ///< Raw signal weighting catalog index.
   uint8_t coverage_mode = 1; ///< Projection coverage catalog index.
   /// Signal weighting choices.
-  static constexpr const char *WEIGHT_IDS[] = {"none", "projection"};
+  static constexpr auto &WEIGHT_IDS = WEIGHT_MODE_IDS;
   /// Projection coverage choices.
-  static constexpr const char *COVERAGE_IDS[] = {
-      "none", "weight", "weight-squared", "edge-fade", "edge-fade-squared"};
+  static constexpr auto &COVERAGE_IDS = COVERAGE_MODE_IDS;
   /// Numeric source controls and conditional fade width.
   static constexpr auto FIELDS = concat_fields<AuthoredSampleParams>(
-      Family::FIELDS,
-      std::array{edge_width_field<AuthoredSampleParams>(
-          &AuthoredSampleParams::edge_width, "Edge Width",
-          {"coverage-mode",
-           live_values(ProjectionCoverageMode::EDGE_FADE,
-                       ProjectionCoverageMode::EDGE_FADE_SQUARED)})});
+      Family::FIELDS, std::array{edge_width_field<AuthoredSampleParams>(
+                          &AuthoredSampleParams::edge_width, "Edge Width",
+                          COVERAGE_EDGE_FADE_GATE)});
   /// Runtime crossing and source-specific topology controls.
   static constexpr auto TOPOLOGY = [] {
     const TopologyField<AuthoredSampleParams> weight{

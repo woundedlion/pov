@@ -11,7 +11,7 @@
 #include "core/math/projection_patterns.h"
 
 #include "core/render/pullback/operators/common.h"
-#include "core/render/pullback/source.h"
+#include "core/render/pullback/authored_sample.h"
 
 /**
  * @file sample.h
@@ -73,16 +73,12 @@ enum class WeightMode : uint8_t {
 /** @brief Sample crossing coverage policy. */
 using ProjectionCoverageMode = Pullback::ProjectionCoverageMode;
 
-/** @brief Weight topology values, in WeightMode order. */
-inline constexpr const char *WEIGHT_MODE_IDS[] = {"none", "projection"};
+/** @brief Shared weight topology values, in WeightMode order. */
+using Pullback::WEIGHT_MODE_IDS;
 static_assert(std::size(WEIGHT_MODE_IDS) ==
               static_cast<size_t>(WeightMode::PROJECTION) + 1);
-/** @brief Coverage topology values, in ProjectionCoverageMode order. */
-inline constexpr const char *COVERAGE_MODE_IDS[] = {
-    "none", "weight", "weight-squared", "edge-fade", "edge-fade-squared"};
-static_assert(std::size(COVERAGE_MODE_IDS) ==
-              static_cast<size_t>(ProjectionCoverageMode::EDGE_FADE_SQUARED) +
-                  1);
+/** @brief Shared coverage topology values, in ProjectionCoverageMode order. */
+using Pullback::COVERAGE_MODE_IDS;
 
 /**
  * @brief Bounds the Sample crossing's topology enum8s.
@@ -171,11 +167,6 @@ template <typename Params> consteval bool sample_crossing_defaults_match() {
          PARAMS.coverage_mode == CROSSING.coverage_mode;
 }
 
-/** @brief Activation relation of the crossing's edge-fade width. */
-inline constexpr TopologyGate COVERAGE_EDGE_FADE_GATE{
-    "coverage-mode", live_values(ProjectionCoverageMode::EDGE_FADE,
-                                 ProjectionCoverageMode::EDGE_FADE_SQUARED)};
-
 /** @brief The tabled field of SampleCrossingParams, retyped to the family.
  *  @tparam Params Sample crossing parameter family.
  *  @return The edge-width field, gated on edge-fade coverage. */
@@ -242,34 +233,9 @@ struct SourceClockModel : ValueStateModel<SourceClockState> {
   }
 };
 
-/// `drift` upper bound of the extended-drift twin-wave family.
-inline constexpr float EXTENDED_DRIFT_MAX = 2.0f;
-
-/** @brief A source's fields plus the crossing fields, with `drift` widened to
-    `EXTENDED_DRIFT_MAX`.
-    @tparam Params Sample crossing parameter family.
-    @tparam SourceParams Source parameter block @p Params derives from.
-    @return The concatenated field table. */
-template <typename Params, typename SourceParams>
-consteval auto extended_drift_fields() {
-  auto fields = concat_fields<Params>(SourceParams::FIELDS,
-                                      sample_crossing_fields<Params>());
-  for (auto &field : fields)
-    if (std::string_view(field.id) == "drift")
-      field.max = EXTENDED_DRIFT_MAX;
-  return fields;
-}
-
 /** @brief Parameter family of sample.grid.v4: the grid source fields plus the
     crossing's union field and topology enum8s. */
-struct GridSampleParams : Source::GridSourceParams, SampleCrossingParams {
-  static constexpr auto FIELDS = concat_fields<GridSampleParams>(
-      Source::GridSourceParams::FIELDS,
-      sample_crossing_fields<GridSampleParams>());
-  static constexpr auto TOPOLOGY = sample_crossing_topology<GridSampleParams>();
-};
-static_assert(field_ids_unique<GridSampleParams>());
-static_assert(field_defaults_in_range<GridSampleParams>());
+using GridSampleParams = Source::AuthoredGridSampleParams;
 
 /** @brief PLANE→FIELD crossing: the coupled sine grid source with topology
     weight and coverage modes. */
@@ -297,16 +263,7 @@ struct SampleGridV4 : SourceClockModel {
 };
 
 /** @brief Parameter family of sample.twin-wave.v3. */
-struct TwinWaveSampleParams : Source::TwinWaveSourceParams,
-                              SampleCrossingParams {
-  static constexpr auto FIELDS =
-      extended_drift_fields<TwinWaveSampleParams,
-                            Source::TwinWaveSourceParams>();
-  static constexpr auto TOPOLOGY =
-      sample_crossing_topology<TwinWaveSampleParams>();
-};
-static_assert(field_ids_unique<TwinWaveSampleParams>());
-static_assert(field_defaults_in_range<TwinWaveSampleParams>());
+using TwinWaveSampleParams = Source::AuthoredTwinWaveSampleParams;
 
 /** @brief PLANE→FIELD crossing: the two-wave interference source. */
 struct SampleTwinWaveV3 : SourceClockModel {
@@ -327,18 +284,7 @@ struct SampleTwinWaveV3 : SourceClockModel {
 };
 
 /** @brief Parameter family of sample.bands.v1. */
-struct BandsSampleParams : Source::BandsSourceParams, SampleCrossingParams {
-  static constexpr auto FIELDS = concat_fields<BandsSampleParams>(
-      Source::BandsSourceParams::FIELDS,
-      sample_crossing_fields<BandsSampleParams>());
-  static constexpr auto TOPOLOGY =
-      sample_crossing_topology<BandsSampleParams>();
-};
-static_assert(field_ids_unique<BandsSampleParams>());
-static_assert(
-    appended_block_size_matches<BandsSampleParams, SampleCrossingParams, 8>(),
-    "appended parameter block must have the expected rounded size");
-static_assert(field_defaults_in_range<BandsSampleParams>());
+using BandsSampleParams = Source::AuthoredBandsSampleParams;
 
 /** @brief Plane-to-field crossing: parallel sine bands in the projection plane. */
 struct SampleBands : StatelessModel {
@@ -369,23 +315,7 @@ struct SampleBands : StatelessModel {
 };
 
 /** @brief Parameter family of sample.spiral.v3. */
-struct SpiralSampleParams : Source::SpiralSourceParams {
-  float edge_width = 0.1f; ///< Fade band in projection-edge units.
-  uint8_t weight_mode =
-      static_cast<uint8_t>(WeightMode::PROJECTION); ///< Signal weighting.
-  uint8_t coverage_mode = static_cast<uint8_t>(
-      ProjectionCoverageMode::WEIGHT); ///< Coverage policy.
-  static constexpr auto FIELDS = concat_fields<SpiralSampleParams>(
-      Source::SpiralSourceParams::FIELDS,
-      sample_crossing_fields<SpiralSampleParams>());
-  static constexpr auto TOPOLOGY = sample_crossing_topology<SpiralSampleParams>(
-      TopologyField<SpiralSampleParams>{
-          "coordinate-system", &SpiralSampleParams::coordinate_system,
-          Source::SpiralSourceParams::COORDINATE_SYSTEM_IDS, 0});
-};
-static_assert(field_ids_unique<SpiralSampleParams>());
-static_assert(sample_crossing_defaults_match<SpiralSampleParams>());
-static_assert(field_defaults_in_range<SpiralSampleParams>());
+using SpiralSampleParams = Source::AuthoredSpiralSampleParams;
 
 /** @brief PLANE→FIELD crossing: the stationary spiral source; zero arms draw
     concentric rings. */

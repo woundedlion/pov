@@ -24,6 +24,21 @@ enum class ProjectionCoverageMode : uint8_t {
   EDGE_FADE_SQUARED = 4
 };
 
+/// Raw-signal weighting choices shared by Sample parameter families.
+inline constexpr const char *WEIGHT_MODE_IDS[] = {"none", "projection"};
+/// Coverage choices in ProjectionCoverageMode order.
+inline constexpr const char *COVERAGE_MODE_IDS[] = {
+    "none", "weight", "weight-squared", "edge-fade", "edge-fade-squared"};
+static_assert(std::size(COVERAGE_MODE_IDS) ==
+              static_cast<size_t>(ProjectionCoverageMode::EDGE_FADE_SQUARED) +
+                  1);
+/// Activation relation of the crossing's edge-fade width.
+inline constexpr TopologyGate COVERAGE_EDGE_FADE_GATE{
+    "coverage-mode", live_values(ProjectionCoverageMode::EDGE_FADE,
+                                 ProjectionCoverageMode::EDGE_FADE_SQUARED)};
+/// Drift upper bound of the extended-drift twin-wave family, radians per frame.
+inline constexpr float EXTENDED_DRIFT_MAX = 2.0f;
+
 namespace Weight {
 
 /** @brief Weight policy that leaves the field unweighted. */
