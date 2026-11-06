@@ -854,6 +854,7 @@ inline void test_breakdown_fades_classes_sequentially() {
 
   // Independent of the band algebra: every class is a clamped monotone ramp,
   // and at any phase a later-ranked class is never behind an earlier one.
+  float previous_by_class[n] = {};
   for (int step = 0; step <= 40; ++step) {
     const float t = step / 40.0f;
     // Rank n-1 owns the earliest window, so descending rank never fades later.
@@ -869,6 +870,8 @@ inline void test_breakdown_fades_classes_sequentially() {
       const float ph = bd.face_phase(t, bd.face_offset(any, 0, cls));
       HS_EXPECT_GE(ph, 0.0f);
       HS_EXPECT_LE(ph, 1.0f);
+      HS_EXPECT_GE(ph, previous_by_class[cls] - 1e-5f);
+      previous_by_class[cls] = ph;
       HS_EXPECT_LE(ph, prev_phase + 1e-5f);
       prev_phase = ph;
     }
