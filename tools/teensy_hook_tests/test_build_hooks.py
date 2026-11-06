@@ -470,13 +470,43 @@ class TestHotLayoutLink(unittest.TestCase):
             hook._final_map(env)
 
     def test_expected_effects_follow_the_sketch(self):
-        hook, env = self._hook(CPPDEFINES=[("HS_PROFILE_TARGET", "HopfFibration")])
         sources = lambda sketch: [os.path.join("src", "targets", sketch, sketch + ".ino.cpp.o")]
-        self.assertEqual(hook._expected(env, sources("Profile")), ["HopfFibration"])
+        for target in (("HS_PROFILE_TARGET", "HopfFibration"), ["HS_PROFILE_TARGET", "HopfFibration"]):
+            with self.subTest(target=target):
+                hook, env = self._hook(CPPDEFINES=["HS_PROFILE", ("HS_OTHER", "OtherEffect"),
+                                                  target, ("HS_AFTER", 1)])
+                self.assertEqual(hook._expected(env, sources("Profile")), ["HopfFibration"])
         self.assertEqual(hook._expected(env, sources("Phantasm")),
                          hook.hot_layout.phantasm_playlist(str(REPO)))
         self.assertEqual(hook._expected(env, sources("Bench")), [])
-        self.assertEqual(hook._expected(FakeEnv(), sources("Profile")), ["DisplacementField"])
+        default = re.search(r"(?m)^#define HS_PROFILE_TARGET (\w+)$",
+                            (REPO / "targets/Profile/Profile.ino").read_text(encoding="utf-8"))
+        self.assertIsNotNone(default)
+        self.assertEqual(hook._expected(FakeEnv(), sources("Profile")), [default.group(1)])
+
+    def test_successful_plan_and_gate_return_zero(self):
+        with tempfile.TemporaryDirectory() as directory:
+            hook, env = self._hook(BUILD_DIR=directory, LINKFLAGS="-Wl,-Map,firmware.map",
+                                   CPPDEFINES=[("HS_PROFILE_TARGET", "HopfFibration")])
+            hook._write_probe_fragment([], [], env)
+            toolchain = mock.sentinel.toolchain
+            roster = [mock.sentinel.effect]
+            source = [os.path.join("src", "targets", "Profile", "Profile.ino.cpp.o")]
+            with mock.patch.object(hook, "_toolchain", return_value=toolchain), \
+                    mock.patch.object(hook.hot_layout, "roster", return_value=roster), \
+                    mock.patch.object(hook.hot_layout, "write_plan") as plan, \
+                    mock.patch.object(hook.hot_layout, "check", return_value=(["gate sentinel"], True)) as check, \
+                    contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(hook._plan([], source, env), 0)
+                self.assertEqual(hook._gate(["firmware.elf"], source, env), 0)
+            plan.assert_called_once_with(toolchain, env["HS_HOT_LAYOUT_PROBE_ELF"],
+                                         env["HS_HOT_LAYOUT_PROBE_MAP"], roster,
+                                         os.path.join(directory, "hot_layout", "final", hook.hot_layout.FRAGMENT_NAME),
+                                         str(REPO))
+            check.assert_called_once_with(toolchain, "firmware.elf", "firmware.map", roster,
+                                          ["HopfFibration"], "phantasm")
+            self.assertEqual(output.getvalue(), "gate sentinel\n")
+            self.assertEqual(Path(directory, "hot_layout", "report.txt").read_text(), "gate sentinel\n")
 
 
 class TestNanoSpecs(unittest.TestCase):
