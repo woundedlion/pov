@@ -466,11 +466,21 @@ def clean_hold_rows(windows, scope, gate):
     return rows
 
 
+def gate_available(windows, gate):
+    """Report whether an explicitly requested clean-hold gate exists."""
+    if gate and not any(gate in window.counters for window in windows):
+        print(f"no window carries the gate counter '{gate}'", file=sys.stderr)
+        return False
+    return True
+
+
 def cmd_presets(windows, scope, gate):
     """One row per preset, read from its modal-call-count (clean-hold) windows."""
     if not any(scope in window.counters for window in windows):
         print(f"no window carries the counter '{scope}': nothing for the "
               "preset table to read", file=sys.stderr)
+        return 2
+    if not gate_available(windows, gate):
         return 2
     print(f"# preset   holds  clean  {scope} ms/f  calls/f  meta")
     for name, holds, clean, ms, cf, meta in sorted(
@@ -491,6 +501,8 @@ def cmd_buckets(windows, scope, gate):
     if not any(scope in w.counters for w in windows):
         print(f"no window carries the counter '{scope}': nothing for the "
               f"ordering guard to read", file=sys.stderr)
+        return 2
+    if not gate_available(windows, gate):
         return 2
     initial_key = initial_preset_key(windows)
 

@@ -39,6 +39,19 @@ def _window(renders=(), wall_sum=None, frames=None):
 
 
 class PresetAttribution(unittest.TestCase):
+    def test_requested_gate_must_exist_for_presets_and_buckets(self):
+        for command in (pp.cmd_presets, pp.cmd_buckets):
+            for gate, expected in ((None, 0), ("fx_buffer_wait", 0), ("typo_gate", 2)):
+                with self.subTest(command=command.__name__, gate=gate), \
+                        contextlib.redirect_stdout(io.StringIO()) as output, \
+                        contextlib.redirect_stderr(io.StringIO()) as error:
+                    self.assertEqual(command([_window([1000])], "fx_buffer_wait", gate), expected)
+                    if expected:
+                        self.assertIn(gate, error.getvalue())
+                        self.assertEqual(output.getvalue(), "")
+                    else:
+                        self.assertEqual(error.getvalue(), "")
+
     def test_presets_refuses_an_absent_scope_and_accepts_a_present_scope(self):
         for scope, expected in [('fx_buffer_wait', 0), ('fx_buffer_wiat', 2)]:
             with self.subTest(scope=scope), \
