@@ -128,6 +128,21 @@ struct Shader {
   // --------------------------------------------------------------------------
 
 private:
+  /** @brief Validates a traversal and initializes its row lookup tables.
+   * @tparam W Canvas width.
+   * @tparam H Canvas height.
+   * @param canvas Destination canvas.
+   * @return Validated clip region. */
+  template <int W, int H>
+  HS_HOT_INLINE static const ClipRegion &begin_traversal(Canvas &canvas) {
+    check_canvas_dims<W, H>(canvas);
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    const auto &clip = canvas.clip();
+    check_lut_domain<W, H>(clip);
+    return clip;
+  }
+
   // Shared traversal for typed shader entry points.
   template <int W, int H, int SAMPLES, typename ShaderFn,
             typename RowFn = std::nullptr_t>
@@ -147,11 +162,7 @@ private:
         std::is_same_v<std::decay_t<decltype(sample(
                            std::declval<const math::Vector &>(), 0, 0))>,
                        Pixel>;
-    check_canvas_dims<W, H>(canvas);
-    if (!math::TrigLUT<W, H>::initialized)
-      math::TrigLUT<W, H>::init();
-    const auto &cr = canvas.clip();
-    check_lut_domain<W, H>(cr);
+    const auto &cr = begin_traversal<W, H>(canvas);
     const auto xc = cr.x_clip();
 
     if constexpr (SAMPLES == 1) {
@@ -238,11 +249,7 @@ public:
   template <int W, int H, typename Prepare>
   HS_HOT_FLASH_MEMBER static void draw_columns(Canvas &canvas,
                                                Prepare &&prepare) {
-    check_canvas_dims<W, H>(canvas);
-    if (!math::TrigLUT<W, H>::initialized)
-      math::TrigLUT<W, H>::init();
-    const auto &clip = canvas.clip();
-    check_lut_domain<W, H>(clip);
+    const auto &clip = begin_traversal<W, H>(canvas);
     walk_clip_columns<W>(clip.x_clip(), [&](int x) {
       shade_column<W, H>(canvas, x, prepare(x));
     });
@@ -264,11 +271,7 @@ public:
   HS_HOT_FLASH_MEMBER static void draw_column_times(Canvas &canvas,
                                                     PrepareTime &&prepare_time,
                                                     Prepare &&prepare) {
-    check_canvas_dims<W, H>(canvas);
-    if (!math::TrigLUT<W, H>::initialized)
-      math::TrigLUT<W, H>::init();
-    const auto &clip = canvas.clip();
-    check_lut_domain<W, H>(clip);
+    const auto &clip = begin_traversal<W, H>(canvas);
     walk_clip_column_times<W>(
         clip.x_clip(), [&](int c, bool near, bool far) HS_HOT_INLINE {
           auto &&state = prepare_time(c);
@@ -400,11 +403,7 @@ public:
   template <int W, int H, typename PixelFn>
   HS_O3_FN __attribute__((always_inline)) static void
   walk_grid(Canvas &canvas, PixelFn &&pixel_shader) {
-    check_canvas_dims<W, H>(canvas);
-    if (!math::TrigLUT<W, H>::initialized)
-      math::TrigLUT<W, H>::init();
-    const auto &cr = canvas.clip();
-    check_lut_domain<W, H>(cr);
+    const auto &cr = begin_traversal<W, H>(canvas);
     const Spacetime::TimeWindow window = canvas.time_window();
     const auto xc = cr.x_clip();
     SsaaGrid<W, H> grid;
@@ -438,11 +437,7 @@ public:
   HS_O3_FN HS_HOT_INLINE static void
   walk_object_grid(Canvas &canvas, const ObjectBasisTable<W, H> &basis,
                    PixelFn &&pixel_shader) {
-    check_canvas_dims<W, H>(canvas);
-    if (!math::TrigLUT<W, H>::initialized)
-      math::TrigLUT<W, H>::init();
-    const auto &cr = canvas.clip();
-    check_lut_domain<W, H>(cr);
+    const auto &cr = begin_traversal<W, H>(canvas);
     const Spacetime::TimeWindow window = canvas.time_window();
     const auto xc = cr.x_clip();
     SsaaGrid<W, H> grid;
