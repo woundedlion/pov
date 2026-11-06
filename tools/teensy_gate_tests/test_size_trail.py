@@ -343,7 +343,7 @@ class BackfillSafety(unittest.TestCase):
 class Backfill(unittest.TestCase):
     """Successful builds may reuse ELFs; failed builds require a fresh ELF."""
 
-    def _backfill(self, *, relink, status=0):
+    def _backfill(self, *, relink, status=0, rerun=False):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             worktree = root / "wt"
@@ -367,12 +367,22 @@ class Backfill(unittest.TestCase):
                 worktree=str(worktree), trail=str(trail), env=["holosphere"],
                 build_dir=str(root / "build"), rev_range="a..b")
             with mock.patch.object(tst, "_git",
-                                   side_effect=lambda cmd, cwd=None: "" if cmd[0] == "status" else SHA), \
+                                   side_effect=lambda cmd, cwd=None: "" if cmd[0] == "status" else SHA) as git, \
                  mock.patch.object(
                      tst, "head_stamp",
                      return_value=(SHA, "2026-08-03T00:00:00-07:00", "s")), \
-                 mock.patch.object(tst.subprocess, "run", side_effect=fake_pio):
+                 mock.patch.object(tst.subprocess, "run", side_effect=fake_pio) as pio:
                 rc = tst.cmd_backfill(args)
+                if rerun:
+                    self.assertEqual(rc, 0)
+                    previous = trail.read_bytes()
+                    pio.reset_mock()
+                    git.reset_mock()
+                    rc = tst.cmd_backfill(args)
+                    pio.assert_not_called()
+                    self.assertFalse(any(call.args[0][:2] == ["checkout", "--detach"]
+                                         for call in git.call_args_list))
+                    self.assertEqual(trail.read_bytes(), previous)
             return rc, tst.read_trail(trail)
 
     def test_unrelinked_env_is_not_recorded_with_the_previous_elf(self):
@@ -382,6 +392,13 @@ class Backfill(unittest.TestCase):
 
     def test_successful_up_to_date_build_is_recorded(self):
         rc, rows = self._backfill(relink=False)
+        self.assertEqual(rc, 0)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].sha, SHA)
+
+    def test_preseeded_backfill_rerun_skips_the_recorded_environment(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc, rows = self._backfill(relink=False, rerun=True)
         self.assertEqual(rc, 0)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].sha, SHA)
@@ -587,6 +604,58 @@ class DefaultPaths(unittest.TestCase):
         with mock.patch.object(tst, "_git", self._rev_parse):
             self.assertEqual(tst.default_pending(_FAKE_COMMON.parent),
                              _FAKE_GITDIR / tst.PENDING_NAME)
+
+    def test_relative_common_dir_resolves_against_explicit_or_current_worktree(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for cwd in (root, None):
+                with self.subTest(cwd=cwd), mock.patch.object(tst, "_git", return_value=".git"), \
+                        mock.patch.object(tst.os, "getcwd", return_value=str(root)):
+                    self.assertEqual(tst.git_common_dir(cwd), (root / ".git").resolve())
+
+
+class CommandLine(unittest.TestCase):
+    def test_regressions_validate_region_and_minimum_delta(self):
+        rows = [_row("a", "phantasm", itcm=100), _row("b", "phantasm", itcm=110)]
+        with mock.patch.object(tst, "read_trail", return_value=rows) as read, \
+                mock.patch.object(tst, "ancestry_checker", return_value=lambda previous, current: True):
+            for minimum in (1, 10):
+                with self.subTest(minimum=minimum), contextlib.redirect_stdout(io.StringIO()) as output:
+                    self.assertEqual(tst.main(["regressions", "--trail", "fixture",
+                                               "--region", "itcm", "--min-delta", str(minimum)]), 0)
+                    self.assertIn("+10", output.getvalue())
+            read.reset_mock()
+            for options, message in ((["--region", "itcmm"], "unknown region 'itcmm'"),
+                                     (["--min-delta", "0"], "--min-delta must be >= 1"),
+                                     (["--min-delta", "-1"], "--min-delta must be >= 1")):
+                with self.subTest(options=options), contextlib.redirect_stderr(io.StringIO()) as errors:
+                    self.assertEqual(tst.main(["regressions", "--trail", "fixture", *options]), 2)
+                    self.assertIn(message, errors.getvalue())
+            read.assert_not_called()
+
+    def test_record_ignores_deleted_build_inputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "present.h"
+            source.write_text("source", encoding="utf-8")
+            os.utime(source, ns=(1, 1))
+            elf = root / "build" / "phantasm" / tst.ELF_NAME
+            elf.parent.mkdir(parents=True)
+            elf.write_bytes(make_elf({".text.itcm": 17}))
+            os.utime(elf, ns=(2, 2))
+            pending = root / "pending.json"
+            with mock.patch.object(tst, "_git", side_effect=[str(root), "missing.h\0present.h"]), \
+                    mock.patch.object(tst, "working_tree", return_value="tree"), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(tst.main(["record", "--env", "phantasm", "--build-dir", str(root / "build"),
+                                           "--out", str(pending)]), 0)
+            self.assertEqual(json.loads(pending.read_text(encoding="utf-8"))["envs"]["phantasm"]["itcm"], 17)
+
+    def test_main_reports_git_errors_with_exit_two(self):
+        with mock.patch.object(tst, "default_trail", side_effect=tst.GitError("not a repo")), \
+                contextlib.redirect_stderr(io.StringIO()) as errors:
+            self.assertEqual(tst.main(["show"]), 2)
+        self.assertIn("[size-trail] not a repo", errors.getvalue())
 
 
 def _row(sha, env, subject="s", date="2026-08-03T00:00:00-07:00", **sizes):
