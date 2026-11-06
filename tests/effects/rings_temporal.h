@@ -215,6 +215,14 @@ struct RingTemporalOracle {
 };
 
 inline void RingShowerWhiteBox::check_temporal_rings() {
+  enum class Scenario {
+    YOUNG_GROWTH = 0,
+    NO_HISTORY = 1,
+    RESPAWN = 2,
+    FINAL_FRAME_HOLD = 3,
+    MATURE_GROWTH = 4,
+    SHORT_LIFE_GROWTH = 5,
+  };
   using FX = RingShower<DEFAULT_W, DEFAULT_H>;
   const ScopedTemporalSampling temporal_sampling(true);
   {
@@ -236,9 +244,16 @@ inline void RingShowerWhiteBox::check_temporal_rings() {
     const auto pixels = RingTemporalOracle::pixels(effect);
     expect_arm_symmetric(pixels);
   }
-  for (int scenario = 0; scenario < 6; ++scenario)
+  for (const auto &[scenario, label] : {
+           std::pair{Scenario::YOUNG_GROWTH, "young growth"},
+           std::pair{Scenario::NO_HISTORY, "no history"},
+           std::pair{Scenario::RESPAWN, "respawn"},
+           std::pair{Scenario::FINAL_FRAME_HOLD, "final frame hold"},
+           std::pair{Scenario::MATURE_GROWTH, "mature growth"},
+           std::pair{Scenario::SHORT_LIFE_GROWTH, "short life growth"},
+       })
     for (float direction : {-1.0f, 1.0f}) {
-      if (!RingTemporalOracle::selected(scenario))
+      if (!RingTemporalOracle::selected(static_cast<int>(scenario)))
         continue;
       auto render = [=](bool timed, float t, RingTemporalOracle::Offset rows,
                         int segment) {
@@ -249,23 +264,25 @@ inline void RingShowerWhiteBox::check_temporal_rings() {
         RingTemporalOracle::clip(effect, segment);
         auto &ring = effect.rings[0];
         ring.life = 64;
-        ring.age = scenario == 0 ? 3 : 32;
+        ring.age = scenario == Scenario::YOUNG_GROWTH ? 3 : 32;
         ring.previous_age = ring.age - 1;
-        if (scenario == 5) {
+        if (scenario == Scenario::SHORT_LIFE_GROWTH) {
           ring.life = 8;
           ring.age = 3;
           ring.previous_age = 2;
         }
-        ring.has_history = scenario != 1;
-        if (scenario == 2) {
+        ring.has_history = scenario != Scenario::NO_HISTORY;
+        if (scenario == Scenario::RESPAWN) {
           ring.age = ring.life;
           effect.spawn_ring();
           ring.life = 64;
         }
-        if (scenario == 3)
+        if (scenario == Scenario::FINAL_FRAME_HOLD)
           ring.age = ring.life - 1;
         ring.normal = math::Vector(direction, 0.7f, 0.02f).normalized();
-        const float start = scenario == 1 || scenario == 2 || scenario == 3
+        const float start = scenario == Scenario::NO_HISTORY ||
+                                    scenario == Scenario::RESPAWN ||
+                                    scenario == Scenario::FINAL_FRAME_HOLD
                                 ? float(ring.age)
                                 : float(ring.previous_age);
         const float age = start + (float(ring.age) - start) * t;
@@ -296,13 +313,25 @@ inline void RingShowerWhiteBox::check_temporal_rings() {
         return RingTemporalOracle::pixels(effect);
       };
       char name[80];
-      std::snprintf(name, sizeof(name), "RingShower scenario=%d direction=%.0f",
-                    scenario, direction);
-      RingTemporalOracle::compare(render, name, scenario == 0 || scenario >= 4);
+      std::snprintf(name, sizeof(name),
+                    "RingShower scenario=%s(%d) direction=%.0f", label,
+                    static_cast<int>(scenario), direction);
+      RingTemporalOracle::compare(render, name,
+                                  scenario == Scenario::YOUNG_GROWTH ||
+                                      scenario == Scenario::MATURE_GROWTH ||
+                                      scenario == Scenario::SHORT_LIFE_GROWTH);
     }
 }
 
 inline void ThrustersWhiteBox::check_temporal_rings() {
+  enum class Scenario {
+    MAIN_INNER_RADIUS = 0,
+    MAIN_NO_HISTORY = 1,
+    MAIN_FIRE_HOLD = 2,
+    MAIN_FRAME_WRAP = 3,
+    THRUSTER_MOTION = 4,
+    THRUSTER_BIRTH = 5,
+  };
   const ScopedTemporalSampling temporal_sampling(true);
   for (bool main : {false, true}) {
     reset_globals();
@@ -344,19 +373,28 @@ inline void ThrustersWhiteBox::check_temporal_rings() {
       HS_EXPECT_EQ(effect.previous_ring.frame, frame + 1);
     }
   }
-  for (int scenario = 0; scenario < 6; ++scenario)
+  for (const auto &[scenario, label] : {
+           std::pair{Scenario::MAIN_INNER_RADIUS, "main inner radius"},
+           std::pair{Scenario::MAIN_NO_HISTORY, "main no history"},
+           std::pair{Scenario::MAIN_FIRE_HOLD, "main fire hold"},
+           std::pair{Scenario::MAIN_FRAME_WRAP, "main frame wrap"},
+           std::pair{Scenario::THRUSTER_MOTION, "thruster motion"},
+           std::pair{Scenario::THRUSTER_BIRTH, "thruster birth"},
+       })
     for (float direction : {-1.0f, 1.0f}) {
-      if (!RingTemporalOracle::selected(scenario))
+      if (!RingTemporalOracle::selected(static_cast<int>(scenario)))
         continue;
+      const bool main_ring = scenario != Scenario::THRUSTER_MOTION &&
+                             scenario != Scenario::THRUSTER_BIRTH;
       auto render = [=](bool timed, float t, RingTemporalOracle::Offset rows,
                         int segment) {
         reset_globals();
         hs::random().seed(137);
         FX effect;
         effect.init();
-        effect.params.radius = scenario == 0   ? 0.63f
-                               : scenario == 1 ? 1.37f
-                                               : 1.0f;
+        effect.params.radius = scenario == Scenario::MAIN_INNER_RADIUS ? 0.63f
+                               : scenario == Scenario::MAIN_NO_HISTORY ? 1.37f
+                                                                       : 1.0f;
         RingTemporalOracle::clip(effect, segment);
         const auto first = math::make_rotation(math::Y_AXIS, 0.13f);
         const auto last =
@@ -364,15 +402,16 @@ inline void ThrustersWhiteBox::check_temporal_rings() {
         effect.orientation.set(last);
         effect.amplitude = 0.45f;
         effect.warp_phase = 0.27f;
-        effect.t_global = scenario == 3 ? 0 : 5;
-        effect.previous_ring = {first, 0.48f, 0.27f, scenario == 3 ? 31 : 4};
-        effect.has_ring_history = scenario != 1;
-        if (scenario == 2)
+        effect.t_global = scenario == Scenario::MAIN_FRAME_WRAP ? 0 : 5;
+        effect.previous_ring = {first, 0.48f, 0.27f,
+                                scenario == Scenario::MAIN_FRAME_WRAP ? 31 : 4};
+        effect.has_ring_history = scenario != Scenario::MAIN_NO_HISTORY;
+        if (scenario == Scenario::MAIN_FIRE_HOLD)
           effect.on_fire_thruster();
         const auto current = typename FX::RingEndpoint{
             last, effect.amplitude, effect.warp_phase, effect.t_global};
         auto start = effect.has_ring_history ? effect.previous_ring : current;
-        if (scenario == 2) {
+        if (scenario == Scenario::MAIN_FIRE_HOLD) {
           start.amplitude = current.amplitude;
           start.phase = current.phase;
           start.frame = current.frame;
@@ -380,27 +419,31 @@ inline void ThrustersWhiteBox::check_temporal_rings() {
         Slot slot;
         slot.reset(effect.orientation,
                    math::Vector(direction, 0.7f, 0.02f).normalized());
-        slot.age = scenario == 5 ? 0 : 2;
+        slot.age = scenario == Scenario::THRUSTER_BIRTH ? 0 : 2;
         slot.previous_age = 1;
-        slot.has_history = scenario != 5;
-        const float age = scenario == 5 ? 0.0f : 1.0f + t;
+        slot.has_history = scenario != Scenario::THRUSTER_BIRTH;
+        const float age =
+            scenario == Scenario::THRUSTER_BIRTH ? 0.0f : 1.0f + t;
         const int stride =
-            scenario < 4 ? 1
-                         : Plot::Ring::timed_stride<DEFAULT_W>(
-                               0.3f * (scenario == 5 ? 1.0f : 2.0f) / 8.0f,
-                               0.3f * (slot.age + 1.0f) / 8.0f);
+            main_ring
+                ? 1
+                : Plot::Ring::timed_stride<DEFAULT_W>(
+                      0.3f *
+                          (scenario == Scenario::THRUSTER_BIRTH ? 1.0f : 2.0f) /
+                          8.0f,
+                      0.3f * (slot.age + 1.0f) / 8.0f);
         {
           Canvas canvas(effect);
           if (timed) {
             Spacetime::geometry_counters = {};
-            if (scenario < 4)
+            if (main_ring)
               effect.draw_ring(canvas, 1.0f);
             else
               effect.draw_thruster(
                   canvas, slot, slot.radius_at(),
                   1.0f - math::ease_out_expo(float(slot.age) / Slot::LIFE));
             RingTemporalOracle::counts(DEFAULT_W / stride);
-          } else if (scenario < 4) {
+          } else if (main_ring) {
             auto basis = math::make_basis(math::Quaternion(), effect.ring_vec);
             if (effect.params.radius > 1.0f) {
               basis.u = -basis.u;
@@ -433,7 +476,8 @@ inline void ThrustersWhiteBox::check_temporal_rings() {
             const auto basis =
                 math::make_basis(slot.orientation.get(), slot.point);
             auto vertex = [&](int i, float time) {
-              const float at = scenario == 5 ? 0.0f : 1.0f + time;
+              const float at =
+                  scenario == Scenario::THRUSTER_BIRTH ? 0.0f : 1.0f + time;
               return RingTemporalOracle::vertex(
                   basis, i, 0.3 * (at + 1.0) / 8 * double(math::PI_F) / 2);
             };
@@ -449,8 +493,11 @@ inline void ThrustersWhiteBox::check_temporal_rings() {
         return RingTemporalOracle::pixels(effect);
       };
       char name[80];
-      std::snprintf(name, sizeof(name), "Thrusters scenario=%d direction=%.0f",
-                    scenario, direction);
-      RingTemporalOracle::compare(render, name, scenario != 1 && scenario != 5);
+      std::snprintf(name, sizeof(name),
+                    "Thrusters scenario=%s(%d) direction=%.0f", label,
+                    static_cast<int>(scenario), direction);
+      RingTemporalOracle::compare(render, name,
+                                  scenario != Scenario::MAIN_NO_HISTORY &&
+                                      scenario != Scenario::THRUSTER_BIRTH);
     }
 }
