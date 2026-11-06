@@ -825,9 +825,9 @@ affine_frame(const math::Complex &input, const Prepared &prepared,
  * @tparam Params WaveShearParams-shaped parameter block.
  * @tparam Prepared PreparedRotation-shaped slot state.
  * @param input Plane coordinate.
- * @param params Strength and frequency; zero strength returns @p input.
+ * @param params Shear frequency.
  * @param phase The slot's phase clock, in cycles.
- * @param amplitude Shear amplitude, the strength times the envelope.
+ * @param amplitude Shear amplitude, strength times envelope; zero returns @p input.
  * @param prepared Field-axis rotation.
  * @param path_length_required Measure the step's path length; else 0.
  * @return Sheared coordinate; path length is the shear offset's magnitude.
@@ -837,7 +837,7 @@ __attribute__((always_inline)) inline WarpStepResult
 wave_shear(const math::Complex &input, const Params &params, float phase,
            float amplitude, const Prepared &prepared,
            bool path_length_required) {
-  if (params.strength == 0.0f)
+  if (amplitude == 0.0f)
     return {input, 0.0f};
   const float c = prepared.rotation_cos;
   const float s = prepared.rotation_sin;
@@ -1037,8 +1037,8 @@ polar_chart(const math::Complex &input, const Params &params, float phase,
  * @tparam Params VectorNoiseParams-shaped parameter block.
  * @tparam Prepared PreparedVectorNoiseSlot-shaped slot state.
  * @param input Plane coordinate.
- * @param params Strength and scale; zero strength returns @p input.
- * @param amplitude Displacement amplitude, the strength times the envelope.
+ * @param params Noise scale.
+ * @param amplitude Displacement amplitude, strength times envelope; zero returns @p input.
  * @param noise Noise generator.
  * @param prepared Vector rotation and noise-loop point.
  * @param path_length_required Measure the step's path length; else 0.
@@ -1049,7 +1049,7 @@ HS_HOT_FLASH_MEMBER inline WarpStepResult
 vector_noise_fixed(const math::Complex &input, const Params &params,
                    float amplitude, const FastNoiseLite &noise,
                    const Prepared &prepared, bool path_length_required) {
-  if (params.strength == 0.0f)
+  if (amplitude == 0.0f)
     return {input, 0.0f};
   const math::Vector q = math::noise_projected_coordinate(
       input, params.scale, prepared.noise_loop.offset);
@@ -1076,8 +1076,8 @@ vector_noise_fixed(const math::Complex &input, const Params &params,
  * @tparam Params VectorNoiseParams-shaped parameter block.
  * @tparam Prepared PreparedVectorNoiseSlot-shaped slot state.
  * @param input Plane coordinate.
- * @param params Strength and scale; zero strength returns @p input.
- * @param amplitude Displacement amplitude, the strength times the envelope.
+ * @param params Noise scale.
+ * @param amplitude Displacement amplitude, strength times envelope; zero returns @p input.
  * @param noise Noise generator.
  * @param basis Octave basis.
  * @param prepared Vector rotation and noise-loop point.
