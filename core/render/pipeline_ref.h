@@ -211,7 +211,7 @@ class PipelineRef {
    * @param time Frame fraction.
    * @return World-space point. */
   template <typename T>
-  HS_O3_FN HS_NOINLINE_NOCLONE static math::Vector
+  HS_FLASH_MEMBER static math::Vector
   timed_world_entry(void *pipeline, Canvas &cv, const math::Vector &v,
                     float time) {
     if constexpr (requires(T &p) { p.world_at(cv, v, time); })
@@ -228,7 +228,7 @@ class PipelineRef {
    * @param time Frame fraction.
    * @return Projected column and row. */
   template <typename T>
-  HS_O3_FN HS_NOINLINE_NOCLONE static math::PixelCoords
+  HS_FLASH_MEMBER static math::PixelCoords
   timed_probe_entry(void *pipeline, Canvas &cv, const math::Vector &v,
                     float time) {
     return static_cast<T *>(pipeline)->probe(cv, v, time);
@@ -245,7 +245,7 @@ class PipelineRef {
    * @param time Frame fraction.
    * @return Projected column. */
   template <typename T>
-  HS_O3_FN HS_NOINLINE_NOCLONE static float
+  HS_FLASH_MEMBER static float
   timed_plot_entry(void *pipeline, Canvas &cv, const math::Vector &v,
                    const Pixel &c, float age, float alpha, float time) {
     return static_cast<T *>(pipeline)->plot_at(cv, v, c, age, alpha, time);
@@ -260,7 +260,7 @@ class PipelineRef {
    * @param t Frame fraction.
    * @return Projected column. */
   template <typename T>
-  HS_NOINLINE_NOCLONE static float
+  HS_FLASH_MEMBER static float
   transformed_plot_entry(void *pipeline, Canvas &cv, const math::Vector &v,
                          const Pixel &c, float age, float alpha, float t) {
     if constexpr (requires(T &p) {
