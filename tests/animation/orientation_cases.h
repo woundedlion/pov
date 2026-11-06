@@ -60,7 +60,7 @@ inline void test_orientation_upsample_then_collapse() {
  * @brief `Orientation::sample(float)` hits every history frame at its fraction,
  *        slerps between them, and returns the lone frame of a still history.
  */
-inline void test_orientation_get_fraction_follows_history() {
+inline void test_orientation_sample_follows_history() {
   math::Orientation<> o(math::make_rotation(math::Y_AXIS, 0.25f));
   o.push(math::make_rotation(math::Y_AXIS, 0.35f));
   o.push(math::make_rotation(math::Y_AXIS, 0.75f));

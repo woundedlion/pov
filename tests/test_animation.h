@@ -126,7 +126,7 @@ inline int run_animation_tests() {
   HS_RUN(test_timeline_full_guard_rejects_overflow);
   HS_RUN(test_timeline_remove_clear_hook_unregisters_by_ctx);
   HS_RUN(test_orientation_upsample_then_collapse);
-  HS_RUN(test_orientation_get_fraction_follows_history);
+  HS_RUN(test_orientation_sample_follows_history);
   HS_RUN(test_motion_repeating_does_not_drift);
   HS_RUN(test_motion_reanchor_after_path_swap);
   HS_RUN(test_motion_codriven_survives_repeat_seam);
