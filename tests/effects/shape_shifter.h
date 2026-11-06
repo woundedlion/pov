@@ -50,19 +50,12 @@ inline void test_shapeshifter_preset_defaults() {
   }
   HS_EXPECT_EQ(export_index, std::size(expected_export_order));
 
-  const auto *alpha = ss.getParameters().find("Alpha");
-  const auto *shape = ss.getParameters().find("Shape");
-  const auto *falloff = ss.getParameters().find("Alpha Falloff");
-  const auto *spacing = ss.getParameters().find("Spacing");
-  const auto *count = ss.getParameters().find("Count");
-  const auto *speed = ss.getParameters().find("Speed");
-  HS_EXPECT(alpha != nullptr, "ShapeShifter Alpha parameter is missing");
-  HS_EXPECT(shape != nullptr, "ShapeShifter Shape parameter is missing");
-  HS_EXPECT(falloff != nullptr,
-            "ShapeShifter Alpha Falloff parameter is missing");
-  HS_EXPECT(spacing != nullptr, "ShapeShifter Spacing parameter is missing");
-  HS_EXPECT(count != nullptr, "ShapeShifter Count parameter is missing");
-  HS_EXPECT(speed != nullptr, "ShapeShifter Speed parameter is missing");
+  const auto *alpha = hs_test::required_param(ss, "Alpha");
+  const auto *shape = hs_test::required_param(ss, "Shape");
+  const auto *falloff = hs_test::required_param(ss, "Alpha Falloff");
+  const auto *spacing = hs_test::required_param(ss, "Spacing");
+  const auto *count = hs_test::required_param(ss, "Count");
+  const auto *speed = hs_test::required_param(ss, "Speed");
   if (count)
     HS_EXPECT_EQ(count->max, 288.0f);
   if (speed)
