@@ -253,22 +253,41 @@ inline void test_shader_chain_parity_sample_bands() {
       return;
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::Bands<BandsSampleMirror>>(program, ctx);
-    auto blocks = std::make_unique<TemporalBlocks>();
-    program.bind_temporal_storage(blocks->history, blocks->column);
-    auto &params = param_as<In::Op::BandsSampleParams>(program, 2);
-    for (const auto angles : {std::pair{5.5f, 5.6f}, std::pair{3.0f, 3.3f}}) {
-      params.angle = angles.first;
-      HS_EXPECT_TRUE(PB::Fields::valid(params));
-      program.prepare(ctx);
-      program.capture_history();
-      params.angle = angles.second;
-      program.prepare(ctx);
-      program.prepare_column(ctx, ctx, 0.5f);
-      const auto result = program.evaluate_column(math::X_AXIS, ctx, ctx, 0.5f);
-      HS_EXPECT_TRUE(std::isfinite(result.alpha));
-    }
-    program.clear();
   });
+}
+
+/** @brief Bands column angles match direct midpoint evaluation across views. */
+inline void test_shader_chain_bands_column_angle() {
+  auto fixture = std::make_unique<ProgramFixture>();
+  auto &program = fixture->program;
+  if (!arm_sample_op_chain<In::Op::BandsSampleParams>(
+          program, In::Op::SampleBands::ID, 4, ValueSet::DEFAULTS))
+    return;
+  const In::FrameContext ctx = shared_resources().context();
+  auto blocks = std::make_unique<TemporalBlocks>();
+  program.bind_temporal_storage(blocks->history, blocks->column);
+  auto &params = param_as<In::Op::BandsSampleParams>(program, 2);
+  for (const auto angles : {std::pair{5.5f, 5.6f}, std::pair{3.0f, 3.3f}}) {
+    params.angle = angles.first;
+    HS_EXPECT_TRUE(PB::Fields::valid(params));
+    program.prepare(ctx);
+    program.capture_history();
+    params.angle = angles.second;
+    program.prepare(ctx);
+    program.prepare_column(ctx, ctx, 0.5f);
+    const auto VIEWS = sweep_views();
+    std::vector<Color4> actual;
+    for (const auto &view : VIEWS)
+      actual.push_back(program.evaluate_column(view, ctx, ctx, 0.5f));
+    params.angle = (angles.first + angles.second) * 0.5f;
+    program.prepare(ctx);
+    for (size_t index = 0; index < VIEWS.size(); ++index) {
+      const auto EXPECTED = program.evaluate(VIEWS[index], ctx);
+      HS_EXPECT_EQ(actual[index].color, EXPECTED.color);
+      HS_EXPECT_NEAR(actual[index].alpha, EXPECTED.alpha, 1e-6f);
+    }
+  }
+  program.clear();
 }
 
 /** @brief Equirectangular bands at angle zero depend only on latitude. */
