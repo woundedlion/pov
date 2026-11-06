@@ -699,13 +699,8 @@ inline void test_rasterize_balanced_star_visual_budget() {
 #else
   constexpr int CLIP_CHANNEL_TOL = 0;
 #endif
-  struct StarState {
-    math::Quaternion orientation;
-    float radius;
-    int sides;
-    float phase;
-  };
-  const std::array<StarState, 4> states = {{
+
+  const std::array<PlanarShapeCase, 4> states = {{
       {math::Quaternion(), 0.45f, 4, 0.0f},
       {math::Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(), 0.98f, 7,
        0.37f},
@@ -721,8 +716,8 @@ inline void test_rasterize_balanced_star_visual_budget() {
     uint32_t position_samples = 0;
   };
 
-  auto render = [&]<Plot::RasterSamplingPolicy Policy>(const StarState &state,
-                                                       const ClipRegion *clip) {
+  auto render = [&]<Plot::RasterSamplingPolicy Policy>(
+                    const PlanarShapeCase &state, const ClipRegion *clip) {
     hs_test::StubEffect fx(W, H);
     if (clip != nullptr)
       fx.set_clip(clip->y_start, clip->y_end, clip->x_start, clip->x_end);
@@ -772,7 +767,7 @@ inline void test_rasterize_balanced_star_visual_budget() {
   uint32_t balanced_full_samples = 0;
   uint32_t balanced_position_samples = 0;
   size_t margin_reference_lit = 0;
-  for (const StarState &state : states) {
+  for (const PlanarShapeCase &state : states) {
     const Frame standard =
         render.template operator()<Plot::RasterSamplingPolicy::DEFAULT>(
             state, nullptr);

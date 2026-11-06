@@ -7,14 +7,6 @@
 // Plot::PlanarChords  — chord-walked planar polylines
 // ============================================================================
 
-/** @brief One planar star or flower contour to stroke. */
-struct PlanarShapeCase {
-  math::Quaternion orientation;
-  float radius;
-  int sides;
-  float phase;
-};
-
 /** @brief A near-pole segment wraps its negative column window. */
 inline void test_polar_stroke_wraps_negative_column_window() {
   constexpr int W = 144, H = 72;

@@ -7,6 +7,14 @@
 // Headless rasterize() harness.
 // ---------------------------------------------------------------------------
 
+/** @brief One planar star or flower contour to stroke. */
+struct PlanarShapeCase {
+  math::Quaternion orientation;
+  float radius;
+  int sides;
+  float phase;
+};
+
 /** @brief Whether any bilinear screen tap of a world point reaches the clip. */
 template <int W, int H>
 inline bool taps_in_clip(const ClipRegion &clip, const math::Vector &point) {
