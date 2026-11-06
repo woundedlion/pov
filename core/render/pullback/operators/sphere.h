@@ -339,18 +339,8 @@ struct LensMobius : StatelessModel {
   }
 };
 
-/** @brief Symmetry group of the kaleidoscope lens. */
-enum class KaleidoscopeSymmetry : uint8_t {
-  AZIMUTHAL = 0,        ///< Azimuthal wedge fold.
-  TETRAHEDRAL = 1,      ///< Tetrahedral group.
-  OCTAHEDRAL = 2,       ///< Octahedral group.
-  DODECAHEDRAL = 3,     ///< Icosahedral/dodecahedral group.
-  TRIANGULAR_PRISM = 4, ///< 3-fold prism group.
-  SQUARE_PRISM = 5,     ///< 4-fold prism group.
-  PENTAGONAL_PRISM = 6, ///< 5-fold prism group.
-  HEXAGONAL_PRISM = 7,  ///< 6-fold prism group.
-  OCTAGONAL_PRISM = 8   ///< 8-fold prism group.
-};
+/** @brief Shared symmetry group of the kaleidoscope lens. */
+using KaleidoscopeSymmetry = Lens::KaleidoscopeSymmetry;
 
 /** @brief Symmetry topology values, in KaleidoscopeSymmetry order. */
 inline constexpr auto &KALEIDOSCOPE_SYMMETRY_IDS =

@@ -351,11 +351,30 @@ rossby_haurwitz_field(float omega, float wave, uint8_t order, float phase) {
 HS_COLD_MEMBER inline math::tangent_field::PotentialField
 symmetric_field(uint8_t symmetry, uint8_t kind, float phase) {
   using namespace math::tangent_field;
-  constexpr uint8_t ORDERS[] = {6, 0, 0, 0, 3, 4, 5, 6, 8};
+  using Symmetry = Lens::KaleidoscopeSymmetry;
+  static_assert(static_cast<uint8_t>(Symmetry::TETRAHEDRAL) ==
+                static_cast<uint8_t>(TermType::TETRAHEDRAL));
+  static_assert(static_cast<uint8_t>(Symmetry::OCTAHEDRAL) ==
+                static_cast<uint8_t>(TermType::OCTAHEDRAL));
+  static_assert(static_cast<uint8_t>(Symmetry::DODECAHEDRAL) ==
+                static_cast<uint8_t>(TermType::DODECAHEDRAL));
+  constexpr auto ORDERS = [] {
+    std::array<uint8_t, std::size(Lens::KaleidoscopeParams::SYMMETRY_IDS)>
+        orders{};
+    orders[static_cast<size_t>(Symmetry::AZIMUTHAL)] = 6;
+    orders[static_cast<size_t>(Symmetry::TRIANGULAR_PRISM)] = 3;
+    orders[static_cast<size_t>(Symmetry::SQUARE_PRISM)] = 4;
+    orders[static_cast<size_t>(Symmetry::PENTAGONAL_PRISM)] = 5;
+    orders[static_cast<size_t>(Symmetry::HEXAGONAL_PRISM)] = 6;
+    orders[static_cast<size_t>(Symmetry::OCTAGONAL_PRISM)] = 8;
+    return orders;
+  }();
   std::array<PotentialTerm, 4> terms{};
-  const auto TYPE = symmetry >= 1 && symmetry <= 3
-                        ? static_cast<TermType>(symmetry)
-                        : TermType::MODE;
+  const auto TYPE =
+      symmetry >= static_cast<uint8_t>(Symmetry::TETRAHEDRAL) &&
+              symmetry <= static_cast<uint8_t>(Symmetry::DODECAHEDRAL)
+          ? static_cast<TermType>(symmetry)
+          : TermType::MODE;
   const uint8_t ORDER = ORDERS[symmetry];
   terms[0] = {TYPE,  static_cast<Kind>(kind),  ORDER,
               ORDER, ORDER % 2 ? -1.0f : 1.0f, 0};

@@ -24,6 +24,19 @@ struct GlitchParams {
           "Azimuth Multiplier", -12.0f, 12.0f, FieldCurve::LERP}};
 };
 
+/** @brief Symmetry group of the kaleidoscope lens. */
+enum class KaleidoscopeSymmetry : uint8_t {
+  AZIMUTHAL = 0,        ///< Azimuthal wedge fold.
+  TETRAHEDRAL = 1,      ///< Tetrahedral group.
+  OCTAHEDRAL = 2,       ///< Octahedral group.
+  DODECAHEDRAL = 3,     ///< Icosahedral/dodecahedral group.
+  TRIANGULAR_PRISM = 4, ///< 3-fold prism group.
+  SQUARE_PRISM = 5,     ///< 4-fold prism group.
+  PENTAGONAL_PRISM = 6, ///< 5-fold prism group.
+  HEXAGONAL_PRISM = 7,  ///< 6-fold prism group.
+  OCTAGONAL_PRISM = 8   ///< 8-fold prism group.
+};
+
 /** @brief Authored kaleidoscope symmetry. */
 struct KaleidoscopeParams {
   uint8_t symmetry = 0; ///< Shared kaleidoscope symmetry index.
@@ -45,23 +58,24 @@ struct KaleidoscopeParams {
  * @return Folded direction. */
 inline math::Vector configured_kaleidoscope(const math::Vector &input,
                                             uint8_t symmetry) {
-  switch (symmetry) {
-  case 1:
+  switch (static_cast<KaleidoscopeSymmetry>(symmetry)) {
+  case KaleidoscopeSymmetry::TETRAHEDRAL:
     return TetrahedralKaleidoscope::apply(input, 0);
-  case 2:
+  case KaleidoscopeSymmetry::OCTAHEDRAL:
     return OctahedralKaleidoscope::apply(input, 0);
-  case 3:
+  case KaleidoscopeSymmetry::DODECAHEDRAL:
     return lenses::dodecahedral_kaleidoscope_lens(input);
-  case 4:
+  case KaleidoscopeSymmetry::TRIANGULAR_PRISM:
     return TriangularPrismKaleidoscope::apply(input, 0);
-  case 5:
+  case KaleidoscopeSymmetry::SQUARE_PRISM:
     return SquarePrismKaleidoscope::apply(input, 0);
-  case 6:
+  case KaleidoscopeSymmetry::PENTAGONAL_PRISM:
     return PentagonalPrismKaleidoscope::apply(input, 0);
-  case 7:
+  case KaleidoscopeSymmetry::HEXAGONAL_PRISM:
     return HexagonalPrismKaleidoscope::apply(input, 0);
-  case 8:
+  case KaleidoscopeSymmetry::OCTAGONAL_PRISM:
     return OctagonalPrismKaleidoscope::apply(input, 0);
+  case KaleidoscopeSymmetry::AZIMUTHAL:
   default:
     return lenses::kaleidoscope_lens(input);
   }
