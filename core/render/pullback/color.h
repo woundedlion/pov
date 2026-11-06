@@ -145,6 +145,63 @@ struct ColorParams : ColorControls {
 static_assert(field_ids_unique<ColorParams>());
 static_assert(field_defaults_in_range<ColorParams>());
 
+/** @brief Builds the numeric palette-selection schema.
+ * @tparam Owner Family inheriting AuthoredPaletteSelection.
+ * @tparam Named Whether fields supply display labels.
+ * @param generated Gate of generated palette controls.
+ * @param mutating Gate of cosine mutation strength.
+ * @param gradient Gate of RGB gradient stops.
+ * @return Ordered palette selection fields. */
+template <typename Owner, bool Named>
+constexpr auto palette_selection_fields(TopologyGate generated = {},
+                                        TopologyGate mutating = {},
+                                        TopologyGate gradient = {}) {
+  return std::array{
+      Field<Owner>{"palette-hue", &Owner::palette_hue,
+                   Named ? "Palette Hue" : nullptr, 0.0f, 1.0f,
+                   FieldCurve::LERP, FieldGate::ALWAYS, generated},
+      Field<Owner>{"palette-spread", &Owner::palette_spread,
+                   Named ? "Palette Spread" : nullptr, 0.0f, 0.25f,
+                   FieldCurve::LERP, FieldGate::ALWAYS, generated},
+      Field<Owner>{"palette-lightness", &Owner::palette_lightness,
+                   Named ? "Palette Lightness" : nullptr, 0.0f, 1.0f,
+                   FieldCurve::LERP, FieldGate::ALWAYS, generated},
+      Field<Owner>{"palette-lightness-range", &Owner::palette_lightness_range,
+                   Named ? "Palette Lightness Range" : nullptr, 0.0f, 1.0f,
+                   FieldCurve::LERP, FieldGate::ALWAYS, generated},
+      Field<Owner>{"palette-mutation", &Owner::palette_mutation,
+                   Named ? "Palette Mutation" : nullptr, 0.0f, 1.0f,
+                   FieldCurve::LERP, FieldGate::ALWAYS, mutating},
+      Field<Owner>{"gradient-start-r", &Owner::gradient_start_r,
+                   Named ? "Gradient Start R" : nullptr, 0.0f, 1.0f,
+                   FieldCurve::LERP, FieldGate::ALWAYS, gradient},
+      Field<Owner>{"gradient-start-g", &Owner::gradient_start_g,
+                   Named ? "Gradient Start G" : nullptr, 0.0f, 1.0f,
+                   FieldCurve::LERP, FieldGate::ALWAYS, gradient},
+      Field<Owner>{"gradient-start-b", &Owner::gradient_start_b,
+                   Named ? "Gradient Start B" : nullptr, 0.0f, 1.0f,
+                   FieldCurve::LERP, FieldGate::ALWAYS, gradient},
+      Field<Owner>{"gradient-middle-r", &Owner::gradient_middle_r,
+                   Named ? "Gradient Middle R" : nullptr, 0.0f, 1.0f,
+                   FieldCurve::LERP, FieldGate::ALWAYS, gradient},
+      Field<Owner>{"gradient-middle-g", &Owner::gradient_middle_g,
+                   Named ? "Gradient Middle G" : nullptr, 0.0f, 1.0f,
+                   FieldCurve::LERP, FieldGate::ALWAYS, gradient},
+      Field<Owner>{"gradient-middle-b", &Owner::gradient_middle_b,
+                   Named ? "Gradient Middle B" : nullptr, 0.0f, 1.0f,
+                   FieldCurve::LERP, FieldGate::ALWAYS, gradient},
+      Field<Owner>{"gradient-end-r", &Owner::gradient_end_r,
+                   Named ? "Gradient End R" : nullptr, 0.0f, 1.0f,
+                   FieldCurve::LERP, FieldGate::ALWAYS, gradient},
+      Field<Owner>{"gradient-end-g", &Owner::gradient_end_g,
+                   Named ? "Gradient End G" : nullptr, 0.0f, 1.0f,
+                   FieldCurve::LERP, FieldGate::ALWAYS, gradient},
+      Field<Owner>{"gradient-end-b", &Owner::gradient_end_b,
+                   Named ? "Gradient End B" : nullptr, 0.0f, 1.0f,
+                   FieldCurve::LERP, FieldGate::ALWAYS, gradient},
+  };
+}
+
 /** @brief Full authored palette controls for composed pipelines. */
 struct AuthoredColorParams : ColorParams, AuthoredPaletteSelection {
   uint8_t palette_mode =
@@ -169,65 +226,7 @@ inline constexpr std::array<Field<AuthoredColorParams>,
                             ColorParams::FIELDS.size() + 14>
     AuthoredColorParams::FIELDS = concat_fields<AuthoredColorParams>(
         ColorParams::FIELDS,
-        std::array{
-            Field<AuthoredColorParams>{
-                "palette-hue", &AuthoredColorParams::palette_hue, "Palette Hue",
-                0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
-                TopologyGate{}},
-            Field<AuthoredColorParams>{
-                "palette-spread", &AuthoredColorParams::palette_spread,
-                "Palette Spread", 0.0f, 0.25f, FieldCurve::LERP,
-                FieldGate::ALWAYS, TopologyGate{}},
-            Field<AuthoredColorParams>{
-                "palette-lightness", &AuthoredColorParams::palette_lightness,
-                "Palette Lightness", 0.0f, 1.0f, FieldCurve::LERP,
-                FieldGate::ALWAYS, TopologyGate{}},
-            Field<AuthoredColorParams>{
-                "palette-lightness-range",
-                &AuthoredColorParams::palette_lightness_range,
-                "Palette Lightness Range", 0.0f, 1.0f, FieldCurve::LERP,
-                FieldGate::ALWAYS, TopologyGate{}},
-            Field<AuthoredColorParams>{
-                "palette-mutation", &AuthoredColorParams::palette_mutation,
-                "Palette Mutation", 0.0f, 1.0f, FieldCurve::LERP,
-                FieldGate::ALWAYS, TopologyGate{}},
-            Field<AuthoredColorParams>{
-                "gradient-start-r", &AuthoredColorParams::gradient_start_r,
-                "Gradient Start R", 0.0f, 1.0f, FieldCurve::LERP,
-                FieldGate::ALWAYS, TopologyGate{}},
-            Field<AuthoredColorParams>{
-                "gradient-start-g", &AuthoredColorParams::gradient_start_g,
-                "Gradient Start G", 0.0f, 1.0f, FieldCurve::LERP,
-                FieldGate::ALWAYS, TopologyGate{}},
-            Field<AuthoredColorParams>{
-                "gradient-start-b", &AuthoredColorParams::gradient_start_b,
-                "Gradient Start B", 0.0f, 1.0f, FieldCurve::LERP,
-                FieldGate::ALWAYS, TopologyGate{}},
-            Field<AuthoredColorParams>{
-                "gradient-middle-r", &AuthoredColorParams::gradient_middle_r,
-                "Gradient Middle R", 0.0f, 1.0f, FieldCurve::LERP,
-                FieldGate::ALWAYS, TopologyGate{}},
-            Field<AuthoredColorParams>{
-                "gradient-middle-g", &AuthoredColorParams::gradient_middle_g,
-                "Gradient Middle G", 0.0f, 1.0f, FieldCurve::LERP,
-                FieldGate::ALWAYS, TopologyGate{}},
-            Field<AuthoredColorParams>{
-                "gradient-middle-b", &AuthoredColorParams::gradient_middle_b,
-                "Gradient Middle B", 0.0f, 1.0f, FieldCurve::LERP,
-                FieldGate::ALWAYS, TopologyGate{}},
-            Field<AuthoredColorParams>{
-                "gradient-end-r", &AuthoredColorParams::gradient_end_r,
-                "Gradient End R", 0.0f, 1.0f, FieldCurve::LERP,
-                FieldGate::ALWAYS, TopologyGate{}},
-            Field<AuthoredColorParams>{
-                "gradient-end-g", &AuthoredColorParams::gradient_end_g,
-                "Gradient End G", 0.0f, 1.0f, FieldCurve::LERP,
-                FieldGate::ALWAYS, TopologyGate{}},
-            Field<AuthoredColorParams>{
-                "gradient-end-b", &AuthoredColorParams::gradient_end_b,
-                "Gradient End B", 0.0f, 1.0f, FieldCurve::LERP,
-                FieldGate::ALWAYS, TopologyGate{}},
-        });
+        palette_selection_fields<AuthoredColorParams, true>());
 static_assert(field_ids_unique<AuthoredColorParams>());
 static_assert(field_defaults_in_range<AuthoredColorParams>());
 

@@ -137,65 +137,9 @@ struct GeneratedPaletteParams : Color::ColorControls, PaletteSelection {
       static_cast<uint8_t>(EnvelopeMode::NONE); ///< Brightness shape.
   static constexpr auto FIELDS = concat_fields<GeneratedPaletteParams>(
       Color::ColorControls::FIELDS,
-      std::array{
-          Field<GeneratedPaletteParams>{
-              "palette-hue", &GeneratedPaletteParams::palette_hue, nullptr,
-              0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
-              GENERATED_PALETTE_GATE},
-          Field<GeneratedPaletteParams>{
-              "palette-spread", &GeneratedPaletteParams::palette_spread,
-              nullptr, 0.0f, 0.25f, FieldCurve::LERP, FieldGate::ALWAYS,
-              GENERATED_PALETTE_GATE},
-          Field<GeneratedPaletteParams>{
-              "palette-lightness", &GeneratedPaletteParams::palette_lightness,
-              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
-              GENERATED_PALETTE_GATE},
-          Field<GeneratedPaletteParams>{
-              "palette-lightness-range",
-              &GeneratedPaletteParams::palette_lightness_range, nullptr, 0.0f,
-              1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
-              GENERATED_PALETTE_GATE},
-          Field<GeneratedPaletteParams>{
-              "palette-mutation", &GeneratedPaletteParams::palette_mutation,
-              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
-              MUTATING_PALETTE_GATE},
-          Field<GeneratedPaletteParams>{
-              "gradient-start-r", &GeneratedPaletteParams::gradient_start_r,
-              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
-              GRADIENT_PALETTE_GATE},
-          Field<GeneratedPaletteParams>{
-              "gradient-start-g", &GeneratedPaletteParams::gradient_start_g,
-              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
-              GRADIENT_PALETTE_GATE},
-          Field<GeneratedPaletteParams>{
-              "gradient-start-b", &GeneratedPaletteParams::gradient_start_b,
-              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
-              GRADIENT_PALETTE_GATE},
-          Field<GeneratedPaletteParams>{
-              "gradient-middle-r", &GeneratedPaletteParams::gradient_middle_r,
-              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
-              GRADIENT_PALETTE_GATE},
-          Field<GeneratedPaletteParams>{
-              "gradient-middle-g", &GeneratedPaletteParams::gradient_middle_g,
-              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
-              GRADIENT_PALETTE_GATE},
-          Field<GeneratedPaletteParams>{
-              "gradient-middle-b", &GeneratedPaletteParams::gradient_middle_b,
-              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
-              GRADIENT_PALETTE_GATE},
-          Field<GeneratedPaletteParams>{
-              "gradient-end-r", &GeneratedPaletteParams::gradient_end_r,
-              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
-              GRADIENT_PALETTE_GATE},
-          Field<GeneratedPaletteParams>{
-              "gradient-end-g", &GeneratedPaletteParams::gradient_end_g,
-              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
-              GRADIENT_PALETTE_GATE},
-          Field<GeneratedPaletteParams>{
-              "gradient-end-b", &GeneratedPaletteParams::gradient_end_b,
-              nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
-              GRADIENT_PALETTE_GATE},
-      });
+      Color::palette_selection_fields<GeneratedPaletteParams, false>(
+          GENERATED_PALETTE_GATE, MUTATING_PALETTE_GATE,
+          GRADIENT_PALETTE_GATE));
 
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<GeneratedPaletteParams>{

@@ -15,6 +15,35 @@ namespace hs_test::catalog_policy_tests {
 
 namespace Op = Pullback::Interp::Op;
 
+/** @brief Authored and catalog palette selection share ranges and member order. */
+inline void test_palette_selection_schema_parity() {
+  using Authored = Pullback::Color::AuthoredColorParams;
+  using Chain = Op::GeneratedPaletteParams;
+  constexpr size_t FIRST = Pullback::Color::ColorControls::FIELDS.size();
+  static_assert(Authored::FIELDS.size() == Chain::FIELDS.size());
+  const Authored authored{};
+  const Chain chain{};
+  for (size_t index = FIRST; index < Authored::FIELDS.size(); ++index) {
+    const auto &a = Authored::FIELDS[index];
+    const auto &b = Chain::FIELDS[index];
+    HS_EXPECT_TRUE(std::string_view(a.id) == b.id);
+    HS_EXPECT_TRUE(a.name != nullptr && a.name[0] != '\0');
+    HS_EXPECT_TRUE(b.name == nullptr);
+    HS_EXPECT_EQ(a.min, b.min);
+    HS_EXPECT_EQ(a.max, b.max);
+    HS_EXPECT_TRUE(a.curve == b.curve);
+    HS_EXPECT_TRUE(a.gate == b.gate);
+    HS_EXPECT_EQ(authored.*a.member, chain.*b.member);
+    HS_EXPECT_TRUE(a.topology_gate.field == nullptr);
+    HS_EXPECT_EQ(a.topology_gate.values, 0);
+    const auto expected = index < FIRST + 4    ? Op::GENERATED_PALETTE_GATE
+                          : index == FIRST + 4 ? Op::MUTATING_PALETTE_GATE
+                                               : Op::GRADIENT_PALETTE_GATE;
+    HS_EXPECT_STREQ(b.topology_gate.field, expected.field);
+    HS_EXPECT_EQ(b.topology_gate.values, expected.values);
+  }
+}
+
 /** @brief Copies matching numeric controls across catalog parameter layouts.
  * @tparam To Destination family.
  * @tparam From Source family.

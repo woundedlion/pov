@@ -1459,6 +1459,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_projection_walk_storage);
   HS_RUN(test_composed_periodic_ripple_surface);
   HS_RUN(test_composed_noise_source);
+  HS_RUN(hs_test::catalog_policy_tests::test_palette_selection_schema_parity);
   HS_RUN(hs_test::catalog_policy_tests::test_authored_warp_catalog_parity);
   HS_RUN(hs_test::catalog_policy_tests::test_authored_source_catalog_parity);
   HS_RUN(hs_test::catalog_policy_tests::test_authored_transfer_catalog_parity);

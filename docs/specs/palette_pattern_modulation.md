@@ -726,7 +726,7 @@ core/render/pullback/
                           validation, scheduling and owned source state/resources.
   modulation_temporal.h   Retention/equality and completed-endpoint color kernels.
   color.h                 Palette crossing, ordered mechanics, deferred hue and finish.
-  operators.h             Independent palette and modulation operator schemas.
+  operators.h             Palette and modulation operator schemas; palette selection rows share the authored builder.
 tests/pattern/
   fields.h                Typed-domain admission and direct source cases.
   sphere_lut.h            Generic bake, seams, sampling and invalidation cases.
