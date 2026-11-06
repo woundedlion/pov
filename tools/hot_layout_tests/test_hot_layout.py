@@ -16,6 +16,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import hot_layout as hl
+import docs_check as dc
 
 PHANTASM = hl.Origin(r".pio\build\phantasm\src\targets\Phantasm\Phantasm.ino.cpp.o")
 LIBM = hl.Origin("C:/toolchain/hard/libm.a", "libm_a-sf_sin.o")
@@ -176,6 +177,17 @@ class EffectNames(unittest.TestCase):
                 "  X(After, 1)\n")
         self.assertEqual(hl.parse_effect_list(text, "HS_PHANTASM_EFFECT_LIST"),
                          ["LiquidWindows", "DreamBalls"])
+
+    def test_roster_consumers_share_comments_whitespace_and_macro_extent(self):
+        text = "\n".join([
+            '#define HS_PHANTASM_EFFECT_LIST(X) X( Comets , 120) /* X(Hidden, 60) */ \\',
+            ' /* X(MultiLine, 30) \\',
+            ' */ X( DreamBalls, 60)',
+            ' X(After, 1)',
+        ])
+        self.assertEqual(hl.parse_effect_list(text, "HS_PHANTASM_EFFECT_LIST"),
+                         ["Comets", "DreamBalls"])
+        self.assertEqual(dc.phantasm_roster(text), {"Comets", "DreamBalls"})
 
     def test_missing_macro_raises(self):
         with self.assertRaises(hl.LayoutError):

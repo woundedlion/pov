@@ -1763,6 +1763,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── teensy_pre.py / teensy_isystem.py / teensy_map.py / teensy_nano.py  PlatformIO build hooks
 │   ├── pio_ccache.py           PlatformIO hook that compiles firmware through ccache when it is on PATH
 │   ├── phantasm.ld             Phantasm linker script (memory-region layout)
+│   ├── cpp_roster.py           Shared comment-free X-macro body extraction for roster consumers
 │   ├── hot_layout.py           Instruction-cache layout planner and per-effect set-occupancy gate for hot flash code
 │   ├── hot_layout_tests/       Hot-code layout planner and gate tests
 │   ├── teensy_hot_layout.py    PlatformIO hook: probe link, layout plan, final link, hot-layout gate

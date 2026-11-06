@@ -119,7 +119,7 @@ ELF_NAME = "firmware.elf"
 BUILD_INPUTS = (
     "core", "effects", "targets", ":(exclude)targets/wasm",
     ":(glob)hardware/*.h", "tools/phantasm.ld", "tools/teensy_pre.py",
-    "tools/hot_layout.py", "tools/teensy_hot_layout.py",
+    "tools/cpp_roster.py", "tools/hot_layout.py", "tools/teensy_hot_layout.py",
     "tools/teensy_map.py", "tools/teensy_isystem.py", "tools/teensy_nano.py",
     "tools/teensy_gate.py", "tools/teensy_gate_extra.py",
     "tools/profile_isr_window.h",

@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
+from cpp_roster import macro_body
 from doc_coverage import doxyfile_entries
 from git_files import git_nul_list
 
@@ -104,7 +105,7 @@ EFFECTS_DIAGRAM_RE = re.compile(
     r"\beffects/\s+\((?P<effects>\d+) visual algorithms\)")
 EFFECTS_DIR = PurePosixPath("effects")
 EFFECT_ROSTER_SOURCE = PurePosixPath("targets/effects.h")
-_EFFECT_ROSTER_DEFINE = "#define HS_EFFECT_LIST(X)"
+_EFFECT_ROSTER_MACRO = "HS_EFFECT_LIST"
 # X-row spelling mirrored by scripts/effect_roster.mjs; comments are stripped
 # before matching.
 _COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
@@ -112,9 +113,9 @@ _EFFECT_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*\)")
 
 # The device playlist: the roster minus HS_PHANTASM_EXCLUDED_EFFECTS.
 PHANTASM_PLAYLIST_SOURCE = PurePosixPath("targets/Phantasm/phantasm_playlist.h")
-_PHANTASM_ROSTER_DEFINE = "#define HS_PHANTASM_EFFECT_LIST(X)"
+_PHANTASM_ROSTER_MACRO = "HS_PHANTASM_EFFECT_LIST"
 # The shader promotion product group lives beside HS_EFFECT_LIST.
-_PRODUCT_GROUP_DEFINE = "#define HS_SHADER_PRODUCT_GROUP(X)"
+_PRODUCT_GROUP_MACRO = "HS_SHADER_PRODUCT_GROUP"
 # Both macros spell a row `X(Name, seconds)`.
 _NAMED_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*,")
 # The effects reference spells the product group's cardinality in words and
@@ -841,34 +842,13 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
     return issues
 
 
-def _macro_body(source: str, define: str) -> str:
-    """The continued-line body, line-spliced before comments are stripped.
-
-    The body runs from the #define to the first line without a trailing
-    backslash; the break is decided on the raw lines, so stripping cannot
-    extend or truncate it.
-    """
-    body: list[str] = []
-    inside = False
-    for line in source.splitlines():
-        if not inside:
-            inside = line.startswith(define)
-            if not inside:
-                continue
-            line = line[len(define):]
-        body.append(line)
-        if not line.rstrip().endswith("\\"):
-            break
-    return _COMMENT_RE.sub("", re.sub(r"\\[ \t]*\n", " ", "\n".join(body)))
-
-
 def effect_roster(source: str) -> set[str]:
     """Names HS_EFFECT_LIST expands over, given the roster header's text.
 
     The optional chain-interpreter row is absent from firmware and gallery.
     """
     return set(_EFFECT_ROSTER_ENTRY_RE.findall(
-        _macro_body(source, _EFFECT_ROSTER_DEFINE)))
+        (macro_body(source, _EFFECT_ROSTER_MACRO) or "")))
 
 
 def effects_row_issues(text: str, entries: set[PurePosixPath],
@@ -976,13 +956,13 @@ def doxyfile_predefined_issues(predefined: list[tuple[int, str]],
 def phantasm_roster(source: str) -> set[str]:
     """Returns the effect names in HS_PHANTASM_EFFECT_LIST."""
     return set(_NAMED_ROSTER_ENTRY_RE.findall(
-        _macro_body(source, _PHANTASM_ROSTER_DEFINE)))
+        (macro_body(source, _PHANTASM_ROSTER_MACRO) or "")))
 
 
 def shader_product_group(source: str) -> set[str]:
     """Returns the effect names in HS_SHADER_PRODUCT_GROUP."""
     return set(_EFFECT_ROSTER_ENTRY_RE.findall(
-        _macro_body(source, _PRODUCT_GROUP_DEFINE)))
+        (macro_body(source, _PRODUCT_GROUP_MACRO) or "")))
 
 
 def claimed_count(token: str) -> int | None:

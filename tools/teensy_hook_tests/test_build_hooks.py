@@ -424,7 +424,7 @@ class TestHotLayoutLink(unittest.TestCase):
         self.assertNotIn("PROBE", final)
         depends = {Path(d).name for _, deps in env.dependencies for d in deps}
         self.assertLessEqual(
-            {"hot_layout.py", "teensy_hot_layout.py", "phantasm.ld"}, depends)
+            {"cpp_roster.py", "hot_layout.py", "teensy_hot_layout.py", "phantasm.ld"}, depends)
         for target, _ in env.dependencies:
             self.assertEqual(target, "$BUILD_DIR/firmware.elf")
             self.assertNotIn("PROGNAME", target)

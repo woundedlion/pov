@@ -494,6 +494,23 @@ class PendingCapture(unittest.TestCase):
 
 
 class RecordInputs(unittest.TestCase):
+    def test_roster_parser_edit_changes_build_input_tree(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.dict(os.environ, isolated_env(), clear=True):
+            root = Path(directory)
+            tst._git(["init", "--quiet"], root)
+            helper = root / "tools/cpp_roster.py"
+            helper.parent.mkdir()
+            helper.write_text("original", encoding="utf-8")
+            tst._git(["add", "--", "tools/cpp_roster.py"], root)
+            tst._git(["commit", "-m", "initial"], root)
+            baseline = tst.working_tree(root)
+            helper.write_text("changed", encoding="utf-8")
+            self.assertNotEqual(tst.working_tree(root), baseline)
+            helper.write_text("original", encoding="utf-8")
+            (root / "notes.txt").write_text("scratch", encoding="utf-8")
+            self.assertEqual(tst.working_tree(root), baseline)
+
     def test_successful_build_accepts_unchanged_cached_elf(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
