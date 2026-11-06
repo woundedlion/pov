@@ -1114,7 +1114,7 @@ template <typename State> struct AffineFrame : PrepareFromState<State> {
 
   /**
    * @brief Whether `State` under @p CandidateBinding supplies the affine slot
-   *        state and the path-length flag.
+   *        state, repeat lattice and path-length flag.
    * @tparam CandidateBinding Binding being checked.
    */
   template <typename CandidateBinding>
@@ -1136,6 +1136,9 @@ template <typename State> struct AffineFrame : PrepareFromState<State> {
         {
           State::prepare(frame).affine.translation_y
         } -> std::convertible_to<float>;
+        {
+          State::prepare(frame).affine.repeat
+        } -> std::convertible_to<PreparedRepeat>;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       };
 

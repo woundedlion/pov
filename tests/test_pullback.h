@@ -1122,6 +1122,52 @@ inline void test_pullback_provider_contracts() {
   HS_EXPECT_EQ(carried.path_length, 4.0f);
 }
 
+/** @brief Affine providers require a repeat lattice alongside their scalars. */
+inline void test_pullback_affine_provider_repeat_contract() {
+  struct AffineState {
+    using Binding = TestBinding;
+    using FrameState = TestFrame;
+    static Pullback::Warp::PreparedAffineSlot prepare(const FrameState &) {
+      return Pullback::Warp::prepare(Pullback::Warp::AffineParams{}, 0.0f, 0.0f,
+                                     {});
+    }
+    static bool path_length_required(const FrameState &) { return true; }
+  };
+  struct MissingRepeatState : AffineState {
+    struct Scalars {
+      float inverse_scale_x, inverse_scale_y, shear, translation_x,
+          translation_y;
+    };
+    struct Prepared {
+      float rotation_cos, rotation_sin;
+      Scalars affine;
+    };
+    static Prepared prepare(const FrameState &) { return {}; }
+  };
+  struct WrongRepeatState : AffineState {
+    struct Scalars : MissingRepeatState::Scalars {
+      int repeat;
+    };
+    struct Prepared {
+      float rotation_cos, rotation_sin;
+      Scalars affine;
+    };
+    static Prepared prepare(const FrameState &) { return {}; }
+  };
+  using Policy = Pullback::Warp::AffineFrame<AffineState>;
+  static_assert(Policy::PROVIDER_VALID<TestBinding>);
+  static_assert(!Pullback::Warp::AffineFrame<
+                MissingRepeatState>::PROVIDER_VALID<TestBinding>);
+  static_assert(!Pullback::Warp::AffineFrame<WrongRepeatState>::PROVIDER_VALID<
+                TestBinding>);
+  const TestFrame frame;
+  const math::Complex point(0.25f, -0.75f);
+  const auto actual = Policy::apply(point, {}, frame, Policy::prepare(frame));
+  HS_EXPECT_EQ(actual.coords.re, point.re);
+  HS_EXPECT_EQ(actual.coords.im, point.im);
+  HS_EXPECT_EQ(actual.path_length, 0.0f);
+}
+
 /** @brief Square cells evaluate the circle-to-box blend formula. */
 inline void test_pullback_square_cells_formula() {
   const auto reference = [](const Pattern::PlanePosition &coordinate,
@@ -2907,6 +2953,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_affine_forms_match_general);
   HS_RUN(test_pullback_stage_combinators);
   HS_RUN(test_pullback_provider_contracts);
+  HS_RUN(test_pullback_affine_provider_repeat_contract);
   HS_RUN(test_pullback_concrete_catalog);
   HS_RUN(test_pullback_square_cells_formula);
   HS_RUN(test_pullback_tessellation_reference);
