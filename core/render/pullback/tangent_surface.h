@@ -430,15 +430,8 @@ HS_HOT_FLASH_MEMBER inline SurfaceResult
 step_tangent_field(const math::Vector &input,
                    const math::tangent_field::PotentialField &field,
                    float strength, uint8_t integrator, bool track_path) {
-  using Field = math::tangent_field::PotentialField;
-  switch (static_cast<Integrator>(integrator)) {
-  case Integrator::EULER:
-    return step_field<Field, Euler>(input, field, strength, track_path);
-  case Integrator::MIDPOINT:
-    return step_field<Field, Midpoint>(input, field, strength, track_path);
-  default:
-    return step_field<Field, Midpoint2>(input, field, strength, track_path);
-  }
+  return step_integrated(input, field, strength,
+                         static_cast<Integrator>(integrator), track_path);
 }
 
 /** @brief Polynomial tangent-field family. */

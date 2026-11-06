@@ -344,6 +344,29 @@ step_field(const math::Vector &input, const F &field, float strength,
   }
 }
 
+/** @brief Applies the selected fixed-step integration scheme.
+ * @tparam F Prepared tangent field.
+ * @param input Unit direction.
+ * @param field Prepared velocity field.
+ * @param strength Signed displacement scale.
+ * @param integrator Integration scheme.
+ * @param track_path Whether to accumulate angular travel.
+ * @return Displaced direction and angular travel. */
+template <math::tangent_field::TangentField F>
+HS_HOT_INLINE inline SurfaceResult
+step_integrated(const math::Vector &input, const F &field, float strength,
+                Integrator integrator, bool track_path) {
+  switch (integrator) {
+  case Integrator::EULER:
+    return step_field<F, Euler>(input, field, strength, track_path);
+  case Integrator::MIDPOINT:
+    return step_field<F, Midpoint>(input, field, strength, track_path);
+  case Integrator::MIDPOINT_2X:
+    break;
+  }
+  return step_field<F, Midpoint2>(input, field, strength, track_path);
+}
+
 /** @brief Fixed-step surface policy over a prepared tangent field.
  * @tparam State Provider of prepare, strength and path_length_required.
  * @tparam IntegratorPolicy Fixed stepping scheme. */
@@ -546,17 +569,8 @@ curl_noise(const math::Vector &input, const FastNoiseLite &noise,
            const math::Vector &loop_offset, float strength,
            bool path_length_required) {
   const DynamicCurlNoiseField field{noise, basis, limit, scale, loop_offset};
-  switch (integrator) {
-  case Integrator::EULER:
-    return step_field<DynamicCurlNoiseField, Euler>(input, field, strength,
-                                                    path_length_required);
-  case Integrator::MIDPOINT:
-    return step_field<DynamicCurlNoiseField, Midpoint>(input, field, strength,
-                                                       path_length_required);
-  default:
-    return step_field<DynamicCurlNoiseField, Midpoint2>(input, field, strength,
-                                                        path_length_required);
-  }
+  return step_integrated(input, field, strength, integrator,
+                         path_length_required);
 }
 
 /**
