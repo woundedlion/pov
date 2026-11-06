@@ -106,9 +106,7 @@ public:
    *         overrun (prior transfer still in flight).
    */
   [[nodiscard]] bool submit_frame(bool with_bg = false) {
-    if (!spi.is_complete()) {
-      // Drop on overrun; a transfer that never completes traps here.
-      spi.check_stale_transfer();
+    if (!transfer_idle()) {
       overrun_count.fetch_add(1, std::memory_order_relaxed);
       return false;
     }
