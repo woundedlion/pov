@@ -914,10 +914,16 @@ inline void test_sim_drops_and_missed_epoch() {
       8.0));
   HS_EXPECT_EQ(sim.boards[3].live_index, 0);
   HS_EXPECT_EQ(sim.boards[3].envelope, 0.0f);
-  // Correction: the confirming beacon pair, then the join grid.
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        return s.boards[3]
+                   .board.telemetry_snapshot()
+                   .beacon_index_corrections == 1u;
+      },
+      3.0));
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.boards[3].live_index == 1; },
-                    double(cfg.beacon_period_revs + cfg.join_grid_revs) + 6));
+                    double(cfg.join_grid_revs) + 2));
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   HS_EXPECT_EQ(content(sim.boards[3].board).rev_in_effect & 63,
