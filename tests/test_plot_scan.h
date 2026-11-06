@@ -26,6 +26,7 @@
 
 #include <algorithm>
 #include <bit>
+#include <cmath>
 #include <cstring>
 #include <functional>
 #include <memory>
@@ -147,6 +148,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_column_walk_seam_taps_shade_at_their_times);
   HS_RUN(test_trail_gate_uses_motion_region);
   HS_RUN(test_four_regular_and_medial_edge_extraction);
+  HS_RUN(test_sampling_surface_arm_seam_geometry);
   HS_RUN(test_point_route_polar_sweep_support);
   HS_RUN(test_geometry_callback_aggregate_contract);
   HS_RUN(test_point_route_piece_tap_policy);

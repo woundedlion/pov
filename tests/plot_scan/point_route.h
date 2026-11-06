@@ -7,6 +7,42 @@
 // Plot::PointRoute: closed-form column-time points against a per-column oracle.
 // ---------------------------------------------------------------------------
 
+/** @brief Shared arm period and seam radius include boundary columns. */
+inline void test_sampling_surface_arm_seam_geometry() {
+  auto check = []<int W>() {
+    using Surface = Spacetime::SamplingSurface<W>;
+    constexpr float PERIOD = Surface::ARM_PERIOD;
+    constexpr float RADIUS = Surface::ARM_SEAM_RADIUS;
+    const auto distance = [](float x) {
+      return fabsf(math::centered_remainder(x, PERIOD));
+    };
+    HS_EXPECT_EQ(PERIOD, W / 2.0f);
+    HS_EXPECT_EQ(RADIUS, 1.0f);
+    for (int period = -2; period <= 2; ++period) {
+      const float SEAM = period * PERIOD;
+      HS_EXPECT_EQ(distance(SEAM), 0.0f);
+      HS_EXPECT_TRUE(Surface::near_arm_seam(SEAM));
+      for (float direction : {-1.0f, 1.0f}) {
+        const float EDGE = SEAM + direction * RADIUS;
+        const float INSIDE = std::nextafter(EDGE, SEAM);
+        const float OUTSIDE = std::nextafter(EDGE, EDGE + direction);
+        HS_EXPECT_EQ(distance(EDGE), RADIUS);
+        HS_EXPECT_TRUE(Surface::near_arm_seam(EDGE));
+        HS_EXPECT_LT(distance(INSIDE), RADIUS);
+        HS_EXPECT_TRUE(Surface::near_arm_seam(INSIDE));
+        HS_EXPECT_GT(distance(OUTSIDE), RADIUS);
+        HS_EXPECT_FALSE(Surface::near_arm_seam(OUTSIDE));
+      }
+      const float MIDDLE = SEAM + W / 4.0f;
+      HS_EXPECT_EQ(distance(MIDDLE), W / 4.0f);
+      HS_EXPECT_FALSE(Surface::near_arm_seam(MIDDLE));
+    }
+  };
+  check.operator()<16>();
+  check.operator()<96>();
+  check.operator()<288>();
+}
+
 /** @brief Projected chord curvature bounds physical departure. */
 inline void test_point_route_physical_curvature_bound() {
   constexpr int W = 288, H = 144;
