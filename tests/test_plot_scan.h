@@ -30,10 +30,28 @@
 #include <functional>
 #include <memory>
 #include <limits>
+#include <type_traits>
 #include <vector>
 
 namespace hs_test {
 namespace plot_scan_tests {
+
+static_assert(std::is_constructible_v<Scan::ColumnBasisScope, Canvas &,
+                                      Scan::ColumnBasis &>);
+static_assert(std::is_constructible_v<Scan::ColumnBasisScope, Canvas &,
+                                      const Scan::ColumnBasis &>);
+static_assert(!std::is_constructible_v<Scan::ColumnBasisScope, Canvas &,
+                                       Scan::ColumnBasis &&>);
+static_assert(!std::is_constructible_v<Scan::ColumnBasisScope, Canvas &,
+                                       const Scan::ColumnBasis &&>);
+static_assert(std::is_constructible_v<Scan::DriftColumns<96>, Arena &,
+                                      Scan::ColumnBasis &>);
+static_assert(std::is_constructible_v<Scan::DriftColumns<96>, Arena &,
+                                      const Scan::ColumnBasis &>);
+static_assert(!std::is_constructible_v<Scan::DriftColumns<96>, Arena &,
+                                       Scan::ColumnBasis &&>);
+static_assert(!std::is_constructible_v<Scan::DriftColumns<96>, Arena &,
+                                       const Scan::ColumnBasis &&>);
 
 template <typename Chart>
 concept BorrowableRasterBasis = requires(Chart &&basis) {

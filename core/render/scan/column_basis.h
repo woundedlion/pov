@@ -544,6 +544,8 @@ template <int W> struct DriftColumns {
     view.birth = time.birth;
   }
 
+  DriftColumns(Arena &, const Scan::ColumnBasis &&) = delete;
+
   /**
    * @brief Fills a column's entries unless already filled.
    * @param x Column.
@@ -786,6 +788,7 @@ public:
       : canvas(canvas), saved(canvas.column_basis()) {
     canvas.set_column_basis(&state);
   }
+  ColumnBasisScope(Canvas &, const Scan::ColumnBasis &&) = delete;
   ~ColumnBasisScope() { canvas.set_column_basis(saved); }
   ColumnBasisScope(const ColumnBasisScope &) = delete;
   ColumnBasisScope &operator=(const ColumnBasisScope &) = delete;
