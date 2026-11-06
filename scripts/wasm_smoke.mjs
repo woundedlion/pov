@@ -951,6 +951,29 @@ async function main(probe) {
       engine.setResolution(w, h);
       engine.setAnimationsPaused(false);
       console.log('  document-parameters: typed active writes, readonly recipes and replacement lifetime OK');
+
+      for (const [effect, resource, id, value, slider] of [
+        ['Involution', 'modulate', 'sine-axis-x', 0.25, true],
+        ['Millefiori', 'field', 'grid-axis-y', 17.4, false],
+      ]) {
+        engine.setEffect(effect);
+        if (slider && engine.setParameter(`${resource}.modulation-source`, 1) !== results.APPLIED)
+          fail(`display-caps: ${effect} refused the modulation source edit`);
+        const edited = slider
+          ? engine.setParameter(`${resource}.${id}`, value)
+          : engine.setDocumentParameter(resource, id, value);
+        if (edited !== results.APPLIED)
+          fail(`display-caps: ${effect} refused ${resource}.${id}`);
+        const before = engine.getDocumentParameterDefinitions();
+        for (const caps of [[2, 3], [0, 0]]) {
+          if (!engine.setDisplayCaps(...caps))
+            fail(`display-caps: ${effect} refused cap geometry`);
+          if (JSON.stringify(engine.getDocumentParameterDefinitions()) !== JSON.stringify(before))
+            fail(`display-caps: ${effect} lost edited modulation state`);
+          engine.drawFrame();
+        }
+      }
+      engine.setAnimationsPaused(false);
     }
 
     // ── Embind state seam: getParamGeneration / setAnimationsPaused ───────────

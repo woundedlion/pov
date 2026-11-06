@@ -1007,6 +1007,16 @@ private:
       if (!parameter.readonly)
         parameters.emplace_back(parameter.name, parameter.get_requested());
 
+    using Modulations =
+        std::vector<std::pair<std::string, ColorModulation::Config>>;
+    Modulations modulations;
+    if (current_factory_entry->visit_modulations)
+      current_factory_entry->visit_modulations(
+          *current_effect, &modulations,
+          [](void *context, std::string_view resource, const auto &config) {
+            static_cast<Modulations *>(context)->emplace_back(resource, config);
+          });
+
     WorkbenchBindings::RebuildRestore restore_workbench;
     if (auto bindings = getShaderChainBindings())
       restore_workbench = bindings->capture_rebuild_state();
@@ -1023,8 +1033,22 @@ private:
         restore_workbench && restore_workbench(binding_state);
     HS_CHECK(!restore_workbench || parameters_restored,
              "Geometry rebuild must restore the workbench configuration");
-    if (!parameters_restored)
+    if (!parameters_restored) {
+      for (auto &[resource, config] : modulations) {
+        HS_CHECK(current_factory_entry->edit_modulation,
+                 "Geometry rebuild must retain modulation editing");
+        const auto result = current_factory_entry->edit_modulation(
+            *current_effect, resource, &config,
+            [](void *context, auto &candidate) {
+              candidate =
+                  *static_cast<const ColorModulation::Config *>(context);
+              return ParamSetResult::APPLIED;
+            });
+        HS_CHECK(result == ParamSetResult::APPLIED,
+                 "Geometry rebuild must restore modulation recipes");
+      }
       current_effect->replay_parameter_writes(parameters);
+    }
     setAnimationsPaused(PAUSED);
     setClip(CLIP.x_start, CLIP.x_end, CLIP.y_start, CLIP.y_end);
     param_generation.observe(current_effect->getParameterSchemaGeneration());
