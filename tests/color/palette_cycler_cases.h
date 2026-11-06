@@ -547,6 +547,63 @@ inline void test_palette_cycler_zero_dwell_chains_fades() {
   HS_EXPECT_TRUE(cycler.fading());
 }
 
+/** @brief Restored clocks and endpoint recipes are independent of bank snapshots. */
+inline void test_generated_palette_restore_cycler_clock_and_endpoints() {
+  alignas(std::max_align_t) static uint8_t
+      storage[PaletteCycler::generated_arena_bytes() +
+              BakedPalette::required_arena_bytes()];
+  Arena arena(storage, sizeof(storage));
+  uint32_t provider_hue = 0;
+  PaletteCycler cycler;
+  cycler.init_generated(
+      arena,
+      [](void *context, uint32_t sequence, GenerativePalette &out) {
+        GeneratedPaletteBank::next_palette(*static_cast<uint32_t *>(context),
+                                           sequence, PaletteHarmony::TRIADIC,
+                                           0.62f, out);
+      },
+      &provider_hue, GeneratedPaletteBank::DWELL_FRAMES,
+      GeneratedPaletteBank::FADE_FRAMES, math::ease_in_out_sin, nullptr, 2);
+  BakedPaletteStorage expected;
+  expected.bake(arena,
+                GenerativePalette(PaletteRecipes::balanced_analogous(0.0f)));
+  constexpr PaletteCycler::GeneratedClock CLOCKS[] = {{0, 2, false, false},
+                                                      {0, 2, true, false},
+                                                      {237, 3, true, true},
+                                                      {599, 7, true, false}};
+  for (const auto harmony :
+       {PaletteHarmony::TRIADIC, PaletteHarmony::COMPLEMENTARY,
+        PaletteHarmony::ANALOGOUS})
+    for (const float chroma : {0.3f, 0.8f})
+      for (const uint32_t hue : {0u, 159u, 318u, UINT32_MAX - 10u})
+        for (const auto &clock : CLOCKS) {
+          provider_hue = hue;
+          GeneratedPaletteBank::restore_cycler(cycler, clock, hue, harmony,
+                                               chroma);
+          const auto actual_clock = cycler.generated_clock();
+          HS_EXPECT_EQ(actual_clock.frame, clock.frame);
+          HS_EXPECT_EQ(actual_clock.next_sequence, clock.next_sequence);
+          HS_EXPECT_EQ(actual_clock.fade_active, clock.fade_active);
+          HS_EXPECT_EQ(actual_clock.display_dirty, clock.display_dirty);
+          HS_EXPECT_EQ(provider_hue, hue);
+          const GenerativePalette from(PaletteRecipes::profile(
+              PaletteDomain::STRAIGHT, harmony, AxisCurve::ASCENDING,
+              PaletteRecipes::hue_turns(hue - 159u), chroma));
+          const GenerativePalette to(PaletteRecipes::profile(
+              PaletteDomain::STRAIGHT, harmony, AxisCurve::ASCENDING,
+              PaletteRecipes::hue_turns(hue), chroma));
+          if (clock.fade_active) {
+            const float progress =
+                float(clock.frame - clock.frame % 2) / 600.0f;
+            GenerativePalette morph;
+            morph.morph_palettes(from, to, math::ease_in_out_sin(progress));
+            expected.rebake(morph);
+          } else
+            expected.rebake(from);
+          expect_baked_equal(cycler.palette(), expected);
+        }
+}
+
 /** @brief Hidden generated harmonies catch up with visible morph and chroma state. */
 inline void test_generated_palette_bank_routes_and_rechromas() {
   enum class Mode { TRIADIC, COMPLEMENTARY, ANALOGOUS };

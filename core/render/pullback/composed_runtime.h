@@ -1352,13 +1352,9 @@ private:
     if constexpr (AUTHORED_PALETTE) {
       const auto harmony = cycling_harmony();
       if (palette_harmony != harmony) {
-        uint32_t from_hue = palette_hue - GeneratedPaletteBank::HUE_STEP;
-        uint32_t to_hue = palette_hue;
-        GenerativePalette from, to;
-        GeneratedPaletteBank::next_palette(from_hue, 0, harmony, chroma, from);
-        GeneratedPaletteBank::next_palette(to_hue, 0, harmony, chroma, to);
-        palette_cycler.restore_generated(palette_cycler.generated_clock(), from,
-                                         to);
+        GeneratedPaletteBank::restore_cycler(palette_cycler,
+                                             palette_cycler.generated_clock(),
+                                             palette_hue, harmony, chroma);
         palette_harmony = harmony;
       }
     }

@@ -1114,5 +1114,7 @@ The interpreted and fixed pipelines bake generated, named procedural,
 three-stop gradient and mutating sources through `AuthoredPaletteResources`.
 Its table is allocated once and rebaked when the selection or chroma changes.
 Cycling sources keep the shared generated-cycle clock when changing harmony.
+Harmony changes and bank snapshot restoration rebuild their endpoints through
+`GeneratedPaletteBank::restore_cycler`.
 Temporal frames retain the selected palette endpoint before the next rebake;
 hue-rotation tables track the selected source's bake generation.

@@ -573,6 +573,24 @@ public:
     return true;
   }
 
+  /** @brief Rebuilds one generated cycle's endpoints without advancing its clock.
+   * @param cycler Initialized generated cycle.
+   * @param clock Timeline to restore.
+   * @param hue Target palette hue in wheel steps.
+   * @param harmony Hue relationship.
+   * @param chroma Chroma control in [0, 1]. */
+  HS_FLASH_MEMBER static void
+  restore_cycler(PaletteCycler &cycler,
+                 const PaletteCycler::GeneratedClock &clock, uint32_t hue,
+                 PaletteHarmony harmony, float chroma) {
+    uint32_t from_hue = hue - HUE_STEP;
+    uint32_t to_hue = hue;
+    GenerativePalette from, to;
+    next_palette(from_hue, 0, harmony, chroma, from);
+    next_palette(to_hue, 0, harmony, chroma, to);
+    cycler.restore_generated(clock, from, to);
+  }
+
   /**
    * @brief Restores all three cycles and rebakes their displays.
    * @param snapshot State to restore; check with valid_snapshot().
@@ -585,12 +603,8 @@ public:
     analogous_hue = snapshot.hues[2];
     const auto restore = [&](PaletteCycler &cycler, size_t index,
                              PaletteHarmony harmony) {
-      uint32_t from_hue = snapshot.hues[index] - HUE_STEP;
-      uint32_t to_hue = snapshot.hues[index];
-      GenerativePalette from, to;
-      next_palette(from_hue, 0, harmony, chroma, from);
-      next_palette(to_hue, 0, harmony, chroma, to);
-      cycler.restore_generated(snapshot.cycles[index], from, to);
+      restore_cycler(cycler, snapshot.cycles[index], snapshot.hues[index],
+                     harmony, chroma);
     };
     restore(triadic, 0, PaletteHarmony::TRIADIC);
     restore(complementary, 1, PaletteHarmony::COMPLEMENTARY);

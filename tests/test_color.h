@@ -250,6 +250,7 @@ inline int run_color_tests() {
   HS_RUN(test_palette_cycler_generated_cycle);
   HS_RUN(test_palette_cycler_generated_display_cadence);
   HS_RUN(test_palette_cycler_sampled_restore_and_catchup);
+  HS_RUN(test_generated_palette_restore_cycler_clock_and_endpoints);
   HS_RUN(test_generated_palette_bank_routes_and_rechromas);
   HS_RUN(test_palette_cycler_generated_chroma_keeps_morph);
   HS_RUN(test_palette_cycler_hidden_advance_catches_up);
