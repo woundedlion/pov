@@ -414,6 +414,27 @@ inline void test_normalized_terms_have_tight_speed_bounds() {
     measure({type, TF::Kind::POLOIDAL, 0, 0, 1.0f});
 }
 
+/** @brief Zonal harmonic peak speed is independent of authored phase and drift. */
+inline void test_zonal_potential_phase_preserves_peak_speed() {
+  constexpr float COORDINATE = 0.7071067811865475f;
+  const math::Vector point(COORDINATE, COORDINATE, 0.0f);
+  for (const auto kind : {TF::Kind::TOROIDAL, TF::Kind::POLOIDAL}) {
+    for (const float phase : {0.0f, math::PI_F / 2, math::PI_F, -1.3f}) {
+      std::array<TF::PotentialTerm, 4> terms{};
+      terms[0] = {TF::TermType::MODE, kind, 2, 0, 1.0f, phase};
+      for (const float drift : {-2.0f, 0.0f, 0.7f}) {
+        const TF::PotentialField field(terms, drift);
+        HS_EXPECT_NEAR(field.velocity(point).length(), 1.0f / 1.01f, 1e-5f);
+        const math::Vector expected =
+            kind == TF::Kind::TOROIDAL
+                ? math::Vector(0.0f, 0.0f, 1.0f / 1.01f)
+                : math::Vector(-COORDINATE, COORDINATE, 0.0f) / 1.01f;
+        HS_EXPECT_VEC(field.velocity(point), expected, 1e-5f);
+      }
+    }
+  }
+}
+
 /** @brief Exact sphere exponential for the independent Jacobian oracle. */
 inline math::Vector exponential(math::Vector p, math::Vector tangent) {
   const float length = tangent.length();
@@ -636,6 +657,7 @@ inline int run_tangent_field_tests() {
   HS_RUN(test_invariants_and_vector_fields_follow_fold_groups);
   HS_RUN(test_rossby_haurwitz_matches_spherical_stream_function);
   HS_RUN(test_normalized_terms_have_tight_speed_bounds);
+  HS_RUN(test_zonal_potential_phase_preserves_peak_speed);
   HS_RUN(test_potential_drift_rotates_all_terms);
   HS_RUN(test_potential_near_unit_tangency);
   HS_RUN(test_fold_advisory_precedes_sampled_jacobian_onset);

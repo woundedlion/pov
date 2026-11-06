@@ -95,7 +95,7 @@ struct PotentialTerm {
   uint8_t l = 1;                  ///< Harmonic degree in [0, 8].
   uint8_t m = 0;                  ///< Nonnegative harmonic order.
   float amplitude = 0.0f;         ///< Signed peak-speed amplitude.
-  float phase = 0.0f;             ///< Harmonic azimuthal phase in radians.
+  float phase = 0.0f; ///< Harmonic azimuthal phase, radians; ignored for m = 0.
 };
 
 /** @brief Extracts unnormalised half-turn axes from the tetrahedral mirrors.
@@ -236,8 +236,10 @@ inline PreparedTerm prepare_term(const PotentialTerm &term,
     constants = MODE_CONSTANTS[term.l * (term.l + 1) / 2 + term.m];
     result.scale = term.amplitude * SHMath::harmonic_scale(term.l, term.m) *
                    constants.scale;
-    const float angle = term.phase + term.m * drift_phase;
-    result.phase = Complex(cosf(angle), -sinf(angle));
+    if (term.m != 0) {
+      const float angle = term.phase + term.m * drift_phase;
+      result.phase = Complex(cosf(angle), -sinf(angle));
+    }
   } else {
     constants = INVARIANT_CONSTANTS[static_cast<unsigned>(term.type) - 1];
     result.scale = term.amplitude * constants.scale;
