@@ -1190,10 +1190,6 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
     fold_pixel_golden<SMALL_W, SMALL_H>(golden, effect);
   }
   hs::clear_mock_time();
-#if defined(__linux__) && !defined(__EMSCRIPTEN__) && HS_TEST_FAST_MATH
-  print_pixel_golden("MobiusGrid 96x20", golden);
-  HS_EXPECT_TRUE(golden.fingerprint.energy() > 0);
-#else
   expect_pixel_golden(
       "MobiusGrid 96x20", golden,
       RecordedGolden{{0x38b1b48b3f675c78ull,
@@ -1209,8 +1205,11 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
                      {0x3189ad4987125104ull,
                       {{6387995723ull, 5994362008ull, 6281000211ull},
                        183139927931ull,
-                       903207660667ull}}});
-#endif
+                       903207660667ull}},
+                     {0x377bb7dd310c8633ull,
+                      {{6352957965ull, 5821662016ull, 6185281849ull},
+                       176979319400ull,
+                       916116406782ull}}});
 }
 
 /** @brief Composed history type of an effect.
