@@ -191,6 +191,28 @@ class TestFirmwareInputs(unittest.TestCase):
                 self.assertEqual(cov.missing_file_blocks(root, self.FILES), [name])
                 path.write_text("/** @file */\n", encoding="utf-8")
 
+    def test_file_command_requires_a_documentation_comment(self):
+        cases = (
+            ("/* @file fixture.h */\n", False),
+            ("// @file fixture.h\n", False),
+            ('const char *s = "/** @file fixture.h */";\n', False),
+            ('const char *s = R"doc(/// @file fixture.h\n)doc";\n', False),
+            ('const char *s = R"(/* @file */ "/** @file */")";\n', False),
+            ('const char *s = "quoted \\\"/** @file fixture.h */";\n', False),
+            ("/** @file fixture.h */\n", True),
+            ("/*! \\file fixture.h */\n", True),
+            ("/// @file fixture.h\n", True),
+            ("//! @file fixture.h\n", True),
+            ('"/* not a comment */";\n/** @file fixture.h */\n', True),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for source, documented in cases:
+                with self.subTest(source=source):
+                    (root / "fixture.h").write_text(source, encoding="utf-8")
+                    self.assertEqual(cov.missing_file_blocks(root, ["fixture.h"]),
+                                     [] if documented else ["fixture.h"])
+
     def test_linker_filter_publishes_source_inside_one_documentation_block(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "fixture.ld"

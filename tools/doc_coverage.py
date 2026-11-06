@@ -205,6 +205,10 @@ def source_files(root: Path, paths: list[str]) -> list[str]:
 
 
 _FILE_COMMAND_RE = re.compile(r"[@\\]file\b")
+_SOURCE_TOKEN_RE = re.compile(
+    r'R"(?P<delimiter>[^ ()\\\t\r\n]{0,16})\(.*?\)(?P=delimiter)"'
+    r'|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\\n])*\''
+    r'|(?P<doc>/\*[*!].*?\*/|//[/!][^\n]*)|/\*.*?\*/|//[^\n]*', re.S)
 
 
 def read_source(root: Path, path: str) -> str:
@@ -217,8 +221,9 @@ def read_source(root: Path, path: str) -> str:
 
 def missing_file_blocks(root: Path, files: list[str]) -> list[str]:
     """Return the files without an `@file` documentation block."""
-    return [path for path in files if not _FILE_COMMAND_RE.search(
-        read_source(root, path))]
+    return [path for path in files if not any(
+        _FILE_COMMAND_RE.search(match["doc"] or "")
+        for match in _SOURCE_TOKEN_RE.finditer(read_source(root, path)))]
 
 
 _COMMENT_RE = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
