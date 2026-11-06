@@ -114,6 +114,57 @@ inline void test_timeline_running_rotation_owner_retirement_skips_collapse() {
   HS_EXPECT_EQ(timeline.event_count(), 0);
 }
 
+/** @brief A retired event slot can retain a new driver's final history. */
+inline void test_timeline_retired_slot_reuse() {
+  math::Orientation<16> retired_orientation, current_orientation;
+  Timeline timeline;
+  int owner = 0;
+  timeline.add_get(0,
+                   Animation::Rotation<96, 16>(retired_orientation,
+                                               math::Z_AXIS, math::PI_F, 10,
+                                               math::ease_linear),
+                   Timeline::Pin::UNPINNED, nullptr, &owner);
+  timeline.cancel_owner(&owner);
+  timeline.step(fake_canvas());
+  HS_EXPECT_EQ(timeline.event_count(), 0);
+  int completions = 0;
+  timeline.add(0,
+               Animation::Rotation<96, 16>(current_orientation, math::Z_AXIS,
+                                           math::PI_F / 2, 1, math::ease_linear)
+                   .then([&] { ++completions; }));
+  timeline.step(fake_canvas());
+  HS_EXPECT_EQ(completions, 1);
+  HS_EXPECT_EQ(timeline.event_count(), 1);
+  HS_EXPECT_GT(current_orientation.length(), 1);
+  timeline.step(fake_canvas());
+  HS_EXPECT_EQ(completions, 1);
+  HS_EXPECT_EQ(timeline.event_count(), 0);
+  HS_EXPECT_EQ(current_orientation.length(), 1);
+}
+
+/** @brief Moving a retired animation leaves an empty, unretired source. */
+inline void test_timeline_retired_event_move() {
+  math::Orientation<16> orientation;
+  Timeline timeline;
+  int owner = 0;
+  timeline.add_get(0,
+                   Animation::Rotation<96, 16>(orientation, math::Z_AXIS,
+                                               math::PI_F, 10,
+                                               math::ease_linear),
+                   Timeline::Pin::UNPINNED, nullptr, &owner);
+  timeline.cancel_owner(&owner);
+  auto &source = global_timeline_events[0];
+  TimelineEvent destination;
+  source.move_into(destination);
+  HS_EXPECT_TRUE(source.animation() == nullptr);
+  HS_EXPECT_FALSE(source.retired);
+  HS_EXPECT_TRUE(destination.animation() != nullptr);
+  HS_EXPECT_TRUE(destination.retired);
+  destination.destroy();
+  HS_EXPECT_TRUE(destination.animation() == nullptr);
+  HS_EXPECT_FALSE(destination.retired);
+}
+
 /**
  * @brief Verifies two animations sharing one Orientation COMPOSE their
  * sub-frame motion-blur history within a frame instead of clobbering it.

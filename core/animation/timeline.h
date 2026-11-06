@@ -31,7 +31,7 @@ struct TimelineEvent {
    */
   bool pinned = false;
   bool completed = false; /**< Final orientation history awaits collapse. */
-  bool retired = false;   /**< Lifetime owner has retired. */
+  bool retired = false;   /**< Live animation's lifetime owner has retired. */
   const bool *paused = nullptr; /**< Optional event-level pause gate. */
   const void *owner = nullptr;  /**< Optional lifetime owner. */
   alignas(std::max_align_t) uint8_t storage[MAX_ANIM_SIZE]; /**< Inline
@@ -61,6 +61,7 @@ struct TimelineEvent {
   /**
    * @brief Relocates this event's animation into a destination slot.
    * @param dst The destination slot to move into.
+   * @post The source is empty and has no retired owner.
    */
   void move_into(TimelineEvent &dst) {
     // Relocating a pinned event would dangle the caller's cached pointer.
@@ -81,16 +82,18 @@ struct TimelineEvent {
       manager(*this, &dst);
       manager = nullptr;
     }
+    retired = false;
   }
 
   /**
-   * @brief Destroys the stored animation and empties the slot.
+   * @brief Destroys the animation and clears the empty slot's retirement state.
    */
   void destroy() {
     if (manager) {
       manager(*this, nullptr);
       manager = nullptr;
     }
+    retired = false;
   }
 };
 
@@ -287,7 +290,6 @@ public:
     e.remaining_delay = delay;
     e.pinned = (pin == Pin::PINNED);
     e.completed = false;
-    e.retired = false;
     e.paused = paused;
     e.owner = owner;
     auto *ptr = new (e.storage) A(std::move(animation));

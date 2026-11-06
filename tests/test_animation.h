@@ -100,6 +100,8 @@ inline int run_animation_tests() {
   HS_RUN(test_timeline_completed_rotation_compaction_and_owner_cancel);
   HS_RUN(test_timeline_repeating_rotation_callback_retires_once);
   HS_RUN(test_timeline_running_rotation_owner_retirement_skips_collapse);
+  HS_RUN(test_timeline_retired_slot_reuse);
+  HS_RUN(test_timeline_retired_event_move);
   HS_RUN(test_timeline_collapse_past_id_cache);
   HS_RUN(test_timeline_sequences_events_by_start_frame);
   HS_RUN(test_timeline_pausable_event_uses_active_time);
