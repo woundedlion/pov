@@ -1197,10 +1197,8 @@ inline void test_pullback_square_cells_formula() {
           params.cell_softness = softness;
           params.cell_shape = blend;
           for (int sample = 0; sample < 256; ++sample) {
-            random = random * 1664525u + 1013904223u;
-            const float X = float(int32_t(random)) * (1024.0f / 2147483648.0f);
-            random = random * 1664525u + 1013904223u;
-            const float Y = float(int32_t(random)) * (1024.0f / 2147483648.0f);
+            const float X = lcg_uniform(random, -1024.0f, 1024.0f);
+            const float Y = lcg_uniform(random, -1024.0f, 1024.0f);
             const Pattern::PlanePosition COORDINATE{
                 math::Complex(sample < 8 ? float(sample - 4) * 0.5f : X,
                               sample < 8 ? 0.0f : Y)};
@@ -1329,10 +1327,7 @@ inline void test_pullback_tessellation_reference() {
   using K = Pattern::TessellationKind;
   using F = Pattern::TessellationFill;
   uint32_t random = 0x9e3779b9u;
-  const auto next = [&] {
-    random = random * 1664525u + 1013904223u;
-    return float(int32_t(random)) * (3.0f / 2147483648.0f);
-  };
+  const auto next = [&] { return lcg_uniform(random, -3.0f, 3.0f); };
   for (const K kind : {K::TRIANGULAR, K::SQUARE, K::HEXAGONAL})
     for (const F fill : {F::CELLS, F::EDGES})
       for (const float shape : {0.0f, 0.35f, 1.0f}) {
@@ -1435,10 +1430,8 @@ void check_tessellation_translation_lattice() {
   bool half_differs = false;
   uint32_t random = 0x2545f491u;
   for (int sample = 0; sample < 300; ++sample) {
-    random = random * 1664525u + 1013904223u;
-    const float x = float(int32_t(random)) * (2.0f / 2147483648.0f);
-    random = random * 1664525u + 1013904223u;
-    const float y = float(int32_t(random)) * (2.0f / 2147483648.0f);
+    const float x = lcg_uniform(random, -2.0f, 2.0f);
+    const float y = lcg_uniform(random, -2.0f, 2.0f);
     const math::Complex point(x, y);
     const float base = fixed_tessellation(params, point);
     for (const math::Complex shift :

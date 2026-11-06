@@ -17,6 +17,7 @@
 #include "core/render/scan/radial_surface_renderer.h"
 #include "core/render/scan/radial_surface_boundary.h"
 #include "tests/test_harness.h"
+#include "tests/test_fixture.h"
 
 namespace hs_test::radial_surface_tests {
 
@@ -442,10 +443,7 @@ inline void test_radial_surface_footprint_witness() {
       }
   }
   uint32_t random = 0x42da5819;
-  auto coordinate = [&] {
-    random = random * 1664525u + 1013904223u;
-    return float(int32_t(random)) / 2147483648.0f;
-  };
+  auto coordinate = [&] { return lcg_uniform(random, -1.0f, 1.0f); };
   for (int i = 0; i < 20000; ++i) {
     const Surface::Point P{coordinate(), coordinate()};
     const Surface::Point DX{.05f * coordinate(), .05f * coordinate()};
