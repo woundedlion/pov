@@ -32,6 +32,20 @@ class IncludePathsTests(unittest.TestCase):
                                     '#include "Arduino.h"\n'
                                     '#include "generated_fixture.h"\n'), [])
 
+    def test_angle_includes_resolve_only_at_the_repository_root(self):
+        self.assertEqual(self.check('#include <core/math/vector.h>\n#include <vector>\n'), [])
+        self.assertEqual(self.check('#include <./core/math/vector.h>\n'), [
+            'effects/sample.h:1: include "core/math/vector.h" instead of "./core/math/vector.h"'])
+        (self.root / "effects/local.h").write_text("#pragma once\n", encoding="utf-8")
+        self.assertEqual(self.check('#include <local.h>\n'), [])
+
+    def test_angle_first_party_include_cannot_bypass_layering(self):
+        (self.root / "effects/sample.h").write_text("#pragma once\n", encoding="utf-8")
+        (self.root / "core/math/vector.h").write_text(
+            '#include <effects/sample.h>\n', encoding="utf-8")
+        self.assertEqual(include_paths.check_includes(self.root, self.files), [
+            'core/math/vector.h:1: forbidden include "effects/sample.h" from core/'])
+
     def test_forbidden_dependency_directions(self):
         rules = {
             "core/": ("effects/", "targets/", "workbench/", "hardware/", "tests/", "tools/"),

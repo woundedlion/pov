@@ -14,7 +14,7 @@ from git_files import git_nul_list
 SOURCE_SUFFIXES = {".h", ".hpp", ".cpp", ".cc", ".inl", ".ino"}
 LINKER_SCRIPTS = frozenset({"tools/phantasm.ld"})
 CONFIG_HEADER = "core/vendor/FastNoiseLite_config.h"
-INCLUDE = re.compile(r'^[ \t]*#[ \t]*include[ \t]*"([^"\n]+)"', re.MULTILINE)
+INCLUDE = re.compile(r'^[ \t]*#[ \t]*include[ \t]*(?:"([^"\n]+)"|<([^>\n]+)>)', re.MULTILINE)
 LINKER_INCLUDE = re.compile(r'^[ \t]*INCLUDE[ \t]+(?:"([^"\n]+)"|([^\s;]+))', re.MULTILINE)
 FORBIDDEN_PREFIXES = {
     "core/": ("effects/", "targets/", "workbench/", "hardware/", "tests/", "tools/"),
@@ -67,7 +67,8 @@ def check_includes(root: Path, files: list[str]) -> list[str]:
         linker = name in LINKER_SCRIPTS
         for match in (LINKER_INCLUDE if linker else INCLUDE).finditer(text):
             include = match.group(1) or match.group(2)
-            candidates = [root / include] if linker else [
+            angle = not linker and match.group(2) is not None
+            candidates = [root / include] if linker or angle else [
                 path.parent / include, root / include,
                 root / "core" / include, root / "effects" / include,
                 root / "hardware" / include, root / "tests" / include]
