@@ -41,6 +41,22 @@ class BoardMetadataTests(unittest.TestCase):
                 self.assertEqual(board_metadata.main([*args, "--check"]), 1)
             self.assertIn(str(board), errors.getvalue())
 
+    def test_copper_layer_names_use_the_shared_stack_reader(self):
+        source = '''(kicad_pcb
+            (gr_rect (start 0 0) (end 10 10) (layer "Edge.Cuts"))
+            (general (thickness 1.6))
+            (layers (0 "F.Cu") (2 "B.Cu"))
+            (setup (stackup
+                (layer "F.Cu" (type "copper") (thickness 0.035))
+                (layer "B.Cu" (type "copper") (thickness 0.035))
+                (copper_finish "ENIG"))))'''
+        self.assertEqual(board_metadata.parse_board(source).copper_layers, ("F.Cu", "B.Cu"))
+        without_copper = source.replace('(layers (0 "F.Cu") (2 "B.Cu"))',
+                                        '(layers (25 "Dwgs.User" user))')
+        with self.assertRaisesRegex(board_metadata.MetadataError, "board declares no copper layers") as caught:
+            board_metadata.parse_board(without_copper)
+        self.assertIs(type(caught.exception.__cause__), ValueError)
+
     def test_knockout_silkscreen_does_not_change_outline(self):
         source = (GEN_DIR.parent / "1.1" / "phantasm.kicad_pcb").read_text(encoding="utf-8")
         baseline = board_metadata.parse_board(source)

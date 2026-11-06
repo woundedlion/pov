@@ -9,8 +9,8 @@ from pathlib import Path
 import sys
 
 import sexp
+import connectivity
 from constraints import MAX_BOARD_WIDTH_MM
-from connectivity import zone_layers
 from kicad_common import F, arc_extrema, is_copper_pour
 
 
@@ -197,13 +197,11 @@ def parse_board(text):
     general = _one_child(root, "general")
     thickness = _decimal(_one_value(general, "thickness"), "thickness")
 
-    layers_node = _one_child(root, "layers")
-    copper_layers = tuple(
-        str(layer[1]) for layer in layers_node[1:]
-        if isinstance(layer, list) and len(layer) >= 3 and str(layer[1]).endswith(".Cu")
-    )
-    if not copper_layers:
-        raise MetadataError("board has no copper layers")
+    _one_child(root, "layers")
+    try:
+        copper_layers = tuple(connectivity.copper_layers(root))
+    except ValueError as error:
+        raise MetadataError(str(error)) from error
 
     setup = _one_child(root, "setup")
     stackup = _one_child(setup, "stackup")
@@ -227,7 +225,7 @@ def parse_board(text):
     rule_areas = 0
     for zone in F(root, "zone"):
         try:
-            layers = zone_layers(zone, copper_layers)
+            layers = connectivity.zone_layers(zone, copper_layers)
         except ValueError as error:
             raise MetadataError(str(error)) from error
         if is_copper_pour(zone):
