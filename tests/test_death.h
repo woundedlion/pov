@@ -2632,8 +2632,8 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"hardware/pov_single.h", 9},
     {"hardware/device_effect.h", 1},
     {"targets/Profile/Profile.ino", 5},
-    // WASM-only bootstrap and reconstruction invariants; exercised by engine contracts.
-    {"targets/wasm/engine_bindings.h", 9},
+    // WASM-only bootstrap and reconstruction invariants, including modulation restore.
+    {"targets/wasm/engine_bindings.h", 11},
     {"targets/wasm/mesh_ops_bindings.h", 2},
     {"targets/wasm/workbench_bindings.h", 2},
     // Capture-only dispatch receives a validated snapshot recipe.
