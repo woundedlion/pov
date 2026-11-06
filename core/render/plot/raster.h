@@ -623,7 +623,7 @@ template <RasterConfig Cfg> struct SinglePassWalk {
         requires { std::remove_cvref_t<SampleT>::NEWTON_UNIT; };
     if constexpr (Cfg.open_geodesic || NEWTON_UNIT_SAMPLER) {
       HS_PLOT_COUNT(normalizations);
-#if HS_ENABLE_TEST_ORACLES || defined(HS_MINDSPLATTER_REPLAY)
+#if HS_REFERENCE_SCREEN_STEP_HOOK
       if (g_reference_screen_step) {
         p = smp.pos.normalized();
       } else
@@ -953,7 +953,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     // Equatorial step 2π/W: screen_step cap and balanced-threshold reference.
     const float base_step = (2.0f * math::PI_F) / W;
     auto adaptive_step = [&](const SamplePT &value) {
-#if HS_ENABLE_TEST_ORACLES || defined(HS_MINDSPLATTER_REPLAY)
+#if HS_REFERENCE_SCREEN_STEP_HOOK
       if (!g_reference_screen_step)
 #endif
         if (!world_identity && step_axes.usable())
@@ -964,7 +964,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       } else {
         if (!world_identity)
           return pipeline_screen_step<W, H>(pipeline, value, false, &step_axes);
-#if HS_ENABLE_TEST_ORACLES || defined(HS_MINDSPLATTER_REPLAY)
+#if HS_REFERENCE_SCREEN_STEP_HOOK
         if (g_reference_screen_step)
           return screen_step_reference<W, H>(value.pos, value.tan, base_step);
 #endif

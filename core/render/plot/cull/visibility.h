@@ -174,7 +174,7 @@ pipeline_screen_step(PipelineT &pipeline, const SamplePT &sample,
                      const ScreenStepAxes *axes = nullptr) {
   constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   if (world_identity) {
-#if HS_ENABLE_TEST_ORACLES || defined(HS_MINDSPLATTER_REPLAY)
+#if HS_REFERENCE_SCREEN_STEP_HOOK
     if (g_reference_screen_step)
       return screen_step_reference<W, H>(sample.pos, sample.tan, BASE_STEP);
 #endif
@@ -183,7 +183,7 @@ pipeline_screen_step(PipelineT &pipeline, const SamplePT &sample,
   if (math::dot(sample.tan, sample.tan) < math::EPS_NORMALIZE_SQ)
     return BASE_STEP;
   float step = BASE_STEP;
-#if HS_ENABLE_TEST_ORACLES || defined(HS_MINDSPLATTER_REPLAY)
+#if HS_REFERENCE_SCREEN_STEP_HOOK
   if (!g_reference_screen_step)
 #endif
     if (axes && axes->usable())
@@ -194,7 +194,7 @@ pipeline_screen_step(PipelineT &pipeline, const SamplePT &sample,
       [&](const math::Vector &pos, const math::Vector &tan, const math::Basis *)
           HS_HOT_FLASH_MEMBER {
             float candidate;
-#if HS_ENABLE_TEST_ORACLES || defined(HS_MINDSPLATTER_REPLAY)
+#if HS_REFERENCE_SCREEN_STEP_HOOK
             if (g_reference_screen_step)
               candidate = screen_step_reference<W, H>(pos, tan, BASE_STEP);
             else
