@@ -229,6 +229,13 @@ inline void test_potential_divergence_and_curl() {
     }
 }
 
+/** @brief Exact sphere exponential. */
+inline math::Vector exponential(math::Vector p, math::Vector tangent) {
+  const float length = tangent.length();
+  return length > 1e-8f ? p * cosf(length) + tangent * (sinf(length) / length)
+                        : p;
+}
+
 /** @brief Applies a reflection-group matrix. */
 inline math::Vector apply(const lenses::DodecahedralTable::Matrix &matrix,
                           math::Vector p) {
@@ -259,10 +266,7 @@ inline void test_invariants_and_vector_fields_follow_fold_groups() {
     const auto poloidal = single_term(term);
     const auto image_sample = [&](const TF::PotentialField &field,
                                   math::Vector point, float strength) {
-      const auto tangent = field.velocity(point) * strength;
-      const float arc = tangent.length();
-      const auto warped =
-          arc > 1e-8f ? point * cosf(arc) + tangent * (sinf(arc) / arc) : point;
+      const auto warped = exponential(point, field.velocity(point) * strength);
       return lenses::polyhedral_kaleidoscope_lens(warped, mirrors[symmetry]);
     };
     float reflected_image_difference = 0.0f;
@@ -304,10 +308,7 @@ inline void test_invariants_and_vector_fields_follow_fold_groups() {
   const auto azimuthal_toroidal = single_term(azimuthal);
   const auto image_sample = [](const TF::PotentialField &field,
                                math::Vector point, float strength) {
-    const auto tangent = field.velocity(point) * strength;
-    const float arc = tangent.length();
-    const auto warped =
-        arc > 1e-8f ? point * cosf(arc) + tangent * (sinf(arc) / arc) : point;
+    const auto warped = exponential(point, field.velocity(point) * strength);
     return lenses::kaleidoscope_lens(warped);
   };
   float reflected_image_difference = 0.0f;
@@ -433,13 +434,6 @@ inline void test_zonal_potential_phase_preserves_peak_speed() {
       }
     }
   }
-}
-
-/** @brief Exact sphere exponential for the independent Jacobian oracle. */
-inline math::Vector exponential(math::Vector p, math::Vector tangent) {
-  const float length = tangent.length();
-  return length > 1e-8f ? p * cosf(length) + tangent * (sinf(length) / length)
-                        : p;
 }
 
 inline void test_fold_advisory_precedes_sampled_jacobian_onset() {
