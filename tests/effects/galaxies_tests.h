@@ -196,7 +196,7 @@ inline void test_galaxies_white_star_stays_white() {
   HS_EXPECT_GT(colors[1][0], colors[2][0]);
 }
 
-/** @brief The core toggle removes the core glow and restores it. */
+/** @brief The core toggle removes glow and the black core attenuates stars. */
 inline void test_galaxies_black_hole_core_toggle() {
   reset_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
@@ -238,6 +238,27 @@ inline void test_galaxies_black_hole_core_toggle() {
       original_energy = center_energy;
     }
   }
+  fx.updateParameter("Black Hole", 1.0f);
+  auto &particles = GalaxiesWhiteBox::system(fx);
+  const auto &galaxy = GalaxiesWhiteBox::galaxy(fx, 0);
+  particles.spawn(galaxy.core, {}, 0xc000);
+  HS_EXPECT_EQ(particles.active(), 1u);
+  particles.pool[0].life = particles.max_life - 700;
+  uint64_t star_energy[2]{};
+  for (int sample = 0; sample < 2; ++sample) {
+    const float RING = sample == 0 ? 0.04f : 0.12f;
+    particles.pool[0].set_position(galaxy.core * cosf(RING) +
+                                   galaxy.u * sinf(RING));
+    GalaxiesWhiteBox::render(fx);
+    fx.advance_display();
+    star_energy[sample] = frame_energy<DEFAULT_W, DEFAULT_H>(fx);
+    HS_EXPECT_GT(star_energy[sample], 0u);
+  }
+  const double RATIO = static_cast<double>(star_energy[0]) / star_energy[1];
+  std::printf("  black-hole star near=%llu far=%llu ratio=%.6f\n",
+              static_cast<unsigned long long>(star_energy[0]),
+              static_cast<unsigned long long>(star_energy[1]), RATIO);
+  HS_EXPECT_NEAR(RATIO, 0.61, 0.10);
 }
 
 /** @brief Stars span logarithmic arms with tangential orbital velocities. */
