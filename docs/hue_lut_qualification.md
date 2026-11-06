@@ -165,6 +165,44 @@ that the restored counter is registered and referenced by the out-of-gamut
 bake branch. This is static target-code reachability, not an observed device
 counter count. Other `gamut_clip` sites retain the same label.
 
+## Procedural fallback return optimization
+
+The fallback returns linear RGB in floating-point registers on ARM and leaves
+RGB16 quantization in its caller. The canonical RGB-first helper keeps its
+FLASH placement and inlines its small conversion and gamut-admission helpers.
+Masks, node storage, retained-view ownership, interpolation, gamut thresholds
+and numerical budgets are unchanged.
+
+Fresh shipping Profile pairs against `facc9a852` use stock preset 0, 70 seconds
+and 32-frame windows. AlienBrain and AshCloud use COM3/serial 6362410;
+JewelMelt uses COM4/serial 6362390. Every canonical validator passes. Each row
+contains 1087 live frames after the actual setup draw; all live spills are zero.
+
+| Effect | Control/optimized live peak ms | Control/optimized live mean ms | Control/optimized setup ms |
+| --- | ---: | ---: | ---: |
+| AlienBrain | 35.878 / 35.495 | 30.273523 / 30.005950 | 59.742 / 58.890 |
+| JewelMelt | 51.179 / 50.844 | 43.974616 / 43.919196 | 77.242 / 77.237 |
+| AshCloud | 57.039 / 56.568 | 49.841427 / 49.645090 | 90.109 / 86.967 |
+
+This is a partial recovery of the accurate renderer's cost. The earlier
+original-to-accurate comparisons remain separate; these stock-preset samples
+do not establish a universal worst-case bound.
+
+Windows Clang 23 strict and fast-math qualification each pass 78383939
+assertions with the unchanged 7000 maximum and 256 mean channel-code budgets.
+The focused cache/ownership contract probe passes 577 assertions. The known
+Windows Clang exact-node one-code baseline limitation remains separate.
+
+The shipping memory/layout gates pass. RAM1 code increases by 144 bytes
+(192328 to 192472), RAM1 variables remain 313760 bytes, FLASH code increases
+by 392 bytes (1180440 to 1180832), and FLASH data remains 790784 bytes.
+DTCM free space remains 13920 bytes; owned cache, node and view sizes are
+unchanged. Capture artifacts retain the exact source diffs and ELF hashes.
+The restoration-removal negative companion fails two assertions. Focused Release
+WASM draw peaks are 432/812/432 bytes for AlienBrain/AshCloud/JewelMelt at both
+supported resolutions over 120 frames each; initialization peaks at 1120 bytes.
+All stay below the unchanged 2048-byte budget. Canonical CI remains required.
+
 ## Historical original-to-accurate study
 
 The earlier six-capture study compared the original `5a5cd76f` runtime with

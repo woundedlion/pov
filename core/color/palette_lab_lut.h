@@ -62,10 +62,10 @@ struct PaletteLabLutBase {
    * @param value Palette coordinate.
    * @param cosine Prepared hue cosine.
    * @param sine Prepared hue sine.
-   * @return Gamut-mapped RGB16. */
-  HS_HOT_FLASH_MEMBER static Pixel
-  canonical_hue_color(const PaletteLabTimeView &time, float value, float cosine,
-                      float sine) {
+   * @return Gamut-mapped linear RGB. */
+  HS_HOT_FLASH_MEMBER __attribute__((flatten)) static LinRGB
+  canonical_hue_rgb(const PaletteLabTimeView &time, float value, float cosine,
+                    float sine) {
     const auto RGB = time.canonical_base->palette_from->get_color(value).lerp16(
         time.canonical_base->palette_to->get_color(value),
         frac_to_q16(time.fraction));
@@ -74,7 +74,19 @@ struct PaletteLabLutBase {
         rotate_chroma(linear_rgb_to_oklab_fast(LINEAR_INPUT.r, LINEAR_INPUT.g,
                                                LINEAR_INPUT.b),
                       cosine, sine);
-    return linrgb_to_pixel(oklab_to_linear_rgb_lut_gamut(LAB));
+    return oklab_to_linear_rgb_lut_gamut(LAB);
+  }
+
+  /** @brief Finishes the immutable RGB-first base through a prepared hue.
+   * @param time Borrowed endpoint palettes and interval progress.
+   * @param value Palette coordinate.
+   * @param cosine Prepared hue cosine.
+   * @param sine Prepared hue sine.
+   * @return Gamut-mapped RGB16. */
+  HS_HOT_INLINE static Pixel canonical_hue_color(const PaletteLabTimeView &time,
+                                                 float value, float cosine,
+                                                 float sine) {
+    return linrgb_to_pixel(canonical_hue_rgb(time, value, cosine, sine));
   }
 
   /** @brief Prepares the two time rows for one column.
@@ -137,9 +149,9 @@ struct PaletteLabLutBase {
    * @param time Borrowed neighboring base rows.
    * @param value Palette coordinate.
    * @param hue Rotation in turns.
-   * @return Gamut-mapped RGB16. */
-  HS_HOT_FLASH_MEMBER static Pixel
-  direct_hue_color(const PaletteLabTimeView &time, float value, float hue) {
+   * @return Gamut-mapped linear RGB. */
+  HS_HOT_FLASH_MEMBER static LinRGB
+  direct_hue_rgb(const PaletteLabTimeView &time, float value, float hue) {
     float cosine, sine;
     hue_sincos(hue, cosine, sine);
     OKLab lab =
@@ -147,11 +159,21 @@ struct PaletteLabLutBase {
     LinRGB raw = oklab_to_linear_rgb(lab);
     if (PaletteLabLutBase::near_gamut_gate(raw) && time.canonical_base &&
         time.canonical_base->palette_from && time.canonical_base->palette_to) {
-      return PaletteLabLutBase::canonical_hue_color(time, value, cosine, sine);
+      return PaletteLabLutBase::canonical_hue_rgb(time, value, cosine, sine);
     }
     if (!linear_rgb_in_gamut(raw.r, raw.g, raw.b))
       raw = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(lab));
-    return linrgb_to_pixel(raw);
+    return raw;
+  }
+
+  /** @brief Finishes a marked hue cell from its perceptual base.
+   * @param time Borrowed neighboring base rows.
+   * @param value Palette coordinate.
+   * @param hue Rotation in turns.
+   * @return Gamut-mapped RGB16. */
+  HS_HOT_INLINE static Pixel direct_hue_color(const PaletteLabTimeView &time,
+                                              float value, float hue) {
+    return linrgb_to_pixel(direct_hue_rgb(time, value, hue));
   }
 };
 

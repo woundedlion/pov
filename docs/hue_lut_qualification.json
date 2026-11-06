@@ -1564,5 +1564,308 @@
       }
     ],
     "conclusion": "Neither improves observed peak; both remain unlanded. This bounded search does not establish that the selected cost is unavoidable."
+  },
+  "abi_fallback_optimization_20261106": {
+    "status": "Three stock-preset-0 shipping A/B pairs passed; canonical CI remains required.",
+    "baseline_sha": "facc9a852097cd82a8fc068947d52c07df61d84a",
+    "mechanism": "Return procedural fallback RGB as a floating-point aggregate, quantize RGB16 in the caller, and inline canonical RGB conversion helpers inside the existing FLASH function. No cache/view/node/mask allocation or numerical-limit changes.",
+    "source_header": "core/color/palette_lab_lut.h",
+    "source_header_sha256": "85de237c7b7c377e252adf1f2d3c826cddbf3fa510bd8cecf05af821d0572458",
+    "pairs": {
+      "baseline_alienbrain": {
+        "role": "accurate control",
+        "path": "C:\\work\\temp\\hue-opt-20261106\\baseline_alienbrain.log",
+        "sha256": "744e5f869f4210bb61dea574253196295aa7112a14ab6e3ea1a5ca063b1fb80d",
+        "source": "facc9a852097cd82a8fc068947d52c07df61d84a",
+        "artifact_dir": "C:\\work\\temp\\hue-opt-20261106\\artifacts\\baseline_alienbrain_facc9a852097_e48b59025306",
+        "source_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "profile_elf_sha256": "e48b59025306094b091b8ae9ba9f10b8259f7ab4a163ba37a8b4f570e125ca8d",
+        "board": "COM3 serial6362410",
+        "preset": 0,
+        "window": 32,
+        "seconds": 70,
+        "setup_frame1_us": 59742,
+        "live_frames": 1087,
+        "live_peak_us": 35878,
+        "peak_frame": 381,
+        "live_mean_us": 30273.522539098438,
+        "live_spills": 0,
+        "validator_exit": 0,
+        "validator_output": "effect=AlienBrain  windows=34\n  [PASS] captured >=3 windows (34)\n  [PASS] every window names one effect and resolution (AlienBrain 288x144)\n  [PASS] frame numbers monotonic (no epoch reset) (0 resets)\n  [PASS] fixed profile preset 0/4\n  [PASS] per-frame render is render, not wall (0 of 34 windows have render == wall)\n  [PASS] per-frame rows cover every frame of their window (0 of 34 windows are short)\n  [PASS] scope 'fx_shader_draw' appears in at least one window\n  [PASS] richest window carries a root 'frame' counter and a wall sum\n  [PASS] root cyc/600 vs wall sum within 5 ppm (0.8 ppm, frames 961-992)\n\nVALID: AlienBrain\n",
+        "shipping_gate_pass": true,
+        "RAM1_variables": 313760,
+        "RAM1_code": 192328,
+        "DTCM_free": 13920,
+        "FLASH_code": 1180440,
+        "FLASH_data": 790784
+      },
+      "hfa_alienbrain": {
+        "role": "RGB-return ABI",
+        "path": "C:\\work\\temp\\hue-opt-20261106\\hfa_alienbrain.log",
+        "sha256": "c343b921d3d9d41843a998a997bc136c0f829a78b3243b6c2359b34de9cfe7e5",
+        "source": "facc9a852097cd82a8fc068947d52c07df61d84a",
+        "artifact_dir": "C:\\work\\temp\\hue-opt-20261106\\artifacts\\hfa_alienbrain_facc9a852097_3b4ed058aa83",
+        "source_diff_sha256": "d05f4f5acb5dd633d40248205528b66d4ee42c4aee2119e1832e88a3ee7eb805",
+        "profile_elf_sha256": "3b4ed058aa83c47749d1ae76b68dc1c71dc70ebbea363daf14e51c44d02e9e33",
+        "board": "COM3 serial6362410",
+        "preset": 0,
+        "window": 32,
+        "seconds": 70,
+        "setup_frame1_us": 58890,
+        "live_frames": 1087,
+        "live_peak_us": 35495,
+        "peak_frame": 381,
+        "live_mean_us": 30005.950321987122,
+        "live_spills": 0,
+        "validator_exit": 0,
+        "validator_output": "effect=AlienBrain  windows=34\n  [PASS] captured >=3 windows (34)\n  [PASS] every window names one effect and resolution (AlienBrain 288x144)\n  [PASS] frame numbers monotonic (no epoch reset) (0 resets)\n  [PASS] fixed profile preset 0/4\n  [PASS] per-frame render is render, not wall (0 of 34 windows have render == wall)\n  [PASS] per-frame rows cover every frame of their window (0 of 34 windows are short)\n  [PASS] scope 'fx_shader_draw' appears in at least one window\n  [PASS] richest window carries a root 'frame' counter and a wall sum\n  [PASS] root cyc/600 vs wall sum within 5 ppm (1.2 ppm, frames 1-32)\n\nVALID: AlienBrain\n",
+        "shipping_gate_pass": true,
+        "RAM1_variables": 313760,
+        "RAM1_code": 192472,
+        "DTCM_free": 13920,
+        "FLASH_code": 1180832,
+        "FLASH_data": 790784
+      },
+      "baseline_jewelmelt": {
+        "role": "accurate control",
+        "path": "C:\\work\\temp\\hue-opt-20261106\\baseline_jewelmelt.log",
+        "sha256": "a8e4f006aeeb0180b97877a0b5b1422ef447a525e3a7d6441282f8051e4ada16",
+        "source": "facc9a852097cd82a8fc068947d52c07df61d84a",
+        "artifact_dir": "C:\\work\\temp\\hue-opt-20261106\\artifacts\\baseline_jewelmelt_facc9a852097_0feacca787ce",
+        "source_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "profile_elf_sha256": "0feacca787ce7704caf545777254a90245e8758196be6c3472504e4cc3339f44",
+        "board": "COM4 serial6362390",
+        "preset": 0,
+        "window": 32,
+        "seconds": 70,
+        "setup_frame1_us": 77242,
+        "live_frames": 1087,
+        "live_peak_us": 51179,
+        "peak_frame": 311,
+        "live_mean_us": 43974.61637534499,
+        "live_spills": 0,
+        "validator_exit": 0,
+        "validator_output": "effect=JewelMelt  windows=34\n  [PASS] captured >=3 windows (34)\n  [PASS] every window names one effect and resolution (JewelMelt 288x144)\n  [PASS] frame numbers monotonic (no epoch reset) (0 resets)\n  [PASS] fixed profile preset 0/1\n  [PASS] per-frame render is render, not wall (0 of 34 windows have render == wall)\n  [PASS] per-frame rows cover every frame of their window (0 of 34 windows are short)\n  [PASS] scope 'fx_shader_draw' appears in at least one window\n  [PASS] richest window carries a root 'frame' counter and a wall sum\n  [PASS] root cyc/600 vs wall sum within 5 ppm (0.6 ppm, frames 321-352)\n\nVALID: JewelMelt\n",
+        "shipping_gate_pass": true,
+        "RAM1_variables": 313760,
+        "RAM1_code": 192328,
+        "DTCM_free": 13920,
+        "FLASH_code": 1180440,
+        "FLASH_data": 790784
+      },
+      "hfa_jewelmelt": {
+        "role": "RGB-return ABI",
+        "path": "C:\\work\\temp\\hue-opt-20261106\\hfa_jewelmelt.log",
+        "sha256": "e717aee556d5ae4d2fbb804ae325e7efbecfa5df581a91709eb7380cf0f1645d",
+        "source": "facc9a852097cd82a8fc068947d52c07df61d84a",
+        "artifact_dir": "C:\\work\\temp\\hue-opt-20261106\\artifacts\\hfa_jewelmelt_facc9a852097_5e84d58926a8",
+        "source_diff_sha256": "d05f4f5acb5dd633d40248205528b66d4ee42c4aee2119e1832e88a3ee7eb805",
+        "profile_elf_sha256": "5e84d58926a87f786bada34acd3b6b0ece31e06a141d745c9cde27c0946d349a",
+        "board": "COM4 serial6362390",
+        "preset": 0,
+        "window": 32,
+        "seconds": 70,
+        "setup_frame1_us": 77237,
+        "live_frames": 1087,
+        "live_peak_us": 50844,
+        "peak_frame": 321,
+        "live_mean_us": 43919.195952161914,
+        "live_spills": 0,
+        "validator_exit": 0,
+        "validator_output": "effect=JewelMelt  windows=34\n  [PASS] captured >=3 windows (34)\n  [PASS] every window names one effect and resolution (JewelMelt 288x144)\n  [PASS] frame numbers monotonic (no epoch reset) (0 resets)\n  [PASS] fixed profile preset 0/1\n  [PASS] per-frame render is render, not wall (0 of 34 windows have render == wall)\n  [PASS] per-frame rows cover every frame of their window (0 of 34 windows are short)\n  [PASS] scope 'fx_shader_draw' appears in at least one window\n  [PASS] richest window carries a root 'frame' counter and a wall sum\n  [PASS] root cyc/600 vs wall sum within 5 ppm (0.3 ppm, frames 321-352)\n\nVALID: JewelMelt\n",
+        "shipping_gate_pass": true,
+        "RAM1_variables": 313760,
+        "RAM1_code": 192472,
+        "DTCM_free": 13920,
+        "FLASH_code": 1180832,
+        "FLASH_data": 790784
+      },
+      "baseline_ashcloud": {
+        "role": "accurate control",
+        "path": "C:\\work\\temp\\hue-opt-20261106\\baseline_ashcloud.log",
+        "sha256": "be2a2224e0b95a87ee65403d7fb611cb7261173fa5d45d38122781ef9dfc8e0c",
+        "source": "facc9a852097cd82a8fc068947d52c07df61d84a",
+        "artifact_dir": "C:\\work\\temp\\hue-opt-20261106\\artifacts\\baseline_ashcloud_facc9a852097_7ed5f16bdb93",
+        "source_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "profile_elf_sha256": "7ed5f16bdb938ba4fc8f39cfc6e72a6498271c7cf0bcbedf5994d8a65b61b2ee",
+        "board": "COM3 serial6362410",
+        "preset": 0,
+        "window": 32,
+        "seconds": 70,
+        "setup_frame1_us": 90109,
+        "live_frames": 1087,
+        "live_peak_us": 57039,
+        "peak_frame": 906,
+        "live_mean_us": 49841.42686292548,
+        "live_spills": 0,
+        "validator_exit": 0,
+        "validator_output": "effect=AshCloud  windows=34\n  [PASS] captured >=3 windows (34)\n  [PASS] every window names one effect and resolution (AshCloud 288x144)\n  [PASS] frame numbers monotonic (no epoch reset) (0 resets)\n  [PASS] fixed profile preset 0/1\n  [PASS] per-frame render is render, not wall (0 of 34 windows have render == wall)\n  [PASS] per-frame rows cover every frame of their window (0 of 34 windows are short)\n  [PASS] scope 'fx_shader_draw' appears in at least one window\n  [PASS] richest window carries a root 'frame' counter and a wall sum\n  [PASS] root cyc/600 vs wall sum within 5 ppm (1.1 ppm, frames 897-928)\n\nVALID: AshCloud\n",
+        "shipping_gate_pass": true,
+        "RAM1_variables": 313760,
+        "RAM1_code": 192328,
+        "DTCM_free": 13920,
+        "FLASH_code": 1180440,
+        "FLASH_data": 790784
+      },
+      "hfa_ashcloud": {
+        "role": "RGB-return ABI",
+        "path": "C:\\work\\temp\\hue-opt-20261106\\hfa_ashcloud.log",
+        "sha256": "005055f6460e8ca7660bf3309b1a479793bff54f201317615dc6a0518fc17ef9",
+        "source": "facc9a852097cd82a8fc068947d52c07df61d84a",
+        "artifact_dir": "C:\\work\\temp\\hue-opt-20261106\\artifacts\\hfa_ashcloud_facc9a852097_37fc6cb4136e",
+        "source_diff_sha256": "d05f4f5acb5dd633d40248205528b66d4ee42c4aee2119e1832e88a3ee7eb805",
+        "profile_elf_sha256": "37fc6cb4136e3dfb38431f993766862baadc93960e2a97dfaa91ce2927a50d3f",
+        "board": "COM3 serial6362410",
+        "preset": 0,
+        "window": 32,
+        "seconds": 70,
+        "setup_frame1_us": 86967,
+        "live_frames": 1087,
+        "live_peak_us": 56568,
+        "peak_frame": 920,
+        "live_mean_us": 49645.090156393744,
+        "live_spills": 0,
+        "validator_exit": 0,
+        "validator_output": "effect=AshCloud  windows=34\n  [PASS] captured >=3 windows (34)\n  [PASS] every window names one effect and resolution (AshCloud 288x144)\n  [PASS] frame numbers monotonic (no epoch reset) (0 resets)\n  [PASS] fixed profile preset 0/1\n  [PASS] per-frame render is render, not wall (0 of 34 windows have render == wall)\n  [PASS] per-frame rows cover every frame of their window (0 of 34 windows are short)\n  [PASS] scope 'fx_shader_draw' appears in at least one window\n  [PASS] richest window carries a root 'frame' counter and a wall sum\n  [PASS] root cyc/600 vs wall sum within 5 ppm (1.3 ppm, frames 897-928)\n\nVALID: AshCloud\n",
+        "shipping_gate_pass": true,
+        "RAM1_variables": 313760,
+        "RAM1_code": 192472,
+        "DTCM_free": 13920,
+        "FLASH_code": 1180832,
+        "FLASH_data": 790784
+      }
+    },
+    "native": {
+      "strict_assertions": 78383939,
+      "fast_math_assertions": 78383939,
+      "focused_cache_contract_assertions": 577,
+      "strict_log": "C:\\work\\temp\\hue-opt-20261106\\hfa_strict.log",
+      "fast_log": "C:\\work\\temp\\hue-opt-20261106\\hfa_fast.log",
+      "contracts_log": "C:\\work\\temp\\hue-opt-20261106\\column-contracts.log",
+      "compiler": "Windows Clang23 through C:/work/emsdk/upstream/bin/clang++.exe",
+      "flags": [
+        "-O2",
+        "fast companion adds -ffast-math -fno-finite-math-only"
+      ],
+      "limits": "Exact-node Windows Clang equality checks have an existing one-code baseline issue; that check was not included in the focused contract set. Required canonical CI is separate.",
+      "restoration_negative_companion": {
+        "log": "C:\\work\\temp\\hue-opt-20261106\\abi-restoration-mutation.log",
+        "passed": 78383937,
+        "failed": 2,
+        "mutation": "Disable near-gamut canonical restoration; production source untouched."
+      }
+    },
+    "memory_delta": {
+      "RAM1_code": 144,
+      "RAM1_variables": 0,
+      "FLASH_code": 392,
+      "FLASH_data": 0,
+      "DTCM_free": 0,
+      "owned_cache_and_view_bytes": 0
+    },
+    "scope": "1087 live frames after actual setup frame1 in each complete 1088-frame capture. Same physical board within each pair. Preset0 only; no universal worst-case or full-roster claim. Earlier baseline-to-accurate cost remains only partly recovered.",
+    "wasm_stack": {
+      "log": "C:\\work\\temp\\hue-opt-20261106\\hfa-wasm-stack.log",
+      "frames_per_effect_resolution": 120,
+      "budget_bytes": 2048,
+      "rows": [
+        {
+          "effect": "AlienBrain",
+          "width": 96,
+          "height": 20,
+          "changes": [
+            {
+              "frame": 0,
+              "peak": 432
+            }
+          ],
+          "stack": {
+            "high_water_mark": 432,
+            "init_high_water_mark": 1120,
+            "capacity": 8192
+          }
+        },
+        {
+          "effect": "AlienBrain",
+          "width": 288,
+          "height": 144,
+          "changes": [
+            {
+              "frame": 0,
+              "peak": 432
+            }
+          ],
+          "stack": {
+            "high_water_mark": 432,
+            "init_high_water_mark": 1120,
+            "capacity": 8192
+          }
+        },
+        {
+          "effect": "AshCloud",
+          "width": 96,
+          "height": 20,
+          "changes": [
+            {
+              "frame": 0,
+              "peak": 812
+            }
+          ],
+          "stack": {
+            "high_water_mark": 812,
+            "init_high_water_mark": 1120,
+            "capacity": 8192
+          }
+        },
+        {
+          "effect": "AshCloud",
+          "width": 288,
+          "height": 144,
+          "changes": [
+            {
+              "frame": 0,
+              "peak": 812
+            }
+          ],
+          "stack": {
+            "high_water_mark": 812,
+            "init_high_water_mark": 1120,
+            "capacity": 8192
+          }
+        },
+        {
+          "effect": "JewelMelt",
+          "width": 96,
+          "height": 20,
+          "changes": [
+            {
+              "frame": 0,
+              "peak": 432
+            }
+          ],
+          "stack": {
+            "high_water_mark": 432,
+            "init_high_water_mark": 1120,
+            "capacity": 8192
+          }
+        },
+        {
+          "effect": "JewelMelt",
+          "width": 288,
+          "height": 144,
+          "changes": [
+            {
+              "frame": 0,
+              "peak": 432
+            }
+          ],
+          "stack": {
+            "high_water_mark": 432,
+            "init_high_water_mark": 1120,
+            "capacity": 8192
+          }
+        }
+      ]
+    }
   }
 }
