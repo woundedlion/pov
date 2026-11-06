@@ -11,9 +11,9 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import gen_chain_capture_fixtures as generator  # noqa: E402
-from generate_pullback_manifest_header import load_and_validate, protocol_definition  # noqa: E402
-from pullback_capture import operation_specs, oracle_operation_specs  # noqa: E402
+import gen_chain_capture_fixtures as generator
+from generate_pullback_manifest_header import load_and_validate, protocol_definition
+from pullback_capture import operation_specs, oracle_operation_specs
 
 
 class ChainCaptureFixtureTests(unittest.TestCase):

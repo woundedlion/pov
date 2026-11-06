@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from git_test_env import isolated_env  # noqa: E402
+from git_test_env import isolated_env
 
 RUNNER = Path(__file__).resolve().parents[1] / "run_python_tests.py"
 

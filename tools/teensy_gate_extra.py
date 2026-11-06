@@ -9,7 +9,7 @@ import os
 import subprocess
 import sys
 
-Import("env")  # noqa: F821  (SCons global injected by PlatformIO)
+Import("env")
 
 # SCons exec's this script without a __file__, so derive the tools dir from the
 # project dir to import the toolchain-free gate logic.

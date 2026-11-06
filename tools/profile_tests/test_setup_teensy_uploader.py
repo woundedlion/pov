@@ -11,7 +11,7 @@ from unittest import mock
 import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import setup_teensy_uploader as setup  # noqa: E402
+import setup_teensy_uploader as setup
 
 
 def archive(executable):

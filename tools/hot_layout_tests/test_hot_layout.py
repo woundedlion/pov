@@ -15,7 +15,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import hot_layout as hl  # noqa: E402
+import hot_layout as hl
 
 PHANTASM = hl.Origin(r".pio\build\phantasm\src\targets\Phantasm\Phantasm.ino.cpp.o")
 LIBM = hl.Origin("C:/toolchain/hard/libm.a", "libm_a-sf_sin.o")

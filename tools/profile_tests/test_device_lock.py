@@ -16,7 +16,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from git_test_env import isolated_env  # noqa: E402
+from git_test_env import isolated_env
 
 REPO = Path(__file__).resolve().parents[2]
 LOCK_SH = REPO / "tools" / "device_lock.sh"

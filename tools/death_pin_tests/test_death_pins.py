@@ -9,7 +9,7 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tests"))
-import check_death_pins as checker  # noqa: E402
+import check_death_pins as checker
 
 
 class DeathPinUniqueness(unittest.TestCase):

@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from git_test_env import isolated_env, require_tool  # noqa: E402
+from git_test_env import isolated_env, require_tool
 
 REPO = Path(__file__).resolve().parents[2]
 CHECK = REPO / "tools" / "require_test_files.sh"

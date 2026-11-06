@@ -15,9 +15,9 @@ import zipfile
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import fab  # noqa: E402
-import release  # noqa: E402
-from kicad_env import GENERATES, GENERATES_REASON  # noqa: E402
+import fab
+import release
+from kicad_env import GENERATES, GENERATES_REASON
 
 
 class ReleaseTests(unittest.TestCase):

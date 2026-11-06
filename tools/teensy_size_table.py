@@ -16,8 +16,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import teensy_gate  # noqa: E402
-import teensy_warnings  # noqa: E402
+import teensy_gate
+import teensy_warnings
 
 # Table rows: (region, key, label). key is a teensy_size component, "free", or
 # "used" (the component sum the size gate budgets against).

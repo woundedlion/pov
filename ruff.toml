@@ -1,8 +1,7 @@
-# Lint config for every Python file in the repo: defect rules only (pyflakes,
-# the pycodestyle error classes and the pylint error group).
+# Lint config for Python defects and unused suppression directives.
 
 [lint]
-select = ["E4", "E7", "E9", "F", "PLE"]
+select = ["E4", "E7", "E9", "F", "PLE", "RUF100"]
 # Style choices the tree already makes consistently, not defects.
 ignore = ["E702", "E731", "E741"]
 

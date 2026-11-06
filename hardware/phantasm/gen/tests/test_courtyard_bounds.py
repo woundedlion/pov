@@ -6,8 +6,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import sexp  # noqa: E402
-from courtyard_bounds import courtyard_box  # noqa: E402
+import sexp
+from courtyard_bounds import courtyard_box
 
 
 class CourtyardBoundsTests(unittest.TestCase):

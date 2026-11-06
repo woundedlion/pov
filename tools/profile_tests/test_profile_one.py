@@ -15,7 +15,7 @@ from pathlib import Path
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from git_test_env import isolated_env  # noqa: E402
+from git_test_env import isolated_env
 
 REPO = Path(__file__).resolve().parents[2]
 PROFILE_ONE = REPO / "tools" / "profile_one.sh"

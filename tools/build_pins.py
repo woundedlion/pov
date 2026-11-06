@@ -26,7 +26,7 @@ if sys.version_info < (3, 11):
     raise SystemExit("build_pins requires Python 3.11 or newer")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import teensy_gate  # noqa: E402
+import teensy_gate
 
 
 ROOT = Path(__file__).resolve().parents[1]

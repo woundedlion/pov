@@ -9,9 +9,9 @@ from pathlib import Path, PurePosixPath
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import docs_check as dc  # noqa: E402
-import docs_sync as ds  # noqa: E402
-from git_test_env import git_run  # noqa: E402
+import docs_check as dc
+import docs_sync as ds
+from git_test_env import git_run
 
 
 def entries(*names):
