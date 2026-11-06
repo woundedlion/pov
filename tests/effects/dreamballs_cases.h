@@ -14,6 +14,12 @@ struct DreamBallsWhiteBox {
   static constexpr size_t SOLID_COUNT = DB::SOLID_COUNT;
   static constexpr size_t MAX_SOLID_EDGES = Solids::MAX_SOLID_EDGES;
   static constexpr size_t SCRATCH_A_PEAK_BYTES = DB::SCRATCH_A_PEAK_BYTES;
+  template <int W, int H>
+  static constexpr size_t SCRATCH_A_PEAK =
+      DreamBalls<W, H>::SCRATCH_A_PEAK_BYTES;
+  template <int W, int H>
+  static constexpr size_t SCRATCH_B_PEAK =
+      DreamBalls<W, H>::SCRATCH_B_PEAK_BYTES;
   static constexpr float WEAVE_GAP_MIN = DB::WEAVE_GAP_MIN;
 
   static bool history_ready(const DB &effect) {
@@ -240,14 +246,17 @@ struct DreamBallsWhiteBox {
   static bool four_regular(const DB &db, size_t idx) {
     return db.loaded_solids[idx].four_regular;
   }
-  static const auto &original_edges(const DB &db, size_t idx) {
+  template <int W, int H>
+  static const auto &original_edges(const DreamBalls<W, H> &db, size_t idx) {
     return db.loaded_solids[idx].original_edges;
   }
   static const auto &automatic_edges(const DB &db, size_t idx) {
     return db.loaded_solids[idx].automatic_edges;
   }
-  static const auto &forced_medial_drawn_edges(const DB &db, size_t idx) {
-    return DB::woven_edges(db.loaded_solids[idx], true);
+  template <int W, int H>
+  static const auto &forced_medial_drawn_edges(const DreamBalls<W, H> &db,
+                                               size_t idx) {
+    return DreamBalls<W, H>::woven_edges(db.loaded_solids[idx], true);
   }
   static std::vector<uint16_t> woven_start_owners(const DB &db, size_t idx,
                                                   bool medial) {
@@ -278,7 +287,8 @@ struct DreamBallsWhiteBox {
     return DB::woven_vertex(db.loaded_solids[solid], medial, vertex);
   }
   static DB::BaseMesh live_mesh(const DB &db) { return db.params.base_mesh; }
-  static DB::WeaveTopology live_weave_topology(const DB &db) {
+  template <int W, int H>
+  static auto live_weave_topology(const DreamBalls<W, H> &db) {
     return db.params.weave_topology;
   }
   static float live_weave_gap(const DB &db) { return db.params.weave_gap; }
@@ -418,15 +428,16 @@ inline void test_dreamballs_base_mesh_selector() {
 
 /**
  * @brief Renders the widest solid the dropdown reaches under medial topology and
- *        checks SCRATCH_A_PEAK_BYTES against the real frame peak.
+ *        checks both scratch arenas against their predicted frame peaks.
  * @details Forced medial topology stages one vertex per source edge and
  * one framed edge per medial edge at the static memory bound.
  */
-inline void test_dreamballs_max_edge_solid_render() {
+template <int W, int H> inline void check_dreamballs_max_edge_solid_render() {
   using WB = DreamBallsWhiteBox;
+  using FX = DreamBalls<W, H>;
   reset_globals();
 
-  WB::DB db;
+  FX db;
   db.init();
 
   size_t widest = 0;
@@ -444,22 +455,32 @@ inline void test_dreamballs_max_edge_solid_render() {
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(db.updateParameter("Weave Topology", 2.0f),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(WB::live_weave_topology(db), WB::DB::WeaveTopology::MEDIAL);
+  HS_EXPECT_EQ(WB::live_weave_topology(db), FX::WeaveTopology::MEDIAL);
   HS_EXPECT_EQ(WB::forced_medial_drawn_edges(db, widest).size(),
                2 * widest_edges);
 
   db.setAnimationsPaused(false);
   scratch_arena_a.reset_high_water_mark();
+  scratch_arena_b.reset_high_water_mark();
   hs_test::run_frames(db, 20);
 
   // Three per-vertex buffers plus the framed vertex + edge-head mesh, at the
   // medial bound.
   const size_t staged_bytes = 6 * widest_edges * sizeof(math::Vector);
   HS_EXPECT_GE(scratch_arena_a.get_high_water_mark(), staged_bytes);
-  HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(), WB::SCRATCH_A_PEAK_BYTES);
+  HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(),
+               (WB::SCRATCH_A_PEAK<W, H>));
+  HS_EXPECT_LE(scratch_arena_b.get_high_water_mark(),
+               (WB::SCRATCH_B_PEAK<W, H>));
 
-  const uint64_t energy = frame_energy<SMALL_W, SMALL_H>(db);
+  const uint64_t energy = frame_energy<W, H>(db);
   HS_EXPECT_GT(energy, 0u);
+}
+
+/** @brief DreamBalls scratch bounds cover both roster resolutions. */
+inline void test_dreamballs_max_edge_solid_render() {
+  check_dreamballs_max_edge_solid_render<SMALL_W, SMALL_H>();
+  check_dreamballs_max_edge_solid_render<DEFAULT_W, DEFAULT_H>();
 }
 
 /** @brief Verifies automatic, forced-medial, and defect weave topology. */

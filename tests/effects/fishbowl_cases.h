@@ -129,7 +129,8 @@ struct FishbowlWhiteBox {
   }
 
   using EffectType = Fishbowl<SMALL_W, SMALL_H>;
-  static size_t tween_vertices(const EffectType &fx) {
+  template <int W, int H>
+  static size_t tween_vertices(const Fishbowl<W, H> &fx) {
     size_t n = 0;
     deep_tween(fx.node->trail, [&](const math::Quaternion &, float) { ++n; });
     return n;
@@ -245,9 +246,10 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
  *          covers the vertices, their frame-end positions, the drawn vertices
  *          and one column-walk chunk.
  */
-inline void test_fishbowl_scratch_estimate_covers_peak() {
+template <int W, int H>
+inline void check_fishbowl_scratch_estimate_covers_peak() {
   using WB = FishbowlWhiteBox;
-  using EffectType = WB::EffectType;
+  using EffectType = Fishbowl<W, H>;
   const ScopedTemporalSampling temporal_sampling(!Spacetime::flat_surface());
   for (const bool timed : {false, true}) {
     reset_globals();
@@ -271,4 +273,10 @@ inline void test_fishbowl_scratch_estimate_covers_peak() {
     HS_EXPECT_GT(worst_vertices, (size_t)EffectType::TRAIL_LENGTH);
     HS_EXPECT_LE(worst_vertices, (size_t)EffectType::MAX_FRAGMENTS);
   }
+}
+
+/** @brief Fishbowl scratch bounds cover both roster resolutions. */
+inline void test_fishbowl_scratch_estimate_covers_peak() {
+  check_fishbowl_scratch_estimate_covers_peak<SMALL_W, SMALL_H>();
+  check_fishbowl_scratch_estimate_covers_peak<DEFAULT_W, DEFAULT_H>();
 }
