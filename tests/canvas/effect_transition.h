@@ -23,6 +23,8 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
   bool restored_published = false;
   bool committed = false;
   std::string_view committed_effect_id;
+  std::string_view constructed_effect_id;
+  uint32_t restored_visit_position = 0;
   bool failsafe = false;
   hs::EffectTransitionStatus failsafe_reason = hs::EffectTransitionStatus::OK;
   int preflights = 0;
@@ -35,6 +37,7 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
             hs::EffectRestoreToken &outgoing) override {
     ++preflights;
     outgoing.effect_id = "outgoing";
+    outgoing.visit_position = static_cast<uint32_t>(preflights);
     outgoing.capability = capability;
     return preflight_status;
   }
@@ -52,7 +55,8 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
     destroyed = true;
   }
   hs::EffectTransitionStatus
-  construct_incoming(const hs::EffectTransitionRequest &) override {
+  construct_incoming(const hs::EffectTransitionRequest &request) override {
+    constructed_effect_id = request.effect_id;
     return construct_status;
   }
   hs::EffectTransitionStatus
@@ -70,8 +74,9 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
   }
   void destroy_incoming() override { ++discards; }
   hs::EffectTransitionStatus
-  restore_outgoing(const hs::EffectRestoreToken &) override {
+  restore_outgoing(const hs::EffectRestoreToken &token) override {
     ++restores;
+    restored_visit_position = token.visit_position;
     return restore_status;
   }
   hs::EffectTransitionStatus prepare_restore_frame() override {
@@ -235,10 +240,13 @@ inline void test_effect_transition_replacement_pause_and_restore() {
   controller.tick();
   adapter.construct_status = hs::EffectTransitionStatus::RESOURCE_REJECTED;
   controller.tick();
+  HS_EXPECT_EQ(adapter.constructed_effect_id,
+               std::string_view(first.effect_id));
   HS_EXPECT_EQ(controller.current_state(),
                hs::EffectTransitionState::RESTORING_OUT);
   controller.tick();
   HS_EXPECT_TRUE(adapter.restored_published);
+  HS_EXPECT_EQ(adapter.restored_visit_position, 2u);
   controller.tick();
   controller.tick();
   controller.tick();
