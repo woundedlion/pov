@@ -340,6 +340,42 @@ inline void scan_mesh_invalid_fixture(bool omit_offsets) {
       pipe, c, mesh, [](const math::Vector &, Fragment &) {}, scratch);
 }
 
+/** @brief Selects a valid mesh before rejecting an invalid face vertex. */
+inline void scan_selector_index_fixture(bool visibility, uint16_t bad_index) {
+  constexpr int W = 32, H = 16;
+  uint8_t geometry_storage[1024], frame_storage[4096];
+  Arena geometry(geometry_storage, sizeof(geometry_storage));
+  Arena frame(frame_storage, sizeof(frame_storage));
+  MeshState mesh;
+  mesh.vertices.bind(geometry, 3);
+  mesh.vertices.push_back(math::X_AXIS);
+  mesh.vertices.push_back(math::Y_AXIS);
+  mesh.vertices.push_back(math::Z_AXIS);
+  mesh.face_counts.bind(geometry, 1);
+  mesh.face_counts.push_back(3);
+  mesh.face_offsets.bind(geometry, 1);
+  mesh.face_offsets.push_back(0);
+  mesh.faces.bind(geometry, 3);
+  for (uint16_t index = 0; index < 3; ++index)
+    mesh.faces.push_back(index);
+  DeathEffect fx(W, H);
+  Canvas canvas(fx);
+  Scan::ColumnBasis basis;
+  uint8_t moving[3] = {1, 1, 1};
+  uint16_t columns[2] = {};
+  const auto select = [&] {
+    if (visibility)
+      Scan::select_mesh_visibility<W, H>(
+          canvas.clip(), mesh, [](const math::Vector &p) { return p; }, 0.0f,
+          frame, basis);
+    else
+      Scan::pick_moving_faces<W>(canvas, mesh, moving, 0.0f, columns);
+  };
+  select();
+  mesh.faces[2] = opaque<uint16_t>(bad_index);
+  select();
+}
+
 /**
  * @brief Minimal duck-typed mesh: one 2-gon face whose second index (130)
  *        exceeds the TriangularBitset<128> capacity.

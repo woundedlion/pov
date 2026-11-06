@@ -598,8 +598,6 @@ HS_HOT_FLASH_MEMBER void scan_swept_faces(const SweptMesh &d) {
   MeshState &mesh = d.mesh;
   const size_t faces = mesh.num_faces(), vertices = mesh.vertices.size();
   const int width = d.canvas.width(), half = width / 2;
-  Mesh::check_face_index_domain(mesh.get_faces_data(), mesh.get_faces_size(),
-                                vertices);
   ScratchScope guard(d.scratch);
   const FaceTables tables{d.scratch.allocate_n<uint8_t>(faces),
                           d.scratch.allocate_n<uint8_t>(vertices),

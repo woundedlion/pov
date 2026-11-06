@@ -312,6 +312,8 @@ is each crossed column's meridian, at that column's time.
 `Scan::deform_mesh` prepares a face scan from the effect's motion plan,
 start vertices and indexed vertex evaluator. `Scan::detail::scan_swept_faces`
 classifies each active face and reuses captured vertices between passes.
+Visibility and moving-face selection check the face indices against the
+vertex pool before reading vertices or writing per-vertex flags.
 Faces clear of an arm cut share a scan with vertices captured at their
 seeing-column times. Faces near a cut draw in arm-clipped passes; faces that
 reach beyond the shared pass use a `Scan::FaceArmCopy` with its own vertices

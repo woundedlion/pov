@@ -797,6 +797,26 @@ inline void case_scan_mesh_face_index_out_of_range() {
   scan_mesh_invalid_fixture(false);
 }
 
+/** @brief Visibility selection rejects an index just past the vertex pool. */
+inline void case_scan_visibility_face_index_out_of_range() {
+  scan_selector_index_fixture(true, 3);
+}
+
+/** @brief Visibility selection rejects the largest face index. */
+inline void case_scan_visibility_face_index_max() {
+  scan_selector_index_fixture(true, UINT16_MAX);
+}
+
+/** @brief Moving-face selection rejects an index just past the vertex pool. */
+inline void case_scan_moving_face_index_out_of_range() {
+  scan_selector_index_fixture(false, 3);
+}
+
+/** @brief Moving-face selection rejects the largest face index. */
+inline void case_scan_moving_face_index_max() {
+  scan_selector_index_fixture(false, UINT16_MAX);
+}
+
 /**
  * @brief Death case: a class bake naming a class the class table does not hold.
  * @details ArenaVector::operator[] only asserts; Scan::Mesh bounds the id

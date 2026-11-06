@@ -1467,6 +1467,22 @@ inline const Case *all_cases(int &n) {
        case_scan_mesh_face_index_out_of_range, "core/render/scan/mesh.h",
        "(static_cast<size_t>(faces[k]) < num_verts) mesh face index exceeds "
        "the vertex pool"},
+      {"scan_visibility_face_index_out_of_range",
+       case_scan_visibility_face_index_out_of_range, "core/render/scan/mesh.h",
+       "(static_cast<size_t>(faces[k]) < num_verts) mesh face index exceeds "
+       "the vertex pool"},
+      {"scan_visibility_face_index_max", case_scan_visibility_face_index_max,
+       "core/render/scan/mesh.h",
+       "(static_cast<size_t>(faces[k]) < num_verts) mesh face index exceeds "
+       "the vertex pool"},
+      {"scan_moving_face_index_out_of_range",
+       case_scan_moving_face_index_out_of_range, "core/render/scan/mesh.h",
+       "(static_cast<size_t>(faces[k]) < num_verts) mesh face index exceeds "
+       "the vertex pool"},
+      {"scan_moving_face_index_max", case_scan_moving_face_index_max,
+       "core/render/scan/mesh.h",
+       "(static_cast<size_t>(faces[k]) < num_verts) mesh face index exceeds "
+       "the vertex pool"},
       {"scan_deformation_without_column_time",
        case_scan_deformation_without_column_time, "core/render/scan/mesh.h",
        "(canvas.column_basis()) mesh deformation needs the frame's "

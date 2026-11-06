@@ -33,6 +33,21 @@
 namespace Scan {
 
 /**
+ * @brief Traps unless every flat face index addresses a vertex in the pool.
+ * @param faces Flat per-face vertex index array.
+ * @param num_indices Entries in @p faces.
+ * @param num_verts Vertices the mesh carries.
+ * @details SDF::PreparedFace indexes the vertex pool through an unchecked std::span.
+ */
+HS_O3_FN HS_NOINLINE_NOCLONE inline void
+check_face_index_domain(const uint16_t *faces, size_t num_indices,
+                        size_t num_verts) {
+  for (size_t k = 0; k < num_indices; ++k)
+    HS_CHECK(static_cast<size_t>(faces[k]) < num_verts,
+             "mesh face index exceeds the vertex pool");
+}
+
+/**
  * @brief Whether an indexed element belongs to an optional visibility bitset.
  * @param bits Visibility bits, or null to admit every element.
  * @param i Element index.
@@ -100,6 +115,8 @@ HS_HOT_FLASH_MEMBER void
 select_mesh_visibility(const ClipRegion &clip, const MeshState &mesh,
                        const Camera &camera, float reach, Arena &arena,
                        ColumnBasis &time) {
+  check_face_index_domain(mesh.get_faces_data(), mesh.get_faces_size(),
+                          mesh.vertices.size());
   HS_PROFILE(mesh_visibility);
 #if HS_ENABLE_TEST_HOOKS
   if (face_audit_reference)
@@ -566,6 +583,8 @@ HS_FLASH_MEMBER size_t pick_moving_faces(const Canvas &canvas,
                                          uint8_t *moving_vertices, float reach,
                                          uint16_t *columns,
                                          float *radii = nullptr) {
+  check_face_index_domain(mesh.get_faces_data(), mesh.get_faces_size(),
+                          mesh.vertices.size());
   if (canvas.column_basis())
     check_mesh_pass(canvas.column_basis()->mesh, mesh.num_faces(),
                     mesh.vertices.size());
@@ -939,21 +958,6 @@ HS_O3_BEGIN
  * selects the faces each pass draws.
  */
 struct Mesh {
-  /**
-   * @brief Traps unless every flat face index addresses a vertex in the pool.
-   * @param faces Flat per-face vertex index array.
-   * @param num_indices Entries in @p faces.
-   * @param num_verts Vertices the mesh carries.
-   * @details SDF::PreparedFace indexes the vertex pool through an unchecked std::span.
-   */
-  HS_NOINLINE_NOCLONE
-  static void check_face_index_domain(const uint16_t *faces, size_t num_indices,
-                                      size_t num_verts) {
-    for (size_t k = 0; k < num_indices; ++k)
-      HS_CHECK(static_cast<size_t>(faces[k]) < num_verts,
-               "mesh face index exceeds the vertex pool");
-  }
-
   /**
    * @brief Shades and rasterizes one constructed face.
    * @tparam W Canvas width in pixels.
