@@ -349,8 +349,13 @@ inline void test_sphere_noise_bake_qualification() {
       constexpr std::array<float, 9> TOTAL_BOUNDS{
           1.5f, 1.75f, 1.9f, 1.2f, 1.55f, 1.85f, 1.6f, 1.85f, 1.96f};
       HS_EXPECT_LE(max_total, TOTAL_BOUNDS[recipe]);
-      if (recipe == 0 && scale <= 0.125f)
-        HS_EXPECT_LE(max_total, 0.005f);
+      constexpr std::array<float, 9> LOW_SCALE_BOUNDS{0.005f, 0.010f, 0.040f,
+                                                      0.006f, 0.012f, 0.045f,
+                                                      0.040f, 0.080f, 0.220f};
+      if (scale <= 0.125f) {
+        HS_EXPECT_LE(max_total, LOW_SCALE_BOUNDS[recipe]);
+        HS_EXPECT_LE(max_spatial, LOW_SCALE_BOUNDS[recipe]);
+      }
 #if defined(HS_PATTERN_QUALIFICATION_REPORT)
       std::printf("%zu,%.9g,%.9g,%.9g,%.9g,%.9g\n", recipe, scale,
                   max_quantization, max_spatial, max_total,
