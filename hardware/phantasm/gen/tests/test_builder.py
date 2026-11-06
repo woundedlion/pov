@@ -9,7 +9,7 @@ sys.path.insert(0, str(GEN))
 import builder  # noqa: E402
 import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
-from pin_landing import dangling_pins, pin_positions  # noqa: E402
+from pin_landing import dangling_pins, pin_positions, placed_pins  # noqa: E402
 
 SCHEMATIC = GEN.parent / "1.1" / "phantasm.kicad_sch"
 
@@ -95,6 +95,50 @@ class PinDirMatrixTests(unittest.TestCase):
                         expected = turn(flip(outward))
                         got = stub_symbol(angle, rot, mirror).pin_dir("1")
                         self.assertEqual(got, expected)
+
+
+class PlacedPinTests(unittest.TestCase):
+    def fixture(self):
+        return sexp.parse_one('''(kicad_sch
+            (lib_symbols (symbol "Test:Dual"
+                (symbol "Dual_0_1"
+                    (pin passive line (at 1 0) (name "common") (number "0"))
+                    (pin passive line (at 0 0) (name "override") (number "1")))
+                (symbol "Dual_1_1"
+                    (pin passive line (at 2 1) (name "one") (number "1"))
+                    (pin passive line (at 4 2) (name "two") (number "2")))
+                (symbol "Dual_2_1"
+                    (pin passive line (at 6 3) (name "three") (number "3")))))
+            (symbol (lib_id "Test:Dual") (at 10 20 90) (unit 1) (mirror x)
+                (property "Reference" "U1"))
+            (symbol (lib_id "Test:Dual") (at 30 40)
+                (property "Reference" "U2"))
+            (symbol (lib_id "Test:Dual") (at 50 60 180) (unit 2) (mirror y)
+                (property "Reference" "U3")))''')
+
+    def test_placed_pin_coordinates_are_hand_checked_across_units_and_transforms(self):
+        root = self.fixture()
+        expected = [
+            ("U1", "0", (10.0, 19.0)), ("U1", "1", (11.0, 18.0)), ("U1", "2", (12.0, 16.0)),
+            ("U2", "0", (31.0, 40.0)), ("U2", "1", (32.0, 39.0)), ("U2", "2", (34.0, 38.0)),
+            ("U3", "0", (51.0, 60.0)), ("U3", "1", (50.0, 60.0)), ("U3", "3", (56.0, 63.0)),
+        ]
+        self.assertEqual(list(placed_pins(root)), expected)
+        self.assertEqual(pin_positions(root), {(ref, number): point for ref, number, point in expected})
+
+    def test_dangling_pins_respect_anchors_and_coincident_pins(self):
+        root = self.fixture()
+        root.extend(sexp.parse('''
+            (wire (pts (xy 10 19) (xy 11 18)))
+            (no_connect (at 12 16))
+            (label "L" (at 31 40))
+            (global_label "G" (at 32 39))
+            (hierarchical_label "H" (at 34 38))
+            (junction (at 51 60))
+            (symbol (lib_id "Test:Single") (at 50 60) (property "Reference" "U4"))'''))
+        F(root, "lib_symbols")[0].append(sexp.parse_one('''(symbol "Test:Single"
+            (symbol "Single_0_1" (pin passive line (at 0 0) (name "single") (number "0"))))'''))
+        self.assertEqual(dangling_pins(root), [("U3", "3", (56.0, 63.0))])
 
 
 class DumpsTests(unittest.TestCase):

@@ -1,9 +1,31 @@
 """Placed schematic pins and their wiring anchors for generator tests."""
 
+from collections import Counter
+
 import builder
 import sexp
 import shorts
-from kicad_common import F
+from kicad_common import F, property_value
+
+
+def placed_pins(root):
+    """Yield (reference, pin number, schematic point); unit/angle default to 1/0."""
+    libs = {node[1]: builder.index_unit_pins(node)
+            for node in sexp.val(root, "lib_symbols", [])
+            if isinstance(node, list) and node and node[0] == "symbol"}
+    for inst in F(root, "symbol"):
+        at = sexp.val(inst, "at")
+        mirror = sexp.val(inst, "mirror")
+        units = libs[sexp.val(inst, "lib_id")[0]]
+        pins = dict(units.get(0, {}))
+        pins.update(units.get(int(sexp.val(inst, "unit", [1])[0]), {}))
+        ref = property_value(inst, "Reference")
+        for number, pin in pins.items():
+            point = shorts.R(builder.transform(
+                float(at[0]), float(at[1]),
+                float(at[2]) if len(at) > 2 else 0.0,
+                mirror[0] if mirror else None, pin["x"], pin["y"]))
+            yield ref, number, point
 
 
 def dangling_pins(root):
@@ -12,9 +34,6 @@ def dangling_pins(root):
     Pin coordinates come from the schematic's own lib_symbols, so a stock
     symbol whose pin moved is measured where the generated file placed it.
     """
-    libs = {node[1]: builder.index_unit_pins(node)
-            for node in sexp.val(root, "lib_symbols", [])
-            if isinstance(node, list) and node and node[0] == "symbol"}
     _, wires, junctions = shorts.geometry(root)
     anchors = set(junctions)
     anchors.update(shorts.R(sexp.val(node, "at"))
@@ -25,39 +44,12 @@ def dangling_pins(root):
     for a, b in wires:
         anchors.add(a)
         anchors.add(b)
-    placed = []
-    touching = {}
-    for inst in F(root, "symbol"):
-        at = sexp.val(inst, "at")
-        mirror = sexp.val(inst, "mirror")
-        units = libs[sexp.val(inst, "lib_id")[0]]
-        pins = dict(units.get(0, {}))
-        pins.update(units.get(int(sexp.val(inst, "unit", [1])[0]), {}))
-        for number, pin in pins.items():
-            point = shorts.R(builder.transform(
-                float(at[0]), float(at[1]),
-                float(at[2]) if len(at) > 2 else 0.0,
-                mirror[0] if mirror else None, pin["x"], pin["y"]))
-            ref = next((p[2] for p in F(inst, "property")
-                        if p[1] == "Reference"), None)
-            placed.append((ref, number, point))
-            touching[point] = touching.get(point, 0) + 1
+    placed = list(placed_pins(root))
+    touching = Counter(point for ref, number, point in placed)
     return [(ref, number, point) for ref, number, point in placed
             if point not in anchors and touching[point] < 2]
 
 
 def pin_positions(root):
     """(reference, pin number) -> schematic point, from the file's lib_symbols."""
-    libs = {node[1]: builder.index_unit_pins(node)
-            for node in sexp.val(root, "lib_symbols")}
-    positions = {}
-    for inst in F(root, "symbol"):
-        ref = next(p[2] for p in F(inst, "property") if p[1] == "Reference")
-        units = libs[sexp.val(inst, "lib_id")[0]]
-        pins = {**units.get(0, {}), **units.get(int(sexp.val(inst, "unit")[0]), {})}
-        x, y, angle = map(float, sexp.val(inst, "at"))
-        mirror = sexp.val(inst, "mirror", [None])[0]
-        for number, pin in pins.items():
-            positions[ref, number] = shorts.R(builder.transform(
-                x, y, angle, mirror, pin["x"], pin["y"]))
-    return positions
+    return {(ref, number): point for ref, number, point in placed_pins(root)}
