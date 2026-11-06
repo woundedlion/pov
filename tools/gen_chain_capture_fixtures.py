@@ -71,9 +71,6 @@ def recipe_cpp(recipe):
 
 
 def walk_cpp(state):
-    def vector(values):
-        return "math::Vector(" + ",".join(map(float_cpp, values)) + ")"
-
     def quaternion(values):
         return "math::Quaternion(" + ",".join(map(float_cpp, values)) + ")"
 
@@ -83,8 +80,8 @@ def walk_cpp(state):
             [
                 str(state["noiseSeed"]),
                 str(state["walkTime"]),
-                vector(state["position"]),
-                vector(state["direction"]),
+                vector_cpp(state["position"]),
+                vector_cpp(state["direction"]),
                 quaternion(state["wander"]),
                 float_cpp(state["angularVelocity"]),
                 float_cpp(state["spinPhase"]),
