@@ -659,6 +659,33 @@ inline void test_shader_chain_parity_sample_projected_noise() {
   });
 }
 
+template <typename WeightP>
+inline void run_grid_coverage_cases(In::ChainProgram &program,
+                                    const In::FrameContext &ctx,
+                                    In::Op::ProjectionCoverageMode coverage) {
+  constexpr auto ENV = PB::Color::BrightnessEnvelope::NONE;
+  switch (coverage) {
+  case In::Op::ProjectionCoverageMode::NONE:
+    expect_parity<WeightP, PB::ProjectionCoverage::None, ENV>(program, ctx);
+    break;
+  case In::Op::ProjectionCoverageMode::WEIGHT:
+    expect_parity<WeightP, PB::ProjectionCoverage::Weight, ENV>(program, ctx);
+    break;
+  case In::Op::ProjectionCoverageMode::WEIGHT_SQUARED:
+    expect_parity<WeightP, PB::ProjectionCoverage::WeightSquared, ENV>(program,
+                                                                       ctx);
+    break;
+  case In::Op::ProjectionCoverageMode::EDGE_FADE:
+    expect_parity<WeightP, PB::ProjectionCoverage::EdgeFade<MirrorValue>, ENV>(
+        program, ctx);
+    break;
+  case In::Op::ProjectionCoverageMode::EDGE_FADE_SQUARED:
+    expect_parity<WeightP, PB::ProjectionCoverage::EdgeFadeSquared<MirrorValue>,
+                  ENV>(program, ctx);
+    break;
+  }
+}
+
 inline void run_sample_variant(In::ChainProgram &program,
                                const In::FrameContext &ctx,
                                In::Op::WeightMode weight,
@@ -666,58 +693,10 @@ inline void run_sample_variant(In::ChainProgram &program,
   auto &params = param_as<In::Op::GridSampleParams>(program, 2);
   params.weight_mode = static_cast<uint8_t>(weight);
   params.coverage_mode = static_cast<uint8_t>(coverage);
-  constexpr auto ENV = PB::Color::BrightnessEnvelope::NONE;
-  if (weight == In::Op::WeightMode::NONE) {
-    switch (coverage) {
-    case In::Op::ProjectionCoverageMode::NONE:
-      expect_parity<PB::Weight::None, PB::ProjectionCoverage::None, ENV>(
-          program, ctx);
-      break;
-    case In::Op::ProjectionCoverageMode::WEIGHT:
-      expect_parity<PB::Weight::None, PB::ProjectionCoverage::Weight, ENV>(
-          program, ctx);
-      break;
-    case In::Op::ProjectionCoverageMode::WEIGHT_SQUARED:
-      expect_parity<PB::Weight::None, PB::ProjectionCoverage::WeightSquared,
-                    ENV>(program, ctx);
-      break;
-    case In::Op::ProjectionCoverageMode::EDGE_FADE:
-      expect_parity<PB::Weight::None,
-                    PB::ProjectionCoverage::EdgeFade<MirrorValue>, ENV>(program,
-                                                                        ctx);
-      break;
-    case In::Op::ProjectionCoverageMode::EDGE_FADE_SQUARED:
-      expect_parity<PB::Weight::None,
-                    PB::ProjectionCoverage::EdgeFadeSquared<MirrorValue>, ENV>(
-          program, ctx);
-      break;
-    }
-  } else {
-    switch (coverage) {
-    case In::Op::ProjectionCoverageMode::NONE:
-      expect_parity<PB::Weight::Projection, PB::ProjectionCoverage::None, ENV>(
-          program, ctx);
-      break;
-    case In::Op::ProjectionCoverageMode::WEIGHT:
-      expect_parity<PB::Weight::Projection, PB::ProjectionCoverage::Weight,
-                    ENV>(program, ctx);
-      break;
-    case In::Op::ProjectionCoverageMode::WEIGHT_SQUARED:
-      expect_parity<PB::Weight::Projection,
-                    PB::ProjectionCoverage::WeightSquared, ENV>(program, ctx);
-      break;
-    case In::Op::ProjectionCoverageMode::EDGE_FADE:
-      expect_parity<PB::Weight::Projection,
-                    PB::ProjectionCoverage::EdgeFade<MirrorValue>, ENV>(program,
-                                                                        ctx);
-      break;
-    case In::Op::ProjectionCoverageMode::EDGE_FADE_SQUARED:
-      expect_parity<PB::Weight::Projection,
-                    PB::ProjectionCoverage::EdgeFadeSquared<MirrorValue>, ENV>(
-          program, ctx);
-      break;
-    }
-  }
+  if (weight == In::Op::WeightMode::NONE)
+    run_grid_coverage_cases<PB::Weight::None>(program, ctx, coverage);
+  else
+    run_grid_coverage_cases<PB::Weight::Projection>(program, ctx, coverage);
 }
 
 inline void test_shader_chain_parity_sample_variants() {
