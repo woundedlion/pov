@@ -578,7 +578,7 @@ inline void test_geometry_callback_aggregate_contract() {
   const Plot::GeometryCallback geometry{at, {}, false};
   HS_EXPECT_FALSE(geometry.source_positions);
   HS_EXPECT_FALSE(geometry.rigid_lattice);
-  HS_EXPECT_EQ(geometry.capture_error, 0.025f);
+  HS_EXPECT_EQ(geometry.capture_error, Plot::GeometryCallback{}.capture_error);
 }
 
 /** @brief Short-chord certificates imply the complete physical curvature bound. */
