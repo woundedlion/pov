@@ -574,13 +574,13 @@ inline void case_random_walk_nonfinite_options() {
                                  options);
 }
 
-/** @brief A full timeline must refuse an OpLeg continuation. */
-inline void case_opleg_no_event_slot() {
+/** @brief A required event traps on a full timeline. */
+inline void case_timeline_required_no_event_slot() {
   Timeline tl;
   float sink = 0.0f;
   for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
     tl.add(0, Animation::Transition(sink, 1.0f, 10, math::ease_linear));
-  Animation::OpLeg::require_event_slot();
+  tl.add_required(0, Animation::Transition(sink, 1.0f, 10, math::ease_linear));
 }
 
 /** @brief Traps on a nonfinite captured ripple peak. */

@@ -38,11 +38,6 @@ public:
   /** @brief Corners visited by construction-time face classification. */
   inline static size_t test_classified_corners = 0;
 #endif
-  /** @brief Traps when scheduling a leg would silently drop its continuation. */
-  static void require_event_slot() {
-    HS_CHECK(Timeline::remaining() > 0, "OpLeg requires a free timeline event");
-  }
-
   /// Palette slots a leg maps between; one per baked palette.
   static constexpr int PALETTES = BakedPaletteBank::N;
   /** Capacity of the intern table: the full (from, to) pair space. Each

@@ -862,6 +862,57 @@ template <typename Fn> int count_timeline_drop_logs(Fn &&fn) {
   return lines;
 }
 
+/** @brief Required events preserve active-time scheduling and accept the last slot. */
+inline void test_timeline_required_add_active_time_and_last_slot() {
+  for (const bool PAUSABLE : {false, true}) {
+    Timeline timeline;
+    bool paused = PAUSABLE;
+    float value = 0.0f;
+    int completions = 0;
+    const uint32_t DROPPED = Timeline::dropped_events();
+    auto &result = timeline.add_required(
+        2, Animation::Transition(value, 42.0f, 1, math::ease_linear).then([&] {
+          ++completions;
+        }),
+        PAUSABLE ? &paused : nullptr);
+    HS_EXPECT_TRUE(&result == &timeline);
+    if (PAUSABLE) {
+      timeline.step(fake_canvas());
+      timeline.step(fake_canvas());
+      HS_EXPECT_EQ(value, 0.0f);
+      HS_EXPECT_EQ(completions, 0);
+      HS_EXPECT_EQ(timeline.event_count(), 1);
+      paused = false;
+    }
+    timeline.step(fake_canvas());
+    HS_EXPECT_EQ(value, 0.0f);
+    HS_EXPECT_EQ(completions, 0);
+    timeline.step(fake_canvas());
+    HS_EXPECT_EQ(value, 42.0f);
+    HS_EXPECT_EQ(completions, 1);
+    HS_EXPECT_EQ(timeline.event_count(), 0);
+    timeline.step(fake_canvas());
+    HS_EXPECT_EQ(completions, 1);
+    HS_EXPECT_EQ(Timeline::dropped_events(), DROPPED);
+  }
+  Timeline timeline;
+  float sink = 0.0f, required = 0.0f;
+  int completions = 0;
+  for (int i = 0; i < Timeline::MAX_EVENTS - 1; ++i)
+    timeline.add(0, Animation::Transition(sink, 1.0f, 10, math::ease_linear));
+  timeline.add_required(
+      0, Animation::Transition(required, 9.0f, 1, math::ease_linear).then([&] {
+        ++completions;
+      }));
+  HS_EXPECT_EQ(timeline.remaining(), 0);
+  HS_EXPECT_EQ(timeline.event_count(), Timeline::MAX_EVENTS);
+  timeline.step(fake_canvas());
+  HS_EXPECT_EQ(required, 9.0f);
+  HS_EXPECT_EQ(completions, 1);
+  HS_EXPECT_EQ(timeline.event_count(), Timeline::MAX_EVENTS - 1);
+  HS_EXPECT_EQ(Timeline::dropped_events(), 0u);
+}
+
 /**
  * @brief Verifies add() is bounded by MAX_EVENTS (the shared global array
  * size): once full, a further add is rejected rather than overrunning, and the

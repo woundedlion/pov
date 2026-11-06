@@ -535,9 +535,9 @@ inline const Case *all_cases(int &n) {
       {"reconcile_aliased_arenas", case_reconcile_aliased_arenas,
        "core/mesh/conway.h",
        "(&target != &scratch) reconcile_vertices: target and scratch must differ"},
-      {"opleg_no_event_slot", case_opleg_no_event_slot,
-       "core/animation/opleg.h",
-       "(Timeline::remaining() > 0) OpLeg requires a free timeline event"},
+      {"timeline_required_no_event_slot", case_timeline_required_no_event_slot,
+       "core/animation/timeline.h",
+       "(remaining() >= 1) Timeline required add needs a free event slot"},
       {"arena_oom", case_arena_oom, "core/memory.cpp",
        "(false) Arena::allocate: out of memory"},
       {"arena_make_oom", case_arena_make_oom, "core/memory.cpp",
@@ -780,9 +780,8 @@ inline const Case *all_cases(int &n) {
        "(global_timeline_num_events == event_count) clear hook added or "
        "removed timeline events"},
       {"segue_sprite_no_slot", case_segue_sprite_no_slot,
-       "core/animation/segue.h",
-       "(Timeline::remaining() >= 1) segue: the transition sprite needs a free "
-       "timeline slot"},
+       "core/animation/timeline.h",
+       "(remaining() >= 1) Timeline required add needs a free event slot"},
       {"mesh_carousel_unflipped_slot", case_mesh_carousel_unflipped_slot,
        "core/animation/carousel.h",
        "(slot == front) MeshCarousel segue scheduled before incoming slot "
@@ -1476,10 +1475,8 @@ inline const Case *all_cases(int &n) {
        "(clip_stamp == canvas.clip_key()) point route not prepared "
        "for this clip"},
       {"plateau_boundary_full_timeline", case_plateau_boundary_full_timeline,
-       "core/animation/segue.h",
-       "(timeline.add_get( delay, Animation::PeriodicTimer(0, [this](Canvas "
-       "&) { due = true; }), Timeline::Pin::UNPINNED) != nullptr) timeline "
-       "full while scheduling plateau boundary"},
+       "core/animation/timeline.h",
+       "(remaining() >= 1) Timeline required add needs a free event slot"},
       {"scan_mesh_face_index_out_of_range",
        case_scan_mesh_face_index_out_of_range, "core/render/scan/mesh.h",
        "(static_cast<size_t>(faces[k]) < num_verts) mesh face index exceeds "

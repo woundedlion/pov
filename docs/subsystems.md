@@ -840,7 +840,7 @@ Authored sine-driven presets P2 through P9 instead carry contour twist and orien
 
 ## The Animation System (`animation.h`)
 
-The `Timeline` class manages a list of running `IAnimation` objects. Each frame, `timeline.step(canvas)` advances all active animations. Finished animations are removed; repeating animations are rewound. All animation types inherit from `AnimationBase` and support method chaining via `.then()` for sequencing.
+The `Timeline` class manages a list of running `IAnimation` objects. Each frame, `timeline.step(canvas)` advances all active animations. Finished animations are removed; repeating animations are rewound. All animation types inherit from `AnimationBase` and support method chaining via `.then()` for sequencing. `Timeline::add_required` traps when a continuation-bearing event cannot be scheduled; its optional pause gate freezes the start delay and animation together.
 
 Preset pause holds automatic preset and phase progression while rendering and ambient motion continue. Parameter-driving timeline events opt in to the same pause gate. Effects schedule parameter drivers with `timeline.add_pausable(..., &anims_paused)`, and preset choreography passes the same flag as its transition event's pause gate (including every in-flight `Lerp` departure); while the flag is set, both the animation step and any pending start delay are frozen. Passing a pause pointer to an animation constructor freezes only its `step()` call, so the timeline event's start delay still elapses. Events added with `add()` and motion advanced directly by `draw_frame()` continue to run, which lets the GUI hold parameter tuning without stopping ambient motion.
 

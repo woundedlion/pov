@@ -125,6 +125,7 @@ inline int run_animation_tests() {
   HS_RUN(test_timer_then_self_cancellation_completes_once);
   HS_RUN(test_timeline_clear_destroys_events_keeping_frame);
   HS_RUN(test_timeline_instance_boundary_reclaims_pinned_event);
+  HS_RUN(test_timeline_required_add_active_time_and_last_slot);
   HS_RUN(test_timeline_full_guard_rejects_overflow);
   HS_RUN(test_timeline_remove_clear_hook_unregisters_by_ctx);
   HS_RUN(test_orientation_upsample_then_collapse);

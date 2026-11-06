@@ -215,6 +215,23 @@ public:
     return *this;
   }
 
+  /** @brief Adds an event, trapping when the timeline is full.
+   * @tparam A Animation type.
+   * @param in_frames Active frames to wait before starting.
+   * @param animation Animation copied or moved into inline storage.
+   * @param paused Optional event-level pause flag that outlives the event.
+   * @return Reference to this timeline. */
+  template <typename A>
+  Timeline &add_required(int in_frames, A &&animation,
+                         const bool *paused = nullptr) {
+    HS_CHECK(remaining() >= 1, "Timeline required add needs a free event slot");
+    if (paused)
+      add_pausable(in_frames, std::forward<A>(animation), paused);
+    else
+      add(in_frames, std::forward<A>(animation));
+    return *this;
+  }
+
   /**
    * @brief Adds an event whose delay, animation, and callbacks freeze together.
    * @tparam A The animation type.

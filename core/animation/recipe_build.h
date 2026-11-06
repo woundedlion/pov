@@ -407,8 +407,7 @@ protected:
     preparation_delay = 2;
     build_continuation = next;
     build_landing = &leg.landing();
-    Animation::OpLeg::require_event_slot();
-    host().timeline.add(
+    host().timeline.add_required(
         0, std::move(leg).then([this, next] { continue_build(next); }));
   }
 

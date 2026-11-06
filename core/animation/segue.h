@@ -80,11 +80,8 @@ public:
    * @param timeline Timeline receiving the boundary event.
    * @param delay Frames until the plateau boundary. */
   void arm_plateau_end(Timeline &timeline, int delay) {
-    HS_CHECK(timeline.add_get(
-                 delay,
-                 Animation::PeriodicTimer(0, [this](Canvas &) { due = true; }),
-                 Timeline::Pin::UNPINNED) != nullptr,
-             "timeline full while scheduling plateau boundary");
+    timeline.add_required(
+        delay, Animation::PeriodicTimer(0, [this](Canvas &) { due = true; }));
   }
   /** @return Stable pause gate for sprite and handoff events. */
   const bool *gate() const { return &hold; }
@@ -111,15 +108,10 @@ private:
 inline int schedule_faded_sprite(Timeline &timeline, SpriteFn draw_fn,
                                  int duration, int window,
                                  const bool *paused = nullptr) {
-  HS_CHECK(Timeline::remaining() >= 1,
-           "segue: the transition sprite needs a free timeline slot");
   int fade = hs::clamp(window, 0, std::max(duration / 2, 0));
   Animation::Sprite sprite(std::move(draw_fn), duration,
                            {.fade_in = {fade}, .fade_out = {fade}});
-  if (paused)
-    timeline.add_pausable(0, std::move(sprite), paused);
-  else
-    timeline.add(0, std::move(sprite));
+  timeline.add_required(0, std::move(sprite), paused);
   return fade;
 }
 
