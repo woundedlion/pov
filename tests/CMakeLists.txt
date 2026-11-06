@@ -925,6 +925,11 @@ add_test(NAME unit_composed_metadata COMMAND ${CMAKE_COMMAND}
   "-DDEFINES=$<TARGET_PROPERTY:hs_host_abi,INTERFACE_COMPILE_DEFINITIONS>;$<TARGET_PROPERTY:hs_host_storage,INTERFACE_COMPILE_DEFINITIONS>"
   -P ${CMAKE_CURRENT_SOURCE_DIR}/check_composed_metadata.cmake)
 
+add_test(NAME unit_ring_column_pipeline COMMAND ${CMAKE_COMMAND}
+  "-DCOMPILER=${CMAKE_CXX_COMPILER}" "-DROOT=${HS_ROOT}"
+  "-DDEFINES=$<TARGET_PROPERTY:hs_host_abi,INTERFACE_COMPILE_DEFINITIONS>;$<TARGET_PROPERTY:hs_host_storage,INTERFACE_COMPILE_DEFINITIONS>"
+  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_ring_column_pipeline.cmake)
+
 # Backstop TIMEOUT for every registered test without an explicit one. Applied
 # last, over the directory's final test list.
 get_property(_hs_registered_tests DIRECTORY PROPERTY TESTS)

@@ -462,6 +462,8 @@ draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
   static_assert(
       PipelineT::column_taps_ready,
       "the column walk splats through an anti-aliasing first screen stage");
+  static_assert(!PipelineT::has_world_stage,
+                "the ring column walk requires a screen-only pipeline");
   ScratchScope storage(scratch_arena_b);
   const size_t count = W / stride;
   Spacetime::Worldlines<> motion;
@@ -561,15 +563,9 @@ draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
                         .pairs = edges,
                         .chained = true,
                         .rigid_lattice = true};
-  if constexpr (requires { requires PipelineT::any_3d_history; })
-    rasterize_recording_column_edges<
-        W, H, {.timed = true, .column_edge_lengths = true}>(
-        erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
-        motion_bound + spin, false, spin);
-  else
-    rasterize_column_edges<W, H, {.timed = true, .column_edge_lengths = true}>(
-        erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
-        motion_bound + spin, false, spin);
+  rasterize_column_edges<W, H, {.timed = true, .column_edge_lengths = true}>(
+      erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
+      motion_bound + spin, false, spin);
 }
 
 /**
