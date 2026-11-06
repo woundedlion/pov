@@ -4,8 +4,8 @@ Embeds footprints from KiCad stock libraries, hand-maintained terminal blocks
 in phantasm.pretty, or the generated Teensy footprint. Assigns pad nets by name
 from the exported netlist and declares the nets. Draft mode skyline-packs
 footprints into a PCB_W-wide outline (R-MECH-6). --unplaced locks fixed
-connectors and filter parts on the QUILTER_LENGTH outline and stages every
-other footprint below it for the autoplacer.
+parts on the QUILTER_LENGTH outline; rev 1.3 fixes the complete front placement,
+while rev 1.2 stages its remaining parts below the outline for the autoplacer.
 Emits a 4-layer SIG/GND/GND/SIG board: the physical stackup and the inner GND
 planes are encoded in the file, so an autoplacer/fab reads them on upload.
 Draft placement is a rough starting arrangement; route/refine it in Pcbnew.
@@ -382,6 +382,56 @@ def embedded_footprint(ref, libid):
     return node
 
 
+WIRE_APPROACH_MM = 10.0
+WIRE_ENVELOPE_MM = 2.4
+
+
+def reserve_terminal_wire_access(node):
+    """Reserve each terminal's nominal insulated-wire insertion envelope."""
+    node[:] = [n for n in node if not (isinstance(n, list) and n and n[0] == "zone"
+               and str(sexp.val(n, "name", [""])[0]).startswith("Terminal wire access"))]
+    for pad in F(node, "pad"):
+        y = float(sexp.val(pad, "at")[1])
+        x0, x1 = -3.25 - WIRE_APPROACH_MM, -3.25
+        y0, y1 = y - WIRE_ENVELOPE_MM / 2, y + WIRE_ENVELOPE_MM / 2
+        node.append(sexp.parse_one(
+            f'(zone (layer "F.Cu") (uuid "{uid()}") '
+            f'(name "Terminal wire access pin {pad[1]}") (hatch full 0.5) '
+            '(connect_pads (clearance 0)) (min_thickness 0.25) '
+            '(keepout (tracks allowed) (vias allowed) (pads allowed) '
+            '(copperpour allowed) (footprints not_allowed)) '
+            '(placement (enabled no) (sheetname "")) '
+            '(fill (thermal_gap 0.3) (thermal_bridge_width 0.4)) '
+            f'(polygon (pts (xy {fmt(x0)} {fmt(y0)}) (xy {fmt(x1)} {fmt(y0)}) '
+            f'(xy {fmt(x1)} {fmt(y1)}) (xy {fmt(x0)} {fmt(y1)}))))'))
+
+
+def validate_front_access(footprints, length):
+    """Reject front components inside wire-entry and USB mating reservations."""
+    boxes = {}
+    for node in footprints:
+        ref = connectivity.footprint_reference(node)
+        if sexp.val(node, "layer") != ["F.Cu"]:
+            raise ValueError(f"front-only layout requires F.Cu: {ref}")
+        if ref.startswith("H"):
+            continue
+        x, y, angle = map(float, sexp.val(node, "at"))
+        x0, y0, x1, y1 = _rot_bb(fp_bbox(node, graphic_layers=COURTYARD_LAYERS), angle)
+        boxes[ref] = (x + x0, y + y0, x + x1, y + y1)
+    for node in footprints:
+        ref = connectivity.footprint_reference(node)
+        for zone in F(node, "zone"):
+            name = str(sexp.val(zone, "name", [""])[0])
+            if not (name.startswith("Terminal wire access") or name == "USB mating plug"):
+                continue
+            points = F(F(F(zone, "polygon")[0], "pts")[0], "xy")
+            xs, ys = zip(*[(float(p[1]), float(p[2])) for p in points])
+            box = min(xs), min(ys), max(xs), max(ys)
+            for other, bounds in {**boxes, **mounting_reserve_rects(length)}.items():
+                if other != ref and _boxes_overlap(box, bounds):
+                    raise ValueError(f"{ref} {name} obstructed by {other}")
+
+
 def position_reference(node, ref):
     bounds = fp_bbox(node, graphic_layers=("F.SilkS", "F.CrtYd"))
     for prop in F(node, "property"):
@@ -416,6 +466,8 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
           dnp=False, hand_assembled=False, hide_reference=False,
           consumed=None):
     node = embedded_footprint(ref, libid)
+    if _GENERATION.get()[0] == "1.3" and libid in TERMINAL_LIBIDS:
+        reserve_terminal_wire_access(node)
     refresh_uuids(node)
     set_pad_orientations(node, rot)
     # Embedded zone vertices use board coordinates; library vertices are local.
@@ -616,7 +668,7 @@ def _rotatable(ref):
     return ref[0] in "RC"
 
 
-# R-CON-4: power at the hub, LED/sync at the far end; wire entries face the hub.
+# Rev 1.2 connector grouping for draft packing.
 HUB_CONNS = ("J1",)                # logic power in — hub end (left)
 FAR_CONNS = ("J2", "J3A", "J3B")    # strip signal, sync daisy in/out — far end (right)
 
@@ -628,10 +680,41 @@ TERMINAL_EDGE_PLACEMENTS = {
 }
 
 TERMINAL_EDGE_PLACEMENTS_1_3 = {
-    "J1": (3.25, 18.9, 0),
-    "J2": (36.6, 23.97, 0),
-    "J3A": (48.0, 3.96, 0),
-    "J3B": (48.0, 16.52, 0),
+    "J1": (13.11, 3.43, 270),
+    "J2": (22.23, 3.43, 270),
+    "J3A": (33.89, 3.43, 270),
+    "J3B": (45.55, 3.43, 270),
+}
+
+TERMINAL_FIXED_1_3 = {
+    "U_MCU": (27.15, 20.2, 0),
+    "C_IN": (2.55, 10.75, 0),
+    "C_DEC1": (11.5, 9.8, 0),
+    "U1": (50.8, 19.0, 90),
+    "C_DEC2": (47.19, 14.5, 0),
+    "R_D1": (52.27, 23.7, 180),
+    "R_D2": (48.3, 23.7, 180),
+    "JP_ID0": (24.55, 8.93, 0),
+    "JP_ID1": (28.35, 8.93, 0),
+    "JP_ID2": (32.15, 8.93, 0),
+    "JP_SHLD": (35.95, 8.93, 0),
+    "JP_TERM": (39.35, 8.93, 90),
+    "F1": (15.76, 8.93, 0),
+    "Q_REV": (20.47, 8.93, 0),
+    "D_SYNC": (43.03, 8.93, 0),
+    "U_SYNC": (50.2, 10.15, 0),
+    "C_DEC3": (55.5, 8.5, 0),
+    "C_BULK3": (55.5, 10.25, 0),
+    "R_A": (55.6, 12.8, 0),
+    "R_B": (55.6, 14.5, 0),
+    "R_TERM": (50.75, 14.25, 0),
+    "FB": (56.82, 22.5, 90),
+    "C_LF": (48.7, 30.0, 0),
+    "R_LF": (44, 30.75, 0),
+    "R_TX": (13, 30.95, 0),
+    "R_MEN": (20, 30.95, 0),
+    "R_DATA_PD": (48.5, 26.5, 270),
+    "R_CLK_PD": (46.5, 26.5, 270),
 }
 
 SYNC_FILTER_PLACEMENTS = {
@@ -673,15 +756,9 @@ REVISION_LAYOUTS = {
     },
     "1.3": {
         "edge_placements": TERMINAL_EDGE_PLACEMENTS_1_3,
-        "fixed_overrides": {
-            "C_IN": (15.5, 27.0, 0),
-            "U1": (26.8, 25.92, 180),
-            "R_D1": (31.6, 23.6, 90),
-            "R_D2": (31.6, 27.5, 90),
-            "C_DEC2": (22.3, 29.7, 90),
-        },
-        "fixed_refs": frozenset(("JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD",
-                                 "C_IN", "U_MCU", "C_DEC1", "U1", "R_D1", "R_D2", "C_DEC2")),
+        "fixed_overrides": TERMINAL_FIXED_1_3,
+        "fixed_refs": frozenset(TERMINAL_FIXED_1_3),
+        "vin_ground_via": (12.275, 10.95),
         "local_route_count": 1,
         "ground_route_count": 1,
         "sync_marks": "ABGH",
@@ -743,7 +820,7 @@ def local_routes(footprints):
                          f'(end {fmt(b[0])} {fmt(b[1])}) (width 0.2) '
                          f'(layer "F.Cu") (net {net[0]}) '
                          f'(uuid "{uid()}") (locked yes))')
-    ground_routes = ((("C_DEC1", "2"), (11.55, 1.35)),
+    ground_routes = ((("C_DEC1", "2"), layout.get("vin_ground_via", (11.55, 1.35))),
                      (("C_SYNC", "2"), (19.925, 23.0)),
                      (("R2", "2"), (24.4125, 22.0)))
     ground_routes = ground_routes[:layout["ground_route_count"]]
@@ -986,12 +1063,14 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                                 hand_assembled=is_hand_assembled(fp, val),
                                 hide_reference=lock,
                                 consumed=consumed))
-        if unplaced and ref == "J1":
+        if unplaced and ref == "J1" and selected == "1.2":
             trim_power_terminal_silkscreen(foot_nodes[-1])
     for ref, (x, y) in HOLES.items():
         foot_nodes.append(embed(MOUNTING_HOLE_FOOTPRINT, ref, "M2.5",
                                 x, y, 0, pad_net, netid, locked=unplaced,
                                 hide_reference=True, consumed=consumed))
+    if unplaced and selected == "1.3":
+        validate_front_access(foot_nodes, L)
     # A netlist pin with no pad of that name would drop its connection silently;
     # refs that were never embedded drop their nets by design.
     embedded = set(PLACE) | set(HOLES)
@@ -1177,7 +1256,12 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         source_dir = terminal_library_dir(libid)
         source = os.path.join(source_dir, name)
         destination = os.path.join(pretty, name)
-        if os.path.abspath(source) != os.path.abspath(destination):
+        if selected == "1.3":
+            with open(source, encoding="utf-8") as f:
+                terminal = sexp.parse_one(f.read())
+            reserve_terminal_wire_access(terminal)
+            atomic_write_text(destination, sexp.dumps(terminal) + "\n")
+        elif os.path.abspath(source) != os.path.abspath(destination):
             with open(source, encoding="utf-8") as f:
                 atomic_write_text(destination, f.read())
     model_source = os.path.join(LOCAL_FOOTPRINT_DIR, "Teensy4.0.wrl")

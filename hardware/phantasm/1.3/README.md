@@ -169,25 +169,52 @@ margin for the harness. A lower-resistance PTC needs a separate component review
 
 ## Board layout
 
-Rev 1.3 retains the 58.28 x 32 mm outline and mounting-hole centers.
-The two four-position sync terminals need a different arrangement from
-rev 1.2's three-connector column. Review the generated fixed placements,
-terminal body keepouts, and hub-facing wire access before routing.
-J3A pins 1–4 and J3B pins 1–2 face the Teensy PCB across a 1.47 mm gap.
-J3A.1 aligns with the D13 header pin and J3B.2 with D12; those pins occupy
-the straight insertion path even with a taller socket or prewiring.
-J3B pin 3 has a 1.9 mm slot between the Teensy and J2; pin 4 faces J2
-across a 4.9 mm gap. Trial-fit both pins with the intended wires and ferrules
-at mounted height. Prewiring before seating the Teensy or raising its socket
-does not clear pin 4: its obstruction is the soldered J2 terminal body.
-The fixed terminal origins are J2 at (36.6, 23.97), J3A at (48, 3.96),
-and J3B at (48, 16.52), in millimeters. C_IN is fixed at (15.5, 27),
-opening the slot for U1 at (26.8, 25.92), rotated 180 degrees with its outputs
-facing J2. R_D1 and R_D2 occupy the strip between U1 and J2; C_DEC2 sits
-beside U1 pin 14. The removed receive divider and C_SYNC require no local
-filter traces.
+Rev 1.3 retains the 58.28 x 32 mm outline, four mounting-hole centers,
+selected parts and electrical nets. All components remain on the front;
+all SMD assembly remains on one side. The complete front placement is locked
+in the upload board. USB still mates from the left.
+
+The terminals form a bank along the top edge, rotated 270 degrees:
+J1 at (13.11, 3.43), J2 at (22.23, 3.43), J3A at (33.89, 3.43), and
+J3B at (45.55, 3.43), in millimeters. Their openings face north, tangential
+to the board's hub-to-tip axis. Each pin has a front-component keepout for
+a 2.4 mm-wide, 10 mm-long straight insertion approach outside the board.
+This includes both GND reference pins and both SHIELD pins. Terminal GND
+is separate from Teensy D3; no connection is omitted to gain clearance.
+The Teensy courtyard, header pins, J2 body and mounting reserves are outside
+these approaches, so access does not depend on fitting a taller socket or
+passing wires beneath the module.
+
+The 2.4 mm envelope covers the preferred 3106A pair's nominal insulation;
+it is also reserved for GND and SHIELD. It does not qualify an unspecified
+ferrule collar. Trial-fit the selected wire ends and ferrules together in
+the actual terminals: 2.54 mm pitch leaves only 0.14 mm nominal separation
+between adjacent 2.4 mm envelopes. GCT's drawing does not dimension port
+height; the external approaches avoid component obstruction at any height,
+but actual terminal/ferrule compatibility remains an assembly check.
+
+R-CON-4 requires the mating cables to route toward the hub; it does not
+require the wire openings themselves to face the hub. Fan the leads toward
+the left and clamp each cable jacket to the rotor structure within about
+20 mm of its connector (R-CON-6). Keep the 3106A jacket's 91 mm minimum bend
+radius: do not force the jacket through a tight 90-degree turn at the mouth.
+The lead fan-out, jacket/clamp locations, RTV retention, actual USB plug and
+rotor swept envelope require physical trial fit before routing/fabrication
+release. No numeric allowable external cable or component-height envelope
+is established by the mechanical spec. Measure the available space north
+of the board and the permitted clamp locations on the actual rotor arm;
+CAD port access alone does not establish those clearances or dynamic balance.
+
+C_IN remains at the hub end at (2.55, 10.75). U_MCU is at (27.15, 20.2),
+with its USB mating reservation clear. U1 is at (50.8, 19), rotated 90 degrees;
+R_D1/R_D2 sit immediately beside their actual DATA/CLK output pads.
+The three bypass supply-pad distances are below 3 mm; C_DEC1's VIN trace
+and dedicated ground via are pre-routed. The other supply/ground loops,
+reset pull-down connections, filtered rail and signal paths still need
+routing over the preserved inner ground planes. The removed receive divider
+and C_SYNC require no local filter traces.
 The back silkscreen carries the ID truth table, N=8 line, revision stamp
-and writable board-ID field centered at x=20mm to clear J2.
+and writable board-ID field. Legend placement remains a separate layout gate.
 
 Route J3A to J3B as an uninterrupted pair over a continuous ground plane.
 Keep the connector-to-transceiver branch at most 20 mm and untwisted cable
@@ -206,7 +233,8 @@ of U_SYNC pin 8 with a short ground return; place C_BULK3 nearby.
 For Quilter, set bypass assignments to C_DEC1 at U_MCU VIN, C_DEC2 at U1
 pin 14, and C_DEC3 at U_SYNC pin 8. Their direct schematic wires identify
 the parent supplies. C_BULK3 is bulk decoupling; place it near U_SYNC without
-a bypass assignment. C_DEC2 and C_DEC3 need placement at their IC supply pins.
+a bypass assignment. Preserve the locked bypass placements and route their
+short supply connections with dedicated ground vias.
 
 ## Firmware contract
 

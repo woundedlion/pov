@@ -1,5 +1,7 @@
 """Revision selection, electrical partitions and current revision generator provenance."""
 import contextlib
+import copy
+import math
 import io
 import shutil
 import subprocess
@@ -19,7 +21,7 @@ import fab  # noqa: E402
 import pcb  # noqa: E402
 import sexp  # noqa: E402
 import shorts  # noqa: E402
-from kicad_common import F, export_netlist, kicad_cli  # noqa: E402
+from kicad_common import F, export_netlist, kicad_cli, rotate_point  # noqa: E402
 from courtyard_bounds import courtyard_box  # noqa: E402
 from pin_landing import dangling_pins  # noqa: E402
 from kicad_env import committed_board_nets, generate, footprints_by_ref  # noqa: E402
@@ -65,13 +67,70 @@ class PrototypeContractTests(unittest.TestCase):
     def test_committed_board_matches_differential_electrical_partition(self):
         self.assertTrue(check.check(committed_board_nets("1.3"), "1.3"))
 
-    def test_led_data_resistor_precedes_clock_along_j2(self):
+    def test_led_resistors_follow_their_output_channels(self):
         footprints = footprints_by_ref(self.board)
-        data_y = float(sexp.val(footprints["R_D1"], "at")[1])
-        clock_y = float(sexp.val(footprints["R_D2"], "at")[1])
-        self.assertLess(data_y, clock_y)
-        self.assertIn("U1.6", committed_board_nets("1.3")["DATA_SRC"])
-        self.assertIn("U1.3", committed_board_nets("1.3")["CLK_SRC"])
+        data_x = float(sexp.val(footprints["R_D1"], "at")[0])
+        clock_x = float(sexp.val(footprints["R_D2"], "at")[0])
+        self.assertGreater(data_x, clock_x)
+        for ref, pin, net in (("R_D1", "6", "DATA_SRC"), ("R_D2", "3", "CLK_SRC")):
+            self.assertIn(f"U1.{pin}", committed_board_nets("1.3")[net])
+            self.assertLess(math.dist(self.pad_position(footprints[ref], "1"),
+                                      self.pad_position(footprints["U1"], pin)), 3)
+
+    @staticmethod
+    def pad_position(footprint, number):
+        pad = next(p for p in F(footprint, "pad") if str(p[1]) == number)
+        x, y, angle = map(float, sexp.val(footprint, "at"))
+        dx, dy = rotate_point(tuple(map(float, sexp.val(pad, "at")[:2])), angle)
+        return x + dx, y + dy
+
+    def test_front_layout_preserves_full_terminal_approaches(self):
+        footprints = footprints_by_ref(self.board)
+        self.assertEqual(len(footprints), 36)
+        self.assertTrue(all(sexp.val(f, "layer") == ["F.Cu"] for f in footprints.values()))
+        for ref, count in (("J1", 2), ("J2", 3), ("J3A", 4), ("J3B", 4)):
+            footprint = footprints[ref]
+            self.assertEqual(float(sexp.val(footprint, "at")[2]), 270)
+            zones = {str(sexp.val(z, "name", [""])[0]): z for z in F(footprint, "zone")}
+            for pin in range(1, count + 1):
+                zone = zones[f"Terminal wire access pin {pin}"]
+                points = F(F(F(zone, "polygon")[0], "pts")[0], "xy")
+                xs, ys = zip(*[(float(p[1]), float(p[2])) for p in points])
+                self.assertAlmostEqual(max(xs) - min(xs), 2.4)
+                self.assertAlmostEqual(max(ys) - min(ys), 10)
+                px, py = self.pad_position(footprint, str(pin))
+                self.assertAlmostEqual((min(xs) + max(xs)) / 2, px)
+                self.assertAlmostEqual(max(ys), py - 3.25)
+        pcb.validate_front_access(list(footprints.values()), 58.28)
+
+    def test_ground_and_shield_approaches_reject_off_center_obstruction(self):
+        for pin in ("3", "4"):
+            footprints = footprints_by_ref(copy.deepcopy(self.board))
+            x, _ = self.pad_position(footprints["J3B"], pin)
+            probe = sexp.parse_one(
+                f'(footprint "probe" (layer "F.Cu") (at {x + 1.15} -5 0) '
+                '(property "Reference" "R_PROBE") '
+                '(fp_rect (start -0.025 -0.025) (end 0.025 0.025) '
+                '(stroke (width 0.01) (type solid)) (fill none) (layer "F.CrtYd")))')
+            with self.assertRaisesRegex(ValueError, f"J3B Terminal wire access pin {pin} obstructed"):
+                pcb.validate_front_access([*footprints.values(), probe], 58.28)
+
+    def test_usb_mating_volume_rejects_front_obstruction(self):
+        footprints = footprints_by_ref(copy.deepcopy(self.board))
+        probe = sexp.parse_one(
+            '(footprint "probe" (layer "F.Cu") (at 0 20 0) '
+            '(property "Reference" "R_PROBE") '
+            '(fp_rect (start -0.1 -0.1) (end 0.1 0.1) '
+            '(stroke (width 0.01) (type solid)) (fill none) (layer "F.CrtYd")))')
+        with self.assertRaisesRegex(ValueError, "U_MCU USB mating plug obstructed by R_PROBE"):
+            pcb.validate_front_access([*footprints.values(), probe], 58.28)
+
+    def test_bypass_pads_remain_within_three_mm_of_supply_pins(self):
+        footprints = footprints_by_ref(self.board)
+        for cap, ic, pin in (("C_DEC1", "U_MCU", "VIN"), ("C_DEC2", "U1", "14"),
+                             ("C_DEC3", "U_SYNC", "8")):
+            self.assertLess(math.dist(self.pad_position(footprints[cap], "1"),
+                                      self.pad_position(footprints[ic], pin)), 3)
 
     def test_termination_legend_is_revision_specific(self):
         self.assertIn("TERM=CABLE ENDS", [text[1] for text in F(self.board, "gr_text")])

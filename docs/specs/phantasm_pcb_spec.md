@@ -401,6 +401,19 @@ electrical contracts remain independently usable.
   for the loaded transceiver and budget 0.25 A for the logic card until measured.
   Revalidate the inherited fuse/filter voltage drop and input overshoot protection;
   the 0.15 A power calculation above does not qualify the rev 1.3 master.
+- **R-SYNC-13-PLACEMENT ? Front-only access.** Preserve the 58.28 x 32 mm
+  outline, four mounting centers and selected parts. Place all components
+  on the front, with the USB connector facing left. J1/J2/J3A/J3B form a
+  top-edge bank whose north-facing entries are tangential to the hub axis.
+  Reserve every terminal's full 2.4 mm-wide, 10 mm-long approach, including
+  reference GND and SHIELD, clear of the module, headers, other bodies and
+  mounting reserves. R-CON-4 still requires the cables to fan toward the hub;
+  R-CON-6 requires jacket strain relief within about 20 mm of the connectors.
+  Qualify the actual ferrules, 3106A jacket bend radius, external fan-out,
+  clamps and rotor swept envelope by trial fit. No numeric allowable height
+  or north-edge harness envelope is specified; measure the actual rotor arm
+  before release. The [placement contract](../../hardware/phantasm/1.3/README.md#board-layout)
+  records the locked origins and remaining routing gates.
 - **R-SYNC-13-6 — Qualification.** Require placement and mechanical review,
   routed net parity, ERC/DRC, and assembled-rotor measurements under motor,
   LED-load, reset, and power-loss disturbances before fabrication release.

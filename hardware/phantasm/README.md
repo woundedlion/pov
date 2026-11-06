@@ -24,17 +24,19 @@ left edge. The outline remains **58.28 x 32 mm**, and all four mounting holes
 retain the rev 1.1 coordinates. The Teensy shifts 3.5 mm left to clear the
 terminal bodies; D_BUS is released for placement outside their keepouts.
 
-J2/J3A/J3B in revisions 1.2 and 1.3 have no wire-access reservation.
-Rev 1.2's right-column wire openings sit about 1.5 mm from the Teensy PCB edge.
-On rev 1.3, J3B pin 3 has a 1.9 mm slot between the Teensy and J2, while
-pin 4 faces J2's rear wall across a 4.9 mm gap. Before fabrication, trial-fit
-the harness at the module's mounted height, including ferrules, particularly
-J3B pins 3 and 4. Wiring before seating the Teensy or using a taller socket
-can clear its PCB obstruction only where the conductor is not collinear with
-a Teensy header pin. Rev 1.2 J2.1 and rev 1.3 J3A.1 and J3B.2 face header
-pins that remain in the insertion path at any socket height. Neither measure
-clears rev 1.3 J3B.4's soldered J2 wall.
-The placement and DRC gates do not check harness insertion.
+Rev 1.2 J2/J3A/J3B have no wire-access reservation. Their openings sit
+about 1.5 mm from the Teensy PCB edge; J2.1 faces a header pin that remains
+in its insertion path at any socket height. Trial-fit its harness before
+fabrication. Placement and DRC do not qualify harness insertion.
+
+Rev 1.3 uses a different front-only placement: J1/J2/J3A/J3B form a top-edge
+bank with north-facing, tangential entries. Every terminal, including sync
+GND and SHIELD, reserves a 2.4 mm-wide, 10 mm-long straight approach outside
+the board, clear of the module, other bodies and mounting reserves.
+All selected parts, nets, outline and mounting centers are retained.
+The cables must fan left toward the hub and be strain-relieved to the rotor;
+actual ferrules, jacket bend radius, clamp locations and swept-envelope fit
+remain physical qualification gates. See the [rev 1.3 placement contract](1.3/README.md#board-layout).
 
 Rev 1.2 omits the J4 debug header and SERIAL1_TX connection; Teensy pin 1 is
 unconnected. R_MEN and MASTER_EN remain part of the sync control circuit.
