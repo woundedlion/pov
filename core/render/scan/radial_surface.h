@@ -427,12 +427,11 @@ public:
       }
       count<COUNT>(stats, &Stats::intervals);
       const int END_SECTOR = sector_index(theta - knots[i + 1].phase);
-      int end_edge = start_edge + END_SECTOR - start_sector;
-      if (end_edge < 0)
-        end_edge += num_edges;
-      else if (end_edge >= num_edges)
-        end_edge -= num_edges;
-      const int END_EDGE = end_edge;
+      const int UNWRAPPED_END_EDGE = start_edge + END_SECTOR - start_sector;
+      const int END_EDGE =
+          UNWRAPPED_END_EDGE < 0            ? UNWRAPPED_END_EDGE + num_edges
+          : UNWRAPPED_END_EDGE >= num_edges ? UNWRAPPED_END_EDGE - num_edges
+                                            : UNWRAPPED_END_EDGE;
       const Point END_VECTOR = multiply(knots[i + 1], edges[END_EDGE]);
       const float END_VALUE =
           radial_cross(p, END_VECTOR) - determinant * norms[i + 1];
@@ -461,11 +460,10 @@ public:
           const float DENOMINATOR = radial_cross(p, CORNER_DELTA);
           const float EVENT = std::clamp(
               -radial_cross(p, CORNER_START) / DENOMINATOR, 0.0f, 1.0f);
-          const int START_EDGE = start_edge;
-          const float EVENT_VALUE = predicate(p, i, START_EDGE, EVENT);
+          const float EVENT_VALUE = predicate(p, i, start_edge, EVENT);
           if (EVENT_VALUE <= 0.0f) {
             count<COUNT>(stats, &Stats::roots);
-            return solve<DERIVATIVES>(p, i, START_EDGE, 0.0f, EVENT,
+            return solve<DERIVATIVES>(p, i, start_edge, 0.0f, EVENT,
                                       start_value);
           }
           if (END_VALUE <= 0.0f) {
