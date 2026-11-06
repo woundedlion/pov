@@ -120,6 +120,12 @@ inline TranslationLattice translation_lattice(const BandsSourceParams &params) {
  *        (Pullback::Source::Spiral).
  */
 struct SpiralSourceParams : Pattern::SpiralSourceParams {
+  /// Input coordinate conventions.
+  static constexpr const char *COORDINATE_SYSTEM_IDS[] = {"plane",
+                                                          "equirectangular"};
+  /// Activation of spherical winding-center controls.
+  static constexpr TopologyGate CENTER_GATE{"coordinate-system",
+                                            live_values(1)};
   /** @brief Per-parameter id, member, label, range and curve. */
   static constexpr auto FIELDS = std::array{
       Field<SpiralSourceParams>{"pattern-freq",
@@ -127,7 +133,19 @@ struct SpiralSourceParams : Pattern::SpiralSourceParams {
                                 "Pattern Freq", 0.1f, 20.0f, FieldCurve::LERP},
       Field<SpiralSourceParams>{"arms", &SpiralSourceParams::arms,
                                 "Spiral Arms", 0.0f, 12.0f, FieldCurve::SNAP},
+      Field<SpiralSourceParams>{
+          "center-azimuth", &SpiralSourceParams::center_azimuth,
+          "Center Azimuth", 0.0f, math::TWO_PI_F, FieldCurve::SHORTEST_PERIODIC,
+          FieldGate::ALWAYS, CENTER_GATE},
+      Field<SpiralSourceParams>{
+          "center-polar", &SpiralSourceParams::center_polar,
+          "Center Polar Angle", 0.0f, math::PI_F, FieldCurve::LERP,
+          FieldGate::ALWAYS, CENTER_GATE},
   };
+  /// Input chart selector.
+  static constexpr auto TOPOLOGY = std::array{TopologyField<SpiralSourceParams>{
+      "coordinate-system", &SpiralSourceParams::coordinate_system,
+      COORDINATE_SYSTEM_IDS, 0}};
 };
 static_assert(field_ids_unique<SpiralSourceParams>());
 static_assert(field_defaults_in_range<SpiralSourceParams>());
@@ -405,16 +423,16 @@ template <typename State> struct Spiral : ApproximationDefaults {
         { State::params(frame).arms } -> std::convertible_to<float>;
       };
 
-  /** @brief The whole arm count. */
-  struct Prepared {
-    float arms; ///< `arms` rounded to whole.
-  };
+  using Prepared =
+      Pattern::PlaneSpiral::Prepared; ///< Prepared winding geometry.
 
-  /** @brief Rounds the arm count once per frame.
+  /** @brief Prepares the arm count and winding-center frame.
    * @param frame Frame state.
-   * @return Whole arm count. */
+   * @return Immutable spiral geometry. */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return {std::round(State::params(frame).arms)};
+    return Pattern::PlaneSpiral::prepare(
+        static_cast<const Pattern::SpiralSourceParams &>(State::params(frame)),
+        {});
   }
 
   /**
@@ -427,10 +445,8 @@ template <typename State> struct Spiral : ApproximationDefaults {
   __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
-    return Pattern::spiral(
-        Pattern::PlanePosition{projections::stereo_pattern_args(
-            input.coords, State::params(frame).pattern_freq)},
-        prepared.arms);
+    (void)frame;
+    return Pattern::PlaneSpiral::sample({input.coords}, prepared);
   }
 };
 

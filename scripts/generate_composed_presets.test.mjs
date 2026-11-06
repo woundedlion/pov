@@ -316,6 +316,22 @@ test('camera spin binding follows its authored label', async () => {
   assert.equal(assignments.get('projection.camera_wander'), '0.25f');
 });
 
+test('spiral coordinate systems and spherical centers survive C++ export', () => {
+  const source = { descriptor: { chain: [
+    { label: 'sample', operator: 'sample.spiral.v3' },
+  ] } };
+  for (const authoredTopology of [false, true]) {
+    const assignments = presetAssignments(source, {
+      'sample.coordinate-system': 'equirectangular',
+      'sample.center-azimuth': 0.5,
+      'sample.center-polar': 0.75,
+    }, { authoredTopology });
+    assert.equal(assignments.get('source.coordinate_system'), '1');
+    assert.equal(assignments.get('source.center_azimuth'), '0.5f');
+    assert.equal(assignments.get('source.center_polar'), '0.75f');
+  }
+});
+
 test('authored affine periods and sample coverage retain their independent storage', () => {
   const authored = { descriptor: { chain: [
     { label: 'warp', operator: 'warp.affine.v4' },

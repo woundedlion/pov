@@ -187,6 +187,9 @@ struct SpiralSourceParams {
   float pattern_freq = 1.0f; /**< Plane-coordinate scale before sampling. */
   float arms = 3.0f; /**< Spiral arms, rounded to whole; 0 draws concentric
                           rings. */
+  float center_azimuth = 0.0f; ///< Spherical winding-center azimuth, radians.
+  float center_polar = 0.0f; ///< Winding-center colatitude from north, radians.
+  uint8_t coordinate_system = 0; ///< Cartesian plane or equirectangular chart.
 };
 
 /** @brief Passive parameters for `PlaneNoise`. */

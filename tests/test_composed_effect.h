@@ -911,8 +911,14 @@ inline void check_slider_registration(const char *name) {
     HS_EXPECT_TRUE(mapping->export_options != nullptr);
   }
 
+  const size_t source_topology = [] {
+    using Family = typename Params::template Family<"source">;
+    if constexpr (requires { Family::TOPOLOGY; })
+      return std::size(Family::TOPOLOGY);
+    return size_t{0};
+  }();
   const size_t expected =
-      twist_sliders +
+      source_topology + twist_sliders +
       named_field_count<FX, typename Params::template Family<"source">>() +
       named_field_count<FX, Pullback::ProjectionParams>() +
       named_field_count<FX, typename Params::template Family<"surface">>() +

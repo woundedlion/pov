@@ -844,8 +844,17 @@ time; the source itself has no clock.
 **Spiral** (`sample.spiral.v3`) is the stationary Archimedean spiral
 `sin(r − Arms·azimuth)`; Arms rounds to whole and snaps between presets, and
 zero Arms draws concentric rings around the plane origin. Spiral uses plane
-radius and azimuth; it does not interpret equirectangular coordinates as latitude
-and longitude.
+radius and azimuth under the **Plane** coordinate system. **Equirectangular**
+reads warped plane X as longitude and Y as latitude, reconstructs the spherical
+direction, and evaluates `sin(Pattern Freq * angular_distance - Arms * azimuth)`
+around the selected winding center. **Center Azimuth** and **Center Polar Angle**
+position that center in the projection frame; zero polar angle is north. Plane
+warps still act on the input longitude and latitude before sampling. The
+workbench's scratch chain defaults to Equirectangular projection and this
+north-centered Spiral. Existing shaders retain Plane coordinates by default.
+Longitude wraps by a full turn before spherical sampling, so the winding
+joins across the chart seam at any center position. Plane warps must preserve
+the longitude wrap to retain that continuity.
 
 Mirror Tile scrolls one local X cell while its Y offset remains manual.
 Polar Chart advances Angular Phase by one turn while Radial Phase remains

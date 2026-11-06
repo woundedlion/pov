@@ -9,6 +9,7 @@
 
 #include "core/pattern/field.h"
 #include "core/math/geometry.h"
+#include "core/math/periodic.h"
 #include "core/math/projection_patterns.h"
 
 namespace Pattern {
@@ -591,7 +592,10 @@ template <class Params> bool valid_source_params(const Params &params) {
   if constexpr (requires { params.angle; })
     valid &= parameter_in_range(params.angle, 0.0f, math::TWO_PI_F);
   if constexpr (requires { params.arms; })
-    valid &= parameter_in_range(params.arms, 0.0f, 12.0f);
+    valid &= parameter_in_range(params.arms, 0.0f, 12.0f) &&
+             parameter_in_range(params.center_azimuth, 0.0f, math::TWO_PI_F) &&
+             parameter_in_range(params.center_polar, 0.0f, math::PI_F) &&
+             params.coordinate_system <= 1;
   if constexpr (requires { params.complexity; })
     valid &= parameter_in_range(params.complexity, 0.0f, 3.0f) &&
              parameter_in_range(params.pattern_mix, 0.0f, 1.0f);
@@ -728,6 +732,13 @@ struct PlaneBands : StationarySource<BandsSourceParams> {
 
 /** @brief Pure plane source policy for the stationary spiral kernel. */
 struct PlaneSpiral : StationarySource<SpiralSourceParams> {
+  /** @brief Immutable spiral geometry and winding frame. */
+  struct Prepared {
+    float pattern_freq;                ///< Radial frequency.
+    float arms;                        ///< Whole arm count.
+    math::Quaternion center_conjugate; ///< Rotation into the winding frame.
+    bool equirectangular; ///< Input carries longitude and latitude.
+  };
   /** @brief Owns admitted controls with the arm count rounded to whole.
    * @param params Source controls.
    * @param state Empty source state.
@@ -735,15 +746,34 @@ struct PlaneSpiral : StationarySource<SpiralSourceParams> {
   static Prepared prepare(const Params &params, const State &state) {
     (void)state;
     HS_CHECK(valid(params), "pattern spiral: invalid parameters");
-    Prepared prepared = params;
-    prepared.arms = std::round(params.arms);
-    return prepared;
+    return {params.pattern_freq, std::round(params.arms),
+            math::make_rotation(math::Y_AXIS,
+                                math::Vector::from_spherical(
+                                    params.center_azimuth, params.center_polar))
+                .conjugate(),
+            params.coordinate_system == 1};
   }
   /** @brief Evaluates the prepared source at a consumer-supplied plane point.
    * @param coordinate Plane coordinate.
    * @param prepared Immutable controls.
    * @return Signed field value. */
   static float sample(const Coordinate &coordinate, const Prepared &prepared) {
+    if (prepared.equirectangular) {
+      const float longitude =
+          math::wrap_positive(coordinate.value.re, math::TWO_PI_F);
+      const float latitude = coordinate.value.im;
+      const float COS_LATITUDE = std::cos(latitude);
+      const math::Vector direction{COS_LATITUDE * std::cos(longitude),
+                                   std::sin(latitude),
+                                   COS_LATITUDE * std::sin(longitude)};
+      const math::Vector local =
+          math::rotate(direction, prepared.center_conjugate);
+      const float radius = std::acos(std::clamp(local.y, -1.0f, 1.0f));
+      const float azimuth =
+          prepared.arms == 0.0f ? 0.0f : math::fast_atan2(local.z, local.x);
+      return math::fast_sinf(prepared.pattern_freq * radius -
+                             prepared.arms * azimuth);
+    }
     return spiral(PlanePosition{projections::stereo_pattern_args(
                       coordinate.value, prepared.pattern_freq)},
                   prepared.arms);

@@ -1088,7 +1088,7 @@ inline void check_document_values(const char *name) {
         for (const auto &field : Family::FIELDS) {
           if (!gate_open<FX>(field.gate))
             continue;
-          if constexpr (AUTHORED) {
+          if (AUTHORED || field.topology_gate.field != nullptr) {
             bool addressed = false;
             for (const auto &slot : slots)
               if (document_resource_key(slot) == Resource::KEY.view()) {

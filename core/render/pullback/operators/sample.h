@@ -369,17 +369,22 @@ struct SampleBands : StatelessModel {
 };
 
 /** @brief Parameter family of sample.spiral.v3. */
-struct SpiralSampleParams : Source::SpiralSourceParams, SampleCrossingParams {
+struct SpiralSampleParams : Source::SpiralSourceParams {
+  float edge_width = 0.1f; ///< Fade band in projection-edge units.
+  uint8_t weight_mode =
+      static_cast<uint8_t>(WeightMode::PROJECTION); ///< Signal weighting.
+  uint8_t coverage_mode = static_cast<uint8_t>(
+      ProjectionCoverageMode::WEIGHT); ///< Coverage policy.
   static constexpr auto FIELDS = concat_fields<SpiralSampleParams>(
       Source::SpiralSourceParams::FIELDS,
       sample_crossing_fields<SpiralSampleParams>());
-  static constexpr auto TOPOLOGY =
-      sample_crossing_topology<SpiralSampleParams>();
+  static constexpr auto TOPOLOGY = sample_crossing_topology<SpiralSampleParams>(
+      TopologyField<SpiralSampleParams>{
+          "coordinate-system", &SpiralSampleParams::coordinate_system,
+          Source::SpiralSourceParams::COORDINATE_SYSTEM_IDS, 0});
 };
 static_assert(field_ids_unique<SpiralSampleParams>());
-static_assert(
-    appended_block_size_matches<SpiralSampleParams, SampleCrossingParams, 8>(),
-    "appended parameter block must have the expected rounded size");
+static_assert(sample_crossing_defaults_match<SpiralSampleParams>());
 static_assert(field_defaults_in_range<SpiralSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the stationary spiral source; zero arms draw
@@ -390,22 +395,17 @@ struct SampleSpiralV3 : StatelessModel {
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = SpiralSampleParams;
-  /** @brief The whole arm count. */
-  struct Prepared {
-    float arms; ///< `arms` rounded to whole.
-  };
+  using Prepared =
+      Pattern::PlaneSpiral::Prepared; ///< Prepared winding geometry.
 
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &) {
     check_sample_topology(params.weight_mode, params.coverage_mode);
-    return {std::round(params.arms)};
+    return Pattern::PlaneSpiral::prepare(params, {});
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
-    const float raw =
-        Pattern::spiral(Pattern::PlanePosition{projections::stereo_pattern_args(
-                            input.coords, params.pattern_freq)},
-                        prepared.arms);
+    const float raw = Pattern::PlaneSpiral::sample({input.coords}, prepared);
     return finish_sample(input, raw, params, ctx);
   }
 };

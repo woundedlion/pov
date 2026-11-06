@@ -318,6 +318,83 @@ inline void test_shader_chain_parity_sample_spiral() {
   });
 }
 
+/** @brief Equirectangular spiral controls move a spherical winding center. */
+inline void test_shader_chain_spiral_spherical_center() {
+  const auto ctx = shared_resources().context();
+  In::Op::SpiralSampleParams params;
+  params.coordinate_system = 1;
+  params.pattern_freq = 2.0f;
+  params.weight_mode = static_cast<uint8_t>(In::Op::WeightMode::NONE);
+  params.coverage_mode =
+      static_cast<uint8_t>(In::Op::ProjectionCoverageMode::NONE);
+  PB::PlaneSample input{};
+  input.coords = {0.4f, 0.7f};
+  auto prepared = In::Op::SampleSpiralV3::prepare(ctx, params, {});
+  const float expected =
+      std::sin(2.0f * (math::PI_F / 2.0f - 0.7f) - 3.0f * 0.4f);
+  HS_EXPECT_NEAR(
+      In::Op::SampleSpiralV3::run(input, ctx, params, prepared).value,
+      0.5f + 0.5f * expected, 0.008f);
+  params.arms = 0.0f;
+  for (const float azimuth : {0.0f, 0.9f, 4.1f})
+    for (const float polar : {0.0f, 0.8f, 2.2f}) {
+      params.center_azimuth = azimuth;
+      params.center_polar = polar;
+      prepared = In::Op::SampleSpiralV3::prepare(ctx, params, {});
+      const float dot =
+          std::cos(0.7f) * std::sin(polar) * std::cos(0.4f - azimuth) +
+          std::sin(0.7f) * std::cos(polar);
+      const float reference = 0.5f + 0.5f * std::sin(2.0f * std::acos(dot));
+      HS_EXPECT_NEAR(
+          In::Op::SampleSpiralV3::run(input, ctx, params, prepared).value,
+          reference, 0.002f);
+    }
+  params.center_azimuth = 0.0f;
+  params.center_polar = math::PI_F / 2.0f;
+  prepared = In::Op::SampleSpiralV3::prepare(ctx, params, {});
+  input.coords = {};
+  HS_EXPECT_NEAR(
+      In::Op::SampleSpiralV3::run(input, ctx, params, prepared).value, 0.5f,
+      0.001f);
+  input.coords = {0.3f, 0.0f};
+  HS_EXPECT_NEAR(
+      In::Op::SampleSpiralV3::run(input, ctx, params, prepared).value,
+      0.5f + 0.5f * std::sin(0.6f), 0.002f);
+}
+
+/** @brief Spherical spirals join both longitude boundaries for moved centers. */
+inline void test_shader_chain_spiral_longitude_wrap() {
+  const auto ctx = shared_resources().context();
+  In::Op::SpiralSampleParams params;
+  params.coordinate_system = 1;
+  params.weight_mode = static_cast<uint8_t>(In::Op::WeightMode::NONE);
+  params.coverage_mode =
+      static_cast<uint8_t>(In::Op::ProjectionCoverageMode::NONE);
+  for (const float arms : {0.0f, 1.0f, 3.0f, 12.0f})
+    for (const float frequency : {0.1f, 2.0f, 20.0f})
+      for (const float polar : {0.0f, 0.8f, math::PI_F}) {
+        params.arms = arms;
+        params.pattern_freq = frequency;
+        params.center_azimuth = 0.9f;
+        params.center_polar = polar;
+        const auto prepared = In::Op::SampleSpiralV3::prepare(ctx, params, {});
+        for (const float latitude :
+             {-math::PI_F / 2.0f, -0.7f, 0.0f, 0.9f, math::PI_F / 2.0f}) {
+          PB::PlaneSample left{}, right{};
+          left.coords = {0.0f, latitude};
+          right.coords = {math::TWO_PI_F, latitude};
+          HS_EXPECT_EQ(
+              In::Op::SampleSpiralV3::run(left, ctx, params, prepared).value,
+              In::Op::SampleSpiralV3::run(right, ctx, params, prepared).value);
+          left.coords.re = -math::PI_F;
+          right.coords.re = math::PI_F;
+          HS_EXPECT_EQ(
+              In::Op::SampleSpiralV3::run(left, ctx, params, prepared).value,
+              In::Op::SampleSpiralV3::run(right, ctx, params, prepared).value);
+        }
+      }
+}
+
 inline void test_shader_chain_noise_operator_domain() {
   const auto ctx = shared_resources().context();
   In::Op::NoisePhaseState state;

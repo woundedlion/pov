@@ -639,9 +639,12 @@ inline void catalog_assignments_sample_spiral_v3() {
   Pullback::Source::AuthoredSpiralSampleParams params;
   params.pattern_freq = 1.0f;
   params.arms = 3.0f;
+  params.center_azimuth = 0.0f;
+  params.center_polar = 0.0f;
   params.edge_width = 0.1f;
   params.weight_mode = 1;
   params.coverage_mode = 1;
+  params.coordinate_system = 0;
   params.weight_mode = 0;
   params.weight_mode = 1;
   params.coverage_mode = 0;
@@ -649,6 +652,8 @@ inline void catalog_assignments_sample_spiral_v3() {
   params.coverage_mode = 2;
   params.coverage_mode = 3;
   params.coverage_mode = 4;
+  params.coordinate_system = 0;
+  params.coordinate_system = 1;
   (void)params;
 }
 

@@ -31,6 +31,7 @@ const LIVE_SURFACE_OPERATORS = new Set(['sphere.displace.symmetric.v2', 'sphere.
 const liveTopology = (document, id) => {
   const [label, field] = id.split('.');
   const slot = document.descriptor.chain.find(slot => slot.label === label);
+  if (slot?.operator === 'sample.spiral.v3' && field === 'coordinate-system') return true;
   return LIVE_SURFACE_OPERATORS.has(slot?.operator) &&
     catalog.operators.find(operator => operator.id === slot.operator).params
       .find(parameter => parameter.id === field)?.topology;

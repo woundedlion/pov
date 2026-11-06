@@ -838,6 +838,8 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_parity_sample_bands);
   HS_RUN(test_shader_chain_bands_latitudes);
   HS_RUN(test_shader_chain_parity_sample_spiral);
+  HS_RUN(test_shader_chain_spiral_spherical_center);
+  HS_RUN(test_shader_chain_spiral_longitude_wrap);
   HS_RUN(test_shader_chain_grid_lattice_symmetry);
   HS_RUN(test_shader_chain_grid_motion_equivalence);
   HS_RUN(test_shader_chain_spiral_rotation_equivalence);

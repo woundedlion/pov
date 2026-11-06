@@ -129,6 +129,7 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sample.bands.v1", nullptr, {}},
     {"sample.spiral.v3", "weight-mode", {{"projection"}}},
     {"sample.spiral.v3", "coverage-mode", {{"weight-squared"}}},
+    {"sample.spiral.v3", "coordinate-system", {{"plane"}}},
     {"sample.projected-noise.v2", "weight-mode", {}},
     {"sample.projected-noise.v2", "coverage-mode", {}},
     {"sample.projected-noise.v2", "basis", {}},
@@ -267,6 +268,6 @@ inline void test_composed_derivation_reach() {
 
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 43u);
   HS_EXPECT_EQ(unreachable_operators, 15u);
-  HS_EXPECT_EQ(catalog_values, 372u);
-  HS_EXPECT_EQ(unreachable_values, 285u);
+  HS_EXPECT_EQ(catalog_values, 374u);
+  HS_EXPECT_EQ(unreachable_values, 286u);
 }
