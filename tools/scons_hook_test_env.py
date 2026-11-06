@@ -17,6 +17,7 @@ class FakeEnv(dict):
         self.pre_actions = []
         self.lib_builders = []
         self.dependencies = []
+        self.uncached = []
 
     def subst(self, s):
         return re.sub(r"\$(\w+)",
@@ -40,6 +41,9 @@ class FakeEnv(dict):
 
     def Depends(self, target, dependency):
         self.dependencies.append((target, dependency))
+
+    def NoCache(self, target):
+        self.uncached.append(target)
 
     def Action(self, function, strfunction=None):
         return ("action", function, strfunction)

@@ -385,6 +385,11 @@ class TestLinkerMap(unittest.TestCase):
             env["LINKFLAGS"],
             ["-Wl,-Map," + os.path.join(".pio", "build", "phantasm") + "/firmware.map"])
 
+    def test_elf_is_relinked_with_its_map_instead_of_restored_from_cache(self):
+        env = FakeEnv(BUILD_DIR=os.path.join(".pio", "build", "phantasm"))
+        load_hook("teensy_map.py", env=env)
+        self.assertEqual(env.uncached, ["$BUILD_DIR/firmware.elf"])
+
 
 class TestHotLayoutLink(unittest.TestCase):
     """teensy_hot_layout.py: a phantasm.ld link becomes probe, plan, link, gate."""
