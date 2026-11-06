@@ -58,6 +58,24 @@ inline void death_opleg_draw(Canvas &, MeshState &,
                              const Animation::OpLeg::Shading &) {}
 
 /**
+ * @brief Constructs an OpLeg over an empty seed for death probes.
+ * @tparam CAPACITY Scratch arena capacity in bytes.
+ * @param spec Constructor specification.
+ * @param handoff Palette handoff supplied to the constructor.
+ */
+template <size_t CAPACITY = 1024, typename Spec>
+inline void
+death_construct_opleg(const Spec &spec,
+                      Animation::OpLeg::PaletteHandoff handoff = {}) {
+  static uint8_t buffer[CAPACITY];
+  Arena arena(buffer, sizeof(buffer));
+  PolyMesh seed;
+  Animation::OpLeg leg(seed, spec, arena, death_opleg_draw, handoff);
+  if (leg.landing().faces == opaque<size_t>(42))
+    std::printf("x");
+}
+
+/**
  * @brief A palette handoff complete enough to clear the OpLeg handoff guard.
  * @return A handoff naming a default bank and a one-face departed palette.
  * @details Lets a case reach a guard that sits behind the handoff check.

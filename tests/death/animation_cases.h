@@ -231,14 +231,7 @@ inline void case_next_edge_toward_unknown_node() {
  * @brief Death case: an edge-sweep leg without a graph edge must trap.
  */
 inline void case_opleg_edge_sweep_no_edge() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  PolyMesh seed;
-  Animation::OpLeg::PaletteHandoff handoff;
-  Animation::OpLeg leg(seed, Animation::OpLeg::EdgeSweepSpec{}, arena,
-                       death_opleg_draw, handoff); // null edge -> HS_CHECK
-  if (leg.landing().faces == opaque<size_t>(42))
-    std::printf("x");
+  death_construct_opleg(Animation::OpLeg::EdgeSweepSpec{});
 }
 
 /**
@@ -247,17 +240,8 @@ inline void case_opleg_edge_sweep_no_edge() {
  *          count, and a zero-frame leg would also complete before drawing.
  */
 inline void case_opleg_zero_sweep_frames() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  PolyMesh seed;
-  Animation::OpLeg::PaletteHandoff handoff;
-  Animation::OpLeg leg(
-      seed,
-      Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
-                                       .sweep_frames = opaque(0)},
-      arena, death_opleg_draw, handoff);
-  if (leg.landing().faces == opaque<size_t>(42))
-    std::printf("x");
+  death_construct_opleg(Animation::OpLeg::ParamSweepSpec{
+      .op = ConwayGraph::MorphOp::TRUNCATE, .sweep_frames = opaque(0)});
 }
 
 /**
@@ -267,17 +251,8 @@ inline void case_opleg_zero_sweep_frames() {
  *          crossfade unresolvable rather than merely uncolored.
  */
 inline void case_opleg_incomplete_palette_handoff() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  PolyMesh seed;
-  Animation::OpLeg::PaletteHandoff handoff; // no bank, no per-face palette
-  Animation::OpLeg leg(
-      seed,
-      Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
-                                       .sweep_frames = opaque(1)},
-      arena, death_opleg_draw, handoff);
-  if (leg.landing().faces == opaque<size_t>(42))
-    std::printf("x");
+  death_construct_opleg(Animation::OpLeg::ParamSweepSpec{
+      .op = ConwayGraph::MorphOp::TRUNCATE, .sweep_frames = opaque(1)});
 }
 
 /**
@@ -287,19 +262,11 @@ inline void case_opleg_incomplete_palette_handoff() {
  *          non-settling edge would slerp toward vertices nothing produced.
  */
 inline void case_opleg_edge_settle_mismatch() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  PolyMesh seed;
-  Animation::OpLeg::PaletteHandoff handoff;
-  Animation::OpLeg leg(seed,
-                       Animation::OpLeg::EdgeSweepSpec{
-                           .edge = &death_opleg_edge,
-                           .reverse = false,
-                           .sweep_frames = opaque(1),
-                           .settle_frames = opaque(1)}, // edge does not settle
-                       arena, death_opleg_draw, handoff);
-  if (leg.landing().faces == opaque<size_t>(42))
-    std::printf("x");
+  death_construct_opleg(
+      Animation::OpLeg::EdgeSweepSpec{.edge = &death_opleg_edge,
+                                      .reverse = false,
+                                      .sweep_frames = opaque(1),
+                                      .settle_frames = opaque(1)});
 }
 
 /**
@@ -308,19 +275,11 @@ inline void case_opleg_edge_settle_mismatch() {
  * init_transients palette-handoff guard.
  */
 inline void case_opleg_edge_sweep_incomplete_handoff() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  PolyMesh seed;
-  Animation::OpLeg::PaletteHandoff handoff;
-  Animation::OpLeg leg(
-      seed,
+  death_construct_opleg(
       Animation::OpLeg::EdgeSweepSpec{.edge = &death_opleg_edge,
                                       .reverse = false,
                                       .sweep_frames = opaque(1),
-                                      .settle_frames = opaque(0)},
-      arena, death_opleg_draw, handoff);
-  if (leg.landing().faces == opaque<size_t>(42))
-    std::printf("x");
+                                      .settle_frames = opaque(0)});
 }
 
 /**
@@ -329,18 +288,10 @@ inline void case_opleg_edge_sweep_incomplete_handoff() {
  * init_transients palette-handoff guard.
  */
 inline void case_opleg_hankin_incomplete_handoff() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  PolyMesh seed;
-  Animation::OpLeg::PaletteHandoff handoff;
-  Animation::OpLeg leg(
-      seed,
+  death_construct_opleg(
       Animation::OpLeg::HankinSweepSpec{.theta_start = opaque(0.1f),
                                         .theta_end = opaque(0.5f),
-                                        .sweep_frames = opaque(1)},
-      arena, death_opleg_draw, handoff);
-  if (leg.landing().faces == opaque<size_t>(42))
-    std::printf("x");
+                                        .sweep_frames = opaque(1)});
 }
 
 /**
@@ -350,18 +301,11 @@ inline void case_opleg_hankin_incomplete_handoff() {
  *          the larger of the two.
  */
 inline void case_opleg_hankin_backward_theta() {
-  static uint8_t buf[8192];
-  Arena arena(buf, sizeof(buf));
-  PolyMesh seed;
-  const Animation::OpLeg::PaletteHandoff handoff = death_opleg_handoff();
-  Animation::OpLeg leg(
-      seed,
+  death_construct_opleg<8192>(
       Animation::OpLeg::HankinSweepSpec{.theta_start = opaque(0.9f),
                                         .theta_end = opaque(0.3f),
                                         .sweep_frames = opaque(1)},
-      arena, death_opleg_draw, handoff);
-  if (leg.landing().faces == opaque<size_t>(42))
-    std::printf("x");
+      death_opleg_handoff());
 }
 
 /**
@@ -371,17 +315,8 @@ inline void case_opleg_hankin_backward_theta() {
  *          neither it would slerp the seed onto itself for its whole duration.
  */
 inline void case_opleg_relax_no_iterations() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  PolyMesh seed;
-  Animation::OpLeg::PaletteHandoff handoff;
-  Animation::OpLeg leg(seed,
-                       Animation::OpLeg::RelaxSpec{.iterations = opaque(0),
-                                                   .bake = nullptr,
-                                                   .sweep_frames = opaque(1)},
-                       arena, death_opleg_draw, handoff);
-  if (leg.landing().faces == opaque<size_t>(42))
-    std::printf("x");
+  death_construct_opleg(Animation::OpLeg::RelaxSpec{
+      .iterations = opaque(0), .bake = nullptr, .sweep_frames = opaque(1)});
 }
 
 /**
@@ -390,17 +325,8 @@ inline void case_opleg_relax_no_iterations() {
  * init_transients palette-handoff guard.
  */
 inline void case_opleg_relax_incomplete_handoff() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  PolyMesh seed;
-  Animation::OpLeg::PaletteHandoff handoff;
-  Animation::OpLeg leg(seed,
-                       Animation::OpLeg::RelaxSpec{.iterations = opaque(1),
-                                                   .bake = nullptr,
-                                                   .sweep_frames = opaque(1)},
-                       arena, death_opleg_draw, handoff);
-  if (leg.landing().faces == opaque<size_t>(42))
-    std::printf("x");
+  death_construct_opleg(Animation::OpLeg::RelaxSpec{
+      .iterations = opaque(1), .bake = nullptr, .sweep_frames = opaque(1)});
 }
 
 /**
@@ -409,15 +335,8 @@ inline void case_opleg_relax_incomplete_handoff() {
  * init_transients palette-handoff guard.
  */
 inline void case_opleg_medial_incomplete_handoff() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  PolyMesh seed;
-  Animation::OpLeg::PaletteHandoff handoff;
-  Animation::OpLeg leg(seed,
-                       Animation::OpLeg::MedialSpec{.sweep_frames = opaque(1)},
-                       arena, death_opleg_draw, handoff);
-  if (leg.landing().faces == opaque<size_t>(42))
-    std::printf("x");
+  death_construct_opleg(
+      Animation::OpLeg::MedialSpec{.sweep_frames = opaque(1)});
 }
 
 /**
@@ -426,33 +345,17 @@ inline void case_opleg_medial_incomplete_handoff() {
  *          position, so an absent endpoint array is the whole leg's target.
  */
 inline void case_opleg_reconcile_no_endpoints() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  PolyMesh seed;
-  Animation::OpLeg::PaletteHandoff handoff;
-  Animation::OpLeg leg(seed,
-                       Animation::OpLeg::ReconcileSpec{
-                           .to_positions = nullptr, .sweep_frames = opaque(1)},
-                       arena, death_opleg_draw, handoff);
-  if (leg.landing().faces == opaque<size_t>(42))
-    std::printf("x");
+  death_construct_opleg(Animation::OpLeg::ReconcileSpec{
+      .to_positions = nullptr, .sweep_frames = opaque(1)});
 }
 
 /** @brief Death case: reconcile endpoint and seed counts must agree. */
 inline void case_opleg_reconcile_endpoint_count() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  PolyMesh seed;
   const math::Vector endpoint{};
-  Animation::OpLeg::PaletteHandoff handoff;
-  Animation::OpLeg leg(
-      seed,
+  death_construct_opleg(
       Animation::OpLeg::ReconcileSpec{.to_positions = &endpoint,
                                       .to_count = opaque<size_t>(1),
-                                      .sweep_frames = opaque(1)},
-      arena, death_opleg_draw, handoff);
-  if (leg.landing().faces == opaque<size_t>(42))
-    std::printf("x");
+                                      .sweep_frames = opaque(1)});
 }
 
 /**
@@ -461,18 +364,9 @@ inline void case_opleg_reconcile_endpoint_count() {
  * init_transients palette-handoff guard.
  */
 inline void case_opleg_reconcile_incomplete_handoff() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  PolyMesh seed;
   static const math::Vector endpoints[1] = {math::Vector(0, 0, 1)};
-  Animation::OpLeg::PaletteHandoff handoff;
-  Animation::OpLeg leg(
-      seed,
-      Animation::OpLeg::ReconcileSpec{.to_positions = endpoints,
-                                      .sweep_frames = opaque(1)},
-      arena, death_opleg_draw, handoff);
-  if (leg.landing().faces == opaque<size_t>(42))
-    std::printf("x");
+  death_construct_opleg(Animation::OpLeg::ReconcileSpec{
+      .to_positions = endpoints, .sweep_frames = opaque(1)});
 }
 
 /**
@@ -482,17 +376,8 @@ inline void case_opleg_reconcile_incomplete_handoff() {
  *          departure to blend across.
  */
 inline void case_opleg_gated_swap_zero_gate_frames() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  PolyMesh seed;
-  Animation::OpLeg::PaletteHandoff handoff;
-  Animation::OpLeg leg(
-      seed,
-      Animation::OpLeg::GatedSwapSpec{.op = Animation::OpLeg::SwapOp::KIS,
-                                      .gate_frames = opaque(0)},
-      arena, death_opleg_draw, handoff);
-  if (leg.landing().faces == opaque<size_t>(42))
-    std::printf("x");
+  death_construct_opleg(Animation::OpLeg::GatedSwapSpec{
+      .op = Animation::OpLeg::SwapOp::KIS, .gate_frames = opaque(0)});
 }
 
 /**
@@ -501,17 +386,8 @@ inline void case_opleg_gated_swap_zero_gate_frames() {
  * init_transients palette-handoff guard.
  */
 inline void case_opleg_gated_swap_incomplete_handoff() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  PolyMesh seed;
-  Animation::OpLeg::PaletteHandoff handoff;
-  Animation::OpLeg leg(
-      seed,
-      Animation::OpLeg::GatedSwapSpec{.op = Animation::OpLeg::SwapOp::KIS,
-                                      .gate_frames = opaque(1)},
-      arena, death_opleg_draw, handoff);
-  if (leg.landing().faces == opaque<size_t>(42))
-    std::printf("x");
+  death_construct_opleg(Animation::OpLeg::GatedSwapSpec{
+      .op = Animation::OpLeg::SwapOp::KIS, .gate_frames = opaque(1)});
 }
 
 /**
