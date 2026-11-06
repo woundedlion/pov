@@ -50,8 +50,9 @@ if os.path.basename(env.subst("$LDSCRIPT_PATH")) == "phantasm.ld":
             for define in env.get("CPPDEFINES", []):
                 if isinstance(define, (list, tuple)) and define[0] == "HS_PROFILE_TARGET":
                     return [str(define[1])]
-            text = open(os.path.join(_ROOT, "targets/Profile/Profile.ino"),
-                        encoding="utf-8").read()
+            with open(os.path.join(_ROOT, "targets/Profile/Profile.ino"),
+                      encoding="utf-8") as sketch_file:
+                text = sketch_file.read()
             return re.findall(r"#define HS_PROFILE_TARGET (\w+)", text)[:1]
         return []
 
