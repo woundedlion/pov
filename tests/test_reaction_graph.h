@@ -361,7 +361,7 @@ inline void test_cubemap_lut_roundtrip() {
   }
   std::printf("  [info] cubemap roundtrip: %d exact, %d neighbor, %d miss\n",
               exact, near, miss);
-  HS_EXPECT_GT(exact + near, 0);
+  HS_EXPECT_GT(exact, near);
   HS_EXPECT_EQ(miss, 0);
 }
 
@@ -400,7 +400,7 @@ inline void test_cubemap_lut_offlattice() {
   std::printf(
       "  [info] cubemap off-lattice: %d exact, %d neighbor, %d miss / %d\n",
       exact, near, miss, SAMPLES);
-  HS_EXPECT_GT(exact + near, 0);
+  HS_EXPECT_GT(exact, near);
   HS_EXPECT_EQ(miss, 0);
 }
 
@@ -431,7 +431,7 @@ inline void test_cubemap_lut_equatorial() {
   std::printf(
       "  [info] cubemap equatorial: %d exact, %d neighbor, %d miss / %d\n",
       exact, near, miss, LONGITUDES);
-  HS_EXPECT_GT(exact + near, 0);
+  HS_EXPECT_GT(exact, near);
   HS_EXPECT_LE(miss, 12);
 }
 
