@@ -427,7 +427,7 @@ inline void test_shader_chain_snapshot_roundtrip() {
     HS_EXPECT_EQ(effect.set_chain(topology).code, In::ChainStatus::OK);
     auto &program = WB::program(effect);
     param_as<In::Op::RotateChainParams>(program, 0).wander = 0.8f;
-    param_as<In::Op::RotateChainParams>(program, 0).spin_rate = 0.001f;
+    param_as<In::Op::RotateChainParams>(program, 0).spin_speed = 0.001f;
     param_as<In::Op::GridSampleParams>(program, 4).speed = 0.02f;
     auto &layer = WB::modulation_params(effect).modulation;
     auto &color = WB::color_params(effect);

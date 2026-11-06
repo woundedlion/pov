@@ -508,7 +508,7 @@ inline constexpr float CHAIN_SPIN = 0.05f;
  * @param chain Initialised effect. */
 inline void spin_default_chain(ShaderChainWhiteBox::FX &chain) {
   In::ChainProgram &program = ShaderChainWhiteBox::program(chain);
-  param_as<In::Op::RotateChainParams>(program, 0).spin_rate = CHAIN_SPIN;
+  param_as<In::Op::RotateChainParams>(program, 0).spin_speed = CHAIN_SPIN;
   param_as<In::Op::GridSampleParams>(program, 2).pattern_freq = 8.0f;
 }
 

@@ -81,8 +81,8 @@ inline void test_keyed_rotation_runtime_parity() {
     const auto params = RotationProbe::test_preset_params(preset);
     const auto &a = params.template get<"first">();
     const auto &b = params.template get<"second">();
-    Model::Params first_params{.wander = a.wander, .spin_rate = a.spin_speed};
-    Model::Params second_params{.wander = b.wander, .spin_rate = b.spin_speed};
+    Model::Params first_params{.wander = a.wander, .spin_speed = a.spin_speed};
+    Model::Params second_params{.wander = b.wander, .spin_speed = b.spin_speed};
     Model::advance(first, first_params);
     Model::advance(second, second_params);
     ComposedFrameWhiteBox::advance(effect);

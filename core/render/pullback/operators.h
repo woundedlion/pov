@@ -33,19 +33,7 @@ namespace Interp {
 namespace Op {
 
 /** @brief Parameter family of sphere.rotate.v2. */
-struct RotateChainParams {
-  float wander = 0.0f;    /**< Fraction of the walk delta absorbed per frame. */
-  float spin_rate = 0.0f; /**< Per-frame spin about Y, in radians. */
-
-  static constexpr auto FIELDS = std::array{
-      Field<RotateChainParams>{"wander", &RotateChainParams::wander, "Wander",
-                               0.0f, 1.0f, FieldCurve::LERP},
-      Field<RotateChainParams>{"spin-speed", &RotateChainParams::spin_rate,
-                               "Spin Speed", 0.0f, 0.05f, FieldCurve::LERP},
-  };
-};
-static_assert(field_ids_unique<RotateChainParams>());
-static_assert(field_defaults_in_range<RotateChainParams>());
+using RotateChainParams = SphereAnimation::RotationParams;
 
 /** @brief SPHERE endomorphism: the wandering, spinning camera. */
 struct Rotate : ValueStateModel<SpatialWalkState> {
@@ -63,7 +51,7 @@ struct Rotate : ValueStateModel<SpatialWalkState> {
     init_walk(state, static_cast<int32_t>(id.stable_hash));
   }
   static void advance(State &state, const Params &params) {
-    advance_walk(state, params.wander, params.spin_rate);
+    advance_walk(state, params.wander, params.spin_speed);
   }
   static Prepared prepare(const FrameContext &, const Params &,
                           const State &state) {
