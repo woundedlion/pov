@@ -616,31 +616,6 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
         return false;
       }
       return false;
-    case SlotRole::PROJECT:
-      return assign_field(built.template get<"projection">(), field_id, number);
-    case SlotRole::WARP:
-      if (slot.warp_side == 0) {
-        if constexpr (FX::Params::template HAS<"outer_warp">)
-          return assign_field(built.template get<"outer_warp">(), field_id,
-                              number);
-      } else if (slot.warp_side == 1) {
-        if constexpr (FX::Params::template HAS<"inner_warp">)
-          return assign_field(built.template get<"inner_warp">(), field_id,
-                              number);
-      } else {
-        if constexpr (FX::Params::template HAS<"affine">)
-          return assign_field(built.template get<"affine">(), field_id, number);
-      }
-      return false;
-    case SlotRole::SURFACE: {
-      bool assigned = false;
-      built.visit([&]<typename Resource>(auto &family) {
-        if constexpr (Resource::KIND == Pullback::ResourceKind::SURFACE)
-          if (Resource::KEY.view() == slot.label)
-            assigned = assign_field(family, field_id, number);
-      });
-      return assigned;
-    }
     case SlotRole::SAMPLE:
       if (assign_field(built.template get<"source">(), field_id, number))
         return true;
@@ -652,10 +627,6 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
       return field_id == "edge-width" &&
              FX::Metadata::COVERAGE !=
                  Pullback::ProjectionCoverageMode::EDGE_FADE;
-    case SlotRole::FIELD:
-      if constexpr (FX::Params::template HAS<"value">)
-        return assign_field(built.template get<"value">(), field_id, number);
-      return false;
     case SlotRole::LENS: {
       bool assigned = assign_mobius(built, field_id, number);
       built.visit([&]<typename Resource>(auto &family) {
@@ -663,17 +634,6 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
                       Resource::KIND == Pullback::ResourceKind::TWIST)
           if (Resource::KEY.view() == slot.label)
             assigned = assign_field(family, field_id, number) || assigned;
-      });
-      return assigned;
-    }
-    case SlotRole::COLORIZE:
-      return assign_field(built.template get<"color">(), field_id, number);
-    case SlotRole::MODULATION: {
-      bool assigned = false;
-      built.visit([&]<typename Resource>(auto &family) {
-        if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION)
-          if (Resource::KEY.view() == slot.label)
-            assigned = assign_field(family, field_id, number);
       });
       return assigned;
     }
@@ -940,6 +900,29 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
   default:
     return false;
   }
+}
+
+/** @brief Numeric document values stay within their selected resource. */
+inline void test_document_numeric_resource_selection() {
+  using FX = MobiusGrid<SMALL_W, SMALL_H>;
+  FX::Params built;
+  DocumentSlot slot{"warp2", "projection", "warp.mirror.v2", SlotRole::WARP, 1};
+  JsonValue value;
+  value.kind = JsonValue::Kind::NUMBER;
+  value.number = 4.0;
+  const float INITIAL = built.template get<"inner_warp">().cell_x;
+  HS_EXPECT_FALSE(apply_document_value<FX>(built, slot, "cell-x", value));
+  HS_EXPECT_EQ(built.template get<"inner_warp">().cell_x, INITIAL);
+  slot.resource_key = "missing";
+  HS_EXPECT_FALSE(apply_document_value<FX>(built, slot, "cell-x", value));
+  HS_EXPECT_EQ(built.template get<"inner_warp">().cell_x, INITIAL);
+  slot.resource_key = "inner_warp";
+  HS_EXPECT_TRUE(apply_document_value<FX>(built, slot, "cell-x", value));
+  HS_EXPECT_EQ(built.template get<"inner_warp">().cell_x, 4.0f);
+  slot.resource_key.clear();
+  value.number = 2.0;
+  HS_EXPECT_TRUE(apply_document_value<FX>(built, slot, "cell-x", value));
+  HS_EXPECT_EQ(built.template get<"inner_warp">().cell_x, 2.0f);
 }
 
 /**
