@@ -498,18 +498,12 @@ inline void test_shader_chain_operator_state_migration() {
   HS_EXPECT_EQ(static_cast<int>(status), static_cast<int>(In::ChainStatus::OK));
   if (status != In::ChainStatus::OK)
     return;
-  const_cast<In::Op::RipplePhaseState &>(
-      state_as<In::Op::RipplePhaseState>(program, 0))
-      .phase = 0.37f;
-  const_cast<In::Op::WarpPhaseState &>(
-      state_as<In::Op::WarpPhaseState>(program, 2))
-      .phase = 0.59f;
-  auto &affine = const_cast<In::Op::AffineClockState &>(
-      state_as<In::Op::AffineClockState>(program, 3));
+  state_as<In::Op::RipplePhaseState>(program, 0).phase = 0.37f;
+  state_as<In::Op::WarpPhaseState>(program, 2).phase = 0.59f;
+  auto &affine = state_as<In::Op::AffineClockState>(program, 3);
   affine.phase = 0.73f;
   affine.rotation = 1.19f;
-  auto &noise = const_cast<In::Op::NoisePhaseState &>(
-      state_as<In::Op::NoisePhaseState>(program, 4));
+  auto &noise = state_as<In::Op::NoisePhaseState>(program, 4);
   noise.phase = 1.47f;
   noise.noise.SetSeed(923);
   const float sample = noise.noise.GetNoise(0.3f, 0.7f, 1.2f);

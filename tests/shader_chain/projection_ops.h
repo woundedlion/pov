@@ -210,8 +210,7 @@ template <typename Model> inline void expect_project_frame_policy() {
   auto &params = param_as<typename Model::Params>(program, 1);
   const In::FrameContext ctx = shared_resources().context();
   program.prepare(ctx);
-  const auto &prepared = *reinterpret_cast<const typename Model::Prepared *>(
-      program.prepared_block(1));
+  const auto &prepared = prepared_as<typename Model::Prepared>(program, 1);
   const math::Quaternion base;
   HS_EXPECT_TRUE(ctx.projection_base == base);
   HS_EXPECT_TRUE(prepared.conjugate == base);

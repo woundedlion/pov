@@ -825,11 +825,9 @@ inline void test_shader_chain_parity_rotate_project() {
     // from the state blocks.
     const MirrorFrame mirror = mirror_from(program, ctx);
     const auto &camera_prepared =
-        *reinterpret_cast<const In::Op::Rotate::Prepared *>(
-            program.prepared_block(0));
+        prepared_as<In::Op::Rotate::Prepared>(program, 0);
     const auto &project_prepared =
-        *reinterpret_cast<const In::Op::ProjectStereographic::Prepared *>(
-            program.prepared_block(1));
+        prepared_as<In::Op::ProjectStereographic::Prepared>(program, 1);
     HS_EXPECT_EQ(std::memcmp(&camera_prepared.conjugate,
                              &mirror.camera_conjugate,
                              sizeof(math::Quaternion)),

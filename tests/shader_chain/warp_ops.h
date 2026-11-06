@@ -549,16 +549,13 @@ inline void test_shader_chain_affine_reads_next_lattice() {
     auto &params = param_as<In::Op::AffineWarpParams>(program, index);
     params.lattice_period = 3.0f;
     params.translation_x = 1.0f;
-    const_cast<In::Op::AffineClockState &>(
-        state_as<In::Op::AffineClockState>(program, index))
-        .phase = 0.5f;
+    state_as<In::Op::AffineClockState>(program, index).phase = 0.5f;
   }
   const In::FrameContext ctx = shared_resources().context();
   program.prepare(ctx);
   const auto translation = [&](size_t index) {
-    return reinterpret_cast<const PB::Warp::PreparedAffineSlot *>(
-               program.prepared_block(index))
-        ->affine.translation_x;
+    return prepared_as<PB::Warp::PreparedAffineSlot>(program, index)
+        .affine.translation_x;
   };
   HS_EXPECT_NEAR(translation(1), 1.5f, 1e-7f);
   HS_EXPECT_NEAR(translation(2), 0.125f, 1e-7f);
@@ -590,9 +587,7 @@ inline void test_shader_chain_affine_column_lattice() {
   HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
   auto &params = param_as<In::Op::AffineWarpParams>(program, 1);
   params.translation_x = 1.0f;
-  const_cast<In::Op::AffineClockState &>(
-      state_as<In::Op::AffineClockState>(program, 1))
-      .phase = 0.5f;
+  state_as<In::Op::AffineClockState>(program, 1).phase = 0.5f;
   auto &source = param_as<In::Op::SampleTessellation::Params>(program, 2);
   source.cell_scale = 2.0f;
   const In::FrameContext ctx = shared_resources().context();
@@ -602,9 +597,7 @@ inline void test_shader_chain_affine_column_lattice() {
   program.prepare(ctx);
   HS_EXPECT_TRUE(program.history_continuous());
   program.prepare_column(ctx, ctx, 0.5f);
-  const auto &prepared =
-      *reinterpret_cast<const PB::Warp::PreparedAffineSlot *>(
-          program.prepared_block(1));
+  const auto &prepared = prepared_as<PB::Warp::PreparedAffineSlot>(program, 1);
   HS_EXPECT_NEAR(prepared.affine.translation_x, 0.125f, 1e-6f);
   program.prepare(ctx);
 }

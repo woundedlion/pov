@@ -123,8 +123,7 @@ inline void test_shader_chain_authored_palette_history() {
                BEFORE);
   WB::program(effect).prepare_column(ctx, WB::previous_context(effect), .5f);
   const auto &prepared =
-      *reinterpret_cast<const PB::Color::GeneratedPaletteState *>(
-          WB::program(effect).prepared_block(3));
+      prepared_as<PB::Color::GeneratedPaletteState>(WB::program(effect), 3);
   HS_EXPECT_EQ(prepared.palette, ctx.palettes[0]);
   hs::clear_mock_time();
 }

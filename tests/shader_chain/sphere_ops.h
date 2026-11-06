@@ -304,8 +304,7 @@ inline void run_lens_parity(const char *op_id, ValueSet set) {
   if (!arm_sphere_op_chain<OpParams>(program, op_id, 3, set))
     return;
   if constexpr (std::is_same_v<LensPolicy, PB::Lens::Twist>)
-    const_cast<In::Op::TwistOrbitState &>(
-        state_as<In::Op::TwistOrbitState>(program, 1)) = {};
+    state_as<In::Op::TwistOrbitState>(program, 1) = {};
   const In::FrameContext ctx = shared_resources().context();
   using Bound = typename PB::Stage::Lens<LensPolicy>::template Bind<
       SphereOpMirrorBinding>;

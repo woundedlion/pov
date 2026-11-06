@@ -156,6 +156,19 @@ template <typename T> T &param_as(In::ChainProgram &program, size_t index) {
   return *reinterpret_cast<T *>(program.param_block(index));
 }
 
+template <typename T> T &state_as(In::ChainProgram &program, size_t index) {
+  return *static_cast<T *>(program.state_block(index));
+}
+
+template <typename T>
+const T &prepared_as(const In::ChainProgram &program, size_t index) {
+  return *reinterpret_cast<const T *>(program.prepared_block(index));
+}
+
+template <typename T> T &prepared_as(In::ChainProgram &program, size_t index) {
+  return const_cast<T &>(prepared_as<T>(std::as_const(program), index));
+}
+
 template <typename T>
 const T &state_as(const In::ChainProgram &program, size_t index) {
   return *static_cast<const T *>(program.state_block(index));

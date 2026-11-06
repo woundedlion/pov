@@ -532,9 +532,7 @@ inline Pixel chain_pixel_at_spin(ShaderChainWhiteBox::FX &chain,
   using WB = ShaderChainWhiteBox;
   In::ChainProgram &program = WB::program(chain);
   const In::FrameContext ctx = WB::frame_context(chain);
-  auto *camera = const_cast<In::Op::Rotate::Prepared *>(
-      reinterpret_cast<const In::Op::Rotate::Prepared *>(
-          program.prepared_block(0)));
+  auto *camera = &prepared_as<In::Op::Rotate::Prepared>(program, 0);
   const In::Op::Rotate::Prepared saved = *camera;
   camera->conjugate = math::make_rotation(math::Y_AXIS, angle).conjugate();
   const Color4 color = program.evaluate(view, ctx);
@@ -793,8 +791,7 @@ inline void test_shader_chain_column_params_interpolate() {
   WB::color_params(chain).mapping_phase = 0.8f;
   program.prepare_column(ctx, ctx, 0.25f);
   const auto &prepared =
-      *reinterpret_cast<const PB::Color::GeneratedPaletteState *>(
-          program.prepared_block(3));
+      prepared_as<PB::Color::GeneratedPaletteState>(program, 3);
   HS_EXPECT_NEAR(prepared.mapping_offset, 0.5f, 1e-6f);
   program.prepare(ctx);
 }

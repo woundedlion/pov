@@ -253,10 +253,8 @@ inline void test_shader_chain_parity_sample_bands() {
       return;
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::Bands<BandsSampleMirror>>(program, ctx);
-    constexpr size_t BLOCKS = In::CHAIN_ARENA_BYTES / sizeof(std::max_align_t);
-    std::vector<std::max_align_t> history(BLOCKS), column(BLOCKS);
-    program.bind_temporal_storage(reinterpret_cast<uint8_t *>(history.data()),
-                                  reinterpret_cast<uint8_t *>(column.data()));
+    auto blocks = std::make_unique<TemporalBlocks>();
+    program.bind_temporal_storage(blocks->history, blocks->column);
     auto &params = param_as<In::Op::BandsSampleParams>(program, 2);
     for (const auto angles : {std::pair{5.5f, 5.6f}, std::pair{3.0f, 3.3f}}) {
       params.angle = angles.first;
