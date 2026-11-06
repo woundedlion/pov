@@ -194,13 +194,7 @@ inline void test_lerp16_full_range_correct() {
 // Blend modes
 // ============================================================================
 
-/**
- * @brief Pins the device's packed (uqadd16) saturating-add lane layout.
- * @details The device path of operator+= packs g|b into one 32-bit
- *          uqadd16 lane and r into another, then unpacks.
- *          pixel_blend_add_packed shares that lane layout via the software
- *          uqadd16 and is checked against a per-channel saturating reference.
- */
+/** @brief Packed saturating addition matches independent channel saturation. */
 inline void test_blend_add_packed_lane_layout() {
   auto ref = [](uint32_t x, uint32_t y) -> uint16_t {
     uint32_t s = x + y;
@@ -217,10 +211,6 @@ inline void test_blend_add_packed_lane_layout() {
     HS_EXPECT_EQ(got.r, ref(c[0].r, c[1].r));
     HS_EXPECT_EQ(got.g, ref(c[0].g, c[1].g));
     HS_EXPECT_EQ(got.b, ref(c[0].b, c[1].b));
-    // Host add operators must agree with the packed device layout.
-    Pixel acc = c[0];
-    acc += c[1];
-    HS_EXPECT_EQ(acc, got);
   }
 }
 

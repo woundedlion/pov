@@ -145,13 +145,7 @@ struct Pixel {
    * @return Reference to this pixel after the clamped add.
    */
   Pixel &operator+=(const Pixel &rhs) {
-#if defined(__ARM_FEATURE_DSP)
     *this = pixel_blend_add_packed(*this, rhs);
-#else
-    r = (uint16_t)std::min((uint32_t)65535, (uint32_t)r + rhs.r);
-    g = (uint16_t)std::min((uint32_t)65535, (uint32_t)g + rhs.g);
-    b = (uint16_t)std::min((uint32_t)65535, (uint32_t)b + rhs.b);
-#endif
     return *this;
   }
 
