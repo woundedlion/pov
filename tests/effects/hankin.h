@@ -25,6 +25,27 @@ struct HankinSolidsWhiteBox {
 
   using FrameHandoff = HankinSolidsDetail::FrameHandoff;
   static constexpr int PALETTES = EffectT::NUM_PALETTES;
+  static constexpr int STRAP_FRAMES = EffectT::STRAP_BLEND_FRAMES;
+
+  /** @brief Checks slot aliases and reports temporary palette bytes. */
+  static size_t resolved_slot_bytes(EffectT &effect, int frame,
+                                    bool column_blend) {
+    ScratchScope scratch(scratch_arena_b);
+    const size_t BEGIN = scratch_arena_b.get_offset();
+    BakedPalette blended[PALETTES];
+    const BakedPalette *star[PALETTES], *strap[PALETTES];
+    effect.resolve_hankin_slot_luts(frame, column_blend, blended, star, strap,
+                                    scratch_arena_b);
+    for (int slot = 0; slot < PALETTES; ++slot) {
+      HS_EXPECT_TRUE(
+          star[slot] ==
+          &effect.palette_bank.bank.entries[effect.palette_idx[slot]].view());
+      const bool ALIAS = column_blend || frame >= STRAP_FRAMES ||
+                         !(effect.strap_blend_mask & (1u << slot));
+      HS_EXPECT_TRUE(strap[slot] == (ALIAS ? star[slot] : &blended[slot]));
+    }
+    return scratch_arena_b.get_offset() - BEGIN;
+  }
 
   static int cycle_frame(const EffectT &effect) {
     return effect.hankin_cycle_frame;
@@ -427,6 +448,15 @@ inline void test_hankinsolids_handoff_history() {
   WB::restart_cycle(effect);
   HS_EXPECT_EQ(WB::drawn_cycle_frame(effect), -1);
   HS_EXPECT_EQ(WB::record_cycle_draw(effect, 0), 0);
+  WB::arm_strap_crossfade(effect);
+  for (const int frame : {0, 1, WB::STRAP_FRAMES - 1, WB::STRAP_FRAMES}) {
+    const size_t HELD = WB::resolved_slot_bytes(effect, frame, false);
+    if (frame > 0 && frame < WB::STRAP_FRAMES)
+      HS_EXPECT_GT(HELD, size_t{0});
+    else if (frame >= WB::STRAP_FRAMES)
+      HS_EXPECT_EQ(HELD, size_t{0});
+    HS_EXPECT_EQ(WB::resolved_slot_bytes(effect, frame, true), size_t{0});
+  }
 }
 
 /**

@@ -280,7 +280,7 @@ struct HankinWalkProbe {
     return fx.palette_bank;
   }
   /**
-   * @brief Runs the production per-slot LUT resolution at a cycle frame.
+   * @brief Runs per-slot LUT resolution for fixed-frame shading.
    */
   template <int W, int H>
   static void resolve_slot_luts(
@@ -289,7 +289,7 @@ struct HankinWalkProbe {
       const BakedPalette *(&star_by_slot)[HankinSolids<W, H>::NUM_PALETTES],
       const BakedPalette *(&strap_by_slot)[HankinSolids<W, H>::NUM_PALETTES],
       Arena &scratch) {
-    fx.resolve_hankin_slot_luts(cycle_frame, blended, star_by_slot,
+    fx.resolve_hankin_slot_luts(cycle_frame, false, blended, star_by_slot,
                                 strap_by_slot, scratch);
   }
   /**
@@ -309,7 +309,7 @@ struct HankinWalkProbe {
     BakedPalette blended[HankinSolids<W, H>::NUM_PALETTES];
     const BakedPalette *star_by_slot[HankinSolids<W, H>::NUM_PALETTES];
     const BakedPalette *strap_by_slot[HankinSolids<W, H>::NUM_PALETTES];
-    fx.resolve_hankin_slot_luts(cycle_frame, blended, star_by_slot,
+    fx.resolve_hankin_slot_luts(cycle_frame, false, blended, star_by_slot,
                                 strap_by_slot, scratch);
     const HankinSolidsDetail::ShapeWeights weights{strap_fade, close_blend,
                                                    terminal_fade, star_close};

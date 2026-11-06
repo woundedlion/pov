@@ -281,20 +281,22 @@ private:
    * @brief Resolves the per-slot palette LUTs one hankin-cycle frame shades
    * with, split by face role.
    * @param cycle_frame Sprite draws since the cycle's opening bookend.
+   * @param column_blend Per-column shading reads the blend endpoints directly.
    * @param blended Per-slot storage for this frame's blend results.
    * @param star_by_slot Receives the star-face LUT per class slot: always the
    * assignment's bank entry, bitwise.
    * @param strap_by_slot Receives the strap-face LUT per class slot: armed
    * slots run a (from, to) pre-blend over the opening window; unarmed slots,
-   * and every slot past the window, alias the star entry.
+   * and every slot past the window, alias the star entry. Per-column endpoint
+   * shading also aliases the star entry.
    * @param scratch Arena receiving mid-blend LUT bakes (frame lifetime).
    */
   void resolve_hankin_slot_luts(
-      int cycle_frame, BakedPalette (&blended)[NUM_PALETTES],
+      int cycle_frame, bool column_blend, BakedPalette (&blended)[NUM_PALETTES],
       const BakedPalette *(&star_by_slot)[NUM_PALETTES],
       const BakedPalette *(&strap_by_slot)[NUM_PALETTES], Arena &scratch) {
     const float w = strap_blend_weight(cycle_frame);
-    const bool blending = w < 1.0f;
+    const bool blending = !column_blend && w < 1.0f;
     for (int s = 0; s < NUM_PALETTES; ++s) {
       star_by_slot[s] = &palette_bank.bank.entries[palette_idx[s]].view();
       if (blending && (strap_blend_mask & (1u << s))) {
@@ -674,8 +676,9 @@ private:
               BakedPalette blended[NUM_PALETTES];
               const BakedPalette *star_by_slot[NUM_PALETTES];
               const BakedPalette *strap_by_slot[NUM_PALETTES];
-              resolve_hankin_slot_luts(cycle_frame, blended, star_by_slot,
-                                       strap_by_slot, scratch_arena_b);
+              resolve_hankin_slot_luts(
+                  cycle_frame, previous_frame != cycle_frame, blended,
+                  star_by_slot, strap_by_slot, scratch_arena_b);
               PolyMesh drawn;
               if (previous_frame != cycle_frame &&
                   previous_angle != params.hankin_angle) {
