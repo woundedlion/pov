@@ -50,7 +50,7 @@ template <int CELLS> struct HueRotationRow {
    * @details A wrapping lookup that can reach a full turn, or a domain that
    * is not positive, reads anywhere.
    */
-  int cells(float max_amount) const {
+  int knots_through(float max_amount) const {
     if (!(domain > 0.0f) || (cyclic && max_amount >= domain))
       return KNOTS;
     const float x = hs::clamp(max_amount / domain, 0.0f, 1.0f) * CELLS;
@@ -58,7 +58,7 @@ template <int CELLS> struct HueRotationRow {
   }
 
   /**
-   * @brief Bakes the first @p count knots for the bound ring.
+   * @brief Bakes the first @p count knots for the bound color.
    * @param count Knots to bake, at most KNOTS.
    */
   HS_HOT_FLASH_MEMBER void prepare(int count = KNOTS) {

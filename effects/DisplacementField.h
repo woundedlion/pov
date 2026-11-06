@@ -847,7 +847,8 @@ private:
           hue_table.bind(hue_base, mode.domain, mode.cyclic);
         if (mode.precompute) {
           HS_PROFILE(df_hue_table_prep);
-          hue_table.prepare(hue_table.cells(max_shift * params.hue_scale));
+          hue_table.prepare(
+              hue_table.knots_through(max_shift * params.hue_scale));
         }
         Pixel zero_hue;
         if (params.hue_scale == 0.0f)
