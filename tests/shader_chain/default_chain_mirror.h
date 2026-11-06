@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// --- template mirror of the slice chain -----------------------------------
+// --- template mirror of DEFAULT_CHAIN -----------------------------------
 
 struct MirrorFrame {
   math::Quaternion camera_conjugate;

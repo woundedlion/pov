@@ -54,7 +54,7 @@ static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::MIDPOINT4) == 4);
 
 #include "tests/shader_chain/fixtures.h"
 #include "tests/shader_chain/effect_fixture.h"
-#include "tests/shader_chain/slice_mirror.h"
+#include "tests/shader_chain/default_chain_mirror.h"
 #include "tests/shader_chain/lifecycle.h"
 #include "tests/shader_chain/program_cases.h"
 #include "tests/shader_chain/lifecycle_cases.h"
@@ -889,7 +889,7 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_refusal_migrate_failed);
   HS_RUN(test_shader_chain_column_states_outlive_evaluation);
   HS_RUN(test_shader_chain_state_identity_migration);
-  HS_RUN(test_shader_chain_state_continuity_slice);
+  HS_RUN(test_shader_chain_state_continuity);
   HS_RUN(test_shader_chain_operator_state_migration);
   HS_RUN(test_shader_chain_determinism);
   HS_RUN(test_shader_chain_param_names_and_budget);

@@ -431,7 +431,7 @@ inline void test_shader_chain_state_identity_migration() {
                CountLifecycle::inits + CountLifecycle::migrates);
 }
 
-inline void test_shader_chain_state_continuity_slice() {
+inline void test_shader_chain_state_continuity() {
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
   if (!arm_default_chain(program, 6, ValueSet::MAXIMUMS))
