@@ -374,13 +374,10 @@ private:
   /**
    * @brief Queues the newly drawn frame to be displayed.
    * @details The release store pairs with the acquire load in
-   * `advance_display()`; the IRQ-off bracket keeps the publish atomic against
-   * the display ISR.
+   * `advance_display()`.
    */
   inline void queue_frame() {
-    hs::disable_interrupts();
     next.store(cur.load(std::memory_order_relaxed), std::memory_order_release);
-    hs::enable_interrupts();
   }
 
   /**
