@@ -402,7 +402,8 @@ inline void test_pattern_sphere_cell_layouts() {
   const auto TEN = SphereCells::prepare(params);
   HS_EXPECT_EQ(TEN.count, 10u);
   for (size_t index = 0; index < TEN.count; ++index) {
-    const auto EXPECTED = math::fib_spiral(10, 0.5f, static_cast<int>(index));
+    const auto EXPECTED = math::fib_spiral(static_cast<int>(TEN.count), 0.5f,
+                                           static_cast<int>(index));
     HS_EXPECT_EQ(TEN.centers[index].x, EXPECTED.x);
     HS_EXPECT_EQ(TEN.centers[index].y, EXPECTED.y);
     HS_EXPECT_EQ(TEN.centers[index].z, EXPECTED.z);
