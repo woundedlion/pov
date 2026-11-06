@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include <array>
 #include <cstring>
 #include <bit>
 #include <limits>

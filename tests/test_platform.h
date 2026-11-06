@@ -11,6 +11,7 @@
 #include "tests/test_harness.h"
 #include "tests/fd_capture_util.h"
 
+#include <array>
 #include <algorithm>
 #include <cmath>
 #include <climits>
