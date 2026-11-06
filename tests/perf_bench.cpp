@@ -29,6 +29,14 @@
 #error "perf_bench must use production render capabilities"
 #endif
 
+#define HS_TEMPORAL_BENCH_EFFECTS(X)                                           \
+  X(PetalFlow)                                                                 \
+  X(MeshFeedback)                                                              \
+  X(Comets)                                                                    \
+  X(RingSpin)                                                                  \
+  X(HopfFibration)                                                             \
+  X(Galaxies)
+
 namespace {
 constexpr int W = 288, H = 144;
 constexpr int FRAMES = 60, WARM = 10;
@@ -148,13 +156,15 @@ struct GalaxiesWhiteBox {
 
 int main(int argc, char **argv) {
   const auto usage = [] {
+#define HS_TEMPORAL_NAME(Effect) " " #Effect
     std::fprintf(
         stderr,
         "usage: perf_bench\n"
         "       perf_bench --galaxies-draw on|off full|segment\n"
         "       perf_bench --temporal-sample EFFECT on|off full|segment\n"
         "       perf_bench --temporal-cost\n"
-        "effects: PetalFlow MeshFeedback Comets RingSpin HopfFibration Galaxies\n");
+        "effects:" HS_TEMPORAL_BENCH_EFFECTS(HS_TEMPORAL_NAME) "\n");
+#undef HS_TEMPORAL_NAME
     return 2;
   };
   const auto valid_modes = [](const char *temporal, const char *clip) {
@@ -181,12 +191,7 @@ int main(int argc, char **argv) {
     std::printf("%.3f\n", bench<Effect<W, H>>(nullptr, temporal, clipped));    \
     return 0;                                                                  \
   }
-    HS_TEMPORAL_SAMPLE(PetalFlow)
-    HS_TEMPORAL_SAMPLE(MeshFeedback)
-    HS_TEMPORAL_SAMPLE(Comets)
-    HS_TEMPORAL_SAMPLE(RingSpin)
-    HS_TEMPORAL_SAMPLE(HopfFibration)
-    HS_TEMPORAL_SAMPLE(Galaxies)
+    HS_TEMPORAL_BENCH_EFFECTS(HS_TEMPORAL_SAMPLE)
 #undef HS_TEMPORAL_SAMPLE
     std::fprintf(stderr, "unknown temporal effect '%s'\n", argv[2]);
     return usage();
@@ -195,12 +200,9 @@ int main(int argc, char **argv) {
     if (argc != 2)
       return usage();
     std::puts("effect,clip,off_min_us,off_median_us,on_min_us,on_median_us");
-    temporal_cost<PetalFlow<W, H>>("PetalFlow");
-    temporal_cost<MeshFeedback<W, H>>("MeshFeedback");
-    temporal_cost<Comets<W, H>>("Comets");
-    temporal_cost<RingSpin<W, H>>("RingSpin");
-    temporal_cost<HopfFibration<W, H>>("HopfFibration");
-    temporal_cost<Galaxies<W, H>>("Galaxies");
+#define HS_TEMPORAL_COST(Effect) temporal_cost<Effect<W, H>>(#Effect);
+    HS_TEMPORAL_BENCH_EFFECTS(HS_TEMPORAL_COST)
+#undef HS_TEMPORAL_COST
     return 0;
   }
   if (argc != 1)
@@ -219,3 +221,5 @@ int main(int argc, char **argv) {
   std::printf("  %-22s %9.1f us/frame (sum)\n", "TOTAL", total);
   return 0;
 }
+
+#undef HS_TEMPORAL_BENCH_EFFECTS
