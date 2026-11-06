@@ -169,10 +169,11 @@ template <int W> struct SweptEdgeCull {
   /** @brief Highest unit-sphere y a canvas's column walk emits.
    * @tparam H Display height.
    * @param canvas Frame whose clip rows bound the walk.
-   * @return The height of the row two above the clip. */
+   * @return The height one row above the clip's render margin. */
   template <int H> HS_HOT_INLINE static float top_of(const Canvas &canvas) {
-    return cosf(fmaxf(0.0f, math::DisplayGeometry<H>::row_to_phi(
-                                float(canvas.clip().y_start - 2))));
+    return cosf(
+        fmaxf(0.0f, math::DisplayGeometry<H>::row_to_phi(float(
+                        canvas.clip().y_start - canvas.clip().margin - 1))));
   }
 
   /** @brief Highest direction that can light a physical row without tap motion.
@@ -186,11 +187,12 @@ template <int W> struct SweptEdgeCull {
   /** @brief Lowest unit-sphere y a canvas's column walk emits.
    * @tparam H Display height.
    * @param canvas Frame whose clip rows bound the walk.
-   * @return The height of the row two below the clip. */
+   * @return The height one row below the clip's render margin. */
   template <int H> HS_HOT_INLINE static float bottom_of(const Canvas &canvas) {
-    return cosf(std::clamp(math::DisplayGeometry<H>::row_to_phi(
-                               float(std::min(H, canvas.clip().y_end + 2))),
-                           0.0f, math::PI_F));
+    return cosf(std::clamp(
+        math::DisplayGeometry<H>::row_to_phi(
+            float(std::min(H, canvas.clip().y_end + canvas.clip().margin + 1))),
+        0.0f, math::PI_F));
   }
 
   /** @brief The bounds of a canvas's column walk.

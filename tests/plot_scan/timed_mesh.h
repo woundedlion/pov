@@ -845,6 +845,28 @@ inline void test_column_edge_cull_keeps_padded_point_sets() {
   HS_EXPECT_GT(reachable, 2800u);
 }
 
+/** @brief Column culls retain points inside widened filter margins. */
+inline void test_column_edge_cull_honors_render_margin() {
+  constexpr int W = 288, H = 144;
+  for (const int margin : {1, 3, 5}) {
+    hs_test::StubEffect effect(W, H);
+    effect.set_clip(40, 60, 0, W);
+    effect.set_margin(margin);
+    Canvas canvas(effect);
+    const auto cull = Plot::SweptEdgeCull<W>::of<H>(canvas);
+    for (const float row : {37.0f, 63.0f}) {
+      const float phi = math::DisplayGeometry<H>::row_to_phi(row);
+      const math::Vector point(sinf(phi), cosf(phi), 0.0f);
+      HS_EXPECT_EQ(cull.rejects(&point, 1, 0.0f), margin == 1);
+    }
+    for (const float row : {32.0f, 68.0f}) {
+      const float phi = math::DisplayGeometry<H>::row_to_phi(row);
+      const math::Vector point(sinf(phi), cosf(phi), 0.0f);
+      HS_EXPECT_TRUE(cull.rejects(&point, 1, 0.0f));
+    }
+  }
+}
+
 /** @brief Physical northern AA support keeps visible points and swept arcs. */
 inline void test_column_physical_north_cap() {
   constexpr int W = 288, H = 144;
