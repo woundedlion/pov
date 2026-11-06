@@ -135,14 +135,14 @@ inline std::vector<Pixel> render_planar_chord_star(hs_test::StubEffect &fx,
   return frame;
 }
 
-/** @brief Checks reference coverage and energy within the permitted drift. */
+/** @brief Checks bidirectional coverage and energy within the permitted drift. */
 template <int W, int H>
 inline void expect_covered_within_one_pixel(const std::vector<Pixel> &reference,
                                             const std::vector<Pixel> &candidate,
                                             int y0, int y1, int x0, int x1,
                                             int pole_rows, double max_drift) {
   uint64_t reference_energy = 0, candidate_energy = 0;
-  size_t uncovered = 0;
+  size_t uncovered = 0, stray = 0;
   for (int y = y0; y < y1; ++y)
     for (int x = x0; x < x1; ++x) {
       const size_t i = static_cast<size_t>(y) * W + x;
@@ -151,21 +151,26 @@ inline void expect_covered_within_one_pixel(const std::vector<Pixel> &reference,
       reference_energy += static_cast<uint64_t>(p.r) + p.g + p.b;
       candidate_energy += static_cast<uint64_t>(q.r) + q.g + q.b;
       // Pole rows turn a sub-pixel sample-phase shift into whole columns.
-      if (static_cast<uint32_t>(p.r) + p.g + p.b < 12288 || y < pole_rows ||
-          y >= H - pole_rows)
+      if (y < pole_rows || y >= H - pole_rows)
         continue;
-      bool covered = false;
-      for (int dy = -1; dy <= 1 && !covered; ++dy)
-        for (int dx = -1; dx <= 1 && !covered; ++dx) {
-          const int sy = y + dy;
-          if (sy < 0 || sy >= H)
-            continue;
-          covered = !is_black(
-              candidate[static_cast<size_t>(sy) * W + (x + dx + W) % W]);
-        }
-      uncovered += !covered;
+      const auto nearby = [&](const std::vector<Pixel> &frame) {
+        for (int dy = -1; dy <= 1; ++dy)
+          for (int dx = -1; dx <= 1; ++dx) {
+            const int sy = y + dy;
+            if (sy >= 0 && sy < H &&
+                !is_black(
+                    frame[static_cast<size_t>(sy) * W + (x + dx + W) % W]))
+              return true;
+          }
+        return false;
+      };
+      if (static_cast<uint32_t>(p.r) + p.g + p.b >= 12288)
+        uncovered += !nearby(candidate);
+      if (static_cast<uint32_t>(q.r) + q.g + q.b >= 12288)
+        stray += !nearby(reference);
     }
   HS_EXPECT_EQ(uncovered, size_t{0});
+  HS_EXPECT_EQ(stray, size_t{0});
   if (reference_energy == 0) {
     HS_EXPECT_EQ(candidate_energy, uint64_t{0});
     return;
@@ -275,7 +280,7 @@ render_band_split_flower(hs_test::StubEffect &fx, const PlanarShapeCase &flower,
 
 /**
  * @brief Verifies a band-split flower draws each quadrant as the whole flower
- *        does: the same strokes to a fraction of a pixel, with pieces that
+ *        does: the same strokes within one pixel, with pieces that
  *        cannot reach the band skipped.
  */
 inline void test_planar_band_split_matches_whole_polyline() {
@@ -316,7 +321,7 @@ inline void test_planar_band_split_matches_whole_polyline() {
 
 /**
  * @brief Verifies PlanarChords' band-split pole runs draw each quadrant as the
- *        whole stroke does, to a fraction of a pixel.
+ *        whole stroke does, within one pixel.
  */
 inline void test_planar_chords_pole_split_matches_whole_star() {
   constexpr int W = 288, H = 144;
