@@ -170,47 +170,60 @@ inline double twisted_torus_distance(const math::Vector &p, double R, double r,
   return best;
 }
 
+struct TwistedTorusCase {
+  const char *label;
+  double R, r, A;
+  int n;
+};
+
+inline constexpr TwistedTorusCase TWISTED_TORUS_COMMON_CASES[] = {
+    {"nominal", 1.0, 0.3, 0.2, 3},
+    {"zero amplitude", 1.0, 0.3, 0.0, 3},
+    {"zero twist", 1.0, 0.3, 0.2, 0},
+    {"large amplitude", 1.0, 0.31, 2.5, 5},
+    {"default twist", 0.45, 0.14, 0.35, 2},
+    {"max twist", 0.45, 0.14, 0.35, 8},
+    {"thin tube", 2.0, 0.05, 0.9, 7}};
+
 /** @brief Pins march distances against an independently sampled surface. */
 inline void test_warped_volume_distance_is_sphere_trace_safe() {
-  struct Case {
-    double R, r, A;
-    int n;
-  };
-  const Case cases[] = {
-      {1.0, 0.3, 0.2, 3},  {1.0, 0.3, 0.0, 3},    {1.0, 0.3, 0.2, 0},
-      {1.0, 0.31, 2.5, 5}, {0.45, 0.14, 0.35, 2}, {0.45, 0.14, 0.35, 8},
-      {2.0, 0.05, 0.9, 7}, {1.0, 0.5, 0.5, 2},    {1.0, 0.5, 0.8, 8}};
+  constexpr TwistedTorusCase EXTRA_CASES[] = {
+      {"wide tube", 1.0, 0.5, 0.5, 2}, {"wide max twist", 1.0, 0.5, 0.8, 8}};
   hs::Pcg32 rng(0x51afeu);
   int correction_needed = 0;
-  for (const Case &c : cases) {
-    SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> volume{
-        SDF::Torus{static_cast<float>(c.R), static_cast<float>(c.r)},
-        SDF::Warp::Twist{c.n, static_cast<float>(c.A),
-                         static_cast<float>(c.R)}};
-    for (int kind = 0; kind < 2; ++kind)
-      for (int i = 0; i < 96; ++i) {
-        const double theta = rand_uniform(rng, 0.0f, 2.0f * math::PI_F);
-        const double phi = rand_uniform(rng, 0.0f, 2.0f * math::PI_F);
-        const double radius = c.r * rand_uniform(rng, 1.01f, 1.8f);
-        const double radial = kind == 0 ? c.R + radius * std::cos(phi)
-                                        : rand_uniform(rng, 0.0f, 0.6f * c.R);
-        const double y =
-            kind == 0 ? radius * std::sin(phi) + c.A * std::sin(c.n * theta)
-                      : rand_uniform(rng, -(c.A + c.r), c.A + c.r);
-        const math::Vector p(static_cast<float>(radial * std::cos(theta)),
-                             static_cast<float>(y),
-                             static_cast<float>(radial * std::sin(theta)));
-        const double truth =
-            twisted_torus_distance(p, c.R, c.r, c.n, c.A, 20000);
-        const float distance = volume.distance(p);
-        HS_EXPECT_TRUE(std::isfinite(distance));
-        if (kind == 0)
-          HS_EXPECT_GT(distance, 0.0f);
-        if (kind == 0 || distance > 0.0f)
-          HS_EXPECT_LE(distance, truth + 1e-4);
-        correction_needed += volume.raw_distance(p) > truth + 1e-4;
-      }
-  }
+  for (const auto cases :
+       {std::span<const TwistedTorusCase>(TWISTED_TORUS_COMMON_CASES),
+        std::span<const TwistedTorusCase>(EXTRA_CASES)})
+    for (const TwistedTorusCase &c : cases) {
+      HS_CONTEXT(c.label);
+      SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> volume{
+          SDF::Torus{static_cast<float>(c.R), static_cast<float>(c.r)},
+          SDF::Warp::Twist{c.n, static_cast<float>(c.A),
+                           static_cast<float>(c.R)}};
+      for (int kind = 0; kind < 2; ++kind)
+        for (int i = 0; i < 96; ++i) {
+          const double theta = rand_uniform(rng, 0.0f, 2.0f * math::PI_F);
+          const double phi = rand_uniform(rng, 0.0f, 2.0f * math::PI_F);
+          const double radius = c.r * rand_uniform(rng, 1.01f, 1.8f);
+          const double radial = kind == 0 ? c.R + radius * std::cos(phi)
+                                          : rand_uniform(rng, 0.0f, 0.6f * c.R);
+          const double y =
+              kind == 0 ? radius * std::sin(phi) + c.A * std::sin(c.n * theta)
+                        : rand_uniform(rng, -(c.A + c.r), c.A + c.r);
+          const math::Vector p(static_cast<float>(radial * std::cos(theta)),
+                               static_cast<float>(y),
+                               static_cast<float>(radial * std::sin(theta)));
+          const double truth =
+              twisted_torus_distance(p, c.R, c.r, c.n, c.A, 20000);
+          const float distance = volume.distance(p);
+          HS_EXPECT_TRUE(std::isfinite(distance));
+          if (kind == 0)
+            HS_EXPECT_GT(distance, 0.0f);
+          if (kind == 0 || distance > 0.0f)
+            HS_EXPECT_LE(distance, truth + 1e-4);
+          correction_needed += volume.raw_distance(p) > truth + 1e-4;
+        }
+    }
   HS_EXPECT_GT(correction_needed, 0);
 }
 
@@ -220,20 +233,7 @@ inline void test_warped_volume_distance_is_sphere_trace_safe() {
  *        parameter sets.
  */
 inline void test_warped_volume_bounding_distance_never_over_estimates() {
-  struct Case {
-    double R, r, A;
-    int n;
-  };
-  const Case cases[] = {
-      {1.0, 0.3, 0.2, 3},    // nominal
-      {1.0, 0.3, 0.0, 3},    // zero amplitude
-      {1.0, 0.3, 0.2, 0},    // zero twist
-      {1.0, 0.31, 2.5, 5},   // amplitude well past the major radius
-      {0.45, 0.14, 0.35, 2}, // Raymarch proportions, default twist
-      {0.45, 0.14, 0.35, 8}, // Raymarch proportions, max twist
-      {2.0, 0.05, 0.9, 7},   // thin tube
-      {0.5, 0.45, 0.1, 1},   // fat tube
-  };
+  constexpr TwistedTorusCase EXTRA_CASES[] = {{"fat tube", 0.5, 0.45, 0.1, 1}};
 
   int violations = 0;
   hs::Pcg32 rng(0x5eed1337u);
@@ -241,46 +241,51 @@ inline void test_warped_volume_bounding_distance_never_over_estimates() {
     return static_cast<double>(rand_uniform(rng, 0.0f, 1.0f));
   };
 
-  for (const Case &c : cases) {
-    SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> wv{
-        SDF::Torus{static_cast<float>(c.R), static_cast<float>(c.r)},
-        SDF::Warp::Twist{c.n, static_cast<float>(c.A),
-                         static_cast<float>(c.R)}};
-    const double reach = c.R + c.r + c.A + 1.0;
+  for (const auto cases :
+       {std::span<const TwistedTorusCase>(TWISTED_TORUS_COMMON_CASES),
+        std::span<const TwistedTorusCase>(EXTRA_CASES)})
+    for (const TwistedTorusCase &c : cases) {
+      HS_CONTEXT(c.label);
+      SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> wv{
+          SDF::Torus{static_cast<float>(c.R), static_cast<float>(c.r)},
+          SDF::Warp::Twist{c.n, static_cast<float>(c.A),
+                           static_cast<float>(c.R)}};
+      const double reach = c.R + c.r + c.A + 1.0;
 
-    for (int k = 0; k < 240; ++k) {
-      math::Vector p;
-      const int kind = k % 4;
-      if (kind == 0) {
-        p = math::Vector(0.0f, static_cast<float>((next() * 2 - 1) * reach),
-                         0.0f);
-      } else if (kind == 1 || kind == 2) {
-        // On or inside the tube: radius scaled to at most the minor radius.
-        const double t = next() * 2 * std::numbers::pi,
-                     ph = next() * 2 * std::numbers::pi;
-        const double rr = c.r * (kind == 1 ? next() * 0.9 : 1.0);
-        const double X = c.R + rr * std::cos(ph);
-        p = math::Vector(
-            static_cast<float>(X * std::cos(t)),
-            static_cast<float>(rr * std::sin(ph) + c.A * std::sin(c.n * t)),
-            static_cast<float>(X * std::sin(t)));
-      } else {
-        const double px = (next() * 2 - 1) * reach;
-        const double py = (next() * 2 - 1) * reach;
-        const double pz = (next() * 2 - 1) * reach;
-        p = math::Vector(static_cast<float>(px), static_cast<float>(py),
-                         static_cast<float>(pz));
+      for (int k = 0; k < 240; ++k) {
+        math::Vector p;
+        const int kind = k % 4;
+        if (kind == 0) {
+          p = math::Vector(0.0f, static_cast<float>((next() * 2 - 1) * reach),
+                           0.0f);
+        } else if (kind == 1 || kind == 2) {
+          // On or inside the tube: radius scaled to at most the minor radius.
+          const double t = next() * 2 * std::numbers::pi,
+                       ph = next() * 2 * std::numbers::pi;
+          const double rr = c.r * (kind == 1 ? next() * 0.9 : 1.0);
+          const double X = c.R + rr * std::cos(ph);
+          p = math::Vector(
+              static_cast<float>(X * std::cos(t)),
+              static_cast<float>(rr * std::sin(ph) + c.A * std::sin(c.n * t)),
+              static_cast<float>(X * std::sin(t)));
+        } else {
+          const double px = (next() * 2 - 1) * reach;
+          const double py = (next() * 2 - 1) * reach;
+          const double pz = (next() * 2 - 1) * reach;
+          p = math::Vector(static_cast<float>(px), static_cast<float>(py),
+                           static_cast<float>(pz));
+        }
+
+        const double bd = wv.bounding_distance(p);
+        const double truth =
+            twisted_torus_distance(p, c.R, c.r, c.n, c.A, 20000);
+        if (!std::isfinite(bd) || bd - truth > 1e-4)
+          ++violations;
+        // The bound must also never exceed the slow path's raw warped distance.
+        if (bd - static_cast<double>(wv.raw_distance(p)) > 1e-4)
+          ++violations;
       }
-
-      const double bd = wv.bounding_distance(p);
-      const double truth = twisted_torus_distance(p, c.R, c.r, c.n, c.A, 20000);
-      if (!std::isfinite(bd) || bd - truth > 1e-4)
-        ++violations;
-      // The bound must also never exceed the slow path's raw warped distance.
-      if (bd - static_cast<double>(wv.raw_distance(p)) > 1e-4)
-        ++violations;
     }
-  }
   HS_EXPECT_EQ(violations, 0);
 }
 
