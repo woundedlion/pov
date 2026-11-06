@@ -500,6 +500,17 @@ class TestBudgetSchema(unittest.TestCase):
         with self.assertRaises(tg.BudgetSchemaError):
             self._load(budgets)
 
+    def test_non_code_components_require_an_enabled_ceiling(self):
+        budgets = copy.deepcopy(BUDGETS)
+        components = budgets["phantasm"]["regions"]["ram1"]["components"]
+        components["variables"] = {"max_bytes": 100000}
+        self._load(budgets)
+        for spec in ({}, {"max_bytes": None, "max_banks_from_stack_floor": None}):
+            with self.subTest(spec=spec):
+                components["variables"] = spec
+                with self.assertRaisesRegex(tg.BudgetSchemaError, "must declare at least one of"):
+                    self._load(budgets)
+
     def test_layout_fields_and_limit_order_are_validated(self):
         for key, value in [("name", None), ("name", ""), ("name", 1),
                            ("region", None), ("region", ""), ("region", []),
@@ -755,10 +766,25 @@ class TestBudgetSchema(unittest.TestCase):
                     self.assertIn(key, str(ctx.exception))
 
     def test_non_object_spec_rejected(self):
-        budgets = copy.deepcopy(BUDGETS)
-        budgets["phantasm"]["regions"] = [1, 2]
-        with self.assertRaises(tg.BudgetSchemaError):
-            self._load(budgets)
+        self._load(copy.deepcopy(BUDGETS))
+        objects = ((), ("phantasm",), ("phantasm", "regions", "ram1"),
+                   ("phantasm", "regions", "ram1", "components", "code"),
+                   ("phantasm", "symbols", "arena"))
+        maps = (("phantasm", "regions"), ("phantasm", "regions", "ram1", "components"),
+                ("phantasm", "symbols"))
+        for path, message in [(path, "expected an object") for path in objects] \
+                + [(path, "must be an object") for path in maps]:
+            with self.subTest(path=path):
+                budgets = copy.deepcopy(BUDGETS)
+                if path:
+                    spec = budgets
+                    for key in path[:-1]:
+                        spec = spec[key]
+                    spec[path[-1]] = [1, 2]
+                else:
+                    budgets = [1, 2]
+                with self.assertRaisesRegex(tg.BudgetSchemaError, message):
+                    self._load(budgets)
 
     def test_cli_reports_schema_error_as_cannot_run(self):
         budgets = copy.deepcopy(BUDGETS)
