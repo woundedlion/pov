@@ -198,6 +198,12 @@ template <int W> struct SamplingSurface {
   HS_HOT_INLINE static bool near_arm_seam(float x) {
     return fabsf(math::centered_remainder(x, W / 2.0f)) <= 1.0f;
   }
+  /** @brief Whether a splat needs separate arm-boundary tap ownership.
+   * @param x Projected column.
+   * @return True beside a seam on the two-arm sampling surface. */
+  HS_HOT_INLINE static bool needs_boundary_splat(float x) {
+    return !flat_surface() && near_arm_seam(x);
+  }
   static constexpr int TIMES = W / 2; ///< Distinct surface times.
   /** @brief Time index of a column.
    * @param x Wrapped canvas column.

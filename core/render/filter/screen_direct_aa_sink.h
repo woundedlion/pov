@@ -91,8 +91,7 @@ public:
   HS_HOT_INLINE float plot_projected_at(Canvas &cv, math::PixelCoords p,
                                         const ::Pixel &c, float age,
                                         float alpha, float t) {
-    if (!Spacetime::flat_surface() &&
-        Spacetime::SamplingSurface<W>::near_arm_seam(p.x)) {
+    if (Spacetime::SamplingSurface<W>::needs_boundary_splat(p.x)) {
       AntiAlias<W, H> aa;
       auto pass = [&](float x, float y, const ::Pixel &nc, float nage,
                       float nalpha) HS_HOT_INLINE {

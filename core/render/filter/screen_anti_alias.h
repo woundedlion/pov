@@ -51,8 +51,8 @@ public:
   HS_O3_FN HS_NOINLINE_NOCLONE void plot_at(float x, float y, const ::Pixel &c,
                                             float age, float alpha, float time,
                                             PassFnT &&pass) {
-    const bool boundary = !Spacetime::flat_surface() &&
-                          Spacetime::SamplingSurface<W>::near_arm_seam(x);
+    const bool boundary =
+        Spacetime::SamplingSurface<W>::needs_boundary_splat(x);
     if (boundary) {
       plot_boundary_static(x, y, c, age, alpha, time, pass);
       return;

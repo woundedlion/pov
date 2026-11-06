@@ -1212,8 +1212,7 @@ private:
     ScreenPass pass{next, cv, t};
     if constexpr (std::is_same_v<Next, Pipeline<W, H>> &&
                   requires { requires Head::has_boundary_splat; }) {
-      if (!Spacetime::flat_surface() &&
-          Spacetime::SamplingSurface<W>::near_arm_seam(x))
+      if (Spacetime::SamplingSurface<W>::needs_boundary_splat(x))
         Head::plot_boundary_at(x, y, c, age, alpha, t, pass);
       else
         plot_terminal_splat(cv, x, y, c, age, alpha);
