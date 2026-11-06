@@ -309,6 +309,24 @@ inline const JsonValue *preset_values(const JsonValue &presets,
   return preset != nullptr ? preset->find("values") : nullptr;
 }
 
+/** @brief Appended modulation schema defaults match canonical controls. */
+inline void test_modulation_schema_defaults_match_controls() {
+  using Controls = Pullback::Modulation::Controls;
+  Controls controls;
+  for (size_t index = 0; index < Controls::EXTRA_SCHEMA.size(); ++index) {
+    const auto &field = Controls::EXTRA_SCHEMA[index];
+    HS_CONTEXT(field.id);
+    const void *address = Controls::address(controls.modulation, index);
+    HS_EXPECT_TRUE(address != nullptr);
+    if (address == nullptr)
+      continue;
+    if (field.topology)
+      HS_EXPECT_EQ(*static_cast<const uint8_t *>(address), field.enum_def);
+    else
+      HS_EXPECT_NEAR(*static_cast<const float *>(address), field.def, 0.0f);
+  }
+}
+
 inline void test_catalog_semantic_export() {
   namespace Catalog = Pullback::Interp;
   std::string text;

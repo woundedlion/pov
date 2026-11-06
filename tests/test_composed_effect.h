@@ -1435,6 +1435,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_alien_brain_preset_dwell);
   HS_RUN(test_mobius_grid_circular_animation);
   HS_RUN(test_catalog_semantic_export);
+  HS_RUN(test_modulation_schema_defaults_match_controls);
   HS_RUN(test_composed_hand_registered_families);
   HS_RUN(test_composed_direct_surface_placement);
   HS_RUN(test_composed_slider_registration);
