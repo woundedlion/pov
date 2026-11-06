@@ -149,7 +149,7 @@ public:
    * @brief Constructs a pool bound to a timeline.
    * @param tl Timeline used to schedule spawned animations; retained by reference.
    */
-  HS_COLD_MEMBER explicit TransformerPool(Timeline &tl)
+  HS_FLASH_MEMBER explicit TransformerPool(Timeline &tl)
       : timeline(tl), pool_serial(next_pool_serial++) {
     next_live = live_head;
     live_head = this;
@@ -161,7 +161,7 @@ public:
    * @details Spawned animations' completion callbacks can outlive the pool;
    * dropping the liveness record turns them into no-ops.
    */
-  HS_COLD_MEMBER ~TransformerPool() {
+  HS_FLASH_MEMBER ~TransformerPool() {
     unlink_live();
     if (clear_hook_registered) {
       HS_CHECK(global_timeline_live,
@@ -183,7 +183,7 @@ public:
    * aren't ready yet), after any configure_arenas() and before the first spawn.
    * Registers one Timeline clear hook.
    */
-  HS_COLD_MEMBER void init_storage(Arena &arena) {
+  HS_FLASH_MEMBER void init_storage(Arena &arena) {
     HS_CHECK(!entities, "TransformerPool: init_storage() called twice");
     entities = arena.make_n<Entity>(CAPACITY);
     active_slots = arena.allocate_n<int>(CAPACITY);
@@ -208,7 +208,7 @@ public:
    * allocation order after the reset as after init_storage() (asserted). The
    * bytes are left untouched, so live entities carry through.
    */
-  HS_COLD_MEMBER void reclaim_storage(Arena &arena) {
+  HS_FLASH_MEMBER void reclaim_storage(Arena &arena) {
     HS_CHECK(entities,
              "TransformerPool: call init_storage() before reclaim_storage");
     Entity *e = arena.allocate_n<Entity>(CAPACITY);
@@ -368,8 +368,8 @@ private:
    * @details The serial separates a destroyed pool from a later one built at
    * the same address.
    */
-  HS_COLD_MEMBER static bool is_live(const TransformerPool *pool,
-                                     uint32_t serial) {
+  HS_FLASH_MEMBER static bool is_live(const TransformerPool *pool,
+                                      uint32_t serial) {
     for (const TransformerPool *p = live_head; p; p = p->next_live) {
       if (p == pool)
         return p->pool_serial == serial;
@@ -378,7 +378,7 @@ private:
   }
 
   /** @brief Unlinks this pool from the live list. */
-  HS_COLD_MEMBER void unlink_live() {
+  HS_FLASH_MEMBER void unlink_live() {
     for (TransformerPool **p = &live_head; *p; p = &(*p)->next_live) {
       if (*p == this) {
         *p = next_live;
@@ -393,7 +393,7 @@ private:
    * @details Detects reclamation only while the arena offset remains below
    * the storage watermark; intervening allocations can mask it.
    */
-  HS_COLD_MEMBER void check_storage_watermark() const {
+  HS_FLASH_MEMBER void check_storage_watermark() const {
     HS_CHECK(storage_arena->get_offset() >= storage_end,
              "TransformerPool: arena reclaimed under a live pool; "
              "init_storage() runs after configure_arenas()");
@@ -421,7 +421,7 @@ private:
    * @details The slots' animations must not step afterwards. Timeline::clear()
    * destroys them without completion callbacks after this hook returns.
    */
-  HS_COLD_MEMBER void release_all() {
+  HS_FLASH_MEMBER void release_all() {
     HS_CHECK(entities,
              "TransformerPool: call init_storage() before release_all");
     check_storage_watermark();

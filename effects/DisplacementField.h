@@ -73,7 +73,7 @@ public:
   /**
    * @brief Builds the effect with its palette.
    */
-  HS_COLD_MEMBER DisplacementField()
+  HS_FLASH_MEMBER DisplacementField()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         balls(timeline), noise_field(timeline), palette(make_palette()) {
     // The authored downstream RNG stream starts one draw past the palette.
@@ -219,7 +219,7 @@ public:
 #ifdef HS_PROFILE_ENABLE
   /** @brief Logs automatic preset transitions during profiling.
    * @param change Committed preset transition. */
-  HS_COLD_MEMBER void preset_changed(const PresetChange &change) override {
+  HS_FLASH_MEMBER void preset_changed(const PresetChange &change) override {
     hs::log("Preset: %u/%u", static_cast<unsigned>(change.to + 1),
             static_cast<unsigned>(authored_preset_count()));
   }
@@ -1411,8 +1411,8 @@ private:
    * @param canvas Active frame canvas for nonzero initial progress.
    * @details Only the first pool-full drop of each ball phase is logged.
    */
-  HS_COLD_MEMBER void spawn_ball(float progress = 0.0f,
-                                 Canvas *canvas = nullptr) {
+  HS_FLASH_MEMBER void spawn_ball(float progress = 0.0f,
+                                  Canvas *canvas = nullptr) {
     balls.template_params.radius =
         hs::rand_f(std::min(params.ball_min, params.ball_max),
                    std::max(params.ball_min, params.ball_max));
@@ -1450,7 +1450,7 @@ private:
   /** @brief Applies an authored row and starts its displacement mode.
    * @param change Accepted preset change request.
    * @return True after installing the target defaults. */
-  HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
+  HS_FLASH_MEMBER bool apply_preset(const PresetChange &change) override {
     params = PRESETS[change.to];
     if (change.origin == PresetChangeOrigin::AUTOMATIC) {
       if (change.to == NOISE_PRESET)
@@ -1472,7 +1472,7 @@ private:
   }
 
   /** @brief Cancels a departure and restarts the tuned preset dwell. */
-  HS_COLD_MEMBER void parameter_written() override {
+  HS_FLASH_MEMBER void parameter_written() override {
     if (preset_index == NOISE_PRESET && noise_hold == 0) {
       timeline.cancel_owner(&phase_events);
       schedule_gain(1.0f, false);
@@ -1484,7 +1484,7 @@ private:
   /**
    * @brief Enters the noise phase and fades it in from zero.
    */
-  HS_COLD_MEMBER void enter_noise() {
+  HS_FLASH_MEMBER void enter_noise() {
     master_gain = 0.0f;
     noise_hold = NOISE_HOLD_FRAMES;
     schedule_gain(1.0f, false);
@@ -1493,7 +1493,7 @@ private:
   /**
    * @brief Enters the ball phase, opening a fresh spawning window.
    */
-  HS_COLD_MEMBER void enter_balls() {
+  HS_FLASH_MEMBER void enter_balls() {
     ball_phase_left = BALL_PHASE_FRAMES;
     spawn_cooldown = 0;
     logged_pool_full = false;
@@ -1711,7 +1711,7 @@ private:
     };
 
     /** @brief Allocates the slots from @p arena; hue rows start zeroed. */
-    HS_COLD_MEMBER void init_storage(Arena &arena) {
+    HS_FLASH_MEMBER void init_storage(Arena &arena) {
       shift_rows = arena.allocate_n<float>(SLOTS * ROW);
       // Zeroed, not raw: a culled azimuth chunk leaves its columns unbaked.
       hue_rows = arena.make_n<Pixel>(SLOTS * ROW);

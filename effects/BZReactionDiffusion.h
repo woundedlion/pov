@@ -154,7 +154,7 @@ private:
    * @details Seeds A, then B, then C; the order fixes the RNG stream
    *          position for everything downstream.
    */
-  HS_COLD_MEMBER void seed_spiral_nuclei() {
+  HS_FLASH_MEMBER void seed_spiral_nuclei() {
     uint16_t *species[] = {state.A, state.B, state.C};
     for (uint16_t *field : species)
       seed_blobs(field, CLUSTERS_PER_SPECIES);

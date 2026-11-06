@@ -416,8 +416,8 @@ face_vertex_sum(const math::Vector *vertices, const uint16_t *faces, size_t off,
  * @param m Mesh whose faces are reduced.
  * @param out Receives one unit vector per face, in emission order.
  */
-HS_COLD_MEMBER inline void face_centroids_into(const PolyMesh &m,
-                                               math::Vector *out) {
+HS_FLASH_MEMBER inline void face_centroids_into(const PolyMesh &m,
+                                                math::Vector *out) {
   size_t off = 0;
   for (size_t f = 0; f < m.face_counts.size(); ++f) {
     const int n = m.face_counts[f];

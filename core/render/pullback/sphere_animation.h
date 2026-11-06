@@ -51,8 +51,8 @@ struct RippleState {
  * @param state Scheduler state.
  * @param params Current controls. */
 template <typename Params>
-HS_COLD_MEMBER inline void advance_ripple(RippleState &state,
-                                          const Params &params) {
+HS_FLASH_MEMBER inline void advance_ripple(RippleState &state,
+                                           const Params &params) {
   ++state.frames;
   for (auto &wave : state.waves)
     wave.age = fminf(wave.age + 1.0f, 1000.0f);
@@ -189,7 +189,7 @@ radial_transfer(float distance,
 
 /** @brief Bakes cell validity after both endpoint curves are finalized.
  * @param tables Finalized curves; clear validity_ready before later edits. */
-HS_COLD_MEMBER inline void prepare_radial_validity(RadialTables &tables) {
+HS_FLASH_MEMBER inline void prepare_radial_validity(RadialTables &tables) {
   tables.validity_ready = false;
   for (uint8_t index = 0; index < tables.count; ++index) {
     const auto &group = tables.groups[index];

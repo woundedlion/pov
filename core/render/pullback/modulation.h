@@ -594,15 +594,15 @@ public:
   /** @brief Mutable canonical control addresses.
    * @param index Index in the appended schema.
    * @return Canonical configuration field address. */
-  HS_COLD_MEMBER void *extra_address(size_t index) {
+  HS_FLASH_MEMBER void *extra_address(size_t index) {
     return address(modulation, index);
   }
   /** @brief Addresses a canonical configuration field.
    * @param c Live source and mechanic recipe.
    * @param index Schema index.
    * @return Address in the supplied recipe. */
-  HS_COLD_MEMBER static void *address(ColorModulation::Config &c,
-                                      size_t index) {
+  HS_FLASH_MEMBER static void *address(ColorModulation::Config &c,
+                                       size_t index) {
     float *addresses[] = {&c.mechanic.amount,
                           &c.noise.scale,
                           &c.noise.speed,
@@ -659,8 +659,8 @@ public:
    * @param c Current source and mechanic recipe.
    * @param index Canonical schema index.
    * @return Whether the control accepts native parameter writes. */
-  HS_COLD_MEMBER static bool active(const ColorModulation::Config &c,
-                                    size_t index) {
+  HS_FLASH_MEMBER static bool active(const ColorModulation::Config &c,
+                                     size_t index) {
     if (index >= EXTRA_SCHEMA.size())
       return false;
     if (index == MODULATION_AMOUNT ||
@@ -719,7 +719,7 @@ struct ControlField {
 /** @brief Enumerates the amount and selected source controls.
  * @param config Live source recipe.
  * @return Control descriptors; null addresses mark unused entries. */
-HS_COLD_MEMBER inline std::array<ControlField, 3>
+HS_FLASH_MEMBER inline std::array<ControlField, 3>
 control_fields(Config &config) {
   const bool UNIT = ColorModulation::unit_mechanic(config.mechanic.kind);
   std::array<ControlField, 3> fields{};

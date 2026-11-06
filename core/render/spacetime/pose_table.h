@@ -179,7 +179,7 @@ public:
    * @param arena Arena that outlives every frame the table spans.
    * @param width Even canvas width the table serves.
    */
-  HS_COLD_MEMBER void bind(Arena &arena, int width) {
+  HS_FLASH_MEMBER void bind(Arena &arena, int width) {
     half = width / 2;
     rows = arena.allocate_n<math::Vector>(2 * (half + 1));
     stationary_frame = true;

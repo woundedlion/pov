@@ -175,7 +175,7 @@ public:
    * @details The Feedback filter binds `params.style` by reference; the
    * Choreography base constructs `params` first.
    */
-  HS_COLD_MEMBER MeshFeedback()
+  HS_FLASH_MEMBER MeshFeedback()
       : Choreography(W, H,
                      pipeline_config<decltype(filters)>({.strobe = true})),
         noise_params(), orientation(),
@@ -186,7 +186,7 @@ public:
   /**
    * @brief One-time effect setup.
    */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     begin_choreography();
 
     // Configure the noise type before apply_params() calls sync_noise().

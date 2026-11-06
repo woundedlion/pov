@@ -148,7 +148,7 @@ public:
   /**
    * @brief Constructs the effect at the templated canvas resolution.
    */
-  HS_COLD_MEMBER Comets()
+  HS_FLASH_MEMBER Comets()
       : Choreography(W, H,
                      pipeline_config<decltype(filters)>({.strobe = true})),
         palette(
@@ -158,7 +158,7 @@ public:
   /**
    * @brief Allocates state and wires up the animation timeline.
    */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     begin_choreography();
     node = persistent_arena.make<Node>();
 
@@ -341,7 +341,7 @@ private:
    *          closes exactly, keeping the trace continuous across loops and
    *          function switches.
    */
-  HS_COLD_MEMBER void update_path() {
+  HS_FLASH_MEMBER void update_path() {
     math::LissajousParams config = params.function;
     float closed_domain = closing_domain(config);
     // Four scalars fill PlotFn's inline capacity.
@@ -359,7 +359,7 @@ private:
    * @details Arms the rebake gate for the wipe's duration and skips the
    *          rollover while a previous wipe is still in flight.
    */
-  HS_COLD_MEMBER void update_palette() {
+  HS_FLASH_MEMBER void update_palette() {
     // A second wipe would clobber the snapshots the live one references.
     if (wipe.in_flight())
       return;

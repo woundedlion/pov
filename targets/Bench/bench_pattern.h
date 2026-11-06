@@ -65,7 +65,7 @@ public:
   /**
    * @brief Constructs the pattern at the W x H canvas resolution.
    */
-  HS_COLD_MEMBER BenchPattern() : Effect(W, H) {}
+  HS_FLASH_MEMBER BenchPattern() : Effect(W, H) {}
 
   /**
    * @brief Fills this board's segment band with the current cycle colour.

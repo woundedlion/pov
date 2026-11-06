@@ -140,7 +140,7 @@ public:
    * @param index Preset number; an index past the last yields preset 0.
    * @return The preset's parameters and departure segue.
    */
-  HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
+  HS_FLASH_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
     Params value = initial_params();
     if (index == 1) {
       value.template get<"inner_warp">().cell_x = 0.2791094f;
@@ -153,7 +153,7 @@ public:
   // End generated params.
 
   /** @brief Starts the circular Mobius lens warp. */
-  HS_COLD_MEMBER void after_composed_init() {
+  HS_FLASH_MEMBER void after_composed_init() {
     this->start_lens_phase(1.0f / 0.416f, 160);
   }
 

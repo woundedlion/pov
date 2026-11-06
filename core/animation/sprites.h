@@ -335,7 +335,7 @@ struct AttractorSample {
  * @param s Precomputed particle/attractor geometry.
  * @return False when the particle is killed, true otherwise.
  */
-HS_COLD_MEMBER inline bool
+HS_FLASH_MEMBER inline bool
 apply_signed_axis_attractor(uint16_t &life, math::Vector &velocity,
                             const math::Vector &pos, float max_delta,
                             float gravity, const Attractor &attractor,

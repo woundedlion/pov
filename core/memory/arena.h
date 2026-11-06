@@ -536,7 +536,7 @@ struct ArenaResetHook {
   ArenaResetHook &operator=(const ArenaResetHook &) = delete;
 
   /** @brief Runs every registered hook. */
-  HS_COLD_MEMBER static void run_all() {
+  HS_FLASH_MEMBER static void run_all() {
     for (const ArenaResetHook *h = head; h; h = h->next)
       h->handler();
   }
@@ -602,7 +602,7 @@ struct ArenaSplit {
   }
 
   /** @brief Applies this split to the global arena via `configure_arenas`. */
-  HS_COLD_MEMBER void configure() const {
+  HS_FLASH_MEMBER void configure() const {
     configure_arenas(persistent(GLOBAL_ARENA_SIZE), scratch_a, scratch_b);
   }
 };

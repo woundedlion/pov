@@ -245,7 +245,7 @@ private:
    */
   static constexpr float B_CULL_THRESHOLD = B_COLOR_FLOOR;
 
-  HS_COLD_MEMBER static GenerativePalette make_palette() {
+  HS_FLASH_MEMBER static GenerativePalette make_palette() {
     return GenerativePalette{EffectPaletteRecipes::gs_reaction_diffusion(
         PaletteRecipes::random_base_turns())};
   }
@@ -275,8 +275,8 @@ private:
     return Pigment::pack(first, second, mix);
   }
 
-  HS_COLD_MEMBER void seed_reaction(int first = 0,
-                                    int end = NUM_SEED_CLUSTERS) {
+  HS_FLASH_MEMBER void seed_reaction(int first = 0,
+                                     int end = NUM_SEED_CLUSTERS) {
     HS_PROFILE(grd_seed_reaction);
     if (first == 0) {
       for (int i = 0; i < RD_N; ++i) {
@@ -641,7 +641,7 @@ private:
    * @param staged Splits seeding across a black frame and a complete seed frame.
    * @details Chemistry resumes after all seed clusters have been planted.
    */
-  HS_COLD_MEMBER void start_reaction(bool staged = false) {
+  HS_FLASH_MEMBER void start_reaction(bool staged = false) {
     transition.dissolve_frames = -1;
     transition.grow_frames = 0;
     transition.stable_frames = 0;
@@ -756,7 +756,7 @@ private:
   static_assert(PHYSICS_HISTORY_SIZE > PHYSICS_NEIGHBOR_REACH &&
                 (PHYSICS_HISTORY_SIZE & (PHYSICS_HISTORY_SIZE - 1)) == 0);
 
-  HS_COLD_MEMBER static void validate_physics_neighbors(
+  HS_FLASH_MEMBER static void validate_physics_neighbors(
       const ReactionGraph::NeighborRun *runs = ReactionGraph::neighbor_runs,
       unsigned count = ReactionGraph::NEIGHBOR_RUN_COUNT) {
     for (unsigned r = 0; r < count; ++r)

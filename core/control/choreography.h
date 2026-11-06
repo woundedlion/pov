@@ -293,7 +293,7 @@ protected:
   }
 
   /** @brief Registers the derived effect's typed parameter descriptions. */
-  HS_COLD_MEMBER void register_described_params() {
+  HS_FLASH_MEMBER void register_described_params() {
     Control::register_fields(
         params, parameter_fields_of(),
         [this](const char *name, auto *target, const auto &spec) {
@@ -305,7 +305,7 @@ protected:
    * @brief Interpolates the derived effect's described parameter members.
    * @param progress Transition progress in [0, 1].
    */
-  HS_COLD_MEMBER void blend_params(float progress) {
+  HS_FLASH_MEMBER void blend_params(float progress) {
     Control::interpolate_fields(params, transition.from, transition.to,
                                 progress, parameter_fields_of());
   }
@@ -329,7 +329,7 @@ protected:
    * @param H Canvas height in pixels.
    * @param cfg Effect configuration.
    */
-  HS_COLD_MEMBER ChoreographedEffect(int W, int H, EffectConfig cfg = {})
+  HS_FLASH_MEMBER ChoreographedEffect(int W, int H, EffectConfig cfg = {})
       : Effect(W, H, cfg) {
     static_assert(
         std::is_same_v<typename decltype(Derived::choreography_hooks())::Owner,
@@ -354,7 +354,7 @@ protected:
    * @brief Sets the frames left before the next automatic transition.
    * @param frames Frames to hold; 0 starts a transition on the next step.
    */
-  HS_COLD_MEMBER void hold_initial_preset(uint16_t frames) {
+  HS_FLASH_MEMBER void hold_initial_preset(uint16_t frames) {
     preset_dwell_remaining = frames;
   }
 
@@ -366,7 +366,7 @@ protected:
    * @param change The requested preset change.
    * @return False if the change was refused.
    */
-  HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
+  HS_FLASH_MEMBER bool apply_preset(const PresetChange &change) override {
     if constexpr (has_parameter_fields())
       static_assert(Control::curves_supported(parameter_fields_of()),
                     "discrete fields require MIDPOINT or SNAP curves");
@@ -417,7 +417,7 @@ protected:
    * @brief Cancels any running transition after a manual parameter edit.
    * @details Restores full opacity and restarts the dwell.
    */
-  HS_COLD_MEMBER void parameter_written() override {
+  HS_FLASH_MEMBER void parameter_written() override {
     end_transition();
     preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
   }
@@ -426,7 +426,7 @@ protected:
    * @brief Sets the preset count and registers a timeline-clear hook that
    *        cancels transitions. Call once from init().
    */
-  HS_COLD_MEMBER void begin_choreography() {
+  HS_FLASH_MEMBER void begin_choreography() {
     configure_presets(preset_count_of());
     timeline.add_clear_hook(this, [](void *context) {
       auto &effect = *static_cast<ChoreographedEffect *>(context);
@@ -439,7 +439,7 @@ protected:
   /// Counts down the dwell and starts the next preset's transition when it
   /// expires. Call every frame. While paused it does nothing, except that a
   /// fade in progress shows at full opacity.
-  HS_COLD_MEMBER void step_choreography() {
+  HS_FLASH_MEMBER void step_choreography() {
     if constexpr (preset_count_of() == 1)
       return;
     else {
@@ -466,7 +466,7 @@ protected:
    * @param progress Eased transition progress in [0, 1].
    * @details Does nothing once the transition has been cancelled.
    */
-  HS_COLD_MEMBER void run_transition(float progress) {
+  HS_FLASH_MEMBER void run_transition(float progress) {
     if (!transition.active)
       return;
     const bool COMPLETE = ++transition.elapsed_frames >= transition.frames;
@@ -524,7 +524,7 @@ private:
    * @param restore_preset If a fade has not reached its midpoint, return to the
    *        preset it was leaving and call preset_changed().
    */
-  HS_COLD_MEMBER void end_transition(bool restore_preset = true) {
+  HS_FLASH_MEMBER void end_transition(bool restore_preset = true) {
     const bool FADING = transition.active && transition.fades;
     const bool RESTORE = FADING && !transition.adopted && restore_preset &&
                          preset_index != transition.from_index;

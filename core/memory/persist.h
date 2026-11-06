@@ -58,7 +58,8 @@ public:
    * @param scratch_arena Scratch arena to hold the backup.
    * @param restore_arena Persistent arena the target is restored into.
    */
-  HS_COLD_MEMBER Persist(T &subject, Arena &scratch_arena, Arena &restore_arena)
+  HS_FLASH_MEMBER Persist(T &subject, Arena &scratch_arena,
+                          Arena &restore_arena)
       : target(subject), persistent(restore_arena),
         persistent_offset_at_ctor(restore_arena.get_offset()),
         scratch(scratch_arena) {
@@ -76,7 +77,7 @@ public:
    * `reset_persistent_arena()`). The `<=` check bounds the aggregate of stacked
    * Persists, not each individual restore.
    */
-  HS_COLD_MEMBER ~Persist() {
+  HS_FLASH_MEMBER ~Persist() {
     target = T();
     T::clone(backup, target, persistent);
     HS_CHECK(persistent.get_offset() <= persistent_offset_at_ctor,

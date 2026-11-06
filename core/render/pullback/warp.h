@@ -275,8 +275,8 @@ constexpr bool includes(AffineForm form, AffineForm part) {
     @param rotation Accumulated rotation in radians, wrapped into
     (-2pi, 2pi).
     @param params Speed and rotation rate. */
-HS_COLD_MEMBER inline void advance_affine_rotation(float &rotation,
-                                                   const AffineParams &params) {
+HS_FLASH_MEMBER inline void
+advance_affine_rotation(float &rotation, const AffineParams &params) {
   rotation =
       fmodf(rotation + params.speed * params.rotation_rate, math::TWO_PI_F);
 }
@@ -503,8 +503,8 @@ affine_turn_translation(const AffineParams &warp,
     @param a First repeat basis vector.
     @param b Second repeat basis vector, not parallel to @p a.
     @return The reduced basis, its inverse rows and the per-sample reduction. */
-HS_COLD_MEMBER inline PreparedRepeat prepare_repeat(math::Complex a,
-                                                    math::Complex b) {
+HS_FLASH_MEMBER inline PreparedRepeat prepare_repeat(math::Complex a,
+                                                     math::Complex b) {
   if (b.squared_magnitude() < a.squared_magnitude())
     std::swap(a, b);
   for (;;) {
@@ -589,9 +589,9 @@ prepare(const AffineParams &warp, float phase, float frame_rotation,
     @param lattice The next stage's TranslationLattice.
     @return Diagonal plus shear norm of the frame at its oscillation extreme,
     times @p input_bound, plus a full turn of translation. */
-HS_COLD_MEMBER inline float plane_bound(const AffineParams &warp,
-                                        float input_bound,
-                                        const TranslationLattice &lattice) {
+HS_FLASH_MEMBER inline float plane_bound(const AffineParams &warp,
+                                         float input_bound,
+                                         const TranslationLattice &lattice) {
   const float x_gain = fmaxf(warp.scale_x, 1.0f / warp.scale_x);
   const float y_gain = fmaxf(warp.scale_y, 1.0f / warp.scale_y);
   const math::Complex turn =

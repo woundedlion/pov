@@ -131,10 +131,10 @@ public:
    * @param easing_fn Optional easing over fade progress; null is linear.
    * @param paused_flag Optional pause gate; freezes step() while set and true.
    */
-  HS_COLD_MEMBER void init(Arena &arena, const Entry *entry_list, int count,
-                           int dwell_frames, int fade_frames,
-                           float (*easing_fn)(float) = nullptr,
-                           const bool *paused_flag = nullptr) {
+  HS_FLASH_MEMBER void init(Arena &arena, const Entry *entry_list, int count,
+                            int dwell_frames, int fade_frames,
+                            float (*easing_fn)(float) = nullptr,
+                            const bool *paused_flag = nullptr) {
     HS_CHECK(entry_list != nullptr && count >= 1 && count <= MAX_ENTRIES,
              "PaletteCycler entry count must be in [1, MAX_ENTRIES]");
     HS_CHECK(dwell_frames >= 0 && fade_frames >= 1,
@@ -201,12 +201,12 @@ public:
    * and at most fade_frames. The timeline advances every frame; fade endpoints
    * always bake exactly.
    */
-  HS_COLD_MEMBER void init_generated(Arena &arena, NextPaletteFn next_fn,
-                                     void *context, int dwell_frames,
-                                     int fade_frames,
-                                     float (*easing_fn)(float) = nullptr,
-                                     const bool *paused_flag = nullptr,
-                                     int display_interval_frames = 1) {
+  HS_FLASH_MEMBER void init_generated(Arena &arena, NextPaletteFn next_fn,
+                                      void *context, int dwell_frames,
+                                      int fade_frames,
+                                      float (*easing_fn)(float) = nullptr,
+                                      const bool *paused_flag = nullptr,
+                                      int display_interval_frames = 1) {
     HS_CHECK(next_fn != nullptr,
              "PaletteCycler generated cycle needs a provider");
     HS_CHECK(dwell_frames >= 0 && fade_frames >= 1,
@@ -249,7 +249,7 @@ public:
    * fade rebakes the display directly from the target entry, so the landing
    * is bit-exact regardless of easing endpoint behavior.
    */
-  HS_COLD_MEMBER void step() {
+  HS_FLASH_MEMBER void step() {
     HS_PROFILE(palette_cycle_step);
     if (!advance_clock(true))
       return;
@@ -277,7 +277,7 @@ public:
   /** @brief Advances the cycle without rebuilding the display LUT.
    *  @details Timeline and provider state still land exactly. A later step()
    *  immediately rebuilds the display at its current sampled phase. */
-  HS_COLD_MEMBER void advance_without_display() {
+  HS_FLASH_MEMBER void advance_without_display() {
     if (advance_clock(false))
       display_dirty = true;
   }
@@ -299,7 +299,7 @@ public:
    *  @details Valid after init_generated(). Skips the rebake while a display
    *  rebuild is already pending, which the next step() serves at the new
    *  chroma. */
-  HS_COLD_MEMBER void set_generated_chroma(float chroma) {
+  HS_FLASH_MEMBER void set_generated_chroma(float chroma) {
     HS_CHECK(from_slot != nullptr && to_slot != nullptr && morph != nullptr,
              "PaletteCycler chroma needs a generated cycle");
     from_slot->set_constant_chroma(chroma);
@@ -368,9 +368,9 @@ public:
    * @param to Fade w = 1 endpoint.
    * @pre init_generated() has run.
    */
-  HS_COLD_MEMBER void restore_generated(const GeneratedClock &clock,
-                                        const GenerativePalette &from,
-                                        const GenerativePalette &to) {
+  HS_FLASH_MEMBER void restore_generated(const GeneratedClock &clock,
+                                         const GenerativePalette &from,
+                                         const GenerativePalette &to) {
     HS_CHECK(from_slot != nullptr && to_slot != nullptr && morph != nullptr,
              "PaletteCycler restore needs a generated cycle");
     HS_CHECK(from.morph_compatible(to),
@@ -431,21 +431,21 @@ private:
     return index + 1 == entry_count ? 0 : index + 1;
   }
 
-  HS_COLD_MEMBER void rebake_display(const GenerativePalette &source) {
+  HS_FLASH_MEMBER void rebake_display(const GenerativePalette &source) {
     display.rebake(source);
     ++generation;
   }
 
-  HS_COLD_MEMBER void rebake_display_entry(const Entry &entry) {
+  HS_FLASH_MEMBER void rebake_display_entry(const Entry &entry) {
     rebake_entry(display, entry);
     ++generation;
   }
 
-  HS_COLD_MEMBER static GenerativePalette *allocate_palette(Arena &arena) {
+  HS_FLASH_MEMBER static GenerativePalette *allocate_palette(Arena &arena) {
     return arena.make<GenerativePalette>();
   }
 
-  HS_COLD_MEMBER void finish_fade(bool update_display = true) {
+  HS_FLASH_MEMBER void finish_fade(bool update_display = true) {
     if (provider != nullptr) {
       if (update_display)
         rebake_display(*to_slot);
@@ -465,8 +465,8 @@ private:
     frame = 0;
   }
 
-  HS_COLD_MEMBER static void bake_entry(BakedPaletteStorage &lut, Arena &arena,
-                                        const Entry &entry) {
+  HS_FLASH_MEMBER static void bake_entry(BakedPaletteStorage &lut, Arena &arena,
+                                         const Entry &entry) {
     if (entry.baked != nullptr)
       lut.clone_from(*entry.baked, arena);
     else if (entry.generative != nullptr)
@@ -477,8 +477,8 @@ private:
 
   // Generative entries bake through their concrete type: the mirror and loop
   // domain shortcuts, and a loop's exact seam entry, need it.
-  HS_COLD_MEMBER static void rebake_entry(BakedPaletteStorage &lut,
-                                          const Entry &entry) {
+  HS_FLASH_MEMBER static void rebake_entry(BakedPaletteStorage &lut,
+                                           const Entry &entry) {
     if (entry.baked != nullptr)
       lut.rebake_copy(*entry.baked);
     else if (entry.generative != nullptr)
@@ -487,7 +487,7 @@ private:
       lut.rebake(*entry.source);
   }
 
-  HS_COLD_MEMBER void begin_fade() {
+  HS_FLASH_MEMBER void begin_fade() {
     if ((key_morph_mask & (1u << current)) != 0)
       return;
     rebake_entry(fade_from, entries[current]);
@@ -596,7 +596,7 @@ public:
    * @param snapshot State to restore; check with valid_snapshot().
    * @pre init() has run.
    */
-  HS_COLD_MEMBER void restore_snapshot(const Snapshot &snapshot) {
+  HS_FLASH_MEMBER void restore_snapshot(const Snapshot &snapshot) {
     chroma = snapshot.chroma;
     triadic_hue = snapshot.hues[0];
     complementary_hue = snapshot.hues[1];
@@ -632,7 +632,8 @@ public:
    * @param chroma Chroma control in [0, 1].
    * @param easing Fade easing; null = linear.
    */
-  HS_COLD_MEMBER void init(Arena &arena, float chroma, float (*easing)(float)) {
+  HS_FLASH_MEMBER void init(Arena &arena, float chroma,
+                            float (*easing)(float)) {
     triadic_hue = 0;
     complementary_hue = 0;
     analogous_hue = 0;
@@ -663,7 +664,7 @@ public:
    * @return That cycler's display table.
    */
   template <typename PaletteMode>
-  HS_COLD_MEMBER const BakedPalette &palette(PaletteMode mode) const {
+  HS_FLASH_MEMBER const BakedPalette &palette(PaletteMode mode) const {
     switch (mode) {
     case PaletteMode::TRIADIC:
       return triadic.palette();
@@ -680,7 +681,7 @@ public:
    * @brief Sets the shared chroma on all three cycles.
    * @param chroma Chroma control in [0, 1].
    */
-  HS_COLD_MEMBER void set_chroma(float chroma) {
+  HS_FLASH_MEMBER void set_chroma(float chroma) {
     if (chroma == this->chroma)
       return;
     this->chroma = chroma;

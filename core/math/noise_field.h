@@ -102,7 +102,7 @@ struct NoiseFieldKey {
   /** Frequency the generator is set to; the caller applies the spec's scale. */
   float generator_frequency = 1.0f;
 
-  HS_COLD_MEMBER constexpr bool
+  HS_FLASH_MEMBER constexpr bool
   operator==(const NoiseFieldKey &) const = default;
 };
 

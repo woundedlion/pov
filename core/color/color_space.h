@@ -315,8 +315,8 @@ inline constexpr int GAMUT_LUT_MIN_L_STEPS = 64;
  * merges its minima and maxima, which does not certify enclosure of every
  * ray's first exit. Costs gamut_lut_bytes(angle_steps, l_steps) arena bytes.
  */
-HS_COLD_MEMBER inline void init_gamut_lut(Arena &arena, int angle_steps,
-                                          int l_steps) {
+HS_FLASH_MEMBER inline void init_gamut_lut(Arena &arena, int angle_steps,
+                                           int l_steps) {
   HS_CHECK(&arena != &scratch_arena_a && &arena != &scratch_arena_b,
            "init_gamut_lut: global LUT requires non-scratch storage");
   HS_CHECK(angle_steps >= GAMUT_LUT_MIN_ANGLE_STEPS &&

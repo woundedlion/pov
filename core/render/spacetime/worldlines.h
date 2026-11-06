@@ -85,7 +85,7 @@ public:
    * @param arena Arena that outlives every frame the motion spans.
    * @param capacity Most vertices.
    */
-  HS_COLD_MEMBER void bind(Arena &arena, size_t capacity) {
+  HS_FLASH_MEMBER void bind(Arena &arena, size_t capacity) {
     slots = capacity;
     captures[0] = arena.allocate_n<Stored>(capacity);
     captures[1] = arena.allocate_n<Stored>(capacity);

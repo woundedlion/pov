@@ -156,7 +156,7 @@ protected:
    * @param k Lowered step index.
    * @return True when step k is DUAL and step k + 1 is KIS.
    */
-  HS_COLD_MEMBER bool dt_pair_at(size_t k) const {
+  HS_FLASH_MEMBER bool dt_pair_at(size_t k) const {
     return dt_pair_in({build_step_chain, build_step_count}, k);
   }
 
@@ -166,7 +166,7 @@ protected:
    * @param k Lowered step index.
    * @return True when step k is KIS and step k - 1 is not DUAL.
    */
-  HS_COLD_MEMBER bool standalone_kis_at(size_t k) const {
+  HS_FLASH_MEMBER bool standalone_kis_at(size_t k) const {
     return standalone_kis_in({build_step_chain, build_step_count}, k);
   }
 
@@ -272,7 +272,7 @@ protected:
    * count; build_leg_frames[k] carries its dual-bridge budget, and its truncate
    * and reconcile legs draw fixed member budgets.
    */
-  HS_COLD_MEMBER int plan_build_legs(float sp) {
+  HS_FLASH_MEMBER int plan_build_legs(float sp) {
     build_step = 0;
     build_from_pal = nullptr;
     build_from_faces = 0;
@@ -288,7 +288,7 @@ protected:
    *        clean endpoint seed and its bookend classification, derives the
    *        palette handoff, and chains completion into finish_build_leg.
    */
-  HS_COLD_MEMBER void start_build_leg() {
+  HS_FLASH_MEMBER void start_build_leg() {
     const size_t k = build_step;
     const Solids::OpStep &step = build_step_chain[k];
 
@@ -400,7 +400,7 @@ protected:
    * @param leg Leg to run; its landing must stay valid until the next leg.
    * @param next Stage entered when the leg completes.
    */
-  HS_COLD_MEMBER void
+  HS_FLASH_MEMBER void
   schedule_build_leg(Animation::OpLeg &&leg,
                      BuildContinuation next = BuildContinuation::FINISH) {
     check_build_budget();
@@ -413,7 +413,7 @@ protected:
   }
 
   /** @brief Prepares immutable dual-bridge data between frame draws. */
-  HS_COLD_MEMBER void prepare_build() {
+  HS_FLASH_MEMBER void prepare_build() {
 #if HS_ENABLE_TEST_HOOKS
     if (!test_prepare_build)
       return;
@@ -474,7 +474,7 @@ protected:
    * @details The seeds' persistent storage is reclaimed by the next spawn's
    * compaction.
    */
-  HS_COLD_MEMBER void abandon_build() {
+  HS_FLASH_MEMBER void abandon_build() {
     build_active = false;
     bridge_preparation = {};
     preparation_delay = 0;
@@ -495,7 +495,7 @@ protected:
    * @brief Enters a build stage.
    * @param next Stage to run.
    */
-  HS_COLD_MEMBER void continue_build(BuildContinuation next) {
+  HS_FLASH_MEMBER void continue_build(BuildContinuation next) {
     switch (next) {
     case BuildContinuation::FINISH:
       finish_build_leg();
@@ -532,7 +532,7 @@ protected:
    * returns the bookend grouping keyed on it.
    * @return Bookend classes over build_next_seed's fresh classification.
    */
-  HS_COLD_MEMBER Animation::OpLeg::BookendClasses next_seed_bookend() {
+  HS_FLASH_MEMBER Animation::OpLeg::BookendClasses next_seed_bookend() {
     MeshOps::classify_faces_by_topology(build_next_seed, scratch_arena_a,
                                         scratch_arena_b, persistent_arena);
     const size_t faces = build_next_seed.face_counts.size();
@@ -549,7 +549,7 @@ protected:
    * @param correspondence Departed-to-swept face-order relationship.
    * @return The handoff for the next leg.
    */
-  HS_COLD_MEMBER Animation::OpLeg::PaletteHandoff
+  HS_FLASH_MEMBER Animation::OpLeg::PaletteHandoff
   seed_handoff(Arena &scratch,
                Animation::OpLeg::FaceCorrespondence correspondence =
                    Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
@@ -589,7 +589,7 @@ protected:
    * @param correspondence Departed-to-swept face-order relationship.
    * @return The handoff for the next leg.
    */
-  HS_COLD_MEMBER Animation::OpLeg::PaletteHandoff
+  HS_FLASH_MEMBER Animation::OpLeg::PaletteHandoff
   landing_handoff(const PolyMesh &departed, Arena &scratch,
                   Animation::OpLeg::FaceCorrespondence correspondence =
                       Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
@@ -633,7 +633,7 @@ protected:
    * are prepared during the medial leg when the persistent budget permits.
    * @param done Build stage entered after the closing leg.
    */
-  HS_COLD_MEMBER void schedule_dual_bridge(BuildContinuation done) {
+  HS_FLASH_MEMBER void schedule_dual_bridge(BuildContinuation done) {
     HS_CHECK(done == BuildContinuation::FINISH ||
                  done == BuildContinuation::DT_AFTER_BRIDGE ||
                  done == BuildContinuation::DTD_AFTER_BRIDGE1 ||
@@ -668,7 +668,7 @@ protected:
    * landed ambo(P) classification in scratch; both medial meshes share
    * connectivity.
    */
-  HS_COLD_MEMBER void schedule_dual_medial() {
+  HS_FLASH_MEMBER void schedule_dual_medial() {
     ScratchScope handoff_guard(scratch_arena_a);
     // Copy leg 1's landed palette into scratch_a before compacting that leg
     // away; the persistent reset leaves scratch_a intact.
@@ -716,7 +716,7 @@ protected:
    * ambo point down to dual(P), landing on the macro's clean endpoint. The
    * departed palettes come from leg 2's landing in its face order.
    */
-  HS_COLD_MEMBER void schedule_dual_untruncate() {
+  HS_FLASH_MEMBER void schedule_dual_untruncate() {
     ScratchScope a_guard(scratch_arena_a);
     const size_t nf = dual_bridge_ambo_faces;
     HS_CHECK(nf <= MAX_BUILD_FACES && build_landing &&
@@ -779,7 +779,7 @@ protected:
    * leg's seed, snapshots the palette the finished leg landed on so its
    * successor departs continuously, and compacts the finished leg's storage.
    */
-  HS_COLD_MEMBER void carry_landing_to_seed() {
+  HS_FLASH_MEMBER void carry_landing_to_seed() {
     const size_t landed_faces = build_next_seed.face_counts.size();
     HS_CHECK(build_landing && landed_faces <= build_landing->faces,
              "RecipeBuild: next seed larger than the leg landing");
@@ -812,8 +812,8 @@ protected:
    * @param log Log label ("dt truncate" / "dtd truncate").
    * @param next Build stage entered after the leg.
    */
-  HS_COLD_MEMBER void schedule_macro_truncate(const char *log,
-                                              BuildContinuation next) {
+  HS_FLASH_MEMBER void schedule_macro_truncate(const char *log,
+                                               BuildContinuation next) {
     hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       build_next_seed = Solids::finalize_solid(
           MeshOps::truncate(build_seed, a, b, MACRO_TRUNCATE_T), target);
@@ -839,18 +839,18 @@ protected:
    * dt): truncate(X, 1/3) sweep, dual bridge on it, then reconcile onto the
    * exact kis(dual(X)) mesh. Covers both the DUAL step and its trailing KIS.
    */
-  HS_COLD_MEMBER void schedule_dt_macro() {
+  HS_FLASH_MEMBER void schedule_dt_macro() {
     schedule_macro_truncate("dt truncate",
                             BuildContinuation::DT_AFTER_TRUNCATE);
   }
 
   /** @brief dt macro: after the truncate sweep, schedules the dual bridge. */
-  HS_COLD_MEMBER void dt_after_truncate() {
+  HS_FLASH_MEMBER void dt_after_truncate() {
     carry_landing_to_seed(); // build_seed = truncate(X, 1/3)
     schedule_dual_bridge(BuildContinuation::DT_AFTER_BRIDGE);
   }
   /** @brief dt macro: after the dual bridge, schedules the reconcile leg. */
-  HS_COLD_MEMBER void dt_after_bridge() {
+  HS_FLASH_MEMBER void dt_after_bridge() {
     carry_landing_to_seed(); // build_seed = dual(truncate(X, 1/3)) (identity)
     HS_CHECK(dt_pair_at(build_step),
              "RecipeBuild: dt macro left its dual,kis pair");
@@ -863,22 +863,22 @@ protected:
    * dual bridge on X, truncate(dual(X), 1/3) sweep, dual bridge on it, then
    * reconcile onto the exact kis(X) mesh. Runs entirely on the KIS step.
    */
-  HS_COLD_MEMBER void schedule_dtd_macro() {
+  HS_FLASH_MEMBER void schedule_dtd_macro() {
     schedule_dual_bridge(BuildContinuation::DTD_AFTER_BRIDGE1);
   }
   /** @brief dtd macro: after the first bridge, schedules the truncate sweep. */
-  HS_COLD_MEMBER void dtd_after_bridge1() {
+  HS_FLASH_MEMBER void dtd_after_bridge1() {
     carry_landing_to_seed(); // build_seed = dual(X)
     schedule_macro_truncate("dtd truncate",
                             BuildContinuation::DTD_AFTER_TRUNCATE);
   }
   /** @brief dtd macro: after the truncate, schedules the second bridge. */
-  HS_COLD_MEMBER void dtd_after_truncate() {
+  HS_FLASH_MEMBER void dtd_after_truncate() {
     carry_landing_to_seed(); // build_seed = truncate(dual(X), 1/3)
     schedule_dual_bridge(BuildContinuation::DTD_AFTER_BRIDGE2);
   }
   /** @brief dtd macro: after the second bridge, schedules the reconcile leg. */
-  HS_COLD_MEMBER void dtd_after_bridge2() {
+  HS_FLASH_MEMBER void dtd_after_bridge2() {
     carry_landing_to_seed(); // build_seed = dual(truncate(dual(X), 1/3))
     HS_CHECK(standalone_kis_at(build_step),
              "RecipeBuild: dtd macro left its kis step");
@@ -894,7 +894,7 @@ protected:
    * @param kis_of_dual True for a dt macro (authored = kis(dual(X)) = needle(X)),
    * false for a dtd macro (authored = kis(X)).
    */
-  HS_COLD_MEMBER void schedule_reconcile(size_t x_prefix, bool kis_of_dual) {
+  HS_FLASH_MEMBER void schedule_reconcile(size_t x_prefix, bool kis_of_dual) {
     const uint8_t seed = build_entry->recipe->seed;
     {
       ScratchScope a_guard(scratch_arena_a);
@@ -932,8 +932,8 @@ protected:
    * @param b Scratch arena for odd pipeline stages.
    * @return The op applied to the current build seed at its exact parameter.
    */
-  HS_COLD_MEMBER PolyMesh clean_endpoint(const Solids::OpStep &step, Arena &a,
-                                         Arena &b) {
+  HS_FLASH_MEMBER PolyMesh clean_endpoint(const Solids::OpStep &step, Arena &a,
+                                          Arena &b) {
     switch (step.op) {
     case Solids::Op::AMBO:
       return MeshOps::ambo(build_seed, a, b);
@@ -957,7 +957,7 @@ protected:
    * @brief Leg completion: adopts the eagerly built clean endpoint as the next
    *        leg's seed, then starts the next leg or finishes the build.
    */
-  HS_COLD_MEMBER void finish_build_leg() {
+  HS_FLASH_MEMBER void finish_build_leg() {
     // Preserve the endpoint and landing palette across reset; rebuild Hankin's
     // endpoint from its swept topology.
     {
@@ -990,7 +990,7 @@ protected:
    * @brief Build completion: recompiles the finished solid into the front slot
    *        and hands the last leg's landed per-face colours to the sprite.
    */
-  HS_COLD_MEMBER void finish_build() {
+  HS_FLASH_MEMBER void finish_build() {
     // The finished solid's face count is an emission-order prefix of the
     // landing.
     const size_t landed_faces = build_seed.face_counts.size();

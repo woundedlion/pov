@@ -127,7 +127,7 @@ public:
    * @param width Canvas width the poses serve.
    * @details Call from effect init(), before any draw through at_time().
    */
-  HS_COLD_MEMBER void init_storage(Arena &arena, int width) {
+  HS_FLASH_MEMBER void init_storage(Arena &arena, int width) {
     poses.bind(arena, width);
     poses_ready = false;
   }

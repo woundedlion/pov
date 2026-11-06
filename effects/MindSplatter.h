@@ -87,7 +87,7 @@ public:
   /**
    * @brief Constructs the effect with its strobe pipeline configuration.
    */
-  HS_COLD_MEMBER MindSplatter()
+  HS_FLASH_MEMBER MindSplatter()
       : Choreography(W, H,
                      pipeline_config<decltype(filters)>({.strobe = true})),
         particle_system() {}
@@ -95,7 +95,7 @@ public:
   /**
    * @brief Registers params, builds the particle system, and starts the warp scheduler.
    */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     ArenaSplit{SCRATCH_BYTES, COLUMN_SCRATCH_B_BYTES}.configure();
     begin_choreography();
     timed_filters.init_storage(persistent_arena);
@@ -480,7 +480,7 @@ private:
     return lut_sample_pixel(colors, MINDSPLATTER_PALETTE_LUT_SIZE, index);
   }
 
-  HS_COLD_MEMBER static std::span<const math::Vector>
+  HS_FLASH_MEMBER static std::span<const math::Vector>
   emitter_vertices(BaseMesh base_mesh) {
     switch (base_mesh) {
     case BaseMesh::TETRAHEDRON:
@@ -499,7 +499,7 @@ private:
     }
   }
 
-  HS_COLD_MEMBER static std::span<const math::Vector>
+  HS_FLASH_MEMBER static std::span<const math::Vector>
   attractor_vertices(BaseMesh base_mesh) {
     switch (base_mesh) {
     case BaseMesh::TETRAHEDRON:
@@ -568,7 +568,7 @@ private:
    *          the attractor solid. Single-shot: ParticleSystem::init traps on a
    *          second call.
    */
-  HS_COLD_MEMBER void build_particle_system() {
+  HS_FLASH_MEMBER void build_particle_system() {
     particle_system.init(persistent_arena, params.friction, GRAVITY,
                          PARTICLE_LIFETIME_FRAMES);
     palette_sequence = 0;

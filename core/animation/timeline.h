@@ -157,7 +157,7 @@ public:
    * live. Runs the clear hooks first. Does not rewind the global frame cursor;
    * only construction and destruction do.
    */
-  HS_COLD_MEMBER void clear() {
+  HS_FLASH_MEMBER void clear() {
     HS_CHECK(!stepping, "clear() from inside step() would destroy the "
                         "animation whose callback is running");
     for (int i = 0; i < global_timeline_num_events; ++i) {
@@ -179,7 +179,7 @@ public:
    * @details For state an owner reclaims from a completion callback, which
    * clear() never runs.
    */
-  HS_COLD_MEMBER void add_clear_hook(void *ctx, void (*fn)(void *)) {
+  HS_FLASH_MEMBER void add_clear_hook(void *ctx, void (*fn)(void *)) {
     HS_CHECK(clear_hook_count < MAX_CLEAR_HOOKS,
              "Timeline clear-hook table full");
     clear_hooks[clear_hook_count++] = ClearHook{ctx, fn};
@@ -190,7 +190,7 @@ public:
    * @param ctx The registration key passed to add_clear_hook().
    * @details Hook order is not preserved.
    */
-  HS_COLD_MEMBER void remove_clear_hook(void *ctx) {
+  HS_FLASH_MEMBER void remove_clear_hook(void *ctx) {
     for (int i = 0; i < clear_hook_count; ++i) {
       if (clear_hooks[i].ctx == ctx) {
         clear_hooks[i] = clear_hooks[--clear_hook_count];
@@ -310,7 +310,7 @@ public:
    * check for teardown ordering; moving one during step() still traps.
    * @param owner Lifetime token shared by the events to cancel.
    */
-  HS_COLD_MEMBER void cancel_owner(const void *owner) {
+  HS_FLASH_MEMBER void cancel_owner(const void *owner) {
     bool retiring_predecessor = false;
     for (int i = 0; i < global_timeline_num_events; ++i) {
       const auto &event = global_timeline_events[i];
@@ -363,7 +363,7 @@ public:
    * animations.
    * @param canvas The current canvas buffer.
    */
-  HS_COLD_MEMBER void step(Canvas &canvas) {
+  HS_FLASH_MEMBER void step(Canvas &canvas) {
     struct StepScope {
       bool &flag;
       explicit StepScope(bool &f) : flag(f) { flag = true; }

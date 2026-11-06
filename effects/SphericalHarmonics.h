@@ -116,12 +116,12 @@ public:
   /**
    * @brief Construct the visualizer with the display dimensions.
    */
-  HS_COLD_MEMBER SphericalHarmonics() : Effect(W, H, {.strobe = true}) {}
+  HS_FLASH_MEMBER SphericalHarmonics() : Effect(W, H, {.strobe = true}) {}
 
   /**
    * @brief One-time setup of params, palette, shape, spin, and first morph.
    */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     configure_presets(PRESET_IDS.size());
     register_param("Amplitude", &params.amplitude, 0.1f, 10.0f);
 
@@ -182,7 +182,7 @@ private:
    * @param change Preset change; only its target index is read.
    * @return Always true.
    */
-  HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
+  HS_FLASH_MEMBER bool apply_preset(const PresetChange &change) override {
     ++morph_generation;
     if (change.origin != PresetChangeOrigin::SYNCHRONIZED)
       ++morph_epoch;
@@ -385,7 +385,7 @@ private:
    * endless morph chain. Pausable: the chain is this effect's preset
    * choreography, so "Pause Presets" holds the current blend.
    */
-  HS_COLD_MEMBER void start_morph() {
+  HS_FLASH_MEMBER void start_morph() {
     const uint32_t generation = morph_generation;
     next_idx = (current_idx % MAX_MODE_IDX) + 1;
 #if defined(HS_PROFILE_ENABLE)

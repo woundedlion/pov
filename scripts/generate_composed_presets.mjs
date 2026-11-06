@@ -280,7 +280,7 @@ export function generatedSections(compiled, metadata, { authoredTopology = false
       '   * @param index Preset number; an index past the last yields preset 0.',
       "   * @return The preset's parameters and departure segue.",
       '   */',
-      '  HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {', '    Params value = initial_params();');
+      '  HS_FLASH_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {', '    Params value = initial_params();');
     if (!uniform) params.push(`    Segue::Preset::Departure segue = ${departures[0]};`);
     for (let i = 1; i < presets.length; ++i) {
       params.push(`    if (index == ${i}) {`);

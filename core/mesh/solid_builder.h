@@ -48,7 +48,7 @@ public:
    * @param a Initial output arena.
    * @param b Initial scratch arena.
    */
-  HS_COLD_MEMBER SolidBuilder(PolyMesh seed, Arena &a, Arena &b)
+  HS_FLASH_MEMBER SolidBuilder(PolyMesh seed, Arena &a, Arena &b)
       : mesh(std::move(seed)), output_arena(&a), scratch_arena(&b),
         output_mark(a.get_offset()), scratch_mark(b.get_offset()) {
     // One arena for both roles would put the live mesh in the arena advance()
@@ -69,7 +69,7 @@ public:
    * @brief Applies the kis operator (raise a pyramid on every face).
    * @return Reference to this builder for chaining.
    */
-  HS_COLD_MEMBER SolidBuilder &kis() {
+  HS_FLASH_MEMBER SolidBuilder &kis() {
     mesh = MeshOps::kis(mesh, *output_arena, *scratch_arena);
     advance();
     return *this;
@@ -164,7 +164,7 @@ public:
    * @param bake Payload whose guarded topology must match the current mesh.
    * @return Reference to this builder for chaining.
    */
-  HS_COLD_MEMBER SolidBuilder &relax_baked(const MeshOps::RelaxBake &bake) {
+  HS_FLASH_MEMBER SolidBuilder &relax_baked(const MeshOps::RelaxBake &bake) {
 #if defined(HS_RELAX_BAKE_EXTRACT) || defined(HS_RELAX_BAKE_VERIFY)
 #if defined(HS_RELAX_BAKE_VERIFY)
     HS_CHECK(MeshOps::relax_topology_hash(mesh) == bake.topology_hash,
@@ -285,5 +285,5 @@ public:
    * @brief Finalizes the chain and yields the built mesh.
    * @return The accumulated PolyMesh, moved out of the builder.
    */
-  HS_COLD_MEMBER PolyMesh build() { return std::move(mesh); }
+  HS_FLASH_MEMBER PolyMesh build() { return std::move(mesh); }
 };

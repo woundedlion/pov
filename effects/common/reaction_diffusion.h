@@ -37,7 +37,7 @@ public:
    * @details Leaves the framebuffer non-persistent: each frame is fully
    * repainted from lattice state.
    */
-  HS_COLD_MEMBER ReactionDiffusionBase() : Effect(W, H, {.strobe = true}) {}
+  HS_FLASH_MEMBER ReactionDiffusionBase() : Effect(W, H, {.strobe = true}) {}
 
   /**
    * @brief Advances one animation frame and dispatches to the derived renderer.
@@ -441,7 +441,7 @@ protected:
   template <typename StateT, size_t NSPECIES, size_t PERSISTENT_BYTES,
             size_t EXTRA_PERSISTENT_BYTES, size_t SCRATCH_PEAK_BYTES,
             size_t SCRATCH_PEAK_TENANTS, bool FLASH_NODES = false>
-  HS_COLD_MEMBER static void configure_rd_arenas() {
+  HS_FLASH_MEMBER static void configure_rd_arenas() {
     constexpr size_t STATE_BYTES = NSPECIES * RD_N * sizeof(StateT);
     constexpr size_t NODE_BYTES = FLASH_NODES ? 0 : RD_N * sizeof(math::Vector);
     // allocate() may skip up to alignof - 1 bytes ahead of each block; one pad
@@ -528,7 +528,7 @@ protected:
    * the cubemap lookup, and installs the orientation random walk. Call after
    * configure_arenas() and the derived class's persistent allocations.
    */
-  template <bool FlashNodes = false> HS_COLD_MEMBER void init_lattice() {
+  template <bool FlashNodes = false> HS_FLASH_MEMBER void init_lattice() {
     HS_CHECK(
         persistent_arena.get_capacity() - persistent_arena.get_offset() >=
             (FlashNodes ? 0 : RD_N * sizeof(math::Vector)) +
@@ -571,7 +571,7 @@ protected:
    *       deterministic RNG, so the blob count and the order fields are seeded
    *       in are both part of the global-determinism contract.
    */
-  HS_COLD_MEMBER static void seed_blobs(uint16_t *field, int clusters) {
+  HS_FLASH_MEMBER static void seed_blobs(uint16_t *field, int clusters) {
     for (int i = 0; i < clusters; ++i) {
       int center = hs::rand_int(0, RD_N);
       field[center] = 65535;

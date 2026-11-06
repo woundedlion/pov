@@ -186,7 +186,7 @@ struct FeedbackFadeTable {
    * @brief Allocates persistent storage; call again after any arena reset.
    * @param arena Persistent arena supplying BYTES.
    */
-  HS_COLD_MEMBER void init_storage(Arena &arena) {
+  HS_FLASH_MEMBER void init_storage(Arena &arena) {
     fades = arena.allocate_n<float>(LEVELS);
     hue_k = arena.allocate_n<float>(LEVELS * MATRIX);
     valid = false;
@@ -224,8 +224,8 @@ struct FeedbackFadeTable {
   }
 
 private:
-  HS_COLD_MEMBER static void build(const ::Feedback::Style &style,
-                                   float *out_fades, float *out_k) {
+  HS_FLASH_MEMBER static void build(const ::Feedback::Style &style,
+                                    float *out_fades, float *out_k) {
     const float fade = style.fade;
     const float frame_shift = style.frame_hue_shift();
     for (int l = 0; l < LEVELS; ++l) {

@@ -152,7 +152,7 @@ public:
   }
 
   /** @brief Constructs the effect with the anti-alias screen filter. */
-  HS_COLD_MEMBER DreamBalls()
+  HS_FLASH_MEMBER DreamBalls()
       : Choreography(W, H,
                      pipeline_config<decltype(filters)>({.strobe = true})),
         filters(Filter::Screen::AntiAlias<W, H>()),
@@ -433,8 +433,8 @@ private:
   /** @brief The committed preset's palette; spawns bake from this. */
   const Palette *live_palette = nullptr;
 
-  HS_COLD_MEMBER static bool source_is_four_regular(const MeshState &mesh,
-                                                    Arena &scratch) {
+  HS_FLASH_MEMBER static bool source_is_four_regular(const MeshState &mesh,
+                                                     Arena &scratch) {
     ScratchScope guard(scratch);
     uint8_t *degrees = scratch.allocate_n<uint8_t>(mesh.vertices.size());
     std::fill_n(degrees, mesh.vertices.size(), static_cast<uint8_t>(0));
@@ -536,14 +536,14 @@ private:
    * @brief Generates each selectable solid and bakes its geometry into the
    *        persistent arena once at init.
    */
-  HS_COLD_MEMBER void setup_solids() {
+  HS_FLASH_MEMBER void setup_solids() {
     size_t four_regular_solids = 0;
     for (size_t solid_idx = 0; solid_idx < SOLID_COUNT; ++solid_idx) {
       const Solids::Entry &entry = Solids::get_entry(solid_idx);
       auto &data = loaded_solids[solid_idx];
 
       hs::generate(persistent_arena, [&](Arena &target, Arena &a,
-                                         Arena &b) HS_COLD_MEMBER {
+                                         Arena &b) HS_FLASH_MEMBER {
         PolyMesh m = Solids::finalize_solid(entry.generate(a, b), a);
 
         HS_CHECK(m.vertices.size() <= Solids::MAX_SOLID_VERTICES &&
@@ -611,7 +611,7 @@ private:
    * @details The preset's params were adopted when it was committed; the spawn
    *          rebakes the inactive palette slot for the fresh sprite.
    */
-  HS_COLD_MEMBER void spawn_sprite() {
+  HS_FLASH_MEMBER void spawn_sprite() {
     pose_history.reset();
     sprite_unseen = true;
     // Ping-pong so the rebake never lands on the previous sprite's slot.

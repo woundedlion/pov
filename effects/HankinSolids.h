@@ -80,7 +80,7 @@ public:
   /**
    * @brief Constructs the effect with a W x H canvas and empty filter pipeline.
    */
-  HS_COLD_MEMBER HankinSolids()
+  HS_FLASH_MEMBER HankinSolids()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         filters() {}
 
@@ -101,7 +101,7 @@ public:
    * @brief Sizes arenas, registers params, seeds the graph walk, and starts
    * the interlace sweep/morph cycle.
    */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     ArenaSplit{SCRATCH_A_BYTES, SCRATCH_B_BYTES}.configure();
     register_param("Intensity", &params.intensity, 0.0f, 5.0f);
     register_animated_param("Angle", &params.hankin_angle, 0.0f,
@@ -180,7 +180,7 @@ private:
    * @param mesh Mesh whose faces are classified; the result is stored in
    * persistent_arena.
    */
-  HS_COLD_MEMBER void classify_mesh_topology(MeshState &mesh) {
+  HS_FLASH_MEMBER void classify_mesh_topology(MeshState &mesh) {
     MeshOps::classify_faces_by_topology(mesh, scratch_arena_a, scratch_arena_b,
                                         persistent_arena);
   }
@@ -190,7 +190,7 @@ private:
    * next leg's palette handoff.
    * @param base The arrived node's base mesh, in emission order.
    */
-  HS_COLD_MEMBER void record_node_faces(const PolyMesh &base) {
+  HS_FLASH_MEMBER void record_node_faces(const PolyMesh &base) {
     node_faces = base.face_counts.size();
     HS_CHECK(node_faces <= MAX_NODE_FACES,
              "HankinSolids: node base mesh exceeds the face-handoff capacity");
@@ -201,7 +201,7 @@ private:
    * @brief Records the displayed palette of every node base face (via the
    * hankin star-face identity mapping) for the next leg's handoff.
    */
-  HS_COLD_MEMBER void record_node_palettes() {
+  HS_FLASH_MEMBER void record_node_palettes() {
     HS_CHECK(node_faces <= hankin_mesh.topology.size(),
              "HankinSolids: node face count exceeds the hankin "
              "classification");
@@ -322,7 +322,7 @@ private:
    * color already equals its target does not arm. resolve_host_faces must
    * precede it.
    */
-  HS_COLD_MEMBER void
+  HS_FLASH_MEMBER void
   prepare_strap_crossfade(const std::array<int, NUM_PALETTES> &prev_idx,
                           const bool (&prev_used)[NUM_PALETTES]) {
     strap_blend_mask = 0;
@@ -358,9 +358,10 @@ private:
    * t = 0.5, the relaxed canonical form at a settled end, and ambo(seed) at
    * the jitterbug bridge's octahedron end.
    */
-  static HS_COLD_MEMBER PolyMesh node_mesh_at(const PolyMesh &seed_base,
-                                              const ConwayGraph::EdgeSpec &e,
-                                              bool to_end, Arena &a, Arena &b) {
+  static HS_FLASH_MEMBER PolyMesh node_mesh_at(const PolyMesh &seed_base,
+                                               const ConwayGraph::EdgeSpec &e,
+                                               bool to_end, Arena &a,
+                                               Arena &b) {
     float t = to_end ? e.t_to : e.t_from;
     PolyMesh seed;
     MeshOps::clone(seed_base, seed, a);
@@ -510,7 +511,7 @@ private:
     // Face-hoisted: the class palette, its counterpart and the
     // intensity/inradius gradient scale resolve once per face.
     FacePaletteShader fragment_shader;
-    auto select_face = [&](size_t fi, float size) HS_COLD_MEMBER {
+    auto select_face = [&](size_t fi, float size) HS_FLASH_MEMBER {
       const int cls = static_cast<int>(topology[fi]);
       const int slot = MeshPaletteBank::slot_of(cls);
       fragment_shader.scale =
@@ -579,7 +580,7 @@ private:
    * rosette's unit centroid at the sweep peak (angle PI_F / 2).
    * record_node_palettes must precede it.
    */
-  HS_COLD_MEMBER void resolve_host_faces() {
+  HS_FLASH_MEMBER void resolve_host_faces() {
     const size_t faces = compiled_hankin.face_counts.size();
     HS_CHECK(faces <= MAX_HANKIN_FACES,
              "HankinSolids: hankin face count exceeds the host-palette table");
@@ -630,7 +631,7 @@ private:
    * bookends. Both share the pause flag.
    * @note resolve_host_faces must have run for this cycle's mesh.
    */
-  HS_COLD_MEMBER void start_hankin_cycle() {
+  HS_FLASH_MEMBER void start_hankin_cycle() {
     hankin_cycle_frame = 0;
     drawn_cycle.reset();
     swept_idx = palette_idx;
@@ -706,7 +707,7 @@ private:
    * one, takes the next graph edge toward it, reconciles the held seed, and
    * schedules the OpLeg.
    */
-  HS_COLD_MEMBER void start_morph_cycle() {
+  HS_FLASH_MEMBER void start_morph_cycle() {
     using namespace ConwayGraph;
 #ifdef HS_PROFILE_ORDERED_CYCLE
     cur_edge = pick_next_edge_ordered(leg_counter++);
@@ -814,7 +815,7 @@ private:
    * the arrived mesh, forward palette mapping, compaction, then a hankin
    * sweep at the destination or the next leg toward it.
    */
-  HS_COLD_MEMBER void finish_morph_cycle() {
+  HS_FLASH_MEMBER void finish_morph_cycle() {
     using namespace ConwayGraph;
     const EdgeSpec &e = EDGES[cur_edge];
     const Animation::OpLeg::Landing &landing = *pending_landing;

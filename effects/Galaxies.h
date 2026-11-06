@@ -41,14 +41,14 @@ public:
   /**
    * @brief Constructs the effect.
    */
-  HS_COLD_MEMBER Galaxies()
+  HS_FLASH_MEMBER Galaxies()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})) {}
 
   /**
    * @brief Registers params, builds the particle system,
    *        and starts the orientation drift.
    */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     static constexpr size_t SCRATCH_BYTES = 6 * 1024;
     // Scan::Point's row-interval buffers for the core bulges.
     static constexpr size_t SCRATCH_B_BYTES = 2 * 1024;
@@ -183,7 +183,7 @@ private:
    * @brief Places the attractors and emitters on the octahedron vertices.
    * @details Single-shot: ParticleSystem::init traps on a second call.
    */
-  HS_COLD_MEMBER void build_particle_system() {
+  HS_FLASH_MEMBER void build_particle_system() {
     particle_system.init(persistent_arena, params.friction, GRAVITY,
                          PARTICLE_LIFETIME_FRAMES);
     for (int i = 0; i < NUM_GALAXIES; ++i) {

@@ -41,7 +41,7 @@ public:
   /**
    * @brief Constructs the effect at the templated canvas dimensions.
    */
-  HS_COLD_MEMBER RingShower()
+  HS_FLASH_MEMBER RingShower()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         filters(Filter::Screen::AntiAlias<W, H>()) {}
 
@@ -51,7 +51,7 @@ public:
    * @details Allocates each slot's palette LUT once up front; spawn_ring refills
    *          it in place (rebake, no allocation).
    */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
 
     for (size_t i = 0; i < MAX_RINGS; ++i)
@@ -189,7 +189,7 @@ private:
    *        and palette.
    * @details Drops the spawn when no slot is free.
    */
-  HS_COLD_MEMBER void spawn_ring() {
+  HS_FLASH_MEMBER void spawn_ring() {
     for (size_t i = 0; i < MAX_RINGS; ++i) {
       if (rings[i].expired()) { // free slot
         Ring &ring = rings[i];

@@ -259,7 +259,7 @@ public:
    * @param authored Authored scalar terms.
    * @param drift_phase Accumulated azimuthal phase in radians.
    * @param orientation Unit local-to-world quaternion. */
-  HS_COLD_MEMBER explicit PotentialField(
+  HS_FLASH_MEMBER explicit PotentialField(
       const std::array<PotentialTerm, 4> &authored = {},
       float drift_phase = 0.0f,
       Quaternion orientation = Quaternion(1.0f, 0.0f, 0.0f, 0.0f))

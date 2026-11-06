@@ -191,7 +191,7 @@ public:
    *          channel-C/D /OE; until this runs, only the R_MEN pull-up (PCB rule
    *          R-LS-5) holds a board's sync driver off the shared bus.
    */
-  HS_COLD_MEMBER static void park_sync_out() {
+  HS_FLASH_MEMBER static void park_sync_out() {
     digitalWriteFast(PIN_MASTER_EN, HIGH);
     pinMode(PIN_MASTER_EN, OUTPUT);
     if constexpr (HS_PHANTASM_BOARD_REV == 12) {
@@ -212,7 +212,7 @@ public:
    * @brief Initializes the transport after Arduino core startup; call once.
    * @param segment_override Segment ID, or -1 to sample the hardware straps.
    */
-  HS_COLD_MEMBER static void begin(int segment_override = -1) {
+  HS_FLASH_MEMBER static void begin(int segment_override = -1) {
     HS_CHECK(segment_override >= -1 && segment_override < N,
              "segment ID override out of range");
     if (segment_override < 0)
@@ -428,7 +428,7 @@ private:
    * @brief Samples the raw ID straps (ID_STRAPS bits, LSB = ID0).
    * @return Raw reading; floating (HIGH) bits set, grounded bits clear.
    */
-  HS_COLD_MEMBER static int sample_strap() {
+  HS_FLASH_MEMBER static int sample_strap() {
     int raw = digitalReadFast(PIN_ID0);
     if constexpr (ID_STRAPS >= 2)
       raw |= digitalReadFast(PIN_ID1) << 1;
@@ -446,7 +446,7 @@ private:
    *          segment twice and leave another dark. Assembly requires unique
    *          IDs and one master (R-ID-2/R-ID-4).
    */
-  HS_COLD_MEMBER static void read_id() {
+  HS_FLASH_MEMBER static void read_id() {
     pinMode(PIN_ID0, INPUT_PULLUP);
     if constexpr (ID_STRAPS >= 2)
       pinMode(PIN_ID1, INPUT_PULLUP);

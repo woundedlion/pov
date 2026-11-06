@@ -88,8 +88,8 @@ public:
      * @param src Prepared source.
      * @param dst Destination.
      * @param arena Destination storage. */
-    HS_COLD_MEMBER static void clone(const BridgePreparation &src,
-                                     BridgePreparation &dst, Arena &arena) {
+    HS_FLASH_MEMBER static void clone(const BridgePreparation &src,
+                                      BridgePreparation &dst, Arena &arena) {
       dst.hosts = src.hosts;
       if (!src.topology.empty()) {
         dst.topology.bind(arena, src.topology.size());
@@ -102,8 +102,8 @@ public:
    * @param seed Immutable bridge seed.
    * @param arena Storage for the prepared classes.
    * @return Arrival classes and departed hosts for newborn palette slots. */
-  HS_COLD_MEMBER static BridgePreparation prepare_bridge(const PolyMesh &seed,
-                                                         Arena &arena) {
+  HS_FLASH_MEMBER static BridgePreparation prepare_bridge(const PolyMesh &seed,
+                                                          Arena &arena) {
     ScratchScope a(scratch_arena_a);
     ScratchScope b(scratch_arena_b);
     PolyMesh arrival = MeshOps::truncate(seed, scratch_arena_a, scratch_arena_b,
@@ -451,7 +451,7 @@ public:
    * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the sweep parameter.
    */
-  HS_COLD_MEMBER
+  HS_FLASH_MEMBER
   OpLeg(const PolyMesh &seed, const EdgeSweepSpec &spec, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
@@ -499,7 +499,7 @@ public:
    * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the sweep parameter.
    */
-  HS_COLD_MEMBER
+  HS_FLASH_MEMBER
   OpLeg(SweepSeed source, const ParamSweepSpec &spec, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
@@ -577,7 +577,7 @@ public:
    * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the sweep angle.
    */
-  HS_COLD_MEMBER
+  HS_FLASH_MEMBER
   OpLeg(const PolyMesh &seed, const HankinSweepSpec &spec, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
@@ -668,7 +668,7 @@ public:
    * @note relax preserves vertex count and vertex order, so the leg needs no
    * correspondence pass and its topology is constant by construction.
    */
-  HS_COLD_MEMBER
+  HS_FLASH_MEMBER
   OpLeg(const PolyMesh &seed, const RelaxSpec &spec, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
@@ -737,7 +737,7 @@ public:
    * across the slerp. A degree-2 seed vertex makes the s=1 positions
    * many-to-one but leaves the faces well-formed.
    */
-  HS_COLD_MEMBER
+  HS_FLASH_MEMBER
   OpLeg(const PolyMesh &seed, const MedialSpec &spec, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
@@ -818,7 +818,7 @@ public:
    * @note Connectivity is held fixed and only the positions move (the
    * MEDIAL_SLERP step path); the caller owns the nearest-vertex correspondence.
    */
-  HS_COLD_MEMBER
+  HS_FLASH_MEMBER
   OpLeg(const PolyMesh &from_mesh, const ReconcileSpec &spec, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
@@ -888,7 +888,7 @@ public:
    * @note The compiled face count is constant on each side of the swap and
    * changes exactly once, at it.
    */
-  HS_COLD_MEMBER
+  HS_FLASH_MEMBER
   OpLeg(const PolyMesh &seed, const GatedSwapSpec &spec, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
@@ -913,7 +913,7 @@ public:
    * compile, palette pre-blend, draw.
    * @param canvas The canvas passed through to the draw callback.
    */
-  HS_COLD_MEMBER void step(Canvas &canvas) override {
+  HS_FLASH_MEMBER void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
     draw_frame(canvas);
   }
@@ -924,12 +924,12 @@ public:
    *       pausing freezes progression, not morph rendering cost.
    * @param canvas The canvas passed through to the draw callback.
    */
-  HS_COLD_MEMBER void step_paused(Canvas &canvas) override {
+  HS_FLASH_MEMBER void step_paused(Canvas &canvas) override {
     draw_frame(canvas);
   }
 
 private:
-  HS_COLD_MEMBER void draw_frame(Canvas &canvas) {
+  HS_FLASH_MEMBER void draw_frame(Canvas &canvas) {
     check_alive();
     Transients &tr = *buf;
     const int frame = static_cast<int>(
@@ -1070,8 +1070,8 @@ public:
    * arrival angle. @p out is reset first, dropping any prior binding and class
    * ids.
    */
-  HS_COLD_MEMBER static void arrival_mesh(const Landing &landing, PolyMesh &out,
-                                          Arena &arena) {
+  HS_FLASH_MEMBER static void arrival_mesh(const Landing &landing,
+                                           PolyMesh &out, Arena &arena) {
     HS_CHECK(landing.hankin, "OpLeg: leg carries no baked arrival");
     out = PolyMesh();
     const CompiledHankin &hk = *landing.hankin;
@@ -1239,8 +1239,8 @@ private:
    * @param frame Leg frame in [0, duration].
    * @param out Output mesh, allocated from scratch_arena_a.
    */
-  HS_COLD_MEMBER void swept_at(const Transients &tr, int frame,
-                               PolyMesh &out) const {
+  HS_FLASH_MEMBER void swept_at(const Transients &tr, int frame,
+                                PolyMesh &out) const {
     // Clamp easing to the compiled topology-constant interval.
     const float progress = hs::clamp(
         easing_fn(static_cast<float>(frame) / static_cast<float>(duration)),
@@ -1295,10 +1295,10 @@ private:
     return t;
   }
 
-  HS_COLD_MEMBER Transients &init_transients(LegKind kind, int sweep_frames,
-                                             Arena &arena,
-                                             const PaletteHandoff &handoff,
-                                             BlendWeightFn blend_fn) {
+  HS_FLASH_MEMBER Transients &init_transients(LegKind kind, int sweep_frames,
+                                              Arena &arena,
+                                              const PaletteHandoff &handoff,
+                                              BlendWeightFn blend_fn) {
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
                  handoff.prev_faces > 0,
              "OpLeg: incomplete palette handoff");
@@ -1310,8 +1310,8 @@ private:
     return tr;
   }
 
-  HS_COLD_MEMBER static void bind_sweep_seed(Transients &tr, SweepSeed source,
-                                             Arena &arena) {
+  HS_FLASH_MEMBER static void bind_sweep_seed(Transients &tr, SweepSeed source,
+                                              Arena &arena) {
     if (source.borrowed) {
       tr.seed_ref = &source.mesh;
     } else {
@@ -1327,8 +1327,8 @@ private:
    * @param arena Scratch storage for visited vertices.
    * @param emit Receives each vertex index and its first host face. */
   template <typename Emit>
-  HS_COLD_MEMBER static void first_seen_corners(const PolyMesh &dual,
-                                                Arena &arena, Emit &&emit) {
+  HS_FLASH_MEMBER static void first_seen_corners(const PolyMesh &dual,
+                                                 Arena &arena, Emit &&emit) {
     const size_t V = dual.vertices.size();
     bool *seen = arena.allocate_n<bool>(V);
     std::fill_n(seen, V, false);
@@ -1348,7 +1348,7 @@ private:
     HS_CHECK(out == V, "OpLeg: dual corners incomplete");
   }
 
-  HS_COLD_MEMBER static const uint8_t *
+  HS_FLASH_MEMBER static const uint8_t *
   dual_closing_palettes(const PolyMesh &dual, const PaletteHandoff &handoff,
                         Arena &scratch) {
     const size_t dual_faces = dual.face_counts.size();
@@ -1393,9 +1393,9 @@ private:
    * tr.twist_start/twist_end endpoints and tr.settle_frames already set by the
    * calling constructor.
    */
-  HS_COLD_MEMBER void init_conway(const PaletteHandoff &handoff,
-                                  const BookendClasses &bookend, Arena &arena,
-                                  const ConwayLegFlags &flags) {
+  HS_FLASH_MEMBER void init_conway(const PaletteHandoff &handoff,
+                                   const BookendClasses &bookend, Arena &arena,
+                                   const ConwayLegFlags &flags) {
     const bool settle = flags.settle;
     const bool jitterbug = flags.jitterbug;
     const bool bridge_provenance = flags.bridge_provenance;
@@ -1554,8 +1554,8 @@ private:
    * arrival classifications are held separately and the leg's face-count
    * invariant is checked against whichever side the frame draws.
    */
-  HS_COLD_MEMBER void init_gated(const PaletteHandoff &handoff,
-                                 const BookendClasses &bookend, Arena &arena) {
+  HS_FLASH_MEMBER void init_gated(const PaletteHandoff &handoff,
+                                  const BookendClasses &bookend, Arena &arena) {
     Transients &tr = *buf;
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);
@@ -1626,7 +1626,7 @@ private:
    * with 0 the paused initial state; the swap and opening side draws
    * [gate + 1, 2 * gate + 1].
    */
-  HS_COLD_MEMBER void step_gated(Canvas &canvas, int frame) {
+  HS_FLASH_MEMBER void step_gated(Canvas &canvas, int frame) {
     Transients &tr = *buf;
     const bool seed_side = frame <= tr.sweep_frames;
 
@@ -1656,8 +1656,8 @@ private:
    * @param temp Arena holding the operator's transient scratch.
    * @return The partitioned mesh.
    */
-  HS_COLD_MEMBER static PolyMesh swap_at(const Transients &tr, Arena &target,
-                                         Arena &temp) {
+  HS_FLASH_MEMBER static PolyMesh swap_at(const Transients &tr, Arena &target,
+                                          Arena &temp) {
     return tr.swap_op == SwapOp::KIS ? MeshOps::kis(tr.seed, target, temp)
                                      : MeshOps::dual(tr.seed, target, temp);
   }
@@ -1672,10 +1672,10 @@ private:
    * @details kis emits its parent's children consecutively, one per parent
    * side, so the mapping is exact.
    */
-  HS_COLD_MEMBER static void kis_provenance(const Transients &tr,
-                                            const PolyMesh &arrival,
-                                            const PaletteHandoff &handoff,
-                                            uint8_t *from) {
+  HS_FLASH_MEMBER static void kis_provenance(const Transients &tr,
+                                             const PolyMesh &arrival,
+                                             const PaletteHandoff &handoff,
+                                             uint8_t *from) {
     size_t f = 0;
     for (size_t p = 0; p < tr.seed.face_counts.size(); ++p) {
       for (int k = 0; k < tr.seed.face_counts[p]; ++k) {
@@ -1699,10 +1699,10 @@ private:
    * by source face, and a dual face's vertex list is exactly its source
    * vertex's face orbit.
    */
-  HS_COLD_MEMBER static void dual_provenance(const Transients &tr,
-                                             const PolyMesh &arrival,
-                                             const PaletteHandoff &handoff,
-                                             uint8_t *from) {
+  HS_FLASH_MEMBER static void dual_provenance(const Transients &tr,
+                                              const PolyMesh &arrival,
+                                              const PaletteHandoff &handoff,
+                                              uint8_t *from) {
     size_t off = 0;
     for (size_t f = 0; f < arrival.face_counts.size(); ++f) {
       const int n = arrival.face_counts[f];
@@ -1747,9 +1747,9 @@ private:
   /**
    * @brief Runs the edge's operator on the seed at one parameter value.
    */
-  HS_COLD_MEMBER static PolyMesh run_op(ConwayGraph::MorphOp op,
-                                        const PolyMesh &seed, Arena &target,
-                                        Arena &temp, float t, float twist) {
+  HS_FLASH_MEMBER static PolyMesh run_op(ConwayGraph::MorphOp op,
+                                         const PolyMesh &seed, Arena &target,
+                                         Arena &temp, float t, float twist) {
     switch (op) {
     case ConwayGraph::MorphOp::TRUNCATE:
       // Nudge t = 0.5 off the ambo short-circuit so a far-side leg keeps the
@@ -1769,7 +1769,7 @@ private:
    * @brief Hoists arrival classes or reserves a partial bookend's face slots.
    * @return Whether the bookend classification was reused verbatim.
    */
-  HS_COLD_MEMBER static bool
+  HS_FLASH_MEMBER static bool
   hoist_arrival_topology(PolyMesh &arrival, const BookendClasses &bookend,
                          Arena &arena, ArenaVector<uint16_t> &topology) {
     const size_t faces = arrival.face_counts.size();
@@ -1818,10 +1818,10 @@ private:
    * vertex from it, or -1; it reaches the draw through `Shading::leg` when
    * compiling keeps every vertex in place.
    */
-  HS_COLD_MEMBER void finish_frame(Canvas &canvas, const PolyMesh &swept,
-                                   float w, bool seed_side = false,
-                                   math::Vector *drawn = nullptr,
-                                   int drawn_frame = -1) {
+  HS_FLASH_MEMBER void finish_frame(Canvas &canvas, const PolyMesh &swept,
+                                    float w, bool seed_side = false,
+                                    math::Vector *drawn = nullptr,
+                                    int drawn_frame = -1) {
     Transients &tr = *buf;
     const ArenaVector<uint16_t> &topo = seed_side ? tr.seed_topo : tr.topo;
     const ArenaVector<uint8_t> &face_ramp =
@@ -1943,7 +1943,7 @@ private:
    * @param face_counts Per-face side counts.
    * @param faces Flat per-face vertex index list.
    */
-  HS_COLD_MEMBER static void
+  HS_FLASH_MEMBER static void
   copy_topology(PolyMesh &out, Arena &arena,
                 const ArenaVector<uint8_t> &face_counts,
                 const ArenaVector<uint16_t> &faces) {
@@ -1959,8 +1959,8 @@ private:
    * @param dst Destination mesh, populated in place.
    * @param arena Arena backing the destination arrays.
    */
-  HS_COLD_MEMBER static void clone_geometry(const PolyMesh &src, PolyMesh &dst,
-                                            Arena &arena) {
+  HS_FLASH_MEMBER static void clone_geometry(const PolyMesh &src, PolyMesh &dst,
+                                             Arena &arena) {
     dst.vertices.bind(arena, src.vertices.size());
     dst.vertices.append_bulk(src.vertices.data(), src.vertices.size());
     copy_topology(dst, arena, src.face_counts, src.faces);
@@ -1973,8 +1973,8 @@ private:
    * @param arena Arena backing the output vectors.
    * @param k Slerp fraction in [0, 1].
    */
-  HS_COLD_MEMBER static void hankin_at(const Transients &tr, PolyMesh &out,
-                                       Arena &arena, float k) {
+  HS_FLASH_MEMBER static void hankin_at(const Transients &tr, PolyMesh &out,
+                                        Arena &arena, float k) {
     const CompiledHankin &hk = tr.hankin;
     const size_t statics = hk.static_vertices.size();
     const size_t dyn = tr.hk_final.size();
@@ -1997,8 +1997,8 @@ private:
    * @param arena Arena backing the output vectors.
    * @param k Slerp fraction in [0, 1].
    */
-  HS_COLD_MEMBER static void relax_at(const Transients &tr, PolyMesh &out,
-                                      Arena &arena, float k) {
+  HS_FLASH_MEMBER static void relax_at(const Transients &tr, PolyMesh &out,
+                                       Arena &arena, float k) {
     const size_t n = tr.relaxed.size();
     out.vertices.bind(arena, n);
     if (k >= 1.0f)
@@ -2018,8 +2018,8 @@ private:
    * @param k Slerp fraction in [0, 1]; slerp() renormalizes the near-unit
    * decoded inputs, so the quantization is absorbed into the direction blend.
    */
-  HS_COLD_MEMBER static void medial_at(const Transients &tr, PolyMesh &out,
-                                       Arena &arena, float k) {
+  HS_FLASH_MEMBER static void medial_at(const Transients &tr, PolyMesh &out,
+                                        Arena &arena, float k) {
     const size_t n = tr.medial_a.size();
     out.vertices.bind(arena, n);
     if (k >= 1.0f) {
@@ -2038,8 +2038,8 @@ private:
    * @param arena Arena receiving the centroid array.
    * @return One unit vector per face, in emission order.
    */
-  HS_COLD_MEMBER static const math::Vector *face_centroids(const PolyMesh &m,
-                                                           Arena &arena) {
+  HS_FLASH_MEMBER static const math::Vector *face_centroids(const PolyMesh &m,
+                                                            Arena &arena) {
     math::Vector *out = arena.allocate_n<math::Vector>(m.face_counts.size());
     MeshOps::face_centroids_into(m, out);
     return out;
@@ -2051,7 +2051,7 @@ private:
    * @param handoff Departed-node provenance (centroids non-null).
    * @return Index into the handoff arrays.
    */
-  HS_COLD_MEMBER static size_t
+  HS_FLASH_MEMBER static size_t
   nearest_prev_face(const math::Vector &c, const PaletteHandoff &handoff) {
     return nearest_point(c, handoff.prev_face_centroid, handoff.prev_faces);
   }
@@ -2088,7 +2088,7 @@ private:
   }
 
   // always_inline: an out-of-line copy inherits no cold attribute from its
-  // HS_COLD_MEMBER caller and would land in ITCM.
+  // HS_FLASH_MEMBER caller and would land in ITCM.
   __attribute__((always_inline)) static const uint16_t *resolve_target_topology(
       Transients &tr, const PolyMesh &arrival, const PaletteHandoff &handoff,
       const BookendClasses &bookend, Arena &arena, size_t survivors) {
@@ -2218,7 +2218,7 @@ private:
   };
 
   // always_inline: an out-of-line copy inherits no cold attribute from its
-  // HS_COLD_MEMBER caller and would land in ITCM.
+  // HS_FLASH_MEMBER caller and would land in ITCM.
   __attribute__((always_inline)) static uint8_t
   intern_palette_ramp(Transients &tr, uint8_t from, uint8_t to) {
     for (int r = 0; r < tr.num_ramps; ++r)
@@ -2252,7 +2252,7 @@ private:
    * departure each newborn palette slot inherits its first face's nearest
    * departed palette.
    */
-  HS_COLD_MEMBER void
+  HS_FLASH_MEMBER void
   build_palette_mapping(Transients &tr, const PolyMesh &arrival,
                         const PaletteHandoff &handoff,
                         const BookendClasses &bookend, Arena &arena,

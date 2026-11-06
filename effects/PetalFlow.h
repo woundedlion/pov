@@ -43,7 +43,7 @@ public:
   /**
    * @brief Constructs the effect, wiring up palette and orientation filters.
    */
-  HS_COLD_MEMBER PetalFlow()
+  HS_FLASH_MEMBER PetalFlow()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         palette({0.029f, 0.029f, 0.029f}, {0.500f, 0.500f, 0.500f},
                 {0.461f, 0.461f, 0.461f}, {0.539f, 0.701f, 0.809f}),
@@ -55,7 +55,7 @@ public:
    * @details Runs once per effect instance: init_timeline() adds its events
    * unconditionally.
    */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     register_param("Twist", &params.twist_factor, 0.0f, 5.0f);
     register_param("Speed", &params.speed, 0.0f, SPEED_MAX);
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
@@ -203,7 +203,7 @@ private:
   }();
 
   /** @brief Precomputes the geometry-static exp(petal wobble) per sample. */
-  HS_COLD_MEMBER void build_shift_table() {
+  HS_FLASH_MEMBER void build_shift_table() {
     for (int i = 0; i < NUM_SAMPLES; ++i) {
       float t_norm = static_cast<float>(i) / NUM_SAMPLES;
       float shift =
@@ -216,7 +216,7 @@ private:
   /**
    * @brief Seeds the timeline and pre-fills the path with evenly spaced rings.
    */
-  HS_COLD_MEMBER void init_timeline() {
+  HS_FLASH_MEMBER void init_timeline() {
     timeline.add(
         0, Animation::Rotation<W>(orientation, math::UP, math::PI_F / 4.0f, 160,
                                   math::ease_linear, {.repeat = true}));
@@ -262,7 +262,7 @@ private:
    * rho units.
    * @details Assigns the next hue and advances the hue cursor; traps if full.
    */
-  HS_COLD_MEMBER void spawn_ring_at_pos(float initial_rho) {
+  HS_FLASH_MEMBER void spawn_ring_at_pos(float initial_rho) {
     for (int i = 0; i < MAX_RINGS; ++i) {
       if (!rings[i].active) {
         rings[i].active = true;

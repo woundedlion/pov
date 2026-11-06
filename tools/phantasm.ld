@@ -63,7 +63,7 @@ SECTIONS
 		*(.text.*construct_effect*)
 		/* Effect spawn-time setup: init(). */
 		*(.text._ZN*4initEv)
-		/* HS_COLD_MEMBER (attribute cold) sections. */
+		/* HS_FLASH_MEMBER (attribute cold) sections. */
 		*(.text.unlikely*)
 		/* Selectively optimized hot leaves intentionally executed from cache. */
 		*(.text.hot*)

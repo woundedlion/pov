@@ -188,7 +188,7 @@ public:
    * @brief Constructs the effect and its members.
    * @details The path seeds to +Y until init() installs the Lissajous curve.
    */
-  HS_COLD_MEMBER Fishbowl()
+  HS_FLASH_MEMBER Fishbowl()
       : Choreography(W, H,
                      pipeline_config<decltype(filters)>({.strobe = true})),
         filters(Filter::Screen::AntiAlias<W, H>()),
@@ -250,7 +250,7 @@ public:
    * @brief Carves arenas, installs the Lissajous path and wires up the
    *        timeline.
    */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     begin_choreography();
     ArenaSplit{SCRATCH_A_BYTES, SCRATCH_B_BYTES}.configure();
 

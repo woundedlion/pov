@@ -586,7 +586,7 @@ public:
    * @param index Preset number.
    * @return The preset's parameters and departure policy.
    */
-  HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
+  HS_FLASH_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
     constexpr Segue::Preset::Lerp MORPH{240, math::ease_in_out_sin};
     constexpr Segue::Preset::Fade FADE{240};
     const bool MORPHS = index == CUBIC_PRESET_INDEX ||
@@ -793,7 +793,7 @@ public:
             value.shells == ShellCount::THREE);
   }
 
-  HS_COLD_MEMBER HyperLattice() : Choreography(W, H, {.strobe = true}) {}
+  HS_FLASH_MEMBER HyperLattice() : Choreography(W, H, {.strobe = true}) {}
 
   /// Parameter descriptors `init` registers, including the GUI bridge's.
   static constexpr size_t PARAM_CAPACITY =
@@ -801,7 +801,7 @@ public:
       HS_ENABLE_PARAM_GUI_BRIDGE;
 
   /** @brief Registers parameters and allocates palettes and trace scratch. */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     begin_choreography();
     if constexpr (PARAM_CAPACITY > ParamList::FIXED_CAPACITY) {
       this->use_parameter_storage(
@@ -965,8 +965,8 @@ private:
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  HS_COLD_MEMBER bool parameter_write_admitted(const ParamDef &parameter,
-                                               float value) override {
+  HS_FLASH_MEMBER bool parameter_write_admitted(const ParamDef &parameter,
+                                                float value) override {
     Params candidate = params;
     if (parameter.target == &params.pattern)
       candidate.pattern = static_cast<Pattern>(value);
@@ -978,7 +978,7 @@ private:
   }
 #endif
 
-  HS_COLD_MEMBER void parameter_written() override {
+  HS_FLASH_MEMBER void parameter_written() override {
     Choreography::parameter_written();
     history.reset();
     const auto configuration = configuration_id(params);
@@ -1001,7 +1001,7 @@ private:
     params = target;
     sync_configuration();
   }
-  HS_COLD_MEMBER void blend_params(float progress) {
+  HS_FLASH_MEMBER void blend_params(float progress) {
     params.lerp(transition.from, transition.to, progress);
     sync_configuration();
   }
@@ -1015,7 +1015,7 @@ private:
     }
   }
 
-  HS_COLD_MEMBER void refresh_configuration_schema() {
+  HS_FLASH_MEMBER void refresh_configuration_schema() {
     this->mark_readonly("4D Spin", params.mode == LatticeMode::SPATIAL_3D);
     const bool CUBIC = params.pattern == Pattern::CUBIC_WIRE;
     this->mark_readonly("Lattice Planes", !CUBIC);

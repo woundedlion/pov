@@ -170,7 +170,7 @@ public:
   }
 
   /** @brief Constructs the effect at W x H with its lens column-strobe mode. */
-  HS_COLD_MEMBER ComposedEffect()
+  HS_FLASH_MEMBER ComposedEffect()
       : Choreography(W, H, {.strobe = Metadata::STROBE_COLUMNS}) {}
 
   /**
@@ -179,7 +179,7 @@ public:
    * effect heap-allocates nothing after init. The `AFTER_COMPOSED_INIT` hook
    * runs last, once the parameters, palette cycler and camera walks are live.
    */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     static_assert(
         modulation_presets_are_supported(),
         "composed modulation presets must retain source and mechanic");
@@ -766,7 +766,7 @@ protected:
 
   /** @brief Adopts a snap target and re-derives the palette mapping weights.
    *  @param target Parameters to adopt. */
-  HS_COLD_MEMBER void adopt_params(const Params &target) {
+  HS_FLASH_MEMBER void adopt_params(const Params &target) {
     params = target;
     palette_mapping = Pullback::Color::PaletteMappingWeights::single(
         target.template get<"color">().palette_mapping);
@@ -774,7 +774,7 @@ protected:
   }
 
   /** @brief Re-derives the palette mapping weights after a slider write. */
-  HS_COLD_MEMBER void parameter_written() override {
+  HS_FLASH_MEMBER void parameter_written() override {
     Choreography::parameter_written();
     palette_mapping = Pullback::Color::PaletteMappingWeights::single(
         this->params.template get<"color">().palette_mapping);
@@ -783,7 +783,7 @@ protected:
 
   /** @brief Captures the palette-mapping endpoints of an arming crossfade.
    *  @param target Crossfade's destination parameters. */
-  HS_COLD_MEMBER void transition_armed(const Params &target) {
+  HS_FLASH_MEMBER void transition_armed(const Params &target) {
     mapping_from = palette_mapping;
     mapping_to = Pullback::Color::PaletteMappingWeights::single(
         target.template get<"color">().palette_mapping);
@@ -793,7 +793,7 @@ protected:
    * @brief Writes the interpolated parameters of an in-flight transition.
    * @param progress Eased transition progress, 0 to 1.
    */
-  HS_COLD_MEMBER void blend_params(float progress) {
+  HS_FLASH_MEMBER void blend_params(float progress) {
     Pullback::interpolate_into(params, transition.from, transition.to,
                                progress);
     palette_mapping = Pullback::Color::PaletteMappingWeights::lerp(
@@ -805,7 +805,7 @@ protected:
    * @param scale Horizontal generator multiplier.
    * @param duration Frames per revolution. */
   template <ResourceKey Key = "lens">
-  HS_COLD_MEMBER void start_lens_phase(float scale, int duration) {
+  HS_FLASH_MEMBER void start_lens_phase(float scale, int duration) {
     if constexpr (Params::template HAS<Key>) {
       auto &phase = clocks.template get<Key>();
       timeline.add_pausable(
@@ -922,7 +922,7 @@ private:
   }
 
   template <typename Resource, typename T>
-  HS_COLD_MEMBER void register_warp_fields(T &warp) {
+  HS_FLASH_MEMBER void register_warp_fields(T &warp) {
     static_assert(T::FIELDS[0].member == &T::speed &&
                       T::FIELDS[0].name == nullptr,
                   "warp speed must be the first unnamed descriptor");
@@ -1080,7 +1080,7 @@ private:
   }
 
   /** @brief Refreshes the active source and variant controls after adoption. */
-  HS_COLD_MEMBER void refresh_modulation_controls() {
+  HS_FLASH_MEMBER void refresh_modulation_controls() {
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     if (!state)
       return;
@@ -1113,7 +1113,7 @@ private:
    * @details Each clock is compiled in only when its field exists. Affine
    * rotations accumulate independently for each affine warp.
    */
-  HS_COLD_MEMBER void advance_runtime() {
+  HS_FLASH_MEMBER void advance_runtime() {
     this->params.visit([&]<typename Resource>(
                            const auto &family) HS_HOT_INLINE {
       auto &clock = clocks.template get<Resource::KEY>();
@@ -1175,7 +1175,7 @@ private:
         this->params.template get<"color">().phase_oscillation_speed);
   }
 
-  HS_COLD_MEMBER void update_spatial_frames() {
+  HS_FLASH_MEMBER void update_spatial_frames() {
     if constexpr (ANIMATED_PROJECTION) {
       if (projection_frame_active()) {
         const math::Quaternion projection = this->projection_walk.get();
@@ -1243,7 +1243,7 @@ private:
    * scan.
    * @param frame Receives this draw's frame state.
    */
-  HS_COLD_MEMBER void prepare_frame(FrameState &frame) {
+  HS_FLASH_MEMBER void prepare_frame(FrameState &frame) {
     HS_PROFILE(fx_prepare_frame);
     const BakedPalette &palette = selected_palette();
     uint32_t palette_generation = palette_cycler.bake_generation() << 1;
@@ -1335,7 +1335,7 @@ private:
   }
 
   /** @brief Current generated-cycle harmony. @return Selected hue relationship. */
-  HS_COLD_MEMBER PaletteHarmony cycling_harmony() const {
+  HS_FLASH_MEMBER PaletteHarmony cycling_harmony() const {
     if constexpr (AUTHORED_PALETTE) {
       constexpr PaletteHarmony HARMONIES[] = {PaletteHarmony::TRIADIC,
                                               PaletteHarmony::COMPLEMENTARY,
@@ -1347,7 +1347,7 @@ private:
       return SpecT::HARMONY;
   }
 
-  HS_COLD_MEMBER void update_palette_chroma() {
+  HS_FLASH_MEMBER void update_palette_chroma() {
     const float chroma = this->params.template get<"color">().palette_chroma;
     if constexpr (AUTHORED_PALETTE) {
       const auto harmony = cycling_harmony();

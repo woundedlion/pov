@@ -152,7 +152,7 @@ public:
    * uncached_scratch_bytes(downsample) scratch bytes, and with temporal
    * sampling on FeedbackFadeTable::BYTES more.
    */
-  HS_COLD_MEMBER void init_storage(Arena &arena) {
+  HS_FLASH_MEMBER void init_storage(Arena &arena) {
     // Projected from the same incremental-rotation positions populate() hands
     // out, so the per-frame offset subtracts them exactly.
     warp_cache.template init_storage<CACHE_CELLS>(

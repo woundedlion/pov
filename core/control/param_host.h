@@ -331,8 +331,8 @@ protected:
    * @param spec Range, options and flags.
    */
   template <typename T>
-  HS_COLD_MEMBER void register_param(const char *name, T *ptr,
-                                     const ParamSpec<T> &spec) {
+  HS_FLASH_MEMBER void register_param(const char *name, T *ptr,
+                                      const ParamSpec<T> &spec) {
     HS_CHECK(name != nullptr, "register_param: null parameter name");
     HS_CHECK(ptr != nullptr, "register_param: null target name=%s", name);
     const auto min = spec.min;
@@ -438,8 +438,8 @@ protected:
    * @param min Lower bound.
    * @param max Upper bound.
    */
-  HS_COLD_MEMBER void register_param(const char *name, float *ptr,
-                                     float min = 0.0f, float max = 1.0f) {
+  HS_FLASH_MEMBER void register_param(const char *name, float *ptr,
+                                      float min = 0.0f, float max = 1.0f) {
     register_param(name, ptr, ParamSpec<float>{.min = min, .max = max});
   }
 
@@ -451,10 +451,9 @@ protected:
    * @param min Lower bound for later writes.
    * @param max Upper bound for later writes.
    */
-  HS_COLD_MEMBER void register_animated_param_preserving_value(const char *name,
-                                                               float *ptr,
-                                                               float min,
-                                                               float max) {
+  HS_FLASH_MEMBER void
+  register_animated_param_preserving_value(const char *name, float *ptr,
+                                           float min, float max) {
     register_param(
         name, ptr,
         ParamSpec<float>{.min = min,
@@ -472,9 +471,9 @@ protected:
    * @param options Dropdown labels.
    * @param option_count Label count.
    */
-  HS_COLD_MEMBER void register_param(const char *name, float *ptr,
-                                     const char *const *options,
-                                     int option_count) {
+  HS_FLASH_MEMBER void register_param(const char *name, float *ptr,
+                                      const char *const *options,
+                                      int option_count) {
     register_param(name, ptr,
                    ParamSpec<float>::enumerated(options, option_count));
   }
@@ -489,7 +488,7 @@ protected:
    */
   template <typename Enum>
     requires std::is_enum_v<Enum>
-  HS_COLD_MEMBER void
+  HS_FLASH_MEMBER void
   register_param(const char *name, Enum *ptr, const char *const *options,
                  const char *const *export_options, int option_count) {
     auto spec =
@@ -506,8 +505,8 @@ protected:
    */
   template <typename Integer>
     requires(std::is_integral_v<Integer> && !std::is_same_v<Integer, bool>)
-  HS_COLD_MEMBER void register_int_param(const char *name, Integer *ptr,
-                                         int min, int max) {
+  HS_FLASH_MEMBER void register_int_param(const char *name, Integer *ptr,
+                                          int min, int max) {
     register_param(name, ptr, ParamSpec<Integer>{.min = min, .max = max});
   }
 
@@ -534,9 +533,9 @@ protected:
    */
   template <typename Integer>
     requires(std::is_integral_v<Integer> && !std::is_same_v<Integer, bool>)
-  HS_COLD_MEMBER void register_animated_int_param(const char *name,
-                                                  Integer *ptr, int min,
-                                                  int max) {
+  HS_FLASH_MEMBER void register_animated_int_param(const char *name,
+                                                   Integer *ptr, int min,
+                                                   int max) {
     register_param(
         name, ptr,
         ParamSpec<Integer>{.min = min, .max = max, .animated = true});
@@ -547,7 +546,7 @@ protected:
    * @param name Parameter name; must outlive the host.
    * @param ptr Target member.
    */
-  HS_COLD_MEMBER void register_param(const char *name, bool *ptr) {
+  HS_FLASH_MEMBER void register_param(const char *name, bool *ptr) {
     register_param(name, ptr, ParamSpec<bool>{});
   }
 
@@ -558,9 +557,9 @@ protected:
    * @param min Lower bound.
    * @param max Upper bound.
    */
-  HS_COLD_MEMBER void register_animated_param(const char *name, float *ptr,
-                                              float min = 0.0f,
-                                              float max = 1.0f) {
+  HS_FLASH_MEMBER void register_animated_param(const char *name, float *ptr,
+                                               float min = 0.0f,
+                                               float max = 1.0f) {
     register_param(name, ptr,
                    ParamSpec<float>{.min = min, .max = max, .animated = true});
   }
@@ -570,7 +569,7 @@ protected:
    * @param name Parameter name; must outlive the host.
    * @param ptr Target member.
    */
-  HS_COLD_MEMBER void register_animated_param(const char *name, bool *ptr) {
+  HS_FLASH_MEMBER void register_animated_param(const char *name, bool *ptr) {
     register_param(name, ptr, ParamSpec<bool>{.animated = true});
   }
 
@@ -584,10 +583,10 @@ protected:
    */
   template <typename Enum>
     requires std::is_enum_v<Enum>
-  HS_COLD_MEMBER void register_animated_param(const char *name, Enum *ptr,
-                                              const char *const *options,
-                                              const char *const *export_options,
-                                              int option_count) {
+  HS_FLASH_MEMBER void
+  register_animated_param(const char *name, Enum *ptr,
+                          const char *const *options,
+                          const char *const *export_options, int option_count) {
     auto spec =
         ParamSpec<Enum>::enumerated(options, option_count, export_options);
     spec.animated = true;
@@ -601,10 +600,10 @@ protected:
    * @param options Dropdown labels.
    * @param option_count Label count.
    */
-  HS_COLD_MEMBER void register_animated_enum8_param(const char *name,
-                                                    uint8_t *ptr,
-                                                    const char *const *options,
-                                                    int option_count) {
+  HS_FLASH_MEMBER void register_animated_enum8_param(const char *name,
+                                                     uint8_t *ptr,
+                                                     const char *const *options,
+                                                     int option_count) {
     auto spec = ParamSpec<uint8_t>::enumerated(options, option_count);
     spec.animated = true;
     register_param(name, ptr, spec);
@@ -617,15 +616,15 @@ protected:
    * @param min Lower bound.
    * @param max Upper bound.
    */
-  HS_COLD_MEMBER void register_readonly_param(const char *name, float *ptr,
-                                              float min = 0.0f,
-                                              float max = 1.0f) {
+  HS_FLASH_MEMBER void register_readonly_param(const char *name, float *ptr,
+                                               float min = 0.0f,
+                                               float max = 1.0f) {
     register_param(name, ptr,
                    ParamSpec<float>{.min = min, .max = max, .readonly = true});
   }
 
 private:
-  HS_COLD_MEMBER static void validate_integer_registration(
+  HS_FLASH_MEMBER static void validate_integer_registration(
       const char *name, int64_t min, int64_t max, int64_t value,
       int64_t target_min, int64_t target_max, bool enum_target,
       const char *const *options, int option_count, bool dense_options) {
@@ -669,7 +668,7 @@ private:
         lo32(max));
   }
 
-  HS_COLD_MEMBER static void
+  HS_FLASH_MEMBER static void
   validate_option_labels(const char *name, const char *const *options,
                          const char *const *export_options, int option_count) {
     for (int i = 0; i < option_count; ++i) {
@@ -708,7 +707,7 @@ private:
       parameter_written();
   }
 
-  HS_COLD_MEMBER ParamDef &append_parameter(const char *name) {
+  HS_FLASH_MEMBER ParamDef &append_parameter(const char *name) {
     HS_CHECK(parameters.count < parameters.capacity(),
              "register_param: exceeded ParamList capacity name=%s", name);
     HS_CHECK(parameters.find(name) == nullptr,

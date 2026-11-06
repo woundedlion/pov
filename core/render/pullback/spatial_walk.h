@@ -53,7 +53,7 @@ struct SpatialWalkState {
  * @param state Walk state to initialise.
  * @param seed Noise seed.
  */
-HS_COLD_MEMBER inline void init_walk(SpatialWalkState &state, int32_t seed) {
+HS_FLASH_MEMBER inline void init_walk(SpatialWalkState &state, int32_t seed) {
   state.noise_seed = seed;
   init_effect_noise(state.walk_noise, seed);
   state.walk_noise.SetFrequency(WALK_OPTIONS.noise_scale);
@@ -68,9 +68,9 @@ HS_COLD_MEMBER inline void init_walk(SpatialWalkState &state, int32_t seed) {
  * @param spin_rate Spin angle added this frame, in radians.
  * @param speed Walk distance per frame, in radians.
  */
-HS_COLD_MEMBER inline void advance_walk(SpatialWalkState &state, float wander,
-                                        float spin_rate,
-                                        float speed = WALK_OPTIONS.speed) {
+HS_FLASH_MEMBER inline void advance_walk(SpatialWalkState &state, float wander,
+                                         float spin_rate,
+                                         float speed = WALK_OPTIONS.speed) {
   ++state.walk_time;
   auto options = WALK_OPTIONS;
   options.speed = speed;

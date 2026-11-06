@@ -39,7 +39,7 @@ public:
   /**
    * @brief Constructs the effect at the W x H canvas resolution.
    */
-  HS_COLD_MEMBER GnomonicStars()
+  HS_FLASH_MEMBER GnomonicStars()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         orientation(), timeline(), transformer(timeline) {}
 
@@ -47,7 +47,7 @@ public:
    * @brief Registers the user params and arms the timeline.
    * @details Arms an infinite Möbius warp and a Languid RandomWalk.
    */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     transformer.init_storage(persistent_arena);
     // Sized to MAX_POINTS so a live "Points" change never reallocates.
     spiral_cache = persistent_arena.allocate_n<math::Vector>(MAX_POINTS);

@@ -849,7 +849,7 @@ get_by_name(Arena &geom, Arena &a, Arena &b, std::string_view name) {
  *        sizing per-vertex geometry to its local gap.
  * @return The vertex count written.
  */
-[[maybe_unused]] HS_COLD_MEMBER inline int
+[[maybe_unused]] HS_FLASH_MEMBER inline int
 build_vertex_directions(Arena &scratch, Arena &temp, const Entry &entry,
                         int max_points, math::Vector *points,
                         math::Quaternion *quats, float *nn_angle) {

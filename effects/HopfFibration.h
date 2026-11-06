@@ -44,7 +44,7 @@ public:
   /**
    * @brief Constructs the effect and configures the trail pipeline.
    */
-  HS_COLD_MEMBER HopfFibration()
+  HS_FLASH_MEMBER HopfFibration()
       : Effect(W, H,
                pipeline_config<decltype(trail_pipeline)>({.strobe = true})),
         trail_pipeline(Filter::Screen::AntiAlias<W, H>()) {}
@@ -52,7 +52,7 @@ public:
   /**
    * @brief Initializes params, buffers, fibers, and timeline animations.
    */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     register_param("Flow Spd", &params.flow_speed, 0.0f, 20.0f);
     register_param("Tumble Spd", &params.tumble_speed, 0.0f, 10.0f);
     register_param("Folding", &params.folding, 0.0f, 2.0f);
@@ -202,7 +202,7 @@ private:
    * @details A RINGS x PER_RING grid, evenly spaced in polar bands and in
    * azimuth around each band.
    */
-  HS_COLD_MEMBER void init_fibers() {
+  HS_FLASH_MEMBER void init_fibers() {
     int idx = 0;
     for (int i = 0; i < RINGS; ++i) {
       float polar = math::PI_F * (i + 0.5f) / RINGS;

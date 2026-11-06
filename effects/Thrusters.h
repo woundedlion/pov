@@ -41,7 +41,7 @@ public:
   /**
    * @brief Constructs the effect, seeding the filters and warp state.
    */
-  HS_COLD_MEMBER Thrusters()
+  HS_FLASH_MEMBER Thrusters()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         filters(Filter::Screen::AntiAlias<W, H>()), ring_vec(0.5f, 0.5f, 0.5f),
         amplitude(0), warp_phase(0), t_global(0),
@@ -53,7 +53,7 @@ public:
    *        timeline.
    * @details Adds a persistent ring sprite plus a random thruster-fire timer.
    */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     // Radius 0 and 2 both collapse the ring to a point (ring_vec and its
     // antipode), so the slider stops short of each end.
     register_param("Radius", &params.radius, 0.1f, 1.9f);
@@ -203,7 +203,7 @@ private:
    *          about the axis derived from the thrust point, and spawns both
    *          thrusters.
    */
-  HS_COLD_MEMBER void on_fire_thruster() {
+  HS_FLASH_MEMBER void on_fire_thruster() {
     // read the warp state before the fire mutates it
     const float phase = warp_phase;
     const float amp = amplitude;
@@ -242,7 +242,7 @@ private:
    * @brief Pushes a fresh thruster at `point`, evicting the oldest if full.
    * @param point Thrust point on the unit sphere where the ring spawns.
    */
-  HS_COLD_MEMBER void spawn_thruster(const math::Vector &point) {
+  HS_FLASH_MEMBER void spawn_thruster(const math::Vector &point) {
     thrusters.push_back(ThrusterContext());
     thrusters.back().reset(orientation, point);
   }

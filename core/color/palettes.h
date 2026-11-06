@@ -131,7 +131,7 @@ struct MeshPaletteBank {
    * @param arena Destination arena receiving each BakedPalette's parallel
    *        256-entry Pixel and Q16-alpha arrays.
    */
-  HS_COLD_MEMBER void bake_all(Arena &arena) {
+  HS_FLASH_MEMBER void bake_all(Arena &arena) {
     constexpr auto sources = MeshPaletteBank::sources();
     for (int i = 0; i < N; ++i)
       bank.entries[i].bake(arena, *sources[i]);
@@ -141,7 +141,7 @@ struct MeshPaletteBank {
    * @brief Fills out[0..N) with a random permutation of [0, N).
    * @param out Receives the per-shape palette-slot assignment.
    */
-  static HS_COLD_MEMBER void shuffle_indices(std::array<int, N> &out) {
+  static HS_FLASH_MEMBER void shuffle_indices(std::array<int, N> &out) {
     for (int i = 0; i < N; ++i)
       out[i] = i;
     hs::shuffle(out.begin(), out.end());
@@ -162,10 +162,10 @@ struct MeshPaletteBank {
    * @param slots Class slot -> palette index (see shuffle_indices).
    * @param out Receives one palette index per face.
    */
-  static HS_COLD_MEMBER void assign_by_class(const uint16_t *topology,
-                                             size_t faces,
-                                             const std::array<int, N> &slots,
-                                             uint8_t *out) {
+  static HS_FLASH_MEMBER void assign_by_class(const uint16_t *topology,
+                                              size_t faces,
+                                              const std::array<int, N> &slots,
+                                              uint8_t *out) {
     for (size_t f = 0; f < faces; ++f)
       out[f] = static_cast<uint8_t>(slots[slot_of(topology[f])]);
   }

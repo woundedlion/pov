@@ -130,12 +130,12 @@ public:
   static constexpr float DENSE_CONTOUR_COUNT = 32.0f;
 
   /** @brief Constructs the effect on a WxH canvas. */
-  HS_COLD_MEMBER ShapeShifter()
+  HS_FLASH_MEMBER ShapeShifter()
       : Choreography(
             W, H, pipeline_config<decltype(plot_filters)>({.strobe = true})) {}
 
   /** @brief Registers the GUI sliders and starts the preset choreography. */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     ArenaSplit{SURFACE_SCRATCH_A_BYTES, SURFACE_SCRATCH_B_BYTES}.configure();
     params.count = std::min(params.count, static_cast<float>(DRAW_LIMIT));
     register_param("Alpha", &alpha, ALPHA_MIN, ALPHA_MAX);
@@ -386,7 +386,7 @@ private:
   };
 
   /** Maps contour quantiles to the screen-space sampling envelope. */
-  HS_COLD_MEMBER static float screen_balanced_radius_t(float radius_t) {
+  HS_FLASH_MEMBER static float screen_balanced_radius_t(float radius_t) {
     constexpr float DENSITY_FLOOR = 0.5f;
     constexpr float BREAK_ANGLE = math::PI_F / 6.0f;
     constexpr float DENSITY_INTEGRAL = 1.1278247916f;
@@ -401,7 +401,7 @@ private:
     return far_side ? 1.0f - folded : folded;
   }
 
-  HS_COLD_MEMBER void prepare_count(int count) {
+  HS_FLASH_MEMBER void prepare_count(int count) {
     HS_CHECK(count >= 1 && count <= MAX_SHAPES,
              "ShapeShifter: contour count %d outside table capacity", count);
     const bool screen_balanced =

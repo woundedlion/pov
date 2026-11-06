@@ -119,7 +119,7 @@ public:
    * @brief Constructs a board from protocol config.
    * @param cfg Protocol configuration.
    */
-  HS_COLD_MEMBER explicit SyncBoard(const Config &cfg)
+  HS_FLASH_MEMBER explicit SyncBoard(const Config &cfg)
       : protocol_config(cfg), fly(cfg) {
     cache_config_bounds();
   }
@@ -132,7 +132,7 @@ public:
    * @warning Call only before attaching the board's interrupts: the state is
    * ISR-owned under the spec §8 single-writer model.
    */
-  HS_COLD_MEMBER void configure(const Config &cfg) {
+  HS_FLASH_MEMBER void configure(const Config &cfg) {
     protocol_config = cfg;
     cache_config_bounds();
     fly = Flywheel(cfg);
@@ -349,7 +349,7 @@ private:
   /**
    * @brief Recomputes the tick-path bounds derived from protocol_config.
    */
-  HS_COLD_MEMBER void cache_config_bounds() {
+  HS_FLASH_MEMBER void cache_config_bounds() {
     cached_gap_timeout_cycles = protocol_config.gap_timeout_cycles();
     cached_max_burst_cycles = protocol_config.max_burst_cycles();
     cached_glitch_filter_cycles = protocol_config.glitch_filter_cycles;
@@ -361,7 +361,7 @@ private:
    * @brief Restores every member to its post-construction value except
    * protocol_config, cached bounds, fly and is_master_board.
    */
-  HS_COLD_MEMBER void reset_runtime_state() {
+  HS_FLASH_MEMBER void reset_runtime_state() {
     gate = FlipGate{};
     content_tracker = ContentTracker{};
     beacon_parser = BeaconParser{};

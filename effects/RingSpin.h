@@ -45,7 +45,7 @@ public:
    * @brief Constructs the effect at the W x H canvas resolution.
    * @param strobe Per-column driver blanking mode.
    */
-  HS_COLD_MEMBER explicit RingSpin(Strobe strobe = Strobe::ENABLED)
+  HS_FLASH_MEMBER explicit RingSpin(Strobe strobe = Strobe::ENABLED)
       : Effect(W, H,
                pipeline_config<decltype(filters)>(
                    {.strobe = strobe == Strobe::ENABLED})) {}
@@ -53,7 +53,7 @@ public:
   /**
    * @brief Allocates rings, registers params, bakes palettes, and spawns rings.
    */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
     register_param("Thickness", &params.thickness, 0.01f, 10.0f);
     register_param("Debug BB", &params.debug_bb);

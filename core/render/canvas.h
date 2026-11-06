@@ -80,7 +80,7 @@ public:
    * @param cfg Construction-time behavior flags; see EffectConfig. Defaults to
    *        a plain band-clippable effect.
    */
-  HS_COLD_MEMBER Effect(int W, int H, EffectConfig cfg = {})
+  HS_FLASH_MEMBER Effect(int W, int H, EffectConfig cfg = {})
       : persist_pixels(cfg.persist), full_frame(cfg.full_frame),
         reads_outside_band(cfg.reads_outside_band), strobe(cfg.strobe),
         frame_width(W), frame_height(H),
@@ -383,7 +383,7 @@ private:
   /**
    * @brief Points bufs at the shared static storage and zeroes both buffers.
    */
-  HS_COLD_MEMBER void __attribute__((noinline)) clear_buffers() {
+  HS_FLASH_MEMBER void __attribute__((noinline)) clear_buffers() {
     bufs[0] = buffer_a;
     std::fill_n(bufs[0], MAX_W * MAX_H, Pixel(0, 0, 0));
     bufs[1] = buffer_b;

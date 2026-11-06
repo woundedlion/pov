@@ -27,7 +27,7 @@ namespace mobius_detail {
  * @return The infinity sentinel along num * conj(den), along num when den is
  * zero, or (0,0) when num is zero.
  */
-HS_COLD_MEMBER inline math::Complex
+HS_FLASH_MEMBER inline math::Complex
 saturated_quotient(const math::Complex &num, const math::Complex &den) {
   // Normalize each operand by its larger component first: a value squared far
   // above the sentinel overflows to infinity and one far below it underflows to

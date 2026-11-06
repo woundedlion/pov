@@ -43,7 +43,7 @@ public:
    * @brief Constructs the effect, seeding the initial palette and filter
    *        pipeline.
    */
-  HS_COLD_MEMBER Dynamo()
+  HS_FLASH_MEMBER Dynamo()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         palettes{make_palette()},
         filters(Filter::World::Trails<TRAIL_CAPACITY>(1),

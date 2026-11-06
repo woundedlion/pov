@@ -91,8 +91,8 @@ struct CompiledHankin {
    * @details Required by Cloneable; each vector is rebound from @p arena and
    * bulk-copied. Traps if src aliases dst.
    */
-  HS_COLD_MEMBER static void clone(const CompiledHankin &src,
-                                   CompiledHankin &dst, Arena &arena) {
+  HS_FLASH_MEMBER static void clone(const CompiledHankin &src,
+                                    CompiledHankin &dst, Arena &arena) {
     HS_CHECK(&src != &dst, "CompiledHankin::clone src must not alias dst");
     HS_CHECK(src.dynamic_instructions.size() == 0 ||
                  src.corner_src.data() == src.base_vertices.data(),
@@ -449,9 +449,9 @@ HS_COLD static void solve_hankin_vertices(const CompiledHankin &compiled,
  *   of being flung across the sphere (see STAR_FAR_RATIO_SQ).
  */
 template <MeshLike MeshT>
-HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
-                                         MeshT &out_mesh, Arena &target_arena,
-                                         float angle) {
+HS_FLASH_MEMBER inline void update_hankin(const CompiledHankin &compiled,
+                                          MeshT &out_mesh, Arena &target_arena,
+                                          float angle) {
 
   // Read the topology size before set_owned() drops a borrowed view.
   size_t prior_topology_size = out_mesh.topology.size();

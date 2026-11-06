@@ -51,7 +51,7 @@ static_assert(D_AVG * D_AVG * RD_N - 12.566370614f < 0.0006f &&
  * @return Unit-length direction for lattice point i.
  * @details Analytic reference for the generated node_positions array.
  */
-HS_COLD_MEMBER inline math::Vector node(int i) {
+HS_FLASH_MEMBER inline math::Vector node(int i) {
   HS_CHECK(i >= 0 && i < RD_N, "node() index outside the lattice");
   // Double precision reproduces neighbors[] bit-for-bit (float32 flips near-tie
   // sort order); bit-exactness is a pinned-toolchain provenance contract.
@@ -97,7 +97,7 @@ extern HS_PROGMEM_UNIQUE(neighbor_run_index) const uint8_t
  * @param count Number of accessible runs.
  * @param index Run index for each lattice node.
  */
-HS_COLD_MEMBER inline void
+HS_FLASH_MEMBER inline void
 validate_neighbor_runs(const NeighborRun *runs = neighbor_runs,
                        unsigned count = NEIGHBOR_RUN_COUNT,
                        const uint8_t (&index)[RD_N] = neighbor_run_index) {
@@ -152,7 +152,7 @@ struct CubemapLUT {
    *        table alone, or this traps mid-build.
    * @details Texels are filled in lookup()'s (face*RES+y)*RES+x index order.
    */
-  HS_COLD_MEMBER void build(Arena &arena) {
+  HS_FLASH_MEMBER void build(Arena &arena) {
     validate_neighbor_runs();
     data.bind(arena, TEXELS);
     // Precompute every lattice point once into scratch for the hill-climb.
@@ -168,14 +168,14 @@ struct CubemapLUT {
    * @param arena Arena the table is allocated in.
    * @param lattice RD_N lattice node directions.
    */
-  HS_COLD_MEMBER void build(Arena &arena, const math::Vector *lattice) {
+  HS_FLASH_MEMBER void build(Arena &arena, const math::Vector *lattice) {
     data.bind(arena, TEXELS);
     fill(lattice);
   }
 
 private:
   /** @brief Fills storage allocated by build(). */
-  HS_COLD_MEMBER void fill(const math::Vector *lattice) {
+  HS_FLASH_MEMBER void fill(const math::Vector *lattice) {
     for (int face = 0; face < 6; ++face) {
       for (int y = 0; y < RES; ++y) {
         int seed = -1;
@@ -314,9 +314,9 @@ private:
    *          One `iter` can chain several hops; the iteration cap depends on
    *          this.
    */
-  HS_COLD_MEMBER static int find_nearest_node(const math::Vector &p,
-                                              const math::Vector *lattice,
-                                              int seed) {
+  HS_FLASH_MEMBER static int find_nearest_node(const math::Vector &p,
+                                               const math::Vector *lattice,
+                                               int seed) {
     int cur = seed >= 0 ? seed
                         : static_cast<int>(
                               hs::clamp((1.0f - p.y) * 0.5f * (RD_N - 1) + 0.5f,

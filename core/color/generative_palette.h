@@ -83,14 +83,14 @@ public:
   static_assert(sizeof(Snapshot) == 48);
 
   /** @brief Compiles the default recipe. */
-  HS_COLD_MEMBER GenerativePalette() { initialize(PaletteRecipe{}); }
+  HS_FLASH_MEMBER GenerativePalette() { initialize(PaletteRecipe{}); }
 
   /**
    * @brief Compiles a recipe, trapping on a rejected one.
    * @param recipe Recipe to canonicalize and compile.
    * @details try_compile() is the non-trapping form.
    */
-  HS_COLD_MEMBER explicit GenerativePalette(const PaletteRecipe &recipe) {
+  HS_FLASH_MEMBER explicit GenerativePalette(const PaletteRecipe &recipe) {
     PaletteRecipe canonical;
     PaletteCompileStatus status;
     const bool compiled = canonicalize(recipe, canonical, status);
@@ -194,7 +194,7 @@ public:
    *  get() clips values past the hue's gamut boundary back to it.
    *  @details Collapses the chroma axis to a single value but keeps its curve,
    *  so morph_compatible() against untouched palettes is preserved. */
-  HS_COLD_MEMBER void set_constant_chroma(float chroma) {
+  HS_FLASH_MEMBER void set_constant_chroma(float chroma) {
     chroma = hs::clamp(chroma, 0.0f, 1.0f);
     chroma_axis = {chroma, chroma, chroma_axis.curve};
     for (int i = 0; i < key_count; ++i)
@@ -286,9 +286,9 @@ public:
    * integer closing travel. Mismatched axis curves morph through CUSTOM (see
    * morph_snapshots()). PaletteCycler additionally requires morph_compatible().
    */
-  HS_COLD_MEMBER void morph_palettes(const GenerativePalette &from,
-                                     const GenerativePalette &to,
-                                     float amount) {
+  HS_FLASH_MEMBER void morph_palettes(const GenerativePalette &from,
+                                      const GenerativePalette &to,
+                                      float amount) {
     amount = hs::clamp(amount, 0.0f, 1.0f);
     if (amount == 0.0f) {
       *this = from;
@@ -320,8 +320,8 @@ public:
    * CUSTOM at every amount, so an endpoint lands on its key run rather than its
    * analytic axis curve.
    */
-  HS_COLD_MEMBER void morph_snapshots(const Snapshot &from, const Snapshot &to,
-                                      float amount) {
+  HS_FLASH_MEMBER void morph_snapshots(const Snapshot &from, const Snapshot &to,
+                                       float amount) {
     HS_CHECK(
         from.key_count >= 2 && from.key_count <= PALETTE_MAX_KEYS &&
             to.key_count >= 2 && to.key_count <= PALETTE_MAX_KEYS &&
@@ -346,15 +346,15 @@ public:
    * @return The color, clipped into sRGB at fixed lightness and hue, always
    * fully opaque.
    */
-  HS_COLD_MEMBER Color4 get(float t) const override {
+  HS_FLASH_MEMBER Color4 get(float t) const override {
     const LinRGB rgb =
         oklab_to_linear_rgb_gamut(evaluate_path(t, Detail::COLOR_ONLY).lab);
     return Color4(linrgb_to_pixel(rgb), 1.0f);
   }
 
 private:
-  HS_COLD_MEMBER void lerp_keys(const Snapshot &from, const Snapshot &to,
-                                float amount) {
+  HS_FLASH_MEMBER void lerp_keys(const Snapshot &from, const Snapshot &to,
+                                 float amount) {
     // Mixed axis curves morph through CUSTOM so the per-key samples apply.
     lightness_axis = {
         from.lightness_low + (to.lightness_low - from.lightness_low) * amount,
@@ -502,7 +502,7 @@ private:
     return key;
   }
 
-  HS_COLD_MEMBER GenerativePalette(Unchecked, const PaletteRecipe &recipe) {
+  HS_FLASH_MEMBER GenerativePalette(Unchecked, const PaletteRecipe &recipe) {
     initialize(recipe);
   }
 
@@ -536,9 +536,9 @@ private:
            fail(status, PaletteCompileCode::NON_FINITE, field);
   }
 
-  HS_COLD_MEMBER static void clamp_field(float &value, float low, float high,
-                                         PaletteRecipeField field,
-                                         PaletteCompileStatus &status) {
+  HS_FLASH_MEMBER static void clamp_field(float &value, float low, float high,
+                                          PaletteRecipeField field,
+                                          PaletteCompileStatus &status) {
     const float clamped = hs::clamp(value, low, high);
     if (clamped != value) {
       value = clamped;
@@ -660,9 +660,9 @@ private:
            finite(recipe.input.span, PaletteRecipeField::INPUT_SPAN, status);
   }
 
-  HS_COLD_MEMBER static bool canonicalize(const PaletteRecipe &input,
-                                          PaletteRecipe &canonical,
-                                          PaletteCompileStatus &status) {
+  HS_FLASH_MEMBER static bool canonicalize(const PaletteRecipe &input,
+                                           PaletteRecipe &canonical,
+                                           PaletteCompileStatus &status) {
     status = {};
     if (input.schema_version != PaletteRecipe::SCHEMA_VERSION)
       return fail(status, PaletteCompileCode::INVALID_SCHEMA,
@@ -831,8 +831,8 @@ private:
         roundf((closing_hue - keys[0].h) * (1.0f / (2.0f * math::PI_F))));
   }
 
-  HS_COLD_MEMBER static float directed_delta(float delta,
-                                             HueDirection direction) {
+  HS_FLASH_MEMBER static float directed_delta(float delta,
+                                              HueDirection direction) {
     const float wrapped = math::wrap_t(delta);
     switch (direction) {
     case HueDirection::SHORTEST:
@@ -849,9 +849,9 @@ private:
     return 0.0f;
   }
 
-  HS_COLD_MEMBER static void resolve_axis(const AxisControls &controls,
-                                          uint8_t count,
-                                          float out[PALETTE_MAX_KEYS]) {
+  HS_FLASH_MEMBER static void resolve_axis(const AxisControls &controls,
+                                           uint8_t count,
+                                           float out[PALETTE_MAX_KEYS]) {
     const AxisState axis = axis_state(controls);
     for (int i = 0; i < count; ++i) {
       const float position = i / float(count - 1);
@@ -861,8 +861,8 @@ private:
     }
   }
 
-  HS_COLD_MEMBER static void resolve_harmony(const PaletteRecipe &recipe,
-                                             float hues[PALETTE_MAX_KEYS]) {
+  HS_FLASH_MEMBER static void resolve_harmony(const PaletteRecipe &recipe,
+                                              float hues[PALETTE_MAX_KEYS]) {
     const float base = recipe.hue.base_turns;
     const float spread = recipe.hue.spread_turns;
     const float orientation =
@@ -940,10 +940,10 @@ private:
     }
   }
 
-  HS_COLD_MEMBER static void resolve_hues(const PaletteRecipe &recipe,
-                                          uint8_t key_count,
-                                          float hues[PALETTE_MAX_KEYS],
-                                          float &closing_hue) {
+  HS_FLASH_MEMBER static void resolve_hues(const PaletteRecipe &recipe,
+                                           uint8_t key_count,
+                                           float hues[PALETTE_MAX_KEYS],
+                                           float &closing_hue) {
     if (recipe.hue.mode == HueMode::HARMONY) {
       resolve_harmony(recipe, hues);
     } else if (recipe.hue.mode == HueMode::SWEEP) {
@@ -972,7 +972,7 @@ private:
         directed_delta(hues[0] - hues[key_count - 1], recipe.hue.direction);
   }
 
-  HS_COLD_MEMBER void initialize(const PaletteRecipe &recipe) {
+  HS_FLASH_MEMBER void initialize(const PaletteRecipe &recipe) {
     float lightness[PALETTE_MAX_KEYS];
     float chroma[PALETTE_MAX_KEYS];
     float hues[PALETTE_MAX_KEYS];
@@ -1080,7 +1080,7 @@ private:
     return input_offset + hs::clamp(position, 0.0f, 1.0f) * input_span;
   }
 
-  HS_COLD_MEMBER Segment select_base_segment(float position) const {
+  HS_FLASH_MEMBER Segment select_base_segment(float position) const {
     position = hs::clamp(position, 0.0f, 1.0f);
     const float scaled = position * (key_count - 1);
     const int left =
@@ -1091,13 +1091,13 @@ private:
             1.0f,       progress,    position};
   }
 
-  HS_COLD_MEMBER float sample_hue(float position) const {
+  HS_FLASH_MEMBER float sample_hue(float position) const {
     const Segment segment = select_base_segment(position);
     return segment.left.h +
            (segment.right.h - segment.left.h) * segment.progress;
   }
 
-  HS_COLD_MEMBER Segment select_segment(float t) const {
+  HS_FLASH_MEMBER Segment select_segment(float t) const {
     t = hs::clamp(t, 0.0f, 1.0f);
 
     if (domain == PaletteDomain::LOOP) {
@@ -1163,7 +1163,7 @@ private:
     return segment;
   }
 
-  HS_COLD_MEMBER ControlKey sample_envelope(float position) const {
+  HS_FLASH_MEMBER ControlKey sample_envelope(float position) const {
     position = hs::clamp(position, 0.0f, 1.0f);
     const float scaled = position * (key_count - 1);
     const int left =
@@ -1184,23 +1184,23 @@ private:
     return {lightness, chroma, 0.0f};
   }
 
-  HS_COLD_MEMBER float realized_chroma(const ControlKey &key,
-                                       float h_final) const {
+  HS_FLASH_MEMBER float realized_chroma(const ControlKey &key,
+                                        float h_final) const {
     if (chroma_basis == ChromaBasis::LOCAL_GAMUT)
       return std::min(key.chroma, headroom) *
              gamut_continuous_chroma(key.L, h_final);
     return std::max(0.0f, key.chroma);
   }
 
-  HS_COLD_MEMBER float diagnostic_q(float C, float boundary,
-                                    float control) const {
+  HS_FLASH_MEMBER float diagnostic_q(float C, float boundary,
+                                     float control) const {
     if (chroma_basis == ChromaBasis::LOCAL_GAMUT)
       return std::min(control, headroom);
     return boundary > 0.0f ? C / boundary : control;
   }
 
-  HS_COLD_MEMBER OKLCH resolve_key(const ControlKey &key,
-                                   bool chromatic) const {
+  HS_FLASH_MEMBER OKLCH resolve_key(const ControlKey &key,
+                                    bool chromatic) const {
     const float h_path = chromatic ? key.h : 0.0f;
     const float h_final = h_path + hue_torsion * (key.L - 0.5f);
     return {key.L, chromatic ? realized_chroma(key, h_final) : 0.0f, h_final};
@@ -1208,7 +1208,7 @@ private:
 
   // The Cartesian path realizes chroma through resolve_key, so its envelope
   // sample only ever feeds the diagnostics.
-  HS_COLD_MEMBER PathEvaluation evaluate_cartesian_path(
+  HS_FLASH_MEMBER PathEvaluation evaluate_cartesian_path(
       const ControlKey &left_key, const ControlKey &right_key, bool chromatic,
       float progress, float control, Detail detail) const {
     const OKLab left = oklch_to_oklab(resolve_key(left_key, chromatic));
@@ -1225,11 +1225,11 @@ private:
             boundary};
   }
 
-  HS_COLD_MEMBER PathEvaluation evaluate_arc_path(float L, float control,
-                                                  float left_h, float right_h,
-                                                  bool chromatic,
-                                                  float progress,
-                                                  Detail detail) const {
+  HS_FLASH_MEMBER PathEvaluation evaluate_arc_path(float L, float control,
+                                                   float left_h, float right_h,
+                                                   bool chromatic,
+                                                   float progress,
+                                                   Detail detail) const {
     const bool diagnostics = detail != Detail::COLOR_ONLY;
     const float h_path =
         chromatic ? left_h + (right_h - left_h) * progress : 0.0f;
@@ -1246,7 +1246,8 @@ private:
             h_final, boundary};
   }
 
-  HS_COLD_MEMBER Evaluated finish_evaluation(const PathEvaluation &path) const {
+  HS_FLASH_MEMBER Evaluated
+  finish_evaluation(const PathEvaluation &path) const {
     const OKLCH lch = oklab_to_oklch(path.lab);
     float r, g, blue;
     oklab_to_linear_rgb(path.lab, r, g, blue);
@@ -1259,7 +1260,7 @@ private:
             !linear_rgb_in_gamut(r, g, blue)};
   }
 
-  HS_COLD_MEMBER PathEvaluation evaluate_path(float t, Detail detail) const {
+  HS_FLASH_MEMBER PathEvaluation evaluate_path(float t, Detail detail) const {
     const Segment segment = select_segment(t);
     const ControlKey envelope = segment.envelope;
     const float progress = segment.progress;

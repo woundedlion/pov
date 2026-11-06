@@ -126,7 +126,7 @@ public:
   /**
    * @brief Constructs the effect, binding the ripple generator to the timeline.
    */
-  HS_COLD_MEMBER IslamicStars()
+  HS_FLASH_MEMBER IslamicStars()
       : Choreography(W, H,
                      pipeline_config<decltype(filters)>({.strobe = true})),
         filters(), ripple_gen(timeline) {}
@@ -135,7 +135,7 @@ public:
    * @brief Bakes palettes, registers the UI sliders, and seeds the timeline
    *        with the orientation walk and the first shape.
    */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     begin_choreography();
     GENERATED_BUDGET.configure();
     device_persistent_budget = GENERATED_BUDGET.device_persistent();
@@ -312,7 +312,7 @@ private:
    * face-palette arrays, then the palette bank.
    * @param arena The freshly reset persistent arena.
    */
-  HS_COLD_MEMBER void reclaim_persistent(Arena &arena) {
+  HS_FLASH_MEMBER void reclaim_persistent(Arena &arena) {
     ripple_gen.reclaim_storage(arena);
     claim_face_palettes(arena);
     palette_bank.bake_all(arena);
@@ -737,7 +737,7 @@ private:
    * @param back Carousel slot the shape was spawned into.
    * @details Draws nothing during the build window.
    */
-  HS_COLD_MEMBER void draw_sprite(Canvas &canvas, float phase, int back) {
+  HS_FLASH_MEMBER void draw_sprite(Canvas &canvas, float phase, int back) {
     const float previous_phase = record_phase(back, phase);
     if (build_active)
       return;
@@ -977,14 +977,14 @@ private:
 
   /** @brief Restarts the shape sequence on a manual, synchronized, or restored change.
    *  @param change The committed preset change. */
-  HS_COLD_MEMBER void
+  HS_FLASH_MEMBER void
   preset_changed(const Effect::PresetChange &change) override {
     if (change.origin != Effect::PresetChangeOrigin::AUTOMATIC)
       restart_shape();
   }
 
   /** @brief Adds the camera's random walk to the timeline. */
-  HS_COLD_MEMBER void add_orientation_walk() {
+  HS_FLASH_MEMBER void add_orientation_walk() {
     timeline.add(0, Animation::RandomWalk<W>(orientation, math::UP, noise));
   }
 
@@ -993,7 +993,7 @@ private:
    * @details Clears every scheduled event, including any in-flight build leg
    * and ripple; the orientation walk resumes from the held orientation.
    */
-  HS_COLD_MEMBER void restart_shape() {
+  HS_FLASH_MEMBER void restart_shape() {
     timeline.clear();
     abandon_build();
     add_orientation_walk();
@@ -1001,12 +1001,12 @@ private:
   }
 
   /** @brief Spawns the committed preset's solid. */
-  HS_COLD_MEMBER void spawn_shape() {
+  HS_FLASH_MEMBER void spawn_shape() {
     spawn_entry(*PRESETS[preset_index].params);
   }
 
   /** @brief Advances to the next preset and spawns it. */
-  HS_COLD_MEMBER void advance_shape() {
+  HS_FLASH_MEMBER void advance_shape() {
 #ifndef HS_ISLAMICSTARS_PROFILE_SHAPE
     const bool advanced = this->advance_preset();
     HS_CHECK(advanced, "IslamicStars: automatic preset advance must succeed");
@@ -1021,7 +1021,7 @@ private:
    * arenas empty and the live persistent offset within the chosen split's
    * persistent capacity.
    */
-  HS_COLD_MEMBER void resplit_for_spawn(bool has_recipe) {
+  HS_FLASH_MEMBER void resplit_for_spawn(bool has_recipe) {
     const bool bridge_split = has_recipe && build_uses_smooth_bridge();
     const ArenaSplit budget = bridge_split ? BRIDGE_BUDGET
                               : has_recipe ? RECIPE_BUDGET
@@ -1036,7 +1036,7 @@ private:
    *        front, and schedules its segue, ripple burst and the next spawn.
    * @param entry Solid spawned; its recipe, if any, drives the build chain.
    */
-  HS_COLD_MEMBER void spawn_entry(const Solids::Entry &entry) {
+  HS_FLASH_MEMBER void spawn_entry(const Solids::Entry &entry) {
     build_entry = &entry;
     int back = 1 - carousel.front_index();
     // The spawned mesh's shuffled palette order, consumed by class ordinal.
@@ -1076,7 +1076,7 @@ private:
     resplit_for_spawn(recipe != nullptr);
 
     hs::generate(persistent_arena, [&](Arena &target, Arena &a,
-                                       Arena &b) HS_COLD_MEMBER {
+                                       Arena &b) HS_FLASH_MEMBER {
       if (recipe) {
         // The build starts from the recipe's seed solid; the chain is swept
         // on screen leg by leg. The seed is also held as the first leg's

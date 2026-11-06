@@ -282,7 +282,7 @@ public:
    * @param source Source palette or composition to sample.
    */
   template <typename Source>
-  HS_COLD_MEMBER void bake(Arena &arena, const Source &source) {
+  HS_FLASH_MEMBER void bake(Arena &arena, const Source &source) {
     table.colors = arena.allocate_n<Pixel>(BakedPalette::LUT_SIZE);
     table.alpha_q16 = arena.allocate_n<uint16_t>(BakedPalette::LUT_SIZE);
     rebake(source);
@@ -296,7 +296,7 @@ public:
    * rejected. Mirrored sources copy the first half in reverse; looping sources
    * copy entry 0 to the last entry so the seam is exact.
    */
-  template <typename Source> HS_COLD_MEMBER void rebake(const Source &source) {
+  template <typename Source> HS_FLASH_MEMBER void rebake(const Source &source) {
     static_assert(!palette_wraps_coordinate<Source>(),
                   "BakedPalette cannot rebake a wrapping source");
     HS_CHECK(table.colors != nullptr && table.alpha_q16 != nullptr,
@@ -329,8 +329,8 @@ public:
    * be this palette; the fresh allocation would retarget it before the blend
    * reads it.
    */
-  HS_COLD_MEMBER void bake_blend(Arena &arena, const BakedPalette &from,
-                                 const BakedPalette &to, float w) {
+  HS_FLASH_MEMBER void bake_blend(Arena &arena, const BakedPalette &from,
+                                  const BakedPalette &to, float w) {
     HS_CHECK(from.colors && from.alpha_q16 && to.colors && to.alpha_q16,
              "BakedPaletteStorage::bake_blend before bake()");
     HS_CHECK(&from != &table && &to != &table,
@@ -345,7 +345,7 @@ public:
    * @brief Refills this LUT with a verbatim copy of another baked LUT.
    * @param src Source palette; must be baked and must not alias this storage.
    */
-  HS_COLD_MEMBER void rebake_copy(const BakedPalette &src) {
+  HS_FLASH_MEMBER void rebake_copy(const BakedPalette &src) {
     HS_CHECK(table.colors != nullptr && table.alpha_q16 != nullptr,
              "BakedPaletteStorage::rebake_copy before bake()");
     HS_CHECK(src.colors != nullptr && src.alpha_q16 != nullptr,
@@ -367,8 +367,8 @@ public:
    * crossfade boundaries are bit-exact. Neither endpoint may alias this LUT's
    * storage; the endpoints may alias each other.
    */
-  HS_COLD_MEMBER void rebake_crossfade(const BakedPalette &from,
-                                       const BakedPalette &to, float w) {
+  HS_FLASH_MEMBER void rebake_crossfade(const BakedPalette &from,
+                                        const BakedPalette &to, float w) {
     const float wc = hs::clamp(w, 0.0f, 1.0f);
     if (wc == 0.0f) {
       rebake_copy(from);
@@ -410,8 +410,8 @@ public:
 private:
   BakedPalette table;
   // wc must already be clamped to [0, 1].
-  HS_COLD_MEMBER void fill_blend(const BakedPalette &from,
-                                 const BakedPalette &to, float wc) {
+  HS_FLASH_MEMBER void fill_blend(const BakedPalette &from,
+                                  const BakedPalette &to, float wc) {
     const uint16_t weight = frac_to_q16(wc);
     for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
       table.colors[i] = from.colors[i].lerp16(to.colors[i], weight);
@@ -498,8 +498,8 @@ struct BakedPaletteBank {
    * @param arena Arena to allocate the cloned LUTs from.
    * @details Required by Cloneable.
    */
-  HS_COLD_MEMBER static void clone(const BakedPaletteBank &src,
-                                   BakedPaletteBank &dst, Arena &arena) {
+  HS_FLASH_MEMBER static void clone(const BakedPaletteBank &src,
+                                    BakedPaletteBank &dst, Arena &arena) {
     for (int i = 0; i < N; ++i)
       dst.entries[i].clone_from(src.entries[i], arena);
   }

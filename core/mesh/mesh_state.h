@@ -210,8 +210,8 @@ struct MeshState {
    * @param arena Arena providing storage for the destination buffers.
    * @details Required by Cloneable. Traps if src aliases dst.
    */
-  HS_COLD_MEMBER static void clone(const MeshState &src, MeshState &dst,
-                                   Arena &arena) {
+  HS_FLASH_MEMBER static void clone(const MeshState &src, MeshState &dst,
+                                    Arena &arena) {
     HS_CHECK(&src != &dst, "MeshState::clone src must not alias dst");
     dst = MeshState();
     MeshOps::copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(),

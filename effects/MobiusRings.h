@@ -56,7 +56,7 @@ public:
    * @brief Builds the palettes, Möbius generator, and the render filter
    *        pipeline.
    */
-  HS_COLD_MEMBER MobiusRings()
+  HS_FLASH_MEMBER MobiusRings()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         palette(EffectPaletteRecipes::mobius_rings(
             PaletteRecipes::random_base_turns())),
@@ -71,7 +71,7 @@ public:
    * @details Arms a steady Y-axis spin, a periodic palette wipe, and
    *          out-of-phase sine mutations driving the ring/line counts.
    */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     ArenaSplit{SCRATCH_A_BYTES, SCRATCH_B_BYTES}.configure();
     history.reset();
 
@@ -220,7 +220,7 @@ private:
    * @brief Generates a fresh palette and schedules a WIPE_FRAMES cross-fade
    *        into it.
    */
-  HS_COLD_MEMBER void wipe_palette() {
+  HS_FLASH_MEMBER void wipe_palette() {
     wipe.arm(palette,
              GenerativePalette{EffectPaletteRecipes::mobius_rings(
                                    PaletteRecipes::random_base_turns())}

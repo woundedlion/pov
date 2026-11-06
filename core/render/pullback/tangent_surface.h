@@ -222,7 +222,7 @@ struct PotentialParams {
   /** @brief Addresses one nested term field.
    * @param index Extra-schema field index.
    * @return Parameter storage. */
-  HS_COLD_MEMBER void *extra_address(size_t index) {
+  HS_FLASH_MEMBER void *extra_address(size_t index) {
     auto &params = *this;
     auto &term = params.terms[index / POTENTIAL_TERM_FIELDS];
     switch (index % POTENTIAL_TERM_FIELDS) {
@@ -323,7 +323,7 @@ struct SymmetricParams {
 /** @brief Checks the scalar-potential term domains.
  * @param params Authored field controls.
  * @return Whether all terms are admitted. */
-HS_COLD_MEMBER inline bool valid_terms(const PotentialParams &params) {
+HS_FLASH_MEMBER inline bool valid_terms(const PotentialParams &params) {
   for (const auto &term : params.terms)
     if (term.type >= std::size(POTENTIAL_TERM_IDS) ||
         term.kind >= std::size(POTENTIAL_KIND_IDS) ||
@@ -340,7 +340,7 @@ HS_COLD_MEMBER inline bool valid_terms(const PotentialParams &params) {
  * @param params Authored field controls.
  * @param phase Accumulated azimuthal drift, radians.
  * @return Normalized field. */
-HS_COLD_MEMBER inline math::tangent_field::PotentialField
+HS_FLASH_MEMBER inline math::tangent_field::PotentialField
 potential_field(const PotentialParams &params, float phase) {
   using namespace math::tangent_field;
   std::array<PotentialTerm, 4> terms{};
@@ -366,7 +366,7 @@ potential_field(const PotentialParams &params, float phase) {
  * @param order Wave order minus one.
  * @param phase Azimuthal drift in radians.
  * @return Normalized field. */
-HS_COLD_MEMBER inline math::tangent_field::PotentialField
+HS_FLASH_MEMBER inline math::tangent_field::PotentialField
 rossby_haurwitz_field(float omega, float wave, uint8_t order, float phase) {
   using namespace math::tangent_field;
   std::array<PotentialTerm, 4> terms{};
@@ -385,7 +385,7 @@ rossby_haurwitz_field(float omega, float wave, uint8_t order, float phase) {
  * @param kind Toroidal or poloidal component.
  * @param phase Field rotation in radians.
  * @return Normalized field. */
-HS_COLD_MEMBER inline math::tangent_field::PotentialField
+HS_FLASH_MEMBER inline math::tangent_field::PotentialField
 symmetric_field(uint8_t symmetry, uint8_t kind, float phase) {
   using namespace math::tangent_field;
   using Symmetry = Lens::KaleidoscopeSymmetry;

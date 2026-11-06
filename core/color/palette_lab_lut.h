@@ -109,7 +109,7 @@ template <int ValueSteps> struct PaletteLabLutStorage : PaletteLabLutBase {
   /** @brief Bakes RGB16 endpoint blends before converting each node to OKLab.
    * @param from Previous immutable palette.
    * @param to Current immutable palette. */
-  HS_COLD_MEMBER void bake(const BakedPalette &from, const BakedPalette &to) {
+  HS_FLASH_MEMBER void bake(const BakedPalette &from, const BakedPalette &to) {
     rgb_nodes = nullptr;
     rgb_midpoint = false;
     rgb_midpoint_row = 1;
@@ -166,9 +166,9 @@ template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
    * @param base Interval base receiving this cache binding.
    * @param previous_base Prior interval's immutable base, when retained.
    * @param previous Prior interval's RGB owner, when retained. */
-  HS_COLD_MEMBER void bake(PaletteLabLut &base,
-                           const PaletteLabLut *previous_base = nullptr,
-                           const PaletteRgbHueLutImpl *previous = nullptr) {
+  HS_FLASH_MEMBER void bake(PaletteLabLut &base,
+                            const PaletteLabLut *previous_base = nullptr,
+                            const PaletteRgbHueLutImpl *previous = nullptr) {
     base.rgb_nodes = nullptr;
     midpoint_active = false;
     if (!base.active)

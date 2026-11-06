@@ -312,7 +312,7 @@ struct Mesh {
    * @param edges Output edge list; the selected family's edges are appended.
    * @param scratch Arena for the half-edge mesh and the BFS bookkeeping.
    */
-  HS_COLD_MEMBER static void
+  HS_FLASH_MEMBER static void
   extract_four_regular_edges(const MeshState &mesh, ArenaVector<Edge> &edges,
                              Arena &scratch) {
     ScratchScope guard(scratch);
@@ -371,8 +371,8 @@ struct Mesh {
    * @param u,v Endpoint vertex indices, in either order.
    * @return The index into @p edges; traps when the edge is absent.
    */
-  HS_COLD_MEMBER static uint16_t find_edge_index(const ArenaVector<Edge> &edges,
-                                                 uint16_t u, uint16_t v) {
+  HS_FLASH_MEMBER static uint16_t
+  find_edge_index(const ArenaVector<Edge> &edges, uint16_t u, uint16_t v) {
     for (size_t i = 0; i < edges.size(); ++i) {
       const auto &edge = edges[i];
       if ((edge.u == u && edge.v == v) || (edge.u == v && edge.v == u))
@@ -391,7 +391,7 @@ struct Mesh {
    * @param original_edges Edge list @p mesh's face edges are looked up in.
    * @param medial_edges Output list; medial edges are appended.
    */
-  HS_COLD_MEMBER static void
+  HS_FLASH_MEMBER static void
   extract_medial_edges(const MeshState &mesh,
                        const ArenaVector<Edge> &original_edges,
                        ArenaVector<Edge> &medial_edges) {

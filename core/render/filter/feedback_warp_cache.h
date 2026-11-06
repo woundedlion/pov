@@ -71,8 +71,8 @@ public:
    * @details Call again after any arena reset. Leaves the cache invalid.
    */
   template <int CELL_COUNT, typename OriginFnT>
-  HS_COLD_MEMBER void init_storage(Arena &arena, const SphereField &field,
-                                   int cap_cells, OriginFnT &&origin) {
+  HS_FLASH_MEMBER void init_storage(Arena &arena, const SphereField &field,
+                                    int cap_cells, OriginFnT &&origin) {
 #ifndef NDEBUG
     HS_CHECK(
         !column_offsets ||

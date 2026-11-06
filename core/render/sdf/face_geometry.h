@@ -404,8 +404,8 @@ __attribute__((always_inline)) void build_y_walk(FaceScratchBuffer &scratch) {
    * Rotational-symmetry ambiguity is harmless (the LUT is invariant under the
    * shape's symmetry group).
    */
-HS_COLD_MEMBER bool bind_class_lut(const ClassLut *lut, const float *canon_xy,
-                                   int vert_offset, bool reflected) {
+HS_FLASH_MEMBER bool bind_class_lut(const ClassLut *lut, const float *canon_xy,
+                                    int vert_offset, bool reflected) {
   HS_CHECK(vert_offset >= 0 && vert_offset < count,
            "bind_class_lut: vertex offset outside the face");
   float mx = 0.0f, my = 0.0f;

@@ -59,6 +59,11 @@ The profiling headers `tools/pc_sampler.h`, `tools/profile_isr_window.h` and
 plus `tools/phantasm.ld`, follow the
 `hardware/` direction rules. Linker imports use GNU ld `INCLUDE` syntax.
 
+Use `HS_FLASH_MEMBER` for internal cold inline, template and COMDAT functions.
+`HS_COLD_MEMBER` remains a public compatibility alias. `HS_ITCM_MEMBER` remains
+active for functions placed in ITCM without changing the translation unit's
+optimization; its host expansion differs from `HS_NOINLINE_NOCLONE`.
+
 Before landing a refactor, search the old identifiers and behavior wording
 across source comments and maintained documentation with `rg -n -i -F --
 'old behavior phrase' .`. Read each match and correct stale contracts in the

@@ -309,7 +309,7 @@ public:
   /**
    * @brief Constructs the effect at the templated render dimensions.
    */
-  HS_COLD_MEMBER Raymarch()
+  HS_FLASH_MEMBER Raymarch()
       : Choreography(W, H,
                      pipeline_config<decltype(pipeline)>({.strobe = true})) {}
 
@@ -318,7 +318,7 @@ public:
    *        bakes the palette LUT, and installs the camera walk and phase drivers
    *        on the timeline.
    */
-  HS_COLD_MEMBER void init() override {
+  HS_FLASH_MEMBER void init() override {
     begin_choreography();
     this->register_described_params();
 
@@ -396,7 +396,7 @@ private:
    *          (reclaimed on scope exit) via the shared HS_COLD builder, so draw_fn
    *          can size every torus to its own local gap.
    */
-  HS_COLD_MEMBER void build_points() {
+  HS_FLASH_MEMBER void build_points() {
     ScratchScope a_guard(scratch_arena_a);
     ScratchScope b_guard(scratch_arena_b);
     const size_t placement_index = static_cast<size_t>(params.base_solid);
@@ -410,7 +410,7 @@ private:
     active_base_solid = params.base_solid;
   }
 
-  HS_COLD_MEMBER void refresh_points() {
+  HS_FLASH_MEMBER void refresh_points() {
     if (params.base_solid != active_base_solid)
       build_points();
   }

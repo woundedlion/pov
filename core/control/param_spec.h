@@ -70,7 +70,7 @@ template <typename T> struct ParamSpec {
    * @return True when `option_values` is empty or consistent with the labels,
    *         includes `min` and `max`, and includes `initial`.
    */
-  HS_COLD_MEMBER constexpr bool valid_option_values(T initial) const {
+  HS_FLASH_MEMBER constexpr bool valid_option_values(T initial) const {
     if (option_values.empty())
       return true;
     if (options == nullptr || option_count <= 0 ||

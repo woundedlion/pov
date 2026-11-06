@@ -133,7 +133,7 @@ public:
   /** @brief Binds flag storage for polylines of up to @p max_points points.
    *  @param arena Arena the flags are allocated from.
    *  @param max_points Point capacity; at least 2. */
-  HS_COLD_MEMBER void init_storage(Arena &arena, int max_points) {
+  HS_FLASH_MEMBER void init_storage(Arena &arena, int max_points) {
     HS_CHECK(max_points >= 2, "PlanarBandSplit: max_points %d < 2", max_points);
     capacity = max_points;
     flag_storage = arena.allocate_n<uint8_t>(max_points);
@@ -317,7 +317,7 @@ public:
    *  vertices.
    *  @param arena Arena the storage is allocated from.
    *  @param max_vertices Vertex capacity; at least 1. */
-  HS_COLD_MEMBER void init_storage(Arena &arena, int max_vertices) {
+  HS_FLASH_MEMBER void init_storage(Arena &arena, int max_vertices) {
     HS_CHECK(max_vertices >= 1, "PlanarChords: max_vertices %d < 1",
              max_vertices);
     capacity = max_vertices;

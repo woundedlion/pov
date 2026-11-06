@@ -97,7 +97,7 @@ public:
   /**
    * @brief Schedules the next random active-frame delay.
    */
-  HS_COLD_MEMBER void reset() {
+  HS_FLASH_MEMBER void reset() {
     // +1 because hs::rand_int is half-open [min, max); the documented maximum
     // delay is inclusive. A sampled zero fires on the next step, like one.
     remaining_delay = hs::rand_int(min, max + 1);
