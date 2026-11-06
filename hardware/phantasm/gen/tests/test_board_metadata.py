@@ -1,4 +1,7 @@
 import sys
+import contextlib
+import io
+import tempfile
 from decimal import Decimal
 from dataclasses import replace
 from pathlib import Path
@@ -14,6 +17,30 @@ import fab   # noqa: E402
 
 
 class BoardMetadataTests(unittest.TestCase):
+    def test_cli_checks_and_updates_readme_and_rejects_missing_board(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            board = Path(tmp) / "board.kicad_pcb"
+            board.write_bytes((GEN_DIR.parent / "1.1" / "phantasm.kicad_pcb").read_bytes())
+            readme = Path(tmp) / "README.md"
+            stale = f"before\n{board_metadata.FACTS_START}\nstale\n{board_metadata.FACTS_END}\nafter\n"
+            readme.write_text(stale, encoding="utf-8")
+            args = ["--board", str(board), "--readme", str(readme)]
+            with contextlib.redirect_stderr(io.StringIO()) as errors:
+                self.assertEqual(board_metadata.main([*args, "--check"]), 1)
+            self.assertIn("facts are stale", errors.getvalue())
+            self.assertEqual(readme.read_text(encoding="utf-8"), stale)
+            self.assertEqual(board_metadata.main([*args, "--write-readme"]), 0)
+            updated = readme.read_text(encoding="utf-8")
+            self.assertNotIn("stale", updated)
+            self.assertIn("| Track segments | 339 |", updated)
+            self.assertTrue(updated.startswith("before\n"))
+            self.assertTrue(updated.endswith("\nafter\n"))
+            self.assertEqual(board_metadata.main([*args, "--check"]), 0)
+            board.unlink()
+            with contextlib.redirect_stderr(io.StringIO()) as errors:
+                self.assertEqual(board_metadata.main([*args, "--check"]), 1)
+            self.assertIn(str(board), errors.getvalue())
+
     def test_knockout_silkscreen_does_not_change_outline(self):
         source = (GEN_DIR.parent / "1.1" / "phantasm.kicad_pcb").read_text(encoding="utf-8")
         baseline = board_metadata.parse_board(source)
