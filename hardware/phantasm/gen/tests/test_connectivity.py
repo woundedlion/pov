@@ -330,6 +330,26 @@ class SyntheticBoardTests(unittest.TestCase):
         self.assertEqual(sorted(layer for fill in fills for layer in fill.layers),
                          ["B.Cu", "In1.Cu"])
 
+    def test_a_named_fill_only_connects_pads_on_its_own_layer(self):
+        text = SPAN_POUR_BOARD.replace(
+            '(filled_polygon', '(filled_polygon (layer "B.Cu")', 1)
+        self.assertEqual(connectivity.opens(parse(text)), {})
+        text = text.replace(
+            '(pad "1" thru_hole circle (at 0 0) (size 1.6 1.6) (layers "*.Cu")',
+            '(pad "1" smd circle (at 0 0) (size 1.6 1.6) (layers "In1.Cu")')
+        self.assertEqual(connectivity.opens(parse(text)),
+                         {"GND": [[("J1", "1")], [("J1", "2")]]})
+
+    def test_unnetted_pads_do_not_form_an_open(self):
+        root = parse(NATIVE_BOARD)
+        self.assertEqual(connectivity.opens(root), {})
+        root.append(sexp.parse_one('(net 0 "")'))
+        root.append(sexp.parse_one('''(footprint "R" (layer "F.Cu") (at 0 0)
+            (property "Reference" "R0")
+            (pad "1" smd rect (at 0 10) (size 0.5 0.5) (layers "F.Cu") (net 0 ""))
+            (pad "2" smd rect (at 10 10) (size 0.5 0.5) (layers "F.Cu") (net 0 "")))'''))
+        self.assertEqual(connectivity.opens(root), {})
+
     def test_a_zone_naming_no_copper_layer_is_refused(self):
         text = SPAN_POUR_BOARD.replace('(layers "In1.Cu" "B.Cu")', "(layers)")
         with self.assertRaisesRegex(ValueError, "outside the copper stack"):
