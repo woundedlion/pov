@@ -71,6 +71,8 @@ carrier without a projection; planar samplers require a projection crossing.
 The grid, twin-wave, bands and spiral interpreter crossings use the authored
 Sample parameter families. Weight and coverage ids, the edge-fade activation gate
 and the extended twin-wave drift bound are defined in `material.h`.
+The wave-shear and vector-noise interpreter warps use the authored families,
+including the `Warp Edge Width` display label for their envelope width control.
 The shared outer-camera walk, storage and Camera Wander control exist only when
 a typed rotation stage reads the outer-camera provider. Keyed rotations own
 their motion independently and retain an identity shared camera frame. The

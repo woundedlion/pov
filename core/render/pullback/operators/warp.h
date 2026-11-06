@@ -171,16 +171,7 @@ struct WarpAffineV4 : ValueStateModel<AffineClockState> {
 };
 
 /** @brief Parameter family of warp.wave-shear.v2. */
-struct WaveShearWarpParams : Warp::WaveShearParams {
-  /** WarpEnvelope topology value. */
-  uint8_t envelope = static_cast<uint8_t>(WarpEnvelope::FLAT);
-
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<WaveShearWarpParams>{
-          "envelope", &WaveShearWarpParams::envelope, WARP_ENVELOPE_IDS,
-          static_cast<uint8_t>(WarpEnvelope::FLAT)},
-  };
-};
+using WaveShearWarpParams = Warp::AuthoredWaveShearParams;
 static_assert(field_ids_unique<WaveShearWarpParams>());
 static_assert(appended_block_size_matches<WaveShearWarpParams,
                                           Warp::WaveShearParams, 1>(),
@@ -259,21 +250,7 @@ struct WarpVortex : PhaseClockModel<WarpPhaseState> {
 };
 
 /** @brief Parameter family of warp.vector-noise.v2. */
-struct VectorNoiseWarpParams : Warp::VectorNoiseParams {
-  /** math::NoiseBasis topology value. */
-  uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
-  /** WarpEnvelope topology value. */
-  uint8_t envelope = static_cast<uint8_t>(WarpEnvelope::FLAT);
-
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<VectorNoiseWarpParams>{
-          "basis", &VectorNoiseWarpParams::basis, NOISE_BASIS_IDS,
-          static_cast<uint8_t>(math::NoiseBasis::SIMPLEX)},
-      TopologyField<VectorNoiseWarpParams>{
-          "envelope", &VectorNoiseWarpParams::envelope, WARP_ENVELOPE_IDS,
-          static_cast<uint8_t>(WarpEnvelope::FLAT)},
-  };
-};
+using VectorNoiseWarpParams = Warp::AuthoredVectorNoiseParams;
 static_assert(field_ids_unique<VectorNoiseWarpParams>());
 static_assert(appended_block_size_matches<VectorNoiseWarpParams,
                                           Warp::VectorNoiseParams, 2>(),
