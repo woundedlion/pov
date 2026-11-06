@@ -155,3 +155,27 @@ private:
 
 static_assert(AuthoredPaletteResources::named_palette_count() ==
               std::size(AUTHORED_PALETTE_NAME_IDS));
+
+#define HS_AUTHORED_PALETTE_NAME(name, A, B, C, D) #name,
+static_assert(
+    [] {
+      constexpr const char *ROSTER_NAMES[] = {
+          HS_PROCEDURAL_PALETTE_LIST(HS_AUTHORED_PALETTE_NAME)};
+      for (size_t i = 0; i < std::size(ROSTER_NAMES); ++i) {
+        const char *name = ROSTER_NAMES[i];
+        const char *id = AUTHORED_PALETTE_NAME_IDS[i];
+        while (*name || *id) {
+          const char FOLDED = *name == '_' ? '-'
+                              : *name >= 'A' && *name <= 'Z'
+                                  ? *name + ('a' - 'A')
+                                  : *name;
+          if (FOLDED != *id)
+            return false;
+          ++name;
+          ++id;
+        }
+      }
+      return true;
+    }(),
+    "authored palette wire ids must match the procedural roster order");
+#undef HS_AUTHORED_PALETTE_NAME
