@@ -1978,17 +1978,21 @@ inline void test_polyhedral_kaleidoscope_chambers() {
   });
 }
 
+inline math::Vector
+dodecahedral_apply(const lenses::DodecahedralTable::Matrix &matrix,
+                   const math::Vector &v) {
+  return math::Vector(
+      matrix[0][0] * v.x + matrix[0][1] * v.y + matrix[0][2] * v.z,
+      matrix[1][0] * v.x + matrix[1][1] * v.y + matrix[1][2] * v.z,
+      matrix[2][0] * v.x + matrix[2][1] * v.y + matrix[2][2] * v.z);
+}
+
 /** @brief Generated group transforms preserve lengths and mirror transitions. */
 inline void test_dodecahedral_group_generation() {
   namespace table = lenses::DodecahedralTable;
   const auto group = table::make_group();
   HS_EXPECT_EQ(group.count, 120);
-  const auto apply = [](const table::Matrix &matrix, const math::Vector &v) {
-    return math::Vector(
-        matrix[0][0] * v.x + matrix[0][1] * v.y + matrix[0][2] * v.z,
-        matrix[1][0] * v.x + matrix[1][1] * v.y + matrix[1][2] * v.z,
-        matrix[2][0] * v.x + matrix[2][1] * v.y + matrix[2][2] * v.z);
-  };
+
   for (int index = 0; index < group.count; ++index) {
     HS_CONTEXT("group", index);
     const auto &matrix = group.values[index];
@@ -1996,17 +2000,19 @@ inline void test_dodecahedral_group_generation() {
     for (const math::Vector input :
          {math::Vector(1, 0, 0), math::Vector(0, 1, 0), math::Vector(0, 0, 1),
           math::Vector(.3f, -.7f, .2f)}) {
-      const auto output = apply(matrix, input);
+      const auto output = dodecahedral_apply(matrix, input);
       HS_EXPECT_NEAR(output.magnitude(), input.magnitude(), 1e-5f);
-      HS_EXPECT_VEC(apply(table::GROUP.values[index], input), output, 1e-6f);
+      HS_EXPECT_VEC(dodecahedral_apply(table::GROUP.values[index], input),
+                    output, 1e-6f);
       for (int mirror = 0; mirror < 3; ++mirror) {
         const auto normal = lenses::DODECAHEDRAL_MIRRORS[mirror];
         const auto expected =
             output - normal * (2.0f * math::dot(output, normal));
         HS_EXPECT_LT(transitions[mirror], group.count);
         if (transitions[mirror] < group.count)
-          HS_EXPECT_VEC(apply(group.values[transitions[mirror]], input),
-                        expected, 1e-5f);
+          HS_EXPECT_VEC(
+              dodecahedral_apply(group.values[transitions[mirror]], input),
+              expected, 1e-5f);
       }
     }
     for (int previous = 0; previous < index; ++previous)
@@ -2035,13 +2041,7 @@ inline void test_dodecahedral_classifier_generation() {
         HS_EXPECT_EQ(row[x], table::FACES[face][y * N + x]);
         if (row[x] < table::GROUP.count) {
           const auto &matrix = table::GROUP.values[row[x]];
-          const math::Vector actual(
-              matrix[0][0] * input.x + matrix[0][1] * input.y +
-                  matrix[0][2] * input.z,
-              matrix[1][0] * input.x + matrix[1][1] * input.y +
-                  matrix[1][2] * input.z,
-              matrix[2][0] * input.x + matrix[2][1] * input.y +
-                  matrix[2][2] * input.z);
+          const math::Vector actual = dodecahedral_apply(matrix, input);
           HS_EXPECT_VEC(actual, expected, 1e-5f);
         }
       }
