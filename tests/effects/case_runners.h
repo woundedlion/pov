@@ -368,6 +368,9 @@ void run_effect_case_comets_wipe_shades_at_column_time();
 /** @brief Runs test_comets_wipe_history with its case context. */
 void run_effect_case_comets_wipe_history();
 
+/** @brief Runs the paused Comets palette cadence case. */
+void run_effect_case_comets_palette_rolls_while_presets_paused();
+
 /** @brief Runs ThrustersWhiteBox check_warp_endpoints with its case context. */
 void run_effect_case_thrusters_white_box_check_warp_endpoints();
 

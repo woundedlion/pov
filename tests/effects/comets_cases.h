@@ -304,3 +304,19 @@ inline void test_comets_manual_preset_restarts_path() {
   hs_test::run_frames(effect, WB::dwell_frames());
   HS_EXPECT_EQ(effect.getPresetIndex(), PRESET);
 }
+
+/** @brief Pausing preset advancement leaves the periodic palette wipe running. */
+inline void test_comets_palette_rolls_while_presets_paused() {
+  using WB = CometsWhiteBox;
+  reset_globals();
+  WB::C effect;
+  effect.init();
+  constexpr size_t PRESET = 4;
+  HS_EXPECT_TRUE(effect.selectPreset(PRESET));
+  ScratchScope scope(scratch_arena_b);
+  BakedPaletteStorage initial;
+  initial.clone_from(WB::baked_palette(effect), scratch_arena_b);
+  hs_test::run_frames(effect, WB::dwell_frames() + WB::wipe_frames() + 2);
+  HS_EXPECT_EQ(effect.getPresetIndex(), PRESET);
+  HS_EXPECT_FALSE(same_palette_entries(WB::baked_palette(effect), initial));
+}

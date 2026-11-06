@@ -195,6 +195,7 @@ inline int run_effects_tests() {
   run_effect_case_comets_rollover_skipped_mid_wipe();
   run_effect_case_comets_wipe_shades_at_column_time();
   run_effect_case_comets_wipe_history();
+  run_effect_case_comets_palette_rolls_while_presets_paused();
   run_effect_case_thrusters_white_box_check_warp_endpoints();
   run_effect_case_thrusters_white_box_check_fire_spawns_opposed_pair();
   run_effect_case_thrusters_white_box_check_collapsed_ring_falls_back_to_a_spin_axis();

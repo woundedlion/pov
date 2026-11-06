@@ -34,6 +34,10 @@ void run_effect_case_comets_wipe_history() {
   HS_RUN(run_case, test_comets_wipe_history);
 }
 
+void run_effect_case_comets_palette_rolls_while_presets_paused() {
+  HS_RUN(run_case, test_comets_palette_rolls_while_presets_paused);
+}
+
 void run_effect_case_comets_manual_preset_restarts_path() {
   HS_RUN(run_case, test_comets_manual_preset_restarts_path);
 }
@@ -52,6 +56,7 @@ int run_comets_tests() {
   run_effect_case_comets_rollover_skipped_mid_wipe();
   run_effect_case_comets_wipe_shades_at_column_time();
   run_effect_case_comets_wipe_history();
+  run_effect_case_comets_palette_rolls_while_presets_paused();
   if (effects_full_suite()) {
     run_effect_case_comets_manual_preset_restarts_path();
   }

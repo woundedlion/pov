@@ -40,9 +40,9 @@ struct CometsParams {
  *        fading trail behind it.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Automatic preset changes snap to the next Lissajous entry and
- *          ColorWipe to a freshly generated palette. Manual selection restarts
- *          the path and keeps the palette.
+ * @details Automatic preset changes snap to the next Lissajous entry. An
+ *          independent timer wipes to a fresh palette, including while preset
+ *          advancement is paused. Manual selection restarts the path.
  */
 template <int W, int H>
 class Comets : public ChoreographedEffect<Comets<W, H>, CometsParams> {
@@ -65,7 +65,7 @@ public:
       TRAIL_ORIENTATION_SUBSTEPS; /**< Interpolation slots per Orientation, shared by the recorded trail
                and Motion. */
 
-  /** Snaps the path function; the palette rolls over via a ColorWipe. */
+  /** Snaps the path function. */
   static constexpr Segue::Preset::Snap DEPARTURE{};
   /// Snapshot schema version; changes with the `Params` layout.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
@@ -171,6 +171,10 @@ public:
     update_path();
     timeline.add(
         0, Animation::RandomWalk<W>(orientation, math::random_vector(), noise));
+    timeline.add(
+        0, Animation::PeriodicTimer(PRESET_DWELL_FRAMES,
+                                    [this](Canvas &) { update_palette(); },
+                                    {.repeat = true}));
     // Infinite and pinned, so the retained handle stays valid.
     motion = timeline.add_get(0,
                               Animation::Motion<W, ORIENTATION_SUBSTEPS>(
@@ -308,15 +312,6 @@ private:
       }
     }
     return true;
-  }
-
-  /** @brief The automatic cadence also rolls the palette; manual selection and
-   *  snapshot restores keep the live palette.
-   *  @param change The committed preset change. */
-  HS_FLASH_MEMBER void
-  preset_changed(const Effect::PresetChange &change) override {
-    if (change.origin == Effect::PresetChangeOrigin::AUTOMATIC)
-      update_palette();
   }
 
   friend struct ::hs_test::effects_tests::CometsWhiteBox;

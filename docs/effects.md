@@ -180,6 +180,8 @@ Draws twisting wireframe knotted structures over a selectable Platonic, Archimed
 
 A single head traces spherical Lissajous curves, cycling through a dozen configurations, trailed by a long 115-frame orientation tail and periodically wiping the palette to a fresh triadic scheme.
 
+Pausing preset advancement holds the selected path while periodic palette wipes continue.
+
 **Parameters**: Alpha, Thickness, Cycle Dur, Debug BB
 
 Thickness 0 hides the comet.
