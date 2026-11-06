@@ -386,6 +386,26 @@ inline bool all_boards_live(Sim &s) {
   return true;
 }
 
+/** @brief Advances to a master column within the stable-sampling budget. */
+inline bool run_to_master_column(Sim &sim, int column) {
+  return sim.run_until([column](Sim &s) { return s.board_pos(0) == column; },
+                       1.1);
+}
+
+/** @brief Whether every simulated board has acquired lock. */
+inline bool all_boards_locked(Sim &sim) {
+  for (auto &board : sim.boards)
+    if (lock(board.board) != LockState::LOCKED)
+      return false;
+  return true;
+}
+
+/** @brief Total censored, aborted and dropped master emissions. */
+inline auto master_emit_losses(const Telemetry &telemetry) {
+  return telemetry.emit_censored + telemetry.emit_aborted +
+         telemetry.beacons_overrun_dropped + telemetry.boundary_bursts_dropped;
+}
+
 /**
  * @brief Builds a predicate requiring every board to display an effect.
  * @param index Required live effect index.
@@ -461,14 +481,7 @@ inline void test_sim_boot_and_phase() {
   }
 
   // All boards lock within the first revolution (two boundary symbols).
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (lock(b.board) != LockState::LOCKED)
-            return false;
-        return true;
-      },
-      1.5));
+  HS_EXPECT_TRUE(sim.run_until(all_boards_locked, 1.5));
 
   // Boot join: every board goes live at the SAME join-grid boundary with
   // identical effect and frame counter (no master head start).
@@ -487,8 +500,7 @@ inline void test_sim_boot_and_phase() {
     sim.run_revs(4.0);
     // Sample at a stable point: master mid-first-half (~x=72), where every
     // board's ZERO flip for this rev has long settled.
-    HS_EXPECT_TRUE(
-        sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+    HS_EXPECT_TRUE(run_to_master_column(sim, 72));
     HS_EXPECT_LE(sim.max_phase_err(), 0.13);
     for (int i = 0; i < 4; ++i) {
       const uint64_t df = sim.boards[i].flips - flips_before[i];
@@ -514,19 +526,11 @@ inline void test_sim_eight_board_boot_and_phase() {
   const int32_t PPM[8] = {0, 20, -20, 40, -35, 15, -10, 30};
   Sim sim(cfg, 8, PPM);
 
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (lock(b.board) != LockState::LOCKED)
-            return false;
-        return true;
-      },
-      1.5));
+  HS_EXPECT_TRUE(sim.run_until(all_boards_locked, 1.5));
   HS_EXPECT_TRUE(boot_join(sim, cfg));
 
   sim.run_revs(8.0);
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   HS_EXPECT_LE(sim.max_phase_err(), 0.13);
   for (size_t i = 1; i < sim.boards.size(); ++i) {
     HS_EXPECT_EQ(sim.boards[i].live_index, sim.boards[0].live_index);
@@ -614,8 +618,7 @@ inline void test_sim_epoch_commit() {
   HS_EXPECT_LT(sim.boards[0].envelope, 1.0f);
   // Post-epoch: full content coherence (index AND t) including the master.
   sim.run_revs(3.0);
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   for (int i = 1; i < 4; ++i) {
     HS_EXPECT_EQ(sim.boards[i].live_index, 1);
     HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
@@ -797,8 +800,7 @@ inline void test_sim_masked_windows() {
   }
 
   sim.run_revs(30.0);
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
 
   // Truncated bursts were discarded (count telemetry), never accepted as
   // the wrong boundary: phase stays sub-column-ish and content equal.
@@ -823,9 +825,7 @@ inline void test_sim_masked_windows() {
   sim2.boards[0].masks.push_back({b0 - COL / 4, b0 + 2 * COL});
   sim2.run_revs(6.0);
   const Telemetry &tm0 = sim2.boards[0].board.telemetry_snapshot();
-  HS_EXPECT_GT(tm0.emit_censored + tm0.emit_aborted +
-                   tm0.beacons_overrun_dropped + tm0.boundary_bursts_dropped,
-               0u);
+  HS_EXPECT_GT(master_emit_losses(tm0), 0u);
   HS_EXPECT_LE(sim2.max_phase_err(), 2);
   HS_EXPECT_EQ(sim2.boards[1].board.telemetry_snapshot().symbols_rejected_gate,
                0u);
@@ -862,8 +862,7 @@ inline void test_sim_emi() {
   std::sort(sim.emi.begin(), sim.emi.end());
 
   sim.run_revs(42.0);
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
 
   const Telemetry &tm1 = sim.boards[1].board.telemetry_snapshot();
   HS_EXPECT_GT(tm1.symbols_rejected_gate, 20u); // isolated EMI all rejected
@@ -901,8 +900,7 @@ inline void test_sim_drops_and_missed_epoch() {
   sim.run_revs(5.0);
   HS_EXPECT_GE(sim.boards[1].board.telemetry_snapshot().max_coast_halves, 4u);
   HS_EXPECT_EQ(lock(sim.boards[1].board), LockState::LOCKED);
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   HS_EXPECT_LE(sim.max_phase_err(), RECOVERY_PHASE_ERROR);
 
   // Board 3 loses its wire for the entire EPOCH train; two consecutive index
@@ -927,8 +925,7 @@ inline void test_sim_drops_and_missed_epoch() {
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.boards[3].live_index == 1; },
                     double(cfg.join_grid_revs) + 2));
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   HS_EXPECT_EQ(content(sim.boards[3].board).rev_in_effect & 63,
                content(sim.boards[0].board).rev_in_effect & 63);
   HS_EXPECT_EQ(
@@ -975,8 +972,7 @@ inline void test_sim_reboot(const Config &cfg) {
                uint64_t(cfg.beacon_period_revs + cfg.join_grid_revs + 1) * 2 *
                    PERIOD);
   HS_EXPECT_EQ(b2.live_index, sim.boards[0].live_index);
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   HS_EXPECT_LE(sim.max_phase_err(), RECOVERY_PHASE_ERROR);
   HS_EXPECT_EQ(content(b2.board).rev_in_effect & 63,
                content(sim.boards[0].board).rev_in_effect & 63);
@@ -1012,8 +1008,7 @@ inline void test_sim_forged_burst() {
   // Flip cadence unbroken: 2 per revolution, no extra content advance.
   const uint64_t df = sim.boards[1].flips - flips_before;
   HS_EXPECT_EQ(df, 8u);
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   HS_EXPECT_EQ(sim.boards[1].t, sim.boards[0].t);
 }
 
@@ -1056,8 +1051,7 @@ inline void test_sim_epoch_repeat_lockstep() {
       HS_EXPECT_FALSE(sim.boards[i].trapped);
     }
     sim.run_revs(2.0);
-    HS_EXPECT_TRUE(
-        sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+    HS_EXPECT_TRUE(run_to_master_column(sim, 72));
     for (int i = 1; i < 4; ++i)
       HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
   };
@@ -1089,9 +1083,7 @@ inline void test_sim_epoch_repeat_lockstep() {
     sim.boards[0].masks.push_back({b0 - COL / 4, b0 + 2 * COL});
     HS_EXPECT_TRUE(sim.run_until(all_boards_on(1), commit_revs_max));
     const Telemetry &tm0 = sim.boards[0].board.telemetry_snapshot();
-    HS_EXPECT_GT(tm0.emit_censored + tm0.emit_aborted +
-                     tm0.beacons_overrun_dropped + tm0.boundary_bursts_dropped,
-                 0u);
+    HS_EXPECT_GT(master_emit_losses(tm0), 0u);
     expect_lockstep(sim);
   }
 }
@@ -1143,8 +1135,7 @@ inline void test_sim_rev_resync() {
     HS_EXPECT_FALSE(sim.boards[i].trapped);
   }
   sim.run_revs(2.0);
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   for (int i = 1; i < 4; ++i)
     HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
 }
@@ -1175,8 +1166,7 @@ inline void test_sim_rev_wrap_within_effect() {
   bool crossed_seam = false;
   bool reached_end = false;
   for (int sample = 0; sample < 40; ++sample) {
-    HS_EXPECT_TRUE(
-        sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+    HS_EXPECT_TRUE(run_to_master_column(sim, 72));
     const uint32_t rev = content(sim.boards[0].board).rev_in_effect;
     HS_EXPECT_LE(sim.max_phase_err(), 0.13);
     for (int i = 0; i < 4; ++i) {
@@ -1204,8 +1194,7 @@ inline void test_sim_rev_wrap_within_effect() {
   // on_epoch_symbol infers j from a rev whose 6-bit residue has wrapped.
   HS_EXPECT_TRUE(
       sim.run_until(all_boards_on(1), double(cfg.revs_per_effect) + 8));
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   for (int i = 1; i < 4; ++i) {
     HS_EXPECT_EQ(sim.boards[i].live_index, sim.boards[0].live_index);
     HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);

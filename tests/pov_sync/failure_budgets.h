@@ -51,8 +51,7 @@ inline void test_budget_spurious_epoch() {
         return s.boards[0].live_index == 1 && s.boards[2].live_index == 1;
       },
       double(cfg.revs_per_effect) + 6));
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   for (int i = 0; i < 4; ++i) {
     HS_EXPECT_FALSE(sim.boards[i].trapped);
     HS_EXPECT_EQ(sim.boards[i].live_index, 1);
@@ -122,8 +121,7 @@ inline void test_budget_emi_accepted_seam() {
   HS_EXPECT_LE(sim.max_phase_err(), RECOVERY_PHASE_ERROR);
   HS_EXPECT_EQ(lock(sim.boards[1].board), LockState::LOCKED);
   // The forged HALF's flip dedupes against the crossing: content stays equal.
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   HS_EXPECT_EQ(sim.boards[1].t, sim.boards[0].t);
 }
 
@@ -189,8 +187,7 @@ inline void test_budget_corrupted_timebase() {
     HS_EXPECT_FALSE(sim.boards[i].trapped);
   }
   sim.run_revs(2.0);
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   for (int i = 1; i < 4; ++i)
     HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
 }
@@ -292,8 +289,7 @@ inline void test_budget_beacon_corruption() {
       },
       double(cfg.beacon_period_revs) + 1));
   HS_EXPECT_EQ(sim.boards[1].live_index, sim.boards[0].live_index);
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   HS_EXPECT_LE(sim.max_phase_err(), RECOVERY_PHASE_ERROR);
   HS_EXPECT_EQ(sim.boards[1].t, sim.boards[0].t);
 }
