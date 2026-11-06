@@ -63,7 +63,6 @@ class PreCommitHook(unittest.TestCase):
         formatter = self.repo / "clang-format"
         formatter.write_text(
             "#!/bin/sh\n"
-            "case \"${1:-}\" in --version) echo 'clang-format version 22.1.8'; exit 0;; esac\n"
             "grep -q UNFORMATTED && exit 1\n"
             "exit 0\n",
             encoding="utf-8")

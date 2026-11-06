@@ -10,6 +10,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from git_test_env import git_run, isolated_env, require_tool
+from build_pins import INLINE_PINS
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -154,11 +155,12 @@ class ShellGateTests(unittest.TestCase):
             self.assertIn("the lint run itself failed", result.stderr)
 
     def test_clang_format_requires_version_sources_and_success(self):
-        self.stub("clang-format", "echo 'clang-format version 21.0.0'")
+        major = int(INLINE_PINS["clang-format"].split(".")[0])
+        self.stub("clang-format", f"echo 'clang-format version {major - 1}.0.0'")
         wrong = self.gate("clang_format_gate.sh")
         self.assertNotEqual(wrong.returncode, 0)
-        self.assertIn("clang-format 22 is required", wrong.stderr)
-        self.stub("clang-format", "if [ \"$1\" = --version ]; then echo 'clang-format version 22.0.0'; else printf '%s\\n' \"$@\"; fi")
+        self.assertIn(f"clang-format {major} is required", wrong.stderr)
+        self.stub("clang-format", f"if [ \"$1\" = --version ]; then echo 'clang-format version {major}.0.0'; else printf '%s\\n' \"$@\"; fi")
         empty = self.gate("clang_format_gate.sh")
         self.assertNotEqual(empty.returncode, 0)
         self.assertIn("no files selected", empty.stdout)
@@ -172,7 +174,7 @@ class ShellGateTests(unittest.TestCase):
         self.assertIn("selected file.cpp", selected.stdout)
         self.assertNotIn("gamut_lut.h", selected.stdout)
         self.assertIn("--dry-run\n--Werror\n--style=file", selected.stdout)
-        self.stub("clang-format", "if [ \"$1\" = --version ]; then echo 'clang-format version 22.0.0'; else exit 9; fi")
+        self.stub("clang-format", f"if [ \"$1\" = --version ]; then echo 'clang-format version {major}.0.0'; else exit 9; fi")
         self.assertNotEqual(self.gate("clang_format_gate.sh").returncode, 0)
 
     def test_shellcheck_refuses_empty_selection_and_propagates_lint_failure(self):
