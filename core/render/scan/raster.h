@@ -1622,6 +1622,20 @@ rasterize_fixed(PipelineT &pipeline, Canvas &canvas, const ShapeT &shape,
       xc, nullptr);
 }
 
+/** @brief Checks the scan shape interface and top-level span capacity.
+ * @tparam W,H Canvas dimensions.
+ * @tparam ShapeT SDF shape type. */
+template <int W, int H, typename ShapeT> consteval void require_scan_shape() {
+  using Shape = std::remove_cvref_t<ShapeT>;
+  static_assert(SDF::ScanShape<Shape, W, H>,
+                "Scan shape must expose is_solid, get_vertical_bounds<H>(), "
+                "get_horizontal_intervals<W, H>() and distance<ComputeUVs>()");
+  static_assert(
+      fits_top_span_cap<Shape>,
+      "top-level shape can emit more spans per row than scan_region's "
+      "buffer holds; flatten the composition or raise INTERVAL_SPAN_CAP");
+}
+
 /**
  * @brief Main rasterization routine for SDF shapes.
  * @tparam W Canvas width in pixels.
@@ -1643,15 +1657,7 @@ rasterize_fixed(PipelineT &pipeline, Canvas &canvas, const ShapeT &shape,
 template <int W, int H, bool ComputeUVs = true, typename PipelineT>
 inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                       FragmentShaderFn fragment_shader, bool debug_bb = false) {
-  static_assert(SDF::ScanShape<std::remove_cvref_t<decltype(shape)>, W, H>,
-                "Scan::rasterize shape must expose is_solid, "
-                "get_vertical_bounds<H>(), get_horizontal_intervals<W, H>() "
-                "and distance<ComputeUVs>()");
-  static_assert(
-      fits_top_span_cap<decltype(shape)>,
-      "top-level shape can emit more spans per row than scan_region's "
-      "buffer holds; flatten the composition or raise "
-      "INTERVAL_SPAN_CAP");
+  require_scan_shape<W, H, decltype(shape)>();
 
   check_canvas_dims<W, H>(canvas);
   check_pipeline_prepared(pipeline, canvas);
@@ -1694,13 +1700,7 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
     rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, at_endpoint, debug_bb);
     return;
   }
-  static_assert(SDF::ScanShape<std::remove_cvref_t<decltype(shape)>, W, H>,
-                "Scan::rasterize shape must expose is_solid, "
-                "get_vertical_bounds<H>(), get_horizontal_intervals<W, H>() "
-                "and distance<ComputeUVs>()");
-  static_assert(fits_top_span_cap<decltype(shape)>,
-                "top-level shape can emit more spans per row than "
-                "scan_region's buffer holds");
+  require_scan_shape<W, H, decltype(shape)>();
   check_canvas_dims<W, H>(canvas);
   check_pipeline_prepared(pipeline, canvas);
   check_fragment_shader(fragment_shader);
@@ -1728,15 +1728,7 @@ HS_NOINLINE_NOCLONE inline void
 rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                 const Color4 &color, bool debug_bb = false) {
   static_assert(std::remove_cvref_t<decltype(shape)>::is_solid);
-  static_assert(SDF::ScanShape<std::remove_cvref_t<decltype(shape)>, W, H>,
-                "Scan::rasterize_solid shape must expose is_solid, "
-                "get_vertical_bounds<H>(), get_horizontal_intervals<W, H>() "
-                "and distance<ComputeUVs>()");
-  static_assert(
-      fits_top_span_cap<decltype(shape)>,
-      "top-level shape can emit more spans per row than scan_region's "
-      "buffer holds; flatten the composition or raise "
-      "INTERVAL_SPAN_CAP");
+  require_scan_shape<W, H, decltype(shape)>();
 
   HS_CHECK(!canvas.column_basis(),
            "rasterize_solid does not support a column-time basis");
