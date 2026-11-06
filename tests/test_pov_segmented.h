@@ -539,6 +539,15 @@ inline void test_apply_wake_sequence() {
     HS_EXPECT_FALSE(again.adopted);
   }
 
+  {
+    EffectHandoff<FakeEffect> h;
+    h.adopt(&e1, 4);
+    h.publish(&e2, 5);
+    const auto occupied = h.apply_wake({.join_boundary = true, .wire_gen = 5});
+    HS_EXPECT_FALSE(occupied.adopted);
+    HS_EXPECT_EQ(h.live(), &e1);
+  }
+
   // The window half is published within the wake that reports the advance, so
   // the foreground released by advance_display() reads this wake's crossing.
   {
