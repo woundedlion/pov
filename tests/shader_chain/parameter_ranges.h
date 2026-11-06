@@ -3,6 +3,27 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
+/** @brief Finds a numeric range and checks the emitted interval contract. */
+inline std::array<float, 2> parameter_range(ShaderChainWhiteBox::FX &effect,
+                                            const char *name) {
+  std::array<float, 2> result{NAN, NAN};
+  effect.parameter_ranges(
+      [&](const char *candidate, float minimum, float maximum) {
+        HS_CONTEXT(candidate);
+        if (std::strcmp(candidate, name) == 0)
+          result = {minimum, maximum};
+        const auto *parameter = effect.getParameters().find(candidate);
+        HS_EXPECT_TRUE(parameter != nullptr);
+        if (parameter) {
+          HS_EXPECT_LE(parameter->min, minimum);
+          HS_EXPECT_GE(parameter->max, maximum);
+          HS_EXPECT_LE(minimum, parameter->get_requested());
+          HS_EXPECT_GE(maximum, parameter->get_requested());
+        }
+      });
+  return result;
+}
+
 /** @brief Slider limits follow whole-chain growth without changing live state. */
 inline void test_shader_chain_parameter_ranges() {
   constexpr int WARPS = 18;
@@ -42,25 +63,13 @@ inline void test_shader_chain_parameter_ranges() {
     params.emplace_back(p, p + runtime.param.size);
     states.emplace_back(s, s + runtime.state.size);
   }
-  const auto range = [&](const char *name) {
-    std::array<float, 2> result{NAN, NAN};
-    effect.parameter_ranges(
-        [&](const char *candidate, float minimum, float maximum) {
-          if (std::strcmp(candidate, name) == 0)
-            result = {minimum, maximum};
-          const auto *parameter = effect.getParameters().find(candidate);
-          HS_EXPECT_TRUE(parameter != nullptr);
-          if (parameter) {
-            HS_EXPECT_FALSE(parameter->is_enum());
-            HS_EXPECT_TRUE(parameter->min <= minimum);
-            HS_EXPECT_TRUE(parameter->max >= maximum);
-            HS_EXPECT_TRUE(minimum <= parameter->get_requested());
-            HS_EXPECT_TRUE(maximum >= parameter->get_requested());
-          }
-        });
-    return result;
-  };
-  const auto limited = range("warp4.scale-x");
+  effect.parameter_ranges([&](const char *name, float, float) {
+    const auto *parameter = effect.getParameters().find(name);
+    HS_EXPECT_TRUE(parameter != nullptr);
+    if (parameter)
+      HS_EXPECT_FALSE(parameter->is_enum());
+  });
+  const auto limited = parameter_range(effect, "warp4.scale-x");
   HS_EXPECT_GT(limited[0], MIN_SCALE);
   HS_EXPECT_LE(limited[0], 1.0f);
   HS_EXPECT_GT(limited[1], 1.0f);
@@ -91,7 +100,7 @@ inline void test_shader_chain_parameter_ranges() {
   const ShaderChainParameterWrite release[] = {{"warp0.scale-x", 1.0f},
                                                {"warp0.scale-y", 1.0f}};
   HS_EXPECT_EQ(effect.update_parameters(release), ParamSetResult::APPLIED);
-  const auto expanded = range("warp4.scale-x");
+  const auto expanded = parameter_range(effect, "warp4.scale-x");
   HS_EXPECT_LT(expanded[0], limited[0]);
   HS_EXPECT_EQ(effect.updateParameter("warp4.scale-x", expanded[0]),
                ParamSetResult::APPLIED);
@@ -116,16 +125,7 @@ inline void test_shader_chain_axis_ranges() {
       {"modulation.sine-axis-y", 0.0f},
       {"modulation.sine-axis-z", 0.0f}};
   HS_EXPECT_EQ(effect.update_parameters(direction), ParamSetResult::APPLIED);
-  const auto range = [&] {
-    std::array<float, 2> result{NAN, NAN};
-    effect.parameter_ranges(
-        [&](const char *name, float minimum, float maximum) {
-          if (std::strcmp(name, "modulation.sine-axis-x") == 0)
-            result = {minimum, maximum};
-        });
-    return result;
-  };
-  const auto positive = range();
+  const auto positive = parameter_range(effect, "modulation.sine-axis-x");
   HS_EXPECT_GT(positive[0], 0.0f);
   HS_EXPECT_EQ(positive[1], 64.0f);
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-x", positive[0]),
@@ -135,7 +135,7 @@ inline void test_shader_chain_axis_ranges() {
                ParamSetResult::INADMISSIBLE);
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-x", -1.0f),
                ParamSetResult::APPLIED);
-  const auto negative = range();
+  const auto negative = parameter_range(effect, "modulation.sine-axis-x");
   HS_EXPECT_EQ(negative[0], -64.0f);
   HS_EXPECT_LT(negative[1], 0.0f);
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-x", negative[1]),
@@ -145,7 +145,7 @@ inline void test_shader_chain_axis_ranges() {
                ParamSetResult::INADMISSIBLE);
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-y", 1.0f),
                ParamSetResult::APPLIED);
-  const auto crossing = range();
+  const auto crossing = parameter_range(effect, "modulation.sine-axis-x");
   HS_EXPECT_EQ(crossing[0], -64.0f);
   HS_EXPECT_EQ(crossing[1], 64.0f);
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-x", 0.0f),
@@ -163,45 +163,36 @@ inline void test_shader_chain_harmonic_ranges() {
       {"sample", In::Op::SampleGridV4::ID},
       {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID}};
   HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
-  const auto range = [&](const char *id) {
-    std::array<float, 2> result{NAN, NAN};
-    effect.parameter_ranges(
-        [&](const char *name, float minimum, float maximum) {
-          if (std::strcmp(name, id) == 0)
-            result = {minimum, maximum};
-        });
-    return result;
-  };
   const ShaderChainParameterWrite mode[] = {{"field.term-1-l", 2},
                                             {"field.term-1-m", 1}};
   HS_EXPECT_EQ(effect.update_parameters(mode), ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(range("field.term-1-l")[0], 1.0f);
-  HS_EXPECT_EQ(range("field.term-1-l")[1], 8.0f);
-  HS_EXPECT_EQ(range("field.term-1-m")[0], 0.0f);
-  HS_EXPECT_EQ(range("field.term-1-m")[1], 2.0f);
+  HS_EXPECT_EQ(parameter_range(effect, "field.term-1-l")[0], 1.0f);
+  HS_EXPECT_EQ(parameter_range(effect, "field.term-1-l")[1], 8.0f);
+  HS_EXPECT_EQ(parameter_range(effect, "field.term-1-m")[0], 0.0f);
+  HS_EXPECT_EQ(parameter_range(effect, "field.term-1-m")[1], 2.0f);
   HS_EXPECT_EQ(effect.updateParameter("field.term-1-m", 3),
                ParamSetResult::INADMISSIBLE);
   HS_EXPECT_EQ(effect.updateParameter("field.term-1-l", 0),
                ParamSetResult::INADMISSIBLE);
   HS_EXPECT_EQ(effect.updateParameter("field.term-1-type", 1),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(range("field.term-1-l")[0], 0.0f);
-  HS_EXPECT_EQ(range("field.term-1-l")[1], 8.0f);
-  HS_EXPECT_EQ(range("field.term-1-m")[0], 0.0f);
-  HS_EXPECT_EQ(range("field.term-1-m")[1], 8.0f);
+  HS_EXPECT_EQ(parameter_range(effect, "field.term-1-l")[0], 0.0f);
+  HS_EXPECT_EQ(parameter_range(effect, "field.term-1-l")[1], 8.0f);
+  HS_EXPECT_EQ(parameter_range(effect, "field.term-1-m")[0], 0.0f);
+  HS_EXPECT_EQ(parameter_range(effect, "field.term-1-m")[1], 8.0f);
   HS_EXPECT_EQ(effect.updateParameter("field.term-1-m", 7),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(range("field.term-1-type")[0], 1.0f);
-  HS_EXPECT_EQ(range("field.term-1-type")[1], 3.0f);
+  HS_EXPECT_EQ(parameter_range(effect, "field.term-1-type")[0], 1.0f);
+  HS_EXPECT_EQ(parameter_range(effect, "field.term-1-type")[1], 3.0f);
   HS_EXPECT_EQ(effect.updateParameter("field.term-1-type", 0),
                ParamSetResult::INADMISSIBLE);
   HS_EXPECT_EQ(requested_param(effect, "field.term-1-m"), 7.0f);
   HS_EXPECT_EQ(effect.updateParameter("field.term-1-l", 8),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(range("field.term-1-type")[0], 0.0f);
-  HS_EXPECT_EQ(range("field.term-1-type")[1], 3.0f);
+  HS_EXPECT_EQ(parameter_range(effect, "field.term-1-type")[0], 0.0f);
+  HS_EXPECT_EQ(parameter_range(effect, "field.term-1-type")[1], 3.0f);
   HS_EXPECT_EQ(effect.updateParameter("field.term-1-type", 0),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(range("field.term-1-l")[0], 7.0f);
-  HS_EXPECT_EQ(range("field.term-1-m")[1], 8.0f);
+  HS_EXPECT_EQ(parameter_range(effect, "field.term-1-l")[0], 7.0f);
+  HS_EXPECT_EQ(parameter_range(effect, "field.term-1-m")[1], 8.0f);
 }
