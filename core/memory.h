@@ -19,8 +19,7 @@
 #include <utility>
 #include <concepts>
 
-// DEVICE_GLOBAL_ARENA_SIZE is the device budget on every build target.
-/// Device global arena budget, bytes.
+/// Device global arena budget on every build target, bytes.
 constexpr size_t DEVICE_GLOBAL_ARENA_SIZE = HS_DEVICE_ARENA_BYTES;
 /// This build's global arena budget, bytes.
 constexpr size_t GLOBAL_ARENA_SIZE = HS_GLOBAL_ARENA_BYTES;
@@ -35,8 +34,7 @@ static_assert(GLOBAL_ARENA_SIZE >
 /// Persistent arena capacity on this build's default split, bytes.
 constexpr size_t DEFAULT_PERSISTENT_SIZE =
     GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
-// Persistent budget on the device's default split, on every build target.
-/// Device persistent arena budget on the default split, bytes.
+/// Device persistent arena budget on the default split, on every build target, bytes.
 constexpr size_t DEVICE_PERSISTENT_BUDGET =
     DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
 

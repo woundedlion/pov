@@ -774,7 +774,7 @@ inline void test_build_chain_provenance_ambiguity() {
         max_prev_name = site.name;
       }
 
-      // The mesh the leg's first frame draws.
+      // The leg's start-parameter mesh, the one provenance is measured against.
       PolyMesh start;
       switch (step.op) {
       case Op::HANKIN: {

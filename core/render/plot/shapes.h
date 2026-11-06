@@ -646,7 +646,8 @@ struct Ring {
    * @param basis Fixed ring basis.
    * @param age Current age.
    * @param previous_age Retained age.
-   * @param life Slot lifetime.
+   * @param life Slot lifetime; on the final frame (`age + 1 == life`), holds
+ *        the current age instead of sweeping from the retained age.
    * @param has_history Whether a retained age exists.
    * @param radius Current radius in hemisphere units.
    * @param opacity Current fade.

@@ -170,9 +170,9 @@ prepare_sphere_lut_sample(const math::Vector &direction) {
   return prepare_sphere_lut_sample_unchecked(direction);
 }
 
-/** @brief Samples the cube-map scalar field along a nonzero direction.
+/** @brief Samples the cube-map scalar field along a nondegenerate direction.
  * @param view Prepared scalar cube LUT.
- * @param direction Finite nonzero direction; normalization is not required.
+ * @param direction Finite nondegenerate direction; normalization is not required.
  * @return Scalar value in [-1, 1]. */
 HS_O3_FN inline float sample_sphere_lut(const SphereLutView &view,
                                         const math::Vector &direction) {

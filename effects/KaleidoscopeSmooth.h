@@ -82,7 +82,7 @@ using KaleidoscopeSmoothParams = Pullback::ParamsFor<KaleidoscopeSmoothSpec>;
 /**
  * @brief Mirrored grids folded through a dodecahedral stereographic lens.
  * @details The dodecahedral fold is the Lens stage and the mirror tiling is
- * the inner planar warp; the pipeline has no surface stage.
+ * the inner planar warp.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */

@@ -21,6 +21,8 @@
 #                           off the port list for up to HS_DEVICE_ABSENT_GRACE
 #                           (tools/device_lock.sh)
 #   HS_TEENSY_PORT=<COMn>   pin one board
+#   HS_UPLOAD_BACKEND=auto|headless|vendor select the uploader (tools/teensy_flash.sh)
+#   HS_TYCMD=<path>         headless uploader installed by tools/setup_teensy_uploader.py
 #   HS_ARM_READELF          readelf for ELF attestation
 #   HS_PROFILE_DEEP=1       enable the HS_PROFILE_DEEP sub-scopes; writes _deep.log
 #   HS_PIO_JOBS=<n>         `pio run -j` for the builds (tools/fw_cache.sh)

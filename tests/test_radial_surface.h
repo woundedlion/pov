@@ -67,7 +67,7 @@ inline double area_reference(const Surface &surface, Surface::Point p,
 
 /** @brief Finds the first point on any swept edge without angular sectors.
  * @param p Chart point.
- * @param knots Similarity knots, starting at zero scale.
+ * @param knots Similarity knots from the first swept frame.
  * @param sides Outer tip count.
  * @param ratio Inner-to-outer radius ratio.
  * @return Earliest knot coordinate, or -1 for an uncovered point. */
@@ -460,7 +460,7 @@ inline void test_radial_surface_footprint_witness() {
               failures);
 }
 
-/** @brief Two-color jump coverage is finite and bounded. */
+/** @brief Two-color edge AA matches the area reference within its error bound. */
 inline void test_radial_surface_edge_aa() {
   ScratchScope scope(scratch_arena_a);
   using AA = Scan::RadialSurfaceEdgeAA<Surface>;

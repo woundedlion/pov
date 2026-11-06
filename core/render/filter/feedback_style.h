@@ -79,7 +79,7 @@ inline math::Vector melt_warp(const math::Vector &v, const Style &s);
 /**
  * @brief Hue-rotating fade (default color transform).
  * @param p Source pixel color.
- * @param fade Per-frame scalar fade multiplier in [0, 1].
+ * @param fade Scalar fade raised to elapsed source-read frames, in [0, 1].
  * @param s Style supplying the precomputed hue rotation.
  * @return Faded and hue-rotated pixel.
  * @details The feedback filter matches this function by address and calls

@@ -364,7 +364,9 @@ struct Volume {
    *        the shape from its own centre and rotation, the scanned cap grows
    *        to cover every column's centre, and the shape's own transform
    *        supplies only distances.
-   * @details Shape concept:
+   * @details Fragment age is not forwarded; plots carry age 0.
+   *
+   * Shape concept:
    *   std::pair<Vector, Vector> ray_to_local(const Vector &ro, const Vector
    *   &vd) const; Vector origin_to_local(const Vector &ro) const; float
    *   distance(const Vector &local_point) const;

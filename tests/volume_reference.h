@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 /** @file
- * @brief Independent volume-ray reference models.
+ * @brief Volume-ray reference models and regression probes.
  */
 #pragma once
 

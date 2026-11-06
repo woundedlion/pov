@@ -52,25 +52,7 @@ inline constexpr float PHI = 1.6180339887498948482045868343656f;
  * @brief The inverse of the Golden Ratio (1/Phi).
  */
 inline constexpr float INV_PHI = 1 / PHI;
-/**
- * @brief Named tolerances for floating-point geometry comparisons.
- *
- * The naming reflects what is being compared, not the magnitude:
- *
- *   TOLERANCE      — generic float compare
- *   EPS_GEOMETRIC  — geometric near-equality (positions, angles)
- *   EPS_LEN_SQ     — degenerate squared edge length
- *   EPS_ANTIPARALLEL_SQ — half-vector rotation's antiparallel crossover,
- *                      compared against |cross|^2
- *   EPS_CROSS_SQ   — degenerate cross-product magnitude (squared)
- *   EPS_NORMAL_SQ  — degenerate face normal (squared)
- *   EPS_NORMALIZE_SQ — squared length below which normalize() has no reliable
- *                      direction
- *   EPS_BLEND_LEN_SQ — squared length below which a direction blend has
- *                      cancelled and carries no direction
- *   EPS_UNIT_QUAT_SQ — generous |q|^2 is-unit assertion slack
- *   EPS_UNIT_VEC_SQ  — generous |v|^2 is-unit assertion slack
- */
+/** @brief Generic floating-point comparison tolerance. */
 inline constexpr float TOLERANCE = 1e-4f;
 /// Geometric near-equality (positions, angles).
 inline constexpr float EPS_GEOMETRIC = 1e-5f;

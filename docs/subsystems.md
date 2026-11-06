@@ -894,7 +894,7 @@ animations. GnomonicStars spawns one pinned warp per effect initialization.
 `Orientation<CAP>` stores a history of up to `CAP` quaternions (default 4) accumulated during one frame step. The template parameter is the history *capacity*, not the display width — the `Filter::World::Orient` and `Filter::World::OrientSlice` filters use `Orientation<>`, never `Orientation<288>`. Index 0 is the previous frame's end pose and the last index the current pose; `sample(float t)` samples that sub-frame path at frame fraction `t` by slerping between the bracketing entries. The explicit-time rotation in `Filter::World::Orient` reads a `Spacetime::PoseTable`, the path's rotation matrices at every column time and the frame end, built once per frame in storage `init_storage()` takes from the persistent arena for the effect's canvas width. Ordinary plots use the current endpoint. Both routes preserve the `age` register. Edge clip culling uses the end pose with `sweep_arc()` padding; still-raster sample spacing visits the history poses independently.
 
 ```cpp
-timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * PI_F, 600, ease_linear, {.repeat = true}));
+timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * math::PI_F, 600, math::ease_linear, {.repeat = true}));
 // orientation.length() upsamples to min(substeps + 1, CAP) when larger
 // Filter::World::Orient samples the steps at each point's capture time
 ```
@@ -918,8 +918,8 @@ Two traversal helpers linearize multi-level orientation history into a single ca
 | Function | Input | Description |
 |---|---|---|
 | `tween(orientation, callback)` | `Orientation<CAP>` | Iterates over the sub-frame quaternion history of a single orientation, calling `callback(quaternion, t)` for each step with `t ∈ (0, 1]`. Sub-frame 0 is the pose carried over from the previous frame's end and is skipped unless it is the only snapshot (which reads `t = 1`, age-neutral). |
-| `deep_tween(trail, callback)` | `OrientationTrail` (any `Tweenable`) | Flattens a trail of orientations into a single continuous traversal, calling `callback(quaternion, t)` with a global `t` spanning all frames and sub-frames. Used by the orientation-trail effects (Comets, Fishbowl) for rendering trails with full sub-frame accuracy. A bare `Orientation` has no per-frame structure to flatten and is rejected by the `Tweenable` concept — use `tween` for that. |
-| `deep_tween_frames(trail, callback)` | `OrientationTrail` (any `Tweenable`) | One callback per contributing trail frame, `callback(qs, ts, count)`; concatenated `(qs, ts)` follows `deep_tween` emission order. `qs` points into frame storage and `ts` into a buffer reused across callbacks; neither pointer outlives the call. RingSpin preserves frame boundaries with this traversal. |
+| `deep_tween(trail, callback)` | `OrientationTrail` (any `Tweenable`) | Flattens a trail of orientations into a single continuous traversal, calling `callback(quaternion, t)`, optionally prefixed by `(record_index, sub_index)`, with a global `t` spanning all frames and sub-frames. Used by the orientation-trail effects (Comets) for rendering trails with full sub-frame accuracy. A bare `Orientation` has no per-frame structure to flatten and is rejected by the `Tweenable` concept — use `tween` for that. |
+| `deep_tween_frames(trail, callback)` | `OrientationTrail` (any `Tweenable`) | One callback per contributing trail frame, `callback(qs, ts, count)`, optionally prefixed by `(record_index, first_sub_index)`; concatenated `(qs, ts)` follows `deep_tween` emission order. `qs` points into frame storage and `ts` into a buffer reused across callbacks; neither pointer outlives the call. Fishbowl and RingSpin preserve frame boundaries with this traversal. |
 
 ### Animations and Mutable State
 
@@ -943,7 +943,7 @@ Effects can declare *what state exists* (orientations, floats, palettes) and sch
 
 ```cpp
 // Effect declares mutable state:
-Orientation<> orientation;   // CAP is the sub-frame capacity, not the display width
+math::Orientation<> orientation;   // CAP is the sub-frame capacity, not the display width
 float twist = 0.0f;
 GenerativePalette palette;
 GenerativePalette target_palette;
@@ -951,9 +951,9 @@ const GenerativePalette::Snapshot palette_start = palette.snapshot();
 const GenerativePalette::Snapshot palette_target = target_palette.snapshot();
 
 // Timeline drives state via animations:
-timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * PI_F, 600, ease_linear, {.repeat = true}));
-timeline.add(0, Animation::Transition(twist, 2.5f, 1000, ease_in_out_cubic));
-timeline.add(0, Animation::ColorWipe(palette, palette_start, palette_target, 2000, ease_linear));
+timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * math::PI_F, 600, math::ease_linear, {.repeat = true}));
+timeline.add(0, Animation::Transition(twist, 2.5f, 1000, math::ease_in_out_cubic));
+timeline.add(0, Animation::ColorWipe(palette, palette_start, palette_target, 2000, math::ease_linear));
 
 // Rendering reads state — no manual updates needed:
 void draw_frame() {
@@ -996,7 +996,7 @@ Available transformers:
 
 | Transformer | Effect |
 |---|---|
-| `RippleTransformer` | Expands Ricker wavelets from a point, bending the sphere surface radially. Uses fast-reject dot-product heuristic — ~90-95% of vertices skip the `fast_acos` path. |
+| `RippleTransformer` | Expands Ricker wavelets from a point, bending the sphere surface radially. A dot-product band test skips `fast_acos` outside the wavelet's support. |
 | `MobiusWarpTransformer` | Applies and releases a Möbius transformation |
 | `MobiusWarpCircularTransformer` | Loops a Möbius warp continuously |
 | `MobiusWarpGnomonicTransformer` | Möbius via gnomonic projection (preserves straight lines in hemisphere) |
@@ -1020,7 +1020,7 @@ Both classes derive from `TransformerPool`, which fixes the call order:
 1. `init_storage(Arena&)` — from the effect's `init()`, after any `configure_arenas()` and before the first spawn. It also claims one of the shared `Timeline`'s `MAX_CLEAR_HOOKS` (4) clear-hook slots, and each `ChoreographedEffect` claims one hook, so a choreographed effect fits at most three pools; exhausting the hook table traps at registration.
 2. `spawn(in_frames, args...)` — the returned pointer is transient; use it at the call site, not across frames. The animation must be finite and non-repeating; anything else traps (use `spawn_pinned()`).
 3. `spawn_pausable(paused, in_frames, args...)` — same as `spawn()`, but the whole timeline event, start delay included, freezes while `*paused` is set, the way `Timeline::add_pausable` does. It is the only pool entry point that honours a GUI pause — `spawn()` animates straight through one — and the flag must outlive the event.
-4. `spawn_pinned(in_frames, args...)` — same as `spawn()`, but the pointer may be retained (e.g. registered as a live GUI param). Valid only for an animation that never completes on its own — infinite, or repeating (it rewinds rather than reaching `done()`) — and is added before any finite, non-repeating timeline event, so compaction cannot shift it.
+4. `spawn_pinned(in_frames, args...)` — same as `spawn()`, but the pointer may be retained (e.g. registered as a live GUI param). Valid only for an animation that never completes on its own — infinite, or repeating (it rewinds at each `done()` instead of completing) — and is added before any finite, non-repeating timeline event, so compaction cannot shift it.
 5. `prepare_frame()` — each frame before `transform()` / `field()`, whenever active params changed through animation or live config. The composition reads that prepared state but cannot verify it is current. Its per-entity hooks (`refresh_from(const ParamsT&)` for live config, `sync()` for derived state) are found by detection, so every `ParamsT` must declare one bool per hook (or supply them through a `transformer_detail::ExternalParamsHooks<ParamsT>` specialization) — `static constexpr bool NEEDS_REFRESH_FROM` and `static constexpr bool NEEDS_SYNC` — each true only when that hook is carried. Either mismatch is its own `static_assert`, which is what turns a renamed or signature-drifted hook into a compile error instead of a silently unrefreshed entity.
 6. `reclaim_storage(Arena&)` — from the after-reset callback of an arena that is compacted mid-effect (e.g. a mesh carousel). Spawned animations hold `Params` references into the slots, so the caller must replay the same allocation order after the reset as after `init_storage()`; the re-claimed blocks must land at their original addresses (asserted). A reset only rewinds the offset, so the untouched bytes carry live entities through.
 

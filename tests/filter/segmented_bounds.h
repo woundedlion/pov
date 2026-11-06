@@ -9,8 +9,6 @@
 
 /**
  * @brief The base Effect::needs_full_frame() defaults to false.
- * @details Effects whose filter pipeline folds any_crosses_segments true force
- *          full-frame rendering.
  */
 inline void test_effect_needs_full_frame_default_false() {
   constexpr int W = 8, H = 8;

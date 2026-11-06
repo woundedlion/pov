@@ -285,8 +285,7 @@ struct PinchModifier {
    * modifier it needs Wrap=false. */
   static constexpr bool bounded_output = true;
 
-  const float
-      *tension; /**< Pinch tension driver; expects roughly -0.9 to 0.9. */
+  const float *tension; /**< Pinch tension driver; clamped to [-0.99, 0.99]. */
 
   /**
    * @brief Constructs with an optional tension driver.

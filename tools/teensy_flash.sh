@@ -1,5 +1,10 @@
 #!/bin/bash
 # Source after device_lock.sh; flash the board claimed by hs_device_acquire.
+# Env knobs:
+#   HS_UPLOAD_BACKEND=auto|headless|vendor selects the upload backend. Auto uses
+#     the installed pinned headless uploader, falling back to the vendor loader.
+#   HS_TYCMD=<path> selects the headless executable.
+# Install the pinned headless uploader with python tools/setup_teensy_uploader.py.
 
 _HS_FLASH_HELPER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/teensy_upload.py"
 

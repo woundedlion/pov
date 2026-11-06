@@ -136,8 +136,10 @@ struct DiffStats {
 
 /**
  * @brief Buckets the differing pixels of two captures.
- * @param a First frame and its flat fill palette.
- * @param b Second frame and its flat fill palette.
+ * @param a First frame.
+ * @param flat_a First frame's flat fill palette.
+ * @param b Second frame.
+ * @param flat_b Second frame's flat fill palette.
  * @param sentinel Newborn fill color of the second render, or nullptr.
  * @return Bucketed counts.
  */

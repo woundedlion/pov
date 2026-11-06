@@ -13,8 +13,6 @@
 
 /**
  * @brief Maximum horizontal resolution (width) for effects, from CANVAS_W.
- * @details Sizes the shared framebuffers (Effect::buffer_a/buffer_b) and bounds
- *          the Effect constructor.
  */
 inline constexpr int MAX_W = CANVAS_W;
 

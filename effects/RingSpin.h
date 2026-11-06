@@ -116,8 +116,6 @@ public:
         math::Vector previous[SUB_CAP];
         int slots = 0;
         const float pixel_w = math::coarse_pixel_pitch<W, H>();
-        // Whole-slot rasterization cut, deliberately above the per-sample
-        // MIN_ENCODABLE_ALPHA floor to skip faint ring raster passes.
         constexpr float MIN_SLOT_ALPHA = 0.001f;
         for (int j = 0; j < count; ++j) {
           float t = ts[j];

@@ -204,9 +204,7 @@ private:
    *          thrusters.
    */
   HS_COLD_MEMBER void on_fire_thruster() {
-    // The whole warp state is read before the fire mutates any of it, so the
-    // thrust points sit on the ring as it is currently displayed rather than on
-    // this fire's about-to-start 0.7 warp.
+    // read the warp state before the fire mutates it
     const float phase = warp_phase;
     const float amp = amplitude;
     const int frame = t_global;
@@ -218,8 +216,6 @@ private:
       return ring_fn(t, phase, amp, frame);
     };
     math::Basis basis = math::make_basis(math::Quaternion(), ring_vec);
-    // Use params.radius (matching the visible ring) so the thrust pairs and the
-    // derived spin axis track the ring under the Radius slider.
     math::Vector thrust_point =
         Plot::DistortedRing::fn_point(r_fn, basis, params.radius, phase);
     math::Vector thrust_opp = Plot::DistortedRing::fn_point(

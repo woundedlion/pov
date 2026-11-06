@@ -61,7 +61,8 @@ template <int W, int H> struct PolarWalk {
   /** @brief Intersects a planar segment with a diameter.
    * @param a,b Segment endpoints.
    * @param dx,dy Unit diameter direction.
-   * @param s Receives the segment fraction.
+   * @param s Receives the fraction along the segment's infinite line, including
+   *        outside [0, 1); untouched for a parallel segment.
    * @return Whether the half-open segment crosses the diameter. */
   HS_HOT_INLINE static bool crossing(math::PixelCoords a, math::PixelCoords b,
                                      float dx, float dy, float &s) {

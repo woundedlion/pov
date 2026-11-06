@@ -57,7 +57,6 @@ inline void test_point_draws_the_analytic_cap() {
     }
     fx.advance_display();
 
-    // make_basis can reorient, so the cap centre is read back from the basis.
     const math::Basis basis = math::make_basis(math::Quaternion(), axis);
     size_t lit = 0, covered = 0;
     float worst_value_error = 0.0f;

@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Contracts for callable wrappers, Tweenable history, and DissolveMask partitions.
+ * Contracts for core callable, render-handle and history types.
  */
 #pragma once
 

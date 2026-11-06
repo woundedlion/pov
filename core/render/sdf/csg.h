@@ -829,8 +829,7 @@ template <typename Shape> struct AngularRepeat {
     const float pad = 1.0f + ANGULAR_REPEAT_FOLD_SLOP * static_cast<float>(W) /
                                  math::TWO_PI_F;
     for (size_t i = 0; i < child.size(); ++i)
-      // Copies of a span this wide abut, covering every column anyway, and a
-      // padded span at least a sector long would break the len <= W contract.
+      // Copies of a span this wide abut, covering every column anyway.
       if (child[i].end - child[i].start + 2.0f * pad >= step)
         return false;
 

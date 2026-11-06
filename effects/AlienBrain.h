@@ -95,7 +95,6 @@ public:
   /// Snapshot schema version; changes with the `Params` layout.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
 
-  // Hot entry trampoline.
   /**
    * @brief Shades one view direction through `RenderPipeline`.
    * @param view Unit view direction.

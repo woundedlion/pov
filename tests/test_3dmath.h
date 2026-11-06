@@ -1136,10 +1136,6 @@ inline void test_rotation_matrix_matches_rotate() {
   }
 }
 
-// ============================================================================
-// slerp
-// ============================================================================
-
 /** @brief Verifies relative rotations map between world orientations. */
 inline void test_rotation_between_orientations() {
   const math::RotationMatrix from(
@@ -1154,6 +1150,10 @@ inline void test_rotation_between_orientations() {
                   from.apply(value), 3e-6f);
   }
 }
+
+// ============================================================================
+// slerp
+// ============================================================================
 
 /**
  * @brief Verifies Vector slerp: endpoints, the unit-sphere midpoint, the

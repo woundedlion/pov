@@ -397,8 +397,8 @@ __attribute__((always_inline)) void build_y_walk(FaceScratchBuffer &scratch) {
    * @param canon_xy Canonical centered 2D polygon, x/y pairs.
    * @param vert_offset Cyclic offset aligning mesh vertex order to canonical.
    * @param reflected True for the mirror family.
-   * @return False when the correlation is degenerate (badly deformed face);
-   *         the face then keeps the exact path.
+   * @return False when the correlation is degenerate or a vertex deviates past
+   *         ALIGN_MAX_DEV_DIAGS; the face then keeps the exact path.
    * @details One complex correlation over the vertices recovers the in-plane
    * rotation placing the canonical shape at the face's least-squares pose.
    * Rotational-symmetry ambiguity is harmless (the LUT is invariant under the

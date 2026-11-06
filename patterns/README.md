@@ -26,8 +26,9 @@ Version 2 documents encode the descriptor as an ordered chain of
 `{label, operator}` entries validated against the operator catalog. Labels and
 chain order are canonical and digest-bearing, structural variation is an
 operator id or a topology enum8 parameter, and every parameter id binds
-`<label>.<field>` against the catalog's operator schema. Only the current
-document schema and current operator identities are accepted.
+`<label>.<field>` against the catalog's operator schema. The compiler accepts
+the current document schema and operator identities, plus legacy four-value
+`*.coverage-mode` domains migrated to the current domain before validation.
 
 The descriptor is a semantic identity over the chain, not a complete
 reproduction of the effect. It describes `chain`, `parameters`,
@@ -67,18 +68,20 @@ The engine installs promoted pattern documents (every `source_documents` entry;
 `daydream/generated/shader/patterns/`. The catalog is a manifest:
 `source_documents` maps each current effect identity to its authoring document,
 and `product_group` carries its gallery grouping. The shader compiler accepts
-current documents only. `scripts/shader_workbench.test.mjs` gates membership:
+current documents after that coverage-domain migration. `scripts/shader_workbench.test.mjs` gates membership:
 every document backing an effect appears in `source_documents`.
 
 A promoted document is also applied to its compiled effect by control name, one
 writable parameter at a time, so every writable parameter id must resolve to a
-control that effect registers. Chain labels are the vocabulary that resolution runs on — `camera`,
-`lens`, `surface`, `project`, `warp1`/`warp2`, `sample`, `transfer`, `cutout`,
+control that effect registers, subject to the exemptions below. Chain labels are the vocabulary that resolution runs on — `camera`,
+`lens`, `surface`, `project`, `affine`, `warp1`/`warp2`, `sample`, `transfer`, `cutout`,
 `colorize`, and `modulation` or `displacement` for the color-modulation stage. Generated documents use these labels; hand-authored documents may use different labels, which the workbench resolves by operator. `scripts/wasm_smoke.mjs` resolves writable promoted ids against
 the running module's registered controls. Fixed topology fields and
 `camera.spin-speed`, which `AshCloud` holds as a compile-time constant, are exempt.
 Derived values are also exempt when the compiled controls used to derive them
 match the document.
+Affine parts a composed stage compiles out register no control and must stay
+inert: rates and offsets at zero, scales at identity, other fields finite.
 
 `kaleidoscope_melt.shader.json` is the editable source for the `KaleidoscopeMelt`
 effect. Its single preset combines a dodecahedral kaleidoscope lens, sphere-space

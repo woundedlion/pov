@@ -42,7 +42,7 @@ static_assert(
     std::is_same_v<Buf::value_type,
                    std::iterator_traits<Buf::const_iterator>::value_type>);
 
-// Container: default/copy construction, equality, swap, and a forward range whose
+// Container: default/copy construction, equality, swap, and a random-access range whose
 // iterator converts to const_iterator.
 static_assert(std::default_initializable<Buf>);
 static_assert(std::copyable<Buf>);
@@ -55,7 +55,7 @@ static_assert(std::ranges::random_access_range<Buf>);
 static_assert(std::ranges::random_access_range<const Buf>);
 static_assert(std::ranges::sized_range<Buf>);
 
-// ReversibleContainer: the reverse iterators are themselves bidirectional.
+// ReversibleContainer: the reverse iterators are themselves random-access.
 static_assert(std::is_same_v<Buf::reverse_iterator,
                              std::reverse_iterator<Buf::iterator>>);
 static_assert(std::is_same_v<Buf::const_reverse_iterator,

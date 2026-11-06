@@ -48,7 +48,7 @@ explicitly select rev 1.1. Before building for rev 1.2, change the selected envi
 builds must declare the same flag. Rev 1.2 keeps D3 as an input with hysteresis on every
 board, parks D4 LOW before enabling the master, and transmits master pulses on D4.
 The committed routed fabrication artifacts remain rev 1.1; see
-[the hardware revision notes](../../hardware/phantasm/1.1/README.md#revision-12).
+[the hardware revision notes](../../hardware/phantasm/README.md#revision-12).
 
 **Status: SPECIFIED; the routed board is committed, with two recorded deviations.** The
 schematic and layout this document specifies ship in `hardware/phantasm/` and pass the gates

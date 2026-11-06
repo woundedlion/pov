@@ -53,7 +53,7 @@ struct SurfaceMotionCase {
 };
 
 /** @brief Dense star state used by the surface oracles.
- * @return P1 geometry and brightness. */
+ * @return P1 geometry at a fixture brightness. */
 inline OracleState surface_state() {
   OracleState state;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;

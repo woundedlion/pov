@@ -627,8 +627,6 @@ private:
    */
   static pov::sync::SyncBoard sync;
   static IntervalTimer timer; /**< Flywheel wake-up timer (PIT channel).   */
-  /** @brief Roster of effect constructors (HS_PHANTASM_EFFECT_LIST order). */
-
   /**
    * @brief Effect handoff state machine between the foreground and the ISR.
    * @details The foreground constructs and deletes; the ISR only dereferences

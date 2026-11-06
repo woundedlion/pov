@@ -6,7 +6,8 @@ build file literally. INLINE_PINS cannot be injected, so --check asserts every
 spelling in INLINE_SCAN agrees; pip versions come from requirements/*.in.
 SHARED_LITERALS are strings build files that cannot read one another must spell
 identically. ENGINE_RANGES name a manifest floor the pin must satisfy. --check
-also asserts every file CMakeLists.txt installs into daydream has an eol=lf pin.
+also asserts every file CMakeLists.txt installs into daydream has an eol=lf pin,
+requires authority files to retain their named pin spellings, and checks FlexRAM geometry.
 """
 
 from __future__ import annotations
@@ -327,6 +328,7 @@ def read_scanned(path: Path, errors: list[str]) -> str | None:
         return None
 
 
+# Files that must keep a spelling of the named pin.
 INLINE_AUTHORITIES = {
     'cmake': ('requirements/cmake.in', 'requirements/cmake.txt'),
     'actionlint': (
@@ -387,6 +389,7 @@ INLINE_AUTHORITIES = {
 }
 
 
+# Files that must keep a spelling of the named pin.
 LITERAL_AUTHORITIES = {
     'whitespace-rules': (
         'tools/commit_checks.sh',
@@ -422,6 +425,7 @@ LITERAL_AUTHORITIES = {
 
 
 def check_authorities(path, text, uses, authorities, errors):
+    """Require each authority file to spell its named pin."""
     relative = path.relative_to(ROOT).as_posix()
     for name in {row[1] for row in uses}:
         if relative in authorities.get(name, ()) and not any(

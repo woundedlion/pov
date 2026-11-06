@@ -65,7 +65,7 @@ public:
   static constexpr Segue::Preset::Snap DEPARTURE{};
   /// Snapshot schema version; changes with the `Params` layout.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  /// Frames each preset holds before advancing.
+  /// Bookkeeping only; the single preset never advances.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 1;
   static constexpr float ALPHA_MIN = 0.0f, ALPHA_MAX = 1.0f;
   /** @var ALPHA_MIN

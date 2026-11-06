@@ -117,7 +117,7 @@ radial_chart_footprint(math::Vector p, math::Vector dx, math::Vector dy) {
 template <class Surface, bool COUNT = false, bool MASK = true,
           class Mask = RadialSurfaceCandidateMask<>>
 class RadialSurfaceArea {
-  RadialSurfaceEdgeAA<Surface> integrator; ///< Reusable edge-AA workspace.
+  RadialSurfaceEdgeAA<Surface> integrator; ///< Edge-AA integrator.
   const Surface &near;                     ///< Near hemisphere identity.
   const Mask &near_mask;                   ///< Near hemisphere candidates.
   const Mask &far_mask;                    ///< Far hemisphere candidates.
@@ -195,7 +195,7 @@ public:
  * @tparam Shade First-arrival color callable.
  * @param canvas Destination.
  * @param near,far Families centered at the two chart poles.
- * @param area Reusable area workspace.
+ * @param area Pixel integrator.
  * @param basis Frame-end chart basis.
  * @param columns Exact column-time pullback, or empty for a frozen frame.
  * @param prepare Prepares both families for an absolute first-arm column.

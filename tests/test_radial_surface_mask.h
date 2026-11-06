@@ -156,7 +156,7 @@ inline void test_radial_surface_mask_motion() {
   std::printf("  temporal mask: probes=%u misses=%u\n", probes, misses);
 }
 
-/** @brief Candidate filtering preserves the reviewed two-color sampler. */
+/** @brief Candidate filtering preserves two-color area samples. */
 inline void test_radial_surface_candidate_parity() {
   using Surface = Scan::RadialSurface<24, 7>;
   using Mask = Scan::RadialSurfaceCandidateMask<64, 16>;
@@ -350,7 +350,7 @@ inline void test_radial_surface_area() {
   HS_EXPECT_EQ(hemispheres, 2u);
 }
 
-/** @brief Compares conservative masks at two arena sizes. */
+/** @brief Checks conservative interval masks and temporal candidate parity. */
 inline void test_radial_surface_mask() {
   check_radial_surface_mask<64, 32>(.035f);
   check_radial_surface_mask<64, 32>(.02425f);

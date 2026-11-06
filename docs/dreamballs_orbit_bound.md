@@ -36,14 +36,14 @@ plane perpendicular to `p` gives `|p'| <= r |g'| / N`, so
 Differentiating the normalization twice gives
 
 ```text
-p'' = q''/N - (2 r² h q' + r² k q)/N³ + 3 r4 h² q/N5.
+p'' = q''/N - (2 r² h q' + r² k q)/N³ + 3 r⁴ h² q/N⁵.
 ```
 
 Consequently,
 
 ```text
 |p''| <= r |g''|/N + 2 r³ |h| |g'|/N³
-         + r² |k|/N² + 3 r4 h²/N4.
+         + r² |k|/N² + 3 r⁴ h²/N⁴.
 ```
 
 Set `a = r/N` and `A = a/rho`. For `r <= 1`, the preceding norm bound

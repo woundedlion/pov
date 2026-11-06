@@ -104,8 +104,6 @@ public:
     float sample(const math::Vector &p) const {
       math::Vector local = orientation_conj.apply(p);
 
-      // The local frame varies across a screen row, so no part of the
-      // harmonic can be hoisted to a per-row precompute.
       float val = SHMath::spherical_harmonic(l1, m1, local, normalization_1);
       if (blend > 0.001f) {
         float val2 = SHMath::spherical_harmonic(l2, m2, local, normalization_2);

@@ -62,7 +62,7 @@ struct AnalyticModulationProbe
   }
 };
 
-/** @brief Direct modulation parameters reject enabled baked-cube recipes. */
+/** @brief Direct modulation parameters reject baked-cube recipes. */
 inline void test_composed_analytic_modulation_admission() {
   AnalyticModulationProbe::Params params{};
   auto &config = params.template get<"modulation">().modulation;

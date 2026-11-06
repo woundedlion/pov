@@ -9,8 +9,6 @@
 
 /**
  * @brief Death case: calling an empty (default-constructed) Fn must trap.
- * @details Host/WASM only: the device Fn backend returns a zero-initialized R
- *          instead of trapping.
  */
 inline void case_empty_fn_call() {
   Fn<int(int), 16> f;
@@ -25,7 +23,7 @@ inline void case_empty_fn_call() {
  * @brief Death case: invoking an empty FunctionRef must trap.
  * @details Concepts surface — the empty state's thunk diverges through
  *          function_ref_empty_call rather than calling through a null
- *          context. Unlike the Fn trap, this one ships to the device.
+ *          context.
  */
 inline void case_empty_function_ref_call() {
   FunctionRef<int(int)> f;

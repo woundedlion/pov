@@ -961,8 +961,7 @@ inline void check_document_values(const char *name) {
       HS_EXPECT_TRUE(expected != nullptr && operator_id->text == expected);
     }
     if (slot.role == SlotRole::WARP) {
-      // The v1 expansion keeps the warp's slot position in its label even
-      // when the other slot's identity op is omitted from the chain.
+      // Labels warp1 and warp2 retain their slot when the other slot is absent.
       if (slot.label == "warp1")
         slot.warp_side = 0;
       else if (slot.label == "warp2")

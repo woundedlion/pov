@@ -11,8 +11,9 @@
  *
  * Architecture (spec §3): every board derives its column position from a
  * free-running hardware cycle counter (`x = f(now - epoch)`), so masked-IRQ
- * windows skip columns but do not accumulate phase drift. The master emits count-coded symbol bursts on the one wire — 2/revolution
- * boundary marks, an epoch train (primary + epoch_repeats copies) once per
+ * windows skip columns but do not accumulate phase drift. The master emits
+ * count-coded symbol bursts on the one wire — 2/revolution boundary marks,
+ * an epoch train (primary + epoch_repeats copies) once per
  * effect, and a quarter-revolution (x ≈ W/4) data beacon on beacon revolutions —
  * and downstream boards snap their flywheel phase to them. Three layers ride
  * the same timebase:

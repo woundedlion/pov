@@ -14,17 +14,14 @@
 namespace math {
 /**
  * @brief Unit vector along the Cartesian X-axis.
- * @return (1, 0, 0).
  */
 inline constexpr Vector X_AXIS(1, 0, 0);
 /**
  * @brief Unit vector along the Cartesian Y-axis.
- * @return (0, 1, 0).
  */
 inline constexpr Vector Y_AXIS(0, 1, 0);
 /**
  * @brief Unit vector along the Cartesian Z-axis.
- * @return (0, 0, 1).
  */
 inline constexpr Vector Z_AXIS(0, 0, 1);
 /**

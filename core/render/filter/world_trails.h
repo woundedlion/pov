@@ -215,8 +215,8 @@ private:
    * @param v Source point.
    * @param age Incoming age in frames. */
   void record(const math::Vector &v, float age) {
-    // round, not truncate (ttl is an integer byte)
     ++recorded_samples;
+    // round, not truncate (ttl is an integer byte)
     int ttl = lifetime - static_cast<int>(age + 0.5f);
     if (ttl > 0) {
       HS_CHECK(items, "World::Trails::plot: storage missing");

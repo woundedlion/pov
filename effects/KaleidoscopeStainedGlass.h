@@ -95,7 +95,6 @@ public:
   /// Params layout version; snapshots tagged with another are rejected.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
 
-  // Hot entry trampoline.
   /**
    * @brief Shades one pixel through the render pipeline.
    * @param view Unit view direction for the pixel.

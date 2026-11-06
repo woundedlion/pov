@@ -14,7 +14,7 @@ against the ordered-package baseline fab-SHA256SUMS.txt beside the board once
 it is recorded. Until then --verify reports the missing baseline. It runs no
 KiCad; gen/out/ is gitignored.
 
-The CLI exports only the committed, hand-routed rev 1.1 board and holds
+The CLI exports only the committed, routed rev 1.1 board and holds
 gen/out/.fab.lock until it finishes; a second CLI run refuses while it
 exists. A lock left by a killed run must be removed by hand.
 

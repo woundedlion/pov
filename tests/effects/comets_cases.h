@@ -197,7 +197,7 @@ inline void test_comets_wipe_shades_at_column_time() {
 
 /**
  * @brief During a wipe the drawn LUT is the one the previous frame scanned;
- *        the arming frame and frames without a wipe hold the palette.
+ *        the arming frame holds the palette.
  */
 inline void test_comets_wipe_history() {
   using WB = CometsWhiteBox;
@@ -243,7 +243,7 @@ inline bool palette_snapshots_equal(const GenerativePalette::Snapshot &a,
 /**
  * @brief Pins Comets' mid-wipe rollover skip.
  * @details A rollover while a ColorWipe is animating is dropped, since the
- *          live ColorWipe holds references to palette_start/palette_target. A
+ *          live ColorWipe holds references to wipe.start/wipe.target. A
  *          rollover arms again once the wipe drains.
  */
 inline void test_comets_rollover_skipped_mid_wipe() {

@@ -13,7 +13,7 @@
 
 /** @brief Palette source selected by authored color stages. */
 enum class AuthoredPaletteType : uint8_t {
-  CYCLING_GENERATED, ///< Animated legacy harmony bank.
+  CYCLING_GENERATED, ///< Animated generated harmony cycle.
   GENERATED,         ///< Authored perceptual palette.
   PROCEDURAL,        ///< Named cosine palette.
   GRADIENT,          ///< Three-stop perceptual gradient.

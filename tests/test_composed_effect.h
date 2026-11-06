@@ -513,9 +513,6 @@ inline void check_authored_slider_registration(const FX &effect) {
   HS_EXPECT_EQ(params.size(), expected);
 }
 
-/** @brief Pins the registered controls of one specialization.
- * @tparam E Composed effect template.
- * @param name Effect name. */
 /** @brief Requires exactly the listed registered sliders. */
 inline void expect_exact_sliders(const ParamList &params,
                                  std::span<const char *const> expected,
@@ -544,6 +541,9 @@ inline constexpr const char *POTENTIAL_TERM_SLIDERS[] = {
     "displace.term-4-amplitude", "displace.term-4-phase",
 };
 
+/** @brief Pins the registered controls of one specialization.
+ * @tparam E Composed effect template.
+ * @param name Effect name. */
 template <template <int, int> class E>
 inline void check_slider_registration(const char *name) {
   using FX = E<SMALL_W, SMALL_H>;

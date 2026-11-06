@@ -566,8 +566,6 @@ protected:
     const uint8_t *prev_pal;
     if (!build_from_pal) {
       // The build's first leg departs the carousel seed slot's spawn colours.
-      // Keyed on build_from_pal (null per build), not build_step == 0, which a
-      // smooth kis/needle macro's later sub-legs can still sit on.
       HS_CHECK(prev_faces <= host().carousel.current().topology.size(),
                "RecipeBuild: spawn palette does not cover the leg seed");
       prev_pal = host().slot_face_palette[host().carousel.front_index()];

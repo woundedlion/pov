@@ -19,10 +19,10 @@ struct RippleBand {
   float step;          ///< The ripple's step arc.
 
   /**
-     * @brief Whether a model vertex stands in the band.
-     * @param v The vertex.
-     * @return True between the band's edges.
-     */
+   * @brief Whether a model vertex stands in the band.
+   * @param v The vertex.
+   * @return True between the band's edges.
+   */
   HS_HOT_INLINE bool holds(const math::Vector &v) const {
     const float c = math::dot(v, center);
     return c <= cos_near && c >= cos_far;
@@ -30,15 +30,15 @@ struct RippleBand {
 };
 
 /**
-   * @brief The bands about the active ripples that step this frame, one per
-   *        end of each step, in pairs.
-   * @tparam Pool Active ripple pool.
-   * @param pool Pool exposing active_count() and active_params().
-   * @param leg_arc The model's largest motion (radians).
-   * @param arena Arena receiving the bands, for the caller's scope.
-   * @param count Receives the number of bands.
-   * @return The bands.
-   */
+ * @brief The bands about the active ripples that step this frame, one per
+ *        end of each step, in pairs.
+ * @tparam Pool Active ripple pool.
+ * @param pool Pool exposing active_count() and active_params().
+ * @param leg_arc The model's largest motion (radians).
+ * @param arena Arena receiving the bands, for the caller's scope.
+ * @param count Receives the number of bands.
+ * @return The bands.
+ */
 template <typename Pool>
 HS_FLASH_MEMBER RippleBand *ripple_bands(const Pool &pool, float leg_arc,
                                          Arena &arena, int &count) {
@@ -59,7 +59,7 @@ HS_FLASH_MEMBER RippleBand *ripple_bands(const Pool &pool, float leg_arc,
 }
 
 /** @brief One ripple's frame constants and mutable capture sample.
-   * @tparam Counters Optional test capture counters, or void. */
+ * @tparam Counters Optional test capture counters, or void. */
 template <typename Counters = void> struct MotionRipple {
   Animation::RippleParams params; ///< Sample parameters and previous endpoint.
   float phase_delta = 0.0f;       ///< Phase change over the frame.
@@ -83,9 +83,9 @@ template <typename Counters = void> struct MotionRipple {
   }
 
   /** @brief Applies the wave at a frame fraction after its band test.
-     * @param v Vertex after preceding ripples.
-     * @param u Capture fraction.
-     * @return Displaced vertex. */
+   * @param v Vertex after preceding ripples.
+   * @param u Capture fraction.
+   * @return Displaced vertex. */
   HS_HOT_INLINE math::Vector transform(const math::Vector &v, float u) {
 #if HS_ENABLE_TEST_HOOKS
     if constexpr (!std::is_void_v<Counters>)

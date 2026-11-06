@@ -26,12 +26,12 @@ struct Config {
   int segments; /**< N: segment count (power of two <= 8). */
 };
 
-// Configurations swept by daydream's tests/segment_crosscheck.test.js.
+// Segment configurations the golden records.
 constexpr Config CONFIGS[] = {
     {288, 2}, {288, 4}, {288, 8}, {8, 4}, {8, 8},
 };
 
-// Canvas widths the cross-check pairs with those configs.
+// Canvas widths each configuration records.
 constexpr int WIDTHS[] = {8, 96, 288};
 
 constexpr int CONFIG_COUNT = static_cast<int>(std::size(CONFIGS));

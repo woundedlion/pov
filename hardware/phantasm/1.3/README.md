@@ -161,6 +161,11 @@ At 3.6 V, a conservative normal DC load estimate is
 Budget **0.25 A for the complete logic card** until measured. Shorted-bus current
 and regulator thermal behavior need separate testing. The inherited 0.15 A
 input-drop calculation is insufficient for this master.
+At the inherited worst-case hot/post-trip series resistance,
+`4.75 V - 0.25 A × (0.75 + 0.20 + 0.12) Ω = 4.4825 V`, below U1's
+4.5 V minimum before harness drop. At 0.25 A, J1 must supply at least
+4.77 V; at 4.75 V, the current must stay below about 0.234 A, with further
+margin for the harness. A lower-resistance PTC needs a separate component review.
 
 ## Board layout
 
@@ -168,6 +173,9 @@ Rev 1.3 retains the 58.28 x 32 mm outline and mounting-hole centers.
 The two four-position sync terminals need a different arrangement from
 rev 1.2's three-connector column. Review the generated fixed placements,
 terminal body keepouts, and hub-facing wire access before routing.
+J3A pins 1–4 and J3B pins 1–2 face the Teensy PCB across a 1.47 mm gap.
+J3A.1 aligns with the D13 header pin and J3B.2 with D12; those pins occupy
+the straight insertion path even with a taller socket or prewiring.
 J3B pin 3 has a 1.9 mm slot between the Teensy and J2; pin 4 faces J2
 across a 4.9 mm gap. Trial-fit both pins with the intended wires and ferrules
 at mounted height. Prewiring before seating the Teensy or raising its socket

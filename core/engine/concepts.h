@@ -230,19 +230,16 @@ using TimedShaderFn =
     FunctionRef<void(const math::Vector &, Fragment &, float)>;
 /// Vertex shader: rewrites a fragment before projection.
 using VertexShaderRef = FunctionRef<void(Fragment &)>;
-// Deferred per-control-point shader: receives the (position-shaded) fragment's
-// shading registers and its original pre-shader position. It runs after
-// projection, so it cannot move the fragment.
-/// Deferred shader: (shading registers, pre-shader position).
+/// Deferred per-control-point shader: shading registers and original pre-shader
+/// position, invoked after projection so it cannot move the fragment.
 using DeferredShaderRef =
     FunctionRef<void(FragmentRegisters, const math::Vector &)>;
 /// Orientation history visitor: (orientation, t) with t in [0, 1].
 using TweenFn = FunctionRef<void(const math::Quaternion &, float)>;
 /// Position history visitor: (position, t) with t in [0, 1].
 using VectorTweenFn = FunctionRef<void(const math::Vector &, float)>;
-// Rasterizer's clip-cull predicate: does the (world-transformed) edge a-b, with
-// optional planar basis, intersect the clip band?
-/// Clip-cull predicate: (a, b, planar basis or null) intersects the clip band.
+/// Clip-cull predicate: whether world-transformed edge (a, b), with an optional
+/// planar basis, intersects the clip band.
 using CullEdgePredRef = FunctionRef<bool(
     const math::Vector &, const math::Vector &, const math::Basis *)>;
 

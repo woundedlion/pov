@@ -7,7 +7,7 @@ from the repository root.
 
 **Routed review candidate: rev 1.1 sync circuit.** Rev 1.2
 separates sync transmit from the filtered receive node; see
-[Revision 1.2](#revision-12). The routed candidate includes corrected drill
+[Revision 1.2](../README.md#revision-12). The routed candidate includes corrected drill
 spacing, thermal reliefs, an 8 V TVS, and J2 pin order **DATA / GND / CLK**.
 Its cable pinout differs from the earlier DATA / CLK / GND board; repin the
 harness before using this candidate. These edited files are not a record of
@@ -442,64 +442,7 @@ dimension within that width. Narrowing the width lengthens the board (less room 
 pack beside the Teensy). The committed routed dimensions are reported in the generated
 facts block above.
 
-## Revision 1.2
-
-Rev 1.2 selects **ENIG** copper finish; the shipped rev 1.1 board uses
-**Lead-Free HASL**. This is a revision-specific fabrication change.
-
-### Terminal-block clearance
-
-The generator uses **GCT TBC05-02-1-G-G** for J1 (board power) and
-**TBC05-03-1-G-G** for J2 (LED signals), J3A and J3B (sync). J4 is absent from rev 1.2.
-The [GCT mechanical drawing](https://www.farnell.com/cad/4513152.pdf) specifies
-2.54 mm pitch, 1.3 mm PCB holes, and bodies **5.48 × 6.5 mm** (two positions)
-or **8.02 × 6.5 mm** (three positions), 8.5 mm high.
-
-Each terminal footprint reserves its body plus 0.5 mm on every side with a
-front courtyard and a footprint-local component keepout. Traces, vias and
-copper pours remain allowed beneath the plastic body. The placed draft packs
-against the larger reservation; the unplaced output locks these connectors
-at `TERMINAL_EDGE_PLACEMENTS`. Recheck
-wire entry, screw access and rotor clearance after placement.
-
-The committed rev 1.1 boards still carry pin-header footprints. Matching pin
-pitch alone does not establish body or drill clearance for these terminals.
-J1 remains pin 1 = +5 V, pin 2 = GND; the terminal block is not polarized.
-
-### Sync circuit
-
-Every master and follower uses the same PCB, populated parts, and pin map.
-The ID straps select the role; `MASTER_EN` still gates both U1 channels C/D.
-
-| Signal | Connections | Master | Follower |
-|---|---|---|---|
-| `FRAME_SYNC` | Teensy D3, R1/R2 divider, C_SYNC 220 pF | Receive-only, echo ignored | Receive with pad hysteresis |
-| `SYNC_TX` | Teensy D4, U1 pin 9, R_TX 10 kΩ to GND | Sync pulse output | Output held LOW |
-| `MASTER_EN` | Teensy D5, U1 pins 10/13, R_MEN pull-up | LOW after TX initialization | HIGH |
-
-`R_TX` is populated on **every board**, including the master. It holds the AHCT
-input LOW during reset while the GPIO is high impedance. The receive RC no
-longer loads an AHCT input. `R_TX` uses the same 0603 10 kΩ catalog part as
-`R_MEN` (C25804).
-
-Rev 1.2 also closes rev 1.1's power-up feedback path. R_MEN pulls `/OE` to the
-Teensy's 3V3 rail, which can rise after U1's 5 V supply; it cannot guarantee a
-disabled driver throughout power-up. On rev 1.1 the briefly enabled receive-to-
-transmit path can re-drive SYNC_BUS. Rev 1.2's separate SYNC_TX input and R_TX
-hold its input LOW during that interval. This protection requires the revised
-copper and firmware described below; the generator alone does not retrofit it.
-
-**Firmware compatibility:** `HS_PHANTASM_BOARD_REV` comes from
-`[phantasm_common] board_revision` in `platformio.ini`, which defaults to `11`.
-Build rev 1.2 with `pio run -e phantasm_rev12`, or set `board_revision = 12`
-for all Phantasm environments. The rev 1.2 pin map transmits on D4, configures
-D3 as input with HYS, and initializes D4 LOW as an output on every board before
-enabling the master. Followers keep D4 LOW; only the master emits pulses.
-Regenerating the board does not change the firmware build flags or routed copper.
-
-Generating rev 1.2 requires regenerating the schematic before either PCB draft.
-The resulting PCB is unrouted and needs placement/routing validation before
-fabrication; changing its revision label alone does not convert rev 1.1 copper.
+Rev 1.2 hardware and firmware requirements are in the [current revision notes](../README.md#revision-12).
 
 ## Regenerating
 

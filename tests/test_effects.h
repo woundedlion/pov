@@ -136,17 +136,14 @@ inline int run_effects_tests() {
   run_effect_case_hankinsolids_seam_copies_are_one_polygon();
   run_effect_case_hankinsolids_morph_draws_carry_previous_vertices();
   run_effect_case_hankinsolids_morph_motion_is_seam_free();
-  // Both tiers: arena budgets.
   run_effect_case_fishbowl_scratch_estimate_covers_peak();
   run_effect_case_hankinsolids_arena_budget_covers_every_solid();
   run_effect_case_dreamballs_max_edge_solid_render();
-  // Both tiers: Raymarch geometry and presets.
   run_effect_case_raymarch_volume_random_walks_are_independent();
   run_effect_case_raymarch_preset_and_placement_solids();
   run_effect_case_raymarch_surface_frame_uv();
   run_effect_case_raymarch_lighting_and_palette_at_column_time();
   run_effect_case_raymarch_hue_noise_at_column_time();
-  // Resolution-independent white-box math.
   run_effect_case_gs_hot_flags_match_directed_graph();
   run_effect_case_gs_pigment_codec_layout();
   run_effect_case_gs_rest_state_is_fixed_point();
@@ -159,7 +156,6 @@ inline int run_effects_tests() {
   run_effect_case_raymarch_constexpr_sqrt_converges();
   run_effect_case_displacement_field_retained_history_resets();
   run_effect_case_dreamballs_retained_history_resets();
-  // Both tiers: additional white-box cases.
   run_effect_case_needs_full_frame_gate();
   run_effect_case_sh_field_blend_endpoints_and_frame();
   run_effect_case_sh_field_stays_inside_unit_range();

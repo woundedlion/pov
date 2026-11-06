@@ -1161,13 +1161,13 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
       for (size_t i = 0; i < V; ++i) {
         math::Vector force(0, 0, 0);
 
-        uint16_t start_out = orbit_start
-            [i]; // outgoing edge; HE_NONE when no incoming half-edge is paired
+        // Outgoing edge; HE_NONE when no incoming half-edge is paired.
+        uint16_t start_out = orbit_start[i];
         if (start_out != HE_NONE) {
           vertex_orbit<OrbitDir::PAIR_NEXT>(
               he_mesh, start_out, [&](uint16_t idx) {
-                int ni =
-                    he_mesh.half_edges[idx].vertex; // head == 1-ring neighbor
+                // Head is the 1-ring neighbor.
+                int ni = he_mesh.half_edges[idx].vertex;
                 math::Vector vec = out_mesh.vertices[ni] - out_mesh.vertices[i];
                 // Skip near-zero edges before 1/dist can spike the force.
                 float len_sq = math::dot(vec, vec);

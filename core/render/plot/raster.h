@@ -168,7 +168,8 @@ struct RasterConfig {
   RasterSamplingPolicy sampling_policy = RasterSamplingPolicy::DEFAULT;
   /** Marks a column-walk configuration; rasterize() rejects it. */
   bool timed = false;
-  /** Recompute deforming edge lengths at each column's time. */
+  /** Recompute deforming edge lengths at each column's time and fold meridians
+   *  by half a turn for exact antisymmetry. */
   bool column_edge_lengths = false;
 };
 

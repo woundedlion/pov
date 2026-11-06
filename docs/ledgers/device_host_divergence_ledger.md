@@ -48,14 +48,18 @@ exists; a red row is a real device-only path that no automated test currently re
 | 17 | **Modulation recipe admission** (`Pullback::Modulation::admitted` / `device_qualified`, `core/render/pullback/modulation.h`) | Under `ARDUINO`, admission also requires device qualification; the host accepts any otherwise valid recipe. | **Yes** — a simulator-admitted preset can trap during device initialization. | ❌ **No.** The qualification predicate is tested, but shipped preset recipes are not replayed under device admission. | Known preset-qualification coverage gap. |
 | 18 | **Full-resolution gamut-table storage** (`ComposedEffect::init` / `FOOTPRINT_BYTES`, `core/render/pullback/composed_runtime.h`) | Under `ARDUINO`, `CACHE_FULL_GAMUT_LUT` copies the full-resolution table into persistent arena storage (131,074 bytes). Host initialization omits the copy. | **No** — storage placement is image-neutral. | ⚪ **N/A.** Host arena tests omit this allocation; the device footprint static assertion includes it. | Compile-time footprint guard. |
 
+| 19 | **Quintic value barrier** (`quintic_kernel`, `core/math/3dmath.h`) | Under `CORE_TEENSY` and GCC, an empty assembly value barrier on the squared term prevents `-Os` from replacing the cube with `__powisf2`. Other builds evaluate the same polynomial without that barrier. | **Potentially** — floating-point rounding only; the guard controls code generation. | ❌ **No.** No device-value test compiles the barrier branch; the Teensy build reaches the code-generation guard. | Code-generation guard with at most a rounding fork. |
+| 20 | **Timeline animation storage budget** (`HS_TIMELINE_MAX_ANIM_BYTES`, `core/platform/build_features.h`, `core/animation/animation.h`) | Device slots hold 112 bytes, WASM slots 128 bytes and native slots 256 bytes. | **No** — compile-time capacity; concrete animation types must fit their target's slot. | ✅ **Yes.** The Teensy build checks `LARGEST_CONCRETE_ANIM_SIZE <= TimelineEvent::MAX_ANIM_SIZE` against the 112-byte budget. | Compile-time concrete-animation fit assertion. |
+
 Legend: ✅ reached by a device-value test · ❌ real device-only path with no device-value test
 · ⚪ no behavioral fork / divergent by design (nothing to cover).
 
 ## Standing risk
 
-**Five red rows:** row 17 is a shipped-preset qualification coverage gap; row 11 is a bug-path-only accepted risk; row 13 is a
+**Six red rows:** row 17 is a shipped-preset qualification coverage gap; row 11 is a bug-path-only accepted risk; row 13 is a
 read-before-write model gap; row 14 is a float-rounding-only evaluation-order fork;
-row 16 is an HSV color-conversion model gap. The default-initialization gap in
+row 16 is an HSV color-conversion model gap; row 19 is a quintic code-generation
+guard with at most floating-point rounding differences. The default-initialization gap in
 row 13 is also uncovered on device. Row 11 (`addmod8` zero modulus) fires only
 on a zero modulus, which no shipped call site passes; closing it means guarding
 inside FastLED's own header. Its device failure is a silent hang after a caller
@@ -65,9 +69,9 @@ violates the precondition.
 Row 1 (`beat88`) is not a breach: the `uint16_t` result extracts bits [16,31] of the phase product,
 which the device's mod-2³² wrap cannot change, so the 64-bit native build and the 32-bit
 device/wasm builds produce bit-identical phases.
-Every behavioral fork other than rows 9, 11, 13, 14, 16 and 17 either has device-value coverage (rows 3–4, 12 and 15), host model-level coverage with only a
+Every behavioral fork other than rows 11, 13, 14, 16, 17 and 19 either has device-value coverage (rows 3–4, 9, 12 and 15), host model-level coverage with only a
 device-only ISA-instruction tail (row 8), or is divergent by design / non-behavioral (rows 5–7,
-10 and 18). Row 2 is an explicit display profile with coverage for both caps.
+10, 18 and 20). Row 2 is an explicit display profile with coverage for both caps.
 
 ## Maintenance rule
 

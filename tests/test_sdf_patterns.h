@@ -395,7 +395,7 @@ inline float octet4_segment_reference(const math::Vec4 &p) {
   return best;
 }
 
-/** @brief Octet4 offset reference. */
+/** @brief Computes the nearest 4D octet edge offset. */
 template <bool Normalized = false>
 inline math::Vec4 octet4_offset_reference(const SDF::OctetFramework4 &geometry,
                                           const math::Vec4 &p,

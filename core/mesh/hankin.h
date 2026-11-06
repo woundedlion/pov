@@ -20,7 +20,7 @@
 
 /**
  * @brief One angle-dependent (dynamic) vertex's input topology, consumed by
- * update_hankin to position a star point.
+ * MeshOps::solve_hankin_vertices to position a star point.
  */
 struct HankinInstruction {
   uint16_t

@@ -83,7 +83,8 @@ HS_O3_BEGIN
  * angle θ = atan2(z, x).
  *
  * Produces twisted/undulating geometry when composed with a torus.
- * Provides an analytical Lipschitz bound for safe sphere tracing.
+ * Provides a Lipschitz correction for sphere tracing; see lipschitz() for its
+ * limit near the polar axis.
  */
 struct Twist {
   int twist;           /**< Number of oscillations around the ring. */
@@ -362,7 +363,7 @@ concept VolumeShape = requires(const T &s, const math::Vector &p) {
  *
  * Applies a Warp to the input domain of any 3D volume SDF, with:
  * - Bounding fast-path (skips warp trig when far from surface)
- * - Analytical Lipschitz correction for safe sphere tracing
+ * - Lipschitz correction for sphere tracing, subject to the warp's limits
  * - Normal correction via the warp's chain rule
  *
  * The base and warp satisfy VolumeShape and VolumeWarp. The TORUS_TWIST

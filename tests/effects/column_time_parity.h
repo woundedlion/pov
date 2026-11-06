@@ -182,8 +182,7 @@ inline void check_column_time_scans_engage(const char *name) {
 }
 
 /**
- * @brief Effects migrated to column-time scans draw differently with temporal
- *        sampling on.
+ * @brief Column-time scan effects draw differently with temporal sampling on.
  */
 inline void test_column_time_scans_engage_with_fidelity_on() {
   check_column_time_scans_engage<HankinSolids>("HankinSolids");

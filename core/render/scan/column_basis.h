@@ -373,8 +373,8 @@ template <int W>
 HS_HOT_INLINE bool lit_span(const math::Vector &axis, float radius, float sweep,
                             int &lo, int &hi) {
   constexpr float COLUMN = math::TWO_PI_F / W;
-  // Two columns of reach cover the AA fringe and the column rounding; the
-  // slack covers fast_atan2's and fast_acos's errors.
+  // Two columns cover the AA fringe, column rounding and fast_atan2's error;
+  // the slack covers fast_acos's error.
   const float reach = radius + sweep + 2.0f * COLUMN + SDF::MOVED_AXIS_SLACK;
   const float r_val = sqrtf(axis.x * axis.x + axis.z * axis.z);
   // reach < r_val <= 1 keeps the cap clear of both poles; asin(reach / r_val)

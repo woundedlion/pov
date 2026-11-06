@@ -241,7 +241,7 @@ Low-resolution-only (96×20) effects:
 
 ## Temporal sampling comparison
 
-[GridSpace matched A/B](shipping/profile_gridspace_teensy_2026-10-17.md) preserves the historical same-source temporal-on/off measurements cited by the rendering specification. Current shipping timing is in the canonical report above.
+[GridSpace matched A/B](shipping/profile_gridspace_teensy_2026-10-17.md) preserves the historical same-source temporal-on/off measurements. Current shipping timing is in the canonical report above.
 
 ## Palette-pattern recipe qualification
 

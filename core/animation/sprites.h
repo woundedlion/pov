@@ -418,7 +418,7 @@ public:
   float gravity = 0.001f; /**< Base gravitational constant for attractors. */
   float motion_cap = (2 * math::PI_F) / W; /**< Maximum radians per frame. */
   uint16_t max_life = 600; /**< Default particle lifetime in frames. Writable
-                                after init(); applies to subsequent spawns. */
+                                after init(); immediately re-derives live particles' ages and applies to subsequent spawns. */
 
   using Attractor = Animation::Attractor; /**< Point attractor. */
 
