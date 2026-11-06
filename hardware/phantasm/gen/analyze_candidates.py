@@ -318,7 +318,7 @@ def candidate_board(path):
         if os.path.isfile(path):
             return path
         raise ValueError(f"candidate board not found: {path}")
-    matches = glob.glob(os.path.join(path, "*.kicad_pcb"))
+    matches = glob.glob(os.path.join(glob.escape(path), "*.kicad_pcb"))
     if len(matches) != 1:
         raise ValueError(
             f"candidate folder must contain exactly one .kicad_pcb file: "
@@ -349,8 +349,8 @@ def main(argv=None):
     for d in dirs:
         # Read the Quilter candidate label anywhere in the path, whether a folder
         # or a board file was passed and regardless of the board's filename.
-        m = re.search(r"Candidate[ _-]+(\w+)", d)
-        name = m.group(1) if m else os.path.splitext(os.path.basename(d))[0]
+        labels = re.findall(r"Candidate[ _-]+(\w+)", d)
+        name = labels[-1] if labels else os.path.splitext(os.path.basename(d))[0]
         try:
             # The label is scraped from the path, so two boards can share one.
             if name in source:

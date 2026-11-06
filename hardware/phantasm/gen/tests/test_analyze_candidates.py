@@ -18,6 +18,14 @@ import kicad_common  # noqa: E402
 
 
 class CandidateBoardTests(unittest.TestCase):
+    def test_directory_glob_characters_are_literal(self):
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory) / "Run [2]" / "Candidate 1"
+            folder.mkdir(parents=True)
+            board = folder / "board.kicad_pcb"
+            board.touch()
+            self.assertEqual(analyze_candidates.candidate_board(str(folder)), str(board))
+
     def test_accepts_any_single_board_filename(self):
         with tempfile.TemporaryDirectory() as directory:
             board = Path(directory) / "phantasm.kicad_pcb"
@@ -237,6 +245,20 @@ class ScoreTests(unittest.TestCase):
 
 
 class MainTests(unittest.TestCase):
+    def test_candidate_label_comes_from_the_last_path_match(self):
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory) / "Candidate_runs" / "Quilter_Candidate_7"
+            folder.mkdir(parents=True)
+            (folder / "board.kicad_pcb").write_text(SYNTHETIC_BOARD, encoding="utf-8")
+            clean = {"status": analyze_candidates.DRC_OK,
+                     "errors": 0, "real": 0, "unconnected": 0}
+            with mock.patch("builtins.print") as emit, mock.patch.object(
+                    analyze_candidates, "run_drc", return_value=clean):
+                result = analyze_candidates.main([str(folder)])
+        output = "\n".join(" ".join(map(str, call.args)) for call in emit.call_args_list)
+        self.assertEqual(result, 0)
+        self.assertIn(">> best by signal integrity: Candidate 7", output)
+
     def rank_sources(self, sources, results):
         with tempfile.TemporaryDirectory() as directory:
             boards = []
