@@ -32,6 +32,32 @@ inline void test_particle_system_spawn_and_capacity_guard() {
   HS_EXPECT_EQ(ps.dropped_spawns(), uint32_t{1});
 }
 
+/** @brief Particle storage policies clamp finite lifetimes and reject non-finite values. */
+inline void test_particle_lifetime_storage_contract() {
+  struct Case {
+    float lifetime;
+    uint16_t expected;
+  };
+  const Case CASES[] = {{-1.0f, 0},
+                        {0.0f, 0},
+                        {0.99f, 0},
+                        {1.0f, 1},
+                        {123.75f, 123},
+                        {65535.0f, 65535},
+                        {65536.0f, 65535},
+                        {std::numeric_limits<float>::quiet_NaN(), 0},
+                        {std::numeric_limits<float>::infinity(), 0},
+                        {-std::numeric_limits<float>::infinity(), 0}};
+  for (const auto &test : CASES) {
+    Animation::Particle<8> trail;
+    Animation::PointParticle point;
+    trail.init(math::X_AXIS, {}, 17, test.lifetime);
+    point.init(math::X_AXIS, {}, 17, test.lifetime);
+    HS_EXPECT_EQ(trail.life, test.expected);
+    HS_EXPECT_EQ(point.life, test.expected);
+  }
+}
+
 /**
  * @brief Verifies both valid ParticleSystem lifetime boundaries are preserved.
  */

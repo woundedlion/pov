@@ -150,6 +150,13 @@ private:
                                     timer advance, still draws) when set. */
 };
 
+/** @brief Clamps finite lifetimes to [0, 65535]; non-finite values expire. */
+HS_HOT_INLINE inline uint16_t particle_life_frames(float life) {
+  return std::isfinite(life)
+             ? static_cast<uint16_t>(hs::clamp(life, 0.0f, 65535.0f))
+             : 0;
+}
+
 /**
  * @brief Represents a single particle in a system.
  * @tparam TRAIL_LEN Maximum number of trail positions retained.
@@ -188,9 +195,7 @@ template <int TRAIL_LEN = 8> struct Particle {
     position = p;
     velocity = v;
     color_seed = seed;
-    life = std::isfinite(l)
-               ? static_cast<uint16_t>(hs::clamp(l, 0.0f, 65535.0f))
-               : 0;
+    life = particle_life_frames(l);
     history.clear();
   }
 
@@ -253,9 +258,7 @@ struct PointParticle {
     velocity = v;
     set_position(p);
     color_seed = seed;
-    life = std::isfinite(l)
-               ? static_cast<uint16_t>(hs::clamp(l, 0.0f, 65535.0f))
-               : 0;
+    life = particle_life_frames(l);
   }
 
   /**

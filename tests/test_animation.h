@@ -132,6 +132,7 @@ inline int run_animation_tests() {
   HS_RUN(test_motion_codriven_survives_repeat_seam);
 
   HS_RUN(test_particle_system_spawn_and_capacity_guard);
+  HS_RUN(test_particle_lifetime_storage_contract);
   HS_RUN(test_particle_system_lifetime_boundaries);
   HS_RUN(test_point_particle_storage_and_lifetime);
   HS_RUN(test_point_particle_step_start_recovers_previous_position);
