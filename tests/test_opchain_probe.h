@@ -58,13 +58,8 @@ inline void face_offsets(const PolyMesh &m, std::vector<size_t> &out) {
 
 /** @brief Unit vertex-average centroid of every face, in emission order. */
 inline void face_centroids(const PolyMesh &m, std::vector<math::Vector> &out) {
-  out.assign(m.face_counts.size(), math::Vector(0, 0, 0));
-  size_t off = 0;
-  for (size_t f = 0; f < m.face_counts.size(); ++f) {
-    const int n = m.face_counts[f];
-    out[f] = face_centroid_unit(m, off, n);
-    off += n;
-  }
+  out.resize(m.face_counts.size());
+  MeshOps::face_centroids_into(m, out.data());
 }
 
 /** @brief Whether SDF::PreparedFace rejects a face outright (collapsed or off-band). */
