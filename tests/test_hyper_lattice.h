@@ -1573,12 +1573,9 @@ inline void test_dimension_dropdown_and_mode_lerp() {
     return;
   HS_EXPECT_TRUE(dimension->is_enum());
   HS_EXPECT_EQ(dimension->option_count, 2);
-  HS_EXPECT_EQ(std::string_view(dimension->options[0]),
-               std::string_view("3D perspective"));
-  HS_EXPECT_EQ(std::string_view(dimension->options[1]),
-               std::string_view("4D slice"));
-  HS_EXPECT_EQ(std::string_view(dimension->export_options[1]),
-               std::string_view("LatticeMode::SLICE_4D"));
+  HS_EXPECT_STREQ(dimension->options[0], "3D perspective");
+  HS_EXPECT_STREQ(dimension->options[1], "4D slice");
+  HS_EXPECT_STREQ(dimension->export_options[1], "LatticeMode::SLICE_4D");
   HS_EXPECT_EQ(effect.updateParameter("View", 1.0f), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(HyperLatticeWhiteBox::params(effect).mode,
                HL::LatticeMode::SLICE_4D);
@@ -2112,8 +2109,7 @@ inline void test_pattern_view_controls() {
                 "octet-flight");
   static_assert(Effect::PRESET_IDS[Effect::OCTET_WIDE_PRESET_INDEX] ==
                 "octet-wide-flight");
-  HS_EXPECT_EQ(std::string_view(pattern->export_options[1]),
-               std::string_view("Pattern::OCTET"));
+  HS_EXPECT_STREQ(pattern->export_options[1], "Pattern::OCTET");
   const auto four_d = effect.serialize_parameters();
   HS_EXPECT_EQ(effect.updateParameter("Near Fade", .37f),
                ParamSetResult::APPLIED);
@@ -2274,8 +2270,7 @@ inline void test_regular_patterns() {
   HS_EXPECT_EQ(effect.serialize_parameters().params.pattern,
                Effect::Pattern::SHELLS);
   HS_EXPECT_EQ(pattern->get(), 6);
-  HS_EXPECT_EQ(std::string_view(pattern->export_options[2]),
-               std::string_view("Pattern::SHELLS"));
+  HS_EXPECT_STREQ(pattern->export_options[2], "Pattern::SHELLS");
 }
 
 inline void test_speed_range() {
