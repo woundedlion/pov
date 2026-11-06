@@ -2285,11 +2285,18 @@ inline void test_pullback_radial_validity_lifetime() {
 inline void test_pullback_radial_ripple_endpoint_reuse() {
   using namespace Pullback::SphereAnimation;
   static RadialTables cached, fresh;
+  ScratchScope scratch(scratch_arena_a);
+  auto *sentinel = scratch_arena_a.make<uint32_t>(0x12345678u);
+  const size_t OFFSET = scratch_arena_a.get_offset();
   const auto CHECK = [&](const BurstRippleParams &params,
                          const RippleState &state) {
     prepare_radial_tables(params, state, cached, true);
+    HS_EXPECT_EQ(scratch_arena_a.get_offset(), OFFSET);
+    HS_EXPECT_EQ(*sentinel, 0x12345678u);
     fresh.enabled = false;
     prepare_radial_tables(params, state, fresh, true);
+    HS_EXPECT_EQ(scratch_arena_a.get_offset(), OFFSET);
+    HS_EXPECT_EQ(*sentinel, 0x12345678u);
     HS_EXPECT_EQ(cached.enabled, fresh.enabled);
     HS_EXPECT_EQ(cached.count, fresh.count);
     HS_EXPECT_EQ(cached.validity_ready, fresh.validity_ready);

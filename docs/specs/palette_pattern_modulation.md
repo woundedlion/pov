@@ -595,7 +595,8 @@ zero and one select the corresponding endpoint directly when the hook exists.
 `Spec::RIPPLE_RADIAL_TABLE` defaults off; Millefiori and AshCloud enable it for temporal
 column rendering. Each persistent resource owns radial curves of net rotation
 and absolute travel for its burst centers. Frame preparation bakes current wave
-ages and ages minus one, preserving wave order. Bitwise-identical ordered ages
+ages and ages minus one, preserving wave order. Temporary current-wave and key
+tables use scratch A and are reclaimed after each bake. Bitwise-identical ordered ages
 and wave controls reuse a retained current curve for the previous endpoint. Column views borrow the current
 resource's tables and blend those endpoints only across a one-frame interval;
 table contents remain valid until the next draw. Initial identical frame

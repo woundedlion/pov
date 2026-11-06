@@ -7,6 +7,7 @@
 /** @file sphere_animation.h
  * @brief Ripple burst scheduling. */
 
+#include "core/memory.h"
 #include "core/render/pullback/surface.h"
 #include "core/render/pullback/runtime_seeds.h"
 
@@ -221,8 +222,12 @@ prepare_radial_tables(const Params &params, const RippleState &state,
                    params.decay >= 0.0f && params.decay <= 5.0f;
   if (!tables.enabled)
     return;
-  std::array<std::array<Surface::PreparedRipple, 4>, 4> current_waves;
-  std::array<RadialCurveKey, 4> current_keys;
+  ScratchScope scratch(scratch_arena_a);
+  auto &current_waves = *scratch_arena_a.make_default_initialized<
+      std::array<std::array<Surface::PreparedRipple, 4>, 4>>();
+  auto &current_keys =
+      *scratch_arena_a
+           .make_default_initialized<std::array<RadialCurveKey, 4>>();
   for (uint32_t lag = 4; lag > 0; --lag) {
     const uint32_t BURST = state.burst_count - lag;
     std::array<Surface::PreparedRipple, 4> previous;
