@@ -59,6 +59,15 @@ class TestWarningGate(unittest.TestCase):
         self.assertEqual(tw.extract_warnings(context + framework + diagnostic + "\n"
                                             + toolchain + diagnostic), set())
 
+    def test_new_include_or_compile_context_resets_the_inline_origin(self):
+        context = "    inlined from 'foo' at core/a.h:2:3:\n"
+        warning = "/x/.platformio/packages/toolchain-gccarmnoneeabi-teensy/include/a.h:4:5: warning: stale origin"
+        self.assertEqual(tw.extract_warnings(context + warning), {"core/a.h: warning: stale origin"})
+        for boundary in ("In file included from /system/b.h:1:",
+                         "Compiling .pio/build/phantasm/src/core/b.cpp.o"):
+            with self.subTest(boundary=boundary):
+                self.assertEqual(tw.extract_warnings(context + boundary + "\n" + warning), set())
+
     def test_normalize_strips_line_and_col_keeps_identity(self):
         a = tw.normalize("core/effects/Foo.h:120:7: warning: unused variable 'x' [-Wunused-variable]")
         b = tw.normalize("core/effects/Foo.h:998:3: warning: unused variable 'x' [-Wunused-variable]")
@@ -263,7 +272,26 @@ class TestWarningGateCaptureEvidence(unittest.TestCase):
         self.assertEqual(self._run(""), 1)
 
     def test_log_with_no_compiles_fails_even_with_zero_warnings(self):
-        self.assertEqual(self._run("Environment    Status    Duration\nphantasm  SUCCESS\n"), 1)
+        self.assertEqual(self._run(self.PIO_BANNER + "\n" + self.PIO_LINE + "\n"), 0)
+        log = self.PIO_BANNER + "\nEnvironment    Status    Duration\nphantasm  SUCCESS\n"
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(_run_warning_gate(log, quiet=False), 1)
+        self.assertIn("no first-party compiler invocation", output.getvalue())
+
+    def test_missing_log_reports_input_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "build.log"
+            ini = Path(directory) / "platformio.ini"
+            ini.write_text("[env:phantasm]\n", encoding="utf-8")
+            log.write_text(self.PIO_BANNER + "\n" + self.PIO_LINE + "\n", encoding="utf-8")
+            args = ["--build-log", str(log), "--platformio-ini", str(ini)]
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(tw.main(args), 0)
+            log.unlink()
+            with contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(tw.main(args), 1)
+            self.assertIn("cannot read", output.getvalue())
+            self.assertIn(str(log), output.getvalue())
 
     def test_log_with_first_party_compiles_and_no_warnings_passes(self):
         self.assertEqual(self._run(self.PIO_BANNER + "\n" + self.PIO_LINE + "\n"), 0)
@@ -291,11 +319,11 @@ class TestWarningGateCaptureEvidence(unittest.TestCase):
                 ".pio/build/phantasm/src/core/memory.cpp.o")
         self.assertEqual(tw.count_first_party_compiles(line), 0)
 
-    def test_preprocess_only_invocation_is_not_evidence(self):
-        # PlatformIO's .ino -> .cpp preprocess pass runs -E, not -c.
-        line = ('arm-none-eabi-g++ -o "/w/pov/targets/Phantasm/Phantasm.ino.cpp" '
-                '-x c++ -fpreprocessed -dD -E "/tmp/tmpm5mgtz1h"')
-        self.assertEqual(tw.count_first_party_compiles(line), 0)
+    def test_preprocess_and_dependency_only_invocations_are_not_evidence(self):
+        for flag in ("-E", "-MM"):
+            with self.subTest(flag=flag):
+                line = f"arm-none-eabi-g++ -o memory.out {flag} core/memory.cpp"
+                self.assertEqual(tw.count_first_party_compiles(line), 0)
 
 
 class TestColdCaptureAudit(unittest.TestCase):
@@ -325,6 +353,17 @@ class TestColdCaptureAudit(unittest.TestCase):
         section, = tw.parse_env_sections(_banner("phantasm", *self.TUS))
         self.assertEqual(section.name, "phantasm")
         self.assertEqual(tw.declared_first_party_sources(section), set(self.TUS))
+
+    def test_mixed_compile_and_cache_lines_keep_only_first_party_sources(self):
+        root = "/work/packages/repo"
+        lines = (
+            f"arm-none-eabi-g++ -c {root}/core/memory.cpp",
+            f"arm-none-eabi-g++ -c {root}/.pio/libdeps/phantasm/Foo/src/vendor.cpp",
+            f"Retrieved `{root}/.pio/build/phantasm/src/core/spatial/reaction_graph.cpp.o' from cache",
+            f"Retrieved `{root}/.pio/build/phantasm/lib999/Foo/vendor.cpp.o' from cache",
+        )
+        self.assertEqual(tw.compiled_first_party_sources(lines, root), {"core/memory.cpp"})
+        self.assertEqual(tw.cached_first_party_sources(lines, root), {"core/spatial/reaction_graph.cpp"})
 
     def test_exact_count_across_every_environment_passes(self):
         log = self._log(("holosphere", "phantasm", "profile"), self.TUS)
