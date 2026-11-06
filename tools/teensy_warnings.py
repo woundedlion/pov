@@ -55,13 +55,20 @@ _FIRST_PARTY_DIRS = frozenset(fp.rstrip("/") for fp in FIRST_PARTY)
 _THIRD_PARTY_DIRS = frozenset(tp.rstrip("/") for tp in THIRD_PARTY)
 
 
-def _relativize(path: str) -> str | None:
+def _relativize(path: str, repo_root: str | Path | None = None) -> str | None:
     """Return the repo-root-relative path if first-party, else None.
 
     Anchored at the FIRST first-party segment, so the full nested path is kept
     (targets/Phantasm/effects/Foo.h, not effects/Foo.h).
     """
-    segs = path.replace("\\", "/").split("/")
+    path = path.replace("\\", "/")
+    if repo_root is not None:
+        root = str(repo_root).replace("\\", "/").rstrip("/") + "/"
+        windows_path = bool(re.match(r"^(?:[A-Za-z]:/|//)", root))
+        candidate, prefix = (path.casefold(), root.casefold()) if windows_path else (path, root)
+        if candidate.startswith(prefix):
+            path = path[len(root):]
+    segs = path.split("/")
     if ".platformio" in segs or "libdeps" in segs:
         return None
     for i, seg in enumerate(segs):
@@ -73,7 +80,7 @@ def _relativize(path: str) -> str | None:
     return None
 
 
-def normalize(line: str) -> str | None:
+def normalize(line: str, repo_root: str | Path | None = None) -> str | None:
     """Normalize one compiler line to a stable first-party warning key, or None."""
     stripped = line.strip()
     m = _WARNING_RE.match(stripped)
@@ -87,13 +94,13 @@ def normalize(line: str) -> str | None:
             prefix = f"{tool}: {subject.replace(chr(92), '/')}" if subject else tool
             return f"{prefix}: warning: {m.group(3)}".rstrip()
         return None
-    rel = _relativize(m.group(1))
+    rel = _relativize(m.group(1), repo_root)
     if rel is None:
         return None
     return f"{rel}: warning: {m.group(3)}".rstrip()
 
 
-def extract_warnings(build_log: str) -> set[str]:
+def extract_warnings(build_log: str, repo_root: str | Path | None = None) -> set[str]:
     """The deduplicated, normalized, first-party warning set from a build log."""
     out: set[str] = set()
     origin = None
@@ -103,8 +110,8 @@ def extract_warnings(build_log: str) -> set[str]:
         if "inlined from" in line:
             location = re.search(r" at (.*?):\d+(?::\d+)?[, :]?$", line)
             if location and origin is None:
-                origin = _relativize(location.group(1))
-        key = normalize(line)
+                origin = _relativize(location.group(1), repo_root)
+        key = normalize(line, repo_root)
         warning = _WARNING_RE.match(line.strip())
         if key is None and warning and origin:
             path = warning.group(1).replace("\\", "/")
@@ -131,14 +138,14 @@ def compiled_paths(line: str) -> list[str]:
     return _SOURCE_RE.findall(line)
 
 
-def count_first_party_compiles(build_log: str) -> int:
+def count_first_party_compiles(build_log: str, repo_root: str | Path | None = None) -> int:
     """Compiler invocations on first-party sources visible in the log.
 
     Zero means an empty warning set proves nothing.
     """
     n = 0
     for line in build_log.splitlines():
-        if any(_relativize(p) is not None for p in compiled_paths(line)):
+        if any(_relativize(p, repo_root) is not None for p in compiled_paths(line)):
             n += 1
     return n
 
@@ -218,7 +225,8 @@ def parse_env_sections(build_log: str) -> list[EnvSection]:
     return sections
 
 
-def declared_first_party_sources(section: EnvSection) -> set[str]:
+def declared_first_party_sources(section: EnvSection,
+                                 repo_root: str | Path | None = None) -> set[str]:
     """The first-party translation units this env's `build_src_filter` selects.
 
     A first-party glob is not countable from the log and raises.
@@ -230,7 +238,7 @@ def declared_first_party_sources(section: EnvSection) -> set[str]:
             f"expected first-party translation units cannot be derived")
     sources: set[str] = set()
     for sign, pattern in _SRC_FILTER_TERM_RE.findall(m.group(1)):
-        rel = _relativize(pattern)
+        rel = _relativize(pattern, repo_root)
         if any(ch in pattern for ch in _GLOB_CHARS):
             if rel is not None:
                 raise CaptureError(
@@ -247,35 +255,37 @@ def declared_first_party_sources(section: EnvSection) -> set[str]:
     return sources
 
 
-def _source_key(path: str) -> str | None:
+def _source_key(path: str, repo_root: str | Path | None = None) -> str | None:
     """A first-party path as a translation-unit key, or None.
 
     The object suffix is dropped, so `<tu>.cpp.o` and `<tu>.cpp` compare equal.
     """
-    rel = _relativize(path)
+    rel = _relativize(path, repo_root)
     if rel is None:
         return None
     return rel[:-2] if rel.endswith(".o") else rel
 
 
-def compiled_first_party_sources(lines: tuple[str, ...] | list[str]) -> set[str]:
+def compiled_first_party_sources(lines: tuple[str, ...] | list[str],
+                                 repo_root: str | Path | None = None) -> set[str]:
     """First-party translation units a compiler was actually invoked on."""
     out: set[str] = set()
     for line in lines:
         for path in compiled_paths(line):
-            key = _source_key(path)
+            key = _source_key(path, repo_root)
             if key is not None:
                 out.add(key)
     return out
 
 
-def cached_first_party_sources(lines: tuple[str, ...] | list[str]) -> set[str]:
+def cached_first_party_sources(lines: tuple[str, ...] | list[str],
+                               repo_root: str | Path | None = None) -> set[str]:
     """First-party translation units whose object SCons served from the cache."""
     out: set[str] = set()
     for line in lines:
         m = _CACHE_HIT_RE.match(line)
         if m:
-            key = _source_key(m.group(1))
+            key = _source_key(m.group(1), repo_root)
             if key is not None:
                 out.add(key)
     return out
@@ -286,19 +296,19 @@ def count_cache_hits(build_log: str) -> int:
     return sum(1 for line in build_log.splitlines() if _CACHE_HIT_RE.match(line))
 
 
-def audit_capture(build_log: str) -> CaptureAudit:
+def audit_capture(build_log: str, repo_root: str | Path | None = None) -> CaptureAudit:
     """Compare each environment's declared first-party TUs against the compiles."""
     envs = []
     for section in parse_env_sections(build_log):
         envs.append(EnvAudit(
             name=section.name,
-            declared=frozenset(declared_first_party_sources(section)),
-            compiled=frozenset(compiled_first_party_sources(section.lines)),
-            from_cache=frozenset(cached_first_party_sources(section.lines)),
+            declared=frozenset(declared_first_party_sources(section, repo_root)),
+            compiled=frozenset(compiled_first_party_sources(section.lines, repo_root)),
+            from_cache=frozenset(cached_first_party_sources(section.lines, repo_root)),
         ))
     return CaptureAudit(
         envs=tuple(envs),
-        compiles=count_first_party_compiles(build_log),
+        compiles=count_first_party_compiles(build_log, repo_root),
         cache_hits=count_cache_hits(build_log),
     )
 
@@ -334,7 +344,8 @@ def main(argv: list[str] | None = None) -> int:
                    help="environment the capture was expected to cover; "
                         "repeatable. Defaults to every [env:<name>] in "
                         "--platformio-ini")
-    p.add_argument("--platformio-ini", default="platformio.ini")
+    p.add_argument("--platformio-ini", default="platformio.ini",
+                   help="environment declarations; its parent is the repository root")
     p.add_argument("--github", action="store_true", help="emit ::error:: annotations")
     args = p.parse_args(argv)
 
@@ -345,7 +356,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{prefix}[teensy-warnings] FAIL - cannot read {args.build_log} "
               f"({exc}): the warning gate has nothing to check.")
         return 1
-    compiles = count_first_party_compiles(build_log)
+    repo_root = Path(args.platformio_ini).resolve().parent
+    compiles = count_first_party_compiles(build_log, repo_root)
     if compiles == 0:
         print(f"{prefix}[teensy-warnings] FAIL - no first-party compiler "
               f"invocation in {args.build_log}: the capture broke (or the build "
@@ -354,7 +366,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        audit = audit_capture(build_log)
+        audit = audit_capture(build_log, repo_root)
         expected = (tuple(args.env) if args.env
                     else declared_environments(args.platformio_ini))
     except CaptureError as exc:
@@ -394,7 +406,7 @@ def main(argv: list[str] | None = None) -> int:
               "PLATFORMIO_BUILD_CACHE_DIR= does NOT disable the cache: PlatformIO "
               "ignores an empty sysenvvar, so build_cache_dir still wins.")
         return 1
-    current = extract_warnings(build_log)
+    current = extract_warnings(build_log, repo_root)
 
     if not current:
         print(f"[teensy-warnings] PASS - no first-party warnings "

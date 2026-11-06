@@ -72,10 +72,44 @@ class TestWarningGate(unittest.TestCase):
         self.assertTrue(got.startswith("hardware/dma_led.h:"))
 
     def test_checkout_parent_names_do_not_hide_first_party_warnings(self):
-        for parent in ("/work/packages/repo", "/home/user/lib/Holosphere"):
+        for parent in ("/work/packages/repo", "/home/user/lib/Holosphere",
+                       "/x/tools/lib/Holosphere", r"C:\tools\lib\Holosphere"):
             warning = parent + "/hardware/dma_led.h:42:5: warning: unused variable"
-            self.assertEqual(tw.normalize(warning),
+            self.assertEqual(tw.normalize(warning, repo_root=parent),
                              "hardware/dma_led.h: warning: unused variable")
+
+    def test_repository_root_preserves_nested_identity_and_library_exclusions(self):
+        root = r"C:\tools\lib\Holosphere"
+        self.assertEqual(tw.normalize(
+            "c:/TOOLS/lib/Holosphere/targets/Phantasm/effects/Foo.h:7:1: warning: w",
+            root), "targets/Phantasm/effects/Foo.h: warning: w")
+        self.assertIsNone(tw.normalize(
+            root + "/.pio/libdeps/phantasm/Foo/core/a.h:7:1: warning: w", root))
+
+    def test_cli_uses_ini_parent_for_absolute_diagnostics_and_compiles(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d) / "tools" / "lib" / "Holosphere"
+            root.mkdir(parents=True)
+            ini = root / "platformio.ini"
+            ini.write_text("[env:phantasm]\n", encoding="utf-8")
+            source = root / "core" / "memory.cpp"
+            log = root / "build.log"
+            cold = (_banner("phantasm", "core/memory.cpp") + "\n"
+                    f"arm-none-eabi-g++ -c {source}\n")
+            for diagnostic, expected in (
+                (f"{root}/core/a.h:4:2: warning: unused variable\n", 1),
+                (f"{root}/.pio/libdeps/phantasm/Foo/core/a.h:4:2: warning: unused variable\n", 0),
+                ("", 0),
+            ):
+                with self.subTest(diagnostic=diagnostic):
+                    log.write_text(cold + diagnostic, encoding="utf-8")
+                    output = io.StringIO()
+                    with contextlib.redirect_stdout(output):
+                        actual = tw.main(["--build-log", str(log),
+                                          "--platformio-ini", str(ini)])
+                    self.assertEqual(actual, expected, output.getvalue())
+                    if expected:
+                        self.assertIn("core/a.h: warning: unused variable", output.getvalue())
 
     def test_fileless_diagnostics_are_normalized(self):
         lines = [

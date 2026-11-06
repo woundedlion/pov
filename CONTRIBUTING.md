@@ -173,6 +173,8 @@ protected branch's `CI green` status is the authoritative correctness gate.
   The warning gate includes source diagnostics and fileless C compiler, C++
   compiler, linker and command-line diagnostics. C++-only options stay in
   `CXXFLAGS`; shared build flags must also be valid for C sources.
+  For an archived capture from another checkout, pass that checkout's
+  `--platformio-ini` path so absolute diagnostics use its repository root.
   The local entry points are `just teensy-size` and `just teensy-warnings`.
 - **Published artifacts:** `wasm` builds and verifies the engine bundle;
   `screenshot-gallery` checks capture membership and images. `docs-doxygen`
