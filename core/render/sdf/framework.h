@@ -464,150 +464,7 @@ struct OctetFramework4 {
   }
 };
 
-/** @brief Monotone crossing cursor over one plane family. */
-struct FrameworkPlaneCursor {
-  float next = 0.0f;   ///< Ray distance of the next crossing.
-  float step = 0.0f;   ///< Ray distance between crossings.
-  bool active = false; ///< Whether next and step are usable.
-
-  /** @brief Ray projection onto one plane family. */
-  struct Projection {
-    float position; ///< Plane coordinate at the interval start.
-    float speed;    ///< Plane coordinate change per unit distance.
-    float spacing;  ///< Distance between adjacent planes.
-  };
-
-  /**
-   * @brief Starts each cursor at its first plane at or beyond near.
-   * @details Cursors with zero speed are left unchanged.
-   * @param cursors Cursors to start.
-   * @param projections Per-cursor ray projections.
-   * @param count Number of cursors.
-   * @param near Ray distance of the interval start.
-   */
-  HS_HOT_FLASH_MEMBER static void initialize(FrameworkPlaneCursor *cursors,
-                                             const Projection *projections,
-                                             size_t count, float near) {
-    for (size_t i = 0; i < count; ++i) {
-      const float SPEED = projections[i].speed;
-      if (SPEED == 0.0f)
-        continue;
-      const float POSITION = projections[i].position;
-      const float SPACING = projections[i].spacing;
-      const float CELL = POSITION / SPACING;
-      const float PLANE = SPEED > 0.0f ? ceilf(CELL) : floorf(CELL);
-      auto &cursor = cursors[i];
-      cursor.next = near + (PLANE * SPACING - POSITION) / SPEED;
-      cursor.step = SPACING / fabsf(SPEED);
-      cursor.active = Raycast::finite(cursor.next) &&
-                      Raycast::finite(cursor.step) && cursor.step > 0.0f;
-    }
-  }
-};
-
-/** @brief Shared monotone plane streams and approximate coverage layers. */
-template <size_t Count> struct FrameworkPlaneStreams {
-  static constexpr size_t STREAM_COUNT = Count; ///< Number of plane streams.
-  static constexpr size_t GROUP_CAPACITY = 1; ///< One merge identity per group.
-  Raycast::Footprint footprint;               ///< Pixel footprint for coverage.
-  /// Per-family crossing cursors.
-  std::array<FrameworkPlaneCursor, STREAM_COUNT> cursors{};
-
-  /** @brief Constructs inactive streams.
-   * @param footprint Pixel footprint for coverage. */
-  explicit FrameworkPlaneStreams(Raycast::Footprint footprint)
-      : footprint(footprint) {}
-
-  /** @brief Whether a stream has a pending crossing.
-   * @param index Stream index.
-   * @return True when active. */
-  bool active(size_t index) const { return cursors[index].active; }
-  /** @brief Ray distance of a stream's next crossing.
-   * @param index Stream index.
-   * @return Distance of the pending crossing. */
-  float distance(size_t index) const { return cursors[index].next; }
-
-  /**
-   * @brief Coverage layer at a stream's next crossing.
-   * @param index Stream index.
-   * @param sample Geometry sample at the crossing.
-   * @return Contribution with footprint coverage of the sample field.
-   */
-  Raycast::Contribution contribution(size_t index,
-                                     const Raycast::QuerySample &sample) const {
-    Raycast::Contribution result;
-    result.t = distance(index);
-    const float WIDTH = footprint.at(result.t);
-    result.coverage = footprint_coverage(WIDTH, sample.field);
-    result.feature = sample.feature;
-    // Coincident plane reports define one approximate junction layer.
-    result.merge_identity = 0;
-    return result;
-  }
-
-  /** @brief Moves a stream to its next crossing.
-   * @param index Stream index. */
-  void advance(size_t index) {
-    auto &cursor = cursors[index];
-    const float NEXT = cursor.next + cursor.step;
-    cursor.active = Raycast::finite(NEXT) && NEXT > cursor.next;
-    cursor.next = NEXT;
-  }
-};
-
-/** @brief Four plane streams started from a world-space ray. */
-struct FrameworkPlaneEvents : FrameworkPlaneStreams<4> {
-  Raycast::Ray ray; ///< Traced ray.
-
-  /** @brief Constructs streams; initialize() starts them.
-   * @param ray Traced ray.
-   * @param footprint Pixel footprint for coverage. */
-  FrameworkPlaneEvents(const Raycast::Ray &ray, Raycast::Footprint footprint)
-      : FrameworkPlaneStreams(footprint), ray(ray) {}
-
-  /**
-   * @brief Starts the streams at the ray interval start.
-   * @param families Plane families of the geometry.
-   * @param origin Lattice origin.
-   */
-  void initialize(const std::array<FrameworkPlane, STREAM_COUNT> &families,
-                  const math::Vector &origin) {
-    HS_CHECK(ray.valid(), "framework event ray must be valid");
-    const math::Vector START = ray.at(ray.interval.near) - origin;
-    std::array<FrameworkPlaneCursor::Projection, STREAM_COUNT> projections;
-    for (size_t i = 0; i < STREAM_COUNT; ++i)
-      projections[i] = {math::dot(START, families[i].normal),
-                        math::dot(ray.direction, families[i].normal),
-                        families[i].spacing};
-    FrameworkPlaneCursor::initialize(cursors.data(), projections.data(),
-                                     STREAM_COUNT, ray.interval.near);
-  }
-};
-
-/** @brief Four plane streams producing approximate framework coverage layers. */
-struct FrameworkEvents : FrameworkPlaneEvents {
-  TriangularFramework geometry; ///< Framework being traced.
-
-  /** @brief Starts the plane streams for a ray.
-   * @param geometry Framework to trace; must be valid.
-   * @param ray Traced ray; must be valid.
-   * @param footprint Pixel footprint for coverage. */
-  FrameworkEvents(const TriangularFramework &geometry, const Raycast::Ray &ray,
-                  Raycast::Footprint footprint = {})
-      : FrameworkPlaneEvents(ray, footprint), geometry(geometry) {
-    HS_CHECK(geometry.valid(), "framework event geometry must be valid");
-    initialize(geometry.plane_families(), geometry.origin);
-  }
-
-  /** @brief Coverage layer at a stream's next crossing.
-   * @param index Stream index.
-   * @return Contribution sampled from the geometry. */
-  Raycast::Contribution candidate(size_t index) const {
-    return contribution(index, geometry.sample(ray.at(distance(index))));
-  }
-};
-
-/** @brief Plane cursors for the octet adapters; setup inlines into the caller. */
+/** @brief Monotone plane streams for periodic framework adapters. */
 template <size_t Count> struct OctetStreams {
   static constexpr size_t STREAM_COUNT = Count; ///< Number of plane streams.
   static constexpr size_t GROUP_CAPACITY = 1; ///< One merge identity per group.
@@ -676,6 +533,58 @@ template <size_t Count> struct OctetStreams {
     result.coverage = coverage_of(result.t, sample.field);
     result.feature = sample.feature;
     return result;
+  }
+};
+
+/** @brief Four plane streams started from a world-space ray. */
+struct FrameworkPlaneEvents : OctetStreams<4> {
+  Raycast::Ray ray; ///< Traced ray.
+
+  /** @brief Constructs inactive plane streams.
+   * @param ray Traced ray.
+   * @param footprint Pixel footprint for coverage. */
+  FrameworkPlaneEvents(const Raycast::Ray &ray, Raycast::Footprint footprint)
+      : ray(ray) {
+    this->footprint = footprint;
+    live.fill(false);
+  }
+
+  /** @brief Starts the streams at the ray interval start.
+   * @param families Plane families of the geometry.
+   * @param origin Lattice origin. */
+  void initialize(const std::array<FrameworkPlane, STREAM_COUNT> &families,
+                  const math::Vector &origin) {
+    HS_CHECK(ray.valid(), "framework event ray must be valid");
+    const math::Vector START = ray.at(ray.interval.near) - origin;
+    for (size_t i = 0; i < STREAM_COUNT; ++i) {
+      const auto &family = families[i];
+      start(i, math::dot(START, family.normal) / family.spacing,
+            math::dot(ray.direction, family.normal) / family.spacing,
+            ray.interval.near);
+    }
+  }
+};
+
+/** @brief Four plane streams producing approximate framework coverage layers. */
+struct FrameworkEvents : FrameworkPlaneEvents {
+  TriangularFramework geometry; ///< Framework being traced.
+
+  /** @brief Starts the plane streams for a ray.
+   * @param geometry Framework to trace; must be valid.
+   * @param ray Traced ray; must be valid.
+   * @param footprint Pixel footprint for coverage. */
+  FrameworkEvents(const TriangularFramework &geometry, const Raycast::Ray &ray,
+                  Raycast::Footprint footprint = {})
+      : FrameworkPlaneEvents(ray, footprint), geometry(geometry) {
+    HS_CHECK(geometry.valid(), "framework event geometry must be valid");
+    initialize(geometry.plane_families(), geometry.origin);
+  }
+
+  /** @brief Coverage layer at a stream's next crossing.
+   * @param index Stream index.
+   * @return Contribution sampled from the geometry. */
+  Raycast::Contribution candidate(size_t index) const {
+    return contribution(index, geometry.sample(ray.at(distance(index))));
   }
 };
 

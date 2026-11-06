@@ -46,6 +46,45 @@ inline void test_appearance_palette_interval() {
   HS_EXPECT_FALSE(appearance.valid_for({0.0f, 10.0f}));
 }
 
+/** @brief Plane crossings evaluated in world-distance units. */
+struct PlaneCrossingReference {
+  struct Cursor {
+    float next = 0.0f;
+    float step = 0.0f;
+    bool active = false;
+  };
+  std::array<Cursor, 4> cursors{};
+
+  PlaneCrossingReference(const Raycast::Ray &ray,
+                         const std::array<SDF::FrameworkPlane, 4> &families,
+                         const math::Vector &origin) {
+    const math::Vector START = ray.at(ray.interval.near) - origin;
+    for (size_t i = 0; i < cursors.size(); ++i) {
+      const float SPEED = math::dot(ray.direction, families[i].normal);
+      if (SPEED == 0.0f)
+        continue;
+      const float POSITION = math::dot(START, families[i].normal);
+      const float SPACING = families[i].spacing;
+      const float CELL = POSITION / SPACING;
+      const float PLANE = SPEED > 0.0f ? ceilf(CELL) : floorf(CELL);
+      auto &cursor = cursors[i];
+      cursor.next = ray.interval.near + (PLANE * SPACING - POSITION) / SPEED;
+      cursor.step = SPACING / fabsf(SPEED);
+      cursor.active = Raycast::finite(cursor.next) &&
+                      Raycast::finite(cursor.step) && cursor.step > 0.0f;
+    }
+  }
+
+  bool active(size_t index) const { return cursors[index].active; }
+  float distance(size_t index) const { return cursors[index].next; }
+  void advance(size_t index) {
+    auto &cursor = cursors[index];
+    const float NEXT = cursor.next + cursor.step;
+    cursor.active = Raycast::finite(NEXT) && NEXT > cursor.next;
+    cursor.next = NEXT;
+  }
+};
+
 /** @brief Octet crossing coverage matches an independent ray-to-line distance reference. */
 inline void test_octet_crossing_coverage_against_ray_line_distance() {
   int compared = 0;
@@ -67,9 +106,8 @@ inline void test_octet_crossing_coverage_against_ray_line_distance() {
     const Raycast::Footprint FOOTPRINT{sample % 5 == 0 ? 0.0f : .02f, .3f};
     const auto PLANES = geometry.plane_families();
     SDF::OctetEvents events(geometry, RAY, FOOTPRINT);
-    SDF::FrameworkPlaneEvents reference(RAY, FOOTPRINT);
+    PlaneCrossingReference reference(RAY, PLANES, geometry.origin);
     HS_EXPECT_TRUE(geometry.valid());
-    reference.initialize(PLANES, geometry.origin);
     std::array<bool, SDF::OctetEvents::STREAM_COUNT> owns_pair{};
     for (size_t i = 0; i < PLANES.size(); ++i) {
       for (size_t j = i + 1; j < PLANES.size(); ++j) {
