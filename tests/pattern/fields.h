@@ -254,7 +254,7 @@ inline void test_pattern_plane_bands() {
 }
 
 /** @brief Sources expose pure clocks and immutable prepared controls. */
-inline void test_pattern_extracted_source_protocols() {
+inline void test_pattern_plane_source_protocols() {
   using namespace Pattern;
   PlaneInterference::Params waves;
   waves.speed = -0.2f;
