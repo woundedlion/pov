@@ -191,10 +191,11 @@ class CheckCliRevisionTests(unittest.TestCase):
     def test_valid_revision_succeeds(self):
         with mock.patch.object(check, "kicad_cli", return_value="cli"), \
                 mock.patch.object(check, "export_netlist", return_value=[]), \
-                mock.patch.object(check, "netlist_revision", return_value="1.2"), \
+                mock.patch.object(check, "netlist_revision", return_value="1.3"), \
                 mock.patch.object(check, "check", return_value=True), \
                 contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(check.main(["board.kicad_sch"]), 0)
+            check.check.assert_called_once_with(mock.ANY, "1.3")
 
     def test_invalid_revision_reports_path_and_returns_two(self):
         for root, message in (([], "netlist has no root-sheet board revision"),
