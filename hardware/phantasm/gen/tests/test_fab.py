@@ -570,6 +570,23 @@ class AssemblyPolicyTests(unittest.TestCase):
         self.assertFalse(fab.is_assembled(
             self.component("Resistor_SMD:R_0603_1608Metric", dnp=True)))
 
+    def test_netlist_parser_preserves_dnp_properties(self):
+        with tempfile.TemporaryDirectory() as directory:
+            netlist = Path(directory) / "parts.net"
+            netlist.write_text('''(export (components
+                (comp (ref "R1") (value "10k")
+                    (footprint "Resistor_SMD:R_0603_1608Metric")
+                    (property (name "dnp")))
+                (comp (ref "R2") (value "10k")
+                    (footprint "Resistor_SMD:R_0603_1608Metric"))))''', encoding="utf-8")
+            components = fab.parse_components(netlist)
+        self.assertEqual(components, {
+            "R1": self.component("Resistor_SMD:R_0603_1608Metric", "10k", dnp=True),
+            "R2": self.component("Resistor_SMD:R_0603_1608Metric", "10k"),
+        })
+        self.assertFalse(fab.is_assembled(components["R1"]))
+        self.assertTrue(fab.is_assembled(components["R2"]))
+
     def test_board_marks_hand_soldered_parts_as_excluded(self):
         root = fab.read_board(fab.PCB)
         attrs_by_ref = {}
