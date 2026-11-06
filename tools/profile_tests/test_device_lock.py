@@ -25,6 +25,15 @@ LOCK_GUARD = REPO / "tools" / "device_lock_guard.py"
 GRACE = 120  # HS_DEVICE_STALE_GRACE default
 
 
+def write_peer_claim(directory, port, test_case, deadline_in=600, pid=None):
+    directory.mkdir(parents=True)
+    now = int(time.time())
+    (directory / "info").write_text(
+        f"token=peer\nsession=peer\npid={pid or _live_pid(test_case)}\n"
+        f"port={port}\neffect=Peer\nenv=profile\nstarted={now}\n"
+        f"deadline={now + deadline_in}\n", encoding="utf-8")
+
+
 class LockGuardUsageTests(unittest.TestCase):
     def test_unicode_claim_roundtrips_and_releases(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -405,13 +414,7 @@ class BoardSelection(unittest.TestCase):
         return Path(f"{self.base}-{port}.d")
 
     def hold(self, port, deadline_in=600, pid=None):
-        d = self.lock_dir(port)
-        d.mkdir(parents=True)
-        now = int(time.time())
-        (d / "info").write_text(
-            f"token=peer\nsession=peer\npid={pid or _live_pid(self)}\n"
-            f"port={port}\neffect=Peer\nenv=profile\nstarted={now}\n"
-            f"deadline={now + deadline_in}\n")
+        write_peer_claim(self.lock_dir(port), port, self, deadline_in, pid)
 
     def test_acquires_a_board_and_pins_the_port(self):
         r = run_lock('hs_device_acquire E profile 60 && echo "PORT=$HS_TEENSY_PORT"',
@@ -658,13 +661,7 @@ class PinnedPortEnumeration(unittest.TestCase):
         self.assertIn("not attached", r.stderr)
 
     def hold(self, port):
-        d = Path(f"{self.base}-{port}.d")
-        d.mkdir()
-        now = int(time.time())
-        (d / "info").write_text(
-            f"token=peer\nsession=peer\npid={_live_pid(self)}\n"
-            f"port={port}\neffect=Peer\nenv=profile\nstarted={now}\n"
-            f"deadline={now + 600}\n")
+        write_peer_claim(Path(f"{self.base}-{port}.d"), port, self)
 
     def test_status_distinguishes_an_unattached_pin_from_busy(self):
         result = self.run_pinned("hs_device_status", "COM3")
@@ -753,11 +750,7 @@ class PinnedPortReenumeration(unittest.TestCase):
         loader.chmod(0o755)
 
     def hold_com4(self):
-        self.peer.mkdir()
-        now = int(time.time())
-        (self.peer / "info").write_text(
-            f"token=peer\nsession=peer\npid={_live_pid(self)}\nport=COM4\n"
-            f"effect=Peer\nenv=profile\nstarted={now}\ndeadline={now + 600}\n")
+        write_peer_claim(self.peer, "COM4", self)
 
     def acquire(self, release_after=None, pnp=(), **env):
         """Acquire pinned to COM4; the peer releases on sleep #release_after."""
