@@ -853,6 +853,12 @@ template <typename Model> inline void expect_warp_plane_bound() {
           params.envelope = envelope;
           probe(params);
         }
+    } else if constexpr (std::is_same_v<Model, In::Op::WarpWaveShear>) {
+      for (uint8_t envelope = 0; envelope < 3; ++envelope) {
+        HS_CONTEXT("envelope", envelope);
+        params.envelope = envelope;
+        probe(params);
+      }
     } else if constexpr (std::is_same_v<Model, In::Op::WarpPolarChart>) {
       for (uint8_t mode = 0; mode < 2; ++mode)
         for (uint8_t harmonic : {uint8_t{0}, uint8_t{15}}) {
