@@ -204,7 +204,7 @@ class TestWarningGate(unittest.TestCase):
         })
 
 
-def _run_warning_gate(log_text, *extra, envs=None):
+def _run_warning_gate(log_text, *extra, envs=None, quiet=True):
     """Run the zero-warning gate over `log_text`; return its exit.
 
     `envs` is the environment set the build was asked to produce, written to a
@@ -218,8 +218,9 @@ def _run_warning_gate(log_text, *extra, envs=None):
             envs = [s.name for s in tw.parse_env_sections(log_text)]
         ini = Path(d) / "platformio.ini"
         ini.write_text("".join(f"[env:{e}]\n" for e in envs), encoding="utf-8")
-        return tw.main(["--build-log", str(log),
-                        "--platformio-ini", str(ini), *extra])
+        with contextlib.redirect_stdout(io.StringIO()) if quiet else contextlib.nullcontext():
+            return tw.main(["--build-log", str(log),
+                            "--platformio-ini", str(ini), *extra])
 
 
 def _banner(env, *sources):
@@ -345,7 +346,7 @@ class TestColdCaptureAudit(unittest.TestCase):
         log = self._log(("phantasm",), self.TUS[2:], cached=self.TUS[:2])
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            self.assertEqual(_run_warning_gate(log, "--github"), 1)
+            self.assertEqual(_run_warning_gate(log, "--github", quiet=False), 1)
         out = buf.getvalue()
         self.assertIn("::error::", out)
         self.assertIn("2 of 4 first-party translation unit(s)", out)
@@ -357,7 +358,7 @@ class TestColdCaptureAudit(unittest.TestCase):
         log = self._log(("phantasm",), self.TUS[2:])
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            self.assertEqual(_run_warning_gate(log), 1)
+            self.assertEqual(_run_warning_gate(log, quiet=False), 1)
         self.assertIn("incremental build", buf.getvalue())
 
     def test_a_new_tu_raises_the_bar_with_no_second_edit(self):
@@ -384,7 +385,7 @@ class TestColdCaptureAudit(unittest.TestCase):
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             rc = _run_warning_gate(self._compile("phantasm", self.TUS[0]) + "\n",
-                                   envs=("phantasm",))
+                                   envs=("phantasm",), quiet=False)
         self.assertEqual(rc, 1)
         self.assertIn("no `Processing <env> (...)` banner", buf.getvalue())
 
@@ -433,7 +434,7 @@ class TestExpectedEnvironmentSet(unittest.TestCase):
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             self.assertEqual(_run_warning_gate(self._cold_env(self.ENVS[0]),
-                                          "--github", envs=self.ENVS), 1)
+                                          "--github", envs=self.ENVS, quiet=False), 1)
         out = buf.getvalue()
         self.assertIn("::error::", out)
         self.assertIn("5 of 6 expected environment(s)", out)
@@ -502,8 +503,9 @@ class TestRealColdVersusWarmCapture(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             log = Path(d) / "build.log"
             log.write_text(log_text, encoding="utf-8")
-            return tw.main(["--build-log", str(log), "--platformio-ini",
-                            str(Path(d) / "platformio.ini"), *extra])
+            with contextlib.redirect_stdout(io.StringIO()):
+                return tw.main(["--build-log", str(log), "--platformio-ini",
+                                str(Path(d) / "platformio.ini"), *extra])
 
     def test_explicit_env_passes_without_platformio_ini(self):
         self.assertEqual(self._run_without_ini(self.COLD, "--env", "holosphere"), 0)
@@ -573,3 +575,7 @@ class TestNonUtf8Captures(unittest.TestCase):
                 rc = tw.main(["--build-log", str(log),
                               "--platformio-ini", str(ini)])
             self.assertEqual(rc, 0, msg=buf.getvalue())
+
+
+if __name__ == "__main__":
+    unittest.main()
