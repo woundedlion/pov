@@ -22,16 +22,12 @@ HS_HOT_INLINE inline float radial_cross(Point a, Point b) {
 }
 
 /** @brief Complex product of chart vectors.
- * @tparam X_FIRST Add the x-led imaginary product first.
  * @tparam Point Chart point type.
  * @param a,b Complex chart vectors.
  * @return Complex product. */
-template <bool X_FIRST = false, class Point>
+template <class Point>
 HS_HOT_INLINE inline Point radial_multiply(Point a, Point b) {
-  if constexpr (X_FIRST)
-    return {a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x};
-  else
-    return {a.x * b.x - a.y * b.y, a.y * b.x + a.x * b.y};
+  return {a.x * b.x - a.y * b.y, a.y * b.x + a.x * b.y};
 }
 
 /** @brief Floors a chart coordinate to an integer.

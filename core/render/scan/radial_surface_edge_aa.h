@@ -566,8 +566,8 @@ private:
                   SPIN, dot(C, D), SHAPE.x, SHAPE.y, H, 0.0f, low, high))
             continue;
         }
-        const Point A = radial_multiply<true>(C, surface.vertex(I)),
-                    E = radial_multiply<true>(C, surface.edge(I));
+        const Point A = radial_multiply(C, surface.vertex(I)),
+                    E = radial_multiply(C, surface.edge(I));
         record({A.x + low * E.x, A.y + low * E.y},
                {A.x + high * E.x, A.y + high * E.y}, float(index), float(index),
                1, false, index == surface.interval_count());
@@ -587,11 +587,9 @@ private:
       const auto &k = surface.knot(i);
       const Point C{k.real, k.imag};
       sector = radial_floor_int((theta - k.phase) * inverse_sector);
-      value =
-          radial_cross(
-              p, radial_multiply<true>(
-                     C, surface.edge(radial_wrap_index(sector, 2 * sides)))) -
-          h0 * dot(C, C);
+      value = radial_cross(p, radial_multiply(C, surface.edge(radial_wrap_index(
+                                                     sector, 2 * sides)))) -
+              h0 * dot(C, C);
     }
     HS_HOT_FLASH_MEMBER bool covered(const Surface &surface, int i) const {
       int sector;
@@ -621,11 +619,10 @@ private:
         return -1;
       const Point V = surface.vertex(radial_wrap_index(CORNER, 2 * sides));
       const Point C{ka.real, ka.imag}, D{kb.real - ka.real, kb.imag - ka.imag};
-      const float DENOMINATOR = radial_cross(p, radial_multiply<true>(D, V));
+      const float DENOMINATOR = radial_cross(p, radial_multiply(D, V));
       if (DENOMINATOR == 0)
         return -1;
-      const float T =
-          -radial_cross(p, radial_multiply<true>(C, V)) / DENOMINATOR;
+      const float T = -radial_cross(p, radial_multiply(C, V)) / DENOMINATOR;
       if (T < hit.fraction || T > 1)
         return -1;
       const typename Surface::Knot K{C.x + T * D.x, C.y + T * D.y,
@@ -682,9 +679,8 @@ private:
             for (; corner <= HIGH_SECTOR; corner += 2) {
               const Point TIP =
                   surface.vertex(radial_wrap_index(corner, 2 * sides));
-              record(radial_multiply<true>(A, TIP),
-                     radial_multiply<true>(B, TIP), i + low, i + high,
-                     SPIN >= 0 ? 1.0f : -1.0f, true);
+              record(radial_multiply(A, TIP), radial_multiply(B, TIP), i + low,
+                     i + high, SPIN >= 0 ? 1.0f : -1.0f, true);
             }
           }
         }
@@ -709,8 +705,8 @@ private:
         if (!RadialSurfaceBoundaryCandidates::knot_range(
                 LS, LR, SPIN, RADIAL, SHAPE.x, SHAPE.y, H, 0.0f, low, high))
           continue;
-        const Point A = radial_multiply<true>(C, surface.vertex(INDEX)),
-                    E = radial_multiply<true>(C, surface.edge(INDEX));
+        const Point A = radial_multiply(C, surface.vertex(INDEX)),
+                    E = radial_multiply(C, surface.edge(INDEX));
         record({A.x + low * E.x, A.y + low * E.y},
                {A.x + high * E.x, A.y + high * E.y}, float(i), float(i));
       }
