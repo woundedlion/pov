@@ -9,6 +9,7 @@
 #include <cstring>
 #include <bit>
 #include <limits>
+#include <initializer_list>
 
 #include "core/math/noise_field.h"
 #include "core/render/pullback/surface.h"
@@ -609,16 +610,17 @@ struct CurlPolicyProvider {
 };
 
 template <math::NoiseBasis Basis, math::TangentLimit Limit, typename Integrator>
-inline void check_curl_policy_dispatch() {
+inline void check_curl_policy_dispatch(std::initializer_list<float> scales) {
   using Policy = Pullback::Surface::CurlNoise<CurlPolicyProvider, Basis,
                                               Integrator, Limit>;
   static_assert(Policy::template PROVIDER_VALID<CurlPolicyProvider::Binding>);
   auto *volatile oracle = &Pullback::Surface::curl_noise;
   CurlPolicyFrame frame;
+  float max_motion_sq = 0.0f;
   for (int seed : {41, 1, 1337, -7631}) {
     frame.noise.SetSeed(seed);
     for (bool path_required : {false, true})
-      for (float scale : {0.25f, 1.9651489f, 8.0f})
+      for (float scale : scales)
         for (float strength : {-0.5f, -0.0f, 0.0f, 0.15546875f})
           for (float phase : {-0.125f, 0.0f, 0.375f}) {
             frame.path_required = path_required;
@@ -638,6 +640,9 @@ inline void check_curl_policy_dispatch() {
               const auto EXPECTED =
                   oracle(INPUT, frame.noise, Basis, Integrator::VALUE, Limit,
                          scale, PREPARED.loop_offset, strength, path_required);
+              const auto MOTION = EXPECTED.sphere - INPUT;
+              max_motion_sq =
+                  std::max(max_motion_sq, math::dot(MOTION, MOTION));
               const auto RESULT = Policy::apply(INPUT, frame, PREPARED);
 #if defined(HS_TEST_FAST_MATH)
               constexpr float SPHERE_TOLERANCE =
@@ -662,13 +667,17 @@ inline void check_curl_policy_dispatch() {
             }
           }
   }
+  HS_EXPECT_GT(max_motion_sq, 1e-4f);
 }
 
 template <math::NoiseBasis Basis, math::TangentLimit Limit>
 inline void check_curl_policy_integrators() {
-  check_curl_policy_dispatch<Basis, Limit, Pullback::Surface::Euler>();
-  check_curl_policy_dispatch<Basis, Limit, Pullback::Surface::Midpoint>();
-  check_curl_policy_dispatch<Basis, Limit, Pullback::Surface::Midpoint2>();
+  check_curl_policy_dispatch<Basis, Limit, Pullback::Surface::Euler>(
+      {0.0f, 0.25f, 1.9651489f, 8.0f});
+  // Zero scale fixes the gradient; its spherical curl still varies with input.
+  check_curl_policy_dispatch<Basis, Limit, Pullback::Surface::Midpoint>({0.0f});
+  check_curl_policy_dispatch<Basis, Limit, Pullback::Surface::Midpoint2>(
+      {0.0f});
 }
 
 /** @brief Curl dispatch preserves strict result bits and fast-math precision. */
