@@ -898,6 +898,7 @@ inline void test_timeline_required_add_active_time_and_last_slot() {
   Timeline timeline;
   float sink = 0.0f, required = 0.0f;
   int completions = 0;
+  const uint32_t DROPPED = Timeline::dropped_events();
   for (int i = 0; i < Timeline::MAX_EVENTS - 1; ++i)
     timeline.add(0, Animation::Transition(sink, 1.0f, 10, math::ease_linear));
   timeline.add_required(
@@ -910,7 +911,7 @@ inline void test_timeline_required_add_active_time_and_last_slot() {
   HS_EXPECT_EQ(required, 9.0f);
   HS_EXPECT_EQ(completions, 1);
   HS_EXPECT_EQ(timeline.event_count(), Timeline::MAX_EVENTS - 1);
-  HS_EXPECT_EQ(Timeline::dropped_events(), 0u);
+  HS_EXPECT_EQ(Timeline::dropped_events(), DROPPED);
 }
 
 /**
