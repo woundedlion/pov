@@ -8,12 +8,6 @@
 // manifold topology across the sweep.
 // ---------------------------------------------------------------------------
 
-/** @brief One ambo-on-hankin sweep seed from the Islamic registry chains. */
-struct HankinAmboSite {
-  const char *name;                     /**< Diagnostic label. */
-  PolyMesh (*seed)(Arena &a, Arena &b); /**< Chain prefix up to the ambo. */
-};
-
 inline PolyMesh probe_dodeca_hk62(Arena &a, Arena &b) {
   return recipe_step_seed<Solids::DODECAHEDRON_HK62_AMBO_HK62_RECIPE,
                           Solids::Op::AMBO, 0>(a, b);
@@ -58,60 +52,21 @@ inline PolyMesh probe_icosa_truncate25_hk60(Arena &a, Arena &b) {
       Solids::Op::AMBO, 0>(a, b);
 }
 
-inline constexpr HankinAmboSite HANKIN_AMBO_SITES[] = {
-    {"dodecahedron_hk62", probe_dodeca_hk62},
-    {"dodecahedron_hk72", probe_dodeca_hk72},
-    {"dodecahedron_hk35", probe_dodeca_hk35},
-    {"dodecahedron_hk35_ambo_hk62", probe_dodeca_hk35_ambo_hk62},
-    {"dodecahedron_hk54", probe_dodeca_hk54},
-    {"octahedron_hk17", probe_octa_hk17},
-    {"octahedron_hk34", probe_octa_hk34},
-    {"rhombicuboctahedron_hk63", probe_rhombicubocta_hk63},
-    {"truncatedIcosahedron_hk54", probe_ticosa_hk54},
-    {"icosahedron_truncate25_hk60", probe_icosa_truncate25_hk60},
+inline constexpr float HANKIN_AMBO_T = 0.5f - ConwayGraph::T_EPS_AMBO;
+inline constexpr StepLegSite HANKIN_AMBO_SITES[] = {
+    {"dodecahedron_hk62", probe_dodeca_hk62, HANKIN_AMBO_T},
+    {"dodecahedron_hk72", probe_dodeca_hk72, HANKIN_AMBO_T},
+    {"dodecahedron_hk35", probe_dodeca_hk35, HANKIN_AMBO_T},
+    {"dodecahedron_hk35_ambo_hk62", probe_dodeca_hk35_ambo_hk62, HANKIN_AMBO_T},
+    {"dodecahedron_hk54", probe_dodeca_hk54, HANKIN_AMBO_T},
+    {"octahedron_hk17", probe_octa_hk17, HANKIN_AMBO_T},
+    {"octahedron_hk34", probe_octa_hk34, HANKIN_AMBO_T},
+    {"rhombicuboctahedron_hk63", probe_rhombicubocta_hk63, HANKIN_AMBO_T},
+    {"truncatedIcosahedron_hk54", probe_ticosa_hk54, HANKIN_AMBO_T},
+    {"icosahedron_truncate25_hk60", probe_icosa_truncate25_hk60, HANKIN_AMBO_T},
 };
 
-/**
- * @brief Steps a truncate (ambo-leg) sweep on HANKIN_AMBO_SITES, asserting constant raw and compiled face counts, two-face
- *        edge incidence, and Euler characteristic 2 at each sampled parameter.
- */
+/** @brief Sweeps truncate legs on the ambo-on-hankin recipe seeds. */
 inline void test_ambo_leg_on_hankin_seed_holds_topology() {
-  constexpr int SAMPLES = 33;
-  constexpr float T_HI = 0.5f - ConwayGraph::T_EPS_AMBO;
-
-  for (const HankinAmboSite &site : HANKIN_AMBO_SITES) {
-    const int failed_before = hs_test::stats().failed;
-
-    Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
-    const PolyMesh seed = finalize_site_seed(site, persist);
-
-    SweepFingerprint first;
-    size_t f0 = 0, compiled0 = 0;
-    Arena a(morph_target_buf, sizeof(morph_target_buf));
-    Arena b(morph_temp_buf, sizeof(morph_temp_buf));
-    for (int s = 0; s < SAMPLES; ++s) {
-      const float t =
-          T_EPS + (T_HI - T_EPS) * (static_cast<float>(s) / (SAMPLES - 1));
-      ScratchScope frame_a(a);
-      ScratchScope frame_b(b);
-      PolyMesh swept = MeshOps::truncate(seed, a, b, t);
-      const auto fingerprint = check_sweep_sample(swept, a, b);
-      if (s == 0) {
-        first = fingerprint;
-        f0 = first.f;
-        compiled0 = first.compiled;
-        expect_op_counts(first.v, first.f, first.i,
-                         morph_op_counts(ConwayGraph::MorphOp::TRUNCATE, seed));
-      } else {
-        expect_same_fingerprint(fingerprint, first);
-      }
-    }
-
-    if (hs_test::stats().failed != failed_before)
-      std::printf("    [hankin-ambo] %s failed (raw F=%zu, compiled F=%zu)\n",
-                  site.name, f0, compiled0);
-    else
-      std::printf("  [hankin-ambo] %s: F=%zu compiled=%zu across %d samples\n",
-                  site.name, f0, compiled0, SAMPLES);
-  }
+  check_step_leg_sweep(StepLegKind::TRUNCATE, HANKIN_AMBO_SITES);
 }
