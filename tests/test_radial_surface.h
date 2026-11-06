@@ -228,6 +228,18 @@ inline void test_radial_surface_degenerate_intervals() {
   HS_EXPECT_TRUE(surface.sample({.1f, .1f}, math::PI_F / 4).found());
   HS_EXPECT_FALSE(surface.sample({2, 0}, 0).found());
   HS_EXPECT_FALSE(surface.sample({.1f, 0}, 0, 1).found());
+  Surface thin;
+  const std::array TINY_KNOTS{Surface::Knot{0, 0, 0},
+                              Surface::Knot{1e-10f, 0, 0}};
+  thin.prepare(scratch_arena_a, 7, 1e-30f, TINY_KNOTS);
+  const std::array TINY_HITS{thin.sample<false, true, false>({5e-11f, 0}, 0),
+                             thin.sample<false, false, false>({5e-11f, 0}, 0)};
+  for (const auto &hit : TINY_HITS) {
+    HS_EXPECT_TRUE(hit.found());
+    HS_EXPECT_TRUE(std::isfinite(hit.fraction));
+    HS_EXPECT_GE(hit.fraction, 0.0f);
+    HS_EXPECT_LE(hit.fraction, 1.0f);
+  }
 }
 
 /** @brief Coarse rejection retains fine radial bulges and intersecting disks. */

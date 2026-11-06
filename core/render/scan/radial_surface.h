@@ -375,7 +375,9 @@ public:
    * @param observer Receives interval sectors and endpoint predicates.
    * @return Earliest hit, or a result with interval -1.
    * @details A point already inside the first supplied star returns its start.
-   * The caller must not skip an interval that could contain an earlier hit. */
+   * The caller must not skip an interval that could contain an earlier hit.
+   * For a sweep growing from zero scale, an unordered root fraction selects
+   * the interval endpoint. */
   template <bool COUNT = false, bool SKIP = true, bool DERIVATIVES = true,
             class Observer = NoObserver>
   HS_HOT_FLASH_MEMBER Hit sample(Point p, float theta, int first_interval = 0,
@@ -443,7 +445,7 @@ public:
           count<COUNT>(stats, &Stats::roots);
           const float T =
               radial_cross(p, END_VECTOR) / (determinant * norms[i + 1]);
-          return finish<DERIVATIVES>(p, i, std::clamp(T, 0.0f, 1.0f), END_EDGE);
+          return finish<DERIVATIVES>(p, i, hs::clamp(T, 0.0f, 1.0f), END_EDGE);
         }
       } else if (start_sector == END_SECTOR) {
         if (END_VALUE <= 0.0f) {
