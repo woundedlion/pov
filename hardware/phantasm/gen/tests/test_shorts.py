@@ -213,6 +213,14 @@ class StackedNameTests(unittest.TestCase):
         found = conflicts(**crossing, junctions=[(100, 100)])
         self.assertEqual([nets for nets, _ in found], [["+5V", "GND"]])
 
+    def test_wire_end_connects_midspan_without_a_junction(self):
+        labels = [((90, 100), "GND"), ((100, 90), "+5V")]
+        self.assertEqual(conflicts(labels=labels, wires=[
+            ((90, 100), (110, 100)), ((100, 90), (100, 99))]), [])
+        found = conflicts(labels=labels, wires=[
+            ((90, 100), (110, 100)), ((100, 90), (100, 100))])
+        self.assertEqual([nets for nets, _ in found], [["+5V", "GND"]])
+
 
 class EmptyScanTests(unittest.TestCase):
     """An empty scan is a broken input, never a clean bill of health."""
