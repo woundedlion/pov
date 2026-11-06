@@ -269,7 +269,7 @@ class SharedLiterals(unittest.TestCase):
         for path in bp.INLINE_SCAN:
             self.assertIn(path.relative_to(bp.ROOT).as_posix(), tracked)
 
-    def test_the_format_exclude_copies_are_where_the_count_expects(self):
+    def test_the_format_exclude_is_carried_by_exactly_its_two_gates(self):
         want = bp.SHARED_LITERALS["format-exclude"]
         carriers = [path.name for path in bp.INLINE_SCAN
                     if want in path.read_text(encoding="utf-8")]

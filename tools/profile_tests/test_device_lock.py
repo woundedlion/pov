@@ -534,7 +534,7 @@ class BoardSelection(unittest.TestCase):
                      env={"HS_TEENSY_PORT": "COM3"})
         self.assertIn("PIN=[COM3]", r.stdout)
 
-    def test_release_restores_a_peers_claim_it_declined_to_free(self):
+    def test_release_preserves_a_peers_claim(self):
         # A declined release preserves the peer's claim and leaves no scratch directory.
         script = ('hs_device_acquire E profile 60; '
                   f'echo token=peer > "{self.base}-COM3.d/info"; '
