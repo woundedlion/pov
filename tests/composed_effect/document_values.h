@@ -228,6 +228,70 @@ inline const JsonValue *document_presets(const JsonValue &document) {
   return bank != nullptr ? bank->find("presets") : nullptr;
 }
 
+using DocumentReachValue = std::array<std::string, 3>;
+
+/** @brief Records shipped topology values, including omitted schema defaults. */
+template <template <int, int> class E>
+inline void record_document_reach(std::vector<DocumentReachValue> &observed) {
+  using FX = E<SMALL_W, SMALL_H>;
+  const auto loaded = load_promoted_document<FX>();
+  if (!loaded)
+    return;
+  const auto *chain = document_chain(*loaded);
+  const auto *presets = document_presets(*loaded);
+  HS_EXPECT_TRUE(chain != nullptr && presets != nullptr);
+  if (chain == nullptr || presets == nullptr)
+    return;
+  for (const auto &entry : chain->items) {
+    const auto *label = entry.find("label");
+    const auto *id = entry.find("operator");
+    HS_EXPECT_TRUE(label != nullptr && id != nullptr);
+    if (label == nullptr || id == nullptr)
+      continue;
+    const auto *op = In::find_operator(id->text.c_str());
+    HS_EXPECT_TRUE(op != nullptr);
+    if (op == nullptr)
+      continue;
+    for (const auto &preset : presets->items) {
+      const auto *values = preset.find("values");
+      HS_EXPECT_TRUE(values != nullptr);
+      if (values == nullptr)
+        continue;
+      for (const auto &field : op->schema_span()) {
+        if (!field.topology)
+          continue;
+        const auto *value = values->find(label->text + "." + field.id);
+        const char *selected = field.enum_ids[field.enum_def];
+        observed.push_back(
+            {id->text, field.id, value != nullptr ? value->text : selected});
+      }
+    }
+  }
+}
+
+/** @brief Every reachable table value is emitted by a shipped document. */
+inline void test_composed_derivation_values_are_emitted() {
+  std::vector<DocumentReachValue> observed;
+#define HS_COMPOSED_REACH(name) record_document_reach<name>(observed);
+  HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_REACH)
+#undef HS_COMPOSED_REACH
+  for (const auto &row : DERIVATION_REACH) {
+    if (row.topology_id == nullptr)
+      continue;
+    HS_CONTEXT(row.operator_id);
+    HS_CONTEXT(row.topology_id);
+    for (const char *value : row.reachable) {
+      if (value == nullptr)
+        break;
+      HS_CONTEXT(value);
+      HS_EXPECT_TRUE(std::find(observed.begin(), observed.end(),
+                               DocumentReachValue{row.operator_id,
+                                                  row.topology_id, value}) !=
+                     observed.end());
+    }
+  }
+}
+
 /**
  * @brief Finds the values object of the last preset entry named @p preset_id.
  * @param presets The `preset_bank.presets` array.
