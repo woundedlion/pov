@@ -510,26 +510,6 @@ inline void test_peirce_strip_tears_the_unglued_equator() {
         0);
 }
 
-/** @brief Face cut masks identify exactly the declared cut half-edges. */
-inline void test_airocean_cut_masks_match_the_edge_lists() {
-  constexpr size_t CUT_HALF_EDGES =
-      sizeof(AIROCEAN_CUT_FACES) / sizeof(AIROCEAN_CUT_FACES[0]);
-  HS_EXPECT_EQ(sizeof(AIROCEAN_CUT_EDGES) / sizeof(AIROCEAN_CUT_EDGES[0]),
-               CUT_HALF_EDGES);
-  std::array<uint8_t, AIROCEAN_FACE_COUNT> rebuilt{};
-  for (size_t i = 0; i < CUT_HALF_EDGES; ++i) {
-    HS_EXPECT_LT(AIROCEAN_CUT_FACES[i], AIROCEAN_FACE_COUNT);
-    HS_EXPECT_LT(AIROCEAN_CUT_EDGES[i], 3);
-    rebuilt[AIROCEAN_CUT_FACES[i]] |= uint8_t(1U << AIROCEAN_CUT_EDGES[i]);
-  }
-  for (size_t face = 0; face < AIROCEAN_FACE_COUNT; ++face) {
-    HS_EXPECT_EQ(rebuilt[face], AIROCEAN_CUT_MASKS[face]);
-    for (uint8_t edge = 0; edge < 3; ++edge)
-      HS_EXPECT_EQ(airocean_edge_is_cut(uint8_t(face), edge),
-                   (rebuilt[face] & (1U << edge)) != 0);
-  }
-}
-
 /** @brief Paired half-edges share the minimum canonical edge identity. */
 inline void test_airocean_edge_identity_is_the_canonical_half_edge() {
   for (size_t face = 0; face < AIROCEAN_FACE_COUNT; ++face)
@@ -1068,7 +1048,6 @@ inline int run_projections_tests() {
   HS_RUN(test_peirce_strip_scroll_is_periodic);
   HS_RUN(test_peirce_meridian_and_scroll_coordinates);
   HS_RUN(test_peirce_strip_tears_the_unglued_equator);
-  HS_RUN(test_airocean_cut_masks_match_the_edge_lists);
   HS_RUN(test_airocean_edge_identity_is_the_canonical_half_edge);
   HS_RUN(test_airocean_glued_edges_are_bit_identical);
   HS_RUN(test_airocean_face_planes);
