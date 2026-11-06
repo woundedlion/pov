@@ -21,7 +21,7 @@ void check_timed_spatial_copies(Stage &stage, Reference reference) {
              [&](const math::Vector &v, const Pixel &, float, float) {
                expected.push_back(v);
              });
-  HS_EXPECT_EQ(expected.size(), static_cast<size_t>(stage.copy_count()));
+  HS_EXPECT_SIZE_OR_RETURN(expected, stage.copy_count());
   for (int copy = 0; copy < stage.copy_count(); ++copy) {
     HS_CONTEXT("copy", copy);
     auto check_reference = [&](const math::Vector &got,
