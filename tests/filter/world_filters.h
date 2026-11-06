@@ -249,9 +249,7 @@ inline void test_world_orient_rotates_and_keeps_static_age() {
               });
   HS_EXPECT_EQ(n, 1);
   math::Vector expected = math::rotate(math::X_AXIS, q);
-  HS_EXPECT_NEAR(got.v.x, expected.x, 1e-4f);
-  HS_EXPECT_NEAR(got.v.y, expected.y, 1e-4f);
-  HS_EXPECT_NEAR(got.v.z, expected.z, 1e-4f);
+  HS_EXPECT_VEC(got.v, expected, 1e-4f);
   HS_EXPECT_NEAR(got.age, 5.0f, 1e-4f);
 }
 
@@ -279,9 +277,7 @@ inline void test_world_orient_cull_edge_mirrors_plot() {
   HS_EXPECT_FALSE(hit);
   HS_EXPECT_EQ(n, 1);
   const math::Vector expected = math::rotate(math::X_AXIS, ori.get());
-  HS_EXPECT_NEAR(seen.x, expected.x, 1e-4f);
-  HS_EXPECT_NEAR(seen.y, expected.y, 1e-4f);
-  HS_EXPECT_NEAR(seen.z, expected.z, 1e-4f);
+  HS_EXPECT_VEC(seen, expected, 1e-4f);
 
   n = 0;
   hit = orient.cull_edge(
@@ -308,9 +304,7 @@ inline void test_world_orient_cull_edge_mirrors_plot() {
       });
   HS_EXPECT_EQ(n, 1);
   const math::Vector expected_normal = math::rotate(math::Y_AXIS, ori.get());
-  HS_EXPECT_NEAR(normal.x, expected_normal.x, 1e-4f);
-  HS_EXPECT_NEAR(normal.y, expected_normal.y, 1e-4f);
-  HS_EXPECT_NEAR(normal.z, expected_normal.z, 1e-4f);
+  HS_EXPECT_VEC(normal, expected_normal, 1e-4f);
 
   // An edge that sits outside a polar band until the orientation rotates it in:
   // the band predicate rejects the source endpoints, plot() lands the point
@@ -356,23 +350,18 @@ inline void test_world_orient_slice_selects_by_projection() {
   math::Vector near_pos = math::Vector(0.15f, 0.98f, 0.0f).normalized();
   math::Vector exp_pos = math::rotate(near_pos, oris[1].get());
   math::Vector got_pos = first_tap(near_pos);
-  HS_EXPECT_NEAR(got_pos.x, exp_pos.x, 1e-3f);
-  HS_EXPECT_NEAR(got_pos.y, exp_pos.y, 1e-3f);
-  HS_EXPECT_NEAR(got_pos.z, exp_pos.z, 1e-3f);
+  HS_EXPECT_VEC(got_pos, exp_pos, 1e-3f);
 
   // Probe near -Y (projection ~ -1 -> t ~ 0 -> first index 0 = X rotation).
   math::Vector near_neg = math::Vector(0.15f, -0.98f, 0.0f).normalized();
   math::Vector exp_neg = math::rotate(near_neg, oris[0].get());
   math::Vector got_neg = first_tap(near_neg);
-  HS_EXPECT_NEAR(got_neg.x, exp_neg.x, 1e-3f);
-  HS_EXPECT_NEAR(got_neg.y, exp_neg.y, 1e-3f);
+  HS_EXPECT_VEC(got_neg, exp_neg, 1e-3f);
 
   // Disabled -> verbatim passthrough (no rotation).
   slice.set_enabled(false);
   math::Vector pass = first_tap(near_pos);
-  HS_EXPECT_NEAR(pass.x, near_pos.x, 1e-6f);
-  HS_EXPECT_NEAR(pass.y, near_pos.y, 1e-6f);
-  HS_EXPECT_NEAR(pass.z, near_pos.z, 1e-6f);
+  HS_EXPECT_VEC(pass, near_pos, 1e-6f);
 }
 
 /**
@@ -407,9 +396,7 @@ inline void test_world_orient_slice_cull_edge_bounds_all_slices() {
   HS_EXPECT_EQ(n, 2);
   for (int i = 0; i < 2; ++i) {
     math::Vector expected = math::rotate(math::X_AXIS, oris[i].get());
-    HS_EXPECT_NEAR(seen[i].x, expected.x, 1e-4f);
-    HS_EXPECT_NEAR(seen[i].y, expected.y, 1e-4f);
-    HS_EXPECT_NEAR(seen[i].z, expected.z, 1e-4f);
+    HS_EXPECT_VEC(seen[i], expected, 1e-4f);
   }
 
   n = 0;
@@ -437,9 +424,7 @@ inline void test_world_orient_slice_cull_edge_bounds_all_slices() {
   HS_EXPECT_EQ(n, 2);
   for (int i = 0; i < 2; ++i) {
     math::Vector expected = math::rotate(math::Y_AXIS, oris[i].get());
-    HS_EXPECT_NEAR(normals[i].x, expected.x, 1e-4f);
-    HS_EXPECT_NEAR(normals[i].y, expected.y, 1e-4f);
-    HS_EXPECT_NEAR(normals[i].z, expected.z, 1e-4f);
+    HS_EXPECT_VEC(normals[i], expected, 1e-4f);
   }
 
   // A probe near +Y selects the Z rotation, which swings it onto the |x| band:
@@ -470,8 +455,7 @@ inline void test_world_orient_slice_cull_edge_bounds_all_slices() {
   n = 0;
   slice.cull_edge(math::X_AXIS, math::X_AXIS, nullptr, record_once);
   HS_EXPECT_EQ(n, 1);
-  HS_EXPECT_NEAR(passed.x, 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(passed.y, 0.0f, 1e-6f);
+  HS_EXPECT_VEC(passed, math::X_AXIS, 1e-6f);
 
   // An empty candidate list is the same passthrough.
   Filter::World::OrientSlice empty(std::span<const math::Orientation<>>{},
@@ -480,8 +464,7 @@ inline void test_world_orient_slice_cull_edge_bounds_all_slices() {
   passed = math::Vector();
   empty.cull_edge(math::X_AXIS, math::X_AXIS, nullptr, record_once);
   HS_EXPECT_EQ(n, 1);
-  HS_EXPECT_NEAR(passed.x, 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(passed.z, 0.0f, 1e-6f);
+  HS_EXPECT_VEC(passed, math::X_AXIS, 1e-6f);
 }
 
 /**
@@ -507,9 +490,7 @@ inline void test_world_vertex_replicate_fanout_and_age() {
   HS_EXPECT_EQ(n, N);
   // rotate(vertices[0], make_rotation(v0, v_i)) == v_i.
   for (int i = 0; i < N; ++i) {
-    HS_EXPECT_NEAR(taps[i].v.x, verts[i].x, 1e-4f);
-    HS_EXPECT_NEAR(taps[i].v.y, verts[i].y, 1e-4f);
-    HS_EXPECT_NEAR(taps[i].v.z, verts[i].z, 1e-4f);
+    HS_EXPECT_VEC(taps[i].v, verts[i], 1e-4f);
     // Age is unchanged for every copy (no per-copy +i offset).
     HS_EXPECT_NEAR(taps[i].age, 7.0f, 1e-6f);
   }
@@ -525,9 +506,7 @@ inline void test_world_vertex_replicate_fanout_and_age() {
             ++n;
           });
   for (int i = 0; i < N; ++i) {
-    HS_EXPECT_NEAR(taps[i].v.x, updated[i].x, 1e-4f);
-    HS_EXPECT_NEAR(taps[i].v.y, updated[i].y, 1e-4f);
-    HS_EXPECT_NEAR(taps[i].v.z, updated[i].z, 1e-4f);
+    HS_EXPECT_VEC(taps[i].v, updated[i], 1e-4f);
   }
 }
 
@@ -555,9 +534,7 @@ inline void test_world_vertex_replicate_cull_edge_mirrors_plot() {
   HS_EXPECT_FALSE(hit);
   HS_EXPECT_EQ(n, N);
   for (int i = 0; i < N; ++i) {
-    HS_EXPECT_NEAR(seen[i].x, verts[i].x, 1e-4f);
-    HS_EXPECT_NEAR(seen[i].y, verts[i].y, 1e-4f);
-    HS_EXPECT_NEAR(seen[i].z, verts[i].z, 1e-4f);
+    HS_EXPECT_VEC(seen[i], verts[i], 1e-4f);
   }
 
   n = 0;
@@ -584,9 +561,7 @@ inline void test_world_vertex_replicate_cull_edge_mirrors_plot() {
       });
   HS_EXPECT_EQ(n, N);
   for (int i = 0; i < N; ++i) {
-    HS_EXPECT_NEAR(normals[i].x, verts[i].x, 1e-4f);
-    HS_EXPECT_NEAR(normals[i].y, verts[i].y, 1e-4f);
-    HS_EXPECT_NEAR(normals[i].z, verts[i].z, 1e-4f);
+    HS_EXPECT_VEC(normals[i], verts[i], 1e-4f);
   }
 }
 
@@ -658,18 +633,10 @@ inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
   HS_EXPECT_FALSE(hit);
   // Orient's one endpoint pose x Replicate's two copies.
   HS_EXPECT_EQ(n, 2);
-  HS_EXPECT_NEAR(seen_a[0].x, head_a.x, 1e-4f);
-  HS_EXPECT_NEAR(seen_a[0].y, head_a.y, 1e-4f);
-  HS_EXPECT_NEAR(seen_a[0].z, head_a.z, 1e-4f);
-  HS_EXPECT_NEAR(seen_b[0].x, head_b.x, 1e-4f);
-  HS_EXPECT_NEAR(seen_b[0].y, head_b.y, 1e-4f);
-  HS_EXPECT_NEAR(seen_b[0].z, head_b.z, 1e-4f);
-  HS_EXPECT_NEAR(seen_a[1].x, tail_a.x, 1e-4f);
-  HS_EXPECT_NEAR(seen_a[1].y, tail_a.y, 1e-4f);
-  HS_EXPECT_NEAR(seen_a[1].z, tail_a.z, 1e-4f);
-  HS_EXPECT_NEAR(seen_b[1].x, tail_b.x, 1e-4f);
-  HS_EXPECT_NEAR(seen_b[1].y, tail_b.y, 1e-4f);
-  HS_EXPECT_NEAR(seen_b[1].z, tail_b.z, 1e-4f);
+  HS_EXPECT_VEC(seen_a[0], head_a, 1e-4f);
+  HS_EXPECT_VEC(seen_b[0], head_b, 1e-4f);
+  HS_EXPECT_VEC(seen_a[1], tail_a, 1e-4f);
+  HS_EXPECT_VEC(seen_b[1], tail_b, 1e-4f);
 
   // Only the composed transform reaches this target: neither the source
   // geometry nor the head-only image does.
@@ -707,9 +674,7 @@ inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
         return false;
       });
   HS_EXPECT_EQ(n, 1);
-  HS_EXPECT_NEAR(plain_a.x, head_a.x, 1e-4f);
-  HS_EXPECT_NEAR(plain_a.y, head_a.y, 1e-4f);
-  HS_EXPECT_NEAR(plain_a.z, head_a.z, 1e-4f);
+  HS_EXPECT_VEC(plain_a, head_a, 1e-4f);
 
   // The filter-free sink is the terminal: it runs the predicate on the edge it
   // was handed and answers with it.
@@ -742,9 +707,7 @@ inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
   HS_EXPECT_EQ(n, 2);
   const math::Vector expected_normal =
       math::rotate(math::rotate(math::Y_AXIS, q), step);
-  HS_EXPECT_NEAR(tail_normal.x, expected_normal.x, 1e-4f);
-  HS_EXPECT_NEAR(tail_normal.y, expected_normal.y, 1e-4f);
-  HS_EXPECT_NEAR(tail_normal.z, expected_normal.z, 1e-4f);
+  HS_EXPECT_VEC(tail_normal, expected_normal, 1e-4f);
 }
 
 /**
@@ -767,9 +730,7 @@ inline void test_world_mobius_identity_and_transform() {
              ++n;
            });
   HS_EXPECT_EQ(n, 1);
-  HS_EXPECT_NEAR(out.x, v.x, 1e-3f);
-  HS_EXPECT_NEAR(out.y, v.y, 1e-3f);
-  HS_EXPECT_NEAR(out.z, v.z, 1e-3f);
+  HS_EXPECT_VEC(out, v, 1e-3f);
 
   // A translation map f(z) = z + 1 moves the point and keeps it on the sphere.
   math::MobiusParams shift(1, 0, 1, 0, 0, 0, 1, 0); // a=1, b=1, c=0, d=1
@@ -781,9 +742,7 @@ inline void test_world_mobius_identity_and_transform() {
   HS_EXPECT_NEAR(out2.length(), 1.0f, 1e-3f);
   HS_EXPECT_GT(math::distance_between(out2, v), 0.05f);
   const math::Vector want = math::mobius_transform(v, shift);
-  HS_EXPECT_NEAR(out2.x, want.x, 1e-6f);
-  HS_EXPECT_NEAR(out2.y, want.y, 1e-6f);
-  HS_EXPECT_NEAR(out2.z, want.z, 1e-6f);
+  HS_EXPECT_VEC(out2, want, 1e-6f);
 
   // The filter reads its bound parameters live.
   shift.b.re = 2.0f;
@@ -793,9 +752,7 @@ inline void test_world_mobius_identity_and_transform() {
       [&](const math::Vector &o, const Pixel &, float, float) { out3 = o; });
   const math::Vector want3 = math::mobius_transform(v, shift);
   HS_EXPECT_GT(math::distance_between(want3, want), 0.05f);
-  HS_EXPECT_NEAR(out3.x, want3.x, 1e-6f);
-  HS_EXPECT_NEAR(out3.y, want3.y, 1e-6f);
-  HS_EXPECT_NEAR(out3.z, want3.z, 1e-6f);
+  HS_EXPECT_VEC(out3, want3, 1e-6f);
   shift.b.re = 1.0f;
 
   constexpr int W = 32, H = 16;
