@@ -1022,6 +1022,10 @@ Transformers integrate with the `MeshOps::transform()` pipeline and can be chain
 cells used by edge interpolation. Within one ring it evaluates the exact
 zero-turn hue once and reuses it whenever the hue amount is exactly zero,
 including culled chunks. Nonzero hue amounts retain their individual evaluation.
+The swept draw budgets its column-basis and staging tenants against the default
+16 KiB scratch A partition. Its packed alternate shifts plus the nested candidate
+arrays are checked against the separate 16 KiB scratch B partition, including
+allocation alignment.
 
 | Field | Effect |
 |---|---|
