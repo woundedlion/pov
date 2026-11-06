@@ -1035,7 +1035,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
 
     // Walks the segment at the adaptive step, caching each step; returns the
     // simulated arc.
-    auto simulate_steps = [&]() __attribute__((always_inline)) -> float {
+    auto simulate_steps = [&]() HS_HOT_INLINE -> float {
       HS_PROFILE_DEEP(plot_seg_sim);
       float sim_dist = 0.0f;
       while (sim_dist < total_dist) {
@@ -1062,8 +1062,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
 
     // Plots the cached steps, each scaled by `scale`; `omit_last` drops the
     // final endpoint.
-    auto replay_steps = [&](float scale,
-                            bool omit_last) __attribute__((always_inline)) {
+    auto replay_steps = [&](float scale, bool omit_last) HS_HOT_INLINE {
       // Normalize interpolated positions before vector_to_pixel's acos(v.y).
       HS_PROFILE_DEEP(plot_seg_draw);
       if (window.plots_start()) {
