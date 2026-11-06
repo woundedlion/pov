@@ -808,7 +808,7 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_tangent_integer_controls);
   HS_RUN(test_symmetric_sectoral_phase);
   HS_RUN(test_symmetric_single_strength);
-  HS_RUN(test_symmetric_legacy_gain_equivalence);
+  HS_RUN(test_symmetric_gain_equivalence);
   HS_RUN(test_symmetric_frame_rotation);
   HS_RUN(test_symmetric_rotation_clock);
   HS_RUN(test_symmetric_snapshot_clock);

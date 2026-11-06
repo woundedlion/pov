@@ -121,7 +121,7 @@ inline void test_symmetric_sectoral_phase() {
   }
 }
 
-/** @brief Symmetric lenses expose one gain spanning the legacy product domain. */
+/** @brief Symmetric lenses expose a gain spanning the product of strength and amplitude. */
 inline void test_symmetric_single_strength() {
   using Symmetric = In::Op::DisplaceSymmetric;
   HS_EXPECT_STREQ(Symmetric::ID, "sphere.displace.symmetric.v2");
@@ -174,8 +174,8 @@ inline void test_symmetric_single_strength() {
                In::ChainStatus::UNKNOWN_OPERATOR);
 }
 
-/** @brief One Strength reproduces the legacy gain product for every invariant. */
-inline void test_symmetric_legacy_gain_equivalence() {
+/** @brief Coupled strength reproduces the product of strength and amplitude. */
+inline void test_symmetric_gain_equivalence() {
   using Symmetric = In::Op::DisplaceSymmetric;
   using namespace math::tangent_field;
   struct Invariant {
@@ -193,8 +193,8 @@ inline void test_symmetric_legacy_gain_equivalence() {
   for (uint8_t symmetry = 0; symmetry < std::size(INVARIANTS); ++symmetry)
     for (uint8_t kind = 0; kind < 2; ++kind)
       for (uint8_t integrator = 0; integrator < 3; ++integrator)
-        for (const float old_strength : {-math::PI_F, 0.25f, math::PI_F})
-          for (const float old_amplitude : {-4.0f, -1.25f, 0.0f, 0.5f, 4.0f})
+        for (const float strength : {-math::PI_F, 0.25f, math::PI_F})
+          for (const float amplitude : {-4.0f, -1.25f, 0.0f, 0.5f, 4.0f})
             for (const float phase : {-0.7f, 0.6f}) {
               const auto &invariant = INVARIANTS[symmetry];
               std::array<PotentialTerm, 4> terms{};
@@ -202,21 +202,21 @@ inline void test_symmetric_legacy_gain_equivalence() {
                           static_cast<Kind>(kind),
                           invariant.degree,
                           invariant.degree,
-                          invariant.sign * old_amplitude,
+                          invariant.sign * amplitude,
                           0};
-              const PotentialField legacy(
+              const PotentialField reference_field(
                   terms, 0.0f, math::make_rotation(math::Y_AXIS, phase));
               Symmetric::Params params;
               params.symmetry = symmetry;
               params.kind = kind;
               params.integrator = integrator;
-              params.strength = old_strength * old_amplitude;
+              params.strength = strength * amplitude;
               const auto field = Symmetric::field(params, phase);
               for (int index = 0; index < 3; ++index) {
                 const auto p = math::Vector::from_spherical(
                     0.31f + index * 1.1f, 0.61f + index * 0.5f);
                 const auto expected =
-                    Symmetric::step(p, legacy, old_strength, integrator);
+                    Symmetric::step(p, reference_field, strength, integrator);
                 const auto actual =
                     Symmetric::run({p, 0.2f}, {}, params, field);
                 HS_EXPECT_NEAR(actual.dir.x, expected.sphere.x, 1e-3f);

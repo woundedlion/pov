@@ -865,12 +865,12 @@ inline void test_shader_chain_grid_lattice_symmetry() {
 }
 
 /** @brief An affine warp winding (-5, 4) grid periods per phase turn and
-    turning at the old source angle, before the stationary-direct grid with
+    turning at the source angle, before the stationary-direct grid with
     phase p + s, reproduces the drifting rotated coupled grid. */
 inline void test_shader_chain_grid_motion_equivalence() {
   constexpr float FREQ = 4.4f, SPEED = 0.04f, DRIFT = 0.8f, ANGLE_RATE = 0.027f;
-  const auto old_grid = [&](math::Complex point, float complexity, float mix,
-                            float p, float s, float angle) {
+  const auto coupled_grid = [&](math::Complex point, float complexity,
+                                float mix, float p, float s, float angle) {
     const auto scaled = projections::stereo_pattern_args(point, FREQ);
     const float c = std::cos(angle), sn = std::sin(angle);
     const float x = scaled.re * c + scaled.im * sn;
@@ -915,9 +915,9 @@ inline void test_shader_chain_grid_motion_equivalence() {
               Pattern::PlanePosition{projections::stereo_pattern_args(
                   PB::Warp::affine_coords(point, prepared), FREQ)},
               grid, source);
-          worst =
-              std::max(worst, std::fabs(actual - old_grid(point, complexity,
-                                                          mix, p, s, angle)));
+          worst = std::max(worst,
+                           std::fabs(actual - coupled_grid(point, complexity,
+                                                           mix, p, s, angle)));
         }
       }
   HS_EXPECT_LT(worst, 1e-3f);
