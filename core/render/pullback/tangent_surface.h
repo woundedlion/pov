@@ -329,7 +329,7 @@ potential_field(const PotentialParams &params, float phase) {
  * @param order Wave order minus one.
  * @param phase Azimuthal drift in radians.
  * @return Normalized field. */
-inline math::tangent_field::PotentialField
+HS_COLD_MEMBER inline math::tangent_field::PotentialField
 rossby_haurwitz_field(float omega, float wave, uint8_t order, float phase) {
   using namespace math::tangent_field;
   std::array<PotentialTerm, 4> terms{};
