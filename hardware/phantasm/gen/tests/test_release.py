@@ -5,6 +5,7 @@ import contextlib
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -55,6 +56,31 @@ class ReleaseTests(unittest.TestCase):
     def test_candidate_requires_an_object(self):
         release.write_json(self.project / "candidate.json", [])
         with self.assertRaisesRegex(ValueError, "candidate status must be a JSON object"):
+            release.check_candidate(self.project)
+
+    def test_candidate_rejects_each_invalid_status_clause(self):
+        self.status()
+        release.check_candidate(self.project)
+        for field, value in (("revision", "1.3"), ("status", "validated"),
+                             ("producer", "Other"), ("provenance", "")):
+            with self.subTest(field=field):
+                self.status()
+                path = self.project / "candidate.json"
+                status = json.loads(path.read_text(encoding="utf-8"))
+                status[field] = value
+                release.write_json(path, status)
+                with self.assertRaisesRegex(ValueError, "candidate must declare revision"):
+                    release.check_candidate(self.project)
+
+    @unittest.skipUnless(os.name == "posix", "requires POSIX symbolic links")
+    def test_candidate_rejects_symbolic_link_sources(self):
+        self.status()
+        target = self.root / "board-source"
+        target.write_text("source", encoding="utf-8")
+        board = self.project / "phantasm.kicad_pcb"
+        board.unlink()
+        board.symlink_to(target)
+        with self.assertRaisesRegex(ValueError, "project sources must not be symbolic links"):
             release.check_candidate(self.project)
 
     def test_order_details_are_checked_before_package_verification(self):
