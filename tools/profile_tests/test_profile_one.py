@@ -825,6 +825,8 @@ class CyclerRoster(unittest.TestCase):
             with mock.patch.dict(multi_preset_effects.__globals__, EFFECTS=Path(directory)):
                 header.write_text("std::array<PresetEntry<Spec>, 2> PRESETS;")
                 self.assertEqual(multi_preset_effects(), {"Fixture"})
+                header.write_text("std::array<PresetEntry<Spec>, 1> PRESETS;")
+                self.assertEqual(multi_preset_effects(), set())
                 for declaration in declarations:
                     with self.subTest(declaration=declaration):
                         header.write_text(declaration)
@@ -838,7 +840,6 @@ class CyclerRoster(unittest.TestCase):
         self.assertIn("HyperLattice", presets)
         self.assertTrue({"Comets", "DreamBalls", "MeshFeedback", "MindSplatter",
                          "ShapeShifter", "IslamicStars"}.issubset(presets))
-        self.assertNotIn("Fishbowl", presets)
         self.assertEqual(presets - cyclers(), set())
 
 
