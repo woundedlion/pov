@@ -39,6 +39,13 @@ class ShellGateTests(unittest.TestCase):
              "fixture", str(script or REPO / "tools" / name), *args],
             cwd=self.root, env=self.env, capture_output=True, text=True, timeout=30)
 
+    def cold_build_script(self):
+        script = self.root / "tools" / "teensy_cold_build.sh"
+        script.parent.mkdir()
+        for name in (script.name, "device_lock.sh", "device_lock_guard.py", "find_python.sh"):
+            shutil.copyfile(REPO / "tools" / name, script.parent / name)
+        return script
+
     def test_whitespace_gate_checks_unstaged_contents(self):
         payload = self.root / "payload.txt"
         payload.write_text("clean\n", encoding="utf-8", newline="\n")
@@ -209,11 +216,7 @@ class ShellGateTests(unittest.TestCase):
                 self.assertIn("unsupported run scalar", result.stderr)
 
     def test_cold_build_removes_only_fixture_caches_and_preserves_pio_failure(self):
-        script = self.root / "tools" / "teensy_cold_build.sh"
-        script.parent.mkdir()
-        for name in (script.name, "device_lock.sh", "device_lock_guard.py", "find_python.sh"):
-            shutil.copyfile(REPO / "tools" / name, script.parent / name)
-        self.env["HS_PYTHON"] = sys.executable
+        script = self.cold_build_script()
         for name in ("build", "build_cache"):
             directory = self.root / ".pio" / name
             directory.mkdir(parents=True)
@@ -230,11 +233,7 @@ class ShellGateTests(unittest.TestCase):
         self.assertIn("fixture-build-failure", (self.root / "capture.log").read_text())
 
     def test_cold_build_gates_profile_variants_and_preserves_their_failures(self):
-        script = self.root / "tools" / "teensy_cold_build.sh"
-        script.parent.mkdir()
-        for name in (script.name, "device_lock.sh", "device_lock_guard.py", "find_python.sh"):
-            shutil.copyfile(REPO / "tools" / name, script.parent / name)
-        self.env["HS_PYTHON"] = sys.executable
+        script = self.cold_build_script()
         calls = self.root / "calls.log"
         for failure in (0, 2, 3, 4, 5, 6):
             with self.subTest(failure=failure):
