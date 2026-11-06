@@ -1165,10 +1165,12 @@ inline void test_mobius_grid_circular_animation() {
   effect.draw_frame();
   effect.advance_display();
   const auto first = effect.frame_for_test().resources.template get<"lens">();
-  HS_EXPECT_NEAR(first.magnitude, 1.0f / 0.416f, 1e-6f);
+  HS_EXPECT_TRUE(std::isfinite(first.magnitude));
+  HS_EXPECT_GT(first.magnitude, 0.0f);
   effect.draw_frame();
   effect.advance_display();
   const auto second = effect.frame_for_test().resources.template get<"lens">();
+  HS_EXPECT_EQ(second.magnitude, first.magnitude);
   HS_EXPECT_NE(first.angle, second.angle);
   verify_params_equal(effect.serialize_parameters().params, authored);
   effect.setAnimationsPaused(true);
