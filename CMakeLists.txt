@@ -183,7 +183,7 @@ if(EMSCRIPTEN)
   target_compile_options(render_goldens_wasm PRIVATE ${_render_compile_options})
   target_link_options(render_goldens_wasm PRIVATE ${_render_compile_options}
     "-sALLOW_MEMORY_GROWTH=1" "-sENVIRONMENT=node"
-    "-sSTACK_SIZE=1048576" "-sEXIT_RUNTIME=1")
+    "-sSTACK_SIZE=1048576" "-sEXIT_RUNTIME=1" "-sNODE_HOST_ENV=1")
   set_target_properties(render_goldens_wasm PROPERTIES SUFFIX ".cjs")
 
   # Generator of record for scripts/engine_catalog.json, the wasm32 operator ABI
