@@ -386,13 +386,12 @@ struct GSWhiteBox {
               canvas(x, y) = SENTINEL;
         };
         clear();
-        auto vertex = [&](Fragment &frag) {
-          if (!hot2[static_cast<int>(frag.v0)])
-            frag.v0 = -1.0f;
-        };
+        auto vertex = [](Fragment &) {};
         auto pixel = [&](Fragment &frag, const auto &grid, int x) {
-          return gs.shade_pixel(static_cast<int>(frag.v0), frag.pos,
-                                lattice.get(), grid, x, hot1.data());
+          const int SEED = static_cast<int>(frag.v0);
+          return hot2[SEED] ? gs.shade_pixel(SEED, frag.pos, lattice.get(),
+                                             grid, x, hot1.data())
+                            : Pixel(0, 0, 0);
         };
         gs.rasterize_lattice(canvas, vertex, pixel);
         size_t lit = 0;
