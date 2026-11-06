@@ -106,7 +106,9 @@ template <typename State> struct ConfiguredWaveShear : WaveShear<State> {
    * @param frame Current frame.
    * @return Vector rotation. */
   static Prepared prepare(const FrameState &frame) {
-    HS_CHECK(State::params(frame).envelope <= 2, "invalid warp envelope");
+    HS_CHECK(State::params(frame).envelope <=
+                 static_cast<uint8_t>(Envelope::EDGE_FADE),
+             "invalid warp envelope");
     return State::prepare(frame);
   }
   /** @brief Applies the authored sine shear.
@@ -142,7 +144,8 @@ struct ConfiguredVectorNoise
    * @return Noise-loop and vector frame. */
   static Prepared prepare(const FrameState &frame) {
     const auto &params = State::params(frame);
-    HS_CHECK(params.basis <= 2 && params.envelope <= 2,
+    HS_CHECK(params.basis <= static_cast<uint8_t>(math::NoiseBasis::RIDGED3) &&
+                 params.envelope <= static_cast<uint8_t>(Envelope::EDGE_FADE),
              "invalid vector-noise topology");
     return State::prepare(frame);
   }
@@ -179,7 +182,8 @@ struct ConfiguredPolarChart : PolarChart<State, LinearPolar, 1> {
    * @return Empty preparation. */
   static NoPrepared prepare(const FrameState &frame) {
     const auto &params = State::params(frame);
-    HS_CHECK(params.mode <= 1 && params.harmonic < MAX_POLAR_HARMONIC,
+    HS_CHECK(params.mode < std::size(AuthoredPolarParams::MODE_IDS) &&
+                 params.harmonic < std::size(AuthoredPolarParams::HARMONIC_IDS),
              "invalid polar-chart topology");
     return {};
   }
@@ -209,7 +213,9 @@ struct ConfiguredCurlFlow : CurlFlow<State, math::NoiseBasis::SIMPLEX, Euler1> {
    * @return Noise-loop offset. */
   static Prepared prepare(const FrameState &frame) {
     const auto &params = State::params(frame);
-    HS_CHECK(params.basis <= 2 && params.integrator <= 2,
+    HS_CHECK(params.basis <= static_cast<uint8_t>(math::NoiseBasis::RIDGED3) &&
+                 params.integrator <
+                     std::size(AuthoredCurlFlowParams::INTEGRATOR_IDS),
              "invalid curl-flow topology");
     return Base::prepare(frame);
   }

@@ -114,8 +114,10 @@ template <typename Provider> struct Authored : ApproximationDefaults {
    * @param frame Current frame.
    * @return Empty preparation. */
   template <typename Frame> static NoPrepared prepare(const Frame &frame) {
-    const uint8_t mode = Provider::params(frame).weight_mode;
-    HS_CHECK(mode <= 1, "invalid sample signal weighting");
+    const auto &params = Provider::params(frame);
+    const uint8_t mode = params.weight_mode;
+    HS_CHECK(mode < std::size(params.WEIGHT_IDS),
+             "invalid sample signal weighting");
     return {};
   }
 
@@ -128,8 +130,9 @@ template <typename Provider> struct Authored : ApproximationDefaults {
   template <typename Frame>
   static float apply(float field, const ProjectionProvenance &provenance,
                      const Frame &frame, const NoPrepared &) {
-    const uint8_t mode = Provider::params(frame).weight_mode;
-    assert(mode <= 1);
+    const auto &params = Provider::params(frame);
+    const uint8_t mode = params.weight_mode;
+    assert(mode < std::size(params.WEIGHT_IDS));
     return mode == 0 ? field : field * provenance.value_weight;
   }
 };

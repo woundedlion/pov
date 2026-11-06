@@ -36,7 +36,9 @@ struct ConfiguredProjectedNoise
    * @param frame Current frame.
    * @return Noise-loop offset. */
   static Prepared prepare(const FrameState &frame) {
-    HS_CHECK(State::params(frame).basis <= 2, "invalid projected-noise basis");
+    HS_CHECK(State::params(frame).basis <=
+                 static_cast<uint8_t>(math::NoiseBasis::RIDGED3),
+             "invalid projected-noise basis");
     return Base::prepare(frame);
   }
   /** @brief Samples the authored noise basis.
