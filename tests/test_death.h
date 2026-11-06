@@ -1436,13 +1436,13 @@ inline const Case *all_cases(int &n) {
        "core/render/scan/radial_surface_candidate_mask.h",
        "(complex_motion >= 0) RadialSurfaceCandidateMask: negative motion"},
       {"scan_mesh_visibility_dimensions", case_scan_mesh_visibility_dimensions,
-       "core/render/scan/mesh.h",
+       "core/render/scan/face_raster.h",
        "((!pass.visible_faces && !pass.visible_vertices) || "
        "(pass.visibility_face_count == faces && "
        "pass.visibility_vertex_count == vertices)) mesh visibility "
        "dimensions disagree with the mesh"},
       {"scan_mesh_selection_dimensions", case_scan_mesh_selection_dimensions,
-       "core/render/scan/mesh.h",
+       "core/render/scan/face_raster.h",
        "((!pass.selected_faces && !pass.face_copy && !pass.face_sweep) || "
        "(pass.selection_face_count == faces && "
        "pass.selection_vertex_count == vertices)) mesh deformation "
@@ -2574,7 +2574,8 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/render/pullback/interpreter.h", 12},
     {"core/render/pullback/operators/model.h", 1},
     {"core/render/pullback/operators.h", 1},
-    {"core/render/scan/mesh.h", 5},
+    {"core/render/scan/face_raster.h", 2},
+    {"core/render/scan/mesh.h", 3},
     {"core/render/scan/raster.h", 1},
     {"core/render/scan/shader.h", 2},
     {"core/render/scan/shapes.h", 7},
