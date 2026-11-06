@@ -58,6 +58,13 @@ inline constexpr StepLegSite DUAL_LEG_SITES[] = {
          Solids::TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE,
          Solids::Op::DUAL>,
      0.0f},
+    {.name = "truncatedCube_hk90_meta",
+     .seed = recipe_step_seed<Solids::TRUNCATED_CUBE_HK90_META_RECIPE,
+                              Solids::Op::DUAL>,
+     .param = 0.0f,
+     .via_dt_macro = true,
+     .min_face_area = 3.5e-4,
+     .opening_retraced_faces = 36},
 };
 
 /** @brief Partial bookends preserve landing data without classifying discarded faces. */
@@ -376,7 +383,33 @@ inline void test_medial_dual_bridge_wellformed() {
       worst_4pi =
           fold_worst(worst_4pi, std::abs(medial_total_solid_angle(frame) -
                                          4.0 * 3.14159265358979323846));
-      min_area = std::min(min_area, medial_min_face_area(frame));
+      if (s == 0 && site.opening_retraced_faces > 0) {
+        size_t flat_faces = 0, offset = 0;
+        for (const int corners : frame.face_counts) {
+          bool retraced = corners == 8;
+          if (retraced)
+            for (int corner = 1; corner < 4; ++corner)
+              retraced = retraced &&
+                         frame.vertices[frame.faces[offset + corner]] ==
+                             frame.vertices[frame.faces[offset + 8 - corner]];
+          if (retraced) {
+            ++flat_faces;
+            HS_EXPECT_LT(face_area_vector(frame, offset, corners).length(),
+                         1e-7f);
+            HS_EXPECT_GT(
+                math::distance_between(frame.vertices[frame.faces[offset]],
+                                       frame.vertices[frame.faces[offset + 4]]),
+                0.2f);
+          } else {
+            min_area = std::min<double>(
+                min_area, face_area_vector(frame, offset, corners).length());
+          }
+          offset += corners;
+        }
+        HS_EXPECT_EQ(flat_faces, site.opening_retraced_faces);
+      } else {
+        min_area = std::min(min_area, medial_min_face_area(frame));
+      }
       if (s > 0)
         for (size_t v = 0; v < frame.vertices.size(); ++v)
           max_step = std::max(

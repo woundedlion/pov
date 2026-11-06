@@ -17,6 +17,8 @@ struct StepLegSite {
   bool via_dt_macro = false;     /**< Bridge follows the dt truncate leg. */
   double min_face_area = 1e-3;   /**< Floor on the bridge sweep's face area. */
   float seam_quiet_ratio = .70f; /**< Floor on seam-to-control quiet pixels. */
+  size_t opening_retraced_faces =
+      0; /**< Doubled arcs at the opening endpoint. */
 };
 
 inline PolyMesh probe_icosahedron(Arena &a, Arena &b) {
