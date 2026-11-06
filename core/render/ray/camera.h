@@ -7,13 +7,14 @@
 /** @file camera.h
  * @brief Ray camera domains and prepared embeddings. */
 
+#include <cstdint>
 #include "core/math/4dmath.h"
 #include "core/render/ray/contract.h"
 
 namespace Raycast {
 
 /** @brief Ambient space a camera samples. */
-enum class SamplingDomain {
+enum class SamplingDomain : uint8_t {
   SPATIAL_3D, ///< Ordinary 3D space; the w row of the embedding is zero.
   SLICE_4D    ///< A 3D slice embedded in 4D space.
 };

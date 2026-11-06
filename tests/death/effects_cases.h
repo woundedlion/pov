@@ -107,7 +107,7 @@ inline HyperLatticeDetail::FrameState hyperlattice_octet_frame(
   auto frame = WB::frame(effect);
   frame.params =
       WB::Effect::pattern_defaults(HyperLatticeDetail::Pattern::OCTET,
-                                   HyperLatticeDetail::LatticeMode::THREE_D);
+                                   HyperLatticeDetail::LatticeMode::SPATIAL_3D);
   return frame;
 }
 
@@ -306,7 +306,7 @@ inline void case_islamicstars_hankin_eager_endpoint() {
 inline void case_hyperlattice_pattern_defaults_invalid() {
   using Effect = HyperLattice<32, 16>;
   Effect::pattern_defaults(static_cast<Effect::Pattern>(opaque(uint8_t{2})),
-                           Effect::LatticeMode::THREE_D);
+                           Effect::LatticeMode::SPATIAL_3D);
 }
 
 struct UninitializedReactionLattice

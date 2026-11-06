@@ -10,6 +10,7 @@
 #include <array>
 #include "core/math/4dmath.h"
 #include "core/math/periodic.h"
+#include "core/render/ray/camera.h"
 #include "core/render/ray/contract.h"
 #include "core/render/ray/shade.h"
 
@@ -21,19 +22,17 @@ constexpr int MAX_SHELLS = 3;
 /// Lattice-space direction component below which an axis is skipped.
 constexpr float DIRECTION_EPSILON = 1.0e-4f;
 /// Spatial domain: cubic edges in 3D, or a 3D slice of hypercubic edges.
-enum class Domain : uint8_t { THREE_D, FOUR_D_SLICE };
+using Domain = Raycast::SamplingDomain;
 /// Plane crossings traced per axis; the enumerator value is the count less one.
 enum class ShellCount : uint8_t { ONE, TWO, THREE };
-/// Alias of Domain.
-using LatticeMode = Domain;
 /** @brief Lattice geometry and anti-aliasing settings. */
 struct Settings {
-  Domain mode = Domain::THREE_D; /**< Spatial domain. */
-  float sphere_radius = 1;       /**< Sphere radius in lattice cells. */
-  float cell_size = 1;           /**< World-space length of a lattice cell. */
-  float wire_radius = .055f;     /**< Wire radius in lattice cells. */
-  float softness = .012f;        /**< Wire edge softness in lattice cells. */
-  float aa_strength = 1;         /**< Unitless pixel-footprint multiplier. */
+  Domain mode = Domain::SPATIAL_3D; /**< Spatial domain. */
+  float sphere_radius = 1;          /**< Sphere radius in lattice cells. */
+  float cell_size = 1;       /**< World-space length of a lattice cell. */
+  float wire_radius = .055f; /**< Wire radius in lattice cells. */
+  float softness = .012f;    /**< Wire edge softness in lattice cells. */
+  float aa_strength = 1;     /**< Unitless pixel-footprint multiplier. */
   ShellCount shells = ShellCount::TWO; /**< Crossing shell count. */
 };
 /** @brief Frame-constant lattice trace state built by prepare(). */
@@ -366,7 +365,7 @@ trace_plane(const math::Vec4 &ray_origin, const math::Vec4 &direction,
       return {0.0f, distance, 0};
     metric_sq = metric_4d.distance_sq;
     free_axis = metric_4d.free_axis;
-  } else if (prepared.mode == Domain::THREE_D) {
+  } else if (prepared.mode == Domain::SPATIAL_3D) {
     const EdgeMetric metric_3d =
         edge_metric_3d_at(ray_origin, direction, plane_axis, distance);
     metric_sq = metric_3d.distance_sq;
@@ -428,7 +427,7 @@ template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0> struct Events {
                         : static_cast<uint8_t>(prepared.params.shells) + 1) {
     for (int axis = 0; axis < DIMENSIONS; ++axis) {
       origin[axis] += prepared.sphere_radius_world * direction[axis];
-      if (!SLICE_4D && axis == 3 && prepared.mode == Domain::THREE_D)
+      if (!SLICE_4D && axis == 3 && prepared.mode == Domain::SPATIAL_3D)
         continue;
       auto &cursor = cursors[axis];
       cursor.magnitude = fabsf(direction[axis]);
@@ -515,9 +514,10 @@ composite_crossings(const math::Vector &normal,
   float product = 1.0f;
   for (int axis = 0; axis < DIMENSIONS; ++axis) {
     origin[axis] += lattice.sphere_radius_world * direction[axis];
-    magnitude[axis] = !SLICE_4D && axis == 3 && lattice.mode == Domain::THREE_D
-                          ? 0.0f
-                          : fabsf(direction[axis]);
+    magnitude[axis] =
+        !SLICE_4D && axis == 3 && lattice.mode == Domain::SPATIAL_3D
+            ? 0.0f
+            : fabsf(direction[axis]);
     if (magnitude[axis] >= DIRECTION_EPSILON)
       product *= magnitude[axis];
   }

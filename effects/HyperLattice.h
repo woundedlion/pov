@@ -59,7 +59,7 @@ struct Params {
   bool operator==(const Params &) const = default;
 
   /// 3D lattice, or a 3D slice of the 4D lattice.
-  LatticeMode mode = LatticeMode::THREE_D;
+  LatticeMode mode = LatticeMode::SPATIAL_3D;
   /// Lattice geometry.
   Pattern pattern = Pattern::CUBIC_WIRE;
   /// Ray start distance: lattice cells for CUBIC_WIRE, world units otherwise.
@@ -80,7 +80,7 @@ struct Params {
   float speed = 0.018f;
   /// 3D view rotation rate, radians per frame before per-plane scaling.
   float spin_3d = 0.0024f;
-  /// 4D view rotation rate, radians per frame; FOUR_D_SLICE only.
+  /// 4D view rotation rate, radians per frame; SLICE_4D only.
   float spin_4d = 0.0f;
   /// Crossing planes traced per axis; CUBIC_WIRE only.
   ShellCount shells = ShellCount::TWO;
@@ -150,7 +150,7 @@ template <int W, int H> constexpr float pixel_half_angle() {
 }
 /**
  * @brief View rotation from the frame's plane angles.
- * @param frame Frame state; the w-plane angles apply only in FOUR_D_SLICE.
+ * @param frame Frame state; the w-plane angles apply only in SLICE_4D.
  * @return Rotation embedding view directions in the lattice.
  */
 HS_FLASH_INLINE inline math::Mat4 view_embedding(const FrameState &frame) {
@@ -158,7 +158,7 @@ HS_FLASH_INLINE inline math::Mat4 view_embedding(const FrameState &frame) {
   math::rotate_plane(embedding, 0, 1, frame.rotation_phase[0]);
   math::rotate_plane(embedding, 0, 2, frame.rotation_phase[1]);
   math::rotate_plane(embedding, 1, 2, frame.rotation_phase[2]);
-  if (frame.params.mode == LatticeMode::FOUR_D_SLICE) {
+  if (frame.params.mode == LatticeMode::SLICE_4D) {
     math::rotate_plane(embedding, 0, 3, frame.rotation_phase[3]);
     math::rotate_plane(embedding, 1, 3, frame.rotation_phase[4]);
     math::rotate_plane(embedding, 2, 3, frame.rotation_phase[5]);
@@ -176,7 +176,7 @@ namespace Trace = SDF::LatticeTrace;
 HS_FLASH_INLINE inline Trace::Settings trace_settings(const FrameState &frame,
                                                       math::Vec4 center) {
   const auto &p = frame.params;
-  if (p.mode == LatticeMode::THREE_D)
+  if (p.mode == LatticeMode::SPATIAL_3D)
     center[3] = 0;
   Trace::Geometry geometry;
   switch (p.pattern) {
@@ -190,9 +190,7 @@ HS_FLASH_INLINE inline Trace::Settings trace_settings(const FrameState &frame,
   default:
     HS_CHECK(false, "HyperLattice: pattern has no trace geometry");
   }
-  return {p.mode == LatticeMode::FOUR_D_SLICE
-              ? Raycast::SamplingDomain::SLICE_4D
-              : Raycast::SamplingDomain::SPATIAL_3D,
+  return {p.mode,
           p.cell_size,
           p.wire_radius * p.cell_size,
           p.sphere_radius,
@@ -304,7 +302,7 @@ private:
 
 /**
  * @brief Cubic wire ray stage.
- * @tparam SLICE_4D Specializes the trace for FOUR_D_SLICE.
+ * @tparam SLICE_4D Specializes the trace for SLICE_4D.
  * @tparam SHELLS Fixed shell count, or 0 for the runtime count.
  */
 template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
@@ -377,14 +375,14 @@ struct ParameterDescriptors {
   static constexpr const char *VIEW_OPTIONS[] = {"3D perspective", "4D slice"};
   /// Export expressions corresponding to `VIEW_OPTIONS`.
   static constexpr const char *VIEW_EXPORT_OPTIONS[] = {
-      "LatticeMode::THREE_D", "LatticeMode::FOUR_D_SLICE"};
+      "LatticeMode::SPATIAL_3D", "LatticeMode::SLICE_4D"};
   /// Display labels indexed by `ShellCount`.
   static constexpr const char *SHELL_OPTIONS[] = {"1", "2", "3"};
   /// Export expressions corresponding to `SHELL_OPTIONS`.
   static constexpr const char *SHELL_EXPORT_OPTIONS[] = {
       "ShellCount::ONE", "ShellCount::TWO", "ShellCount::THREE"};
   static_assert(std::size(VIEW_OPTIONS) ==
-                    static_cast<size_t>(LatticeMode::FOUR_D_SLICE) + 1 &&
+                    static_cast<size_t>(LatticeMode::SLICE_4D) + 1 &&
                 std::size(VIEW_EXPORT_OPTIONS) == std::size(VIEW_OPTIONS));
   static_assert(std::size(SHELL_OPTIONS) == SDF::Lattice::MAX_SHELLS &&
                 std::size(SHELL_OPTIONS) ==
@@ -598,7 +596,7 @@ public:
     switch (index) {
     case CUBIC_PRESET_INDEX:
     case WIDE_PRESET_INDEX:
-      value.mode = LatticeMode::THREE_D;
+      value.mode = LatticeMode::SPATIAL_3D;
       value.sphere_radius = index == CUBIC_PRESET_INDEX ? 1.0f : 0.0f;
       value.cell_size = index == CUBIC_PRESET_INDEX ? 1.0f : 2.38525f;
       value.wire_radius = 0.055f;
@@ -612,7 +610,7 @@ public:
       value.shells = ShellCount::TWO;
       break;
     case HYPERCUBE_PRESET_INDEX:
-      value.mode = LatticeMode::FOUR_D_SLICE;
+      value.mode = LatticeMode::SLICE_4D;
       value.sphere_radius = 0.0f;
       value.cell_size = 1.0f;
       value.wire_radius = 0.03546f;
@@ -626,7 +624,7 @@ public:
       break;
     case OCTET_PRESET_INDEX:
       value.pattern = Pattern::OCTET;
-      value.mode = LatticeMode::THREE_D;
+      value.mode = LatticeMode::SPATIAL_3D;
       value.sphere_radius = 0;
       value.cell_size = 1.74175f;
       value.wire_radius = .015f;
@@ -639,7 +637,7 @@ public:
       break;
     case OCTET_WIDE_PRESET_INDEX:
       value.pattern = Pattern::OCTET;
-      value.mode = LatticeMode::THREE_D;
+      value.mode = LatticeMode::SPATIAL_3D;
       value.sphere_radius = 1.0f;
       value.cell_size = 3.82825f;
       value.wire_radius = .015f;
@@ -651,7 +649,7 @@ public:
       break;
     case OCTET_4D_PRESET_INDEX:
       value.pattern = Pattern::OCTET;
-      value.mode = LatticeMode::FOUR_D_SLICE;
+      value.mode = LatticeMode::SLICE_4D;
       value.sphere_radius = 0;
       value.cell_size = 3.448f;
       value.wire_radius = .02919f;
@@ -666,7 +664,7 @@ public:
     case SHELL_CLOSE_PRESET_INDEX: {
       const bool FLIGHT = index == SHELL_PRESET_INDEX;
       value.pattern = Pattern::SHELLS;
-      value.mode = LatticeMode::THREE_D;
+      value.mode = LatticeMode::SPATIAL_3D;
       value.sphere_radius = 0;
       value.cell_size = FLIGHT ? .78625f : .4645f;
       value.near_fade = FLIGHT ? 2.0f : .6f;
@@ -679,7 +677,7 @@ public:
     }
     case SHELL_4D_PRESET_INDEX:
       value.pattern = Pattern::SHELLS;
-      value.mode = LatticeMode::FOUR_D_SLICE;
+      value.mode = LatticeMode::SLICE_4D;
       value.sphere_radius = 0;
       value.cell_size = 1.0f;
       value.near_fade = 2.0f;
@@ -704,7 +702,7 @@ public:
    * @return That preset's parameters.
    */
   static constexpr Params pattern_defaults(Pattern pattern, LatticeMode mode) {
-    const bool SLICE = mode == LatticeMode::FOUR_D_SLICE;
+    const bool SLICE = mode == LatticeMode::SLICE_4D;
     if (pattern == Pattern::CUBIC_WIRE)
       return preset(SLICE ? HYPERCUBE_PRESET_INDEX : CUBIC_PRESET_INDEX).params;
     if (pattern == Pattern::OCTET)
@@ -725,17 +723,18 @@ public:
   };
   /// Every supported configuration.
   static constexpr auto CONFIGURATIONS = std::to_array<Configuration>({
-      {ConfigurationId::CUBIC_3D, Pattern::CUBIC_WIRE, LatticeMode::THREE_D, 9,
-       9},
-      {ConfigurationId::CUBIC_4D, Pattern::CUBIC_WIRE,
-       LatticeMode::FOUR_D_SLICE, 12, 12},
-      {ConfigurationId::OCTET_3D, Pattern::OCTET, LatticeMode::THREE_D, 64, 32},
-      {ConfigurationId::OCTET_4D, Pattern::OCTET, LatticeMode::FOUR_D_SLICE, 64,
+      {ConfigurationId::CUBIC_3D, Pattern::CUBIC_WIRE, LatticeMode::SPATIAL_3D,
+       9, 9},
+      {ConfigurationId::CUBIC_4D, Pattern::CUBIC_WIRE, LatticeMode::SLICE_4D,
+       12, 12},
+      {ConfigurationId::OCTET_3D, Pattern::OCTET, LatticeMode::SPATIAL_3D, 64,
        32},
-      {ConfigurationId::SHELLS_3D, Pattern::SHELLS, LatticeMode::THREE_D, 64,
+      {ConfigurationId::OCTET_4D, Pattern::OCTET, LatticeMode::SLICE_4D, 64,
        32},
-      {ConfigurationId::SHELLS_4D, Pattern::SHELLS, LatticeMode::FOUR_D_SLICE,
-       64, 32},
+      {ConfigurationId::SHELLS_3D, Pattern::SHELLS, LatticeMode::SPATIAL_3D, 64,
+       32},
+      {ConfigurationId::SHELLS_4D, Pattern::SHELLS, LatticeMode::SLICE_4D, 64,
+       32},
   });
 
   /**
@@ -789,7 +788,7 @@ public:
    */
   static constexpr bool uses_specialized_slice(const Params &value) {
     return value.pattern == Pattern::CUBIC_WIRE &&
-           value.mode == LatticeMode::FOUR_D_SLICE &&
+           value.mode == LatticeMode::SLICE_4D &&
            (value.shells == ShellCount::TWO ||
             value.shells == ShellCount::THREE);
   }
@@ -894,7 +893,7 @@ private:
 
   /**
    * @brief One cubic ray, shared by whole-frame and column draws.
-   * @tparam SLICE_4D Specializes the trace for FOUR_D_SLICE.
+   * @tparam SLICE_4D Specializes the trace for SLICE_4D.
    * @tparam SHELLS Fixed shell count, or 0 for the runtime count.
    */
   template <bool SLICE_4D, uint8_t SHELLS> struct CubicRay {
@@ -1017,7 +1016,7 @@ private:
   }
 
   HS_COLD_MEMBER void refresh_configuration_schema() {
-    this->mark_readonly("4D Spin", params.mode == LatticeMode::THREE_D);
+    this->mark_readonly("4D Spin", params.mode == LatticeMode::SPATIAL_3D);
     const bool CUBIC = params.pattern == Pattern::CUBIC_WIRE;
     this->mark_readonly("Lattice Planes", !CUBIC);
     this->mark_readonly("Softness", !CUBIC);
@@ -1050,7 +1049,7 @@ private:
       rotation_phase[plane] = math::wrap(
           rotation_phase[plane] + params.spin_3d * RATE[plane], math::TWO_PI_F);
     const float SPIN_4D_STEP =
-        (params.mode == LatticeMode::FOUR_D_SLICE ? params.spin_4d : 0.0f);
+        (params.mode == LatticeMode::SLICE_4D ? params.spin_4d : 0.0f);
     for (int plane = 3; plane < 6; ++plane)
       rotation_phase[plane] = math::wrap(
           rotation_phase[plane] + SPIN_4D_STEP * RATE[plane], math::TWO_PI_F);
@@ -1212,7 +1211,7 @@ private:
       for (int x = 0; x < COLUMN_TIMES && path != TracePath::GENERIC; ++x)
         if (trace_path(states[x]) != path)
           path = TracePath::GENERIC;
-    dispatch_traced(path, params.mode == LatticeMode::FOUR_D_SLICE,
+    dispatch_traced(path, params.mode == LatticeMode::SLICE_4D,
                     [&]<TracePath PATH, bool SLICE_4D>() HS_HOT_INLINE {
                       Scan::Shader::draw_columns<W, H>(
                           canvas, [states, this](int x) HS_HOT_INLINE {
@@ -1225,8 +1224,7 @@ private:
   HS_FLASH_MEMBER void
   draw_traced(Canvas &canvas, const HyperLatticeDetail::FrameState &context) {
     const auto prepared = prepare_traced(context, trace_center);
-    dispatch_traced(trace_path(prepared),
-                    params.mode == LatticeMode::FOUR_D_SLICE,
+    dispatch_traced(trace_path(prepared), params.mode == LatticeMode::SLICE_4D,
                     [&]<TracePath PATH, bool SLICE_4D>() HS_HOT_INLINE {
                       Scan::Shader::draw_cached<W, H, 1>(
                           canvas, TracedRay<PATH, SLICE_4D>{&prepared, this});

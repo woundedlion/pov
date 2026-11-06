@@ -225,7 +225,7 @@ inline void test_edge_metrics() {
 
 inline void test_so4_rotation() {
   HL::FrameState frame{};
-  frame.params.mode = HL::LatticeMode::FOUR_D_SLICE;
+  frame.params.mode = HL::LatticeMode::SLICE_4D;
   frame.params.far_distance = 8.0f;
   frame.rotation_phase[3] = 0.5f * math::PI_F;
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
@@ -238,7 +238,7 @@ inline void test_so4_rotation() {
     norm_sq += rotated[axis] * rotated[axis];
   HS_EXPECT_NEAR(norm_sq, 1.0f, 2e-4f);
 
-  frame.params.mode = HL::LatticeMode::THREE_D;
+  frame.params.mode = HL::LatticeMode::SPATIAL_3D;
   const math::Vec4 cubic = HL::prepare_trace(frame).world_to_lattice.apply(
       {{1.0f, 0.0f, 0.0f, 0.0f}});
   HS_EXPECT_EQ(cubic[3], 0.0f);
@@ -246,7 +246,7 @@ inline void test_so4_rotation() {
 
 inline void test_dimensional_rotation_wrap_is_continuous() {
   HL::FrameState frame{};
-  frame.params.mode = HL::LatticeMode::FOUR_D_SLICE;
+  frame.params.mode = HL::LatticeMode::SLICE_4D;
   frame.rotation_phase[3] = math::TWO_PI_F - 1.0e-4f;
   const math::Vec4 before = HL::prepare_trace(frame).world_to_lattice.apply(
       {{1.0f, 0.0f, 0.0f, 0.0f}});
@@ -303,7 +303,7 @@ inline void test_near_field_fade() {
   HS_EXPECT_LT(FADE.opacity(0.275f), 1.0f);
   HS_EXPECT_EQ(FADE.opacity(0.4f), 1.0f);
   for (HL::LatticeMode mode :
-       {HL::LatticeMode::THREE_D, HL::LatticeMode::FOUR_D_SLICE}) {
+       {HL::LatticeMode::SPATIAL_3D, HL::LatticeMode::SLICE_4D}) {
     for (float radius : {0.0f, 1.0f, 2.0f}) {
       for (float cell_size : {0.25f, 1.0f, 10.0f}) {
         HL::FrameState frame{};
@@ -325,7 +325,7 @@ inline void test_near_field_fade() {
           const float fog = 1.0f - distance / frame.params.far_distance;
           HS_EXPECT_NEAR(hit.coverage / (fog * fog),
                          fraction * fraction * (3.0f - 2.0f * fraction), 1e-5f);
-          if (mode == HL::LatticeMode::FOUR_D_SLICE) {
+          if (mode == HL::LatticeMode::SLICE_4D) {
             const auto specialized = HL::trace_plane<true>(
                 origin, direction, 0, distance, cell_size, prepared);
             HS_EXPECT_NEAR(specialized.coverage, hit.coverage, 1e-5f);
@@ -1052,7 +1052,7 @@ inline Pixel traced_pixel(const HyperLatticeWhiteBox::Drawn &state, int x,
                           math::TrigLUT<W, H>::cos_phi[y],
                           SIN_PHI * math::TrigLUT<W, H>::sin_theta[x]);
   const auto &params = state.frame.params;
-  const bool SLICE = params.mode == HL::LatticeMode::FOUR_D_SLICE;
+  const bool SLICE = params.mode == HL::LatticeMode::SLICE_4D;
   if (params.pattern == HyperLatticeDetail::Pattern::CUBIC_WIRE) {
     const auto prepared = HyperLatticeDetail::prepare_trace(state.frame);
     return SLICE ? HyperLatticeDetail::Renderer<true>::shade_premultiplied(
@@ -1384,12 +1384,12 @@ inline void test_presets_and_pipeline() {
                 "hypercube-flight");
 
   constexpr HL::Params CUBIC_PRESET = Effect::preset(0).params;
-  static_assert(CUBIC_PRESET.mode == HL::LatticeMode::THREE_D);
+  static_assert(CUBIC_PRESET.mode == HL::LatticeMode::SPATIAL_3D);
   static_assert(CUBIC_PRESET.shells == HL::ShellCount::TWO);
 
   constexpr HL::Params SLICE_PRESET =
       Effect::preset(Effect::HYPERCUBE_PRESET_INDEX).params;
-  static_assert(SLICE_PRESET.mode == HL::LatticeMode::FOUR_D_SLICE);
+  static_assert(SLICE_PRESET.mode == HL::LatticeMode::SLICE_4D);
   static_assert(SLICE_PRESET.shells == HL::ShellCount::TWO);
 
   static_assert(SLICE_PRESET.sphere_radius == 0.0f);
@@ -1570,19 +1570,19 @@ inline void test_dimension_dropdown_and_mode_lerp() {
   HS_EXPECT_EQ(std::string_view(dimension->options[1]),
                std::string_view("4D slice"));
   HS_EXPECT_EQ(std::string_view(dimension->export_options[1]),
-               std::string_view("LatticeMode::FOUR_D_SLICE"));
+               std::string_view("LatticeMode::SLICE_4D"));
   HS_EXPECT_EQ(effect.updateParameter("View", 1.0f), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(HyperLatticeWhiteBox::params(effect).mode,
-               HL::LatticeMode::FOUR_D_SLICE);
+               HL::LatticeMode::SLICE_4D);
 
   HL::Params start;
   HL::Params target;
-  target.mode = HL::LatticeMode::FOUR_D_SLICE;
+  target.mode = HL::LatticeMode::SLICE_4D;
   HL::Params blended;
   blended.lerp(start, target, 0.49f);
-  HS_EXPECT_EQ(blended.mode, HL::LatticeMode::THREE_D);
+  HS_EXPECT_EQ(blended.mode, HL::LatticeMode::SPATIAL_3D);
   blended.lerp(start, target, 0.5f);
-  HS_EXPECT_EQ(blended.mode, HL::LatticeMode::FOUR_D_SLICE);
+  HS_EXPECT_EQ(blended.mode, HL::LatticeMode::SLICE_4D);
 }
 
 /**
@@ -2112,7 +2112,7 @@ inline void test_pattern_view_controls() {
   HS_EXPECT_EQ(effect.updateParameter("Pattern", 1), ParamSetResult::APPLIED);
   const auto octet4 = effect.serialize_parameters();
   HS_EXPECT_EQ(octet4.params.pattern, Effect::Pattern::OCTET);
-  HS_EXPECT_EQ(octet4.params.mode, HL::LatticeMode::FOUR_D_SLICE);
+  HS_EXPECT_EQ(octet4.params.mode, HL::LatticeMode::SLICE_4D);
   HS_EXPECT_EQ(octet4.params.cell_size,
                Effect::preset(Effect::OCTET_4D_PRESET_INDEX).params.cell_size);
   HS_EXPECT_EQ(octet4.params.near_fade, .37f);

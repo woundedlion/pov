@@ -327,7 +327,7 @@ inline void check_hyper_lattice_pattern_view_dropdowns() {
   HS_EXPECT_EQ(std::string_view(view->options[1]),
                std::string_view("4D slice"));
   HS_EXPECT_EQ(std::string_view(view->export_options[1]),
-               std::string_view("LatticeMode::FOUR_D_SLICE"));
+               std::string_view("LatticeMode::SLICE_4D"));
   HS_EXPECT_FALSE(pattern->is_bool);
   HS_EXPECT_TRUE(pattern->is_integer);
   HS_EXPECT_EQ(std::string_view(pattern->options[0]),

@@ -116,7 +116,7 @@ inline void test_cubic_compositor_matches_event_shading() {
   SDF::Lattice::CrossingList crossings;
   int lit = 0;
   for (const auto domain :
-       {SDF::Lattice::Domain::THREE_D, SDF::Lattice::Domain::FOUR_D_SLICE}) {
+       {SDF::Lattice::Domain::SPATIAL_3D, SDF::Lattice::Domain::SLICE_4D}) {
     for (const float cell : {.4f, 1.7f}) {
       SDF::Lattice::Settings settings;
       settings.mode = domain;
@@ -124,7 +124,7 @@ inline void test_cubic_compositor_matches_event_shading() {
       settings.wire_radius = .12f;
       auto embedding = math::Mat4::identity();
       math::rotate_plane(embedding, 0, 1, .31f);
-      if (domain == SDF::Lattice::Domain::FOUR_D_SLICE)
+      if (domain == SDF::Lattice::Domain::SLICE_4D)
         math::rotate_plane(embedding, 0, 3, .73f);
       for (const auto shells :
            {SDF::Lattice::ShellCount::ONE, SDF::Lattice::ShellCount::TWO,
@@ -138,10 +138,10 @@ inline void test_cubic_compositor_matches_event_shading() {
         for (int i = 0; i < DIRECTION_SAMPLES; ++i) {
           const auto view = direction(i);
           check_cubic<false, 0>(prepared, view, lit);
-          if (domain == SDF::Lattice::Domain::FOUR_D_SLICE &&
+          if (domain == SDF::Lattice::Domain::SLICE_4D &&
               shells == SDF::Lattice::ShellCount::TWO)
             check_cubic<true, 2>(prepared, view, lit);
-          else if (domain == SDF::Lattice::Domain::FOUR_D_SLICE &&
+          else if (domain == SDF::Lattice::Domain::SLICE_4D &&
                    shells == SDF::Lattice::ShellCount::THREE)
             check_cubic<true, 0>(prepared, view, lit);
           else if (shells == SDF::Lattice::ShellCount::TWO)
