@@ -1141,6 +1141,7 @@ struct Mesh {
      * @param sweep The face and its vertex paths.
      * @param reach Arc within which a meridian half counts as near.
      * @return The wedge.
+     * @details Neighboring edges share each knot's vertex azimuths.
      */
     HS_HOT_FLASH_MEMBER static SweepWedge of(const Scan::PoleFaceSweep &sweep,
                                              float reach) {
@@ -1156,20 +1157,23 @@ struct Mesh {
                         : paths[k].end;
       };
       for (size_t j = 0; j < 3; ++j) {
-        float winding = 0.0f;
+        const math::Vector first = knot(j, 0);
+        const float FIRST_ANGLE = j == 0 ? reference : atan2f(first.z, first.x);
+        float angle = FIRST_ANGLE, winding = 0.0f;
         for (size_t k = 0; k < n; ++k) {
           const math::Vector a = knot(j, k);
           const math::Vector b = knot(j, k + 1 == n ? 0 : k + 1);
-          const float turn = std::remainder(atan2f(b.z, b.x) - atan2f(a.z, a.x),
-                                            math::TWO_PI_F);
+          const float NEXT_ANGLE = k + 1 == n ? FIRST_ANGLE : atan2f(b.z, b.x);
+          const float turn = std::remainder(NEXT_ANGLE - angle, math::TWO_PI_F);
           if (fabsf(turn) >= 0.9f * math::PI_F)
             return wedge;
           winding += turn;
           const float offset =
-              std::remainder(atan2f(a.z, a.x) - reference, math::TWO_PI_F);
+              std::remainder(angle - reference, math::TWO_PI_F);
           lo = fminf(lo, offset);
           hi = fmaxf(hi, offset);
           closest = fminf(closest, arc_distance(pole, a, b));
+          angle = NEXT_ANGLE;
         }
         if (fabsf(winding) > math::PI_F)
           return wedge;
@@ -1215,8 +1219,6 @@ struct Mesh {
       const math::Vector ua = a.normalized(), ub = b.normalized();
       const math::Vector normal = math::cross(ua, ub);
       const float length = sqrtf(math::dot(normal, normal));
-      const float to_a = acosf(hs::clamp(math::dot(p, ua), -1.0f, 1.0f));
-      const float to_b = acosf(hs::clamp(math::dot(p, ub), -1.0f, 1.0f));
       if (length > 1e-6f) {
         const math::Vector unit = normal * (1.0f / length);
         const float height = math::dot(p, unit);
@@ -1225,6 +1227,8 @@ struct Mesh {
             math::dot(math::cross(foot, ub), unit) >= 0.0f)
           return asinf(hs::clamp(fabsf(height), 0.0f, 1.0f));
       }
+      const float to_a = acosf(hs::clamp(math::dot(p, ua), -1.0f, 1.0f));
+      const float to_b = acosf(hs::clamp(math::dot(p, ub), -1.0f, 1.0f));
       return fminf(to_a, to_b);
     }
 
