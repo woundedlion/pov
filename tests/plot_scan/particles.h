@@ -496,6 +496,43 @@ inline std::vector<Pixel> particle_reference_frame(StubSystem &sys, Shade shade,
   return ref;
 }
 
+/** @brief Renders a clipped particle band against a precomputed full frame. */
+template <int W, int H, typename Shade, typename... Shaders>
+inline RenderBandDiff particle_band_diff(StubSystem &sys, const int (&band)[4],
+                                         const std::vector<Pixel> &reference,
+                                         Shade shade, Shaders &&...shaders) {
+  hs_test::StubEffect fx(W, H);
+  fx.set_clip(band[0], band[1], band[2], band[3]);
+  Pipeline<W, H> filters;
+  {
+    Canvas canvas(fx);
+    initialize_parity_frame<W, H>(canvas);
+    Plot::ParticleSystem::draw<W, H>(filters, canvas, sys, shade,
+                                     std::forward<Shaders>(shaders)...);
+  }
+  fx.advance_display();
+  return render_band_diff<W>(fx, reference);
+}
+
+/** @brief Position/deferred parity recipe with a selectable fragment color. */
+struct ParticleParityShaders {
+  Pixel color;
+  void operator()(const math::Vector &, Fragment &fragment) const {
+    fragment.color = Color4(color, hs::clamp(fragment.v3, 0.0f, 1.0f));
+  }
+  static void position(Fragment &fragment) {
+    fragment.pos = fragment.pos * -1.0f;
+  }
+  static void attenuate(auto &&fragment) { fragment.v3 *= 0.7f; }
+  static void deferred(FragmentRegisters fragment, const math::Vector &) {
+    attenuate(fragment);
+  }
+  static void combined(Fragment &fragment) {
+    position(fragment);
+    attenuate(fragment);
+  }
+};
+
 /** @brief Clip bands the 96x48 ParticleSystem parity sweeps run, as
  * {y0, y1, x0, x1}. */
 inline constexpr int PARTICLE_PARITY_BANDS[4][4] = {
@@ -644,50 +681,24 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
   }
   sys.active_count = NT;
 
-  auto shade = [](const math::Vector &, Fragment &f) {
-    f.color = Color4(Pixel(65535, 65535, 65535), hs::clamp(f.v3, 0.0f, 1.0f));
-  };
-  auto position_pass = [](Fragment &f) { f.pos = f.pos * -1.0f; };
-  auto deferred_pass = [](FragmentRegisters f, const math::Vector &) {
-    f.v3 *= 0.7f;
-  };
-  auto combined = [](Fragment &f) {
-    f.pos = f.pos * -1.0f;
-    f.v3 *= 0.7f;
-  };
+  const ParticleParityShaders shade{Pixel(65535, 65535, 65535)};
 
-  const std::vector<Pixel> ref =
-      particle_reference_frame<W, H>(sys, shade, combined);
+  const std::vector<Pixel> ref = particle_reference_frame<W, H>(
+      sys, shade, ParticleParityShaders::combined);
 
   int margin_lit = 0;
   for (const auto &bd : PARTICLE_PARITY_BANDS) {
     // Non-deferred combined shader.
     {
-      hs_test::StubEffect fx(W, H);
-      fx.set_clip(bd[0], bd[1], bd[2], bd[3]);
-      Pipeline<W, H> filters;
-      {
-        Canvas c(fx);
-        initialize_parity_frame<W, H>(c);
-        Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, combined);
-      }
-      fx.advance_display();
-      const RenderBandDiff diff = render_band_diff<W>(fx, ref);
+      const RenderBandDiff diff = particle_band_diff<W, H>(
+          sys, bd, ref, shade, ParticleParityShaders::combined);
       margin_lit += diff.margin_lit;
       expect_render_band_parity("particle combined shader", diff);
     }
 
-    hs_test::StubEffect fx(W, H);
-    fx.set_clip(bd[0], bd[1], bd[2], bd[3]);
-    Pipeline<W, H> filters;
-    {
-      Canvas c(fx);
-      initialize_parity_frame<W, H>(c);
-      Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, position_pass,
-                                       deferred_pass);
-    }
-    fx.advance_display();
-    const RenderBandDiff d = render_band_diff<W>(fx, ref);
+    const RenderBandDiff d = particle_band_diff<W, H>(
+        sys, bd, ref, shade, ParticleParityShaders::position,
+        ParticleParityShaders::deferred);
     margin_lit += d.margin_lit;
     HS_EXPECT_GT(d.lit, 20);
     expect_render_band_parity("particle split shader", d);
@@ -723,34 +734,16 @@ inline void test_particle_system_subpixel_trail_dot_parity() {
   }
   sys.active_count = NT;
 
-  auto shade = [](const math::Vector &, Fragment &f) {
-    f.color = Color4(Pixel(65535, 40000, 20000), hs::clamp(f.v3, 0.0f, 1.0f));
-  };
-  auto position_pass = [](Fragment &f) { f.pos = f.pos * -1.0f; };
-  auto deferred_pass = [](FragmentRegisters f, const math::Vector &) {
-    f.v3 *= 0.7f;
-  };
-  auto combined = [](Fragment &f) {
-    f.pos = f.pos * -1.0f;
-    f.v3 *= 0.7f;
-  };
+  const ParticleParityShaders shade{Pixel(65535, 40000, 20000)};
 
-  const std::vector<Pixel> ref =
-      particle_reference_frame<W, H>(sys, shade, combined);
+  const std::vector<Pixel> ref = particle_reference_frame<W, H>(
+      sys, shade, ParticleParityShaders::combined);
 
   int margin_lit = 0;
   for (const auto &bd : PARTICLE_PARITY_BANDS) {
-    hs_test::StubEffect fx(W, H);
-    fx.set_clip(bd[0], bd[1], bd[2], bd[3]);
-    Pipeline<W, H> filters;
-    {
-      Canvas c(fx);
-      initialize_parity_frame<W, H>(c);
-      Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, position_pass,
-                                       deferred_pass);
-    }
-    fx.advance_display();
-    const RenderBandDiff d = render_band_diff<W>(fx, ref);
+    const RenderBandDiff d = particle_band_diff<W, H>(
+        sys, bd, ref, shade, ParticleParityShaders::position,
+        ParticleParityShaders::deferred);
     margin_lit += d.margin_lit;
     HS_EXPECT_GT(d.lit, 10);
     expect_render_band_parity("particle subpixel trail", d);
