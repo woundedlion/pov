@@ -76,7 +76,7 @@ template <typename Frame> class FrameInterval {
   }
 
 public:
-  /** @brief Prepares parameter identity and periodic clock deltas.
+  /** @brief Prepares parameter and color-resource identities and clock deltas.
    * @param a Previous frame endpoint.
    * @param b Current frame endpoint. */
   HS_FLASH_INLINE FrameInterval(const Frame &a, const Frame &b)
@@ -86,13 +86,16 @@ public:
         constant_params(std::memcmp(&a.params, &b.params, sizeof(Params)) == 0),
         oscillation_delta(Spacetime::ClockInterval::prepare_delta(
             a.palette_oscillation_phase, b.palette_oscillation_phase, 1.0f)),
-        same_palette(a.palette && b.palette &&
-                     a.palette->same_entries(*b.palette) &&
-                     (a.hue_rotation_lut == b.hue_rotation_lut ||
-                      (a.hue_rotation_lut && b.hue_rotation_lut &&
-                       std::memcmp(a.hue_rotation_lut, b.hue_rotation_lut,
-                                   Color::HueRotationLutView::SIZE *
-                                       sizeof(Pixel)) == 0))) {
+        same_palette(
+            a.palette && b.palette && a.palette->same_entries(*b.palette) &&
+            (a.hue_rotation_lut == b.hue_rotation_lut ||
+             (a.hue_rotation_lut && b.hue_rotation_lut &&
+              std::memcmp(a.hue_rotation_lut, b.hue_rotation_lut,
+                          Color::HueRotationLutView::SIZE * sizeof(Pixel)) ==
+                  0)) &&
+            (a.hue_rotation_gamut == b.hue_rotation_gamut ||
+             (a.hue_rotation_gamut && b.hue_rotation_gamut &&
+              a.hue_rotation_gamut->bits == b.hue_rotation_gamut->bits))) {
     static_assert(std::is_trivially_copyable_v<Params>);
     static_assert(
         []<typename... Resources>(
@@ -333,10 +336,13 @@ public:
                                                 *resource.previous_modulation);
       }
     });
-    frame.temporal = {from.palette, from.hue_rotation_lut,
+    frame.temporal = {from.palette,
+                      same_palette ? to.hue_rotation_lut
+                                   : from.hue_rotation_lut,
                       same_palette && same_sources ? 1.0f : fraction,
                       same_palette, phase_compatible};
-    frame.temporal.hue_rotation_gamut = from.hue_rotation_gamut;
+    frame.temporal.hue_rotation_gamut =
+        same_palette ? to.hue_rotation_gamut : from.hue_rotation_gamut;
   }
 };
 

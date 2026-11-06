@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "Accurate colors selected with unchanged 7000/256 budgets. Work elimination qualified against its accurate control. Final merged gates and original-to-final peak/spill comparisons pending.",
+  "status": "Selected accurate renderer and work-elimination implementation qualified on snapshot 492885884; numerical budgets unchanged. Final canonical CI remains required.",
   "performance_criteria": {
     "primary": [
       "observed peak frame time",
@@ -21,11 +21,15 @@
       16
     ],
     "cell_corner_span_guard": 14000,
-    "gamut_admission_boundary": 0.001,
     "cached_storage": "RGB16 Pixel nodes; existing Q16 value/hue/time interpolation",
     "fallback": "Cell classification mask and canonical RGB-first base restoration remain active.",
     "optimization": "Reuse fresh node pre-mapping RGB for classification; normalize identical mask views once per column.",
-    "retained_table_aliasing": "Separate finding/qualification; excluded from measured dedup images."
+    "retained_table_aliasing": "Separate finding/qualification; excluded from measured dedup images.",
+    "gamut_admission_limits": {
+      "minimum": -0.0001,
+      "maximum": 1.0001
+    },
+    "canonical_base_guard_width": 0.001
   },
   "historical_accuracy_control": {
     "commit": "0afb0a264056787674e0cb43ab332fdce8872975",
@@ -1420,10 +1424,7 @@
       }
     },
     "pending": [
-      "Final combined native suite and Release WASM module/catalog smoke",
-      "Final combined firmware memory/layout gates",
-      "Canonical CI platform and math-mode matrix",
-      "Same-board original-to-final AlienBrain, JewelMelt and AshCloud peak/spill comparisons"
+      "Exact-tip canonical CI platform, math-mode, cold-build, coverage and deployment checks"
     ],
     "limits": "No subtraction across historical and causal studies, no cross-board cost estimate, and no addition of isolated memory deltas to infer current headroom.",
     "runtime_source_sha256": {
@@ -1440,12 +1441,128 @@
       "workbench/shader/chain_host.h": "da31ea5976fff17df3b5aea8739165c7fb4a18d0c7af8d5a0b69b64f293b30f0"
     },
     "local_integration_checks": {
-      "source_prefix": "d1dba8e17 plus the recorded color payload",
-      "native_engine": "Pass; includes 81054732 pullback assertions with unchanged accuracy budgets.",
-      "wasm_release_smoke": "Pass; 120 frames for all 47 effects at both resolutions, unchanged 2048-byte stack ceiling.",
-      "adapter_regressions": "Masks propagated to manual contexts; post-draw replay owns canonical endpoints. Focused replay 173638/0; omitted endpoint-rebind control fails.",
-      "goldens": "Only two color fixtures re-recorded from observed IEEE/fast references; tolerances unchanged. Final run pending."
-    }
+      "native": {
+        "tests_passed": 77,
+        "tests_failed": 0,
+        "skipped": 0,
+        "assertions_passed": 162586557
+      },
+      "wasm_release": "All 47 effects at both resolutions for 120 frames pass smoke; render goldens 166/0. Stack ceiling remains 2048 bytes.",
+      "catalog": "Paired module/catalog passes; generated-palette prepared state is native 96 and WASM32 68 bytes.",
+      "simulator": "Types, browser and local immutable staging qualify unchanged frontend; reader and logarithmic-drag probe corrections pass focused checks. Canonical CI coverage remains pending."
+    },
+    "qualified_snapshot": "49288588489b7483285d6ff1f8f09d272e64ead4",
+    "baseline_snapshot": "8dca144c604c66883defe4c818370707bb76659e"
   },
-  "artifact_archive_note": "External qualification artifact names and SHA256 digests identify preserved source/capture evidence; Profile sampler and reach instrumentation are excluded from the production runtime patch."
+  "artifact_archive_note": "External qualification artifact names and SHA256 digests identify preserved source/capture evidence; Profile sampler and reach instrumentation are excluded from the production runtime patch.",
+  "final_integrated_stock_study": {
+    "baseline_sha": "8dca144c604c66883defe4c818370707bb76659e",
+    "candidate_sha": "49288588489b7483285d6ff1f8f09d272e64ead4",
+    "scope": "Stock preset 0, 70 seconds, 32-frame windows; same board for each pair. Frame 1 is setup; all 1087 subsequent frames are live.",
+    "effects": {
+      "AlienBrain": {
+        "baseline": {
+          "live_frames": 1087,
+          "live_peak_ms": 31.639,
+          "live_mean_ms_diagnostic": 26.916408463661455,
+          "live_spills": 0,
+          "live_frames_at_or_above_59_ms": 0,
+          "setup_frame1_ms": 52.6
+        },
+        "candidate": {
+          "live_frames": 1087,
+          "live_peak_ms": 35.855,
+          "live_mean_ms_diagnostic": 30.27420699172033,
+          "live_spills": 0,
+          "live_frames_at_or_above_59_ms": 0,
+          "setup_frame1_ms": 59.585
+        }
+      },
+      "AshCloud": {
+        "baseline": {
+          "live_frames": 1087,
+          "live_peak_ms": 55.686,
+          "live_mean_ms_diagnostic": 48.63300643974242,
+          "live_spills": 0,
+          "live_frames_at_or_above_59_ms": 0,
+          "setup_frame1_ms": 82.588
+        },
+        "candidate": {
+          "live_frames": 1087,
+          "live_peak_ms": 56.982,
+          "live_mean_ms_diagnostic": 49.84379208831647,
+          "live_spills": 0,
+          "live_frames_at_or_above_59_ms": 0,
+          "setup_frame1_ms": 89.998
+        }
+      },
+      "JewelMelt": {
+        "baseline": {
+          "live_frames": 1087,
+          "live_peak_ms": 47.712,
+          "live_mean_ms_diagnostic": 41.85954369825207,
+          "live_spills": 0,
+          "live_frames_at_or_above_59_ms": 0,
+          "setup_frame1_ms": 73.707
+        },
+        "candidate": {
+          "live_frames": 1087,
+          "live_peak_ms": 51.121,
+          "live_mean_ms_diagnostic": 43.97444618215272,
+          "live_spills": 0,
+          "live_frames_at_or_above_59_ms": 0,
+          "setup_frame1_ms": 77.258
+        }
+      }
+    },
+    "shipping_memory": {
+      "baseline": {
+        "RAM1_code": 189016,
+        "RAM1_variables": 313760,
+        "FLASH_code": 1172240,
+        "FLASH_data": 790784,
+        "DTCM_free": 13920
+      },
+      "candidate": {
+        "RAM1_code": 192328,
+        "RAM1_variables": 313760,
+        "FLASH_code": 1180440,
+        "FLASH_data": 790784,
+        "DTCM_free": 13920
+      },
+      "ITCM_banks_both": 6,
+      "candidate_ITCM_headroom": 4280,
+      "RAM2_variables_both": 520064,
+      "RAM2_free_both": 4224,
+      "gates": "Pass without raised budgets"
+    },
+    "evidence": {
+      "artifact": "hue134-final-device/finding134-final-merged-device-evidence.json",
+      "sha256": "58026ad0cfeb9f7fed52ae4a20189badf2225bef85ddd9ef8c25ea92760ee8d6"
+    },
+    "limits": "Preset-0 observations, not every recipe or a universal worst-case proof. Historical studies are separate."
+  },
+  "additional_optimization_trials": {
+    "selected": false,
+    "accurate_control": "49288588489b7483285d6ff1f8f09d272e64ead4",
+    "trials": [
+      {
+        "source": "3db390dd678d327c0eae47cce59c3b718a68c4be",
+        "change": "Move guarded hue helper to ITCM",
+        "Jewel_live_peak_ms": 53.205,
+        "control_live_peak_ms": 51.121,
+        "artifact": "hue134-jewel-itcm-device/finding134-jewel-itcm-evidence.json",
+        "artifact_sha256": "2c61ca1d9820d440aeb6677e26815908462702eceaf4f830e2508276d66f77ab"
+      },
+      {
+        "source": "1b0292f9d92000e7f51c09628a6ea19ce0d596e4",
+        "change": "Two-tier gamut-cell admission",
+        "Jewel_live_peak_ms": 51.626,
+        "control_live_peak_ms": 51.121,
+        "artifact": "hue134-gate-hybrid-device/finding134-hybrid-jewel-evidence.json",
+        "artifact_sha256": "a0e903881fd1cfa83dae0488d071c09a51318122c17dafd67f78493af6c9e3d8"
+      }
+    ],
+    "conclusion": "Neither improves observed peak; both remain unlanded. This bounded search does not establish that the selected cost is unavoidable."
+  }
 }

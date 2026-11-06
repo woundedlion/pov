@@ -9,22 +9,37 @@ frames and chain samples carry the matching mask with its table.
 Cached hue rows store RGB16 nodes and use the existing Q16 pixel interpolation
 along value, hue and time. Marked cached cells resolve the interpolated Lab
 base procedurally. Near the gamut-admission boundary, the sampler restores
-the base from its owning palette endpoints before conversion; the 0.001
-admission boundary is unchanged. Neutral hue and alpha retain their separate
-contracts. Retained/current table aliasing is a separate qualification.
+the base from its owning palette endpoints before conversion; the linear-RGB admission limits remain -0.0001 and 1.0001. The separate
+canonical-base restoration guard has width 0.001. Neutral hue and alpha retain their separate
+contracts. Equivalent retained/current hue tables and masks share the current
+view for interior columns; frame endpoints retain their own views.
 
 The optimized bake reuses its pre-mapping linear RGB for cell classification.
 Column views retain one mask when both RGB rows share it; distinct masks
 remain independently guarded. These changes remove duplicate work while
 preserving cell classification, canonical-base restoration and allocation
-sizes. Accuracy remains the selected contract. Final merged validation and
-peak/spill measurements remain required.
+sizes. Accuracy remains the selected contract. Final integrated checks and stock
+peak/spill measurements are recorded below; canonical CI remains required.
 
 Palette-cache views borrow their canonical endpoint palettes as well as Lab
 and RGB rows and gamut masks. Sampling must finish before those resources
 change. Post-draw replay retains the original interval endpoints and rebinds
 a reference cache to them; frame-history capture can overwrite the engine's
 previous-palette storage after the draw has consumed its views.
+
+## Retained hue views
+
+Interval preparation compares palette entries, hue pixels and gamut masks.
+Matching resources share a hue view through modulation-recipe changes;
+differing resources retain procedural fallback. The comparison occurs once
+per interval, not per pixel or column.
+
+A same-board GridWorms modulation-edit stress pair over 1088 matched frames
+measures mean 54.536 to 52.727 ms and live peak 60.470 to 60.714 ms, with no
+spills in either image. Both images include the accurate-color implementation.
+These are custom-recipe results, not stock-preset measurements. The qualified
+source pair is `5fa946f9` and `3f1c4143`; observed maxima from one pair do not
+establish a universal worst-case bound.
 
 ## Accuracy checks and their scope
 
@@ -76,6 +91,43 @@ above 7000. The accurate control has none. These frequencies describe the
 constructed grids, not observed shipping pixels or perceptual visibility.
 Errors are absolute unpremultiplied linear RGB16 channel-code differences,
 not a perceptual color-distance metric. High-chroma custom states are included.
+
+## Final integrated stock comparisons
+
+The qualified snapshot `492885884` includes the retained-view optimization.
+Its control is the current pre-color renderer `8dca144c6`. Each stock preset-0
+pair uses the same board, flags, 70-second duration and 32-frame windows. All
+six canonical validators pass. Frame 1 is setup; every subsequent captured
+frame is retained in the live statistics.
+
+| Effect | Control/accurate live peak ms | Live spills | Live frames at or above 59 ms | Control/accurate setup ms |
+| --- | ---: | ---: | ---: | ---: |
+| AlienBrain | 31.639 / 35.855 | 0 / 0 | 0 / 0 | 52.600 / 59.585 |
+| JewelMelt | 47.712 / 51.121 | 0 / 0 | 0 / 0 | 73.707 / 77.258 |
+| AshCloud | 55.686 / 56.982 | 0 / 0 | 0 / 0 | 82.588 / 89.998 |
+
+Each side contains 1087 live frames. JewelMelt and AshCloud each have one
+setup spill in both images. Mean live times, as diagnostics, are
+26.916/30.274, 41.860/43.974 and 48.633/49.844 ms respectively. These results
+measure the final accuracy cost against the current renderer. They do not
+establish a bound for every preset or custom recipe.
+
+The shipping gate passes with RAM1 code 189016 to 192328 bytes and FLASH code
+1172240 to 1180440 bytes. RAM1 variables remain 313760 bytes, FLASH data
+790784 bytes, and free DTCM 13920 bytes. Both images use six ITCM banks; the
+accurate image retains 4280 bytes of code headroom. RAM2 variables/free remain
+520064/4224 bytes. No budgets were raised.
+
+The snapshot passes 77 native checks and 162586557 assertions, plus full
+Release WASM smoke and 166 render goldens. ABI catalogs travel with the
+qualified module. Canonical CI covers the remaining platform and math-mode
+matrix.
+
+Two further targeted JewelMelt trials retain the 51.121 ms accurate control.
+Moving the guarded sampler to ITCM raises live peak to 53.205 ms. A two-tier
+guard passes numerical qualification but raises peak to 51.626 ms. Both remain
+unlanded. The selected implementation is the best measured candidate in these
+trials; the search does not establish that its cost is unavoidable.
 
 ## Measured optimization
 
@@ -145,10 +197,9 @@ has 1112 bytes below the 196608-byte, six-bank ITCM ceiling. All 46 native
 footprint rows pass with unchanged optimized allocation sizes. The accurate
 control's smallest native margin is 45986 bytes. Its focused Release WASM
 draw peaks for AlienBrain/AshCloud/JewelMelt are 464/964/464 bytes; initialization
-peaks at 1120 bytes, below 2048. These are source-specific results. Current
-integration, including the later ITCM cleanup, needs its own memory, stack,
-full smoke, three-math golden and device peak/spill checks; isolated deltas
-cannot establish merged headroom or performance.
+peaks at 1120 bytes, below 2048. These are source-specific results. The final integrated study above records current memory, smoke, stack and
+device results; canonical CI supplies the remaining math-mode matrix. Isolated
+deltas cannot establish merged headroom or performance.
 
 Catalogs regenerated from the merged source change only generated-palette
 prepared-state size: native 88 to 96 bytes and WASM32 64 to 68 bytes. They must
@@ -169,9 +220,8 @@ positive control observes one hue bake, 3840 hue samples, two RGB-cache bakes
 and 3760 RGB-cache samples. Actual target full-cycle captures independently
 show no composed prepare/bake/draw scope calls, while their own timeline scopes
 execute for all 3648 Hankin and 3328 Islamic frames. This does not exclude
-indirect costs from global code placement, caches or memory. Final merged
-peak/spill comparisons cover the affected AlienBrain, JewelMelt and AshCloud
-paths; no additional Hankin/Islamic capture is scheduled for this change.
+indirect costs from global code placement, caches or memory. The final merged
+peak/spill comparisons above cover AlienBrain, JewelMelt and AshCloud; no additional Hankin/Islamic capture is scheduled for this change.
 
 [Machine-readable qualification and artifact hashes](hue_lut_qualification.json)
 preserve each study's source and capture provenance. Profile clock annotation

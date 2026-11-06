@@ -1247,6 +1247,7 @@ inline void test_palette_mapping_crossfade() {
 }
 
 #include "tests/composed_effect/temporal_sampling.h"
+#include "tests/composed_effect/retained_hue.h"
 #include "tests/composed_effect/chamber_noise_cache.h"
 #include "tests/composed_effect/dodecahedral_matrix_cache.h"
 #include "tests/composed_effect/ashcloud_shared_color.h"
@@ -1372,6 +1373,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_document_modulation_members);
   HS_RUN(test_millefiori_column_color_phase);
   HS_RUN(test_grid_worms_sine_column_phase);
+  HS_RUN(test_retained_equal_palette_hue_view);
   HS_RUN(test_ash_cloud_noise_column_phase);
   HS_RUN(test_baked_cube_column_phase);
   HS_RUN(test_chamber_noise_cache_bake_lifetime);

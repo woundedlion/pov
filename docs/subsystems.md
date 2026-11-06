@@ -398,6 +398,9 @@ base, which holds through preset Lerps of mapping, brightness and opacity
 controls. Noise tables are baked once per frame. Effects without this opt-in retain the frame-wide path
 and allocate no temporal history.
 
+Interior columns share the current hue view when palette entries, hue table
+pixels and gamut masks match. Frame endpoints retain their own views.
+
 Hue tables retain cell-admission masks with their palette owners. Cached hue
 rows store RGB16 nodes and use Q16 interpolation; marked cells and gamut-boundary
 bases use procedural conversion. See the [hue lookup qualification](hue_lut_qualification.md)
