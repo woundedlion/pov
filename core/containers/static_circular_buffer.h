@@ -20,7 +20,7 @@
 #include "core/platform/platform.h"
 
 /**
- * @brief A fixed-size circular buffer optimized for stability.
+ * @brief Fixed-capacity, allocation-free ring buffer.
  * @tparam T Element type; must be default-constructible, since all N slots
  * hold live objects. push_front/push_back also require assignment;
  * emplace_front/emplace_back require only construction from their arguments.

@@ -261,13 +261,13 @@ template <> struct RuntimeStateCodec<Op::AffineClockState> {
   /**
    * @brief Captures @p state.
    * @param state State to capture.
-   * @return A AffineClockSnapshot.
+   * @return An AffineClockSnapshot.
    */
   static RuntimeSnapshot capture(const Op::AffineClockState &state) {
     return AffineClockSnapshot{state.phase, state.rotation};
   }
   /**
-   * @brief Restores @p state from a AffineClockSnapshot.
+   * @brief Restores @p state from an AffineClockSnapshot.
    * @param state State to overwrite.
    * @param snapshot Captured snapshot.
    * @return False, leaving @p state untouched, on a wrong kind or

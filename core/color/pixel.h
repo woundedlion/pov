@@ -429,8 +429,8 @@ inline auto blend_alpha(float a) {
 }
 
 /**
- * @brief A constexpr-compatible RGB pixel structure for Flash storage.
- * Layout compatible with CRGB but without non-constexpr constructors.
+ * @brief Constexpr-constructible from channels or a packed hex value, for
+ * Flash storage; layout compatible with CRGB.
  */
 struct CPixel {
   uint8_t r; ///< sRGB red in [0, 255].

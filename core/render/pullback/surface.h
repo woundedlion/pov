@@ -556,6 +556,7 @@ curl_noise(const math::Vector &input, const FastNoiseLite &noise,
  * @tparam State Provider with Binding and FrameState types and
  * noise(frame), scale(frame), strength(frame), prepare(frame),
  * path_length_required(frame) accessors.
+ * @tparam Basis Noise basis.
  */
 template <typename State, math::NoiseBasis Basis>
 struct DirectNoise : PrepareFromState<State> {
@@ -606,6 +607,9 @@ struct DirectNoise : PrepareFromState<State> {
  * @tparam State Provider with Binding and FrameState types and
  * noise(frame), scale(frame), strength(frame), prepare(frame),
  * path_length_required(frame) accessors.
+ * @tparam Basis Noise basis.
+ * @tparam IntegratorPolicy Field integration policy.
+ * @tparam Limit Tangent displacement limit.
  */
 template <typename State, math::NoiseBasis Basis, typename IntegratorPolicy,
           math::TangentLimit Limit>

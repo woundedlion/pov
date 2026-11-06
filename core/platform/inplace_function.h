@@ -7,8 +7,8 @@
 
 /**
  * @file inplace_function.h
- * @brief hs::inplace_function — heap-free, inline-storage callable for the
- *        host/WASM build, behind Fn<Sig,Cap>; modeled on SG14
+ * @brief hs::inplace_function — heap-free, inline-storage callable behind
+ *        Fn<Sig,Cap>; modeled on SG14
  *        stdext::inplace_function.
  *
  * A closure that overflows the Capacity-byte buffer is a compile error.
@@ -29,8 +29,8 @@ namespace hs {
 [[noreturn]] void inplace_function_empty_call();
 
 // Alignment defaults to a pointer, not max_align_t. alignof(void *) is 8 on the
-// 64-bit host but 4 on wasm32, so an 8-byte-aligned capture (double, int64_t)
-// fails to compile only in WASM.
+// 64-bit host but 4 on device and wasm32, so an 8-byte-aligned capture
+// (double, int64_t) fails to compile on both 32-bit targets.
 template <typename Signature, size_t Capacity = 16,
           size_t Alignment = alignof(void *)>
 class inplace_function; // primary template intentionally undefined

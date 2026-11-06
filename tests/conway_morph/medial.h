@@ -263,7 +263,7 @@ inline void test_medial_face_area_rejects_collapsed_faces() {
  */
 inline void test_medial_dual_bridge_wellformed() {
   constexpr int SAMPLES = 33;
-  // Well clear of an antipodal/coincident slerp singularity.
+  // Well clear of an antipodal slerp singularity.
   constexpr float MIN_ENDPOINT_DOT = 0.9f;
   constexpr float MAX_INTER_SAMPLE_STEP = 0.015f;
   constexpr float ENDPOINT_TOL = 1e-4f;
@@ -336,7 +336,7 @@ inline void test_medial_dual_bridge_wellformed() {
     HS_EXPECT_LT(end_a, ENDPOINT_TOL);
     HS_EXPECT_LT(end_b, ENDPOINT_TOL);
 
-    // No antipodal/coincident slerp inputs.
+    // No antipodal slerp inputs.
     float min_dot = 2.0f;
     for (size_t v = 0; v < med_a.vertices.size(); ++v)
       min_dot = std::min(min_dot, math::dot(med_a.vertices[v].normalized(),

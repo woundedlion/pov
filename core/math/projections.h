@@ -296,7 +296,7 @@ enum class PeirceLayout : uint8_t { DIAMOND, SQUARE, HORIZONTAL, VERTICAL };
  *        NO_EDGE_DISTANCE and the inverse-trig calls that compute it are
  *        skipped.
  * @return Plane coordinates in elliptic-integral units of the quarter period
- *         K; the southern fold reflects about 2K and the strip layouts repeat
+ *         K; the southern fold reflects about +/-K and the strip layouts repeat
  *         every 4K.
  * @details A strip layout glues only the pair of equator quarters its
  * reflection holds fixed; the other pair tears, so HORIZONTAL and VERTICAL carry CUT

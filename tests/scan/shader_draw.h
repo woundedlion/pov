@@ -222,8 +222,8 @@ inline void test_ssaa_grid_sample_positions() {
 }
 
 /**
- * @brief Verifies every Shader entry point paints exactly the columns the clip
- *        arc admits, with the values an unclipped draw produced.
+ * @brief Verifies the `draw*` and `walk_grid` entry points paint the columns the
+ *        clip arc admits, with the values an unclipped draw produced.
  * @details Compared against the unclipped render filtered by XClip::clipped,
  * under a plain arc and one whose margin wraps the band across the seam.
  */

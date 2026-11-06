@@ -32,6 +32,7 @@ azimuthal_project(const math::Vector &p, const math::Basis &basis) {
  * @brief azimuthal_project() without its fast-trigonometry error.
  * @param p Unit sphere point to project.
  * @param basis Projection basis; center is basis.v, axes basis.u/basis.w.
+ * @pre @p p is away from the chart antipode.
  * @return Plane coordinates as azimuthal_project() gives them.
  * @details The azimuth's cosine and sine are the point's tangent components
  * over their length, so the coordinates turn exactly with the point about the

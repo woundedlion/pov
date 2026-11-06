@@ -248,9 +248,13 @@ public:
   }
 
 private:
+  /** Offset across a boundary, in pixel units. */
   static constexpr float SIDE_OFFSET = .01f;
+  /** Maximum birth separation for one sheet, in source intervals. */
   static constexpr float SAME_SHEET_BIRTHS = .75f;
+  /** Maximum birth separation for paired sheets, in source intervals. */
   static constexpr float PAIRED_SHEET_BIRTHS = .25f;
+  /** Minimum squared sine between compatible boundary lines. */
   static constexpr float MIN_LINE_SINE_SQ = .0975f;
 
   /** @brief Shades one first arrival on an edge sample.
@@ -406,14 +410,17 @@ private:
       result = point(U0 + along * DU, V0 + along * DV);
       return true;
     }
+    /** @brief Whether the source interval has an active candidate bit. */
     HS_HOT_INLINE bool active(int index) const {
       return candidate_bits == UINT32_MAX ||
              ((candidate_bits >> (index >> candidate_shift)) & 1u) != 0;
     }
+    /** @brief Whether any candidate bit remains from the source interval. */
     HS_HOT_INLINE bool any_from(int index) const {
       return candidate_bits == UINT32_MAX ||
              (candidate_bits >> (index >> candidate_shift)) != 0;
     }
+    /** @brief Whether boundary lines cross inside the pixel at sufficient angle. */
     HS_HOT_INLINE bool compatible(float x, float y, float z, float u, float v,
                                   float w) const {
       const float DET = x * v - y * u;

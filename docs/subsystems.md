@@ -106,6 +106,11 @@ auto shader = [&](const math::Vector &p, Fragment &f) {
 Scan::Ring::draw<W, H>(pipeline, canvas, basis, radius, thickness, shader);
 ```
 
+Scan entry points require a `ScanRef` pipeline with `leaves_world_unmoved`;
+world-moving stages such as `Filter::World::Orient` are rejected.
+`Scan::ColumnBasisScope` supplies column-time placement, with interfaces such
+as `Scan::VolumeColumns` for placed volume scans.
+
 ### Register Conventions by Rasterizer
 
 Each rasterizer family populates the Fragment registers with a consistent convention. Shaders can rely on these semantics:
@@ -257,7 +262,7 @@ The column walk draws an edge at each column's known surface time. It
 combines the endpoint worldlines with the world's pose there, intersects
 the resulting geodesic with that column's meridian, and emits its samples
 through the filter chain. `Plot::EdgeWorldsheet` caches geodesic bases at
-lattice times; `Plot::SweptEdgeCull` rejects edges whose swept bounds miss the
+the frame's ends; `Plot::SweptEdgeCull` rejects edges whose swept bounds miss the
 clip before their geodesic bases and sampling pitch are built. Longitude
 half-planes are tested before the height bound. `Plot::EdgeBatch` shares
 captured vertex data across edges. History-free walks whose taps need no
@@ -387,12 +392,10 @@ their period, and spatially periodic phase wraps. Discrete preset changes do
 not become continuous through this option. GridSpace's whole-cell affine
 winding satisfies the wrap condition.
 
-A Mobius lens is sampled separately from its preset interpolation, which holds
-the previous coefficients. `Animation::MobiusWarpCircular` publishes the angle
-and magnitude it writes into b, and each column regenerates b from the shortest
-arc of that phase over the current a, c and d. A lens whose b was replaced by a
-snap or write, or whose a, c or d changed, takes the current lens in every
-column. A column lens that fails `Pullback::valid` takes the current lens.
+A composed Mobius lens interpolates its `MobiusGeneratorParams` with
+`FieldCurve::LERP`. `Animation::LensPhase` publishes angle and magnitude; column
+sampling follows the shortest arc in angle and linearly interpolates magnitude.
+`FrameInterval` shares the generator exponential through `mobius_intervals`.
 
 The chain interpreter retains the previous endpoint as a mirror of the
 committed program's param and state blocks. Each column samples every
@@ -696,7 +699,8 @@ affine square in the chart, centred at `p` with column and row derivatives
 Each pixel resolves at most one jump, against a straight-line boundary. Where
 more sheets overlap within one pixel the result is a bounded local
 approximation, not a full partition of the pixel. Every pixel costs at least
-one point query; an AA pixel adds the boundary walk and one more query.
+one point query; an AA pixel adds the boundary walk and at most three more
+queries, usually one.
 
 **Candidate mask.** Most pixels are nowhere near a jump, but finding that out
 through the full AA path means building the footprint and walking the
@@ -800,7 +804,7 @@ Balanced sampling stretches each adaptive step by `BALANCED_SCREEN_STEP_PX / SCR
 
 `ShapeShifter` reaches balanced adaptive sampling on its stationary route: its own sampled draw enables it for spherical stars at 32 or more contours, and `Plot::PlanarChords` hands stationary dense planar-star pole intervals to `rasterize` with balanced sampling. The planar pole intervals can reuse their step; spherical-star edges are geodesic.
 
-Authored sine-driven presets P2 through P9 instead carry contour twist and orientation to column time. Moving planar contours capture start, middle and end anchors, cull intervals from their motion bounds, and use coherent screen chords where their physical curvature permits. Other intervals use `Plot::PolarWalk`: quadratic trajectories in the display pole's equidistant chart intersect each column at its own time, with radial AA taps and the adaptive rasterizer's minimum physical pitch. Spherical contours use the shared column edge walk with their local lattice pitch. P1 retains stationary sampling. Custom non-sine waveforms retain frame-end twist under column-time orientation.
+Authored sine-driven presets P2 through P9 instead carry contour twist and orientation to column time. Moving planar contours capture start, middle and end anchors, cull intervals from their motion bounds, and use coherent screen chords where their physical curvature permits. Other intervals use `Plot::PolarWalk`: quadratic trajectories in the display pole's equidistant chart intersect each column at its own time, with radial AA taps and the adaptive rasterizer's minimum physical pitch. Spherical contours use the shared column edge walk with their local lattice pitch. P1 renders through the [continuous radial surface](#continuous-radial-surfaces); it samples no contours unless its parameters are edited off the surface route. Custom non-sine waveforms retain frame-end twist under column-time orientation.
 
 `Plot::GeometryCallback::uniform_color` declares a color-only shader whose color is constant along each edge throughout the frame. The column walk shades that color once per edge, using the shader's world or source coordinates at the frame end. Age and material registers retain their per-sample interpolation, including taps across an arm cut.
 
@@ -1366,14 +1370,14 @@ The mesh system uses these headers in `core/mesh/` and `core/render/sdf/`:
 - **`core/mesh/mesh.h`** — Core data structures (`PolyMesh`, `HalfEdgeMesh`) and fundamental `MeshOps` (compile, clone, classify)
 - **`conway.h`** — Conway mesh operators and vertex transformations
 - **`conway_graph.h`** — Constexpr 23-edge morph graph over the 18 simple-registry solids: per-edge operator/seed/reseed specs, shortest-path routing to uniformly random destinations, and the closed `ORDERED_TOUR`
-- **`recipe_types.h`** — The authored op-chain model: the `Op` operator set, one `OpStep`, and the `Recipe` chain a registry generator mirrors, split out so the model is not read out of the registry tables written in it
+- **`recipe_types.h`** — The authored op-chain model: the `Op` operator set, one `OpStep`, and the `Recipe` chain that generates a registry solid, split out so the model is not read out of the registry tables written in it
 - **`recipe.h`** — Lowers an authored recipe to primitive steps (`expand_to_primitives`), sizes that lowering at compile time (`lowered_step_count`, `max_lowered_step_count`), replays either form through `SolidBuilder` (`build_recipe`, `build_steps`), and decides which lowered steps a morph leg can sweep (`is_morphable_step`)
 - **`core/mesh/hankin.h`** — Hankin pattern compilation and dynamic update
 - **`core/render/sdf/face_class_bake.h`** — Congruence-class clustering plus one canonical distance-LUT bake per class, allocated by descending face count under an 18 KB per-mesh budget
 - **`core/render/sdf/face_classes.h`** — The class id space and the three record types the rasterizer binds per frame, split out so the clustering and bake machinery stays out of every rasterizer translation unit
 - **`mesh_state.h`** — `MeshState`, the flat-array renderer format, split out so mesh, Conway, Hankin and solids code can share the renderer-facing representation without the construction machinery
-- **`solid_generators.h`** — Umbrella over `solid_tables.h` (hardcoded Platonic vertex/face tables), `solid_builder.h` (the `SolidBuilder` operator chain) and `procedural_solids.h` (the named Archimedean / Catalan / Islamic Star Pattern generators)
-- **`solids.h`** — The three solid registries, the authored `Recipe` mirrors of the generators, and the name/index lookups over them
+- **`solid_generators.h`** — Umbrella over `solid_tables.h` (hardcoded Platonic vertex/face tables), `solid_builder.h` (the `SolidBuilder` operator chain) and `procedural_solids.h` (the named Platonic / Archimedean / Catalan generators and star-pattern constants)
+- **`solids.h`** — The three solid registries, the authored star-pattern `Recipe` chains, and the name/index lookups over them
 - **`relax_bake_specs.h`** — Authored bake names and iteration budgets. The extraction harness reads these inputs without loading generated payloads.
 - **`relax_bakes_generated.h`** — Baked relaxed-mesh vertices behind `MeshOps::relax_baked`, generated by `tools/relax_bakes.py`; never hand-edited, regenerate with `<build>/relax_bake_gen | python tools/relax_bakes.py emit --stdin`. Grid constants come from the harness dump.
 
@@ -1427,7 +1431,7 @@ All Conway *geometry* operators (`dual` through `bevel` below) take `(const Poly
 
 ### Solids Library (`solids.h`, `solid_generators.h`)
 
-`solid_generators.h` provides constexpr vertex/face data for all Platonic solids plus procedural generators for Archimedean, Catalan, and Islamic Star Pattern families; `solids.h` organizes them into three registries. Firmware effects build by registry index via `Solids::get_entry(index)`; `Solids::get_by_name(arena, a, b, name)` builds by name and fails fast on an unknown name; the WASM bridge validates with `Solids::find_entry(name)` first and generates from the entry; the WASM geometry tools enumerate the registries by index with `Solids::get_entry(index)` to populate the picker, then build the selected solid by name:
+`solid_generators.h` provides constexpr vertex/face data for all Platonic solids plus procedural generators for Platonic, Archimedean and Catalan solids. `solids.h` defines authored Islamic star-pattern recipes, generates them through `generate_recipe<R>`, and organizes the solids into three registries. Firmware effects build by registry index via `Solids::get_entry(index)`; `Solids::get_by_name(arena, a, b, name)` builds by name and fails fast on an unknown name; the WASM bridge validates with `Solids::find_entry(name)` first and generates from the entry; the WASM geometry tools enumerate the registries by index with `Solids::get_entry(index)` to populate the picker, then build the selected solid by name:
 
 | Registry | Count | Description |
 |---|---|---|
@@ -1452,11 +1456,19 @@ return SolidBuilder(to_polymesh<Icosahedron>(a), a, b)
     .build();
 ```
 
-Islamic Star Pattern recipes chain multiple operators with Hankin pattern generation:
+Islamic star-pattern recipes are authored as step tables. A registry row binds
+the recipe to its generator:
 
 ```cpp
-SolidBuilder(Platonic::dodecahedron(a, b), a, b)
-    .hankin(54.0f * D2R).ambo().hankin(72.0f * D2R).build();
+inline constexpr Solids::OpStep STAR_STEPS[] = {
+    {Solids::Op::HANKIN, 54.0f * IslamicStarPatterns::D2R},
+    {Solids::Op::AMBO},
+    {Solids::Op::HANKIN, 72.0f * IslamicStarPatterns::D2R}};
+inline constexpr Solids::Recipe STAR_RECIPE =
+    Solids::make_recipe(Solids::SEED_DODECAHEDRON, STAR_STEPS);
+// Inside a Solids::Entry table:
+{"dodecahedron_hk54_ambo_hk72", Solids::generate_recipe<STAR_RECIPE>,
+ Solids::Category::COMPLEX, &STAR_RECIPE},
 ```
 
 ## Generators (`memory.h`)
@@ -1613,7 +1625,7 @@ else
 
 | State machine | Header | Role |
 |---|---|---|
-| `EffectHandoff<T>` | `pov_handoff.h` | Foreground↔ISR effect ownership: the teardown counter handshake, the acquire/release publish and adopt of a pending effect, the consumed-generation gate that keeps the ISR off a deleted instance, and the display-window (clip) alternation. The foreground constructs and deletes instances; the ISR only ever dereferences what `live()` handed it. |
+| `EffectHandoff<T>` | `pov_handoff.h` | Foreground↔ISR effect ownership: the teardown counter handshake, the acquire/release publish and adopt of a pending effect, clearing pending state plus the release handshake before deletion, the commit-generation check that traps a missed build deadline, the consumed-generation gate that prevents re-adoption, and the display-window (clip) alternation. The foreground constructs and deletes instances; the ISR only ever dereferences what `live()` handed it. |
 | `SubmitGate`, `SyncPulseGate` | `pov_submit_gate.h` | The LED transport's accept/drop verdict and the sync pin's pulse width. Both submit paths — the fail-dark black frame and the image column — clear their pending state only on an accepted submit, and a dropped column latches retries on subsequent wakes, without repacking, until the transport accepts it or a new column or dark state replaces it. A wake that renders nothing has too short a body to carry a scheduled sync pulse, so the pin is held HIGH across the ISR boundary and dropped at the head of the next wake. |
 
 **Effect transparency**: Effects are written against the full 288×144 canvas with no per-segment code. Each board clips rendering to its half-width segment band for the display window the frame will be shown in, one ahead of the open one (`clip_to_segment`), except stateful effects (`needs_full_frame()` / `persists_pixels()`), which render the full canvas; the ISR then packs this board's LEDs. Every board reseeds the shared `Pcg32` at every effect build from `HS_PHANTASM_EFFECT_SEEDS[]`, which `targets/Phantasm/phantasm_playlist.h` builds as `hs::stable_effect_seed(hs::effect_seed_key<name<CANVAS_W, CANVAS_H>>(#name))` (`core/platform/effect_identity.h`) so an entry's stream follows its immutable RNG key, independent of canonical ID and roster position; `hs::epoch_seed(effect index)` (epoch 0 is the identity seed `1337`) is the fallback for a board that supplies no seed table. Aligned epoch reconstruction starts the same content stream on every board. A mid-show join can have a frame offset until a subsequent aligned epoch; the beacon index alone does not align rendered frames.

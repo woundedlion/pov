@@ -220,6 +220,7 @@ inline void test_ring_small_radius_distance_symmetric() {
 // DistortedRing  (per-azimuth centerline shift)
 // ============================================================================
 
+/** @brief Distorted rings retain a copy of their construction basis. */
 inline void test_distorted_ring_copies_basis() {
   const float knots[] = {0.0f, 0.0f, 0.0f, 0.0f};
   SDF::KnotPrefilter prefilter;

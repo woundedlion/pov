@@ -93,7 +93,7 @@ struct ParticleSystem {
    *        materialized particle, before that particle's fragments are emitted,
    *        shaded, or rasterized, and before the next particle's call. A mapper
    *        may therefore bind per-particle state the fragment or deferred shader
-   *        reads. Particles the traversal skips (drained history, fewer than two
+   *        reads. Particles the traversal skips (zero remaining life, fewer than two
    *        points) are never mapped and never shaded.
    */
   template <int W, int H, bool HoistableCull, bool FuseVertex,

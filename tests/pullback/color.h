@@ -4,7 +4,6 @@
  */
 /** @file
  * @brief Pullback palette, Lab cache and modulation finishing tests.
- * Included by tests/test_pullback.h inside its test namespace.
  */
 
 /** @brief Palette and modulation endpoints for color-stage tests. */

@@ -855,8 +855,8 @@ private:
    * @param sides Side count.
    * @param shape Primitive.
    * @param palette Contour palette.
-   * @details Every contour turns rigidly about its axis by its waveform's
-   * twist, whose phase advances linearly over the frame, and the world stage
+   * @details A sine contour turns rigidly about its axis with linearly advancing
+   * twist phase; other waveforms hold their frame-end twist. The world stage
    * turns the stack by the orientation at each column's time. A contour of
    * geodesic edges is a closed chain the column walk draws, in chunks, once
    * its swept vertices can reach the walk's rows and band.

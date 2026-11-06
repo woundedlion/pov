@@ -234,7 +234,7 @@ struct Twist {
    * @return Angular-max bound (>= 1), with the radial factor
    * clamped at 1/max(s, R/2).
    * @note The radial clamp can under-report the norm near the polar axis.
-    * At twist 1, the corrected distance can over-report exterior clearance.
+   * At twist 1, the corrected distance can over-report exterior clearance.
    */
   float lipschitz(const math::Vector & /*p*/, Ctx s) const {
     return lipschitz(1.0f / fmaxf(s, R * 0.5f));
@@ -445,8 +445,8 @@ template <typename Shape, typename WarpT> struct WarpedVolume {
    * @brief Distance with bounding fast-path and Lipschitz correction.
    * @param p Query point in Cartesian ray-space.
    * @return Lipschitz-corrected exterior distance; twist 1 can over-report
-    * clearance near the polar axis. Interior values are the uncorrected
-    * warped base distance, not safe interior clearance.
+   * clearance near the polar axis. Interior values are the uncorrected
+   * warped base distance, not safe interior clearance.
    */
   float distance(const math::Vector &p) const {
     const float gate =

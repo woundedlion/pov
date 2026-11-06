@@ -960,6 +960,9 @@ private:
   static_assert(sizeof(RadialCoefficient) == 2 * sizeof(float));
 
   /** @brief Checks that a closed polyline includes its repeated first vertex.
+   * @tparam PipelineT Prepared pipeline type.
+   * @param pipeline Pipeline prepared for the canvas.
+   * @param canvas Canvas with the retained preparation clip.
    * @param points Polyline storage.
    * @param vertices Distinct vertex count. */
   template <typename PipelineT>
@@ -978,7 +981,15 @@ private:
              "PlanarChords: closing vertex is missing");
   }
 
-  /** @brief Plot-rasterizes one chart-straight run with balanced sampling. */
+  /** @brief Plot-rasterizes one chart-straight run with balanced sampling.
+   * @tparam PipelineT Prepared pipeline type.
+   * @tparam F Fragment shader type.
+   * @param pipeline Pipeline prepared for the canvas.
+   * @param canvas Canvas with the retained preparation clip.
+   * @param a,b Run endpoints.
+   * @param planar_basis Projection chart basis.
+   * @param fragment_shader Fragment shading callable.
+   * @details Temporary run and split storage is reclaimed on return. */
   template <typename PipelineT, typename F>
   HS_FLASH_MEMBER void
   rasterize_run(PipelineT &pipeline, Canvas &canvas, const math::Vector &a,

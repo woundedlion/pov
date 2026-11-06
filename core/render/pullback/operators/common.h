@@ -49,6 +49,11 @@ namespace Interp {
  * - `migrate(State &dst, const State &src, InstanceId)` — clones into a fresh
  *   `dst`; returns Status.
  * - `advance(State &, const Params &)` — steps per-frame clocks.
+ * - `modulation_key(const State &)` — optional source instance label.
+ * - `fold_strength(const Params &)` — optional current fold gain.
+ * - Free `temporal_interval(const State &, const State &)` and
+ *   `temporal_sample` overloads — optional retained clock intervals and
+ *   column-time state sampling.
  * - `prepare(const FrameContext &, const Params &, const State &)` — returns
  *   the frame's `Prepared`. A model reading the next stage's lattice declares
  *   it with a trailing `const TranslationLattice &` instead.

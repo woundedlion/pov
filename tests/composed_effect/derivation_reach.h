@@ -94,7 +94,7 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sphere.displace.symmetric.v2", nullptr, {}},
     {"field.transfer.ridge.v2", nullptr, {}},
     {"field.transfer.smooth-bands.v2", nullptr, {}},
-    // ProjectionKind names the folded gnomonic alone.
+    // Shipped Specs select the folded gnomonic alone.
     {"project.gnomonic.v2", "hemisphere", {{"folded"}}},
     {"project.stereographic.v2", "frame", {{"identity", "spin-wander"}}},
     {"project.folded-sinusoidal.v2", "frame", {{"spin-wander"}}},

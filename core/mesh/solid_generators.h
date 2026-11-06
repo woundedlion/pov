@@ -13,7 +13,7 @@
 #include <array>
 #include "core/mesh/base_mesh.h"
 #include "core/math/geometry.h"
-#include "core/mesh/mesh.h" // For MeshOps
+#include "core/mesh/mesh.h"
 #include "core/mesh/hankin.h"
 #include "core/mesh/conway.h"
 #include "core/mesh/relax_bakes_generated.h"
@@ -22,7 +22,6 @@
 
 namespace Solids {
 
-// --- Constants for Procedural Generation ---
 /** Square root of 2. */
 inline constexpr float SQRT2 = 1.414213562373095f;
 /** Tribonacci constant t, the real root of t^3 - t^2 - t - 1 = 0 (~1.83928676).

@@ -589,7 +589,7 @@ inline void test_apply_wake_sequence() {
   }
 }
 
-/** @brief The host and device execute the same composed wake ordering. */
+/** @brief run_wake_sequence orders one wake's sync pin, tick, adopt, advance, envelope and submit. */
 inline void test_composed_wake_sequence() {
   std::vector<WakeStep> steps;
   WakeEffect effect{&steps};

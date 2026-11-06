@@ -5,8 +5,6 @@
 
 // ============================================================================
 // Face distance vs an independent exact oracle
-//
-// Face distances match an independent polygon oracle.
 // ============================================================================
 
 /**

@@ -158,7 +158,7 @@ class TerminalFootprintTests(unittest.TestCase):
 
 @unittest.skipUnless(GENERATES, GENERATES_REASON)
 class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
-    """The placed draft `pcb.py --force` emits, read back without KiCad."""
+    """The placed draft `pcb.py --force` emits."""
 
     def test_placed_draft_preserves_the_quilter_board_and_rules(self):
         with tempfile.TemporaryDirectory() as directory:

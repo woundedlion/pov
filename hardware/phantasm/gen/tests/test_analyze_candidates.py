@@ -409,6 +409,8 @@ def track_clearance():
 
 
 class RunDrcReportTests(unittest.TestCase):
+    """The gate reads kicad-cli's JSON report, so a shape change can't read clean."""
+
     def test_failed_cli_surfaces_stderr(self):
         result = subprocess.CompletedProcess(["kicad-cli"], 1, b"", b"cannot load board\n")
         stderr = io.StringIO()
@@ -420,8 +422,6 @@ class RunDrcReportTests(unittest.TestCase):
             self.assertEqual(analyze_candidates.run_drc("board.kicad_pcb")["status"],
                              analyze_candidates.DRC_FAILED)
         self.assertEqual(stderr.getvalue(), "cannot load board\n")
-
-    """The gate reads kicad-cli's JSON report, so a shape change can't read clean."""
 
     def run_drc(self, report_text):
         def write_report(cmd, **kwargs):

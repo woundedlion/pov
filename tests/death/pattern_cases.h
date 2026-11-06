@@ -2,10 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-#pragma once
-
-/** @file pattern_cases.h
- * @brief Pattern parameter and state admission traps. */
+// Pattern parameter and state admission traps.
 
 inline void case_pattern_sine_invalid_axis() {
   Pattern::SineParams params;

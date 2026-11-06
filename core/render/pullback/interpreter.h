@@ -280,7 +280,8 @@ public:
   /**
    * @brief Binds the two blocks column-time sampling uses.
    * @param history_block Previous endpoint's param and state blocks, at the
-   *        committed program's offsets.
+   *        committed program's offsets; clock intervals occupy
+   *        history + prepared_offset.
    * @param column_block One column's param, state and colour blocks, at the
    *        same offsets.
    * @details Both blocks are max_align-aligned, at least one arena's capacity,

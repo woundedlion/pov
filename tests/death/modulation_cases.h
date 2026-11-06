@@ -2,10 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-#pragma once
-
-/** @file modulation_cases.h
- * @brief Modulation configuration and prepared-resource admission traps. */
+// Modulation configuration and prepared-resource admission traps.
 
 inline void case_pattern_direction_invalid() {
   (void)Pattern::SphereDirection::from(math::Vector(opaque(0.0f), 0.0f, 0.0f));

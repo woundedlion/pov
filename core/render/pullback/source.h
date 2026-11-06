@@ -532,6 +532,7 @@ struct Tessellation : ApproximationDefaults {
  * @tparam State Provider with Binding and FrameState types and
  * noise(frame), noise_scale(frame), noise_time(frame),
  * noise_contrast(frame) accessors.
+ * @tparam BasisV Noise basis.
  */
 template <typename State, math::NoiseBasis BasisV>
 struct ProjectedNoise : ApproximationDefaults {

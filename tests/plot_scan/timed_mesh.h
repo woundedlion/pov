@@ -9,12 +9,14 @@ struct TimedMeshFixture {
       vertices; /**< Endpoints of two connected edges. */
 };
 
+/** @brief Creates three vertices for two connected timed-mesh edges. */
 template <int W, int H> inline TimedMeshFixture chain_mesh() {
   return {{math::pixel_to_vector<W, H>(40.0f, 60.0f),
            math::pixel_to_vector<W, H>(50.0f, 65.0f),
            math::pixel_to_vector<W, H>(60.0f, 70.0f)}};
 }
 
+/** @brief Creates the two connected edges in the supplied arena. */
 inline ArenaVector<Plot::Mesh::Edge> chain_edges(Arena &arena) {
   ArenaVector<Plot::Mesh::Edge> edges(arena, 2);
   edges.push_back({0, 1});
@@ -22,6 +24,7 @@ inline ArenaVector<Plot::Mesh::Edge> chain_edges(Arena &arena) {
   return edges;
 }
 
+/** @brief Accepts points in the row band whose owner or either neighbour is unclipped. */
 template <int W>
 inline bool reaches_band(const math::Vector &p,
                          const ClipRegion::XClip &columns, float top,

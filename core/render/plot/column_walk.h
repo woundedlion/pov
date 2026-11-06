@@ -28,7 +28,7 @@ struct GeometryCallback {
                              and an open one all but its last. */
 
   bool rigid_lattice =
-      false; ///< Edges keep angular length; resolve their lattice at column time.
+      false; ///< Resolve lattice and AA support per column, skipping frame-end pitch measurement.
   bool uniform_color =
       false; ///< Shader writes only color, constant over each edge and frame.
   float capture_error =

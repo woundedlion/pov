@@ -9,8 +9,9 @@
  *
  * Ownership model (spec §8): the foreground constructs and deletes effect
  * instances; the ISR only ever dereferences the instance it has been handed via
- * live(). The commit-time generation check is the guard against a use-after-free
- * of a deleted instance, so the exact memory orderings below are load-bearing:
+ * live(). Clearing pending state and completing the release handshake guard
+ * deletion. The commit-time generation check traps a missed build deadline; the
+ * consumed-generation check prevents re-adoption:
  *
  *   - publish() stores pending_gen (relaxed) then pending_effect (release);
  *     the release store publishes the (effect, gen) pair and orders every
@@ -160,8 +161,7 @@ public:
    * @param p A snapshot from pending_acquire().
    * @param wire_gen Generation advertised by the sync wire this tick.
    * @return True iff the effect is present and its generation matches the wire.
-   * @details The caller's HS_CHECK on this is the use-after-free guard: a false
-   *          result at a commit boundary means effect init overran its window.
+   * @details The caller's HS_CHECK traps when effect init overruns its window.
    */
   bool committable(const Pending &p, uint32_t wire_gen) const {
     return p.effect != nullptr && p.gen == wire_gen;

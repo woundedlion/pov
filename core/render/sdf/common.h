@@ -845,8 +845,7 @@ inline float moved_azimuth(float alpha, const math::Vector &from,
 /**
  * @brief Re-centres a bounding cap on another axis and grows it by an arc.
  * @param cap Cap covering the shape about @p from.
- * @param radius The cap's angular radius (radians), at most PI / 2 less @p
- *        arc.
+ * @param radius The cap's angular radius (radians), at most PI / 2.
  * @param from The cap's own axis (unit).
  * @param axis New cap axis (unit).
  * @param arc Growth (radians), including MOVED_AXIS_SLACK.

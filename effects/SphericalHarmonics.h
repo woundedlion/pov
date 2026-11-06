@@ -432,7 +432,7 @@ private:
                 "SampleSphere requires normalized harmonics bounded by one");
   static constexpr int MAX_MODE_IDX = (MAX_DEGREE + 1) * (MAX_DEGREE + 1) - 1;
   static_assert(PRESET_IDS.size() == MAX_MODE_IDX);
-  // Initial mode (l=2, m=0); the constant mode (idx 0) is excluded from the roll.
+  // Initial mode (l=2, m=0); the constant mode (idx 0) is skipped by the morph chain.
   static constexpr int SEED_MODE_IDX = 6;
   static_assert(SEED_MODE_IDX > 0 && SEED_MODE_IDX <= MAX_MODE_IDX,
                 "seed mode must be a valid, non-constant harmonic index");

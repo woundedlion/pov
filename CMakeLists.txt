@@ -362,8 +362,8 @@ else()
   enable_testing()
   add_subdirectory(tests)
 
-  # Point git at staged pre-commit checks and a fast-forward-only master guard
-  # once tests are configured.
+  # Point git at staged pre-commit checks, a fast-forward-only master guard,
+  # and a post-commit size-trail capture once tests are configured.
   # Disable the auto-enable entirely with -DHS_INSTALL_GIT_HOOKS=OFF.
   option(HS_INSTALL_GIT_HOOKS "Auto-enable the local git hooks (core.hooksPath)" ON)
   if(HS_INSTALL_GIT_HOOKS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git"

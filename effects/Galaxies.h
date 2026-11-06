@@ -388,6 +388,7 @@ private:
     const Color4 core_color(255, 255, 255);
     auto bulge_shader = [&](const math::Vector &, Fragment &f) {
       Color4 c = core_color;
+      // The scan applies this coverage again: the glow falls off as its square.
       c.alpha *= hs::clamp(f.v2, 0.0f, 1.0f) * alpha;
       f.color = c;
     };

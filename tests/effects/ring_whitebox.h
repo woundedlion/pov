@@ -122,7 +122,7 @@ private:
   }
 };
 
-/** @brief White-box accessor for RingShower's radius easing endpoints. */
+/** @brief White-box accessor for RingShower's radius endpoints. */
 struct RingShowerWhiteBox {
   /** @brief Checks growth, fade, first draws and recycled slots at column time. */
   static void check_temporal_rings();
@@ -137,7 +137,7 @@ struct RingShowerWhiteBox {
     ring.life = 50;
     ring.age = ring.life - 1; // final visible frame: age+1 == life -> t == 1
     HS_EXPECT_NEAR(ring.radius_at(), RS::Ring::RADIUS_MAX, 1e-5f);
-    ring.age = 0; // first frame: one eased step in, not radius 0
+    ring.age = 0; // first frame: one linear step in, not radius 0
     HS_EXPECT_GT(ring.radius_at(), 0.0f);
     HS_EXPECT_LT(ring.radius_at(), RS::Ring::RADIUS_MAX);
   }

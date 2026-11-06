@@ -181,7 +181,7 @@ protected:
   /**
    * @brief Constructor for the shared animation state.
    * @param duration Total number of frames the animation should run (-1 for
-   * indefinite).
+   * indefinite; 0 runs one frame).
    * @param repeat If true, the animation rewinds and restarts when finished.
    */
   AnimationCommon(int duration, bool repeat)

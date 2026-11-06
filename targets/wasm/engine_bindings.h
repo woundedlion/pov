@@ -177,8 +177,7 @@ public:
     apply_display_geometry(0.0f, math::PI_F);
     stack_paint_canary();
 
-    // Pre-size once: getPixels/getParamValues views alias this storage, so it
-    // must never reallocate.
+    // Pre-size once: getPixels views alias this storage, so it must never reallocate.
     pixel_buffer.assign(MAX_W * MAX_H * CHANNELS, 0);
 
     // Bootstrap on the first row of each roster.
@@ -571,10 +570,10 @@ public:
   }
 
   /**
-   * @brief Pauses or resumes the current effect's preset and phase advancement.
-   * @param paused true to hold presets and parameter drivers, false to resume.
-   * @details Retained across effect and resolution changes and applied to the
-   *          next effect when no effect is currently loaded.
+   * @brief Pauses or resumes preset advancement and pausable preset-driven animations.
+   * @param paused true to hold pausable animations, false to resume.
+   * @details Operator clocks and palettes continue. Retained across effect and
+   *          resolution changes and applied to the next effect when none is loaded.
    */
   void setAnimationsPaused(bool paused) {
     binding_state->paused = paused;

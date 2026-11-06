@@ -8,7 +8,7 @@
 #include "core/render/pullback/authored_lens.h"
 
 /** @file tangent_surface.h
- * @brief Polynomial tangent-field displacement policies. */
+ * @brief Polynomial tangent-field and authored noise displacement policies. */
 
 namespace Pullback::Surface {
 

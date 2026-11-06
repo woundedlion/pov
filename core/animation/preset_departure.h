@@ -26,7 +26,8 @@ struct Snap {};
 
 /**
  * @brief Departure: parameter-space crossfade. ChoreographedEffect drives
- * Derived::blend_params(progress) from the departing to the next set.
+ * the BLEND_PARAMS hook from the departing to the next set, defaulting to
+ * described-field interpolation.
  */
 struct Lerp {
   uint16_t frames = 0; /**< Frames the parameter crossfade spans. */
@@ -39,7 +40,7 @@ struct Lerp {
  * progress sample >= 0.5, then brightens it back to full.
  * @details Even positive frame counts sample the zero-opacity midpoint; odd
  * counts skip it. ChoreographedEffect feeds opacity to
- * Derived::set_preset_opacity; the fade holds full opacity while paused.
+ * the PRESET_OPACITY hook; the fade holds full opacity while paused.
  */
 struct Fade {
   uint16_t frames =

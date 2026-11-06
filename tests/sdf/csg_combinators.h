@@ -694,9 +694,8 @@ inline void test_smooth_union_seam_straddle_merges_padded_intervals() {
   using P = std::pair<float, float>;
   using Mock = sdf_interval_detail::MockIntervalShape;
   constexpr int W = 256, H = 128;
-  math::init_geometry_luts<W,
-                           H>(); // fill sin_phi
-  const int row = H / 2;         // equatorial row: sinφ ≈ 1, pad ≈ k·W/(2π)
+  math::init_geometry_luts<W, H>();
+  const int row = H / 2; // equatorial row: sinφ ≈ 1, pad ≈ k·W/(2π)
   const float k = 0.02f;
   const float sin_phi = math::TrigLUT<W, H>::sin_phi[row];
   const float pad =
@@ -728,8 +727,7 @@ inline void test_smooth_union_pad_widens_toward_pole() {
   using P = std::pair<float, float>;
   using Mock = sdf_interval_detail::MockIntervalShape;
   constexpr int W = 256, H = 128;
-  math::init_geometry_luts<W,
-                           H>(); // fill sin_phi
+  math::init_geometry_luts<W, H>();
   const float k = 0.05f;
   std::vector<P> ivs = {{100.0f, 100.0f}}; // a point; only the pad sets width
   Mock A{&ivs}, B{&ivs};

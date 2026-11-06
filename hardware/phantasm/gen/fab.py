@@ -369,7 +369,7 @@ EMPTY_GERBER_MEMBERS = {"phantasm-B_Paste.gbp"}
 #: The two Excellon exports, keyed to the hole kind each one drills.
 DRILL_MEMBERS = {"phantasm-PTH.drl": "plated", "phantasm-NPTH.drl": "unplated"}
 
-#: Aperture definitions and drawing/flash commands outside region mode.
+#: Aperture definitions and draw/flash commands, including region draws.
 GERBER_APERTURE = re.compile(r"^%ADD\d+", re.M)
 GERBER_OPERATION = re.compile(r"(?:G0?[123])?(?:[XYIJ][+-]?\d+)*D0[13]")
 GERBER_CONTOUR = re.compile(r"(?:G0?[123])?(?:[XYIJ][+-]?\d+)+D01")

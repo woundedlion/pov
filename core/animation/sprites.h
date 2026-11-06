@@ -418,7 +418,10 @@ public:
   float gravity = 0.001f; /**< Base gravitational constant for attractors. */
   float motion_cap = (2 * math::PI_F) / W; /**< Maximum radians per frame. */
   uint16_t max_life = 600; /**< Default particle lifetime in frames. Writable
-                                after init(); immediately re-derives live particles' ages and applies to subsequent spawns. */
+                                after init(); re-derives live ages and applies to
+                                subsequent spawns. Lowering it below a live
+                                particle's life makes sparse trails record every
+                                frame until life drops below max_life. */
 
   using Attractor = Animation::Attractor; /**< Point attractor. */
 

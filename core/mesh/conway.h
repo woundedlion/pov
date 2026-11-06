@@ -1001,7 +1001,6 @@ HS_COLD static PolyMesh chamfer_impl(const PolyMesh &mesh,
           [&](uint16_t he_idx, uint16_t idx) { he_to_new_v[he_idx] = idx; });
     }
 
-    // Generate Hexagon faces for edges
     bool *visited_edges = temp.allocate_n<bool>(I);
 
     for_each_edge(he_mesh, visited_edges, I,

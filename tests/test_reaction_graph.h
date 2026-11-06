@@ -435,6 +435,8 @@ inline void test_cubemap_lut_equatorial() {
   HS_EXPECT_LE(miss, 12);
 }
 
+/** @brief Row-coherent seeding matches an independent per-texel hill climb and
+ * stays within one neighbour of the nearest node. */
 inline void test_cubemap_coherent_seeds() {
   const auto &LUT = built_cubemap_lut();
   constexpr int RES = ReactionGraph::CubemapLUT::RES;

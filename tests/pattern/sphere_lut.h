@@ -2,10 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-#pragma once
-
-/** @file sphere_lut.h
- * @brief Scalar cube storage and source-reference tests. */
+// Scalar cube storage and source-reference tests.
 
 /** @brief Compares paired cube-face bakes with independent scalar face walks. */
 inline void test_sphere_bakes_match_reference() {

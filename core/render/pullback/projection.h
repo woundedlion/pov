@@ -441,7 +441,10 @@ airocean(const math::Vector &input, bool horizontal,
 }
 
 /** @brief Bonne pseudoconical equal-area projection; `North` picks the sign of
-    the standard parallel, and so the hemisphere the cone opens toward. */
+    the standard parallel, and so the hemisphere the cone opens toward.
+ * @tparam State Frame-state provider.
+ * @tparam North Whether the standard parallel opens north.
+ */
 template <typename State, bool North>
 struct Bonne : FrameConjugateFromState<State> {
   /// `fade_edge_distance` is always measured.
@@ -481,7 +484,9 @@ struct Bonne : FrameConjugateFromState<State> {
 };
 
 /** @brief Stereographic projection: conformal, with one singular pole the
-    singularity fade attenuates. */
+    singularity fade attenuates.
+ * @tparam State Frame-state provider.
+ */
 template <typename State>
 struct Stereographic : FrameConjugateFromState<State> {
   /// `fade_edge_distance` is always measured.
@@ -516,7 +521,9 @@ struct Stereographic : FrameConjugateFromState<State> {
 
 /** @brief Sinusoidal projection with the azimuth folded about the central
     meridian: both hemispheres share one image, and there is no singular locus
-    to attenuate. */
+    to attenuate.
+ * @tparam State Frame-state provider.
+ */
 template <typename State>
 struct FoldedSinusoidal : FrameConjugateFromState<State> {
   /// Binding of the frame-state provider `State`.
@@ -548,7 +555,9 @@ struct FoldedSinusoidal : FrameConjugateFromState<State> {
 };
 
 /** @brief Equirectangular projection: cut at the antimeridian, with both
-    poles attenuated by the singularity fade. */
+    poles attenuated by the singularity fade.
+ * @tparam State Frame-state provider.
+ */
 template <typename State>
 struct Equirectangular : FrameConjugateFromState<State> {
   /// `fade_edge_distance` is always measured.
@@ -584,7 +593,10 @@ struct Equirectangular : FrameConjugateFromState<State> {
 };
 
 /** @brief Gnomonic projection about the Y axis, singular on the y = 0 great
-    circle; `Hemisphere` folds the two halves together or keeps one. */
+    circle; `Hemisphere` folds the two halves together or keeps one.
+ * @tparam State Frame-state provider.
+ * @tparam Hemisphere Hemisphere selection or folding mode.
+ */
 template <typename State, GnomonicHemisphere Hemisphere>
 struct Gnomonic : FrameConjugateFromState<State> {
   /// `fade_edge_distance` is always measured.
@@ -656,7 +668,11 @@ template <typename Derived, typename State> struct MeridianPrepared {
 
 /** @brief Peirce quincuncial projection, conformal but for four singularities;
     `Layout` picks diamond, square or strip tiling and `EdgeDistanceRequired`
-    makes the kernel compute edge distance unconditionally. */
+    makes the kernel compute edge distance unconditionally.
+ * @tparam State Frame-state provider.
+ * @tparam Layout Diamond, square or strip layout.
+ * @tparam EdgeDistanceRequired Whether to measure edge distance.
+ */
 template <typename State, uint8_t Layout, bool EdgeDistanceRequired>
 struct Peirce
     : FrameConjugateFromState<State>,
@@ -718,7 +734,9 @@ inline constexpr std::array<ApproximationMetric, 3> PEIRCE_FAST_SQUARE_METRICS{{
 }};
 
 /** @brief Approximate square-layout Peirce projection; the provider must pin
-    the central meridian to zero. */
+    the central meridian to zero.
+ * @tparam State Frame-state provider.
+ */
 template <typename State>
 struct PeirceFastSquare : FrameConjugateFromState<State> {
   /// Binding of the frame-state provider `State`.
@@ -769,6 +787,7 @@ struct PeirceFastSquare : FrameConjugateFromState<State> {
  * @details The approximation oracle and metrics are inherited from
  * PeirceFastSquare and so cover the whole policy; off a zero central meridian
  * it runs the exact quincuncial kernel and those bounds are slack.
+ * @tparam State Frame-state provider.
  */
 template <typename State>
 struct PeirceSquare : PeirceFastSquare<State>,
@@ -879,7 +898,10 @@ using Icosahedral = PolyhedralAtlas<State, Solids::Icosahedron>;
 
 /** @brief Airocean icosahedral net; `Horizontal` turns the finished net a
     quarter turn and `EdgeDistanceRequired` makes the kernel compute the
-    per-edge cut distances unconditionally. */
+     per-edge cut distances unconditionally.
+ * @tparam State Frame-state provider.
+ * @tparam Horizontal Whether to turn the net a quarter turn.
+ * @tparam EdgeDistanceRequired Whether to measure cut distances. */
 template <typename State, bool Horizontal, bool EdgeDistanceRequired>
 struct Airocean
     : FrameConjugateFromState<State>,

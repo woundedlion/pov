@@ -32,8 +32,8 @@
  *   float  fill(&t, phase)  — coverage mask; may remap the edge-distance t
  *   Color4 grade(c, phase)  — color regrade after the palette lookup
  *
- * Optional hooks, detected per policy with `requires` so unused paths compile
- * out of the render loop:
+ * Optional hooks, detected per policy with `requires` by the draw path that
+ * consumes them:
  *
  *   void   retarget(v)               — re-randomize per-transition state
  *   Vector warp(v, phase)            — pre-ripple unit-sphere vertex warp
@@ -49,9 +49,10 @@
  * Base's (1 = fade over the whole window) unless the policy shadows it.
  * Declaring an optional hook at the wrong signature is a compile error.
  *
- * reorder and mask_pair are contracts on the effect, not the draw path: a
+ * warp, reorder and mask_pair are contracts on the effect: a
  * NeedsClasses policy left un-reordered fades every class as one, and a Masked
- * policy drawn without its masks rasterizes both meshes.
+ * policy drawn without its masks rasterizes both meshes. The effect applies
+ * warp to its vertices.
  *
  * The per-face hooks and the fragment hooks are mutually exclusive: the
  * per-face draw path never calls fill or grade.

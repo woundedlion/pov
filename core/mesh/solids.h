@@ -28,8 +28,8 @@ namespace Solids {
 HS_O3_BEGIN
 
 /**
- * @brief Coarse generator-cost hint surfaced to the picker UI.
- * @details COMPLEX = Islamic star-pattern registry; SIMPLE = everything else.
+ * @brief Solids-page family tag: COMPLEX exactly on islamic_registry, SIMPLE
+ * elsewhere.
  */
 enum class Category { SIMPLE, COMPLEX };
 
@@ -40,7 +40,8 @@ struct Entry {
   const char *name; /**< Registry key / display name. */
   PolyMesh (*generate)(
       Arena &a, Arena &b); /**< Generator building into arena pair (a, b). */
-  Category category;       /**< SIMPLE or COMPLEX cost class. */
+  Category
+      category; /**< Solids-page family tag; COMPLEX on islamic_registry, SIMPLE elsewhere. */
   const Recipe *recipe =
       nullptr; /**< Authored construction chain; null = none. */
 };
@@ -296,7 +297,7 @@ inline constexpr Recipe TRUNCATED_CUBE_HK90_META_RECIPE =
 /** Truncated-octahedron gyro/kis/Hankin step table. */
 inline constexpr OpStep TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_STEPS[] = {
     {Op::GYRO}, {Op::KIS}, {Op::HANKIN, 17.0f * IslamicStarPatterns::D2R}};
-/** Authored truncated-octahedron gyro/kis/Hankin recipe without a registry generator. */
+/** Authored truncated-octahedron gyro/kis/Hankin recipe outside the registry. */
 inline constexpr Recipe TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_RECIPE = make_recipe(
     SEED_TRUNCATED_OCTAHEDRON, TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_STEPS);
 

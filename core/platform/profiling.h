@@ -129,10 +129,11 @@ inline PlotCounts g_plot_counts;
 #ifdef HS_PROFILE_PLOT_RENDER_COUNTS
 /** @brief Count-only attribution for plot rendering. */
 struct PlotRenderCounts {
-  uint32_t resident_particles = 0; /**< Allocated particle slots. */
-  uint32_t live_particles = 0;     /**< Active particles. */
-  uint32_t full_histories = 0;     /**< Trails at full history length. */
-  uint32_t partial_histories = 0;  /**< Trails still filling. */
+  uint32_t resident_particles =
+      0; /**< Particles in the active prefix, including zero-life particles. */
+  uint32_t live_particles = 0;    /**< Active particles. */
+  uint32_t full_histories = 0;    /**< Trails at full history length. */
+  uint32_t partial_histories = 0; /**< Trails still filling. */
   uint32_t draining_histories =
       0; /**< Resident particles with zero remaining life. */
   uint32_t cartesian_latitude_rejects = 0; /**< Latitude-bound rejects. */

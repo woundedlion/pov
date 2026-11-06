@@ -6,12 +6,8 @@
 // Included by core/mesh/solid_generators.h.
 
 /** @file procedural_solids.h
- * @brief Platonic, Archimedean, Catalan, and star-pattern solid generators.
+ * @brief Platonic, Archimedean and Catalan solid generators, plus star-pattern constants.
  */
-
-// ==========================================================================================
-// PROCEDURAL GENERATORS
-// ==========================================================================================
 
 namespace Platonic {
 /**

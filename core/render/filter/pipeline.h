@@ -318,9 +318,9 @@ public:
     pipeline().plot_prepared(cv, v, c, age, alpha);
   }
 
-  /** @brief Plots a world sample at an explicit frame fraction.
+  /** @brief Plots a source sample at an explicit frame fraction.
    * @param cv Target canvas.
-   * @param v World point.
+   * @param v Source point.
    * @param c Source color.
    * @param age Age register.
    * @param alpha Source opacity.
@@ -375,9 +375,9 @@ public:
     return pipeline().world_at(cv, v, t);
   }
 
-  /** @brief Projects a timed world point without plotting or recording.
+  /** @brief Projects a timed source point without plotting or recording.
    * @param cv Frame context.
-   * @param v World point.
+   * @param v Source point.
    * @param t Frame fraction.
    * @return Column and row after the world stages. */
   math::PixelCoords probe(Canvas &cv, const math::Vector &v, float t) {
@@ -1045,9 +1045,9 @@ struct Pipeline<W, H, Head, Tail...>
     plot_prepared(cv, v, c, age, alpha);
   }
 
-  /** @brief Plots a timed world sample through a non-replacing pipeline.
+  /** @brief Plots a timed source sample through a non-replacing pipeline.
    * @param cv Frame context.
-   * @param v World point.
+   * @param v Source point.
    * @param c,age,alpha Shading registers.
    * @param t Frame fraction.
    * @return Projected column. */
@@ -1103,7 +1103,7 @@ struct Pipeline<W, H, Head, Tail...>
 private:
   /** @brief Carries an explicit fraction through world stages.
    * @param cv Target canvas.
-   * @param v World point.
+   * @param v Source point.
    * @param c Source color.
    * @param age Age register.
    * @param alpha Source opacity.
@@ -1264,7 +1264,7 @@ public:
 
   /** @brief Projects through world transforms without recording history.
    * @param cv Frame context.
-   * @param v World point.
+   * @param v Source point.
    * @param t Frame fraction.
    * @return Column and row after the world stages. */
   HS_HOT_INLINE math::PixelCoords probe(Canvas &cv, const math::Vector &v,

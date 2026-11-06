@@ -26,7 +26,7 @@ void run_effect_case_shapeshifter_slider_selections_render() {
 
 namespace hs_test::module_runners {
 
-/** @brief Runs the shapeshifter cases effect cases.
+/** @brief Runs the shapeshifter effect cases.
  * @return Module failure count. */
 int run_shapeshifter_cases_tests() {
   using namespace effects_tests;

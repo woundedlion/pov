@@ -480,8 +480,6 @@ private:
 
   /**
    * @brief Current sphere orientation.
-   * @details Declared before `timeline` so it outlives the Rotations that point
-   * here, which ~Timeline clears on teardown.
    */
   math::Orientation<> orientation;
   Timeline timeline; /**< Drives reverse/wipe/rotate animations and timers. */

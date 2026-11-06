@@ -444,7 +444,8 @@ HS_HOT_INLINE math::Vector ring_vertex(const math::Basis &basis, float polar,
  * @tparam PipelineT,ShaderT Pipeline and fragment shader types.
  * @param pipeline Screen pipeline.
  * @param canvas Destination canvas.
- * @param geometry Vertex evaluator at the two frame endpoints.
+ * @param geometry Vertex evaluator at the two frame endpoints. Only evaluate, path
+ *        and vertex_path are read; shaders receive world positions.
  * @param shader Fragment shader, optionally reading time.
  * @param poses Optional column-time world poses.
  * @param spin Bound on the world rotation over the frame, radians.
@@ -620,7 +621,8 @@ struct Ring {
    * @param basis Frame-end ring basis.
    * @param radius Frame-end radius.
    * @param shader Fragment shader, optionally reading time.
-   * @param geometry Constant-rate great-circle vertex paths on the W-angle grid.
+   * @param geometry Constant-rate great-circle vertex paths on the W-angle grid. Only evaluate, path
+   *        and vertex_path are read; shaders receive world positions.
    * @param start_radius Frame-start radius. */
   template <int W, int H, typename PipelineT, typename ShaderT>
   HS_HOT_FLASH_MEMBER static void
@@ -647,7 +649,7 @@ struct Ring {
    * @param age Current age.
    * @param previous_age Retained age.
    * @param life Slot lifetime; on the final frame (`age + 1 == life`), holds
- *        the current age instead of sweeping from the retained age.
+   *        the current age instead of sweeping from the retained age.
    * @param has_history Whether a retained age exists.
    * @param radius Current radius in hemisphere units.
    * @param opacity Current fade.
@@ -975,7 +977,8 @@ struct DistortedRing {
    * @param radius Ring radius.
    * @param shift_fn Frame-end radial distortion for the still draw.
    * @param shader Fragment shader, optionally reading time.
-   * @param geometry Source vertex endpoint evaluator.
+   * @param geometry Source vertex endpoint evaluator. Only evaluate, path
+   *        and vertex_path are read; shaders receive world positions.
    * @param poses Column-time world poses.
    * @param spin Bound on the poses' rotation over the frame, radians. */
   template <int W, int H, typename PipelineT, typename ShaderT>

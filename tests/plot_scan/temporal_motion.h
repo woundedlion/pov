@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-/** @brief Column tolerance a timed route holds interpolants to, radians. */
+/** @brief Tolerance these bound checks hand the interpolant chooser, radians. */
 inline constexpr float MOTION_TOLERANCE = 0.2f * math::TWO_PI_F / 288.0f;
 
 /**

@@ -168,7 +168,7 @@ private:
 
     /**
      * @brief Opacity multiplier for the frame currently being drawn.
-     * @return Opacity in [0, 1]: eased fade-in over the first FADE_IN_FRAMES
+     * @return Opacity in [0, 1]: linear fade-in over the first FADE_IN_FRAMES
      *         frames, then a held 1.0; no fade-out.
      */
     float opacity_at() const { return fade_for(age); }

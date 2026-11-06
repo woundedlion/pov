@@ -51,7 +51,7 @@ enum class ResourceKind {
   PROJECTION, ///< Sphere-to-plane projection.
   WARP,       ///< Planar warp.
   SURFACE,    ///< Displacement surface.
-  LENS,       ///< Mobius lens.
+  LENS,       ///< Sphere-space lens.
   VALUE,      ///< Value transfer and coverage.
   COLOR,      ///< Colorizer.
   MODULATION, ///< Ordered color modulation.

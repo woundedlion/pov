@@ -10,10 +10,6 @@
     "version": 1,
     "deterministic": true,
     "presets": [6, 7, 10],
-    "phases": [1.781, 1.918, 2.329],
-    "latitude_steps": 49,
-    "longitude_steps": 192,
-    "value_steps": 17,
     "framebuffer": {
       "resolutions": [[96, 20], [288, 144]],
       "sampling": "pixel centers",
@@ -59,7 +55,7 @@
       "accepted_limit": 3066,
       "unit": "channel code",
       "limit_provenance": "worst recorded configuration/resolution baseline 2810 plus 256 channel codes of margin (3066)",
-      "measurement_provenance": "repo-owned native Debug capture with the composed AlienBrain bank plus release/strict-FP WASM captures at revision 77dc34b9b812364ffb9c200140440fad6fd3cb70, both roster resolutions and named preset-6/7/10 probes"
+      "measurement_provenance": "repo-owned native Debug capture with the composed AlienBrain bank plus release/strict-FP WASM captures at revision 9aeaabebaabb42ad7fbc65f812dbf9e7dbfa5693, both roster resolutions and named preset-6/7/10 probes"
     }
   ]
 }

@@ -197,9 +197,9 @@ __attribute__((always_inline)) void pack_edges(FaceScratchBuffer &scratch) {
    * @param area2 Twice the polygon's signed area, from the collapsed-face cull.
    * @return Origin-to-boundary distance for an admitted convex polygon, else -1.
    * @details The maximum edge half-plane distance is exact inside a convex
-   * polygon and in exterior edge slabs; vertex cones use endpoint distance. Concave, self-intersecting, degenerate-edged, or
-   * wrongly-oriented polygons leave convex false and distance() on the exact
-   * walk.
+   * polygon and in exterior edge slabs; vertex cones use endpoint distance.
+   * Concave, self-intersecting, degenerate-edged, or wrongly-oriented polygons
+   * leave convex false and distance() on the exact walk.
    */
 __attribute__((always_inline)) float
 build_half_planes(FaceScratchBuffer &scratch, float area2) {

@@ -70,8 +70,7 @@ struct ScreenTrailRig {
 };
 
 /**
- * @brief Proves Screen::Trails has reach 0: under a FIXED clip a banded render
- *        matches the full-frame one byte-for-byte.
+ * @brief Unculled trail seeds re-emit identically under a fixed clip.
  */
 inline void test_screen_trails_banded_matches_full() {
   constexpr int W = ScreenTrailRig::W, H = ScreenTrailRig::H;
@@ -116,8 +115,7 @@ inline void test_screen_trails_banded_matches_full() {
 }
 
 /**
- * @brief Proves Screen::Trails holds up under a clip that MOVES between frames,
- *        the segmented driver's per-frame arm-half alternation.
+ * @brief Unculled trail seeds re-emit identically under a moving clip.
  * @details The clip alternates between [0, W/2) and [W/2, W) on successive
  *          frames; each frame's written half must equal that half of a
  *          full-canvas instance, so a point seeded while its half was clipped

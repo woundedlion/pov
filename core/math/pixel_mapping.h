@@ -209,9 +209,8 @@ template <int W, int H> bool TrigLUT<W, H>::initialized = false;
  * @brief Eagerly fill the scanline LUTs for resolution <W, H>.
  * @tparam W Width (column count).
  * @tparam H Logical height.
- * @details Call before the first frame: the lazy-init guards in
- * `pixel_to_vector` and `y_to_phi` are non-atomic, and the column-sweep ISR must
- * not observe a partially-filled table. Idempotent.
+ * @details Fills or refills the scanline LUTs for <W, H>, so the first frame
+ * does not pay the lazy fill. Idempotent.
  */
 template <int W, int H> inline void init_geometry_luts() {
   PhiLUT<H>::init();

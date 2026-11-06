@@ -95,8 +95,10 @@ struct LogarithmicPolar {};
 struct MirrorParams {
   float speed = 0.0f;    /**< Per-frame advance of the slot's phase. */
   float rotation = 0.0f; /**< Rotation of the fold lattice, in radians. */
-  float cell_x = 1.0f;   /**< Mirror cell width in plane units. */
-  float cell_y = 1.0f;   /**< Mirror cell height in plane units. */
+  float cell_x =
+      1.0f; /**< X fold period in plane units; output spans [0, cell_x]. */
+  float cell_y =
+      1.0f; /**< Y fold period in plane units; output spans [0, cell_y]. */
   float offset_x = 0.0f; /**< Pre-fold translation along x; scrolls with the
                               slot's phase. */
   float offset_y = 0.0f; /**< Pre-fold translation along y; does not scroll. */
@@ -606,14 +608,18 @@ HS_COLD_MEMBER inline float plane_bound(const AffineParams &warp,
          std::hypot(turn.re, turn.im);
 }
 
-/** @brief A provider whose `prepare` builds the slot's per-frame state. */
+/** @brief A provider whose `prepare` builds the slot's per-frame state.
+ * @tparam State Frame-state provider.
+ * @tparam Binding Chain binding. */
 template <typename State, typename Binding>
 concept PreparedProvider = Detail::ProviderFor<State, Binding> &&
                            requires(const typename Binding::FrameState &frame) {
                              State::prepare(frame);
                            };
 
-/** @brief A `PreparedProvider` that also hands out its parameter block. */
+/** @brief A `PreparedProvider` that also hands out its parameter block.
+ * @tparam State Frame-state and parameter provider.
+ * @tparam Binding Chain binding. */
 template <typename State, typename Binding>
 concept ParamsPreparedProvider =
     PreparedProvider<State, Binding> && Detail::ParamsProvider<State, Binding>;
@@ -862,7 +868,7 @@ wave_shear(const math::Complex &input, const Params &params, float phase,
  * @tparam Params MirrorParams-shaped parameter block.
  * @tparam Prepared PreparedMirrorSlot-shaped slot state.
  * @param input Plane coordinate.
- * @param params Cell width and height.
+ * @param params Fold periods; each axis spans [0, period] with slope magnitude 2.
  * @param prepared Fold-lattice rotation and offsets.
  * @return Folded coordinate, rotated back to the input orientation.
  */
@@ -890,7 +896,7 @@ mirror_tile_coords(const math::Complex &input, const Params &params,
  * @tparam Params MirrorParams-shaped parameter block.
  * @tparam Prepared PreparedMirrorSlot-shaped slot state.
  * @param input Plane coordinate.
- * @param params Cell width and height.
+ * @param params Fold periods; each axis spans [0, period] with slope magnitude 2.
  * @param prepared Fold-lattice rotation and offsets.
  * @param path_length_required Measure the step's path length; else 0.
  * @return Folded coordinate and path length.
@@ -1179,6 +1185,7 @@ template <typename State> struct AffineFrame : PrepareFromState<State> {
  * @tparam State Provider with Binding and FrameState types and
  * params(frame), phase(frame), prepare(frame),
  * path_length_required(frame) accessors.
+ * @tparam EnvelopePolicy Displacement envelope policy.
  */
 template <typename State, typename EnvelopePolicy = FlatEnvelope>
 struct WaveShear : PrepareFromState<State> {
@@ -1332,6 +1339,8 @@ template <typename State> struct MirrorTile : PrepareFromState<State> {
  * @brief PolarChart warp policy.
  * @tparam State Provider with Binding and FrameState types and
  * params(frame), phase(frame) accessors.
+ * @tparam PolarMode Radial, angular or combined polar mapping.
+ * @tparam Harmonic Positive angular harmonic.
  */
 template <typename State, typename PolarMode, uint8_t Harmonic>
 struct PolarChart : ApproximationDefaults {
@@ -1373,6 +1382,8 @@ struct PolarChart : ApproximationDefaults {
  * @tparam State Provider with Binding and FrameState types and
  * params(frame), noise(frame), prepare(frame),
  * path_length_required(frame) accessors.
+ * @tparam BasisV Noise basis.
+ * @tparam EnvelopePolicy Displacement envelope policy.
  */
 template <typename State, math::NoiseBasis BasisV, typename EnvelopePolicy>
 struct VectorNoise : PrepareFromState<State> {
@@ -1431,6 +1442,9 @@ struct VectorNoise : PrepareFromState<State> {
  * @tparam State Provider with Binding and FrameState types and
  * params(frame), phase(frame), noise(frame), path_length_required(frame)
  * accessors.
+ * @tparam BasisV Noise basis.
+ * @tparam IntegratorPolicy Integration policy with INTERVALS equal to 1, 2 or 4.
+ * @tparam EnvelopePolicy Displacement envelope policy.
  */
 template <typename State, math::NoiseBasis BasisV, typename IntegratorPolicy,
           typename EnvelopePolicy = FlatEnvelope>

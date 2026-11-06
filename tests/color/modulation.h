@@ -2,10 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-#pragma once
-
-/** @file modulation.h
- * @brief Generic mechanics, identities and palette composition tests. */
+// Generic mechanics, identities and palette composition tests.
 
 /** @brief Mechanics preserve exact identities and straight-alpha masks. */
 inline void test_color_modulation_mechanics() {

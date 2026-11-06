@@ -610,7 +610,6 @@ private:
    * DISSOLVE_FADE_FRACTION of the window. The swept set is re-cleared every
    * frame because B is autocatalytic and otherwise refills from its neighbors.
    */
-
   void convert_below(float phase) {
     for (int i = 0; i < RD_N; i++) {
       const float keep = dissolve_keep(i, phase);
@@ -687,13 +686,11 @@ private:
   }
 
   /**
-   * @brief Runs the reaction lifecycle: edit and stabilization detection, then
-   *        the dissolve.
+   * @brief Applies the frame's dissolve step, then edit and stabilization detection.
    * @param mean_db Mean per-node |dB| between the frame's start and end states.
    *        Substep motion that cancels over the frame reads as zero.
    * @details Dissolves when the user edits the reaction, or once the field has
-   * stalled for STABLE_HOLD_FRAMES.
-   * Edits mid-dissolve are absorbed by the
+   * stalled for STABLE_HOLD_FRAMES. Edits mid-dissolve are absorbed by the
    * in-flight one, which reseeds into whatever the constants read at its end.
    */
   void advance_transition(float mean_db) {

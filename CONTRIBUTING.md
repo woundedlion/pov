@@ -117,6 +117,8 @@ protected branch's `CI green` status is the authoritative correctness gate.
   skipping the check. Configuring the `tests` preset points `core.hooksPath` at
   `.githooks` for you. The checks live in `tools/commit_checks.sh`, which
   also runs them over a commit range for replayed series.
+  Setting `core.hooksPath` also enables the post-commit size-trail capture,
+  which can run Python and append to `teensy-size-trail.tsv` in the Git common directory.
   Changes to the profile archive, its validator, or its effect roster inputs
   also run the archive structure and coverage gate on that staged snapshot,
   using the pinned Node version.

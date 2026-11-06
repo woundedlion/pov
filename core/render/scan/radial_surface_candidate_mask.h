@@ -164,7 +164,9 @@ public:
   HS_HOT_INLINE int interval_shift() const { return group_shift; }
 
 private:
+  /** @brief Squared planar distance from the origin. */
   static HS_HOT_INLINE float square(Point p) { return p.x * p.x + p.y * p.y; }
+  /** @brief Marks candidate bins touched by a planar boundary segment. */
   template <bool COUNT>
   HS_HOT_INLINE void mark(Point a, Point b, Stats &stats, bool angles_known,
                           float start_angle, float finish_angle) {

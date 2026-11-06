@@ -217,8 +217,8 @@ template <int W> struct SamplingSurface {
    * @return Frame fraction. */
   static constexpr float time(int x) { return surface_time(x, W); }
   /** @brief Continuous sweep fraction of an unwrapped column.
- * @param column Column coordinate.
- * @return Fraction in [0, 1). */
+   * @param column Column coordinate.
+   * @return Fraction in [0, 1). */
   HS_HOT_INLINE static float time(float column) {
     const float half_turn = column / (W / 2.0f);
     const int whole = static_cast<int>(half_turn);
@@ -227,7 +227,7 @@ template <int W> struct SamplingSurface {
   }
 
   /** @brief Column nearest a surface time.
-   * @param t Frame fraction.
+   * @param t A column's sweep fraction, as time() returns it.
    * @return First-arm column. */
   static constexpr int column_at(float t) { return surface_column(t, W); }
   /** @brief First column at or after a surface time.

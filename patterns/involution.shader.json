@@ -1421,7 +1421,7 @@
   "document_id": "involution",
   "effect_id": "involution",
   "effect_metadata": {
-    "description": "An affine lattice turns across an S2 cube atlas beneath generated color, displacement hue and noise lightness.",
+    "description": "An affine lattice turns across an area-corrected cubic atlas beneath generated color, displacement hue and noise lightness.",
     "display_name": "Involution"
   },
   "preset_bank": {

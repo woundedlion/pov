@@ -54,8 +54,7 @@ HS_HOT_INLINE inline int radial_wrap_index(int value, int count) {
 /** @brief Evaluates atan2 with an octant-reduced degree-9 polynomial.
  * @param y,x Finite Cartesian coordinates.
  * @return Argument in [-pi,pi], preserving signed-zero axis conventions.
- * @details Chebyshev truncation contributes less than 3.66e-9 radians;
- * floating-point range reduction and reconstruction add rounding error. */
+ */
 HS_HOT_INLINE inline float radial_atan2(float y, float x) {
   const float AX = fabsf(x), AY = fabsf(y);
   const float MAXIMUM = fmaxf(AX, AY);

@@ -344,6 +344,7 @@ HS_HOT_ITCM_MEMBER inline bool try_radial_ripples(const math::Vector &input,
 }
 
 /** @brief Applies radial curves, restarting exact fallback from the input.
+ * @tparam Fallback Exact-kernel callable.
  * @param input Unit direction.
  * @param track_path Whether to accumulate angular travel.
  * @param tables Optional current-owned transfer curves.

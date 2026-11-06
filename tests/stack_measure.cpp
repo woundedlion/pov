@@ -87,7 +87,7 @@ __attribute__((noinline)) Effect *construct_effect() {
   return concrete;
 }
 
-// One effect through the `smoke_one` sequence (`tests/effects/fixture.h`).
+// Heap-constructs one effect, then draws it on the painted stack.
 template <typename EffectT> __attribute__((noinline)) void run_effect() {
   hs_test::reset_globals();
   hs_test::pin_frame_clock(0);

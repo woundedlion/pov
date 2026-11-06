@@ -7,7 +7,7 @@
 /**
  * @file recipe_types.h
  * @brief The recipe model: the authored Conway operator set, one authored step,
- *        and the chain of steps a registry generator mirrors.
+ *        and the chain of steps that generates a registry solid.
  */
 
 #include <cstddef>
@@ -54,8 +54,7 @@ struct OpStep {
   float param = 0.0f;
   float twist = 0.0f; /**< SNUB face rotation, radians. */
   /**
-   * @brief RELAX bake this step lands on, mirroring the generator's
-   * relax_baked() call; null replays `param` live iterations.
+   * @brief RELAX bake used by this step; null replays `param` live iterations.
    * @details When set, every replay of the step resolves through the baked
    * mesh. Left null for a relax on a mesh with no bake.
    */
@@ -63,7 +62,7 @@ struct OpStep {
 };
 
 /**
- * @brief Declarative op chain for a registry generator.
+ * @brief Declarative op chain for generating a solid.
  * @details Authored recipes are the source of truth for Islamic star-pattern geometry.
  */
 struct Recipe {

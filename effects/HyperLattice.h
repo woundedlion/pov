@@ -64,7 +64,7 @@ struct Params {
   LatticeMode mode = LatticeMode::THREE_D;
   /// Lattice geometry.
   Pattern pattern = Pattern::CUBIC_WIRE;
-  /// Ray start distance from the camera.
+  /// Ray start distance: lattice cells for CUBIC_WIRE, world units otherwise.
   float sphere_radius = 1.0f;
   /// World edge length of one lattice cell.
   float cell_size = 1.0f;
@@ -78,7 +78,7 @@ struct Params {
   float far_distance = 7.0f;
   /// Pixel-footprint anti-aliasing multiplier; nonnegative.
   float aa_strength = 1.0f;
-  /// Camera drift per frame along a fixed oblique direction.
+  /// Camera drift per frame: lattice cells for CUBIC_WIRE, world units otherwise.
   float speed = 0.018f;
   /// 3D view rotation rate, radians per frame before per-plane scaling.
   float spin_3d = 0.0024f;
@@ -115,8 +115,10 @@ using SDF::Lattice::CrossingList;
 struct FrameState {
   bool operator==(const FrameState &) const = default;
 
-  Params params;     ///< Live parameters.
-  math::Vec4 origin; ///< Cubic camera position in lattice cells, in [0, 1).
+  Params params; ///< Live parameters.
+  /// Cubic camera position in lattice cells; wrapped at frame endpoints,
+  /// unwrapped between them.
+  math::Vec4 origin;
   /// Rotation angles of the six coordinate planes, radians: xy, xz, yz, then
   /// the w planes.
   std::array<float, 6> rotation_phase;

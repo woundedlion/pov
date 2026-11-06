@@ -548,7 +548,7 @@ public:
 
   /** @brief Projects without plotting or recording.
    * @param cv Frame context.
-   * @param v World point.
+   * @param v Source point.
    * @param t Frame fraction.
    * @return Column and row through the world stages. */
   math::PixelCoords probe(Canvas &cv, const math::Vector &v, float t) const {
@@ -556,9 +556,9 @@ public:
     return timed_entries->probe(ctx, cv, v, t);
   }
 
-  /** @brief Plots a world point at its supplied frame fraction.
+  /** @brief Plots a source point at its supplied frame fraction.
    * @param cv Frame context.
-   * @param v World point.
+   * @param v Source point.
    * @param c Source color.
    * @param age Age register.
    * @param alpha Source opacity.

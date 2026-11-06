@@ -365,6 +365,11 @@ A `FragmentShaderFn` runs per pixel or per sample; an optional `VertexShaderRef`
 
 ### 5.3 Forward Rendering: Scan
 
+Scan entry points require a `ScanRef` whose pipeline leaves world positions unmoved
+(`leaves_world_unmoved`); world-moving filters such as `Filter::World::Orient`
+are rejected. Supply column-time placement through `Scan::ColumnBasisScope`
+and the rasterizer's column-time interface, such as `Scan::VolumeColumns`.
+
 The Scan path rasterizes analytic shapes described by signed distance functions. `sdf.h` defines the shapes, and each one answers three questions:
 
 1. **`get_vertical_bounds()`** — which rows can it touch? Only these rows are scanned.
@@ -434,7 +439,7 @@ The shader-document format and authoring CLI are described in [`patterns/README.
 
 Two facilities cast rays from the display into a scene:
 
-- **`Scan::Volume`** is an orthographic sphere-tracing raymarcher. Rays travel radially through a 3D signed-distance volume (`sdf/volume.h`, such as `SDF::Torus` or a twisted `SDF::WarpedVolume`), placed in the world by a `Scan::TransformedVolume`. The shader runs once per hit, and the result is plotted through the filter pipeline, so `World::Orient` rotates the output rather than the ray. The Raymarch effect uses it.
+- **`Scan::Volume`** is an orthographic sphere-tracing raymarcher. Rays travel radially through a 3D signed-distance volume (`sdf/volume.h`, such as `SDF::Torus` or a twisted `SDF::WarpedVolume`), placed in the world by a `Scan::TransformedVolume`. The shader runs once per hit, and the result is plotted through a pipeline that leaves world positions unmoved. `Scan::VolumeColumns` supplies per-column placement; Raymarch uses this route with an empty filter pipeline.
 - **`Raycast`** (`render/ray.h`) is the general spherical ray renderer. `Raycast::PreparedCamera` embeds each display direction in 3D space or in a 4D slice, with near and far limits. Queries adapt volumes and ambient fields; `surface_search` finds the first verified surface crossing; `trace_events` merges bounded streams of analytic events, such as lattice cell crossings; and the shading helpers composite the resulting layers. HyperLattice uses `Raycast` traces directly through `Scan::Shader::draw_cached` and `draw_columns`. `Pullback::RayStage` adapts a frame-prepared ray renderer as the final stage inside a pullback chain.
 
 Reference: [Spherical ray rendering](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md#spherical-ray-rendering).
@@ -690,8 +695,8 @@ With `{.persist = true}`, `Canvas` copies the previous frame's buffer into the n
 ### 6.5 Adding an Effect
 
 1. Choose the base: `Effect` for a custom lifecycle, `ChoreographedEffect` for parameters/presets, or `Pullback::ComposedEffect` for a generated chain. A composed promotion starts with a document under `patterns/` and an effect wrapper defining its `Spec`. Bootstrap both `// Generated identity:` and `// Generated params:` marker pairs (including their `clang-format` guards and `// End generated` markers); the placeholder identity section must reference its central `EFFECT_IDENTITY` record and include a `DESCRIPTOR_DIGEST` declaration. The document's `effect_id` must equal the canonical machine ID. Then run `node scripts/generate_composed_presets.mjs` to refresh the wrapper's generated identity and preset sections, composed header includes, and the simulator's shader-document IDs. Use `node scripts/generate_composed_presets.mjs --check` to verify these artifacts. Keep hand-authored documents as the source; generated promotions follow the [source ownership rules](patterns/README.md#generated-and-hand-authored-sources).
-2. Add the header under `effects/` and a row in `HS_EFFECT_IDENTITY_LIST` in `core/platform/effect_identity.h`. Declare `EFFECT_IDENTITY` from that row and `EFFECT_ID` as its `machine_id`, as in the example. Register its class in `HS_EFFECT_LIST` in `targets/effects.h`; retain canonical IDs and RNG keys across class renames. The native roster and include tests check registration; `just docs-sync` updates the repository map and counts.
-3. Add it to `HS_PHANTASM_EFFECT_LIST`, or explicitly exclude it with `HS_PHANTASM_EXCLUDED_EFFECTS`, in `targets/Phantasm/phantasm_playlist.h`. Compile-time roster assertions check the partition.
+2. Add the header under `effects/` and a row in `HS_EFFECT_IDENTITY_LIST` in `core/platform/effect_identity.h`. Declare `EFFECT_IDENTITY` from that row and `EFFECT_ID` as its `machine_id`, as in the example. Register its class in `HS_EFFECT_LIST` in `targets/effects.h`; retain canonical IDs and RNG keys across class renames. Add its stable identity to `IDENTITY_GOLDENS` in `tests/test_effect_factory.h`. The native roster and include tests check registration; `just docs-sync` updates the repository map and counts.
+3. Add it to `HS_PHANTASM_EFFECT_LIST`, or explicitly exclude it with `HS_PHANTASM_EXCLUDED_EFFECTS`, in `targets/Phantasm/phantasm_playlist.h`. Compile-time roster assertions check the partition. Add a `tools/profile_sweep.sh` group and, for a shipping effect, a report under `docs/profiles/`; the report requires an on-device capture.
 4. Add it to the appropriate favorites in `daydream/src/effects/effect_roster.js`. Optionally add a capture offset to `scripts/screenshot_capture_config.mjs`, capture its PNG with `scripts/capture_screenshots.mjs`, and add its section to `docs/effects.md`. The screenshot and documentation gates check gallery membership, image validity, and documentation structure.
 5. Build Phantasm to check the effect object size budget, then run native tests, the composed generator checks when applicable, and `just teensy-size` for firmware budgets. Add behavior tests appropriate to the effect.
 
@@ -1158,15 +1163,12 @@ Unit coverage spans the math, geometry and memory core, color, easing and waves,
 
 ### 8.4 Firmware (Teensy 4.x)
 
-Each hardware target has its own `.ino` entry point in `targets/`. The IDE steps
-below are for Holosphere:
-
-1. Install [Arduino IDE](https://www.arduino.cc/en/software) with Teensyduino (or use [Visual Micro](https://www.visualmicro.com/) for Visual Studio).
-2. Install the `FastLED` library.
-3. Open `targets/Holosphere/Holosphere.ino`.
-4. In Visual Micro, set **Additional Include Directories** to: `../..`.
-5. Select **Board: Teensy 4.0**, **CPU Speed: 600 MHz**.
-6. Upload.
+Each hardware target has its own `.ino` entry point in `targets/`. Install
+PlatformIO from `requirements/platformio.txt`, then build Holosphere with
+`pio run -e holosphere` from the repository root. The environment selects
+GNU C++20, the 96-by-20 canvas, Teensy 4.0 and its 600 MHz CPU clock.
+Use the shared-device upload workflow in [CONTRIBUTING.md](CONTRIBUTING.md#on-device-uploads)
+for upload and capture.
 
 Build Phantasm with `pio run -e phantasm` from the repository root. This uses
 `tools/phantasm.ld`, `-Os`, and newlib-nano (`--specs=nano.specs`) through
@@ -1187,8 +1189,9 @@ firmware support.
 > and the same budgets on every master push and pull-request update as the
 > `teensy-size` job, alongside `teensy-warnings` (a cold rebuild enforcing the
 > zero first-party warning policy) and `python-tests` (all tracked host-Python tooling
-> suites, including budget/layout fixtures and PCB generators, plus routed PCB metadata checks) — the firmware is
-> compiled and gated in CI, and only running it on real hardware is manual.
+> suites, including budget/layout fixtures and routed PCB metadata checks). KiCad-backed
+> generator tests skip in `python-tests` and run in the separate `pcb-tests` job.
+> Firmware is compiled and gated in CI; running it on real hardware is manual.
 > Locally it coexists with VMicro (it owns `.pio/`, never `__vm/`) and asserts
 > the images *fit*, not byte-identity
 > with the bench build. Install PlatformIO from `requirements/platformio.txt`:
@@ -1933,7 +1936,7 @@ for module ownership and local validation commands.
 │           ├── solid_codegen.js Op dispatch, C++ generation, and drag-slot math
 │           ├── solid_geometry.js Face normals, convexity, fan and geodesic tessellation, and unique edges
 │           ├── solid_op_rows.js DOM construction for one op-chain row
-│           ├── solid_registry_codegen.js Generates the solids.h registry entry, OpStep table, and Recipe mirror
+│           ├── solid_registry_codegen.js Generates the solids.h registry entry, OpStep table, and authored Recipe
 │           ├── solid_render.js Builds face, vertex, edge, normal, and index-label scene objects from a mesh
 │           ├── solid_saved_store.js Saved-solid storage, rejected backups, import merging, and thumbnail capacity
 │           ├── solids_page.js  Page module for tools/solids.html

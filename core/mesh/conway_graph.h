@@ -422,7 +422,6 @@ constexpr Family family(int node) {
   }
 }
 
-// Every bridge row crosses families and every non-bridge row does not.
 /**
  * @brief Whether every EDGES row's `bridge` flag matches a family change.
  * @return True when bridge rows, and only those, join different families.

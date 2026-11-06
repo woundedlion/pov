@@ -9,10 +9,6 @@
     "generator": "peirce-latitude-longitude-grid",
     "version": 1,
     "deterministic": true,
-    "latitude_steps": 129,
-    "longitude_steps": 512,
-    "tie_probe_epsilon": 0.000002,
-    "tie_probe_count": 12,
     "presets": [4],
     "framebuffer": {
       "resolutions": [[96, 20], [288, 144]],
@@ -37,7 +33,7 @@
       "accepted_limit": 0.0012,
       "unit": "plane units",
       "limit_provenance": "ShaderChain fast-square release budget",
-      "measurement_provenance": "native Debug clang 23 exact-versus-fast latitude-longitude corpus"
+      "measurement_provenance": "test_peirce_fast_square_matches_exact: 97 latitude heights by 96 half-step azimuths, sector interiors off the poles"
     },
     {
       "domain": "PROJECTED_EDGE_DISTANCE",
@@ -46,7 +42,7 @@
       "accepted_limit": 0.0002,
       "unit": "radians * abs(coordinate_scale)",
       "limit_provenance": "ShaderChain fast-square edge oracle",
-      "measurement_provenance": "native Debug clang 23 exact-versus-fast latitude-longitude corpus"
+      "measurement_provenance": "test_peirce_fast_square_matches_exact: 97 latitude heights by 96 half-step azimuths, sector interiors off the poles"
     },
     {
       "domain": "FRAMEBUFFER",
@@ -61,7 +57,7 @@
       "accepted_limit": 256,
       "unit": "channel code",
       "limit_provenance": "a 256-code ceiling above the AlienBrain palette-adjusted 147-code maximum",
-      "measurement_provenance": "repo-owned native Debug capture with the composed AlienBrain bank plus release/strict-FP WASM captures at revision 77dc34b9b812364ffb9c200140440fad6fd3cb70, both roster resolutions and named preset-4 probes"
+      "measurement_provenance": "repo-owned native Debug capture with the composed AlienBrain bank plus release/strict-FP WASM captures at revision 9aeaabebaabb42ad7fbc65f812dbf9e7dbfa5693, both roster resolutions and named preset-4 probes"
     }
   ]
 }

@@ -67,8 +67,8 @@ The engine installs promoted pattern documents (every `source_documents` entry;
 `example.shader.json` stays local) and `catalog.json` into
 `daydream/generated/shader/patterns/`. The catalog is a manifest:
 `source_documents` maps each current effect identity to its authoring document,
-and `product_group` carries its gallery grouping. The shader compiler accepts
-current documents after that coverage-domain migration. `scripts/shader_workbench.test.mjs` gates membership:
+and `product_group` carries its gallery grouping.
+`scripts/shader_workbench.test.mjs` gates membership:
 every document backing an effect appears in `source_documents`.
 
 A promoted document is also applied to its compiled effect by control name, one
@@ -77,7 +77,8 @@ control that effect registers, subject to the exemptions below. Chain labels are
 `lens`, `surface`, `project`, `affine`, `warp1`/`warp2`, `sample`, `transfer`, `cutout`,
 `colorize`, and `modulation` or `displacement` for the color-modulation stage. Generated documents use these labels; hand-authored documents may use different labels, which the workbench resolves by operator. `scripts/wasm_smoke.mjs` resolves writable promoted ids against
 the running module's registered controls. Fixed topology fields and
-`camera.spin-speed`, which `AshCloud` holds as a compile-time constant, are exempt.
+`camera.spin-speed`, which a composed effect holds as the compile-time constant
+`CAMERA_SPIN_RATE`, are exempt.
 Derived values are also exempt when the compiled controls used to derive them
 match the document.
 Affine parts a composed stage compiles out register no control and must stay

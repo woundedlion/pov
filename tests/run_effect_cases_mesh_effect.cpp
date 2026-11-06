@@ -87,7 +87,7 @@ void run_effect_case_islamicstars_motion_fits_scratch() {
 
 namespace hs_test::module_runners {
 
-/** @brief Runs the mesh effect effect cases.
+/** @brief Runs the mesh effect cases.
  * @return Module failure count. */
 int run_mesh_effect_tests() {
   using namespace effects_tests;
