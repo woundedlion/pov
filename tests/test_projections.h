@@ -1015,18 +1015,20 @@ template <typename Solid> inline void expect_polyhedral_atlas_tiles() {
     HS_EXPECT_NEAR(atlas.centers[north].re,
                    -0.5f * cell * static_cast<float>(COLUMNS - 1), 1e-5f);
   }
-  const math::Vector a = math::Vector(0.3f, 0.1f, 0.2f);
-  const math::Vector b = math::Vector(0.25f, 0.12f, 0.31f);
   for (size_t f = 0; f < F; ++f) {
     const math::Vector normal = atlas.selectors[f].normalized();
-    const math::Vector p0 = (normal + a * 0.3f).normalized();
-    const math::Vector p1 = (normal + b * 0.3f).normalized();
+    HS_CONTEXT("face", f);
+    const math::Vector up = atlas.y_axes[f].normalized();
+    const math::Vector east = atlas.x_axes[f].normalized();
+    const math::Vector p0 = (normal + up * 0.15f - east * 0.2f).normalized();
+    const math::Vector p1 = (normal + up * 0.15f + east * 0.2f).normalized();
     const math::Vector mid = (p0 + p1).normalized();
     const auto q0 = polyhedral_atlas_projection(atlas, p0, 1.0f, 0.0f, 0.0f);
     const auto q1 = polyhedral_atlas_projection(atlas, p1, 1.0f, 0.0f, 0.0f);
     const auto qm = polyhedral_atlas_projection(atlas, mid, 1.0f, 0.0f, 0.0f);
-    if (q0.region_id != f || q1.region_id != f || qm.region_id != f)
-      continue;
+    HS_EXPECT_EQ(q0.region_id, f);
+    HS_EXPECT_EQ(q1.region_id, f);
+    HS_EXPECT_EQ(qm.region_id, f);
     const float cross =
         (q1.coords.re - q0.coords.re) * (qm.coords.im - q0.coords.im) -
         (q1.coords.im - q0.coords.im) * (qm.coords.re - q0.coords.re);
