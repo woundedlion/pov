@@ -264,18 +264,6 @@ __attribute__((always_inline)) inline bool edge_metric_4d_at_bounded(
 }
 
 /**
- * @brief Smoothstep of a value between two edges.
- * @param edge0 Value mapped to 0.
- * @param edge1 Value mapped to 1; must differ from edge0.
- * @param value Input value.
- * @return Cubic ramp in [0, 1].
- */
-__attribute__((always_inline)) inline float
-lattice_ramp(float edge0, float edge1, float value) {
-  return math::cubic_kernel((value - edge0) / (edge1 - edge0));
-}
-
-/**
  * @brief Antialiased coverage of a wire around an edge.
  * @param metric_sq Squared distance to the edge in cells.
  * @param radius Wire radius in cells.
@@ -284,7 +272,7 @@ lattice_ramp(float edge0, float edge1, float value) {
  */
 inline float wire_coverage(float metric_sq, float radius, float half_width) {
   const float signed_distance = sqrtf(metric_sq) - radius;
-  return 1.0f - lattice_ramp(-half_width, half_width, signed_distance);
+  return 1.0f - math::smooth_ramp(-half_width, half_width, signed_distance);
 }
 
 /**
