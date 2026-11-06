@@ -775,6 +775,7 @@ inline void test_classify_faces_roster_hash_collision_free() {
 
   for (std::span<const Solids::Entry> reg : Solids::all_registries()) {
     for (const Solids::Entry &entry : reg) {
+      HS_CONTEXT(entry.name);
       Arena a(mesh_arena_a, sizeof(mesh_arena_a));
       Arena b(mesh_arena_b, sizeof(mesh_arena_b));
       Arena c(mesh_arena_c, sizeof(mesh_arena_c));

@@ -131,6 +131,7 @@ inline void test_chamfer_zero_area_birth_limit() {
   constexpr float T[] = {1e-5f, 1e-4f, 1e-3f, 1e-2f, 1e-1f};
 
   for (const ChamferSite &site : CHAMFER_SITES) {
+    HS_CONTEXT(site.name);
     Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
     Arena a(probe_a_buf, sizeof(probe_a_buf));
     Arena b(probe_b_buf, sizeof(probe_b_buf));
@@ -503,6 +504,7 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
 inline void test_chamfer_birth_epsilon() {
   constexpr float MAX_BIRTH_EPSILON = 1e-4f;
   for (const ChamferSite &site : CHAMFER_SITES) {
+    HS_CONTEXT(site.name);
     Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
     Arena a(probe_a_buf, sizeof(probe_a_buf));
     Arena b(probe_b_buf, sizeof(probe_b_buf));
