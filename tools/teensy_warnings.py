@@ -18,7 +18,7 @@ THIRD_PARTY = ("lib/", "libdeps/", ".platformio/", "packages/")
 _WARNING_RE = re.compile(r"^(.*?):(\d+):(?:\d+:)?\s*warning:\s*(.*)$")
 _FILELESS_WARNING_RE = re.compile(
     r"^(<command-line>|(?:.*[/\\])?(?:cc1plus|cc1|ld|collect2|lto1|"
-    r"(?:arm-none-eabi-)?(?:gcc|g\+\+))(?:\.exe)?):\s*warning:\s*(.*)$")
+    r"(?:arm-none-eabi-)?(?:gcc|g\+\+))(?:\.exe)?):\s*(?:(.+?):\s*)?warning:\s*(.*)$")
 
 # PlatformIO's non-verbose step line: "Compiling <object>" (absent under -v).
 _PIO_STEP_RE = re.compile(r"^\s*Compiling\s+(\S+)")
@@ -81,7 +81,11 @@ def normalize(line: str) -> str | None:
         m = _FILELESS_WARNING_RE.match(stripped)
         if m:
             tool = m.group(1).replace("\\", "/").rsplit("/", 1)[-1].removesuffix(".exe")
-            return f"{tool}: warning: {m.group(2)}".rstrip()
+            subject = m.group(2)
+            if subject and ".a(" in subject:
+                return None
+            prefix = f"{tool}: {subject.replace(chr(92), '/')}" if subject else tool
+            return f"{prefix}: warning: {m.group(3)}".rstrip()
         return None
     rel = _relativize(m.group(1))
     if rel is None:

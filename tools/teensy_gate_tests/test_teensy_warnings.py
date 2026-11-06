@@ -105,6 +105,31 @@ class TestWarningGate(unittest.TestCase):
         self.assertIsNone(tw.normalize(
             "/root/.platformio/lib/FastLED/FastLED.h:9:1: warning: foo [-Wbar]"))
 
+    def test_linker_subject_diagnostics_are_normalized(self):
+        message = "allocated section '.foo' not in segment"
+        for tool in ("ld", "ld.exe", "/opt/toolchain/bin/ld",
+                     r"C:\toolchain\bin\ld.exe"):
+            for subject in (".pio/build/phantasm/firmware.elf",
+                            r"C:\checkout\.pio\build\phantasm\src\core\memory.cpp.o"):
+                with self.subTest(tool=tool, subject=subject):
+                    line = f"{tool}: {subject}: warning: {message}"
+                    normalized = subject.replace("\\", "/")
+                    self.assertEqual(tw.normalize(line),
+                                     f"ld: {normalized}: warning: {message}")
+        self.assertEqual(tw.extract_warnings(
+            f"ld: firmware.elf: warning: {message}\n"
+            f"ld: memory.cpp.o: warning: {message}"), {
+                f"ld: firmware.elf: warning: {message}",
+                f"ld: memory.cpp.o: warning: {message}",
+            })
+
+    def test_linker_archive_member_warnings_are_excluded(self):
+        for subject in ("libFrameworkArduino.a(usb.c.o)",
+                        r"C:\packages\lib.a(member.o)"):
+            with self.subTest(subject=subject):
+                self.assertIsNone(tw.normalize(
+                    f"ld.exe: {subject}: warning: unsupported section"))
+
     def test_library_path_with_first_party_segment_excluded(self):
         # A vendored lib whose nested dir reuses a first-party name (effects/)
         # remains excluded from the first-party warning set.
