@@ -332,7 +332,10 @@ inline void test_noise_field_gradient_value_return() {
             frequency == 1.0f && rotation == FastNoiseLite::RotationType3D_None;
         HS_EXPECT_EQ(noise.has_default_gradient_transform(), ELIGIBLE);
         for (int sample = 0; sample < 256; ++sample) {
-          const math::Vector POINT(coordinate(), coordinate(), coordinate());
+          const float X = coordinate();
+          const float Y = coordinate();
+          const float Z = coordinate();
+          const math::Vector POINT(X, Y, Z);
           math::Vector reference;
           noise.GetNoiseGradientSingle(POINT.x, POINT.y, POINT.z, reference.x,
                                        reference.y, reference.z);

@@ -55,7 +55,10 @@ void test_dodecahedral_matrix_cache_fold_parity() {
   };
   bool identical = true;
   for (int sample = 0; sample < 1000000; ++sample) {
-    const auto input = math::Vector(next(), next(), next()).normalized();
+    const float X = next();
+    const float Y = next();
+    const float Z = next();
+    const auto input = math::Vector(X, Y, Z).normalized();
     const auto flash = lenses::dodecahedral_table_lens(input);
     const auto cached = lenses::dodecahedral_table_lens(input, matrices.data());
     if (std::memcmp(&flash, &cached, sizeof(flash)) != 0) {
@@ -149,7 +152,10 @@ void test_dodecahedral_face_cache_fold_parity() {
   };
   bool identical = true;
   for (int sample = 0; sample < 1000000; ++sample) {
-    const auto input = math::Vector(next(), next(), next()).normalized();
+    const float X = next();
+    const float Y = next();
+    const float Z = next();
+    const auto input = math::Vector(X, Y, Z).normalized();
     const auto flash = lenses::dodecahedral_table_lens(input);
     const auto cached =
         lenses::dodecahedral_table_lens(input, matrices.data(), faces.data());

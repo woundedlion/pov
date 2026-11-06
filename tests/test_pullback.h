@@ -1303,7 +1303,9 @@ inline void test_pullback_tessellation_reference() {
         int inside = 0;
         int outside = 0;
         for (int sample = 0; sample < 2000; ++sample) {
-          const math::Complex point(next(), next());
+          const float X = next();
+          const float Y = next();
+          const math::Complex point(X, Y);
           const float actual = Pattern::tessellation(
               Pattern::PlanePosition{point}, reference.params, kind, fill);
           const double expected = reference(point);
@@ -1779,7 +1781,10 @@ inline void test_pullback_dodecahedral_matrix_fold() {
     return float(state & 0xffffff) * (2.0f / 0xffffff) - 1.0f;
   };
   for (int sample = 0; sample < 8192; ++sample) {
-    const auto INPUT = math::Vector(random(), random(), random()).normalized();
+    const float X = random();
+    const float Y = random();
+    const float Z = random();
+    const auto INPUT = math::Vector(X, Y, Z).normalized();
     const auto EXPECTED = lenses::dodecahedral_kaleidoscope_lens(INPUT);
     math::Vector candidate;
     const bool FAST = lenses::try_dodecahedral_table(INPUT, candidate);
