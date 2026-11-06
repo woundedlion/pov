@@ -483,7 +483,10 @@ inline void check_authored_slider_registration(const FX &effect) {
                      UNIT ? 1.0f : 4.0f);
       switch (config.source) {
       case Pattern::SourceKind::NOISE:
-        require_target(&config.noise.scale, 1.0f / 64.0f, 8.0f);
+        require_target(&config.noise.scale, 1.0f / 64.0f,
+                       config.evaluation == Pattern::Evaluation::BAKED_CUBE
+                           ? 8.0f
+                           : 64.0f);
         require_target(&config.noise.speed, -Pattern::MAX_NOISE_SPEED,
                        Pattern::MAX_NOISE_SPEED);
         break;
@@ -511,6 +514,34 @@ inline void check_authored_slider_registration(const FX &effect) {
     }
   });
   HS_EXPECT_EQ(params.size(), expected);
+}
+
+/** @brief Direct modulation noise exposes scales beyond the baked-cube limit. */
+inline void test_composed_noise_modulation_scale_limits() {
+  for (const auto evaluation :
+       {Pattern::Evaluation::DIRECT, Pattern::Evaluation::BAKED_CUBE}) {
+    Pullback::Modulation::Config config;
+    config.evaluation = evaluation;
+    config.noise.scale = 20.0f;
+    const auto fields = Pullback::Modulation::control_fields(config);
+    HS_EXPECT_EQ(fields[1].min, 1.0f / 64.0f);
+    HS_EXPECT_EQ(fields[1].max,
+                 evaluation == Pattern::Evaluation::DIRECT ? 64.0f : 8.0f);
+    HS_EXPECT_EQ(Pullback::Modulation::valid(config),
+                 evaluation == Pattern::Evaluation::DIRECT);
+  }
+
+  reset_globals();
+  AshCloud<SMALL_W, SMALL_H> effect;
+  effect.init();
+  const auto *scale = effect.getParameters().find("modulation.Pattern Scale");
+  HS_EXPECT_TRUE(scale != nullptr);
+  if (scale) {
+    HS_EXPECT_EQ(scale->max, 64.0f);
+    HS_EXPECT_EQ(effect.updateParameter("modulation.Pattern Scale", 20.0f),
+                 ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(scale->get_requested(), 20.0f);
+  }
 }
 
 /** @brief Requires exactly the listed registered sliders. */
@@ -1375,6 +1406,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_hand_registered_families);
   HS_RUN(test_composed_direct_surface_placement);
   HS_RUN(test_composed_slider_registration);
+  HS_RUN(test_composed_noise_modulation_scale_limits);
   HS_RUN(check_slider_registration<NoHueProbe>, "NoHueProbe");
   HS_RUN(test_mobius_frame_admission);
   HS_RUN(test_mobius_generator_interpolation);

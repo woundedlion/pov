@@ -92,6 +92,8 @@ using NoiseBasis = math::NoiseBasis;
 enum class NoiseVariant : uint8_t { CONFIGURED_SINGLE, OCTAVE_CONTOUR };
 /** @brief Maximum noise-loop speed exposed by modulation controls, in turns per update. */
 inline constexpr float MAX_NOISE_SPEED = 0.001f;
+/** @brief Maximum spatial noise scale admitted by a baked sphere cube. */
+inline constexpr float MAX_BAKED_NOISE_SCALE = 8.0f;
 /** @brief Maximum analytic speed exposed by modulation controls, in turns per update. */
 inline constexpr float MAX_ANALYTIC_SPEED = 1.0f;
 /** @brief Source phase in turns, wrapped after each engine update. */

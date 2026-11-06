@@ -44,7 +44,7 @@ inline bool valid(const Config &config) {
     return true;
   if (config.evaluation == Pattern::Evaluation::BAKED_CUBE &&
       (config.source != Pattern::SourceKind::NOISE ||
-       config.noise.scale > 8.0f))
+       config.noise.scale > Pattern::MAX_BAKED_NOISE_SCALE))
     return false;
   switch (config.source) {
   case Pattern::SourceKind::DISPLACEMENT:
@@ -725,7 +725,10 @@ control_fields(Config &config) {
                UNIT ? 0.0f : -4.0f, UNIT ? 1.0f : 4.0f};
   switch (config.source) {
   case Pattern::SourceKind::NOISE:
-    fields[1] = {"Pattern Scale", &config.noise.scale, 1.0f / 64.0f, 8.0f};
+    fields[1] = {"Pattern Scale", &config.noise.scale, 1.0f / 64.0f,
+                 config.evaluation == Pattern::Evaluation::BAKED_CUBE
+                     ? Pattern::MAX_BAKED_NOISE_SCALE
+                     : 64.0f};
     fields[2] = {"Pattern Speed", &config.noise.speed,
                  -Pattern::MAX_NOISE_SPEED, Pattern::MAX_NOISE_SPEED};
     break;
