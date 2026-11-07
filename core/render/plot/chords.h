@@ -415,11 +415,7 @@ public:
     require_closed(pipeline, canvas, points, vertices);
     float *const x_chart = chart_x_storage;
     float *const y_chart = chart_y_storage;
-    for (int i = 0; i < vertices; ++i)
-      pixels[i] = math::vector_to_pixel<W, H>(points[i].pos);
-    x_chart[vertices] = x_chart[0];
-    y_chart[vertices] = y_chart[0];
-    pixels[vertices] = pixels[0];
+    project_closed(points, vertices);
 
     auto walk_segment =
         [&](const math::PixelCoords &from,
@@ -595,12 +591,7 @@ public:
 
     float *const x_chart = chart_x_storage;
     float *const y_chart = chart_y_storage;
-    for (int i = 0; i < vertices; ++i) {
-      pixels[i] = math::vector_to_pixel<W, H>(points[i].pos);
-    }
-    x_chart[vertices] = x_chart[0];
-    y_chart[vertices] = y_chart[0];
-    pixels[vertices] = pixels[0];
+    project_closed(points, vertices);
 
     const float first_dx = x_chart[1] - x_chart[0];
     const float first_dy = y_chart[1] - y_chart[0];
@@ -790,9 +781,8 @@ public:
         }
         return;
       }
-      const float guard = 0.25f * fmaxf(fabsf(from_curve.x), fabsf(to_curve.x));
-      const int owner_begin = static_cast<int>(floorf(low - guard - 1.0f));
-      const int owner_end = static_cast<int>(ceilf(high + guard + 1.0f));
+      const int owner_begin = static_cast<int>(floorf(low - x_pad - 1.0f));
+      const int owner_end = static_cast<int>(ceilf(high + x_pad + 1.0f));
       for (int owner = owner_begin; owner <= owner_end; ++owner) {
         const int column = math::fast_wrap(owner, W);
         if (canvas.render_x_clip().clipped(column))
@@ -890,6 +880,9 @@ public:
           polar_from_ready = false;
           continue;
         }
+        const float density = reference_density[ALTERNATING_RADII && (edge & 1)
+                                                    ? anchor_intervals - 1 - k
+                                                    : k];
         if (!captured_from) {
           start_world_from = start.apply(from);
           mid_world_from = middle.apply(from);
@@ -924,10 +917,7 @@ public:
         if (!polar) {
           polar_from_ready = false;
           walk_segment(start_from, start_to, end_from, end_to, mid_from, mid_to,
-                       reference_density[ALTERNATING_RADII && (edge & 1)
-                                             ? anchor_intervals - 1 - k
-                                             : k],
-                       bend);
+                       density, bend);
         } else {
           const bool north = row_lo + row_hi < Geometry::NORTH_POLE_ROW +
                                                    Geometry::SOUTH_POLE_ROW;
@@ -941,12 +931,8 @@ public:
             polar_from = capture(start_world_from, mid_world_from, from);
           const PolarAnchor polar_to =
               capture(start_world_to, mid_world_to, to);
-          PolarWalk<W, H>::draw(
-              pipeline, canvas, polar_from, polar_to, north, color, target_step,
-              REFERENCE_CHORDS,
-              reference_density[ALTERNATING_RADII && (edge & 1)
-                                    ? anchor_intervals - 1 - k
-                                    : k]);
+          PolarWalk<W, H>::draw(pipeline, canvas, polar_from, polar_to, north,
+                                color, target_step, REFERENCE_CHORDS, density);
           polar_from = polar_to;
           polar_from_north = north;
           polar_from_ready = true;
@@ -963,6 +949,17 @@ public:
   }
 
 private:
+  /** @brief Projects a closed chart and repeats its first vertex.
+   * @param points Vertex positions including the closing repeat.
+   * @param vertices Distinct vertex count. */
+  HS_HOT_INLINE void project_closed(const Fragments &points, int vertices) {
+    for (int i = 0; i < vertices; ++i)
+      pixels[i] = math::vector_to_pixel<W, H>(points[i].pos);
+    chart_x_storage[vertices] = chart_x_storage[0];
+    chart_y_storage[vertices] = chart_y_storage[0];
+    pixels[vertices] = pixels[0];
+  }
+
   /** @brief Radial projection factors. */
   struct RadialCoefficient {
     float sinc;   ///< Sine divided by radius.
