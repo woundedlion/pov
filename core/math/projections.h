@@ -568,7 +568,7 @@ struct AiroceanPoint {
  * Vertex order carries the sign convention airocean_contains tests against;
  * reversing a face's winding inverts it.
  */
-inline constexpr AiroceanVector AIROCEAN_FACES[23][3] = {
+inline constexpr AiroceanVector AIROCEAN_FACES[][3] = {
     {{0.4201524267f, 0.0781452494f, 0.9040825506f},
      {0.5188367303f, 0.8354203804f, 0.1813318376f},
      {0.9950094394f, -0.09134779528f, 0.04014717588f}},
@@ -639,6 +639,10 @@ inline constexpr AiroceanVector AIROCEAN_FACES[23][3] = {
      {-0.5884910224f, 0.5302967344f, 0.0627648018f},
      {-0.4146822253f, 0.6559624054f, 0.6306758079f}}};
 
+/// Face count of the Airocean net.
+inline constexpr size_t AIROCEAN_FACE_COUNT = std::size(AIROCEAN_FACES);
+static_assert(AIROCEAN_FACE_COUNT <= UINT8_MAX);
+
 /**
  * @brief Cross product in the Airocean axis convention.
  * @param a Left operand.
@@ -653,10 +657,10 @@ constexpr AiroceanVector airocean_cross(const AiroceanVector &a,
 /** @brief Unnormalized edge normals of each `AIROCEAN_FACES` face. */
 struct AiroceanEdgeNormals {
   /// values[face][i]: normal of the edge opposite vertex i of that face.
-  AiroceanVector values[23][3]{};
+  AiroceanVector values[AIROCEAN_FACE_COUNT][3]{};
 
   constexpr AiroceanEdgeNormals() {
-    for (int face = 0; face < 23; ++face) {
+    for (size_t face = 0; face < AIROCEAN_FACE_COUNT; ++face) {
       values[face][0] =
           airocean_cross(AIROCEAN_FACES[face][1], AIROCEAN_FACES[face][2]);
       values[face][1] =
@@ -677,7 +681,7 @@ inline constexpr float AIROCEAN_RAY_EPS = 1e-6f;
  * @brief Each face's vertex centroid, unnormalized.
  * @details Supplies the plane offset the gnomonic ray is scaled onto.
  */
-inline constexpr AiroceanVector AIROCEAN_CENTERS[23] = {
+inline constexpr AiroceanVector AIROCEAN_CENTERS[] = {
     {0.6446661988f, 0.2740726115f, 0.375187188f},
     {0.1747689772f, 0.5231760117f, 0.5720300654f},
     {-0.1699952529f, 0.1174635855f, 0.7673197837f},
@@ -704,7 +708,7 @@ inline constexpr AiroceanVector AIROCEAN_CENTERS[23] = {
 /**
  * @brief Each face's unit plane normal; coplanar sub-triangles repeat a row.
  */
-inline constexpr AiroceanVector AIROCEAN_NORMALS[23] = {
+inline constexpr AiroceanVector AIROCEAN_NORMALS[] = {
     {0.8112534709f, 0.3448953238f, 0.4721387736f},
     {0.2199307791f, 0.658369178f, 0.7198475379f},
     {-0.2139234835f, 0.147817183f, 0.9656017935f},
@@ -731,8 +735,9 @@ inline constexpr AiroceanVector AIROCEAN_NORMALS[23] = {
 
 /** @brief Distance of each face's plane along its unit normal. */
 inline constexpr auto AIROCEAN_PLANE_OFFSETS = [] {
-  static_assert(std::size(AIROCEAN_CENTERS) == std::size(AIROCEAN_NORMALS));
-  std::array<float, std::size(AIROCEAN_CENTERS)> offsets{};
+  static_assert(std::size(AIROCEAN_CENTERS) == AIROCEAN_FACE_COUNT);
+  static_assert(std::size(AIROCEAN_NORMALS) == AIROCEAN_FACE_COUNT);
+  std::array<float, AIROCEAN_FACE_COUNT> offsets{};
   for (size_t face = 0; face < offsets.size(); ++face) {
     const AiroceanVector &center = AIROCEAN_CENTERS[face];
     const AiroceanVector &normal = AIROCEAN_NORMALS[face];
@@ -748,7 +753,7 @@ inline constexpr auto AIROCEAN_PLANE_OFFSETS = [] {
  * @details Two faces that share a glued edge carry bit-identical endpoints for it,
  * so edges match by coordinate equality rather than by tolerance.
  */
-inline constexpr AiroceanPoint AIROCEAN_PLANAR_FACES[23][3] = {
+inline constexpr AiroceanPoint AIROCEAN_PLANAR_FACES[][3] = {
     {{1.821185995f, 3.154386673f},
      {1.821185995f, 4.205848897f},
      {2.731778992f, 3.680117785f}},
@@ -820,7 +825,7 @@ inline constexpr AiroceanPoint AIROCEAN_PLANAR_FACES[23][3] = {
  * @details Row `r` holds `{ax, ay, az, b}`, evaluated as
  * `out[r] = ax*q.x + ay*q.y + az*q.z + b`.
  */
-inline constexpr float AIROCEAN_TRANSFORMS[23][2][4] = {
+inline constexpr float AIROCEAN_TRANSFORMS[][2][4] = {
     {{0.5771127853f, -0.6019490725f, -0.5519041105f, 2.124716994f},
      {0.09385435001f, 0.7202114479f, -0.6873767753f, 3.680117785f}},
     {{0.9709901201f, -0.2187361325f, -0.09660585362f, 1.517654996f},
@@ -888,7 +893,8 @@ inline constexpr uint8_t AIROCEAN_CUT_EDGES[] = {0, 1, 2, 1, 2, 0, 2, 0, 2,
 static_assert(std::size(AIROCEAN_CUT_FACES) == std::size(AIROCEAN_CUT_EDGES));
 static_assert([] {
   for (size_t i = 0; i < std::size(AIROCEAN_CUT_FACES); ++i) {
-    if (AIROCEAN_CUT_FACES[i] >= 23 || AIROCEAN_CUT_EDGES[i] >= 3)
+    if (AIROCEAN_CUT_FACES[i] >= AIROCEAN_FACE_COUNT ||
+        AIROCEAN_CUT_EDGES[i] >= 3)
       return false;
   }
   return true;
@@ -896,7 +902,7 @@ static_assert([] {
 
 /** @brief Per face, a bit per edge index set when that edge is torn. */
 inline constexpr auto AIROCEAN_CUT_MASKS = [] {
-  std::array<uint8_t, 23> masks{};
+  std::array<uint8_t, AIROCEAN_FACE_COUNT> masks{};
   for (size_t i = 0; i < std::size(AIROCEAN_CUT_FACES); ++i)
     masks[AIROCEAN_CUT_FACES[i]] |= 1u << AIROCEAN_CUT_EDGES[i];
   return masks;
@@ -908,16 +914,19 @@ inline constexpr auto AIROCEAN_CUT_MASKS = [] {
  * canonical half-edge is the lowest-numbered face carrying the same planar
  * segment, so both halves of a glued seam report the same value.
  */
-inline constexpr uint8_t AIROCEAN_EDGE_IDENTITIES[23][3] = {
+inline constexpr uint8_t AIROCEAN_EDGE_IDENTITIES[][3] = {
     {0, 1, 2},    {3, 4, 0},    {6, 7, 3},    {9, 10, 6},   {2, 13, 14},
     {1, 16, 17},  {18, 19, 20}, {19, 4, 23},  {24, 25, 7},  {27, 28, 29},
     {10, 31, 27}, {31, 34, 35}, {34, 37, 38}, {39, 40, 41}, {42, 43, 44},
     {45, 28, 47}, {48, 35, 50}, {50, 39, 53}, {54, 55, 56}, {53, 58, 59},
     {43, 61, 62}, {23, 64, 61}, {66, 67, 25}};
+static_assert(std::size(AIROCEAN_PLANAR_FACES) == AIROCEAN_FACE_COUNT);
+static_assert(std::size(AIROCEAN_TRANSFORMS) == AIROCEAN_FACE_COUNT);
+static_assert(std::size(AIROCEAN_EDGE_IDENTITIES) == AIROCEAN_FACE_COUNT);
 
 /**
  * @brief Reports whether a face's edge is torn rather than glued.
- * @param face Face index in [0, 23).
+ * @param face Face index in [0, AIROCEAN_FACE_COUNT).
  * @param edge Edge index in [0, 3).
  * @return True when the net tears along that edge.
  */
@@ -927,7 +936,7 @@ inline bool airocean_edge_is_cut(uint8_t face, uint8_t edge) {
 
 /**
  * @brief Shared identity of a face's edge.
- * @param face Face index in [0, 23).
+ * @param face Face index in [0, AIROCEAN_FACE_COUNT).
  * @param edge Edge index in [0, 3).
  * @return The identity shared by both halves of a glued seam.
  */
@@ -938,7 +947,7 @@ inline uint8_t airocean_edge_identity(uint8_t face, uint8_t edge) {
 /**
  * @brief Half-space determinant of a direction against one face edge.
  * @param p Direction; need not be normalized.
- * @param face Face index in [0, 23).
+ * @param face Face index in [0, AIROCEAN_FACE_COUNT).
  * @param opposite_vertex Vertex index in [0, 3) opposite the tested edge.
  * @return Dot of `p` with the edge normal; <= 0 on the face's side.
  */
@@ -952,7 +961,7 @@ inline float airocean_edge_halfspace(const AiroceanVector &p, uint8_t face,
 /**
  * @brief Tests a direction against a spherical triangle.
  * @param p Direction to test; need not be normalized.
- * @param face Face index in [0, 23).
+ * @param face Face index in [0, AIROCEAN_FACE_COUNT).
  * @return True when all half-space determinants are within
  *         AIROCEAN_CONTAINS_EPS of the triangle's cone.
  */
@@ -965,7 +974,7 @@ inline bool airocean_contains(const AiroceanVector &p, uint8_t face) {
 /**
  * @brief How far outside a spherical triangle a direction falls.
  * @param p Direction to test; need not be normalized.
- * @param face Face index in [0, 23).
+ * @param face Face index in [0, AIROCEAN_FACE_COUNT).
  * @return Largest positive half-space determinant, or 0 if none is positive.
  */
 inline float airocean_outside_score(const AiroceanVector &p, uint8_t face) {
@@ -1031,14 +1040,14 @@ airocean_projection(const math::Vector &v, float c, float s, bool horizontal,
                     bool calculate_edge_distance) {
   const AiroceanVector p{v.x * c + v.z * s, v.z * c - v.x * s, v.y};
   uint8_t face = 0;
-  for (; face < 23; ++face)
+  for (; face < AIROCEAN_FACE_COUNT; ++face)
     if (airocean_contains(p, face))
       break;
-  if (face == 23) {
+  if (face == AIROCEAN_FACE_COUNT) {
     // A far-from-unit direction can score above the sentinel on every face.
     face = 0;
     float best_score = NO_EDGE_DISTANCE;
-    for (uint8_t candidate = 0; candidate < 23; ++candidate) {
+    for (uint8_t candidate = 0; candidate < AIROCEAN_FACE_COUNT; ++candidate) {
       const float score = airocean_outside_score(p, candidate);
       if (score < best_score) {
         best_score = score;
