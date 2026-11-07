@@ -357,13 +357,13 @@ private:
       previous_rho = ring.rho;
     const float opacity = pole_opacity(ring.rho);
     if (opacity <= MIN_FADE_OPACITY &&
-        (!timed || pole_opacity(previous_rho) <= MIN_FADE_OPACITY))
+        pole_opacity(previous_rho) <= MIN_FADE_OPACITY)
       return;
     Color4 base_col = palette.get(ring.hue).color;
     base_col.alpha = opacity * params.alpha;
     const float twist_angle = (ring.rho / spacing()) * params.twist_factor;
     const float previous_twist =
-        timed ? (previous_rho / spacing()) * params.twist_factor : twist_angle;
+        (previous_rho / spacing()) * params.twist_factor;
     const float exp_rho = expf(ring.rho);
     const float rho_step = ring.rho - previous_rho;
     const float twist_step = twist_angle - previous_twist;
