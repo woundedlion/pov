@@ -32,6 +32,10 @@ struct DynamoTemporalOracle;
  *          direction, rotation, and wipes are driven by random timers.
  */
 template <int W, int H> class Dynamo : public Effect {
+  /** @brief Evenly spaced Y-axis copies of the strand the pipeline emits. */
+  static constexpr int STRAND_COPIES = 3;
+  using CopyPoses = std::array<Spacetime::PoseTable, STRAND_COPIES>;
+
 public:
   /// Machine/display identity and compatibility keys.
   static constexpr hs::EffectIdentity EFFECT_IDENTITY =
@@ -121,14 +125,18 @@ public:
     emitted_points = 0;
     {
       HS_PROFILE(dy_draw_nodes);
+      ScratchScope pose_storage(scratch_arena_b);
+      CopyPoses copy_poses;
+      if (!Spacetime::flat_surface())
+        prepare_copy_poses(copy_poses);
       if (steps == 0) {
         // Re-emit the strand in place; otherwise a Trail Len of 1 blanks it on
         // zero-step frames and sub-unit speeds flicker.
-        draw_nodes(canvas, 0.0f);
+        draw_nodes(canvas, 0.0f, copy_poses);
       } else {
         for (int i = steps - 1; i >= 0; --i) {
           pull(effective_speed);
-          draw_nodes(canvas, static_cast<float>(i) / steps);
+          draw_nodes(canvas, static_cast<float>(i) / steps, copy_poses);
         }
       }
     }
@@ -289,12 +297,13 @@ private:
    * @brief Plots the strand for this sub-step.
    * @param canvas Target canvas to plot into.
    * @param age Trail age fed to the Trails filter (0 = newest).
+   * @param copy_poses Frame's per-copy poses for column-time rendering.
    * @details The head node is a half-alpha point; each following node is a
    *          half-alpha line back to its predecessor.
    */
-  void draw_nodes(Canvas &canvas, float age) {
+  void draw_nodes(Canvas &canvas, float age, const CopyPoses &copy_poses) {
     if (!Spacetime::flat_surface()) {
-      draw_nodes_timed(canvas, age);
+      draw_nodes_timed(canvas, age, copy_poses);
       return;
     }
     auto &trails =
@@ -328,12 +337,28 @@ private:
     emitted_points += trails.records() - before;
   }
 
+  /** @brief Builds the frame's per-copy poses in scratch B.
+   * @param poses Tables retained through the frame's strand emissions. */
+  HS_HOT_FLASH_MEMBER void prepare_copy_poses(CopyPoses &poses) const {
+    for (int copy = 0; copy < STRAND_COPIES; ++copy) {
+      poses[copy].bind(scratch_arena_b, W);
+      const math::Quaternion rotation = math::make_rotation(
+          math::Y_AXIS,
+          math::TWO_PI_F * static_cast<float>(copy) / STRAND_COPIES);
+      math::Quaternion history[math::Orientation<>::CAPACITY];
+      for (int i = 0; i < orientation.length(); ++i)
+        history[i] = orientation.get(i) * rotation;
+      poses[copy].build(history, orientation.length());
+    }
+  }
+
   /** @brief Draws live strands once per selected copy at column time.
    * @param canvas Destination frame.
-   * @param age Emission's incoming trail age. */
-  HS_HOT_FLASH_MEMBER void draw_nodes_timed(Canvas &canvas, float age) {
+   * @param age Emission's incoming trail age.
+   * @param poses Frame's prepared per-copy poses. */
+  HS_HOT_FLASH_MEMBER void draw_nodes_timed(Canvas &canvas, float age,
+                                            const CopyPoses &poses) {
     ScratchScope storage_a(scratch_arena_a);
-    ScratchScope storage_b(scratch_arena_b);
     auto *vertices = scratch_arena_a.allocate_n<math::Vector>(NUM_NODES);
     ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_a, NUM_NODES - 1);
     for (size_t i = 0; i < NUM_NODES; ++i) {
@@ -343,8 +368,6 @@ private:
         edges.push_back(
             {static_cast<uint16_t>(i - 1), static_cast<uint16_t>(i)});
     }
-    Spacetime::PoseTable copy_poses;
-    copy_poses.bind(scratch_arena_b, W);
     auto &trails =
         filters.template get<Filter::World::Trails<TRAIL_CAPACITY>>();
     const uint32_t before = trails.records();
@@ -360,13 +383,7 @@ private:
     geometry.rigid_lattice = true;
     for (int copy = 0; copy < STRAND_COPIES; ++copy) {
       filters.select_copy(copy);
-      const math::Quaternion rotation = math::make_rotation(
-          math::Y_AXIS,
-          math::TWO_PI_F * static_cast<float>(copy) / STRAND_COPIES);
-      math::Quaternion history[math::Orientation<>::CAPACITY];
-      for (int i = 0; i < orientation.length(); ++i)
-        history[i] = orientation.get(i) * rotation;
-      copy_poses.build(history, orientation.length());
+      const auto &copy_poses = poses[copy];
       Plot::Mesh::draw_column_edges<W, H>(
           filters, canvas, Plot::Mesh::VertexSpan{{vertices, NUM_NODES}}, edges,
           shader, geometry, 0.0f, &copy_poses, sweep, copy, age);
@@ -516,8 +533,10 @@ private:
       static_cast<size_t>(math::PI_F * math::ROWS_PER_RADIAN<H> + 0.999f) + 1;
   static constexpr size_t NODE_CAPACITY = NUM_NODES;
 #endif
-  /** @brief Evenly spaced Y-axis copies of the strand the pipeline emits. */
-  static constexpr int STRAND_COPIES = 3;
+  static_assert(STRAND_COPIES * Spacetime::PoseTable::storage_bytes(W) +
+                        Plot::Mesh::column_scratch_b_bytes(NODE_CAPACITY) <=
+                    DEFAULT_SCRATCH_B_SIZE,
+                "Dynamo frame poses and vertex paths exceed scratch B");
   /** @brief Reference axis for band angle selection. */
   static constexpr math::Vector PALETTE_NORMAL = math::Z_AXIS;
   /**

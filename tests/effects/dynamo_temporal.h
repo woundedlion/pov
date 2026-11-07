@@ -8,12 +8,49 @@
 
 /** @brief Independent world-space reference for Dynamo's live and replayed strands. */
 struct DynamoTemporalOracle {
+  /** @brief Draws one emission with frame-scoped per-copy poses.
+   * @tparam W,H Display dimensions.
+   * @param effect Live strand effect.
+   * @param canvas Destination frame.
+   * @param age Emission's incoming trail age. */
+  template <int W, int H>
+  static void draw_timed(Dynamo<W, H> &effect, Canvas &canvas, float age) {
+    ScratchScope pose_storage(scratch_arena_b);
+    typename Dynamo<W, H>::CopyPoses poses;
+    effect.prepare_copy_poses(poses);
+    effect.draw_nodes_timed(canvas, age, poses);
+  }
+
   /** @brief Opaque white palette making fresh samples visible. */
   struct WhitePalette {
     /** @brief Constant source color.
      * @return Opaque white. */
     Color4 get(float) const { return Color4(Pixel(65535, 65535, 65535), 1.0f); }
   };
+
+  /** @brief Repeated maximum-speed frames stay inside scratch B and release it.
+   * @tparam W,H Display dimensions. */
+  template <int W, int H> static void check_frame_pose_scratch() {
+    reset_globals();
+    Dynamo<W, H> effect;
+    effect.init();
+    effect.params.speed = effect.SPEED_MAX;
+    effect.orientation.set(math::Quaternion());
+    effect.orientation.push(math::make_rotation(math::Y_AXIS, 0.018f));
+    const size_t bound =
+        effect.STRAND_COPIES * Spacetime::PoseTable::storage_bytes(W) +
+        Plot::Mesh::column_scratch_b_bytes(effect.NUM_NODES);
+    HS_EXPECT_LE(bound, DEFAULT_SCRATCH_B_SIZE);
+    for (int frame = 0; frame < 3; ++frame) {
+      scratch_arena_b.reset_high_water_mark();
+      effect.draw_frame();
+      effect.advance_display();
+      HS_EXPECT_EQ(scratch_arena_b.get_offset(), size_t{0});
+      HS_EXPECT_LE(scratch_arena_b.get_high_water_mark(), bound);
+      HS_EXPECT_GT(scratch_arena_b.get_high_water_mark(),
+                   2 * Spacetime::PoseTable::storage_bytes(W));
+    }
+  }
 
   /** @brief Live source history records each edge endpoint before fan-out. */
   static void check_live_history_fanout() {
@@ -32,7 +69,7 @@ struct DynamoTemporalOracle {
     Spacetime::geometry_counters = {};
     {
       Canvas canvas(effect);
-      effect.draw_nodes_timed(canvas, 0.0f);
+      draw_timed(effect, canvas, 0.0f);
     }
     const auto &trails = effect.filters.template get<
         Filter::World::Trails<Dynamo<W, H>::TRAIL_CAPACITY>>();
@@ -112,7 +149,7 @@ struct DynamoTemporalOracle {
       effect.orientation.push(math::make_rotation(axis, -0.2f) * opening);
       {
         Canvas canvas(effect);
-        effect.draw_nodes_timed(canvas, 0.0f);
+        draw_timed(effect, canvas, 0.0f);
       }
       effect.advance_display();
       effect.orientation.set(finish);
@@ -136,7 +173,7 @@ struct DynamoTemporalOracle {
         if (replay)
           effect.flush_timed(canvas);
         else
-          effect.draw_nodes_timed(canvas, 0.0f);
+          draw_timed(effect, canvas, 0.0f);
       } else {
         auto *vertices =
             scratch_arena_a.allocate_n<math::Vector>(effect.NUM_NODES);
@@ -257,6 +294,8 @@ inline void expect_frozen_dynamo_frame(std::span<const float> actual,
 
 /** @brief Initialization and orientation reset hold the strand at the current endpoint. */
 inline void test_dynamo_column_time_first_frame_and_reset() {
+  DynamoTemporalOracle::check_frame_pose_scratch<96, 20>();
+  DynamoTemporalOracle::check_frame_pose_scratch<288, 144>();
   for (bool replay : {false, true}) {
     const auto expected = DynamoTemporalOracle::render<96, 20>(
         {.timed = false, .replay = replay, .fresh = true});
