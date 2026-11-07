@@ -161,12 +161,13 @@ public:
                      &prior = surface.knot(endpoint - 1);
           const Point C{k.real, k.imag},
               D{k.real - prior.real, k.imag - prior.imag};
-          const float SPIN = radial_cross(C, D), H = radial_cross(A, E);
+          const float SPIN = radial_cross(C, D);
+          const auto &METRICS = surface.edge_metrics(edge);
           const float LOCAL_RADIUS2 =
               fmaxf(k.real * k.real + k.imag * k.imag,
                     prior.real * prior.real + prior.imag * prior.imag);
-          if (!endpoint_range(SPIN, C.x * D.x + C.y * D.y,
-                              A.x * E.x + A.y * E.y, E.x * E.x + E.y * E.y, H,
+          if (!endpoint_range(SPIN, C.x * D.x + C.y * D.y, METRICS.dot,
+                              METRICS.squared_length, METRICS.determinant,
                               derivative_motion +
                                   relative_derivative_motion * LOCAL_RADIUS2,
                               low, high))
@@ -184,12 +185,11 @@ public:
             endpoint});
       }
 
-    const auto V0 = surface.vertex(0), V1 = surface.vertex(1);
-    const auto E0 = surface.edge(0), E1 = surface.edge(1);
-    const Point SHAPE0{V0.x * E0.x + V0.y * E0.y, E0.x * E0.x + E0.y * E0.y};
-    const Point SHAPE1{V1.x * E1.x + V1.y * E1.y, E1.x * E1.x + E1.y * E1.y};
-    const float H0 = V0.x * E0.y - V0.y * E0.x;
-    const float H1 = V1.x * E1.y - V1.y * E1.x;
+    const auto &M0 = surface.edge_metrics(0), &M1 = surface.edge_metrics(1);
+    const Point SHAPE0{M0.dot, M0.squared_length};
+    const Point SHAPE1{M1.dot, M1.squared_length};
+    const float H0 = M0.determinant;
+    const float H1 = M1.determinant;
     for (int i = 1; i < COUNT; ++i) {
       const auto &c = surface.knot(i);
       const auto &previous = surface.knot(i - 1), &next = surface.knot(i + 1);
