@@ -460,7 +460,7 @@ public:
           const Point CORNER_DELTA =
               radial_multiply(pieces[i].delta, vertices[CORNER]);
           const float DENOMINATOR = radial_cross(p, CORNER_DELTA);
-          const float EVENT = std::clamp(
+          const float EVENT = hs::clamp(
               -radial_cross(p, CORNER_START) / DENOMINATOR, 0.0f, 1.0f);
           const float EVENT_VALUE = predicate(p, i, start_edge, EVENT);
           if (EVENT_VALUE <= 0.0f) {
@@ -540,7 +540,7 @@ private:
     const float T =
         low + (LINEAR > 0.0f ? (LINEAR + ROOT) / (2.0f * PIECE.quadratic)
                              : 2.0f * value / (ROOT - LINEAR));
-    return finish<DERIVATIVES>(p, i, std::clamp(T, low, high), edge_index);
+    return finish<DERIVATIVES>(p, i, hs::clamp(T, low, high), edge_index);
   }
   /** @param p Chart point.
    * @param i Interval.
