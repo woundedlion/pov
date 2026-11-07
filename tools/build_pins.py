@@ -104,11 +104,13 @@ def workflow_files() -> tuple[Path, ...]:
 CONSUMERS = {
     ROOT / ".github/workflows/ci.yml": (
         "build_pins.py --github-output",
-        "python tools/build_pins.py --check",
         "python tools/build_pins.py --check-tool cmake",
     ),
-    ROOT / ".github/actions/pinned-doxygen/action.yml": (
+    ROOT / "tools/ci/apply_doxygen_theme.sh": (
         "build_pins.py doxygen-awesome",
+    ),
+    ROOT / "tools/ci/docs_markdown.sh": (
+        "python tools/build_pins.py --check",
     ),
     ROOT / "justfile": (
         "build_pins.py doxygen-awesome",
@@ -141,6 +143,7 @@ INLINE_SCAN = (
     ROOT / "CMakeLists.txt",
     ROOT / "scripts/generate_luts.py",
     ROOT / "tools/commit_checks.sh",
+    *sorted((ROOT / "tools/ci").glob("*.sh")),
     ROOT / "hardware/phantasm/gen/sexp.py",
     ROOT / "hardware/phantasm/gen/kicad_common.py",
     ROOT / "hardware/phantasm/1.1/README.md",
@@ -244,11 +247,11 @@ SHARED_LITERAL_USES = (
     # Anchored on the extension alternation's own opening, so an unrelated
     # quoted `grep -E` elsewhere in a scanned file is not counted as a copy.
     (r"grep -E '(\\\.\([^']*)'", "format-extensions"),
-    # Anchored on a flag line's start (platformio.ini) and on ci.yml's matrix
-    # key, so prose is not swept in; captures run to end of line so a partial
-    # edit reads as a difference.
+    # Anchored on a flag line's start (platformio.ini) and on the optimized
+    # job script's assignment, so prose is not swept in; captures run to the
+    # line or quote end so a partial edit reads as a difference.
     (r"^\s+(-ffast-math\b.*)$", "float-flags"),
-    (r"float_flags:\s+(-ffast-math\b.*)$", "float-test-flags"),
+    (r'float_flags="(-ffast-math\b[^"]*)"', "float-test-flags"),
     # Every WASM target's compile and link line.
     (r'("-ffast-math" "[^"]+")', "float-flags-cmake"),
     # ci.yml anchor/alias, justfile recipe parameter, CONTRIBUTING prose.
@@ -397,8 +400,8 @@ LITERAL_AUTHORITIES = {
         'tools/whitespace_gate.sh',
     ),
     'smoke-stack-ceiling-debug': (
-        '.github/workflows/ci.yml',
         'justfile',
+        'tools/ci/wasm.sh',
     ),
     'shell-selection': (
         'tools/commit_checks.sh',

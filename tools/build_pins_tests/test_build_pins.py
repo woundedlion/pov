@@ -411,7 +411,7 @@ class UnreadableScannedFile(unittest.TestCase):
 
 class ConsumerCallSites(unittest.TestCase):
     def test_every_build_pin_gate_entry_point_is_required(self):
-        paths = (bp.ROOT / ".github/workflows/ci.yml",
+        paths = (bp.ROOT / "tools/ci/docs_markdown.sh",
                  bp.ROOT / "justfile",
                  bp.ROOT / "tools/commit_checks.sh")
         for path in paths:

@@ -134,6 +134,20 @@ protected branch's `CI green` status is the authoritative correctness gate.
   `eslint.config.mjs` changes, and, when the profile archive, its validator or
   its effect roster inputs change, the archive structure and coverage gate
   using the pinned Node version. Every file is read as of `<tip>`.
+- **`.githooks/pre-push`** — runs `tools/local_ci.sh --commit` on each pushed
+  commit: every `ci.yml` job this machine can run, through the same
+  `tools/ci/` scripts the workflow calls, stopping at the first failure
+  (the fast-math optimized flavour stays in CI: its bit patterns differ here).
+  `bash tools/local_ci.sh --list` prints each job's local runner or the reason
+  it cannot run locally, and `--check` fails when a `ci.yml` job has neither.
+  It runs in a dedicated worktree beside the checkout
+  (`../temp/<repo>-local-ci`, or `HS_LOCAL_CI_DIR`) whose build trees persist,
+  so peers' uncommitted work cannot affect the verdict; one run holds the lock
+  at a time, and a commit that already passed is not re-run. Tools that are
+  not on `PATH`, such as the pinned Doxygen and Graphviz, are added with
+  `git config --add hs.localCiPath <dir>`; the sibling `../emsdk` and
+  `../daydream` checkouts are found automatically. A full run takes tens of
+  minutes, so push from a terminal or a background task.
 - **Shell edits:** the pre-commit hook runs `shellcheck -x` on staged `.sh` files and `.githooks/` scripts. Install its pinned prerequisite with `pip install --require-hashes -r requirements/shellcheck.txt`.
 - **clang-format is pinned to 22.1.8.** A different major reflows unrelated
   code, so the hook fails rather than trusting an off-major verdict. Install the

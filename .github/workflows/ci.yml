@@ -68,51 +68,22 @@ jobs:
           pip install --require-hashes -r requirements/cmake.txt
           python tools/build_pins.py --check-tool cmake
 
-      - name: Configure
-        run: >
-          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON
-          -DCMAKE_CXX_COMPILER=clang++-22
-
-      - name: Build
-        run: cmake --build --preset tests
-
-      - name: Build EXCLUDE_FROM_ALL targets (compile coverage only)
-        run: cmake --build --preset tests --target excluded_targets
+      - name: Configure, build and test
+        id: native_tests
+        run: bash tools/ci/native_suite.sh -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: ccache stats
         if: always()
         continue-on-error: true
         run: ccache -sv
 
-      - name: Test
-        id: native_tests
-        env:
-          HS_SMOKE_FRAMES: &deep_smoke_frames 120
-          HS_EFFECTS_FULL: &quick_effects 0
-          HS_REQUIRE_EFFECTS_FULL: &effects_full_optional 0
-          HS_SKIPS_ARE_ERRORS: 1
-          HS_BUFFER_FREE_WATCHDOG_US: &deep_smoke_watchdog 30000000
-        run: >
-          ctest --preset tests --output-on-failure --no-tests=error
-
       - name: Test physical display plot and scan
-        env:
-          HS_SMOKE_FRAMES: *deep_smoke_frames
-          HS_SKIPS_ARE_ERRORS: 1
-          HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
-        run: |
-          cmake --preset tests -B build/tests-p1 -DHS_INSTALL_GIT_HOOKS=OFF -DHS_NATIVE_DISPLAY_PROFILE=1 -DCMAKE_CXX_COMPILER=clang++-22
-          cmake --build build/tests-p1 --target test_engine
-          build/tests-p1/tests/test_engine plot_scan
+        run: bash tools/ci/p1_plot_scan.sh -DCMAKE_CXX_COMPILER=clang++-22
 
       - &render_fingerprints
         name: Compare native render fingerprints
         shell: bash
-        env:
-          HS_SKIPS_ARE_ERRORS: 1
-        run: |
-          cmake --build --preset tests --target render_goldens
-          build/tests/tests/render_goldens | tee build/tests/render-goldens.log
+        run: bash tools/ci/render_goldens.sh
 
       - name: Upload native render comparison log
         if: always()
@@ -157,7 +128,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      GENERATED_EXCLUDE: &generated_exclude "^unit_(color_luts|gamut_lut|mindsplatter_replay_form|tangent_field_constants)$"
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       CCACHE_MAXSIZE: *ccache_maxsize
     steps:
@@ -197,15 +167,16 @@ jobs:
         run: ccache -sv
 
       - name: Test
+        shell: bash
         env:
-          HS_SMOKE_FRAMES: *deep_smoke_frames
-          HS_EFFECTS_FULL: *quick_effects
-          HS_REQUIRE_EFFECTS_FULL: *effects_full_optional
+          HS_SMOKE_FRAMES: &deep_smoke_frames 120
+          HS_EFFECTS_FULL: 0
+          HS_REQUIRE_EFFECTS_FULL: 0
           HS_SKIPS_ARE_ERRORS: 1
-          HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
-        run: >
-          ctest --preset tests --output-on-failure --no-tests=error
-          -E "${{ env.GENERATED_EXCLUDE }}"
+          HS_BUFFER_FREE_WATCHDOG_US: &deep_smoke_watchdog 30000000
+        run: |
+          . tools/ci/common.sh
+          ctest --preset tests --output-on-failure --no-tests=error -E "$GENERATED_EXCLUDE"
 
       - *render_fingerprints
 
@@ -302,25 +273,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - flavor: ieee
-            optimization: -O2 -g
-            float_flags: ""
-            test_exclude: *generated_exclude
-            test_include: ".*"
-            skips_are_errors: 1
-          - flavor: fastmath
-            optimization: -Os -g
-            test_exclude: "^unit_(3dmath|sdf|effects|mindsplatter|shapeshifter_tiles|conway_continuity|partition_seam|mesh|shader_chain|pullback_capture_determinism|pov_sync|color_luts|gamut_lut|tangent_field_constants)$"
-            float_flags: -ffast-math -fno-finite-math-only -DHS_TEST_FAST_MATH=1
-            test_include: ".*"
-            skips_are_errors: 0
-          - flavor: ndebug-death
-            optimization: -O2 -g -DNDEBUG
-            float_flags: ""
-            test_exclude: *generated_exclude
-            test_include: "^unit_death_([0-9]+|census)$"
-            skips_are_errors: 1
+        # tools/ci/optimized.sh holds each flavour's flags and test selection.
+        flavor: [ieee, fastmath, ndebug-death]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -348,32 +302,13 @@ jobs:
 
       - *install_pinned_cmake
 
-      - name: Configure
-        run: >
-          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON
-          -DCMAKE_BUILD_TYPE=RelWithDebInfo
-          "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=${{ matrix.optimization }} ${{ matrix.float_flags }}"
-          -DCMAKE_CXX_COMPILER=clang++-22
-
-      - name: Build
-        run: cmake --build --preset tests
+      - name: Configure, build and test
+        run: bash tools/ci/optimized.sh "${{ matrix.flavor }}" -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: ccache stats
         if: always()
         continue-on-error: true
         run: ccache -sv
-
-      - name: Test
-        env:
-          HS_SMOKE_FRAMES: *deep_smoke_frames
-          HS_EFFECTS_FULL: 1
-          HS_REQUIRE_EFFECTS_FULL: 1
-          HS_SKIPS_ARE_ERRORS: ${{ matrix.skips_are_errors }}
-          HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
-        run: >
-          ctest --preset tests --output-on-failure --no-tests=error
-          -R "${{ matrix.test_include }}"
-          -E "${{ matrix.test_exclude }}"
 
       - *render_fingerprints
 
@@ -440,8 +375,8 @@ jobs:
         # %p separates death-harness children from the parent profile.
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
-          HS_EFFECTS_FULL: *quick_effects
-          HS_REQUIRE_EFFECTS_FULL: *effects_full_optional
+          HS_EFFECTS_FULL: 0
+          HS_REQUIRE_EFFECTS_FULL: 0
           HS_SKIPS_ARE_ERRORS: 1
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
           LLVM_PROFILE_FILE: ${{ github.workspace }}/cov/run_tests-%p.profraw
@@ -540,26 +475,9 @@ jobs:
 
       - *install_pinned_cmake
 
-      - name: Configure
-        run: cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON
-
-      - name: Build
-        run: cmake --build --preset tests
-
-      - name: Build EXCLUDE_FROM_ALL targets (compile coverage only)
-        run: cmake --build --preset tests --target excluded_targets
-
-      - name: Test
-        env:
-          HS_SMOKE_FRAMES: *deep_smoke_frames
-          HS_EFFECTS_FULL: *quick_effects
-          HS_REQUIRE_EFFECTS_FULL: *effects_full_optional
-          HS_SKIPS_ARE_ERRORS: 1
-          HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
-          TEST_EXCLUDE: *generated_exclude
-        run: >
-          ctest --preset tests --output-on-failure --no-tests=error
-          -E "${{ env.TEST_EXCLUDE }}"
+      - name: Configure, build and test
+        shell: bash
+        run: bash tools/ci/native_suite.sh --exclude-generated
 
       - *render_fingerprints
 
@@ -574,16 +492,9 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      # Windows uses UBSan trap mode; emsdk provides no MSVC ASan runtime.
-      - name: Configure + build the UBSan-trap flavour
-        run: |
-          cmake --preset tests -B build/tests-ubsan -DHS_INSTALL_GIT_HOOKS=OFF -DHS_SANITIZE=ON
-          cmake --build build/tests-ubsan --target mindsplatter_replay
-
-      - name: Test the UBSan-trap build
-        run: >
-          ctest --test-dir build/tests-ubsan --output-on-failure
-          --no-tests=error -R "^unit_mindsplatter_replay$"
+      - name: Build and test the UBSan-trap flavour
+        shell: bash
+        run: bash tools/ci/ubsan_trap.sh
 
   wasm:
     name: WASM build (Emscripten)
@@ -630,48 +541,14 @@ jobs:
 
       - *install_pinned_cmake
 
-      - name: Configure + build WASM (compile check)
+      - name: Build, compare, gate, smoke and install WASM
         shell: bash
-        run: |
-          # DAYDREAM_DIR must exist at configure time and contain the install marker.
-          mkdir -p "${{ runner.temp }}/daydream-install/src/app"
-          touch "${{ runner.temp }}/daydream-install/src/app/daydream.js"
-          mkdir -p "${{ runner.temp }}/daydream-install/docs/screenshots"
-          touch "${{ runner.temp }}/daydream-install/docs/screenshots/stale.png"
-          touch "${{ runner.temp }}/daydream-install/docs/screenshots/unrelated.txt"
-          mkdir -p "${{ runner.temp }}/daydream-install/generated/shader/patterns"
-          touch "${{ runner.temp }}/daydream-install/generated/shader/patterns/stale.shader.json"
-          cmake --preset wasm-release -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
-          cmake --build --preset wasm-release 2>&1 | tee build/wasm-release-build.log
-          cmake --build --preset wasm-release --target pullback_capture_wasm 2>&1 \
-            | tee -a build/wasm-release-build.log
+        run: bash tools/ci/wasm.sh "${{ runner.temp }}/daydream-install"
 
-      - name: Configure + build WASM debug (compile check)
-        # Compile coverage for debug-only code and developer bindings.
-        shell: bash
-        run: |
-          cmake --preset wasm-debug -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install" \
-            -DHS_WASM_DEV_BINDINGS=ON
-          cmake --build --preset wasm-debug 2>&1 | tee build/wasm-debug-build.log
-
-      - name: Configure + build WASM strict-FP (compile check)
-        # Compile coverage for the strict-FP capture configuration.
-        shell: bash
-        run: |
-          cmake --preset wasm-strict-fp -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
-          cmake --build --preset wasm-strict-fp 2>&1 | tee build/wasm-strict-fp-build.log
-          cmake --build --preset wasm-strict-fp --target pullback_capture_wasm 2>&1 \
-            | tee -a build/wasm-strict-fp-build.log
-
-      - name: Compare WASM render fingerprints
-        shell: bash
-        env:
-          HS_SKIPS_ARE_ERRORS: 1
-        run: |
-          for preset in wasm-release wasm-debug wasm-strict-fp; do
-            cmake --build --preset "$preset" --target render_goldens_wasm 2>&1 | tee -a "build/$preset-build.log"
-            node "build/$preset/render_goldens_wasm.cjs" | tee "build/$preset/render-goldens.log"
-          done
+      - name: ccache stats
+        if: always()
+        continue-on-error: true
+        run: ccache -sv
 
       - name: Upload WASM render comparison logs
         if: always()
@@ -681,105 +558,6 @@ jobs:
           path: build/*/render-goldens.log
           if-no-files-found: warn
           retention-days: 7
-
-      - name: First-party WASM warning gate
-        # Reject first-party warnings in all three configurations; sysroot warnings are excluded.
-        run: |
-          logs=(build/wasm-release-build.log build/wasm-debug-build.log
-                build/wasm-strict-fp-build.log)
-          # grep exits 2 for a missing log, which would otherwise look like no warnings.
-          for log in "${logs[@]}"; do
-            if [ ! -f "$log" ]; then
-              echo "::error::$log missing — the warning capture broke, so the gate proves nothing"
-              exit 1
-            fi
-          done
-          if grep -nE '(^|[[:space:]/])(core|effects|workbench|hardware|targets|tools|tests)/[^:[:space:]]+:[0-9]+:([0-9]+:)?[[:space:]]*warning:' "${logs[@]}"; then
-            echo "::error::first-party warning(s) in the WASM build — fix them (this target has no baseline)"
-            exit 1
-          fi
-          if grep -nE '(^|[[:space:]])(<command line>(:[0-9]+){0,2}|em\+\+|emcc|wasm-ld|clang\+\+|clang)(\.exe)?:[[:space:]]*warning:' "${logs[@]}"; then
-            echo "::error::fileless toolchain warning(s) in the WASM build — fix them (this target has no baseline)"
-            exit 1
-          fi
-          echo "No first-party or fileless toolchain warnings in the release, debug or strict-FP WASM build."
-
-      - name: Runtime-smoke WASM debug
-        # Debug frames have a 6 KB ceiling; optimized frames use 2 KB.
-        env:
-          WASM_SMOKE_STACK_CEILING: 6144
-        run: node scripts/wasm_smoke.mjs build/wasm-debug/holosphere_wasm.js
-
-      - name: ccache stats
-        if: always()
-        continue-on-error: true
-        run: ccache -sv
-
-      - name: Smoke-test the WASM module at runtime
-        run: node scripts/wasm_smoke.mjs build/wasm-release/holosphere_wasm.js
-
-      - name: Exercise install + provenance path
-        shell: bash
-        # Verify the installed provenance set and both directory installs.
-        run: |
-          cmake --build --preset wasm-release-install
-          dd="${{ runner.temp }}/daydream-install"
-          for f in holosphere_wasm.wasm holosphere_wasm.js holosphere_wasm.d.ts holosphere_bindings.d.ts engine_types.d.ts engine_contract.mjs segment_geometry.js segment_geometry.d.ts holosphere_wasm.sha holosphere_wasm.wasm.sha256 holosphere_wasm.toolchain pov_segment_map.json shader/composed_effect_roster.mjs shader/shader_workbench.mjs shader/sha256.mjs shader/engine_catalog.json; do
-            if [ ! -f "$dd/generated/$f" ]; then
-              echo "::error::install did not produce $f — a consumer in the daydream checkout depends on it"
-              exit 1
-            fi
-          done
-          if [ ! -f "$dd/README.md" ]; then
-            echo "::error::install did not produce README.md"
-            exit 1
-          fi
-          if ! cmp -s README.md "$dd/README.md"; then
-            echo "::error::installed README.md differs from the engine source"
-            exit 1
-          fi
-          if [ -e "$dd/docs/screenshots/stale.png" ]; then
-            echo "::error::install retained a stale mirrored screenshot"
-            exit 1
-          fi
-          if [ ! -e "$dd/docs/screenshots/unrelated.txt" ]; then
-            echo "::error::install removed unrelated screenshot-directory content"
-            exit 1
-          fi
-          diff -u \
-            <(cd docs/screenshots && find . -type f -name '*.png' | sort) \
-            <(cd "$dd/docs/screenshots" && find . -type f -name '*.png' | sort)
-          # Exercise installed glue after file(CONFIGURE) rewriting.
-          node scripts/wasm_smoke.mjs "$dd/generated/holosphere_wasm.js"
-          # A clean CI checkout must record a bare 40-hex SHA (no -dirty marker).
-          if grep -q -- '-dirty' "$dd/generated/holosphere_wasm.sha"; then
-            echo "::error::engine .sha recorded as -dirty on a clean CI checkout"
-            cat "$dd/generated/holosphere_wasm.sha"
-            exit 1
-          fi
-          ( cd "$dd/generated" && sha256sum -c holosphere_wasm.wasm.sha256 )
-          strings "$dd/generated/holosphere_wasm.wasm" > "$RUNNER_TEMP/wasm-strings.txt"
-          if grep -F "$GITHUB_WORKSPACE" "$RUNNER_TEMP/wasm-strings.txt"; then
-            echo "::error::release WASM embeds its checkout path and cannot be reproduced in another workspace"
-            exit 1
-          fi
-          # Compare the toolchain marker against the compiler that built the artifact.
-          recorded="$(awk '$1 == "emsdk" { print $2 }' "$dd/generated/holosphere_wasm.toolchain")"
-          built_with="$("$EMSDK/upstream/emscripten/emcc" -dumpversion)"
-          if [ "$recorded" != "$built_with" ]; then
-            echo "::error::holosphere_wasm.toolchain records emsdk '$recorded', but this job built with $built_with"
-            cat "$dd/generated/holosphere_wasm.toolchain"
-            exit 1
-          fi
-          # The shipped configuration is wasm-release with developer bindings off.
-          field() { awk -v k="$1" '$1 == k { print $2 }' "$dd/generated/holosphere_wasm.toolchain"; }
-          if [ "$(field build_type)" != "Release" ] || [ "$(field dev_bindings)" != "OFF" ]; then
-            echo "::error::holosphere_wasm.toolchain records build_type '$(field build_type)' / dev_bindings '$(field dev_bindings)'; the release install must record Release / OFF"
-            cat "$dd/generated/holosphere_wasm.toolchain"
-            exit 1
-          fi
-          echo "Provenance set produced, artifact hashes verified, toolchain recorded:"
-          cat "$dd/generated/holosphere_wasm.toolchain"
 
       - name: Package verified engine bundle
         shell: bash
@@ -811,19 +589,6 @@ jobs:
             sha256sum -c holosphere_engine.sha256
           )
 
-      - name: Mirrored shader documents match their sources
-        shell: bash
-        run: |
-          dd="${{ runner.temp }}/daydream-install"
-          out="${{ runner.temp }}"
-          cmp scripts/composed_effect_roster.mjs "$dd/generated/shader/composed_effect_roster.mjs"
-          ( cd patterns && find . -type f \( -name '*.shader.json' -o -name catalog.json \) ! -name example.shader.json ) | sort > "$out/mirror-source.txt"
-          test ! -e "$dd/generated/shader/patterns/stale.shader.json"
-          ( cd "$dd/generated/shader/patterns" && find . -maxdepth 1 -type f \( -name '*.shader.json' -o -name catalog.json \) ) | sort > "$out/mirror-installed.txt"
-          test -s "$out/mirror-source.txt"
-          test -s "$out/mirror-installed.txt"
-          diff -u "$out/mirror-source.txt" "$out/mirror-installed.txt"
-
       - name: Upload verified engine bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -854,24 +619,8 @@ jobs:
       - name: Install clang-format
         run: pip install --require-hashes -r requirements/clang-format.txt
 
-      - name: Regenerate LUTs and diff the full header
-        # Compare generator output directly with the committed header bytes.
-        env:
-          CLANG_FORMAT: clang-format
-        run: |
-          "$CLANG_FORMAT" --version
-          python3 scripts/generate_luts.py -o /tmp/color_luts.generated.h
-          if ! diff -u core/color/color_luts.h /tmp/color_luts.generated.h \
-                    > /tmp/color_luts.diff; then
-            head -40 /tmp/color_luts.diff
-            echo "::error::core/color/color_luts.h is out of sync with scripts/generate_luts.py"
-            echo "Regenerate with: python scripts/generate_luts.py -o core/color/color_luts.h"
-            exit 1
-          fi
-          echo "Regenerated header matches core/color/color_luts.h in full."
-
-      - name: Generator self-test (monotonicity + sRGB round-trip)
-        run: python3 scripts/generate_luts.py --check
+      - name: Regenerate LUTs, diff the full header, and self-test the generator
+        run: bash tools/ci/lut_provenance.sh
 
   reaction-graph-provenance:
     name: Generated reaction-graph table matches committed file
@@ -886,17 +635,7 @@ jobs:
           python-version: '3.12'
 
       - name: Regenerate reaction-graph table and diff the full file
-        run: |
-          python3 scripts/generate_reaction_graph.py -o /tmp/reaction_graph.generated.cpp
-          if ! diff -u core/spatial/reaction_graph.cpp \
-                    /tmp/reaction_graph.generated.cpp > /tmp/reaction_graph.diff; then
-            head -40 /tmp/reaction_graph.diff
-            echo "::error::core/spatial/reaction_graph.cpp is out of sync with scripts/generate_reaction_graph.py"
-            echo "Regenerate with: python scripts/generate_reaction_graph.py"
-            exit 1
-          fi
-          echo "Regenerated table matches core/spatial/reaction_graph.cpp in full."
-
+        run: bash tools/ci/reaction_graph_provenance.sh
   # Standalone provenance checks validate bytes; required generator CTests also validate CTest wiring.
   gamut-lut-provenance:
     name: Generated gamut LUT matches committed file
@@ -938,23 +677,8 @@ jobs:
 
       - *install_pinned_cmake
 
-      - name: Build the generator
-        run: |
-          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON \
-            -DCMAKE_CXX_COMPILER=clang++-22
-          cmake --build --preset tests --target srgb_decode_gen
-
       - name: Regenerate the decode tables and diff the full header
-        run: |
-          ./build/tests/tests/srgb_decode_gen /tmp/srgb_decode_lut.generated.h
-          if ! diff -u core/color/srgb_decode_lut.h \
-                    /tmp/srgb_decode_lut.generated.h > /tmp/srgb_decode_lut.diff; then
-            head -40 /tmp/srgb_decode_lut.diff
-            echo "::error::core/color/srgb_decode_lut.h is out of sync with scripts/generate_srgb_decode.cpp"
-            echo "Regenerate with: cmake --build --preset tests --target srgb_decode_gen && ./build/tests/tests/srgb_decode_gen"
-            exit 1
-          fi
-          echo "Regenerated tables match core/color/srgb_decode_lut.h in full."
+        run: bash tools/ci/srgb_decode_provenance.sh -DCMAKE_CXX_COMPILER=clang++-22
 
   patterns-provenance:
     name: Promoted shader documents match their generator
@@ -978,11 +702,8 @@ jobs:
           node-version: ${{ steps.pins.outputs.node }}
 
       # --check regenerates owned documents and normalizes line endings.
-      - name: Check promoted shader document provenance
-        run: node scripts/generate_promoted_shader_documents.mjs --check
-
-      - name: Check composed preset and roster provenance
-        run: node scripts/generate_composed_presets.mjs --check
+      - name: Check promoted shader document and composed preset provenance
+        run: bash tools/ci/patterns_provenance.sh
 
   scripts-unit-tests:
     name: JavaScript unit suite and browser capture helper
@@ -1009,18 +730,8 @@ jobs:
           node-version: ${{ steps.pins.outputs.node }}
 
       # The runner rejects empty file selections, cases, and assertion counts.
-      - name: Every scripts/*.test.mjs unit test runs
-        run: |
-          bash tools/require_test_files.sh 'scripts/*.test.mjs'
-          npm test
-
-      - name: Browser capture helper
-        env:
-          HS_BROWSER_TESTS: '1'
-        run: |
-          npm ci --no-audit --no-fund
-          npx playwright install --with-deps chromium
-          node --test scripts/screenshot_resolution.test.mjs scripts/png_probe.test.mjs
+      - name: Every scripts/*.test.mjs unit test and the browser capture helper
+        run: bash tools/ci/scripts_tests.sh --with-deps
 
   screenshot-gallery:
     name: Screenshot gallery, profile archive and effect roster
@@ -1044,15 +755,8 @@ jobs:
         with:
           node-version: ${{ steps.pins.outputs.node }}
 
-      - name: Syntax-check the capture script
-        run: node --check scripts/capture_screenshots.mjs
-
-      - name: Gallery covers every registered effect
-        run: node scripts/check_screenshots.mjs
-
-      - name: Profile archive covers every Phantasm effect
-        run: node scripts/check_profiles.mjs
-
+      - name: Capture script parses; gallery and profile archive cover every effect
+        run: bash tools/ci/screenshot_gallery.sh
 
   docs-images:
     name: Documented image references resolve
@@ -1097,20 +801,8 @@ jobs:
           persist-credentials: false
 
       # --sync would repair drift before the check; CI only validates.
-      - name: Validate tracked Markdown
-        run: |
-          python tools/docs_check.py --checkout daydream=daydream
-          python tools/build_pins.py --check
-
-      # Ignore rules do not exclude already-tracked session artifacts.
-      - name: No tracked-but-ignored paths
-        run: |
-          tracked_ignored=$(git ls-files -i -c --exclude-standard)
-          if [ -n "$tracked_ignored" ]; then
-            echo "Tracked paths matched by .gitignore:" >&2
-            echo "$tracked_ignored" >&2
-            exit 1
-          fi
+      - name: Validate tracked Markdown, build pins and ignore rules
+        run: bash tools/ci/docs_markdown.sh daydream
 
   license-headers:
     name: License headers match LICENSE
@@ -1221,22 +913,7 @@ jobs:
         run: |
           $env:KICAD_CONFIG_HOME = Join-Path $env:RUNNER_TEMP 'kicad-config'
           "KICAD_CONFIG_HOME=$env:KICAD_CONFIG_HOME" >> $env:GITHUB_ENV
-          @'
-          import os
-          from pathlib import Path
-          import shutil
-          import sys
-          sys.path.insert(0, 'hardware/phantasm/gen/tests')
-          from kicad_env import GENERATES, GENERATES_REASON
-          from kicad_common import KICAD_VERSION, kicad_cli
-          if not GENERATES:
-              raise SystemExit(GENERATES_REASON)
-          config = Path(os.environ['KICAD_CONFIG_HOME']) / '.'.join(KICAD_VERSION.split('.')[:2])
-          templates = Path(kicad_cli()).resolve().parents[1] / 'share/kicad/template'
-          config.mkdir(parents=True, exist_ok=True)
-          for table in ('fp-lib-table', 'sym-lib-table'):
-              shutil.copyfile(templates / table, config / table)
-          '@ | python -
+          python tools/ci/kicad_config.py $env:KICAD_CONFIG_HOME
 
       - name: Run PCB generation, DRC, parity and fabrication tests
         run: python tools/run_python_tests.py --suite hardware/phantasm/gen/tests
@@ -1255,12 +932,8 @@ jobs:
       - name: Install Python test dependencies
         run: pip install --require-hashes -r requirements/numpy.txt -r requirements/ruff.txt -r requirements/shellcheck.txt
       - *install_pinned_cmake
-      - name: Run all Python suites
-        run: python tools/run_python_tests.py
-      - name: Check routed candidate status and provenance
-        run: python hardware/phantasm/gen/release.py check-candidates
-      - name: Check routed PCB metadata
-        run: python hardware/phantasm/gen/board_metadata.py --check
+      - name: Run all Python suites; check routed candidates and PCB metadata
+        run: bash tools/ci/python_tests.sh
 
   teensy-size:
     name: Teensy 4 firmware (build + size + layout)
@@ -1287,35 +960,10 @@ jobs:
           restore-keys: pio-objs-${{ hashFiles('platformio.ini') }}-
       - name: Install pinned PlatformIO
         run: pip install --require-hashes -r requirements/platformio.txt
-      - name: Build + size + layout gate (shipping targets + compile profiles)
+      - name: Build + size + layout gate, then compile the profiling variants
         # Shipping environments enforce budgets; other environments provide compile coverage.
-        run: python tools/teensy_size_table.py
-      - name: Compile MindSplatter replay profile
-        env:
-          PLATFORMIO_BUILD_FLAGS: -D HS_PROFILE_TARGET=MindSplatter -D HS_MINDSPLATTER_REPLAY
-          PLATFORMIO_BUILD_DIR: ${{ runner.temp }}/replay-build
-        run: pio run -e profile
-      - name: Compile composed profiling knobs
-        env:
-          PLATFORMIO_BUILD_FLAGS: >-
-            -D HS_PROFILE_TARGET=GridWarp -D HS_PROBE_BREAKDOWN -D HS_PLOT_COUNTS
-            -D HS_PROFILE_PLOT_RENDER_COUNTS -D HS_PROFILE_PULLBACK_PROJECTION
-            -D HS_PROFILE_PC -D HS_PROFILE_MODULATION_SOURCE=1
-            -D HS_PROFILE_MODULATION_MECHANIC=0 -D HS_SCAN_METRICS
-          PLATFORMIO_BUILD_DIR: ${{ runner.temp }}/composed-profile-build
-        run: pio run -e profile
-      - name: Compile MindSplatter replay comparison
-        env:
-          PLATFORMIO_BUILD_FLAGS: >-
-            -D HS_PROFILE_TARGET=MindSplatter -D HS_MINDSPLATTER_REPLAY
-            -D HS_MINDSPLATTER_REPLAY_AB
-          PLATFORMIO_BUILD_DIR: ${{ runner.temp }}/replay-comparison-build
-        run: pio run -e profile
-      - name: Compile MindSplatter stall attribution
-        env:
-          PLATFORMIO_BUILD_FLAGS: -D HS_PROFILE_TARGET=MindSplatter -D HS_PROFILE_PLOT_STALLS
-          PLATFORMIO_BUILD_DIR: ${{ runner.temp }}/plot-stalls-build
-        run: pio run -e profile
+        run: bash tools/ci/teensy_size.sh "${{ runner.temp }}"
+
       - name: Cap build-object cache
         # Drop the oldest cached objects above 400 MB; config and the signature db stay.
         shell: bash
@@ -1362,10 +1010,7 @@ jobs:
         run: pip install --require-hashes -r requirements/platformio.txt
       - name: Cold build + zero first-party warning gate (all targets)
         # An empty PLATFORMIO_BUILD_CACHE_DIR is ignored; remove both cache and build outputs.
-        shell: bash
-        run: |
-          bash tools/teensy_cold_build.sh teensy_build.log
-          python tools/teensy_warnings.py --build-log teensy_build.log --github
+        run: bash tools/ci/teensy_warnings.sh --github
 
   docs-doxygen:
     name: Doxygen build
@@ -1382,11 +1027,8 @@ jobs:
 
       - uses: ./.github/actions/pinned-doxygen
 
-      - name: Generate docs
-        run: mkdir -p build/docs && doxygen Doxyfile
-
-      - name: Documentation coverage
-        run: python tools/doc_coverage.py
+      - name: Generate docs and enforce documentation coverage
+        run: bash tools/ci/docs_doxygen.sh
 
   ci-green:
     name: CI green
