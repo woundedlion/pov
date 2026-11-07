@@ -469,9 +469,10 @@ private:
    */
   static float note_clamped_arg(double arg, bool out_of_domain, float clamped,
                                 const char *op, const char *domain) {
-    last_mesh_op_adjusted = out_of_domain;
-    if (out_of_domain)
+    if (out_of_domain) {
+      last_mesh_op_adjusted = true;
       hs::log("WASM: MeshOps::%s clamped %g to %s", op, arg, domain);
+    }
     return clamped;
   }
 
@@ -622,7 +623,6 @@ public:
     const float ct =
         note_clamped_arg(t, hs_wasm::half_open_fraction_out_of_range(t),
                          hs_wasm::clamp_half_open_fraction(t), "snub", "[0,1)");
-    const bool inset_adjusted = last_mesh_op_adjusted;
     const float clamped_twist = hs_wasm::clamp_finite_float(twist);
     const float rotation =
         note_clamped_arg(twist,
@@ -630,7 +630,6 @@ public:
                              (twist > std::numeric_limits<float>::max() ||
                               twist < -std::numeric_limits<float>::max()),
                          clamped_twist, "snub twist", "finite float range");
-    last_mesh_op_adjusted = last_mesh_op_adjusted || inset_adjusted;
     return apply(hs_wasm::SNUB_BOUNDS,
                  [ct, rotation](const PolyMesh &m, Arena &a, Arena &b) {
                    return MeshOps::snub(m, a, b, ct, rotation);
