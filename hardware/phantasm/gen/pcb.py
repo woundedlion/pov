@@ -1239,6 +1239,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         ("BOARD ID: ____", 23.5, 2.0),
         (silk_revision(selected), 29.5, 1.0),
     ]
+    silk_x = {"BOARD ID: ____": layout["board_id_x"]}
     if selected == "1.3":
         back_silk = [
             ("TERM=CABLE ENDS", 7.0, 0.8),
@@ -1251,10 +1252,12 @@ def main(unplaced=False, force=False, force_teensy_library=False):
             ("CUT TEENSY VIN-VUSB", 10.6, 0.8),
             ("BOARD ID: ____", 14.8, 2.0),
             (silk_revision(selected), 31.0, 0.8),
+            ("TERM", 8.93, 0.8),
         ]
+        silk_x["TERM"] = fixed["JP_TERM"][0]
     legend_x = PLACE["U_MCU"][0]
     for text, y, size in back_silk:
-        text_x = layout["board_id_x"] if text == "BOARD ID: ____" else legend_x
+        text_x = silk_x.get(text, legend_x)
         lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(text_x)} {fmt(y)} 0)'
                      f' (layer "B.SilkS") (uuid "{uid()}") '
                      f'(effects (font (size {fmt(size)} {fmt(size)})'

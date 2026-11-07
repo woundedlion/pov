@@ -137,8 +137,13 @@ class PrototypeContractTests(unittest.TestCase):
 
     def test_termination_legend_is_revision_specific(self):
         self.assertIn("TERM=CABLE ENDS", [text[1] for text in F(self.board, "gr_text")])
+        mark, = [text for text in F(self.board, "gr_text") if text[1] == "TERM"]
+        jumper = footprints_by_ref(self.board)["JP_TERM"]
+        self.assertEqual(sexp.val(mark, "layer"), ["B.SilkS"])
+        self.assertEqual(sexp.val(mark, "at")[0], sexp.val(jumper, "at")[0])
         legacy = sexp.parse_one((GEN.parent / "1.2" / "phantasm.kicad_pcb").read_text(encoding="utf-8"))
         self.assertNotIn("TERM=CABLE ENDS", [text[1] for text in F(legacy, "gr_text")])
+        self.assertNotIn("TERM", [text[1] for text in F(legacy, "gr_text")])
 
     def test_usb_keepout_label_tracks_the_teensy(self):
         legacy = sexp.parse_one((GEN.parent / "1.2" / "phantasm.kicad_pcb").read_text(encoding="utf-8"))
