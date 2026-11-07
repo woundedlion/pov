@@ -92,20 +92,18 @@ def revision_paths(revision, output_dir=None):
     return out, sch
 
 
-def main(force=False, revision=B.REVISION, output_dir=None):
-    out, sch = revision_paths(revision, output_dir)
-    # uid() keys on calling function + occurrence, so the sequence starts empty or a
-    # second call in one process would renumber every generated uuid.
-    reset_uid_sequence()
-    require_writable(sch, force, SCH_REASON)
-
-    b = B.Builder("PHANTASM Segment Board  -  per-segment carrier (x4, strap-selected role)",
-                  paper="A2" if revision == "1.3" else "A3", revision=revision)
-    GND = "GND"; V3 = "+3V3"
-    enable_net = "SYNC_DE" if revision == "1.3" else "MASTER_EN"
+GND = "GND"
+V3 = "+3V3"
+SMD08 = "Resistor_SMD:R_0805_2012Metric"
+SMD06 = "Resistor_SMD:R_0603_1608Metric"
+# Rev 1.1 ships stock ids with pads widened in place (../1.1/README.md).
+# Rev 1.2 carries the toe-extended lands required by spec 11.1.
+SMD08_HAND = "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
+SMD06_HAND = "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
+C06 = "Capacitor_SMD:C_0603_1608Metric"
 
 
-    # ---------------------------------------------------------------- custom symbols
+def register_symbols(b, revision):
     def make_power(net):
         node = copy.deepcopy(sexp.get_symbol("power", "+5V"))
         B.rename_subsymbols(node, "+5V", net)
@@ -227,14 +225,22 @@ def main(force=False, revision=B.REVISION, output_dir=None):
 			(name "GND" (effects (font (size 1.27 1.27))))
 			(number "3" (effects (font (size 1.27 1.27)))))))'''
         b.register_custom(sexp.parse_one(protection), "phantasm:CDSOT23-SM712")
+    return TEENSY, TPN, UNUSED_TEENSY_PINS
 
 
-    # ---------------------------------------------------------------- helpers
-    def place(lib, ref, val, x, y, rot=0, unit=1, fp="", dnp=False, in_bom=True):
-        symbol = b.place(B.Symbol(lib, ref, val, x, y, rot=rot, unit=unit,
+class Circuit:
+    def __init__(self, builder, revision):
+        self.b = builder
+        self.revision = revision
+        self.power_index = 0
+        self.enable_net = "SYNC_DE" if revision == "1.3" else "MASTER_EN"
+        self.teensy, self.teensy_pins, self.unused_teensy_pins = register_symbols(builder, revision)
+
+    def place(self, lib, ref, val, x, y, rot=0, unit=1, fp="", dnp=False, in_bom=True):
+        symbol = self.b.place(B.Symbol(lib, ref, val, x, y, rot=rot, unit=unit,
                                  footprint=fp, dnp=dnp, in_bom=in_bom,
-                                 properties=REV13_PARTS.get(ref) if revision == "1.3" else None))
-        if revision == "1.3":
+                                 properties=REV13_PARTS.get(ref) if self.revision == "1.3" else None))
+        if self.revision == "1.3":
             offsets = {
                 "U_MCU": {"Reference": (0, -45.72), "Value": (0, 45.72)},
                 "U_SYNC": {"Reference": (-5.08, -15.24), "Value": (8.89, -15.24)},
@@ -260,52 +266,48 @@ def main(force=False, revision=B.REVISION, output_dir=None):
         return symbol
 
 
-    def hw(x1, x2, y):
-        b.wire((x1, y), (x2, y))
+    def hw(self, x1, x2, y):
+        self.b.wire((x1, y), (x2, y))
 
 
-    def vw(x, y1, y2):
-        b.wire((x, y1), (x, y2))
+    def vw(self, x, y1, y2):
+        self.b.wire((x, y1), (x, y2))
 
 
-    power_index = 0
-
-
-    def pwr_sym(kind, x, y):
-        nonlocal power_index
-        power_index += 1
-        ref = f"#PWR{power_index:02d}"
+    def pwr_sym(self, kind, x, y):
+        self.power_index += 1
+        ref = f"#PWR{self.power_index:02d}"
         lib = {"GND": "power:GND", "+3V3": "power:+3V3"}.get(kind, f"phantasm:{kind}")
-        b.place(B.Symbol(lib, ref, kind, x, y))
+        self.b.place(B.Symbol(lib, ref, kind, x, y))
 
 
-    def to_power(s, num, kind, length=2.54):
-        if revision == "1.3":
+    def to_power(self, s, num, kind, length=2.54):
+        if self.revision == "1.3":
             dy = s.pin_dir(num)[1]
             if (dy > 0 and kind != GND) or (dy < 0 and kind == GND):
                 length = max(length, 10.16)
-        end = b.stub(s, num, length)
-        pwr_sym(kind, end[0], end[1])
+        end = self.b.stub(s, num, length)
+        self.pwr_sym(kind, end[0], end[1])
 
 
-    def to_label(s, num, name, length=3.81):
-        end = b.stub(s, num, length)
-        angle = 180 if revision == "1.3" and s.pin_dir(num)[0] < 0 else 0
-        b.label(end, name, angle=angle)
+    def to_label(self, s, num, name, length=3.81):
+        end = self.b.stub(s, num, length)
+        angle = 180 if self.revision == "1.3" and s.pin_dir(num)[0] < 0 else 0
+        self.b.label(end, name, angle=angle)
 
 
-    def bypass(parent, pin, ref, net="+5V_LOGIC", dx=15.24, dy=3.81):
+    def bypass(self, parent, pin, ref, net="+5V_LOGIC", dx=15.24, dy=3.81):
         x, y = parent.pin(pin)
-        cap = place("Device:C", ref, "0.1uF", x + dx, y + dy, fp=C06)
+        cap = self.place("Device:C", ref, "0.1uF", x + dx, y + dy, fp=C06)
         if dy < 0:
-            b.wire(cap.pin("1"), parent.pin(pin))
+            self.b.wire(cap.pin("1"), parent.pin(pin))
         else:
-            b.wire(parent.pin(pin), cap.pin("1"))
-        to_power(cap, "1", net)
-        to_power(cap, "2", GND)
+            self.b.wire(parent.pin(pin), cap.pin("1"))
+        self.to_power(cap, "1", net)
+        self.to_power(cap, "2", GND)
 
 
-    def rail_drop(s, num, yrail, span):
+    def rail_drop(self, s, num, yrail, span):
         """Drop a pin vertically onto the rail at yrail drawn over x range span.
 
         A junction past a rail end connects nothing: the pin becomes its own net.
@@ -316,12 +318,11 @@ def main(force=False, revision=B.REVISION, output_dir=None):
             raise ValueError(
                 f"{s.ref}.{num} drops at x={t[0]:g}, outside the y={yrail:g} "
                 f"rail span {x0:g}..{x1:g}")
-        vw(t[0], t[1], yrail)
-        b.junction((t[0], yrail))
+        self.vw(t[0], t[1], yrail)
+        self.b.junction((t[0], yrail))
 
 
-
-    def series_wire(src_sym, src_pin, r_sym, far_label, src_label=None):
+    def series_wire(self, src_sym, src_pin, r_sym, far_label, src_label=None):
         """Wire src pin to the NEARER terminal of r_sym; label the far terminal.
         If src_label is given, name the source-side stub too (else KiCad auto-names
         it Net-(R-PadN))."""
@@ -330,22 +331,22 @@ def main(force=False, revision=B.REVISION, output_dir=None):
         d1 = abs(t1[0] - tip[0]) + abs(t1[1] - tip[1])
         d2 = abs(t2[0] - tip[0]) + abs(t2[1] - tip[1])
         near, far = ("1", "2") if d1 <= d2 else ("2", "1")
-        b.wire(tip, r_sym.pin(near))
-        to_label(r_sym, far, far_label)
+        self.b.wire(tip, r_sym.pin(near))
+        self.to_label(r_sym, far, far_label)
         if src_label:
-            b.label(tip, src_label)
+            self.b.label(tip, src_label)
 
 
-    SMD08 = "Resistor_SMD:R_0805_2012Metric"
-    SMD06 = "Resistor_SMD:R_0603_1608Metric"
-    # Rev 1.1 ships stock ids with pads widened in place (../1.1/README.md).
-    # Rev 1.2 carries the toe-extended lands required by spec 11.1.
-    SMD08_HAND = "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
-    SMD06_HAND = "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
-    C06 = "Capacitor_SMD:C_0603_1608Metric"
 
-
-    # ============================================================ BLOCK 1: POWER
+def power_block(ctx):
+    b = ctx.b
+    revision = ctx.revision
+    place = ctx.place
+    hw = ctx.hw
+    vw = ctx.vw
+    pwr_sym = ctx.pwr_sym
+    to_power = ctx.to_power
+    rail_drop = ctx.rail_drop
     b.text((25, 25), "POWER ENTRY / PROTECTION / RAIL FILTER  " + (
         "(logic budget 0.25 A; LED 4.3 A off-board)" if revision == "1.3" else
         "(logic ~0.15 A; LED 4.3 A off-board)"), 2.2)
@@ -403,7 +404,19 @@ def main(force=False, revision=B.REVISION, output_dir=None):
     hw(GND_L, GND_R, Y_GND)
     pwr_sym(GND, GND_R, Y_GND)
 
-    # ============================================================ BLOCK 2: LOGIC
+
+def logic_block(ctx):
+    b = ctx.b
+    revision = ctx.revision
+    enable_net = ctx.enable_net
+    TEENSY = ctx.teensy
+    TPN = ctx.teensy_pins
+    UNUSED_TEENSY_PINS = ctx.unused_teensy_pins
+    place = ctx.place
+    to_power = ctx.to_power
+    to_label = ctx.to_label
+    bypass = ctx.bypass
+    series_wire = ctx.series_wire
     b.text((25, 116), "TEENSY 4.0  +  74AHCT125 LEVEL SHIFTER  ->  LED STRIP", 2.2)
     # --- Teensy ---
     U = place(TEENSY, "U_MCU", "Teensy4.0", 60.96, 165.1,
@@ -478,70 +491,97 @@ def main(force=False, revision=B.REVISION, output_dir=None):
                fp="phantasm:TerminalBlock_GCT_TBC05-03-1-G-G")
     to_label(J2, "1", "DATA"); to_power(J2, "2", GND); to_label(J2, "3", "CLK")
 
-    # ============================================================ BLOCK 3: SYNC
-    if revision == "1.2":
-        b.text((220, 180), "SYNC BUS  -  RX DIVIDER + DAISY (Belden 8451)", 2.2)
-        # divider: SYNC_BUS -> R1 -> node(FRAME_SYNC) -> R2 -> GND ; C_SYNC at node
-        R1 = place("Device:R", "R1", "10k", 246.38, 205.74, fp=SMD06_HAND)
-        R2 = place("Device:R", "R2", "15k", 246.38, 228.6, fp=SMD06_HAND)
-        CSY = place("Device:C", "C_SYNC", "220pF", 269.24, 217.17, rot=90, fp=C06)
-        to_label(R1, "1", "SYNC_BUS")
-        nd = R1.pin("2")
-        b.wire(nd, R2.pin("1"))             # divider node
-        b.label(nd, "FRAME_SYNC")
-        b.wire(R2.pin("1"), CSY.pin("1"))   # C_SYNC onto node
-        b.junction(R2.pin("1"))
-        to_power(R2, "2", GND); to_power(CSY, "2", GND)
-        # Master-only bus idle pulldown + bus TVS. U1 ch D drives
-        # SYNC_PULLDOWN low on the master and is high-impedance on every slave.
-        RPD = place("Device:R", "R_PD", "10k", 292.1, 205.74, fp=SMD06_HAND)
-        to_label(RPD, "1", "SYNC_BUS"); to_label(RPD, "2", "SYNC_PULLDOWN")
-        DBUS = place("Device:D_Zener", "D_BUS", "CDSOD323-T08L", 292.1, 231.14,
-                     fp="Diode_SMD:D_SOD-323")
-        to_label(DBUS, "1", "SYNC_BUS"); to_power(DBUS, "2", GND)
-        # daisy connectors
-        J3A = place("Connector_Generic:Conn_01x03", "J3A", "TBC05-03-1-G-G SYNC in", 330.2, 205.74, in_bom=False,
-                    fp="phantasm:TerminalBlock_GCT_TBC05-03-1-G-G")
-        J3B = place("Connector_Generic:Conn_01x03", "J3B", "TBC05-03-1-G-G SYNC out", 330.2, 233.68, in_bom=False,
-                    fp="phantasm:TerminalBlock_GCT_TBC05-03-1-G-G")
-        for J in (J3A, J3B):
-            to_label(J, "1", "SYNC_BUS"); to_power(J, "2", GND); to_label(J, "3", "SHIELD")
-    else:
-        b.text((220, 180), "RS-485 SYNC / 120R TWISTED-PAIR TRUNK", 2.2)
-        urs = place("phantasm:THVD2410DR", "U_SYNC", "THVD2410DR", 246.38, 210.82,
-                    fp="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
-        to_label(urs, "1", "FRAME_SYNC"); to_power(urs, "2", GND, length=15.24)
-        to_label(urs, "3", enable_net); to_label(urs, "4", "SYNC_TX")
-        to_power(urs, "5", GND); to_power(urs, "8", V3)
-        bypass(urs, "8", "C_DEC3", net=V3, dx=-30.48, dy=-8.89)
-        cbulk = place("Device:C", "C_BULK3", "1uF", 204.47, 187.96, fp=C06)
-        to_power(cbulk, "1", V3); to_power(cbulk, "2", GND)
-        for ref, pin, net, y in (("R_A", "6", "SYNC_A", 200.66),
-                                 ("R_B", "7", "SYNC_B", 217.17)):
-            resistor = place("Device:R", ref, "10R 1% pulse-proof", 281.94, y,
-                             rot=270, fp=SMD06_HAND)
-            series_wire(urs, pin, resistor, net, net + "_IC")
-        dbus = place("phantasm:CDSOT23-SM712", "D_SYNC", "CDSOT23-SM712", 309.88, 248.92,
-                     fp="Package_TO_SOT_SMD:SOT-23")
-        to_label(dbus, "1", "SYNC_A"); to_label(dbus, "2", "SYNC_B")
-        to_power(dbus, "3", GND)
-        for ref, y in (("J3A", 202.0), ("J3B", 229.87)):
-            connector = place("Connector_Generic:Conn_01x04", ref,
-                              "TBC05-04-1-G-G SYNC " + ("in" if ref == "J3A" else "out"),
-                              355.6, y, in_bom=False,
-                              fp="phantasm:TerminalBlock_GCT_TBC05-04-1-G-G")
-            to_label(connector, "1", "SYNC_A"); to_label(connector, "2", "SYNC_B")
-            to_power(connector, "3", GND); to_label(connector, "4", "SHIELD")
-        rterm = place("Device:R", "R_TERM", "120R 1% 0.5W", 279.4, 251.46, fp=SMD08_HAND)
-        jpterm = place("Jumper:SolderJumper_2_Open", "JP_TERM", "TERM endpoints only", 274.32, 271.78,
-                       fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm", in_bom=False)
-        to_label(rterm, "1", "SYNC_A"); to_label(rterm, "2", "TERM_LINK")
-        to_label(jpterm, "1", "TERM_LINK"); to_label(jpterm, "2", "SYNC_B")
+
+def sync_rev12(ctx):
+    b = ctx.b
+    place = ctx.place
+    to_power = ctx.to_power
+    to_label = ctx.to_label
+    b.text((220, 180), "SYNC BUS  -  RX DIVIDER + DAISY (Belden 8451)", 2.2)
+    # divider: SYNC_BUS -> R1 -> node(FRAME_SYNC) -> R2 -> GND ; C_SYNC at node
+    R1 = place("Device:R", "R1", "10k", 246.38, 205.74, fp=SMD06_HAND)
+    R2 = place("Device:R", "R2", "15k", 246.38, 228.6, fp=SMD06_HAND)
+    CSY = place("Device:C", "C_SYNC", "220pF", 269.24, 217.17, rot=90, fp=C06)
+    to_label(R1, "1", "SYNC_BUS")
+    nd = R1.pin("2")
+    b.wire(nd, R2.pin("1"))             # divider node
+    b.label(nd, "FRAME_SYNC")
+    b.wire(R2.pin("1"), CSY.pin("1"))   # C_SYNC onto node
+    b.junction(R2.pin("1"))
+    to_power(R2, "2", GND); to_power(CSY, "2", GND)
+    # Master-only bus idle pulldown + bus TVS. U1 ch D drives
+    # SYNC_PULLDOWN low on the master and is high-impedance on every slave.
+    RPD = place("Device:R", "R_PD", "10k", 292.1, 205.74, fp=SMD06_HAND)
+    to_label(RPD, "1", "SYNC_BUS"); to_label(RPD, "2", "SYNC_PULLDOWN")
+    DBUS = place("Device:D_Zener", "D_BUS", "CDSOD323-T08L", 292.1, 231.14,
+                 fp="Diode_SMD:D_SOD-323")
+    to_label(DBUS, "1", "SYNC_BUS"); to_power(DBUS, "2", GND)
+    # daisy connectors
+    J3A = place("Connector_Generic:Conn_01x03", "J3A", "TBC05-03-1-G-G SYNC in", 330.2, 205.74, in_bom=False,
+                fp="phantasm:TerminalBlock_GCT_TBC05-03-1-G-G")
+    J3B = place("Connector_Generic:Conn_01x03", "J3B", "TBC05-03-1-G-G SYNC out", 330.2, 233.68, in_bom=False,
+                fp="phantasm:TerminalBlock_GCT_TBC05-03-1-G-G")
+    for J in (J3A, J3B):
+        to_label(J, "1", "SYNC_BUS"); to_power(J, "2", GND); to_label(J, "3", "SHIELD")
+
+
+def sync_rev13(ctx):
+    b = ctx.b
+    enable_net = ctx.enable_net
+    place = ctx.place
+    to_power = ctx.to_power
+    to_label = ctx.to_label
+    bypass = ctx.bypass
+    series_wire = ctx.series_wire
+    b.text((220, 180), "RS-485 SYNC / 120R TWISTED-PAIR TRUNK", 2.2)
+    urs = place("phantasm:THVD2410DR", "U_SYNC", "THVD2410DR", 246.38, 210.82,
+                fp="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
+    to_label(urs, "1", "FRAME_SYNC"); to_power(urs, "2", GND, length=15.24)
+    to_label(urs, "3", enable_net); to_label(urs, "4", "SYNC_TX")
+    to_power(urs, "5", GND); to_power(urs, "8", V3)
+    bypass(urs, "8", "C_DEC3", net=V3, dx=-30.48, dy=-8.89)
+    cbulk = place("Device:C", "C_BULK3", "1uF", 204.47, 187.96, fp=C06)
+    to_power(cbulk, "1", V3); to_power(cbulk, "2", GND)
+    for ref, pin, net, y in (("R_A", "6", "SYNC_A", 200.66),
+                             ("R_B", "7", "SYNC_B", 217.17)):
+        resistor = place("Device:R", ref, "10R 1% pulse-proof", 281.94, y,
+                         rot=270, fp=SMD06_HAND)
+        series_wire(urs, pin, resistor, net, net + "_IC")
+    dbus = place("phantasm:CDSOT23-SM712", "D_SYNC", "CDSOT23-SM712", 309.88, 248.92,
+                 fp="Package_TO_SOT_SMD:SOT-23")
+    to_label(dbus, "1", "SYNC_A"); to_label(dbus, "2", "SYNC_B")
+    to_power(dbus, "3", GND)
+    for ref, y in (("J3A", 202.0), ("J3B", 229.87)):
+        connector = place("Connector_Generic:Conn_01x04", ref,
+                          "TBC05-04-1-G-G SYNC " + ("in" if ref == "J3A" else "out"),
+                          355.6, y, in_bom=False,
+                          fp="phantasm:TerminalBlock_GCT_TBC05-04-1-G-G")
+        to_label(connector, "1", "SYNC_A"); to_label(connector, "2", "SYNC_B")
+        to_power(connector, "3", GND); to_label(connector, "4", "SHIELD")
+    rterm = place("Device:R", "R_TERM", "120R 1% 0.5W", 279.4, 251.46, fp=SMD08_HAND)
+    jpterm = place("Jumper:SolderJumper_2_Open", "JP_TERM", "TERM endpoints only", 274.32, 271.78,
+                   fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm", in_bom=False)
+    to_label(rterm, "1", "SYNC_A"); to_label(rterm, "2", "TERM_LINK")
+    to_label(jpterm, "1", "TERM_LINK"); to_label(jpterm, "2", "SYNC_B")
+
+
+def shield_block(ctx):
+    place = ctx.place
+    to_power = ctx.to_power
+    to_label = ctx.to_label
     JPS = place("Jumper:SolderJumper_2_Open", "JP_SHLD", "shield gnd (master only)", 363.22, 248.92,
                 fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm", in_bom=False)
     to_label(JPS, "1", "SHIELD"); to_power(JPS, "2", GND)
 
-    # ============================================================ BLOCK 4: STRAPS
+
+def strap_block(ctx):
+    b = ctx.b
+    revision = ctx.revision
+    enable_net = ctx.enable_net
+    place = ctx.place
+    pwr_sym = ctx.pwr_sym
+    to_power = ctx.to_power
+    to_label = ctx.to_label
     b.text((25, 245), "ID STRAPS / " + enable_net + " " + ("PULL-UP" if revision == "1.2" else "PULL-DOWN"), 2.2)
     RMEN = place("Device:R", "R_MEN", "10k", 76.2, 261.62, fp=SMD06)
     to_power(RMEN, "1", V3 if revision == "1.2" else GND); to_label(RMEN, "2", enable_net)
@@ -575,7 +615,8 @@ def main(force=False, revision=B.REVISION, output_dir=None):
     flag("+5V_LOGIC", 284.48, fy)
     flag(GND, 317.5, fy)
 
-    # ---------------------------------------------------------------- write files
+
+def write_outputs(b, out, sch):
     os.makedirs(out, exist_ok=True)
     atomic_write_text(sch, b.dumps())
 
@@ -598,6 +639,24 @@ def main(force=False, revision=B.REVISION, output_dir=None):
 
     print("wrote files  symbols:", len(b.symbols), "wires:", len(b.wires),
           "labels:", len(b.labels), "texts:", len(b.texts))
+
+
+def main(force=False, revision=B.REVISION, output_dir=None):
+    out, sch = revision_paths(revision, output_dir)
+    reset_uid_sequence()
+    require_writable(sch, force, SCH_REASON)
+    builder = B.Builder("PHANTASM Segment Board  -  per-segment carrier (x4, strap-selected role)",
+                        paper="A2" if revision == "1.3" else "A3", revision=revision)
+    ctx = Circuit(builder, revision)
+    power_block(ctx)
+    logic_block(ctx)
+    if revision == "1.2":
+        sync_rev12(ctx)
+    else:
+        sync_rev13(ctx)
+    shield_block(ctx)
+    strap_block(ctx)
+    write_outputs(builder, out, sch)
 
 
 if __name__ == "__main__":
