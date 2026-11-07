@@ -8,6 +8,7 @@
  * @brief Authored palette source controls shared by fixed and interpreted pipelines. */
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include "core/color/palette_recipe.h"
 
@@ -50,20 +51,20 @@ static_assert(sizeof(AuthoredPaletteSelection) == 64);
 inline constexpr const char *AUTHORED_PALETTE_TYPE_IDS[] = {
     "cycling-generated", "generated", "procedural", "gradient", "mutating"};
 static_assert(std::size(AUTHORED_PALETTE_TYPE_IDS) ==
-              static_cast<size_t>(AuthoredPaletteType::MUTATING) + 1);
+              static_cast<std::size_t>(AuthoredPaletteType::MUTATING) + 1);
 
 /// Wire ids of perceptual hue relationships.
 inline constexpr const char *AUTHORED_PALETTE_HARMONY_IDS[] = {
     "monochromatic",       "analogous", "accented-analogous", "complementary",
     "split-complementary", "triadic",   "tetradic",           "square"};
 static_assert(std::size(AUTHORED_PALETTE_HARMONY_IDS) ==
-              static_cast<size_t>(PaletteHarmony::SQUARE) + 1);
+              static_cast<std::size_t>(PaletteHarmony::SQUARE) + 1);
 
 /// Wire ids of lightness axis curves.
 inline constexpr const char *AUTHORED_PALETTE_LIGHTNESS_CURVE_IDS[] = {
     "constant", "ascending", "descending", "bell", "cup"};
 static_assert(std::size(AUTHORED_PALETTE_LIGHTNESS_CURVE_IDS) ==
-              static_cast<size_t>(AxisCurve::CUP) + 1);
+              static_cast<std::size_t>(AxisCurve::CUP) + 1);
 
 /// Wire ids of named procedural palettes.
 inline constexpr const char *AUTHORED_PALETTE_NAME_IDS[] = {
