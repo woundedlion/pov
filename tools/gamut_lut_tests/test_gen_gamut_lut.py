@@ -96,11 +96,18 @@ class TestGamutLutMirrors(unittest.TestCase):
         original = ROOT / "core/math/3dmath.h"
         source = original.read_text(encoding="utf-8")
         self.assertTrue(generator.check_diamond_angle_mirror(original))
-        changed, count = re.subn(r"(inline float diamond_angle\([^)]*\)\s*\{)",
+        changed, count = re.subn(r"(\bfloat\s+diamond_angle\([^)]*\)\s*\{)",
                                 r"\g<1> return 0.0f;", source, count=1)
         self.assertEqual(count, 1)
+        legacy, count = re.subn(
+            r"HS_HOT_INLINE\s+constexpr\s+float\s+diamond_angle",
+            "inline float diamond_angle", source, count=1)
+        self.assertEqual(count, 1)
+        legacy = legacy.replace("__builtin_fabsf", "std::fabs")
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "3dmath.h"
+            path.write_text(legacy, encoding="utf-8")
+            self.assertTrue(generator.check_diamond_angle_mirror(path))
             path.write_text(changed, encoding="utf-8")
             with contextlib.redirect_stderr(io.StringIO()) as errors:
                 self.assertFalse(generator.check_diamond_angle_mirror(path))

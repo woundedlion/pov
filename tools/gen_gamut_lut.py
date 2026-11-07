@@ -303,8 +303,8 @@ def _cpp_expr_to_python(expr, names):
     """Rewrites one C++ float expression into the equivalent Python source.
 
     Covers the grammar the mirrored helpers are written in: arithmetic over the
-    named locals, float literal suffixes, std::fabs and nested ternaries. Any
-    other call or identifier raises ValueError rather than being guessed at.
+    named locals, float literal suffixes, std::fabs, __builtin_fabsf and nested
+    ternaries. Other calls or identifiers raise ValueError.
     """
     expr = expr.strip()
     depth = 0
@@ -341,7 +341,7 @@ def _cpp_expr_to_python(expr, names):
             _cpp_expr_to_python(expr[:q], names),
             _cpp_expr_to_python(expr[colon + 1:], names))
 
-    expr = expr.replace("std::fabs", "abs")
+    expr = re.sub(r"\b(?:std::fabs|__builtin_fabsf)\b", "abs", expr)
     expr = re.sub(r"(?<![A-Za-z0-9_.])(%s)[fF]\b" % NUM, r"\1", expr)
     tokens = re.findall(r"\d[\w.]*|[A-Za-z_][\w:]*", expr)
     unknown = [n for n in tokens if not n[0].isdigit() and n not in names]
@@ -444,7 +444,8 @@ def check_diamond_angle_mirror(math_h_path):
     with open(math_h_path, "r", encoding="utf-8") as f:
         text = f.read()
     try:
-        sig = re.search(r"inline float diamond_angle\(([^)]*)\)", text)
+        declaration = r"\bfloat\s+diamond_angle\s*\(([^)]*)\)"
+        sig = re.search(declaration, text)
         if sig is None:
             raise ValueError("no float diamond_angle(...) declaration")
         params = tuple(p.split()[-1] for p in sig.group(1).split(","))
@@ -452,10 +453,10 @@ def check_diamond_angle_mirror(math_h_path):
             raise ValueError("parameters are %s, not ('y', 'x')" % (params,))
         template = re.search(
             r"template\s*<\s*bool\s+(\w+)\s*=\s*(true|false)\s*>"
-            r"\s*[^{};]*?inline float diamond_angle\(", text)
+            r"\s*[^{};]*?" + declaration, text)
         constants = ({template.group(1): template.group(2) == "true"}
                      if template else {})
-        cpp = _cpp_float_fn(_function_body(text, "inline float diamond_angle("),
+        cpp = _cpp_float_fn(_function_body(text, sig.group(0)),
                             params, constants=constants)
     except ValueError as exc:
         sys.stderr.write("could not parse 3dmath.h diamond_angle(): %s\n"
