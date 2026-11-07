@@ -932,7 +932,7 @@ HS_HOT_INLINE void plot_column_tap(const ColumnWalk<W> &state,
                 : x,
        sample.p.y +
            (velocity[1] + (velocity[3] - velocity[1]) * sample.s) * shift},
-      column, color, age, alpha, sample.t);
+      column, color, age, alpha, at);
 }
 
 /** @brief Prepares a sample's registers at the other side of an arm seam.
