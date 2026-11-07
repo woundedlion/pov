@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import re
+import subprocess
 import sys
 
 from git_files import git_nul_list
@@ -43,8 +44,17 @@ def main() -> int:
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     args = parser.parse_args()
     root = args.root.resolve()
+    try:
+        files = git_nul_list(root, "ls-files", "-z")
+    except (OSError, subprocess.SubprocessError, UnicodeError) as error:
+        print(f"[encoding-check] tooling error: cannot list tracked files ({error})",
+              file=sys.stderr)
+        return 2
+    if not files:
+        print("[encoding-check] tooling error: no tracked files", file=sys.stderr)
+        return 2
     failed = False
-    for name in git_nul_list(root, "ls-files", "-z"):
+    for name in files:
         path = root / name
         if not path.is_file():
             continue
@@ -60,6 +70,8 @@ def main() -> int:
         for line in mojibake_lines(text):
             print(f"{name}:{line}: reversible cp1252 mojibake", file=sys.stderr)
             failed = True
+    if not failed:
+        print("[encoding-check] PASS - tracked text uses valid UTF-8")
     return int(failed)
 
 

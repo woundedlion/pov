@@ -39,6 +39,15 @@ class EncodingCheckTests(unittest.TestCase):
     def test_correct_unicode_is_accepted(self):
         self.assertEqual(encoding_check.mojibake_lines("ASCII \u2014 \u2192 \u00b1 \u00b0 \u00d7 caf\u00e9"), [])
 
+    def test_gate_refuses_an_empty_index(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            git_run(root, "init", "-q")
+            result = subprocess.run([sys.executable, str(TOOL), "--root", str(root)],
+                                    capture_output=True, env=isolated_env())
+            self.assertEqual(result.returncode, 2, result.stderr)
+            self.assertIn(b"tooling error: no tracked files", result.stderr)
+
     def test_gate_skips_unstaged_deletions(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
