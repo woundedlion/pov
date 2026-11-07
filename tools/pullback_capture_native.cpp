@@ -511,8 +511,14 @@ int capture(const char *operations_path, const char *output_path) {
     }
     if (instruction.oracle == "PEIRCE_FAST_SQUARE" &&
         !measure_oracle<W, H>(effect, instruction, coupled_peirce.maximum,
-                              coupled_peirce.samples, false))
+                              coupled_peirce.samples, false)) {
+      std::fprintf(stderr,
+                   "pullback oracle: coupled Peirce measurement failed "
+                   "preset=%u operation=%u\n",
+                   instruction.preset,
+                   static_cast<unsigned>(instruction.operation));
       return 3;
+    }
   }
   if (coupled_peirce.samples != 0)
     std::printf("pullback diagnostic: %dx%d Peirce with authored hue "
