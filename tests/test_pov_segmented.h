@@ -545,6 +545,7 @@ inline void test_apply_wake_sequence() {
     const auto joined = h.apply_wake({.join_boundary = true, .wire_gen = 4});
     HS_EXPECT_TRUE(joined.adopted);
     HS_EXPECT_EQ(joined.live, &e1);
+    HS_EXPECT_FALSE(joined.dark);
 
     // Already consumed: an occupied board does not re-join.
     const auto again = h.apply_wake({.join_boundary = true, .wire_gen = 4});
@@ -557,6 +558,7 @@ inline void test_apply_wake_sequence() {
     h.publish(&e2, 5);
     const auto occupied = h.apply_wake({.join_boundary = true, .wire_gen = 5});
     HS_EXPECT_FALSE(occupied.adopted);
+    HS_EXPECT_TRUE(occupied.dark);
     HS_EXPECT_EQ(h.live(), &e1);
   }
 
@@ -581,7 +583,7 @@ inline void test_apply_wake_sequence() {
   }
 
   // live is read after the adopt: an effect taken live this wake flips this
-  // wake, and the submit gate is dark only while nothing is live.
+  // wake, and the matching generation can render immediately.
   {
     EffectHandoff<FakeEffect> h;
     h.publish(&e1, 7);

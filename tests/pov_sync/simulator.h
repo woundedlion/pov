@@ -915,16 +915,26 @@ inline void test_sim_drops_and_missed_epoch() {
       8.0));
   HS_EXPECT_EQ(sim.boards[3].live_index, 0);
   HS_EXPECT_EQ(sim.boards[3].envelope, 0.0f);
+  bool stale_lit = false;
+  const auto observe_stale = [&](const SimBoard &board) {
+    stale_lit |= board.live && board.live_index == 0 && !board.dark_now &&
+                 board.envelope != 0.0f;
+  };
   HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        return s.boards[3]
-                   .board.telemetry_snapshot()
-                   .beacon_index_corrections == 1u;
+      [&](Sim &s) {
+        const auto &board = s.boards[3];
+        observe_stale(board);
+        return board.board.telemetry_snapshot().beacon_index_corrections == 1u;
       },
       3.0));
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.boards[3].live_index == 1; },
-                    double(cfg.join_grid_revs) + 2));
+  HS_EXPECT_TRUE(sim.run_until(
+      [&](Sim &s) {
+        const auto &board = s.boards[3];
+        observe_stale(board);
+        return board.live_index == 1;
+      },
+      double(cfg.join_grid_revs) + 2));
+  HS_EXPECT_FALSE(stale_lit);
   HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   HS_EXPECT_EQ(content(sim.boards[3].board).rev_in_effect & 63,
                content(sim.boards[0].board).rev_in_effect & 63);

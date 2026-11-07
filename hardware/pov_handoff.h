@@ -72,7 +72,7 @@ public:
                                 committable: the caller must trap. */
     bool adopted = false;  /**< An effect was taken live this wake. */
     bool advance = false;  /**< Call advance_display() on `live`. */
-    bool dark = false;     /**< Submit-gate dark input. */
+    bool dark = false; /**< Output blocked until the wire generation is live. */
   };
 
   // ── Foreground side ────────────────────────────────────────────────────
@@ -247,7 +247,8 @@ public:
       set_window_left(in.zero_crossing);
     out.live = live_effect;
     out.advance = in.flip && out.live != nullptr;
-    out.dark = in.dark || out.live == nullptr;
+    out.dark = in.dark || out.live == nullptr ||
+               in.wire_gen != consumed_gen.load(std::memory_order_relaxed);
     return out;
   }
 
