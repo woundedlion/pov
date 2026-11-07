@@ -643,12 +643,13 @@ finish_cached_phase(const FieldSample &sample,
 
 /** @brief Finishes a cached RGB palette through one prepared phase.
  * @tparam Phase Prepared modulation phase type.
+ * @tparam SinePhase Whether directional-sine phase sampling is supported.
  * @param sample Shared field coordinates.
  * @param prepared Prepared palette endpoints.
  * @param modulation Ready column phase.
  * @param output Receives the final straight-alpha color.
  * @return Whether this phase and RGB cache admit direct finishing. */
-template <typename Phase>
+template <typename Phase, bool SinePhase = true>
 HS_HOT_FLASH_MEMBER inline bool
 shade_cached_phase(const FieldSample &sample,
                    const TemporalGeneratedPaletteState &prepared,
@@ -665,9 +666,10 @@ shade_cached_phase(const FieldSample &sample,
   PhaseScratch scratch;
   const float HUE =
       modulation.enabled && modulation.mechanic.amount != 0.0f
-          ? accumulate_hue(
-                0.0f, Color::sample_phase_scalar(sample, modulation, scratch),
-                modulation.mechanic)
+          ? accumulate_hue(0.0f,
+                           Color::sample_phase_scalar<Phase, SinePhase>(
+                               sample, modulation, scratch),
+                           modulation.mechanic)
           : 0.0f;
   output = finish_cached_phase(sample, prepared, HUE);
   return true;
@@ -959,7 +961,9 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
     requires(TEMPORAL && LAB_CACHE &&
              std::is_base_of_v<PhaseModulationState, typename Layer::Prepared>)
   {
-    return Color::shade_cached_phase(sample, prepared, modulation, output);
+    return Color::shade_cached_phase<typename Layer::Prepared,
+                                     Layer::SINE_PHASE>(sample, prepared,
+                                                        modulation, output);
   }
   /** @brief Prepares immutable endpoint controls.
    * @tparam FrameState Frame context.
