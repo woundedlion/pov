@@ -187,28 +187,15 @@ struct PreparedTerm {
     return term.type == TermType::MODE
                ? SHMath::spherical_harmonic_gradient_unchecked(term.l, term.m,
                                                                p, scale, phase)
-               : sample(p).gradient;
+               : sample_invariant(p).gradient;
   }
 
   /** @brief Samples the normalized scalar term.
    * @param p Unit direction.
    * @return Scalar value and ambient gradient including amplitude. */
-  HS_ITCM_MEMBER PotentialSample sample(const Vector &p) const {
-    if (term.type != TermType::MODE) {
-      const bool rotated = phase.re != 1.0f || phase.im != 0.0f;
-      const Vector local = rotated
-                               ? Vector(phase.re * p.x - phase.im * p.z, p.y,
-                                        phase.im * p.x + phase.re * p.z)
-                               : p;
-      const auto raw = invariant_sample(term.type, local);
-      const Vector gradient =
-          rotated
-              ? Vector(phase.re * raw.gradient.x + phase.im * raw.gradient.z,
-                       raw.gradient.y,
-                       -phase.im * raw.gradient.x + phase.re * raw.gradient.z)
-              : raw.gradient;
-      return {scale * raw.value, gradient * scale};
-    }
+  PotentialSample sample(const Vector &p) const {
+    if (term.type != TermType::MODE)
+      return sample_invariant(p);
     Complex power(1.0f, 0.0f);
     for (int i = 0; i < term.m; ++i)
       power = power * Complex(p.x, p.z);
@@ -216,6 +203,24 @@ struct PreparedTerm {
                 (phase * power).re,
             SHMath::spherical_harmonic_gradient_unchecked(term.l, term.m, p,
                                                           scale, phase)};
+  }
+
+private:
+  /** @brief Samples a prepared invariant term.
+   * @param p Unit direction.
+   * @return Scaled invariant value and ambient gradient. */
+  HS_ITCM_MEMBER PotentialSample sample_invariant(const Vector &p) const {
+    const bool rotated = phase.re != 1.0f || phase.im != 0.0f;
+    const Vector local = rotated ? Vector(phase.re * p.x - phase.im * p.z, p.y,
+                                          phase.im * p.x + phase.re * p.z)
+                                 : p;
+    const auto raw = invariant_sample(term.type, local);
+    const Vector gradient =
+        rotated ? Vector(phase.re * raw.gradient.x + phase.im * raw.gradient.z,
+                         raw.gradient.y,
+                         -phase.im * raw.gradient.x + phase.re * raw.gradient.z)
+                : raw.gradient;
+    return {scale * raw.value, gradient * scale};
   }
 };
 
