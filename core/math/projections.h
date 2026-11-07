@@ -350,6 +350,21 @@ peirce_projection(const math::Vector &v, float central_meridian,
       hs::clamp(cos_a * cos_b + sin_product, -1.0f, 1.0f);
   float m = asinf(sqrtf(fmaxf(0.0f, 1.0f + fminf(0.0f, cos_sum))));
   float n = asinf(sqrtf(fabsf(1.0f - fmaxf(0.0f, cos_difference))));
+  if (fabsf(y) < 0.005f) {
+    // Rationalize the cancelling angle terms and retain both amplitude legs.
+    const float y_sq = y * y;
+    const float product = cos_a * cos_b;
+    const float stable_sine =
+        sqrtf((y_sq + cos_a * cos_a) * (y_sq + cos_b * cos_b));
+    const float sum = product > 0.0f ? -y_sq / (stable_sine + product)
+                                     : product - stable_sine;
+    const float difference =
+        product < 0.0f ? y_sq / (stable_sine - product) : product + stable_sine;
+    const float m_complement = hs::clamp(-sum, 0.0f, 1.0f);
+    const float n_complement = hs::clamp(difference, 0.0f, 1.0f);
+    m = atan2f(sqrtf(1.0f - m_complement), sqrtf(m_complement));
+    n = atan2f(sqrtf(1.0f - n_complement), sqrtf(n_complement));
+  }
   if (sl < 0.0f)
     m = -m;
   if (cl > 0.0f)
@@ -458,6 +473,10 @@ peirce_projection(const math::Vector &v, float central_meridian,
  */
 HS_O3_FN inline ProjectionKernelResult
 peirce_projection_fast_square(const math::Vector &v) {
+  // Equatorial inverse-trig endpoints amplify rotation rounding.
+  constexpr float EQUATOR_PRECISION_BAND = 0.005f;
+  if (fabsf(v.y) < EQUATOR_PRECISION_BAND)
+    return peirce_projection(v, 0.0f, PeirceLayout::SQUARE, 0.0f);
   const float cos_a = hs::clamp((v.z + v.x) * PEIRCE_INV_SQRT_TWO, -1.0f, 1.0f);
   const float cos_b = hs::clamp((v.z - v.x) * PEIRCE_INV_SQRT_TWO, -1.0f, 1.0f);
   const float sin_product =
