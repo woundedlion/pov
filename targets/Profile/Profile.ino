@@ -202,7 +202,6 @@ public:
 #endif
     HS_CHECK(Pullback::Modulation::valid(config),
              "invalid profile modulation recipe");
-    this->setAnimationsPaused(false);
     hs::log(
         "modulation recipe: source=%d mechanic=%d evaluation=%d temporal=%d",
         HS_PROFILE_MODULATION_SOURCE, HS_PROFILE_MODULATION_MECHANIC,
