@@ -185,7 +185,7 @@ public:
     const uint32_t primask = hs::save_disable_interrupts();
     const bool claimed = edge_mailbox.try_claim(now, cached_gap_timeout_cycles,
                                                 cached_max_burst_cycles, out);
-    edge_mailbox.age_prior(now, cached_glitch_filter_cycles);
+    edge_mailbox.age_prior(now, protocol_config.glitch_filter_cycles);
     hs::restore_interrupts(primask);
     return claimed;
   }
@@ -360,7 +360,6 @@ private:
   HS_FLASH_MEMBER void cache_config_bounds() {
     cached_gap_timeout_cycles = protocol_config.gap_timeout_cycles();
     cached_max_burst_cycles = protocol_config.max_burst_cycles();
-    cached_glitch_filter_cycles = protocol_config.glitch_filter_cycles;
     prev_burst_stale_cycles = protocol_config.col_cycles(
         protocol_config.acquire_quiet_cols + protocol_config.gap_timeout_cols);
   }
@@ -709,7 +708,6 @@ private:
 
   uint32_t cached_gap_timeout_cycles = 0;
   uint32_t cached_max_burst_cycles = 0;
-  uint32_t cached_glitch_filter_cycles = 0;
   Config protocol_config;
   Flywheel fly;
   FlipGate gate;
