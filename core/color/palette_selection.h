@@ -9,7 +9,7 @@
 
 #include <array>
 #include <cstdint>
-#include "core/color/generative_palette.h"
+#include "core/color/palette_recipe.h"
 
 /** @brief Palette source selected by authored color stages. */
 enum class AuthoredPaletteType : uint8_t {

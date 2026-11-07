@@ -9,7 +9,7 @@
  */
 
 #include <array>
-#include "core/math/3dmath.h"
+#include <cstdint>
 
 /** @brief Neutral chroma shared by authored palette controls. */
 inline constexpr float PALETTE_DEFAULT_CHROMA = 0.62f;

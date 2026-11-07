@@ -8,6 +8,7 @@
  * @brief Cached authored palette-source selection and baking.
  */
 
+#include "core/color/generative_palette.h"
 #include "core/color/palettes.h"
 #include "core/color/palette_selection.h"
 
