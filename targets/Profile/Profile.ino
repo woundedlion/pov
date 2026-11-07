@@ -119,8 +119,32 @@
 #error "HS_PROFILE_AUTO_RESUME requires HS_PROFILE_PRESET"
 #endif
 
+#if defined(HS_PROFILE_PRESET_TRANSITION) && !defined(HS_PROFILE_AUTO_RESUME)
+#error "HS_PROFILE_PRESET_TRANSITION requires HS_PROFILE_AUTO_RESUME"
+#endif
+
+#if defined(HS_PROFILE_MODULATION_MECHANIC) &&                                 \
+    !defined(HS_PROFILE_MODULATION_SOURCE)
+#error "HS_PROFILE_MODULATION_MECHANIC requires HS_PROFILE_MODULATION_SOURCE"
+#endif
+
+#if defined(HS_PROFILE_MODULATION_EVALUATION) &&                               \
+    !defined(HS_PROFILE_MODULATION_SOURCE)
+#error "HS_PROFILE_MODULATION_EVALUATION requires HS_PROFILE_MODULATION_SOURCE"
+#endif
+
+#if defined(HS_PROFILE_MODULATION_NOISE_OCTAVES) &&                            \
+    !defined(HS_PROFILE_MODULATION_SOURCE)
+#error                                                                         \
+    "HS_PROFILE_MODULATION_NOISE_OCTAVES requires HS_PROFILE_MODULATION_SOURCE"
+#endif
+
 #if defined(HS_MINDSPLATTER_REPLAY_AB) && !defined(HS_MINDSPLATTER_REPLAY)
 #error "HS_MINDSPLATTER_REPLAY_AB requires HS_MINDSPLATTER_REPLAY"
+#endif
+
+#if defined(HS_MINDSPLATTER_REPLAY_CORPUS) && !defined(HS_MINDSPLATTER_REPLAY)
+#error "HS_MINDSPLATTER_REPLAY_CORPUS requires HS_MINDSPLATTER_REPLAY"
 #endif
 
 // Global-scope declarations stop the .ino converter injecting internal-linkage
