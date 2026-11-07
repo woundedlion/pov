@@ -30,6 +30,25 @@
 namespace SDF {
 
 #include "core/render/sdf/face_lut.h"
+/** @brief Gnomonic coordinates with a sign-preserving horizon clamp.
+ * @param v Direction to project.
+ * @param center Projection axis.
+ * @param u First tangent axis.
+ * @param w Second tangent axis.
+ * @param px Receives the first plane coordinate.
+ * @param py Receives the second plane coordinate. */
+HS_HOT_INLINE inline void gnomonic_project(const math::Vector &v,
+                                           const math::Vector &center,
+                                           const math::Vector &u,
+                                           const math::Vector &w, float &px,
+                                           float &py) {
+  float depth = math::dot(v, center);
+  if (fabsf(depth) < math::TOLERANCE)
+    depth = copysignf(math::TOLERANCE, depth);
+  px = math::dot(v, u) / depth;
+  py = math::dot(v, w) / depth;
+}
+
 /**
  * @brief Scratch buffer for Face computations to avoid allocations.
  */

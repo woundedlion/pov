@@ -146,11 +146,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     float mx = 0.0f, my = 0.0f;
     for (int k = 0; k < count; ++k) {
       const math::Vector &v = mesh.vertices[idx[k]];
-      float d = math::dot(v, center);
-      if (fabsf(d) < math::TOLERANCE)
-        d = copysignf(math::TOLERANCE, d);
-      zx[k] = math::dot(v, u) / d;
-      zy[k] = math::dot(v, w) / d;
+      SDF::gnomonic_project(v, center, u, w, zx[k], zy[k]);
       mx += zx[k];
       my += zy[k];
     }

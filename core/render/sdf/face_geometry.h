@@ -75,14 +75,8 @@ setup_frame_and_polygon(std::span<const math::Vector> vertices,
   plane_max_x = plane_max_y = -FLT_MAX;
   for (int i = 0; i < count; ++i) {
     const math::Vector &v = scratch.verts_3d[i];
-    // Gnomonic projection divides by d = cos(angle from face center),
-    // singular at 90 degrees from the center; clamp d away from zero,
-    // sign-preserving.
-    float d = math::dot(v, center);
-    if (fabsf(d) < math::TOLERANCE)
-      d = copysignf(math::TOLERANCE, d);
-    float px = math::dot(v, basis_u) / d;
-    float py = math::dot(v, basis_w) / d;
+    float px, py;
+    gnomonic_project(v, center, basis_u, basis_w, px, py);
 
     scratch.poly_2d[i] = math::Vector(px, py, 0);
     plane_min_x = fminf(plane_min_x, px);
