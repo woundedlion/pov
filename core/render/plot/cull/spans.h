@@ -173,8 +173,8 @@ template <int W> static HS_HOT_INLINE inline float wrap_one_period(float d) {
 /**
  * @brief Geodesic screen-column arc from precomputed endpoint columns.
  * @tparam W Rasterization width (pixel grid).
- * @param ca Precomputed vector_to_theta<W>(a).
- * @param cb Precomputed vector_to_theta<W>(b).
+ * @param ca Precomputed vector_to_column<W>(a).
+ * @param cb Precomputed vector_to_column<W>(b).
  * @param a Edge start (unit sphere point).
  * @param es Shared setup from make_geodesic_edge_span(a, b).
  * @param col_s Output: arc start column, in [0, W).
@@ -214,7 +214,7 @@ geodesic_col_span_cols(float ca, float cb, const math::Vector &a,
       math::Vector v_perp = math::cross(es.axis, a);
       math::Vector end =
           a * math::fast_cosf(es.total) + v_perp * math::fast_sinf(es.total);
-      ce = math::vector_to_theta<W>(end);
+      ce = math::vector_to_column<W>(end);
     } else {
       ce = cb;
     }
@@ -247,8 +247,8 @@ template <int W>
 static inline bool
 geodesic_col_span(const math::Vector &a, const math::Vector &b,
                   const GeodesicEdgeSpan &es, int &col_s, int &col_len) {
-  return geodesic_col_span_cols<W>(math::vector_to_theta<W>(a),
-                                   math::vector_to_theta<W>(b), a, es, col_s,
+  return geodesic_col_span_cols<W>(math::vector_to_column<W>(a),
+                                   math::vector_to_column<W>(b), a, es, col_s,
                                    col_len);
 }
 
@@ -583,56 +583,49 @@ static inline bool
 planar_col_span(const math::Vector &a, const math::Basis &planar_basis,
                 const PlanarEdgeSpan &es, int &col_s, int &col_len,
                 math::Vector *end_sample = nullptr) {
-  const float ca = math::vector_to_theta<W>(a);
-  float s_f, len_f;
+  const float ca = math::vector_to_column<W>(a);
+  float min_sp2 = 1.0f - a.y * a.y; // squared sin(phi), minimized over samples
+  float cum = 0.0f, cum_lo = 0.0f, cum_hi = 0.0f;
+  float prev = ca;
+  auto step = [&](const math::Vector &s) {
+    float c = math::vector_to_column<W>(s);
+    float d = c - prev;
+    if (d > W * 0.5f)
+      d -= W;
+    else if (d < -W * 0.5f)
+      d += W;
+    cum += d;
+    cum_lo = fminf(cum_lo, cum);
+    cum_hi = fmaxf(cum_hi, cum);
+    prev = c;
+    const float sy = newton_unit(s).y;
+    min_sp2 = fminf(min_sp2, 1.0f - sy * sy);
+  };
+  for (const math::Vector &s : es.interior)
+    step(s);
+  math::Vector end =
+      azimuthal_unproject(es.p1.x + es.dx, es.p1.y + es.dy, planar_basis);
+  if (end_sample != nullptr)
+    *end_sample = end;
+  step(end);
 
-  {
-    float min_sp2 =
-        1.0f - a.y * a.y; // squared sin(phi), minimized over samples
-    float cum = 0.0f, cum_lo = 0.0f, cum_hi = 0.0f;
-    float prev = ca;
-    auto step = [&](const math::Vector &s) {
-      float c = math::vector_to_theta<W>(s);
-      float d = c - prev;
-      if (d > W * 0.5f)
-        d -= W;
-      else if (d < -W * 0.5f)
-        d += W;
-      cum += d;
-      cum_lo = fminf(cum_lo, cum);
-      cum_hi = fmaxf(cum_hi, cum);
-      prev = c;
-      const float sy = newton_unit(s).y;
-      min_sp2 = fminf(min_sp2, 1.0f - sy * sy);
-    };
-    for (const math::Vector &s : es.interior)
-      step(s);
-    math::Vector end = azimuthal_unproject(es.p1.first + es.dx,
-                                           es.p1.second + es.dy, planar_basis);
-    if (end_sample != nullptr)
-      *end_sample = end;
-    step(end);
+  // Worst-case sin(phi) anywhere on the edge: phi is 1-Lipschitz in arc
+  // length and sin is 1-Lipschitz in phi, so between samples it drifts by at
+  // most gap_arc.
+  const float sin_phi_worst = sqrtf(fmaxf(0.0f, min_sp2)) - es.gap_arc;
+  if (sin_phi_worst < MIN_SIN_PHI)
+    return false;
+  // Column movement inside one gap; also the proof bound for reading each
+  // sample-to-sample delta the short way (must stay well under W/2).
+  const float margin = es.gap_arc *
+                           (static_cast<float>(W) / (2.0f * math::PI_F)) /
+                           sin_phi_worst +
+                       1.0f;
+  if (margin >= W * 0.25f)
+    return false;
 
-    // Worst-case sin(phi) anywhere on the edge: phi is 1-Lipschitz in arc
-    // length and sin is 1-Lipschitz in phi, so between samples it drifts by at
-    // most gap_arc.
-    const float sin_phi_worst = sqrtf(fmaxf(0.0f, min_sp2)) - es.gap_arc;
-    if (sin_phi_worst < MIN_SIN_PHI)
-      return false;
-    // Column movement inside one gap; also the proof bound for reading each
-    // sample-to-sample delta the short way (must stay well under W/2).
-    const float margin = es.gap_arc *
-                             (static_cast<float>(W) / (2.0f * math::PI_F)) /
-                             sin_phi_worst +
-                         1.0f;
-    if (margin >= W * 0.25f)
-      return false;
-
-    s_f = ca + cum_lo - margin;
-    len_f = (cum_hi - cum_lo) + 2.0f * margin;
-  }
-
-  finish_col_span<W>(s_f, len_f, col_s, col_len);
+  finish_col_span<W>(ca + cum_lo - margin, (cum_hi - cum_lo) + 2.0f * margin,
+                     col_s, col_len);
   return true;
 }
 

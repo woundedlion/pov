@@ -76,10 +76,8 @@ template <typename Counters = void> struct MotionRipple {
   /** @brief Includes the final endpoint in the capture rejection band.
    * @param p Final wave endpoint. */
   HS_HOT_INLINE void widen(const Animation::RippleParams &p) {
-    params.cos_threshold_min =
-        fmaxf(params.cos_threshold_min, p.cos_threshold_min);
-    params.cos_threshold_max =
-        fminf(params.cos_threshold_max, p.cos_threshold_max);
+    params.cos_near = fmaxf(params.cos_near, p.cos_near);
+    params.cos_far = fminf(params.cos_far, p.cos_far);
   }
 
   /** @brief Applies the wave at a frame fraction after its band test.
@@ -92,7 +90,7 @@ template <typename Counters = void> struct MotionRipple {
       Counters::candidate();
 #endif
     const float cosine = math::dot(v, params.center);
-    if (cosine > params.cos_threshold_min || cosine < params.cos_threshold_max)
+    if (cosine > params.cos_near || cosine < params.cos_far)
       return v;
 #if HS_ENABLE_TEST_HOOKS
     if constexpr (!std::is_void_v<Counters>)

@@ -80,7 +80,7 @@ struct FragmentDrawParams {
 template <int W, int H, typename PipelineT, typename FillFn>
 inline void draw_fragments(PipelineT &pipeline, Canvas &canvas,
                            VertexShaderRef vertex_shader,
-                           FragmentShaderFn fragment_shader,
+                           FragmentShaderRef fragment_shader,
                            const FragmentDrawParams &params, FillFn &&fill) {
   HS_CHECK(params.loop_seam == nullptr || params.close_loop,
            "a raster seam fragment requires a closed loop");
@@ -198,7 +198,7 @@ struct Line {
    */
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const Fragment &f1,
-                   const Fragment &f2, FragmentShaderFn fragment_shader,
+                   const Fragment &f2, FragmentShaderRef fragment_shader,
                    VertexShaderRef vertex_shader) {
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
                          {.capacity = 4},
@@ -217,7 +217,7 @@ struct Line {
    */
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const Fragment &f1,
-                   const Fragment &f2, FragmentShaderFn fragment_shader) {
+                   const Fragment &f2, FragmentShaderRef fragment_shader) {
     draw<W, H>(pipeline, canvas, f1, f2, fragment_shader, {});
   }
 };
@@ -319,7 +319,7 @@ struct Multiline {
    */
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const auto &vertices,
-                   FragmentShaderFn fragment_shader,
+                   FragmentShaderRef fragment_shader,
                    VertexShaderRef vertex_shader, bool closed = false) {
     Fragment loop_seam;
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
@@ -343,7 +343,7 @@ struct Multiline {
    */
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const auto &vertices,
-                   FragmentShaderFn fragment_shader, bool closed = false) {
+                   FragmentShaderRef fragment_shader, bool closed = false) {
     draw<W, H>(pipeline, canvas, vertices, fragment_shader, {}, closed);
   }
 };
@@ -578,7 +578,7 @@ draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
                         .chained = true,
                         .rigid_lattice = true};
   rasterize_column_edges<W, H, {.timed = true, .column_edge_lengths = true}>(
-      erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
+      erased, canvas, points, TimedShaderRef(timed_shader), batch, poses,
       motion_bound + spin, false, spin);
 }
 
@@ -824,7 +824,7 @@ struct Ring {
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas,
                    const math::Basis &basis, float radius,
-                   FragmentShaderFn fragment_shader,
+                   FragmentShaderRef fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     draw_fragments<W, H>(
         pipeline, canvas, vertex_shader, fragment_shader,
@@ -846,7 +846,7 @@ struct Ring {
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas,
                    const math::Basis &basis, float radius,
-                   FragmentShaderFn fragment_shader, float phase = 0) {
+                   FragmentShaderRef fragment_shader, float phase = 0) {
     draw<W, H>(pipeline, canvas, basis, radius, fragment_shader, {}, phase);
   }
 };
@@ -935,7 +935,7 @@ template <typename Projection> struct Polygon {
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas,
                    const math::Basis &basis, float radius, int num_sides,
-                   FragmentShaderFn fragment_shader,
+                   FragmentShaderRef fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     HS_CHECK(num_sides >= 1, "Polygon::draw: num_sides %d < 1", num_sides);
     math::Basis projection_basis;
@@ -966,7 +966,7 @@ template <typename Projection> struct Polygon {
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas,
                    const math::Basis &basis, float radius, int num_sides,
-                   FragmentShaderFn fragment_shader, float phase = 0) {
+                   FragmentShaderRef fragment_shader, float phase = 0) {
     draw<W, H>(pipeline, canvas, basis, radius, num_sides, fragment_shader, {},
                phase);
   }
@@ -1095,7 +1095,7 @@ struct DistortedRing {
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas,
                    const math::Basis &basis, float radius, ScalarFn shift_fn,
-                   FragmentShaderFn fragment_shader,
+                   FragmentShaderRef fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
                          {.capacity = W + 2, .omit_end = true},
@@ -1119,7 +1119,7 @@ struct DistortedRing {
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas,
                    const math::Basis &basis, float radius, ScalarFn shift_fn,
-                   FragmentShaderFn fragment_shader, float phase = 0) {
+                   FragmentShaderRef fragment_shader, float phase = 0) {
     draw<W, H>(pipeline, canvas, basis, radius, shift_fn, fragment_shader, {},
                phase);
   }
@@ -1440,7 +1440,7 @@ public:
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas,
                    const math::Basis &basis, float radius, int num_sides,
-                   FragmentShaderFn fragment_shader,
+                   FragmentShaderRef fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     HS_CHECK(num_sides >= 1, "Star::draw: num_sides %d < 1", num_sides);
     math::Basis projection_basis;
@@ -1473,7 +1473,7 @@ public:
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw_continuous(PipelineT &pipeline, Canvas &canvas,
                               const math::Basis &basis, float radius,
-                              int num_sides, FragmentShaderFn fragment_shader,
+                              int num_sides, FragmentShaderRef fragment_shader,
                               float phase = 0) {
     HS_CHECK(num_sides >= 1, "Star::draw_continuous: num_sides %d < 1",
              num_sides);
@@ -1506,7 +1506,7 @@ public:
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas,
                    const math::Basis &basis, float radius, int num_sides,
-                   FragmentShaderFn fragment_shader, float phase = 0) {
+                   FragmentShaderRef fragment_shader, float phase = 0) {
     draw<W, H>(pipeline, canvas, basis, radius, num_sides, fragment_shader, {},
                phase);
   }
@@ -1569,7 +1569,7 @@ struct Flower {
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas,
                    const math::Basis &basis, float radius, int num_sides,
-                   FragmentShaderFn fragment_shader,
+                   FragmentShaderRef fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     HS_CHECK(num_sides >= 1, "Flower::draw: num_sides %d < 1", num_sides);
     // Center the chart on the antipode pole, opposite the petal ring: projecting
@@ -1602,7 +1602,7 @@ struct Flower {
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas,
                    const math::Basis &basis, float radius, int num_sides,
-                   FragmentShaderFn fragment_shader, float phase = 0) {
+                   FragmentShaderRef fragment_shader, float phase = 0) {
     draw<W, H>(pipeline, canvas, basis, radius, num_sides, fragment_shader, {},
                phase);
   }

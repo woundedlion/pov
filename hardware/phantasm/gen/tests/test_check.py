@@ -14,9 +14,9 @@ import sexp  # noqa: E402
 
 
 def expected_nodes():
-    """EXPECT -> {net: [(ref, pin), ...]}, numbering symmetric terminals 1, 2."""
+    """EXPECT_REV_1_2 -> {net: [(ref, pin), ...]}, numbering symmetric terminals 1, 2."""
     seq, nets = {}, {}
-    for name, keys in sorted(check.EXPECT.items()):
+    for name, keys in sorted(check.EXPECT_REV_1_2.items()):
         nodes = []
         for key in sorted(keys):
             if "." in key:

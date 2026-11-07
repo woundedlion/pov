@@ -996,8 +996,8 @@ private:
           }
           for (int k = 0; k < corners; ++k) {
             const auto at = Plot::azimuthal_project_exact(ring[k].pos, *chart);
-            star_chords.chart_x()[k] = at.first;
-            star_chords.chart_y()[k] = at.second;
+            star_chords.chart_x()[k] = at.x;
+            star_chords.chart_y()[k] = at.y;
           }
         }
         const math::Quaternion start_turn =

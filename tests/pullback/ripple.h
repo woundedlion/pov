@@ -487,8 +487,8 @@ inline void test_pullback_radial_validity_lifetime() {
   manual.count = 1;
   auto &group = manual.groups[0];
   group.center = math::Y_AXIS;
-  group.cos_threshold_min = 1.0f;
-  group.cos_threshold_max = -1.0f;
+  group.cos_near = 1.0f;
+  group.cos_far = -1.0f;
   group.previous.fill({0.0f, .1f});
   group.current.fill({0.0f, .1f});
   Pullback::SurfaceResult result;
@@ -536,12 +536,10 @@ inline void test_pullback_radial_ripple_endpoint_reuse() {
       HS_EXPECT_EQ(
           std::memcmp(&ACTUAL.center, &EXPECTED.center, sizeof(ACTUAL.center)),
           0);
-      HS_EXPECT_EQ(std::memcmp(&ACTUAL.cos_threshold_min,
-                               &EXPECTED.cos_threshold_min, sizeof(float)),
-                   0);
-      HS_EXPECT_EQ(std::memcmp(&ACTUAL.cos_threshold_max,
-                               &EXPECTED.cos_threshold_max, sizeof(float)),
-                   0);
+      HS_EXPECT_EQ(
+          std::memcmp(&ACTUAL.cos_near, &EXPECTED.cos_near, sizeof(float)), 0);
+      HS_EXPECT_EQ(
+          std::memcmp(&ACTUAL.cos_far, &EXPECTED.cos_far, sizeof(float)), 0);
       HS_EXPECT_TRUE(ACTUAL.current_key.matches(EXPECTED.current_key));
 #if HS_TEST_FAST_MATH
       for (size_t sample = 0; sample < ACTUAL.previous.size(); ++sample) {
@@ -762,8 +760,8 @@ inline void test_pullback_radial_ripple_lazy_fallback() {
   tables.enabled = true;
   tables.count = 2;
   for (auto &group : tables.groups) {
-    group.cos_threshold_min = 1.0f;
-    group.cos_threshold_max = -1.0f;
+    group.cos_near = 1.0f;
+    group.cos_far = -1.0f;
     group.previous.fill({0.2f, 0.2f});
     group.current.fill({0.2f, 0.2f});
   }

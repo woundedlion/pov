@@ -115,7 +115,6 @@ public:
     // One trail at a time stages its fragments, the pre-shader positions the
     // deferred hole shader reads, and the gate arrays in scratch_a, all live
     // across rasterize. A live tip is appended past the stored history.
-    static constexpr size_t TRAIL_POINTS = TRAIL_LEN + 1;
     static_assert(TRAIL_POINTS * (sizeof(Fragment) + sizeof(math::Vector)) +
                           Plot::rasterize_scratch_a_bytes<W>(0, TRAIL_POINTS) <=
                       SCRATCH_BYTES,
@@ -231,6 +230,8 @@ private:
 
   /** @brief Per-particle trail length. */
   static constexpr int TRAIL_LEN = 8;
+  /** Trail capacity including the live tip. */
+  static constexpr int TRAIL_POINTS = TRAIL_LEN + 1;
 
   /** @brief Frames between stored trail anchors. */
   static constexpr int TRAIL_SAMPLE_STRIDE = 3;
@@ -254,15 +255,13 @@ private:
 
   /** @brief scratch_a split: one still trail's staging, or a column chunk. */
   static constexpr size_t SCRATCH_BYTES = 16 * 1024;
-  static_assert(COLUMN_CHUNK_VERTICES *
-                            (sizeof(math::Vector) + sizeof(TrailVertex) +
-                             sizeof(Plot::Mesh::Edge)) +
-                        (TRAIL_LEN + 1) *
-                            (sizeof(TrailVertex) + 3 * sizeof(math::Vector)) +
-                        8 * alignof(TrailVertex) +
-                        Plot::Mesh::column_scratch_a_bytes() <=
-                    SCRATCH_BYTES,
-                "MindSplatter column chunk exceeds its scratch_a split");
+  static_assert(
+      COLUMN_CHUNK_VERTICES * (sizeof(math::Vector) + sizeof(TrailVertex) +
+                               sizeof(Plot::Mesh::Edge)) +
+              TRAIL_POINTS * (sizeof(TrailVertex) + 3 * sizeof(math::Vector)) +
+              8 * alignof(TrailVertex) + Plot::Mesh::column_scratch_a_bytes() <=
+          SCRATCH_BYTES,
+      "MindSplatter column chunk exceeds its scratch_a split");
 
   /** @brief scratch_b split: the column chunk's vertex paths. */
   static constexpr size_t COLUMN_SCRATCH_B_BYTES =
@@ -659,7 +658,6 @@ private:
     ScratchScope chunk_scope(scratch_arena_a);
     Plot::Mesh::ColumnChunk<COLUMN_CHUNK_VERTICES, TrailVertex> chunk(
         scratch_arena_a);
-    constexpr int TRAIL_POINTS = TRAIL_LEN + 1;
     auto *trail = scratch_arena_a.allocate_n<TrailVertex>(TRAIL_POINTS);
     auto *starts = scratch_arena_a.allocate_n<math::Vector>(TRAIL_POINTS);
     auto *warped = scratch_arena_a.allocate_n<math::Vector>(TRAIL_POINTS);

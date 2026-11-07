@@ -78,12 +78,13 @@ struct DisplaceCurl : PhaseClockModel<NoisePhaseState> {
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &params, const Prepared &prepared) {
     return Kernel::displace(
-        input, Surface::curl_noise(
-                   input.dir, *prepared.noise,
-                   static_cast<math::NoiseBasis>(params.basis),
-                   static_cast<Surface::Integrator>(params.integrator),
-                   static_cast<math::TangentLimit>(params.limit), params.scale,
-                   prepared.loop.loop_offset, params.strength, true));
+        input,
+        Surface::curl_noise(input.dir, *prepared.noise,
+                            static_cast<math::NoiseBasis>(params.basis),
+                            static_cast<Surface::Integrator>(params.integrator),
+                            static_cast<math::TangentLimit>(params.limit),
+                            params.scale, prepared.loop.loop_offset,
+                            params.strength, MEASURE_PATH_LENGTH));
   }
 };
 
@@ -121,12 +122,12 @@ struct DisplaceDirect : PhaseClockModel<NoisePhaseState> {
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &params, const Prepared &prepared) {
     return Kernel::displace(
-        input,
-        Surface::direct_noise(input.dir, *prepared.noise,
-                              static_cast<math::NoiseBasis>(params.basis),
-                              params.scale, prepared.direct.loop_offset,
-                              params.strength, prepared.direct.direction_cos,
-                              prepared.direct.direction_sin, true));
+        input, Surface::direct_noise(
+                   input.dir, *prepared.noise,
+                   static_cast<math::NoiseBasis>(params.basis), params.scale,
+                   prepared.direct.loop_offset, params.strength,
+                   prepared.direct.direction_cos, prepared.direct.direction_sin,
+                   MEASURE_PATH_LENGTH));
   }
 };
 
@@ -219,7 +220,8 @@ struct DisplaceRipple : ValueStateModel<RipplePhaseState> {
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &, const Prepared &prepared) {
     return Kernel::displace(
-        input, SphereAnimation::grouped_ripples(input.dir, prepared, true));
+        input, SphereAnimation::grouped_ripples(input.dir, prepared,
+                                                MEASURE_PATH_LENGTH));
   }
 };
 
@@ -305,7 +307,8 @@ struct LensTwist : ValueStateModel<TwistOrbitState> {
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &, const Prepared &prepared) {
-    return Kernel::lens(input, Lens::twist(input.dir, prepared), true);
+    return Kernel::lens(input, Lens::twist(input.dir, prepared),
+                        MEASURE_PATH_LENGTH);
   }
 };
 
@@ -338,7 +341,8 @@ struct LensMobius : StatelessModel {
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &, const Prepared &prepared) {
-    return Kernel::lens(input, Lens::mobius(input.dir, prepared.mobius), true);
+    return Kernel::lens(input, Lens::mobius(input.dir, prepared.mobius),
+                        MEASURE_PATH_LENGTH);
   }
 };
 

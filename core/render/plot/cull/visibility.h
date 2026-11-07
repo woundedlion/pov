@@ -936,9 +936,9 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
     cols = scratch_arena_a.allocate_n<float>(n);
     float cum = 0.0f, cum_lo = 0.0f, cum_hi = 0.0f;
     bool walk_safe = true;
-    cols[0] = math::vector_to_theta<W>(trail[0].pos);
+    cols[0] = math::vector_to_column<W>(trail[0].pos);
     for (size_t k = 1; k < n; ++k) {
-      cols[k] = math::vector_to_theta<W>(trail[k].pos);
+      cols[k] = math::vector_to_column<W>(trail[k].pos);
       // A geodesic edge sweeps at most W/2 columns, so the short-way delta
       // covers it except near exactly W/2, where its sign is float noise.
       float d = cols[k] - cols[k - 1];

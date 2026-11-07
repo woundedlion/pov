@@ -951,10 +951,41 @@ private:
     }
   }
 
-  /** @brief Ring and knot-step trigonometry. */
-  struct KnotStep;
-  /** @brief Recurrence over a ring's knot positions. */
-  struct RingKnotWalk;
+  /** @brief A ring's colatitude and knot-step trig, passed in VFP registers. */
+  struct KnotStep {
+    float cos_t; /**< Cosine of the ring colatitude. */
+    float sin_t; /**< Sine of the ring colatitude. */
+    float cos_d; /**< Cosine of one knot cell's azimuth step. */
+    float sin_d; /**< Sine of one knot cell's azimuth step. */
+  };
+
+  /**
+   * @brief Steps a ring's knot positions around its azimuth by the
+   * angle-addition recurrence, starting at knot 0.
+   */
+  struct RingKnotWalk {
+    const math::Basis &basis; /**< Ring frame; basis.v is the stack axis. */
+    float cos_t;              /**< Cosine of the ring colatitude. */
+    float sin_t;              /**< Sine of the ring colatitude. */
+    float cos_d;              /**< Cosine of one knot cell's azimuth step. */
+    float sin_d;              /**< Sine of one knot cell's azimuth step. */
+    float cos_a = 1.0f;       /**< Cosine of the current knot's azimuth. */
+    float sin_a = 0.0f;       /**< Sine of the current knot's azimuth. */
+
+    /** @brief Unit position of the current knot. */
+    HS_HOT_INLINE math::Vector position() const {
+      return ((basis.v * cos_t) +
+              ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t)
+          .normalized();
+    }
+
+    /** @brief Moves to the next knot. */
+    HS_HOT_INLINE void advance() {
+      const float next_cos = cos_a * cos_d - sin_a * sin_d;
+      sin_a = sin_a * cos_d + cos_a * sin_d;
+      cos_a = next_cos;
+    }
+  };
 
   /** @brief Marks knots whose supported geometry can cross an arm boundary.
    * @param basis Ring frame.
@@ -1078,42 +1109,6 @@ private:
       rings.set_alpha(slot, cache.alphas[i]);
     }
   }
-
-  /** @brief A ring's colatitude and knot-step trig, passed in VFP registers. */
-  struct KnotStep {
-    float cos_t; /**< Cosine of the ring colatitude. */
-    float sin_t; /**< Sine of the ring colatitude. */
-    float cos_d; /**< Cosine of one knot cell's azimuth step. */
-    float sin_d; /**< Sine of one knot cell's azimuth step. */
-  };
-
-  /**
-   * @brief Steps a ring's knot positions around its azimuth by the
-   * angle-addition recurrence, starting at knot 0.
-   */
-  struct RingKnotWalk {
-    const math::Basis &basis; /**< Ring frame; basis.v is the stack axis. */
-    float cos_t;              /**< Cosine of the ring colatitude. */
-    float sin_t;              /**< Sine of the ring colatitude. */
-    float cos_d;              /**< Cosine of one knot cell's azimuth step. */
-    float sin_d;              /**< Sine of one knot cell's azimuth step. */
-    float cos_a = 1.0f;       /**< Cosine of the current knot's azimuth. */
-    float sin_a = 0.0f;       /**< Sine of the current knot's azimuth. */
-
-    /** @brief Unit position of the current knot. */
-    HS_HOT_INLINE math::Vector position() const {
-      return ((basis.v * cos_t) +
-              ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t)
-          .normalized();
-    }
-
-    /** @brief Moves to the next knot. */
-    HS_HOT_INLINE void advance() {
-      const float next_cos = cos_a * cos_d - sin_a * sin_d;
-      sin_a = sin_a * cos_d + cos_a * sin_d;
-      cos_a = next_cos;
-    }
-  };
 
   /**
    * @brief Bakes one ring's centerline shifts with each noise octave sampled on
@@ -1800,11 +1795,6 @@ private:
     /** @brief Fragment alpha of slot @p s. */
     HS_HOT_INLINE float frag_alpha(int s) const { return alphas[s]; }
 
-  private:
-    SweepCache *cache = nullptr; ///< Current frame's alternate shifts.
-    int ring_by_slot[SLOTS]{};   ///< Authored ring index of each slot.
-
-  public:
     /** @brief Replaces one slot's fragment alpha. */
     void set_alpha(int slot, float alpha) { alphas[slot] = alpha; }
     /** @return Writable shift row of a committed slot. */
@@ -1813,6 +1803,8 @@ private:
     Pixel *mutable_hue_row(int slot) { return hue_rows + slot * ROW; }
 
   private:
+    SweepCache *cache = nullptr;     ///< Current frame's alternate shifts.
+    int ring_by_slot[SLOTS]{};       ///< Authored ring index of each slot.
     float *shift_rows = nullptr;     /**< SLOTS shift rows. */
     Pixel *hue_rows = nullptr;       /**< SLOTS hue rows. */
     float *alphas = nullptr;         /**< Per-slot fragment alpha. */

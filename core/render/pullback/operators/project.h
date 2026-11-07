@@ -408,7 +408,7 @@ struct ProjectPeirceV3
                                   const Params &params,
                                   const Prepared &prepared) {
     return Projection::peirce(local, params.central_meridian, params.layout,
-                              params.layout_scroll, true,
+                              params.layout_scroll, MEASURE_EDGE_DISTANCE,
                               params.coordinate_scale, params.singularity_fade,
                               prepared.meridian_cos, prepared.meridian_sin);
   }
@@ -466,9 +466,9 @@ struct ProjectAiroceanV3
   static ProjectionResult project(const math::Vector &local,
                                   const Params &params,
                                   const Prepared &prepared) {
-    return Projection::airocean(local, params.layout == 1, true,
-                                params.coordinate_scale, prepared.meridian_cos,
-                                prepared.meridian_sin);
+    return Projection::airocean(local, params.layout == 1,
+                                MEASURE_EDGE_DISTANCE, params.coordinate_scale,
+                                prepared.meridian_cos, prepared.meridian_sin);
   }
 };
 

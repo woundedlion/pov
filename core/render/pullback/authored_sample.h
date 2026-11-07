@@ -15,6 +15,9 @@
 
 namespace Pullback::Source {
 
+/// Drift upper bound of the extended-drift twin-wave family, radians per frame.
+inline constexpr float EXTENDED_DRIFT_MAX = 2.0f;
+
 /** @brief Twin-wave source controls with the catalog's extended drift range.
  */
 struct AuthoredTwinWaveSourceParams : TwinWaveSourceParams {

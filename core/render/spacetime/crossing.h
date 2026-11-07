@@ -212,9 +212,9 @@ HS_HOT_INLINE bool model_track(const math::Vector &from, const math::Vector &to,
                                float deviation, float span,
                                LongitudeTrack &track) {
   const float sweep = span * (W / 2.0f);
-  track.origin = math::vector_to_theta<W>(from);
+  track.origin = math::vector_to_column<W>(from);
   track.travel = math::centered_remainder(
-      math::vector_to_theta<W>(to) - track.origin, static_cast<float>(W));
+      math::vector_to_column<W>(to) - track.origin, static_cast<float>(W));
   const float cx = to.x - from.x, cz = to.z - from.z;
   const float chord2 = cx * cx + cz * cz;
   const float along =

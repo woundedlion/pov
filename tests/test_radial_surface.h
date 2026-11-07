@@ -640,7 +640,7 @@ inline void test_radial_surface_fold_visibility() {
     }
     surface.set_knots({knots, N + 1});
     HS_EXPECT_TRUE(surface.strictly_increasing_radius());
-    Scan::RadialSurfaceBoundaryCandidates::visit_candidates_detailed(
+    Scan::RadialSurfaceBoundaryCandidates::visit_candidates(
         surface, [&](const auto &candidate) {
           if (!candidate.knot)
             return;

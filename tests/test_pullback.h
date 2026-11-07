@@ -943,7 +943,7 @@ inline void test_pullback_counting_instrumentation() {
   CountingInstrumentation::count = 0;
   static_cast<void>(CountingPipeline::shade(
       math::X_AXIS, CountingPipeline::prepare(TestFrame{})));
-  constexpr std::array EXPECTED{Pullback::ProfileEvent::SURFACE_NOISE,
+  constexpr std::array EXPECTED{Pullback::ProfileEvent::SURFACE_DISPLACE,
                                 Pullback::ProfileEvent::LENS,
                                 Pullback::ProfileEvent::PROJECTION,
                                 Pullback::ProfileEvent::PLANAR_WARP,

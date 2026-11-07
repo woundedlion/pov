@@ -98,7 +98,7 @@ public:
     const int ceiling = trail_length_ceiling();
     params.trail_ceiling = static_cast<float>(ceiling);
     filters.template get<Filter::World::Trails<TRAIL_CAPACITY>>().set_lifetime(
-        hs::clamp((int)params.trail_length, 1, ceiling));
+        hs::clamp(params.trail_length, 1, ceiling));
 
     {
       HS_PROFILE(dy_timeline_step);
@@ -397,7 +397,7 @@ private:
                      HS_HOT_INLINE { return color(v, t); };
     filters.template get<Filter::World::Trails<TRAIL_CAPACITY>>()
         .flush_per_copy(
-            WorldTrailFn(trail), 1.0f, STRAND_COPIES,
+            WorldTrailRef(trail), 1.0f, STRAND_COPIES,
             [&](const math::Vector &source, const Pixel &pixel, float,
                 float alpha, int copy) HS_HOT_INLINE {
               filters.select_copy(copy);

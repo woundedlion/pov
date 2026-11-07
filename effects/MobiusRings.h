@@ -456,29 +456,29 @@ private:
         const bool has_curve = i < ceilf(num);
         float first_index = static_cast<float>(i) / fmaxf(first_num, 1e-6f);
         float last_index = static_cast<float>(i) / fmaxf(num, 1e-6f);
-        float first = axis == 0 ? math::wrap(first_index + start.phase, 1.0f)
-                                : first_index;
-        float last =
+        float wrap_first = axis == 0
+                               ? math::wrap(first_index + start.phase, 1.0f)
+                               : first_index;
+        float wrap_last =
             axis == 0 ? math::wrap(last_index + end.phase, 1.0f) : last_index;
         if (!had_curve) {
-          first = last;
+          wrap_first = wrap_last;
           first_index = last_index;
         }
         if (!has_curve) {
-          last = first;
+          wrap_last = wrap_first;
           last_index = first_index;
         }
-        const bool wraps = axis == 0 && fabsf(last - first) > 0.5f;
+        const bool wraps = axis == 0 && fabsf(wrap_last - wrap_first) > 0.5f;
         if (wraps)
-          last = first + std::remainder(last - first, 1.0f);
-        const float initial = first, final = last;
+          wrap_last = wrap_first + std::remainder(wrap_last - wrap_first, 1.0f);
         for (int part = 0; part < (wraps ? 2 : 1); ++part) {
           ScratchScope curve_scope(scratch_arena_a);
-          const float offset = part == 0         ? 0.0f
-                               : final > initial ? -1.0f
-                                                 : 1.0f;
-          first = initial + offset;
-          last = final + offset;
+          const float offset = part == 0                ? 0.0f
+                               : wrap_last > wrap_first ? -1.0f
+                                                        : 1.0f;
+          const float first = wrap_first + offset;
+          const float last = wrap_last + offset;
           const float source_rate =
               (last - first) * (axis == 0 ? CONFORMAL_LOG_RANGE : math::PI_F);
           const auto source_path = Spacetime::PathBound::warped_great_circle(

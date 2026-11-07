@@ -52,7 +52,7 @@ inline void test_row_span_covers_arc_bulge() {
     // Dense ground truth for the rendered arc's row extent.
     float t_lo = 1e9f, t_hi = -1e9f;
     constexpr int N = 2000;
-    std::pair<float, float> p1{}, p2{};
+    Plot::ChartPoint p1{}, p2{};
     float ang = 0.0f;
     math::Vector vperp = a;
     if (planar) {
@@ -64,11 +64,10 @@ inline void test_row_span_covers_arc_bulge() {
     }
     for (int i = 0; i <= N; ++i) {
       float t = static_cast<float>(i) / N;
-      math::Vector p = planar
-                           ? Plot::azimuthal_unproject(
-                                 p1.first + (p2.first - p1.first) * t,
-                                 p1.second + (p2.second - p1.second) * t, basis)
-                           : (a * cosf(ang * t) + vperp * sinf(ang * t));
+      math::Vector p =
+          planar ? Plot::azimuthal_unproject(p1.x + (p2.x - p1.x) * t,
+                                             p1.y + (p2.y - p1.y) * t, basis)
+                 : (a * cosf(ang * t) + vperp * sinf(ang * t));
       float r = row_of(p);
       t_lo = std::min(t_lo, r);
       t_hi = std::max(t_hi, r);

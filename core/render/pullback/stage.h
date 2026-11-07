@@ -428,7 +428,7 @@ struct Displace
     else
       step = SurfacePolicyT::apply(input.dir, frame);
     const SphereSample output = Kernel::displace(input, step);
-    Instrumentation::template span<ProfileEvent::SURFACE_NOISE>(start);
+    Instrumentation::template span<ProfileEvent::SURFACE_DISPLACE>(start);
     return output;
   }
 };

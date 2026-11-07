@@ -139,7 +139,6 @@ public:
   template <bool LIMIT_LAYERS = true, typename Result = LayerComposite>
   HS_HOT_INLINE Result composite(const Appearance &appearance,
                                  const TraceLimits &limits = {}) const {
-    constexpr float RELATIVE_TOLERANCE = MERGE_RELATIVE_TOLERANCE;
     Result result;
     LayerComposite layers;
     int composited = 0;
@@ -154,7 +153,7 @@ public:
         ++composited;
       }
       const float T = distances[index];
-      const float GROUP_END = merge_window_end(T, RELATIVE_TOLERANCE);
+      const float GROUP_END = merge_window_end(T, MERGE_RELATIVE_TOLERANCE);
       float coverage = coverages[index];
       for (++index; index < count && distances[index] <= GROUP_END; ++index)
         coverage = fmaxf(coverage, coverages[index]);

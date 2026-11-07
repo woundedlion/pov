@@ -36,8 +36,6 @@ static_assert(std::size(COVERAGE_MODE_IDS) ==
 inline constexpr TopologyGate COVERAGE_EDGE_FADE_GATE{
     "coverage-mode", live_values(ProjectionCoverageMode::EDGE_FADE,
                                  ProjectionCoverageMode::EDGE_FADE_SQUARED)};
-/// Drift upper bound of the extended-drift twin-wave family, radians per frame.
-inline constexpr float EXTENDED_DRIFT_MAX = 2.0f;
 
 namespace Weight {
 

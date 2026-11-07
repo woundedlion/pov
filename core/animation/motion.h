@@ -116,6 +116,9 @@ struct ProceduralPath {
 
 namespace Animation {
 
+/** @brief Maximum smooth rotation step for a display width. */
+template <int W> inline constexpr float MAX_ROTATION_STEP = 2 * math::PI_F / W;
+
 /**
  * @brief Sub-rotation count needed to keep each interpolated step within
  * `max_angle` over a total sweep of `angle` radians.
@@ -250,7 +253,7 @@ public:
              "Motion: path sampled at the origin (empty or origin-crossing "
              "path)");
     float total_angle = math::angle_between(current_v, target_v);
-    int num_steps = rotation_substeps(total_angle, MAX_ANGLE);
+    int num_steps = rotation_substeps(total_angle, MAX_ROTATION_STEP<W>);
 
     orientation.get().upsample(num_steps + 1);
     int len = orientation.get().length();
@@ -310,9 +313,6 @@ public:
   }
 
 private:
-  static constexpr float MAX_ANGLE =
-      2 * math::PI_F /
-      W; /**< Maximum rotation angle per step to ensure smoothness. */
   /** Path-parameter step for the finite-difference travel tangent. */
   static constexpr float FRAME_TANGENT_H = 1e-3f;
   std::reference_wrapper<math::Orientation<CAP>>
@@ -435,7 +435,7 @@ public:
       return;
     }
 
-    int num_steps = rotation_substeps(std::abs(delta), MAX_ANGLE);
+    int num_steps = rotation_substeps(std::abs(delta), MAX_ROTATION_STEP<W>);
     orientation->upsample(num_steps + 1);
     int len = orientation->length();
 
@@ -478,9 +478,6 @@ public:
   }
 
 private:
-  static constexpr float MAX_ANGLE =
-      2 * math::PI_F /
-      W; /**< Maximum rotation angle per step to ensure smoothness. */
   static constexpr float MIN_STEP_ANGLE =
       1e-4f; /**< Angular increment below which a frame defers its rotation and
                   accumulates it into the next one. */

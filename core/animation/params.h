@@ -1065,7 +1065,8 @@ public:
    */
   explicit NoiseTimeLoop(float initial_time)
       : phase(std::isfinite(initial_time)
-                  ? advance_wrapped(0.0, initial_time, -2048.0, 4096.0)
+                  ? advance_wrapped(0.0, initial_time, -double(HALF_PERIOD),
+                                    2.0 * HALF_PERIOD)
                   : 0.0) {}
 
   /**
@@ -1075,22 +1076,27 @@ public:
    */
   float advance(float speed) {
     HS_PROFILE(animation_noise_clock);
-    phase = advance_wrapped(phase, speed, -2048.0, 4096.0);
+    phase =
+        advance_wrapped(phase, speed, -double(HALF_PERIOD), 2.0 * HALF_PERIOD);
     const float magnitude = static_cast<float>(std::fabs(phase));
     float value;
-    if (magnitude <= 960.0f) {
+    if (magnitude <= CENTER - BLEND_HALF_WIDTH) {
       value = magnitude;
-    } else if (magnitude >= 1088.0f) {
-      value = 2048.0f - magnitude;
+    } else if (magnitude >= CENTER + BLEND_HALF_WIDTH) {
+      value = HALF_PERIOD - magnitude;
     } else {
-      const float u = (magnitude - 1024.0f) * (1.0f / 64.0f);
+      const float u = (magnitude - CENTER) * (1.0f / BLEND_HALF_WIDTH);
       const float u2 = u * u;
-      value = 1000.0f + 64.0f * u2 * (0.125f * u2 - 0.75f);
+      value = (CENTER - 0.375f * BLEND_HALF_WIDTH) +
+              BLEND_HALF_WIDTH * u2 * (0.125f * u2 - 0.75f);
     }
     return phase < 0.0 ? -value : value;
   }
 
 private:
+  static constexpr float HALF_PERIOD = 2048.0f;
+  static constexpr float CENTER = HALF_PERIOD * 0.5f;
+  static constexpr float BLEND_HALF_WIDTH = 64.0f;
   double phase;
 };
 

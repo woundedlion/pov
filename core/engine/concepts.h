@@ -191,14 +191,14 @@ public:
 
 // Borrow-only aliases; stored callbacks use StoredFunctionRef.
 /// Screen trail colour: (x, y, t) with t the point's age in [0, 1].
-using ScreenTrailFn = FunctionRef<Color4(float, float, float)>;
+using ScreenTrailRef = FunctionRef<Color4(float, float, float)>;
 /// World trail colour: (position, t) with t the point's age in [0, 1].
-using WorldTrailFn = FunctionRef<Color4(const math::Vector &, float)>;
+using WorldTrailRef = FunctionRef<Color4(const math::Vector &, float)>;
 /// Fragment shader: shades the fragment at a sphere position.
-using FragmentShaderFn = FunctionRef<void(const math::Vector &, Fragment &)>;
+using FragmentShaderRef = FunctionRef<void(const math::Vector &, Fragment &)>;
 /// Time-aware fragment shader: (position, fragment, sweep fraction of the
 /// shaded column in [0, 1]).
-using TimedShaderFn =
+using TimedShaderRef =
     FunctionRef<void(const math::Vector &, Fragment &, float)>;
 /// Vertex shader: rewrites a fragment before projection.
 using VertexShaderRef = FunctionRef<void(Fragment &)>;
@@ -207,9 +207,9 @@ using VertexShaderRef = FunctionRef<void(Fragment &)>;
 using DeferredShaderRef =
     FunctionRef<void(FragmentRegisters, const math::Vector &)>;
 /// Orientation history visitor: (orientation, t) with t in [0, 1].
-using TweenFn = FunctionRef<void(const math::Quaternion &, float)>;
+using TweenRef = FunctionRef<void(const math::Quaternion &, float)>;
 /// Position history visitor: (position, t) with t in [0, 1].
-using VectorTweenFn = FunctionRef<void(const math::Vector &, float)>;
+using VectorTweenRef = FunctionRef<void(const math::Vector &, float)>;
 /// Clip-cull predicate: whether world-transformed edge (a, b), with an optional
 /// planar basis, intersects the clip band.
 using CullEdgePredRef = FunctionRef<bool(

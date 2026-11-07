@@ -64,13 +64,13 @@ struct Ring {
   float ny;            /**< y-component of the ring axis. */
   float target_angle;  ///< Centerline polar angle about the axis (radians).
   float center_phi;    ///< Colatitude of the ring axis (radians).
-  float
-      cos_max; ///< Cosine of the inner band edge; 2 when the band reaches the axis.
-  float
-      cos_min; ///< Cosine of the outer band edge; -2 when the band reaches the antipode.
+  /** Cosine of the inner band edge; 2 when the band reaches the axis. */
+  float cos_max;
+  /** Cosine of the outer band edge; -2 when the band reaches the antipode. */
+  float cos_min;
   float cos_target; ///< Cosine of target_angle.
-  float
-      inv_sin_target; ///< Reciprocal sine of target_angle; 0 when not linearized.
+  /** Reciprocal sine of target_angle; 0 when not linearized. */
+  float inv_sin_target;
 
   float r_val;       /**< Horizontal projection length of the axis (for full-row
                          check). */

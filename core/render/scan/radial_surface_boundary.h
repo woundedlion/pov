@@ -115,9 +115,9 @@ public:
    * Rotate segments by integer star periods to cover the full chart. */
   template <class Surface, class Visitor>
   static HS_HOT_FLASH_MEMBER void
-  visit_candidates_detailed(const Surface &surface, Visitor &&visit,
-                            float derivative_motion = 0,
-                            float relative_derivative_motion = 0) {
+  visit_candidates(const Surface &surface, Visitor &&visit,
+                   float derivative_motion = 0,
+                   float relative_derivative_motion = 0) {
     const int COUNT = surface.interval_count();
     const float PERIOD = math::TWO_PI_F / (surface.edge_count() / 2);
     for (int i = 0; i < COUNT; ++i) {

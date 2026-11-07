@@ -382,7 +382,7 @@ step_integrated(const math::Vector &input, const F &field, float strength,
  * @tparam State Provider of prepare, strength and path_length_required.
  * @tparam IntegratorPolicy Fixed stepping scheme. */
 template <typename State, typename IntegratorPolicy>
-struct Field : PrepareFromState<State> {
+struct FieldStep : PrepareFromState<State> {
   using FrameState = typename State::FrameState; ///< Provider frame.
   using Prepared = StatePrepared<State>;         ///< Prepared tangent field.
 

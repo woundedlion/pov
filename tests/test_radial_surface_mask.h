@@ -70,7 +70,7 @@ inline void check_radial_surface_mask(float padding) {
     candidates += stats.candidates;
     pieces += stats.pieces;
     writes += stats.row_writes;
-    Boundary::visit_candidates_detailed(surface, [&](const auto &candidate) {
+    Boundary::visit_candidates(surface, [&](const auto &candidate) {
       for (int along = 0; along <= 32; ++along) {
         const float T = along / 32.0f;
         const Point P{candidate.a.x + T * (candidate.b.x - candidate.a.x),
@@ -156,25 +156,24 @@ inline void test_radial_surface_mask_motion() {
           moved[i] = {R * cosf(P), R * sinf(P), P};
         }
         surface.set_knots(moved);
-        Boundary::visit_candidates_detailed(
-            surface, [&](const auto &candidate) {
-              for (int along = 0; along <= 16; ++along)
-                for (int angle = 0; angle < 8; ++angle) {
-                  const float U = along / 16.0f, A = angle * math::TWO_PI_F / 8;
-                  const float X = candidate.a.x +
-                                  U * (candidate.b.x - candidate.a.x) +
-                                  PIXEL * cosf(A);
-                  const float Y = candidate.a.y +
-                                  U * (candidate.b.y - candidate.a.y) +
-                                  PIXEL * sinf(A);
-                  ++probes;
-                  const auto bits =
-                      mask.interval_bits(sqrtf(X * X + Y * Y), atan2f(Y, X));
-                  misses += ((bits >> (candidate.origin_interval >>
-                                       mask.interval_shift())) &
-                             1u) == 0;
-                }
-            });
+        Boundary::visit_candidates(surface, [&](const auto &candidate) {
+          for (int along = 0; along <= 16; ++along)
+            for (int angle = 0; angle < 8; ++angle) {
+              const float U = along / 16.0f, A = angle * math::TWO_PI_F / 8;
+              const float X = candidate.a.x +
+                              U * (candidate.b.x - candidate.a.x) +
+                              PIXEL * cosf(A);
+              const float Y = candidate.a.y +
+                              U * (candidate.b.y - candidate.a.y) +
+                              PIXEL * sinf(A);
+              ++probes;
+              const auto bits =
+                  mask.interval_bits(sqrtf(X * X + Y * Y), atan2f(Y, X));
+              misses += ((bits >> (candidate.origin_interval >>
+                                   mask.interval_shift())) &
+                         1u) == 0;
+            }
+        });
       }
     }
   HS_EXPECT_GT(probes, 100000u);
@@ -250,7 +249,7 @@ inline void test_radial_surface_mask_degenerate_motion() {
   knots[3] = {.5f * cosf(.002f), .5f * sinf(.002f), .002f};
   surface.set_knots(knots);
   uint32_t probes = 0, misses = 0;
-  Boundary::visit_candidates_detailed(surface, [&](const auto &candidate) {
+  Boundary::visit_candidates(surface, [&](const auto &candidate) {
     if (candidate.origin_interval != 2 || candidate.knot)
       return;
     for (int i = 0; i <= 16; ++i) {

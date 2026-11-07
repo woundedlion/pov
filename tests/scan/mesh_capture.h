@@ -526,7 +526,7 @@ inline void check_deformed_shared_edges(float rotation) {
           ++scans;
           const auto &window = canvas.time_window();
           const auto *selected = canvas.column_basis()->mesh.selected_faces;
-          const uint8_t drawn = window.active ? Scan::detail::FacePass::ARM_COPY
+          const uint8_t drawn = window.active ? Scan::detail::FacePass::WINDOWED
                                               : Scan::detail::FacePass::SHARED;
           const int arm = window.active ? window.arm(W) : -1;
           const auto *copy = canvas.column_basis()->mesh.face_copy;

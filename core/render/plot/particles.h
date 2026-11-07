@@ -338,7 +338,7 @@ struct ParticleSystem {
   template <int W, int H, typename PipelineT = PipelineRef,
             typename ParticleV2Fn = std::nullptr_t>
   static void draw(PipelineT &pipeline, Canvas &canvas, const auto &system,
-                   FragmentShaderFn fragment_shader,
+                   FragmentShaderRef fragment_shader,
                    VertexShaderRef vertex_shader,
                    DeferredShaderRef deferred_shader = {},
                    ParticleV2Fn particle_v2 = nullptr) {
@@ -386,7 +386,7 @@ struct ParticleSystem {
                                   vertex_shader, deferred_shader, particle_v2);
     } else {
       PipelineRef erased(pipeline);
-      FragmentShaderFn erased_shader(fragment_shader);
+      FragmentShaderRef erased_shader(fragment_shader);
       draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), true, false>(
           erased, canvas, system, erased_shader, vertex_shader, deferred_shader,
           particle_v2);
@@ -404,7 +404,7 @@ struct ParticleSystem {
    */
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const auto &system,
-                   FragmentShaderFn fragment_shader) {
+                   FragmentShaderRef fragment_shader) {
     draw<W, H>(pipeline, canvas, system, fragment_shader, {});
   }
 };

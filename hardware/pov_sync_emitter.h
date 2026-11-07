@@ -69,7 +69,7 @@ public:
    */
   bool schedule_beacon(const uint8_t digits[BEACON_DIGITS], uint32_t now,
                        const Config &cfg) {
-    if (pulses_left > 0 || queue_pos < queue_len)
+    if (!idle())
       return false;
     uint32_t start = now;
     const uint32_t col = cfg.cycles_per_column();
@@ -134,7 +134,7 @@ public:
    * @return What was discarded, for caller telemetry.
    */
   DroppedBurst drop_pending_emission() {
-    if (pulses_left == 0 && queue_pos >= queue_len)
+    if (idle())
       return DroppedBurst::NONE;
     const DroppedBurst kind =
         queue_len != 0 ? DroppedBurst::BEACON : DroppedBurst::BOUNDARY;

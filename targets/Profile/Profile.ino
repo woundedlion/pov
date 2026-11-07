@@ -862,7 +862,6 @@ FLASHMEM void setup() {
 
 /** @brief Runs the show; never returns. */
 void loop() {
-  // Never returns: runs the single-entry playlist forever.
   POV::run_show(EFFECT_FACTORIES, &PROFILE_REVOLUTIONS, &PROFILE_SEEDS,
                 PROFILE_SEGMENT_ID >= 0);
 }

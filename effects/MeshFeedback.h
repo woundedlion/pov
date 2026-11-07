@@ -70,33 +70,33 @@ public:
   static constexpr int GAMUT_L_STEPS = GAMUT_LUT_L_STEPS; ///< Lightness steps.
 
   /// Lower bound of `Feedback::Style::fade`, the per-frame fade.
-  static constexpr float FADE_MIN = 0.0f, FADE_MAX = 0.99f;
-  /** @var FADE_MAX
-   *  @brief Upper bound of `Feedback::Style::fade`. */
+  static constexpr float FADE_MIN = 0.0f;
+  /// Upper bound of `Feedback::Style::fade`.
+  static constexpr float FADE_MAX = 0.99f;
   /// Lower bound of `Feedback::Style::amplitude`, the warp strength.
-  static constexpr float AMP_MIN = 0.0f, AMP_MAX = 30.0f;
-  /** @var AMP_MAX
-   *  @brief Upper bound of `Feedback::Style::amplitude`. */
+  static constexpr float AMP_MIN = 0.0f;
+  /// Upper bound of `Feedback::Style::amplitude`.
+  static constexpr float AMP_MAX = 30.0f;
   /// Lower bound of `Feedback::Style::frequency`, the warp noise frequency.
-  static constexpr float FREQ_MIN = 0.01f, FREQ_MAX = 1.0f;
-  /** @var FREQ_MAX
-   *  @brief Upper bound of `Feedback::Style::frequency`. */
+  static constexpr float FREQ_MIN = 0.01f;
+  /// Upper bound of `Feedback::Style::frequency`.
+  static constexpr float FREQ_MAX = 1.0f;
   /// Lower bound of `Feedback::Style::speed`, the warp animation rate.
-  static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
-  /** @var SPEED_MAX
-   *  @brief Upper bound of `Feedback::Style::speed`. */
+  static constexpr float SPEED_MIN = 0.0f;
+  /// Upper bound of `Feedback::Style::speed`.
+  static constexpr float SPEED_MAX = 5.0f;
   /// Lower bound of `Feedback::Style::scale`, the warp noise scale.
-  static constexpr float SCALE_MIN = 0.1f, SCALE_MAX = 50.0f;
-  /** @var SCALE_MAX
-   *  @brief Upper bound of `Feedback::Style::scale`. */
+  static constexpr float SCALE_MIN = 0.1f;
+  /// Upper bound of `Feedback::Style::scale`.
+  static constexpr float SCALE_MAX = 50.0f;
   /// Lower bound of `Feedback::Style::hue_shift`, in turns.
-  static constexpr float HUE_SHIFT_MIN = 0.0f, HUE_SHIFT_MAX = 0.5f;
-  /** @var HUE_SHIFT_MAX
-   *  @brief Upper bound of `Feedback::Style::hue_shift`. */
+  static constexpr float HUE_SHIFT_MIN = 0.0f;
+  /// Upper bound of `Feedback::Style::hue_shift`.
+  static constexpr float HUE_SHIFT_MAX = 0.5f;
   /// Lower bound of `Feedback::Style::pole_half_res`, in row pitches.
-  static constexpr float POLE_RES_MIN = 0.0f, POLE_RES_MAX = 2.0f;
-  /** @var POLE_RES_MAX
-   *  @brief Upper bound of `Feedback::Style::pole_half_res`. */
+  static constexpr float POLE_RES_MIN = 0.0f;
+  /// Upper bound of `Feedback::Style::pole_half_res`.
+  static constexpr float POLE_RES_MAX = 2.0f;
 
   /** @brief Shared registration, validation and interpolation descriptions.
    *  @return Tuple of `Control::Field` descriptors, one per parameter. */

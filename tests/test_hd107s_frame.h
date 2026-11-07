@@ -40,7 +40,7 @@ inline const uint8_t *pixel(const Frame &f, int i) {
 
 /**
  * @brief Verifies the spec-derived buffer-sizing formulas and that size()/
- * size_with_bg() agree with the compile-time layout constants.
+ * size_with_strobe() agree with the compile-time layout constants.
  */
 inline void test_layout_constants() {
   static_assert(Frame::COMPOSITE_SIZE == 336);
@@ -53,7 +53,7 @@ inline void test_layout_constants() {
 
   Frame f;
   HS_EXPECT_EQ(static_cast<int>(f.size()), Frame::BUFFER_SIZE);
-  HS_EXPECT_EQ(static_cast<int>(f.size_with_bg()), Frame::COMPOSITE_SIZE);
+  HS_EXPECT_EQ(static_cast<int>(f.size_with_strobe()), Frame::COMPOSITE_SIZE);
   HS_EXPECT_EQ(reinterpret_cast<uintptr_t>(f.data() + Frame::BUFFER_SIZE) %
                    alignof(uint32_t),
                0u);
@@ -72,7 +72,7 @@ inline void test_layout_constants_phantasm() {
 
   PhantasmFrame f;
   HS_EXPECT_EQ(static_cast<int>(f.size()), PhantasmFrame::BUFFER_SIZE);
-  HS_EXPECT_EQ(static_cast<int>(f.size_with_bg()),
+  HS_EXPECT_EQ(static_cast<int>(f.size_with_strobe()),
                PhantasmFrame::COMPOSITE_SIZE);
   HS_EXPECT_EQ(
       reinterpret_cast<uintptr_t>(f.data() + PhantasmFrame::BUFFER_SIZE) %

@@ -91,7 +91,7 @@ Two shader types are defined as zero-allocation `FunctionRef` callables (`concep
 
 | Signature | Type | Role |
 |---|---|---|
-| `FragmentShaderFn` | `void(const math::Vector &, Fragment &)` | Per-pixel/per-sample shader. Receives the world position and a pre-populated Fragment; writes `color`. Called for every rasterized point. |
+| `FragmentShaderRef` | `void(const math::Vector &, Fragment &)` | Per-pixel/per-sample shader. Receives the world position and a pre-populated Fragment; writes `color`. Called for every rasterized point. |
 | `VertexShaderRef` | `void(Fragment &)` | Per-vertex or per-pixel-center shader. Runs once before sub-sampling to set up expensive shared state in the Fragment registers. Optional on the `Plot::` primitives (a null callable is skipped); required by `Scan::Shader::draw`'s split vertex/fragment overload, which traps on a null one. |
 
 `FunctionRef` is a non-owning, non-allocating type-erased callable (similar to `std::function_ref` from C++26). It captures a pointer to any lambda, functor, or function pointer with zero heap allocation — critical for ISR-safe code on Teensy.
@@ -363,7 +363,7 @@ Shaders working in a moving object's coordinates use
 receives its object-space centre and column frame. A field shader with a
 trailing float t is detected by `Spacetime::reads_time`.
 `Spacetime::shade_at_time` and `shade_at_column` dispatch that argument.
-`TimedShaderFn` is the corresponding interface for rasterize, point and
+`TimedShaderRef` is the corresponding interface for rasterize, point and
 volume scans. Their flat selection shades at t = 1. `FacePaletteShader`
 samples face alpha, palette crossfade and counterpart weight per column
 while those values move; `Animation::OpLeg::Shading` supplies its retained

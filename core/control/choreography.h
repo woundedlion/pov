@@ -398,9 +398,13 @@ protected:
         preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
         return false;
       }
-      transition = {params,     target,          true,  0,
-                    FRAMES,     LERP == nullptr, false, TRANSITION_SERIAL,
-                    change.from};
+      transition = {.from = params,
+                    .to = target,
+                    .active = true,
+                    .frames = FRAMES,
+                    .fades = LERP == nullptr,
+                    .serial = TRANSITION_SERIAL,
+                    .from_index = change.from};
       if (LERP) {
         if constexpr (has_hook<Control::ChoreographyHook::TRANSITION_ARMED>())
           invoke_hook<Control::ChoreographyHook::TRANSITION_ARMED>(target);

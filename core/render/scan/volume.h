@@ -191,8 +191,10 @@ volume_edge_coverage(float dist, float hit_threshold, float aa_width) {
  *   - Per-column draws require a pipeline that leaves world positions unmoved.
  */
 struct Volume {
+  /** Fraction of the AA width admitting full coverage. */
+  static constexpr float SOLID_FRACTION = 0.1f;
   /** Sphere-trace step overrelaxation; 1 is the conservative march. */
-  static constexpr float OVERRELAX_OMEGA = 1.3f;
+  static constexpr float OVERRELAX_OMEGA = Raycast::OVERRELAX_OMEGA;
   /** Occluder-probe march steps. */
   static constexpr int PROBE_STEPS = 24;
   /** Probe steps taken at the near step floor before the far one applies. */
@@ -376,7 +378,7 @@ struct Volume {
   template <int W, int H, typename Shape>
   static void draw(PipelineRef pipeline, Canvas &canvas,
                    const math::Vector &bounds_center, float bounds_radius,
-                   const Shape &shape, FragmentShaderFn frag_fn,
+                   const Shape &shape, FragmentShaderRef frag_fn,
                    int max_steps = 15, float aa_width = 0.01f) {
     draw_fixed<W, H>(pipeline, canvas, bounds_center, bounds_radius, shape,
                      frag_fn, max_steps, aa_width);
@@ -398,7 +400,7 @@ struct Volume {
   template <int W, int H, typename Shape>
   static void draw(ScanRef pipeline, Canvas &canvas,
                    const math::Vector &bounds_center, float bounds_radius,
-                   const Shape &shape, FragmentShaderFn frag_fn, int max_steps,
+                   const Shape &shape, FragmentShaderRef frag_fn, int max_steps,
                    float aa_width, const VolumeColumns<W> &columns) {
     draw_columns<W, H>(pipeline, canvas, bounds_center, bounds_radius, shape,
                        frag_fn, max_steps, aa_width, columns);
@@ -422,7 +424,7 @@ struct Volume {
   HS_HOT_FLASH_MEMBER static void
   draw_fixed(PipelineRef pipeline, Canvas &canvas,
              const math::Vector &bounds_center, float bounds_radius,
-             const Shape &shape, FragmentShaderFn frag_fn, int max_steps,
+             const Shape &shape, FragmentShaderRef frag_fn, int max_steps,
              float aa_width) {
     march<W, H, false>(pipeline, canvas, bounds_center, bounds_radius, shape,
                        frag_fn, max_steps, aa_width, nullptr);
@@ -448,7 +450,7 @@ struct Volume {
   template <int W, int H, typename Shape>
   static void draw(ScanRef pipeline, Canvas &canvas,
                    const math::Vector &bounds_center, float bounds_radius,
-                   const Shape &shape, TimedShaderFn frag_fn, int max_steps,
+                   const Shape &shape, TimedShaderRef frag_fn, int max_steps,
                    float aa_width, const VolumeColumns<W> &columns) {
     draw_columns<W, H>(pipeline, canvas, bounds_center, bounds_radius, shape,
                        frag_fn, max_steps, aa_width, columns);
@@ -459,7 +461,7 @@ struct Volume {
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam Shape Volume shape.
-   * @tparam ShaderFn FragmentShaderFn, or TimedShaderFn, which also
+   * @tparam ShaderFn FragmentShaderRef, or TimedShaderRef, which also
    *         receives the hit's column sweep fraction.
    * @param pipeline Plotting pipeline that leaves world positions unmoved.
    * @param canvas Destination canvas.
@@ -487,7 +489,7 @@ struct Volume {
    * @tparam H Canvas height in pixels.
    * @tparam COLUMNS Whether @p columns places each column.
    * @tparam Shape Volume shape.
-   * @tparam ShaderFn Erased shader form; a TimedShaderFn runs only with
+   * @tparam ShaderFn Erased shader form; a TimedShaderRef runs only with
    *         COLUMNS.
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
@@ -534,7 +536,7 @@ struct Volume {
     HS_CHECK(fabsf(math::dot(bounds_center, bounds_center) - 1.0f) <
                  math::TOLERANCE,
              "Scan::Volume: bounds_center must be unit length");
-    // volume_edge_coverage divides by 0.9 * aa_width.
+    // The coverage band requires a positive width.
     HS_CHECK(aa_width > 0.0f, "Scan::Volume: aa_width must be positive");
 
     float cap_radius = bounds_radius;
@@ -608,7 +610,7 @@ struct Volume {
       shade(px, closest_local, frag);
 
       // One-sided AA with quintic kernel
-      float hit_threshold = aa_width * 0.1f;
+      float hit_threshold = aa_width * SOLID_FRACTION;
       float edge_alpha;
 
       if (closest_d <= hit_threshold) {

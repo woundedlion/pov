@@ -36,7 +36,7 @@ inline void test_world_trails_int16_quantization_roundtrip() {
   auto trail = [](const math::Vector &, float) {
     return Color4(Pixel(60000, 60000, 60000), 1.0f);
   };
-  trails.flush(WorldTrailFn(trail), 1.0f,
+  trails.flush(WorldTrailRef(trail), 1.0f,
                [&](const math::Vector &v, const Pixel &, float, float) {
                  decoded = v;
                  ++emitted;
@@ -71,7 +71,7 @@ inline void test_world_trails_clamps_out_of_range() {
     return Color4(Pixel(60000, 60000, 60000), 1.0f);
   };
   trails.flush(
-      WorldTrailFn(trail), 1.0f,
+      WorldTrailRef(trail), 1.0f,
       [&](const math::Vector &d, const Pixel &, float, float) { decoded = d; });
   HS_EXPECT_NEAR(decoded.x, 1.0f, 1e-3f);  // saturated, not wrapped negative
   HS_EXPECT_NEAR(decoded.y, 0.5f, 1e-3f);  // in range: untouched
@@ -101,7 +101,7 @@ inline void test_world_trails_capacity_evicts_one_slot() {
     return Color4(Pixel(60000, 60000, 60000), 1.0f);
   };
   std::vector<math::Vector> decoded;
-  trails.flush(WorldTrailFn(trail), 1.0f,
+  trails.flush(WorldTrailRef(trail), 1.0f,
                [&](const math::Vector &v, const Pixel &, float, float) {
                  decoded.push_back(v);
                });
@@ -144,9 +144,9 @@ inline void test_world_trails_ttl_expiry() {
     return Color4(Pixel(1, 1, 1), 1.0f);
   };
   auto sink = [](const math::Vector &, const Pixel &, float, float) {};
-  trails.flush(WorldTrailFn(trail), 1.0f, sink); // ttl 2 -> 1, alive
+  trails.flush(WorldTrailRef(trail), 1.0f, sink); // ttl 2 -> 1, alive
   HS_EXPECT_EQ(trails.size(), (size_t)1);
-  trails.flush(WorldTrailFn(trail), 1.0f, sink); // ttl 1 -> 0, popped
+  trails.flush(WorldTrailRef(trail), 1.0f, sink); // ttl 1 -> 0, popped
   HS_EXPECT_EQ(trails.size(), (size_t)0);
 }
 
@@ -174,15 +174,15 @@ inline void test_world_trails_set_lifetime_caps_ttl() {
     captured_t = t;
     return Color4(Pixel(60000, 60000, 60000), 1.0f);
   };
-  trails.flush(WorldTrailFn(trail), 1.0f,
+  trails.flush(WorldTrailRef(trail), 1.0f,
                [](const math::Vector &, const Pixel &, float, float) {});
 
   HS_EXPECT_EQ(captured_t, 0.0f);
-  trails.flush(WorldTrailFn(trail), 1.0f,
+  trails.flush(WorldTrailRef(trail), 1.0f,
                [](const math::Vector &, const Pixel &, float, float) {});
   HS_EXPECT_NEAR(captured_t, 0.5f, 1e-6f);
   captured_t = -1.0f;
-  trails.flush(WorldTrailFn(trail), 1.0f,
+  trails.flush(WorldTrailRef(trail), 1.0f,
                [](const math::Vector &, const Pixel &, float, float) {});
   HS_EXPECT_EQ(captured_t, -1.0f);
 }
@@ -227,7 +227,7 @@ inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
   };
   // p1 is drawn this frame (ttl 1, its final render) and then ages to 0. The
   // front (p0) is still alive; the swap-remove cull reclaims p1 mid-buffer.
-  trails.flush(WorldTrailFn(trail), 1.0f, noop);
+  trails.flush(WorldTrailRef(trail), 1.0f, noop);
   HS_EXPECT_EQ(live_drawn, 4); // all 4 still live at emit time
   HS_EXPECT_TRUE(saw_p0);      // the oldest live point still draws
   HS_EXPECT_EQ(trails.size(), (size_t)(Cap - 1)); // dead p1's slot reclaimed
@@ -250,7 +250,7 @@ inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
       saw_p4_after = true;
     return Color4(Pixel(1, 1, 1), 1.0f);
   };
-  trails.flush(WorldTrailFn(trail2), 1.0f, noop);
+  trails.flush(WorldTrailRef(trail2), 1.0f, noop);
   HS_EXPECT_EQ(drawn_after, 4);
   HS_EXPECT_TRUE(saw_p0_after);
   HS_EXPECT_TRUE(saw_p2_after);
@@ -292,13 +292,13 @@ inline void test_screen_trails_store_emit_decay() {
   auto counting_sink = [&](float, float, const Pixel &, float, float) {
     ++emitted;
   };
-  trails.flush(c, ScreenTrailFn(trail), 1.0f, counting_sink); // emit, ttl 2->1
+  trails.flush(c, ScreenTrailRef(trail), 1.0f, counting_sink); // emit, ttl 2->1
   HS_EXPECT_EQ(emitted, 1);
   emitted = 0;
-  trails.flush(c, ScreenTrailFn(trail), 1.0f, counting_sink); // emit, ttl 1->0
+  trails.flush(c, ScreenTrailRef(trail), 1.0f, counting_sink); // emit, ttl 1->0
   HS_EXPECT_EQ(emitted, 1);
   emitted = 0;
-  trails.flush(c, ScreenTrailFn(trail), 1.0f, counting_sink); // decayed out
+  trails.flush(c, ScreenTrailRef(trail), 1.0f, counting_sink); // decayed out
   HS_EXPECT_EQ(emitted, 0);
 }
 
@@ -324,18 +324,18 @@ inline void test_screen_trails_negative_age_clamps_t() {
     captured_t = t;
     return Color4(Pixel(60000, 60000, 60000), 1.0f);
   };
-  trails.flush(c, ScreenTrailFn(trail), 1.0f,
+  trails.flush(c, ScreenTrailRef(trail), 1.0f,
                [](float, float, const Pixel &, float, float) {});
 
   HS_EXPECT_EQ(captured_t, 0.0f);
-  trails.flush(c, ScreenTrailFn(trail), 1.0f,
+  trails.flush(c, ScreenTrailRef(trail), 1.0f,
                [](float, float, const Pixel &, float, float) {});
   HS_EXPECT_EQ(captured_t, 0.0f);
   for (int i = 0; i < 16; ++i)
-    trails.flush(c, ScreenTrailFn(trail), 1.0f,
+    trails.flush(c, ScreenTrailRef(trail), 1.0f,
                  [](float, float, const Pixel &, float, float) {});
   captured_t = -1.0f;
-  trails.flush(c, ScreenTrailFn(trail), 1.0f,
+  trails.flush(c, ScreenTrailRef(trail), 1.0f,
                [](float, float, const Pixel &, float, float) {});
   HS_EXPECT_EQ(captured_t, -1.0f);
 }
@@ -373,7 +373,7 @@ inline void test_screen_trails_forwards_aged_emission() {
 
   // Only the live (age=2) point was seeded -> exactly one flush emission.
   int emitted = 0;
-  trails.flush(c, ScreenTrailFn(trail), 1.0f,
+  trails.flush(c, ScreenTrailRef(trail), 1.0f,
                [&](float, float, const Pixel &, float, float) { ++emitted; });
   HS_EXPECT_EQ(emitted, 1);
 }
@@ -400,7 +400,7 @@ inline void test_screen_trails_at_capacity_replaces_last_slot() {
     return Color4(Pixel(60000, 60000, 60000), 1.0f);
   };
   std::vector<float> emitted;
-  trails.flush(c, ScreenTrailFn(trail), 1.0f,
+  trails.flush(c, ScreenTrailRef(trail), 1.0f,
                [&](float x, float, const Pixel &, float, float) {
                  emitted.push_back(x);
                });
@@ -430,7 +430,7 @@ inline void test_screen_trails_set_lifetime_caps_ttl() {
     return Color4(Pixel(1, 2, 3), 1.0f);
   };
   for (int frame = 0; frame < 3; ++frame)
-    trails.flush(canvas, ScreenTrailFn(trail), 1.0f, pass);
+    trails.flush(canvas, ScreenTrailRef(trail), 1.0f, pass);
   HS_EXPECT_SIZE_OR_RETURN(ages, 2);
   HS_EXPECT_EQ(ages[0], 0.0f);
   HS_EXPECT_EQ(ages[1], 0.5f);
@@ -461,7 +461,7 @@ inline void test_trails_alpha_gates() {
   auto screen_emit = [&](float, float, const Pixel &, float, float) {
     ++emitted;
   };
-  screen.flush(canvas, ScreenTrailFn(visible), 1, screen_emit);
+  screen.flush(canvas, ScreenTrailRef(visible), 1, screen_emit);
   HS_EXPECT_EQ(emitted, 0);
   screen.plot(1, 2, Pixel(1, 2, 3), 0, 1, pass);
   world.plot(math::X_AXIS, Pixel(1, 2, 3), 0, 1,
@@ -474,9 +474,9 @@ inline void test_trails_alpha_gates() {
     auto world_trail = [=](const math::Vector &, float) {
       return Color4(Pixel(1, 2, 3), alpha);
     };
-    screen.flush(canvas, ScreenTrailFn(screen_trail), 1, screen_emit);
+    screen.flush(canvas, ScreenTrailRef(screen_trail), 1, screen_emit);
     world.flush(
-        WorldTrailFn(world_trail), 1,
+        WorldTrailRef(world_trail), 1,
         [&](const math::Vector &, const Pixel &, float, float) { ++emitted; });
     HS_EXPECT_EQ(emitted, alpha == 1.0f ? 2 : 0);
   }
@@ -519,7 +519,8 @@ inline void test_mixed_domain_flush_drains_both_buffers() {
   constexpr int EXPECTED_SCREEN[LIFETIME] = {2, 3, 4};
   for (int frame = 0; frame < LIFETIME; ++frame) {
     world_emits = screen_emits = 0;
-    pipe.flush(c, WorldTrailFn(world_trail), ScreenTrailFn(screen_trail), 1.0f);
+    pipe.flush(c, WorldTrailRef(world_trail), ScreenTrailRef(screen_trail),
+               1.0f);
     HS_EXPECT_EQ(world_emits, 1);
     HS_EXPECT_EQ(screen_emits, EXPECTED_SCREEN[frame]);
   }
@@ -528,7 +529,7 @@ inline void test_mixed_domain_flush_drains_both_buffers() {
   HS_EXPECT_EQ(pipe.get<WorldTrails>().size(), (size_t)0);
 
   world_emits = screen_emits = 0;
-  pipe.flush(c, WorldTrailFn(world_trail), ScreenTrailFn(screen_trail), 1.0f);
+  pipe.flush(c, WorldTrailRef(world_trail), ScreenTrailRef(screen_trail), 1.0f);
   HS_EXPECT_EQ(world_emits, 0);
   HS_EXPECT_EQ(screen_emits, 0);
 }
@@ -552,7 +553,7 @@ inline void test_world_trails_expired_seed_is_not_stored() {
     HS_EXPECT_EQ(trails.size(), size_t{0});
   }
   emitted = 0;
-  trails.flush(WorldTrailFn(color), 1.0f, collect);
+  trails.flush(WorldTrailRef(color), 1.0f, collect);
   HS_EXPECT_EQ(emitted, 0);
 }
 
@@ -584,7 +585,7 @@ inline void test_world_trails_timed_fanout_records_first_copy() {
   for (int frame = 0; frame < 4; ++frame) {
     int emitted = 0;
     trails.flush_per_copy(
-        WorldTrailFn(color), 1.0f, 3,
+        WorldTrailRef(color), 1.0f, 3,
         [&](const math::Vector &v, const Pixel &, float age, float, int copy) {
           HS_EXPECT_VEC(v, source, 4e-5f);
           HS_EXPECT_EQ(age, static_cast<float>(frame));

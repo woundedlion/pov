@@ -163,7 +163,7 @@ compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
   }
   // Static pool is I/2 midpoints; largest emitted index is (I/2)+(I-1). Guard
   // adds 1 to both sides to dodge the unsigned underflow of I-1 at I == 0.
-  HS_CHECK((I / 2) + I <= static_cast<size_t>(INT16_MAX) + 1,
+  HS_CHECK((I / 2) + I <= MeshLimits::MAX_VERTICES,
            "Hankin output vertex count exceeds int16_t index range "
            "(oversized source mesh?)");
   compiled.static_vertices.bind(target_arena, I / 2);

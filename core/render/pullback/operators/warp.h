@@ -212,9 +212,9 @@ struct WarpWaveShear : PhaseClockModel<WarpPhaseState> {
     const float amplitude =
         params.strength *
         warp_envelope(params.envelope, input.provenance, params.edge_width);
-    return Kernel::warp(input,
-                        Warp::wave_shear(input.coords, params, prepared.phase,
-                                         amplitude, prepared.rotation, true));
+    return Kernel::warp(
+        input, Warp::wave_shear(input.coords, params, prepared.phase, amplitude,
+                                prepared.rotation, MEASURE_PATH_LENGTH));
   }
 };
 
@@ -245,7 +245,8 @@ struct WarpVortex : PhaseClockModel<WarpPhaseState> {
   }
   static PlaneSample run(const PlaneSample &input, const FrameContext &,
                          const Params &, const Prepared &prepared) {
-    return Kernel::warp(input, Warp::vortex(input.coords, prepared, true));
+    return Kernel::warp(
+        input, Warp::vortex(input.coords, prepared, MEASURE_PATH_LENGTH));
   }
 };
 
@@ -299,7 +300,7 @@ struct WarpVectorNoise : PhaseClockModel<NoisePhaseState> {
         input,
         Warp::vector_noise(input.coords, params, amplitude, *prepared.noise,
                            static_cast<math::NoiseBasis>(params.basis),
-                           prepared.slot, true));
+                           prepared.slot, MEASURE_PATH_LENGTH));
   }
 };
 
@@ -328,8 +329,8 @@ struct WarpMirrorTile : PhaseClockModel<WarpPhaseState> {
   }
   static PlaneSample run(const PlaneSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
-    return Kernel::warp(
-        input, Warp::mirror_tile(input.coords, params, prepared, true));
+    return Kernel::warp(input, Warp::mirror_tile(input.coords, params, prepared,
+                                                 MEASURE_PATH_LENGTH));
   }
 };
 
@@ -453,10 +454,11 @@ struct WarpCurlFlow : PhaseClockModel<NoisePhaseState> {
     if (!math::noise_plane_in_domain(input.coords))
       return input;
     return Kernel::warp(
-        input, Warp::curl_flow(input.coords, *prepared.noise,
-                               static_cast<math::NoiseBasis>(params.basis),
-                               prepared.intervals, params.scale,
-                               params.strength, prepared.loop_offset, true));
+        input,
+        Warp::curl_flow(input.coords, *prepared.noise,
+                        static_cast<math::NoiseBasis>(params.basis),
+                        prepared.intervals, params.scale, params.strength,
+                        prepared.loop_offset, MEASURE_PATH_LENGTH));
   }
 };
 

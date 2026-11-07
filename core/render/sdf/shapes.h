@@ -60,9 +60,9 @@ template <typename Derived> struct CapBoundedLeaf {
  * @details Register semantics: the DistanceResult table (row: PlanarPolygon).
  */
 struct PlanarPolygon : CapBoundedLeaf<PlanarPolygon> {
-  const math::Basis
-      &basis;         /**< Orientation frame (v = polygon axis); retained by
-                         reference, so it must outlive the shape. */
+  /** Orientation frame (v = polygon axis); retained by reference, so
+   * it must outlive the shape. */
+  const math::Basis &basis;
   float circumradius; /**< Angular radius from center to vertex (radians). */
   int sides;          /**< Number of polygon sides. */
   float phase;        /**< Azimuth phase offset (radians). */
@@ -432,12 +432,12 @@ struct Star : CapBoundedLeaf<Star> {
  * @details Register semantics: the DistanceResult table (row: Flower).
  */
 struct Flower : CapBoundedLeaf<Flower> {
-  const math::Basis
-      &basis;   /**< Orientation frame (-v = flower center); retained by
-                              reference, so it must outlive the shape. */
-  int sides;    /**< Number of petals. */
-  float phase;  /**< Azimuth phase offset (radians). */
-  float sector; /**< Angular width of one flower sector. */
+  /** Orientation frame (-v = flower center); retained by reference, so
+   * it must outlive the shape. */
+  const math::Basis &basis;
+  int sides;               /**< Number of petals. */
+  float phase;             /**< Azimuth phase offset (radians). */
+  float sector;            /**< Angular width of one flower sector. */
   float reciprocal_sector; /**< Reciprocal angular sector width. */
   float circumradius;      /**< Angular radius from the antipode to petal tip
                          (radians). */

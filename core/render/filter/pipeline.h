@@ -742,7 +742,7 @@ private:
 public:
   /**
    * @brief Trail flush (base case: no stage to flush).
-   * @tparam TrailFn ScreenTrailFn or WorldTrailFn.
+   * @tparam TrailFn ScreenTrailRef or WorldTrailRef.
    * @details Reached only from outside the pipeline; the recursion runs
    * through flush_stages().
    */
@@ -770,9 +770,9 @@ public:
 
 private:
   /** @brief Terminates the recursive screen-trail flush walk. */
-  void flush_stages(Canvas &, const ScreenTrailFn &, float) {}
+  void flush_stages(Canvas &, const ScreenTrailRef &, float) {}
   /** @brief Terminates the recursive world-trail flush walk. */
-  void flush_stages(Canvas &, const WorldTrailFn &, float) {}
+  void flush_stages(Canvas &, const WorldTrailRef &, float) {}
   /** @brief Terminates the recursive terminal-stage flush walk. */
   void flush_stages(Canvas &, float) {}
 
@@ -1506,17 +1506,17 @@ public:
 
   static_assert(
       !Head::has_history || Head::is_2d ||
-          requires(Head h, const WorldTrailFn &w, Filter::PassFn3D p) {
+          requires(Head h, const WorldTrailRef &w, Filter::PassFn3D p) {
             h.flush(w, 1.0f, p);
           },
       "3D history filter must define "
-      "flush(const WorldTrailFn&, float, PassFn3D)");
+      "flush(const WorldTrailRef&, float, PassFn3D)");
   static_assert(
       !Head::has_history || !Head::is_2d || Head::is_terminal ||
-          requires(Head h, Canvas &cv, const ScreenTrailFn &s,
+          requires(Head h, Canvas &cv, const ScreenTrailRef &s,
                    Filter::PassFn2D p) { h.flush(cv, s, 1.0f, p); },
       "2D history filter must define "
-      "flush(Canvas&, const ScreenTrailFn&, float, PassFn2D)");
+      "flush(Canvas&, const ScreenTrailRef&, float, PassFn2D)");
   static_assert(
       !Head::is_terminal || requires(Head h, Canvas &cv) { h.flush(cv, 1.0f); },
       "terminal filter must define flush(Canvas&, float)");
@@ -1560,15 +1560,15 @@ public:
    * @param trailFn Callback producing trail color/alpha per screen point.
    * @param alpha Global blend alpha in [0, 1].
    */
-  void flush(Canvas &cv, const ScreenTrailFn &trailFn, float alpha)
+  void flush(Canvas &cv, const ScreenTrailRef &trailFn, float alpha)
     requires(!terminal_replaces)
   {
     static_assert(
         any_2d_history,
         "Wrong flush() domain: this Pipeline has no 2D history stage, so the "
-        "ScreenTrailFn overload emits nothing. Aging happens inside flush() — "
+        "ScreenTrailRef overload emits nothing. Aging happens inside flush() — "
         "a 3D history stage (World::Trails) left unflushed fills its flat "
-        "buffer to capacity and never decays. Pass a WorldTrailFn instead.");
+        "buffer to capacity and never decays. Pass a WorldTrailRef instead.");
     static_assert(
         !any_3d_history,
         "Incomplete flush(): this Pipeline also carries a 3D history stage "
@@ -1584,15 +1584,15 @@ public:
    * @param trailFn Callback producing trail color/alpha per world point.
    * @param alpha Global blend alpha in [0, 1].
    */
-  void flush(Canvas &cv, const WorldTrailFn &trailFn, float alpha)
+  void flush(Canvas &cv, const WorldTrailRef &trailFn, float alpha)
     requires(!terminal_replaces)
   {
     static_assert(
         any_3d_history,
         "Wrong flush() domain: this Pipeline has no 3D history stage, so the "
-        "WorldTrailFn overload emits nothing. Aging happens inside flush() — "
+        "WorldTrailRef overload emits nothing. Aging happens inside flush() — "
         "a Screen::Trails stage left unflushed "
-        "never decays. Pass a ScreenTrailFn instead.");
+        "never decays. Pass a ScreenTrailRef instead.");
     static_assert(
         !any_2d_history,
         "Incomplete flush(): this Pipeline also carries a 2D trail stage "
@@ -1611,8 +1611,8 @@ public:
    * @details The 3D pass runs first: World stages precede Screen stages, so its
    * re-emissions reach the 2D history stage before that stage emits and ages.
    */
-  void flush(Canvas &cv, const WorldTrailFn &worldFn,
-             const ScreenTrailFn &screenFn, float alpha)
+  void flush(Canvas &cv, const WorldTrailRef &worldFn,
+             const ScreenTrailRef &screenFn, float alpha)
     requires(!terminal_replaces)
   {
     static_assert(
@@ -1646,7 +1646,7 @@ private:
    * @details Only a 2D history-bearing Head emits; other Heads pass through.
    * Skips flush()'s domain asserts, so a Tail may carry no history.
    */
-  void flush_stages(Canvas &cv, const ScreenTrailFn &trailFn, float alpha) {
+  void flush_stages(Canvas &cv, const ScreenTrailRef &trailFn, float alpha) {
     if constexpr (Head::has_history && Head::is_2d && !Head::is_terminal) {
       Head::flush(
           cv, trailFn, alpha,
@@ -1676,7 +1676,7 @@ private:
    * @param alpha Global blend alpha in [0, 1].
    * @details Only a 3D history-bearing Head emits; other Heads pass through.
    */
-  void flush_stages(Canvas &cv, const WorldTrailFn &trailFn, float alpha) {
+  void flush_stages(Canvas &cv, const WorldTrailRef &trailFn, float alpha) {
     if constexpr (Head::has_history) {
       if constexpr (!Head::is_2d) {
         Head::flush(trailFn, alpha,

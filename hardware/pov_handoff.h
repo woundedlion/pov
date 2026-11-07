@@ -202,15 +202,14 @@ public:
    *          previous one.
    */
   void set_window_left(bool zero_crossing) {
-    window_sweeps_left.store(zero_crossing ? 1u : 0u,
-                             std::memory_order_relaxed);
+    window_sweeps_left.store(zero_crossing, std::memory_order_relaxed);
   }
 
   /**
    * @brief The half the open display window sweeps.
-   * @return 1 when the window sweeps arm-A columns [0,W/2), else 0.
+   * @return Whether the window sweeps arm-A columns [0,W/2).
    */
-  uint8_t window_left() const {
+  bool window_left() const {
     return window_sweeps_left.load(std::memory_order_relaxed);
   }
 

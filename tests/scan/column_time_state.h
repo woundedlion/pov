@@ -41,7 +41,7 @@ template <int W, int H> inline void check_timed_shader(float lod) {
     };
     for (const math::Vector &centre : discs)
       Scan::Point::draw<W, H>(pipeline, canvas, centre, 0.3f, shader);
-    Scan::rasterize<W, H>(pipeline, canvas, star, TimedShaderFn(shader));
+    Scan::rasterize<W, H>(pipeline, canvas, star, TimedShaderRef(shader));
   };
   const auto held = [&](Pipeline<W, H> &pipeline, Canvas &canvas, float u) {
     const auto shader = [u](const math::Vector &, Fragment &f) {
@@ -49,7 +49,7 @@ template <int W, int H> inline void check_timed_shader(float lod) {
     };
     for (const math::Vector &centre : discs)
       Scan::Point::draw<W, H>(pipeline, canvas, centre, 0.3f, shader);
-    Scan::rasterize<W, H>(pipeline, canvas, star, FragmentShaderFn(shader));
+    Scan::rasterize<W, H>(pipeline, canvas, star, FragmentShaderRef(shader));
   };
   const std::vector<Pixel> drawn = render_stub_frame<W, H>(timed);
   const std::vector<Pixel> expected = render_state_oracle<W, H>(held);

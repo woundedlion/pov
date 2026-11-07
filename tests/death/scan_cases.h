@@ -107,7 +107,7 @@ inline void case_scan_canvas_dim_mismatch() {
  * @brief Death case: a scan rejects an empty time-aware shader.
  */
 inline void case_scan_timed_shader_empty() {
-  Scan::check_fragment_shader(TimedShaderFn(nullptr));
+  Scan::check_fragment_shader(TimedShaderRef(nullptr));
 }
 
 /**

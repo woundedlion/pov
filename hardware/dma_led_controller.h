@@ -100,19 +100,19 @@ public:
   /**
    * @brief Flushes the back frame and triggers async DMA transfer.
    * Call after all pack_pixel() calls on back_frame().
-   * @param with_bg If true, DMAs the composite buffer (image + trailing
+   * @param strobe If true, DMAs the composite buffer (image + trailing
    *               black frame) in a single transfer — zero gap, no spin.
    * @return true if the frame was handed to the DMA engine; false if dropped on
    *         overrun (prior transfer still in flight).
    */
-  [[nodiscard]] bool submit_frame(bool with_bg = false) {
+  [[nodiscard]] bool submit_frame(bool strobe = false) {
     if (!transfer_idle()) {
       overrun_count.fetch_add(1, std::memory_order_relaxed);
       return false;
     }
     int back = dma::next_buffer(active_buffer);
-    std::size_t len = dma::transfer_len(frames[back].size(),
-                                        frames[back].size_with_bg(), with_bg);
+    std::size_t len = dma::transfer_len(
+        frames[back].size(), frames[back].size_with_strobe(), strobe);
     frames[back].flush(len);
     spi.transmit_async(frames[back].data(), len);
     active_buffer = back;

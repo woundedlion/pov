@@ -222,13 +222,11 @@ public:
               static_cast<unsigned long>(std::bit_cast<uint32_t>(v.z)));
     hs::log("RELAX_BAKE_END");
 #endif
-    advance();
-    return *this;
 #else
     mesh = MeshOps::relax_baked(mesh, *output_arena, bake);
+#endif
     advance();
     return *this;
-#endif
   }
   /**
    * @brief Applies the meta operator (kis composed with join).

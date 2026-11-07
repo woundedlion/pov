@@ -38,7 +38,8 @@ struct ChamberNoisePatch {
    * @param config Authored direct-noise controls.
    * @return Whether this source admits chamber caching. */
   static bool eligible(const Config &config) {
-    return config.enabled && config.version == 1 &&
+    return config.enabled &&
+           config.version == ColorModulation::RECIPE_VERSION &&
            config.seed == HUE_NOISE_SEED &&
            config.source == Pattern::SourceKind::NOISE &&
            config.evaluation == Pattern::Evaluation::DIRECT &&

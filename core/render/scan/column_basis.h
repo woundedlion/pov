@@ -27,7 +27,7 @@ namespace detail {
 /** @brief Face selection for a mesh scan pass. */
 enum FacePass : uint8_t {
   SHARED = 0,   ///< Shared face scan.
-  ARM_COPY = 1, ///< Face admitted by the current time window.
+  WINDOWED = 1, ///< Face admitted by the current time window.
   SKIPPED = 2   ///< Face excluded from this pass.
 };
 } // namespace detail
@@ -67,7 +67,7 @@ struct MeshPass {
       nullptr; ///< Frame visibility bits per vertex.
   /// Per face of the mesh a deformation scan draws, which of its passes
   /// draws the face: detail::FacePass::SHARED for the pass without a render-x window,
-  /// detail::FacePass::ARM_COPY for the open window's; null outside such a scan.
+  /// detail::FacePass::WINDOWED for the open window's; null outside such a scan.
   const uint8_t *selected_faces = nullptr;
   /// Per-row azimuth pads shared by a deformation scan's passes.
   const float *face_pads = nullptr;

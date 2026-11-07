@@ -349,7 +349,7 @@ concept CanonicalCarrier =
 /** @brief Pipeline segment a profiling span is attributed to. */
 enum class ProfileEvent : uint8_t {
   LENS,
-  SURFACE_NOISE,
+  SURFACE_DISPLACE,
   PROJECTION,
   PLANAR_WARP,
   MIRROR_TILE,

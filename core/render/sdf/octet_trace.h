@@ -47,7 +47,6 @@ trace_events(const Events &events, Raycast::Interval interval,
              const Raycast::TraceLimits &limits,
              const Raycast::Appearance &appearance) {
   constexpr size_t SLOTS = Events::OWNER_CAPACITY;
-  constexpr float RELATIVE_TOLERANCE = Raycast::MERGE_RELATIVE_TOLERANCE;
   std::array<float, SLOTS> next;
   std::array<float, SLOTS> step;
   std::array<uint8_t, SLOTS> stream;
@@ -110,7 +109,8 @@ trace_events(const Events &events, Raycast::Interval interval,
         pending = true;
         pending_t = T;
         pending_coverage = COVERAGE;
-        group_end = Raycast::merge_window_end(T, RELATIVE_TOLERANCE);
+        group_end =
+            Raycast::merge_window_end(T, Raycast::MERGE_RELATIVE_TOLERANCE);
       } else if (COVERAGE > pending_coverage) {
         pending_coverage = COVERAGE;
       }

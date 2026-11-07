@@ -74,7 +74,6 @@ FLASHMEM void setup() {
 
 /** @brief Runs the show; never returns. */
 void loop() {
-  // Never returns: runs the single-entry playlist forever.
   POV::run_show<std::size(EFFECT_FACTORIES)>(
       EFFECT_FACTORIES, &BENCH_REVOLUTIONS, nullptr, STANDALONE);
 }

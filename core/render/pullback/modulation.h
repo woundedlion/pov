@@ -28,7 +28,7 @@ using Config = ColorModulation::Config; ///< Canonical passive configuration.
 /** @brief The selected source's versioned clock. */
 struct State {
   Pattern::SourceKind source = Pattern::SourceKind::NOISE; ///< Clock recipe.
-  uint16_t version = 1;                                    ///< Recipe version.
+  uint16_t version = ColorModulation::RECIPE_VERSION;      ///< Recipe version.
   Pattern::PhaseState phase; ///< Selected source phase in turns.
   bool initialized = false;  ///< Whether the source was initialized.
   constexpr bool operator==(const State &) const = default;
@@ -37,7 +37,8 @@ struct State {
  * @param config Canonical recipe.
  * @return Whether parameters and the selected strategy are admitted. */
 inline bool valid(const Config &config) {
-  if (config.version != 1 || !ColorModulation::valid(config.mechanic) ||
+  if (config.version != ColorModulation::RECIPE_VERSION ||
+      !ColorModulation::valid(config.mechanic) ||
       static_cast<unsigned>(config.evaluation) > 1)
     return false;
   if (config.source == Pattern::SourceKind::DISPLACEMENT)

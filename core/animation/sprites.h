@@ -351,9 +351,9 @@ apply_signed_axis_attractor(uint16_t &life, math::Vector &velocity,
     return true;
 
   if (s.dist_sq < attractor.event_horizon * attractor.event_horizon) {
-    const math::Vector torque = (attractor.position - pos).normalized();
+    const math::Vector inward = (attractor.position - pos).normalized();
     const float speed = fmaxf(velocity.magnitude(), max_delta);
-    velocity = torque * speed;
+    velocity = inward * speed;
     return true;
   }
 
@@ -632,9 +632,9 @@ private:
         if (dist_sq < attr.event_horizon * attr.event_horizon) {
           // Steer into center. Floor the speed so a friction-drained particle
           // still advances inward to kill_radius instead of stalling.
-          math::Vector torque = (attr.position - pos).normalized();
+          math::Vector inward = (attr.position - pos).normalized();
           float speed = fmaxf(p.velocity.magnitude(), max_delta);
-          p.velocity = torque * speed;
+          p.velocity = inward * speed;
         } else {
           // Gravity. pos and the attractor can be ~antipodal (undefined cross
           // axis), so guard the normalize.

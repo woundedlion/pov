@@ -152,7 +152,7 @@ public:
    * reaches 1 rather than being culled unseen.
    */
   template <typename PassFnT>
-  void flush(const WorldTrailFn &trailFn, float alpha, PassFnT &&pass) {
+  void flush(const WorldTrailRef &trailFn, float alpha, PassFnT &&pass) {
     flush_per_copy(trailFn, alpha, 1,
                    [&](const math::Vector &v, const ::Pixel &color, float age,
                        float opacity, int) { pass(v, color, age, opacity); });
@@ -164,7 +164,7 @@ public:
    * @param copies Number of spatial copies.
    * @param pass Continuation taking source point, registers and copy index. */
   template <typename PassFnT>
-  void flush_per_copy(const WorldTrailFn &trailFn, float alpha, int copies,
+  void flush_per_copy(const WorldTrailRef &trailFn, float alpha, int copies,
                       PassFnT &&pass) {
     HS_CHECK(items, "World::Trails::flush: storage missing");
     check_storage_alive();

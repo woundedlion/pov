@@ -187,12 +187,12 @@ inline void test_timed_probe_bypasses_history() {
     ++records;
     return Color4(1, 1, 1, 1);
   };
-  pipeline.flush(canvas, WorldTrailFn(shader), 1.0f);
+  pipeline.flush(canvas, WorldTrailRef(shader), 1.0f);
   HS_EXPECT_EQ(records, 0);
   for (int i = 0; i < 288 * 144; ++i)
     HS_EXPECT_EQ(canvas.data()[i], Pixel{});
   ref.plot_at(canvas, v, Pixel(65535, 0, 0), 0.0f, 1.0f, 0.3f);
-  pipeline.flush(canvas, WorldTrailFn(shader), 1.0f);
+  pipeline.flush(canvas, WorldTrailRef(shader), 1.0f);
   HS_EXPECT_EQ(records, 1);
 }
 

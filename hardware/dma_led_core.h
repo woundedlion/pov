@@ -35,14 +35,14 @@ constexpr int next_buffer(int active) { return 1 - active; }
  * @brief Selects the DMA transfer length for a frame.
  * @param base_size Image-frame size in bytes (HD107SFrame::size()).
  * @param composite_size Composite size including the trailing black frame
- *        (HD107SFrame::size_with_bg()).
- * @param with_bg If true, transmit the composite buffer; otherwise the image
+ *        (HD107SFrame::size_with_strobe()).
+ * @param strobe If true, transmit the composite buffer; otherwise the image
  *        frame only.
- * @return composite_size when with_bg, else base_size.
+ * @return composite_size when strobe, else base_size.
  */
 constexpr std::size_t transfer_len(std::size_t base_size,
-                                   std::size_t composite_size, bool with_bg) {
-  return with_bg ? composite_size : base_size;
+                                   std::size_t composite_size, bool strobe) {
+  return strobe ? composite_size : base_size;
 }
 
 /**

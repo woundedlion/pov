@@ -55,7 +55,7 @@ struct DistortedRing {
   template <int W, int H, bool ComputeUVs = true>
   static void draw_flat(ScanRef pipeline, Canvas &canvas,
                         const math::Basis &basis, float radius, float thickness,
-                        FragmentShaderFn fragment_shader,
+                        FragmentShaderRef fragment_shader,
                         const RingDrawOptions &options = {}) {
     SDF::FlatDistortedRing shape(basis, radius, thickness, options.phase);
     shape.suppress_pole_fill = options.suppress_pole_fill;
@@ -82,7 +82,7 @@ struct DistortedRing {
   template <int W, int H, bool ComputeUVs = true>
   static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
                    float radius, float thickness, ScalarFn shift_fn,
-                   float amplitude, FragmentShaderFn fragment_shader,
+                   float amplitude, FragmentShaderRef fragment_shader,
                    const RingDrawOptions &options = {}) {
     SDF::DistortedRing shape(basis, radius, thickness, shift_fn, amplitude,
                              options.phase);
@@ -111,7 +111,7 @@ struct DistortedRing {
   template <int W, int H, bool ComputeUVs = true>
   static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
                    float radius, float thickness, const float *knots, int lut_n,
-                   FragmentShaderFn fragment_shader,
+                   FragmentShaderRef fragment_shader,
                    const RingDrawOptions &options = {}) {
     SDF::KnotPrefilter prefilter;
     SDF::DistortedRing shape(basis, radius, thickness, knots, lut_n,
@@ -561,7 +561,7 @@ struct PlanarPolygon {
    */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
-                   float radius, int sides, FragmentShaderFn fragment_shader,
+                   float radius, int sides, FragmentShaderRef fragment_shader,
                    float phase = 0, bool debug_bb = false) {
     auto res = math::get_antipode(basis, radius);
     SDF::PlanarPolygon shape(res.first, res.second, sides, phase,
@@ -618,7 +618,7 @@ struct Line {
   template <int W, int H>
   static void draw(ScanRef pipeline, Canvas &canvas, const math::Vector &v1,
                    const math::Vector &v2, float thickness,
-                   FragmentShaderFn fragment_shader, bool debug_bb = false) {
+                   FragmentShaderRef fragment_shader, bool debug_bb = false) {
     SDF::Line shape(v1, v2, thickness);
     Scan::rasterize<W, H>(pipeline, canvas, shape, fragment_shader, debug_bb);
   }
@@ -646,7 +646,7 @@ struct Ring {
   template <int W, int H, bool ComputeUVs = true>
   static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
                    float radius, float thickness,
-                   FragmentShaderFn fragment_shader, float phase = 0,
+                   FragmentShaderRef fragment_shader, float phase = 0,
                    bool debug_bb = false) {
     SDF::Ring shape(basis, radius, thickness, phase);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
@@ -670,7 +670,7 @@ struct Ring {
   template <int W, int H, bool ComputeUVs = true>
   static void draw(ScanRef pipeline, Canvas &canvas, const math::Vector &normal,
                    float radius, float thickness,
-                   FragmentShaderFn fragment_shader, float phase = 0,
+                   FragmentShaderRef fragment_shader, float phase = 0,
                    bool debug_bb = false) {
     math::Basis basis = math::make_basis(math::Quaternion(), normal);
     draw<W, H, ComputeUVs>(pipeline, canvas, basis, radius, thickness,
@@ -1309,7 +1309,7 @@ struct Circle {
    */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
-                   float radius, FragmentShaderFn fragment_shader,
+                   float radius, FragmentShaderRef fragment_shader,
                    bool debug_bb = false) {
     float th = radius * (math::PI_F / 2.0f);
     Ring::draw<W, H, ComputeUVs>(pipeline, canvas, basis, 0.0f, th,
@@ -1330,7 +1330,7 @@ struct Circle {
    */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(ScanRef pipeline, Canvas &canvas, const math::Vector &normal,
-                   float radius, FragmentShaderFn fragment_shader,
+                   float radius, FragmentShaderRef fragment_shader,
                    bool debug_bb = false) {
     math::Basis basis = math::make_basis(math::Quaternion(), normal);
     draw<W, H, ComputeUVs>(pipeline, canvas, basis, radius, fragment_shader,
@@ -1358,7 +1358,7 @@ struct Point {
    */
   template <int W, int H>
   static void draw(ScanRef pipeline, Canvas &canvas, const math::Vector &p,
-                   float thickness, FragmentShaderFn fragment_shader,
+                   float thickness, FragmentShaderRef fragment_shader,
                    bool debug_bb = false) {
     math::Basis basis = math::make_basis(math::Quaternion(), p);
     Ring::draw<W, H>(pipeline, canvas, basis, 0.0f, thickness, fragment_shader,
@@ -1379,7 +1379,7 @@ struct Point {
    */
   template <int W, int H>
   static void draw(ScanRef pipeline, Canvas &canvas, const math::Vector &p,
-                   float thickness, TimedShaderFn fragment_shader,
+                   float thickness, TimedShaderRef fragment_shader,
                    bool debug_bb = false) {
     const SDF::Ring shape(math::make_basis(math::Quaternion(), p), 0.0f,
                           thickness, 0.0f);
@@ -1409,7 +1409,7 @@ struct Star {
    */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
-                   float radius, int sides, FragmentShaderFn fragment_shader,
+                   float radius, int sides, FragmentShaderRef fragment_shader,
                    float phase = 0, bool debug_bb = false) {
     auto res = math::get_antipode(basis, radius);
     SDF::Star shape(res.first, res.second, sides, phase, radius > 1.0f);
@@ -1466,7 +1466,7 @@ struct Flower {
    */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
-                   float radius, int sides, FragmentShaderFn fragment_shader,
+                   float radius, int sides, FragmentShaderRef fragment_shader,
                    float phase = 0, bool debug_bb = false) {
     auto res = math::get_antipode(basis, radius);
     SDF::Flower shape(res.first, res.second, sides, phase, radius > 1.0f);
@@ -1525,7 +1525,7 @@ struct SphericalPolygon {
    */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
-                   float radius, int sides, FragmentShaderFn fragment_shader,
+                   float radius, int sides, FragmentShaderRef fragment_shader,
                    float phase = 0, bool debug_bb = false) {
     auto res = math::get_antipode(basis, radius);
     float offset = math::PI_F / sides;

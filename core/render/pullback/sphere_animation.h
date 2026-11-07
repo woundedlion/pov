@@ -165,9 +165,8 @@ struct RadialCurveKey {
 struct RadialGroup {
   static constexpr size_t SAMPLES = 257; ///< Uniform samples over [0, pi].
   math::Vector center;                   ///< Shared burst center.
-  float cos_threshold_min =
-      -1.0f;                      ///< Innermost support bound across endpoints.
-  float cos_threshold_max = 1.0f; ///< Outermost support bound across endpoints.
+  float cos_near = -1.0f; ///< Innermost support bound across endpoints.
+  float cos_far = 1.0f;   ///< Outermost support bound across endpoints.
   std::array<RadialTransfer, SAMPLES> previous; ///< One-frame-old wave ages.
   std::array<RadialTransfer, SAMPLES> current;  ///< Current wave ages.
   RadialCurveKey current_key; ///< Inputs of the cached current endpoint.
@@ -344,17 +343,16 @@ prepare_radial_tables(const Params &params, const RippleState &state,
     if (!previous_count && !current_count)
       continue;
     auto &group = tables.groups[tables.count];
-    group.cos_threshold_min = -1.0f;
-    group.cos_threshold_max = 1.0f;
+    group.cos_near = -1.0f;
+    group.cos_far = 1.0f;
     bool active = false;
     const auto include_support = [&](const auto &waves, uint8_t count) {
       for (uint8_t i = 0; i < count; ++i) {
         const auto &wave = waves[i].ripple;
-        if (wave.amplitude <= 0.001f)
+        if (wave.amplitude <= RippleKernel::NEGLIGIBLE_AMPLITUDE)
           continue;
         active = true;
-        RippleKernel::include_support(group.cos_threshold_min,
-                                      group.cos_threshold_max, wave);
+        RippleKernel::include_support(group.cos_near, group.cos_far, wave);
       }
     };
     include_support(previous, previous_count);
@@ -413,8 +411,7 @@ HS_HOT_ITCM_MEMBER inline bool try_radial_ripples(const math::Vector &input,
     const auto &group = tables->groups[group_index];
     const math::Vector START = result.sphere;
     const float DISTANCE_COS = math::dot(group.center, START);
-    if (DISTANCE_COS > group.cos_threshold_min ||
-        DISTANCE_COS < group.cos_threshold_max)
+    if (DISTANCE_COS > group.cos_near || DISTANCE_COS < group.cos_far)
       continue;
     const float DISTANCE =
         math::fast_acos(hs::clamp(DISTANCE_COS, -1.0f, 1.0f));

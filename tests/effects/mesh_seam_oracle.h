@@ -163,7 +163,7 @@ inline int record_face_copies(const Canvas &canvas, const MeshState &mesh,
   if (!window.active || arm < 0 || !time || !time->mesh.selected_faces)
     return -1;
   for (size_t f = 0; f < mesh.num_faces(); ++f) {
-    if (time->mesh.selected_faces[f] != Scan::detail::FacePass::ARM_COPY)
+    if (time->mesh.selected_faces[f] != Scan::detail::FacePass::WINDOWED)
       continue;
     FaceCopy &copy = copies[arm][f];
     copy = FaceCopy{};

@@ -22,8 +22,8 @@ struct Wave {
   float phase = 0.0f;     ///< Wavefront distance in radians.
   float decay{5.0};       ///< Spatial decay rate.
   float thickness{1.0f};  ///< Wavelet thickness in radians.
-  float cos_threshold_min = 1.0f;  ///< Upper cosine support bound.
-  float cos_threshold_max = -1.0f; ///< Lower cosine support bound.
+  float cos_near = 1.0f;  ///< Upper cosine support bound.
+  float cos_far = -1.0f;  ///< Lower cosine support bound.
 
   /** @brief Returns the wavelet half-width, floored at 0.001 radians.
    * @return Half-width in radians. */
@@ -34,8 +34,8 @@ struct Wave {
     float hw = half_width();
     float d_min = hs::clamp(phase - hw * 2.0f, 0.0f, math::PI_F);
     float d_max = hs::clamp(phase + hw * 2.0f, 0.0f, math::PI_F);
-    cos_threshold_min = cosf(d_min);
-    cos_threshold_max = cosf(d_max);
+    cos_near = cosf(d_min);
+    cos_far = cosf(d_max);
   }
 };
 
@@ -59,8 +59,8 @@ HS_HOT_INLINE inline bool same_center(const math::Vector &a,
  * @param wave Wave whose support is included. */
 HS_HOT_INLINE inline void include_support(float &near, float &far,
                                           const Wave &wave) {
-  near = fmaxf(near, wave.cos_threshold_min);
-  far = fminf(far, wave.cos_threshold_max);
+  near = fmaxf(near, wave.cos_near);
+  far = fminf(far, wave.cos_far);
 }
 
 /** @brief Tests the closed cosine support band.
@@ -68,7 +68,7 @@ HS_HOT_INLINE inline void include_support(float &near, float &far,
  * @param cosine Cosine of the source distance.
  * @return Whether the cosine lies within the support. */
 HS_HOT_INLINE inline bool contains(const Wave &wave, float cosine) {
-  return !(cosine > wave.cos_threshold_min || cosine < wave.cos_threshold_max);
+  return !(cosine > wave.cos_near || cosine < wave.cos_far);
 }
 
 /** @brief Evaluates the wavelet at an angular distance and phase.
@@ -334,8 +334,8 @@ HS_HOT_INLINE inline void append_endpoint(EndpointGroup<Params> *waves,
   wave.params = &params;
   if (count == 0 || !same_center(params.center, waves[first].params->center)) {
     first = count;
-    wave.near = params.cos_threshold_min;
-    wave.far = params.cos_threshold_max;
+    wave.near = params.cos_near;
+    wave.far = params.cos_far;
   } else
     include_support(waves[first].near, waves[first].far, params);
   waves[first].end = ++count;

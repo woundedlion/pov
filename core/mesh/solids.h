@@ -626,8 +626,7 @@ inline constexpr int NUM_ENTRIES =
 
 // simple_registry is [Platonic | Archimedean].
 /// Platonic entries at the head of simple_registry.
-inline constexpr size_t PLATONIC_COUNT =
-    static_cast<size_t>(BaseMesh::ICOSAHEDRON) + 1;
+inline constexpr size_t PLATONIC_COUNT = PLATONIC_BASE_MESH_COUNT;
 /// Archimedean entries following the Platonic run.
 inline constexpr size_t ARCHIMEDEAN_COUNT =
     std::size(simple_registry) - PLATONIC_COUNT;
@@ -644,9 +643,6 @@ inline constexpr size_t ISLAMIC_COUNT =
     std::size(islamic_registry); ///< Entries in islamic_registry.
 // BaseMesh ordinals follow get_entry(): simple_registry, then catalan_registry.
 // The enum, labels and registries share Platonic/Catalan slice boundaries.
-static_assert(PLATONIC_BASE_MESH_COUNT == PLATONIC_COUNT,
-              "PLATONIC_BASE_MESH_COUNT must equal the Platonic run of "
-              "simple_registry");
 static_assert(BASE_MESH_COUNT ==
                   PLATONIC_COUNT + ARCHIMEDEAN_COUNT + CATALAN_COUNT,
               "BaseMesh must enumerate simple_registry then catalan_registry");

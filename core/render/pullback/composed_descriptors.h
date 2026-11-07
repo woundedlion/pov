@@ -12,6 +12,13 @@
 
 namespace ComposedDetail {
 
+/** @brief Sentinel for an unknown projection coverage policy. */
+inline constexpr auto UNKNOWN_COVERAGE_MODE =
+    static_cast<ProjectionCoverageMode>(255);
+/** @brief Sentinel for coverage selected by authored source controls. */
+inline constexpr auto AUTHORED_COVERAGE_MODE =
+    static_cast<ProjectionCoverageMode>(254);
+
 /**
  * @brief Slider name of a warp instance's speed parameter.
  * @param key Warp instance key.
@@ -34,7 +41,7 @@ struct IsSampleStage<Stage::Sample<S, W, C>> : std::true_type {};
  */
 template <typename T> struct ProjectionCoverageModeOf {
   /** Out-of-range sentinel: @p T is not a known coverage policy. */
-  static constexpr auto VALUE = static_cast<ProjectionCoverageMode>(255);
+  static constexpr auto VALUE = UNKNOWN_COVERAGE_MODE;
 };
 /** @brief `ProjectionCoverage::None` is `NONE`. */
 template <> struct ProjectionCoverageModeOf<ProjectionCoverage::None> {
@@ -59,11 +66,18 @@ struct ProjectionCoverageModeOf<ProjectionCoverage::EdgeFade<P>> {
       ProjectionCoverageMode::EDGE_FADE; ///< The mode.
 };
 
+/** @brief Squared edge-fade mode. @tparam P Edge-width provider. */
+template <typename P>
+struct ProjectionCoverageModeOf<ProjectionCoverage::EdgeFadeSquared<P>> {
+  static constexpr auto VALUE =
+      ProjectionCoverageMode::EDGE_FADE_SQUARED; ///< Coverage mode.
+};
+
 /** @brief Coverage selected by authored source controls. @tparam P Source provider. */
 template <typename P>
 struct ProjectionCoverageModeOf<ProjectionCoverage::Authored<P>> {
   static constexpr auto VALUE =
-      static_cast<ProjectionCoverageMode>(254); ///< Runtime-selected coverage.
+      AUTHORED_COVERAGE_MODE; ///< Runtime-selected coverage.
 };
 
 /** @brief Whether @p T is a `Stage::Lens` stage. @tparam T Stage type. */
@@ -86,12 +100,6 @@ struct IsTransferStage<Stage::Transfer<P>> : std::true_type {};
 template <typename T> struct IsCoverageStage : std::false_type {};
 template <typename P>
 struct IsCoverageStage<Stage::ApplyCoverage<P>> : std::true_type {};
-/** @brief Squared edge-fade mode. @tparam P Edge-width provider. */
-template <typename P>
-struct ProjectionCoverageModeOf<ProjectionCoverage::EdgeFadeSquared<P>> {
-  static constexpr auto VALUE =
-      ProjectionCoverageMode::EDGE_FADE_SQUARED; ///< Coverage mode.
-};
 
 /** @brief Whether @p T is a `Lens::MobiusGenerator` policy. @tparam T Policy type. */
 template <typename T> struct IsMobiusLens : std::false_type {};
@@ -358,7 +366,7 @@ template <typename Pipeline> struct PipelineMetadata {
       return ProjectionCoverageModeOf<
           typename SampleStage::CoveragePolicy>::VALUE;
   }();
-  static_assert(COVERAGE != static_cast<ProjectionCoverageMode>(255),
+  static_assert(COVERAGE != UNKNOWN_COVERAGE_MODE,
                 "composed metadata: unsupported projection coverage policy");
   /// Sampled-value transfer kind.
   static constexpr auto TRANSFER = [] {

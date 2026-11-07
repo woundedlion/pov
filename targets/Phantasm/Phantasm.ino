@@ -81,6 +81,5 @@ FLASHMEM void setup() {
 
 /** @brief Runs the show; never returns. */
 void loop() {
-  // Never returns.
   POV::run_show(EFFECT_FACTORIES, &EFFECT_REVOLUTIONS, &EFFECT_SEEDS);
 }

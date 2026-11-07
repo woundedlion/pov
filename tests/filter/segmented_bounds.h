@@ -65,7 +65,7 @@ struct ScreenTrailRig {
     for (const Seed &s : seeds(f))
       pipe.plot(c, s.x, s.y, s.c, 0.0f, 1.0f);
     const Shade shade;
-    pipe.flush(c, ScreenTrailFn(shade), 1.0f);
+    pipe.flush(c, ScreenTrailRef(shade), 1.0f);
   }
 };
 

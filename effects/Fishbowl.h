@@ -496,7 +496,7 @@ private:
     Plot::Mesh::ColumnChunk<COLUMN_CHUNK_VERTICES, uint16_t> chunk(
         scratch_arena_a);
 
-    auto path = [&](size_t i, float t) HS_HOT_FLASH_MEMBER {
+    auto chord_position = [&](size_t i, float t) HS_HOT_FLASH_MEMBER {
       const math::Vector &from = starts[chunk.template attribute<0>(i)].pos;
       const math::Vector &to = chunk.position(i);
       return t == 1.0f ? to : (from + (to - from) * t);
@@ -511,7 +511,7 @@ private:
       chunk.template attribute<0>(slot) = static_cast<uint16_t>(source);
     };
     Plot::GeometryCallback geometry;
-    geometry.evaluate = path;
+    geometry.evaluate = chord_position;
     geometry.source_positions = false;
     geometry.chained = true;
     auto flush = [&]() HS_HOT_INLINE {

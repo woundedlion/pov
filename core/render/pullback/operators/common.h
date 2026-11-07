@@ -78,6 +78,11 @@ namespace Interp {
  */
 namespace Op {
 
+/** @brief Requests path-length measurement from a spatial kernel. */
+inline constexpr bool MEASURE_PATH_LENGTH = true;
+/** @brief Requests edge-distance measurement from a projection. */
+inline constexpr bool MEASURE_EDGE_DISTANCE = true;
+
 using SphereAnimation::WALK_OPTIONS;
 using SphereAnimation::SpatialWalkState;
 using SphereAnimation::SpatialWalkInterval;

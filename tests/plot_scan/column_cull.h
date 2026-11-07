@@ -8,7 +8,7 @@ template <int W>
 inline bool reaches_band(const math::Vector &p,
                          const ClipRegion::XClip &columns, float top,
                          float bottom) {
-  const float column = math::vector_to_theta<W>(p);
+  const float column = math::vector_to_column<W>(p);
   const int owner = math::fast_wrap(int(floorf(column + 0.5f)), W);
   return p.y <= top && p.y >= bottom &&
          (!columns.active || !columns.clipped(owner) ||

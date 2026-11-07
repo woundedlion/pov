@@ -122,14 +122,15 @@ template <int W, int H> struct PolarWalk {
           fabsf(ec) > 1e-9f
               ? fabsf(radius * ea / ec) * math::RADIANS_PER_COLUMN<W>
               : std::numeric_limits<float>::infinity();
+      const bool forward_sector =
+          radius > 0.0f && slope <= 1.0f && along > 0.0f && along + ea > 0.0f;
       auto emit = [&](float row, float x, float alpha) HS_HOT_INLINE {
         Spacetime::count_geometry<
             &Spacetime::GeometryCounters::polar_column_samples>();
         sink.plot_column_at(canvas, {x, pole + sign * row}, column, color.color,
                             0.0f, alpha, t);
       };
-      if (!balanced && radius > 0.0f && slope <= 1.0f && along > 0.0f &&
-          along + ea > 0.0f) {
+      if (!balanced && forward_sector) {
         auto integral = [](float x) HS_HOT_INLINE {
           x = hs::clamp(x, -1.0f, 1.0f);
           return x < 0.0f ? 0.5f * (x + 1.0f) * (x + 1.0f)
@@ -200,7 +201,7 @@ template <int W, int H> struct PolarWalk {
             samples, inverse,
             stroke_sample_alpha(color.alpha, ratio, density, balanced)};
       };
-      if (radius > 0.0f && slope <= 1.0f && along > 0.0f && along + ea > 0.0f) {
+      if (forward_sector) {
         const float radial = sqrtf(to.x * to.x + to.y * to.y) -
                              sqrtf(from.x * from.x + from.y * from.y);
         const auto [samples, inverse, alpha] = sample_plan(radial);

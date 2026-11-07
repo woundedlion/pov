@@ -191,7 +191,8 @@ class ChainSnapshotCodec {
     uint8_t source, evaluation, basis, variant, mechanic;
     if (!object(value) || !boolean(value, "enabled", config.enabled) ||
         !integer(value, "source", source) ||
-        !integer(value, "version", config.version) || config.version != 1 ||
+        !integer(value, "version", config.version) ||
+        config.version != ColorModulation::RECIPE_VERSION ||
         !integer(value, "evaluation", evaluation) ||
         !integer(value, "seed", config.seed))
       return false;
@@ -229,7 +230,8 @@ class ChainSnapshotCodec {
     uint8_t source;
     if (!object(value) || !integer(value, "source", source) ||
         source > static_cast<uint8_t>(Pattern::SourceKind::DISPLACEMENT) ||
-        !integer(value, "version", state.version) || state.version != 1 ||
+        !integer(value, "version", state.version) ||
+        state.version != ColorModulation::RECIPE_VERSION ||
         !number(value, "phaseTurns", state.phase.phase_turns) ||
         state.phase.phase_turns < 0.0f || state.phase.phase_turns >= 1.0f ||
         !boolean(value, "initialized", state.initialized) ||

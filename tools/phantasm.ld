@@ -5,9 +5,9 @@
  * FORKED FROM: framework-arduinoteensy 1.162.0
  *
  * FLASH routing covers the generated hot-code layout, cold libraries and
- * effect factories, const rodata, spawn-time init,
- * cold-attribute and hot-leaf sections, cold
- * constructors/destructors and mesh builders, and framework one-time setup.
+ * effect factories, const rodata, spawn-time init, cold-attribute and hot-
+ * leaf sections, cold constructors/destructors and mesh builders, and
+ * framework one-time setup.
  * Libgcc arithmetic helpers use cached flash, retaining ITCM capacity.
  * The Teensy core USB/serial stack and one-time setup objects also use flash.
  * .fini is placed explicitly. Function/data sections allow individual matches

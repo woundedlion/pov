@@ -29,10 +29,18 @@
 #include "core/platform/platform.h"
 #include "targets/wasm/payload_clone.h"
 
-/// Size of `palette_lut`: 256 RGB entries.
-inline constexpr size_t PALETTE_LUT_BYTES = 256 * 3;
-/// Size of `palette_diagnostics`: 256 entries of 6 floats.
-inline constexpr size_t PALETTE_DIAGNOSTIC_FLOATS = 256 * 6;
+/// Entries in each baked palette view.
+inline constexpr size_t PALETTE_LUT_ENTRIES = 256;
+/// RGB bytes per entry.
+inline constexpr int PALETTE_LUT_STRIDE = 3;
+/// Diagnostic floats per entry.
+inline constexpr int PALETTE_DIAGNOSTIC_STRIDE = 6;
+/// Size of the packed RGB view in bytes.
+inline constexpr size_t PALETTE_LUT_BYTES =
+    PALETTE_LUT_ENTRIES * PALETTE_LUT_STRIDE;
+/// Size of the diagnostic view in floats.
+inline constexpr size_t PALETTE_DIAGNOSTIC_FLOATS =
+    PALETTE_LUT_ENTRIES * PALETTE_DIAGNOSTIC_STRIDE;
 // Bake targets shared by every PaletteOps instance, handed to JS as views
 // over WASM linear memory rather than copies. See the memory-view contract on
 // compile().
@@ -41,7 +49,7 @@ static uint8_t palette_lut[PALETTE_LUT_BYTES];
 /// Per-entry {L, C, q, C_max, h_path, h_final} inspection values.
 static float palette_diagnostics[PALETTE_DIAGNOSTIC_FLOATS];
 /// Per-entry flag: 1 where the colour left sRGB and was clipped, else 0.
-static uint8_t palette_fallback[256];
+static uint8_t palette_fallback[PALETTE_LUT_ENTRIES];
 
 /**
  * @brief JS-facing V4 palette-recipe compiler.
@@ -371,14 +379,15 @@ private:
   static void store_sample(int index, const GenerativePalette &palette, float t,
                            bool inspect) {
     const CRGB color = static_cast<CRGB>(palette.get(t));
-    palette_lut[index * 3] = color.r;
-    palette_lut[index * 3 + 1] = color.g;
-    palette_lut[index * 3 + 2] = color.b;
+    const int rgb_offset = index * PALETTE_LUT_STRIDE;
+    palette_lut[rgb_offset] = color.r;
+    palette_lut[rgb_offset + 1] = color.g;
+    palette_lut[rgb_offset + 2] = color.b;
     if (!inspect)
       return;
 
     const GenerativePalette::Diagnostic diagnostic = palette.diagnose(t);
-    const int offset = index * 6;
+    const int offset = index * PALETTE_DIAGNOSTIC_STRIDE;
     palette_diagnostics[offset] = diagnostic.L;
     palette_diagnostics[offset + 1] = diagnostic.C;
     palette_diagnostics[offset + 2] = diagnostic.q;
@@ -395,14 +404,14 @@ private:
    * @param inspect Also copy the diagnostic and gamut-fallback flag.
    */
   static void copy_sample(int destination, int source, bool inspect) {
-    for (int channel = 0; channel < 3; ++channel)
-      palette_lut[destination * 3 + channel] =
-          palette_lut[source * 3 + channel];
+    for (int channel = 0; channel < PALETTE_LUT_STRIDE; ++channel)
+      palette_lut[destination * PALETTE_LUT_STRIDE + channel] =
+          palette_lut[source * PALETTE_LUT_STRIDE + channel];
     if (!inspect)
       return;
-    for (int field = 0; field < 6; ++field)
-      palette_diagnostics[destination * 6 + field] =
-          palette_diagnostics[source * 6 + field];
+    for (int field = 0; field < PALETTE_DIAGNOSTIC_STRIDE; ++field)
+      palette_diagnostics[destination * PALETTE_DIAGNOSTIC_STRIDE + field] =
+          palette_diagnostics[source * PALETTE_DIAGNOSTIC_STRIDE + field];
     palette_fallback[destination] = palette_fallback[source];
   }
 
@@ -415,7 +424,7 @@ private:
    *          are exact.
    */
   static void bake(const GenerativePalette &palette, bool inspect) {
-    bake_palette_schedule<256>(
+    bake_palette_schedule<PALETTE_LUT_ENTRIES>(
         {.mirrors = palette.mirrors_domain(), .loops = palette.loops_domain()},
         [&](int i, float t) { store_sample(i, palette, t, inspect); },
         [&](int destination, int source) {
@@ -464,7 +473,7 @@ private:
                  emscripten::val(emscripten::typed_memory_view(
                      PALETTE_DIAGNOSTIC_FLOATS, palette_diagnostics)));
       output.set("fallback", emscripten::val(emscripten::typed_memory_view(
-                                 size_t{256}, palette_fallback)));
+                                 PALETTE_LUT_ENTRIES, palette_fallback)));
     }
     return output;
   }

@@ -38,7 +38,7 @@ inline void test_azimuthal_project_radius_is_geodesic_angle() {
     math::Vector p = rand_unit();
     float geo = az_arc_exact(p, basis.v);
     auto proj = Plot::azimuthal_project(p, basis);
-    float r = std::hypot(proj.first, proj.second);
+    float r = std::hypot(proj.x, proj.y);
     HS_EXPECT_NEAR(r, geo, 5e-3f * (geo + 1.0f));
     if (geo > 0.3f && geo < math::PI_F - 0.3f)
       ++mid;
@@ -65,15 +65,14 @@ inline void test_azimuthal_roundtrip_identity() {
     float Px = R * std::cos(th), Py = R * std::sin(th);
     math::Vector s = Plot::azimuthal_unproject(Px, Py, basis);
     auto rp = Plot::azimuthal_project(s, basis);
-    HS_EXPECT_NEAR(rp.first, Px, AZ_ROUNDTRIP_REL_TOL * (R + 1.0f));
-    HS_EXPECT_NEAR(rp.second, Py, AZ_ROUNDTRIP_REL_TOL * (R + 1.0f));
+    HS_EXPECT_NEAR(rp.x, Px, AZ_ROUNDTRIP_REL_TOL * (R + 1.0f));
+    HS_EXPECT_NEAR(rp.y, Py, AZ_ROUNDTRIP_REL_TOL * (R + 1.0f));
 
     math::Vector p = rand_unit();
     if (math::dot(p, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
       continue;
     auto proj = Plot::azimuthal_project(p, basis);
-    math::Vector back =
-        Plot::azimuthal_unproject(proj.first, proj.second, basis);
+    math::Vector back = Plot::azimuthal_unproject(proj.x, proj.y, basis);
     HS_EXPECT_NEAR(math::angle_between(p, back), 0.0f, 1.5e-2f);
     ++fwd;
   }
@@ -126,12 +125,11 @@ inline void test_planar_arc_length_matches_fine_quadrature() {
     auto p2 = Plot::azimuthal_project(b, basis);
     constexpr int N = 2000;
     float fine = 0.0f;
-    math::Vector prev = az_unproject_exact(p1.first, p1.second, basis);
+    math::Vector prev = az_unproject_exact(p1.x, p1.y, basis);
     for (int i = 1; i <= N; ++i) {
       float t = static_cast<float>(i) / N;
-      math::Vector cur =
-          az_unproject_exact(p1.first + (p2.first - p1.first) * t,
-                             p1.second + (p2.second - p1.second) * t, basis);
+      math::Vector cur = az_unproject_exact(p1.x + (p2.x - p1.x) * t,
+                                            p1.y + (p2.y - p1.y) * t, basis);
       fine += az_arc_exact(prev, cur);
       prev = cur;
     }
@@ -214,8 +212,7 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
     auto p1 = Plot::azimuthal_project(a, basis);
     auto p2 = Plot::azimuthal_project(b, basis);
     std::array<float, Plot::PLANAR_LEN_SAMPLES + 1> cumul;
-    Plot::planar_arc_cumul(p1, p2.first - p1.first, p2.second - p1.second,
-                           basis, cumul);
+    Plot::planar_arc_cumul(p1, p2.x - p1.x, p2.y - p1.y, basis, cumul);
 
     HS_EXPECT_NEAR(cumul[0], 0.0f, 1e-6f);
     for (int k = 1; k <= Plot::PLANAR_LEN_SAMPLES; ++k)
@@ -223,7 +220,7 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
     // Table, edge sampler and planar_arc_length total the same length.
     const Plot::PlanarEdgeSpan span = Plot::make_planar_edge_span(a, b, basis);
     const math::Vector span_end = Plot::azimuthal_unproject(
-        span.p1.first + span.dx, span.p1.second + span.dy, basis);
+        span.p1.x + span.dx, span.p1.y + span.dy, basis);
     const Plot::PlanarEdgeSampler sampler =
         Plot::make_planar_edge_sampler(span, span_end, basis);
     constexpr float total_tol = 2e-5f;
@@ -232,7 +229,7 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
                    total_tol);
     // Triangle inequality against the endpoints the table joins.
     const math::Vector chart_start =
-        Plot::azimuthal_unproject(p1.first, p1.second, basis);
+        Plot::azimuthal_unproject(p1.x, p1.y, basis);
     const float endpoint_cos = math::dot(chart_start, span_end) /
                                sqrtf(math::dot(chart_start, chart_start) *
                                      math::dot(span_end, span_end));

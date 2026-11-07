@@ -207,7 +207,7 @@ public:
    * @brief Returns the composite size including the trailing black frame.
    * @return Composite size in bytes (image frame + black frame, for strobe_columns DMA).
    */
-  constexpr size_t size_with_bg() const { return COMPOSITE_SIZE; }
+  constexpr size_t size_with_strobe() const { return COMPOSITE_SIZE; }
 
   // --- Static correction configuration (shared across all frames) -----------
 

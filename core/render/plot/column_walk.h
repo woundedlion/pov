@@ -878,7 +878,7 @@ template <int W> struct ColumnWalk {
   PipelineRef &pipeline;                 /**< Destination pipeline. */
   Canvas &canvas;                        /**< Frame context. */
   const Fragments &points;               /**< The edge's endpoint registers. */
-  TimedShaderFn shader;                  /**< Time-aware source shader. */
+  TimedShaderRef shader;                 /**< Time-aware source shader. */
   const EdgeWorldsheet &frame;           /**< The edge's paths and bases. */
   const detail::ColumnSegment *segments; /**< Walks per arm pass. */
   int segment_count;                     /**< Number of walks. */
@@ -948,7 +948,7 @@ template <RasterConfig Cfg, bool UNIFORM_COLOR>
 HS_HOT_INLINE Fragment column_seam_registers(const Fragments &points,
                                              const ColumnTapSample &sample,
                                              const Fragment &owner, float far,
-                                             const TimedShaderFn &shader) {
+                                             const TimedShaderRef &shader) {
   Fragment other;
   if constexpr (Cfg.interpolate_registers)
     other = Fragment::lerp_registers(points[0], points[1], sample.s);
@@ -1392,7 +1392,7 @@ walk_uniform_edge_columns(const ColumnWalk<W> &state) {
 template <int W, int H, RasterConfig Cfg, bool RECORD_WORLD>
 HS_HOT_INLINE void
 rasterize_column_edges_impl(PipelineRef &pipeline, Canvas &canvas,
-                            Fragments &points, TimedShaderFn shader,
+                            Fragments &points, TimedShaderRef shader,
                             const EdgeBatch &batch,
                             const Spacetime::PoseTable *poses, float radians,
                             bool source_positions, float spin) {
@@ -1550,7 +1550,7 @@ rasterize_column_edges_impl(PipelineRef &pipeline, Canvas &canvas,
 template <int W, int H, RasterConfig Cfg>
 FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE void
 rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
-                       TimedShaderFn shader, const EdgeBatch &batch,
+                       TimedShaderRef shader, const EdgeBatch &batch,
                        const Spacetime::PoseTable *poses, float radians,
                        bool source_positions, float spin) {
   rasterize_column_edges_impl<W, H, Cfg, false>(pipeline, canvas, points,
@@ -1571,7 +1571,7 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
 template <int W, int H, RasterConfig Cfg>
 HS_HOT_FLASH_MEMBER void rasterize_recording_column_edges(
     PipelineRef &pipeline, Canvas &canvas, Fragments &points,
-    TimedShaderFn shader, const EdgeBatch &batch,
+    TimedShaderRef shader, const EdgeBatch &batch,
     const Spacetime::PoseTable *poses, float radians, bool source_positions,
     float spin) {
   rasterize_column_edges_impl<W, H, Cfg, true>(pipeline, canvas, points, shader,

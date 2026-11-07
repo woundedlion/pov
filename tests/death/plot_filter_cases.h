@@ -105,7 +105,7 @@ inline void case_raster_empty_path_null_shader() {
   DeathEffect fx;
   Canvas canvas(fx);
   Pipeline<32, 16> pipe;
-  Plot::rasterize<32, 16>(pipe, canvas, points, FragmentShaderFn{});
+  Plot::rasterize<32, 16>(pipe, canvas, points, FragmentShaderRef{});
 }
 
 /** @brief Traps on raster single nonfinite point. */

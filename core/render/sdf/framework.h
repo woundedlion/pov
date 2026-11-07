@@ -486,7 +486,7 @@ struct OctetFramework4 {
 };
 
 /** @brief Monotone plane streams for periodic framework adapters. */
-template <size_t Count> struct OctetStreams {
+template <size_t Count> struct PlaneStreams {
   static constexpr size_t STREAM_COUNT = Count; ///< Number of plane streams.
   static constexpr size_t GROUP_CAPACITY = 1; ///< One merge identity per group.
   Raycast::Footprint footprint;               ///< Pixel footprint for coverage.
@@ -558,7 +558,7 @@ template <size_t Count> struct OctetStreams {
 };
 
 /** @brief Four plane streams started from a world-space ray. */
-struct FrameworkPlaneEvents : OctetStreams<4> {
+struct FrameworkPlaneEvents : PlaneStreams<4> {
   Raycast::Ray ray; ///< Traced ray.
 
   /** @brief Constructs inactive plane streams.
@@ -610,7 +610,7 @@ struct FrameworkEvents : FrameworkPlaneEvents {
 };
 
 /** @brief Single-owner strut coverage at monotone octet plane crossings. */
-struct OctetEvents : OctetStreams<4> {
+struct OctetEvents : PlaneStreams<4> {
   /** @brief Greatest number of streams that own a strut pair. */
   static constexpr size_t OWNER_CAPACITY = STREAM_COUNT - 1;
   /** @brief Maximum strut pairs owned by one stream. */
@@ -758,7 +758,7 @@ struct OctetEvents : OctetStreams<4> {
  * |normal . direction|. Coverage uses the ray-to-line closest approach of the
  * class's nearest strut in the crossed plane.
  */
-struct OctetEvents4 : OctetStreams<8> {
+struct OctetEvents4 : PlaneStreams<8> {
   /** @brief Greatest number of families that own a strut class. */
   static constexpr size_t OWNER_CAPACITY = 4;
   /** @brief Greatest number of strut classes one family owns. */

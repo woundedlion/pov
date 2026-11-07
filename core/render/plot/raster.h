@@ -241,7 +241,7 @@ private:
 
 /**
  * @brief Paired screen rows and columns for the same polyline points.
- * @details Rows use y_to_screen_row; columns use vector_to_theta. Valid only
+ * @details Rows use y_to_screen_row; columns use vector_to_column. Valid only
  * for pipelines without a world-space stage.
  */
 class PointProjections {
@@ -869,12 +869,12 @@ HS_HOT_INLINE inline bool select_edge_visibility(
  * @param canvas Target canvas (supplies the active clip band).
  * @param points Fragment polyline to rasterize.
  * @param fragment_shader Per-fragment shader applied before plotting; must be
- *                        non-null. An empty FragmentShaderFn traps once per
+ *                        non-null. An empty FragmentShaderRef traps once per
  *                        polyline; a typed shader cannot be empty.
  * @param opts Optional loop/projection/culling behaviors.
  */
 template <int W, int H, RasterConfig Cfg = {}, typename PipelineT = PipelineRef,
-          typename FragmentShaderT = FragmentShaderFn>
+          typename FragmentShaderT = FragmentShaderRef>
   requires(!Cfg.timed)
 static void rasterize(PipelineT &pipeline, Canvas &canvas,
                       const Fragments &points, FragmentShaderT fragment_shader,
@@ -906,9 +906,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   if constexpr (!pipeline_direct_raster_path<PipelineT>() &&
                 (!std::same_as<std::decay_t<PipelineT>, PipelineRef> ||
                  !std::same_as<std::decay_t<FragmentShaderT>,
-                               FragmentShaderFn>)) {
+                               FragmentShaderRef>)) {
     PipelineRef erased(pipeline);
-    FragmentShaderFn erased_shader(fragment_shader);
+    FragmentShaderRef erased_shader(fragment_shader);
     rasterize<W, H, Cfg>(erased, canvas, points, erased_shader, opts);
     return;
   }
@@ -939,7 +939,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
                  std::isfinite(point.pos.z),
              "rasterize control points must be finite");
   // Trap an empty shader once per polyline, even when every edge culls.
-  if constexpr (std::same_as<std::decay_t<FragmentShaderT>, FragmentShaderFn>)
+  if constexpr (std::same_as<std::decay_t<FragmentShaderT>, FragmentShaderRef>)
     HS_CHECK(fragment_shader, "rasterize requires a non-null fragment_shader");
   // A degenerate path is not drawn; a dot needs the vertex duplicated.
   if (len < 2)

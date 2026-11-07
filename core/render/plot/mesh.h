@@ -79,7 +79,7 @@ struct Mesh {
   template <int W, int H, typename MeshT, typename PipelineT = PipelineRef>
   static void draw_edge(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
                         int u, int v, int edge_index, const ClipCutBounds &cb,
-                        FragmentShaderFn fragment_shader,
+                        FragmentShaderRef fragment_shader,
                         VertexShaderRef vertex_shader) {
     Fragment fu;
     fu.pos = mesh.vertices[u];
@@ -208,8 +208,6 @@ struct Mesh {
     for (size_t i = 0; i < num_f; ++i) {
       int count = fc[i];
 
-      // Trap malformed mesh data: an offset/count pair disagreeing with the flat
-      // index array yields out-of-bounds reads.
       HS_CHECK(offset + static_cast<size_t>(count) <= fi_size,
                "mesh face span exceeds face index array");
 
@@ -219,7 +217,6 @@ struct Mesh {
         int small = std::min(u, v);
         int large = std::max(u, v);
 
-        // A vertex index past the dedup bitset's capacity is a mesh-sizing bug.
         HS_CHECK(large < DEDUP_CAPACITY,
                  "Mesh edge dedup: vertex index %d >= capacity %d", large,
                  DEDUP_CAPACITY);
@@ -243,7 +240,7 @@ struct Mesh {
    */
   template <int W, int H, typename MeshT, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
-                   FragmentShaderFn fragment_shader,
+                   FragmentShaderRef fragment_shader,
                    VertexShaderRef vertex_shader) {
     int edge_index = 0;
 
@@ -255,7 +252,7 @@ struct Mesh {
     const ClipCutBounds cb = make_clip_cut_bounds<W, H>(cr, cr.x_clip());
 
     for_each_unique_edge(mesh, visited, [&](int u, int v) {
-      // vertices[] bounds asserts are stripped on device; u,v are non-negative.
+      // u and v are nonnegative.
       HS_CHECK(static_cast<size_t>(std::max(u, v)) < mesh.vertices.size(),
                "Mesh::draw: edge vertex index %d >= vertex count %d",
                std::max(u, v), static_cast<int>(mesh.vertices.size()));
@@ -279,7 +276,7 @@ struct Mesh {
    */
   template <int W, int H, typename MeshT, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
-                   FragmentShaderFn fragment_shader) {
+                   FragmentShaderRef fragment_shader) {
     draw<W, H>(pipeline, canvas, mesh, fragment_shader, {});
   }
 
@@ -430,7 +427,7 @@ struct Mesh {
   template <int W, int H, typename MeshT, typename PipelineT = PipelineRef>
   static void
   draw(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
-       const ArenaVector<Edge> &edges, FragmentShaderFn fragment_shader,
+       const ArenaVector<Edge> &edges, FragmentShaderRef fragment_shader,
        VertexShaderRef vertex_shader = {}, const DissolveMask *mask = nullptr) {
     const ClipRegion &cr = canvas.clip();
     const ClipCutBounds cb = make_clip_cut_bounds<W, H>(cr, cr.x_clip());
@@ -438,8 +435,6 @@ struct Mesh {
     for (size_t ei = 0; ei < edges.size(); ++ei) {
       if (mask && !mask->owns(edges[ei].u, edges[ei].v))
         continue;
-      // Setup-boundary OOB guard: the raw edge list could outlive or mismatch
-      // its mesh, and mesh.vertices[] only asserts (compiled out on device).
       HS_CHECK(edges[ei].u < mesh.vertices.size() &&
                    edges[ei].v < mesh.vertices.size(),
                "Mesh::draw: edge (%d, %d) outside vertex count %d", edges[ei].u,
@@ -696,12 +691,12 @@ struct Mesh {
         prepared_poses ? prepared_sweep : erased.sweep_arc();
     if constexpr (requires { requires PipelineT::any_3d_history; })
       rasterize_recording_column_edges<W, H, {.timed = true}>(
-          erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
+          erased, canvas, points, TimedShaderRef(timed_shader), batch, poses,
           callback_bound + raster_sweep, geometry.source_positions,
           raster_sweep);
     else
       rasterize_column_edges<W, H, {.timed = true}>(
-          erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
+          erased, canvas, points, TimedShaderRef(timed_shader), batch, poses,
           callback_bound + raster_sweep, geometry.source_positions,
           raster_sweep);
   }
@@ -915,7 +910,8 @@ struct Mesh {
       auto still_shader =
           [&](const math::Vector &p, Fragment &f)
               HS_HOT_INLINE { Spacetime::shade_at_time(shader, 1.0f, p, f); };
-      draw<W, H>(pipeline, canvas, mesh, edges, FragmentShaderFn(still_shader));
+      draw<W, H>(pipeline, canvas, mesh, edges,
+                 FragmentShaderRef(still_shader));
       return;
     }
     if (edges.size() == 0)

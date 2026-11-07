@@ -421,7 +421,7 @@ inline const ClipRegion &source_clip(const PipelineT &pipeline,
  * @details Traps with a scan-specific diagnostic before invoking the shader.
  */
 HS_NOINLINE_NOCLONE inline void
-check_fragment_shader(FragmentShaderFn fragment_shader) {
+check_fragment_shader(FragmentShaderRef fragment_shader) {
   HS_CHECK(fragment_shader, "Scan: fragment_shader must be non-null");
 }
 
@@ -430,7 +430,7 @@ check_fragment_shader(FragmentShaderFn fragment_shader) {
  * @param fragment_shader Shader the draw invokes per pixel.
  */
 HS_FLASH_MEMBER inline void
-check_fragment_shader(TimedShaderFn fragment_shader) {
+check_fragment_shader(TimedShaderRef fragment_shader) {
   HS_CHECK(fragment_shader,
            "Scan: time-aware fragment_shader must be non-null");
 }
@@ -443,21 +443,21 @@ check_fragment_shader(TimedShaderFn fragment_shader) {
  * column at that column's sweep fraction.
  */
 struct ColumnShader {
-  FragmentShaderFn plain;  ///< Shader run when `timed` is unset.
-  TimedShaderFn timed;     ///< Shader taking its column's sweep fraction.
+  FragmentShaderRef plain; ///< Shader run when `timed` is unset.
+  TimedShaderRef timed;    ///< Shader taking its column's sweep fraction.
   bool reads_time = false; ///< Whether `timed` is the shader.
 
   /**
    * @brief Wraps a plain shader.
    * @param shader Shader invoked per covered pixel.
    */
-  ColumnShader(FragmentShaderFn shader) : plain(shader) {}
+  ColumnShader(FragmentShaderRef shader) : plain(shader) {}
 
   /**
    * @brief Wraps a shader that reads its column's sweep time.
    * @param shader Shader invoked per covered column.
    */
-  ColumnShader(TimedShaderFn shader) : timed(shader), reads_time(true) {}
+  ColumnShader(TimedShaderRef shader) : timed(shader), reads_time(true) {}
 };
 
 /**
@@ -693,7 +693,7 @@ prepare_probe_row(Probe &probe, const ShapeT &shape, int y, bool debug) {
  * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
  * @tparam PipelineT Plotting pipeline type (deduced; pass PipelineRef to erase the sink).
  * @tparam Probe Prepared distance evaluator.
- * @tparam ShaderFn Erased shader form: FragmentShaderFn, or ColumnShader,
+ * @tparam ShaderFn Erased shader form: FragmentShaderRef, or ColumnShader,
  *         whose time-aware form runs once per offered column at that
  *         column's sweep time.
  * @param x Column index in [0, W).
@@ -720,7 +720,7 @@ prepare_probe_row(Probe &probe, const ShapeT &shape, int y, bool debug) {
  */
 template <int W, int H, bool ComputeUVs = true, typename PipelineT,
           typename Probe = SDF::DirectDistance,
-          typename ShaderFn = FragmentShaderFn>
+          typename ShaderFn = FragmentShaderRef>
 inline int process_pixel(int x, int y, const math::Vector &p,
                          PipelineT &pipeline, Canvas &canvas, const auto &shape,
                          const ShaderFn &fragment_shader, bool debug_bb,
@@ -1318,7 +1318,7 @@ scan_region_flash(int y_min, int y_max, IntervalFn &&get_intervals,
 template <int W, int H> struct BoundingSphere {
   int y_min; ///< First canvas row the cap can touch; inclusive and clamped.
   int y_max; ///< Last canvas row the cap can touch; inclusive and clamped.
-  float center_theta;   /**< Longitude of center in pixel units. */
+  float center_column;  /**< Longitude of center in pixel units. */
   float cos_rho;        /**< cos of the cap's angular radius. */
   float cos_center_phi; /**< cos of the cap center's colatitude. */
   float sin_center_phi; /**< sin of the cap center's colatitude. */
@@ -1332,7 +1332,7 @@ template <int W, int H> struct BoundingSphere {
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
     float angular_radius = asinf(std::min(bounds_radius, 1.0f));
-    center_theta = math::vector_to_theta<W>(center);
+    center_column = math::vector_to_column<W>(center);
     float center_phi = acosf(hs::clamp(center.y, -1.0f, 1.0f));
     cos_rho = cosf(angular_radius);
     cos_center_phi = cosf(center_phi);
@@ -1376,7 +1376,7 @@ template <int W, int H> struct BoundingSphere {
     int span = static_cast<int>(ceilf(theta_span)) + 1;
     int x_lo = std::min(W / 2, span);
     int x_hi = std::min((W + 1) / 2, span);
-    out(center_theta - x_lo, center_theta + x_hi);
+    out(center_column - x_lo, center_column + x_hi);
     return true;
   }
 };
@@ -1568,7 +1568,7 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
 template <int W, int H, bool ComputeUVs, typename PipelineT, typename ShapeT>
 HS_HOT_FLASH_MEMBER void
 rasterize_fixed(PipelineT &pipeline, Canvas &canvas, const ShapeT &shape,
-                FragmentShaderFn fragment_shader, bool debug) {
+                FragmentShaderRef fragment_shader, bool debug) {
   int y_lo, y_hi;
   const auto &cr = source_clip<W, H>(pipeline, canvas);
   const auto xc = cr.x_clip();
@@ -1633,7 +1633,8 @@ template <int W, int H, typename ShapeT> consteval void require_scan_shape() {
  */
 template <int W, int H, bool ComputeUVs = true, typename PipelineT>
 inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
-                      FragmentShaderFn fragment_shader, bool debug_bb = false) {
+                      FragmentShaderRef fragment_shader,
+                      bool debug_bb = false) {
   require_scan_shape<W, H, decltype(shape)>();
 
   check_canvas_dims<W, H>(canvas);
@@ -1669,7 +1670,7 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
  */
 template <int W, int H, bool ComputeUVs = true, typename PipelineT>
 inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
-                      TimedShaderFn fragment_shader, bool debug_bb = false) {
+                      TimedShaderRef fragment_shader, bool debug_bb = false) {
   if (Spacetime::flat_surface()) {
     const auto at_endpoint = [&](const math::Vector &p, Fragment &f) {
       fragment_shader(p, f, 1.0f);

@@ -25,19 +25,18 @@ namespace math {
  * @return `value` modulo `period`, in [0, period).
  */
 template <typename T> inline T wrap_positive(T value, T period) {
-  T result;
-  if constexpr (!std::is_floating_point_v<T>) {
-    result = static_cast<T>(value % period);
+  if constexpr (std::is_floating_point_v<T>) {
+    // Strict bounds retain fmod's signed zero at exact multiples.
+    T result = std::isfinite(period) && value > -period && value < period
+                   ? value
+                   : std::fmod(value, period);
+    if (result < 0)
+      result += period;
+    return result >= period ? T{0} : result;
+  } else {
+    const T result = static_cast<T>(value % period);
     return result < 0 ? static_cast<T>(result + period) : result;
   }
-  // Strict bounds retain fmod's signed zero at exact multiples.
-  if constexpr (std::is_floating_point_v<T>)
-    result = std::isfinite(period) && value > -period && value < period
-                 ? value
-                 : std::fmod(value, period);
-  if (result < 0)
-    result += period;
-  return result >= period ? T{0} : result;
 }
 
 /**

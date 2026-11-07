@@ -170,7 +170,7 @@ inline void test_submit_happy_path() {
   DMALEDController<N, MockStrip> ctl;
 
   ctl.back_frame().pack_pixel(0, Pixel(CRGB(255, 0, 0)));
-  bool ok = ctl.submit_frame(/*with_bg=*/false);
+  bool ok = ctl.submit_frame(/*strobe=*/false);
 
   HS_EXPECT_TRUE(ok);
   HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1);
@@ -262,7 +262,7 @@ inline void test_transfer_idle_poll() {
 }
 
 /**
- * @brief with_bg selects the composite (image + trailing black) transfer length.
+ * @brief strobe selects the composite (image + trailing black) transfer length.
  */
 inline void test_withbg_length() {
   reset_correction<N>();
@@ -270,7 +270,7 @@ inline void test_withbg_length() {
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
-  HS_EXPECT_TRUE(ctl.submit_frame(/*with_bg=*/true));
+  HS_EXPECT_TRUE(ctl.submit_frame(/*strobe=*/true));
   HS_EXPECT_EQ(MockStrip::state().last_len,
                static_cast<size_t>(Frame::COMPOSITE_SIZE));
   HS_EXPECT_EQ(MockStrip::state().flushed_data, MockStrip::state().last_data);
@@ -280,7 +280,7 @@ inline void test_withbg_length() {
                static_cast<uint32_t>(MockStrip::state().last_len));
 
   MockStrip::state().complete = true;
-  HS_EXPECT_TRUE(ctl.submit_frame(/*with_bg=*/false));
+  HS_EXPECT_TRUE(ctl.submit_frame(/*strobe=*/false));
   HS_EXPECT_EQ(MockStrip::state().last_len,
                static_cast<size_t>(Frame::BUFFER_SIZE));
   HS_EXPECT_EQ(MockStrip::state().flushed_data, MockStrip::state().last_data);

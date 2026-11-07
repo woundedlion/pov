@@ -16,11 +16,10 @@ An effect's roots are the functions whose mangled names name its class or its
 closure over direct branches and code-address literals, through ITCM, hot,
 cold and toolchain-library code and linker veneers, and through the flash
 objects a function references that are at least half function pointers,
-restricted to flash `.text.hot*`
-sections, toolchain-library sections and cold sections that hot or ITCM code
-calls. Members rank by call
-depth from the roots, then by depth-first call order; the gated set takes them in rank order, skipping any that
-would exceed `GATED_BYTES`.
+restricted to flash `.text.hot*` sections, toolchain-library sections and
+cold sections that hot or ITCM code calls. Members rank by call depth from
+the roots, then by depth-first call order; the gated set takes them in rank
+order, skipping any that would exceed `GATED_BYTES`.
 
 Run:  python tools/hot_layout.py check --elf firmware.elf --map firmware.map
 """

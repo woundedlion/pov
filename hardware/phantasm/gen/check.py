@@ -19,9 +19,8 @@ from kicad_common import F, export_netlist, kicad_cli
 # pin-keyed: pin 1 cathode on SYNC_BUS, pin 2 anode on GND.
 SYMMETRIC = {"R1", "R2", "R_D1", "R_D2", "R_S", "R_PD", "R_MEN", "R_LF", "R_TX",
              "C_LF", "C_DEC1", "C_DEC2", "C_SYNC", "F1", "FB",
-             "JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD"}
-SYMMETRIC.update({"R_A", "R_B", "R_TERM", "JP_TERM", "C_DEC3", "C_BULK3",
-                  "R_DATA_PD", "R_CLK_PD"})
+             "JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD", "R_A", "R_B", "R_TERM",
+             "JP_TERM", "C_DEC3", "C_BULK3", "R_DATA_PD", "R_CLK_PD"}
 
 
 def node_key(ref, pin):
@@ -59,15 +58,15 @@ EXPECT_REV_1_1 = {
                    "U1.1", "U1.4", "U1.7", "U1.12", "U_MCU.GND"},
 }
 
-EXPECT = {name: set(nodes) for name, nodes in EXPECT_REV_1_1.items()}
-EXPECT["FRAME_SYNC"].remove("U1.9")
-EXPECT["SYNC_TX"] = {"U_MCU.4", "U1.9", "R_TX"}
-EXPECT["GND"].add("R_TX")
-del EXPECT["SERIAL1_TX"]
-for nodes in EXPECT.values():
+EXPECT_REV_1_2 = {name: set(nodes) for name, nodes in EXPECT_REV_1_1.items()}
+EXPECT_REV_1_2["FRAME_SYNC"].remove("U1.9")
+EXPECT_REV_1_2["SYNC_TX"] = {"U_MCU.4", "U1.9", "R_TX"}
+EXPECT_REV_1_2["GND"].add("R_TX")
+del EXPECT_REV_1_2["SERIAL1_TX"]
+for nodes in EXPECT_REV_1_2.values():
     nodes.difference_update({"J4.1", "J4.2", "J4.3"})
 
-EXPECT_REV_1_3 = {name: set(nodes) for name, nodes in EXPECT.items()
+EXPECT_REV_1_3 = {name: set(nodes) for name, nodes in EXPECT_REV_1_2.items()
                   if name not in ("SYNC_BUS", "SYNC_SRC", "SYNC_PULLDOWN", "MASTER_EN")}
 EXPECT_REV_1_3["+5V_LOGIC"].update({"U1.10", "U1.13"})
 EXPECT_REV_1_3["+3V3"].discard("R_MEN")
@@ -96,7 +95,7 @@ def expected_nets(revision):
     if revision == "1.1":
         return EXPECT_REV_1_1
     if revision == "1.2":
-        return EXPECT
+        return EXPECT_REV_1_2
     if revision == "1.3":
         return EXPECT_REV_1_3
     raise ValueError(f"unsupported board revision: {revision!r}")

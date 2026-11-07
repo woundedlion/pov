@@ -477,11 +477,11 @@ inline void test_full_handoff_cycle() {
  */
 inline void test_window_left_default_and_setter() {
   EffectHandoff<FakeEffect> h;
-  HS_EXPECT_EQ(h.window_left(), 1u);
+  HS_EXPECT_TRUE(h.window_left());
   h.set_window_left(false);
-  HS_EXPECT_EQ(h.window_left(), 0u);
+  HS_EXPECT_FALSE(h.window_left());
   h.set_window_left(true);
-  HS_EXPECT_EQ(h.window_left(), 1u);
+  HS_EXPECT_TRUE(h.window_left());
 }
 
 /**
@@ -570,16 +570,16 @@ inline void test_apply_wake_sequence() {
     const auto half =
         h.apply_wake({.flip = true, .zero_crossing = false, .wire_gen = 6});
     HS_EXPECT_TRUE(half.advance);
-    HS_EXPECT_EQ(h.window_left(), 0u);
+    HS_EXPECT_FALSE(h.window_left());
     const auto zero =
         h.apply_wake({.flip = true, .zero_crossing = true, .wire_gen = 6});
     HS_EXPECT_TRUE(zero.advance);
-    HS_EXPECT_EQ(h.window_left(), 1u);
+    HS_EXPECT_TRUE(h.window_left());
 
     // A wake with no flip neither advances nor republishes the window.
     const auto still = h.apply_wake({.wire_gen = 6});
     HS_EXPECT_FALSE(still.advance);
-    HS_EXPECT_EQ(h.window_left(), 1u);
+    HS_EXPECT_TRUE(h.window_left());
   }
 
   // live is read after the adopt: an effect taken live this wake flips this

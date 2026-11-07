@@ -11,6 +11,9 @@
  * @brief Passive pattern modulation recipes and mechanic controls. */
 
 namespace ColorModulation {
+/// Serialized version of modulation recipes and their clocks.
+inline constexpr uint16_t RECIPE_VERSION = 1;
+
 /** @brief Operation applied to a palette color. */
 enum class Mechanic : uint8_t {
   HUE_ROTATION,            ///< Signed hue rotation.
@@ -27,7 +30,7 @@ struct Params {
 struct Config {
   bool enabled = true; ///< Whether modulation is applied.
   Pattern::SourceKind source = Pattern::SourceKind::NOISE; ///< Source recipe.
-  uint16_t version = 1; ///< Source recipe version.
+  uint16_t version = RECIPE_VERSION; ///< Source recipe version.
   Pattern::Evaluation evaluation =
       Pattern::Evaluation::BAKED_CUBE;      ///< Evaluation strategy.
   Pattern::NoiseParams noise;               ///< Noise source controls.

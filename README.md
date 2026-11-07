@@ -359,7 +359,7 @@ auto shader = [&](const math::Vector &p, Fragment &f) {
 Scan::Ring::draw<W, H>(pipeline, canvas, basis, radius, thickness, shader);
 ```
 
-A `FragmentShaderFn` runs per pixel or per sample; an optional `VertexShaderRef` runs once per control point or pixel center to set up expensive shared state. Both are zero-allocation `FunctionRef` callables, safe on Teensy. Each rasterizer family fills the registers with its own documented convention ([Shader Interface](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md#the-shader-interface)).
+A `FragmentShaderRef` runs per pixel or per sample; an optional `VertexShaderRef` runs once per control point or pixel center to set up expensive shared state. Both are zero-allocation `FunctionRef` callables, safe on Teensy. Each rasterizer family fills the registers with its own documented convention ([Shader Interface](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md#the-shader-interface)).
 
 **Generate and transform.** Forward paths usually start with geometry built in the arenas: meshes from the solids registry (`Solids::get_by_name()`), Hankin patterns (`MeshOps::hankin`), Fibonacci lattices, or particle positions from physics. The `generate()` wrapper manages arena lifetime. Transformers then deform the geometry in world space — ripples, noise displacement, Möbius warps, quaternion rotation — and chain through `MeshOps::transform(input, output, arena, ripple, orient)` ([Geometry Transformers](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md#geometry-transformers-transformerh)).
 
@@ -505,7 +505,7 @@ The tables below list the library surface, which is deliberately wider than the 
 | Filter | Effect |
 |---|---|
 | `World::Orient` | Rotates incoming 3D points from an `Orientation`; its `Spacetime::PoseTable` provides shared surface-time poses to the column walk. Timed draws evaluate each sample at its column's time; ordinary plots and the flat selection use the current pose. Ordinary edge culls test the end pose padded by `sweep_arc()`; the column walk uses `Plot::SweptEdgeCull` before building geodesic bases. |
-| `World::Trails<Capacity>` | Stores world-space points in an arena-allocated flat buffer with a TTL countdown. On `flush()`, re-draws aged points through a `WorldTrailFn` color function. Trail items are quantized (int16 xyz + uint8 TTL); at capacity, the last occupied slot is replaced. Decay compacts slots without preserving age order. |
+| `World::Trails<Capacity>` | Stores world-space points in an arena-allocated flat buffer with a TTL countdown. On `flush()`, re-draws aged points through a `WorldTrailRef` color function. Trail items are quantized (int16 xyz + uint8 TTL); at capacity, the last occupied slot is replaced. Decay compacts slots without preserving age order. |
 | `World::Replicate<W>` | Clones geometry N times around the Y-axis by re-plotting each point rotated by `2π/N`. |
 | `World::VertexReplicate<N>` | Replicates geometry onto the N vertices of a solid by precomputing rotation quaternions from vertex[0] to each other vertex. |
 | `World::Mobius` | Applies a Möbius transformation via stereographic projection: sphere → complex plane → Möbius(z) → back to sphere. |

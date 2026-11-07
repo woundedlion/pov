@@ -53,7 +53,7 @@ struct MeshFeedbackWhiteBox {
       }
       if (!timed && still_route)
         Plot::Mesh::draw<DEFAULT_W, DEFAULT_H>(
-            pipeline, canvas, fx.mesh, fx.edges, FragmentShaderFn(shader));
+            pipeline, canvas, fx.mesh, fx.edges, FragmentShaderRef(shader));
       else
         Plot::Mesh::draw_timed<DEFAULT_W, DEFAULT_H>(
             pipeline, canvas, fx.mesh, fx.edges, shader, MF::MESH_GEOMETRY);

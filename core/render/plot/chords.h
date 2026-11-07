@@ -182,8 +182,8 @@ public:
       }
       const auto pa = azimuthal_project(a, planar_basis);
       const auto pb = azimuthal_project(b, planar_basis);
-      const float dx = pb.first - pa.first;
-      const float dy = pb.second - pa.second;
+      const float dx = pb.x - pa.x;
+      const float dy = pb.y - pa.y;
       const float piece_arc = sqrtf(dx * dx + dy * dy) * inv_pieces;
       math::Vector piece_start = a;
       math::PixelCoords piece_start_px = math::vector_to_pixel<W, H>(a);
@@ -192,8 +192,8 @@ public:
         math::Vector piece_end = b;
         if (j < pieces) {
           const float t = static_cast<float>(j) * inv_pieces;
-          piece_end = newton_unit(azimuthal_unproject(
-              pa.first + dx * t, pa.second + dy * t, planar_basis));
+          piece_end = newton_unit(
+              azimuthal_unproject(pa.x + dx * t, pa.y + dy * t, planar_basis));
         }
         const math::PixelCoords piece_end_px =
             math::vector_to_pixel<W, H>(piece_end);

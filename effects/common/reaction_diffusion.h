@@ -100,7 +100,6 @@ protected:
    * @brief Converts a normalized concentration to a Q16 fixed-point sample.
    * @param v Concentration; clamped to [0.0, 1.0] before scaling.
    * @return Q16 value in [0, 65535], rounded to nearest.
-   * @details clamp bounds the input so 65535.5 -> 65535 with no overflow.
    */
   static HS_HOT_INLINE inline uint16_t to_q16(float v) {
     return frac_to_q16(v);

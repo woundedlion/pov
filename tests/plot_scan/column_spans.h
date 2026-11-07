@@ -94,7 +94,7 @@ inline void test_col_span_rejects_ill_conditioned_pole() {
 inline void test_col_span_covers_arc() {
   constexpr int TW = 288;
   auto col_of = [](const math::Vector &v) {
-    return math::vector_to_theta<TW>(v.normalized());
+    return math::vector_to_column<TW>(v.normalized());
   };
   auto contains = [](int s, int len, float c) {
     int ci = static_cast<int>(floorf(c));
@@ -210,8 +210,7 @@ inline void test_col_span_covers_arc() {
     for (int i = 0; i <= N; ++i) {
       float t = static_cast<float>(i) / N;
       math::Vector p = Plot::azimuthal_unproject(
-          p1.first + (p2.first - p1.first) * t,
-          p1.second + (p2.second - p1.second) * t, basis);
+          p1.x + (p2.x - p1.x) * t, p1.y + (p2.y - p1.y) * t, basis);
       ++planar_samples;
       planar_escapes += !contains(s, len, col_of(p));
     }
@@ -327,8 +326,8 @@ inline void test_edge_visible_in_clip_is_conservative() {
       for (int k = 0; k <= SAMPLES && !reached; ++k) {
         const float t = static_cast<float>(k) / SAMPLES;
         reached = taps_in_clip<TW, TH>(
-            cr, Plot::azimuthal_unproject(ps.p1.first + ps.dx * t,
-                                          ps.p1.second + ps.dy * t, basis));
+            cr, Plot::azimuthal_unproject(ps.p1.x + ps.dx * t,
+                                          ps.p1.y + ps.dy * t, basis));
       }
       HS_EXPECT_TRUE(got || !reached);
       (got ? visible : culled)++;
@@ -658,8 +657,8 @@ inline void test_raw_geodesic_edge_gate_parity() {
     const auto xc = cr.x_clip();
     const float ra = Plot::y_to_screen_row<H>(a.y);
     const float rb = Plot::y_to_screen_row<H>(b.y);
-    const float ca = math::vector_to_theta<W>(a);
-    const float cb = math::vector_to_theta<W>(b);
+    const float ca = math::vector_to_column<W>(a);
+    const float cb = math::vector_to_column<W>(b);
     const bool exact = exact_gate(cr, xc, ra, rb, ca, cb, a, b);
     const auto raw =
         Plot::raw_geodesic_edge_gate<W, H>(cr, xc, ra, rb, ca, cb, a, b);

@@ -1000,7 +1000,7 @@ struct Mesh {
         f_in.v2 = static_cast<float>(i);
         fragment_shader(p, f_in);
       };
-      FragmentShaderFn raster_shader = wrapper;
+      FragmentShaderRef raster_shader = wrapper;
       {
         HS_PROFILE(scan_mesh_raster);
         if (sweep > 0.0f)
@@ -1166,7 +1166,7 @@ struct Mesh {
         f_in.v2 = static_cast<float>(sweep.face);
         fragment_shader(p, f_in);
       };
-      FragmentShaderFn raster_shader = wrapper;
+      FragmentShaderRef raster_shader = wrapper;
       scan_swept_face<W, H>(pipeline, canvas, sweep, face, raster_shader,
                             face_shader_setup);
     } else {
@@ -1334,7 +1334,7 @@ struct Mesh {
     check_canvas_dims<W, H>(canvas);
     check_pipeline_prepared(pipeline, canvas);
     // the per-face wrapper is never null; check the erased shader it wraps
-    if constexpr (std::is_same_v<FragmentShaderT, FragmentShaderFn>)
+    if constexpr (std::is_same_v<FragmentShaderT, FragmentShaderRef>)
       check_fragment_shader(fragment_shader);
 
     ScratchScope scope(scratch_arena);
@@ -1372,7 +1372,7 @@ struct Mesh {
     const FaceClipPlanes<W, H> clip_planes(cr, bounds_margin +
                                                    SDF::MOVED_AXIS_SLACK);
     const uint8_t *selected_faces = time ? time->mesh.selected_faces : nullptr;
-    const uint8_t drawn_face = window.active ? Scan::detail::FacePass::ARM_COPY
+    const uint8_t drawn_face = window.active ? Scan::detail::FacePass::WINDOWED
                                              : Scan::detail::FacePass::SHARED;
     for (size_t i = 0; i < num_f; ++i) {
       if (time && !mesh_visible(time->mesh.visible_faces, i))
@@ -1446,7 +1446,7 @@ struct Mesh {
    */
   template <int W, int H, typename PipelineT>
   static void draw(PipelineT &pipeline, Canvas &canvas, const MeshState &mesh,
-                   FragmentShaderFn fragment_shader, Arena &scratch_arena,
+                   FragmentShaderRef fragment_shader, Arena &scratch_arena,
                    const MeshOps::MeshClassBake *bake = nullptr) {
     std::nullptr_t face_shader_setup = nullptr;
     dispatch<W, H>(pipeline, canvas, mesh, fragment_shader, scratch_arena, bake,

@@ -186,8 +186,8 @@ inline void test_geodesic_edge_gate_keeps_upper_antialias_tap() {
   HS_EXPECT_TRUE((Plot::exact_geodesic_edge_visible<W, H>(
       cr, xc, ra, rb, a, b, es, [](int &, int &) { return false; })));
   HS_EXPECT_EQ((Plot::raw_geodesic_edge_gate<W, H>(
-                   cr, xc, ra, rb, math::vector_to_theta<W>(a),
-                   math::vector_to_theta<W>(b), a, b)),
+                   cr, xc, ra, rb, math::vector_to_column<W>(a),
+                   math::vector_to_column<W>(b), a, b)),
                Plot::RawGeodesicGateResult::VISIBLE);
 
   Filter::Screen::AntiAlias<W, H> aa;

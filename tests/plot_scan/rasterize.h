@@ -326,8 +326,8 @@ inline void test_planar_sampler_from_cull_parity() {
     auto expect_parity = [](float lhs, float rhs) {
       HS_EXPECT_NEAR(lhs, rhs, PARITY_TOL);
     };
-    expect_parity(rebuilt.proj1.first, reused.proj1.first);
-    expect_parity(rebuilt.proj1.second, reused.proj1.second);
+    expect_parity(rebuilt.proj1.x, reused.proj1.x);
+    expect_parity(rebuilt.proj1.y, reused.proj1.y);
     expect_parity(rebuilt.dx, reused.dx);
     expect_parity(rebuilt.dy, reused.dy);
     expect_parity(rebuilt.chart_tangent.x, reused.chart_tangent.x);

@@ -187,12 +187,14 @@ public:
 
     this->register_described_params();
 
-    timeline.add(0, Animation::PeriodicTimer(
-                        160, [this](Canvas &) { this->spin_slices(); },
-                        {.repeat = true}));
-    timeline.add(9, Animation::RandomWalk<W>(
-                        global_orientation, math::Y_AXIS, noise,
-                        Animation::RandomWalk<W>::Options::Languid()));
+    timeline.add(
+        0, Animation::PeriodicTimer(SPIN_PERIOD_FRAMES,
+                                    [this](Canvas &) { this->spin_slices(); },
+                                    {.repeat = true}));
+    timeline.add(
+        WALK_DELAY_FRAMES,
+        Animation::RandomWalk<W>(global_orientation, math::Y_AXIS, noise,
+                                 Animation::RandomWalk<W>::Options::Languid()));
     // Wrap the integrated phase to [0,1) so the orbit trig stays in precise range.
     timeline.add(0,
                  Animation::Driver(orbit_phase, &params.offset_speed, 0.01f));
@@ -315,6 +317,12 @@ private:
   /** Column-time pipeline applying the draw poses to unoriented meshes. */
   Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
       timed_filters;
+  /** Frames between spin events. */
+  static constexpr int SPIN_PERIOD_FRAMES = 160;
+  /** Frames in a spin animation. */
+  static constexpr int SPIN_FRAMES = 80;
+  /** Frames before the orientation walk starts. */
+  static constexpr int WALK_DELAY_FRAMES = 9;
   static constexpr int SPRITE_LIFE = 320; /**< Visible frames per sprite. */
   static constexpr int FADE_WINDOW = 32;  /**< Fade-in/out length in frames. */
   /** Frames consecutive sprites coexist; 0 keeps every frame at a single mesh
@@ -873,7 +881,7 @@ private:
 
   HS_HOT_FLASH_MEMBER void draw_original_scene(Canvas &canvas, const Params &p,
                                                const SolidData &solid,
-                                               TimedShaderFn fragment_shader) {
+                                               TimedShaderRef fragment_shader) {
     MeshState target;
     {
       HS_PROFILE(db_mesh_copy);
@@ -964,7 +972,7 @@ private:
   void spin_slices() {
     math::Vector axis = math::random_vector();
     timeline.add(0, Animation::Rotation<W>(global_orientation, axis,
-                                           2 * math::PI_F, 80,
+                                           2 * math::PI_F, SPIN_FRAMES,
                                            math::ease_in_out_sin));
   }
 

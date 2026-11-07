@@ -132,7 +132,8 @@ struct FieldDisplaceModel : ValueStateModel<StateT> {
    * @return Displaced direction and accumulated arc length. */
   static SurfaceResult step(const math::Vector &p, const Prepared &field,
                             float strength, uint8_t integrator) {
-    return Surface::step_tangent_field(p, field, strength, integrator, true);
+    return Surface::step_tangent_field(p, field, strength, integrator,
+                                       MEASURE_PATH_LENGTH);
   }
 };
 

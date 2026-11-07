@@ -978,7 +978,7 @@ inline void test_column_uniform_color_preserves_age() {
                                     .uniform_color = uniform};
         PipelineRef erased(pipeline, Spacetime::Timed{});
         Plot::rasterize_column_edges<W, H, {.timed = true}>(
-            erased, canvas, points, TimedShaderFn(shader), batch, &poses, 0.0f,
+            erased, canvas, points, TimedShaderRef(shader), batch, &poses, 0.0f,
             false, 0.0f);
       }
       effect.advance_display();
@@ -1066,7 +1066,7 @@ inline void test_column_uniform_color_seam_registers() {
       HS_EXPECT_EQ(time, far);
       f.color = owner.color;
     };
-    const TimedShaderFn shader(shade);
+    const TimedShaderRef shader(shade);
     const auto normal = Plot::column_seam_registers<{.timed = true}, false>(
         points, sample, owner, far, shader);
     const auto uniform = Plot::column_seam_registers<{.timed = true}, true>(
@@ -1160,9 +1160,9 @@ inline void test_column_plan_covers_lit_columns() {
     bool lit[W];
     for (int x = 0; x < W; ++x) {
       const float t = Spacetime::SamplingSurface<W>::time(float(x));
-      const float a = math::vector_to_theta<W>(math::nlerp_unit(a0, a1, t));
+      const float a = math::vector_to_column<W>(math::nlerp_unit(a0, a1, t));
       const float span = math::centered_remainder(
-          math::vector_to_theta<W>(math::nlerp_unit(b0, b1, t)) - a, float(W));
+          math::vector_to_column<W>(math::nlerp_unit(b0, b1, t)) - a, float(W));
       const float low = span < 0.0f ? a + span : a;
       lit[x] = math::centered_remainder(float(x) - low, float(W)) >= -0.5f &&
                math::centered_remainder(float(x) - low, float(W)) <=

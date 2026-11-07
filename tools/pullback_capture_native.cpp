@@ -15,9 +15,13 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
+
+constexpr std::string_view PEIRCE_ORACLE = "PEIRCE_FAST_SQUARE";
+constexpr std::string_view HUE_LUT_ORACLE = "HUE_ROTATION_AND_NOISE_LUTS";
 
 #define HS_PULLBACK_PRESET_COUNT(value) constexpr uint16_t PRESET_COUNT = value;
 #define HS_PULLBACK_OPERATION(name)
@@ -364,7 +368,7 @@ Color4 exact_shade(const ShaderChain<W, H> &effect, const math::Vector &view,
     const auto &op = *ops[index].op;
     const auto *params = program.param_block(index);
     const auto *prepared = program.prepared_block(index);
-    if (oracle == "PEIRCE_FAST_SQUARE" &&
+    if (oracle == PEIRCE_ORACLE &&
         std::string_view(op.operator_id) == Op::ProjectPeirceSquareFastV3::ID) {
       ++substitutions;
       const auto &p =
@@ -379,14 +383,14 @@ Color4 exact_shade(const ShaderChain<W, H> &effect, const math::Vector &view,
           Pullback::Projection::peirce(local, 0.0f, Op::PEIRCE_SQUARE_LAYOUT,
                                        0.0f, true, p.coordinate_scale,
                                        p.singularity_fade))};
-    } else if (oracle == "HUE_ROTATION_AND_NOISE_LUTS" &&
+    } else if (oracle == HUE_LUT_ORACLE &&
                std::string_view(op.operator_id) ==
                    Op::ColorizeGeneratedPaletteV4::ID) {
       ++substitutions;
       ::new (output) ColorSample{exact_colorize(
           *static_cast<const FieldSample *>(input),
           *reinterpret_cast<const Color::GeneratedPaletteState *>(prepared))};
-    } else if (oracle == "HUE_ROTATION_AND_NOISE_LUTS" &&
+    } else if (oracle == HUE_LUT_ORACLE &&
                std::string_view(op.operator_id) == Op::ModulateColorV1::ID) {
       ++substitutions;
       ::new (output) ColorSample{exact_modulate(
@@ -411,7 +415,7 @@ bool measure_oracle(ShaderChain<W, H> &effect,
   if (!fixture)
     return false;
   auto snapshot = ChainCaptureFixtures::snapshot(fixture->snapshot_index);
-  if (isolate_projection && instruction.oracle == "PEIRCE_FAST_SQUARE")
+  if (isolate_projection && instruction.oracle == PEIRCE_ORACLE)
     for (auto &modulation : snapshot.modulation)
       if (modulation.recipe.mechanic.kind ==
           ColorModulation::Mechanic::HUE_ROTATION)
@@ -487,7 +491,7 @@ int capture(const char *operations_path, const char *output_path) {
     return 2;
   }
   std::vector<OracleMetric> metrics;
-  OracleMetric coupled_peirce{"PEIRCE_FAST_SQUARE"};
+  OracleMetric coupled_peirce{std::string(PEIRCE_ORACLE)};
   for (const OracleInstruction &instruction : operations.oracles) {
     auto metric = std::find_if(metrics.begin(), metrics.end(),
                                [&](const OracleMetric &candidate) {
@@ -509,7 +513,7 @@ int capture(const char *operations_path, const char *output_path) {
           static_cast<unsigned>(instruction.operation));
       return 3;
     }
-    if (instruction.oracle == "PEIRCE_FAST_SQUARE" &&
+    if (instruction.oracle == PEIRCE_ORACLE &&
         !measure_oracle<W, H>(effect, instruction, coupled_peirce.maximum,
                               coupled_peirce.samples, false)) {
       std::fprintf(stderr,

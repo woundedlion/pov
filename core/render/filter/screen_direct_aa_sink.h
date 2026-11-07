@@ -287,7 +287,7 @@ public:
 
   /**
    * @brief Trail flush (nothing to flush).
-   * @tparam TrailFn ScreenTrailFn or WorldTrailFn.
+   * @tparam TrailFn ScreenTrailRef or WorldTrailRef.
    * @details Dependent-false guard: this sink carries no history.
    */
   template <typename TrailFn> void flush(Canvas &, const TrailFn &, float) {

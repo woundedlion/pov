@@ -14,6 +14,8 @@ namespace Raycast {
 
 /** @brief Fraction of a safe distance bound taken per step. */
 inline constexpr float STEP_SAFETY = 0.9f;
+/** @brief Sphere-trace step overrelaxation; 1 is the conservative march. */
+inline constexpr float OVERRELAX_OMEGA = 1.3f;
 /** @brief Fraction of the AA width accepted as a surface hit. */
 inline constexpr float HIT_FRACTION = 0.02f;
 /** @brief Minimum forward step in world units. */
@@ -79,7 +81,7 @@ HS_HOT_INLINE inline float
 closest_approach(const Shape &shape, const math::Vector &origin,
                  const math::Vector &direction, float end_t, int max_steps,
                  float aa_width, math::Vector &closest_local,
-                 float overrelaxation = 1.3f) {
+                 float overrelaxation = OVERRELAX_OMEGA) {
   float t = 0.0f;
   math::Vector local_p = origin;
   closest_local = origin;

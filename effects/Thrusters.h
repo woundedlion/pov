@@ -396,7 +396,7 @@ private:
   math::Vector ring_vec; /**< Unit normal of the main ring's plane. */
   float amplitude;       /**< Current warp amplitude driven by warp_anim. */
   float warp_phase; /**< Spatial warp phase in radians, randomized per fire. */
-  int t_global; /**< Frame counter, wrapped to [0, 32) — ring_fn's modulation period; never overflows. */
+  int t_global; /**< Frame counter in [0, 32), ring_fn's modulation period. */
   Animation::Mutation
       warp_anim; /**< Restartable warp-amplitude decay animation. */
 

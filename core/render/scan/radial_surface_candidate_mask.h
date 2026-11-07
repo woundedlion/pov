@@ -103,7 +103,7 @@ public:
     angular_scale = ANGULAR_BINS * (surface.edge_count() / 2) / math::TWO_PI_F;
     inverse_step = 1 / fmaxf(2 * padding, RADIUS / RADIAL_BINS);
     Stats stats;
-    Boundaries::visit_candidates_detailed(
+    Boundaries::visit_candidates(
         surface,
         [&](const auto &candidate) HS_HOT_FLASH_MEMBER {
           if constexpr (COUNT)

@@ -141,7 +141,7 @@ public:
    * @brief Visits decoded snapshots with normalized oldest-to-newest progress.
    * @param callback Invoked as `void(const Vector &, float t)`.
    */
-  HS_NOINLINE_NOCLONE void tween(VectorTweenFn callback) const {
+  HS_NOINLINE_NOCLONE void tween(VectorTweenRef callback) const {
     const size_t len = snapshots.length();
     if (len == 0)
       return;
@@ -180,7 +180,7 @@ private:
  * never emits t = 0.
  */
 template <int CAP>
-void tween(const math::Orientation<CAP> &o, TweenFn callback) {
+void tween(const math::Orientation<CAP> &o, TweenRef callback) {
   int len = o.length();
   // Index 0 repeats the previous frame's end pose; a lone snapshot still draws.
   int start = (len > 1) ? 1 : 0;
@@ -199,7 +199,7 @@ void tween(const math::Orientation<CAP> &o, TweenFn callback) {
  * float t)`.
  */
 template <int CAP>
-void tween(const Animation::VectorTrail<CAP> &trail, VectorTweenFn callback) {
+void tween(const Animation::VectorTrail<CAP> &trail, VectorTweenRef callback) {
   size_t len = trail.length();
   if (len == 0)
     return;
@@ -220,7 +220,7 @@ void tween(const Animation::VectorTrail<CAP> &trail, VectorTweenFn callback) {
  */
 template <int CAP>
 void tween(const Animation::QuantizedVectorTrail<CAP> &trail,
-           VectorTweenFn callback) {
+           VectorTweenRef callback) {
   trail.tween(callback);
 }
 

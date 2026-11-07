@@ -17,14 +17,14 @@ concept VolumeColumnPipeline =
     };
 
 using MovingVolumePipeline = Pipeline<96, 48, Filter::World::Replicate<96>>;
-static_assert(VolumeColumnPipeline<Pipeline<96, 48>, FragmentShaderFn>);
-static_assert(VolumeColumnPipeline<Pipeline<96, 48>, TimedShaderFn>);
-static_assert(!VolumeColumnPipeline<MovingVolumePipeline, FragmentShaderFn>);
-static_assert(!VolumeColumnPipeline<MovingVolumePipeline, TimedShaderFn>);
+static_assert(VolumeColumnPipeline<Pipeline<96, 48>, FragmentShaderRef>);
+static_assert(VolumeColumnPipeline<Pipeline<96, 48>, TimedShaderRef>);
+static_assert(!VolumeColumnPipeline<MovingVolumePipeline, FragmentShaderRef>);
+static_assert(!VolumeColumnPipeline<MovingVolumePipeline, TimedShaderRef>);
 static_assert(requires(MovingVolumePipeline &pipeline, Canvas &canvas,
                        const math::Vector &center,
                        const Scan::TransformedVolume<SDF::Torus> &shape,
-                       FragmentShaderFn shader) {
+                       FragmentShaderRef shader) {
   Scan::Volume::draw<96, 48>(pipeline, canvas, center, 1.0f, shape, shader);
 });
 

@@ -374,8 +374,8 @@ inline void test_ripple_threshold_reject_path() {
   p.thickness = 0.4f; // band ≈ [phase - 0.4, phase + 0.4] rad
   p.sync();
 
-  HS_EXPECT_LT(p.cos_threshold_min, 1.0f);
-  HS_EXPECT_GT(p.cos_threshold_max, -1.0f);
+  HS_EXPECT_LT(p.cos_near, 1.0f);
+  HS_EXPECT_GT(p.cos_far, -1.0f);
 
   // In-band: at the peak.
   const math::Vector in_band = math::Vector(1, 0, 0);
@@ -385,7 +385,7 @@ inline void test_ripple_threshold_reject_path() {
   const float moved_in = displacement(r_in, in_band);
   HS_EXPECT_GT(moved_in, 1e-2f);
 
-  // Out-of-band toward the center (d < d_min): cos_d > cos_threshold_min leg.
+  // Out-of-band toward the center (d < d_min): cos_d > cos_near leg.
   const float d_near = p.phase - p.thickness - 0.05f;
   const math::Vector near_c =
       math::Vector(std::sin(d_near), std::cos(d_near), 0.0f);
@@ -394,7 +394,7 @@ inline void test_ripple_threshold_reject_path() {
   HS_EXPECT_EQ(r_near.y, near_c.y);
   HS_EXPECT_EQ(r_near.z, near_c.z);
 
-  // Out-of-band away from the center (d > d_max): cos_d < cos_threshold_max leg.
+  // Out-of-band away from the center (d > d_max): cos_d < cos_far leg.
   const float d_far = p.phase + p.thickness + 0.05f;
   const math::Vector far_c =
       math::Vector(std::sin(d_far), std::cos(d_far), 0.0f);
@@ -523,14 +523,14 @@ inline void test_ripple_kernel_endpoint_order() {
 inline void test_ripple_kernel_support_bands() {
   using namespace RippleKernel;
   Wave a, b;
-  a.cos_threshold_min = 0.2f;
-  a.cos_threshold_max = -0.3f;
-  b.cos_threshold_min = 0.8f;
-  b.cos_threshold_max = -0.6f;
-  HS_EXPECT_TRUE(contains(a, a.cos_threshold_min));
-  HS_EXPECT_TRUE(contains(a, a.cos_threshold_max));
-  HS_EXPECT_FALSE(contains(a, std::nextafter(a.cos_threshold_min, 1.0f)));
-  HS_EXPECT_FALSE(contains(a, std::nextafter(a.cos_threshold_max, -1.0f)));
+  a.cos_near = 0.2f;
+  a.cos_far = -0.3f;
+  b.cos_near = 0.8f;
+  b.cos_far = -0.6f;
+  HS_EXPECT_TRUE(contains(a, a.cos_near));
+  HS_EXPECT_TRUE(contains(a, a.cos_far));
+  HS_EXPECT_FALSE(contains(a, std::nextafter(a.cos_near, 1.0f)));
+  HS_EXPECT_FALSE(contains(a, std::nextafter(a.cos_far, -1.0f)));
   float near = -1.0f, far = 1.0f;
   include_support(near, far, a);
   include_support(near, far, b);
@@ -542,8 +542,8 @@ inline void test_ripple_kernel_support_bands() {
 inline void test_ripple_kernel_angle_at_distance() {
   using namespace RippleKernel;
   Wave a;
-  a.cos_threshold_min = .2f;
-  a.cos_threshold_max = -.3f;
+  a.cos_near = .2f;
+  a.cos_far = -.3f;
   a.amplitude = 0.13f;
   a.decay = 0.4f;
   HS_EXPECT_NEAR(angle_at_distance(a, 1.25f, 1.25f), 0.13f * std::exp(-0.5f),
@@ -649,8 +649,8 @@ inline void test_ripple_threshold_collapses_past_pi() {
   p.phase = 20.0f;
   p.sync();
 
-  HS_EXPECT_NEAR(p.cos_threshold_min, -1.0f, 1e-6f);
-  HS_EXPECT_NEAR(p.cos_threshold_max, -1.0f, 1e-6f);
+  HS_EXPECT_NEAR(p.cos_near, -1.0f, 1e-6f);
+  HS_EXPECT_NEAR(p.cos_far, -1.0f, 1e-6f);
 
   // The band admits nothing: every direction but the exact antipode falls
   // outside it, takes the fast reject, and comes back bit for bit.
@@ -918,8 +918,8 @@ inline void test_transformer_live_edit_preserves_instance_phase_and_seed() {
   expected_ripple.decay = 2.0f;
   expected_ripple.thickness = 0.3f;
   expected_ripple.sync();
-  HS_EXPECT_EQ(refreshed.cos_threshold_min, expected_ripple.cos_threshold_min);
-  HS_EXPECT_EQ(refreshed.cos_threshold_max, expected_ripple.cos_threshold_max);
+  HS_EXPECT_EQ(refreshed.cos_near, expected_ripple.cos_near);
+  HS_EXPECT_EQ(refreshed.cos_far, expected_ripple.cos_far);
 }
 
 /** @brief A pinned repeating warp retains its slot across cycles until cancellation. */
@@ -1169,8 +1169,8 @@ inline void test_ripple_step_keeps_its_previous_endpoint() {
     const Animation::RippleParams start = params.during_step(0.0f);
     HS_EXPECT_EQ(start.phase, before.phase);
     HS_EXPECT_EQ(start.amplitude, before.amplitude);
-    HS_EXPECT_EQ(start.cos_threshold_min, before.cos_threshold_min);
-    HS_EXPECT_EQ(start.cos_threshold_max, before.cos_threshold_max);
+    HS_EXPECT_EQ(start.cos_near, before.cos_near);
+    HS_EXPECT_EQ(start.cos_far, before.cos_far);
     const Animation::RippleParams end = params.during_step(1.0f);
     HS_EXPECT_EQ(end.phase, params.phase);
     HS_EXPECT_EQ(end.amplitude, params.amplitude);

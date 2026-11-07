@@ -336,7 +336,7 @@ public:
    * @param vertex_shader Per-pixel shader, called once at the pixel center.
    */
   template <int W, int H, int SAMPLES = 1>
-  static void draw(Canvas &canvas, FragmentShaderFn fragment_shader,
+  static void draw(Canvas &canvas, FragmentShaderRef fragment_shader,
                    VertexShaderRef vertex_shader) {
     static_assert(SAMPLES == 1 || SAMPLES == 4,
                   "Scan::Shader SSAA supports only SAMPLES == 1 or 4");

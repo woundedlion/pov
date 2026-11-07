@@ -362,7 +362,7 @@ HS_HOT_FLASH_MEMBER void scan_copy(const SweptMesh &d,
   Scan::ColumnBasis face_time = *d.canvas.column_basis();
   face_time.mesh.face_copy = &copy;
   ColumnBasisScope scope(d.canvas, face_time);
-  d.selected[copy.face] = Scan::detail::FacePass::ARM_COPY;
+  d.selected[copy.face] = Scan::detail::FacePass::WINDOWED;
   {
     TimeWindowScope window(d.canvas, 0, d.canvas.width() / 2, arm);
     d.callbacks.draw(d.callbacks.scan_context);
@@ -570,7 +570,7 @@ HS_HOT_FLASH_MEMBER bool place_pass(const SweptMesh &d,
                                           width, arm)
               : detail::face_columns_meet(d.columns + 2 * f, arm * quarter,
                                           (arm + 1) * quarter, d.clip, width);
-      d.selected[f] = draw ? Scan::detail::FacePass::ARM_COPY
+      d.selected[f] = draw ? Scan::detail::FacePass::WINDOWED
                            : Scan::detail::FacePass::SKIPPED;
       if (!draw)
         continue;

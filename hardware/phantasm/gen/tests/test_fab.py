@@ -1041,10 +1041,10 @@ class NetlistSpecTests(unittest.TestCase):
 
     @staticmethod
     def spec_nodes():
-        """EXPECT -> {net: [(ref, pin)]}; a symmetric key names the ref alone."""
+        """EXPECT_REV_1_2 -> {net: [(ref, pin)]}; a symmetric key names the ref alone."""
         return {name: [tuple(key.split(".")) if "." in key else (key, "1")
                        for key in sorted(keys)]
-                for name, keys in fab.netlist_spec.EXPECT.items()}
+                for name, keys in fab.netlist_spec.EXPECT_REV_1_2.items()}
 
     def validate(self, nets):
         blocks = "".join(
@@ -1062,7 +1062,7 @@ class NetlistSpecTests(unittest.TestCase):
 
     def test_accepts_the_specified_partition(self):
         self.assertEqual(self.validate(self.spec_nodes()),
-                         len(fab.netlist_spec.EXPECT))
+                         len(fab.netlist_spec.EXPECT_REV_1_2))
 
     def test_rejects_a_net_missing_a_member(self):
         nets = self.spec_nodes()

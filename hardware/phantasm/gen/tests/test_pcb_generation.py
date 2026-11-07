@@ -273,7 +273,7 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
         self.assertEqual(nets["FRAME_SYNC"], {"U_MCU.3", "R1", "R2", "C_SYNC"})
         self.assertEqual(nets["SYNC_TX"], {"U_MCU.4", "U1.9", "R_TX"})
         self.assertIn("R_TX", nets["GND"])
-        self.assertEqual(nets["MASTER_EN"], check.EXPECT["MASTER_EN"])
+        self.assertEqual(nets["MASTER_EN"], check.EXPECT_REV_1_2["MASTER_EN"])
         resistor = footprints_by_ref(self.root)["R_TX"]
         self.assertIn(["property", "Value", "10k"],
                       [p[:3] for p in F(resistor, "property")])
@@ -283,7 +283,7 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
         netlist = Path(self.out.name) / "assembly.net"
         root = export_netlist(kicad_cli(), str(Path(self.out.name) / "phantasm.kicad_sch"))
         netlist.write_text(sexp.dumps(root), encoding="utf-8")
-        self.assertEqual(fab.validate_netlist_spec(netlist), len(check.EXPECT))
+        self.assertEqual(fab.validate_netlist_spec(netlist), len(check.EXPECT_REV_1_2))
         components = fab.parse_components(netlist)
         fab.validate_assembled_refs(
             [ref for ref, component in components.items() if fab.is_assembled(component)],

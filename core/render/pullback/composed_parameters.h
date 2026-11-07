@@ -133,7 +133,7 @@ inline bool valid(const Color::AuthoredColorParams &p) {
   return valid(static_cast<const ColorParams &>(p)) && Fields::valid(p) &&
          p.palette_type <=
              static_cast<uint8_t>(AuthoredPaletteType::MUTATING) &&
-         p.palette_mode < 3 &&
+         p.palette_mode < std::size(Color::PALETTE_MODE_IDS) &&
          p.palette_harmony <= static_cast<uint8_t>(PaletteHarmony::SQUARE) &&
          p.palette_lightness_curve <= static_cast<uint8_t>(AxisCurve::CUP) &&
          p.palette_name < std::size(AUTHORED_PALETTE_NAME_IDS) &&

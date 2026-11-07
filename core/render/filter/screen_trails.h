@@ -122,7 +122,7 @@ public:
    * all points one frame via decay() after emission.
    */
   template <typename PassFnT>
-  void flush(Canvas &, const ScreenTrailFn &trailFn, float alpha,
+  void flush(Canvas &, const ScreenTrailRef &trailFn, float alpha,
              PassFnT &&pass) {
     HS_CHECK(points, "Screen::Trails::flush: storage missing");
     check_storage_alive();

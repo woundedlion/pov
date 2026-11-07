@@ -9,6 +9,12 @@
  * @brief Planar and geodesic edge samplers and their per-edge setup.
  */
 
+/** @brief Azimuthal chart coordinates in angular plane units. */
+struct ChartPoint {
+  float x = 0.0f; ///< Horizontal chart coordinate.
+  float y = 0.0f; ///< Vertical chart coordinate.
+};
+
 // --- Strategy Helpers ---
 
 /**
@@ -19,8 +25,8 @@
  *         basis center (radians) and whose azimuth follows the basis u/w axes.
  * @details azimuthal_unproject is the inverse map.
  */
-static inline std::pair<float, float>
-azimuthal_project(const math::Vector &p, const math::Basis &basis) {
+static inline ChartPoint azimuthal_project(const math::Vector &p,
+                                           const math::Basis &basis) {
   float radius = math::angle_between(p, basis.v);
   if (radius < math::EPS_GEOMETRIC)
     return {0.0f, 0.0f};
@@ -39,8 +45,8 @@ azimuthal_project(const math::Vector &p, const math::Basis &basis) {
  * center: charts whose axes do not turn with a shape keep its chart-straight
  * edges rigid.
  */
-static inline std::pair<float, float>
-azimuthal_project_exact(const math::Vector &p, const math::Basis &basis) {
+static inline ChartPoint azimuthal_project_exact(const math::Vector &p,
+                                                 const math::Basis &basis) {
   const float along_u = math::dot(p, basis.u);
   const float along_w = math::dot(p, basis.w);
   const float tangent = sqrtf(along_u * along_u + along_w * along_w);
@@ -116,17 +122,16 @@ constexpr int PLANAR_LEN_SAMPLES = 4;
  * @param arc_cumul Receives the cumulative lengths, in radians.
  */
 static inline void
-planar_arc_cumul(const std::pair<float, float> &proj, float dx, float dy,
+planar_arc_cumul(const ChartPoint &proj, float dx, float dy,
                  const math::Basis &planar_basis,
                  std::array<float, PLANAR_LEN_SAMPLES + 1> &arc_cumul) {
   HS_PLOT_ADD(planar_arc_samples, PLANAR_LEN_SAMPLES + 1);
   arc_cumul[0] = 0.0f;
-  math::Vector prev =
-      azimuthal_unproject(proj.first, proj.second, planar_basis);
+  math::Vector prev = azimuthal_unproject(proj.x, proj.y, planar_basis);
   for (int k = 1; k <= PLANAR_LEN_SAMPLES; ++k) {
     float p = static_cast<float>(k) / PLANAR_LEN_SAMPLES;
-    math::Vector cur = azimuthal_unproject(proj.first + dx * p,
-                                           proj.second + dy * p, planar_basis);
+    math::Vector cur =
+        azimuthal_unproject(proj.x + dx * p, proj.y + dy * p, planar_basis);
     arc_cumul[k] = arc_cumul[k - 1] + math::angle_between(prev, cur);
     prev = cur;
   }
@@ -138,11 +143,11 @@ planar_arc_cumul(const std::pair<float, float> &proj, float dx, float dy,
  * tangent.
  */
 struct PlanarEdgeSampler {
-  std::pair<float, float> proj1; /**< Projection of the edge start. */
-  float dx;                      /**< Projected chord x-component. */
-  float dy;                      /**< Projected chord y-component. */
-  const math::Basis *basis;      /**< Azimuthal-equidistant projection basis. */
-  math::Vector chart_tangent;    /**< Constant chart-space edge tangent. */
+  ChartPoint proj1;           /**< Projection of the edge start. */
+  float dx;                   /**< Projected chord x-component. */
+  float dy;                   /**< Projected chord y-component. */
+  const math::Basis *basis;   /**< Azimuthal-equidistant projection basis. */
+  math::Vector chart_tangent; /**< Constant chart-space edge tangent. */
   /** Cumulative on-sphere length estimate at evenly-spaced PROJECTION samples. */
   std::array<float, PLANAR_LEN_SAMPLES + 1> arc_cumul;
   float dist; /**< Sampled on-sphere edge length (radians). */
@@ -181,8 +186,7 @@ struct PlanarEdgeSampler {
    * @return Near-unit sphere point.
    */
   math::Vector unproject(float p) const {
-    return azimuthal_unproject(proj1.first + dx * p, proj1.second + dy * p,
-                               *basis);
+    return azimuthal_unproject(proj1.x + dx * p, proj1.y + dy * p, *basis);
   }
 
   /**
@@ -194,8 +198,8 @@ struct PlanarEdgeSampler {
    * @return Position, and unit tangent or zero when `WithTangent`.
    */
   template <bool WithTangent> HS_HOT_INLINE SamplePT sample_at(float p) const {
-    const float x = proj1.first + dx * p;
-    const float y = proj1.second + dy * p;
+    const float x = proj1.x + dx * p;
+    const float y = proj1.y + dy * p;
     const float r2 = x * x + y * y;
     if (r2 < math::EPS_GEOMETRIC * math::EPS_GEOMETRIC) {
       if constexpr (!WithTangent)
@@ -282,8 +286,8 @@ make_planar_edge_sampler(const math::Vector &a, const math::Vector &b,
   PlanarEdgeSampler sampler;
   sampler.proj1 = azimuthal_project(a, planar_basis);
   auto proj2 = azimuthal_project(b, planar_basis);
-  sampler.dx = proj2.first - sampler.proj1.first;
-  sampler.dy = proj2.second - sampler.proj1.second;
+  sampler.dx = proj2.x - sampler.proj1.x;
+  sampler.dy = proj2.y - sampler.proj1.y;
   sampler.basis = &planar_basis;
   sampler.chart_tangent =
       (planar_basis.u * sampler.dx) + (planar_basis.w * sampler.dy);
@@ -335,8 +339,7 @@ static inline float planar_arc_length(const math::Vector &a,
   auto p1 = azimuthal_project(a, planar_basis);
   auto p2 = azimuthal_project(b, planar_basis);
   std::array<float, PLANAR_LEN_SAMPLES + 1> arc_cumul;
-  planar_arc_cumul(p1, p2.first - p1.first, p2.second - p1.second, planar_basis,
-                   arc_cumul);
+  planar_arc_cumul(p1, p2.x - p1.x, p2.y - p1.y, planar_basis, arc_cumul);
   return arc_cumul[PLANAR_LEN_SAMPLES];
 }
 
@@ -526,10 +529,10 @@ static_assert(PLANAR_SPAN_SAMPLES == 2 * PLANAR_LEN_SAMPLES);
  *          excluding the endpoint.
  */
 struct PlanarEdgeSpan {
-  std::pair<float, float> p1; /**< Projection of the edge start. */
-  float dx;                   /**< Projected chord x-component. */
-  float dy;                   /**< Projected chord y-component. */
-  float gap_arc;              /**< Bound on each inter-sample arc length. */
+  ChartPoint p1; /**< Projection of the edge start. */
+  float dx;      /**< Projected chord x-component. */
+  float dy;      /**< Projected chord y-component. */
+  float gap_arc; /**< Bound on each inter-sample arc length. */
   /** Unprojected interior chart samples, endpoints excluded. */
   std::array<math::Vector, PLANAR_SPAN_SAMPLES - 1> interior;
 };
@@ -547,15 +550,15 @@ make_planar_edge_span(const math::Vector &a, const math::Vector &b,
   PlanarEdgeSpan es;
   es.p1 = azimuthal_project(a, planar_basis);
   auto p2 = azimuthal_project(b, planar_basis);
-  es.dx = p2.first - es.p1.first;
-  es.dy = p2.second - es.p1.second;
+  es.dx = p2.x - es.p1.x;
+  es.dy = p2.y - es.p1.y;
   // The projected chord over-estimates the on-sphere arc, so gap_arc bounds
   // each inter-sample arc length.
   es.gap_arc = sqrtf(es.dx * es.dx + es.dy * es.dy) / PLANAR_SPAN_SAMPLES;
   for (int k = 1; k < PLANAR_SPAN_SAMPLES; ++k) {
     float p = static_cast<float>(k) / PLANAR_SPAN_SAMPLES;
-    es.interior[k - 1] = azimuthal_unproject(
-        es.p1.first + es.dx * p, es.p1.second + es.dy * p, planar_basis);
+    es.interior[k - 1] = azimuthal_unproject(es.p1.x + es.dx * p,
+                                             es.p1.y + es.dy * p, planar_basis);
   }
   return es;
 }
@@ -579,8 +582,7 @@ make_planar_edge_sampler(const PlanarEdgeSpan &span, const math::Vector &end,
       (planar_basis.u * sampler.dx) + (planar_basis.w * sampler.dy);
   HS_PLOT_ADD(planar_arc_samples, PLANAR_LEN_SAMPLES + 1);
   sampler.arc_cumul[0] = 0.0f;
-  math::Vector prev =
-      azimuthal_unproject(span.p1.first, span.p1.second, planar_basis);
+  math::Vector prev = azimuthal_unproject(span.p1.x, span.p1.y, planar_basis);
   for (int k = 1; k < PLANAR_LEN_SAMPLES; ++k) {
     const math::Vector &cur = span.interior[k * 2 - 1];
     sampler.arc_cumul[k] =

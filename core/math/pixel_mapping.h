@@ -291,7 +291,7 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
  *   input.
  */
 template <int W>
-__attribute__((always_inline)) inline float vector_to_theta(const Vector &v) {
+__attribute__((always_inline)) inline float vector_to_column(const Vector &v) {
   // t is in [-W/2, W/2]; a tiny negative t can round up to exactly W.
   float t = (fast_atan2(v.z, v.x) * W) / (2 * PI_F);
   if (t < 0.0f)
@@ -313,7 +313,7 @@ __attribute__((always_inline)) inline float vector_to_theta(const Vector &v) {
 template <int W, int H> HS_O3_FN PixelCoords vector_to_pixel(const Vector &v) {
   assert(std::fabs(dot(v, v) - 1.0f) < math::EPS_UNIT_VEC_SQ);
   float phi = fast_acos(hs::clamp(v.y, -1.0f, 1.0f));
-  PixelCoords p({vector_to_theta<W>(v), phi_to_y<H>(phi)});
+  PixelCoords p({vector_to_column<W>(v), phi_to_y<H>(phi)});
   return p;
 }
 

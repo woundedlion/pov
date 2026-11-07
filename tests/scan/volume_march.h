@@ -73,9 +73,10 @@ inline void test_volume_scalar_state_differential() {
     float actual_d =
         Scan::Volume::trace_closest(shape, ro, vd, radius, steps, aa, actual_p);
     ++rays;
-    float reference_alpha =
-        Scan::volume_edge_coverage(reference_d, aa * 0.1f, aa);
-    float actual_alpha = Scan::volume_edge_coverage(actual_d, aa * 0.1f, aa);
+    float reference_alpha = Scan::volume_edge_coverage(
+        reference_d, aa * Scan::Volume::SOLID_FRACTION, aa);
+    float actual_alpha = Scan::volume_edge_coverage(
+        actual_d, aa * Scan::Volume::SOLID_FRACTION, aa);
     max_distance =
         hs_test::fold_worst(max_distance, fabsf(reference_d - actual_d));
     if (reference_alpha > 0.0f || actual_alpha > 0.0f)
@@ -83,13 +84,15 @@ inline void test_volume_scalar_state_differential() {
           hs_test::fold_worst(max_position, (reference_p - actual_p).length());
     max_coverage = hs_test::fold_worst(max_coverage,
                                        fabsf(reference_alpha - actual_alpha));
-    if (reference_d > aa * 0.1f && reference_d < aa && actual_d > aa * 0.1f &&
-        actual_d < aa) {
+    if (reference_d > aa * Scan::Volume::SOLID_FRACTION && reference_d < aa &&
+        actual_d > aa * Scan::Volume::SOLID_FRACTION && actual_d < aa) {
       ++halos;
       auto reference_occlusion = VolumeScalarRegression::probe_occluder(
-          shape, reference_p, vd, radius, aa * 0.1f, aa);
+          shape, reference_p, vd, radius, aa * Scan::Volume::SOLID_FRACTION,
+          aa);
       auto actual_occlusion = Scan::Volume::probe_occluder(
-          shape, actual_p, vd, radius, aa * 0.1f, aa, actual_d);
+          shape, actual_p, vd, radius, aa * Scan::Volume::SOLID_FRACTION, aa,
+          actual_d);
       solid_changes += reference_occlusion.solid != actual_occlusion.solid;
       if (reference_occlusion.solid || reference_occlusion.soft > 0.0f)
         max_probe_position = hs_test::fold_worst(
@@ -154,7 +157,7 @@ inline void test_volume_scalar_state_differential() {
 inline void test_volume_dense_reference() {
   const math::Vector DIRECTION(0, 0, -1);
   const float AA = 0.01f;
-  const float THRESHOLD = AA * 0.1f;
+  const float THRESHOLD = AA * Scan::Volume::SOLID_FRACTION;
   int band_entries = 0;
   int soft_entries = 0;
   auto compare = [&](const auto &shape, const math::Vector &origin,
@@ -435,7 +438,7 @@ inline void test_volume_trace_closest_stops_at_first_graze() {
  */
 inline void test_volume_probe_occluder_reports_background_graze_point() {
   const float AA_WIDTH = 0.01f;
-  const float HIT_THRESHOLD = AA_WIDTH * 0.1f;
+  const float HIT_THRESHOLD = AA_WIDTH * Scan::Volume::SOLID_FRACTION;
   TwoSphereSDF shape{math::Vector(0.0f, 0.0f, 0.20f), 0.18f,
                      math::Vector(0.28f, 0.0f, -0.20f), 0.30f};
 
@@ -500,7 +503,7 @@ inline void test_volume_trace_closest_overrelax_never_skips_surface() {
       }
       // Rays grazing the band edge may legitimately land either side of it;
       // anything this far inside is unambiguous coverage the march owes.
-      if (ref_min < AA_WIDTH * 0.9f) {
+      if (ref_min < AA_WIDTH * (1.0f - Scan::Volume::SOLID_FRACTION)) {
         ++covered;
         HS_EXPECT_LT(closest_d, AA_WIDTH);
       }
