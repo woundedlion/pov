@@ -615,11 +615,12 @@ HS_FLASH_MEMBER inline bool settle_drift(const Scan::ColumnBasis &time,
   lit_columns<W>(lit.axis, radius + lit.arc + angle, 0.0f, first, last);
   if (first == 0 && last == W / 2 - 1)
     return false;
-  // The middle column's fraction is at most (last - first) / W from any.
-  if (angle * static_cast<float>(last - first) / W > DRIFT_SETTLE_ARC<W>)
+  const int MIDDLE = (first + last) / 2;
+  const int REACH = std::max(MIDDLE - first, last - MIDDLE);
+  // Column fractions are 2/W apart; odd spans have a farther endpoint.
+  if (angle * static_cast<float>(REACH) / (W / 2) > DRIFT_SETTLE_ARC<W>)
     return false;
-  const math::Vector back =
-      drift * (Spacetime::surface_time((first + last) / 2, W) - 1.0f);
+  const math::Vector back = drift * (Spacetime::surface_time(MIDDLE, W) - 1.0f);
   const Spacetime::TurnCoefficients k =
       Spacetime::turn_coefficients(math::dot(back, back));
   basis = {Spacetime::rotate_by(basis.u, back, k),
