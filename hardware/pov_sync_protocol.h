@@ -82,7 +82,8 @@ struct Config {
   // Acceptance gate (spec §5.3).
   int32_t gate_cols = 4; /**< G: max plausible snap correction (LOCKED). */
   int32_t reject_fallback = 4; /**< Consecutive rejections before ACQUIRE. */
-  int32_t acquire_quiet_cols = 16; /**< Quiet-before guard for ACQUIRE snaps. */
+  int32_t acquire_quiet_cols =
+      16; /**< Quiet on each side of an ACQUIRE snap. */
 
   // Content layer (spec §6).
   uint32_t revs_per_effect =

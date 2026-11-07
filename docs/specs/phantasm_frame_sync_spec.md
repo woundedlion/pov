@@ -546,36 +546,30 @@ substantially with the flywheel* is overwhelmingly more likely to be wrong than
 the flywheel is. Two states per board (resolves §11.7's mechanism; the
 constants are tunables):
 
-- **ACQUIRE** (boot, mid-show reboot, or fallback): accept any *valid* symbol
-  unconditionally — hard snap, no gate. The board displays **black** until it
-  has both (a) phase, from one accepted boundary symbol, and (b) content
-  identity, from a beacon for a downstream board (§6.4) — it never renders a guessed effect
-  (fail-fast doctrine: show nothing rather than the wrong thing). First
-  accepted snap → LOCKED.
+- **ACQUIRE** (boot, mid-show reboot, or fallback): a valid isolated boundary
+  symbol hard-snaps without a phase gate. The board displays **black** until
+  it has phase from an accepted boundary and content identity from a beacon
+  (§6.4). The first accepted snap enters LOCKED.
 - **LOCKED** (steady state): a valid symbol is accepted only if its implied
   phase correction is **≤ G columns** (G = 4) *and* its boundary identity
   matches the flywheel's nearest predicted boundary. Anything else is
   *rejected*: counted in telemetry (§8.6), no snap, no flip. After
   **`reject_fallback` consecutive rejections** (4, ≈2 revolutions) the board
   concludes its own timebase — not the wire — is at fault and falls back to
-  ACQUIRE, hard-snapping to the next valid symbol. The fallback is mandatory: a
+  ACQUIRE and hard-snaps to the next isolated valid symbol. The fallback is mandatory: a
   gate without an escape deadlocks a genuinely-lost board into rejecting good
   symbols forever.
 
 Two demarcation guards complete the mechanism (both fell out of host
 simulation, not the original design):
 
-- **ACQUIRE quiet-before guard:** a hard snap is taken only on a burst
-  preceded by ≥ 16 columns of wire silence. Boundary symbols are isolated
-  (half a revolution apart); beacon digits follow each other within ~12
-  columns — so a digit train cannot capture a just-rebooted board mid-frame.
-  (The train's *first* digit can still be mistaken once; the §9.1 mis-snap
-  row bounds the recovery.) The isolated burst is *also* fed to the beacon
-  parser, as the head of a fresh frame — a train's first digit is isolated by
-  exactly this test, so withholding it would leave every frame that starts in
-  ACQUIRE one digit short and make §6.4's joining adoption reachable only
-  after locking. Four more digits must follow, so no burst ever both completes
-  a frame and hard-snaps.
+- **ACQUIRE isolation guard.** A valid boundary candidate must follow at least
+  `acquire_quiet_cols` (16 on Phantasm) of wire silence. The board feeds the
+  burst to the beacon parser as a potential head and defers the snap for the
+  same interval after its last edge. A claimed follow-up burst cancels the
+  candidate, so a normal beacon digit train can supply content identity
+  without capturing phase. On expiry, a lone candidate snaps at its saved
+  first-edge timestamp.
 - **Suspect bursts:** in LOCKED, a lone valid-count burst far (> G) from
   every predicted boundary cannot be told apart, at decode time, from a
   beacon's first digit — so it is fed to the beacon parser *and* held as a
@@ -989,7 +983,7 @@ Invariants:
 | Late-emitted symbol (master masked) | master self-censors (§5.2); residual rejected by gate (§5.3) | crossing flips on time regardless | unaffected |
 | 1 board renders slow (drops a frame) | — | shows prior frame 1 period | stateless and stateful: rendered-frame time offset remains until next epoch (§6.2); same-index beacons only correct revolution bookkeeping |
 | 1 dropped epoch symbol | — | — | R repeats; missed-all-R corrected by the second agreeing beacon (§6.3.4) — the rev-1/rev-2 post-commit pair, ~250 ms |
-| Board reboots mid-show | ACQUIRE: hard-snaps to first valid symbol | flips resume on first accepted boundary | black until rejoin from beacon (≤25 revs, about 3.1 s), then rejoins at the correct effect (frame 0, §6.5 grid; `t` offset until the next epoch) |
+| Board reboots mid-show | ACQUIRE: hard-snaps to the first isolated valid symbol after its trailing quiet window | flips resume on first accepted boundary | black until rejoin from beacon (≤25 revs, about 3.1 s), then rejoins at the correct effect (frame 0, §6.5 grid; `t` offset until the next epoch) |
 | Sync wire dead *(out of scope — hard line)* | free-runs at T0, precesses on own crystal (≥1 col in ~10–20 s); rebase rule keeps arithmetic valid (§4.1) | crossing still flips 2/rev | playlist freezes, then clears after its fade-out (fail-dark; epoch never arrives); ACQUIRE boards stay dark |
 | Master dead | downstream flywheels free-run at T0, precess on own crystal (same as "sync wire dead" — master is just the symbol source) | crossing still flips 2/rev (no re-snap) | playlist freezes, then clears after its fade-out (fail-dark) |
 | Master fold stall (its flywheel coasts past 2³¹ cycles, §4.1) | master re-anchors its epoch on the current instant, force-locked, and counts `master_stalls`; downstream boards free-ran meanwhile, as under "master dead" | flip dedup reset with the re-anchor, so the first crossing after recovery flips; downstream crossings kept flipping 2/rev | as "master dead" while it lasts — playlist frozen on the current effect; resumes with the master's next boundary symbol |
@@ -1040,10 +1034,10 @@ short entry is a worse case for rejoin visibility than a long one.
 | Lost boundary symbol (discarded burst, glitch-filtered EMI, master self-censor) | coast error 0.006 → 0.01 col | 288 col (1-rev coast) | ≈0 on DMA; harmless at any plausible rate |
 | EMI on the sync wire | binding case: an edge within G of the matching predicted boundary → ≤G col (≈5°) seam on one board for ≤½ rev; all other cases rejected with no artifact | ≤144 col (next real symbol re-snaps) | accepted-case ≈ λ·2G/288 ≈ **1.7/hr**, and that is an upper bound — an edge that close to a boundary normally lands within the gap timeout of the *real* burst and merges into an invalid count (discarded), so acceptance also needs the real symbol absent; rejected ≈ λ ≈ 1/min (telemetry only); boundary misclassification (2 coincident errors) ≈ 1/2 yrs *and* gate-rejected — except the ZERO→ZERO_EPOCH case, budgeted in the spurious-EPOCH row |
 | Spurious EPOCH (two spurious edges inside one ZERO burst → a valid ZERO_EPOCH on the same boundary; gate-accepted) | one board commits to the next roster entry alone — a wrong effect, not a dark one — until the §6.3.4 two-beacon index correction rebuilds it | ≤9,216 col (~4 s, two beacon gaps) plus one rebuild-dark window; a no-op inside the 16-rev epoch refractory | ≈ 1/2 yrs (two coincident edge errors in one burst), the only gate-accepted two-error case |
-| Mis-snap despite the gate / corrupted timebase (incl. forged burst during ACQUIRE) | one board off by up to W/2 | ≤ ~750 col ≈ 325 ms (`reject_fallback` rejections at ½-rev pace, each registered after the 24-col suspect window since a far-landing real symbol is held as possible beacon data first → ACQUIRE → re-snap ≤144) | possible during ordinary mid-show acquisition: beacon digit 0 is a clean one-pulse burst and can satisfy the quiet-before gate without an edge error. Frequency depends on reboot phase and beacon contents; the rejection fallback bounds recovery |
+| Mis-snap despite the gate / corrupted timebase (incl. isolated forged burst during ACQUIRE) | one board off by up to W/2 | About 780 col (340 ms), allowing `reject_fallback` rejections at half-revolution pace, the suspect window, and a new isolated boundary with trailing quiet | A forged or truncated train can leave an isolated valid count. A complete beacon train cancels its head's acquisition candidate. |
 | Dropped render (effect misses the 62.5 ms budget) | stale half until a completed frame reaches its matching window; `t` seam vs neighbors | next epoch reset (remainder of effect, up to 300 s); same-index beacon does not advance frame time | ≈0 within budget; watched by the overrun/`ft` telemetry |
 | Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤4 s; a dropped beacon alone is consequence-free redundancy | 576 col (~250 ms): the post-commit beacons ride consecutive revolutions, so the §6.3.4 confirming frame costs one extra revolution; ≤9,216 col (~4 s, two beacon gaps) if the post-commit train is lost too | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
-| Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤7,200 col (~3.1 s, the enforced 25-rev bound): phase ≤144 col, index at the next beacon — up to a 21-rev gap across a commit window — then the §6.5 grid adds ≤4 revs before it goes live on the correct effect | per external reboot event |
+| Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤7,200 col (~3.1 s, the enforced 25-rev bound): phase at the first isolated boundary after its trailing quiet window, index at the next beacon — up to a 21-rev gap across a commit window — then the §6.5 grid adds ≤4 revs before it goes live on the correct effect | per external reboot event |
 | Firmware invariant violation (init > K, flywheel wake-ups stop) | trap (`HS_CHECK` / `buffer_free()` watchdog) | none — fail-fast by design | 0 in correct firmware; a caught bug class, not a runtime mode |
 | Sync wire / master dead | uniform slow smear ~1 col per 10–20 s; playlist freezes, then clears after its fade-out (fail-dark); arithmetic stays valid (§4.1 rebase) | physical repair | out of scope by design |
 
@@ -1137,7 +1131,7 @@ strictly cleaner, not weaker.
    simulator asserts exactly 2 flips/rev/board across drift, masks, EMI, and
    drops.
 7. **Snap plausibility gate + acquisition states — SHIPPED (§5.3).** ACQUIRE
-   (hard snap behind the quiet-before guard, fail-dark) ⇄ LOCKED (correction
+   (hard snap after an isolated burst, fail-dark) ⇄ LOCKED (correction
    ≤ G columns; with G < W/4 the distance gate subsumes the
    boundary-identity check; `reject_fallback` consecutive rejections —
    including suspect-burst timeouts — fall back to ACQUIRE so the gate can
@@ -1200,7 +1194,9 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   seeded with a corrupted timebase re-acquires after `reject_fallback` (4) rejected symbols via the
   ACQUIRE fallback (no rejection deadlock); assert mid-rev beacon bursts are
   never consumed as boundary symbols and vice versa in LOCKED (§6.4 demarcation).
-  Retain the isolated-burst ACQUIRE exception documented in §5.3.
+  In ACQUIRE, verify that a complete beacon can provide content identity
+  without triggering a phase snap and that a lone boundary snaps after the
+  trailing quiet window (§5.3).
 - **Epoch commit:** simulate per-board init-time spread inside the K-rev
   window; assert every board flips to the new effect's frame 0 at exactly
   B+R+K with black throughout the announce and construction phases, and that an init exceeding K traps (`HS_CHECK`), never

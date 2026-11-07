@@ -199,8 +199,16 @@ public:
    */
   TickActions tick(uint32_t now, const BurstSnapshot *burst) {
     TickActions a{};
-    if (burst)
+    if (burst) {
       handle_burst(*burst, a);
+    } else if (acquire_symbol != Symbol::INVALID &&
+               (now - prev_burst_end) >=
+                   protocol_config.acquire_quiet_cycles() &&
+               static_cast<int32_t>(now - prev_burst_end) > 0) {
+      const Symbol sym = acquire_symbol;
+      acquire_symbol = Symbol::INVALID;
+      accept_boundary(sym, acquire_first_cycles, a);
+    }
 
     // Isolated wire noise can consume at most one rejection per half-revolution.
     if (suspect_pending &&
@@ -371,6 +379,8 @@ private:
     last_rendered_x = -1;
     halves_since_snap = 0;
     have_prev_burst = false;
+    acquire_symbol = Symbol::INVALID;
+    acquire_first_cycles = 0;
     prev_burst_end = 0;
     suspect_pending = false;
     suspect_last_cycles = 0;
@@ -462,8 +472,8 @@ private:
         return;
       }
     } else {
-      // ACQUIRE quiet-before guard: a burst following close on another is a
-      // beacon digit train, not an isolated boundary symbol — don't hard-snap.
+      acquire_symbol = Symbol::INVALID;
+      // A following digit cancels the pending boundary candidate.
       if (had_prev && (s.first_cycles - prev_end) <
                           protocol_config.acquire_quiet_cycles()) {
         handle_beacon_burst(s);
@@ -480,9 +490,24 @@ private:
       saturating_increment(telemetry_counters.symbols_discarded_invalid);
       return;
     }
+    if (fly.lock() == LockState::ACQUIRE) {
+      acquire_symbol = sym;
+      acquire_first_cycles = s.first_cycles;
+      return;
+    }
+    accept_boundary(sym, s.first_cycles, a);
+  }
+
+  /**
+   * @brief Applies a boundary symbol to the flywheel and content tracker.
+   * @param sym Valid boundary symbol.
+   * @param first_cycles Timestamp of the symbol's first edge.
+   * @param a Tick actions updated by the accepted boundary.
+   */
+  void accept_boundary(Symbol sym, uint32_t first_cycles, TickActions &a) {
     const Boundary b = symbol_boundary(sym);
     const bool was_locked = fly.lock() == LockState::LOCKED;
-    const Flywheel::SnapOutcome r = fly.snap(b, s.first_cycles, nullptr);
+    const Flywheel::SnapOutcome r = fly.snap(b, first_cycles, nullptr);
     if (r != Flywheel::SnapOutcome::ACCEPTED) {
       saturating_increment(telemetry_counters.symbols_rejected_gate);
       if (r == Flywheel::SnapOutcome::REJECTED_FELL_BACK)
@@ -698,6 +723,8 @@ private:
   int32_t last_rendered_x = -1;
   uint32_t halves_since_snap = 0;
   bool have_prev_burst = false;
+  Symbol acquire_symbol = Symbol::INVALID;
+  uint32_t acquire_first_cycles = 0;
   uint32_t prev_burst_end = 0;
   uint32_t prev_burst_stale_cycles =
       0; /**< Quiet past which prev_burst_end ages out (cached). */

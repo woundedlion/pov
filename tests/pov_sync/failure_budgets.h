@@ -193,64 +193,70 @@ inline void test_budget_corrupted_timebase() {
 }
 
 /**
- * @brief Verifies the §9.1 mis-snap row's forged-during-ACQUIRE sub-case: a
- *        board rebooted just before a beacon train hard-snaps to the train's
- *        head digit, and the R-rejection fallback returns it to sub-column
- *        phase within the row's budget.
- * @details The head digit is preceded by wire silence like a boundary symbol,
- *          so the quiet-before guard cannot filter it.
+ * @brief A reboot before an early beacon locks to the first isolated boundary
+ * and rejoins without lighting a wrong effect or a misregistered frame.
  */
-inline void test_budget_acquire_mis_snap() {
-  const Config cfg = test_config();
+inline void test_acquire_ignores_beacon_head() {
+  Config cfg = test_config(39);
+  cfg.beacon_period_revs = 16;
   const int32_t ppm[4] = {0, 20, -20, 10};
-  Sim sim(cfg, 4, ppm);
-  HS_EXPECT_TRUE(boot_join(sim, cfg));
-  // Master beacons ride rev ≡ 1 (mod 8); the train starts at x = W/4 = 72.
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) { return content(s.boards[0].board).rev_in_effect == 9; },
-      16.0));
-  // Reboot a full quiet window ahead of the train so its head digit is the
-  // first wire event the fresh board meets.
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1));
-  SimBoard &b2 = sim.boards[2];
-  b2.reboot(Sim::local_now(b2, sim.g));
-  HS_EXPECT_EQ(lock(b2.board), LockState::ACQUIRE);
+  for (int effect_index : {0, 16, 32}) {
+    for (uint32_t beacon_rev : {1u, 2u}) {
+      HS_CONTEXT("effect and beacon revolution", effect_index, beacon_rev);
+      Sim sim(cfg, 4, ppm);
+      const int previous =
+          (effect_index + cfg.effect_count - 1) % cfg.effect_count;
+      SyncBoardTestAccess::select_boot_effect(sim.boards[0].board, previous);
+      HS_EXPECT_TRUE(boot_join(sim, cfg));
+      HS_EXPECT_TRUE(sim.run_until(all_boards_on(effect_index),
+                                   double(cfg.revs_per_effect) + 8));
+      HS_EXPECT_TRUE(sim.run_until(
+          [&](Sim &s) {
+            return content(s.boards[0].board).rev_in_effect == beacon_rev &&
+                   s.board_pos(0) == 40;
+          },
+          3.0));
 
-  bool violated = false;
-  const auto check_dark = [&](Sim &s) {
-    const auto &board = s.boards[2];
-    violated |= (board.live && board.live_index != s.boards[0].live_index) ||
-                (!board.dark_now &&
-                 circ_dist(s.board_pos(2), s.board_pos(0), s.cfg.W) > 1);
-  };
-
-  // Locked on the head digit, a quarter turn out.
-  HS_EXPECT_TRUE(sim.run_until(
-      [&](Sim &s) {
-        check_dark(s);
-        return lock(s.boards[2].board) == LockState::LOCKED;
-      },
-      0.5));
-  const uint64_t snap_g = sim.g;
-  HS_EXPECT_GE(circ_dist(sim.board_pos(2), sim.board_pos(0), cfg.W), 60);
-
-  HS_EXPECT_TRUE(sim.run_until(
-      [&](Sim &s) {
-        check_dark(s);
-        return lock(s.boards[2].board) == LockState::LOCKED &&
-               circ_dist(s.board_pos(2), s.board_pos(0), s.cfg.W) <= 1;
-      },
-      3.0));
-  const int32_t recovery_cols = static_cast<int32_t>((sim.g - snap_g) / COL);
-  HS_EXPECT_GE(recovery_cols, 500); // the full R-rejection path, not a re-snap
-  HS_EXPECT_LE(recovery_cols, 750); // §9.1 mis-snap row
-  // Exactly one mis-snap, one fallback, and one clean re-snap since the reboot.
-  HS_EXPECT_EQ(b2.board.telemetry_snapshot().lock_transitions, 3u);
-  HS_EXPECT_GE(b2.board.telemetry_snapshot().symbols_rejected_gate,
-               static_cast<uint32_t>(cfg.reject_fallback));
-  HS_EXPECT_FALSE(b2.trapped);
-  HS_EXPECT_FALSE(violated);
+      auto &rebooted = sim.boards[2];
+      rebooted.reboot(Sim::local_now(rebooted, sim.g));
+      const uint64_t reboot_g = sim.g;
+      bool wrong_output = false;
+      bool false_commit = false;
+      const auto observe = [&](const Sim &s) {
+        const int32_t phase_error =
+            circ_dist(s.board_pos(2), s.board_pos(0), cfg.W);
+        wrong_output |=
+            rebooted.live && !rebooted.dark_now &&
+            (rebooted.live_index != effect_index || phase_error > 1);
+        false_commit |= content(rebooted.board).commit_pending;
+      };
+      HS_EXPECT_TRUE(sim.run_until(
+          [&](Sim &s) {
+            observe(s);
+            return lock(rebooted.board) == LockState::LOCKED;
+          },
+          0.5));
+      HS_EXPECT_LE(circ_dist(sim.board_pos(2), sim.board_pos(0), cfg.W), 1);
+      HS_EXPECT_LT((sim.g - reboot_g) / COL, static_cast<uint64_t>(cfg.W / 2));
+      HS_EXPECT_TRUE(sim.run_until(
+          [&](Sim &s) {
+            observe(s);
+            return rebooted.live && !rebooted.dark_now;
+          },
+          double(cfg.join_grid_revs) + 2));
+      HS_EXPECT_EQ(rebooted.live_index, effect_index);
+      HS_EXPECT_TRUE(sim.run_until(
+          [&](Sim &s) {
+            observe(s);
+            return content(s.boards[0].board).rev_in_effect >= 6;
+          },
+          4.0));
+      HS_EXPECT_EQ(rebooted.board.telemetry_snapshot().lock_transitions, 1u);
+      HS_EXPECT_FALSE(rebooted.trapped);
+      HS_EXPECT_FALSE(false_commit);
+      HS_EXPECT_FALSE(wrong_output);
+    }
+  }
 }
 
 /**

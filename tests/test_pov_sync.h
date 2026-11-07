@@ -31,6 +31,10 @@ struct SyncBoardTestAccess {
   static Flywheel &flywheel(SyncBoard &b) { return b.fly; }
   static ContentTracker &content(SyncBoard &b) { return b.content_tracker; }
   static SymbolEmitter &emitter(SyncBoard &b) { return b.emitter; }
+  static void select_boot_effect(SyncBoard &b, int effect_index) {
+    b.content_tracker.effect_index = effect_index;
+    b.publish_build(effect_index);
+  }
   static void maybe_schedule_beacon(SyncBoard &b, uint32_t now) {
     int32_t position = -1;
     b.maybe_schedule_beacon(now, position);
@@ -138,7 +142,7 @@ inline int run_pov_sync_tests() {
   HS_RUN(test_snap_gate);
   HS_RUN(test_suspect_timeout_acquire_uncounted);
   HS_RUN(test_isolated_noise_preserves_recent_boundary_lock);
-  HS_RUN(test_acquire_quiet_before_guard);
+  HS_RUN(test_acquire_isolation_guard);
   HS_RUN(test_acquire_beacon_train_joins);
   HS_RUN(test_emitter);
   HS_RUN(test_master_beacon_busy_retry);
@@ -177,7 +181,7 @@ inline int run_pov_sync_tests() {
   HS_RUN(test_budget_lost_symbol);
   HS_RUN(test_budget_emi_accepted_seam);
   HS_RUN(test_budget_corrupted_timebase);
-  HS_RUN(test_budget_acquire_mis_snap);
+  HS_RUN(test_acquire_ignores_beacon_head);
   HS_RUN(test_budget_beacon_corruption);
   HS_RUN(test_beacon_two_edge_substitution);
   HS_RUN(test_budget_wire_dead);

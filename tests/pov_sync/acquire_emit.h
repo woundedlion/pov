@@ -121,14 +121,9 @@ inline void test_isolated_noise_preserves_recent_boundary_lock() {
 }
 
 /**
- * @brief Verifies the §5.3 quiet-before guard: an ACQUIRE board hard-snaps only
- *        on a burst preceded by t_QB of wire silence, so a beacon digit train
- *        cannot capture a just-rebooted board mid-frame.
- * @details The beacon for effect index 8 opens with a 2-pulse burst (no
- *          symbol) followed by a single-pulse digit, a valid HALF count. The
- *          same burst after t_QB of silence snaps.
+ * @brief ACQUIRE requires quiet before and after a valid boundary burst.
  */
-inline void test_acquire_quiet_before_guard() {
+inline void test_acquire_isolation_guard() {
   const Config cfg = test_config();
   const uint32_t col = cfg.cycles_per_column();
   const uint32_t head = 1000u + 40u * col;
@@ -154,8 +149,11 @@ inline void test_acquire_quiet_before_guard() {
              &digit0);
   const uint32_t iso = head + col + cfg.acquire_quiet_cycles();
   const BurstSnapshot isolated{1, iso, iso};
-  quiet.tick(iso + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
-             &isolated);
+  quiet.tick(iso + cfg.gap_timeout_cycles(), &isolated);
+  HS_EXPECT_EQ(lock(quiet), LockState::ACQUIRE);
+  quiet.tick(iso + cfg.acquire_quiet_cycles() - 1u, nullptr);
+  HS_EXPECT_EQ(lock(quiet), LockState::ACQUIRE);
+  quiet.tick(iso + cfg.acquire_quiet_cycles(), nullptr);
   HS_EXPECT_EQ(lock(quiet), LockState::LOCKED);
   HS_EXPECT_EQ(quiet.telemetry_snapshot().symbols_accepted, 1u);
   HS_EXPECT_EQ(flywheel(quiet).position(iso), cfg.W / 2);
@@ -173,11 +171,9 @@ inline void test_acquire_quiet_before_guard() {
 }
 
 /**
- * @brief Verifies a board still in ACQUIRE decodes a whole beacon train and
- *        adopts (effect, rev) from it (§6.4), instead of waiting for lock.
- * @details A train's first digit reaches both the symbol path and the parser.
- *          The head of the beacon for effect 9 is a 2-pulse burst — an even
- *          count, no symbol — so the board stays in ACQUIRE across the train.
+ * @brief A board in ACQUIRE learns content identity from a complete beacon.
+ * @details The beacon head for effect 9 has two pulses, so its count cannot
+ * represent a boundary symbol.
  */
 inline void test_acquire_beacon_train_joins() {
   const Config cfg = test_config(16);
@@ -202,12 +198,13 @@ inline void test_acquire_beacon_train_joins() {
   HS_EXPECT_EQ(board.telemetry_snapshot().symbols_accepted, 0u);
   HS_EXPECT_EQ(lock(board), LockState::ACQUIRE);
 
-  // The boundary path is untouched: the next isolated symbol still hard-snaps.
+  // The next isolated boundary locks after the trailing quiet window.
   const uint32_t z = f + cfg.acquire_quiet_cycles();
   const uint32_t zspan = 2u * static_cast<uint32_t>(cfg.pulse_pitch_cols) * col;
   const BurstSnapshot zero{3, z, z + zspan};
-  board.tick(z + zspan + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
-             &zero);
+  board.tick(z + zspan + cfg.gap_timeout_cycles(), &zero);
+  HS_EXPECT_EQ(lock(board), LockState::ACQUIRE);
+  board.tick(z + zspan + cfg.acquire_quiet_cycles(), nullptr);
   HS_EXPECT_EQ(lock(board), LockState::LOCKED);
   HS_EXPECT_EQ(board.telemetry_snapshot().symbols_accepted, 1u);
   HS_EXPECT_EQ(flywheel(board).position(z), 0);
