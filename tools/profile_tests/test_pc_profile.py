@@ -238,6 +238,33 @@ class CommandLine(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("no pc profile dump", err)
 
+    def test_missing_files_are_reported_as_input_errors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            missing = Path(directory) / "missing"
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                self.assertEqual(pc.main([str(missing)]), 1)
+            self.assertIn("pc_profile:", err.getvalue())
+            self.assertIn("missing", err.getvalue())
+
+            code, out, err = self.run_main(dump_lines(), "--nm-file", str(missing))
+            self.assertEqual(code, 1)
+            self.assertIn("pc_profile:", err)
+            self.assertIn("missing", err)
+            self.assertEqual(out, "")
+
+    def test_missing_nm_reports_the_tool_override(self):
+        with tempfile.TemporaryDirectory() as directory:
+            log, elf, missing_nm = (Path(directory) / name
+                                    for name in ("capture.log", "firmware.elf", "missing-nm"))
+            log.write_text("\n".join(dump_lines()), encoding="utf-8")
+            elf.touch()
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                code = pc.main([str(log), "--elf", str(elf), "--nm", str(missing_nm)])
+            self.assertEqual(code, 1)
+            self.assertIn("pass --nm or set HS_ARM_NM", err.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

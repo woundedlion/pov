@@ -441,22 +441,35 @@ def main(argv=None):
                     help="truncate names past this width (0: never)")
     args = ap.parse_args(argv)
 
-    lines = Path(args.log).read_text(encoding="utf-8",
-                                     errors="replace").splitlines()
     try:
+        lines = Path(args.log).read_text(encoding="utf-8",
+                                         errors="replace").splitlines()
         dump = parse_dump(lines)
-    except DumpError as exc:
+    except (OSError, DumpError) as exc:
         print(f"pc_profile: {args.log}: {exc}", file=sys.stderr)
         return 1
     elf = args.elf or elf_from_log(lines)
     if args.nm_file:
-        nm_text = Path(args.nm_file).read_text(encoding="utf-8")
+        try:
+            nm_text = Path(args.nm_file).read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"pc_profile: {exc}", file=sys.stderr)
+            return 1
     else:
         if not elf or not Path(elf).is_file():
             print(f"pc_profile: no firmware ELF ({elf or 'none in the log'}); "
                   "pass --elf", file=sys.stderr)
             return 1
-        nm_text = run_nm(toolchain_tool("nm", args.nm), elf)
+        nm = toolchain_tool("nm", args.nm)
+        try:
+            nm_text = run_nm(nm, elf)
+        except FileNotFoundError:
+            print(f"pc_profile: cannot find {nm}; pass --nm or set HS_ARM_NM",
+                  file=sys.stderr)
+            return 1
+        except (OSError, subprocess.CalledProcessError) as exc:
+            print(f"pc_profile: {exc}", file=sys.stderr)
+            return 1
     functions = build_functions(parse_nm(nm_text))
     rows = attribute(dump, Symbolizer(functions))
     locations = {}
