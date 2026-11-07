@@ -269,7 +269,7 @@ assert_matching_toolchains() {
 }
 
 envdump() {
-  hs_fw_pio "$1" -t envdump | "$_HS_LOCK_PYTHON" tools/profile_envdump.py >"$2"
+  hs_fw_pio "$1" -t envdump | "$_HS_LOCK_PYTHON" "$_HS_TOOLS_DIR/profile_envdump.py" >"$2"
 }
 
 # obtain_image <env> <envdump> <build-log>: reuses the cached image, or builds
@@ -403,7 +403,7 @@ capture() {
   [ "$connect" -ge "$CAPTURE_CONNECT_S" ] || connect=$CAPTURE_CONNECT_S
   STALE_FRAME=$(((connect + 8) * 16))
   # stderr passes through: a device trap and a peer-held port share an exit code.
-  if ! "$_HS_LOCK_PYTHON" tools/profile_capture.py --seconds "$SECONDS_ARG" \
+  if ! "$_HS_LOCK_PYTHON" "$_HS_TOOLS_DIR/profile_capture.py" --seconds "$SECONDS_ARG" \
       --connect-timeout "$connect" --out "$OUT" >/dev/null; then
     echo "CAPTURE FAILED (device trap, or port held by a peer?): $OUT" >&2
     return 1
@@ -553,7 +553,7 @@ fi
 echo "OK $OUT: $NWIN windows, markers($MARKER)=$NMARK"
 if [ -n "$PC_SUFFIX" ]; then
   PC_REPORT=${STEM}_report.txt
-  "$_HS_LOCK_PYTHON" tools/pc_profile.py "$OUT" >"$PC_REPORT" ||
+  "$_HS_LOCK_PYTHON" "$_HS_TOOLS_DIR/pc_profile.py" "$OUT" >"$PC_REPORT" ||
     { echo "PC REPORT FAILED: $PC_REPORT"; exit 1; }
   echo "PC report: $PC_REPORT"
   sed -n '3,30p' "$PC_REPORT"

@@ -707,8 +707,9 @@ def build_and_attest_calls():
             f'pio() {{ echo "pio $*" >> {shlex.quote(calls.as_posix())}; }}\n'
             f'build_image() {{ echo "build $1" >> {shlex.quote(calls.as_posix())}; }}\n'
             "assert_matching_toolchains() { :; }\n"
+            f"_HS_TOOLS_DIR={shlex.quote((REPO / 'tools').as_posix())}\n"
             "_hs_resolve_python() { _HS_LOCK_PYTHON=envdump_filter; }\n"
-            "envdump_filter() { cat >/dev/null; }\n"
+            'envdump_filter() { [ "$1" = "$_HS_TOOLS_DIR/profile_envdump.py" ] && cat >/dev/null; }\n'
             "cp() { :; }\n"
             "git() { echo 0000000000000000000000000000000000000000; }\n"
             "file_sha256() { echo abc; }\n"
