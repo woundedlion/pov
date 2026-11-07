@@ -233,11 +233,34 @@ bonne_projection(const math::Vector &v, float central_meridian,
           .edge_class = 0};
 }
 
+/// Peirce elliptic modulus and diagonal rotation factor.
+inline constexpr float PEIRCE_INV_SQRT_TWO = 0.7071067811865475f;
+/// Quarter period of the Peirce elliptic integral.
+inline constexpr float PEIRCE_K = 1.8540746773013719f;
+/// Reflected sheet offset.
+inline constexpr float PEIRCE_SHIFT = 2.0f * PEIRCE_K;
+/// Longitudes separating the southern Peirce sectors.
+inline constexpr std::array PEIRCE_SEAMS = {
+    -0.75f * math::PI_F, -0.25f * math::PI_F, 0.25f * math::PI_F,
+    0.75f * math::PI_F};
+
+/** @brief Southern Peirce sector of a wrapped longitude.
+ * @param longitude Wrapped longitude in radians.
+ * @return Sector index in [1, 4]. */
+HS_HOT_INLINE constexpr uint8_t peirce_sector(float longitude) {
+  if (longitude < PEIRCE_SEAMS[0] || longitude >= PEIRCE_SEAMS[3])
+    return 1;
+  if (longitude < PEIRCE_SEAMS[1])
+    return 2;
+  if (longitude < PEIRCE_SEAMS[2])
+    return 3;
+  return 4;
+}
+
 /**
  * @brief Incomplete elliptic integral of the first kind at modulus 1/sqrt(2).
  * @param phi Amplitude in radians, |phi| <= pi/2.
- * @return F(phi, 1/sqrt(2)); F(pi/2) is the quarter period
- *         K = 1.8540746773013719 that peirce_projection tiles with.
+ * @return F(phi, 1/sqrt(2)); F(pi/2) is the quarter period.
  * @details Clenshaw recurrence over a Chebyshev expansion in
  * y = 2*(2*phi/pi)^2 - 1, with `C` in descending order and C0 applied halved.
  * The coefficients are a PROJ fit.
@@ -273,10 +296,8 @@ inline float peirce_sector_longitude(const math::Vector &v,
   if (v.x == 0.0f && v.z == 0.0f)
     return 0.5f * math::PI_F;
   float longitude = wrap_longitude(atan2f(v.z, v.x) - central_meridian);
-  constexpr float BOUNDARIES[] = {-0.75f * math::PI_F, -0.25f * math::PI_F,
-                                  0.25f * math::PI_F, 0.75f * math::PI_F};
   constexpr float TIE_EPSILON = 2e-6f;
-  for (float boundary : BOUNDARIES)
+  for (float boundary : PEIRCE_SEAMS)
     if (fabsf(longitude - boundary) <= TIE_EPSILON)
       return boundary;
   return longitude;
@@ -297,9 +318,8 @@ enum class PeirceLayout : uint8_t { DIAMOND, SQUARE, HORIZONTAL, VERTICAL };
  * @param calculate_edge_distance When false, `fade_edge_distance` is left at
  *        NO_EDGE_DISTANCE and the inverse-trig calls that compute it are
  *        skipped.
- * @return Plane coordinates in elliptic-integral units of the quarter period
- *         K; the southern fold reflects about +/-K and the strip layouts repeat
- *         every 4K.
+ * @return Plane coordinates in elliptic-integral units. The southern fold
+ *         reflects about +/-PEIRCE_K and strips repeat every 4 * PEIRCE_K.
  * @details A strip layout glues only the pair of equator quarters its
  * reflection holds fixed; the other pair tears, so HORIZONTAL and VERTICAL carry CUT
  * alongside GLUED and measure the torn side's distance to the equator.
@@ -314,16 +334,15 @@ peirce_projection(const math::Vector &v, float central_meridian,
       layout == PeirceLayout::HORIZONTAL || layout == PeirceLayout::VERTICAL;
   HS_AUDIT_CHECK(folded_layout || strip_layout,
                  "Peirce projection: invalid layout");
-  constexpr float INV_SQRT_TWO = 0.7071067811865475f;
-  constexpr float K = 1.8540746773013719f;
-  constexpr float SHIFT = 2.0f * K;
   const float longitude = peirce_sector_longitude(v, central_meridian);
   const float sl = sinf(longitude);
   const float cl = cosf(longitude);
   const float y = hs::clamp(v.y, -1.0f, 1.0f);
   const float cp = sqrtf(fmaxf(0.0f, 1.0f - y * y));
-  const float cos_a = hs::clamp(cp * (sl + cl) * INV_SQRT_TWO, -1.0f, 1.0f);
-  const float cos_b = hs::clamp(cp * (sl - cl) * INV_SQRT_TWO, -1.0f, 1.0f);
+  const float cos_a =
+      hs::clamp(cp * (sl + cl) * PEIRCE_INV_SQRT_TWO, -1.0f, 1.0f);
+  const float cos_b =
+      hs::clamp(cp * (sl - cl) * PEIRCE_INV_SQRT_TWO, -1.0f, 1.0f);
   const float sin_product =
       sqrtf(fmaxf(0.0f, (1.0f - cos_a * cos_a) * (1.0f - cos_b * cos_b)));
   const float cos_sum = hs::clamp(cos_a * cos_b - sin_product, -1.0f, 1.0f);
@@ -341,27 +360,20 @@ peirce_projection(const math::Vector &v, float central_meridian,
   uint8_t flags = 0;
   if (v.y < 0.0f) {
     flags = 1;
-    if (longitude < -0.75f * math::PI_F || longitude >= 0.75f * math::PI_F)
-      region = 1;
-    else if (longitude < -0.25f * math::PI_F)
-      region = 2;
-    else if (longitude < 0.25f * math::PI_F)
-      region = 3;
-    else
-      region = 4;
+    region = peirce_sector(longitude);
     if (folded_layout) {
       switch (region) {
       case 1:
-        projected_y = SHIFT - projected_y;
+        projected_y = PEIRCE_SHIFT - projected_y;
         break;
       case 2:
-        x = -SHIFT - x;
+        x = -PEIRCE_SHIFT - x;
         break;
       case 3:
-        projected_y = -SHIFT - projected_y;
+        projected_y = -PEIRCE_SHIFT - projected_y;
         break;
       case 4:
-        x = SHIFT - x;
+        x = PEIRCE_SHIFT - x;
         break;
       default:
         break;
@@ -370,21 +382,23 @@ peirce_projection(const math::Vector &v, float central_meridian,
   }
   if (layout == PeirceLayout::SQUARE) {
     const float old_x = x;
-    x = INV_SQRT_TWO * (x - projected_y);
-    projected_y = INV_SQRT_TWO * (old_x + projected_y);
+    x = PEIRCE_INV_SQRT_TWO * (x - projected_y);
+    projected_y = PEIRCE_INV_SQRT_TWO * (old_x + projected_y);
   } else if (layout == PeirceLayout::HORIZONTAL) {
     if (v.y < 0.0f)
-      x = SHIFT - x;
-    x -= K;
-    x += scroll * 2.0f * SHIFT;
-    x = math::wrap_positive(x + SHIFT, 2.0f * SHIFT) - SHIFT;
+      x = PEIRCE_SHIFT - x;
+    x -= PEIRCE_K;
+    x += scroll * 2.0f * PEIRCE_SHIFT;
+    x = math::wrap_positive(x + PEIRCE_SHIFT, 2.0f * PEIRCE_SHIFT) -
+        PEIRCE_SHIFT;
   } else if (layout == PeirceLayout::VERTICAL) {
     if (v.y < 0.0f)
-      projected_y = SHIFT - projected_y;
-    projected_y -= K;
-    projected_y += scroll * 2.0f * SHIFT;
+      projected_y = PEIRCE_SHIFT - projected_y;
+    projected_y -= PEIRCE_K;
+    projected_y += scroll * 2.0f * PEIRCE_SHIFT;
     projected_y =
-        math::wrap_positive(projected_y + SHIFT, 2.0f * SHIFT) - SHIFT;
+        math::wrap_positive(projected_y + PEIRCE_SHIFT, 2.0f * PEIRCE_SHIFT) -
+        PEIRCE_SHIFT;
   }
   const float rotated_x = cp * cl;
   const float rotated_z = cp * sl;
@@ -396,7 +410,8 @@ peirce_projection(const math::Vector &v, float central_meridian,
     // cos_b measure from, so the nearest sits at acos of the larger magnitude.
     edge = acosf(hs::clamp(fmaxf(fabsf(cos_a), fabsf(cos_b)), 0.0f, 1.0f));
     if (v.y < 0.0f && folded_layout) {
-      const float fold_sine = cp * fabsf(fabsf(sl) - fabsf(cl)) * INV_SQRT_TWO;
+      const float fold_sine =
+          cp * fabsf(fabsf(sl) - fabsf(cl)) * PEIRCE_INV_SQRT_TWO;
       edge = fminf(edge, asinf(hs::clamp(fold_sine, 0.0f, 1.0f)));
     }
     // HORIZONTAL reflects in x: the |sin| >= |cos| equator quarters stay glued.
@@ -443,11 +458,8 @@ peirce_projection(const math::Vector &v, float central_meridian,
  */
 HS_O3_FN inline ProjectionKernelResult
 peirce_projection_fast_square(const math::Vector &v) {
-  constexpr float INV_SQRT_TWO = 0.7071067811865475f;
-  constexpr float K = 1.8540746773013719f;
-  constexpr float SHIFT = 2.0f * K;
-  const float cos_a = hs::clamp((v.z + v.x) * INV_SQRT_TWO, -1.0f, 1.0f);
-  const float cos_b = hs::clamp((v.z - v.x) * INV_SQRT_TWO, -1.0f, 1.0f);
+  const float cos_a = hs::clamp((v.z + v.x) * PEIRCE_INV_SQRT_TWO, -1.0f, 1.0f);
+  const float cos_b = hs::clamp((v.z - v.x) * PEIRCE_INV_SQRT_TWO, -1.0f, 1.0f);
   const float sin_product =
       sqrtf(fmaxf(0.0f, (1.0f - cos_a * cos_a) * (1.0f - cos_b * cos_b)));
   const float cos_sum = hs::clamp(cos_a * cos_b - sin_product, -1.0f, 1.0f);
@@ -466,14 +478,7 @@ peirce_projection_fast_square(const math::Vector &v) {
       m = -m;
     if (longitude > -0.5f * math::PI_F && longitude < 0.5f * math::PI_F)
       n = -n;
-    if (longitude < -0.75f * math::PI_F || longitude >= 0.75f * math::PI_F)
-      sector = 1;
-    else if (longitude < -0.25f * math::PI_F)
-      sector = 2;
-    else if (longitude < 0.25f * math::PI_F)
-      sector = 3;
-    else
-      sector = 4;
+    sector = peirce_sector(longitude);
   } else {
     if (v.z < 0.0f)
       m = -m;
@@ -506,22 +511,23 @@ peirce_projection_fast_square(const math::Vector &v) {
     flags = 1;
     region = sector;
     if (sector == 1) {
-      projected_y = SHIFT - projected_y;
+      projected_y = PEIRCE_SHIFT - projected_y;
     } else if (sector == 2) {
-      x = -SHIFT - x;
+      x = -PEIRCE_SHIFT - x;
     } else if (sector == 3) {
-      projected_y = -SHIFT - projected_y;
+      projected_y = -PEIRCE_SHIFT - projected_y;
     } else {
-      x = SHIFT - x;
+      x = PEIRCE_SHIFT - x;
     }
   }
   const float old_x = x;
-  x = INV_SQRT_TWO * (x - projected_y);
-  projected_y = INV_SQRT_TWO * (old_x + projected_y);
+  x = PEIRCE_INV_SQRT_TWO * (x - projected_y);
+  projected_y = PEIRCE_INV_SQRT_TWO * (old_x + projected_y);
   float edge =
       math::fast_acos(hs::clamp(fmaxf(fabsf(cos_a), fabsf(cos_b)), 0.0f, 1.0f));
   if (v.y < 0.0f) {
-    const float fold_sine = fabsf(fabsf(v.z) - fabsf(v.x)) * INV_SQRT_TWO;
+    const float fold_sine =
+        fabsf(fabsf(v.z) - fabsf(v.x)) * PEIRCE_INV_SQRT_TWO;
     edge = fminf(edge, 0.5f * math::PI_F -
                            math::fast_acos(hs::clamp(fold_sine, 0.0f, 1.0f)));
   }
