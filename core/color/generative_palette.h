@@ -1222,10 +1222,10 @@ private:
     const OKLab lab{left.L + (right.L - left.L) * progress,
                     left.a + (right.a - left.a) * progress,
                     left.b + (right.b - left.b) * progress};
+    if (detail == Detail::COLOR_ONLY)
+      return {lab, 0.0f, 0.0f, 0.0f, 0.0f};
     const OKLCH lch = oklab_to_oklch(lab);
     const float h_path = lch.C >= OKLCH_ACHROMATIC_C ? lch.h : 0.0f;
-    if (detail == Detail::COLOR_ONLY)
-      return {lab, 0.0f, h_path, h_path, 0.0f};
     const float boundary = gamut_continuous_chroma(lch.L, h_path);
     return {lab, diagnostic_q(lch.C, boundary, control), h_path, h_path,
             boundary};
