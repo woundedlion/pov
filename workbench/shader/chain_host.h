@@ -115,13 +115,8 @@ public:
   ChainRefusal set_chain(std::span<const ChainEntryRequest> request) {
     const ChainRefusal refusal = program.compile(request);
     if (refusal.code == ChainStatus::OK) {
-#if HS_ENABLE_PARAM_GUI_BRIDGE
-      refused_name = nullptr;
-      refusal_warning = nullptr;
-#endif
-      colorize = find_colorize_tap();
+      program_committed();
       reconcile_modulation_resources();
-      rebind_chain_parameters();
     }
     return refusal;
   }
@@ -298,8 +293,7 @@ public:
       return refusal.code == ChainStatus::MALFORMED_PAYLOAD
                  ? Result::INVALID_VALUE
                  : Result::INVALID_CHAIN;
-    colorize = find_colorize_tap();
-    rebind_chain_parameters();
+    program_committed();
     GeneratedPaletteBank::Snapshot palette;
     palette.chroma = colorize.params->palette_chroma;
     palette.hues.fill(GeneratedPaletteBank::HUE_STEP);
@@ -310,10 +304,6 @@ public:
       layer.modulation.reset();
     }
     setAnimationsPaused(snapshot.animations_paused);
-#if HS_ENABLE_PARAM_GUI_BRIDGE
-    refused_name = nullptr;
-    refusal_warning = nullptr;
-#endif
     return Result::APPLIED;
   }
 
@@ -690,6 +680,15 @@ private:
    * the compile that produced the program reset the loser arena holding the
    * previously registered names.
    */
+  void program_committed() {
+    colorize = find_colorize_tap();
+    rebind_chain_parameters();
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    refused_name = nullptr;
+    refusal_warning = nullptr;
+#endif
+  }
+
   void rebind_chain_parameters() {
     reset_parameters();
     const auto ops = program.ops();
