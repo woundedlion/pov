@@ -1526,7 +1526,7 @@ class FabContentTests(unittest.TestCase):
     # One via and one plated pad, one unplated mounting hole, one SMD pad.
     BOARD = ('(kicad_pcb (via (at 1 2) (size 0.45) (drill 0.2)) '
              '(footprint "R" (pad "1" thru_hole circle (at 0 0) (drill 1)) '
-             '(pad "2" smd roundrect (at 1 0)) '
+             '(pad "2" smd roundrect (at 1 0) (drill (offset 0.3 0))) '
              '(pad "" np_thru_hole circle (at 2 0) (drill 2.7))))')
 
     def drill(self, holes):
@@ -1649,6 +1649,10 @@ class FabContentTests(unittest.TestCase):
         # Re-measure after promoting a re-route, as with the via floor.
         self.assertEqual(fab.board_hole_counts(fab.read_board(fab.PCB)),
                          {"plated": 144, "unplated": 4})
+
+    def test_smd_shape_offsets_are_not_drill_holes(self):
+        board = sexp.parse_one(self.BOARD)
+        self.assertEqual(fab.board_hole_counts(board), {"plated": 2, "unplated": 1})
 
 
 class PackageVerificationTests(unittest.TestCase):

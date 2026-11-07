@@ -436,7 +436,7 @@ def board_hole_counts(board):
     counts = {"plated": len(F(board, "via")), "unplated": 0}
     for pad in board_pads(board):
         kind = str(pad[2]) if len(pad) > 2 else ""
-        if sexp.val(pad, "drill", []):
+        if kind in {"thru_hole", "np_thru_hole"} and sexp.val(pad, "drill", []):
             counts["unplated" if kind == "np_thru_hole" else "plated"] += 1
     return counts
 
