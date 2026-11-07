@@ -65,7 +65,8 @@ public:
     register_int_param("Trail Len", &params.trail_length, 1, TRAIL_LEN_MAX);
     register_readonly_param("Trail Cap", &params.trail_ceiling, 1.0f,
                             static_cast<float>(TRAIL_LEN_MAX));
-    register_param("Wipe Dur", &params.wipe_duration, 1.0f, 100.0f);
+    register_param("Wipe Dur", &params.wipe_duration, 1.0f,
+                   static_cast<float>(WIPE_DURATION_MAX));
 
     for (size_t i = 0; i < NUM_NODES; ++i) {
       nodes[i].y = math::phi_to_y<H>(static_cast<float>(i) * math::PI_F /
@@ -79,8 +80,9 @@ public:
     timeline
         .add(0, Animation::RandomTimer({.min = 4, .max = 64, .repeat = true},
                                        [this](Canvas &) { reverse(); }))
-        .add(0, Animation::RandomTimer({.min = 20, .max = 64, .repeat = true},
-                                       [this](Canvas &) { color_wipe(); }))
+        .add(0, Animation::RandomTimer(
+                    {.min = WIPE_INTERVAL_MIN, .max = 64, .repeat = true},
+                    [this](Canvas &) { color_wipe(); }))
         .add(0, Animation::RandomTimer({.min = 48, .max = 160, .repeat = true},
                                        [this](Canvas &) { rotate(); }));
   }
@@ -484,7 +486,11 @@ private:
   math::Orientation<> orientation;
   Timeline timeline; /**< Drives reverse/wipe/rotate animations and timers. */
 
-  static constexpr size_t MAX_PALETTES = 16; /**< Max live palettes. */
+  static constexpr int WIPE_DURATION_MAX = 100; ///< Maximum wipe frames.
+  static constexpr int WIPE_INTERVAL_MIN = 20;  ///< Minimum timer interval.
+  /// Includes both end palettes of the longest live wipe sequence.
+  static constexpr size_t MAX_PALETTES =
+      WIPE_DURATION_MAX / WIPE_INTERVAL_MIN + 2;
   static_assert(MAX_PALETTES + 3 <= Timeline::MAX_EVENTS,
                 "Dynamo needs three timers, one rotation, and all live wipes");
   static constexpr int TRAIL_LEN_MAX =
