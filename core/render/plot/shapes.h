@@ -438,17 +438,30 @@ struct RingFrame {
 /** @brief Evaluates a circular vertex with exact half-turn tangent symmetry.
  * @tparam W Material angle grid size.
  * @param basis Ring basis.
+ * @param cos_polar,sin_polar Cosine and sine of the colatitude.
+ * @param index Material vertex index in [0, W).
+ * @return Unit ring direction. */
+template <int W>
+HS_HOT_INLINE math::Vector ring_vertex(const math::Basis &basis,
+                                       float cos_polar, float sin_polar,
+                                       size_t index) {
+  const float angle = float(index % (W / 2)) * (2.0f * math::PI_F / W);
+  auto tangent = basis.u * cosf(angle) + basis.w * sinf(angle);
+  if (index >= W / 2)
+    tangent = -tangent;
+  return (basis.v * cos_polar + tangent * sin_polar).normalized();
+}
+
+/** @brief Evaluates a circular vertex from its colatitude.
+ * @tparam W Material angle grid size.
+ * @param basis Ring basis.
  * @param polar Colatitude in radians.
  * @param index Material vertex index in [0, W).
  * @return Unit ring direction. */
 template <int W>
 HS_HOT_INLINE math::Vector ring_vertex(const math::Basis &basis, float polar,
                                        size_t index) {
-  const float angle = float(index % (W / 2)) * (2.0f * math::PI_F / W);
-  auto tangent = basis.u * cosf(angle) + basis.w * sinf(angle);
-  if (index >= W / 2)
-    tangent = -tangent;
-  return (basis.v * cosf(polar) + tangent * sinf(polar)).normalized();
+  return ring_vertex<W>(basis, cosf(polar), sinf(polar), index);
 }
 
 /** @brief Draws a closed polyline with constant-rate great-circle vertex paths.
@@ -670,9 +683,13 @@ struct Ring {
                               float time) {
       shader(point, f, time == 1.0f ? opacity : fade(age_at(time)));
     };
+    const float polar[2] = {growth(age_at(0.0f)) * (math::PI_F * 0.5f),
+                            growth(age_at(1.0f)) * (math::PI_F * 0.5f)};
+    const float cos_polar[2] = {cosf(polar[0]), cosf(polar[1])};
+    const float sin_polar[2] = {sinf(polar[0]), sinf(polar[1])};
     const auto vertex = [&](size_t i, float time) {
-      const float polar = growth(age_at(time)) * (math::PI_F * 0.5f);
-      return ring_vertex<W>(basis, polar, i);
+      const size_t endpoint = time == 1.0f;
+      return ring_vertex<W>(basis, cos_polar[endpoint], sin_polar[endpoint], i);
     };
     const float START_RADIUS = growth(start_age);
     GeometryCallback geometry{vertex,
