@@ -71,6 +71,10 @@ public:
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   /** Preset cadence: two default-duration motion cycles. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 160;
+  static_assert(PRESET_DWELL_FRAMES == 2 * Params{}.cycle_duration);
+
+  /// Frames between palette changes.
+  static constexpr uint16_t PALETTE_PERIOD_FRAMES = 160;
 
   /** @brief Angular width of one canvas column, the comet thickness unit. */
   static constexpr float THICKNESS_PX = math::RADIANS_PER_COLUMN<W>;
@@ -98,11 +102,7 @@ public:
    * @return Initial `Params`.
    */
   static Params initial_params() {
-    return {.function = PRESETS[0].params,
-            .alpha = 1.0f,
-            .thickness = 2.1f * THICKNESS_PX,
-            .cycle_duration = 80.0f,
-            .debug_bb = false};
+    return {.function = PRESETS[0].params, .thickness = 2.1f * THICKNESS_PX};
   }
 
   /** @brief Shared registration, validation and interpolation descriptions.
@@ -172,7 +172,7 @@ public:
     timeline.add(
         0, Animation::RandomWalk<W>(orientation, math::random_vector(), noise));
     timeline.add(
-        0, Animation::PeriodicTimer(PRESET_DWELL_FRAMES,
+        0, Animation::PeriodicTimer(PALETTE_PERIOD_FRAMES,
                                     [this](Canvas &) { update_palette(); },
                                     {.repeat = true}));
     // Infinite and pinned, so the retained handle stays valid.
