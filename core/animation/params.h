@@ -494,7 +494,8 @@ public:
   HS_HOT_INLINE MobiusFlow(math::MobiusParams &params, const float &num_rings,
                            const float &num_lines, int duration,
                            const Options &options = {})
-      : MobiusFlow(params, num_rings, num_lines, duration, options.repeat) {}
+      : FiniteParamAnimationBase(duration, options.repeat), params(params),
+        num_rings(num_rings), num_lines(num_lines) {}
 
   // num_rings/num_lines are borrowed every frame; reject temporaries.
   MobiusFlow(math::MobiusParams &params, const float &&num_rings,
@@ -507,21 +508,6 @@ public:
              const float &&num_lines, int duration,
              const Options &options = {}) = delete;
 
-private:
-  /**
-   * @brief Positional form of the Options constructor.
-   * @param params Reference to the MobiusParams to animate.
-   * @param num_rings Reference to the number of rings (scalar).
-   * @param num_lines Reference to the number of lines (scalar).
-   * @param duration Duration of the flow.
-   * @param repeat Restarts after each completed cycle.
-   */
-  MobiusFlow(math::MobiusParams &params, const float &num_rings,
-             const float &num_lines, int duration, bool repeat)
-      : FiniteParamAnimationBase(duration, repeat), params(params),
-        num_rings(num_rings), num_lines(num_lines) {}
-
-public:
   /**
    * @brief Steps the animation, updating params a and d.
    * @param canvas The canvas buffer (forwarded to the base step).
@@ -624,26 +610,12 @@ public:
    */
   HS_HOT_INLINE MobiusWarpBase(math::MobiusParams &params, float scale,
                                int duration, const Options &options = {})
-      : MobiusWarpBase(params, scale, duration, options.repeat,
-                       options.easing) {}
-
-private:
-  /**
-   * @brief Positional form of the Options constructor.
-   * @param params Reference to the MobiusParams to animate.
-   * @param scale The magnitude of the warp effect.
-   * @param duration Duration of the warp.
-   * @param repeat Restarts after each completed cycle.
-   * @param easing Easing of each cycle.
-   */
-  MobiusWarpBase(math::MobiusParams &params, float scale, int duration,
-                 bool repeat, EasingFn easing)
-      : ScaledPhaseBase<Derived>(scale, duration, repeat, easing),
+      : ScaledPhaseBase<Derived>(scale, duration, options.repeat,
+                                 options.easing),
         params(params) {
     HS_CHECK(std::isfinite(scale), "Mobius warp scale must be finite");
   }
 
-public:
   /**
    * @brief Publishes each step's angle and magnitude.
    * @param angle Receives the angle written into b, radians.

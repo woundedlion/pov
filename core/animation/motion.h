@@ -168,7 +168,12 @@ public:
   template <typename P>
   HS_HOT_INLINE Motion(math::Orientation<CAP> &orientation, const P &path_obj,
                        int duration, const Options &options = {})
-      : Motion(orientation, path_obj, duration, options.repeat, options.space) {
+      : AnimationBase<Motion<W, CAP>>(duration, options.repeat),
+        orientation(orientation),
+        path_fn([&path_obj](float t) { return path_obj.get_point(t); }),
+        space(options.space) {
+    // Rejects the base's perpetual -1: step() divides by duration.
+    HS_CHECK(duration >= 0, "Motion duration must be >= 0");
   }
 
   template <typename P,
@@ -176,28 +181,6 @@ public:
   Motion(math::Orientation<CAP> &orientation, P &&path_obj, int duration,
          const Options &options = {}) = delete;
 
-private:
-  /**
-   * @brief Positional form of the Options constructor.
-   * @tparam P Path type exposing get_point(float t).
-   * @param orientation The Orientation object to update.
-   * @param path_obj The path to follow; borrowed for the Motion's lifetime.
-   * @param duration The duration in frames.
-   * @param repeat Restarts after each completed cycle.
-   * @param space Coordinate space for the applied rotations.
-   */
-  template <typename P>
-  Motion(math::Orientation<CAP> &orientation, const P &path_obj, int duration,
-         bool repeat, Space space)
-      : AnimationBase<Motion<W, CAP>>(duration, repeat),
-        orientation(orientation),
-        path_fn([&path_obj](float t) { return path_obj.get_point(t); }),
-        space(space) {
-    // Rejects the base's perpetual -1: step() divides by duration.
-    HS_CHECK(duration >= 0, "Motion duration must be >= 0");
-  }
-
-public:
   /**
    * @brief Accesses the associated Orientation.
    * @return Reference to the bound Orientation.
