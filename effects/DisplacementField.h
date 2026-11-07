@@ -346,6 +346,21 @@ private:
     float cos_cover;   ///< Cosine of the cap covering the whole path.
   };
 
+  static constexpr float SWEEP_QUARTER = 0.25f; ///< Quarter-frame split.
+  static constexpr float FIELD_AMPLITUDE_CUT =
+      0.001f;                                     ///< Inactive field amplitude.
+  static constexpr float FIELD_REACH_CUT = 1e-3f; ///< Inactive field reach.
+
+  /** @brief Whether a knot retains the opposite frame endpoint. */
+  HS_HOT_INLINE static bool retains_endpoint(float t) {
+    return t < SWEEP_QUARTER || t >= 1.0f - SWEEP_QUARTER;
+  }
+
+  /** @brief Opposite frame endpoint for a retained sample time. */
+  HS_HOT_INLINE static float other_endpoint(float t) {
+    return t < 0.5f ? 1.0f : 0.0f;
+  }
+
   /** @brief Sweep windows a swept draw splits the half-turn into. */
   static constexpr int SWEEP_WINDOWS = 2;
   static_assert(SWEEP_WINDOWS == 2,
@@ -400,7 +415,7 @@ private:
                                      const BallPath &path, float theta,
                                      float t) {
     const float reach = path.reach_from + (path.reach_to - path.reach_from) * t;
-    if (reach <= 1e-3f || bp.amplitude <= 0.001f)
+    if (reach <= FIELD_REACH_CUT || bp.amplitude <= FIELD_AMPLITUDE_CUT)
       return 0.0f;
     const math::Vector c = path.from + (path.to - path.from) * t;
     const float inverse = 1.0f / sqrtf(math::dot(c, c));
@@ -524,8 +539,9 @@ private:
     draw_history.capture(end);
     if (Spacetime::flat_surface() || !primed)
       return false;
-    const bool noise = noise_live && fmaxf(std::fabs(sweep.noise_amplitude[0]),
-                                           std::fabs(amplitude)) > 0.001f;
+    const bool noise =
+        noise_live && fmaxf(std::fabs(sweep.noise_amplitude[0]),
+                            std::fabs(amplitude)) > FIELD_AMPLITUDE_CUT;
     if (!noise && n_balls == 0)
       return false;
     math::Quaternion step = current * previous.conjugate();
@@ -579,7 +595,7 @@ private:
       path.reach_from = sp.radius * sp.previous_envelope;
       path.reach_to = sp.radius * sp.envelope;
       const float reach = fmaxf(path.reach_from, path.reach_to);
-      if (reach <= 1e-3f) {
+      if (reach <= FIELD_REACH_CUT) {
         // No field at either endpoint, as before the fall's first step.
         ball_colat[b] = 0.0f;
         ball_reach[b] = -1.0f;
@@ -713,14 +729,15 @@ private:
         const Color4 now = current_ring_color(i, n_rings);
         const Color4 before =
             drawn_colors_valid && drawn_color_ready[i] ? drawn_colors[i] : now;
-        const float middle = sweep->uses_cache() ? 0.25f : sweep->middle;
+        const float middle =
+            sweep->uses_cache() ? SWEEP_QUARTER : sweep->middle;
         ring_color = before.lerp(now, middle);
         if (sweep->uses_cache()) {
-          sweep->cache->colors[i] = before.lerp(now, 0.75f);
+          sweep->cache->colors[i] = before.lerp(now, 1.0f - SWEEP_QUARTER);
           sweep->cache->alphas[i] =
               sweep->cache->colors[i].alpha *
-              (sweep->opacity[0] +
-               (sweep->opacity[1] - sweep->opacity[0]) * 0.75f) *
+              (sweep->opacity[0] + (sweep->opacity[1] - sweep->opacity[0]) *
+                                       (1.0f - SWEEP_QUARTER)) *
               params.alpha;
           sweep->cache->ring = i;
           sweep->cache->starts[i * SweepCache::WORDS] =
@@ -762,7 +779,7 @@ private:
                                  : 0.0f;
         const Animation::NoiseProductParams *octaves =
             noise_field.active_count() == 1 &&
-                    std::fabs(octave_amplitude) > 0.001f
+                    std::fabs(octave_amplitude) > FIELD_AMPLITUDE_CUT
                 ? &noise_field.active_params(0)
                 : nullptr;
         lut_n = noise_lut_samples(feature_scale, sin_t, octaves != nullptr);
@@ -931,7 +948,8 @@ private:
       for (int k = 0; k < SWEEP_WINDOWS; ++k) {
         if (k)
           apply_second_window(cache);
-        TimeWindowScope window(canvas, k * W / 4, (k + 1) * W / 4);
+        TimeWindowScope window(canvas, k * W / (2 * SWEEP_WINDOWS),
+                               (k + 1) * W / (2 * SWEEP_WINDOWS));
         Scan::DistortedRingStack::draw<W, H>(
             filters, canvas, params.num_rings, rings.shapes(), rings.slot_map(),
             rings.size(), *candidates, ring_shader);
@@ -1189,12 +1207,12 @@ private:
           if (sweep->uses_cache() && (g1 || g2)) {
             alternate_a[x] = g1 ? octave1[x] : 0.0f;
             alternate_b[x] = g2 ? octave2[x] : 0.0f;
-            if (sweep->cache->boundary[x] && (t < 0.25f || t >= 0.75f)) {
+            if (sweep->cache->boundary[x] && retains_endpoint(t)) {
 #if HS_ENABLE_TEST_HOOKS
               alternate_noise_samples +=
                   static_cast<int>(g1) + static_cast<int>(g2);
 #endif
-              const float other = t < 0.5f ? 1.0f : 0.0f;
+              const float other = other_endpoint(t);
               const math::Vector aq =
                   Spacetime::rotate_by(p, sweep->turn * (other - 1.0f));
               const float at =
@@ -1224,8 +1242,9 @@ private:
                       int k) HS_HOT_INLINE {
       auto value = [&](int index) HS_HOT_INLINE {
         if constexpr (SWEPT) {
-          if (sweep->uses_cache() && ((late && knot_times[index] < 0.25f) ||
-                                      (!late && knot_times[index] >= 0.75f)))
+          if (sweep->uses_cache() &&
+              ((late && knot_times[index] < SWEEP_QUARTER) ||
+               (!late && knot_times[index] >= 1.0f - SWEEP_QUARTER)))
             return alternate[index];
         }
         return oct[index];
@@ -1261,7 +1280,7 @@ private:
         if (sweep->uses_cache() && sweep->cache->boundary[x]) {
           late = !late;
           const float t = knot_times[x];
-          const float other = t < 0.25f ? 1.0f : t >= 0.75f ? 0.0f : t;
+          const float other = retains_endpoint(t) ? other_endpoint(t) : t;
           const float amp =
               sweep->noise_amplitude[0] +
               (sweep->noise_amplitude[1] - sweep->noise_amplitude[0]) * other;
@@ -1368,8 +1387,8 @@ private:
           if constexpr (SWEPT) {
             const float t = knot_times[xi];
             if (sweep->uses_cache() && sweep->cache->boundary[xi] &&
-                (t < 0.25f || t >= 0.75f)) {
-              const float other = t < 0.5f ? 1.0f : 0.0f;
+                retains_endpoint(t)) {
+              const float other = other_endpoint(t);
               const float alternate =
                   ball_at(knot_pos[xi], bp, ball_paths[k], theta, other);
               DominantFieldAccumulator::accumulate(alternate_a[xi],
@@ -1389,7 +1408,7 @@ private:
         if constexpr (SWEPT) {
           const float t = knot_times[x];
           if (sweep->uses_cache() && sweep->cache->boundary[x] &&
-              (t < 0.25f || t >= 0.75f)) {
+              retains_endpoint(t)) {
             const float alternate = DominantFieldAccumulator::resolve(
                                         alternate_a[x], alternate_b[x]) +
                                     noise_field.field(knot_pos[x]);
