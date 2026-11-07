@@ -436,6 +436,14 @@ template <int W> HS_FLASH_MEMBER bool mesh_motion_active(float arc) {
          pixels <= MAX_VERTEX_MOTION_PIXELS;
 }
 
+/** @brief Angular bounds margin for a mesh scan.
+ * @tparam W Canvas width in pixels.
+ * @param sweep Column-basis sweep arc in radians.
+ * @return Base face margin widened by the sweep. */
+template <int W> HS_HOT_INLINE float scan_bounds_margin(float sweep) {
+  return std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W) + sweep;
+}
+
 /**
  * @brief Arc a mesh scan pads a face's rows by past its vertices.
  * @tparam W Canvas width in pixels.
@@ -443,8 +451,7 @@ template <int W> HS_FLASH_MEMBER bool mesh_motion_active(float arc) {
  * @return Scan::Mesh's bounds margin with a column of slack.
  */
 template <int W> HS_HOT_INLINE float scan_row_pad(float sweep) {
-  return std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W) + sweep +
-         math::TWO_PI_F / W;
+  return scan_bounds_margin<W>(sweep) + math::TWO_PI_F / W;
 }
 
 /** @brief Vertex heights past which a moving face reaches no clip row. */
@@ -1058,6 +1065,7 @@ struct Mesh {
     SDF::FaceStorage &storage = *new_face_storage(arena);
     const Scan::ColumnBasis *time = column_basis(pipeline, canvas);
     const float sweep = time && time->azimuth ? time->sweep_arc : 0.0f;
+    const float bounds_margin = scan_bounds_margin<W>(sweep);
     const auto tables = FacePadTables::prepare<W, H>(arena, time);
     const float *pads = tables.full;
     const float *compact_pads = tables.compact;
@@ -1065,9 +1073,8 @@ struct Mesh {
     const auto &cr = source_clip<W, H>(pipeline, canvas);
     const Spacetime::TimeWindow &window = canvas.time_window();
     SDF::FaceBoundsPose pose;
-    const FaceClipPlanes<W, H> clip_planes(
-        cr, std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W) + sweep +
-                SDF::MOVED_AXIS_SLACK);
+    const FaceClipPlanes<W, H> clip_planes(cr, bounds_margin +
+                                                   SDF::MOVED_AXIS_SLACK);
     bool culled;
     const bool seeing = face_bounds_pose<W, H>(
         {copy.vertices, copy.count}, {copy.indices, copy.count}, time, pose,
@@ -1078,8 +1085,7 @@ struct Mesh {
       HS_PROFILE(scan_face_setup);
       return SDF::Face({copy.vertices, copy.count}, {copy.indices, copy.count},
                        storage, math::LatitudeGeometry(H), H, &cr, pads,
-                       std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W) + sweep,
-                       seeing ? &pose : nullptr);
+                       bounds_margin, seeing ? &pose : nullptr);
     }();
     SDF::PreparedFace &shape = face.prepared();
 #if HS_ENABLE_TEST_HOOKS
@@ -1353,8 +1359,7 @@ struct Mesh {
     const float *azimuth_pads = tables.full;
     const float *compact_pads = tables.compact;
     const float *wide_pads = tables.wide;
-    const float bounds_margin =
-        std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W) + sweep;
+    const float bounds_margin = scan_bounds_margin<W>(sweep);
 
     const uint8_t *fc = mesh.get_face_counts_data();
     size_t num_f = mesh.get_face_counts_size();
