@@ -164,7 +164,7 @@ public:
       birth_hit.interval =
           std::clamp(int(detector.birth), 0, surface.interval_count() - 1);
       birth_hit.fraction =
-          std::clamp(detector.birth - birth_hit.interval, 0.0f, 1.0f);
+          hs::clamp(detector.birth - birth_hit.interval, 0.0f, 1.0f);
       front = shade_edge(shade, birth_hit);
       back = color;
     } else {
@@ -347,8 +347,8 @@ private:
      * @param u,v Pixel coordinates.
      * @return Point in the pixel footprint. */
     HS_HOT_INLINE Point point(float u, float v) const {
-      u = std::clamp(u, -.5f, .5f);
-      v = std::clamp(v, -.5f, .5f);
+      u = hs::clamp(u, -.5f, .5f);
+      v = hs::clamp(v, -.5f, .5f);
       return {p.x + u * dx.x + v * dy.x, p.y + u * dx.y + v * dy.y};
     }
     /** @brief Certifies a point strictly inside the affine footprint.
@@ -381,7 +381,7 @@ private:
         const float X = dot(dx, E), Y = dot(dy, E);
         const float H = .5f * (fabsf(X) + fabsf(Y));
         const float T =
-            std::clamp(dot(offset, E) + u * X + v * Y, -H, H) / LENGTH;
+            hs::clamp(dot(offset, E) + u * X + v * Y, -H, H) / LENGTH;
         return {p.x + T * E.x, p.y + T * E.y};
       }
       const float U = radial_cross(offset, dy) / DET + u;
@@ -474,10 +474,9 @@ private:
         if (fabsf(dot(Q, AXIS)) > HALF)
           return;
         entry = leave = T;
-      } else if (!contains(
-                     {A.x + std::clamp(PROJECTION / LENGTH, 0.0f, 1.0f) * E.x,
-                      A.y + std::clamp(PROJECTION / LENGTH, 0.0f, 1.0f) * E.y},
-                     DET)) {
+      } else if (const float CLOSEST =
+                     hs::clamp(PROJECTION / LENGTH, 0.0f, 1.0f);
+                 !contains({A.x + CLOSEST * E.x, A.y + CLOSEST * E.y}, DET)) {
         const float SIGN = copysignf(1.0f, DET);
         const float HALF = .5f * fabsf(DET);
         const float U = -SIGN * radial_cross(OFFSET, dy),
@@ -505,7 +504,7 @@ private:
         distance = dot(Q, Q);
       } else
         distance = LC * LC / LENGTH;
-      const float T = std::clamp(PROJECTION / LENGTH, entry, leave);
+      const float T = hs::clamp(PROJECTION / LENGTH, entry, leave);
       const float NEW_A = front_sign * LA, NEW_B = front_sign * LB,
                   NEW_C = front_sign * LC;
       const float NEW_BIRTH = first_birth + T * (last_birth - first_birth);
