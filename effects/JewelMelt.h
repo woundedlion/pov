@@ -34,7 +34,7 @@ struct JewelMeltSpec : Pullback::Spec {
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
       Pullback::Stage::Placed<
-          Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+          Pullback::CodeEmission::INLINE_ONLY,
           Pullback::Stage::Lens<Pullback::Lens::OctahedralKaleidoscope>,
           Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
               Pullback::SurfaceNoiseParams, B, false>::Type>,
