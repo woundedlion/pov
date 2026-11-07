@@ -684,7 +684,13 @@ inline void test_unsweepable_recipe_steps_are_gated() {
 
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.33f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.49f}));
-  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 0.5f}));
+  constexpr float NEAR_PINCH = 0.5f - ConwayGraph::T_EPS_AMBO;
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, NEAR_PINCH}));
+  HS_EXPECT_FALSE(Solids::is_morphable_step(
+      {Op::TRUNCATE, std::nextafter(NEAR_PINCH, 0.5f)}));
+  HS_EXPECT_FALSE(Solids::is_morphable_step({Op::TRUNCATE, 0.5f}));
+  HS_EXPECT_TRUE(
+      Solids::is_morphable_step({Op::TRUNCATE, std::nextafter(0.5f, 1.0f)}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.51f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::SNUB, 0.5f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::RELAX, 8.0f}));

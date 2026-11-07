@@ -37,7 +37,8 @@ inline constexpr bool is_morphable_step(const OpStep &step) {
   switch (step.op) {
   case Op::TRUNCATE:
     return step.param >= ConwayGraph::T_TRUNCATE_ARRIVAL_MIN &&
-           step.param <= ConwayGraph::T_TRUNCATE_FAR_MAX && step.param != 0.5f;
+           step.param <= ConwayGraph::T_TRUNCATE_FAR_MAX &&
+           (step.param <= 0.5f - ConwayGraph::T_EPS_AMBO || step.param > 0.5f);
   case Op::CHAMFER:
     return step.param >= ConwayGraph::T_EPS && step.param <= CHAMFER_T_MAX;
   case Op::SNUB:
