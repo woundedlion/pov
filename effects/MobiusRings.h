@@ -77,6 +77,12 @@ public:
     mobius_gen.init_storage(persistent_arena);
     filters.init_storage(persistent_arena);
     baked_palette.bake(persistent_arena, palette);
+    curve_directions = persistent_arena.allocate_n<CurveDirection>(CURVE_SIDES);
+    for (int vertex = 0; vertex < CURVE_SIDES; ++vertex) {
+      const float theta =
+          (static_cast<float>(vertex) * 2.0f + 1.0f) * math::PI_F / CURVE_SIDES;
+      curve_directions[vertex] = {cosf(theta), sinf(theta)};
+    }
 
     register_animated_param("Rings", &params.num_rings, 0.0f, 20.0f);
     register_animated_param("Lines", &params.num_lines, 0.0f, 20.0f);
@@ -159,6 +165,12 @@ private:
   // counter-rotation singularity guard.
   friend struct ::hs_test::effects_tests::MobiusRingsWhiteBox;
 
+  static constexpr int CURVE_SIDES = W / 4;
+  struct CurveDirection {
+    float cosine;
+    float sine;
+  };
+
   // Scratch A: one curve's fragment buffer plus rasterize's sub-step cache.
   static constexpr size_t SCRATCH_A_BYTES = 8 * 1024;
   static_assert(SCRATCH_A_BYTES >= (W / 4 + 2) * sizeof(Fragment) +
@@ -171,7 +183,8 @@ private:
   static constexpr size_t FOOTPRINT_BYTES =
       sizeof(MobiusEntity) + alignof(MobiusEntity) + sizeof(int) +
       alignof(int) + Filter::World::Orient::storage_bytes(W) +
-      BakedPalette::required_arena_bytes();
+      BakedPalette::required_arena_bytes() +
+      CURVE_SIDES * sizeof(CurveDirection) + alignof(CurveDirection);
   static_assert(
       FOOTPRINT_BYTES <=
           ArenaSplit{SCRATCH_A_BYTES, SCRATCH_B_BYTES}.device_persistent(),
@@ -238,7 +251,6 @@ private:
                                          WIPE_FRAMES, math::ease_linear));
   }
 
-  static constexpr int CURVE_SIDES = W / 4;
   static_assert(CURVE_SIDES *
                             (sizeof(math::Vector) + sizeof(Plot::Mesh::Edge)) +
                         alignof(math::Vector) + alignof(Plot::Mesh::Edge) +
@@ -484,20 +496,19 @@ private:
             ring_basis.u = -ring_basis.u;
           auto evaluate = [&](size_t vertex, float t) HS_HOT_INLINE {
             const float coordinate = first + (last - first) * t;
-            const float theta = (static_cast<float>(vertex) * 2.0f + 1.0f) *
-                                math::PI_F / CURVE_SIDES;
+            const auto direction = curve_directions[vertex];
             math::Vector source;
             if (axis == 0) {
               const float radius = ring_polar(coordinate);
-              source =
-                  ring_basis.v * cosf(radius) +
-                  (ring_basis.u * cosf(theta) + ring_basis.w * sinf(theta)) *
-                      sinf(radius);
+              source = ring_basis.v * cosf(radius) +
+                       (ring_basis.u * direction.cosine +
+                        ring_basis.w * direction.sine) *
+                           sinf(radius);
             } else {
               const float angle = coordinate * math::PI_F;
               const math::Vector normal(cosf(angle), 0.0f, -sinf(angle));
-              source = math::cross(normal, math::Y_AXIS) * cosf(theta) +
-                       math::Y_AXIS * sinf(theta);
+              source = math::cross(normal, math::Y_AXIS) * direction.cosine +
+                       math::Y_AXIS * direction.sine;
             }
             return math::normalized_or(
                 math::rotate(math::mobius_transform(source.normalized(),
@@ -577,6 +588,8 @@ private:
   PaletteWipe wipe;          /**< Cross-fade state of the palette rollover. */
   BakedPaletteStorage
       baked_palette; /**< LUT-baked copy of `palette` the shaders sample. */
+  CurveDirection *curve_directions =
+      nullptr; ///< Timed-curve vertex directions.
   /**
    * @brief User-tunable parameters.
    * @details num_rings/num_lines are animated counts driven by the Mutation
