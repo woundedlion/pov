@@ -146,7 +146,7 @@ struct OuterCameraProvider {
   /** @brief Conjugate of the outer camera orientation.
    *  @param frame Current frame.
    *  @return `frame.outer_conjugate`. */
-  __attribute__((always_inline)) static const math::Quaternion &
+  HS_HOT_INLINE static const math::Quaternion &
   conjugate(const FrameState &frame) {
     return frame.outer_conjugate;
   }
@@ -178,22 +178,20 @@ struct ProjectionProvider {
   /** @brief Conjugate of the projection orientation.
    *  @param frame Current frame.
    *  @return `frame.projection_conjugate`. */
-  __attribute__((always_inline)) static const math::Quaternion &
+  HS_HOT_INLINE static const math::Quaternion &
   conjugate(const FrameState &frame) {
     return frame.projection_conjugate;
   }
   /** @brief Projection singularity fade width.
    *  @param frame Current frame.
    *  @return The projection family's `singularity_fade`. */
-  __attribute__((always_inline)) static float
-  singularity_fade(const FrameState &frame) {
+  HS_HOT_INLINE static float singularity_fade(const FrameState &frame) {
     return frame.params.template get<"projection">().singularity_fade;
   }
   /** @brief Projection central meridian.
    *  @param frame Current frame.
    *  @return The projection family's `central_meridian`. */
-  __attribute__((always_inline)) static float
-  central_meridian(const FrameState &frame) {
+  HS_HOT_INLINE static float central_meridian(const FrameState &frame) {
     return frame.params.template get<"projection">().central_meridian;
   }
   /** @brief Projection coordinate scale.
@@ -302,15 +300,14 @@ struct WarpProvider {
   /** @brief The warp instance's parameters.
    *  @param frame Current frame.
    *  @return The `Key` family. */
-  __attribute__((always_inline)) static const auto &
-  params(const FrameState &frame) {
+  HS_HOT_INLINE static const auto &params(const FrameState &frame) {
     return frame.params.template get<Key>();
   }
   /** @brief Per-frame prepared warp state.
    *  @param frame Current frame.
    *  @return `Pullback::Warp::prepare` of the params and clocks, or
    *  `Pullback::NoPrepared` for a polar warp. */
-  __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
+  HS_HOT_INLINE static auto prepare(const FrameState &frame) {
     using WarpT = std::remove_cvref_t<decltype(params(frame))>;
     if constexpr (std::is_same_v<WarpT, AffineParams>) {
       return Pullback::Warp::prepare<Form, TrackPath>(
@@ -327,7 +324,7 @@ struct WarpProvider {
    *  @param frame Current frame.
    *  @return Its `translation_lattice`, or the zero basis when the family
    *  declares none or no `SourceKey` resource exists. */
-  __attribute__((always_inline)) static TranslationLattice
+  HS_HOT_INLINE static TranslationLattice
   downstream_lattice(const FrameState &frame) {
     using Params = std::remove_cvref_t<decltype(frame.params)>;
     if constexpr (Params::template HAS<SourceKey>) {
@@ -367,20 +364,18 @@ struct WarpProvider {
   /** @brief The warp's phase clock.
    *  @param frame Current frame.
    *  @return Phase modulo 1; column-time samples may lie outside [0, 1). */
-  __attribute__((always_inline)) static float phase(const FrameState &frame) {
+  HS_HOT_INLINE static float phase(const FrameState &frame) {
     return frame.resources.template get<Key>().phase;
   }
   /** @brief The warp's noise generator.
    *  @param frame Current frame.
    *  @return The runtime-owned generator. */
-  __attribute__((always_inline)) static const FastNoiseLite &
-  noise(const FrameState &frame) {
+  HS_HOT_INLINE static const FastNoiseLite &noise(const FrameState &frame) {
     return *frame.resources.template get<Key>().noise;
   }
   /** @brief Whether the stage accumulates path length.
    *  @return `TrackPath`. */
-  __attribute__((always_inline)) static bool
-  path_length_required(const FrameState &) {
+  HS_HOT_INLINE static bool path_length_required(const FrameState &) {
     return TrackPath;
   }
 };
@@ -404,8 +399,7 @@ struct SurfaceProvider {
   /** @brief The surface's noise generator.
    *  @param frame Current frame.
    *  @return The runtime-owned generator. */
-  __attribute__((always_inline)) static const FastNoiseLite &
-  noise(const FrameState &frame) {
+  HS_HOT_INLINE static const FastNoiseLite &noise(const FrameState &frame) {
     return *frame.resources.template get<Key>().noise;
   }
   /** @brief Per-frame prepared surface state.
@@ -413,7 +407,7 @@ struct SurfaceProvider {
    *  @return `SphereAnimation::prepare_ripples` for burst ripples,
    *  `Pullback::Surface::prepare_direct` for a directed family,
    *  else `Pullback::Surface::prepare`. */
-  __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
+  HS_HOT_INLINE static auto prepare(const FrameState &frame) {
     if constexpr (std::is_same_v<Family, SphereAnimation::BurstRippleParams>) {
       const auto &resource = frame.resources.template get<Key>();
       return SphereAnimation::prepare_ripples(params(frame), resource);
@@ -435,7 +429,7 @@ struct SurfaceProvider {
   /** @brief Current-owned ripple curves selected for this column.
    * @param frame Current column context.
    * @return Transfer curves, or null for canonical evaluation. */
-  __attribute__((always_inline)) static const SphereAnimation::RadialTables *
+  HS_HOT_INLINE static const SphereAnimation::RadialTables *
   radial_tables(const FrameState &frame) {
     const auto &resource = frame.resources.template get<Key>();
     return resource.radial_fraction >= 0.0f ? resource.radial_tables : nullptr;
@@ -443,15 +437,13 @@ struct SurfaceProvider {
   /** @brief Ripple transfer weight of the current column.
    * @param frame Current column context.
    * @return Current endpoint weight. */
-  __attribute__((always_inline)) static float
-  radial_fraction(const FrameState &frame) {
+  HS_HOT_INLINE static float radial_fraction(const FrameState &frame) {
     return frame.resources.template get<Key>().radial_fraction;
   }
   /** @brief The surface instance's parameters.
    *  @param frame Current frame.
    *  @return The `Key` family. */
-  __attribute__((always_inline)) static const auto &
-  params(const FrameState &frame) {
+  HS_HOT_INLINE static const auto &params(const FrameState &frame) {
     return frame.params.template get<Key>();
   }
   /** @brief The surface's phase.
@@ -459,7 +451,7 @@ struct SurfaceProvider {
    *  @return Ripple: cycle in [0, 1); Rossby-Haurwitz, Symmetric and Potential:
    *  radians modulo 2pi; otherwise phase modulo 1. Non-ripple column-time
    *  samples may lie outside the canonical phase range. */
-  __attribute__((always_inline)) static float phase(const FrameState &frame) {
+  HS_HOT_INLINE static float phase(const FrameState &frame) {
     using SurfaceParams = Family;
     if constexpr (std::is_same_v<SurfaceParams, PeriodicRippleParams>)
       return Pullback::Surface::ripple_cycle(
@@ -471,20 +463,18 @@ struct SurfaceProvider {
   /** @brief Displacement field spatial scale.
    *  @param frame Current frame.
    *  @return The family's `scale`. */
-  __attribute__((always_inline)) static float scale(const FrameState &frame) {
+  HS_HOT_INLINE static float scale(const FrameState &frame) {
     return frame.params.template get<Key>().scale;
   }
   /** @brief Displacement strength.
    *  @param frame Current frame.
    *  @return The family's `strength`. */
-  __attribute__((always_inline)) static float
-  strength(const FrameState &frame) {
+  HS_HOT_INLINE static float strength(const FrameState &frame) {
     return frame.params.template get<Key>().strength;
   }
   /** @brief Whether the stage accumulates path length.
    *  @return `TrackPath`. */
-  __attribute__((always_inline)) static bool
-  path_length_required(const FrameState &) {
+  HS_HOT_INLINE static bool path_length_required(const FrameState &) {
     return TrackPath;
   }
 };
@@ -576,15 +566,14 @@ struct SourceProvider {
   /** @brief The source instance's parameters.
    *  @param frame Current frame.
    *  @return The `Key` family. */
-  __attribute__((always_inline)) static const auto &
-  params(const FrameState &frame) {
+  HS_HOT_INLINE static const auto &params(const FrameState &frame) {
     return frame.params.template get<Key>();
   }
   /** @brief Prepared pattern state from the source clocks.
    *  @param frame Current frame.
    *  @return `Pattern::prepare` of the primary, secondary and
    *  angle clocks. */
-  __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
+  HS_HOT_INLINE static auto prepare(const FrameState &frame) {
     return Pattern::prepare(frame.resources.template get<Key>().primary,
                             frame.resources.template get<Key>().secondary,
                             frame.resources.template get<Key>().angle);
@@ -592,30 +581,26 @@ struct SourceProvider {
   /** @brief The source's noise generator.
    *  @param frame Current frame.
    *  @return The runtime-owned generator. */
-  __attribute__((always_inline)) static const FastNoiseLite &
-  noise(const FrameState &frame) {
+  HS_HOT_INLINE static const FastNoiseLite &noise(const FrameState &frame) {
     return *frame.resources.template get<Key>().noise;
   }
   /** @brief Noise spatial scale.
    *  @param frame Current frame.
    *  @return The family's `noise_scale`. */
-  __attribute__((always_inline)) static float
-  noise_scale(const FrameState &frame) {
+  HS_HOT_INLINE static float noise_scale(const FrameState &frame) {
     return frame.params.template get<Key>().noise_scale;
   }
   /** @brief Noise time coordinate.
    *  @param frame Current frame.
    *  @return The source clock's `noise_time` modulo 1; column-time samples
    *  may lie outside [0, 1). */
-  __attribute__((always_inline)) static float
-  noise_time(const FrameState &frame) {
+  HS_HOT_INLINE static float noise_time(const FrameState &frame) {
     return frame.resources.template get<Key>().noise_time;
   }
   /** @brief Noise contrast.
    *  @param frame Current frame.
    *  @return The family's `noise_contrast`. */
-  __attribute__((always_inline)) static float
-  noise_contrast(const FrameState &frame) {
+  HS_HOT_INLINE static float noise_contrast(const FrameState &frame) {
     return frame.params.template get<Key>().noise_contrast;
   }
 };
@@ -634,8 +619,7 @@ struct ValueProvider {
   /** @brief Iso-contour level.
    *  @param frame Current frame.
    *  @return The family's `iso_level`. */
-  __attribute__((always_inline)) static float
-  iso_level(const FrameState &frame) {
+  HS_HOT_INLINE static float iso_level(const FrameState &frame) {
     static_assert(
         requires { frame.params.template get<Key>().iso_level; },
         "value provider requires iso_level");
@@ -644,8 +628,7 @@ struct ValueProvider {
   /** @brief Iso-contour width.
    *  @param frame Current frame.
    *  @return The family's `iso_width`. */
-  __attribute__((always_inline)) static float
-  iso_width(const FrameState &frame) {
+  HS_HOT_INLINE static float iso_width(const FrameState &frame) {
     static_assert(
         requires { frame.params.template get<Key>().iso_width; },
         "value provider requires iso_width");
@@ -654,22 +637,19 @@ struct ValueProvider {
   /** @brief Number of cosine bands.
    * @param frame Current frame.
    * @return The family's band count. */
-  __attribute__((always_inline)) static float
-  band_count(const FrameState &frame) {
+  HS_HOT_INLINE static float band_count(const FrameState &frame) {
     return frame.params.template get<Key>().band_count;
   }
   /** @brief Cosine-band phase in radians.
    * @param frame Current frame.
    * @return The family's band phase. */
-  __attribute__((always_inline)) static float
-  band_phase(const FrameState &frame) {
+  HS_HOT_INLINE static float band_phase(const FrameState &frame) {
     return frame.params.template get<Key>().band_phase;
   }
   /** @brief Projection edge-fade width.
    *  @param frame Current frame.
    *  @return The family's `edge_width`. */
-  __attribute__((always_inline)) static float
-  edge_width(const FrameState &frame) {
+  HS_HOT_INLINE static float edge_width(const FrameState &frame) {
     static_assert(
         requires { frame.params.template get<Key>().edge_width; },
         "value provider requires edge_width");
@@ -678,8 +658,7 @@ struct ValueProvider {
   /** @brief Value-cutout threshold.
    *  @param frame Current frame.
    *  @return The family's `cutout_threshold`. */
-  __attribute__((always_inline)) static float
-  cutout_threshold(const FrameState &frame) {
+  HS_HOT_INLINE static float cutout_threshold(const FrameState &frame) {
     static_assert(
         requires { frame.params.template get<Key>().cutout_threshold; },
         "value provider requires cutout_threshold");
@@ -688,8 +667,7 @@ struct ValueProvider {
   /** @brief Value-cutout softness.
    *  @param frame Current frame.
    *  @return The family's `cutout_softness`. */
-  __attribute__((always_inline)) static float
-  cutout_softness(const FrameState &frame) {
+  HS_HOT_INLINE static float cutout_softness(const FrameState &frame) {
     static_assert(
         requires { frame.params.template get<Key>().cutout_softness; },
         "value provider requires cutout_softness");
@@ -735,85 +713,76 @@ struct ColorProvider {
   /** @brief Palette mapping weights.
    *  @param frame Current frame.
    *  @return `frame.palette_mapping`. */
-  __attribute__((always_inline)) static Pullback::Color::PaletteMappingWeights
+  HS_HOT_INLINE static Pullback::Color::PaletteMappingWeights
   mapping_weights(const FrameState &frame) {
     return frame.palette_mapping;
   }
   /** @brief Palette mapping frequency.
    *  @param frame Current frame.
    *  @return The color family's `mapping_frequency`. */
-  __attribute__((always_inline)) static float
-  mapping_frequency(const FrameState &frame) {
+  HS_HOT_INLINE static float mapping_frequency(const FrameState &frame) {
     return frame.params.template get<"color">().mapping_frequency;
   }
   /** @brief Palette mapping phase.
    *  @param frame Current frame.
    *  @return The color family's `mapping_phase`. */
-  __attribute__((always_inline)) static float
-  mapping_phase(const FrameState &frame) {
+  HS_HOT_INLINE static float mapping_phase(const FrameState &frame) {
     return frame.params.template get<"color">().mapping_phase;
   }
   /** @brief Mapping-phase oscillation depth.
    *  @param frame Current frame.
    *  @return The color family's `phase_oscillation_depth`. */
-  __attribute__((always_inline)) static float
-  oscillation_depth(const FrameState &frame) {
+  HS_HOT_INLINE static float oscillation_depth(const FrameState &frame) {
     return frame.params.template get<"color">().phase_oscillation_depth;
   }
   /** @brief Mapping-phase oscillation phase.
    *  @param frame Current frame.
    *  @return `frame.palette_oscillation_phase`. */
-  __attribute__((always_inline)) static float
-  oscillation_phase(const FrameState &frame) {
+  HS_HOT_INLINE static float oscillation_phase(const FrameState &frame) {
     return frame.palette_oscillation_phase;
   }
   /** @brief The cycler's current baked palette.
    *  @param frame Current frame.
    *  @return `*frame.palette`. */
-  __attribute__((always_inline)) static const BakedPalette &
-  palette(const FrameState &frame) {
+  HS_HOT_INLINE static const BakedPalette &palette(const FrameState &frame) {
     return *frame.palette;
   }
   /** @brief Hue-rotation LUT view.
    *  @param frame Current frame.
    *  @return The frame's palette hue table. */
-  __attribute__((always_inline)) static Pullback::Color::HueRotationLutView
+  HS_HOT_INLINE static Pullback::Color::HueRotationLutView
   hue_rotation(const FrameState &frame) {
     return {frame.hue_rotation_lut, frame.hue_rotation_lut != nullptr, nullptr,
             frame.hue_rotation_gamut};
   }
   /** @brief Brightness envelope.
    *  @return `BrightnessV`. */
-  __attribute__((always_inline)) static Pullback::Color::BrightnessEnvelope
+  HS_HOT_INLINE static Pullback::Color::BrightnessEnvelope
   brightness_envelope(const FrameState &) {
     return BrightnessV;
   }
   /** @brief Brightness envelope floor.
    *  @param frame Current frame.
    *  @return The color family's `brightness_bottom`. */
-  __attribute__((always_inline)) static float
-  brightness_bottom(const FrameState &frame) {
+  HS_HOT_INLINE static float brightness_bottom(const FrameState &frame) {
     return frame.params.template get<"color">().brightness_bottom;
   }
   /** @brief Brightness envelope ceiling.
    *  @param frame Current frame.
    *  @return The color family's `brightness_top`. */
-  __attribute__((always_inline)) static float
-  brightness_top(const FrameState &frame) {
+  HS_HOT_INLINE static float brightness_top(const FrameState &frame) {
     return frame.params.template get<"color">().brightness_top;
   }
   /** @brief Opacity at value 0.
    *  @param frame Current frame.
    *  @return The color family's `opacity_low`. */
-  __attribute__((always_inline)) static float
-  opacity_low(const FrameState &frame) {
+  HS_HOT_INLINE static float opacity_low(const FrameState &frame) {
     return frame.params.template get<"color">().opacity_low;
   }
   /** @brief Opacity at value 1.
    *  @param frame Current frame.
    *  @return The color family's `opacity_high`. */
-  __attribute__((always_inline)) static float
-  opacity_high(const FrameState &frame) {
+  HS_HOT_INLINE static float opacity_high(const FrameState &frame) {
     return frame.params.template get<"color">().opacity_high;
   }
 };

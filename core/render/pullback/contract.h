@@ -365,12 +365,11 @@ struct NoInstrumentation {
 
   /** @brief Starts a span.
    * @return An empty token. */
-  __attribute__((always_inline)) static Token mark() { return {}; }
+  HS_HOT_INLINE static Token mark() { return {}; }
 
   /** @brief Ends a span; a no-op.
    * @tparam Event Segment the span is attributed to. */
-  template <ProfileEvent Event>
-  __attribute__((always_inline)) static void span(Token) {
+  template <ProfileEvent Event> HS_HOT_INLINE static void span(Token) {
     static_cast<void>(Event);
   }
 };
@@ -472,7 +471,7 @@ using PolicyPrepared = typename PolicyPreparedImpl<Policy, FrameState>::Type;
  *  @param frame Frame state the policy prepares from.
  *  @return The policy's prepared state. */
 template <typename Policy, typename FrameState>
-__attribute__((always_inline)) inline PolicyPrepared<Policy, FrameState>
+HS_HOT_INLINE inline PolicyPrepared<Policy, FrameState>
 prepare_policy(const FrameState &frame) {
   if constexpr (PolicyPrepares<Policy, FrameState>)
     return Policy::prepare(frame);
@@ -594,7 +593,7 @@ concept ParamsProvider =
 /** @brief Clamps to [0, 1]; a NaN input fails the audit check.
  * @param value Non-NaN input.
  * @return @p value clamped to [0, 1]. */
-__attribute__((always_inline)) inline float clamp_unit(float value) {
+HS_HOT_INLINE inline float clamp_unit(float value) {
   HS_AUDIT_CHECK(value == value, "unit clamp: NaN input");
   if (value <= 0.0f)
     return 0.0f;
@@ -611,8 +610,8 @@ __attribute__((always_inline)) inline float clamp_unit(float value) {
  * @param value Argument to ramp.
  * @return The ramp in 0.0 - 1.0.
  */
-__attribute__((always_inline)) inline float
-smooth_ramp_or_step(float low, float high, float value) {
+HS_HOT_INLINE inline float smooth_ramp_or_step(float low, float high,
+                                               float value) {
   if (low == high)
     return static_cast<float>(value > low);
   const float t = clamp_unit((value - low) / (high - low));
@@ -623,8 +622,8 @@ smooth_ramp_or_step(float low, float high, float value) {
  *  @param provenance Projection provenance carrying the edge distance.
  *  @param width Fade width in the same units as the edge distance.
  *  @return Coverage in [0, 1], smoothstepped across @p width. */
-__attribute__((always_inline)) inline float
-edge_fade(const ProjectionProvenance &provenance, float width) {
+HS_HOT_INLINE inline float edge_fade(const ProjectionProvenance &provenance,
+                                     float width) {
   return smooth_ramp_or_step(0.0f, width, provenance.fade_edge_distance);
 }
 
@@ -788,8 +787,8 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
      * @param frame Per-frame state.
      * @param prepared State from `prepare`.
      * @return Output carrier. */
-    __attribute__((always_inline)) static Output
-    run(const Input &input, const FrameState &frame, const Prepared &prepared) {
+    HS_HOT_INLINE static Output run(const Input &input, const FrameState &frame,
+                                    const Prepared &prepared) {
       return Derived::template run<BindingT>(input, frame, prepared);
     }
 
@@ -814,9 +813,10 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
      * @param prepared Prepared state.
      * @param previous Selects retained resources.
      * @return Output carrier. */
-    __attribute__((always_inline)) static Output
-    run_endpoint(const Input &input, const FrameState &frame,
-                 const Prepared &prepared, bool previous) {
+    HS_HOT_INLINE static Output run_endpoint(const Input &input,
+                                             const FrameState &frame,
+                                             const Prepared &prepared,
+                                             bool previous) {
       if constexpr (requires {
                       Derived::template run_endpoint<BindingT>(
                           input, frame, prepared, previous);
@@ -833,7 +833,7 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
      * @param frame Frame context.
      * @param prepared Prepared descriptor state.
      * @param previous Selects retained resources. */
-    __attribute__((always_inline)) static void
+    HS_HOT_INLINE static void
     run_in_place(Output &sample, const FrameState &frame,
                  const Prepared &prepared, bool previous)
       requires requires {
@@ -850,7 +850,7 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
      * @param current Current carrier to update.
      * @param frame Frame context.
      * @param prepared Prepared descriptor state. */
-    __attribute__((always_inline)) static void
+    HS_HOT_INLINE static void
     run_endpoints_in_place(ColorSample &previous, ColorSample &current,
                            const FrameState &frame, const Prepared &prepared)
       requires requires {
@@ -868,7 +868,7 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
      * @param prepared Descriptor state.
      * @param output Receives the cached base on success.
      * @return Whether the descriptor supplied a shared base. */
-    __attribute__((always_inline)) static bool
+    HS_HOT_INLINE static bool
     run_shared_base(const Input &input, const FrameState &frame,
                     const Prepared &prepared, ColorSample &output)
       requires requires {
@@ -885,9 +885,9 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
      * @param frame Frame context.
      * @param prepared Prepared descriptor state.
      * @return Retained endpoint followed by current endpoint. */
-    __attribute__((always_inline)) static auto
-    run_pair(const Input &input, const FrameState &frame,
-             const Prepared &prepared)
+    HS_HOT_INLINE static auto run_pair(const Input &input,
+                                       const FrameState &frame,
+                                       const Prepared &prepared)
       requires requires {
         Derived::template run_pair<BindingT>(input, frame, prepared);
       }
@@ -1139,9 +1139,10 @@ public:
    * @param prepared Prepared child states.
    * @param previous Selects retained color resources.
    * @return Group output carrier. */
-  __attribute__((always_inline)) static Output
-  run_endpoint(const Input &input, const FrameState &frame,
-               const Prepared &prepared, bool previous) {
+  HS_HOT_INLINE static Output run_endpoint(const Input &input,
+                                           const FrameState &frame,
+                                           const Prepared &prepared,
+                                           bool previous) {
     return run_children<0>(input, frame, prepared, previous);
   }
 };
@@ -1165,7 +1166,7 @@ struct BoundPlaced<CodeEmission::INLINE_ONLY, Binding, Children...>
    * @param frame Per-frame state.
    * @param prepared Children's prepared states.
    * @return Output carrier. */
-  __attribute__((always_inline)) static typename Base::Output
+  HS_HOT_INLINE static typename Base::Output
   run(const typename Base::Input &input, const typename Base::FrameState &frame,
       const typename Base::Prepared &prepared) {
     return Base::template run_children<0>(input, frame, prepared);
@@ -2262,9 +2263,9 @@ public:
    *  @param ctx Frame context.
    *  @param prepared Stages' prepared state for @p ctx.
    *  @return The shaded colour. */
-  __attribute__((always_inline)) static Color4
-  evaluate(const math::Vector &view, const FrameState &ctx,
-           const PreparedTuple &prepared) {
+  HS_HOT_INLINE static Color4 evaluate(const math::Vector &view,
+                                       const FrameState &ctx,
+                                       const PreparedTuple &prepared) {
     if constexpr (Core::has_fused_final_color() ||
                   Core::has_direct_final_color())
       return Core::template shade_stage<0>(SphereSample{view, 0.0f}, ctx,

@@ -275,7 +275,7 @@ struct ParameterSet<ResourceList<Resources...>>
    *  @tparam Visitor Callable with a templated call operator.
    *  @param visitor Receives each mutable family. */
   template <typename Visitor>
-  __attribute__((always_inline)) constexpr void visit(Visitor &&visitor) {
+  HS_HOT_INLINE constexpr void visit(Visitor &&visitor) {
     (visitor.template operator()<Resources>(get<Resources::KEY>()), ...);
   }
   /** @brief Calls `visitor.operator()<Resource>(family)` for each resource
@@ -283,7 +283,7 @@ struct ParameterSet<ResourceList<Resources...>>
    *  @tparam Visitor Callable with a templated call operator.
    *  @param visitor Receives each const family. */
   template <typename Visitor>
-  __attribute__((always_inline)) constexpr void visit(Visitor &&visitor) const {
+  HS_HOT_INLINE constexpr void visit(Visitor &&visitor) const {
     (visitor.template operator()<Resources>(get<Resources::KEY>()), ...);
   }
 };
