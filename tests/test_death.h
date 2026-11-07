@@ -779,6 +779,9 @@ inline const Case *all_cases(int &n) {
        "core/animation/timeline.h",
        "(global_timeline_num_events == event_count) clear hook added or "
        "removed timeline events"},
+      {"timeline_cancel_owner_during_step",
+       case_timeline_cancel_owner_during_step, "core/animation/timeline.h",
+       "(!stepping) cancel_owner() from inside step()"},
       {"segue_sprite_no_slot", case_segue_sprite_no_slot,
        "core/animation/timeline.h",
        "(remaining() >= 1) Timeline required add needs a free event slot"},

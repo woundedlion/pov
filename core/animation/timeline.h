@@ -326,10 +326,12 @@ public:
   /**
    * @brief Cancels every event bound to the retiring lifetime owner.
    * @details Later ownerless pinned events are exempt from the predecessor
-   * check for teardown ordering; moving one during step() still traps.
+   * check for teardown ordering.
+   * @pre No timeline step is in progress.
    * @param owner Lifetime token shared by the events to cancel.
    */
   HS_FLASH_MEMBER void cancel_owner(const void *owner) {
+    HS_CHECK(!stepping, "cancel_owner() from inside step()");
     bool retiring_predecessor = false;
     for (int i = 0; i < global_timeline_num_events; ++i) {
       const auto &event = global_timeline_events[i];
@@ -342,7 +344,7 @@ public:
     }
     for (int i = 0; i < global_timeline_num_events; ++i) {
       auto &event = global_timeline_events[i];
-      if (event.owner == owner && event.animation()) {
+      if (event.owner == owner) {
         static_cast<Animation::AnimationCommon *>(event.animation())->cancel();
         event.retired = true;
         event.paused = nullptr;

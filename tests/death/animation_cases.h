@@ -492,6 +492,18 @@ inline void case_timeline_clear_during_step() {
   tl.step(canvas); // t=1: completes -> callback -> clear() while stepping
 }
 
+/** @brief Rejects owner cancellation from a completion callback. */
+inline void case_timeline_cancel_owner_during_step() {
+  static hs_test::StubEffect fx(8, 8);
+  static Canvas canvas(fx);
+  Timeline timeline;
+  float value = 0.0f;
+  timeline.add(
+      0, Animation::Transition(value, 1.0f, 1, math::ease_linear)
+             .then([&timeline, &value]() { timeline.cancel_owner(&value); }));
+  timeline.step(canvas);
+}
+
 /** @brief Death case: finite parameter animations reject the -1 sentinel. */
 inline void case_finite_param_perpetual_duration() {
   float value = 0.0f;
