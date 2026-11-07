@@ -441,6 +441,13 @@ public:
       }
     }
 
+    set_knot_band(min_shift, max_shift);
+  }
+
+  /** @brief Sets the scan band covering the knot shifts.
+   * @param min_shift Inclusive lower shift in radians.
+   * @param max_shift Inclusive upper shift in radians. */
+  HS_HOT_INLINE inline void set_knot_band(float min_shift, float max_shift) {
     max_distortion = std::max(std::abs(min_shift), std::abs(max_shift));
     max_thickness = thickness + max_distortion;
     band_edge_cosines(target_angle + min_shift - thickness,

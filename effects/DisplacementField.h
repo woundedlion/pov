@@ -1764,11 +1764,7 @@ private:
           low = fminf(low, lo);
           high = fmaxf(high, hi);
         }
-        shape.max_distortion = fmaxf(std::fabs(low), std::fabs(high));
-        shape.max_thickness = shape.thickness + shape.max_distortion;
-        SDF::band_edge_cosines(shape.target_angle + low - shape.thickness,
-                               shape.target_angle + high + shape.thickness,
-                               shape.cos_max_limit, shape.cos_min_limit);
+        shape.set_knot_band(low, high);
       }
       count = s + 1;
     }
