@@ -205,6 +205,14 @@ class Attribution(unittest.TestCase):
         self.assertIn("    +0x0000..+0x000f      200  40.0%  chords.h:491", text)
         self.assertTrue(any(line.startswith("WARNING: 5 samples") for line in text))
 
+    def test_report_labels_nonempty_latency_buckets_and_threshold(self):
+        dump, rows = self.rows()
+        dump.latency = [3, 0, 6, 0, 1]
+        report = pc.report(dump, rows, top=0, ranges=0, range_rows=0,
+                           name_width=0)
+        self.assertIn("timer latency (counts=ticks, defer above 48 counts "
+                      "(2 us)): 0=3  2-3=6  8+=1", report)
+
 
 class CommandLine(unittest.TestCase):
     def run_main(self, lines, *extra):

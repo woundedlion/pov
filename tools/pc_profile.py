@@ -325,6 +325,23 @@ def report(dump, rows, *, top, ranges, range_rows, name_width, lines=None):
                f" of all): binned {recorded}, deferred {c['deferred']}, "
                f"missed {c['missed']}, dropped {c['dropped']}, "
                f"handler-mode {c['handler']}")
+    if dump.latency:
+        threshold = f"{h['defer_counts']} counts"
+        if h["counts_per_us"] > 0:
+            threshold += f" ({h['defer_counts'] / h['counts_per_us']:g} us)"
+        buckets = []
+        for index, ticks in enumerate(dump.latency):
+            if not ticks:
+                continue
+            if index == 0:
+                label = "0"
+            elif index == len(dump.latency) - 1:
+                label = f"{1 << (index - 1)}+"
+            else:
+                label = f"{1 << (index - 1)}-{(1 << index) - 1}"
+            buckets.append(f"{label}={ticks}")
+        out.append(f"timer latency (counts=ticks, defer above {threshold}): "
+                   + ("  ".join(buckets) or "no samples"))
     if c["dropped"]:
         out.append(f"WARNING: {c['dropped']} samples found no histogram slot; "
                    "raise HS_PROFILE_PC_BINS")
