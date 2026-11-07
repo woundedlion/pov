@@ -18,9 +18,11 @@
 #include "core/render/pullback/color.h"
 #include "core/render/pullback/contract.h"
 #include "core/render/pullback/fields.h"
+#include "core/render/pullback/material.h"
 #include "core/render/pullback/runtime_snapshot.h"
 #include "core/render/pullback/runtime_seeds.h"
 #include "core/render/pullback/translation_lattice.h"
+#include "core/render/pullback/warp.h"
 
 /**
  * @file model.h
@@ -201,6 +203,8 @@ struct OperatorRuntime {
   /** Translation symmetry the output reports to the previous entry; null for
       none. */
   TranslationLattice (*translation_lattice)(const uint8_t *params) = nullptr;
+  /** Whether the selected parameters need projection edge distance. */
+  bool (*requires_edge_distance)(const void *params) = nullptr;
 };
 
 /**
@@ -728,6 +732,29 @@ template <typename Model> constexpr auto model_translation_lattice() {
     return static_cast<Lattice>(nullptr);
 }
 
+/** @brief Erases the edge-distance requirement of the model's topology.
+ * @tparam Model Operator model.
+ * @return Parameter predicate or null when edge distance is unused. */
+template <typename Model> constexpr auto model_requires_edge_distance() {
+  using Params = typename Model::Params;
+  using Predicate = bool (*)(const void *);
+  if constexpr (requires(const Params &params) { params.coverage_mode; })
+    return static_cast<Predicate>(+[](const void *block) {
+      const auto &params = *std::launder(static_cast<const Params *>(block));
+      const auto mode =
+          static_cast<ProjectionCoverageMode>(params.coverage_mode);
+      return mode == ProjectionCoverageMode::EDGE_FADE ||
+             mode == ProjectionCoverageMode::EDGE_FADE_SQUARED;
+    });
+  else if constexpr (requires(const Params &params) { params.envelope; })
+    return static_cast<Predicate>(+[](const void *block) {
+      const auto &params = *std::launder(static_cast<const Params *>(block));
+      return params.envelope == static_cast<uint8_t>(Warp::Envelope::EDGE_FADE);
+    });
+  else
+    return static_cast<Predicate>(nullptr);
+}
+
 /** @brief Optional current-topology field policy.
  * @tparam Model Operator model.
  * @return Field policy or null. */
@@ -945,6 +972,7 @@ constexpr OperatorDescriptor make_operator_descriptor() {
           Detail::model_temporal_hold_field<Model>(),
           &Adapter::fold_strength,
           Detail::model_translation_lattice<Model>(),
+          Detail::model_requires_edge_distance<Model>(),
       },
       Detail::model_approximate<Model>(),
       Detail::model_oracle<Model>(),
