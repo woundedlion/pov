@@ -2,6 +2,7 @@
 """Host tests for the PC-sampler dump symbolizer (tools/pc_profile.py)."""
 
 import contextlib
+import hashlib
 import io
 import sys
 import tempfile
@@ -264,6 +265,26 @@ class CommandLine(unittest.TestCase):
                 code = pc.main([str(log), "--elf", str(elf), "--nm", str(missing_nm)])
             self.assertEqual(code, 1)
             self.assertIn("pass --nm or set HS_ARM_NM", err.getvalue())
+
+    def test_explicit_elf_must_match_the_capture_digest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            elf = Path(directory) / "firmware.elf"
+            original = b"captured firmware"
+            expected = hashlib.sha256(original).hexdigest()
+            lines = [f"profile provenance: profile_elf_sha256={expected}", *dump_lines()]
+            elf.write_bytes(original)
+            code, _, err = self.run_main(lines, "--elf", str(elf), "--ranges", "0")
+            self.assertEqual(code, 0, err)
+
+            elf.write_bytes(b"another firmware")
+            code, out, err = self.run_main(lines, "--elf", str(elf))
+            self.assertEqual(code, 1)
+            self.assertEqual(out, "")
+            self.assertIn("firmware ELF digest mismatch", err)
+
+            elf.unlink()
+            code, _, err = self.run_main(lines, "--elf", str(elf))
+            self.assertEqual(code, 0, err)
 
 
 if __name__ == "__main__":

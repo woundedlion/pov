@@ -22,6 +22,7 @@ The ELF defaults to the capture's `artifact_profile_elf` provenance line.
 
 import argparse
 import bisect
+import hashlib
 import os
 import re
 import subprocess
@@ -40,6 +41,7 @@ LATENCY_RE = re.compile(r"^pc profile latency:((?: \d+)+)$")
 BIN_RE = re.compile(r"^pc ([0-9a-f]{8}) (\d+)$")
 END_LINE = "pc profile end"
 ELF_RE = re.compile(r"^profile provenance: artifact_profile_elf=(.+)$")
+ELF_SHA_RE = re.compile(r"^profile provenance: profile_elf_sha256=(.*)$")
 NM_RE = re.compile(
     r"^([0-9a-fA-F]{8})\s+(?:([0-9a-fA-F]{8})\s+)?([A-Za-z])\s+(.+)$")
 HEADER_KEYS = ("hz", "bin_bytes", "capacity", "defer_counts", "counts_per_us",
@@ -150,13 +152,18 @@ def parse_dump(lines):
     return dump
 
 
-def elf_from_log(lines):
-    """The profile ELF a capture's provenance names, or None."""
+def provenance_from_log(lines, pattern):
+    """Return the first matching provenance value, or None."""
     for line in lines:
-        m = ELF_RE.match(line.rstrip("\r\n"))
+        m = pattern.match(line.rstrip("\r\n"))
         if m:
             return m.group(1)
     return None
+
+
+def elf_from_log(lines):
+    """The profile ELF a capture's provenance names, or None."""
+    return provenance_from_log(lines, ELF_RE)
 
 
 def parse_nm(text):
@@ -449,6 +456,19 @@ def main(argv=None):
         print(f"pc_profile: {args.log}: {exc}", file=sys.stderr)
         return 1
     elf = args.elf or elf_from_log(lines)
+    elf_available = elf and Path(elf).is_file()
+    expected_digest = provenance_from_log(lines, ELF_SHA_RE)
+    if elf_available and expected_digest is not None:
+        try:
+            with Path(elf).open("rb") as stream:
+                digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        except OSError as exc:
+            print(f"pc_profile: {exc}", file=sys.stderr)
+            return 1
+        if digest != expected_digest.lower():
+            print(f"pc_profile: firmware ELF digest mismatch for {elf}",
+                  file=sys.stderr)
+            return 1
     if args.nm_file:
         try:
             nm_text = Path(args.nm_file).read_text(encoding="utf-8")
@@ -456,7 +476,7 @@ def main(argv=None):
             print(f"pc_profile: {exc}", file=sys.stderr)
             return 1
     else:
-        if not elf or not Path(elf).is_file():
+        if not elf_available:
             print(f"pc_profile: no firmware ELF ({elf or 'none in the log'}); "
                   "pass --elf", file=sys.stderr)
             return 1
@@ -473,7 +493,7 @@ def main(argv=None):
     functions = build_functions(parse_nm(nm_text))
     rows = attribute(dump, Symbolizer(functions))
     locations = {}
-    if elf and Path(elf).is_file() and args.ranges:
+    if elf_available and args.ranges:
         starts = sorted({start for row in rows[:args.ranges]
                          for start, _, _ in hot_ranges(
                              row, dump.header["bin_bytes"], args.range_rows)})
