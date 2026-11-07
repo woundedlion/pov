@@ -592,6 +592,26 @@ public:
       64; /**< Outward search budget per side; only near-pole chart compression
              approaches it. */
 
+  /** @brief Outward search cells per side for a knot count.
+   * @param n Number of periodic polyline knots.
+   * @return Smaller of the search budget and half-turn knot span. */
+  HS_HOT_INLINE static int search_cell_cap(int n) {
+    const int sweep = n / 2 + 1;
+    return MAX_SEARCH_CELLS < sweep ? MAX_SEARCH_CELLS : sweep;
+  }
+
+  /** @brief Segment-search reach in cells for the stroke's polar band.
+   * @param stroke_thickness Angular half-width of the stroke in radians.
+   * @param min_sine Minimum positive polar sine over the stroked band.
+   * @param n Number of periodic polyline knots.
+   * @return Cell reach bounded by the segment-search stopping rule. */
+  HS_HOT_INLINE static float search_reach_cells(float stroke_thickness,
+                                                float min_sine, int n) {
+    const float cell = math::TWO_PI_F / n;
+    const float limit = search_cell_cap(n) + 1.0f;
+    return fminf(limit, ceilf(stroke_thickness / (min_sine * cell)) + 1.0f);
+  }
+
 private:
   /**
    * @brief Distance from a pixel to the knot polyline.
@@ -687,7 +707,7 @@ private:
     float bound2 = fminf(best2, th2);
     const int sweep_o = lut_n / 2 + 1; // covers every knot on both arms
     const bool budget_capped = MAX_SEARCH_CELLS < sweep_o;
-    const int max_o = budget_capped ? MAX_SEARCH_CELLS : sweep_o;
+    const int max_o = search_cell_cap(lut_n);
     for (int o = 1; o <= max_o; ++o) {
       // A segment past a frontier knot can't beat that knot's |u|.
       bool right = ur * ur < bound2;

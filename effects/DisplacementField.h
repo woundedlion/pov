@@ -1033,12 +1033,11 @@ private:
     const float low = fmaxf(0.0f, theta - displacement - params.thickness);
     const float high =
         fminf(math::PI_F, theta + displacement + params.thickness);
-    const float min_sine = fmaxf(0.001f, fminf(sinf(low), sinf(high)));
+    const float min_sine = fmaxf(sqrtf(SDF::DistortedRing::POLE_SIN2_FLOOR),
+                                 fminf(sinf(low), sinf(high)));
     const float cell = math::TWO_PI_F / n;
-    const float limit =
-        std::min(SDF::DistortedRing::MAX_SEARCH_CELLS, n / 2 + 1) + 1.0f;
     const float search =
-        fminf(limit, ceilf(params.thickness / (min_sine * cell)) + 1.0f);
+        SDF::DistortedRing::search_reach_cells(params.thickness, min_sine, n);
     constexpr int SUPPORT = 2 * std::max(OCTAVE1_STRIDE, OCTAVE2_STRIDE) - 1;
     const float delta = fminf(math::PI_F, (search + SUPPORT) * cell);
     const float epsilon =
