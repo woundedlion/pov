@@ -215,6 +215,32 @@ HS_FLASH_MEMBER inline void prepare_radial_validity(RadialTables &tables) {
   tables.validity_ready = true;
 }
 
+/// Strength range qualified for radial interpolation.
+inline constexpr std::array RADIAL_STRENGTH = {0.0f, 0.15f};
+/// Thickness range qualified for radial interpolation, in radians.
+inline constexpr std::array RADIAL_THICKNESS = {0.7f, 1.4f};
+/// Period range qualified for radial interpolation, in frames.
+inline constexpr std::array RADIAL_PERIOD = {60.0f, 143.0f};
+/// Decay range qualified for radial interpolation.
+inline constexpr std::array RADIAL_DECAY = {0.0f, 5.0f};
+
+static_assert(
+    [] {
+      using Params = Surface::PeriodicRippleParams;
+      const auto within = [](float Params::*member,
+                             std::array<float, 2> range) {
+        for (const auto &field : Params::FIELDS)
+          if (field.member == member)
+            return field.min >= range.front() && field.max <= range.back();
+        return false;
+      };
+      return within(&Params::strength, RADIAL_STRENGTH) &&
+             within(&Params::thickness, RADIAL_THICKNESS) &&
+             within(&Params::decay, RADIAL_DECAY) &&
+             within(&Params::period, {0.0f, RADIAL_PERIOD.back()});
+    }(),
+    "Ripple fields must stay within the qualified radial interpolation domain");
+
 /** @brief Bakes radial endpoints, reusing bitwise-matching current curves.
  * @tparam Params Ripple controls.
  * @param params Current controls.
@@ -228,10 +254,14 @@ prepare_radial_tables(const Params &params, const RippleState &state,
   const uint8_t CACHED_COUNT = tables.enabled ? tables.count : 0;
   tables.validity_ready = false;
   tables.count = 0;
-  tables.enabled = params.strength >= 0.0f && params.strength <= 0.15f &&
-                   params.thickness >= 0.7f && params.thickness <= 1.4f &&
-                   params.period >= 60.0f && params.period <= 143.0f &&
-                   params.decay >= 0.0f && params.decay <= 5.0f;
+  tables.enabled = params.strength >= RADIAL_STRENGTH.front() &&
+                   params.strength <= RADIAL_STRENGTH.back() &&
+                   params.thickness >= RADIAL_THICKNESS.front() &&
+                   params.thickness <= RADIAL_THICKNESS.back() &&
+                   params.period >= RADIAL_PERIOD.front() &&
+                   params.period <= RADIAL_PERIOD.back() &&
+                   params.decay >= RADIAL_DECAY.front() &&
+                   params.decay <= RADIAL_DECAY.back();
   if (!tables.enabled)
     return;
   ScratchScope scratch(scratch_arena_a);
