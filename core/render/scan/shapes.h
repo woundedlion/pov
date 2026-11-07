@@ -1226,7 +1226,7 @@ struct RingGroup {
           frag.age = 0;
           shader(s, p, frag);
           if (frag.color.alpha > MIN_ALPHA)
-            pipeline.plot(canvas, x, y, frag.color.color, frag.age,
+            plot_admitted(pipeline, canvas, x, y, frag.color.color, frag.age,
                           frag.color.alpha * alpha);
         }
       }
