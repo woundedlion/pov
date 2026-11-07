@@ -112,6 +112,12 @@ inline constexpr auto &POTENTIAL_KIND_IDS = AUTHORED_FIELD_KIND_IDS;
 inline constexpr const char *HARMONIC_ORDER_IDS[] = {
     "zero", "one", "two", "three", "four", "five", "six", "seven", "eight"};
 
+static_assert(std::size(AUTHORED_INTEGRATOR_IDS) ==
+              static_cast<size_t>(Integrator::MIDPOINT_2X) + 1);
+static_assert(std::size(AUTHORED_LIMIT_IDS) ==
+              static_cast<size_t>(math::TangentLimit::CLAMP) + 1);
+static_assert(std::size(AUTHORED_ROSSBY_ORDER_IDS) + 1 <
+              std::size(HARMONIC_ORDER_IDS));
 static_assert(std::size(POTENTIAL_TERM_IDS) ==
               static_cast<size_t>(math::tangent_field::TermType::DODECAHEDRAL) +
                   1);
