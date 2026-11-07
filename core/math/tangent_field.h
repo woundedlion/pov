@@ -285,16 +285,20 @@ public:
    * @return Tangent velocity in world coordinates. */
   HS_HOT_FLASH_MEMBER Vector velocity(const Vector &p) const {
     const Vector local = oriented ? rotate(p, orientation.conjugate()) : p;
-    const float inverse_norm_squared = 1.0f / dot(local, local);
+    float inverse_norm_squared = 0.0f;
     Vector result(0.0f, 0.0f, 0.0f);
     for (const auto &term : terms) {
       if (term.scale == 0.0f)
         continue;
       const Vector gradient = term.gradient(local);
-      result += term.term.kind == Kind::TOROIDAL
-                    ? cross(local, gradient)
-                    : gradient -
-                          local * (dot(local, gradient) * inverse_norm_squared);
+      if (term.term.kind == Kind::TOROIDAL) {
+        result += cross(local, gradient);
+      } else {
+        if (inverse_norm_squared == 0.0f)
+          inverse_norm_squared = 1.0f / dot(local, local);
+        result +=
+            gradient - local * (dot(local, gradient) * inverse_norm_squared);
+      }
     }
     return oriented ? rotate(result, orientation) : result;
   }

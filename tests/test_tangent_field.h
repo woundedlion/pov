@@ -639,6 +639,28 @@ inline void test_potential_near_unit_tangency() {
   }
 }
 
+/** @brief Velocity reads live prepared terms after public term edits. */
+inline void test_potential_velocity_reads_prepared_term_edits() {
+  std::array<TF::PotentialTerm, 4> terms{};
+  terms[0] = {TF::TermType::MODE, TF::Kind::POLOIDAL, 3, 1, 0.8f, 0.4f};
+  TF::PotentialField edited;
+  edited.terms[0] = TF::prepare_term(terms[0]);
+  const TF::PotentialField expected_poloidal(terms);
+  for (int index = 0; index < 64; ++index) {
+    const auto point = direction(index, 64);
+    HS_EXPECT_TRUE(vec_identical(edited.velocity(point),
+                                 expected_poloidal.velocity(point)));
+  }
+  edited.terms[0].term.kind = TF::Kind::TOROIDAL;
+  terms[0].kind = TF::Kind::TOROIDAL;
+  const TF::PotentialField expected_toroidal(terms);
+  for (int index = 0; index < 64; ++index) {
+    const auto point = direction(index, 64);
+    HS_EXPECT_TRUE(vec_identical(edited.velocity(point),
+                                 expected_toroidal.velocity(point)));
+  }
+}
+
 inline int run_tangent_field_tests() {
   hs_test::ModuleFixture fixture("tangent_field");
   HS_RUN(test_legendre_coefficient_table);
@@ -654,6 +676,7 @@ inline int run_tangent_field_tests() {
   HS_RUN(test_zonal_potential_phase_preserves_peak_speed);
   HS_RUN(test_potential_drift_rotates_all_terms);
   HS_RUN(test_potential_near_unit_tangency);
+  HS_RUN(test_potential_velocity_reads_prepared_term_edits);
   HS_RUN(test_fold_advisory_precedes_sampled_jacobian_onset);
   return fixture.result();
 }
