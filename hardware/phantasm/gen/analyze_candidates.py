@@ -256,8 +256,8 @@ def analyze(path):
 
     ergo = dict(
         decap_u1=d("C_DEC2", "U1"),
-        term_j2=(d("R_D1", "J2") + d("R_D2", "J2")) / 2,      # terminators near strip
-        rs_sync=d("R_S", "J3A"),                              # sync term near daisy
+        term_u1=(d("R_D1", "U1") + d("R_D2", "U1")) / 2,
+        rs_u1=d("R_S", "U1"),
         divider=(d("R1", "R2") + d("R2", "C_SYNC")) / 2,      # high-Z RC divider tight
     )
 
@@ -438,11 +438,11 @@ def main(argv=None):
     print("\n" + "=" * 76)
     print("PLACEMENT DISTANCES (mm; inspection only, unscored)")
     print("=" * 76)
-    print(f"{'Cand':>6} {'decap->U1':>10} {'term->J2':>9} {'R_S->J3A':>9} {'divider':>8}")
+    print(f"{'Cand':>6} {'decap->U1':>10} {'term->U1':>9} {'R_S->U1':>9} {'divider':>8}")
     for k in sorted(R):
         e = R[k]["ergo"]
-        print(f"{k:>6} {e['decap_u1']:>10.1f} {e['term_j2']:>9.1f} "
-              f"{e['rs_sync']:>9.1f} {e['divider']:>8.1f}")
+        print(f"{k:>6} {e['decap_u1']:>10.1f} {e['term_u1']:>9.1f} "
+              f"{e['rs_u1']:>9.1f} {e['divider']:>8.1f}")
 
     print("\n" + "=" * 76)
     print("SIGNAL-INTEGRITY SCORE (rough, 0-10)")

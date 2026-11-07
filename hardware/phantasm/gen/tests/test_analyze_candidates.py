@@ -102,6 +102,15 @@ SYNTHETIC_BOARD = """
 
 
 class AnalyzeTests(unittest.TestCase):
+    def test_termination_distances_are_measured_from_the_driver(self):
+        footprints = "".join(
+            f'(footprint "Test" (layer "F.Cu") (at {x} {y}) (property "Reference" "{ref}"))'
+            for ref, x, y in (("U1", 1, 1), ("R_D1", 4, 1), ("R_D2", 1, 6),
+                              ("R_S", 1, 4), ("J2", 30, 1), ("J3A", 1, 50)))
+        result = self.analyze_source(SYNTHETIC_BOARD.rstrip()[:-1] + footprints + ")")
+        self.assertEqual(result["ergo"]["term_u1"], 4.0)
+        self.assertEqual(result["ergo"]["rs_u1"], 3.0)
+
     def analyze_source(self, source):
         with tempfile.TemporaryDirectory() as directory:
             board = Path(directory) / "phantasm.kicad_pcb"
@@ -229,7 +238,8 @@ class ScoreTests(unittest.TestCase):
             "ergo": {
                 "decap_u1": 0.0,
                 "divider": 0.0,
-                "term_j2": 0.0,
+                "term_u1": 0.0,
+                "rs_u1": 0.0,
             },
         }
 
@@ -240,7 +250,7 @@ class ScoreTests(unittest.TestCase):
         self.assertEqual(long, 8.0)
         self.assertGreater(short, long)
         changed_placement = {**base, "crit_len": 90.0, "ergo": {
-            "decap_u1": 50.0, "divider": 40.0, "term_j2": 120.0}}
+            "decap_u1": 50.0, "divider": 40.0, "term_u1": 120.0, "rs_u1": 90.0}}
         self.assertEqual(analyze_candidates.score(changed_placement), short)
 
 
