@@ -348,8 +348,6 @@ inline void ThrustersWhiteBox::check_temporal_rings() {
     Slot slot;
     slot.reset(effect.orientation, math::Y_AXIS);
     slot.age = 2;
-    slot.previous_age = 1;
-    slot.has_history = true;
     {
       Canvas canvas(effect);
       if (main_ring)
@@ -424,8 +422,6 @@ inline void ThrustersWhiteBox::check_temporal_rings() {
         slot.reset(effect.orientation,
                    math::Vector(direction, 0.7f, 0.02f).normalized());
         slot.age = scenario == Scenario::THRUSTER_BIRTH ? 0 : 2;
-        slot.previous_age = 1;
-        slot.has_history = scenario != Scenario::THRUSTER_BIRTH;
         const float age =
             scenario == Scenario::THRUSTER_BIRTH ? 0.0f : 1.0f + t;
         const int stride =

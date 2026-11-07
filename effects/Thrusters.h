@@ -110,8 +110,6 @@ public:
         ThrusterContext &ctx = thrusters[i];
         const float opacity = ThrusterContext::fade_for(ctx.age);
         draw_thruster(canvas, ctx, ctx.radius_at(), opacity);
-        ctx.previous_age = ctx.age;
-        ctx.has_history = true;
         ++ctx.age;
       }
     }
@@ -131,9 +129,7 @@ private:
     static constexpr int RADIUS_GROW_FRAMES = 8;
     static constexpr float RADIUS_MAX = 0.3f; /**< Peak ring radius. */
 
-    int age = 0;              /**< Frames elapsed since (re)spawn. */
-    int previous_age = 0;     /**< Age at the preceding draw. */
-    bool has_history = false; /**< A preceding draw exists for this spawn. */
+    int age = 0;                     /**< Frames elapsed since (re)spawn. */
     math::Orientation<> orientation; /**< Orientation snapshot at spawn time. */
     math::Vector point;              /**< Thrust point on the unit sphere. */
 
@@ -146,7 +142,6 @@ private:
       orientation = o;
       point = p;
       age = 0;
-      has_history = false;
     }
 
     /** @brief Growth at a fractional frame age.
@@ -293,9 +288,9 @@ private:
       return Spacetime::PathBound::rotation(fabsf(radius - start_radius) *
                                             (math::PI_F * 0.5f));
     };
-    Plot::Ring::draw_growing<W, H>(
-        filters, c, basis, ctx.age, ctx.previous_age, ThrusterContext::LIFE,
-        ctx.has_history, radius, opacity, growth, fade, shader, bound);
+    Plot::Ring::draw_growing<W, H>(filters, c, basis, ctx.age, ctx.age - 1,
+                                   ThrusterContext::LIFE, ctx.age > 0, radius,
+                                   opacity, growth, fade, shader, bound);
   }
 
   /**
