@@ -96,6 +96,18 @@ inline void case_plot_canvas_dim_mismatch() {
                         [](const math::Vector &, Fragment &) {});
 }
 
+/** @brief Default raster sampling rejects a balanced-sampling request. */
+inline void case_raster_default_policy_balanced_sampling() {
+  ArenaVector<Fragment> points;
+  points.bind(scratch_arena_a, 1);
+  DeathEffect effect;
+  Canvas canvas(effect);
+  Pipeline<32, 16> pipeline;
+  Plot::rasterize<32, 16>(pipeline, canvas, points,
+                          [](const math::Vector &, Fragment &) {},
+                          {.balanced_sampling = opaque(true)});
+}
+
 inline void case_raster_empty_path_null_shader() {
   ArenaVector<Fragment> points;
   points.bind(scratch_arena_a, 1);

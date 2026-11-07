@@ -893,6 +893,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
                  !opts.omit_end && opts.loop.seam() == nullptr,
              "open_geodesic rasterize takes no loop, planar or omit-end "
              "options");
+  if constexpr (SAMPLING_POLICY == RasterSamplingPolicy::DEFAULT)
+    HS_CHECK(!opts.balanced_sampling,
+             "balanced_sampling requires a non-default sampling policy");
   // A canvas that is not W x H plots through a pipeline whose wrap period and
   // framebuffer stride disagree.
   HS_CHECK(canvas.width() == W && canvas.height() == H,
