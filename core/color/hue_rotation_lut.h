@@ -263,19 +263,10 @@ __attribute__((always_inline)) inline math::Vector
 sample_hue_rotation_linear(const HueRotationLutView &view,
                            const HueRotationValueSample &value,
                            const HueRotationHueSample &hue) {
+  const Pixel *table = view.linear_data ? view.linear_data : view.data;
   const auto row = [&](int index) {
-    if (view.linear_data) {
-      const Pixel &a =
-          view.linear_data[index * HueRotationLutView::HUE_STEPS + hue.low];
-      const Pixel &b =
-          view.linear_data[index * HueRotationLutView::HUE_STEPS + hue.high];
-      return math::Vector(hs::lerp(float(a.r), float(b.r), hue.linear_weight),
-                          hs::lerp(float(a.g), float(b.g), hue.linear_weight),
-                          hs::lerp(float(a.b), float(b.b), hue.linear_weight));
-    }
-    const Pixel &a = view.data[index * HueRotationLutView::HUE_STEPS + hue.low];
-    const Pixel &b =
-        view.data[index * HueRotationLutView::HUE_STEPS + hue.high];
+    const Pixel &a = table[index * HueRotationLutView::HUE_STEPS + hue.low];
+    const Pixel &b = table[index * HueRotationLutView::HUE_STEPS + hue.high];
     return math::Vector(hs::lerp(float(a.r), float(b.r), hue.linear_weight),
                         hs::lerp(float(a.g), float(b.g), hue.linear_weight),
                         hs::lerp(float(a.b), float(b.b), hue.linear_weight));
