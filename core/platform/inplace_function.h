@@ -21,6 +21,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "core/platform/attributes.h"
+
 namespace hs {
 
 /**
@@ -91,7 +93,7 @@ template <typename C, typename R, typename... Args> struct ipf_ops {
    * @param dst Uninitialized destination buffer.
    * @param src Buffer holding a live C.
    */
-  static void copy(void *dst, const void *src) {
+  HS_FLASH_MEMBER static void copy(void *dst, const void *src) {
     ::new (dst) C(*std::launder(static_cast<const C *>(src)));
   }
   /**
@@ -99,7 +101,7 @@ template <typename C, typename R, typename... Args> struct ipf_ops {
    * @param dst Uninitialized destination buffer.
    * @param src Buffer holding a live C.
    */
-  static void move(void *dst, void *src) {
+  HS_FLASH_MEMBER static void move(void *dst, void *src) {
     ::new (dst) C(std::move(*std::launder(static_cast<C *>(src))));
   }
 
