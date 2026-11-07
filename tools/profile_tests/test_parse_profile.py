@@ -876,6 +876,15 @@ class TruncatedTrailingWindow(unittest.TestCase):
         self.assertEqual(len(windows), 3)
         self.assertEqual(err, "")
 
+    def test_a_cut_counter_dump_lacks_the_isr_window_marker(self):
+        counters = "  fx_buffer_wait   20000 us (9%)  4 calls  1 cyc\n"
+        text = self._log().replace(counters, counters + "ISR window=250000 us\n", 2)
+        text = text.removesuffix(counters) + "ISR window=25\n"
+        with contextlib.redirect_stderr(io.StringIO()) as error:
+            windows, _ = parse_log(text)
+        self.assertEqual(len(windows), 2)
+        self.assertIn("9-12", error.getvalue())
+
     def test_the_run_stays_exact_and_the_denominator_is_measured_frames(self):
         self.assertEqual(self._windows_view(truncated=True),
                          self._windows_view())

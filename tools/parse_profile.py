@@ -126,6 +126,7 @@ class Window:
         self.counters = {}  # label -> dict(us, calls, cyc, tags)
         self.marker = None  # active preset marker at this window
         self.marker_events = []  # emitted records, never inherited attribution
+        self.has_isr_window = False
         self.scan = None  # HS_SCAN_METRICS window totals, when the build has them
         self.probe = None  # HS_PROBE_BREAKDOWN window buckets + counts
         self.plot = None  # HS_PLOT_COUNTS window workload
@@ -290,6 +291,9 @@ def parse_capture(path):
             if m and cur:
                 cur.msp_stalls.setdefault(m.group(1), {})["wrapped"] = True
                 continue
+            if cur and re.fullmatch(r"ISR window=\d+ us", line):
+                cur.has_isr_window = True
+                continue
             m = COUNTER_RE.match(line)
             if m and cur:
                 label = m.group(2)
@@ -312,9 +316,10 @@ def parse_capture(path):
                     # Between windows: no outgoing frames to protect.
                     active_marker = mk
                 break
-    # A capture cut mid-dump leaves a trailing header with no counters.
-    if (len(windows) > 1 and not windows[-1].counters
-            and any(w.counters for w in windows[:-1])):
+    if len(windows) > 1 and (
+            (not windows[-1].has_isr_window and
+             any(w.has_isr_window for w in windows[:-1])) or
+            (not windows[-1].counters and any(w.counters for w in windows[:-1]))):
         cut = windows.pop()
         print(f"{path}: dropped the trailing window (frames {cut.f_start}-"
               f"{cut.f_end}): its dump was cut off", file=sys.stderr)
