@@ -149,12 +149,12 @@ public:
         const auto &params = modulation_params(index);
         out.modulation.push_back({op.instance, params.modulation});
       }
-      for (uint16_t field = 0; field < op.op->schema_count; ++field) {
-        if (modulated)
-          continue;
-        const float value =
-            read_field_value(*op.op, program.param_block(index), field);
-        out.parameters.push_back({program.param_name(index, field), value});
+      if (!modulated) {
+        for (uint16_t field = 0; field < op.op->schema_count; ++field) {
+          const float value =
+              read_field_value(*op.op, program.param_block(index), field);
+          out.parameters.push_back({program.param_name(index, field), value});
+        }
       }
       auto state = op.op->runtime.capture_state(program.state_block(index));
       if (modulated) {
@@ -242,8 +242,7 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     advance_clocks();
-    const ColorizeTap &tap = colorize;
-    const Pullback::Interp::FrameContext ctx = make_frame_context(tap);
+    const Pullback::Interp::FrameContext ctx = make_frame_context(colorize);
     program.prepare(ctx);
     program.check_ready();
     if (!Spacetime::flat_surface() && resources->context.initialized &&
@@ -589,9 +588,9 @@ private:
 
   void advance_clocks() {
     program.advance();
-    const ColorizeTap &tap = colorize;
-    update_palette_chroma(tap.params->palette_chroma);
-    step_generated_palettes(tap.params->palette_mode);
+    generated_palettes.set_chroma(colorize.params->palette_chroma);
+    generated_palettes.step(static_cast<Pullback::Interp::Op::PaletteMode>(
+        colorize.params->palette_mode));
   }
 
   friend struct ::hs_test::shader_chain_tests::ShaderChainWhiteBox;
@@ -779,10 +778,6 @@ private:
                                                     : ~value);
   }
 
-  const char *validate_parameters(size_t index, void *params) {
-    return admission_refusal(program.ops(), index, params);
-  }
-
   /** @brief The registered name of the first write that targets an entry in
       [@p first, @p last], or null. */
   const char *written_name(std::span<const ShaderChainParameterWrite> writes,
@@ -834,7 +829,8 @@ private:
     if (result != ParamSetResult::APPLIED)
       return {result};
     for (size_t index = first; index < end; ++index)
-      if (const char *warning = validate_parameters(index, candidates[index]))
+      if (const char *warning =
+              admission_refusal(ops, index, candidates[index]))
         return {ParamSetResult::INADMISSIBLE, warning, index, index};
     const int overflow =
         Pullback::Interp::plane_bound_overflow(ops, [&](size_t index) {
@@ -923,15 +919,6 @@ private:
       ctx.hue_rotation_gamut = &resources->hue_rotation_gamut;
     }
     return ctx;
-  }
-
-  void step_generated_palettes(uint8_t visible_mode) {
-    generated_palettes.step(
-        static_cast<Pullback::Interp::Op::PaletteMode>(visible_mode));
-  }
-
-  void update_palette_chroma(float chroma) {
-    generated_palettes.set_chroma(chroma);
   }
 
   static constexpr float DEFAULT_CHROMA =
