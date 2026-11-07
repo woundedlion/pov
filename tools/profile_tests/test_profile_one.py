@@ -83,7 +83,7 @@ class ProfileEffectIdentity(unittest.TestCase):
 
 def verify_log(text, expected="o3", provenance=True, marker="", *,
                preset="", expected_shape="", msp_marker="", pc_marker="",
-               artifact_present=True, digest_override=None, stale_frame=""):
+               artifact_present=True, digest_override=None, stale_frame=608):
     with tempfile.TemporaryDirectory() as directory:
         artifact = Path(directory) / "firmware.elf"
         artifact.write_bytes(b"profile firmware")
@@ -408,21 +408,22 @@ class NativePath(unittest.TestCase):
         self.assertEqual(result.stdout, "/c/work/prof/fx.log\n")
 
 
-def capture_connect_timeout(**lock_env):
-    """The --connect-timeout capture() hands profile_capture.py."""
-    constant = re.search(r"(?m)^CAPTURE_CONNECT_S=\d+$",
-                         PROFILE_ONE.read_text(encoding="utf-8")).group(0)
+def capture_connect_budget(**lock_env):
+    """Capture's serial connect timeout and first-frame limit."""
+    constants = "\n".join(re.findall(
+        r"(?m)^(?:CAPTURE_CONNECT_S|STALE_FRAME_MARGIN_S|SHOW_FRAMES_PER_S)=\d+$",
+        PROFILE_ONE.read_text(encoding="utf-8")))
     script = (
         "set -euo pipefail\n"
         f'. "{(REPO / "tools" / "device_lock.sh").as_posix()}"\n'
-        f"{constant}\n"
+        f"{constants}\n"
         f"{shell_function('capture')}\n"
         "hs_teensy_flash() { :; }\n"
         'capture_py() { shift; printf "%s\\n" "$@" >&2; }\n'
         "_HS_LOCK_PYTHON=capture_py; EFFECT=Fx; ENV=profile; WINDOW=1\n"
         "SECONDS_ARG=20; DEEP=; EXTRA=; OUT=/dev/null; PROVENANCE_OUT=/dev/null\n"
         "PROFILE_DIR=.pio/build/profile\n"
-        "capture >/dev/null\n"
+        'capture >/dev/null\nprintf "%s\\n" "$STALE_FRAME"\n'
     )
     env = {key: value for key, value in os.environ.items()
            if not key.startswith(("HS_DEVICE_", "HS_TEENSY_"))}
@@ -432,7 +433,7 @@ def capture_connect_timeout(**lock_env):
     if result.returncode != 0:
         raise AssertionError(result.stdout + result.stderr)
     args = result.stderr.split("\n")
-    return args[args.index("--connect-timeout") + 1]
+    return int(args[args.index("--connect-timeout") + 1]), int(result.stdout)
 
 
 class ArtifactRetention(unittest.TestCase):
@@ -518,15 +519,15 @@ class BuildBeforeDeviceClaim(unittest.TestCase):
 
 class CaptureConnectWindow(unittest.TestCase):
     def test_no_wait_keeps_the_default_connect_window(self):
-        self.assertEqual(capture_connect_timeout(), "30")
+        self.assertEqual(capture_connect_budget(), (30, 608))
 
     def test_a_wait_lets_the_port_reappear_for_the_absent_grace(self):
-        self.assertEqual(capture_connect_timeout(HS_DEVICE_WAIT="3600"), "120")
-        self.assertEqual(capture_connect_timeout(HS_DEVICE_WAIT="3600",
-                                                 HS_DEVICE_ABSENT_GRACE="90"), "90")
+        self.assertEqual(capture_connect_budget(HS_DEVICE_WAIT="3600"), (120, 2048))
+        self.assertEqual(capture_connect_budget(HS_DEVICE_WAIT="3600",
+                                                HS_DEVICE_ABSENT_GRACE="90"), (90, 1568))
 
     def test_a_short_wait_never_shortens_the_connect_window(self):
-        self.assertEqual(capture_connect_timeout(HS_DEVICE_WAIT="10"), "30")
+        self.assertEqual(capture_connect_budget(HS_DEVICE_WAIT="10"), (30, 608))
 
 
 class ProfileConfigVerification(unittest.TestCase):
@@ -660,10 +661,10 @@ class ProfileConfigVerification(unittest.TestCase):
     def test_a_first_frame_past_the_connect_window_is_reported(self):
         # A freshly flashed board starts at frame 1 and the capture attaches
         # within the connect window, so a high first frame means no reboot.
-        text = capture_log("o3").replace("f 1 w=100 r=90", "f 900 w=100 r=90")
+        text = capture_log("o3").replace("f 1 w=100 r=90", "f 608 w=100 r=90")
         result = verify_log(text)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("STALE IMAGE: first frame 900", result.stdout)
+        self.assertIn("STALE IMAGE: first frame 608", result.stdout)
 
     def test_delayed_enumeration_accepts_a_frame_within_the_connect_budget(self):
         text = capture_log("o3").replace("f 1 w=100 r=90", "f 900 w=100 r=90")

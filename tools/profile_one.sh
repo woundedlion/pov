@@ -97,6 +97,8 @@ EXTRA="$*"
 PC_DUMP_MARGIN_S=8
 # Least seconds the capture waits for the flashed board's serial port.
 CAPTURE_CONNECT_S=30
+STALE_FRAME_MARGIN_S=8
+SHOW_FRAMES_PER_S=16
 PC_FLAGS=""
 PC_SUFFIX=""
 PC_MARKER=""
@@ -406,7 +408,7 @@ capture() {
   local connect
   connect=$(hs_device_absent_budget)
   [ "$connect" -ge "$CAPTURE_CONNECT_S" ] || connect=$CAPTURE_CONNECT_S
-  STALE_FRAME=$(((connect + 8) * 16))
+  STALE_FRAME=$(((connect + STALE_FRAME_MARGIN_S) * SHOW_FRAMES_PER_S))
   # stderr passes through: a device trap and a peer-held port share an exit code.
   if ! "$_HS_LOCK_PYTHON" "$_HS_TOOLS_DIR/profile_capture.py" --seconds "$SECONDS_ARG" \
       --connect-timeout "$connect" --out "$OUT" >/dev/null; then
@@ -438,10 +440,10 @@ cleanup() {
 
 verify() {
   grep -q "=== profile $EFFECT .* ===$" "$OUT" || { echo "BAD/NO HEADER in $OUT"; return 1; }
-  local bad ok configs matching_configs
-  bad=$(grep -c "=== profile .* ===$" "$OUT" || true)
+  local windows ok configs matching_configs
+  windows=$(grep -c "=== profile .* ===$" "$OUT" || true)
   ok=$(grep -c "=== profile $EFFECT .* ===$" "$OUT" || true)
-  [ "$bad" = "$ok" ] || { echo "WINDOW NAME MISMATCH ($ok/$bad) — contention?"; return 1; }
+  [ "$windows" = "$ok" ] || { echo "WINDOW NAME MISMATCH ($ok/$windows) — contention?"; return 1; }
   configs=$(grep -c "^profile harness:" "$OUT" || true)
   matching_configs=$(grep -c "^profile harness: effect=$EFFECT config=$TAG " "$OUT" || true)
   [ "$configs" -gt 0 ] || { echo "NO CONFIG TAG in $OUT"; return 1; }
@@ -487,7 +489,7 @@ verify() {
   local first
   first=$(grep -m1 -oE "^f [0-9]+" "$OUT" | awk '{print $2}')
   [ -n "$first" ] || { echo "NO FRAME LINES in $OUT"; return 1; }
-  [ "$first" -lt "${STALE_FRAME:-600}" ] || { echo "STALE IMAGE: first frame $first — the upload did not take"; return 1; }
+  [ "$first" -lt "${STALE_FRAME:?}" ] || { echo "STALE IMAGE: first frame $first — the upload did not take"; return 1; }
   return 0
 }
 
