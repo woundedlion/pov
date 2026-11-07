@@ -220,12 +220,12 @@ trace_3d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
             const float SPEED = speeds[owner];
             if (SPEED == 0.0f)
               return true;
-            std::array<float, PAIRS> numerators, denominators, bases, rates;
+            const float NUMERATOR = SPEED * SPEED * projection.spacing2;
+            std::array<float, PAIRS> denominators, bases, rates;
             for (size_t pair = 0; pair < PAIRS; ++pair) {
               const uint8_t OTHER = others[pair];
               const float A = speeds[std::min(owner, OTHER)];
               const float B = speeds[std::max(owner, OTHER)];
-              numerators[pair] = SPEED * SPEED * projection.spacing2;
               denominators[pair] = A * A + B * B + (2.0f / 3.0f) * A * B;
               bases[pair] = positions[OTHER];
               rates[pair] = speeds[OTHER];
@@ -249,17 +249,17 @@ trace_3d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
               for (size_t pair = 0; pair < PAIRS; ++pair) {
                 const float U = bases[pair] + t * rates[pair];
                 const float RESIDUAL = U - roundf(U);
-                const float N = RESIDUAL * RESIDUAL * numerators[pair];
+                const float N = RESIDUAL * RESIDUAL * NUMERATOR;
                 if (N * denominator < numerator * denominators[pair]) {
                   numerator = N;
                   denominator = denominators[pair];
                 }
               }
-              const float SUPPORT = WIRE_RADIUS + .5f * footprint.at(t);
+              const float WIDTH = footprint.at(t);
+              const float SUPPORT = WIRE_RADIUS + .5f * WIDTH;
               if (numerator > SUPPORT * SUPPORT * denominator)
                 continue;
               const float FIELD = sqrtf(numerator / denominator) - WIRE_RADIUS;
-              const float WIDTH = footprint.at(t);
               const float COVERAGE = footprint_coverage(WIDTH, FIELD);
               if (COVERAGE > 0.0f)
                 covered.insert(t, COVERAGE);
