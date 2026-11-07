@@ -27,10 +27,7 @@ struct Wave {
 
   /** @brief Returns the wavelet half-width, floored at 0.001 radians.
    * @return Half-width in radians. */
-  float half_width() const {
-    float hw = thickness * 0.5f;
-    return hw < 0.001f ? 0.001f : hw;
-  }
+  float half_width() const { return fmaxf(thickness * 0.5f, 0.001f); }
 
   /** @brief Refreshes the cosine support bounds from phase and thickness. */
   void sync() {
