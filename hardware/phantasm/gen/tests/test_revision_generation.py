@@ -72,9 +72,12 @@ class PrototypeContractTests(unittest.TestCase):
         data_x = float(sexp.val(footprints["R_D1"], "at")[0])
         clock_x = float(sexp.val(footprints["R_D2"], "at")[0])
         self.assertGreater(data_x, clock_x)
+        nets = committed_board_nets("1.3")
         for ref, pin, net in (("R_D1", "6", "DATA_SRC"), ("R_D2", "3", "CLK_SRC")):
-            self.assertIn(f"U1.{pin}", committed_board_nets("1.3")[net])
-            self.assertLess(math.dist(self.pad_position(footprints[ref], "1"),
+            self.assertIn(f"U1.{pin}", nets[net])
+            source_pad = next(p for p in F(footprints[ref], "pad") if str(p[1]) == "2")
+            self.assertEqual(sexp.val(source_pad, "net")[-1], f"/{net}")
+            self.assertLess(math.dist(self.pad_position(footprints[ref], "2"),
                                       self.pad_position(footprints["U1"], pin)), 3)
 
     @staticmethod
