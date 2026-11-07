@@ -46,6 +46,17 @@ def _window(renders=(), wall_sum=None, frames=None):
 
 
 class PresetAttribution(unittest.TestCase):
+    def test_short_frame_telemetry_reports_derived_spills(self):
+        window = _window([60_000], wall_sum=187_500, frames=2)
+        window.render = (60_000, 60_000)
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(pp.cmd_windows([window], "fx_buffer_wait"), 0)
+        self.assertIn("1 window(s) had incomplete frame telemetry", output.getvalue())
+        self.assertIn("spilled 1/2 frames (wall-derived, +-1)", output.getvalue())
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(pp.cmd_buckets([window], "fx_buffer_wait", None), 0)
+        self.assertIn("Preset attribution is by window", output.getvalue())
+
     def test_windows_refuses_an_unknown_scope(self):
         with mock.patch.object(sys, "argv",
                                ["parse_profile", "capture", "windows", "--scope", "typo"]), \

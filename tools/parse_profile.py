@@ -365,7 +365,7 @@ def spilled_frames(w):
     if not w.wall:
         return 0
     # Without per-frame rows, the wall sum's extra windows (missed flips)
-    # upper-bound spilled frames; callers mark it '~'.
+    # upper-bound spilled frames.
     extra = max(0, round(w.wall[3] / DISPLAY_WINDOW_US) - w.frames)
     return min(extra, w.frames)
 
@@ -382,6 +382,7 @@ def cmd_windows(windows, scope):
     worst_peak = 0.0
     worst_peak_w = None
     exact_run = all(w.render and not w.render_is_wall() for w in windows)
+    short_windows = sum(not frame_rows_complete(w) for w in windows) if exact_run else 0
     for w in windows:
         pf = w.per_frame_ms(scope)
         cf = w.calls_per_frame(scope)
@@ -399,6 +400,9 @@ def cmd_windows(windows, scope):
             worst_peak, worst_peak_w = peak, w
         agg_spill += spill
         agg_frames += w.frames
+    if short_windows:
+        print(f"#   {short_windows} window(s) had incomplete frame telemetry. "
+              "Their spill counts are wall-derived.")
     if worst_peak_w is None:
         print(f"# aggregate: peak render n/a, "
               f"spilled {agg_spill}/{agg_frames} frames")
@@ -408,7 +412,7 @@ def cmd_windows(windows, scope):
     print(f"# aggregate: {kind} {worst_peak:.2f} ms "
           f"(frames {worst_peak_w.f_start}-{worst_peak_w.f_end}), "
           f"spilled {agg_spill}/{agg_frames} frames"
-          f"{'' if exact_run else ' (wall-derived, +-1)'}")
+          f"{'' if exact_run and not short_windows else ' (wall-derived, +-1)'}")
     return 0
 
 
@@ -523,7 +527,8 @@ def cmd_buckets(windows, scope, gate):
         return (mk["key"], mk.get("name"))
 
     exact_run = all(w.render and not w.render_is_wall() for w in windows)
-    have_frames = exact_run and all(frame_rows_complete(w) for w in windows)
+    short_windows = sum(not frame_rows_complete(w) for w in windows) if exact_run else 0
+    have_frames = exact_run and not short_windows
 
     groups = {}
     if have_frames:
@@ -576,6 +581,10 @@ def cmd_buckets(windows, scope, gate):
     if not exact_run:
         print("#   ~ = window-mean placeholder (understates the true peak); "
               "spilled is wall-derived, +-1. Re-capture for exact peaks.")
+    if short_windows:
+        print(f"#   {short_windows} window(s) had incomplete frame telemetry. "
+              "Preset attribution is by window and spill counts for those "
+              "windows are wall-derived.")
     if any(count == 0 for count, _ in holds.values()):
         print("#   ~ after a scope time = window shared by multiple presets.")
     # 0.01 ms absorbs the printed rounding, nothing more.
