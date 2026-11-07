@@ -48,14 +48,21 @@ struct Appearance {
     return fog * fog * math::cubic_kernel((t - near_start) * near_inv_span);
   }
   /**
+   * @brief Palette gain at a normalized depth.
+   * @param nearness Normalized nearness to the camera.
+   * @return Gain scaled by the depth grade.
+   */
+  HS_HOT_INLINE float depth_gain(float nearness) const {
+    return gain * (.45f + .55f * nearness);
+  }
+  /**
    * @brief Depth-graded palette color at distance t.
    * @param t Ray distance.
    * @return Palette color scaled by gain and nearness.
    */
   __attribute__((always_inline)) Pixel color(float t) const {
     const float nearness = 1 - t * inv_far;
-    return palette->get_color_unit(nearness) *
-           (gain * (.45f + .55f * nearness));
+    return palette->get_color_unit(nearness) * depth_gain(nearness);
   }
   /**
    * @brief Adds the depth-graded color at distance t as one layer of
@@ -70,8 +77,8 @@ struct Appearance {
                                                 float brightness = 1.0f) const {
     const float nearness = 1 - t * inv_far;
     float rgb[3];
-    palette->get_color_unit_scaled(
-        nearness, gain * (.45f + .55f * nearness) * brightness, rgb);
+    palette->get_color_unit_scaled(nearness, depth_gain(nearness) * brightness,
+                                   rgb);
     layers.add(rgb, coverage * opacity(t));
   }
 };
