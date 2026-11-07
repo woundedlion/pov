@@ -148,6 +148,12 @@ inline void test_wrap_longitude_fmod_contract() {
 
 /** @brief Bonne converges to sinusoidal coordinates as the standard parallel approaches zero. */
 inline void test_bonne_sinusoidal_limit() {
+  for (const float pole : {-1.0f, 1.0f}) {
+    const auto result =
+        bonne_projection(math::Vector(0.0f, pole, 0.0f), 0.7f, 0.0f);
+    HS_EXPECT_EQ(result.coords.re, 0.0f);
+    HS_EXPECT_EQ(result.fade_edge_distance, 0.0f);
+  }
   for (int latitude_step = -12; latitude_step <= 12; ++latitude_step) {
     const float latitude = latitude_step * (0.5f * math::PI_F / 12.0f);
     for (int longitude_step = 0; longitude_step < 16; ++longitude_step) {

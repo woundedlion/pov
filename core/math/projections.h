@@ -202,8 +202,9 @@ HS_O3_FN inline ProjectionKernelResult
 bonne_projection(const math::Vector &v, float central_meridian,
                  float standard_parallel) {
   const float longitude = wrap_longitude(atan2f(v.z, v.x) - central_meridian);
-  const float latitude = asinf(hs::clamp(v.y, -1.0f, 1.0f));
-  const float cos_latitude = cosf(latitude);
+  const float y = hs::clamp(v.y, -1.0f, 1.0f);
+  const float latitude = asinf(y);
+  const float cos_latitude = sqrtf(fmaxf(0.0f, 1.0f - y * y));
   const float cut_distance = cos_latitude * (math::PI_F - fabsf(longitude));
   math::Complex coords;
   if (standard_parallel == 0.0f) {
