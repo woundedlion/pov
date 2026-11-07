@@ -699,6 +699,7 @@ accumulate_lift(float lift, float scalar,
 HS_HOT_INLINE inline void
 apply_perceptual_scalar(ColorSample &sample, float scalar,
                         const ColorModulation::Params &mechanic) {
+  assert(mechanic.kind != ColorModulation::Mechanic::OPACITY);
   if (mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)
     sample.pending_hue = accumulate_hue(sample.pending_hue, scalar, mechanic);
   else
