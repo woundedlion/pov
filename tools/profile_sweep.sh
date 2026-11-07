@@ -10,6 +10,15 @@ PLAYLIST_H="$(dirname "$0")/../targets/Phantasm/phantasm_playlist.h"
 FAILED=()
 GROUP=${1:-}
 
+case "$GROUP" in
+check|g[1-6]_ship) ;;
+*)
+  [ -z "$GROUP" ] || printf 'profile_sweep: unknown group %s\n' "$GROUP" >&2
+  echo "usage: profile_sweep.sh <g1_ship..g6_ship|check>" >&2
+  exit 1
+  ;;
+esac
+
 # The firmware playlist, in HS_PHANTASM_EFFECT_LIST order. X-row spelling
 # mirrored by tools/docs_check.py.
 playlist_roster() {
@@ -123,7 +132,6 @@ g6_ship)
   run KaleidoscopeFlowers profile 173 16
   run CosmicEyeball profile 60 32
   ;;
-*) echo "unknown group $GROUP"; exit 1;;
 esac
 if [ ${#FAILED[@]} -gt 0 ]; then
   echo "GROUP $GROUP INCOMPLETE — ${#FAILED[@]} failed: ${FAILED[*]}"

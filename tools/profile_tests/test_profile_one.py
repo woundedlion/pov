@@ -23,6 +23,18 @@ EFFECTS = REPO / "effects"
 
 
 class ProfileSweepTests(unittest.TestCase):
+    def test_missing_and_invalid_groups_report_usage_on_stderr(self):
+        sweep = (REPO / "tools" / "profile_sweep.sh").as_posix()
+        for args in ([], ["invalid"]):
+            with self.subTest(args=args):
+                result = subprocess.run(["bash", sweep, *args],
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(result.stdout, "")
+                self.assertIn("usage: profile_sweep.sh", result.stderr)
+                if args:
+                    self.assertIn("unknown group invalid", result.stderr)
+
     def test_roster_tool_failures_cannot_report_success(self):
         sweep = (REPO / "tools" / "profile_sweep.sh").as_posix()
         for tool in ("comm", "sort", "sed", "tr"):
