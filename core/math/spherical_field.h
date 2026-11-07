@@ -325,7 +325,7 @@ public:
    * @return What `combine` returns.
    */
   template <typename Value, typename Load, typename Combine>
-  __attribute__((always_inline)) decltype(auto)
+  HS_HOT_INLINE decltype(auto)
   sample_bilinear(float x, float y, const Value (&poles)[POLE_STORAGE_COUNT],
                   const Value &outside, Load &&load, Combine &&combine) const {
     const Footprint tap = bilinear_footprint(x, y);
@@ -362,7 +362,7 @@ public:
    *   float.
    */
   template <typename Pixel>
-  __attribute__((always_inline)) void
+  HS_HOT_INLINE void
   sample_bilinear_rgb(const Pixel *source,
                       const Pixel (&poles)[POLE_STORAGE_COUNT], float x,
                       float y, float &r, float &g, float &b) const {
@@ -518,8 +518,7 @@ private:
    * `math::pole_wrap` before wrapping columns across the seam. Remaining
    * out-of-range rows are resolved by `pole_tap`.
    */
-  __attribute__((always_inline)) static Footprint bilinear_footprint(float x,
-                                                                     float y) {
+  HS_HOT_INLINE static Footprint bilinear_footprint(float x, float y) {
     assert(x >= -static_cast<float>(W) && x < 2.0f * static_cast<float>(W));
     assert(std::fabs(y) < ROW_LIMIT);
     if (Geometry::OFFSET < 0 && !(HAS_NORTH_POLE && HAS_SOUTH_POLE)) {
@@ -543,9 +542,9 @@ private:
    * @param load Loads an in-domain, non-pole lattice sample.
    */
   template <typename Value, typename Load>
-  __attribute__((always_inline)) Value
-  pole_tap(int sample_x, int sample_y, const Value (&poles)[POLE_STORAGE_COUNT],
-           const Value &outside, Load &&load) const {
+  HS_HOT_INLINE Value pole_tap(int sample_x, int sample_y,
+                               const Value (&poles)[POLE_STORAGE_COUNT],
+                               const Value &outside, Load &&load) const {
     if (Geometry::OFFSET < 0 && !(HAS_NORTH_POLE && HAS_SOUTH_POLE)) {
       if (sample_y < 0 || sample_y >= H)
         return outside;
@@ -574,10 +573,10 @@ private:
    * weight truncation.
    */
   template <typename Pixel>
-  __attribute__((always_inline)) static void
-  combine_rgb_q15(const Pixel &p00, const Pixel &p10, const Pixel &p01,
-                  const Pixel &p11, float fx, float fy, float &r, float &g,
-                  float &b) {
+  HS_HOT_INLINE static void combine_rgb_q15(const Pixel &p00, const Pixel &p10,
+                                            const Pixel &p01, const Pixel &p11,
+                                            float fx, float fy, float &r,
+                                            float &g, float &b) {
     static_assert(sizeof(p00.r) == 2 && std::is_unsigned_v<decltype(p00.r)>,
                   "combine_rgb_q15 blends 16-bit unsigned channels");
     static_assert(sizeof(p00.g) == 2 && sizeof(p00.b) == 2);
@@ -599,10 +598,10 @@ private:
 
   /** @brief Bilinearly blends four taps into unclamped float channels. */
   template <typename Pixel>
-  __attribute__((always_inline)) static void
-  combine_rgb(const Pixel &p00, const Pixel &p10, const Pixel &p01,
-              const Pixel &p11, float fx, float fy, float &r, float &g,
-              float &b) {
+  HS_HOT_INLINE static void combine_rgb(const Pixel &p00, const Pixel &p10,
+                                        const Pixel &p01, const Pixel &p11,
+                                        float fx, float fy, float &r, float &g,
+                                        float &b) {
     const float w00 = (1.0f - fx) * (1.0f - fy);
     const float w10 = fx * (1.0f - fy);
     const float w01 = (1.0f - fx) * fy;
