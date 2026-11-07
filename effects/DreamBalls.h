@@ -247,6 +247,8 @@ private:
 
   static constexpr float COPIES_MIN = 1.0f, COPIES_MAX = 20.0f;
   static constexpr float RADIUS_MIN = 0.0f, RADIUS_MAX = 1.0f;
+  static_assert(RADIUS_MIN >= 0.0f && RADIUS_MAX <= 1.0f,
+                "orbit_bounds is certified for radius in [0, 1]");
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
   static constexpr float ALPHA_MIN = 0.0f, ALPHA_MAX = 1.0f;
   static constexpr float WEAVE_GAP_MIN = 0.02f, WEAVE_GAP_MAX = 0.45f;
