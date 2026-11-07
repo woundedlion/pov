@@ -35,8 +35,8 @@ struct SphereLutView {
  * @param v Face-local vertical coordinate in [-1, 1].
  * @return The normalized direction.
  */
-__attribute__((always_inline)) inline SphereDirection
-sphere_face_coordinate(int face, float u, float v) {
+HS_HOT_INLINE inline SphereDirection sphere_face_coordinate(int face, float u,
+                                                            float v) {
   switch (face) {
   case 0:
     return SphereDirection::from(math::Vector(1.0f, v, u));
@@ -71,7 +71,7 @@ struct SphereLutSample {
   /** @brief Samples a table using these cube-map coordinates.
    * @param view Prepared scalar cube LUT.
    * @return Scalar value in [-1, 1]. */
-  __attribute__((always_inline)) float sample(const SphereLutView &view) const {
+  HS_HOT_INLINE float sample(const SphereLutView &view) const {
     float a;
     float b;
     float c;
@@ -98,8 +98,8 @@ struct SphereLutSample {
  * @param u Face coordinate in [-1, 1].
  * @param v Face coordinate in [-1, 1].
  * @return Cube-map coordinates for a bilinear sample. */
-__attribute__((always_inline)) inline SphereLutSample
-prepare_sphere_lut_face(int face, float u, float v) {
+HS_HOT_INLINE inline SphereLutSample prepare_sphere_lut_face(int face, float u,
+                                                             float v) {
   constexpr float SCALE =
       0.5f * static_cast<float>(SphereLutView::FACE_STEPS - 1);
   const float X = (u + 1.0f) * SCALE;
@@ -121,8 +121,8 @@ prepare_sphere_lut_face(int face, float u, float v) {
  * @param v Face coordinate in [-1, 1].
  * @return Scalar value in [-1, 1].
  */
-__attribute__((always_inline)) inline float
-sample_sphere_lut_face(const SphereLutView &view, int face, float u, float v) {
+HS_HOT_INLINE inline float sample_sphere_lut_face(const SphereLutView &view,
+                                                  int face, float u, float v) {
   return prepare_sphere_lut_face(face, u, v).sample(view);
 }
 

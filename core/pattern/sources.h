@@ -251,8 +251,7 @@ HS_HOT_ITCM_MEMBER inline float grid(const PlanePosition &coordinate,
  * @param y Cell-local y.
  * @param radius Square inradius.
  * @return Negative inside, positive outside. */
-__attribute__((always_inline)) inline float square_distance(float x, float y,
-                                                            float radius) {
+HS_HOT_INLINE inline float square_distance(float x, float y, float radius) {
   const float bx = fabsf(x) - radius;
   const float by = fabsf(y) - radius;
   const float EDGE = fmaxf(bx, by);
@@ -268,8 +267,7 @@ __attribute__((always_inline)) inline float square_distance(float x, float y,
  * @param y Cell-local y.
  * @param radius Hexagon inradius.
  * @return Negative inside, positive outside. */
-__attribute__((always_inline)) inline float hexagon_distance(float x, float y,
-                                                             float radius) {
+HS_HOT_INLINE inline float hexagon_distance(float x, float y, float radius) {
   constexpr float HALF_SQRT_3 = 0.8660254037844386f;
   constexpr float INV_SQRT_3 = 0.5773502691896258f;
   float across = fabsf(y);
@@ -289,8 +287,7 @@ __attribute__((always_inline)) inline float hexagon_distance(float x, float y,
  * @param y Cell-local y; the apex lies on +y.
  * @param radius Triangle inradius.
  * @return Negative inside, positive outside. */
-__attribute__((always_inline)) inline float triangle_distance(float x, float y,
-                                                              float radius) {
+HS_HOT_INLINE inline float triangle_distance(float x, float y, float radius) {
   constexpr float SQRT_3 = 1.7320508075688772f;
   const float half_side = SQRT_3 * radius;
   float px = fabsf(x) - half_side;
@@ -312,10 +309,9 @@ __attribute__((always_inline)) inline float triangle_distance(float x, float y,
  * @param params Shape blend, radius and softness.
  * @return 1 inside the primitive, -1 outside, ramped across the edge. */
 template <TessellationKind Kind, typename Params>
-__attribute__((always_inline)) inline float
-cell_primitive(float x, float y, const Params &params) {
-  const auto polygon = [](float px, float py,
-                          float radius) __attribute__((always_inline)) {
+HS_HOT_INLINE inline float cell_primitive(float x, float y,
+                                          const Params &params) {
+  const auto polygon = [](float px, float py, float radius) HS_HOT_INLINE {
     if constexpr (Kind == TessellationKind::SQUARE)
       return square_distance(px, py, radius);
     else if constexpr (Kind == TessellationKind::HEXAGONAL)
@@ -323,7 +319,7 @@ cell_primitive(float x, float y, const Params &params) {
     else
       return triangle_distance(px, py, radius);
   };
-  const auto evaluate = [&](float blend) __attribute__((always_inline)) {
+  const auto evaluate = [&](float blend) HS_HOT_INLINE {
     const float circle = sqrtf(x * x + y * y) - params.cell_radius;
     if (blend == 0.0f)
       return 1.0f - 2.0f * ::math::smooth_ramp(-params.cell_softness,
@@ -344,8 +340,8 @@ cell_primitive(float x, float y, const Params &params) {
  * @param v Plane y in lattice periods.
  * @param x Receives the offset's x, in periods.
  * @param y Receives the offset's y, in periods. */
-__attribute__((always_inline)) inline void
-nearest_hexagonal_offset(float u, float v, float &x, float &y) {
+HS_HOT_INLINE inline void nearest_hexagonal_offset(float u, float v, float &x,
+                                                   float &y) {
   constexpr float SQRT_3 = 1.7320508075688772f;
   constexpr float INV_SQRT_3 = 0.5773502691896258f;
   const float row = v * INV_SQRT_3;
@@ -365,8 +361,8 @@ nearest_hexagonal_offset(float u, float v, float &x, float &y) {
  * @param v Plane y in lattice periods.
  * @param x Receives the offset's x, in cell units.
  * @param y Receives the offset's y, in cell units. */
-__attribute__((always_inline)) inline void
-triangular_cell_offset(float u, float v, float &x, float &y) {
+HS_HOT_INLINE inline void triangular_cell_offset(float u, float v, float &x,
+                                                 float &y) {
   constexpr float SQRT_3 = 1.7320508075688772f;
   constexpr float INV_SQRT_3 = 0.5773502691896258f;
   const float b = 2.0f * INV_SQRT_3 * v;
@@ -443,8 +439,7 @@ HS_O3_FN inline float distance_to_lattice_line(float coordinate) {
     @param v Plane y in lattice periods.
     @return Distance in cell units; one half at a cell centre. */
 template <TessellationKind Kind>
-__attribute__((always_inline)) inline float
-tessellation_edge_distance(float u, float v) {
+HS_HOT_INLINE inline float tessellation_edge_distance(float u, float v) {
   constexpr float HALF_SQRT_3 = 0.8660254037844386f;
   if constexpr (Kind == TessellationKind::SQUARE) {
     const float cell_x = math::wrap_t(u + 0.5f) - 0.5f;
@@ -494,8 +489,8 @@ tessellation_edges(const PlanePosition &coordinate, const Params &params) {
  * @return Field value in [-1, 1].
  */
 template <TessellationKind Kind, TessellationFill Fill, typename Params>
-__attribute__((always_inline)) inline float
-tessellation(const PlanePosition &coordinate, const Params &params) {
+HS_HOT_INLINE inline float tessellation(const PlanePosition &coordinate,
+                                        const Params &params) {
   if constexpr (Fill == TessellationFill::EDGES)
     return tessellation_edges<Kind>(coordinate, params);
   else if constexpr (Kind == TessellationKind::SQUARE)
