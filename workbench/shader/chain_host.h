@@ -87,8 +87,9 @@ public:
     uint8_t *block_a = allocate_chain_block();
     uint8_t *block_b = allocate_chain_block();
     program.bind_storage(block_a, block_b);
-    program.bind_temporal_storage(allocate_chain_block(),
-                                  allocate_chain_block());
+    program.bind_temporal_storage(
+        {allocate_chain_block(), Pullback::Interp::CHAIN_ARENA_BYTES},
+        {allocate_chain_block(), Pullback::Interp::CHAIN_ARENA_BYTES});
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     candidates = persistent_arena.allocate_n<ParameterCandidates>(1)->blocks;
 #endif

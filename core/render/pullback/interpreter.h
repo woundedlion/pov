@@ -284,25 +284,47 @@ public:
    *        history + prepared_offset.
    * @param column_block One column's param, state and colour blocks, at the
    *        same offsets.
-   * @details Both blocks are max_align-aligned, at least one arena's capacity,
-   * and bound once after bind_storage().
+   * @details Both blocks are max_align-aligned, disjoint from one another and
+   * the program blocks, and at least one arena's capacity. Bind once after
+   * bind_storage().
    */
-  void bind_temporal_storage(uint8_t *history_block, uint8_t *column_block) {
+  void bind_temporal_storage(std::span<uint8_t> history_block,
+                             std::span<uint8_t> column_block) {
     HS_CHECK(blocks[0] != nullptr,
              "ChainProgram::bind_temporal_storage before bind_storage");
-    HS_CHECK(history_block != nullptr && column_block != nullptr,
+    HS_CHECK(history_block.data() != nullptr && column_block.data() != nullptr,
              "ChainProgram::bind_temporal_storage: null block");
-    HS_CHECK(reinterpret_cast<uintptr_t>(history_block) %
+    HS_CHECK(reinterpret_cast<uintptr_t>(history_block.data()) %
                          alignof(std::max_align_t) ==
                      0 &&
-                 reinterpret_cast<uintptr_t>(column_block) %
+                 reinterpret_cast<uintptr_t>(column_block.data()) %
                          alignof(std::max_align_t) ==
                      0,
              "ChainProgram::bind_temporal_storage: misaligned block");
     HS_CHECK(history == nullptr,
              "ChainProgram::bind_temporal_storage: rebinding");
-    history = history_block;
-    column = column_block;
+    HS_CHECK(history_block.size() >= capacity &&
+                 column_block.size() >= capacity,
+             "ChainProgram::bind_temporal_storage: short block");
+    const auto disjoint = [](std::span<uint8_t> a, std::span<uint8_t> b) {
+      if (a.empty() || b.empty())
+        return true;
+      const auto A = reinterpret_cast<uintptr_t>(a.data());
+      const auto B = reinterpret_cast<uintptr_t>(b.data());
+      return A < B ? B - A >= a.size() : A - B >= b.size();
+    };
+    HS_CHECK(
+        disjoint(history_block, column_block),
+        "ChainProgram::bind_temporal_storage: overlapping temporal blocks");
+    for (uint8_t *block : blocks) {
+      const std::span<uint8_t> active_block(block, capacity);
+      HS_CHECK(
+          disjoint(history_block, active_block) &&
+              disjoint(column_block, active_block),
+          "ChainProgram::bind_temporal_storage: overlapping program block");
+    }
+    history = history_block.data();
+    column = column_block.data();
   }
 
   /**

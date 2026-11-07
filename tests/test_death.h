@@ -1814,15 +1814,28 @@ inline const Case *all_cases(int &n) {
        "bind_storage"},
       {"chain_temporal_null_block", case_chain_temporal_null_block,
        "core/render/pullback/interpreter.h",
-       "(history_block != nullptr && column_block != nullptr) "
+       "(history_block.data() != nullptr && column_block.data() != nullptr) "
        "ChainProgram::bind_temporal_storage: null block"},
       {"chain_temporal_misaligned_block", case_chain_temporal_misaligned_block,
        "core/render/pullback/interpreter.h",
-       "(reinterpret_cast<uintptr_t>(history_block) % "
+       "(reinterpret_cast<uintptr_t>(history_block.data()) % "
        "alignof(std::max_align_t) == 0 && "
-       "reinterpret_cast<uintptr_t>(column_block) % "
+       "reinterpret_cast<uintptr_t>(column_block.data()) % "
        "alignof(std::max_align_t) == 0) "
        "ChainProgram::bind_temporal_storage: misaligned block"},
+      {"chain_temporal_short_block", case_chain_temporal_short_block,
+       "core/render/pullback/interpreter.h",
+       "(history_block.size() >= capacity && column_block.size() >= capacity) "
+       "ChainProgram::bind_temporal_storage: short block"},
+      {"chain_temporal_overlap", case_chain_temporal_overlap,
+       "core/render/pullback/interpreter.h",
+       "(disjoint(history_block, column_block)) "
+       "ChainProgram::bind_temporal_storage: overlapping temporal blocks"},
+      {"chain_temporal_program_overlap", case_chain_temporal_program_overlap,
+       "core/render/pullback/interpreter.h",
+       "(disjoint(history_block, active_block) && "
+       "disjoint(column_block, active_block)) "
+       "ChainProgram::bind_temporal_storage: overlapping program block"},
       {"chain_temporal_rebinding", case_chain_temporal_rebinding,
        "core/render/pullback/interpreter.h",
        "(history == nullptr) ChainProgram::bind_temporal_storage: "

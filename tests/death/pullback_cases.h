@@ -427,7 +427,7 @@ inline void case_chain_temporal_null_block() {
   static ChainTemporalBlocks blocks;
   Pullback::Interp::ChainProgram program;
   program.bind_storage(blocks.a, blocks.b);
-  program.bind_temporal_storage(blocks.history, opaque<uint8_t *>(nullptr));
+  program.bind_temporal_storage(blocks.history, {});
 }
 
 /** @brief Column-time storage rejects a misaligned block. */
@@ -435,7 +435,33 @@ inline void case_chain_temporal_misaligned_block() {
   static ChainTemporalBlocks blocks;
   Pullback::Interp::ChainProgram program;
   program.bind_storage(blocks.a, blocks.b);
-  program.bind_temporal_storage(blocks.history + 1, blocks.column);
+  program.bind_temporal_storage(std::span(blocks.history).subspan(1),
+                                blocks.column);
+}
+
+/** @brief Column-time storage rejects a short block. */
+inline void case_chain_temporal_short_block() {
+  static ChainTemporalBlocks blocks;
+  Pullback::Interp::ChainProgram program;
+  program.bind_storage(blocks.a, blocks.b);
+  program.bind_temporal_storage(std::span(blocks.history).first(1),
+                                blocks.column);
+}
+
+/** @brief The temporal blocks must be disjoint from one another. */
+inline void case_chain_temporal_overlap() {
+  static ChainTemporalBlocks blocks;
+  Pullback::Interp::ChainProgram program;
+  program.bind_storage(blocks.a, blocks.b);
+  program.bind_temporal_storage(blocks.history, blocks.history);
+}
+
+/** @brief A temporal block must be disjoint from both program blocks. */
+inline void case_chain_temporal_program_overlap() {
+  static ChainTemporalBlocks blocks;
+  Pullback::Interp::ChainProgram program;
+  program.bind_storage(blocks.a, blocks.b);
+  program.bind_temporal_storage(blocks.history, blocks.b);
 }
 
 /** @brief Column-time storage binds once. */
