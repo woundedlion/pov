@@ -135,12 +135,7 @@ public:
     for (int k = 0; k < count; ++k) {
       Edge &e = edges[k];
       const Edge &next = edges[k + 1 == count ? 0 : k + 1];
-      e.ex = next.x - e.x;
-      e.ey = next.y - e.y;
-      const float length2 = e.ex * e.ex + e.ey * e.ey;
-      e.inv_length2 = length2 > 0.0f ? 1.0f / length2 : 0.0f;
-      area2 += e.x * next.y - next.x * e.y;
-      radius2 = fmaxf(radius2, e.x * e.x + e.y * e.y);
+      stand_edge(e, next, area2, radius2);
       if (convex) {
         planes[k].nx = motion[k].nx.at(t);
         planes[k].ny = motion[k].ny.at(t);
@@ -394,6 +389,16 @@ private:
     float inv_length2; ///< The edge's inverse squared length; 0 collapsed.
   };
 
+  HS_HOT_INLINE static void stand_edge(Edge &e, const Edge &next, float &area2,
+                                       float &radius2) {
+    e.ex = next.x - e.x;
+    e.ey = next.y - e.y;
+    const float LENGTH2 = e.ex * e.ex + e.ey * e.ey;
+    e.inv_length2 = LENGTH2 > 0.0f ? 1.0f / LENGTH2 : 0.0f;
+    area2 += e.x * next.y - next.x * e.y;
+    radius2 = fmaxf(radius2, e.x * e.x + e.y * e.y);
+  }
+
   /** @brief An edge's extent along the meridian's line. */
   struct Span {
     float lo, hi; ///< Least and greatest projection on the line's direction.
@@ -433,12 +438,7 @@ private:
     for (int k = 0; k < count; ++k) {
       Edge &e = edges[k];
       const Edge &next = edges[k + 1 == count ? 0 : k + 1];
-      e.ex = next.x - e.x;
-      e.ey = next.y - e.y;
-      const float length2 = e.ex * e.ex + e.ey * e.ey;
-      e.inv_length2 = length2 > 0.0f ? 1.0f / length2 : 0.0f;
-      area2 += e.x * next.y - next.x * e.y;
-      radius2 = fmaxf(radius2, e.x * e.x + e.y * e.y);
+      stand_edge(e, next, area2, radius2);
       planes[k] = {0.0f, 0.0f, 0.0f};
     }
   }
