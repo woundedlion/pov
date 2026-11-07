@@ -116,6 +116,35 @@ class PresetAttribution(unittest.TestCase):
         self.assertTrue(all(row[3] is not None for row in windows[1].frame_rows))
         self.assertEqual([row[3] for row in windows[2].frame_rows], [None] * 4)
 
+    def test_epoch_reset_keeps_a_marker_before_the_first_new_frame(self):
+        windows, _ = parse_log(
+            "Preset: 0/3\n"
+            "f 1 w=100 r=90\n"
+            "=== profile Fx [288x144] frames 1-1 window=100 us ===\n"
+            "f 2 w=100 r=90\n"
+            "Preset: 1/3\n"
+            "f 1 w=101 r=91\n"
+            "f 2 w=102 r=92\n"
+            "=== profile Fx [288x144] frames 1-2 window=100 us ===\n")
+        self.assertEqual(windows[1].marker["name"], "1")
+        self.assertEqual([(row[0], row[2], row[3]["name"]) for row in windows[1].frame_rows],
+                         [(1, 91, "1"), (2, 92, "1")])
+
+    def test_first_new_epoch_dump_keeps_a_marker_seen_mid_window(self):
+        windows, _ = parse_log(
+            "f 1 w=100 r=90\n"
+            "f 2 w=100 r=90\n"
+            "=== profile Fx [288x144] frames 1-2 window=100 us ===\n"
+            "f 1 w=101 r=91\n"
+            "Preset: 2/3\n"
+            "f 2 w=101 r=91\n"
+            "=== profile Fx [288x144] frames 1-2 window=100 us ===\n"
+            "f 3 w=101 r=91\n"
+            "=== profile Fx [288x144] frames 3-3 window=100 us ===\n")
+        self.assertEqual(windows[1].frame_rows[1][3]["name"], "2")
+        self.assertEqual(windows[2].marker["name"], "2")
+        self.assertEqual(windows[2].frame_rows[0][3]["name"], "2")
+
 
 
 class SpilledFrames(unittest.TestCase):

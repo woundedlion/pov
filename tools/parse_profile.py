@@ -193,6 +193,8 @@ def parse_capture(path):
     pending_frames = []
     last_frame = None
     pending_markers = []
+    marker_since_frame = None
+    restarted_in_frame_stream = False
     with open(path, encoding="utf-8", errors="replace") as fh:
         for line in fh:
             line = line.rstrip("\n")
@@ -200,7 +202,11 @@ def parse_capture(path):
             if m:
                 frame = int(m.group(1))
                 if last_frame is not None and frame <= last_frame:
-                    frame_owner = deferred_marker = active_marker = None
+                    frame_owner = active_marker = marker_since_frame
+                    deferred_marker = None
+                    pending_frames.clear()
+                    restarted_in_frame_stream = True
+                marker_since_frame = None
                 last_frame = frame
                 # A marker logged since the last frame line names the preset the
                 # advance switched TO; this frame is its first (on an effect that
@@ -223,8 +229,9 @@ def parse_capture(path):
                             f_start, f_end, int(m.group(6)))
                 # Frame numbers restarting = the effect was rebuilt (epoch);
                 # the old marker no longer applies.
-                if cur and nw.f_start <= cur.f_start:
+                if cur and nw.f_start <= cur.f_start and not restarted_in_frame_stream:
                     active_marker = deferred_marker = frame_owner = None
+                restarted_in_frame_stream = False
                 cur = nw
                 cur.marker = active_marker
                 cur.marker_events = pending_markers
@@ -307,6 +314,7 @@ def parse_capture(path):
                 if not mm:
                     continue
                 mk = _marker(key, mm)
+                marker_since_frame = mk
                 if cur is None:
                     pending_markers.append(mk)
                 else:
