@@ -179,49 +179,57 @@ struct PotentialParams {
         {"term-4-type", "term-4-kind", "term-4-l", "term-4-m",
          "term-4-amplitude", "term-4-phase"}};
     static_assert(std::size(IDS) == std::tuple_size_v<decltype(terms)>);
+    const auto enum_field = []<size_t Count>(const char *id, const char *label,
+                                             const char *const(&options)[Count],
+                                             uint8_t fallback,
+                                             const char *gate = nullptr) {
+      static_assert(Count <= UINT8_MAX);
+      return ParamFieldInfo{.id = id,
+                            .display_name = label,
+                            .min = 0.0f,
+                            .max = 0.0f,
+                            .def = 0.0f,
+                            .curve = FieldCurve::SNAP,
+                            .topology = true,
+                            .enum_count = Count,
+                            .enum_def = fallback,
+                            .enum_ids = options,
+                            .gated_by = gate,
+                            .gate_values = gate ? live_values(0) : uint16_t{0}};
+    };
     for (size_t i = 0; i < std::size(IDS); ++i) {
-      fields[POTENTIAL_TERM_FIELDS * i] = {
-          IDS[i][0], "Term Type",        0,       0,
-          0,         FieldCurve::SNAP,   true,    std::size(POTENTIAL_TERM_IDS),
-          0,         POTENTIAL_TERM_IDS, nullptr, 0};
-      fields[POTENTIAL_TERM_FIELDS * i + 1] = {
-          IDS[i][1], "Kind",
-          0,         0,
-          0,         FieldCurve::SNAP,
-          true,      std::size(POTENTIAL_KIND_IDS),
-          0,         POTENTIAL_KIND_IDS,
-          nullptr,   0};
-      fields[POTENTIAL_TERM_FIELDS * i + 2] = {
-          IDS[i][2], "Degree",
-          0,         0,
-          0,         FieldCurve::SNAP,
-          true,      std::size(HARMONIC_ORDER_IDS),
-          1,         HARMONIC_ORDER_IDS,
-          IDS[i][0], live_values(0)};
-      fields[POTENTIAL_TERM_FIELDS * i + 3] = {
-          IDS[i][3], "Order",
-          0,         0,
-          0,         FieldCurve::SNAP,
-          true,      std::size(HARMONIC_ORDER_IDS),
-          0,         HARMONIC_ORDER_IDS,
-          IDS[i][0], live_values(0)};
-      fields[POTENTIAL_TERM_FIELDS * i + 4] = {IDS[i][4],
-                                               "Amplitude",
-                                               -POTENTIAL_AMPLITUDE_LIMIT,
-                                               POTENTIAL_AMPLITUDE_LIMIT,
-                                               0,
-                                               FieldCurve::SNAP,
-                                               false,
-                                               0,
-                                               0,
-                                               nullptr,
-                                               nullptr,
-                                               0};
-      fields[POTENTIAL_TERM_FIELDS * i + 5] = {
-          IDS[i][5],  "Phase",   -math::PI_F,
-          math::PI_F, 0,         FieldCurve::SHORTEST_PERIODIC,
-          false,      0,         0,
-          nullptr,    IDS[i][0], live_values(0)};
+      const auto &ids = IDS[i];
+      const size_t BASE = POTENTIAL_TERM_FIELDS * i;
+      fields[BASE] = enum_field(ids[0], "Term Type", POTENTIAL_TERM_IDS, 0);
+      fields[BASE + 1] = enum_field(ids[1], "Kind", POTENTIAL_KIND_IDS, 0);
+      fields[BASE + 2] =
+          enum_field(ids[2], "Degree", HARMONIC_ORDER_IDS, 1, ids[0]);
+      fields[BASE + 3] =
+          enum_field(ids[3], "Order", HARMONIC_ORDER_IDS, 0, ids[0]);
+      fields[BASE + 4] = {.id = ids[4],
+                          .display_name = "Amplitude",
+                          .min = -POTENTIAL_AMPLITUDE_LIMIT,
+                          .max = POTENTIAL_AMPLITUDE_LIMIT,
+                          .def = 0.0f,
+                          .curve = FieldCurve::SNAP,
+                          .topology = false,
+                          .enum_count = 0,
+                          .enum_def = 0,
+                          .enum_ids = nullptr,
+                          .gated_by = nullptr,
+                          .gate_values = 0};
+      fields[BASE + 5] = {.id = ids[5],
+                          .display_name = "Phase",
+                          .min = -math::PI_F,
+                          .max = math::PI_F,
+                          .def = 0.0f,
+                          .curve = FieldCurve::SHORTEST_PERIODIC,
+                          .topology = false,
+                          .enum_count = 0,
+                          .enum_def = 0,
+                          .enum_ids = nullptr,
+                          .gated_by = ids[0],
+                          .gate_values = live_values(0)};
     }
     return fields;
   }();
