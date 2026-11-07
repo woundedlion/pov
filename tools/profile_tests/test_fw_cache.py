@@ -125,6 +125,20 @@ class FirmwareCacheFixture(unittest.TestCase):
 
 
 class CacheKey(FirmwareCacheFixture):
+    def test_toolchain_directory_overrides_supply_the_fingerprints(self):
+        base = self.key()
+        for directory, filename, version in (
+            ("platforms", "teensy/platform.json", "5.2.0"),
+            ("packages", "toolchain-gccarmnoneeabi-teensy/package.json", "1.150201.0"),
+        ):
+            with self.subTest(directory=directory):
+                override = self.core.parent / directory
+                environment = {f"PLATFORMIO_{directory.upper()}_DIR": override.as_posix()}
+                self.manifest(override / filename, version)
+                self.assertEqual(self.key(**environment), base)
+                self.manifest(override / filename, "100.0.0")
+                self.assertNotEqual(self.key(**environment), base)
+
     def test_the_key_covers_tree_env_flags_and_toolchain(self):
         base = self.key(PLATFORMIO_BUILD_FLAGS="-D A -D B")
         self.assertRegex(base, r"^[0-9a-f]{32}$")

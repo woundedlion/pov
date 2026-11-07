@@ -49,15 +49,23 @@ hs_fw_cache_tree() {
   git rev-parse 'HEAD^{tree}'
 }
 
-hs_fw_cache_toolchain() {
-  local core=${PLATFORMIO_CORE_DIR:-$HOME/.platformio} manifest version
-  pio --version || return 2
-  for manifest in "$core"/platforms/teensy*/platform.json \
-      "$core"/packages/*teensy*/package.json; do
+_hs_fw_manifest_versions() {
+  local label=$1 root=$2 manifest version
+  shift 2
+  for manifest in "$@"; do
     [ -f "$manifest" ] || continue
     version=$(sed -n 's/^  "version": *"\([^"]*\)".*/\1/p' "$manifest" | head -n 1)
-    printf '%s %s\n' "${manifest#"$core"/}" "$version"
+    printf '%s/%s %s\n' "$label" "${manifest#"$root"/}" "$version"
   done
+}
+
+hs_fw_cache_toolchain() {
+  local core=${PLATFORMIO_CORE_DIR:-$HOME/.platformio}
+  local platforms=${PLATFORMIO_PLATFORMS_DIR:-$core/platforms}
+  local packages=${PLATFORMIO_PACKAGES_DIR:-$core/packages}
+  pio --version || return 2
+  _hs_fw_manifest_versions platforms "$platforms" "$platforms"/teensy*/platform.json
+  _hs_fw_manifest_versions packages "$packages" "$packages"/*teensy*/package.json
 }
 
 # One VAR=value line per build-flag variable, whitespace-normalized.
