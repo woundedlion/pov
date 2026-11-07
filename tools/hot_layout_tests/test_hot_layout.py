@@ -4,10 +4,13 @@
 Run:  python -m unittest discover -s tools/hot_layout_tests
 """
 
+import contextlib
+import io
 import os
 import struct
 import subprocess
 import sys
+import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
@@ -375,6 +378,15 @@ class Planner(unittest.TestCase):
 
 
 class CheckVerdict(unittest.TestCase):
+    def test_unreadable_map_is_a_tooling_error(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(hl.Toolchain, "beside", return_value=None), \
+                contextlib.redirect_stderr(io.StringIO()) as error:
+            path = str(Path(directory) / "missing.map")
+            result = hl.main(["check", "--elf", "unused.elf", "--map", path])
+        self.assertEqual(result, 2)
+        self.assertIn("missing.map", error.getvalue())
+
     def test_missing_and_overbound_effects_fail_with_a_valid_companion(self):
         def program(count):
             return _program([(f"_ZN5Alpha2f{i}Ev", 0x60010000 + i * WAY, 32,

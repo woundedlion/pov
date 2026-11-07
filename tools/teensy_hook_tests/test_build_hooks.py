@@ -458,12 +458,13 @@ class TestHotLayoutLink(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             hook, env = self._hook(BUILD_DIR=directory, LINKFLAGS="-Wl,-Map,firmware.map")
             for action, target in ((hook._gate, "check"), (hook._plan, "write_plan")):
-                with self.subTest(action=target), \
-                        mock.patch.object(hook, "_toolchain", return_value=None), \
-                        mock.patch.object(hook.hot_layout, target, side_effect=hook.hot_layout.LayoutError("sentinel")), \
-                        contextlib.redirect_stdout(io.StringIO()) as output:
-                    self.assertEqual(action(["firmware.elf"], [], env), 2)
-                    self.assertIn("sentinel", output.getvalue())
+                for failure in (hook.hot_layout.LayoutError, OSError):
+                    with self.subTest(action=target, failure=failure), \
+                            mock.patch.object(hook, "_toolchain", return_value=None), \
+                            mock.patch.object(hook.hot_layout, target, side_effect=failure("sentinel")), \
+                            contextlib.redirect_stdout(io.StringIO()) as output:
+                        self.assertEqual(action(["firmware.elf"], [], env), 2)
+                        self.assertIn("sentinel", output.getvalue())
 
     def test_final_map_requires_an_explicit_linker_output(self):
         hook, env = self._hook(LINKFLAGS="-Os")

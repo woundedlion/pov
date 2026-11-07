@@ -1002,7 +1002,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         lines, passed = check(tools, args.elf, args.map, roster(args.root), expected,
                               Path(args.elf).stem)
-    except LayoutError as exc:
+    except (LayoutError, OSError) as exc:
         print(f"hot_layout: {exc}", file=sys.stderr)
         return 2
     print("\n".join(lines))

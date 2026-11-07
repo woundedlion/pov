@@ -70,7 +70,7 @@ if os.path.basename(env.subst("$LDSCRIPT_PATH")) == "phantasm.ld":
                 _toolchain(env), env.subst("$HS_HOT_LAYOUT_PROBE_ELF"),
                 env.subst("$HS_HOT_LAYOUT_PROBE_MAP"), hot_layout.roster(_ROOT),
                 os.path.join(_FINAL_DIR, hot_layout.FRAGMENT_NAME), _ROOT)
-        except hot_layout.LayoutError as exc:
+        except (hot_layout.LayoutError, OSError) as exc:
             print(f"::error::hot-layout: {exc}")
             return 2
         return 0
@@ -80,11 +80,11 @@ if os.path.basename(env.subst("$LDSCRIPT_PATH")) == "phantasm.ld":
             lines, passed = hot_layout.check(
                 _toolchain(env), str(target[0]), _final_map(env),
                 hot_layout.roster(_ROOT), _expected(env, source), env["PIOENV"])
-        except hot_layout.LayoutError as exc:
+            with open(os.path.join(_DIR, "report.txt"), "w", encoding="utf-8") as report:
+                report.write("\n".join(lines) + "\n")
+        except (hot_layout.LayoutError, OSError) as exc:
             print(f"::error::hot-layout: {exc}")
             return 2
-        with open(os.path.join(_DIR, "report.txt"), "w", encoding="utf-8") as report:
-            report.write("\n".join(lines) + "\n")
         print("\n".join(lines))
         if not passed:
             print(f"::error::hot-layout: {env['PIOENV']} failed the hot-layout gate; "
