@@ -664,6 +664,12 @@ private:
                           plateau_hold.gate());
   }
 
+  /** @brief Orbit phase plus angular offsets in the caller's summation order. */
+  HS_HOT_INLINE static float orbit_angle(float phase_turns, float first_offset,
+                                         float second_offset) {
+    return phase_turns * 2 * math::PI_F + first_offset + second_offset;
+  }
+
   /**
    * @brief Unit orbit offset in the tangent plane at a vertex.
    * @param base Unit vertex direction whose tangent plane carries the orbit.
@@ -703,9 +709,8 @@ private:
     for (size_t i = 0; i < count; ++i) {
       const math::Vector &v = base.vertices[i];
 
-      // orbit_phase is a fraction of a turn; scale to radians.
-      float phase = i * VERTEX_PHASE_STAGGER;
-      float angle = orbit_phase * 2 * math::PI_F + phase + angle_offset;
+      const float angle =
+          orbit_angle(orbit_phase, i * VERTEX_PHASE_STAGGER, angle_offset);
 
       const math::Vector disp =
           v + tangent_orbit_offset(v, tangent_u[i], angle) * r;
@@ -799,15 +804,15 @@ private:
 
     const int num_copies = copy_count(p);
     for (int copy = 0; copy < num_copies; ++copy) {
-      const float copy_phase =
-          orbit_phase * 2 * math::PI_F +
+      const float copy_offset =
           (static_cast<float>(copy) / num_copies) * 2 * math::PI_F;
       {
         HS_PROFILE(db_displace);
         for (size_t vertex = 0; vertex < vertex_count; ++vertex) {
           const math::Vector &base = base_vertices[vertex];
           const float phase =
-              copy_phase + static_cast<float>(vertex) * VERTEX_PHASE_STAGGER;
+              orbit_angle(orbit_phase, copy_offset,
+                          static_cast<float>(vertex) * VERTEX_PHASE_STAGGER);
           offsets[vertex] = tangent_orbit_offset(base, frame_u[vertex], phase);
           framed_mesh.vertices[vertex] = math::normalized_or(
               base + offsets[vertex] * p.offset_radius, base);
@@ -832,10 +837,9 @@ private:
         const size_t target = head ? edges[vertex - vertex_count].v : vertex;
         const auto &from = base_vertices[source];
         const auto &to = base_vertices[target];
-        const float phase =
-            (phase_start + (orbit_phase - phase_start) * t) * 2 * math::PI_F +
-            (static_cast<float>(copy) / num_copies) * 2 * math::PI_F +
-            static_cast<float>(source) * VERTEX_PHASE_STAGGER;
+        const float phase = orbit_angle(
+            phase_start + (orbit_phase - phase_start) * t, copy_offset,
+            static_cast<float>(source) * VERTEX_PHASE_STAGGER);
         auto offset = tangent_orbit_offset(from, frame_u[source], phase);
         if (head)
           offset = math::parallel_transport(from, to, offset);
@@ -891,8 +895,8 @@ private:
           return target.vertices[vertex];
         const auto &base = solid.mesh_state.vertices[vertex];
         const float angle =
-            (phase_start + (orbit_phase - phase_start) * t) * 2 * math::PI_F +
-            vertex * VERTEX_PHASE_STAGGER + offset;
+            orbit_angle(phase_start + (orbit_phase - phase_start) * t,
+                        vertex * VERTEX_PHASE_STAGGER, offset);
         return math::normalized_or(
             base + tangent_orbit_offset(base, solid.tangent_u[vertex], angle) *
                        p.offset_radius,
