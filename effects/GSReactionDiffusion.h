@@ -602,6 +602,14 @@ private:
     return 1.0f;
   }
 
+  /** @brief Fades a Q16 B value by a retained fraction.
+   * @param b Q16 B concentration.
+   * @param keep Retained fraction.
+   * @return Rounded Q16 concentration. */
+  HS_HOT_INLINE static uint16_t fade_b(uint16_t b, float keep) {
+    return static_cast<uint16_t>(static_cast<float>(b) * keep + 0.5f);
+  }
+
   /**
    * @brief Fades nodes approaching the dissolve frontier, then holds them at
    * rest.
@@ -616,8 +624,7 @@ private:
       if (keep < 1.0f) {
         state.A[i] = static_cast<uint16_t>(
             65535.0f - (65535.0f - state.A[i]) * keep + 0.5f);
-        state.B[i] =
-            static_cast<uint16_t>(static_cast<float>(state.B[i]) * keep + 0.5f);
+        state.B[i] = fade_b(state.B[i], keep);
       }
     }
   }
@@ -631,9 +638,7 @@ private:
    */
   HS_HOT_INLINE uint16_t dissolved_b(int i, float phase, uint16_t b) const {
     const float keep = dissolve_keep(i, phase);
-    return keep < 1.0f
-               ? static_cast<uint16_t>(static_cast<float>(b) * keep + 0.5f)
-               : b;
+    return keep < 1.0f ? fade_b(b, keep) : b;
   }
 
   /**
