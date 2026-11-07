@@ -766,6 +766,20 @@ inline void test_generative_palette_morph_compatible() {
   HS_EXPECT_FALSE(loop_one.morph_compatible(GenerativePalette(two_turn)));
 }
 
+/** @brief A harmony loop keeps its closing direction when its base hue moves. */
+inline void test_generative_palette_harmony_loop_closure() {
+  for (const auto harmony :
+       {PaletteHarmony::COMPLEMENTARY, PaletteHarmony::ANALOGOUS}) {
+    auto recipe = PaletteRecipes::harmony(PaletteDomain::LOOP, harmony, 0.0f);
+    recipe.hue.spread_turns = 0.25f;
+    const GenerativePalette original(recipe);
+    recipe.hue.base_turns = 0.7f;
+    const GenerativePalette shifted(recipe);
+    HS_EXPECT_TRUE(original.morph_compatible(shifted));
+    HS_EXPECT_TRUE(shifted.morph_compatible(original));
+  }
+}
+
 /** Worst channel gap measured at a 0.001 lerp step from either endpoint. */
 constexpr int MEASURED_LERP_ENDPOINT_DELTA = 80;
 /** Headroom over the measured gap. */

@@ -240,6 +240,7 @@ inline int run_color_tests() {
   HS_RUN(test_generative_palette_rejects_unavailable_path_minimum);
   HS_RUN(test_generative_palette_absolute_basis_canonicalizes_headroom);
   HS_RUN(test_generative_palette_morph_compatible);
+  HS_RUN(test_generative_palette_harmony_loop_closure);
   HS_RUN(test_generative_palette_lerp_mixed_curves_continuous);
   HS_RUN(test_generative_palette_lerp_interpolates_loop_seam);
   HS_RUN(test_palette_cycler_arena_components);

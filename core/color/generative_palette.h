@@ -861,8 +861,8 @@ private:
     }
   }
 
-  HS_FLASH_MEMBER static void resolve_harmony(const PaletteRecipe &recipe,
-                                              float hues[PALETTE_MAX_KEYS]) {
+  HS_FLASH_MEMBER static float resolve_harmony(const PaletteRecipe &recipe,
+                                               float hues[PALETTE_MAX_KEYS]) {
     const float base = recipe.hue.base_turns;
     const float spread = recipe.hue.spread_turns;
     const float orientation =
@@ -923,6 +923,9 @@ private:
       relationship[i] = relationship[i - 1] +
                         directed_delta(relationship[i] - relationship[i - 1],
                                        recipe.hue.direction);
+    const float closing_delta =
+        directed_delta(relationship[0] - relationship[relationship_count - 1],
+                       recipe.hue.direction);
     for (int i = 0; i < relationship_count; ++i)
       relationship[i] += base;
 
@@ -938,6 +941,7 @@ private:
       hues[i] = relationship[left] +
                 (relationship[right] - relationship[left]) * amount;
     }
+    return closing_delta;
   }
 
   HS_FLASH_MEMBER static void resolve_hues(const PaletteRecipe &recipe,
@@ -945,7 +949,9 @@ private:
                                            float hues[PALETTE_MAX_KEYS],
                                            float &closing_hue) {
     if (recipe.hue.mode == HueMode::HARMONY) {
-      resolve_harmony(recipe, hues);
+      const float closing_delta = resolve_harmony(recipe, hues);
+      closing_hue = hues[key_count - 1] + closing_delta;
+      return;
     } else if (recipe.hue.mode == HueMode::SWEEP) {
       float sweep = recipe.hue.sweep_turns;
       if (recipe.hue.direction == HueDirection::CLOCKWISE)
