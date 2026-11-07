@@ -593,6 +593,9 @@ inline void test_shader_chain_snapshot_refusals() {
   candidate.modulation.push_back({"unknown", saved.modulation[0].recipe});
   refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
   candidate = saved;
+  candidate.modulation.push_back(saved.modulation[0]);
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
   candidate.modulation.clear();
   refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
   candidate = saved;

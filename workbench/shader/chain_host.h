@@ -194,39 +194,8 @@ public:
     const auto refusal = program.compile(
         std::span<const ChainEntryRequest>(requests, snapshot.chain.size()),
         [&](std::span<const ChainProgram::ChainOp> ops, uint8_t *base) {
-          for (size_t write_index = 0; write_index < snapshot.parameters.size();
-               ++write_index) {
-            const auto &write = snapshot.parameters[write_index];
-            if (!std::isfinite(write.value))
-              return false;
-            for (size_t earlier = 0; earlier < write_index; ++earlier)
-              if (snapshot.parameters[earlier].name == write.name)
-                return false;
-            bool found = false;
-            for (const auto &op : ops)
-              for (uint16_t field = 0; field < op.op->schema_count; ++field) {
-                const auto &info = op.op->schema[field];
-                if (write.name !=
-                    reinterpret_cast<const char *>(
-                        base + op.name_offset + field * PER_PARAM_NAME_BYTES))
-                  continue;
-                if (is_modulation(op))
-                  return false;
-                if (!field_in_schema(info, write.value))
-                  return false;
-                void *address =
-                    op.op->runtime.param_address(base + op.param_offset, field);
-                if (info.enum_count > 0) {
-                  *static_cast<uint8_t *>(address) =
-                      static_cast<uint8_t>(write.value);
-                } else {
-                  *static_cast<float *>(address) = write.value;
-                }
-                found = true;
-              }
-            if (!found)
-              return false;
-          }
+          if (!apply_snapshot_parameters(ops, base, snapshot))
+            return false;
           if (plane_bound_overflow(ops, [&](size_t index) {
                 return static_cast<const void *>(base +
                                                  ops[index].param_offset);
@@ -234,52 +203,10 @@ public:
             return false;
           size_t runtime_count = 0;
           size_t modulation_count = 0;
-          for (size_t index = 0; index < ops.size(); ++index) {
-            const auto &op = ops[index];
-            void *params = base + op.param_offset;
-            if (is_modulation(op)) {
-              const ChainSnapshot::ModulationRecipe *selected = nullptr;
-              for (const auto &recipe : snapshot.modulation)
-                if (recipe.instance == op.instance) {
-                  if (selected != nullptr)
-                    return false;
-                  selected = &recipe;
-                }
-              if (selected == nullptr ||
-                  !Pullback::Modulation::admitted(selected->recipe))
-                return false;
-              modulation_params(params).modulation = selected->recipe;
-              ++modulation_count;
-            }
-            if (admission_refusal(ops, index, params))
+          for (size_t index = 0; index < ops.size(); ++index)
+            if (!apply_snapshot_instance(ops, index, base, snapshot,
+                                         runtime_count, modulation_count))
               return false;
-            if (!snapshot.runtime)
-              continue;
-            void *state = base + op.state_offset;
-            const auto initial = op.op->runtime.capture_state(state);
-            if (std::holds_alternative<std::monostate>(initial))
-              continue;
-            const ChainSnapshot::Runtime *selected = nullptr;
-            for (const auto &entry : *snapshot.runtime)
-              if (entry.instance == op.instance) {
-                if (selected != nullptr)
-                  return false;
-                selected = &entry;
-              }
-            if (selected == nullptr ||
-                !op.op->runtime.restore_state(state, selected->state))
-              return false;
-            if (is_modulation(op)) {
-              const auto &config = modulation_params(params).modulation;
-              const auto &clock =
-                  static_cast<const Op::ModulationClockState *>(state)
-                      ->modulation;
-              if (clock.source != config.source ||
-                  clock.version != config.version)
-                return false;
-            }
-            ++runtime_count;
-          }
           return modulation_count == snapshot.modulation.size() &&
                  (!snapshot.runtime ||
                   runtime_count == snapshot.runtime->size());
@@ -482,6 +409,98 @@ private:
   const ModulationParams &modulation_params(size_t index) const {
     return *reinterpret_cast<const ModulationParams *>(
         program.param_block(index));
+  }
+
+  template <typename Entry>
+  static const Entry *unique_for_instance(const std::vector<Entry> &entries,
+                                          std::string_view instance) {
+    const Entry *selected = nullptr;
+    for (const auto &entry : entries)
+      if (entry.instance == instance) {
+        if (selected != nullptr)
+          return nullptr;
+        selected = &entry;
+      }
+    return selected;
+  }
+
+  static bool apply_snapshot_parameters(
+      std::span<const Pullback::Interp::ChainProgram::ChainOp> ops,
+      uint8_t *base, const ChainSnapshot &snapshot) {
+    using namespace Pullback::Interp;
+    for (size_t write_index = 0; write_index < snapshot.parameters.size();
+         ++write_index) {
+      const auto &write = snapshot.parameters[write_index];
+      if (!std::isfinite(write.value))
+        return false;
+      for (size_t earlier = 0; earlier < write_index; ++earlier)
+        if (snapshot.parameters[earlier].name == write.name)
+          return false;
+      bool found = false;
+      for (const auto &op : ops)
+        for (uint16_t field = 0; field < op.op->schema_count; ++field) {
+          const auto &info = op.op->schema[field];
+          if (write.name !=
+              reinterpret_cast<const char *>(base + op.name_offset +
+                                             field * PER_PARAM_NAME_BYTES))
+            continue;
+          if (is_modulation(op))
+            return false;
+          if (!field_in_schema(info, write.value))
+            return false;
+          void *address =
+              op.op->runtime.param_address(base + op.param_offset, field);
+          if (info.enum_count > 0) {
+            *static_cast<uint8_t *>(address) =
+                static_cast<uint8_t>(write.value);
+          } else {
+            *static_cast<float *>(address) = write.value;
+          }
+          found = true;
+        }
+      if (!found)
+        return false;
+    }
+    return true;
+  }
+
+  static bool apply_snapshot_instance(
+      std::span<const Pullback::Interp::ChainProgram::ChainOp> ops,
+      size_t index, uint8_t *base, const ChainSnapshot &snapshot,
+      size_t &runtime_count, size_t &modulation_count) {
+    using namespace Pullback::Interp;
+    const auto &op = ops[index];
+    void *params = base + op.param_offset;
+    if (is_modulation(op)) {
+      const auto *selected =
+          unique_for_instance(snapshot.modulation, op.instance);
+      if (selected == nullptr ||
+          !Pullback::Modulation::admitted(selected->recipe))
+        return false;
+      modulation_params(params).modulation = selected->recipe;
+      ++modulation_count;
+    }
+    if (admission_refusal(ops, index, params))
+      return false;
+    if (!snapshot.runtime)
+      return true;
+    void *state = base + op.state_offset;
+    const auto initial = op.op->runtime.capture_state(state);
+    if (std::holds_alternative<std::monostate>(initial))
+      return true;
+    const auto *selected = unique_for_instance(*snapshot.runtime, op.instance);
+    if (selected == nullptr ||
+        !op.op->runtime.restore_state(state, selected->state))
+      return false;
+    if (is_modulation(op)) {
+      const auto &config = modulation_params(params).modulation;
+      const auto &clock =
+          static_cast<const Op::ModulationClockState *>(state)->modulation;
+      if (clock.source != config.source || clock.version != config.version)
+        return false;
+    }
+    ++runtime_count;
+    return true;
   }
 
   static float read_field_value(const Pullback::Interp::OperatorDescriptor &op,
