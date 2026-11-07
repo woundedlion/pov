@@ -122,6 +122,14 @@ inline void case_float_options_wrong_range() {
   effect.reg_float_options(&value, options, 1);
 }
 
+/** @brief Rejects a fractional initial dropdown index. */
+inline void case_float_options_fractional_initial_value() {
+  DeathEffect effect;
+  float value = opaque(0.5f);
+  static constexpr const char *options[] = {"one", "two"};
+  effect.reg_float_options(&value, options, 2);
+}
+
 /** @brief Death case: overflowing the fixed ParamList must trap. */
 inline void case_register_param_overflow() {
   DeathEffect fx;

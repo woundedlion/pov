@@ -1235,6 +1235,10 @@ inline const Case *all_cases(int &n) {
        "core/control/param_host.h",
        "(option_count > 0 && min == 0 && max == option_count - 1) "
        "register_param: option range does not match labels"},
+      {"float_options_fractional_initial_value",
+       case_float_options_fractional_initial_value, "core/control/param_host.h",
+       "(options == nullptr || *ptr == roundf(*ptr)) "
+       "register_param: enum initial value must be whole"},
       {"register_param_overflow", case_register_param_overflow,
        "core/control/param_host.h",
        "(parameters.count < parameters.capacity()) register_param: "

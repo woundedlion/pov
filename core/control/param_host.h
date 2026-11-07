@@ -385,6 +385,9 @@ protected:
             name, static_cast<unsigned long>(std::bit_cast<uint32_t>(*ptr)),
             static_cast<unsigned long>(std::bit_cast<uint32_t>(min)),
             static_cast<unsigned long>(std::bit_cast<uint32_t>(max)));
+      HS_CHECK(options == nullptr || *ptr == roundf(*ptr),
+               "register_param: enum initial value must be whole name=%s",
+               name);
       target_type = ParamDef::TargetType::FLOAT;
     } else {
       HS_CHECK(
