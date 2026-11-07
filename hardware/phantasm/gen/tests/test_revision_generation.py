@@ -45,6 +45,16 @@ GENERATED_PROJECT_FILES = (
 
 
 class PrototypeContractTests(unittest.TestCase):
+    def test_transceiver_protection_library_symbol_carries_placement_properties(self):
+        root = sexp.parse_one((PROTOTYPE / "phantasm.kicad_sym").read_text(encoding="utf-8"))
+        symbol, = [node for node in F(root, "symbol") if node[1] == "CDSOT23-SM712"]
+        properties = {prop[1]: prop for prop in F(symbol, "property")}
+        self.assertEqual(properties["Footprint"][2], "Package_TO_SOT_SMD:SOT-23")
+        self.assertEqual(properties["ki_fp_filters"][2], "SOT?23*")
+        self.assertTrue(properties["Description"][2])
+        self.assertEqual(sexp.val(F(properties["Footprint"], "effects")[0], "hide"), ["yes"])
+        self.assertEqual(list(map(float, sexp.val(properties["Value"], "at")[:2])), [2.54, -7.62])
+
     @classmethod
     def setUpClass(cls):
         cls.schematic = sexp.parse_one((PROTOTYPE / "phantasm.kicad_sch").read_text(encoding="utf-8"))

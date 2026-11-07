@@ -284,8 +284,14 @@
 		(pin_names (offset 0.5)) (in_bom yes) (on_board yes)
 		(property "Reference" "D" (at 0 7.62 0)
 			(effects (font (size 1.27 1.27))))
-		(property "Value" "CDSOT23-SM712" (at 0 -7.62 0)
-			(effects (font (size 1.27 1.27))))
+		(property "Value" "CDSOT23-SM712" (at 2.54 -7.62 0)
+			(effects (font (size 1.27 1.27)) (justify left)))
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23" (at 0 0 0)
+			(effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Description" "Dual-line asymmetric RS-485 transient voltage suppressor" (at 0 0 0)
+			(effects (font (size 1.27 1.27)) (hide yes)))
+		(property "ki_fp_filters" "SOT?23*" (at 0 0 0)
+			(effects (font (size 1.27 1.27)) (hide yes)))
 		(property "Datasheet" "https://www.bourns.com/docs/product-datasheets/cdsot23-sm712.pdf"
 			(at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
 		(symbol "CDSOT23-SM712_0_1"
