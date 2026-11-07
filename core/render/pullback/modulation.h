@@ -774,7 +774,8 @@ template <bool Baked = true> struct Resources {
    * @param config Current recipe.
    * @param clock Current source state.
    * @return Borrowed prepared endpoint. */
-  const Prepared &prepare(const Config &config, const State &clock) {
+  HS_HOT_FLASH_MEMBER const Prepared &prepare(const Config &config,
+                                              const State &clock) {
     HS_CHECK(admitted(config), "invalid modulation preparation recipe");
     State selected = clock;
     synchronize(selected, config);
@@ -783,6 +784,8 @@ template <bool Baked = true> struct Resources {
     prepared.cube = {table.data(),
                      config.enabled &&
                          config.evaluation == Pattern::Evaluation::BAKED_CUBE};
+    enum SourceSlot : size_t { NOISE, SINE, INTERFERENCE, GRID };
+    decltype(Prepared::evaluate) direct = nullptr;
     switch (config.source) {
     case Pattern::SourceKind::DISPLACEMENT:
       prepared.cube.active = false;
@@ -791,59 +794,47 @@ template <bool Baked = true> struct Resources {
     case Pattern::SourceKind::NOISE: {
       FastNoiseLite noise;
       init_effect_noise(noise, config.seed);
-      prepared.source.emplace<0>(
+      prepared.source.emplace<NOISE>(
           Pattern::SphereNoise::prepare(config.noise, selected.phase, noise));
+      direct = [](const Prepared &value,
+                  const Pattern::SphereDirection &coordinate) {
+        return Pattern::SphereNoise::sample(coordinate,
+                                            std::get<NOISE>(value.source));
+      };
       break;
     }
     case Pattern::SourceKind::DIRECTIONAL_SINE:
-      prepared.source.emplace<1>(
+      prepared.source.emplace<SINE>(
           Pattern::DirectionalSine::prepare(config.sine, selected.phase));
+      direct = [](const Prepared &value,
+                  const Pattern::SphereDirection &coordinate) {
+        return Pattern::DirectionalSine::sample(coordinate,
+                                                std::get<SINE>(value.source));
+      };
       break;
     case Pattern::SourceKind::SPHERE_INTERFERENCE:
-      prepared.source.emplace<2>(Pattern::SphereInterference::prepare(
-          config.interference, selected.phase));
+      prepared.source.emplace<INTERFERENCE>(
+          Pattern::SphereInterference::prepare(config.interference,
+                                               selected.phase));
+      direct = [](const Prepared &value,
+                  const Pattern::SphereDirection &coordinate) {
+        return Pattern::SphereInterference::sample(
+            coordinate, std::get<INTERFERENCE>(value.source));
+      };
       break;
     case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
-      prepared.source.emplace<3>(
+      prepared.source.emplace<GRID>(
           Pattern::SphereSmoothGrid::prepare(config.grid, selected.phase));
+      direct = [](const Prepared &value,
+                  const Pattern::SphereDirection &coordinate) {
+        return Pattern::SphereSmoothGrid::sample(coordinate,
+                                                 std::get<GRID>(value.source));
+      };
       break;
     }
-    if (config.evaluation == Pattern::Evaluation::BAKED_CUBE) {
-      prepared.evaluate = sample_cube;
-    } else {
-      switch (config.source) {
-      case Pattern::SourceKind::DISPLACEMENT:
-        break;
-      case Pattern::SourceKind::NOISE:
-        prepared.evaluate = [](const Prepared &value,
-                               const Pattern::SphereDirection &coordinate) {
-          return Pattern::SphereNoise::sample(coordinate,
-                                              std::get<0>(value.source));
-        };
-        break;
-      case Pattern::SourceKind::DIRECTIONAL_SINE:
-        prepared.evaluate = [](const Prepared &value,
-                               const Pattern::SphereDirection &coordinate) {
-          return Pattern::DirectionalSine::sample(coordinate,
-                                                  std::get<1>(value.source));
-        };
-        break;
-      case Pattern::SourceKind::SPHERE_INTERFERENCE:
-        prepared.evaluate = [](const Prepared &value,
-                               const Pattern::SphereDirection &coordinate) {
-          return Pattern::SphereInterference::sample(coordinate,
-                                                     std::get<2>(value.source));
-        };
-        break;
-      case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
-        prepared.evaluate = [](const Prepared &value,
-                               const Pattern::SphereDirection &coordinate) {
-          return Pattern::SphereSmoothGrid::sample(coordinate,
-                                                   std::get<3>(value.source));
-        };
-        break;
-      }
-    }
+    prepared.evaluate = config.evaluation == Pattern::Evaluation::BAKED_CUBE
+                            ? sample_cube
+                            : direct;
     if (prepared.cube.active &&
         config.evaluation == Pattern::Evaluation::BAKED_CUBE) {
       HS_CHECK(Baked, "modulation owner has no baked cube capacity");
@@ -851,7 +842,7 @@ template <bool Baked = true> struct Resources {
         const FieldIdentity IDENTITY = field_identity(config, selected);
         if (cache.template refresh<Pattern::SphereNoise>(
                 std::span<int8_t, Pattern::SphereLutView::SIZE>(table),
-                IDENTITY, std::get<0>(prepared.source)))
+                IDENTITY, std::get<NOISE>(prepared.source)))
           ++bake_generation;
       }
     }
