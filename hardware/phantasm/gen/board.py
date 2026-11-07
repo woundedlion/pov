@@ -102,6 +102,7 @@ def main(force=False, revision=B.REVISION, output_dir=None):
     b = B.Builder("PHANTASM Segment Board  -  per-segment carrier (x4, strap-selected role)",
                   paper="A3", revision=revision)
     GND = "GND"; V3 = "+3V3"
+    enable_net = "SYNC_DE" if revision == "1.3" else "MASTER_EN"
 
 
     # ---------------------------------------------------------------- custom symbols
@@ -383,7 +384,7 @@ def main(force=False, revision=B.REVISION, output_dir=None):
     to_label(U, tn("D13/SCK"), "CLK_IN")
     to_label(U, tn("D3"), "FRAME_SYNC")
     to_label(U, tn("D4"), "SYNC_TX")
-    to_label(U, tn("D5"), "MASTER_EN")
+    to_label(U, tn("D5"), enable_net)
     to_label(U, tn("D21"), "ID0")
     to_label(U, tn("D22"), "ID1")
     to_label(U, tn("D23"), "ID2")   # read by the N=8 firmware profile
@@ -478,7 +479,7 @@ def main(force=False, revision=B.REVISION, output_dir=None):
         urs = place("phantasm:THVD2410DR", "U_SYNC", "THVD2410DR", 246.38, 210.82,
                     fp="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
         to_label(urs, "1", "FRAME_SYNC"); to_power(urs, "2", GND)
-        to_label(urs, "3", "MASTER_EN"); to_label(urs, "4", "SYNC_TX")
+        to_label(urs, "3", enable_net); to_label(urs, "4", "SYNC_TX")
         to_power(urs, "5", GND); to_power(urs, "8", V3)
         bypass(urs, "8", "C_DEC3", net=V3, dx=-15.24)
         cbulk = place("Device:C", "C_BULK3", "1uF", 204.47, 187.96, fp=C06)
@@ -509,9 +510,9 @@ def main(force=False, revision=B.REVISION, output_dir=None):
     to_label(JPS, "1", "SHIELD"); to_power(JPS, "2", GND)
 
     # ============================================================ BLOCK 4: STRAPS
-    b.text((25, 245), "ID STRAPS / MASTER_EN " + ("PULL-UP" if revision == "1.2" else "PULL-DOWN"), 2.2)
+    b.text((25, 245), "ID STRAPS / " + enable_net + " " + ("PULL-UP" if revision == "1.2" else "PULL-DOWN"), 2.2)
     RMEN = place("Device:R", "R_MEN", "10k", 76.2, 261.62, fp=SMD06)
-    to_power(RMEN, "1", V3 if revision == "1.2" else GND); to_label(RMEN, "2", "MASTER_EN")
+    to_power(RMEN, "1", V3 if revision == "1.2" else GND); to_label(RMEN, "2", enable_net)
     JID0 = place("Jumper:SolderJumper_2_Open", "JP_ID0", "ID0->GND", 127.0, 274.32,
                  fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm", in_bom=False)
     to_label(JID0, "1", "ID0"); to_power(JID0, "2", GND)

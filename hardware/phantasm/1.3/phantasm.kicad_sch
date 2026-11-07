@@ -4069,7 +4069,7 @@
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "bd5b730e-ba8a-5fb4-b8a4-0699f2f714f9")
 	)
-	(label "MASTER_EN"
+	(label "SYNC_DE"
 		(at 38.1 165.1 0)
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "e859c128-d655-538d-820a-4b8375374cf8")
@@ -4149,7 +4149,7 @@
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "a18e1333-e1b7-5765-86b3-fa9d86ed70ed")
 	)
-	(label "MASTER_EN"
+	(label "SYNC_DE"
 		(at 232.41 210.82 0)
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "77c60059-aa3b-5674-b4f9-e42bf38494c3")
@@ -4244,7 +4244,7 @@
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "a18dc218-d0f2-54b2-a64c-f48340d1cfc7")
 	)
-	(label "MASTER_EN"
+	(label "SYNC_DE"
 		(at 76.2 269.24 0)
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "5090eacc-2aa4-51e6-b5df-600ab171935d")
@@ -4279,7 +4279,7 @@
 		(effects (font (size 2.2 2.2) (bold yes)) (justify left bottom))
 		(uuid "2799088a-b918-5e1a-b987-4e16bc1d737b")
 	)
-	(text "ID STRAPS / MASTER_EN PULL-DOWN"
+	(text "ID STRAPS / SYNC_DE PULL-DOWN"
 		(at 25 245 0)
 		(effects (font (size 2.2 2.2) (bold yes)) (justify left bottom))
 		(uuid "560ed67c-0f90-51b0-9299-a388a961f4b0")

@@ -68,12 +68,12 @@ for nodes in EXPECT.values():
     nodes.difference_update({"J4.1", "J4.2", "J4.3"})
 
 EXPECT_REV_1_3 = {name: set(nodes) for name, nodes in EXPECT.items()
-                  if name not in ("SYNC_BUS", "SYNC_SRC", "SYNC_PULLDOWN")}
+                  if name not in ("SYNC_BUS", "SYNC_SRC", "SYNC_PULLDOWN", "MASTER_EN")}
 EXPECT_REV_1_3["+5V_LOGIC"].update({"U1.10", "U1.13"})
 EXPECT_REV_1_3["+3V3"].discard("R_MEN")
 EXPECT_REV_1_3["+3V3"].update({"R_TX", "U_SYNC.8", "C_DEC3", "C_BULK3"})
 EXPECT_REV_1_3["FRAME_SYNC"] = {"U_MCU.3", "U_SYNC.1"}
-EXPECT_REV_1_3["MASTER_EN"] = {"U_MCU.5", "U_SYNC.3", "R_MEN"}
+EXPECT_REV_1_3["SYNC_DE"] = {"U_MCU.5", "U_SYNC.3", "R_MEN"}
 EXPECT_REV_1_3["SYNC_TX"] = {"U_MCU.4", "U_SYNC.4", "R_TX"}
 EXPECT_REV_1_3["DATA_IN"] = {"U_MCU.11", "U1.5", "R_DATA_PD"}
 EXPECT_REV_1_3["CLK_IN"] = {"U_MCU.13", "U1.2", "R_CLK_PD"}

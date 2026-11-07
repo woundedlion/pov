@@ -246,7 +246,7 @@ short supply connections with dedicated ground vias.
 |---|---|---|
 | D3 | FRAME_SYNC receive | Input; timestamp falling edges |
 | D4 | SYNC_TX | Output; idle HIGH, active LOW pulses |
-| D5 | SYNC driver enable | HIGH enables the driver; LOW disables it |
+| D5 | SYNC_DE driver enable | HIGH enables the driver; LOW disables it |
 
 Initialize D5 LOW before configuring transmit or interrupts. Initialize D4
 HIGH before enabling the master. Keep follower drivers disabled and receivers

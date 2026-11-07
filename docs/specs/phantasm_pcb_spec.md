@@ -355,7 +355,7 @@ electrical contracts remain independently usable.
 - **R-SYNC-13-1 — Differential interface.** Use a THVD2410DR at 3.3 V for
   sync, with U_MCU D4 connected to its D input and D3 to its R output.
   Connect receiver-enable `/RE` to GND. D5 controls active-HIGH driver-enable
-  DE, with a 10 kΩ pull-down. Give D a 10 kΩ pull-up to 3.3 V. Park the
+  SYNC_DE (DE), with a 10 kΩ pull-down. Give D a 10 kΩ pull-up to 3.3 V. Park the
   unused AHCT125 sync channels with defined inputs and disabled outputs.
   Remove the single-ended divider, C_SYNC, bus pull-down, source resistor,
   and D_BUS protection from this revision.

@@ -202,7 +202,7 @@ class PrototypeContractTests(unittest.TestCase):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             self.assertFalse(check.check(committed_board_nets("1.2"), "1.3"))
-        self.assertIn("FAIL MASTER_EN", output.getvalue())
+        self.assertIn("FAIL SYNC_DE", output.getvalue())
         self.assertIn("FAIL SYNC_A", output.getvalue())
 
     def test_connector_pad_swap_is_rejected(self):
