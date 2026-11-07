@@ -15,24 +15,6 @@
 
 namespace Pullback::Source {
 
-/** @brief Rebinds an enum descriptor to a derived control family.
- * @tparam Derived Target control family.
- * @tparam Base Original control family.
- * @param field Original enum descriptor.
- * @return Descriptor reading the inherited enum member. */
-template <typename Derived, typename Base>
-constexpr TopologyField<Derived>
-rebind_topology(const TopologyField<Base> &field) {
-  constexpr const char *PLACEHOLDER[] = {""};
-  TopologyField<Derived> result{"", nullptr, PLACEHOLDER, 0};
-  result.id = field.id;
-  result.member = field.member;
-  result.value_ids = field.value_ids;
-  result.value_count = field.value_count;
-  result.def = field.def;
-  return result;
-}
-
 /** @brief Twin-wave source controls with the catalog's extended drift range.
  */
 struct AuthoredTwinWaveSourceParams : TwinWaveSourceParams {
@@ -73,7 +55,7 @@ template <typename Family> struct AuthoredSampleParams : Family {
       return std::apply(
           [&](const auto &...field) {
             return std::array{weight, coverage,
-                              rebind_topology<AuthoredSampleParams>(field)...};
+                              TopologyField<AuthoredSampleParams>{field}...};
           },
           Family::TOPOLOGY);
     else

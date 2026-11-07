@@ -8,6 +8,7 @@
 #include <cmath>
 #include <limits>
 #include <string_view>
+#include <type_traits>
 
 #include "core/control/fields.h"
 #include "core/render/pullback/contract.h"
@@ -46,6 +47,15 @@ template <typename Owner> struct TopologyField {
       : id(id), member(member), value_ids(value_ids), value_count(N), def(def) {
     static_assert(N > 0 && N <= UINT8_MAX);
   }
+
+  /** @brief Binds an inherited selector to the derived owner.
+   * @tparam Base Original owner.
+   * @param field Selector of the base family. */
+  template <typename Base>
+    requires std::is_convertible_v<uint8_t Base::*, uint8_t Owner::*>
+  constexpr explicit TopologyField(const TopologyField<Base> &field)
+      : id(field.id), member(field.member), value_ids(field.value_ids),
+        value_count(field.value_count), def(field.def) {}
 };
 
 /** @brief Interpolation curves shared with described controls. */
