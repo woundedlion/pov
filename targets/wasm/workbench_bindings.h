@@ -212,7 +212,7 @@ public:
   ChainResultValue setShaderChain(const ChainEntriesValue &caller_entries) {
     const PayloadDecodeGuard decode_guard(&decoding);
     using Pullback::Interp::ChainStatus;
-    if (!with_effect<ShaderChain>([]<typename SC>(SC &) {}))
+    if (!isValid())
       return chain_result(ChainStatus::NOT_CHAIN_EFFECT, -1);
     // Payload cloning can invoke getters that replace the addressed chain.
     const emscripten::val entries = clone_payload(caller_entries);
@@ -265,7 +265,7 @@ public:
   ParamSetResult
   setShaderChainParameters(const ParameterWritesValue &caller_entries) {
     const PayloadDecodeGuard decode_guard(&decoding);
-    if (!with_effect<ShaderChain>([]<typename SC>(SC &) {}))
+    if (!isValid())
       return ParamSetResult::NO_EFFECT;
     const emscripten::val entries = clone_payload(caller_entries);
     if (!isValid())
