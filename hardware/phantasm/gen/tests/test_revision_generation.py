@@ -140,6 +140,15 @@ class PrototypeContractTests(unittest.TestCase):
         legacy = sexp.parse_one((GEN.parent / "1.2" / "phantasm.kicad_pcb").read_text(encoding="utf-8"))
         self.assertNotIn("TERM=CABLE ENDS", [text[1] for text in F(legacy, "gr_text")])
 
+    def test_usb_keepout_label_tracks_the_teensy(self):
+        legacy = sexp.parse_one((GEN.parent / "1.2" / "phantasm.kicad_pcb").read_text(encoding="utf-8"))
+        for revision, root in (("1.2", legacy), ("1.3", self.board)):
+            with self.subTest(revision=revision):
+                label, = [text for text in F(root, "gr_text") if text[1] == "USB PLUG KEEP-OUT"]
+                teensy = footprints_by_ref(root)["U_MCU"]
+                self.assertAlmostEqual(float(sexp.val(label, "at")[1]),
+                                       float(sexp.val(teensy, "at")[1]) - 0.2)
+
     def test_sync_parts_have_orderable_manufacturer_fields(self):
         expected = {
             "U_SYNC": "THVD2410DR",

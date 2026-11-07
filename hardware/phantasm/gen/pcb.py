@@ -1177,7 +1177,8 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                  f' (at 4 -4 0) (layer "Cmts.User") (uuid "{uid()}") '
                  '(effects (font (size 2 2) (thickness 0.3)) (justify left bottom)))')
     if unplaced:
-        lines.append(f'\t(gr_text {sexp.quote("USB PLUG KEEP-OUT")} (at 5.3 11.5 90)'
+        usb_label_y = fmt(fixed["U_MCU"][1] - 0.2)
+        lines.append(f'\t(gr_text {sexp.quote("USB PLUG KEEP-OUT")} (at 5.3 {usb_label_y} 90)'
                      f' (layer "Dwgs.User") (uuid "{uid()}") '
                      '(effects (font (size 0.8 0.8) (thickness 0.15))))')
         if selected == "1.3":
