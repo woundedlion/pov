@@ -179,6 +179,7 @@ inline bool phase_compatible(const Config &a, const Config &b) {
  * @param a Previous controls.
  * @param b Current controls.
  * @param fraction Current weight.
+ * @pre The source controls of both endpoints are valid.
  * @return Current topology, with continuous selected controls interpolated. */
 inline Config interpolate(const Config &a, const Config &b, float fraction) {
   if (!same_topology(a, b))
@@ -190,7 +191,17 @@ inline Config interpolate(const Config &a, const Config &b, float fraction) {
   Config result = b;
   result.mechanic.amount =
       hs::lerp(a.mechanic.amount, b.mechanic.amount, fraction);
-  const auto wave = [fraction](const auto &start, const auto &end, auto &out) {
+  const auto blend_axis = [fraction](const math::Vector &start,
+                                     const math::Vector &end) {
+    if (start.x == end.x && start.y == end.y && start.z == end.z)
+      return end;
+    const auto START_UNIT = Pattern::SphereDirection::admit(start).value();
+    const auto END_UNIT = Pattern::SphereDirection::admit(end).value();
+    const auto BLENDED = START_UNIT + (END_UNIT - START_UNIT) * fraction;
+    return Pattern::SphereDirection::valid(BLENDED) ? BLENDED : end;
+  };
+  const auto wave = [&](const auto &start, const auto &end, auto &out) {
+    out.axis = blend_axis(start.axis, end.axis);
     out.frequency = hs::lerp(start.frequency, end.frequency, fraction);
     out.offset = hs::lerp(start.offset, end.offset, fraction);
     out.speed = hs::lerp(start.speed, end.speed, fraction);
@@ -213,6 +224,8 @@ inline Config interpolate(const Config &a, const Config &b, float fraction) {
     break;
   case Pattern::SourceKind::SPHERE_INTERFERENCE:
     wave(a.interference, b.interference, result.interference);
+    result.interference.axis_b =
+        blend_axis(a.interference.axis_b, b.interference.axis_b);
     result.interference.frequency_b = hs::lerp(
         a.interference.frequency_b, b.interference.frequency_b, fraction);
     result.interference.offset_b =
@@ -220,6 +233,7 @@ inline Config interpolate(const Config &a, const Config &b, float fraction) {
     break;
   case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
     wave(a.grid, b.grid, result.grid);
+    result.grid.axis_b = blend_axis(a.grid.axis_b, b.grid.axis_b);
     result.grid.frequency_b =
         hs::lerp(a.grid.frequency_b, b.grid.frequency_b, fraction);
     result.grid.offset_b = hs::lerp(a.grid.offset_b, b.grid.offset_b, fraction);

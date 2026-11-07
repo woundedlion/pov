@@ -14,6 +14,43 @@ inline void test_composed_slider_registration() {
 #undef HS_COMPOSED_SLIDERS
 }
 
+/** @brief Blends wave directions independently of their lengths. */
+inline void test_composed_modulation_blends_axes() {
+  using Pullback::Modulation::Config;
+  using Pullback::Modulation::interpolate;
+  const auto check = [](Pattern::SourceKind source, auto member) {
+    Config start, end;
+    start.source = end.source = source;
+    start.evaluation = end.evaluation = Pattern::Evaluation::DIRECT;
+    (start.*member).axis = {4.0f, 0.0f, 0.0f};
+    (end.*member).axis = {0.0f, 2.0f, 0.0f};
+    if constexpr (requires { (start.*member).axis_b; }) {
+      (start.*member).axis_b = {0.0f, 0.0f, 4.0f};
+      (end.*member).axis_b = {2.0f, 0.0f, 0.0f};
+    }
+    const auto MID = interpolate(start, end, 0.5f);
+    HS_EXPECT_TRUE(Pullback::Modulation::valid(MID));
+    HS_EXPECT_VEC((MID.*member).axis, math::Vector(0.5f, 0.5f, 0.0f), 1e-6f);
+    if constexpr (requires { (MID.*member).axis_b; }) {
+      HS_EXPECT_VEC((MID.*member).axis_b, math::Vector(0.5f, 0.0f, 0.5f),
+                    1e-6f);
+      (end.*member).axis_b = {0.0f, 0.0f, -2.0f};
+      const auto ANTIPODAL = interpolate(start, end, 0.5f);
+      HS_EXPECT_TRUE(Pullback::Modulation::valid(ANTIPODAL));
+      HS_EXPECT_EQ((ANTIPODAL.*member).axis_b, (end.*member).axis_b);
+    }
+    HS_EXPECT_EQ((interpolate(start, end, 0.0f).*member).axis,
+                 (start.*member).axis);
+    HS_EXPECT_EQ((interpolate(start, end, 1.0f).*member).axis,
+                 (end.*member).axis);
+    HS_EXPECT_EQ((interpolate(start, start, 0.5f).*member).axis,
+                 (start.*member).axis);
+  };
+  check(Pattern::SourceKind::DIRECTIONAL_SINE, &Config::sine);
+  check(Pattern::SourceKind::SPHERE_INTERFERENCE, &Config::interference);
+  check(Pattern::SourceKind::SPHERE_SMOOTH_GRID, &Config::grid);
+}
+
 struct MobiusFrameProbe : MobiusGrid<SMALL_W, SMALL_H> {
   using MobiusGrid<SMALL_W, SMALL_H>::params;
   using MobiusGrid<SMALL_W, SMALL_H>::run_transition;

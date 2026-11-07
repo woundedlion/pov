@@ -1418,6 +1418,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_gridspace_canonical_columns);
   HS_RUN(test_temporal_equal_palettes_color_as_current);
   HS_RUN(test_temporal_moving_families_interpolate);
+  HS_RUN(test_composed_modulation_blends_axes);
   HS_RUN(test_temporal_owned_resources);
   HS_RUN(test_temporal_modulation_admission);
   HS_RUN(test_temporal_modulation_bake_generation);
