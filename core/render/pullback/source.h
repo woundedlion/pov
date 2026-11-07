@@ -124,9 +124,14 @@ struct SpiralSourceParams : Pattern::SpiralSourceParams {
   /// Input coordinate conventions.
   static constexpr const char *COORDINATE_SYSTEM_IDS[] = {"plane",
                                                           "equirectangular"};
+  static_assert(
+      std::size(COORDINATE_SYSTEM_IDS) ==
+      static_cast<size_t>(Pattern::SpiralCoordinateSystem::EQUIRECTANGULAR) +
+          1);
   /// Activation of spherical winding-center controls.
-  static constexpr TopologyGate CENTER_GATE{"coordinate-system",
-                                            live_values(1)};
+  static constexpr TopologyGate CENTER_GATE{
+      "coordinate-system",
+      live_values(Pattern::SpiralCoordinateSystem::EQUIRECTANGULAR)};
   /** @brief Per-parameter id, member, label, range and curve. */
   static constexpr auto FIELDS = std::array{
       Field<SpiralSourceParams>{"pattern-freq",
@@ -146,7 +151,8 @@ struct SpiralSourceParams : Pattern::SpiralSourceParams {
   /// Input chart selector.
   static constexpr auto TOPOLOGY = std::array{TopologyField<SpiralSourceParams>{
       "coordinate-system", &SpiralSourceParams::coordinate_system,
-      COORDINATE_SYSTEM_IDS, 0}};
+      COORDINATE_SYSTEM_IDS,
+      static_cast<uint8_t>(Pattern::SpiralCoordinateSystem::PLANE)}};
 };
 static_assert(field_ids_unique<SpiralSourceParams>());
 static_assert(field_defaults_in_range<SpiralSourceParams>());

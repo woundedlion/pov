@@ -549,7 +549,8 @@ template <class Params> bool valid_source_params(const Params &params) {
     valid &= parameter_in_range(params.arms, 0.0f, 12.0f) &&
              parameter_in_range(params.center_azimuth, 0.0f, math::TWO_PI_F) &&
              parameter_in_range(params.center_polar, 0.0f, math::PI_F) &&
-             params.coordinate_system <= 1;
+             params.coordinate_system <=
+                 static_cast<uint8_t>(SpiralCoordinateSystem::EQUIRECTANGULAR);
   if constexpr (requires { params.complexity; })
     valid &= parameter_in_range(params.complexity, 0.0f, 3.0f) &&
              parameter_in_range(params.pattern_mix, 0.0f, 1.0f);
@@ -705,7 +706,8 @@ struct PlaneSpiral : StationarySource<SpiralSourceParams> {
                                 math::Vector::from_spherical(
                                     params.center_azimuth, params.center_polar))
                 .conjugate(),
-            params.coordinate_system == 1};
+            params.coordinate_system ==
+                static_cast<uint8_t>(SpiralCoordinateSystem::EQUIRECTANGULAR)};
   }
   /** @brief Evaluates the prepared source at a consumer-supplied plane point.
    * @param coordinate Plane coordinate.

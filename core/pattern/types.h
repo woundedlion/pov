@@ -188,6 +188,9 @@ struct BandsSourceParams {
   float angle = 0.0f; ///< Band angle counterclockwise from horizontal, radians.
 };
 
+/** @brief Coordinate chart consumed by the spiral source. */
+enum class SpiralCoordinateSystem : uint8_t { PLANE, EQUIRECTANGULAR };
+
 /** @brief Passive parameters for `PlaneSpiral`. */
 struct SpiralSourceParams {
   float pattern_freq = 1.0f; /**< Plane-coordinate scale before sampling. */
@@ -195,7 +198,9 @@ struct SpiralSourceParams {
                           rings. */
   float center_azimuth = 0.0f; ///< Spherical winding-center azimuth, radians.
   float center_polar = 0.0f; ///< Winding-center colatitude from north, radians.
-  uint8_t coordinate_system = 0; ///< Cartesian plane or equirectangular chart.
+  uint8_t coordinate_system = static_cast<uint8_t>(
+      SpiralCoordinateSystem::
+          PLANE); ///< Cartesian plane or equirectangular chart.
 };
 
 /** @brief Passive parameters for `PlaneNoise`. */
