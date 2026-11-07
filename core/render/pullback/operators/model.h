@@ -161,14 +161,14 @@ struct OperatorRuntime {
   /** Destroys a constructed state block. */
   void (*destroy)(void *state);
   /** Steps the instance's per-frame clocks. */
-  void (*advance)(void *state, const uint8_t *params);
+  void (*advance)(void *state, const void *params);
   /** Constructs the frame's prepared block given the next entry's lattice. */
-  void (*prepare)(const FrameContext &ctx, const uint8_t *params,
+  void (*prepare)(const FrameContext &ctx, const void *params,
                   const void *state, uint8_t *prepared,
                   const TranslationLattice &downstream);
   /** Constructs the output carrier at `out` from the input at `in`. */
   void (*run)(const void *in, void *out, const FrameContext &ctx,
-              const uint8_t *params, const uint8_t *prepared);
+              const void *params, const uint8_t *prepared);
   /** Address of one schema field inside a param block, by schema index. */
   void *(*param_address)(void *params, uint16_t schema_index);
   /** Admission warning for a param block, or null when admissible. */
@@ -183,12 +183,12 @@ struct OperatorRuntime {
   float (*plane_bound)(const void *params, float input_bound,
                        const TranslationLattice &downstream) = nullptr;
   /** Writes the param block at a frame fraction between two endpoints. */
-  void (*sample_params)(uint8_t *out, const uint8_t *from, const uint8_t *to,
+  void (*sample_params)(uint8_t *out, const void *from, const void *to,
                         float fraction) = nullptr;
   /** Constructs `out` as the state at a frame fraction between two endpoints,
       given the column's param block; null for a state without clocks, which
       the column reads at its current endpoint. */
-  void (*sample_state)(void *out, const void *to, const uint8_t *params,
+  void (*sample_state)(void *out, const void *to, const void *params,
                        float fraction, const void *interval) = nullptr;
   /** Constructs a clock interval in history prepared storage. */
   void (*prepare_interval)(void *out, const void *from,
@@ -202,7 +202,7 @@ struct OperatorRuntime {
   float (*fold_strength)(const void *params) = nullptr;
   /** Translation symmetry the output reports to the previous entry; null for
       none. */
-  TranslationLattice (*translation_lattice)(const uint8_t *params) = nullptr;
+  TranslationLattice (*translation_lattice)(const void *params) = nullptr;
   /** Whether the selected parameters need projection edge distance. */
   bool (*requires_edge_distance)(const void *params) = nullptr;
 };
@@ -506,9 +506,9 @@ template <typename Model> struct ErasedAdapter {
    * @param state Constructed state.
    * @param params Param block bytes.
    */
-  static void advance(void *state, const uint8_t *params) {
+  static void advance(void *state, const void *params) {
     Model::advance(*std::launder(static_cast<State *>(state)),
-                   *std::launder(reinterpret_cast<const Params *>(params)));
+                   *std::launder(static_cast<const Params *>(params)));
   }
 
   /**
@@ -520,11 +520,10 @@ template <typename Model> struct ErasedAdapter {
    * @param prepared Raw prepared storage.
    * @param downstream The next entry's lattice.
    */
-  static void prepare(const FrameContext &ctx, const uint8_t *params,
+  static void prepare(const FrameContext &ctx, const void *params,
                       const void *state, uint8_t *prepared,
                       const TranslationLattice &downstream) {
-    const Params &block =
-        *std::launder(reinterpret_cast<const Params *>(params));
+    const Params &block = *std::launder(static_cast<const Params *>(params));
     const State &current = *std::launder(static_cast<const State *>(state));
     if constexpr (requires { Model::prepare(ctx, block, current, downstream); })
       ::new (static_cast<void *>(prepared))
@@ -543,10 +542,10 @@ template <typename Model> struct ErasedAdapter {
    * @param prepared Prepared block bytes.
    */
   static void run(const void *in, void *out, const FrameContext &ctx,
-                  const uint8_t *params, const uint8_t *prepared) {
+                  const void *params, const uint8_t *prepared) {
     ::new (out) Output{Model::run(
         *std::launder(static_cast<const Input *>(in)), ctx,
-        *std::launder(reinterpret_cast<const Params *>(params)),
+        *std::launder(static_cast<const Params *>(params)),
         *std::launder(reinterpret_cast<const Prepared *>(prepared)))};
   }
 
@@ -558,10 +557,10 @@ template <typename Model> struct ErasedAdapter {
    * @param to Param block at fraction 1.
    * @param fraction Frame fraction in [0, 1].
    */
-  static void sample_params(uint8_t *out, const uint8_t *from,
-                            const uint8_t *to, float fraction) {
-    const Params &a = *std::launder(reinterpret_cast<const Params *>(from));
-    const Params &b = *std::launder(reinterpret_cast<const Params *>(to));
+  static void sample_params(uint8_t *out, const void *from, const void *to,
+                            float fraction) {
+    const Params &a = *std::launder(static_cast<const Params *>(from));
+    const Params &b = *std::launder(static_cast<const Params *>(to));
     Params value = Pullback::Fields::interpolate(a, b, fraction);
     if constexpr (requires { Params::sample_extra(value, a, b, fraction); })
       Params::sample_extra(value, a, b, fraction);
@@ -577,7 +576,7 @@ template <typename Model> struct ErasedAdapter {
    * @param fraction Frame fraction in [0, 1].
    * @param interval Prepared frame clocks.
    */
-  static void sample_state(void *out, const void *to, const uint8_t *params,
+  static void sample_state(void *out, const void *to, const void *params,
                            float fraction, const void *interval) {
     using Interval = decltype(temporal_interval(std::declval<const State &>(),
                                                 std::declval<const State &>()));
@@ -585,7 +584,7 @@ template <typename Model> struct ErasedAdapter {
     State &column = *::new (out) State(end);
     temporal_sample(
         column, *std::launder(static_cast<const Interval *>(interval)),
-        *std::launder(reinterpret_cast<const Params *>(params)), fraction);
+        *std::launder(static_cast<const Params *>(params)), fraction);
   }
 
   /** @brief Constructs a prepared clock interval.
@@ -662,7 +661,7 @@ template <typename Model> constexpr auto model_plane_bound() {
  */
 template <typename Model> constexpr auto model_sample_state() {
   using SampleState =
-      void (*)(void *, const void *, const uint8_t *, float, const void *);
+      void (*)(void *, const void *, const void *, float, const void *);
   using State = typename Model::State;
   if constexpr (TemporalState<State, typename Model::Params>) {
     static_assert(std::is_copy_constructible_v<State>,
@@ -718,15 +717,15 @@ template <typename Model> constexpr auto model_modulation_key() {
  * @tparam Model Operator model.
  * @return Erased accessor or null. */
 template <typename Model> constexpr auto model_translation_lattice() {
-  using Lattice = TranslationLattice (*)(const uint8_t *);
+  using Lattice = TranslationLattice (*)(const void *);
   if constexpr (requires(const typename Model::Params &params) {
                   {
                     Model::translation_lattice(params)
                   } -> std::same_as<TranslationLattice>;
                 })
-    return static_cast<Lattice>(+[](const uint8_t *params) {
-      return Model::translation_lattice(*std::launder(
-          reinterpret_cast<const typename Model::Params *>(params)));
+    return static_cast<Lattice>(+[](const void *params) {
+      return Model::translation_lattice(
+          *std::launder(static_cast<const typename Model::Params *>(params)));
     });
   else
     return static_cast<Lattice>(nullptr);
