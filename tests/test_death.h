@@ -1961,6 +1961,17 @@ inline const Case *all_cases(int &n) {
        case_opleg_incomplete_palette_handoff, "core/animation/opleg.h",
        "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
        "OpLeg: incomplete palette handoff"},
+      {"opleg_incompatible_prepared_bridge",
+       case_opleg_incompatible_prepared_bridge, "core/animation/opleg.h",
+       "(spec.bridge_provenance && truncate && spec.t_start == 0.0f && "
+       "spec.t_end == 0.5f && !bookend.topology && "
+       "handoff.prev_face_centroid != nullptr && handoff.correspondence == "
+       "FaceCorrespondence::GEOMETRIC && "
+       "handoff.prev_faces == source.mesh.face_counts.size()) "
+       "OpLeg: incompatible prepared bridge"},
+      {"opleg_invalid_prepared_bridge_host",
+       case_opleg_invalid_prepared_bridge_host, "core/animation/opleg.h",
+       "(HOST < handoff.prev_faces) OpLeg: prepared bridge host out of range"},
       {"opleg_edge_settle_mismatch", case_opleg_edge_settle_mismatch,
        "core/animation/opleg.h",
        "(spec.settle_frames >= 0 && edge.settle == (spec.settle_frames > 0)) "

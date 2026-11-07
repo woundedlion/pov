@@ -255,6 +255,44 @@ inline void case_opleg_incomplete_palette_handoff() {
       .op = ConwayGraph::MorphOp::TRUNCATE, .sweep_frames = opaque(1)});
 }
 
+/** @brief Prepared bridge data requires the opening geometric handoff. */
+inline void case_opleg_incompatible_prepared_bridge() {
+  Animation::OpLeg::BridgePreparation prepared;
+  death_construct_opleg<4096>(
+      Animation::OpLeg::ParamSweepSpec{
+          .t_end = 0.5f, .sweep_frames = 1, .prepared = &prepared},
+      death_opleg_handoff());
+}
+
+/** @brief Prepared bridge hosts must name faces in the departed mesh. */
+inline void case_opleg_invalid_prepared_bridge_host() {
+  using Animation::OpLeg;
+  static uint8_t seed_storage[64 * 1024], leg_storage[128 * 1024];
+  Arena seed_arena(seed_storage, sizeof(seed_storage));
+  Arena leg_arena(leg_storage, sizeof(leg_storage));
+  PolyMesh seed;
+  build_solid<Solids::Cube>(seed, seed_arena);
+  OpLeg::BridgePreparation prepared;
+  const uint16_t classes[7]{};
+  prepared.topology.bind(seed_arena, std::size(classes));
+  prepared.topology.append_bulk(classes, std::size(classes));
+  prepared.hosts.fill(UINT16_MAX);
+
+  const uint8_t palettes[6]{};
+  const math::Vector centroids[6]{};
+  auto handoff = death_opleg_handoff();
+  handoff.prev_face_palette = palettes;
+  handoff.prev_faces = std::size(palettes);
+  handoff.prev_face_centroid = centroids;
+  OpLeg leg(OpLeg::SweepSeed::borrow(seed),
+            OpLeg::ParamSweepSpec{.t_end = 0.5f,
+                                  .sweep_frames = 1,
+                                  .bridge_provenance = true,
+                                  .prepared = &prepared},
+            leg_arena, death_opleg_draw, handoff);
+  (void)leg.landing();
+}
+
 /**
  * @brief Death case: settle frames that contradict the edge must trap.
  * @details OpLeg surface — the edge's settle flag decides whether the leg

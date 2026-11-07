@@ -529,22 +529,27 @@ public:
     tr.twist_start = spec.twist_start;
     tr.twist_end = spec.twist_end;
 
-    if (spec.prepared && spec.bridge_provenance && truncate &&
-        spec.t_start == 0.0f && spec.t_end == 0.5f && !bookend.topology &&
-        handoff.prev_face_centroid != nullptr &&
-        handoff.correspondence == FaceCorrespondence::GEOMETRIC &&
-        handoff.prev_faces == source.mesh.face_counts.size()) {
+    if (spec.prepared) {
+      HS_CHECK(spec.bridge_provenance && truncate && spec.t_start == 0.0f &&
+                   spec.t_end == 0.5f && !bookend.topology &&
+                   handoff.prev_face_centroid != nullptr &&
+                   handoff.correspondence == FaceCorrespondence::GEOMETRIC &&
+                   handoff.prev_faces == source.mesh.face_counts.size(),
+               "OpLeg: incompatible prepared bridge");
       tr.topo.bind(arena, spec.prepared->topology.size());
       tr.topo.append_bulk(spec.prepared->topology.data(),
                           spec.prepared->topology.size());
       ScratchScope a(scratch_arena_a);
       auto *from = scratch_arena_a.allocate_n<uint8_t>(tr.topo.size());
-      for (size_t f = 0; f < tr.topo.size(); ++f)
-        from[f] = handoff.prev_face_palette
-                      [f < handoff.prev_faces
-                           ? f
-                           : spec.prepared
-                                 ->hosts[MeshPaletteBank::slot_of(tr.topo[f])]];
+      for (size_t f = 0; f < tr.topo.size(); ++f) {
+        const size_t HOST =
+            f < handoff.prev_faces
+                ? f
+                : spec.prepared->hosts[MeshPaletteBank::slot_of(tr.topo[f])];
+        HS_CHECK(HOST < handoff.prev_faces,
+                 "OpLeg: prepared bridge host out of range");
+        from[f] = handoff.prev_face_palette[HOST];
+      }
       build_palette_mapping(tr, source.mesh, handoff, bookend, arena, nullptr,
                             tr.seed_faces, from);
     } else {
