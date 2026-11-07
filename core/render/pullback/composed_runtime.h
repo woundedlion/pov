@@ -465,12 +465,20 @@ public:
    *  @return True when every family is in range. */
   static bool valid_params(const Params &params) {
     bool admitted = Pullback::valid(params);
-    if constexpr (!Metadata::EDGE_DISTANCE_AVAILABLE)
+    if constexpr (!Metadata::EDGE_DISTANCE_AVAILABLE ||
+                  Metadata::PROJECTION == ProjectionKind::BONNE ||
+                  Metadata::PROJECTION == ProjectionKind::AIROCEAN)
       params.visit([&]<typename Resource>(const auto &family) {
-        if constexpr (requires { family.coverage_mode; })
+        if constexpr (!Metadata::EDGE_DISTANCE_AVAILABLE &&
+                      requires { family.coverage_mode; })
           admitted = admitted && family.coverage_mode <
                                      static_cast<uint8_t>(
                                          ProjectionCoverageMode::EDGE_FADE);
+        if constexpr (Resource::KIND == ResourceKind::PROJECTION &&
+                      std::is_base_of_v<AtlasProjectionParams,
+                                        typename Resource::Family>)
+          admitted = admitted &&
+                     valid_projection_topology(Metadata::PROJECTION, family);
       });
     return admitted;
   }
@@ -725,24 +733,14 @@ protected:
       for (const auto &field : T::TOPOLOGY) {
         if (!ComposedDetail::resource_topology_open<SpecT, Resource>(field.id))
           continue;
-        const char *const *options = field.value_ids;
-        int option_count = field.value_count;
-        if constexpr (Resource::KIND == ResourceKind::PROJECTION) {
-          if (std::string_view(field.id) == "hemisphere" &&
-              Metadata::PROJECTION == ProjectionKind::BONNE) {
-            static constexpr const char *OPTIONS[] = {"north", "south"};
-            options = OPTIONS;
-            option_count = 2;
-          } else if (std::string_view(field.id) == "layout" &&
-                     Metadata::PROJECTION == ProjectionKind::AIROCEAN) {
-            static constexpr const char *OPTIONS[] = {"vertical", "horizontal"};
-            options = OPTIONS;
-            option_count = 2;
-          }
-        }
+        std::span<const char *const> options(field.value_ids,
+                                             field.value_count);
+        if constexpr (Resource::KIND == ResourceKind::PROJECTION)
+          options = projection_topology_options(Metadata::PROJECTION, field.id,
+                                                options);
         this->register_animated_enum8_param(
             resource_parameter_name<Resource>(field.id),
-            &(family.*field.member), options, option_count);
+            &(family.*field.member), options.data(), options.size());
         set_parameter_stage(resource_parameter_stage<Resource>());
       }
     if constexpr (requires {

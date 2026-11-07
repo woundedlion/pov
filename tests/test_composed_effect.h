@@ -447,11 +447,10 @@ inline void check_authored_slider_registration(const FX &effect) {
           continue;
         size_t options = field.value_count;
         if constexpr (Resource::KIND == Pullback::ResourceKind::PROJECTION)
-          if ((std::string_view(field.id) == "hemisphere" &&
-               FX::Metadata::PROJECTION == Pullback::ProjectionKind::BONNE) ||
-              (std::string_view(field.id) == "layout" &&
-               FX::Metadata::PROJECTION == Pullback::ProjectionKind::AIROCEAN))
-            options = 2;
+          options = Pullback::projection_topology_options(
+                        FX::Metadata::PROJECTION, field.id,
+                        {field.value_ids, field.value_count})
+                        .size();
         require_target(&(family.*field.member), 0.0f,
                        static_cast<float>(options - 1), true);
       }

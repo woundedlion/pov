@@ -368,3 +368,30 @@ struct AtlasProjectionParams : ProjectionParams {
       TopologyField<AtlasProjectionParams>{
           "hemisphere", &AtlasProjectionParams::hemisphere, HEMISPHERE_IDS, 0}};
 };
+
+/** @brief Selects topology options for a composed projection field.
+ * @param kind Composed projection kind.
+ * @param field Topology field identifier.
+ * @param options Default topology options.
+ * @return Options for this projection kind and field. */
+constexpr std::span<const char *const>
+projection_topology_options(ProjectionKind kind, std::string_view field,
+                            std::span<const char *const> options) {
+  if (kind == ProjectionKind::BONNE && field == "hemisphere")
+    return Projection::BONNE_HEMISPHERE_IDS;
+  if (kind == ProjectionKind::AIROCEAN && field == "layout")
+    return Projection::AIROCEAN_LAYOUT_IDS;
+  return options;
+}
+
+/** @brief Checks topology fields with projection-specific option counts.
+ * @param kind Composed projection kind.
+ * @param params Projection controls.
+ * @return Whether the kind-specific selectors are in range. */
+constexpr bool valid_projection_topology(ProjectionKind kind,
+                                         const AtlasProjectionParams &params) {
+  return (kind != ProjectionKind::BONNE ||
+          params.hemisphere < std::size(Projection::BONNE_HEMISPHERE_IDS)) &&
+         (kind != ProjectionKind::AIROCEAN ||
+          params.layout < std::size(Projection::AIROCEAN_LAYOUT_IDS));
+}

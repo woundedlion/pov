@@ -343,6 +343,14 @@ inline void verify_authored_projection() {
   if constexpr (requires { chain.area_correction; })
     params.area_correction = chain.area_correction = 0.58f;
   params.frame = chain.frame = 0;
+  if constexpr (Kind == ProjectionKind::BONNE) {
+    params.hemisphere = 2;
+    HS_EXPECT_FALSE(valid_projection_topology(Kind, params));
+  }
+  if constexpr (Kind == ProjectionKind::AIROCEAN) {
+    params.layout = 2;
+    HS_EXPECT_FALSE(valid_projection_topology(Kind, params));
+  }
   const int LAYOUTS = Kind == ProjectionKind::PEIRCE     ? 4
                       : Kind == ProjectionKind::AIROCEAN ? 2
                                                          : 1;
@@ -355,6 +363,7 @@ inline void verify_authored_projection() {
     for (int hemisphere = 0; hemisphere < HEMISPHERES; ++hemisphere) {
       params.layout = static_cast<uint8_t>(layout);
       params.hemisphere = static_cast<uint8_t>(hemisphere);
+      HS_EXPECT_TRUE(valid_projection_topology(Kind, params));
       if constexpr (requires { chain.layout; })
         chain.layout = params.layout;
       if constexpr (requires { chain.hemisphere; })

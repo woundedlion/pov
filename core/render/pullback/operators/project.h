@@ -304,7 +304,7 @@ inline constexpr uint8_t PEIRCE_SQUARE_LAYOUT =
     static_cast<uint8_t>(projections::PeirceLayout::SQUARE);
 
 /** @brief Hemisphere topology values of project.bonne.v3. */
-inline constexpr const char *BONNE_HEMISPHERE_IDS[] = {"north", "south"};
+using Projection::BONNE_HEMISPHERE_IDS;
 static_assert(std::size(BONNE_HEMISPHERE_IDS) == 2);
 
 /** @brief Default standard-parallel magnitude of project.bonne.v3. */
@@ -333,7 +333,7 @@ static_assert(appended_block_size_matches<BonneChainParams,
 static_assert(field_defaults_in_range<BonneChainParams>());
 
 /** @brief Layout topology values of project.airocean.v3. */
-inline constexpr const char *AIROCEAN_LAYOUT_IDS[] = {"vertical", "horizontal"};
+using Projection::AIROCEAN_LAYOUT_IDS;
 
 static_assert(std::size(AIROCEAN_LAYOUT_IDS) == 2);
 

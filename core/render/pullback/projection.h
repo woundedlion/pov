@@ -24,6 +24,12 @@ inline math::Quaternion projection_base_orientation() {
 
 namespace Projection {
 
+/** @brief Bonne hemisphere catalog values. */
+inline constexpr const char *BONNE_HEMISPHERE_IDS[] = {"north", "south"};
+
+/** @brief Airocean layout catalog values. */
+inline constexpr const char *AIROCEAN_LAYOUT_IDS[] = {"vertical", "horizontal"};
+
 /** @brief Projection and camera parameters. */
 struct ProjectionParams {
   float singularity_fade = 1.0f; /**< Sharpness of the singularity attenuation:
