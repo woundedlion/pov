@@ -6076,33 +6076,6 @@
 				)
 			)
 		)
-		(fp_line
-			(start -3.22 -1.59)
-			(end 3.37 -1.59)
-			(stroke
-				(width 0.12)
-				(type solid)
-			)
-			(layer "F.SilkS")
-		)
-		(fp_line
-			(start 3.37 -1.59)
-			(end 3.37 9.21)
-			(stroke
-				(width 0.12)
-				(type solid)
-			)
-			(layer "F.SilkS")
-		)
-		(fp_line
-			(start 3.37 9.21)
-			(end -3.22 9.21)
-			(stroke
-				(width 0.12)
-				(type solid)
-			)
-			(layer "F.SilkS")
-		)
 		(zone
 			(layer "F.Cu")
 			(uuid "2b673c45-cfcc-5cd5-8a6d-577b956c190d")
@@ -6235,6 +6208,33 @@
 				)
 			)
 		)
+		(fp_line
+			(start -3.22 -1.59)
+			(end 3.37 -1.59)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
+		)
+		(fp_line
+			(start 3.37 -1.59)
+			(end 3.37 9.21)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
+		)
+		(fp_line
+			(start 3.37 9.21)
+			(end -3.22 9.21)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
+		)
 	)
 	(footprint "phantasm:TerminalBlock_GCT_TBC05-04-1-G-G"
 		(locked yes)
@@ -6346,33 +6346,6 @@
 					(xy 35.96 -0.32)
 				)
 			)
-		)
-		(fp_line
-			(start -3.22 -1.59)
-			(end 3.37 -1.59)
-			(stroke
-				(width 0.12)
-				(type solid)
-			)
-			(layer "F.SilkS")
-		)
-		(fp_line
-			(start 3.37 -1.59)
-			(end 3.37 9.21)
-			(stroke
-				(width 0.12)
-				(type solid)
-			)
-			(layer "F.SilkS")
-		)
-		(fp_line
-			(start 3.37 9.21)
-			(end -3.22 9.21)
-			(stroke
-				(width 0.12)
-				(type solid)
-			)
-			(layer "F.SilkS")
 		)
 		(zone
 			(layer "F.Cu")
@@ -6505,6 +6478,33 @@
 					(xy 36.73 -9.82)
 				)
 			)
+		)
+		(fp_line
+			(start -3.22 -1.59)
+			(end 3.37 -1.59)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
+		)
+		(fp_line
+			(start 3.37 -1.59)
+			(end 3.37 9.21)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
+		)
+		(fp_line
+			(start 3.37 9.21)
+			(end -3.22 9.21)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
 		)
 	)
 	(footprint "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"

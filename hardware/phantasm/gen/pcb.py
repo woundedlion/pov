@@ -255,7 +255,7 @@ def revision_context(function):
 
 def terminal_library_dir(libid):
     if libid == TERMINAL_LIBIDS[2]:
-        return os.path.join(os.path.dirname(HERE), "1.3", "phantasm.pretty")
+        return os.path.join(HERE, "footprints")
     return LOCAL_FOOTPRINT_DIR
 
 

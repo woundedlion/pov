@@ -254,10 +254,28 @@ class RevisionGenerationTests(unittest.TestCase):
         cls.addClassCleanup(cls.directory.cleanup)
         cls.rev_12 = Path(cls.directory.name) / "1.2"
         cls.prototype = Path(cls.directory.name) / "1.3"
+        cls.terminal_source = Path(pcb.terminal_library_dir(pcb.TERMINAL_LIBIDS[2])) / "TerminalBlock_GCT_TBC05-04-1-G-G.kicad_mod"
+        cls.terminal_before = cls.terminal_source.read_bytes()
         generate(cls.rev_12, unplaced=True, revision="1.2")
         cls.before = {path: (cls.rev_12 / path).read_bytes() for path in GENERATED_PROJECT_FILES}
         generate(cls.prototype, unplaced=True, revision="1.3")
         generate(cls.rev_12, unplaced=True, revision="1.2")
+
+    def test_four_pin_terminal_source_remains_pristine(self):
+        self.assertEqual(self.terminal_source.read_bytes(), self.terminal_before)
+        source = sexp.parse_one(self.terminal_before.decode("utf-8"))
+        rectangle, = [shape for shape in F(source, "fp_rect")
+                       if sexp.val(shape, "layer") == ["F.SilkS"]]
+        stroke = float(sexp.val(F(rectangle, "stroke")[0], "width")[0])
+        trimmed = copy.deepcopy(source)
+        with mock.patch.dict(pcb.NEW_LAYOUT_RULES, min_silk_clearance=0.3):
+            pcb.trim_terminal_silkscreen(trimmed, 3.43)
+        starts = [float(sexp.val(line, "start")[0]) for line in F(trimmed, "fp_line")
+                  if sexp.val(line, "layer") == ["F.SilkS"]]
+        self.assertAlmostEqual(min(starts), 0.3 + stroke / 2 - 3.43)
+        output = Path("phantasm.pretty") / self.terminal_source.name
+        self.assertEqual((self.prototype / output).read_bytes(),
+                         (PROTOTYPE / output).read_bytes())
 
     def test_current_schematics_pass_real_erc(self):
         for revision in ("1.2", "1.3"):
