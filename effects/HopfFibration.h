@@ -347,12 +347,8 @@ private:
         edge_flags = {bits, points.size() - 1};
       }
 
-      auto shader = [&](const math::Vector &, Fragment &f) HS_HOT_INLINE {
-        const float t = fmaxf(0.0f, f.v0);
-        Color4 c = baked_sunset.get(1.0f - t);
-        c.alpha *= t * params.alpha; // fade out tail
-        f.color = c;
-      };
+      auto shader = [&](const math::Vector &, Fragment &f)
+                        HS_HOT_INLINE { f.color = faded_color(f.v0); };
       {
         HS_PROFILE(hf_trail_raster);
         Plot::rasterize<W, H>(
@@ -380,6 +376,16 @@ private:
                     DEFAULT_SCRATCH_B_SIZE,
                 "HopfFibration node paths exceed scratch_b");
 
+  /** @brief Palette color with tail opacity.
+   * @param t Trail progress.
+   * @return Straight-alpha trail color. */
+  HS_HOT_INLINE Color4 faded_color(float t) const {
+    t = fmaxf(0.0f, t);
+    Color4 c = baked_sunset.get(1.0f - t);
+    c.alpha *= t * params.alpha;
+    return c;
+  }
+
   /**
    * @brief Trail color at a progress and frame fraction.
    * @param progress Node progress, 0 at the full trail's tail and 1 at its
@@ -401,9 +407,7 @@ private:
               : (len > 2 ? fminf(1.0f, t * (len - 1) / (len - 2)) : t);
       t = fmaxf(0.0f, previous + (t - previous) * time);
     }
-    t = fmaxf(0.0f, t);
-    Color4 c = baked_sunset.get(1.0f - t);
-    c.alpha *= t * params.alpha;
+    Color4 c = faded_color(t);
     const float birth = fmaxf(0.0f, progress * static_cast<float>(len - 1) -
                                         static_cast<float>(len - 2));
     if (birth > time)
