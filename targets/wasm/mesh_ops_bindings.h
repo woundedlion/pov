@@ -24,6 +24,7 @@
 #include "targets/wasm/wasm_predicates.h"
 #include <cstdlib>
 #include <cmath>
+#include <limits>
 #include <cstddef>
 #include <memory>
 #include <string>

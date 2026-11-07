@@ -10,8 +10,13 @@
 #pragma once
 
 #include <emscripten/val.h>
-#include <algorithm>
+#include <array>
+#include <cmath>
 #include <limits>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <variant>
 #include "core/render/pullback/interpreter.h"
 #include "workbench/shader/chain_snapshot.h"
 

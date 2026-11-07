@@ -33,6 +33,7 @@
 #include <climits>
 #include <memory>
 #include <string>
+#include <utility>
 
 // ---- Stack canary painting for high water mark tracking ----
 /// Byte painted over unused stack for high-water-mark scans.
