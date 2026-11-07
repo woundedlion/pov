@@ -94,6 +94,12 @@ enum class NoiseVariant : uint8_t { CONFIGURED_SINGLE, OCTAVE_CONTOUR };
 inline constexpr float MAX_NOISE_SPEED = 0.001f;
 /** @brief Maximum spatial noise scale admitted by a baked sphere cube. */
 inline constexpr float MAX_BAKED_NOISE_SCALE = 8.0f;
+/// Minimum scale of a direct noise source.
+inline constexpr float MIN_NOISE_SCALE = 1.0f / 64.0f;
+/// Maximum scale of a direct noise source.
+inline constexpr float MAX_NOISE_SCALE = 64.0f;
+/// Maximum contour contrast of a noise source.
+inline constexpr float MAX_NOISE_CONTRAST = 8.0f;
 /** @brief Maximum analytic speed exposed by modulation controls, in turns per update. */
 inline constexpr float MAX_ANALYTIC_SPEED = 1.0f;
 /** @brief Source phase in turns, wrapped after each engine update. */

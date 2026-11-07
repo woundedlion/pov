@@ -47,10 +47,10 @@ struct SphereNoise {
    * @param params Source controls.
    * @return Whether preparation admits the recipe. */
   static bool valid(const Params &params) {
-    return finite(params.scale) && params.scale >= 1.0f / 64.0f &&
-           params.scale <= 64.0f && finite(params.speed) &&
-           finite(params.contrast) && params.contrast >= 0.0f &&
-           params.contrast <= 8.0f && params.basis <= NoiseBasis::RIDGED3 &&
+    return parameter_in_range(params.scale, MIN_NOISE_SCALE, MAX_NOISE_SCALE) &&
+           finite(params.speed) &&
+           parameter_in_range(params.contrast, 0.0f, MAX_NOISE_CONTRAST) &&
+           params.basis <= NoiseBasis::RIDGED3 &&
            params.variant <= NoiseVariant::OCTAVE_CONTOUR &&
            (params.variant != NoiseVariant::CONFIGURED_SINGLE ||
             (params.basis == NoiseBasis::SIMPLEX && params.contrast == 0.0f));
@@ -121,9 +121,10 @@ struct PlaneNoise {
    * @param params Source controls.
    * @return Whether the controls are admitted. */
   static bool valid(const Params &params) {
-    return finite(params.noise_scale) && params.noise_scale >= 1.0f / 64.0f &&
-           params.noise_scale <= 64.0f && finite(params.noise_contrast) &&
-           params.noise_contrast >= 0.0f && params.noise_contrast <= 8.0f &&
+    return parameter_in_range(params.noise_scale, MIN_NOISE_SCALE,
+                              MAX_NOISE_SCALE) &&
+           parameter_in_range(params.noise_contrast, 0.0f,
+                              MAX_NOISE_CONTRAST) &&
            finite(params.noise_time_rate) &&
            fabsf(params.noise_time_rate) <= 1.0f / 64.0f;
   }

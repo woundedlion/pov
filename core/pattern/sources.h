@@ -21,8 +21,8 @@ inline constexpr float MAX_AXIAL_FREQUENCY = 64.0f;
  * @param params Axial wave controls.
  * @return Whether preparation can admit the recipe. */
 inline bool valid_sine(const SineParams &params) {
-  return SphereDirection::valid(params.axis) && finite(params.frequency) &&
-         params.frequency >= 0.0f && params.frequency <= MAX_AXIAL_FREQUENCY &&
+  return SphereDirection::valid(params.axis) &&
+         parameter_in_range(params.frequency, 0.0f, MAX_AXIAL_FREQUENCY) &&
          finite(params.offset) && finite(params.speed);
 }
 
@@ -532,15 +532,6 @@ inline float tessellation(const PlanePosition &coordinate, const Params &params,
   if (kind == K::SQUARE)
     return tessellation<K::SQUARE, F::CELLS>(coordinate, params);
   return tessellation<K::HEXAGONAL, F::CELLS>(coordinate, params);
-}
-
-/** @brief Checks a finite source parameter against an admitted interval.
- * @param value Parameter value.
- * @param low Inclusive lower bound.
- * @param high Inclusive upper bound.
- * @return Whether the parameter is admitted. */
-inline bool parameter_in_range(float value, float low, float high) {
-  return finite(value) && value >= low && value <= high;
 }
 
 /** @brief Validates a source parameter record's declared controls.

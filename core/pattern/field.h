@@ -14,6 +14,15 @@
 #include "core/math/periodic.h"
 
 namespace Pattern {
+/** @brief Checks a finite source parameter against an admitted interval.
+ * @param value Parameter value.
+ * @param low Inclusive lower bound.
+ * @param high Inclusive upper bound.
+ * @return Whether the parameter is admitted. */
+inline bool parameter_in_range(float value, float low, float high) {
+  return finite(value) && value >= low && value <= high;
+}
+
 /** @brief Advances a wrapped clock by a turn increment.
  * @param phase Previous phase in turns.
  * @param turns Increment in turns.

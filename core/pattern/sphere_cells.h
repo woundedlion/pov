@@ -63,14 +63,11 @@ struct SphereCells {
    * @param params Seed and output controls.
    * @return Whether preparation admits the recipe. */
   static bool valid(const Params &params) {
-    return finite(params.count) && params.count >= 4.0f &&
-           params.count <= static_cast<float>(MAX_CELLS) &&
-           finite(params.seed) && params.seed >= 0.0f &&
-           params.seed <= 65535.0f && finite(params.line_thickness) &&
-           params.line_thickness >= 0.0f && params.line_thickness <= 1.0f &&
-           finite(params.line_softness) &&
-           params.line_softness >= 1.0f / 1024.0f &&
-           params.line_softness <= 1.0f &&
+    return parameter_in_range(params.count, 4.0f,
+                              static_cast<float>(MAX_CELLS)) &&
+           parameter_in_range(params.seed, 0.0f, 65535.0f) &&
+           parameter_in_range(params.line_thickness, 0.0f, 1.0f) &&
+           parameter_in_range(params.line_softness, 1.0f / 1024.0f, 1.0f) &&
            params.layout <= static_cast<uint8_t>(SphereCellLayout::SCATTERED) &&
            params.output <= static_cast<uint8_t>(SphereCellOutput::CELL_VALUE);
   }
