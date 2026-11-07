@@ -83,8 +83,7 @@ HS_FLASH_MEMBER inline TurnCoefficients long_turn_coefficients(float angle_sq) {
  * @return Series coefficients up to SHORT_TURN_ANGLE, long_turn_coefficients()
  *         past it.
  */
-__attribute__((always_inline)) inline TurnCoefficients
-turn_coefficients(float angle_sq) {
+HS_HOT_INLINE inline TurnCoefficients turn_coefficients(float angle_sq) {
   if (angle_sq <= SHORT_TURN_ANGLE * SHORT_TURN_ANGLE)
     // Series for sin(a) / a and (1 - cos(a)) / a^2.
     return {1.0f - angle_sq * (1.0f / 6.0f - angle_sq / 120.0f),
@@ -99,9 +98,9 @@ turn_coefficients(float angle_sq) {
  * @param k The rotation's coefficients, as turn_coefficients() gives them.
  * @return @p p rotated by Rodrigues' formula.
  */
-__attribute__((always_inline)) inline math::Vector
-rotate_by(const math::Vector &p, const math::Vector &rotation,
-          const TurnCoefficients &k) {
+HS_HOT_INLINE inline math::Vector rotate_by(const math::Vector &p,
+                                            const math::Vector &rotation,
+                                            const TurnCoefficients &k) {
   const math::Vector across = math::cross(rotation, p);
   return p + across * k.sine + math::cross(rotation, across) * k.versine;
 }
@@ -112,8 +111,8 @@ rotate_by(const math::Vector &p, const math::Vector &rotation,
  * @param rotation Axis times angle, shorter than a half turn.
  * @return @p p rotated by Rodrigues' formula.
  */
-__attribute__((always_inline)) inline math::Vector
-rotate_by(const math::Vector &p, const math::Vector &rotation) {
+HS_HOT_INLINE inline math::Vector rotate_by(const math::Vector &p,
+                                            const math::Vector &rotation) {
   return rotate_by(p, rotation,
                    turn_coefficients(math::dot(rotation, rotation)));
 }

@@ -38,8 +38,8 @@ inline constexpr bool reads_time =
  * @param args The shader's arguments.
  */
 template <typename ShaderT, typename... Args>
-__attribute__((always_inline)) inline void
-shade_at_time(ShaderT &shader, float t, Args &&...args) {
+HS_HOT_INLINE inline void shade_at_time(ShaderT &shader, float t,
+                                        Args &&...args) {
   if constexpr (reads_time<ShaderT, Args...>)
     shader(std::forward<Args>(args)..., t);
   else
@@ -56,8 +56,8 @@ shade_at_time(ShaderT &shader, float t, Args &&...args) {
  * @param args The scan's shader arguments.
  */
 template <int W, typename ShaderT, typename... Args>
-__attribute__((always_inline)) inline void
-shade_at_column(ShaderT &shader, int x, Args &&...args) {
+HS_HOT_INLINE inline void shade_at_column(ShaderT &shader, int x,
+                                          Args &&...args) {
   shade_at_time(shader, SamplingSurface<W>::time(x),
                 std::forward<Args>(args)...);
 }
