@@ -7,13 +7,20 @@
 // Driver
 // ============================================================================
 
+static_assert(
+    !std::is_constructible_v<Animation::Driver, float &, float, float>);
+static_assert(
+    !std::is_constructible_v<Animation::Driver, float &, const float *, bool>);
+static_assert(
+    std::is_constructible_v<Animation::Driver, float &, const float *, int>);
+
 /**
  * @brief Verifies a wrapping Driver adds its per-frame increment each step and
  * wraps back into [0,1) when it reaches 1.
  */
 inline void test_driver_increments_and_wraps() {
   float v = 0.0f;
-  Animation::Driver d(v, 0.25f, /*wrap=*/true);
+  Animation::Driver d(v, 0.25f);
   d.step(fake_canvas());
   HS_EXPECT_NEAR(v, 0.25f, 1e-5f);
   d.step(fake_canvas());
@@ -30,7 +37,7 @@ inline void test_driver_increments_and_wraps() {
  */
 inline void test_driver_no_wrap_accumulates() {
   float v = 0.0f;
-  Animation::Driver d(v, 0.5f, /*wrap=*/false);
+  Animation::Driver d(v, 0.5f, {.wrap = false});
   for (int i = 0; i < 5; ++i)
     d.step(fake_canvas());
   HS_EXPECT_NEAR(v, 2.5f, 1e-5f);
@@ -39,7 +46,7 @@ inline void test_driver_no_wrap_accumulates() {
 /** @brief A non-finite speed update keeps the last good increment. */
 inline void test_driver_set_speed_ignores_non_finite() {
   float v = 0.0f;
-  Animation::Driver d(v, 0.25f, /*wrap=*/false);
+  Animation::Driver d(v, 0.25f, {.wrap = false});
   d.set_speed(std::numeric_limits<float>::quiet_NaN());
   HS_EXPECT_NEAR(d.get_speed(), 0.25f, 1e-5f);
   d.step(fake_canvas());
@@ -59,7 +66,7 @@ inline void test_driver_set_speed_ignores_non_finite() {
 inline void test_driver_nan_source_does_not_poison() {
   float v = 0.0f;
   float slider = 0.25f;
-  Animation::Driver d(v, &slider, /*scale=*/1.0f, /*wrap=*/true);
+  Animation::Driver d(v, &slider, 1.0f);
   d.step(fake_canvas());
   HS_EXPECT_NEAR(v, 0.25f, 1e-5f);
 

@@ -256,6 +256,12 @@ private:
   EasingFn easing_fn; /**< Easing curve. */
 };
 
+/** @brief Wrap and pause controls for a continuously advancing Driver. */
+struct DriverOptions {
+  bool wrap = true; ///< Wraps the driven value into [0, 1) each step.
+  const bool *paused = nullptr; ///< Optional borrowed pause gate.
+};
+
 /**
  * @brief An animation that continuously increments a float variable over time.
  *
@@ -269,13 +275,11 @@ public:
    * @brief Constructs a Driver animation for continuous progression.
    * @param mutant The float variable to modify.
    * @param speed The amount to add per frame.
-   * @param wrap If true, wraps the value back into the [0,1) range each step.
-   * @param paused Optional pause gate; null = always runs.
+   * @param options Wrap and pause controls.
    */
-  Driver(float &mutant, float speed, bool wrap = true,
-         const bool *paused = nullptr)
-      : PausableParamAnimationBase(1, true, paused), mutant(mutant),
-        speed(speed), wrap(wrap) {
+  Driver(float &mutant, float speed, const DriverOptions &options = {})
+      : PausableParamAnimationBase(1, true, options.paused), mutant(mutant),
+        speed(speed), wrap(options.wrap) {
     // A non-finite speed permanently poisons `mutant` (wrap_t can't recover NaN).
     HS_CHECK(std::isfinite(speed), "Driver: fixed speed must be finite");
   }
@@ -286,14 +290,13 @@ public:
    * @param speed_src Pointer to a live value (e.g. a registered slider); the
    *   effective speed is `*speed_src * scale`, re-read each step.
    * @param scale Per-unit multiplier applied to *speed_src.
-   * @param wrap If true, wraps the value back into the [0,1) range each step.
-   * @param paused Optional pause gate; null = always runs.
+   * @param options Wrap and pause controls.
    * @details speed_src is re-read each step and must outlive the Driver.
    */
-  Driver(float &mutant, const float *speed_src, float scale, bool wrap = true,
-         const bool *paused = nullptr)
-      : PausableParamAnimationBase(1, true, paused), mutant(mutant),
-        speed(0.0f), wrap(wrap), speed_src(speed_src), scale(scale) {
+  Driver(float &mutant, const float *speed_src, float scale,
+         const DriverOptions &options = {})
+      : PausableParamAnimationBase(1, true, options.paused), mutant(mutant),
+        speed(0.0f), wrap(options.wrap), speed_src(speed_src), scale(scale) {
     HS_CHECK(speed_src != nullptr, "Driver: live speed_src is null");
     HS_CHECK(std::isfinite(scale), "Driver: live speed scale must be finite");
     // On a non-finite initial read keep the 0.0f seed.
@@ -301,6 +304,11 @@ public:
     if (std::isfinite(s))
       speed = s;
   }
+
+  /// A live speed source requires a numeric scale.
+  template <typename Scale>
+    requires std::is_same_v<Scale, bool>
+  Driver(float &, const float *, Scale, const DriverOptions & = {}) = delete;
 
   /**
    * @brief Adds one unpaused frame's worth of speed to the mutant.
