@@ -43,7 +43,7 @@ struct Appearance {
    * @param t Ray distance.
    * @return Opacity in [0, 1].
    */
-  __attribute__((always_inline)) float opacity(float t) const {
+  HS_HOT_INLINE float opacity(float t) const {
     const float fog = fmaxf(0.0f, 1.0f - t * inv_far);
     return fog * fog * math::cubic_kernel((t - near_start) * near_inv_span);
   }
@@ -60,7 +60,7 @@ struct Appearance {
    * @param t Ray distance.
    * @return Palette color scaled by gain and nearness.
    */
-  __attribute__((always_inline)) Pixel color(float t) const {
+  HS_HOT_INLINE Pixel color(float t) const {
     const float nearness = 1 - t * inv_far;
     return palette->get_color_unit(nearness) * depth_gain(nearness);
   }
@@ -72,9 +72,8 @@ struct Appearance {
    * @param coverage Layer coverage in [0, 1].
    * @param brightness Surface color multiplier; leaves opacity unchanged.
    */
-  __attribute__((always_inline)) void composite(LayerComposite &layers, float t,
-                                                float coverage,
-                                                float brightness = 1.0f) const {
+  HS_HOT_INLINE void composite(LayerComposite &layers, float t, float coverage,
+                               float brightness = 1.0f) const {
     const float nearness = 1 - t * inv_far;
     float rgb[3];
     palette->get_color_unit_scaled(nearness, depth_gain(nearness) * brightness,
@@ -121,7 +120,7 @@ public:
    *  @param t Ray distance.
    *  @param coverage Positive crossing coverage.
    *  @pre count is below CAPACITY. */
-  __attribute__((always_inline)) void insert(float t, float coverage) {
+  HS_HOT_INLINE void insert(float t, float coverage) {
     int slot = count++;
     for (; slot > 0 && distances[slot - 1] > t; --slot) {
       distances[slot] = distances[slot - 1];
@@ -138,8 +137,8 @@ public:
    *  @param limits Layer budget.
    *  @return Composite in the caller's result representation. */
   template <bool LIMIT_LAYERS = true, typename Result = LayerComposite>
-  __attribute__((always_inline)) Result composite(
-      const Appearance &appearance, const TraceLimits &limits = {}) const {
+  HS_HOT_INLINE Result composite(const Appearance &appearance,
+                                 const TraceLimits &limits = {}) const {
     constexpr float RELATIVE_TOLERANCE = MERGE_RELATIVE_TOLERANCE;
     Result result;
     LayerComposite layers;
@@ -191,17 +190,16 @@ struct ShadedTrace {
  * @return Composited colour and the trace result; stops once saturated.
  */
 template <typename Adapter>
-__attribute__((always_inline)) inline ShadedTrace
+HS_HOT_INLINE inline ShadedTrace
 shade_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
              const Appearance &appearance) {
   LayerComposite composite;
-  auto trace =
-      trace_events(adapter, interval, limits,
-                   [&](const Contribution &hit) __attribute__((always_inline)) {
-                     HS_PROFILE_DEEP(hl_layer_composite);
-                     appearance.composite(composite, hit.t, hit.coverage);
-                     return !composite.saturated();
-                   });
+  auto trace = trace_events(
+      adapter, interval, limits, [&](const Contribution &hit) HS_HOT_INLINE {
+        HS_PROFILE_DEEP(hl_layer_composite);
+        appearance.composite(composite, hit.t, hit.coverage);
+        return !composite.saturated();
+      });
   return {composite.finish(), trace};
 }
 

@@ -42,7 +42,7 @@ HS_HOT_INLINE inline float merge_window_end(float t, float tolerance) {
  * @return Completion status and work counters.
  */
 template <typename Adapter, typename Consume>
-__attribute__((always_inline)) inline TraceResult
+HS_HOT_INLINE inline TraceResult
 trace_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
              Consume consume,
              float relative_tolerance = MERGE_RELATIVE_TOLERANCE) {
@@ -63,7 +63,7 @@ trace_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
   std::array<Contribution, CAPACITY> group;
   size_t grouped = 0;
   float group_end = 0;
-  const auto flush = [&]() __attribute__((always_inline)) {
+  const auto flush = [&]() HS_HOT_INLINE {
     for (size_t i = 0; i < grouped; ++i) {
       if (result.counters.layers >= limits.max_layers) {
         if (result.status != TraceStatus::INVALID_QUERY)

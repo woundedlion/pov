@@ -26,7 +26,7 @@ inline constexpr float MIN_STEP = 1e-5f;
  * @param step Advances one step; false stops early.
  */
 template <typename Step>
-__attribute__((always_inline)) inline void march_steps(int limit, Step &&step) {
+HS_HOT_INLINE inline void march_steps(int limit, Step &&step) {
   for (int i = 0; i < limit; ++i)
     if (!step())
       break;
@@ -39,7 +39,7 @@ __attribute__((always_inline)) inline void march_steps(int limit, Step &&step) {
  * @param step Step length along `direction`.
  * @return `p + direction * step`.
  */
-__attribute__((always_inline)) inline math::Vector
+HS_HOT_INLINE inline math::Vector
 advance(const math::Vector &p, const math::Vector &direction, float step) {
   return math::Vector(p.x + direction.x * step, p.y + direction.y * step,
                       p.z + direction.z * step);
@@ -51,8 +51,8 @@ advance(const math::Vector &p, const math::Vector &direction, float step) {
  * @param prev_radius Unbounding radius at the previous sample.
  * @param step Distance between the two samples.
  * @return True when the spheres leave a gap. */
-__attribute__((always_inline)) inline bool
-spheres_disjoint(float radius, float prev_radius, float step) {
+HS_HOT_INLINE inline bool spheres_disjoint(float radius, float prev_radius,
+                                           float step) {
   return radius + prev_radius < step;
 }
 
@@ -75,7 +75,7 @@ HS_O3_BEGIN
  * @return Signed distance at the closest sampled approach.
  */
 template <typename Shape>
-__attribute__((always_inline)) inline float
+HS_HOT_INLINE inline float
 closest_approach(const Shape &shape, const math::Vector &origin,
                  const math::Vector &direction, float end_t, int max_steps,
                  float aa_width, math::Vector &closest_local,
@@ -127,7 +127,7 @@ HS_O3_END
  * @param value Value to test.
  * @return True for finite value >= 0.
  */
-__attribute__((always_inline)) inline bool finite_nonnegative(float value) {
+HS_HOT_INLINE inline bool finite_nonnegative(float value) {
   return finite(value) && value >= 0.0f;
 }
 
@@ -145,8 +145,7 @@ inline bool valid_sample(const QuerySample &sample) {
  * @param footprint Footprint to test.
  * @return True for a usable footprint.
  */
-__attribute__((always_inline)) inline bool
-valid_footprint(const Footprint &footprint) {
+HS_HOT_INLINE inline bool valid_footprint(const Footprint &footprint) {
   return finite_nonnegative(footprint.angular_radius) &&
          finite_nonnegative(footprint.radial_start);
 }
@@ -156,7 +155,7 @@ valid_footprint(const Footprint &footprint) {
  * @param limits Trace limits carrying the tolerance.
  * @param guarantees Query error guarantees.
  * @return True when the tolerance is verifiable. */
-__attribute__((always_inline)) inline bool
+HS_HOT_INLINE inline bool
 tolerance_verifiable(const TraceLimits &limits,
                      const QueryCapabilities &guarantees) {
   return finite(limits.position_tolerance) &&
@@ -170,8 +169,8 @@ tolerance_verifiable(const TraceLimits &limits,
  * @param guarantees Query capability guarantees.
  * @param inside True for a start inside the boundary.
  * @return True when tracing from that side is supported. */
-__attribute__((always_inline)) inline bool
-can_start(const QueryCapabilities &guarantees, bool inside) {
+HS_HOT_INLINE inline bool can_start(const QueryCapabilities &guarantees,
+                                    bool inside) {
   return (inside ? guarantees.interior_clearance
                  : guarantees.exterior_clearance) &&
          guarantees.surface_verification;
@@ -214,20 +213,19 @@ HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,
   bool sample_ready = false;
   bool first = true;
   bool inside = false;
-  auto stop = [&](TraceStatus status) __attribute__((always_inline)) {
+  auto stop = [&](TraceStatus status) HS_HOT_INLINE {
     result.status = status;
     return false;
   };
-  auto emit = [&](float position, const QuerySample &hit)
-                  __attribute__((always_inline)) {
-                    result.has_surface = true;
-                    result.counters.layers = 1;
-                    result.contribution.t = position;
-                    result.contribution.material = hit.material;
-                    result.contribution.feature = hit.feature;
-                    result.contribution.verified = true;
-                    return stop(TraceStatus::SURFACE);
-                  };
+  auto emit = [&](float position, const QuerySample &hit) HS_HOT_INLINE {
+    result.has_surface = true;
+    result.counters.layers = 1;
+    result.contribution.t = position;
+    result.contribution.material = hit.material;
+    result.contribution.feature = hit.feature;
+    result.contribution.verified = true;
+    return stop(TraceStatus::SURFACE);
+  };
   auto evaluate = [&](float position, QuerySample &out) HS_HOT_FLASH_MEMBER {
     if (result.counters.queries >= limits.max_queries)
       return stop(TraceStatus::BUDGET_EXHAUSTED);
@@ -237,7 +235,7 @@ HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,
       return stop(TraceStatus::INVALID_QUERY);
     return true;
   };
-  auto keeps_start_side = [&]() __attribute__((always_inline)) {
+  auto keeps_start_side = [&]() HS_HOT_INLINE {
     const bool SAMPLE_INSIDE = sample.field < 0.0f;
     if (first) {
       first = false;
@@ -251,7 +249,7 @@ HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,
     return true;
   };
   // Only this tolerance-sized interval may contain uncleared roots.
-  auto refine = [&]() __attribute__((always_inline)) {
+  auto refine = [&]() HS_HOT_INLINE {
     if (result.counters.refinements >= limits.max_refinements)
       return stop(TraceStatus::UNRESOLVED);
     const float PROBE_T =
@@ -269,14 +267,14 @@ HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,
     sample_ready = true;
     return true;
   };
-  auto sphere_step = [&](float clearance) __attribute__((always_inline)) {
+  auto sphere_step = [&](float clearance) HS_HOT_INLINE {
     const float NEXT_T = t + clearance * STEP_SAFETY;
     if (!(NEXT_T > t) || NEXT_T > ray.interval.far)
       return stop(TraceStatus::UNRESOLVED);
     t = NEXT_T;
     return true;
   };
-  march_steps(limits.max_steps, [&]() __attribute__((always_inline)) {
+  march_steps(limits.max_steps, [&]() HS_HOT_INLINE {
     if (!sample_ready && !evaluate(t, sample))
       return false;
     sample_ready = false;
