@@ -32,6 +32,7 @@ class UploadDispatchTests(unittest.TestCase):
             return subprocess.run([
                 "bash", "-c", '. "$1/device_lock.sh"; . "$1/teensy_flash.sh"; '
                 'fake_python() { if [ "$2" = --resolve ]; then return "$FIXTURE_AVAILABLE"; fi; '
+                'if [ "$2" = --verify-claim ]; then return 0; fi; '
                 'printf "%s\\n" "$@"; return "$FIXTURE_UPLOAD_RESULT"; }; '
                 '_hs_resolve_python() { _HS_LOCK_PYTHON=fake_python; }; '
                 'hs_native_path() { printf "%s\\n" "$1"; }; '

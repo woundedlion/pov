@@ -12,10 +12,14 @@ LOCK_SH = FLASH.parent / "device_lock.sh"
 
 
 class TeensyFlashTests(unittest.TestCase):
-    def flash(self, port="COM4", token="owned", absent_calls=(), **lock_env):
+    def flash(self, port="COM4", token="owned", absent_calls=(),
+              replace_on_wait=False, **lock_env):
         """Flash with a stub loader that omits COM4 on the 1-based absent_calls."""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
+            claim = root / "claim"
+            claim.mkdir()
+            (claim / "info").write_text(f"token={token}\nport={port}\n", encoding="utf-8")
             calls = (root / "calls").as_posix()
             absent = " ".join(map(str, absent_calls))
             for name, body in {
@@ -36,10 +40,16 @@ class TeensyFlashTests(unittest.TestCase):
                 env.pop("HS_TEENSY_PORT", None)
             return subprocess.run(
                 ["bash", "-c",
-                 'set -u; . "$3"; . "$1"; _HS_TOKEN=$2; cygpath() { echo "$2"; }; '
-                 's=0; sleep() { s=$((s + 1)); }; '
+                 'set -u; . "$3"; . "$1"; _HS_TOKEN=$2; _HS_LOCK_DIR=$4; '
+                 'cygpath() { echo "$2"; }; hs_native_path() { printf "%s\n" "$1"; }; '
+                 'replace_on_wait=$5; '
+                 's=0; sleep() { s=$((s + 1)); '
+                 'if [ "$replace_on_wait" = yes ]; then '
+                 'printf "token=replaced\nport=%s\n" "$HS_TEENSY_PORT" > "$_HS_LOCK_DIR/info"; '
+                 'fi; }; '
                  'hs_teensy_flash cache/entry; rc=$?; echo "SLEEPS=$s" >&2; exit "$rc"',
-                 "test", FLASH.as_posix(), token, LOCK_SH.as_posix()],
+                 "test", FLASH.as_posix(), token, LOCK_SH.as_posix(), claim.as_posix(),
+                 "yes" if replace_on_wait else "no"],
                 env=env, capture_output=True, text=True, encoding="utf-8",
             )
 
@@ -84,6 +94,12 @@ class TeensyFlashTests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("no Teensy at COM4", result.stderr)
         self.assertIn("SLEEPS=0", result.stderr)
+
+    def test_replaced_claim_refuses_vendor_upload(self):
+        result = self.flash(absent_calls=(1,), replace_on_wait=True, HS_DEVICE_WAIT="20")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("device claim no longer owns the requested port", result.stderr)
 
     def test_waiting_flash_gives_up_after_the_absent_grace(self):
         result = self.flash(absent_calls=range(1, 100), HS_DEVICE_WAIT="3600",

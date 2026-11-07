@@ -154,7 +154,9 @@ def upload(firmware: Path, port: str, directory: Path, token: str,
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("firmware", type=Path, nargs="?")
-    parser.add_argument("--resolve", action="store_true", help="verify and print tycmd; no device access")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--resolve", action="store_true", help="verify and print tycmd; no device access")
+    mode.add_argument("--verify-claim", action="store_true", help="verify the port claim; no device access")
     parser.add_argument("--port")
     parser.add_argument("--lock-dir", type=Path)
     parser.add_argument("--lock-token")
@@ -171,13 +173,18 @@ def main(argv: list[str] | None = None) -> int:
             print(f"upload: {error}", file=sys.stderr)
             return 1
         return 0
-    if args.firmware is None or not args.port or args.lock_dir is None or not args.lock_token:
-        parser.error("upload requires firmware, --port, --lock-dir and --lock-token")
+    if not args.port or args.lock_dir is None or not args.lock_token:
+        parser.error("--port, --lock-dir and --lock-token are required")
+    if args.firmware is None and not args.verify_claim:
+        parser.error("upload requires firmware")
     if not 0 <= args.absent_seconds <= 3600 or not 1 <= args.timeout <= 300:
         parser.error("absent-seconds must be 0..3600 and timeout 1..300")
     try:
-        upload(args.firmware, args.port, args.lock_dir, args.lock_token,
-               args.absent_seconds, args.timeout)
+        if args.verify_claim:
+            verify_lock(args.lock_dir, args.lock_token, args.port)
+        else:
+            upload(args.firmware, args.port, args.lock_dir, args.lock_token,
+                   args.absent_seconds, args.timeout)
     except (UploadError, OSError) as error:
         print(f"upload: {error}", file=sys.stderr)
         return 1
