@@ -37,7 +37,7 @@ template <int H> static inline float y_to_screen_row(float y) {
  * (no axis) keeps the endpoint rows.
  */
 template <int H>
-static __attribute__((always_inline)) inline void
+static HS_HOT_INLINE inline void
 geodesic_row_span_rows(float ra, float rb, const math::Vector &a,
                        const math::Vector &b, const GeodesicEdgeSpan &es,
                        float &row_lo, float &row_hi) {
@@ -115,8 +115,8 @@ static inline void planar_row_span(const math::Vector &a, const math::Vector &b,
  * @param col_len Output: arc length in columns (may reach W = full width).
  */
 template <int W>
-static __attribute__((always_inline)) inline void
-pad_col_span(float start, float length, int &lo, int &col_len) {
+static HS_HOT_INLINE inline void pad_col_span(float start, float length,
+                                              int &lo, int &col_len) {
   lo = static_cast<int>(floorf(start)) - COL_PAD;
   const int hi = static_cast<int>(ceilf(start + length)) + COL_PAD;
   col_len = std::min(hi - lo + 1, W);
@@ -131,8 +131,8 @@ pad_col_span(float start, float length, int &lo, int &col_len) {
  * @param col_len Output: arc length in columns (may reach W = full width).
  */
 template <int W>
-static __attribute__((always_inline)) inline void
-finish_col_span(float s_f, float len_f, int &col_s, int &col_len) {
+static HS_HOT_INLINE inline void finish_col_span(float s_f, float len_f,
+                                                 int &col_s, int &col_len) {
   int lo;
   pad_col_span<W>(s_f, len_f, lo, col_len);
   col_s = math::wrap(lo, W);
@@ -163,8 +163,7 @@ static inline void finish_col_span_one_period(float start, float length,
  * @details `d + W` can round up to exactly W for a tiny negative d; the upper
  * guard folds that back to 0, as wrap's own half-open guard does.
  */
-template <int W>
-static __attribute__((always_inline)) inline float wrap_one_period(float d) {
+template <int W> static HS_HOT_INLINE inline float wrap_one_period(float d) {
   assert(d > -W && d < W);
   if (d < 0.0f)
     d += W;
@@ -433,7 +432,7 @@ static inline int geodesic_clip_splits(const math::Vector &a,
  * @return True if the rendered edge could produce a pixel inside the clip.
  */
 template <int W, int H, typename ColSpanFn>
-static __attribute__((always_inline)) inline bool
+static HS_HOT_INLINE inline bool
 exact_geodesic_edge_visible(const ClipRegion &cr, const ClipRegion::XClip &xc,
                             float ra, float rb, const math::Vector &a,
                             const math::Vector &b, const GeodesicEdgeSpan &es,
@@ -466,13 +465,10 @@ exact_geodesic_edge_visible(const ClipRegion &cr, const ClipRegion::XClip &xc,
  * @return True if the rendered edge could produce a pixel inside the clip.
  */
 template <int W, int H>
-static __attribute__((always_inline)) inline bool
-exact_geodesic_edge_visible_hoisted(const ClipRegion &cr,
-                                    const ClipRegion::XClip &xc,
-                                    const float *rows, const float *cols,
-                                    size_t e, const math::Vector &a,
-                                    const math::Vector &b,
-                                    const GeodesicEdgeSpan &es) {
+static HS_HOT_INLINE inline bool exact_geodesic_edge_visible_hoisted(
+    const ClipRegion &cr, const ClipRegion::XClip &xc, const float *rows,
+    const float *cols, size_t e, const math::Vector &a, const math::Vector &b,
+    const GeodesicEdgeSpan &es) {
   return exact_geodesic_edge_visible<W, H>(
       cr, xc, rows[e], rows[e + 1], a, b, es, [&](int &col_s, int &col_len) {
         return geodesic_col_span_cols<W>(cols[e], cols[e + 1], a, es, col_s,
@@ -677,7 +673,7 @@ static inline bool planar_edge_visible_in_clip(
  * @param x Positive input.
  * @return Approximate 1/sqrt(x).
  */
-static __attribute__((always_inline)) inline float screen_rsqrt(float x) {
+static HS_HOT_INLINE inline float screen_rsqrt(float x) {
   uint32_t bits;
   std::memcpy(&bits, &x, sizeof(bits));
   bits = 0x5f37642fu - (bits >> 1);

@@ -193,8 +193,7 @@ struct PlanarEdgeSampler {
    * @param p Projection fraction.
    * @return Position, and unit tangent or zero when `WithTangent`.
    */
-  template <bool WithTangent>
-  __attribute__((always_inline)) SamplePT sample_at(float p) const {
+  template <bool WithTangent> HS_HOT_INLINE SamplePT sample_at(float p) const {
     const float x = proj1.first + dx * p;
     const float y = proj1.second + dy * p;
     const float r2 = x * x + y * y;
@@ -450,7 +449,7 @@ inline uint32_t g_geodesic_edge_span_builds = 0;
  * @param b Edge end (unit sphere point).
  * @return The edge's span setup.
  */
-static __attribute__((always_inline)) inline GeodesicEdgeSpan
+static HS_HOT_INLINE inline GeodesicEdgeSpan
 make_geodesic_edge_span(const math::Vector &a, const math::Vector &b) {
 #if HS_ENABLE_TEST_ORACLES
   ++g_geodesic_edge_span_builds;

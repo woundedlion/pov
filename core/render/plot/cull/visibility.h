@@ -114,8 +114,8 @@ struct ScreenStepAxes {
  * @return The step pipeline_screen_step would return for @p sample.
  */
 template <int W, int H>
-__attribute__((always_inline)) inline float
-screen_step_from_axes(const SamplePT &sample, const ScreenStepAxes &axes) {
+HS_HOT_INLINE inline float screen_step_from_axes(const SamplePT &sample,
+                                                 const ScreenStepAxes &axes) {
   constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   if (math::dot(sample.tan, sample.tan) < math::EPS_NORMALIZE_SQ)
     return BASE_STEP;
@@ -390,9 +390,9 @@ inline CapCenter make_cap_center(const ClipRegion &cr,
  * @return False for disjoint rows, otherwise the column callback result.
  */
 template <int H, typename ColumnTest>
-__attribute__((always_inline)) inline bool
-cap_may_touch_clip_rows(const ClipRegion &cr, float beta, float half_angle,
-                        ColumnTest &&columns) {
+HS_HOT_INLINE inline bool cap_may_touch_clip_rows(const ClipRegion &cr,
+                                                  float beta, float half_angle,
+                                                  ColumnTest &&columns) {
   const float t2 = fminf(half_angle, math::PI_F);
   const float phi_lo = fmaxf(beta - t2 - CAP_ACOS_PAD, 0.0f);
   const float phi_hi = fminf(beta + t2 + CAP_ACOS_PAD, math::PI_F);
@@ -525,9 +525,9 @@ template <int CHUNKS> constexpr int chunk_end(int c, int lut_n) {
  * at 0, so the spans tile [0, lut_n). A span is empty when lut_n < CHUNKS.
  */
 template <int CHUNKS, typename OnVisible, typename OnHidden>
-__attribute__((always_inline)) inline void
-for_each_chunk_span(int lut_n, uint32_t mask, OnVisible &&on_visible,
-                    OnHidden &&on_hidden) {
+HS_HOT_INLINE inline void for_each_chunk_span(int lut_n, uint32_t mask,
+                                              OnVisible &&on_visible,
+                                              OnHidden &&on_hidden) {
   static_assert(CHUNKS > 0 && CHUNKS <= 32);
   int begin = 0;
   for (int c = 0; c < CHUNKS; ++c) {
@@ -562,7 +562,7 @@ for_each_chunk_span(int lut_n, uint32_t mask, OnVisible &&on_visible,
  * The minimum one-chunk pad covers the rounded column overhang.
  */
 template <int CHUNKS, typename CapTest>
-__attribute__((always_inline)) inline uint32_t
+HS_HOT_INLINE inline uint32_t
 chunk_mask_where(CapTest &&reaches, const math::Basis &basis, float theta,
                  float cos_t, float sin_t, float band_r, float thickness,
                  const float *chunk_cos, const float *chunk_sin) {
@@ -616,16 +616,15 @@ chunk_mask_where(CapTest &&reaches, const math::Basis &basis, float theta,
  * @return chunk_mask_where() with cap_may_touch_clip() as the test.
  */
 template <int H, int CHUNKS>
-__attribute__((always_inline)) inline uint32_t
+HS_HOT_INLINE inline uint32_t
 visible_chunk_mask(const ClipRegion &clip, const math::Basis &basis,
                    float theta, float cos_t, float sin_t, float band_r,
                    float thickness, const float *chunk_cos,
                    const float *chunk_sin) {
   return chunk_mask_where<CHUNKS>(
-      [&](const math::Vector &mid, float reach, float sin_reach)
-          __attribute__((always_inline)) {
-            return cap_may_touch_clip<H>(clip, mid, reach, sin_reach);
-          },
+      [&](const math::Vector &mid, float reach, float sin_reach) HS_HOT_INLINE {
+        return cap_may_touch_clip<H>(clip, mid, reach, sin_reach);
+      },
       basis, theta, cos_t, sin_t, band_r, thickness, chunk_cos, chunk_sin);
 }
 
@@ -644,7 +643,7 @@ visible_chunk_mask(const ClipRegion &clip, const math::Basis &basis,
  * of slack as cap_may_touch_clip() takes. Rows are not tested.
  */
 template <int W>
-__attribute__((always_inline)) inline bool
+HS_HOT_INLINE inline bool
 cap_may_touch_window(const Spacetime::TimeWindow &window,
                      const math::Vector &dir, float half_angle,
                      float sin_half_angle) {
@@ -885,7 +884,7 @@ struct TrailGatePrologue {
  * unwinds, so a caller may keep them alive past the gate.
  */
 template <int W, int H>
-static __attribute__((always_inline)) inline TrailGatePrologue
+static HS_HOT_INLINE inline TrailGatePrologue
 trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
                     const Fragments &trail) {
   const size_t n = trail.size();
