@@ -42,8 +42,8 @@ import zipfile
 
 import check as netlist_spec
 import sexp
-from connectivity import footprint_reference
-from constraints import (DEFAULT_CLASS_MINIMUMS, is_hand_assembled,
+from connectivity import copper_layers, footprint_reference, zone_layers
+from constraints import (DEFAULT_CLASS_MINIMUMS, GROUND_PLANE_LAYERS, is_hand_assembled,
                          MIN_SOLDER_MASK_WEB_MM,
                          MIN_THERMAL_GAP_MM, MIN_THERMAL_SPOKE_MM,
                          MIN_VIA_TO_VIA_COPPER_SPACING_MM, RULE_MINIMUMS,
@@ -502,7 +502,7 @@ ZONE_FEATURE_MINIMUMS = {
 # Floors on what a routed board holds: the committed board's via count and
 # its In1/In2 reference planes.
 MIN_BOARD_VIAS = 99
-MIN_COPPER_POURS = 2
+MIN_COPPER_POURS = len(GROUND_PLANE_LAYERS)
 
 # Parity items KiCad reports on a board that IS in sync with the schematic:
 # the mounting holes have no symbol.
@@ -1167,8 +1167,9 @@ def validate_via_geometry(pcb_path, min_vias=MIN_BOARD_VIAS, board=None):
     return len(vias)
 
 
-def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None):
-    """Gate copper-pour pad connection and fill features.
+def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None,
+                           *, plane_layers=GROUND_PLANE_LAYERS):
+    """Gate required plane coverage, copper-pour pad connections and fill features.
 
     KiCad DRC never flags these: thermal reliefs are same-net geometry. A
     sub-process gap fabricates as a solid pour, defeating the reliefs R-ASM-6
@@ -1185,6 +1186,16 @@ def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None):
         diagnostics.append(
             f"board lists {len(zones)} copper pours, fewer than the "
             f"{min_pours} reference planes the design pours")
+    if plane_layers:
+        try:
+            stack = copper_layers(root) if zones else ()
+            poured = {layer for zone in zones for layer in zone_layers(zone, stack)}
+        except ValueError as exc:
+            diagnostics.append(str(exc))
+        else:
+            for layer in plane_layers:
+                if layer not in poured:
+                    diagnostics.append(f"required plane {layer} has no copper pour")
     for index, zone in enumerate(zones, 1):
         name = sexp.val(zone, "name", [])
         label = name[0] if name else f"index {index}"

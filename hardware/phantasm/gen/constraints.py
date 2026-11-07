@@ -12,6 +12,8 @@ ZONE_DEFAULTS = {
     "thermal_bridge_width": 0.5,
 }
 
+GROUND_PLANE_LAYERS = ("In1.Cu", "In2.Cu")
+
 RULE_MINIMUMS = {
     "min_clearance": 0.1016,
     "min_copper_edge_clearance": 0.3,

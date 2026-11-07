@@ -25,7 +25,8 @@ ROUTING = '''(footprint "Test" (at 1 2 90) (property "Reference" "J1")
     (pad "1" thru_hole circle (at 0 0) (size 2 2) (drill 1) (net "GND")))
   (segment (start 0 0) (end 10 0) (width 0.3) (layer "F.Cu") (net "GND"))
   (via (at 5 0) (size 0.6) (drill 0.3) (layers "F.Cu" "B.Cu") (net "GND"))'''
-BOARD = '(kicad_pcb\n  ' + ROUTING + '\n  ' + ZONE + '\n  ' + \
+STACK = '(layers (0 "F.Cu" signal) (2 "In1.Cu" power) (4 "In2.Cu" power) (31 "B.Cu" signal))'
+BOARD = '(kicad_pcb\n  ' + STACK + '\n  ' + ROUTING + '\n  ' + ZONE + '\n  ' + \
     ZONE.replace('In1.Cu', 'In2.Cu') + '\n  ' + KEEPOUT + '\n)\n'
 
 
@@ -53,7 +54,7 @@ class HealZoneTests(unittest.TestCase):
     def test_preserves_larger_features_and_invalidates_all_fill_caches(self):
         safe = ZONE.replace("0.0254", "0.8").replace(
             "(thermal_bridge_width 0.2)", "(thermal_bridge_width 0.8)")
-        source = '(kicad_pcb ' + ZONE + safe + ')'
+        source = '(kicad_pcb ' + STACK + ZONE + safe.replace("In1.Cu", "In2.Cu") + ')'
         repaired, count = heal_zones.heal_zones(source)
         self.assertEqual(count, 1)
         self.assertNotIn("filled_polygon", repaired)

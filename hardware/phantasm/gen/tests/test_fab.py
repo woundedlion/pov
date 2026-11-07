@@ -213,7 +213,7 @@ class ZoneGeometryTests(unittest.TestCase):
                 f'(min_thickness {min_thickness}) '
                 + fill.format(gap=thermal_gap, bridge=bridge_width) + ")" + footprint + ")",
                 encoding="utf-8")
-            return fab.validate_zone_geometry(pcb, min_pours=1)
+            return fab.validate_zone_geometry(pcb, min_pours=1, plane_layers=())
 
     def test_accepts_zone_feature_minimums(self):
         self.assertEqual(self.validate("0.13", "0.3"), 1)
@@ -255,7 +255,8 @@ class ZoneGeometryTests(unittest.TestCase):
                             f'(pad "1" thru_hole circle {pad_net} '
                             f'{"(zone_connect " + pad_mode + ")" if pad_mode else ""}))'))
                         with self.assertRaisesRegex(fab.ZoneGeometryError, "zone_connect 2"):
-                            fab.validate_zone_geometry("fixture", min_pours=1, board=root)
+                            fab.validate_zone_geometry("fixture", min_pours=1, board=root,
+                                                       plane_layers=())
 
     def test_rejects_thin_pour_sliver(self):
         with self.assertRaisesRegex(
@@ -324,7 +325,7 @@ class ZoneGeometryTests(unittest.TestCase):
                 f'(kicad_pcb (zone {net_node}(name "H1 screw head") '
                 '(min_thickness 0.0254) (keepout (tracks not_allowed))))',
                 encoding="utf-8")
-            return fab.validate_zone_geometry(pcb, min_pours=0)
+            return fab.validate_zone_geometry(pcb, min_pours=0, plane_layers=())
 
     def test_ignores_keepout_zones(self):
         self.assertEqual(self.keepout_count(""), 0)
@@ -344,6 +345,18 @@ class ZoneGeometryTests(unittest.TestCase):
     def test_committed_board_pours_the_reference_planes(self):
         self.assertEqual(fab.validate_zone_geometry(fab.PCB),
                          fab.MIN_COPPER_POURS)
+
+    def test_duplicate_and_outer_pours_do_not_replace_inner_planes(self):
+        stack = '(layers (0 "F.Cu" signal) (2 "In1.Cu" power) (4 "In2.Cu" power) (31 "B.Cu" signal))'
+        zone = ('(zone (net "GND") (layer "{layer}") (min_thickness 0.25) '
+                '(fill yes (thermal_gap 0.5) (thermal_bridge_width 0.5)))')
+        for first, second in (("In1.Cu", "In1.Cu"), ("F.Cu", "B.Cu")):
+            with self.subTest(first=first, second=second):
+                board = sexp.parse_one(
+                    f'(kicad_pcb {stack} {zone.format(layer=first)} {zone.format(layer=second)})')
+                with self.assertRaisesRegex(fab.ZoneGeometryError,
+                                            r"required plane In2\.Cu has no copper pour"):
+                    fab.validate_zone_geometry("fixture", board=board)
 
 
 class PlotOriginTests(unittest.TestCase):

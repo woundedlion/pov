@@ -23,7 +23,8 @@ import builder
 import check
 import connectivity
 import sexp
-from constraints import (ZONE_DEFAULTS, UNPLACED_RULES, is_hand_assembled, MAX_BOARD_WIDTH_MM,
+from constraints import (GROUND_PLANE_LAYERS, ZONE_DEFAULTS, UNPLACED_RULES,
+                         is_hand_assembled, MAX_BOARD_WIDTH_MM,
                          MIN_SOLDER_MASK_WEB_MM, NEW_LAYOUT_RULES)
 from kicad_common import atomic_write_text, property_value
 from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
@@ -86,7 +87,6 @@ TECHNICAL_LAYERS = ((9, "F.Adhes", "user"), (11, "B.Adhes", "user"),
                     (31, "F.CrtYd", "user"), (29, "B.CrtYd", "user"),
                     (35, "F.Fab", "user"), (33, "B.Fab", "user"))
 GROUND_NET = "GND"
-GROUND_PLANE_LAYERS = ("In1.Cu", "In2.Cu")
 LAYER_NAMES = {"In1.Cu": "GND", "In2.Cu": "Ground"}
 
 # JLC04161H-7628, 1.6 mm, 1 oz outer / 0.5 oz inner copper, ENIG.
