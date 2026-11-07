@@ -42,6 +42,13 @@ class EnvdumpTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, b"header\xff\r\n  'ENV': {},\r\n")
 
+    def test_cli_accepts_non_utf8_bytes_inside_environment(self):
+        result = subprocess.run([sys.executable, str(TOOLS / "profile_envdump.py")],
+                                input=b"  'ENV': {'P': 'caf\xe9'},\n",
+                                capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, b"  'ENV': {},\n")
+
     def test_cli_failure_emits_no_capture_or_environment(self):
         result = subprocess.run([sys.executable, str(TOOLS / "profile_envdump.py")],
                                 input=b"  'ENV': {'TOKEN': 'secret", capture_output=True)

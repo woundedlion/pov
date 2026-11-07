@@ -61,12 +61,12 @@ def sanitize_envdump(text: str) -> str:
 
 def main() -> int:
     try:
-        text = sys.stdin.buffer.read().decode("utf-8", errors="surrogateescape")
+        text = sys.stdin.buffer.read().decode("latin-1")
         sanitized = sanitize_envdump(text)
     except ValueError as exc:
         print(f"profile envdump: {exc}", file=sys.stderr)
         return 1
-    sys.stdout.buffer.write(sanitized.encode("utf-8", errors="surrogateescape"))
+    sys.stdout.buffer.write(sanitized.encode("latin-1"))
     return 0
 
 
