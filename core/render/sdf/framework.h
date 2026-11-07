@@ -92,8 +92,7 @@ struct TriangularFramework {
     return Raycast::finite(cell_size) && cell_size > 0.0f &&
            Raycast::finite(layer_height) && layer_height > 0.0f &&
            Raycast::finite(wire_radius) && wire_radius > 0.0f &&
-           Raycast::finite(origin.x) && Raycast::finite(origin.y) &&
-           Raycast::finite(origin.z);
+           Raycast::finite(origin);
   }
 
   /** @brief Three XY edge-line families and the Z layer planes.

@@ -26,8 +26,7 @@ template <PeriodicSurfaceKind Kind> struct PeriodicSurface {
    *  @return Whether the surface can be traced. */
   bool valid() const {
     return Raycast::finite(period) && period > 0.0f && Raycast::finite(iso) &&
-           Raycast::finite(origin.x) && Raycast::finite(origin.y) &&
-           Raycast::finite(origin.z) && Raycast::finite(lipschitz());
+           Raycast::finite(origin) && Raycast::finite(lipschitz());
   }
 
   /** @brief Bound on the field gradient magnitude.
