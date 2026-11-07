@@ -457,7 +457,7 @@ class PendingCapture(unittest.TestCase):
                          "--trail", str(self.trail), "--repo", str(self.dir)])
 
     def test_a_failed_stamp_keeps_the_capture_for_a_retry(self):
-        self.pending.write_text(json.dumps({"envs": {"phantasm": {"itcm": 1}}}),
+        self.pending.write_text(json.dumps({"tree": "built", "envs": {"phantasm": {"itcm": 1}}}),
                                 encoding="utf-8")
         with mock.patch.object(tst, "head_stamp",
                                side_effect=tst.GitError("no commit")):
@@ -506,9 +506,14 @@ class PendingCapture(unittest.TestCase):
         self.assertNotEqual(tst.working_tree(self.dir), tree)
 
     def test_an_unusable_capture_is_discarded(self):
-        self.pending.write_text("{not json", encoding="utf-8")
-        self.assertEqual(self.commit(), 1)
-        self.assertFalse(self.pending.exists())
+        for capture in ("{not json", "[]", '{"envs":[],"tree":"tree"}',
+                        '{"envs":{"phantasm":5},"tree":"tree"}',
+                        '{"envs":{"phantasm":{"itcm":null}},"tree":"tree"}',
+                        '{"envs":{},"tree":5}'):
+            with self.subTest(capture=capture):
+                self.pending.write_text(capture, encoding="utf-8")
+                self.assertEqual(self.commit(), 1)
+                self.assertFalse(self.pending.exists())
 
 
 class RecordInputs(unittest.TestCase):

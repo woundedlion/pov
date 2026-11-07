@@ -454,9 +454,16 @@ def cmd_commit(args) -> int:
     trail = Path(args.trail) if args.trail else default_trail()
     try:
         payload = json.loads(pending.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict) or not isinstance(payload.get("envs"), dict):
+            raise ValueError("expected a capture object with an environment map")
+        if not all(isinstance(sizes, dict) for sizes in payload["envs"].values()):
+            raise ValueError("expected a size map for each environment")
+        tree = payload.get("tree")
+        if not isinstance(tree, str) or not tree:
+            raise ValueError("missing capture tree identifier")
         measured = [(env, {r: int(sizes.get(r, 0)) for r in REGIONS})
                     for env, sizes in sorted(payload["envs"].items())]
-    except (OSError, ValueError, KeyError) as exc:
+    except (OSError, ValueError, TypeError) as exc:
         print(f"[size-trail] {pending} is not a usable capture ({exc}); "
               f"discarding it.", file=sys.stderr)
         pending.unlink(missing_ok=True)
@@ -465,8 +472,8 @@ def cmd_commit(args) -> int:
     # retried.
     try:
         sha, date, subject = head_stamp(args.repo, args.rev)
-        if not payload.get("tree") or _git(
-                ["diff-tree", "--no-commit-id", "--name-only", "-r", payload["tree"],
+        if _git(
+                ["diff-tree", "--no-commit-id", "--name-only", "-r", tree,
                  f"{sha}^{{tree}}", "--", *BUILD_INPUTS], args.repo):
             _warn(f"{pending} does not match the committed tree; discarding it.")
             pending.unlink(missing_ok=True)
