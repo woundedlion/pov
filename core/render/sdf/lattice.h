@@ -46,7 +46,6 @@ struct PreparedTrace {
   float aa_scale;
   float outer_radius_base;   ///< Wire radius plus softness, in cells.
   float sphere_radius_world; ///< Ray start offset in world units.
-  Domain mode;               ///< Spatial domain, copied from the settings.
 };
 /**
  * @brief Validates settings and builds the frame's trace state.
@@ -75,8 +74,7 @@ inline PreparedTrace prepare(const Settings &settings, const math::Vec4 &origin,
                        settings.aa_strength * pixel_half_angle * INV_CELL *
                            INV_CELL,
                        settings.wire_radius + settings.softness,
-                       settings.sphere_radius * settings.cell_size,
-                       settings.mode};
+                       settings.sphere_radius * settings.cell_size};
   for (int i = 0; i < DIMENSIONS; ++i)
     for (int j = 0; j < DIMENSIONS; ++j)
       result.world_to_lattice.m[i][j] *= INV_CELL;
@@ -353,7 +351,7 @@ trace_plane(const math::Vec4 &ray_origin, const math::Vec4 &direction,
       return {0.0f, distance, 0};
     metric_sq = metric_4d.distance_sq;
     free_axis = metric_4d.free_axis;
-  } else if (prepared.mode == Domain::SPATIAL_3D) {
+  } else if (prepared.params.mode == Domain::SPATIAL_3D) {
     const EdgeMetric metric_3d =
         edge_metric_3d_at(ray_origin, direction, plane_axis, distance);
     metric_sq = metric_3d.distance_sq;
@@ -415,7 +413,7 @@ template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0> struct Events {
                         : static_cast<uint8_t>(prepared.params.shells) + 1) {
     for (int axis = 0; axis < DIMENSIONS; ++axis) {
       origin[axis] += prepared.sphere_radius_world * direction[axis];
-      if (!SLICE_4D && axis == 3 && prepared.mode == Domain::SPATIAL_3D)
+      if (!SLICE_4D && axis == 3 && prepared.params.mode == Domain::SPATIAL_3D)
         continue;
       auto &cursor = cursors[axis];
       cursor.magnitude = fabsf(direction[axis]);
@@ -503,7 +501,7 @@ composite_crossings(const math::Vector &normal,
   for (int axis = 0; axis < DIMENSIONS; ++axis) {
     origin[axis] += lattice.sphere_radius_world * direction[axis];
     magnitude[axis] =
-        !SLICE_4D && axis == 3 && lattice.mode == Domain::SPATIAL_3D
+        !SLICE_4D && axis == 3 && lattice.params.mode == Domain::SPATIAL_3D
             ? 0.0f
             : fabsf(direction[axis]);
     if (magnitude[axis] >= DIRECTION_EPSILON)
