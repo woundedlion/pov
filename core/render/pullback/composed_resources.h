@@ -7,10 +7,14 @@
 /** @file composed_resources.h
  * @brief Per-key resources for composed pullback stages. */
 
+#include <array>
+#include <cstddef>
+#include <iterator>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <variant>
 
 #include "core/math/noise_field.h"
 #include "core/render/pullback/lens.h"
