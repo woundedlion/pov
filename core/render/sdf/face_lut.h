@@ -46,6 +46,22 @@ struct ClassLut {
   float dequant = 0;    /**< int16 -> plane-unit scale. */
 };
 
+/** @brief Coordinate bounds of a canonical polygon.
+ * @param xy Vertex x/y pairs.
+ * @param count Number of vertices.
+ * @return Minimum x, maximum x, minimum y, maximum y. */
+HS_FLASH_INLINE inline std::array<float, 4>
+canonical_polygon_box(const float *xy, int count) {
+  std::array<float, 4> box{FLT_MAX, -FLT_MAX, FLT_MAX, -FLT_MAX};
+  for (int i = 0; i < count; ++i) {
+    box[0] = std::min(box[0], xy[2 * i]);
+    box[1] = std::max(box[1], xy[2 * i]);
+    box[2] = std::min(box[2], xy[2 * i + 1]);
+    box[3] = std::max(box[3], xy[2 * i + 1]);
+  }
+  return box;
+}
+
 /** @brief Margin-expanded canonical LUT half extents.
  * @param min_x Minimum polygon x-coordinate.
  * @param max_x Maximum polygon x-coordinate.
@@ -76,19 +92,12 @@ inline void build_canonical_distance_lut(const float *poly_xy, int count, int n,
            "build_canonical_distance_lut requires at least 3 polygon vertices");
   HS_CHECK(n >= 2, "build_canonical_distance_lut requires a grid resolution "
                    "of at least 2");
-  float bb_min_x = FLT_MAX, bb_max_x = -FLT_MAX;
-  float bb_min_y = FLT_MAX, bb_max_y = -FLT_MAX;
-  for (int i = 0; i < count; ++i) {
-    float vx = poly_xy[2 * i], vy = poly_xy[2 * i + 1];
-    bb_min_x = std::min(bb_min_x, vx);
-    bb_max_x = std::max(bb_max_x, vx);
-    bb_min_y = std::min(bb_min_y, vy);
-    bb_max_y = std::max(bb_max_y, vy);
-  }
-  lut.cx = (bb_min_x + bb_max_x) * 0.5f;
-  lut.cy = (bb_min_y + bb_max_y) * 0.5f;
+  const auto [MIN_X, MAX_X, MIN_Y, MAX_Y] =
+      canonical_polygon_box(poly_xy, count);
+  lut.cx = (MIN_X + MAX_X) * 0.5f;
+  lut.cy = (MIN_Y + MAX_Y) * 0.5f;
   const auto HALF_EXTENTS =
-      canonical_lut_half_extents(bb_min_x, bb_max_x, bb_min_y, bb_max_y);
+      canonical_lut_half_extents(MIN_X, MAX_X, MIN_Y, MAX_Y);
   lut.half_x = HALF_EXTENTS.first;
   lut.half_y = HALF_EXTENTS.second;
   lut.n = n;

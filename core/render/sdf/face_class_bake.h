@@ -205,8 +205,8 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
         const float c = best_alignment.rr * inv_r,
                     s = best_alignment.ri * inv_r;
         float max_dev_sq = 0.0f;
-        float min_x = FLT_MAX, max_x = -FLT_MAX, min_y = FLT_MAX,
-              max_y = -FLT_MAX;
+        const auto [MIN_X, MAX_X, MIN_Y, MAX_Y] =
+            SDF::canonical_polygon_box(canon, count);
         SDF::align_walk(
             count, best_off, best_refl,
             [&](int j, float &x, float &y) {
@@ -217,13 +217,9 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
               const float cx = canon[2 * k], cy = canon[2 * k + 1];
               const float dx = cx - (c * x - s * y), dy = cy - (s * x + c * y);
               max_dev_sq = std::max(max_dev_sq, dx * dx + dy * dy);
-              min_x = std::min(min_x, cx);
-              max_x = std::max(max_x, cx);
-              min_y = std::min(min_y, cy);
-              max_y = std::max(max_y, cy);
             });
         const auto [HALF_X, HALF_Y] =
-            SDF::canonical_lut_half_extents(min_x, max_x, min_y, max_y);
+            SDF::canonical_lut_half_extents(MIN_X, MAX_X, MIN_Y, MAX_Y);
         // The finest allowed grid has the smallest runtime deviation cap.
         const float step = 2.0f / (CLASS_LUT_MAX_N - 1);
         const float cap_sq = SDF::ALIGN_MAX_DEV_DIAGS *
@@ -303,16 +299,10 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     out.concave_faces += cls.members;
     // Size the grid so the cell diagonal lands on target_diag (the box gains
     // including the canonical LUT margin).
-    float bmin_x = FLT_MAX, bmax_x = -FLT_MAX, bmin_y = FLT_MAX,
-          bmax_y = -FLT_MAX;
-    for (int k = 0; k < cls.n_verts; ++k) {
-      bmin_x = std::min(bmin_x, cls.canon_xy[2 * k]);
-      bmax_x = std::max(bmax_x, cls.canon_xy[2 * k]);
-      bmin_y = std::min(bmin_y, cls.canon_xy[2 * k + 1]);
-      bmax_y = std::max(bmax_y, cls.canon_xy[2 * k + 1]);
-    }
+    const auto [MIN_X, MAX_X, MIN_Y, MAX_Y] =
+        SDF::canonical_polygon_box(cls.canon_xy, cls.n_verts);
     const auto [HALF_X, HALF_Y] =
-        SDF::canonical_lut_half_extents(bmin_x, bmax_x, bmin_y, bmax_y);
+        SDF::canonical_lut_half_extents(MIN_X, MAX_X, MIN_Y, MAX_Y);
     int n = static_cast<int>(hs::clamp(
         ceilf(2.0f * sqrtf(HALF_X * HALF_X + HALF_Y * HALF_Y) / target_diag) +
             1.0f,
