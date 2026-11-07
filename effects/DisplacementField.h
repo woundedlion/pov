@@ -259,7 +259,7 @@ private:
    * @brief Chooses how one ring's bake evaluates its hue rotation.
    * @param lut_n Bake columns for the ring.
    * @param visible Chunk mask from Plot::visible_chunk_mask.
-   * @param hue_extent Signed hue turns the displacement range covers.
+   * @param hue_extent Hue turns the displacement range covers.
    * @return Table sampling mode and domain.
    * @details Culled chunks bake no columns, so the precompute decision
    * amortizes the table over the visible chunks' columns rather than lut_n.
@@ -280,8 +280,8 @@ private:
             HS_HOT_INLINE { visible_samples += end - begin; },
         [](int, int) HS_HOT_INLINE {});
     mode.precompute = visible_samples > 2 * HUE_TABLE_SIZE;
-    mode.cyclic = std::fabs(hue_extent) > 1.0f;
-    mode.domain = mode.cyclic ? std::copysign(1.0f, hue_extent) : hue_extent;
+    mode.cyclic = hue_extent > 1.0f;
+    mode.domain = mode.cyclic ? 1.0f : hue_extent;
 #if HS_ENABLE_TEST_HOOKS
     ++hue_table_uses;
 #endif

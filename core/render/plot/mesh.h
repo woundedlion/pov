@@ -541,8 +541,8 @@ struct Mesh {
         2.0f * (math::RADIANS_PER_COLUMN<W> + 1.0f / math::ROWS_PER_RADIAN<H>);
     if (radius >= math::PI_F * 0.5f)
       return true;
-    const bool visible = cap_may_touch_clip<H>(canvas.clip(), center, radius,
-                                               sinf(fminf(radius, math::PI_F)));
+    const bool visible =
+        cap_may_touch_clip<H>(canvas.clip(), center, radius, sinf(radius));
     if (!visible)
       Spacetime::count_geometry<
           &Spacetime::GeometryCounters::column_mesh_rejected>();

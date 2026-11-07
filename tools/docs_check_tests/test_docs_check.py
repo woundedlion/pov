@@ -1032,11 +1032,11 @@ class TestCommentSymbols(unittest.TestCase):
     ENTRIES = frozenset({PurePosixPath("core"), PurePosixPath("core/render"),
                          PurePosixPath("core/render/canvas.h")})
 
-    def issues(self, *spans, trees=None):
+    def issues(self, *spans):
         return dc.symbol_reference_issues(
             [(PurePosixPath("core/render/canvas.h"), line, span)
              for line, span in enumerate(spans, 1)],
-            set(self.WORDS), trees or [set(self.ENTRIES)])
+            set(self.WORDS), set(self.ENTRIES))
 
     def names(self, *spans):
         return [issue.message.split("`")[1] for issue in self.issues(*spans)]
@@ -1092,12 +1092,6 @@ class TestCommentSymbols(unittest.TestCase):
                              "gone.h", "src/elsewhere.js", "dx/dt")
         self.assertEqual([issue.line for issue in issues], [1, 2, 3])
         self.assertIn("'core/render/gone.h'", issues[0].message)
-
-    def test_path_resolves_in_a_supplied_checkout(self):
-        checkout = {PurePosixPath("src"), PurePosixPath("src/engine.js")}
-        issues = self.issues("src/engine.js", "src/gone.js",
-                             trees=[set(self.ENTRIES), checkout])
-        self.assertEqual([issue.line for issue in issues], [2])
 
     def test_comments_split_from_code_strings_and_separators(self):
         code, comments = dc.split_source(

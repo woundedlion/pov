@@ -644,8 +644,6 @@ private:
       cached_knot = i + 1;
       cached_sector = end_sector;
       cached_value = end_value;
-      if (!active(i))
-        return;
       const auto &ka = surface.knot(i), &kb = surface.knot(i + 1);
       const Point C{ka.real, ka.imag}, D{kb.real - ka.real, kb.imag - ka.imag};
       if (i == 0)

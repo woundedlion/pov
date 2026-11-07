@@ -42,11 +42,9 @@ static_assert(std::size(TANGENT_LIMIT_IDS) ==
 
 /** @brief Parameter family of sphere.displace.curl.v2. */
 using CurlDisplaceParams = Surface::AuthoredSurfaceNoiseParams;
-static_assert(field_ids_unique<CurlDisplaceParams>());
 static_assert(appended_block_size_matches<CurlDisplaceParams,
                                           Surface::SurfaceNoiseParams, 3>(),
               "appended parameter block must have the expected rounded size");
-static_assert(field_defaults_in_range<CurlDisplaceParams>());
 
 /** @brief The displacement operators' prepared block: the owned noise field
     and this frame's loop point. */
@@ -90,11 +88,9 @@ struct DisplaceCurl : PhaseClockModel<NoisePhaseState> {
 
 /** @brief Parameter family of sphere.displace.direct.v2. */
 using DirectDisplaceParams = Surface::AuthoredDirectSurfaceParams;
-static_assert(field_ids_unique<DirectDisplaceParams>());
 static_assert(appended_block_size_matches<DirectDisplaceParams,
                                           Surface::DirectSurfaceParams, 1>(),
               "appended parameter block must have the expected rounded size");
-static_assert(field_defaults_in_range<DirectDisplaceParams>());
 
 /** @brief The direct displacement's prepared block: noise field, loop point
     and steering frame. */
@@ -157,8 +153,6 @@ struct RippleChainParams : SphereAnimation::BurstRippleParams {
           "random-center", &RippleChainParams::random_center, CENTER_MODES, 1},
   };
 };
-static_assert(field_ids_unique<RippleChainParams>());
-static_assert(field_defaults_in_range<RippleChainParams>());
 
 /** @brief Instance-owned ripple burst scheduler. */
 struct RipplePhaseState : RippleClockSnapshot {};
@@ -227,8 +221,6 @@ struct DisplaceRipple : ValueStateModel<RipplePhaseState> {
 
 /** @brief Parameter family of sphere.lens.glitch.v2. */
 using GlitchChainParams = Lens::GlitchParams;
-static_assert(field_ids_unique<GlitchChainParams>());
-static_assert(field_defaults_in_range<GlitchChainParams>());
 
 /** @brief SPHERE endomorphism: polar and azimuth angle multiplication. */
 struct LensGlitch : StatelessModel {
@@ -272,8 +264,8 @@ struct TwistOrbitInterval {
  * @param from Previous state.
  * @param to Current state.
  * @return Prepared angle intervals. */
-HS_FLASH_INLINE inline TwistOrbitInterval
-temporal_interval(const TwistOrbitState &from, const TwistOrbitState &to) {
+inline TwistOrbitInterval temporal_interval(const TwistOrbitState &from,
+                                            const TwistOrbitState &to) {
   return {{from.phi, to.phi, math::TWO_PI_F},
           {from.lambda, to.lambda, math::TWO_PI_F}};
 }
@@ -282,10 +274,9 @@ temporal_interval(const TwistOrbitState &from, const TwistOrbitState &to) {
  * @param out Column state to update.
  * @param interval Prepared angle intervals.
  * @param fraction Frame fraction in [0, 1]. */
-HS_FLASH_INLINE inline void temporal_sample(TwistOrbitState &out,
-                                            const TwistOrbitInterval &interval,
-                                            const TwistChainParams &,
-                                            float fraction) {
+inline void temporal_sample(TwistOrbitState &out,
+                            const TwistOrbitInterval &interval,
+                            const TwistChainParams &, float fraction) {
   out.phi = interval.phi.sample(fraction);
   out.lambda = interval.lambda.sample(fraction);
 }
@@ -358,8 +349,6 @@ static_assert(std::size(KALEIDOSCOPE_SYMMETRY_IDS) ==
 /** @brief Parameter family of sphere.lens.kaleidoscope.v2: the symmetry
     topology alone. */
 using KaleidoscopeChainParams = Lens::KaleidoscopeParams;
-static_assert(field_ids_unique<KaleidoscopeChainParams>());
-static_assert(field_defaults_in_range<KaleidoscopeChainParams>());
 
 /** @brief SPHERE endomorphism: the kaleidoscope lens under a symmetry
     topology. */

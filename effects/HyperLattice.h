@@ -713,28 +713,20 @@ public:
     return {};
   }
 
-  /** @brief A supported pattern and view pair and its trace limits. */
+  /** @brief A supported pattern and view pair. */
   struct Configuration {
-    ConfigurationId id;     ///< Persisted identity.
-    Pattern pattern;        ///< Lattice geometry.
-    LatticeMode domain;     ///< 3D or 4D-slice view.
-    uint8_t max_candidates; ///< Candidate events a traced ray inspects.
-    uint8_t max_layers;     ///< Contributions a traced ray composites.
+    ConfigurationId id; ///< Persisted identity.
+    Pattern pattern;    ///< Lattice geometry.
+    LatticeMode domain; ///< 3D or 4D-slice view.
   };
   /// Every supported configuration.
   static constexpr auto CONFIGURATIONS = std::to_array<Configuration>({
-      {ConfigurationId::CUBIC_3D, Pattern::CUBIC_WIRE, LatticeMode::SPATIAL_3D,
-       9, 9},
-      {ConfigurationId::CUBIC_4D, Pattern::CUBIC_WIRE, LatticeMode::SLICE_4D,
-       12, 12},
-      {ConfigurationId::OCTET_3D, Pattern::OCTET, LatticeMode::SPATIAL_3D, 64,
-       32},
-      {ConfigurationId::OCTET_4D, Pattern::OCTET, LatticeMode::SLICE_4D, 64,
-       32},
-      {ConfigurationId::SHELLS_3D, Pattern::SHELLS, LatticeMode::SPATIAL_3D, 64,
-       32},
-      {ConfigurationId::SHELLS_4D, Pattern::SHELLS, LatticeMode::SLICE_4D, 64,
-       32},
+      {ConfigurationId::CUBIC_3D, Pattern::CUBIC_WIRE, LatticeMode::SPATIAL_3D},
+      {ConfigurationId::CUBIC_4D, Pattern::CUBIC_WIRE, LatticeMode::SLICE_4D},
+      {ConfigurationId::OCTET_3D, Pattern::OCTET, LatticeMode::SPATIAL_3D},
+      {ConfigurationId::OCTET_4D, Pattern::OCTET, LatticeMode::SLICE_4D},
+      {ConfigurationId::SHELLS_3D, Pattern::SHELLS, LatticeMode::SPATIAL_3D},
+      {ConfigurationId::SHELLS_4D, Pattern::SHELLS, LatticeMode::SLICE_4D},
   });
 
   /**
@@ -1067,7 +1059,7 @@ private:
    * @brief Prepares a traced frame over the effect's trace scratch.
    * @param context Frame state.
    * @param center Camera position in world units.
-   * @return Trace state with the configuration's limits.
+   * @return Prepared trace state with the candidate and layer budgets.
    */
   HS_FLASH_INLINE HyperLatticeDetail::Trace::Prepared
   prepare_traced(const HyperLatticeDetail::FrameState &context,
@@ -1077,10 +1069,10 @@ private:
     settings.shell_layers = shell_layers;
     auto prepared = HyperLatticeDetail::Trace::prepare(settings);
     HS_CHECK(prepared.valid, "HyperLattice: trace settings rejected");
-    const auto &configuration =
-        CONFIGURATIONS[configuration_index(context.params)];
-    prepared.limits.max_candidates = configuration.max_candidates;
-    prepared.limits.max_layers = configuration.max_layers;
+    constexpr int MAX_CANDIDATES = 64;
+    constexpr int MAX_LAYERS = 32;
+    prepared.limits.max_candidates = MAX_CANDIDATES;
+    prepared.limits.max_layers = MAX_LAYERS;
     return prepared;
   }
 

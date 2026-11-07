@@ -60,8 +60,8 @@ struct WarpPhaseState {
  * @param from Previous state.
  * @param to Current state.
  * @return Prepared interval. */
-HS_FLASH_INLINE inline Spacetime::ClockInterval
-temporal_interval(const WarpPhaseState &from, const WarpPhaseState &to) {
+inline Spacetime::ClockInterval temporal_interval(const WarpPhaseState &from,
+                                                  const WarpPhaseState &to) {
   return {from.phase, to.phase, 1.0f};
 }
 
@@ -71,9 +71,9 @@ temporal_interval(const WarpPhaseState &from, const WarpPhaseState &to) {
  * @param interval Prepared frame interval.
  * @param fraction Frame fraction in [0, 1]. */
 template <typename Params>
-HS_FLASH_INLINE void temporal_sample(WarpPhaseState &out,
-                                     const Spacetime::ClockInterval &interval,
-                                     const Params &, float fraction) {
+void temporal_sample(WarpPhaseState &out,
+                     const Spacetime::ClockInterval &interval, const Params &,
+                     float fraction) {
   out.phase = interval.sample(fraction);
 }
 
@@ -92,11 +92,9 @@ struct AffineWarpParams : Warp::AffineParams {
                                       AFFINE_PATH_LENGTH_IDS, 1},
   };
 };
-static_assert(field_ids_unique<AffineWarpParams>());
 static_assert(
     appended_block_size_matches<AffineWarpParams, Warp::AffineParams, 1>(),
     "appended parameter block must have the expected rounded size");
-static_assert(field_defaults_in_range<AffineWarpParams>());
 
 /** @brief Phase clock plus the accumulated frame rotation of warp.affine.v4.
  * @details Values are equivalent modulo their periods; column-time samples
@@ -116,8 +114,8 @@ struct AffineClockInterval {
  * @param from Previous state.
  * @param to Current state.
  * @return Prepared interval. */
-HS_FLASH_INLINE inline AffineClockInterval
-temporal_interval(const AffineClockState &from, const AffineClockState &to) {
+inline AffineClockInterval temporal_interval(const AffineClockState &from,
+                                             const AffineClockState &to) {
   return {{from.phase, to.phase, 1.0f},
           {from.rotation, to.rotation, math::TWO_PI_F}};
 }
@@ -128,9 +126,8 @@ temporal_interval(const AffineClockState &from, const AffineClockState &to) {
  * @param interval Prepared frame interval.
  * @param fraction Frame fraction in [0, 1]. */
 template <typename Params>
-HS_FLASH_INLINE void temporal_sample(AffineClockState &out,
-                                     const AffineClockInterval &interval,
-                                     const Params &, float fraction) {
+void temporal_sample(AffineClockState &out, const AffineClockInterval &interval,
+                     const Params &, float fraction) {
   out.phase = interval.phase.sample(fraction);
   out.rotation = interval.rotation.sample(fraction);
 }
@@ -172,11 +169,9 @@ struct WarpAffineV4 : ValueStateModel<AffineClockState> {
 
 /** @brief Parameter family of warp.wave-shear.v2. */
 using WaveShearWarpParams = Warp::AuthoredWaveShearParams;
-static_assert(field_ids_unique<WaveShearWarpParams>());
 static_assert(appended_block_size_matches<WaveShearWarpParams,
                                           Warp::WaveShearParams, 1>(),
               "appended parameter block must have the expected rounded size");
-static_assert(field_defaults_in_range<WaveShearWarpParams>());
 
 /** @brief The wave shear's prepared block: the field frame plus the phase the
     kernel consumes per sample. */
@@ -252,11 +247,9 @@ struct WarpVortex : PhaseClockModel<WarpPhaseState> {
 
 /** @brief Parameter family of warp.vector-noise.v2. */
 using VectorNoiseWarpParams = Warp::AuthoredVectorNoiseParams;
-static_assert(field_ids_unique<VectorNoiseWarpParams>());
 static_assert(appended_block_size_matches<VectorNoiseWarpParams,
                                           Warp::VectorNoiseParams, 2>(),
               "appended parameter block must have the expected rounded size");
-static_assert(field_defaults_in_range<VectorNoiseWarpParams>());
 
 /** @brief The vector-noise warp's prepared block: the owned noise field plus
     the vector frame and loop point. */
@@ -338,11 +331,9 @@ using Warp::PolarMode;
 
 /** @brief Parameter family of warp.polar-chart.v2. */
 using PolarChartParams = Warp::AuthoredPolarParams;
-static_assert(field_ids_unique<PolarChartParams>());
 static_assert(
     appended_block_size_matches<PolarChartParams, Warp::PolarParams, 2>(),
     "appended parameter block must have the expected rounded size");
-static_assert(field_defaults_in_range<PolarChartParams>());
 
 /** @brief PLANE endomorphism: the polar chart change. */
 struct WarpPolarChart : PhaseClockModel<WarpPhaseState> {
@@ -394,11 +385,9 @@ using Warp::curl_intervals;
 
 /** @brief Parameter family of warp.curl-flow.v2. */
 using CurlFlowWarpParams = Warp::AuthoredCurlFlowParams;
-static_assert(field_ids_unique<CurlFlowWarpParams>());
 static_assert(
     appended_block_size_matches<CurlFlowWarpParams, Warp::CurlFlowParams, 2>(),
     "appended parameter block must have the expected rounded size");
-static_assert(field_defaults_in_range<CurlFlowWarpParams>());
 
 /** @brief The curl flow's prepared block: the owned noise field, this frame's
     point on the loop, and the sub-step count decoded from the integrator. */

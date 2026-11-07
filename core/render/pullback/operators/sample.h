@@ -44,8 +44,8 @@ struct SourceClockInterval {
  * @param from Previous state.
  * @param to Current state.
  * @return Prepared interval. */
-HS_FLASH_INLINE inline SourceClockInterval
-temporal_interval(const SourceClockState &from, const SourceClockState &to) {
+inline SourceClockInterval temporal_interval(const SourceClockState &from,
+                                             const SourceClockState &to) {
   return {{from.primary, to.primary, math::TWO_PI_F},
           {from.secondary, to.secondary, math::TWO_PI_F},
           {from.angle, to.angle, math::TWO_PI_F}};
@@ -57,9 +57,8 @@ temporal_interval(const SourceClockState &from, const SourceClockState &to) {
  * @param interval Prepared frame interval.
  * @param fraction Frame fraction in [0, 1]. */
 template <typename Params>
-HS_FLASH_INLINE void temporal_sample(SourceClockState &out,
-                                     const SourceClockInterval &interval,
-                                     const Params &, float fraction) {
+void temporal_sample(SourceClockState &out, const SourceClockInterval &interval,
+                     const Params &, float fraction) {
   out.primary = interval.primary.sample(fraction);
   out.secondary = interval.secondary.sample(fraction);
   out.angle = interval.angle.sample(fraction);
@@ -375,8 +374,6 @@ struct TessellationSampleParams : Source::TessellationSourceParams {
               "fill", &TessellationSampleParams::fill, TESSELLATION_FILL_IDS,
               static_cast<uint8_t>(Pattern::TessellationFill::CELLS)});
 };
-static_assert(field_ids_unique<TessellationSampleParams>());
-static_assert(field_defaults_in_range<TessellationSampleParams>());
 static_assert(sample_crossing_defaults_match<TessellationSampleParams>());
 
 /** @brief PLANE to FIELD crossing: static square, hexagonal or triangular cell
@@ -438,8 +435,6 @@ struct ProjectedNoiseSampleParams : Source::NoiseSourceParams {
               "basis", &ProjectedNoiseSampleParams::basis, NOISE_BASIS_IDS,
               static_cast<uint8_t>(math::NoiseBasis::SIMPLEX)});
 };
-static_assert(field_ids_unique<ProjectedNoiseSampleParams>());
-static_assert(field_defaults_in_range<ProjectedNoiseSampleParams>());
 static_assert(sample_crossing_defaults_match<ProjectedNoiseSampleParams>());
 
 /** @brief The noise sources' prepared block: the owned noise field plus this

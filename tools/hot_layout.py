@@ -934,7 +934,7 @@ def load_alignments(tools: Toolchain, keys: set[tuple[Origin, str]],
 
 
 def write_plan(tools: Toolchain, elf: str, map_path: str, effects: list[str],
-               fragment: str, root: str) -> tuple[Program, dict[str, EffectHotSet]]:
+               fragment: str, root: str) -> None:
     """Plan from a probe link and write the fragment."""
     program, symbols = load_program(tools, elf, map_path)
     if START_SYMBOL not in symbols:
@@ -948,7 +948,6 @@ def write_plan(tools: Toolchain, elf: str, map_path: str, effects: list[str],
     order = plan(program, hot_sets, alignments, start)
     end = planned_end(program, order, alignments, start)
     Path(fragment).write_text(render_fragment(program, order, end), encoding="utf-8")
-    return program, hot_sets
 
 
 def check(tools: Toolchain, elf: str, map_path: str, effects: list[str],

@@ -1006,8 +1006,7 @@ private:
             end_orientation.conjugate();
         const float lever = Plot::PlanarChords<W, H>::rotation_radius(
             {star_chords.chart_x()[0], star_chords.chart_y()[0]},
-            {star_chords.chart_x()[corners > 1 ? 1 : 0],
-             star_chords.chart_y()[corners > 1 ? 1 : 0]});
+            {star_chords.chart_x()[1], star_chords.chart_y()[1]});
         const float contour_speed = fabsf(contour.twist) * rate * lever + spin;
         flush();
         star_chords.draw_closed(

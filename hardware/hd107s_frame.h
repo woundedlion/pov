@@ -169,17 +169,12 @@ public:
     const uint32_t MAX_CHANNEL = std::max(r, std::max(g, b));
     // Switch fields at PWM 255.5 to keep the brightest channel monotonic.
     const uint32_t BRIGHTNESS =
-        MAX_CHANNEL == 0
-            ? 31
-            : std::min<uint32_t>(31u, MAX_CHANNEL * 62 / (257 * 511) + 1);
+        MAX_CHANNEL == 0 ? 31 : MAX_CHANNEL * 62 / (257 * 511) + 1;
     const uint32_t DENOMINATOR = 257 * BRIGHTNESS;
     dest[0] = static_cast<uint8_t>(0xE0 | BRIGHTNESS);
-    dest[1] = static_cast<uint8_t>(
-        std::min<uint32_t>(255u, (b * 31 + DENOMINATOR / 2) / DENOMINATOR));
-    dest[2] = static_cast<uint8_t>(
-        std::min<uint32_t>(255u, (g * 31 + DENOMINATOR / 2) / DENOMINATOR));
-    dest[3] = static_cast<uint8_t>(
-        std::min<uint32_t>(255u, (r * 31 + DENOMINATOR / 2) / DENOMINATOR));
+    dest[1] = static_cast<uint8_t>((b * 31 + DENOMINATOR / 2) / DENOMINATOR);
+    dest[2] = static_cast<uint8_t>((g * 31 + DENOMINATOR / 2) / DENOMINATOR);
+    dest[3] = static_cast<uint8_t>((r * 31 + DENOMINATOR / 2) / DENOMINATOR);
   }
 
   /**

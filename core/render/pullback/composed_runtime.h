@@ -63,11 +63,8 @@ public:
                      Color::AuthoredColorParams>; ///< Full authored sources.
   using Spec = SpecT;                  ///< The effect's ranked stage Spec.
   using Metadata = MetadataFor<SpecT>; ///< Topology derived from typed stages.
-  static constexpr bool AUTHORED_TOPOLOGY = [] {
-    if constexpr (requires { SpecT::AUTHORED_TOPOLOGY; })
-      return SpecT::AUTHORED_TOPOLOGY;
-    return false;
-  }(); ///< Whether runtime identities follow authored nodes.
+  /// Whether runtime identities follow authored nodes.
+  static constexpr bool AUTHORED_TOPOLOGY = SpecT::AUTHORED_TOPOLOGY;
   /// Whether the effect samples time across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = SpecT::TEMPORAL_SAMPLING;
   /// Whether eligible color modulations sample one phase per column.

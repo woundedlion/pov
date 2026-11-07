@@ -347,30 +347,22 @@ public:
           InstanceId{op.instance, op.op->operator_id, op.stable_hash});
       HS_CHECK(migrated == Status::OK,
                "ChainProgram::capture_history: state clone failed");
-      history_ops.ops[index] = op;
-      history_ops.count = index + 1;
     }
+    history_live = true;
   }
 
   /**
    * @brief Whether every column can sample between the retained endpoint and
    *        the committed program.
-   * @return False without a retained endpoint for this program, or when a
-   *         topology or snapping field differs between the endpoints, except
-   *         fields the operator's `temporal_hold_field` policy admits.
+   * @return False without a retained endpoint or when an enum or snapping
+   *         field differs, except fields admitted by `temporal_hold_field`.
    */
   bool history_continuous() const {
-    if (history == nullptr || history_ops.count == 0)
+    if (!history_live)
       return false;
     const Side &side = sides[active];
-    if (history_ops.count != side.count)
-      return false;
     for (size_t index = 0; index < side.count; ++index) {
       const ChainOp &op = side.ops[index];
-      const ChainOp &previous = history_ops.ops[index];
-      if (previous.op != op.op || previous.param_offset != op.param_offset ||
-          previous.state_offset != op.state_offset)
-        return false;
       uint8_t *const current_params =
           const_cast<uint8_t *>(const_block_ptr(active, op.param_offset));
       uint8_t *const previous_params = history + op.param_offset;
@@ -518,14 +510,17 @@ public:
       next capture_history() primes it. */
   void clear_history() {
     intervals_prepared = false;
-    for (size_t index = 0; index < history_ops.count; ++index) {
-      const ChainOp &op = history_ops.ops[index];
-      if (column_states_live && op.op->runtime.sample_state != nullptr)
-        op.op->runtime.destroy(column + op.state_offset);
-      op.op->runtime.destroy(history + op.state_offset);
+    if (history_live) {
+      const Side &side = sides[active];
+      for (size_t index = 0; index < side.count; ++index) {
+        const ChainOp &op = side.ops[index];
+        if (column_states_live && op.op->runtime.sample_state != nullptr)
+          op.op->runtime.destroy(column + op.state_offset);
+        op.op->runtime.destroy(history + op.state_offset);
+      }
     }
     column_states_live = false;
-    history_ops.count = 0;
+    history_live = false;
   }
 
   /**
@@ -882,7 +877,6 @@ private:
   }
 
   Side sides[2];
-  Side history_ops;
   uint8_t *blocks[2] = {nullptr, nullptr};
   uint8_t *history = nullptr;
   uint8_t *column = nullptr;
@@ -892,7 +886,8 @@ private:
   bool has_program = false;
   bool needs_prepare = false;
   bool intervals_prepared = false; ///< Column clock intervals match this frame.
-  /** Sampled states in `column` are constructed at `history_ops` offsets. */
+  bool history_live = false;
+  /// Sampled states in `column` are constructed at the active program offsets.
   bool column_states_live = false;
 };
 

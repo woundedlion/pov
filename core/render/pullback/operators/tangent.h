@@ -77,11 +77,9 @@ using SymmetricDisplaceParams = Surface::SymmetricParams;
 
 /** @brief Shared operator lifecycle over a fixed-step field.
  * @tparam Derived Concrete field operator.
- * @tparam ParamsT Authored controls.
- * @tparam StateT Instance clock state. */
-template <typename Derived, typename ParamsT, typename StateT = FieldPhaseState>
-struct FieldDisplaceModel : ValueStateModel<StateT> {
-  using State = StateT;
+ * @tparam ParamsT Authored controls. */
+template <typename Derived, typename ParamsT>
+struct FieldDisplaceModel : ValueStateModel<FieldPhaseState> {
   using Params = ParamsT;
   using Input = SphereSample;
   using Output = SphereSample;
@@ -97,10 +95,7 @@ struct FieldDisplaceModel : ValueStateModel<StateT> {
                           const State &state) {
     HS_CHECK(params.integrator < std::size(Surface::AUTHORED_INTEGRATOR_IDS),
              "tangent displacement: invalid integrator");
-    if constexpr (requires { state.phase; })
-      return Derived::field(params, state.phase);
-    else
-      return Derived::field(params, 0.0f);
+    return Derived::field(params, state.phase);
   }
   /** @brief Reads the conservative fold threshold.
    * @param params Authored field controls.

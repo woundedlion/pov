@@ -1208,14 +1208,13 @@ def symbol_sources(root: Path, entries: set[PurePosixPath]) -> dict[PurePosixPat
         | _SYMBOL_INDEX_SUFFIXES or entry.name in _SYMBOL_INDEX_NAMES))
 
 
-def scan_symbols(sources: dict[PurePosixPath, str], comments: bool = True
+def scan_symbols(sources: dict[PurePosixPath, str]
                  ) -> tuple[set[str], list[tuple[PurePosixPath, int, str]]]:
     """Code words and comment spans of sources.
 
     The words are every word outside the comments of C/C++ and script
     sources, and every word of any other source. The spans are the backticked
-    spans in the comments of scanned C/C++ sources, by line; comments=False
-    collects none.
+    spans in the comments of scanned C/C++ sources, by line.
     """
     words: set[str] = set()
     spans = []
@@ -1225,7 +1224,7 @@ def scan_symbols(sources: dict[PurePosixPath, str], comments: bool = True
             continue
         code, found = split_source(text, relative.suffix in SCRIPT_SUFFIXES)
         words.update(_WORD_RE.findall(code))
-        if (not comments or relative.suffix not in SYMBOL_COMMENT_SUFFIXES
+        if (relative.suffix not in SYMBOL_COMMENT_SUFFIXES
                 or SYMBOL_COMMENT_EXCLUDED_RE.search(relative.as_posix())):
             continue
         for line, comment in found:
@@ -1236,38 +1235,28 @@ def scan_symbols(sources: dict[PurePosixPath, str], comments: bool = True
 
 
 def _comment_path_exists(source: PurePosixPath, candidate: str,
-                         trees: list[set[PurePosixPath]]) -> bool | None:
-    """Whether a backticked path names a tracked file or directory; None when
-    no tree holds its first directory. The first tree is the source's own."""
+                         entries: set[PurePosixPath]) -> bool | None:
+    """Whether a comment path is tracked; None when its root is untracked."""
     candidate = candidate.rstrip("/")
     if "/" not in candidate:
-        return any(entry.name == candidate
-                   for entries in trees for entry in entries)
+        return any(entry.name == candidate for entry in entries)
     in_scope = False
-    for entries in trees:
-        bases = [PurePosixPath(""), _IMPLICIT_PATH_ROOT]
-        if entries is trees[0]:
-            bases.append(source.parent)
-        for base in bases:
-            resolved = PurePosixPath(posixpath.normpath(
-                posixpath.join(base.as_posix(), candidate)))
-            scope = PurePosixPath(*resolved.parts[:len(base.parts) + 1])
-            if scope not in entries:
-                continue
-            in_scope = True
-            if resolved in entries:
-                return True
+    for base in (PurePosixPath(""), _IMPLICIT_PATH_ROOT, source.parent):
+        resolved = PurePosixPath(posixpath.normpath(
+            posixpath.join(base.as_posix(), candidate)))
+        scope = PurePosixPath(*resolved.parts[:len(base.parts) + 1])
+        if scope not in entries:
+            continue
+        in_scope = True
+        if resolved in entries:
+            return True
     return False if in_scope else None
 
 
 def symbol_reference_issues(spans: list[tuple[PurePosixPath, int, str]],
                             words: set[str],
-                            trees: list[set[PurePosixPath]]) -> list[Issue]:
-    """Reports backticked comment paths no tree tracks and names no code has.
-
-    trees holds this repository's tracked entries first, then each supplied
-    checkout's.
-    """
+                            entries: set[PurePosixPath]) -> list[Issue]:
+    """Reports untracked comment paths and names absent from the code."""
     issues = []
     for source, line, span in spans:
         path = _PATH_SPAN_RE.match(span)
@@ -1279,7 +1268,7 @@ def symbol_reference_issues(spans: list[tuple[PurePosixPath, int, str]],
                                     f"{path.group(1)!r}, which any edit above it moves; "
                                     "name the file and symbol"))
                 continue
-            exists = _comment_path_exists(source, path.group(1), trees)
+            exists = _comment_path_exists(source, path.group(1), entries)
             if exists is False:
                 issues.append(Issue(source.as_posix(), line,
                                     f"comment names path {path.group(1)!r}, "
@@ -1462,7 +1451,7 @@ def repository_symbol_issues(root: Path, entries: set[PurePosixPath]) -> list[Is
                       "every tracked C/C++ source is excluded from the comment "
                       "symbol scan, so its references go unchecked")]
     words, spans = scan_symbols(sources)
-    return symbol_reference_issues(spans, words, [entries])
+    return symbol_reference_issues(spans, words, entries)
 
 
 def retired_term_issues(root: Path, terms: list[str]) -> list[Issue]:

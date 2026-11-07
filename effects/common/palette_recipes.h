@@ -151,21 +151,12 @@ HS_FLASH_MEMBER inline PaletteRecipe mobius_rings(float base_turns) {
                                  AxisCurve::CONSTANT, base_turns);
 }
 
-/**
- * @brief The Raymarch ramp at an arbitrary base hue.
- * @param base_turns Base hue in turns.
- * @return The recipe.
- */
-HS_FLASH_MEMBER inline PaletteRecipe raymarch_at(float base_turns) {
-  return PaletteRecipes::profile(PaletteDomain::STRAIGHT,
-                                 PaletteHarmony::COMPLEMENTARY, AxisCurve::BELL,
-                                 base_turns, 0.86f);
-}
-
 /** @brief The Raymarch ramp at its authored hue.
  *  @return The recipe. */
 HS_FLASH_MEMBER inline PaletteRecipe raymarch() {
-  return raymarch_at(PaletteRecipes::hue_turns(219));
+  return PaletteRecipes::profile(PaletteDomain::STRAIGHT,
+                                 PaletteHarmony::COMPLEMENTARY, AxisCurve::BELL,
+                                 PaletteRecipes::hue_turns(219), 0.86f);
 }
 
 /** @brief The liquid recipe at an arbitrary hue rotation; every rotation is

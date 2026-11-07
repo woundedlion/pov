@@ -309,7 +309,6 @@ private:
                                         uint16_t *next) {
     HS_PROFILE(grd_pigment);
     const float DT = params.dt * STEP_DT_SCALE;
-    static_assert(RD_K == 6, "GS stability bound assumes a 6-NN lattice");
     const float DIFFUSION = params.d_b * DT;
     float weights[NUM_SEED_CLUSTERS] = {};
     int i = 0;

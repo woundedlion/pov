@@ -759,7 +759,7 @@ TERMINAL_FIXED = {
 REVISION_LAYOUTS = {
     "1.2": {
         "edge_placements": TERMINAL_EDGE_PLACEMENTS,
-        "fixed_refs": frozenset(TERMINAL_FIXED),
+        "fixed": TERMINAL_FIXED,
         "local_routes": (
             (("C_DEC1", "1"), ("U_MCU", "VIN"), ()),
             (("U_MCU", "3"), ("C_SYNC", "1"), ((19.15, 21.225),)),
@@ -796,8 +796,7 @@ REVISION_LAYOUTS = {
     },
     "1.3": {
         "edge_placements": TERMINAL_EDGE_PLACEMENTS_1_3,
-        "fixed_overrides": TERMINAL_FIXED_1_3,
-        "fixed_refs": frozenset(TERMINAL_FIXED_1_3),
+        "fixed": TERMINAL_FIXED_1_3,
         "local_routes": ((("C_DEC1", "1"), ("U_MCU", "VIN"), ()),),
         "ground_routes": ((("C_DEC1", "2"), (12.275, 10.95)),),
         "jumper_marks": (("ID0", "JP_ID0", 8.93, 0, "B.SilkS"),
@@ -832,10 +831,8 @@ REVISION_LAYOUTS = {
 
 def fixed_placements(comps):
     layout = REVISION_LAYOUTS[_GENERATION.get()[0]]
-    fixed = {ref: placement for ref, placement in TERMINAL_FIXED.items()
-             if ref in comps and ref in layout["fixed_refs"]}
-    fixed.update({ref: placement for ref, placement in layout.get("fixed_overrides", {}).items()
-                  if ref in comps})
+    fixed = {ref: placement for ref, placement in layout["fixed"].items()
+             if ref in comps}
     fixed.update({ref: placement for ref, placement in layout["edge_placements"].items()
                   if ref in comps and comps[ref][1] == layout["terminal_by_ref"][ref]})
     return fixed
@@ -847,8 +844,6 @@ def pin_silk_marks(layout, fixed, length, revision):
                   for label, x, y, angle, layer in layout["jumper_marks"]]
     for ref, pin_marks in (("J1", "+-"), ("J2", "DGC"),
                            ("J3A", layout["sync_marks"]), ("J3B", layout["sync_marks"])):
-        if fixed.get(ref) != layout["edge_placements"][ref]:
-            continue
         x, y, rot = fixed[ref]
         back = ref == "J1" or revision == "1.3" or any(
             x0 <= x + 4.5 <= x1 and y0 <= y + pin * 2.54 <= y1
@@ -1228,7 +1223,6 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         lines.append(f'\t(gr_text {sexp.quote("USB PLUG KEEP-OUT")} (at 5.3 {usb_label_y} 90)'
                      f' (layer "Dwgs.User") (uuid "{uid()}") '
                      '(effects (font (size 0.8 0.8) (thickness 0.15))))')
-        edge_placements = layout["edge_placements"]
         silk_marks = pin_silk_marks(layout, fixed, L, selected)
         for text, x, y, angle, layer in silk_marks:
             justify = " (justify mirror)" if layer == "B.SilkS" else ""
@@ -1237,8 +1231,6 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                          f'(effects (font (size 0.8 0.8) (thickness 0.15)){justify}))')
         for ref, label in (("J1", "PWR"), ("J2", "LED OUT"),
                            ("J3A", "SYNC IN"), ("J3B", "SYNC OUT")):
-            if fixed.get(ref) != edge_placements[ref]:
-                continue
             x, y, rot = fixed[ref]
             if selected == "1.3":
                 pins = len(F(next(fn for fn in foot_nodes

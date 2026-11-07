@@ -13,9 +13,6 @@
 #include "core/platform/attributes.h"
 
 #ifdef ARDUINO
-#ifndef NDEBUG
-#define NDEBUG // Strip assert() to avoid linking newlib's __assert_func → fprintf
-#endif
 #include <Arduino.h>
 #include <cstdarg>
 #include <cstdio>

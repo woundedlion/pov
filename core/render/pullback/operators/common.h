@@ -104,8 +104,8 @@ struct NoisePhaseState {
  * @param from Previous state.
  * @param to Current state.
  * @return Prepared interval. */
-HS_FLASH_INLINE inline Spacetime::ClockInterval
-temporal_interval(const NoisePhaseState &from, const NoisePhaseState &to) {
+inline Spacetime::ClockInterval temporal_interval(const NoisePhaseState &from,
+                                                  const NoisePhaseState &to) {
   return {from.phase, to.phase, 1.0f};
 }
 
@@ -115,9 +115,9 @@ temporal_interval(const NoisePhaseState &from, const NoisePhaseState &to) {
  * @param interval Prepared frame interval.
  * @param fraction Frame fraction in [0, 1]. */
 template <typename Params>
-HS_FLASH_INLINE void temporal_sample(NoisePhaseState &out,
-                                     const Spacetime::ClockInterval &interval,
-                                     const Params &, float fraction) {
+void temporal_sample(NoisePhaseState &out,
+                     const Spacetime::ClockInterval &interval, const Params &,
+                     float fraction) {
   out.phase = interval.sample(fraction);
 }
 

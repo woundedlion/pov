@@ -501,8 +501,7 @@ struct Volume {
    * @param aa_width Anti-aliasing band half-width.
    * @param columns Per-column placement; read only with COLUMNS.
    */
-  template <int W, int H, bool COLUMNS, typename Shape,
-            typename ShaderFn = FragmentShaderFn>
+  template <int W, int H, bool COLUMNS, typename Shape, typename ShaderFn>
   HS_HOT_INLINE static void
   march(std::conditional_t<COLUMNS, ScanRef, PipelineRef> pipeline,
         Canvas &canvas, const math::Vector &bounds_center, float bounds_radius,

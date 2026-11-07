@@ -9,7 +9,6 @@
  * @brief Global arena budget and the arena memory facilities.
  */
 
-// platform.h supplies the Arduino IDE/VMicro NDEBUG fallback before <cassert>.
 #include "core/platform/platform.h"
 #include <cstdint>
 #include <cstddef>

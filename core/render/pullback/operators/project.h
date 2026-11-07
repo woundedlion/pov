@@ -78,8 +78,6 @@ struct ProjectChainParams {
   static constexpr auto TOPOLOGY =
       projection_frame_topology<ProjectChainParams>();
 };
-static_assert(field_ids_unique<ProjectChainParams>());
-static_assert(field_defaults_in_range<ProjectChainParams>());
 
 /** @brief ProjectChainParams extended with the central meridian the
     meridian-consuming projections read. */
@@ -93,11 +91,9 @@ struct MeridianProjectChainParams : ProjectChainParams {
           "Central Meridian", 0.0f, math::TWO_PI_F,
           FieldCurve::SHORTEST_PERIODIC}});
 };
-static_assert(field_ids_unique<MeridianProjectChainParams>());
 static_assert(appended_block_size_matches<MeridianProjectChainParams,
                                           ProjectChainParams, 4>(),
               "appended parameter block must have the expected rounded size");
-static_assert(field_defaults_in_range<MeridianProjectChainParams>());
 static_assert(
     [] {
       constexpr MeridianProjectChainParams CHAIN_DEFAULTS{};
@@ -136,9 +132,6 @@ struct RegularProjectChainParams : MeridianProjectChainParams {
         out, std::array<Field<RegularProjectChainParams>, 0>{});
   }();
 };
-
-static_assert(field_ids_unique<RegularProjectChainParams>());
-static_assert(field_defaults_in_range<RegularProjectChainParams>());
 
 /** @brief Prepared projection frame conjugate. */
 struct ProjectOrientation {
@@ -272,11 +265,9 @@ struct GnomonicChainParams : ProjectChainParams {
               GNOMONIC_HEMISPHERE_IDS,
               static_cast<uint8_t>(Projection::GnomonicHemisphere::FOLDED)});
 };
-static_assert(field_ids_unique<GnomonicChainParams>());
 static_assert(
     appended_block_size_matches<GnomonicChainParams, ProjectChainParams, 1>(),
     "appended parameter block must have the expected rounded size");
-static_assert(field_defaults_in_range<GnomonicChainParams>());
 
 /** @brief SPHERE→PLANE crossing: the gnomonic projection under a hemisphere
     topology. */
@@ -326,11 +317,9 @@ struct BonneChainParams : RegularProjectChainParams {
                                       &BonneChainParams::hemisphere,
                                       BONNE_HEMISPHERE_IDS, 0});
 };
-static_assert(field_ids_unique<BonneChainParams>());
 static_assert(appended_block_size_matches<BonneChainParams,
                                           MeridianProjectChainParams, 5>(),
               "appended parameter block must have the expected rounded size");
-static_assert(field_defaults_in_range<BonneChainParams>());
 
 /** @brief Layout topology values of project.airocean.v3. */
 using Projection::AIROCEAN_LAYOUT_IDS;
@@ -346,11 +335,9 @@ struct AiroceanChainParams : RegularProjectChainParams {
           TopologyField<AiroceanChainParams>{
               "layout", &AiroceanChainParams::layout, AIROCEAN_LAYOUT_IDS, 0});
 };
-static_assert(field_ids_unique<AiroceanChainParams>());
 static_assert(appended_block_size_matches<AiroceanChainParams,
                                           RegularProjectChainParams, 1>(),
               "appended parameter block must have the expected rounded size");
-static_assert(field_defaults_in_range<AiroceanChainParams>());
 
 /**
  * @brief A projection family extended with a coordinate scale.
@@ -512,8 +499,6 @@ struct PolyhedralAtlasChainParams
           "area-correction", &PolyhedralAtlasChainParams::area_correction,
           "Area Correction", 0.0f, 1.0f, FieldCurve::LERP}});
 };
-static_assert(field_ids_unique<PolyhedralAtlasChainParams>());
-static_assert(field_defaults_in_range<PolyhedralAtlasChainParams>());
 
 /** @brief SPHERE-to-PLANE crossing: central projection onto a solid's
     faces, laid out as separate tiles.

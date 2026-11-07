@@ -9,7 +9,6 @@
  * @brief Engine API umbrella header for handwritten effects.
  */
 
-// platform.h supplies the NDEBUG fallback and must precede <cassert>.
 #include "core/platform/platform.h"
 
 #include <algorithm>

@@ -24,8 +24,6 @@ namespace hs {
 inline constexpr uint32_t EXC_RETURN_PSP = 1u << 2;
 /** @brief EXC_RETURN bit set when the exception returns to Thread mode. */
 inline constexpr uint32_t EXC_RETURN_THREAD = 1u << 3;
-/** @brief EXC_RETURN bit clear when the stacked frame carries FP state. */
-inline constexpr uint32_t EXC_RETURN_BASIC_FRAME = 1u << 4;
 
 /**
  * @brief Word index of the stacked return address in an exception frame.

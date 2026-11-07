@@ -625,11 +625,10 @@ inline void check_slider_registration(const char *name) {
       HS_EXPECT_TRUE(slider->target != earlier->target);
   }
 
-  if constexpr (requires { FX::Spec::AUTHORED_TOPOLOGY; })
-    if constexpr (FX::Spec::AUTHORED_TOPOLOGY) {
-      check_authored_slider_registration(effect);
-      return;
-    }
+  if constexpr (FX::Spec::AUTHORED_TOPOLOGY) {
+    check_authored_slider_registration(effect);
+    return;
+  }
 
   if constexpr (std::is_same_v<FX, Iridescence<SMALL_W, SMALL_H>>) {
     constexpr const char *EXPECTED[] = {"Pattern Freq",
