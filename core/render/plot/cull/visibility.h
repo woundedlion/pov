@@ -402,6 +402,15 @@ HS_HOT_INLINE inline bool cap_may_touch_clip_rows(const ClipRegion &cr,
   return columns(t2);
 }
 
+/** @brief Whether a padded cap reaches either pole.
+ * @param beta Center colatitude, radians.
+ * @param half_angle Cap radius clamped to PI, radians.
+ * @return Whether the cap includes the north or south pole. */
+HS_HOT_INLINE inline bool cap_reaches_pole(float beta, float half_angle) {
+  return beta <= half_angle + CAP_ACOS_PAD ||
+         math::PI_F - beta <= half_angle + CAP_ACOS_PAD;
+}
+
 /** @brief Longitude half-width of a cap that excludes both poles.
  * @param sin_half_angle Sine of the cap's angular radius.
  * @param sin_beta Sine of the center's colatitude.
@@ -421,8 +430,7 @@ HS_HOT_INLINE inline float cap_longitude_half_width(float sin_half_angle,
  */
 inline bool cap_may_touch_clip_columns(const CapCenter &center, float t2,
                                        float sin_half_angle) {
-  if (!center.columns_active || center.beta <= t2 + CAP_ACOS_PAD ||
-      math::PI_F - center.beta <= t2 + CAP_ACOS_PAD)
+  if (!center.columns_active || cap_reaches_pole(center.beta, t2))
     return true;
   const float dlam = cap_longitude_half_width(sin_half_angle, center.sin_beta);
   return center.column_distance <=
@@ -479,8 +487,7 @@ cap_may_touch_clip(const ClipRegion &cr, const Columns &columns,
           else
             return cr.x_clip().active;
         }();
-        if (!COLUMNS_ACTIVE || beta <= t2 + CAP_ACOS_PAD ||
-            math::PI_F - beta <= t2 + CAP_ACOS_PAD)
+        if (!COLUMNS_ACTIVE || cap_reaches_pole(beta, t2))
           return true;
         return cap_may_touch_clip_columns(cap_column_center(columns, dir, beta),
                                           t2, sin_half_angle);
@@ -652,7 +659,7 @@ cap_may_touch_window(const Spacetime::TimeWindow &window,
   const float t2 = fminf(half_angle, math::PI_F);
   const float y = hs::clamp(dir.y, -1.0f, 1.0f);
   const float beta = math::fast_acos(y);
-  if (beta <= t2 + CAP_ACOS_PAD || math::PI_F - beta <= t2 + CAP_ACOS_PAD)
+  if (cap_reaches_pole(beta, t2))
     return true;
   const float dlam =
       cap_longitude_half_width(sin_half_angle, sqrtf(1.0f - y * y));
