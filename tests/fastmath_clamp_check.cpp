@@ -5,6 +5,7 @@
 // Runs clamp-before-cast, NaN-saturation and affine-form cases under WASM
 // release math flags (-O3 -ffast-math -fno-finite-math-only).
 #include "core/engine/engine.h"
+#include "effects/DisplacementField.h"
 #include "tests/test_color.h"
 #include "tests/test_harness.h"
 #include "tests/test_interpolate.h"
@@ -12,11 +13,30 @@
 
 #include <limits>
 
+namespace hs_test::effects_tests {
+struct DisplacementFieldWhiteBox {
+  static bool sweep_uses_cache(bool present) {
+    using Field = DisplacementField<96, 20>;
+    static Field::SweepCache cache;
+    Field::Sweep sweep{};
+    sweep.cache = present ? &cache : nullptr;
+    return sweep.uses_cache();
+  }
+};
+} // namespace hs_test::effects_tests
+
 int main() {
+  static_assert(HS_ENABLE_TEST_ORACLES && !HS_ENABLE_TEST_HOOKS);
   using namespace hs_test::color_tests;
 
   const hs_test::ModuleScope scope = hs_test::begin_module(
       "fastmath_clamp (-ffast-math -fno-finite-math-only)");
+  HS_EXPECT_FALSE(
+      hs_test::effects_tests::DisplacementFieldWhiteBox::sweep_uses_cache(
+          false));
+  HS_EXPECT_TRUE(
+      hs_test::effects_tests::DisplacementFieldWhiteBox::sweep_uses_cache(
+          true));
 #define HS_RUN_CLAMP_TEST(fn) fn();
   HS_FASTMATH_CLAMP_TESTS(HS_RUN_CLAMP_TEST)
 #undef HS_RUN_CLAMP_TEST

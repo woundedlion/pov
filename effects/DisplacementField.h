@@ -320,6 +320,15 @@ private:
     float opacity[2];            ///< Sprite opacity at both endpoints.
     SweepCache *cache = nullptr; ///< Single-pass alternate storage.
     float middle = 0.5f;         ///< Middle sweep fraction of the drawn window.
+
+    /** @brief Whether alternate samples use the cache. */
+    HS_HOT_INLINE bool uses_cache() const {
+#if HS_ENABLE_TEST_ORACLES
+      return cache != nullptr;
+#else
+      return true;
+#endif
+    }
   };
 
   /**
@@ -600,11 +609,11 @@ private:
     if (force_window_bakes || force_column_reference)
       sweep.cache = active_cache = nullptr;
 #endif
-    if (sweep.cache)
+    if (sweep.uses_cache())
       draw_pass<true>(canvas, basis, column_basis, sweep.opacity[1], n_balls,
                       &sweep);
 #if HS_ENABLE_TEST_ORACLES
-    if (!sweep.cache) {
+    if (!sweep.uses_cache()) {
       const int windows = force_column_reference ? W / 2 : SWEEP_WINDOWS;
       for (int k = 0; k < windows; ++k) {
         sweep.middle = force_column_reference ? static_cast<float>(k) / windows
@@ -704,9 +713,9 @@ private:
         const Color4 now = current_ring_color(i, n_rings);
         const Color4 before =
             drawn_colors_valid && drawn_color_ready[i] ? drawn_colors[i] : now;
-        const float middle = sweep->cache ? 0.25f : sweep->middle;
+        const float middle = sweep->uses_cache() ? 0.25f : sweep->middle;
         ring_color = before.lerp(now, middle);
-        if (sweep->cache) {
+        if (sweep->uses_cache()) {
           sweep->cache->colors[i] = before.lerp(now, 0.75f);
           sweep->cache->alphas[i] =
               sweep->cache->colors[i].alpha *
@@ -765,13 +774,14 @@ private:
           {
             HS_PROFILE(df_chunk_cull);
             visible = Plot::chunk_mask_where<BAKE_CHUNKS>(
-                [&](const math::Vector &mid, float reach,
-                    float sin_reach) HS_HOT_INLINE {
-                  return (sweep->cache || Plot::cap_may_touch_window<W>(
-                                              window, mid, reach, sin_reach)) &&
-                         (!try_cull || Plot::cap_may_touch_clip<H>(
-                                           clip(), mid, reach, sin_reach));
-                },
+                [&](const math::Vector &mid, float reach, float sin_reach)
+                    HS_HOT_INLINE {
+                      return (sweep->uses_cache() ||
+                              Plot::cap_may_touch_window<W>(window, mid, reach,
+                                                            sin_reach)) &&
+                             (!try_cull || Plot::cap_may_touch_clip<H>(
+                                               clip(), mid, reach, sin_reach));
+                    },
                 basis, theta, cos_t, sin_t, band_r, params.thickness, chunk_cos,
                 chunk_sin);
           }
@@ -798,7 +808,7 @@ private:
         const float cos_d = cosf(dphi);
         const float sin_d = sinf(dphi);
         if constexpr (SWEPT) {
-          if (sweep->cache) {
+          if (sweep->uses_cache()) {
             SweepCache &cache = *sweep->cache;
             // A ring retains at most one alternate per knot.
             if (cache.count + lut_n > SweepCache::CAPACITY) {
@@ -841,7 +851,7 @@ private:
         const HueMode mode = select_hue_mode(
             lut_n, visible, (band + noise_bound) * params.hue_scale);
         if constexpr (SWEPT)
-          if (sweep->cache)
+          if (sweep->uses_cache())
             sweep->cache->modes[i] = mode;
         if (mode.use_table)
           hue_table.bind(hue_base, mode.domain, mode.cyclic);
@@ -877,7 +887,7 @@ private:
       }
 
       if constexpr (SWEPT) {
-        if (sweep->cache) {
+        if (sweep->uses_cache()) {
           SweepCache &cache = *sweep->cache;
           int index = cache.starts[i * SweepCache::WORDS];
           for (int word = 0; word < SweepCache::WORDS; ++word) {
@@ -895,7 +905,7 @@ private:
       return;
 
     if constexpr (SWEPT) {
-      if (sweep->cache) {
+      if (sweep->uses_cache()) {
         scan_swept_stack(canvas, *sweep->cache);
         return;
       }
@@ -1176,7 +1186,7 @@ private:
             octave1[x] = np.octave1(q, time);
           if (g2)
             octave2[x] = np.octave2(q, time);
-          if (sweep->cache && (g1 || g2)) {
+          if (sweep->uses_cache() && (g1 || g2)) {
             alternate_a[x] = g1 ? octave1[x] : 0.0f;
             alternate_b[x] = g2 ? octave2[x] : 0.0f;
             if (sweep->cache->boundary[x] && (t < 0.25f || t >= 0.75f)) {
@@ -1214,8 +1224,8 @@ private:
                       int k) HS_HOT_INLINE {
       auto value = [&](int index) HS_HOT_INLINE {
         if constexpr (SWEPT) {
-          if (sweep->cache && ((late && knot_times[index] < 0.25f) ||
-                               (!late && knot_times[index] >= 0.75f)))
+          if (sweep->uses_cache() && ((late && knot_times[index] < 0.25f) ||
+                                      (!late && knot_times[index] >= 0.75f)))
             return alternate[index];
         }
         return oct[index];
@@ -1248,7 +1258,7 @@ private:
                                           sample(octave1, alternate_a, D1, x) *
                                           sample(octave2, alternate_b, D2, x);
       if constexpr (SWEPT) {
-        if (sweep->cache && sweep->cache->boundary[x]) {
+        if (sweep->uses_cache() && sweep->cache->boundary[x]) {
           late = !late;
           const float t = knot_times[x];
           const float other = t < 0.25f ? 1.0f : t >= 0.75f ? 0.0f : t;
@@ -1313,7 +1323,7 @@ private:
         num[x] = 0.0f;
         den[x] = 0.0f;
         if constexpr (SWEPT) {
-          if (sweep->cache)
+          if (sweep->uses_cache())
             alternate_a[x] = alternate_b[x] = 0.0f;
         }
       }
@@ -1357,7 +1367,7 @@ private:
           DominantFieldAccumulator::accumulate(num[xi], den[xi], f);
           if constexpr (SWEPT) {
             const float t = knot_times[xi];
-            if (sweep->cache && sweep->cache->boundary[xi] &&
+            if (sweep->uses_cache() && sweep->cache->boundary[xi] &&
                 (t < 0.25f || t >= 0.75f)) {
               const float other = t < 0.5f ? 1.0f : 0.0f;
               const float alternate =
@@ -1378,7 +1388,7 @@ private:
                   noise_field.field(knot_pos[x]);
         if constexpr (SWEPT) {
           const float t = knot_times[x];
-          if (sweep->cache && sweep->cache->boundary[x] &&
+          if (sweep->uses_cache() && sweep->cache->boundary[x] &&
               (t < 0.25f || t >= 0.75f)) {
             const float alternate = DominantFieldAccumulator::resolve(
                                         alternate_a[x], alternate_b[x]) +
