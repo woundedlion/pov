@@ -804,6 +804,54 @@ HS_HOT_INLINE inline bool edge_spans_one_dot(const uint8_t *edge_flags,
              : edge_fits_one_dot<W, H>(a, b);
 }
 
+/** @brief Selects edge visibility and retains reusable planar cull samples.
+ * @tparam W,H Rasterization dimensions.
+ * @tparam ReusePlanarSamples Whether the caller can reuse planar cull work.
+ * @tparam PipelineT,Columns Pipeline and clip-column types.
+ * @param pipeline Prepared render pipeline.
+ * @param cr,xc Clip region and its prepared columns.
+ * @param start,end Segment endpoints.
+ * @param planar_basis Active planar chart, or null for a geodesic edge.
+ * @param edge_flags Optional precomputed edge visibility.
+ * @param i Segment index.
+ * @param opts Raster options including the sampler rebuild oracle.
+ * @param planar_cull_span,planar_cull_end,reuse_planar_cull_samples Retained cull outputs. */
+template <int W, int H, bool ReusePlanarSamples, typename PipelineT,
+          typename Columns>
+HS_HOT_INLINE inline bool select_edge_visibility(
+    PipelineT &pipeline, const ClipRegion &cr, const Columns &xc,
+    const math::Vector &start, const math::Vector &end,
+    const math::Basis *planar_basis, const uint8_t *edge_flags, size_t i,
+    [[maybe_unused]] const RasterOptions &opts,
+    PlanarEdgeSpan &planar_cull_span, math::Vector &planar_cull_end,
+    bool &reuse_planar_cull_samples) {
+  bool visible;
+  if constexpr (ReusePlanarSamples) {
+    bool rebuild_planar_sampler = false;
+#if HS_ENABLE_TEST_ORACLES
+    rebuild_planar_sampler = opts.rebuild_planar_sampler;
+#endif
+    if (edge_flags != nullptr) {
+      visible = has_edge_flag(edge_flags, i, RasterOptions::EDGE_VISIBLE);
+    } else if (planar_basis && xc.active && !rebuild_planar_sampler) {
+      planar_cull_span = make_planar_edge_span(start, end, *planar_basis);
+      visible =
+          planar_edge_visible_in_clip<W, H>(cr, xc, start, end, *planar_basis,
+                                            planar_cull_span, &planar_cull_end);
+      reuse_planar_cull_samples = visible;
+    } else {
+      visible = edge_visible_in_clip<W, H>(pipeline, cr, xc, start, end,
+                                           planar_basis);
+    }
+  } else {
+    visible = edge_flags != nullptr
+                  ? has_edge_flag(edge_flags, i, RasterOptions::EDGE_VISIBLE)
+                  : edge_visible_in_clip<W, H>(pipeline, cr, xc, start, end,
+                                               planar_basis);
+  }
+  return visible;
+}
+
 /**
  * @brief Adaptively rasterize a fragment polyline onto the sphere.
  *
@@ -1167,34 +1215,11 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     if (clip_active) {
       HS_PLOT_COUNT(cull_tests);
       HS_PROFILE_DEEP(plot_seg_cull);
-      bool visible;
-      if constexpr (REUSE_PLANAR_CULL_SAMPLES) {
-        bool rebuild_planar_sampler = false;
-#if HS_ENABLE_TEST_ORACLES
-        rebuild_planar_sampler = opts.rebuild_planar_sampler;
-#endif
-        if (edge_flags != nullptr) {
-          visible = has_edge_flag(edge_flags, i, RasterOptions::EDGE_VISIBLE);
-        } else if (use_planar && xc.active && !rebuild_planar_sampler) {
-          planar_cull_span =
-              make_planar_edge_span(curr.pos, next.pos, *planar_basis);
-          visible = planar_edge_visible_in_clip<W, H>(
-              cr, xc, curr.pos, next.pos, *planar_basis, planar_cull_span,
-              &planar_cull_end);
-          reuse_planar_cull_samples = visible;
-        } else {
-          visible =
-              edge_visible_in_clip<W, H>(pipeline, cr, xc, curr.pos, next.pos,
-                                         use_planar ? planar_basis : nullptr);
-        }
-      } else {
-        visible =
-            edge_flags != nullptr
-                ? has_edge_flag(edge_flags, i, RasterOptions::EDGE_VISIBLE)
-                : edge_visible_in_clip<W, H>(
-                      pipeline, cr, xc, curr.pos, next.pos,
-                      use_planar ? planar_basis : nullptr);
-      }
+      const bool visible =
+          select_edge_visibility<W, H, REUSE_PLANAR_CULL_SAMPLES>(
+              pipeline, cr, xc, curr.pos, next.pos,
+              use_planar ? planar_basis : nullptr, edge_flags, i, opts,
+              planar_cull_span, planar_cull_end, reuse_planar_cull_samples);
       if (!visible) {
         HS_PLOT_COUNT(culled);
         continue;
