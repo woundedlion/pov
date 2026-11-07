@@ -125,11 +125,12 @@ public:
    * on a fixed seed, no graph edge.
    */
   struct ParamSweepSpec {
-    ConwayGraph::MorphOp op; /**< Swept operator. */
-    float t_start = 0.0f;    /**< Sweep parameter at frame 0; T_EPS floor except
+    ConwayGraph::MorphOp op =
+        ConwayGraph::MorphOp::TRUNCATE; /**< Swept operator. */
+    float t_start = 0.0f; /**< Sweep parameter at frame 0; T_EPS floor except
                                 truncate's min(T_EPS, larger endpoint *
                                 TRUNCATE_BIRTH_FRAC) birth floor. */
-    float t_end = 0.0f;      /**< Arrival parameter; truncate is capped below
+    float t_end = 0.0f;   /**< Arrival parameter; truncate is capped below
                                 ambo for near-side legs, or at
                                 T_TRUNCATE_FAR_MAX for far-side legs. */
     float twist_start = 0.0f; /**< Snub twist at frame 0. */
