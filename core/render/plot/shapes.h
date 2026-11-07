@@ -504,9 +504,12 @@ draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
   }
   PointRoute<W, H> route;
   route.prepare(canvas, motion_bound + spin);
+  const auto world_position = [&](const math::Vector &local,
+                                  float t) HS_HOT_INLINE {
+    return (poses ? poses->rotate(local, t) : local).normalized();
+  };
   const auto world = [&](size_t vertex, float t) HS_HOT_INLINE {
-    const auto p = motion.worldline(vertex).at(t).normalized();
-    return poses ? poses->rotate(p, t) : p;
+    return world_position(motion.worldline(vertex).at(t), t);
   };
   const math::Vector first_start = world(0, 0.0f);
   const math::Vector first_end = world(0, 1.0f);
@@ -523,15 +526,13 @@ draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
         EdgeWorldsheet::pieces_of<W, H>(arcs[1]) <= 0.5f) {
       const auto path = motion.worldline(i);
       const auto local_middle = path.at(0.5f);
-      const auto middle =
-          (poses ? poses->rotate(local_middle, 0.5f) : local_middle)
-              .normalized();
+      const auto middle = world_position(local_middle, 0.5f);
       route.plot(
           pipeline, canvas, ends[0], [&]() HS_HOT_INLINE { return starts[0]; },
           [&](float t) HS_HOT_INLINE {
             Fragment f;
             const auto local = path.at(t);
-            f.pos = (poses ? poses->rotate(local, t) : local).normalized();
+            f.pos = world_position(local, t);
             f.v0 = float(i * stride) / W;
             f.v2 = float(i * stride);
             Spacetime::shade_at_time(shader, t, f.pos, f);
