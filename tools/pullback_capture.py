@@ -172,6 +172,7 @@ def load_backend(
     if version != 3 or record_count != len(specs):
         raise CaptureError("capture backend header mismatch")
     records = set()
+    expected_counts: dict[str, int] = {}
     for _ in range(record_count):
         preset, offset = _read_u16(data, offset)
         operation_code, offset = _read_u16(data, offset)
@@ -195,9 +196,11 @@ def load_backend(
         mapping = specs[key]["mapping"]
         if not (mapping.startswith("CASE_") or mapping.startswith("THROUGH_CLEAR_")
                 or mapping == "FULL_FRAME"):
-            expected_pixels = sum(_selected_pixel(mapping, x, y, width, height)
-                                  for y in range(height) for x in range(width))
-            if selected_pixels != expected_pixels:
+            if mapping not in expected_counts:
+                expected_counts[mapping] = sum(
+                    _selected_pixel(mapping, x, y, width, height)
+                    for y in range(height) for x in range(width))
+            if selected_pixels != expected_counts[mapping]:
                 raise CaptureError(f"capture backend selected-pixel mismatch for {key}")
         end = offset + width * height * 6
         if end > len(data):
