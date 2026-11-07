@@ -638,12 +638,18 @@ public:
     complementary_hue = 0;
     analogous_hue = 0;
     this->chroma = chroma;
-    triadic.init_generated(arena, next_triadic, this, DWELL_FRAMES, FADE_FRAMES,
-                           easing);
-    complementary.init_generated(arena, next_complementary, this, DWELL_FRAMES,
-                                 FADE_FRAMES, easing);
-    analogous.init_generated(arena, next_analogous, this, DWELL_FRAMES,
-                             FADE_FRAMES, easing);
+    triadic.init_generated(
+        arena,
+        next<&GeneratedPaletteBank::triadic_hue, PaletteHarmony::TRIADIC>, this,
+        DWELL_FRAMES, FADE_FRAMES, easing);
+    complementary.init_generated(arena,
+                                 next<&GeneratedPaletteBank::complementary_hue,
+                                      PaletteHarmony::COMPLEMENTARY>,
+                                 this, DWELL_FRAMES, FADE_FRAMES, easing);
+    analogous.init_generated(
+        arena,
+        next<&GeneratedPaletteBank::analogous_hue, PaletteHarmony::ANALOGOUS>,
+        this, DWELL_FRAMES, FADE_FRAMES, easing);
   }
 
   /**
@@ -717,25 +723,10 @@ private:
       cycler.advance_without_display();
   }
 
-  static void next_triadic(void *context, uint32_t sequence,
-                           GenerativePalette &out) {
+  template <uint32_t GeneratedPaletteBank::*Hue, PaletteHarmony Harmony>
+  static void next(void *context, uint32_t sequence, GenerativePalette &out) {
     auto &bank = *static_cast<GeneratedPaletteBank *>(context);
-    next_palette(bank.triadic_hue, sequence, PaletteHarmony::TRIADIC,
-                 bank.chroma, out);
-  }
-
-  static void next_complementary(void *context, uint32_t sequence,
-                                 GenerativePalette &out) {
-    auto &bank = *static_cast<GeneratedPaletteBank *>(context);
-    next_palette(bank.complementary_hue, sequence,
-                 PaletteHarmony::COMPLEMENTARY, bank.chroma, out);
-  }
-
-  static void next_analogous(void *context, uint32_t sequence,
-                             GenerativePalette &out) {
-    auto &bank = *static_cast<GeneratedPaletteBank *>(context);
-    next_palette(bank.analogous_hue, sequence, PaletteHarmony::ANALOGOUS,
-                 bank.chroma, out);
+    next_palette(bank.*Hue, sequence, Harmony, bank.chroma, out);
   }
 
   PaletteCycler triadic;
