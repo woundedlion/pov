@@ -145,6 +145,8 @@ struct RippleChainParams : SphereAnimation::BurstRippleParams {
   }();
   /** Ripple count choices. */
   static constexpr const char *BURST_SIZES[] = {"one", "two", "three", "four"};
+  static_assert(std::size(BURST_SIZES) ==
+                SphereAnimation::RIPPLE_WAVES_PER_BURST);
   /** Random-center toggle values. */
   static constexpr const char *CENTER_MODES[] = {"off", "on"};
   static constexpr auto TOPOLOGY = std::array{

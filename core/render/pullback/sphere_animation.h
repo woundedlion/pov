@@ -13,11 +13,33 @@
 
 namespace Pullback::SphereAnimation {
 
+/// Scheduled burst slots.
+inline constexpr uint32_t RIPPLE_BURST_GROUPS = 4;
+/// Scheduled waves per burst.
+inline constexpr size_t RIPPLE_WAVES_PER_BURST = 4;
+/// Frames between successive waves of one burst.
+inline constexpr float RIPPLE_STAGGER_FRAMES = 16.0f;
+/// Age of a retired wave.
+inline constexpr float RIPPLE_RETIRED_AGE = 1000.0f;
+/// Minimum restorable age, with a one-frame margin before the latest wave.
+inline constexpr float RIPPLE_MIN_SNAPSHOT_AGE =
+    -RIPPLE_STAGGER_FRAMES * (RIPPLE_WAVES_PER_BURST - 1) - 1.0f;
+static_assert((uint64_t{1} << 32) % RIPPLE_BURST_GROUPS == 0);
+
+/** @brief Ring index of a wave within its burst.
+ * @param burst Burst sequence number.
+ * @param wave Wave index in the burst.
+ * @return Index into the scheduler's wave array. */
+constexpr size_t wave_slot(uint32_t burst, size_t wave) {
+  return (burst % RIPPLE_BURST_GROUPS) * RIPPLE_WAVES_PER_BURST + wave;
+}
+
 /** @brief Four-wave ripple burst controls. */
 struct BurstRippleParams : Surface::PeriodicRippleParams {
   float burst_rate = 1.0f / 128.0f; ///< Bursts per frame.
-  uint8_t burst_size = 3;           ///< Ripples per burst minus one.
-  uint8_t random_center = 1; ///< One random center per burst when enabled.
+  uint8_t burst_size =
+      RIPPLE_WAVES_PER_BURST - 1; ///< Ripples per burst minus one.
+  uint8_t random_center = 1;      ///< One random center per burst when enabled.
   /// Interpolable periodic-wave and burst-rate fields.
   static constexpr auto FIELDS = [] {
     auto fields = concat_fields<BurstRippleParams>(
@@ -32,10 +54,29 @@ struct BurstRippleParams : Surface::PeriodicRippleParams {
   }();
 };
 
+static_assert(
+    [] {
+      float maximum_rate = -1.0f;
+      float maximum_period = -1.0f;
+      for (const auto &field : BurstRippleParams::FIELDS) {
+        if (field.member == &BurstRippleParams::burst_rate)
+          maximum_rate = field.max;
+        if (field.member == &BurstRippleParams::period)
+          maximum_period = field.max;
+      }
+      return maximum_rate >= 0.0f && maximum_period >= 0.0f &&
+             RIPPLE_BURST_GROUPS >
+                 maximum_rate *
+                     (maximum_period +
+                      RIPPLE_STAGGER_FRAMES * (RIPPLE_WAVES_PER_BURST - 1));
+    }(),
+    "A burst slot must outlive the final wave in the burst");
+
 /** @brief One scheduled wave in a ripple burst. */
 struct RippleWave {
-  float age = 1000.0f; ///< Frames since launch; negative before launch.
-  uint32_t burst = 0;  ///< Burst identity shared by its waves.
+  float age =
+      RIPPLE_RETIRED_AGE; ///< Frames since launch; negative before launch.
+  uint32_t burst = 0;     ///< Burst identity shared by its waves.
 };
 /** @brief Ripple burst scheduler state. */
 struct RippleState {
@@ -43,7 +84,8 @@ struct RippleState {
   uint32_t seed = 0;        ///< Instance seed for burst origins.
   uint32_t burst_count = 0; ///< Bursts launched.
   uint32_t frames = 0;      ///< Frames advanced.
-  std::array<RippleWave, 16> waves{}; ///< Scheduled ripple waves.
+  std::array<RippleWave, RIPPLE_BURST_GROUPS * RIPPLE_WAVES_PER_BURST>
+      waves{}; ///< Scheduled ripple waves.
 };
 
 /** @brief Rewinds wave ages from a frame endpoint to its sampled time.
@@ -67,7 +109,7 @@ HS_FLASH_MEMBER inline void advance_ripple(RippleState &state,
                                            const Params &params) {
   ++state.frames;
   for (auto &wave : state.waves)
-    wave.age = fminf(wave.age + 1.0f, 1000.0f);
+    wave.age = fminf(wave.age + 1.0f, RIPPLE_RETIRED_AGE);
   state.phase += params.burst_rate;
   const bool FIRST = state.burst_count == 0;
   if (!FIRST && state.phase < 1.0f)
@@ -75,9 +117,9 @@ HS_FLASH_MEMBER inline void advance_ripple(RippleState &state,
   if (!FIRST)
     state.phase -= 1.0f;
   const float AGE = FIRST ? 1.0f : state.phase / params.burst_rate;
-  const size_t GROUP = (state.burst_count % 4) * 4;
   for (uint8_t i = 0; i <= params.burst_size; ++i)
-    state.waves[GROUP + i] = {AGE - 16.0f * i, state.burst_count};
+    state.waves[wave_slot(state.burst_count, i)] = {
+        AGE - RIPPLE_STAGGER_FRAMES * i, state.burst_count};
   ++state.burst_count;
 }
 
@@ -104,8 +146,9 @@ using RadialTransfer = RippleKernel::RadialTransfer;
 /** @brief Scalar inputs to an ordered radial endpoint bake. */
 struct RadialCurveKey {
   std::array<float, 4> shape{}; ///< Period, strength, decay and thickness.
-  std::array<float, 4> ages{};  ///< Active wave ages in launch order.
-  uint8_t count = 0;            ///< Active wave count.
+  std::array<float, RIPPLE_WAVES_PER_BURST>
+      ages{};        ///< Active wave ages in launch order.
+  uint8_t count = 0; ///< Active wave count.
 
   /** @brief Tests bitwise identity of all curve inputs.
    * @param other Previously baked endpoint inputs.
@@ -132,8 +175,9 @@ struct RadialGroup {
 
 /** @brief Persistent radial curves baked once for a frame. */
 struct RadialTables {
-  std::array<RadialGroup, 4> groups; ///< Burst groups in launch order.
-  std::array<std::array<uint8_t, RadialGroup::SAMPLES - 1>, 4>
+  std::array<RadialGroup, RIPPLE_BURST_GROUPS>
+      groups; ///< Burst groups in launch order.
+  std::array<std::array<uint8_t, RadialGroup::SAMPLES - 1>, RIPPLE_BURST_GROUPS>
       valid_cells{};    ///< Finalized endpoint-pair cell validity.
   uint8_t count = 0;    ///< Active group count.
   bool enabled = false; ///< Whether the parameters admit radial interpolation.
@@ -143,8 +187,10 @@ struct RadialTables {
 
 /** @brief Active ripple kernels in launch order. */
 struct PreparedRipples {
-  std::array<Surface::PreparedRipple, 16> waves; ///< Active kernels.
-  uint8_t count = 0;                             ///< Active wave count.
+  std::array<Surface::PreparedRipple,
+             RIPPLE_BURST_GROUPS * RIPPLE_WAVES_PER_BURST>
+      waves;         ///< Active kernels.
+  uint8_t count = 0; ///< Active wave count.
 };
 
 /** @brief Applies prepared waves in launch order.
@@ -187,10 +233,10 @@ grouped_ripples(const math::Vector &input, const PreparedRipples &prepared,
  * @param waves Prepared waves in launch order.
  * @param count Number of waves.
  * @return Net rotation and travel, or a negative path at a pole crossing. */
-inline RadialTransfer
-radial_transfer(float distance,
-                const std::array<Surface::PreparedRipple, 4> &waves,
-                uint8_t count) {
+inline RadialTransfer radial_transfer(
+    float distance,
+    const std::array<Surface::PreparedRipple, RIPPLE_WAVES_PER_BURST> &waves,
+    uint8_t count) {
   return RippleKernel::radial_transfer(
       distance,
       [&](uint8_t index) HS_HOT_INLINE -> const RippleKernel::Wave & {
@@ -266,21 +312,21 @@ prepare_radial_tables(const Params &params, const RippleState &state,
     return;
   ScratchScope scratch(scratch_arena_a);
   auto &current_waves = *scratch_arena_a.make_default_initialized<
-      std::array<std::array<Surface::PreparedRipple, 4>, 4>>();
-  auto &current_keys =
-      *scratch_arena_a
-           .make_default_initialized<std::array<RadialCurveKey, 4>>();
-  for (uint32_t lag = 4; lag > 0; --lag) {
+      std::array<std::array<Surface::PreparedRipple, RIPPLE_WAVES_PER_BURST>,
+                 RIPPLE_BURST_GROUPS>>();
+  auto &current_keys = *scratch_arena_a.make_default_initialized<
+      std::array<RadialCurveKey, RIPPLE_BURST_GROUPS>>();
+  for (uint32_t lag = RIPPLE_BURST_GROUPS; lag > 0; --lag) {
     const uint32_t BURST = state.burst_count - lag;
-    std::array<Surface::PreparedRipple, 4> previous;
+    std::array<Surface::PreparedRipple, RIPPLE_WAVES_PER_BURST> previous;
     auto &current = current_waves[tables.count];
     RadialCurveKey previous_key{
         {params.period, params.strength, params.decay, params.thickness}};
     auto &current_key = current_keys[tables.count];
     current_key.shape = previous_key.shape;
     uint8_t previous_count = 0, current_count = 0;
-    for (size_t i = 0; i < 4; ++i) {
-      const auto &wave = state.waves[(BURST % 4) * 4 + i];
+    for (size_t i = 0; i < RIPPLE_WAVES_PER_BURST; ++i) {
+      const auto &wave = state.waves[wave_slot(BURST, i)];
       if (wave.burst != BURST)
         continue;
       if (wave.age >= 0.0f && wave.age < params.period) {
@@ -435,12 +481,12 @@ template <typename Params>
 HS_HOT_FLASH_MEMBER inline PreparedRipples
 prepare_ripples(const Params &params, const RippleState &state) {
   PreparedRipples result;
-  for (uint32_t lag = 4; lag > 0; --lag) {
+  for (uint32_t lag = RIPPLE_BURST_GROUPS; lag > 0; --lag) {
     const uint32_t BURST = state.burst_count - lag;
     math::Vector center;
     bool center_ready = false;
-    for (size_t i = 0; i < 4; ++i) {
-      const auto &wave = state.waves[(BURST % 4) * 4 + i];
+    for (size_t i = 0; i < RIPPLE_WAVES_PER_BURST; ++i) {
+      const auto &wave = state.waves[wave_slot(BURST, i)];
       if (wave.age < 0.0f || wave.age >= params.period || wave.burst != BURST)
         continue;
       if (!center_ready) {

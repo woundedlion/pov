@@ -249,7 +249,9 @@ template <> struct RuntimeStateCodec<Op::RipplePhaseState> {
     if (value == nullptr || !Detail::snapshot_phase(value->phase))
       return false;
     for (const auto &wave : value->waves)
-      if (!Pattern::finite(wave.age) || wave.age < -49.0f || wave.age > 1000.0f)
+      if (!Pattern::finite(wave.age) ||
+          wave.age < SphereAnimation::RIPPLE_MIN_SNAPSHOT_AGE ||
+          wave.age > SphereAnimation::RIPPLE_RETIRED_AGE)
         return false;
     static_cast<RippleClockSnapshot &>(state) = *value;
     return true;
