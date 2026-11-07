@@ -124,9 +124,20 @@ inline void advance_ripple_phase(float &phase,
 /** @brief Advances a polynomial field's angular phase.
  * @param phase Current phase in radians.
  * @param rate Angular advance per frame.
- * @return Advanced phase modulo two pi. */
-HS_HOT_INLINE inline float advance_field_phase(float phase, float rate) {
-  return fmodf(phase + rate, math::TWO_PI_F);
+ * @param period Angular period in radians.
+ * @return Advanced phase modulo the period. */
+HS_HOT_INLINE inline float advance_field_phase(float phase, float rate,
+                                               float period = math::TWO_PI_F) {
+  return fmodf(phase + rate, period);
+}
+
+/** @brief Period of a composed surface phase clock.
+ * @tparam Family Surface parameter family.
+ * @return The declared angular period, or one turn. */
+template <typename Family> constexpr float phase_period() {
+  if constexpr (requires { Family::PHASE_PERIOD; })
+    return Family::PHASE_PERIOD;
+  return 1.0f;
 }
 
 /** @brief Converts the ripple clock in frames to a normalized cycle.

@@ -1137,15 +1137,16 @@ private:
         else if constexpr (std::is_same_v<typename Resource::Family,
                                           PeriodicRippleParams>)
           Surface::advance_ripple_phase(clock.phase, family);
-        else if constexpr (std::is_same_v<typename Resource::Family,
-                                          RossbyHaurwitzParams> ||
-                           std::is_same_v<typename Resource::Family,
-                                          PotentialParams>)
-          clock.phase = Surface::advance_field_phase(clock.phase, family.drift);
-        else if constexpr (std::is_same_v<typename Resource::Family,
-                                          SymmetricParams>)
-          clock.phase = Surface::advance_field_phase(clock.phase, family.speed);
-        else
+        else if constexpr (constexpr float PERIOD = Surface::phase_period<
+                               typename Resource::Family>();
+                           PERIOD != 1.0f) {
+          if constexpr (requires { family.drift; })
+            clock.phase =
+                Surface::advance_field_phase(clock.phase, family.drift, PERIOD);
+          else
+            clock.phase =
+                Surface::advance_field_phase(clock.phase, family.speed, PERIOD);
+        } else
           clock.phase = math::wrap_t(clock.phase + family.speed);
       } else if constexpr (Resource::KIND == ResourceKind::TWIST) {
         Lens::advance_twist(clock, family);

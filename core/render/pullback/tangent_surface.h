@@ -140,6 +140,7 @@ struct PotentialTermParams {
 
 /** @brief Four-term polynomial field controls. */
 struct PotentialParams {
+  static constexpr float PHASE_PERIOD = math::TWO_PI_F; ///< Azimuthal period.
   float strength = 0.05f;           ///< Signed fixed-step scale.
   float orientation_azimuth = 0.0f; ///< Polar-axis azimuth.
   float orientation_polar = 0.0f;   ///< Polar-axis colatitude.
@@ -273,6 +274,7 @@ struct PotentialParams {
 
 /** @brief Rossby-Haurwitz field controls. */
 struct RossbyHaurwitzParams {
+  static constexpr float PHASE_PERIOD = math::TWO_PI_F; ///< Azimuthal period.
   float strength = 0.05f; ///< Signed fixed-step scale.
   float omega = 0.0f;     ///< Zonal peak-speed amplitude.
   float wave = 1.0f;      ///< Wave peak-speed amplitude.
@@ -304,6 +306,7 @@ struct RossbyHaurwitzParams {
 
 /** @brief Rotating invariant field controls. */
 struct SymmetricParams {
+  static constexpr float PHASE_PERIOD = math::TWO_PI_F; ///< Rotation period.
   float strength = 0.05f; ///< Signed fixed-step scale.
   float speed = 0.0f;     ///< Field rotation per frame, radians.
   uint8_t integrator = 0; ///< Integration scheme.

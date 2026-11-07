@@ -141,12 +141,7 @@ public:
                                typename Resource::Family,
                                SphereAnimation::BurstRippleParams>) {
         constexpr float PERIOD =
-            std::is_same_v<typename Resource::Family, RossbyHaurwitzParams> ||
-                    std::is_same_v<typename Resource::Family,
-                                   SymmetricParams> ||
-                    std::is_same_v<typename Resource::Family, PotentialParams>
-                ? math::TWO_PI_F
-                : 1.0f;
+            Surface::phase_period<typename Resource::Family>();
         delta.phase = Spacetime::ClockInterval::prepare_delta(
             start.phase, end.phase, PERIOD);
       } else if constexpr (Resource::KIND == ResourceKind::TWIST) {
