@@ -710,25 +710,16 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
         math::Vec4 gradient{};
         for (int k = 0; k < DIMENSIONS; ++k)
           gradient[k] = local[k] + T * DIRECTION[k];
-        float components[3]{};
-        for (int j = 0; j < 3; ++j)
-          for (int k = 0; k < DIMENSIONS; ++k)
-            components[j] += camera.embedding.m[k][j] * gradient[k];
-        const math::Vector PROJECTED{components[0], components[1],
-                                     components[2]};
-        const float LENGTH2 = math::dot(PROJECTED, PROJECTED);
-        const float INVERSE_LENGTH =
-            LENGTH2 > 1e-20f && Raycast::finite(LENGTH2) ? 1 / sqrtf(LENGTH2)
-                                                         : 0;
-        hit.has_normal = INVERSE_LENGTH > 0;
-        hit.normal = PROJECTED * INVERSE_LENGTH;
+        float inverse_length;
+        hit.has_normal = camera.project_normal_dimension<DIMENSIONS>(
+            gradient, hit.normal, inverse_length);
         const float WIDTH = footprint.at(T);
         if (!VERIFIED) {
           hit.coverage = filtered_coverage;
         } else if (WIDTH > 0) {
           const float INCIDENCE = b + T * a;
           const float DEPTH = .25f * (roots.far - roots.near) *
-                              fabsf(INCIDENCE) * INVERSE_LENGTH;
+                              fabsf(INCIDENCE) * inverse_length;
           hit.coverage = footprint_coverage<true>(WIDTH, DEPTH);
         }
         result.trace.contribution = hit;

@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include "core/math/4dmath.h"
+#include "core/platform/attributes.h"
 #include "core/render/ray/contract.h"
 
 namespace Raycast {
@@ -94,24 +95,44 @@ struct PreparedCamera {
   }
 
   /**
-   * @brief Projects an ambient gradient onto camera space and normalizes it.
+   * @brief Projects an ambient gradient and exposes its normalization scale.
+   * @tparam DIMENSIONS Ambient coordinates used, 3 or 4.
    * @param gradient Ambient-space field gradient.
    * @param normal Receives the unit camera-space normal, or zero on failure.
+   * @param inverse_length Receives the reciprocal projected length, or zero.
    * @return False when the projection is non-finite or vanishing.
    */
-  bool project_normal(const math::Vec4 &gradient, math::Vector &normal) const {
+  template <int DIMENSIONS>
+  HS_HOT_INLINE bool project_normal_dimension(const math::Vec4 &gradient,
+                                              math::Vector &normal,
+                                              float &inverse_length) const {
+    static_assert(DIMENSIONS == 3 || DIMENSIONS == 4);
     float components[3]{};
     for (int j = 0; j < 3; ++j)
-      for (int i = 0; i < 4; ++i)
+      for (int i = 0; i < DIMENSIONS; ++i)
         components[j] += embedding.m[i][j] * gradient[i];
     const math::Vector projected(components[0], components[1], components[2]);
     const float LENGTH2 = math::dot(projected, projected);
     if (!finite(LENGTH2) || LENGTH2 <= 1e-20f) {
       normal = math::Vector();
+      inverse_length = 0.0f;
       return false;
     }
-    normal = projected * (1.0f / sqrtf(LENGTH2));
+    inverse_length = 1.0f / sqrtf(LENGTH2);
+    normal = projected * inverse_length;
     return true;
+  }
+
+  /**
+   * @brief Projects an ambient gradient onto camera space and normalizes it.
+   * @param gradient Ambient-space field gradient.
+   * @param normal Receives the unit camera-space normal, or zero on failure.
+   * @return False when the projection is non-finite or vanishing.
+   */
+  HS_HOT_INLINE bool project_normal(const math::Vec4 &gradient,
+                                    math::Vector &normal) const {
+    float inverse_length;
+    return project_normal_dimension<4>(gradient, normal, inverse_length);
   }
 };
 

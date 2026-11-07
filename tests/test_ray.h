@@ -67,6 +67,16 @@ inline void test_camera() {
   HS_EXPECT_TRUE(camera.project_normal({{1, 0, 0, 0}}, normal));
   HS_EXPECT_NEAR(normal.x, 1.0f, 1e-6f);
   camera.embedding = math::Mat4::identity();
+  float inverse_length = 9.0f;
+  HS_EXPECT_TRUE(camera.project_normal_dimension<3>({{3, 4, 0, 0}}, normal,
+                                                    inverse_length));
+  HS_EXPECT_NEAR(inverse_length, 0.2f, 1e-6f);
+  HS_EXPECT_NEAR(normal.x, 0.6f, 1e-6f);
+  HS_EXPECT_NEAR(normal.y, 0.8f, 1e-6f);
+  HS_EXPECT_FALSE(camera.project_normal_dimension<4>({{0, 0, 0, 1}}, normal,
+                                                     inverse_length));
+  HS_EXPECT_EQ(inverse_length, 0.0f);
+  HS_EXPECT_EQ(normal.magnitude(), 0.0f);
   HS_EXPECT_TRUE(!camera.project_normal({{0, 0, 0, 1}}, normal));
   camera.embedding.m[0][0] = 2.0f;
   HS_EXPECT_TRUE(!camera.valid());
