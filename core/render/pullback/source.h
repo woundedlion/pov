@@ -205,6 +205,10 @@ struct SphericalCellsSourceParams : Pattern::SphereCellsParams {
   /// Scalar output choices.
   static constexpr const char *OUTPUT_IDS[] = {"borders", "centers",
                                                "cell-value"};
+  static_assert(std::size(LAYOUT_IDS) ==
+                static_cast<size_t>(Pattern::SphereCellLayout::SCATTERED) + 1);
+  static_assert(std::size(OUTPUT_IDS) ==
+                static_cast<size_t>(Pattern::SphereCellOutput::CELL_VALUE) + 1);
   /// Activation of variable-density layouts.
   static constexpr TopologyGate COUNT_GATE{
       "layout", live_values(Pattern::SphereCellLayout::FIBONACCI,
