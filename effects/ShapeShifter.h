@@ -262,6 +262,18 @@ public:
 private:
   friend struct ::hs_test::shapeshifter_oracle_tests::ShapeShifterWhiteBox;
 
+#if HS_ENABLE_TEST_HOOKS
+  bool test_force_contours = false;
+#endif
+
+  HS_HOT_INLINE bool surface_route() const {
+#if HS_ENABLE_TEST_HOOKS
+    if (test_force_contours)
+      return false;
+#endif
+    return surface_params(params);
+  }
+
   using Choreography::begin_choreography;
   using Choreography::mark_global;
   using Choreography::params;
@@ -597,7 +609,7 @@ private:
           Plot::Star<Plot::PlanarProjection>::step_trig(sides);
       prepared_planar_star_sides = sides;
     }
-    if (this->getPresetIndex() == 0 && surface_params(params)) {
+    if (surface_route()) {
       draw_surface_all(canvas, palette, !Spacetime::flat_surface());
       return;
     }

@@ -298,29 +298,32 @@ inline void test_surface_preset_dispatch() {
     orientation.push(pose.end);
     ShapeShifterWhiteBox::set_twist(effect, pose.phase, pose.step);
   };
-  const auto comparison = compare_renders(
-      state,
-      [moving](OracleEffect &effect, Canvas &canvas) {
-        moving(effect);
-        const ScopedTemporalSampling sampling(true);
-        ShapeShifterWhiteBox::render_candidate(effect, canvas);
-      },
-      [moving](OracleEffect &effect, Canvas &canvas) {
-        moving(effect);
-        const ScopedTemporalSampling sampling(true);
-        ShapeShifterWhiteBox::surface_kernel(effect, canvas, true);
-      });
-  HS_EXPECT_EQ(comparison.error.different_pixels, size_t{0});
-  HS_EXPECT_GT(frame_energy(comparison.candidate), uint64_t{0});
-  const auto frozen =
-      capture_frame(state, [moving](OracleEffect &effect, Canvas &canvas) {
-        moving(effect);
-        const ScopedTemporalSampling sampling(true);
-        ShapeShifterWhiteBox::surface_kernel(effect, canvas, false);
-      });
-  HS_EXPECT_GT(compare_buffers(comparison.candidate.pixels, frozen.pixels)
-                   .different_pixels,
-               size_t{0});
+  for (size_t preset : {size_t{0}, size_t{1}}) {
+    state.preset_index = preset;
+    const auto comparison = compare_renders(
+        state,
+        [moving](OracleEffect &effect, Canvas &canvas) {
+          moving(effect);
+          const ScopedTemporalSampling sampling(true);
+          ShapeShifterWhiteBox::render_candidate(effect, canvas);
+        },
+        [moving](OracleEffect &effect, Canvas &canvas) {
+          moving(effect);
+          const ScopedTemporalSampling sampling(true);
+          ShapeShifterWhiteBox::surface_kernel(effect, canvas, true);
+        });
+    HS_EXPECT_EQ(comparison.error.different_pixels, size_t{0});
+    HS_EXPECT_GT(frame_energy(comparison.candidate), uint64_t{0});
+    const auto frozen =
+        capture_frame(state, [moving](OracleEffect &effect, Canvas &canvas) {
+          moving(effect);
+          const ScopedTemporalSampling sampling(true);
+          ShapeShifterWhiteBox::surface_kernel(effect, canvas, false);
+        });
+    HS_EXPECT_GT(compare_buffers(comparison.candidate.pixels, frozen.pixels)
+                     .different_pixels,
+                 size_t{0});
+  }
 }
 
 /** @brief P1 shows zero isolated dark pixels and exact tile parity. */

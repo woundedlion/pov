@@ -82,6 +82,7 @@ struct OracleState {
       OracleEffect::AlphaFalloff::TOWARD_EQUATOR;
   OracleEffect::RadiusSpacing spacing = OracleEffect::RadiusSpacing::UNIFORM;
   size_t preset_index = 0;
+  bool force_contours = false;
   int count = 7;
   int sides = 5;
   float phase = 0.0f;
@@ -121,7 +122,12 @@ struct ShapeShifterWhiteBox {
     effect.prepare_count(count);
   }
 
+  static void force_contours(OracleEffect &effect, bool enabled) {
+    effect.test_force_contours = enabled;
+  }
+
   static void configure(OracleEffect &effect, const OracleState &state) {
+    force_contours(effect, state.force_contours);
     if (effect.getPresetIndex() != state.preset_index)
       effect.profile_select_preset(state.preset_index);
     effect.alpha = state.alpha;
@@ -377,6 +383,7 @@ inline float preset_phase_step(size_t i) {
 inline OracleState dense_star_state() {
   OracleState state;
   state.preset_index = 1;
+  state.force_contours = true;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
   state.function = OracleEffect::PhaseFunction::SINE;
   state.alpha_falloff = OracleEffect::AlphaFalloff::TOWARD_EQUATOR;
@@ -910,6 +917,7 @@ inline void test_high_count_planar_star_caps_cover_chart_centers() {
     for (const math::Quaternion &orientation : orientations) {
       OracleState state;
       state.preset_index = 1;
+      state.force_contours = true;
       state.shape = OracleEffect::ShapeType::PLANAR_STAR;
       state.function = OracleEffect::PhaseFunction::SINE;
       state.spacing = spacing;
@@ -1408,6 +1416,7 @@ inline void test_timed_dense_star_clip_samples_polar_columns() {
   state.clip = {0, 72, 0, 144};
   state.phase = .37f;
   state.preset_index = 1;
+  state.force_contours = true;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
   state.count = 288;
   state.sides = 7;
