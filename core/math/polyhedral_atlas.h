@@ -122,15 +122,6 @@ template <typename Solid> constexpr size_t antipodal_pairs() {
   return F / 2;
 }
 
-/** @brief Monotonic stand-in for an azimuth, in [0, 4).
- *  @param x Cosine-side component; not both zero with @p z.
- *  @param z Sine-side component.
- *  @return A value increasing with atan2(z, x) taken in [0, 2 pi). */
-constexpr float pseudo_azimuth(float x, float z) {
-  const float t = x / ((x < 0.0f ? -x : x) + (z < 0.0f ? -z : z));
-  return z >= 0.0f ? 1.0f - t : 3.0f + t;
-}
-
 } // namespace polyhedral_atlas_detail
 
 /**
@@ -203,8 +194,8 @@ template <typename Solid> constexpr auto make_polyhedral_atlas() {
     const float dy = normals[a].y - normals[b].y;
     if (dy > 1e-3f || dy < -1e-3f)
       return dy > 0.0f;
-    return pseudo_azimuth(normals[a].x, normals[a].z) <
-           pseudo_azimuth(normals[b].x, normals[b].z);
+    return math::diamond_angle<false>(normals[a].z, normals[a].x) <
+           math::diamond_angle<false>(normals[b].z, normals[b].x);
   };
   size_t pair = 0;
   for (size_t f = 0; f < F && PAIRS != 0; ++f)

@@ -551,8 +551,8 @@ __attribute__((always_inline)) inline float precise_atan2(float y, float x) {
  * direction without a trig call. The near-origin fallback is not scale invariant.
  */
 template <bool FoldSeam = true>
-HS_HOT_INLINE inline float diamond_angle(float y, float x) {
-  float d = std::fabs(x) + std::fabs(y);
+HS_HOT_INLINE constexpr float diamond_angle(float y, float x) {
+  float d = __builtin_fabsf(x) + __builtin_fabsf(y);
   if (d < 1e-20f)
     return 0.0f;
   float r = y / d;
