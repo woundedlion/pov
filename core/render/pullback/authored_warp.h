@@ -94,6 +94,43 @@ struct AuthoredCurlFlowParams : CurlFlowParams {
   };
 };
 
+/** @brief Radial coordinate of the polar chart. */
+enum class PolarMode : uint8_t {
+  LINEAR = 0,     ///< Radius.
+  LOGARITHMIC = 1 ///< Log radius.
+};
+
+static_assert(std::size(AuthoredPolarParams::MODE_IDS) ==
+              static_cast<size_t>(PolarMode::LOGARITHMIC) + 1);
+
+static_assert(std::size(AuthoredPolarParams::HARMONIC_IDS) ==
+              MAX_POLAR_HARMONIC);
+
+/** @brief Curl-flow integrator; value v takes 2^v sub-steps. */
+enum class CurlIntegrator : uint8_t {
+  EULER1,    ///< One Euler step.
+  MIDPOINT2, ///< Two midpoint steps.
+  MIDPOINT4  ///< Four midpoint steps.
+};
+
+/**
+ * @brief Sub-step count of an integrator.
+ * @param integrator The integrator.
+ * @return 1, 2 or 4.
+ */
+inline constexpr uint8_t curl_intervals(CurlIntegrator integrator) {
+  static_assert(Euler1::INTERVALS ==
+                (1U << static_cast<uint8_t>(CurlIntegrator::EULER1)));
+  static_assert(Midpoint2::INTERVALS ==
+                (1U << static_cast<uint8_t>(CurlIntegrator::MIDPOINT2)));
+  static_assert(Midpoint4::INTERVALS ==
+                (1U << static_cast<uint8_t>(CurlIntegrator::MIDPOINT4)));
+  return static_cast<uint8_t>(1U << static_cast<uint8_t>(integrator));
+}
+
+static_assert(std::size(AuthoredCurlFlowParams::INTEGRATOR_IDS) ==
+              static_cast<size_t>(CurlIntegrator::MIDPOINT4) + 1);
+
 /** @brief Wave shear with a runtime-selected amplitude envelope.
  * @tparam State Keyed warp provider. */
 template <typename State> struct ConfiguredWaveShear : WaveShear<State> {
@@ -193,7 +230,9 @@ struct ConfiguredPolarChart : PolarChart<State, LinearPolar, 1> {
                               const ProjectionProvenance &,
                               const FrameState &frame, const NoPrepared &) {
     const auto &params = State::params(frame);
-    return polar_chart(input, params, State::phase(frame), params.mode == 1,
+    return polar_chart(input, params, State::phase(frame),
+                       static_cast<PolarMode>(params.mode) ==
+                           PolarMode::LOGARITHMIC,
                        static_cast<uint8_t>(params.harmonic + 1));
   }
 };
@@ -231,8 +270,9 @@ struct ConfiguredCurlFlow : CurlFlow<State, math::NoiseBasis::SIMPLEX, Euler1> {
     const auto &params = State::params(frame);
     return curl_flow(
         input, State::noise(frame), static_cast<math::NoiseBasis>(params.basis),
-        static_cast<uint8_t>(1u << params.integrator), params.scale,
-        params.strength, prepared, State::path_length_required(frame));
+        curl_intervals(static_cast<CurlIntegrator>(params.integrator)),
+        params.scale, params.strength, prepared,
+        State::path_length_required(frame));
   }
 };
 

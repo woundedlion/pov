@@ -110,9 +110,13 @@ template <typename Family, typename Model> void check_warp() {
     params.repeat_cells = 3.0f;
   constexpr int BASIS_COUNT = requires { params.basis; } ? 3 : 1;
   constexpr int ENVELOPE_COUNT = requires { params.envelope; } ? 3 : 1;
-  constexpr int MODE_COUNT = requires { params.mode; } ? 2 : 1;
+  constexpr int MODE_COUNT = requires {
+    params.mode;
+  } ? std::size(Pullback::Warp::AuthoredPolarParams::MODE_IDS) : 1;
   constexpr int HARMONIC_COUNT = requires { params.harmonic; } ? 16 : 1;
-  constexpr int INTEGRATOR_COUNT = requires { params.integrator; } ? 3 : 1;
+  constexpr int INTEGRATOR_COUNT = requires {
+    params.integrator;
+  } ? std::size(Pullback::Warp::AuthoredCurlFlowParams::INTEGRATOR_IDS) : 1;
   for (int basis = 0; basis < BASIS_COUNT; ++basis)
     for (int envelope = 0; envelope < ENVELOPE_COUNT; ++envelope)
       for (int mode = 0; mode < MODE_COUNT; ++mode)

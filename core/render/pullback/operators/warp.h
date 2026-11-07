@@ -333,17 +333,7 @@ struct WarpMirrorTile : PhaseClockModel<WarpPhaseState> {
   }
 };
 
-/** @brief Radial coordinate of the polar chart. */
-enum class PolarMode : uint8_t {
-  LINEAR = 0,     ///< Radius.
-  LOGARITHMIC = 1 ///< Log radius.
-};
-
-static_assert(std::size(Warp::AuthoredPolarParams::MODE_IDS) ==
-              static_cast<size_t>(PolarMode::LOGARITHMIC) + 1);
-
-static_assert(std::size(Warp::AuthoredPolarParams::HARMONIC_IDS) ==
-              Warp::MAX_POLAR_HARMONIC);
+using Warp::PolarMode;
 
 /** @brief Parameter family of warp.polar-chart.v2. */
 using PolarChartParams = Warp::AuthoredPolarParams;
@@ -398,30 +388,8 @@ struct WarpPolarChart : PhaseClockModel<WarpPhaseState> {
   }
 };
 
-/** @brief Curl-flow integrator; value v takes 2^v sub-steps. */
-enum class CurlIntegrator : uint8_t {
-  EULER1,    ///< One Euler step.
-  MIDPOINT2, ///< Two midpoint steps.
-  MIDPOINT4  ///< Four midpoint steps.
-};
-
-/**
- * @brief Sub-step count of an integrator.
- * @param integrator The integrator.
- * @return 1, 2 or 4.
- */
-inline constexpr uint8_t curl_intervals(CurlIntegrator integrator) {
-  static_assert(Warp::Euler1::INTERVALS ==
-                (1U << static_cast<uint8_t>(CurlIntegrator::EULER1)));
-  static_assert(Warp::Midpoint2::INTERVALS ==
-                (1U << static_cast<uint8_t>(CurlIntegrator::MIDPOINT2)));
-  static_assert(Warp::Midpoint4::INTERVALS ==
-                (1U << static_cast<uint8_t>(CurlIntegrator::MIDPOINT4)));
-  return static_cast<uint8_t>(1U << static_cast<uint8_t>(integrator));
-}
-
-static_assert(std::size(Warp::AuthoredCurlFlowParams::INTEGRATOR_IDS) ==
-              static_cast<size_t>(CurlIntegrator::MIDPOINT4) + 1);
+using Warp::CurlIntegrator;
+using Warp::curl_intervals;
 
 /** @brief Parameter family of warp.curl-flow.v2. */
 using CurlFlowWarpParams = Warp::AuthoredCurlFlowParams;
