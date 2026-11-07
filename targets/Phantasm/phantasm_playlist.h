@@ -172,6 +172,24 @@ constexpr int HS_PHANTASM_EXCLUDED_COUNT =
     0 HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUDED_COUNT_ADD);
 #undef HS_PHANTASM_EXCLUDED_COUNT_ADD
 
+/** @brief Counts occurrences of an effect name in the exclusions.
+ * @param name Effect class name.
+ * @return Number of matching exclusions. */
+constexpr int hs_phantasm_excluded_effect_count(std::string_view name) {
+#define HS_PHANTASM_EXCLUDED_NAME_MATCH(cls) +(name == #cls)
+  return 0 HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUDED_NAME_MATCH);
+#undef HS_PHANTASM_EXCLUDED_NAME_MATCH
+}
+
+/** @brief Checks that each excluded effect appears once.
+ * @return True when all exclusions are distinct. */
+constexpr bool hs_phantasm_exclusions_are_distinct() {
+#define HS_PHANTASM_EXCLUDED_NAME_ONCE(cls)                                    \
+  &&(hs_phantasm_excluded_effect_count(#cls) == 1)
+  return true HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUDED_NAME_ONCE);
+#undef HS_PHANTASM_EXCLUDED_NAME_ONCE
+}
+
 /**
  * @brief True when every excluded name is in HS_EFFECT_LIST.
  * @return True when all exclusions are roster effects.
@@ -199,6 +217,8 @@ static_assert(hs_phantasm_effect_list_is_distinct(),
 static_assert(hs_phantasm_effect_list_is_subset(),
               "HS_PHANTASM_EFFECT_LIST names an effect that is not in "
               "HS_EFFECT_LIST — a rename or typo left the playlist off-roster");
+static_assert(hs_phantasm_exclusions_are_distinct(),
+              "HS_PHANTASM_EXCLUDED_EFFECTS names an effect twice");
 static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT -
                                               HS_PHANTASM_EXCLUDED_COUNT -
                                               HS_ENABLE_CHAIN_INTERPRETER,
