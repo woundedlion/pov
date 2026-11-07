@@ -70,6 +70,11 @@ class TreeSync(unittest.TestCase):
         self.assertEqual(after, self.sync(after, paths))
         self.assertEqual(dc.check_text(PurePosixPath("README.md"), after, paths), [])
 
+    def test_slash_followed_by_prose_is_preserved(self):
+        text = ("<!-- docs-check: tree exhaustive -->\n```\n"
+                "└── foo.py / (legacy) helper\n```\n")
+        self.assertEqual(self.sync(text, entries("foo.py")), text)
+
     def test_unresolved_child_group_is_preserved_and_partial_removals_are_logged(self):
         text = "<!-- docs-check: tree exhaustive -->\n```\n└── core/  Engine (experimental)\n```\n"
         self.assertEqual(self.sync(text, entries("core")), text)
