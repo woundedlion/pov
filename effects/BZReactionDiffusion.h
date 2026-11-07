@@ -95,10 +95,8 @@ public:
     // Predation coefficient; bounded only by to_q16's [0,1] clamp, so a high
     // value saturates.
     register_param("Compete", &params.alpha, 0.0f, 4.0f);
-    // Explicit Euler is stable while dt·D·λmax ≤ 2, with |λ|max ≤ 2·RD_K;
-    // this bounds the Diff/Speed tops.
-    register_param("Diff", &params.diffusion, 0.001f, 0.1f);
-    register_param("Speed", &params.dt, 0.0f, 1.0f);
+    register_param("Diff", &params.diffusion, 0.001f, DIFF_MAX);
+    register_param("Speed", &params.dt, 0.0f, SPEED_MAX);
 
     allocate_state();
     init_lattice();
@@ -112,6 +110,11 @@ public:
   }
 
 private:
+  static constexpr float DIFF_MAX = 0.1f;
+  static constexpr float SPEED_MAX = 1.0f;
+  static_assert(SPEED_MAX * DIFF_MAX * 2 * RD_K <= 2.0f,
+                "diffusion exceeds the explicit Euler stability bound");
+
   friend struct ::hs_test::effects_tests::BZWhiteBox;
 
   /**
