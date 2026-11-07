@@ -1226,10 +1226,10 @@ class TestStripJsoncComments(unittest.TestCase):
         self.assertEqual(cmake_budgets, tg.load_budgets(path),
                          "CMake and teensy_gate must read identical budgets")
 
-    def test_strips_line_and_block_comments(self):
-        text = '{\n  // line\n  "a": 1, /* block */ "b": 2\n}'
+    def test_strips_line_comments(self):
+        text = '{\n  // line\n  "a": 1, "b": 2\n}'
         self.assertEqual(tg._strip_jsonc_comments(text),
-                         '{\n  \n  "a": 1,  "b": 2\n}')
+                         '{\n  \n  "a": 1, "b": 2\n}')
 
     def test_keeps_comment_sequences_inside_strings(self):
         # // and /* inside a JSON string value must survive untouched (a path,
@@ -1241,17 +1241,14 @@ class TestStripJsoncComments(unittest.TestCase):
         text = r'{"s": "a\"// still in string", "n": 1}'
         self.assertEqual(tg._strip_jsonc_comments(text), text)
 
-    def test_block_comment_with_newlines(self):
-        text = '{\n/* multi\nline */\n"a": 1}'
-        self.assertEqual(tg._strip_jsonc_comments(text), '{\n\n"a": 1}')
-
-    def test_unterminated_block_comment_raises(self):
-        with self.assertRaises(ValueError):
-            tg._strip_jsonc_comments('{"a":1} /* never closed')
+    def test_block_comments_remain_invalid_json(self):
+        for text in ('{"a":1} /* closed */', '{"a":1} /* never closed'):
+            with self.subTest(text=text), self.assertRaises(json.JSONDecodeError):
+                json.loads(tg._strip_jsonc_comments(text))
 
     def test_round_trips_through_json_load(self):
         cfg = json.loads(tg._strip_jsonc_comments(
-            '{\n  // c\n  "x": 1, /* y */ "s": "10 // 2"\n}'))
+            '{\n  // c\n  "x": 1, "s": "10 // 2"\n}'))
         self.assertEqual(cfg, {"x": 1, "s": "10 // 2"})
 
 

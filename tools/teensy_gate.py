@@ -467,7 +467,7 @@ def evaluate(
 # CLI (standalone / local debugging on captured toolchain output)
 # ---------------------------------------------------------------------------
 def _strip_jsonc_comments(text: str) -> str:
-    """Remove // and /* */ comments from JSONC text, leaving strings untouched."""
+    """Remove line comments from JSON text, leaving strings untouched."""
     out = []
     i, n = 0, len(text)
     in_string = False
@@ -491,13 +491,6 @@ def _strip_jsonc_comments(text: str) -> str:
             i += 2  # // line comment: drop through end of line (keep the \n)
             while i < n and text[i] != "\n":
                 i += 1
-        elif c == "/" and i + 1 < n and text[i + 1] == "*":
-            i += 2  # /* */ block comment: drop through the closing */
-            while i + 1 < n and not (text[i] == "*" and text[i + 1] == "/"):
-                i += 1
-            if not (i + 1 < n and text[i] == "*" and text[i + 1] == "/"):
-                raise ValueError("unterminated block comment in JSONC")
-            i += 2
         else:
             out.append(c)
             i += 1
@@ -732,7 +725,7 @@ def _unique_object(pairs):
 
 
 def load_budgets(path: str | Path) -> dict:
-    """Load tools/teensy_budgets.json, tolerating // and /* */ comments."""
+    """Load tools/teensy_budgets.json with optional line comments."""
     raw = Path(path).read_text(encoding="utf-8")
     return validate_budgets(json.loads(_strip_jsonc_comments(raw),
                                        object_pairs_hook=_unique_object))
