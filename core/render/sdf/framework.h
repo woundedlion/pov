@@ -41,6 +41,40 @@ struct FrameworkPlane {
   float spacing;       ///< Distance between adjacent planes.
 };
 
+namespace detail {
+/** @brief Exact interior and exterior clearance of framework strut fields. */
+inline constexpr Raycast::QueryCapabilities FRAMEWORK_CAPABILITIES{true, true,
+                                                                   true, 0.0f};
+
+/** @brief Field sample of a framework's nearest strut.
+ * @tparam Framework Geometry exposing edge_offset and wire_radius.
+ * @param framework Framework to query.
+ * @param p World-space point.
+ * @return Signed distance, clearance and nearest-edge identity. */
+template <typename Framework>
+inline Raycast::QuerySample framework_sample(const Framework &framework,
+                                             const math::Vector &p) {
+  uint32_t feature;
+  const float VALUE =
+      framework.edge_offset(p, feature).magnitude() - framework.wire_radius;
+  return {VALUE, fabsf(VALUE), VALUE == 0.0f, 0, feature};
+}
+
+/** @brief Outward normal of a framework's nearest strut.
+ * @tparam Framework Geometry exposing edge_offset.
+ * @param framework Framework to query.
+ * @param p World-space point.
+ * @return Unit normal, or zero on an edge axis. */
+template <typename Framework>
+inline math::Vector framework_normal(const Framework &framework,
+                                     const math::Vector &p) {
+  uint32_t feature;
+  const math::Vector OFFSET = framework.edge_offset(p, feature);
+  const float LENGTH = OFFSET.magnitude();
+  return LENGTH > 0.0f ? OFFSET * (1.0f / LENGTH) : math::Vector{};
+}
+} // namespace detail
+
 /** @brief Triangular-prism edges with equilateral XY cells and Z layers. */
 struct TriangularFramework {
   using PlaneFamily = FrameworkPlane;       ///< Plane family type.
@@ -116,33 +150,27 @@ struct TriangularFramework {
    * @param p Query point.
    * @return Distance to the nearest edge minus the wire radius. */
   float distance(const math::Vector &p) const {
-    uint32_t feature;
-    return edge_offset(p, feature).magnitude() - wire_radius;
+    return detail::framework_sample(*this, p).field;
   }
 
   /** @brief Outward surface normal.
    * @param p Query point.
    * @return Unit normal, or zero on an edge axis. */
   math::Vector normal(const math::Vector &p) const {
-    uint32_t feature;
-    const math::Vector OFFSET = edge_offset(p, feature);
-    const float LENGTH = OFFSET.magnitude();
-    return LENGTH > 0.0f ? OFFSET * (1.0f / LENGTH) : math::Vector{};
+    return detail::framework_normal(*this, p);
   }
 
   /** @brief Exact field with interior and exterior clearance.
    * @return The query capabilities. */
   Raycast::QueryCapabilities capabilities() const {
-    return {true, true, true, 0.0f};
+    return detail::FRAMEWORK_CAPABILITIES;
   }
 
   /** @brief Field sample with the nearest edge as feature.
    * @param p Query point.
    * @return Signed distance, clearance and edge id. */
   Raycast::QuerySample sample(const math::Vector &p) const {
-    uint32_t feature;
-    const float VALUE = edge_offset(p, feature).magnitude() - wire_radius;
-    return {VALUE, fabsf(VALUE), VALUE == 0.0f, 0, feature};
+    return detail::framework_sample(*this, p);
   }
 };
 
@@ -223,33 +251,27 @@ struct OctetFramework {
    * @param p Query point.
    * @return Distance to the nearest strut minus the wire radius. */
   float distance(const math::Vector &p) const {
-    uint32_t feature;
-    return edge_offset(p, feature).magnitude() - wire_radius;
+    return detail::framework_sample(*this, p).field;
   }
 
   /** @brief Outward surface normal.
    * @param p Query point.
    * @return Unit normal, or zero on a strut axis. */
   math::Vector normal(const math::Vector &p) const {
-    uint32_t feature;
-    const math::Vector OFFSET = edge_offset(p, feature);
-    const float LENGTH = OFFSET.magnitude();
-    return LENGTH > 0.0f ? OFFSET * (1.0f / LENGTH) : math::Vector{};
+    return detail::framework_normal(*this, p);
   }
 
   /** @brief Exact field with interior and exterior clearance.
    * @return The query capabilities. */
   Raycast::QueryCapabilities capabilities() const {
-    return {true, true, true, 0.0f};
+    return detail::FRAMEWORK_CAPABILITIES;
   }
 
   /** @brief Field sample with the nearest strut as feature.
    * @param p Query point.
    * @return Signed distance, clearance and strut id. */
   Raycast::QuerySample sample(const math::Vector &p) const {
-    uint32_t feature;
-    const float VALUE = edge_offset(p, feature).magnitude() - wire_radius;
-    return {VALUE, fabsf(VALUE), VALUE == 0.0f, 0, feature};
+    return detail::framework_sample(*this, p);
   }
 };
 
