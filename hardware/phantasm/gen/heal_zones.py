@@ -10,7 +10,7 @@ import math
 from pathlib import Path
 import sys
 
-import fab
+import fab_gates
 import sexp
 from constraints import ZONE_DEFAULTS
 from kicad_common import F, atomic_write_text, is_copper_pour, is_manifested
@@ -48,7 +48,7 @@ def heal_zones(source):
                 field[1] = sexp.Sym(f"{minimum:g}")
                 zone_changed = True
         changed += zone_changed
-    fab.validate_zone_geometry("<repaired board>", board=root)
+    fab_gates.validate_zone_geometry("<repaired board>", board=root)
     if not changed:
         return source, 0
     for zone in zones:
@@ -75,7 +75,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         if args.check:
-            fab.validate_zone_geometry(args.board)
+            fab_gates.validate_zone_geometry(args.board)
             print("Zone settings pass; refill and DRC are separate required checks.")
             return 0
         source_path = args.board.resolve()

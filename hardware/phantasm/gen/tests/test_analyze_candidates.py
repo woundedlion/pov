@@ -454,8 +454,8 @@ class ResolveKicadCliTests(unittest.TestCase):
     def test_drc_gate_reports_missing_only_when_unresolvable(self):
         with mock.patch.object(analyze_candidates, "resolve_kicad_cli",
                                return_value=None), \
-                mock.patch.object(analyze_candidates.fab, "validate_project_rules"), \
-                mock.patch.object(analyze_candidates.fab, "validate_zone_geometry"):
+                mock.patch.object(analyze_candidates.fab_gates, "validate_project_rules"), \
+                mock.patch.object(analyze_candidates.fab_gates, "validate_zone_geometry"):
             self.assertEqual(analyze_candidates.run_drc("board.kicad_pcb")["status"],
                              analyze_candidates.DRC_MISSING)
 
@@ -481,8 +481,8 @@ class RunDrcReportTests(unittest.TestCase):
         result = subprocess.CompletedProcess(["kicad-cli"], 1, b"", b"cannot load board\n")
         stderr = io.StringIO()
         with mock.patch.object(analyze_candidates, "resolve_kicad_cli", return_value="kicad-cli"), \
-                mock.patch.object(analyze_candidates.fab, "validate_project_rules"), \
-                mock.patch.object(analyze_candidates.fab, "validate_zone_geometry"), \
+                mock.patch.object(analyze_candidates.fab_gates, "validate_project_rules"), \
+                mock.patch.object(analyze_candidates.fab_gates, "validate_zone_geometry"), \
                 mock.patch.object(analyze_candidates.subprocess, "run", return_value=result), \
                 contextlib.redirect_stderr(stderr):
             self.assertEqual(analyze_candidates.run_drc("board.kicad_pcb")["status"],
@@ -497,8 +497,8 @@ class RunDrcReportTests(unittest.TestCase):
 
         with mock.patch.object(analyze_candidates, "resolve_kicad_cli",
                                return_value="kicad-cli"), \
-                mock.patch.object(analyze_candidates.fab, "validate_project_rules"), \
-                mock.patch.object(analyze_candidates.fab, "validate_zone_geometry"), \
+                mock.patch.object(analyze_candidates.fab_gates, "validate_project_rules"), \
+                mock.patch.object(analyze_candidates.fab_gates, "validate_zone_geometry"), \
                 mock.patch.object(analyze_candidates.subprocess, "run",
                                   side_effect=write_report) as run:
             result = analyze_candidates.run_drc("board.kicad_pcb")
@@ -508,8 +508,8 @@ class RunDrcReportTests(unittest.TestCase):
     def test_relaxed_project_floors_prevent_drc(self):
         with mock.patch.object(analyze_candidates, "resolve_kicad_cli",
                                return_value="kicad-cli"), mock.patch.object(
-                analyze_candidates.fab, "validate_project_rules",
-                side_effect=analyze_candidates.fab.ProjectRulesError("relaxed floors")), \
+                analyze_candidates.fab_gates, "validate_project_rules",
+                side_effect=analyze_candidates.fab_gates.ProjectRulesError("relaxed floors")), \
                 mock.patch.object(analyze_candidates.subprocess, "run") as run:
             result = analyze_candidates.run_drc("candidate.kicad_pcb")
         self.assertEqual(result["status"], analyze_candidates.DRC_RULES)
@@ -518,9 +518,9 @@ class RunDrcReportTests(unittest.TestCase):
     def test_unmanufacturable_zones_prevent_drc(self):
         with mock.patch.object(analyze_candidates, "resolve_kicad_cli",
                                return_value="kicad-cli"), \
-                mock.patch.object(analyze_candidates.fab, "validate_project_rules"), \
-                mock.patch.object(analyze_candidates.fab, "validate_zone_geometry",
-                                  side_effect=analyze_candidates.fab.ZoneGeometryError(
+                mock.patch.object(analyze_candidates.fab_gates, "validate_project_rules"), \
+                mock.patch.object(analyze_candidates.fab_gates, "validate_zone_geometry",
+                                  side_effect=analyze_candidates.fab_gates.ZoneGeometryError(
                                       "thermal_gap below fabrication floor")), \
                 mock.patch.object(analyze_candidates.subprocess, "run") as run:
             result = analyze_candidates.run_drc("candidate.kicad_pcb")
@@ -528,12 +528,12 @@ class RunDrcReportTests(unittest.TestCase):
         run.assert_not_called()
 
     def test_floor_checks_run_without_kicad_and_report_rules(self):
-        for validator, error in (("validate_project_rules", analyze_candidates.fab.ProjectRulesError("rules")),
-                                 ("validate_zone_geometry", analyze_candidates.fab.ZoneGeometryError("zones"))):
+        for validator, error in (("validate_project_rules", analyze_candidates.fab_gates.ProjectRulesError("rules")),
+                                 ("validate_zone_geometry", analyze_candidates.fab_gates.ZoneGeometryError("zones"))):
             with self.subTest(validator=validator), \
                     mock.patch.object(analyze_candidates, "resolve_kicad_cli", return_value=None) as resolve, \
-                    mock.patch.object(analyze_candidates.fab, "validate_project_rules") as rules, \
-                    mock.patch.object(analyze_candidates.fab, "validate_zone_geometry") as zones:
+                    mock.patch.object(analyze_candidates.fab_gates, "validate_project_rules") as rules, \
+                    mock.patch.object(analyze_candidates.fab_gates, "validate_zone_geometry") as zones:
                 (rules if validator == "validate_project_rules" else zones).side_effect = error
                 self.assertEqual(analyze_candidates.run_drc("candidate.kicad_pcb")["status"],
                                  analyze_candidates.DRC_RULES)

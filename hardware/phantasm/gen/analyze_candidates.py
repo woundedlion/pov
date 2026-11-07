@@ -36,7 +36,7 @@ import subprocess
 import sys
 import tempfile
 
-import fab
+import fab_gates
 import builder
 import sexp
 from kicad_common import F, kicad_cli, net_name, property_value
@@ -55,8 +55,8 @@ DRC_OK = "ok"
 DRC_MISSING = "tool-missing"
 DRC_FAILED = "failed"
 DRC_RULES = "rules"
-MIN_STANDARD_VIA_DIAMETER_MM = fab.MIN_STANDARD_VIA_DIAMETER_MM
-MIN_STANDARD_VIA_DRILL_MM = fab.MIN_STANDARD_VIA_DRILL_MM
+MIN_STANDARD_VIA_DIAMETER_MM = fab_gates.MIN_STANDARD_VIA_DIAMETER_MM
+MIN_STANDARD_VIA_DRILL_MM = fab_gates.MIN_STANDARD_VIA_DRILL_MM
 
 # Fast / critical nets for the 24 MHz SPI + sync (source-side names
 # DATA_SRC/CLK_SRC/SYNC_SRC are pre-terminator stubs -- included as fast too).
@@ -133,11 +133,11 @@ def run_drc(pcb_path):
     DRC_FAILED."""
     refused = False
     for validate, path in (
-            (fab.validate_project_rules, os.path.splitext(pcb_path)[0] + ".kicad_pro"),
-            (fab.validate_zone_geometry, pcb_path)):
+            (fab_gates.validate_project_rules, os.path.splitext(pcb_path)[0] + ".kicad_pro"),
+            (fab_gates.validate_zone_geometry, pcb_path)):
         try:
             validate(path)
-        except (fab.ProjectRulesError, fab.ZoneGeometryError) as error:
+        except (fab_gates.ProjectRulesError, fab_gates.ZoneGeometryError) as error:
             print(f"{pcb_path}: {error}", file=sys.stderr)
             refused = True
     if refused:
@@ -156,8 +156,8 @@ def run_drc(pcb_path):
         if r.returncode != 0:
             sys.stderr.write((r.stderr or b"").decode(errors="replace"))
             return no_drc(DRC_FAILED)
-        violations, unconnected_items = fab.read_drc_report(rpt)
-    except (subprocess.SubprocessError, OSError, fab.DesignRuleError):
+        violations, unconnected_items = fab_gates.read_drc_report(rpt)
+    except (subprocess.SubprocessError, OSError, fab_gates.DesignRuleError):
         return no_drc(DRC_FAILED)
     finally:
         try:
