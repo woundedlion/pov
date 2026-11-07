@@ -107,4 +107,5 @@ if os.path.basename(env.subst("$LDSCRIPT_PATH")) == "phantasm.ld":
     ])
     env.Depends("$BUILD_DIR/firmware.elf",
                 [os.path.join(_ROOT, "tools", name)
-                 for name in ("cpp_roster.py", "hot_layout.py", "teensy_hot_layout.py", "phantasm.ld")])
+                 for name in ("cpp_roster.py", "hot_layout.py", "teensy_gate.py",
+                              "teensy_hot_layout.py", "phantasm.ld")])
