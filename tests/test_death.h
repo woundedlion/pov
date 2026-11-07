@@ -2109,6 +2109,26 @@ inline const Case *all_cases(int &n) {
        "core/render/pullback/operators/sphere.h",
        "(params.limit <= static_cast<uint8_t>(math::TangentLimit::CLAMP)) "
        "sphere.displace.curl: invalid limit"},
+      {"pullback_operator_invalid_ripple_burst",
+       case_pullback_operator_invalid_ripple_burst,
+       "core/render/pullback/operators/sphere.h",
+       "(params.burst_size < std::size(Params::BURST_SIZES)) "
+       "sphere.displace.ripple: invalid burst size"},
+      {"pullback_operator_invalid_field_integrator",
+       case_pullback_operator_invalid_field_integrator,
+       "core/render/pullback/operators/tangent.h",
+       "(params.integrator < std::size(Surface::AUTHORED_INTEGRATOR_IDS)) "
+       "tangent displacement: invalid integrator"},
+      {"pullback_operator_invalid_field_symmetry",
+       case_pullback_operator_invalid_field_symmetry,
+       "core/render/pullback/operators/tangent.h",
+       "(params.symmetry < std::size(Surface::AUTHORED_SYMMETRY_IDS)) "
+       "sphere.displace.symmetric: invalid symmetry"},
+      {"pullback_operator_invalid_field_kind",
+       case_pullback_operator_invalid_field_kind,
+       "core/render/pullback/operators/tangent.h",
+       "(params.kind < std::size(Surface::AUTHORED_FIELD_KIND_IDS)) "
+       "sphere.displace.symmetric: invalid field kind"},
       {"pullback_operator_invalid_bonne_hemisphere",
        case_pullback_operator_invalid_bonne_hemisphere,
        "core/render/pullback/operators/project.h",

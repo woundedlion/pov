@@ -217,6 +217,39 @@ inline void case_pullback_operator_invalid_tangent_limit() {
     std::printf("x");
 }
 
+/** @brief Ripple advance rejects an oversized burst. */
+inline void case_pullback_operator_invalid_ripple_burst() {
+  using Ripple = Pullback::Interp::Op::DisplaceRipple;
+  Ripple::Params params;
+  Ripple::State state;
+  params.burst_size = opaque<uint8_t>(4);
+  Ripple::advance(state, params);
+}
+
+/** @brief Tangent displacement preparation rejects an unknown integrator. */
+inline void case_pullback_operator_invalid_field_integrator() {
+  using Field = Pullback::Interp::Op::DisplacePotential;
+  Field::Params params;
+  params.integrator = opaque<uint8_t>(0xff);
+  (void)Field::prepare({}, params, {});
+}
+
+/** @brief Symmetric displacement rejects an unknown symmetry. */
+inline void case_pullback_operator_invalid_field_symmetry() {
+  using Field = Pullback::Interp::Op::DisplaceSymmetric;
+  Field::Params params;
+  params.symmetry = opaque<uint8_t>(0xff);
+  (void)Field::prepare({}, params, {});
+}
+
+/** @brief Symmetric displacement rejects an unknown field kind. */
+inline void case_pullback_operator_invalid_field_kind() {
+  using Field = Pullback::Interp::Op::DisplaceSymmetric;
+  Field::Params params;
+  params.kind = opaque<uint8_t>(0xff);
+  (void)Field::prepare({}, params, {});
+}
+
 /** @brief Rejects an unknown Bonne hemisphere. */
 inline void case_pullback_operator_invalid_bonne_hemisphere() {
   Pullback::Interp::Op::ProjectBonneV3::Params params;

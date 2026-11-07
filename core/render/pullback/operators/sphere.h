@@ -198,6 +198,8 @@ struct DisplaceRipple : ValueStateModel<RipplePhaseState> {
 
   static void init(State &state, InstanceId id) { state.seed = id.stable_hash; }
   static void advance(State &state, const Params &params) {
+    HS_CHECK(params.burst_size < std::size(Params::BURST_SIZES),
+             "sphere.displace.ripple: invalid burst size");
     SphereAnimation::advance_ripple(state, params);
   }
   /** @brief Deterministic uniform center for a burst.

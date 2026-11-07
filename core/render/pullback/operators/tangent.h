@@ -95,6 +95,8 @@ struct FieldDisplaceModel : ValueStateModel<StateT> {
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
+    HS_CHECK(params.integrator < std::size(Surface::AUTHORED_INTEGRATOR_IDS),
+             "tangent displacement: invalid integrator");
     if constexpr (requires { state.phase; })
       return Derived::field(params, state.phase);
     else
@@ -182,6 +184,10 @@ struct DisplaceSymmetric
    * @param phase Accumulated frame rotation, radians.
    * @return Prepared polynomial tangent field. */
   static Prepared field(const Params &params, float phase) {
+    HS_CHECK(params.symmetry < std::size(Surface::AUTHORED_SYMMETRY_IDS),
+             "sphere.displace.symmetric: invalid symmetry");
+    HS_CHECK(params.kind < std::size(Surface::AUTHORED_FIELD_KIND_IDS),
+             "sphere.displace.symmetric: invalid field kind");
     return Surface::symmetric_field(params.symmetry, params.kind, phase);
   }
 };
