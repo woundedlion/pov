@@ -8,8 +8,8 @@
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 #include "core/math/tangent_field.h"
+#include "core/render/pullback/operators/common.h"
 #include "core/render/pullback/tangent_surface.h"
-#include "core/render/pullback/operators/sphere.h"
 
 /** @file tangent.h
  * @brief Fixed-step polynomial tangent-field operators. */
