@@ -1518,6 +1518,26 @@ concept StageMatchesKey = requires(const Key &key) {
 
 namespace Detail {
 
+/** @brief Canonical palette and final-layer owner types for color-tail fusion.
+ * @tparam PaletteNode Bound palette crossing.
+ * @tparam LayerNode Bound final color layer. */
+template <typename PaletteNode, typename LayerNode>
+concept CanonicalColorTailOwners =
+    requires {
+      typename PaletteNode::Descriptor::FusedStageOwner;
+      typename LayerNode::Descriptor::FusedStageOwner;
+      typename PaletteNode::Descriptor::ColorPolicy;
+      typename LayerNode::Descriptor::ColorPolicy;
+      typename PaletteNode::Descriptor::ColorPolicy::SharedBaseOwner;
+    } &&
+    std::same_as<typename PaletteNode::Descriptor,
+                 typename PaletteNode::Descriptor::FusedStageOwner> &&
+    std::same_as<typename LayerNode::Descriptor,
+                 typename LayerNode::Descriptor::FusedStageOwner> &&
+    std::same_as<
+        typename PaletteNode::Descriptor::ColorPolicy,
+        typename PaletteNode::Descriptor::ColorPolicy::SharedBaseOwner>;
+
 /** @brief First type satisfying @p Predicate, or void.
  * @tparam Predicate Unary trait with a boolean `value`.
  * @tparam Ls Candidates. */
@@ -1722,28 +1742,18 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
   static constexpr bool fused_color_tail_supported() {
     if constexpr (Index + 2 != NODE_COUNT)
       return false;
-    else if constexpr (requires {
-                         typename NodeAt<Index>::Descriptor::FusedStageOwner;
-                         typename NodeAt<Index +
-                                         1>::Descriptor::FusedStageOwner;
-                         typename NodeAt<Index>::Descriptor::ColorPolicy;
-                         typename NodeAt<Index + 1>::Descriptor::ColorPolicy;
-                       }) {
+    else if constexpr (CanonicalColorTailOwners<NodeAt<Index>,
+                                                NodeAt<Index + 1>>) {
       using ColorStage = typename NodeAt<Index>::Descriptor;
       using ModulationStage = typename NodeAt<Index + 1>::Descriptor;
       using Palette = typename ColorStage::ColorPolicy;
       using Modulation = typename ModulationStage::ColorPolicy;
       if constexpr (requires {
-                      typename Palette::SharedBaseOwner;
                       Palette::FUSED_TEMPORAL_COLOR;
                       typename Modulation::PairedOwner;
                       Modulation::FUSED_ENDPOINTS;
                     })
       return Palette::FUSED_TEMPORAL_COLOR &&
-             std::same_as<ColorStage, typename ColorStage::FusedStageOwner> &&
-             std::same_as<ModulationStage,
-                          typename ModulationStage::FusedStageOwner> &&
-             std::same_as<Palette, typename Palette::SharedBaseOwner> &&
              std::same_as<Modulation, typename Modulation::PairedOwner> &&
              Modulation::FUSED_ENDPOINTS &&
                requires(const Input &input, const FrameState &ctx,
@@ -1781,27 +1791,17 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                   !std::same_as<typename Binding::Instrumentation,
                                 NoInstrumentation>)
       return false;
-    else if constexpr (requires {
-                         typename NodeAt<Index>::Descriptor::FusedStageOwner;
-                         typename NodeAt<Index +
-                                         1>::Descriptor::FusedStageOwner;
-                         typename NodeAt<Index>::Descriptor::ColorPolicy;
-                         typename NodeAt<Index + 1>::Descriptor::ColorPolicy;
-                       }) {
+    else if constexpr (CanonicalColorTailOwners<NodeAt<Index>,
+                                                NodeAt<Index + 1>>) {
       using PaletteStage = typename NodeAt<Index>::Descriptor;
       using LayerStage = typename NodeAt<Index + 1>::Descriptor;
       using Palette = typename PaletteStage::ColorPolicy;
       using Layer = typename LayerStage::ColorPolicy;
       if constexpr (requires {
-                      typename Palette::SharedBaseOwner;
                       typename Palette::CachedPhaseOwner;
                       typename Layer::PairedOwner;
                     })
-      return std::same_as<PaletteStage,
-                          typename PaletteStage::FusedStageOwner> &&
-             std::same_as<LayerStage, typename LayerStage::FusedStageOwner> &&
-             std::same_as<Palette, typename Palette::SharedBaseOwner> &&
-             std::same_as<Palette, typename Palette::CachedPhaseOwner> &&
+      return std::same_as<Palette, typename Palette::CachedPhaseOwner> &&
              std::same_as<Layer, typename Layer::PairedOwner> &&
                requires(const Input &input, const FrameState &ctx,
                         const PreparedTuple &prepared, Color4 &output)
