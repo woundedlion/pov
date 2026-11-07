@@ -1132,136 +1132,6 @@ struct Mesh {
   }
 
   /**
-   * @brief The azimuths whose meridian halves can come near a swept face.
-   * @details A face clear of a pole lies within the azimuths of its vertices
-   * at the frame's start, middle and end, widened by the reach its paths
-   * bulge past their knots; a meridian half within a reach of it lies
-   * within the asin of the reach over the sine of the face's least polar
-   * angle over the frame. A face winding around the pole, reaching within the
-   * reach of it or of its equator, spanning half a turn, or holding an edge
-   * or a vertex path across nearly half a turn of azimuth, which an arc clear
-   * of the pole turns through monotonically, is near every meridian half.
-   */
-  struct SweepWedge {
-    float cx = 0.0f;        ///< Unit azimuth of the range's middle, x.
-    float cz = 0.0f;        ///< Unit azimuth of the range's middle, z.
-    float cos_half = -2.0f; ///< Cosine of its half-width; below -1 for all.
-
-    /**
-     * @brief The wedge of a sweep's face.
-     * @param sweep The face and its vertex paths.
-     * @param reach Arc within which a meridian half counts as near.
-     * @return The wedge.
-     * @details Neighboring edges share each knot's vertex azimuths.
-     */
-    HS_HOT_FLASH_MEMBER static SweepWedge of(const Scan::PoleFaceSweep &sweep,
-                                             float reach) {
-      SweepWedge wedge;
-      const size_t n = sweep.count;
-      const math::Vector pole(0.0f, sweep.north ? 1.0f : -1.0f, 0.0f);
-      const Spacetime::Worldline *paths = sweep.paths;
-      const float reference = atan2f(paths[0].start.z, paths[0].start.x);
-      float lo = 0.0f, hi = 0.0f, closest = math::PI_F;
-      const auto knot = [&](size_t j, size_t k) HS_HOT_INLINE {
-        return j == 0   ? paths[k].start
-               : j == 1 ? paths[k].middle
-                        : paths[k].end;
-      };
-      for (size_t j = 0; j < 3; ++j) {
-        const math::Vector first = knot(j, 0);
-        const float FIRST_ANGLE = j == 0 ? reference : atan2f(first.z, first.x);
-        float angle = FIRST_ANGLE, winding = 0.0f;
-        for (size_t k = 0; k < n; ++k) {
-          const math::Vector a = knot(j, k);
-          const math::Vector b = knot(j, k + 1 == n ? 0 : k + 1);
-          const float NEXT_ANGLE = k + 1 == n ? FIRST_ANGLE : atan2f(b.z, b.x);
-          const float turn = std::remainder(NEXT_ANGLE - angle, math::TWO_PI_F);
-          if (fabsf(turn) >= 0.9f * math::PI_F)
-            return wedge;
-          winding += turn;
-          const float offset =
-              std::remainder(angle - reference, math::TWO_PI_F);
-          lo = fminf(lo, offset);
-          hi = fmaxf(hi, offset);
-          closest = fminf(closest, arc_distance(pole, a, b));
-          angle = NEXT_ANGLE;
-        }
-        if (fabsf(winding) > math::PI_F)
-          return wedge;
-      }
-      // Each vertex keeps within its path's deviation of its chord.
-      float bulge = 0.0f;
-      for (size_t k = 0; k < n; ++k)
-        bulge = fmaxf(bulge, paths[k].deviation());
-      reach += bulge;
-      for (size_t k = 0; k < n; ++k) {
-        const math::Vector &a = paths[k].start, &b = paths[k].end;
-        if (math::dot(a, pole) < sinf(reach) ||
-            math::dot(b, pole) < sinf(reach))
-          return wedge;
-        if (fabsf(std::remainder(atan2f(b.z, b.x) - atan2f(a.z, a.x),
-                                 math::TWO_PI_F)) >= 0.9f * math::PI_F)
-          return wedge;
-        closest = fminf(closest, arc_distance(pole, a, b));
-      }
-      if (closest <= reach || hi - lo >= math::PI_F)
-        return wedge;
-      const float spread = asinf(fminf(1.0f, sinf(reach) / sinf(closest)));
-      const float half = 0.5f * (hi - lo) + spread;
-      if (half >= math::PI_F)
-        return wedge;
-      const float middle = reference + 0.5f * (hi + lo);
-      wedge.cx = cosf(middle);
-      wedge.cz = sinf(middle);
-      wedge.cos_half = cosf(half);
-      return wedge;
-    }
-
-    /**
-     * @brief Angle from a direction to the nearest point of an arc.
-     * @param p Unit direction.
-     * @param a The arc's start.
-     * @param b The arc's end.
-     * @return The angle, radians.
-     */
-    HS_HOT_FLASH_MEMBER static float arc_distance(const math::Vector &p,
-                                                  const math::Vector &a,
-                                                  const math::Vector &b) {
-      const math::Vector ua = a.normalized(), ub = b.normalized();
-      const math::Vector normal = math::cross(ua, ub);
-      const float length = sqrtf(math::dot(normal, normal));
-      if (length > 1e-6f) {
-        const math::Vector unit = normal * (1.0f / length);
-        const float height = math::dot(p, unit);
-        const math::Vector foot = p - unit * height;
-        if (math::dot(math::cross(ua, foot), unit) >= 0.0f &&
-            math::dot(math::cross(foot, ub), unit) >= 0.0f)
-          return asinf(hs::clamp(fabsf(height), 0.0f, 1.0f));
-      }
-      const float to_a = acosf(hs::clamp(math::dot(p, ua), -1.0f, 1.0f));
-      const float to_b = acosf(hs::clamp(math::dot(p, ub), -1.0f, 1.0f));
-      return fminf(to_a, to_b);
-    }
-
-    /**
-     * @brief The arms of a column pair to scan.
-     * @param azimuth The pair's first-arm meridian direction.
-     * @param first Whether the clip admits the first arm's column.
-     * @param second Whether the clip admits the second arm's column.
-     * @return Bit 0 for the first arm, bit 1 for the second.
-     */
-    HS_HOT_INLINE int arms(const math::Vector &azimuth, bool first,
-                           bool second) const {
-      if (cos_half < -1.0f)
-        return (first ? 1 : 0) | (second ? 2 : 0);
-      const float along = (azimuth.x * cx + azimuth.z * cz) /
-                          sqrtf(azimuth.x * azimuth.x + azimuth.z * azimuth.z);
-      return (first && along >= cos_half ? 1 : 0) |
-             (second && -along >= cos_half ? 2 : 0);
-    }
-  };
-
-  /**
    * @brief Rasterizes a face a deformation scan sweeps, one column pair at a
    *        time, each pair's face standing as at its sweep time.
    * @tparam W Canvas width in pixels.
@@ -1349,8 +1219,8 @@ struct Mesh {
           return true;
       return false;
     };
-    const SweepWedge wedge =
-        SweepWedge::of(sweep, SWEEP_ROW_REACH<W> + time.sweep_arc);
+    const Scan::SweepWedge wedge =
+        Scan::SweepWedge::of(sweep, SWEEP_ROW_REACH<W> + time.sweep_arc);
     constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
     constexpr bool TIMED_SHADER =
         Spacetime::reads_time<FragmentShaderT, const math::Vector &,
