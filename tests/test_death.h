@@ -584,7 +584,7 @@ inline const Case *all_cases(int &n) {
       {"arena_span_reset", case_arena_span_reset, "core/memory/span.h",
        "(!stamp.arena_reset()) ArenaSpan use-after-free!", true},
       {"arena_span_cleared", case_arena_span_cleared, "core/memory/span.h",
-       "(!source_vec || source_vec->rebind_generation == source_rebind_generation) ArenaSpan source vector re-grown out from under span!",
+       "(!source_vec || source_vec->rebind_generation == source_rebind_generation) ArenaSpan source vector rebound or cleared under span!",
        true},
       {"arena_span_rewound", case_arena_span_rewound, "core/memory/span.h",
        "(!stamp.block_uncovered(elements, bytes)) ArenaSpan use-after-free (arena rewound below span)!",

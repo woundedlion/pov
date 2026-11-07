@@ -30,21 +30,21 @@ template <typename T> class ArenaSpan {
 #ifndef NDEBUG
   ArenaBlockStamp stamp; /**< Arena state when the block was allocated. */
   const ArenaVector<T> *source_vec =
-      nullptr; /**< Source vector for re-grow check. */
+      nullptr; /**< Source vector for rebind checks. */
   uint32_t source_rebind_generation =
       0; /**< Vector rebind counter at construction. */
 
   /**
    * @brief Debug-only stale-span check against arena and vector stamps.
-   * @details Traps on arena reset, source-vector re-grow, a rewind below the
-   * borrowed block, or reclamation and reissue of that block.
+   * @details Traps on arena reset, source-vector rebind or clear, a rewind
+   * below the borrowed block, or reclamation and reissue of that block.
    */
   void check_alive() const {
     const size_t bytes = element_count * sizeof(T);
     HS_CHECK(!stamp.arena_reset(), "ArenaSpan use-after-free!");
     HS_CHECK(!source_vec ||
                  source_vec->rebind_generation == source_rebind_generation,
-             "ArenaSpan source vector re-grown out from under span!");
+             "ArenaSpan source vector rebound or cleared under span!");
     HS_CHECK(!stamp.block_uncovered(elements, bytes),
              "ArenaSpan use-after-free (arena rewound below span)!");
     HS_CHECK(
