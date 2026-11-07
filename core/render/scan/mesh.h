@@ -1283,14 +1283,7 @@ struct Mesh {
           const float alpha = solid_coverage(d, PIXEL_WIDTH);
           if (alpha <= MIN_ALPHA)
             continue;
-          frag.color = Color4(0, 0, 0, 0);
-          frag.pos = p;
-          frag.v0 = res.t;
-          frag.v1 = res.raw_dist;
-          frag.v2 = 0.0f;
-          frag.v3 = res.aux;
-          frag.size = res.size;
-          frag.age = 0;
+          load_fragment(frag, res, p, 0.0f);
           bool shaded = false;
           if constexpr (TIMED_SHADER) {
             if (per_column) {

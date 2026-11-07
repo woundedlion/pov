@@ -485,14 +485,7 @@ HS_HOT_INLINE inline void rasterize_face_body(
 #endif
           frag.v1 = res.raw_dist;
         } else {
-          frag.color = Color4(0, 0, 0, 0);
-          frag.pos = p;
-          frag.v0 = res.t;
-          frag.v1 = res.raw_dist;
-          frag.v2 = 0.0f;
-          frag.v3 = res.aux;
-          frag.size = res.size;
-          frag.age = 0;
+          load_fragment(frag, res, p, 0.0f);
         }
         const auto plot_column = [&](int px, float a) HS_HOT_INLINE {
           plot_admitted(pipeline, canvas, px, y, frag.color.color, frag.age, a);

@@ -51,6 +51,25 @@ HS_HOT_INLINE inline void plot_admitted(PipelineT &pipeline, Canvas &canvas,
     pipeline.plot(canvas, x, y, color, age, alpha);
 }
 
+/** @brief Loads shader registers from one distance query.
+ * @param fragment Receives initialized shader inputs.
+ * @param result Distance query result.
+ * @param position Surface point.
+ * @param v2 Coverage register value. */
+HS_HOT_INLINE inline void load_fragment(Fragment &fragment,
+                                        const SDF::DistanceResult &result,
+                                        const math::Vector &position,
+                                        float v2) {
+  fragment.color = Color4(0, 0, 0, 0);
+  fragment.pos = position;
+  fragment.v0 = result.t;
+  fragment.v1 = result.raw_dist;
+  fragment.v2 = v2;
+  fragment.v3 = result.aux;
+  fragment.size = result.size;
+  fragment.age = 0;
+}
+
 /** @brief Coverage/alpha at or below which a fragment is dropped unplotted. */
 inline constexpr float MIN_ALPHA = 0.001f;
 
@@ -764,16 +783,7 @@ inline int process_pixel(int x, int y, const math::Vector &p,
     if constexpr (COLUMN_SHADER)
       per_column = fragment_shader.reads_time;
     const auto shade = [&](int column) HS_HOT_INLINE {
-      // Scratch Fragment is reused across pixels; reset color each call so a
-      // conditionally-writing shader starts from a clean color/alpha.
-      frag_scratch.color = Color4(0, 0, 0, 0);
-      frag_scratch.pos = p;
-      frag_scratch.v0 = result_scratch.t;
-      frag_scratch.v1 = result_scratch.raw_dist;
-      frag_scratch.v2 = SOLID ? 0.0f : alpha;
-      frag_scratch.v3 = result_scratch.aux;
-      frag_scratch.size = result_scratch.size;
-      frag_scratch.age = 0;
+      load_fragment(frag_scratch, result_scratch, p, SOLID ? 0.0f : alpha);
 
       if constexpr (COLUMN_SHADER) {
         if (per_column)
