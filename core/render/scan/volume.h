@@ -622,36 +622,16 @@ struct Volume {
         Occluder occ =
             probe_occluder(shape, closest_local, local_vd, bounds_radius,
                            hit_threshold, aa_width, closest_d);
-        if (occ.solid) {
-          // Self-occlusion edge: lay the shaded background down, then blend
-          // the foreground over it by the edge coverage.
+        const float BG_COVERAGE = occ.solid ? 1.0f : occ.soft;
+        if (BG_COVERAGE > MIN_ALPHA) {
           Fragment bg;
           bg.pos = occ.behind;
           bg.size = occ.distance;
           shade(px, occ.behind, bg);
-          if (bg.color.alpha > MIN_ALPHA) {
-            HS_PROFILE_DEEP(vol_plot);
-            pipeline.plot(canvas, px, py, bg.color.color, 0.0f, bg.color.alpha);
-          }
-          if (frag.color.alpha * edge_alpha > MIN_ALPHA) {
-            HS_PROFILE_DEEP(vol_plot);
-            pipeline.plot(canvas, px, py, frag.color.color, 0.0f,
-                          frag.color.alpha * edge_alpha);
-          }
-          return 1;
-        }
-        // No solid behind; a grazed background edge fills the corner,
-        // shaded at its own point so the fill carries the background's
-        // color, then the foreground blends over it.
-        if (occ.soft > MIN_ALPHA) {
-          Fragment bg;
-          bg.pos = occ.behind;
-          bg.size = occ.distance;
-          shade(px, occ.behind, bg);
-          if (bg.color.alpha * occ.soft > MIN_ALPHA) {
+          if (bg.color.alpha * BG_COVERAGE > MIN_ALPHA) {
             HS_PROFILE_DEEP(vol_plot);
             pipeline.plot(canvas, px, py, bg.color.color, 0.0f,
-                          bg.color.alpha * occ.soft);
+                          bg.color.alpha * BG_COVERAGE);
           }
         }
       }
