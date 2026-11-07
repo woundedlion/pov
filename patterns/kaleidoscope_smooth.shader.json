@@ -752,7 +752,7 @@
       "schema_version": 1
     }
   },
-  "document_id": "kaleidoscope-smooth-v1",
+  "document_id": "kaleidoscope-smooth",
   "effect_id": "kaleidoscope-smooth",
   "effect_metadata": {
     "description": "Mirrored grids folded through a dodecahedral stereographic lens.",

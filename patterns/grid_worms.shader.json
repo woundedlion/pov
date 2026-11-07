@@ -687,7 +687,7 @@
       "schema_version": 1
     }
   },
-  "document_id": "grid-worms-v1",
+  "document_id": "grid-worms",
   "effect_id": "grid-worms",
   "effect_metadata": {
     "description": "An animated axial twist stretches a folded primitive lattice into flowing worms.",

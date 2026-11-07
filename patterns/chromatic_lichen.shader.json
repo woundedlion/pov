@@ -597,7 +597,7 @@
       "schema_version": 1
     }
   },
-  "document_id": "chromatic-lichen-v1",
+  "document_id": "chromatic-lichen",
   "effect_id": "chromatic-lichen",
   "effect_metadata": {
     "description": "A glitch-folded gnomonic grid rippling through sphere-space curl noise.",

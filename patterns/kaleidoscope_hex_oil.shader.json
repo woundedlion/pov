@@ -680,7 +680,7 @@
       "schema_version": 1
     }
   },
-  "document_id": "kaleidoscope-hex-oil-v1",
+  "document_id": "kaleidoscope-hex-oil",
   "effect_id": "kaleidoscope-hex-oil",
   "effect_metadata": {
     "description": "A rotating spiral pulled through a hexagonal prism kaleidoscope, displaced by direct surface noise that drives the hue rotation.",

@@ -209,7 +209,7 @@ test('GridWorms keeps its authored stage order and keyed twist controls', async 
   const source = JSON.parse(await readFile(new URL('../patterns/grid_worms.shader.json', import.meta.url), 'utf8'));
   const compiled = compileShaderDocument(source, { catalog });
   assert.equal(compiled.status, 'VALID');
-  assert.equal(source.document_id, 'grid-worms-v1');
+  assert.equal(source.document_id, 'grid-worms');
   assert.equal(source.effect_id, 'grid-worms');
   assert.deepEqual(source.descriptor.chain.map(({ operator }) => operator), [
     'sphere.lens.twist.v2', 'sphere.rotate.v2', 'project.gnomonic.v2',

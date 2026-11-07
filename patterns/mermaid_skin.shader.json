@@ -576,7 +576,7 @@
       "schema_version": 1
     }
   },
-  "document_id": "mermaid-skin-v1",
+  "document_id": "mermaid-skin",
   "effect_id": "mermaid-skin",
   "effect_metadata": {
     "description": "A high-chroma folded grid rippling through sphere-space curl noise.",
