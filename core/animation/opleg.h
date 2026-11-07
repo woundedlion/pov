@@ -1092,7 +1092,7 @@ public:
    * @param duration Whole leg length in frames (sweep plus settle).
    * @return Crossfade weight in [0, 1].
    */
-  static float classic_blend(int frame, int duration) {
+  HS_FLASH_MEMBER static float classic_blend(int frame, int duration) {
     return blend_weight(static_cast<float>(frame) /
                         static_cast<float>(duration));
   }
