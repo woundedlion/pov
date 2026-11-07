@@ -537,10 +537,10 @@ gamut_continuous_chroma_sample(float L, float a, float b) {
           read_cell_minimum(lightnesses[row], angles[column]);
 
   const auto vertex_minimum = [&](int row, int column) {
-    return std::min(
-        std::min(cell_minima[row][column], cell_minima[row][column + 1]),
-        std::min(cell_minima[row + 1][column],
-                 cell_minima[row + 1][column + 1]));
+    return __builtin_fminf(
+        __builtin_fminf(cell_minima[row][column], cell_minima[row][column + 1]),
+        __builtin_fminf(cell_minima[row + 1][column],
+                        cell_minima[row + 1][column + 1]));
   };
   const float v00 = vertex_minimum(0, 0);
   const float v10 = vertex_minimum(0, 1);
@@ -588,7 +588,7 @@ HS_FLASH_MEMBER inline float gamut_continuous_chroma(float L, float h) {
        4.0f * center + 2.0f * tap(STEP_SIN, STEP_COS) +
        tap(STEP2_SIN, STEP2_COS)) *
       0.1f;
-  return std::min(center, smoothed);
+  return __builtin_fminf(center, smoothed);
 }
 
 /**
