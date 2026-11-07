@@ -608,10 +608,10 @@ inline const Case *all_cases(int &n) {
        "core/memory/generate.h",
        "(depth <= MAX_GENERATE_DEPTH) generate: recursion too deep"},
       {"normalize_zero", case_normalize_zero, "core/math/3dmath.h",
-       "(m2 >= math::EPS_NORMALIZE_SQ) Vector::normalized: zero"},
+       "(m2 >= math::EPS_NORMALIZE_SQ) Vector::normalized: degenerate"},
       {"vector_normalize_in_place_zero", case_vector_normalize_in_place_zero,
        "core/math/3dmath.h",
-       "(m2 >= math::EPS_NORMALIZE_SQ) Vector::normalize: zero"},
+       "(m2 >= math::EPS_NORMALIZE_SQ) Vector::normalize: degenerate"},
       {"rotate_plane_degenerate", case_rotate_plane_degenerate,
        "core/math/4dmath.h",
        "(a >= 0 && a < VEC4_DIMENSIONS && b >= 0 && b < VEC4_DIMENSIONS && a "
@@ -620,7 +620,7 @@ inline const Case *all_cases(int &n) {
        "(m1 >= math::EPS_LEN_SQ && m2 >= math::EPS_LEN_SQ) "
        "angle_between: degenerate vector"},
       {"normalize_nan", case_normalize_nan, "core/math/3dmath.h",
-       "(m2 >= math::EPS_NORMALIZE_SQ) Vector::normalized: zero"},
+       "(m2 >= math::EPS_NORMALIZE_SQ) Vector::normalized: degenerate"},
       {"solids_index_oob", case_solids_index_oob, "core/mesh/solids.h",
        "(index < static_cast<size_t>(NUM_ENTRIES)) Solids::get_entry: index "
        "out of range"},
@@ -1074,7 +1074,7 @@ inline const Case *all_cases(int &n) {
        "core/mesh/solids.h",
        "(step.param > 0.0f) apply_step: BEVEL step has no depth"},
       {"slerp_nan", case_slerp_nan, "core/math/3dmath.h",
-       "(m2 >= math::EPS_NORMALIZE_SQ) Vector::normalized: zero"},
+       "(m2 >= math::EPS_NORMALIZE_SQ) Vector::normalized: degenerate"},
       {"make_rotation_vectors_nan", case_make_rotation_vectors_nan,
        "core/math/3dmath.h",
        "(std::abs(dot(from, from) - 1.0f) < math::EPS_UNIT_VEC_SQ && "
@@ -1089,7 +1089,7 @@ inline const Case *all_cases(int &n) {
        "std::abs(dot(to, to) - 1.0f) < math::EPS_UNIT_VEC_SQ) "
        "make_rotation(from, to): inputs must be unit vectors"},
       {"make_basis_nan", case_make_basis_nan, "core/math/3dmath.h",
-       "(m2 >= math::EPS_NORMALIZE_SQ) Vector::normalized: zero"},
+       "(m2 >= math::EPS_NORMALIZE_SQ) Vector::normalized: degenerate"},
       {"noise_transform_nan", case_noise_transform_nan,
        "core/animation/transformer.h",
        "(std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z)) "

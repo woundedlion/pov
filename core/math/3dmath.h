@@ -379,7 +379,7 @@ struct Vector {
    */
   void normalize() {
     float m2 = x * x + y * y + z * z;
-    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ, "Vector::normalize: zero");
+    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ, "Vector::normalize: degenerate");
     float m = sqrtf(m2);
     x = x / m;
     y = y / m;
@@ -390,12 +390,11 @@ struct Vector {
    * @brief Returns a unit-length copy without mutating `this`.
    * @pre The squared length is finite and at least EPS_NORMALIZE_SQ.
    * @return A unit-length vector in the same direction.
-   * @details Traps on a zero-length vector; use normalized_or() where a zero
-   * vector is legitimate.
+   * @details Use normalized_or() for degenerate vectors.
    */
   [[nodiscard]] __attribute__((always_inline)) Vector normalized() const {
     float m2 = x * x + y * y + z * z;
-    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ, "Vector::normalized: zero");
+    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ, "Vector::normalized: degenerate");
     float m = sqrtf(m2);
     return Vector(x / m, y / m, z / m);
   }
