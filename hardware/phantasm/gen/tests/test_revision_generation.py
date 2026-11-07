@@ -45,6 +45,26 @@ GENERATED_PROJECT_FILES = (
 
 
 class PrototypeContractTests(unittest.TestCase):
+    def test_power_properties_and_signal_labels_clear_the_symbol_bodies(self):
+        self.assertEqual(sexp.val(self.schematic, "paper"), ["A2"])
+        for symbol in F(self.schematic, "symbol"):
+            properties = {prop[1]: prop for prop in F(symbol, "property")}
+            reference = properties["Reference"][2]
+            if not reference.startswith("#"):
+                continue
+            self.assertEqual(sexp.val(F(properties["Reference"], "effects")[0], "hide"), ["yes"])
+            value_y = float(sexp.val(properties["Value"], "at")[1])
+            symbol_y = float(sexp.val(symbol, "at")[1])
+            if properties["Value"][2] == "GND":
+                self.assertGreater(value_y, symbol_y)
+            else:
+                self.assertLess(value_y, symbol_y)
+        for net in ("FRAME_SYNC", "SYNC_DE", "SYNC_TX"):
+            labels = [label for label in F(self.schematic, "label") if label[1] == net]
+            self.assertTrue(labels)
+            transceiver = max(labels, key=lambda label: float(sexp.val(label, "at")[0]))
+            self.assertEqual(float(sexp.val(transceiver, "at")[2]), 180)
+
     def test_transceiver_protection_library_symbol_carries_placement_properties(self):
         root = sexp.parse_one((PROTOTYPE / "phantasm.kicad_sym").read_text(encoding="utf-8"))
         symbol, = [node for node in F(root, "symbol") if node[1] == "CDSOT23-SM712"]

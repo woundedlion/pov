@@ -100,7 +100,7 @@ def main(force=False, revision=B.REVISION, output_dir=None):
     require_writable(sch, force, SCH_REASON)
 
     b = B.Builder("PHANTASM Segment Board  -  per-segment carrier (x4, strap-selected role)",
-                  paper="A3", revision=revision)
+                  paper="A2" if revision == "1.3" else "A3", revision=revision)
     GND = "GND"; V3 = "+3V3"
     enable_net = "SYNC_DE" if revision == "1.3" else "MASTER_EN"
 
@@ -231,9 +231,33 @@ def main(force=False, revision=B.REVISION, output_dir=None):
 
     # ---------------------------------------------------------------- helpers
     def place(lib, ref, val, x, y, rot=0, unit=1, fp="", dnp=False, in_bom=True):
-        return b.place(B.Symbol(lib, ref, val, x, y, rot=rot, unit=unit,
-                                footprint=fp, dnp=dnp, in_bom=in_bom,
-                                properties=REV13_PARTS.get(ref) if revision == "1.3" else None))
+        symbol = b.place(B.Symbol(lib, ref, val, x, y, rot=rot, unit=unit,
+                                 footprint=fp, dnp=dnp, in_bom=in_bom,
+                                 properties=REV13_PARTS.get(ref) if revision == "1.3" else None))
+        if revision == "1.3":
+            offsets = {
+                "U_MCU": {"Reference": (0, -45.72), "Value": (0, 45.72)},
+                "U_SYNC": {"Reference": (-5.08, -15.24), "Value": (8.89, -15.24)},
+                "D_SYNC": {"Reference": (0, -7.62), "Value": (15.24, 5.08)},
+                "U1": {"Value": (-12.7, 5.08)},
+                "Q_REV": {"Reference": (0, -10.16)},
+            }
+            symbol.property_positions.update(
+                (field, (symbol.x + dx, symbol.y + dy))
+                for field, (dx, dy) in offsets.get(ref, {}).items())
+            if ref == "U1" and unit == 5:
+                symbol.property_positions["Reference"] = (symbol.x - 12.7, symbol.y - 2.54)
+            if ref == "U1" and unit in (3, 4):
+                symbol.property_positions["Value"] = (symbol.x - 25.4, symbol.y + 5.08)
+            if lib.startswith("Connector_Generic:"):
+                pins = [symbol.pin(number) for number, _ in symbol.pin_uuids]
+                symbol.property_positions["Reference"] = (symbol.x, min(y for _, y in pins) - 2.54)
+                symbol.property_positions["Value"] = (symbol.x + 12.7, max(y for _, y in pins) + 5.08)
+                if ref == "J1":
+                    symbol.property_positions["Value"] = (symbol.x + 5.08, max(y for _, y in pins) + 10.16)
+            if lib.startswith("Jumper:"):
+                symbol.property_positions["Value"] = (symbol.x, symbol.y + 10.16)
+        return symbol
 
 
     def hw(x1, x2, y):
@@ -256,19 +280,27 @@ def main(force=False, revision=B.REVISION, output_dir=None):
 
 
     def to_power(s, num, kind, length=2.54):
+        if revision == "1.3":
+            dy = s.pin_dir(num)[1]
+            if (dy > 0 and kind != GND) or (dy < 0 and kind == GND):
+                length = max(length, 10.16)
         end = b.stub(s, num, length)
         pwr_sym(kind, end[0], end[1])
 
 
     def to_label(s, num, name, length=3.81):
         end = b.stub(s, num, length)
-        b.label(end, name)
+        angle = 180 if revision == "1.3" and s.pin_dir(num)[0] < 0 else 0
+        b.label(end, name, angle=angle)
 
 
-    def bypass(parent, pin, ref, net="+5V_LOGIC", dx=15.24):
+    def bypass(parent, pin, ref, net="+5V_LOGIC", dx=15.24, dy=3.81):
         x, y = parent.pin(pin)
-        cap = place("Device:C", ref, "0.1uF", x + dx, y + 3.81, fp=C06)
-        b.wire(parent.pin(pin), cap.pin("1"))
+        cap = place("Device:C", ref, "0.1uF", x + dx, y + dy, fp=C06)
+        if dy < 0:
+            b.wire(cap.pin("1"), parent.pin(pin))
+        else:
+            b.wire(parent.pin(pin), cap.pin("1"))
         to_power(cap, "1", net)
         to_power(cap, "2", GND)
 
@@ -478,10 +510,10 @@ def main(force=False, revision=B.REVISION, output_dir=None):
         b.text((220, 180), "RS-485 SYNC / 120R TWISTED-PAIR TRUNK", 2.2)
         urs = place("phantasm:THVD2410DR", "U_SYNC", "THVD2410DR", 246.38, 210.82,
                     fp="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
-        to_label(urs, "1", "FRAME_SYNC"); to_power(urs, "2", GND)
+        to_label(urs, "1", "FRAME_SYNC"); to_power(urs, "2", GND, length=15.24)
         to_label(urs, "3", enable_net); to_label(urs, "4", "SYNC_TX")
         to_power(urs, "5", GND); to_power(urs, "8", V3)
-        bypass(urs, "8", "C_DEC3", net=V3, dx=-15.24)
+        bypass(urs, "8", "C_DEC3", net=V3, dx=-30.48, dy=-8.89)
         cbulk = place("Device:C", "C_BULK3", "1uF", 204.47, 187.96, fp=C06)
         to_power(cbulk, "1", V3); to_power(cbulk, "2", GND)
         for ref, pin, net, y in (("R_A", "6", "SYNC_A", 200.66),

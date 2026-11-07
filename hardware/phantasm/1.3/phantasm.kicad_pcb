@@ -3253,7 +3253,7 @@
 		(locked yes)
 		(at 50.8 19 90)
 		(uuid "1c56586f-51d2-5673-bd5e-77c6f7425b77")
-		(path "/35680648-66b3-5a7e-bae4-29d7989b8284")
+		(path "/552ca489-00e4-52c8-a6d4-7cd781b9f1d4")
 		(layer "F.Cu")
 		(descr "SOIC, 14 Pin (JEDEC MS-012AB, https://www.analog.com/media/en/package-pcb-resources/package/pkg_pdf/soic_narrow-r/r_14.pdf)")
 		(tags "SOIC SO")

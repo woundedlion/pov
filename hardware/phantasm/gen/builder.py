@@ -42,6 +42,7 @@ class Symbol:
         self.dnp = dnp
         self.in_bom = in_bom
         self.properties = dict(properties or {})
+        self.property_positions = {}
         self.uuid = uid()
         self._pins = None       # filled by builder
         self.pin_uuids = []     # filled by builder
@@ -239,10 +240,15 @@ class Builder:
         L.append('\t\t(on_board yes)')
         L.append(f'\t\t(dnp {"yes" if s.dnp else "no"})')
         L.append(f'\t\t(uuid "{s.uuid}")')
-        refy = s.y - 5.08
-        valy = s.y + 5.08
-        L += _prop("Reference", s.ref, s.x, refy)
-        L += _prop("Value", s.value, s.x, valy)
+        refx, refy = s.property_positions.get("Reference", (s.x, s.y - 5.08))
+        valx, valy = s.property_positions.get("Value", (s.x, s.y + 5.08))
+        power_symbol = self.revision == "1.3" and s.ref.startswith("#")
+        if power_symbol and s.value != "GND":
+            valy = s.y - 5.08
+        angle = 90 if self.revision == "1.3" and s.rot % 180 else 0
+        L += _prop("Reference", s.ref, refx, refy, hide=power_symbol, angle=angle)
+        L += _prop("Value", s.value, valx, valy, angle=angle,
+                   hide=power_symbol and s.lib_id == "power:PWR_FLAG")
         L += _prop("Footprint", s.footprint, s.x, s.y + 7.62, hide=True)
         L += _prop("Datasheet", s.properties.get("Datasheet", ""), s.x, s.y, hide=True)
         for name, value in s.properties.items():
