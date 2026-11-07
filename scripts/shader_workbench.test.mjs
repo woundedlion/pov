@@ -1015,6 +1015,38 @@ test('periodic interpolation uses the negative half-period tie', () => {
   assert.ok(Math.abs(interpolateValue(phase, 0.9, 0.1, 0.5)) < 1e-6);
 });
 
+test('a legacy twist-axis document keeps negative values and samples the signed short arc', async () => {
+  const document = JSON.parse(await readFile(
+    new URL('../patterns/grid_worms.shader.json', import.meta.url), 'utf8'));
+  const id = 'lens1.axis-lambda';
+  const legacy = document.descriptor.parameters.find((parameter) => parameter.id === id);
+  legacy.interpolation = { kind: 'LINEAR' };
+  document.preset_bank.presets[0].values[id] = -3;
+  const compiled = compile(document);
+  assert.equal(compiled.status, 'VALID', JSON.stringify(compiled.diagnostics));
+  const axis = compiled.descriptor.parameters.find((parameter) => parameter.id === id);
+  const pi = Math.fround(Math.PI);
+  assert.equal(axis.domain.minimum, -pi);
+  assert.equal(axis.domain.maximum, pi);
+  assert.equal(compiled.preset_bank.presets[0].values[id], -3);
+  assert.equal(legacy.interpolation.kind, 'LINEAR');
+  for (const sign of [-1, 1]) {
+    const from = sign * 3;
+    const to = -from;
+    assert.equal(interpolateValue(axis, from, to, 0), from);
+    assert.equal(interpolateValue(axis, from, to, 0.5), sign * pi);
+    assert.equal(interpolateValue(axis, from, to, 1), to);
+    for (const [progress, expectedSign] of [[0.25, sign], [0.75, -sign]]) {
+      const value = interpolateValue(axis, from, to, progress);
+      assert.ok(value >= -pi && value <= pi);
+      assert.equal(Math.sign(value), expectedSign);
+      assert.ok(Math.abs(Math.abs(value) - (3 + (pi - 3) / 2)) < 1e-6);
+    }
+  }
+  assert.equal(interpolateValue(axis, 0.9817478656768799, -2.1598448753356934, 0.0625),
+    0.7853983044624329);
+});
+
 test('a transition evaluates its exact endpoint values', () => {
   const document = example();
   const source = evaluateTransition(document.descriptor, document.preset_bank, 'fast', 'calm', 0);

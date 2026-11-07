@@ -222,7 +222,8 @@
         },
         "id": "lens1.axis-lambda",
         "interpolation": {
-          "kind": "LINEAR"
+          "kind": "SHORTEST_PERIODIC",
+          "period": 6.2831854820251465
         },
         "storage": "binary32",
         "unit": "radian"

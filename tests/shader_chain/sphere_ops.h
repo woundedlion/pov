@@ -453,6 +453,36 @@ inline void test_shader_chain_lens_controls() {
   }
 }
 
+/** @brief Twist-axis presets cross the signed seam along the shorter arc. */
+inline void test_shader_chain_twist_axis_short_arc() {
+  using Twist = In::Op::LensTwist;
+  const auto *op = In::find_operator(Twist::ID);
+  HS_EXPECT_TRUE(op != nullptr);
+  if (op == nullptr)
+    return;
+  for (const float direction : {-1.0f, 1.0f}) {
+    Twist::Params from, to;
+    from.axis_lambda = direction * 3.0f;
+    to.axis_lambda = -from.axis_lambda;
+    for (const float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+      Twist::Params sampled;
+      op->runtime.sample_params(reinterpret_cast<uint8_t *>(&sampled),
+                                reinterpret_cast<const uint8_t *>(&from),
+                                reinterpret_cast<const uint8_t *>(&to),
+                                fraction);
+      HS_EXPECT_TRUE(Pullback::Fields::valid(sampled));
+      const float EXPECTED =
+          direction * (3.0f + fraction * (math::TWO_PI_F - 6.0f));
+      HS_EXPECT_NEAR(remainderf(sampled.axis_lambda - EXPECTED, math::TWO_PI_F),
+                     0.0f, 1e-6f);
+      if (fraction == 0.0f)
+        HS_EXPECT_EQ(sampled.axis_lambda, from.axis_lambda);
+      if (fraction == 1.0f)
+        HS_EXPECT_EQ(sampled.axis_lambda, to.axis_lambda);
+    }
+  }
+}
+
 /** @brief Twist origin angles circle independently from the authored axis and
  * interpolate across wraps. */
 inline void test_shader_chain_twist_animation() {

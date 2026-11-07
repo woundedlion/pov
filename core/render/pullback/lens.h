@@ -137,7 +137,7 @@ struct TwistLensParams {
                              FieldCurve::LERP},
       Field<TwistLensParams>{"axis-lambda", &TwistLensParams::axis_lambda,
                              "Axis Lambda (rad)", -math::PI_F, math::PI_F,
-                             FieldCurve::LERP},
+                             FieldCurve::SHORTEST_PERIODIC},
       Field<TwistLensParams>{"speed", &TwistLensParams::speed, "Speed", 0.0f,
                              0.05f, FieldCurve::LERP},
       Field<TwistLensParams>{"drift", &TwistLensParams::drift, "Drift", 0.0f,

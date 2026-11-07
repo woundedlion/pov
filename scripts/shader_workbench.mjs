@@ -1094,30 +1094,43 @@ export function fixedDerivedBinding(descriptor, parameterId, values) {
   return null;
 }
 
-/** Expands the original coverage domain without changing authored values.
+/** Updates superseded field declarations while preserving authored values.
  * @param {Object} document Decoded shader document.
  * @param {Object} catalog Current operator catalog.
- * @returns {Object} Document with current coverage choices. */
+ * @returns {Object} Document with current field declarations. */
 export function migrateLegacyShaderDocument(document, catalog) {
   const declarations = document?.descriptor?.parameters;
-  if (!Array.isArray(declarations) || !Array.isArray(document?.descriptor?.chain)) return document;
+  if (!Array.isArray(declarations) || !Array.isArray(document?.descriptor?.chain) ||
+      !Array.isArray(catalog?.operators)) return document;
   const updates = [];
   for (const [index, parameter] of declarations.entries()) {
-    if (typeof parameter?.id !== 'string' || !parameter.id.endsWith('.coverage-mode') ||
-        JSON.stringify(parameter.domain?.values) !==
-          JSON.stringify(['none', 'weight', 'weight-squared', 'edge-fade'])) continue;
-    const label = parameter.id.slice(0, -'.coverage-mode'.length);
+    if (typeof parameter?.id !== 'string') continue;
+    const separator = parameter.id.lastIndexOf('.');
+    if (separator < 0) continue;
+    const label = parameter.id.slice(0, separator);
+    const id = parameter.id.slice(separator + 1);
+    if (id !== 'coverage-mode' && id !== 'axis-lambda') continue;
     const slot = document.descriptor.chain.find((entry) => entry?.label === label);
-    const operator = catalog?.operators?.find((entry) => entry.id === slot?.operator);
-    const values = operator?.params?.find((entry) => entry.id === 'coverage-mode')?.values;
-    if (JSON.stringify(values) === JSON.stringify([
-      'none', 'weight', 'weight-squared', 'edge-fade', 'edge-fade-squared']))
-      updates.push({ index, values });
+    const operator = catalog.operators.find((entry) => entry && entry.id === slot?.operator);
+    if (!Array.isArray(operator?.params)) continue;
+    const field = operator.params.find((entry) => entry?.id === id);
+    if (id === 'coverage-mode' &&
+        JSON.stringify(parameter.domain?.values) ===
+          JSON.stringify(['none', 'weight', 'weight-squared', 'edge-fade']) &&
+        JSON.stringify(field?.values) ===
+          JSON.stringify(['none', 'weight', 'weight-squared', 'edge-fade', 'edge-fade-squared']))
+      updates.push({ index, domain: { ...parameter.domain, values: [...field.values] } });
+    if (id === 'axis-lambda' && operator?.id === 'sphere.lens.twist.v2' &&
+        field?.curve === 'shortest-periodic' && parameter.interpolation?.kind === 'LINEAR' &&
+        !('period' in parameter.interpolation)) {
+      const { interpolation } = declarationFromCatalogField(label, field, operator.id);
+      updates.push({ index, interpolation: { ...parameter.interpolation, ...interpolation } });
+    }
   }
   if (!updates.length) return document;
   const result = structuredClone(document);
-  for (const { index, values } of updates)
-    result.descriptor.parameters[index].domain.values = [...values];
+  for (const { index, ...replacement } of updates)
+    Object.assign(result.descriptor.parameters[index], replacement);
   return result;
 }
 
@@ -1231,11 +1244,20 @@ export function interpolateValue(parameter, from, to, progress) {
     return Math.fround(Math.exp(Math.log(a) + (Math.log(b) - Math.log(a)) * t));
   case 'SHORTEST_PERIODIC': {
     const period = Math.fround(parameter.interpolation.period);
-    const delta = ((b - a + period * 0.5) % period + period) % period - period * 0.5;
-    let value = (a + delta * t) % period;
-    if (value < 0) value += period;
-    const stored = Math.fround(value);
-    return stored >= period ? 0 : stored;
+    const half = Math.fround(period * 0.5);
+    let delta = Math.fround(b - a);
+    if (delta <= -period || delta >= period) delta = Math.fround(delta % period);
+    if (delta < -half) delta = Math.fround(delta + period);
+    if (delta >= half) delta = Math.fround(delta - period);
+    const value = Math.fround(a + Math.fround(delta * t));
+    const minimum = Math.fround(parameter.domain.minimum);
+    if (minimum !== 0 && value >= minimum && value <= Math.fround(minimum + period))
+      return value;
+    let offset = minimum === 0 ? value : Math.fround(value - minimum);
+    if (offset <= -period || offset >= period) offset = Math.fround(offset % period);
+    if (offset < 0) offset = Math.fround(offset + period);
+    if (offset >= period) offset = 0;
+    return minimum === 0 ? offset : Math.fround(minimum + offset);
   }
   case 'SNAP':
     // Progress is inside (0, 1) here: the start value holds until it reaches 1.

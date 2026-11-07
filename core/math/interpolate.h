@@ -66,26 +66,11 @@ inline float log_positive(float a, float b, float progress) {
   return std::exp(linear(std::log(a), std::log(b), progress));
 }
 
-/**
- * @brief Interpolation along the shorter arc of a periodic domain.
- * @param a Value at progress 0.
- * @param b Value at progress 1.
- * @param progress Fraction; outside [0,1] it snaps to the nearer endpoint.
- * @param period Domain period (e.g. TWO_PI_F for an angle).
- * @return An interior progress gives the interpolated value wrapped into
- *         [0,period); an endpoint gives that endpoint as supplied, unwrapped.
- *         Falls back to the linear interpolation when @p period is
- *         non-positive and no arc is defined.
- */
-inline float shortest_periodic(float a, float b, float progress, float period) {
-  if (progress <= 0.0f)
-    return a;
-  if (progress >= 1.0f)
-    return b;
-  if (period <= 0.0f)
-    return linear(a, b, progress);
+namespace detail {
+
+/** @brief Folds a displacement into [-period / 2, period / 2). */
+inline float shortest_periodic_delta(float raw_delta, float period) {
   const float half = period * 0.5f;
-  const float raw_delta = b - a;
   float delta =
       std::isfinite(period) && raw_delta > -period && raw_delta < period
           ? raw_delta
@@ -94,7 +79,60 @@ inline float shortest_periodic(float a, float b, float progress, float period) {
     delta += period;
   if (delta >= half)
     delta -= period;
+  return delta;
+}
+
+/** @brief Interior interpolation with binary32 rounding at each step. */
+#if defined(__GNUC__) && !defined(__clang__)
+__attribute__((optimize("no-associative-math", "fp-contract=off")))
+#endif
+inline float shortest_periodic_in_range(float a, float b, float progress,
+                                        float period, float minimum) {
+#if defined(__clang__)
+#pragma clang fp reassociate(off)
+#pragma clang fp contract(off)
+#endif
+  const float delta = shortest_periodic_delta(b - a, period);
+  const float VALUE = a + delta * progress;
+  if (VALUE >= minimum && VALUE <= minimum + period)
+    return VALUE;
+  return minimum + math::wrap_positive(VALUE - minimum, period);
+}
+
+} // namespace detail
+
+/**
+ * @brief Interpolation along the shorter arc of a periodic domain.
+ * @param a Value at progress 0.
+ * @param b Value at progress 1.
+ * @param progress Fraction; outside [0,1] it snaps to the nearer endpoint.
+ * @param period Domain period (e.g. TWO_PI_F for an angle).
+ * @return An interior progress gives a value in [0, period); an endpoint
+ *         gives that endpoint as supplied, unwrapped. Falls back to the
+ *         linear interpolation for a non-positive period.
+ */
+inline float shortest_periodic(float a, float b, float progress, float period) {
+  if (progress <= 0.0f)
+    return a;
+  if (progress >= 1.0f)
+    return b;
+  if (period <= 0.0f)
+    return linear(a, b, progress);
+  const float delta = detail::shortest_periodic_delta(b - a, period);
   return math::wrap_positive(a + delta * progress, period);
+}
+
+/**
+ * @brief Shorter-arc interpolation in a domain beginning at @p minimum.
+ * @return An interior value in [minimum, minimum + period] for a nonzero
+ *         minimum, with the same endpoint and fallback rules as the
+ *         zero-origin overload.
+ */
+inline float shortest_periodic(float a, float b, float progress, float period,
+                               float minimum) {
+  if (minimum == 0.0f || progress <= 0.0f || progress >= 1.0f || period <= 0.0f)
+    return shortest_periodic(a, b, progress, period);
+  return detail::shortest_periodic_in_range(a, b, progress, period, minimum);
 }
 
 /**

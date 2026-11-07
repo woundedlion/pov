@@ -37,19 +37,20 @@ enum class FieldCurve : uint8_t {
  * @param from Value at t = 0.
  * @param to Value at t = 1.
  * @param t Progress in [0, 1].
+ * @param minimum Lower bound of the periodic domain.
  * @return The blended value.
  */
 HS_FLASH_INLINE inline float apply_curve(FieldCurve curve, float from, float to,
-                                         float t) {
+                                         float t, float minimum = 0.0f) {
   switch (curve) {
   case FieldCurve::LERP:
     return interp::linear(from, to, t);
   case FieldCurve::LOG_POSITIVE:
     return interp::log_positive(from, to, t);
   case FieldCurve::SHORTEST_PERIODIC:
-    return interp::shortest_periodic(from, to, t, math::TWO_PI_F);
+    return interp::shortest_periodic(from, to, t, math::TWO_PI_F, minimum);
   case FieldCurve::SHORTEST_TURN:
-    return interp::shortest_periodic(from, to, t, 1.0f);
+    return interp::shortest_periodic(from, to, t, 1.0f, minimum);
   case FieldCurve::MIDPOINT:
     return t < .5f ? from : to;
   case FieldCurve::RAW_LINEAR:
@@ -145,7 +146,8 @@ template <typename Owner, typename Value = float> struct Field {
     if (!interpolated)
       return;
     if constexpr (std::is_same_v<Value, float>)
-      out.*member = apply_curve(curve, from.*member, to.*member, progress);
+      out.*member =
+          apply_curve(curve, from.*member, to.*member, progress, spec.min);
     else
       out.*member = progress < (curve == FieldCurve::SNAP ? 1.0f : .5f)
                         ? from.*member
