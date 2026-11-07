@@ -180,8 +180,12 @@ public:
     const auto query = footprint();
     const int first = radial_first(fmaxf(0, radius - query.extent));
     return integrator.template sample<COUNT>(
-        surface, p, query.dx, query.dy, theta, first, shade, stats, radius,
-        query.extent, candidate_bits, candidate_shift, radial_first(radius));
+        surface, p, query.dx, query.dy, theta, first, shade, stats,
+        {.radius = radius,
+         .extent = query.extent,
+         .candidate_bits = candidate_bits,
+         .candidate_shift = candidate_shift,
+         .point_first = radial_first(radius)});
   }
 };
 

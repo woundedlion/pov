@@ -219,8 +219,11 @@ inline void test_radial_surface_candidate_parity() {
         const auto reference =
             aa.template sample<false>(surface, P, DX, DY, A, 0, shade);
         const auto masked = aa.template sample<false>(
-            surface, P, DX, DY, A, 0, shade, nullptr, -1, -1,
-            mask.interval_bits(R, A), mask.interval_shift());
+            surface, P, DX, DY, A, 0, shade, nullptr,
+            {.radius = -1,
+             .extent = -1,
+             .candidate_bits = mask.interval_bits(R, A),
+             .candidate_shift = mask.interval_shift()});
         different += std::bit_cast<uint32_t>(reference.r) !=
                      std::bit_cast<uint32_t>(masked.r);
         ++tested;
@@ -326,8 +329,12 @@ inline void test_radial_surface_area() {
           const auto query = footprint();
           Scan::SurfaceAreaStats reference;
           expected = aa.sample<true>(*surface, P, query.dx, query.dy, THETA, 0,
-                                     shade, &reference, R, query.extent, BITS,
-                                     mask.interval_shift(), 0);
+                                     shade, &reference,
+                                     {.radius = R,
+                                      .extent = query.extent,
+                                      .candidate_bits = BITS,
+                                      .candidate_shift = mask.interval_shift(),
+                                      .point_first = 0});
           HS_EXPECT_EQ(stats.intervals, reference.intervals);
           HS_EXPECT_EQ(stats.point_intervals, reference.point_intervals);
           HS_EXPECT_EQ(stats.outside_intervals, reference.outside_intervals);
@@ -346,9 +353,13 @@ inline void test_radial_surface_area() {
                                   shade, nullptr);
         HS_EXPECT_EQ(Scan::RadialChartWork::footprints, UNMASKED_BEFORE + 1);
         const auto query = footprint();
-        const auto reference =
-            aa.sample<false>(*surface, P, query.dx, query.dy, THETA, 0, shade,
-                             nullptr, R, query.extent, UINT32_MAX, 0, 0);
+        const auto reference = aa.sample<false>(*surface, P, query.dx, query.dy,
+                                                THETA, 0, shade, nullptr,
+                                                {.radius = R,
+                                                 .extent = query.extent,
+                                                 .candidate_bits = UINT32_MAX,
+                                                 .candidate_shift = 0,
+                                                 .point_first = 0});
         HS_EXPECT_EQ(std::bit_cast<uint32_t>(all.r),
                      std::bit_cast<uint32_t>(reference.r));
       }

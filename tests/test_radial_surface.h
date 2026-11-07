@@ -765,13 +765,14 @@ inline void test_radial_surface_fixture_edge_trace() {
   const float RADIUS = sqrtf(P.x * P.x + P.y * P.y);
   const float EXTENT = .5f * (sqrtf(DX.x * DX.x + DX.y * DX.y) +
                               sqrtf(DY.x * DY.x + DY.y * DY.y));
-  const auto prepared = aa.sample(surface, P, DX, DY, -2.15354013f, 23, shade,
-                                  nullptr, RADIUS, EXTENT);
+  const auto prepared =
+      aa.sample(surface, P, DX, DY, -2.15354013f, 23, shade, nullptr,
+                {.radius = RADIUS, .extent = EXTENT});
   HS_EXPECT_NEAR(prepared.r, result.r, 1e-6);
   Scan::SurfaceAreaStats disabled_stats;
-  const auto uncounted =
-      aa.template sample<false>(surface, P, DX, DY, -2.15354013f, 23, shade,
-                                &disabled_stats, RADIUS, EXTENT);
+  const auto uncounted = aa.template sample<false>(
+      surface, P, DX, DY, -2.15354013f, 23, shade, &disabled_stats,
+      {.radius = RADIUS, .extent = EXTENT});
   HS_EXPECT_NEAR(uncounted.r, result.r, 1e-6);
   HS_EXPECT_EQ(disabled_stats.pixels, 0u);
   const double reference = area_reference(surface, P, DX, DY, 32, shade);

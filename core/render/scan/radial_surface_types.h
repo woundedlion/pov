@@ -17,6 +17,18 @@ struct SurfaceColor {
   float b = 0; ///< Blue.
 };
 
+/** @brief Optional prepared bounds and candidate groups for one edge-AA query. */
+struct SurfaceEdgePrepared {
+  float radius = -1; ///< Chart radius; negative computes it from the point.
+  float extent =
+      -1; ///< Footprint extent; negative computes it from derivatives.
+  uint32_t candidate_bits =
+      UINT32_MAX;          ///< All bits disables candidate masking.
+  int candidate_shift = 0; ///< Source-interval shift for candidate bit indices.
+  int point_first =
+      -1; ///< Center-query lower bound; negative uses the footprint's.
+};
+
 /** @brief Work counts for a radial surface area pass. */
 struct SurfaceAreaStats {
   uint64_t pixels = 0;            ///< Shaded pixels.

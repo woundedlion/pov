@@ -20,6 +20,8 @@ template <class Surface> class RadialSurfaceEdgeAA {
 public:
   /** @brief Planar chart point. */
   using Point = typename Surface::Point;
+  using Prepared =
+      SurfaceEdgePrepared; ///< Optional chart and candidate bounds.
 #if HS_ENABLE_TEST_HOOKS
   static constexpr int TIP_PATH = 1;      ///< Increasing-radius tip path.
   static constexpr int CORNER_PATH = 2;   ///< Paired corner path.
@@ -68,20 +70,15 @@ public:
    * @param first Conservative first radial interval for the footprint.
    * @param shade First-arrival color mapping.
    * @param stats Optional work counters.
-   * @param prepared_radius,prepared_extent Optional precomputed chart bounds.
-   * @param candidate_bits Conservative candidate groups, or all bits to disable.
-   * @param candidate_shift Shift mapping source intervals, including the terminal
-   * endpoint, to bit indices below 32. Ignored when candidate_bits is all bits.
-   * @param point_first Optional center-only first radial interval.
+   * @param prepared Optional chart bounds and candidate interval lookup.
    * @return Pixel color with straight-line edge coverage. A paired corner uses
    * the product of its two edge coverages. */
   template <bool COUNT = true, class Shade>
-  HS_HOT_FLASH_MEMBER SurfaceColor
-  sample(const Surface &surface, Point p, Point dx, Point dy, float theta,
-         int first, Shade &&shade, SurfaceAreaStats *stats = nullptr,
-         float prepared_radius = -1, float prepared_extent = -1,
-         uint32_t candidate_bits = UINT32_MAX, int candidate_shift = 0,
-         int point_first = -1) const {
+  HS_HOT_FLASH_MEMBER SurfaceColor sample(const Surface &surface, Point p,
+                                          Point dx, Point dy, float theta,
+                                          int first, Shade &&shade,
+                                          SurfaceAreaStats *stats = nullptr,
+                                          const Prepared &prepared = {}) const {
     auto query = [&](Point q, float angle, int lower,
                      typename Surface::Stats &work) HS_HOT_INLINE {
       if constexpr (COUNT)
@@ -92,9 +89,9 @@ public:
     };
     typename Surface::Stats work;
     const auto hit =
-        query(p, theta, point_first >= 0 ? point_first : first, work);
-    Detector detector(surface, p, dx, dy, theta, prepared_radius,
-                      prepared_extent, candidate_bits, candidate_shift);
+        query(p, theta,
+              prepared.point_first >= 0 ? prepared.point_first : first, work);
+    Detector detector(surface, p, dx, dy, theta, prepared);
     uint32_t tail = 0;
     for (int i = first; i < surface.interval_count(); ++i) {
       if (!detector.any_from(i))
@@ -317,19 +314,18 @@ private:
     uint32_t candidate_bits;
     int candidate_shift;
     HS_HOT_INLINE Detector(const Surface &surface, Point point, Point x,
-                           Point y, float angle, float prepared_radius = -1,
-                           float prepared_extent = -1,
-                           uint32_t bits = UINT32_MAX, int shift = 0)
-        : p(point), dx(x), dy(y), theta(angle), candidate_bits(bits),
-          candidate_shift(shift) {
+                           Point y, float angle, const Prepared &prepared)
+        : p(point), dx(x), dy(y), theta(angle),
+          candidate_bits(prepared.candidate_bits),
+          candidate_shift(prepared.candidate_shift) {
       sides = surface.edge_count() / 2;
       period = math::TWO_PI_F / sides;
       inverse_sector = 2.0f * sides / math::TWO_PI_F;
-      extent = (prepared_extent >= 0
-                    ? prepared_extent
+      extent = (prepared.extent >= 0
+                    ? prepared.extent
                     : .5f * (sqrtf(dot(dx, dx)) + sqrtf(dot(dy, dy)))) +
                1e-6f;
-      const float R = prepared_radius >= 0 ? prepared_radius : sqrtf(dot(p, p));
+      const float R = prepared.radius >= 0 ? prepared.radius : sqrtf(dot(p, p));
       radius = R;
       angular = R > extent
                     ? fminf(math::PI_F, extent / (R - extent) + 8 * FLT_EPSILON)
