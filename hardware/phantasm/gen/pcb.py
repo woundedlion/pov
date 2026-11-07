@@ -1007,6 +1007,8 @@ def unplaced_layout(bxs, L, width, margin=2.0, gap=2.0):
 @revision_context
 def main(unplaced=False, force=False, force_teensy_library=False):
     selected, output_dir = _GENERATION.get()
+    if selected == "1.3" and not unplaced:
+        sys.exit("ERROR revision 1.3 has a fixed placement and requires --unplaced")
     layout = REVISION_LAYOUTS[selected]
     out, sch = schematic_generator.revision_paths(selected, output_dir)
     reset_uid_sequence()

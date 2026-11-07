@@ -69,7 +69,7 @@ These commands replace the generated rev 1.2 files in `1.2/`.
 Omitting `--revision` also selects rev 1.2. To generate the experimental
 project independently, use `--revision 1.3` on both commands; outputs go
 to `1.3/`. Always select the same revision for schematic and PCB generation.
-Running the PCB generator without `--unplaced` writes a separate
+For rev 1.2, running the PCB generator without `--unplaced` writes a separate
 `phantasm-draft.kicad_pcb` and matching project for placement experiments.
 Before uploading a project that was opened in KiCad, restore its rule floors:
 
