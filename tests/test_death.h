@@ -303,7 +303,7 @@ inline const Case *all_cases(int &n) {
        "(unit_amount(params.amount)) modulation amount must be finite and in [0, 1]"},
       {"modulation_unknown_prepare", case_modulation_unknown_prepare,
        "core/color/modulation.h",
-       "(false) unknown modulation preparation mechanic"},
+       "(valid(params)) modulation mechanic or amount rejected"},
       {"modulation_invalid_initialization",
        case_modulation_invalid_initialization,
        "core/render/pullback/modulation.h",

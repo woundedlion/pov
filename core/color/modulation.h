@@ -138,16 +138,7 @@ inline bool valid(const Params &params) {
 /** @brief Validates a selected mechanic.
  * @param params Selected mechanic controls. */
 inline void validate(const Params &params) {
-  switch (params.kind) {
-  case Mechanic::HUE_ROTATION:
-    (void)HueRotation::prepare({params.amount});
-    return;
-  case Mechanic::POSITIVE_LIGHTNESS_LIFT:
-  case Mechanic::OPACITY:
-    (void)prepare_unit({params.amount});
-    return;
-  }
-  HS_CHECK(false, "unknown modulation preparation mechanic");
+  HS_CHECK(valid(params), "modulation mechanic or amount rejected");
 }
 /** @brief Resolved color mechanic accepting its continuous strength. */
 using Kernel = Color4 (*)(Color4, float, const AmountParams &);
