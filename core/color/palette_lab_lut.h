@@ -237,6 +237,10 @@ template <int ValueSteps> struct PaletteLabLutStorage : PaletteLabLutBase {
       nodes[2 * VALUES + value] = TO_LAB;
     }
   }
+
+  void bake(const BakedPalette &&, const BakedPalette &) = delete;
+  void bake(const BakedPalette &, const BakedPalette &&) = delete;
+  void bake(const BakedPalette &&, const BakedPalette &&) = delete;
 };
 
 /// Default interval palette cache resolution.

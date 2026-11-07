@@ -180,6 +180,15 @@ inline void test_pullback_palette_lab_nodes() {
   HS_EXPECT_TRUE(cache.view(0.5f).low == nullptr);
 }
 
+template <typename From, typename To>
+concept CanBakePaletteLab = requires(PaletteLabLut &cache) {
+  cache.bake(std::declval<From>(), std::declval<To>());
+};
+static_assert(CanBakePaletteLab<const BakedPalette &, const BakedPalette &>);
+static_assert(!CanBakePaletteLab<BakedPalette, const BakedPalette &>);
+static_assert(!CanBakePaletteLab<const BakedPalette &, BakedPalette>);
+static_assert(!CanBakePaletteLab<BakedPalette, BakedPalette>);
+
 /** @brief Owned palette copies rebind Lab nodes and retain external RGB bindings. */
 inline void test_pullback_palette_lab_owned_copy() {
   const auto check = []<int Values>() {
