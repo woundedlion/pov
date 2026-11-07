@@ -40,7 +40,8 @@ jobs:
             | sudo tee /etc/apt/sources.list.d/llvm.list
           sudo apt-get update
 
-      - name: Install Clang + Ninja + ccache
+      - &install_clang_tools
+        name: Install Clang + Ninja + ccache
         run: |
           sudo apt-get install -y clang-22 ninja-build ccache
 
@@ -61,7 +62,8 @@ jobs:
           key: ccache-tests-${{ github.run_id }}
           restore-keys: ccache-tests-
 
-      - name: Install pinned CMake
+      - &install_pinned_cmake
+        name: Install pinned CMake
         run: |
           pip install --require-hashes -r requirements/cmake.txt
           python tools/build_pins.py --check-tool cmake
@@ -169,9 +171,7 @@ jobs:
 
       - *llvm_apt
 
-      - name: Install Clang + Ninja + ccache
-        run: |
-          sudo apt-get install -y clang-22 ninja-build ccache
+      - *install_clang_tools
 
       - name: Restore ccache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -180,10 +180,7 @@ jobs:
           key: ccache-sanitizers-${{ github.run_id }}
           restore-keys: ccache-sanitizers-
 
-      - name: Install pinned CMake
-        run: |
-          pip install --require-hashes -r requirements/cmake.txt
-          python tools/build_pins.py --check-tool cmake
+      - *install_pinned_cmake
 
       - name: Configure
         run: >
@@ -259,9 +256,7 @@ jobs:
 
       - *llvm_apt
 
-      - name: Install Clang + Ninja + ccache
-        run: |
-          sudo apt-get install -y clang-22 ninja-build ccache
+      - *install_clang_tools
 
       - name: Restore ccache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -270,10 +265,7 @@ jobs:
           key: ccache-tsan-${{ github.run_id }}
           restore-keys: ccache-tsan-
 
-      - name: Install pinned CMake
-        run: |
-          pip install --require-hashes -r requirements/cmake.txt
-          python tools/build_pins.py --check-tool cmake
+      - *install_pinned_cmake
 
       - name: Configure
         run: >
@@ -291,7 +283,7 @@ jobs:
       - name: Test
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
-          HS_SKIPS_ARE_ERRORS: &skips_forbidden 1
+          HS_SKIPS_ARE_ERRORS: 1
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
           TSAN_OPTIONS: halt_on_error=1
         run: |
@@ -345,9 +337,7 @@ jobs:
 
       - *llvm_apt
 
-      - name: Install Clang + Ninja + ccache
-        run: |
-          sudo apt-get install -y clang-22 ninja-build ccache
+      - *install_clang_tools
 
       - name: Restore ccache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -356,10 +346,7 @@ jobs:
           key: ccache-optimized-${{ matrix.flavor }}-${{ github.run_id }}
           restore-keys: ccache-optimized-${{ matrix.flavor }}-
 
-      - name: Install pinned CMake
-        run: |
-          pip install --require-hashes -r requirements/cmake.txt
-          python tools/build_pins.py --check-tool cmake
+      - *install_pinned_cmake
 
       - name: Configure
         run: >
@@ -439,10 +426,7 @@ jobs:
           key: ccache-coverage-${{ github.run_id }}
           restore-keys: ccache-coverage-
 
-      - name: Install pinned CMake
-        run: |
-          pip install --require-hashes -r requirements/cmake.txt
-          python tools/build_pins.py --check-tool cmake
+      - *install_pinned_cmake
 
       - name: Configure
         run: >
@@ -458,7 +442,7 @@ jobs:
           HS_SMOKE_FRAMES: *deep_smoke_frames
           HS_EFFECTS_FULL: *quick_effects
           HS_REQUIRE_EFFECTS_FULL: *effects_full_optional
-          HS_SKIPS_ARE_ERRORS: *skips_forbidden
+          HS_SKIPS_ARE_ERRORS: 1
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
           LLVM_PROFILE_FILE: ${{ github.workspace }}/cov/run_tests-%p.profraw
         run: build/tests/tests/run_tests
@@ -554,10 +538,7 @@ jobs:
           version: ${{ steps.pins.outputs.emsdk }}
           actions-cache-folder: emsdk-cache-${{ steps.pins.outputs.emsdk }}
 
-      - name: Install pinned CMake
-        run: |
-          pip install --require-hashes -r requirements/cmake.txt
-          python tools/build_pins.py --check-tool cmake
+      - *install_pinned_cmake
 
       - name: Configure
         run: cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON
@@ -647,10 +628,7 @@ jobs:
       - name: Zero ccache stats
         run: ccache -z
 
-      - name: Install pinned CMake
-        run: |
-          pip install --require-hashes -r requirements/cmake.txt
-          python tools/build_pins.py --check-tool cmake
+      - *install_pinned_cmake
 
       - name: Configure + build WASM (compile check)
         shell: bash
@@ -958,10 +936,7 @@ jobs:
         run: |
           sudo apt-get install -y clang-22 ninja-build
 
-      - name: Install pinned CMake
-        run: |
-          pip install --require-hashes -r requirements/cmake.txt
-          python tools/build_pins.py --check-tool cmake
+      - *install_pinned_cmake
 
       - name: Build the generator
         run: |
@@ -1026,10 +1001,7 @@ jobs:
         id: pins
         run: python tools/build_pins.py --github-output
 
-      - name: Install pinned CMake
-        run: |
-          pip install --require-hashes -r requirements/cmake.txt
-          python tools/build_pins.py --check-tool cmake
+      - *install_pinned_cmake
 
       # The unit suite uses no npm dependencies.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -1282,10 +1254,7 @@ jobs:
           python-version: '3.12'
       - name: Install Python test dependencies
         run: pip install --require-hashes -r requirements/numpy.txt -r requirements/ruff.txt -r requirements/shellcheck.txt
-      - name: Install pinned CMake
-        run: |
-          pip install --require-hashes -r requirements/cmake.txt
-          python tools/build_pins.py --check-tool cmake
+      - *install_pinned_cmake
       - name: Run all Python suites
         run: python tools/run_python_tests.py
       - name: Check routed candidate status and provenance

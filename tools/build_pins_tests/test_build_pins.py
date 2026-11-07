@@ -22,8 +22,22 @@ from git_test_env import git_run  # noqa: E402
 import build_pins as bp  # noqa: E402
 
 
+CMAKE_CHECK = "python tools/build_pins.py --check-tool cmake"
+
+
+def cmake_install_steps(workflow):
+    return re.findall(
+        r"(?m)^      - (&install_pinned_cmake\n        )?"
+        r"name: Install pinned CMake\n((?:        .*\n)*)",
+        workflow,
+    )
+
+
 def cmake_jobs_missing_checks(workflow):
     jobs = re.split(r"(?m)^  ([a-z][a-z0-9-]*):\s*$", workflow)
+    checked_install_anchor = any(
+        anchor and CMAKE_CHECK in step for anchor, step in cmake_install_steps(workflow)
+    )
     missing = []
     for name, body in zip(jobs[1::2], jobs[2::2]):
         commands = "\n".join(line for line in body.splitlines()
@@ -31,7 +45,10 @@ def cmake_jobs_missing_checks(workflow):
         needs_cmake = re.search(r"\bcmake\b|\bctest\b", commands) or any(
             "run_python_tests.py" in line and "--suite" not in line
             for line in commands.splitlines())
-        if needs_cmake and "--check-tool cmake" not in commands:
+        inherits_check = checked_install_anchor and re.search(
+            r"(?m)^      - \*install_pinned_cmake[ \t]*$", commands
+        )
+        if needs_cmake and CMAKE_CHECK not in commands and not inherits_check:
             missing.append(name)
     return missing
 
@@ -451,11 +468,10 @@ class CheckTool(unittest.TestCase):
         self.assertEqual(self._check("cmake", "cmake version 0.0.0\n")[0], 1)
         workflow = (bp.ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         self.assertEqual(cmake_jobs_missing_checks(workflow), [])
-        installs = workflow.split("- name: Install pinned CMake")[1:]
+        installs = cmake_install_steps(workflow)
         self.assertTrue(installs)
-        for install in installs:
-            self.assertIn("python tools/build_pins.py --check-tool cmake",
-                          install.split("\n      -", 1)[0])
+        for _, install in installs:
+            self.assertIn(CMAKE_CHECK, install)
 
     def test_cmake_job_guard_requires_each_tool_check(self):
         for command in ("cmake --preset tests", "ctest --preset tests",
@@ -471,6 +487,23 @@ class CheckTool(unittest.TestCase):
         self.assertEqual(cmake_jobs_missing_checks(
             "jobs:\n  subset:\n    steps:\n"
             "      - run: python tools/run_python_tests.py --suite tools/profile_tests\n"), [])
+
+    def test_cmake_job_guard_checks_the_body_of_aliased_installs(self):
+        fixture = (
+            "jobs:\n  first:\n    steps:\n"
+            "      - &install_pinned_cmake\n"
+            "        name: Install pinned CMake\n"
+            "        run: |\n"
+            "          pip install --require-hashes -r requirements/cmake.txt\n"
+            f"          {CMAKE_CHECK}\n"
+            "      - run: cmake --preset tests\n"
+            "  second:\n    steps:\n"
+            "      - *install_pinned_cmake\n"
+            "      - run: ctest --preset tests\n"
+        )
+        self.assertEqual(cmake_jobs_missing_checks(fixture), [])
+        self.assertEqual(cmake_jobs_missing_checks(fixture.replace(
+            f"          {CMAKE_CHECK}\n", "")), ["first", "second"])
 
     def test_emsdk_checks_the_active_compiler_version(self):
         pin = bp.PINS["emsdk"]
