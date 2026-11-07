@@ -371,36 +371,23 @@ private:
 };
 
 /**
- * @brief Creates a handle if the live effect is an EffectT instantiation.
- * @tparam EffectT Effect template, instantiated at the active resolution.
- * @tparam Bindings Handle type to construct.
+ * @brief ShaderChain handle for the live effect.
  * @param state Engine-shared incarnation state.
- * @return New handle, or null if the module or engine is dead or the effect
- *         type differs.
+ * @return New handle, or null if the module or engine is dead or the live
+ *         effect is not a ShaderChain.
  */
-template <template <int, int> class EffectT, typename Bindings>
-std::shared_ptr<Bindings> acquire_workbench_bindings(
+inline std::shared_ptr<ShaderChainBindings> acquire_shader_chain_bindings(
     const std::shared_ptr<WorkbenchBindingState> &state) {
   if (!workbench_module_alive() || !state->alive || !state->effect ||
       !state->entry)
     return nullptr;
-  std::shared_ptr<Bindings> result;
+  std::shared_ptr<ShaderChainBindings> result;
   hs_wasm::dispatch_resolution(
       state->width, state->height, [&]<int W, int H>() {
-        if (state->entry->type_key == effect_type_key<EffectT<W, H>>())
-          result = std::make_shared<Bindings>(state);
+        if (state->entry->type_key == effect_type_key<ShaderChain<W, H>>())
+          result = std::make_shared<ShaderChainBindings>(state);
       });
   return result;
-}
-
-/**
- * @brief ShaderChain handle for the live effect.
- * @param state Engine-shared incarnation state.
- * @return New handle, or null if the live effect is not a ShaderChain.
- */
-inline std::shared_ptr<ShaderChainBindings> acquire_shader_chain_bindings(
-    const std::shared_ptr<WorkbenchBindingState> &state) {
-  return acquire_workbench_bindings<ShaderChain, ShaderChainBindings>(state);
 }
 
 /** @brief Registers the workbench adapter enums and classes with embind. */
