@@ -26,6 +26,18 @@
 
 namespace Plot {
 
+/** @brief Polar direction with a shared multiplication order.
+ * @param basis Polar frame.
+ * @param cos_r,sin_r Cosine and sine of the radial angle.
+ * @param cos_t,sin_t Cosine and sine of the azimuth.
+ * @return Direction assembled from the frame axes. */
+HS_HOT_INLINE inline math::Vector polar_point(const math::Basis &basis,
+                                              float cos_r, float sin_r,
+                                              float cos_t, float sin_t) {
+  return (basis.v * cos_r) + (basis.u * (cos_t * sin_r)) +
+         (basis.w * (sin_t * sin_r));
+}
+
 /**
  * @brief Inner/outer radius ratio for star shapes.
  */
@@ -1116,9 +1128,6 @@ private:
                                     int num_sides, float phase,
                                     const RadiusTrig &radius_trig,
                                     const StepTrig &step_trig) {
-    const math::Vector &v = work_basis.v;
-    const math::Vector &u = work_basis.u;
-    const math::Vector &w = work_basis.w;
     const size_t start_idx = points.size();
     float cos_theta = cosf(phase);
     float sin_theta = sinf(phase);
@@ -1126,8 +1135,7 @@ private:
       Fragment f;
       const float sin_r = radius_trig.sine[i & 1];
       const float cos_r = radius_trig.cosine[i & 1];
-      f.pos =
-          (v * cos_r) + (u * (cos_theta * sin_r)) + (w * (sin_theta * sin_r));
+      f.pos = polar_point(work_basis, cos_r, sin_r, cos_theta, sin_theta);
       points.push_back(f);
       const float next_cos =
           cos_theta * step_trig.cosine - sin_theta * step_trig.sine;
@@ -1142,9 +1150,6 @@ private:
                           float radius, int num_sides, float phase) {
     HS_CHECK(num_sides >= 1, "Star::sample: num_sides %d < 1", num_sides);
     const RingFrame frame = ring_frame(basis, radius);
-    const math::Vector &v = frame.basis.v;
-    const math::Vector &u = frame.basis.u;
-    const math::Vector &w = frame.basis.w;
 
     float inner_radius = frame.theta_eq * STAR_INNER_RATIO;
     float angle_step = math::PI_F / num_sides;
@@ -1158,8 +1163,7 @@ private:
         float cos_r = cos_radius[i & 1];
         float cos_t = cosf(theta);
         float sin_t = sinf(theta);
-        math::Vector p =
-            (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
+        math::Vector p = polar_point(frame.basis, cos_r, sin_r, cos_t, sin_t);
         HS_PLOT_COUNT(normalizations);
         p.normalize();
         return p;
@@ -1203,8 +1207,8 @@ private:
       const float theta = phase + i * angle_step;
       const float sin_r = sin_radius[i & 1];
       const float cos_r = cos_radius[i & 1];
-      math::Vector p = (basis.v * cos_r) + (basis.u * (cosf(theta) * sin_r)) +
-                       (basis.w * (sinf(theta) * sin_r));
+      math::Vector p =
+          polar_point(basis, cos_r, sin_r, cosf(theta), sinf(theta));
       HS_PLOT_COUNT(normalizations);
       p.normalize();
       return p;
@@ -1507,9 +1511,6 @@ struct Flower {
                      int num_sides, float phase = 0) {
     HS_CHECK(num_sides >= 1, "Flower::sample: num_sides %d < 1", num_sides);
     const RingFrame frame = ring_frame(basis, radius);
-    const math::Vector &v = frame.basis.v;
-    const math::Vector &u = frame.basis.u;
-    const math::Vector &w = frame.basis.w;
 
     float apothem = math::PI_F - frame.theta_eq;
     float safe_apothem = fminf(apothem, math::PI_F - 1e-4f);
@@ -1521,8 +1522,7 @@ struct Flower {
       float theta = phase + i * angle_step;
       float cos_t = cosf(theta);
       float sin_t = sinf(theta);
-      math::Vector p =
-          (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
+      math::Vector p = polar_point(frame.basis, cos_r, sin_r, cos_t, sin_t);
       HS_PLOT_COUNT(normalizations);
       p.normalize();
       return p;
