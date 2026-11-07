@@ -432,10 +432,10 @@ cleanup() {
 }
 
 verify() {
-  grep -q "=== profile $EFFECT " "$OUT" || { echo "BAD/NO HEADER in $OUT"; return 1; }
+  grep -q "=== profile $EFFECT .* ===$" "$OUT" || { echo "BAD/NO HEADER in $OUT"; return 1; }
   local bad ok configs matching_configs
-  bad=$(grep -c "=== profile " "$OUT" || true)
-  ok=$(grep -c "=== profile $EFFECT " "$OUT" || true)
+  bad=$(grep -c "=== profile .* ===$" "$OUT" || true)
+  ok=$(grep -c "=== profile $EFFECT .* ===$" "$OUT" || true)
   [ "$bad" = "$ok" ] || { echo "WINDOW NAME MISMATCH ($ok/$bad) — contention?"; return 1; }
   configs=$(grep -c "^profile harness:" "$OUT" || true)
   matching_configs=$(grep -c "^profile harness: effect=$EFFECT config=$TAG " "$OUT" || true)

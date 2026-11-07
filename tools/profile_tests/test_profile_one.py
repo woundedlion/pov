@@ -629,6 +629,10 @@ class ProfileConfigVerification(unittest.TestCase):
         self.assertIn("WINDOW NAME MISMATCH (1/2)", result.stdout)
         self.assertIn("— contention?", result.stdout)
 
+    def test_a_cut_final_header_is_ignored(self):
+        result = verify_log(capture_log("o3") + "=== profile MindSpl\n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_a_missing_cycler_marker_is_reported(self):
         # A stale image runs the previous build; a cycler that emits no
         # advance marker is the tell that the upload did not take.
